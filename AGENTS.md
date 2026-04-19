@@ -8,3 +8,7 @@ Restaurant F&B operations: recipes, costing, inventory, HACCP, POS. Culinary dat
 4. HACCP / food-safety logic is regulated — do not weaken validations or silently auto-correct records; surface errors.
 5. See `CLAUDE.md` (if present) and `docs/` for architecture. Schema changes require a migration, never in-place edits.
 6. Test with real-looking recipe/inventory data, not synthetic `foo`/`bar` fixtures — the domain rules only surface with realistic data.
+
+## Vendor data encoding gotchas
+- Toast POS exports (MenuItems.csv, MenuOption.csv, sales summary CSVs) are encoded in **cp1252**, not UTF-8. Always pass `encoding='cp1252'` (or `errors='replace'`) when reading. Curly apostrophes ("Tito's") and currency placeholder bytes (0xbf 0xbf → "$???") will otherwise blow up. Source: `scripts/ingest_toast_menu_catalog.py`.
+- Shamrock .xls files (price list, inventory sheet, order sheet, invoices) are old CDFV2 format — read with `xlrd`, not `openpyxl`. xlrd emits a benign "file size not 512 + multiple of sector size" warning that can be ignored.
