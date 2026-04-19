@@ -12,7 +12,7 @@ Four-tab layout so **workspace**, **Codex**, **Gemini**, and **Claude** run **in
 ./scripts/launch-food-bev-lab.sh
 ```
 
-Or double-click **`Food-Bev AI Lab.command`** in Finder.
+Or double-click **`scripts/Food-Bev AI Lab.command`** in Finder.
 
 ### Environment overrides
 

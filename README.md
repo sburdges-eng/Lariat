@@ -21,12 +21,12 @@ Built as a Next.js 14 app that runs entirely on a laptop on your kitchen wifi. i
 
 ### Food/Bev AI Lab (iTerm2 + parallel CLIs)
 
-For **datasheet + scheduling** work with **Codex**, **Gemini**, and **Claude** in separate iTerm2 tabs (plus a workspace shell), see **[docs/FOOD_BEV_AI_LAB.md](docs/FOOD_BEV_AI_LAB.md)**. Double-click **`Food-Bev AI Lab.command`** or run `./scripts/launch-food-bev-lab.sh`.
+For **datasheet + scheduling** work with **Codex**, **Gemini**, and **Claude** in separate iTerm2 tabs (plus a workspace shell), see **[docs/FOOD_BEV_AI_LAB.md](docs/FOOD_BEV_AI_LAB.md)**. Double-click **`scripts/Food-Bev AI Lab.command`** or run `./scripts/launch-food-bev-lab.sh`.
 
 ## First run
 
 1. Install Node.js (LTS) from <https://nodejs.org> if you don't have it.
-2. **Double-click `Lariat Cockpit.command`** in this folder.
+2. **Double-click `scripts/Lariat Cockpit.command`**.
 3. First run installs dependencies (≈1 minute). After that it's instant.
 4. The Terminal window will print two URLs:
    - `http://localhost:3000` — open in Safari/Chrome on this Mac
@@ -42,7 +42,7 @@ To stop the server, hit **Ctrl-C** in the Terminal window.
 
 ## Updating data
 
-**Default source files** in this repo (override with env vars — see `OPERATIONS.md`):
+**Default source files** in this repo (override with env vars — see `docs/OPERATIONS.md`):
 
 | File | Purpose |
 |------|---------|
@@ -87,16 +87,16 @@ Excel  →  ingest scripts  →  JSON cache / SQLite  →  Next.js
                                     iPad UI (v1 write paths)
 ```
 
-See **[OPERATIONS.md](OPERATIONS.md)** for backups, ingest env vars, and multi-location notes. **[SMOKE_TESTS.md](SMOKE_TESTS.md)** is a quick QA checklist.
+See **[docs/OPERATIONS.md](docs/OPERATIONS.md)** for backups, ingest env vars, and multi-location notes. **[docs/SMOKE_TESTS.md](docs/SMOKE_TESTS.md)** is a quick QA checklist.
 
 ## File map
 
 ```
 LARIAT/
-├── Lariat Cockpit.command
 ├── README.md
-├── OPERATIONS.md
-├── SMOKE_TESTS.md
+├── docs/
+│   ├── OPERATIONS.md
+│   └── SMOKE_TESTS.md
 ├── package.json
 ├── next.config.mjs
 ├── app/

@@ -3,7 +3,7 @@
 # First run installs deps + builds (~2 min). After that, starts in seconds.
 
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 clear
 echo "═══════════════════════════════════════════"
