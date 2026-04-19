@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3000",
     "ingest": "node scripts/ingest.mjs",
-    "ingest:costing": "node scripts/ingest-costing.mjs",
+    "ingest:costing": "node --experimental-strip-types scripts/ingest-costing.mjs",
     "ingest:analytics": "node scripts/ingest-analytics.mjs",
     "ingest:toast": "node --experimental-strip-types scripts/ingest-toast-timeseries.mjs",
     "ingest:all": "npm run ingest && npm run ingest:costing && npm run ingest:analytics && npm run ingest:toast",
@@ -22,7 +22,8 @@
     "test:e2e": "npx playwright test",
     "test:temp-log": "node --test tests/js/test-temp-log.mjs",
     "test:schema": "node --test tests/js/test-schema-migrations.mjs",
-    "test:ingredient-key": "node --test tests/js/test-ingredient-key-parity.mjs"
+    "test:ingredient-key": "node --test tests/js/test-ingredient-key-parity.mjs",
+    "test:ingest-yields": "node --experimental-strip-types --test tests/js/test-ingest-costing-yields.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",
