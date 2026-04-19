@@ -169,6 +169,72 @@ class SeedDensitiesSkipsEmptyKey(unittest.TestCase):
             self.assertEqual(rows[0][0], "water")
 
 
+class SeedDensitiesRejectsMalformedCsv(unittest.TestCase):
+    """I1 shape-guard tests: header mismatch and per-row field-count
+    mismatch must raise loudly *before* pandas silently pads/shifts fields
+    and produces a misleading downstream validation error."""
+
+    def test_extra_trailing_comma_raises(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            db = tmp_path / "test.db"
+            csv = tmp_path / "densities.csv"
+            _make_db(db)
+            # 4-column header, but row 3 has 5 fields (extra trailing comma
+            # produces an extra empty or non-empty field).
+            csv.write_text(
+                "ingredient_name,g_per_ml,source,notes\n"
+                "water,1.0,seed,physics\n"
+                "olive oil,0.92,seed,physics,extra\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError) as cm:
+                seed_densities(db, csv)
+            msg = str(cm.exception)
+            self.assertIn("line 3", msg)
+            self.assertIn("5 fields", msg)
+            # DB must be untouched (shape guard runs before any INSERT).
+            self.assertEqual(_fetch_all(db), [])
+
+    def test_missing_column_raises(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            db = tmp_path / "test.db"
+            csv = tmp_path / "densities.csv"
+            _make_db(db)
+            # Row 3 has 3 fields (missing the notes column).
+            csv.write_text(
+                "ingredient_name,g_per_ml,source,notes\n"
+                "water,1.0,seed,physics\n"
+                "olive oil,0.92,seed\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError) as cm:
+                seed_densities(db, csv)
+            msg = str(cm.exception)
+            self.assertIn("line 3", msg)
+            self.assertIn("3 fields", msg)
+            self.assertEqual(_fetch_all(db), [])
+
+    def test_wrong_header_raises(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            db = tmp_path / "test.db"
+            csv = tmp_path / "densities.csv"
+            _make_db(db)
+            # Header missing the `_name` suffix on the first column.
+            csv.write_text(
+                "ingredient,g_per_ml,source,notes\n"
+                "water,1.0,seed,physics\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError) as cm:
+                seed_densities(db, csv)
+            msg = str(cm.exception)
+            self.assertIn("header mismatch", msg)
+            self.assertEqual(_fetch_all(db), [])
+
+
 class SeedDensitiesIdempotent(unittest.TestCase):
     def test_running_twice_yields_same_count_and_content(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -27,6 +27,7 @@ Idempotency:
 from __future__ import annotations
 
 import argparse
+import csv
 import sqlite3
 import sys
 from pathlib import Path
@@ -40,8 +41,50 @@ if str(ROOT) not in sys.path:
 from scripts.lib.ingredient_key import normalize_one  # noqa: E402
 
 ALLOWED_SOURCES: frozenset[str] = frozenset({"seed", "measured", "vendor"})
+EXPECTED_COLUMNS: tuple[str, ...] = (
+    "ingredient_name",
+    "g_per_ml",
+    "source",
+    "notes",
+)
 DEFAULT_DB = ROOT / "data" / "lariat.db"
 DEFAULT_CSV = ROOT / "data" / "seeds" / "ingredient_densities.csv"
+
+
+def _assert_csv_shape(csv_path: Path) -> None:
+    """Verify CSV header exactly matches EXPECTED_COLUMNS and every data row
+    has exactly len(EXPECTED_COLUMNS) fields.
+
+    pandas.read_csv silently pads missing fields when using dtype=str /
+    keep_default_na=False, so a hand-edited row with a missing column would
+    shift downstream values (e.g. notes land in source) and produce a
+    misleading validation error. This pre-check fails loud, naming the CSV
+    path, the offending line number, and the actual vs expected field count.
+    """
+    expected = list(EXPECTED_COLUMNS)
+    n_expected = len(expected)
+    with csv_path.open("r", encoding="utf-8", newline="") as fh:
+        reader = csv.reader(fh)
+        try:
+            header = next(reader)
+        except StopIteration:
+            raise ValueError(f"CSV {csv_path} is empty (no header row)")
+        if header != expected:
+            raise ValueError(
+                f"CSV {csv_path} header mismatch: got {header!r}, "
+                f"expected {expected!r}"
+            )
+        # line 1 = header; data rows start at line 2
+        for line_no, fields in enumerate(reader, start=2):
+            # Skip completely blank trailing lines (e.g. final newline).
+            if len(fields) == 0:
+                continue
+            if len(fields) != n_expected:
+                raise ValueError(
+                    f"CSV {csv_path} line {line_no}: got {len(fields)} "
+                    f"fields, expected {n_expected} "
+                    f"(columns={expected}); offending row={fields!r}"
+                )
 
 
 def main(db_path: Path, csv_path: Path) -> int:
@@ -57,8 +100,13 @@ def main(db_path: Path, csv_path: Path) -> int:
         print(f"DB not found: {db_path}", file=sys.stderr)
         return 1
 
+    # Shape pre-check: header exact match AND per-row field count.
+    # pandas.read_csv silently pads/shifts malformed rows when used with
+    # dtype=str; catch those here before any downstream validation runs.
+    _assert_csv_shape(csv_path)
+
     df = pd.read_csv(csv_path, dtype=str, keep_default_na=False)
-    required = {"ingredient_name", "g_per_ml", "source", "notes"}
+    required = set(EXPECTED_COLUMNS)
     missing = required - set(df.columns)
     if missing:
         raise ValueError(f"CSV missing required columns: {sorted(missing)}")
