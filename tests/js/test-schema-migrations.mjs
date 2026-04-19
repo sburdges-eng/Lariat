@@ -128,6 +128,120 @@ describe('ingredient_densities table', () => {
   });
 });
 
+describe('ingredient_yields table — T2a', () => {
+  it('exists in sqlite_master with PRIMARY KEY', () => {
+    const row = /** @type {{sql: string} | undefined} */ (
+      db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='ingredient_yields'`).get()
+    );
+    assert.ok(row, 'ingredient_yields table not found');
+    assert.ok(
+      /PRIMARY KEY/i.test(row.sql),
+      `expected PRIMARY KEY in CREATE TABLE ingredient_yields: ${row.sql}`,
+    );
+    // yield_pct must be NOT NULL; loss_factor is nullable.
+    assert.ok(
+      /yield_pct[\s\S]*NOT NULL/i.test(row.sql),
+      `expected yield_pct NOT NULL in CREATE TABLE: ${row.sql}`,
+    );
+    // source must be NOT NULL per spec.
+    assert.ok(
+      /source[\s\S]*NOT NULL/i.test(row.sql),
+      `expected source NOT NULL in CREATE TABLE: ${row.sql}`,
+    );
+  });
+
+  it('ingredient_key is the primary key', () => {
+    const info = /** @type {{name: string, pk: number, notnull: number}[]} */ (
+      db.prepare('PRAGMA table_info(ingredient_yields)').all()
+    );
+    const key = info.find((c) => c.name === 'ingredient_key');
+    assert.ok(key, 'ingredient_key column missing');
+    assert.strictEqual(key.pk, 1, 'ingredient_key must be the primary key');
+  });
+
+  it('yield_pct is REAL NOT NULL; loss_factor REAL nullable; source NOT NULL; notes nullable', () => {
+    const info = /** @type {{name: string, notnull: number, type: string}[]} */ (
+      db.prepare('PRAGMA table_info(ingredient_yields)').all()
+    );
+    const yp = info.find((c) => c.name === 'yield_pct');
+    const lf = info.find((c) => c.name === 'loss_factor');
+    const src = info.find((c) => c.name === 'source');
+    const notes = info.find((c) => c.name === 'notes');
+    assert.ok(yp, 'yield_pct column missing');
+    assert.ok(lf, 'loss_factor column missing');
+    assert.ok(src, 'source column missing');
+    assert.ok(notes, 'notes column missing');
+    assert.strictEqual(yp.type.toUpperCase(), 'REAL');
+    assert.strictEqual(yp.notnull, 1, 'yield_pct must be NOT NULL');
+    assert.strictEqual(lf.type.toUpperCase(), 'REAL');
+    assert.strictEqual(lf.notnull, 0, 'loss_factor must be nullable');
+    assert.strictEqual(src.type.toUpperCase(), 'TEXT');
+    assert.strictEqual(src.notnull, 1, 'source must be NOT NULL');
+    assert.strictEqual(notes.notnull, 0, 'notes must be nullable');
+  });
+
+  it('rejects inserts missing yield_pct', () => {
+    assert.throws(
+      () =>
+        db
+          .prepare('INSERT INTO ingredient_yields (ingredient_key, source) VALUES (?, ?)')
+          .run('no_yield', 'seed'),
+      /NOT NULL/i,
+    );
+  });
+
+  it('rejects inserts missing source', () => {
+    assert.throws(
+      () =>
+        db
+          .prepare('INSERT INTO ingredient_yields (ingredient_key, yield_pct) VALUES (?, ?)')
+          .run('no_source', 0.85),
+      /NOT NULL/i,
+    );
+  });
+
+  it('accepts a well-formed row and round-trips loss_factor=null', () => {
+    db.prepare(
+      'INSERT INTO ingredient_yields (ingredient_key, yield_pct, loss_factor, source, notes) VALUES (?, ?, ?, ?, ?)',
+    ).run('yellow onion', 0.85, null, 'book_of_yields', 'peeled and trimmed');
+    const row = /** @type {{ingredient_key: string, yield_pct: number, loss_factor: number | null, source: string, notes: string | null}} */ (
+      db
+        .prepare(
+          'SELECT ingredient_key, yield_pct, loss_factor, source, notes FROM ingredient_yields WHERE ingredient_key = ?',
+        )
+        .get('yellow onion')
+    );
+    assert.strictEqual(row.ingredient_key, 'yellow onion');
+    assert.strictEqual(row.yield_pct, 0.85);
+    assert.strictEqual(row.loss_factor, null);
+    assert.strictEqual(row.source, 'book_of_yields');
+    assert.strictEqual(row.notes, 'peeled and trimmed');
+  });
+
+  it('accepts a well-formed row with loss_factor set', () => {
+    db.prepare(
+      'INSERT INTO ingredient_yields (ingredient_key, yield_pct, loss_factor, source) VALUES (?, ?, ?, ?)',
+    ).run('ground beef 80 20', 1.0, 0.25, 'lariat_measured');
+    const row = /** @type {{yield_pct: number, loss_factor: number}} */ (
+      db
+        .prepare('SELECT yield_pct, loss_factor FROM ingredient_yields WHERE ingredient_key = ?')
+        .get('ground beef 80 20')
+    );
+    assert.strictEqual(row.yield_pct, 1.0);
+    assert.strictEqual(row.loss_factor, 0.25);
+  });
+
+  it('PRIMARY KEY blocks duplicate ingredient_key inserts', () => {
+    assert.throws(
+      () =>
+        db
+          .prepare('INSERT INTO ingredient_yields (ingredient_key, yield_pct, source) VALUES (?, ?, ?)')
+          .run('yellow onion', 0.90, 'lariat_measured'),
+      /UNIQUE/i,
+    );
+  });
+});
+
 describe('idempotency', () => {
   it('running initSchema again does not error and does not duplicate columns', () => {
     const before = columnsOf('bom_lines');
@@ -152,6 +266,18 @@ describe('idempotency', () => {
     );
     assert.ok(row, 'seeded row disappeared after re-init');
     assert.strictEqual(row.g_per_ml, 0.915);
+  });
+
+  it('ingredient_yields survives re-init with rows intact', () => {
+    initSchema(db);
+    const row = /** @type {{yield_pct: number, source: string} | undefined} */ (
+      db
+        .prepare('SELECT yield_pct, source FROM ingredient_yields WHERE ingredient_key = ?')
+        .get('yellow onion')
+    );
+    assert.ok(row, 'seeded yield row disappeared after re-init');
+    assert.strictEqual(row.yield_pct, 0.85);
+    assert.strictEqual(row.source, 'book_of_yields');
   });
 });
 

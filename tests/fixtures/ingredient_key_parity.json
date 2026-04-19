@@ -1,0 +1,122 @@
+[
+  {
+    "input": "",
+    "expected": ""
+  },
+  {
+    "input": "   ",
+    "expected": ""
+  },
+  {
+    "input": "Yellow Onion",
+    "expected": "yellow onion"
+  },
+  {
+    "input": "YELLOW ONION",
+    "expected": "yellow onion"
+  },
+  {
+    "input": "yellow  onion",
+    "expected": "yellow onion"
+  },
+  {
+    "input": "[JIT] Yellow Onion",
+    "expected": "yellow onion"
+  },
+  {
+    "input": "[NEW] Heavy Cream",
+    "expected": "heavy cream"
+  },
+  {
+    "input": "[REPLACED] Ribeye, 10lb case",
+    "expected": "ribeye 10lb case"
+  },
+  {
+    "input": "Heinz Ketchup 1 gal",
+    "expected": "heinz ketchup 1 gal"
+  },
+  {
+    "input": "Ribeye (10# avg)",
+    "expected": "ribeye 10 avg"
+  },
+  {
+    "input": "Salmon, Atlantic — 8oz portion",
+    "expected": "salmon atlantic 8oz portion"
+  },
+  {
+    "input": "Tomato, Roma 25# case",
+    "expected": "tomato roma 25 case"
+  },
+  {
+    "input": "olive oil, extra virgin",
+    "expected": "olive oil extra virgin"
+  },
+  {
+    "input": "Canola Oil — 35# JIB",
+    "expected": "canola oil 35 jib"
+  },
+  {
+    "input": "Cilantro, fresh bunch",
+    "expected": "cilantro fresh bunch"
+  },
+  {
+    "input": "Poblano",
+    "expected": "poblano"
+  },
+  {
+    "input": "poblano",
+    "expected": "poblano"
+  },
+  {
+    "input": " Poblano ",
+    "expected": "poblano"
+  },
+  {
+    "input": "Poblano!",
+    "expected": "poblano"
+  },
+  {
+    "input": "Poblano???",
+    "expected": "poblano"
+  },
+  {
+    "input": "Poblano & Jalapeño",
+    "expected": "poblano jalape o"
+  },
+  {
+    "input": "Poblano / Jalapeño",
+    "expected": "poblano jalape o"
+  },
+  {
+    "input": "Heavy Cream 40% MF",
+    "expected": "heavy cream 40 mf"
+  },
+  {
+    "input": "Milk 2%",
+    "expected": "milk 2"
+  },
+  {
+    "input": "Milk, 2%",
+    "expected": "milk 2"
+  },
+  {
+    "input": "SYSCO 7078475 — GROUND BEEF 80/20",
+    "expected": "sysco 7078475 ground beef 80 20"
+  },
+  {
+    "input": "SYSCO 7078475  GROUND BEEF 80/20",
+    "expected": "sysco 7078475 ground beef 80 20"
+  },
+  {
+    "input": "Queso fresco",
+    "expected": "queso fresco"
+  },
+  {
+    "input": "Queso-Fresco",
+    "expected": "queso fresco"
+  },
+  {
+    "input": null,
+    "expected": ""
+  }
+]
