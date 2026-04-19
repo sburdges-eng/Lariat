@@ -92,20 +92,20 @@ russet potato,0.78,,book_of_yields,BoY 8th ed typical range; peeled
 ribeye steak,0.88,0.25,book_of_yields,BoY 8th ed typical range; grilled to medium; cook-loss 22-28% typical
 new york strip,0.90,0.25,book_of_yields,BoY 8th ed typical range; grilled to medium; cook-loss 22-28%
 filet mignon,0.92,0.22,book_of_yields,BoY 8th ed typical range; grilled to medium; cook-loss 20-25%
-ground beef 80 20,1.0,0.28,book_of_yields,industry avg; 80/20 cook-loss 25-32% typical
-ground beef 73 27,1.0,0.32,book_of_yields,industry avg; 73/27 cook-loss 30-35% typical
-ground beef 90 10,1.0,0.24,book_of_yields,industry avg; 90/10 cook-loss 20-28% typical
+ground beef 80 20,1.0,0.28,seed,industry avg; 80/20 cook-loss 25-32% typical
+ground beef 73 27,1.0,0.32,seed,industry avg; 73/27 cook-loss 30-35% typical
+ground beef 90 10,1.0,0.24,seed,industry avg; 90/10 cook-loss 20-28% typical
 chicken breast,0.98,0.27,book_of_yields,BoY 8th ed typical range; boneless skinless; roasted/grilled
 chicken thigh,0.97,0.25,book_of_yields,BoY 8th ed typical range; boneless skinless; roasted/grilled
 pork loin,0.93,0.25,book_of_yields,BoY 8th ed typical range; trimmed; roasted to medium
 pork chop,0.90,0.25,book_of_yields,BoY 8th ed typical range; trimmed; grilled to medium
-bacon,1.0,0.70,book_of_yields,pan-fried to crisp; bacon loses 65-75% weight typical
+bacon,1.0,0.70,seed,pan-fried to crisp; bacon loses 65-75% weight typical
 salmon fillet,0.93,0.18,book_of_yields,BoY 8th ed typical range; pin-bones removed skin-on; baked/seared
 salmon skinless,0.88,0.20,book_of_yields,BoY 8th ed typical range; baked/seared
 cod fillet,0.94,0.15,book_of_yields,BoY 8th ed typical range; baked
 shrimp,0.60,0.15,book_of_yields,BoY 8th ed typical range; peeled & deveined; sauteed/grilled
 pork butt,0.85,0.30,book_of_yields,BoY 8th ed typical range; trimmed; braised/smoked cook-loss 25-35%
-beef cheeks,0.90,0.35,book_of_yields,industry avg; trimmed; braised cook-loss 30-40% typical
+beef cheeks,0.90,0.35,seed,industry avg; trimmed; braised cook-loss 30-40% typical
 chicken wings,1.0,0.25,book_of_yields,BoY 8th ed typical range; pre-cut wings; roasted/fried
 anchovy,1.0,,seed,purchased cured / oil-packed; no trim
 yellow onions,0.82,,book_of_yields,BoY 8th ed typical range; plural-of yellow onion
