@@ -17,7 +17,8 @@
     "seed-beo": "node scripts/seed-beo.mjs",
     "backup": "node scripts/backup.mjs",
     "test:e2e": "npx playwright test",
-    "test:temp-log": "node --test tests/js/test-temp-log.mjs"
+    "test:temp-log": "node --test tests/js/test-temp-log.mjs",
+    "test:schema": "node --test tests/js/test-schema-migrations.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",

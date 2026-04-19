@@ -96,6 +96,7 @@ export interface VendorPrice {
   pack_price: number | null;
   unit_price: number | null;
   category: string | null;
+  yield_pct: number | null;
   location_id: string;
   imported_at: string;
 }
@@ -127,8 +128,17 @@ export interface BomLine {
   vendor: string | null;
   pack_price: number | null;
   pack_size: number | null;
+  yield_pct: number | null;
+  loss_factor: number | null;
   location_id: string;
   imported_at: string;
+}
+
+export interface IngredientDensity {
+  ingredient_key: string;
+  g_per_ml: number;
+  source: string | null;
+  updated_at: string;
 }
 
 export interface SalesLine {
@@ -416,6 +426,13 @@ export function initSchema(db: DB): void {
       imported_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS ingredient_densities (
+      ingredient_key TEXT PRIMARY KEY,
+      g_per_ml REAL NOT NULL,
+      source TEXT,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS order_guide_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       ingredient TEXT NOT NULL,
@@ -653,6 +670,25 @@ function migrateLegacyColumns(db: DB): void {
   ];
   for (const [col, ddl] of equipMigrations) {
     if (!equipCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  // Extend bom_lines with yield / cooking-loss factors used by COGS mapping.
+  const bomCols = t('bom_lines');
+  const bomMigrations: [string, string][] = [
+    ['yield_pct', 'ALTER TABLE bom_lines ADD COLUMN yield_pct REAL'],
+    ['loss_factor', 'ALTER TABLE bom_lines ADD COLUMN loss_factor REAL'],
+  ];
+  for (const [col, ddl] of bomMigrations) {
+    if (!bomCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  // Vendor-default trim yield attached to each priced pack.
+  const vpCols = t('vendor_prices');
+  const vpMigrations: [string, string][] = [
+    ['yield_pct', 'ALTER TABLE vendor_prices ADD COLUMN yield_pct REAL'],
+  ];
+  for (const [col, ddl] of vpMigrations) {
+    if (!vpCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
   }
 }
 
