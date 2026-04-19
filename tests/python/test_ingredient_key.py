@@ -101,5 +101,14 @@ class NormalizeSeriesRejectsNonSeries(unittest.TestCase):
             normalize_series(["not", "a", "series"])  # type: ignore[arg-type]
 
 
+class NormalizeSeriesPinsNaNBehavior(unittest.TestCase):
+    def test_series_stringifies_nan_to_literal_nan(self) -> None:
+        # pins current behavior — callers must handle NaN/NA explicitly
+        # before normalization if 'nan'/'na' is not acceptable as a real key
+        series = pd.Series(["Yellow Onion", float("nan"), pd.NA, "Heavy Cream"])
+        result = list(normalize_series(series))
+        self.assertEqual(result, ["yellow onion", "nan", "na", "heavy cream"])
+
+
 if __name__ == "__main__":
     unittest.main()

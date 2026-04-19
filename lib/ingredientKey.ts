@@ -9,7 +9,9 @@
  * collapse whitespace.
  */
 const BRACKET_PREFIX = /^\s*\[[^\]]*\]\s*/;
+// /g is load-bearing — Python re.sub replaces all occurrences by default
 const NONALNUM = /[^a-z0-9]+/g;
+// /g is load-bearing — Python re.sub replaces all occurrences by default
 const WHITESPACE = /\s+/g;
 
 export function normalizeIngredientKey(value: string | null | undefined): string {

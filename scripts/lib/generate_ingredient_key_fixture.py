@@ -56,6 +56,9 @@ INPUTS = [
     "SYSCO 7078475  GROUND BEEF 80/20",
     "Queso fresco",
     "Queso-Fresco",
+    "Heavy\u00a0Cream",        # non-breaking space between words
+    "Jalapen\u0303o",           # combining tilde (decomposed) — no NFC normalization
+    "\u0130stanbul",            # Turkish dotted capital I — casing edge case
     None,  # normalize_one handles None
 ]
 

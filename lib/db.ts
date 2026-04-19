@@ -137,7 +137,7 @@ export interface BomLine {
 export interface IngredientDensity {
   ingredient_key: string;
   g_per_ml: number;
-  source: string | null;
+  source: 'seed' | 'measured' | 'vendor' | null;
   updated_at: string;
 }
 
@@ -145,7 +145,7 @@ export interface IngredientYield {
   ingredient_key: string;
   yield_pct: number;              // fraction 0..1
   loss_factor: number | null;     // fraction 0..1 or null
-  source: string;                 // 'book_of_yields' | 'lariat_measured' | 'seed'
+  source: 'book_of_yields' | 'lariat_measured' | 'seed';
   notes: string | null;
   updated_at: string;
 }
@@ -438,7 +438,7 @@ export function initSchema(db: DB): void {
     CREATE TABLE IF NOT EXISTS ingredient_densities (
       ingredient_key TEXT PRIMARY KEY,
       g_per_ml REAL NOT NULL,
-      source TEXT,
+      source TEXT CHECK (source IS NULL OR source IN ('seed', 'measured', 'vendor')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
@@ -446,7 +446,7 @@ export function initSchema(db: DB): void {
       ingredient_key TEXT PRIMARY KEY,     -- same normalized form as ingredient_densities
       yield_pct      REAL NOT NULL,        -- fraction 0..1 (e.g. 0.85 for 85% trim yield)
       loss_factor    REAL,                 -- cooking-shrinkage fraction 0..1; NULL if not applicable
-      source         TEXT NOT NULL,        -- 'book_of_yields' | 'lariat_measured' | 'seed'
+      source         TEXT NOT NULL CHECK (source IN ('book_of_yields', 'lariat_measured', 'seed')),
       notes          TEXT,                 -- provenance / edge-case detail
       updated_at     TEXT DEFAULT (datetime('now'))
     );

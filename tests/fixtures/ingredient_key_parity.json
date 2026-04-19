@@ -116,6 +116,18 @@
     "expected": "queso fresco"
   },
   {
+    "input": "Heavy Cream",
+    "expected": "heavy cream"
+  },
+  {
+    "input": "Jalapeño",
+    "expected": "jalapen o"
+  },
+  {
+    "input": "İstanbul",
+    "expected": "i stanbul"
+  },
+  {
     "input": null,
     "expected": ""
   }

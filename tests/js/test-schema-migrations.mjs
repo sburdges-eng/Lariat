@@ -126,6 +126,36 @@ describe('ingredient_densities table', () => {
     assert.strictEqual(row.g_per_ml, 0.915);
     assert.strictEqual(row.source, 'seed');
   });
+
+  it('rejects invalid source values via CHECK constraint', () => {
+    assert.throws(
+      () =>
+        db
+          .prepare('INSERT INTO ingredient_densities (ingredient_key, g_per_ml, source) VALUES (?, ?, ?)')
+          .run('x', 1.0, 'NOT_A_VALID_SOURCE'),
+      /CHECK/i,
+    );
+  });
+
+  it('accepts source=seed and source=null', () => {
+    // source='seed' already exercised by 'accepts a well-formed row' above
+    // via olive_oil; repeat with a distinct key to isolate this assertion.
+    db.prepare(
+      'INSERT INTO ingredient_densities (ingredient_key, g_per_ml, source) VALUES (?, ?, ?)',
+    ).run('water_seed', 1.0, 'seed');
+    const rowSeed = /** @type {{source: string | null}} */ (
+      db.prepare('SELECT source FROM ingredient_densities WHERE ingredient_key = ?').get('water_seed')
+    );
+    assert.strictEqual(rowSeed.source, 'seed');
+
+    db.prepare(
+      'INSERT INTO ingredient_densities (ingredient_key, g_per_ml, source) VALUES (?, ?, ?)',
+    ).run('water_null', 1.0, null);
+    const rowNull = /** @type {{source: string | null}} */ (
+      db.prepare('SELECT source FROM ingredient_densities WHERE ingredient_key = ?').get('water_null')
+    );
+    assert.strictEqual(rowNull.source, null);
+  });
 });
 
 describe('ingredient_yields table — T2a', () => {
@@ -238,6 +268,47 @@ describe('ingredient_yields table — T2a', () => {
           .prepare('INSERT INTO ingredient_yields (ingredient_key, yield_pct, source) VALUES (?, ?, ?)')
           .run('yellow onion', 0.90, 'lariat_measured'),
       /UNIQUE/i,
+    );
+  });
+
+  it('rejects invalid source values via CHECK constraint', () => {
+    assert.throws(
+      () =>
+        db
+          .prepare('INSERT INTO ingredient_yields (ingredient_key, yield_pct, source) VALUES (?, ?, ?)')
+          .run('bad_src', 0.5, 'notarealsource'),
+      /CHECK/i,
+    );
+  });
+
+  it('accepts all three legal source values', () => {
+    // 'book_of_yields' already covered above by 'yellow onion'; re-exercise
+    // with a distinct key to make this assertion self-contained.
+    db.prepare(
+      'INSERT INTO ingredient_yields (ingredient_key, yield_pct, source) VALUES (?, ?, ?)',
+    ).run('onion_boy', 0.85, 'book_of_yields');
+    db.prepare(
+      'INSERT INTO ingredient_yields (ingredient_key, yield_pct, source) VALUES (?, ?, ?)',
+    ).run('onion_measured', 0.88, 'lariat_measured');
+    db.prepare(
+      'INSERT INTO ingredient_yields (ingredient_key, yield_pct, source) VALUES (?, ?, ?)',
+    ).run('onion_seed', 0.80, 'seed');
+    const sources = /** @type {{ingredient_key: string, source: string}[]} */ (
+      db
+        .prepare(
+          `SELECT ingredient_key, source FROM ingredient_yields
+           WHERE ingredient_key IN ('onion_boy', 'onion_measured', 'onion_seed')
+           ORDER BY ingredient_key`,
+        )
+        .all()
+    );
+    assert.deepStrictEqual(
+      sources.map((r) => [r.ingredient_key, r.source]),
+      [
+        ['onion_boy', 'book_of_yields'],
+        ['onion_measured', 'lariat_measured'],
+        ['onion_seed', 'seed'],
+      ],
     );
   });
 });

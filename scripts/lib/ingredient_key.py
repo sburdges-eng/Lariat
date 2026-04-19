@@ -20,8 +20,8 @@ _NONALNUM = re.compile(r"[^a-z0-9]+")
 _WHITESPACE = re.compile(r"\s+")
 
 
-def normalize_one(value: str) -> str:
-    """Normalize a single string to the canonical ingredient key."""
+def normalize_one(value: str | None) -> str:
+    """Normalize a single str | None to the canonical ingredient key."""
     if value is None:
         return ""
     s = str(value).lower().strip()
