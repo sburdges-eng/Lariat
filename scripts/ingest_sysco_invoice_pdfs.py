@@ -26,6 +26,12 @@ Output schema (matches existing rows in vendor_summary.json):
 Idempotency: builds a set of (invoice, description) pairs already present,
 appends only new tuples. Atomic write via temp file + rename. Top-level keys
 other than 'sysco' (e.g. 'webstaurantstore') are preserved untouched.
+
+In-PDF dedup: when two line items inside the same PDF share
+(invoice, description, category), their qty is summed into a single row
+(delivery_date taken from the first occurrence). This preserves spend math
+when the printed invoice has two lines for the same SKU (e.g. taxable +
+nontaxable variants of trash liners, or split shipments of a dairy item).
 """
 
 from __future__ import annotations
@@ -462,7 +468,35 @@ def parse_pdf(path: Path) -> tuple[str, str, list[dict[str, object]]]:
             f'failed to extract invoice/date header from {path.name}: '
             f'invoice={invoice!r} delivery_date={delivery_date!r}'
         )
+    items = _collapse_in_pdf_duplicates(items)
     return invoice, delivery_date, items
+
+
+def _collapse_in_pdf_duplicates(
+    items: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    """Sum qty for rows sharing (invoice, description, category) within one PDF.
+
+    Some Sysco invoices print the same SKU on two lines (e.g. taxable +
+    nontaxable variants of trash liners, or a split shipment). Without this
+    collapse, the cross-run idempotency key (invoice, description) drops the
+    second occurrence and understates qty. Schema is unchanged: a single row
+    is emitted with summed qty and the first occurrence's delivery_date.
+    """
+    aggregated: dict[tuple[str, str, str], dict[str, object]] = {}
+    order: list[tuple[str, str, str]] = []
+    for it in items:
+        key = (
+            str(it.get('invoice', '')),
+            str(it.get('description', '')),
+            str(it.get('category', '')),
+        )
+        if key in aggregated:
+            aggregated[key]['qty'] = int(aggregated[key]['qty']) + int(it['qty'])
+        else:
+            aggregated[key] = dict(it)
+            order.append(key)
+    return [aggregated[k] for k in order]
 
 
 def date_key(d: str) -> tuple[int, int, int]:
@@ -480,6 +514,32 @@ def main() -> int:
     recent = sysco.setdefault('recent_items', [])
 
     before_count = len(recent)
+
+    # Backfill: for the two known invoices that had in-PDF duplicates collapsed
+    # by the old (invoice, description)-only key, re-derive the correct qty
+    # from the source PDFs and patch the existing cache row in place.
+    BACKFILL_INVOICES = ('759616979', '759632867')
+    backfill_audit: list[tuple[str, str, int, int]] = []
+    pdf_qty_index: dict[tuple[str, str], int] = {}
+    for inv in BACKFILL_INVOICES:
+        pdf_path = SRC_DIR / f'EnterpriseInvoice-{inv}.pdf'
+        if not pdf_path.exists():
+            continue
+        _, _, parsed_items = parse_pdf(pdf_path)
+        for it in parsed_items:
+            pdf_qty_index[(str(it['invoice']), str(it['description']))] = int(it['qty'])
+    for it in recent:
+        if it.get('invoice') not in BACKFILL_INVOICES:
+            continue
+        key = (str(it['invoice']), str(it['description']))
+        if key not in pdf_qty_index:
+            continue
+        new_qty = pdf_qty_index[key]
+        old_qty = int(it['qty'])
+        if new_qty != old_qty:
+            backfill_audit.append((key[0], key[1], old_qty, new_qty))
+            it['qty'] = new_qty
+
     seen: set[tuple[str, str]] = {(it['invoice'], it['description']) for it in recent}
 
     # Find PDFs we should process.
@@ -530,6 +590,11 @@ def main() -> int:
     print(f'after  recent_items: {after_count}')
     print(f'added              : {added_total}')
     print(f'new last_invoice_date: {new_last}')
+    if backfill_audit:
+        print()
+        print('in-PDF dedup backfill (qty before -> after):')
+        for inv, desc, old_q, new_q in backfill_audit:
+            print(f'  {inv}  {desc!r}: {old_q} -> {new_q}')
 
     # Atomic write.
     tmp = CACHE.with_suffix('.json.tmp')
