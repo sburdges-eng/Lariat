@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { execSync } from 'child_process';
 import Database from 'better-sqlite3';
 import { initSchema, DB_FILE } from '../lib/db.ts';
@@ -219,7 +219,8 @@ function main() {
 }
 
 // Detect direct invocation so `import { ingestCosting }` from tests doesn't
-// trigger the CLI path.
-if (import.meta.url === `file://${process.argv[1]}`) {
+// trigger the CLI path. Uses pathToFileURL to handle symlinks, spaces, and
+// percent-encoding correctly (raw string-template form breaks on all three).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main();
 }

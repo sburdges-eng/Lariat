@@ -212,9 +212,9 @@ All three green → engine is deploy-ready. Any red → fix the root cause, not 
 
 ---
 
-## Known debt after T2b
+## Known debt
 
-These are tracked follow-ups from the T2b code-quality review. Non-blocking for T2c; address when touching the seed subsystem.
+These are tracked follow-ups from code-quality reviews. Non-blocking; address when touching the affected subsystem.
 
 ### D1 — Coverage test can silently self-delete
 
@@ -227,6 +227,12 @@ These are tracked follow-ups from the T2b code-quality review. Non-blocking for 
 `scripts/seed_ingredient_densities.py` and `scripts/seed_ingredient_yields.py` share ~95% of their structure. Drift risk when a fix lands in one but not the other (e.g., the I1 CSV shape guard was added in lockstep — a future fix may not be).
 
 **Fix when touched:** extract shared upsert logic into `scripts/lib/seed_upsert.py` with a `SeedSpec` dataclass carrying `(table_name, pk_column, columns, validators)`. Both seed scripts become ~40-line thin callers.
+
+### D3 — Positional-column INSERT fragility (flagged by T2c review)
+
+`scripts/ingest-costing.mjs` uses positional `?` placeholders for `vendor_prices` (10 cols) and `bom_lines` (13 cols). When T5 adds `actual_received_lb` to `vendor_prices`, whoever writes T5 must remember to extend both the column list AND the argument tuple — SQLite silently accepts the shorter INSERT and leaves the new column NULL-by-default. No test catches this.
+
+**Fix when T5 lands:** convert both INSERTs to named-parameter binding: `INSERT INTO vendor_prices (...) VALUES (@ingredient, @vendor, ...)` with `stmt.run({ ingredient, vendor, ... })`. `better-sqlite3` throws on key mismatch, which is the safety this design needs. Also worth adding a schema-parity test that inspects `PRAGMA table_info(...)` and asserts the INSERT covers every non-auto column.
 
 ### Intentionally not debt (just flagging)
 
