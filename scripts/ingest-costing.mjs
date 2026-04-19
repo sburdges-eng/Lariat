@@ -19,6 +19,12 @@ const DEFAULT_OPS = path.join(ROOT, 'XL', 'lariat_operations_workbook_2026-04-10
  * bom_lines.{yield_pct, loss_factor} by joining on the ingredient_yields table
  * via the shared normalizeIngredientKey() normalizer.
  *
+ * After the DELETE+INSERT sweep (T2c), a separate post-pass (T3) recomputes
+ * recipe_costs.batch_cost and cost_per_yield_unit by summing per-BOM-line
+ * yield/loss adjustments on top of Excel's pre-computed values. NULL yield_pct
+ * is treated as 1.0 and NULL loss_factor as 0.0 so any recipe whose lines all
+ * lack yield data retains its Excel batch_cost byte-exact (zero regression).
+ *
  * @param {import('better-sqlite3').Database} db - Open SQLite handle. Caller owns lifecycle.
  * @param {object} data - Parsed payload with arrays: vendor_prices, recipe_costs,
  *                        bom_lines, ingredient_maps, order_guide.
@@ -31,7 +37,9 @@ const DEFAULT_OPS = path.join(ROOT, 'XL', 'lariat_operations_workbook_2026-04-10
  *   bom_coverage_pct: number,
  *   ingredient_maps: number,
  *   order_guide: number,
- * }} Summary of rows inserted and yield-coverage stats.
+ *   recipes_yield_adjusted: number,
+ *   total_yield_delta_usd: number,
+ * }} Summary of rows inserted, yield coverage, and yield-adjustment totals.
  */
 export function ingestCosting(db, data, locationId = 'default') {
   initSchema(db);
@@ -61,6 +69,8 @@ export function ingestCosting(db, data, locationId = 'default') {
     bom_coverage_pct: 0,
     ingredient_maps: 0,
     order_guide: 0,
+    recipes_yield_adjusted: 0,
+    total_yield_delta_usd: 0,
   };
 
   const del = (sql) => db.prepare(sql).run(locationId);
@@ -172,6 +182,95 @@ export function ingestCosting(db, data, locationId = 'default') {
   summary.bom_coverage_pct =
     summary.bom_lines > 0 ? (100 * summary.bom_lines_with_yield) / summary.bom_lines : 0;
 
+  // ── T3: yield + loss post-pass ──────────────────────────────────────
+  // After T2c populated bom_lines.{yield_pct, loss_factor, pack_price, pack_size,
+  // qty}, sum the per-BOM-line "true cost" adjustment for each recipe and apply
+  // it on top of Excel's pre-computed batch_cost. NULL yield_pct → 1.0 (no
+  // trim), NULL loss_factor → 0.0 (no shrinkage); zero-guards on qty /
+  // pack_price / pack_size prevent division crashes. One-shot per ingest: the
+  // DELETE+INSERT sweep above reinserts a fresh Excel batch_cost every time, so
+  // running `ingestCosting` twice never double-applies the delta.
+  const adjustment = (yieldPct, lossFactor) => {
+    const y = yieldPct == null ? 1.0 : yieldPct;
+    const l = lossFactor == null ? 0.0 : lossFactor;
+    const denom = y * (1 - l);
+    if (!(denom > 0) || !Number.isFinite(denom)) return null; // caller emits warning
+    return 1 / denom;
+  };
+
+  const bomForDelta = db.prepare(`
+    SELECT recipe_id, qty, pack_price, pack_size, yield_pct, loss_factor
+      FROM bom_lines
+     WHERE location_id = ?
+  `).all(locationId);
+
+  const perRecipeDelta = new Map(); // recipe_id -> delta (USD)
+  let guardSkipped = 0;
+  let denomSkipped = 0;
+  for (const line of bomForDelta) {
+    const { recipe_id, qty, pack_price, pack_size, yield_pct, loss_factor } = line;
+    // Guard: zero/null qty, pack_price, or pack_size contributes 0 delta.
+    if (
+      qty == null || pack_price == null || pack_size == null ||
+      !(qty > 0) || !(pack_price > 0) || !(pack_size > 0) ||
+      !Number.isFinite(qty) || !Number.isFinite(pack_price) || !Number.isFinite(pack_size)
+    ) {
+      guardSkipped++;
+      continue;
+    }
+    const adj = adjustment(yield_pct, loss_factor);
+    if (adj === null) {
+      denomSkipped++;
+      continue;
+    }
+    // delta = qty × pack_price / pack_size × (adj - 1)
+    const delta = (qty * pack_price / pack_size) * (adj - 1);
+    if (delta === 0) continue;
+    perRecipeDelta.set(recipe_id, (perRecipeDelta.get(recipe_id) ?? 0) + delta);
+  }
+
+  if (guardSkipped > 0) {
+    console.warn(
+      `⚠ ${guardSkipped} bom_line(s) had null/zero qty, pack_price, or pack_size — delta skipped`,
+    );
+  }
+  if (denomSkipped > 0) {
+    console.warn(
+      `⚠ ${denomSkipped} bom_line(s) had yield_pct × (1 - loss_factor) ≤ 0 — delta skipped (expected 0 given CHECK constraints)`,
+    );
+  }
+
+  const updateRecipe = db.prepare(`
+    UPDATE recipe_costs
+       SET batch_cost = batch_cost + @delta,
+           cost_per_yield_unit = CASE
+             WHEN yield IS NULL OR yield = 0 THEN NULL
+             ELSE (batch_cost + @delta) / yield
+           END
+     WHERE recipe_id = @recipe_id
+       AND location_id = @location_id
+       AND batch_cost IS NOT NULL
+  `);
+
+  let totalDelta = 0;
+  let maxPerRecipeDelta = 0;
+  let adjustedCount = 0;
+  db.transaction(() => {
+    for (const [recipe_id, delta] of perRecipeDelta) {
+      if (delta === 0) continue; // preserves zero-regression invariant byte-exact
+      const result = updateRecipe.run({ recipe_id, delta, location_id: locationId });
+      if (result.changes > 0) {
+        adjustedCount++;
+        totalDelta += delta;
+        if (Math.abs(delta) > Math.abs(maxPerRecipeDelta)) maxPerRecipeDelta = delta;
+      }
+    }
+  })();
+
+  summary.recipes_yield_adjusted = adjustedCount;
+  summary.total_yield_delta_usd = Math.round(totalDelta * 100) / 100;
+  summary.max_recipe_yield_delta_usd = Math.round(maxPerRecipeDelta * 100) / 100;
+
   return summary;
 }
 
@@ -207,6 +306,9 @@ function main() {
     );
     console.log(
       `  yield coverage: ${summary.bom_lines_with_yield}/${summary.bom_lines} bom_lines (${summary.bom_coverage_pct.toFixed(1)}%) have yield_pct populated`,
+    );
+    console.log(
+      `✓ Yield-adjusted ${summary.recipes_yield_adjusted} recipes (Δ_total=$${summary.total_yield_delta_usd.toFixed(2)}, max per-recipe delta=$${summary.max_recipe_yield_delta_usd.toFixed(2)})`,
     );
     if (summary.bom_lines > 0 && summary.bom_coverage_pct < 50) {
       console.warn(
