@@ -156,7 +156,7 @@ def parse_csv(
     Returns (rows, skipped_counts).
     """
     rows: list[dict] = []
-    skipped = {"empty_row": 0, "header_only": 0, "blank_metric": 0}
+    skipped = {"empty_row": 0, "header_only": 0, "blank_metric": 0, "total_row": 0}
     seen: set[tuple[str, str, str]] = set()
 
     with path.open("r", newline="", encoding="utf-8-sig") as f:
@@ -195,6 +195,17 @@ def parse_csv(
                         f"skip {path.name} row {r_idx}: empty row label",
                         file=sys.stderr,
                     )
+                    continue
+                # Drop the per-report 'Total' summary row: it's the sum of
+                # the breakouts and storing it invites double-counting in
+                # any aggregate query that forgets to filter it out. The
+                # value is reproducible via SUM(value_num) GROUP BY metric.
+                # Only applies to shape-A reports — shape-B '__totals__'
+                # rows ARE the data and never reach this branch.
+                if parts[0].lower() == "total" and all(
+                    not p for p in parts[1:]
+                ):
+                    skipped["total_row"] += 1
                     continue
                 # Disambiguate exact duplicates of the composite label.
                 seen_n = label_counts.get(base_label, 0) + 1
