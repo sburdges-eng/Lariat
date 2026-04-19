@@ -13,6 +13,7 @@
 
 import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
+import Database from 'better-sqlite3';
 
 import { getDb, setDbPathForTest, initSchema } from '../../lib/db.ts';
 
@@ -151,5 +152,80 @@ describe('idempotency', () => {
     );
     assert.ok(row, 'seeded row disappeared after re-init');
     assert.strictEqual(row.g_per_ml, 0.915);
+  });
+});
+
+describe('legacy schema migration — pre-T1 bom_lines', () => {
+  it('migrates legacy bom_lines table preserving rows', () => {
+    // Build an isolated DB that mimics the production pre-T1 state: bom_lines
+    // exists with the old column set (no yield_pct, no loss_factor) and has a
+    // row in it. We bypass getDb()/setDbPathForTest so this test doesn't share
+    // state with the fresh-DB suites above.
+    const legacy = new Database(':memory:');
+    try {
+      legacy.exec(`
+        CREATE TABLE bom_lines (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          recipe_id TEXT NOT NULL,
+          ingredient TEXT,
+          qty REAL,
+          unit TEXT,
+          sub_recipe TEXT,
+          vendor_ingredient TEXT,
+          map_status TEXT,
+          vendor TEXT,
+          pack_price REAL,
+          pack_size REAL,
+          location_id TEXT DEFAULT 'default',
+          imported_at TEXT DEFAULT (datetime('now'))
+        );
+      `);
+
+      legacy.prepare(
+        `INSERT INTO bom_lines (recipe_id, ingredient, qty, unit)
+         VALUES (?, ?, ?, ?)`,
+      ).run('r1', 'diced onion', 1.0, 'lb');
+
+      // Sanity check: pre-migration, yield_pct does not exist yet.
+      const preCols = /** @type {{name: string}[]} */ (
+        legacy.prepare('PRAGMA table_info(bom_lines)').all()
+      ).map((c) => c.name);
+      assert.ok(!preCols.includes('yield_pct'), 'legacy fixture should not have yield_pct');
+      assert.ok(!preCols.includes('loss_factor'), 'legacy fixture should not have loss_factor');
+
+      // Run the production migration path against the hand-crafted DB.
+      initSchema(legacy);
+
+      // Row must still be present.
+      const count = /** @type {{c: number}} */ (
+        legacy.prepare(`SELECT COUNT(*) AS c FROM bom_lines`).get()
+      ).c;
+      assert.strictEqual(count, 1, 'existing row was lost during migration');
+
+      const ingredient = /** @type {{ingredient: string} | undefined} */ (
+        legacy.prepare(`SELECT ingredient FROM bom_lines WHERE recipe_id = ?`).get('r1')
+      );
+      assert.ok(ingredient, 'seeded row disappeared after migration');
+      assert.strictEqual(ingredient.ingredient, 'diced onion');
+
+      // New columns must exist post-migration.
+      const postCols = /** @type {{name: string}[]} */ (
+        legacy.prepare('PRAGMA table_info(bom_lines)').all()
+      ).map((c) => c.name);
+      assert.ok(postCols.includes('yield_pct'), 'yield_pct not added by migration');
+      assert.ok(postCols.includes('loss_factor'), 'loss_factor not added by migration');
+
+      // Pre-existing row must have NULL in both new columns (ALTER ADD COLUMN
+      // with no default on REAL yields NULL for prior rows).
+      const yl = /** @type {{yield_pct: number | null, loss_factor: number | null}} */ (
+        legacy.prepare(
+          `SELECT yield_pct, loss_factor FROM bom_lines WHERE recipe_id = ?`,
+        ).get('r1')
+      );
+      assert.strictEqual(yl.yield_pct, null, 'yield_pct should be NULL for pre-migration row');
+      assert.strictEqual(yl.loss_factor, null, 'loss_factor should be NULL for pre-migration row');
+    } finally {
+      legacy.close();
+    }
   });
 });

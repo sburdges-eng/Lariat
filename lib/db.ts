@@ -96,7 +96,7 @@ export interface VendorPrice {
   pack_price: number | null;
   unit_price: number | null;
   category: string | null;
-  yield_pct: number | null;
+  yield_pct: number | null;  // fraction 0..1 (e.g. 0.85 for 85% trim yield)
   location_id: string;
   imported_at: string;
 }
@@ -128,8 +128,8 @@ export interface BomLine {
   vendor: string | null;
   pack_price: number | null;
   pack_size: number | null;
-  yield_pct: number | null;
-  loss_factor: number | null;
+  yield_pct: number | null;  // fraction 0..1 (e.g. 0.85 for 85% trim yield)
+  loss_factor: number | null;  // cooking-shrinkage fraction 0..1 (e.g. 0.25 = 25% weight loss)
   location_id: string;
   imported_at: string;
 }
