@@ -1,0 +1,199 @@
+ingredient_name,yield_pct,loss_factor,source,notes
+kosher salt,1.0,,seed,no trim / composed or liquid ingredient
+kosher salt diamond crystal,1.0,,seed,no trim / composed or liquid ingredient
+kosher salt morton,1.0,,seed,no trim / composed or liquid ingredient
+salt,1.0,,seed,no trim / composed or liquid ingredient
+table salt,1.0,,seed,no trim / composed or liquid ingredient
+black pepper,1.0,,seed,no trim / composed or liquid ingredient
+pepper,1.0,,seed,no trim / composed or liquid ingredient
+white pepper,1.0,,seed,no trim / composed or liquid ingredient
+cumin,1.0,,seed,no trim / composed or liquid ingredient
+chili powder,1.0,,seed,no trim / composed or liquid ingredient
+garlic powder,1.0,,seed,no trim / composed or liquid ingredient
+onion powder,1.0,,seed,no trim / composed or liquid ingredient
+paprika,1.0,,seed,no trim / composed or liquid ingredient
+cayenne,1.0,,seed,no trim / composed or liquid ingredient
+cinnamon,1.0,,seed,no trim / composed or liquid ingredient
+ground cloves,1.0,,seed,no trim / composed or liquid ingredient
+whole cloves,1.0,,seed,no trim / composed or liquid ingredient
+dried thyme,1.0,,seed,no trim / composed or liquid ingredient
+dried rosemary,1.0,,seed,no trim / composed or liquid ingredient
+dried parsley,1.0,,seed,no trim / composed or liquid ingredient
+dried dill,1.0,,seed,no trim / composed or liquid ingredient
+thyme,1.0,,seed,treated as dried for default yield; no trim
+rosemary,1.0,,seed,treated as dried for default yield; no trim
+dill,1.0,,seed,treated as dried for default yield; no trim
+red pepper,1.0,,seed,assumed dried crushed flakes; no trim
+sugar,1.0,,seed,no trim / composed or liquid ingredient
+honey,1.0,,seed,no trim / composed or liquid ingredient
+maple syrup,1.0,,seed,no trim / composed or liquid ingredient
+ap flour,1.0,,seed,no trim / composed or liquid ingredient
+cornmeal,1.0,,seed,no trim / composed or liquid ingredient
+cornstarch,1.0,,seed,no trim / composed or liquid ingredient
+baking soda,1.0,,seed,no trim / composed or liquid ingredient
+baking powder,1.0,,seed,no trim / composed or liquid ingredient
+water,1.0,,seed,no trim / composed or liquid ingredient
+olive oil,1.0,,seed,no trim / composed or liquid ingredient
+evoo,1.0,,seed,no trim / composed or liquid ingredient
+canola oil,1.0,,seed,no trim / composed or liquid ingredient
+vegetable oil,1.0,,seed,no trim / composed or liquid ingredient
+sesame oil,1.0,,seed,no trim / composed or liquid ingredient
+butter,1.0,,seed,no trim / composed or liquid ingredient
+melted butter,1.0,,seed,no trim / composed or liquid ingredient
+buttermilk,1.0,,seed,no trim / composed or liquid ingredient
+heavy cream,1.0,,seed,no trim / composed or liquid ingredient
+half and half,1.0,,seed,no trim / composed or liquid ingredient
+apple cider vinegar,1.0,,seed,no trim / composed or liquid ingredient
+white vinegar,1.0,,seed,no trim / composed or liquid ingredient
+red wine vinegar,1.0,,seed,no trim / composed or liquid ingredient
+rice vinegar,1.0,,seed,no trim / composed or liquid ingredient
+lime juice,1.0,,seed,composed juice / liquid ingredient
+lemon juice,1.0,,seed,composed juice / liquid ingredient
+dijon mustard,1.0,,seed,no trim / composed or liquid ingredient
+yellow mustard,1.0,,seed,no trim / composed or liquid ingredient
+prepared horseradish,1.0,,seed,no trim / composed or liquid ingredient
+mayonnaise,1.0,,seed,no trim / composed or liquid ingredient
+soy sauce,1.0,,seed,no trim / composed or liquid ingredient
+worcestershire sauce,1.0,,seed,no trim / composed or liquid ingredient
+lariat rub,1.0,,seed,house spice blend / no trim
+garlic cloves,0.87,,book_of_yields,BoY 8th ed typical range; peeled yield from whole
+garlic,0.87,,book_of_yields,BoY 8th ed typical range; peeled yield from whole-head basis
+minced garlic,1.0,,seed,purchased pre-minced; no further trim
+yellow onion,0.82,,book_of_yields,BoY 8th ed typical range; peeled & trimmed
+red onion,0.82,,book_of_yields,BoY 8th ed typical range; peeled & trimmed
+diced onion,1.0,,seed,purchased pre-diced; treated as fully yielded
+shallot,0.85,,book_of_yields,BoY 8th ed typical range; peeled & trimmed
+jalapenos,0.73,,book_of_yields,BoY 8th ed typical range; stemmed and seeded
+sliced jalapenos,1.0,,seed,purchased pre-sliced; no further trim
+poblano,0.77,,book_of_yields,BoY 8th ed typical range; stemmed and seeded
+bell pepper,0.82,,book_of_yields,BoY 8th ed typical range; stemmed and seeded
+tomato,0.92,,book_of_yields,BoY 8th ed typical range; cored
+chopped tomato,1.0,,seed,purchased pre-chopped; no further trim
+roma tomato,0.92,,book_of_yields,BoY 8th ed typical range; cored
+cucumber,0.87,,book_of_yields,BoY 8th ed typical range; seeded
+carrot,0.81,,book_of_yields,BoY 8th ed typical range; peeled
+celery,0.75,,book_of_yields,BoY 8th ed typical range; trimmed
+lettuce romaine,0.75,,book_of_yields,BoY 8th ed typical range; trimmed
+cabbage,0.80,,book_of_yields,BoY 8th ed typical range; trimmed & cored
+corn kernels,0.28,,book_of_yields,BoY 8th ed typical range; kernels from whole cob incl. cob waste
+avocado,0.75,,book_of_yields,BoY 8th ed typical range; flesh from whole fruit
+mango,0.68,,book_of_yields,BoY 8th ed typical range; peeled and pitted
+pineapple,0.51,,book_of_yields,BoY 8th ed typical range; peeled and cored
+lemons,0.35,,book_of_yields,BoY 8th ed typical range; juice yielded from whole fruit
+limes,0.40,,book_of_yields,BoY 8th ed typical range; juice yielded from whole fruit
+cilantro,0.56,,book_of_yields,BoY 8th ed typical range; leaves from stems
+chopped cilantro,1.0,,seed,purchased pre-chopped; no further trim
+parsley,0.54,,book_of_yields,BoY 8th ed typical range; leaves from stems
+chopped parsley,1.0,,seed,purchased pre-chopped; no further trim
+mushrooms,0.97,,book_of_yields,BoY 8th ed typical range; trimmed
+zucchini,0.95,,book_of_yields,BoY 8th ed typical range; trimmed
+sweet potato,0.80,,book_of_yields,BoY 8th ed typical range; peeled
+russet potato,0.78,,book_of_yields,BoY 8th ed typical range; peeled
+ribeye steak,0.88,0.25,book_of_yields,BoY 8th ed typical range; grilled to medium; cook-loss 22-28% typical
+new york strip,0.90,0.25,book_of_yields,BoY 8th ed typical range; grilled to medium; cook-loss 22-28%
+filet mignon,0.92,0.22,book_of_yields,BoY 8th ed typical range; grilled to medium; cook-loss 20-25%
+ground beef 80 20,1.0,0.28,book_of_yields,industry avg; 80/20 cook-loss 25-32% typical
+ground beef 73 27,1.0,0.32,book_of_yields,industry avg; 73/27 cook-loss 30-35% typical
+ground beef 90 10,1.0,0.24,book_of_yields,industry avg; 90/10 cook-loss 20-28% typical
+chicken breast,0.98,0.27,book_of_yields,BoY 8th ed typical range; boneless skinless; roasted/grilled
+chicken thigh,0.97,0.25,book_of_yields,BoY 8th ed typical range; boneless skinless; roasted/grilled
+pork loin,0.93,0.25,book_of_yields,BoY 8th ed typical range; trimmed; roasted to medium
+pork chop,0.90,0.25,book_of_yields,BoY 8th ed typical range; trimmed; grilled to medium
+bacon,1.0,0.70,book_of_yields,pan-fried to crisp; bacon loses 65-75% weight typical
+salmon fillet,0.93,0.18,book_of_yields,BoY 8th ed typical range; pin-bones removed skin-on; baked/seared
+salmon skinless,0.88,0.20,book_of_yields,BoY 8th ed typical range; baked/seared
+cod fillet,0.94,0.15,book_of_yields,BoY 8th ed typical range; baked
+shrimp,0.60,0.15,book_of_yields,BoY 8th ed typical range; peeled & deveined; sauteed/grilled
+pork butt,0.85,0.30,book_of_yields,BoY 8th ed typical range; trimmed; braised/smoked cook-loss 25-35%
+beef cheeks,0.90,0.35,book_of_yields,industry avg; trimmed; braised cook-loss 30-40% typical
+chicken wings,1.0,0.25,book_of_yields,BoY 8th ed typical range; pre-cut wings; roasted/fried
+anchovy,1.0,,seed,purchased cured / oil-packed; no trim
+yellow onions,0.82,,book_of_yields,BoY 8th ed typical range; plural-of yellow onion
+red onions,0.82,,book_of_yields,BoY 8th ed typical range; plural-of red onion
+white onions,0.82,,book_of_yields,BoY 8th ed typical range; peeled & trimmed
+large onions,0.82,,book_of_yields,BoY 8th ed typical range; peeled & trimmed
+large white onions,0.82,,book_of_yields,BoY 8th ed typical range; peeled & trimmed
+diced red onion,1.0,,seed,purchased pre-diced; no further trim
+diced white onions,1.0,,seed,purchased pre-diced; no further trim
+diced bell pepper,1.0,,seed,purchased pre-diced; no further trim
+shallots,0.85,,book_of_yields,BoY 8th ed typical range; plural-of shallot
+jalapeno,0.73,,book_of_yields,BoY 8th ed typical range; singular spelling; stemmed and seeded
+green cabbage,0.80,,book_of_yields,BoY 8th ed typical range; trimmed & cored
+red cabbage,0.80,,book_of_yields,BoY 8th ed typical range; trimmed & cored
+tomatoes,0.92,,book_of_yields,BoY 8th ed typical range; plural-of tomato; cored
+roma tomatoes,0.92,,book_of_yields,BoY 8th ed typical range; plural-of roma tomato; cored
+tomatillos,0.90,,book_of_yields,BoY 8th ed typical range; husked and rinsed
+whole tomatillos,0.90,,book_of_yields,BoY 8th ed typical range; husked and rinsed
+scallion greens,0.95,,book_of_yields,BoY 8th ed typical range; sliced greens from trimmed whole scallion
+scallion whites,0.60,,book_of_yields,BoY 8th ed typical range; whites only from whole scallion
+green chile,0.77,,book_of_yields,BoY 8th ed typical range; stemmed and seeded; Hatch/NM type
+green chiles with juice,1.0,,seed,canned/jarred diced green chiles incl. packing juice; no trim
+arbol chiles,1.0,,seed,dried whole chiles; no trim
+calabrian chile,1.0,,seed,jarred chiles in oil; no trim
+guajillo peppers,0.90,,book_of_yields,BoY 8th ed typical range; dried; stemmed and seeded
+sweet corn kernels,0.28,,book_of_yields,BoY 8th ed typical range; kernels from whole cob incl. cob waste
+rosemary sprigs,0.60,,book_of_yields,BoY 8th ed typical range; leaves stripped from stems
+thyme sprigs,0.55,,book_of_yields,BoY 8th ed typical range; leaves stripped from stems
+eggs,0.89,,book_of_yields,BoY 8th ed typical range; edible fraction from whole shelled egg
+milk,1.0,,seed,liquid dairy; no trim
+whole milk,1.0,,seed,liquid dairy; no trim
+sour cream,1.0,,seed,composed dairy; no trim
+cream cheese,1.0,,seed,composed dairy; no trim
+clarified butter,1.0,,seed,composed / no trim after clarification
+cheddar cheese,1.0,,seed,pre-cut / purchased block; no trim
+cheddar cheese slices,1.0,,seed,pre-sliced cheese; no trim
+shredded cheddar,1.0,,seed,pre-shredded; no trim
+shredded double gloucester or cheddar,1.0,,seed,pre-shredded; no trim
+provolone slices,1.0,,seed,pre-sliced cheese; no trim
+american cheese block,1.0,,seed,processed cheese block; no trim
+bleu cheese crumbles,1.0,,seed,pre-crumbled; no trim
+artisan bread slices,1.0,,seed,pre-sliced bread; no trim
+pepitas,1.0,,seed,hulled pumpkin seeds; no trim
+capers,1.0,,seed,brined; no trim
+bread and butter pickles,1.0,,seed,pickled cucumber product; no trim
+bread and butter pickle juice,1.0,,seed,pickle brine; liquid ingredient
+drained pickle relish,1.0,,seed,pickled product; drained as directed; no further trim
+agave,1.0,,seed,liquid sweetener; no trim
+chicken stock,1.0,,seed,liquid; no trim
+chicken base,1.0,,seed,concentrated paste; no trim
+chipotle aioli,1.0,,seed,composed sauce; no trim
+chipotle puree,1.0,,seed,composed / blended; no trim
+adobo puree,1.0,,seed,composed / blended; no trim
+achiote paste,1.0,,seed,composed paste; no trim
+blackened salsa,1.0,,seed,composed sauce; no trim
+cooked black beans,1.0,,seed,pre-cooked; no further yield loss
+cornbread mixture,1.0,,seed,composed batter / mixture; no trim
+orange juice,1.0,,seed,liquid; no trim
+vanilla,1.0,,seed,extract; no trim
+vinegar,1.0,,seed,generic vinegar; liquid; no trim
+vodka,1.0,,seed,liquor; no trim
+rye whiskey,1.0,,seed,liquor; no trim
+stout beer,1.0,,seed,liquid; no trim
+dry white wine,1.0,,seed,liquid; no trim
+mae ploy sweet chili sauce,1.0,,seed,composed sauce; no trim
+franks hot sauce,1.0,,seed,composed sauce; no trim
+sriracha,1.0,,seed,composed sauce; no trim
+tabasco,1.0,,seed,composed sauce; no trim
+ketchup,1.0,,seed,composed sauce; no trim
+mustard,1.0,,seed,generic prepared mustard; no trim
+spicy brown mustard,1.0,,seed,composed sauce; no trim
+worcestershire,1.0,,seed,composed sauce; alt spelling of worcestershire sauce; no trim
+sachet,1.0,,seed,aromatic bundle; used whole and discarded; accounted at 1.0 for costing
+oil,1.0,,seed,generic cooking oil; no trim
+bacon lard,1.0,,seed,rendered fat; no trim
+brown sugar,1.0,,seed,no trim / composed or liquid ingredient
+white sugar,1.0,,seed,no trim / composed or liquid ingredient
+turbinado sugar,1.0,,seed,no trim / composed or liquid ingredient
+granulated garlic,1.0,,seed,dried / no trim
+coarse salt,1.0,,seed,no trim / composed or liquid ingredient
+coriander,1.0,,seed,ground spice; no trim
+cracked pepper,1.0,,seed,no trim / composed or liquid ingredient
+ground black pepper,1.0,,seed,no trim / composed or liquid ingredient
+ground cumin,1.0,,seed,no trim / composed or liquid ingredient
+smoked paprika,1.0,,seed,no trim / composed or liquid ingredient
+dried oregano,1.0,,seed,no trim / composed or liquid ingredient
+dry thyme,1.0,,seed,alt spelling of dried thyme; no trim
+tarragon,1.0,,seed,treated as dried for default yield; no trim
+nutmeg,1.0,,seed,ground spice; no trim
+red chili flakes,1.0,,seed,dried / no trim
+furikake seasoning,1.0,,seed,dry seasoning blend; no trim

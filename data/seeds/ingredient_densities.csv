@@ -1,0 +1,64 @@
+ingredient_name,g_per_ml,source,notes
+water,1.00,seed,physics; not a culinary reference value
+lime juice,1.01,seed,approx; verify in-house
+lemon juice,1.02,seed,approx; verify in-house
+buttermilk,1.03,seed,approx; dairy ref
+milk 2%,1.03,seed,approx; dairy ref
+apple cider vinegar,1.01,seed,approx; verify in-house
+white vinegar,1.01,seed,approx; verify in-house
+rice vinegar,1.01,seed,approx; verify in-house
+red wine vinegar,1.01,seed,approx; verify in-house
+soy sauce,1.15,seed,approx; typical salinity
+worcestershire sauce,1.10,seed,approx; verify in-house
+olive oil,0.92,seed,industry avg for refined olive oil
+evoo,0.92,seed,extra virgin olive oil; same density class as olive oil
+canola oil,0.92,seed,industry avg
+vegetable oil,0.92,seed,industry avg
+sesame oil,0.92,seed,industry avg
+melted butter,0.91,seed,approx at 40C
+heavy cream,1.01,seed,approx; dairy ref
+half and half,1.01,seed,approx; dairy ref
+honey,1.42,seed,standard culinary ref
+maple syrup,1.32,seed,standard culinary ref grade A
+corn syrup,1.38,seed,standard culinary ref
+granulated sugar,0.85,seed,bulk density; approx; verify in-house
+brown sugar packed,0.93,seed,approx when packed; verify in-house
+powdered sugar sifted,0.56,seed,bulk density; approx; verify in-house
+ap flour,0.53,seed,unsifted bulk density; approx; verify in-house
+bread flour,0.53,seed,bulk density; approx; verify in-house
+cornmeal,0.65,seed,bulk density; approx; verify in-house
+cornstarch,0.63,seed,bulk density; approx; verify in-house
+baking soda,0.69,seed,bulk density; approx
+baking powder,0.83,seed,bulk density; approx
+kosher salt,0.59,seed,Diamond Crystal; approx; Morton is ~0.96 — brand matters
+kosher salt diamond crystal,0.59,seed,approx; verify in-house
+kosher salt morton,0.96,seed,approx; verify in-house
+table salt,1.22,seed,fine grain; approx; verify in-house
+salt,1.22,seed,fine table salt default; approx
+cumin,0.48,seed,ground; bulk density; approx; verify in-house
+chili powder,0.51,seed,bulk density; approx; verify in-house
+paprika,0.46,seed,bulk density; approx; verify in-house
+black pepper,0.52,seed,ground; bulk density; approx; verify in-house
+pepper,0.52,seed,ground black pepper default; approx
+white pepper,0.52,seed,ground; bulk density; approx; verify in-house
+cayenne,0.46,seed,bulk density; approx; verify in-house
+cinnamon,0.50,seed,ground; bulk density; approx; verify in-house
+onion powder,0.55,seed,bulk density; approx; verify in-house
+garlic powder,0.66,seed,bulk density; approx; verify in-house
+dried thyme,0.14,seed,bulk density; approx; verify in-house
+dried rosemary,0.20,seed,bulk density; approx; verify in-house
+dried parsley,0.14,seed,bulk density; approx; verify in-house
+dried dill,0.25,seed,bulk density; approx; verify in-house
+whole cloves,0.57,seed,bulk density; approx; verify in-house
+ground cloves,0.57,seed,bulk density; approx; verify in-house
+diced onion,0.56,seed,medium dice; approx; verify in-house
+chopped tomato,0.98,seed,approx; verify in-house
+minced garlic,0.66,seed,packed; approx; verify in-house
+chopped cilantro,0.13,seed,loose pack; approx; verify in-house
+chopped parsley,0.14,seed,loose pack; approx; verify in-house
+sliced jalapenos,0.41,seed,approx; verify in-house
+mayonnaise,0.91,seed,approx; verify in-house
+dijon mustard,1.04,seed,approx; verify in-house
+yellow mustard,1.05,seed,approx; verify in-house
+prepared horseradish,1.00,seed,approx; verify in-house
+lariat rub,0.55,seed,house spice blend; approx; treat as dry mix
