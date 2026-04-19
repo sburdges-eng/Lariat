@@ -38,6 +38,7 @@ from pathlib import Path
 import xlrd
 
 ROOT = Path(__file__).resolve().parent.parent
+# Originals were moved to ~/Dev/_archives/lariat-pre-scrub-2026-04-18/ on 2026-04-18; this script reads them in place.
 DEFAULT_XLS = (
     Path("/Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18/data/")
     / "originals/shamrock/Price List-2025.xls"
@@ -106,6 +107,9 @@ def parse_pack(pack_str: str) -> tuple[float | None, str]:
             return None, unit
     if not any_num:
         return None, unit
+    if qty == 0:
+        # e.g. '0/1/LB' — treat as parse failure rather than silently NULLing unit_price
+        return None, unit
     return qty, unit
 
 
@@ -139,15 +143,28 @@ def humanize_ingredient(desc: str) -> str:
     return s
 
 
-def extract_rows(xls_path: Path) -> list[dict]:
+def extract_rows(xls_path: Path) -> tuple[list[dict], dict[str, int]]:
+    """Parse the .xls and return (rows, skip_counts).
+
+    skip_counts is keyed by reason: 'short_row', 'empty_desc', 'non_numeric_idx',
+    'no_price'. Callers should log it for visibility on small ingests.
+    """
     wb = xlrd.open_workbook(str(xls_path))
     sh = wb.sheet_by_name("pricesheet") if "pricesheet" in wb.sheet_names() \
         else wb.sheet_by_index(0)
 
     rows: list[dict] = []
+    skipped = {
+        "short_row": 0,
+        "empty_desc": 0,
+        "non_numeric_idx": 0,
+        "no_price": 0,
+    }
     for r in range(2, sh.nrows):
         row = sh.row_values(r)
         if len(row) < 8:
+            skipped["short_row"] += 1
+            print(f"skip row {r}: short row (len={len(row)})", file=sys.stderr)
             continue
         # Column layout: ['', '#', 'Product #', 'Description', 'Pack Size',
         #                 'Brand', 'Price', 'Unit']
@@ -155,9 +172,13 @@ def extract_rows(xls_path: Path) -> list[dict]:
             row[1], row[2], row[3], row[4], row[5], row[6], row[7],
         )
         if not desc or not str(desc).strip():
+            skipped["empty_desc"] += 1
+            print(f"skip row {r}: empty description", file=sys.stderr)
             continue
         if not isinstance(idx, (int, float)):
             # Skip subtotal/section rows (none present in 2025 file but be safe)
+            skipped["non_numeric_idx"] += 1
+            print(f"skip row {r}: non-numeric idx={idx!r}", file=sys.stderr)
             continue
 
         sku_str = str(sku).strip()
@@ -169,27 +190,34 @@ def extract_rows(xls_path: Path) -> list[dict]:
         unit_token = str(unit_cell).strip().upper()
 
         if price is None:
+            skipped["no_price"] += 1
+            print(
+                f"skip row {r}: no price (sku={sku_str!r} desc={str(desc)[:40]!r})",
+                file=sys.stderr,
+            )
             continue
 
+        # parse_pack guarantees pack_qty is either None or > 0, so a simple
+        # `is not None` test is sufficient (no falsy-vs-positive ambiguity).
         # Apply per-unit semantics
         if unit_token == "CS":
             pack_price = price
-            unit_price = price / pack_qty if pack_qty and pack_qty > 0 else None
+            unit_price = price / pack_qty if pack_qty is not None else None
         elif unit_token == "LB":
             # Catch-weight: price is $/lb; pack_qty is approx weight in lbs
             unit_price = price
-            pack_price = price * pack_qty if pack_qty and pack_qty > 0 else None
+            pack_price = price * pack_qty if pack_qty is not None else None
             pack_unit = "lb"  # force; source pack like '3/10/LBAV'
         elif unit_token == "EA":
             pack_price = price
-            if pack_qty and pack_qty > 1:
+            if pack_qty is not None and pack_qty > 1:
                 unit_price = price / pack_qty
             else:
                 unit_price = price
         else:
             # Unknown unit — store as best we can
             pack_price = price
-            unit_price = price / pack_qty if pack_qty and pack_qty > 0 else None
+            unit_price = price / pack_qty if pack_qty is not None else None
 
         rows.append({
             "ingredient": humanize_ingredient(desc),
@@ -201,68 +229,73 @@ def extract_rows(xls_path: Path) -> list[dict]:
             "unit_price": unit_price,
             "category": None,
         })
-    return rows
+    return rows, skipped
 
 
 def upsert(db_path: Path, rows: list[dict], dry_run: bool) -> tuple[int, int]:
-    con = sqlite3.connect(str(db_path))
-    cur = con.cursor()
-    before = cur.execute(
-        "SELECT COUNT(*) FROM vendor_prices WHERE vendor='shamrock' "
-        "AND location_id='default';"
-    ).fetchone()[0]
+    with sqlite3.connect(str(db_path)) as con:
+        cur = con.cursor()
+        before = cur.execute(
+            "SELECT COUNT(*) FROM vendor_prices WHERE vendor='shamrock' "
+            "AND location_id='default';"
+        ).fetchone()[0]
 
-    if dry_run:
-        con.close()
-        return before, len(rows)
+        if dry_run:
+            return before, len(rows)
 
-    cur.execute(
-        "DELETE FROM vendor_prices WHERE vendor='shamrock' "
-        "AND location_id='default';"
-    )
-    cur.executemany(
-        """INSERT INTO vendor_prices
-           (ingredient, vendor, sku, pack_size, pack_unit,
-            pack_price, unit_price, category)
-           VALUES (:ingredient, :vendor, :sku, :pack_size, :pack_unit,
-                   :pack_price, :unit_price, :category)""",
-        rows,
-    )
-    con.commit()
-    after = cur.execute(
-        "SELECT COUNT(*) FROM vendor_prices WHERE vendor='shamrock' "
-        "AND location_id='default';"
-    ).fetchone()[0]
-    con.close()
-    return before, after
+        # Wrap DELETE+INSERT in a single transaction. If the INSERT raises,
+        # rollback so we don't leave the table empty.
+        try:
+            cur.execute("BEGIN;")
+            cur.execute(
+                "DELETE FROM vendor_prices WHERE vendor='shamrock' "
+                "AND location_id='default';"
+            )
+            cur.executemany(
+                """INSERT INTO vendor_prices
+                   (ingredient, vendor, location_id, sku, pack_size, pack_unit,
+                    pack_price, unit_price, category)
+                   VALUES (:ingredient, :vendor, :location_id, :sku,
+                           :pack_size, :pack_unit, :pack_price, :unit_price,
+                           :category)""",
+                [{**r, "location_id": "default"} for r in rows],
+            )
+            con.commit()
+        except Exception:
+            con.rollback()
+            raise
+        after = cur.execute(
+            "SELECT COUNT(*) FROM vendor_prices WHERE vendor='shamrock' "
+            "AND location_id='default';"
+        ).fetchone()[0]
+        return before, after
 
 
 def report(db_path: Path) -> None:
-    con = sqlite3.connect(str(db_path))
-    cur = con.cursor()
-    print("\nSample 5 shamrock rows:")
-    for r in cur.execute(
-        "SELECT ingredient, sku, pack_size, pack_unit, pack_price, unit_price "
-        "FROM vendor_prices WHERE vendor='shamrock' "
-        "ORDER BY ingredient LIMIT 5;"
-    ):
-        print(" ", r)
-    n_null_pack = cur.execute(
-        "SELECT COUNT(*) FROM vendor_prices WHERE vendor='shamrock' "
-        "AND (pack_size IS NULL);"
-    ).fetchone()[0]
-    n_null_price = cur.execute(
-        "SELECT COUNT(*) FROM vendor_prices WHERE vendor='shamrock' "
-        "AND (pack_price IS NULL);"
-    ).fetchone()[0]
-    n_null_unit_price = cur.execute(
-        "SELECT COUNT(*) FROM vendor_prices WHERE vendor='shamrock' "
-        "AND (unit_price IS NULL);"
-    ).fetchone()[0]
-    print(f"\nNULL pack_size:  {n_null_pack}")
-    print(f"NULL pack_price: {n_null_price}")
-    print(f"NULL unit_price: {n_null_unit_price}")
-    con.close()
+    with sqlite3.connect(str(db_path)) as con:
+        cur = con.cursor()
+        print("\nSample 5 shamrock rows:")
+        for r in cur.execute(
+            "SELECT ingredient, sku, pack_size, pack_unit, pack_price, unit_price "
+            "FROM vendor_prices WHERE vendor='shamrock' "
+            "ORDER BY ingredient LIMIT 5;"
+        ):
+            print(" ", r)
+        n_null_pack = cur.execute(
+            "SELECT COUNT(*) FROM vendor_prices WHERE vendor='shamrock' "
+            "AND (pack_size IS NULL);"
+        ).fetchone()[0]
+        n_null_price = cur.execute(
+            "SELECT COUNT(*) FROM vendor_prices WHERE vendor='shamrock' "
+            "AND (pack_price IS NULL);"
+        ).fetchone()[0]
+        n_null_unit_price = cur.execute(
+            "SELECT COUNT(*) FROM vendor_prices WHERE vendor='shamrock' "
+            "AND (unit_price IS NULL);"
+        ).fetchone()[0]
+        print(f"\nNULL pack_size:  {n_null_pack}")
+        print(f"NULL pack_price: {n_null_price}")
+        print(f"NULL unit_price: {n_null_unit_price}")
 
 
 def main() -> int:
@@ -279,8 +312,14 @@ def main() -> int:
         print(f"ERROR: missing db {args.db}", file=sys.stderr)
         return 2
 
-    rows = extract_rows(args.xls)
+    rows, skipped = extract_rows(args.xls)
     print(f"Parsed {len(rows)} rows from {args.xls.name}")
+    total_skipped = sum(skipped.values())
+    print(f"Skipped: {total_skipped}", file=sys.stderr)
+    if total_skipped:
+        for reason, n in skipped.items():
+            if n:
+                print(f"  {reason}: {n}", file=sys.stderr)
     before, after = upsert(args.db, rows, args.dry_run)
     print(f"shamrock vendor_prices count: before={before}  after={after}"
           + ("  (dry-run)" if args.dry_run else ""))
