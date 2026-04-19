@@ -1,0 +1,9 @@
+ingredient,qty,unit,portions_per_batch,notes
+orange juice,2,cup,~1 gal,PDF p41
+lime juice,2,cup,~1 gal,
+cumin,0.25,cup,~1 gal,PDF literal "1/4 cumin"; cup inferred
+adobo seasoning,0.25,cup,~1 gal,PDF literal "1/4 Adobo seasoning"; cup inferred
+pepper,0.25,cup,~1 gal,
+chopped garlic,0.25,cup,~1 gal,
+garlic powder,0.25,cup,~1 gal,
+cilantro,1,bunch,~1 gal,PDF: "1 bushel/bundle of cilantro"

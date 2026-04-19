@@ -1,0 +1,823 @@
+import { getDb, todayISO } from './db';
+import {
+  getStations,
+  getLineCheckTemplate,
+  getRecipes,
+  getMenu,
+  getFoodSafety,
+  getVendorSummary,
+  getLaborSummary,
+  getAllergenMatrix,
+  getStaff,
+} from './data';
+import type { Recipe, AllergenMatrix, Station } from './data';
+import type { Database as DB } from 'better-sqlite3';
+
+const MAX_86 = 40;
+const MAX_INV = 20;
+const MAX_RECIPES_IN_CONTEXT = 5;
+const MAX_ING_CHARS = 500;
+const MAX_CONTEXT_CHARS = 12000;
+
+const FOOD_SAFETY_KEYWORDS = [
+  'temp', 'temperature', 'holding', 'cool', 'reheat', 'haccp',
+  'safe', 'food safety', '165', '155', '145', '140', '41',
+];
+const HISTORY_KEYWORDS = ['often', 'history', 'frequent', 'always', 'most', 'past'];
+const VENDOR_KEYWORDS = [
+  'sysco', 'vendor', 'order', 'supplier', 'brand', 'purchase', 'catalog', 'case',
+];
+const LABOR_KEYWORDS = [
+  'labor', 'staff', 'schedule', '7shift', 'hours', 'overtime',
+];
+const GOLD_STAR_KEYWORDS = [
+  'recognition', 'gold star', 'gold', 'award', 'praise', 'kudos', 'star',
+];
+const EQUIPMENT_KEYWORDS = [
+  'equipment', 'warranty', 'maintenance', 'service', 'broken', 'repair', 'down',
+];
+
+const STALE_BEO_WINDOW_DAYS = 2;
+const REPEAT_86_WINDOW_DAYS = 7;
+const REPEAT_86_MIN_DAYS = 3;
+const WARRANTY_WINDOW_DAYS = 30;
+
+const MAX_FAILED_LINE_ITEMS = 20;
+const MAX_MISSING_SIGNOFFS = 10;
+const MAX_EQUIPMENT_DOWN = 15;
+const MAX_STALE_BEO = 20;
+const MAX_REPEAT_86 = 10;
+const MAX_GOLD_STARS = 10;
+const MAX_WARRANTIES = 10;
+
+const DAILY_SALES_TREND_WINDOW_DAYS = 7;
+
+export interface ContextSource {
+  type: string;
+  detail: string;
+}
+
+export interface GroundedContext {
+  contextText: string;
+  sources: ContextSource[];
+}
+
+export function buildGroundedContext(locationId: string, userQuestion: string): GroundedContext {
+  const date = todayISO();
+  const db = getDb();
+  const sources: ContextSource[] = [];
+  const qLower = (userQuestion || '').toLowerCase().trim();
+
+  // ── 86s ──────────────────────────────────────────────────────────
+  const active86 = db
+    .prepare(
+      `SELECT item, station_id, reason, quantity, created_at FROM eighty_six
+       WHERE shift_date = ? AND resolved_at IS NULL AND location_id = ?
+       ORDER BY id DESC LIMIT ?`
+    )
+    .all(date, locationId, MAX_86) as { item: string; station_id: string | null; reason: string | null; quantity: string | null; created_at: string }[];
+  sources.push({ type: 'eighty_six', detail: `${active86.length} active (today)` });
+
+  // ── Inventory ────────────────────────────────────────────────────
+  const inv = db
+    .prepare(
+      `SELECT item, direction, delta, station_id, note, created_at FROM inventory_updates
+       WHERE shift_date = ? AND location_id = ?
+       ORDER BY id DESC LIMIT ?`
+    )
+    .all(date, locationId, MAX_INV) as { item: string; direction: string | null; delta: string | null; station_id: string | null; note: string | null; created_at: string }[];
+  sources.push({ type: 'inventory', detail: `${inv.length} rows (today)` });
+
+  // ── Sign-offs ────────────────────────────────────────────────────
+  const signoffs = db
+    .prepare(
+      `SELECT station_id, cook_id, created_at FROM station_signoffs
+       WHERE shift_date = ? AND location_id = ? ORDER BY id ASC`
+    )
+    .all(date, locationId) as { station_id: string; cook_id: string; created_at: string }[];
+  sources.push({ type: 'signoffs', detail: `${signoffs.length} sign-off(s) (today)` });
+
+  // ── Line checks ──────────────────────────────────────────────────
+  const stations = getStations();
+  interface LineSummary {
+    station: string;
+    station_id: string;
+    checked: number;
+    total: number;
+    fail: number;
+  }
+  const lineSummary: LineSummary[] = [];
+  for (const s of stations) {
+    if (!s.line_check_key) continue;
+    const template = getLineCheckTemplate(s.line_check_key);
+    if (!template.length) continue;
+    const rows = db
+      .prepare(
+        `SELECT item, status FROM line_check_entries
+         WHERE shift_date = ? AND station_id = ? AND location_id = ?
+         ORDER BY id ASC`
+      )
+      .all(date, s.id, locationId) as { item: string; status: string }[];
+    const byItem = new Map<string, string>();
+    for (const r of rows) byItem.set(r.item, r.status);
+    let done = 0;
+    let fail = 0;
+    for (const item of template) {
+      const st = byItem.get(item);
+      if (st === 'pass' || st === 'fail' || st === 'na') {
+        done++;
+        if (st === 'fail') fail++;
+      }
+    }
+    lineSummary.push({
+      station: s.name,
+      station_id: s.id,
+      checked: done,
+      total: template.length,
+      fail,
+    });
+  }
+  sources.push({ type: 'line_checks', detail: `${lineSummary.length} station(s) with templates` });
+
+  // ── Recipes (with menu-item and sub-recipe expansion) ────────────
+  const recipes = getRecipes();
+  const menu = getMenu();
+  const allergenMatrix = getAllergenMatrix();
+
+  const menuMatchedSlugs = resolveMenuItemsToRecipes(qLower, menu, recipes);
+  const picked = pickRelevantRecipes(qLower, recipes, MAX_RECIPES_IN_CONTEXT, menuMatchedSlugs);
+
+  const subRecipeSlugs = new Set<string>();
+  for (const r of picked) {
+    for (const slug of r.sub_recipes || []) {
+      if (!picked.some((p) => p.slug === slug)) {
+        subRecipeSlugs.add(slug);
+      }
+    }
+  }
+  const subRecipes: Recipe[] = [];
+  for (const slug of subRecipeSlugs) {
+    const found = recipes.find((r) => r.slug === slug);
+    if (found) subRecipes.push(found);
+  }
+
+  if (picked.length) {
+    const allNames = [...picked, ...subRecipes].map((r) => r.name);
+    sources.push({ type: 'recipes', detail: allNames.join(', ') });
+  }
+
+  // ── Build context text ───────────────────────────────────────────
+  let text = `DATE: ${date} (shift_date in database)\nLOCATION_ID: ${locationId}\n\n`;
+
+  text += 'ACTIVE 86 (unresolved, today):\n';
+  if (!active86.length) text += '  (none)\n';
+  else {
+    for (const e of active86) {
+      text += `  - ${e.item}${e.station_id ? ` @ ${e.station_id}` : ''}${e.reason ? ` | ${e.reason}` : ''}${e.quantity ? ` | qty ${e.quantity}` : ''}\n`;
+    }
+  }
+
+  text += '\nRECENT INVENTORY UPDATES (today, newest first):\n';
+  if (!inv.length) text += '  (none)\n';
+  else {
+    for (const u of inv) {
+      const bits = [u.direction, u.delta, u.station_id, u.note].filter(Boolean).join(' · ');
+      text += `  - ${u.item}${bits ? ` | ${bits}` : ''}\n`;
+    }
+  }
+
+  // ── Staff Roster ─────────────────────────────────────────────────
+  const roster = getStaff().filter((s: any) => s.active !== false);
+  if (roster.length) {
+    text += '\nACTIVE STAFF ROSTER (Use exact full names for Gold Stars or HR actions):\n';
+    for (const s of roster) {
+      text += `  - ${s.first} ${s.last} (ID: ${s.id})\n`;
+    }
+    sources.push({ type: 'staff_roster', detail: `${roster.length} active staff` });
+  }
+
+  text += '\nSTATION SIGN-OFFS (today):\n';
+  if (!signoffs.length) text += '  (none)\n';
+  else {
+    for (const so of signoffs) {
+      text += `  - ${so.station_id} by ${so.cook_id}\n`;
+    }
+  }
+
+  text += '\nLINE CHECK PROGRESS (today, from database vs template counts):\n';
+  for (const ls of lineSummary) {
+    text += `  - ${ls.station} (${ls.station_id}): ${ls.checked}/${ls.total} items recorded`;
+    if (ls.fail) text += `, ${ls.fail} fail`;
+    text += '\n';
+  }
+
+  // ── Oversight: failed line-check items (itemized) ────────────────
+  const failures = renderLineCheckFailures(db, locationId, date);
+  text += failures.text;
+  if (failures.source) sources.push(failures.source);
+
+  // ── Oversight: stations without sign-off ─────────────────────────
+  const missingSignoffs = renderMissingSignoffs(db, locationId, date, stations);
+  text += missingSignoffs.text;
+  if (missingSignoffs.source) sources.push(missingSignoffs.source);
+
+  // ── Oversight: equipment out of service ──────────────────────────
+  const equipDown = renderEquipmentDown(db, locationId);
+  text += equipDown.text;
+  if (equipDown.source) sources.push(equipDown.source);
+
+  // ── Oversight: repeat 86s (systemic supply/prep issue) ───────────
+  const repeat86 = renderRepeat86s(db, locationId);
+  text += repeat86.text;
+  if (repeat86.source) sources.push(repeat86.source);
+
+  // ── Sales Velocities ─────────────────────────────────────────────
+  const sales = db.prepare(`SELECT item_name, SUM(quantity_sold) as qty FROM sales_lines WHERE location_id = ? GROUP BY item_name ORDER BY qty DESC LIMIT 15`).all(locationId) as { item_name: string; qty: number }[];
+  if (sales.length) {
+    text += '\nSALES VELOCITY (Historical volume to calculate dynamic prep against):\n';
+    for (const s of sales) {
+      if (s.qty) text += `  - ${s.item_name}: ${Math.round(s.qty)} units sold\n`;
+    }
+    sources.push({ type: 'sales_velocity', detail: 'Top 15 items' });
+  }
+
+  // ── Daily sales trend (Toast) ────────────────────────────────────
+  const trend = renderDailySalesTrend(db, locationId, date);
+  text += trend.text;
+  if (trend.source) sources.push(trend.source);
+
+  // ── Recipe snippets ──────────────────────────────────────────────
+  text += '\nRECIPES (Isolated in XML tags - do not cross-reference ingredients between tags):\n';
+  if (!picked.length) {
+    text += '  (no recipe matched — do not invent recipe or allergen facts)\n';
+  } else {
+    for (const r of picked) {
+      text += formatRecipeSnippet(r, allergenMatrix, false);
+    }
+    if (subRecipes.length) {
+      text += '  SUB-RECIPES (referenced by above):\n';
+      for (const r of subRecipes) {
+        text += formatRecipeSnippet(r, allergenMatrix, true);
+      }
+    }
+  }
+
+  // ── Conditional: HACCP / Food Safety ─────────────────────────────
+  if (matchesKeywords(qLower, FOOD_SAFETY_KEYWORDS)) {
+    const safety = getFoodSafety();
+    const ccps = safety.ccps || [];
+    if (ccps.length) {
+      text += '\nHACCP CRITICAL CONTROL POINTS:\n';
+      for (const c of ccps) {
+        text += `  - [${c.ccp_id}] ${c.critical_control_point}\n`;
+        text += `    hazard: ${c.hazard} | limit: ${c.critical_limit}\n`;
+        text += `    monitor: ${c.monitoring_procedure}\n`;
+        text += `    corrective: ${c.corrective_action}\n`;
+      }
+      sources.push({ type: 'food_safety', detail: `${ccps.length} CCP(s)` });
+    }
+  }
+
+  // ── Conditional: Historical 86 ───────────────────────────────────
+  if (matchesKeywords(qLower, HISTORY_KEYWORDS)) {
+    const hist = db.prepare(
+      `SELECT item, COUNT(*) as freq FROM eighty_six 
+       WHERE location_id = ?
+       GROUP BY item ORDER BY freq DESC LIMIT 15`
+    ).all(locationId) as { item: string; freq: number }[];
+    if (hist.length) {
+      text += '\nHISTORICAL 86 FREQUENCY (Lifetime):\n';
+      for (const h of hist) {
+        text += `  - ${h.item}: 86'd ${h.freq} times\n`;
+      }
+      sources.push({ type: 'eighty_six_history', detail: `Top ${hist.length} flagged` });
+    }
+  }
+
+  // ── Conditional: Vendor / Sysco ──────────────────────────────────
+  if (matchesKeywords(qLower, VENDOR_KEYWORDS)) {
+    const vendor = getVendorSummary();
+    if (vendor?.sysco?.recent_items?.length) {
+      const items = vendor.sysco.recent_items.slice(0, 15);
+      text += '\nSYSCO RECENT ITEMS (top 15):\n';
+      for (const v of items) {
+        const parts = [v.description, v.category, v.pack_size, v.price != null ? `$${v.price}` : null]
+          .filter(Boolean)
+          .join(' | ');
+        text += `  - ${parts}\n`;
+      }
+      if (vendor.sysco.last_invoice_date) {
+        text += `  last invoice: ${vendor.sysco.last_invoice_date}\n`;
+      }
+      sources.push({ type: 'vendor_summary', detail: `${items.length} Sysco item(s)` });
+    }
+  }
+
+  // ── Conditional: Labor ───────────────────────────────────────────
+  if (matchesKeywords(qLower, LABOR_KEYWORDS)) {
+    const labor = getLaborSummary();
+    if (labor) {
+      text += '\nLABOR SUMMARY (from 7shifts export):\n';
+      text += `  period: ${labor.period || 'n/a'}\n`;
+      text += `  net sales: $${(labor.net_sales || 0).toLocaleString()}\n`;
+      text += `  labor cost: $${(labor.labor_cost || 0).toLocaleString()} (${((labor.labor_pct_net || 0) * 100).toFixed(1)}% of net)\n`;
+      if (labor.splh_net) text += `  SPLH (net): $${labor.splh_net}\n`;
+      if (labor.by_role?.length) {
+        text += '  by role:\n';
+        for (const r of labor.by_role) {
+          const otHrs = r.ot_hours || 0;
+          const ot = otHrs > 0 ? ` (${otHrs.toFixed(0)} OT)` : '';
+          text += `    - ${r.job_title || r.role}: ${(r.total_hours || 0).toFixed(0)} hrs${ot}, $${(r.total_cost || 0).toLocaleString()} (${((r.labor_pct_net || 0) * 100).toFixed(1)}% net)\n`;
+        }
+      }
+      if (labor.by_employee?.length) {
+        text += '  by employee (top 10 by hours):\n';
+        const sorted = [...labor.by_employee].sort((a: any, b: any) => (b.total_hours || 0) - (a.total_hours || 0)).slice(0, 10);
+        for (const e of sorted as any[]) {
+          const eOtHrs = e.ot_hours || 0;
+          const ot = eOtHrs > 0 ? ` (${eOtHrs.toFixed(0)} OT)` : '';
+          text += `    - ${e.first_name} ${e.last_name} (${e.job_title}): ${(e.total_hours || 0).toFixed(0)} hrs${ot}, $${(e.total_cost || 0).toLocaleString()}\n`;
+        }
+      }
+      sources.push({ type: 'labor_summary', detail: labor.period || 'loaded' });
+    }
+  }
+
+  // ── BEO Events & Prep ──────────────────────────────────────────────
+  const beos = db.prepare(`SELECT * FROM beo_events WHERE location_id = ? AND date(event_date) >= date(?) ORDER BY event_date ASC LIMIT 5`).all(locationId, date) as { id: number; title: string; event_date: string; guest_count: number; notes: string }[];
+  if (beos.length) {
+    text += '\nUPCOMING BANQUETS & PARTIES (BEO):\n';
+    const beoIds = beos.map(b => b.id);
+    const placeholders = beoIds.map(() => '?').join(',');
+    const allTasks = db.prepare(`SELECT * FROM beo_prep_tasks WHERE event_id IN (${placeholders}) ORDER BY sort_order`).all(...beoIds) as { event_id: number; task: string; done: number }[];
+    
+    for (const b of beos) {
+      text += `  - [BEO ID: ${b.id}] ${b.title} on ${b.event_date} (Covers: ${b.guest_count || 'TBD'})\n`;
+      if (b.notes) text += `    Notes: ${b.notes}\n`;
+      const pts = allTasks.filter(t => t.event_id === b.id);
+      if (pts.length) {
+        text += `    Prep List:\n`;
+        for (const pt of pts) {
+          text += `      [${pt.done ? 'DONE' : 'PENDING'}] ${pt.task}\n`;
+        }
+      } else {
+        text += `    Prep List: (none yet)\n`;
+      }
+    }
+    sources.push({ type: 'beo_events', detail: `${beos.length} upcoming party(s)` });
+  }
+
+  // ── Oversight: stale BEO prep (event within 2 days, not done) ────
+  const staleBeo = renderStaleBeoPrep(db, locationId, date);
+  text += staleBeo.text;
+  if (staleBeo.source) sources.push(staleBeo.source);
+
+  // ── Order Guide ──────────────────────────────────────────────────
+  const orderGuide = db.prepare(`SELECT * FROM order_guide_items WHERE location_id = ? ORDER BY ingredient LIMIT 20`).all(locationId) as { ingredient: string; base_qty: number; unit: string }[];
+  if (orderGuide.length) {
+    text += '\nORDER GUIDE (Items required for upcoming sysco drops):\n';
+    for (const og of orderGuide) {
+      text += `  - ${og.ingredient} (Target: ${og.base_qty} ${og.unit})\n`;
+    }
+    sources.push({ type: 'order_guide', detail: `${orderGuide.length} item(s)` });
+  }
+
+  // ── Conditional: Gold Stars / recognition ────────────────────────
+  if (matchesKeywords(qLower, GOLD_STAR_KEYWORDS)) {
+    const goldStars = renderGoldStars(db, locationId);
+    text += goldStars.text;
+    if (goldStars.source) sources.push(goldStars.source);
+  }
+
+  // ── Conditional: Equipment warranty expirations ──────────────────
+  if (matchesKeywords(qLower, EQUIPMENT_KEYWORDS)) {
+    const warranty = renderWarrantyAlerts(db, locationId);
+    text += warranty.text;
+    if (warranty.source) sources.push(warranty.source);
+  }
+
+  text +=
+    '\nNOT IN THIS CONTEXT: live POS, Toast totals, vendor pricing, full menu engineering, items not listed above.\n';
+
+  // ── Context budget truncation ────────────────────────────────────
+  if (text.length > MAX_CONTEXT_CHARS) {
+    text = text.slice(0, MAX_CONTEXT_CHARS - 30) + '\n… [context truncated]\n';
+  }
+
+  return { contextText: text, sources };
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+function resolveMenuItemsToRecipes(
+  qLower: string,
+  menu: { display_name: string }[],
+  recipes: Recipe[]
+): Set<string> {
+  const matchedSlugs = new Set<string>();
+
+  const mentionedMenuItems: string[] = [];
+  for (const mi of menu) {
+    const name = (mi.display_name || '').toLowerCase();
+    if (name.length > 2 && qLower.includes(name)) {
+      mentionedMenuItems.push(mi.display_name);
+    }
+  }
+
+  for (const r of recipes) {
+    for (const mi of r.menu_items || []) {
+      const miLower = (mi || '').toLowerCase();
+      if (miLower.length > 2 && qLower.includes(miLower)) {
+        matchedSlugs.add(r.slug);
+      }
+    }
+  }
+
+  for (const miName of mentionedMenuItems) {
+    for (const r of recipes) {
+      for (const rmi of r.menu_items || []) {
+        if (rmi.toLowerCase() === miName.toLowerCase()) {
+          matchedSlugs.add(r.slug);
+        }
+      }
+    }
+  }
+
+  return matchedSlugs;
+}
+
+function formatRecipeSnippet(r: Recipe, allergenMatrix: AllergenMatrix, isSub: boolean): string {
+  const type = isSub ? 'SUB-RECIPE' : 'RECIPE';
+  const allergens = (r.allergens || []).join(', ') || 'none tagged';
+  const ing = (r.ingredients || [])
+    .map((i) => `${i.item || ''} ${i.qty != null ? i.qty : ''} ${i.unit || ''}`.trim())
+    .join('; ');
+  const ingShort = ing.length > MAX_ING_CHARS ? `${ing.slice(0, MAX_ING_CHARS)}...` : ing;
+
+  let out = `<${type} name="${r.name}" slug="${r.slug || 'no-slug'}">\n`;
+  if (r.station) out += `  STATION: ${r.station}\n`;
+  if (r.yield_qty) out += `  YIELD: ${r.yield_qty} ${r.yield_unit || ''}\n`;
+  if (r.menu_items?.length) out += `  MENU ITEMS: ${r.menu_items.join(', ')}\n`;
+  if (r.sub_recipes?.length) out += `  SUB-RECIPES: ${r.sub_recipes.join(', ')}\n`;
+  out += `  ALLERGENS (TAGS): ${allergens}\n`;
+  out += `  INGREDIENTS: ${ingShort}\n`;
+
+  const matrixEntries = allergenMatrix[r.slug] || [];
+  const flagged = matrixEntries.filter((e) => e.big9?.length);
+  if (flagged.length) {
+    out += `  ALLERGEN DETAIL (INGREDIENT-LEVEL):\n`;
+    for (const entry of flagged) {
+      out += `    ${entry.ingredient} -> ${(entry.big9 || []).join(', ')}\n`;
+    }
+  }
+  
+  out += `</${type}>\n\n`;
+
+  return out;
+}
+
+function matchesKeywords(qLower: string, keywords: string[]): boolean {
+  for (const kw of keywords) {
+    if (qLower.includes(kw)) return true;
+  }
+  return false;
+}
+
+function pickRelevantRecipes(
+  question: string,
+  recipes: Recipe[],
+  max: number,
+  menuMatchedSlugs: Set<string>
+): Recipe[] {
+  const q = (question || '').toLowerCase().trim();
+  if (!q || !recipes.length) return [];
+
+  const words = [...new Set(q.split(/\W+/).filter((w) => w.length > 2))];
+  const scored = recipes.map((r) => {
+    let score = 0;
+
+    if (menuMatchedSlugs.has(r.slug)) score += 15;
+
+    const name = (r.name || '').toLowerCase();
+    if (name && q.includes(name)) score += 12;
+    for (const w of words) {
+      if (name.includes(w)) score += 4;
+    }
+
+    for (const mi of r.menu_items || []) {
+      const miLower = (mi || '').toLowerCase();
+      if (miLower && q.includes(miLower)) score += 10;
+      for (const w of words) {
+        if (miLower.includes(w)) score += 3;
+      }
+    }
+
+    const station = (r.station || '').toLowerCase();
+    for (const w of words) {
+      if (station.includes(w)) score += 2;
+    }
+
+    for (const i of r.ingredients || []) {
+      const it = (i.item || '').toLowerCase();
+      for (const w of words) {
+        if (it.includes(w)) score += 2;
+      }
+    }
+
+    for (const a of r.allergens || []) {
+      if (q.includes(String(a).toLowerCase())) score += 5;
+    }
+
+    return { r, score };
+  });
+
+  const top = scored
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, max)
+    .map((x) => x.r);
+
+  if (top.length) return top;
+
+  return recipes.filter((r) => nameMatches(r.name, q)).slice(0, max);
+}
+
+function nameMatches(name: string, q: string): boolean {
+  if (!name) return false;
+  const n = name.toLowerCase();
+  for (let len = Math.min(24, q.length); len >= 4; len--) {
+    const sub = q.slice(0, len);
+    if (sub.length >= 4 && n.includes(sub)) return true;
+  }
+  return false;
+}
+
+// ── Oversight renderers ──────────────────────────────────────────────
+//
+// Each returns { text, source }. `text` is '' and `source` null when the
+// section has no rows — the caller skips empty output to keep the prompt tight.
+
+interface OversightSection {
+  text: string;
+  source: ContextSource | null;
+}
+
+function renderLineCheckFailures(db: DB, locationId: string, date: string): OversightSection {
+  const rows = db
+    .prepare(
+      `SELECT station_id, item, note, cook_id FROM line_check_entries
+       WHERE shift_date = ? AND location_id = ? AND status = 'fail'
+       ORDER BY station_id, id ASC LIMIT ?`
+    )
+    .all(date, locationId, MAX_FAILED_LINE_ITEMS) as {
+    station_id: string;
+    item: string;
+    note: string | null;
+    cook_id: string | null;
+  }[];
+  if (!rows.length) return { text: '', source: null };
+  let text = '\nLINE CHECK FAILURES (today, itemized — manager should address):\n';
+  for (const r of rows) {
+    const bits = [r.note, r.cook_id ? `by ${r.cook_id}` : null].filter(Boolean).join(' · ');
+    text += `  - [${r.station_id}] ${r.item}${bits ? ` | ${bits}` : ''}\n`;
+  }
+  return { text, source: { type: 'line_check_failures', detail: `${rows.length} failure(s)` } };
+}
+
+function renderMissingSignoffs(
+  db: DB,
+  locationId: string,
+  date: string,
+  stations: Station[]
+): OversightSection {
+  const signedOff = new Set(
+    (db
+      .prepare(
+        `SELECT DISTINCT station_id FROM station_signoffs
+         WHERE shift_date = ? AND location_id = ?`
+      )
+      .all(date, locationId) as { station_id: string }[]).map((r) => r.station_id)
+  );
+  const missing = stations
+    .filter((s) => s.line_check_key && !signedOff.has(s.id))
+    .slice(0, MAX_MISSING_SIGNOFFS);
+  if (!missing.length) return { text: '', source: null };
+  let text = '\nSTATIONS WITHOUT SIGN-OFF (today — line-check stations only):\n';
+  for (const s of missing) text += `  - ${s.name} (${s.id})\n`;
+  return { text, source: { type: 'missing_signoffs', detail: `${missing.length} station(s)` } };
+}
+
+function renderEquipmentDown(db: DB, locationId: string): OversightSection {
+  const rows = db
+    .prepare(
+      `SELECT e.id, e.name, e.category, e.status,
+              m.service_date AS last_service_date, m.type AS last_service_type, m.notes AS last_service_notes
+       FROM equipment e
+       LEFT JOIN equipment_maintenance m
+         ON m.equipment_id = e.id
+         AND m.id = (SELECT MAX(id) FROM equipment_maintenance WHERE equipment_id = e.id)
+       WHERE e.location_id = ? AND e.status != 'active'
+       ORDER BY e.name ASC LIMIT ?`
+    )
+    .all(locationId, MAX_EQUIPMENT_DOWN) as {
+    id: number;
+    name: string;
+    category: string;
+    status: string;
+    last_service_date: string | null;
+    last_service_type: string | null;
+    last_service_notes: string | null;
+  }[];
+  if (!rows.length) return { text: '', source: null };
+  let text = '\nEQUIPMENT OUT OF SERVICE:\n';
+  for (const r of rows) {
+    text += `  - ${r.name} (${r.category}) — status: ${r.status}\n`;
+    if (r.last_service_date) {
+      const svcBits = [r.last_service_type, r.last_service_notes].filter(Boolean).join(' · ');
+      text += `    last service: ${r.last_service_date}${svcBits ? ` (${svcBits})` : ''}\n`;
+    }
+  }
+  return { text, source: { type: 'equipment_down', detail: `${rows.length} unit(s)` } };
+}
+
+function renderStaleBeoPrep(db: DB, locationId: string, date: string): OversightSection {
+  const rows = db
+    .prepare(
+      `SELECT t.task, t.due_date, e.title, e.event_date, e.id AS event_id
+       FROM beo_prep_tasks t
+       JOIN beo_events e ON e.id = t.event_id
+       WHERE t.location_id = ?
+         AND t.done = 0
+         AND date(e.event_date) >= date(?)
+         AND date(e.event_date) <= date(?, '+' || ? || ' days')
+       ORDER BY date(e.event_date) ASC, t.sort_order ASC
+       LIMIT ?`
+    )
+    .all(locationId, date, date, STALE_BEO_WINDOW_DAYS, MAX_STALE_BEO) as {
+    task: string;
+    due_date: string | null;
+    title: string;
+    event_date: string;
+    event_id: number;
+  }[];
+  if (!rows.length) return { text: '', source: null };
+  let text = `\nSTALE BEO PREP (events within ${STALE_BEO_WINDOW_DAYS} day(s), still PENDING):\n`;
+  for (const r of rows) {
+    text += `  - [${r.event_date}] ${r.title} (BEO ${r.event_id}): ${r.task}\n`;
+  }
+  return { text, source: { type: 'beo_prep_stale', detail: `${rows.length} pending task(s)` } };
+}
+
+function renderRepeat86s(db: DB, locationId: string): OversightSection {
+  const rows = db
+    .prepare(
+      `SELECT item, COUNT(DISTINCT shift_date) AS days
+       FROM eighty_six
+       WHERE location_id = ?
+         AND date(shift_date) >= date('now', '-' || ? || ' days')
+       GROUP BY item
+       HAVING days >= ?
+       ORDER BY days DESC, item ASC
+       LIMIT ?`
+    )
+    .all(locationId, REPEAT_86_WINDOW_DAYS, REPEAT_86_MIN_DAYS, MAX_REPEAT_86) as {
+    item: string;
+    days: number;
+  }[];
+  if (!rows.length) return { text: '', source: null };
+  let text = `\nREPEAT 86s (≥${REPEAT_86_MIN_DAYS} of last ${REPEAT_86_WINDOW_DAYS} days — systemic issue):\n`;
+  for (const r of rows) text += `  - ${r.item}: 86'd ${r.days} day(s)\n`;
+  return { text, source: { type: 'eighty_six_repeat', detail: `${rows.length} item(s)` } };
+}
+
+function renderGoldStars(db: DB, locationId: string): OversightSection {
+  db.exec(`CREATE TABLE IF NOT EXISTS gold_stars (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cook_name TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    stars INTEGER DEFAULT 1,
+    awarded_date TEXT DEFAULT (date('now')),
+    location_id TEXT DEFAULT 'default',
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+  const rows = db
+    .prepare(
+      `SELECT cook_name, reason, stars, awarded_date FROM gold_stars
+       WHERE location_id = ?
+       ORDER BY id DESC LIMIT ?`
+    )
+    .all(locationId, MAX_GOLD_STARS) as {
+    cook_name: string;
+    reason: string;
+    stars: number;
+    awarded_date: string;
+  }[];
+  if (!rows.length) return { text: '', source: null };
+  let text = '\nRECENT GOLD STARS (recognition):\n';
+  for (const r of rows) {
+    text += `  - [${r.awarded_date}] ${r.cook_name} (${r.stars}★): ${r.reason}\n`;
+  }
+  return { text, source: { type: 'gold_stars', detail: `${rows.length} recognition(s)` } };
+}
+
+function renderWarrantyAlerts(db: DB, locationId: string): OversightSection {
+  const rows = db
+    .prepare(
+      `SELECT name, category, warranty_expiration FROM equipment
+       WHERE location_id = ?
+         AND warranty_expiration IS NOT NULL
+         AND warranty_expiration != ''
+         AND date(warranty_expiration) >= date('now')
+         AND date(warranty_expiration) <= date('now', '+' || ? || ' days')
+       ORDER BY date(warranty_expiration) ASC
+       LIMIT ?`
+    )
+    .all(locationId, WARRANTY_WINDOW_DAYS, MAX_WARRANTIES) as {
+    name: string;
+    category: string;
+    warranty_expiration: string;
+  }[];
+  if (!rows.length) return { text: '', source: null };
+  let text = `\nWARRANTY EXPIRATIONS (next ${WARRANTY_WINDOW_DAYS} days):\n`;
+  for (const r of rows) {
+    text += `  - ${r.name} (${r.category}) — expires ${r.warranty_expiration}\n`;
+  }
+  return { text, source: { type: 'warranty_alerts', detail: `${rows.length} item(s)` } };
+}
+
+function fmtUsd(n: number | null | undefined): string {
+  if (n == null || Number.isNaN(n)) return '—';
+  return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function fmtInt(n: number | null | undefined): string {
+  if (n == null || Number.isNaN(n)) return '—';
+  return Math.round(n).toLocaleString('en-US');
+}
+
+// YoY join works because Toast exports group 2 rows whose shift_date is
+// exactly one calendar year before the matching group 1 row.
+export function renderDailySalesTrend(
+  db: DB,
+  locationId: string,
+  date: string
+): OversightSection {
+  const rows = db
+    .prepare(
+      `SELECT g1.shift_date, g1.net_sales, g1.orders, g1.guests,
+              g2.net_sales AS yoy_net_sales,
+              g2.orders    AS yoy_orders,
+              g2.guests    AS yoy_guests
+       FROM toast_sales_daily g1
+       LEFT JOIN toast_sales_daily g2
+         ON g2.location_id = g1.location_id
+        AND g2.comparison_group = 2
+        AND date(g2.shift_date) = date(g1.shift_date, '-1 year')
+       WHERE g1.location_id = ?
+         AND g1.comparison_group = 1
+         AND date(g1.shift_date) <= date(?)
+         AND date(g1.shift_date) >= date(?, '-' || ? || ' days')
+       ORDER BY g1.shift_date DESC
+       LIMIT ?`
+    )
+    .all(
+      locationId,
+      date,
+      date,
+      DAILY_SALES_TREND_WINDOW_DAYS,
+      DAILY_SALES_TREND_WINDOW_DAYS
+    ) as {
+    shift_date: string;
+    net_sales: number | null;
+    orders: number | null;
+    guests: number | null;
+    yoy_net_sales: number | null;
+    yoy_orders: number | null;
+    yoy_guests: number | null;
+  }[];
+  if (!rows.length) return { text: '', source: null };
+
+  let text = `\nDAILY SALES TREND (last ${DAILY_SALES_TREND_WINDOW_DAYS} days, Toast):\n`;
+  let yoyMatches = 0;
+  for (const r of rows) {
+    const base = `${fmtUsd(r.net_sales)} / ${fmtInt(r.orders)} orders / ${fmtInt(r.guests)} guests`;
+    let yoy = '';
+    if (r.yoy_net_sales != null || r.yoy_orders != null || r.yoy_guests != null) {
+      yoyMatches += 1;
+      const yoyBase = `${fmtUsd(r.yoy_net_sales)} / ${fmtInt(r.yoy_orders)} / ${fmtInt(r.yoy_guests)}`;
+      let deltaPct = '';
+      if (r.net_sales != null && r.yoy_net_sales != null && r.yoy_net_sales !== 0) {
+        const pct = ((r.net_sales - r.yoy_net_sales) / r.yoy_net_sales) * 100;
+        const sign = pct >= 0 ? '+' : '';
+        deltaPct = `, ${sign}${pct.toFixed(1)}% YoY`;
+      }
+      yoy = ` (YoY: ${yoyBase}${deltaPct})`;
+    }
+    text += `  - ${r.shift_date}: ${base}${yoy}\n`;
+  }
+  const detail =
+    yoyMatches > 0
+      ? `${rows.length} day(s), ${yoyMatches} with YoY`
+      : `${rows.length} day(s)`;
+  return { text, source: { type: 'daily_sales_trend', detail } };
+}

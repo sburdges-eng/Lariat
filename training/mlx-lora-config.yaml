@@ -1,0 +1,27 @@
+# LoRA fine-tuning config for mlx-lm on Apple M4 16 GB
+# Usage:
+#   pip install mlx-lm
+#   mlx_lm.lora --config training/mlx-lora-config.yaml
+
+model: mlx-community/gemma-2-2b-it-4bit
+
+# LoRA hyperparameters
+lora_layers: 8
+lora_rank: 8
+lora_alpha: 16
+lora_dropout: 0.05
+
+# Training
+batch_size: 2
+iters: 200
+learning_rate: 0.00001
+warmup_steps: 20
+grad_checkpoint: true
+
+# Data — expects JSONL with {"messages": [...]} per line
+data: training
+train: lariat-qa.jsonl
+
+# Output
+adapter_path: training/adapters
+save_every: 50

@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Lariat — Executive Kitchen Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f5f4f0;
+            color: #333;
+        }
+
+        .header {
+            background: #1c1612;
+            color: #f5f4f0;
+            padding: 20px 40px;
+            border-bottom: 3px solid #c4843e;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            font-size: 13px;
+            opacity: 0.85;
+        }
+
+        .tab-bar {
+            background: #fff;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            gap: 0;
+            padding: 0 40px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .tab-button {
+            padding: 16px 24px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            position: relative;
+            transition: color 0.2s;
+        }
+
+        .tab-button:hover {
+            color: #c4843e;
+        }
+
+        .tab-button.active {
+            color: #1c1612;
+        }
+
+        .tab-button.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #c4843e;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 40px;
+            animation: fadeIn 0.3s;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .kpi-card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            border-left: 4px solid #c4843e;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            transition: transform 0.2s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+        }
+
+        .kpi-label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #999;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1c1612;
+        }
+
+        .kpi-subtitle {
+            font-size: 12px;
+            color: #999;
+            margin-top: 8px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        select {
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        select:hover {
+            border-color: #c4843e;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #c4843e;
+            box-shadow: 0 0 0 3px rgba(196, 132, 62, 0.1);
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .chart-card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .chart-card h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #1c1612;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 350px;
+            margin-bottom: 10px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+
+        .data-table th {
+            background: #f9f9f9;
+            border-bottom: 2px solid #ddd;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #666;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .data-table th:hover {
+            background: #f0f0f0;
+        }
+
+        .data-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+
+        .data-table tr:hover {
+            background: #fafafa;
+        }
+
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .alert-critical {
+            color: #b83030;
+            font-weight: 600;
+        }
+
+        .alert-high {
+            color: #c9841e;
+            font-weight: 600;
+        }
+
+        .alert-ok {
+            color: #2d7a3a;
+        }
+
+        .upload-zone {
+            border: 2px dashed #c4843e;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background: #faf9f7;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 30px;
+        }
+
+        .upload-zone:hover {
+            background: #f5f4f0;
+            border-color: #a66a2f;
+        }
+
+        .upload-zone.dragover {
+            background: #f0ebe4;
+            border-color: #a66a2f;
+        }
+
+        .upload-zone p {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .upload-zone small {
+            display: block;
+            color: #999;
+            font-size: 12px;
+        }
+
+        .upload-btn {
+            background: #c4843e;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+
+        .upload-btn:hover {
+            background: #a66a2f;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .preview-table {
+            width: 100%;
+            overflow-x: auto;
+            margin-bottom: 30px;
+        }
+
+        .preview-table table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .preview-table th,
+        .preview-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+
+        .preview-table th {
+            background: #f9f9f9;
+            font-weight: 600;
+        }
+
+        .mapping-section {
+            margin-bottom: 30px;
+        }
+
+        .mapping-row {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .mapping-label {
+            font-weight: 600;
+            width: 150px;
+            font-size: 13px;
+        }
+
+        .price-change-positive {
+            color: #2d7a3a;
+        }
+
+        .price-change-negative {
+            color: #b83030;
+        }
+
+        .alert-card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ddd;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .alert-card.critical {
+            border-left-color: #b83030;
+        }
+
+        .alert-card.warning {
+            border-left-color: #c9841e;
+        }
+
+        .alert-card.ok {
+            border-left-color: #2d7a3a;
+        }
+
+        .alert-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .alert-badge.critical {
+            background: #f0d5d5;
+            color: #b83030;
+        }
+
+        .alert-badge.warning {
+            background: #fde8d4;
+            color: #c9841e;
+        }
+
+        .alert-badge.ok {
+            background: #d9f0e3;
+            color: #2d7a3a;
+        }
+
+        .alert-card h3 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1c1612;
+        }
+
+        .alert-card p {
+            font-size: 13px;
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+
+        .alert-metric {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1c1612;
+            margin: 12px 0;
+        }
+
+        .alert-recommend {
+            font-size: 12px;
+            color: #666;
+            font-style: italic;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+
+        .price-alert-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #fde8d4;
+            color: #c9841e;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        button {
+            background: #c4843e;
+            color: #fff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+            font-size: 13px;
+        }
+
+        button:hover {
+            background: #a66a2f;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .success-msg {
+            background: #d9f0e3;
+            color: #2d7a3a;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2d7a3a;
+        }
+
+        .stat-row {
+            display: flex;
+            gap: 40px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1c1612;
+        }
+
+        input[type="text"] {
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #c4843e;
+            box-shadow: 0 0 0 3px rgba(196, 132, 62, 0.1);
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            color: #1c1612;
+            font-size: 22px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>The Lariat Kitchen Dashboard</h1>
+        <p>Real-time operations, pricing, and insights</p>
+    </div>
+
+    <div class="tab-bar">
+        <button class="tab-button active" data-tab="overview">Kitchen Overview</button>
+        <button class="tab-button" data-tab="upload">Order Guide Upload</button>
+        <button class="tab-button" data-tab="pricing">Price Tracker</button>
+        <button class="tab-button" data-tab="alerts">Alerts & Flags</button>
+    </div>
+
+    <div id="overview" class="tab-content active">
+        <div class="kpi-row">
+            <div class="kpi-card"><div class="kpi-label">Active Recipes</div><div class="kpi-value">42</div><div class="kpi-subtitle">across 5 categories</div></div>
+            <div class="kpi-card"><div class="kpi-label">Total Batch Cost</div><div class="kpi-value">$1,063</div><div class="kpi-subtitle">all recipes combined</div></div>
+            <div class="kpi-card"><div class="kpi-label">Avg Food Cost %</div><div class="kpi-value">29.1%</div><div class="kpi-subtitle">across 10 menu items</div></div>
+            <div class="kpi-card"><div class="kpi-label">BOM Ingredients</div><div class="kpi-value">347</div><div class="kpi-subtitle">272 costed</div></div>
+            <div class="kpi-card"><div class="kpi-label">Weekly Revenue</div><div class="kpi-value">$21,736</div><div class="kpi-subtitle">1,675 items latest week</div></div>
+            <div class="kpi-card"><div class="kpi-label">Vendor Spend</div><div class="kpi-value">$57.3K</div><div class="kpi-subtitle">Shamrock 60% / Sysco 40%</div></div>
+        </div>
+
+        <div class="controls">
+            <select id="stationFilter"><option value="">All Stations</option><option value="grill">Grill</option><option value="fry">Fry</option><option value="saute">Sauté</option><option value="salad">Salad</option><option value="expo">Expo</option></select>
+            <select id="categoryFilter"><option value="">All Categories</option><option value="sauce">Sauce</option><option value="prep">Prep</option><option value="entree">Entrée</option><option value="dressing">Dressing</option><option value="seasoning">Seasoning</option></select>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-card"><h3>Menu Item Performance (BCG Matrix)</h3><div class="chart-container"><canvas id="bcgChart"></canvas></div></div>
+            <div class="chart-card"><h3>Food Cost % by Item</h3><div class="chart-container"><canvas id="foodCostChart"></canvas></div></div>
+            <div class="chart-card"><h3>BCG Classification</h3><div class="chart-container"><canvas id="bcgDoughnut"></canvas></div></div>
+            <div class="chart-card"><h3>Batch Cost by Recipe (Top 20)</h3><div class="chart-container"><canvas id="batchCostChart"></canvas></div></div>
+            <div class="chart-card"><h3>Cost per Yield Unit (Top 20)</h3><div class="chart-container"><canvas id="cpuChart"></canvas></div></div>
+            <div class="chart-card"><h3>Category Total Cost</h3><div class="chart-container"><canvas id="categoryChart"></canvas></div></div>
+            <div class="chart-card"><h3>Station Recipe Count</h3><div class="chart-container"><canvas id="stationCountChart"></canvas></div></div>
+            <div class="chart-card"><h3>Station Batch Cost</h3><div class="chart-container"><canvas id="stationCostChart"></canvas></div></div>
+            <div class="chart-card"><h3>Prime Cost Breakdown (Top 16)</h3><div class="chart-container"><canvas id="primeCostChart"></canvas></div></div>
+            <div class="chart-card"><h3>Prime Cost %</h3><div class="chart-container"><canvas id="primePctChart"></canvas></div></div>
+            <div class="chart-card"><h3>Vendor Mix</h3><div class="chart-container"><canvas id="vendorMixChart"></canvas></div></div>
+            <div class="chart-card"><h3>Shamrock Monthly Spend</h3><div class="chart-container"><canvas id="shamrockMonthlyChart"></canvas></div></div>
+            <div class="chart-card" style="grid-column: 1/-1;"><h3>Shamrock Quarterly Trend</h3><div class="chart-container" style="height: 280px;"><canvas id="shamrockQuarterlyChart"></canvas></div></div>
+        </div>
+
+        <div class="chart-card" style="margin-bottom: 40px;">
+            <h3>Menu Item Detail</h3>
+            <div class="data-table" style="overflow-x: auto;">
+                <table id="menuTable"></table>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <h3>Recipe Cost Summary</h3>
+            <div class="data-table" style="overflow-x: auto;">
+                <table id="recipeTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <div id="upload" class="tab-content">
+        <h2>Upload & Manage Vendor Prices</h2>
+
+        <div class="upload-zone" id="uploadZone">
+            <p>Drop CSV or Excel file here</p>
+            <small>Supports .csv, .xlsx, .xls</small>
+            <button class="upload-btn" type="button">Or browse files</button>
+            <input type="file" id="fileInput" accept=".csv,.xlsx,.xls">
+        </div>
+
+        <div id="uploadStatus"></div>
+        <div id="previewSection" style="display: none;">
+            <h3 style="margin-bottom: 15px; color: #1c1612;">File Preview (First 10 Rows)</h3>
+            <div class="preview-table" id="previewTable"></div>
+
+            <div class="mapping-section" id="mappingSection"></div>
+
+            <div id="summaryStats" style="display: none; margin-bottom: 30px;">
+                <div class="chart-card">
+                    <h3>Upload Summary</h3>
+                    <div class="stat-row">
+                        <div class="stat-item"><div class="stat-label">Items Parsed</div><div class="stat-value" id="itemsParsed">0</div></div>
+                        <div class="stat-item"><div class="stat-label">New Prices</div><div class="stat-value" id="newPrices">0</div></div>
+                        <div class="stat-item"><div class="stat-label">Updated Prices</div><div class="stat-value" id="updatedPrices">0</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="priceComparison"></div>
+
+            <div class="button-group">
+                <button id="confirmMappingBtn" style="display: none;">Confirm Mapping & Add to History</button>
+                <button id="exportWorkbookBtn" style="display: none;">Export Updated Workbook</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="pricing" class="tab-content">
+        <h2>Price Tracking & Trends</h2>
+
+        <div class="chart-card" style="margin-bottom: 30px;">
+            <h3>Overall Monthly Spend</h3>
+            <div class="chart-container">
+                <canvas id="monthlySpendChart"></canvas>
+            </div>
+        </div>
+
+        <div class="controls" style="margin-bottom: 20px;">
+            <input type="text" id="ingredientSearch" placeholder="Search ingredient..." style="padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px; width: 300px; max-width: 100%; font-size: 14px;">
+        </div>
+
+        <div id="itemDetailSection" style="display: none; margin-bottom: 40px;">
+            <div class="chart-card">
+                <h3 id="itemDetailTitle"></h3>
+                <div class="chart-container">
+                    <canvas id="itemPriceChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <h3>Price History</h3>
+                <div class="data-table" style="overflow-x: auto;">
+                    <table id="itemHistoryTable"></table>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <h3>Biggest Price Movers</h3>
+            <div class="data-table">
+                <table id="moversTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <div id="alerts" class="tab-content">
+        <h2>Operational Alerts</h2>
+        <div id="alertsContainer"></div>
+    </div>
+
+    <script>
+        const RECIPES = [{id:"lariat_rub",name:"Lariat Rub",cat:"seasoning",yld:6,unit:"cup",batch:9.60,cpu:1.60,ingr:8,station:"all",menu:"multiple"},{id:"buttermilk_brine",name:"Buttermilk Brine",cat:"prep",yld:12,unit:"qt",batch:12.98,cpu:1.08,ingr:6,station:"fry",menu:"Nashville Hot Chicken"},{id:"queso_mac_sauce",name:"Queso / Mac Sauce",cat:"sauce",yld:22,unit:"qt",batch:126.97,cpu:5.77,ingr:14,station:"expo;saute",menu:"The Trio; Mtn Mac & Cheese"},{id:"blackened_tomato_salsa",name:"Blackened Tomato Salsa",cat:"sauce",yld:20,unit:"qt",batch:106.39,cpu:5.32,ingr:10,station:"grill",menu:"The Trio; Queso"},{id:"chicken_flour",name:"Chicken Flour",cat:"prep",yld:22,unit:"qt",batch:30.36,cpu:1.38,ingr:6,station:"fry",menu:"Nashville Hot; Wings"},{id:"nashville_hot_rub",name:"Nashville Hot Rub",cat:"seasoning",yld:2,unit:"cup",batch:3.00,cpu:1.50,ingr:10,station:"fry",menu:"Nashville Hot Chicken"},{id:"nashville_oil",name:"Nashville Oil",cat:"sauce",yld:2,unit:"qt",batch:8.80,cpu:4.40,ingr:11,station:"fry",menu:"Nashville Hot Chicken"},{id:"aji_verde",name:"Aji Verde",cat:"sauce",yld:4,unit:"qt",batch:14.62,cpu:3.66,ingr:8,station:"saute;fry",menu:"Pork Chop; Baja Fish Tacos"},{id:"bacon_jam",name:"Bacon Jam",cat:"sauce",yld:10,unit:"qt",batch:57.58,cpu:5.76,ingr:12,station:"grill",menu:"The Rope Burger"},{id:"special_sauce",name:"Special Sauce",cat:"sauce",yld:4,unit:"qt",batch:15.49,cpu:3.87,ingr:8,station:"fry",menu:"Nashville Hot Sandwich"},{id:"fish_brine",name:"Fish Brine",cat:"prep",yld:4,unit:"qt",batch:0.98,cpu:0.25,ingr:3,station:"fry",menu:"Fish & Chips; Baja Tacos"},{id:"cornbread",name:"Jalapeño Cheddar Cornbread",cat:"prep",yld:2,unit:"pan",batch:42.68,cpu:21.34,ingr:5,station:"grill",menu:"Cornbread; croutons"},{id:"green_chile",name:"Green Chile",cat:"entree",yld:16,unit:"qt",batch:42.56,cpu:2.66,ingr:18,station:"expo",menu:"Green Chile (cup/bowl)"},{id:"roasted_pepitas",name:"Roasted Pepitas",cat:"prep",yld:6,unit:"qt",batch:33.74,cpu:5.62,ingr:6,station:"salad",menu:"The Rope Salad"},{id:"santa_fe_caesar",name:"Santa Fe Caesar Dressing",cat:"dressing",yld:2,unit:"qt",batch:30.55,cpu:15.28,ingr:8,station:"salad",menu:"The Rope Salad"},{id:"tartar_sauce",name:"Tartar Sauce",cat:"sauce",yld:4,unit:"qt",batch:43.64,cpu:10.91,ingr:11,station:"fry",menu:"Fish & Chips"},{id:"beer_batter",name:"Beer Batter",cat:"prep",yld:1.5,unit:"qt",batch:2.84,cpu:1.89,ingr:6,station:"fry",menu:"Fish & Chips; Baja; Wings"},{id:"beer_flour",name:"Beer Flour",cat:"prep",yld:4,unit:"qt",batch:2.76,cpu:0.69,ingr:4,station:"fry",menu:"Fish & Chips; Baja"},{id:"corndog_batter",name:"Corndog Batter",cat:"prep",yld:8,unit:"qt",batch:18.43,cpu:2.30,ingr:7,station:"fry",menu:"catering corndogs"},{id:"chipotle_aioli",name:"Chipotle Aioli",cat:"sauce",yld:10,unit:"qt",batch:54.31,cpu:5.43,ingr:3,station:"fry",menu:"Baja Fish Tacos"},{id:"alabama_white_sauce",name:"Alabama White Sauce",cat:"sauce",yld:6,unit:"qt",batch:25.44,cpu:4.24,ingr:7,station:"fry",menu:"Pig Wings; wing option"},{id:"three_cheese_gc",name:"Three Cheese Grilled Cheese",cat:"entree",yld:8,unit:"ea",batch:15.46,cpu:1.93,ingr:10,station:"grill",menu:"Tomato Soup add-on"},{id:"thai_chili_sauce",name:"Thai Chili Sauce",cat:"sauce",yld:2,unit:"cup",batch:23.47,cpu:11.74,ingr:5,station:"fry",menu:"wing option"},{id:"pico_de_gallo",name:"Pico de Gallo",cat:"prep",yld:4,unit:"qt",batch:22.17,cpu:5.54,ingr:8,station:"salad",menu:"Baja Fish Tacos"},{id:"chicken_jus",name:"Chicken Jus",cat:"sauce",yld:5,unit:"qt",batch:65.56,cpu:13.11,ingr:10,station:"fry;grill",menu:"Roasted Chicken Leg"},{id:"tomatillo_salsa",name:"Tomatillo Salsa",cat:"sauce",yld:8,unit:"qt",batch:31.32,cpu:3.91,ingr:28,station:"expo",menu:"catering; Green Chile"},{id:"coleslaw",name:"Coleslaw",cat:"prep",yld:12,unit:"qt",batch:19.14,cpu:1.60,ingr:12,station:"salad",menu:"Nashville Hot; Fish & Chips"},{id:"herbal_butter",name:"Herbal Butter",cat:"prep",yld:4,unit:"lb",batch:31.86,cpu:7.97,ingr:5,station:"saute",menu:"Whole Roasted Trout"},{id:"honey_butter",name:"Honey Butter",cat:"prep",yld:4,unit:"lb",batch:15.21,cpu:3.80,ingr:2,station:"expo",menu:"Cornbread"},{id:"mexi_relish",name:"Mexi Relish",cat:"prep",yld:6,unit:"qt",batch:7.62,cpu:1.27,ingr:3,station:"fry",menu:"Baja Fish Tacos"},{id:"chimichurri",name:"Chimichurri",cat:"sauce",yld:2,unit:"cup",batch:15.25,cpu:7.63,ingr:6,station:"grill",menu:"grill items"},{id:"cobb_dressing",name:"Cobb Dressing / Herb Bleu Cheese",cat:"dressing",yld:4,unit:"qt",batch:21.47,cpu:5.37,ingr:11,station:"salad",menu:"Cobb Salad"},{id:"lemon_thyme_vin",name:"Lemon Thyme Vinaigrette",cat:"dressing",yld:2,unit:"qt",batch:9.56,cpu:4.78,ingr:10,station:"salad",menu:"salads (seasonal)"},{id:"succotash",name:"Black Bean & Corn Succotash",cat:"prep",yld:6,unit:"qt",batch:17.06,cpu:2.84,ingr:13,station:"salad",menu:"The Rope Salad"},{id:"pork_chop_marinade",name:"Pork Chop Marinade",cat:"prep",yld:3,unit:"qt",batch:19.27,cpu:6.42,ingr:14,station:"saute",menu:"Pork Chop"},{id:"honey_mustard",name:"Honey Mustard",cat:"sauce",yld:3,unit:"cup",batch:3.87,cpu:1.29,ingr:5,station:"expo",menu:"dipping sauce"},{id:"rope_pickle",name:"Rope Pickle",cat:"prep",yld:4,unit:"qt",batch:14.61,cpu:3.65,ingr:6,station:"grill",menu:"The Rope Burger"},{id:"qb_seasoning",name:"QB Seasoning",cat:"seasoning",yld:6,unit:"cup",batch:11.04,cpu:1.84,ingr:5,station:"all",menu:"Quesa Birria Tacos"},{id:"chicken_confit",name:"Chicken Confit",cat:"prep",yld:1,unit:"hotel pan",batch:1.02,cpu:1.02,ingr:4,station:"fry;grill",menu:"Roasted Chicken Leg"},{id:"birria",name:"Birria (QB Recipe)",cat:"entree",yld:16,unit:"qt",batch:23.75,cpu:1.48,ingr:13,station:"grill",menu:"Quesa Birria Tacos"},{id:"pickles",name:"Pickles",cat:"prep",yld:4,unit:"qt",batch:5.94,cpu:1.49,ingr:7,station:"grill",menu:"burgers"},{id:"french_toast_batter",name:"French Toast Batter",cat:"prep",yld:2,unit:"qt",batch:5.32,cpu:2.66,ingr:6,station:"grill",menu:"brunch"}];
+
+        const MENU = [{name:"Chicken Wings",qty:245,mix:14.6,price:17,cost:9.76,fc:57.4,cm:7.24,tm:1773.80,rev:4165,cls:"Star"},{name:"Quesa Birria Tacos",qty:198,mix:11.8,price:15,cost:3.09,fc:20.6,cm:11.91,tm:2358.18,rev:2970,cls:"Star"},{name:"Fish and Chips",qty:142,mix:8.5,price:18,cost:4.34,fc:24.1,cm:13.66,tm:1939.72,rev:2556,cls:"Puzzle"},{name:"Pork Chop",qty:82,mix:4.9,price:27,cost:6.44,fc:23.9,cm:20.56,tm:1685.92,rev:2214,cls:"Puzzle"},{name:"Hazelnut French Toast",qty:112,mix:6.7,price:14,cost:4.56,fc:32.6,cm:9.44,tm:1057.28,rev:1568,cls:"Puzzle"},{name:"Grown Up Grilled Cheese",qty:95,mix:5.7,price:14,cost:2.68,fc:19.1,cm:11.32,tm:1075.40,rev:1330,cls:"Puzzle"},{name:"Green Chile Queso & Chips",qty:120,mix:7.2,price:12,cost:3.21,fc:26.8,cm:8.79,tm:1054.80,rev:1440,cls:"Dog"},{name:"Fish Taco",qty:315,mix:18.8,price:7,cost:1.96,fc:28.0,cm:5.04,tm:1587.60,rev:2205,cls:"Plowhorse"},{name:"Coleslaw Side",qty:210,mix:12.5,price:6,cost:1.10,fc:18.3,cm:4.90,tm:1029.00,rev:1260,cls:"Plowhorse"},{name:"Mountain Mac & Cheese",qty:156,mix:9.3,price:13,cost:5.18,fc:39.8,cm:7.82,tm:1219.92,rev:2028,cls:"Dog"}];
+
+        const PRIME = [{name:"Green Chile",food:2.66,labor:30,shrink:0.10,total:32.76,pct:8.1},{name:"Cornbread",food:21.34,labor:10,shrink:0.17,total:31.51,pct:67.7},{name:"Queso / Mac Sauce",food:5.77,labor:20,shrink:0.25,total:26.02,pct:22.2},{name:"Tartar Sauce",food:10.91,labor:10,shrink:0.10,total:21.01,pct:51.9},{name:"Santa Fe Caesar",food:15.28,labor:5,shrink:0.10,total:20.38,pct:75.0},{name:"Chimichurri",food:7.63,labor:10,shrink:0.10,total:17.73,pct:43.0},{name:"Bacon Jam",food:5.76,labor:10,shrink:0.10,total:15.86,pct:36.3},{name:"Cobb Dressing",food:5.37,labor:10,shrink:0.18,total:15.55,pct:34.5},{name:"Lemon Thyme Vin.",food:4.78,labor:10,shrink:0.10,total:14.88,pct:32.1},{name:"Tomatillo Salsa",food:3.91,labor:10,shrink:0.10,total:14.01,pct:27.9},{name:"Thai Chili Sauce",food:11.74,labor:2,shrink:0.10,total:13.84,pct:84.8},{name:"B.B. Corn Succotash",food:2.84,labor:10,shrink:0.10,total:12.94,pct:22.0},{name:"QB Seasoning",food:1.84,labor:10,shrink:0.10,total:11.94,pct:15.4},{name:"Birria (QB)",food:1.48,labor:10,shrink:0.10,total:11.58,pct:12.8},{name:"Pork Chop Marinade",food:6.42,labor:5,shrink:0.11,total:11.53,pct:55.7},{name:"Chicken Confit",food:1.02,labor:10,shrink:0.10,total:11.12,pct:9.2}];
+
+        const DOW_COVERS = [{day:"Monday",covers:41},{day:"Tuesday",covers:85},{day:"Wednesday",covers:95},{day:"Thursday",covers:128},{day:"Friday",covers:482},{day:"Saturday",covers:2702},{day:"Sunday",covers:318}];
+
+        const SHAMROCK_MONTHLY = [{month:"2025-09",spend:2747.77,orders:1},{month:"2025-10",spend:6446.32,orders:16},{month:"2025-11",spend:2802.13,orders:6},{month:"2025-12",spend:6937.17,orders:11},{month:"2026-01",spend:5874.12,orders:12},{month:"2026-02",spend:4204.44,orders:13},{month:"2026-03",spend:5136.65,orders:9}];
+
+        let PRICE_HISTORY = [{ingredient:"anchovy paste",vendor:"Sysco",unit_price:8.90,unit:"lb",date:"2026-03-23"},{ingredient:"black pepper",vendor:"Sysco",unit_price:5.70,unit:"lb",date:"2026-03-23"},{ingredient:"butter",vendor:"Sysco",unit_price:3.00,unit:"lb",date:"2026-03-23"},{ingredient:"cabbage",vendor:"Sysco",unit_price:0.45,unit:"lb",date:"2026-03-23"},{ingredient:"caesar dressing",vendor:"Sysco",unit_price:3.20,unit:"gal",date:"2026-03-23"},{ingredient:"carrot",vendor:"Sysco",unit_price:0.59,unit:"lb",date:"2026-03-23"},{ingredient:"celery",vendor:"Sysco",unit_price:0.63,unit:"lb",date:"2026-03-23"},{ingredient:"chicken breast",vendor:"Sysco",unit_price:2.99,unit:"lb",date:"2026-03-23"},{ingredient:"chipotle peppers",vendor:"Sysco",unit_price:3.70,unit:"lb",date:"2026-03-23"},{ingredient:"cilantro",vendor:"Sysco",unit_price:2.50,unit:"lb",date:"2026-03-23"},{ingredient:"croutons",vendor:"Sysco",unit_price:2.30,unit:"lb",date:"2026-03-23"},{ingredient:"crushed tomatoes",vendor:"Sysco",unit_price:1.20,unit:"lb",date:"2026-03-23"},{ingredient:"dried penne",vendor:"Sysco",unit_price:0.90,unit:"lb",date:"2026-03-23"},{ingredient:"flour tortillas",vendor:"Sysco",unit_price:1.75,unit:"lb",date:"2026-03-23"},{ingredient:"garlic",vendor:"Sysco",unit_price:2.50,unit:"lb",date:"2026-03-23"},{ingredient:"ground beef 80/20",vendor:"Sysco",unit_price:3.99,unit:"lb",date:"2026-03-23"},{ingredient:"heavy cream",vendor:"Sysco",unit_price:9.80,unit:"gal",date:"2026-03-23"},{ingredient:"lemon",vendor:"Sysco",unit_price:1.50,unit:"lb",date:"2026-03-23"},{ingredient:"lime",vendor:"Sysco",unit_price:1.40,unit:"lb",date:"2026-03-23"},{ingredient:"mahi mahi fillet",vendor:"Sysco",unit_price:8.90,unit:"lb",date:"2026-03-23"},{ingredient:"mixed herbs",vendor:"Sysco",unit_price:7.00,unit:"lb",date:"2026-03-23"},{ingredient:"olive oil",vendor:"Sysco",unit_price:22.00,unit:"gal",date:"2026-03-23"},{ingredient:"parmesan cheese",vendor:"Sysco",unit_price:6.20,unit:"lb",date:"2026-03-23"},{ingredient:"romaine lettuce",vendor:"Sysco",unit_price:1.20,unit:"lb",date:"2026-03-23"},{ingredient:"salt",vendor:"Sysco",unit_price:0.22,unit:"lb",date:"2026-03-23"},{ingredient:"sour cream",vendor:"Sysco",unit_price:1.70,unit:"lb",date:"2026-03-23"},{ingredient:"tomato paste",vendor:"Sysco",unit_price:1.60,unit:"lb",date:"2026-03-23"},{ingredient:"vegetable stock",vendor:"Sysco",unit_price:4.50,unit:"gal",date:"2026-03-23"},{ingredient:"yellow onion",vendor:"Sysco",unit_price:0.45,unit:"lb",date:"2026-03-23"}];
+
+        let chartInstances = {};
+        let uploadedOrders = [];
+
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tabName = e.target.dataset.tab;
+                document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+                document.querySelectorAll('.tab-button').forEach(tb => tb.classList.remove('active'));
+                document.getElementById(tabName).classList.add('active');
+                e.target.classList.add('active');
+
+                if (tabName === 'overview' && !chartInstances.bcgChart) initOverviewCharts();
+                else if (tabName === 'pricing' && !chartInstances.monthlySpendChart) initPricingCharts();
+                else if (tabName === 'alerts' && !document.getElementById('alertsContainer').innerHTML) generateAlerts();
+            });
+        });
+
+        function initOverviewCharts() {
+            const station = document.getElementById('stationFilter').value;
+            const category = document.getElementById('categoryFilter').value;
+            let filtered = RECIPES;
+            if (station) filtered = filtered.filter(r => r.station.includes(station));
+            if (category) filtered = filtered.filter(r => r.cat === category);
+
+            const chartOpts = {animation: false, responsive: true, maintainAspectRatio: true};
+
+            const bcgCtx = document.getElementById('bcgChart').getContext('2d');
+            chartInstances.bcgChart = new Chart(bcgCtx, {
+                type: 'bubble',
+                data: {
+                    datasets: [
+                        {label: 'Stars',data: MENU.filter(m => m.cls === 'Star').map(m => ({x:m.mix,y:m.cm,r:Math.sqrt(m.rev)/30})),backgroundColor: 'rgba(45,122,58,0.6)'},
+                        {label: 'Puzzles',data: MENU.filter(m => m.cls === 'Puzzle').map(m => ({x:m.mix,y:m.cm,r:Math.sqrt(m.rev)/30})),backgroundColor: 'rgba(196,132,62,0.6)'},
+                        {label: 'Plowhorses',data: MENU.filter(m => m.cls === 'Plowhorse').map(m => ({x:m.mix,y:m.cm,r:Math.sqrt(m.rev)/30})),backgroundColor: 'rgba(58,107,140,0.6)'},
+                        {label: 'Dogs',data: MENU.filter(m => m.cls === 'Dog').map(m => ({x:m.mix,y:m.cm,r:Math.sqrt(m.rev)/30})),backgroundColor: 'rgba(155,107,138,0.6)'},
+                    ]
+                },
+                options: {...chartOpts,plugins:{legend:{position:'bottom'}},scales:{x:{title:{display:true,text:'% of Mix'}},y:{title:{display:true,text:'Contribution Margin ($)'}}}}
+            });
+
+            const fcData = MENU.sort((a,b) => b.fc - a.fc);
+            const fcCtx = document.getElementById('foodCostChart').getContext('2d');
+            chartInstances.foodCostChart = new Chart(fcCtx, {
+                type: 'bar',
+                data: {
+                    labels: fcData.map(m => m.name),
+                    datasets: [{label: 'Food Cost %',data: fcData.map(m => m.fc),backgroundColor: fcData.map(m => m.fc > 40 ? '#b83030' : m.fc > 30 ? '#c9841e' : '#2d7a3a')}]
+                },
+                options: {...chartOpts,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{min:0,max:70}}}
+            });
+
+            const classifications = {Star:0,Puzzle:0,Plowhorse:0,Dog:0};
+            MENU.forEach(m => classifications[m.cls]++);
+            const doughnutCtx = document.getElementById('bcgDoughnut').getContext('2d');
+            chartInstances.bcgDoughnut = new Chart(doughnutCtx, {
+                type: 'doughnut',
+                data: {labels: Object.keys(classifications),datasets: [{data: Object.values(classifications),backgroundColor: ['#2d7a3a','#c4843e','#3a6b8c','#8b5e3c']}]},
+                options: {...chartOpts,plugins:{legend:{position:'bottom'}}}
+            });
+
+            const batchData = filtered.sort((a,b) => b.batch - a.batch).slice(0,20);
+            const batchCtx = document.getElementById('batchCostChart').getContext('2d');
+            chartInstances.batchCostChart = new Chart(batchCtx, {
+                type: 'bar',
+                data: {labels: batchData.map(r => r.name),datasets: [{label: 'Batch Cost ($)',data: batchData.map(r => r.batch),backgroundColor: '#c4843e'}]},
+                options: {...chartOpts,indexAxis:'y',plugins:{legend:{display:false}}}
+            });
+
+            const cpuData = filtered.sort((a,b) => b.cpu - a.cpu).slice(0,20);
+            const cpuCtx = document.getElementById('cpuChart').getContext('2d');
+            chartInstances.cpuChart = new Chart(cpuCtx, {
+                type: 'bar',
+                data: {labels: cpuData.map(r => r.name),datasets: [{label: 'Cost per Unit ($)',data: cpuData.map(r => r.cpu),backgroundColor: '#5b8a72'}]},
+                options: {...chartOpts,indexAxis:'y',plugins:{legend:{display:false}}}
+            });
+
+            const categories = {};
+            filtered.forEach(r => {categories[r.cat] = (categories[r.cat] || 0) + r.batch;});
+            const catCtx = document.getElementById('categoryChart').getContext('2d');
+            chartInstances.categoryChart = new Chart(catCtx, {
+                type: 'bar',
+                data: {labels: Object.keys(categories),datasets: [{label: 'Total Cost ($)',data: Object.values(categories),backgroundColor: '#8b5e3c'}]},
+                options: {...chartOpts,plugins:{legend:{display:false}}}
+            });
+
+            const stationCounts = {};
+            filtered.forEach(r => {r.station.split(';').forEach(s => {stationCounts[s.trim()] = (stationCounts[s.trim()] || 0) + 1;});});
+            const stCountCtx = document.getElementById('stationCountChart').getContext('2d');
+            chartInstances.stationCountChart = new Chart(stCountCtx, {
+                type: 'bar',
+                data: {labels: Object.keys(stationCounts),datasets: [{label: 'Recipe Count',data: Object.values(stationCounts),backgroundColor: '#3a6b8c'}]},
+                options: {...chartOpts,plugins:{legend:{display:false}}}
+            });
+
+            const stationCosts = {};
+            filtered.forEach(r => {r.station.split(';').forEach(s => {stationCosts[s.trim()] = (stationCosts[s.trim()] || 0) + r.batch;});});
+            const stCostCtx = document.getElementById('stationCostChart').getContext('2d');
+            chartInstances.stationCostChart = new Chart(stCostCtx, {
+                type: 'bar',
+                data: {labels: Object.keys(stationCosts),datasets: [{label: 'Batch Cost ($)',data: Object.values(stationCosts),backgroundColor: '#9b6b8a'}]},
+                options: {...chartOpts,plugins:{legend:{display:false}}}
+            });
+
+            const primeSorted = PRIME.slice(0,16);
+            const primeCtx = document.getElementById('primeCostChart').getContext('2d');
+            chartInstances.primeCostChart = new Chart(primeCtx, {
+                type: 'bar',
+                data: {labels: primeSorted.map(p => p.name),datasets: [{label: 'Food',data: primeSorted.map(p => p.food),backgroundColor: '#b83030'},{label: 'Labor',data: primeSorted.map(p => p.labor),backgroundColor: '#c9841e'},{label: 'Shrink',data: primeSorted.map(p => p.shrink),backgroundColor: '#ccc'}]},
+                options: {...chartOpts,scales:{x:{stacked:true},y:{stacked:true}},indexAxis:'y'}
+            });
+
+            const primePctCtx = document.getElementById('primePctChart').getContext('2d');
+            chartInstances.primePctChart = new Chart(primePctCtx, {
+                type: 'scatter',
+                data: {datasets: [{label: 'Prime Cost %',data: PRIME.map(p => ({x: p.pct, y: p.total})),backgroundColor: 'rgba(196,132,62,0.6)',pointRadius: 6}]},
+                options: {...chartOpts,plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'Prime Cost %'}},y:{title:{display:true,text:'Total Cost ($)'}}}}
+            });
+
+            const vendorCtx = document.getElementById('vendorMixChart').getContext('2d');
+            chartInstances.vendorMixChart = new Chart(vendorCtx, {
+                type: 'doughnut',
+                data: {labels: ['Shamrock','Sysco'],datasets: [{data: [60,40],backgroundColor: ['#5b8a72','#c4843e']}]},
+                options: {...chartOpts,plugins:{legend:{position:'bottom'}}}
+            });
+
+            const shamrockCtx = document.getElementById('shamrockMonthlyChart').getContext('2d');
+            chartInstances.shamrockMonthlyChart = new Chart(shamrockCtx, {
+                type: 'bar',
+                data: {labels: SHAMROCK_MONTHLY.map(s => s.month),datasets: [{label: 'Spend ($)',data: SHAMROCK_MONTHLY.map(s => s.spend),backgroundColor: '#5b8a72'}]},
+                options: {...chartOpts,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+            });
+
+            const quarters = {};
+            SHAMROCK_MONTHLY.forEach(s => {const q = s.month.substring(0,4) + '-Q' + (Math.floor(parseInt(s.month.substring(5))/3)); quarters[q] = (quarters[q] || 0) + s.spend;});
+            const shamrockQCtx = document.getElementById('shamrockQuarterlyChart').getContext('2d');
+            chartInstances.shamrockQuarterlyChart = new Chart(shamrockQCtx, {
+                type: 'line',
+                data: {labels: Object.keys(quarters),datasets: [{label: 'Quarterly Spend ($)',data: Object.values(quarters),borderColor: '#c4843e',backgroundColor: 'rgba(196,132,62,0.1)',borderWidth: 2,fill: true,tension: 0.4,pointRadius: 6,pointBackgroundColor: '#c4843e'}]},
+                options: {...chartOpts,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+            });
+
+            renderMenuTable();
+            renderRecipeTable();
+        }
+
+        function renderMenuTable() {
+            const html = '<tr><th>Item</th><th>Qty</th><th>Mix %</th><th>Price</th><th>Cost</th><th>FC %</th><th>CM $</th><th>Revenue</th><th>Class</th></tr>' +
+                MENU.map(m => `<tr><td>${m.name}</td><td>${m.qty}</td><td>${m.mix.toFixed(1)}</td><td>$${m.price}</td><td>$${m.cost.toFixed(2)}</td><td class="alert-${m.fc>40?'critical':m.fc>30?'high':'ok'}">${m.fc.toFixed(1)}%</td><td>$${m.cm.toFixed(2)}</td><td>$${m.rev.toFixed(0)}</td><td>${m.cls}</td></tr>`).join('');
+            document.getElementById('menuTable').innerHTML = html;
+        }
+
+        function renderRecipeTable() {
+            const html = '<tr><th>Recipe</th><th>Category</th><th>Station</th><th>Yield</th><th>Batch Cost</th><th>Cost/Unit</th><th>Ingredients</th></tr>' +
+                RECIPES.map(r => `<tr><td>${r.name}</td><td>${r.cat}</td><td>${r.station}</td><td>${r.yld} ${r.unit}</td><td>$${r.batch.toFixed(2)}</td><td>$${r.cpu.toFixed(2)}</td><td>${r.ingr}</td></tr>`).join('');
+            document.getElementById('recipeTable').innerHTML = html;
+        }
+
+        document.getElementById('stationFilter').addEventListener('change', () => {Object.values(chartInstances).forEach(c => c && c.destroy()); chartInstances = {}; initOverviewCharts();});
+        document.getElementById('categoryFilter').addEventListener('change', () => {Object.values(chartInstances).forEach(c => c && c.destroy()); chartInstances = {}; initOverviewCharts();});
+
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        uploadZone.addEventListener('click', () => fileInput.click());
+        uploadZone.addEventListener('dragover', (e) => {e.preventDefault(); uploadZone.classList.add('dragover');});
+        uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+        uploadZone.addEventListener('drop', (e) => {e.preventDefault(); uploadZone.classList.remove('dragover'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);});
+        fileInput.addEventListener('change', (e) => {if (e.target.files.length) handleFile(e.target.files[0]);});
+
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                let data = [];
+                try {
+                    if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+                        const result = Papa.parse(e.target.result, {header: true});
+                        data = result.data.filter(r => Object.keys(r).some(k => r[k]));
+                    } else {
+                        const wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                        const ws = wb.Sheets[wb.SheetNames[0]];
+                        data = XLSX.utils.sheet_to_json(ws);
+                    }
+                    uploadedOrders = data;
+                    showPreview();
+                } catch (err) {
+                    document.getElementById('uploadStatus').innerHTML = '<div style="color:#b83030;">Error parsing file</div>';
+                }
+            };
+            if (file.type === 'text/csv' || file.name.endsWith('.csv')) reader.readAsText(file);
+            else reader.readAsArrayBuffer(file);
+        }
+
+        function showPreview() {
+            const preview = uploadedOrders.slice(0,10);
+            const cols = Object.keys(uploadedOrders[0] || {});
+            let html = '<table><tr>' + cols.map(c => '<th>' + c + '</th>').join('') + '</tr>';
+            preview.forEach(row => html += '<tr>' + cols.map(c => '<td>' + (row[c] || '') + '</td>').join('') + '</tr>');
+            html += '</table>';
+            document.getElementById('previewTable').innerHTML = html;
+            document.getElementById('previewSection').style.display = 'block';
+            showColumnMapper();
+        }
+
+        function showColumnMapper() {
+            const cols = Object.keys(uploadedOrders[0] || {});
+            const standardFields = ['ingredient','vendor','sku','pack_size','pack_unit','pack_price','unit_price','effective_date','category'];
+            let html = '<h3 style="margin-bottom: 15px; color: #1c1612;">Map Columns</h3>';
+            const mapping = {};
+
+            cols.forEach(col => {
+                const lowerCol = col.toLowerCase();
+                let suggested = '';
+                if (lowerCol.includes('ing') || lowerCol.includes('item')) suggested = 'ingredient';
+                else if (lowerCol.includes('vendor')) suggested = 'vendor';
+                else if (lowerCol.includes('sku')) suggested = 'sku';
+                else if (lowerCol.includes('price')) suggested = 'pack_price';
+                else if (lowerCol.includes('date')) suggested = 'effective_date';
+
+                html += '<div class="mapping-row"><div class="mapping-label">' + col + ':</div><select class="column-map" data-source="' + col + '">';
+                html += '<option value="">-- Skip --</option>';
+                standardFields.forEach(f => html += '<option value="' + f + '"' + (f === suggested ? ' selected' : '') + '>' + f + '</option>');
+                html += '</select></div>';
+            });
+
+            document.getElementById('mappingSection').innerHTML = html;
+            document.querySelectorAll('.column-map').forEach(sel => {
+                sel.addEventListener('change', (e) => {mapping[e.target.dataset.source] = e.target.value;});
+                mapping[sel.dataset.source] = sel.value;
+            });
+
+            document.getElementById('confirmMappingBtn').style.display = 'inline-block';
+            document.getElementById('confirmMappingBtn').addEventListener('click', () => processMappedData(mapping));
+        }
+
+        function processMappedData(mapping) {
+            const mapped = [];
+            uploadedOrders.forEach(row => {
+                const newRow = {};
+                Object.keys(mapping).forEach(src => {if (mapping[src]) newRow[mapping[src]] = row[src];});
+                if (newRow.ingredient) mapped.push(newRow);
+            });
+
+            let newCount = 0, updatedCount = 0;
+            mapped.forEach(item => {
+                const existing = PRICE_HISTORY.find(p => p.ingredient === item.ingredient);
+                if (!existing) newCount++;
+                else updatedCount++;
+                PRICE_HISTORY.push({ingredient: item.ingredient || 'Unknown',vendor: item.vendor || 'Unknown',unit_price: parseFloat(item.unit_price || item.pack_price || 0),unit: item.pack_unit || 'lb',date: item.effective_date || '2026-04-10'});
+            });
+
+            document.getElementById('itemsParsed').textContent = mapped.length;
+            document.getElementById('newPrices').textContent = newCount;
+            document.getElementById('updatedPrices').textContent = updatedCount;
+            document.getElementById('summaryStats').style.display = 'block';
+
+            showPriceComparison(mapped);
+            document.getElementById('exportWorkbookBtn').style.display = 'inline-block';
+        }
+
+        function showPriceComparison(newData) {
+            let html = '<div class="chart-card"><h3>Price Comparison</h3><div class="data-table" style="overflow-x: auto;"><table><tr><th>Item</th><th>Old Price</th><th>New Price</th><th>Change $</th><th>Change %</th></tr>';
+            newData.forEach(item => {
+                const oldRecord = PRICE_HISTORY.filter(p => p.ingredient === item.ingredient).slice(-2)[0];
+                const oldPrice = oldRecord && oldRecord !== item ? oldRecord.unit_price : null;
+                const newPrice = parseFloat(item.unit_price || item.pack_price || 0);
+                const changeDollar = oldPrice ? (newPrice - oldPrice) : null;
+                const changePct = oldPrice ? ((changeDollar / oldPrice) * 100) : null;
+                const rowClass = changePct && changePct > 10 ? ' alert-critical' : '';
+                html += '<tr' + (rowClass ? ' style="background:#f0d5d5;"' : '') + '><td>' + item.ingredient + '</td><td>$' + (oldPrice ? oldPrice.toFixed(2) : 'N/A') + '</td><td>$' + newPrice.toFixed(2) + '</td><td' + (rowClass ? ' class="' + rowClass + '"' : '') + '>' + (changeDollar !== null ? '$' + changeDollar.toFixed(2) : '-') + '</td><td' + (rowClass ? ' class="' + rowClass + '"' : '') + '>' + (changePct !== null ? changePct.toFixed(1) + '%' : '-') + '</td></tr>';
+            });
+            html += '</table></div></div>';
+            document.getElementById('priceComparison').innerHTML = html;
+        }
+
+        document.getElementById('exportWorkbookBtn').addEventListener('click', () => {
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(uploadedOrders), "Uploaded Data");
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(PRICE_HISTORY), "Price History");
+            XLSX.writeFile(wb, 'lariat_order_guide_' + new Date().toISOString().split('T')[0] + '.xlsx');
+        });
+
+        function initPricingCharts() {
+            const shamrockCtx = document.getElementById('monthlySpendChart').getContext('2d');
+            chartInstances.monthlySpendChart = new Chart(shamrockCtx, {
+                type: 'line',
+                data: {labels: SHAMROCK_MONTHLY.map(s => s.month),datasets: [{label: 'Monthly Spend ($)',data: SHAMROCK_MONTHLY.map(s => s.spend),borderColor: '#c4843e',backgroundColor: 'rgba(196,132,62,0.1)',borderWidth: 2,fill: true,tension: 0.4,pointRadius: 5,pointBackgroundColor: '#c4843e'}]},
+                options: {animation: false,responsive: true,maintainAspectRatio: true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+            });
+            renderMoversTable();
+        }
+
+        document.getElementById('ingredientSearch').addEventListener('keyup', (e) => {
+            const query = e.target.value.toLowerCase();
+            if (query.length < 2) {document.getElementById('itemDetailSection').style.display = 'none'; return;}
+            const matches = [...new Set(PRICE_HISTORY.filter(p => p.ingredient.toLowerCase().includes(query)).map(p => p.ingredient))];
+            if (matches.length === 0) return;
+            const ingredient = matches[0];
+            const history = PRICE_HISTORY.filter(p => p.ingredient === ingredient).sort((a,b) => new Date(a.date) - new Date(b.date));
+            document.getElementById('itemDetailTitle').textContent = ingredient;
+            const histCtx = document.getElementById('itemPriceChart').getContext('2d');
+            if (chartInstances.itemPriceChart) chartInstances.itemPriceChart.destroy();
+            chartInstances.itemPriceChart = new Chart(histCtx, {
+                type: 'line',
+                data: {labels: history.map(h => h.date),datasets: [{label: 'Price (' + (history[0]?.unit || 'unit') + ')',data: history.map(h => h.unit_price),borderColor: '#c4843e',backgroundColor: 'rgba(196,132,62,0.1)',borderWidth: 2,fill: true,tension: 0.4,pointRadius: 5,pointBackgroundColor: '#c4843e'}]},
+                options: {animation: false,responsive: true,maintainAspectRatio: true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+            });
+            const historyHtml = '<tr><th>Date</th><th>Vendor</th><th>Price (' + (history[0]?.unit || 'unit') + ')</th></tr>' + history.map(h => '<tr><td>' + h.date + '</td><td>' + h.vendor + '</td><td>$' + h.unit_price.toFixed(2) + '</td></tr>').join('');
+            document.getElementById('itemHistoryTable').innerHTML = historyHtml;
+            document.getElementById('itemDetailSection').style.display = 'block';
+        });
+
+        function renderMoversTable() {
+            const movers = {};
+            PRICE_HISTORY.forEach(p => {
+                if (!movers[p.ingredient]) movers[p.ingredient] = {first: null, last: null};
+                if (!movers[p.ingredient].first || new Date(p.date) < new Date(movers[p.ingredient].first.date)) movers[p.ingredient].first = p;
+                if (!movers[p.ingredient].last || new Date(p.date) > new Date(movers[p.ingredient].last.date)) movers[p.ingredient].last = p;
+            });
+            const moversArray = Object.entries(movers).map(([ing, {first, last}]) => ({ingredient: ing,firstPrice: first?.unit_price || 0,lastPrice: last?.unit_price || 0,changeDollar: (last?.unit_price || 0) - (first?.unit_price || 0),changePct: first ? (((last?.unit_price || 0) - first.unit_price) / first.unit_price * 100) : 0})).sort((a,b) => Math.abs(b.changePct) - Math.abs(a.changePct)).slice(0,15);
+            let html = '<tr><th>Ingredient</th><th>First Price</th><th>Current Price</th><th>Change $</th><th>Change %</th></tr>';
+            moversArray.forEach(m => {
+                const alertClass = m.changePct > 10 ? 'price-alert-badge' : '';
+                html += '<tr><td>' + m.ingredient + '</td><td>$' + m.firstPrice.toFixed(2) + '</td><td>$' + m.lastPrice.toFixed(2) + '</td><td class="' + (m.changePct > 10 ? 'price-change-negative' : m.changePct < -5 ? 'price-change-positive' : '') + '">$' + m.changeDollar.toFixed(2) + '</td><td><span class="' + alertClass + '">' + m.changePct.toFixed(1) + '%</span></td></tr>';
+            });
+            html += '</table>';
+            document.getElementById('moversTable').innerHTML = html;
+        }
+
+        function generateAlerts() {
+            let alertsHtml = '';
+            alertsHtml += '<h3 style="margin-bottom: 20px; color: #1c1612; font-size: 18px; border-bottom: 2px solid #c4843e; padding-bottom: 10px;">Food Cost Alerts</h3>';
+            const foodCostAlerts = [{item: 'Chicken Wings',fc: 57.4,severity: 'critical',msg: 'Nearly 2x target at 57.4% food cost'},{item: 'Mountain Mac & Cheese',fc: 39.8,severity: 'warning',msg: 'High food cost at 39.8%'},{item: 'Hazelnut French Toast',fc: 32.6,severity: 'warning',msg: 'Above target at 32.6%'}];
+            foodCostAlerts.forEach(alert => {alertsHtml += `<div class="alert-card ${alert.severity}"><span class="alert-badge ${alert.severity}">${alert.severity === 'critical' ? 'CRITICAL' : 'WARNING'}</span><h3>${alert.item}</h3><div class="alert-metric">${alert.fc.toFixed(1)}%</div><p>${alert.msg}</p><div class="alert-recommend">Recommend: Review recipe components, negotiate supplier pricing, or adjust menu price.</div></div>`;});
+            alertsHtml += '<h3 style="margin-top: 30px; margin-bottom: 20px; color: #1c1612; font-size: 18px; border-bottom: 2px solid #c4843e; padding-bottom: 10px;">Volume & Staffing Alerts</h3>';
+            const avgCovers = DOW_COVERS.reduce((a,b) => a + b.covers, 0) / DOW_COVERS.length;
+            alertsHtml += `<div class="alert-card warning"><span class="alert-badge warning">PEAK DAY</span><h3>Saturday Peak Volume Swing</h3><div class="alert-metric">${(DOW_COVERS.find(d => d.day === 'Saturday').covers / DOW_COVERS.find(d => d.day === 'Monday').covers).toFixed(0)}x Monday</div><p>Saturday does 2,702 covers vs Monday 41 — extreme swing demands attention to scheduling and prep.</p><div class="alert-recommend">Recommend: Staffing model should scale 65x for peak days. Pre-batch critical items.</div></div>`;
+            alertsHtml += '<h3 style="margin-top: 30px; margin-bottom: 20px; color: #1c1612; font-size: 18px; border-bottom: 2px solid #c4843e; padding-bottom: 10px;">Seasonal Outlook</h3>';
+            alertsHtml += `<div class="alert-card warning"><span class="alert-badge warning">UPCOMING</span><h3>Summer Season Ramp</h3><div class="alert-metric">2.2x</div><p>Transitioning from Winter/Shoulder to Summer (Jun-Sep). Expected revenue increase from ~$14K/week to ~$30K/week.</p><div class="alert-recommend">Recommend: Begin hiring now. Increase inventory capacity. Review supply chain for peak capacity.</div></div>`;
+            alertsHtml += '<h3 style="margin-top: 30px; margin-bottom: 20px; color: #1c1612; font-size: 18px; border-bottom: 2px solid #c4843e; padding-bottom: 10px;">Cost Anomalies</h3>';
+            const anomalies = [{recipe: 'Jalapeño Cheddar Cornbread',batch: 42.68,cpu: 21.34,msg: 'Highest per-unit cost at $21.34/pan'},{recipe: 'Queso / Mac Sauce',batch: 126.97,cpu: 5.77,msg: 'Highest absolute batch cost'},{recipe: 'Santa Fe Caesar',batch: 30.55,cpu: 15.28,msg: 'Expensive dressing at $15.28/qt'}];
+            anomalies.forEach(a => {alertsHtml += `<div class="alert-card critical"><span class="alert-badge critical">HIGH COST</span><h3>${a.recipe}</h3><div class="alert-metric">$${a.cpu.toFixed(2)}/unit</div><p>${a.msg}</p><div class="alert-recommend">Recommend: Review ingredient sourcing and portion yields.</div></div>`;});
+            alertsHtml += '<h3 style="margin-top: 30px; margin-bottom: 20px; color: #1c1612; font-size: 18px; border-bottom: 2px solid #c4843e; padding-bottom: 10px;">Price Tracker</h3>';
+            alertsHtml += `<div class="alert-card ok"><span class="alert-badge ok">STATUS</span><h3>Price History Ready</h3><p>29 ingredients tracked from baseline (2026-03-23). New uploads via Tab 2 will add snapshots and trigger price spike alerts when increases exceed 10%.</p></div>`;
+            document.getElementById('alertsContainer').innerHTML = alertsHtml;
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {initOverviewCharts();});
+    </script>
+</body>
+</html>

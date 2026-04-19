@@ -1,0 +1,28 @@
+menu_item_id,display_name,station_primary,station_secondary,fires_from,notes
+MI-S01,Jalapeño Cheddar Cornbread,grill,,grill,Griddled on flat top — honey butter from expo
+MI-S02,The Trio,expo,,expo,Queso + blackened salsa + green chile + chips — all held at pass
+MI-S03,The Pig Wings,fry,,fry,Bone-in pork shanks fried — Lariat rub + Alabama white
+MI-S04,Caprese Toast,grill,salad,grill,Toast griddled on grill — tomato confit + mozz from salad cold prep
+MI-S05,Mountain Mac & Cheese,saute,,saute,Cheese sauce batch prepped — portioned and topped to order
+MI-S06,Chicken Wings,fry,,fry,Fried — 6 sauce options all at fry station
+MI-SA01,The Rope Salad,salad,,salad,Built at salad — protein add-on fires from grill or fry
+MI-SA02,Cobb Salad,salad,,salad,Built at salad — protein add-on fires from grill or fry
+MI-SA03,Green Chile,expo,,expo,Ladled from hot-hold cambro at pass
+MI-SA04,Roasted Tomato Soup,expo,grill,expo,Ladled at pass — grilled cheese add-on fires from grill
+MI-M01,Classic BLT,grill,fry,grill,Bacon + toast on grill — fries from fry
+MI-M02,The Rope Burger,grill,fry,grill,Patty on flat top — fries from fry
+MI-M03,El Jefe Burger,grill,fry,grill,Chorizo patty on flat top — fries from fry — queso add-on from expo
+MI-M04,Nashville Hot Chicken Sandwich,fry,salad,fry,Fried chicken breast — slaw from salad
+MI-M05,Whole Roasted Trout,saute,,saute,Whole fish sautéed — asparagus and herb butter
+MI-M06,Fish and Chips,fry,salad,fry,Catfish battered + fried — slaw from salad
+MI-M07,Baja Fish Tacos,fry,saute,fry,Battered/fried default — grilled option fires from sauté
+MI-M08,Quesa Birria Tacos,grill,,grill,Braised beef + oaxaca on flat top — consomme held hot
+MI-M09,Roasted Chicken Leg,fry,grill,fry,Fried then finished on grill — root veg from fry
+MI-M10,Pork Chop,saute,,saute,Achiote marinated — seared and finished in pan
+MI-D01,Coleslaw,salad,,salad,Side — prepped daily
+MI-D02,Battered Fries,fry,,fry,Side — blanched and fried to order
+MI-D03,Sweet Potato Fries,fry,,fry,Side — par-frozen fried to order
+MI-D04,Side Salad,salad,,salad,Side — built at salad station
+MI-X01,Banana Pudding,salad,,salad,Dessert — prepped AM in cups from cold station
+MI-X02,Chocolate Cake,salad,,salad,Dessert — sliced from walk-in
+MI-X03,Churros,fry,,fry,Dessert — fried to order from piped dough

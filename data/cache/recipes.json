@@ -1,0 +1,2852 @@
+[
+  {
+    "name": "Aji Verde",
+    "ingredients": [
+      {
+        "item": "cilantro",
+        "qty": 1200,
+        "unit": "g"
+      },
+      {
+        "item": "lime juice",
+        "qty": 600,
+        "unit": "g"
+      },
+      {
+        "item": "mayonnaise",
+        "qty": 600,
+        "unit": "g"
+      },
+      {
+        "item": "garlic",
+        "qty": 200,
+        "unit": "g"
+      },
+      {
+        "item": "salt",
+        "qty": 40,
+        "unit": "g"
+      },
+      {
+        "item": "olive oil",
+        "qty": 150,
+        "unit": "g"
+      },
+      {
+        "item": "jalapeno",
+        "qty": 500,
+        "unit": "g"
+      }
+    ],
+    "procedure": [
+      "1. Combine lime juice, mayo, garlic, salt, olive oil, jalapenos, half cilantro. Blend.",
+      "2. Add other half of cilantro.",
+      "3. Blend on low."
+    ],
+    "slug": "aji_verde",
+    "source": "excel",
+    "allergens": [
+      "eggs"
+    ],
+    "category": "sauce",
+    "yield_qty": 3.2,
+    "yield_unit": "qt",
+    "station": "saute;fry",
+    "menu_items": [
+      "Pork Chop",
+      "Baja Fish Tacos"
+    ],
+    "notes": "PDF p25 — blend in two stages; half cilantro each time",
+    "direct_allergens": [
+      "eggs"
+    ],
+    "sub_recipes": []
+  },
+  {
+    "name": "Alabama White Sauce",
+    "ingredients": [
+      {
+        "item": "mayonnaise",
+        "qty": 1,
+        "unit": "gal"
+      },
+      {
+        "item": "horseradish",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "dijon mustard",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "apple cider vinegar",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "lemon juice",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "granulated garlic",
+        "qty": 2,
+        "unit": "tbsp"
+      },
+      {
+        "item": "brown sugar",
+        "qty": 3,
+        "unit": "cup"
+      },
+      {
+        "item": "cayenne",
+        "qty": 0.5,
+        "unit": "tbsp"
+      },
+      {
+        "item": "kosher salt",
+        "qty": 1,
+        "unit": "tsp"
+      },
+      {
+        "item": "black pepper",
+        "qty": 1,
+        "unit": "tsp"
+      }
+    ],
+    "procedure": [
+      "1. Whisk ingredients thoroughly.",
+      "2. If brown sugar solidified, dissolve in ACV first."
+    ],
+    "slug": "alabama_white_sauce",
+    "source": "excel",
+    "allergens": [
+      "eggs"
+    ],
+    "category": "sauce",
+    "yield_qty": 1.5,
+    "yield_unit": "gal",
+    "station": "fry",
+    "menu_items": [
+      "Pig Wings",
+      "wing option"
+    ],
+    "notes": "PDF p26 — mayo + ACV base; dissolve brown sugar in ACV if solidified",
+    "direct_allergens": [
+      "eggs"
+    ]
+  },
+  {
+    "name": "Bacon Jam",
+    "ingredients": [
+      {
+        "item": "bacon",
+        "qty": 15,
+        "unit": "lb"
+      },
+      {
+        "item": "yellow onions",
+        "qty": 10,
+        "unit": "ea"
+      },
+      {
+        "item": "orange juice",
+        "qty": 1,
+        "unit": "qt"
+      },
+      {
+        "item": "brown sugar",
+        "qty": 4,
+        "unit": "lb"
+      },
+      {
+        "item": "lariat rub",
+        "qty": 0.5,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [
+      "1. Render bacon on flat top until lightly crispy.",
+      "2. Season with lariat rub.",
+      "3. Add onions, cook on medium heat until caramelized.",
+      "4. Add brown sugar to melt.",
+      "5. Add orange juice and reduce to jammy."
+    ],
+    "slug": "bacon_jam",
+    "source": "excel",
+    "allergens": [
+      "milk"
+    ],
+    "category": "sauce",
+    "yield_qty": 10,
+    "yield_unit": "qt",
+    "station": "grill",
+    "sub_recipes": [
+      "lariat_rub"
+    ],
+    "menu_items": [
+      "The Rope Burger"
+    ],
+    "notes": "Render bacon crisp — reduce OJ to jammy",
+    "direct_allergens": [
+      "milk"
+    ]
+  },
+  {
+    "name": "Beer Batter",
+    "ingredients": [
+      {
+        "item": "guinness",
+        "qty": 550,
+        "unit": "g"
+      },
+      {
+        "item": "vodka",
+        "qty": 50,
+        "unit": "g"
+      }
+    ],
+    "procedure": [
+      "1. Disperse vodka/stout mix into bowl.",
+      "2. Incorporate flour gradually (DRY to WET).",
+      "3. Whisk until smooth, runs off whisk."
+    ],
+    "slug": "beer_batter",
+    "source": "excel",
+    "allergens": [
+      "wheat"
+    ],
+    "category": "prep",
+    "yield_qty": 600,
+    "yield_unit": "g",
+    "station": "fry",
+    "menu_items": [
+      "Fish & Chips",
+      "Baja Tacos",
+      "Chicken Wings"
+    ],
+    "notes": "PDF p21 — wet portion only (guinness + vodka); combine with beer_flour dry mix at service",
+    "direct_allergens": [
+      "wheat"
+    ],
+    "sub_recipes": [
+      "beer_flour"
+    ]
+  },
+  {
+    "name": "Beer Flour",
+    "slug": "beer_flour",
+    "ingredients": [
+      {
+        "item": "ap flour",
+        "qty": 17,
+        "unit": "cup"
+      },
+      {
+        "item": "kosher salt",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "baking soda",
+        "qty": 0.333,
+        "unit": "cup"
+      }
+    ],
+    "procedure": "Disperse vodka/stout mix into bowl. Incorporate equal parts flour gradually into bowl (DRY YOUR WET). Whisk until consistency is smooth and runs off whisk (no clumping/dripping).",
+    "allergens": [
+      "wheat"
+    ],
+    "source": "recipe_index",
+    "category": "prep",
+    "yield_qty": 18,
+    "yield_unit": "cup",
+    "station": "fry",
+    "menu_items": [
+      "Fish & Chips",
+      "Baja Tacos"
+    ],
+    "notes": "PDF p21 — dry mix combined with beer_batter wet portion at service",
+    "direct_allergens": [
+      "wheat"
+    ]
+  },
+  {
+    "name": "QB Recipe (Birria)",
+    "ingredients": [
+      {
+        "item": "beef cheeks",
+        "qty": 1,
+        "unit": "case"
+      },
+      {
+        "item": "birria seasoning",
+        "qty": 150,
+        "unit": "g"
+      },
+      {
+        "item": "guajillo peppers",
+        "qty": 80,
+        "unit": "g"
+      },
+      {
+        "item": "white onion",
+        "qty": 4,
+        "unit": "ea"
+      },
+      {
+        "item": "garlic",
+        "qty": 200,
+        "unit": "g"
+      },
+      {
+        "item": "water",
+        "qty": 12,
+        "unit": "cup"
+      },
+      {
+        "item": "chicken base",
+        "qty": 16,
+        "unit": "oz"
+      },
+      {
+        "item": "achiote",
+        "qty": 200,
+        "unit": "g"
+      }
+    ],
+    "procedure": [
+      "1. Dissolve achiote in chicken stock.",
+      "2. Trim beef of excessive fat.",
+      "3. Season beef with birria seasoning.",
+      "4. Sear on all sides.",
+      "5. Split into 2 deep hotel pans, cook 8-12 hrs at 225°F.",
+      "6. Remove beef. Blend and strain through chinois.",
+      "7. Add water to consommé if needed."
+    ],
+    "slug": "birria",
+    "source": "excel",
+    "allergens": [],
+    "direct_allergens": [],
+    "menu_items": [
+      "Quesa Birria Tacos"
+    ],
+    "sub_recipes": [
+      "qb_seasoning"
+    ],
+    "category": "entree",
+    "yield_qty": 16,
+    "yield_unit": "qt",
+    "station": "grill",
+    "notes": "PDF p46 — beef cheeks; braise 8-12hr at 225F fatty side up; strain consomme through chinois; birria_seasoning = qb_seasoning sub-recipe"
+  },
+  {
+    "name": "Black Bean & Corn Succotash",
+    "ingredients": [
+      {
+        "item": "sweet corn kernels",
+        "qty": 2,
+        "unit": "qt"
+      },
+      {
+        "item": "cooked black beans",
+        "qty": 1,
+        "unit": "qt"
+      },
+      {
+        "item": "diced red onion",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "diced bell pepper",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "jalapenos",
+        "qty": 4,
+        "unit": "ea"
+      },
+      {
+        "item": "cilantro",
+        "qty": 1,
+        "unit": "bunch"
+      },
+      {
+        "item": "minced garlic",
+        "qty": 2,
+        "unit": "tbsp"
+      },
+      {
+        "item": "lime juice",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "red wine vinegar",
+        "qty": 2,
+        "unit": "tbsp"
+      },
+      {
+        "item": "red chili flakes",
+        "qty": 0.5,
+        "unit": "tbsp"
+      },
+      {
+        "item": "cumin",
+        "qty": 1,
+        "unit": "tbsp"
+      },
+      {
+        "item": "kosher salt",
+        "qty": 1,
+        "unit": "tbsp"
+      },
+      {
+        "item": "olive oil",
+        "qty": 2,
+        "unit": "tbsp"
+      }
+    ],
+    "procedure": [
+      "1. Combine all ingredients and mix."
+    ],
+    "slug": "black_bean_corn_succotash",
+    "source": "excel",
+    "allergens": [],
+    "category": "prep",
+    "yield_qty": 6,
+    "yield_unit": "qt",
+    "station": "salad",
+    "menu_items": [
+      "The Rope Salad"
+    ],
+    "notes": "Chill 1 hour before service",
+    "direct_allergens": []
+  },
+  {
+    "name": "Blackened Tomato Salsa",
+    "ingredients": [
+      {
+        "item": "tomatoes",
+        "qty": 2,
+        "unit": "case"
+      },
+      {
+        "item": "cilantro",
+        "qty": 8,
+        "unit": "bunch"
+      },
+      {
+        "item": "jalapenos",
+        "qty": 2,
+        "unit": "qt"
+      },
+      {
+        "item": "yellow onions",
+        "qty": 6,
+        "unit": "ea"
+      },
+      {
+        "item": "kosher salt",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "minced garlic",
+        "qty": 1.5,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [
+      "1. Blacken tomatoes on char grill.",
+      "2. Blacken halved onions and jalapenos in salamander.",
+      "3. Combine all ingredients in 22 qt cambro or large pot.",
+      "4. Bur mix thoroughly."
+    ],
+    "slug": "blackened_tomato_salsa",
+    "source": "excel",
+    "allergens": [],
+    "category": "sauce",
+    "yield_qty": 22,
+    "yield_unit": "qt",
+    "station": "grill",
+    "menu_items": [
+      "The Trio",
+      "Queso ingredient"
+    ],
+    "notes": "PDF p8 — blacken tomatoes on char grill; halved onions + jalapenos in salamander; bur mix",
+    "direct_allergens": []
+  },
+  {
+    "name": "Buttermilk Brine",
+    "ingredients": [
+      {
+        "item": "buttermilk",
+        "qty": 0.5,
+        "unit": "gal"
+      },
+      {
+        "item": "franks hot sauce",
+        "qty": 500,
+        "unit": "g"
+      },
+      {
+        "item": "garlic powder",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "onion powder",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "ground black pepper",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "kosher salt",
+        "qty": 0.125,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [
+      "1. Combine all ingredients in a cambro and whisk."
+    ],
+    "slug": "buttermilk_brine",
+    "source": "excel",
+    "allergens": [
+      "milk"
+    ],
+    "category": "prep",
+    "yield_qty": 12,
+    "yield_unit": "qt",
+    "station": "fry",
+    "menu_items": [
+      "Nashville Hot Chicken"
+    ],
+    "notes": "12 qt of brined chicken — 12-24hr soak",
+    "direct_allergens": [
+      "milk"
+    ]
+  },
+  {
+    "name": "Chicken Confit",
+    "ingredients": [
+      {
+        "item": "garlic cloves",
+        "qty": 8,
+        "unit": "ea"
+      },
+      {
+        "item": "rosemary sprigs",
+        "qty": 2,
+        "unit": "ea"
+      },
+      {
+        "item": "thyme sprigs",
+        "qty": 2,
+        "unit": "ea"
+      },
+      {
+        "item": "evoo",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "procedure": [
+      "1. French chicken legs.",
+      "2. Line shallow hotel pan with chicken legs.",
+      "3. Season both sides w/ green salt.",
+      "4. Fill pan with olive oil until submerged.",
+      "5. Cover with foil, bake @225°F for 3 hours.",
+      "6. Remove and refrigerate immediately."
+    ],
+    "slug": "chicken_confit",
+    "source": "excel",
+    "allergens": [],
+    "category": "prep",
+    "yield_qty": 1,
+    "yield_unit": "hotel pan",
+    "station": "fry;grill",
+    "menu_items": [
+      "Roasted Chicken Leg"
+    ],
+    "notes": "French legs — confit in EVOO 225F 3hr",
+    "direct_allergens": []
+  },
+  {
+    "name": "Chicken Flour",
+    "ingredients": [
+      {
+        "item": "ap flour",
+        "qty": 18,
+        "unit": "kg"
+      },
+      {
+        "item": "kosher salt",
+        "qty": 1.5,
+        "unit": "cup"
+      },
+      {
+        "item": "black pepper",
+        "qty": 2,
+        "unit": "cup"
+      },
+      {
+        "item": "paprika",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "onion powder",
+        "qty": 1.5,
+        "unit": "cup"
+      },
+      {
+        "item": "garlic powder",
+        "qty": 1.5,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [
+      "1. Combine and mix thoroughly."
+    ],
+    "slug": "chicken_flour",
+    "source": "excel",
+    "allergens": [
+      "wheat"
+    ],
+    "category": "prep",
+    "yield_qty": 22,
+    "yield_unit": "qt",
+    "station": "fry",
+    "menu_items": [
+      "Nashville Hot Chicken",
+      "Chicken Wings"
+    ],
+    "notes": "Dry dredge before beer batter",
+    "direct_allergens": [
+      "wheat"
+    ]
+  },
+  {
+    "name": "Chicken Jus",
+    "ingredients": [
+      {
+        "item": "celery",
+        "qty": 2.333,
+        "unit": "cup"
+      },
+      {
+        "item": "carrot",
+        "qty": 7,
+        "unit": "cup"
+      },
+      {
+        "item": "large onions",
+        "qty": 3,
+        "unit": "ea"
+      },
+      {
+        "item": "chicken wings",
+        "qty": 1,
+        "unit": "bag"
+      },
+      {
+        "item": "clarified butter",
+        "qty": 0.667,
+        "unit": "cup"
+      },
+      {
+        "item": "water",
+        "qty": 8,
+        "unit": "qt"
+      },
+      {
+        "item": "chicken stock",
+        "qty": 8,
+        "unit": "oz"
+      },
+      {
+        "item": "dry white wine",
+        "qty": 4,
+        "unit": "cup"
+      },
+      {
+        "item": "sachet",
+        "qty": 20,
+        "unit": "g"
+      },
+      {
+        "item": "garlic",
+        "qty": 0.667,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [
+      "1. Heat rondeau; add butter and wings. Cook until colored.",
+      "2. Add mirepoix, scrape fond continuously.",
+      "3. Once vegetables brown, deglaze with white wine.",
+      "4. Add garlic, cook until fond forms, deglaze again.",
+      "5. Add remaining stock, reduce by ⅓ (approx. 2 hours).",
+      "6. Pour through chinois. Skim oils from top."
+    ],
+    "slug": "chicken_jus",
+    "source": "excel",
+    "allergens": [
+      "milk"
+    ],
+    "category": "sauce",
+    "yield_qty": 5,
+    "yield_unit": "qt",
+    "station": "fry;grill",
+    "menu_items": [
+      "Roasted Chicken Leg"
+    ],
+    "notes": "Reduce by 1/3 approx 2 hours — strain through chinois",
+    "direct_allergens": [
+      "milk"
+    ]
+  },
+  {
+    "name": "Chimichurri",
+    "ingredients": [
+      {
+        "item": "parsley",
+        "qty": 100,
+        "unit": "g"
+      },
+      {
+        "item": "thyme",
+        "qty": 100,
+        "unit": "g"
+      },
+      {
+        "item": "rosemary",
+        "qty": 100,
+        "unit": "g"
+      },
+      {
+        "item": "calabrian chile",
+        "qty": 100,
+        "unit": "g"
+      },
+      {
+        "item": "evoo",
+        "qty": 300,
+        "unit": "g"
+      },
+      {
+        "item": "lemon juice",
+        "qty": 20,
+        "unit": "g"
+      }
+    ],
+    "procedure": [
+      "1. Pick herbs and finely chop.",
+      "2. Mix with peppers, lemon juice and oil."
+    ],
+    "slug": "chimichurri",
+    "source": "excel",
+    "allergens": [],
+    "category": "sauce",
+    "yield_qty": 2,
+    "yield_unit": "cup",
+    "station": "grill",
+    "menu_items": [
+      "grill items"
+    ],
+    "notes": "WORKING RECIPE — please refine and record",
+    "direct_allergens": []
+  },
+  {
+    "name": "Chipotle Aioli",
+    "ingredients": [
+      {
+        "item": "mayonnaise",
+        "qty": 36,
+        "unit": "cup"
+      },
+      {
+        "item": "adobo puree",
+        "qty": 6,
+        "unit": "cup"
+      },
+      {
+        "item": "lime juice",
+        "qty": 3,
+        "unit": "tbsp"
+      }
+    ],
+    "procedure": [
+      "1. Combine ingredients and blend thoroughly."
+    ],
+    "slug": "chipotle_aioli",
+    "source": "excel",
+    "allergens": [
+      "eggs",
+      "milk",
+      "soybeans"
+    ],
+    "category": "sauce",
+    "yield_qty": 10,
+    "yield_unit": "qt",
+    "station": "fry",
+    "menu_items": [
+      "Baja Fish Tacos"
+    ],
+    "notes": "Adobo puree + lime",
+    "direct_allergens": [
+      "eggs",
+      "milk",
+      "soybeans"
+    ],
+    "sub_recipes": []
+  },
+  {
+    "name": "Cobb Dressing",
+    "ingredients": [
+      {
+        "item": "garlic cloves",
+        "qty": 8,
+        "unit": "ea"
+      },
+      {
+        "item": "parsley",
+        "qty": 3,
+        "unit": "cup"
+      },
+      {
+        "item": "cilantro",
+        "qty": 3,
+        "unit": "cup"
+      },
+      {
+        "item": "buttermilk",
+        "qty": 1,
+        "unit": "qt"
+      },
+      {
+        "item": "mayonnaise",
+        "qty": 1,
+        "unit": "qt"
+      },
+      {
+        "item": "sour cream",
+        "qty": 1,
+        "unit": "qt"
+      },
+      {
+        "item": "lemons",
+        "qty": 8,
+        "unit": "ea"
+      },
+      {
+        "item": "olive oil",
+        "qty": 4,
+        "unit": "tbsp"
+      },
+      {
+        "item": "bleu cheese crumbles",
+        "qty": 2,
+        "unit": "cup"
+      },
+      {
+        "item": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "item": "pepper",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "procedure": [
+      "1. Combine half blue cheese and all other ingredients. Blend on high.",
+      "2. Add remaining blue cheese, blend on low."
+    ],
+    "slug": "cobb_dressing",
+    "source": "excel",
+    "allergens": [
+      "eggs",
+      "milk"
+    ],
+    "direct_allergens": [
+      "eggs",
+      "milk"
+    ],
+    "menu_items": [
+      "Cobb Salad"
+    ],
+    "sub_recipes": [],
+    "category": "dressing",
+    "yield_qty": 4,
+    "yield_unit": "qt",
+    "station": "salad",
+    "notes": "Blend half bleu cheese high — remaining on low"
+  },
+  {
+    "name": "Coleslaw",
+    "ingredients": [
+      {
+        "item": "mayonnaise",
+        "qty": 6,
+        "unit": "cup"
+      },
+      {
+        "item": "drained pickle relish",
+        "qty": 2.25,
+        "unit": "cup"
+      },
+      {
+        "item": "buttermilk",
+        "qty": 0.75,
+        "unit": "cup"
+      },
+      {
+        "item": "prepared horseradish",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "spicy brown mustard",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "apple cider vinegar",
+        "qty": 0.75,
+        "unit": "cup"
+      },
+      {
+        "item": "sugar",
+        "qty": 3,
+        "unit": "tbsp"
+      },
+      {
+        "item": "kosher salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "item": "pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "item": "green cabbage",
+        "qty": 10,
+        "unit": "qt"
+      },
+      {
+        "item": "scallion greens",
+        "qty": 3,
+        "unit": "cup"
+      },
+      {
+        "item": "scallion whites",
+        "qty": 3,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [
+      "1. Whisk mayo, relish, buttermilk, horseradish, mustard, vinegar, sugar.",
+      "2. Season with salt and pepper.",
+      "3. Combine cabbage, scallion greens, scallion whites.",
+      "4. Pour dressing over slaw, toss well.",
+      "5. Adjust seasoning. Store refrigerated."
+    ],
+    "slug": "coleslaw",
+    "source": "excel",
+    "allergens": [
+      "eggs",
+      "milk"
+    ],
+    "category": "prep",
+    "yield_qty": 12,
+    "yield_unit": "qt",
+    "station": "salad",
+    "menu_items": [
+      "Nashville Hot",
+      "Fish & Chips",
+      "Baja Tacos",
+      "BLT"
+    ],
+    "notes": "Pickle relish + horseradish dressing — Hillstone style",
+    "direct_allergens": [
+      "eggs",
+      "milk"
+    ],
+    "sub_recipes": []
+  },
+  {
+    "name": "Corn Bread",
+    "ingredients": [
+      {
+        "item": "cornbread mixture",
+        "qty": 2,
+        "unit": "box"
+      },
+      {
+        "item": "butter",
+        "qty": 1.15,
+        "unit": "lb"
+      },
+      {
+        "item": "buttermilk",
+        "qty": 14.75,
+        "unit": "cup"
+      },
+      {
+        "item": "cheddar cheese",
+        "qty": 3.5,
+        "unit": "cup"
+      },
+      {
+        "item": "jalapeno",
+        "qty": 3.5,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [
+      "1. Thoroughly whisk together in a large mixing bowl.",
+      "2. Spray cake pans and distribute evenly.",
+      "3. Bake at 500°F for 1hr 30min.",
+      "4. Remove from oven, cool, and wrap."
+    ],
+    "slug": "cornbread",
+    "source": "excel",
+    "allergens": [
+      "milk",
+      "wheat"
+    ],
+    "direct_allergens": [
+      "milk",
+      "wheat"
+    ],
+    "menu_items": [
+      "Jalapeño Cheddar Cornbread",
+      "cornbread croutons"
+    ],
+    "sub_recipes": [],
+    "category": "prep",
+    "yield_qty": 2,
+    "yield_unit": "pan",
+    "station": "grill",
+    "notes": "Bake 500F 1hr 30min — brown butter"
+  },
+  {
+    "name": "Corndog Batter",
+    "ingredients": [
+      {
+        "item": "ap flour",
+        "qty": 17,
+        "unit": "cup"
+      },
+      {
+        "item": "cornmeal",
+        "qty": 12,
+        "unit": "cup"
+      },
+      {
+        "item": "sugar",
+        "qty": 4,
+        "unit": "cup"
+      },
+      {
+        "item": "salt",
+        "qty": 3,
+        "unit": "cup"
+      },
+      {
+        "item": "baking soda",
+        "qty": 0.333,
+        "unit": "cup"
+      },
+      {
+        "item": "pepper",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "buttermilk",
+        "qty": "",
+        "unit": "to consistency"
+      }
+    ],
+    "procedure": [
+      "1. Combine all ingredients and whisk."
+    ],
+    "slug": "corndog_batter",
+    "source": "excel",
+    "allergens": [
+      "milk",
+      "wheat"
+    ],
+    "category": "prep",
+    "yield_qty": 8,
+    "yield_unit": "qt",
+    "station": "fry",
+    "menu_items": [
+      "catering corndogs"
+    ],
+    "notes": "Buttermilk to right consistency",
+    "direct_allergens": [
+      "milk",
+      "wheat"
+    ],
+    "sub_recipes": []
+  },
+  {
+    "name": "Fish Brine",
+    "ingredients": [
+      {
+        "item": "salt",
+        "qty": 1.25,
+        "unit": "cup"
+      },
+      {
+        "item": "sugar",
+        "qty": 0.75,
+        "unit": "cup"
+      },
+      {
+        "item": "water",
+        "qty": 4,
+        "unit": "qt"
+      }
+    ],
+    "procedure": [
+      "1. Combine ingredients.",
+      "2. Marinade for 7 minutes.",
+      "3. Drain and cut."
+    ],
+    "slug": "fish_brine",
+    "source": "excel",
+    "allergens": [
+      "fish"
+    ],
+    "category": "prep",
+    "yield_qty": 4,
+    "yield_unit": "qt",
+    "station": "fry",
+    "menu_items": [
+      "Fish & Chips",
+      "Baja Fish Tacos"
+    ],
+    "notes": "7 minute marinade only",
+    "direct_allergens": [
+      "fish"
+    ]
+  },
+  {
+    "name": "French Toast Batter",
+    "ingredients": [
+      {
+        "item": "eggs",
+        "qty": 1000,
+        "unit": "g"
+      },
+      {
+        "item": "milk",
+        "qty": 1000,
+        "unit": "g"
+      },
+      {
+        "item": "cinnamon",
+        "qty": 0.5,
+        "unit": "tsp"
+      },
+      {
+        "item": "vanilla",
+        "qty": 1,
+        "unit": "tsp"
+      },
+      {
+        "item": "sugar",
+        "qty": 1,
+        "unit": "tbsp"
+      },
+      {
+        "item": "nutmeg",
+        "qty": 0.25,
+        "unit": "tsp"
+      }
+    ],
+    "procedure": [
+      "1. Combine and whisk."
+    ],
+    "slug": "french_toast_batter",
+    "source": "excel",
+    "allergens": [
+      "eggs",
+      "milk",
+      "wheat"
+    ],
+    "category": "prep",
+    "yield_qty": 2,
+    "yield_unit": "qt",
+    "station": "grill",
+    "menu_items": [
+      "brunch"
+    ],
+    "notes": "Eggs + milk + cinnamon + vanilla + nutmeg",
+    "direct_allergens": [
+      "eggs",
+      "milk",
+      "wheat"
+    ]
+  },
+  {
+    "name": "Green Chile",
+    "ingredients": [
+      {
+        "item": "pork butt",
+        "qty": 10,
+        "unit": "lb"
+      },
+      {
+        "item": "water",
+        "qty": 5,
+        "unit": "cup"
+      },
+      {
+        "item": "tomatillos",
+        "qty": 2,
+        "unit": "#10 can"
+      },
+      {
+        "item": "hatch chile with juice",
+        "qty": 2,
+        "unit": "bag"
+      },
+      {
+        "item": "yellow onions",
+        "qty": 1.75,
+        "unit": "lb"
+      },
+      {
+        "item": "granulated garlic",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "dried oregano",
+        "qty": 0.333,
+        "unit": "cup"
+      },
+      {
+        "item": "cumin",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "chicken base",
+        "qty": 3,
+        "unit": "cup"
+      },
+      {
+        "item": "garlic puree",
+        "qty": 1,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [
+      "1. Create roux with bacon grease & flour.",
+      "2. Cook pork in oil until water is gone.",
+      "3. Add onions, cook 10 min.",
+      "4. Add garlic puree, cook 5 min.",
+      "5. Add spices and chicken base, cook 10 min.",
+      "6. Add tomatillo and chilis, mix well.",
+      "7. Add water, cook 40-60 min until pork softens.",
+      "8. Add roux, cook 20 more minutes."
+    ],
+    "slug": "green_chile",
+    "source": "excel",
+    "allergens": [
+      "milk",
+      "wheat"
+    ],
+    "category": "entree",
+    "yield_qty": 8,
+    "yield_unit": "qt",
+    "station": "expo",
+    "sub_recipes": [
+      "lariat_rub"
+    ],
+    "menu_items": [
+      "Green Chile (cup/bowl)"
+    ],
+    "notes": "PDF p16 — braise 40-60 min until pork softens; add roux (bacon grease + flour) to finish",
+    "direct_allergens": [
+      "milk",
+      "wheat"
+    ]
+  },
+  {
+    "name": "Herbal Butter",
+    "ingredients": [
+      {
+        "item": "butter",
+        "qty": 3,
+        "unit": "lb"
+      },
+      {
+        "item": "parsley",
+        "qty": 100,
+        "unit": "g"
+      },
+      {
+        "item": "thyme",
+        "qty": 100,
+        "unit": "g"
+      },
+      {
+        "item": "rosemary",
+        "qty": 100,
+        "unit": "g"
+      },
+      {
+        "item": "tarragon",
+        "qty": 100,
+        "unit": "g"
+      }
+    ],
+    "procedure": [
+      "1. Pick herbs and chop.",
+      "2. Stir herbs into butter thoroughly."
+    ],
+    "slug": "herbal_butter",
+    "source": "excel",
+    "allergens": [
+      "milk"
+    ],
+    "category": "prep",
+    "yield_qty": 4,
+    "yield_unit": "lb",
+    "station": "saute",
+    "menu_items": [
+      "Whole Roasted Trout"
+    ],
+    "notes": "Parsley thyme rosemary tarragon compound butter",
+    "direct_allergens": [
+      "milk"
+    ]
+  },
+  {
+    "name": "Honey Butter",
+    "ingredients": [
+      {
+        "item": "honey",
+        "qty": 1,
+        "unit": "lb"
+      },
+      {
+        "item": "butter",
+        "qty": 3,
+        "unit": "lb"
+      }
+    ],
+    "procedure": [
+      "1. Mix honey and butter."
+    ],
+    "slug": "honey_butter",
+    "source": "excel",
+    "allergens": [
+      "milk"
+    ],
+    "category": "prep",
+    "yield_qty": 4,
+    "yield_unit": "lb",
+    "station": "expo",
+    "menu_items": [
+      "Jalapeño Cheddar Cornbread"
+    ],
+    "notes": "1:3 honey to butter",
+    "direct_allergens": [
+      "milk"
+    ]
+  },
+  {
+    "name": "Honey Mustard",
+    "ingredients": [
+      {
+        "item": "honey",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "yellow mustard",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "mayonnaise",
+        "qty": 0.75,
+        "unit": "cup"
+      },
+      {
+        "item": "cayenne",
+        "qty": 1,
+        "unit": "tsp"
+      },
+      {
+        "item": "cracked pepper",
+        "qty": 0.25,
+        "unit": "tsp"
+      }
+    ],
+    "procedure": [
+      "1. Combine and mix."
+    ],
+    "slug": "honey_mustard",
+    "source": "excel",
+    "allergens": [
+      "eggs"
+    ],
+    "category": "sauce",
+    "yield_qty": 3,
+    "yield_unit": "cup",
+    "station": "expo",
+    "menu_items": [
+      "dipping sauce"
+    ],
+    "notes": "Honey + yellow mustard base",
+    "direct_allergens": [
+      "eggs"
+    ]
+  },
+  {
+    "name": "Lariat Rub",
+    "ingredients": [
+      {
+        "item": "salt",
+        "qty": 1.75,
+        "unit": "cup"
+      },
+      {
+        "item": "paprika",
+        "qty": 18,
+        "unit": "tbsp"
+      },
+      {
+        "item": "garlic powder",
+        "qty": 0.75,
+        "unit": "cup"
+      },
+      {
+        "item": "onion powder",
+        "qty": 0.75,
+        "unit": "cup"
+      },
+      {
+        "item": "pepper",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "turbinado sugar",
+        "qty": 0.75,
+        "unit": "cup"
+      },
+      {
+        "item": "cayenne",
+        "qty": 4,
+        "unit": "tbsp"
+      },
+      {
+        "item": "cumin",
+        "qty": 4,
+        "unit": "tbsp"
+      }
+    ],
+    "procedure": [
+      "1. Whisk together in mixing bowl."
+    ],
+    "slug": "lariat_rub",
+    "source": "excel",
+    "allergens": [
+      "milk"
+    ],
+    "category": "seasoning",
+    "yield_qty": 6,
+    "yield_unit": "cup",
+    "station": "all",
+    "menu_items": [
+      "multiple"
+    ],
+    "notes": "House signature rub — used in Nashville Hot Rub + Pig Wings + Green Chile + Bacon Jam",
+    "direct_allergens": [
+      "milk"
+    ],
+    "sub_recipes": []
+  },
+  {
+    "name": "Lemon Thyme Vinaigrette",
+    "ingredients": [
+      {
+        "item": "garlic",
+        "qty": 2,
+        "unit": "tsp"
+      },
+      {
+        "item": "lemons",
+        "qty": 4,
+        "unit": "ea"
+      },
+      {
+        "item": "lemon juice",
+        "qty": 3,
+        "unit": "cup"
+      },
+      {
+        "item": "evoo",
+        "qty": 2,
+        "unit": "cup"
+      },
+      {
+        "item": "canola oil",
+        "qty": 2,
+        "unit": "cup"
+      },
+      {
+        "item": "honey",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "dijon mustard",
+        "qty": 3,
+        "unit": "tbsp"
+      },
+      {
+        "item": "dry thyme",
+        "qty": 2,
+        "unit": "tsp"
+      },
+      {
+        "item": "pepper",
+        "qty": 1,
+        "unit": "tsp"
+      },
+      {
+        "item": "kosher salt",
+        "qty": 4,
+        "unit": "tsp"
+      }
+    ],
+    "procedure": [
+      "1. Emulsify all ingredients."
+    ],
+    "slug": "lemon_thyme_vinaigrette",
+    "source": "excel",
+    "allergens": [
+      "milk"
+    ],
+    "category": "dressing",
+    "yield_qty": 2,
+    "yield_unit": "qt",
+    "station": "salad",
+    "menu_items": [
+      "salads (seasonal)"
+    ],
+    "notes": "Emulsify all ingredients",
+    "direct_allergens": [
+      "milk"
+    ],
+    "sub_recipes": []
+  },
+  {
+    "name": "Mesa Melt – Southwest Beer Cheese",
+    "slug": "mesa_melt",
+    "source": "pdf",
+    "page": 3,
+    "ingredients": [
+      {
+        "item": "unsalted butter",
+        "qty": 2,
+        "unit": "tbsp"
+      },
+      {
+        "item": "ap flour",
+        "qty": 2,
+        "unit": "tbsp"
+      },
+      {
+        "item": "modelo especial",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "whole milk",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "sharp cheddar",
+        "qty": 8,
+        "unit": "oz"
+      },
+      {
+        "item": "pepper jack",
+        "qty": 4,
+        "unit": "oz"
+      },
+      {
+        "item": "cream cheese",
+        "qty": 2,
+        "unit": "oz"
+      },
+      {
+        "item": "hatch green chile",
+        "qty": 2,
+        "unit": "ea"
+      },
+      {
+        "item": "chipotle in adobo",
+        "qty": 1,
+        "unit": "ea"
+      },
+      {
+        "item": "smoked paprika",
+        "qty": 1,
+        "unit": "tsp"
+      },
+      {
+        "item": "ground cumin",
+        "qty": 0.5,
+        "unit": "tsp"
+      },
+      {
+        "item": "garlic powder",
+        "qty": 0.5,
+        "unit": "tsp"
+      },
+      {
+        "item": "onion powder",
+        "qty": 0.25,
+        "unit": "tsp"
+      },
+      {
+        "item": "salt",
+        "qty": 0.5,
+        "unit": "tsp"
+      }
+    ],
+    "procedure": [
+      "1. Prepare the Roux: In a medium saucepan, melt the butter over medium heat. Whisk in the flour and cook",
+      "for 1–2 minutes, until lightly golden and aromatic.",
+      "2. Incorporate Beer: Slowly pour in the beer while whisking continuously. Allow it to foam, then simmer for",
+      "1–2 minutes until slightly thickened.",
+      "3. Add Milk: Whisk in the milk or half-and-half, stirring until smooth and gently thickened.",
+      "4. Melt the Cheeses: Reduce heat to medium-low. Add cheddar, pepper jack, and cream cheese gradually,",
+      "whisking until fully melted and smooth.",
+      "5. Integrate Flavors: Stir in roasted Hatch chiles, chipotle, smoked paprika, cumin, garlic powder, onion",
+      "powder, and salt. Mix thoroughly to incorporate.",
+      "6. Adjust Consistency: For a thinner sauce, add small increments of milk or beer until desired texture is",
+      "reached. For thicker consistency, continue simmering gently.",
+      "7. Hold Warm for Service: Keep over low heat or in a warm holding unit until ready for use. Avoid boiling",
+      "once cheese is added to maintain a smooth texture."
+    ],
+    "allergens": [
+      "milk",
+      "soybeans",
+      "wheat"
+    ],
+    "direct_allergens": [
+      "milk",
+      "soybeans",
+      "wheat"
+    ],
+    "menu_items": [
+      "Mesa Melt"
+    ],
+    "sub_recipes": [],
+    "category": "sauce",
+    "yield_qty": 4,
+    "yield_unit": "cup",
+    "station": "saute",
+    "notes": "Roux + Modelo + cheddar + pepper jack + cream cheese + hatch chile + chipotle"
+  },
+  {
+    "name": "Mexi Relish",
+    "ingredients": [
+      {
+        "item": "red cabbage",
+        "qty": 5,
+        "unit": "lb"
+      },
+      {
+        "item": "chipotle aioli",
+        "qty": 2,
+        "unit": "cup"
+      },
+      {
+        "item": "lime juice",
+        "qty": 1,
+        "unit": "tbsp"
+      }
+    ],
+    "procedure": [
+      "1. Combine ingredients."
+    ],
+    "slug": "mexi_relish",
+    "source": "excel",
+    "allergens": [
+      "eggs",
+      "milk",
+      "soybeans"
+    ],
+    "category": "prep",
+    "yield_qty": 6,
+    "yield_unit": "qt",
+    "station": "fry",
+    "sub_recipes": [
+      "chipotle_aioli"
+    ],
+    "menu_items": [
+      "Baja Fish Tacos (cabbage topping)"
+    ],
+    "notes": "Red cabbage + chipotle aioli",
+    "direct_allergens": [
+      "eggs",
+      "milk",
+      "soybeans"
+    ]
+  },
+  {
+    "slug": "mexi_slaw",
+    "name": "Mexi Slaw",
+    "ingredients": [
+      {
+        "item": "red cabbage",
+        "qty": 5,
+        "unit": "lb"
+      },
+      {
+        "item": "chipotle aioli",
+        "qty": 2,
+        "unit": "cup"
+      },
+      {
+        "item": "lime juice",
+        "qty": 1,
+        "unit": "tbsp"
+      }
+    ],
+    "allergens": [
+      "eggs",
+      "milk",
+      "soybeans"
+    ],
+    "source": "official_book_2026-04-18",
+    "procedure": "Combine ingredients.",
+    "category": "side",
+    "yield_qty": 5,
+    "yield_unit": "lb",
+    "station": "garde",
+    "sub_recipes": [
+      "chipotle_aioli"
+    ],
+    "menu_items": [
+      "Fish Tacos",
+      "Birria add-ons"
+    ],
+    "notes": "Red cabbage + chipotle aioli + lime",
+    "direct_allergens": [
+      "eggs",
+      "milk",
+      "soybeans"
+    ]
+  },
+  {
+    "name": "Miso Honey",
+    "ingredients": [
+      {
+        "item": "miso",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "honey",
+        "qty": 2,
+        "unit": "cup"
+      },
+      {
+        "item": "water",
+        "qty": 0.5,
+        "unit": "cup"
+      }
+    ],
+    "procedure": "Whisk miso, honey, and water together until smooth. PDF p37 source is ambiguous on line 2 ingredient name — honey inferred from recipe title. Verify in kitchen.",
+    "slug": "miso_honey",
+    "source": "official_book_2026-04-18",
+    "allergens": [
+      "soybeans"
+    ],
+    "direct_allergens": [
+      "soybeans"
+    ],
+    "category": "sauce",
+    "yield_qty": 3,
+    "yield_unit": "cup",
+    "station": "saute",
+    "menu_items": [
+      "glaze"
+    ],
+    "notes": "Inferred from PDF p37 (ingredient names dropped in source); whisk together"
+  },
+  {
+    "name": "Nashville Hot Rub",
+    "ingredients": [
+      {
+        "item": "lariat rub",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "cayenne",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "chili powder",
+        "qty": 10,
+        "unit": "tbsp"
+      }
+    ],
+    "procedure": [
+      "1. Combine and mix."
+    ],
+    "slug": "nashville_hot_rub",
+    "source": "excel",
+    "allergens": [
+      "milk"
+    ],
+    "category": "seasoning",
+    "yield_qty": 2,
+    "yield_unit": "cup",
+    "station": "fry",
+    "sub_recipes": [
+      "lariat_rub"
+    ],
+    "menu_items": [
+      "Nashville Hot Chicken"
+    ],
+    "notes": "Applied after frying",
+    "direct_allergens": [
+      "milk"
+    ]
+  },
+  {
+    "name": "Nashville Oil",
+    "ingredients": [
+      {
+        "item": "bacon lard",
+        "qty": 900,
+        "unit": "g"
+      },
+      {
+        "item": "cayenne",
+        "qty": 3.5,
+        "unit": "tbsp"
+      },
+      {
+        "item": "lariat rub",
+        "qty": 3.5,
+        "unit": "tbsp"
+      },
+      {
+        "item": "bread and butter pickle juice",
+        "qty": 5.25,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [
+      "1. Melt bacon lard until liquified.",
+      "2. Add seasonings and whisk.",
+      "3. REMOVE FROM HEAT SOURCE.",
+      "4. Let cool (maintaining liquid form).",
+      "5. Incorporate bread & butter pickle juice."
+    ],
+    "slug": "nashville_oil",
+    "source": "excel",
+    "allergens": [
+      "milk",
+      "wheat"
+    ],
+    "category": "sauce",
+    "yield_qty": 2,
+    "yield_unit": "qt",
+    "station": "fry",
+    "sub_recipes": [
+      "lariat_rub"
+    ],
+    "menu_items": [
+      "Nashville Hot Chicken"
+    ],
+    "notes": "REMOVE FROM HEAT before adding pickle juice",
+    "direct_allergens": [
+      "milk",
+      "wheat"
+    ]
+  },
+  {
+    "name": "Pickles",
+    "ingredients": [
+      {
+        "item": "water",
+        "qty": 2.5,
+        "unit": "qt"
+      },
+      {
+        "item": "vinegar",
+        "qty": 1,
+        "unit": "qt"
+      },
+      {
+        "item": "salt",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "sugar",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "red pepper",
+        "qty": 20,
+        "unit": "g"
+      },
+      {
+        "item": "garlic",
+        "qty": 100,
+        "unit": "g"
+      },
+      {
+        "item": "dill",
+        "qty": 30,
+        "unit": "g"
+      }
+    ],
+    "procedure": [
+      "1. Combine ingredients."
+    ],
+    "slug": "pickles",
+    "source": "excel",
+    "allergens": [],
+    "category": "prep",
+    "yield_qty": 4,
+    "yield_unit": "qt",
+    "station": "grill",
+    "menu_items": [
+      "burgers"
+    ],
+    "notes": "Sweet pickles — water + vinegar + sugar brine",
+    "direct_allergens": []
+  },
+  {
+    "name": "Pico De Gallo",
+    "ingredients": [
+      {
+        "item": "tomatoes",
+        "qty": 10,
+        "unit": "cup"
+      },
+      {
+        "item": "red onion",
+        "qty": 2,
+        "unit": "cup"
+      },
+      {
+        "item": "jalapeno",
+        "qty": 7,
+        "unit": "ea"
+      },
+      {
+        "item": "garlic",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "cilantro",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "lime juice",
+        "qty": 3,
+        "unit": "cup"
+      },
+      {
+        "item": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "item": "pepper",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "procedure": [
+      "1. Combine ingredients in mixing bowl."
+    ],
+    "slug": "pico_de_gallo",
+    "source": "excel",
+    "allergens": [
+      "milk"
+    ],
+    "category": "prep",
+    "yield_qty": 4,
+    "yield_unit": "qt",
+    "station": "salad",
+    "menu_items": [
+      "Baja Fish Tacos"
+    ],
+    "notes": "Made fresh daily",
+    "direct_allergens": [
+      "milk"
+    ]
+  },
+  {
+    "name": "Pork Chop Marinade",
+    "ingredients": [
+      {
+        "item": "orange juice",
+        "qty": 2,
+        "unit": "cup"
+      },
+      {
+        "item": "lime juice",
+        "qty": 2,
+        "unit": "cup"
+      },
+      {
+        "item": "cumin",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "adobo seasoning",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "pepper",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "chopped garlic",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "garlic powder",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "cilantro",
+        "qty": 1,
+        "unit": "bunch"
+      }
+    ],
+    "procedure": [
+      "1. Combine and mix."
+    ],
+    "slug": "pork_chop_marinade",
+    "source": "excel",
+    "allergens": [
+      "milk",
+      "soybeans",
+      "wheat"
+    ],
+    "direct_allergens": [
+      "milk",
+      "soybeans",
+      "wheat"
+    ],
+    "menu_items": [
+      "Pork Chop"
+    ],
+    "sub_recipes": [],
+    "category": "prep",
+    "yield_qty": 1,
+    "yield_unit": "gal",
+    "station": "saute",
+    "notes": "PDF p41 — OJ + lime + cilantro base; the Southwestern Rye variant has been retired per official book"
+  },
+  {
+    "name": "QB Seasoning",
+    "slug": "qb_seasoning",
+    "ingredients": [
+      {
+        "item": "chili powder",
+        "qty": 4,
+        "unit": "cup"
+      },
+      {
+        "item": "cumin",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "cinnamon",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "black pepper",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "whole cloves",
+        "qty": 0.25,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [
+      "1. Combine ingredients and mix."
+    ],
+    "allergens": [],
+    "source": "recipe_index",
+    "category": "seasoning",
+    "yield_qty": 6,
+    "yield_unit": "cup",
+    "station": "all",
+    "menu_items": [
+      "Quesa Birria Tacos"
+    ],
+    "notes": "Chili powder + cumin + cinnamon + black pepper + whole cloves",
+    "direct_allergens": [],
+    "sub_recipes": []
+  },
+  {
+    "name": "Queso / Mac Sauce",
+    "ingredients": [
+      {
+        "item": "heavy cream",
+        "qty": 3,
+        "unit": "qt"
+      },
+      {
+        "item": "whole milk",
+        "qty": 2,
+        "unit": "gal"
+      },
+      {
+        "item": "american cheese block",
+        "qty": 20,
+        "unit": "lb"
+      },
+      {
+        "item": "shredded cheddar",
+        "qty": 10,
+        "unit": "lb"
+      },
+      {
+        "item": "lariat rub",
+        "qty": 1.5,
+        "unit": "cup"
+      },
+      {
+        "item": "green chile",
+        "qty": 1,
+        "unit": "bag"
+      },
+      {
+        "item": "blackened salsa",
+        "qty": 2,
+        "unit": "qt"
+      }
+    ],
+    "procedure": [
+      "1. Combine milk and heavy cream in large sauce pot, bring to a boil.",
+      "2. Shred cheese blocks in Robocoupe.",
+      "3. Slowly incorporate shredded cheese into boiling pot, stir until melted.",
+      "4. Transfer into 22 Qt. cambro and insert ice wand."
+    ],
+    "slug": "queso_mac_sauce",
+    "source": "excel",
+    "allergens": [
+      "milk",
+      "wheat"
+    ],
+    "category": "sauce",
+    "yield_qty": 22,
+    "yield_unit": "qt",
+    "station": "expo;saute",
+    "sub_recipes": [
+      "lariat_rub",
+      "green_chile",
+      "blackened_tomato_salsa"
+    ],
+    "menu_items": [
+      "The Trio",
+      "Mtn Mac & Cheese",
+      "El Jefe add-on"
+    ],
+    "notes": "Ice wand to cool — held hot in cambro",
+    "direct_allergens": [
+      "milk",
+      "wheat"
+    ]
+  },
+  {
+    "name": "Roasted Pepitas",
+    "ingredients": [
+      {
+        "item": "pepitas",
+        "qty": 5,
+        "unit": "lb"
+      },
+      {
+        "item": "kosher salt",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "chili powder",
+        "qty": 1,
+        "unit": "tbsp"
+      },
+      {
+        "item": "cumin",
+        "qty": 0.5,
+        "unit": "tbsp"
+      },
+      {
+        "item": "oil",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "lime juice",
+        "qty": 0.25,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [
+      "1. Oil pepitas.",
+      "2. Combine with lime juice/season mix.",
+      "3. Spread evenly across lined baking pan.",
+      "4. Roast @500°F for approx 30 mins."
+    ],
+    "slug": "roasted_pepitas",
+    "source": "excel",
+    "allergens": [
+      "sesame",
+      "tree_nuts"
+    ],
+    "category": "prep",
+    "yield_qty": 6,
+    "yield_unit": "qt",
+    "station": "salad",
+    "menu_items": [
+      "The Rope Salad"
+    ],
+    "notes": "Roast 500F 30min on lined sheet pan",
+    "direct_allergens": [
+      "sesame",
+      "tree_nuts"
+    ]
+  },
+  {
+    "name": "Rope Pickle",
+    "ingredients": [
+      {
+        "item": "water",
+        "qty": 2.5,
+        "unit": "qt"
+      },
+      {
+        "item": "white vinegar",
+        "qty": 1,
+        "unit": "qt"
+      },
+      {
+        "item": "salt",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "red pepper",
+        "qty": 20,
+        "unit": "g"
+      },
+      {
+        "item": "garlic",
+        "qty": 1000,
+        "unit": "g"
+      },
+      {
+        "item": "dill",
+        "qty": 30,
+        "unit": "g"
+      }
+    ],
+    "procedure": [
+      "1. Combine ingredients."
+    ],
+    "slug": "rope_pickle",
+    "source": "excel",
+    "allergens": [],
+    "category": "prep",
+    "yield_qty": 4,
+    "yield_unit": "qt",
+    "station": "grill",
+    "menu_items": [
+      "The Rope Burger"
+    ],
+    "notes": "House-made pickles — heavy garlic",
+    "direct_allergens": []
+  },
+  {
+    "name": "Santa Fe Caesar Dressing",
+    "ingredients": [
+      {
+        "item": "anchovy",
+        "qty": 5,
+        "unit": "ea"
+      },
+      {
+        "item": "capers",
+        "qty": 1,
+        "unit": "tbsp"
+      },
+      {
+        "item": "dijon mustard",
+        "qty": 0.75,
+        "unit": "cup"
+      },
+      {
+        "item": "lime juice",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "chipotle puree",
+        "qty": 0.75,
+        "unit": "cup"
+      },
+      {
+        "item": "mayonnaise",
+        "qty": 3.5,
+        "unit": "cup"
+      },
+      {
+        "item": "garlic",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "cilantro",
+        "qty": 1,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [
+      "1. Combine mustard, lime juice, chipotle, mayo, garlic, cilantro, anchovy, capers in blender.",
+      "2. Blend while gradually incorporating EVOO until emulsified."
+    ],
+    "slug": "santa_fe_caesar",
+    "source": "excel",
+    "allergens": [
+      "eggs",
+      "fish"
+    ],
+    "category": "dressing",
+    "yield_qty": 2,
+    "yield_unit": "qt",
+    "station": "salad",
+    "menu_items": [
+      "The Rope Salad"
+    ],
+    "notes": "Chipotle caesar — blend while incorporating EVOO",
+    "direct_allergens": [
+      "eggs",
+      "fish"
+    ],
+    "sub_recipes": []
+  },
+  {
+    "name": "Special Sauce",
+    "ingredients": [
+      {
+        "item": "mayonnaise",
+        "qty": 9,
+        "unit": "cup"
+      },
+      {
+        "item": "ketchup",
+        "qty": 1.5,
+        "unit": "cup"
+      },
+      {
+        "item": "mustard",
+        "qty": 1.5,
+        "unit": "cup"
+      },
+      {
+        "item": "onion powder",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "garlic powder",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "paprika",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "white sugar",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "apple cider vinegar",
+        "qty": 1,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [
+      "1. Whisk together in mixing bowl."
+    ],
+    "slug": "special_sauce",
+    "source": "excel",
+    "allergens": [
+      "eggs"
+    ],
+    "category": "sauce",
+    "yield_qty": 4,
+    "yield_unit": "qt",
+    "station": "fry",
+    "menu_items": [
+      "Nashville Hot Chicken Sandwich"
+    ],
+    "notes": "Whisk together",
+    "direct_allergens": [
+      "eggs"
+    ]
+  },
+  {
+    "name": "Tartar Sauce",
+    "ingredients": [
+      {
+        "item": "mayonnaise",
+        "qty": 9,
+        "unit": "cup"
+      },
+      {
+        "item": "bread and butter pickles",
+        "qty": 600,
+        "unit": "g"
+      },
+      {
+        "item": "shallot",
+        "qty": 6.5,
+        "unit": "cup"
+      },
+      {
+        "item": "capers",
+        "qty": 1.75,
+        "unit": "cup"
+      },
+      {
+        "item": "dill",
+        "qty": 40,
+        "unit": "g"
+      },
+      {
+        "item": "lemon juice",
+        "qty": 0.75,
+        "unit": "cup"
+      },
+      {
+        "item": "dijon mustard",
+        "qty": 0.75,
+        "unit": "cup"
+      },
+      {
+        "item": "black pepper",
+        "qty": 4,
+        "unit": "tbsp"
+      },
+      {
+        "item": "salt",
+        "qty": 2,
+        "unit": "tbsp"
+      },
+      {
+        "item": "tabasco",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "sugar",
+        "qty": 1,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [
+      "1. Whisk all ingredients together until well combined."
+    ],
+    "slug": "tartar_sauce",
+    "source": "excel",
+    "allergens": [
+      "eggs",
+      "milk",
+      "wheat"
+    ],
+    "category": "sauce",
+    "yield_qty": 4,
+    "yield_unit": "qt",
+    "station": "fry",
+    "menu_items": [
+      "Fish & Chips"
+    ],
+    "notes": "Whisk — b&b pickles minced",
+    "direct_allergens": [
+      "eggs",
+      "milk",
+      "wheat"
+    ]
+  },
+  {
+    "name": "Thai Chili Sauce",
+    "slug": "thai_chili_sauce",
+    "ingredients": [
+      {
+        "item": "mae ploy sweet chili sauce",
+        "qty": 1,
+        "unit": "bottle"
+      },
+      {
+        "item": "soy sauce",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "honey",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "furikake seasoning",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "sriracha",
+        "qty": 0.25,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [
+      "1. Combine and mix."
+    ],
+    "allergens": [
+      "sesame",
+      "soybeans",
+      "wheat"
+    ],
+    "source": "recipe_index",
+    "category": "sauce",
+    "yield_qty": 2,
+    "yield_unit": "cup",
+    "station": "fry",
+    "menu_items": [
+      "wing option"
+    ],
+    "notes": "Mae Ploy base + furikake",
+    "direct_allergens": [
+      "sesame",
+      "soybeans",
+      "wheat"
+    ],
+    "sub_recipes": []
+  },
+  {
+    "name": "Three Cheese Grilled Cheese",
+    "slug": "three_cheese_grilled_cheese",
+    "ingredients": [
+      {
+        "item": "cream cheese",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "shredded double gloucester or cheddar",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "heavy cream",
+        "qty": 2,
+        "unit": "tbsp"
+      },
+      {
+        "item": "coarse salt",
+        "qty": 0.25,
+        "unit": "tsp"
+      },
+      {
+        "item": "mayonnaise",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "garlic",
+        "qty": 0.75,
+        "unit": "tsp"
+      },
+      {
+        "item": "coarse salt",
+        "qty": 0.25,
+        "unit": "tsp"
+      },
+      {
+        "item": "artisan bread slices",
+        "qty": 8,
+        "unit": "ea"
+      },
+      {
+        "item": "cheddar cheese slices",
+        "qty": 8,
+        "unit": "ea"
+      },
+      {
+        "item": "provolone slices",
+        "qty": 8,
+        "unit": "ea"
+      }
+    ],
+    "procedure": [
+      "1. Cream Cheese Spread: Blend cream cheese, cheddar, cream, salt smooth.",
+      "2. Garlic Spread: Stir mayo, garlic, salt in bowl.",
+      "3. Lay out bread. 2 cheddar on 4 slices, 2 provolone on rest.",
+      "4. Spoon cream cheese spread on provolone. Press sides together.",
+      "5. Heat skillet medium 5 min. Brush both sides with garlic spread.",
+      "6. Grill 2 min each side until melted and golden."
+    ],
+    "allergens": [
+      "eggs",
+      "milk",
+      "wheat"
+    ],
+    "source": "recipe_index",
+    "category": "entree",
+    "yield_qty": 8,
+    "yield_unit": "ea",
+    "station": "grill",
+    "menu_items": [
+      "Roasted Tomato Soup add-on"
+    ],
+    "notes": "Cream cheese spread + garlic spread + cheddar/provolone",
+    "direct_allergens": [
+      "eggs",
+      "milk",
+      "wheat"
+    ],
+    "sub_recipes": []
+  },
+  {
+    "name": "Tomatillo Salsa",
+    "ingredients": [
+      {
+        "item": "large white onions",
+        "qty": 4,
+        "unit": "ea"
+      },
+      {
+        "item": "jalapenos",
+        "qty": 8,
+        "unit": "ea"
+      },
+      {
+        "item": "garlic cloves",
+        "qty": 20,
+        "unit": "ea"
+      },
+      {
+        "item": "whole tomatillos",
+        "qty": 3,
+        "unit": "#10 can"
+      },
+      {
+        "item": "salt",
+        "qty": 3,
+        "unit": "tbsp"
+      },
+      {
+        "item": "pepper",
+        "qty": 3,
+        "unit": "tbsp"
+      },
+      {
+        "item": "cumin",
+        "qty": 2,
+        "unit": "tsp"
+      },
+      {
+        "item": "lime juice",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "agave",
+        "qty": 1,
+        "unit": "tbsp"
+      },
+      {
+        "item": "green chile",
+        "qty": 0.333,
+        "unit": "cup"
+      },
+      {
+        "item": "avocado",
+        "qty": 8,
+        "unit": "ea"
+      }
+    ],
+    "procedure": [
+      "1. Roast onions, jalapenos, garlic, tomatillos until charred.",
+      "2. Combine with other ingredients and blend.",
+      "3. Adjust salt & pepper to taste."
+    ],
+    "slug": "tomatillo_salsa",
+    "source": "excel",
+    "allergens": [
+      "milk"
+    ],
+    "category": "sauce",
+    "yield_qty": 8,
+    "yield_unit": "qt",
+    "station": "expo",
+    "menu_items": [
+      "catering",
+      "Green Chile ingredient"
+    ],
+    "notes": "Roast in salamander — blend with avocado",
+    "direct_allergens": [
+      "milk"
+    ]
+  },
+  {
+    "name": "Tomato Confit",
+    "ingredients": [
+      {
+        "item": "Thyme",
+        "qty": 20,
+        "unit": "grams"
+      },
+      {
+        "item": "Tarragon",
+        "qty": 20,
+        "unit": "grams"
+      },
+      {
+        "item": "Rosemary",
+        "qty": 20,
+        "unit": "grams"
+      },
+      {
+        "item": "Notes:",
+        "qty": "⚠️ Recipe appears incomplete in source",
+        "unit": ""
+      }
+    ],
+    "procedure": [],
+    "slug": "tomato_confit",
+    "source": "excel",
+    "allergens": [],
+    "direct_allergens": []
+  },
+  {
+    "slug": "tomato_soup",
+    "name": "Tomato Soup",
+    "ingredients": [
+      {
+        "item": "crushed tomatoes",
+        "qty": 10,
+        "unit": "can"
+      },
+      {
+        "item": "unsalted butter",
+        "qty": 8,
+        "unit": "tbsp"
+      },
+      {
+        "item": "yellow onion",
+        "qty": 3,
+        "unit": "ea"
+      },
+      {
+        "item": "garlic",
+        "qty": 6,
+        "unit": "clove"
+      },
+      {
+        "item": "dry white wine",
+        "qty": 2,
+        "unit": "cup"
+      },
+      {
+        "item": "chicken stock",
+        "qty": 2,
+        "unit": "qt"
+      },
+      {
+        "item": "heavy cream",
+        "qty": 4,
+        "unit": "cup"
+      },
+      {
+        "item": "fresh thyme",
+        "qty": 7,
+        "unit": "sprig"
+      },
+      {
+        "item": "kosher salt",
+        "qty": 2,
+        "unit": "tsp"
+      },
+      {
+        "item": "black pepper",
+        "qty": 1,
+        "unit": "tsp"
+      }
+    ],
+    "allergens": [
+      "milk"
+    ],
+    "source": "official_book_2026-04-18",
+    "procedure": "In a heavy pot or rondeau over medium heat, melt butter.\nAdd onions and a pinch of salt; cook 8-10 minutes, stirring, until translucent and tender.\nAdd garlic and cook 30 seconds more, just until fragrant.\nAdd white wine and thyme sprigs.\nSimmer 5-6 minutes, reducing the wine by about one-third.\nStir in stock.\nSimmer gently for 15-20 minutes.\nStir in heavy cream; reduce heat to low. Season with salt and pepper.",
+    "category": "soup",
+    "yield_qty": 4,
+    "yield_unit": "qt",
+    "station": "saute",
+    "menu_items": [
+      "Tomato Soup"
+    ],
+    "notes": "Creamy tomato soup base — butter + onion + garlic + wine + stock + cream",
+    "direct_allergens": [
+      "milk"
+    ]
+  }
+]

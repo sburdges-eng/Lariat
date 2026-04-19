@@ -1,0 +1,322 @@
+[
+  {
+    "display_name": "menu_item_id",
+    "category": "menu_version",
+    "description": "category",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "menu_item_id"
+  },
+  {
+    "display_name": "MI-S01",
+    "category": "winter_2026",
+    "description": "shareable",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_s01"
+  },
+  {
+    "display_name": "MI-S02",
+    "category": "winter_2026",
+    "description": "shareable",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_s02"
+  },
+  {
+    "display_name": "MI-S03",
+    "category": "winter_2026",
+    "description": "shareable",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_s03"
+  },
+  {
+    "display_name": "MI-S04",
+    "category": "winter_2026",
+    "description": "shareable",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_s04"
+  },
+  {
+    "display_name": "MI-S05",
+    "category": "winter_2026",
+    "description": "shareable",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_s05"
+  },
+  {
+    "display_name": "MI-S06",
+    "category": "winter_2026",
+    "description": "shareable",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_s06"
+  },
+  {
+    "display_name": "MI-SA01",
+    "category": "winter_2026",
+    "description": "soup_salad",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_sa01"
+  },
+  {
+    "display_name": "MI-SA01",
+    "category": "winter_2026",
+    "description": "soup_salad",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_sa01"
+  },
+  {
+    "display_name": "MI-SA02",
+    "category": "winter_2026",
+    "description": "soup_salad",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_sa02"
+  },
+  {
+    "display_name": "MI-SA02",
+    "category": "winter_2026",
+    "description": "soup_salad",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_sa02"
+  },
+  {
+    "display_name": "MI-SA03",
+    "category": "winter_2026",
+    "description": "soup_salad",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_sa03"
+  },
+  {
+    "display_name": "MI-SA03B",
+    "category": "winter_2026",
+    "description": "soup_salad",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_sa03b"
+  },
+  {
+    "display_name": "MI-SA04",
+    "category": "winter_2026",
+    "description": "soup_salad",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_sa04"
+  },
+  {
+    "display_name": "MI-SA04B",
+    "category": "winter_2026",
+    "description": "soup_salad",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_sa04b"
+  },
+  {
+    "display_name": "MI-M01",
+    "category": "winter_2026",
+    "description": "main",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_m01"
+  },
+  {
+    "display_name": "MI-M02",
+    "category": "winter_2026",
+    "description": "main",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_m02"
+  },
+  {
+    "display_name": "MI-M03",
+    "category": "winter_2026",
+    "description": "main",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_m03"
+  },
+  {
+    "display_name": "MI-M04",
+    "category": "winter_2026",
+    "description": "main",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_m04"
+  },
+  {
+    "display_name": "MI-M05",
+    "category": "winter_2026",
+    "description": "main",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_m05"
+  },
+  {
+    "display_name": "MI-M06",
+    "category": "winter_2026",
+    "description": "main",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_m06"
+  },
+  {
+    "display_name": "MI-M07",
+    "category": "winter_2026",
+    "description": "main",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_m07"
+  },
+  {
+    "display_name": "MI-M08",
+    "category": "winter_2026",
+    "description": "main",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_m08"
+  },
+  {
+    "display_name": "MI-M09",
+    "category": "winter_2026",
+    "description": "main",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_m09"
+  },
+  {
+    "display_name": "MI-M10",
+    "category": "winter_2026",
+    "description": "main",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_m10"
+  },
+  {
+    "display_name": "MI-D01",
+    "category": "winter_2026",
+    "description": "side",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_d01"
+  },
+  {
+    "display_name": "MI-D02",
+    "category": "winter_2026",
+    "description": "side",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_d02"
+  },
+  {
+    "display_name": "MI-D03",
+    "category": "winter_2026",
+    "description": "side",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_d03"
+  },
+  {
+    "display_name": "MI-D04",
+    "category": "winter_2026",
+    "description": "side",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_d04"
+  },
+  {
+    "display_name": "MI-X01",
+    "category": "winter_2026",
+    "description": "dessert",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_x01"
+  },
+  {
+    "display_name": "MI-X02",
+    "category": "winter_2026",
+    "description": "dessert",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_x02"
+  },
+  {
+    "display_name": "MI-X03",
+    "category": "winter_2026",
+    "description": "dessert",
+    "station_primary": "",
+    "station_secondary": "",
+    "dietary": "",
+    "active": true,
+    "menu_item_id": "mi_x03"
+  }
+]

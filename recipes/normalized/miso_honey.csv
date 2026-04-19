@@ -1,0 +1,4 @@
+ingredient,qty,unit,portions_per_batch,notes
+miso,0.5,cup,~3 cup,PDF p37 reads "½ miso" — cup unit inferred
+honey,2,cup,~3 cup,PDF p37 reads "2 cups" with no ingredient name; honey inferred from recipe title
+water,0.5,cup,~3 cup,

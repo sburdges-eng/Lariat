@@ -1,0 +1,44 @@
+[
+  {
+    "id": "grill_saute",
+    "name": "Grill / Sauté",
+    "line": "hot",
+    "color": "#ef4444",
+    "line_check_key": "grille_saute"
+  },
+  {
+    "id": "fry",
+    "name": "Fry",
+    "line": "hot",
+    "color": "#f59e0b",
+    "line_check_key": "fry"
+  },
+  {
+    "id": "garde",
+    "name": "Garde Manger",
+    "line": "cold",
+    "color": "#10b981",
+    "line_check_key": "garde"
+  },
+  {
+    "id": "brunch",
+    "name": "Brunch",
+    "line": "hot",
+    "color": "#8b5cf6",
+    "line_check_key": "brunch"
+  },
+  {
+    "id": "expo",
+    "name": "Expo",
+    "line": "pass",
+    "color": "#3b82f6",
+    "line_check_key": null
+  },
+  {
+    "id": "runner",
+    "name": "Runner",
+    "line": "foh",
+    "color": "#64748b",
+    "line_check_key": null
+  }
+]

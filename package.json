@@ -1,0 +1,36 @@
+{
+  "name": "lariat-cockpit",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0 -p 3000",
+    "build": "next build",
+    "start": "next start -H 0.0.0.0 -p 3000",
+    "ingest": "node scripts/ingest.mjs",
+    "ingest:costing": "node scripts/ingest-costing.mjs",
+    "ingest:analytics": "node scripts/ingest-analytics.mjs",
+    "ingest:toast": "node --experimental-strip-types scripts/ingest-toast-timeseries.mjs",
+    "ingest:all": "npm run ingest && npm run ingest:costing && npm run ingest:analytics && npm run ingest:toast",
+    "validate-cache": "node scripts/validate-cache.mjs",
+    "export": "node scripts/export.mjs",
+    "rebuild-cache": "node scripts/rebuild-cache.mjs",
+    "seed-beo": "node scripts/seed-beo.mjs",
+    "backup": "node scripts/backup.mjs",
+    "test:e2e": "npx playwright test",
+    "test:temp-log": "node --test tests/js/test-temp-log.mjs"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "next": "14.2.15",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^6.0.2"
+  }
+}

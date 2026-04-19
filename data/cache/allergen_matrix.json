@@ -1,0 +1,2142 @@
+{
+  "house_soup_001": [
+    {
+      "ingredient": "yellow onion",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "celery",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "carrot",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "vegetable stock",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "heavy cream",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "butter",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "black pepper",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "grilled_chicken_002": [
+    {
+      "ingredient": "chicken breast",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "olive oil",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lemon",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "mixed herbs",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "salt",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "caesar_salad_003": [
+    {
+      "ingredient": "romaine lettuce",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "parmesan cheese",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "croutons",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "caesar dressing",
+      "big9": [
+        "milk",
+        "eggs",
+        "fish"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "lemon",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "anchovy paste",
+      "big9": [
+        "fish"
+      ],
+      "notes": ""
+    }
+  ],
+  "pasta_bolognese_004": [
+    {
+      "ingredient": "ground beef 80/20",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "yellow onion",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "celery",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "carrot",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "crushed tomatoes",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "tomato paste",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "olive oil",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "dried penne",
+      "big9": [
+        "wheat"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "parmesan cheese",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "mixed herbs",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "fish_tacos_005": [
+    {
+      "ingredient": "mahi mahi fillet",
+      "big9": [
+        "fish"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "flour tortillas",
+      "big9": [
+        "wheat"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "cabbage",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lime",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "sour cream",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "chipotle peppers",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cilantro",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "olive oil",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "salt",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "beer_batter": [
+    {
+      "ingredient": "ap flour",
+      "big9": [
+        "wheat"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "cornstarch",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "baking powder",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "kosher salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "stout beer",
+      "big9": [
+        "wheat"
+      ],
+      "notes": "barley/malt/rye — verify labeling"
+    },
+    {
+      "ingredient": "vodka",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "birria": [
+    {
+      "ingredient": "beef cheeks",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "chili powder",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cumin",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cinnamon",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "black pepper",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "whole cloves",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "guajillo peppers",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "white onions",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic cloves",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "water",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "arbol chiles",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "chicken base",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "achiote paste",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "chicken_flour": [
+    {
+      "ingredient": "ap flour",
+      "big9": [
+        "wheat"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "kosher salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "black pepper",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "paprika",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "onion powder",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic powder",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "cobb_dressing": [
+    {
+      "ingredient": "garlic cloves",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "parsley",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cilantro",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "buttermilk",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "mayonnaise",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "sour cream",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "lemons",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "olive oil",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "bleu cheese crumbles",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "pepper",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "coleslaw": [
+    {
+      "ingredient": "mayonnaise",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "drained pickle relish",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "buttermilk",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "prepared horseradish",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "spicy brown mustard",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "apple cider vinegar",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "sugar",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "kosher salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "pepper",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "green cabbage",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "scallion greens",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "scallion whites",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "cornbread": [
+    {
+      "ingredient": "cornbread mixture",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "butter",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "buttermilk",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "cheddar cheese",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "jalapeno",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "fish_brine": [
+    {
+      "ingredient": "salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "sugar",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "water",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "french_toast_batter": [
+    {
+      "ingredient": "eggs",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "milk",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "cinnamon",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "vanilla",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "sugar",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "nutmeg",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "green_chile": [
+    {
+      "ingredient": "pork butt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "water",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "chicken stock",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "tomatillos",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "green chiles with juice",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "diced white onions",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "granulated garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "dried oregano",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cumin",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "minced garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lariat rub",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "nashville_hot_rub": [
+    {
+      "ingredient": "lariat rub",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cayenne",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "chili powder",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "pickles": [
+    {
+      "ingredient": "water",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "vinegar",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "sugar",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "red pepper",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "dill",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "pork_chop_marinade": [
+    {
+      "ingredient": "rye whiskey",
+      "big9": [
+        "wheat"
+      ],
+      "notes": "barley/malt/rye — verify labeling"
+    },
+    {
+      "ingredient": "soy sauce",
+      "big9": [
+        "soybeans"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "dijon mustard",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "whole grain mustard",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "olive oil",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lime juice",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "apple cider vinegar",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "brown sugar",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "honey",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "shallots",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "minced garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "smoked paprika",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "ground cumin",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "coriander",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "crushed red chile flakes",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "white pepper",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "kosher salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cilantro",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "queso_mac_sauce": [
+    {
+      "ingredient": "heavy cream",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "whole milk",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "american cheese block",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "shredded cheddar",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "lariat rub",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "green chile",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "blackened salsa",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "santa_fe_caesar": [
+    {
+      "ingredient": "anchovy",
+      "big9": [
+        "fish"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "capers",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "dijon mustard",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lime juice",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "chipotle puree",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "mayonnaise",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cilantro",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "three_cheese_grilled_cheese": [
+    {
+      "ingredient": "cream cheese",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "shredded double gloucester or cheddar",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "heavy cream",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "coarse salt",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "mayonnaise",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "artisan bread slices",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cheddar cheese slices",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "provolone slices",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    }
+  ],
+  "aji_verde": [
+    {
+      "ingredient": "cilantro",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lime juice",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "mayonnaise",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "olive oil",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "jalapeno",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "alabama_white_sauce": [
+    {
+      "ingredient": "mayonnaise",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "horseradish",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "dijon mustard",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "apple cider vinegar",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lemon juice",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "granulated garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "brown sugar",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cayenne",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "kosher salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "black pepper",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "bacon_jam": [
+    {
+      "ingredient": "bacon",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "yellow onions",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "orange juice",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "brown sugar",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lariat rub",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "beer_flour": [
+    {
+      "ingredient": "ap flour",
+      "big9": [
+        "wheat"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "kosher salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "baking soda",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "black_bean_corn_succotash": [
+    {
+      "ingredient": "sweet corn kernels",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cooked black beans",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "diced red onion",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "diced bell pepper",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "jalapenos",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cilantro",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "minced garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lime juice",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "red wine vinegar",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "red chili flakes",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cumin",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "kosher salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "olive oil",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "blackened_tomato_salsa": [
+    {
+      "ingredient": "tomatoes",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cilantro",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "jalapenos",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "yellow onions",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "kosher salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "minced garlic",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "buttermilk_brine": [
+    {
+      "ingredient": "buttermilk",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "franks hot sauce",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic powder",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "onion powder",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "ground black pepper",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "kosher salt",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "chicken_confit": [
+    {
+      "ingredient": "garlic cloves",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "rosemary sprigs",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "thyme sprigs",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "evoo",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "chicken_jus": [
+    {
+      "ingredient": "celery",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "carrot",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "large onions",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "chicken wings",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "clarified butter",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "water",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "chicken stock",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "dry white wine",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "sachet",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "chimichurri": [
+    {
+      "ingredient": "parsley",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "thyme",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "rosemary",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "calabrian chile",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "evoo",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lemon juice",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "chipotle_aioli": [
+    {
+      "ingredient": "mayonnaise",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "adobo puree",
+      "big9": [
+        "soybeans"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "lime juice",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "corndog_batter": [
+    {
+      "ingredient": "ap flour",
+      "big9": [
+        "wheat"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "cornmeal",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "sugar",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "baking soda",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "pepper",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "buttermilk",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    }
+  ],
+  "herbal_butter": [
+    {
+      "ingredient": "butter",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "parsley",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "thyme",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "rosemary",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "tarragon",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "honey_butter": [
+    {
+      "ingredient": "honey",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "butter",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    }
+  ],
+  "honey_mustard": [
+    {
+      "ingredient": "honey",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "yellow mustard",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "mayonnaise",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "cayenne",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cracked pepper",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "lariat_rub": [
+    {
+      "ingredient": "salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "paprika",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic powder",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "onion powder",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "pepper",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "turbinado sugar",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cayenne",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cumin",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "lemon_thyme_vinaigrette": [
+    {
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lemons",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lemon juice",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "evoo",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "canola oil",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "honey",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "dijon mustard",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "dry thyme",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "pepper",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "kosher salt",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "mesa_melt": [
+    {
+      "ingredient": "unsalted butter",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "ap flour",
+      "big9": [
+        "wheat"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "modelo especial",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "whole milk",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "sharp cheddar",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "pepper jack",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cream cheese",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "hatch green chile",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "chipotle in adobo",
+      "big9": [
+        "soybeans"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "smoked paprika",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "ground cumin",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic powder",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "onion powder",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "salt",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "mexi_relish": [
+    {
+      "ingredient": "red cabbage",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "chipotle aioli",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "lime juice",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "mexi_slaw": [
+    {
+      "ingredient": "red cabbage",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "chipotle aioli",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "lime juice",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "miso_honey": [
+    {
+      "ingredient": "miso",
+      "big9": [
+        "soybeans"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "honey",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "water",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "nashville_oil": [
+    {
+      "ingredient": "bacon lard",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cayenne",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lariat rub",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "bread and butter pickle juice",
+      "big9": [
+        "milk",
+        "wheat"
+      ],
+      "notes": ""
+    }
+  ],
+  "pico_de_gallo": [
+    {
+      "ingredient": "tomatoes",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "red onion",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "jalapeno",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cilantro",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lime juice",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "pepper",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    }
+  ],
+  "qb_seasoning": [
+    {
+      "ingredient": "chili powder",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cumin",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cinnamon",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "black pepper",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "whole cloves",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "roasted_pepitas": [
+    {
+      "ingredient": "pepitas",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "kosher salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "chili powder",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cumin",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "oil",
+      "big9": [
+        "sesame"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "lime juice",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "rope_pickle": [
+    {
+      "ingredient": "water",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "white vinegar",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "red pepper",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "dill",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "special_sauce": [
+    {
+      "ingredient": "mayonnaise",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "ketchup",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "mustard",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "onion powder",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic powder",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "paprika",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "white sugar",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "apple cider vinegar",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "tartar_sauce": [
+    {
+      "ingredient": "mayonnaise",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "bread and butter pickles",
+      "big9": [
+        "milk",
+        "wheat"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "shallot",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "capers",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "dill",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lemon juice",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "dijon mustard",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "black pepper",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "tabasco",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "sugar",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "thai_chili_sauce": [
+    {
+      "ingredient": "mae ploy sweet chili sauce",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "soy sauce",
+      "big9": [
+        "wheat",
+        "soybeans"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "honey",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "furikake seasoning",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "sriracha",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "tomatillo_salsa": [
+    {
+      "ingredient": "large white onions",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "jalapenos",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic cloves",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "whole tomatillos",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "pepper",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "cumin",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lime juice",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "agave",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "green chile",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "avocado",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "tomato_confit": [
+    {
+      "ingredient": "Thyme",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "Tarragon",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "Rosemary",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "tomato_soup": [
+    {
+      "ingredient": "crushed tomatoes",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "unsalted butter",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "yellow onion",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "dry white wine",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "chicken stock",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "heavy cream",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "fresh thyme",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "kosher salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "black pepper",
+      "big9": [],
+      "notes": ""
+    }
+  ]
+}

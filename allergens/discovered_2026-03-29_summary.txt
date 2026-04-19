@@ -1,0 +1,16 @@
+Allergen tags discovered (heuristic):
+
+  - Milk (milk)
+  - Eggs (eggs)
+  - Fish (fish)
+  - Crustacean shellfish (crustacean_shellfish)
+  - Molluscan shellfish (molluscan_shellfish)
+  - Tree nuts (tree_nuts)
+  - Wheat (wheat)
+  - Soybeans (soybeans)
+  - Sesame (sesame)
+  - Gluten (barley / rye / malt — verify) (gluten_barley_rye)
+
+Total distinct tags: 10
+Detail rows written: 644
+CSV: allergens/discovered_2026-03-29.csv

@@ -1,0 +1,47 @@
+recipe_id,recipe_name,category,yield,yield_unit,ingredient_count,sub_recipes,station,menu_items,notes
+lariat_rub,Lariat Rub,seasoning,6,cup,8,,all,multiple,House signature rub — used in Nashville Hot Rub + Pig Wings + Green Chile + Bacon Jam
+buttermilk_brine,Buttermilk Brine,prep,12,qt,6,,fry,Nashville Hot Chicken,12 qt of brined chicken — 12-24hr soak
+queso_mac_sauce,Queso / Mac Sauce,sauce,22,qt,7,lariat_rub;green_chile;blackened_tomato_salsa,expo;saute,The Trio;Mtn Mac & Cheese;El Jefe add-on,Ice wand to cool — held hot in cambro
+blackened_tomato_salsa,Blackened Tomato Salsa,sauce,22,qt,6,,grill,The Trio;Queso ingredient,PDF p8 — blacken tomatoes on char grill; halved onions + jalapenos in salamander; bur mix
+chicken_flour,Chicken Flour,prep,22,qt,6,,fry,Nashville Hot Chicken;Chicken Wings,Dry dredge before beer batter
+nashville_hot_rub,Nashville Hot Rub,seasoning,2,cup,3,lariat_rub,fry,Nashville Hot Chicken,Applied after frying
+nashville_oil,Nashville Oil,sauce,2,qt,4,lariat_rub,fry,Nashville Hot Chicken,REMOVE FROM HEAT before adding pickle juice
+aji_verde,Aji Verde,sauce,3.2,qt,7,,saute;fry,Pork Chop;Baja Fish Tacos,PDF p25 — blend in two stages; half cilantro each time
+bacon_jam,Bacon Jam,sauce,10,qt,5,lariat_rub,grill,The Rope Burger,Render bacon crisp — reduce OJ to jammy
+special_sauce,Special Sauce,sauce,4,qt,8,,fry,Nashville Hot Chicken Sandwich,Whisk together
+fish_brine,Fish Brine,prep,4,qt,3,,fry,Fish & Chips;Baja Fish Tacos,7 minute marinade only
+cornbread,Jalapeño Cheddar Cornbread,prep,2,pan,5,,grill,Jalapeño Cheddar Cornbread;cornbread croutons,Bake 500F 1hr 30min — brown butter
+green_chile,Green Chile,entree,8,qt,10,,expo,Green Chile (cup/bowl),PDF p16 — braise 40-60 min until pork softens; add roux (bacon grease + flour) to finish
+roasted_pepitas,Roasted Pepitas,prep,6,qt,6,,salad,The Rope Salad,Roast 500F 30min on lined sheet pan
+santa_fe_caesar,Santa Fe Caesar Dressing,dressing,2,qt,8,,salad,The Rope Salad,Chipotle caesar — blend while incorporating EVOO
+tartar_sauce,Tartar Sauce,sauce,4,qt,11,,fry,Fish & Chips,Whisk — b&b pickles minced
+beer_batter,Beer Batter,prep,600,g,2,beer_flour,fry,Fish & Chips;Baja Tacos;Chicken Wings,PDF p21 — wet portion only (guinness + vodka); combine with beer_flour dry mix at service
+beer_flour,Beer Flour,prep,18,cup,3,,fry,Fish & Chips;Baja Tacos,PDF p21 — dry mix combined with beer_batter wet portion at service
+corndog_batter,Corndog Batter,prep,8,qt,7,,fry,catering corndogs,Buttermilk to right consistency
+chipotle_aioli,Chipotle Aioli,sauce,10,qt,3,,fry,Baja Fish Tacos,Adobo puree + lime
+alabama_white_sauce,Alabama White Sauce,sauce,1.5,gal,10,,fry,Pig Wings;wing option,PDF p26 — mayo + ACV base; dissolve brown sugar in ACV if solidified
+three_cheese_grilled_cheese,Three Cheese Grilled Cheese,entree,8,ea,10,,grill,Roasted Tomato Soup add-on,Cream cheese spread + garlic spread + cheddar/provolone
+thai_chili_sauce,Thai Chili Sauce,sauce,2,cup,5,,fry,wing option,Mae Ploy base + furikake
+pico_de_gallo,Pico de Gallo,prep,4,qt,8,,salad,Baja Fish Tacos,Made fresh daily
+chicken_jus,Chicken Jus,sauce,5,qt,10,,fry;grill,Roasted Chicken Leg,Reduce by 1/3 approx 2 hours — strain through chinois
+tomatillo_salsa,Tomatillo Salsa,sauce,8,qt,11,,expo,catering;Green Chile ingredient,Roast in salamander — blend with avocado
+coleslaw,Coleslaw,prep,12,qt,12,,salad,Nashville Hot;Fish & Chips;Baja Tacos;BLT,Pickle relish + horseradish dressing — Hillstone style
+herbal_butter,Herbal Butter,prep,4,lb,5,,saute,Whole Roasted Trout,Parsley thyme rosemary tarragon compound butter
+honey_butter,Honey Butter,prep,4,lb,2,,expo,Jalapeño Cheddar Cornbread,1:3 honey to butter
+mexi_relish,Mexi Relish,prep,6,qt,3,chipotle_aioli,fry,Baja Fish Tacos (cabbage topping),Red cabbage + chipotle aioli
+chimichurri,Chimichurri,sauce,2,cup,6,,grill,grill items,WORKING RECIPE — please refine and record
+cobb_dressing,Cobb Dressing / Herb Bleu Cheese,dressing,4,qt,11,,salad,Cobb Salad,Blend half bleu cheese high — remaining on low
+lemon_thyme_vinaigrette,Lemon Thyme Vinaigrette,dressing,2,qt,10,,salad,salads (seasonal),Emulsify all ingredients
+black_bean_corn_succotash,Black Bean & Corn Succotash,prep,6,qt,13,,salad,The Rope Salad,Chill 1 hour before service
+pork_chop_marinade,Pork Chop Marinade,prep,1,gal,8,,saute,Pork Chop,PDF p41 — OJ + lime + cilantro base; the Southwestern Rye variant has been retired per official book
+honey_mustard,Honey Mustard,sauce,3,cup,5,,expo,dipping sauce,Honey + yellow mustard base
+rope_pickle,Rope Pickle,prep,4,qt,6,,grill,The Rope Burger,House-made pickles — heavy garlic
+qb_seasoning,QB Seasoning,seasoning,6,cup,5,,all,Quesa Birria Tacos,Chili powder + cumin + cinnamon + black pepper + whole cloves
+chicken_confit,Chicken Confit,prep,1,hotel pan,4,,fry;grill,Roasted Chicken Leg,French legs — confit in EVOO 225F 3hr
+birria,Birria,entree,16,qt,8,qb_seasoning,grill,Quesa Birria Tacos,PDF p46 — beef cheeks; braise 8-12hr at 225F fatty side up; strain consomme through chinois; birria_seasoning = qb_seasoning sub-recipe
+pickles,Pickles,prep,4,qt,7,,grill,burgers,Sweet pickles — water + vinegar + sugar brine
+french_toast_batter,French Toast Batter,prep,2,qt,6,,grill,brunch,Eggs + milk + cinnamon + vanilla + nutmeg
+tomato_soup,Tomato Soup,soup,4,qt,10,,saute,Tomato Soup,Creamy tomato soup base — butter + onion + garlic + wine + stock + cream
+mesa_melt,Mesa Melt (Southwest Beer Cheese),sauce,4,cup,14,,saute,Mesa Melt,Roux + Modelo + cheddar + pepper jack + cream cheese + hatch chile + chipotle
+mexi_slaw,Mexi Slaw,side,5,lb,3,chipotle_aioli,garde,Fish Tacos;Birria add-ons,Red cabbage + chipotle aioli + lime
+miso_honey,Miso Honey,sauce,3,cup,3,,saute,glaze,Inferred from PDF p37 (ingredient names dropped in source); whisk together

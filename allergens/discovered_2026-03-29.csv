@@ -1,0 +1,645 @@
+scope,source_id,allergen_tag,allergen_label,evidence
+normalized_recipe,buttermilk_brine,milk,Milk,buttermilk
+normalized_recipe,queso_mac_sauce,milk,Milk,heavy cream
+normalized_recipe,queso_mac_sauce,milk,Milk,whole milk
+normalized_recipe,queso_mac_sauce,milk,Milk,american cheese block
+normalized_recipe,queso_mac_sauce,milk,Milk,shredded cheddar
+normalized_recipe,queso_mac_sauce,wheat,Wheat,Braise min 5hr at 225F — shred pork — add roux if needed
+normalized_recipe,chicken_flour,wheat,Wheat,ap flour
+normalized_recipe,chicken_flour,gluten_barley_rye,Gluten (barley / rye / malt — verify),Dry dredge before beer batter
+normalized_recipe,nashville_oil,milk,Milk,bread and butter pickle juice
+normalized_recipe,aji_verde,eggs,Eggs,mayonnaise
+normalized_recipe,special_sauce,eggs,Eggs,mayonnaise
+normalized_recipe,cornbread,milk,Milk,butter
+normalized_recipe,cornbread,milk,Milk,buttermilk
+normalized_recipe,cornbread,milk,Milk,cheddar cheese
+normalized_recipe,cornbread,milk,Milk,Bake 500F 1hr 30min — brown butter
+normalized_recipe,green_chile,wheat,Wheat,Braise min 5hr at 225F — shred pork — add roux if needed
+normalized_recipe,santa_fe_caesar,fish,Fish,anchovy
+normalized_recipe,santa_fe_caesar,eggs,Eggs,mayonnaise
+normalized_recipe,tartar_sauce,eggs,Eggs,mayonnaise
+normalized_recipe,tartar_sauce,milk,Milk,bread and butter pickles
+normalized_recipe,beer_batter,wheat,Wheat,ap flour
+normalized_recipe,beer_batter,gluten_barley_rye,Gluten (barley / rye / malt — verify),stout beer
+normalized_recipe,beer_batter,gluten_barley_rye,Gluten (barley / rye / malt — verify),Guinness stout + vodka — rest 10 min before use
+normalized_recipe,beer_flour,wheat,Wheat,ap flour
+normalized_recipe,beer_flour,gluten_barley_rye,Gluten (barley / rye / malt — verify),Dry dredge before beer batter
+normalized_recipe,corndog_batter,wheat,Wheat,ap flour
+normalized_recipe,corndog_batter,milk,Milk,buttermilk
+normalized_recipe,corndog_batter,milk,Milk,Buttermilk to right consistency
+normalized_recipe,chipotle_aioli,eggs,Eggs,mayonnaise
+normalized_recipe,alabama_white_sauce,eggs,Eggs,mayonnaise
+normalized_recipe,alabama_white_sauce,eggs,Eggs,Mayo + ACV base — dissolve brown sugar if solidified
+normalized_recipe,three_cheese_grilled_cheese,milk,Milk,cream cheese
+normalized_recipe,three_cheese_grilled_cheese,milk,Milk,shredded double gloucester or cheddar
+normalized_recipe,three_cheese_grilled_cheese,milk,Milk,heavy cream
+normalized_recipe,three_cheese_grilled_cheese,eggs,Eggs,mayonnaise
+normalized_recipe,three_cheese_grilled_cheese,milk,Milk,cheddar cheese slices
+normalized_recipe,three_cheese_grilled_cheese,milk,Milk,provolone slices
+normalized_recipe,three_cheese_grilled_cheese,milk,Milk,Cream cheese spread + garlic spread + cheddar/provolone
+normalized_recipe,thai_chili_sauce,soybeans,Soybeans,soy sauce
+normalized_recipe,thai_chili_sauce,sesame,Sesame,furikake seasoning
+normalized_recipe,thai_chili_sauce,sesame,Sesame,Mae Ploy base + furikake
+normalized_recipe,chicken_jus,milk,Milk,clarified butter
+normalized_recipe,coleslaw,eggs,Eggs,mayonnaise
+normalized_recipe,coleslaw,milk,Milk,buttermilk
+normalized_recipe,herbal_butter,milk,Milk,butter
+normalized_recipe,herbal_butter,milk,Milk,Parsley thyme rosemary tarragon compound butter
+normalized_recipe,honey_butter,milk,Milk,butter
+normalized_recipe,honey_butter,milk,Milk,1:3 honey to butter
+normalized_recipe,mexi_relish,eggs,Eggs,chipotle aioli
+normalized_recipe,mexi_relish,eggs,Eggs,mayonnaise
+normalized_recipe,mexi_relish,eggs,Eggs,Red cabbage + chipotle aioli
+normalized_recipe,cobb_dressing,milk,Milk,buttermilk
+normalized_recipe,cobb_dressing,eggs,Eggs,mayonnaise
+normalized_recipe,cobb_dressing,milk,Milk,sour cream
+normalized_recipe,cobb_dressing,milk,Milk,bleu cheese crumbles
+normalized_recipe,cobb_dressing,milk,Milk,Blend half bleu cheese high — remaining on low
+normalized_recipe,pork_chop_marinade,gluten_barley_rye,Gluten (barley / rye / malt — verify),rye whiskey
+normalized_recipe,pork_chop_marinade,soybeans,Soybeans,soy sauce
+normalized_recipe,pork_chop_marinade,gluten_barley_rye,Gluten (barley / rye / malt — verify),FINAL version — rye whiskey base — marinate 6-12hr
+normalized_recipe,honey_mustard,eggs,Eggs,mayonnaise
+normalized_recipe,french_toast_batter,eggs,Eggs,eggs
+normalized_recipe,french_toast_batter,milk,Milk,milk
+normalized_recipe,french_toast_batter,eggs,Eggs,Eggs + milk + cinnamon + vanilla + nutmeg
+normalized_recipe,french_toast_batter,milk,Milk,Eggs + milk + cinnamon + vanilla + nutmeg
+menu_display_name,NO MAYO,eggs,Eggs,NO MAYO
+menu_display_name,No Egg,eggs,Eggs,No Egg
+menu_display_name,Bulleit Rye (MOD),gluten_barley_rye,Gluten (barley / rye / malt — verify),Bulleit Rye (MOD)
+menu_display_name,Beer Spiked Pancakes,gluten_barley_rye,Gluten (barley / rye / malt — verify),Beer Spiked Pancakes
+menu_display_name,Minestrone w/ Cheese Crostino,milk,Milk,Minestrone w/ Cheese Crostino
+menu_display_name,EXTRA Garlic Parmesan,milk,Milk,EXTRA Garlic Parmesan
+menu_display_name,ADD CHEESE SAUCE,milk,Milk,ADD CHEESE SAUCE
+menu_display_name,Featured Beer #1,gluten_barley_rye,Gluten (barley / rye / malt — verify),Featured Beer #1
+menu_display_name,NO Cheddar,milk,Milk,NO Cheddar
+menu_display_name,NO Walnuts,tree_nuts,Tree nuts,NO Walnuts
+menu_display_name,H.W. Root Beer,gluten_barley_rye,Gluten (barley / rye / malt — verify),H.W. Root Beer
+menu_display_name,Side Bleu Cheese Dressing,milk,Milk,Side Bleu Cheese Dressing
+menu_display_name,GUINNESS,gluten_barley_rye,Gluten (barley / rye / malt — verify),GUINNESS
+menu_display_name,Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),Rye
+menu_display_name,Knob Creek Rye (MOD),gluten_barley_rye,Gluten (barley / rye / malt — verify),Knob Creek Rye (MOD)
+menu_display_name,No Egg,eggs,Eggs,No Egg
+menu_display_name,Lemon Caper Aioli On The Side,eggs,Eggs,Lemon Caper Aioli On The Side
+menu_display_name,Steak & Eggs,eggs,Eggs,Steak & Eggs
+menu_display_name,SUB Blue Cheese Crumbles,milk,Milk,SUB Blue Cheese Crumbles
+menu_display_name,Side Lemon Dill Aioli,eggs,Eggs,Side Lemon Dill Aioli
+menu_display_name,NO Mozzarella,milk,Milk,NO Mozzarella
+menu_display_name,SHRIMP COCKTAIL,crustacean_shellfish,Crustacean shellfish,SHRIMP COCKTAIL
+menu_display_name,Rye Sourdough,gluten_barley_rye,Gluten (barley / rye / malt — verify),Rye Sourdough
+menu_display_name,Marble Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),Marble Rye
+menu_display_name,Butter Tart,milk,Milk,Butter Tart
+menu_display_name,No Cheese,milk,Milk,No Cheese
+menu_display_name,Goat Cheese On The Side,milk,Milk,Goat Cheese On The Side
+menu_display_name,BUTTER,milk,Milk,BUTTER
+menu_display_name,Hazelnut French Toast,eggs,Eggs,Hazelnut French Toast
+menu_display_name,Hazelnut French Toast,tree_nuts,Tree nuts,Hazelnut French Toast
+menu_display_name,On Side Cheddar,milk,Milk,On Side Cheddar
+menu_display_name,ADD SAUSAGE/SHRIMP,crustacean_shellfish,Crustacean shellfish,ADD SAUSAGE/SHRIMP
+menu_display_name,ON SIDE CHIPOTLE CREMA,milk,Milk,ON SIDE CHIPOTLE CREMA
+menu_display_name,Wood's Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),Wood's Rye
+menu_display_name,EXTRA EGG,eggs,Eggs,EXTRA EGG
+menu_display_name,$7 Beer,gluten_barley_rye,Gluten (barley / rye / malt — verify),$7 Beer
+menu_display_name,NO Cheese,milk,Milk,NO Cheese
+menu_display_name,NO Cheddar Cheese,milk,Milk,NO Cheddar Cheese
+menu_display_name,Fish Taco,fish,Fish,Fish Taco
+menu_display_name,No Egg,eggs,Eggs,No Egg
+menu_display_name,KIDS Fish & Chips,fish,Fish,KIDS Fish & Chips
+menu_display_name,NO Grated Parmesan,milk,Milk,NO Grated Parmesan
+menu_display_name,SHOT AND A BEER,gluten_barley_rye,Gluten (barley / rye / malt — verify),SHOT AND A BEER
+menu_display_name,Bristol Beehive Honey Wheat,wheat,Wheat,Bristol Beehive Honey Wheat
+menu_display_name,Bristol Beehive Honey Wheat,wheat,Wheat,Bristol Beehive Honey Wheat
+menu_display_name,Lobster Roll,crustacean_shellfish,Crustacean shellfish,Lobster Roll
+menu_display_name,Crab Cakes,crustacean_shellfish,Crustacean shellfish,Crab Cakes
+menu_display_name,NO Eggs,eggs,Eggs,NO Eggs
+menu_display_name,Sub Goat Cheese,milk,Milk,Sub Goat Cheese
+menu_display_name,Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),Rye
+menu_display_name,Crab Cakes,crustacean_shellfish,Crustacean shellfish,Crab Cakes
+menu_display_name,Vanilla Ice Cream,milk,Milk,Vanilla Ice Cream
+menu_display_name,Sourdough Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),Sourdough Rye
+menu_display_name,Scallops & Wild Mushrooms,molluscan_shellfish,Molluscan shellfish,Scallops & Wild Mushrooms
+menu_display_name,SUB Goat Cheese,milk,Milk,SUB Goat Cheese
+menu_display_name,PTR Lefthand Nitro Milk Stout,gluten_barley_rye,Gluten (barley / rye / malt — verify),PTR Lefthand Nitro Milk Stout
+menu_display_name,PTR Lefthand Nitro Milk Stout,milk,Milk,PTR Lefthand Nitro Milk Stout
+menu_display_name,ON THE SIDE - Goat Cheese,milk,Milk,ON THE SIDE - Goat Cheese
+menu_display_name,Tuna Tacos,fish,Fish,Tuna Tacos
+menu_display_name,Kid's Milk,milk,Milk,Kid's Milk
+menu_display_name,Cream Cheese,milk,Milk,Cream Cheese
+menu_display_name,No Pepper Jack Cheese,milk,Milk,No Pepper Jack Cheese
+menu_display_name,Guinness,gluten_barley_rye,Gluten (barley / rye / malt — verify),Guinness
+menu_display_name,Smoked Salmon Bagel,fish,Fish,Smoked Salmon Bagel
+menu_display_name,Garlic Aioli,eggs,Eggs,Garlic Aioli
+menu_display_name,Old Overholt Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),Old Overholt Rye
+menu_display_name,No Goat Cheese,milk,Milk,No Goat Cheese
+menu_display_name,Honey Soy,soybeans,Soybeans,Honey Soy
+menu_display_name,Seared Ahi Tuna,fish,Fish,Seared Ahi Tuna
+menu_display_name,A La Mode Specialty Ice Cream,milk,Milk,A La Mode Specialty Ice Cream
+menu_display_name,Basil Sriracha Aioli On the Side,eggs,Eggs,Basil Sriracha Aioli On the Side
+menu_display_name,1/2 GARLIC PARMESAN,milk,Milk,1/2 GARLIC PARMESAN
+menu_display_name,Bulleit Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),Bulleit Rye
+menu_display_name,Trout,fish,Fish,Trout
+menu_display_name,Beer Braised Short Ribs,gluten_barley_rye,Gluten (barley / rye / malt — verify),Beer Braised Short Ribs
+menu_display_name,Plain French Toast,eggs,Eggs,Plain French Toast
+menu_display_name,Hollandaise Sauce,eggs,Eggs,Hollandaise Sauce
+menu_display_name,Shrimp Spinach and Mushroom Scampi,crustacean_shellfish,Crustacean shellfish,Shrimp Spinach and Mushroom Scampi
+menu_display_name,Horseradish Cheddar,milk,Milk,Horseradish Cheddar
+menu_display_name,CHIPS AND QUESO,milk,Milk,CHIPS AND QUESO
+menu_display_name,ON SIDE MAYO,eggs,Eggs,ON SIDE MAYO
+menu_display_name,Grown Up Grilled Cheese,milk,Milk,Grown Up Grilled Cheese
+menu_display_name,Guinness Can,gluten_barley_rye,Gluten (barley / rye / malt — verify),Guinness Can
+menu_display_name,Featured Beer #3,gluten_barley_rye,Gluten (barley / rye / malt — verify),Featured Beer #3
+menu_display_name,ON THE SIDE Goat Cheese,milk,Milk,ON THE SIDE Goat Cheese
+menu_display_name,2 EGG SIDE,eggs,Eggs,2 EGG SIDE
+menu_display_name,Side Pimento Cheese,milk,Milk,Side Pimento Cheese
+menu_display_name,Pub Cristo French Toast,eggs,Eggs,Pub Cristo French Toast
+menu_display_name,FULL Fish & Chips,fish,Fish,FULL Fish & Chips
+menu_display_name,Left Hand Milk Stout,gluten_barley_rye,Gluten (barley / rye / malt — verify),Left Hand Milk Stout
+menu_display_name,Left Hand Milk Stout,milk,Milk,Left Hand Milk Stout
+menu_display_name,Walnuts on the Side,tree_nuts,Tree nuts,Walnuts on the Side
+menu_display_name,Grown Up Grilled Cheese,milk,Milk,Grown Up Grilled Cheese
+menu_display_name,DEVILED EGG,eggs,Eggs,DEVILED EGG
+menu_display_name,ADD CHEESE,milk,Milk,ADD CHEESE
+menu_display_name,half Grilled Cheese,milk,Milk,half Grilled Cheese
+menu_display_name,Scallops,molluscan_shellfish,Molluscan shellfish,Scallops
+menu_display_name,NO Blue Cheese Aioli,eggs,Eggs,NO Blue Cheese Aioli
+menu_display_name,NO Blue Cheese Aioli,milk,Milk,NO Blue Cheese Aioli
+menu_display_name,On Side Bleu Cheese,milk,Milk,On Side Bleu Cheese
+menu_display_name,Add Cod,fish,Fish,Add Cod
+menu_display_name,Churro French Toast Sticks,eggs,Eggs,Churro French Toast Sticks
+menu_display_name,NO BUTTER,milk,Milk,NO BUTTER
+menu_display_name,NO Parmesan,milk,Milk,NO Parmesan
+menu_display_name,D.B.C. Graham Cracker Porter,gluten_barley_rye,Gluten (barley / rye / malt — verify),D.B.C. Graham Cracker Porter
+menu_display_name,Grilled Salmon,fish,Fish,Grilled Salmon
+menu_display_name,Green Chile queso and chips,milk,Milk,Green Chile queso and chips
+menu_display_name,Tuna Taco,fish,Fish,Tuna Taco
+menu_display_name,Dalmore Single Malt 12,gluten_barley_rye,Gluten (barley / rye / malt — verify),Dalmore Single Malt 12
+menu_display_name,DBC PB&GK Porter,gluten_barley_rye,Gluten (barley / rye / malt — verify),DBC PB&GK Porter
+menu_display_name,NO CHEESE,milk,Milk,NO CHEESE
+menu_display_name,ADD Fried Egg,eggs,Eggs,ADD Fried Egg
+menu_display_name,NO CHEESE,milk,Milk,NO CHEESE
+menu_display_name,Bleu Cheese Crumbles,milk,Milk,Bleu Cheese Crumbles
+menu_display_name,NO COMPOUND BUTTER,milk,Milk,NO COMPOUND BUTTER
+menu_display_name,Mountain Mac And Cheese,milk,Milk,Mountain Mac And Cheese
+menu_display_name,NO Cheese,milk,Milk,NO Cheese
+menu_display_name,Shrimp & Grits,crustacean_shellfish,Crustacean shellfish,Shrimp & Grits
+menu_display_name,Guinness Can,gluten_barley_rye,Gluten (barley / rye / malt — verify),Guinness Can
+menu_display_name,Mussels,molluscan_shellfish,Molluscan shellfish,Mussels
+menu_display_name,Lefthand Milk Stout Nitro,gluten_barley_rye,Gluten (barley / rye / malt — verify),Lefthand Milk Stout Nitro
+menu_display_name,Lefthand Milk Stout Nitro,milk,Milk,Lefthand Milk Stout Nitro
+menu_display_name,NO WHIP CREAM,milk,Milk,NO WHIP CREAM
+menu_display_name,Beer Sample,gluten_barley_rye,Gluten (barley / rye / malt — verify),Beer Sample
+menu_display_name,Fish Taco Buffet,fish,Fish,Fish Taco Buffet
+menu_display_name,NO Cheese,milk,Milk,NO Cheese
+menu_display_name,Sub Blue Cheese,milk,Milk,Sub Blue Cheese
+menu_display_name,FURIKAKE FRIES,sesame,Sesame,FURIKAKE FRIES
+menu_display_name,NO Scallops & No Wild Mushrooms,molluscan_shellfish,Molluscan shellfish,NO Scallops & No Wild Mushrooms
+menu_display_name,ON SIDE CHEESE,milk,Milk,ON SIDE CHEESE
+menu_display_name,Craft Beer Pitcher,gluten_barley_rye,Gluten (barley / rye / malt — verify),Craft Beer Pitcher
+menu_display_name,RED BEER,gluten_barley_rye,Gluten (barley / rye / malt — verify),RED BEER
+menu_display_name,SUB SCRAMBLED EGG,eggs,Eggs,SUB SCRAMBLED EGG
+menu_display_name,Ginger Beer (MOD),gluten_barley_rye,Gluten (barley / rye / malt — verify),Ginger Beer (MOD)
+menu_display_name,Sub Cheddar,milk,Milk,Sub Cheddar
+menu_display_name,NO Egg,eggs,Eggs,NO Egg
+menu_display_name,Shrimp Etoufee,crustacean_shellfish,Crustacean shellfish,Shrimp Etoufee
+menu_display_name,Seared Trout,fish,Fish,Seared Trout
+menu_display_name,GARLIC PARMESAN WINGS,milk,Milk,GARLIC PARMESAN WINGS
+menu_display_name,Cape Cod,fish,Fish,Cape Cod
+menu_display_name,Add Shrimp,crustacean_shellfish,Crustacean shellfish,Add Shrimp
+menu_display_name,To Go Tap Beer,gluten_barley_rye,Gluten (barley / rye / malt — verify),To Go Tap Beer
+menu_display_name,Crab Cakes,crustacean_shellfish,Crustacean shellfish,Crab Cakes
+menu_display_name,Featured Beer #2,gluten_barley_rye,Gluten (barley / rye / malt — verify),Featured Beer #2
+menu_display_name,BLUE CHEESE,milk,Milk,BLUE CHEESE
+menu_display_name,SMOKED SALMON,fish,Fish,SMOKED SALMON
+menu_display_name,PTR Telluride Red Fish,fish,Fish,PTR Telluride Red Fish
+menu_display_name,Scallops,molluscan_shellfish,Molluscan shellfish,Scallops
+menu_display_name,$4 Beer,gluten_barley_rye,Gluten (barley / rye / malt — verify),$4 Beer
+menu_display_name,SUB CHIPOTLE AIOLI,eggs,Eggs,SUB CHIPOTLE AIOLI
+menu_display_name,GUINNESS FLOAT,gluten_barley_rye,Gluten (barley / rye / malt — verify),GUINNESS FLOAT
+menu_display_name,DBL Old Overholt Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),DBL Old Overholt Rye
+menu_display_name,Side Smoked Cheddar Sauce,milk,Milk,Side Smoked Cheddar Sauce
+menu_display_name,ADD EXTRA EGG,eggs,Eggs,ADD EXTRA EGG
+menu_display_name,Side Cilantro Lime Crema,milk,Milk,Side Cilantro Lime Crema
+menu_display_name,Honey Wheat Bread,wheat,Wheat,Honey Wheat Bread
+menu_display_name,DBL Bulleit Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),DBL Bulleit Rye
+menu_display_name,NO CREAM CHEESE,milk,Milk,NO CREAM CHEESE
+menu_display_name,Knob Creek Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),Knob Creek Rye
+menu_display_name,No Pecans,tree_nuts,Tree nuts,No Pecans
+menu_display_name,DBL Leopolds Maryland Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),DBL Leopolds Maryland Rye
+menu_display_name,NO CHEESE,milk,Milk,NO CHEESE
+menu_display_name,SUB Bleu Cheese Dressing,milk,Milk,SUB Bleu Cheese Dressing
+menu_display_name,NO Cheddar,milk,Milk,NO Cheddar
+menu_display_name,NO Scallops,molluscan_shellfish,Molluscan shellfish,NO Scallops
+menu_display_name,FISH AND CHIPS,fish,Fish,FISH AND CHIPS
+menu_display_name,1 Fish Taco,fish,Fish,1 Fish Taco
+menu_display_name,On Side Cheese,milk,Milk,On Side Cheese
+menu_display_name,SUB Bleu Cheese Dressing,milk,Milk,SUB Bleu Cheese Dressing
+menu_display_name,No Goat Cheese,milk,Milk,No Goat Cheese
+menu_display_name,Side Cajun Aioli,eggs,Eggs,Side Cajun Aioli
+menu_display_name,Side Bleu Cheese Crumbles,milk,Milk,Side Bleu Cheese Crumbles
+menu_display_name,French Toast,eggs,Eggs,French Toast
+menu_display_name,NO CHIPOTLE AIOLI,eggs,Eggs,NO CHIPOTLE AIOLI
+menu_display_name,No Egg,eggs,Eggs,No Egg
+menu_display_name,Ice Cream Special,milk,Milk,Ice Cream Special
+menu_display_name,Grown Up Grilled Cheese,milk,Milk,Grown Up Grilled Cheese
+menu_display_name,Crab Cake,crustacean_shellfish,Crustacean shellfish,Crab Cake
+menu_display_name,Cheddar,milk,Milk,Cheddar
+menu_display_name,SUB OVER HARD EGG,eggs,Eggs,SUB OVER HARD EGG
+menu_display_name,NO Whipped Cream,milk,Milk,NO Whipped Cream
+menu_display_name,Open Beer,gluten_barley_rye,Gluten (barley / rye / malt — verify),Open Beer
+menu_display_name,NO CHIPOTLE AIOLI,eggs,Eggs,NO CHIPOTLE AIOLI
+menu_display_name,SIDE MAYO,eggs,Eggs,SIDE MAYO
+menu_display_name,SUB WHITE CHEDDAR,milk,Milk,SUB WHITE CHEDDAR
+menu_display_name,Leopolds Maryland Rye (MOD),gluten_barley_rye,Gluten (barley / rye / malt — verify),Leopolds Maryland Rye (MOD)
+menu_display_name,Side Sour Cream,milk,Milk,Side Sour Cream
+menu_display_name,TROUT,fish,Fish,TROUT
+menu_display_name,ADD EXTRA CHEESE,milk,Milk,ADD EXTRA CHEESE
+menu_display_name,Add Egg,eggs,Eggs,Add Egg
+menu_display_name,ADD CHEESE,milk,Milk,ADD CHEESE
+menu_display_name,Blue Cheese,milk,Milk,Blue Cheese
+menu_display_name,Side Garlic Parmesan,milk,Milk,Side Garlic Parmesan
+menu_display_name,FURIKAKE FRIES,sesame,Sesame,FURIKAKE FRIES
+menu_display_name,DBL Wood's Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),DBL Wood's Rye
+menu_display_name,No Walnuts,tree_nuts,Tree nuts,No Walnuts
+menu_display_name,ON SIDE CHEDDAR,milk,Milk,ON SIDE CHEDDAR
+menu_display_name,No Cheddar,milk,Milk,No Cheddar
+menu_display_name,ADD Cheese,milk,Milk,ADD Cheese
+menu_display_name,Deschutes Black Butte Porter,gluten_barley_rye,Gluten (barley / rye / malt — verify),Deschutes Black Butte Porter
+menu_display_name,extra goat cheese,milk,Milk,extra goat cheese
+menu_display_name,No Cream Cheese,milk,Milk,No Cream Cheese
+menu_display_name,NO Cheddar,milk,Milk,NO Cheddar
+menu_display_name,SIDE QUESO,milk,Milk,SIDE QUESO
+menu_display_name,EXTRA Honey Soy,soybeans,Soybeans,EXTRA Honey Soy
+menu_display_name,Butter on SIDE,milk,Milk,Butter on SIDE
+menu_display_name,$20 Trout Steak Revival,fish,Fish,$20 Trout Steak Revival
+menu_display_name,Egg,eggs,Eggs,Egg
+menu_display_name,NO CHEESE,milk,Milk,NO CHEESE
+menu_display_name,Shrimp & Grits,crustacean_shellfish,Crustacean shellfish,Shrimp & Grits
+menu_display_name,Leopolds Maryland Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),Leopolds Maryland Rye
+menu_display_name,IRWIN STOUT PITCHER,gluten_barley_rye,Gluten (barley / rye / malt — verify),IRWIN STOUT PITCHER
+menu_display_name,No Cheese,milk,Milk,No Cheese
+menu_display_name,To Go Bottled & Can Beer,gluten_barley_rye,Gluten (barley / rye / malt — verify),To Go Bottled & Can Beer
+menu_display_name,Featured Beer #2,gluten_barley_rye,Gluten (barley / rye / malt — verify),Featured Beer #2
+menu_display_name,ROASTED TROUT,fish,Fish,ROASTED TROUT
+menu_display_name,Lobster Roll,crustacean_shellfish,Crustacean shellfish,Lobster Roll
+menu_display_name,ON SIDE EGGS,eggs,Eggs,ON SIDE EGGS
+menu_display_name,Bulleit Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),Bulleit Rye
+menu_display_name,KIDS Mac & Cheese,milk,Milk,KIDS Mac & Cheese
+menu_display_name,Tuna & Bean Salad,fish,Fish,Tuna & Bean Salad
+menu_display_name,Oatmeal-Crasin Cookie W/ Ice Cream,milk,Milk,Oatmeal-Crasin Cookie W/ Ice Cream
+menu_display_name,Scallop Potatoes,molluscan_shellfish,Molluscan shellfish,Scallop Potatoes
+menu_display_name,1 EGG SIDE,eggs,Eggs,1 EGG SIDE
+menu_display_name,NO Cheese,milk,Milk,NO Cheese
+menu_display_name,Chicken Cordon Bleu,milk,Milk,Chicken Cordon Bleu
+menu_display_name,NO EGG,eggs,Eggs,NO EGG
+menu_display_name,Deviled Egg A La Carte,eggs,Eggs,Deviled Egg A La Carte
+menu_display_name,Tap Beer,gluten_barley_rye,Gluten (barley / rye / malt — verify),Tap Beer
+menu_display_name,NO TUNA SUB STEAK,fish,Fish,NO TUNA SUB STEAK
+menu_display_name,ADD SHRIMP,crustacean_shellfish,Crustacean shellfish,ADD SHRIMP
+menu_display_name,Fried Cheese Curds,milk,Milk,Fried Cheese Curds
+menu_display_name,Crab Cakes,crustacean_shellfish,Crustacean shellfish,Crab Cakes
+menu_display_name,NO Basil Sriracha Aioli,eggs,Eggs,NO Basil Sriracha Aioli
+menu_display_name,SMOKED SALMON,fish,Fish,SMOKED SALMON
+menu_display_name,NO Cheese,milk,Milk,NO Cheese
+menu_display_name,Cheese on SIDE,milk,Milk,Cheese on SIDE
+menu_display_name,Beer Sample,gluten_barley_rye,Gluten (barley / rye / malt — verify),Beer Sample
+menu_display_name,Left Hand Milk Stout,gluten_barley_rye,Gluten (barley / rye / malt — verify),Left Hand Milk Stout
+menu_display_name,Left Hand Milk Stout,milk,Milk,Left Hand Milk Stout
+menu_display_name,Ice Cream Sandwich,milk,Milk,Ice Cream Sandwich
+menu_display_name,Banana Fosters French Toast Sticks,eggs,Eggs,Banana Fosters French Toast Sticks
+menu_display_name,NO CHIPOTLE CREMA,milk,Milk,NO CHIPOTLE CREMA
+menu_display_name,CHIPOTLE AIOLI ON SIDE,eggs,Eggs,CHIPOTLE AIOLI ON SIDE
+menu_display_name,Blue Cheese,milk,Milk,Blue Cheese
+menu_display_name,Tillamook Cheddar,milk,Milk,Tillamook Cheddar
+menu_display_name,Lime in da coconut,tree_nuts,Tree nuts,Lime in da coconut
+menu_display_name,NO CHEDDAR,milk,Milk,NO CHEDDAR
+menu_display_name,No Egg,eggs,Eggs,No Egg
+menu_display_name,Cheese Sauce On The Side,milk,Milk,Cheese Sauce On The Side
+menu_display_name,Side Parmesan,milk,Milk,Side Parmesan
+menu_display_name,NO Cheese,milk,Milk,NO Cheese
+menu_display_name,HH Left Hand Milk Stout Nitro,gluten_barley_rye,Gluten (barley / rye / malt — verify),HH Left Hand Milk Stout Nitro
+menu_display_name,HH Left Hand Milk Stout Nitro,milk,Milk,HH Left Hand Milk Stout Nitro
+menu_display_name,ON SIDE MAYO,eggs,Eggs,ON SIDE MAYO
+menu_display_name,BEER-MOSA,gluten_barley_rye,Gluten (barley / rye / malt — verify),BEER-MOSA
+menu_display_name,French Toast,eggs,Eggs,French Toast
+menu_display_name,Add Seared Ahi Tuna,fish,Fish,Add Seared Ahi Tuna
+menu_display_name,COD FILET,fish,Fish,COD FILET
+menu_display_name,Corned Beef Hash & Eggs,eggs,Eggs,Corned Beef Hash & Eggs
+menu_display_name,Deerhammer Single Malt,gluten_barley_rye,Gluten (barley / rye / malt — verify),Deerhammer Single Malt
+menu_display_name,NO Cheddar,milk,Milk,NO Cheddar
+menu_display_name,SUB FRIED EGG,eggs,Eggs,SUB FRIED EGG
+menu_display_name,NO BUTTER,milk,Milk,NO BUTTER
+menu_display_name,Fruit & Yogurt,milk,Milk,Fruit & Yogurt
+menu_display_name,CHIPOTLE AIOLI,eggs,Eggs,CHIPOTLE AIOLI
+menu_display_name,Add Blue Cheese,milk,Milk,Add Blue Cheese
+menu_display_name,Tuna Tacos,fish,Fish,Tuna Tacos
+menu_display_name,Jalapeno Cheddar Cornbread,milk,Milk,Jalapeno Cheddar Cornbread
+menu_display_name,Steak & Eggs,eggs,Eggs,Steak & Eggs
+menu_display_name,Full Fish & Chips,fish,Fish,Full Fish & Chips
+menu_display_name,ON SIDE WHIP CREAM,milk,Milk,ON SIDE WHIP CREAM
+menu_display_name,Shrimp Cocktail,crustacean_shellfish,Crustacean shellfish,Shrimp Cocktail
+menu_display_name,Deerhammer single malt port cask aged,gluten_barley_rye,Gluten (barley / rye / malt — verify),Deerhammer single malt port cask aged
+menu_display_name,Side Butter,milk,Milk,Side Butter
+menu_display_name,ADD GRILLED FISH,fish,Fish,ADD GRILLED FISH
+menu_display_name,Double Fish Telluride,fish,Fish,Double Fish Telluride
+menu_display_name,Grilled Trout Sandwich,fish,Fish,Grilled Trout Sandwich
+menu_display_name,NO Queso Fresco,milk,Milk,NO Queso Fresco
+menu_display_name,NO CHIPOTLE AIOLI,eggs,Eggs,NO CHIPOTLE AIOLI
+menu_display_name,Cheese on Side,milk,Milk,Cheese on Side
+menu_display_name,ADD Sour Cream,milk,Milk,ADD Sour Cream
+menu_display_name,Sour Cream,milk,Milk,Sour Cream
+menu_display_name,SD Blue Cheese Crumbles,milk,Milk,SD Blue Cheese Crumbles
+menu_display_name,NO COTIJA,milk,Milk,NO COTIJA
+menu_display_name,Cheese Curds,milk,Milk,Cheese Curds
+menu_display_name,PTR Lefthand Milk Stout Nitro,gluten_barley_rye,Gluten (barley / rye / malt — verify),PTR Lefthand Milk Stout Nitro
+menu_display_name,PTR Lefthand Milk Stout Nitro,milk,Milk,PTR Lefthand Milk Stout Nitro
+menu_display_name,NO EGG,eggs,Eggs,NO EGG
+menu_display_name,NO BLEU CHEESE CRUMBLES,milk,Milk,NO BLEU CHEESE CRUMBLES
+menu_display_name,NO Lemon Caper Aioli,eggs,Eggs,NO Lemon Caper Aioli
+menu_display_name,NO Cheese,milk,Milk,NO Cheese
+menu_display_name,Sub Cheddar,milk,Milk,Sub Cheddar
+menu_display_name,Side Garlic Aioli,eggs,Eggs,Side Garlic Aioli
+menu_display_name,On Side Egg,eggs,Eggs,On Side Egg
+menu_display_name,291 Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),291 Rye
+menu_display_name,Feta Cheese,milk,Milk,Feta Cheese
+menu_display_name,Calamari Strips,molluscan_shellfish,Molluscan shellfish,Calamari Strips
+menu_display_name,NO Queso Fresco,milk,Milk,NO Queso Fresco
+menu_display_name,KIDS Grilled Cheese,milk,Milk,KIDS Grilled Cheese
+menu_display_name,EXTRA Butter,milk,Milk,EXTRA Butter
+menu_display_name,softshell crab sandwich,crustacean_shellfish,Crustacean shellfish,softshell crab sandwich
+menu_display_name,NO Toasted Walnuts,tree_nuts,Tree nuts,NO Toasted Walnuts
+menu_display_name,PTR Milk Stout,gluten_barley_rye,Gluten (barley / rye / malt — verify),PTR Milk Stout
+menu_display_name,PTR Milk Stout,milk,Milk,PTR Milk Stout
+menu_display_name,SD Blue Cheese,milk,Milk,SD Blue Cheese
+menu_display_name,EXTRA Bleu Cheese Dressing,milk,Milk,EXTRA Bleu Cheese Dressing
+menu_display_name,Dozen Oysters,molluscan_shellfish,Molluscan shellfish,Dozen Oysters
+menu_display_name,PTR Featured Beer #4,gluten_barley_rye,Gluten (barley / rye / malt — verify),PTR Featured Beer #4
+menu_display_name,NO PECANS,tree_nuts,Tree nuts,NO PECANS
+menu_display_name,NO EGG,eggs,Eggs,NO EGG
+menu_display_name,NO Aioli,eggs,Eggs,NO Aioli
+menu_display_name,NO Parmesan,milk,Milk,NO Parmesan
+menu_display_name,SHRIMP GUMBO,crustacean_shellfish,Crustacean shellfish,SHRIMP GUMBO
+menu_display_name,Sub Garlic Aioli,eggs,Eggs,Sub Garlic Aioli
+menu_display_name,French Toast,eggs,Eggs,French Toast
+menu_display_name,SUB Bleu Cheese Crumbles,milk,Milk,SUB Bleu Cheese Crumbles
+menu_display_name,No Cream Cheese,milk,Milk,No Cream Cheese
+menu_display_name,Side Cheese Sauce,milk,Milk,Side Cheese Sauce
+menu_display_name,On Side Mayo,eggs,Eggs,On Side Mayo
+menu_display_name,On Side Mayo,eggs,Eggs,On Side Mayo
+menu_display_name,Fruit & Yogurt,milk,Milk,Fruit & Yogurt
+menu_display_name,Mac & Cheese,milk,Milk,Mac & Cheese
+menu_display_name,Knob Creek Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),Knob Creek Rye
+menu_display_name,Tuna Tacos,fish,Fish,Tuna Tacos
+menu_display_name,NO Cheese,milk,Milk,NO Cheese
+menu_display_name,ADD extra Cheddar Cheese,milk,Milk,ADD extra Cheddar Cheese
+menu_display_name,Oatmeal-Crasin Cookie w/ Ice Cream,milk,Milk,Oatmeal-Crasin Cookie w/ Ice Cream
+menu_display_name,Shrimp Etouffee,crustacean_shellfish,Crustacean shellfish,Shrimp Etouffee
+menu_display_name,No Hollandaise,eggs,Eggs,No Hollandaise
+menu_display_name,NO Egg,eggs,Eggs,NO Egg
+menu_display_name,Salmon,fish,Fish,Salmon
+menu_display_name,Cinnamon Ice Cream,milk,Milk,Cinnamon Ice Cream
+menu_display_name,Chocolate Chip Cookie Ice Cream Sandwich,milk,Milk,Chocolate Chip Cookie Ice Cream Sandwich
+menu_display_name,Telluride Red Fish,fish,Fish,Telluride Red Fish
+menu_display_name,Grilled Salmon,fish,Fish,Grilled Salmon
+menu_display_name,NO KEWPIE MAYO,eggs,Eggs,NO KEWPIE MAYO
+menu_display_name,NO Panko Chicken,wheat,Wheat,NO Panko Chicken
+menu_display_name,Banana Cream Pudding,milk,Milk,Banana Cream Pudding
+menu_display_name,Deviled Eggs,eggs,Eggs,Deviled Eggs
+menu_display_name,Bleu Cheese Crumbles,milk,Milk,Bleu Cheese Crumbles
+menu_display_name,NO Smoked Gouda Cheese,milk,Milk,NO Smoked Gouda Cheese
+menu_display_name,EGG SET,eggs,Eggs,EGG SET
+menu_display_name,NO TUNA SUB CHICKEN,fish,Fish,NO TUNA SUB CHICKEN
+menu_display_name,FRENCH TOAST,eggs,Eggs,FRENCH TOAST
+menu_display_name,Extra Mayo,eggs,Eggs,Extra Mayo
+menu_display_name,Sub Tillamook Cheddar,milk,Milk,Sub Tillamook Cheddar
+menu_display_name,Avery Out Of Bounds Stout,gluten_barley_rye,Gluten (barley / rye / malt — verify),Avery Out Of Bounds Stout
+menu_display_name,NO EGGS,eggs,Eggs,NO EGGS
+menu_display_name,BAJA FISH TACOS,fish,Fish,BAJA FISH TACOS
+menu_display_name,No Mayo,eggs,Eggs,No Mayo
+menu_display_name,HW Orange Cream,milk,Milk,HW Orange Cream
+menu_display_name,SUB OVER EASY EGG,eggs,Eggs,SUB OVER EASY EGG
+menu_display_name,Scallops & Wild Mushrooms,molluscan_shellfish,Molluscan shellfish,Scallops & Wild Mushrooms
+menu_display_name,PTR Elevations Lil Mo Porter,gluten_barley_rye,Gluten (barley / rye / malt — verify),PTR Elevations Lil Mo Porter
+menu_display_name,Crab Cake Remoulade,crustacean_shellfish,Crustacean shellfish,Crab Cake Remoulade
+menu_display_name,no goat cheese,milk,Milk,no goat cheese
+menu_display_name,NO Cheese,milk,Milk,NO Cheese
+menu_display_name,Bass Plate,fish,Fish,Bass Plate
+menu_display_name,Burger and Beer $20,gluten_barley_rye,Gluten (barley / rye / malt — verify),Burger and Beer $20
+menu_display_name,NO Goat Cheese,milk,Milk,NO Goat Cheese
+menu_display_name,Egg on the Side,eggs,Eggs,Egg on the Side
+menu_display_name,BLUE CHEESE,milk,Milk,BLUE CHEESE
+menu_display_name,NO CHEESE,milk,Milk,NO CHEESE
+menu_display_name,BYO Bloody Mary w/ Shrimp,crustacean_shellfish,Crustacean shellfish,BYO Bloody Mary w/ Shrimp
+menu_display_name,Scallops,molluscan_shellfish,Molluscan shellfish,Scallops
+menu_display_name,DBL Knob Creek Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),DBL Knob Creek Rye
+menu_display_name,Daily Special (Fish),fish,Fish,Daily Special (Fish)
+menu_display_name,Bleu Cheese Crumbles,milk,Milk,Bleu Cheese Crumbles
+menu_display_name,Cookies & Cream Pancake,milk,Milk,Cookies & Cream Pancake
+menu_display_name,Baja Fish Taco,fish,Fish,Baja Fish Taco
+menu_display_name,Vanilla Ice Cream,milk,Milk,Vanilla Ice Cream
+menu_display_name,Smoked Salmon,fish,Fish,Smoked Salmon
+menu_display_name,No Bleu Cheese,milk,Milk,No Bleu Cheese
+menu_display_name,NO Cheddar Cheese Sauce,milk,Milk,NO Cheddar Cheese Sauce
+menu_display_name,Pecan Tart,tree_nuts,Tree nuts,Pecan Tart
+menu_display_name,ON SIDE CHEDDAR,milk,Milk,ON SIDE CHEDDAR
+menu_display_name,NO Egg,eggs,Eggs,NO Egg
+menu_display_name,Plain Ole' Grilled Cheese,milk,Milk,Plain Ole' Grilled Cheese
+menu_display_name,SUB Blue Cheese,milk,Milk,SUB Blue Cheese
+menu_display_name,NO EGG,eggs,Eggs,NO EGG
+menu_display_name,SUB Horseradish Cheddar,milk,Milk,SUB Horseradish Cheddar
+menu_display_name,Guinness Paddy,gluten_barley_rye,Gluten (barley / rye / malt — verify),Guinness Paddy
+menu_display_name,Salmon Burger,fish,Fish,Salmon Burger
+menu_display_name,No Bleu Cheese Crumbles,milk,Milk,No Bleu Cheese Crumbles
+menu_display_name,Bleu Cheese Dressing,milk,Milk,Bleu Cheese Dressing
+menu_display_name,10th mountain rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),10th mountain rye
+menu_display_name,ON SIDE EGG,eggs,Eggs,ON SIDE EGG
+menu_display_name,SUB Cheese Sauce,milk,Milk,SUB Cheese Sauce
+menu_display_name,HALF Fish & Chips,fish,Fish,HALF Fish & Chips
+menu_display_name,NO EGG,eggs,Eggs,NO EGG
+menu_display_name,Featured Beer #4,gluten_barley_rye,Gluten (barley / rye / malt — verify),Featured Beer #4
+menu_display_name,NO Cheese,milk,Milk,NO Cheese
+menu_display_name,Deviled Eggs,eggs,Eggs,Deviled Eggs
+menu_display_name,SIDE BLUE CHEESE,milk,Milk,SIDE BLUE CHEESE
+menu_display_name,Eggs in Purgatory,eggs,Eggs,Eggs in Purgatory
+menu_display_name,Char-Grilled Salmon,fish,Fish,Char-Grilled Salmon
+menu_display_name,COD FILET,fish,Fish,COD FILET
+menu_display_name,PTR Guinness,gluten_barley_rye,Gluten (barley / rye / malt — verify),PTR Guinness
+menu_display_name,Battered Fish Taco,fish,Fish,Battered Fish Taco
+menu_display_name,Jameson Stout Caskmates,gluten_barley_rye,Gluten (barley / rye / malt — verify),Jameson Stout Caskmates
+menu_display_name,Side Chipotle Mayo,eggs,Eggs,Side Chipotle Mayo
+menu_display_name,Smoked Salmon Plate,fish,Fish,Smoked Salmon Plate
+menu_display_name,CHEEESE SKIRT BURGER AND BEER SPECIAL,gluten_barley_rye,Gluten (barley / rye / malt — verify),CHEEESE SKIRT BURGER AND BEER SPECIAL
+menu_display_name,Special Ice Cream,milk,Milk,Special Ice Cream
+menu_display_name,NO Pepper Jack Cheese,milk,Milk,NO Pepper Jack Cheese
+menu_display_name,Rye,gluten_barley_rye,Gluten (barley / rye / malt — verify),Rye
+menu_display_name,Hollandaise on side,eggs,Eggs,Hollandaise on side
+menu_display_name,No Goat Cheese,milk,Milk,No Goat Cheese
+menu_display_name,SUB SUNNY SIDE UP EGG,eggs,Eggs,SUB SUNNY SIDE UP EGG
+menu_display_name,Benedict - Steak & Eggs,eggs,Eggs,Benedict - Steak & Eggs
+menu_display_name,Chips & Queso,milk,Milk,Chips & Queso
+menu_display_name,Pecan Pie,tree_nuts,Tree nuts,Pecan Pie
+menu_display_name,NO Egg,eggs,Eggs,NO Egg
+menu_display_name,No Parmesan,milk,Milk,No Parmesan
+menu_display_name,NO CHIPOTLE AIOLI,eggs,Eggs,NO CHIPOTLE AIOLI
+menu_display_name,ADD Cheddar,milk,Milk,ADD Cheddar
+menu_display_name,Plain Ole Grilled Cheese,milk,Milk,Plain Ole Grilled Cheese
+menu_display_name,ADD EXTRA EGG,eggs,Eggs,ADD EXTRA EGG
+menu_display_name,ADD QUESO SIDE,milk,Milk,ADD QUESO SIDE
+menu_display_name,BLEU CHEESE SAUCE,milk,Milk,BLEU CHEESE SAUCE
+menu_display_name,No Cheese Sauce,milk,Milk,No Cheese Sauce
+menu_display_name,SUB Tillamook Cheddar,milk,Milk,SUB Tillamook Cheddar
+menu_display_name,La Crema Chardonnay,milk,Milk,La Crema Chardonnay
+menu_display_name,NO Butter,milk,Milk,NO Butter
+menu_display_name,ON SIDE EGG,eggs,Eggs,ON SIDE EGG
+menu_display_name,ON SIDE CHIPOTLE AIOLI,eggs,Eggs,ON SIDE CHIPOTLE AIOLI
+menu_display_name,Lobster Omelete,crustacean_shellfish,Crustacean shellfish,Lobster Omelete
+menu_display_name,NO EGG,eggs,Eggs,NO EGG
+menu_display_name,Lobster & Eggs Benedict,crustacean_shellfish,Crustacean shellfish,Lobster & Eggs Benedict
+menu_display_name,Lobster & Eggs Benedict,eggs,Eggs,Lobster & Eggs Benedict
+menu_display_name,Add Sour Cream,milk,Milk,Add Sour Cream
+menu_display_name,Panko Parm Pan Seared Chicken,wheat,Wheat,Panko Parm Pan Seared Chicken
+menu_display_name,Scallops,molluscan_shellfish,Molluscan shellfish,Scallops
+menu_display_name,NO CHEESE SAUCE,milk,Milk,NO CHEESE SAUCE
+menu_display_name,NO Bleu Cheese Crumbles,milk,Milk,NO Bleu Cheese Crumbles
+menu_display_name,NO Aioli,eggs,Eggs,NO Aioli
+menu_display_name,No Egg,eggs,Eggs,No Egg
+menu_display_name,GARLIC PARMESAN SAUCE,milk,Milk,GARLIC PARMESAN SAUCE
+menu_display_name,Parmesan On The Side,milk,Milk,Parmesan On The Side
+menu_display_name,Blue Cheese Side,milk,Milk,Blue Cheese Side
+menu_display_name,Sour w/ Egg,eggs,Eggs,Sour w/ Egg
+menu_display_name,Add Panko Chicken,wheat,Wheat,Add Panko Chicken
+menu_display_name,Lobster,crustacean_shellfish,Crustacean shellfish,Lobster
+menu_display_name,Goat Cheese Chevre,milk,Milk,Goat Cheese Chevre
+menu_display_name,SUB BASTED EGG,eggs,Eggs,SUB BASTED EGG
+menu_display_name,Grilled Striped Bass,fish,Fish,Grilled Striped Bass
+menu_display_name,Sub Blue Cheese,milk,Milk,Sub Blue Cheese
+menu_display_name,Smoked Cheddar Mac & Cheese,milk,Milk,Smoked Cheddar Mac & Cheese
+menu_display_name,Cheddar,milk,Milk,Cheddar
+menu_display_name,NO Cheddar,milk,Milk,NO Cheddar
+menu_display_name,Cheese on the Side,milk,Milk,Cheese on the Side
+menu_display_name,Mac & Cheese,milk,Milk,Mac & Cheese
+menu_display_name,Elevation Lil' Mo Porter,gluten_barley_rye,Gluten (barley / rye / malt — verify),Elevation Lil' Mo Porter
+menu_display_name,Cheese Curds,milk,Milk,Cheese Curds
+menu_display_name,Cheese Curds,milk,Milk,Cheese Curds
+menu_display_name,CHIPOTLE AIOLI,eggs,Eggs,CHIPOTLE AIOLI
+menu_display_name,NO MAYO,eggs,Eggs,NO MAYO
+menu_display_name,No Goat Cheese,milk,Milk,No Goat Cheese
+menu_display_name,Side Beer Mustard,gluten_barley_rye,Gluten (barley / rye / malt — verify),Side Beer Mustard
+menu_display_name,Tillamook Cheddar,milk,Milk,Tillamook Cheddar
+menu_display_name,DBL Jameson Stout,gluten_barley_rye,Gluten (barley / rye / malt — verify),DBL Jameson Stout
+menu_display_name,No Cheddar,milk,Milk,No Cheddar
+menu_display_name,ADD CHKN\SHRIMP,crustacean_shellfish,Crustacean shellfish,ADD CHKN\SHRIMP
+menu_display_name,Ardbeg Islay Single Malt 10,gluten_barley_rye,Gluten (barley / rye / malt — verify),Ardbeg Islay Single Malt 10
+menu_display_name,Grown Up Grilled Cheese,milk,Milk,Grown Up Grilled Cheese
+menu_display_name,ON SIDE PECANS,tree_nuts,Tree nuts,ON SIDE PECANS
+menu_display_name,Seared Trout Sandwich,fish,Fish,Seared Trout Sandwich
+menu_display_name,Featured Beer #4,gluten_barley_rye,Gluten (barley / rye / malt — verify),Featured Beer #4
+menu_display_name,Guinness,gluten_barley_rye,Gluten (barley / rye / malt — verify),Guinness
+menu_display_name,Egg on Side,eggs,Eggs,Egg on Side
+menu_display_name,Cheeseburger Egg Rolls,eggs,Eggs,Cheeseburger Egg Rolls
+menu_display_name,Single Egg,eggs,Eggs,Single Egg
+menu_display_name,Add Grilled Shrimp,crustacean_shellfish,Crustacean shellfish,Add Grilled Shrimp
+menu_display_name,No Wasabi Mayo,eggs,Eggs,No Wasabi Mayo
+menu_display_name,Milk,milk,Milk,Milk
+menu_display_name,NO FURIKAKE SEASONING,sesame,Sesame,NO FURIKAKE SEASONING
+menu_display_name,Steak & Cheese,milk,Milk,Steak & Cheese
+menu_display_name,Ginger Beer,gluten_barley_rye,Gluten (barley / rye / malt — verify),Ginger Beer
+menu_display_name,Featured Beer #3,gluten_barley_rye,Gluten (barley / rye / malt — verify),Featured Beer #3
+menu_display_name,Caribbean Bass,fish,Fish,Caribbean Bass
+menu_display_name,Sub Blue Cheese Crumbles,milk,Milk,Sub Blue Cheese Crumbles
+menu_display_name,Milk,milk,Milk,Milk
+menu_display_name,Scallops & Wild Mushrooms,molluscan_shellfish,Molluscan shellfish,Scallops & Wild Mushrooms
+menu_display_name,NO Panko Chicken,wheat,Wheat,NO Panko Chicken
+menu_display_name,Side Vintage Cheese Sauce,milk,Milk,Side Vintage Cheese Sauce
+menu_display_name,Half Dozen Oysters,molluscan_shellfish,Molluscan shellfish,Half Dozen Oysters
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Buttermilk Brine
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Buttermilk - ½ Gallon Buttermilk
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Queso/ Mac Sauce
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,3 QT HEAVY CREAM
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,2 GALLON WHOLE MILK
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,4 EA. 5LB CHEESE BLOCK
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,2 EA 5LB BAGS SHREDDED CHEDDAR
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Combine milk and heavy cream in large sauce pot and bring to a boil
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Shred cheese blocks in Robocoupe
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,"Slowly incorporate shredded cheese blocks and shredded cheddar into boiling pot, stirring until thoroughly melted"
+recipe_book_txt,Lariat Recipe Book.txt,wheat,Wheat,Chicken Flour
+recipe_book_txt,Lariat Recipe Book.txt,wheat,Wheat,18 kg AP flour
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,300g mayo
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,"Combine lime juice, mayo, garlic,salt, olive oil, jalapenos, and half of cilantro and blend to a paste"
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,9 cups mayo
+recipe_book_txt,Lariat Recipe Book.txt,fish,Fish,Fish Brine
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,1.15 LB butter browned
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,14 ¾ cup buttermilk
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,3 ½ cup cheddar
+recipe_book_txt,Lariat Recipe Book.txt,wheat,Wheat,Create roux with bacon grease?flour
+recipe_book_txt,Lariat Recipe Book.txt,wheat,Wheat,Add in roux and cook for another 20 minutes to cook out the roux
+recipe_book_txt,Lariat Recipe Book.txt,fish,Fish,5 minced anchovy
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,3 ½ cup mayo
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,"Combine mustard, lime juice, chipotle, mayo, garlic, cilantro, anchovy, and capers in blender"
+recipe_book_txt,Lariat Recipe Book.txt,fish,Fish,"Combine mustard, lime juice, chipotle, mayo, garlic, cilantro, anchovy, and capers in blender"
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,5 ¼ cup bread and butter pickle juice
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Incorporate bread & butter pickle
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,9 cup mayo
+recipe_book_txt,Lariat Recipe Book.txt,gluten_barley_rye,Gluten (barley / rye / malt — verify),Beer Batter
+recipe_book_txt,Lariat Recipe Book.txt,gluten_barley_rye,Gluten (barley / rye / malt — verify),550g guinness
+recipe_book_txt,Lariat Recipe Book.txt,gluten_barley_rye,Gluten (barley / rye / malt — verify),Beer Flour
+recipe_book_txt,Lariat Recipe Book.txt,wheat,Wheat,Beer Flour
+recipe_book_txt,Lariat Recipe Book.txt,wheat,Wheat,17 cup cake flour
+recipe_book_txt,Lariat Recipe Book.txt,gluten_barley_rye,Gluten (barley / rye / malt — verify),Disperse vodka/stout mix into bowl
+recipe_book_txt,Lariat Recipe Book.txt,wheat,Wheat,Incorporate equal parts  flour gradually into bowl (DRY YOUR WET)
+recipe_book_txt,Lariat Recipe Book.txt,wheat,Wheat,600g ap flour
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,880g buttermilk
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,Chipotle aioli
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,18c Mayo
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,600g mayo
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,"Combine lime juice, mayo, garlic, salt, jalepeno, olive oil,  ½ time cilantro."
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,1 gallon mayo
+recipe_book_txt,Lariat Recipe Book.txt,gluten_barley_rye,Gluten (barley / rye / malt — verify),"If brown sugar solidified, dissolve in apple cider vin.Beer Batter"
+recipe_book_txt,Lariat Recipe Book.txt,wheat,Wheat,24 c AP flour
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Cream Cheese Spread
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,1/2 cup cream cheese
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,1/2 cup shredded Double Gloucester or cheddar
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,2 tablespoons heavy cream
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,1/2 cup mayonnaise
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Grilled Three-Cheese Sandwich
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,8 cheddar cheese slices
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,8 provolone slices
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,For Cream Cheese Spread:
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,"Combine cream cheese, Double Gloucester or cheddar, heavy cream, and salt in food processor. Blend until smooth. Set aside."
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,"Combine mayonnaise, garlic, and salt in small bowl and stir until blended. Set aside."
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,For Grilled Three-Cheese Sandwich:
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Place 2 slices of cheddar on 4 of the bread slices. Place 2 slices of provolone on remaining bread slices.
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Equally spoon cream cheese spread on slices with provolone. Gently smooth cream cheese spread over each slice.
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Press cheddar side and provolone side together.
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,"Grill sandwiches for 2 minutes on each side, until cheese is melted and bread is golden brown."
+recipe_book_txt,Lariat Recipe Book.txt,soybeans,Soybeans,¼ cup soy sauce
+recipe_book_txt,Lariat Recipe Book.txt,sesame,Sesame,¼ cup furikake seasoning
+recipe_book_txt,Lariat Recipe Book.txt,wheat,Wheat,17 cup AP flour
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Until right buttermilk
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,Chip aioli
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,36 cup mayo
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,⅔ cup clarified butter
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,"Heat a large randeau; add butter and chicken wings. Cook until chicken wings begin to take on color. Add mirepoix, continuously scrape fond off the bottom of the pan. Once vegetables begin to brown de"
+recipe_book_txt,Lariat Recipe Book.txt,soybeans,Soybeans,½ miso
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,1 QT buttermilk
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,I QT mayonnaise
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,1 QT sour cream
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,2 cups bleu cheese crumbles
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Combine half of blue cheese and all other ingredients and blend on high
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Add remaining blue cheese and blend on lowLemon Thyme Vinagrette
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,8 cups mayo
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,3 cups milk
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,1 cup buttermilk
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,¾ cup mayo
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,French toast batter
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,1000 grams egg scrambled eggs
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,1000 grams milk
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,• Mayonnaise: 6 cups
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,• Buttermilk: ¾ cup
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,"In a large mixing bowl, whisk together the mayonnaise, pickle relish, buttermilk, horseradish, mustard, vinegar, and sugar until smooth."
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,"In a large mixing bowl, whisk together the mayonnaise, pickle relish, buttermilk, horseradish, mustard, vinegar, and sugar until smooth."
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Herbal butter
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,3 Lbs butter (softened)
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Stir herbs into butter thoroughly
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Honey butter
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,3Lb butter (softened)
+recipe_book_txt,Lariat Recipe Book.txt,milk,Milk,Mix honey and butter
+recipe_book_txt,Lariat Recipe Book.txt,eggs,Eggs,2 cups chip aioli

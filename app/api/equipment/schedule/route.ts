@@ -1,0 +1,70 @@
+import { NextResponse } from 'next/server';
+import { getDb } from '../../../../lib/db';
+
+const MAX_TEXT = 500;
+const MAX_NOTES = 2000;
+
+function clip(s: unknown, max: number): string | null {
+  if (typeof s !== 'string') return null;
+  const t = s.trim();
+  return t ? t.slice(0, max) : null;
+}
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const locationId = searchParams.get('location_id') || 'default';
+  const equipmentId = searchParams.get('equipment_id');
+  const db = getDb();
+
+  try {
+    let q = `SELECT * FROM equipment_maintenance_schedule WHERE location_id = ?`;
+    const params: (string | number)[] = [locationId];
+    if (equipmentId) {
+      q += ` AND equipment_id = ?`;
+      params.push(equipmentId);
+    }
+    q += ` ORDER BY equipment_id, COALESCE(next_due, '9999-12-31')`;
+    const rows = db.prepare(q).all(...params);
+    return NextResponse.json(rows);
+  } catch (err) {
+    console.error('GET /api/equipment/schedule failed:', err);
+    return NextResponse.json({ error: 'Failed to load schedule' }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const equipment_id = Number(body?.equipment_id);
+    const task = clip(body?.task, MAX_TEXT);
+    const frequency = clip(body?.frequency, 60);
+    if (!Number.isInteger(equipment_id) || equipment_id <= 0) {
+      return NextResponse.json({ error: 'equipment_id required' }, { status: 400 });
+    }
+    if (!task) return NextResponse.json({ error: 'task required' }, { status: 400 });
+    if (!frequency) return NextResponse.json({ error: 'frequency required' }, { status: 400 });
+
+    const db = getDb();
+    const info = db.prepare(`
+      INSERT INTO equipment_maintenance_schedule (
+        equipment_id, task, frequency, last_done, next_due, notes, location_id
+      )
+      VALUES (
+        @equipment_id, @task, @frequency, @last_done, @next_due, @notes, @location_id
+      )
+    `).run({
+      equipment_id,
+      task,
+      frequency,
+      last_done: clip(body?.last_done, 32),
+      next_due: clip(body?.next_due, 32),
+      notes: clip(body?.notes, MAX_NOTES),
+      location_id: clip(body?.location_id, 64) || 'default',
+    });
+
+    return NextResponse.json({ success: true, id: info.lastInsertRowid });
+  } catch (err) {
+    console.error('POST /api/equipment/schedule failed:', err);
+    return NextResponse.json({ error: 'Failed to save schedule entry' }, { status: 500 });
+  }
+}

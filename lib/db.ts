@@ -1,0 +1,685 @@
+import Database from 'better-sqlite3';
+import type { Database as DB } from 'better-sqlite3';
+import path from 'path';
+import fs from 'fs';
+
+const DB_DIR = path.join(process.cwd(), 'data');
+const DB_PATH = path.join(DB_DIR, 'lariat.db');
+
+let _db: DB | null = null;
+let _dbPathOverride: string | null = null;
+
+/**
+ * Test-only hook: point {@link getDb} at an arbitrary SQLite path (or
+ * ':memory:') so a test can run against a scratch database without
+ * poisoning `data/lariat.db`. Closes the current cached connection so
+ * the next `getDb()` call reopens against the new path.
+ *
+ * Production code never calls this. Pass `null` to revert.
+ */
+export function setDbPathForTest(p: string | null): void {
+  if (_db) {
+    try { _db.close(); } catch { /* ignore */ }
+    _db = null;
+  }
+  _dbPathOverride = p;
+}
+
+// ── Row types ──────────────────────────────────────────────────────
+
+export interface LineCheckEntry {
+  id: number;
+  shift_date: string;
+  station_id: string;
+  item: string;
+  status: 'pass' | 'fail' | 'na';
+  par: string | null;
+  have: string | null;
+  need: string | null;
+  note: string | null;
+  cook_id: string | null;
+  created_at: string;
+  location_id: string;
+}
+
+export interface StationSignoff {
+  id: number;
+  shift_date: string;
+  station_id: string;
+  cook_id: string;
+  signoff_type: string;
+  created_at: string;
+  location_id: string;
+}
+
+export interface EightySix {
+  id: number;
+  shift_date: string;
+  station_id: string | null;
+  item: string;
+  kind: string;
+  reason: string | null;
+  quantity: string | null;
+  cook_id: string | null;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  created_at: string;
+  location_id: string;
+}
+
+export interface InventoryUpdate {
+  id: number;
+  shift_date: string;
+  station_id: string | null;
+  item: string;
+  delta: string | null;
+  direction: string | null;
+  note: string | null;
+  cook_id: string | null;
+  created_at: string;
+  location_id: string;
+}
+
+export interface Location {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface VendorPrice {
+  id: number;
+  ingredient: string;
+  vendor: string | null;
+  sku: string | null;
+  pack_size: number | null;
+  pack_unit: string | null;
+  pack_price: number | null;
+  unit_price: number | null;
+  category: string | null;
+  location_id: string;
+  imported_at: string;
+}
+
+export interface RecipeCost {
+  recipe_id: string;
+  recipe_name: string | null;
+  category: string | null;
+  yield: number | null;
+  yield_unit: string | null;
+  batch_cost: number | null;
+  cost_per_yield_unit: number | null;
+  costed_lines: number | null;
+  total_lines: number | null;
+  interpretations: number | null;
+  location_id: string;
+  imported_at: string;
+}
+
+export interface BomLine {
+  id: number;
+  recipe_id: string;
+  ingredient: string | null;
+  qty: number | null;
+  unit: string | null;
+  sub_recipe: string | null;
+  vendor_ingredient: string | null;
+  map_status: string | null;
+  vendor: string | null;
+  pack_price: number | null;
+  pack_size: number | null;
+  location_id: string;
+  imported_at: string;
+}
+
+export interface SalesLine {
+  id: number;
+  period_label: string | null;
+  item_name: string;
+  quantity_sold: number | null;
+  net_sales: number | null;
+  source: string | null;
+  location_id: string;
+  imported_at: string;
+}
+
+export interface SpendMonthly {
+  id: number;
+  month: string;
+  shamrock_total_spend: number | null;
+  source: string | null;
+  location_id: string;
+  imported_at: string;
+}
+
+export interface BeoEvent {
+  id: number;
+  title: string;
+  event_date: string | null;
+  guest_count: number | null;
+  notes: string | null;
+  status: string;
+  location_id: string;
+  created_at: string;
+}
+
+export interface BeoTask {
+  id: number;
+  event_id: number;
+  task: string;
+  due_date: string | null;
+  done: number;
+  sort_order: number;
+  location_id: string;
+}
+
+export interface Equipment {
+  id: number;
+  name: string;
+  category: string;
+  make_model: string | null;
+  model_number: string | null;
+  serial_number: string | null;
+  purchase_date: string | null;
+  warranty_expiration: string | null;
+  purchase_cost: number | null;
+  vendor: string | null;
+  vendor_order_ref: string | null;
+  manual_path: string | null;
+  notes: string | null;
+  status: string;
+  location_id: string;
+}
+
+export interface EquipmentMaintenance {
+  id: number;
+  equipment_id: number;
+  service_date: string;
+  type: string;
+  cost: number | null;
+  notes: string | null;
+  receipt_reference: string | null;
+  cook_id: string | null;
+  location_id: string;
+  created_at: string;
+}
+
+export interface EquipmentPart {
+  id: number;
+  equipment_id: number;
+  part_number: string;
+  description: string | null;
+  vendor: string | null;
+  unit_price: number | null;
+  qty_on_hand: number | null;
+  last_ordered: string | null;
+  last_order_ref: string | null;
+  notes: string | null;
+  location_id: string;
+  created_at: string;
+}
+
+export interface EquipmentMaintenanceSchedule {
+  id: number;
+  equipment_id: number;
+  task: string;
+  frequency: string;
+  last_done: string | null;
+  next_due: string | null;
+  notes: string | null;
+  location_id: string;
+  created_at: string;
+}
+
+export interface GoldStar {
+  id: number;
+  cook_name: string;
+  reason: string;
+  stars: number;
+  awarded_date: string;
+  location_id: string;
+  created_at: string;
+}
+
+export interface TempLogEntry {
+  id: number;
+  shift_date: string;
+  location_id: string;
+  point_id: string;
+  reading_f: number;
+  required_min_f: number | null;
+  required_max_f: number | null;
+  corrective_action: string | null;
+  cook_id: string | null;
+  created_at: string;
+}
+
+export interface ToastSalesDailyRow {
+  id: number;
+  shift_date: string;
+  net_sales: number | null;
+  orders: number | null;
+  guests: number | null;
+  comparison_group: number;
+  date_range: string | null;
+  source: string | null;
+  location_id: string;
+  imported_at: string;
+}
+
+export interface ToastSalesDowRow {
+  id: number;
+  day_of_week: string;
+  net_sales: number | null;
+  orders: number | null;
+  guests: number | null;
+  comparison_group: number;
+  date_range: string | null;
+  source: string | null;
+  location_id: string;
+  imported_at: string;
+}
+
+export interface ToastSalesHourRow {
+  id: number;
+  hour_24: number;
+  label: string;
+  net_sales: number | null;
+  orders: number | null;
+  guests: number | null;
+  comparison_group: number;
+  date_range: string | null;
+  source: string | null;
+  location_id: string;
+  imported_at: string;
+}
+
+// ── Schema ─────────────────────────────────────────────────────────
+
+export function initSchema(db: DB): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS line_check_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      station_id TEXT NOT NULL,
+      item TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('pass','fail','na')),
+      par TEXT,
+      have TEXT,
+      need TEXT,
+      note TEXT,
+      cook_id TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      location_id TEXT DEFAULT 'default'
+    );
+    CREATE INDEX IF NOT EXISTS idx_lce_shift ON line_check_entries(shift_date, station_id);
+
+    CREATE TABLE IF NOT EXISTS station_signoffs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      station_id TEXT NOT NULL,
+      cook_id TEXT NOT NULL,
+      signoff_type TEXT NOT NULL DEFAULT 'self',
+      created_at TEXT DEFAULT (datetime('now')),
+      location_id TEXT DEFAULT 'default'
+    );
+    CREATE INDEX IF NOT EXISTS idx_signoff_shift ON station_signoffs(shift_date, station_id);
+
+    CREATE TABLE IF NOT EXISTS eighty_six (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      station_id TEXT,
+      item TEXT NOT NULL,
+      kind TEXT DEFAULT 'item',
+      reason TEXT,
+      quantity TEXT,
+      cook_id TEXT,
+      resolved_at TEXT,
+      resolved_by TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      location_id TEXT DEFAULT 'default'
+    );
+    CREATE INDEX IF NOT EXISTS idx_86_shift ON eighty_six(shift_date, resolved_at);
+
+    CREATE TABLE IF NOT EXISTS inventory_updates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      station_id TEXT,
+      item TEXT NOT NULL,
+      delta TEXT,
+      direction TEXT,
+      note TEXT,
+      cook_id TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      location_id TEXT DEFAULT 'default'
+    );
+    CREATE INDEX IF NOT EXISTS idx_inv_shift ON inventory_updates(shift_date, station_id);
+
+    CREATE TABLE IF NOT EXISTS locations (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS vendor_prices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ingredient TEXT NOT NULL,
+      vendor TEXT,
+      sku TEXT,
+      pack_size REAL,
+      pack_unit TEXT,
+      pack_price REAL,
+      unit_price REAL,
+      category TEXT,
+      location_id TEXT DEFAULT 'default',
+      imported_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_vp_loc ON vendor_prices(location_id);
+
+    CREATE TABLE IF NOT EXISTS recipe_costs (
+      recipe_id TEXT PRIMARY KEY,
+      recipe_name TEXT,
+      category TEXT,
+      yield REAL,
+      yield_unit TEXT,
+      batch_cost REAL,
+      cost_per_yield_unit REAL,
+      costed_lines INTEGER,
+      total_lines INTEGER,
+      interpretations INTEGER,
+      location_id TEXT DEFAULT 'default',
+      imported_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS bom_lines (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      recipe_id TEXT NOT NULL,
+      ingredient TEXT,
+      qty REAL,
+      unit TEXT,
+      sub_recipe TEXT,
+      vendor_ingredient TEXT,
+      map_status TEXT,
+      vendor TEXT,
+      pack_price REAL,
+      pack_size REAL,
+      location_id TEXT DEFAULT 'default',
+      imported_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_bom_recipe ON bom_lines(recipe_id, location_id);
+
+    CREATE TABLE IF NOT EXISTS ingredient_maps (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      recipe_ingredient TEXT NOT NULL,
+      vendor_ingredient TEXT,
+      status TEXT,
+      location_id TEXT DEFAULT 'default',
+      imported_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS order_guide_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ingredient TEXT NOT NULL,
+      base_qty REAL,
+      unit TEXT,
+      vendor TEXT,
+      unit_price REAL,
+      location_id TEXT DEFAULT 'default',
+      imported_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS sales_lines (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      period_label TEXT,
+      item_name TEXT NOT NULL,
+      quantity_sold REAL,
+      net_sales REAL,
+      source TEXT,
+      location_id TEXT DEFAULT 'default',
+      imported_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sales_loc ON sales_lines(location_id);
+
+    CREATE TABLE IF NOT EXISTS spend_monthly (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      month TEXT NOT NULL,
+      shamrock_total_spend REAL,
+      source TEXT,
+      location_id TEXT DEFAULT 'default',
+      imported_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_spend_month ON spend_monthly(month, location_id);
+
+    CREATE TABLE IF NOT EXISTS beo_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      event_date TEXT,
+      guest_count INTEGER,
+      notes TEXT,
+      status TEXT DEFAULT 'planned',
+      location_id TEXT DEFAULT 'default',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS beo_prep_tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id INTEGER NOT NULL,
+      task TEXT NOT NULL,
+      due_date TEXT,
+      done INTEGER DEFAULT 0,
+      sort_order INTEGER DEFAULT 0,
+      location_id TEXT DEFAULT 'default',
+      FOREIGN KEY (event_id) REFERENCES beo_events(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_beo_prep_ev ON beo_prep_tasks(event_id);
+
+    CREATE TABLE IF NOT EXISTS equipment (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      make_model TEXT,
+      serial_number TEXT,
+      purchase_date TEXT,
+      warranty_expiration TEXT,
+      purchase_cost REAL,
+      status TEXT DEFAULT 'active',
+      location_id TEXT DEFAULT 'default'
+    );
+    CREATE INDEX IF NOT EXISTS idx_equip_loc ON equipment(location_id);
+
+    CREATE TABLE IF NOT EXISTS equipment_maintenance (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      equipment_id INTEGER NOT NULL,
+      service_date TEXT NOT NULL,
+      type TEXT NOT NULL,
+      cost REAL,
+      notes TEXT,
+      receipt_reference TEXT,
+      cook_id TEXT,
+      location_id TEXT DEFAULT 'default',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (equipment_id) REFERENCES equipment(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_equip_maint_eq ON equipment_maintenance(equipment_id);
+
+    CREATE TABLE IF NOT EXISTS equipment_parts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      equipment_id INTEGER NOT NULL,
+      part_number TEXT NOT NULL,
+      description TEXT,
+      vendor TEXT,
+      unit_price REAL,
+      qty_on_hand REAL,
+      last_ordered TEXT,
+      last_order_ref TEXT,
+      notes TEXT,
+      location_id TEXT DEFAULT 'default',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (equipment_id) REFERENCES equipment(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_equip_parts_eq ON equipment_parts(equipment_id);
+
+    CREATE TABLE IF NOT EXISTS equipment_maintenance_schedule (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      equipment_id INTEGER NOT NULL,
+      task TEXT NOT NULL,
+      frequency TEXT NOT NULL,
+      last_done TEXT,
+      next_due TEXT,
+      notes TEXT,
+      location_id TEXT DEFAULT 'default',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (equipment_id) REFERENCES equipment(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_equip_sched_eq ON equipment_maintenance_schedule(equipment_id);
+
+    CREATE TABLE IF NOT EXISTS gold_stars (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cook_name TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      stars INTEGER DEFAULT 1,
+      awarded_date TEXT DEFAULT (date('now')),
+      location_id TEXT DEFAULT 'default',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS temp_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      location_id TEXT DEFAULT 'default',
+      point_id TEXT NOT NULL,
+      reading_f REAL NOT NULL,
+      required_min_f REAL,
+      required_max_f REAL,
+      corrective_action TEXT,
+      cook_id TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_temp_log_shift ON temp_log(shift_date, location_id, point_id);
+
+    CREATE TABLE IF NOT EXISTS toast_sales_daily (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      net_sales REAL,
+      orders INTEGER,
+      guests INTEGER,
+      comparison_group INTEGER NOT NULL,
+      date_range TEXT,
+      source TEXT,
+      location_id TEXT DEFAULT 'default',
+      imported_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(shift_date, comparison_group, location_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_toast_daily_loc_date ON toast_sales_daily(location_id, shift_date);
+
+    CREATE TABLE IF NOT EXISTS toast_sales_dow (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      day_of_week TEXT NOT NULL,
+      net_sales REAL,
+      orders INTEGER,
+      guests INTEGER,
+      comparison_group INTEGER NOT NULL,
+      date_range TEXT,
+      source TEXT,
+      location_id TEXT DEFAULT 'default',
+      imported_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(day_of_week, comparison_group, location_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS toast_sales_hour (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      hour_24 INTEGER NOT NULL,
+      label TEXT NOT NULL,
+      net_sales REAL,
+      orders INTEGER,
+      guests INTEGER,
+      comparison_group INTEGER NOT NULL,
+      date_range TEXT,
+      source TEXT,
+      location_id TEXT DEFAULT 'default',
+      imported_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(hour_24, comparison_group, location_id)
+    );
+  `);
+
+  migrateLegacyColumns(db);
+  seedDefaultLocation(db);
+  ensureIndexes(db);
+}
+
+function ensureIndexes(db: DB): void {
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_lce_loc_date ON line_check_entries(location_id, shift_date);
+    CREATE INDEX IF NOT EXISTS idx_signoff_loc ON station_signoffs(location_id, shift_date);
+    CREATE INDEX IF NOT EXISTS idx_86_loc_date ON eighty_six(location_id, shift_date);
+    CREATE INDEX IF NOT EXISTS idx_inv_loc_date ON inventory_updates(location_id, shift_date);
+  `);
+}
+
+function migrateLegacyColumns(db: DB): void {
+  const cols86 = db.prepare('PRAGMA table_info(eighty_six)').all() as { name: string }[];
+  const names86 = cols86.map((c) => c.name);
+  const migrations: [string, string][] = [
+    ['station_id', 'ALTER TABLE eighty_six ADD COLUMN station_id TEXT'],
+    ['kind', "ALTER TABLE eighty_six ADD COLUMN kind TEXT DEFAULT 'item'"],
+    ['quantity', 'ALTER TABLE eighty_six ADD COLUMN quantity TEXT'],
+    ['resolved_by', 'ALTER TABLE eighty_six ADD COLUMN resolved_by TEXT'],
+    ['location_id', "ALTER TABLE eighty_six ADD COLUMN location_id TEXT DEFAULT 'default'"],
+  ];
+  for (const [col, ddl] of migrations) {
+    if (!names86.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  const addLoc = (table: string, existingCols: string[]) => {
+    if (!existingCols.includes('location_id')) {
+      try {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN location_id TEXT DEFAULT 'default'`);
+      } catch { /* ignore */ }
+    }
+  };
+  const t = (name: string) =>
+    (db.prepare(`PRAGMA table_info(${name})`).all() as { name: string }[]).map((c) => c.name);
+  addLoc('line_check_entries', t('line_check_entries'));
+  addLoc('station_signoffs', t('station_signoffs'));
+  addLoc('inventory_updates', t('inventory_updates'));
+
+  // Extend equipment table with vendor / manual / model-number / notes columns
+  const equipCols = t('equipment');
+  const equipMigrations: [string, string][] = [
+    ['model_number', 'ALTER TABLE equipment ADD COLUMN model_number TEXT'],
+    ['vendor', 'ALTER TABLE equipment ADD COLUMN vendor TEXT'],
+    ['vendor_order_ref', 'ALTER TABLE equipment ADD COLUMN vendor_order_ref TEXT'],
+    ['manual_path', 'ALTER TABLE equipment ADD COLUMN manual_path TEXT'],
+    ['notes', 'ALTER TABLE equipment ADD COLUMN notes TEXT'],
+  ];
+  for (const [col, ddl] of equipMigrations) {
+    if (!equipCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+}
+
+function seedDefaultLocation(db: DB): void {
+  const n = db.prepare(`SELECT COUNT(*) as c FROM locations WHERE id = 'default'`).get() as { c: number };
+  if (n.c === 0) {
+    db.prepare(`INSERT INTO locations (id, name) VALUES ('default', 'The Lariat')`).run();
+  }
+}
+
+export function getDb(): DB {
+  if (_db) return _db;
+  const target = _dbPathOverride ?? DB_PATH;
+  // Only create the default data/ dir when using the production path;
+  // tests using :memory: or a tmp file manage their own directory.
+  if (target === DB_PATH && !fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+  }
+  _db = new Database(target);
+  _db.pragma('journal_mode = WAL');
+  _db.pragma('foreign_keys = ON');
+  initSchema(_db);
+  return _db;
+}
+
+export function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export const DB_FILE = DB_PATH;

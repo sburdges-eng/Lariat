@@ -1,0 +1,53 @@
+toast_item_id,recipe_id,notes
+300000002482177553,cornbread,Cornbread side $3
+300000016114232666,cornbread,Cornbread Side $6
+300000016104899186,cornbread,Jalapeno Cheddar Cornbread $10
+300000016118698755,coleslaw,Coleslaw Side $6
+300000024290021034,birria,Quesa Birria Tacos $15
+300000043106201086,birria,Breakfast Quesa Birria Tacos $16
+300000003754031336,three_cheese_grilled_cheese,Grown Up Grilled Cheese $14
+300000002481937952,three_cheese_grilled_cheese,Grown Up Grilled Cheese $14
+300000003754031338,three_cheese_grilled_cheese,Plain Ole Grilled Cheese $10
+300000002481937954,three_cheese_grilled_cheese,Kids Grilled Cheese $8
+300000030741838300,three_cheese_grilled_cheese,half Grilled Cheese $5
+300000002482019954,french_toast_batter,French Toast $14
+300000040454866585,french_toast_batter,French Toast $14
+300000007018313911,french_toast_batter,French Toast $9
+300000006963769644,french_toast_batter,French Toast $9
+300000004660593451,french_toast_batter,Hazelnut French Toast $14
+300000006069541927,french_toast_batter,Pub Cristo French Toast $16
+300000004074100970,french_toast_batter,Banana Fosters French Toast Sticks $9
+300000035219444450,cobb_dressing,Cobb Salad $15
+300000016116926503,green_chile,Green Chile queso and chips $12
+300000016117793802,green_chile,Green Chile Cup $6
+300000003021850434,green_chile,Pork Green Chile Nachos $10
+300000038319577221,green_chile,Green Chile Mac Buffet $125 catering
+300000030457029603,green_chile,Chips and Queso $10 uses green chile queso
+300000016117804818,green_chile,Chips & Queso $7 uses green chile queso
+300000016116623312,nashville_hot_rub,Nashville Chicken Sandwich $16
+300000038321330056,nashville_hot_rub,Nashville Slider $6
+300000041933759459,nashville_hot_rub,Nashville Chicken Taco $6
+300000020212211120,pork_chop_marinade,Pork Chop $27
+300000016118935151,queso_mac_sauce,Mountain Mac And Cheese $13
+300000016119105900,beer_batter,Fish and Chips $18
+300000016118250903,fish_brine,Baja Fish Tacos $16
+300000030457029606,pickles,Fried Pickles $5
+300000035431242856,chicken_flour,Chicken Wings $17 uses chicken flour
+300000003752535021,chicken_flour,Full Chicken Wings $15 uses chicken flour
+300000002482080332,chicken_flour,Full Chicken Wings $15 uses chicken flour
+300000002482080330,chicken_flour,Half Chicken Wings $10 uses chicken flour
+300000003752535019,chicken_flour,Half Chicken Wings $11 uses chicken flour
+300000003753853452,chicken_flour,Full Chicken Tenders $14 uses chicken flour
+300000003753853450,chicken_flour,Half Chicken Tenders $11 uses chicken flour
+300000003799530203,chicken_flour,Kids Chicken Tenders $8 uses chicken flour
+300000020502238497,chicken_flour,Adult Chicken Tenders $16.50 uses chicken flour
+300000003753537144,santa_fe_caesar,Main Street Caesar Salad $12
+300000038319577219,santa_fe_caesar,Rope Caesar Salad Buffet $150 catering
+300000038321330059,beer_batter,Battered Fish Taco $7 uses beer batter
+300000004265819225,fish_brine,Baja Fish Taco $2 a la carte single
+300000018694812738,fish_brine,1 Fish Taco $7
+300000016124838450,fish_brine,Fish Taco $7
+MI-100,green_chile,Test Soup mapping
+MI-200,chicken_flour,Test Chicken mapping
+MI-300,santa_fe_caesar,Test Salad mapping
+MI-500,fish_brine,Test Tacos mapping

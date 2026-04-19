@@ -1,0 +1,154 @@
+[
+  {
+    "id": "tyler_chambers",
+    "first": "Tyler",
+    "last": "Chambers",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  },
+  {
+    "id": "tyler_conley",
+    "first": "Tyler",
+    "last": "Conley",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  },
+  {
+    "id": "cody_england",
+    "first": "Cody",
+    "last": "England",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  },
+  {
+    "id": "barbara_goode",
+    "first": "Barbara",
+    "last": "Goode",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  },
+  {
+    "id": "jaylynn_goode",
+    "first": "Jaylynn",
+    "last": "Goode",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  },
+  {
+    "id": "james_griffin",
+    "first": "James",
+    "last": "Griffin",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  },
+  {
+    "id": "robert_henderson",
+    "first": "Robert",
+    "last": "Henderson",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  },
+  {
+    "id": "noah_mccune",
+    "first": "Noah",
+    "last": "Mccune",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  },
+  {
+    "id": "lucas_nores",
+    "first": "LUCAS",
+    "last": "NORES",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  },
+  {
+    "id": "brayden_ortiz",
+    "first": "BRAYDEN",
+    "last": "ORTIZ",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  },
+  {
+    "id": "thomas_potts",
+    "first": "Thomas",
+    "last": "Potts",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  },
+  {
+    "id": "lilly_propernick",
+    "first": "Lilly",
+    "last": "Propernick",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  },
+  {
+    "id": "jonathan_rodriquez",
+    "first": "Jonathan",
+    "last": "Rodriquez",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  },
+  {
+    "id": "ryan_shaw",
+    "first": "Ryan",
+    "last": "Shaw",
+    "role": "cook",
+    "active": true,
+    "job_title": "Dishwasher"
+  },
+  {
+    "id": "troy_whitmore",
+    "first": "Troy",
+    "last": "Whitmore",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  },
+  {
+    "id": "sean_burdges",
+    "first": "sean",
+    "last": "burdges",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  },
+  {
+    "id": "non_usable_employee",
+    "first": "Non usable",
+    "last": "employee",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  },
+  {
+    "id": "kady_simpson",
+    "first": "KADY",
+    "last": "simpson",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  },
+  {
+    "id": "jacob_wood",
+    "first": "jacob",
+    "last": "wood",
+    "role": "cook",
+    "active": true,
+    "job_title": "Cook"
+  }
+]

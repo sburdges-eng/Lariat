@@ -1,0 +1,32 @@
+menu_version,menu_item_id,category,display_name,description,price_usd,add_on,add_on_price_usd,station_primary,station_secondary,dietary,active
+winter_2026,MI-S01,shareable,Jalapeño Cheddar Cornbread,Griddled and served with honey butter,10.00,,,grill,,VE,true
+winter_2026,MI-S02,shareable,The Trio,House-made queso blackened salsa green chile and chips,15.00,,,expo,,,true
+winter_2026,MI-S03,shareable,The Pig Wings,Bone-in pork shanks Lariat rub with Alabama white sauce,17.00,,,fry,,GF,true
+winter_2026,MI-S04,shareable,Caprese Toast,Tomato confit mozzarella basil balsamic reduction on local sourdough,13.00,,,grill,salad,VE,true
+winter_2026,MI-S05,shareable,Mountain Mac & Cheese,Roasted mild green chilies in creamy cheese sauce topped with toasted bread crumbs,13.00,,,saute,,VE,true
+winter_2026,MI-S06,shareable,Chicken Wings,With choice of buffalo Lariat dry rub thai chili Bama sauce nashville hot or BBQ,17.00,,,fry,,,true
+winter_2026,MI-SA01,soup_salad,The Rope Salad,Farm greens grilled onions roasted pepitas black bean corn succotash cornbread croutons cotija chipotle caesar,15.00,Grilled or fried chicken,6.00,salad,,"GF,VE,VG option",true
+winter_2026,MI-SA01,soup_salad,The Rope Salad,Farm greens grilled onions roasted pepitas black bean corn succotash cornbread croutons cotija chipotle caesar,15.00,Catfish fillet,8.00,salad,,"GF,VE,VG option",true
+winter_2026,MI-SA02,soup_salad,Cobb Salad,Bacon bleu cheese crumble avocado tomato egg mixed greens herb bleu cheese dressing,18.00,Grilled or fried chicken,6.00,salad,,"GF,VE option",true
+winter_2026,MI-SA02,soup_salad,Cobb Salad,Bacon bleu cheese crumble avocado tomato egg mixed greens herb bleu cheese dressing,18.00,Catfish fillet,8.00,salad,,"GF,VE option",true
+winter_2026,MI-SA03,soup_salad,Green Chile,Colorado style roasted pork tomatillo hatch chile stew — cup,8.00,,,expo,,GF,true
+winter_2026,MI-SA03B,soup_salad,Green Chile (bowl),Colorado style roasted pork tomatillo hatch chile stew — bowl,10.00,,,expo,,GF,true
+winter_2026,MI-SA04,soup_salad,Roasted Tomato Soup,Rich velvety roasted tomato soup — cup,6.00,Half 3 cheese grilled cheese,6.00,expo,grill,,true
+winter_2026,MI-SA04B,soup_salad,Roasted Tomato Soup (bowl),Rich velvety roasted tomato soup — bowl,8.00,Half 3 cheese grilled cheese,6.00,expo,grill,,true
+winter_2026,MI-M01,main,Classic BLT,Bacon lettuce tomato mayo on locally baked sourdough with battered fries,16.00,Avocado,2.00,grill,fry,,true
+winter_2026,MI-M02,main,The Rope Burger,Brisket blend white cheddar lettuce tomato bacon jam mayo house pickles on brioche with battered fries,17.00,,"","grill",fry,"GF,VE (Impossible option)",true
+winter_2026,MI-M03,main,El Jefe Burger,Chorizo patty pepperjack pickled red onion green chile on brioche with battered fries,17.00,Cup of queso,3.00,grill,fry,,true
+winter_2026,MI-M04,main,Nashville Hot Chicken Sandwich,Southern spicy fried Red Bird chicken breast house-made slaw special sauce butter pickles,16.00,,,fry,salad,,true
+winter_2026,MI-M05,main,Whole Roasted Trout,Whole farm-raised rainbow trout white wine capers herb butter lemon with asparagus,22.00,,,saute,,GF,true
+winter_2026,MI-M06,main,Fish and Chips,Catfish beer battered and fried with fries house-made slaw and tartar sauce,18.00,,,fry,salad,,true
+winter_2026,MI-M07,main,Baja Fish Tacos,Catfish beer battered/fried or grilled flour tortilla Aji Verde Chipotle Aioli pico slaw,16.00,Swap fish for battered avocado,14.00,fry,saute,"GF,VE option",true
+winter_2026,MI-M08,main,Quesa Birria Tacos,Birria style braised beef Oaxaca cheese consomme white onion cilantro house Verde Salsa,16.00,,,grill,,GF,true
+winter_2026,MI-M09,main,Roasted Chicken Leg,Redbird cage-free chicken roasted root vegetable medley chicken jus,22.00,,,fry,grill,GF,true
+winter_2026,MI-M10,main,Pork Chop,Achiote marinated and grilled pork chop Aji Verde sauce black beans corn avocado,27.00,,,saute,,GF,true
+winter_2026,MI-D01,side,Coleslaw,House-made coleslaw,6.00,,,salad,,,true
+winter_2026,MI-D02,side,Battered Fries,Battered fries,6.00,,,fry,,,true
+winter_2026,MI-D03,side,Sweet Potato Fries,Sweet potato fries,6.00,,,fry,,,true
+winter_2026,MI-D04,side,Side Salad,Side salad,6.00,,,salad,,,true
+winter_2026,MI-X01,dessert,Banana Pudding,Banana pudding,9.00,,,salad,,,true
+winter_2026,MI-X02,dessert,Chocolate Cake,Chocolate cake,9.00,,,salad,,,true
+winter_2026,MI-X03,dessert,Churros,Churros,9.00,,,fry,,,true
