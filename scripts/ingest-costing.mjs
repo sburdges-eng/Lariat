@@ -39,6 +39,7 @@ const DEFAULT_OPS = path.join(ROOT, 'XL', 'lariat_operations_workbook_2026-04-10
  *   order_guide: number,
  *   recipes_yield_adjusted: number,
  *   total_yield_delta_usd: number,
+ *   max_recipe_yield_delta_usd: number,
  * }} Summary of rows inserted, yield coverage, and yield-adjustment totals.
  */
 export function ingestCosting(db, data, locationId = 'default') {
@@ -190,6 +191,12 @@ export function ingestCosting(db, data, locationId = 'default') {
   // pack_price / pack_size prevent division crashes. One-shot per ingest: the
   // DELETE+INSERT sweep above reinserts a fresh Excel batch_cost every time, so
   // running `ingestCosting` twice never double-applies the delta.
+  //
+  // Recovery: on T3 failure mid-UPDATE, the T2c transaction above is already
+  // committed, so vendor_prices / bom_lines / recipe_costs have fresh Excel
+  // values (pre-delta). Rerun `ingestCosting()` end-to-end — the DELETE+INSERT
+  // sweep is idempotent and the second T3 pass starts from the same raw
+  // Excel base.
   const adjustment = (yieldPct, lossFactor) => {
     const y = yieldPct == null ? 1.0 : yieldPct;
     const l = lossFactor == null ? 0.0 : lossFactor;
@@ -236,7 +243,7 @@ export function ingestCosting(db, data, locationId = 'default') {
   }
   if (denomSkipped > 0) {
     console.warn(
-      `⚠ ${denomSkipped} bom_line(s) had yield_pct × (1 - loss_factor) ≤ 0 — delta skipped (expected 0 given CHECK constraints)`,
+      `⚠ ${denomSkipped} bom_line(s) had yield_pct × (1 - loss_factor) ≤ 0 — delta skipped (seed data out of domain, investigate ingredient_yields)`,
     );
   }
 

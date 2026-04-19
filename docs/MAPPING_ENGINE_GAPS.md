@@ -234,6 +234,18 @@ These are tracked follow-ups from code-quality reviews. Non-blocking; address wh
 
 **Fix when T5 lands:** convert both INSERTs to named-parameter binding: `INSERT INTO vendor_prices (...) VALUES (@ingredient, @vendor, ...)` with `stmt.run({ ingredient, vendor, ... })`. `better-sqlite3` throws on key mismatch, which is the safety this design needs. Also worth adding a schema-parity test that inspects `PRAGMA table_info(...)` and asserts the INSERT covers every non-auto column.
 
+### D4 — Excel batch_cost vs raw-sum drift (flagged by T3 review)
+
+T3 adds yield-delta on top of Excel's `recipe_costs.batch_cost`, assuming `excel_batch_cost === Σ (bom_qty × pack_price / pack_size)` across BOM lines. Current workbook holds this. If Excel ever introduces per-line rounding, case-minimum bucketing, sub-recipe caching, or other non-trivial adjustments, T3's delta still adjusts correctly FOR the yield portion but the resulting batch_cost becomes "Excel + our delta" rather than "absolute true cost".
+
+**Fix when workbook scales up:** at T3-pass time, compute `Σ (qty × pack_price / pack_size)` per recipe and compare against `recipe_costs.batch_cost`. Log an INFO line when drift exceeds $0.10. Observability only — no behavior change, catches the scenario early. Consider a hard CHECK (≥ $1.00 drift) once observability confirms the invariant in production.
+
+### D5 — Missing null-guard matrix coverage in T3 yield-math tests (flagged by T3 review)
+
+`tests/js/test-ingest-costing-yield-math.mjs` tests 2 of the 5 zero/NULL guards: zero `pack_size` and NULL `pack_price`. Missing: zero `bom_qty`, NULL `bom_qty`, NULL `pack_size`. Code guards all 5 uniformly at `scripts/ingest-costing.mjs:213-220` so these are coverage gaps, not functionality gaps.
+
+**Fix when touched:** parameterize the null-guard matrix — one parameterized test × 6 cases (3 columns × {NULL, 0}) closes the gap cheaply. Also split the current collapsed "NULL yield_pct + NULL loss_factor" test (line 87) into two cases so a broken single-field default can't hide behind a compensating pass.
+
 ### Intentionally not debt (just flagging)
 
 - `notes` column in the densities CSV is read then discarded — the `ingredient_densities` table has no `notes` column. Parity with `ingredient_yields` (which has `notes`) would require a schema migration that isn't worth it now.
