@@ -637,8 +637,39 @@ export function initSchema(db: DB): void {
   `);
 
   migrateLegacyColumns(db);
+  assertCriticalSchemas(db);
   seedDefaultLocation(db);
   ensureIndexes(db);
+}
+
+/**
+ * Guard against `CREATE TABLE IF NOT EXISTS` silently skipping a legacy
+ * table that exists but carries a mismatched schema (e.g. from a failed
+ * partial deploy of an earlier T-task). If that happens, INSERTs later fail
+ * at runtime with cryptic "no such column" errors — this raises a clear
+ * schema-drift error at init time instead.
+ */
+function assertCriticalSchemas(db: DB): void {
+  const requirements: Record<string, string[]> = {
+    ingredient_yields: [
+      'ingredient_key', 'yield_pct', 'loss_factor', 'source', 'notes', 'updated_at',
+    ],
+    ingredient_densities: ['ingredient_key', 'g_per_ml', 'source', 'updated_at'],
+  };
+  for (const [table, required] of Object.entries(requirements)) {
+    const cols = (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[])
+      .map((c) => c.name);
+    if (cols.length === 0) continue; // table not created — fine, CREATE IF NOT EXISTS handled it
+    const missing = required.filter((c) => !cols.includes(c));
+    if (missing.length > 0) {
+      throw new Error(
+        `schema drift on '${table}': missing columns ${JSON.stringify(missing)}. ` +
+          `Found: ${JSON.stringify(cols)}. ` +
+          `A legacy/partial-deploy table is shadowing the current schema; ` +
+          `inspect the DB and either drop+recreate the table or add a migration.`,
+      );
+    }
+  }
 }
 
 function ensureIndexes(db: DB): void {

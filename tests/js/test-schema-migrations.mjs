@@ -425,4 +425,25 @@ describe('legacy schema migration — pre-T1 bom_lines', () => {
       legacy.close();
     }
   });
+
+  it('raises on malformed ingredient_yields table from a partial deploy', () => {
+    // Simulate a legacy DB where a previous incomplete deploy left an
+    // ingredient_yields table with a wrong column set. CREATE TABLE IF NOT
+    // EXISTS would silently skip it; assertCriticalSchemas must throw.
+    const drifted = new Database(':memory:');
+    try {
+      drifted.exec(`
+        CREATE TABLE ingredient_yields (
+          ingredient_key TEXT PRIMARY KEY,
+          pct REAL
+        );
+      `);
+      assert.throws(
+        () => initSchema(drifted),
+        /schema drift on 'ingredient_yields'.*missing columns/,
+      );
+    } finally {
+      drifted.close();
+    }
+  });
 });
