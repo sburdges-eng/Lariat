@@ -269,7 +269,10 @@ def parse_invoice(xls_path: Path) -> tuple[dict | None, list[dict], dict[str, in
             "delivery_date": delivery_date,
             "ordered_date": ordered_date,
             "item": desc,
-            "sku": sku or None,
+            # Empty string, not None — SQLite treats each NULL as distinct
+            # in UNIQUE(invoice_no, sku, item, location_id), so None would
+            # let duplicate missing-SKU rows slip past the dedup constraint.
+            "sku": sku or "",
             "qty": float(qty) if isinstance(qty, (int, float)) else None,
             "pack_size": pack_qty,
             "pack_unit": pack_unit or None,
