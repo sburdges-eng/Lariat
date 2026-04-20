@@ -2,7 +2,7 @@
  * T9 / B1 + B3: Costing benchmark endpoint.
  *
  * Extends — never replaces — any previously exposed fields. Pure computation
- * lives in lib/t9Benchmarks.mjs (test-importable without Next.js module
+ * lives in lib/costingBenchmarks.mjs (test-importable without Next.js module
  * resolution); this file is a thin I/O wrapper that reads the location and
  * serializes JSON.
  *
@@ -22,7 +22,7 @@ import { locationFromRequest } from '../../../lib/location';
 import {
   computeCostVariance,
   readLastCostingIngest,
-} from '../../../lib/t9Benchmarks.mjs';
+} from '../../../lib/costingBenchmarks.mjs';
 
 export const dynamic = 'force-dynamic';
 

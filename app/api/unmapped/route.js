@@ -1,7 +1,7 @@
 /**
  * T9 / B2: Unmapped-item queue endpoint.
  *
- * Pure computation lives in lib/t9Benchmarks.mjs (test-importable without
+ * Pure computation lives in lib/costingBenchmarks.mjs (test-importable without
  * Next.js module resolution). See that file for the reason-priority ordering
  * and the sources of each "unmapped" signal.
  *
@@ -15,7 +15,7 @@
 
 import { getDb } from '../../../lib/db';
 import { locationFromRequest } from '../../../lib/location';
-import { computeUnmapped } from '../../../lib/t9Benchmarks.mjs';
+import { computeUnmapped } from '../../../lib/costingBenchmarks.mjs';
 
 export const dynamic = 'force-dynamic';
 

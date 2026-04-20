@@ -22,7 +22,7 @@ import Database from 'better-sqlite3';
 import { initSchema } from '../../lib/db.ts';
 import { normalizeIngredientKey } from '../../lib/ingredientKey.ts';
 import { ingestCosting } from '../../scripts/ingest-costing.mjs';
-import { computeCostVariance, computeUnmapped } from '../../lib/t9Benchmarks.mjs';
+import { computeCostVariance, computeUnmapped } from '../../lib/costingBenchmarks.mjs';
 
 const LOC = 'default';
 

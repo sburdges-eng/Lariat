@@ -246,6 +246,12 @@ T3 adds yield-delta on top of Excel's `recipe_costs.batch_cost`, assuming `excel
 
 **Fix when touched:** parameterize the null-guard matrix — one parameterized test × 6 cases (3 columns × {NULL, 0}) closes the gap cheaply. Also split the current collapsed "NULL yield_pct + NULL loss_factor" test (line 87) into two cases so a broken single-field default can't hide behind a compensating pass.
 
+### D6 — B1 variance fallback silently masks unmapped rows (flagged by T9 review)
+
+`lib/costingBenchmarks.mjs:92-93` falls back to the BOM line's own `pack_price` / `pack_size` when no `vendor_prices` row matches on normalized ingredient_key. This keeps variance = 0 byte-exact on fresh ingest (correct contract), but also means a recipe with zero vendor-price matches silently reports "healthy" variance while failing completely in B2's unmapped queue. An operator reading B1 in isolation could miss a mapping-engine regression.
+
+**Fix when touched:** either (a) drop the fallback — lines without a vendor match contribute to a separate `unmatched_lines` counter, and recipes where `unmatched_lines/total_lines > threshold` are excluded from the variance aggregate with an explicit reason; or (b) add page-level copy that reads the three tiles in priority order (unmapped first, variance only meaningful when unmapped is green). Option (a) is stricter and better matches operator intuition at a glance.
+
 ### Intentionally not debt (just flagging)
 
 - `notes` column in the densities CSV is read then discarded — the `ingredient_densities` table has no `notes` column. Parity with `ingredient_yields` (which has `notes`) would require a schema migration that isn't worth it now.
