@@ -1,12 +1,14 @@
-"""Informational coverage report for T2b yields CSV vs. live BOM ingredients.
+"""Live-BOM coverage check for the T2b yields seed CSV.
 
-This is NOT an acceptance test — T2c owns the >=50% coverage gate. This
-test simply prints what percentage of unique normalized ingredient keys
-in the live ``bom_lines`` table are covered by ``data/seeds/ingredient_yields.csv``.
-The numbers let us tune the seed CSV before T2c runs.
+Asserts that every normalized ingredient key in the live ``bom_lines``
+table has a row in ``data/seeds/ingredient_yields.csv`` — per
+docs/MAPPING_ENGINE_GAPS.md this seed is claimed to be 100% complete.
+T2c's JS acceptance test owns the looser >=50% gate for fresh DBs; this
+test catches drift on the production checkout.
 
-If the live DB isn't available (e.g. fresh clone, or opened from a
-worktree on a different host), we skip the test rather than fail.
+If the live DB isn't available (fresh clone, worktree on a different
+host), the test skips — but prints the skip reason to stdout so it is
+visible in default pytest output instead of silently looking like a pass.
 """
 from __future__ import annotations
 
@@ -30,6 +32,7 @@ YIELDS_CSV = ROOT / "data" / "seeds" / "ingredient_yields.csv"
 class SeedCoverageReporter(unittest.TestCase):
     def test_report_yield_coverage_over_bom(self) -> None:
         if not LIVE_DB.is_file():
+            print(f"\nSKIP test_seed_coverage: live DB not found: {LIVE_DB}")
             self.skipTest(f"Live DB not found: {LIVE_DB}")
 
         # Read-only open — we never write to the live DB from tests.
@@ -38,6 +41,7 @@ class SeedCoverageReporter(unittest.TestCase):
                 f"file:{LIVE_DB}?mode=ro", uri=True
             )
         except sqlite3.OperationalError as e:  # pragma: no cover
+            print(f"\nSKIP test_seed_coverage: cannot open live DB: {e}")
             self.skipTest(f"Could not open live DB read-only: {e}")
 
         try:
@@ -78,7 +82,6 @@ class SeedCoverageReporter(unittest.TestCase):
 
         missing_preview = sorted(bom_keys - yield_keys)[:20]
 
-        # Stdout report (assert-nothing — this is purely informational).
         print()
         print("=== T2b seed yield coverage over live BOM ===")
         print(f"live DB:       {LIVE_DB}")
@@ -88,7 +91,15 @@ class SeedCoverageReporter(unittest.TestCase):
         print(f"coverage %:            {pct:.1f}%")
         print(f"first 20 uncovered BOM keys: {missing_preview}")
 
-        # Intentionally no assertion on pct — T2c's acceptance.
+        # Enforce the 100% claim in MAPPING_ENGINE_GAPS.md. A failure here
+        # means a new BOM ingredient was added without a matching row in
+        # data/seeds/ingredient_yields.csv — fix the seed or remove the
+        # ingredient, don't weaken the assertion.
+        self.assertEqual(
+            n_covered, n_bom,
+            msg=f"{n_bom - n_covered} uncovered BOM key(s); first missing: "
+                f"{missing_preview}",
+        )
 
 
 if __name__ == "__main__":
