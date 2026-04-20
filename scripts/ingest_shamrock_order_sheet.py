@@ -295,6 +295,29 @@ def upsert(db_path: Path, rows: list[dict], dry_run: bool) -> tuple[int, int, in
             "SELECT COUNT(*) FROM order_guide_items WHERE vendor='sysco';"
         ).fetchone()[0]
 
+        # Surface which ingredients the refresh will drop. Full DELETE+INSERT
+        # silently wipes any manually-added shamrock row that's no longer in
+        # the order sheet; without this diff, ops has no visibility.
+        existing = {
+            row[0] for row in cur.execute(
+                "SELECT ingredient FROM order_guide_items "
+                "WHERE vendor='shamrock' AND location_id='default';"
+            )
+        }
+        incoming = {r["ingredient"] for r in rows}
+        dropped = sorted(existing - incoming)
+        added = sorted(incoming - existing)
+        if dropped:
+            print(f"\nshamrock order guide: dropping {len(dropped)} row(s) "
+                  "no longer on the order sheet:", file=sys.stderr)
+            for ing in dropped:
+                print(f"  - {ing}", file=sys.stderr)
+        if added:
+            print(f"shamrock order guide: adding {len(added)} new row(s):",
+                  file=sys.stderr)
+            for ing in added:
+                print(f"  + {ing}", file=sys.stderr)
+
         if dry_run:
             return sham_before, len(rows), sysco_before
 
