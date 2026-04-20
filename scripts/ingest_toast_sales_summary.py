@@ -159,7 +159,9 @@ def parse_csv(
     skipped = {"empty_row": 0, "header_only": 0, "blank_metric": 0, "total_row": 0}
     seen: set[tuple[str, str, str]] = set()
 
-    with path.open("r", newline="", encoding="utf-8-sig") as f:
+    # AGENTS.md: Toast exports are cp1252 (curly apostrophes, 0xbf bytes in
+    # payment labels). utf-8-sig crashes mid-ingest when those bytes appear.
+    with path.open("r", newline="", encoding="cp1252") as f:
         reader = csv.reader(f)
         try:
             header = next(reader)
