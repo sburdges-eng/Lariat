@@ -150,6 +150,16 @@ export interface IngredientYield {
   updated_at: string;
 }
 
+export interface IngestRun {
+  id: number;
+  kind: string;                   // 'costing' | 'analytics' | 'unified' | 'toast' | ...
+  started_at: string;             // ISO 8601, produced by datetime('now','subsec')
+  finished_at: string | null;     // NULL while running
+  rows_in: number | null;
+  rows_out: number | null;
+  status: string | null;          // 'ok' | 'partial' | 'failed' | 'running'
+}
+
 export interface SalesLine {
   id: number;
   period_label: string | null;
@@ -450,6 +460,21 @@ export function initSchema(db: DB): void {
       notes          TEXT,                 -- provenance / edge-case detail
       updated_at     TEXT DEFAULT (datetime('now'))
     );
+
+    -- T9 / B3: per-invocation ingest instrumentation. One row per ingest run,
+    -- inserted at the start of the script with status='running' and finalized
+    -- at the end with 'ok' | 'partial' | 'failed'. Drives the ingest-age tile
+    -- on /costing and the "price update latency" benchmark in the gap doc.
+    CREATE TABLE IF NOT EXISTS ingest_runs (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind         TEXT NOT NULL,          -- 'costing' | 'analytics' | 'unified' | 'toast' | ...
+      started_at   TEXT NOT NULL,          -- ISO 8601 via datetime('now','subsec')
+      finished_at  TEXT,                   -- NULL while running
+      rows_in      INTEGER,
+      rows_out     INTEGER,
+      status       TEXT                    -- 'ok' | 'partial' | 'failed' | 'running'
+    );
+    CREATE INDEX IF NOT EXISTS idx_ingest_runs_kind_started ON ingest_runs(kind, started_at DESC);
 
     CREATE TABLE IF NOT EXISTS order_guide_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
