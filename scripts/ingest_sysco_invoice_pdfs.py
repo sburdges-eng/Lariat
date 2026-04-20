@@ -395,10 +395,17 @@ def parse_pdf(path: Path) -> tuple[str, str, list[dict[str, object]]]:
     delivery_date: str | None = None
     items: list[dict[str, object]] = []
     current_cat = ''
+    # Sysco credit-memo invoices carry '* * CREDIT MEMO * *' in the header
+    # and a 'P' suffix on the invoice number. Their line qtys are printed as
+    # positives but the accounting sign is negative (cases returned, not
+    # purchased). Left un-flipped, they inflate usage totals.
+    is_credit = False
 
     with pdfplumber.open(path) as pdf:
         for page in pdf.pages:
             text = page.extract_text() or ''
+            if 'CREDIT MEMO' in text:
+                is_credit = True
             lines = [ln.rstrip() for ln in text.splitlines()]
 
             # Pull invoice + delivery date from the page header.
@@ -468,6 +475,9 @@ def parse_pdf(path: Path) -> tuple[str, str, list[dict[str, object]]]:
             f'failed to extract invoice/date header from {path.name}: '
             f'invoice={invoice!r} delivery_date={delivery_date!r}'
         )
+    if is_credit:
+        for it in items:
+            it['qty'] = -int(it['qty'])
     items = _collapse_in_pdf_duplicates(items)
     return invoice, delivery_date, items
 
@@ -505,6 +515,17 @@ def date_key(d: str) -> tuple[int, int, int]:
 
 
 def main() -> int:
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument(
+        '--backfill', action='store_true',
+        help='Re-derive qty from source PDFs for BACKFILL_INVOICES and patch '
+             'existing cache rows. Off by default so normal runs do not '
+             'silently overwrite any manual corrections. Idempotent and safe '
+             'to re-run; use after adding an invoice to the list.',
+    )
+    args = ap.parse_args()
+
     if not CACHE.exists():
         print(f'ERROR: {CACHE} missing', file=sys.stderr)
         return 2
@@ -515,30 +536,35 @@ def main() -> int:
 
     before_count = len(recent)
 
-    # Backfill: for the two known invoices that had in-PDF duplicates collapsed
-    # by the old (invoice, description)-only key, re-derive the correct qty
-    # from the source PDFs and patch the existing cache row in place.
-    BACKFILL_INVOICES = ('759616979', '759632867')
+    # One-time corrections that diverge from the (invoice, description)
+    # idempotency key. Only re-applied when --backfill is passed, so the
+    # normal ingest path cannot silently clobber hand-edited rows.
+    BACKFILL_INVOICES = (
+        '759616979',  # T2a: in-PDF duplicates collapsed by old dedup key
+        '759632867',  # T2a: same
+        '15981556P',  # credit-memo qty sign flip
+    )
     backfill_audit: list[tuple[str, str, int, int]] = []
-    pdf_qty_index: dict[tuple[str, str], int] = {}
-    for inv in BACKFILL_INVOICES:
-        pdf_path = SRC_DIR / f'EnterpriseInvoice-{inv}.pdf'
-        if not pdf_path.exists():
-            continue
-        _, _, parsed_items = parse_pdf(pdf_path)
-        for it in parsed_items:
-            pdf_qty_index[(str(it['invoice']), str(it['description']))] = int(it['qty'])
-    for it in recent:
-        if it.get('invoice') not in BACKFILL_INVOICES:
-            continue
-        key = (str(it['invoice']), str(it['description']))
-        if key not in pdf_qty_index:
-            continue
-        new_qty = pdf_qty_index[key]
-        old_qty = int(it['qty'])
-        if new_qty != old_qty:
-            backfill_audit.append((key[0], key[1], old_qty, new_qty))
-            it['qty'] = new_qty
+    if args.backfill:
+        pdf_qty_index: dict[tuple[str, str], int] = {}
+        for inv in BACKFILL_INVOICES:
+            pdf_path = SRC_DIR / f'EnterpriseInvoice-{inv}.pdf'
+            if not pdf_path.exists():
+                continue
+            _, _, parsed_items = parse_pdf(pdf_path)
+            for it in parsed_items:
+                pdf_qty_index[(str(it['invoice']), str(it['description']))] = int(it['qty'])
+        for it in recent:
+            if it.get('invoice') not in BACKFILL_INVOICES:
+                continue
+            key = (str(it['invoice']), str(it['description']))
+            if key not in pdf_qty_index:
+                continue
+            new_qty = pdf_qty_index[key]
+            old_qty = int(it['qty'])
+            if new_qty != old_qty:
+                backfill_audit.append((key[0], key[1], old_qty, new_qty))
+                it['qty'] = new_qty
 
     seen: set[tuple[str, str]] = {(it['invoice'], it['description']) for it in recent}
 

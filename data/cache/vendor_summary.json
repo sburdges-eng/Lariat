@@ -194,7 +194,7 @@
         "invoice": "15981556P",
         "delivery_date": "3/9/2026",
         "description": "Cls Shortening Fry Canola Clr",
-        "qty": 2,
+        "qty": -2,
         "category": "Misc"
       },
       {
