@@ -45,6 +45,52 @@ const DEFAULT_OPS = path.join(ROOT, 'XL', 'lariat_operations_workbook_2026-04-10
 export function ingestCosting(db, data, locationId = 'default') {
   initSchema(db);
 
+  // ── T9 / B3: ingest instrumentation ────────────────────────────────
+  // Open an `ingest_runs` row BEFORE any work happens so the timestamp
+  // reflects the real start of the job (not the end of the transaction).
+  // rows_in is computed up-front from the payload arrays; rows_out is filled
+  // in from the summary at the end. On any exception, the finally block
+  // updates status='failed' and re-throws so the caller still surfaces the
+  // error. On success, status='ok' with rows_out populated.
+  const runIn =
+    (data?.bom_lines?.length ?? 0) +
+    (data?.vendor_prices?.length ?? 0) +
+    (data?.recipe_costs?.length ?? 0);
+  const runInsert = db.prepare(
+    `INSERT INTO ingest_runs (kind, started_at, status, rows_in)
+     VALUES ('costing', datetime('now','subsec'), 'running', ?)`,
+  );
+  const runId = Number(runInsert.run(runIn).lastInsertRowid);
+  const runFinalize = (status, rowsOut) => {
+    try {
+      db.prepare(
+        `UPDATE ingest_runs
+            SET finished_at = datetime('now','subsec'),
+                status      = ?,
+                rows_out    = ?
+          WHERE id = ?`,
+      ).run(status, rowsOut ?? null, runId);
+    } catch {
+      // Never let the instrumentation UPDATE mask the real error path.
+    }
+  };
+
+  let summaryResult;
+  try {
+    summaryResult = _ingestCostingImpl(db, data, locationId);
+  } catch (err) {
+    runFinalize('failed', null);
+    throw err;
+  }
+  const rowsOut =
+    (summaryResult.bom_lines ?? 0) +
+    (summaryResult.vendor_prices ?? 0) +
+    (summaryResult.recipe_costs ?? 0);
+  runFinalize('ok', rowsOut);
+  return summaryResult;
+}
+
+function _ingestCostingImpl(db, data, locationId) {
   // Build an in-memory lookup of ingredient_key → {yield_pct, loss_factor} once
   // per ingest. Avoids a per-row SELECT on potentially thousands of BOM rows.
   const yieldLookup = new Map();
