@@ -250,7 +250,17 @@ def refresh_options(
     return before, after
 
 
-def report(con: sqlite3.Connection, recipe_map: Path | None) -> None:
+def report(
+    con: sqlite3.Connection,
+    recipe_map: Path | None,
+    allow_orphans: bool = False,
+) -> int:
+    """Print a catalog-size report. Returns the orphan count so the caller
+    can fail the ingest when toast_recipe_map.csv drifts out of sync with the
+    Toast menu catalog — which is how commit 7e4c2bf's 4 orphans slipped in.
+    Set ``allow_orphans`` for ops scenarios where the mapping is seeded
+    ahead of a pending Toast publish.
+    """
     cur = con.cursor()
     total = cur.execute(
         "SELECT COUNT(*) FROM toast_menu_items WHERE location_id='default';"
@@ -316,6 +326,16 @@ def report(con: sqlite3.Connection, recipe_map: Path | None) -> None:
                   "toast_menu_items):")
             for tid, rid in orphans:
                 print(f"  {tid}  ->  {rid}")
+            if not allow_orphans:
+                print(
+                    "\nERROR: toast_recipe_map.csv has "
+                    f"{len(orphans)} orphan(s). Either fix the CSV or pass "
+                    "--allow-recipe-map-orphans if this is a deliberate "
+                    "seed-ahead mapping.",
+                    file=sys.stderr,
+                )
+                return len(orphans)
+    return 0
 
 
 def main() -> int:
@@ -328,6 +348,11 @@ def main() -> int:
     ap.add_argument("--db", type=Path, default=DEFAULT_DB)
     ap.add_argument("--recipe-map", type=Path, default=DEFAULT_RECIPE_MAP)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument(
+        "--allow-recipe-map-orphans", action="store_true",
+        help="Permit toast_recipe_map.csv entries whose toast_item_id is not "
+             "in the current Toast catalog (e.g. seeded ahead of a publish).",
+    )
     args = ap.parse_args()
 
     for p in (args.items_csv, args.option_csv):
@@ -375,7 +400,13 @@ def main() -> int:
         print(f"toast_menu_options: before={o_before}  after={o_after}"
               f"{suffix}")
         if not args.dry_run:
-            report(con, args.recipe_map)
+            orphans = report(
+                con,
+                args.recipe_map,
+                allow_orphans=args.allow_recipe_map_orphans,
+            )
+            if orphans:
+                return 3
 
     return 0
 
