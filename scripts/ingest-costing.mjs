@@ -83,99 +83,108 @@ export function ingestCosting(db, data, locationId = 'default') {
     del('DELETE FROM ingredient_maps WHERE location_id = ?');
     del('DELETE FROM order_guide_items WHERE location_id = ?');
 
+    // Named parameters — D3 in MAPPING_ENGINE_GAPS.md. Positional `?` lists
+    // silently succeed when the schema gains a column (new slot stays NULL).
+    // Named binds force a schema match at prepare-time.
     const ivp = db.prepare(`
       INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, category, yield_pct, location_id)
-      VALUES (?,?,?,?,?,?,?,?,?,?)
+      VALUES (@ingredient, @vendor, @sku, @pack_size, @pack_unit, @pack_price, @unit_price, @category, @yield_pct, @location_id)
     `);
     for (const r of data.vendor_prices || []) {
       const y = lookup(r.ingredient);
-      ivp.run(
-        r.ingredient,
-        r.vendor,
-        r.sku ?? '',
-        r.pack_size ?? null,
-        r.pack_unit ?? '',
-        r.pack_price ?? null,
-        r.unit_price ?? null,
-        r.category ?? null,
-        y?.yield_pct ?? null, // NULL on miss — NEVER default to 1.0 (would silently poison COGS)
-        locationId,
-      );
+      ivp.run({
+        ingredient: r.ingredient,
+        vendor: r.vendor,
+        sku: r.sku ?? '',
+        pack_size: r.pack_size ?? null,
+        pack_unit: r.pack_unit ?? '',
+        pack_price: r.pack_price ?? null,
+        unit_price: r.unit_price ?? null,
+        category: r.category ?? null,
+        // NULL on miss — NEVER default to 1.0 (would silently poison COGS).
+        yield_pct: y?.yield_pct ?? null,
+        location_id: locationId,
+      });
       summary.vendor_prices++;
     }
 
     const irc = db.prepare(`
       INSERT INTO recipe_costs (recipe_id, recipe_name, category, yield, yield_unit, batch_cost, cost_per_yield_unit, costed_lines, total_lines, interpretations, location_id)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?)
+      VALUES (@recipe_id, @recipe_name, @category, @yield, @yield_unit, @batch_cost, @cost_per_yield_unit, @costed_lines, @total_lines, @interpretations, @location_id)
     `);
     for (const r of data.recipe_costs || []) {
       if (!r.recipe_id) continue;
-      irc.run(
-        r.recipe_id,
-        r.recipe_name,
-        r.category ?? '',
-        r.yield ?? null,
-        r.yield_unit ?? '',
-        r.batch_cost ?? null,
-        r.cost_per_yield_unit ?? null,
-        r.costed_lines ?? null,
-        r.total_lines ?? null,
-        r.interpretations ?? null,
-        locationId,
-      );
+      irc.run({
+        recipe_id: r.recipe_id,
+        recipe_name: r.recipe_name,
+        category: r.category ?? '',
+        yield: r.yield ?? null,
+        yield_unit: r.yield_unit ?? '',
+        batch_cost: r.batch_cost ?? null,
+        cost_per_yield_unit: r.cost_per_yield_unit ?? null,
+        costed_lines: r.costed_lines ?? null,
+        total_lines: r.total_lines ?? null,
+        interpretations: r.interpretations ?? null,
+        location_id: locationId,
+      });
       summary.recipe_costs++;
     }
 
     const ibom = db.prepare(`
       INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, sub_recipe, vendor_ingredient, map_status, vendor, pack_price, pack_size, yield_pct, loss_factor, location_id)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+      VALUES (@recipe_id, @ingredient, @qty, @unit, @sub_recipe, @vendor_ingredient, @map_status, @vendor, @pack_price, @pack_size, @yield_pct, @loss_factor, @location_id)
     `);
     for (const r of data.bom_lines || []) {
       if (!r.recipe_id) continue;
       const y = lookup(r.ingredient);
       const yieldPct = y?.yield_pct ?? null;
       const lossFactor = y?.loss_factor ?? null;
-      ibom.run(
-        r.recipe_id,
-        r.ingredient ?? '',
-        r.qty ?? null,
-        r.unit ?? '',
-        r.sub_recipe ?? null,
-        r.vendor_ingredient ?? null,
-        r.map_status ?? null,
-        r.vendor ?? null,
-        r.pack_price ?? null,
-        r.pack_size ?? null,
-        yieldPct, // NULL on miss — see comment on vendor_prices insert above
-        lossFactor,
-        locationId,
-      );
+      ibom.run({
+        recipe_id: r.recipe_id,
+        ingredient: r.ingredient ?? '',
+        qty: r.qty ?? null,
+        unit: r.unit ?? '',
+        sub_recipe: r.sub_recipe ?? null,
+        vendor_ingredient: r.vendor_ingredient ?? null,
+        map_status: r.map_status ?? null,
+        vendor: r.vendor ?? null,
+        pack_price: r.pack_price ?? null,
+        pack_size: r.pack_size ?? null,
+        yield_pct: yieldPct,
+        loss_factor: lossFactor,
+        location_id: locationId,
+      });
       summary.bom_lines++;
       if (yieldPct !== null) summary.bom_lines_with_yield++;
     }
 
     const iim = db.prepare(`
       INSERT INTO ingredient_maps (recipe_ingredient, vendor_ingredient, status, location_id)
-      VALUES (?,?,?,?)
+      VALUES (@recipe_ingredient, @vendor_ingredient, @status, @location_id)
     `);
     for (const r of data.ingredient_maps || []) {
-      iim.run(r.recipe_ingredient, r.vendor_ingredient ?? '', r.status ?? '', locationId);
+      iim.run({
+        recipe_ingredient: r.recipe_ingredient,
+        vendor_ingredient: r.vendor_ingredient ?? '',
+        status: r.status ?? '',
+        location_id: locationId,
+      });
       summary.ingredient_maps++;
     }
 
     const iog = db.prepare(`
       INSERT INTO order_guide_items (ingredient, base_qty, unit, vendor, unit_price, location_id)
-      VALUES (?,?,?,?,?,?)
+      VALUES (@ingredient, @base_qty, @unit, @vendor, @unit_price, @location_id)
     `);
     for (const r of data.order_guide || []) {
-      iog.run(
-        r.ingredient,
-        r.base_qty ?? null,
-        r.unit ?? '',
-        r.vendor ?? '',
-        r.unit_price ?? null,
-        locationId,
-      );
+      iog.run({
+        ingredient: r.ingredient,
+        base_qty: r.base_qty ?? null,
+        unit: r.unit ?? '',
+        vendor: r.vendor ?? '',
+        unit_price: r.unit_price ?? null,
+        location_id: locationId,
+      });
       summary.order_guide++;
     }
   })();
