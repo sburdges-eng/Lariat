@@ -79,8 +79,10 @@ corn kernels,0.28,,book_of_yields,BoY 8th ed typical range; kernels from whole c
 avocado,0.75,,book_of_yields,BoY 8th ed typical range; flesh from whole fruit
 mango,0.68,,book_of_yields,BoY 8th ed typical range; peeled and pitted
 pineapple,0.51,,book_of_yields,BoY 8th ed typical range; peeled and cored
-lemons,0.35,,book_of_yields,BoY 8th ed typical range; juice yielded from whole fruit
-limes,0.40,,book_of_yields,BoY 8th ed typical range; juice yielded from whole fruit
+lemons,0.35,,book_of_yields,BoY 8th ed typical range; juice yielded from whole fruit. AMBIGUOUS: if a recipe uses lemons for ZEST not juice use ingredient_key 'lemon zest' instead — 35% is juice-only and would wildly mis-cost zest
+limes,0.40,,book_of_yields,BoY 8th ed typical range; juice yielded from whole fruit. AMBIGUOUS: if a recipe uses limes for ZEST not juice use ingredient_key 'lime zest' instead — 40% is juice-only and would wildly mis-cost zest
+lemon zest,0.04,,book_of_yields,BoY 8th ed typical range; zest from whole fruit (outer colored peel only)
+lime zest,0.04,,book_of_yields,BoY 8th ed typical range; zest from whole fruit (outer colored peel only)
 cilantro,0.56,,book_of_yields,BoY 8th ed typical range; leaves from stems
 chopped cilantro,1.0,,seed,purchased pre-chopped; no further trim
 parsley,0.54,,book_of_yields,BoY 8th ed typical range; leaves from stems
