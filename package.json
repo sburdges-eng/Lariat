@@ -17,14 +17,16 @@
     "seed-beo": "node scripts/seed-beo.mjs",
     "seed:densities": "python3 scripts/seed_ingredient_densities.py",
     "seed:yields": "python3 scripts/seed_ingredient_yields.py",
-    "seed:all": "npm run seed:densities && npm run seed:yields",
+    "seed:catch_weights": "python3 scripts/ingest_catch_weights.py",
+    "seed:all": "npm run seed:densities && npm run seed:yields && npm run seed:catch_weights",
     "backup": "node scripts/backup.mjs",
     "test:e2e": "npx playwright test",
     "test:temp-log": "node --test tests/js/test-temp-log.mjs",
     "test:schema": "node --test tests/js/test-schema-migrations.mjs",
     "test:ingredient-key": "node --test tests/js/test-ingredient-key-parity.mjs",
     "test:ingest-yields": "node --experimental-strip-types --test tests/js/test-ingest-costing-yields.mjs",
-    "test:yield-math": "node --experimental-strip-types --test tests/js/test-ingest-costing-yield-math.mjs"
+    "test:yield-math": "node --experimental-strip-types --test tests/js/test-ingest-costing-yield-math.mjs",
+    "test:catch-weights": "node --experimental-strip-types --test tests/js/test-catch-weights-schema.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",

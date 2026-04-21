@@ -88,9 +88,18 @@ Check a box only when the acceptance criterion has been re-run and passed.
 
 ### T5 — Catch-weight reconciliation
 
-- [ ] **Task.** Flow the orphan CSV into SQLite; reconcile invoice vs delivered weight.
-- [ ] **Files.** Create `costing/` dir (currently missing — `scripts/seed_vendor_pack_weights.py:38` points at it). New `scripts/ingest_catch_weight.mjs` to load `costing/vendor_pack_weights.csv` into a new table. Fill in `scripts/lib/invoice_processor.py:41-68` `reconcile_unit_cost()`.
-- [ ] **Schema delta.**
+Split into T5a (infrastructure + math, no live invoice coupling) and T5b
+(wire into Sysco/Shamrock invoice ingesters). T5a lands the table,
+columns, ingest, and reconciliation function; T5b is blocked on having
+real Sysco/Shamrock invoices with per-pack delivered weight to test
+against.
+
+### T5a — Schema + ingest + reconciliation math
+
+- [x] **Schema delta.** `vendor_catch_weights` table with the plan's shape
+  and `vendor_prices` gains `actual_received_lb` + `reconciled_unit_price`
+  via `migrateLegacyColumns()` (idempotent). Drift guard in
+  `assertCriticalSchemas` catches legacy partial-deploy tables.
   ```sql
   CREATE TABLE IF NOT EXISTS vendor_catch_weights (
     vendor        TEXT NOT NULL,
@@ -101,12 +110,53 @@ Check a box only when the acceptance criterion has been re-run and passed.
     updated_at    TEXT DEFAULT (datetime('now')),
     PRIMARY KEY (vendor, sku)
   );
-  ALTER TABLE vendor_prices ADD COLUMN actual_received_lb REAL;     -- from invoice
-  ALTER TABLE vendor_prices ADD COLUMN reconciled_unit_price REAL;  -- per actual lb
+  ALTER TABLE vendor_prices ADD COLUMN actual_received_lb REAL;
+  ALTER TABLE vendor_prices ADD COLUMN reconciled_unit_price REAL;
   ```
-- [ ] **Logic.** When invoice pack deviates from catalog_wt_lb by >2%, recompute `unit_price = invoice_total / actual_received_lb`. Write both columns.
-- [ ] **Test fixture.** 10-lb case ribeye priced $150, delivered 10.4 lb → `unit_price = 150/10 = $15.00`, `reconciled_unit_price = 150/10.4 = $14.42`. Assert both persisted.
-- [ ] **Acceptance.** 100% of catch-weight categories (ribeye, salmon, whole fish, lamb rack — enumerated in `vendor_catch_weights`) have both columns populated after ingest of a real Sysco/Shamrock invoice.
+- [x] **Ingest.** New `scripts/ingest_catch_weights.py` loads
+  `data/seeds/vendor_pack_weights.csv` (108 rows, Sysco-sourced, copied
+  from archive) into `vendor_catch_weights` via idempotent UPSERT on
+  `(vendor, sku)`. Wired as `npm run seed:catch_weights` and chained into
+  `seed:all`. Validates `catalog_wt_lb > 0`, `tare_lb >= 0`; rolls back on
+  any validation failure.
+- [x] **Reconciliation math.** New module-level function
+  `scripts.lib.invoice_processor.reconcile_catch_weight(catalog_wt_lb,
+  actual_received_lb, invoice_total, *, threshold=0.02, tare_lb=None)`.
+  Returns `{net_received_lb, deviation_pct, unit_price_catalog,
+  unit_price_actual, reconciled_unit_price, reconciled}`. When
+  `|deviation_pct| > threshold`, `reconciled_unit_price =
+  invoice_total / net_received_lb`; otherwise the catalog-based price.
+  Kept separate from the existing `InvoiceProcessor.reconcile_unit_cost`
+  (which does quantity-based drift detection — unrelated concern).
+- [x] **Test fixture.** Plan's ribeye example — 10 lb catalog, 10.4 lb
+  delivered, $150 invoiced → `unit_price_catalog=15.00`,
+  `reconciled_unit_price=14.4231`, `reconciled=true`. Plus 16 additional
+  cases: tare-subtraction (cilantro bunch 8 lb gross / 2 lb tare / 6 lb
+  net → 25% deviation), threshold boundary (exactly 2% is NOT reconciled
+  — strict >), custom threshold, input validation (zero / negative /
+  NaN), NOT NULL enforcement.
+- [x] **Acceptance (T5a).** JS schema tests (5/5) + Python reconciliation
+  tests (17/17) + Python ingest tests (7/7) pass. `vendor_catch_weights`
+  populated with 107 rows from the archived CSV against a scratch DB;
+  idempotent on rerun.
+
+### T5b — Invoice integration (deferred)
+
+- [ ] **Task.** Wire `reconcile_catch_weight` into
+  `scripts/ingest_sysco_invoice_pdfs.py` and
+  `scripts/ingest_shamrock_invoices.py` so real invoices populate
+  `vendor_prices.actual_received_lb` and `reconciled_unit_price`.
+- [ ] **Blocker.** Needs a real Sysco / Shamrock invoice with per-pack
+  delivered weight (the current PDF parsers extract line-item totals but
+  not per-pack actual weights). May require a sample from a recent
+  delivery and an update to the PDF extraction layer.
+- [ ] **Acceptance.** 100% of catch-weight categories that appear in real
+  invoices have both columns populated after ingest. Lariat's actual
+  catch-weight-ish items per the current `vendor_prices` catalog:
+  `beef cheek meat`, `basa flt bnls sknls viet iqf swai` (frozen fish
+  fillet), various bacon SKUs, chicken wings, burger patties — not the
+  ribeye/salmon/whole-fish/lamb-rack menu the plan originally called out
+  (Lariat's current menu doesn't include those).
 
 ---
 

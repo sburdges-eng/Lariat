@@ -452,6 +452,23 @@ export function initSchema(db: DB): void {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
+    -- T5a: per-(vendor, sku) catalog pack weight so invoice-vs-received
+    -- reconciliation can catch catch-weight items that ship heavier/lighter
+    -- than the catalog declares. catalog_wt_lb is REQUIRED (the reference
+    -- value); tare_lb is optional (nonzero for items where the pack
+    -- container is weighed with the product — chicken wings in a 2 lb
+    -- bag, etc.). Source enum matches ingredient_densities posture. PK
+    -- on (vendor, sku) since one SKU is unique per vendor.
+    CREATE TABLE IF NOT EXISTS vendor_catch_weights (
+      vendor        TEXT NOT NULL,
+      sku           TEXT NOT NULL,
+      catalog_wt_lb REAL NOT NULL,
+      tare_lb       REAL,
+      source        TEXT,
+      updated_at    TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (vendor, sku)
+    );
+
     CREATE TABLE IF NOT EXISTS ingredient_yields (
       ingredient_key TEXT PRIMARY KEY,     -- same normalized form as ingredient_densities
       yield_pct      REAL NOT NULL,        -- fraction 0..1 (e.g. 0.85 for 85% trim yield)
@@ -680,6 +697,7 @@ function assertCriticalSchemas(db: DB): void {
       'ingredient_key', 'yield_pct', 'loss_factor', 'source', 'notes', 'updated_at',
     ],
     ingredient_densities: ['ingredient_key', 'g_per_ml', 'source', 'updated_at'],
+    vendor_catch_weights: ['vendor', 'sku', 'catalog_wt_lb', 'tare_lb', 'source', 'updated_at'],
   };
   for (const [table, required] of Object.entries(requirements)) {
     const cols = (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[])
@@ -757,9 +775,17 @@ function migrateLegacyColumns(db: DB): void {
   }
 
   // Vendor-default trim yield attached to each priced pack.
+  // T5a adds catch-weight reconciliation columns on the same table:
+  //   actual_received_lb     — per-pack delivered weight from invoice
+  //   reconciled_unit_price  — per-actual-lb unit price recomputed when
+  //                            actual_received_lb deviates from catalog
+  // Both NULLable; old rows pre-T5a stay NULL (conventional "no catch-weight
+  // adjustment" sentinel).
   const vpCols = t('vendor_prices');
   const vpMigrations: [string, string][] = [
     ['yield_pct', 'ALTER TABLE vendor_prices ADD COLUMN yield_pct REAL'],
+    ['actual_received_lb', 'ALTER TABLE vendor_prices ADD COLUMN actual_received_lb REAL'],
+    ['reconciled_unit_price', 'ALTER TABLE vendor_prices ADD COLUMN reconciled_unit_price REAL'],
   ];
   for (const [col, ddl] of vpMigrations) {
     if (!vpCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
