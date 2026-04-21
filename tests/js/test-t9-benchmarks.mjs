@@ -588,8 +588,8 @@ describe('T9 / B2 — T6 extension: PACK_CHANGED + pack_size_changes summary', (
     ).run(LOC);
     const r = computeUnmapped(db, LOC);
     assert.strictEqual(r.total_items, 1, 'total_items counts bom_lines only');
-    assert.strictEqual(r.unmapped_count, 1,
-      'single unmapped entry = the vendor_pack_change row');
+    assert.strictEqual(r.unmapped_count, 0,
+      'vendor_pack_change rows do not inflate unmapped_count');
     assert.strictEqual(r.rows.length, 1);
     const row = r.rows[0];
     assert.strictEqual(row.kind, 'vendor_pack_change');
@@ -652,7 +652,7 @@ describe('T9 / B2 — T6 extension: PACK_CHANGED + pack_size_changes summary', (
     ).run(LOC);
     const r = computeUnmapped(db, LOC);
     assert.strictEqual(r.total_items, 1, 'total_items = bom_lines only');
-    assert.strictEqual(r.unmapped_count, 2, 'bom row + vendor row both surface');
+    assert.strictEqual(r.unmapped_count, 1, 'only bom_line counts toward unmapped_count');
     const kinds = r.rows.map((x) => x.kind).sort();
     assert.deepStrictEqual(kinds, ['bom_line', 'vendor_pack_change']);
     db.close();
