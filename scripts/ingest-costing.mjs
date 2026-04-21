@@ -678,14 +678,19 @@ export function backfillCatchWeightsIntoVendorPrices(db, locationId = 'default')
   // Latest catch-weight row per SKU, preferring rows with non-NULL
   // reconciled_unit_price so the dashboard surfaces actual drift first.
   const latest = db.prepare(`
-    SELECT sku, actual_received_lb, reconciled_unit_price
-      FROM shamrock_invoices
-     WHERE location_id = ?
-       AND actual_received_lb IS NOT NULL
-       AND sku IS NOT NULL AND sku != ''
-     GROUP BY sku
-     HAVING delivery_date = MAX(delivery_date)
-  `).all(locationId);
+    SELECT si.sku, si.actual_received_lb, si.reconciled_unit_price
+      FROM shamrock_invoices si
+      JOIN (
+        SELECT sku, MAX(delivery_date) AS max_date
+          FROM shamrock_invoices
+         WHERE location_id = ?
+           AND actual_received_lb IS NOT NULL
+           AND sku IS NOT NULL AND sku != ''
+         GROUP BY sku
+      ) latest ON si.sku = latest.sku AND si.delivery_date = latest.max_date
+     WHERE si.location_id = ?
+       AND si.actual_received_lb IS NOT NULL
+  `).all(locationId, locationId);
 
   if (latest.length === 0) return out;
 
