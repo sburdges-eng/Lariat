@@ -15,7 +15,7 @@ import Database from 'better-sqlite3';
 
 import { initSchema } from '../../lib/db.ts';
 import { normalizeIngredientKey } from '../../lib/ingredientKey.ts';
-import { ingestCosting } from '../../scripts/ingest-costing.mjs';
+import { ingestCosting, runCostingPostPass } from '../../scripts/ingest-costing.mjs';
 
 const LOC = 'default';
 const EPS = 1e-9;
@@ -84,7 +84,7 @@ describe('T3 — zero-regression invariant', () => {
     db.close();
   });
 
-  it('NULL yield_pct and NULL loss_factor default to no-adjustment', () => {
+  it('NULL yield_pct and NULL loss_factor default to no-adjustment (both NULL)', () => {
     // No ingredient_yields seeded at all → every bom_line gets NULL yield/loss.
     const db = buildDb();
     const data = {
@@ -98,6 +98,54 @@ describe('T3 — zero-regression invariant', () => {
     const s = ingestCosting(db, data, LOC);
     const r = readRecipe(db, 'r1');
     assert.strictEqual(r.batch_cost, 100.0, 'NULL must default to 1.0 / 0.0, not 0');
+    assert.strictEqual(s.recipes_yield_adjusted, 0);
+    db.close();
+  });
+
+  // D5 split (debt-bundle-b, docs/MAPPING_ENGINE_GAPS.md#D5): the
+  // original collapsed "NULL yield + NULL loss" test above could mask a
+  // broken single-field default (e.g. yield defaulting to 0 instead of
+  // 1.0 while loss defaults correctly) with a compensating pass. These
+  // two cases isolate each default so the failure mode is localised.
+  it('NULL yield_pct + non-null loss_factor=0 defaults yield→1.0 (no-op)', () => {
+    // ingredient_yields.yield_pct is schema-level NOT NULL, so the only
+    // way to get a NULL yield on a BOM line is to skip the seed lookup
+    // (ingest with no yield row) and then patch loss_factor onto the
+    // resulting row, rerunning the post-pass. Re-entrance is safe: the
+    // post-pass reads the current batch_cost as the starting value, and
+    // with adj=1.0/(1.0 × (1 - 0)) = 1.0 the delta is zero regardless
+    // of how many times it runs.
+    const db = buildDb();
+    const data = {
+      recipe_costs: [recipe('r1', 50.0)],
+      bom_lines: [bom('r1', 'only_loss', 5, 4, 1)], // raw = 20
+    };
+    ingestCosting(db, data, LOC);
+    db.prepare(
+      `UPDATE bom_lines SET yield_pct = NULL, loss_factor = 0.0
+        WHERE recipe_id = ? AND location_id = ?`,
+    ).run('r1', LOC);
+    const before = readRecipe(db, 'r1').batch_cost;
+    const p = runCostingPostPass(db, LOC);
+    const r = readRecipe(db, 'r1');
+    // adj = 1 / (1.0 × (1 - 0)) = 1.0 → zero delta, batch_cost unchanged.
+    assert.strictEqual(r.batch_cost, before);
+    assert.strictEqual(p.recipes_yield_adjusted, 0);
+    db.close();
+  });
+
+  it('non-null yield_pct=1.0 + NULL loss_factor defaults loss→0.0 (no-op)', () => {
+    const db = buildDb([
+      { raw: 'only_yield', yield_pct: 1.0, loss_factor: null },
+    ]);
+    const data = {
+      recipe_costs: [recipe('r1', 50.0)],
+      bom_lines: [bom('r1', 'only_yield', 5, 4, 1)], // raw = 20
+    };
+    const s = ingestCosting(db, data, LOC);
+    const r = readRecipe(db, 'r1');
+    // adj = 1 / (1.0 × (1 - 0)) = 1.0 → zero delta, batch_cost unchanged.
+    assert.strictEqual(r.batch_cost, 50.0);
     assert.strictEqual(s.recipes_yield_adjusted, 0);
     db.close();
   });
@@ -328,5 +376,256 @@ describe('T3 — idempotency across back-to-back ingests', () => {
     const expected = 1.0 + 1 * 50 / 50 * (1 / 0.85 - 1);
     assert.ok(Math.abs(secondBatch - expected) < 1e-9);
     db.close();
+  });
+});
+
+// ── D5 (debt-bundle-b, docs/MAPPING_ENGINE_GAPS.md#D5) ─────────────
+// Parameterized null-guard matrix. The code at
+// `scripts/ingest-costing.mjs` (inside `runCostingPostPass`) guards
+// null/zero/infinite qty, pack_price, and pack_size uniformly; the
+// pre-D5 test file only exercised 2 of those 6 cells (pack_size=0 and
+// pack_price=NULL). Each case seeds ONE bad BOM line alongside zero
+// other lines so the recipe's entire delta reduces to guardSkipped
+// without noise from compensating lines.
+//
+// Acceptance per case:
+//   - batch_cost unchanged from the Excel-seeded value
+//   - recipes_yield_adjusted === 0 (no per-recipe delta)
+//   - the row was actually counted in guardSkipped (asserted indirectly
+//     via console.warn output capture — a direct counter would require
+//     exposing guardSkipped on the summary, which we keep out of the
+//     public surface since it's noisy for healthy ingests)
+describe('T3 / D5 — null-guard matrix', () => {
+  const NULL_GUARD_CASES = [
+    { field: 'qty',        value: null },
+    { field: 'qty',        value: 0    },
+    { field: 'pack_price', value: null },
+    { field: 'pack_price', value: 0    },
+    { field: 'pack_size',  value: null },
+    { field: 'pack_size',  value: 0    },
+  ];
+
+  for (const { field, value } of NULL_GUARD_CASES) {
+    const label = value === null ? 'NULL' : '0';
+    it(`bom_line with ${field}=${label} contributes 0 delta (guard hit)`, () => {
+      // Capture console.warn so we can assert the guard counter fired.
+      // The post-pass emits a single warning line summarizing the run
+      // when guardSkipped > 0, shape `⚠ N bom_line(s) had null/zero …`.
+      const warnings = [];
+      const origWarn = console.warn;
+      console.warn = (msg) => warnings.push(String(msg));
+
+      try {
+        const db = buildDb([
+          { raw: 'ing', yield_pct: 0.85, loss_factor: null },
+        ]);
+        // Start from normal values (qty=1, pack_price=10, pack_size=5)
+        // so the row would contribute a non-zero delta if NOT guarded;
+        // then swap the tested field to the bad value.
+        const packSize = field === 'pack_size' ? value : 5;
+        const bomRow = bom('r1', 'ing', /*qty*/ 1, /*pack_price*/ 10, packSize);
+        if (field === 'qty') bomRow.qty = value;
+        if (field === 'pack_price') bomRow.pack_price = value;
+        // pack_size already applied via packSize local.
+
+        const data = {
+          recipe_costs: [recipe('r1', 42.0)],
+          bom_lines: [bomRow],
+        };
+        const s = ingestCosting(db, data, LOC);
+        const r = readRecipe(db, 'r1');
+
+        // Excel batch_cost unchanged.
+        assert.strictEqual(
+          r.batch_cost, 42.0,
+          `${field}=${label}: batch_cost should match Excel seed ($42.00)`,
+        );
+        assert.strictEqual(
+          s.recipes_yield_adjusted, 0,
+          `${field}=${label}: no recipe should be yield-adjusted`,
+        );
+        assert.strictEqual(
+          s.total_yield_delta_usd, 0,
+          `${field}=${label}: total delta must be zero`,
+        );
+
+        // guard-warning surface — exactly one summary line emitted.
+        const guardHits = warnings.filter(
+          (w) => w.includes('null/zero qty, pack_price, or pack_size'),
+        );
+        assert.strictEqual(
+          guardHits.length, 1,
+          `${field}=${label}: expected exactly one guardSkipped warning, got ${guardHits.length}`,
+        );
+        assert.ok(
+          /⚠ 1 bom_line/.test(guardHits[0]),
+          `${field}=${label}: guard warning should report 1 skipped row, got: ${guardHits[0]}`,
+        );
+
+        db.close();
+      } finally {
+        console.warn = origWarn;
+      }
+    });
+  }
+
+  it('Infinity pack_price is guarded (Number.isFinite sweep)', () => {
+    // Sanity-check the Number.isFinite leg of the uniform guard. Not one
+    // of the 6 parameterized cells but sits on the same code path and
+    // would be a regression surface if someone swapped `isFinite` for
+    // a naive null-check.
+    const warnings = [];
+    const origWarn = console.warn;
+    console.warn = (msg) => warnings.push(String(msg));
+    try {
+      const db = buildDb([{ raw: 'ing', yield_pct: 0.85, loss_factor: null }]);
+      const data = {
+        recipe_costs: [recipe('r1', 42.0)],
+        bom_lines: [bom('r1', 'ing', 1, Infinity, 5)],
+      };
+      const s = ingestCosting(db, data, LOC);
+      assert.strictEqual(readRecipe(db, 'r1').batch_cost, 42.0);
+      assert.strictEqual(s.recipes_yield_adjusted, 0);
+      assert.ok(
+        warnings.some((w) => w.includes('null/zero qty, pack_price, or pack_size')),
+        'Infinity should hit the uniform guard and emit the summary warning',
+      );
+      db.close();
+    } finally {
+      console.warn = origWarn;
+    }
+  });
+});
+
+// ── D4 (debt-bundle-b, docs/MAPPING_ENGINE_GAPS.md#D4) ─────────────
+// Excel batch_cost vs raw-sum drift. Deliberately seeds a recipe whose
+// Excel-sourced batch_cost diverges from Σ (qty × pack_price /
+// pack_size) by more than the $0.10 threshold, and asserts both (a)
+// the excel_drift_warnings counter increments by the expected amount
+// and (b) the console.info line fires with the expected shape.
+//
+// Why this doesn't break other tests: the existing yield-math tests
+// all seed batch_cost === Σ (qty × pack_price / pack_size) up-front —
+// e.g. the mixed-recipe test computes `initialExcel = raw1 + raw2 +
+// raw3` and passes that into recipe(). Those rows have drift ≤ EPS so
+// no INFO line fires; excel_drift_warnings stays at 0, which existing
+// tests don't inspect anyway.
+describe('T3 / D4 — Excel batch_cost vs raw-sum drift', () => {
+  it('drift > $0.10 increments excel_drift_warnings counter and logs INFO', () => {
+    // Row raw = 1 × 50 / 50 = $1.00; seed batch_cost at $5.00 → drift $4.00.
+    const infoLines = [];
+    const origInfo = console.info;
+    console.info = (msg) => infoLines.push(String(msg));
+    try {
+      const db = buildDb([
+        { raw: 'onion', yield_pct: 1.0, loss_factor: null },
+      ]);
+      const data = {
+        recipe_costs: [recipe('r_drift', 5.0)],
+        bom_lines: [bom('r_drift', 'onion', 1, 50, 50)],
+      };
+      const s = ingestCosting(db, data, LOC);
+      assert.strictEqual(
+        s.excel_drift_warnings, 1,
+        'one recipe should trip the drift counter',
+      );
+      const driftLine = infoLines.find((l) => l.includes('D4 Excel drift'));
+      assert.ok(driftLine, `expected INFO line containing "D4 Excel drift"; got: ${JSON.stringify(infoLines)}`);
+      assert.ok(driftLine.includes('recipe_id=r_drift'), driftLine);
+      assert.ok(driftLine.includes('excel_value=$5.0000'), driftLine);
+      assert.ok(driftLine.includes('computed_sum=$1.0000'), driftLine);
+      assert.ok(driftLine.includes('drift_usd=$4.0000'), driftLine);
+      db.close();
+    } finally {
+      console.info = origInfo;
+    }
+  });
+
+  it('drift under threshold ($0.05 < $0.10) does NOT trip', () => {
+    // Float arithmetic precludes a clean "exactly $0.10" fixture
+    // (1.10 - 1.00 → 0.10000000000000009), so pin well under the
+    // threshold to exercise the "noise-floor" branch. The strict-greater
+    // semantics are documented on the DRIFT_THRESHOLD_USD constant in
+    // ingest-costing.mjs; the key invariant tested here is that small
+    // penny-level rounding doesn't trigger a spurious INFO line per
+    // ingest.
+    const infoLines = [];
+    const origInfo = console.info;
+    console.info = (msg) => infoLines.push(String(msg));
+    try {
+      // Raw sum = 1, excel = 1.05 → drift $0.05.
+      const db = buildDb([
+        { raw: 'onion', yield_pct: 1.0, loss_factor: null },
+      ]);
+      const data = {
+        recipe_costs: [recipe('r_edge', 1.05)],
+        bom_lines: [bom('r_edge', 'onion', 1, 50, 50)],
+      };
+      const s = ingestCosting(db, data, LOC);
+      assert.strictEqual(s.excel_drift_warnings, 0, 'sub-threshold drift must not fire');
+      assert.ok(
+        !infoLines.some((l) => l.includes('D4 Excel drift')),
+        'no INFO line for sub-threshold drift',
+      );
+      db.close();
+    } finally {
+      console.info = origInfo;
+    }
+  });
+
+  it('healthy recipe (excel === raw-sum) does not trip the counter', () => {
+    // Regression guard: the mixed-recipe test pattern should NEVER fire.
+    const infoLines = [];
+    const origInfo = console.info;
+    console.info = (msg) => infoLines.push(String(msg));
+    try {
+      const db = buildDb([
+        { raw: 'onion',   yield_pct: 0.85, loss_factor: null },
+        { raw: 'water',   yield_pct: 1.0,  loss_factor: null },
+      ]);
+      const raw1 = 1 * 50 / 50;
+      const raw2 = 1 * 2 / 1;
+      const excel = raw1 + raw2; // Excel matches raw sum byte-exact.
+      const data = {
+        recipe_costs: [recipe('r_ok', excel)],
+        bom_lines: [
+          bom('r_ok', 'onion', 1, 50, 50),
+          bom('r_ok', 'water', 1, 2, 1),
+        ],
+      };
+      const s = ingestCosting(db, data, LOC);
+      assert.strictEqual(s.excel_drift_warnings, 0);
+      assert.ok(
+        !infoLines.some((l) => l.includes('D4 Excel drift')),
+        'healthy recipe must not emit the drift INFO line',
+      );
+      db.close();
+    } finally {
+      console.info = origInfo;
+    }
+  });
+
+  it('negative drift (excel < raw-sum) also trips the counter', () => {
+    // Excel $1.00, raw sum $5.00 → drift −$4.00, |drift|=$4 > $0.10.
+    const infoLines = [];
+    const origInfo = console.info;
+    console.info = (msg) => infoLines.push(String(msg));
+    try {
+      const db = buildDb([
+        { raw: 'onion', yield_pct: 1.0, loss_factor: null },
+      ]);
+      const data = {
+        recipe_costs: [recipe('r_neg', 1.0)],
+        bom_lines: [bom('r_neg', 'onion', 1, 50, 10)], // raw = 5.00
+      };
+      const s = ingestCosting(db, data, LOC);
+      assert.strictEqual(s.excel_drift_warnings, 1);
+      const line = infoLines.find((l) => l.includes('D4 Excel drift'));
+      assert.ok(line);
+      assert.ok(line.includes('drift_usd=$-4.0000'), line);
+      db.close();
+    } finally {
+      console.info = origInfo;
+    }
   });
 });

@@ -451,6 +451,7 @@ function _ingestCostingImpl(db, data, locationId) {
   summary.ingredient_masters = postPass.ingredient_masters ?? 0;
   summary.vp_master_backfilled_rows = postPass.vp_master_backfilled_rows ?? 0;
   summary.bom_master_backfilled_rows = postPass.bom_master_backfilled_rows ?? 0;
+  summary.excel_drift_warnings = postPass.excel_drift_warnings ?? 0;
   return summary;
 }
 
@@ -483,7 +484,33 @@ export function runCostingPostPass(db, locationId = 'default') {
     ingredient_masters: 0,
     vp_master_backfilled_rows: 0,
     bom_master_backfilled_rows: 0,
+    excel_drift_warnings: 0,
   };
+
+  // ── D4: Excel batch_cost vs raw-sum drift observability ───────────
+  // T3's yield-delta math adds on top of Excel's `recipe_costs.batch_cost`
+  // assuming `excel_batch_cost === Σ (bom_qty × pack_price / pack_size)`
+  // across BOM lines. The current workbook holds this identity, but
+  // per-line rounding / case-minimum bucketing / sub-recipe caching in a
+  // future workbook would silently break it — the yield-delta is still
+  // correct FOR the yield portion, but the resulting batch_cost is
+  // "Excel + our delta" rather than "absolute true cost".
+  //
+  // Snapshot batch_cost BEFORE the T3/T4 UPDATEs, compute the raw-sum
+  // against the same guards the delta loop uses (skip null/zero/infinite
+  // qty / pack_price / pack_size), and log an INFO line when |drift| >
+  // $0.10. Observability only — no behavior change. See
+  // docs/MAPPING_ENGINE_GAPS.md#D4.
+  const excelBatchCostByRecipe = new Map();
+  for (const row of db.prepare(
+    `SELECT recipe_id, batch_cost FROM recipe_costs
+      WHERE location_id = ?
+        AND recipe_id IS NOT NULL
+        AND recipe_id != 'TOTAL'
+        AND batch_cost IS NOT NULL`,
+  ).all(locationId)) {
+    excelBatchCostByRecipe.set(row.recipe_id, row.batch_cost);
+  }
   // ── T3 + T4: yield + loss + unit-conversion post-pass ──────────────
   // After T2c populated bom_lines.{yield_pct, loss_factor, pack_price, pack_size,
   // qty}, sum the per-BOM-line "true cost" adjustment for each recipe and apply
@@ -582,6 +609,11 @@ export function runCostingPostPass(db, locationId = 'default') {
   `).all(locationId);
 
   const perRecipeDelta = new Map(); // recipe_id -> delta (USD)
+  // D4: Σ (qty × pack_price / pack_size) per recipe, using the same
+  // guards as the delta loop. Compared against the Excel-sourced
+  // batch_cost snapshot above to surface workbook-math drift before it
+  // poisons COGS silently. INFO-level log only; no behavior change.
+  const perRecipeRawSum = new Map();
   let guardSkipped = 0;
   let denomSkipped = 0;
   let denomConvertedSkipped = 0;
@@ -607,6 +639,15 @@ export function runCostingPostPass(db, locationId = 'default') {
       guardSkipped++;
       continue;
     }
+    // D4: accumulate the raw Σ (qty × pack_price / pack_size) in bom_line
+    // units — same guard posture as the delta loop, computed BEFORE any
+    // unit-conversion so it matches the Excel formula's assumptions. If
+    // the workbook's batch_cost departs from this sum in a future
+    // Excel revision, the INFO log downstream catches it.
+    perRecipeRawSum.set(
+      recipe_id,
+      (perRecipeRawSum.get(recipe_id) ?? 0) + (qty * pack_price / pack_size),
+    );
     const adj = adjustment(yield_pct, loss_factor);
     if (adj === null) {
       denomSkipped++;
@@ -685,6 +726,31 @@ export function runCostingPostPass(db, locationId = 'default') {
     console.warn(
       `⚠ ${denomConvertedSkipped} bom_line(s) could not convert pack_size → bom_unit (missing density, count unit, or unknown unit) — delta skipped`,
     );
+  }
+
+  // D4: emit one INFO line per recipe whose Excel `batch_cost` differs
+  // from the raw Σ (qty × pack_price / pack_size) by > $0.10. Runs
+  // BEFORE the UPDATE transaction below so the comparison is against
+  // Excel's original value — post-UPDATE, `batch_cost` is "Excel +
+  // yield-delta" and the signal is lost.
+  //
+  // Threshold picked at $0.10 because (a) penny-level float noise from
+  // Excel rounding is routine and noise-floor, and (b) $0.10 × typical
+  // ~50 recipes × weekly runs ≈ $5/week of drift — below that, other
+  // signals in the unmapped queue would catch it first. Raised to hard-
+  // fail at $1.00 per D4's "once observability confirms the invariant"
+  // note, tracked separately.
+  const DRIFT_THRESHOLD_USD = 0.10;
+  for (const [recipe_id, rawSum] of perRecipeRawSum) {
+    const excelValue = excelBatchCostByRecipe.get(recipe_id);
+    if (excelValue == null) continue; // recipe_costs row had NULL batch_cost
+    const drift = excelValue - rawSum;
+    if (Math.abs(drift) > DRIFT_THRESHOLD_USD) {
+      summary.excel_drift_warnings++;
+      console.info(
+        `ℹ D4 Excel drift: recipe_id=${recipe_id} excel_value=$${excelValue.toFixed(4)} computed_sum=$${rawSum.toFixed(4)} drift_usd=$${drift.toFixed(4)}`,
+      );
+    }
   }
 
   // Flag rows that need density (or any other unit-conversion failure). B2's
