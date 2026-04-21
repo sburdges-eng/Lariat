@@ -211,4 +211,52 @@ A CO county health inspector (in practice, Larimer, Denver, or Eagle County insp
 
 ---
 
+## 7. T10 — HACCP temp-log UI + full CCP coverage (bundle E)
+
+Closed the last gap on the existing temp-log subsystem: the rule module and API were already solid, but there was no dedicated UI board and no audit-trail wiring. This landed on branch `haccp-temp-log`.
+
+### What landed
+
+- **Registry expanded to 10 CCPs.** `lib/tempLog.ts` `TempPoints` gained `receiving_frozen` (§3-202.11 — practical ≤ 10°F ceiling to catch surface-thawed deliveries) and `reach_in_cooler` (§3-501.16 — distinct from walk-in since they have different failure modes). Covers the full set the brief asked for: receiving cold/frozen, walk-in + reach-in cold hold, freezer, cook per protein (poultry 165 / ground beef 155 / fish 145), hot hold 140, reheat 165.
+- **Aggregate rule function.** New `classifyReadings(readings, { expectAllPoints })` in `lib/tempLog.ts` turns a day's rows into one `PointSummary` per CCP with `status ∈ {green, yellow, red, gray}` and counts for `ok_count`, `corrective_count`, `critical_count`, `invalid_count`. The yellow/red split encodes the FDA distinction between "out-of-range reading with a documented fix" (compliant) and "out-of-range reading with no note of the fix" (inspector red-flag).
+- **API extensions.** `/api/temp-log` GET now returns a `summary` array alongside `entries` (opt out with `?summary=0`). POST emits a `postAuditEvent({ entity: 'temp_log', action: 'insert', ... })` on accepted writes — matching the append-only audit pattern used by `/api/sanitizer-check`, `/api/cooling`, `/api/sick-worker`, and `/api/date-marks`. Rejected writes (422 or 400) leave no audit row so the chain stays clean.
+- **Board UI.** `/app/food-safety/temp-log/` — server-rendered page.jsx pulls today's rows through `getDb()` directly (not an internal fetch) and hands them to `TempLogBoard.jsx`, a client component. Grid of CCP tiles colored per status, totals chips across the top, entry form with live out-of-range detection that surfaces the corrective-action field as soon as the typed value would fail validation. On 422 the UI flips into `needsNote` mode with a red-bordered note input.
+- **Hub tile.** `/app/food-safety/page.jsx` gained a Temp-log tile summarizing the day ("10 CCPs monitored · N corrective · N critical"). Tile colors match the main grid.
+- **Sidebar link.** `app/_components/Sidebar.jsx` gained a "Temp log" sub-link under "Food safety" so cooks can jump straight to the board.
+
+### FDA citations per CCP
+
+| Point | CCP | FDA cite |
+|---|---|---|
+| `receiving_cold` | CCP-1 | §3-202.11 — cold food received ≤ 41°F |
+| `receiving_frozen` | CCP-1 | §3-202.11 — frozen food received frozen (practical ≤ 10°F for surface-thaw tolerance) |
+| `walk_in_cooler` | CCP-2 | §3-501.16(A)(2) — TCS food cold-hold ≤ 41°F |
+| `reach_in_cooler` | CCP-2 | §3-501.16(A)(2) |
+| `freezer` | CCP-3 | §3-501.16(A)(1) — frozen storage |
+| `cook_poultry` | CCP-4 | §3-401.11(A)(3) — 165°F / 15s min-internal |
+| `cook_ground_beef` | CCP-5 | §3-401.11(A)(2) — 155°F / 15s for comminuted meat |
+| `cook_fish` | CCP-6 | §3-401.11(A)(1) — 145°F / 15s for fish |
+| `hot_hold` | CCP-7 | §3-501.16(A)(1) — hot-hold ≥ 135°F (tightened to 140 by house policy) |
+| `reheat` | CCP-9 | §3-403.11(A) — reheat for hot-hold to 165°F / 15s within 2h |
+
+Two-stage cooling (CCP-8) is NOT covered here; it lives in `lib/cooling.ts` + `/food-safety/cooling` because it's a time+temperature check, not a single-reading threshold (F1 in the gap register above).
+
+### Design choices
+
+- **Corrective note required on out-of-range writes (422).** The route returns `needs_corrective_action: true` with a 422 (not 400) so the UI knows the request *can* be resubmitted with a note — the reading itself was valid. No silent accept: a 43°F walk-in reading with no fix recorded is non-compliance, not a log entry.
+- **Yellow tile = "inspector-friendly".** An out-of-range reading that carries a corrective note is classified as corrective (yellow), not critical (red). This is the legal distinction FDA wants: inspectors want to see that the kitchen *caught and fixed* drift, not that drift never happened. Red is reserved for drift with no documented fix (or invalid-only days, where the CCP is unverified).
+- **Dashboard-only alerting for now.** No SMS paging, no kitchen display screen integration. Hub tile + sidebar dot are the signal; a PIC walking past the screen will see red at a glance. Paging is deferred until there's a real PIC-on-shift model (bundle G's calibrations + bundle F's receiving log will sharpen who owns which alert).
+- **Per-protein COOKING_VERIFY via distinct points.** Rather than a single `cooking_verify` point with a `protein` field that the API must switch on, we expose one point per protein (`cook_poultry`, `cook_ground_beef`, `cook_fish`). This keeps `TempPoints` pure data and makes the per-reading audit trail human-readable — an inspector reading the log sees "cook_poultry @ 172°F" without having to cross-reference the MIN_COOKING_TEMPS table.
+- **Audit trail best-effort.** `postAuditEvent` is in a try/catch after the insert succeeds. A stranded temp_log row with a missing audit row is a less-bad outcome than refusing a valid cook-side write because the audit chain happened to be offline. Mirrors the sanitizer route's posture.
+- **Tests covered in two files.** `tests/js/test-temp-log-rules.mjs` (34 cases) for the new `classifyReadings` aggregator and the CCP coverage invariants. `tests/js/test-temp-log-api.mjs` (14 cases, including blank-reading UI guard pin) for the new GET summary + POST audit-row behavior. Plus the pre-existing `test-temp-log.mjs` (59) and `test-temp-log-route.mjs` (25) — none rewritten, all still pass.
+
+### Open nits — Deferred to Bundle F
+
+The following two items were flagged during Bundle E code review but intentionally deferred to Bundle F (receiving log), where the registry and tile UI will be touched anyway:
+
+1. **Protein matrix gaps** — `cook_pork`, `cook_beef_steak`, and `cook_eggs` are missing from `TempPoints`. These will be added when Bundle F expands the registry for the receiving-log workflow, avoiding a second registry churn in the same sprint.
+2. **Per-tile FDA citation tooltip** — Each CCP tile should surface its FDA §-citation on hover/tap for inspector readiness. Deferred because Bundle F's UI will share the same tile component; landing the tooltip once there avoids duplication.
+
+---
+
 *Change control: this document is the source of truth for the 2026-04-21 hardening pass. Any deviation during implementation is called out in the PR description.*

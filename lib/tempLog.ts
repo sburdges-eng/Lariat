@@ -19,9 +19,11 @@ export interface TempPoint {
 
 /**
  * Temp points we ask cooks to log. Each is tied to a CCP.
- * Eight points covers the cold/hot-holding and cooking critical limits.
- * Cooling (CCP-8) is a multi-stage time-based check and is not modeled
- * as a single threshold here.
+ *
+ * Cooling (CCP-8) is a multi-stage time-based check; see lib/cooling.ts.
+ * The points here are the single-reading CCPs — receiving, cold-hold
+ * (walk-in + reach-in), freezer, cook min-internal per protein, hot
+ * hold, and reheat.
  */
 export const TempPoints: readonly TempPoint[] = [
   {
@@ -32,8 +34,26 @@ export const TempPoints: readonly TempPoint[] = [
     required_max_f: 41,
   },
   {
+    id: 'receiving_frozen',
+    label: 'Frozen delivery',
+    ccp_id: 'CCP-1',
+    required_min_f: null,
+    // FDA §3-202.11 wants frozen food "received frozen" — we allow a
+    // 10°F practical ceiling to absorb surface-thaw on the truck; the
+    // inspector-safe floor is 0°F but 10°F is the real-world signal
+    // that triggers rejection.
+    required_max_f: 10,
+  },
+  {
     id: 'walk_in_cooler',
     label: 'Walk-in cooler',
+    ccp_id: 'CCP-2',
+    required_min_f: null,
+    required_max_f: 41,
+  },
+  {
+    id: 'reach_in_cooler',
+    label: 'Reach-in cooler',
     ccp_id: 'CCP-2',
     required_min_f: null,
     required_max_f: 41,
@@ -218,4 +238,168 @@ export function classifyReading(point: TempPoint, reading_f: unknown): ReadingCl
   if (min !== null && reading_f < min) return 'out_of_range';
   if (max !== null && reading_f > max) return 'out_of_range';
   return 'ok';
+}
+
+// ── Per-point day summary (for the board tiles) ────────────────────
+
+/**
+ * A single reading as it lives in the DB (or an equivalent shape from
+ * a test fixture). Only the fields the aggregator touches are required.
+ */
+export interface ReadingRow {
+  point_id: string;
+  reading_f: number;
+  corrective_action?: string | null;
+  created_at?: string | null;
+}
+
+/**
+ * Tile-level status for the board:
+ * - green: nothing logged or everything in range
+ * - yellow: at least one out-of-range reading carried a corrective note
+ *           (treated as a "corrective" event — the kitchen caught it and
+ *           fixed it, FDA wants this on record but the CCP isn't red)
+ * - red: at least one out-of-range reading with NO corrective note
+ *        present (a critical miss — the reading exists but the fix
+ *        wasn't captured; inspector sees this as out-of-compliance)
+ * - gray: point hasn't been read today (only returned when
+ *         options.expectAllPoints is true or the point has no readings)
+ *
+ * Color mapping is deliberate: "corrective" (amber) is the common case
+ * and must NOT be red — a cold-hold reading of 43°F with a note that
+ * the product was moved to the reach-in is compliant. "Critical" (red)
+ * means an out-of-range reading hit the DB without evidence of the fix,
+ * or no reading exists for a required CCP.
+ */
+export type TileStatus = 'green' | 'yellow' | 'red' | 'gray';
+
+export interface PointSummary {
+  point_id: string;
+  label: string;
+  ccp_id: string;
+  required_min_f: number | null;
+  required_max_f: number | null;
+  status: TileStatus;
+  total_readings: number;
+  ok_count: number;
+  /** out-of-range readings that DO carry a corrective note */
+  corrective_count: number;
+  /** out-of-range readings that DO NOT carry a corrective note */
+  critical_count: number;
+  /** invalid/bad-input readings (probe malfunction) — very rare once the
+   *  API route is enforcing validation, but possible from back-fills */
+  invalid_count: number;
+  last_reading_f: number | null;
+  last_reading_at: string | null;
+}
+
+function normalizeNoteField(x: unknown): string | null {
+  if (typeof x !== 'string') return null;
+  const trimmed = x.trim();
+  return trimmed.length === 0 ? null : trimmed;
+}
+
+/**
+ * Pick the "newer" of two readings for the `last_reading_*` fields.
+ * `created_at` is an ISO string from sqlite — lexicographic comparison
+ * is correct for that format. A row with no created_at loses ties.
+ */
+function newerThan(a: ReadingRow, b: ReadingRow | null): boolean {
+  if (b === null) return true;
+  const at = typeof a.created_at === 'string' ? a.created_at : '';
+  const bt = typeof b.created_at === 'string' ? b.created_at : '';
+  return at > bt;
+}
+
+/**
+ * Aggregate a day's readings into a per-point summary the board can
+ * render. Pure function; pass whatever slice of rows the caller wants
+ * to classify.
+ *
+ * `options.expectAllPoints` (default true) adds a gray-status entry for
+ * every registry point that has no readings, so the board renders the
+ * full CCP grid even on a fresh shift.
+ */
+export function classifyReadings(
+  readings: readonly ReadingRow[],
+  options: { expectAllPoints?: boolean } = {},
+): PointSummary[] {
+  const expectAll = options.expectAllPoints ?? true;
+  const grouped = new Map<string, ReadingRow[]>();
+
+  // Bucket rows by point_id. Rows for a retired point are skipped from
+  // the summary view — they still exist in the raw GET response for
+  // audit, but we don't want an orphan tile on the board.
+  for (const r of readings) {
+    if (!r || typeof r.point_id !== 'string') continue;
+    if (!getTempPoint(r.point_id)) continue;
+    const list = grouped.get(r.point_id) ?? [];
+    list.push(r);
+    grouped.set(r.point_id, list);
+  }
+
+  const pointIds = expectAll
+    ? TempPoints.map((p) => p.id)
+    : Array.from(grouped.keys());
+
+  const out: PointSummary[] = [];
+  for (const id of pointIds) {
+    const point = getTempPoint(id);
+    if (!point) continue;
+    const rows = grouped.get(id) ?? [];
+
+    let ok = 0;
+    let corrective = 0;
+    let critical = 0;
+    let invalid = 0;
+    let newest: ReadingRow | null = null;
+
+    for (const r of rows) {
+      if (newerThan(r, newest)) newest = r;
+      const k = classifyReading(point, r.reading_f);
+      if (k === 'invalid') {
+        invalid += 1;
+        continue;
+      }
+      if (k === 'ok') {
+        ok += 1;
+        continue;
+      }
+      // out_of_range — split on whether a note was recorded
+      const note = normalizeNoteField(r.corrective_action);
+      if (note) corrective += 1;
+      else critical += 1;
+    }
+
+    // Status precedence: red > yellow > green > gray. Invalid-only days
+    // are red because a probe malfunction without a follow-up reading
+    // means the CCP is unverified.
+    let status: TileStatus;
+    if (critical > 0 || (rows.length > 0 && ok === 0 && corrective === 0 && invalid > 0)) {
+      status = 'red';
+    } else if (corrective > 0) {
+      status = 'yellow';
+    } else if (ok > 0) {
+      status = 'green';
+    } else {
+      status = 'gray';
+    }
+
+    out.push({
+      point_id: point.id,
+      label: point.label,
+      ccp_id: point.ccp_id,
+      required_min_f: point.required_min_f,
+      required_max_f: point.required_max_f,
+      status,
+      total_readings: rows.length,
+      ok_count: ok,
+      corrective_count: corrective,
+      critical_count: critical,
+      invalid_count: invalid,
+      last_reading_f: newest ? newest.reading_f : null,
+      last_reading_at: newest && typeof newest.created_at === 'string' ? newest.created_at : null,
+    });
+  }
+  return out;
 }

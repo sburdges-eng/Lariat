@@ -11,6 +11,7 @@ import { getDb, todayISO } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { scanOpenBatches } from '../../lib/cooling';
 import { scanExpiringBatches } from '../../lib/dateMarks';
+import { classifyReadings } from '../../lib/tempLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +50,25 @@ function summarize(loc, today) {
   }
   const sanitizerOut = Array.from(latestByPoint.values()).filter((r) => r.status !== 'ok');
 
+  const tempLogRows = db
+    .prepare(
+      `SELECT * FROM temp_log WHERE location_id=? AND shift_date=? ORDER BY created_at DESC`,
+    )
+    .all(loc, today);
+  const tempLogSummary = classifyReadings(tempLogRows, { expectAllPoints: true });
+  const tempLogStats = tempLogSummary.reduce(
+    (acc, s) => {
+      if (s.status === 'green') acc.green += 1;
+      else if (s.status === 'yellow') acc.yellow += 1;
+      else if (s.status === 'red') acc.red += 1;
+      else acc.gray += 1;
+      acc.corrective += s.corrective_count;
+      acc.critical += s.critical_count;
+      return acc;
+    },
+    { green: 0, yellow: 0, red: 0, gray: 0, corrective: 0, critical: 0 },
+  );
+
   return {
     cooling: {
       open: openCooling.length,
@@ -67,6 +87,12 @@ function summarize(loc, today) {
     sanitizer: {
       today: sanitizerToday.length,
       out: sanitizerOut.length,
+    },
+    tempLog: {
+      total: tempLogSummary.length,
+      corrective: tempLogStats.corrective,
+      critical: tempLogStats.critical,
+      notLogged: tempLogStats.gray,
     },
   };
 }
@@ -162,6 +188,17 @@ export default function FoodSafetyHub({ searchParams }) {
           lines={[
             { n: s.sanitizer.today, label: 'readings today' },
             { n: s.sanitizer.out, label: 'out of spec (latest per point)', tone: s.sanitizer.out ? 'red' : null },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/temp-log${locQ}`}
+          title="Temp log"
+          sub="FDA §3-501.16, §3-401.11, §3-403.11 — cold/hot hold, cook, reheat"
+          status={{ red: s.tempLog.critical > 0, amber: s.tempLog.corrective > 0 || s.tempLog.notLogged > 0 }}
+          lines={[
+            { n: s.tempLog.total, label: 'CCPs monitored' },
+            { n: s.tempLog.corrective, label: 'corrective (noted)', tone: s.tempLog.corrective ? 'amber' : null },
+            { n: s.tempLog.critical, label: 'critical — no note on fix', tone: s.tempLog.critical ? 'red' : null },
           ]}
         />
       </div>
