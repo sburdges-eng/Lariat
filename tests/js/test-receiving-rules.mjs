@@ -251,15 +251,6 @@ describe('validateReceivingReading — rejected path', () => {
   });
 });
 
-// ── unknown category → accept_with_note fallback ──────────────────
-
-describe('validateReceivingReading — unknown category fallback', () => {
-  it('unknown category becomes accept_with_note (not rejected) so a new vendor SKU is loggable', () => {
-    const v = validateReceivingReading({ category: 'specialty_bakery' });
-    assert.strictEqual(v.status, 'accept_with_note');
-    assert.match(v.reason, /unknown category/);
-  });
-});
 
 // ── classifyDeliveries — tile aggregator ──────────────────────────
 

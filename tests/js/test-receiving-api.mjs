@@ -106,6 +106,20 @@ describe('POST /api/receiving — happy path', () => {
     assert.strictEqual(row.invoice_ref, 'INV-2002');
     assert.strictEqual(row.expiration_date, '2026-05-15');
   });
+
+  it('accepts invoice_no as alias for invoice_ref', async () => {
+    const res = await POST(postReq({
+      vendor: 'sysco',
+      category: 'refrigerated',
+      item: 'Milk 2%',
+      reading_f: 40,
+      package_ok: true,
+      invoice_no: 'INV-9999',
+    }));
+    assert.strictEqual(res.status, 200);
+    const row = testDb.prepare('SELECT invoice_ref FROM receiving_log ORDER BY id DESC LIMIT 1').get();
+    assert.strictEqual(row.invoice_ref, 'INV-9999');
+  });
 });
 
 // ── POST — validation / 400 path ─────────────────────────────────

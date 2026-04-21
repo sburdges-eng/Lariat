@@ -25,10 +25,9 @@
  * RECEIVING_CATEGORIES is the well-known set of truck-to-door
  * categories. The DB column is TEXT so extensions don't require a
  * schema change; however, the rule module will only classify against
- * categories named here. An unknown category is treated as a soft
- * fail (caller gets status='accept_with_note' with a citation note,
- * because a dry-goods-style deliver without a bounded temp probe
- * should never be outright rejected on the thresholds alone).
+ * categories named here. The route hard-400s unknown categories before
+ * the lib runs; direct lib callers with an unknown category get a
+ * loud error via validateReceivingReading.
  */
 export const RECEIVING_CATEGORIES = [
   'refrigerated',
@@ -261,12 +260,7 @@ export function validateReceivingReading(
 ): ValidateReceivingResult {
   const rule = getReceivingRule(input.category);
   if (!rule) {
-    return {
-      status: 'accept_with_note',
-      reason: `unknown category "${String(input.category)}" — accept only with a corrective note`,
-      citation: 'FDA §3-202.11 — requires a recognized receiving category',
-      required_max_f: null,
-    };
+    throw new Error(`unknown receiving category: ${String(input.category)}`);
   }
 
   // §3-202.15 — visible adulteration / compromised package is an
@@ -413,8 +407,9 @@ export interface CategorySummary {
 
 /**
  * Aggregate today's receiving rows into one tile per known category.
- * Rows carrying an unknown category are surfaced on an `_unknown`
- * bucket so the UI can still flag them without the board going quiet.
+ * Rows carrying an unknown category are silently dropped from the
+ * aggregate (they can only arrive via direct DB writes that bypass
+ * the route's hard-400 guard).
  *
  * `options.expectAllCategories` (default true) renders a gray tile
  * for every RECEIVING_CATEGORY with no rows — mirroring the temp-log
