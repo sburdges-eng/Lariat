@@ -330,6 +330,15 @@ function LineItemsTable({ items, onUpdate, onDelete, event, onEventSave }) {
   const subtotal = rows.reduce((s, r) => s + r.line_total, 0);
   const taxRate = Number(event.tax_rate || 0);
   const feePct = Number(event.service_fee_pct || 0);
+
+  const [localTax, setLocalTax] = useState(taxRate);
+  const [localFee, setLocalFee] = useState(feePct);
+
+  useEffect(() => {
+    setLocalTax(taxRate);
+    setLocalFee(feePct);
+  }, [event.id, taxRate, feePct]);
+
   const tax = roundMoney(subtotal * taxRate);
   const fee = roundMoney(subtotal * (feePct / 100));
   const total = roundMoney(subtotal + tax + fee);
@@ -374,9 +383,10 @@ function LineItemsTable({ items, onUpdate, onDelete, event, onEventSave }) {
                 type="number"
                 step="0.0001"
                 className="beo-small-input"
-                defaultValue={taxRate}
-                onBlur={(e) => {
-                  const v = Number(e.target.value);
+                value={localTax}
+                onChange={(e) => setLocalTax(e.target.value)}
+                onBlur={() => {
+                  const v = Number(localTax);
                   if (Number.isFinite(v) && v !== taxRate) onEventSave({ tax_rate: v });
                 }}
                 aria-label="tax rate"
@@ -393,9 +403,10 @@ function LineItemsTable({ items, onUpdate, onDelete, event, onEventSave }) {
                 type="number"
                 step="0.1"
                 className="beo-small-input"
-                defaultValue={feePct}
-                onBlur={(e) => {
-                  const v = Number(e.target.value);
+                value={localFee}
+                onChange={(e) => setLocalFee(e.target.value)}
+                onBlur={() => {
+                  const v = Number(localFee);
                   if (Number.isFinite(v) && v !== feePct) onEventSave({ service_fee_pct: v });
                 }}
                 aria-label="service fee %"
