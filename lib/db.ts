@@ -239,9 +239,13 @@ export interface BeoEvent {
   id: number;
   title: string;
   event_date: string | null;
+  event_time: string | null;          // "5-7pm", "4:30 PM", etc. — free-text
+  contact_name: string | null;
   guest_count: number | null;
   notes: string | null;
   status: string;
+  tax_rate: number;                   // 0.0675 = 6.75%
+  service_fee_pct: number;            // 20 = 20%
   location_id: string;
   created_at: string;
 }
@@ -254,6 +258,17 @@ export interface BeoTask {
   done: number;
   sort_order: number;
   location_id: string;
+}
+
+export interface BeoLineItem {
+  id: number;
+  event_id: number;
+  sort_order: number;
+  item_name: string;
+  category: string | null;
+  unit_cost: number;
+  quantity: number;
+  created_at: string;
 }
 
 export interface Equipment {
@@ -1156,12 +1171,29 @@ export function initSchema(db: DB): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
       event_date TEXT,
+      event_time TEXT,
+      contact_name TEXT,
       guest_count INTEGER,
       notes TEXT,
       status TEXT DEFAULT 'planned',
+      tax_rate REAL DEFAULT 0.0675,
+      service_fee_pct REAL DEFAULT 20,
       location_id TEXT DEFAULT 'default',
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS beo_line_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id INTEGER NOT NULL,
+      sort_order INTEGER DEFAULT 0,
+      item_name TEXT NOT NULL,
+      category TEXT,
+      unit_cost REAL NOT NULL DEFAULT 0,
+      quantity REAL NOT NULL DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (event_id) REFERENCES beo_events(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_beo_line_ev ON beo_line_items(event_id);
 
     CREATE TABLE IF NOT EXISTS beo_prep_tasks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1828,6 +1860,19 @@ function migrateLegacyColumns(db: DB): void {
   ];
   for (const [col, ddl] of equipMigrations) {
     if (!equipCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  // BEO events gained event_time / contact_name / tax_rate / service_fee_pct
+  // so the worksheet-style board can store the invoice-header fields.
+  const beoCols = t('beo_events');
+  const beoMigrations: [string, string][] = [
+    ['event_time',      'ALTER TABLE beo_events ADD COLUMN event_time TEXT'],
+    ['contact_name',    'ALTER TABLE beo_events ADD COLUMN contact_name TEXT'],
+    ['tax_rate',        'ALTER TABLE beo_events ADD COLUMN tax_rate REAL DEFAULT 0.0675'],
+    ['service_fee_pct', 'ALTER TABLE beo_events ADD COLUMN service_fee_pct REAL DEFAULT 20'],
+  ];
+  for (const [col, ddl] of beoMigrations) {
+    if (!beoCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
   }
 
   // Extend bom_lines with yield / cooking-loss factors used by COGS mapping.
