@@ -546,6 +546,40 @@ export interface ShiftPic {
 }
 
 /**
+ * Pre-shift heads-up note written by the head chef. One row per
+ * (location, shift_date, service_label). Empty service_label means
+ * a prep-day note (the kitchen is closed that day).
+ */
+export interface PreshiftNote {
+  id: number;
+  location_id: string;
+  shift_date: string;
+  service_label: string | null;    // 'Dinner' | 'Brunch' | NULL
+  body: string;
+  author_cook_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Service hours by day-of-week. `day_of_week` follows JS
+ * Date.getDay() (0=Sun..6=Sat). A day with no row is closed. Multiple
+ * rows per day are allowed for split services (e.g. lunch + dinner),
+ * disambiguated by service_label.
+ */
+export interface ServiceHoursRow {
+  id: number;
+  location_id: string;
+  day_of_week: number;             // 0=Sun..6=Sat (JS Date.getDay)
+  opens_at: string | null;         // 'HH:MM' 24h
+  closes_at: string | null;
+  service_label: string | null;    // 'Dinner', 'Brunch', 'Lunch', ...
+  notes: string | null;
+  active: number;
+  created_at: string;
+}
+
+/**
  * Cleaning schedule (FDA §4-602, §4-702). Master list of recurring
  * cleaning tasks (hood, floor drains, walk-in gaskets, ice machine,
  * fry vats). `frequency` is free-text but should parse as 'daily' |
@@ -889,6 +923,35 @@ export function initSchema(db: DB): void {
       name TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS service_hours (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      day_of_week INTEGER NOT NULL,
+      opens_at TEXT,
+      closes_at TEXT,
+      service_label TEXT,
+      notes TEXT,
+      active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(location_id, day_of_week, service_label)
+    );
+    CREATE INDEX IF NOT EXISTS idx_service_hours_loc
+      ON service_hours(location_id, day_of_week);
+
+    CREATE TABLE IF NOT EXISTS preshift_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      shift_date TEXT NOT NULL,
+      service_label TEXT,
+      body TEXT NOT NULL,
+      author_cook_id TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(location_id, shift_date, service_label)
+    );
+    CREATE INDEX IF NOT EXISTS idx_preshift_date
+      ON preshift_notes(location_id, shift_date);
 
     CREATE TABLE IF NOT EXISTS vendor_prices (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1882,6 +1945,58 @@ export function getDb(): DB {
 
 export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Return all active service-hour rows for a location, ordered Sun→Sat.
+ * A day with no row is closed.
+ */
+export function getServiceHours(locationId = 'default'): ServiceHoursRow[] {
+  return getDb()
+    .prepare(
+      `SELECT * FROM service_hours
+        WHERE location_id = ? AND active = 1
+        ORDER BY day_of_week, service_label`,
+    )
+    .all(locationId) as ServiceHoursRow[];
+}
+
+/**
+ * Today's primary service label for a location, derived from
+ * service_hours. Returns null when nothing is scheduled (prep day).
+ * If multiple services exist on the same day, the one opening first
+ * wins.
+ */
+export function todayServiceLabel(locationId = 'default'): string | null {
+  const dow = new Date().getDay();
+  const row = getDb()
+    .prepare(
+      `SELECT service_label FROM service_hours
+        WHERE location_id = ? AND active = 1 AND day_of_week = ?
+        ORDER BY opens_at ASC LIMIT 1`,
+    )
+    .get(locationId, dow) as { service_label: string | null } | undefined;
+  return row?.service_label ?? null;
+}
+
+/**
+ * Get the current pre-shift note for the given date + service slot,
+ * or null if none exists. A NULL service_label means a prep-day note.
+ */
+export function getPreshiftNote(
+  locationId: string,
+  shiftDate: string,
+  serviceLabel: string | null,
+): PreshiftNote | null {
+  const row = getDb()
+    .prepare(
+      `SELECT * FROM preshift_notes
+        WHERE location_id = ? AND shift_date = ?
+          AND (service_label IS ? OR service_label = ?)
+        LIMIT 1`,
+    )
+    .get(locationId, shiftDate, serviceLabel, serviceLabel) as PreshiftNote | undefined;
+  return row ?? null;
 }
 
 export const DB_FILE = DB_PATH;
