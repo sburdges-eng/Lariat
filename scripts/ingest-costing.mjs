@@ -121,9 +121,13 @@ const DEFAULT_OPS = path.join(ROOT, 'XL', 'lariat_operations_workbook_2026-04-10
  *   total_yield_delta_usd: number,
  *   max_recipe_yield_delta_usd: number,
  *   bom_lines_needs_density: number,
- * }} Summary of rows inserted, yield coverage, yield-adjustment totals, and
+ *   pack_size_changes: number,
+ * }} Summary of rows inserted, yield coverage, yield-adjustment totals,
  *    count of BOM rows flagged `map_status='NEEDS_DENSITY'` by the T4
- *    volume↔weight conversion pass (these surface in B2's unmapped queue).
+ *    volume↔weight conversion pass (these surface in B2's unmapped queue),
+ *    and count of vendor pack-size substitutions (T6) detected this run —
+ *    each backed by a row in the `pack_size_changes` audit table and
+ *    `vendor_prices.map_status='PACK_CHANGED'` on the freshly-inserted row.
  */
 export function ingestCosting(db, data, locationId = 'default') {
   initSchema(db);
@@ -202,6 +206,52 @@ function _ingestCostingImpl(db, data, locationId) {
     recipes_yield_adjusted: 0,
     total_yield_delta_usd: 0,
     bom_lines_needs_density: 0,
+    pack_size_changes: 0,
+  };
+
+  // ── T6: pack-size substitution detection ──────────────────────────
+  // Snapshot the current vendor_prices rows (latest per (vendor, sku))
+  // BEFORE the DELETE below — otherwise there's no "prior" pack to diff
+  // against. The key is `${vendor}\u0001${sku}` so empty vendor or sku
+  // don't collide with anything. Units are compared post-normalizeUnit
+  // so 'CS' vs 'cs' or 'pound' vs 'lb' doesn't log a spurious change.
+  //
+  // Shared (vendor, sku) key — used both here to snapshot prior packs
+  // AND below inside the transaction loop to look them up. One definition
+  // avoids drift between the two sites.
+  const pkey = (v, s) => `${v ?? ''}\u0001${s ?? ''}`;
+  const priorPackByKey = new Map();
+  for (const row of db.prepare(
+    `SELECT vendor, sku, pack_size, pack_unit, pack_price, imported_at, id
+       FROM vendor_prices
+      WHERE location_id = ?
+        AND vendor IS NOT NULL AND vendor != ''
+        AND sku IS NOT NULL AND sku != ''
+      ORDER BY imported_at DESC, id DESC`,
+  ).all(locationId)) {
+    const k = pkey(row.vendor, row.sku);
+    if (!priorPackByKey.has(k)) {
+      priorPackByKey.set(k, {
+        pack_size: row.pack_size,
+        pack_unit: row.pack_unit,
+        pack_price: row.pack_price,
+      });
+    }
+  }
+  // Format a "{size}x{unit}" human-readable pack string. If either side
+  // is null or empty we return null outright — a half-populated "6x" or
+  // "x#10" would be ambiguous in the audit log, and the ingest persists
+  // a null pack_unit as '' (see `pack_unit: r.pack_unit ?? ''` in the
+  // INSERT below), so treating '' same as null keeps round-trips clean.
+  // Detection logic above also null-checks independently, so this is
+  // defensive rather than load-bearing, but it keeps prev_pack/new_pack
+  // self-describing.
+  const formatPack = (packSize, packUnit) => {
+    if (packSize == null || packUnit == null) return null;
+    const sz = String(packSize);
+    const un = String(packUnit);
+    if (!sz || !un) return null;
+    return `${sz}x${un}`;
   };
 
   const del = (sql) => db.prepare(sql).run(locationId);
@@ -216,12 +266,78 @@ function _ingestCostingImpl(db, data, locationId) {
     // Named parameters — D3 in MAPPING_ENGINE_GAPS.md. Positional `?` lists
     // silently succeed when the schema gains a column (new slot stays NULL).
     // Named binds force a schema match at prepare-time.
+    //
+    // T6 binds map_status here so a detected pack-size substitution can flag
+    // the freshly-INSERTed row in the same statement (no follow-up UPDATE).
     const ivp = db.prepare(`
-      INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, category, yield_pct, location_id)
-      VALUES (@ingredient, @vendor, @sku, @pack_size, @pack_unit, @pack_price, @unit_price, @category, @yield_pct, @location_id)
+      INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, category, yield_pct, map_status, location_id)
+      VALUES (@ingredient, @vendor, @sku, @pack_size, @pack_unit, @pack_price, @unit_price, @category, @yield_pct, @map_status, @location_id)
+    `);
+    const ipsc = db.prepare(`
+      INSERT INTO pack_size_changes (vendor, sku, prev_pack, new_pack, prev_price, new_price)
+      VALUES (@vendor, @sku, @prev_pack, @new_pack, @prev_price, @new_price)
     `);
     for (const r of data.vendor_prices || []) {
       const y = lookup(r.ingredient);
+
+      // T6 diff: only meaningful when BOTH vendor and sku are non-empty
+      // (can't key a substitution on blanks). Compare normalized pack_unit
+      // + numeric pack_size against the latest prior row; on mismatch log
+      // a pack_size_changes audit row and flag the new row 'PACK_CHANGED'.
+      //
+      // Attention-queue semantics (read this before changing map_status):
+      //   vendor_prices.map_status='PACK_CHANGED' is a RUN-SCOPED signal.
+      //   It lives on the freshly-INSERTed vendor_prices row and reflects
+      //   "this ingest run observed a pack-size diff for (vendor, sku)."
+      //   Because the DELETE+INSERT sweep in the transaction wipes
+      //   vendor_prices every run, the flag does NOT persist across a
+      //   subsequent quiet re-ingest of the post-swap state (run 3 of
+      //   the same pack + price after run 2 detected the change): there's
+      //   no diff to re-emit, so map_status lands as NULL again.
+      //
+      //   The DURABLE "surface until acknowledged" queue source is the
+      //   pack_size_changes table — specifically `WHERE acknowledged=0`.
+      //   pack_size_changes is never DELETEd by the ingest, so the full
+      //   per-(vendor,sku) change history is preserved and operators can
+      //   acknowledge explicitly (UPDATE … SET acknowledged=1) without
+      //   any ingest side-effect racing them. Downstream UI / attention
+      //   queues MUST key on pack_size_changes.acknowledged, not on
+      //   vendor_prices.map_status, for persistence guarantees.
+      let mapStatus = null;
+      const hasVendor = r.vendor != null && String(r.vendor) !== '';
+      const hasSku = r.sku != null && String(r.sku) !== '';
+      if (hasVendor && hasSku) {
+        const prior = priorPackByKey.get(pkey(r.vendor, r.sku));
+        if (prior) {
+          const newUnitCanon = normalizeUnit(r.pack_unit);
+          const oldUnitCanon = normalizeUnit(prior.pack_unit);
+          const newSize = r.pack_size ?? null;
+          const oldSize = prior.pack_size ?? null;
+          // Treat numeric equality tolerantly for REAL ↔ int round-trips
+          // (SQLite stores 6 as 6.0); unit equality uses canonical form.
+          const sizeEq = (newSize == null && oldSize == null) ||
+                         (newSize != null && oldSize != null && Number(newSize) === Number(oldSize));
+          const unitEq = newUnitCanon === oldUnitCanon;
+          if (!(sizeEq && unitEq)) {
+            ipsc.run({
+              vendor: String(r.vendor),
+              sku: String(r.sku),
+              prev_pack: formatPack(prior.pack_size, prior.pack_unit),
+              new_pack: formatPack(r.pack_size, r.pack_unit),
+              prev_price: prior.pack_price ?? null,
+              new_price: r.pack_price ?? null,
+            });
+            summary.pack_size_changes++;
+            mapStatus = 'PACK_CHANGED';
+          }
+        }
+      }
+
+      // NOTE: map_status bound below is run-scoped (see block comment
+      // above). A quiet re-ingest of the post-swap state will land this
+      // column as NULL because there's no new diff; that is intentional.
+      // The persistent attention-queue source for pack substitutions is
+      // `pack_size_changes WHERE acknowledged=0`.
       ivp.run({
         ingredient: r.ingredient,
         vendor: r.vendor,
@@ -233,6 +349,7 @@ function _ingestCostingImpl(db, data, locationId) {
         category: r.category ?? null,
         // NULL on miss — NEVER default to 1.0 (would silently poison COGS).
         yield_pct: y?.yield_pct ?? null,
+        map_status: mapStatus,
         location_id: locationId,
       });
       summary.vendor_prices++;
@@ -765,6 +882,11 @@ function main() {
     if (summary.bom_lines > 0 && summary.bom_coverage_pct < 50) {
       console.warn(
         `⚠ yield coverage ${summary.bom_coverage_pct.toFixed(1)}% is below 50% — ingredient_yields seed may be stale vs current BOM ingredient names`,
+      );
+    }
+    if (summary.pack_size_changes > 0) {
+      console.warn(
+        `⚠ T6: ${summary.pack_size_changes} vendor pack-size substitution(s) detected — review the pack_size_changes table / attention queue`,
       );
     }
   } finally {
