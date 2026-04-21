@@ -55,6 +55,20 @@ from pathlib import Path
 import xlrd
 
 ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.lib.invoice_processor import (  # noqa: E402
+    CATCH_WEIGHT_THRESHOLD,
+    reconcile_catch_weight,
+)
+
+# Catch-weight delivered-weight marker in Shamrock descriptions. Matches
+# "\nActual Weight: 30lbs", "Actual Weight: 29.90lbs", "Actual Weight: 19.3 lbs".
+# Case-insensitive; keeps leading/trailing whitespace unimportant.
+RE_ACTUAL_WEIGHT = re.compile(r"Actual\s+Weight:\s*([0-9]+(?:\.[0-9]+)?)\s*lbs?", re.IGNORECASE)
+
+SHAMROCK_VENDOR = "shamrock"
 DEFAULT_DIR = (
     Path("/Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18/data/")
     / "originals/shamrock/invoice history shamrock"
@@ -264,6 +278,13 @@ def parse_invoice(xls_path: Path) -> tuple[dict | None, list[dict], dict[str, in
             continue
         seen.add(key)
 
+        # T5b: catch-weight delivered weight lives in the description cell as
+        # "\nActual Weight: 30lbs" for items Shamrock bills by weight. We
+        # parse it into a structured column here; reconciliation against
+        # vendor_catch_weights happens in ingest() (needs DB lookup).
+        aw_match = RE_ACTUAL_WEIGHT.search(desc)
+        actual_received_lb = float(aw_match.group(1)) if aw_match else None
+
         lines.append({
             "invoice_no": invoice_no,
             "delivery_date": delivery_date,
@@ -278,6 +299,8 @@ def parse_invoice(xls_path: Path) -> tuple[dict | None, list[dict], dict[str, in
             "pack_unit": pack_unit or None,
             "unit_price": unit_price,
             "line_total": line_total,
+            "actual_received_lb": actual_received_lb,
+            "reconciled_unit_price": None,  # filled in by enrich_catch_weights()
             "source_file": xls_path.name,
             "location_id": "default",
         })
@@ -300,6 +323,8 @@ def ensure_table(con: sqlite3.Connection) -> None:
       pack_unit TEXT,
       unit_price REAL,
       line_total REAL,
+      actual_received_lb REAL,
+      reconciled_unit_price REAL,
       source_file TEXT,
       location_id TEXT DEFAULT 'default',
       imported_at TEXT DEFAULT (datetime('now')),
@@ -308,6 +333,79 @@ def ensure_table(con: sqlite3.Connection) -> None:
     CREATE INDEX IF NOT EXISTS idx_shamrock_inv_date ON shamrock_invoices(delivery_date);
     CREATE INDEX IF NOT EXISTS idx_shamrock_inv_no ON shamrock_invoices(invoice_no);
     """)
+    # T5b migration: add actual_received_lb + reconciled_unit_price columns
+    # to legacy shamrock_invoices tables (pre-T5b). CREATE TABLE IF NOT
+    # EXISTS above handles fresh DBs; ALTER here upgrades existing ones.
+    # Idempotent via PRAGMA table_info presence check.
+    existing_cols = {
+        row[1] for row in cur.execute("PRAGMA table_info(shamrock_invoices)").fetchall()
+    }
+    for col, ddl in [
+        ("actual_received_lb", "ALTER TABLE shamrock_invoices ADD COLUMN actual_received_lb REAL"),
+        ("reconciled_unit_price", "ALTER TABLE shamrock_invoices ADD COLUMN reconciled_unit_price REAL"),
+    ]:
+        if col not in existing_cols:
+            cur.execute(ddl)
+
+
+def enrich_catch_weights(
+    con: sqlite3.Connection,
+    rows: list[dict],
+    *,
+    vendor: str = SHAMROCK_VENDOR,
+    threshold: float = CATCH_WEIGHT_THRESHOLD,
+) -> dict[str, int]:
+    """Fill ``reconciled_unit_price`` on rows where the parsed
+    ``actual_received_lb`` deviates from ``vendor_catch_weights.catalog_wt_lb``
+    by more than ``threshold``. Leaves NULL on rows with no parsed actual
+    weight, no matching catalog entry, or deviation within tolerance.
+
+    Mutates ``rows`` in-place; returns counters for observability.
+    """
+    counters = {"matched": 0, "reconciled": 0, "no_catalog": 0, "no_actual": 0}
+    # Pre-load catalog for this vendor to keep the enrichment O(N).
+    catalog: dict[str, tuple[float, float | None]] = {}
+    for sku, catalog_wt_lb, tare_lb in con.execute(
+        "SELECT sku, catalog_wt_lb, tare_lb FROM vendor_catch_weights WHERE vendor = ?",
+        (vendor,),
+    ):
+        catalog[str(sku)] = (float(catalog_wt_lb), float(tare_lb) if tare_lb else None)
+
+    for row in rows:
+        actual = row.get("actual_received_lb")
+        if actual is None:
+            counters["no_actual"] += 1
+            continue
+        sku = str(row.get("sku") or "")
+        hit = catalog.get(sku)
+        if hit is None:
+            counters["no_catalog"] += 1
+            continue
+        counters["matched"] += 1
+        catalog_wt_lb, tare_lb = hit
+        invoice_total = row.get("line_total")
+        if invoice_total is None or invoice_total <= 0:
+            continue
+        try:
+            result = reconcile_catch_weight(
+                catalog_wt_lb=catalog_wt_lb,
+                actual_received_lb=actual,
+                invoice_total=float(invoice_total),
+                threshold=threshold,
+                tare_lb=tare_lb,
+            )
+        except ValueError:
+            # Bad input (e.g. actual <= tare). Skip rather than fail the
+            # whole batch — the row still persists with actual_received_lb
+            # populated so an operator can investigate.
+            continue
+        # Only populate reconciled_unit_price when the threshold actually
+        # triggered. A NULL here means "no drift" rather than "no data" —
+        # the non-NULL actual_received_lb on the same row distinguishes.
+        if result["reconciled"]:
+            row["reconciled_unit_price"] = result["reconciled_unit_price"]
+            counters["reconciled"] += 1
+    return counters
 
 
 def ingest(db_path: Path, all_rows: list[dict], dry_run: bool) -> tuple[int, int]:
@@ -319,6 +417,18 @@ def ingest(db_path: Path, all_rows: list[dict], dry_run: bool) -> tuple[int, int
         ).fetchone()[0]
         if dry_run:
             return before, len(all_rows)
+        # Enrich with catch-weight reconciliation BEFORE the BEGIN so the
+        # catalog lookup doesn't get tangled with the delete+insert
+        # transaction (it's read-only against vendor_catch_weights).
+        cw_counters = enrich_catch_weights(con, all_rows)
+        if cw_counters["matched"]:
+            print(
+                f"catch-weight enrichment: matched={cw_counters['matched']} "
+                f"reconciled={cw_counters['reconciled']} "
+                f"no_catalog={cw_counters['no_catalog']} "
+                f"no_actual={cw_counters['no_actual']}",
+                file=sys.stderr,
+            )
         try:
             cur.execute("BEGIN;")
             cur.execute(
@@ -327,11 +437,14 @@ def ingest(db_path: Path, all_rows: list[dict], dry_run: bool) -> tuple[int, int
             cur.executemany(
                 """INSERT INTO shamrock_invoices
                    (invoice_no, delivery_date, ordered_date, item, sku, qty,
-                    pack_size, pack_unit, unit_price, line_total, source_file,
-                    location_id)
+                    pack_size, pack_unit, unit_price, line_total,
+                    actual_received_lb, reconciled_unit_price,
+                    source_file, location_id)
                    VALUES (:invoice_no, :delivery_date, :ordered_date, :item,
                            :sku, :qty, :pack_size, :pack_unit, :unit_price,
-                           :line_total, :source_file, :location_id)""",
+                           :line_total, :actual_received_lb,
+                           :reconciled_unit_price,
+                           :source_file, :location_id)""",
                 all_rows,
             )
             con.commit()

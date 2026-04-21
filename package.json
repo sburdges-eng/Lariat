@@ -26,7 +26,8 @@
     "test:ingredient-key": "node --test tests/js/test-ingredient-key-parity.mjs",
     "test:ingest-yields": "node --experimental-strip-types --test tests/js/test-ingest-costing-yields.mjs",
     "test:yield-math": "node --experimental-strip-types --test tests/js/test-ingest-costing-yield-math.mjs",
-    "test:catch-weights": "node --experimental-strip-types --test tests/js/test-catch-weights-schema.mjs"
+    "test:catch-weights": "node --experimental-strip-types --test tests/js/test-catch-weights-schema.mjs",
+    "test:catch-weight-backfill": "node --experimental-strip-types --test tests/js/test-catch-weight-backfill.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",

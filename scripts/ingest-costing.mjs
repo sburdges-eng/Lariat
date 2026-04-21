@@ -333,7 +333,84 @@ function _ingestCostingImpl(db, data, locationId) {
   summary.total_yield_delta_usd = Math.round(totalDelta * 100) / 100;
   summary.max_recipe_yield_delta_usd = Math.round(maxPerRecipeDelta * 100) / 100;
 
+  // T5b.3: backfill catch-weight reconciliation from the latest invoice
+  // per (vendor, sku) into vendor_prices. The costing ingest's DELETE+
+  // INSERT sweep above wipes vendor_prices.actual_received_lb and
+  // reconciled_unit_price every run; this re-applies them so the latest
+  // invoice's audit trail persists on the canonical vendor_prices row.
+  // No-op when shamrock_invoices lacks catch-weight rows or the table
+  // is missing (pre-T5b DB).
+  const cwBackfill = backfillCatchWeightsIntoVendorPrices(db, locationId);
+  summary.catch_weight_backfilled_rows = cwBackfill.updated;
+
   return summary;
+}
+
+/**
+ * T5b.3 — join the most recent per-(vendor, sku) invoice catch-weight
+ * reconciliation into vendor_prices. Writes both actual_received_lb and
+ * reconciled_unit_price on matching vendor_prices rows; leaves unchanged
+ * rows that have no invoice match. Runs in a single transaction.
+ *
+ * Only Shamrock is wired for now because its invoice history lives in
+ * the shamrock_invoices table. Sysco invoices live in vendor_summary.json
+ * (file-cached); a future follow-up can import that into a sibling table
+ * and extend this function to scan both sources.
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} [locationId='default']
+ * @returns {{updated: number}}
+ */
+export function backfillCatchWeightsIntoVendorPrices(db, locationId = 'default') {
+  const out = { updated: 0 };
+  // Guard: shamrock_invoices may be absent on fresh DBs where the ingest
+  // hasn't run yet. vendor_prices.actual_received_lb / reconciled_unit_price
+  // likewise require the T5a migration. Either missing → skip cleanly.
+  const tables = new Set(
+    db.prepare("SELECT name FROM sqlite_master WHERE type='table'")
+      .all()
+      .map((r) => r.name),
+  );
+  if (!tables.has('shamrock_invoices') || !tables.has('vendor_prices')) return out;
+  const vpCols = new Set(
+    db.prepare('PRAGMA table_info(vendor_prices)').all().map((c) => c.name),
+  );
+  if (!vpCols.has('actual_received_lb') || !vpCols.has('reconciled_unit_price')) return out;
+
+  // Latest catch-weight row per SKU, preferring rows with non-NULL
+  // reconciled_unit_price so the dashboard surfaces actual drift first.
+  const latest = db.prepare(`
+    SELECT sku, actual_received_lb, reconciled_unit_price
+      FROM shamrock_invoices
+     WHERE location_id = ?
+       AND actual_received_lb IS NOT NULL
+       AND sku IS NOT NULL AND sku != ''
+     GROUP BY sku
+     HAVING delivery_date = MAX(delivery_date)
+  `).all(locationId);
+
+  if (latest.length === 0) return out;
+
+  const upd = db.prepare(`
+    UPDATE vendor_prices
+       SET actual_received_lb = @actual_received_lb,
+           reconciled_unit_price = @reconciled_unit_price
+     WHERE vendor = 'shamrock'
+       AND sku = @sku
+       AND location_id = @location_id
+  `);
+  db.transaction(() => {
+    for (const row of latest) {
+      const r = upd.run({
+        sku: row.sku,
+        actual_received_lb: row.actual_received_lb,
+        reconciled_unit_price: row.reconciled_unit_price ?? null,
+        location_id: locationId,
+      });
+      out.updated += r.changes;
+    }
+  })();
+  return out;
 }
 
 // ── CLI entrypoint ─────────────────────────────────────────────────
