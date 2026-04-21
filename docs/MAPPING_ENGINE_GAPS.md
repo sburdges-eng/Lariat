@@ -176,23 +176,85 @@ against.
   populated with 107 rows from the archived CSV against a scratch DB;
   idempotent on rerun.
 
-### T5b — Invoice integration (deferred)
+### T5b — Invoice integration
 
-- [ ] **Task.** Wire `reconcile_catch_weight` into
-  `scripts/ingest_sysco_invoice_pdfs.py` and
-  `scripts/ingest_shamrock_invoices.py` so real invoices populate
-  `vendor_prices.actual_received_lb` and `reconciled_unit_price`.
-- [ ] **Blocker.** Needs a real Sysco / Shamrock invoice with per-pack
-  delivered weight (the current PDF parsers extract line-item totals but
-  not per-pack actual weights). May require a sample from a recent
-  delivery and an update to the PDF extraction layer.
-- [ ] **Acceptance.** 100% of catch-weight categories that appear in real
-  invoices have both columns populated after ingest. Lariat's actual
-  catch-weight-ish items per the current `vendor_prices` catalog:
-  `beef cheek meat`, `basa flt bnls sknls viet iqf swai` (frozen fish
-  fillet), various bacon SKUs, chicken wings, burger patties — not the
-  ribeye/salmon/whole-fish/lamb-rack menu the plan originally called out
-  (Lariat's current menu doesn't include those).
+The exploration flagged that both PDF parsers already ship with the
+catch-weight signal in-band — Sysco as `T/WT=` continuation rows, Shamrock
+as `\nActual Weight: XX lbs` inside the description cell — but both were
+discarded by the existing ingest. T5b captures both, reconciles against
+`vendor_catch_weights`, and persists per-invoice reconciliation rows as
+well as a backfilled snapshot on `vendor_prices`.
+
+- [x] **Sysco parser (`scripts/ingest_sysco_invoice_pdfs.py`).**
+  `parse_line_item` now returns a dict with the peeled SKUs + line_total
+  + unit_price. The main parse loop captures `T/WT=` continuation
+  numerics onto the previous item as `actual_received_lb`.
+  `_collapse_in_pdf_duplicates` sums `line_total` and
+  `actual_received_lb` across split-shipment rows so downstream
+  reconciliation sees aggregate dollars against aggregate delivered
+  weight. New `enrich_catch_weights(db_path, items)` opens the SQLite
+  DB, loads vendor_catch_weights for Sysco, divides T/WT total by qty
+  to get per-pack actual, calls `reconcile_catch_weight`, and stores
+  `reconciled_unit_price` on the item dict (which gets persisted to
+  `vendor_summary.json.sysco.recent_items`). Returns counters
+  `{matched, reconciled, no_catalog, no_actual}`.
+- [x] **Shamrock parser (`scripts/ingest_shamrock_invoices.py`).**
+  `parse_invoice` regex-parses `Actual Weight: XX lbs` from the
+  description cell into a structured `actual_received_lb` column. New
+  `enrich_catch_weights(conn, rows)` joins against `vendor_catch_weights`
+  on SKU (vendor='shamrock'), calls `reconcile_catch_weight`, and sets
+  `reconciled_unit_price` on each row when deviation exceeds threshold.
+  Runs before the `DELETE+INSERT` transaction so the enrichment lookup
+  is read-only against vendor_catch_weights.
+- [x] **Schema migration (shamrock_invoices).** `ensure_table` gained
+  `actual_received_lb` and `reconciled_unit_price` columns + idempotent
+  `ALTER TABLE ... ADD COLUMN` migration block for pre-T5b DBs.
+- [x] **vendor_prices backfill (T5b.3).** New exported
+  `backfillCatchWeightsIntoVendorPrices(db, locationId)` in
+  `scripts/ingest-costing.mjs` joins the latest per-sku Shamrock
+  invoice (MAX(delivery_date)) into `vendor_prices` — writing both
+  `actual_received_lb` and `reconciled_unit_price` on every matching
+  row. Called from `_ingestCostingImpl` at the end of the post-pass so
+  the costing DELETE+INSERT sweep doesn't lose the audit trail.
+  Sysco's per-invoice data lives in `vendor_summary.json` (file cache);
+  a future follow-up could import it into a sibling SQLite table and
+  extend this function to scan both sources.
+- [x] **Scope of `reconciled_unit_price`.** Populated ONLY when the
+  reconciliation actually triggered (|deviation| > threshold, default
+  2%). A NULL value means "no drift detected" rather than "no data" —
+  the non-NULL `actual_received_lb` on the same row distinguishes those
+  two cases. Matches the dashboard's intent to surface flagged rows.
+- [x] **Test plan.** Python: 12 tests in
+  `tests/python/test_invoice_catch_weight_wiring.py` covering
+  `parse_line_item` dict shape, SKU peel, Sysco enrichment (match /
+  within-threshold / missing DB / pre-T5a DB), Shamrock regex (integer,
+  decimal, whitespace, case variations, missing), Shamrock enrichment
+  (match + reconcile / no catalog / no actual / within threshold). JS:
+  5 tests in `tests/js/test-catch-weight-backfill.mjs` covering
+  latest-per-sku selection, NULL-invoice skip, same-sku multi-row
+  update, missing shamrock_invoices table. 7 pre-existing JS suites +
+  all Python suites stay green (76 pass, 3 skipped, 1 unrelated
+  pre-existing failure in `NormalizeSeriesPinsNaNBehavior`).
+- [x] **Smoke against real invoice.** Ran parse_pdf on
+  `EnterpriseInvoice-759616979.pdf` → 40 line items, 2 catch-weight
+  (pork chop 2 CS / T/WT=17.4 / $318.25 and chicken breast 1 CS /
+  T/WT=20.65 / $117.68). With synthetic catalog rows seeded (pork chop
+  catalog_wt_lb=8.0, chicken catalog_wt_lb=20.0), enrich produced
+  `reconciled_unit_price=$18.29/lb` for pork chop (matches the invoice's
+  stamped unit price exactly) and `$5.70/lb` for chicken breast.
+
+**Known limitations / follow-ups:**
+- No Shamrock entries in `data/seeds/vendor_pack_weights.csv` yet — the
+  seed CSV came from the Sysco product catalog filter. Shamrock
+  catch-weight catalog rows need to be measured in-house or pulled
+  from Shamrock's catalog before Shamrock reconciliation fires on
+  anything. Until then, the enrichment correctly stores
+  `actual_received_lb` but leaves `reconciled_unit_price` NULL (the
+  "no catalog" bucket).
+- Sysco catch-weight data lives in `vendor_summary.json`, not a SQLite
+  table. The T5b.3 backfill only reads `shamrock_invoices`. Adding a
+  `sysco_invoices` table (or lifting the cache into SQLite) is the
+  natural next step to round out vendor_prices backfill for Sysco too.
 
 ---
 

@@ -39,8 +39,20 @@ from __future__ import annotations
 import json
 import os
 import re
+import sqlite3
 import sys
 from pathlib import Path
+
+ROOT_FOR_IMPORT = Path(__file__).resolve().parent.parent
+if str(ROOT_FOR_IMPORT) not in sys.path:
+    sys.path.insert(0, str(ROOT_FOR_IMPORT))
+
+from scripts.lib.invoice_processor import (  # noqa: E402
+    CATCH_WEIGHT_THRESHOLD,
+    reconcile_catch_weight,
+)
+
+SYSCO_VENDOR = "sysco"
 
 # pdfplumber lives in the project venv. When run via `.venv/bin/python` or
 # with the venv activated this import resolves naturally; otherwise fall back
@@ -284,8 +296,9 @@ def looks_like_sku(tok: str) -> bool:
     return has_digit and (has_dash_or_letter or len(tok) >= 6)
 
 
-def parse_line_item(line: str) -> tuple[int, str] | None:
-    """Return (qty, description) for a line-item row, or None if not parseable.
+def parse_line_item(line: str) -> dict | None:
+    """Return ``{qty, description, skus, unit_price, line_total}`` for a
+    line-item row, or None if not parseable.
 
     Strategy: pull qty from the leading 'C/F/D <qty>[S]CS' shape. Then walk
     from the right, peel off trailing tokens that are prices (last 1-2),
@@ -293,6 +306,11 @@ def parse_line_item(line: str) -> tuple[int, str] | None:
     after dropping the leading 4 columns (flag, qty/CS, pack-numeric, pack-unit
     OR brand) is the brand + description; we drop the first remaining token
     (brand) and keep the rest as description.
+
+    T5b: ``skus`` and the trailing price columns are exposed to callers so
+    catch-weight reconciliation can join against ``vendor_catch_weights``
+    by SKU and compute ``reconciled_unit_price`` from ``line_total /
+    actual_received_lb``.
     """
     m = RE_LINE_ITEM.match(line)
     credit_offset = 0  # whether to skip a leading storage flag in toks
@@ -332,10 +350,14 @@ def parse_line_item(line: str) -> tuple[int, str] | None:
         return None  # no price -> not a real item row
 
     # Peel SKU tokens (up to 2): trailing tokens that look like SKUs.
-    skus_peeled = 0
-    while toks and skus_peeled < 2 and looks_like_sku(toks[-1]):
-        toks.pop()
-        skus_peeled += 1
+    # T5b keeps the peeled SKUs so the enrichment phase can join against
+    # vendor_catch_weights. Order is outer-first because `pop()` reversed it:
+    # the line shape "... vendor_sku sysco_supc prices" means we popped
+    # sysco_supc first, so reverse back to preserve left-to-right order.
+    skus_peeled: list[str] = []
+    while toks and len(skus_peeled) < 2 and looks_like_sku(toks[-1]):
+        skus_peeled.append(toks.pop())
+    skus_peeled.reverse()
 
     # What remains: leading flag, qty/CS bundle, pack tokens, brand, desc...
     # Heuristic: drop the leading <flag> and <qty/CS> tokens (already known).
@@ -386,7 +408,23 @@ def parse_line_item(line: str) -> tuple[int, str] | None:
     description = clean_description(desc_words)
     if not description:
         return None
-    return qty, description
+    # prices was popped right-to-left, so it contains [line_total, unit_price, ...].
+    line_total: float | None = None
+    unit_price: float | None = None
+    try:
+        if len(prices) >= 1:
+            line_total = float(prices[0].rstrip('-'))
+        if len(prices) >= 2:
+            unit_price = float(prices[1].rstrip('-'))
+    except ValueError:
+        pass
+    return {
+        "qty": qty,
+        "description": description,
+        "skus": skus_peeled,
+        "unit_price": unit_price,
+        "line_total": line_total,
+    }
 
 
 def parse_pdf(path: Path) -> tuple[str, str, list[dict[str, object]]]:
@@ -452,8 +490,15 @@ def parse_pdf(path: Path) -> tuple[str, str, list[dict[str, object]]]:
                     continue
                 if any(stripped.startswith(p) for p in SKIP_PREFIXES):
                     continue
-                # Continuation lines: 'T/WT=' or pure-numeric weight rows.
+                # Continuation lines: 'T/WT=' rows carry the total delivered
+                # weight for the immediately-preceding catch-weight line
+                # (e.g. "8.650 8.750 T/WT= 17.400" → 17.4 lb across both
+                # cases of that row). T5b captures this value onto the
+                # previous item rather than discarding it.
                 if 'T/WT=' in stripped:
+                    m_twt = re.search(r'T/WT=\s*([0-9]+(?:\.[0-9]+)?)', stripped)
+                    if m_twt and items:
+                        items[-1]['actual_received_lb'] = float(m_twt.group(1))
                     continue
                 if re.match(r'^\d+(?:\.\d+)?(\s+\d+(?:\.\d+)?)*$', stripped):
                     continue
@@ -461,12 +506,16 @@ def parse_pdf(path: Path) -> tuple[str, str, list[dict[str, object]]]:
                 parsed = parse_line_item(stripped)
                 if parsed is None:
                     continue
-                qty, description = parsed
                 items.append({
                     'invoice': invoice or '',
                     'delivery_date': delivery_date or '',
-                    'description': description,
-                    'qty': qty,
+                    'description': parsed['description'],
+                    'qty': parsed['qty'],
+                    'skus': parsed['skus'],
+                    'unit_price': parsed['unit_price'],
+                    'line_total': parsed['line_total'],
+                    'actual_received_lb': None,  # filled in by T/WT= continuation if present
+                    'reconciled_unit_price': None,  # filled in by enrich_catch_weights()
                     'category': current_cat or 'Misc',
                 })
 
@@ -503,6 +552,19 @@ def _collapse_in_pdf_duplicates(
         )
         if key in aggregated:
             aggregated[key]['qty'] = int(aggregated[key]['qty']) + int(it['qty'])
+            # Sum line_total across split shipments so downstream
+            # catch-weight reconciliation sees the true aggregate dollars.
+            a_lt = aggregated[key].get('line_total')
+            b_lt = it.get('line_total')
+            if isinstance(a_lt, (int, float)) and isinstance(b_lt, (int, float)):
+                aggregated[key]['line_total'] = a_lt + b_lt
+            # Sum actual_received_lb: each line had its own T/WT= total.
+            a_w = aggregated[key].get('actual_received_lb')
+            b_w = it.get('actual_received_lb')
+            if isinstance(a_w, (int, float)) and isinstance(b_w, (int, float)):
+                aggregated[key]['actual_received_lb'] = a_w + b_w
+            elif isinstance(b_w, (int, float)):
+                aggregated[key]['actual_received_lb'] = b_w
         else:
             aggregated[key] = dict(it)
             order.append(key)
@@ -512,6 +574,89 @@ def _collapse_in_pdf_duplicates(
 def date_key(d: str) -> tuple[int, int, int]:
     mo, da, yr = d.split('/')
     return (int(yr), int(mo), int(da))
+
+
+def enrich_catch_weights(
+    db_path: Path,
+    items: list[dict],
+    *,
+    vendor: str = SYSCO_VENDOR,
+    threshold: float = CATCH_WEIGHT_THRESHOLD,
+) -> dict[str, int]:
+    """Fill ``reconciled_unit_price`` on items whose ``actual_received_lb``
+    deviates from ``vendor_catch_weights.catalog_wt_lb`` by more than
+    ``threshold``. Leaves ``reconciled_unit_price`` NULL on items with no
+    T/WT= capture, no matching catalog entry, or deviation within tolerance.
+
+    The lookup walks each item's peeled SKUs (vendor_sku and sysco SUPC,
+    in that order); first catalog match wins. We divide T/WT total by qty
+    to get per-pack actual weight before reconciling — Sysco invoices
+    report the summed weight across all cases on the T/WT= line, not
+    per-pack.
+
+    Mutates ``items`` in-place; returns counters for observability.
+    If ``db_path`` doesn't exist, returns early with all-zero counters.
+    """
+    counters = {"matched": 0, "reconciled": 0, "no_catalog": 0, "no_actual": 0}
+    if not db_path.exists():
+        return counters
+    with sqlite3.connect(str(db_path)) as con:
+        catalog: dict[str, tuple[float, float | None]] = {}
+        try:
+            cur = con.execute(
+                "SELECT sku, catalog_wt_lb, tare_lb FROM vendor_catch_weights WHERE vendor = ?",
+                (vendor,),
+            )
+        except sqlite3.OperationalError:
+            # vendor_catch_weights table not present in DB (pre-T5a) —
+            # enrichment is a no-op rather than a hard failure so the
+            # pre-T5a Sysco cache can still be refreshed.
+            return counters
+        for sku, catalog_wt_lb, tare_lb in cur:
+            catalog[str(sku)] = (float(catalog_wt_lb), float(tare_lb) if tare_lb else None)
+
+    for it in items:
+        actual_total = it.get("actual_received_lb")
+        if actual_total is None:
+            counters["no_actual"] += 1
+            continue
+        qty = it.get("qty")
+        if not isinstance(qty, (int, float)) or qty == 0:
+            continue
+        # Per-pack actual weight (T/WT= reports the summed weight for all
+        # cases on the row; reconcile_catch_weight expects per-pack values).
+        per_pack_actual = abs(float(actual_total) / float(qty))
+        line_total = it.get("line_total")
+        if not isinstance(line_total, (int, float)) or line_total <= 0:
+            continue
+        # Find first catalog match by walking peeled SKUs.
+        skus = it.get("skus") or []
+        hit: tuple[float, float | None] | None = None
+        for sku in skus:
+            hit = catalog.get(str(sku))
+            if hit:
+                break
+        if hit is None:
+            counters["no_catalog"] += 1
+            continue
+        counters["matched"] += 1
+        catalog_wt_lb, tare_lb = hit
+        # Per-pack line dollars for reconciliation input.
+        per_pack_total = abs(float(line_total) / float(qty))
+        try:
+            result = reconcile_catch_weight(
+                catalog_wt_lb=catalog_wt_lb,
+                actual_received_lb=per_pack_actual,
+                invoice_total=per_pack_total,
+                threshold=threshold,
+                tare_lb=tare_lb,
+            )
+        except ValueError:
+            continue
+        if result["reconciled"]:
+            it["reconciled_unit_price"] = result["reconciled_unit_price"]
+            counters["reconciled"] += 1
+    return counters
 
 
 def main() -> int:
@@ -582,8 +727,16 @@ def main() -> int:
 
     added_total = 0
     new_dates: list[str] = []
+    lariat_db = ROOT / 'data' / 'lariat.db'
+    cw_counters_total = {"matched": 0, "reconciled": 0, "no_catalog": 0, "no_actual": 0}
     for pdf in pdfs:
         invoice, delivery_date, items = parse_pdf(pdf)
+        # T5b: enrich with catch-weight reconciliation against
+        # vendor_catch_weights before writing to the vendor_summary cache.
+        # No-op if the DB doesn't exist or the table is pre-T5a.
+        cw_counters = enrich_catch_weights(lariat_db, items)
+        for k, v in cw_counters.items():
+            cw_counters_total[k] += v
         new_for_pdf = 0
         for it in items:
             key = (it['invoice'], it['description'])
@@ -597,6 +750,13 @@ def main() -> int:
         print(
             f'  {pdf.name}: invoice={invoice} date={delivery_date} '
             f'parsed={len(items)} new={new_for_pdf}'
+        )
+    if cw_counters_total["matched"] or cw_counters_total["reconciled"]:
+        print(
+            f'catch-weight enrichment: matched={cw_counters_total["matched"]} '
+            f'reconciled={cw_counters_total["reconciled"]} '
+            f'no_catalog={cw_counters_total["no_catalog"]} '
+            f'no_actual={cw_counters_total["no_actual"]}'
         )
 
     # Update last_invoice_date.
