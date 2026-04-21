@@ -159,6 +159,13 @@ class SeedSpec:
                             args (e.g. ``--vendor``) and returns a dict of
                             the parsed values to be merged into
                             ``injected_columns`` at runtime.
+        empty_key_message_override: If set, replaces the default
+                            ``"WARN row {idx}: {id_label}={raw!r} normalizes
+                            to empty key; skipping"`` stderr message when a
+                            normalize_to_key column produces an empty key.
+                            The override must be a format string accepting
+                            ``{idx}`` as a single positional replacement.
+                            Example: ``"WARN row {idx}: empty sku; skipping"``.
     """
 
     script_name: str
@@ -170,6 +177,7 @@ class SeedSpec:
     default_db: Path | None = None
     default_csv: Path | None = None
     extra_cli_args: Callable[[argparse.ArgumentParser], None] | None = None
+    empty_key_message_override: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -218,12 +226,20 @@ def assert_csv_shape(csv_path: Path, expected_columns: Sequence[str]) -> None:
                 )
 
 
-def _build_upsert_sql(spec: SeedSpec) -> tuple[str, list[str]]:
+def _build_upsert_sql(
+    spec: SeedSpec,
+    effective_injected: dict[str, Any] | None = None,
+) -> tuple[str, list[str]]:
     """Build the INSERT ... ON CONFLICT statement + ordered bind-names.
 
     Returns (sql_text, bind_column_names) where bind_column_names is
     the list of DB columns in INSERT-value order.  Callers build the
     per-row tuple by iterating bind_column_names in order.
+
+    ``effective_injected`` overrides ``spec.injected_columns`` at
+    call time — used when CLI args (e.g. ``--vendor``) override the
+    spec's static defaults.  Pass ``None`` to use ``spec.injected_columns``
+    directly (default, for callers that don't inject at runtime).
 
     The SQL always appends ``updated_at = datetime('now')`` on both
     INSERT and UPDATE paths — every seed table has this column in the
@@ -233,7 +249,8 @@ def _build_upsert_sql(spec: SeedSpec) -> tuple[str, list[str]]:
     # Injected columns go first so constant values (e.g. vendor) precede
     # CSV-sourced values; this matches the pre-refactor ordering in
     # ingest_catch_weights.
-    injected_cols = list(spec.injected_columns.keys())
+    resolved_injected = effective_injected if effective_injected is not None else spec.injected_columns
+    injected_cols = list(resolved_injected.keys())
     all_cols = injected_cols + persisted_cols
 
     col_sql = ", ".join(all_cols + ["updated_at"])
@@ -297,26 +314,18 @@ def _validate_row(
             # Apply normalize_fn to the unstripped raw value (pre-refactor
             # behavior: normalize_one handles lower/strip itself, and the
             # ingest_catch_weights sku path uses the raw stripped string).
-            if col.post_normalize is not None:
-                # Unit-weights-style normalization happens here.
-                raw_for_norm = str(raw)
-            else:
-                raw_for_norm = str(raw)
+            raw_for_norm = str(raw)
             normalized = spec.normalize_fn(raw_for_norm)
             if not normalized:
-                # Skip + warn.  The warning text differs between
-                # "ingredient_name -> empty key" and "empty sku"; use
-                # the column label to pick.
-                if col.csv_name == "sku":
-                    print(
-                        f"WARN row {idx}: empty sku; skipping",
-                        file=sys.stderr,
-                    )
+                # Skip + warn.  Use the override message if provided,
+                # otherwise emit the generic "normalizes to empty key" text.
+                if spec.empty_key_message_override is not None:
+                    warn_msg = spec.empty_key_message_override.format(idx=idx)
                 else:
-                    print(
-                        f"WARN row {idx}: {id_label}={raw!r} normalizes to empty key; skipping",
-                        file=sys.stderr,
+                    warn_msg = (
+                        f"WARN row {idx}: {id_label}={raw!r} normalizes to empty key; skipping"
                     )
+                print(warn_msg, file=sys.stderr)
                 skipped_key_empty = True
                 return None, True, err_prefix_name
             if col.persist:
@@ -349,6 +358,9 @@ def _validate_row(
             raise
 
         # Post-normalize (e.g. normalize_unit on the unit column).
+        # Track the pre-normalize value so validate errors can show
+        # both the raw CSV value and the canonical form.
+        pre_normalize_coerced: Any = None
         if col.post_normalize is not None:
             normalized = col.post_normalize(coerced)
             if not normalized:
@@ -359,13 +371,25 @@ def _validate_row(
                     f"row {idx}: {err_prefix_name} {col.csv_name}={coerced!r} "
                     + msg
                 )
+            pre_normalize_coerced = coerced
             coerced = normalized
 
         # Validate.
         if col.validate is not None:
             if not col.validate(coerced):
+                # When post_normalize was applied, preserve the
+                # <csv_name>=<raw!r> (canonical=<coerced!r>) shape so
+                # the error shows both what the user typed and what it
+                # normalized to.
+                if pre_normalize_coerced is not None:
+                    col_repr = (
+                        f"{col.csv_name}={pre_normalize_coerced!r}"
+                        f" (canonical={coerced!r})"
+                    )
+                else:
+                    col_repr = f"{col.csv_name}={coerced!r}"
                 raise ValueError(
-                    f"row {idx}: {err_prefix_name} {col.csv_name}={coerced} {col.validate_msg}"
+                    f"row {idx}: {err_prefix_name} {col_repr} {col.validate_msg}"
                 )
 
         if col.persist:
@@ -418,21 +442,7 @@ def seed_upsert_main(
     effective_injected: dict[str, Any] = dict(spec.injected_columns)
     effective_injected.update(injected)
 
-    sql, bind_cols = _build_upsert_sql(
-        # Rebuild a spec with resolved injected columns so _build_upsert_sql
-        # sees the CLI-overridden values.
-        SeedSpec(
-            script_name=spec.script_name,
-            table_name=spec.table_name,
-            columns=spec.columns,
-            on_conflict_columns=spec.on_conflict_columns,
-            normalize_fn=spec.normalize_fn,
-            injected_columns=effective_injected,
-            default_db=spec.default_db,
-            default_csv=spec.default_csv,
-            extra_cli_args=spec.extra_cli_args,
-        )
-    )
+    sql, bind_cols = _build_upsert_sql(spec, effective_injected)
 
     n_read = len(df)
     n_skipped = 0

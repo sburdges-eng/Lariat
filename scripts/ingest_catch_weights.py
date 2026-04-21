@@ -120,6 +120,9 @@ SPEC = SeedSpec(
     default_db=DEFAULT_DB,
     default_csv=DEFAULT_CSV,
     extra_cli_args=_register_vendor_arg,
+    # Override the generic "normalizes to empty key" wording with the
+    # pre-refactor catch-weights phrasing (sku-specific).
+    empty_key_message_override="WARN row {idx}: empty sku; skipping",
 )
 
 
