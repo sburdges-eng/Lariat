@@ -169,3 +169,49 @@ describe('T5b.3 — vendor_prices backfill from shamrock_invoices', () => {
     db.close();
   });
 });
+
+import { ingestCosting } from '../../scripts/ingest-costing.mjs';
+
+describe('T5b.3 — catch_weight_backfilled_rows flows through ingestCosting summary', () => {
+  it('ingestCosting.summary surfaces the backfill counter', () => {
+    // Build a payload that exercises ingestCosting end-to-end. The shamrock
+    // invoice row matches one vendor_prices sku, so the backfill updates
+    // one row and the summary must surface it.
+    const db = new Database(':memory:');
+    initSchema(db);
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS shamrock_invoices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        invoice_no TEXT NOT NULL, delivery_date TEXT, ordered_date TEXT,
+        item TEXT NOT NULL, sku TEXT, qty REAL, pack_size REAL, pack_unit TEXT,
+        unit_price REAL, line_total REAL,
+        actual_received_lb REAL, reconciled_unit_price REAL,
+        source_file TEXT, location_id TEXT DEFAULT 'default',
+        imported_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(invoice_no, sku, item, location_id)
+      );
+      INSERT INTO shamrock_invoices
+        (invoice_no, delivery_date, item, sku, qty, line_total,
+         actual_received_lb, reconciled_unit_price, location_id)
+      VALUES
+        ('INV1', '2026-03-28', 'Beef Cheek', '3091571', 1, 150.0, 30.0, 5.0, 'default');
+    `);
+    const data = {
+      vendor_prices: [{ ingredient: 'beef cheek', vendor: 'shamrock', sku: '3091571',
+        pack_size: 1, pack_unit: 'cs', pack_price: 150.0, unit_price: 150.0 }],
+      recipe_costs: [],
+      bom_lines: [],
+      ingredient_maps: [],
+      order_guide: [],
+    };
+    const summary = ingestCosting(db, data, LOC);
+    assert.strictEqual(summary.catch_weight_backfilled_rows, 1);
+    const vp = db.prepare(
+      `SELECT actual_received_lb, reconciled_unit_price FROM vendor_prices
+        WHERE sku='3091571' AND location_id=?`,
+    ).get(LOC);
+    assert.strictEqual(vp.actual_received_lb, 30.0);
+    assert.strictEqual(vp.reconciled_unit_price, 5.0);
+    db.close();
+  });
+});
