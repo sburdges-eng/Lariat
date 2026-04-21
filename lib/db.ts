@@ -1494,6 +1494,10 @@ function initFoodSafetyLaborSchema(db: DB): void {
       action_taken TEXT,
       cook_id TEXT,
       calibrated_at TEXT NOT NULL,
+      -- Per-probe calibration frequency override in days. NULL means
+      -- "use the default 30-day schedule". A positive integer overrides
+      -- the default for this probe (e.g. high-use probes every 14 days).
+      frequency_days INTEGER,
       created_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_thermcal_recent
@@ -1839,6 +1843,18 @@ function migrateLegacyColumns(db: DB): void {
   ];
   for (const [col, ddl] of tempMigrations) {
     if (!tempCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  // Bundle G-fix — thermometer_calibrations gains `frequency_days` so
+  // per-probe calibration interval overrides are reachable from the API
+  // (not just from test fixtures). NULL means "use the default 30-day
+  // schedule"; a positive integer overrides the default for that probe.
+  const thermcalCols = t('thermometer_calibrations');
+  const thermcalMigrations: [string, string][] = [
+    ['frequency_days', 'ALTER TABLE thermometer_calibrations ADD COLUMN frequency_days INTEGER'],
+  ];
+  for (const [col, ddl] of thermcalMigrations) {
+    if (!thermcalCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
   }
 }
 

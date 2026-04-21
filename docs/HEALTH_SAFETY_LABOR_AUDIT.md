@@ -455,15 +455,35 @@ later query can find every reading taken under the advisory.
   transitions (empty → unknown → ok / due_soon / overdue / failed,
   per-probe frequency override, fail-then-pass flip, sort order,
   orphan thermometer_id ignored), `calibrationWarningFor` outputs.
-- `tests/js/test-calibrations-api.mjs` (24 cases): POST pass/fail
+- `tests/js/test-calibrations-api.mjs` (24 cases before G-fix): POST pass/fail
   both 200, 400 validation paths, audit note emission, GET summary,
   `?probe_id=` filter, most-recent-fail precedence, temp-log
   integration (probe_id round-trips, calibration_warning fires for
   unknown/failed/overdue, omitted probe_id leaves warning null, audit
   row carries `calibration_warning:<probe>`).
+- **G-fix (2026-04-21):** Added `frequency_days` column + migration +
+  route passthrough. Test suite grows by 7 cases (frequency_days
+  persists, 14-day probe overdue at day 15, 30-day default probe ok at
+  day 15, 400 on zero/negative/float, NULL when omitted). Total API
+  cases: 31.
 - Bundle E regression (`test:temp-log-api`) stays at 14 cases; the
   `calibration_warning` field is additive to the response and defaults
   to null when `probe_id` is absent.
+
+### Deferred hardening — cross-bundle atomicity (not in Bundle G)
+
+POST insert + audit emission are not wrapped in a database transaction
+across the following routes: `/api/temp-log`, `/api/receiving`,
+`/api/thermometer-calibrations`, and likely `/api/cooling`,
+`/api/sanitizer-checks`, `/api/sick-worker-reports`. A crash between
+the INSERT and the `postAuditEvent` call leaves a row with no audit
+trail.
+
+**Corrective action (deferred to a cross-bundle cleanup):**
+Wrap each HACCP POST in `db.transaction(() => { insert; audit; })` so
+both land or neither does. The current best-effort posture (audit in a
+try/catch after insert) is acceptable for the initial hardening pass but
+should be tightened before the system handles real inspector reviews.
 
 ---
 

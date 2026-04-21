@@ -105,6 +105,19 @@ export async function POST(req) {
     }
     const note = clip(body.note ?? body.action_taken, 500);
 
+    // Optional per-probe frequency override — positive integer only.
+    let frequency_days = null;
+    if (body.frequency_days !== undefined && body.frequency_days !== null && body.frequency_days !== '') {
+      const fd = Number(body.frequency_days);
+      if (!Number.isInteger(fd) || fd <= 0) {
+        return Response.json(
+          { error: 'frequency_days must be a positive integer (days between calibrations) or omitted' },
+          { status: 400 },
+        );
+      }
+      frequency_days = fd;
+    }
+
     const cook_id = clip(body.cook_id, 64);
     const shift_date = clip(body.shift_date, 32) || todayISO();
     const location_id = locationFromBody(body);
@@ -136,8 +149,8 @@ export async function POST(req) {
       .prepare(
         `INSERT INTO thermometer_calibrations
            (location_id, thermometer_id, method, before_reading_f, after_reading_f,
-            passed, action_taken, cook_id, calibrated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            passed, action_taken, cook_id, calibrated_at, frequency_days)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         location_id,
@@ -149,6 +162,7 @@ export async function POST(req) {
         note,
         cook_id,
         calibrated_at,
+        frequency_days,
       );
 
     const row = db

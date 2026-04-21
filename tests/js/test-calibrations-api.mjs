@@ -343,6 +343,133 @@ describe('GET /api/thermometer-calibrations', () => {
   });
 });
 
+// ── POST — frequency_days per-probe override ─────────────────────
+
+describe('POST /api/thermometer-calibrations — frequency_days override', () => {
+  it('frequency_days:14 is persisted on the row', async () => {
+    const res = await POST(
+      postReq({
+        thermometer_id: 'probe-freq',
+        method: 'ice_point',
+        reading_f: 32,
+        frequency_days: 14,
+        cook_id: 'bob',
+      }),
+    );
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.ok, true);
+    assert.strictEqual(body.entry.frequency_days, 14);
+    // Verify it landed in the DB.
+    const row = testDb
+      .prepare('SELECT frequency_days FROM thermometer_calibrations ORDER BY id DESC LIMIT 1')
+      .get();
+    assert.strictEqual(row.frequency_days, 14);
+  });
+
+  it('frequency_days:14 — probe is overdue at day 14, not day 30 (GET classification)', async () => {
+    // POST a passing cal with a 14-day override, backdated 15 days.
+    const fifteenDaysAgo = new Date(Date.now() - 15 * 86400000)
+      .toISOString()
+      .replace('T', ' ')
+      .slice(0, 19);
+    testDb
+      .prepare(
+        `INSERT INTO thermometer_calibrations
+           (location_id, thermometer_id, method, before_reading_f, passed, calibrated_at, frequency_days)
+         VALUES ('default', 'probe-freq14', 'ice_point', 32, 1, ?, 14)`,
+      )
+      .run(fifteenDaysAgo);
+
+    const res = await GET(getReq('?probe_id=probe-freq14'));
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.summary.length, 1);
+    const s = body.summary[0];
+    // 15 days since last cal with a 14-day window → overdue.
+    assert.strictEqual(s.status, 'overdue');
+    assert.strictEqual(s.frequency_days, 14);
+  });
+
+  it('same probe with default frequency (no override) is NOT overdue at 15 days', async () => {
+    // Post with default frequency (no frequency_days) — should be ok at 15 days
+    // since default is 30 days.
+    const fifteenDaysAgo = new Date(Date.now() - 15 * 86400000)
+      .toISOString()
+      .replace('T', ' ')
+      .slice(0, 19);
+    testDb
+      .prepare(
+        `INSERT INTO thermometer_calibrations
+           (location_id, thermometer_id, method, before_reading_f, passed, calibrated_at, frequency_days)
+         VALUES ('default', 'probe-default-freq', 'ice_point', 32, 1, ?, NULL)`,
+      )
+      .run(fifteenDaysAgo);
+
+    const res = await GET(getReq('?probe_id=probe-default-freq'));
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.summary.length, 1);
+    const s = body.summary[0];
+    // 15 days since last cal with 30-day default → ok (15 days remaining).
+    assert.strictEqual(s.status, 'ok');
+    assert.strictEqual(s.frequency_days, 30);
+  });
+
+  it('400 when frequency_days is zero', async () => {
+    const res = await POST(
+      postReq({
+        thermometer_id: 'probe-1',
+        method: 'ice_point',
+        reading_f: 32,
+        frequency_days: 0,
+      }),
+    );
+    assert.strictEqual(res.status, 400);
+    const body = await res.json();
+    assert.match(body.error, /positive integer/);
+  });
+
+  it('400 when frequency_days is negative', async () => {
+    const res = await POST(
+      postReq({
+        thermometer_id: 'probe-1',
+        method: 'ice_point',
+        reading_f: 32,
+        frequency_days: -7,
+      }),
+    );
+    assert.strictEqual(res.status, 400);
+  });
+
+  it('400 when frequency_days is non-integer float', async () => {
+    const res = await POST(
+      postReq({
+        thermometer_id: 'probe-1',
+        method: 'ice_point',
+        reading_f: 32,
+        frequency_days: 14.5,
+      }),
+    );
+    assert.strictEqual(res.status, 400);
+  });
+
+  it('omitting frequency_days persists NULL (default schedule applies)', async () => {
+    const res = await POST(
+      postReq({
+        thermometer_id: 'probe-no-override',
+        method: 'ice_point',
+        reading_f: 32,
+      }),
+    );
+    assert.strictEqual(res.status, 200);
+    const row = testDb
+      .prepare('SELECT frequency_days FROM thermometer_calibrations ORDER BY id DESC LIMIT 1')
+      .get();
+    assert.strictEqual(row.frequency_days, null);
+  });
+});
+
 // ── temp-log integration: calibration_warning ────────────────────
 
 describe('POST /api/temp-log with probe_id surfaces calibration_warning', () => {

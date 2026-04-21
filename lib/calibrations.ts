@@ -203,8 +203,8 @@ export interface CalibrationRow {
   before_reading_f: number | null;
   passed: number; // 0 or 1
   calibrated_at: string; // ISO datetime 'YYYY-MM-DD HH:MM:SS' or YYYY-MM-DD
-  /** Optional per-probe override for the 30-day default. */
-  frequency_days?: number | null;
+  /** Per-probe override for the 30-day default. NULL means use the default. */
+  frequency_days: number | null;
 }
 
 /**
