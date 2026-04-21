@@ -452,6 +452,22 @@ export function initSchema(db: DB): void {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
+    -- T4.1: per-(ingredient, count-unit) weight bridge. Answers "how many
+    -- grams is one ea / bunch / slice / sprig / clove / case of this
+    -- ingredient." Used by the T4 conversion post-pass in ingest-costing.mjs
+    -- to bridge count ↔ weight (and count → volume when paired with a
+    -- density). Source column tracks provenance the same way as
+    -- ingredient_densities; a row may be 'seed' (CSV), 'measured' (kitchen
+    -- scale), or 'vendor' (declared on a spec sheet).
+    CREATE TABLE IF NOT EXISTS ingredient_unit_weights (
+      ingredient_key TEXT NOT NULL,
+      unit           TEXT NOT NULL,        -- canonical count unit (post-normalize_unit)
+      g_per_unit     REAL NOT NULL,        -- grams per 1 of the count unit above
+      source         TEXT CHECK (source IS NULL OR source IN ('seed', 'measured', 'vendor')),
+      updated_at     TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (ingredient_key, unit)
+    );
+
     CREATE TABLE IF NOT EXISTS ingredient_yields (
       ingredient_key TEXT PRIMARY KEY,     -- same normalized form as ingredient_densities
       yield_pct      REAL NOT NULL,        -- fraction 0..1 (e.g. 0.85 for 85% trim yield)
@@ -680,6 +696,7 @@ function assertCriticalSchemas(db: DB): void {
       'ingredient_key', 'yield_pct', 'loss_factor', 'source', 'notes', 'updated_at',
     ],
     ingredient_densities: ['ingredient_key', 'g_per_ml', 'source', 'updated_at'],
+    ingredient_unit_weights: ['ingredient_key', 'unit', 'g_per_unit', 'source', 'updated_at'],
   };
   for (const [table, required] of Object.entries(requirements)) {
     const cols = (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[])

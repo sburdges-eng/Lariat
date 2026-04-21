@@ -13,13 +13,13 @@ import Database from 'better-sqlite3';
 
 import { initSchema } from '../../lib/db.ts';
 import { normalizeIngredientKey } from '../../lib/ingredientKey.ts';
-import { ingestCosting } from '../../scripts/ingest-costing.mjs';
-import { WEIGHT_TO_G, VOLUME_TO_ML } from '../../lib/unitConvert.mjs';
+import { ingestCosting, bridgeCount } from '../../scripts/ingest-costing.mjs';
+import { WEIGHT_TO_G, VOLUME_TO_ML, normalizeUnit } from '../../lib/unitConvert.mjs';
 
 const LOC = 'default';
 
-/** Scratch DB with seeded yields + densities. */
-function buildDb({ yields = [], densities = [] } = {}) {
+/** Scratch DB with seeded yields + densities + unit weights. */
+function buildDb({ yields = [], densities = [], unitWeights = [] } = {}) {
   const db = new Database(':memory:');
   initSchema(db);
   if (yields.length > 0) {
@@ -36,6 +36,14 @@ function buildDb({ yields = [], densities = [] } = {}) {
     );
     for (const d of densities) {
       ins.run(normalizeIngredientKey(d.raw), d.g_per_ml, d.source ?? 'seed');
+    }
+  }
+  if (unitWeights.length > 0) {
+    const ins = db.prepare(
+      'INSERT INTO ingredient_unit_weights (ingredient_key, unit, g_per_unit, source) VALUES (?, ?, ?, ?)',
+    );
+    for (const w of unitWeights) {
+      ins.run(normalizeIngredientKey(w.raw), normalizeUnit(w.unit), w.g_per_unit, w.source ?? 'seed');
     }
   }
   return db;
@@ -313,5 +321,129 @@ describe('T4 — summary counter accuracy', () => {
     assert.strictEqual(readBomStatus(db, 'r1', 'curated item').map_status, 'confirmed');
     assert.strictEqual(summary.bom_lines_needs_density, 0);
     db.close();
+  });
+});
+
+describe('T4.1 — bridgeCount pure function', () => {
+  const weights = new Map([['ea', 30], ['bunch', 75], ['ct', 75]]);
+
+  it('count → weight: 10 ea jalapenos at 30 g/ea → 0.661 lb', () => {
+    const got = bridgeCount(10, 'ea', 'lb', null, weights);
+    assert.ok(Math.abs(got - 300 / WEIGHT_TO_G.lb) < 1e-9);
+  });
+  it('weight → count: 0.661 lb jalapenos → ~10 ea', () => {
+    const got = bridgeCount(0.661, 'lb', 'ea', null, weights);
+    assert.ok(Math.abs(got - (0.661 * WEIGHT_TO_G.lb) / 30) < 1e-9);
+  });
+  it('count → volume via density: 2 bunches cilantro at 75 g/bunch + 0.13 g/ml → cups', () => {
+    const got = bridgeCount(2, 'bunch', 'cup', 0.13, weights);
+    const expected = (2 * 75) / 0.13 / VOLUME_TO_ML.cup;
+    assert.ok(Math.abs(got - expected) < 1e-9);
+  });
+  it('volume → count via density: cup of cilantro → bunches', () => {
+    const got = bridgeCount(1, 'cup', 'bunch', 0.13, weights);
+    const expected = (VOLUME_TO_ML.cup * 0.13) / 75;
+    assert.ok(Math.abs(got - expected) < 1e-9);
+  });
+  it('count → count bridges via grams', () => {
+    const got = bridgeCount(1, 'bunch', 'ea', null, new Map([['bunch', 75], ['ea', 15]]));
+    assert.ok(Math.abs(got - 5) < 1e-9); // 75 g / 15 g-per-ea
+  });
+  it('missing unit-weight → null (caller should flag)', () => {
+    assert.strictEqual(bridgeCount(1, 'ea', 'lb', null, new Map()), null);
+    assert.strictEqual(bridgeCount(1, 'ea', 'lb', null, undefined), null);
+  });
+  it('count → volume without density → null', () => {
+    assert.strictEqual(bridgeCount(1, 'ea', 'cup', null, weights), null);
+  });
+  it('non-count-involved pairs return null (defers to convertQty)', () => {
+    assert.strictEqual(bridgeCount(1, 'lb', 'oz', null, weights), null);
+    assert.strictEqual(bridgeCount(1, 'cup', 'ml', null, weights), null);
+  });
+  it('same unit (identity) returns qty even for count', () => {
+    assert.strictEqual(bridgeCount(5, 'ea', 'ea', null, undefined), 5);
+  });
+  it('NaN/negative/non-finite qty → null', () => {
+    assert.strictEqual(bridgeCount(NaN, 'ea', 'lb', null, weights), null);
+    assert.strictEqual(bridgeCount(-1, 'ea', 'lb', null, weights), null);
+    assert.strictEqual(bridgeCount(Infinity, 'ea', 'lb', null, weights), null);
+  });
+});
+
+describe('T4.1 — count-bridge in ingest-costing post-pass', () => {
+  it('count → weight: 5 jalapenos ea priced off 10 lb pack at $31.95 with 30 g/ea', () => {
+    // pack_size in bom unit (ea):
+    //   10 lb × 453.59237 g/lb / 30 g/ea = 151.197 ea
+    // delta = qty × pack_price / pack_size_in_ea × (1/0.85 − 1)
+    const db = buildDb({
+      yields: [{ raw: 'jalapeno', yield_pct: 0.85, loss_factor: null }],
+      unitWeights: [{ raw: 'jalapeno', unit: 'ea', g_per_unit: 30 }],
+    });
+    const data = {
+      vendor_prices: [vendorPrice('jalapeno', 10, 'lb', 31.95)],
+      recipe_costs: [recipe('r1', 2.0)],
+      bom_lines: [
+        { recipe_id: 'r1', ingredient: 'jalapeno', qty: 5, unit: 'ea', pack_price: 31.95, pack_size: 10 },
+      ],
+    };
+    const summary = ingestCosting(db, data, LOC);
+    const packEa = (10 * WEIGHT_TO_G.lb) / 30;
+    const expected = 2.0 + (5 * 31.95 / packEa) * (1 / 0.85 - 1);
+    const r = readRecipe(db, 'r1');
+    assert.ok(Math.abs(r.batch_cost - expected) < 1e-6, `got ${r.batch_cost}, expected ${expected}`);
+    assert.strictEqual(summary.bom_lines_needs_density, 0);
+    db.close();
+  });
+
+  it('count → volume via density: 10 cups cilantro priced off 8 ct case of bunches', () => {
+    const db = buildDb({
+      yields: [{ raw: 'cilantro', yield_pct: 1.0, loss_factor: null }],
+      densities: [{ raw: 'cilantro', g_per_ml: 0.13 }],
+      unitWeights: [{ raw: 'cilantro', unit: 'ct', g_per_unit: 75 }],
+    });
+    const data = {
+      vendor_prices: [vendorPrice('cilantro', 8, 'ct', 22.45)],
+      recipe_costs: [recipe('r1', 0.5)],
+      bom_lines: [
+        { recipe_id: 'r1', ingredient: 'cilantro', qty: 10, unit: 'cup', pack_price: 22.45, pack_size: 8 },
+      ],
+    };
+    const summary = ingestCosting(db, data, LOC);
+    assert.strictEqual(summary.bom_lines_needs_density, 0);
+    // When yield=1.0 delta is 0 → batch_cost unchanged, but the path must have succeeded.
+    assert.strictEqual(readRecipe(db, 'r1').batch_cost, 0.5);
+    db.close();
+  });
+
+  it('count missing unit_weight still flags NEEDS_DENSITY on unprotected rows', () => {
+    const db = buildDb({
+      yields: [{ raw: 'mystery count', yield_pct: 0.85, loss_factor: null }],
+      // no unit weight seeded
+    });
+    const data = {
+      vendor_prices: [vendorPrice('mystery count', 10, 'lb', 50.0)],
+      recipe_costs: [recipe('r1', 1.0)],
+      bom_lines: [
+        { recipe_id: 'r1', ingredient: 'mystery count', qty: 5, unit: 'ea', pack_price: 50.0, pack_size: 10 },
+      ],
+    };
+    const summary = ingestCosting(db, data, LOC);
+    assert.strictEqual(summary.bom_lines_needs_density, 1);
+    assert.strictEqual(readBomStatus(db, 'r1', 'mystery count').map_status, 'NEEDS_DENSITY');
+    assert.strictEqual(readRecipe(db, 'r1').batch_cost, 1.0);
+    db.close();
+  });
+});
+
+describe('T4.1 — new count-unit synonyms', () => {
+  it('bunch, box, #10 can, slice, sprig, clove normalize to canonical count units', () => {
+    assert.strictEqual(normalizeUnit('bunches'), 'bunch');
+    assert.strictEqual(normalizeUnit('boxes'), 'box');
+    assert.strictEqual(normalizeUnit('#10 can'), 'can');
+    assert.strictEqual(normalizeUnit('#10_can'), 'can');
+    assert.strictEqual(normalizeUnit('slices'), 'slice');
+    assert.strictEqual(normalizeUnit('sprigs'), 'sprig');
+    assert.strictEqual(normalizeUnit('cloves'), 'clove');
+    assert.strictEqual(normalizeUnit('cn'), 'cn');
   });
 });

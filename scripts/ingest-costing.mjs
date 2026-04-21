@@ -6,7 +6,86 @@ import { execSync } from 'child_process';
 import Database from 'better-sqlite3';
 import { initSchema, DB_FILE } from '../lib/db.ts';
 import { normalizeIngredientKey } from '../lib/ingredientKey.ts';
-import { convertQty, normalizeUnit, unitDimension } from '../lib/unitConvert.mjs';
+import {
+  convertQty,
+  normalizeUnit,
+  unitDimension,
+  WEIGHT_TO_G,
+  VOLUME_TO_ML,
+} from '../lib/unitConvert.mjs';
+
+/**
+ * T4.1 count-bridge. Converts a quantity of a count unit (ea / bunch / can /
+ * …) into a weight or volume unit using a per-ingredient grams-per-unit
+ * lookup as the anchor. Returns `null` on any failure path so the caller can
+ * fall back to `convertQty` or flag the row.
+ *
+ *   count → weight:  qty × g_per_unit = g  →  g / WEIGHT_TO_G[to]
+ *   count → volume:  qty × g_per_unit = g  →  (g / density) / VOLUME_TO_ML[to]
+ *   weight → count:  qty × WEIGHT_TO_G[from] = g  →  g / g_per_unit[to]
+ *   volume → count:  qty × VOLUME_TO_ML[from] × density = g  →  g / g_per_unit[to]
+ *   count → count:   different units bridged via grams.
+ *
+ * Assumes `fromCanon` / `toCanon` are already normalized by `normalizeUnit`.
+ * `unitWeights` is a Map<string,number> keyed on canonical count unit →
+ * grams-per-one, scoped to the specific ingredient (typically
+ * `unitWeightByKey.get(normalizeIngredientKey(ingredient))`). May be
+ * undefined — treated as empty.
+ *
+ * @param {number} qty
+ * @param {string} fromCanon
+ * @param {string} toCanon
+ * @param {number | null | undefined} density g/ml
+ * @param {Map<string,number> | undefined} unitWeights
+ * @returns {number | null}
+ */
+export function bridgeCount(qty, fromCanon, toCanon, density, unitWeights) {
+  if (typeof qty !== 'number' || !Number.isFinite(qty) || qty < 0) return null;
+  if (!fromCanon || !toCanon) return null;
+  if (fromCanon === toCanon) return qty;
+
+  const fromDim = unitDimension(fromCanon);
+  const toDim = unitDimension(toCanon);
+  if (!fromDim || !toDim) return null;
+  if (fromDim !== 'count' && toDim !== 'count') return null; // nothing to bridge
+
+  const gramsFromCount = (q, canon) => {
+    const g = unitWeights?.get(canon);
+    return g != null && g > 0 && Number.isFinite(g) ? q * g : null;
+  };
+  const countFromGrams = (g, canon) => {
+    const w = unitWeights?.get(canon);
+    return w != null && w > 0 && Number.isFinite(w) ? g / w : null;
+  };
+
+  let grams;
+  if (fromDim === 'count') {
+    grams = gramsFromCount(qty, fromCanon);
+  } else if (fromDim === 'weight') {
+    const f = WEIGHT_TO_G[fromCanon];
+    if (!(f > 0)) return null;
+    grams = qty * f;
+  } else {
+    // volume → grams requires density.
+    if (density == null || !Number.isFinite(density) || !(density > 0)) return null;
+    const f = VOLUME_TO_ML[fromCanon];
+    if (!(f > 0)) return null;
+    grams = qty * f * density;
+  }
+  if (grams == null || !Number.isFinite(grams) || grams < 0) return null;
+
+  if (toDim === 'count') return countFromGrams(grams, toCanon);
+  if (toDim === 'weight') {
+    const t = WEIGHT_TO_G[toCanon];
+    if (!(t > 0)) return null;
+    return grams / t;
+  }
+  // volume
+  if (density == null || !Number.isFinite(density) || !(density > 0)) return null;
+  const t = VOLUME_TO_ML[toCanon];
+  if (!(t > 0)) return null;
+  return (grams / density) / t;
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -243,6 +322,40 @@ function _ingestCostingImpl(db, data, locationId) {
   summary.bom_coverage_pct =
     summary.bom_lines > 0 ? (100 * summary.bom_lines_with_yield) / summary.bom_lines : 0;
 
+  const postPass = runCostingPostPass(db, locationId);
+  summary.recipes_yield_adjusted = postPass.recipes_yield_adjusted;
+  summary.total_yield_delta_usd = postPass.total_yield_delta_usd;
+  summary.max_recipe_yield_delta_usd = postPass.max_recipe_yield_delta_usd;
+  summary.bom_lines_needs_density = postPass.bom_lines_needs_density;
+  return summary;
+}
+
+/**
+ * T3+T4 post-pass. Reads fresh bom_lines/vendor_prices/ingredient_densities/
+ * ingredient_unit_weights/ingredient_yields for the given location and
+ * UPDATEs recipe_costs.{batch_cost, cost_per_yield_unit} with the yield/loss/
+ * unit-conversion delta for each recipe. Safe to call outside the DELETE+
+ * INSERT path, so an operator who already has good vendor_prices in place
+ * can apply T4.1 deltas without re-ingesting the workbook.
+ *
+ * Caller must ensure bom_lines.{yield_pct, loss_factor} are populated (either
+ * by a prior ingestCosting run or by a JOIN-on-ingredient_yields migration).
+ * Post-pass does not re-populate those columns — it reads them as-is.
+ *
+ * Returns the same fields the ingestCosting summary surfaces for the
+ * post-pass metrics (recipes_yield_adjusted, total_yield_delta_usd,
+ * max_recipe_yield_delta_usd, bom_lines_needs_density).
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} [locationId='default']
+ */
+export function runCostingPostPass(db, locationId = 'default') {
+  const summary = {
+    recipes_yield_adjusted: 0,
+    total_yield_delta_usd: 0,
+    max_recipe_yield_delta_usd: 0,
+    bom_lines_needs_density: 0,
+  };
   // ── T3 + T4: yield + loss + unit-conversion post-pass ──────────────
   // After T2c populated bom_lines.{yield_pct, loss_factor, pack_price, pack_size,
   // qty}, sum the per-BOM-line "true cost" adjustment for each recipe and apply
@@ -282,6 +395,19 @@ function _ingestCostingImpl(db, data, locationId) {
   const densityByKey = new Map();
   for (const row of db.prepare('SELECT ingredient_key, g_per_ml FROM ingredient_densities').all()) {
     densityByKey.set(row.ingredient_key, row.g_per_ml);
+  }
+
+  // T4.1: per-(ingredient, count-unit) weight. Two-level Map so count-bridge
+  // lookups can fall back across the legal count synonyms for the same item.
+  //   unitWeightByKey.get(key).get(canonCountUnit) = grams per 1 of that unit
+  // Populated once per ingest, same idempotency posture as densityByKey.
+  const unitWeightByKey = new Map();
+  for (const row of db.prepare(
+    'SELECT ingredient_key, unit, g_per_unit FROM ingredient_unit_weights',
+  ).all()) {
+    let inner = unitWeightByKey.get(row.ingredient_key);
+    if (!inner) { inner = new Map(); unitWeightByKey.set(row.ingredient_key, inner); }
+    inner.set(row.unit, row.g_per_unit);
   }
 
   // Vendor pack_unit lookup. bom_lines.pack_size / pack_price arrive from the
@@ -391,9 +517,20 @@ function _ingestCostingImpl(db, data, locationId) {
       // Identity — no conversion needed, preserves T3's byte-exact same-unit path.
       packSizeInBomUnit = pack_size;
     } else {
-      packSizeInBomUnit = convertQty(pack_size, packUnit, bomUnit, density);
+      // T4.1: try count-bridge FIRST when either side is a count unit — the
+      // generic convertQty never returns non-null for count involvement, so
+      // attempting bridgeCount before convertQty keeps a single code path.
+      // The bridge uses grams as the intermediate: count → g (via
+      // unitWeightByKey), g → volume (via density) as needed.
+      const bridged = bridgeCount(pack_size, packCanon, bomCanon, density, unitWeightByKey.get(key));
+      if (bridged !== null) {
+        packSizeInBomUnit = bridged;
+      } else {
+        packSizeInBomUnit = convertQty(pack_size, packUnit, bomUnit, density);
+      }
       if (packSizeInBomUnit === null || !(packSizeInBomUnit > 0) || !Number.isFinite(packSizeInBomUnit)) {
-        // Cross-dim without density, count involvement, unknown unit — flag and skip.
+        // Cross-dim without density, count involvement without unit_weight,
+        // unknown unit — flag and skip.
         if (!PROTECTED_MAP_STATUSES.has(map_status ?? '')) needsDensityIds.push(id);
         denomConvertedSkipped++;
         continue;
