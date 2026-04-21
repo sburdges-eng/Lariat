@@ -97,8 +97,21 @@ export interface VendorPrice {
   unit_price: number | null;
   category: string | null;
   yield_pct: number | null;  // fraction 0..1 (e.g. 0.85 for 85% trim yield)
+  map_status: string | null;  // 'PACK_CHANGED' when T6 detects pack substitution
   location_id: string;
   imported_at: string;
+}
+
+export interface PackSizeChange {
+  id: number;
+  vendor: string;
+  sku: string;
+  prev_pack: string | null;
+  new_pack: string | null;
+  prev_price: number | null;
+  new_price: number | null;
+  detected_at: string;
+  acknowledged: number;
 }
 
 export interface RecipeCost {
@@ -485,6 +498,26 @@ export function initSchema(db: DB): void {
       PRIMARY KEY (vendor, sku)
     );
 
+    -- T6: pack-size substitution audit log. Each row records a detected
+    -- silent vendor swap (e.g. 6×#10 → 4×#10) caught at ingest time by
+    -- diffing the incoming pack_size/pack_unit against the latest prior
+    -- row per (vendor, sku). prev_pack / new_pack encode the tuple
+    -- "{pack_size}x{pack_unit}" for human-readable diff output; the
+    -- numeric components live on vendor_prices itself. acknowledged=0
+    -- means the row still surfaces in the attention queue; operator
+    -- flips to 1 once the swap has been reviewed.
+    CREATE TABLE IF NOT EXISTS pack_size_changes (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      vendor       TEXT NOT NULL,
+      sku          TEXT NOT NULL,
+      prev_pack    TEXT,  -- e.g. "6x#10"
+      new_pack     TEXT,
+      prev_price   REAL,
+      new_price    REAL,
+      detected_at  TEXT DEFAULT (datetime('now')),
+      acknowledged INTEGER DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS ingredient_yields (
       ingredient_key TEXT PRIMARY KEY,     -- same normalized form as ingredient_densities
       yield_pct      REAL NOT NULL,        -- fraction 0..1 (e.g. 0.85 for 85% trim yield)
@@ -715,6 +748,10 @@ function assertCriticalSchemas(db: DB): void {
     ingredient_densities: ['ingredient_key', 'g_per_ml', 'source', 'updated_at'],
     ingredient_unit_weights: ['ingredient_key', 'unit', 'g_per_unit', 'source', 'updated_at'],
     vendor_catch_weights: ['vendor', 'sku', 'catalog_wt_lb', 'tare_lb', 'source', 'updated_at'],
+    pack_size_changes: [
+      'id', 'vendor', 'sku', 'prev_pack', 'new_pack',
+      'prev_price', 'new_price', 'detected_at', 'acknowledged',
+    ],
   };
   for (const [table, required] of Object.entries(requirements)) {
     const cols = (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[])
@@ -738,6 +775,8 @@ function ensureIndexes(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_signoff_loc ON station_signoffs(location_id, shift_date);
     CREATE INDEX IF NOT EXISTS idx_86_loc_date ON eighty_six(location_id, shift_date);
     CREATE INDEX IF NOT EXISTS idx_inv_loc_date ON inventory_updates(location_id, shift_date);
+    CREATE INDEX IF NOT EXISTS idx_psc_vendor_sku ON pack_size_changes(vendor, sku);
+    CREATE INDEX IF NOT EXISTS idx_psc_ack ON pack_size_changes(acknowledged, detected_at);
   `);
 }
 
@@ -798,11 +837,17 @@ function migrateLegacyColumns(db: DB): void {
   //                            actual_received_lb deviates from catalog
   // Both NULLable; old rows pre-T5a stay NULL (conventional "no catch-weight
   // adjustment" sentinel).
+  // T6 adds map_status on vendor_prices so the pack-size-substitution
+  // detector can flag the freshly-INSERTed row as 'PACK_CHANGED' whenever
+  // the incoming pack_size/pack_unit differs from the latest prior row per
+  // (vendor, sku). NULL on old / non-changed rows — the attention-queue
+  // surfacing logic treats NULL as "no issue".
   const vpCols = t('vendor_prices');
   const vpMigrations: [string, string][] = [
     ['yield_pct', 'ALTER TABLE vendor_prices ADD COLUMN yield_pct REAL'],
     ['actual_received_lb', 'ALTER TABLE vendor_prices ADD COLUMN actual_received_lb REAL'],
     ['reconciled_unit_price', 'ALTER TABLE vendor_prices ADD COLUMN reconciled_unit_price REAL'],
+    ['map_status', 'ALTER TABLE vendor_prices ADD COLUMN map_status TEXT'],
   ];
   for (const [col, ddl] of vpMigrations) {
     if (!vpCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
