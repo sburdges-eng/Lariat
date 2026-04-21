@@ -32,7 +32,18 @@ def normalize_one(value: str | None) -> str:
 
 
 def normalize_series(series: "pd.Series") -> "pd.Series":
-    """Vectorized equivalent of normalize_one for a pandas Series."""
+    """Vectorized equivalent of normalize_one for a pandas Series.
+
+    NaN / pd.NA pass through unchanged as float NaN (pandas 3.x behavior).
+    Callers who want a canonical string key for missing values must
+    pre-fill the series (e.g. ``series.fillna("")``) before calling —
+    otherwise the result Series carries float NaN in those positions,
+    which is NOT equal to itself under IEEE 754 and will form singleton
+    groups in downstream merge / groupby. That is the desired behavior
+    for Lariat's mapping pipeline (missing-ingredient rows should not
+    merge with each other under a shared 'nan' string key as they did
+    under pandas 2.x's astype(str) coercion).
+    """
     if not isinstance(series, pd.Series):
         raise TypeError("normalize_series expects a pandas Series")
     s = series.astype(str).str.lower().str.strip()
