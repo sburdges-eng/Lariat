@@ -1,0 +1,359 @@
+[
+  {
+    "expected": 1.0,
+    "from_unit": "lb",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": 0.0,
+    "from_unit": "lb",
+    "g_per_ml": null,
+    "qty": 0.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": 5.5,
+    "from_unit": "cup",
+    "g_per_ml": null,
+    "qty": 5.5,
+    "to_unit": "cup"
+  },
+  {
+    "expected": 1.0,
+    "from_unit": "ea",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "ea"
+  },
+  {
+    "expected": 1.0,
+    "from_unit": "LB",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": 1.0,
+    "from_unit": " lb ",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": 1.0,
+    "from_unit": "Lb",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": 1.0,
+    "from_unit": "POUND",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": 16.000000014109585,
+    "from_unit": "lb",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "oz"
+  },
+  {
+    "expected": 0.9999999991181509,
+    "from_unit": "oz",
+    "g_per_ml": null,
+    "qty": 16.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": 1000.0,
+    "from_unit": "kg",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "g"
+  },
+  {
+    "expected": 1.0,
+    "from_unit": "g",
+    "g_per_ml": null,
+    "qty": 1000.0,
+    "to_unit": "kg"
+  },
+  {
+    "expected": 453.59237,
+    "from_unit": "lb",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "g"
+  },
+  {
+    "expected": 1.1339809250000001,
+    "from_unit": "lb",
+    "g_per_ml": null,
+    "qty": 2.5,
+    "to_unit": "kg"
+  },
+  {
+    "expected": 0.001,
+    "from_unit": "mg",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "g"
+  },
+  {
+    "expected": 1.0,
+    "from_unit": "lbs",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": 16.000000014109585,
+    "from_unit": "pounds",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "oz"
+  },
+  {
+    "expected": 48.00000003651915,
+    "from_unit": "cup",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "tsp"
+  },
+  {
+    "expected": 236.5882365,
+    "from_unit": "cup",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "ml"
+  },
+  {
+    "expected": 16.0,
+    "from_unit": "gal",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "cup"
+  },
+  {
+    "expected": 4.0,
+    "from_unit": "qt",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "cup"
+  },
+  {
+    "expected": 9.000000006086525,
+    "from_unit": "tbsp",
+    "g_per_ml": null,
+    "qty": 3.0,
+    "to_unit": "tsp"
+  },
+  {
+    "expected": 1000.0,
+    "from_unit": "l",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "ml"
+  },
+  {
+    "expected": 29.5735296,
+    "from_unit": "fl oz",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "ml"
+  },
+  {
+    "expected": 2.000000002705122,
+    "from_unit": "floz",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "tbsp"
+  },
+  {
+    "expected": 0.29208915582067657,
+    "from_unit": "cup",
+    "g_per_ml": 0.56,
+    "qty": 1.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": 2.2046226218487757,
+    "from_unit": "l",
+    "g_per_ml": 1.0,
+    "qty": 1.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": 250.78353069,
+    "from_unit": "cup",
+    "g_per_ml": 0.53,
+    "qty": 2.0,
+    "to_unit": "g"
+  },
+  {
+    "expected": 13.603823597600002,
+    "from_unit": "tbsp",
+    "g_per_ml": 0.92,
+    "qty": 1.0,
+    "to_unit": "g"
+  },
+  {
+    "expected": 3.4236122090541894,
+    "from_unit": "lb",
+    "g_per_ml": 0.56,
+    "qty": 1.0,
+    "to_unit": "cup"
+  },
+  {
+    "expected": 1.0,
+    "from_unit": "g",
+    "g_per_ml": 1.0,
+    "qty": 1000.0,
+    "to_unit": "l"
+  },
+  {
+    "expected": null,
+    "from_unit": "cup",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": null,
+    "from_unit": "tbsp",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "oz"
+  },
+  {
+    "expected": null,
+    "from_unit": "lb",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "cup"
+  },
+  {
+    "expected": null,
+    "from_unit": "cup",
+    "g_per_ml": 0.0,
+    "qty": 1.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": null,
+    "from_unit": "cup",
+    "g_per_ml": -0.5,
+    "qty": 1.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": null,
+    "from_unit": "ea",
+    "g_per_ml": 0.5,
+    "qty": 1.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": null,
+    "from_unit": "lb",
+    "g_per_ml": 0.5,
+    "qty": 1.0,
+    "to_unit": "ea"
+  },
+  {
+    "expected": null,
+    "from_unit": "case",
+    "g_per_ml": 10.0,
+    "qty": 1.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": null,
+    "from_unit": "bag",
+    "g_per_ml": 2.0,
+    "qty": 1.0,
+    "to_unit": "oz"
+  },
+  {
+    "expected": null,
+    "from_unit": "cup",
+    "g_per_ml": 1.0,
+    "qty": 1.0,
+    "to_unit": "ea"
+  },
+  {
+    "expected": null,
+    "from_unit": "#10 can",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": null,
+    "from_unit": "lb",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "blorp"
+  },
+  {
+    "expected": null,
+    "from_unit": "",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": null,
+    "from_unit": null,
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": null,
+    "from_unit": "lb",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": null
+  },
+  {
+    "expected": 0.0,
+    "from_unit": "cup",
+    "g_per_ml": 0.56,
+    "qty": 0.0,
+    "to_unit": "lb"
+  },
+  {
+    "expected": 0.0,
+    "from_unit": "cup",
+    "g_per_ml": null,
+    "qty": 0.0,
+    "to_unit": "tsp"
+  },
+  {
+    "expected": null,
+    "from_unit": "lb",
+    "g_per_ml": null,
+    "qty": "nan",
+    "to_unit": "oz"
+  },
+  {
+    "expected": null,
+    "from_unit": "lb",
+    "g_per_ml": null,
+    "qty": "inf",
+    "to_unit": "oz"
+  },
+  {
+    "expected": null,
+    "from_unit": "cup",
+    "g_per_ml": 0.56,
+    "qty": "-inf",
+    "to_unit": "lb"
+  }
+]

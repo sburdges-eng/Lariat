@@ -1,0 +1,33 @@
+ingredient_name,unit,g_per_unit,source,notes
+cilantro,ct,75,seed,approx per-bunch weight; Sysco "Cilantro Bunch Iceless" packs 8 ct/case; verify in-house
+cilantro,bunch,75,seed,alias of ct bunch weight
+jalapeno,ea,30,seed,medium fresh jalapeno; approx; verify in-house
+jalapenos,ea,30,seed,alias of jalapeno ea
+yellow onions,ea,340,seed,jumbo yellow onion; approx; verify in-house
+white onions,ea,340,seed,jumbo white onion; approx; verify in-house
+large onions,ea,340,seed,generic jumbo onion; approx
+red onions,ea,340,seed,jumbo red onion; approx
+garlic cloves,ea,3,seed,single peeled clove; approx
+garlic,ea,3,seed,single peeled clove default; alias
+rosemary sprigs,ea,2,seed,single sprig; approx; verify in-house
+thyme sprigs,ea,1,seed,single sprig; approx; verify in-house
+arbol chiles,ea,0.3,seed,dried whole arbol; approx; vendor pack_unit ea is miscoded as lb equivalent
+beef cheeks,case,13417,seed,Sysco case ≈ 29.585 lb (miscoded pack_unit=ea in vendor data)
+beef cheeks,ea,453.59237,seed,defensive alias: vendor pack_unit=ea meant lb
+cooked black beans,ct,453.59237,seed,vendor "Bean Black" pack_unit=ct meant lb; 1 ct = 1 lb
+diced bell pepper,ct,453.59237,seed,vendor "Pepper Red Diced Fancy" pack_unit=ct meant lb
+chicken wings,bag,4535.9237,seed,10 lb bag per Shamrock spec
+green chile,bag,11339.80925,seed,25 lb bag (Chile Green Hatch Diced Mild)
+green chiles with juice,bag,11339.80925,seed,alias of green chile 25 lb bag
+tomatillos,can,793.79,seed,#10 can net wt ≈ 28 oz product
+whole tomatillos,can,793.79,seed,#10 can net wt ≈ 28 oz product; "#10 can" normalizes to can
+bread and butter pickle juice,pk,1814.37,seed,≈4 lb jar approx; verify in-house
+anchovy,ea,3,seed,single filet from 13 oz can; approx
+mae ploy sweet chili sauce,bottle,920,seed,standard 920 ml bottle (density ≈ 1.0 treated as g/ml)
+artisan bread slices,ea,28,seed,1 oz Reuben thick slice
+cheddar cheese slices,ea,14,seed,0.5 oz slice per Sysco spec
+provolone slices,ea,14,seed,0.5 oz slice per Shamrock spec
+cornbread mixture,box,907.18,seed,2 lb box approx; verify against Sysco Mix Cornbread spec
+avocado,ct,200,seed,medium Hass avocado; approx
+avocado,ea,200,seed,alias of ct avocado weight
+large white onions,ea,340,seed,alias of white onions jumbo weight

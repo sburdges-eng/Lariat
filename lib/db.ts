@@ -452,6 +452,22 @@ export function initSchema(db: DB): void {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
+    -- T4.1: per-(ingredient, count-unit) weight bridge. Answers "how many
+    -- grams is one ea / bunch / slice / sprig / clove / case of this
+    -- ingredient." Used by the T4 conversion post-pass in ingest-costing.mjs
+    -- to bridge count ↔ weight (and count → volume when paired with a
+    -- density). Source column tracks provenance the same way as
+    -- ingredient_densities; a row may be 'seed' (CSV), 'measured' (kitchen
+    -- scale), or 'vendor' (declared on a spec sheet).
+    CREATE TABLE IF NOT EXISTS ingredient_unit_weights (
+      ingredient_key TEXT NOT NULL,
+      unit           TEXT NOT NULL,        -- canonical count unit (post-normalize_unit)
+      g_per_unit     REAL NOT NULL,        -- grams per 1 of the count unit above
+      source         TEXT CHECK (source IS NULL OR source IN ('seed', 'measured', 'vendor')),
+      updated_at     TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (ingredient_key, unit)
+    );
+
     -- T5a: per-(vendor, sku) catalog pack weight so invoice-vs-received
     -- reconciliation can catch catch-weight items that ship heavier/lighter
     -- than the catalog declares. catalog_wt_lb is REQUIRED (the reference
@@ -697,6 +713,7 @@ function assertCriticalSchemas(db: DB): void {
       'ingredient_key', 'yield_pct', 'loss_factor', 'source', 'notes', 'updated_at',
     ],
     ingredient_densities: ['ingredient_key', 'g_per_ml', 'source', 'updated_at'],
+    ingredient_unit_weights: ['ingredient_key', 'unit', 'g_per_unit', 'source', 'updated_at'],
     vendor_catch_weights: ['vendor', 'sku', 'catalog_wt_lb', 'tare_lb', 'source', 'updated_at'],
   };
   for (const [table, required] of Object.entries(requirements)) {

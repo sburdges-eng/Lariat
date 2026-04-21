@@ -6,6 +6,86 @@ import { execSync } from 'child_process';
 import Database from 'better-sqlite3';
 import { initSchema, DB_FILE } from '../lib/db.ts';
 import { normalizeIngredientKey } from '../lib/ingredientKey.ts';
+import {
+  convertQty,
+  normalizeUnit,
+  unitDimension,
+  WEIGHT_TO_G,
+  VOLUME_TO_ML,
+} from '../lib/unitConvert.mjs';
+
+/**
+ * T4.1 count-bridge. Converts a quantity of a count unit (ea / bunch / can /
+ * …) into a weight or volume unit using a per-ingredient grams-per-unit
+ * lookup as the anchor. Returns `null` on any failure path so the caller can
+ * fall back to `convertQty` or flag the row.
+ *
+ *   count → weight:  qty × g_per_unit = g  →  g / WEIGHT_TO_G[to]
+ *   count → volume:  qty × g_per_unit = g  →  (g / density) / VOLUME_TO_ML[to]
+ *   weight → count:  qty × WEIGHT_TO_G[from] = g  →  g / g_per_unit[to]
+ *   volume → count:  qty × VOLUME_TO_ML[from] × density = g  →  g / g_per_unit[to]
+ *   count → count:   different units bridged via grams.
+ *
+ * Assumes `fromCanon` / `toCanon` are already normalized by `normalizeUnit`.
+ * `unitWeights` is a Map<string,number> keyed on canonical count unit →
+ * grams-per-one, scoped to the specific ingredient (typically
+ * `unitWeightByKey.get(normalizeIngredientKey(ingredient))`). May be
+ * undefined — treated as empty.
+ *
+ * @param {number} qty
+ * @param {string} fromCanon
+ * @param {string} toCanon
+ * @param {number | null | undefined} density g/ml
+ * @param {Map<string,number> | undefined} unitWeights
+ * @returns {number | null}
+ */
+export function bridgeCount(qty, fromCanon, toCanon, density, unitWeights) {
+  if (typeof qty !== 'number' || !Number.isFinite(qty) || qty < 0) return null;
+  if (!fromCanon || !toCanon) return null;
+  if (fromCanon === toCanon) return qty;
+
+  const fromDim = unitDimension(fromCanon);
+  const toDim = unitDimension(toCanon);
+  if (!fromDim || !toDim) return null;
+  if (fromDim !== 'count' && toDim !== 'count') return null; // nothing to bridge
+
+  const gramsFromCount = (q, canon) => {
+    const g = unitWeights?.get(canon);
+    return g != null && g > 0 && Number.isFinite(g) ? q * g : null;
+  };
+  const countFromGrams = (g, canon) => {
+    const w = unitWeights?.get(canon);
+    return w != null && w > 0 && Number.isFinite(w) ? g / w : null;
+  };
+
+  let grams;
+  if (fromDim === 'count') {
+    grams = gramsFromCount(qty, fromCanon);
+  } else if (fromDim === 'weight') {
+    const f = WEIGHT_TO_G[fromCanon];
+    if (!(f > 0)) return null;
+    grams = qty * f;
+  } else {
+    // volume → grams requires density.
+    if (density == null || !Number.isFinite(density) || !(density > 0)) return null;
+    const f = VOLUME_TO_ML[fromCanon];
+    if (!(f > 0)) return null;
+    grams = qty * f * density;
+  }
+  if (grams == null || !Number.isFinite(grams) || grams < 0) return null;
+
+  if (toDim === 'count') return countFromGrams(grams, toCanon);
+  if (toDim === 'weight') {
+    const t = WEIGHT_TO_G[toCanon];
+    if (!(t > 0)) return null;
+    return grams / t;
+  }
+  // volume
+  if (density == null || !Number.isFinite(density) || !(density > 0)) return null;
+  const t = VOLUME_TO_ML[toCanon];
+  if (!(t > 0)) return null;
+  return (grams / density) / t;
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -40,7 +120,10 @@ const DEFAULT_OPS = path.join(ROOT, 'XL', 'lariat_operations_workbook_2026-04-10
  *   recipes_yield_adjusted: number,
  *   total_yield_delta_usd: number,
  *   max_recipe_yield_delta_usd: number,
- * }} Summary of rows inserted, yield coverage, and yield-adjustment totals.
+ *   bom_lines_needs_density: number,
+ * }} Summary of rows inserted, yield coverage, yield-adjustment totals, and
+ *    count of BOM rows flagged `map_status='NEEDS_DENSITY'` by the T4
+ *    volume↔weight conversion pass (these surface in B2's unmapped queue).
  */
 export function ingestCosting(db, data, locationId = 'default') {
   initSchema(db);
@@ -118,6 +201,7 @@ function _ingestCostingImpl(db, data, locationId) {
     order_guide: 0,
     recipes_yield_adjusted: 0,
     total_yield_delta_usd: 0,
+    bom_lines_needs_density: 0,
   };
 
   const del = (sql) => db.prepare(sql).run(locationId);
@@ -238,7 +322,41 @@ function _ingestCostingImpl(db, data, locationId) {
   summary.bom_coverage_pct =
     summary.bom_lines > 0 ? (100 * summary.bom_lines_with_yield) / summary.bom_lines : 0;
 
-  // ── T3: yield + loss post-pass ──────────────────────────────────────
+  const postPass = runCostingPostPass(db, locationId);
+  summary.recipes_yield_adjusted = postPass.recipes_yield_adjusted;
+  summary.total_yield_delta_usd = postPass.total_yield_delta_usd;
+  summary.max_recipe_yield_delta_usd = postPass.max_recipe_yield_delta_usd;
+  summary.bom_lines_needs_density = postPass.bom_lines_needs_density;
+  return summary;
+}
+
+/**
+ * T3+T4 post-pass. Reads fresh bom_lines/vendor_prices/ingredient_densities/
+ * ingredient_unit_weights/ingredient_yields for the given location and
+ * UPDATEs recipe_costs.{batch_cost, cost_per_yield_unit} with the yield/loss/
+ * unit-conversion delta for each recipe. Safe to call outside the DELETE+
+ * INSERT path, so an operator who already has good vendor_prices in place
+ * can apply T4.1 deltas without re-ingesting the workbook.
+ *
+ * Caller must ensure bom_lines.{yield_pct, loss_factor} are populated (either
+ * by a prior ingestCosting run or by a JOIN-on-ingredient_yields migration).
+ * Post-pass does not re-populate those columns — it reads them as-is.
+ *
+ * Returns the same fields the ingestCosting summary surfaces for the
+ * post-pass metrics (recipes_yield_adjusted, total_yield_delta_usd,
+ * max_recipe_yield_delta_usd, bom_lines_needs_density).
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} [locationId='default']
+ */
+export function runCostingPostPass(db, locationId = 'default') {
+  const summary = {
+    recipes_yield_adjusted: 0,
+    total_yield_delta_usd: 0,
+    max_recipe_yield_delta_usd: 0,
+    bom_lines_needs_density: 0,
+  };
+  // ── T3 + T4: yield + loss + unit-conversion post-pass ──────────────
   // After T2c populated bom_lines.{yield_pct, loss_factor, pack_price, pack_size,
   // qty}, sum the per-BOM-line "true cost" adjustment for each recipe and apply
   // it on top of Excel's pre-computed batch_cost. NULL yield_pct → 1.0 (no
@@ -247,11 +365,24 @@ function _ingestCostingImpl(db, data, locationId) {
   // DELETE+INSERT sweep above reinserts a fresh Excel batch_cost every time, so
   // running `ingestCosting` twice never double-applies the delta.
   //
-  // Recovery: on T3 failure mid-UPDATE, the T2c transaction above is already
-  // committed, so vendor_prices / bom_lines / recipe_costs have fresh Excel
-  // values (pre-delta). Rerun `ingestCosting()` end-to-end — the DELETE+INSERT
-  // sweep is idempotent and the second T3 pass starts from the same raw
-  // Excel base.
+  // T4 extension: the delta formula `qty × pack_price / pack_size × (adj − 1)`
+  // assumed bom `qty` and `pack_size` were in the same unit. Live DB survey
+  // showed ~85% of BOM rows mix volume (cup/tbsp/tsp) with weight (lb/oz)
+  // vendor packs. To keep the ratio dimensionally meaningful we convert
+  // `pack_size` into the bom_line's unit before dividing. When the conversion
+  // cannot be completed — cross-dim without a known density, count units,
+  // unknown unit tokens — we flag the row `map_status='NEEDS_DENSITY'` so B2's
+  // unmapped queue surfaces it (reason='unmapped_status') and skip the row's
+  // delta contribution. We only overwrite NULL / unrecognized map_status —
+  // rows already 'confirmed' / 'mapped' / 'auto_mapped' are left alone so a
+  // missing density on a confirmed mapping still gets the operator's attention
+  // through B1 variance rather than clobbering curator intent.
+  //
+  // Recovery: on T3/T4 failure mid-UPDATE, the T2c transaction above is
+  // already committed, so vendor_prices / bom_lines / recipe_costs have fresh
+  // Excel values (pre-delta). Rerun `ingestCosting()` end-to-end — the
+  // DELETE+INSERT sweep is idempotent and the second T3 pass starts from the
+  // same raw Excel base.
   const adjustment = (yieldPct, lossFactor) => {
     const y = yieldPct == null ? 1.0 : yieldPct;
     const l = lossFactor == null ? 0.0 : lossFactor;
@@ -260,8 +391,64 @@ function _ingestCostingImpl(db, data, locationId) {
     return 1 / denom;
   };
 
+  // Density lookup: ingredient_key → g/ml, built once and reused per-line.
+  const densityByKey = new Map();
+  for (const row of db.prepare('SELECT ingredient_key, g_per_ml FROM ingredient_densities').all()) {
+    densityByKey.set(row.ingredient_key, row.g_per_ml);
+  }
+
+  // T4.1: per-(ingredient, count-unit) weight. Two-level Map so count-bridge
+  // lookups can fall back across the legal count synonyms for the same item.
+  //   unitWeightByKey.get(key).get(canonCountUnit) = grams per 1 of that unit
+  // Populated once per ingest, same idempotency posture as densityByKey.
+  const unitWeightByKey = new Map();
+  for (const row of db.prepare(
+    'SELECT ingredient_key, unit, g_per_unit FROM ingredient_unit_weights',
+  ).all()) {
+    let inner = unitWeightByKey.get(row.ingredient_key);
+    if (!inner) { inner = new Map(); unitWeightByKey.set(row.ingredient_key, inner); }
+    inner.set(row.unit, row.g_per_unit);
+  }
+
+  // Vendor pack_unit lookup. bom_lines.pack_size / pack_price arrive from the
+  // Excel BOM sheet keyed by `vendor_ingredient` (the vendor-catalog string),
+  // so we look up pack_unit with the same key, both in its raw form (exact
+  // vendor catalog match) and in a normalized form (fallback for case /
+  // whitespace drift). The same ORDER BY as B1 — imported_at DESC, id DESC,
+  // first row wins per key — keeps "latest priced pack" semantics consistent.
+  const vpPackUnitByRaw = new Map();
+  const vpPackUnitByNormKey = new Map();
+  for (const row of db.prepare(
+    `SELECT ingredient, pack_unit
+       FROM vendor_prices
+      WHERE location_id = ?
+      ORDER BY imported_at DESC, id DESC`,
+  ).all(locationId)) {
+    const raw = row.ingredient ?? '';
+    if (raw && !vpPackUnitByRaw.has(raw)) vpPackUnitByRaw.set(raw, row.pack_unit);
+    const key = normalizeIngredientKey(raw);
+    if (!key) continue;
+    if (!vpPackUnitByNormKey.has(key)) vpPackUnitByNormKey.set(key, row.pack_unit);
+  }
+  const resolvePackUnit = (bomIngredient, vendorIngredient) => {
+    // 1. raw vendor string match on bom_lines.vendor_ingredient.
+    if (vendorIngredient && vpPackUnitByRaw.has(vendorIngredient)) {
+      return vpPackUnitByRaw.get(vendorIngredient);
+    }
+    // 2. normalized vendor string (case/whitespace drift).
+    const vKey = normalizeIngredientKey(vendorIngredient ?? '');
+    if (vKey && vpPackUnitByNormKey.has(vKey)) return vpPackUnitByNormKey.get(vKey);
+    // 3. normalized bom ingredient as last resort (matches the B1 fallback
+    //    semantics for recipes whose vendor_ingredient is blank but whose
+    //    bom ingredient string happens to match a vendor row).
+    const bKey = normalizeIngredientKey(bomIngredient ?? '');
+    if (bKey && vpPackUnitByNormKey.has(bKey)) return vpPackUnitByNormKey.get(bKey);
+    return undefined;
+  };
+
   const bomForDelta = db.prepare(`
-    SELECT recipe_id, qty, pack_price, pack_size, yield_pct, loss_factor
+    SELECT id, recipe_id, ingredient, vendor_ingredient, unit, qty,
+           pack_price, pack_size, yield_pct, loss_factor, map_status
       FROM bom_lines
      WHERE location_id = ?
   `).all(locationId);
@@ -269,8 +456,20 @@ function _ingestCostingImpl(db, data, locationId) {
   const perRecipeDelta = new Map(); // recipe_id -> delta (USD)
   let guardSkipped = 0;
   let denomSkipped = 0;
+  let denomConvertedSkipped = 0;
+
+  // Track which BOM rows need `map_status='NEEDS_DENSITY'` so the flag update
+  // can run inside one transaction after the scan completes.
+  const needsDensityIds = [];
+  // Rows already carrying one of these values were hand-curated or set by an
+  // earlier pipeline stage; we never downgrade them to NEEDS_DENSITY.
+  const PROTECTED_MAP_STATUSES = new Set(['confirmed', 'mapped', 'auto_mapped']);
+
   for (const line of bomForDelta) {
-    const { recipe_id, qty, pack_price, pack_size, yield_pct, loss_factor } = line;
+    const {
+      id, recipe_id, ingredient, vendor_ingredient, unit, qty, pack_price, pack_size,
+      yield_pct, loss_factor, map_status,
+    } = line;
     // Guard: zero/null qty, pack_price, or pack_size contributes 0 delta.
     if (
       qty == null || pack_price == null || pack_size == null ||
@@ -285,8 +484,61 @@ function _ingestCostingImpl(db, data, locationId) {
       denomSkipped++;
       continue;
     }
-    // delta = qty × pack_price / pack_size × (adj - 1)
-    const delta = (qty * pack_price / pack_size) * (adj - 1);
+
+    // T4: resolve pack_unit from vendor_prices (keyed by vendor_ingredient
+    // first — the authoritative join on the Excel BOM sheet — then fall back
+    // through normalized vendor string and normalized bom ingredient) and
+    // convert pack_size into the bom_line's unit. Identity path (same
+    // canonical unit) short-circuits so weight×weight with matching tokens
+    // still hits the fast path.
+    const key = normalizeIngredientKey(ingredient ?? '');
+    const packUnit = resolvePackUnit(ingredient, vendor_ingredient);
+    const bomUnit = unit;
+    const density = key ? densityByKey.get(key) : undefined;
+
+    let packSizeInBomUnit;
+    const bomCanon = normalizeUnit(bomUnit);
+    const packCanon = normalizeUnit(packUnit);
+    if (!packCanon) {
+      // No vendor_prices row for this ingredient, or vendor row has an empty
+      // pack_unit — no way to dim-check. Fall back to T3's identity
+      // assumption (treat pack_size as already in the bom_line's unit) so a
+      // costing workbook without vendor sheets still computes deltas. B2
+      // already surfaces "unmapped_status" and no_price reasons, and the
+      // variance benchmark would flag gross inaccuracies downstream.
+      packSizeInBomUnit = pack_size;
+    } else if (!bomCanon) {
+      // bom_line unit is empty/unknown but vendor pack_unit is present: we
+      // can't interpret the ratio. Flag and skip.
+      if (!PROTECTED_MAP_STATUSES.has(map_status ?? '')) needsDensityIds.push(id);
+      denomConvertedSkipped++;
+      continue;
+    } else if (bomCanon === packCanon) {
+      // Identity — no conversion needed, preserves T3's byte-exact same-unit path.
+      packSizeInBomUnit = pack_size;
+    } else {
+      // T4.1: try count-bridge FIRST when either side is a count unit — the
+      // generic convertQty never returns non-null for count involvement, so
+      // attempting bridgeCount before convertQty keeps a single code path.
+      // The bridge uses grams as the intermediate: count → g (via
+      // unitWeightByKey), g → volume (via density) as needed.
+      const bridged = bridgeCount(pack_size, packCanon, bomCanon, density, unitWeightByKey.get(key));
+      if (bridged !== null) {
+        packSizeInBomUnit = bridged;
+      } else {
+        packSizeInBomUnit = convertQty(pack_size, packUnit, bomUnit, density);
+      }
+      if (packSizeInBomUnit === null || !(packSizeInBomUnit > 0) || !Number.isFinite(packSizeInBomUnit)) {
+        // Cross-dim without density, count involvement without unit_weight,
+        // unknown unit — flag and skip.
+        if (!PROTECTED_MAP_STATUSES.has(map_status ?? '')) needsDensityIds.push(id);
+        denomConvertedSkipped++;
+        continue;
+      }
+    }
+
+    // delta = qty × pack_price / pack_size_in_bom_unit × (adj - 1)
+    const delta = (qty * pack_price / packSizeInBomUnit) * (adj - 1);
     if (delta === 0) continue;
     perRecipeDelta.set(recipe_id, (perRecipeDelta.get(recipe_id) ?? 0) + delta);
   }
@@ -300,6 +552,39 @@ function _ingestCostingImpl(db, data, locationId) {
     console.warn(
       `⚠ ${denomSkipped} bom_line(s) had yield_pct × (1 - loss_factor) ≤ 0 — delta skipped (seed data out of domain, investigate ingredient_yields)`,
     );
+  }
+  if (denomConvertedSkipped > 0) {
+    console.warn(
+      `⚠ ${denomConvertedSkipped} bom_line(s) could not convert pack_size → bom_unit (missing density, count unit, or unknown unit) — delta skipped`,
+    );
+  }
+
+  // Flag rows that need density (or any other unit-conversion failure). B2's
+  // computeUnmapped treats any map_status not in
+  // {confirmed,mapped,auto_mapped} as reason='unmapped_status', so the new
+  // NEEDS_DENSITY rows appear in the queue without further wiring.
+  if (needsDensityIds.length > 0) {
+    const flagStmt = db.prepare(
+      `UPDATE bom_lines
+          SET map_status = 'NEEDS_DENSITY'
+        WHERE id = ?
+          AND location_id = ?
+          AND (map_status IS NULL
+               OR map_status NOT IN ('confirmed', 'mapped', 'auto_mapped'))`,
+    );
+    let flagged = 0;
+    db.transaction(() => {
+      for (const id of needsDensityIds) {
+        const r = flagStmt.run(id, locationId);
+        if (r.changes > 0) flagged++;
+      }
+    })();
+    summary.bom_lines_needs_density = flagged;
+    if (flagged > 0) {
+      console.warn(
+        `⚠ ${flagged} bom_line(s) flagged NEEDS_DENSITY — B2 unmapped queue will surface them`,
+      );
+    }
   }
 
   const updateRecipe = db.prepare(`
@@ -320,12 +605,25 @@ function _ingestCostingImpl(db, data, locationId) {
   db.transaction(() => {
     for (const [recipe_id, delta] of perRecipeDelta) {
       if (delta === 0) continue; // preserves zero-regression invariant byte-exact
+      // recipe_id='TOTAL' is a summary row from Excel's Recipe Cost Summary
+      // sheet — it has no bom_lines of its own but gets INSERTed verbatim by
+      // the ingest. Skip it here so the per-recipe delta doesn't land on the
+      // summary (which would double-apply once we update TOTAL below).
+      // Defensive: bom_lines should never carry recipe_id='TOTAL' anyway.
+      if (recipe_id === 'TOTAL') continue;
       const result = updateRecipe.run({ recipe_id, delta, location_id: locationId });
       if (result.changes > 0) {
         adjustedCount++;
         totalDelta += delta;
         if (Math.abs(delta) > Math.abs(maxPerRecipeDelta)) maxPerRecipeDelta = delta;
       }
+    }
+    // Keep the summary row in sync: TOTAL must equal SUM(individual
+    // batch_cost). Without this, dashboards / audits that trust TOTAL see a
+    // stale pre-T3 value while the per-recipe sum reflects the yield-adjusted
+    // delta. Guard: only update if the row actually exists and has a batch_cost.
+    if (totalDelta !== 0) {
+      updateRecipe.run({ recipe_id: 'TOTAL', delta: totalDelta, location_id: locationId });
     }
   })();
 
