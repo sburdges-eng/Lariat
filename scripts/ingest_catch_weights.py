@@ -15,8 +15,9 @@ CSV columns (header row required):
 Only sku, sysco_net_wt_lb, tare_lb, and source are persisted —
 ingredient / pack_size / pack_unit / verified_net_weight_g / verified
 are human-facing / downstream CSV metadata.  The vendor column is
-set to 'sysco' for every row since this CSV is Sysco-sourced;
-Shamrock catch-weights will flow in via a sibling ingest (T5b).
+set via the --vendor CLI arg (default 'sysco') for every row since
+this CSV is Sysco-sourced; Shamrock catch-weights will flow in via a
+sibling ingest (T5b).
 
 Validation:
     - catalog_wt_lb (= sysco_net_wt_lb) MUST be > 0.
@@ -28,18 +29,27 @@ Validation:
 Idempotency: UPSERT on PRIMARY KEY (vendor, sku); running twice
 against the same CSV yields the same row count. Verified by
 tests/python/test_ingest_catch_weights.py.
+
+Shared skeleton lives in scripts.lib.seed_upsert (debt D2).
 """
 from __future__ import annotations
 
 import argparse
-import csv
-import sqlite3
 import sys
 from pathlib import Path
 
-import pandas as pd
-
 ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.lib.seed_upsert import (  # noqa: E402
+    ColumnSpec,
+    SeedSpec,
+    assert_csv_shape,
+    build_cli,
+    seed_upsert_main,
+)
+
 EXPECTED_COLUMNS: tuple[str, ...] = (
     "sku",
     "ingredient",
@@ -60,136 +70,71 @@ DEFAULT_CSV = ROOT / "data" / "seeds" / "vendor_pack_weights.csv"
 DEFAULT_VENDOR = "sysco"
 
 
-def _assert_csv_shape(csv_path: Path) -> None:
-    expected = list(EXPECTED_COLUMNS)
-    n_expected = len(expected)
-    with csv_path.open("r", encoding="utf-8", newline="") as fh:
-        reader = csv.reader(fh)
-        try:
-            header = next(reader)
-        except StopIteration:
-            raise ValueError(f"CSV {csv_path} is empty (no header row)")
-        if header != expected:
-            raise ValueError(
-                f"CSV {csv_path} header mismatch: got {header!r}, "
-                f"expected {expected!r}"
-            )
-        for line_no, fields in enumerate(reader, start=2):
-            if len(fields) == 0:
-                continue
-            if len(fields) != n_expected:
-                raise ValueError(
-                    f"CSV {csv_path} line {line_no}: got {len(fields)} "
-                    f"fields, expected {n_expected} (columns={expected}); "
-                    f"offending row={fields!r}"
-                )
-
-
-def _parse_lb(raw: object, *, allow_blank: bool) -> float | None:
-    s = str(raw).strip() if raw is not None else ""
-    if s == "":
-        if allow_blank:
-            return None
-        raise ValueError("blank value where a number was required")
-    return float(s)
-
-
-def main(db_path: Path, csv_path: Path, vendor: str) -> int:
-    if not csv_path.is_file():
-        print(f"CSV not found: {csv_path}", file=sys.stderr)
-        return 1
-    if not db_path.exists():
-        print(f"DB not found: {db_path}", file=sys.stderr)
-        return 1
-
-    _assert_csv_shape(csv_path)
-
-    df = pd.read_csv(csv_path, dtype=str, keep_default_na=False)
-    missing = set(EXPECTED_COLUMNS) - set(df.columns)
-    if missing:
-        raise ValueError(f"CSV missing required columns: {sorted(missing)}")
-
-    n_read = len(df)
-    n_skipped = 0
-    validated: list[tuple[str, str, float, float | None, str | None]] = []
-
-    for idx, row in df.iterrows():
-        sku = str(row["sku"]).strip()
-        if not sku:
-            print(f"WARN row {idx}: empty sku; skipping", file=sys.stderr)
-            n_skipped += 1
-            continue
-
-        try:
-            catalog_wt_lb = _parse_lb(row["sysco_net_wt_lb"], allow_blank=False)
-        except ValueError as e:
-            raise ValueError(
-                f"row {idx}: sku={sku!r} sysco_net_wt_lb={row['sysco_net_wt_lb']!r} "
-                f"invalid: {e}"
-            ) from e
-        if catalog_wt_lb <= 0:
-            raise ValueError(
-                f"row {idx}: sku={sku!r} sysco_net_wt_lb={catalog_wt_lb} must be > 0"
-            )
-
-        try:
-            tare_lb = _parse_lb(row["tare_lb"], allow_blank=True)
-        except ValueError as e:
-            raise ValueError(
-                f"row {idx}: sku={sku!r} tare_lb={row['tare_lb']!r} invalid: {e}"
-            ) from e
-        if tare_lb is not None and tare_lb < 0:
-            raise ValueError(
-                f"row {idx}: sku={sku!r} tare_lb={tare_lb} must be >= 0"
-            )
-
-        source_str = str(row["source"]).strip()
-        source: str | None = source_str if source_str else None
-
-        validated.append((vendor, sku, catalog_wt_lb, tare_lb, source))
-
-    conn = sqlite3.connect(str(db_path))
-    try:
-        conn.execute("BEGIN")
-        for vendor_val, sku, catalog_wt_lb, tare_lb, source in validated:
-            conn.execute(
-                """
-                INSERT INTO vendor_catch_weights (vendor, sku, catalog_wt_lb, tare_lb, source, updated_at)
-                VALUES (?, ?, ?, ?, ?, datetime('now'))
-                ON CONFLICT(vendor, sku) DO UPDATE SET
-                    catalog_wt_lb = excluded.catalog_wt_lb,
-                    tare_lb = excluded.tare_lb,
-                    source = excluded.source,
-                    updated_at = datetime('now')
-                """,
-                (vendor_val, sku, catalog_wt_lb, tare_lb, source),
-            )
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
-
-    print(
-        f"ingest_catch_weights: read={n_read} upserted={len(validated)} skipped={n_skipped}",
-        file=sys.stderr,
-    )
-    return 0
-
-
-def _cli() -> int:
-    p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--db", type=Path, default=DEFAULT_DB, help="SQLite DB path")
-    p.add_argument("--csv", type=Path, default=DEFAULT_CSV, help="Input CSV path")
+def _register_vendor_arg(p: argparse.ArgumentParser) -> list[str]:
     p.add_argument(
         "--vendor",
         type=str,
         default=DEFAULT_VENDOR,
         help="Vendor to associate every row with (the CSV has no vendor column)",
     )
-    args = p.parse_args()
-    return main(args.db, args.csv, args.vendor)
+    return ["vendor"]
+
+
+SPEC = SeedSpec(
+    script_name="ingest_catch_weights",
+    table_name="vendor_catch_weights",
+    columns=(
+        # sku is the PK-piece alongside the injected vendor.  We use
+        # normalize_to_key=True with normalize_fn=strip (the default
+        # identity in SeedSpec wraps the lambda below) so the shared
+        # driver emits the "empty sku; skipping" stderr warning for
+        # blank-sku rows rather than failing validation.
+        ColumnSpec(csv_name="sku", normalize_to_key=True),
+        # Human-facing metadata columns: read for shape validation,
+        # not persisted.
+        ColumnSpec(csv_name="ingredient", persist=False, required=False),
+        ColumnSpec(csv_name="pack_size", persist=False, required=False),
+        ColumnSpec(csv_name="pack_unit", persist=False, required=False),
+        ColumnSpec(
+            csv_name="sysco_net_wt_lb",
+            db_column="catalog_wt_lb",
+            coerce=float,
+            validate=lambda v: v > 0,
+            validate_msg="must be > 0",
+        ),
+        ColumnSpec(
+            csv_name="tare_lb",
+            coerce=float,
+            validate=lambda v: v >= 0,
+            validate_msg="must be >= 0",
+            null_on_empty=True,
+        ),
+        ColumnSpec(csv_name="verified_net_weight_g", persist=False, required=False),
+        # source: free-text (no enum check).  Empty -> NULL.
+        ColumnSpec(csv_name="source", null_on_empty=True),
+        ColumnSpec(csv_name="verified", persist=False, required=False),
+    ),
+    on_conflict_columns=("vendor", "sku"),
+    # sku has no pre-existing normalize function — strip-only.
+    normalize_fn=lambda s: str(s).strip(),
+    default_db=DEFAULT_DB,
+    default_csv=DEFAULT_CSV,
+    extra_cli_args=_register_vendor_arg,
+)
+
+
+def _assert_csv_shape(csv_path: Path) -> None:
+    """Thin alias for test fixtures that imported the pre-refactor helper."""
+    assert_csv_shape(csv_path, EXPECTED_COLUMNS)
+
+
+def main(db_path: Path, csv_path: Path, vendor: str) -> int:
+    return seed_upsert_main(SPEC, db_path, csv_path, vendor=vendor)
+
+
+def _cli() -> int:
+    db, csv, injected = build_cli(SPEC, __doc__)
+    return main(db, csv, injected.get("vendor", DEFAULT_VENDOR))
 
 
 if __name__ == "__main__":

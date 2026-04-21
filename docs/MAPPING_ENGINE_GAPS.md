@@ -422,11 +422,13 @@ These are tracked follow-ups from code-quality reviews. Non-blocking; address wh
 >
 > **Fix when touched:** either (a) add `self.assertGreater(n_bom, 0)` as a baseline assertion so an empty-DB state fails instead of passes, or (b) rename the file to `coverage_report.py` and invoke it as a standalone tool rather than a pytest test.
 
-### D2 — Seed script duplication
+### D2 — Seed script duplication — DONE
 
-`scripts/seed_ingredient_densities.py` and `scripts/seed_ingredient_yields.py` share ~95% of their structure. Drift risk when a fix lands in one but not the other (e.g., the I1 CSV shape guard was added in lockstep — a future fix may not be).
+**Resolved by this bundle (d2-seed-refactor).** Shared skeleton lives in `scripts/lib/seed_upsert.py` as a `SeedSpec` + `ColumnSpec` dataclass pair and a `seed_upsert_main(spec, db, csv, **injected)` driver. The I1 CSV shape guard, per-row validation loop, single-transaction UPSERT with rollback, and the `"<script>: read=N upserted=N skipped=N"` stderr summary all live in one place. Four consolidated scripts: `seed_ingredient_densities.py`, `seed_ingredient_yields.py`, `seed_ingredient_unit_weights.py`, `ingest_catch_weights.py`. Line counts across the four callers went from 810 → 503 (~38% reduction); each script now declares a `SPEC` and calls into the shared driver. Composite PKs, injected constant columns (e.g. `--vendor`), source-enum checks (required vs optional), and `post_normalize` for the unit_weights `unit` column are all supported via `ColumnSpec` flags. The driver is covered end-to-end by `tests/python/test_seed_upsert.py` (19 tests, parameterized over the shared layer); the pre-existing per-script tests continue to pass byte-unchanged. Kept the full text below so the reviewer trail stays intact.
 
-**Fix when touched:** extract shared upsert logic into `scripts/lib/seed_upsert.py` with a `SeedSpec` dataclass carrying `(table_name, pk_column, columns, validators)`. Both seed scripts become ~40-line thin callers.
+> `scripts/seed_ingredient_densities.py` and `scripts/seed_ingredient_yields.py` share ~95% of their structure. Drift risk when a fix lands in one but not the other (e.g., the I1 CSV shape guard was added in lockstep — a future fix may not be).
+>
+> **Fix when touched:** extract shared upsert logic into `scripts/lib/seed_upsert.py` with a `SeedSpec` dataclass carrying `(table_name, pk_column, columns, validators)`. Both seed scripts become ~40-line thin callers.
 
 ### D3 — Positional-column INSERT fragility (flagged by T2c review) — DONE
 
