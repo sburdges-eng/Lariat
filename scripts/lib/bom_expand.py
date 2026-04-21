@@ -255,8 +255,62 @@ def build_manifest(
     recipe_index_csv = Path(recipe_index_csv)
     bom_csv = Path(bom_csv)
 
-    manifest: dict[str, Manifest] = {}
+    manifest = _load_recipe_index(recipe_index_csv)
 
+    with bom_csv.open(newline="") as f:
+        for row in csv.DictReader(f):
+            slug = (row.get("recipe_id") or "").strip()
+            if slug not in manifest:
+                continue
+            notes = (row.get("notes") or "").lower()
+            manifest[slug].bom.append(
+                {
+                    "ingredient": (row.get("ingredient") or "").strip(),
+                    "qty": _parse_float(row.get("qty")),
+                    "unit": (row.get("unit") or "").strip(),
+                    "is_sub_recipe": "(sub-recipe)" in notes,
+                }
+            )
+
+    return manifest
+
+
+def build_manifest_from_normalized(
+    recipe_index_csv: Path,
+    normalized_dir: Path,
+) -> dict[str, Manifest]:
+    """Build the manifest from `recipes/recipe_index.csv` plus the per-slug
+    `recipes/normalized/<slug>.csv` files (the layout Lariat actually ships).
+
+    Each normalized CSV has columns `ingredient, qty, unit, portions_per_batch, notes`.
+    Missing slug files are skipped (recipe_index may include recipes whose BOM
+    hasn't been normalized yet) — the Manifest's `.bom` is left empty.
+    """
+    recipe_index_csv = Path(recipe_index_csv)
+    normalized_dir = Path(normalized_dir)
+    manifest = _load_recipe_index(recipe_index_csv)
+
+    for slug, m in manifest.items():
+        slug_csv = normalized_dir / f"{slug}.csv"
+        if not slug_csv.exists():
+            continue
+        with slug_csv.open(newline="") as f:
+            for row in csv.DictReader(f):
+                notes = (row.get("notes") or "").lower()
+                m.bom.append(
+                    {
+                        "ingredient": (row.get("ingredient") or "").strip(),
+                        "qty": _parse_float(row.get("qty")),
+                        "unit": (row.get("unit") or "").strip(),
+                        "is_sub_recipe": "(sub-recipe)" in notes,
+                    }
+                )
+
+    return manifest
+
+
+def _load_recipe_index(recipe_index_csv: Path) -> dict[str, Manifest]:
+    manifest: dict[str, Manifest] = {}
     with recipe_index_csv.open(newline="") as f:
         for row in csv.DictReader(f):
             slug = (row.get("recipe_id") or "").strip()
@@ -274,20 +328,4 @@ def build_manifest(
                 yield_unit=(row.get("yield_unit") or "").strip(),
                 sub_recipe_slugs=subs,
             )
-
-    with bom_csv.open(newline="") as f:
-        for row in csv.DictReader(f):
-            slug = (row.get("recipe_id") or "").strip()
-            if slug not in manifest:
-                continue
-            notes = (row.get("notes") or "").lower()
-            manifest[slug].bom.append(
-                {
-                    "ingredient": (row.get("ingredient") or "").strip(),
-                    "qty": _parse_float(row.get("qty")),
-                    "unit": (row.get("unit") or "").strip(),
-                    "is_sub_recipe": "(sub-recipe)" in notes,
-                }
-            )
-
     return manifest
