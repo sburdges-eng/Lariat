@@ -1,0 +1,108 @@
+sku,ingredient,pack_size,pack_unit,sysco_net_wt_lb,tare_lb,verified_net_weight_g,source,verified
+5844220,Bean Black,6,CT,41.25,,,sysco_catalog,false
+6693642,Pepper Red Diced Fancy,24,CT,21.7,,,sysco_catalog,false
+4011110,Pudding Banana Zero Trans Fat,6,CT,42.0,,,sysco_catalog,false
+4011078,Pudding Vanilla Ready To Use,6,CT,42.0,,,sysco_catalog,false
+4730424,Sauce Marinara Premium Midwest,6,CT,39.41,,,sysco_catalog,false
+4000899,Sugar Extra Fine Granular Packet,2000,CT,12.5,,,sysco_catalog,false
+7268367,Tea Bag Awake English Breakfast Organic,96,CT,0.54,,,sysco_catalog,false
+4122321,Tea Hot Bag Black English Teatime,168,CT,1.844,,,sysco_catalog,false
+7191505,Tea Hot Bag Green,168,CT,1.9,,,sysco_catalog,false
+4978898,Tomato Crushed All Purpose  California,6,CT,39.8,,,sysco_catalog,false
+6562207,Tortilla Corn White 4.5 Inch,300,CT,12.55,,,sysco_catalog,false
+1970896,"Tortilla Corn White 6""",720,CT,26.25,,,sysco_catalog,false
+7019826,Tortilla Corn White 6.25 Inch,360,CT,29.4,,,sysco_catalog,false
+5250485,Tortilla Corn Yellow Frying 6 Inches,720,CT,22.5,,,sysco_catalog,false
+8139529,"Tortilla Flour 14""",96,CT,22.0,,,sysco_catalog,false
+2386159,"Tortilla Flour Pressed 10""",144,CT,22.5,,,sysco_catalog,false
+4692174,Tortilla Flour Pressed 6 Inch,288,CT,19.7,,,sysco_catalog,false
+2386142,Tortilla Flour Pressed 8 Inch,288,CT,28.5,,,sysco_catalog,false
+7032400,Tortilla White Corn 5.5 Inch,432,CT,23.8,,,sysco_catalog,false
+7191401,Egg Hardcooked Cf Grab N Go Drypick,28,CT,2.713,,,sysco_catalog,false
+7199866,Egg Hardcooked Cgfree Hard Pk,144,CT,15.0,,,sysco_catalog,false
+7093117,Appetizer Bite Mac & Four Cheese,100,CT,5.63,,,sysco_catalog,false
+6986210,Appetizer Brie With Raspberries In Phyllo,100,CT,3.43,,,sysco_catalog,false
+2904625,Appetizer Bun Steam Folded 1.1 Ounce,200,CT,13.2,,,sysco_catalog,false
+6944334,Appetizer Frank In Puff Pastry,100,CT,3.4,,,sysco_catalog,false
+7311488,Appetizer Spring Roll Chile Relleno,56,CT,5.25,,,sysco_catalog,false
+1309863,"Bread Pita Plain 7""",120,CT,24.0,,,sysco_catalog,false
+1491552,"Bun Brioche 4.5""",80,CT,17.5,,,sysco_catalog,false
+3746377,Bun Brioche Bistro Slider,192,CT,15.3,,,sysco_catalog,false
+758401,Bun Hamburger Gluten Free Individually Wrapped,24,EA,4.8,,,sysco_catalog,false
+226060,Churro Mexican Mini 2 Inch,500,CT,14.0,,,sysco_catalog,false
+7860196,Cupcake Assorted,32,CT,4.8,,,sysco_catalog,false
+2008597,"Roll Hoagie Sour Sliced 6""-7""",36,CT,7.965,,,sysco_catalog,false
+7202795,Perks Promo,1,EA,0.01,,,sysco_catalog,false
+9903271,Pork Belly Skin On,2,PCE,27.904,,,sysco_catalog,false
+6046789,Pork Butt Bone-in 1/4 8-12 Pound Each,8,PCE,80.763,,,sysco_catalog,false
+5781077,"Pork Butt Boneless .25"" Trim",8,PCE,92.605,,,sysco_catalog,false
+7863634,Bag Plastic Low Density Reclosable Gallon 10.5,250,CT,4.41,,,sysco_catalog,false
+2539056,Band Napkin Black 1.5 Inch X 4.25 Inch,5000,CT,4.25,,,sysco_catalog,false
+1558790,Band Napkin White 4.25x1.5,4000,CT,3.15,,,sysco_catalog,false
+1423211,Container Paper #1 Takeout Kraft,180,CT,9.0,,,sysco_catalog,false
+1423726,Container Paper #4 Takeout Kraft,90,CT,13.0,,,sysco_catalog,false
+7385215,Container Paper #8 Take Out Kraft,300,CT,19.85,,,sysco_catalog,false
+1423225,Container Paper #8 Takeout Kraft,130,CT,8.75,,,sysco_catalog,false
+7064453,Container Paper Polylactic Acid Lined Soup Container 8 Ounce,500,CT,10.93,,,sysco_catalog,false
+7064444,Container Paper Soup 12 Ounce,500,CT,12.78,,,sysco_catalog,false
+7116469,Container Paper Trendz 12 Ounce Round Combo With Plastic Lid,250,CT,9.52,,,sysco_catalog,false
+1242209,Crayons Assorted Double-tip 2 Pack Red & Blue/green & Yellow,1000,CT,16.12,,,sysco_catalog,false
+7064596,Cup Plastic Black Portion 4 Ounce,3000,CT,23.479,,,sysco_catalog,false
+7131355,Cup Plastic Clear Rpet 12-14 Ounce,420,CT,12.315,,,sysco_catalog,false
+7473299,Cup Plastic Clear Rpet Squat 9 Ounce,975,CT,21.07,,,sysco_catalog,false
+7790658,Cup Plastic Portion Black 2 Ounce,2400,CT,11.587,,,sysco_catalog,false
+7790239,Cup Plastic Portion Translucent 2 Ounce,2400,CT,11.587,,,sysco_catalog,false
+7064617,Cup Plastic R Pet Clear 16 Ounce,840,CT,29.256,,,sysco_catalog,false
+205419,Filter Coffee Paper Altra 15 Inch X 5 Inch Us,500,CT,5.4,,,sysco_catalog,false
+2970457,Filter Grease Cone 10 Inch,500,CT,11.0,,,sysco_catalog,false
+4685621,Glove Nitrile Foodservice Powder-free Black Extra-large,1000,CT,8.18,,,sysco_catalog,false
+4685614,Glove Nitrile Foodservice Powder-free Black Large,1000,CT,7.73,,,sysco_catalog,false
+4685594,Glove Nitrile Foodservice Powder-free Black Medium,1000,CT,7.29,,,sysco_catalog,false
+4685576,Glove Nitrile Foodservice Powder-free Black Small,1000,CT,6.79,,,sysco_catalog,false
+4220580,"Label Roll Shelf Life Dissolvable 2"" X 3""",500,CT,20.88,,,sysco_catalog,false
+4218998,Label Roll Universal Plastic 2 Inch X 2 Inch,750,CT,13.44,,,sysco_catalog,false
+4218980,Label Roll Universal Plastic 2 Inch X 3 Inch,500,CT,20.88,,,sysco_catalog,false
+7790795,Lid Plastic Clear For 1.5-2.5 Ounce Portion,2400,CT,6.878,,,sysco_catalog,false
+7793736,Lid Plastic Clear For 3-4 Ounce Portion Cup,2400,CT,9.5,,,sysco_catalog,false
+8001770,Lid Plastic Dome Clear 16-24 Ounce No Hole,900,CT,7.54,,,sysco_catalog,false
+4038535,Lid Plastic For 12 16 & 22 Ounce Cups,2000,CT,7.055,,,sysco_catalog,false
+7273951,Liner Basket News Paper Print 12x12,5000,CT,30.83,,,sysco_catalog,false
+1288192,Napkin Beverage 9.5 Inch X 9.5 Inch 2-ply Black,1000,CT,4.65,,,sysco_catalog,false
+6833545,Napkin Dinner 16 Inch X 16 Inch Finesse Flat,1000,CT,19.25,,,sysco_catalog,false
+2102038,Pick Sandwich Bamboo Knot 4 Inch,1000,CT,0.82,,,sysco_catalog,false
+2102509,"Skewer Bamboo 6"" Inch",10000,CT,12.74,,,sysco_catalog,false
+7075202,Straw Paper Unwrapped 6 Inch Black Cocktail,2500,CT,5.539,,,sysco_catalog,false
+8095107,Straw Plastic Unwrapped Jumbo Black 7.75 Inch,6000,CT,6.085,,,sysco_catalog,false
+4471223,Tape Paper Regular Thermal 3-1/8 Inch,50,EA,26.0,,,sysco_catalog,false
+4458772,Tissue Toilet 3.8 Inch X 4 Inch Wrapped 2 Ply,44000,CT,31.35,,,sysco_catalog,false
+7091706,Towel Multifold 1 Ply White,4000,CT,14.25,,,sysco_catalog,false
+4108936,Towel Multifold Advanced White 2-ply,3024,CT,14.818,,,sysco_catalog,false
+1007350,Avocado Hass Breaking Fresh,48,CT,21.883,,,sysco_catalog,false
+9230970,Avocado Hass Breaking Fresh #2,48,CT,20.0,,,sysco_catalog,false
+1070879,Avocado Hass Fresh,24,CT,15.0,,,sysco_catalog,false
+1120625,Celery Fresh,24,CT,64.0,,,sysco_catalog,false
+1121169,Celery Fresh,36,CT,59.0,,,sysco_catalog,false
+1048248,Cilantro Bunch Fresh,6,CT,2.5,,,sysco_catalog,false
+7078475,Cilantro Bunch Iceless,30,CT,8.0,2.0,2722,user-measured 2026-04-04,true
+9903289,Cilantro Fresh Iceless,60,CT,16.0,,,sysco_catalog,false
+6915979,Corn Cob Sweet Bicolor Fresh,48,CT,44.0,,,sysco_catalog,false
+6368823,Corn White Fresh,48,CT,29.05,,,sysco_catalog,false
+7134591,Cucumber English Medium Seedless 12 Count,12,CT,12.0,,,sysco_catalog,false
+2252039,Lemon Choice Fresh,140,CT,40.0,,,sysco_catalog,false
+2252013,Lemon Choice Fresh,115,CT,40.0,,,sysco_catalog,false
+1675909,Lettuce Greens Leaf Fresh,24,CT,23.85,,,sysco_catalog,false
+1723857,Lettuce Greens Leaf Fresh With Liner,24,CT,25.0,,,sysco_catalog,false
+1675891,Lettuce Romaine Fresh,24,CT,35.625,,,sysco_catalog,false
+3855251,Melon Watermelon Seedless Fresh,2,CT,35.0,,,sysco_catalog,false
+9068305,Melon Watermelon Seedless Fresh,4,CT,70.0,,,sysco_catalog,false
+7651910,Oranges Fancy Fresh,88,CT,40.0,,,sysco_catalog,false
+1908359,Parsley Bunch Foodservice,12,CT,16.0,,,sysco_catalog,false
+1008630,Tomato 1 Layer 5x6,30,CT,10.0,,,sysco_catalog,false
+1008663,Tomato 2 Layer 5x6 Fresh,60,CT,20.0,,,sysco_catalog,false
+3787967,Crab Cake Mini Claw,75,CT,4.68,,,sysco_catalog,false
+5793963,"Grill Brick 3.5"" Thick",12,EA,7.0,,,sysco_catalog,false
+1376805,"Pad Scour Green 6"" X 9"" Antimicrobial",20,CT,1.4,,,sysco_catalog,false
+5793831,Pad Scrub Stainless Steel 35 Gram 1.25 Ounce,72,CT,7.35,,,sysco_catalog,false
+1110895,Scraper Grill Stainless Steel Blade,1,EA,3.0,,,sysco_catalog,false
+4518304,Spoon Bouillon Windsor Medium-weight,36,CT,22.9,,,sysco_catalog,false
+7798832,Squeegee Floor 22 Inch Blue,1,EA,0.438,,,sysco_catalog,false

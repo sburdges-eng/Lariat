@@ -7,6 +7,12 @@ import {
   ollamaChat,
 } from '../../../lib/ollama';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
+import {
+  CalculatorError,
+  expandForBEO,
+  formatLeafRowsAsTasks,
+  scaleRecipe,
+} from '../../../lib/recipeCalculator';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -139,12 +145,14 @@ Schemas (use exactly one):
 - Inventory Update: { "action": "update_inventory", "item": "Name", "delta": "+/- Amount", "direction": "in" | "out" | "waste" }
 - Line Check: { "action": "line_check", "station": "Name", "item": "Name", "status": "pass" | "fail" | "na", "note": "Optional details/temps" }
 - Maintenance: { "action": "maintenance", "equipment": "Name/Description", "issue": "String" }
-- Scale Recipe: { "action": "scale_recipe", "recipe": "Name", "multiplier": Number }
+- Scale Recipe: { "action": "scale_recipe", "recipe": "recipe_slug_or_name", "multiplier": Number }
 - Order Guide Update: { "action": "update_order_guide", "item": "Name", "qty": Number, "unit": "String" }
-- Add BEO Prep: { "action": "beo_add_prep", "event_id": Number, "tasks": ["Task 1", "Task 2"] } — mathematically scale side-prep yields to the BEO's guest count; inject exact quantities into each task string.
+- Add BEO Prep: { "action": "beo_add_prep", "event_id": Number, "tasks": ["Task 1", "Task 2"], "recipes": [{ "recipe_slug": "slug", "portions_per_guest": Number }] } — list the recipes and portions-per-guest; the SERVER multiplies by the BEO guest count using the deterministic calculator. DO NOT compute ingredient quantities yourself.
 - Give Gold Star: { "action": "give_gold_star", "cook_name": "Exact Roster match", "reason": "String", "stars": 1 | 2 | 3 }
 - HACCP Receive: { "action": "haccp_receive", "item": "Name", "status": "pass" | "fail", "note": "Temps/Details" }
-- Generate Prep: { "action": "generate_prep", "station": "Station Name", "tasks": [{ "item": "Name", "need": "Calculated amount based on velocity" }] }`;
+- Generate Prep: { "action": "generate_prep", "station": "Station Name", "tasks": [{ "item": "Name", "need": "short velocity rationale", "recipe_slug": "slug", "multiplier": Number }] } — when a task maps to a recipe, supply recipe_slug + multiplier; the server expands leaves via the calculator. The "need" field is optional context, NOT a computed quantity.
+
+ARITHMETIC RULE: For scale_recipe, beo_add_prep, and generate_prep the server runs a deterministic calculator and discards any ingredient totals you compute. Your job is to name the recipe and pick the multiplier; never emit hand-multiplied quantities in the JSON or the prose.`;
 
   try {
     const { content, model } = await ollamaChat({
@@ -219,8 +227,39 @@ Schemas (use exactly one):
             console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Maintenance Ticket: ${payload.equipment} ⚠️\n`);
           }
         } else if (payload.action === 'scale_recipe' && payload.recipe) {
-          actionMsg = `RECIPE MATHEMATICALLY SCALED`;
-          actionExecuted = true;
+          const rawMult = Number(payload.multiplier);
+          if (!Number.isFinite(rawMult) || rawMult <= 0) {
+            actionMsg = `Scale Recipe blocked — multiplier ${payload.multiplier} is not a positive number.`;
+            actionExecuted = true;
+          } else {
+            try {
+              // Model's numeric fields are DISCARDED — calculator is authoritative.
+              const result = await scaleRecipe(String(payload.recipe), rawMult);
+              const tasks = formatLeafRowsAsTasks(result.leafRows);
+              const insert = db.prepare(
+                'INSERT INTO line_check_entries (location_id, shift_date, station_id, item, status, need, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+              );
+              for (const leaf of result.leafRows) {
+                insert.run(
+                  locationId,
+                  todayISO(),
+                  `scaled:${result.recipeSlug}`,
+                  clip(leaf.ingredient, MAX_ITEM),
+                  'na',
+                  clip(`${leaf.qty} ${leaf.unit}`, 64),
+                  new Date().toISOString()
+                );
+              }
+              actionMsg = `Scaled ${result.recipeSlug} to ${result.targetQty} ${result.targetUnit} (×${result.scaleFactor}). ${tasks.length} ingredient line${tasks.length === 1 ? '' : 's'} — values from deterministic calculator.`;
+              actionExecuted = true;
+              console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Scale Recipe ${result.recipeSlug} ×${result.scaleFactor} ⚠️\n`);
+            } catch (e) {
+              const code = e instanceof CalculatorError ? e.code : 'unknown';
+              actionMsg = `Scale Recipe failed (${code}): ${e.message}`;
+              actionExecuted = true;
+              console.error('Calculator scale_recipe error:', e);
+            }
+          }
         } else if (payload.action === 'update_order_guide' && payload.item) {
           const stmt = db.prepare('INSERT INTO order_guide_items (location_id, ingredient, base_qty, unit, imported_at) VALUES (?, ?, ?, ?, ?)');
           stmt.run(locationId, clip(payload.item, MAX_ITEM), payload.qty || 1, clip(payload.unit, 16) || 'ea', new Date().toISOString());
@@ -229,12 +268,47 @@ Schemas (use exactly one):
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Order Guide Updated: ${payload.item} ⚠️\n`);
         } else if (payload.action === 'beo_add_prep' && payload.event_id && Array.isArray(payload.tasks)) {
           const stmt = db.prepare('INSERT INTO beo_prep_tasks (location_id, event_id, task, done, sort_order) VALUES (?, ?, ?, 0, 0)');
-          for (const t of payload.tasks) {
-            stmt.run(locationId, payload.event_id, clip(t, MAX_NOTE));
+          let calcNotes = [];
+          // Optional `recipes` array: [{recipe|recipe_slug, portions_per_guest}].
+          // If present AND the BEO row has a guest_count, compute authoritative quantities
+          // via the calculator and append those task strings instead of trusting the model's math.
+          const beoRecipes = Array.isArray(payload.recipes) ? payload.recipes : [];
+          let calcTasks = [];
+          if (beoRecipes.length > 0) {
+            const beoRow = db
+              .prepare('SELECT guest_count FROM beo_events WHERE id = ? AND location_id = ?')
+              .get(payload.event_id, locationId);
+            const guests = Number(beoRow?.guest_count);
+            if (Number.isFinite(guests) && guests > 0) {
+              try {
+                const results = await expandForBEO(
+                  beoRecipes
+                    .map((r) => ({
+                      slug: String(r.recipe_slug || r.recipe || ''),
+                      portionsPerGuest: Number(r.portions_per_guest ?? 1),
+                    }))
+                    .filter((r) => r.slug),
+                  guests
+                );
+                for (const res of results) {
+                  for (const task of formatLeafRowsAsTasks(res.leafRows)) {
+                    calcTasks.push(`[${res.recipeSlug}] ${task}`);
+                  }
+                }
+                calcNotes.push(`Calculator produced ${calcTasks.length} scaled prep lines for ${guests} guests.`);
+              } catch (e) {
+                const code = e instanceof CalculatorError ? e.code : 'unknown';
+                calcNotes.push(`Calculator error (${code}): ${e.message}. Falling back to model-provided tasks.`);
+              }
+            }
           }
-          actionMsg = `Added ${payload.tasks.length} scaled side-prep tasks to BEO ID ${payload.event_id}.`;
+          const finalTasks = calcTasks.length > 0 ? calcTasks : payload.tasks;
+          for (const t of finalTasks) {
+            stmt.run(locationId, payload.event_id, clip(typeof t === 'string' ? t : String(t ?? ''), MAX_NOTE));
+          }
+          actionMsg = `Added ${finalTasks.length} ${calcTasks.length > 0 ? 'calculator-scaled' : 'scaled'} side-prep tasks to BEO ID ${payload.event_id}.${calcNotes.length ? ' ' + calcNotes.join(' ') : ''}`;
           actionExecuted = true;
-          console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Added ${payload.tasks.length} prep tasks to BEO ${payload.event_id} ⚠️\n`);
+          console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Added ${finalTasks.length} prep tasks to BEO ${payload.event_id} (calc=${calcTasks.length > 0}) ⚠️\n`);
         } else if (payload.action === 'give_gold_star' && payload.cook_name) {
           const stmt = db.prepare('INSERT INTO gold_stars (location_id, cook_name, reason, stars) VALUES (?, ?, ?, ?)');
           const starVal = Math.min(Math.max(Number(payload.stars) || 1, 1), 3);
@@ -250,12 +324,53 @@ Schemas (use exactly one):
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - HACCP Receiving: ${payload.item} (${payload.status}) ⚠️\n`);
         } else if (payload.action === 'generate_prep' && payload.station && Array.isArray(payload.tasks)) {
           const stmt = db.prepare('INSERT INTO line_check_entries (location_id, shift_date, station_id, item, status, need, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
+          let calcReplacements = 0;
+          let calcFailures = 0;
+          // For each task, if the model supplies a `recipe`/`recipe_slug` and `multiplier`,
+          // discard its `need` string and let the calculator produce the authoritative
+          // quantity list. Otherwise fall through to the task as provided.
           for (const t of payload.tasks) {
-            stmt.run(locationId, todayISO(), clip(payload.station, 64), clip(t.item, MAX_ITEM), 'needs_prep', clip(t.need, 64) || null, new Date().toISOString());
+            const slug = t && (t.recipe_slug || t.recipe);
+            const mult = Number(t && t.multiplier);
+            if (slug && Number.isFinite(mult) && mult > 0) {
+              try {
+                const result = await scaleRecipe(String(slug), mult);
+                for (const leaf of result.leafRows) {
+                  stmt.run(
+                    locationId,
+                    todayISO(),
+                    clip(payload.station, 64),
+                    clip(leaf.ingredient, MAX_ITEM),
+                    'na',
+                    clip(`${leaf.qty} ${leaf.unit}`, 64),
+                    new Date().toISOString()
+                  );
+                }
+                calcReplacements += 1;
+                continue;
+              } catch (e) {
+                calcFailures += 1;
+                console.error(`generate_prep calculator error for ${slug}:`, e);
+                // fall through and store the model's task as-is
+              }
+            }
+            stmt.run(
+              locationId,
+              todayISO(),
+              clip(payload.station, 64),
+              clip(t.item, MAX_ITEM),
+              'na',
+              clip(t.need, 64) || null,
+              new Date().toISOString()
+            );
           }
-          actionMsg = `Generated ${payload.tasks.length} dynamic prep tasks for ${payload.station}.`;
+          const calcSuffix =
+            calcReplacements > 0
+              ? ` (${calcReplacements} scaled by calculator${calcFailures ? `, ${calcFailures} fallback` : ''})`
+              : '';
+          actionMsg = `Generated ${payload.tasks.length} dynamic prep tasks for ${payload.station}${calcSuffix}.`;
           actionExecuted = true;
-          console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Dynamic Prep List for ${payload.station} (${payload.tasks.length} items) ⚠️\n`);
+          console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Dynamic Prep List for ${payload.station} (${payload.tasks.length} items, calc=${calcReplacements}) ⚠️\n`);
         }
       } catch (e) {
         console.error("Action Engine Execution Error:", e);
