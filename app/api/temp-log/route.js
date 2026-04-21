@@ -124,26 +124,8 @@ export async function POST(req) {
     });
 
     const db = getDb();
-    const info = db.prepare(`
-      INSERT INTO temp_log (shift_date, location_id, point_id, reading_f, required_min_f, required_max_f, corrective_action, cook_id, probe_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      row.shift_date,
-      row.location_id,
-      row.point_id,
-      row.reading_f,
-      row.required_min_f,
-      row.required_max_f,
-      row.corrective_action,
-      row.cook_id,
-      row.probe_id,
-    );
-
-    // Bundle G: evaluate the probe's calibration state. Advisory —
-    // we DO NOT short-circuit the write on a warning. The warning is
-    // attached to the response + audit note so the UI can surface it
-    // and the inspector can reconstruct which readings were taken
-    // with an uncalibrated probe.
+    
+    // Bundle G: evaluate the probe's calibration state outside the transaction
     let calibration_warning = null;
     if (probe_id) {
       try {
@@ -151,7 +133,7 @@ export async function POST(req) {
           .prepare(
             `SELECT thermometer_id, method, before_reading_f, passed, calibrated_at
                FROM thermometer_calibrations
-              WHERE location_id = ? AND thermometer_id = ?`,
+              WHERE location_id = ? AND thermometer_id = ?`
           )
           .all(row.location_id, probe_id);
         const [summary] = classifyProbes(calRows, {
@@ -160,29 +142,34 @@ export async function POST(req) {
         });
         calibration_warning = calibrationWarningFor(summary);
       } catch (calErr) {
-        // Calibration lookup is advisory — if it fails, the write
-        // still stands. Log, don't leak a 500.
         console.error('calibration lookup failed:', calErr);
       }
     }
 
-    const inserted = db.prepare('SELECT * FROM temp_log WHERE id = ?').get(info.lastInsertRowid);
     const classification = classifyReading(point, reading_f);
 
-    // Append-only audit trail (A1) — every write to a regulated surface
-    // posts one row so inspectors can reconstruct edit history. If the
-    // insert audit ever fails we prefer returning the successful write
-    // to the caller and logging the stranded condition; a missing audit
-    // row is a worse failure than a missing log entry, but we still
-    // don't want to 500 the cook who already made it through validation.
-    try {
-      // Compose the audit note: baseline breach flag + optional
-      // calibration advisory. An out-of-range reading logged with an
-      // uncalibrated probe stacks both notes so the inspector sees
-      // the full context in one row.
+    const performWrite = db.transaction(() => {
+      const info = db.prepare(`
+        INSERT INTO temp_log (shift_date, location_id, point_id, reading_f, required_min_f, required_max_f, corrective_action, cook_id, probe_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        row.shift_date,
+        row.location_id,
+        row.point_id,
+        row.reading_f,
+        row.required_min_f,
+        row.required_max_f,
+        row.corrective_action,
+        row.cook_id,
+        row.probe_id
+      );
+
+      const inserted = db.prepare('SELECT * FROM temp_log WHERE id = ?').get(info.lastInsertRowid);
+
       const noteParts = [];
       if (classification === 'out_of_range') noteParts.push(`out_of_range:${point.id}`);
       if (calibration_warning) noteParts.push(`calibration_warning:${probe_id}`);
+      
       postAuditEvent({
         entity: 'temp_log',
         entity_id: Number(info.lastInsertRowid),
@@ -194,9 +181,11 @@ export async function POST(req) {
         location_id: row.location_id,
         note: noteParts.length ? noteParts.join('|') : null,
       });
-    } catch (auditErr) {
-      console.error('postAuditEvent(temp_log insert) failed:', auditErr);
-    }
+
+      return { info, inserted };
+    });
+
+    const { info, inserted } = performWrite();
 
     return Response.json({
       ok: true,

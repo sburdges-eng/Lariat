@@ -74,39 +74,46 @@ export async function POST(req) {
     }
 
     const db = getDb();
-    const info = db.prepare(`
-      INSERT INTO sanitizer_checks
-        (shift_date, location_id, station_id, point_label, chemistry,
-         concentration_ppm, required_min_ppm, required_max_ppm, water_temp_f,
-         status, corrective_action, cook_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      shift_date,
-      location_id,
-      station_id,
-      point_label,
-      chemistry,
-      concentration_ppm,
-      decision.required_min_ppm,
-      decision.required_max_ppm,
-      water_temp_f,
-      decision.status,
-      corrective_action,
-      cook_id,
-    );
+    
+    const performWrite = db.transaction(() => {
+      const info = db.prepare(`
+        INSERT INTO sanitizer_checks
+          (shift_date, location_id, station_id, point_label, chemistry,
+           concentration_ppm, required_min_ppm, required_max_ppm, water_temp_f,
+           status, corrective_action, cook_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        shift_date,
+        location_id,
+        station_id,
+        point_label,
+        chemistry,
+        concentration_ppm,
+        decision.required_min_ppm,
+        decision.required_max_ppm,
+        water_temp_f,
+        decision.status,
+        corrective_action,
+        cook_id,
+      );
 
-    const row = db.prepare('SELECT * FROM sanitizer_checks WHERE id=?').get(info.lastInsertRowid);
-    postAuditEvent({
-      entity: 'sanitizer_checks',
-      entity_id: Number(info.lastInsertRowid),
-      action: 'insert',
-      actor_cook_id: cook_id,
-      actor_source: 'cook_ui',
-      payload: row,
-      shift_date,
-      location_id,
-      note: decision.breach_reason,
+      const row = db.prepare('SELECT * FROM sanitizer_checks WHERE id=?').get(info.lastInsertRowid);
+      postAuditEvent({
+        entity: 'sanitizer_checks',
+        entity_id: Number(info.lastInsertRowid),
+        action: 'insert',
+        actor_cook_id: cook_id,
+        actor_source: 'cook_ui',
+        payload: row,
+        shift_date,
+        location_id,
+        note: decision.breach_reason,
+      });
+
+      return { info, row };
     });
+
+    const { info, row } = performWrite();
 
     return Response.json({
       ok: true,

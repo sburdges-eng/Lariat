@@ -49,23 +49,28 @@ export async function POST(req) {
         : Number(body.start_reading_f);
 
     const db = getDb();
-    const info = db.prepare(`
-      INSERT INTO cooling_log
-        (shift_date, location_id, item, station_id, started_at, start_reading_f, status, cook_id)
-      VALUES (?, ?, ?, ?, ?, ?, 'in_progress', ?)
-    `).run(shift_date, location_id, item, station_id, started_at, start_reading_f, cook_id);
+    const performWrite = db.transaction(() => {
+      const info = db.prepare(`
+        INSERT INTO cooling_log
+          (shift_date, location_id, item, station_id, started_at, start_reading_f, status, cook_id)
+        VALUES (?, ?, ?, ?, ?, ?, 'in_progress', ?)
+      `).run(shift_date, location_id, item, station_id, started_at, start_reading_f, cook_id);
 
-    const row = db.prepare('SELECT * FROM cooling_log WHERE id=?').get(info.lastInsertRowid);
-    postAuditEvent({
-      entity: 'cooling_log',
-      entity_id: Number(info.lastInsertRowid),
-      action: 'insert',
-      actor_cook_id: cook_id,
-      actor_source: 'cook_ui',
-      payload: row,
-      shift_date,
-      location_id,
+      const row = db.prepare('SELECT * FROM cooling_log WHERE id=?').get(info.lastInsertRowid);
+      postAuditEvent({
+        entity: 'cooling_log',
+        entity_id: Number(info.lastInsertRowid),
+        action: 'insert',
+        actor_cook_id: cook_id,
+        actor_source: 'cook_ui',
+        payload: row,
+        shift_date,
+        location_id,
+      });
+      return row;
     });
+
+    const row = performWrite();
 
     return Response.json({ ok: true, entry: row });
   } catch (err) {
@@ -155,20 +160,25 @@ export async function PATCH(req) {
         id,
       ];
     }
-    db.prepare(sql).run(...args);
+    const performUpdate = db.transaction(() => {
+      db.prepare(sql).run(...args);
 
-    const updated = db.prepare('SELECT * FROM cooling_log WHERE id=?').get(id);
-    postAuditEvent({
-      entity: 'cooling_log',
-      entity_id: id,
-      action: 'update',
-      actor_cook_id: cook_id,
-      actor_source: 'cook_ui',
-      payload: updated,
-      shift_date: existing.shift_date,
-      location_id: existing.location_id,
-      note: decision.breach_reason ? `breach: ${decision.breach_reason}` : null,
+      const updated = db.prepare('SELECT * FROM cooling_log WHERE id=?').get(id);
+      postAuditEvent({
+        entity: 'cooling_log',
+        entity_id: id,
+        action: 'update',
+        actor_cook_id: cook_id,
+        actor_source: 'cook_ui',
+        payload: updated,
+        shift_date: existing.shift_date,
+        location_id: existing.location_id,
+        note: decision.breach_reason ? `breach: ${decision.breach_reason}` : null,
+      });
+      return updated;
     });
+
+    const updated = performUpdate();
 
     return Response.json({
       ok: true,

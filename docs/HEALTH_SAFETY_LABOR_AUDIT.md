@@ -247,7 +247,7 @@ Two-stage cooling (CCP-8) is NOT covered here; it lives in `lib/cooling.ts` + `/
 - **Yellow tile = "inspector-friendly".** An out-of-range reading that carries a corrective note is classified as corrective (yellow), not critical (red). This is the legal distinction FDA wants: inspectors want to see that the kitchen *caught and fixed* drift, not that drift never happened. Red is reserved for drift with no documented fix (or invalid-only days, where the CCP is unverified).
 - **Dashboard-only alerting for now.** No SMS paging, no kitchen display screen integration. Hub tile + sidebar dot are the signal; a PIC walking past the screen will see red at a glance. Paging is deferred until there's a real PIC-on-shift model (bundle G's calibrations + bundle F's receiving log will sharpen who owns which alert).
 - **Per-protein COOKING_VERIFY via distinct points.** Rather than a single `cooking_verify` point with a `protein` field that the API must switch on, we expose one point per protein (`cook_poultry`, `cook_ground_beef`, `cook_fish`). This keeps `TempPoints` pure data and makes the per-reading audit trail human-readable — an inspector reading the log sees "cook_poultry @ 172°F" without having to cross-reference the MIN_COOKING_TEMPS table.
-- **Audit trail best-effort.** `postAuditEvent` is in a try/catch after the insert succeeds. A stranded temp_log row with a missing audit row is a less-bad outcome than refusing a valid cook-side write because the audit chain happened to be offline. Mirrors the sanitizer route's posture.
+- **Audit trail is transactional.** `postAuditEvent` runs inside the same `db.transaction(() => { insert; audit; })` as the temp_log write (see "Completed — cross-bundle atomicity" section at the end of this doc). A crash between insert and audit rolls back both; a stranded temp_log row is no longer possible. `postAuditEvent` also logs a `console.warn` when called outside a transaction to catch any future regression.
 - **Tests covered in two files.** `tests/js/test-temp-log-rules.mjs` (34 cases) for the new `classifyReadings` aggregator and the CCP coverage invariants. `tests/js/test-temp-log-api.mjs` (14 cases, including blank-reading UI guard pin) for the new GET summary + POST audit-row behavior. Plus the pre-existing `test-temp-log.mjs` (59) and `test-temp-log-route.mjs` (25) — none rewritten, all still pass.
 
 ### Open nits — Deferred to Bundle F — **DONE in Bundle F**
@@ -298,7 +298,7 @@ Cross-cutting rules (apply to every category):
 - **`dry_goods` and `produce` skip the temp check entirely.** `requires_reading: false` on the rule. A reading may still be entered and is stored, but it's informational — the decision is package + sell-by only.
 - **Category schema is TEXT with a known-set enum in the module.** The DB column is TEXT so future categories land without a DDL migration; the rule module is the single-source validator. Unknown categories fall through to `accept_with_note` (not `rejected`) so a new vendor SKU is always loggable — rejecting on an unknown category would make the board unusable during a new-vendor onboarding.
 - **`rejection_reason` column doubles as the corrective-action note.** The pre-existing column was named `rejection_reason`; Bundle F reuses it for the `accept_with_note` path rather than adding a second free-text column. Both cases are the same audit artifact: "why was this not a clean accept?" — the UI surfaces it as "corrective action / rejection reason" so the cook sees the right framing.
-- **Audit trail best-effort.** `postAuditEvent` is in try/catch after the insert commits — a stranded receiving_log row with a missing audit row is less-bad than refusing a valid delivery because the audit chain blipped. Mirrors temp-log/sanitizer.
+- **Audit trail is transactional.** `postAuditEvent` runs inside the same `db.transaction(() => { insert; audit; })` as the receiving_log write. A crash between insert and audit rolls back both (see "Completed — cross-bundle atomicity" section at the end of this doc).
 - **Tests covered in two files.** `tests/js/test-receiving-rules.mjs` (44 cases) for the rule module incl. boundary cases on every category, drift bands, package_ok=false, expiration handling, unknown-category fallback. `tests/js/test-receiving-api.mjs` (22 cases) for route-level: 422 behavior, audit row emission, GET summary shape, vendor grouping, location scoping.
 
 ---
@@ -470,20 +470,47 @@ later query can find every reading taken under the advisory.
   `calibration_warning` field is additive to the response and defaults
   to null when `probe_id` is absent.
 
-### Deferred hardening — cross-bundle atomicity (not in Bundle G)
+### Completed — cross-bundle atomicity (2026-04-21)
 
-POST insert + audit emission are not wrapped in a database transaction
-across the following routes: `/api/temp-log`, `/api/receiving`,
-`/api/thermometer-calibrations`, and likely `/api/cooling`,
-`/api/sanitizer-checks`, `/api/sick-worker-reports`. A crash between
-the INSERT and the `postAuditEvent` call leaves a row with no audit
-trail.
+Landed on branch `haccp-atomicity`. All nine HACCP write routes now
+wrap the source-table INSERT (or UPDATE) and the accompanying
+`postAuditEvent` call in a single `db.transaction(() => { ... })`
+closure, so a failure in either rolls back both. There is no longer a
+window in which a HACCP row can exist without its audit-trail row.
 
-**Corrective action (deferred to a cross-bundle cleanup):**
-Wrap each HACCP POST in `db.transaction(() => { insert; audit; })` so
-both land or neither does. The current best-effort posture (audit in a
-try/catch after insert) is acceptable for the initial hardening pass but
-should be tightened before the system handles real inspector reviews.
+**Routes hardened:**
+`/api/temp-log`, `/api/receiving`, `/api/thermometer-calibrations`,
+`/api/cooling` (POST + PATCH), `/api/sanitizer-check`,
+`/api/date-marks` (POST + PATCH), `/api/sick-worker` (POST + PATCH),
+`/api/breaks` (POST + PATCH), `/api/certifications` (POST + PATCH).
+
+**`postAuditEvent` contract tightened.** `lib/auditEvents.ts` now
+checks `db.inTransaction` on entry and logs a `console.warn` when the
+caller is outside a transaction. The audit INSERT itself still
+succeeds — the warn is a regression-guard so that any future caller
+that forgets to wrap writes in a transaction is surfaced loudly
+rather than silently drifting back to the old best-effort posture.
+
+**Try/catch around audit removed.** Previously each route wrapped
+`postAuditEvent` in a `try/catch` so that an audit failure did not
+500 the cook. That catch is incompatible with transactional
+semantics — swallowing the audit error would commit the source row
+while the transaction bookkeeping was trying to roll back. The catch
+was removed in every affected route; any audit failure now propagates
+and rolls the source row back with it. The enclosing route-level
+`try/catch` converts the thrown error to a 500, which is the
+correct behavior (an operator should never see a half-written HACCP
+record on their screen).
+
+**Tests.** `tests/js/test-haccp-audit-atomicity.mjs` pins:
+the transactional warn behavior (warns outside, silent inside);
+rollback on audit-inner failure (at the db level AND at the
+route level by dropping `audit_events` mid-flight and verifying no
+stranded `temp_log` row); the insert+audit commit pair for each
+route category. Pre-existing tests
+(`tests/js/test-temp-log-api.mjs`, `tests/js/test-receiving-api.mjs`,
+`tests/js/test-calibrations-api.mjs`) continue to pass and now cover
+the transactional path implicitly.
 
 ---
 
