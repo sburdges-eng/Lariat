@@ -248,7 +248,14 @@ Two-stage cooling (CCP-8) is NOT covered here; it lives in `lib/cooling.ts` + `/
 - **Dashboard-only alerting for now.** No SMS paging, no kitchen display screen integration. Hub tile + sidebar dot are the signal; a PIC walking past the screen will see red at a glance. Paging is deferred until there's a real PIC-on-shift model (bundle G's calibrations + bundle F's receiving log will sharpen who owns which alert).
 - **Per-protein COOKING_VERIFY via distinct points.** Rather than a single `cooking_verify` point with a `protein` field that the API must switch on, we expose one point per protein (`cook_poultry`, `cook_ground_beef`, `cook_fish`). This keeps `TempPoints` pure data and makes the per-reading audit trail human-readable — an inspector reading the log sees "cook_poultry @ 172°F" without having to cross-reference the MIN_COOKING_TEMPS table.
 - **Audit trail best-effort.** `postAuditEvent` is in a try/catch after the insert succeeds. A stranded temp_log row with a missing audit row is a less-bad outcome than refusing a valid cook-side write because the audit chain happened to be offline. Mirrors the sanitizer route's posture.
-- **Tests covered in two files.** `tests/js/test-temp-log-rules.mjs` (34 cases) for the new `classifyReadings` aggregator and the CCP coverage invariants. `tests/js/test-temp-log-api.mjs` (13 cases) for the new GET summary + POST audit-row behavior. Plus the pre-existing `test-temp-log.mjs` (59) and `test-temp-log-route.mjs` (25) — none rewritten, all still pass.
+- **Tests covered in two files.** `tests/js/test-temp-log-rules.mjs` (34 cases) for the new `classifyReadings` aggregator and the CCP coverage invariants. `tests/js/test-temp-log-api.mjs` (14 cases, including blank-reading UI guard pin) for the new GET summary + POST audit-row behavior. Plus the pre-existing `test-temp-log.mjs` (59) and `test-temp-log-route.mjs` (25) — none rewritten, all still pass.
+
+### Open nits — Deferred to Bundle F
+
+The following two items were flagged during Bundle E code review but intentionally deferred to Bundle F (receiving log), where the registry and tile UI will be touched anyway:
+
+1. **Protein matrix gaps** — `cook_pork`, `cook_beef_steak`, and `cook_eggs` are missing from `TempPoints`. These will be added when Bundle F expands the registry for the receiving-log workflow, avoiding a second registry churn in the same sprint.
+2. **Per-tile FDA citation tooltip** — Each CCP tile should surface its FDA §-citation on hover/tap for inspector readiness. Deferred because Bundle F's UI will share the same tile component; landing the tooltip once there avoids duplication.
 
 ---
 

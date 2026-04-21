@@ -238,6 +238,26 @@ describe('POST /api/temp-log — writes an audit_events row per insert', () => {
     assert.strictEqual(countAudit('temp_log'), 5);
   });
 
+  // UI guard: TempLogBoard.liveOutOfRange must return false when reading
+  // is blank (Number('') === 0 which is < any min-bounded point, e.g.
+  // cook_poultry min=165). The fix gates on reading.trim() === '' before
+  // converting. This server-side test pins that a numeric 0 on a
+  // min-bounded point does produce 422 (needs_corrective_action), which
+  // is exactly the response that WOULD have driven the false positive.
+  // If the UI guard breaks, Number('') = 0 flows through and hits this path.
+  it('reading_f=0 on a min-bounded point (cook_poultry) without note returns 422 needs_corrective_action', async () => {
+    const res = await POST(postReq({
+      shift_date: todayISO(),
+      point_id: 'cook_poultry',
+      reading_f: 0,
+    }));
+    assert.strictEqual(res.status, 422);
+    const body = await res.json();
+    assert.strictEqual(body.needs_corrective_action, true, 'must signal needs_corrective_action');
+    assert.strictEqual(countTempLog(), 0, 'no temp_log row written on 422');
+    assert.strictEqual(countAudit('temp_log'), 0, 'no audit row written on 422');
+  });
+
   it('audit.shift_date and location_id match the request', async () => {
     await POST(postReq({
       shift_date: todayISO(),

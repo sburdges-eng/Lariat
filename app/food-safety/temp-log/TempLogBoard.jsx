@@ -143,6 +143,7 @@ export default function TempLogBoard({
   );
   const liveOutOfRange = useMemo(() => {
     if (!selectedPoint) return false;
+    if (reading.trim() === '') return false;
     const v = Number(reading);
     if (!Number.isFinite(v)) return false;
     const { required_min_f: min, required_max_f: max } = selectedPoint;
