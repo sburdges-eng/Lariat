@@ -12,6 +12,7 @@ import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { scanOpenBatches } from '../../lib/cooling';
 import { scanExpiringBatches } from '../../lib/dateMarks';
 import { classifyReadings } from '../../lib/tempLog';
+import { classifyDeliveries } from '../../lib/receiving';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,6 +70,26 @@ function summarize(loc, today) {
     { green: 0, yellow: 0, red: 0, gray: 0, corrective: 0, critical: 0 },
   );
 
+  const receivingRows = db
+    .prepare(
+      `SELECT category, status, created_at FROM receiving_log
+         WHERE location_id=? AND shift_date=?
+         ORDER BY created_at DESC`,
+    )
+    .all(loc, today);
+  const receivingSummary = classifyDeliveries(receivingRows, { expectAllCategories: true });
+  const receivingStats = receivingRows.reduce(
+    (acc, r) => {
+      if (r.status === 'accepted') acc.accepted += 1;
+      else if (r.status === 'rejected') acc.rejected += 1;
+      else if (r.status === 'accepted_with_note') acc.accepted_with_note += 1;
+      return acc;
+    },
+    { accepted: 0, rejected: 0, accepted_with_note: 0 },
+  );
+  const receivingYellowCats = receivingSummary.filter((s) => s.status === 'yellow').length;
+  const receivingRedCats = receivingSummary.filter((s) => s.status === 'red').length;
+
   return {
     cooling: {
       open: openCooling.length,
@@ -93,6 +114,14 @@ function summarize(loc, today) {
       corrective: tempLogStats.corrective,
       critical: tempLogStats.critical,
       notLogged: tempLogStats.gray,
+    },
+    receiving: {
+      total: receivingRows.length,
+      accepted: receivingStats.accepted,
+      acceptedWithNote: receivingStats.accepted_with_note,
+      rejected: receivingStats.rejected,
+      yellowCats: receivingYellowCats,
+      redCats: receivingRedCats,
     },
   };
 }
@@ -199,6 +228,28 @@ export default function FoodSafetyHub({ searchParams }) {
             { n: s.tempLog.total, label: 'CCPs monitored' },
             { n: s.tempLog.corrective, label: 'corrective (noted)', tone: s.tempLog.corrective ? 'amber' : null },
             { n: s.tempLog.critical, label: 'critical — no note on fix', tone: s.tempLog.critical ? 'red' : null },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/receiving${locQ}`}
+          title="Receiving"
+          sub="FDA §3-202.11 — delivery temps, §3-202.15 package integrity, §3-101.11 sell-by"
+          status={{
+            red: s.receiving.rejected > 0,
+            amber: s.receiving.acceptedWithNote > 0,
+          }}
+          lines={[
+            { n: s.receiving.total, label: 'deliveries today' },
+            {
+              n: s.receiving.acceptedWithNote,
+              label: 'accepted with note',
+              tone: s.receiving.acceptedWithNote ? 'amber' : null,
+            },
+            {
+              n: s.receiving.rejected,
+              label: 'rejected',
+              tone: s.receiving.rejected ? 'red' : null,
+            },
           ]}
         />
       </div>

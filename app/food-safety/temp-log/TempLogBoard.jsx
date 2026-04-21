@@ -174,10 +174,17 @@ export default function TempLogBoard({
         <h2 className="section-h">CCPs ({summary.length})</h2>
         <div className="tl-grid">
           {summary.map((s) => (
-            <article key={s.point_id} className={`tl-tile tl-tone-${s.status}`}>
+            <article
+              key={s.point_id}
+              className={`tl-tile tl-tone-${s.status}`}
+              // Bundle F: surface the FDA §-cite on hover (desktop) and
+              // long-press (mobile) so an inspector can verify the
+              // threshold without asking the cook to pull up docs.
+              title={s.citation || undefined}
+            >
               <header className="tl-tile-head">
                 <span className="tl-tile-name">{s.label}</span>
-                <span className="tl-tile-ccp">{s.ccp_id}</span>
+                <span className="tl-tile-ccp" title={s.citation || undefined}>{s.ccp_id}</span>
               </header>
               <div className="tl-tile-big">
                 {s.last_reading_f !== null ? fmtTemp(s.last_reading_f) : '—'}
