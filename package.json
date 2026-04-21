@@ -24,7 +24,9 @@
     "test:schema": "node --test tests/js/test-schema-migrations.mjs",
     "test:ingredient-key": "node --test tests/js/test-ingredient-key-parity.mjs",
     "test:ingest-yields": "node --experimental-strip-types --test tests/js/test-ingest-costing-yields.mjs",
-    "test:yield-math": "node --experimental-strip-types --test tests/js/test-ingest-costing-yield-math.mjs"
+    "test:yield-math": "node --experimental-strip-types --test tests/js/test-ingest-costing-yield-math.mjs",
+    "test:unit-convert": "node --experimental-strip-types --test tests/js/test-unit-convert-parity.mjs",
+    "test:t4-integration": "node --experimental-strip-types --test tests/js/test-t4-unit-convert-integration.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",
