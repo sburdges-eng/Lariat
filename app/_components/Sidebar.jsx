@@ -100,6 +100,7 @@ export default function Sidebar() {
         {link('/gold-stars', 'Gold stars')}
         <div className="nav-section">Compliance</div>
         {link('/food-safety', 'Food safety')}
+        {link('/food-safety/temp-log', 'Temp log')}
         {link('/labor', 'Labor')}
         <div className="nav-section">Manager stuff</div>
         {link('/analytics', 'Sales numbers')}

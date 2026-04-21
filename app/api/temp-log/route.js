@@ -2,10 +2,12 @@ import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import {
   classifyReading,
+  classifyReadings,
   entryFromReading,
   getTempPoint,
   validateTempReading,
 } from '../../../lib/tempLog';
+import { postAuditEvent } from '../../../lib/auditEvents';
 
 export const dynamic = 'force-dynamic';
 
@@ -132,6 +134,28 @@ export async function POST(req) {
     const inserted = db.prepare('SELECT * FROM temp_log WHERE id = ?').get(info.lastInsertRowid);
     const classification = classifyReading(point, reading_f);
 
+    // Append-only audit trail (A1) — every write to a regulated surface
+    // posts one row so inspectors can reconstruct edit history. If the
+    // insert audit ever fails we prefer returning the successful write
+    // to the caller and logging the stranded condition; a missing audit
+    // row is a worse failure than a missing log entry, but we still
+    // don't want to 500 the cook who already made it through validation.
+    try {
+      postAuditEvent({
+        entity: 'temp_log',
+        entity_id: Number(info.lastInsertRowid),
+        action: 'insert',
+        actor_cook_id: cook_id,
+        actor_source: 'cook_ui',
+        payload: inserted,
+        shift_date: row.shift_date,
+        location_id: row.location_id,
+        note: classification === 'out_of_range' ? `out_of_range:${point.id}` : null,
+      });
+    } catch (auditErr) {
+      console.error('postAuditEvent(temp_log insert) failed:', auditErr);
+    }
+
     return Response.json({
       ok: true,
       id: info.lastInsertRowid,
@@ -175,7 +199,13 @@ export async function GET(req) {
       return { ...r, point_label: p ? p.label : null };
     });
 
-    return Response.json({ date, location_id, entries });
+    // Per-point day summary — shaped for the board tiles. Additive to
+    // the existing `entries` payload so older consumers keep working.
+    // `?summary=0` opts out for callers that only want the raw rows.
+    const wantSummary = url.searchParams.get('summary') !== '0';
+    const summary = wantSummary ? classifyReadings(entries, { expectAllPoints: true }) : null;
+
+    return Response.json({ date, location_id, entries, summary });
   } catch (err) {
     console.error('GET /api/temp-log failed:', err);
     return Response.json({ error: 'Failed to load temp log' }, { status: 500 });
