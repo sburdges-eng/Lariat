@@ -108,6 +108,15 @@ export interface VendorPrice {
    * instead — that table is never cleared by the ingest.
    */
   map_status: string | null;
+  /**
+   * T7: FK to ingredient_masters.master_id. Collapses Sysco + Shamrock
+   * rows for the same underlying ingredient so the costing join sees a
+   * single merged cost instead of fragmented per-vendor duplicates.
+   * NULL when no confirmed ingredient_maps row has been seeded yet —
+   * downstream joins fall back to the ingredient string in that case
+   * (graceful degradation during partial backfill).
+   */
+  master_id: string | null;
   location_id: string;
   imported_at: string;
 }
@@ -153,8 +162,31 @@ export interface BomLine {
   pack_size: number | null;
   yield_pct: number | null;  // fraction 0..1 (e.g. 0.85 for 85% trim yield)
   loss_factor: number | null;  // cooking-shrinkage fraction 0..1 (e.g. 0.25 = 25% weight loss)
+  /**
+   * T7: FK to ingredient_masters.master_id. Lets cost math group
+   * per-master rather than per-ingredient-string across a recipe's BOM.
+   * NULL when no confirmed ingredient_maps row matches this ingredient
+   * — joins degrade gracefully to the normalized ingredient key.
+   */
+  master_id: string | null;
   location_id: string;
   imported_at: string;
+}
+
+export interface IngredientMaster {
+  /**
+   * Stable slug derived from the confirmed recipe_ingredient. v1 uses
+   * `normalizeIngredientKey(recipe_ingredient).replace(/ /g, '_')`
+   * (e.g. "tomato paste" → "tomato_paste"). The spec's ideal encoding
+   * is brand+pack (e.g. "ketchup_heinz_1gal"), but we don't yet have
+   * structured brand/pack metadata on ingredient_maps — switching to
+   * the richer slug is a pure migration once that metadata lands.
+   */
+  master_id: string;
+  canonical_name: string;
+  category: string | null;
+  preferred_vendor: string | null;
+  last_reviewed: string | null;
 }
 
 export interface IngredientDensity {
@@ -468,6 +500,23 @@ export function initSchema(db: DB): void {
       imported_at TEXT DEFAULT (datetime('now'))
     );
 
+    -- T7: canonical ingredient master table. One row per logical ingredient
+    -- (e.g. "heinz_ketchup_1gal") regardless of which vendor carries it. A
+    -- Sysco row and a Shamrock row for the same thing both point at the same
+    -- master via vendor_prices.master_id / bom_lines.master_id, collapsing
+    -- per-vendor fragmentation before the costing / menu-engineering joins.
+    -- Populated from confirmed ingredient_maps rows — we never fuzz-match
+    -- automatically (same posture as scripts/lib/ingredient_key.py
+    -- _make_join_key). master_id is a slug derived from the recipe
+    -- ingredient string (see IngredientMaster JSDoc for the v1 formula).
+    CREATE TABLE IF NOT EXISTS ingredient_masters (
+      master_id        TEXT PRIMARY KEY,  -- slug: "ketchup_heinz_1gal"
+      canonical_name   TEXT NOT NULL,
+      category         TEXT,
+      preferred_vendor TEXT,
+      last_reviewed    TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS ingredient_densities (
       ingredient_key TEXT PRIMARY KEY,
       g_per_ml REAL NOT NULL,
@@ -771,6 +820,10 @@ function assertCriticalSchemas(db: DB): void {
       'id', 'vendor', 'sku', 'prev_pack', 'new_pack',
       'prev_price', 'new_price', 'detected_at', 'acknowledged',
     ],
+    ingredient_masters: [
+      'master_id', 'canonical_name', 'category',
+      'preferred_vendor', 'last_reviewed',
+    ],
   };
   for (const [table, required] of Object.entries(requirements)) {
     const cols = (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[])
@@ -796,6 +849,13 @@ function ensureIndexes(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_inv_loc_date ON inventory_updates(location_id, shift_date);
     CREATE INDEX IF NOT EXISTS idx_psc_vendor_sku ON pack_size_changes(vendor, sku);
     CREATE INDEX IF NOT EXISTS idx_psc_ack ON pack_size_changes(acknowledged, detected_at);
+    -- T7: per-master lookup indexes. Placed in ensureIndexes (not inline in
+    -- the CREATE TABLE block) so assertCriticalSchemas fires first — a
+    -- partial-deploy drift on vendor_prices / bom_lines / ingredient_masters
+    -- surfaces as a clean schema error instead of a silent "CREATE INDEX
+    -- on a non-existent column" failure.
+    CREATE INDEX IF NOT EXISTS idx_vp_master ON vendor_prices(master_id);
+    CREATE INDEX IF NOT EXISTS idx_bom_master ON bom_lines(master_id);
   `);
 }
 
@@ -840,10 +900,16 @@ function migrateLegacyColumns(db: DB): void {
   }
 
   // Extend bom_lines with yield / cooking-loss factors used by COGS mapping.
+  // T7 adds master_id as a non-indexed FK-style pointer to
+  // ingredient_masters.master_id. Pre-T7 rows remain NULL until the T7
+  // backfill pass in scripts/ingest-costing.mjs writes them, at which point
+  // the costing-benchmark / variance joins prefer master_id when non-NULL
+  // on both sides and fall back to the normalized ingredient string.
   const bomCols = t('bom_lines');
   const bomMigrations: [string, string][] = [
     ['yield_pct', 'ALTER TABLE bom_lines ADD COLUMN yield_pct REAL'],
     ['loss_factor', 'ALTER TABLE bom_lines ADD COLUMN loss_factor REAL'],
+    ['master_id', 'ALTER TABLE bom_lines ADD COLUMN master_id TEXT'],
   ];
   for (const [col, ddl] of bomMigrations) {
     if (!bomCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
@@ -865,12 +931,17 @@ function migrateLegacyColumns(db: DB): void {
   // run finds no diff). Attention-queue consumers should key on
   // `pack_size_changes.acknowledged=0` for durability. See the
   // pack_size_changes DDL comment and VendorPrice.map_status JSDoc above.
+  // T7 adds master_id on vendor_prices so multi-vendor rows for the same
+  // underlying ingredient collapse onto a single master during costing /
+  // menu-engineering joins. Pre-T7 rows land NULL; the T7 backfill in
+  // scripts/ingest-costing.mjs writes them from confirmed ingredient_maps.
   const vpCols = t('vendor_prices');
   const vpMigrations: [string, string][] = [
     ['yield_pct', 'ALTER TABLE vendor_prices ADD COLUMN yield_pct REAL'],
     ['actual_received_lb', 'ALTER TABLE vendor_prices ADD COLUMN actual_received_lb REAL'],
     ['reconciled_unit_price', 'ALTER TABLE vendor_prices ADD COLUMN reconciled_unit_price REAL'],
     ['map_status', 'ALTER TABLE vendor_prices ADD COLUMN map_status TEXT'],
+    ['master_id', 'ALTER TABLE vendor_prices ADD COLUMN master_id TEXT'],
   ];
   for (const [col, ddl] of vpMigrations) {
     if (!vpCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }

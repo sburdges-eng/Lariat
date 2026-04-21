@@ -1,6 +1,24 @@
 import { getDb } from './db';
 import type { RecipeCost } from './db';
 
+/**
+ * T7 master-aware menu engineering.
+ *
+ * The sales → recipe_costs join in this file happens at the dish level
+ * (item_name ↔ recipe_name), so master_id doesn't directly affect the
+ * name-matching path. What master_id DOES change is the
+ * `cost_per_yield_unit` value we're reading here — computed upstream by
+ * `lib/costingBenchmarks.mjs::computeCostVariance` and the ingest
+ * post-pass, which now group-costs per master_id when both sides carry
+ * one (falling back to the normalized ingredient string otherwise).
+ *
+ * Consequence for this file: no code change is needed to pick up
+ * merged-cost accuracy, but downstream callers that want to peek at the
+ * underlying master-grouped math should read
+ * `bom_lines.master_id` / `vendor_prices.master_id` directly and join
+ * on master_id — NOT on the ingredient string, which fragments across
+ * Sysco / Shamrock.
+ */
 function norm(s: string | null | undefined): string {
   if (!s) return '';
   return String(s)

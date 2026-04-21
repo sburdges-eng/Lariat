@@ -303,26 +303,35 @@ catch-weight-backfill tests still green.
 
 ### T7 — Multi-vendor SKU collapse (ingredient master)
 
-- [ ] **Task.** Collapse Sysco and Shamrock rows for the same thing into one internal master. Fixes fragmented inventory and menu-engineering joins.
-- [ ] **Files.** `lib/db.ts` (new table + extend `vendor_prices`). `scripts/rebuild_merged_prices.py` (populate). `app/api/costing/route.js` (join via master).
-- [ ] **Schema delta.**
+- [x] **Task.** Collapse Sysco and Shamrock rows for the same thing into one internal master. Fixes fragmented inventory and menu-engineering joins.
+- [x] **Files.** `lib/db.ts` (new `ingredient_masters` table + `master_id` on `vendor_prices` / `bom_lines` via migrations). `scripts/ingest-costing.mjs` (`rebuildIngredientMasters` replaces the originally-planned standalone `rebuild_merged_prices.py` — the backfill belongs inside the costing ingest's post-pass chain so the DELETE+INSERT sweep doesn't strand masters). `lib/costingBenchmarks.mjs` (master-first `computeCostVariance` with `resolveMergedCost`).
+- [x] **Schema delta landed.**
   ```sql
   CREATE TABLE IF NOT EXISTS ingredient_masters (
-    master_id     TEXT PRIMARY KEY,     -- slug: "ketchup_heinz_1gal"
-    canonical_name TEXT NOT NULL,
-    category      TEXT,
+    master_id        TEXT PRIMARY KEY,
+    canonical_name   TEXT NOT NULL,
+    category         TEXT,
     preferred_vendor TEXT,
-    last_reviewed TEXT
+    last_reviewed    TEXT
   );
-  ALTER TABLE vendor_prices ADD COLUMN master_id TEXT;       -- FK to ingredient_masters
+  ALTER TABLE vendor_prices ADD COLUMN master_id TEXT;
   ALTER TABLE bom_lines     ADD COLUMN master_id TEXT;
-  CREATE INDEX IF NOT EXISTS idx_vp_master ON vendor_prices(master_id);
+  CREATE INDEX IF NOT EXISTS idx_vp_master  ON vendor_prices(master_id);
   CREATE INDEX IF NOT EXISTS idx_bom_master ON bom_lines(master_id);
   ```
-- [ ] **Population strategy.** Seed masters from the existing `ingredient_maps` (lib/db.ts:410-417) that are `status='confirmed'`. Unconfirmed rows enter the unmapped queue. Do **not** fuzz-match automatically (`_make_join_key` deliberately refuses this — same posture).
-- [ ] **Menu-engineering.** `lib/menuEngineering.ts` joins on `master_id`, not `ingredient` string.
-- [ ] **Test fixture.** Seed `heinz_ketchup_1gal` master. Insert a Sysco row and a Shamrock row both pointing at it. Assert a recipe consuming "ketchup" pulls a single merged cost (weighted avg or preferred-vendor, your call — default to preferred_vendor with avg fallback).
-- [ ] **Acceptance.** After backfill, `SELECT COUNT(DISTINCT master_id)` < `SELECT COUNT(DISTINCT ingredient)` (i.e., collapse happened). Zero `vendor_prices.master_id IS NULL` rows in categories that have any confirmed master.
+  `ingredient_masters` also joined `assertCriticalSchemas` so a partial-deploy shadow table trips a clean error instead of silently skipping the CREATE.
+- [x] **Population strategy.** `rebuildIngredientMasters(db, locationId)` runs inside `runCostingPostPass` after the T4.1 + T5b.3 passes. It reads `ingredient_maps WHERE status='confirmed'`, UPSERTs one `ingredient_masters` row per distinct `recipe_ingredient`, and backfills `vendor_prices.master_id` + `bom_lines.master_id` by matching raw strings (recipe_ingredient OR vendor_ingredient) first, then a normalized `LOWER(TRIM(...))` sweep for case / whitespace drift. No fuzz-matching anywhere — same posture as `scripts/lib/ingredient_key.py::_make_join_key`. Unconfirmed / auto_mapped / blank-status rows stay in the unmapped queue.
+- [x] **Menu-engineering.** `lib/menuEngineering.ts` continues to join sales → `recipe_costs.cost_per_yield_unit` at the dish level (item_name ↔ recipe_name), but the numbers it reads are now master-aware because `computeCostVariance` and the costing post-pass aggregate per `master_id` upstream. No structural change was needed at the dish-level join; a doc block on the file captures the invariant so future callers know to key on `master_id` for ingredient-level reads.
+- [x] **Costing API.** `app/api/costing/route.js` serializes `computeCostVariance(db, loc)` from `lib/costingBenchmarks.mjs`. The pure-function layer is where the master-first switch landed — when `bom_lines.master_id` and at least one `vendor_prices.master_id` row exist on the same master, `resolveMergedCost` picks the `preferred_vendor` row; otherwise it takes the simple mean across latest-per-vendor rows. Both sides NULL → falls back to the legacy normalized-ingredient-key join so a partial T7 backfill doesn't strand BOM lines.
+
+**Design decisions (why these choices):**
+- **Slug format** is `normalizeIngredientKey(recipe_ingredient).replace(/ /g, '_')` (e.g. `"Tomato Paste" → "tomato_paste"`). Coarser than the spec's ideal `"ketchup_heinz_1gal"` because `ingredient_maps` doesn't yet carry structured brand / pack metadata — switching to the richer slug later is a pure migration, readers tolerate arbitrary slug text.
+- **Merged cost = preferred_vendor, mean fallback.** Simple mean (not weighted avg) because `vendor_prices` has no procurement-volume signal — the only weight we could invent is `pack_size × pack_price`, which biases toward bigger packs regardless of actual usage. Operators who know their buying pattern set `preferred_vendor`; the mean is a safe fallback for pre-curated DBs, not the target steady-state.
+- **Graceful fallback to ingredient string** when `master_id` is NULL on either side of a join. Guarantees that a partial T7 backfill (older runs that never touched a given ingredient) doesn't drop rows from variance math. Once the backfill covers a row, the master-first branch wins on subsequent runs with zero behavior change for already-covered ingredients.
+
+**Tests added:** `tests/js/test-ingredient-masters.mjs` — 25 tests covering schema (4), pre-T7 migration + drift guards (2), slug formula (3), seeding posture (3), backfill join (3), `resolveMergedCost` (4), end-to-end merged cost via `computeCostVariance` (3), and acceptance / count assertions (3). `tests/js/test-schema-migrations.mjs` gained 11 T7 cases (ingredient_masters shape, vendor_prices + bom_lines migrations, both indexes, and ingredient_masters drift guard). All pre-existing suites stay green: schema 45, pack-size-detect 10, catch-weight-backfill 9, t4-integration 24, yield-math 14, ingest-yields 15, unit-convert 54, catch-weights 5.
+
+**Acceptance.** Synthetic fixture: 4 distinct `vendor_prices.ingredient` strings (3 vendor aliases for the same ketchup + 1 mustard with no confirmed map) collapse to 1 `master_id`, so `DISTINCT(master_id)=1 < DISTINCT(ingredient)=4` holds. Manual spot-check: the spec's `heinz_ketchup_1gal` fixture with sysco $12 / shamrock $11 rows and `preferred_vendor='shamrock'` returns `actual=$11` from `computeCostVariance` (single merged cost, no duplicate contribution from the sysco row).
 
 ---
 
