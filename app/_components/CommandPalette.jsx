@@ -44,6 +44,7 @@ export default function CommandPalette() {
     if (typeof window === 'undefined') return;
     const loc = window.localStorage.getItem(LOC_KEY);
     if (loc && loc !== 'default') setLocQuery(`?location=${encodeURIComponent(loc)}`);
+    else setLocQuery('');
   }, [open]);
 
   // Load station list once the palette opens
