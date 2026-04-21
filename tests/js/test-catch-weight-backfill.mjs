@@ -215,3 +215,134 @@ describe('T5b.3 — catch_weight_backfilled_rows flows through ingestCosting sum
     db.close();
   });
 });
+
+describe('T5b.3 follow-up — sysco_invoices is scanned alongside shamrock_invoices', () => {
+  function buildDbWithSysco({ vendorPrices = [], syscoInvoices = [] } = {}) {
+    const db = new Database(':memory:');
+    initSchema(db);
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS sysco_invoices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        invoice_no TEXT NOT NULL,
+        delivery_date TEXT, description TEXT NOT NULL,
+        sku TEXT, qty INTEGER, category TEXT,
+        unit_price REAL, line_total REAL,
+        actual_received_lb REAL, reconciled_unit_price REAL,
+        source_file TEXT, location_id TEXT DEFAULT 'default',
+        imported_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(invoice_no, description, location_id)
+      );
+    `);
+    const insVp = db.prepare(
+      `INSERT INTO vendor_prices
+         (ingredient, vendor, sku, pack_size, pack_unit, pack_price, location_id)
+       VALUES (@ingredient, @vendor, @sku, @pack_size, @pack_unit, @pack_price, @location_id)`,
+    );
+    for (const vp of vendorPrices) {
+      insVp.run({ ingredient: vp.ingredient, vendor: vp.vendor, sku: vp.sku,
+        pack_size: vp.pack_size ?? null, pack_unit: vp.pack_unit ?? null,
+        pack_price: vp.pack_price ?? null, location_id: LOC });
+    }
+    const insSi = db.prepare(
+      `INSERT INTO sysco_invoices
+         (invoice_no, delivery_date, description, sku, qty, line_total,
+          actual_received_lb, reconciled_unit_price, location_id)
+       VALUES (@invoice_no, @delivery_date, @description, @sku, @qty, @line_total,
+               @actual_received_lb, @reconciled_unit_price, @location_id)`,
+    );
+    for (const si of syscoInvoices) {
+      insSi.run({ invoice_no: si.invoice_no, delivery_date: si.delivery_date,
+        description: si.description ?? 'x', sku: si.sku, qty: si.qty ?? null,
+        line_total: si.line_total ?? null,
+        actual_received_lb: si.actual_received_lb ?? null,
+        reconciled_unit_price: si.reconciled_unit_price ?? null,
+        location_id: LOC });
+    }
+    return db;
+  }
+
+  it('sysco invoices backfill to vendor_prices with vendor=sysco', () => {
+    const db = buildDbWithSysco({
+      vendorPrices: [
+        { ingredient: 'Pork Chop', vendor: 'sysco', sku: '4874526',
+          pack_size: 1, pack_unit: 'cs', pack_price: 318.25 },
+      ],
+      syscoInvoices: [
+        { invoice_no: '759616979', delivery_date: '2026-03-12',
+          description: 'Pork Chop B/I Frchd Lngbn Fr', sku: '4874526',
+          qty: 2, line_total: 318.25, actual_received_lb: 17.4,
+          reconciled_unit_price: 18.29 },
+      ],
+    });
+    const res = backfillCatchWeightsIntoVendorPrices(db, LOC);
+    assert.strictEqual(res.updated, 1);
+    assert.strictEqual(res.by_vendor.sysco, 1);
+    const vp = db.prepare(
+      `SELECT actual_received_lb, reconciled_unit_price FROM vendor_prices
+        WHERE vendor='sysco' AND sku='4874526' AND location_id=?`,
+    ).get(LOC);
+    assert.strictEqual(vp.actual_received_lb, 17.4);
+    assert.strictEqual(vp.reconciled_unit_price, 18.29);
+    db.close();
+  });
+
+  it('both shamrock + sysco invoices backfill in the same call', () => {
+    const db = buildDb({
+      vendorPrices: [
+        { ingredient: 'Beef Cheek', vendor: 'shamrock', sku: '3091571',
+          pack_size: 1, pack_unit: 'cs', pack_price: 150.0 },
+      ],
+      shamrockInvoices: [
+        { invoice_no: 'S1', delivery_date: '2026-03-28', item: 'Beef Cheek',
+          sku: '3091571', qty: 1, line_total: 150.0,
+          actual_received_lb: 30.0, reconciled_unit_price: 5.0 },
+      ],
+    });
+    // Add sysco_invoices table + a vendor_prices row + a sysco row too.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS sysco_invoices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        invoice_no TEXT NOT NULL, delivery_date TEXT, description TEXT NOT NULL,
+        sku TEXT, qty INTEGER, category TEXT, unit_price REAL, line_total REAL,
+        actual_received_lb REAL, reconciled_unit_price REAL,
+        source_file TEXT, location_id TEXT DEFAULT 'default',
+        imported_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(invoice_no, description, location_id)
+      );
+    `);
+    db.prepare(
+      `INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, location_id)
+       VALUES ('Pork Chop', 'sysco', '4874526', 1, 'cs', 318.25, ?)`,
+    ).run(LOC);
+    db.prepare(
+      `INSERT INTO sysco_invoices (invoice_no, delivery_date, description, sku, qty, line_total,
+                                    actual_received_lb, reconciled_unit_price, location_id)
+       VALUES ('759616979', '2026-03-12', 'Pork Chop', '4874526', 2, 318.25, 17.4, 18.29, ?)`,
+    ).run(LOC);
+
+    const res = backfillCatchWeightsIntoVendorPrices(db, LOC);
+    assert.strictEqual(res.updated, 2);
+    assert.strictEqual(res.by_vendor.shamrock, 1);
+    assert.strictEqual(res.by_vendor.sysco, 1);
+    db.close();
+  });
+
+  it('missing sysco_invoices table is a no-op for the sysco path (shamrock still runs)', () => {
+    const db = buildDb({
+      vendorPrices: [
+        { ingredient: 'Beef Cheek', vendor: 'shamrock', sku: '3091571',
+          pack_size: 1, pack_unit: 'cs', pack_price: 150.0 },
+      ],
+      shamrockInvoices: [
+        { invoice_no: 'S1', delivery_date: '2026-03-28', item: 'Beef Cheek',
+          sku: '3091571', qty: 1, line_total: 150.0,
+          actual_received_lb: 30.0, reconciled_unit_price: 5.0 },
+      ],
+    });
+    const res = backfillCatchWeightsIntoVendorPrices(db, LOC);
+    assert.strictEqual(res.updated, 1);
+    assert.strictEqual(res.by_vendor.shamrock, 1);
+    assert.ok(!('sysco' in res.by_vendor), 'sysco key should be absent when table missing');
+    db.close();
+  });
+});
