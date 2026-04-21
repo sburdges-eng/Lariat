@@ -13,6 +13,7 @@ import { scanOpenBatches } from '../../lib/cooling';
 import { scanExpiringBatches } from '../../lib/dateMarks';
 import { classifyReadings } from '../../lib/tempLog';
 import { classifyDeliveries } from '../../lib/receiving';
+import { classifyProbes, DEFAULT_FREQUENCY_DAYS } from '../../lib/calibrations';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,6 +91,33 @@ function summarize(loc, today) {
   const receivingYellowCats = receivingSummary.filter((s) => s.status === 'yellow').length;
   const receivingRedCats = receivingSummary.filter((s) => s.status === 'red').length;
 
+  // Bundle G — thermometer calibrations roll-up. Probe summary
+  // spans ALL historical rows (not just today) because the question
+  // "is this probe in calibration?" depends on a possibly-weeks-old
+  // last-passing row, not the current shift.
+  const calibrationRows = db
+    .prepare(
+      `SELECT thermometer_id, method, before_reading_f, passed, calibrated_at
+         FROM thermometer_calibrations
+         WHERE location_id = ?`,
+    )
+    .all(loc);
+  const calibrationSummary = classifyProbes(calibrationRows, {
+    now: new Date(),
+    frequency_days: DEFAULT_FREQUENCY_DAYS,
+  });
+  const calibrationStats = calibrationSummary.reduce(
+    (acc, s) => {
+      if (s.status === 'overdue') acc.overdue += 1;
+      else if (s.status === 'failed') acc.failed += 1;
+      else if (s.status === 'due_soon') acc.dueSoon += 1;
+      else if (s.status === 'unknown') acc.unknown += 1;
+      else acc.ok += 1;
+      return acc;
+    },
+    { ok: 0, dueSoon: 0, overdue: 0, failed: 0, unknown: 0 },
+  );
+
   return {
     cooling: {
       open: openCooling.length,
@@ -122,6 +150,14 @@ function summarize(loc, today) {
       rejected: receivingStats.rejected,
       yellowCats: receivingYellowCats,
       redCats: receivingRedCats,
+    },
+    calibrations: {
+      total: calibrationSummary.length,
+      ok: calibrationStats.ok,
+      dueSoon: calibrationStats.dueSoon,
+      overdue: calibrationStats.overdue,
+      failed: calibrationStats.failed,
+      unknown: calibrationStats.unknown,
     },
   };
 }
@@ -249,6 +285,28 @@ export default function FoodSafetyHub({ searchParams }) {
               n: s.receiving.rejected,
               label: 'rejected',
               tone: s.receiving.rejected ? 'red' : null,
+            },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/calibrations${locQ}`}
+          title="Calibrations"
+          sub="FDA §4-502.11 — probe accuracy ±2°F; altitude-adjusted boiling target"
+          status={{
+            red: s.calibrations.overdue + s.calibrations.failed > 0,
+            amber: s.calibrations.dueSoon > 0,
+          }}
+          lines={[
+            { n: s.calibrations.total, label: 'probes tracked' },
+            {
+              n: s.calibrations.dueSoon,
+              label: 'due soon (≤ 7 days)',
+              tone: s.calibrations.dueSoon ? 'amber' : null,
+            },
+            {
+              n: s.calibrations.overdue + s.calibrations.failed,
+              label: 'overdue / failed',
+              tone: s.calibrations.overdue + s.calibrations.failed ? 'red' : null,
             },
           ]}
         />

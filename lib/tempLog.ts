@@ -256,6 +256,8 @@ export function entryFromReading(args: {
   shift_date: string;
   cook_id: string | null;
   location_id?: string;
+  /** Bundle G: optional thermometer id (probe) the reading was taken with. */
+  probe_id?: string | null;
 }): Omit<TempLogEntry, 'id' | 'created_at'> {
   const { point, reading_f, corrective_action, shift_date, cook_id } = args;
   return {
@@ -267,6 +269,7 @@ export function entryFromReading(args: {
     required_max_f: point.required_max_f,
     corrective_action: normalizeCorrectiveAction(corrective_action),
     cook_id,
+    probe_id: args.probe_id ?? null,
   };
 }
 

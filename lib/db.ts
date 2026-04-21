@@ -334,6 +334,9 @@ export interface TempLogEntry {
   required_max_f: number | null;
   corrective_action: string | null;
   cook_id: string | null;
+  /** Bundle G: optional thermometer id tying this reading back to a
+   *  probe in thermometer_calibrations. null on pre-G rows. */
+  probe_id: string | null;
   created_at: string;
 }
 
@@ -1189,6 +1192,10 @@ export function initSchema(db: DB): void {
       required_max_f REAL,
       corrective_action TEXT,
       cook_id TEXT,
+      -- Bundle G: optional thermometer id linking the reading to a
+      -- probe calibration record (see thermometer_calibrations). Null
+      -- means "no probe recorded" — reading is still persisted.
+      probe_id TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_temp_log_shift ON temp_log(shift_date, location_id, point_id);
@@ -1815,6 +1822,23 @@ function migrateLegacyColumns(db: DB): void {
   ];
   for (const [col, ddl] of recvMigrations) {
     if (!recvCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  // Bundle G — temp_log gains `probe_id` so a reading can be tied
+  // back to the thermometer that produced it. The column is optional:
+  // pre-G rows stay NULL (their probe is not on record) and post-G
+  // rows can still omit it if the operator is using an uncalibrated
+  // wall thermometer. The calibrations rule module uses this column
+  // to surface an advisory warning when a cook references a probe
+  // that has a failed / overdue / missing calibration — the write is
+  // NOT rejected (that's a worse posture than letting the reading
+  // land and flagging the probe), it's just audited.
+  const tempCols = t('temp_log');
+  const tempMigrations: [string, string][] = [
+    ['probe_id', 'ALTER TABLE temp_log ADD COLUMN probe_id TEXT'],
+  ];
+  for (const [col, ddl] of tempMigrations) {
+    if (!tempCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
   }
 }
 

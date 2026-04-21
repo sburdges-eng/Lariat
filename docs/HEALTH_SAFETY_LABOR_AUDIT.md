@@ -303,4 +303,168 @@ Cross-cutting rules (apply to every category):
 
 ---
 
+## 9. T12 — Thermometer calibrations (bundle G / §4-502.11)
+
+Closed the F9 gap: `thermometer_calibrations` had the DDL scaffolded in
+`lib/db.ts` but no rule module, no API route, no UI, and no hook into
+the temp-log. Bundle G lands all of it plus an advisory-warning link
+from temp-log writes to probe calibration state. Landed on branch
+`haccp-calibrations`.
+
+### What landed
+
+- **FDA rule module (new).** `lib/calibrations.ts` exports
+  `CALIBRATION_METHODS` (`ice_point` + `boiling_point`), `TOLERANCE_F = 2`,
+  `LARIAT_ELEVATION_FT = 7800`, `boilingPointF(elev)`,
+  `validateCalibrationReading(...)` → `{ status: 'pass' | 'fail', expected_f,
+  deviation_f, elevation_ft, citation, reason }`, `classifyProbes(rows, opts)`
+  for the per-probe tile aggregate, and `calibrationWarningFor(summary)`
+  — the helper the temp-log route calls to decide whether to surface a
+  warning. Pure functions, no DB.
+- **API route (new).** `/api/thermometer-calibrations` (GET + POST).
+  POST always 200s on valid input and persists BOTH pass and fail
+  rows; 400s only on bad-input (missing probe id, unknown method,
+  non-numeric reading, oversized note). GET returns per-probe summary
+  + optional `?probe_id=` filter + config (`tolerance_f`,
+  `default_elevation_ft`, `default_frequency_days`).
+- **Schema migration.** `temp_log` gained an optional `probe_id TEXT`
+  column via idempotent `ALTER TABLE ADD COLUMN`. Pre-G rows stay NULL.
+  The `thermometer_calibrations` table DDL was already scaffolded; no
+  schema change needed there beyond wiring the route and rule module.
+- **UI board (new).** `/app/food-safety/calibrations/` — server
+  `page.jsx` + client `CalibrationsBoard.jsx`. One tile per probe,
+  colored by status (green=ok, yellow=due_soon, red=overdue/failed,
+  gray=unknown). Quick-entry form previews the altitude-corrected
+  expected reading before submit; `tl-live-green`/`tl-live-red`
+  classes tint the reading input based on whether the typed value
+  would pass.
+- **Temp-log integration.** `/api/temp-log` POST accepts an optional
+  `probe_id` in the body. When present, the route looks up the
+  probe's calibration state and attaches a `calibration_warning`
+  string to the response if the probe is unknown, failed, or overdue.
+  **The write is NEVER rejected on this** — advisory posture, not a
+  hard gate. The audit row's `note` field gains a
+  `calibration_warning:<probe>` suffix so inspectors can find every
+  reading taken with an uncalibrated probe.
+- **Hub tile.** `/app/food-safety/page.jsx` gained a Calibrations
+  tile showing probes tracked / due-soon / overdue+failed. Red if
+  any overdue or failed, amber if any due_soon.
+- **Sidebar link.** `app/_components/Sidebar.jsx` has "Calibrations"
+  under "Food safety", after "Receiving".
+
+### FDA §4-502.11 thresholds
+
+- **Tolerance:** ±2°F / ±1°C. Inclusive both ends — a reading exactly
+  2°F off target is a pass.
+- **Methods:** ice-point (probe in 50/50 crushed-ice-and-water slurry,
+  target 32°F) and boiling-point (probe in vigorously boiling water,
+  target is **altitude-dependent** — see below). Reference-probe
+  calibration exists in the DDL's CHECK constraint for future use but
+  is out of scope for the Bundle G rule module.
+
+### Altitude correction (critical for Lariat)
+
+Water's boiling point drops by roughly **1°F per 550 ft** of elevation
+gain. The linear form is:
+
+```
+boiling_point_f(elev_ft) = 212 − (elev_ft / 550)
+```
+
+Lariat sits at ~7,800 ft in Buena Vista, CO — so water boils at about
+**197.8°F**, NOT 212°F. A probe that reads 212°F in Lariat's boiling
+water is **14°F high** and fails §4-502.11 badly. This has been a
+genuine trap for operators who trust a sea-level SOP taped above the
+calibration station — the rule module has the correction baked in,
+and the UI surfaces the adjusted target as part of the entry form
+(see `CalibrationsBoard.jsx` `expectedFor(method, elev)`).
+
+`LARIAT_ELEVATION_FT` is exported from `lib/calibrations.ts` as a
+named constant. If the deployment moves (or a second location opens),
+the path forward is a per-location `locations.elevation_ft` column;
+until then a single constant is the simpler seam.
+
+### Probe registry approach (inline vs separate table)
+
+**Choice: (a) inline `probe_id` strings.** `thermometer_calibrations`
+has `thermometer_id TEXT` keyed by operator-supplied names like
+`probe-1`, `IR-gun-A`. No separate `probes` table.
+
+- **Why:** the brief called for something operators can start
+  recording today without a metadata onboarding step. Ad-hoc probe
+  IDs match how kitchens actually tag probes in the wild (masking tape
+  on the handle, sharpie number). A separate table would trade
+  richer metadata for a mandatory-registration step nobody wants.
+- **What we lose:** no probe `type` (bi-metal / digital / IR /
+  thermocouple), no `owner`, no `purchased_at`. If operators start
+  wanting per-type frequency overrides or cost tracking, bundle H can
+  add a `probes` table keyed by `probe_id` and left-join it into the
+  summary. The `frequency_days` override on `thermometer_calibrations`
+  already accommodates per-probe variance in the meantime.
+- **Schema hook for future metadata:** a new `probes` table can
+  enrich the summary via LEFT JOIN without touching the
+  `thermometer_calibrations` rows — existing calibrations stay
+  valid, and probes without a registry entry still tile out.
+
+### Design choice: persist pass AND fail
+
+Unlike `/api/temp-log` and `/api/receiving`, which 422 on a breach
+without a corrective note, `/api/thermometer-calibrations` **always
+persists both pass and fail outcomes** on valid input. Rationale:
+
+- A failing calibration **IS** the truth being recorded. The operator
+  discovered the probe drifted and documented it — refusing the row
+  would force them to re-type the breach they already caught.
+- The audit trail is strictly richer with fails recorded. An
+  inspector looking at a 42°F walk-in reading later can find the
+  probe's preceding ice-point fail and the retire-and-replace note
+  that followed. Dropping the fail would hide that the operator
+  caught the drift before it compounded.
+- The UI's advisory posture reinforces this: the tile for a failed
+  probe goes red ("flagged — unreliable until a passing calibration
+  is logged"), and the temp-log integration surfaces a
+  `calibration_warning` on subsequent reads using the same probe.
+
+### Integration hook: temp-log writes warn on uncalibrated probes
+
+`/api/temp-log` accepts an optional `probe_id`. When present, the
+route checks `thermometer_calibrations` for that probe and uses
+`calibrationWarningFor(summary)` to decide whether to attach a
+`calibration_warning` string. The checks that fire a warning:
+
+| Condition | Warning text (abbreviated) |
+|---|---|
+| No calibration row for the probe | "probe X has no calibration on record — log an ice-point or boiling-point calibration before using it for a CCP reading" |
+| Most-recent row is a fail | "probe X failed its last calibration on Y — recalibrate before using it for a CCP reading" |
+| Last pass is past next_due_at | "probe X is overdue for calibration (last: Y, due: Z) — recalibrate" |
+| Last pass, within 7 days of next_due | **no warning** — that's a board-level signal only |
+| Last pass, well within frequency window | no warning |
+
+**The write is never rejected by this check.** Bad probe + good food
+is a compliance gap, not a reason to refuse the reading. The cook
+needs the reading on the log; the inspector needs the probe flag on
+the same row. The audit note gains `calibration_warning:<probe>` so a
+later query can find every reading taken under the advisory.
+
+### Tests
+
+- `tests/js/test-calibrations-rules.mjs` (52 cases): §4-502.11
+  constants, altitude math (0 ft / 7800 ft / 550 ft linearity / bad
+  input fallback), pass/fail per method (incl. the 212°F-at-altitude
+  fail case called out in the brief), `classifyProbes` status
+  transitions (empty → unknown → ok / due_soon / overdue / failed,
+  per-probe frequency override, fail-then-pass flip, sort order,
+  orphan thermometer_id ignored), `calibrationWarningFor` outputs.
+- `tests/js/test-calibrations-api.mjs` (24 cases): POST pass/fail
+  both 200, 400 validation paths, audit note emission, GET summary,
+  `?probe_id=` filter, most-recent-fail precedence, temp-log
+  integration (probe_id round-trips, calibration_warning fires for
+  unknown/failed/overdue, omitted probe_id leaves warning null, audit
+  row carries `calibration_warning:<probe>`).
+- Bundle E regression (`test:temp-log-api`) stays at 14 cases; the
+  `calibration_warning` field is additive to the response and defaults
+  to null when `probe_id` is absent.
+
+---
+
 *Change control: this document is the source of truth for the 2026-04-21 hardening pass. Any deviation during implementation is called out in the PR description.*

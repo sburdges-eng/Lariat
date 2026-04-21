@@ -7,6 +7,7 @@ import {
   getTempPoint,
   validateTempReading,
 } from '../../../lib/tempLog';
+import { calibrationWarningFor, classifyProbes } from '../../../lib/calibrations';
 import { postAuditEvent } from '../../../lib/auditEvents';
 
 export const dynamic = 'force-dynamic';
@@ -90,6 +91,11 @@ export async function POST(req) {
     const corrective_action = body.corrective_action;
     const cook_id = clip(body.cook_id, 64);
     const location_id = locationFromBody(body);
+    // Bundle G: optional probe id. When provided, the write ALWAYS
+    // succeeds (advisory posture) but the response surfaces a
+    // `calibration_warning` if the referenced probe has no passing
+    // calibration on record (never calibrated / failed / overdue).
+    const probe_id = clip(body.probe_id ?? body.thermometer_id, 64);
 
     const v = validateTempReading(point, reading_f, corrective_action);
     if (!v.ok) {
@@ -114,12 +120,13 @@ export async function POST(req) {
       shift_date,
       cook_id,
       location_id,
+      probe_id,
     });
 
     const db = getDb();
     const info = db.prepare(`
-      INSERT INTO temp_log (shift_date, location_id, point_id, reading_f, required_min_f, required_max_f, corrective_action, cook_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO temp_log (shift_date, location_id, point_id, reading_f, required_min_f, required_max_f, corrective_action, cook_id, probe_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       row.shift_date,
       row.location_id,
@@ -129,7 +136,35 @@ export async function POST(req) {
       row.required_max_f,
       row.corrective_action,
       row.cook_id,
+      row.probe_id,
     );
+
+    // Bundle G: evaluate the probe's calibration state. Advisory —
+    // we DO NOT short-circuit the write on a warning. The warning is
+    // attached to the response + audit note so the UI can surface it
+    // and the inspector can reconstruct which readings were taken
+    // with an uncalibrated probe.
+    let calibration_warning = null;
+    if (probe_id) {
+      try {
+        const calRows = db
+          .prepare(
+            `SELECT thermometer_id, method, before_reading_f, passed, calibrated_at
+               FROM thermometer_calibrations
+              WHERE location_id = ? AND thermometer_id = ?`,
+          )
+          .all(row.location_id, probe_id);
+        const [summary] = classifyProbes(calRows, {
+          now: new Date(),
+          known_probe_ids: [probe_id],
+        });
+        calibration_warning = calibrationWarningFor(summary);
+      } catch (calErr) {
+        // Calibration lookup is advisory — if it fails, the write
+        // still stands. Log, don't leak a 500.
+        console.error('calibration lookup failed:', calErr);
+      }
+    }
 
     const inserted = db.prepare('SELECT * FROM temp_log WHERE id = ?').get(info.lastInsertRowid);
     const classification = classifyReading(point, reading_f);
@@ -141,6 +176,13 @@ export async function POST(req) {
     // row is a worse failure than a missing log entry, but we still
     // don't want to 500 the cook who already made it through validation.
     try {
+      // Compose the audit note: baseline breach flag + optional
+      // calibration advisory. An out-of-range reading logged with an
+      // uncalibrated probe stacks both notes so the inspector sees
+      // the full context in one row.
+      const noteParts = [];
+      if (classification === 'out_of_range') noteParts.push(`out_of_range:${point.id}`);
+      if (calibration_warning) noteParts.push(`calibration_warning:${probe_id}`);
       postAuditEvent({
         entity: 'temp_log',
         entity_id: Number(info.lastInsertRowid),
@@ -150,7 +192,7 @@ export async function POST(req) {
         payload: inserted,
         shift_date: row.shift_date,
         location_id: row.location_id,
-        note: classification === 'out_of_range' ? `out_of_range:${point.id}` : null,
+        note: noteParts.length ? noteParts.join('|') : null,
       });
     } catch (auditErr) {
       console.error('postAuditEvent(temp_log insert) failed:', auditErr);
@@ -160,6 +202,7 @@ export async function POST(req) {
       ok: true,
       id: info.lastInsertRowid,
       classification,
+      calibration_warning,
       entry: {
         ...inserted,
         point_label: point.label,
