@@ -43,6 +43,8 @@ hr/
 labor/
 catering/
 inventory/
+!app/api/inventory/
+!app/api/inventory/**
 pos/
 originals/
 EXPERIMENTS/
