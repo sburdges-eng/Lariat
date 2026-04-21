@@ -102,7 +102,7 @@ def main() -> int:
         return 0
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(items, indent=2))
+    OUT.write_text(json.dumps(items, indent=2, ensure_ascii=False) + "\n")
     print(f"Wrote {OUT.relative_to(ROOT)} ({len(items)} items)")
     return 0
 

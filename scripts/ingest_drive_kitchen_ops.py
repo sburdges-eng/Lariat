@@ -270,7 +270,7 @@ def update_line_checks(dry: bool) -> tuple[int, str]:
         return 0, f"expo line check unchanged ({len(expo)} items)"
     data["expo"] = expo
     if not dry:
-        p.write_text(json.dumps(data, indent=2))
+        p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
     return len(expo), f"expo line check → {len(expo)} items (was {len(before)})"
 
 
@@ -283,7 +283,7 @@ def update_stations(dry: bool) -> str:
             s["line_check_key"] = "expo"
             changed = True
     if changed and not dry:
-        p.write_text(json.dumps(data, indent=2))
+        p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
     return ("stations.expo.line_check_key → 'expo'" if changed
             else "stations unchanged")
 
@@ -292,7 +292,7 @@ def write_closings(dry: bool) -> str:
     data = extract_closings()
     p = CACHE / "closings.json"
     if not dry:
-        p.write_text(json.dumps(data, indent=2))
+        p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
     summary = ", ".join(f"{k}={len(v)}" for k, v in data.items())
     return f"closings.json → {summary}"
 
@@ -301,7 +301,7 @@ def write_weekly_prep(dry: bool) -> str:
     data = extract_weekly_prep()
     p = CACHE / "weekly_prep.json"
     if not dry:
-        p.write_text(json.dumps(data, indent=2))
+        p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
     days = ", ".join(f"{k}:{len(v)}" for k, v in data["by_day"].items())
     cats = ", ".join(f"{k}:{len(v)}" for k, v in data["by_category"].items())
     return f"weekly_prep.json → by_day({days}) by_category({cats})"
@@ -311,7 +311,7 @@ def write_order_guide(dry: bool) -> str:
     items = extract_order_guide()
     p = CACHE / "order_guide.json"
     if not dry:
-        p.write_text(json.dumps({"items": items}, indent=2))
+        p.write_text(json.dumps({"items": items}, indent=2, ensure_ascii=False) + "\n")
     return f"order_guide.json → {len(items)} SUPC rows"
 
 
