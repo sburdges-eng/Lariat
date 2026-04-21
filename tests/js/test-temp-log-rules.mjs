@@ -92,6 +92,43 @@ describe('TempPoints covers all single-reading CCPs', () => {
     const p = getTempPoint('reheat');
     assert.strictEqual(p.required_min_f, 165);
   });
+
+  // Bundle F added the remaining single-protein cook points. Every
+  // §3-401.11 threshold the kitchen might need now has its own tile.
+  it('pork cook min is 145°F per §3-401.11(A)(1) (whole-muscle)', () => {
+    const p = getTempPoint('cook_pork');
+    assert.ok(p, 'cook_pork must exist');
+    assert.strictEqual(p.required_min_f, 145);
+  });
+
+  it('beef steak cook min is 145°F per §3-401.11(A)(1)', () => {
+    const p = getTempPoint('cook_beef_steak');
+    assert.ok(p, 'cook_beef_steak must exist');
+    assert.strictEqual(p.required_min_f, 145);
+  });
+
+  it('shell eggs for hot-hold cook min is 155°F per §3-401.11(A)(2)', () => {
+    // Eggs cooked for immediate service drop to 145°F but the
+    // enforced threshold is the stricter hot-hold path — that's the
+    // common case on Lariat's brunch line.
+    const p = getTempPoint('cook_eggs');
+    assert.ok(p, 'cook_eggs must exist');
+    assert.strictEqual(p.required_min_f, 155);
+  });
+
+  it('every point carries a non-empty FDA citation string', () => {
+    for (const p of TempPoints) {
+      assert.ok(
+        typeof p.citation === 'string' && p.citation.trim().length > 0,
+        `${p.id} missing citation`,
+      );
+      assert.match(
+        p.citation,
+        /§/,
+        `${p.id} citation does not reference an FDA § section: ${p.citation}`,
+      );
+    }
+  });
 });
 
 // ── classifyReadings — empty day ───────────────────────────────────
@@ -342,8 +379,11 @@ describe('classifyReadings — mixed day shape', () => {
   it('returns a stable result object shape for each summary row', () => {
     const [s] = classifyReadings([row('walk_in_cooler', 38)], { expectAllPoints: false });
     const keys = Object.keys(s).sort();
+    // `citation` added in Bundle F so the tile tooltip can render the
+    // FDA §-cite without a second lookup.
     assert.deepStrictEqual(keys, [
       'ccp_id',
+      'citation',
       'corrective_count',
       'critical_count',
       'invalid_count',

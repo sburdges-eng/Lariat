@@ -22,9 +22,11 @@ import {
 // ── Registry ───────────────────────────────────────────────────────
 
 describe('TempPoints registry', () => {
-  it('has 8-12 points (high-value cold/hot/cook set)', () => {
+  it('has 8-16 points (high-value cold/hot/cook set)', () => {
+    // Upper bound bumped from 12 → 16 in Bundle F to accommodate the
+    // added cook_pork / cook_beef_steak / cook_eggs protein points.
     assert.ok(TempPoints.length >= 8, `expected >= 8 points, got ${TempPoints.length}`);
-    assert.ok(TempPoints.length <= 12, `expected <= 12 points, got ${TempPoints.length}`);
+    assert.ok(TempPoints.length <= 16, `expected <= 16 points, got ${TempPoints.length}`);
   });
 
   it('every point is grounded in a CCP (CCP-n id)', () => {

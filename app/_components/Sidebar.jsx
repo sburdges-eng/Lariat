@@ -101,6 +101,7 @@ export default function Sidebar() {
         <div className="nav-section">Compliance</div>
         {link('/food-safety', 'Food safety')}
         {link('/food-safety/temp-log', 'Temp log')}
+        {link('/food-safety/receiving', 'Receiving')}
         {link('/labor', 'Labor')}
         <div className="nav-section">Manager stuff</div>
         {link('/analytics', 'Sales numbers')}

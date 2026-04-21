@@ -452,7 +452,23 @@ export interface ReceivingEntry {
   item: string | null;             // optional line-level item
   reading_f: number | null;        // temp at receiving (NULL for dry)
   required_max_f: number | null;   // snapshot of the limit at receiving
+  /**
+   * Package-integrity check (§3-202.15). 1 = intact, 0 = compromised,
+   * NULL on legacy rows pre-Bundle F. A 0 forces `status='rejected'`
+   * regardless of reading_f; the rule module enforces that.
+   */
+  package_ok: number | null;
+  /** Optional sell-by / use-by date as YYYY-MM-DD. Pre-Bundle F rows carry NULL. */
+  expiration_date: string | null;
   status: 'accepted' | 'rejected' | 'accepted_with_note';
+  /**
+   * Note the PIC recorded for an `accepted_with_note` row (drift band
+   * corrective action) OR the reason for a `rejected` row. Pre-Bundle F
+   * the column was called rejection_reason and only held the reject
+   * path; it doubles as the corrective-action note in Bundle F since
+   * both are the same audit artifact ("why was this not a clean
+   * accept?").
+   */
   rejection_reason: string | null;
   shellstock_tag_ref: string | null;  // §3-203.12 shellstock 90-day retention ref
   cook_id: string | null;
@@ -1286,6 +1302,10 @@ function initFoodSafetyLaborSchema(db: DB): void {
       WHERE discarded_at IS NULL;
 
     -- F3: receiving log. One row per pallet/case/SKU accepted or rejected.
+    -- Bundle F extends this with package_ok (§3-202.15) and
+    -- expiration_date (§3-101.11) columns. They're added as NULLable so
+    -- pre-Bundle-F rows remain valid; the route writes both for every
+    -- new delivery.
     CREATE TABLE IF NOT EXISTS receiving_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       shift_date TEXT NOT NULL,
@@ -1296,6 +1316,8 @@ function initFoodSafetyLaborSchema(db: DB): void {
       item TEXT,
       reading_f REAL,
       required_max_f REAL,
+      package_ok INTEGER,               -- 1 = intact, 0 = compromised, NULL = unrecorded (legacy)
+      expiration_date TEXT,             -- YYYY-MM-DD; NULL when not printed on the case
       status TEXT NOT NULL
         CHECK(status IN ('accepted','rejected','accepted_with_note')),
       rejection_reason TEXT,
@@ -1780,6 +1802,19 @@ function migrateLegacyColumns(db: DB): void {
   ];
   for (const [col, ddl] of vpMigrations) {
     if (!vpCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  // Bundle F — receiving_log gains package_ok (§3-202.15) and
+  // expiration_date (§3-101.11). Pre-F rows stay NULL on both; that's
+  // the conventional "unrecorded" sentinel the route + rule module
+  // reason about.
+  const recvCols = t('receiving_log');
+  const recvMigrations: [string, string][] = [
+    ['package_ok', 'ALTER TABLE receiving_log ADD COLUMN package_ok INTEGER'],
+    ['expiration_date', 'ALTER TABLE receiving_log ADD COLUMN expiration_date TEXT'],
+  ];
+  for (const [col, ddl] of recvMigrations) {
+    if (!recvCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
   }
 }
 

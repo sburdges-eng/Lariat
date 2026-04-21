@@ -763,6 +763,15 @@ textarea.input { resize: vertical; }
 .tl-entry-temp { font-weight: 800; font-variant-numeric: tabular-nums; }
 .tl-entry-meta { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
 
+/* Receiving board — shares the .tl-* palette from Temp log, these
+   extras cover the three-column entry grid and the live-tone input. */
+.rcv-form { grid-template-columns: 2fr 1fr 1fr 2fr; }
+.rcv-form-pkg { flex-direction: row; align-items: center; gap: 10px; }
+.rcv-form-pkg > span { font-size: 13px; color: var(--text); text-transform: none; letter-spacing: 0; }
+.rcv-live-yellow { border-color: var(--yellow) !important; }
+.rcv-live-red { border-color: var(--red) !important; }
+@media (max-width: 900px) { .rcv-form { grid-template-columns: 1fr; } }
+
 /* Breaks */
 .breaks-actions { margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px; }
 .breaks-actions-row { display: flex; gap: 10px; flex-wrap: wrap; }

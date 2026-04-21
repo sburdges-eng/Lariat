@@ -15,6 +15,12 @@ export interface TempPoint {
   required_min_f: number | null;
   /** Highest acceptable reading in °F. null = no ceiling. */
   required_max_f: number | null;
+  /**
+   * FDA Food Code section the reading is graded against. Surfaced in
+   * the tile tooltip so an inspector hovering a tile sees the §-cite
+   * without digging through docs. Added in Bundle F.
+   */
+  citation: string;
 }
 
 /**
@@ -32,6 +38,7 @@ export const TempPoints: readonly TempPoint[] = [
     ccp_id: 'CCP-1',
     required_min_f: null,
     required_max_f: 41,
+    citation: 'FDA §3-202.11 — refrigerated PHF/TCS received at ≤ 41°F',
   },
   {
     id: 'receiving_frozen',
@@ -43,6 +50,7 @@ export const TempPoints: readonly TempPoint[] = [
     // inspector-safe floor is 0°F but 10°F is the real-world signal
     // that triggers rejection.
     required_max_f: 10,
+    citation: 'FDA §3-202.11 — frozen food received frozen (≤ 10°F practical)',
   },
   {
     id: 'walk_in_cooler',
@@ -50,6 +58,7 @@ export const TempPoints: readonly TempPoint[] = [
     ccp_id: 'CCP-2',
     required_min_f: null,
     required_max_f: 41,
+    citation: 'FDA §3-501.16(A)(2) — TCS food cold-hold ≤ 41°F',
   },
   {
     id: 'reach_in_cooler',
@@ -57,6 +66,7 @@ export const TempPoints: readonly TempPoint[] = [
     ccp_id: 'CCP-2',
     required_min_f: null,
     required_max_f: 41,
+    citation: 'FDA §3-501.16(A)(2) — TCS food cold-hold ≤ 41°F',
   },
   {
     id: 'freezer',
@@ -64,6 +74,7 @@ export const TempPoints: readonly TempPoint[] = [
     ccp_id: 'CCP-3',
     required_min_f: null,
     required_max_f: 0,
+    citation: 'FDA §3-501.16(A)(1) — frozen storage',
   },
   {
     id: 'cook_poultry',
@@ -71,6 +82,7 @@ export const TempPoints: readonly TempPoint[] = [
     ccp_id: 'CCP-4',
     required_min_f: 165,
     required_max_f: null,
+    citation: 'FDA §3-401.11(A)(3) — poultry min-internal 165°F / 15s',
   },
   {
     id: 'cook_ground_beef',
@@ -78,6 +90,7 @@ export const TempPoints: readonly TempPoint[] = [
     ccp_id: 'CCP-5',
     required_min_f: 155,
     required_max_f: null,
+    citation: 'FDA §3-401.11(A)(2) — comminuted meat min-internal 155°F / 15s',
   },
   {
     id: 'cook_fish',
@@ -85,6 +98,39 @@ export const TempPoints: readonly TempPoint[] = [
     ccp_id: 'CCP-6',
     required_min_f: 145,
     required_max_f: null,
+    citation: 'FDA §3-401.11(A)(1) — fish min-internal 145°F / 15s',
+  },
+  // ── Added in Bundle F (deferred nit from Bundle E): whole-muscle
+  // pork/beef, and shell eggs cooked for hot-hold. These are §3-401.11
+  // thresholds the brief asked for so every protein the Lariat cooks
+  // has its own tile. `cook_eggs` uses 155°F — §3-401.11(A)(2) applies
+  // when eggs are "not prepared for immediate service" (the common
+  // hot-hold case on Lariat's brunch line). Eggs cooked to immediate
+  // service drop to 145°F but that case is the exception, not the
+  // rule, so the stricter 155°F is the one enforced here.
+  {
+    id: 'cook_pork',
+    label: 'Cook — pork',
+    ccp_id: 'CCP-6',
+    required_min_f: 145,
+    required_max_f: null,
+    citation: 'FDA §3-401.11(A)(1) — whole-muscle pork 145°F / 15s',
+  },
+  {
+    id: 'cook_beef_steak',
+    label: 'Cook — beef steak',
+    ccp_id: 'CCP-6',
+    required_min_f: 145,
+    required_max_f: null,
+    citation: 'FDA §3-401.11(A)(1) — whole-muscle beef 145°F / 15s',
+  },
+  {
+    id: 'cook_eggs',
+    label: 'Cook — shell eggs',
+    ccp_id: 'CCP-5',
+    required_min_f: 155,
+    required_max_f: null,
+    citation: 'FDA §3-401.11(A)(2) — shell eggs for hot-hold 155°F / 15s',
   },
   {
     id: 'hot_hold',
@@ -92,6 +138,7 @@ export const TempPoints: readonly TempPoint[] = [
     ccp_id: 'CCP-7',
     required_min_f: 140,
     required_max_f: null,
+    citation: 'FDA §3-501.16(A)(1) — hot-hold ≥ 135°F (house policy 140)',
   },
   {
     id: 'reheat',
@@ -99,6 +146,7 @@ export const TempPoints: readonly TempPoint[] = [
     ccp_id: 'CCP-9',
     required_min_f: 165,
     required_max_f: null,
+    citation: 'FDA §3-403.11(A) — reheat for hot-hold 165°F / 15s within 2h',
   },
 ];
 
@@ -277,6 +325,9 @@ export interface PointSummary {
   point_id: string;
   label: string;
   ccp_id: string;
+  /** Mirrors `TempPoint.citation` — surfaced so the board can render
+   *  a FDA §-cite tooltip per tile without looking the point up again. */
+  citation: string;
   required_min_f: number | null;
   required_max_f: number | null;
   status: TileStatus;
@@ -389,6 +440,7 @@ export function classifyReadings(
       point_id: point.id,
       label: point.label,
       ccp_id: point.ccp_id,
+      citation: point.citation,
       required_min_f: point.required_min_f,
       required_max_f: point.required_max_f,
       status,

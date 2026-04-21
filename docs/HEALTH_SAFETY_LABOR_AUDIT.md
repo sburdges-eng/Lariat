@@ -250,12 +250,56 @@ Two-stage cooling (CCP-8) is NOT covered here; it lives in `lib/cooling.ts` + `/
 - **Audit trail best-effort.** `postAuditEvent` is in a try/catch after the insert succeeds. A stranded temp_log row with a missing audit row is a less-bad outcome than refusing a valid cook-side write because the audit chain happened to be offline. Mirrors the sanitizer route's posture.
 - **Tests covered in two files.** `tests/js/test-temp-log-rules.mjs` (34 cases) for the new `classifyReadings` aggregator and the CCP coverage invariants. `tests/js/test-temp-log-api.mjs` (14 cases, including blank-reading UI guard pin) for the new GET summary + POST audit-row behavior. Plus the pre-existing `test-temp-log.mjs` (59) and `test-temp-log-route.mjs` (25) — none rewritten, all still pass.
 
-### Open nits — Deferred to Bundle F
+### Open nits — Deferred to Bundle F — **DONE in Bundle F**
 
-The following two items were flagged during Bundle E code review but intentionally deferred to Bundle F (receiving log), where the registry and tile UI will be touched anyway:
+Both items below were landed as part of Bundle F so the registry + tile component were touched exactly once:
 
-1. **Protein matrix gaps** — `cook_pork`, `cook_beef_steak`, and `cook_eggs` are missing from `TempPoints`. These will be added when Bundle F expands the registry for the receiving-log workflow, avoiding a second registry churn in the same sprint.
-2. **Per-tile FDA citation tooltip** — Each CCP tile should surface its FDA §-citation on hover/tap for inspector readiness. Deferred because Bundle F's UI will share the same tile component; landing the tooltip once there avoids duplication.
+1. **Protein matrix gaps — DONE.** `cook_pork`, `cook_beef_steak`, and `cook_eggs` now live in `lib/tempLog.ts` `TempPoints`. Pork and beef steak enforce §3-401.11(A)(1) at 145°F (whole-muscle); shell eggs enforce §3-401.11(A)(2) at 155°F, the stricter hot-hold path (immediate-service 145°F is the exception). The registry count went 10 → 13; `tests/js/test-temp-log.mjs` upper bound bumped 12 → 16.
+2. **Per-tile FDA citation tooltip — DONE.** Every `TempPoint` grew a `citation` field; `classifyReadings` surfaces it on `PointSummary.citation`; `TempLogBoard.jsx` renders it as a `title="FDA §…"` attribute on both the tile and the CCP badge. Matching treatment applies to the new receiving board tiles, so an inspector hovering any food-safety tile sees the §-cite without docs hunting.
+
+---
+
+## 8. T11 — Receiving log (bundle F / §3-202.11)
+
+Closed the F3 gap: `receiving_log` had the table in `lib/db.ts` but no rule module, no API route, no UI, and no audit wiring. Bundle F lands all four. This landed on branch `haccp-receiving`.
+
+### What landed
+
+- **FDA rule module (new).** `lib/receiving.ts` defines `RECEIVING_CATEGORIES` (`refrigerated`, `frozen`, `shell_eggs`, `hot_held`, `dry_goods`, `produce`, `shellfish`), a `RECEIVING_RULES` table with per-category temp thresholds + drift bands, `validateReceivingReading(...)` returning `{ status: 'ok' | 'accept_with_note' | 'rejected', reason, citation, required_max_f }`, and `classifyDeliveries(...)` for the tile aggregate. Pure functions, no DB coupling.
+- **API route (new).** `/api/receiving` (GET + POST). POST runs the rule module; 422s with `needs_corrective_action: true` whenever the decision is non-ok and the cook didn't write a note. The `accepted_with_note` DB status column is mapped through `dbStatusFor` — the library uses `accept_with_note` (present tense), the schema uses the past-tense form from the pre-existing DDL. GET groups by vendor, returns per-category tiles, and exposes the rule registry for the UI.
+- **Schema migration.** `receiving_log` gained `package_ok INTEGER` (§3-202.15) and `expiration_date TEXT` (§3-101.11) columns. Both NULLable; pre-F rows stay NULL. The CREATE TABLE DDL was updated for fresh databases and a conditional `ALTER TABLE ... ADD COLUMN` migration was added to `migrateLegacyColumns` for in-place upgrades.
+- **UI board (new).** `/app/food-safety/receiving/` — server-rendered `page.jsx` + client `ReceivingBoard.jsx`. Tile grid per category, totals chips across the top (`N clean categories · N accept-with-note · N with rejects`) and per-line counts (`N accepted · N with note · N rejected`). The entry form does live validation against the rule module's drift bands: typing a 43°F reading for a refrigerated line surfaces the corrective-action field inline, typing 50°F red-borders the reading input AND the note field (rejection path). Package-intact checkbox defaults true; unchecking it forces rejection per §3-202.15.
+- **Hub tile.** `/app/food-safety/page.jsx` gained a Receiving tile showing today's deliveries / accepts-with-note / rejections. Red if anything rejected, amber if any accept-with-note.
+- **Sidebar link.** `app/_components/Sidebar.jsx` has "Receiving" under "Food safety".
+- **Bundle-E nits landed here.** Protein matrix gaps filled, per-tile §-tooltip wired — see "Open nits — Deferred to Bundle F — DONE" above.
+
+### FDA citations per RECEIVING_CATEGORY
+
+| Category | Required temp | Drift band | Reject at | FDA cite |
+|---|---|---|---|---|
+| `refrigerated` | ≤ 41°F | 41–45°F (accept_with_note) | > 45°F | §3-202.11(B) / §3-501.16(A)(2) |
+| `frozen` | ≤ 10°F practical | 10–25°F (accept_with_note) | > 25°F | §3-202.11(C) |
+| `shell_eggs` | ≤ 45°F | 45–50°F (accept_with_note) | > 50°F | §3-202.11(A) |
+| `hot_held` | ≥ 135°F | 130–135°F (accept_with_note) | < 130°F | §3-202.11(D) / §3-501.16(A)(1) |
+| `shellfish` | ≤ 45°F | 45–50°F (accept_with_note) | > 50°F | §3-202.11(F) / §3-203.12 tag |
+| `dry_goods` | — (no temp CCP) | — | package compromise → reject | §3-202.15 / §3-101.11 |
+| `produce` | — (no temp CCP) | — | package compromise → reject | §3-202.15 / §3-202.110 |
+
+Cross-cutting rules (apply to every category):
+- **§3-202.15** — package integrity. `package_ok=false` is an unconditional rejection, temperature ignored.
+- **§3-101.11** — past-date food is adulterated. `expiration_date < shift_date` rejects; same-day is accepted (the sell-by covers the full day).
+
+### Design choices
+
+- **`rejected` vs `accept_with_note` split.** The FDA writes one threshold; reality has a drift band between the written limit and the practical impossibility-of-pulldown temperature. `accept_with_note` encodes that drift band: a cook can take a 43°F delivery and document a rapid pull-down (within the four-hour product-spoilage envelope) and stay compliant. `rejected` is the unconditional "no" — either past the drift ceiling, package compromised, or sell-by expired. Both statuses require a written note to be saved; the difference is what the note's for (corrective fix vs rejection reason for vendor callback).
+- **Drift bands are FDA-conservative where they exist.** 45°F for refrigerated is the practical cliff — many Colorado jurisdictions cite it as the "must reject" line even though §3-501.16 strictly reads 41°F. 25°F for frozen is the "visibly thawed" cliff. Drift bands come from public-health literature, not cook convenience; the rule module is deliberately stricter than "vendor label says 50°F is fine."
+- **`package_ok=false` → always rejected.** A compromised case cannot be saved by a good temperature (§3-202.15 is unambiguous). The rule module enforces this before the temp check even runs. The UI's default is `packageOk=true` so a cook isn't forced to check the box for every dry-goods line.
+- **`expiration_date` is optional.** Many cases don't print a sell-by that the receiving cook can see without opening them. When provided and past, the line rejects per §3-101.11. When absent, the path is skipped — we do NOT synthesize a "no date means expired" policy.
+- **`dry_goods` and `produce` skip the temp check entirely.** `requires_reading: false` on the rule. A reading may still be entered and is stored, but it's informational — the decision is package + sell-by only.
+- **Category schema is TEXT with a known-set enum in the module.** The DB column is TEXT so future categories land without a DDL migration; the rule module is the single-source validator. Unknown categories fall through to `accept_with_note` (not `rejected`) so a new vendor SKU is always loggable — rejecting on an unknown category would make the board unusable during a new-vendor onboarding.
+- **`rejection_reason` column doubles as the corrective-action note.** The pre-existing column was named `rejection_reason`; Bundle F reuses it for the `accept_with_note` path rather than adding a second free-text column. Both cases are the same audit artifact: "why was this not a clean accept?" — the UI surfaces it as "corrective action / rejection reason" so the cook sees the right framing.
+- **Audit trail best-effort.** `postAuditEvent` is in try/catch after the insert commits — a stranded receiving_log row with a missing audit row is less-bad than refusing a valid delivery because the audit chain blipped. Mirrors temp-log/sanitizer.
+- **Tests covered in two files.** `tests/js/test-receiving-rules.mjs` (44 cases) for the rule module incl. boundary cases on every category, drift bands, package_ok=false, expiration handling, unknown-category fallback. `tests/js/test-receiving-api.mjs` (22 cases) for route-level: 422 behavior, audit row emission, GET summary shape, vendor grouping, location scoping.
 
 ---
 
