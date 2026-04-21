@@ -349,6 +349,114 @@ describe('T7 — backfill master_id onto vendor_prices + bom_lines', () => {
     assert.strictEqual(countMasters, 1);
     db.close();
   });
+
+  it('two masters pointing at the same vendor_ingredient do not clobber each other', () => {
+    // Regression for the `updateVp`/`updateBom` raw-sweep without a
+    // master_id IS NULL guard: `ketchup` and `catsup` both claim the
+    // HEINZ 1GAL SKU. Before the fix, whichever iterated last won silently
+    // on every run (flap). After the fix, first-write-wins and the
+    // assignment is stable across reruns.
+    const db = makeDb();
+    const seed = payload({
+      vendor_prices: [
+        { ingredient: 'HEINZ 1GAL', vendor: 'sysco', sku: 'HZ-1GAL',
+          pack_size: 1, pack_unit: 'gal', pack_price: 12 },
+      ],
+      ingredient_maps: [
+        { recipe_ingredient: 'ketchup', vendor_ingredient: 'HEINZ 1GAL', status: 'confirmed' },
+        { recipe_ingredient: 'catsup',  vendor_ingredient: 'HEINZ 1GAL', status: 'confirmed' },
+      ],
+    });
+
+    ingestCosting(db, seed, LOC);
+
+    // Both masters must exist — dual-claim does not drop either.
+    const masterIds = db.prepare(
+      `SELECT master_id FROM ingredient_masters ORDER BY master_id`,
+    ).all().map((r) => r.master_id);
+    assert.deepStrictEqual(masterIds, ['catsup', 'ketchup']);
+
+    // The VP row has exactly ONE master_id (not NULL, not flapping).
+    const vp = db.prepare(
+      `SELECT master_id FROM vendor_prices WHERE sku='HZ-1GAL'`,
+    ).all();
+    assert.strictEqual(vp.length, 1);
+    const firstMaster = vp[0].master_id;
+    assert.ok(['ketchup', 'catsup'].includes(firstMaster),
+      `VP master_id should be one of the two claimants, got ${firstMaster}`);
+
+    // Rerun must not flip it — first-write-wins is stable across ingests.
+    ingestCosting(db, seed, LOC);
+    const vp2 = db.prepare(
+      `SELECT master_id FROM vendor_prices WHERE sku='HZ-1GAL'`,
+    ).get();
+    assert.strictEqual(vp2.master_id, firstMaster,
+      'rerunning ingest must not flap master_id between the two claimants');
+    db.close();
+  });
+
+  it('case-only duplicate recipe_ingredients collapse to one master', () => {
+    // 'Salt' and 'salt' differ only in case; deriveMasterId lowercases +
+    // slugifies, so both normalize to master_id='salt'. Regression-proof
+    // the collapse: exactly one master row, not two.
+    const db = makeDb();
+    ingestCosting(db, payload({
+      ingredient_maps: [
+        { recipe_ingredient: 'Salt', vendor_ingredient: 'MORTON SALT', status: 'confirmed' },
+        { recipe_ingredient: 'salt', vendor_ingredient: 'KOSHER SALT', status: 'confirmed' },
+      ],
+    }), LOC);
+
+    const rows = db.prepare(
+      `SELECT master_id, canonical_name FROM ingredient_masters`,
+    ).all();
+    assert.strictEqual(rows.length, 1, 'case-only variants must collapse to one master');
+    assert.strictEqual(rows[0].master_id, 'salt');
+    // Deterministic canonical_name: sort() of {'Salt','salt'} → 'Salt'
+    // (uppercase sorts before lowercase in ASCII). Pin the exact value
+    // so reruns don't regress the stability fix.
+    assert.strictEqual(rows[0].canonical_name, 'Salt',
+      'canonical_name must be the deterministic (sorted-first) recipe_ingredient');
+    db.close();
+  });
+});
+
+describe('T7 — operator-curated preferred_vendor is preserved on rerun', () => {
+  it('rerunning ingest does NOT clobber operator-curated preferred_vendor', () => {
+    // Operator intent must persist across ingests. After initial seed,
+    // operator flips preferred_vendor to 'shamrock' in the DB; a second
+    // ingest (even with excluded.preferred_vendor='sysco') must leave
+    // 'shamrock' alone. Regression guard for the old
+    // COALESCE(excluded.preferred_vendor, ingredient_masters.preferred_vendor)
+    // which picked excluded whenever excluded was non-NULL.
+    const db = makeDb();
+    const seed = payload({
+      vendor_prices: [
+        { ingredient: 'ketchup', vendor: 'sysco',    sku: 'SYS-K',  pack_size: 1, pack_unit: 'gal', pack_price: 12 },
+        { ingredient: 'ketchup', vendor: 'shamrock', sku: 'SHAM-K', pack_size: 1, pack_unit: 'gal', pack_price: 11 },
+      ],
+      ingredient_maps: [
+        { recipe_ingredient: 'ketchup', vendor_ingredient: 'ketchup', status: 'confirmed' },
+      ],
+    });
+
+    ingestCosting(db, seed, LOC);
+
+    // Operator overrides whatever auto-seed landed → 'shamrock'.
+    db.prepare(
+      `UPDATE ingredient_masters SET preferred_vendor = 'shamrock' WHERE master_id='ketchup'`,
+    ).run();
+
+    // Second ingest — this is the one that used to clobber.
+    ingestCosting(db, seed, LOC);
+
+    const row = db.prepare(
+      `SELECT preferred_vendor FROM ingredient_masters WHERE master_id='ketchup'`,
+    ).get();
+    assert.strictEqual(row.preferred_vendor, 'shamrock',
+      'operator curation must survive ingest rerun; UPSERT must not overwrite preferred_vendor on conflict');
+    db.close();
+  });
 });
 
 // ── Merged-cost resolver unit tests ─────────────────────────────────

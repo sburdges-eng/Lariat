@@ -999,24 +999,38 @@ export function rebuildIngredientMasters(db, locationId = 'default') {
   }
 
   // UPSERT ingredient_masters rows. ON CONFLICT updates canonical_name /
-  // preferred_vendor / last_reviewed so a renamed confirmed mapping or a
-  // newly-priced vendor propagates without a manual intervention.
-  // category is left alone — it's the one field an operator is expected
-  // to curate by hand.
+  // last_reviewed so a renamed confirmed mapping propagates without
+  // manual intervention. category is left alone — operator-curated.
+  // preferred_vendor is INTENTIONALLY omitted from the UPDATE clause:
+  // on first INSERT we seed it from the first-vendor-observed derivation
+  // (useful default), but once the row exists any operator override in
+  // ingredient_masters.preferred_vendor must persist across re-ingests.
+  // COALESCE(excluded.preferred_vendor, ...) would silently revert an
+  // operator-set 'shamrock' back to auto-derived 'sysco' as soon as the
+  // seed vendor changed.
   const upsert = db.prepare(`
     INSERT INTO ingredient_masters (master_id, canonical_name, category, preferred_vendor, last_reviewed)
     VALUES (@master_id, @canonical_name, NULL, @preferred_vendor, datetime('now'))
     ON CONFLICT(master_id) DO UPDATE SET
       canonical_name   = excluded.canonical_name,
-      preferred_vendor = COALESCE(excluded.preferred_vendor, ingredient_masters.preferred_vendor),
+      category         = COALESCE(excluded.category, ingredient_masters.category),
       last_reviewed    = excluded.last_reviewed
+      -- preferred_vendor intentionally omitted: preserve operator curation.
   `);
 
+  // Raw-string backfill. `master_id IS NULL` guard is critical: without
+  // it a second confirmed map that normalizes to a different slug but
+  // shares a vendor_ingredient raw string would silently overwrite the
+  // earlier master's claim, and re-running ingest would flap master_id
+  // back and forth between aliases on every run. First-write-wins
+  // matches the normalized sweep below, and makes result.changes == 0
+  // on idempotent re-runs.
   const updateVp = db.prepare(`
     UPDATE vendor_prices
        SET master_id = @master_id
      WHERE location_id = @location_id
-       AND (ingredient = @match OR ingredient = @raw_recipe)
+       AND master_id IS NULL
+       AND ingredient = @match
   `);
   const updateVpNorm = db.prepare(`
     UPDATE vendor_prices
@@ -1030,6 +1044,7 @@ export function rebuildIngredientMasters(db, locationId = 'default') {
     UPDATE bom_lines
        SET master_id = @master_id
      WHERE location_id = @location_id
+       AND master_id IS NULL
        AND ingredient = @match
   `);
   const updateBomNorm = db.prepare(`
@@ -1043,9 +1058,17 @@ export function rebuildIngredientMasters(db, locationId = 'default') {
 
   db.transaction(() => {
     for (const [masterId, entry] of masterIndex) {
+      // Deterministic canonical_name: Set iteration order is insertion
+      // order, which depends on the SQLite row order of confirmed maps
+      // (not guaranteed stable across reruns). Sort + take first so the
+      // displayed name is reproducible even when multiple case-variant
+      // recipe_ingredients collapse to one master ('Salt' + 'salt').
+      const canonical =
+        Array.from(entry.recipe_ingredients).sort()[0] ?? entry.canonical_name;
+
       upsert.run({
         master_id: masterId,
-        canonical_name: entry.canonical_name,
+        canonical_name: canonical,
         preferred_vendor: entry.preferred_vendor,
       });
       out.masters++;
@@ -1053,16 +1076,16 @@ export function rebuildIngredientMasters(db, locationId = 'default') {
       // Backfill vendor_prices.master_id. Raw-string joins first (exact
       // match on recipe_ingredient or vendor_ingredient), then a
       // normalized-key sweep for any rows that differ only in case /
-      // whitespace. The normalized pass is guarded by `master_id IS NULL`
-      // so a raw match already applied doesn't get overwritten.
+      // whitespace. Both passes are guarded by `master_id IS NULL` so
+      // the first master to claim a row keeps it — prevents two
+      // confirmed maps pointing at the same vendor_ingredient from
+      // clobbering each other's master_id on every ingest run.
       for (const s of entry.recipe_ingredients) {
-        const r = updateVp.run({ master_id: masterId, location_id: locationId,
-                                 match: s, raw_recipe: s });
+        const r = updateVp.run({ master_id: masterId, location_id: locationId, match: s });
         out.vp_backfilled += r.changes;
       }
       for (const s of entry.vendor_ingredients) {
-        const r = updateVp.run({ master_id: masterId, location_id: locationId,
-                                 match: s, raw_recipe: s });
+        const r = updateVp.run({ master_id: masterId, location_id: locationId, match: s });
         out.vp_backfilled += r.changes;
       }
       // Normalized sweep: compare LOWER(TRIM(ingredient)) against the
