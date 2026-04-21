@@ -97,7 +97,17 @@ export interface VendorPrice {
   unit_price: number | null;
   category: string | null;
   yield_pct: number | null;  // fraction 0..1 (e.g. 0.85 for 85% trim yield)
-  map_status: string | null;  // 'PACK_CHANGED' when T6 detects pack substitution
+  /**
+   * Run-scoped signal. Set to 'PACK_CHANGED' when T6 detects a pack
+   * substitution for this (vendor, sku) against the latest prior row
+   * during the CURRENT ingest. Does NOT persist across a quiet
+   * re-ingest of the post-swap state: the DELETE+INSERT sweep wipes
+   * vendor_prices and, with no new diff to emit, map_status lands as
+   * NULL on the next run. For the durable "surface until acknowledged"
+   * attention queue, read `pack_size_changes WHERE acknowledged=0`
+   * instead — that table is never cleared by the ingest.
+   */
+  map_status: string | null;
   location_id: string;
   imported_at: string;
 }
@@ -506,6 +516,15 @@ export function initSchema(db: DB): void {
     -- numeric components live on vendor_prices itself. acknowledged=0
     -- means the row still surfaces in the attention queue; operator
     -- flips to 1 once the swap has been reviewed.
+    --
+    -- DURABILITY: this table is the authoritative, persistent source
+    -- for the "pack-changed" attention queue. It is NEVER DELETEd by
+    -- the ingest (unlike vendor_prices, which gets a DELETE+INSERT
+    -- sweep every run). As a result, a quiet re-ingest of the post-
+    -- swap state leaves this row intact and its acknowledged flag
+    -- untouched. Consumers of the attention queue MUST key on
+    -- acknowledged=0 here, not on vendor_prices.map_status (which
+    -- is a run-scoped signal — see VendorPrice.map_status JSDoc).
     CREATE TABLE IF NOT EXISTS pack_size_changes (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
       vendor       TEXT NOT NULL,
@@ -840,8 +859,12 @@ function migrateLegacyColumns(db: DB): void {
   // T6 adds map_status on vendor_prices so the pack-size-substitution
   // detector can flag the freshly-INSERTed row as 'PACK_CHANGED' whenever
   // the incoming pack_size/pack_unit differs from the latest prior row per
-  // (vendor, sku). NULL on old / non-changed rows — the attention-queue
-  // surfacing logic treats NULL as "no issue".
+  // (vendor, sku). NULL on old / non-changed rows. This column is a
+  // RUN-SCOPED signal only — it does not persist across a quiet re-ingest
+  // of the post-swap state (the DELETE+INSERT sweep wipes it and the next
+  // run finds no diff). Attention-queue consumers should key on
+  // `pack_size_changes.acknowledged=0` for durability. See the
+  // pack_size_changes DDL comment and VendorPrice.map_status JSDoc above.
   const vpCols = t('vendor_prices');
   const vpMigrations: [string, string][] = [
     ['yield_pct', 'ALTER TABLE vendor_prices ADD COLUMN yield_pct REAL'],

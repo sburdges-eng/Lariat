@@ -218,6 +218,137 @@ describe('T6 — multiple simultaneous substitutions surface independently', () 
   });
 });
 
+describe('T6 — quiet re-ingest after PACK_CHANGED: log persists, map_status resets to NULL', () => {
+  // Documents the intentional run-scoped behavior of
+  // vendor_prices.map_status — see the JSDoc on VendorPrice.map_status
+  // and the block comment in scripts/ingest-costing.mjs.
+  // Walkthrough:
+  //   Run 1 — 6×#10 $42 baseline, no prior → no log, map_status NULL.
+  //   Run 2 — 4×#10 $36, diff against 6×#10 → one log row, map_status='PACK_CHANGED'.
+  //   Run 3 — 4×#10 $36, identical to run 2 → no diff, no new log. The
+  //           DELETE+INSERT sweep wipes vendor_prices and re-inserts with
+  //           map_status=NULL. The pack_size_changes row from run 2
+  //           persists (never DELETEd) and its acknowledged flag is
+  //           unchanged, so the durable attention queue stays correct.
+  it('quiet re-ingest preserves pack_size_changes and resets map_status', () => {
+    const db = makeDb();
+
+    ingestCosting(db, vpPayload([
+      { ingredient: 'Tomato Sauce', vendor: 'sysco', sku: 'SYSCO-12345',
+        pack_size: 6, pack_unit: '#10', pack_price: 42.0, unit_price: 7.0 },
+    ]), LOC);
+    ingestCosting(db, vpPayload([
+      { ingredient: 'Tomato Sauce', vendor: 'sysco', sku: 'SYSCO-12345',
+        pack_size: 4, pack_unit: '#10', pack_price: 36.0, unit_price: 9.0 },
+    ]), LOC);
+    // After run 2: one log row, PACK_CHANGED on vendor_prices.
+    const vp2 = db.prepare(
+      `SELECT map_status FROM vendor_prices WHERE vendor='sysco' AND sku='SYSCO-12345' AND location_id=?`,
+    ).get(LOC);
+    assert.strictEqual(vp2.map_status, 'PACK_CHANGED');
+    assert.strictEqual(
+      db.prepare('SELECT COUNT(*) AS c FROM pack_size_changes').get().c, 1);
+
+    // Run 3 — identical to run 2. No diff should fire.
+    const s3 = ingestCosting(db, vpPayload([
+      { ingredient: 'Tomato Sauce', vendor: 'sysco', sku: 'SYSCO-12345',
+        pack_size: 4, pack_unit: '#10', pack_price: 36.0, unit_price: 9.0 },
+    ]), LOC);
+    assert.strictEqual(s3.pack_size_changes, 0,
+      'identical re-ingest must not re-log a pack change');
+
+    // pack_size_changes: still exactly 1 row, acknowledged still 0.
+    const logRows = db.prepare(
+      `SELECT acknowledged FROM pack_size_changes
+        WHERE vendor='sysco' AND sku='SYSCO-12345'`,
+    ).all();
+    assert.strictEqual(logRows.length, 1,
+      'pack_size_changes must not gain or lose rows on a quiet re-ingest');
+    assert.strictEqual(logRows[0].acknowledged, 0,
+      'acknowledged flag must remain 0 — ingest must not touch durable queue state');
+
+    // vendor_prices.map_status resets to NULL — intentional run-scoped
+    // behavior. The durable attention-queue signal is the
+    // pack_size_changes row above; map_status is a one-shot "this run
+    // detected a change" marker.
+    const vp3 = db.prepare(
+      `SELECT map_status FROM vendor_prices WHERE vendor='sysco' AND sku='SYSCO-12345' AND location_id=?`,
+    ).get(LOC);
+    assert.strictEqual(vp3.map_status, null,
+      'map_status is run-scoped — a quiet re-ingest produces no diff, so it lands NULL');
+    db.close();
+  });
+});
+
+describe('T6 — NULL-to-value transitions fire a log (pack_size / pack_unit)', () => {
+  it('pack_size transitions from NULL to 6 logs a change', () => {
+    const db = makeDb();
+
+    ingestCosting(db, vpPayload([
+      { ingredient: 'Tomato Sauce', vendor: 'sysco', sku: 'NS-1',
+        pack_size: null, pack_unit: '#10', pack_price: 42.0, unit_price: 7.0 },
+    ]), LOC);
+
+    const s2 = ingestCosting(db, vpPayload([
+      { ingredient: 'Tomato Sauce', vendor: 'sysco', sku: 'NS-1',
+        pack_size: 6, pack_unit: '#10', pack_price: 42.0, unit_price: 7.0 },
+    ]), LOC);
+    assert.strictEqual(s2.pack_size_changes, 1,
+      'pack_size null→6 is a real substitution, must log');
+    const row = db.prepare(
+      `SELECT prev_pack, new_pack FROM pack_size_changes WHERE sku='NS-1'`,
+    ).get();
+    // prev_pack null because prior pack_size was null (formatPack returns null
+    // when either side is null); new_pack is the populated "6x#10".
+    assert.strictEqual(row.prev_pack, null);
+    assert.strictEqual(row.new_pack, '6x#10');
+    db.close();
+  });
+
+  it('pack_unit transitions from NULL to "lb" logs a change', () => {
+    const db = makeDb();
+
+    ingestCosting(db, vpPayload([
+      { ingredient: 'Ribeye', vendor: 'sysco', sku: 'NU-1',
+        pack_size: 10, pack_unit: null, pack_price: 150.0, unit_price: 15.0 },
+    ]), LOC);
+
+    const s2 = ingestCosting(db, vpPayload([
+      { ingredient: 'Ribeye', vendor: 'sysco', sku: 'NU-1',
+        pack_size: 10, pack_unit: 'lb', pack_price: 150.0, unit_price: 15.0 },
+    ]), LOC);
+    assert.strictEqual(s2.pack_size_changes, 1,
+      'pack_unit null→lb is a real substitution, must log');
+    const row = db.prepare(
+      `SELECT prev_pack, new_pack FROM pack_size_changes WHERE sku='NU-1'`,
+    ).get();
+    assert.strictEqual(row.prev_pack, null);
+    assert.strictEqual(row.new_pack, '10xlb');
+    db.close();
+  });
+});
+
+describe('T6 — pack_size int vs float tolerance (6 vs 6.0 does NOT fire)', () => {
+  it('Number(6) === Number(6.0) so REAL round-trip is not a false positive', () => {
+    const db = makeDb();
+
+    ingestCosting(db, vpPayload([
+      { ingredient: 'Tomato Sauce', vendor: 'sysco', sku: 'FLOAT-1',
+        pack_size: 6, pack_unit: '#10', pack_price: 42.0, unit_price: 7.0 },
+    ]), LOC);
+
+    const s2 = ingestCosting(db, vpPayload([
+      { ingredient: 'Tomato Sauce', vendor: 'sysco', sku: 'FLOAT-1',
+        pack_size: 6.0, pack_unit: '#10', pack_price: 42.0, unit_price: 7.0 },
+    ]), LOC);
+    assert.strictEqual(s2.pack_size_changes, 0,
+      '6 vs 6.0 must not fire — SQLite REAL↔INT storage is transparent');
+    const count = db.prepare('SELECT COUNT(*) AS c FROM pack_size_changes').get().c;
+    assert.strictEqual(count, 0);
+    db.close();
+  });
+});
+
 describe('T6 — blank / missing vendor or sku does not trigger detection', () => {
   it('empty vendor or sku on incoming row is skipped entirely', () => {
     const db = makeDb();

@@ -215,31 +215,42 @@ function _ingestCostingImpl(db, data, locationId) {
   // against. The key is `${vendor}\u0001${sku}` so empty vendor or sku
   // don't collide with anything. Units are compared post-normalizeUnit
   // so 'CS' vs 'cs' or 'pound' vs 'lb' doesn't log a spurious change.
+  //
+  // Shared (vendor, sku) key — used both here to snapshot prior packs
+  // AND below inside the transaction loop to look them up. One definition
+  // avoids drift between the two sites.
+  const pkey = (v, s) => `${v ?? ''}\u0001${s ?? ''}`;
   const priorPackByKey = new Map();
-  {
-    const pkey = (v, s) => `${v ?? ''}\u0001${s ?? ''}`;
-    for (const row of db.prepare(
-      `SELECT vendor, sku, pack_size, pack_unit, pack_price, imported_at, id
-         FROM vendor_prices
-        WHERE location_id = ?
-          AND vendor IS NOT NULL AND vendor != ''
-          AND sku IS NOT NULL AND sku != ''
-        ORDER BY imported_at DESC, id DESC`,
-    ).all(locationId)) {
-      const k = pkey(row.vendor, row.sku);
-      if (!priorPackByKey.has(k)) {
-        priorPackByKey.set(k, {
-          pack_size: row.pack_size,
-          pack_unit: row.pack_unit,
-          pack_price: row.pack_price,
-        });
-      }
+  for (const row of db.prepare(
+    `SELECT vendor, sku, pack_size, pack_unit, pack_price, imported_at, id
+       FROM vendor_prices
+      WHERE location_id = ?
+        AND vendor IS NOT NULL AND vendor != ''
+        AND sku IS NOT NULL AND sku != ''
+      ORDER BY imported_at DESC, id DESC`,
+  ).all(locationId)) {
+    const k = pkey(row.vendor, row.sku);
+    if (!priorPackByKey.has(k)) {
+      priorPackByKey.set(k, {
+        pack_size: row.pack_size,
+        pack_unit: row.pack_unit,
+        pack_price: row.pack_price,
+      });
     }
   }
+  // Format a "{size}x{unit}" human-readable pack string. If either side
+  // is null or empty we return null outright — a half-populated "6x" or
+  // "x#10" would be ambiguous in the audit log, and the ingest persists
+  // a null pack_unit as '' (see `pack_unit: r.pack_unit ?? ''` in the
+  // INSERT below), so treating '' same as null keeps round-trips clean.
+  // Detection logic above also null-checks independently, so this is
+  // defensive rather than load-bearing, but it keeps prev_pack/new_pack
+  // self-describing.
   const formatPack = (packSize, packUnit) => {
-    const sz = packSize == null ? '' : String(packSize);
-    const un = packUnit == null ? '' : String(packUnit);
-    if (!sz && !un) return null;
+    if (packSize == null || packUnit == null) return null;
+    const sz = String(packSize);
+    const un = String(packUnit);
+    if (!sz || !un) return null;
     return `${sz}x${un}`;
   };
 
@@ -266,7 +277,6 @@ function _ingestCostingImpl(db, data, locationId) {
       INSERT INTO pack_size_changes (vendor, sku, prev_pack, new_pack, prev_price, new_price)
       VALUES (@vendor, @sku, @prev_pack, @new_pack, @prev_price, @new_price)
     `);
-    const pkey = (v, s) => `${v ?? ''}\u0001${s ?? ''}`;
     for (const r of data.vendor_prices || []) {
       const y = lookup(r.ingredient);
 
@@ -274,6 +284,25 @@ function _ingestCostingImpl(db, data, locationId) {
       // (can't key a substitution on blanks). Compare normalized pack_unit
       // + numeric pack_size against the latest prior row; on mismatch log
       // a pack_size_changes audit row and flag the new row 'PACK_CHANGED'.
+      //
+      // Attention-queue semantics (read this before changing map_status):
+      //   vendor_prices.map_status='PACK_CHANGED' is a RUN-SCOPED signal.
+      //   It lives on the freshly-INSERTed vendor_prices row and reflects
+      //   "this ingest run observed a pack-size diff for (vendor, sku)."
+      //   Because the DELETE+INSERT sweep in the transaction wipes
+      //   vendor_prices every run, the flag does NOT persist across a
+      //   subsequent quiet re-ingest of the post-swap state (run 3 of
+      //   the same pack + price after run 2 detected the change): there's
+      //   no diff to re-emit, so map_status lands as NULL again.
+      //
+      //   The DURABLE "surface until acknowledged" queue source is the
+      //   pack_size_changes table — specifically `WHERE acknowledged=0`.
+      //   pack_size_changes is never DELETEd by the ingest, so the full
+      //   per-(vendor,sku) change history is preserved and operators can
+      //   acknowledge explicitly (UPDATE … SET acknowledged=1) without
+      //   any ingest side-effect racing them. Downstream UI / attention
+      //   queues MUST key on pack_size_changes.acknowledged, not on
+      //   vendor_prices.map_status, for persistence guarantees.
       let mapStatus = null;
       const hasVendor = r.vendor != null && String(r.vendor) !== '';
       const hasSku = r.sku != null && String(r.sku) !== '';
@@ -304,6 +333,11 @@ function _ingestCostingImpl(db, data, locationId) {
         }
       }
 
+      // NOTE: map_status bound below is run-scoped (see block comment
+      // above). A quiet re-ingest of the post-swap state will land this
+      // column as NULL because there's no new diff; that is intentional.
+      // The persistent attention-queue source for pack substitutions is
+      // `pack_size_changes WHERE acknowledged=0`.
       ivp.run({
         ingredient: r.ingredient,
         vendor: r.vendor,
