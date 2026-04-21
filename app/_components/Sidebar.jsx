@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PinLogout from './PinLogout.jsx';
 import OfflineIndicator from './OfflineIndicator.jsx';
@@ -39,6 +39,7 @@ function StationRing({ prog, glyph }) {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [staff, setStaff] = useState([]);
   const [cookId, setCookId] = useState('');
@@ -129,18 +130,18 @@ export default function Sidebar() {
       if (e.target && e.target.isContentEditable) return;
       const k = e.key;
       if (k === '0') {
-        window.location.href = `/${locQuery}`;
+        router.push(`/${locQuery}`);
       } else if (/^[1-6]$/.test(k)) {
         const idx = parseInt(k, 10) - 1;
         const s = stations[idx];
-        if (s) window.location.href = `/stations/${s.id}${locQuery}`;
+        if (s) router.push(`/stations/${s.id}${locQuery}`);
       } else if (k === '8') {
-        window.location.href = `/eighty-six${locQuery}`;
+        router.push(`/eighty-six${locQuery}`);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [stations, locQuery]);
+  }, [stations, locQuery, router]);
 
   // Nav link helper — preserves old location-aware href rewriting
   const link = useCallback(

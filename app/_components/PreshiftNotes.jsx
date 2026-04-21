@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 function timeAgo(iso) {
   if (!iso) return '';
@@ -20,6 +20,7 @@ export default function PreshiftNotes({ initialNote, shiftDate, serviceLabel, lo
   const [cookId, setCookId] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const inFlightRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -39,11 +40,13 @@ export default function PreshiftNotes({ initialNote, shiftDate, serviceLabel, lo
   };
 
   const save = async () => {
+    if (inFlightRef.current) return;
     const trimmed = draft.trim();
     if (!trimmed) {
       setErr('Write something first.');
       return;
     }
+    inFlightRef.current = true;
     setSaving(true); setErr('');
     try {
       const res = await fetch('/api/preshift-notes', {
@@ -67,6 +70,7 @@ export default function PreshiftNotes({ initialNote, shiftDate, serviceLabel, lo
     } catch {
       setErr('Lost connection — not saved.');
     } finally {
+      inFlightRef.current = false;
       setSaving(false);
     }
   };
