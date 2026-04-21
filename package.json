@@ -39,7 +39,8 @@
     "test:t4-integration": "node --experimental-strip-types --test tests/js/test-t4-unit-convert-integration.mjs",
     "test:catch-weights": "node --experimental-strip-types --test tests/js/test-catch-weights-schema.mjs",
     "test:catch-weight-backfill": "node --experimental-strip-types --test tests/js/test-catch-weight-backfill.mjs",
-    "test:pack-size-detect": "node --experimental-strip-types --test tests/js/test-pack-size-detect.mjs"
+    "test:pack-size-detect": "node --experimental-strip-types --test tests/js/test-pack-size-detect.mjs",
+    "test:ingredient-masters": "node --experimental-strip-types --test tests/js/test-ingredient-masters.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",

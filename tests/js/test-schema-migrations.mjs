@@ -464,6 +464,221 @@ describe('T6 — vendor_prices.map_status migration', () => {
   });
 });
 
+describe('T7 — ingredient_masters schema', () => {
+  it('exists in sqlite_master with master_id PRIMARY KEY', () => {
+    const row = /** @type {{sql: string} | undefined} */ (
+      db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='ingredient_masters'`).get()
+    );
+    assert.ok(row, 'ingredient_masters table not found');
+    assert.ok(/PRIMARY KEY/i.test(row.sql),
+      `expected PRIMARY KEY in CREATE TABLE ingredient_masters: ${row.sql}`);
+    assert.ok(/canonical_name[\s\S]*NOT NULL/i.test(row.sql),
+      `expected canonical_name NOT NULL: ${row.sql}`);
+  });
+
+  it('has required columns with correct nullability', () => {
+    const info = /** @type {{name: string, pk: number, notnull: number, type: string}[]} */ (
+      db.prepare('PRAGMA table_info(ingredient_masters)').all()
+    );
+    const byName = new Map(info.map((c) => [c.name, c]));
+    for (const name of ['master_id', 'canonical_name', 'category',
+                        'preferred_vendor', 'last_reviewed']) {
+      assert.ok(byName.has(name), `ingredient_masters.${name} missing`);
+    }
+    assert.strictEqual(byName.get('master_id').pk, 1, 'master_id must be PK');
+    assert.strictEqual(byName.get('canonical_name').notnull, 1,
+      'canonical_name must be NOT NULL');
+    assert.strictEqual(byName.get('category').notnull, 0, 'category must be nullable');
+    assert.strictEqual(byName.get('preferred_vendor').notnull, 0,
+      'preferred_vendor must be nullable');
+    assert.strictEqual(byName.get('last_reviewed').notnull, 0,
+      'last_reviewed must be nullable');
+  });
+
+  it('rejects duplicate master_id via PRIMARY KEY', () => {
+    db.prepare(
+      `INSERT INTO ingredient_masters (master_id, canonical_name) VALUES ('t7_dup', 'Test Dup')`,
+    ).run();
+    assert.throws(
+      () => db.prepare(
+        `INSERT INTO ingredient_masters (master_id, canonical_name) VALUES ('t7_dup', 'Test Dup 2')`,
+      ).run(),
+      /UNIQUE|PRIMARY/i,
+    );
+  });
+
+  it('rejects inserts missing canonical_name', () => {
+    assert.throws(
+      () => db.prepare(
+        `INSERT INTO ingredient_masters (master_id) VALUES ('t7_noname')`,
+      ).run(),
+      /NOT NULL/i,
+    );
+  });
+});
+
+describe('T7 — vendor_prices.master_id migration', () => {
+  it('pre-T7 vendor_prices without master_id gets the column ALTERed in', () => {
+    const legacy = new Database(':memory:');
+    try {
+      // Post-T6, pre-T7 shape: vendor_prices has yield_pct + catch-weight +
+      // map_status, but no master_id.
+      legacy.exec(`
+        CREATE TABLE vendor_prices (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ingredient TEXT NOT NULL,
+          vendor TEXT,
+          sku TEXT,
+          pack_size REAL,
+          pack_unit TEXT,
+          pack_price REAL,
+          unit_price REAL,
+          category TEXT,
+          location_id TEXT DEFAULT 'default',
+          imported_at TEXT DEFAULT (datetime('now')),
+          yield_pct REAL,
+          actual_received_lb REAL,
+          reconciled_unit_price REAL,
+          map_status TEXT
+        );
+        INSERT INTO vendor_prices (ingredient, vendor, sku, pack_price)
+        VALUES ('Legacy VP', 'sysco', 'LEGACY-1', 10.0);
+      `);
+      const pre = legacy.prepare('PRAGMA table_info(vendor_prices)').all()
+        .map((c) => c.name);
+      assert.ok(!pre.includes('master_id'),
+        'pre-migration fixture must not have master_id');
+
+      initSchema(legacy);
+
+      const post = legacy.prepare('PRAGMA table_info(vendor_prices)').all()
+        .map((c) => c.name);
+      assert.ok(post.includes('master_id'),
+        'migration did not add vendor_prices.master_id');
+
+      const row = /** @type {{ingredient: string, master_id: string | null}} */ (
+        legacy.prepare(`SELECT ingredient, master_id FROM vendor_prices WHERE sku='LEGACY-1'`).get()
+      );
+      assert.strictEqual(row.ingredient, 'Legacy VP');
+      assert.strictEqual(row.master_id, null,
+        'ALTER ADD COLUMN must land NULL on pre-existing rows');
+    } finally {
+      legacy.close();
+    }
+  });
+
+  it('master_id is TEXT and nullable', () => {
+    const info = /** @type {{name: string, type: string, notnull: number}[]} */ (
+      db.prepare('PRAGMA table_info(vendor_prices)').all()
+    );
+    const ms = info.find((c) => c.name === 'master_id');
+    assert.ok(ms, 'vendor_prices.master_id missing');
+    assert.strictEqual(ms.type.toUpperCase(), 'TEXT');
+    assert.strictEqual(ms.notnull, 0, 'vendor_prices.master_id must be nullable');
+  });
+});
+
+describe('T7 — bom_lines.master_id migration', () => {
+  it('pre-T7 bom_lines without master_id gets the column ALTERed in', () => {
+    const legacy = new Database(':memory:');
+    try {
+      // Post-T1, pre-T7 shape: bom_lines already has yield_pct + loss_factor.
+      legacy.exec(`
+        CREATE TABLE bom_lines (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          recipe_id TEXT NOT NULL,
+          ingredient TEXT,
+          qty REAL,
+          unit TEXT,
+          sub_recipe TEXT,
+          vendor_ingredient TEXT,
+          map_status TEXT,
+          vendor TEXT,
+          pack_price REAL,
+          pack_size REAL,
+          location_id TEXT DEFAULT 'default',
+          imported_at TEXT DEFAULT (datetime('now')),
+          yield_pct REAL,
+          loss_factor REAL
+        );
+        INSERT INTO bom_lines (recipe_id, ingredient, qty, unit)
+        VALUES ('r1', 'Legacy BOM', 1.0, 'lb');
+      `);
+      const pre = legacy.prepare('PRAGMA table_info(bom_lines)').all()
+        .map((c) => c.name);
+      assert.ok(!pre.includes('master_id'),
+        'pre-migration fixture must not have master_id');
+
+      initSchema(legacy);
+
+      const post = legacy.prepare('PRAGMA table_info(bom_lines)').all()
+        .map((c) => c.name);
+      assert.ok(post.includes('master_id'),
+        'migration did not add bom_lines.master_id');
+
+      const row = /** @type {{ingredient: string, master_id: string | null}} */ (
+        legacy.prepare(`SELECT ingredient, master_id FROM bom_lines WHERE recipe_id='r1'`).get()
+      );
+      assert.strictEqual(row.ingredient, 'Legacy BOM');
+      assert.strictEqual(row.master_id, null);
+    } finally {
+      legacy.close();
+    }
+  });
+
+  it('master_id is TEXT and nullable', () => {
+    const info = /** @type {{name: string, type: string, notnull: number}[]} */ (
+      db.prepare('PRAGMA table_info(bom_lines)').all()
+    );
+    const ms = info.find((c) => c.name === 'master_id');
+    assert.ok(ms, 'bom_lines.master_id missing');
+    assert.strictEqual(ms.type.toUpperCase(), 'TEXT');
+    assert.strictEqual(ms.notnull, 0, 'bom_lines.master_id must be nullable');
+  });
+});
+
+describe('T7 — master_id indexes exist', () => {
+  it('idx_vp_master on vendor_prices(master_id)', () => {
+    const rows = /** @type {{name: string}[]} */ (
+      db.prepare(`SELECT name FROM sqlite_master WHERE type='index'`).all()
+    );
+    const names = rows.map((r) => r.name);
+    assert.ok(names.includes('idx_vp_master'),
+      `idx_vp_master missing from ${JSON.stringify(names)}`);
+  });
+
+  it('idx_bom_master on bom_lines(master_id)', () => {
+    const rows = /** @type {{name: string}[]} */ (
+      db.prepare(`SELECT name FROM sqlite_master WHERE type='index'`).all()
+    );
+    const names = rows.map((r) => r.name);
+    assert.ok(names.includes('idx_bom_master'),
+      `idx_bom_master missing from ${JSON.stringify(names)}`);
+  });
+});
+
+describe('T7 — assertCriticalSchemas catches drift on ingredient_masters', () => {
+  it('throws when a legacy ingredient_masters is missing required columns', () => {
+    const drifted = new Database(':memory:');
+    try {
+      drifted.exec(`
+        CREATE TABLE ingredient_masters (
+          master_id TEXT PRIMARY KEY,
+          canonical_name TEXT NOT NULL
+        );
+      `);
+      assert.throws(
+        () => initSchema(drifted),
+        (err) => err instanceof Error &&
+                 /schema drift on 'ingredient_masters'/.test(err.message) &&
+                 /preferred_vendor/.test(err.message),
+      );
+    } finally {
+      drifted.close();
+    }
+  });
+});
+
 describe('T6 — assertCriticalSchemas catches drift on pack_size_changes', () => {
   it('throws when a legacy pack_size_changes is missing required columns', () => {
     const drifted = new Database(':memory:');

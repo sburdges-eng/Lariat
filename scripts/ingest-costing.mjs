@@ -207,6 +207,9 @@ function _ingestCostingImpl(db, data, locationId) {
     total_yield_delta_usd: 0,
     bom_lines_needs_density: 0,
     pack_size_changes: 0,
+    ingredient_masters: 0,
+    vp_master_backfilled_rows: 0,
+    bom_master_backfilled_rows: 0,
   };
 
   // ── T6: pack-size substitution detection ──────────────────────────
@@ -445,6 +448,9 @@ function _ingestCostingImpl(db, data, locationId) {
   summary.max_recipe_yield_delta_usd = postPass.max_recipe_yield_delta_usd;
   summary.bom_lines_needs_density = postPass.bom_lines_needs_density;
   summary.catch_weight_backfilled_rows = postPass.catch_weight_backfilled_rows ?? 0;
+  summary.ingredient_masters = postPass.ingredient_masters ?? 0;
+  summary.vp_master_backfilled_rows = postPass.vp_master_backfilled_rows ?? 0;
+  summary.bom_master_backfilled_rows = postPass.bom_master_backfilled_rows ?? 0;
   return summary;
 }
 
@@ -474,6 +480,9 @@ export function runCostingPostPass(db, locationId = 'default') {
     max_recipe_yield_delta_usd: 0,
     bom_lines_needs_density: 0,
     catch_weight_backfilled_rows: 0,
+    ingredient_masters: 0,
+    vp_master_backfilled_rows: 0,
+    bom_master_backfilled_rows: 0,
   };
   // ── T3 + T4: yield + loss + unit-conversion post-pass ──────────────
   // After T2c populated bom_lines.{yield_pct, loss_factor, pack_price, pack_size,
@@ -760,6 +769,17 @@ export function runCostingPostPass(db, locationId = 'default') {
   const cwBackfill = backfillCatchWeightsIntoVendorPrices(db, locationId);
   summary.catch_weight_backfilled_rows = cwBackfill.updated;
 
+  // T7: populate ingredient_masters from confirmed ingredient_maps rows,
+  // then backfill master_id onto vendor_prices and bom_lines. Runs after
+  // the DELETE+INSERT sweep and the other post-passes because it reads
+  // the fresh ingredient_maps rows this ingest just wrote. Unconfirmed
+  // maps do NOT produce masters — they stay in the unmapped queue (same
+  // "no fuzz match" posture as `_make_join_key`).
+  const masterSync = rebuildIngredientMasters(db, locationId);
+  summary.ingredient_masters = masterSync.masters;
+  summary.vp_master_backfilled_rows = masterSync.vp_backfilled;
+  summary.bom_master_backfilled_rows = masterSync.bom_backfilled;
+
   return summary;
 }
 
@@ -840,6 +860,262 @@ export function backfillCatchWeightsIntoVendorPrices(db, locationId = 'default')
     out.by_vendor[vendor] = vendorUpdated;
     out.updated += vendorUpdated;
   }
+  return out;
+}
+
+/**
+ * T7 — derive the master_id slug for a given recipe_ingredient string.
+ *
+ * v1 formula: `normalizeIngredientKey(x).replace(/ /g, '_')`. So
+ * `"Tomato Paste"` → `"tomato_paste"`. This is coarser than the spec's
+ * ideal encoding (brand + pack, e.g. `"ketchup_heinz_1gal"`) because we
+ * don't yet carry structured brand / pack metadata on ingredient_maps.
+ * Switching to the richer slug later is a pure migration — readers can
+ * already tolerate arbitrary slug text.
+ *
+ * Returns null when the ingredient string normalizes to empty so the
+ * caller skips the row rather than inserting a PK='' row that would
+ * collide across every blank-ingredient map.
+ *
+ * @param {string | null | undefined} recipeIngredient
+ * @returns {string | null}
+ */
+export function deriveMasterId(recipeIngredient) {
+  const norm = normalizeIngredientKey(recipeIngredient ?? '');
+  if (!norm) return null;
+  return norm.replace(/ /g, '_');
+}
+
+/**
+ * T7 — rebuild ingredient_masters from confirmed ingredient_maps rows,
+ * then backfill master_id onto vendor_prices and bom_lines.
+ *
+ * Seeding posture matches `_make_join_key` (no fuzz match): ONLY rows with
+ * `ingredient_maps.status='confirmed'` produce a master. Unconfirmed /
+ * mapped / auto_mapped rows stay in the unmapped queue until a human
+ * promotes them. Re-entrant: UPSERT on master_id means a second run with
+ * the same confirmed maps is a no-op; a newly confirmed map on the next
+ * run picks up a master without touching earlier ones.
+ *
+ * Backfill join rules:
+ *   vendor_prices.master_id ← set when vendor_prices.ingredient matches
+ *     either recipe_ingredient OR vendor_ingredient (raw OR normalized)
+ *     on a confirmed map. First-wins on ties (same collation as the T4
+ *     post-pass vendor-prices lookup).
+ *   bom_lines.master_id ← set when bom_lines.ingredient matches the
+ *     recipe_ingredient (raw OR normalized) on a confirmed map.
+ *
+ * Master metadata:
+ *   canonical_name = recipe_ingredient
+ *   category       = NULL (future extension from recipe_costs.category)
+ *   preferred_vendor = first vendor observed in vendor_prices for this
+ *                      ingredient (NULL when no match yet)
+ *   last_reviewed = datetime('now')
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} [locationId='default']
+ * @returns {{masters: number, vp_backfilled: number, bom_backfilled: number}}
+ */
+export function rebuildIngredientMasters(db, locationId = 'default') {
+  const out = { masters: 0, vp_backfilled: 0, bom_backfilled: 0 };
+
+  // Guardrail: columns / table may be absent on pre-T7 DBs that skipped
+  // initSchema. Silently no-op so legacy smoke paths don't blow up.
+  const tables = new Set(
+    db.prepare("SELECT name FROM sqlite_master WHERE type='table'")
+      .all().map((r) => r.name),
+  );
+  if (!tables.has('ingredient_masters')) return out;
+  const vpCols = new Set(
+    db.prepare('PRAGMA table_info(vendor_prices)').all().map((c) => c.name),
+  );
+  const bomCols = new Set(
+    db.prepare('PRAGMA table_info(bom_lines)').all().map((c) => c.name),
+  );
+  if (!vpCols.has('master_id') || !bomCols.has('master_id')) return out;
+
+  // Confirmed maps only — same posture as the existing ingest's "no fuzz
+  // match" rule. Returns recipe_ingredient + vendor_ingredient for join-
+  // string coverage.
+  const confirmed = db.prepare(
+    `SELECT recipe_ingredient, vendor_ingredient
+       FROM ingredient_maps
+      WHERE location_id = ?
+        AND status = 'confirmed'
+        AND recipe_ingredient IS NOT NULL
+        AND recipe_ingredient != ''`,
+  ).all(locationId);
+
+  if (confirmed.length === 0) return out;
+
+  // Snapshot vendor_prices once so preferred_vendor can be derived from
+  // "first vendor observed" without a per-master subquery. Ordering by
+  // imported_at DESC + id DESC mirrors the costing benchmark's "latest
+  // vendor row per ingredient" semantics (costingBenchmarks.mjs).
+  const vpRows = db.prepare(
+    `SELECT ingredient, vendor
+       FROM vendor_prices
+      WHERE location_id = ?
+      ORDER BY imported_at DESC, id DESC`,
+  ).all(locationId);
+  const vendorByRaw = new Map();
+  const vendorByNorm = new Map();
+  for (const r of vpRows) {
+    const raw = r.ingredient ?? '';
+    if (raw && !vendorByRaw.has(raw) && r.vendor) vendorByRaw.set(raw, r.vendor);
+    const key = normalizeIngredientKey(raw);
+    if (key && !vendorByNorm.has(key) && r.vendor) vendorByNorm.set(key, r.vendor);
+  }
+
+  // Build (master_id → {canonical_name, preferred_vendor, join_strings})
+  // index. A single master can be reached through multiple map rows (a
+  // "ketchup" recipe ingredient with two vendor_ingredient aliases) —
+  // collapse them so the INSERT runs once per master.
+  const masterIndex = new Map();
+  for (const m of confirmed) {
+    const masterId = deriveMasterId(m.recipe_ingredient);
+    if (!masterId) continue;
+    let entry = masterIndex.get(masterId);
+    if (!entry) {
+      entry = {
+        canonical_name: m.recipe_ingredient,
+        preferred_vendor: null,
+        recipe_ingredients: new Set(),
+        vendor_ingredients: new Set(),
+      };
+      masterIndex.set(masterId, entry);
+    }
+    entry.recipe_ingredients.add(m.recipe_ingredient);
+    if (m.vendor_ingredient) entry.vendor_ingredients.add(m.vendor_ingredient);
+    // First vendor hit wins — vendorByRaw lookup against any of the join
+    // strings for this master. Normalized fallback mirrors T4 resolver.
+    if (entry.preferred_vendor == null) {
+      for (const s of [m.recipe_ingredient, m.vendor_ingredient]) {
+        if (!s) continue;
+        const v = vendorByRaw.get(s) ?? vendorByNorm.get(normalizeIngredientKey(s));
+        if (v) { entry.preferred_vendor = v; break; }
+      }
+    }
+  }
+
+  // UPSERT ingredient_masters rows. ON CONFLICT updates canonical_name /
+  // last_reviewed so a renamed confirmed mapping propagates without
+  // manual intervention. category is left alone — operator-curated.
+  // preferred_vendor is INTENTIONALLY omitted from the UPDATE clause:
+  // on first INSERT we seed it from the first-vendor-observed derivation
+  // (useful default), but once the row exists any operator override in
+  // ingredient_masters.preferred_vendor must persist across re-ingests.
+  // COALESCE(excluded.preferred_vendor, ...) would silently revert an
+  // operator-set 'shamrock' back to auto-derived 'sysco' as soon as the
+  // seed vendor changed.
+  const upsert = db.prepare(`
+    INSERT INTO ingredient_masters (master_id, canonical_name, category, preferred_vendor, last_reviewed)
+    VALUES (@master_id, @canonical_name, NULL, @preferred_vendor, datetime('now'))
+    ON CONFLICT(master_id) DO UPDATE SET
+      canonical_name   = excluded.canonical_name,
+      category         = COALESCE(excluded.category, ingredient_masters.category),
+      last_reviewed    = excluded.last_reviewed
+      -- preferred_vendor intentionally omitted: preserve operator curation.
+  `);
+
+  // Raw-string backfill. `master_id IS NULL` guard is critical: without
+  // it a second confirmed map that normalizes to a different slug but
+  // shares a vendor_ingredient raw string would silently overwrite the
+  // earlier master's claim, and re-running ingest would flap master_id
+  // back and forth between aliases on every run. First-write-wins
+  // matches the normalized sweep below, and makes result.changes == 0
+  // on idempotent re-runs.
+  const updateVp = db.prepare(`
+    UPDATE vendor_prices
+       SET master_id = @master_id
+     WHERE location_id = @location_id
+       AND master_id IS NULL
+       AND ingredient = @match
+  `);
+  const updateVpNorm = db.prepare(`
+    UPDATE vendor_prices
+       SET master_id = @master_id
+     WHERE location_id = @location_id
+       AND master_id IS NULL
+       AND ingredient IS NOT NULL
+       AND LOWER(TRIM(ingredient)) = @norm_match
+  `);
+  const updateBom = db.prepare(`
+    UPDATE bom_lines
+       SET master_id = @master_id
+     WHERE location_id = @location_id
+       AND master_id IS NULL
+       AND ingredient = @match
+  `);
+  const updateBomNorm = db.prepare(`
+    UPDATE bom_lines
+       SET master_id = @master_id
+     WHERE location_id = @location_id
+       AND master_id IS NULL
+       AND ingredient IS NOT NULL
+       AND LOWER(TRIM(ingredient)) = @norm_match
+  `);
+
+  db.transaction(() => {
+    for (const [masterId, entry] of masterIndex) {
+      // Deterministic canonical_name: Set iteration order is insertion
+      // order, which depends on the SQLite row order of confirmed maps
+      // (not guaranteed stable across reruns). Sort + take first so the
+      // displayed name is reproducible even when multiple case-variant
+      // recipe_ingredients collapse to one master ('Salt' + 'salt').
+      const canonical =
+        Array.from(entry.recipe_ingredients).sort()[0] ?? entry.canonical_name;
+
+      upsert.run({
+        master_id: masterId,
+        canonical_name: canonical,
+        preferred_vendor: entry.preferred_vendor,
+      });
+      out.masters++;
+
+      // Backfill vendor_prices.master_id. Raw-string joins first (exact
+      // match on recipe_ingredient or vendor_ingredient), then a
+      // normalized-key sweep for any rows that differ only in case /
+      // whitespace. Both passes are guarded by `master_id IS NULL` so
+      // the first master to claim a row keeps it — prevents two
+      // confirmed maps pointing at the same vendor_ingredient from
+      // clobbering each other's master_id on every ingest run.
+      for (const s of entry.recipe_ingredients) {
+        const r = updateVp.run({ master_id: masterId, location_id: locationId, match: s });
+        out.vp_backfilled += r.changes;
+      }
+      for (const s of entry.vendor_ingredients) {
+        const r = updateVp.run({ master_id: masterId, location_id: locationId, match: s });
+        out.vp_backfilled += r.changes;
+      }
+      // Normalized sweep: compare LOWER(TRIM(ingredient)) against the
+      // normalized join strings. normalizeIngredientKey strips punctuation
+      // entirely, which would over-match ("tomato paste" vs "tomato
+      // (paste)"), so the SQL comparison uses a lighter LOWER(TRIM) that
+      // catches case / whitespace drift without fuzz-matching — matches
+      // the "no auto fuzz" posture.
+      for (const s of [...entry.recipe_ingredients, ...entry.vendor_ingredients]) {
+        const norm = (s ?? '').toLowerCase().trim();
+        if (!norm) continue;
+        const rNorm = updateVpNorm.run({ master_id: masterId, location_id: locationId,
+                                         norm_match: norm });
+        out.vp_backfilled += rNorm.changes;
+      }
+
+      for (const s of entry.recipe_ingredients) {
+        const r = updateBom.run({ master_id: masterId, location_id: locationId, match: s });
+        out.bom_backfilled += r.changes;
+      }
+      for (const s of entry.recipe_ingredients) {
+        const norm = (s ?? '').toLowerCase().trim();
+        if (!norm) continue;
+        const rNorm = updateBomNorm.run({ master_id: masterId, location_id: locationId,
+                                          norm_match: norm });
+        out.bom_backfilled += rNorm.changes;
+      }
+    }
+  })();
+
   return out;
 }
 
