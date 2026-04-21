@@ -1,7 +1,7 @@
 [
   {
     "id": "grill_saute",
-    "name": "Grill / Sauté",
+    "name": "Grill / Saut\u00e9",
     "line": "hot",
     "color": "#ef4444",
     "line_check_key": "grille_saute"
@@ -32,7 +32,7 @@
     "name": "Expo",
     "line": "pass",
     "color": "#3b82f6",
-    "line_check_key": null
+    "line_check_key": "expo"
   },
   {
     "id": "runner",

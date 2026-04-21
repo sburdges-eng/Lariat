@@ -1,0 +1,207 @@
+[
+  {
+    "category": "Passed Apps",
+    "name": "Tex mex egg rolls",
+    "cost": 4.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Deviled Eggs",
+    "cost": 4.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Caprese Skewers",
+    "cost": 4.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Mac Balls",
+    "cost": 4.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Corn Dogs",
+    "cost": 4.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Pig Wings",
+    "cost": 4.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Gazpacho",
+    "cost": 5.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Chilled Corn Leek",
+    "cost": 5.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Braised Chicken Taco",
+    "cost": 6.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Pork Belly bao bun",
+    "cost": 6.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Carnitas taco",
+    "cost": 6.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Carnitas taco",
+    "cost": 6.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Nashville Slider",
+    "cost": 6.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Rope Burger slider",
+    "cost": 7.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Barbacoa Taco",
+    "cost": 7.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Battered Fish Taco",
+    "cost": 7.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Prime Rib Sliders",
+    "cost": 10.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Crab Cake Remoulade",
+    "cost": 12.0
+  },
+  {
+    "category": "Passed Apps",
+    "name": "Beef tenderloin crostini",
+    "cost": 11.0
+  },
+  {
+    "category": "Buffet",
+    "name": "Trio Dips",
+    "cost": 15.0
+  },
+  {
+    "category": "Buffet",
+    "name": "Baked Ziti",
+    "cost": 175.0
+  },
+  {
+    "category": "Buffet",
+    "name": "Cob Salad Buffet",
+    "cost": 150.0
+  },
+  {
+    "category": "Buffet",
+    "name": "Green Chile Mac Buffet",
+    "cost": 125.0
+  },
+  {
+    "category": "Buffet",
+    "name": "Carnitas Tacos Buffet",
+    "cost": 200.0
+  },
+  {
+    "category": "Buffet",
+    "name": "Battered Avocado Taco Buffet",
+    "cost": 200.0
+  },
+  {
+    "category": "Buffet",
+    "name": "Braised Chicken Taco Buffet",
+    "cost": 200.0
+  },
+  {
+    "category": "Buffet",
+    "name": "Barbacoa Taco Buffet",
+    "cost": 225.0
+  },
+  {
+    "category": "Buffet",
+    "name": "Fish Taco Buffet",
+    "cost": 225.0
+  },
+  {
+    "category": "Buffet",
+    "name": "Low Country Boil",
+    "cost": 20.0
+  },
+  {
+    "category": "Boards",
+    "name": "French Artisanal Board",
+    "cost": 200.0
+  },
+  {
+    "category": "Boards",
+    "name": "Italian Artisanal Board",
+    "cost": 200.0
+  },
+  {
+    "category": "Boards",
+    "name": "Spanish Artisanal Board",
+    "cost": 200.0
+  },
+  {
+    "category": "Desserts",
+    "name": "Churros",
+    "cost": 4.0
+  },
+  {
+    "category": "Desserts",
+    "name": "Cupcakes",
+    "cost": 5.0
+  },
+  {
+    "category": "Desserts",
+    "name": "Chocolate Cake",
+    "cost": 7.0
+  },
+  {
+    "category": "Desserts",
+    "name": "Banana Cream Pudding",
+    "cost": 5.0
+  },
+  {
+    "category": "Desserts",
+    "name": "Tiramisu",
+    "cost": 7.0
+  },
+  {
+    "category": "Dinners",
+    "name": "Roast Chicken Dinner",
+    "cost": 70.0
+  },
+  {
+    "category": "Dinners",
+    "name": "Mexican Dinner",
+    "cost": 70.0
+  },
+  {
+    "category": "Dinners",
+    "name": "Italian Dinner",
+    "cost": 70.0
+  },
+  {
+    "category": "Dinners",
+    "name": "Prime Rib Dinner",
+    "cost": 85.0
+  }
+]
