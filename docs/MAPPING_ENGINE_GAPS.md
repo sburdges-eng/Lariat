@@ -243,18 +243,37 @@ well as a backfilled snapshot on `vendor_prices`.
   `reconciled_unit_price=$18.29/lb` for pork chop (matches the invoice's
   stamped unit price exactly) and `$5.70/lb` for chicken breast.
 
-**Known limitations / follow-ups:**
-- No Shamrock entries in `data/seeds/vendor_pack_weights.csv` yet — the
-  seed CSV came from the Sysco product catalog filter. Shamrock
-  catch-weight catalog rows need to be measured in-house or pulled
-  from Shamrock's catalog before Shamrock reconciliation fires on
-  anything. Until then, the enrichment correctly stores
-  `actual_received_lb` but leaves `reconciled_unit_price` NULL (the
-  "no catalog" bucket).
-- Sysco catch-weight data lives in `vendor_summary.json`, not a SQLite
-  table. The T5b.3 backfill only reads `shamrock_invoices`. Adding a
-  `sysco_invoices` table (or lifting the cache into SQLite) is the
-  natural next step to round out vendor_prices backfill for Sysco too.
+**T5b follow-ups landed (PR #5):**
+- [x] **Shamrock catch-weight catalog seed.** Extracted 11 catch-weight
+  SKUs from archived Shamrock .xls invoices (BEEF CHEEK, TROUT, HAM,
+  TURKEY WHL / TOM, CHICKEN BRST CUTLET, COTIJA rndm / qtrd, CHICKEN
+  WOG HALAL / FRYER, PORK BUTT BI). Pack notation (e.g. `3/10/LBAV`)
+  gave the nominal catalog weight. Lives in
+  `data/seeds/vendor_pack_weights_shamrock.csv`; ingested via
+  `npm run seed:catch_weights:shamrock` (fanout from `seed:all`). The
+  ingest script accepts `--vendor` + `--csv` flags so the same
+  `ingest_catch_weights.py` handles any vendor — no code change needed
+  to add more vendors later.
+- [x] **sysco_invoices SQLite table + dual-write.** New
+  `sysco_invoices` table owned by `scripts/ingest_sysco_invoice_pdfs.py`
+  (same pattern as `shamrock_invoices`). The Sysco ingest now dual-
+  writes each line item: existing `vendor_summary.json` cache path is
+  preserved for existing consumers, AND per-item rows land in
+  `sysco_invoices` with `actual_received_lb` + `reconciled_unit_price`
+  populated from the T/WT= extraction. Rerun is idempotent (DELETE +
+  REINSERT per `invoice_no`; other invoices untouched).
+- [x] **backfillCatchWeightsIntoVendorPrices generalized.** Now scans
+  BOTH `shamrock_invoices` and `sysco_invoices` in a single pass,
+  returning `{updated, by_vendor: {shamrock, sysco}}`. Missing tables
+  skip gracefully. The Sysco side now lights up once per-invoice
+  reconciliation has any catalog matches in `vendor_catch_weights`.
+
+**Tests added:** 3 JS tests for multi-vendor backfill (sysco alone,
+both vendors, missing table is no-op); 6 Python tests for
+`persist_sysco_items_to_sqlite` (fresh DB / missing path no-op / SUPC
+picked from last peeled SKU / idempotent rerun / other invoices
+untouched / NULL catch-weight persists). Plus regression: all 9
+catch-weight-backfill tests still green.
 
 ---
 

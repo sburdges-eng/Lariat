@@ -648,68 +648,81 @@ export function runCostingPostPass(db, locationId = 'default') {
 
 /**
  * T5b.3 — join the most recent per-(vendor, sku) invoice catch-weight
- * reconciliation into vendor_prices. Writes both actual_received_lb and
- * reconciled_unit_price on matching vendor_prices rows; leaves unchanged
- * rows that have no invoice match. Runs in a single transaction.
+ * reconciliation into vendor_prices. Scans both shamrock_invoices and
+ * sysco_invoices; writes actual_received_lb + reconciled_unit_price on
+ * matching vendor_prices rows. Leaves unchanged rows that have no invoice
+ * match. Runs in a single transaction per vendor.
  *
- * Only Shamrock is wired for now because its invoice history lives in
- * the shamrock_invoices table. Sysco invoices live in vendor_summary.json
- * (file-cached); a future follow-up can import that into a sibling table
- * and extend this function to scan both sources.
+ * Each source table either exists (written by its respective invoice
+ * ingest) or is absent on fresh DBs — missing tables are silently skipped,
+ * so callers can run the backfill on any DB state. vendor_prices.{
+ * actual_received_lb, reconciled_unit_price} require the T5a migration;
+ * if either column is absent, the whole backfill is a no-op.
  *
  * @param {import('better-sqlite3').Database} db
  * @param {string} [locationId='default']
- * @returns {{updated: number}}
+ * @returns {{updated: number, by_vendor: Record<string, number>}}
  */
 export function backfillCatchWeightsIntoVendorPrices(db, locationId = 'default') {
-  const out = { updated: 0 };
-  // Guard: shamrock_invoices may be absent on fresh DBs where the ingest
-  // hasn't run yet. vendor_prices.actual_received_lb / reconciled_unit_price
-  // likewise require the T5a migration. Either missing → skip cleanly.
+  const out = { updated: 0, by_vendor: {} };
   const tables = new Set(
     db.prepare("SELECT name FROM sqlite_master WHERE type='table'")
       .all()
       .map((r) => r.name),
   );
-  if (!tables.has('shamrock_invoices') || !tables.has('vendor_prices')) return out;
+  if (!tables.has('vendor_prices')) return out;
   const vpCols = new Set(
     db.prepare('PRAGMA table_info(vendor_prices)').all().map((c) => c.name),
   );
   if (!vpCols.has('actual_received_lb') || !vpCols.has('reconciled_unit_price')) return out;
 
-  // Latest catch-weight row per SKU, preferring rows with non-NULL
-  // reconciled_unit_price so the dashboard surfaces actual drift first.
-  const latest = db.prepare(`
-    SELECT sku, actual_received_lb, reconciled_unit_price
-      FROM shamrock_invoices
-     WHERE location_id = ?
-       AND actual_received_lb IS NOT NULL
-       AND sku IS NOT NULL AND sku != ''
-     GROUP BY sku
-     HAVING delivery_date = MAX(delivery_date)
-  `).all(locationId);
-
-  if (latest.length === 0) return out;
+  const sources = [
+    { vendor: 'shamrock', table: 'shamrock_invoices' },
+    { vendor: 'sysco',    table: 'sysco_invoices'    },
+  ];
 
   const upd = db.prepare(`
     UPDATE vendor_prices
        SET actual_received_lb = @actual_received_lb,
            reconciled_unit_price = @reconciled_unit_price
-     WHERE vendor = 'shamrock'
+     WHERE vendor = @vendor
        AND sku = @sku
        AND location_id = @location_id
   `);
-  db.transaction(() => {
-    for (const row of latest) {
-      const r = upd.run({
-        sku: row.sku,
-        actual_received_lb: row.actual_received_lb,
-        reconciled_unit_price: row.reconciled_unit_price ?? null,
-        location_id: locationId,
-      });
-      out.updated += r.changes;
-    }
-  })();
+
+  for (const { vendor, table } of sources) {
+    if (!tables.has(table)) continue;
+    // Latest catch-weight row per SKU. GROUP BY sku + HAVING MAX(delivery_date)
+    // picks the most recent delivered pack for each SKU; SQLite lets aggregates
+    // flow into the projected columns via bare-column selection from the
+    // matching row.
+    const latest = db.prepare(`
+      SELECT sku, actual_received_lb, reconciled_unit_price
+        FROM ${table}
+       WHERE location_id = ?
+         AND actual_received_lb IS NOT NULL
+         AND sku IS NOT NULL AND sku != ''
+       GROUP BY sku
+       HAVING delivery_date = MAX(delivery_date)
+    `).all(locationId);
+    if (latest.length === 0) { out.by_vendor[vendor] = 0; continue; }
+
+    let vendorUpdated = 0;
+    db.transaction(() => {
+      for (const row of latest) {
+        const r = upd.run({
+          vendor,
+          sku: row.sku,
+          actual_received_lb: row.actual_received_lb,
+          reconciled_unit_price: row.reconciled_unit_price ?? null,
+          location_id: locationId,
+        });
+        vendorUpdated += r.changes;
+      }
+    })();
+    out.by_vendor[vendor] = vendorUpdated;
+    out.updated += vendorUpdated;
+  }
   return out;
 }
 
