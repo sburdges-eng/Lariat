@@ -1,0 +1,1427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1280, initial-scale=1" />
+<title>THE LARIAT — Cockpit v2 · Design Concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ------------------------------------------------------------------ *
+   * THE LARIAT — Cockpit v2
+   * A kitchen-line navigation system. No purple gradients, no glass,
+   * no magic sparkles. Warm paper, ember, and brass.
+   * ------------------------------------------------------------------ */
+
+  :root{
+    --bone:        #f3ece0;
+    --paper:       #ece2cf;
+    --paper-2:     #e3d8c1;
+    --ink:         #1d1a15;
+    --ink-2:       #2b2723;
+    --char:        #3a3530;
+    --muted:       #7b7268;
+    --hair:        #c9bda5;
+    --ember:       #c85a2a;   /* primary accent — burnt orange */
+    --ember-deep:  #9a3f1a;
+    --brass:       #b8892f;   /* signed off */
+    --sage:        #5d7a66;   /* in progress / ok */
+    --rust:        #8b2e1f;   /* flagged / alert */
+    --cream:       #f8f3e7;
+
+    --radius:      4px;       /* everything is near-square, bookbinder-clean */
+    --easing:      cubic-bezier(.2,.7,.2,1);
+    --easing-snap: cubic-bezier(.34,1.56,.64,1);
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bone);color:var(--ink);height:100%}
+  body{
+    font-family:'Inter Tight','Helvetica Neue',system-ui,sans-serif;
+    font-size:14px;
+    line-height:1.4;
+    font-feature-settings:"ss01","cv11","tnum";
+    overflow:hidden;
+    /* subtle paper grain — not neon glow */
+    background:
+      radial-gradient(circle at 20% 10%, rgba(200,90,42,.04), transparent 45%),
+      radial-gradient(circle at 80% 85%, rgba(90,70,40,.05), transparent 50%),
+      repeating-linear-gradient(0deg, rgba(29,26,21,.012) 0 1px, transparent 1px 3px),
+      var(--bone);
+  }
+  .serif{font-family:'Instrument Serif',serif;font-weight:400;letter-spacing:-.01em}
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace;letter-spacing:-.01em}
+
+  /* ------------------- Shell grid: the cockpit ------------------- */
+  .app{
+    display:grid;
+    grid-template-columns: 260px 1fr 340px;
+    grid-template-rows: 64px 1fr 52px;
+    grid-template-areas:
+      "strip strip strip"
+      "line  canvas context"
+      "line  command command";
+    height:100vh;
+    gap:0;
+  }
+
+  /* ------------------- Service Strip (top) ------------------- */
+  .strip{
+    grid-area:strip;
+    border-bottom:1px solid var(--hair);
+    display:grid;
+    grid-template-columns:260px 1fr 340px;
+    align-items:stretch;
+    background:var(--cream);
+    position:relative;
+  }
+  .strip::after{
+    content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;
+    background:linear-gradient(90deg, transparent, var(--hair) 15%, var(--hair) 85%, transparent);
+  }
+  .mark{
+    display:flex;align-items:center;gap:10px;
+    padding:0 20px;border-right:1px solid var(--hair);
+    user-select:none;
+  }
+  .mark .logo{width:28px;height:28px;flex-shrink:0}
+  .mark .word{line-height:1}
+  .mark .word b{
+    font-family:'Instrument Serif',serif;
+    font-weight:400;
+    font-size:22px;letter-spacing:.01em;
+    display:block;color:var(--ink);
+  }
+  .mark .word i{
+    font-style:normal;display:block;font-size:9.5px;
+    letter-spacing:.28em;color:var(--muted);text-transform:uppercase;
+    margin-top:2px;
+  }
+
+  .phases{
+    display:flex;align-items:center;padding:0 24px;gap:0;
+    position:relative;
+  }
+  .phases-track{
+    flex:1;display:grid;grid-template-columns:repeat(4,1fr);
+    position:relative;height:100%;align-items:center;
+  }
+  .phase{
+    display:flex;align-items:center;gap:10px;
+    border-left:1px solid var(--hair);
+    padding:0 16px;height:100%;
+    cursor:pointer;position:relative;
+    transition: background .2s var(--easing), color .2s var(--easing);
+  }
+  .phase:first-child{border-left:0}
+  .phase .dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--hair);flex-shrink:0;
+    transition: background .2s var(--easing), transform .3s var(--easing-snap);
+  }
+  .phase .lbl{
+    font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--muted);font-weight:600;
+  }
+  .phase .time{
+    font-size:10.5px;color:var(--muted);margin-left:auto;
+    font-family:'JetBrains Mono',monospace;
+  }
+  .phase.past .dot{background:var(--char)}
+  .phase.past .lbl{color:var(--char)}
+  .phase.now{background:linear-gradient(180deg, rgba(200,90,42,.08), transparent)}
+  .phase.now .dot{background:var(--ember);transform:scale(1.6);box-shadow:0 0 0 4px rgba(200,90,42,.18)}
+  .phase.now .lbl{color:var(--ember-deep)}
+  .phase.now .time{color:var(--ember-deep);font-weight:700}
+  .phase:hover{background:rgba(29,26,21,.04)}
+
+  /* live time marker overlay */
+  .now-marker{
+    position:absolute;top:0;bottom:0;width:1px;background:var(--ember);
+    pointer-events:none;
+    transition: left .8s var(--easing);
+  }
+  .now-marker::before{
+    content:"";position:absolute;top:-1px;left:-5px;width:11px;height:11px;
+    background:var(--ember);transform:rotate(45deg);
+    box-shadow: 0 1px 0 rgba(29,26,21,.12);
+  }
+
+  .status-chip{
+    display:flex;align-items:center;justify-content:center;gap:14px;
+    padding:0 20px;border-left:1px solid var(--hair);
+    font-size:11px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;
+  }
+  .status-chip .clock{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;color:var(--ink);letter-spacing:0;font-weight:500;
+  }
+  .heat{display:inline-flex;align-items:center;gap:6px;color:var(--ember-deep);font-weight:700}
+  .heat::before{
+    content:"";width:6px;height:6px;border-radius:50%;background:var(--ember);
+    animation:pulse 1.8s var(--easing) infinite;
+  }
+  @keyframes pulse{
+    0%,100%{opacity:1;transform:scale(1)}
+    50%    {opacity:.35;transform:scale(1.45)}
+  }
+
+  /* ------------------- The Line (left rail) ------------------- */
+  .line{
+    grid-area:line;
+    border-right:1px solid var(--hair);
+    background:linear-gradient(180deg, var(--cream) 0%, var(--paper) 100%);
+    padding:18px 14px 14px;
+    display:flex;flex-direction:column;gap:4px;
+    overflow:hidden;
+    position:relative;
+  }
+  .line-head{
+    padding:2px 10px 14px;display:flex;align-items:baseline;justify-content:space-between;
+    border-bottom:1px dashed var(--hair);margin-bottom:10px;
+  }
+  .line-head h3{
+    font-family:'Instrument Serif',serif;font-size:22px;font-weight:400;
+    letter-spacing:-.01em;color:var(--ink);
+  }
+  .line-head span{
+    font-size:9.5px;letter-spacing:.24em;color:var(--muted);text-transform:uppercase;
+  }
+
+  /* Station cell — kitchen topology */
+  .station{
+    display:grid;grid-template-columns: 28px 1fr auto;
+    align-items:center;gap:10px;
+    padding:11px 12px;
+    border-radius:var(--radius);
+    cursor:pointer;user-select:none;position:relative;
+    border:1px solid transparent;
+    transition: background .18s var(--easing), border-color .18s var(--easing), transform .08s var(--easing);
+  }
+  .station:hover{background:rgba(29,26,21,.04)}
+  .station:active{transform:translateY(1px)}
+  .station.active{
+    background:var(--ink);color:var(--cream);
+    border-color:var(--ink);
+  }
+  .station.active .s-key{background:var(--ember);color:var(--cream);border-color:var(--ember)}
+  .station.active .s-name{color:var(--cream)}
+  .station.active .s-meta{color:rgba(248,243,231,.6)}
+
+  .s-key{
+    width:24px;height:24px;border-radius:var(--radius);
+    border:1px solid var(--hair);background:var(--cream);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;
+    color:var(--char);
+  }
+  .s-name{
+    font-weight:600;font-size:14px;letter-spacing:-.005em;
+    line-height:1.1;color:var(--ink);
+  }
+  .s-meta{
+    font-size:10.5px;color:var(--muted);margin-top:2px;
+    font-family:'JetBrains Mono',monospace;
+  }
+
+  /* status ring — the heart of "at a glance" */
+  .ring{
+    width:26px;height:26px;position:relative;flex-shrink:0;
+  }
+  .ring svg{transform:rotate(-90deg);display:block}
+  .ring .track{stroke:var(--hair);fill:none;stroke-width:3}
+  .ring .fill {fill:none;stroke-width:3;stroke-linecap:round;
+               transition: stroke-dashoffset .6s var(--easing), stroke .3s var(--easing);}
+  .ring.ok .fill   {stroke:var(--sage)}
+  .ring.go .fill   {stroke:var(--brass)}
+  .ring.hot .fill  {stroke:var(--ember)}
+  .ring.flag .fill {stroke:var(--rust)}
+  .ring .tick{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;color:var(--char);
+  }
+  .station.active .ring .tick{color:var(--cream)}
+  .station.active .ring .track{stroke:rgba(248,243,231,.2)}
+
+  .ring.flag::after{
+    content:"";position:absolute;top:-1px;right:-1px;width:7px;height:7px;
+    border-radius:50%;background:var(--rust);
+    box-shadow:0 0 0 2px var(--cream);
+    animation:pulse 1.4s infinite;
+  }
+  .station.active .ring.flag::after{box-shadow:0 0 0 2px var(--ink)}
+
+  /* Shelf: manager / data views — compact */
+  .shelf{
+    margin-top:auto;padding-top:12px;border-top:1px dashed var(--hair);
+  }
+  .shelf .label{
+    font-size:9.5px;letter-spacing:.24em;color:var(--muted);text-transform:uppercase;
+    padding:0 12px 8px;
+  }
+  .shelf-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:0 4px;
+  }
+  .tile{
+    display:flex;flex-direction:column;justify-content:space-between;
+    padding:8px 10px;height:54px;
+    border:1px solid var(--hair);border-radius:var(--radius);
+    font-size:11px;cursor:pointer;background:var(--cream);
+    transition: transform .14s var(--easing), border-color .14s var(--easing), background .14s;
+  }
+  .tile:hover{border-color:var(--ink);transform:translateY(-1px)}
+  .tile b{font-weight:700;color:var(--ink);font-size:12px;letter-spacing:-.005em}
+  .tile span{color:var(--muted);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+
+  /* Who's on */
+  .crew{
+    margin-top:10px;padding:10px 12px;
+    background:var(--ink);color:var(--cream);
+    border-radius:var(--radius);
+  }
+  .crew .label{color:var(--paper-2);font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;margin-bottom:6px}
+  .crew .name{font-family:'Instrument Serif',serif;font-size:18px;line-height:1}
+  .crew .pin{font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(248,243,231,.55);margin-top:4px}
+
+  /* ------------------- Canvas (center) ------------------- */
+  .canvas{
+    grid-area:canvas;
+    overflow:auto;
+    padding:28px 36px 40px;
+    position:relative;
+  }
+  .canvas::-webkit-scrollbar{width:10px}
+  .canvas::-webkit-scrollbar-thumb{background:var(--hair);border-radius:10px}
+
+  .crumbs{
+    display:flex;align-items:center;gap:10px;
+    font-size:10.5px;letter-spacing:.22em;color:var(--muted);text-transform:uppercase;
+    margin-bottom:18px;
+  }
+  .crumbs .sep{opacity:.5}
+  .crumbs b{color:var(--ink);font-weight:700}
+
+  h1.title{
+    font-family:'Instrument Serif',serif;font-weight:400;font-size:72px;line-height:.95;
+    letter-spacing:-.02em;color:var(--ink);
+  }
+  h1.title em{color:var(--ember);font-style:italic}
+  .title-row{
+    display:flex;align-items:flex-end;justify-content:space-between;gap:30px;
+    margin-bottom:28px;padding-bottom:22px;border-bottom:1px solid var(--hair);
+  }
+  .title-meta{
+    text-align:right;font-size:11px;color:var(--muted);
+    letter-spacing:.16em;text-transform:uppercase;line-height:1.8;
+  }
+  .title-meta b{color:var(--ink);font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:0}
+
+  /* View switcher — asymmetric, editorial */
+  .view{display:none;animation:slideUp .45s var(--easing) both}
+  .view.active{display:block}
+  @keyframes slideUp{
+    from{opacity:0;transform:translateY(12px)}
+    to  {opacity:1;transform:translateY(0)}
+  }
+
+  /* Today deck */
+  .deck{
+    display:grid;grid-template-columns: 1.6fr 1fr;gap:28px;margin-bottom:28px;
+  }
+  .hero{
+    padding:22px 24px;background:var(--ink);color:var(--cream);
+    border-radius:var(--radius);position:relative;overflow:hidden;
+    min-height:180px;display:flex;flex-direction:column;justify-content:space-between;
+  }
+  .hero::before{
+    content:"";position:absolute;right:-40px;top:-30px;width:240px;height:240px;
+    background:
+      radial-gradient(circle, rgba(200,90,42,.18), transparent 60%);
+    pointer-events:none;
+  }
+  .hero .k{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--paper-2);opacity:.7}
+  .hero .v{
+    font-family:'Instrument Serif',serif;font-size:60px;line-height:1;margin-top:6px;
+  }
+  .hero .v em{color:var(--ember);font-style:italic}
+  .hero .sub{font-size:12px;color:var(--paper-2);opacity:.8;margin-top:8px;max-width:360px;line-height:1.5}
+  .hero-foot{display:flex;gap:18px;align-items:center;margin-top:18px}
+  .hero-foot .stat{display:flex;flex-direction:column;gap:2px}
+  .hero-foot .stat b{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:500;color:var(--cream)}
+  .hero-foot .stat span{font-size:9.5px;letter-spacing:.22em;color:var(--paper-2);text-transform:uppercase;opacity:.7}
+
+  .aside{
+    padding:20px 22px;border:1px solid var(--hair);background:var(--cream);
+    border-radius:var(--radius);display:flex;flex-direction:column;gap:14px;
+  }
+  .aside h4{
+    font-size:10.5px;letter-spacing:.24em;color:var(--muted);
+    text-transform:uppercase;font-weight:700;
+  }
+  .eighty-six-list{display:flex;flex-direction:column;gap:8px}
+  .eighty-six-row{
+    display:grid;grid-template-columns: 1fr auto;gap:10px;
+    align-items:center;padding:10px 0;border-top:1px solid var(--hair);
+  }
+  .eighty-six-row:first-child{border-top:0;padding-top:4px}
+  .eighty-six-row b{font-weight:600;color:var(--ink)}
+  .eighty-six-row .how{font-size:11px;color:var(--muted);margin-top:2px;font-family:'JetBrains Mono',monospace}
+  .eighty-six-row .stamp{
+    font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--rust);
+    background:rgba(139,46,31,.08);padding:4px 8px;border-radius:3px;
+    letter-spacing:.05em;
+  }
+
+  /* Station grid: the kitchen topology */
+  .kitchen{
+    display:grid;grid-template-columns:repeat(6, 1fr);gap:14px;margin-bottom:28px;
+    position:relative;
+  }
+  .kitchen::before{
+    content:"THE LINE — right to left, grill-forward";
+    position:absolute;top:-20px;left:0;
+    font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);
+  }
+  .k-cell{
+    aspect-ratio:1/1.1;
+    background:var(--cream);border:1px solid var(--hair);
+    border-radius:var(--radius);
+    padding:14px 14px 12px;
+    display:flex;flex-direction:column;justify-content:space-between;
+    cursor:pointer;position:relative;overflow:hidden;
+    transition:all .24s var(--easing);
+  }
+  .k-cell:hover{border-color:var(--ink);transform:translateY(-2px)}
+  .k-cell .k-top{display:flex;justify-content:space-between;align-items:flex-start}
+  .k-cell .k-id{
+    font-family:'JetBrains Mono',monospace;font-size:10.5px;
+    color:var(--muted);letter-spacing:.1em;
+  }
+  .k-cell .k-status{
+    width:10px;height:10px;border-radius:50%;
+  }
+  .k-cell .k-name{
+    font-family:'Instrument Serif',serif;font-size:22px;line-height:1;
+    margin:auto 0 6px;
+  }
+  .k-cell .k-prog{
+    font-size:10.5px;color:var(--muted);
+    letter-spacing:.08em;text-transform:uppercase;
+  }
+  .k-cell .k-prog b{font-family:'JetBrains Mono',monospace;color:var(--ink);font-weight:700;letter-spacing:0}
+
+  .k-cell.ok  {border-color:rgba(93,122,102,.45);background:linear-gradient(180deg,rgba(93,122,102,.06),var(--cream))}
+  .k-cell.ok  .k-status{background:var(--sage)}
+  .k-cell.go  .k-status{background:var(--brass)}
+  .k-cell.hot {border-color:rgba(200,90,42,.35)}
+  .k-cell.hot .k-status{background:var(--ember);box-shadow:0 0 0 3px rgba(200,90,42,.18)}
+  .k-cell.flag{border-color:rgba(139,46,31,.45);background:linear-gradient(180deg,rgba(139,46,31,.04),var(--cream))}
+  .k-cell.flag .k-status{background:var(--rust);box-shadow:0 0 0 3px rgba(139,46,31,.18)}
+  .k-cell.flag::after{
+    content:"⚑";position:absolute;font-size:14px;color:var(--rust);
+    top:10px;right:10px;
+  }
+
+  /* ---- Station detail view ---- */
+  .checklist{
+    display:grid;grid-template-columns: 1fr 320px;gap:28px;
+  }
+  .check-card{
+    background:var(--cream);border:1px solid var(--hair);border-radius:var(--radius);
+    padding:24px 28px;
+  }
+  .check-head{
+    display:flex;justify-content:space-between;align-items:center;
+    padding-bottom:16px;border-bottom:1px solid var(--hair);margin-bottom:8px;
+  }
+  .check-head h3{font-family:'Instrument Serif',serif;font-size:28px;font-weight:400}
+  .check-head .pct{
+    font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:500;color:var(--ember)
+  }
+  .check-row{
+    display:grid;grid-template-columns: 32px 1fr auto auto;gap:14px;align-items:center;
+    padding:14px 0;border-bottom:1px solid var(--hair);
+  }
+  .check-row:last-child{border-bottom:0}
+  .check-box{
+    width:22px;height:22px;border:1.5px solid var(--char);border-radius:3px;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+    transition:all .16s var(--easing-snap);background:var(--cream);
+  }
+  .check-box:hover{border-color:var(--ember)}
+  .check-box.done{background:var(--ink);border-color:var(--ink)}
+  .check-box.done::after{
+    content:"";width:10px;height:5px;border-left:2px solid var(--ember);
+    border-bottom:2px solid var(--ember);transform:rotate(-45deg) translate(1px,-2px);
+  }
+  .check-box.fail{background:var(--rust);border-color:var(--rust)}
+  .check-box.fail::after{content:"!";color:var(--cream);font-weight:800;font-size:14px}
+  .check-row .item{font-weight:500;font-size:15px;color:var(--ink)}
+  .check-row .spec{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+  .check-row .who {font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+
+  .signoff{
+    margin-top:20px;padding:18px 24px;
+    background:var(--ink);color:var(--cream);border-radius:var(--radius);
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .signoff .msg{font-family:'Instrument Serif',serif;font-size:22px}
+  .signoff .btn{
+    padding:12px 22px;background:var(--ember);color:var(--cream);
+    border:0;border-radius:var(--radius);font-family:'Inter Tight',sans-serif;
+    font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;
+    transition:transform .1s var(--easing-snap), background .16s;
+  }
+  .signoff .btn:hover{background:var(--ember-deep)}
+  .signoff .btn:active{transform:scale(.96)}
+
+  .sidekick{display:flex;flex-direction:column;gap:14px}
+  .sk-card{
+    background:var(--paper);border-radius:var(--radius);padding:18px 20px;
+    border:1px solid var(--hair);
+  }
+  .sk-card h5{
+    font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
+    font-weight:700;margin-bottom:10px;
+  }
+  .sk-card .prep{
+    font-family:'Instrument Serif',serif;font-size:18px;line-height:1.2;margin-bottom:6px;
+  }
+  .sk-card .time{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--char)}
+
+  .temp-strip{display:flex;gap:6px;margin-top:10px}
+  .temp-strip .bar{
+    height:46px;flex:1;border-radius:2px;position:relative;
+    background:linear-gradient(180deg,var(--sage) 0%, var(--sage) 70%, var(--ember) 100%);
+    opacity:.9;
+  }
+  .temp-strip .bar span{
+    position:absolute;bottom:-14px;left:0;right:0;text-align:center;
+    font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);
+  }
+
+  /* ---- 86 board view ---- */
+  .board{
+    padding:28px;background:var(--ink);color:var(--cream);border-radius:var(--radius);
+    position:relative;overflow:hidden;
+  }
+  .board h3{
+    font-family:'Instrument Serif',serif;font-size:56px;font-weight:400;line-height:1;
+    color:var(--ember);
+  }
+  .board .board-sub{color:var(--paper-2);font-size:11px;letter-spacing:.22em;text-transform:uppercase;margin-top:8px}
+  .board-items{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:26px;
+  }
+  .board-item{
+    padding:18px 20px;border:1px dashed rgba(243,236,224,.22);border-radius:var(--radius);
+    background:rgba(243,236,224,.03);
+  }
+  .board-item .t{font-family:'Instrument Serif',serif;font-size:22px;line-height:1.1}
+  .board-item .r{font-size:11px;color:var(--paper-2);opacity:.8;margin-top:6px;font-family:'JetBrains Mono',monospace}
+  .board-item .chip{
+    display:inline-block;margin-top:14px;padding:4px 10px;border-radius:2px;
+    font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;
+  }
+  .board-item .chip.out{background:var(--rust);color:var(--cream)}
+  .board-item .chip.low{background:var(--brass);color:var(--ink)}
+  .board-item .chip.sub{background:var(--paper);color:var(--ink)}
+
+  /* Cascading sub-recipes */
+  .cascade{
+    margin-top:26px;padding:18px 0 0;border-top:1px dashed rgba(243,236,224,.2);
+    display:grid;grid-template-columns: 220px 1fr;gap:24px;
+  }
+  .cascade h4{font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--paper-2);opacity:.7;font-weight:700;margin-bottom:4px}
+  .cascade p{font-size:12px;color:var(--paper-2);opacity:.7;line-height:1.5}
+  .cascade-tree{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--paper-2);line-height:1.9}
+  .cascade-tree .branch{color:var(--ember)}
+
+  /* ------------------- Context Pane (right) ------------------- */
+  .context{
+    grid-area:context;
+    border-left:1px solid var(--hair);
+    background:var(--paper);
+    padding:18px 16px;
+    display:flex;flex-direction:column;gap:14px;
+    overflow:auto;
+  }
+  .context::-webkit-scrollbar{width:6px}
+  .context::-webkit-scrollbar-thumb{background:var(--hair)}
+
+  .ctx-head{
+    display:flex;align-items:baseline;justify-content:space-between;padding:0 6px;
+  }
+  .ctx-head h4{
+    font-family:'Instrument Serif',serif;font-size:22px;font-weight:400;color:var(--ink);
+  }
+  .ctx-head span{font-size:9.5px;letter-spacing:.22em;color:var(--muted);text-transform:uppercase}
+
+  .feed{display:flex;flex-direction:column;gap:0}
+  .feed-item{
+    padding:14px 14px;border-top:1px solid var(--hair);
+    font-size:12.5px;line-height:1.45;color:var(--char);
+    display:grid;grid-template-columns: 14px 1fr;gap:10px;align-items:start;
+    position:relative;
+  }
+  .feed-item:first-child{border-top:0}
+  .feed-item .tag{
+    width:8px;height:8px;border-radius:50%;margin-top:6px;
+  }
+  .tag.green {background:var(--sage)}
+  .tag.amber {background:var(--ember)}
+  .tag.brass {background:var(--brass)}
+  .tag.red   {background:var(--rust)}
+  .feed-item .when{
+    font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);
+    display:block;margin-top:4px;letter-spacing:.04em;
+  }
+  .feed-item b{font-weight:700;color:var(--ink)}
+
+  /* Metrics lozenges */
+  .metrics{
+    display:grid;grid-template-columns:1fr 1fr;gap:6px;
+  }
+  .metric{
+    background:var(--cream);border:1px solid var(--hair);border-radius:var(--radius);
+    padding:12px 14px;display:flex;flex-direction:column;gap:2px;
+  }
+  .metric .n{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:500;color:var(--ink)}
+  .metric .k{font-size:9.5px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase;margin-top:2px}
+  .metric .d{font-size:10.5px;color:var(--sage);font-weight:600}
+  .metric .d.down{color:var(--rust)}
+
+  /* ------------------- Command Bar (bottom) ------------------- */
+  .command{
+    grid-area:command;
+    background:var(--ink);color:var(--paper-2);
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 20px 0 24px;font-size:11.5px;letter-spacing:.04em;
+    border-top:1px solid var(--char);
+  }
+  .kcombo{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:3px 8px;background:rgba(243,236,224,.08);border-radius:3px;
+    font-family:'JetBrains Mono',monospace;font-size:10.5px;
+    border:1px solid rgba(243,236,224,.15);
+    color:var(--cream);
+  }
+  .cmd-left{display:flex;align-items:center;gap:22px}
+  .cmd-left b{color:var(--cream);font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:10.5px}
+  .cmd-left .hint{color:var(--muted)}
+  .cmd-right{display:flex;align-items:center;gap:14px;color:var(--muted)}
+  .cmd-right .pill{
+    padding:5px 11px;border:1px solid rgba(243,236,224,.18);border-radius:99px;
+    font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;
+    color:var(--cream);cursor:pointer;
+    transition:background .16s;
+  }
+  .cmd-right .pill:hover{background:rgba(243,236,224,.08)}
+  .cmd-right .pill.on{background:var(--ember);border-color:var(--ember);color:var(--cream)}
+
+  /* ------------------- Command Palette (⌘K) ------------------- */
+  .cmdk-scrim{
+    position:fixed;inset:0;background:rgba(29,26,21,.52);
+    display:none;align-items:flex-start;justify-content:center;
+    padding-top:12vh;z-index:20;backdrop-filter:blur(2px);
+  }
+  .cmdk-scrim.open{display:flex}
+  .cmdk{
+    width:min(640px,90vw);background:var(--cream);border:1px solid var(--char);
+    border-radius:var(--radius);box-shadow:0 24px 60px rgba(29,26,21,.35), 0 2px 0 rgba(29,26,21,.08);
+    overflow:hidden;transform:translateY(-10px);opacity:0;
+    transition:opacity .2s var(--easing), transform .24s var(--easing-snap);
+  }
+  .cmdk-scrim.open .cmdk{opacity:1;transform:translateY(0)}
+  .cmdk input{
+    width:100%;border:0;padding:18px 22px;font-size:16px;outline:0;
+    background:transparent;color:var(--ink);
+    font-family:'Inter Tight',sans-serif;
+    border-bottom:1px solid var(--hair);
+  }
+  .cmdk input::placeholder{color:var(--muted);font-family:'Instrument Serif',serif;font-size:18px;font-style:italic}
+  .cmdk-list{max-height:60vh;overflow:auto;padding:6px 0}
+  .cmdk-group{padding:12px 22px 4px;font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .cmdk-item{
+    display:grid;grid-template-columns: 22px 1fr auto;gap:12px;align-items:center;
+    padding:11px 22px;cursor:pointer;font-size:14px;
+  }
+  .cmdk-item:hover, .cmdk-item.cur{background:var(--paper)}
+  .cmdk-item .ico{width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:12px}
+  .cmdk-item .kc{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--muted);padding:2px 6px;border:1px solid var(--hair);border-radius:3px}
+  .cmdk-item em{font-style:normal;color:var(--ember);font-weight:700}
+
+  /* subtle lariat accent — hand-lassoed knot, not "AI starburst" */
+  .knot{position:absolute;width:120px;height:120px;opacity:.08;pointer-events:none}
+  .knot.tr{top:-40px;right:-30px}
+  .knot.bl{bottom:-60px;left:-40px;transform:rotate(35deg)}
+
+  /* Small helper: value pills */
+  .valchip{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:3px 10px;border:1px solid var(--hair);border-radius:99px;
+    font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--char);background:var(--cream);
+  }
+  .valchip.hot{background:rgba(200,90,42,.1);border-color:rgba(200,90,42,.3);color:var(--ember-deep)}
+  .valchip.cool{background:rgba(93,122,102,.1);border-color:rgba(93,122,102,.3);color:var(--sage)}
+
+  /* Recipe view (glimpse) */
+  .recipe-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .recipe-card{
+    background:var(--cream);border:1px solid var(--hair);border-radius:var(--radius);
+    padding:20px 22px;position:relative;overflow:hidden;cursor:pointer;
+    transition:transform .2s var(--easing), border-color .2s var(--easing);
+  }
+  .recipe-card:hover{transform:translateY(-2px);border-color:var(--ink)}
+  .recipe-card h4{font-family:'Instrument Serif',serif;font-size:24px;font-weight:400;line-height:1.05}
+  .recipe-card .station-tag{font-size:9.5px;letter-spacing:.24em;color:var(--ember-deep);text-transform:uppercase;margin-top:6px;font-weight:700}
+  .recipe-card .meta{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .recipe-card .ing{color:var(--muted);font-size:12px;margin-top:14px;font-style:italic;font-family:'Instrument Serif',serif}
+
+  .divider{height:1px;background:var(--hair);margin:28px 0}
+
+  /* Responsive-ish — collapses gracefully for narrow screens */
+  @media (max-width: 1200px){
+    .app{grid-template-columns: 220px 1fr 280px}
+    .strip{grid-template-columns: 220px 1fr 280px}
+    h1.title{font-size:56px}
+  }
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- ==================== SERVICE STRIP ==================== -->
+  <header class="strip">
+    <div class="mark">
+      <svg class="logo" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <!-- simple lariat / lasso loop mark -->
+        <path d="M20 6c-8 0-14 5.5-14 12 0 6 5 10 12 10 0 2-1.5 4-4 6" stroke="#1d1a15" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <ellipse cx="20" cy="18" rx="9" ry="5.2" stroke="#c85a2a" stroke-width="1.6"/>
+        <circle cx="20" cy="18" r="1.6" fill="#c85a2a"/>
+      </svg>
+      <div class="word">
+        <b>The Lariat</b>
+        <i>Cockpit · v2</i>
+      </div>
+    </div>
+
+    <div class="phases">
+      <div class="phases-track" id="phasesTrack">
+        <div class="phase past" data-phase="prep">
+          <span class="dot"></span>
+          <span class="lbl">Prep</span>
+          <span class="time">07:00 — 10:30</span>
+        </div>
+        <div class="phase past" data-phase="open">
+          <span class="dot"></span>
+          <span class="lbl">Open</span>
+          <span class="time">10:30 — 16:30</span>
+        </div>
+        <div class="phase now" data-phase="rush">
+          <span class="dot"></span>
+          <span class="lbl">Rush</span>
+          <span class="time">16:30 — 21:00</span>
+        </div>
+        <div class="phase" data-phase="close">
+          <span class="dot"></span>
+          <span class="lbl">Close</span>
+          <span class="time">21:00 — 23:30</span>
+        </div>
+        <div class="now-marker" id="nowMarker" style="left:62%"></div>
+      </div>
+    </div>
+
+    <div class="status-chip">
+      <span class="heat">Dinner rush · 43 min in</span>
+      <span class="clock" id="clock">17:13</span>
+    </div>
+  </header>
+
+  <!-- ==================== THE LINE (left) ==================== -->
+  <aside class="line">
+    <div class="line-head">
+      <h3>The Line</h3>
+      <span>Today · Apr 20</span>
+    </div>
+
+    <!-- stations in actual kitchen-line order — hot side on top -->
+    <div class="station active" data-view="station" data-station="grill" data-idx="1">
+      <div class="s-key">1</div>
+      <div>
+        <div class="s-name">Grill &amp; Sauté</div>
+        <div class="s-meta">14 of 16 checks · Marco</div>
+      </div>
+      <div class="ring hot"><svg width="26" height="26">
+        <circle class="track" cx="13" cy="13" r="10"/>
+        <circle class="fill" cx="13" cy="13" r="10" stroke-dasharray="62.8" stroke-dashoffset="7.9"/>
+      </svg><span class="tick">87</span></div>
+    </div>
+
+    <div class="station" data-view="station" data-station="fry" data-idx="2">
+      <div class="s-key">2</div>
+      <div>
+        <div class="s-name">Fry</div>
+        <div class="s-meta">8 of 10 checks · Diego</div>
+      </div>
+      <div class="ring go"><svg width="26" height="26">
+        <circle class="track" cx="13" cy="13" r="10"/>
+        <circle class="fill" cx="13" cy="13" r="10" stroke-dasharray="62.8" stroke-dashoffset="12.6"/>
+      </svg><span class="tick">80</span></div>
+    </div>
+
+    <div class="station" data-view="station" data-station="garde" data-idx="3">
+      <div class="s-key">3</div>
+      <div>
+        <div class="s-name">Garde Manger</div>
+        <div class="s-meta">flagged · Sam</div>
+      </div>
+      <div class="ring flag"><svg width="26" height="26">
+        <circle class="track" cx="13" cy="13" r="10"/>
+        <circle class="fill" cx="13" cy="13" r="10" stroke-dasharray="62.8" stroke-dashoffset="25.1"/>
+      </svg><span class="tick">60</span></div>
+    </div>
+
+    <div class="station" data-view="station" data-station="brunch" data-idx="4">
+      <div class="s-key">4</div>
+      <div>
+        <div class="s-name">Brunch</div>
+        <div class="s-meta">idle · closed until 7a</div>
+      </div>
+      <div class="ring ok"><svg width="26" height="26">
+        <circle class="track" cx="13" cy="13" r="10"/>
+        <circle class="fill" cx="13" cy="13" r="10" stroke-dasharray="62.8" stroke-dashoffset="0"/>
+      </svg><span class="tick">✓</span></div>
+    </div>
+
+    <div class="station" data-view="station" data-station="expo" data-idx="5">
+      <div class="s-key">5</div>
+      <div>
+        <div class="s-name">Expo</div>
+        <div class="s-meta">12 tickets open · Rafa</div>
+      </div>
+      <div class="ring hot"><svg width="26" height="26">
+        <circle class="track" cx="13" cy="13" r="10"/>
+        <circle class="fill" cx="13" cy="13" r="10" stroke-dasharray="62.8" stroke-dashoffset="3.1"/>
+      </svg><span class="tick">12</span></div>
+    </div>
+
+    <div class="station" data-view="station" data-station="runner" data-idx="6">
+      <div class="s-key">6</div>
+      <div>
+        <div class="s-name">Runner</div>
+        <div class="s-meta">on floor · Rosa, Elise</div>
+      </div>
+      <div class="ring go"><svg width="26" height="26">
+        <circle class="track" cx="13" cy="13" r="10"/>
+        <circle class="fill" cx="13" cy="13" r="10" stroke-dasharray="62.8" stroke-dashoffset="9.4"/>
+      </svg><span class="tick">85</span></div>
+    </div>
+
+    <!-- Shelf: non-line views -->
+    <div class="shelf">
+      <div class="label">Room &amp; Books</div>
+      <div class="shelf-grid">
+        <div class="tile" data-view="board">
+          <b>86 Board</b><span>3 out</span>
+        </div>
+        <div class="tile" data-view="recipes">
+          <b>Recipes</b><span>184</span>
+        </div>
+        <div class="tile" data-view="inventory">
+          <b>Inventory</b><span>last 11m</span>
+        </div>
+        <div class="tile" data-view="books">
+          <b>The Books</b><span>$ $ $</span>
+        </div>
+      </div>
+
+      <div class="crew">
+        <div class="label">On the line · you</div>
+        <div class="name">Marco Villareal</div>
+        <div class="pin">PIN 04 · clocked 14:02</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ==================== CANVAS (center) ==================== -->
+  <main class="canvas" id="canvas">
+
+    <!-- ------- TODAY / DECK VIEW ------- -->
+    <section class="view active" id="view-today">
+      <div class="crumbs">
+        <span>Cockpit</span><span class="sep">/</span><b>Today</b>
+      </div>
+      <div class="title-row">
+        <h1 class="title">Monday.<br/><em>We're in it.</em></h1>
+        <div class="title-meta">
+          Covers tonight · <b>148 / 180</b><br/>
+          Ticket avg · <b>8:42</b><br/>
+          Food cost on plan · <b>+0.4%</b>
+        </div>
+      </div>
+
+      <div class="deck">
+        <div class="hero">
+          <svg class="knot tr" viewBox="0 0 100 100" fill="none"><ellipse cx="50" cy="50" rx="40" ry="18" stroke="#f3ece0" stroke-width="2"/><ellipse cx="50" cy="50" rx="26" ry="10" stroke="#f3ece0" stroke-width="2"/></svg>
+          <div>
+            <div class="k">Where we stand · 17:13</div>
+            <div class="v">Line <em>holds</em>.</div>
+            <div class="sub">Grill is 1 away from sign-off. Garde Manger flagged the tomato lot — Sam is swapping in the backup case now. Expo is keeping pace; runner pool is full.</div>
+          </div>
+          <div class="hero-foot">
+            <div class="stat"><b>87%</b><span>Line checks</span></div>
+            <div class="stat"><b>3</b><span>86'd</span></div>
+            <div class="stat"><b>12</b><span>Open tix</span></div>
+            <div class="stat"><b>42</b><span>Covers seated</span></div>
+          </div>
+        </div>
+
+        <div class="aside">
+          <h4>The 86 Board · Live</h4>
+          <div class="eighty-six-list">
+            <div class="eighty-six-row">
+              <div><b>Heirloom Caprese</b><div class="how">tomato lot rejected · 14:06</div></div>
+              <span class="stamp">OUT</span>
+            </div>
+            <div class="eighty-six-row">
+              <div><b>Bone Marrow App</b><div class="how">marrow thawing · back 19:30</div></div>
+              <span class="stamp">LOW</span>
+            </div>
+            <div class="eighty-six-row">
+              <div><b>Blackberry Cobbler</b><div class="how">sub &rarr; peach</div></div>
+              <span class="stamp">SUB</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="kitchen">
+        <div class="k-cell hot" data-view="station" data-station="grill">
+          <div class="k-top"><span class="k-id">01</span><span class="k-status"></span></div>
+          <div class="k-name">Grill · Sauté</div>
+          <div class="k-prog">CHECKS · <b>14/16</b></div>
+        </div>
+        <div class="k-cell go" data-view="station" data-station="fry">
+          <div class="k-top"><span class="k-id">02</span><span class="k-status"></span></div>
+          <div class="k-name">Fry</div>
+          <div class="k-prog">CHECKS · <b>8/10</b></div>
+        </div>
+        <div class="k-cell flag" data-view="station" data-station="garde">
+          <div class="k-top"><span class="k-id">03</span><span class="k-status"></span></div>
+          <div class="k-name">Garde Manger</div>
+          <div class="k-prog">FLAGGED · <b>1</b></div>
+        </div>
+        <div class="k-cell ok" data-view="station" data-station="brunch">
+          <div class="k-top"><span class="k-id">04</span><span class="k-status"></span></div>
+          <div class="k-name">Brunch</div>
+          <div class="k-prog">SIGNED · <b>✓</b></div>
+        </div>
+        <div class="k-cell hot" data-view="station" data-station="expo">
+          <div class="k-top"><span class="k-id">05</span><span class="k-status"></span></div>
+          <div class="k-name">Expo</div>
+          <div class="k-prog">TIX OPEN · <b>12</b></div>
+        </div>
+        <div class="k-cell go" data-view="station" data-station="runner">
+          <div class="k-top"><span class="k-id">06</span><span class="k-status"></span></div>
+          <div class="k-name">Runner</div>
+          <div class="k-prog">RUNNERS · <b>2</b></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="crumbs">
+        <span>The Shift</span><span class="sep">/</span><b>Moves made today</b>
+      </div>
+
+      <div class="metrics" style="grid-template-columns:repeat(4,1fr);margin-top:12px">
+        <div class="metric"><div class="n">$4,128</div><div class="k">Sales so far</div><div class="d">+8% vs Mon avg</div></div>
+        <div class="metric"><div class="n">27.8%</div><div class="k">Food cost</div><div class="d down">-0.6%</div></div>
+        <div class="metric"><div class="n">14</div><div class="k">Prep tasks closed</div><div class="d">3 held</div></div>
+        <div class="metric"><div class="n">2.4h</div><div class="k">To close</div><div class="d">on pace</div></div>
+      </div>
+    </section>
+
+    <!-- ------- STATION DETAIL ------- -->
+    <section class="view" id="view-station">
+      <div class="crumbs">
+        <span>Cockpit</span><span class="sep">/</span>
+        <span>The Line</span><span class="sep">/</span>
+        <b id="stationCrumb">Grill &amp; Sauté</b>
+      </div>
+      <div class="title-row">
+        <h1 class="title" id="stationTitle">Grill &amp; Sauté<br/><em>one away.</em></h1>
+        <div class="title-meta">
+          Opened by · <b>Marco</b><br/>
+          Started · <b>14:02</b><br/>
+          Needs · <b>1 temp + sign-off</b>
+        </div>
+      </div>
+
+      <div class="checklist">
+        <div>
+          <div class="check-card">
+            <div class="check-head"><h3>Line Check</h3><span class="pct">14 <span style="color:var(--muted)">of</span> 16</span></div>
+            <div class="check-row">
+              <div class="check-box done"></div>
+              <div><div class="item">Grill cleaned &amp; seasoned</div></div>
+              <div class="spec">—</div>
+              <div class="who">Marco · 14:05</div>
+            </div>
+            <div class="check-row">
+              <div class="check-box done"></div>
+              <div><div class="item">Hood filters clear</div></div>
+              <div class="spec">—</div>
+              <div class="who">Marco · 14:07</div>
+            </div>
+            <div class="check-row">
+              <div class="check-box done"></div>
+              <div><div class="item">Backups stocked — rib, NY, salmon, chkn</div></div>
+              <div class="spec">par 12 · 12 · 8 · 16</div>
+              <div class="who">Marco · 14:22</div>
+            </div>
+            <div class="check-row">
+              <div class="check-box done"></div>
+              <div><div class="item">Sauté walk-in temp</div></div>
+              <div class="spec">38°F / target ≤40</div>
+              <div class="who">Marco · 14:30</div>
+            </div>
+            <div class="check-row">
+              <div class="check-box"></div>
+              <div><div class="item">Flat-top temp check <span class="valchip hot">425°F target</span></div></div>
+              <div class="spec">needed</div>
+              <div class="who">—</div>
+            </div>
+            <div class="check-row">
+              <div class="check-box"></div>
+              <div><div class="item">Sign-off</div></div>
+              <div class="spec">pending</div>
+              <div class="who">—</div>
+            </div>
+          </div>
+
+          <div class="signoff">
+            <div class="msg">One more temp, Marco. Then you're out.</div>
+            <button class="btn">Open sign-off</button>
+          </div>
+        </div>
+
+        <aside class="sidekick">
+          <div class="sk-card">
+            <h5>Prep On This Station</h5>
+            <div class="prep">Demi-glace reduction</div>
+            <div class="time">started 15:40 · ~45m left</div>
+            <div class="temp-strip">
+              <div class="bar" style="background:linear-gradient(180deg,var(--sage) 0%, var(--sage) 60%, var(--ember) 100%)"><span>38°</span></div>
+              <div class="bar" style="background:linear-gradient(180deg,var(--sage) 0%, var(--sage) 80%, var(--ember) 100%)"><span>375°</span></div>
+              <div class="bar" style="background:linear-gradient(180deg,var(--sage) 0%, var(--ember) 50%, var(--rust) 100%)"><span>425°</span></div>
+              <div class="bar" style="background:linear-gradient(180deg,var(--sage) 0%, var(--sage) 72%, var(--ember) 100%)"><span>191°</span></div>
+            </div>
+          </div>
+
+          <div class="sk-card">
+            <h5>Lot &amp; Origin</h5>
+            <div class="prep">Beef · Niman Ranch</div>
+            <div class="time">lot #NR-4128 · received 04/19</div>
+            <div style="margin-top:10px">
+              <span class="valchip cool">aged 28d</span>
+              <span class="valchip">prime</span>
+              <span class="valchip">USDA 4A</span>
+            </div>
+          </div>
+
+          <div class="sk-card">
+            <h5>This Station is Running</h5>
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:13px">
+              <div style="display:flex;justify-content:space-between"><span>Ribeye 14oz</span><span class="mono">×4 fired</span></div>
+              <div style="display:flex;justify-content:space-between"><span>Seared Trout</span><span class="mono">×2 fired</span></div>
+              <div style="display:flex;justify-content:space-between"><span>Pork Chop</span><span class="mono">×1 fired</span></div>
+              <div style="display:flex;justify-content:space-between;color:var(--muted)"><span>Duck breast</span><span class="mono">paused · 86 sauce</span></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ------- 86 BOARD ------- -->
+    <section class="view" id="view-board">
+      <div class="crumbs">
+        <span>Cockpit</span><span class="sep">/</span><b>The 86 Board</b>
+      </div>
+      <div class="title-row">
+        <h1 class="title">Eighty-sixed.<br/><em>What we can't send.</em></h1>
+        <div class="title-meta">
+          Active · <b>3</b><br/>
+          Resolved today · <b>2</b><br/>
+          Owner · <b>Rafa (expo)</b>
+        </div>
+      </div>
+
+      <div class="board">
+        <svg class="knot bl" viewBox="0 0 100 100" fill="none"><ellipse cx="50" cy="50" rx="40" ry="16" stroke="#f3ece0" stroke-width="2"/><ellipse cx="50" cy="50" rx="28" ry="9" stroke="#f3ece0" stroke-width="2"/></svg>
+        <h3>THREE out.</h3>
+        <div class="board-sub">kill on tickets · post to front &amp; line</div>
+        <div class="board-items">
+          <div class="board-item">
+            <div class="t">Heirloom Caprese</div>
+            <div class="r">garde manger · lot rejected 14:06</div>
+            <span class="chip out">out all service</span>
+          </div>
+          <div class="board-item">
+            <div class="t">Bone Marrow App</div>
+            <div class="r">grill · thawing · eta 19:30</div>
+            <span class="chip low">low · back tonight</span>
+          </div>
+          <div class="board-item">
+            <div class="t">Blackberry Cobbler</div>
+            <div class="r">pastry · sub → peach cobbler</div>
+            <span class="chip sub">sub active</span>
+          </div>
+        </div>
+
+        <div class="cascade">
+          <div>
+            <h4>Cascade</h4>
+            <p>Dishes blocked by these 86s — expo and servers should know before taking orders.</p>
+          </div>
+          <div class="cascade-tree">
+            <div><span class="branch">▸</span> Heirloom Caprese</div>
+            <div>&nbsp;&nbsp;&nbsp;<span class="branch">└─</span> Mozz platter share (uses tomato base)</div>
+            <div>&nbsp;&nbsp;&nbsp;<span class="branch">└─</span> Caprese wedge salad (Garde)</div>
+            <div><span class="branch">▸</span> Bone Marrow App</div>
+            <div>&nbsp;&nbsp;&nbsp;<span class="branch">└─</span> Marrow butter toast (Brunch swap)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------- RECIPES GLIMPSE ------- -->
+    <section class="view" id="view-recipes">
+      <div class="crumbs">
+        <span>Cockpit</span><span class="sep">/</span><b>Recipes</b>
+      </div>
+      <div class="title-row">
+        <h1 class="title">The Book.<br/><em>184 recipes.</em></h1>
+        <div class="title-meta">
+          Filter · <b>all stations</b><br/>
+          Sort · <b>by station</b><br/>
+          Updated · <b>today 09:12</b>
+        </div>
+      </div>
+      <div class="recipe-grid">
+        <div class="recipe-card">
+          <div class="station-tag">Grill · Mains</div>
+          <h4>Ribeye, red wine demi</h4>
+          <div class="ing">dry-aged · 14oz · rosemary</div>
+          <div class="meta">
+            <span class="valchip">serves 1</span>
+            <span class="valchip">$14.22 cost</span>
+            <span class="valchip cool">34% GP</span>
+          </div>
+        </div>
+        <div class="recipe-card">
+          <div class="station-tag">Sauté</div>
+          <h4>Seared Trout, brown butter caper</h4>
+          <div class="ing">wild steelhead · lemon · capers</div>
+          <div class="meta">
+            <span class="valchip">serves 1</span>
+            <span class="valchip">$7.84 cost</span>
+            <span class="valchip cool">58% GP</span>
+          </div>
+        </div>
+        <div class="recipe-card">
+          <div class="station-tag">Garde Manger</div>
+          <h4>Heirloom Caprese</h4>
+          <div class="ing">tomato · burrata · basil · balsamic</div>
+          <div class="meta">
+            <span class="valchip hot">86 today</span>
+            <span class="valchip">$4.10 cost</span>
+            <span class="valchip cool">71% GP</span>
+          </div>
+        </div>
+        <div class="recipe-card">
+          <div class="station-tag">Fry</div>
+          <h4>Duck Fat Fries</h4>
+          <div class="ing">yukon gold · rendered fat · malden</div>
+          <div class="meta">
+            <span class="valchip">serves 2</span>
+            <span class="valchip">$1.90 cost</span>
+            <span class="valchip cool">82% GP</span>
+          </div>
+        </div>
+        <div class="recipe-card">
+          <div class="station-tag">Brunch</div>
+          <h4>Short Rib Benedict</h4>
+          <div class="ing">braised short rib · poached · hollandaise</div>
+          <div class="meta">
+            <span class="valchip">serves 1</span>
+            <span class="valchip">$6.20 cost</span>
+            <span class="valchip cool">64% GP</span>
+          </div>
+        </div>
+        <div class="recipe-card">
+          <div class="station-tag">Pastry</div>
+          <h4>Peach Cobbler</h4>
+          <div class="ing">local peach · brown butter crumb · bourbon</div>
+          <div class="meta">
+            <span class="valchip">serves 2</span>
+            <span class="valchip">$2.10 cost</span>
+            <span class="valchip cool">79% GP</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------- INVENTORY QUICK LOG ------- -->
+    <section class="view" id="view-inventory">
+      <div class="crumbs"><span>Cockpit</span><span class="sep">/</span><b>Inventory</b></div>
+      <div class="title-row">
+        <h1 class="title">What we've got.<br/><em>Last edit 11 min ago.</em></h1>
+        <div class="title-meta">
+          Lines · <b>248</b><br/>
+          Sub-par · <b>12</b><br/>
+          Below trigger · <b>4</b>
+        </div>
+      </div>
+      <div class="recipe-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="recipe-card"><div class="station-tag">Protein · Walk-in</div><h4>Beef ribeye</h4><div class="ing">niman ranch · case</div><div class="meta"><span class="valchip">qty 14</span><span class="valchip cool">par 12</span></div></div>
+        <div class="recipe-card"><div class="station-tag">Produce</div><h4>Heirloom tomato</h4><div class="ing">lot rejected</div><div class="meta"><span class="valchip hot">qty 0</span><span class="valchip">par 3 cases</span></div></div>
+        <div class="recipe-card"><div class="station-tag">Dairy</div><h4>Burrata</h4><div class="ing">fresh · 3-day</div><div class="meta"><span class="valchip cool">qty 12</span><span class="valchip">par 8</span></div></div>
+        <div class="recipe-card"><div class="station-tag">Dry</div><h4>Duck fat</h4><div class="ing">5qt · rendered</div><div class="meta"><span class="valchip">qty 3</span><span class="valchip cool">par 2</span></div></div>
+      </div>
+    </section>
+
+    <!-- ------- THE BOOKS (analytics glance) ------- -->
+    <section class="view" id="view-books">
+      <div class="crumbs"><span>Cockpit</span><span class="sep">/</span><b>The Books</b></div>
+      <div class="title-row">
+        <h1 class="title">Month to date.<br/><em>We're beating plan.</em></h1>
+        <div class="title-meta">
+          Net sales · <b>$112,480</b><br/>
+          COGS · <b>27.8%</b><br/>
+          Labor · <b>31.2%</b>
+        </div>
+      </div>
+      <div class="metrics" style="grid-template-columns:repeat(4,1fr)">
+        <div class="metric"><div class="n">$112,480</div><div class="k">Net sales MTD</div><div class="d">+12% vs plan</div></div>
+        <div class="metric"><div class="n">27.8%</div><div class="k">Food cost</div><div class="d down">+0.6 vs target</div></div>
+        <div class="metric"><div class="n">31.2%</div><div class="k">Labor</div><div class="d">on plan</div></div>
+        <div class="metric"><div class="n">$48.10</div><div class="k">Avg ticket</div><div class="d">+$2.40</div></div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="crumbs"><b>Menu Performance · Last 28 days</b></div>
+      <div class="recipe-grid">
+        <div class="recipe-card"><div class="station-tag">Star · keep pushing</div><h4>Ribeye, red wine demi</h4><div class="ing">high margin · high pop</div><div class="meta"><span class="valchip cool">34% GP</span><span class="valchip">218 sold</span></div></div>
+        <div class="recipe-card"><div class="station-tag">Puzzle · reprice?</div><h4>Seared Trout</h4><div class="ing">high margin · low pop</div><div class="meta"><span class="valchip cool">58% GP</span><span class="valchip">42 sold</span></div></div>
+        <div class="recipe-card"><div class="station-tag">Plowhorse · watch</div><h4>House burger</h4><div class="ing">low margin · high pop</div><div class="meta"><span class="valchip hot">22% GP</span><span class="valchip">340 sold</span></div></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================== CONTEXT (right) ==================== -->
+  <aside class="context">
+    <div class="ctx-head"><h4>Live feed</h4><span>last 90m</span></div>
+    <div class="feed">
+      <div class="feed-item"><span class="tag red"></span><div><b>Garde</b> flagged heirloom tomato lot — all Caprese 86'd.<div class="when">14:06 · Sam</div></div></div>
+      <div class="feed-item"><span class="tag brass"></span><div><b>Brunch</b> signed off. Walk-in 37°F, all pars stocked.<div class="when">14:18 · Elise</div></div></div>
+      <div class="feed-item"><span class="tag green"></span><div><b>Fry</b> oil swap logged · fresh to pot A.<div class="when">14:44 · Diego</div></div></div>
+      <div class="feed-item"><span class="tag amber"></span><div><b>Inventory</b> · 3 cases romaine received from Shamrock.<div class="when">15:02 · KM</div></div></div>
+      <div class="feed-item"><span class="tag amber"></span><div><b>Expo</b> opened — 12 tickets staged.<div class="when">16:30 · Rafa</div></div></div>
+      <div class="feed-item"><span class="tag red"></span><div><b>Bone marrow</b> dropped to low — ETA 19:30.<div class="when">16:41 · Marco</div></div></div>
+      <div class="feed-item"><span class="tag green"></span><div><b>Grill</b> · 14 of 16 checks complete.<div class="when">17:10 · Marco</div></div></div>
+    </div>
+
+    <div class="ctx-head" style="margin-top:6px"><h4>Numbers</h4><span>right now</span></div>
+    <div class="metrics">
+      <div class="metric"><div class="n">$4,128</div><div class="k">Sales</div><div class="d">+8%</div></div>
+      <div class="metric"><div class="n">42</div><div class="k">Seated</div><div class="d">of 62</div></div>
+      <div class="metric"><div class="n">8:42</div><div class="k">Avg ticket</div><div class="d">good</div></div>
+      <div class="metric"><div class="n">27.8</div><div class="k">FC %</div><div class="d down">-0.6</div></div>
+    </div>
+  </aside>
+
+  <!-- ==================== COMMAND BAR ==================== -->
+  <footer class="command">
+    <div class="cmd-left">
+      <b>Cockpit · v2</b>
+      <span class="hint"><span class="kcombo">⌘K</span> jump anywhere</span>
+      <span class="hint"><span class="kcombo">1-6</span> stations</span>
+      <span class="hint"><span class="kcombo">8</span> the 86 board</span>
+      <span class="hint"><span class="kcombo">T</span> today</span>
+      <span class="hint"><span class="kcombo">R</span> recipes</span>
+    </div>
+    <div class="cmd-right">
+      <span class="pill">Grill</span>
+      <span class="pill on">Kitchen</span>
+      <span class="pill">Manager</span>
+    </div>
+  </footer>
+</div>
+
+<!-- ==================== COMMAND PALETTE ==================== -->
+<div class="cmdk-scrim" id="cmdkScrim">
+  <div class="cmdk" id="cmdk">
+    <input id="cmdkInput" placeholder="Find a station, recipe, or say what you need…" autocomplete="off" />
+    <div class="cmdk-list" id="cmdkList">
+      <div class="cmdk-group">Jump to · the line</div>
+      <div class="cmdk-item cur" data-view="station" data-station="grill">
+        <div class="ico">1</div><div>Grill &amp; Sauté · <em>14/16 checks</em></div><div class="kc">1</div>
+      </div>
+      <div class="cmdk-item" data-view="station" data-station="fry">
+        <div class="ico">2</div><div>Fry · 8/10 checks</div><div class="kc">2</div>
+      </div>
+      <div class="cmdk-item" data-view="station" data-station="garde">
+        <div class="ico">3</div><div>Garde Manger · <em>1 flagged</em></div><div class="kc">3</div>
+      </div>
+      <div class="cmdk-item" data-view="station" data-station="brunch">
+        <div class="ico">4</div><div>Brunch · signed off</div><div class="kc">4</div>
+      </div>
+      <div class="cmdk-item" data-view="station" data-station="expo">
+        <div class="ico">5</div><div>Expo · <em>12 tickets</em></div><div class="kc">5</div>
+      </div>
+      <div class="cmdk-item" data-view="station" data-station="runner">
+        <div class="ico">6</div><div>Runner · on floor</div><div class="kc">6</div>
+      </div>
+      <div class="cmdk-group">Rooms</div>
+      <div class="cmdk-item" data-view="board"><div class="ico">⚑</div><div>The 86 Board · <em>3 out</em></div><div class="kc">8</div></div>
+      <div class="cmdk-item" data-view="recipes"><div class="ico">❧</div><div>Recipes · 184</div><div class="kc">R</div></div>
+      <div class="cmdk-item" data-view="inventory"><div class="ico">☷</div><div>Inventory · 248 lines</div><div class="kc">I</div></div>
+      <div class="cmdk-item" data-view="books"><div class="ico">$</div><div>The Books · MTD</div><div class="kc">B</div></div>
+      <div class="cmdk-group">Quick actions</div>
+      <div class="cmdk-item"><div class="ico">+</div><div>Log an inventory edit</div><div class="kc">N</div></div>
+      <div class="cmdk-item"><div class="ico">⚑</div><div>86 a dish…</div><div class="kc">⇧8</div></div>
+      <div class="cmdk-item"><div class="ico">✎</div><div>Sign off a station</div><div class="kc">S</div></div>
+      <div class="cmdk-item"><div class="ico">?</div><div>Ask the kitchen assistant</div><div class="kc">K</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ---------- View router ---------- */
+  const views = {
+    today:     document.getElementById('view-today'),
+    station:   document.getElementById('view-station'),
+    board:     document.getElementById('view-board'),
+    recipes:   document.getElementById('view-recipes'),
+    inventory: document.getElementById('view-inventory'),
+    books:     document.getElementById('view-books'),
+  };
+  const stations = {
+    grill:   { title:'Grill &amp; Sauté', em:'one away.' },
+    fry:     { title:'Fry',                em:'eight down, two to go.' },
+    garde:   { title:'Garde Manger',       em:'a flag to clear.' },
+    brunch:  { title:'Brunch',             em:'asleep till seven.' },
+    expo:    { title:'Expo',               em:'twelve on the rail.' },
+    runner:  { title:'Runner',             em:'two on the floor.' },
+  };
+
+  function setActive(viewId, station){
+    Object.values(views).forEach(v=>v.classList.remove('active'));
+    const v = views[viewId] || views.today;
+    v.classList.add('active');
+    if(viewId==='station' && station){
+      const s = stations[station] || stations.grill;
+      document.getElementById('stationCrumb').innerHTML = s.title;
+      document.getElementById('stationTitle').innerHTML = s.title + '<br/><em>'+s.em+'</em>';
+      document.querySelectorAll('.line .station').forEach(el=>{
+        el.classList.toggle('active', el.dataset.station===station);
+      });
+    } else {
+      document.querySelectorAll('.line .station').forEach(el=>el.classList.remove('active'));
+    }
+    document.getElementById('canvas').scrollTop = 0;
+  }
+
+  document.querySelectorAll('[data-view]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const v = el.dataset.view, s = el.dataset.station;
+      setActive(v, s);
+      closeCmdk();
+    });
+  });
+
+  /* ---------- Keyboard shortcuts ---------- */
+  const STATION_IDX = ['grill','fry','garde','brunch','expo','runner'];
+  document.addEventListener('keydown', e=>{
+    const isTyping = /INPUT|TEXTAREA/.test(document.activeElement?.tagName);
+    if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){
+      e.preventDefault(); openCmdk();
+      return;
+    }
+    if(isTyping) return;
+    if(e.key==='Escape'){ closeCmdk(); return; }
+    if(/^[1-6]$/.test(e.key)){
+      setActive('station', STATION_IDX[parseInt(e.key,10)-1]);
+    } else if(e.key==='8'){ setActive('board'); }
+    else if(e.key.toLowerCase()==='t'){ setActive('today'); }
+    else if(e.key.toLowerCase()==='r'){ setActive('recipes'); }
+    else if(e.key.toLowerCase()==='i'){ setActive('inventory'); }
+    else if(e.key.toLowerCase()==='b'){ setActive('books'); }
+  });
+
+  /* ---------- Clock + now-marker motion ---------- */
+  function tick(){
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    document.getElementById('clock').textContent = `${hh}:${mm}`;
+    // map current time to the 07:00–23:30 service day
+    const mins = now.getHours()*60 + now.getMinutes();
+    const start = 7*60, end = 23*60+30;
+    let pct = Math.max(0, Math.min(1, (mins - start) / (end - start)));
+    // if outside service, park at demo position
+    if(pct===0 || pct===1) pct = 0.62;
+    document.getElementById('nowMarker').style.left = (pct*100) + '%';
+  }
+  tick(); setInterval(tick, 30000);
+
+  /* ---------- Command palette ---------- */
+  const scrim = document.getElementById('cmdkScrim');
+  const input = document.getElementById('cmdkInput');
+  const list  = document.getElementById('cmdkList');
+  function openCmdk(){
+    scrim.classList.add('open');
+    setTimeout(()=>input.focus(), 30);
+  }
+  function closeCmdk(){ scrim.classList.remove('open'); input.value=''; filterCmdk(''); }
+  scrim.addEventListener('click', e=>{ if(e.target===scrim) closeCmdk(); });
+  input.addEventListener('input', e=>filterCmdk(e.target.value));
+  input.addEventListener('keydown', e=>{
+    const items = [...list.querySelectorAll('.cmdk-item:not([hidden])')];
+    let idx = items.findIndex(i=>i.classList.contains('cur'));
+    if(e.key==='ArrowDown'){ e.preventDefault(); idx=Math.min(items.length-1, idx+1); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); idx=Math.max(0, idx-1); }
+    else if(e.key==='Enter'){
+      e.preventDefault();
+      const cur = items[Math.max(0,idx)];
+      if(cur){ cur.click(); }
+      return;
+    } else return;
+    items.forEach(i=>i.classList.remove('cur'));
+    if(items[idx]){ items[idx].classList.add('cur'); items[idx].scrollIntoView({block:'nearest'}); }
+  });
+  function filterCmdk(q){
+    q = q.trim().toLowerCase();
+    list.querySelectorAll('.cmdk-item').forEach(it=>{
+      const txt = it.innerText.toLowerCase();
+      it.hidden = q && !txt.includes(q);
+    });
+    list.querySelectorAll('.cmdk-group').forEach(g=>{
+      let s = g.nextElementSibling, any=false;
+      while(s && !s.classList.contains('cmdk-group')){
+        if(!s.hidden){ any=true; break; }
+        s = s.nextElementSibling;
+      }
+      g.hidden = !any;
+    });
+    list.querySelectorAll('.cmdk-item').forEach(i=>i.classList.remove('cur'));
+    const first = list.querySelector('.cmdk-item:not([hidden])');
+    if(first) first.classList.add('cur');
+  }
+</script>
+</body>
+</html>

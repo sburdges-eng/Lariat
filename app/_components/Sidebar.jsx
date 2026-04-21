@@ -74,7 +74,7 @@ export default function Sidebar() {
   }, [locations, locationId]);
 
   const link = useCallback((href, label) => {
-    const withLoc = href === '/' || href.startsWith('/stations') || href.startsWith('/recipes') || href.startsWith('/eighty-six') || href.startsWith('/inventory') || href.startsWith('/kitchen-assistant') || href.startsWith('/gold-stars')
+    const withLoc = href === '/' || href.startsWith('/stations') || href.startsWith('/recipes') || href.startsWith('/eighty-six') || href.startsWith('/inventory') || href.startsWith('/kitchen-assistant') || href.startsWith('/gold-stars') || href.startsWith('/food-safety') || href.startsWith('/labor')
       ? `${href}${locQuery}`
       : href;
     const active = pathname === href || (href !== '/' && pathname.startsWith(href));
@@ -98,6 +98,9 @@ export default function Sidebar() {
         {link('/kitchen-assistant', 'Ask the kitchen')}
         {link('/specials', 'Specials')}
         {link('/gold-stars', 'Gold stars')}
+        <div className="nav-section">Compliance</div>
+        {link('/food-safety', 'Food safety')}
+        {link('/labor', 'Labor')}
         <div className="nav-section">Manager stuff</div>
         {link('/analytics', 'Sales numbers')}
         {link('/costing', 'Recipe costs')}

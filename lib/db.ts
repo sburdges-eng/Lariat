@@ -345,6 +345,433 @@ export interface ToastSalesHourRow {
   imported_at: string;
 }
 
+// ── Food-safety + labor row types (HACCP / CO / FDA hardening) ─────
+//
+// These rows back the health/safety/labor hardening described in
+// docs/HEALTH_SAFETY_LABOR_AUDIT.md. Per AGENTS.md rule #5 the tables
+// below are ADDITIVE — no existing column or table is mutated in place.
+// Every table carries location_id (multi-site future) and created_at so
+// the audit_events trail can reconstruct who-did-what-when on any row
+// without needing to diff snapshots.
+
+/**
+ * Multi-stage cooling log (FDA Food Code 2022 §3-501.14).
+ * Stage 1: 135°F → 70°F within 2h.
+ * Stage 2: 70°F → 41°F within 4h more (6h total).
+ * A row is OPENED when the food is placed to cool; it's CLOSED by
+ * a stage-2 reading (reading_f ≤ 41). The library layer computes
+ * breach_reason from the timestamps + readings — we persist it on
+ * close so later audits don't have to recompute.
+ */
+export interface CoolingLogEntry {
+  id: number;
+  shift_date: string;
+  location_id: string;
+  item: string;
+  station_id: string | null;
+  started_at: string;          // ISO 8601; time food was pulled off the line
+  start_reading_f: number | null;
+  stage1_at: string | null;    // ≤ 70°F timestamp
+  stage1_reading_f: number | null;
+  stage2_at: string | null;    // ≤ 41°F timestamp
+  stage2_reading_f: number | null;
+  status: 'in_progress' | 'ok' | 'breach';
+  breach_reason: string | null;      // 'stage1_over_2h' | 'stage2_over_4h' | 'discarded' | ...
+  corrective_action: string | null;  // required if status = 'breach'
+  cook_id: string | null;
+  closed_by_cook_id: string | null;
+  created_at: string;
+}
+
+/**
+ * 7-day date marking for PHF/TCS ready-to-eat food held >24h
+ * (FDA Food Code 2022 §3-501.17). `prepared_on` is the anchor; the
+ * library computes `discard_on = prepared_on + 6 days` (day-of-prep
+ * is day 1 per FDA). `discarded_at` is NULL while still in service.
+ */
+export interface DateMark {
+  id: number;
+  location_id: string;
+  item: string;
+  batch_ref: string | null;        // free-text: pan #, lot, sticker
+  prepared_on: string;             // date (YYYY-MM-DD)
+  discard_on: string;              // computed 6 days forward
+  discarded_at: string | null;     // ISO 8601 when pulled
+  discarded_by_cook_id: string | null;
+  discard_reason: string | null;   // 'expired' | 'early_use' | 'quality' | 'contamination' | ...
+  cook_id: string | null;
+  created_at: string;
+}
+
+/**
+ * Receiving log (FDA Food Code §3-202.11 / §3-501.2). One row per
+ * pallet/case received. Temp rejections and condition rejections are
+ * recorded in-line (status + note) rather than a separate "rejection"
+ * table — the audit question is always "did we accept this shipment,
+ * at what temp, and why."
+ */
+export interface ReceivingEntry {
+  id: number;
+  shift_date: string;
+  location_id: string;
+  vendor: string;
+  invoice_ref: string | null;
+  category: string;                // 'refrigerated' | 'frozen' | 'dry' | 'produce' | 'shellfish' | ...
+  item: string | null;             // optional line-level item
+  reading_f: number | null;        // temp at receiving (NULL for dry)
+  required_max_f: number | null;   // snapshot of the limit at receiving
+  status: 'accepted' | 'rejected' | 'accepted_with_note';
+  rejection_reason: string | null;
+  shellstock_tag_ref: string | null;  // §3-203.12 shellstock 90-day retention ref
+  cook_id: string | null;
+  created_at: string;
+}
+
+/**
+ * Sanitizer concentration checks (FDA §4-703.11). Three-compartment
+ * sinks, wiping-cloth buckets, warewasher final-rinse. Chemistry
+ * column distinguishes chlorine / quat / iodine since the acceptable
+ * ppm band varies.
+ */
+export interface SanitizerCheck {
+  id: number;
+  shift_date: string;
+  location_id: string;
+  station_id: string | null;
+  point_label: string;            // 'dish pit final rinse', 'wiping bucket — grill', ...
+  chemistry: 'chlorine' | 'quat' | 'iodine' | 'other';
+  concentration_ppm: number;
+  required_min_ppm: number | null;
+  required_max_ppm: number | null;
+  water_temp_f: number | null;    // only meaningful for chlorine/warewasher
+  status: 'ok' | 'low' | 'high';
+  corrective_action: string | null;
+  cook_id: string | null;
+  created_at: string;
+}
+
+/**
+ * Sick-worker reports (FDA §2-201.11, CO 6 CCR 1010-2). Captures
+ * the five required symptoms (vomiting, diarrhea, jaundice, sore
+ * throat with fever, open infected lesion) and the Big-6 diagnoses
+ * (Norovirus, Salmonella Typhi, Nontyphoidal Salmonella, Shigella,
+ * STEC/EHEC, Hep A). Exclusion/restriction/return-to-work timestamps
+ * are on the same row so the PIC can answer "who is excluded right
+ * now?" with a single query.
+ */
+export interface SickWorkerReport {
+  id: number;
+  shift_date: string;
+  location_id: string;
+  cook_id: string;
+  reported_by_pic_id: string | null;
+  symptoms: string;                // comma-joined canonical keys
+  diagnosed_illness: string | null;  // one of Big-6 or NULL
+  action: 'excluded' | 'restricted' | 'monitor' | 'none';
+  started_at: string;              // ISO 8601
+  return_at: string | null;        // ISO 8601 when cleared
+  clearance_source: string | null; // 'asymptomatic_24h' | 'medical_clearance' | 'health_dept' | ...
+  note: string | null;
+  created_at: string;
+}
+
+/**
+ * Person-In-Charge per shift (FDA §2-101.11). A CFPM or trained
+ * supervisor must be on-site during hours of operation. One row per
+ * (shift_date, location_id, shift_slot) — slot is 'open' | 'mid' |
+ * 'close' to match Lariat's three-service-period day.
+ */
+export interface ShiftPic {
+  id: number;
+  shift_date: string;
+  location_id: string;
+  shift_slot: 'open' | 'mid' | 'close' | 'all_day';
+  cook_id: string;                 // who is PIC
+  cfpm_cert_id: number | null;     // FK to staff_certifications when present
+  started_at: string;
+  ended_at: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+/**
+ * Cleaning schedule (FDA §4-602, §4-702). Master list of recurring
+ * cleaning tasks (hood, floor drains, walk-in gaskets, ice machine,
+ * fry vats). `frequency` is free-text but should parse as 'daily' |
+ * 'weekly' | 'monthly' | 'quarterly' | 'every N days' for the UI
+ * scheduler.
+ */
+export interface CleaningScheduleItem {
+  id: number;
+  location_id: string;
+  area: string;                    // 'hood', 'walk-in #1', 'ice machine', ...
+  task: string;                    // 'scrub filters', 'sanitize gaskets', ...
+  frequency: string;
+  last_done: string | null;
+  next_due: string | null;
+  notes: string | null;
+  active: number;                  // 0/1 — retired rows stay for history
+  created_at: string;
+}
+
+export interface CleaningLogEntry {
+  id: number;
+  shift_date: string;
+  location_id: string;
+  schedule_id: number | null;      // NULL = ad-hoc task not on schedule
+  area: string;
+  task: string;
+  completed_at: string;
+  cook_id: string | null;
+  verified_by_cook_id: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+/**
+ * Pest control log (FDA §6-501.111). One row per vendor visit OR
+ * internal sighting. Type disambiguates.
+ */
+export interface PestControlEntry {
+  id: number;
+  shift_date: string;
+  location_id: string;
+  entry_type: 'service_visit' | 'sighting' | 'trap_check';
+  vendor: string | null;           // NULL for internal sightings
+  technician: string | null;
+  findings: string | null;
+  pest: string | null;             // 'roach', 'mouse', 'fly', ...
+  severity: 'low' | 'medium' | 'high' | null;
+  corrective_action: string | null;
+  report_path: string | null;      // path to scanned visit report
+  cook_id: string | null;
+  created_at: string;
+}
+
+/**
+ * Thermometer calibration records (FDA §4-203.11). Ice-point or
+ * boiling-point calibrations with before/after readings so a
+ * drifting probe can be traced back through the temp_log rows
+ * that were taken with it.
+ */
+export interface ThermometerCalibration {
+  id: number;
+  location_id: string;
+  thermometer_id: string;          // inventory tag ('probe-3', 'IR-1', …)
+  method: 'ice_point' | 'boiling_point' | 'reference_probe';
+  before_reading_f: number | null;
+  after_reading_f: number | null;
+  passed: number;                  // 0/1
+  action_taken: string | null;     // 'retired', 'recalibrated', 'returned_to_service'
+  cook_id: string | null;
+  calibrated_at: string;
+  created_at: string;
+}
+
+/**
+ * Time as a Public Health Control (FDA §3-501.19). A TCS food may
+ * be held out of temperature for ≤4h (cold ≤ 4h, hot ≤ 4h) provided
+ * it's marked and discarded at the cutoff. Row opens when food hits
+ * the line; closes when either consumed (discarded_at set with reason
+ * 'depleted') or tossed at cutoff.
+ */
+export interface TphcEntry {
+  id: number;
+  shift_date: string;
+  location_id: string;
+  station_id: string | null;
+  item: string;
+  batch_ref: string | null;
+  started_at: string;
+  cutoff_at: string;               // started_at + 4h
+  discarded_at: string | null;
+  discard_reason: string | null;   // 'cutoff' | 'depleted' | 'quality'
+  cook_id: string | null;
+  created_at: string;
+}
+
+/**
+ * Safety Data Sheet registry (OSHA 29 CFR 1910.1200 HazCom, CO
+ * Right-to-Know). Every chemical used in BOH/FOH must have an SDS
+ * on-site. `pdf_path` is local to the laptop; `url` is the vendor
+ * hosted copy. Either is sufficient, both is ideal.
+ */
+export interface SdsEntry {
+  id: number;
+  location_id: string;
+  product_name: string;
+  manufacturer: string | null;
+  hazard_class: string | null;     // 'corrosive', 'flammable', ...
+  storage_location: string | null; // 'chem closet — mop station'
+  pdf_path: string | null;
+  url: string | null;
+  last_reviewed: string | null;
+  active: number;                  // 0/1
+  notes: string | null;
+  created_at: string;
+}
+
+/**
+ * Shift breaks (CO COMPS #39 §5): 30-min unpaid meal break for
+ * shifts >5h, 10-min paid rest break per 4h. Row is one break, not
+ * a shift. `kind` disambiguates meal vs rest. `waived` records the
+ * employee-initiated meal-break waiver (on-duty meal), which must
+ * be written and revocable under COMPS.
+ */
+export interface ShiftBreak {
+  id: number;
+  shift_date: string;
+  location_id: string;
+  cook_id: string;
+  kind: 'meal' | 'rest';
+  started_at: string;
+  ended_at: string | null;
+  duration_min: number | null;     // computed on close; NULL while open
+  waived: number;                  // 0/1 — only valid for meal
+  waiver_ref: string | null;       // path to signed waiver
+  note: string | null;
+  created_at: string;
+}
+
+/**
+ * CO HFWA paid-sick-leave balances (C.R.S. 8-13.3-401). Accrual is
+ * 1h per 30h worked, capped at 48h/yr. One row per (cook_id,
+ * accrual_year). `hours_accrued` is the running total, `hours_used`
+ * is PSL actually taken. The library layer updates these on payroll
+ * ingest; the UI reads `hours_available = accrued - used`.
+ */
+export interface PaidSickLeaveBalance {
+  id: number;
+  location_id: string;
+  cook_id: string;
+  accrual_year: number;            // e.g. 2026
+  hours_accrued: number;
+  hours_used: number;
+  cap_hours: number;               // 48 for CO HFWA; column lets future states override
+  carryover_hours: number;         // up to 48h may carry per HFWA
+  last_accrued_on: string | null;  // YYYY-MM-DD of latest accrual event
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Per-employee certifications. ServSafe Manager / CFPM (5yr),
+ * ServSafe Food Handler (CO requires for anyone handling unpackaged
+ * food within 30 days of hire in many jurisdictions), TIPS alcohol
+ * (for anyone serving alcohol). `expires_on` enables the "expires in
+ * 30d" banner on the shift-open page.
+ */
+export interface StaffCertification {
+  id: number;
+  location_id: string;
+  cook_id: string;
+  cert_type: 'cfpm' | 'food_handler' | 'tips' | 'allergen' | 'other';
+  cert_label: string;              // human label: 'ServSafe Manager', 'TIPS On-Premise', ...
+  issuer: string | null;
+  cert_number: string | null;
+  issued_on: string | null;
+  expires_on: string | null;
+  document_path: string | null;    // scanned cert
+  active: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Tip pool distributions (FLSA §3(m)(2)(B), CO wage law). One row
+ * per (shift_date, cook_id) per distribution. `pool_ref` groups rows
+ * that share a common pool so the total distributed can be summed
+ * and reconciled against the pool total. Service-charge distributions
+ * are stored here with kind='service_charge' so the wage tests can
+ * enforce the "managers may not retain tips" rule.
+ */
+export interface TipPoolDistribution {
+  id: number;
+  shift_date: string;
+  location_id: string;
+  pool_ref: string;
+  cook_id: string;
+  role: string | null;             // 'server','barback','busser',...
+  kind: 'tip_pool' | 'service_charge' | 'direct_tip';
+  amount_cents: number;            // USD cents, integer — NEVER floats for money
+  note: string | null;
+  created_at: string;
+}
+
+/**
+ * Employee status flags (minor under CO YEOA, tipped credit
+ * eligible, salaried exempt, excluded-from-tip-pool, etc). Separate
+ * table rather than columns on staff so it's multi-valued and
+ * auditable — each flag has a row with an effective range.
+ */
+export interface StaffFlag {
+  id: number;
+  location_id: string;
+  cook_id: string;
+  flag: string;                    // 'minor_under_16' | 'minor_16_17' | 'tipped' | 'exempt' | ...
+  effective_from: string;
+  effective_to: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+/**
+ * Wage notice acknowledgments (CO C.R.S. 8-4-120 wage theft
+ * prevention). On hire, on rate change, on law change: employee
+ * must sign a written notice of wage rate, pay basis, pay schedule,
+ * etc. One row per signed notice.
+ */
+export interface WageNotice {
+  id: number;
+  location_id: string;
+  cook_id: string;
+  reason: 'hire' | 'rate_change' | 'annual' | 'law_change' | 'other';
+  wage_rate_cents: number;         // USD cents
+  pay_basis: 'hourly' | 'salary' | 'commission' | 'tipped';
+  tip_credit_cents: number | null; // claimed tip credit per hour; NULL if none
+  document_path: string | null;
+  signed_on: string;               // date signed
+  created_at: string;
+}
+
+/**
+ * Employee health policy acknowledgments (FDA Form 1-A, §2-103.11).
+ * Employees must be informed of their reporting obligations for the
+ * five symptoms + Big-6 diagnoses. One row per signed acknowledgment
+ * (on hire, and on any policy update).
+ */
+export interface EmployeeHealthAcknowledgment {
+  id: number;
+  location_id: string;
+  cook_id: string;
+  policy_version: string;          // '2026.04' — track when policy text changes
+  document_path: string | null;
+  signed_on: string;
+  created_at: string;
+}
+
+/**
+ * Append-only audit trail. Every write to a regulated surface
+ * (temp_log, cooling_log, sick_worker_reports, signoff, 86, etc.)
+ * posts one row here. Rows are NEVER updated or deleted — a
+ * subsequent "correction" is its own audit_events row referencing
+ * the prior one via `replaces_id`.
+ */
+export interface AuditEvent {
+  id: number;
+  shift_date: string;
+  location_id: string;
+  actor_cook_id: string | null;    // who acted
+  actor_source: string;            // 'cook_ui' | 'pic_ui' | 'api' | 'export' | ...
+  entity: string;                  // 'temp_log' | 'cooling_log' | 'signoff' | ...
+  entity_id: number | null;
+  action: 'insert' | 'update' | 'delete' | 'correction' | 'view';
+  replaces_id: number | null;      // prior audit_events.id that this supersedes
+  payload_json: string | null;     // JSON blob of the after-state (for correction context)
+  note: string | null;
+  created_at: string;
+}
+
 // ── Schema ─────────────────────────────────────────────────────────
 
 export function initSchema(db: DB): void {
@@ -746,10 +1173,418 @@ export function initSchema(db: DB): void {
     );
   `);
 
+  initFoodSafetyLaborSchema(db);
+
   migrateLegacyColumns(db);
   assertCriticalSchemas(db);
   seedDefaultLocation(db);
   ensureIndexes(db);
+}
+
+/**
+ * HACCP + CO/federal labor hardening tables.
+ * See docs/HEALTH_SAFETY_LABOR_AUDIT.md gap register (F1–F17, L1–L10, A1).
+ * Additive only: no existing table touched.
+ */
+function initFoodSafetyLaborSchema(db: DB): void {
+  db.exec(`
+    -- F1: two-stage cooling (FDA §3-501.14). A row is OPEN from
+    -- started_at until stage2_at is set. status is a coarse state;
+    -- breach_reason is the detail the compliance officer reads.
+    CREATE TABLE IF NOT EXISTS cooling_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      location_id TEXT DEFAULT 'default',
+      item TEXT NOT NULL,
+      station_id TEXT,
+      started_at TEXT NOT NULL,
+      start_reading_f REAL,
+      stage1_at TEXT,
+      stage1_reading_f REAL,
+      stage2_at TEXT,
+      stage2_reading_f REAL,
+      status TEXT NOT NULL DEFAULT 'in_progress'
+        CHECK(status IN ('in_progress','ok','breach')),
+      breach_reason TEXT,
+      corrective_action TEXT,
+      cook_id TEXT,
+      closed_by_cook_id TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_cooling_status
+      ON cooling_log(location_id, status, shift_date);
+    CREATE INDEX IF NOT EXISTS idx_cooling_open
+      ON cooling_log(location_id, started_at)
+      WHERE status = 'in_progress';
+
+    -- F2: 7-day date marking (FDA §3-501.17). discard_on is the
+    -- computed "must be used or tossed by" date.
+    CREATE TABLE IF NOT EXISTS date_marks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT DEFAULT 'default',
+      item TEXT NOT NULL,
+      batch_ref TEXT,
+      prepared_on TEXT NOT NULL,
+      discard_on TEXT NOT NULL,
+      discarded_at TEXT,
+      discarded_by_cook_id TEXT,
+      discard_reason TEXT,
+      cook_id TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_datemarks_active
+      ON date_marks(location_id, discard_on)
+      WHERE discarded_at IS NULL;
+
+    -- F3: receiving log. One row per pallet/case/SKU accepted or rejected.
+    CREATE TABLE IF NOT EXISTS receiving_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      location_id TEXT DEFAULT 'default',
+      vendor TEXT NOT NULL,
+      invoice_ref TEXT,
+      category TEXT NOT NULL,
+      item TEXT,
+      reading_f REAL,
+      required_max_f REAL,
+      status TEXT NOT NULL
+        CHECK(status IN ('accepted','rejected','accepted_with_note')),
+      rejection_reason TEXT,
+      shellstock_tag_ref TEXT,
+      cook_id TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_receiving_shift
+      ON receiving_log(location_id, shift_date);
+    CREATE INDEX IF NOT EXISTS idx_receiving_shellstock
+      ON receiving_log(shellstock_tag_ref)
+      WHERE shellstock_tag_ref IS NOT NULL;
+
+    -- F4: sanitizer checks. Water temp is only meaningful for some
+    -- chemistries — storing NULL when not applicable is intentional.
+    CREATE TABLE IF NOT EXISTS sanitizer_checks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      location_id TEXT DEFAULT 'default',
+      station_id TEXT,
+      point_label TEXT NOT NULL,
+      chemistry TEXT NOT NULL
+        CHECK(chemistry IN ('chlorine','quat','iodine','other')),
+      concentration_ppm REAL NOT NULL,
+      required_min_ppm REAL,
+      required_max_ppm REAL,
+      water_temp_f REAL,
+      status TEXT NOT NULL CHECK(status IN ('ok','low','high')),
+      corrective_action TEXT,
+      cook_id TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sanitizer_shift
+      ON sanitizer_checks(location_id, shift_date);
+
+    -- F5, L6: sick-worker reports. Symptoms stored as comma-joined
+    -- canonical keys so the library layer can validate the set.
+    -- return_at IS NULL means the worker is currently excluded/restricted.
+    CREATE TABLE IF NOT EXISTS sick_worker_reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      location_id TEXT DEFAULT 'default',
+      cook_id TEXT NOT NULL,
+      reported_by_pic_id TEXT,
+      symptoms TEXT NOT NULL,
+      diagnosed_illness TEXT,
+      action TEXT NOT NULL
+        CHECK(action IN ('excluded','restricted','monitor','none')),
+      started_at TEXT NOT NULL,
+      return_at TEXT,
+      clearance_source TEXT,
+      note TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sickworker_active
+      ON sick_worker_reports(location_id, cook_id)
+      WHERE return_at IS NULL;
+
+    -- L3: per-employee certifications (defined BEFORE shift_pic because
+    -- shift_pic.cfpm_cert_id references it).
+    CREATE TABLE IF NOT EXISTS staff_certifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT DEFAULT 'default',
+      cook_id TEXT NOT NULL,
+      cert_type TEXT NOT NULL
+        CHECK(cert_type IN ('cfpm','food_handler','tips','allergen','other')),
+      cert_label TEXT NOT NULL,
+      issuer TEXT,
+      cert_number TEXT,
+      issued_on TEXT,
+      expires_on TEXT,
+      document_path TEXT,
+      active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_staffcerts_expiry
+      ON staff_certifications(location_id, expires_on)
+      WHERE active = 1;
+    CREATE INDEX IF NOT EXISTS idx_staffcerts_cook
+      ON staff_certifications(location_id, cook_id, cert_type);
+
+    -- F6: person in charge per shift.
+    CREATE TABLE IF NOT EXISTS shift_pic (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      location_id TEXT DEFAULT 'default',
+      shift_slot TEXT NOT NULL
+        CHECK(shift_slot IN ('open','mid','close','all_day')),
+      cook_id TEXT NOT NULL,
+      cfpm_cert_id INTEGER,
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      note TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (cfpm_cert_id) REFERENCES staff_certifications(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_shiftpic_date
+      ON shift_pic(location_id, shift_date);
+
+    -- F7: cleaning schedule + log (two tables, ala equipment/maintenance).
+    CREATE TABLE IF NOT EXISTS cleaning_schedule (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT DEFAULT 'default',
+      area TEXT NOT NULL,
+      task TEXT NOT NULL,
+      frequency TEXT NOT NULL,
+      last_done TEXT,
+      next_due TEXT,
+      notes TEXT,
+      active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_cleansched_due
+      ON cleaning_schedule(location_id, next_due)
+      WHERE active = 1;
+
+    CREATE TABLE IF NOT EXISTS cleaning_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      location_id TEXT DEFAULT 'default',
+      schedule_id INTEGER,
+      area TEXT NOT NULL,
+      task TEXT NOT NULL,
+      completed_at TEXT NOT NULL,
+      cook_id TEXT,
+      verified_by_cook_id TEXT,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (schedule_id) REFERENCES cleaning_schedule(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_cleanlog_shift
+      ON cleaning_log(location_id, shift_date);
+    CREATE INDEX IF NOT EXISTS idx_cleanlog_sched
+      ON cleaning_log(schedule_id);
+
+    -- F8: pest control log.
+    CREATE TABLE IF NOT EXISTS pest_control_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      location_id TEXT DEFAULT 'default',
+      entry_type TEXT NOT NULL
+        CHECK(entry_type IN ('service_visit','sighting','trap_check')),
+      vendor TEXT,
+      technician TEXT,
+      findings TEXT,
+      pest TEXT,
+      severity TEXT CHECK(severity IS NULL OR severity IN ('low','medium','high')),
+      corrective_action TEXT,
+      report_path TEXT,
+      cook_id TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_pest_shift
+      ON pest_control_log(location_id, shift_date);
+
+    -- F9: thermometer calibrations.
+    CREATE TABLE IF NOT EXISTS thermometer_calibrations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT DEFAULT 'default',
+      thermometer_id TEXT NOT NULL,
+      method TEXT NOT NULL
+        CHECK(method IN ('ice_point','boiling_point','reference_probe')),
+      before_reading_f REAL,
+      after_reading_f REAL,
+      passed INTEGER NOT NULL DEFAULT 0,
+      action_taken TEXT,
+      cook_id TEXT,
+      calibrated_at TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_thermcal_recent
+      ON thermometer_calibrations(location_id, thermometer_id, calibrated_at DESC);
+
+    -- F11: Time as Public Health Control (§3-501.19). cutoff_at is the
+    -- computed discard deadline — set by the library layer on insert.
+    CREATE TABLE IF NOT EXISTS tphc_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      location_id TEXT DEFAULT 'default',
+      station_id TEXT,
+      item TEXT NOT NULL,
+      batch_ref TEXT,
+      started_at TEXT NOT NULL,
+      cutoff_at TEXT NOT NULL,
+      discarded_at TEXT,
+      discard_reason TEXT,
+      cook_id TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_tphc_open
+      ON tphc_entries(location_id, cutoff_at)
+      WHERE discarded_at IS NULL;
+
+    -- F17: SDS registry (OSHA HazCom).
+    CREATE TABLE IF NOT EXISTS sds_registry (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT DEFAULT 'default',
+      product_name TEXT NOT NULL,
+      manufacturer TEXT,
+      hazard_class TEXT,
+      storage_location TEXT,
+      pdf_path TEXT,
+      url TEXT,
+      last_reviewed TEXT,
+      active INTEGER DEFAULT 1,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sds_active
+      ON sds_registry(location_id, active);
+
+    -- L1: shift breaks (COMPS #39).
+    CREATE TABLE IF NOT EXISTS shift_breaks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      location_id TEXT DEFAULT 'default',
+      cook_id TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK(kind IN ('meal','rest')),
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      duration_min REAL,
+      waived INTEGER DEFAULT 0,
+      waiver_ref TEXT,
+      note TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_breaks_shift
+      ON shift_breaks(location_id, shift_date, cook_id);
+
+    -- L2: HFWA paid sick-leave balances.
+    CREATE TABLE IF NOT EXISTS paid_sick_leave_balances (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT DEFAULT 'default',
+      cook_id TEXT NOT NULL,
+      accrual_year INTEGER NOT NULL,
+      hours_accrued REAL NOT NULL DEFAULT 0,
+      hours_used REAL NOT NULL DEFAULT 0,
+      cap_hours REAL NOT NULL DEFAULT 48,
+      carryover_hours REAL NOT NULL DEFAULT 0,
+      last_accrued_on TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(location_id, cook_id, accrual_year)
+    );
+
+    -- L4: tip pool distributions. amount_cents is integer USD cents —
+    -- NEVER floats for money (floating-point rounding errors on tips
+    -- are exactly how FLSA collective actions start).
+    CREATE TABLE IF NOT EXISTS tip_pool_distributions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      location_id TEXT DEFAULT 'default',
+      pool_ref TEXT NOT NULL,
+      cook_id TEXT NOT NULL,
+      role TEXT,
+      kind TEXT NOT NULL
+        CHECK(kind IN ('tip_pool','service_charge','direct_tip')),
+      amount_cents INTEGER NOT NULL,
+      note TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_tip_shift
+      ON tip_pool_distributions(location_id, shift_date);
+    CREATE INDEX IF NOT EXISTS idx_tip_pool
+      ON tip_pool_distributions(pool_ref);
+
+    -- L4, L5: staff flags — minor status, tipped, salaried exempt, etc.
+    CREATE TABLE IF NOT EXISTS staff_flags (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT DEFAULT 'default',
+      cook_id TEXT NOT NULL,
+      flag TEXT NOT NULL,
+      effective_from TEXT NOT NULL,
+      effective_to TEXT,
+      note TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_staffflags_active
+      ON staff_flags(location_id, cook_id, flag)
+      WHERE effective_to IS NULL;
+
+    -- L7: wage notices (CO C.R.S. 8-4-120).
+    CREATE TABLE IF NOT EXISTS wage_notices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT DEFAULT 'default',
+      cook_id TEXT NOT NULL,
+      reason TEXT NOT NULL
+        CHECK(reason IN ('hire','rate_change','annual','law_change','other')),
+      wage_rate_cents INTEGER NOT NULL,
+      pay_basis TEXT NOT NULL
+        CHECK(pay_basis IN ('hourly','salary','commission','tipped')),
+      tip_credit_cents INTEGER,
+      document_path TEXT,
+      signed_on TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_wagenotice_cook
+      ON wage_notices(location_id, cook_id, signed_on DESC);
+
+    -- F5, F15: FDA Form 1-A health policy acknowledgments.
+    CREATE TABLE IF NOT EXISTS employee_health_acknowledgments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT DEFAULT 'default',
+      cook_id TEXT NOT NULL,
+      policy_version TEXT NOT NULL,
+      document_path TEXT,
+      signed_on TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_healthack_cook
+      ON employee_health_acknowledgments(location_id, cook_id, signed_on DESC);
+
+    -- A1: audit events. APPEND-ONLY.  NEVER UPDATE OR DELETE.
+    -- A correction is a fresh row with replaces_id pointing at the
+    -- prior one. payload_json is the after-state so a future reader
+    -- can reconstruct the full history without joining back to the
+    -- source tables (which may have moved on).
+    CREATE TABLE IF NOT EXISTS audit_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      location_id TEXT DEFAULT 'default',
+      actor_cook_id TEXT,
+      actor_source TEXT NOT NULL,
+      entity TEXT NOT NULL,
+      entity_id INTEGER,
+      action TEXT NOT NULL
+        CHECK(action IN ('insert','update','delete','correction','view')),
+      replaces_id INTEGER,
+      payload_json TEXT,
+      note TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_entity
+      ON audit_events(entity, entity_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_shift
+      ON audit_events(location_id, shift_date);
+  `);
 }
 
 /**
