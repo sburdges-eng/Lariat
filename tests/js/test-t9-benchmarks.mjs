@@ -10,10 +10,15 @@
 //   - B1 variance metric: drift case → variance > 0
 //   - B1 variance metric: zero-drift → variance == 0 byte-exact
 //   - B1 aggregates (max, mean, recipes_over_5pct)
+//   - B1/D6: drop-the-BOM-fallback — unmatched lines excluded from math,
+//     recipes above threshold entirely excluded from aggregate
 //   - B2 unmapped: union-of-4-reasons fixture lands 4/10 unmapped
 //   - B2 unmapped: zero-unmapped fixture yields empty list + pct=0
 //   - B2 unmapped: cap-at-50 bound
 //   - B2 unmapped: each reason value is one of the four known strings
+//   - B2/T6 extension: vendor_prices PACK_CHANGED rows surface with
+//     kind='vendor_pack_change'; pack_size_changes.acknowledged=0 count
+//     surfaced on the summary.
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
@@ -22,7 +27,11 @@ import Database from 'better-sqlite3';
 import { initSchema } from '../../lib/db.ts';
 import { normalizeIngredientKey } from '../../lib/ingredientKey.ts';
 import { ingestCosting } from '../../scripts/ingest-costing.mjs';
-import { computeCostVariance, computeUnmapped } from '../../lib/costingBenchmarks.mjs';
+import {
+  computeCostVariance,
+  computeUnmapped,
+  DEFAULT_UNMATCHED_THRESHOLD,
+} from '../../lib/costingBenchmarks.mjs';
 
 const LOC = 'default';
 
@@ -359,6 +368,319 @@ describe('T9 / B2 — unmapped queue', () => {
     assert.strictEqual(r.total_items, 2);
     assert.strictEqual(r.unmapped_count, 1, 'multi-failure row must dedupe to 1');
     assert.strictEqual(r.rows[0].reason, 'no_price');
+    db.close();
+  });
+});
+
+// ── D6 — drop the B1 variance fallback; surface unmatched_lines ────
+describe('T9 / B1 / D6 — unmatched_lines counter + high-ratio exclusion', () => {
+  // Shared seed for D6 cases: varies (bom_lines, vendor_prices) coverage.
+  // Each "line" is an independently-keyed ingredient with its own optional
+  // vendor_prices row. qty=1, pack_price=50, pack_size=50 by convention so
+  // a missing vendor row flipped to a matching vendor row is byte-exact
+  // zero-drift (same math as the existing zero-drift baseline case).
+  function seedRecipeWithCoverage(db, {
+    recipeId = 'r1',
+    recipeBatch = 1.0,
+    recipeYield = 1,
+    // lines: [{ ingredient, hasVendor: bool, vendorPrice?: number }]
+    lines,
+  }) {
+    db.prepare(
+      `INSERT INTO recipe_costs (recipe_id, recipe_name, batch_cost, cost_per_yield_unit, yield, yield_unit, location_id)
+       VALUES (?, ?, ?, ?, ?, 'each', ?)`,
+    ).run(recipeId, recipeId, recipeBatch, recipeBatch / recipeYield, recipeYield, LOC);
+    for (const [i, line] of lines.entries()) {
+      const ing = line.ingredient ?? `ing_${recipeId}_${i}`;
+      db.prepare(
+        `INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, pack_price, pack_size, yield_pct, loss_factor, location_id)
+         VALUES (?, ?, ?, 'lb', ?, ?, ?, ?, ?)`,
+      ).run(
+        recipeId,
+        ing,
+        line.qty ?? (1 / lines.length), // split contribution so Σ qty×price/size = recipeBatch
+        line.bomPackPrice ?? 50,
+        line.bomPackSize ?? 50,
+        line.yield_pct ?? 1.0,
+        line.loss_factor ?? 0.0,
+        LOC,
+      );
+      if (line.hasVendor) {
+        db.prepare(
+          `INSERT INTO vendor_prices (ingredient, vendor, pack_size, pack_unit, pack_price, unit_price, location_id)
+           VALUES (?, 'sysco', ?, 'lb', ?, ?, ?)`,
+        ).run(
+          ing,
+          line.vendorPackSize ?? 50,
+          line.vendorPrice ?? 50,
+          (line.vendorPrice ?? 50) / (line.vendorPackSize ?? 50),
+          LOC,
+        );
+      }
+    }
+  }
+
+  it('100% matched: contributes to aggregate with unmatched_lines=0', () => {
+    const db = freshDb();
+    seedRecipeWithCoverage(db, {
+      lines: [
+        { ingredient: 'a', hasVendor: true, vendorPrice: 50, qty: 0.5 },
+        { ingredient: 'b', hasVendor: true, vendorPrice: 50, qty: 0.5 },
+      ],
+    });
+    const r = computeCostVariance(db, LOC);
+    assert.strictEqual(r.rows.length, 1);
+    assert.strictEqual(r.rows[0].total_lines, 2);
+    assert.strictEqual(r.rows[0].unmatched_lines, 0);
+    assert.strictEqual(r.rows[0].excluded, false);
+    assert.strictEqual(r.rows[0].variance_pct, 0);
+    assert.strictEqual(r.summary.healthy, 1);
+    assert.strictEqual(r.summary.excluded_high_unmatched, 0);
+    db.close();
+  });
+
+  it('50% unmatched at default threshold 30%: EXCLUDED with reason=high_unmatched_ratio', () => {
+    const db = freshDb();
+    // 4 lines total; 2 matched, 2 unmatched → 50% > 30% → excluded.
+    seedRecipeWithCoverage(db, {
+      lines: [
+        { ingredient: 'a', hasVendor: true, vendorPrice: 50, qty: 0.25 },
+        { ingredient: 'b', hasVendor: true, vendorPrice: 50, qty: 0.25 },
+        { ingredient: 'c', hasVendor: false,                  qty: 0.25 },
+        { ingredient: 'd', hasVendor: false,                  qty: 0.25 },
+      ],
+    });
+    const r = computeCostVariance(db, LOC);
+    assert.strictEqual(r.rows.length, 1);
+    const row = r.rows[0];
+    assert.strictEqual(row.excluded, true);
+    assert.strictEqual(row.exclusion_reason, 'high_unmatched_ratio');
+    assert.strictEqual(row.total_lines, 4);
+    assert.strictEqual(row.unmatched_lines, 2);
+    assert.strictEqual(row.actual, null);
+    assert.strictEqual(row.variance_pct, null);
+    // Excluded recipe must NOT inflate the aggregate.
+    assert.strictEqual(r.max_variance_pct, 0);
+    assert.strictEqual(r.mean_variance_pct, 0);
+    assert.strictEqual(r.recipes_over_5pct, 0);
+    assert.strictEqual(r.summary.excluded_high_unmatched, 1);
+    assert.strictEqual(r.summary.healthy, 0);
+    db.close();
+  });
+
+  it('20% unmatched (below threshold): contributes with unmatched_lines>0', () => {
+    const db = freshDb();
+    // 5 lines; 4 matched, 1 unmatched → 20% ≤ 30% → contributes.
+    seedRecipeWithCoverage(db, {
+      lines: [
+        { ingredient: 'a', hasVendor: true, vendorPrice: 50, qty: 0.2 },
+        { ingredient: 'b', hasVendor: true, vendorPrice: 50, qty: 0.2 },
+        { ingredient: 'c', hasVendor: true, vendorPrice: 50, qty: 0.2 },
+        { ingredient: 'd', hasVendor: true, vendorPrice: 50, qty: 0.2 },
+        { ingredient: 'e', hasVendor: false,                  qty: 0.2 },
+      ],
+    });
+    const r = computeCostVariance(db, LOC);
+    assert.strictEqual(r.rows.length, 1);
+    const row = r.rows[0];
+    assert.strictEqual(row.excluded, false);
+    assert.strictEqual(row.exclusion_reason, null);
+    assert.strictEqual(row.total_lines, 5);
+    assert.strictEqual(row.unmatched_lines, 1);
+    // 4 lines × qty=0.2 × price=50/50 = 0.8; theoretical = 1.0 (recipeBatch=1 / yield=1).
+    // variance = |0.8 - 1.0| / 1.0 × 100 = 20% — but that's the math the UI shows;
+    // what we really want to pin here is "unmatched_lines > 0 AND row not excluded".
+    assert.ok(row.variance_pct != null, 'variance should still be computed');
+    assert.strictEqual(r.summary.excluded_high_unmatched, 0);
+    db.close();
+  });
+
+  it('default threshold can be overridden via opts.unmatchedThreshold', () => {
+    const db = freshDb();
+    // 20% unmatched — at default (30%) would contribute; at 0.10 threshold
+    // flips to excluded.
+    seedRecipeWithCoverage(db, {
+      lines: [
+        { ingredient: 'a', hasVendor: true, vendorPrice: 50, qty: 0.2 },
+        { ingredient: 'b', hasVendor: true, vendorPrice: 50, qty: 0.2 },
+        { ingredient: 'c', hasVendor: true, vendorPrice: 50, qty: 0.2 },
+        { ingredient: 'd', hasVendor: true, vendorPrice: 50, qty: 0.2 },
+        { ingredient: 'e', hasVendor: false,                  qty: 0.2 },
+      ],
+    });
+    const rDefault = computeCostVariance(db, LOC);
+    assert.strictEqual(rDefault.rows[0].excluded, false,
+      'sanity check: at default 30% threshold this recipe is not excluded');
+
+    const rStrict = computeCostVariance(db, LOC, { unmatchedThreshold: 0.10 });
+    assert.strictEqual(rStrict.rows[0].excluded, true);
+    assert.strictEqual(rStrict.rows[0].exclusion_reason, 'high_unmatched_ratio');
+    assert.strictEqual(rStrict.summary.excluded_high_unmatched, 1);
+    db.close();
+  });
+
+  it('DEFAULT_UNMATCHED_THRESHOLD is exported and is 0.30', () => {
+    assert.strictEqual(DEFAULT_UNMATCHED_THRESHOLD, 0.30);
+  });
+
+  it('pre-D6 fallback is gone: recipe with NO vendor matches is excluded, not healthy', () => {
+    const db = freshDb();
+    // This is the exact case D6 called out: BOM row has pack_price/pack_size,
+    // zero vendor_prices match. Pre-D6 this would produce variance=0
+    // byte-exact (silent fallback). Post-D6 it's entirely unmatched → excluded.
+    seedRecipeWithCoverage(db, {
+      lines: [
+        { ingredient: 'a', hasVendor: false, qty: 0.5 },
+        { ingredient: 'b', hasVendor: false, qty: 0.5 },
+      ],
+    });
+    const r = computeCostVariance(db, LOC);
+    assert.strictEqual(r.rows.length, 1);
+    assert.strictEqual(r.rows[0].excluded, true);
+    assert.strictEqual(r.rows[0].exclusion_reason, 'high_unmatched_ratio');
+    assert.strictEqual(r.rows[0].unmatched_lines, 2);
+    assert.strictEqual(r.rows[0].total_lines, 2);
+    assert.strictEqual(r.max_variance_pct, 0,
+      'no recipe contributes to aggregate → max is 0, not fabricated');
+    assert.strictEqual(r.summary.excluded_high_unmatched, 1);
+    db.close();
+  });
+
+  it('mixed recipes: included and excluded coexist, summary reflects both', () => {
+    const db = freshDb();
+    // Recipe 1: all matched → healthy (variance 0).
+    seedRecipeWithCoverage(db, {
+      recipeId: 'healthy',
+      lines: [{ ingredient: 'h_a', hasVendor: true, vendorPrice: 50, qty: 1 }],
+    });
+    // Recipe 2: all unmatched → excluded.
+    seedRecipeWithCoverage(db, {
+      recipeId: 'excluded',
+      lines: [{ ingredient: 'e_a', hasVendor: false, qty: 1 }],
+    });
+    const r = computeCostVariance(db, LOC);
+    assert.strictEqual(r.rows.length, 2);
+    // Excluded row sorts to the end.
+    assert.strictEqual(r.rows[0].recipe_id, 'healthy');
+    assert.strictEqual(r.rows[0].excluded, false);
+    assert.strictEqual(r.rows[1].recipe_id, 'excluded');
+    assert.strictEqual(r.rows[1].excluded, true);
+    assert.strictEqual(r.summary.healthy, 1);
+    assert.strictEqual(r.summary.excluded_high_unmatched, 1);
+    db.close();
+  });
+});
+
+// ── T6 / B2 queue extension — PACK_CHANGED surfaces; unacked count ─
+describe('T9 / B2 — T6 extension: PACK_CHANGED + pack_size_changes summary', () => {
+  it('vendor_prices.map_status=PACK_CHANGED shows as kind=vendor_pack_change', () => {
+    const db = freshDb();
+    // Seed one clean bom_line + one PACK_CHANGED vendor_prices row. The
+    // bom_line is 'mapped' with full coverage so it does NOT land in the
+    // bom-side unmapped queue; only the vendor row should surface.
+    db.prepare(
+      `INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, pack_price, pack_size, yield_pct, loss_factor, map_status, location_id)
+       VALUES ('r1', 'clean', 1, 'lb', 10, 1, 1.0, 0, 'mapped', ?)`,
+    ).run(LOC);
+    db.prepare(
+      `INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, map_status, location_id)
+       VALUES ('tomato sauce', 'sysco', 'SYSCO-12345', 4, '#10', 36.0, 9.0, 'PACK_CHANGED', ?)`,
+    ).run(LOC);
+    const r = computeUnmapped(db, LOC);
+    assert.strictEqual(r.total_items, 1, 'total_items counts bom_lines only');
+    assert.strictEqual(r.unmapped_count, 1,
+      'single unmapped entry = the vendor_pack_change row');
+    assert.strictEqual(r.rows.length, 1);
+    const row = r.rows[0];
+    assert.strictEqual(row.kind, 'vendor_pack_change');
+    assert.strictEqual(row.reason, 'pack_changed');
+    assert.strictEqual(row.vendor, 'sysco');
+    assert.strictEqual(row.sku, 'SYSCO-12345');
+    assert.strictEqual(row.ingredient, 'tomato sauce');
+    assert.strictEqual(row.recipe_id, null);
+    db.close();
+  });
+
+  it('bom_line unmapped rows carry kind=bom_line for back-compat', () => {
+    const db = freshDb();
+    db.prepare(
+      `INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, pack_price, pack_size, yield_pct, loss_factor, map_status, location_id)
+       VALUES ('r1', 'pending', 1, 'lb', 10, 1, 1.0, 0, NULL, ?)`,
+    ).run(LOC);
+    const r = computeUnmapped(db, LOC);
+    assert.strictEqual(r.rows.length, 1);
+    assert.strictEqual(r.rows[0].kind, 'bom_line');
+    assert.strictEqual(r.rows[0].reason, 'unmapped_status');
+    db.close();
+  });
+
+  it('pack_size_changes_unacknowledged count is surfaced in summary', () => {
+    const db = freshDb();
+    // Three change rows: two unacked, one acknowledged. Summary reports 2.
+    db.prepare(
+      `INSERT INTO pack_size_changes (vendor, sku, prev_pack, new_pack, prev_price, new_price, acknowledged)
+       VALUES ('sysco','S1','6x#10','4x#10',42,36,0),
+              ('sysco','S2','12xea','24xea',50,55,0),
+              ('shamrock','S3','10xlb','5xlb',30,20,1)`,
+    ).run();
+    const r = computeUnmapped(db, LOC);
+    assert.strictEqual(r.pack_size_changes_unacknowledged, 2);
+    db.close();
+  });
+
+  it('missing pack_size_changes / PACK_CHANGED rows → count=0, no crash', () => {
+    const db = freshDb();
+    const r = computeUnmapped(db, LOC);
+    assert.strictEqual(r.pack_size_changes_unacknowledged, 0);
+    assert.strictEqual(r.unmapped_count, 0);
+    assert.deepStrictEqual(r.rows, []);
+    db.close();
+  });
+
+  it('bom_line unmapped AND vendor pack_change coexist — no double-count on same ingredient', () => {
+    const db = freshDb();
+    // Both a bom_line (via NULL map_status) and a vendor pack-change on
+    // the same ingredient name. The keys are independent tables — one
+    // row each should surface with different kinds, no key collision.
+    db.prepare(
+      `INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, pack_price, pack_size, yield_pct, loss_factor, map_status, location_id)
+       VALUES ('r1', 'tomato sauce', 1, 'cs', 40, 1, 1.0, 0, NULL, ?)`,
+    ).run(LOC);
+    db.prepare(
+      `INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, map_status, location_id)
+       VALUES ('tomato sauce', 'sysco', 'SYSCO-42', 4, '#10', 36.0, 9.0, 'PACK_CHANGED', ?)`,
+    ).run(LOC);
+    const r = computeUnmapped(db, LOC);
+    assert.strictEqual(r.total_items, 1, 'total_items = bom_lines only');
+    assert.strictEqual(r.unmapped_count, 2, 'bom row + vendor row both surface');
+    const kinds = r.rows.map((x) => x.kind).sort();
+    assert.deepStrictEqual(kinds, ['bom_line', 'vendor_pack_change']);
+    db.close();
+  });
+
+  it('end-to-end via ingestCosting: PACK_CHANGED surfaces through computeUnmapped', () => {
+    // Integration: drive the real T6 code path (ingest run 2 after a
+    // baseline run 1), then call computeUnmapped. Confirms the queue
+    // extension sees live flag, not just hand-written fixture rows.
+    const db = freshDb();
+    const payload = (vpRows) => ({
+      vendor_prices: vpRows, recipe_costs: [], bom_lines: [],
+      ingredient_maps: [], order_guide: [],
+    });
+    ingestCosting(db, payload([
+      { ingredient: 'Tomato Sauce', vendor: 'sysco', sku: 'SYSCO-42',
+        pack_size: 6, pack_unit: '#10', pack_price: 42.0, unit_price: 7.0 },
+    ]), LOC);
+    ingestCosting(db, payload([
+      { ingredient: 'Tomato Sauce', vendor: 'sysco', sku: 'SYSCO-42',
+        pack_size: 4, pack_unit: '#10', pack_price: 36.0, unit_price: 9.0 },
+    ]), LOC);
+    const r = computeUnmapped(db, LOC);
+    const packChanged = r.rows.filter((row) => row.kind === 'vendor_pack_change');
+    assert.strictEqual(packChanged.length, 1);
+    assert.strictEqual(packChanged[0].sku, 'SYSCO-42');
+    assert.strictEqual(r.pack_size_changes_unacknowledged, 1,
+      'ingest persisted a pack_size_changes row with acknowledged=0');
     db.close();
   });
 });

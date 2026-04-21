@@ -74,6 +74,16 @@ export default function CostingPage() {
           <div style={{ fontSize: 12, marginTop: 6 }}>
             mean {variance.mean_variance_pct.toFixed(2)}% &middot; {variance.recipes_over_5pct} recipes &gt; 5%
           </div>
+          {/* D6: excluded-recipe counter. A recipe whose unmatched-lines ratio
+              exceeds UNMATCHED_THRESHOLD (default 30%) is pulled from the
+              variance aggregate. Surface the count so operators know the
+              tile's numerator has a caveat — variance tile only meaningful
+              when this counter is 0. */}
+          {variance.summary?.excluded_high_unmatched > 0 ? (
+            <div style={{ fontSize: 11, marginTop: 4, color: 'var(--yellow)' }}>
+              {variance.summary.excluded_high_unmatched} recipe(s) excluded: high unmatched-lines ratio
+            </div>
+          ) : null}
         </div>
 
         <div className="card" style={{ borderColor: unmappedColor(unmapped.unmapped_pct) }}>
@@ -84,6 +94,14 @@ export default function CostingPage() {
           <div style={{ fontSize: 12, marginTop: 6 }}>
             {unmapped.unmapped_count} of {unmapped.total_items} lines
           </div>
+          {/* T6 B2 queue extension: surface the durable "still unacknowledged
+              pack-size swap" count alongside the bom-line tile. Source is
+              pack_size_changes.acknowledged=0 (never cleared by re-ingest). */}
+          {unmapped.pack_size_changes_unacknowledged > 0 ? (
+            <div style={{ fontSize: 11, marginTop: 4, color: 'var(--yellow)' }}>
+              {unmapped.pack_size_changes_unacknowledged} unack'd pack-size swap(s)
+            </div>
+          ) : null}
         </div>
 
         <div className="card" style={{ borderColor: ingestColor(ingest.age_minutes, ingest.last_status) }}>
@@ -112,13 +130,34 @@ export default function CostingPage() {
                 <tr>
                   <th>Recipe</th>
                   <th>Variance</th>
+                  <th title="Unmatched BOM lines / total lines; D6 pip when > 0">Unmatched</th>
                 </tr>
               </thead>
               <tbody>
                 {topVariance.map((r) => (
                   <tr key={r.recipe_id}>
-                    <td>{r.recipe_name ?? r.recipe_id}</td>
-                    <td>{r.variance_pct.toFixed(2)}%</td>
+                    <td>
+                      {r.recipe_name ?? r.recipe_id}
+                      {r.excluded ? (
+                        <span style={{ fontSize: 10, marginLeft: 6, color: 'var(--yellow)' }}>
+                          (excluded: {r.exclusion_reason})
+                        </span>
+                      ) : null}
+                    </td>
+                    <td>{r.variance_pct != null ? `${r.variance_pct.toFixed(2)}%` : '—'}</td>
+                    <td>
+                      {r.total_lines != null
+                        ? (
+                          <span
+                            style={{
+                              color: r.unmatched_lines > 0 ? 'var(--yellow)' : 'inherit',
+                            }}
+                          >
+                            {r.unmatched_lines}/{r.total_lines}
+                          </span>
+                        )
+                        : '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -126,7 +165,7 @@ export default function CostingPage() {
           )}
         </div>
 
-        {/* B2 detail */}
+        {/* B2 detail — bom_lines + vendor_pack_change unioned; see computeUnmapped. */}
         <div className="card" style={{ overflowX: 'auto' }}>
           <h2>First 10 unmapped</h2>
           {firstUnmapped.length === 0 ? (
@@ -135,15 +174,21 @@ export default function CostingPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Recipe</th>
+                  <th>Kind</th>
+                  <th>Recipe / SKU</th>
                   <th>Ingredient</th>
                   <th>Reason</th>
                 </tr>
               </thead>
               <tbody>
                 {firstUnmapped.map((r, i) => (
-                  <tr key={`${r.recipe_id}-${i}`}>
-                    <td>{r.recipe_name ?? r.recipe_id}</td>
+                  <tr key={`${r.kind ?? 'bom'}-${r.recipe_id ?? r.sku ?? ''}-${i}`}>
+                    <td>{r.kind ?? 'bom_line'}</td>
+                    <td>
+                      {r.kind === 'vendor_pack_change'
+                        ? `${r.vendor ?? ''} ${r.sku ?? ''}`.trim()
+                        : (r.recipe_name ?? r.recipe_id)}
+                    </td>
                     <td>{r.ingredient}</td>
                     <td>{r.reason}</td>
                   </tr>
