@@ -20,7 +20,15 @@ export async function GET(req) {
     const db = getDb();
     const events = db.prepare(`SELECT * FROM beo_events WHERE location_id = ? ORDER BY event_date DESC, id DESC`).all(loc);
     const tasks = db.prepare(`SELECT * FROM beo_prep_tasks WHERE location_id = ? ORDER BY event_id, sort_order, id`).all(loc);
-    return Response.json({ location_id: loc, events, prep_tasks: tasks });
+    const eventIds = events.map((e) => e.id);
+    const lineItems = eventIds.length === 0
+      ? []
+      : db.prepare(
+          `SELECT * FROM beo_line_items
+            WHERE event_id IN (${eventIds.map(() => '?').join(',')})
+            ORDER BY event_id, sort_order, id`,
+        ).all(...eventIds);
+    return Response.json({ location_id: loc, events, prep_tasks: tasks, line_items: lineItems });
   } catch (err) {
     console.error('GET /api/beo failed:', err);
     return Response.json({ error: 'Failed to load BEO' }, { status: 500 });
@@ -39,17 +47,108 @@ export async function POST(req) {
       const gc = body.guest_count == null ? null : Number(body.guest_count);
       const info = db
         .prepare(
-          `INSERT INTO beo_events (title, event_date, guest_count, notes, status, location_id) VALUES (?,?,?,?,?,?)`
+          `INSERT INTO beo_events
+             (title, event_date, event_time, contact_name, guest_count,
+              notes, status, tax_rate, service_fee_pct, location_id)
+           VALUES (?,?,?,?,?,?,?,?,?,?)`
         )
         .run(
           title,
           clip(body.event_date, 32) || todayISO(),
+          clip(body.event_time, 32),
+          clip(body.contact_name, 120),
           Number.isFinite(gc) ? gc : null,
           clip(body.notes, MAX_NOTES),
           clip(body.status, 32) || 'planned',
+          Number.isFinite(Number(body.tax_rate)) ? Number(body.tax_rate) : 0.0675,
+          Number.isFinite(Number(body.service_fee_pct)) ? Number(body.service_fee_pct) : 20,
           loc,
         );
       return Response.json({ ok: true, id: info.lastInsertRowid });
+    }
+
+    if (body.action === 'update_event') {
+      const id = Number(body.id);
+      if (!Number.isInteger(id)) return Response.json({ error: 'id required' }, { status: 400 });
+      const title = clip(body.title, MAX_TITLE);
+      const gc = body.guest_count == null || body.guest_count === ''
+        ? null
+        : Number(body.guest_count);
+      db.prepare(
+        `UPDATE beo_events SET
+           title = COALESCE(?, title),
+           event_date = ?,
+           event_time = ?,
+           contact_name = ?,
+           guest_count = ?,
+           notes = ?,
+           status = COALESCE(?, status),
+           tax_rate = ?,
+           service_fee_pct = ?
+         WHERE id = ? AND location_id = ?`,
+      ).run(
+        title,
+        clip(body.event_date, 32),
+        clip(body.event_time, 32),
+        clip(body.contact_name, 120),
+        Number.isFinite(gc) ? gc : null,
+        clip(body.notes, MAX_NOTES),
+        clip(body.status, 32),
+        Number.isFinite(Number(body.tax_rate)) ? Number(body.tax_rate) : 0.0675,
+        Number.isFinite(Number(body.service_fee_pct)) ? Number(body.service_fee_pct) : 20,
+        id,
+        loc,
+      );
+      return Response.json({ ok: true });
+    }
+
+    if (body.action === 'line') {
+      const event_id = Number(body.event_id);
+      const item_name = clip(body.item_name, MAX_TITLE);
+      if (!Number.isInteger(event_id) || !item_name) {
+        return Response.json({ error: 'event_id and item_name required' }, { status: 400 });
+      }
+      const cost = Number.isFinite(Number(body.unit_cost)) ? Number(body.unit_cost) : 0;
+      const qty = Number.isFinite(Number(body.quantity)) ? Number(body.quantity) : 1;
+      const info = db
+        .prepare(
+          `INSERT INTO beo_line_items
+             (event_id, sort_order, item_name, category, unit_cost, quantity)
+           VALUES (?,?,?,?,?,?)`,
+        )
+        .run(
+          event_id,
+          Number(body.sort_order) || 0,
+          item_name,
+          clip(body.category, 64),
+          cost,
+          qty,
+        );
+      return Response.json({ ok: true, id: info.lastInsertRowid });
+    }
+
+    if (body.action === 'update_line') {
+      const id = Number(body.id);
+      if (!Number.isInteger(id)) return Response.json({ error: 'id required' }, { status: 400 });
+      const item_name = clip(body.item_name, MAX_TITLE);
+      const cost = Number.isFinite(Number(body.unit_cost)) ? Number(body.unit_cost) : null;
+      const qty = Number.isFinite(Number(body.quantity)) ? Number(body.quantity) : null;
+      db.prepare(
+        `UPDATE beo_line_items SET
+           item_name = COALESCE(?, item_name),
+           unit_cost = COALESCE(?, unit_cost),
+           quantity  = COALESCE(?, quantity),
+           category  = COALESCE(?, category)
+         WHERE id = ?`,
+      ).run(item_name, cost, qty, clip(body.category, 64), id);
+      return Response.json({ ok: true });
+    }
+
+    if (body.action === 'delete_line') {
+      const id = Number(body.id);
+      if (!Number.isInteger(id)) return Response.json({ error: 'id required' }, { status: 400 });
+      db.prepare(`DELETE FROM beo_line_items WHERE id = ?`).run(id);
+      return Response.json({ ok: true });
     }
 
     if (body.action === 'prep') {
