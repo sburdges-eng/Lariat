@@ -118,6 +118,10 @@ function summarize(loc, today) {
     { ok: 0, dueSoon: 0, overdue: 0, failed: 0, unknown: 0 },
   );
 
+  const cleaningRows = db.prepare(`SELECT * FROM cleaning_log WHERE location_id=? AND shift_date=?`).all(loc, today);
+  const pestRows = db.prepare(`SELECT * FROM pest_control_log WHERE location_id=? ORDER BY created_at DESC LIMIT 30`).all(loc);
+  const sdsRows = db.prepare(`SELECT * FROM sds_registry WHERE location_id=? AND active=1`).all(loc);
+
   return {
     cooling: {
       open: openCooling.length,
@@ -158,6 +162,15 @@ function summarize(loc, today) {
       overdue: calibrationStats.overdue,
       failed: calibrationStats.failed,
       unknown: calibrationStats.unknown,
+    },
+    cleaning: {
+      loggedToday: cleaningRows.length,
+    },
+    pest: {
+      recent: pestRows.length,
+    },
+    sds: {
+      active: sdsRows.length,
     },
   };
 }
@@ -308,6 +321,33 @@ export default function FoodSafetyHub({ searchParams }) {
               label: 'overdue / failed',
               tone: s.calibrations.overdue + s.calibrations.failed ? 'red' : null,
             },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/cleaning${locQ}`}
+          title="Cleaning Log"
+          sub="HACCP Non-Temp Surface: Daily, Weekly, Monthly Routines"
+          status={{ red: false, amber: s.cleaning.loggedToday === 0 }}
+          lines={[
+            { n: s.cleaning.loggedToday, label: 'areas logged today' },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/pest${locQ}`}
+          title="Pest Control"
+          sub="FDA §6-501.111 — vendor visits & internal sightings"
+          status={{ red: false, amber: false }}
+          lines={[
+            { n: s.pest.recent, label: 'recent records' },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/sds${locQ}`}
+          title="SDS Registry"
+          sub="OSHA HazCom — Safety Data Sheets (FDA §7.1)"
+          status={{ red: false, amber: s.sds.active === 0 }}
+          lines={[
+            { n: s.sds.active, label: 'active records' },
           ]}
         />
       </div>

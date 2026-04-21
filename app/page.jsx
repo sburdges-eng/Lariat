@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { getStations, getLineCheckTemplate, getRecipes } from '../lib/data';
-import { getDb, todayISO } from '../lib/db';
+import { getDb, todayISO, getPreshiftNote, todayServiceLabel } from '../lib/db';
 import { DEFAULT_LOCATION_ID } from '../lib/location';
 import { cascadedFromEightySix } from '../lib/subRecipeGraph';
+import PreshiftNotes from './_components/PreshiftNotes';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,11 +41,25 @@ function rushColor(p) {
 
 function rushLabel(p) {
   if (!p) return 'No line check';
-  if (p.signedOff) return 'Signed off ✓';
+  if (p.signedOff) return 'Signed off';
   if (p.flagged > 0) return `${p.flagged} flagged`;
-  if (p.done >= p.total) return 'Done — sign off';
+  if (p.done >= p.total) return 'Ready — sign off';
   if (p.done > 0) return `${p.done} of ${p.total}`;
   return 'Not checked';
+}
+
+/* ── Editorial kicker logic: a hand-picked phrase for each service phase ── */
+function kickerFor(hours) {
+  if (hours < 10) return 'Sharpen knives. Proof the sauté. Today starts now.';
+  if (hours < 11) return 'Mise en place. The door opens soon.';
+  if (hours < 14) return 'Service is on. Heads up, eyes open.';
+  if (hours < 17) return 'Between rushes — tighten the line.';
+  if (hours < 22) return 'In it. Call the window. Keep it clean.';
+  return 'Wind it down. Log the losses. Sign it off.';
+}
+
+function dayName() {
+  return new Date().toLocaleDateString(undefined, { weekday: 'long' });
 }
 
 export default function TodayPage({ searchParams }) {
@@ -79,8 +94,68 @@ export default function TodayPage({ searchParams }) {
     )
     .all(date, loc);
 
+  // Editorial stats
+  const total = stationsWithProgress.filter((s) => s.prog).length;
+  const ready = stationsWithProgress.filter(
+    (s) => s.prog && (s.prog.signedOff || s.prog.done >= s.prog.total)
+  ).length;
+  const flagged = stationsWithProgress.reduce(
+    (n, s) => n + (s.prog?.flagged || 0),
+    0
+  );
+
+  const day = dayName();
+  const hours = new Date().getHours() + new Date().getMinutes() / 60;
+  const kicker = kickerFor(hours);
+
+  const serviceLabel = todayServiceLabel(loc);
+  const preshift = getPreshiftNote(loc, date, serviceLabel);
+
   return (
     <div className="rush-home">
+      <div className="editorial-hero">
+        <div>
+          <div className="date-bar">
+            <span className="dot" />
+            <span>
+              {new Date().toLocaleDateString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            </span>
+            <span style={{ opacity: 0.5 }}>·</span>
+            <span>{locQ ? loc : 'the lariat'}</span>
+          </div>
+          <h1>
+            {day}. <em>We&rsquo;re in it.</em>
+          </h1>
+          <div className="kicker">{kicker}</div>
+        </div>
+
+        <div className="stat-stack">
+          <div className="stat">
+            <div className="n">{ready}</div>
+            <div className="l">Ready</div>
+          </div>
+          <div className={`stat ${flagged > 0 ? 'hot' : ''}`}>
+            <div className="n">{flagged}</div>
+            <div className="l">Flagged</div>
+          </div>
+          <div className="stat">
+            <div className="n">{out.length}</div>
+            <div className="l">86’d</div>
+          </div>
+        </div>
+      </div>
+
+      <PreshiftNotes
+        initialNote={preshift}
+        shiftDate={date}
+        serviceLabel={serviceLabel}
+        locationId={loc}
+      />
+
       {out.length > 0 && (
         <Link href={`/eighty-six${locQ}`} className="rush-86">
           <div className="rush-86-label">86&apos;d right now</div>
@@ -94,7 +169,7 @@ export default function TodayPage({ searchParams }) {
 
       {maybeOut.length > 0 && (
         <Link href={`/eighty-six${locQ}`} className="rush-86-maybe">
-          <div className="rush-86-maybe-label">Might also be out — check</div>
+          <div className="rush-86-maybe-label">Might also be out</div>
           <div className="rush-86-items">
             {maybeOut.map((c) => (
               <span key={c.slug} className="rush-86-chip-maybe" title={`uses ${c.via}`}>
@@ -105,15 +180,22 @@ export default function TodayPage({ searchParams }) {
         </Link>
       )}
 
+      <div className="section-head">
+        <h2>The line, <em>right now</em></h2>
+        <span className="eyebrow">{total} stations · press 1–6 to jump</span>
+      </div>
+
       <div className="rush-grid">
-        {stationsWithProgress.map(s => {
+        {stationsWithProgress.map((s) => {
           const color = rushColor(s.prog);
           const label = rushLabel(s.prog);
           return (
             <Link key={s.id} href={`/stations/${s.id}${locQ}`} className="rush-tile">
               <div className="rush-dot" style={{ background: color }} />
               <div className="rush-tile-name">{s.name}</div>
-              <div className="rush-tile-status" style={{ color }}>{label}</div>
+              <div className="rush-tile-status" style={{ color }}>
+                {label}
+              </div>
             </Link>
           );
         })}
@@ -129,6 +211,9 @@ export default function TodayPage({ searchParams }) {
         <Link href={`/recipes${locQ}`} className="rush-action rush-action-muted">
           Recipes
         </Link>
+        <Link href={`/food-safety${locQ}`} className="rush-action rush-action-muted">
+          Food safety
+        </Link>
       </div>
 
       {moved.length > 0 && (
@@ -137,7 +222,10 @@ export default function TodayPage({ searchParams }) {
           {moved.map((r, i) => (
             <div key={i} className="rush-recent-row">
               <span className="rush-recent-item">{r.item}</span>
-              <span className="rush-recent-meta">{r.direction}{r.delta ? ` ${r.delta}` : ''}</span>
+              <span className="rush-recent-meta">
+                {r.direction}
+                {r.delta ? ` ${r.delta}` : ''}
+              </span>
             </div>
           ))}
         </div>
