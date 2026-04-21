@@ -414,11 +414,13 @@ All three green → engine is deploy-ready. Any red → fix the root cause, not 
 
 These are tracked follow-ups from code-quality reviews. Non-blocking; address when touching the affected subsystem.
 
-### D1 — Coverage test can silently self-delete
+### D1 — Coverage test can silently self-delete — DONE
 
-`tests/python/test_seed_coverage.py` is a no-op test by design (informational reporter, no assertions). If the hard-coded live-DB path moves or the live DB is unavailable, the test silently skips with a message that default `pytest` output hides. A future misconfig that leaves the test skipping forever would look identical to "passing" in CI.
+**Resolved by this bundle (debt-bundle-b).** `tests/python/test_seed_coverage.py` now `self.assertGreater(n_bom, 0, "bom_lines empty — live DB not populated?")` as a baseline assertion ahead of the 100% coverage check. Verified empirically: pointing the test at a DB with an empty `bom_lines` table fails with `AssertionError: 0 not greater than 0`. Skips on DB-not-on-disk remain (those are genuinely unavailable — a worktree on a fresh clone shouldn't fail CI). Kept the full text below so the reviewer trail stays intact.
 
-**Fix when touched:** either (a) add `self.assertGreater(n_bom, 0)` as a baseline assertion so an empty-DB state fails instead of passes, or (b) rename the file to `coverage_report.py` and invoke it as a standalone tool rather than a pytest test.
+> `tests/python/test_seed_coverage.py` is a no-op test by design (informational reporter, no assertions). If the hard-coded live-DB path moves or the live DB is unavailable, the test silently skips with a message that default `pytest` output hides. A future misconfig that leaves the test skipping forever would look identical to "passing" in CI.
+>
+> **Fix when touched:** either (a) add `self.assertGreater(n_bom, 0)` as a baseline assertion so an empty-DB state fails instead of passes, or (b) rename the file to `coverage_report.py` and invoke it as a standalone tool rather than a pytest test.
 
 ### D2 — Seed script duplication
 
@@ -430,17 +432,21 @@ These are tracked follow-ups from code-quality reviews. Non-blocking; address wh
 
 **Resolved by commit `7df45b3` ("refactor(costing): named-parameter INSERTs in ingest-costing", 2026-04-20).** Both `vendor_prices` and `bom_lines` INSERTs in `scripts/ingest-costing.mjs` now use `@name` bindings, so a schema/column mismatch raises at `prepare()`-time instead of silently NULL-ing a new column. T5 catch-weight columns cannot land half-wired. Kept here as a marker so the historical reviewer trail stays intact.
 
-### D4 — Excel batch_cost vs raw-sum drift (flagged by T3 review)
+### D4 — Excel batch_cost vs raw-sum drift — DONE (observability)
 
-T3 adds yield-delta on top of Excel's `recipe_costs.batch_cost`, assuming `excel_batch_cost === Σ (bom_qty × pack_price / pack_size)` across BOM lines. Current workbook holds this. If Excel ever introduces per-line rounding, case-minimum bucketing, sub-recipe caching, or other non-trivial adjustments, T3's delta still adjusts correctly FOR the yield portion but the resulting batch_cost becomes "Excel + our delta" rather than "absolute true cost".
+**Resolved by this bundle (debt-bundle-b).** `runCostingPostPass` in `scripts/ingest-costing.mjs` now snapshots `recipe_costs.batch_cost` BEFORE the T3/T4 UPDATEs, computes `Σ (qty × pack_price / pack_size)` per recipe using the existing T3 guards (null/zero/infinite rows excluded), and emits `console.info("ℹ D4 Excel drift: recipe_id=… excel_value=$… computed_sum=$… drift_usd=$…")` for every recipe whose `|excel − computed| > $0.10`. The count surfaces on the ingest summary as `excel_drift_warnings`. Observability only — no behavior change to the batch_cost math. A hard CHECK at ≥ $1.00 drift is still deferred until production data confirms the invariant is noise-free. Kept the full text below so the reviewer trail stays intact.
 
-**Fix when workbook scales up:** at T3-pass time, compute `Σ (qty × pack_price / pack_size)` per recipe and compare against `recipe_costs.batch_cost`. Log an INFO line when drift exceeds $0.10. Observability only — no behavior change, catches the scenario early. Consider a hard CHECK (≥ $1.00 drift) once observability confirms the invariant in production.
+> T3 adds yield-delta on top of Excel's `recipe_costs.batch_cost`, assuming `excel_batch_cost === Σ (bom_qty × pack_price / pack_size)` across BOM lines. Current workbook holds this. If Excel ever introduces per-line rounding, case-minimum bucketing, sub-recipe caching, or other non-trivial adjustments, T3's delta still adjusts correctly FOR the yield portion but the resulting batch_cost becomes "Excel + our delta" rather than "absolute true cost".
+>
+> **Fix when workbook scales up:** at T3-pass time, compute `Σ (qty × pack_price / pack_size)` per recipe and compare against `recipe_costs.batch_cost`. Log an INFO line when drift exceeds $0.10. Observability only — no behavior change, catches the scenario early. Consider a hard CHECK (≥ $1.00 drift) once observability confirms the invariant in production.
 
-### D5 — Missing null-guard matrix coverage in T3 yield-math tests (flagged by T3 review)
+### D5 — Missing null-guard matrix coverage in T3 yield-math tests — DONE
 
-`tests/js/test-ingest-costing-yield-math.mjs` tests 2 of the 5 zero/NULL guards: zero `pack_size` and NULL `pack_price`. Missing: zero `bom_qty`, NULL `bom_qty`, NULL `pack_size`. Code guards all 5 uniformly at `scripts/ingest-costing.mjs:213-220` so these are coverage gaps, not functionality gaps.
+**Resolved by this bundle (debt-bundle-b).** `tests/js/test-ingest-costing-yield-math.mjs` now carries a parameterized "T3 / D5 — null-guard matrix" suite iterating over all 6 cells (`qty`, `pack_price`, `pack_size` × `{NULL, 0}`), plus a seventh `Infinity pack_price` regression case pinning the `Number.isFinite` leg of the guard. Each case seeds one bad BOM line and asserts (a) batch_cost unchanged from the Excel seed, (b) `recipes_yield_adjusted === 0`, and (c) exactly one guardSkipped summary warning fires (captured via console.warn shim). The pre-existing collapsed "NULL yield_pct + NULL loss_factor" test stays (valid case) and two new isolated tests split off for "NULL yield_pct + non-null loss_factor=0" and "non-null yield_pct=1.0 + NULL loss_factor" so a broken single-field default can't hide behind a compensating pass. Test count went from 14 → 27 in this file. Kept the full text below so the reviewer trail stays intact.
 
-**Fix when touched:** parameterize the null-guard matrix — one parameterized test × 6 cases (3 columns × {NULL, 0}) closes the gap cheaply. Also split the current collapsed "NULL yield_pct + NULL loss_factor" test (line 87) into two cases so a broken single-field default can't hide behind a compensating pass.
+> `tests/js/test-ingest-costing-yield-math.mjs` tests 2 of the 5 zero/NULL guards: zero `pack_size` and NULL `pack_price`. Missing: zero `bom_qty`, NULL `bom_qty`, NULL `pack_size`. Code guards all 5 uniformly at `scripts/ingest-costing.mjs:213-220` so these are coverage gaps, not functionality gaps.
+>
+> **Fix when touched:** parameterize the null-guard matrix — one parameterized test × 6 cases (3 columns × {NULL, 0}) closes the gap cheaply. Also split the current collapsed "NULL yield_pct + NULL loss_factor" test (line 87) into two cases so a broken single-field default can't hide behind a compensating pass.
 
 ### D6 — B1 variance fallback silently masks unmapped rows (flagged by T9 review)
 
