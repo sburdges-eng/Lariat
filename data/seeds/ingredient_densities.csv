@@ -62,3 +62,58 @@ dijon mustard,1.04,seed,approx; verify in-house
 yellow mustard,1.05,seed,approx; verify in-house
 prepared horseradish,1.00,seed,approx; verify in-house
 lariat rub,0.55,seed,house spice blend; approx; treat as dry mix
+sugar,0.85,seed,granulated cane default; alias of granulated sugar
+white sugar,0.85,seed,granulated cane default; alias of granulated sugar
+brown sugar,0.93,seed,packed; approx; light brown typical
+turbinado sugar,0.90,seed,coarse raw sugar; bulk density; approx
+milk,1.03,seed,whole milk default; alias of milk 2% density class
+vinegar,1.01,seed,distilled white default; alias of white vinegar
+oil,0.92,seed,canola default; alias of canola oil
+clarified butter,0.91,seed,melted state; alias of melted butter
+mustard,1.05,seed,yellow default; alias of yellow mustard
+spicy brown mustard,1.05,seed,approx; same class as yellow mustard
+ketchup,1.10,seed,approx; standard commercial tomato ketchup
+tabasco,1.05,seed,thin hot sauce; approx; verify in-house
+sriracha,1.20,seed,thick chili-garlic sauce; approx; verify in-house
+sour cream,1.00,seed,approx; dairy ref
+cream cheese,1.00,seed,softened/spreadable; approx
+adobo puree,1.05,seed,chipotle-in-adobo blended; approx; verify in-house
+chipotle puree,1.05,seed,blended pepper sauce; approx; verify in-house
+chipotle aioli,0.91,seed,mayo-base; inherits mayonnaise density class
+blackened salsa,1.00,seed,tomato-base sub-recipe; approx; verify in-house
+vanilla,0.88,seed,pure vanilla extract (ethanol-water); approx
+nutmeg,0.42,seed,ground; bulk density; approx; verify in-house
+dried oregano,0.14,seed,bulk density; approx; same class as dried thyme
+dry thyme,0.14,seed,alias of dried thyme bulk density
+ground cumin,0.48,seed,alias of cumin bulk density
+ground black pepper,0.52,seed,alias of black pepper bulk density
+cracked pepper,0.52,seed,coarse black pepper; approx; same class as ground
+smoked paprika,0.46,seed,alias of paprika bulk density
+granulated garlic,0.80,seed,dry granulated; bulk density; approx; verify in-house
+garlic,0.66,seed,peeled/minced default; alias of minced garlic density
+garlic cloves,0.56,seed,whole peeled cloves loose pack; approx; verify in-house
+furikake seasoning,0.35,seed,dry seaweed-sesame blend; approx; verify in-house
+coarse salt,0.54,seed,Maldon flakes; approx; verify in-house
+jalapeno,0.41,seed,fresh sliced; alias of sliced jalapenos density
+red onion,0.56,seed,diced; same class as diced onion
+diced red onion,0.56,seed,alias of diced onion density
+diced white onions,0.56,seed,alias of diced onion density
+scallion whites,0.50,seed,sliced white bulb; approx; verify in-house
+scallion greens,0.25,seed,loose chopped green tops; approx; verify in-house
+carrot,0.64,seed,diced or shredded; approx; verify in-house
+celery,0.42,seed,diced; approx; verify in-house
+green cabbage,0.35,seed,shredded coleslaw cut; approx; verify in-house
+parsley,0.14,seed,chopped fresh default; alias of chopped parsley
+tomatoes,0.98,seed,diced fresh; alias of chopped tomato density
+green chile,0.50,seed,diced Hatch chile; approx; verify in-house
+guajillo peppers,0.14,seed,dried whole pods; airy; approx; verify in-house
+sweet corn kernels,0.64,seed,thawed loose kernels; approx; verify in-house
+cheddar cheese,0.43,seed,shredded bulk density; approx; verify in-house
+shredded double gloucester or cheddar,0.43,seed,shredded cheese class; approx
+bleu cheese crumbles,0.45,seed,loose crumbles; approx; verify in-house
+cilantro,0.13,seed,fresh chopped default; alias of chopped cilantro
+arbol chiles,0.14,seed,dried whole pods; airy; approx
+cooked black beans,0.72,seed,cooked loose beans with pot liquor; approx
+diced bell pepper,0.53,seed,fresh diced; approx; verify in-house
+bread and butter pickle juice,1.03,seed,pickle brine (vinegar/sugar); approx
+mae ploy sweet chili sauce,1.10,seed,thick sweet chili sauce; approx

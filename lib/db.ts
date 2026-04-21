@@ -150,6 +150,16 @@ export interface IngredientYield {
   updated_at: string;
 }
 
+export interface IngestRun {
+  id: number;
+  kind: string;                   // 'costing' | 'analytics' | 'unified' | 'toast' | ...
+  started_at: string;             // ISO 8601, produced by datetime('now','subsec')
+  finished_at: string | null;     // NULL while running
+  rows_in: number | null;
+  rows_out: number | null;
+  status: string | null;          // 'ok' | 'partial' | 'failed' | 'running'
+}
+
 export interface SalesLine {
   id: number;
   period_label: string | null;
@@ -442,6 +452,22 @@ export function initSchema(db: DB): void {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
+    -- T4.1: per-(ingredient, count-unit) weight bridge. Answers "how many
+    -- grams is one ea / bunch / slice / sprig / clove / case of this
+    -- ingredient." Used by the T4 conversion post-pass in ingest-costing.mjs
+    -- to bridge count ↔ weight (and count → volume when paired with a
+    -- density). Source column tracks provenance the same way as
+    -- ingredient_densities; a row may be 'seed' (CSV), 'measured' (kitchen
+    -- scale), or 'vendor' (declared on a spec sheet).
+    CREATE TABLE IF NOT EXISTS ingredient_unit_weights (
+      ingredient_key TEXT NOT NULL,
+      unit           TEXT NOT NULL,        -- canonical count unit (post-normalize_unit)
+      g_per_unit     REAL NOT NULL,        -- grams per 1 of the count unit above
+      source         TEXT CHECK (source IS NULL OR source IN ('seed', 'measured', 'vendor')),
+      updated_at     TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (ingredient_key, unit)
+    );
+
     CREATE TABLE IF NOT EXISTS ingredient_yields (
       ingredient_key TEXT PRIMARY KEY,     -- same normalized form as ingredient_densities
       yield_pct      REAL NOT NULL,        -- fraction 0..1 (e.g. 0.85 for 85% trim yield)
@@ -450,6 +476,21 @@ export function initSchema(db: DB): void {
       notes          TEXT,                 -- provenance / edge-case detail
       updated_at     TEXT DEFAULT (datetime('now'))
     );
+
+    -- T9 / B3: per-invocation ingest instrumentation. One row per ingest run,
+    -- inserted at the start of the script with status='running' and finalized
+    -- at the end with 'ok' | 'partial' | 'failed'. Drives the ingest-age tile
+    -- on /costing and the "price update latency" benchmark in the gap doc.
+    CREATE TABLE IF NOT EXISTS ingest_runs (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind         TEXT NOT NULL,          -- 'costing' | 'analytics' | 'unified' | 'toast' | ...
+      started_at   TEXT NOT NULL,          -- ISO 8601 via datetime('now','subsec')
+      finished_at  TEXT,                   -- NULL while running
+      rows_in      INTEGER,
+      rows_out     INTEGER,
+      status       TEXT                    -- 'ok' | 'partial' | 'failed' | 'running'
+    );
+    CREATE INDEX IF NOT EXISTS idx_ingest_runs_kind_started ON ingest_runs(kind, started_at DESC);
 
     CREATE TABLE IF NOT EXISTS order_guide_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -655,6 +696,7 @@ function assertCriticalSchemas(db: DB): void {
       'ingredient_key', 'yield_pct', 'loss_factor', 'source', 'notes', 'updated_at',
     ],
     ingredient_densities: ['ingredient_key', 'g_per_ml', 'source', 'updated_at'],
+    ingredient_unit_weights: ['ingredient_key', 'unit', 'g_per_unit', 'source', 'updated_at'],
   };
   for (const [table, required] of Object.entries(requirements)) {
     const cols = (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[])
