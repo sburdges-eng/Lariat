@@ -156,9 +156,9 @@ class SeedSpec:
         default_db:         Default value for ``--db`` CLI arg.
         default_csv:        Default value for ``--csv`` CLI arg.
         extra_cli_args:     Optional callable that registers additional CLI
-                            args (e.g. ``--vendor``) and returns a dict of
-                            the parsed values to be merged into
-                            ``injected_columns`` at runtime.
+                            args (e.g. ``--vendor``) and returns a list of
+                            dest-name strings to harvest from the parsed
+                            args into ``injected_columns`` at runtime.
         empty_key_message_override: If set, replaces the default
                             ``"WARN row {idx}: {id_label}={raw!r} normalizes
                             to empty key; skipping"`` stderr message when a
@@ -176,7 +176,7 @@ class SeedSpec:
     injected_columns: dict[str, Any] = field(default_factory=dict)
     default_db: Path | None = None
     default_csv: Path | None = None
-    extra_cli_args: Callable[[argparse.ArgumentParser], None] | None = None
+    extra_cli_args: Callable[[argparse.ArgumentParser], list[str]] | None = None
     empty_key_message_override: str | None = None
 
 
