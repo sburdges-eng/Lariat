@@ -12,7 +12,6 @@ import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { scanOpenBatches } from '../../lib/cooling';
 import { scanExpiringBatches } from '../../lib/dateMarks';
 import { classifyReadings } from '../../lib/tempLog';
-import { classifyDeliveries } from '../../lib/receiving';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,7 +76,6 @@ function summarize(loc, today) {
          ORDER BY created_at DESC`,
     )
     .all(loc, today);
-  const receivingSummary = classifyDeliveries(receivingRows, { expectAllCategories: true });
   const receivingStats = receivingRows.reduce(
     (acc, r) => {
       if (r.status === 'accepted') acc.accepted += 1;
@@ -87,9 +85,6 @@ function summarize(loc, today) {
     },
     { accepted: 0, rejected: 0, accepted_with_note: 0 },
   );
-  const receivingYellowCats = receivingSummary.filter((s) => s.status === 'yellow').length;
-  const receivingRedCats = receivingSummary.filter((s) => s.status === 'red').length;
-
   return {
     cooling: {
       open: openCooling.length,
@@ -120,8 +115,6 @@ function summarize(loc, today) {
       accepted: receivingStats.accepted,
       acceptedWithNote: receivingStats.accepted_with_note,
       rejected: receivingStats.rejected,
-      yellowCats: receivingYellowCats,
-      redCats: receivingRedCats,
     },
   };
 }
