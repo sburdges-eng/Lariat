@@ -92,6 +92,8 @@ export async function POST(req) {
         action: 'insert',
         actor_cook_id: reported_by_pic_id,
         actor_source: 'pic_ui',
+        // Payload intentionally does NOT include PII symptoms in the note
+        // field; the JSON blob captures the full row for audit reconstruct.
         payload: row,
         shift_date,
         location_id,
