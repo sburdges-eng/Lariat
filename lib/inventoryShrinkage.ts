@@ -116,7 +116,7 @@ export function applyShrinkage(
   }
   // Out-of-range guard: <0 is nonsensical, ==0 means no shrinkage (skip
   // math but log the reason), >=1 is the divide-by-zero / 100%-loss trap.
-  if (loss_factor < 0 || loss_factor >= 1) {
+  if (loss_factor <= 0 || loss_factor >= 1) {
     return {
       cooked_qty,
       unit,
