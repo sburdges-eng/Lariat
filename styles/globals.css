@@ -772,6 +772,11 @@ textarea.input { resize: vertical; }
 .rcv-live-red { border-color: var(--red) !important; }
 @media (max-width: 900px) { .rcv-form { grid-template-columns: 1fr; } }
 
+/* Calibrations board — reuses .tl-* palette; these tint the reading
+   input live based on whether the typed value passes §4-502.11. */
+.tl-live-green { border-color: var(--green) !important; }
+.tl-live-red { border-color: var(--red) !important; }
+
 /* Breaks */
 .breaks-actions { margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px; }
 .breaks-actions-row { display: flex; gap: 10px; flex-wrap: wrap; }
