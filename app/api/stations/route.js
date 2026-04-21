@@ -17,11 +17,25 @@ export async function GET(req) {
     if (s.line_check_key) {
       const items = getLineCheckTemplate(s.line_check_key);
       if (items.length) {
+        // Pick the latest row per (item, station, date, location) using
+        // MAX(id) as the tie-break — line_check_entries.id is
+        // INTEGER PRIMARY KEY AUTOINCREMENT, so MAX(id) is the most recent
+        // insert. GROUP BY item with a bare `status` column paired to
+        // MAX(created_at) is undefined behavior per SQL spec and returned
+        // an arbitrary status on re-logged items.
         const rows = db.prepare(`
-          SELECT item, status, MAX(created_at) as ts
-          FROM line_check_entries
-          WHERE shift_date = ? AND station_id = ? AND location_id = ?
-          GROUP BY item
+          SELECT lce.item, lce.status, lce.created_at AS ts
+            FROM line_check_entries lce
+           WHERE lce.shift_date = ?
+             AND lce.station_id = ?
+             AND lce.location_id = ?
+             AND lce.id = (
+               SELECT MAX(id) FROM line_check_entries
+                WHERE item = lce.item
+                  AND shift_date = lce.shift_date
+                  AND station_id = lce.station_id
+                  AND location_id = lce.location_id
+             )
         `).all(date, s.id, loc);
         const byItem = new Map(rows.map((r) => [r.item, r]));
         let done = 0, flagged = 0;

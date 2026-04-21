@@ -64,38 +64,58 @@ export async function POST(req: Request) {
 
     const db = getDb();
 
+    // SQLite treats each NULL as distinct in UNIQUE constraints, so an
+    // ON CONFLICT(location_id, shift_date, service_label) UPSERT silently
+    // inserts a duplicate row when service_label is NULL (prep-day case).
+    // Branch explicitly at the route layer: pre-check with a NULL-tolerant
+    // SELECT, then INSERT or UPDATE. The whole thing runs inside a single
+    // db.transaction so reads+writes are serialized (better-sqlite3 is
+    // synchronous — the race window is eliminated).
     const upsert = db.transaction(() => {
       const existing = db
         .prepare(
           `SELECT id FROM preshift_notes
             WHERE location_id = ? AND shift_date = ?
-              AND (service_label IS ? OR service_label = ?)`,
+              AND (service_label IS ? OR service_label = ?)
+            LIMIT 1`,
         )
         .get(location_id, shift_date, service_label, service_label) as
           | { id: number }
           | undefined;
 
-      db.prepare(
-        `INSERT INTO preshift_notes (location_id, shift_date, service_label, body, author_cook_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-         ON CONFLICT(location_id, shift_date, service_label)
-           DO UPDATE SET body = excluded.body,
-                         author_cook_id = excluded.author_cook_id,
-                         updated_at = datetime('now')`,
-      ).run(location_id, shift_date, service_label, text, cook_id);
+      let row: { id: number };
+      let auditAction: 'insert' | 'update';
 
-      const row = db
-        .prepare(
-          `SELECT * FROM preshift_notes
-            WHERE location_id = ? AND shift_date = ?
-              AND (service_label IS ? OR service_label = ?)`,
-        )
-        .get(location_id, shift_date, service_label, service_label) as { id: number };
+      if (existing) {
+        db.prepare(
+          `UPDATE preshift_notes
+              SET body = ?,
+                  author_cook_id = ?,
+                  updated_at = datetime('now')
+            WHERE id = ?`,
+        ).run(text, cook_id, existing.id);
+        row = db
+          .prepare('SELECT * FROM preshift_notes WHERE id = ?')
+          .get(existing.id) as { id: number };
+        auditAction = 'update';
+      } else {
+        const info = db
+          .prepare(
+            `INSERT INTO preshift_notes
+               (location_id, shift_date, service_label, body, author_cook_id)
+             VALUES (?, ?, ?, ?, ?)`,
+          )
+          .run(location_id, shift_date, service_label, text, cook_id);
+        row = db
+          .prepare('SELECT * FROM preshift_notes WHERE id = ?')
+          .get(info.lastInsertRowid) as { id: number };
+        auditAction = 'insert';
+      }
 
       postAuditEvent({
         entity: 'preshift_notes',
         entity_id: Number(row.id),
-        action: existing ? 'update' : 'insert',
+        action: auditAction,
         actor_cook_id: cook_id,
         actor_source: 'cook_ui',
         payload: row,

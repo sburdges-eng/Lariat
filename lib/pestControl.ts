@@ -4,7 +4,12 @@ const ENTRY_TYPES = new Set(['service_visit', 'sighting', 'trap_check']);
 const PESTS = new Set(['roach', 'mouse', 'fly', 'ant', 'other']);
 const SEVERITIES = new Set(['low', 'medium', 'high']);
 
-export function validatePestControl(input: Partial<PestControlEntry>): {ok: boolean; reason?: string} {
+export function validatePestControl(
+  input: Partial<PestControlEntry> | null | undefined,
+): {ok: boolean; reason?: string} {
+  if (!input || typeof input !== 'object') {
+    return { ok: false, reason: 'body must be an object' };
+  }
   if (!input.entry_type || !ENTRY_TYPES.has(input.entry_type)) {
     return { ok: false, reason: 'invalid entry_type' };
   }
