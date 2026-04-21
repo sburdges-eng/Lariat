@@ -502,6 +502,20 @@ describe('T7 — resolveMergedCost', () => {
     ], null);
     assert.strictEqual(merged.pack_price, 11);
   });
+
+  it('mean computes mean of unit costs, not ratio of means, when pack sizes differ', () => {
+    // Vendor A: $24 / 2-gal = $12/gal; Vendor B: $10 / 1-gal = $10/gal.
+    // Correct mean unit cost = (12 + 10) / 2 = $11/gal.
+    // Bug (ratio of means) would give (24+10)/2 / (2+1)/2 = 17/1.5 ≈ $11.33.
+    const merged = resolveMergedCost([
+      { vendor: 'sysco',    pack_price: 24, pack_size: 2 },
+      { vendor: 'shamrock', pack_price: 10, pack_size: 1 },
+    ], null);
+    assert.ok(merged);
+    assert.strictEqual(merged.source, 'mean');
+    assert.strictEqual(merged.pack_size, 1);
+    assert.strictEqual(merged.pack_price, 11);
+  });
 });
 
 // ── End-to-end costing: merged-cost via computeCostVariance ─────────
