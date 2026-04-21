@@ -245,7 +245,7 @@ ARITHMETIC RULE: For scale_recipe, beo_add_prep, and generate_prep the server ru
                   todayISO(),
                   `scaled:${result.recipeSlug}`,
                   clip(leaf.ingredient, MAX_ITEM),
-                  'needs_prep',
+                  'na',
                   clip(`${leaf.qty} ${leaf.unit}`, 64),
                   new Date().toISOString()
                 );
@@ -341,7 +341,7 @@ ARITHMETIC RULE: For scale_recipe, beo_add_prep, and generate_prep the server ru
                     todayISO(),
                     clip(payload.station, 64),
                     clip(leaf.ingredient, MAX_ITEM),
-                    'needs_prep',
+                    'na',
                     clip(`${leaf.qty} ${leaf.unit}`, 64),
                     new Date().toISOString()
                   );
@@ -359,7 +359,7 @@ ARITHMETIC RULE: For scale_recipe, beo_add_prep, and generate_prep the server ru
               todayISO(),
               clip(payload.station, 64),
               clip(t.item, MAX_ITEM),
-              'needs_prep',
+              'na',
               clip(t.need, 64) || null,
               new Date().toISOString()
             );
