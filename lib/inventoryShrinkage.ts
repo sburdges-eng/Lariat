@@ -25,6 +25,16 @@
 
 import type { Database } from 'better-sqlite3';
 
+export const SHRINKAGE_REASONS = {
+  APPLIED: 'shrinkage_applied',
+  NO_LOSS_FACTOR: 'no_loss_factor',
+  OUT_OF_RANGE: 'loss_factor_out_of_range',
+  NO_BOM_LINE: 'no_bom_line',
+  INVALID_QTY: 'invalid_cooked_qty',
+} as const;
+
+export type ShrinkageReason = typeof SHRINKAGE_REASONS[keyof typeof SHRINKAGE_REASONS];
+
 export interface ShrinkageLookupInput {
   recipe_id: string;
   ingredient: string;
@@ -43,12 +53,7 @@ export interface ShrinkageMath {
   /** Loss factor actually used (null when fell through). */
   loss_factor: number | null;
   /** Human-readable reason for audit trail. */
-  reason:
-    | 'shrinkage_applied'
-    | 'no_loss_factor'
-    | 'loss_factor_out_of_range'
-    | 'no_bom_line'
-    | 'invalid_cooked_qty';
+  reason: ShrinkageReason;
 }
 
 /**
@@ -101,7 +106,7 @@ export function applyShrinkage(
       raw_qty: cooked_qty,
       applied: false,
       loss_factor: null,
-      reason: 'invalid_cooked_qty',
+      reason: SHRINKAGE_REASONS.INVALID_QTY,
     };
   }
   if (loss_factor == null) {
@@ -111,29 +116,20 @@ export function applyShrinkage(
       raw_qty: cooked_qty,
       applied: false,
       loss_factor: null,
-      reason: 'no_loss_factor',
+      reason: SHRINKAGE_REASONS.NO_LOSS_FACTOR,
     };
   }
-  // Out-of-range guard: <0 is nonsensical, ==0 means no shrinkage (skip
-  // math but log the reason), >=1 is the divide-by-zero / 100%-loss trap.
-  if (loss_factor < 0 || loss_factor >= 1) {
+  // Out-of-range guard: <=0 is nonsensical (0 = no shrinkage, but we want
+  // a reason logged; negative = physically impossible), >=1 is the
+  // divide-by-zero / 100%-loss trap. Collapsed from two separate checks.
+  if (loss_factor <= 0 || loss_factor >= 1) {
     return {
       cooked_qty,
       unit,
       raw_qty: cooked_qty,
       applied: false,
       loss_factor,
-      reason: 'loss_factor_out_of_range',
-    };
-  }
-  if (loss_factor === 0) {
-    return {
-      cooked_qty,
-      unit,
-      raw_qty: cooked_qty,
-      applied: false,
-      loss_factor: 0,
-      reason: 'loss_factor_out_of_range',
+      reason: SHRINKAGE_REASONS.OUT_OF_RANGE,
     };
   }
   const raw_qty = cooked_qty / (1 - loss_factor);
@@ -143,7 +139,7 @@ export function applyShrinkage(
     raw_qty,
     applied: true,
     loss_factor,
-    reason: 'shrinkage_applied',
+    reason: SHRINKAGE_REASONS.APPLIED,
   };
 }
 
@@ -167,7 +163,7 @@ export function resolveCookingShrinkage(
       raw_qty: cooked_qty,
       applied: false,
       loss_factor: null,
-      reason: 'no_bom_line',
+      reason: SHRINKAGE_REASONS.NO_BOM_LINE,
     };
   }
   // Check whether ANY bom_lines row exists for (recipe, ingredient) to
@@ -191,7 +187,7 @@ export function resolveCookingShrinkage(
       raw_qty: cooked_qty,
       applied: false,
       loss_factor: null,
-      reason: 'no_bom_line',
+      reason: SHRINKAGE_REASONS.NO_BOM_LINE,
     };
   }
   return applyShrinkage(cooked_qty, anyRow.loss_factor ?? null, unit);

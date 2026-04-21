@@ -353,6 +353,18 @@ catch-weight-backfill tests still green.
 
 **Acceptance.** Spec fixture passes: `POST /api/inventory` with `source='toast'`, `recipe_id='burger'`, `ingredient='patty'`, `qty=8`, `unit='oz'` against a DB seeded with `bom_lines.loss_factor=0.25` produces an `inventory_updates` row with `delta='-10.667 oz'` — within the ±0.1 oz threshold for every typical Toast menu-item weight. All regressions green: schema 45, ingredient-masters 28, pack-size-detect 10, catch-weight-backfill 9, t4-integration 24, yield-math 14.
 
+**DONE — landed in post-T8 cleanup (PR #8 reviewer nits, branch `t8-nits`):**
+
+1. **Collapse dead `if (loss_factor === 0)` branch** (`lib/inventoryShrinkage.ts`). The guard `loss_factor < 0 || loss_factor >= 1` did not catch `0`, so a separate duplicate block followed with identical output. Collapsed to `loss_factor <= 0 || loss_factor >= 1` and the dead block removed. Behavior unchanged (tests already asserted `lf=0 → reason='loss_factor_out_of_range'`).
+
+2. **Normalize `source` casing at parse time** (`app/api/inventory/route.js`). A POST with `source: 'TOAST'` would trigger shrinkage (case-insensitive gate) but echo `'TOAST'` verbatim in the response and store it in `inventory_updates`. Fixed by lowercasing at parse time so the persisted `source` value and the response body are always canonical lowercase.
+
+3. **Export named constant `SHRINKAGE_REASONS`** (`lib/inventoryShrinkage.ts`). The five reason strings (`shrinkage_applied`, `no_loss_factor`, `loss_factor_out_of_range`, `no_bom_line`, `invalid_cooked_qty`) are the public contract — tests pin on them, they persist in `inventory_updates.note`, and T9 B1 variance may grep for them. Exported as `SHRINKAGE_REASONS` const + `ShrinkageReason` type. Internal string literals refactored to reference the constant. Five constant-equality tests added to catch future drift.
+
+4. **`export const dynamic = 'force-dynamic'`** (`app/api/inventory/route.js`). Added for parity with `app/api/beo/route.js`, `app/api/cooling/route.js`, and `app/api/kitchen-assistant/route.js`.
+
+5. **Extended test matrix** (`tests/js/test-t8-cooking-shrinkage.mjs`). Added 7 new test cases: negative qty (gate skips, row stored with null delta), known recipe + ingredient typo (`no_bom_line`), string qty `"8"` (treated as missing — typeof check), NaN qty (JSON-serializes to null → gate skips), Infinity qty (JSON-serializes to null → gate skips), `applyShrinkage(Infinity)` direct call (hits `Number.isFinite` guard → `invalid_cooked_qty`), and source casing normalization verification.
+
 ---
 
 ### T9 — Benchmark instrumentation (pre-deploy gate)

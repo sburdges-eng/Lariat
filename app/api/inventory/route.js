@@ -6,6 +6,8 @@ import {
   formatShrinkageNote,
 } from '../../../lib/inventoryShrinkage';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * T8 — Inventory-depletion POST endpoint. Writes to `inventory_updates`.
  *
@@ -86,7 +88,7 @@ export async function POST(req) {
     const loc = locationFromBody(body);
     const db = getDb();
 
-    const source = clip(body.source, 32) || 'manual';
+    const source = (clip(body.source, 32) || 'manual').toLowerCase();
     const userNote = clip(body.note, 500);
     const direction = clip(body.direction, 16) || 'out';
 

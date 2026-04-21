@@ -457,3 +457,176 @@ describe('GET /api/inventory', () => {
     assert.strictEqual(body.rows[1].item, 'patty');
   });
 });
+
+describe('SHRINKAGE_REASONS constant', () => {
+  // Guards against future reason-key drift. The strings are the public contract —
+  // they persist in inventory_updates.note and tests/T9 greps for them.
+  it('APPLIED === "shrinkage_applied"', () => {
+    assert.strictEqual(shrinkage.SHRINKAGE_REASONS.APPLIED, 'shrinkage_applied');
+  });
+  it('NO_LOSS_FACTOR === "no_loss_factor"', () => {
+    assert.strictEqual(shrinkage.SHRINKAGE_REASONS.NO_LOSS_FACTOR, 'no_loss_factor');
+  });
+  it('OUT_OF_RANGE === "loss_factor_out_of_range"', () => {
+    assert.strictEqual(shrinkage.SHRINKAGE_REASONS.OUT_OF_RANGE, 'loss_factor_out_of_range');
+  });
+  it('NO_BOM_LINE === "no_bom_line"', () => {
+    assert.strictEqual(shrinkage.SHRINKAGE_REASONS.NO_BOM_LINE, 'no_bom_line');
+  });
+  it('INVALID_QTY === "invalid_cooked_qty"', () => {
+    assert.strictEqual(shrinkage.SHRINKAGE_REASONS.INVALID_QTY, 'invalid_cooked_qty');
+  });
+});
+
+describe('POST /api/inventory — extended edge cases (nit #5)', () => {
+  // === Negative qty at the route level ===
+  // Design choice: the T8 gate requires qty > 0, so a negative qty (qty=-5)
+  // fails the gate condition `qty != null && qty > 0`, which means:
+  //   - isToastSource branch: gate skips → shrinkage_applied=false, no BOM lookup
+  //   - non-toast qty branch: also skips (qty > 0 is false)
+  //   - delta stays whatever body.delta was (null → stored as null)
+  // We assert 200 with shrinkage_applied=false and null/absent delta. The row
+  // IS persisted (we do not 400 on negative qty at this layer; callers are
+  // responsible for pre-validation). This is "sensible fallback" behavior —
+  // the row is stored without a computed delta so the operator sees it in the
+  // audit log rather than losing the data silently.
+  it('negative qty (toast source) — gate skips, row stored with null delta', async () => {
+    seedBom({ recipe_id: 'burger', ingredient: 'patty', loss_factor: 0.25 });
+    const res = await POST(postReq({
+      item: 'patty',
+      ingredient: 'patty',
+      recipe_id: 'burger',
+      qty: -5,
+      unit: 'oz',
+      source: 'toast',
+    }));
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.ok, true);
+    assert.strictEqual(body.shrinkage_applied, false);
+    const row = readLatest();
+    assert.strictEqual(row.item, 'patty');
+    // No computed delta — null or whatever body.delta was (not supplied → null).
+    assert.ok(row.delta == null || row.delta === '', `expected null/empty delta, got ${row.delta}`);
+  });
+
+  // === Ingredient typo → no_bom_line ===
+  // recipe='burger' exists in the DB but 'Patty Deluxe' is not in its BOM —
+  // resolveCookingShrinkage finds no matching row and returns no_bom_line.
+  it('known recipe but unknown ingredient → no_bom_line', async () => {
+    seedBom({ recipe_id: 'burger', ingredient: 'patty', loss_factor: 0.25 });
+    const res = await POST(postReq({
+      item: 'patty deluxe',
+      ingredient: 'Patty Deluxe',
+      recipe_id: 'burger',
+      qty: 8,
+      unit: 'oz',
+      source: 'toast',
+    }));
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.shrinkage_applied, false);
+    assert.strictEqual(body.shrinkage_reason, 'no_bom_line');
+    const row = readLatest();
+    assert.match(row.note, /no_bom_line/);
+    // delta falls back to cooked qty
+    assert.ok(Math.abs(parseDelta(row.delta) - -8) < 0.01, `expected -8, got ${row.delta}`);
+  });
+
+  // === String qty → treated as missing (typeof check) ===
+  // The route's qty parse: `typeof body.qty === 'number' ? body.qty : null`.
+  // A string '8' fails the typeof check → qty=null → T8 gate skips.
+  // Non-toast qty branch also skips (qty == null).
+  // This is consistent "missing qty" behavior — no delta computed.
+  it('string qty ("8") → treated as missing, no delta computed', async () => {
+    seedBom({ recipe_id: 'burger', ingredient: 'patty', loss_factor: 0.25 });
+    const res = await POST(postReq({
+      item: 'patty',
+      ingredient: 'patty',
+      recipe_id: 'burger',
+      qty: '8',   // string, not number
+      unit: 'oz',
+      source: 'toast',
+    }));
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.ok, true);
+    assert.strictEqual(body.shrinkage_applied, false);
+    // qty parsed as null → gate skips → no computed delta
+    const row = readLatest();
+    assert.ok(row.delta == null || row.delta === '', `expected null/empty delta for string qty, got ${row.delta}`);
+  });
+
+  // === NaN qty → treated as missing ===
+  // typeof NaN === 'number' is TRUE, so qty=NaN passes the typeof check.
+  // But the T8 gate's `qty > 0` is false for NaN (NaN comparisons are always
+  // false) → gate skips → shrinkage_applied=false, no delta from qty path.
+  it('NaN qty → gate skips, no shrinkage', async () => {
+    seedBom({ recipe_id: 'burger', ingredient: 'patty', loss_factor: 0.25 });
+    const res = await POST(postReq({
+      item: 'patty',
+      ingredient: 'patty',
+      recipe_id: 'burger',
+      qty: NaN,
+      unit: 'oz',
+      source: 'toast',
+    }));
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.shrinkage_applied, false);
+    // NaN serializes to null in JSON, so route receives qty=null → gate skips.
+    const row = readLatest();
+    assert.ok(row.delta == null || row.delta === '', `expected null/empty delta for NaN qty, got ${row.delta}`);
+  });
+
+  // === Infinity qty → applyShrinkage's Number.isFinite guard → invalid_cooked_qty ===
+  // Infinity > 0 is true, so it passes the route gate and enters resolveCookingShrinkage.
+  // applyShrinkage's `!Number.isFinite(cooked_qty)` guard catches it → invalid_cooked_qty.
+  // Note: JSON.stringify(Infinity) === 'null' — Infinity serializes to null in JSON,
+  // so the route receives null → qty=null → gate skips (qty > 0 is false for null).
+  // The invalid_cooked_qty path can only be hit by in-process callers (e.g. test of
+  // applyShrinkage directly). We assert the JSON-transport behavior: null → gate skip.
+  it('Infinity qty over JSON → serializes to null, gate skips (no shrinkage)', async () => {
+    seedBom({ recipe_id: 'burger', ingredient: 'patty', loss_factor: 0.25 });
+    const res = await POST(postReq({
+      item: 'patty',
+      ingredient: 'patty',
+      recipe_id: 'burger',
+      qty: Infinity,
+      unit: 'oz',
+      source: 'toast',
+    }));
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.shrinkage_applied, false);
+    const row = readLatest();
+    assert.ok(row.delta == null || row.delta === '', `expected null/empty delta for Infinity qty, got ${row.delta}`);
+  });
+
+  // === applyShrinkage directly: Infinity is caught by Number.isFinite ===
+  // Validates the pure-fn guard in isolation (route JSON transport can't reach it).
+  it('applyShrinkage(Infinity, 0.25) → invalid_cooked_qty (pure-fn guard)', () => {
+    const r = applyShrinkage(Infinity, 0.25, 'oz');
+    assert.strictEqual(r.applied, false);
+    assert.strictEqual(r.reason, 'invalid_cooked_qty');
+  });
+
+  // === source casing normalization (nit #2) ===
+  // POST with source='TOAST' (uppercase) — the route lowercases at parse time.
+  // Shrinkage fires; response echoes source='toast' (lowercase), not 'TOAST'.
+  it('source="TOAST" (uppercase) → normalized to "toast" in response', async () => {
+    seedBom({ recipe_id: 'burger', ingredient: 'patty', loss_factor: 0.25 });
+    const res = await POST(postReq({
+      item: 'patty',
+      ingredient: 'patty',
+      recipe_id: 'burger',
+      qty: 8,
+      unit: 'oz',
+      source: 'TOAST',
+    }));
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.source, 'toast', 'source should be echoed lowercase');
+    assert.strictEqual(body.shrinkage_applied, true, 'shrinkage should fire for TOAST');
+  });
+});
