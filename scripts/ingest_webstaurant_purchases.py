@@ -45,10 +45,6 @@ EQUIPMENT_CATEGORIES = {"Restaurant Equipment", "Refrigeration"}
 SMALLWARES_CATEGORIES = {"Tabletop", "Smallwares", "Storage & Transport"}
 TOOL_CATEGORIES = {"Tools & Hardware"}
 
-# Map WebstaurantStore category + name heuristics → UI category dropdown values.
-UI_CATEGORIES = {"Ovens", "Refrigeration", "Prep & Mixers", "Fryers",
-                 "Smallwares", "Tools", "Other"}
-
 WARRANTY_SKU_PREFIX = "EXTWARN"
 WARRANTY_YEARS_RE = re.compile(r"(\d+)\s*Year\s*Extended Warranty", re.I)
 SAFEWARE_REF_RE = re.compile(r"Safeware\s+([A-Z]+:\d+)", re.I)
