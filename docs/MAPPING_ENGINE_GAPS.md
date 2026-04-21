@@ -91,6 +91,35 @@ Check a box only when the acceptance criterion has been re-run and passed.
 - [x] **Test fixture.** Recipe "1 cup diced onion" + vendor "50 lb sack onion" + density 0.56 g/ml → covered by `tests/js/test-t4-unit-convert-integration.mjs` ("cross-dim with density present"). Parity covered by 51-row fixture across identity / same-dim / cross-dim / count-refusal / unknown-unit / edge-qty cases.
 - [x] **Acceptance.** Every BOM row with `unit IN (volume)` paired to a `vendor_prices.pack_unit IN (weight)` either (a) has a density key and costs correctly, or (b) is flagged `map_status='NEEDS_DENSITY'` and appears in B2's unmapped queue via the existing `reason='unmapped_status'` path (no wiring change needed in `computeUnmapped`).
 
+### T4.1 — Count-bridge + density backfill (follow-up)
+
+Live-DB audit after T4 surfaced a real interpretation gap: **99 BOM rows couldn't convert** — 61 missing-density cross-dim, 35 count-involved (cilantro ct, jalapeno ea, etc.), 3 with unknown-bom-unit tokens ("bunch", "box", "#10 can"). 88 of those had `map_status='mapped'`, which T4's protected-status rule correctly refused to downgrade — but silently skipped their delta contribution, so the gap was invisible.
+
+- [x] **Density backfill.** 54 rows added to `data/seeds/ingredient_densities.csv` covering every ingredient that hit the missing-density path (sugar family, oils, sauces, fresh produce, cheese, spices). Source-enum + "verify in-house" notes convention preserved.
+- [x] **Count-bridge table.** New `ingredient_unit_weights` schema (PK `(ingredient_key, unit)`, columns `g_per_unit`, `source`) with 32 seed rows via `data/seeds/ingredient_unit_weights.csv` + `scripts/seed_ingredient_unit_weights.py`. Answers "how many grams is 1 ct / bunch / ea / box / bottle / case of this ingredient."
+- [x] **Algorithm extension.** New `bridgeCount()` pure fn in `scripts/ingest-costing.mjs` converts count ↔ weight via the grams-per-unit lookup, count ↔ volume via density (grams as intermediate), count ↔ count through grams. T4 post-pass tries `bridgeCount` first, falls back to `convertQty`. `lib/unitConvert.mjs` stays frozen in parity with `scripts/lib/units.py` — count-bridge lives in the ingest layer where ingredient identity is known, same scoping posture `units.py:10-12` takes for density.
+- [x] **Unit-token extensions.** Added `bunch`, `box`, `slice`, `sprig`, `clove`, `cn` as count units (plus plural synonyms + `#10 can → can` mapping) to both `units.py` and `unitConvert.mjs`. Parity fixture regenerates byte-identical; no existing test row exercised these.
+- [x] **Post-pass as separate entrypoint.** `runCostingPostPass(db, locationId)` extracted as a named export from `scripts/ingest-costing.mjs` so operators can apply deltas without the destructive DELETE+INSERT path. New CLI `scripts/apply-costing-deltas.mjs` populates `bom_lines.yield_pct`/`loss_factor` via ingredient_yields JOIN, then runs only the post-pass. Supports `--dry-run` with full rollback.
+- [x] **TOTAL-row fix.** `runCostingPostPass` now propagates the aggregate delta to `recipe_costs.TOTAL` in the same transaction. Latent since T3 (fc05b09) — surfaced for the first time when T4.1's apply-costing-deltas ran against a live DB that had never gone through a T3 post-pass (TOTAL=$3706.94 but SUM=$4573.43 after deltas landed).
+- [x] **Diagnostic tool.** `scripts/diagnose-conversion-failures.mjs` — read-only bucket classifier for auditing conversion coverage without mutating DB. Reports ok / skip / fail rows grouped by failure reason.
+
+**Live-DB acceptance (`~/Dev/Lariat/data/lariat.db` via apply-costing-deltas):**
+
+| metric | before T4.1 | after T4.1 |
+|---|---|---|
+| BOM yield coverage | 0/302 | 302/302 (100%) |
+| Conversion failures | 99 (88 silent + 11 flagged) | 0 |
+| `map_status='NEEDS_DENSITY'` | — | 0 |
+| `recipe_costs.TOTAL` | $3706.94 | $4573.43 |
+| SUM(batch_cost) non-TOTAL | $3706.94 | $4573.43 |
+| Drift (TOTAL − SUM) | $0 | $0 |
+
+23 recipes yield-adjusted, Δ_total = +$866.49, max per-recipe $324.98. 14 new integration tests (bridgeCount pure fn + ingest wiring + synonyms + TOTAL-row consistency); 228 JS tests total, all pass.
+
+**Known data-quality items surfaced, not fixed here:**
+- Excel workbook miscodes — Bean Black `ct`, Pepper Red Diced `ct`, Tomatillo 600 `oz`, Beef Cheek `ea` — handled via seed rows rather than edits to the user's source-of-truth workbook.
+- `vendor_prices.yield_pct` coverage only 2/341 during live apply — ingredient-key mismatch between `bom_lines.ingredient` and `vendor_prices.ingredient` (T7 territory; `ingredient_masters` will collapse).
+
 ---
 
 ### T5 — Catch-weight reconciliation
