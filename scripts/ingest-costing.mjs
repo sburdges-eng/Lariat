@@ -327,6 +327,7 @@ function _ingestCostingImpl(db, data, locationId) {
   summary.total_yield_delta_usd = postPass.total_yield_delta_usd;
   summary.max_recipe_yield_delta_usd = postPass.max_recipe_yield_delta_usd;
   summary.bom_lines_needs_density = postPass.bom_lines_needs_density;
+  summary.catch_weight_backfilled_rows = postPass.catch_weight_backfilled_rows ?? 0;
   return summary;
 }
 
@@ -355,6 +356,7 @@ export function runCostingPostPass(db, locationId = 'default') {
     total_yield_delta_usd: 0,
     max_recipe_yield_delta_usd: 0,
     bom_lines_needs_density: 0,
+    catch_weight_backfilled_rows: 0,
   };
   // ── T3 + T4: yield + loss + unit-conversion post-pass ──────────────
   // After T2c populated bom_lines.{yield_pct, loss_factor, pack_price, pack_size,
