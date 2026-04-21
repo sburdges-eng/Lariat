@@ -447,3 +447,50 @@ describe('T4.1 — new count-unit synonyms', () => {
     assert.strictEqual(normalizeUnit('cn'), 'cn');
   });
 });
+
+describe('T4.1 — TOTAL row stays consistent with sum of individual recipes', () => {
+  it('keeps recipe_costs.TOTAL == SUM(batch_cost) after yield-delta apply', () => {
+    // Seed ingest with two recipes + a TOTAL summary row. After post-pass
+    // applies per-recipe deltas, TOTAL must reflect the new sum. Otherwise
+    // downstream dashboards that trust TOTAL (or auditing scripts that
+    // compare TOTAL to SUM) report inconsistent COGS.
+    const db = buildDb({
+      yields: [
+        { raw: 'onion', yield_pct: 0.85, loss_factor: null },
+        { raw: 'beef', yield_pct: 0.90, loss_factor: 0.20 },
+      ],
+    });
+    const data = {
+      vendor_prices: [
+        vendorPrice('onion', 10, 'lb', 20.0),
+        vendorPrice('beef', 10, 'lb', 150.0),
+      ],
+      recipe_costs: [
+        recipe('r1', 2.0),
+        recipe('r2', 15.0),
+        // Summary row — mirrors how ingest_costing.py reads the Excel
+        // Recipe Cost Summary sheet's TOTAL line verbatim.
+        recipe('TOTAL', 17.0),
+      ],
+      bom_lines: [
+        { recipe_id: 'r1', ingredient: 'onion', qty: 1, unit: 'lb', pack_price: 2.0, pack_size: 1 },
+        { recipe_id: 'r2', ingredient: 'beef', qty: 1, unit: 'lb', pack_price: 15.0, pack_size: 1 },
+      ],
+    };
+    ingestCosting(db, data, LOC);
+    const rows = db.prepare(
+      `SELECT recipe_id, batch_cost FROM recipe_costs WHERE location_id = ?`,
+    ).all(LOC);
+    const byId = new Map(rows.map((r) => [r.recipe_id, r.batch_cost]));
+    const sumNonTotal = [...byId.entries()]
+      .filter(([rid]) => rid !== 'TOTAL')
+      .reduce((a, [, v]) => a + v, 0);
+    const total = byId.get('TOTAL');
+    assert.ok(total != null, 'TOTAL row should still exist');
+    assert.ok(
+      Math.abs(total - sumNonTotal) < 1e-6,
+      `TOTAL drift: total=${total} sum=${sumNonTotal} diff=${total - sumNonTotal}`,
+    );
+    db.close();
+  });
+});

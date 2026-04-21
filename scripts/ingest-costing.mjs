@@ -605,12 +605,25 @@ export function runCostingPostPass(db, locationId = 'default') {
   db.transaction(() => {
     for (const [recipe_id, delta] of perRecipeDelta) {
       if (delta === 0) continue; // preserves zero-regression invariant byte-exact
+      // recipe_id='TOTAL' is a summary row from Excel's Recipe Cost Summary
+      // sheet — it has no bom_lines of its own but gets INSERTed verbatim by
+      // the ingest. Skip it here so the per-recipe delta doesn't land on the
+      // summary (which would double-apply once we update TOTAL below).
+      // Defensive: bom_lines should never carry recipe_id='TOTAL' anyway.
+      if (recipe_id === 'TOTAL') continue;
       const result = updateRecipe.run({ recipe_id, delta, location_id: locationId });
       if (result.changes > 0) {
         adjustedCount++;
         totalDelta += delta;
         if (Math.abs(delta) > Math.abs(maxPerRecipeDelta)) maxPerRecipeDelta = delta;
       }
+    }
+    // Keep the summary row in sync: TOTAL must equal SUM(individual
+    // batch_cost). Without this, dashboards / audits that trust TOTAL see a
+    // stale pre-T3 value while the per-recipe sum reflects the yield-adjusted
+    // delta. Guard: only update if the row actually exists and has a batch_cost.
+    if (totalDelta !== 0) {
+      updateRecipe.run({ recipe_id: 'TOTAL', delta: totalDelta, location_id: locationId });
     }
   })();
 
