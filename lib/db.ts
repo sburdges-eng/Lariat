@@ -938,6 +938,8 @@ export function initSchema(db: DB): void {
     );
     CREATE INDEX IF NOT EXISTS idx_service_hours_loc
       ON service_hours(location_id, day_of_week);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_service_hours_null_safe
+      ON service_hours(location_id, day_of_week, IFNULL(service_label, ''));
 
     CREATE TABLE IF NOT EXISTS preshift_notes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -952,6 +954,8 @@ export function initSchema(db: DB): void {
     );
     CREATE INDEX IF NOT EXISTS idx_preshift_date
       ON preshift_notes(location_id, shift_date);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_preshift_null_safe
+      ON preshift_notes(location_id, shift_date, IFNULL(service_label, ''));
 
     CREATE TABLE IF NOT EXISTS vendor_prices (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1973,7 +1977,7 @@ export function todayServiceLabel(locationId = 'default'): string | null {
     .prepare(
       `SELECT service_label FROM service_hours
         WHERE location_id = ? AND active = 1 AND day_of_week = ?
-        ORDER BY opens_at ASC LIMIT 1`,
+        ORDER BY opens_at ASC NULLS LAST LIMIT 1`,
     )
     .get(locationId, dow) as { service_label: string | null } | undefined;
   return row?.service_label ?? null;
