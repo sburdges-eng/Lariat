@@ -145,33 +145,31 @@ export async function POST(req) {
     const db = getDb();
     const calibrated_at = new Date().toISOString().replace('T', ' ').slice(0, 19);
 
-    const info = db
-      .prepare(
-        `INSERT INTO thermometer_calibrations
-           (location_id, thermometer_id, method, before_reading_f, after_reading_f,
-            passed, action_taken, cook_id, calibrated_at, frequency_days)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        location_id,
-        thermometer_id,
-        method,
-        reading_f,
-        null,
-        decision.status === 'pass' ? 1 : 0,
-        note,
-        cook_id,
-        calibrated_at,
-        frequency_days,
-      );
+    const performWrite = db.transaction(() => {
+      const info = db
+        .prepare(
+          `INSERT INTO thermometer_calibrations
+             (location_id, thermometer_id, method, before_reading_f, after_reading_f,
+              passed, action_taken, cook_id, calibrated_at, frequency_days)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          location_id,
+          thermometer_id,
+          method,
+          reading_f,
+          null,
+          decision.status === 'pass' ? 1 : 0,
+          note,
+          cook_id,
+          calibrated_at,
+          frequency_days
+        );
 
-    const row = db
-      .prepare('SELECT * FROM thermometer_calibrations WHERE id = ?')
-      .get(info.lastInsertRowid);
+      const row = db
+        .prepare('SELECT * FROM thermometer_calibrations WHERE id = ?')
+        .get(info.lastInsertRowid);
 
-    // Append-only audit trail. Best-effort: a stranded calibration row
-    // is less-bad than a 500 rejecting the operator's save.
-    try {
       postAuditEvent({
         entity: 'thermometer_calibrations',
         entity_id: Number(info.lastInsertRowid),
@@ -186,9 +184,11 @@ export async function POST(req) {
             ? null
             : `fail:${thermometer_id}:${method}`,
       });
-    } catch (auditErr) {
-      console.error('postAuditEvent(thermometer_calibrations insert) failed:', auditErr);
-    }
+
+      return { info, row };
+    });
+
+    const { info, row } = performWrite();
 
     return Response.json({
       ok: true,

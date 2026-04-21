@@ -64,37 +64,43 @@ export async function POST(req) {
     const diagnosisValue = dx === 'invalid' ? null : dx;
 
     const db = getDb();
-    const info = db.prepare(`
-      INSERT INTO sick_worker_reports
-        (shift_date, location_id, cook_id, reported_by_pic_id,
-         symptoms, diagnosed_illness, action, started_at, clearance_source, note)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      shift_date,
-      location_id,
-      cook_id,
-      reported_by_pic_id,
-      symptomsJoined,
-      diagnosisValue,
-      action,
-      started_at,
-      clearance_source,
-      note,
-    );
+    
+    const performWrite = db.transaction(() => {
+      const info = db.prepare(`
+        INSERT INTO sick_worker_reports
+          (shift_date, location_id, cook_id, reported_by_pic_id,
+           symptoms, diagnosed_illness, action, started_at, clearance_source, note)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        shift_date,
+        location_id,
+        cook_id,
+        reported_by_pic_id,
+        symptomsJoined,
+        diagnosisValue,
+        action,
+        started_at,
+        clearance_source,
+        note
+      );
 
-    const row = db.prepare('SELECT * FROM sick_worker_reports WHERE id=?').get(info.lastInsertRowid);
-    postAuditEvent({
-      entity: 'sick_worker_reports',
-      entity_id: Number(info.lastInsertRowid),
-      action: 'insert',
-      actor_cook_id: reported_by_pic_id,
-      actor_source: 'pic_ui',
-      // Payload intentionally does NOT include PII symptoms in the note
-      // field; the JSON blob captures the full row for audit reconstruct.
-      payload: row,
-      shift_date,
-      location_id,
+      const row = db.prepare('SELECT * FROM sick_worker_reports WHERE id=?').get(info.lastInsertRowid);
+      
+      postAuditEvent({
+        entity: 'sick_worker_reports',
+        entity_id: Number(info.lastInsertRowid),
+        action: 'insert',
+        actor_cook_id: reported_by_pic_id,
+        actor_source: 'pic_ui',
+        payload: row,
+        shift_date,
+        location_id,
+      });
+
+      return row;
     });
+
+    const row = performWrite();
 
     return Response.json({ ok: true, entry: row });
   } catch (err) {
@@ -137,24 +143,32 @@ export async function PATCH(req) {
     }
 
     const now = new Date().toISOString();
-    db.prepare(`
-      UPDATE sick_worker_reports
-         SET return_at=?, clearance_source=?
-       WHERE id=?
-    `).run(now, clearance_source, id);
+    
+    const performUpdate = db.transaction(() => {
+      db.prepare(`
+        UPDATE sick_worker_reports
+           SET return_at=?, clearance_source=?
+         WHERE id=?
+      `).run(now, clearance_source, id);
 
-    const updated = db.prepare('SELECT * FROM sick_worker_reports WHERE id=?').get(id);
-    postAuditEvent({
-      entity: 'sick_worker_reports',
-      entity_id: id,
-      action: 'update',
-      actor_cook_id: reported_by_pic_id,
-      actor_source: 'pic_ui',
-      payload: updated,
-      shift_date: existing.shift_date,
-      location_id: existing.location_id,
-      note: `cleared: ${clearance_source}`,
+      const updated = db.prepare('SELECT * FROM sick_worker_reports WHERE id=?').get(id);
+      
+      postAuditEvent({
+        entity: 'sick_worker_reports',
+        entity_id: id,
+        action: 'update',
+        actor_cook_id: reported_by_pic_id,
+        actor_source: 'pic_ui',
+        payload: updated,
+        shift_date: existing.shift_date,
+        location_id: existing.location_id,
+        note: `cleared: ${clearance_source}`,
+      });
+
+      return updated;
     });
+
+    const updated = performUpdate();
 
     return Response.json({ ok: true, entry: updated });
   } catch (err) {

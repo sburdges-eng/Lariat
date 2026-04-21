@@ -76,23 +76,30 @@ export async function POST(req) {
     const ended_at = waived ? started_at : null;
     const duration_min = waived ? 0 : null;
 
-    const info = db.prepare(`
-      INSERT INTO shift_breaks
-        (shift_date, location_id, cook_id, kind, started_at, ended_at, duration_min, waived, waiver_ref, note)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(shift_date, location_id, cook_id, kind, started_at, ended_at, duration_min, waived, waiver_ref, note);
+    const performWrite = db.transaction(() => {
+      const info = db.prepare(`
+        INSERT INTO shift_breaks
+          (shift_date, location_id, cook_id, kind, started_at, ended_at, duration_min, waived, waiver_ref, note)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(shift_date, location_id, cook_id, kind, started_at, ended_at, duration_min, waived, waiver_ref, note);
 
-    const row = db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(info.lastInsertRowid);
-    postAuditEvent({
-      entity: 'shift_breaks',
-      entity_id: Number(info.lastInsertRowid),
-      action: 'insert',
-      actor_cook_id: cook_id,
-      actor_source: 'cook_ui',
-      payload: row,
-      shift_date,
-      location_id,
+      const row = db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(info.lastInsertRowid);
+      
+      postAuditEvent({
+        entity: 'shift_breaks',
+        entity_id: Number(info.lastInsertRowid),
+        action: 'insert',
+        actor_cook_id: cook_id,
+        actor_source: 'cook_ui',
+        payload: row,
+        shift_date,
+        location_id,
+      });
+
+      return row;
     });
+
+    const row = performWrite();
 
     return Response.json({ ok: true, entry: row });
   } catch (err) {
@@ -137,21 +144,28 @@ export async function PATCH(req) {
     }
     const duration_min = (endMs - startMs) / 60000;
 
-    db.prepare(`
-      UPDATE shift_breaks SET ended_at=?, duration_min=? WHERE id=?
-    `).run(ended_at, duration_min, id);
+    const performUpdate = db.transaction(() => {
+      db.prepare(`
+        UPDATE shift_breaks SET ended_at=?, duration_min=? WHERE id=?
+      `).run(ended_at, duration_min, id);
 
-    const updated = db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(id);
-    postAuditEvent({
-      entity: 'shift_breaks',
-      entity_id: id,
-      action: 'update',
-      actor_cook_id: cook_id || existing.cook_id,
-      actor_source: 'cook_ui',
-      payload: updated,
-      shift_date: existing.shift_date,
-      location_id: existing.location_id,
+      const updated = db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(id);
+      
+      postAuditEvent({
+        entity: 'shift_breaks',
+        entity_id: id,
+        action: 'update',
+        actor_cook_id: cook_id || existing.cook_id,
+        actor_source: 'cook_ui',
+        payload: updated,
+        shift_date: existing.shift_date,
+        location_id: existing.location_id,
+      });
+
+      return updated;
     });
+
+    const updated = performUpdate();
 
     return Response.json({ ok: true, entry: updated });
   } catch (err) {

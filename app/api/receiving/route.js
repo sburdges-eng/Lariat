@@ -147,40 +147,37 @@ export async function POST(req) {
     const dbStatus = dbStatusFor(decision.status);
 
     const db = getDb();
-    const info = db
-      .prepare(
-        `INSERT INTO receiving_log
-           (shift_date, location_id, vendor, invoice_ref, category, item,
-            reading_f, required_max_f, package_ok, expiration_date,
-            status, rejection_reason, shellstock_tag_ref, cook_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        shift_date,
-        location_id,
-        vendor,
-        invoice_ref,
-        category,
-        item,
-        reading_f,
-        decision.required_max_f,
-        package_ok ? 1 : 0,
-        expiration_date,
-        dbStatus,
-        corrective_action,
-        shellstock_tag_ref,
-        cook_id,
-      );
+    
+    const performWrite = db.transaction(() => {
+      const info = db
+        .prepare(
+          `INSERT INTO receiving_log
+             (shift_date, location_id, vendor, invoice_ref, category, item,
+              reading_f, required_max_f, package_ok, expiration_date,
+              status, rejection_reason, shellstock_tag_ref, cook_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          shift_date,
+          location_id,
+          vendor,
+          invoice_ref,
+          category,
+          item,
+          reading_f,
+          decision.required_max_f,
+          package_ok ? 1 : 0,
+          expiration_date,
+          dbStatus,
+          corrective_action,
+          shellstock_tag_ref,
+          cook_id
+        );
 
-    const row = db
-      .prepare('SELECT * FROM receiving_log WHERE id = ?')
-      .get(info.lastInsertRowid);
+      const row = db
+        .prepare('SELECT * FROM receiving_log WHERE id = ?')
+        .get(info.lastInsertRowid);
 
-    // Audit trail — best-effort, matches the sanitizer/temp-log
-    // posture: a stranded receiving_log row is a less-bad outcome
-    // than refusing a valid delivery because the audit chain
-    // blipped.
-    try {
       postAuditEvent({
         entity: 'receiving_log',
         entity_id: Number(info.lastInsertRowid),
@@ -192,9 +189,11 @@ export async function POST(req) {
         location_id,
         note: decision.status === 'ok' ? null : `${decision.status}:${category}`,
       });
-    } catch (auditErr) {
-      console.error('postAuditEvent(receiving_log insert) failed:', auditErr);
-    }
+
+      return { info, row };
+    });
+
+    const { info, row } = performWrite();
 
     return Response.json({
       ok: true,

@@ -45,21 +45,21 @@ function safeJson(x: unknown): string | null {
 /**
  * Post one audit event. Returns the new id.
  *
- * This is intentionally synchronous (like the rest of the db layer) —
- * callers should invoke it INSIDE the same transaction that writes the
- * underlying row, so a rollback also rolls back the audit row. If
- * wrapping in a transaction is impractical, call this immediately AFTER
- * the source write succeeds; a stranded audit row (no source row) is a
- * less bad failure than a silently missing audit row.
+ * This MUST be invoked INSIDE the same transaction that writes the
+ * underlying row, so a rollback also rolls back the audit row.
  */
 export function postAuditEvent(input: AuditEventInput): number {
   const db = getDb();
+  if (!db.inTransaction) {
+    console.warn(`postAuditEvent called outside of a transaction context! Entity: ${input.entity}, Action: ${input.action}. This is unsafe and defies atomicity guarantees.`);
+  }
+
   const info = db
     .prepare(
       `INSERT INTO audit_events (
         shift_date, location_id, actor_cook_id, actor_source,
         entity, entity_id, action, replaces_id, payload_json, note
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       input.shift_date ?? todayISO(),
@@ -71,7 +71,7 @@ export function postAuditEvent(input: AuditEventInput): number {
       input.action,
       input.replaces_id ?? null,
       safeJson(input.payload),
-      input.note ?? null,
+      input.note ?? null
     );
   return Number(info.lastInsertRowid);
 }

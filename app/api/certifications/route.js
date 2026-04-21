@@ -94,32 +94,40 @@ export async function POST(req) {
     }
 
     const db = getDb();
-    const info = db.prepare(`
-      INSERT INTO staff_certifications
-        (location_id, cook_id, cert_type, cert_label, issuer, cert_number,
-         issued_on, expires_on, document_path, active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-    `).run(
-      location_id,
-      cook_id,
-      cert_type,
-      cert_label,
-      issuer,
-      cert_number,
-      issued_on,
-      expires_on,
-      document_path,
-    );
-    const row = db.prepare('SELECT * FROM staff_certifications WHERE id=?').get(info.lastInsertRowid);
-    postAuditEvent({
-      entity: 'staff_certifications',
-      entity_id: Number(info.lastInsertRowid),
-      action: 'insert',
-      actor_cook_id: null,
-      actor_source: 'pic_ui',
-      payload: row,
-      location_id,
+    const performWrite = db.transaction(() => {
+      const info = db.prepare(`
+        INSERT INTO staff_certifications
+          (location_id, cook_id, cert_type, cert_label, issuer, cert_number,
+           issued_on, expires_on, document_path, active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+      `).run(
+        location_id,
+        cook_id,
+        cert_type,
+        cert_label,
+        issuer,
+        cert_number,
+        issued_on,
+        expires_on,
+        document_path,
+      );
+      
+      const row = db.prepare('SELECT * FROM staff_certifications WHERE id=?').get(info.lastInsertRowid);
+      
+      postAuditEvent({
+        entity: 'staff_certifications',
+        entity_id: Number(info.lastInsertRowid),
+        action: 'insert',
+        actor_cook_id: null,
+        actor_source: 'pic_ui',
+        payload: row,
+        location_id,
+      });
+
+      return row;
     });
+
+    const row = performWrite();
     return Response.json({ ok: true, entry: row });
   } catch (err) {
     console.error('POST /api/certifications failed:', err);
@@ -163,17 +171,24 @@ export async function PATCH(req) {
     }
     sets.push("updated_at=datetime('now')");
     args.push(id);
-    db.prepare(`UPDATE staff_certifications SET ${sets.join(', ')} WHERE id=?`).run(...args);
-    const updated = db.prepare('SELECT * FROM staff_certifications WHERE id=?').get(id);
-    postAuditEvent({
-      entity: 'staff_certifications',
-      entity_id: id,
-      action: 'update',
-      actor_cook_id: null,
-      actor_source: 'pic_ui',
-      payload: updated,
-      location_id: existing.location_id,
+    const performUpdate = db.transaction(() => {
+      db.prepare(`UPDATE staff_certifications SET ${sets.join(', ')} WHERE id=?`).run(...args);
+      const updated = db.prepare('SELECT * FROM staff_certifications WHERE id=?').get(id);
+      
+      postAuditEvent({
+        entity: 'staff_certifications',
+        entity_id: id,
+        action: 'update',
+        actor_cook_id: null,
+        actor_source: 'pic_ui',
+        payload: updated,
+        location_id: existing.location_id,
+      });
+
+      return updated;
     });
+
+    const updated = performUpdate();
     return Response.json({ ok: true, entry: updated });
   } catch (err) {
     console.error('PATCH /api/certifications failed:', err);
