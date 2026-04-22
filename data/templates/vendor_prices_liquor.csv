@@ -1,0 +1,3 @@
+vendor,vendor_sku,ingredient_name,pack_size,pack_unit,pack_price,unit_price,imported_at,notes
+Southern Glazer's,SGWS-COORS-12,Coors Btl 12oz,12,bottle,18.00,1.50,,"case of 12 x 12oz btls; unit_price is per bottle"
+Breakthru Beverage,BB-LUNAZUL-750,Tequila Lunazul Blanco 750ml,750,ml,18.00,0.024,,"per-ml unit cost for cocktail pours; pack_size is one 750ml bottle"
