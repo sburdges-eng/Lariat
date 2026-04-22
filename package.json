@@ -54,7 +54,9 @@
     "test:pack-size-detect": "node --experimental-strip-types --test tests/js/test-pack-size-detect.mjs",
     "test:ingredient-masters": "node --experimental-strip-types --test tests/js/test-ingredient-masters.mjs",
     "test:t8-cooking-shrinkage": "node --experimental-strip-types --test tests/js/test-t8-cooking-shrinkage.mjs",
-    "test:t9-benchmarks": "node --experimental-strip-types --test tests/js/test-t9-benchmarks.mjs"
+    "test:t9-benchmarks": "node --experimental-strip-types --test tests/js/test-t9-benchmarks.mjs",
+    "test:propose-declared-qty": "node --test tests/js/test-propose-declared-qty.mjs",
+    "propose:declared-qty": "node scripts/propose-declared-qty.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",
