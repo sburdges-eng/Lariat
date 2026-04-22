@@ -54,16 +54,36 @@ export function normalizeDishName(s: string | null | undefined): string {
 }
 
 export interface DishComponentResolved {
-  recipe_slug: string;
-  recipe_name: string;
+  /** 'recipe' (sub-recipe) or 'vendor_item' (raw distributor item like a bun, patty, cheese slice). */
+  component_type: 'recipe' | 'vendor_item';
+  /** Populated when component_type='recipe'. */
+  recipe_slug: string | null;
+  /** Populated when component_type='vendor_item' — matches vendor_prices.ingredient. */
+  vendor_ingredient: string | null;
+  /** Display name (recipe.name for recipes; vendor ingredient string for vendor_items). */
+  display_name: string;
   qty_per_serving: number | null;        // null = no dish_components row yet
   unit: string | null;                    // null = no dish_components row yet
-  cost_per_yield_unit: number | null;     // null = recipe_costs row missing
-  yield_unit: string | null;
+  /** Per-base-unit price. For 'recipe', cost_per_yield_unit. For 'vendor_item', vendor_prices.unit_price. */
+  unit_price: number | null;
+  /** Base unit of unit_price. For 'recipe', yield_unit. For 'vendor_item', vendor_prices.pack_unit. */
+  base_unit: string | null;
   /** Computed per-serving $ for this component, null if missing data or unit-convert failed. */
   per_serving_cost: number | null;
   /** Human-readable reason if per_serving_cost is null. */
-  status: 'ok' | 'no_dish_component' | 'no_recipe_cost' | 'unit_convert_failed';
+  status:
+    | 'ok'
+    | 'no_dish_component'
+    | 'no_recipe_cost'
+    | 'no_vendor_price'
+    | 'unit_convert_failed';
+}
+
+/** Vendor pricing index for vendor_item component resolution. */
+interface VendorPriceLookup {
+  ingredient: string;
+  unit_price: number | null;
+  pack_unit: string | null;
 }
 
 export interface DishCostResult {
@@ -103,6 +123,7 @@ export function buildDishComponentMap(
   const db = getDb();
   const recipes = recipesOverride ?? getRecipes();
 
+  // ── Recipe pricing index ──
   // recipe_slug → { name, cost_per_yield_unit, yield_unit }
   const recipeIndex = new Map<
     string,
@@ -130,9 +151,58 @@ export function buildDishComponentMap(
     recipeIndex.set(c.recipe_id, existing);
   }
 
-  // Stage 1: declared links from recipes.menu_items[].
-  // dishKey → recipe_slug → DishComponentResolved (qty/unit start null).
+  // ── Vendor pricing index ──
+  // For vendor_item components: ingredient → most-recent unit_price + pack_unit.
+  // We pick the latest imported_at row per ingredient (newest pricing wins).
+  const vendorIndex = new Map<string, VendorPriceLookup>();
+  const vpRows = db
+    .prepare(
+      `SELECT vp.ingredient, vp.unit_price, vp.pack_unit
+         FROM vendor_prices vp
+         JOIN (
+           SELECT ingredient, MAX(imported_at) AS m
+             FROM vendor_prices
+            WHERE location_id = ?
+            GROUP BY ingredient
+         ) latest ON latest.ingredient = vp.ingredient AND latest.m = vp.imported_at
+        WHERE vp.location_id = ?`,
+    )
+    .all(locationId, locationId) as VendorPriceLookup[];
+  for (const vp of vpRows) {
+    vendorIndex.set(vp.ingredient.toLowerCase().trim(), {
+      ingredient: vp.ingredient,
+      unit_price: vp.unit_price,
+      pack_unit: vp.pack_unit,
+    });
+  }
+  // Fallback: order_guide_items if vendor_prices missed it.
+  const ogRows = db
+    .prepare(
+      `SELECT ingredient, unit_price, unit AS pack_unit
+         FROM order_guide_items
+        WHERE location_id = ?`,
+    )
+    .all(locationId) as VendorPriceLookup[];
+  for (const og of ogRows) {
+    const key = og.ingredient.toLowerCase().trim();
+    if (!vendorIndex.has(key)) {
+      vendorIndex.set(key, {
+        ingredient: og.ingredient,
+        unit_price: og.unit_price,
+        pack_unit: og.pack_unit,
+      });
+    }
+  }
+
+  // Per-dish key uses a composite: 'recipe:<slug>' or 'vendor:<ingredient_lowered>'.
+  // Lets the same dish hold both kinds of components without slug collisions.
   const map = new Map<string, Map<string, DishComponentResolved>>();
+  const compKey = (c: { component_type: string; recipe_slug: string | null; vendor_ingredient: string | null }) =>
+    c.component_type === 'recipe'
+      ? `recipe:${c.recipe_slug ?? ''}`
+      : `vendor:${(c.vendor_ingredient ?? '').toLowerCase().trim()}`;
+
+  // Stage 1: declared recipe links from recipes.menu_items[].
   for (const r of recipes) {
     const slug = r.slug;
     const recipeName = recipeIndex.get(slug)?.name || r.name;
@@ -145,14 +215,17 @@ export function buildDishComponentMap(
         inner = new Map<string, DishComponentResolved>();
         map.set(key, inner);
       }
-      if (!inner.has(slug)) {
-        inner.set(slug, {
+      const ck = compKey({ component_type: 'recipe', recipe_slug: slug, vendor_ingredient: null });
+      if (!inner.has(ck)) {
+        inner.set(ck, {
+          component_type: 'recipe',
           recipe_slug: slug,
-          recipe_name: recipeName,
+          vendor_ingredient: null,
+          display_name: recipeName,
           qty_per_serving: null,
           unit: null,
-          cost_per_yield_unit: recipeIndex.get(slug)?.cost_per_yield_unit ?? null,
-          yield_unit: recipeIndex.get(slug)?.yield_unit ?? null,
+          unit_price: recipeIndex.get(slug)?.cost_per_yield_unit ?? null,
+          base_unit: recipeIndex.get(slug)?.yield_unit ?? null,
           per_serving_cost: null,
           status: 'no_dish_component',
         });
@@ -160,8 +233,7 @@ export function buildDishComponentMap(
     }
   }
 
-  // Stage 2: overlay dish_components rows (qty + unit). These can also
-  // INTRODUCE dish/recipe pairs that weren't declared in recipes.menu_items[].
+  // Stage 2: overlay dish_components rows (recipe + vendor_item alike).
   const dcRows = db
     .prepare(
       `SELECT * FROM dish_components WHERE location_id = ?`,
@@ -175,20 +247,39 @@ export function buildDishComponentMap(
       inner = new Map<string, DishComponentResolved>();
       map.set(key, inner);
     }
-    const recipeMeta = recipeIndex.get(dc.recipe_slug);
-    inner.set(dc.recipe_slug, {
-      recipe_slug: dc.recipe_slug,
-      recipe_name: recipeMeta?.name || dc.recipe_slug,
-      qty_per_serving: dc.qty_per_serving,
-      unit: dc.unit,
-      cost_per_yield_unit: recipeMeta?.cost_per_yield_unit ?? null,
-      yield_unit: recipeMeta?.yield_unit ?? null,
-      per_serving_cost: null,
-      status: 'ok',
-    });
+    if (dc.component_type === 'vendor_item') {
+      const lookup = vendorIndex.get((dc.vendor_ingredient || '').toLowerCase().trim());
+      inner.set(compKey(dc), {
+        component_type: 'vendor_item',
+        recipe_slug: null,
+        vendor_ingredient: dc.vendor_ingredient,
+        display_name: lookup?.ingredient || dc.vendor_ingredient || '',
+        qty_per_serving: dc.qty_per_serving,
+        unit: dc.unit,
+        unit_price: lookup?.unit_price ?? null,
+        base_unit: lookup?.pack_unit ?? null,
+        per_serving_cost: null,
+        status: 'ok',
+      });
+    } else {
+      // recipe path
+      const recipeMeta = dc.recipe_slug ? recipeIndex.get(dc.recipe_slug) : undefined;
+      inner.set(compKey(dc), {
+        component_type: 'recipe',
+        recipe_slug: dc.recipe_slug,
+        vendor_ingredient: null,
+        display_name: recipeMeta?.name || dc.recipe_slug || '',
+        qty_per_serving: dc.qty_per_serving,
+        unit: dc.unit,
+        unit_price: recipeMeta?.cost_per_yield_unit ?? null,
+        base_unit: recipeMeta?.yield_unit ?? null,
+        per_serving_cost: null,
+        status: 'ok',
+      });
+    }
   }
 
-  // Stage 3: compute per_serving_cost per component now that qty+unit are known.
+  // Stage 3: compute per_serving_cost per component.
   const out = new Map<string, DishComponentResolved[]>();
   for (const [dishKey, comps] of map) {
     const list: DishComponentResolved[] = [];
@@ -204,18 +295,18 @@ function resolveComponentCost(c: DishComponentResolved): DishComponentResolved {
   if (c.qty_per_serving == null || c.unit == null) {
     return { ...c, per_serving_cost: null, status: 'no_dish_component' };
   }
-  if (c.cost_per_yield_unit == null || !c.yield_unit) {
-    return { ...c, per_serving_cost: null, status: 'no_recipe_cost' };
+  if (c.unit_price == null || !c.base_unit) {
+    const missing = c.component_type === 'vendor_item' ? 'no_vendor_price' : 'no_recipe_cost';
+    return { ...c, per_serving_cost: null, status: missing };
   }
-  // Convert qty_per_serving from `unit` to `yield_unit` so we can multiply
-  // by cost_per_yield_unit. convertQty returns null for incompatible
-  // dimensions (e.g. volume → weight without a density), which we surface.
-  const qtyInYieldUnits = convertQty(c.qty_per_serving, c.unit, c.yield_unit, null);
-  if (qtyInYieldUnits == null || !Number.isFinite(qtyInYieldUnits)) {
+  // Convert qty_per_serving from the user's input `unit` to the cost-source
+  // `base_unit` so we can multiply by unit_price. convertQty returns null
+  // for incompatible dimensions (e.g. volume → weight without a density).
+  const qtyInBase = convertQty(c.qty_per_serving, c.unit, c.base_unit, null);
+  if (qtyInBase == null || !Number.isFinite(qtyInBase)) {
     return { ...c, per_serving_cost: null, status: 'unit_convert_failed' };
   }
-  const cost = qtyInYieldUnits * c.cost_per_yield_unit;
-  return { ...c, per_serving_cost: cost, status: 'ok' };
+  return { ...c, per_serving_cost: qtyInBase * c.unit_price, status: 'ok' };
 }
 
 /**

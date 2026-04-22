@@ -26,7 +26,7 @@ export async function GET(req: Request) {
         .prepare(
           `SELECT * FROM dish_components
             WHERE location_id = ? AND LOWER(TRIM(dish_name)) = ?
-            ORDER BY recipe_slug`,
+            ORDER BY component_type, recipe_slug, vendor_ingredient`,
         )
         .all(location_id, norm);
     } else {
@@ -34,7 +34,7 @@ export async function GET(req: Request) {
         .prepare(
           `SELECT * FROM dish_components
             WHERE location_id = ?
-            ORDER BY dish_name, recipe_slug`,
+            ORDER BY dish_name, component_type, recipe_slug, vendor_ingredient`,
         )
         .all(location_id);
     }
@@ -46,9 +46,9 @@ export async function GET(req: Request) {
 }
 
 // ── POST /api/dish-components ────────────────────────────────────
-// UPSERT on (location_id, dish_name, recipe_slug). dish_name stored
-// canonical (normalized). Pass `dish_name_display` to remember the
-// original case if needed; not stored in this version (canonical only).
+// UPSERT on (location_id, dish_name, recipe_slug)  for type='recipe'
+//        or (location_id, dish_name, vendor_ingredient) for type='vendor_item'
+// dish_name stored canonical (normalized).
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -59,36 +59,67 @@ export async function POST(req: Request) {
     if (!dish_name) {
       return Response.json({ error: 'dish_name normalized to empty' }, { status: 400 });
     }
-    const recipe_slug = clip(body.recipe_slug, 80) as string;
+    const component_type = body.component_type ?? 'recipe';
+    const recipe_slug = component_type === 'recipe' ? clip(body.recipe_slug, 80) : null;
+    const vendor_ingredient = component_type === 'vendor_item' ? clip(body.vendor_ingredient, 200) : null;
     const qty_per_serving = Number(body.qty_per_serving);
     const unit = clip(body.unit, 24) as string;
     const notes = clip(body.notes, 500);
     const location_id = locationFromBody(body);
 
     const db = getDb();
-    // SELECT existing → INSERT or UPDATE inside one transaction. SQLite
-    // UNIQUE on (location_id, dish_name, recipe_slug) backs this; ON CONFLICT
-    // DO UPDATE works here because none of the unique-key columns are NULL.
+
+    // ON CONFLICT targets the partial unique index for the relevant type.
+    // We branch the SQL because SQLite ON CONFLICT clauses target a specific
+    // index, and partial indexes can only be referenced by their conflict
+    // columns (no index name). So one INSERT per type.
     const result = db.transaction(() => {
-      const info = db
-        .prepare(
+      if (component_type === 'recipe') {
+        db.prepare(
           `INSERT INTO dish_components
-             (location_id, dish_name, recipe_slug, qty_per_serving, unit, notes)
-           VALUES (?, ?, ?, ?, ?, ?)
-           ON CONFLICT(location_id, dish_name, recipe_slug) DO UPDATE SET
-             qty_per_serving = excluded.qty_per_serving,
-             unit            = excluded.unit,
-             notes           = excluded.notes,
-             updated_at      = datetime('now')`,
-        )
-        .run(location_id, dish_name, recipe_slug, qty_per_serving, unit, notes);
-      const row = db
-        .prepare(
-          `SELECT * FROM dish_components
-            WHERE location_id = ? AND dish_name = ? AND recipe_slug = ?`,
-        )
-        .get(location_id, dish_name, recipe_slug);
-      return { info, row };
+             (location_id, dish_name, component_type, recipe_slug, vendor_ingredient,
+              qty_per_serving, unit, notes)
+           VALUES (?, ?, 'recipe', ?, NULL, ?, ?, ?)
+           ON CONFLICT(location_id, dish_name, recipe_slug)
+             WHERE component_type = 'recipe'
+             DO UPDATE SET
+               qty_per_serving = excluded.qty_per_serving,
+               unit            = excluded.unit,
+               notes           = excluded.notes,
+               updated_at      = datetime('now')`,
+        ).run(location_id, dish_name, recipe_slug, qty_per_serving, unit, notes);
+      } else {
+        db.prepare(
+          `INSERT INTO dish_components
+             (location_id, dish_name, component_type, recipe_slug, vendor_ingredient,
+              qty_per_serving, unit, notes)
+           VALUES (?, ?, 'vendor_item', NULL, ?, ?, ?, ?)
+           ON CONFLICT(location_id, dish_name, vendor_ingredient)
+             WHERE component_type = 'vendor_item'
+             DO UPDATE SET
+               qty_per_serving = excluded.qty_per_serving,
+               unit            = excluded.unit,
+               notes           = excluded.notes,
+               updated_at      = datetime('now')`,
+        ).run(location_id, dish_name, vendor_ingredient, qty_per_serving, unit, notes);
+      }
+      const row =
+        component_type === 'recipe'
+          ? db
+              .prepare(
+                `SELECT * FROM dish_components
+                  WHERE location_id = ? AND dish_name = ?
+                    AND component_type = 'recipe' AND recipe_slug = ?`,
+              )
+              .get(location_id, dish_name, recipe_slug)
+          : db
+              .prepare(
+                `SELECT * FROM dish_components
+                  WHERE location_id = ? AND dish_name = ?
+                    AND component_type = 'vendor_item' AND vendor_ingredient = ?`,
+              )
+              .get(location_id, dish_name, vendor_ingredient);
+      return { row };
     })();
 
     return Response.json({ ok: true, component: result.row });

@@ -179,22 +179,38 @@ export default function MenuEngineeringPage({ searchParams }: { searchParams?: {
                   <td style={{ fontSize: 12, opacity: 0.85 }}>
                     {r.components.length === 0
                       ? '—'
-                      : r.components.map((c) => (
-                          <div key={c.recipe_slug}>
-                            {c.recipe_name}
-                            {c.qty_per_serving != null && c.unit
-                              ? ` · ${c.qty_per_serving} ${c.unit}`
-                              : ' · (no qty)'}
-                            {c.per_serving_cost != null && (
-                              <span style={{ color: 'var(--muted)' }}>
-                                {' '}= ${c.per_serving_cost.toFixed(2)}
+                      : r.components.map((c) => {
+                          const key =
+                            c.component_type === 'recipe'
+                              ? `r:${c.recipe_slug}`
+                              : `v:${c.vendor_ingredient}`;
+                          return (
+                            <div key={key}>
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  color: c.component_type === 'vendor_item' ? 'var(--blue)' : 'var(--green)',
+                                  marginRight: 4,
+                                }}
+                              >
+                                {c.component_type === 'vendor_item' ? 'D' : 'R'}
                               </span>
-                            )}
-                            {c.status !== 'ok' && c.status !== 'no_dish_component' && (
-                              <span style={{ color: 'var(--red)' }}> [{c.status}]</span>
-                            )}
-                          </div>
-                        ))}
+                              {c.display_name}
+                              {c.qty_per_serving != null && c.unit
+                                ? ` · ${c.qty_per_serving} ${c.unit}`
+                                : ' · (no qty)'}
+                              {c.per_serving_cost != null && (
+                                <span style={{ color: 'var(--muted)' }}>
+                                  {' '}= ${c.per_serving_cost.toFixed(2)}
+                                </span>
+                              )}
+                              {c.status !== 'ok' && c.status !== 'no_dish_component' && (
+                                <span style={{ color: 'var(--red)' }}> [{c.status}]</span>
+                              )}
+                            </div>
+                          );
+                        })}
                   </td>
                 </tr>
               );

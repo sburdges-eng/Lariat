@@ -19,8 +19,24 @@ export function validateDishComponent(input: Partial<DishComponent> | null | und
   if (!input.dish_name || typeof input.dish_name !== 'string' || !input.dish_name.trim()) {
     return { ok: false, reason: 'dish_name is required' };
   }
-  if (!input.recipe_slug || typeof input.recipe_slug !== 'string' || !input.recipe_slug.trim()) {
-    return { ok: false, reason: 'recipe_slug is required' };
+  const type = input.component_type ?? 'recipe';
+  if (type !== 'recipe' && type !== 'vendor_item') {
+    return { ok: false, reason: 'component_type must be "recipe" or "vendor_item"' };
+  }
+  if (type === 'recipe') {
+    if (!input.recipe_slug || typeof input.recipe_slug !== 'string' || !input.recipe_slug.trim()) {
+      return { ok: false, reason: 'recipe_slug is required for recipe components' };
+    }
+    if (input.vendor_ingredient) {
+      return { ok: false, reason: 'vendor_ingredient must be empty for recipe components' };
+    }
+  } else {
+    if (!input.vendor_ingredient || typeof input.vendor_ingredient !== 'string' || !input.vendor_ingredient.trim()) {
+      return { ok: false, reason: 'vendor_ingredient is required for vendor_item components' };
+    }
+    if (input.recipe_slug) {
+      return { ok: false, reason: 'recipe_slug must be empty for vendor_item components' };
+    }
   }
   const qty = Number(input.qty_per_serving);
   if (!Number.isFinite(qty) || qty <= 0) {
@@ -29,9 +45,6 @@ export function validateDishComponent(input: Partial<DishComponent> | null | und
   if (!input.unit || typeof input.unit !== 'string' || !input.unit.trim()) {
     return { ok: false, reason: 'unit is required' };
   }
-  // Soft-warn rather than hard-reject on unknown units — the unit_convert
-  // layer will surface the real failure if it can't bridge to the recipe's
-  // yield_unit. Allow anything string-shaped.
   return { ok: true };
 }
 

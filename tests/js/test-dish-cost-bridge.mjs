@@ -31,6 +31,8 @@ beforeEach(() => {
     DELETE FROM dish_components;
     DELETE FROM recipe_costs;
     DELETE FROM sales_lines;
+    DELETE FROM vendor_prices;
+    DELETE FROM order_guide_items;
   `);
 });
 
@@ -47,12 +49,42 @@ function seedRecipeCosts(slug, recipe_name, cost_per_yield_unit, yield_unit) {
 
 function seedDishComponent(dish_name, recipe_slug, qty_per_serving, unit) {
   testDb.prepare(
-    `INSERT INTO dish_components (location_id, dish_name, recipe_slug, qty_per_serving, unit)
-     VALUES ('default', ?, ?, ?, ?)
-     ON CONFLICT(location_id, dish_name, recipe_slug) DO UPDATE SET
-       qty_per_serving = excluded.qty_per_serving,
-       unit = excluded.unit`,
+    `INSERT INTO dish_components
+       (location_id, dish_name, component_type, recipe_slug, vendor_ingredient,
+        qty_per_serving, unit)
+     VALUES ('default', ?, 'recipe', ?, NULL, ?, ?)
+     ON CONFLICT(location_id, dish_name, recipe_slug) WHERE component_type='recipe'
+       DO UPDATE SET
+         qty_per_serving = excluded.qty_per_serving,
+         unit = excluded.unit`,
   ).run(dish_name, recipe_slug, qty_per_serving, unit);
+}
+
+function seedVendorDishComponent(dish_name, vendor_ingredient, qty_per_serving, unit) {
+  testDb.prepare(
+    `INSERT INTO dish_components
+       (location_id, dish_name, component_type, recipe_slug, vendor_ingredient,
+        qty_per_serving, unit)
+     VALUES ('default', ?, 'vendor_item', NULL, ?, ?, ?)
+     ON CONFLICT(location_id, dish_name, vendor_ingredient) WHERE component_type='vendor_item'
+       DO UPDATE SET
+         qty_per_serving = excluded.qty_per_serving,
+         unit = excluded.unit`,
+  ).run(dish_name, vendor_ingredient, qty_per_serving, unit);
+}
+
+function seedVendorPrice(ingredient, unit_price, pack_unit, vendor = 'sysco') {
+  testDb.prepare(
+    `INSERT INTO vendor_prices (ingredient, vendor, pack_size, pack_unit, unit_price, location_id)
+     VALUES (?, ?, 1, ?, ?, 'default')`,
+  ).run(ingredient, vendor, pack_unit, unit_price);
+}
+
+function seedOrderGuide(ingredient, unit_price, unit) {
+  testDb.prepare(
+    `INSERT INTO order_guide_items (ingredient, unit_price, unit, location_id)
+     VALUES (?, ?, ?, 'default')`,
+  ).run(ingredient, unit_price, unit);
 }
 
 function seedSale(item_name, qty, rev) {
@@ -116,15 +148,17 @@ describe('buildDishComponentMap (declared-only path)', () => {
     const comps = m.get('the rope burger');
     assert.ok(comps);
     assert.equal(comps.length, 1);
+    assert.equal(comps[0].component_type, 'recipe');
     assert.equal(comps[0].recipe_slug, 'bacon_jam');
     assert.equal(comps[0].qty_per_serving, null);
-    assert.equal(comps[0].cost_per_yield_unit, 4.0);
+    assert.equal(comps[0].unit_price, 4.0);
+    assert.equal(comps[0].base_unit, 'qt');
     assert.equal(comps[0].status, 'no_dish_component');
     assert.equal(comps[0].per_serving_cost, null);
   });
 });
 
-describe('buildDishComponentMap (cost roll-up)', () => {
+describe('buildDishComponentMap (recipe-side cost roll-up)', () => {
   it('fully linked: dish_component + recipe_cost → unit-converted per-serving $', () => {
     seedRecipeCosts('bacon_jam', 'Bacon Jam', 4.0, 'qt'); // $1/cup
     seedDishComponent('the rope burger', 'bacon_jam', 0.5, 'cup'); // $0.50
@@ -170,12 +204,88 @@ describe('buildDishComponentMap (cost roll-up)', () => {
   });
 });
 
+describe('buildDishComponentMap (vendor_item path)', () => {
+  it('vendor_item with vendor_prices match → per-serving $ via unit_price × qty', () => {
+    // Brioche Bun: $0.50 each. Burger uses 1 each.
+    seedVendorPrice('Brioche Bun', 0.50, 'each');
+    seedVendorDishComponent('rope burger', 'Brioche Bun', 1, 'each');
+    const m = bridge.buildDishComponentMap('default', []);
+    const comps = m.get('rope burger');
+    assert.ok(comps);
+    assert.equal(comps[0].component_type, 'vendor_item');
+    assert.equal(comps[0].vendor_ingredient, 'Brioche Bun');
+    assert.equal(comps[0].status, 'ok');
+    assert.ok(Math.abs(comps[0].per_serving_cost - 0.5) < 0.001);
+  });
+
+  it('vendor_item falls back to order_guide_items when not in vendor_prices', () => {
+    seedOrderGuide('American Cheese Slice', 0.12, 'each');
+    seedVendorDishComponent('cheeseburger', 'American Cheese Slice', 2, 'each'); // $0.24
+    const m = bridge.buildDishComponentMap('default', []);
+    const comps = m.get('cheeseburger');
+    assert.equal(comps[0].status, 'ok');
+    assert.ok(Math.abs(comps[0].per_serving_cost - 0.24) < 0.001);
+  });
+
+  it('vendor_item lookup is case-insensitive on ingredient', () => {
+    seedVendorPrice('BRIOCHE BUN', 0.50, 'each');
+    seedVendorDishComponent('any dish', 'brioche bun', 1, 'each');
+    const m = bridge.buildDishComponentMap('default', []);
+    const comps = m.get('any dish');
+    assert.equal(comps[0].status, 'ok');
+    assert.ok(Math.abs(comps[0].per_serving_cost - 0.5) < 0.001);
+  });
+
+  it('no_vendor_price status when neither vendor_prices nor order_guide has the ingredient', () => {
+    seedVendorDishComponent('mystery dish', 'Unicorn Bacon', 1, 'each');
+    const m = bridge.buildDishComponentMap('default', []);
+    const comps = m.get('mystery dish');
+    assert.equal(comps[0].status, 'no_vendor_price');
+    assert.equal(comps[0].per_serving_cost, null);
+  });
+
+  it('vendor_item unit conversion: lb-priced item with oz qty', () => {
+    // Ground beef priced at $5/lb. Burger uses 8 oz = 0.5 lb → $2.50.
+    seedVendorPrice('80/20 Ground Beef', 5.0, 'lb');
+    seedVendorDishComponent('rope burger', '80/20 Ground Beef', 8, 'oz');
+    const m = bridge.buildDishComponentMap('default', []);
+    const comps = m.get('rope burger');
+    assert.equal(comps[0].status, 'ok');
+    assert.ok(Math.abs(comps[0].per_serving_cost - 2.5) < 0.001,
+      `expected $2.50, got $${comps[0].per_serving_cost}`);
+  });
+
+  it('vendor_prices preferred over order_guide_items when both exist', () => {
+    seedVendorPrice('Brioche Bun', 0.40, 'each');           // newer
+    seedOrderGuide('Brioche Bun', 0.99, 'each');             // older fallback
+    seedVendorDishComponent('rope burger', 'Brioche Bun', 1, 'each');
+    const m = bridge.buildDishComponentMap('default', []);
+    const comps = m.get('rope burger');
+    assert.equal(comps[0].unit_price, 0.40, 'vendor_prices should win');
+  });
+});
+
+describe('buildDishComponentMap (mixed dish: recipe + vendor_item)', () => {
+  it('a single dish can hold both a sub-recipe and a distributor item', () => {
+    seedRecipeCosts('bacon_jam', 'Bacon Jam', 4.0, 'qt'); // $1/cup
+    seedVendorPrice('Brioche Bun', 0.50, 'each');
+    seedDishComponent('rope burger', 'bacon_jam', 0.5, 'cup');     // $0.50
+    seedVendorDishComponent('rope burger', 'Brioche Bun', 1, 'each'); // $0.50
+    const r = bridge.computeDishCost('Rope Burger', 'default', undefined, [
+      { slug: 'bacon_jam', name: 'Bacon Jam', menu_items: [] },
+    ]);
+    assert.equal(r.link_state, 'fully_linked');
+    assert.equal(r.components.length, 2);
+    assert.ok(Math.abs(r.total_cost - 1.0) < 0.001);
+  });
+});
+
 describe('computeDishCost', () => {
-  it('multi-component: sum of per-component $ across two recipes', () => {
-    seedRecipeCosts('bacon_jam', 'Bacon Jam', 4.0, 'qt');     // $1/cup
-    seedRecipeCosts('lariat_rub', 'Lariat Rub', 12.0, 'cup'); // $12/cup
-    seedDishComponent('rope', 'bacon_jam', 0.5, 'cup');        // $0.50
-    seedDishComponent('rope', 'lariat_rub', 0.1, 'cup');       // $1.20
+  it('multi-component recipe sum', () => {
+    seedRecipeCosts('bacon_jam', 'Bacon Jam', 4.0, 'qt');
+    seedRecipeCosts('lariat_rub', 'Lariat Rub', 12.0, 'cup');
+    seedDishComponent('rope', 'bacon_jam', 0.5, 'cup');
+    seedDishComponent('rope', 'lariat_rub', 0.1, 'cup');
     const r = bridge.computeDishCost('Rope', 'default', undefined, [
       { slug: 'bacon_jam', name: 'Bacon Jam', menu_items: ['Rope'] },
       { slug: 'lariat_rub', name: 'Lariat Rub', menu_items: ['Rope'] },
@@ -214,12 +324,9 @@ describe('computeDishCoverage', () => {
     seedSale('Bourbon Well', 50, 250);
     seedSale('TOTAL', 9999, 99999);
 
-    // Pre-build map with stubbed recipes so the coverage call uses our data.
     const map = bridge.buildDishComponentMap('default', [
       { slug: 'bacon_jam', name: 'Bacon Jam', menu_items: ['ROPE BURGER'] },
     ]);
-    // Manually replicate computeDishCoverage's loop with our stubbed map so
-    // the test doesn't depend on the real recipes.json on disk.
     const sales = bridge.cleanedSalesRows([
       { item_name: 'ROPE BURGER', qty: 100, rev: 1000 },
       { item_name: 'Bourbon Well', qty: 50, rev: 250 },

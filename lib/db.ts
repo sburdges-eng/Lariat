@@ -84,6 +84,10 @@ export interface Location {
   id: string;
   name: string;
   created_at: string;
+  tax_rate?: number | null;
+  service_fee_pct?: number | null;
+  phone?: string | null;
+  address?: string | null;
 }
 
 export interface VendorPrice {
@@ -149,18 +153,22 @@ export interface RecipeCost {
 }
 
 /**
- * Per-serving recipe quantity for a Toast dish. One row = "X qty of recipe Y
- * per single serving of dish Z." Bridges menu pricing to recipe cost.
+ * Per-serving component quantity for a Toast dish. A component is EITHER
+ * a sub-recipe (component_type='recipe', recipe_slug populated) OR a raw
+ * distributor item (component_type='vendor_item', vendor_ingredient populated).
  *
  * `dish_name` is stored canonical (lowercased + alphanumeric-only via
  * normalizeDishName in lib/dishCostBridge). `recipe_slug` matches
  * recipes.json slug = bom_lines.recipe_id = recipe_costs.recipe_id.
+ * `vendor_ingredient` matches order_guide_items.ingredient / vendor_prices.ingredient.
  */
 export interface DishComponent {
   id: number;
   location_id: string;
   dish_name: string;
-  recipe_slug: string;
+  component_type: 'recipe' | 'vendor_item';
+  recipe_slug: string | null;
+  vendor_ingredient: string | null;
   qty_per_serving: number;
   unit: string;
   notes: string | null;
@@ -612,6 +620,7 @@ export interface ServiceHoursRow {
   notes: string | null;
   active: number;
   created_at: string;
+  archived_at: string | null;      // set by /api/service-hours DELETE + archive:stale sweep
 }
 
 /**
@@ -632,6 +641,7 @@ export interface CleaningScheduleItem {
   notes: string | null;
   active: number;                  // 0/1 — retired rows stay for history
   created_at: string;
+  archived_at: string | null;      // set by /api/cleaning-schedule DELETE + archive:stale sweep
 }
 
 export interface CleaningLogEntry {
@@ -1177,23 +1187,36 @@ export function initSchema(db: DB): void {
     );
     CREATE INDEX IF NOT EXISTS idx_sales_loc ON sales_lines(location_id);
 
-    -- dish_components: per-serving recipe quantities for a Toast dish.
-    -- Bridges menu pricing → recipe_costs → bom_lines → vendor_prices.
-    -- A dish can have multiple components (e.g., burger pulls bacon_jam,
-    -- alabama_white_sauce, lariat_rub, etc.). Each row is "X qty of recipe Y
-    -- per single serving of dish Z." Populated via /menu-engineering/components.
+    -- dish_components: per-serving component quantities for a Toast dish.
+    -- A "component" is either a sub-recipe (recipe_slug populated) or a raw
+    -- distributor item (vendor_ingredient populated). Examples:
+    --   - bacon_jam (recipe) — house-made sauce
+    --   - 8oz Burger Patty (vendor_item) — bought direct from Sysco
+    --   - Brioche Bun (vendor_item) — bought direct from Shamrock
+    -- Bridges menu pricing → recipe_costs OR vendor_prices.
+    -- Each row is "X qty of component Y per single serving of dish Z."
+    -- Populated via /menu-engineering/components.
     CREATE TABLE IF NOT EXISTS dish_components (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       location_id TEXT NOT NULL DEFAULT 'default',
       dish_name TEXT NOT NULL,
-      recipe_slug TEXT NOT NULL,
+      component_type TEXT NOT NULL DEFAULT 'recipe'
+        CHECK(component_type IN ('recipe', 'vendor_item')),
+      recipe_slug TEXT,
+      vendor_ingredient TEXT,
       qty_per_serving REAL NOT NULL,
       unit TEXT NOT NULL,
       notes TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
-      UNIQUE(location_id, dish_name, recipe_slug)
+      CHECK (
+        (component_type = 'recipe' AND recipe_slug IS NOT NULL AND vendor_ingredient IS NULL) OR
+        (component_type = 'vendor_item' AND vendor_ingredient IS NOT NULL AND recipe_slug IS NULL)
+      )
     );
+    -- Partial UNIQUE indexes are created after migrateLegacyColumns ensures
+    -- the column shape is current (old dish_components tables without
+    -- component_type must be rebuilt before an index can reference it).
     CREATE INDEX IF NOT EXISTS idx_dish_components_dish
       ON dish_components(location_id, dish_name);
 
@@ -1902,6 +1925,75 @@ function migrateLegacyColumns(db: DB): void {
     if (!equipCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
   }
 
+  // dish_components gained component_type + vendor_ingredient so a dish can
+  // hold both sub-recipes and raw distributor items (buns, patties, cheese).
+  // The old shape had recipe_slug NOT NULL and a single composite UNIQUE,
+  // neither of which are compatible with the vendor_item branch. SQLite can't
+  // drop a column-level NOT NULL or UNIQUE, so the "unpatchable" path is to
+  // rebuild the table. For dev DBs that already created the old shape but
+  // haven't had any rows inserted yet, we detect via missing column and
+  // rebuild in place, preserving any pre-existing rows as recipe-type.
+  const dcCols = t('dish_components');
+  if (dcCols.length > 0 && !dcCols.includes('component_type')) {
+    // Rebuild the old-shape table: SQLite can't drop a NOT NULL from
+    // recipe_slug or change a composite UNIQUE in place, so we rename +
+    // recreate + copy. Preserves any existing rows as component_type='recipe'.
+    try {
+      db.exec(`
+        BEGIN;
+        ALTER TABLE dish_components RENAME TO dish_components_old;
+        CREATE TABLE dish_components (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          location_id TEXT NOT NULL DEFAULT 'default',
+          dish_name TEXT NOT NULL,
+          component_type TEXT NOT NULL DEFAULT 'recipe'
+            CHECK(component_type IN ('recipe', 'vendor_item')),
+          recipe_slug TEXT,
+          vendor_ingredient TEXT,
+          qty_per_serving REAL NOT NULL,
+          unit TEXT NOT NULL,
+          notes TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now')),
+          CHECK (
+            (component_type = 'recipe' AND recipe_slug IS NOT NULL AND vendor_ingredient IS NULL) OR
+            (component_type = 'vendor_item' AND vendor_ingredient IS NOT NULL AND recipe_slug IS NULL)
+          )
+        );
+        INSERT INTO dish_components
+          (id, location_id, dish_name, component_type, recipe_slug, vendor_ingredient,
+           qty_per_serving, unit, notes, created_at, updated_at)
+        SELECT id, location_id, dish_name, 'recipe', recipe_slug, NULL,
+               qty_per_serving, unit, notes, created_at, updated_at
+          FROM dish_components_old;
+        DROP TABLE dish_components_old;
+        COMMIT;
+      `);
+    } catch (err) {
+      try { db.exec('ROLLBACK'); } catch { /* ignore */ }
+      console.error('dish_components rebuild migration failed:', err);
+    }
+  }
+
+  // Partial UNIQUE indexes live here (not in the main schemaSQL block) so
+  // they're only created AFTER the column shape is guaranteed current.
+  // Idempotent: IF NOT EXISTS skips them on subsequent runs.
+  const dcColsAfter = t('dish_components');
+  if (dcColsAfter.includes('component_type')) {
+    try {
+      db.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_dish_components_recipe_unique
+          ON dish_components(location_id, dish_name, recipe_slug)
+          WHERE component_type = 'recipe';
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_dish_components_vendor_unique
+          ON dish_components(location_id, dish_name, vendor_ingredient)
+          WHERE component_type = 'vendor_item';
+      `);
+    } catch (err) {
+      console.error('dish_components partial-index creation failed:', err);
+    }
+  }
+
   // BEO events gained event_time / contact_name / tax_rate / service_fee_pct
   // so the worksheet-style board can store the invoice-header fields.
   const beoCols = t('beo_events');
@@ -2003,6 +2095,42 @@ function migrateLegacyColumns(db: DB): void {
   ];
   for (const [col, ddl] of thermcalMigrations) {
     if (!thermcalCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  // Location-level configuration — the BEO worksheet previously hardcoded
+  // tax_rate (0.0675) and service_fee_pct (20) as per-event fallbacks, which
+  // meant a manager editing default tax/service had no reachable surface.
+  // These columns let /admin/settings drive a per-location default that
+  // /api/beo reads when the request body doesn't provide the field.
+  const locCols = t('locations');
+  const locMigrations: [string, string][] = [
+    ['tax_rate',        'ALTER TABLE locations ADD COLUMN tax_rate REAL DEFAULT 0.0675'],
+    ['service_fee_pct', 'ALTER TABLE locations ADD COLUMN service_fee_pct REAL DEFAULT 20'],
+    ['phone',           'ALTER TABLE locations ADD COLUMN phone TEXT'],
+    ['address',         'ALTER TABLE locations ADD COLUMN address TEXT'],
+  ];
+  for (const [col, ddl] of locMigrations) {
+    if (!locCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  // Soft-archive timestamps. Tables that already use an `active` 0/1 flag get
+  // a paired `archived_at` TEXT column. `scripts/archive-stale.mjs` (npm run
+  // archive:stale) stamps it when a row is marked inactive, and list UIs can
+  // filter `archived_at IS NULL` to hide retired rows. NULL = live; a
+  // datetime('now') value = archived. Existing `active = 0` rows are fixed
+  // up by the sweep script on first run.
+  const archiveTables: string[] = [
+    'service_hours',
+    'cleaning_schedule',
+    'sds_registry',
+    'staff_certifications',
+  ];
+  for (const tbl of archiveTables) {
+    const cols = t(tbl);
+    if (cols.length === 0) continue; // table doesn't exist in this build
+    if (!cols.includes('archived_at')) {
+      try { db.exec(`ALTER TABLE ${tbl} ADD COLUMN archived_at TEXT`); } catch { /* ignore */ }
+    }
   }
 }
 
