@@ -80,11 +80,11 @@ function seedVendorPrice(ingredient, unit_price, pack_unit, vendor = 'sysco') {
   ).run(ingredient, vendor, pack_unit, unit_price);
 }
 
-function seedOrderGuide(ingredient, unit_price, unit) {
+function seedOrderGuide(ingredient, unit_price, unit, is_placeholder = 0) {
   testDb.prepare(
-    `INSERT INTO order_guide_items (ingredient, unit_price, unit, location_id)
-     VALUES (?, ?, ?, 'default')`,
-  ).run(ingredient, unit_price, unit);
+    `INSERT INTO order_guide_items (ingredient, unit_price, unit, location_id, is_placeholder)
+     VALUES (?, ?, ?, 'default', ?)`,
+  ).run(ingredient, unit_price, unit, is_placeholder ? 1 : 0);
 }
 
 function seedSale(item_name, qty, rev) {
@@ -262,6 +262,50 @@ describe('buildDishComponentMap (vendor_item path)', () => {
     const m = bridge.buildDishComponentMap('default', []);
     const comps = m.get('rope burger');
     assert.equal(comps[0].unit_price, 0.40, 'vendor_prices should win');
+  });
+});
+
+describe('buildDishComponentMap (order_guide placeholder skip)', () => {
+  it('skips order_guide rows marked is_placeholder=1 when resolving vendor_item cost', () => {
+    // Two rows for the same ingredient: a placeholder-priced row (recipe-derived
+    // ~$0.0005/cup value that got written in as a cost) and a real vendor row.
+    // The bridge must pick the real one regardless of insertion order.
+    seedOrderGuide('rye whiskey', 0.000502325771845, 'cup', /* is_placeholder */ 1);
+    seedOrderGuide('rye whiskey', 0.50, 'oz', /* is_placeholder */ 0);
+    seedVendorDishComponent('old fashioned', 'rye whiskey', 2, 'oz'); // $1.00
+
+    const m = bridge.buildDishComponentMap('default', []);
+    const comps = m.get('old fashioned');
+    assert.ok(comps, 'dish should resolve');
+    assert.equal(comps[0].status, 'ok');
+    assert.equal(comps[0].unit_price, 0.50, 'real row must win over placeholder');
+    assert.ok(Math.abs(comps[0].per_serving_cost - 1.0) < 0.001,
+      `expected $1.00, got $${comps[0].per_serving_cost}`);
+  });
+
+  it('treats the placeholder row as absent: no_vendor_price when it is the only row', () => {
+    // If the ONLY order_guide row for an ingredient is a placeholder, the
+    // bridge should report no_vendor_price rather than silently applying the
+    // bogus unit_price.
+    seedOrderGuide('dry white wine', 0.000502325771845, 'cup', /* is_placeholder */ 1);
+    seedVendorDishComponent('wine sauce plate', 'dry white wine', 0.25, 'cup');
+
+    const m = bridge.buildDishComponentMap('default', []);
+    const comps = m.get('wine sauce plate');
+    assert.equal(comps[0].status, 'no_vendor_price');
+    assert.equal(comps[0].per_serving_cost, null);
+  });
+
+  it('vendor_prices still wins over a real (non-placeholder) order_guide row', () => {
+    // Regression guard: the placeholder filter must not disturb the existing
+    // vendor_prices-preferred-over-order_guide behavior.
+    seedVendorPrice('stout beer', 0.08, 'oz');
+    seedOrderGuide('stout beer', 0.20, 'oz', /* is_placeholder */ 0);
+    seedVendorDishComponent('beer braise', 'stout beer', 4, 'oz'); // $0.32 via vendor_prices
+
+    const m = bridge.buildDishComponentMap('default', []);
+    const comps = m.get('beer braise');
+    assert.equal(comps[0].unit_price, 0.08, 'vendor_prices should still win');
   });
 });
 
