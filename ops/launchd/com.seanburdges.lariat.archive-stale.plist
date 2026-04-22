@@ -8,7 +8,7 @@
   <array>
     <string>/bin/zsh</string>
     <string>-lc</string>
-    <string>cd /Users/seanburdges/Dev/Lariat &amp;&amp; npm run archive:stale</string>
+    <string>npm run archive:stale</string>
   </array>
   <key>StartCalendarInterval</key>
   <dict>

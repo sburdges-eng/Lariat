@@ -21,6 +21,15 @@ mkdir -p /Users/seanburdges/Dev/Lariat/logs
 If `logs/` is missing when launchd fires, the job will fail with a "no such
 file or directory" error on `StandardOutPath`/`StandardErrorPath`.
 
+## Log rotation
+
+The two log files (`logs/archive-stale.out.log`, `logs/archive-stale.err.log`)
+are append-only; on a noisy error day `err.log` can grow unboundedly. For a
+quick manual trim after a known-good inspection, truncate in place:
+`: > /Users/seanburdges/Dev/Lariat/logs/archive-stale.err.log`. For automatic
+rotation, drop a `newsyslog` rule at
+`/etc/newsyslog.d/lariat-archive-stale.conf` (not committed here).
+
 ## Install
 
 From the Lariat checkout root:
