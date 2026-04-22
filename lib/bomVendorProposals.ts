@@ -565,6 +565,298 @@ export function proposeVendorMatchesForBom(
   return { row, classification, candidates, note };
 }
 
+// ── plan_restaurant_grind (Option 7) ──────────────────────────────
+//
+// Restaurant-grind rows describe an ingredient the BOH grinds on site
+// (e.g. whole peppercorns → cracked black pepper, whole nutmeg → grated).
+// The bom_line ingredient is the FINISHED form ("pepper"), but the
+// purchasing cost should trace to the RAW input the restaurant buys
+// (whole peppercorns, or — if no whole form is carried by the vendor —
+// the least-processed bulk form available).
+//
+// Output of `matchRawCutForGrind` is a ranked list of candidate raw-cut
+// SKUs from vendor_prices. It is independent of the primary
+// `proposeVendorMatchesForBom` pipeline: this helper does NOT apply
+// demotion or NOT-equivalent flagging, because raw-cut matches are about
+// purchasing substitution, not recipe substitution.
+//
+// Confidence tiers for raw-cut matching:
+//   - `high`   — candidate name contains the bom token AND a raw-cut
+//                keyword (whole, whl, bulk, peppercorn, etc.)
+//   - `medium` — candidate name contains the bom token AND a bulk-form
+//                keyword (bulk, coarse, cracked) — "not whole but still
+//                a precursor to finer grind"
+//   - `low`    — candidate name contains the bom token only (finished
+//                or pre-ground form; last-resort fallback)
+//   - `none`   — no candidate contains the bom token
+//
+// Variety-discriminator penalty: candidates whose name includes a
+// variety-specific token that the bom ingredient does NOT carry
+// (e.g. bom "pepper" vs candidate "PEPPER, RED WHL FIRE RSTD") are
+// demoted one tier. This prevents the pepper-vs-bell-pepper false
+// positive while still surfacing them for operator visibility.
+
+/** Raw-cut keywords: explicit "unprocessed" signal. */
+const RAW_CUT_KEYWORDS: ReadonlySet<string> = new Set([
+  'whole',
+  'whl',
+  'peppercorn',
+  'peppercorns',
+  'fresh',
+  'raw',
+]);
+
+/** Bulk-form keywords: semi-processed but still a viable grind input. */
+const BULK_FORM_KEYWORDS: ReadonlySet<string> = new Set([
+  'bulk',
+  'coarse',
+  'crse',
+  'cracked',
+]);
+
+/**
+ * Tokens in a bom_line ingredient that are too generic to anchor raw-cut
+ * matching (would otherwise match half the catalog). "pepper" is NOT in
+ * here — we want every SPICE, PEPPER BLK row to surface.
+ */
+const RAW_CUT_NOISE_TOKENS: ReadonlySet<string> = new Set([
+  'ground',
+  'grind',
+]);
+
+/**
+ * Variety-discriminator tokens: if a candidate contains one of these AND
+ * the bom_line ingredient does NOT, the candidate is probably a DIFFERENT
+ * variety of the same base ingredient (e.g. "PEPPER, RED WHL FIRE RSTD"
+ * vs bom "pepper" — the red-whole-roasted is a vegetable, not black pepper).
+ * Adds a penalty that demotes the candidate one confidence tier.
+ *
+ * Only consulted when the bom_line ingredient is missing the same token.
+ * Example: bom "red pepper" vs candidate "PEPPER, RED WHL" → no penalty
+ * (both carry "red"). Bom "pepper" vs candidate "PEPPER, RED WHL" → penalty.
+ */
+const VARIETY_DISCRIMINATOR_TOKENS: ReadonlySet<string> = new Set([
+  // Pepper varieties (when bom is plain "pepper", these names imply a
+  // specific non-default variety; bom "cayenne pepper" would NOT be
+  // penalized because the bom itself carries "cayenne").
+  'red',
+  'green',
+  'chile',
+  'chili',
+  'calabrian',
+  'chipotle',
+  'jalp',
+  'jalapeno',
+  'habanero',
+  'serrano',
+  'poblano',
+  'guajillo',
+  'ancho',
+  'hatch',
+  'bell',
+  'cayenne',
+  // Form/treatment that implies a different product
+  'roasted',
+  'rstd',
+  'diced',
+  'dried',
+  'powder',
+  'pld',
+  'crushed',
+  'crsh',
+  'stemless',
+  'stmls',
+  'adobo',
+  // Cheese/meat/other cross-product tokens that could false-match
+  'cheese',
+  'jack',
+]);
+
+/**
+ * A specializer token in the candidate that is ALSO present in the bom
+ * ingredient is not a discriminator — both sides share it, so it's a
+ * positive signal. This helper returns the set of candidate tokens that
+ * are VARIETY_DISCRIMINATOR_TOKENS and are NOT in the bom token set.
+ */
+function variantDiscriminatorsOnlyInCandidate(
+  bomTokens: ReadonlySet<string>,
+  candWords: Set<string>,
+): string[] {
+  const out: string[] = [];
+  for (const w of candWords) {
+    if (VARIETY_DISCRIMINATOR_TOKENS.has(w) && !bomTokens.has(w)) out.push(w);
+  }
+  return out;
+}
+
+/** Demote a confidence by one step. high → medium → low → low. */
+function demoteOneStep(c: MatchConfidence): MatchConfidence {
+  return c === 'high' ? 'medium' : c === 'medium' ? 'low' : 'low';
+}
+
+/**
+ * Match raw-cut vendor candidates for a plan_restaurant_grind bom_line.
+ *
+ * The bom ingredient (e.g. "pepper", "ground beef 80/20") is the finished
+ * product. We walk vendor_prices looking for candidates whose name
+ * contains the primary bom tokens. Candidates with "whole/whl/peppercorn"
+ * keywords score highest; "bulk/coarse/cracked" mid-tier; otherwise a
+ * last-resort "low" (reflecting: the vendor only carries pre-processed
+ * forms, so operator must either switch vendor or accept the pre-processed
+ * price).
+ *
+ * Returns a ProposalResult with `classification='matched'` when ≥ 1
+ * candidate found, else `'manual'` with a sentinel row.
+ */
+export function matchRawCutForGrind(
+  row: BomLineInput,
+  vendorCandidates: readonly Candidate[],
+  opts: ProposeOptions = {},
+): ProposalResult {
+  const maxCandidates = opts.maxCandidatesPerRow ?? DEFAULT_MAX_CANDIDATES;
+
+  // Restrict to meaningful tokens (drop generic noise like "ground").
+  const bomTokens = tokenizeIngredient(row.ingredient).filter(
+    (t) => !RAW_CUT_NOISE_TOKENS.has(t) && t.length >= MIN_TOKEN_LEN,
+  );
+
+  if (bomTokens.length === 0) {
+    return {
+      row,
+      classification: 'manual',
+      candidates: [
+        {
+          source: 'none',
+          name: '',
+          vendor: '',
+          pack_unit: '',
+          unit_price: null,
+          confidence: 'none',
+          reason: 'no usable tokens in ingredient — manual review required',
+        },
+      ],
+      note: 'no usable tokens for raw-cut search',
+    };
+  }
+
+  const ranked: { c: RankedCandidate; penalized: boolean }[] = [];
+  const bomTokenSet = new Set(bomTokens);
+
+  for (const cand of vendorCandidates) {
+    const candWords = wordSet(cand.name);
+    const candLower = cand.name.toLowerCase();
+
+    // Primary anchor: at least one bom token must appear (whole-word or
+    // substring). Otherwise skip — this is a grind match, not a synonym.
+    const anchor = bomTokens.find(
+      (t) => candWords.has(t) || candLower.includes(t),
+    );
+    if (!anchor) continue;
+
+    const hasRawKw = [...candWords].some((w) => RAW_CUT_KEYWORDS.has(w));
+    const hasBulkKw = [...candWords].some((w) => BULK_FORM_KEYWORDS.has(w));
+
+    let confidence: MatchConfidence;
+    let reason: string;
+    if (hasRawKw) {
+      confidence = 'high';
+      reason = `raw-cut match on "${anchor}" (whole/raw form)`;
+    } else if (hasBulkKw) {
+      confidence = 'medium';
+      reason = `bulk-form match on "${anchor}" (coarse/bulk precursor to finer grind)`;
+    } else {
+      confidence = 'low';
+      reason = `finished-form match on "${anchor}" (no raw/whole variant in catalog; operator must decide whether to accept pre-processed cost or switch vendor)`;
+    }
+
+    // Variety-discriminator penalty: if the candidate carries tokens
+    // that indicate a DIFFERENT variety (red pepper vs black pepper,
+    // chile pepper vs black pepper, roasted vs fresh), demote one tier.
+    // This is the safety net against things like bom "pepper" matching
+    // high on "PEPPER, RED WHL FIRE RSTD IMP".
+    const varietyDiscriminators = variantDiscriminatorsOnlyInCandidate(
+      bomTokenSet,
+      candWords,
+    );
+    const penalized = varietyDiscriminators.length > 0;
+    if (penalized) {
+      const demoted = demoteOneStep(confidence);
+      if (demoted !== confidence) {
+        reason = `${reason}; variety-discriminator penalty on [${varietyDiscriminators.join(', ')}] (likely a DIFFERENT variety, not a raw-cut of the same ingredient)`;
+        confidence = demoted;
+      } else {
+        reason = `${reason}; variety-discriminator flag on [${varietyDiscriminators.join(', ')}] (likely a DIFFERENT variety; already at low confidence)`;
+      }
+    }
+
+    ranked.push({ c: { ...cand, confidence, reason }, penalized });
+  }
+
+  // Dedupe by (source, normalized-name, vendor), keeping the
+  // higher-confidence / non-penalized row when duplicates appear.
+  const byKey = new Map<string, { c: RankedCandidate; penalized: boolean }>();
+  for (const entry of ranked) {
+    const key = `${entry.c.source}:${normalizeIngredient(entry.c.name)}:${entry.c.vendor}`;
+    const prev = byKey.get(key);
+    if (
+      !prev ||
+      confidenceRank(entry.c.confidence) < confidenceRank(prev.c.confidence) ||
+      (entry.c.confidence === prev.c.confidence && !entry.penalized && prev.penalized)
+    ) {
+      byKey.set(key, entry);
+    }
+  }
+
+  // Sort: confidence asc (high first) → non-penalized before penalized
+  // → source rank (recipe > vendor_prices > order_guide) → price asc →
+  // name asc. The penalized-ordering key is what prevents a cheap
+  // variety-penalized candidate (e.g. red bell peppers at $0.11/oz)
+  // from out-ranking a real bulk black-pepper SKU (e.g. $15.99/lb).
+  const sortedEntries = [...byKey.values()].sort((a, b) => {
+    const cr = confidenceRank(a.c.confidence) - confidenceRank(b.c.confidence);
+    if (cr !== 0) return cr;
+    const pr = (a.penalized ? 1 : 0) - (b.penalized ? 1 : 0);
+    if (pr !== 0) return pr;
+    const sr = sourceRank(a.c.source) - sourceRank(b.c.source);
+    if (sr !== 0) return sr;
+    const ap = a.c.unit_price ?? Number.POSITIVE_INFINITY;
+    const bp = b.c.unit_price ?? Number.POSITIVE_INFINITY;
+    if (ap !== bp) return ap - bp;
+    return a.c.name.localeCompare(b.c.name);
+  });
+
+  const sorted = sortedEntries.slice(0, maxCandidates).map((e) => e.c);
+
+  if (sorted.length === 0) {
+    return {
+      row,
+      classification: 'manual',
+      candidates: [
+        {
+          source: 'none',
+          name: '',
+          vendor: '',
+          pack_unit: '',
+          unit_price: null,
+          confidence: 'none',
+          reason: `no vendor row contains token [${bomTokens.join(', ')}] — manual review required`,
+        },
+      ],
+      note: 'no raw-cut candidates found',
+    };
+  }
+
+  const top = sorted[0];
+  const note =
+    top.confidence === 'high'
+      ? `${sorted.length} raw-cut candidate${sorted.length === 1 ? '' : 's'} (top: ${top.confidence}, whole/raw form available)`
+      : top.confidence === 'medium'
+        ? `${sorted.length} bulk-form candidate${sorted.length === 1 ? '' : 's'} (top: ${top.confidence}, no whole form in catalog)`
+        : `${sorted.length} finished-form candidate${sorted.length === 1 ? '' : 's'} only (top: ${top.confidence}); vendor carries no raw input for this ingredient`;
+
+  return { row, classification: 'matched', candidates: sorted, note };
+}
+
 // Internal exports for tests.
 export const __internal = {
   FILLER_WORDS,
@@ -572,6 +864,10 @@ export const __internal = {
   NOT_EQUIVALENT_FLAGS,
   HOUSE_WATER_TOKENS,
   HOUSE_BRAND_PREFIXES,
+  RAW_CUT_KEYWORDS,
+  BULK_FORM_KEYWORDS,
+  RAW_CUT_NOISE_TOKENS,
+  VARIETY_DISCRIMINATOR_TOKENS,
   normalizeIngredient,
   tokenizeIngredient,
 };
