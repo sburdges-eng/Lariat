@@ -26,6 +26,7 @@
     "seed:catering_menu": "python3 scripts/ingest_catering_menu.py",
     "seed:all": "npm run seed:densities && npm run seed:yields && npm run seed:unit_weights && npm run seed:catch_weights",
     "backup": "node scripts/backup.mjs",
+    "export:coverage-gap": "node scripts/export-coverage-gap.mjs",
     "test:e2e": "npx playwright test",
     "test:temp-log": "node --test tests/js/test-temp-log.mjs",
     "test:temp-log-rules": "node --test tests/js/test-temp-log-rules.mjs",
@@ -54,7 +55,8 @@
     "test:pack-size-detect": "node --experimental-strip-types --test tests/js/test-pack-size-detect.mjs",
     "test:ingredient-masters": "node --experimental-strip-types --test tests/js/test-ingredient-masters.mjs",
     "test:t8-cooking-shrinkage": "node --experimental-strip-types --test tests/js/test-t8-cooking-shrinkage.mjs",
-    "test:t9-benchmarks": "node --experimental-strip-types --test tests/js/test-t9-benchmarks.mjs"
+    "test:t9-benchmarks": "node --experimental-strip-types --test tests/js/test-t9-benchmarks.mjs",
+    "test:coverage-gap-export": "node --experimental-strip-types --test tests/js/test-coverage-gap-export.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",
