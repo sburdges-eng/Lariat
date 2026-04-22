@@ -1,60 +1,111 @@
+import Link from 'next/link';
 import { computeMenuEngineering } from '../../lib/menuEngineering';
+import type { MenuEngineeringRow } from '../../lib/menuEngineering';
+import { computeDishCoverage } from '../../lib/dishCostBridge';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 
 export const dynamic = 'force-dynamic';
 
 const Q: Record<string, { label: string; desc: string; color: string }> = {
-  star: { label: 'Star', desc: 'High margin & popularity', color: 'var(--green)' },
+  star:      { label: 'Star',      desc: 'High margin & popularity',  color: 'var(--green)' },
   plowhorse: { label: 'Plowhorse', desc: 'Low margin, high popularity', color: 'var(--yellow)' },
-  puzzle: { label: 'Puzzle', desc: 'High margin, low popularity', color: 'var(--blue)' },
-  dog: { label: 'Dog', desc: 'Low margin & popularity', color: 'var(--muted)' },
-  unknown: { label: 'Unknown', desc: 'Need cost match', color: 'var(--border)' },
+  puzzle:    { label: 'Puzzle',    desc: 'High margin, low popularity', color: 'var(--blue)' },
+  dog:       { label: 'Dog',       desc: 'Low margin & popularity',     color: 'var(--muted)' },
+  unknown:   { label: 'Unknown',   desc: 'Need cost data',              color: 'var(--border)' },
 };
 
-export interface MenuEngineeringRow {
-  item_name: string;
-  qty?: number;
-  net_sales?: number;
-  avg_price?: number;
-  cost_per_unit?: number;
-  margin_pct?: number;
-  quadrant: string;
-}
-
-export interface MenuEngineeringData {
-  rows: MenuEngineeringRow[];
-  medianMargin: number;
-  medianPop: number;
-}
+const LINK_BADGE: Record<MenuEngineeringRow['link_state'], { label: string; color: string }> = {
+  fully_linked:  { label: 'linked',           color: 'var(--green)' },
+  partial:       { label: 'partial',          color: 'var(--yellow)' },
+  declared_only: { label: 'no qty entered',   color: 'var(--yellow)' },
+  unlinked:      { label: 'no recipe link',   color: 'var(--red)' },
+};
 
 export default function MenuEngineeringPage({ searchParams }: { searchParams?: { location?: string } }) {
   const loc =
     typeof searchParams?.location === 'string' && searchParams.location.trim()
       ? searchParams.location.trim()
       : DEFAULT_LOCATION_ID;
+  const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
 
-  let data: MenuEngineeringData;
+  let data;
   try {
-    data = computeMenuEngineering(loc) as MenuEngineeringData;
-  } catch {
-    data = { rows: [], medianMargin: 0, medianPop: 0.5 };
+    data = computeMenuEngineering(loc);
+  } catch (err) {
+    console.error('menu-engineering compute failed:', err);
+    data = {
+      rows: [],
+      medianMargin: 0,
+      medianPop: 0.5,
+      coverage: { fully_linked: 0, partial: 0, declared_only: 0, unlinked: 0, total: 0 },
+    };
   }
 
-  const { rows, medianMargin } = data;
+  const { rows, medianMargin, coverage } = data;
+  const coverageReport = computeDishCoverage(loc);
 
-  const hazards = rows.filter(r => r.quadrant === 'plowhorse' && r.margin_pct != null && r.margin_pct < 20.0);
+  // Sort: linked rows first by net sales desc, unlinked at the bottom.
+  rows.sort((a, b) => {
+    if (a.link_state === 'unlinked' && b.link_state !== 'unlinked') return 1;
+    if (b.link_state === 'unlinked' && a.link_state !== 'unlinked') return -1;
+    return (b.net_sales || 0) - (a.net_sales || 0);
+  });
+
+  const hazards = rows.filter(
+    (r) => r.quadrant === 'plowhorse' && r.margin_pct != null && r.margin_pct < 20.0,
+  );
 
   return (
     <div>
       <h1>Menu engineering</h1>
       <p className="subtitle">
-        Joins imported <strong>Toast item sales</strong> with <strong>recipe cost</strong> (matched by normalized name). Quadrants use median margin split; popularity is share of max
-        quantity.
+        Per-dish cost from <strong>dish_components</strong> rows × <strong>recipe_costs</strong>.
+        Margin = (avg sale price − per-serving cost) / avg sale price.
+        Quadrants split on median margin and popularity (share of max qty).
       </p>
 
-      {!rows.length && (
+      {/* ── Coverage banner ─────────────────────────────────────── */}
+      <div
+        className="card mb-20"
+        style={{ borderColor: coverage.unlinked > coverage.fully_linked ? 'var(--red)' : 'var(--border)' }}
+      >
+        <div className="meta" style={{ marginBottom: 8 }}>
+          <strong>Bridge coverage:</strong>{' '}
+          {coverage.fully_linked} fully linked · {coverage.partial} partial ·{' '}
+          {coverage.declared_only} no qty · {coverage.unlinked} no recipe link
+          {' '}
+          <span style={{ opacity: 0.7 }}>({coverage.total} dishes total)</span>
+        </div>
+        {(coverage.declared_only > 0 || coverage.unlinked > 0) && (
+          <div className="meta">
+            <Link href={`/menu-engineering/components${locQ}`} style={{ color: 'var(--blue)' }}>
+              → Open the dish-components editor to fill in per-serving quantities
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* ── Top unlinked dishes call-out (biggest revenue first) ── */}
+      {coverageReport.unlinked_dishes.length > 0 && (
         <div className="card mb-20 border-yellow">
-          Need both <code>npm run ingest:analytics</code> and <code>npm run ingest:costing</code>, with overlapping menu item / recipe names.
+          <div className="alert-label">No recipe link — biggest revenue gaps</div>
+          <p className="meta" style={{ margin: '4px 0 8px' }}>
+            These dishes appear in sales but no recipe declares them in
+            <code> menu_items[]</code>. Add the recipe → dish link in
+            <code> data/cache/recipes.json</code>, OR add a dish_components row directly.
+          </p>
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {coverageReport.unlinked_dishes.slice(0, 10).map((d) => (
+              <li key={d.item_name} className="meta">
+                <strong>{d.item_name}</strong> — ${d.net_sales.toFixed(0)} ({d.qty.toFixed(0)} sold)
+              </li>
+            ))}
+            {coverageReport.unlinked_dishes.length > 10 && (
+              <li className="meta" style={{ opacity: 0.7 }}>
+                + {coverageReport.unlinked_dishes.length - 10} more
+              </li>
+            )}
+          </ul>
         </div>
       )}
 
@@ -63,14 +114,14 @@ export default function MenuEngineeringPage({ searchParams }: { searchParams?: {
           <div>
             <div className="alert-label">Critical Margin Hazards</div>
             <div className="alert-items">
-              Warning: High-volume Plowhorses rendering below 20% margin. Consider catalog alternatives for these heavy movers.
+              High-volume Plowhorses below 20% margin. Consider catalog alternatives for these heavy movers.
             </div>
           </div>
           <div className="stack">
             {hazards.map((h) => (
-               <span key={h.item_name} className="meta font-bold">
-                 {h.item_name} ({h.margin_pct?.toFixed(1)}%)
-               </span>
+              <span key={h.item_name} className="meta font-bold">
+                {h.item_name} ({h.margin_pct?.toFixed(1)}%)
+              </span>
             ))}
           </div>
         </div>
@@ -94,28 +145,60 @@ export default function MenuEngineeringPage({ searchParams }: { searchParams?: {
           <thead>
             <tr>
               <th>Item</th>
+              <th>Bridge</th>
               <th>Qty</th>
               <th>Net $</th>
               <th>Avg $</th>
               <th>Cost/u</th>
               <th>Margin %</th>
               <th>Quadrant</th>
+              <th>Components</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.item_name}>
-                <td>{r.item_name}</td>
-                <td>{r.qty != null ? Number(r.qty).toFixed(0) : '—'}</td>
-                <td>{r.net_sales != null ? `$${Number(r.net_sales).toFixed(2)}` : '—'}</td>
-                <td>{r.avg_price != null ? `$${r.avg_price.toFixed(2)}` : '—'}</td>
-                <td>{r.cost_per_unit != null ? `$${r.cost_per_unit.toFixed(2)}` : '—'}</td>
-                <td className={r.margin_pct != null && r.margin_pct < 20 ? 'text-red font-bold' : ''}>
-                  {r.margin_pct != null ? `${r.margin_pct.toFixed(1)}%` : '—'}
-                </td>
-                <td style={{ color: Q[r.quadrant]?.color || 'inherit' }}>{Q[r.quadrant]?.label || r.quadrant}</td>
-              </tr>
-            ))}
+            {rows.map((r) => {
+              const badge = LINK_BADGE[r.link_state];
+              return (
+                <tr key={r.item_name}>
+                  <td>{r.item_name}</td>
+                  <td>
+                    <span className="font-bold" style={{ color: badge.color, fontSize: 12 }}>
+                      {badge.label}
+                    </span>
+                  </td>
+                  <td>{r.qty != null ? Number(r.qty).toFixed(0) : '—'}</td>
+                  <td>{r.net_sales != null ? `$${Number(r.net_sales).toFixed(2)}` : '—'}</td>
+                  <td>{r.avg_price != null ? `$${r.avg_price.toFixed(2)}` : '—'}</td>
+                  <td>{r.cost_per_unit != null ? `$${r.cost_per_unit.toFixed(2)}` : '—'}</td>
+                  <td className={r.margin_pct != null && r.margin_pct < 20 ? 'text-red font-bold' : ''}>
+                    {r.margin_pct != null ? `${r.margin_pct.toFixed(1)}%` : '—'}
+                  </td>
+                  <td style={{ color: Q[r.quadrant || 'unknown']?.color || 'inherit' }}>
+                    {Q[r.quadrant || 'unknown']?.label || r.quadrant}
+                  </td>
+                  <td style={{ fontSize: 12, opacity: 0.85 }}>
+                    {r.components.length === 0
+                      ? '—'
+                      : r.components.map((c) => (
+                          <div key={c.recipe_slug}>
+                            {c.recipe_name}
+                            {c.qty_per_serving != null && c.unit
+                              ? ` · ${c.qty_per_serving} ${c.unit}`
+                              : ' · (no qty)'}
+                            {c.per_serving_cost != null && (
+                              <span style={{ color: 'var(--muted)' }}>
+                                {' '}= ${c.per_serving_cost.toFixed(2)}
+                              </span>
+                            )}
+                            {c.status !== 'ok' && c.status !== 'no_dish_component' && (
+                              <span style={{ color: 'var(--red)' }}> [{c.status}]</span>
+                            )}
+                          </div>
+                        ))}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -148,6 +148,26 @@ export interface RecipeCost {
   imported_at: string;
 }
 
+/**
+ * Per-serving recipe quantity for a Toast dish. One row = "X qty of recipe Y
+ * per single serving of dish Z." Bridges menu pricing to recipe cost.
+ *
+ * `dish_name` is stored canonical (lowercased + alphanumeric-only via
+ * normalizeDishName in lib/dishCostBridge). `recipe_slug` matches
+ * recipes.json slug = bom_lines.recipe_id = recipe_costs.recipe_id.
+ */
+export interface DishComponent {
+  id: number;
+  location_id: string;
+  dish_name: string;
+  recipe_slug: string;
+  qty_per_serving: number;
+  unit: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface BomLine {
   id: number;
   recipe_id: string;
@@ -1156,6 +1176,26 @@ export function initSchema(db: DB): void {
       imported_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_sales_loc ON sales_lines(location_id);
+
+    -- dish_components: per-serving recipe quantities for a Toast dish.
+    -- Bridges menu pricing → recipe_costs → bom_lines → vendor_prices.
+    -- A dish can have multiple components (e.g., burger pulls bacon_jam,
+    -- alabama_white_sauce, lariat_rub, etc.). Each row is "X qty of recipe Y
+    -- per single serving of dish Z." Populated via /menu-engineering/components.
+    CREATE TABLE IF NOT EXISTS dish_components (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      dish_name TEXT NOT NULL,
+      recipe_slug TEXT NOT NULL,
+      qty_per_serving REAL NOT NULL,
+      unit TEXT NOT NULL,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(location_id, dish_name, recipe_slug)
+    );
+    CREATE INDEX IF NOT EXISTS idx_dish_components_dish
+      ON dish_components(location_id, dish_name);
 
     CREATE TABLE IF NOT EXISTS spend_monthly (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
