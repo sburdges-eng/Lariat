@@ -199,6 +199,17 @@ describe('POST /api/service-hours', () => {
     }));
     assert.strictEqual(dup.status, 409);
   });
+
+  it('rejects empty-string location_id with 400 (no silent default substitution)', async () => {
+    const res = await route.POST(jsonReq('POST', 'http://localhost/api/service-hours', {
+      location_id: '',
+      day_of_week: 2,
+      service_label: 'Lunch',
+    }));
+    assert.strictEqual(res.status, 400);
+    const j = await res.json();
+    assert.match(String(j.error || ''), /location_id/);
+  });
 });
 
 // ── PATCH ──────────────────────────────────────────────────────────
@@ -258,6 +269,24 @@ describe('PATCH /api/service-hours', () => {
       id: row.id,
     }));
     assert.strictEqual(res.status, 400);
+  });
+
+  it('rejects empty-string location_id with 400 (no silent default substitution)', async () => {
+    const row = await postRow({
+      location_id: 'downtown',
+      day_of_week: 1,
+      service_label: 'Lunch',
+    });
+    const res = await route.PATCH(jsonReq('PATCH', 'http://localhost/api/service-hours', {
+      id: row.id,
+      location_id: '',
+    }));
+    assert.strictEqual(res.status, 400);
+    const j = await res.json();
+    assert.match(String(j.error || ''), /location_id/);
+    // The row must not have been silently moved.
+    const after = selectById(row.id);
+    assert.strictEqual(after.location_id, 'downtown');
   });
 });
 

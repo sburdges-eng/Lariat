@@ -13,12 +13,6 @@ const clip = (s, max) => {
   return t ? t.slice(0, max) : null;
 };
 
-const clipLoc = (s, max) => {
-  if (typeof s !== 'string') return null;
-  const t = s.trim();
-  return t ? t.slice(0, max) : null;
-};
-
 function toDayOfWeek(v) {
   if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
@@ -75,7 +69,17 @@ export async function POST(req) {
       );
     }
 
-    const locationId = clipLoc(body.location_id, 64) || locationFromBody(body);
+    // If caller supplied location_id as a blank string, treat that as an
+    // explicit error rather than silently substituting the default.
+    if (
+      'location_id' in body &&
+      typeof body.location_id === 'string' &&
+      body.location_id.trim() === ''
+    ) {
+      return Response.json({ error: 'location_id cannot be empty' }, { status: 400 });
+    }
+
+    const locationId = clip(body.location_id, 64) || locationFromBody(body);
     const opens_at = clip(body.opens_at, 16);
     const closes_at = clip(body.closes_at, 16);
     const service_label = clip(body.service_label, 64);
@@ -130,7 +134,13 @@ export async function PATCH(req) {
     };
 
     if ('location_id' in body) {
-      const loc = clipLoc(body.location_id, 64) || DEFAULT_LOCATION_ID;
+      // Blank string is an explicit error (don't silently move the row to
+      // DEFAULT_LOCATION_ID). Absent key is handled above by the `in` check
+      // and falls through to the usual create/edit path.
+      if (typeof body.location_id === 'string' && body.location_id.trim() === '') {
+        return Response.json({ error: 'location_id cannot be empty' }, { status: 400 });
+      }
+      const loc = clip(body.location_id, 64) || DEFAULT_LOCATION_ID;
       push('location_id', loc);
     }
     if ('day_of_week' in body) {
