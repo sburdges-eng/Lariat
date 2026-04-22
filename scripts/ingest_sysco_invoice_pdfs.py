@@ -887,7 +887,7 @@ def main() -> int:
 
     # Atomic write.
     tmp = CACHE.with_suffix('.json.tmp')
-    tmp.write_text(json.dumps(cache, indent=2) + '\n')
+    tmp.write_text(json.dumps(cache, indent=2, ensure_ascii=False) + '\n')
     os.replace(tmp, CACHE)
 
     # Validate: re-read.

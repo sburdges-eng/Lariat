@@ -175,8 +175,13 @@ export async function POST(req) {
     if (body.action === 'delete_event') {
       const id = Number(body.id);
       if (!Number.isInteger(id)) return Response.json({ error: 'id required' }, { status: 400 });
-      db.prepare(`DELETE FROM beo_prep_tasks WHERE event_id = ?`).run(id);
-      db.prepare(`DELETE FROM beo_events WHERE id = ?`).run(id);
+      // beo_prep_tasks has no ON DELETE CASCADE (legacy schema), so delete
+      // manually. beo_line_items DOES cascade via FK. Wrap in a transaction
+      // so we can't end up with an event whose prep_tasks survived a crash.
+      db.transaction(() => {
+        db.prepare(`DELETE FROM beo_prep_tasks WHERE event_id = ?`).run(id);
+        db.prepare(`DELETE FROM beo_events WHERE id = ?`).run(id);
+      })();
       return Response.json({ ok: true });
     }
 

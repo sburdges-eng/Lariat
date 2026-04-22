@@ -57,40 +57,59 @@ export default function StationChecklist({ stationId, stationName, date, items, 
   const persist = async (item: string) => {
     if (!cookId) { alert('Pick your name in the sidebar first.'); return; }
     const row = state[item];
-    await fetch('/api/checks', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        shift_date: date,
-        station_id: stationId,
-        item,
-        status: row.status,
-        par: row.par, have: row.have, need: row.need, note: row.note,
-        cook_id: cookId,
-        location_id: locationId,
-      }),
-    });
+    try {
+      const res = await fetch('/api/checks', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          shift_date: date,
+          station_id: stationId,
+          item,
+          status: row.status,
+          par: row.par, have: row.have, need: row.need, note: row.note,
+          cook_id: cookId,
+          location_id: locationId,
+        }),
+      });
+      if (!res.ok) {
+        alert(`Couldn’t save "${item}" — retry. (HTTP ${res.status})`);
+        return;
+      }
+    } catch {
+      alert(`Lost connection saving "${item}" — retry.`);
+      return;
+    }
     router.refresh();
   };
 
   const setStatus = async (item: string, status: 'pass' | 'fail') => {
     const toggled = state[item].status === status ? null : status;
     update(item, { status: toggled });
-    setState(curr => {
-      const next = { ...curr, [item]: { ...curr[item], status: toggled } };
-      const cid = cookRef.current || null;
-      fetch('/api/checks', {
+    // Snapshot the row fields AFTER applying the toggle, then fire the
+    // fetch OUTSIDE setState so we can actually await + check res.ok.
+    // The previous implementation called fetch inside the setState callback
+    // and ignored both rejections and non-2xx — silently losing pass/fail
+    // taps and causing the signoff gate to block with "unnoted fails" that
+    // actually WERE noted locally.
+    const prev = state[item] || { par: '', have: '', need: '', note: '' };
+    const cid = cookRef.current || null;
+    try {
+      const res = await fetch('/api/checks', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           shift_date: date, station_id: stationId, item, status: toggled,
-          par: next[item].par, have: next[item].have, need: next[item].need, note: next[item].note,
+          par: prev.par, have: prev.have, need: prev.need, note: prev.note,
           cook_id: cid,
           location_id: locationId,
         }),
       });
-      return next;
-    });
+      if (!res.ok) {
+        alert(`Couldn’t save ${status} for "${item}" — retry. (HTTP ${res.status})`);
+      }
+    } catch {
+      alert(`Lost connection saving ${status} for "${item}" — retry.`);
+    }
   };
 
   const eightySix = async (item: string) => {

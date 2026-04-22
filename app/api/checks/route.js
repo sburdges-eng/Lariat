@@ -1,6 +1,8 @@
 import { getDb } from '../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 
+export const dynamic = 'force-dynamic';
+
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();

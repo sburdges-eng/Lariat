@@ -348,8 +348,13 @@ export function buildGroundedContext(locationId: string, userQuestion: string): 
   if (beos.length) {
     text += '\nUPCOMING BANQUETS & PARTIES (BEO):\n';
     const beoIds = beos.map(b => b.id);
+    // SQLite rejects `IN ()`; the outer beos.length guard above ensures
+    // beoIds is non-empty, but a defensive short-circuit here lets the
+    // query shape stay stable if this block is ever called on an empty list.
     const placeholders = beoIds.map(() => '?').join(',');
-    const allTasks = db.prepare(`SELECT * FROM beo_prep_tasks WHERE event_id IN (${placeholders}) ORDER BY sort_order`).all(...beoIds) as { event_id: number; task: string; done: number }[];
+    const allTasks = beoIds.length
+      ? (db.prepare(`SELECT * FROM beo_prep_tasks WHERE event_id IN (${placeholders}) ORDER BY sort_order`).all(...beoIds) as { event_id: number; task: string; done: number }[])
+      : [];
     
     for (const b of beos) {
       text += `  - [BEO ID: ${b.id}] ${b.title} on ${b.event_date} (Covers: ${b.guest_count || 'TBD'})\n`;
@@ -691,15 +696,9 @@ function renderRepeat86s(db: DB, locationId: string): OversightSection {
 }
 
 function renderGoldStars(db: DB, locationId: string): OversightSection {
-  db.exec(`CREATE TABLE IF NOT EXISTS gold_stars (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    cook_name TEXT NOT NULL,
-    reason TEXT NOT NULL,
-    stars INTEGER DEFAULT 1,
-    awarded_date TEXT DEFAULT (date('now')),
-    location_id TEXT DEFAULT 'default',
-    created_at TEXT DEFAULT (datetime('now'))
-  )`);
+  // Schema lives in initSchema (lib/db.ts) — do NOT run DDL in a read-path
+  // helper. This was throwing when a caller wrapped buildGroundedContext in
+  // a db.transaction (nested transactions not allowed on better-sqlite3).
   const rows = db
     .prepare(
       `SELECT cook_name, reason, stars, awarded_date FROM gold_stars

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 const REASONS = ['out','spoiled','dropped','no_make','burned','prep_short','other'];
@@ -13,6 +13,9 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
   const [quantity, setQuantity] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  // Per-row in-flight guard so a double-tap on the greasy tablet screen
+  // can't fire two POSTs to /api/eighty-six/resolve for the same row.
+  const resolvingRef = useRef(new Set());
 
   useEffect(() => { setCookId(window.localStorage.getItem('lariat_cook') || ''); }, []);
 
@@ -48,6 +51,8 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
   };
 
   const resolve = async (id) => {
+    if (resolvingRef.current.has(id)) return;
+    resolvingRef.current.add(id);
     setErr('');
     try {
       const res = await fetch('/api/eighty-six/resolve', {
@@ -56,12 +61,14 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
         body: JSON.stringify({ id, cook_id: cookId, location_id: locationId }),
       });
       if (!res.ok) {
-        setErr('Didn\u2019t save \u2014 try again');
+        setErr('Didn’t save — try again');
         return;
       }
     } catch {
-      setErr('Lost connection \u2014 not saved');
+      setErr('Lost connection — not saved');
       return;
+    } finally {
+      resolvingRef.current.delete(id);
     }
     router.refresh();
   };

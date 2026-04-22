@@ -263,7 +263,7 @@ def extract_cleaning_schedule_rows() -> list[dict]:
 
 def update_line_checks(dry: bool) -> tuple[int, str]:
     p = CACHE / "line_checks.json"
-    data = json.loads(p.read_text())
+    data = json.loads(p.read_text(encoding="utf-8"))
     expo = extract_expo_items()
     before = data.get("expo", [])
     if before == expo:
@@ -276,7 +276,7 @@ def update_line_checks(dry: bool) -> tuple[int, str]:
 
 def update_stations(dry: bool) -> str:
     p = CACHE / "stations.json"
-    data = json.loads(p.read_text())
+    data = json.loads(p.read_text(encoding="utf-8"))
     changed = False
     for s in data:
         if s.get("id") == "expo" and s.get("line_check_key") != "expo":

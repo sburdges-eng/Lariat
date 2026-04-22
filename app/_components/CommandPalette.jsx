@@ -46,7 +46,13 @@ export default function CommandPalette() {
     if (loc && loc !== 'default') setLocQuery(`?location=${encodeURIComponent(loc)}`);
   }, [open]);
 
-  // Load station list once the palette opens
+  // Reset cached stations when location changes so the palette doesn't show
+  // the old location's list after a tenant switch.
+  useEffect(() => {
+    setStations([]);
+  }, [locQuery]);
+
+  // Load station list once the palette opens (or after a location reset).
   useEffect(() => {
     if (!open || stations.length) return;
     fetch(`/api/stations${locQuery}`)
@@ -66,6 +72,10 @@ export default function CommandPalette() {
           e.target.isContentEditable);
 
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        // ⌘K / Ctrl+K should not toggle the palette mid-field-edit — that
+        // collision surfaces when a cook's tablet fires the combo via
+        // IME or browser text shortcut while typing a temp reading or note.
+        if (inField && !open) return;
         e.preventDefault();
         setOpen((v) => !v);
         return;
