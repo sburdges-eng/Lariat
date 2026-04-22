@@ -38,6 +38,7 @@
     "test:sick-worker": "node --test tests/js/test-sick-worker-rules.mjs",
     "test:receiving-rules": "node --test tests/js/test-receiving-rules.mjs",
     "test:receiving-api": "node --test tests/js/test-receiving-api.mjs",
+    "test:service-hours": "node --test tests/js/test-service-hours-api.mjs",
     "test:calibrations-rules": "node --test tests/js/test-calibrations-rules.mjs",
     "test:calibrations-api": "node --test tests/js/test-calibrations-api.mjs",
     "test:rules": "node --test tests/js/test-temp-log.mjs tests/js/test-cooling-rules.mjs tests/js/test-date-mark-rules.mjs tests/js/test-sanitizer-rules.mjs tests/js/test-break-rules.mjs tests/js/test-sick-worker-rules.mjs",
