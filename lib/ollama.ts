@@ -21,7 +21,7 @@ const HACCP_BLOCK = `HACCP TEMPERATURE RULES (cite when relevant):
 - Ground beef / pork: >= 155 F for 15 sec
 - Fish / seafood: >= 145 F for 15 sec
 - Hot holding: >= 140 F at all times
-- Cooling: 140 -> 70 F within 2 hr, then 70 -> 41 F within 4 hr (total 6 hr max)
+- Cooling: 135 -> 70 F within 2 hr, then 70 -> 41 F within 4 hr (total 6 hr max, per FDA §3-501.14)
 - Reheat (for hot holding): >= 165 F within 2 hr
 - Walk-in refrigeration: <= 41 F
 - Freezer: <= 0 F

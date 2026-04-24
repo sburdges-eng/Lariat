@@ -175,7 +175,20 @@ ARITHMETIC RULE: For scale_recipe, beo_add_prep, and generate_prep the server ru
         const pin = req.headers.get('x-lariat-pin');
         const expectedPin = process.env.LARIAT_PIN;
         const hasPin = expectedPin && pin === expectedPin;
-        const pinRequired = ['update_inventory', 'maintenance', 'update_order_guide', 'beo_add_prep', 'line_check'];
+        // Every write action that mutates regulated or operator-visible state
+        // must be PIN-gated. `eighty_six` keeps its additional inventory-based
+        // soft-block below, but now also fails closed without a PIN.
+        const pinRequired = [
+          'update_inventory',
+          'maintenance',
+          'update_order_guide',
+          'beo_add_prep',
+          'line_check',
+          'eighty_six',
+          'give_gold_star',
+          'haccp_receive',
+          'generate_prep',
+        ];
         if (pinRequired.includes(payload.action) && !hasPin) {
           actionMsg = 'Action blocked — manager PIN required. Show a manager and ask them to confirm.';
           actionExecuted = true;

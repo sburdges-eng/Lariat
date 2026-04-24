@@ -124,33 +124,29 @@ export async function PATCH(req) {
     const cook_id = clip(body.cook_id, 64);
 
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(id);
-    if (!existing) {
-      return Response.json({ error: 'unknown break' }, { status: 404 });
-    }
-    if (existing.ended_at) {
-      return Response.json(
-        { error: 'break already ended', entry: existing },
-        { status: 409 },
-      );
-    }
-    const startMs = Date.parse(existing.started_at);
-    const endMs = Date.parse(ended_at);
-    if (endMs <= startMs) {
-      return Response.json(
-        { error: 'ended_at must be after started_at' },
-        { status: 400 },
-      );
-    }
-    const duration_min = (endMs - startMs) / 60000;
 
+    // Atomic: existing row read + end-time math + UPDATE. Prevents two
+    // concurrent end-break requests from both passing the 409 guard and
+    // overwriting duration_min with diverging values.
     const performUpdate = db.transaction(() => {
+      const existing = db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(id);
+      if (!existing) return { status: 404, error: 'unknown break' };
+      if (existing.ended_at) {
+        return { status: 409, error: 'break already ended', entry: existing };
+      }
+      const startMs = Date.parse(existing.started_at);
+      const endMs = Date.parse(ended_at);
+      if (endMs <= startMs) {
+        return { status: 400, error: 'ended_at must be after started_at' };
+      }
+      const duration_min = (endMs - startMs) / 60000;
+
       db.prepare(`
         UPDATE shift_breaks SET ended_at=?, duration_min=? WHERE id=?
       `).run(ended_at, duration_min, id);
 
       const updated = db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(id);
-      
+
       postAuditEvent({
         entity: 'shift_breaks',
         entity_id: id,
@@ -162,12 +158,16 @@ export async function PATCH(req) {
         location_id: existing.location_id,
       });
 
-      return updated;
+      return { status: 200, updated };
     });
 
-    const updated = performUpdate();
+    const result = performUpdate();
+    if (result.status !== 200) {
+      const { status, ...body } = result;
+      return Response.json(body, { status });
+    }
 
-    return Response.json({ ok: true, entry: updated });
+    return Response.json({ ok: true, entry: result.updated });
   } catch (err) {
     console.error('PATCH /api/breaks failed:', err);
     return Response.json({ error: 'Failed to end break' }, { status: 500 });

@@ -97,20 +97,17 @@ export async function PATCH(req) {
     const cook_id = clip(body.cook_id, 64);
 
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM date_marks WHERE id=?').get(id);
-    if (!existing) {
-      return Response.json({ error: 'unknown date mark' }, { status: 404 });
-    }
-    if (existing.discarded_at) {
-      return Response.json(
-        { error: 'already discarded', entry: existing },
-        { status: 409 },
-      );
-    }
-
     const now = new Date().toISOString();
-    
+
+    // Pre-check + UPDATE + audit must be atomic so two concurrent discards
+    // can't both pass the 409 guard and double-write.
     const performUpdate = db.transaction(() => {
+      const existing = db.prepare('SELECT * FROM date_marks WHERE id=?').get(id);
+      if (!existing) return { status: 404, error: 'unknown date mark' };
+      if (existing.discarded_at) {
+        return { status: 409, error: 'already discarded', entry: existing };
+      }
+
       db.prepare(`
         UPDATE date_marks
            SET discarded_at=?, discarded_by_cook_id=?, discard_reason=?
@@ -118,7 +115,7 @@ export async function PATCH(req) {
       `).run(now, cook_id, reason, id);
 
       const updated = db.prepare('SELECT * FROM date_marks WHERE id=?').get(id);
-      
+
       postAuditEvent({
         entity: 'date_marks',
         entity_id: id,
@@ -130,13 +127,17 @@ export async function PATCH(req) {
         location_id: existing.location_id,
         note: `discarded: ${reason}`,
       });
-      
-      return updated;
+
+      return { status: 200, updated };
     });
 
-    const updated = performUpdate();
+    const result = performUpdate();
+    if (result.status !== 200) {
+      const { status, ...body } = result;
+      return Response.json(body, { status });
+    }
 
-    return Response.json({ ok: true, entry: updated });
+    return Response.json({ ok: true, entry: result.updated });
   } catch (err) {
     console.error('PATCH /api/date-marks failed:', err);
     return Response.json({ error: 'Failed to discard date mark' }, { status: 500 });

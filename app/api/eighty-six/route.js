@@ -3,6 +3,8 @@ import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { getRecipes } from '../../../lib/data';
 import { cascadedFromEightySix } from '../../../lib/subRecipeGraph';
 
+export const dynamic = 'force-dynamic';
+
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
