@@ -31,6 +31,7 @@
     "propose:bom-vendor-matches": "node --experimental-strip-types scripts/propose-bom-vendor-matches.mjs",
     "propose:plan-restaurant-grind": "node --experimental-strip-types scripts/propose-plan-restaurant-grind.mjs",
     "propose:plan-action-items": "node --experimental-strip-types scripts/propose-plan-action-items.mjs",
+    "export:coverage-gap": "node scripts/export-coverage-gap.mjs",
     "test:e2e": "npx playwright test",
     "test:temp-log": "node --test tests/js/test-temp-log.mjs",
     "test:temp-log-rules": "node --test tests/js/test-temp-log-rules.mjs",
@@ -70,7 +71,8 @@
     "test:propose-plan-restaurant-grind": "node --experimental-strip-types --test tests/js/test-propose-plan-restaurant-grind.mjs",
     "test:propose-plan-action-items": "node --experimental-strip-types --test tests/js/test-propose-plan-action-items.mjs",
     "test:propose-declared-qty": "node --test tests/js/test-propose-declared-qty.mjs",
-    "propose:declared-qty": "node scripts/propose-declared-qty.mjs"
+    "propose:declared-qty": "node scripts/propose-declared-qty.mjs",
+    "test:coverage-gap-export": "node --experimental-strip-types --test tests/js/test-coverage-gap-export.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",
