@@ -49,6 +49,7 @@
     "test:tphc": "node --test tests/js/test-tphc-rules.mjs tests/js/test-tphc-api.mjs",
     "test:tphc-api": "node --test tests/js/test-tphc-api.mjs",
     "test:pin-cookie": "node --test tests/js/test-pin-cookie-hmac.mjs",
+    "test:unit": "jest",
     "test:rules": "node --test tests/js/test-temp-log.mjs tests/js/test-cooling-rules.mjs tests/js/test-date-mark-rules.mjs tests/js/test-sanitizer-rules.mjs tests/js/test-break-rules.mjs tests/js/test-sick-worker-rules.mjs tests/js/test-tphc-rules.mjs",
     "test:schema": "node --test tests/js/test-schema-migrations.mjs",
     "test:ingredient-key": "node --test tests/js/test-ingredient-key-parity.mjs",
@@ -74,10 +75,16 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "jest": "^30.3.0",
+    "jest-environment-jsdom": "^30.3.0",
     "typescript": "^6.0.2"
   }
 }
