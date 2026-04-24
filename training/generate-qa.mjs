@@ -134,7 +134,9 @@ for (const r of recipes) {
 for (const r of recipes) {
   if (!r.procedure?.length) continue;
 
-  const steps = r.procedure.join('\n');
+  // Some recipes store procedure as a single free-text string rather than an
+  // array of numbered steps. Coerce both shapes into a newline-joined string.
+  const steps = Array.isArray(r.procedure) ? r.procedure.join('\n') : String(r.procedure);
   const stationStr = r.station ? `\nStation: ${r.station}` : '';
 
   lines.push(

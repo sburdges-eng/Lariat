@@ -193,19 +193,23 @@ export default function ReceivingBoard({
         Every delivery to the back door lands here before it touches a walk-in.
       </p>
 
-      <div className="tl-totals">
-        <span className="tl-tot tl-tot-green">{totals.green} clean categories</span>
-        <span className="tl-tot tl-tot-yellow">{totals.yellow} accept-with-note</span>
-        <span className="tl-tot tl-tot-red">{totals.red} with rejects</span>
-        <span className="tl-tot tl-tot-gray">{totals.gray} nothing received yet</span>
+      <div className="tl-totals" role="group" aria-label="Receiving category totals">
+        <span className="tl-tot tl-tot-green" aria-label={`${totals.green} clean categories`}>{totals.green} clean categories</span>
+        <span className="tl-tot tl-tot-yellow" aria-label={`${totals.yellow} accept with note`}>{totals.yellow} accept-with-note</span>
+        <span className="tl-tot tl-tot-red" aria-label={`${totals.red} categories with rejects`}>{totals.red} with rejects</span>
+        <span className="tl-tot tl-tot-gray" aria-label={`${totals.gray} categories with nothing received yet`}>{totals.gray} nothing received yet</span>
       </div>
-      <div className="tl-totals">
-        <span className="tl-tot">{lineTotals.a} accepted</span>
-        <span className="tl-tot tl-tot-yellow">{lineTotals.n} with note</span>
-        <span className="tl-tot tl-tot-red">{lineTotals.r} rejected</span>
+      <div className="tl-totals" role="group" aria-label="Receiving line totals">
+        <span className="tl-tot" aria-label={`${lineTotals.a} lines accepted`}>{lineTotals.a} accepted</span>
+        <span className="tl-tot tl-tot-yellow" aria-label={`${lineTotals.n} lines accepted with note`}>{lineTotals.n} with note</span>
+        <span className="tl-tot tl-tot-red" aria-label={`${lineTotals.r} lines rejected`}>{lineTotals.r} rejected</span>
       </div>
 
-      {err && <div className="alert alert-red">{err}</div>}
+      {err && (
+        <div className="alert alert-red" role="alert" aria-live="assertive">
+          {err}
+        </div>
+      )}
 
       <section>
         <h2 className="section-h">By category ({summary.length})</h2>
@@ -237,29 +241,43 @@ export default function ReceivingBoard({
         </div>
       </section>
 
-      <section className="tl-card">
-        <h2 className="section-h">Log a delivery line</h2>
-        <form onSubmit={submit} className="tl-form rcv-form">
-          <label>
+      <section className="tl-card" aria-labelledby="rcv-log-h">
+        <h2 className="section-h" id="rcv-log-h">Log a delivery line</h2>
+        <form onSubmit={submit} className="tl-form rcv-form" aria-busy={saving}>
+          <label htmlFor="rcv-vendor">
             <span>Vendor</span>
             <input
+              id="rcv-vendor"
+              name="rcv-vendor"
+              type="text"
               value={vendor}
               onChange={(e) => setVendor(e.target.value)}
               placeholder="e.g. Shamrock, Sysco, Farmers Market Co-op"
+              autoComplete="organization"
+              enterKeyHint="next"
               required
             />
           </label>
-          <label>
+          <label htmlFor="rcv-invoice">
             <span>Invoice / PO #</span>
             <input
+              id="rcv-invoice"
+              name="rcv-invoice"
+              type="text"
               value={invoice}
               onChange={(e) => setInvoice(e.target.value)}
               placeholder="optional — but inspector-friendly"
+              autoComplete="off"
             />
           </label>
-          <label>
+          <label htmlFor="rcv-cat">
             <span>Category</span>
-            <select value={category} onChange={(e) => setCategory(e.target.value)}>
+            <select
+              id="rcv-cat"
+              name="rcv-cat"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
               {categories.map((id) => (
                 <option key={id} value={id}>
                   {rules[id]?.label || id}
@@ -267,37 +285,53 @@ export default function ReceivingBoard({
               ))}
             </select>
           </label>
-          <label>
+          <label htmlFor="rcv-item">
             <span>Item / SKU</span>
             <input
+              id="rcv-item"
+              name="rcv-item"
+              type="text"
               value={item}
               onChange={(e) => setItem(e.target.value)}
               placeholder="e.g. chicken breast 40lb CS"
+              autoComplete="off"
+              spellCheck={false}
             />
           </label>
-          <label>
+          <label htmlFor="rcv-reading">
             <span>
               Reading °F {activeRule ? `(${boundLabel(activeRule)})` : ''}
               {activeRule && !activeRule.requires_reading ? ' — optional' : ''}
             </span>
             <input
+              id="rcv-reading"
+              name="rcv-reading"
+              type="text"
               className={liveTone}
               inputMode="decimal"
+              pattern="-?[0-9]*([.,][0-9]+)?"
+              autoComplete="off"
               value={reading}
               onChange={(e) => setReading(e.target.value)}
               placeholder={activeRule?.requires_reading ? 'required' : 'optional'}
+              required={activeRule?.requires_reading ? true : undefined}
+              aria-invalid={live === 'rejected' ? 'true' : undefined}
             />
           </label>
-          <label>
+          <label htmlFor="rcv-exp">
             <span>Sell-by date</span>
             <input
+              id="rcv-exp"
+              name="rcv-exp"
               type="date"
               value={expiration}
               onChange={(e) => setExpiration(e.target.value)}
             />
           </label>
-          <label className="rcv-form-pkg">
+          <label className="rcv-form-pkg" htmlFor="rcv-pkg">
             <input
+              id="rcv-pkg"
+              name="rcv-pkg"
               type="checkbox"
               checked={packageOk}
               onChange={(e) => setPackageOk(e.target.checked)}
@@ -305,7 +339,10 @@ export default function ReceivingBoard({
             <span>Package intact (§3-202.15)</span>
           </label>
           {showNoteField && (
-            <label className={`tl-form-wide ${live === 'rejected' || needsNote ? 'tl-form-need' : ''}`}>
+            <label
+              htmlFor="rcv-note"
+              className={`tl-form-wide ${live === 'rejected' || needsNote ? 'tl-form-need' : ''}`}
+            >
               <span>
                 Corrective action / rejection reason (required —{' '}
                 {live === 'rejected'
@@ -313,14 +350,25 @@ export default function ReceivingBoard({
                   : 'drift band, accept only with a fix recorded'})
               </span>
               <input
+                id="rcv-note"
+                name="rcv-note"
+                type="text"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="e.g. pulled-down in reach-in, temp verified 39°F 20min later; invoice short pay on line 4"
                 maxLength={500}
+                autoComplete="off"
+                required
+                aria-required="true"
+                aria-invalid="true"
               />
             </label>
           )}
-          <button type="submit" disabled={saving}>
+          <button
+            type="submit"
+            disabled={saving}
+            aria-label={saving ? 'Saving delivery line' : 'Record delivery line'}
+          >
             {saving ? 'Saving…' : 'Record delivery'}
           </button>
         </form>

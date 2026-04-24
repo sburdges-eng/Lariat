@@ -134,24 +134,33 @@ export default function KitchenAssistantClient({ locQuery }) {
   return (
     <>
       {enabled && ollamaOk === false && (
-        <div className="card mb-16 border-red">
+        <div className="card mb-16 border-red" role="alert" aria-live="assertive">
           <strong>AI is down.</strong> Can't connect to the server. Ask a manager.
         </div>
       )}
 
-      <form onSubmit={submit} className="card mb-20">
+      <form
+        onSubmit={submit}
+        className="card mb-20"
+        aria-busy={loading}
+        aria-describedby={err ? 'ka-err' : undefined}
+      >
         <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <label htmlFor="ka-q" className="label" style={{ margin: 0 }}>
             Ask a question
           </label>
-          <select 
-            value={language} 
+          <label htmlFor="ka-lang" className="sr-only">Answer language</label>
+          <select
+            id="ka-lang"
+            name="ka-lang"
+            value={language}
             onChange={(e) => {
               setLanguage(e.target.value);
               if (typeof window !== 'undefined') window.localStorage.setItem(LANG_KEY, e.target.value);
-            }} 
-            className="input" 
+            }}
+            className="input"
             style={{ width: 'auto' }}
+            aria-label="Answer language"
           >
             <option value="English">English</option>
             <option value="Spanish">Español</option>
@@ -162,45 +171,62 @@ export default function KitchenAssistantClient({ locQuery }) {
         </div>
         <textarea
           id="ka-q"
+          name="ka-q"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           rows={4}
           placeholder="ex: What's 86? How much aji prep? Dairy in the dressing?"
           className="input mb-12"
+          autoComplete="off"
+          enterKeyHint="send"
+          maxLength={2000}
+          aria-required="true"
+          aria-invalid={!!err}
+          aria-describedby={err ? 'ka-err' : undefined}
         />
-        <div className="flex-center-gap">
-          <button type="submit" className="btn primary" disabled={loading || !message.trim()}>
+        <div className="flex-center-gap" role="group" aria-label="Kitchen assistant controls">
+          <button
+            type="submit"
+            className="btn primary"
+            disabled={loading || !message.trim()}
+            aria-label={loading ? 'Waiting for answer' : 'Ask kitchen assistant'}
+          >
             {loading ? 'Wait...' : 'Ask'}
           </button>
           {speechSupported && (
-            <button 
-              type="button" 
-              onClick={toggleListen} 
+            <button
+              type="button"
+              onClick={toggleListen}
               className={`btn ${isListening ? 'red' : ''}`}
+              aria-pressed={isListening}
+              aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
             >
               {isListening ? 'Stop 🛑' : 'Speak 🎤'}
             </button>
           )}
           {model && (
-            <span className="meta">
+            <span className="meta" aria-label={`Model: ${model}`}>
               Model: <code>{model}</code>
             </span>
           )}
         </div>
+        {isListening && (
+          <span className="sr-only" role="status" aria-live="polite">Listening for voice input</span>
+        )}
       </form>
 
       {err && (
-        <div className="card border-red mb-16">
+        <div id="ka-err" className="card border-red mb-16" role="alert" aria-live="assertive">
           {err}
         </div>
       )}
 
       {answer && (
-        <div className="card">
-          <h2 className="section-head mb-12">Answer</h2>
+        <div className="card" role="region" aria-labelledby="ka-answer-h" aria-live="polite">
+          <h2 className="section-head mb-12" id="ka-answer-h">Answer</h2>
           <div className="assistant-answer">{answer}</div>
           {meta?.latencyMs != null && (
-            <p className="meta mt-16">
+            <p className="meta mt-16" aria-label={`Response time ${meta.latencyMs} milliseconds, model ${meta.model}`}>
               {meta.latencyMs} ms · {meta.model}
             </p>
           )}
@@ -217,7 +243,7 @@ export default function KitchenAssistantClient({ locQuery }) {
             </details>
           )}
           {meta?.disclaimer && (
-            <p className="meta text-yellow border-top mt-16">
+            <p className="meta text-yellow border-top mt-16" role="note">
               Check tags with a manager. Do not trust AI for allergies.
             </p>
           )}

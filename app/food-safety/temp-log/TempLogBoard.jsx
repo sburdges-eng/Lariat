@@ -161,14 +161,18 @@ export default function TempLogBoard({
         Every CCP the inspector asks for, in one grid.
       </p>
 
-      <div className="tl-totals">
-        <span className="tl-tot tl-tot-green">{totals.green} in spec</span>
-        <span className="tl-tot tl-tot-yellow">{totals.yellow} corrective</span>
-        <span className="tl-tot tl-tot-red">{totals.red} critical</span>
-        <span className="tl-tot tl-tot-gray">{totals.gray} not logged yet</span>
+      <div className="tl-totals" role="group" aria-label="Temp log summary">
+        <span className="tl-tot tl-tot-green" aria-label={`${totals.green} points in spec`}>{totals.green} in spec</span>
+        <span className="tl-tot tl-tot-yellow" aria-label={`${totals.yellow} points with corrective note`}>{totals.yellow} corrective</span>
+        <span className="tl-tot tl-tot-red" aria-label={`${totals.red} points critical`}>{totals.red} critical</span>
+        <span className="tl-tot tl-tot-gray" aria-label={`${totals.gray} points not logged yet`}>{totals.gray} not logged yet</span>
       </div>
 
-      {err && <div className="alert alert-red">{err}</div>}
+      {err && (
+        <div className="alert alert-red" role="alert" aria-live="assertive">
+          {err}
+        </div>
+      )}
 
       <section>
         <h2 className="section-h">CCPs ({summary.length})</h2>
@@ -206,12 +210,18 @@ export default function TempLogBoard({
         </div>
       </section>
 
-      <section className="tl-card">
-        <h2 className="section-h">Log a reading</h2>
-        <form onSubmit={submit} className="tl-form">
-          <label>
+      <section className="tl-card" aria-labelledby="tl-log-heading">
+        <h2 className="section-h" id="tl-log-heading">Log a reading</h2>
+        <form onSubmit={submit} className="tl-form" aria-busy={saving}>
+          <label htmlFor="tl-point">
             <span>Point (CCP)</span>
-            <select value={pointId} onChange={(e) => setPointId(e.target.value)}>
+            <select
+              id="tl-point"
+              name="tl-point"
+              value={pointId}
+              onChange={(e) => setPointId(e.target.value)}
+              required
+            >
               {points.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.label} ({p.ccp_id})
@@ -219,27 +229,49 @@ export default function TempLogBoard({
               ))}
             </select>
           </label>
-          <label>
+          <label htmlFor="tl-reading">
             <span>Reading °F {selectedPoint ? `(${boundLabel(selectedPoint)})` : ''}</span>
             <input
+              id="tl-reading"
+              name="tl-reading"
+              type="text"
               inputMode="decimal"
+              pattern="-?[0-9]*([.,][0-9]+)?"
+              autoComplete="off"
               value={reading}
               onChange={(e) => setReading(e.target.value)}
+              aria-describedby={liveOutOfRange ? 'tl-reading-hint' : undefined}
+              aria-invalid={liveOutOfRange ? 'true' : undefined}
+              enterKeyHint="send"
               required
             />
+            {liveOutOfRange && (
+              <span id="tl-reading-hint" className="field-hint" style={{ color: 'var(--red)', fontWeight: 600 }}>
+                Out of range — corrective action required below.
+              </span>
+            )}
           </label>
           {showNoteField && (
-            <label className={`tl-form-wide ${needsNote ? 'tl-form-need' : ''}`}>
+            <label htmlFor="tl-note" className={`tl-form-wide ${needsNote ? 'tl-form-need' : ''}`}>
               <span>Corrective action (required — reading is out of range)</span>
               <input
+                id="tl-note"
+                name="tl-note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="e.g. moved product to reach-in, called tech, re-tested at 39°F"
                 maxLength={500}
+                autoComplete="off"
+                required={needsNote}
+                aria-required={needsNote ? 'true' : undefined}
               />
             </label>
           )}
-          <button type="submit" disabled={saving}>
+          <button
+            type="submit"
+            disabled={saving}
+            aria-label={saving ? 'Saving reading' : 'Record temperature reading'}
+          >
             {saving ? 'Saving…' : 'Record reading'}
           </button>
         </form>
