@@ -143,53 +143,57 @@ export function upsertVendorPrice(db: DB, row: VendorPriceRow): UpsertResult {
   // match that convention to stay round-trippable with the costing ingest.
   const skuKey = sku == null ? '' : String(sku);
 
-  const existing = db
-    .prepare(
-      `SELECT * FROM vendor_prices
-        WHERE location_id = ? AND vendor = ?
-          AND COALESCE(sku, '') = ?
-          AND ingredient = ?
-        ORDER BY id DESC
-        LIMIT 1`,
-    )
-    .get(location_id, vendor, skuKey, ingredient) as StoredVendorPrice | undefined;
+  // ACID-C: SELECT → INSERT/UPDATE must be atomic to prevent TOCTOU races
+  // where two concurrent callers both see "not existing" and both INSERT.
+  return db.transaction(() => {
+    const existing = db
+      .prepare(
+        `SELECT * FROM vendor_prices
+          WHERE location_id = ? AND vendor = ?
+            AND COALESCE(sku, '') = ?
+            AND ingredient = ?
+          ORDER BY id DESC
+          LIMIT 1`,
+      )
+      .get(location_id, vendor, skuKey, ingredient) as StoredVendorPrice | undefined;
 
-  if (
-    existing &&
-    numEq(existing.pack_size, pack_size) &&
-    String(existing.pack_unit ?? '') === String(pack_unit) &&
-    numEq(existing.pack_price, pack_price) &&
-    numEq(existing.unit_price, unit_price) &&
-    (existing.category ?? null) === (category ?? null)
-  ) {
-    return { outcome: 'skipped', row: existing };
-  }
+    if (
+      existing &&
+      numEq(existing.pack_size, pack_size) &&
+      String(existing.pack_unit ?? '') === String(pack_unit) &&
+      numEq(existing.pack_price, pack_price) &&
+      numEq(existing.unit_price, unit_price) &&
+      (existing.category ?? null) === (category ?? null)
+    ) {
+      return { outcome: 'skipped' as UpsertOutcome, row: existing };
+    }
 
-  if (existing) {
-    db.prepare(
-      `UPDATE vendor_prices
-          SET pack_size = ?, pack_unit = ?, pack_price = ?, unit_price = ?,
-              category = ?, imported_at = datetime('now')
-        WHERE id = ?`,
-    ).run(pack_size, pack_unit, pack_price, unit_price, category, existing.id);
+    if (existing) {
+      db.prepare(
+        `UPDATE vendor_prices
+            SET pack_size = ?, pack_unit = ?, pack_price = ?, unit_price = ?,
+                category = ?, imported_at = datetime('now')
+          WHERE id = ?`,
+      ).run(pack_size, pack_unit, pack_price, unit_price, category, existing.id);
+      const refetched = db
+        .prepare(`SELECT * FROM vendor_prices WHERE id = ?`)
+        .get(existing.id) as StoredVendorPrice;
+      return { outcome: 'updated' as UpsertOutcome, row: refetched };
+    }
+
+    const info = db
+      .prepare(
+        `INSERT INTO vendor_prices
+           (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price,
+            category, location_id, imported_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+      )
+      .run(ingredient, vendor, skuKey, pack_size, pack_unit, pack_price, unit_price, category, location_id);
     const refetched = db
       .prepare(`SELECT * FROM vendor_prices WHERE id = ?`)
-      .get(existing.id) as StoredVendorPrice;
-    return { outcome: 'updated', row: refetched };
-  }
-
-  const info = db
-    .prepare(
-      `INSERT INTO vendor_prices
-         (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price,
-          category, location_id, imported_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-    )
-    .run(ingredient, vendor, skuKey, pack_size, pack_unit, pack_price, unit_price, category, location_id);
-  const refetched = db
-    .prepare(`SELECT * FROM vendor_prices WHERE id = ?`)
-    .get(Number(info.lastInsertRowid)) as StoredVendorPrice;
-  return { outcome: 'inserted', row: refetched };
+      .get(Number(info.lastInsertRowid)) as StoredVendorPrice;
+    return { outcome: 'inserted' as UpsertOutcome, row: refetched };
+  })();
 }
 
 /**

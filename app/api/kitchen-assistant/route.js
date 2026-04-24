@@ -13,6 +13,9 @@ import {
   formatLeafRowsAsTasks,
   scaleRecipe,
 } from '../../../lib/recipeCalculator';
+import { validateReceivingReading, dbStatusFor } from '../../../lib/receiving';
+import { validateTempReading, getTempPoint } from '../../../lib/tempLog';
+import { normalizeUnit } from '../../../lib/unitConvert.mjs';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -142,17 +145,17 @@ Then AFTER the closing fence, on a new line, write a short human confirmation. N
 
 Schemas (use exactly one):
 - 86 Item: { "action": "eighty_six", "item": "Name", "reason": "Optional" }
-- Inventory Update: { "action": "update_inventory", "item": "Name", "delta": "+/- Amount", "direction": "in" | "out" | "waste" }
-- Line Check: { "action": "line_check", "station": "Name", "item": "Name", "status": "pass" | "fail" | "na", "note": "Optional details/temps" }
+- Inventory Update: { "action": "update_inventory", "item": "Name", "delta": Number, "unit": "String", "direction": "in" | "out" | "waste" }
+- Line Check: { "action": "line_check", "station": "Name", "item": "Name", "reading_f": Number | null, "temp_point_id": "cook_poultry" | "cook_ground_beef" | "cook_fish" | "reach_in_cooler" | "walk_in_cooler" | "receiving_cold" | "receiving_frozen" | "freezer" | null, "status": "pass" | "fail" | "na", "note": "Optional details" } — NOTE: If a temperature is provided, DO NOT provide a status. Output "reading_f" and "temp_point_id" only. The server will compute pass/fail. If it is a binary non-temp check, output the status.
 - Maintenance: { "action": "maintenance", "equipment": "Name/Description", "issue": "String" }
 - Scale Recipe: { "action": "scale_recipe", "recipe": "recipe_slug_or_name", "multiplier": Number }
 - Order Guide Update: { "action": "update_order_guide", "item": "Name", "qty": Number, "unit": "String" }
 - Add BEO Prep: { "action": "beo_add_prep", "event_id": Number, "tasks": ["Task 1", "Task 2"], "recipes": [{ "recipe_slug": "slug", "portions_per_guest": Number }] } — list the recipes and portions-per-guest; the SERVER multiplies by the BEO guest count using the deterministic calculator. DO NOT compute ingredient quantities yourself.
 - Give Gold Star: { "action": "give_gold_star", "cook_name": "Exact Roster match", "reason": "String", "stars": 1 | 2 | 3 }
-- HACCP Receive: { "action": "haccp_receive", "item": "Name", "status": "pass" | "fail", "note": "Temps/Details" }
+- HACCP Receive: { "action": "haccp_receive", "item": "Name", "category": "refrigerated" | "frozen" | "shell_eggs" | "hot_held" | "dry_goods" | "produce" | "shellfish", "reading_f": Number | null, "package_ok": Boolean, "note": "Details" } — DO NOT output pass/fail. The server validates temperatures.
 - Generate Prep: { "action": "generate_prep", "station": "Station Name", "tasks": [{ "item": "Name", "need": "short velocity rationale", "recipe_slug": "slug", "multiplier": Number }] } — when a task maps to a recipe, supply recipe_slug + multiplier; the server expands leaves via the calculator. The "need" field is optional context, NOT a computed quantity.
 
-ARITHMETIC RULE: For scale_recipe, beo_add_prep, and generate_prep the server runs a deterministic calculator and discards any ingredient totals you compute. Your job is to name the recipe and pick the multiplier; never emit hand-multiplied quantities in the JSON or the prose.`;
+ARITHMETIC & VALIDATION RULE: The server runs a deterministic calculator and FDA rules engine. NEVER compute ingredient totals in-token, and NEVER compute if a temperature passes or fails FDA rules. Your job is to extract the raw numbers (multiplier, reading_f, delta) for the server to process.`;
 
   try {
     const { content, model } = await ollamaChat({
@@ -213,17 +216,45 @@ ARITHMETIC RULE: For scale_recipe, beo_add_prep, and generate_prep the server ru
             console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - 86'd ${payload.item} ⚠️\n`);
           }
         } else if (payload.action === 'update_inventory' && payload.item) {
+          const rawDelta = Number(payload.delta);
+          const rawUnit = payload.unit ? normalizeUnit(payload.unit) : null;
+          let deltaStr = null;
+          if (Number.isFinite(rawDelta)) {
+            deltaStr = rawUnit ? `${rawDelta} ${rawUnit}` : `${rawDelta}`;
+          } else {
+            deltaStr = clip(payload.delta, 64);
+          }
           const stmt = db.prepare('INSERT INTO inventory_updates (location_id, item, shift_date, created_at, delta, direction) VALUES (?, ?, ?, ?, ?, ?)');
-          stmt.run(locationId, clip(payload.item, MAX_ITEM), todayISO(), new Date().toISOString(), clip(payload.delta, 64) || null, clip(payload.direction, 16) || null);
+          stmt.run(locationId, clip(payload.item, MAX_ITEM), todayISO(), new Date().toISOString(), deltaStr, clip(payload.direction, 16) || null);
           actionMsg = `Logged inventory update for ${payload.item}.`;
           actionExecuted = true;
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Inventory Update ${payload.item} ⚠️\n`);
         } else if (payload.action === 'line_check' && payload.item && payload.station) {
+          let status = clip(payload.status, 16) || 'na';
+          let note = clip(payload.note, MAX_NOTE) || null;
+          let readingF = Number(payload.reading_f);
+
+          if (payload.temp_point_id && Number.isFinite(readingF)) {
+            const pt = getTempPoint(payload.temp_point_id);
+            if (pt) {
+              const val = validateTempReading(pt, readingF, note);
+              if (!val.ok) {
+                status = 'fail';
+                note = val.reason;
+              } else {
+                status = 'pass';
+              }
+            } else {
+              status = 'na';
+              note = `[Unvalidated Temp: ${readingF}°F] ${note || ''}`;
+            }
+          }
+
           const stmt = db.prepare('INSERT INTO line_check_entries (location_id, shift_date, station_id, item, status, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
-          stmt.run(locationId, todayISO(), clip(payload.station, 64), clip(payload.item, MAX_ITEM), clip(payload.status, 16) || 'na', clip(payload.note, MAX_NOTE) || null, new Date().toISOString());
-          actionMsg = `Logged line check for ${payload.item}.`;
+          stmt.run(locationId, todayISO(), clip(payload.station, 64), clip(payload.item, MAX_ITEM), status, note, new Date().toISOString());
+          actionMsg = `Logged line check for ${payload.item}${Number.isFinite(readingF) ? ` at ${readingF}°F` : ''} (${status}).`;
           actionExecuted = true;
-          console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - HACCP Line Check: ${payload.item} (${payload.status}) ⚠️\n`);
+          console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - HACCP Line Check: ${payload.item} (${status}) ⚠️\n`);
         } else if (payload.action === 'maintenance' && payload.equipment) {
           const equipName = clip(payload.equipment, MAX_ITEM);
           const row = db.prepare('SELECT id FROM equipment WHERE name LIKE ? AND location_id = ?').get(equipName, locationId);
@@ -252,17 +283,20 @@ ARITHMETIC RULE: For scale_recipe, beo_add_prep, and generate_prep the server ru
               const insert = db.prepare(
                 'INSERT INTO line_check_entries (location_id, shift_date, station_id, item, status, need, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
               );
-              for (const leaf of result.leafRows) {
-                insert.run(
-                  locationId,
-                  todayISO(),
-                  `scaled:${result.recipeSlug}`,
-                  clip(leaf.ingredient, MAX_ITEM),
-                  'na',
-                  clip(`${leaf.qty} ${leaf.unit}`, 64),
-                  new Date().toISOString()
-                );
-              }
+              // ACID-A: all leaf rows land or none do.
+              db.transaction(() => {
+                for (const leaf of result.leafRows) {
+                  insert.run(
+                    locationId,
+                    todayISO(),
+                    `scaled:${result.recipeSlug}`,
+                    clip(leaf.ingredient, MAX_ITEM),
+                    'na',
+                    clip(`${leaf.qty} ${leaf.unit}`, 64),
+                    new Date().toISOString()
+                  );
+                }
+              })();
               actionMsg = `Scaled ${result.recipeSlug} to ${result.targetQty} ${result.targetUnit} (×${result.scaleFactor}). ${tasks.length} ingredient line${tasks.length === 1 ? '' : 's'} — values from deterministic calculator.`;
               actionExecuted = true;
               console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Scale Recipe ${result.recipeSlug} ×${result.scaleFactor} ⚠️\n`);
@@ -274,9 +308,10 @@ ARITHMETIC RULE: For scale_recipe, beo_add_prep, and generate_prep the server ru
             }
           }
         } else if (payload.action === 'update_order_guide' && payload.item) {
+          const rawUnit = payload.unit ? normalizeUnit(payload.unit) : 'ea';
           const stmt = db.prepare('INSERT INTO order_guide_items (location_id, ingredient, base_qty, unit, imported_at) VALUES (?, ?, ?, ?, ?)');
-          stmt.run(locationId, clip(payload.item, MAX_ITEM), payload.qty || 1, clip(payload.unit, 16) || 'ea', new Date().toISOString());
-          actionMsg = `Added ${payload.qty || 1} ${payload.unit || ''} of ${payload.item} to the Order Guide.`;
+          stmt.run(locationId, clip(payload.item, MAX_ITEM), payload.qty || 1, clip(rawUnit, 16), new Date().toISOString());
+          actionMsg = `Added ${payload.qty || 1} ${rawUnit} of ${payload.item} to the Order Guide.`;
           actionExecuted = true;
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Order Guide Updated: ${payload.item} ⚠️\n`);
         } else if (payload.action === 'beo_add_prep' && payload.event_id && Array.isArray(payload.tasks)) {
@@ -316,9 +351,12 @@ ARITHMETIC RULE: For scale_recipe, beo_add_prep, and generate_prep the server ru
             }
           }
           const finalTasks = calcTasks.length > 0 ? calcTasks : payload.tasks;
-          for (const t of finalTasks) {
-            stmt.run(locationId, payload.event_id, clip(typeof t === 'string' ? t : String(t ?? ''), MAX_NOTE));
-          }
+          // ACID-A: all prep tasks land or none do.
+          db.transaction(() => {
+            for (const t of finalTasks) {
+              stmt.run(locationId, payload.event_id, clip(typeof t === 'string' ? t : String(t ?? ''), MAX_NOTE));
+            }
+          })();
           actionMsg = `Added ${finalTasks.length} ${calcTasks.length > 0 ? 'calculator-scaled' : 'scaled'} side-prep tasks to BEO ID ${payload.event_id}.${calcNotes.length ? ' ' + calcNotes.join(' ') : ''}`;
           actionExecuted = true;
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Added ${finalTasks.length} prep tasks to BEO ${payload.event_id} (calc=${calcTasks.length > 0}) ⚠️\n`);
@@ -330,11 +368,32 @@ ARITHMETIC RULE: For scale_recipe, beo_add_prep, and generate_prep the server ru
           actionExecuted = true;
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - HR RECOGNITION: ${starVal} Gold Star(s) awarded to ${payload.cook_name} ⚠️\n`);
         } else if (payload.action === 'haccp_receive' && payload.item) {
+          let status = 'pass';
+          let note = clip(payload.note, MAX_NOTE) || null;
+          let readingF = Number(payload.reading_f);
+
+          if (payload.category) {
+            try {
+              const val = validateReceivingReading({
+                category: payload.category,
+                reading_f: Number.isFinite(readingF) ? readingF : undefined,
+                package_ok: typeof payload.package_ok === 'boolean' ? payload.package_ok : undefined,
+              });
+              status = dbStatusFor(val.status) === 'rejected' ? 'fail' : 'pass';
+              if (val.reason) {
+                note = `[${val.reason}] ${note || ''}`;
+              }
+            } catch (err) {
+              status = 'na';
+              note = `[Validation Error: ${err.message}] ${note || ''}`;
+            }
+          }
+
           const stmt = db.prepare('INSERT INTO line_check_entries (location_id, shift_date, station_id, item, status, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
-          stmt.run(locationId, todayISO(), 'haccp_receiving', clip(payload.item, MAX_ITEM), clip(payload.status, 16) || 'pass', clip(payload.note, MAX_NOTE) || null, new Date().toISOString());
-          actionMsg = `Logged HACCP receiving for ${payload.item}.`;
+          stmt.run(locationId, todayISO(), 'haccp_receiving', clip(payload.item, MAX_ITEM), status, note, new Date().toISOString());
+          actionMsg = `Logged HACCP receiving for ${payload.item} (${status}).`;
           actionExecuted = true;
-          console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - HACCP Receiving: ${payload.item} (${payload.status}) ⚠️\n`);
+          console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - HACCP Receiving: ${payload.item} (${status}) ⚠️\n`);
         } else if (payload.action === 'generate_prep' && payload.station && Array.isArray(payload.tasks)) {
           const stmt = db.prepare('INSERT INTO line_check_entries (location_id, shift_date, station_id, item, status, need, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
           let calcReplacements = 0;
@@ -342,6 +401,8 @@ ARITHMETIC RULE: For scale_recipe, beo_add_prep, and generate_prep the server ru
           // For each task, if the model supplies a `recipe`/`recipe_slug` and `multiplier`,
           // discard its `need` string and let the calculator produce the authoritative
           // quantity list. Otherwise fall through to the task as provided.
+          // Collect all rows first (some branches are async), then insert atomically.
+          const prepRows = [];
           for (const t of payload.tasks) {
             const slug = t && (t.recipe_slug || t.recipe);
             const mult = Number(t && t.multiplier);
@@ -349,7 +410,7 @@ ARITHMETIC RULE: For scale_recipe, beo_add_prep, and generate_prep the server ru
               try {
                 const result = await scaleRecipe(String(slug), mult);
                 for (const leaf of result.leafRows) {
-                  stmt.run(
+                  prepRows.push([
                     locationId,
                     todayISO(),
                     clip(payload.station, 64),
@@ -357,7 +418,7 @@ ARITHMETIC RULE: For scale_recipe, beo_add_prep, and generate_prep the server ru
                     'na',
                     clip(`${leaf.qty} ${leaf.unit}`, 64),
                     new Date().toISOString()
-                  );
+                  ]);
                 }
                 calcReplacements += 1;
                 continue;
@@ -367,7 +428,7 @@ ARITHMETIC RULE: For scale_recipe, beo_add_prep, and generate_prep the server ru
                 // fall through and store the model's task as-is
               }
             }
-            stmt.run(
+            prepRows.push([
               locationId,
               todayISO(),
               clip(payload.station, 64),
@@ -375,8 +436,14 @@ ARITHMETIC RULE: For scale_recipe, beo_add_prep, and generate_prep the server ru
               'na',
               clip(t.need, 64) || null,
               new Date().toISOString()
-            );
+            ]);
           }
+          // ACID-A: all prep rows land or none do.
+          db.transaction(() => {
+            for (const row of prepRows) {
+              stmt.run(...row);
+            }
+          })();
           const calcSuffix =
             calcReplacements > 0
               ? ` (${calcReplacements} scaled by calculator${calcFailures ? `, ${calcFailures} fallback` : ''})`

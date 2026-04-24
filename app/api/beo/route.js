@@ -1,5 +1,6 @@
 import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
+import { postAuditEvent } from '../../../lib/auditEvents';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,26 +46,35 @@ export async function POST(req) {
       const title = clip(body.title, MAX_TITLE);
       if (!title) return Response.json({ error: 'title required' }, { status: 400 });
       const gc = body.guest_count == null ? null : Number(body.guest_count);
-      const info = db
-        .prepare(
-          `INSERT INTO beo_events
-             (title, event_date, event_time, contact_name, guest_count,
-              notes, status, tax_rate, service_fee_pct, location_id)
-           VALUES (?,?,?,?,?,?,?,?,?,?)`
-        )
-        .run(
-          title,
-          clip(body.event_date, 32) || todayISO(),
-          clip(body.event_time, 32),
-          clip(body.contact_name, 120),
-          Number.isFinite(gc) ? gc : null,
-          clip(body.notes, MAX_NOTES),
-          clip(body.status, 32) || 'planned',
-          Number.isFinite(Number(body.tax_rate)) ? Number(body.tax_rate) : 0.0675,
-          Number.isFinite(Number(body.service_fee_pct)) ? Number(body.service_fee_pct) : 20,
-          loc,
-        );
-      return Response.json({ ok: true, id: info.lastInsertRowid });
+      const id = db.transaction(() => {
+        const info = db
+          .prepare(
+            `INSERT INTO beo_events
+               (title, event_date, event_time, contact_name, guest_count,
+                notes, status, tax_rate, service_fee_pct, location_id)
+             VALUES (?,?,?,?,?,?,?,?,?,?)`
+          )
+          .run(
+            title,
+            clip(body.event_date, 32) || todayISO(),
+            clip(body.event_time, 32),
+            clip(body.contact_name, 120),
+            Number.isFinite(gc) ? gc : null,
+            clip(body.notes, MAX_NOTES),
+            clip(body.status, 32) || 'planned',
+            Number.isFinite(Number(body.tax_rate)) ? Number(body.tax_rate) : 0.0675,
+            Number.isFinite(Number(body.service_fee_pct)) ? Number(body.service_fee_pct) : 20,
+            loc,
+          );
+        const newId = Number(info.lastInsertRowid);
+        postAuditEvent({
+          entity: 'beo_events', entity_id: newId, action: 'insert',
+          actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
+          location_id: loc, payload: { title, tax_rate: body.tax_rate, service_fee_pct: body.service_fee_pct },
+        });
+        return newId;
+      })();
+      return Response.json({ ok: true, id });
     }
 
     if (body.action === 'update_event') {
@@ -74,31 +84,38 @@ export async function POST(req) {
       const gc = body.guest_count == null || body.guest_count === ''
         ? null
         : Number(body.guest_count);
-      db.prepare(
-        `UPDATE beo_events SET
-           title = COALESCE(?, title),
-           event_date = ?,
-           event_time = ?,
-           contact_name = ?,
-           guest_count = ?,
-           notes = ?,
-           status = COALESCE(?, status),
-           tax_rate = ?,
-           service_fee_pct = ?
-         WHERE id = ? AND location_id = ?`,
-      ).run(
-        title,
-        clip(body.event_date, 32),
-        clip(body.event_time, 32),
-        clip(body.contact_name, 120),
-        Number.isFinite(gc) ? gc : null,
-        clip(body.notes, MAX_NOTES),
-        clip(body.status, 32),
-        Number.isFinite(Number(body.tax_rate)) ? Number(body.tax_rate) : 0.0675,
-        Number.isFinite(Number(body.service_fee_pct)) ? Number(body.service_fee_pct) : 20,
-        id,
-        loc,
-      );
+      db.transaction(() => {
+        db.prepare(
+          `UPDATE beo_events SET
+             title = COALESCE(?, title),
+             event_date = ?,
+             event_time = ?,
+             contact_name = ?,
+             guest_count = ?,
+             notes = ?,
+             status = COALESCE(?, status),
+             tax_rate = ?,
+             service_fee_pct = ?
+           WHERE id = ? AND location_id = ?`,
+        ).run(
+          title,
+          clip(body.event_date, 32),
+          clip(body.event_time, 32),
+          clip(body.contact_name, 120),
+          Number.isFinite(gc) ? gc : null,
+          clip(body.notes, MAX_NOTES),
+          clip(body.status, 32),
+          Number.isFinite(Number(body.tax_rate)) ? Number(body.tax_rate) : 0.0675,
+          Number.isFinite(Number(body.service_fee_pct)) ? Number(body.service_fee_pct) : 20,
+          id,
+          loc,
+        );
+        postAuditEvent({
+          entity: 'beo_events', entity_id: id, action: 'update',
+          actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
+          location_id: loc, payload: { title, tax_rate: body.tax_rate, service_fee_pct: body.service_fee_pct },
+        });
+      })();
       return Response.json({ ok: true });
     }
 
@@ -110,27 +127,36 @@ export async function POST(req) {
       }
       const cost = Number.isFinite(Number(body.unit_cost)) ? Number(body.unit_cost) : 0;
       const qty = Number.isFinite(Number(body.quantity)) ? Number(body.quantity) : 1;
-      const info = db
-        .prepare(
-          `INSERT INTO beo_line_items
-             (event_id, sort_order, item_name, category, unit_cost, quantity,
-              prep_notes, secondary_prep_notes, order_items_notes, order_time, group_note)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-        )
-        .run(
-          event_id,
-          Number(body.sort_order) || 0,
-          item_name,
-          clip(body.category, 64),
-          cost,
-          qty,
-          clip(body.prep_notes, MAX_NOTES),
-          clip(body.secondary_prep_notes, MAX_NOTES),
-          clip(body.order_items_notes, MAX_NOTES),
-          clip(body.order_time, 32),
-          clip(body.group_note, MAX_NOTES),
-        );
-      return Response.json({ ok: true, id: info.lastInsertRowid });
+      const newId = db.transaction(() => {
+        const info = db
+          .prepare(
+            `INSERT INTO beo_line_items
+               (event_id, sort_order, item_name, category, unit_cost, quantity,
+                prep_notes, secondary_prep_notes, order_items_notes, order_time, group_note)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+          )
+          .run(
+            event_id,
+            Number(body.sort_order) || 0,
+            item_name,
+            clip(body.category, 64),
+            cost,
+            qty,
+            clip(body.prep_notes, MAX_NOTES),
+            clip(body.secondary_prep_notes, MAX_NOTES),
+            clip(body.order_items_notes, MAX_NOTES),
+            clip(body.order_time, 32),
+            clip(body.group_note, MAX_NOTES),
+          );
+        const lineId = Number(info.lastInsertRowid);
+        postAuditEvent({
+          entity: 'beo_line_items', entity_id: lineId, action: 'insert',
+          actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
+          location_id: loc, payload: { item_name, unit_cost: cost, quantity: qty, event_id },
+        });
+        return lineId;
+      })();
+      return Response.json({ ok: true, id: newId });
     }
 
     if (body.action === 'update_line') {
@@ -150,34 +176,48 @@ export async function POST(req) {
       const ord  = textPatch('order_items_notes', MAX_NOTES);
       const time = textPatch('order_time', 32);
       const grp  = textPatch('group_note', MAX_NOTES);
-      db.prepare(
-        `UPDATE beo_line_items SET
-           item_name             = COALESCE(?, item_name),
-           unit_cost             = COALESCE(?, unit_cost),
-           quantity              = COALESCE(?, quantity),
-           category              = COALESCE(?, category),
-           prep_notes            = CASE WHEN ? THEN ? ELSE prep_notes END,
-           secondary_prep_notes  = CASE WHEN ? THEN ? ELSE secondary_prep_notes END,
-           order_items_notes     = CASE WHEN ? THEN ? ELSE order_items_notes END,
-           order_time            = CASE WHEN ? THEN ? ELSE order_time END,
-           group_note            = CASE WHEN ? THEN ? ELSE group_note END
-         WHERE id = ?`,
-      ).run(
-        item_name, cost, qty, clip(body.category, 64),
-        'prep_notes'           in body ? 1 : 0, prep.val,
-        'secondary_prep_notes' in body ? 1 : 0, sec.val,
-        'order_items_notes'    in body ? 1 : 0, ord.val,
-        'order_time'           in body ? 1 : 0, time.val,
-        'group_note'           in body ? 1 : 0, grp.val,
-        id,
-      );
+      db.transaction(() => {
+        db.prepare(
+          `UPDATE beo_line_items SET
+             item_name             = COALESCE(?, item_name),
+             unit_cost             = COALESCE(?, unit_cost),
+             quantity              = COALESCE(?, quantity),
+             category              = COALESCE(?, category),
+             prep_notes            = CASE WHEN ? THEN ? ELSE prep_notes END,
+             secondary_prep_notes  = CASE WHEN ? THEN ? ELSE secondary_prep_notes END,
+             order_items_notes     = CASE WHEN ? THEN ? ELSE order_items_notes END,
+             order_time            = CASE WHEN ? THEN ? ELSE order_time END,
+             group_note            = CASE WHEN ? THEN ? ELSE group_note END
+           WHERE id = ?`,
+        ).run(
+          item_name, cost, qty, clip(body.category, 64),
+          'prep_notes'           in body ? 1 : 0, prep.val,
+          'secondary_prep_notes' in body ? 1 : 0, sec.val,
+          'order_items_notes'    in body ? 1 : 0, ord.val,
+          'order_time'           in body ? 1 : 0, time.val,
+          'group_note'           in body ? 1 : 0, grp.val,
+          id,
+        );
+        postAuditEvent({
+          entity: 'beo_line_items', entity_id: id, action: 'update',
+          actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
+          location_id: loc, payload: { item_name, unit_cost: cost, quantity: qty },
+        });
+      })();
       return Response.json({ ok: true });
     }
 
     if (body.action === 'delete_line') {
       const id = Number(body.id);
       if (!Number.isInteger(id)) return Response.json({ error: 'id required' }, { status: 400 });
-      db.prepare(`DELETE FROM beo_line_items WHERE id = ?`).run(id);
+      db.transaction(() => {
+        db.prepare(`DELETE FROM beo_line_items WHERE id = ?`).run(id);
+        postAuditEvent({
+          entity: 'beo_line_items', entity_id: id, action: 'delete',
+          actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
+          location_id: loc,
+        });
+      })();
       return Response.json({ ok: true });
     }
 
@@ -211,6 +251,11 @@ export async function POST(req) {
       db.transaction(() => {
         db.prepare(`DELETE FROM beo_prep_tasks WHERE event_id = ?`).run(id);
         db.prepare(`DELETE FROM beo_events WHERE id = ?`).run(id);
+        postAuditEvent({
+          entity: 'beo_events', entity_id: id, action: 'delete',
+          actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
+          location_id: loc,
+        });
       })();
       return Response.json({ ok: true });
     }

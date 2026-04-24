@@ -115,80 +115,84 @@ export function upsertDishComponent(db: DB, row: DishComponentRow): UpsertResult
     notes,
   } = row;
 
-  const existing =
-    component_type === 'recipe'
-      ? (db
-          .prepare(
-            `SELECT * FROM dish_components
-              WHERE location_id = ? AND dish_name = ?
-                AND component_type = 'recipe' AND recipe_slug = ?`,
-          )
-          .get(location_id, dish_name, recipe_slug) as DishComponent | undefined)
-      : (db
-          .prepare(
-            `SELECT * FROM dish_components
-              WHERE location_id = ? AND dish_name = ?
-                AND component_type = 'vendor_item' AND vendor_ingredient = ?`,
-          )
-          .get(location_id, dish_name, vendor_ingredient) as DishComponent | undefined);
+  // ACID-C: SELECT → INSERT/UPDATE must be atomic to prevent TOCTOU races
+  // where two concurrent callers both see "not existing" and both INSERT.
+  return db.transaction(() => {
+    const existing =
+      component_type === 'recipe'
+        ? (db
+            .prepare(
+              `SELECT * FROM dish_components
+                WHERE location_id = ? AND dish_name = ?
+                  AND component_type = 'recipe' AND recipe_slug = ?`,
+            )
+            .get(location_id, dish_name, recipe_slug) as DishComponent | undefined)
+        : (db
+            .prepare(
+              `SELECT * FROM dish_components
+                WHERE location_id = ? AND dish_name = ?
+                  AND component_type = 'vendor_item' AND vendor_ingredient = ?`,
+            )
+            .get(location_id, dish_name, vendor_ingredient) as DishComponent | undefined);
 
-  if (
-    existing &&
-    Number(existing.qty_per_serving) === Number(qty_per_serving) &&
-    String(existing.unit) === String(unit) &&
-    (existing.notes ?? null) === (notes ?? null)
-  ) {
-    return { outcome: 'skipped', row: existing };
-  }
+    if (
+      existing &&
+      Number(existing.qty_per_serving) === Number(qty_per_serving) &&
+      String(existing.unit) === String(unit) &&
+      (existing.notes ?? null) === (notes ?? null)
+    ) {
+      return { outcome: 'skipped' as UpsertOutcome, row: existing };
+    }
 
-  if (component_type === 'recipe') {
-    db.prepare(
-      `INSERT INTO dish_components
-         (location_id, dish_name, component_type, recipe_slug, vendor_ingredient,
-          qty_per_serving, unit, notes)
-       VALUES (?, ?, 'recipe', ?, NULL, ?, ?, ?)
-       ON CONFLICT(location_id, dish_name, recipe_slug)
-         WHERE component_type = 'recipe'
-         DO UPDATE SET
-           qty_per_serving = excluded.qty_per_serving,
-           unit            = excluded.unit,
-           notes           = excluded.notes,
-           updated_at      = datetime('now')`,
-    ).run(location_id, dish_name, recipe_slug, qty_per_serving, unit, notes);
-  } else {
-    db.prepare(
-      `INSERT INTO dish_components
-         (location_id, dish_name, component_type, recipe_slug, vendor_ingredient,
-          qty_per_serving, unit, notes)
-       VALUES (?, ?, 'vendor_item', NULL, ?, ?, ?, ?)
-       ON CONFLICT(location_id, dish_name, vendor_ingredient)
-         WHERE component_type = 'vendor_item'
-         DO UPDATE SET
-           qty_per_serving = excluded.qty_per_serving,
-           unit            = excluded.unit,
-           notes           = excluded.notes,
-           updated_at      = datetime('now')`,
-    ).run(location_id, dish_name, vendor_ingredient, qty_per_serving, unit, notes);
-  }
+    if (component_type === 'recipe') {
+      db.prepare(
+        `INSERT INTO dish_components
+           (location_id, dish_name, component_type, recipe_slug, vendor_ingredient,
+            qty_per_serving, unit, notes)
+         VALUES (?, ?, 'recipe', ?, NULL, ?, ?, ?)
+         ON CONFLICT(location_id, dish_name, recipe_slug)
+           WHERE component_type = 'recipe'
+           DO UPDATE SET
+             qty_per_serving = excluded.qty_per_serving,
+             unit            = excluded.unit,
+             notes           = excluded.notes,
+             updated_at      = datetime('now')`,
+      ).run(location_id, dish_name, recipe_slug, qty_per_serving, unit, notes);
+    } else {
+      db.prepare(
+        `INSERT INTO dish_components
+           (location_id, dish_name, component_type, recipe_slug, vendor_ingredient,
+            qty_per_serving, unit, notes)
+         VALUES (?, ?, 'vendor_item', NULL, ?, ?, ?, ?)
+         ON CONFLICT(location_id, dish_name, vendor_ingredient)
+           WHERE component_type = 'vendor_item'
+           DO UPDATE SET
+             qty_per_serving = excluded.qty_per_serving,
+             unit            = excluded.unit,
+             notes           = excluded.notes,
+             updated_at      = datetime('now')`,
+      ).run(location_id, dish_name, vendor_ingredient, qty_per_serving, unit, notes);
+    }
 
-  const refetched =
-    component_type === 'recipe'
-      ? (db
-          .prepare(
-            `SELECT * FROM dish_components
-              WHERE location_id = ? AND dish_name = ?
-                AND component_type = 'recipe' AND recipe_slug = ?`,
-          )
-          .get(location_id, dish_name, recipe_slug) as DishComponent)
-      : (db
-          .prepare(
-            `SELECT * FROM dish_components
-              WHERE location_id = ? AND dish_name = ?
-                AND component_type = 'vendor_item' AND vendor_ingredient = ?`,
-          )
-          .get(location_id, dish_name, vendor_ingredient) as DishComponent);
+    const refetched =
+      component_type === 'recipe'
+        ? (db
+            .prepare(
+              `SELECT * FROM dish_components
+                WHERE location_id = ? AND dish_name = ?
+                  AND component_type = 'recipe' AND recipe_slug = ?`,
+            )
+            .get(location_id, dish_name, recipe_slug) as DishComponent)
+        : (db
+            .prepare(
+              `SELECT * FROM dish_components
+                WHERE location_id = ? AND dish_name = ?
+                  AND component_type = 'vendor_item' AND vendor_ingredient = ?`,
+            )
+            .get(location_id, dish_name, vendor_ingredient) as DishComponent);
 
-  return { outcome: existing ? 'updated' : 'inserted', row: refetched };
+    return { outcome: (existing ? 'updated' : 'inserted') as UpsertOutcome, row: refetched };
+  })();
 }
 
 /**

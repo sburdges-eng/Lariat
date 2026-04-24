@@ -1075,6 +1075,30 @@ export function initSchema(db: DB): void {
       imported_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS margin_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_name TEXT NOT NULL,
+      net_sales REAL,
+      cost_per_unit REAL,
+      margin_pct REAL,
+      popularity REAL,
+      quadrant TEXT,
+      snapshot_at TEXT DEFAULT (datetime('now')),
+      location_id TEXT DEFAULT 'default'
+    );
+
+    CREATE TABLE IF NOT EXISTS accounting_variance (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      period_start TEXT,
+      period_end TEXT,
+      theoretical_cogs REAL,
+      actual_cogs REAL,
+      variance_amount REAL,
+      variance_pct REAL,
+      snapshot_at TEXT DEFAULT (datetime('now')),
+      location_id TEXT DEFAULT 'default'
+    );
+
     CREATE TABLE IF NOT EXISTS bom_lines (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       recipe_id TEXT NOT NULL,
@@ -2239,6 +2263,9 @@ export function getDb(): DB {
   _db = new Database(target);
   _db.pragma('journal_mode = WAL');
   _db.pragma('foreign_keys = ON');
+  // ACID-D: fsync WAL on every commit so financial/personal data survives
+  // power loss. ~1-5ms write penalty on SSD; imperceptible at BOH write rates.
+  _db.pragma('synchronous = FULL');
   initSchema(_db);
   return _db;
 }
