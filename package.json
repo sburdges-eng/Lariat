@@ -42,7 +42,7 @@
     "propose:plan-restaurant-grind": "node --experimental-strip-types scripts/propose-plan-restaurant-grind.mjs",
     "propose:plan-action-items": "node --experimental-strip-types scripts/propose-plan-action-items.mjs",
     "export:coverage-gap": "node scripts/export-coverage-gap.mjs",
-    "propose:food-dish-components": "node scripts/propose-food-dish-components.mjs",
+    "propose:food-dish-components": "node --experimental-strip-types scripts/propose-food-dish-components.mjs",
     "seed:menu-item-declarations": "node --experimental-strip-types scripts/seed-menu-item-declarations.mjs",
     "import:dish-components": "node scripts/import-dish-components.mjs",
     "export:dish-components": "node scripts/export-dish-components.mjs",

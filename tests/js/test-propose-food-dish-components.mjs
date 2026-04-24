@@ -70,20 +70,6 @@ const SOURCES = {
   orderGuideIngredients: ORDER_GUIDE_INGREDIENTS,
 };
 
-// ── Helpers ────────────────────────────────────────────────────────
-function countBy(rows, key) {
-  const m = new Map();
-  for (const r of rows) {
-    const v = r[key];
-    m.set(v, (m.get(v) || 0) + 1);
-  }
-  return m;
-}
-
-function hasMatch(rows, predicate) {
-  return rows.some(predicate);
-}
-
 // ── Tests ──────────────────────────────────────────────────────────
 
 describe('tokenizeDishName', () => {
