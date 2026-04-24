@@ -56,6 +56,7 @@
     "test:checks-api": "node --test tests/js/test-checks-api.mjs",
     "test:tphc": "node --test tests/js/test-tphc-rules.mjs tests/js/test-tphc-api.mjs",
     "test:tphc-api": "node --test tests/js/test-tphc-api.mjs",
+    "test:toctou-races": "node --test tests/js/test-toctou-race-regressions.mjs",
     "test:pin-cookie": "node --test tests/js/test-pin-cookie-hmac.mjs",
     "test:unit": "jest",
     "test:rules": "node --test tests/js/test-temp-log.mjs tests/js/test-cooling-rules.mjs tests/js/test-date-mark-rules.mjs tests/js/test-sanitizer-rules.mjs tests/js/test-break-rules.mjs tests/js/test-sick-worker-rules.mjs tests/js/test-tphc-rules.mjs",
