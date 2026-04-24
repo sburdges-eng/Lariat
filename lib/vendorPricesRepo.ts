@@ -227,3 +227,103 @@ function numEq(a: number | null | undefined, b: number | null | undefined): bool
   if (aNull || bNull) return false;
   return Number(a) === Number(b);
 }
+
+/**
+ * Options for {@link listPriceSeries}.
+ *
+ * vendor + sku identify the timeline. location_id scopes to one kitchen
+ * (defaults to 'default' for single-site installs). limit defaults to 100
+ * and is clamped to [1, 1000] — the helper answers "how did this SKU's
+ * price change" and a timeline of >1000 points is a downstream concern.
+ */
+export type PriceSeriesOptions = {
+  vendor: string;
+  sku: string;
+  location_id?: string;
+  limit?: number;
+};
+
+/**
+ * One point on a per-SKU price timeline. Intentionally narrower than
+ * {@link StoredVendorPrice} / the full vendor_prices_history row:
+ *   - No `category` — the question this answers is "how did price
+ *     change over time?", not "what category is this SKU?". Category
+ *     doesn't vary snapshot-to-snapshot in practice, and omitting it
+ *     keeps the payload tight.
+ *   - No `ingredient` / `vendor` / `sku` — the caller already knows
+ *     these (they supplied them in the query). Echoing them per row
+ *     just bloats the JSON.
+ *   - No `id` / `source_vendor_price_id` — an internal detail.
+ */
+export type PriceSeriesRow = {
+  snapshot_at: string;
+  run_id: number | null;
+  pack_size: number | null;
+  pack_unit: string | null;
+  pack_price: number | null;
+  unit_price: number | null;
+  yield_pct: number | null;
+  actual_received_lb: number | null;
+  reconciled_unit_price: number | null;
+  imported_at: string | null;
+};
+
+/**
+ * Read the snapshot history for a single (vendor, sku) pair at a
+ * location, ordered oldest-first so the caller gets a chronological
+ * timeline they can feed directly into a chart.
+ *
+ * Ordering: `snapshot_at ASC, id ASC` — id breaks ties when multiple
+ * rows share a snapshot_at (e.g. two runs in the same second under
+ * subsec precision, or a future migration that backfills snapshots).
+ *
+ * Limit direction: when the history is longer than `limit`, this keeps
+ * the OLDEST N rows (via `ORDER BY snapshot_at ASC LIMIT N`). A
+ * chronological chart that shows the beginning of a SKU's price
+ * history is more useful than an arbitrarily truncated suffix — the
+ * caller can ask for a bigger limit if they need the tail.
+ *
+ * Rules:
+ *   - vendor and sku are required; blank/whitespace returns `[]`
+ *     (the caller may query on a blank field from the UI).
+ *   - limit defaults to 100, clamps into [1, 1000]. Non-finite,
+ *     non-positive, or absent values fall back to the default.
+ *   - No dedup / no gap-fill. Every snapshot row comes back as-is;
+ *     downstream can DISTINCT on pack_price/unit_price if they want
+ *     a change-only series.
+ */
+export function listPriceSeries(
+  db: DB,
+  opts: PriceSeriesOptions,
+): PriceSeriesRow[] {
+  const vendor = typeof opts?.vendor === 'string' ? opts.vendor.trim() : '';
+  const sku = typeof opts?.sku === 'string' ? opts.sku.trim() : '';
+  if (!vendor || !sku) return [];
+
+  const location_id =
+    typeof opts?.location_id === 'string' && opts.location_id.trim()
+      ? opts.location_id.trim()
+      : 'default';
+
+  const rawLimit = Number(opts?.limit);
+  let limit: number;
+  if (!Number.isFinite(rawLimit) || rawLimit <= 0) {
+    limit = 100;
+  } else {
+    limit = Math.min(1000, Math.floor(rawLimit));
+  }
+
+  return db
+    .prepare(
+      `SELECT snapshot_at, run_id, pack_size, pack_unit, pack_price,
+              unit_price, yield_pct, actual_received_lb,
+              reconciled_unit_price, imported_at
+         FROM vendor_prices_history
+        WHERE location_id = ?
+          AND vendor = ?
+          AND sku = ?
+        ORDER BY snapshot_at ASC, id ASC
+        LIMIT ?`,
+    )
+    .all(location_id, vendor, sku, limit) as PriceSeriesRow[];
+}
