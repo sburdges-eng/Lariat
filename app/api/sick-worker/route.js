@@ -28,8 +28,8 @@ const clip = (s, max) => {
   return t ? t.slice(0, max) : null;
 };
 
-function gate(req) {
-  if (pinRequiredForPic() && !hasPinCookie(req)) {
+async function gate(req) {
+  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
     return Response.json(
       { error: 'manager PIN required — sick reports are PIC authority' },
       { status: 403 },
@@ -41,7 +41,7 @@ function gate(req) {
 // ── POST /api/sick-worker ────────────────────────────────────────
 
 export async function POST(req) {
-  const blocked = gate(req);
+  const blocked = await gate(req);
   if (blocked) return blocked;
 
   try {
@@ -114,7 +114,7 @@ export async function POST(req) {
 // ── PATCH /api/sick-worker ───────────────────────────────────────
 
 export async function PATCH(req) {
-  const blocked = gate(req);
+  const blocked = await gate(req);
   if (blocked) return blocked;
 
   try {
@@ -199,7 +199,7 @@ export async function GET(req) {
     `).all(location_id);
 
     let history = [];
-    if (include_history && hasPinCookie(req)) {
+    if (include_history && (await hasPinCookie(req))) {
       // Full rows only for PIN-authenticated callers.
       history = db.prepare(`
         SELECT * FROM sick_worker_reports

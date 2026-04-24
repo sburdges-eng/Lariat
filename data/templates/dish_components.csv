@@ -1,0 +1,3 @@
+dish_name,component_type,recipe_slug,vendor_ingredient,qty_per_serving,unit,notes
+The Rope Burger,recipe,bacon_jam,,0.5,cup,per-serving bacon jam for the burger
+The Rope Burger,vendor_item,,Brioche Bun,1,each,bottom + top counted as one bun SKU

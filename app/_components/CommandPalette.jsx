@@ -1,53 +1,25 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { PALETTE_ITEMS, withLocation } from './navRegistry.js';
+import { useLocation } from './useLocation.js';
 
 /* A jump-anywhere palette. Opens on ⌘K / Ctrl+K / the "/" key.
    Navigates the app router; carries the currently-selected location
    through the href query string. Keyboard driven. */
 
-const STATIC_COMMANDS = [
-  { group: 'Stations',   name: 'Today',            sub: 'Rush view',          href: '/',                   key: '0', terms: 'today home' },
-  { group: 'Stations',   name: 'All stations',     sub: 'Line overview',      href: '/stations',           key: 'S', terms: 'station line' },
-  { group: 'Service',    name: '86 Board',         sub: 'What’s out',         href: '/eighty-six',         key: '8', terms: 'eighty six out' },
-  { group: 'Service',    name: 'Recipes',          sub: 'Build, taste, plate',href: '/recipes',            key: 'R', terms: 'recipe book' },
-  { group: 'Service',    name: 'Inventory',        sub: 'Counts & moves',     href: '/inventory',          key: 'I', terms: 'inventory count' },
-  { group: 'Service',    name: 'Specials',         sub: 'Today’s features',   href: '/specials',           key: 'F', terms: 'specials feature' },
-  { group: 'Service',    name: 'Ask the kitchen',  sub: 'Chat with the book', href: '/kitchen-assistant',  key: '?', terms: 'assistant help ai chat' },
-  { group: 'Service',    name: 'Gold stars',       sub: 'Recognition',        href: '/gold-stars',         key: '★', terms: 'gold stars recognition' },
-  { group: 'Compliance', name: 'Food safety',      sub: 'HACCP hub',          href: '/food-safety',        key: 'H', terms: 'food safety haccp' },
-  { group: 'Compliance', name: 'Temp log',         sub: 'Fridges, holds',     href: '/food-safety/temp-log',   key: 'T', terms: 'temp fridge log' },
-  { group: 'Compliance', name: 'Receiving',        sub: 'Deliveries in',      href: '/food-safety/receiving',  key: '↵', terms: 'receiving delivery' },
-  { group: 'Compliance', name: 'Calibrations',     sub: 'Thermometers',       href: '/food-safety/calibrations', key: 'C', terms: 'calibration thermometer' },
-  { group: 'Compliance', name: 'Labor',            sub: 'Breaks & shifts',    href: '/labor',              key: 'L', terms: 'labor break shift clock' },
-  { group: 'Books',      name: 'Sales numbers',    sub: 'Daily analytics',    href: '/analytics',          key: '#', terms: 'sales analytics revenue' },
-  { group: 'Books',      name: 'Recipe costs',     sub: 'Cost of goods',      href: '/costing',            key: '$', terms: 'costing cost cogs' },
-  { group: 'Books',      name: 'Order guide',      sub: 'Purchasing',         href: '/purchasing',         key: 'P', terms: 'purchasing order guide' },
-  { group: 'Books',      name: 'Menu performance', sub: 'Engineer the menu',  href: '/menu-engineering',   key: 'M', terms: 'menu engineering performance' },
-  { group: 'Books',      name: 'Events & prep',    sub: 'BEOs',               href: '/beo',                key: 'E', terms: 'events beo banquet catering' },
-  { group: 'Books',      name: 'Equipment',        sub: 'Gear & PM',          href: '/equipment',          key: 'Q', terms: 'equipment gear maintenance' },
-];
-
-const LOC_KEY = 'lariat_location';
-
 export default function CommandPalette() {
   const router = useRouter();
+  const { locQuery } = useLocation();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const [cursor, setCursor] = useState(0);
   const [stations, setStations] = useState([]);
-  const [locQuery, setLocQuery] = useState('');
   const inputRef = useRef(null);
 
-  // Pick up current location from localStorage so nav preserves it
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const loc = window.localStorage.getItem(LOC_KEY);
-    if (loc && loc !== 'default') setLocQuery(`?location=${encodeURIComponent(loc)}`);
-  }, [open]);
-
   // Reset cached stations when location changes so the palette doesn't show
-  // the old location's list after a tenant switch.
+  // the old location's list after a tenant switch. (Ported from #24 onto
+  // the new useLocation() architecture.)
   useEffect(() => {
     setStations([]);
   }, [locQuery]);
@@ -61,7 +33,7 @@ export default function CommandPalette() {
       .catch(() => {});
   }, [open, locQuery, stations.length]);
 
-  // Keybindings: open with ⌘K / Ctrl+K / "/" (outside inputs), close with Esc
+  // Keybindings: open with ⌘K / Ctrl+K / "/" (outside inputs), close with Esc.
   useEffect(() => {
     const onKey = (e) => {
       const inField =
@@ -103,32 +75,37 @@ export default function CommandPalette() {
   }, [open]);
 
   const commands = useMemo(() => {
+    // Live "Line" entries: the first six stations (with progress readouts).
     const stationCmds = stations.slice(0, 6).map((s, i) => ({
+      id: `station-${s.id}`,
       group: 'Line',
       name: s.name,
       sub:
         s.prog && s.prog.total
-          ? `${s.prog.done}/${s.prog.total} checks${s.prog.flagged ? ` · ${s.prog.flagged} flagged` : ''}`
+          ? `${s.prog.done}/${s.prog.total} checks${
+              s.prog.flagged ? ` · ${s.prog.flagged} flagged` : ''
+            }`
           : s.line || 'Station',
       href: `/stations/${s.id}`,
-      key: String(i + 1),
+      shortcut: String(i + 1),
       terms: `station ${s.id} ${s.name} ${s.line || ''}`.toLowerCase(),
+      locAware: true,
     }));
-    return [...stationCmds, ...STATIC_COMMANDS];
+    return [...stationCmds, ...PALETTE_ITEMS];
   }, [stations]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return commands;
     return commands.filter((c) =>
-      [c.name, c.sub, c.group, c.terms, c.key]
+      [c.name, c.sub, c.group, c.terms, c.shortcut]
         .join(' ')
         .toLowerCase()
         .includes(s)
     );
   }, [q, commands]);
 
-  // Keep cursor in range when list changes
+  // Keep cursor in range when list changes.
   useEffect(() => {
     if (cursor >= filtered.length) setCursor(0);
   }, [filtered.length, cursor]);
@@ -136,16 +113,14 @@ export default function CommandPalette() {
   const go = useCallback(
     (cmd) => {
       if (!cmd) return;
-      const href = cmd.href.includes('?')
-        ? cmd.href
-        : `${cmd.href}${locQuery}`;
+      const href = cmd.locAware ? withLocation(cmd.href, locQuery) : cmd.href;
       setOpen(false);
       router.push(href);
     },
     [router, locQuery]
   );
 
-  // Arrow keys on the input element
+  // Arrow keys on the input element.
   const onInputKey = (e) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -161,7 +136,7 @@ export default function CommandPalette() {
 
   if (!open) return null;
 
-  // Group rows by cmd.group, preserving first-seen order
+  // Group rows by cmd.group, preserving first-seen order.
   const groups = [];
   const groupIndex = new Map();
   filtered.forEach((cmd, idx) => {
@@ -201,14 +176,14 @@ export default function CommandPalette() {
                 <div className="cmdk-group">{g.name}</div>
                 {g.rows.map(({ cmd, idx }) => (
                   <div
-                    key={`${cmd.group}-${cmd.name}`}
+                    key={cmd.id || `${cmd.group}-${cmd.name}`}
                     className={`cmdk-row ${idx === cursor ? 'on' : ''}`}
                     onMouseEnter={() => setCursor(idx)}
                     onClick={() => go(cmd)}
                     role="option"
                     aria-selected={idx === cursor}
                   >
-                    <div className="cmdk-glyph">{cmd.key}</div>
+                    <div className="cmdk-glyph">{cmd.shortcut}</div>
                     <div className="cmdk-lbl">
                       <div className="cmdk-name">{cmd.name}</div>
                       <div className="cmdk-sub">{cmd.sub}</div>

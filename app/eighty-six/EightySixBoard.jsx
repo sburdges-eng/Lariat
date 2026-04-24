@@ -100,62 +100,129 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
     router.refresh();
   };
 
+  const itemValid = item.trim().length > 0;
+
   return (
     <div>
       <h1>86 Board</h1>
       <p className="subtitle">{active.length} item{active.length === 1 ? '' : 's'} out. Mark it back when you&apos;ve got it.</p>
 
-      <form onSubmit={add} className="card form-row">
+      <form onSubmit={add} className="card form-row" aria-describedby={err ? 'e86-err' : undefined}>
         <div style={{ flex: '2 1 240px' }}>
-          <label className="label">Item</label>
+          <label className="label" htmlFor="e86-item">Item</label>
           <input
+            id="e86-item"
+            name="e86-item"
             value={item}
             onChange={e => setItem(e.target.value)}
             placeholder="e.g. Pork Chop, House Salad, Aji Verde"
             className="input form-field"
+            autoComplete="off"
+            spellCheck={false}
+            enterKeyHint="send"
+            aria-required="true"
+            aria-invalid={err && !itemValid ? 'true' : undefined}
           />
         </div>
         <div style={{ flex:'1 1 140px' }}>
-          <label className="label">Station</label>
-          <select value={stationId} onChange={e => setStationId(e.target.value)} className="input form-field">
+          <label className="label" htmlFor="e86-station">Station</label>
+          <select
+            id="e86-station"
+            name="e86-station"
+            value={stationId}
+            onChange={e => setStationId(e.target.value)}
+            className="input form-field"
+          >
             <option value="">— any —</option>
             {stations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
         <div style={{ flex:'1 1 120px' }}>
-          <label className="label">Reason</label>
-          <select value={reason} onChange={e => setReason(e.target.value)} className="input form-field">
-            {REASONS.map(r => <option key={r} value={r}>{r.replace('_',' ')}</option>)}
+          <label className="label" htmlFor="e86-reason">Reason</label>
+          <select
+            id="e86-reason"
+            name="e86-reason"
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            className="input form-field"
+          >
+            {REASONS.map(r => (
+              <option key={r} value={r}>
+                {r.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+              </option>
+            ))}
           </select>
         </div>
         <div style={{ flex:'0 1 100px' }}>
-          <label className="label">Qty</label>
-          <input value={quantity} onChange={e => setQuantity(e.target.value)} placeholder="opt." className="input form-field" />
+          <label className="label" htmlFor="e86-qty">Qty</label>
+          <input
+            id="e86-qty"
+            name="e86-qty"
+            value={quantity}
+            onChange={e => setQuantity(e.target.value)}
+            placeholder="opt."
+            className="input form-field"
+            inputMode="numeric"
+            autoComplete="off"
+          />
         </div>
-        <button type="submit" className="btn red lg" disabled={saving || !item.trim()}>86 it</button>
+        <button
+          type="submit"
+          className="btn red lg"
+          disabled={saving || !itemValid}
+          aria-label={saving ? 'Saving…' : `Mark ${item.trim() || 'item'} as 86'd`}
+        >
+          {saving ? 'Saving…' : '86 it'}
+        </button>
       </form>
 
+      {err && (
+        <div
+          id="e86-err"
+          role="alert"
+          aria-live="assertive"
+          style={{
+            marginTop: 10,
+            padding: '10px 14px',
+            background: 'rgba(139,46,31,0.08)',
+            border: '1px solid var(--red)',
+            borderRadius: 6,
+            color: 'var(--red)',
+            fontWeight: 600,
+            fontSize: 14,
+          }}
+        >
+          {err}
+        </div>
+      )}
+
       {active.length === 0 ? (
-        <div className="empty">No 86s right now. ✓</div>
+        <div className="empty" role="status" aria-live="polite">No 86s right now. ✓</div>
       ) : (
-        <div className="checklist">
+        <ul className="checklist" aria-label="Currently 86'd items" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {active.map(e => (
-            <div key={e.id} className="check-row fail">
+            <li key={e.id} className="check-row fail">
               <div>
                 <div className="check-name">{e.item}</div>
                 <div className="meta">
                   {e.station_id && <>{e.station_id} · </>}
                   {e.reason && <>{String(e.reason).replace('_',' ')} · </>}
                   {e.quantity && <>{e.quantity} · </>}
-                  {fmtTime(e.created_at)}
+                  <time dateTime={e.created_at}>{fmtTime(e.created_at)}</time>
                   {e.cook_id && <> · {e.cook_id}</>}
                 </div>
               </div>
               <span></span><span></span><span></span>
-              <button className="btn green" onClick={() => resolve(e.id)}>Resolve</button>
-            </div>
+              <button
+                className="btn green"
+                onClick={() => resolve(e.id)}
+                aria-label={`Mark ${e.item} as back in stock`}
+              >
+                Resolve
+              </button>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
 
       {cascaded.length > 0 && (
