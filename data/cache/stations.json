@@ -4,41 +4,47 @@
     "name": "Grill / Sauté",
     "line": "hot",
     "color": "#ef4444",
-    "line_check_key": "grille_saute"
+    "line_check_key": "grille_saute",
+    "setup_key": "Tab 1 - Hot Line"
   },
   {
     "id": "fry",
     "name": "Fry",
     "line": "hot",
     "color": "#f59e0b",
-    "line_check_key": "fry"
+    "line_check_key": "fry",
+    "setup_key": "Tab 2 - Fry Station"
   },
   {
     "id": "garde",
     "name": "Garde Manger",
     "line": "cold",
     "color": "#10b981",
-    "line_check_key": "garde"
+    "line_check_key": "garde",
+    "setup_key": "Tab 3 - Salad Station"
   },
   {
     "id": "brunch",
     "name": "Brunch",
     "line": "hot",
     "color": "#8b5cf6",
-    "line_check_key": "brunch"
+    "line_check_key": "brunch",
+    "setup_key": "Tab 1 - Hot Line"
   },
   {
     "id": "expo",
     "name": "Expo",
     "line": "pass",
     "color": "#3b82f6",
-    "line_check_key": "expo"
+    "line_check_key": "expo",
+    "setup_key": "Tab 4 - Expo"
   },
   {
     "id": "runner",
     "name": "Runner",
     "line": "foh",
     "color": "#64748b",
-    "line_check_key": null
+    "line_check_key": null,
+    "setup_key": null
   }
 ]
