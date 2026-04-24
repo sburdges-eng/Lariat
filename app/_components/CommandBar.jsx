@@ -36,6 +36,10 @@ export default function CommandBar() {
           <kbd>8</kbd>
           <span className="accent">86</span>
         </span>
+        <span className="slot">
+          <kbd>M</kbd>
+          <span>Map</span>
+        </span>
       </div>
       <div className="right">
         <span className="slot">

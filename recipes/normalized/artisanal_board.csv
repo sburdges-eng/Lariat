@@ -1,0 +1,6 @@
+ingredient,qty,unit,portions_per_batch,notes
+assorted cheeses (vendor whole-buy),2,lb,~20 portions,Sysco blue / cheddar jack / Oaxaca / etc. — curate 3-4 cheeses per board; see vendor_summary.json
+assorted cured meats (vendor whole-buy),1,lb,~20 portions,prosciutto / salami / chorizo — vendor SKUs vary by French / Italian / Spanish board
+crackers or baguette,1,loaf,~20 portions,baguette sliced or vendor crackers
+fruit or preserve,1,cup,~20 portions,grapes or house jam depending on board
+olives or pickle,1,cup,~20 portions,vendor whole-buy

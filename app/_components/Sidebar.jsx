@@ -1,12 +1,16 @@
 'use client';
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PinLogout from './PinLogout.jsx';
 import OfflineIndicator from './OfflineIndicator.jsx';
 import InstallButton from './InstallButton.jsx';
-
-const LOC_KEY = 'lariat_location';
+import {
+  SIDEBAR_ITEMS,
+  SHELF_ITEMS,
+  withLocation,
+} from './navRegistry.js';
+import { useLocation } from './useLocation.js';
 
 /* ── Kitchen topology: the physical line order ──
    Cells 1-6 are stations (filled from /api/stations, but we keep a
@@ -18,7 +22,15 @@ function StationRing({ prog, glyph }) {
   const c = 2 * Math.PI * r;
   const pct = prog && prog.total ? Math.min(1, prog.done / prog.total) : 0;
   const off = c * (1 - pct);
-  const tone = !prog ? '' : prog.flagged > 0 ? 'crit' : prog.signedOff || prog.done >= prog.total ? '' : prog.done > 0 ? 'warn' : 'crit';
+  const tone = !prog
+    ? ''
+    : prog.flagged > 0
+    ? 'crit'
+    : prog.signedOff || prog.done >= prog.total
+    ? ''
+    : prog.done > 0
+    ? 'warn'
+    : 'crit';
   return (
     <div className={`station-ring ${tone}`}>
       <svg viewBox="0 0 36 36">
@@ -37,27 +49,44 @@ function StationRing({ prog, glyph }) {
   );
 }
 
+// Group sidebar items by their `group` field, preserving first-seen order.
+function groupItems(items) {
+  const order = [];
+  const byGroup = new Map();
+  for (const item of items) {
+    if (!byGroup.has(item.group)) {
+      order.push(item.group);
+      byGroup.set(item.group, []);
+    }
+    byGroup.get(item.group).push(item);
+  }
+  return order.map((g) => ({ name: g, items: byGroup.get(g) }));
+}
+
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { locationId, locQuery, setLocation } = useLocation();
   const [staff, setStaff] = useState([]);
   const [cookId, setCookId] = useState('');
   const [locations, setLocations] = useState([{ id: 'default', name: 'The Lariat' }]);
-  const [locationId, setLocationId] = useState('default');
   const [stations, setStations] = useState([]);
 
+  // Staff picker hydrates once.
   useEffect(() => {
     fetch('/api/staff')
       .then((r) => r.json())
       .then((d) => setStaff(d || []))
       .catch((err) => console.error('Failed to load staff picker:', err));
-    const savedCook = typeof window !== 'undefined' ? window.localStorage.getItem('lariat_cook') : '';
-    if (savedCook) setCookId(savedCook);
-    const savedLoc = typeof window !== 'undefined' ? window.localStorage.getItem(LOC_KEY) : '';
-    if (savedLoc) setLocationId(savedLoc);
+    try {
+      const saved = typeof window !== 'undefined' ? window.localStorage.getItem('lariat_cook') : '';
+      if (saved) setCookId(saved);
+    } catch {
+      /* ignore */
+    }
   }, []);
 
+  // Locations list — never required for single-site, but populates the dropdown.
   useEffect(() => {
     fetch('/api/locations')
       .then((r) => r.json())
@@ -67,51 +96,38 @@ export default function Sidebar() {
       .catch((err) => console.error('Failed to load locations:', err));
   }, []);
 
+  // Live station progress for the rail rings (polled during service).
   useEffect(() => {
-    const q = searchParams.get('location');
-    if (q && q.trim()) {
-      const v = q.trim();
-      setLocationId(v);
-      window.localStorage.setItem(LOC_KEY, v);
-    }
-  }, [searchParams]);
-
-  // Fetch stations + progress for the rail rings
-  useEffect(() => {
-    const qs = locationId !== 'default' ? `?location=${encodeURIComponent(locationId)}` : '';
-    fetch(`/api/stations${qs}`)
-      .then((r) => r.json())
-      .then((d) => Array.isArray(d) && setStations(d))
-      .catch((err) => console.error('Failed to load stations:', err));
-    // Poll every 30s so the rail reflects line-check progress during service
-    const t = setInterval(() => {
+    const qs = locQuery;
+    const load = () =>
       fetch(`/api/stations${qs}`)
         .then((r) => r.json())
         .then((d) => Array.isArray(d) && setStations(d))
         .catch(() => {});
-    }, 30000);
+    load();
+    const t = setInterval(load, 30000);
     return () => clearInterval(t);
-  }, [locationId, pathname]);
+  }, [locQuery, pathname]);
 
   const onCookChange = (e) => {
-    setCookId(e.target.value);
-    window.localStorage.setItem('lariat_cook', e.target.value);
+    const next = e.target.value;
+    setCookId(next);
+    try {
+      window.localStorage.setItem('lariat_cook', next);
+    } catch {
+      /* ignore */
+    }
   };
 
   const onLocationChange = (e) => {
-    const v = e.target.value;
-    setLocationId(v);
-    window.localStorage.setItem(LOC_KEY, v);
+    const next = e.target.value;
+    setLocation(next);
+    // Keep the URL in step so deep-links and reloads carry the selection.
     const u = new URL(window.location.href);
-    if (v === 'default') u.searchParams.delete('location');
-    else u.searchParams.set('location', v);
+    if (next === 'default') u.searchParams.delete('location');
+    else u.searchParams.set('location', next);
     window.location.href = u.pathname + u.search;
   };
-
-  const locQuery = useMemo(
-    () => (locationId !== 'default' ? `?location=${encodeURIComponent(locationId)}` : ''),
-    [locationId]
-  );
 
   const locationOptions = useMemo(() => {
     const ids = new Set(locations.map((l) => l.id));
@@ -121,7 +137,7 @@ export default function Sidebar() {
     return locations;
   }, [locations, locationId]);
 
-  // Keyboard shortcuts: 1-6 jump to station N, 8 -> 86 board, 0 -> Today
+  // Keyboard shortcuts: 1-6 jump to station N, 8 → 86 board, 0 → Today.
   useEffect(() => {
     const handler = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -130,40 +146,30 @@ export default function Sidebar() {
       if (e.target && e.target.isContentEditable) return;
       const k = e.key;
       if (k === '0') {
-        router.push(`/${locQuery}`);
+        router.push(withLocation('/', locQuery));
       } else if (/^[1-6]$/.test(k)) {
         const idx = parseInt(k, 10) - 1;
         const s = stations[idx];
-        if (s) router.push(`/stations/${s.id}${locQuery}`);
+        if (s) router.push(withLocation(`/stations/${s.id}`, locQuery));
       } else if (k === '8') {
-        router.push(`/eighty-six${locQuery}`);
+        router.push(withLocation('/eighty-six', locQuery));
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [stations, locQuery, router]);
 
-  // Nav link helper — preserves old location-aware href rewriting
-  const link = useCallback(
-    (href, label, shortcut) => {
-      const withLoc =
-        href === '/' ||
-        href.startsWith('/stations') ||
-        href.startsWith('/recipes') ||
-        href.startsWith('/eighty-six') ||
-        href.startsWith('/inventory') ||
-        href.startsWith('/kitchen-assistant') ||
-        href.startsWith('/gold-stars') ||
-        href.startsWith('/food-safety') ||
-        href.startsWith('/labor')
-          ? `${href}${locQuery}`
-          : href;
-      const active = pathname === href || (href !== '/' && pathname.startsWith(href));
+  // Render a single primary-nav link, registry-driven.
+  const navLink = useCallback(
+    (item) => {
+      const href = item.locAware ? withLocation(item.href, locQuery) : item.href;
+      const active =
+        pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
       return (
-        <Link href={withLoc} className={active ? 'active' : ''}>
-          <span className="nav-key">{shortcut || '·'}</span>
+        <Link key={item.id} href={href} className={active ? 'active' : ''}>
+          <span className="nav-key">{item.shortcut || '·'}</span>
           <span className="nav-lbl">
-            <span className="t">{label}</span>
+            <span className="t">{item.name}</span>
           </span>
         </Link>
       );
@@ -171,9 +177,9 @@ export default function Sidebar() {
     [pathname, locQuery]
   );
 
-  // Station cell (1 of the rings)
+  // Station cell (1 of the rings).
   const stationCell = (s, idx) => {
-    const href = `/stations/${s.id}${locQuery}`;
+    const href = withLocation(`/stations/${s.id}`, locQuery);
     const active = pathname.startsWith(`/stations/${s.id}`);
     const glyph = String(idx + 1);
     return (
@@ -196,6 +202,14 @@ export default function Sidebar() {
     );
   };
 
+  // Group the non-Primary sidebar items (Service, Compliance) by section header.
+  const groupedSidebar = useMemo(() => {
+    const nonPrimary = SIDEBAR_ITEMS.filter((i) => i.group !== 'Primary');
+    return groupItems(nonPrimary);
+  }, []);
+
+  const primary = SIDEBAR_ITEMS.filter((i) => i.group === 'Primary');
+
   return (
     <aside className="sidebar">
       <div className="line-rope" aria-hidden />
@@ -206,55 +220,31 @@ export default function Sidebar() {
       </div>
 
       <nav className="nav">
-        {link('/', 'Today', '0')}
+        {primary.map(navLink)}
 
         <div className="nav-section">Stations</div>
         {stations.slice(0, 6).map((s, i) => stationCell(s, i))}
-        {stations.length === 0 && (
-          <div className="nav-disabled">Loading stations…</div>
-        )}
+        {stations.length === 0 && <div className="nav-disabled">Loading stations…</div>}
 
-        <div className="nav-section">Service</div>
-        {link('/eighty-six', '86 Board', '8')}
-        {link('/recipes', 'Recipes', 'R')}
-        {link('/inventory', 'Inventory', 'I')}
-        {link('/kitchen-assistant', 'Ask the kitchen', '?')}
-        {link('/specials', 'Specials', 'S')}
-        {link('/gold-stars', 'Gold stars', '★')}
-
-        <div className="nav-section">Compliance</div>
-        {link('/food-safety', 'Food safety')}
-        {link('/food-safety/temp-log', 'Temp log')}
-        {link('/food-safety/receiving', 'Receiving')}
-        {link('/food-safety/calibrations', 'Calibrations')}
-        {link('/labor', 'Labor')}
+        {groupedSidebar.map((g) => (
+          <div key={g.name}>
+            <div className="nav-section">{g.name}</div>
+            {g.items.map(navLink)}
+          </div>
+        ))}
 
         <div className="nav-section">Books</div>
         <div className="shelf-grid">
-          <Link href={`/analytics${locQuery}`} className="shelf-tile">
-            <b>Sales</b>
-            <span>numbers</span>
-          </Link>
-          <Link href={`/costing${locQuery}`} className="shelf-tile">
-            <b>Costs</b>
-            <span>recipes</span>
-          </Link>
-          <Link href={`/purchasing${locQuery}`} className="shelf-tile">
-            <b>Orders</b>
-            <span>guide</span>
-          </Link>
-          <Link href={`/menu-engineering${locQuery}`} className="shelf-tile">
-            <b>Menu</b>
-            <span>perf</span>
-          </Link>
-          <Link href={`/beo${locQuery}`} className="shelf-tile">
-            <b>Events</b>
-            <span>& prep</span>
-          </Link>
-          <Link href={`/equipment${locQuery}`} className="shelf-tile">
-            <b>Equip.</b>
-            <span>gear</span>
-          </Link>
+          {SHELF_ITEMS.map((item) => (
+            <Link
+              key={item.id}
+              href={withLocation(item.href, locQuery)}
+              className="shelf-tile"
+            >
+              <b>{item.shelf?.b || item.name}</b>
+              <span>{item.shelf?.sub || item.sub}</span>
+            </Link>
+          ))}
         </div>
 
         <div className="nav-section">Location</div>
