@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Seed costing/vendor_pack_weights.csv from workbook/data/sysco_product_catalog.csv.
+Seed data/seeds/vendor_pack_weights.csv from a Sysco product catalog CSV.
 
 Filters to EA/CT/PCE items and outputs with verified=false for all rows
-except user-confirmed SKUs.
+except user-confirmed SKUs. Pass --catalog for the Sysco catalog CSV path.
 """
 from __future__ import annotations
 
@@ -29,14 +29,14 @@ def main() -> int:
     p.add_argument(
         "--catalog",
         type=Path,
-        default=ROOT / "workbook" / "data" / "sysco_product_catalog.csv",
-        help="Sysco product catalog CSV",
+        default=ROOT / "data" / "imports" / "sysco_product_catalog.csv",
+        help="Sysco product catalog CSV (stage at data/imports/ or pass --catalog)",
     )
     p.add_argument(
         "-o", "--output",
         type=Path,
-        default=ROOT / "costing" / "vendor_pack_weights.csv",
-        help="Output path",
+        default=ROOT / "data" / "seeds" / "vendor_pack_weights.csv",
+        help="Output path (canonical seed location; consumed by ingest_catch_weights.py)",
     )
     args = p.parse_args()
 

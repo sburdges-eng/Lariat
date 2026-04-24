@@ -1,0 +1,11 @@
+date,shift,completed_by,ccp_id,critical_control_point,hazard,critical_limit,monitoring_procedure,corrective_action,verified,notes
+,,,"CCP-1",Receiving — cold deliveries,Biological (pathogen growth),Cold items ≤ 41°F on arrival,Temp-check every delivery with probe thermometer,Reject and return items above 41°F,,,
+,,,"CCP-2",Cold storage — walk-in cooler,Biological (pathogen growth),Walk-in ≤ 41°F,Check and log temp 2x daily (open + close),Adjust thermostat / move product / discard if >4hrs above 41°F,,,
+,,,"CCP-3",Cold storage — freezer,Biological (pathogen growth),Freezer ≤ 0°F,Check and log temp 2x daily,Adjust thermostat / move product / discard if thawed,,,
+,,,"CCP-4",Cooking — poultry,Biological (Salmonella),Internal temp ≥ 165°F for 15 sec,Probe thermometer every batch,Continue cooking until 165°F reached,,,
+,,,"CCP-5",Cooking — ground beef,Biological (E. coli),Internal temp ≥ 155°F for 15 sec,Probe thermometer every batch,Continue cooking until 155°F reached,,,
+,,,"CCP-6",Cooking — fish,Biological (parasites/pathogen),Internal temp ≥ 145°F for 15 sec,Probe thermometer every batch,Continue cooking until 145°F reached,,,
+,,,"CCP-7",Hot holding,Biological (pathogen growth),Hold at ≥ 140°F,Temp-check every 30 min on line,Reheat to 165°F or discard if below 140°F for >2 hrs,,,
+,,,"CCP-8",Cooling,Biological (pathogen growth),140°F → 70°F in 2 hrs; 70°F → 41°F in 4 hrs,Temp-check at 2hr and 6hr marks,Ice bath / smaller containers / discard if limits exceeded,,,
+,,,"CCP-9",Reheating,Biological (pathogen growth),Reheat to ≥ 165°F within 2 hrs,Probe thermometer,Continue heating or discard,,,
+,,,"CCP-10",Handwashing,Biological (cross-contamination),All staff wash hands per schedule,Visual monitoring by shift lead,Retrain / document / escalate repeat offenses,,,

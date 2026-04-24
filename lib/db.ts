@@ -38,6 +38,16 @@ export interface LineCheckEntry {
   need: string | null;
   note: string | null;
   cook_id: string | null;
+  /**
+   * F15 / FDA §3-301.11 bare-hand-contact-with-RTE attestation.
+   *  null = item does not touch ready-to-eat food (not applicable)
+   *  0    = item touches RTE; cook has NOT attested glove change
+   *  1    = cook has attested fresh gloves for this row
+   *
+   * Populated on POST /api/checks when body carries a boolean
+   * `glove_change_attested`. Pre-migration rows stay NULL.
+   */
+  glove_change_attested: 0 | 1 | null;
   created_at: string;
   location_id: string;
 }
@@ -917,6 +927,10 @@ export function initSchema(db: DB): void {
       need TEXT,
       note TEXT,
       cook_id TEXT,
+      -- F15 (FDA §3-301.11): NULL = item doesn't touch RTE food;
+      -- 0 = glove-change required but not yet attested;
+      -- 1 = cook has attested fresh gloves for this line-check row.
+      glove_change_attested INTEGER,
       created_at TEXT DEFAULT (datetime('now')),
       location_id TEXT DEFAULT 'default'
     );
@@ -1912,6 +1926,16 @@ function migrateLegacyColumns(db: DB): void {
   addLoc('station_signoffs', t('station_signoffs'));
   addLoc('inventory_updates', t('inventory_updates'));
 
+  // F15 (FDA §3-301.11): glove-change attestation on each line-check row
+  // that touches ready-to-eat food. NULL on pre-migration rows so the
+  // backfill is additive and the legacy data stays queryable.
+  const lceCols = t('line_check_entries');
+  if (!lceCols.includes('glove_change_attested')) {
+    try {
+      db.exec('ALTER TABLE line_check_entries ADD COLUMN glove_change_attested INTEGER');
+    } catch { /* ignore */ }
+  }
+
   // Extend equipment table with vendor / manual / model-number / notes columns
   const equipCols = t('equipment');
   const equipMigrations: [string, string][] = [
@@ -2005,6 +2029,20 @@ function migrateLegacyColumns(db: DB): void {
   ];
   for (const [col, ddl] of beoMigrations) {
     if (!beoCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  // BEO line items gained prep-sheet columns (mirrors the archive xlsx
+  // layout: ITEM | PREP | SECONDARY PREP | ORDER ITEMS + fire time).
+  const beoLineCols = t('beo_line_items');
+  const beoLineMigrations: [string, string][] = [
+    ['prep_notes',           'ALTER TABLE beo_line_items ADD COLUMN prep_notes TEXT'],
+    ['secondary_prep_notes', 'ALTER TABLE beo_line_items ADD COLUMN secondary_prep_notes TEXT'],
+    ['order_items_notes',    'ALTER TABLE beo_line_items ADD COLUMN order_items_notes TEXT'],
+    ['order_time',           'ALTER TABLE beo_line_items ADD COLUMN order_time TEXT'],
+    ['group_note',           'ALTER TABLE beo_line_items ADD COLUMN group_note TEXT'],
+  ];
+  for (const [col, ddl] of beoLineMigrations) {
+    if (!beoLineCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
   }
 
   // Extend bom_lines with yield / cooking-loss factors used by COGS mapping.

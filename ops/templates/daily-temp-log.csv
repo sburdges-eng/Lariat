@@ -1,0 +1,9 @@
+date,time,recorded_by,location,equipment,temp_f,target_min_f,target_max_f,in_range,corrective_action,notes
+,,,"walk-in cooler","main unit",,32,41,,,,
+,,,"walk-in cooler","main unit",,32,41,,,,
+,,,"freezer","main unit",,,-10,0,,,,
+,,,"freezer","main unit",,,-10,0,,,,
+,,,"prep table","cold rail",,32,41,,,,
+,,,"hot holding","soup well",,140,212,,,,
+,,,"hot holding","steam table",,140,212,,,,
+,,,"dish machine","final rinse",,180,212,,,,
