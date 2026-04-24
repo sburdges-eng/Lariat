@@ -1027,6 +1027,39 @@ export function initSchema(db: DB): void {
     );
     CREATE INDEX IF NOT EXISTS idx_vp_loc ON vendor_prices(location_id);
 
+    -- Append-only snapshot of vendor_prices taken before each destructive
+    -- ingest sweep. Lets operators look back at historical price trends even
+    -- though the live vendor_prices table is DELETE+INSERT per run.
+    -- Rows never deleted or updated; queries DISTINCT ON (vendor, sku)
+    -- ORDER BY snapshot_at for per-SKU price series.
+    CREATE TABLE IF NOT EXISTS vendor_prices_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      run_id INTEGER,
+      source_vendor_price_id INTEGER,
+      ingredient TEXT NOT NULL,
+      vendor TEXT,
+      sku TEXT,
+      pack_size REAL,
+      pack_unit TEXT,
+      pack_price REAL,
+      unit_price REAL,
+      category TEXT,
+      yield_pct REAL,
+      actual_received_lb REAL,
+      reconciled_unit_price REAL,
+      master_id TEXT,
+      location_id TEXT DEFAULT 'default',
+      imported_at TEXT,
+      snapshot_at TEXT DEFAULT (datetime('now','subsec')),
+      snapshot_reason TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_vph_loc_vendor_sku
+      ON vendor_prices_history(location_id, vendor, sku);
+    CREATE INDEX IF NOT EXISTS idx_vph_snapshot_at
+      ON vendor_prices_history(snapshot_at);
+    CREATE INDEX IF NOT EXISTS idx_vph_ingredient
+      ON vendor_prices_history(ingredient);
+
     CREATE TABLE IF NOT EXISTS recipe_costs (
       recipe_id TEXT PRIMARY KEY,
       recipe_name TEXT,
