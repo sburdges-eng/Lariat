@@ -113,8 +113,9 @@ export async function POST(req) {
       const info = db
         .prepare(
           `INSERT INTO beo_line_items
-             (event_id, sort_order, item_name, category, unit_cost, quantity)
-           VALUES (?,?,?,?,?,?)`,
+             (event_id, sort_order, item_name, category, unit_cost, quantity,
+              prep_notes, secondary_prep_notes, order_items_notes, order_time, group_note)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
         )
         .run(
           event_id,
@@ -123,6 +124,11 @@ export async function POST(req) {
           clip(body.category, 64),
           cost,
           qty,
+          clip(body.prep_notes, MAX_NOTES),
+          clip(body.secondary_prep_notes, MAX_NOTES),
+          clip(body.order_items_notes, MAX_NOTES),
+          clip(body.order_time, 32),
+          clip(body.group_note, MAX_NOTES),
         );
       return Response.json({ ok: true, id: info.lastInsertRowid });
     }
@@ -133,14 +139,38 @@ export async function POST(req) {
       const item_name = clip(body.item_name, MAX_TITLE);
       const cost = Number.isFinite(Number(body.unit_cost)) ? Number(body.unit_cost) : null;
       const qty = Number.isFinite(Number(body.quantity)) ? Number(body.quantity) : null;
+      // Prep-sheet text fields: '' means "clear", undefined means "don't touch".
+      const textPatch = (key, max) => {
+        if (!(key in body)) return { sql: null, val: null };
+        const v = clip(body[key], max);
+        return { sql: v, val: v };
+      };
+      const prep = textPatch('prep_notes', MAX_NOTES);
+      const sec  = textPatch('secondary_prep_notes', MAX_NOTES);
+      const ord  = textPatch('order_items_notes', MAX_NOTES);
+      const time = textPatch('order_time', 32);
+      const grp  = textPatch('group_note', MAX_NOTES);
       db.prepare(
         `UPDATE beo_line_items SET
-           item_name = COALESCE(?, item_name),
-           unit_cost = COALESCE(?, unit_cost),
-           quantity  = COALESCE(?, quantity),
-           category  = COALESCE(?, category)
+           item_name             = COALESCE(?, item_name),
+           unit_cost             = COALESCE(?, unit_cost),
+           quantity              = COALESCE(?, quantity),
+           category              = COALESCE(?, category),
+           prep_notes            = CASE WHEN ? THEN ? ELSE prep_notes END,
+           secondary_prep_notes  = CASE WHEN ? THEN ? ELSE secondary_prep_notes END,
+           order_items_notes     = CASE WHEN ? THEN ? ELSE order_items_notes END,
+           order_time            = CASE WHEN ? THEN ? ELSE order_time END,
+           group_note            = CASE WHEN ? THEN ? ELSE group_note END
          WHERE id = ?`,
-      ).run(item_name, cost, qty, clip(body.category, 64), id);
+      ).run(
+        item_name, cost, qty, clip(body.category, 64),
+        'prep_notes'           in body ? 1 : 0, prep.val,
+        'secondary_prep_notes' in body ? 1 : 0, sec.val,
+        'order_items_notes'    in body ? 1 : 0, ord.val,
+        'order_time'           in body ? 1 : 0, time.val,
+        'group_note'           in body ? 1 : 0, grp.val,
+        id,
+      );
       return Response.json({ ok: true });
     }
 

@@ -373,14 +373,16 @@ catch-weight-backfill tests still green.
 
 This is the bar that lets us say the engine works.
 
-- [ ] **B1 — Variance metric.**
-  - Files: `app/api/costing/route.js`, `lib/menuEngineering.ts`.
-  - Compute per-recipe `actual_avg_unit_cost` (from rolling 30-day `vendor_prices`) vs `recipe_costs.cost_per_yield_unit`. Expose `cost_variance_pct`.
-  - Dashboard tile: red if any recipe >5%, yellow >2%.
-- [ ] **B2 — Unmapped queue.**
-  - New `app/api/unmapped/route.js` returning `{ total_items, unmapped_count, pct, rows: [...] }` from `bom_lines.map_status NOT IN ('confirmed','mapped')` + `vendor_prices.master_id IS NULL` + `map_status IN ('NEEDS_DENSITY','PACK_CHANGED')`.
-  - Target <1%, red >3%.
-- [ ] **B3 — Ingest latency.**
+- [x] **B1 — Variance metric.**
+  - Files: `app/api/costing/route.js`, `lib/costingBenchmarks.mjs::computeCostVariance`, `app/costing/page.jsx` tile.
+  - Per-recipe `actual` vs `theoretical` (`recipe_costs.cost_per_yield_unit`) → `variance_pct`. Uses T7 `master_id` where available (`resolveMergedCost`) with fallback to normalized ingredient-key join.
+  - D6 close: recipes whose `unmatched_lines / total_lines > 30%` are excluded from the aggregate with `exclusion_reason='high_unmatched_ratio'` and their `variance_pct` / `actual` surface as `null`. Summary block (`healthy / yellow / red / excluded_high_unmatched`) is on the response.
+  - Dashboard tile: green `< 2%`, yellow `2–5%`, red `≥ 5%` off `max_variance_pct`. Excluded-recipe count rendered as a yellow pip under the tile value.
+- [x] **B2 — Unmapped queue.**
+  - Files: `app/api/unmapped/route.js`, `lib/costingBenchmarks.mjs::computeUnmapped`, `app/costing/page.jsx` tile + first-10 detail table.
+  - UNION of three signals: `bom_lines.map_status NOT IN ('confirmed','mapped','auto_mapped')`, BOM rows flagged `NEEDS_DENSITY` (T4), and `vendor_prices.map_status='PACK_CHANGED'` (T6). Durable counter `pack_size_changes_unacknowledged` (T6 B2 queue extension, debt-bundle-d) is surfaced as a yellow pip so a quiet re-ingest doesn't hide the swap.
+  - Dashboard thresholds: green `< 1%`, yellow `1–3%`, red `≥ 3%`.
+- [x] **B3 — Ingest latency.**
   ```sql
   CREATE TABLE IF NOT EXISTS ingest_runs (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -392,9 +394,9 @@ This is the bar that lets us say the engine works.
     status     TEXT                -- 'ok' | 'partial' | 'failed'
   );
   ```
-  - Every `scripts/ingest-*.{mjs,py}` opens a run row at start, closes at end.
-  - Dashboard shows last-ingest-age per kind; red if any >1h stale.
-- [ ] **Acceptance.** All three tiles render in `app/costing/` with live numbers off the seed data. No dummy values.
+  - `lib/costingBenchmarks.mjs::readLastCostingIngest` reads the most-recent `kind='costing'` row; API exposes `{ last_run_at, last_status, age_minutes }`. Stays timezone-safe by appending `Z` to the SQLite `datetime('now')` output before `Date.parse` so wall-clock drift doesn't manufacture a fake 6-hour age.
+  - Dashboard thresholds: green `< 60 min`, yellow `60–1440 min`, red `≥ 1440 min`, NULL, or `'failed'`.
+- [x] **Acceptance.** `app/costing/page.jsx` renders B1 / B2 / B3 tiles plus a B4 dish-bridge coverage tile, all off live data. `tests/js/test-t9-benchmarks.mjs` covers the pure helpers (32 cases across variance, merged-cost resolution, unmapped queue union, ingest latency, D6 exclusion, T6 queue extension).
 
 ---
 

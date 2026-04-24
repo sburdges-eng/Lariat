@@ -134,7 +134,7 @@ export default function BeoBoard({ initialMenu = [] }) {
       <div className="flex-between mb-20">
         <div>
           <h1>Parties &amp; BEOs</h1>
-          <p className="subtitle">Build the BEO the way you always have — pick from the menu on the right, fill in amounts on the left.</p>
+          <p className="subtitle">Prep-sheet layout — ITEM, PREP, SECONDARY PREP, ORDER ITEMS. Click any row to expand the recipe dropdowns.</p>
         </div>
       </div>
 
@@ -211,11 +211,11 @@ export default function BeoBoard({ initialMenu = [] }) {
 
       {openEvent && (
         <div className="beo-worksheet">
-          {/* ───── LEFT: the invoice ───── */}
+          {/* ───── LEFT: prep sheet ───── */}
           <div className="beo-invoice">
             <EventHeader event={openEvent} onSave={(patch) => updateEvent(openEvent, patch)} />
 
-            <LineItemsTable
+            <PrepSheetTable
               items={lineItems}
               onUpdate={updateLine}
               onDelete={deleteLine}
@@ -224,7 +224,7 @@ export default function BeoBoard({ initialMenu = [] }) {
             />
           </div>
 
-          {/* ───── RIGHT: the menu ───── */}
+          {/* ───── RIGHT: expandable menu (add button per item) ───── */}
           <MenuPanel menu={menu} onPick={(item) => addLine(openEvent.id, item)} />
         </div>
       )}
@@ -323,9 +323,14 @@ function EventHeader({ event, onSave }) {
   );
 }
 
-/* ── Line items table (the invoice body) ─ */
+/* ── Prep-sheet table — mirrors archive BEO/BID SHEET xlsx format ─
+   Columns:  GROUP note · ITEM (green) · PREP (yellow) · SECONDARY PREP (red) · ORDER ITEMS (salmon) · TIME · Cost · Qty · Total
+   Rows group by shared category (the "these items use the same toppings…"
+   merged-A-column note from the xlsx).  Each row is expandable for recipe
+   dropdowns at ITEM / PREP / SECONDARY-PREP level.
+─────────────────────────────────────────────────────────────── */
 
-function LineItemsTable({ items, onUpdate, onDelete, event, onEventSave }) {
+function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave }) {
   const rows = items.map((it) => ({ ...it, line_total: roundMoney(it.unit_cost * it.quantity) }));
   const subtotal = rows.reduce((s, r) => s + r.line_total, 0);
   const taxRate = Number(event.tax_rate || 0);
@@ -334,41 +339,72 @@ function LineItemsTable({ items, onUpdate, onDelete, event, onEventSave }) {
   const fee = roundMoney(subtotal * (feePct / 100));
   const total = roundMoney(subtotal + tax + fee);
 
+  // Group consecutive rows that share a category — the `group_note` on the
+  // first row of a run spans the whole run (merged-A-column behavior).
+  const groups = [];
+  for (const r of rows) {
+    const cat = r.category || '';
+    const last = groups[groups.length - 1];
+    if (last && last.category === cat) last.rows.push(r);
+    else groups.push({ category: cat, rows: [r] });
+  }
+
   return (
-    <div className="beo-invoice-table">
-      <table>
+    <div className="beo-prep-sheet">
+      <table className="beo-prep-table">
+        <colgroup>
+          <col className="beo-col-group" />
+          <col className="beo-col-item" />
+          <col className="beo-col-prep" />
+          <col className="beo-col-sec" />
+          <col className="beo-col-order" />
+          <col className="beo-col-time" />
+          <col className="beo-col-cost" />
+          <col className="beo-col-qty" />
+          <col className="beo-col-total" />
+          <col className="beo-col-kill" />
+        </colgroup>
         <thead>
-          <tr>
-            <th>Item</th>
-            <th className="num">Cost</th>
-            <th className="num">Amount</th>
-            <th className="num">Total</th>
+          <tr className="beo-prep-header">
+            <th className="beo-h-group">GROUP NOTE</th>
+            <th className="beo-h-item">ITEM</th>
+            <th className="beo-h-prep">PREP</th>
+            <th className="beo-h-sec">SECONDARY PREP</th>
+            <th className="beo-h-order">ORDER ITEMS</th>
+            <th className="beo-h-time">TIME</th>
+            <th className="beo-h-cost num">COST</th>
+            <th className="beo-h-qty num">QTY</th>
+            <th className="beo-h-total num">TOTAL</th>
             <th aria-label="row actions" />
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 && (
             <tr className="beo-empty-row">
-              <td colSpan={5}>No items yet. Pick from the menu on the right →</td>
+              <td colSpan={10}>No items yet. Pick from the menu on the right →</td>
             </tr>
           )}
-          {rows.map((r) => (
-            <LineRow
-              key={r.id}
-              row={r}
-              onUpdate={onUpdate}
-              onDelete={onDelete}
-            />
-          ))}
+          {groups.map((g, gi) =>
+            g.rows.map((r, ri) => (
+              <PrepSheetRow
+                key={r.id}
+                row={r}
+                first={ri === 0}
+                span={g.rows.length}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+              />
+            )),
+          )}
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan={3} className="beo-total-label">Sub total</td>
+            <td colSpan={8} className="beo-total-label">Sub total</td>
             <td className="num">{USD(subtotal)}</td>
             <td />
           </tr>
           <tr>
-            <td colSpan={3} className="beo-total-label">
+            <td colSpan={8} className="beo-total-label">
               <span>Tax</span>
               <input
                 type="number"
@@ -387,7 +423,7 @@ function LineItemsTable({ items, onUpdate, onDelete, event, onEventSave }) {
             <td />
           </tr>
           <tr>
-            <td colSpan={3} className="beo-total-label">
+            <td colSpan={8} className="beo-total-label">
               <span>Service fee</span>
               <input
                 type="number"
@@ -406,7 +442,7 @@ function LineItemsTable({ items, onUpdate, onDelete, event, onEventSave }) {
             <td />
           </tr>
           <tr className="beo-grand-total">
-            <td colSpan={3} className="beo-total-label">Total</td>
+            <td colSpan={8} className="beo-total-label">Total</td>
             <td className="num">{USD(total)}</td>
             <td />
           </tr>
@@ -416,27 +452,146 @@ function LineItemsTable({ items, onUpdate, onDelete, event, onEventSave }) {
   );
 }
 
-function LineRow({ row, onUpdate, onDelete }) {
-  const [name, setName] = useState(row.item_name);
-  const [cost, setCost] = useState(row.unit_cost);
-  const [qty, setQty] = useState(row.quantity);
+/* Single prep-sheet row — each cell color-coded, each level expandable.
+   The recipe "dropdowns" noted in the archive sheet ride as <details> blocks
+   that open inline so a chef can drill ITEM → PREP → SECONDARY PREP. */
+function PrepSheetRow({ row, first, span, onUpdate, onDelete }) {
+  const [name, setName]   = useState(row.item_name);
+  const [cost, setCost]   = useState(row.unit_cost);
+  const [qty,  setQty]    = useState(row.quantity);
+  const [time, setTime]   = useState(row.order_time || '');
+  const [prep, setPrep]   = useState(row.prep_notes || '');
+  const [sec,  setSec]    = useState(row.secondary_prep_notes || '');
+  const [ord,  setOrd]    = useState(row.order_items_notes || '');
+  const [grp,  setGrp]    = useState(row.group_note || '');
 
   useEffect(() => {
     setName(row.item_name);
     setCost(row.unit_cost);
     setQty(row.quantity);
-  }, [row.id, row.item_name, row.unit_cost, row.quantity]);
+    setTime(row.order_time || '');
+    setPrep(row.prep_notes || '');
+    setSec(row.secondary_prep_notes || '');
+    setOrd(row.order_items_notes || '');
+    setGrp(row.group_note || '');
+  }, [row.id, row.item_name, row.unit_cost, row.quantity,
+      row.order_time, row.prep_notes, row.secondary_prep_notes,
+      row.order_items_notes, row.group_note]);
+
+  const pushIf = (patch) => {
+    const keys = Object.keys(patch);
+    for (const k of keys) {
+      if ((row[k] ?? '') !== (patch[k] ?? '')) {
+        onUpdate(row.id, patch);
+        return;
+      }
+    }
+  };
 
   return (
-    <tr>
-      <td>
-        <input
-          className="beo-cell beo-cell-item"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={() => name !== row.item_name && onUpdate(row.id, { item_name: name })}
+    <tr className="beo-prep-row">
+      {/* GROUP NOTE — only render on the first row of a category run;
+          spans all rows in that run (mirrors the xlsx A-column merge). */}
+      {first ? (
+        <td className="beo-c-group" rowSpan={span}>
+          <textarea
+            className="beo-cell beo-cell-group"
+            rows={2}
+            value={grp}
+            onChange={(e) => setGrp(e.target.value)}
+            onBlur={() => pushIf({ group_note: grp || null })}
+            placeholder="shared toppings / setup / allergens for this group"
+          />
+        </td>
+      ) : null}
+
+      {/* ITEM — green column */}
+      <td className="beo-c-item">
+        <details className="beo-disclosure">
+          <summary>
+            <input
+              className="beo-cell beo-cell-item"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onBlur={() => name !== row.item_name && onUpdate(row.id, { item_name: name })}
+            />
+          </summary>
+          <div className="beo-drop">
+            <span className="beo-drop-label">Ingredients for {row.item_name || 'this item'}</span>
+            <div className="beo-drop-hint">
+              Fills the ORDER ITEMS column — pulls from the recipe dropdown
+              when the menu item is linked.
+            </div>
+          </div>
+        </details>
+      </td>
+
+      {/* PREP — yellow column */}
+      <td className="beo-c-prep">
+        <details className="beo-disclosure">
+          <summary>
+            <input
+              className="beo-cell beo-cell-prep"
+              value={prep}
+              onChange={(e) => setPrep(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onBlur={() => pushIf({ prep_notes: prep || null })}
+              placeholder="prep (e.g. Pico de Gallo, mexi slaw)"
+            />
+          </summary>
+          <div className="beo-drop">
+            <span className="beo-drop-label">Items needed for this prep</span>
+            <div className="beo-drop-hint">pulls from the recipe dropdown when the menu item is linked</div>
+          </div>
+        </details>
+      </td>
+
+      {/* SECONDARY PREP — red column */}
+      <td className="beo-c-sec">
+        <details className="beo-disclosure">
+          <summary>
+            <input
+              className="beo-cell beo-cell-sec"
+              value={sec}
+              onChange={(e) => setSec(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onBlur={() => pushIf({ secondary_prep_notes: sec || null })}
+              placeholder="secondary prep (optional)"
+            />
+          </summary>
+          <div className="beo-drop">
+            <span className="beo-drop-label">Items needed for secondary prep</span>
+            <div className="beo-drop-hint">nested recipe dropdown — ingredients feed the ORDER ITEMS column</div>
+          </div>
+        </details>
+      </td>
+
+      {/* ORDER ITEMS — salmon column (aggregated purchase list) */}
+      <td className="beo-c-order">
+        <textarea
+          className="beo-cell beo-cell-order"
+          rows={2}
+          value={ord}
+          onChange={(e) => setOrd(e.target.value)}
+          onBlur={() => pushIf({ order_items_notes: ord || null })}
+          placeholder="ingredients to order (rolls up ITEM + PREP + SECONDARY)"
         />
       </td>
+
+      {/* TIME — fire/serve time */}
+      <td className="beo-c-time">
+        <input
+          className="beo-cell beo-cell-time"
+          value={time}
+          onChange={(e) => setTime(e.target.value)}
+          onBlur={() => pushIf({ order_time: time || null })}
+          placeholder="5:30pm"
+          aria-label="fire / serve time"
+        />
+      </td>
+
+      {/* Cost / Qty / Total — preserve the invoice side of the sheet */}
       <td className="num">
         <input
           type="number"
@@ -479,7 +634,7 @@ function LineRow({ row, onUpdate, onDelete }) {
   );
 }
 
-/* ── Right-side menu panel ─ */
+/* ── Right-side expandable menu panel ─────────────────────────── */
 
 function MenuPanel({ menu, onPick }) {
   const [filter, setFilter] = useState('');
@@ -509,22 +664,22 @@ function MenuPanel({ menu, onPick }) {
         <div className="beo-empty-row">No matches.</div>
       )}
       {grouped.map(([cat, items]) => (
-        <div key={cat} className="beo-menu-group">
-          <div className="beo-menu-group-name">{cat}</div>
+        <details key={cat} className="beo-menu-group" open>
+          <summary className="beo-menu-group-name">{cat}</summary>
           {items.map((it, i) => (
             <button
               type="button"
               key={`${cat}-${i}-${it.name}`}
               className="beo-menu-row"
               onClick={() => onPick(it)}
-              title={`Add ${it.name} to invoice`}
+              title={`Add ${it.name} to prep sheet`}
             >
               <span className="beo-menu-name">{it.name}</span>
               <span className="beo-menu-cost">{USD(it.cost)}</span>
               <span className="beo-menu-plus">+</span>
             </button>
           ))}
-        </div>
+        </details>
       ))}
     </aside>
   );

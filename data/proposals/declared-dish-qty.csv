@@ -1,0 +1,15 @@
+dish_name,component_type,recipe_slug,vendor_ingredient,qty_per_serving,unit,notes,confidence
+BAJA FISH TACOS,recipe,aji_verde,,1.6,qt,inferred: yield_qty / menu_items.length (3.2 qt / 2),medium
+BAJA FISH TACOS,recipe,chipotle_aioli,,10,qt,inferred: yield_qty / menu_items.length (10 qt / 1),medium
+BAJA FISH TACOS,recipe,fish_brine,,2,qt,inferred: yield_qty / menu_items.length (4 qt / 2),medium
+BAJA FISH TACOS,recipe,mexi_relish,,6,qt,inferred: yield_qty / menu_items.length (6 qt / 1),medium
+BAJA FISH TACOS,recipe,mexi_slaw,,2.5,lb,inferred: yield_qty / menu_items.length (5 lb / 2),medium
+BAJA FISH TACOS,recipe,pico_de_gallo,,4,qt,inferred: yield_qty / menu_items.length (4 qt / 1),medium
+Quesa Birria Tacos,recipe,birria,,16,qt,inferred: yield_qty / menu_items.length (16 qt / 1),medium
+Quesa Birria Tacos,recipe,qb_seasoning,,6,cup,inferred: yield_qty / menu_items.length (6 cup / 1),medium
+Chicken Wings,recipe,beer_batter,,200,g,inferred: yield_qty / menu_items.length (600 g / 3),medium
+Chicken Wings,recipe,chicken_flour,,11,qt,inferred: yield_qty / menu_items.length (22 qt / 2),medium
+The Trio,recipe,blackened_tomato_salsa,,11,qt,inferred: yield_qty / menu_items.length (22 qt / 2),medium
+The Trio,recipe,queso_mac_sauce,,7.333333333333333,qt,inferred: yield_qty / menu_items.length (22 qt / 3),medium
+Cobb Salad,recipe,cobb_dressing,,4,qt,inferred: yield_qty / menu_items.length (4 qt / 1),medium
+Pig Wings,recipe,alabama_white_sauce,,0.75,gal,inferred: yield_qty / menu_items.length (1.5 gal / 2),medium

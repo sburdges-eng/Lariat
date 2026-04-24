@@ -149,38 +149,72 @@ export default function CoolingBoard({ open, scan, closed, date, locationId }) {
         Two-stage cool — 135°F → 70°F inside 2 hours, then 70°F → 41°F inside 4 more. Start a batch the moment it leaves the hot line.
       </p>
 
-      {err && <div className="alert alert-red">{err}</div>}
+      {err && (
+        <div className="alert alert-red" role="alert" aria-live="assertive">
+          {err}
+        </div>
+      )}
 
-      <section className="cooling-card cooling-new">
-        <form onSubmit={startBatch} className="cooling-new-form">
-          <div className="cooling-new-label">New batch</div>
+      <section className="cooling-card cooling-new" aria-labelledby="cooling-new-h">
+        <form
+          onSubmit={startBatch}
+          className="cooling-new-form"
+          aria-busy={starting}
+          aria-labelledby="cooling-new-h"
+        >
+          <div className="cooling-new-label" id="cooling-new-h">New batch</div>
+          <label htmlFor="cooling-item" className="sr-only">Item</label>
           <input
+            id="cooling-item"
+            name="cooling-item"
+            type="text"
             placeholder="What is it? e.g. black beans, brisket"
             value={item}
             onChange={(e) => setItem(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            enterKeyHint="next"
             required
+            aria-label="Batch item"
           />
+          <label htmlFor="cooling-station" className="sr-only">Station</label>
           <input
+            id="cooling-station"
+            name="cooling-station"
+            type="text"
             placeholder="Station (optional)"
             value={station}
             onChange={(e) => setStation(e.target.value)}
+            autoComplete="off"
+            aria-label="Station (optional)"
           />
+          <label htmlFor="cooling-start-temp" className="sr-only">Start temp °F</label>
           <input
+            id="cooling-start-temp"
+            name="cooling-start-temp"
+            type="text"
             placeholder="Start temp °F (optional)"
             inputMode="decimal"
+            pattern="-?[0-9]*([.,][0-9]+)?"
+            autoComplete="off"
             value={startTemp}
             onChange={(e) => setStartTemp(e.target.value)}
+            aria-label="Start temperature in Fahrenheit (optional)"
           />
-          <button type="submit" disabled={starting}>
+          <button
+            type="submit"
+            disabled={starting}
+            aria-label={starting ? 'Starting cooling batch' : 'Start cooling batch'}
+          >
             {starting ? 'Starting…' : 'Start cooling'}
           </button>
         </form>
       </section>
 
-      <section>
-        <h2 className="section-h">Open batches ({openLive.length})</h2>
+      <section aria-labelledby="cooling-open-h">
+        <h2 className="section-h" id="cooling-open-h">Open batches ({openLive.length})</h2>
         {openLive.length === 0 && (
-          <div className="empty-row">
+          <div className="empty-row" role="status" aria-live="polite">
             Nothing cooling right now. Start a batch above the moment hot food leaves the line.
           </div>
         )}
@@ -193,18 +227,24 @@ export default function CoolingBoard({ open, scan, closed, date, locationId }) {
                 ? 'amber'
                 : 'green';
             const stageCeiling = b.stage === 1 ? 70 : 41;
+            const readingId = `cooling-read-${b.id}`;
+            const noteId = `cooling-note-${b.id}`;
             return (
-              <article key={b.id} className={`cooling-batch cooling-tone-${tone}`}>
+              <article
+                key={b.id}
+                className={`cooling-batch cooling-tone-${tone}`}
+                aria-label={`${b.item} — stage ${b.stage} cooling${tone === 'red' ? ' — over target' : ''}`}
+              >
                 <header className="cooling-batch-head">
                   <div>
                     <div className="cooling-batch-item">{b.item}</div>
                     <div className="cooling-batch-meta">
-                      started {fmtTime(b.started_at)}
+                      started <time dateTime={b.started_at}>{fmtTime(b.started_at)}</time>
                       {b.start_reading_f != null && ` @ ${b.start_reading_f}°F`}
                       {b.station_id && ` · ${b.station_id}`}
                     </div>
                   </div>
-                  <div className="cooling-clock">
+                  <div className="cooling-clock" aria-live="polite">
                     <div className="cooling-clock-big">{fmtClock(b.remaining)}</div>
                     <div className="cooling-clock-lbl">
                       Stage {b.stage} · {tone === 'red' ? 'OVER' : `to ≤${stageCeiling}°F`}
@@ -214,29 +254,46 @@ export default function CoolingBoard({ open, scan, closed, date, locationId }) {
 
                 {b.stage1_at && (
                   <div className="cooling-stage-line">
-                    Stage 1 closed {fmtTime(b.stage1_at)} @ {b.stage1_reading_f}°F
+                    Stage 1 closed <time dateTime={b.stage1_at}>{fmtTime(b.stage1_at)}</time> @ {b.stage1_reading_f}°F
                   </div>
                 )}
 
-                <div className="cooling-reading-row">
+                <div className="cooling-reading-row" role="group" aria-label={`Log reading for ${b.item}`}>
+                  <label htmlFor={readingId} className="sr-only">Current temperature in Fahrenheit</label>
                   <input
+                    id={readingId}
+                    name={readingId}
+                    type="text"
                     inputMode="decimal"
+                    pattern="-?[0-9]*([.,][0-9]+)?"
+                    autoComplete="off"
+                    enterKeyHint="next"
                     placeholder={`Current temp °F (target ≤ ${stageCeiling})`}
                     value={reading[b.id] || ''}
                     onChange={(e) =>
                       setReading((r) => ({ ...r, [b.id]: e.target.value }))
                     }
+                    aria-label={`Current temperature for ${b.item}, target at or below ${stageCeiling}°F`}
                   />
+                  <label htmlFor={noteId} className="sr-only">Corrective action (if out of range)</label>
                   <input
+                    id={noteId}
+                    name={noteId}
+                    type="text"
+                    autoComplete="off"
+                    maxLength={500}
                     placeholder="Corrective action (if out of range)"
                     value={note[b.id] || ''}
                     onChange={(e) =>
                       setNote((n) => ({ ...n, [b.id]: e.target.value }))
                     }
+                    aria-label={`Corrective action for ${b.item} (fill if out of range)`}
                   />
                   <button
+                    type="button"
                     onClick={() => logReading(b.id)}
                     disabled={saving[b.id]}
+                    aria-label={saving[b.id] ? `Saving reading for ${b.item}` : `Log stage ${b.stage} reading for ${b.item}`}
                   >
                     {saving[b.id] ? 'Saving…' : `Log stage ${b.stage}`}
                   </button>
@@ -248,22 +305,24 @@ export default function CoolingBoard({ open, scan, closed, date, locationId }) {
       </section>
 
       {closed.length > 0 && (
-        <section>
-          <h2 className="section-h">Closed today ({closed.length})</h2>
-          <div className="cooling-closed-list">
+        <section aria-labelledby="cooling-closed-h">
+          <h2 className="section-h" id="cooling-closed-h">Closed today ({closed.length})</h2>
+          <ul className="cooling-closed-list" aria-label="Cooling batches closed today" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
             {closed.map((c) => (
-              <div key={c.id} className={`cooling-closed cooling-tone-${c.status === 'breach' ? 'red' : 'green'}`}>
+              <li key={c.id} className={`cooling-closed cooling-tone-${c.status === 'breach' ? 'red' : 'green'}`}>
                 <div className="cooling-closed-item">{c.item}</div>
                 <div className="cooling-closed-meta">
-                  {fmtTime(c.started_at)} → {fmtTime(c.stage2_at || c.stage1_at)}
+                  <time dateTime={c.started_at}>{fmtTime(c.started_at)}</time>
+                  {' → '}
+                  <time dateTime={c.stage2_at || c.stage1_at}>{fmtTime(c.stage2_at || c.stage1_at)}</time>
                   {c.stage2_reading_f != null && ` · closed @ ${c.stage2_reading_f}°F`}
                 </div>
                 <div className="cooling-closed-status">
                   {c.status === 'breach' ? `Breach · ${c.breach_reason || 'see note'}` : 'OK'}
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </section>
       )}
     </div>

@@ -176,11 +176,16 @@ export function buildDishComponentMap(
     });
   }
   // Fallback: order_guide_items if vendor_prices missed it.
+  // Skip rows flagged is_placeholder=1 — those carry a recipe-derived
+  // placeholder cost (no real vendor invoice) that would silently
+  // corrupt any dish costing that falls through to this path.
+  // COALESCE guards pre-migration rows that predate the column.
   const ogRows = db
     .prepare(
       `SELECT ingredient, unit_price, unit AS pack_unit
          FROM order_guide_items
-        WHERE location_id = ?`,
+        WHERE location_id = ?
+          AND COALESCE(is_placeholder, 0) = 0`,
     )
     .all(locationId) as VendorPriceLookup[];
   for (const og of ogRows) {

@@ -1,0 +1,72 @@
+dish_name,component_type,recipe_slug,vendor_ingredient,qty_per_serving,unit,notes,confidence,dish_revenue
+FISH AND CHIPS,recipe,beer_batter,,,,"recipe slug matches token ""batter"" (whole-word)",medium,1606.00
+FISH AND CHIPS,recipe,corndog_batter,,,,"recipe slug matches token ""batter"" (whole-word)",medium,1606.00
+FISH AND CHIPS,recipe,fish_brine,,,,"recipe slug matches token ""fish"" (whole-word)",medium,1606.00
+FISH AND CHIPS,recipe,tartar_sauce,,,,"recipe slug matches token ""tartar"" (whole-word)",medium,1606.00
+FISH AND CHIPS,vendor_item,,Chip Tortilla Yellow 4 Inches Cut,,,"vendor_prices matches token ""chip"" (whole-word)",medium,1606.00
+FISH AND CHIPS,vendor_item,,"CHIP, TORTILLA CORN YLW RAW 4 CUT",,,"vendor_prices matches token ""chip"" (whole-word)",medium,1606.00
+FISH AND CHIPS,vendor_item,,"FRIES, SS 1/4"" SK OFF SUPER CRISP",,,"vendor_prices matches token ""fries"" (whole-word)",medium,1606.00
+FISH AND CHIPS,vendor_item,,Potato Red B Size Carton,,,"vendor_prices matches token ""potato"" (whole-word)",medium,1606.00
+FISH AND CHIPS,vendor_item,,"POTATO, REDSKIN TRI-CUT DICED O-RSTD",,,"vendor_prices matches token ""potato"" (whole-word)",medium,1606.00
+FISH AND CHIPS,recipe,chipotle_aioli,,,,"recipe slug matches token ""chip"" (substring)",low,1606.00
+FISH AND CHIPS,vendor_item,,"CHURRO, 4"" CINN SGR SM CHUROFRIES",,,"vendor_prices matches token ""fries"" (substring)",low,1606.00
+NASHVILLE CHICKEN SANDWICH,recipe,buttermilk_brine,,,,"recipe slug matches token ""buttermilk"" (whole-word)",medium,1489.00
+NASHVILLE CHICKEN SANDWICH,recipe,chicken_confit,,,,"recipe slug matches token ""chicken"" (whole-word)",medium,1489.00
+NASHVILLE CHICKEN SANDWICH,recipe,chicken_flour,,,,"recipe slug matches token ""chicken"" (whole-word)",medium,1489.00
+NASHVILLE CHICKEN SANDWICH,recipe,coleslaw,,,,"recipe slug matches token ""coleslaw"" (whole-word)",medium,1489.00
+NASHVILLE CHICKEN SANDWICH,recipe,nashville_hot_rub,,,,"recipe slug matches token ""nashville"" (whole-word)",medium,1489.00
+NASHVILLE CHICKEN SANDWICH,recipe,nashville_oil,,,,"recipe slug matches token ""nashville"" (whole-word)",medium,1489.00
+NASHVILLE CHICKEN SANDWICH,recipe,rope_pickle,,,,"recipe slug matches token ""pickle"" (whole-word)",medium,1489.00
+NASHVILLE CHICKEN SANDWICH,vendor_item,,Appetizer Eggroll Santa Fe Chicken,,,"vendor_prices matches token ""chicken"" (whole-word)",medium,1489.00
+NASHVILLE CHICKEN SANDWICH,vendor_item,,"BREAD, SOURDOUGH REUBEN THICK SLI",,,"vendor_prices matches token ""bread"" (whole-word)",medium,1489.00
+NASHVILLE CHICKEN SANDWICH,vendor_item,,Bun Brioche Bistro Slider,,,"vendor_prices matches token ""bun"" (whole-word)",medium,1489.00
+NASHVILLE CHICKEN SANDWICH,vendor_item,,"BUN, BRIOCHE HAMBURGER 4.5""",,,"vendor_prices matches token ""bun"" (whole-word)",medium,1489.00
+NASHVILLE CHICKEN SANDWICH,vendor_item,,Buttermilk Whole Qt,,,"vendor_prices matches token ""buttermilk"" (whole-word)",medium,1489.00
+NASHVILLE CHICKEN SANDWICH,vendor_item,,"BUTTERMILK, 1% LF",,,"vendor_prices matches token ""buttermilk"" (whole-word)",medium,1489.00
+NASHVILLE CHICKEN SANDWICH,vendor_item,,"CABBAGE, COLESLAW SHRED",,,"vendor_prices matches token ""coleslaw"" (whole-word)",medium,1489.00
+NASHVILLE CHICKEN SANDWICH,vendor_item,,Chicken Breast Cutlet 5 Ounce,,,"vendor_prices matches token ""chicken"" (whole-word)",medium,1489.00
+CLASSIC BLT,recipe,bacon_jam,,,,"recipe slug matches token ""bacon"" (whole-word)",medium,1046.00
+CLASSIC BLT,recipe,blackened_tomato_salsa,,,,"recipe slug matches token ""tomato"" (whole-word)",medium,1046.00
+CLASSIC BLT,recipe,tomato_confit,,,,"recipe slug matches token ""tomato"" (whole-word)",medium,1046.00
+CLASSIC BLT,vendor_item,,Bacon Layflat Hickory Smoked #2,,,"vendor_prices matches token ""bacon"" (whole-word)",medium,1046.00
+CLASSIC BLT,vendor_item,,"BACON, .25"" HNY CRD SUPER WESTERN P12NC",,,"vendor_prices matches token ""bacon"" (whole-word)",medium,1046.00
+CLASSIC BLT,vendor_item,,"BREAD, SOURDOUGH REUBEN THICK SLI",,,"vendor_prices matches token ""bread"" (whole-word)",medium,1046.00
+CLASSIC BLT,vendor_item,,Bun Brioche Bistro Slider,,,"vendor_prices matches token ""bun"" (whole-word)",medium,1046.00
+CLASSIC BLT,vendor_item,,"BUN, BRIOCHE HAMBURGER 4.5""",,,"vendor_prices matches token ""bun"" (whole-word)",medium,1046.00
+CLASSIC BLT,vendor_item,,Lettuce Greens Leaf Fresh,,,"vendor_prices matches token ""lettuce"" (whole-word)",medium,1046.00
+CLASSIC BLT,vendor_item,,"LETTUCE, GRN LEAF FLT",,,"vendor_prices matches token ""lettuce"" (whole-word)",medium,1046.00
+CLASSIC BLT,vendor_item,,"PICKLE, CHIP BREAD & BTR",,,"vendor_prices matches token ""bread"" (whole-word)",medium,1046.00
+CLASSIC BLT,vendor_item,,Tomato 2 Layer 5x6 Fresh,,,"vendor_prices matches token ""tomato"" (whole-word)",medium,1046.00
+CLASSIC BLT,vendor_item,,Tomato Cherry Heirloom Mix,,,"vendor_prices matches token ""tomato"" (whole-word)",medium,1046.00
+CLASSIC BLT,recipe,cornbread,,,,"recipe slug matches token ""bread"" (substring)",low,1046.00
+CLASSIC BLT,vendor_item,,Mayonnaise Heavy Duty Pail,,,"vendor_prices matches token ""mayo"" (substring)",low,1046.00
+1-2LB BRISKET,vendor_item,,"BEEF, GRND PTY 7Z 80/20 CHK BRISKET F2F",,,"vendor_prices matches token ""brisket"" (whole-word)",medium,720.00
+1-2LB BRISKET,vendor_item,,"BEEF, GRND PTY 7Z 80/20 CHK BRISKET RND",,,"vendor_prices matches token ""brisket"" (whole-word)",medium,720.00
+Rope Salad,recipe,rope_pickle,,,,"recipe slug matches token ""rope"" (whole-word)",medium,675.00
+Rope Salad,vendor_item,,Pasta Ditalini/salad Macaroni,,,"vendor_prices matches token ""salad"" (whole-word)",medium,675.00
+Rope Salad,vendor_item,,Butter Solid Unsalted 83% Minimum Butterfat European,,,"vendor_prices matches token ""rope"" (substring)",low,675.00
+Mountain Mac And Cheese,recipe,queso_mac_sauce,,,,"recipe slug matches token ""mac"" (whole-word)",medium,508.00
+Mountain Mac And Cheese,recipe,three_cheese_grilled_cheese,,,,"recipe slug matches token ""cheese"" (whole-word)",medium,508.00
+Mountain Mac And Cheese,vendor_item,,Appetizer Bite Mac & Four Cheese,,,"vendor_prices matches token ""mac"" (whole-word)",medium,508.00
+Mountain Mac And Cheese,vendor_item,,Cheese American Loaf Special Melting White,,,"vendor_prices matches token ""cheese"" (whole-word)",medium,508.00
+Mountain Mac And Cheese,vendor_item,,Cheese Blue Crumbles,,,"vendor_prices matches token ""cheese"" (whole-word)",medium,508.00
+Mountain Mac And Cheese,vendor_item,,Oil Olive Pomace Tin,,,"vendor_prices matches token ""mac"" (substring)",low,508.00
+Mountain Mac And Cheese,vendor_item,,american cheese block,,,"order_guide matches token ""cheese"" (whole-word, demoted to low: placeholder-price risk)",low,508.00
+Mountain Mac And Cheese,vendor_item,,bleu cheese crumbles,,,"order_guide matches token ""cheese"" (whole-word, demoted to low: placeholder-price risk)",low,508.00
+Jalapeno Cheddar Cornbread,recipe,cornbread,,,,"recipe slug matches token ""cornbread"" (whole-word)",medium,470.00
+Jalapeno Cheddar Cornbread,vendor_item,,Cheese Cheddar Jack Fancy Shredded,,,"vendor_prices matches token ""cheddar"" (whole-word)",medium,470.00
+Jalapeno Cheddar Cornbread,vendor_item,,Cheese Cheddar Sharp Slice White,,,"vendor_prices matches token ""cheddar"" (whole-word)",medium,470.00
+Jalapeno Cheddar Cornbread,vendor_item,,"CORNBREAD MIX, HMSTYL",,,"vendor_prices matches token ""cornbread"" (whole-word)",medium,470.00
+Jalapeno Cheddar Cornbread,vendor_item,,Mix Cornbread Homestyle Complete,,,"vendor_prices matches token ""cornbread"" (whole-word)",medium,470.00
+Jalapeno Cheddar Cornbread,vendor_item,,Pepper Jalapeno Fresh,,,"vendor_prices matches token ""jalapeno"" (whole-word)",medium,470.00
+Jalapeno Cheddar Cornbread,vendor_item,,cheddar cheese,,,"order_guide matches token ""cheddar"" (whole-word, demoted to low: placeholder-price risk)",low,470.00
+Jalapeno Cheddar Cornbread,vendor_item,,cheddar cheese slices,,,"order_guide matches token ""cheddar"" (whole-word, demoted to low: placeholder-price risk)",low,470.00
+Jalapeno Cheddar Cornbread,vendor_item,,cornbread mixture,,,"order_guide matches token ""cornbread"" (whole-word, demoted to low: placeholder-price risk)",low,470.00
+Jalapeno Cheddar Cornbread,vendor_item,,jalapeno,,,"order_guide matches token ""jalapeno"" (whole-word, demoted to low: placeholder-price risk)",low,470.00
+EL JEFE BURGER,vendor_item,,Bun Brioche Bistro Slider,,,"vendor_prices matches token ""bun"" (whole-word)",medium,463.00
+EL JEFE BURGER,vendor_item,,"BUN, BRIOCHE HAMBURGER 4.5""",,,"vendor_prices matches token ""bun"" (whole-word)",medium,463.00
+EL JEFE BURGER,vendor_item,,"BURGER, VEGAN PTY 4Z",,,"vendor_prices matches token ""burger"" (whole-word)",medium,463.00
+1-2LB PORK,recipe,pork_chop_marinade,,,,"recipe slug matches token ""pork"" (whole-word)",medium,420.00
+1-2LB PORK,vendor_item,,"LARD, PORK SOLID DEODORIZED 50LB",,,"vendor_prices matches token ""pork"" (whole-word)",medium,420.00
+1-2LB PORK,vendor_item,,Pork Belly Skin On,,,"vendor_prices matches token ""pork"" (whole-word)",medium,420.00
+1-2LB PORK,vendor_item,,pork butt,,,"order_guide matches token ""pork"" (whole-word, demoted to low: placeholder-price risk)",low,420.00
