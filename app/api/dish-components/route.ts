@@ -2,6 +2,7 @@ import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import { validateDishComponent } from '../../../lib/dishComponents';
 import { normalizeDishName } from '../../../lib/dishCostBridge';
+import { upsertDishComponent } from '../../../lib/dishComponentsRepo';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,9 +47,8 @@ export async function GET(req: Request) {
 }
 
 // ── POST /api/dish-components ────────────────────────────────────
-// UPSERT on (location_id, dish_name, recipe_slug)  for type='recipe'
-//        or (location_id, dish_name, vendor_ingredient) for type='vendor_item'
-// dish_name stored canonical (normalized).
+// Upsert routed through lib/dishComponentsRepo so the CLI importer
+// and this API route share the same SQL and identical-row detection.
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     if (!dish_name) {
       return Response.json({ error: 'dish_name normalized to empty' }, { status: 400 });
     }
-    const component_type = body.component_type ?? 'recipe';
+    const component_type = (body.component_type ?? 'recipe') as 'recipe' | 'vendor_item';
     const recipe_slug = component_type === 'recipe' ? clip(body.recipe_slug, 80) : null;
     const vendor_ingredient = component_type === 'vendor_item' ? clip(body.vendor_ingredient, 200) : null;
     const qty_per_serving = Number(body.qty_per_serving);
@@ -68,59 +68,18 @@ export async function POST(req: Request) {
     const location_id = locationFromBody(body);
 
     const db = getDb();
-
-    // ON CONFLICT targets the partial unique index for the relevant type.
-    // We branch the SQL because SQLite ON CONFLICT clauses target a specific
-    // index, and partial indexes can only be referenced by their conflict
-    // columns (no index name). So one INSERT per type.
-    const result = db.transaction(() => {
-      if (component_type === 'recipe') {
-        db.prepare(
-          `INSERT INTO dish_components
-             (location_id, dish_name, component_type, recipe_slug, vendor_ingredient,
-              qty_per_serving, unit, notes)
-           VALUES (?, ?, 'recipe', ?, NULL, ?, ?, ?)
-           ON CONFLICT(location_id, dish_name, recipe_slug)
-             WHERE component_type = 'recipe'
-             DO UPDATE SET
-               qty_per_serving = excluded.qty_per_serving,
-               unit            = excluded.unit,
-               notes           = excluded.notes,
-               updated_at      = datetime('now')`,
-        ).run(location_id, dish_name, recipe_slug, qty_per_serving, unit, notes);
-      } else {
-        db.prepare(
-          `INSERT INTO dish_components
-             (location_id, dish_name, component_type, recipe_slug, vendor_ingredient,
-              qty_per_serving, unit, notes)
-           VALUES (?, ?, 'vendor_item', NULL, ?, ?, ?, ?)
-           ON CONFLICT(location_id, dish_name, vendor_ingredient)
-             WHERE component_type = 'vendor_item'
-             DO UPDATE SET
-               qty_per_serving = excluded.qty_per_serving,
-               unit            = excluded.unit,
-               notes           = excluded.notes,
-               updated_at      = datetime('now')`,
-        ).run(location_id, dish_name, vendor_ingredient, qty_per_serving, unit, notes);
-      }
-      const row =
-        component_type === 'recipe'
-          ? db
-              .prepare(
-                `SELECT * FROM dish_components
-                  WHERE location_id = ? AND dish_name = ?
-                    AND component_type = 'recipe' AND recipe_slug = ?`,
-              )
-              .get(location_id, dish_name, recipe_slug)
-          : db
-              .prepare(
-                `SELECT * FROM dish_components
-                  WHERE location_id = ? AND dish_name = ?
-                    AND component_type = 'vendor_item' AND vendor_ingredient = ?`,
-              )
-              .get(location_id, dish_name, vendor_ingredient);
-      return { row };
-    })();
+    const result = db.transaction(() =>
+      upsertDishComponent(db, {
+        location_id,
+        dish_name,
+        component_type,
+        recipe_slug,
+        vendor_ingredient,
+        qty_per_serving,
+        unit,
+        notes,
+      }),
+    )();
 
     return Response.json({ ok: true, component: result.row });
   } catch (err) {

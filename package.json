@@ -33,6 +33,8 @@
     "propose:plan-action-items": "node --experimental-strip-types scripts/propose-plan-action-items.mjs",
     "export:coverage-gap": "node scripts/export-coverage-gap.mjs",
     "propose:food-dish-components": "node scripts/propose-food-dish-components.mjs",
+    "import:dish-components": "node scripts/import-dish-components.mjs",
+    "export:dish-components": "node scripts/export-dish-components.mjs",
     "test:e2e": "npx playwright test",
     "test:temp-log": "node --test tests/js/test-temp-log.mjs",
     "test:temp-log-rules": "node --test tests/js/test-temp-log-rules.mjs",
@@ -74,7 +76,8 @@
     "test:propose-declared-qty": "node --test tests/js/test-propose-declared-qty.mjs",
     "propose:declared-qty": "node scripts/propose-declared-qty.mjs",
     "test:coverage-gap-export": "node --experimental-strip-types --test tests/js/test-coverage-gap-export.mjs",
-    "test:propose-food-dish-components": "node --experimental-strip-types --test tests/js/test-propose-food-dish-components.mjs"
+    "test:propose-food-dish-components": "node --experimental-strip-types --test tests/js/test-propose-food-dish-components.mjs",
+    "test:dish-components-csv": "node --experimental-strip-types --test tests/js/test-import-dish-components.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",
