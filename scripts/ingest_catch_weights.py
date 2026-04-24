@@ -132,6 +132,13 @@ def _assert_csv_shape(csv_path: Path) -> None:
 
 
 def main(db_path: Path, csv_path: Path, vendor: str) -> int:
+    # Pure Python seed path — no Node/Next server trigger. The compute
+    # engine is refreshed by the nightly ingest, by a manual call to
+    # POST /api/compute/status, or automatically by the next receiving
+    # POST. Previously this script attempted an HTTP POST to
+    # http://localhost:3000 which silently failed whenever the dev
+    # server wasn't running (CI / seed-from-fresh). See
+    # docs/COMPUTE_ENGINE_REVIEW I3.
     return seed_upsert_main(SPEC, db_path, csv_path, vendor=vendor)
 
 
@@ -142,3 +149,4 @@ def _cli() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(_cli())
+

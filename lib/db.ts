@@ -1086,6 +1086,9 @@ export function initSchema(db: DB): void {
       snapshot_at TEXT DEFAULT (datetime('now')),
       location_id TEXT DEFAULT 'default'
     );
+    -- Latest-per-location read path + retention DELETE both need this.
+    CREATE INDEX IF NOT EXISTS idx_margin_snapshots_loc_id
+      ON margin_snapshots(location_id, id DESC);
 
     CREATE TABLE IF NOT EXISTS accounting_variance (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1098,6 +1101,8 @@ export function initSchema(db: DB): void {
       snapshot_at TEXT DEFAULT (datetime('now')),
       location_id TEXT DEFAULT 'default'
     );
+    CREATE INDEX IF NOT EXISTS idx_accounting_variance_loc_id
+      ON accounting_variance(location_id, id DESC);
 
     CREATE TABLE IF NOT EXISTS bom_lines (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

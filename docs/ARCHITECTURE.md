@@ -148,3 +148,50 @@ Lariat/
 | lariat-kms | `lariat-kms/` | Python Flask + SQLAlchemy | **Abandoned.** Separate git repo. |
 
 These are not part of the active application and should not be modified or referenced for new work.
+
+## 7. Real-time Compute Engine
+
+`lib/computeEngine/` is a small on-demand orchestrator that refreshes
+cost/margin/variance numbers without waiting for the nightly ingest.
+Two entry points:
+
+- `POST /api/compute/status` — operator-triggered; PIN-gated.
+- Fire-and-forget from the `POST /api/receiving` handler — after a
+  delivery lands, kick off a refresh so the `/costing` and
+  `/menu-engineering` tiles reflect the just-received spend.
+
+`triggerComputeEngine(locationId, opts?)` runs three steps in order:
+
+| Step | Function | Writes to |
+|------|----------|-----------|
+| 1 | `recomputeRecipeCosts` | `recipe_costs.batch_cost`, `recipe_costs.cost_per_yield_unit` |
+| 2 | `recomputeMarginAnalysis` | new row in `margin_snapshots` |
+| 3 | `computeAccountingVariance` | new row in `accounting_variance` |
+
+**Single resolver.** Step 1 delegates the ingredient→price match to
+`computeCostVariance()` in `lib/costingBenchmarks.mjs` so the live
+compute-engine and the established T7/D6 variance path share one
+resolver. Do not re-implement matching inside `recipeCosting.ts` — the
+two paths producing divergent `batch_cost` values is a specific
+regression this module was structured to prevent.
+
+**Time window.** `computeAccountingVariance` accepts
+`{period_start, period_end}` (ISO `YYYY-MM-DD`). `spend_monthly` is
+filtered by `YYYY-MM` derived from the window; `sales_lines` is
+unbounded (the analytics ingest rewrites it per run, so "current
+contents" is the contract). The resolved window is persisted on the
+`accounting_variance` row.
+
+**Retention.** Both snapshot tables are bounded via
+`opts.retainPerLocation` (default 365). The pruning DELETE runs at the
+end of `triggerComputeEngine`; set to 0 to disable.
+
+**Ad-hoc costing.** `sandboxCosting.computeSandboxCost(locationId, ingredients[])`
+is a separate "what-if" helper the Kitchen Assistant calls via the
+`cost_special` LLM action (see `docs/PATTERNS.md` §10). Cross-dim
+conversions require an `ingredient_densities.g_per_ml` row; lines
+without a density return `cost: null` and the result is marked
+`partial: true` rather than silently assuming water density.
+
+Tests: `npm run test:compute-engine`. Pins the C1–C4, R2-C5, I2, and
+I4 regression contracts.

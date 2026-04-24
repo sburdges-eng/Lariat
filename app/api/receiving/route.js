@@ -24,6 +24,7 @@ import {
   validateReceivingReading,
 } from '../../../lib/receiving';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { triggerComputeEngine } from '../../../lib/computeEngine';
 
 export const dynamic = 'force-dynamic';
 
@@ -194,6 +195,18 @@ export async function POST(req) {
     });
 
     const { info, row } = performWrite();
+
+    // Fire-and-forget: kick off a real-time cost + margin + variance
+    // refresh so the /costing and /menu-engineering tiles reflect the
+    // just-received spend without waiting for the nightly ingest.
+    // Static import so a transpile/resolver failure is caught at module
+    // load, not silently swallowed by a floating dynamic-import promise
+    // (docs/COMPUTE_ENGINE_REVIEW I1).
+    Promise.resolve()
+      .then(() => triggerComputeEngine(location_id))
+      .catch((err) => {
+        console.error('Compute Engine Trigger Error from receiving_log:', err);
+      });
 
     return Response.json({
       ok: true,

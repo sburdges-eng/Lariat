@@ -144,6 +144,22 @@ export default function CostingPage() {
             </Link>
           </div>
         </div>
+
+        {/* Compute Engine: Accounting Variance */}
+        {(() => {
+          const v = db.prepare('SELECT variance_pct, variance_amount, theoretical_cogs FROM accounting_variance WHERE location_id = ? ORDER BY id DESC LIMIT 1').get(loc);
+          return (
+            <div className="card" style={{ borderColor: (v && v.variance_pct > 5) ? 'var(--red)' : 'var(--green)' }}>
+              <div className="kpi-label">Accounting Variance</div>
+              <div className="kpi-value" style={{ color: (v && v.variance_pct > 5) ? 'var(--red)' : 'var(--green)' }}>
+                {v ? `${v.variance_pct.toFixed(2)}%` : '—'}
+              </div>
+              <div style={{ fontSize: 12, marginTop: 6 }}>
+                {v ? `$${v.variance_amount.toFixed(2)} vs $${v.theoretical_cogs.toFixed(2)} (Theoretical)` : 'No computation yet'}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* B1 detail */}

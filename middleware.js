@@ -17,6 +17,7 @@ const SENSITIVE_PREFIXES = [
   '/api/menu-engineering',
   '/api/beo',
   '/api/audit',
+  '/api/compute',
 ];
 
 function isSensitive(pathname) {
@@ -53,5 +54,6 @@ export const config = {
     '/api/menu-engineering/:path*',
     '/api/beo/:path*',
     '/api/audit/:path*',
+    '/api/compute/:path*',
   ],
 };

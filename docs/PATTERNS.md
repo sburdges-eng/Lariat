@@ -208,3 +208,96 @@ got burned on mocked costing math once; don't retry.)
   Financial tables (`vendor_prices`, `recipe_costs`, `bom_lines`) are
   DELETE+INSERT per ingest run — `pack_size_changes` and
   `ingest_runs` preserve history across those sweeps.
+
+---
+
+## 9. Fire-and-forget trigger (post-write recomputes)
+
+When a write handler (e.g. `POST /api/receiving`) should kick off a
+downstream recompute that the caller doesn't need to wait for, use
+this shape:
+
+```js
+// top of file — static import so a resolver/transpile failure is
+// caught at module load, not silently swallowed by a floating promise.
+import { triggerComputeEngine } from '../../../lib/computeEngine';
+
+// inside the handler, AFTER the primary write has committed:
+Promise.resolve()
+  .then(() => triggerComputeEngine(location_id))
+  .catch((err) => {
+    console.error('Compute Engine Trigger Error from receiving_log:', err);
+  });
+```
+
+**Rules:**
+
+1. **Static import at the top of the file**, not `await import(...)` or
+   a floating `import(...).then(...)`. The latter silently eats
+   resolver failures — the handler returns 200 but the recompute never
+   fires and no one finds out.
+2. **Single `.catch` on the trigger chain.** The recompute can throw
+   at any step; log it but don't propagate — the primary write has
+   already committed and the API response should remain authoritative.
+3. **Never return a promise from the recompute to the client.** Use
+   `Promise.resolve().then(...)` so the handler's return value is not
+   tied to the recompute's duration. The point of this pattern is
+   that the client response is unblocked by the refresh.
+4. **Kick off AFTER the primary write's transaction closes.** A
+   recompute that races the invoice INSERT may read stale data.
+
+---
+
+## 10. LLM action JSON (deterministic backend intercept)
+
+Use this pattern whenever the Kitchen Assistant needs a number the
+LLM can't reliably compute (prices, yields, unit conversions). The
+LLM emits a structured JSON action; the backend recognizes the
+`action` string, runs the deterministic computation, and appends the
+result to the assistant's final answer.
+
+**System prompt (see `lib/ollama.ts::CREATIVE_SYSTEM`):** instruct the
+LLM to emit JSON for the action; be honest about what the backend can
+and cannot do (e.g. cross-dim conversion needs a density on file).
+
+**Action JSON shape** — always the outermost balanced `{…}` in the
+response, parsed by `extractAction()` in `app/api/specials/route.js`:
+
+```json
+{ "action": "cost_special", "ingredients": [{ "item": "...", "qty": 1.5, "unit": "lb" }] }
+```
+
+**Backend handler** (pseudocode):
+
+```js
+const { payload, stripped } = extractAction(llmContent);
+if (payload?.action === 'cost_special' && Array.isArray(payload.ingredients)) {
+  const result = computeSandboxCost(locationId, payload.ingredients);
+  finalAnswer = stripped + renderCostMarkdown(result);
+}
+```
+
+**Rules:**
+
+1. **Guard every `payload.*` field.** The LLM can invent bad types;
+   `Array.isArray()`, `typeof === 'string'`, etc., checks are
+   mandatory before any field flows into DB or compute code.
+2. **`stripped` removes the JSON block from what the user sees** —
+   they should see the rendered result, not raw JSON.
+3. **The deterministic result must be honest.** If the computation
+   was partial (missing density, unmatched ingredient), surface that
+   in both the output and the total label. The promise of
+   "deterministic from live data" only holds when the result reflects
+   the full request.
+4. **Guard every dynamic-import removal with a static import.**
+   `await import('../../../lib/computeEngine/sandboxCosting')` inside
+   the handler used to be the pattern; it silently swallowed module
+   errors. Use a top-level static import.
+5. **Prompt wording must match backend capability.** If the prompt
+   claims "true exact cost" and the backend produces a density-free
+   approximation for some ingredients, operators trust a number they
+   shouldn't.
+
+Each new action type should get its own handler arm and its own
+matching prompt clause — the shape is stable across
+`cost_special` / (future) `cost_menu` / `scale_recipe` etc.

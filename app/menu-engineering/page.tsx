@@ -3,6 +3,7 @@ import { computeMenuEngineering } from '../../lib/menuEngineering';
 import type { MenuEngineeringRow } from '../../lib/menuEngineering';
 import { computeDishCoverage } from '../../lib/dishCostBridge';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
+import { getDb } from '../../lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,6 +63,19 @@ export default function MenuEngineeringPage({ searchParams }: { searchParams?: {
         Per-dish cost from <strong>dish_components</strong> rows × <strong>recipe_costs</strong>.
         Margin = (avg sale price − per-serving cost) / avg sale price.
         Quadrants split on median margin and popularity (share of max qty).
+        <br />
+        {(() => {
+          const v = getDb()
+            .prepare(
+              'SELECT snapshot_at FROM margin_snapshots WHERE location_id = ? ORDER BY id DESC LIMIT 1',
+            )
+            .get(loc) as { snapshot_at: string } | undefined;
+          return v ? (
+            <span style={{ color: 'var(--accent)' }}>
+              Compute Engine Last Ran: {v.snapshot_at}
+            </span>
+          ) : null;
+        })()}
       </p>
 
       {/* ── Coverage banner ─────────────────────────────────────── */}
