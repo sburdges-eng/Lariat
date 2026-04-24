@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" font-family="ui-monospace, 'SF Mono', Menlo, monospace" font-size="12">
+  <defs>
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#E8E1D4" stroke-width="0.5"/>
+    </pattern>
+  </defs>
+
+  <!-- paper -->
+  <rect width="960" height="640" fill="#FAF6EC"/>
+  <rect width="960" height="640" fill="url(#grid)"/>
+
+  <!-- title -->
+  <g transform="translate(32,28)">
+    <text font-size="10" letter-spacing="2" fill="#3E6B3B">LARIAT · OPS · SALAD / GARDE</text>
+    <text y="22" font-size="22" font-weight="600" fill="#1C1A17">Salad Lowboy — Top Well</text>
+    <text y="42" font-size="11" fill="#5E554A">cold prep layout · 32–41°F · matches on-the-line setup</text>
+  </g>
+
+  <!-- registration ticks -->
+  <g stroke="#1C1A17" stroke-width="1" fill="none">
+    <path d="M 24 96 h 12 M 30 90 v 12"/>
+    <path d="M 936 96 h -12 M 930 90 v 12"/>
+    <path d="M 24 616 h 12 M 30 610 v 12"/>
+    <path d="M 936 616 h -12 M 930 610 v 12"/>
+  </g>
+
+  <!-- outer well -->
+  <rect x="60" y="108" width="840" height="400" fill="#E9F1E4" stroke="#1C1A17" stroke-width="2"/>
+
+  <!-- heat-lamp strip above (noted) -->
+  <g>
+    <line x1="60" y1="102" x2="900" y2="102" stroke="#B7472A" stroke-width="2" opacity="0.6"/>
+    <text x="480" y="94" text-anchor="middle" font-size="9" letter-spacing="3" fill="#B7472A">HEAT LAMPS · OVERHEAD</text>
+  </g>
+
+  <!-- Row 1: wider 3 cells -->
+  <g>
+    <rect x="60" y="108" width="280" height="132" fill="#E9F1E4" stroke="#1C1A17"/>
+    <rect x="340" y="108" width="280" height="132" fill="#E9F1E4" stroke="#1C1A17"/>
+    <rect x="620" y="108" width="280" height="132" fill="#E9F1E4" stroke="#1C1A17"/>
+  </g>
+  <g>
+    <text x="200" y="132" text-anchor="middle" font-size="9" letter-spacing="2" fill="#3E6B3B">R1 · C1</text>
+    <text x="200" y="174" text-anchor="middle" font-size="18" font-weight="600" fill="#1C1A17">Coleslaw</text>
+    <text x="200" y="196" text-anchor="middle" font-size="10" fill="#5E554A">dressed · tossed 4pm</text>
+    <text x="200" y="216" text-anchor="middle" font-size="9" fill="#5E554A">1/3 hotel pan</text>
+  </g>
+  <g>
+    <text x="480" y="132" text-anchor="middle" font-size="9" letter-spacing="2" fill="#3E6B3B">R1 · C2</text>
+    <text x="480" y="174" text-anchor="middle" font-size="18" font-weight="600" fill="#1C1A17">Mexi slaw</text>
+    <text x="480" y="196" text-anchor="middle" font-size="10" fill="#5E554A">lime · cilantro · jalapeño</text>
+    <text x="480" y="216" text-anchor="middle" font-size="9" fill="#5E554A">1/3 hotel pan</text>
+  </g>
+  <g>
+    <text x="760" y="132" text-anchor="middle" font-size="9" letter-spacing="2" fill="#3E6B3B">R1 · C3</text>
+    <text x="760" y="174" text-anchor="middle" font-size="18" font-weight="600" fill="#1C1A17">Spring mix</text>
+    <text x="760" y="196" text-anchor="middle" font-size="10" fill="#5E554A">greens · washed</text>
+    <text x="760" y="216" text-anchor="middle" font-size="9" fill="#5E554A">full 1/2 pan · covered</text>
+  </g>
+
+  <!-- Row 2: five narrower cells -->
+  <g>
+    <rect x="60" y="240" width="168" height="132" fill="#E9F1E4" stroke="#1C1A17"/>
+    <rect x="228" y="240" width="168" height="132" fill="#E9F1E4" stroke="#1C1A17"/>
+    <rect x="396" y="240" width="168" height="132" fill="#E9F1E4" stroke="#1C1A17"/>
+    <rect x="564" y="240" width="168" height="132" fill="#E9F1E4" stroke="#1C1A17"/>
+    <rect x="732" y="240" width="168" height="132" fill="#E9F1E4" stroke="#1C1A17"/>
+  </g>
+  <g>
+    <text x="144" y="260" text-anchor="middle" font-size="9" letter-spacing="2" fill="#3E6B3B">R2 · C1</text>
+    <text x="144" y="300" text-anchor="middle" font-size="15" font-weight="600" fill="#1C1A17">Lemon</text>
+    <text x="144" y="320" text-anchor="middle" font-size="10" fill="#5E554A">wedges</text>
+  </g>
+  <g>
+    <text x="312" y="260" text-anchor="middle" font-size="9" letter-spacing="2" fill="#3E6B3B">R2 · C2</text>
+    <text x="312" y="300" text-anchor="middle" font-size="15" font-weight="600" fill="#1C1A17">Blue cheese</text>
+    <text x="312" y="320" text-anchor="middle" font-size="10" fill="#5E554A">crumble</text>
+  </g>
+  <g>
+    <text x="480" y="260" text-anchor="middle" font-size="9" letter-spacing="2" fill="#3E6B3B">R2 · C3</text>
+    <text x="480" y="300" text-anchor="middle" font-size="15" font-weight="600" fill="#1C1A17">Eggs</text>
+    <text x="480" y="320" text-anchor="middle" font-size="10" fill="#5E554A">hard boil · peeled</text>
+  </g>
+  <g>
+    <text x="648" y="260" text-anchor="middle" font-size="9" letter-spacing="2" fill="#3E6B3B">R2 · C4</text>
+    <text x="648" y="300" text-anchor="middle" font-size="15" font-weight="600" fill="#1C1A17">Bacon bits</text>
+    <text x="648" y="320" text-anchor="middle" font-size="10" fill="#5E554A">cooked · drained</text>
+  </g>
+  <g>
+    <text x="816" y="260" text-anchor="middle" font-size="9" letter-spacing="2" fill="#3E6B3B">R2 · C5</text>
+    <text x="816" y="300" text-anchor="middle" font-size="15" font-weight="600" fill="#1C1A17">Cucumber</text>
+    <text x="816" y="320" text-anchor="middle" font-size="10" fill="#5E554A">sliced · rounds</text>
+  </g>
+
+  <!-- Row 3: five narrower cells -->
+  <g>
+    <rect x="60" y="372" width="168" height="136" fill="#E9F1E4" stroke="#1C1A17"/>
+    <rect x="228" y="372" width="168" height="136" fill="#E9F1E4" stroke="#1C1A17"/>
+    <rect x="396" y="372" width="168" height="136" fill="#E9F1E4" stroke="#1C1A17"/>
+    <rect x="564" y="372" width="168" height="136" fill="#E9F1E4" stroke="#1C1A17"/>
+    <rect x="732" y="372" width="168" height="136" fill="#E9F1E4" stroke="#1C1A17"/>
+  </g>
+  <g>
+    <text x="144" y="392" text-anchor="middle" font-size="9" letter-spacing="2" fill="#3E6B3B">R3 · C1</text>
+    <text x="144" y="432" text-anchor="middle" font-size="15" font-weight="600" fill="#1C1A17">Lime</text>
+    <text x="144" y="452" text-anchor="middle" font-size="10" fill="#5E554A">wedges</text>
+  </g>
+  <g>
+    <text x="312" y="392" text-anchor="middle" font-size="9" letter-spacing="2" fill="#3E6B3B">R3 · C2</text>
+    <text x="312" y="432" text-anchor="middle" font-size="15" font-weight="600" fill="#1C1A17">Cotija</text>
+    <text x="312" y="452" text-anchor="middle" font-size="10" fill="#5E554A">crumble</text>
+  </g>
+  <g>
+    <text x="480" y="392" text-anchor="middle" font-size="9" letter-spacing="2" fill="#3E6B3B">R3 · C3</text>
+    <text x="480" y="432" text-anchor="middle" font-size="15" font-weight="600" fill="#1C1A17">Pico</text>
+    <text x="480" y="452" text-anchor="middle" font-size="10" fill="#5E554A">made daily</text>
+  </g>
+  <g>
+    <text x="648" y="392" text-anchor="middle" font-size="9" letter-spacing="2" fill="#3E6B3B">R3 · C4</text>
+    <text x="648" y="432" text-anchor="middle" font-size="15" font-weight="600" fill="#1C1A17">Grilled onion</text>
+    <text x="648" y="452" text-anchor="middle" font-size="10" fill="#5E554A">charred rings</text>
+  </g>
+  <g>
+    <text x="816" y="392" text-anchor="middle" font-size="9" letter-spacing="2" fill="#3E6B3B">R3 · C5</text>
+    <text x="816" y="432" text-anchor="middle" font-size="15" font-weight="600" fill="#1C1A17">Red onion</text>
+    <text x="816" y="452" text-anchor="middle" font-size="10" fill="#5E554A">raw · rings</text>
+  </g>
+
+  <!-- Below the well: sauces and extras -->
+  <g transform="translate(60,528)">
+    <rect width="840" height="72" fill="#F3EEDF" stroke="#1C1A17"/>
+    <text x="12" y="18" font-size="9" letter-spacing="2" fill="#8E7A54">BELOW LOWBOY</text>
+    <g transform="translate(12,34)" font-size="11" fill="#1C1A17">
+      <text>Chimichurri</text>
+      <text x="140">Heirloom tomatoes</text>
+      <text x="300">House dressings</text>
+      <text x="460">Citrus supremes</text>
+      <text x="620">Pickles (spice &amp; heat)</text>
+    </g>
+    <text x="12" y="58" font-size="10" fill="#5E554A">sauce squeeze bottles ride in the door rail · rotate FIFO, dated</text>
+  </g>
+
+  <!-- footer -->
+  <g transform="translate(60,622)" font-size="10" fill="#5E554A">
+    <rect x="0" y="-10" width="14" height="12" fill="#E9F1E4" stroke="#1C1A17"/>
+    <text x="20" y="0">salad cold line · covered when walked away from · line-check T-30</text>
+  </g>
+</svg>

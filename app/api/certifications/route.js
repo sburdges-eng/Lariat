@@ -23,8 +23,8 @@ const clip = (s, max) => {
   return t ? t.slice(0, max) : null;
 };
 
-function gate(req) {
-  if (pinRequiredForPic() && !hasPinCookie(req)) {
+async function gate(req) {
+  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
     return Response.json(
       { error: 'manager PIN required — certifications are PIC authority' },
       { status: 403 },
@@ -60,7 +60,7 @@ export async function GET(req) {
 // ── POST ─────────────────────────────────────────────────────────
 
 export async function POST(req) {
-  const blocked = gate(req);
+  const blocked = await gate(req);
   if (blocked) return blocked;
 
   try {
@@ -138,7 +138,7 @@ export async function POST(req) {
 // ── PATCH ────────────────────────────────────────────────────────
 
 export async function PATCH(req) {
-  const blocked = gate(req);
+  const blocked = await gate(req);
   if (blocked) return blocked;
 
   try {

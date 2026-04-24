@@ -9,6 +9,7 @@ import {
 } from '../../../lib/tempLog';
 import { calibrationWarningFor, classifyProbes } from '../../../lib/calibrations';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { hasPinCookie } from '../../../lib/pin';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,19 +26,6 @@ const clip = (s, max) => {
 // name). If LARIAT_PIN isn't configured at all, the gate is disabled
 // the same way middleware.js disables gating — that matches the
 // single-site LAN default where PIN is opt-in.
-
-function hasPinCookie(req) {
-  const raw = req.headers.get('cookie');
-  if (!raw) return false;
-  for (const part of raw.split(';')) {
-    const eq = part.indexOf('=');
-    if (eq === -1) continue;
-    const name = part.slice(0, eq).trim();
-    if (name !== 'lariat_pin_ok') continue;
-    return part.slice(eq + 1).trim() === '1';
-  }
-  return false;
-}
 
 function pinRequiredForDate(shift_date) {
   if (!process.env.LARIAT_PIN) return false;
@@ -67,7 +55,7 @@ export async function POST(req) {
 
     // PIN gate runs BEFORE the point lookup so an unauthenticated caller
     // can't probe point_id validity on past dates.
-    if (pinRequiredForDate(shift_date) && !hasPinCookie(req)) {
+    if (pinRequiredForDate(shift_date) && !(await hasPinCookie(req))) {
       return Response.json(
         { error: 'manager PIN required for past dates' },
         { status: 403 },
