@@ -118,14 +118,18 @@ export default function StationChecklist({ stationId, stationName, date, items, 
 
   const setStatus = async (item: string, status: 'pass' | 'fail') => {
     const toggled = rowFor(item).status === status ? null : status;
-    update(item, { status: toggled });
-    // Snapshot the row fields AFTER applying the toggle, then fire the
-    // fetch OUTSIDE setState so we can actually await + check res.ok.
-    // The previous implementation called fetch inside the setState callback
-    // and ignored both rejections and non-2xx — silently losing pass/fail
-    // taps and causing the signoff gate to block with "unnoted fails" that
-    // actually WERE noted locally.
-    const prev = rowFor(item);
+    // Read latest committed state via the functional updater so React 18's
+    // automatic batching of rapid field edits doesn't hand us a stale
+    // snapshot. The fetch fires OUTSIDE setState so we can await + check
+    // res.ok — the prior implementation called fetch inside the setState
+    // callback and ignored both rejections and non-2xx, silently losing
+    // pass/fail taps and causing the signoff gate to block with "unnoted
+    // fails" that actually WERE noted locally.
+    let snapshot!: StationCheckItem;
+    setState(s => {
+      snapshot = { ...(s[item] ?? EMPTY_ROW), status: toggled };
+      return { ...s, [item]: snapshot };
+    });
     const cid = cookRef.current || null;
     try {
       const res = await fetch('/api/checks', {
@@ -133,8 +137,8 @@ export default function StationChecklist({ stationId, stationName, date, items, 
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           shift_date: date, station_id: stationId, item, status: toggled,
-          par: prev.par, have: prev.have, need: prev.need, note: prev.note,
-          glove_change_attested: prev.glove_change_attested,
+          par: snapshot.par, have: snapshot.have, need: snapshot.need, note: snapshot.note,
+          glove_change_attested: snapshot.glove_change_attested,
           cook_id: cid,
           location_id: locationId,
         }),
