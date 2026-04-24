@@ -58,6 +58,13 @@ if (APPLY) {
   initSchema(db); // idempotent; adds is_placeholder if this DB predates it
 }
 
+// Close the DB on the way out so WAL/SHM files are flushed before the
+// process exits. CodeRabbit nit from PR #30 review.
+function exit(code) {
+  try { db.close(); } catch { /* best-effort */ }
+  process.exit(code);
+}
+
 console.log(`[flag-placeholder-order-guide] db=${DB_PATH} location=${LOCATION} apply=${APPLY}`);
 
 const cols = db.prepare(`PRAGMA table_info(order_guide_items)`).all();
@@ -65,14 +72,14 @@ if (!cols.some((c) => c.name === 'is_placeholder')) {
   if (APPLY) {
     // Should be unreachable: initSchema ran above.
     console.error(`[flag-placeholder-order-guide] initSchema did not add is_placeholder; aborting.`);
-    process.exit(2);
+    exit(2);
   }
   console.warn(
     `[flag-placeholder-order-guide] order_guide_items.is_placeholder not present on this DB.\n` +
     `  Dry-run cannot preview the UPDATE because the column is unreadable.\n` +
     `  Re-run with --apply (which runs the idempotent ADD COLUMN migration first) to proceed.`,
   );
-  process.exit(0);
+  exit(0);
 }
 
 const selectStmt = db.prepare(
@@ -116,12 +123,12 @@ console.log(
 
 if (!APPLY) {
   console.log(`[flag-placeholder-order-guide] dry-run only. Re-run with --apply to write.`);
-  process.exit(0);
+  exit(0);
 }
 
 if (plannedUpdates === 0) {
   console.log(`[flag-placeholder-order-guide] nothing to do.`);
-  process.exit(0);
+  exit(0);
 }
 
 const updateStmt = db.prepare(
@@ -131,5 +138,6 @@ const tx = db.transaction((ids) => {
   for (const id of ids) updateStmt.run(id);
 });
 tx(toUpdate);
+db.close();
 
 console.log(`[flag-placeholder-order-guide] flagged ${plannedUpdates} row(s).`);
