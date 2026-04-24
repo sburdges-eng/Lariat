@@ -68,7 +68,9 @@
     "test:vendor-prices-history": "node --experimental-strip-types --test tests/js/test-vendor-prices-history-and-beverage-preserve.mjs",
     "test:propose-bom-vendor-matches": "node --experimental-strip-types --test tests/js/test-propose-bom-vendor-matches.mjs",
     "test:propose-plan-restaurant-grind": "node --experimental-strip-types --test tests/js/test-propose-plan-restaurant-grind.mjs",
-    "test:propose-plan-action-items": "node --experimental-strip-types --test tests/js/test-propose-plan-action-items.mjs"
+    "test:propose-plan-action-items": "node --experimental-strip-types --test tests/js/test-propose-plan-action-items.mjs",
+    "test:propose-declared-qty": "node --test tests/js/test-propose-declared-qty.mjs",
+    "propose:declared-qty": "node scripts/propose-declared-qty.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",
