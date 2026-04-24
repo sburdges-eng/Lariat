@@ -35,6 +35,8 @@
     "propose:food-dish-components": "node scripts/propose-food-dish-components.mjs",
     "import:dish-components": "node scripts/import-dish-components.mjs",
     "export:dish-components": "node scripts/export-dish-components.mjs",
+    "extract:drink-skus": "node scripts/extract-drink-skus.mjs",
+    "import:vendor-prices": "node scripts/import-vendor-prices.mjs",
     "test:e2e": "npx playwright test",
     "test:temp-log": "node --test tests/js/test-temp-log.mjs",
     "test:temp-log-rules": "node --test tests/js/test-temp-log-rules.mjs",
@@ -77,7 +79,9 @@
     "propose:declared-qty": "node scripts/propose-declared-qty.mjs",
     "test:coverage-gap-export": "node --experimental-strip-types --test tests/js/test-coverage-gap-export.mjs",
     "test:propose-food-dish-components": "node --experimental-strip-types --test tests/js/test-propose-food-dish-components.mjs",
-    "test:dish-components-csv": "node --experimental-strip-types --test tests/js/test-import-dish-components.mjs"
+    "test:dish-components-csv": "node --experimental-strip-types --test tests/js/test-import-dish-components.mjs",
+    "test:drink-sku-extraction": "node --test tests/js/test-drink-sku-extraction.mjs",
+    "test:vendor-prices-csv": "node --experimental-strip-types --test tests/js/test-import-vendor-prices.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",
