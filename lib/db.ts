@@ -1219,7 +1219,12 @@ export function initSchema(db: DB): void {
       vendor TEXT,
       unit_price REAL,
       location_id TEXT DEFAULT 'default',
-      imported_at TEXT DEFAULT (datetime('now'))
+      imported_at TEXT DEFAULT (datetime('now')),
+      -- 1 = row holds a recipe-derived placeholder cost (no real vendor
+      -- invoice yet) and MUST be ignored by the costing bridge. Backfill
+      -- script scripts/flag-placeholder-order-guide.mjs stamps it for
+      -- known bad rows; ingest pipelines never set it to 1.
+      is_placeholder INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS sales_lines (
@@ -2124,6 +2129,17 @@ function migrateLegacyColumns(db: DB): void {
   ];
   for (const [col, ddl] of vpMigrations) {
     if (!vpCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  // order_guide_items.is_placeholder — rows whose unit_price is a
+  // recipe-derived placeholder (no real vendor invoice yet) set this to
+  // 1 so the dishCostBridge fallback can skip them. Pre-migration rows
+  // default to 0; a separate backfill script stamps the known-bad rows.
+  const ogCols = t('order_guide_items');
+  if (ogCols.length > 0 && !ogCols.includes('is_placeholder')) {
+    try {
+      db.exec(`ALTER TABLE order_guide_items ADD COLUMN is_placeholder INTEGER DEFAULT 0`);
+    } catch { /* ignore */ }
   }
 
   // Bundle F — receiving_log gains package_ok (§3-202.15) and
