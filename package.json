@@ -54,6 +54,7 @@
     "test:calibrations-rules": "node --test tests/js/test-calibrations-rules.mjs",
     "test:calibrations-api": "node --test tests/js/test-calibrations-api.mjs",
     "test:checks-api": "node --test tests/js/test-checks-api.mjs",
+    "test:recipe-api": "node --test tests/js/test-recipe-api.mjs",
     "test:tphc": "node --test tests/js/test-tphc-rules.mjs tests/js/test-tphc-api.mjs",
     "test:tphc-api": "node --test tests/js/test-tphc-api.mjs",
     "test:toctou-races": "node --test tests/js/test-toctou-race-regressions.mjs",

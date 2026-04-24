@@ -19,19 +19,7 @@ const config = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'jest-environment-jsdom',
   testMatch: ['<rootDir>/app/__tests__/**/*.test.{js,jsx,ts,tsx}'],
-  // Two aspirational tests from before Jest was wired up:
-  //   recipe-api.test.js        — uses bare `fetch('/api/recipes/...')` against
-  //                               a non-existent server; needs rewrite against
-  //                               the route handler directly (like
-  //                               tests/js/test-checks-api.mjs).
-  //   protected-pages.test.jsx  — imports ../costing/CostingDashboard which
-  //                               was never extracted from the server page.
-  // Left in tree as TODOs; skipped until someone reworks them.
-  testPathIgnorePatterns: [
-    '/node_modules/',
-    '/app/__tests__/recipe-api.test.js$',
-    '/app/__tests__/protected-pages.test.jsx$',
-  ],
+  testPathIgnorePatterns: ['/node_modules/'],
   // next/jest handles most module resolution; this only adds the rare
   // bare-identifier import style some of our own modules use.
   moduleNameMapper: {
