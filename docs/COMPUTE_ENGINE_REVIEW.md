@@ -314,3 +314,115 @@ When C1–C4 are fixed, this session is ready to:
 
 Ping via commit message or delete this file when the handoff is
 complete. This doc is not load-bearing — it's a one-time review trace.
+
+---
+
+## Round 2 — scope expansion observed after initial handoff
+
+Additional uncommitted changes appeared after commit `db008f1`:
+
+- `lib/ollama.ts` — CREATIVE_SYSTEM prompt rewired. Rule 4 now
+  prohibits the LLM from estimating ingredient costs itself and
+  instructs it to emit `{"action":"cost_special","ingredients":[...]}`
+  as a JSON action block. Prompt claims the backend will return "the
+  true exact cost."
+- `app/api/specials/route.js` — new `extractAction()` helper parses the
+  outermost balanced `{…}` from the LLM's markdown, and when
+  `payload.action === 'cost_special'`, dynamically imports
+  `lib/computeEngine/sandboxCosting` to compute + inject a markdown
+  cost table into the final answer.
+
+The "LLM emits JSON action, backend intercepts and computes
+deterministically" pattern is solid and worth documenting in
+`docs/PATTERNS.md` once stable. New concerns raised by this extension:
+
+### Round 2 — Critical
+
+**R2-C5 · The "true exact cost" promise in the CREATIVE_SYSTEM prompt
+contradicts `sandboxCosting.ts:41`.**
+
+`sandboxCosting.ts` passes `density=1.0` to `convertQty` for
+cross-dimensional conversions (I5 in Round 1). So when the LLM asks
+for the cost of "1 cup of flour" against a vendor that sells it by
+the pound (exactly the cross-dim case), the backend produces a cost
+that assumes flour is as dense as water. Flour is 0.53 g/ml. The
+cost is silently off by ~47% for that ingredient.
+
+The prompt says "the true exact cost" — the user's manager will trust
+that number. Either:
+
+1. **Fix I5 first** — wire `ingredient_densities` into
+   `sandboxCosting` so cross-dim conversions use real densities.
+2. **Refuse cross-dim without density** — return
+   `{ cost: null, note: 'cross-dim conversion refused: no density for <ingredient>' }`
+   so the LLM markdown table shows `—` for that row and the total
+   reflects only confidently-converted ingredients.
+3. **Relax the prompt** — "computed from the latest vendor prices
+   using standard density assumptions where needed" (honest about
+   the approximation).
+
+Option 2 is the safest. Option 3 is the fastest shipping fix but
+means the Kitchen Assistant's creative mode is systematically off
+by the weight/volume ratio for any non-water ingredient.
+
+### Round 2 — Important
+
+**R2-I7 · `app/api/specials/route.js` uses `await import(...)` with no
+catch for an import failure.**
+
+```js
+const { computeSandboxCost } = await import('../../../lib/computeEngine/sandboxCosting');
+```
+
+Same class of issue as I1 (the `/api/receiving` trigger). The outer
+`try { ... } catch` around this block catches a failed import, so
+it's less severe than I1, but a static top-level import is still
+cleaner:
+
+```js
+import { computeSandboxCost } from '../../../lib/computeEngine/sandboxCosting';
+```
+
+**R2-I8 · The creative-LLM → sandbox-cost pipeline has no auth gate.**
+
+Anyone on the LAN can prompt the creative assistant with "cost me a
+recipe of [sensitive-ingredient]" and the backend will query
+`vendor_prices` and reveal current costs in a markdown table.
+`vendor_prices` isn't precisely secret, but is a candidate for the
+PIN-gate in `middleware.js` alongside the rest of the financial
+surface. Same mitigation as I4.
+
+### Round 2 — Minor
+
+**R2-M6 · `extractAction()` hand-rolls a brace-matching parser.**
+
+The function at `app/api/specials/route.js:16-40` walks the LLM
+response by manually counting `{` / `}` depth and tracking string
+state (including escape sequences). Correct as written, and it's
+necessary because the LLM may emit text before / after the JSON that
+`JSON.parse(content)` wouldn't handle. But it's on-the-edge of
+reinventing a JSON-bracket tokenizer.
+
+Consider extracting to `lib/llmActionExtractor.ts` (or similar) so
+the next action-block route — `cost_menu`, `scale_recipe`, etc. —
+doesn't copy-paste the walker.
+
+### Round 2 — Pattern note
+
+The "LLM emits structured JSON action → deterministic backend
+intercepts → result is injected back into the assistant response"
+pattern used here is the standard way to keep an LLM away from
+fabricating numbers it can't actually know. Once the shape stabilizes
+(1-2 more action types would help), this is worth a section in
+`docs/PATTERNS.md`:
+
+- Action JSON is always the outermost balanced `{}` in the LLM
+  response (R2-M6's parser defines this).
+- Backend recognizes actions by `payload.action` string.
+- Backend MUST guard every `payload.*` field against the LLM
+  inventing bad types (e.g. `Array.isArray(payload.ingredients)`
+  check exists — keep that discipline).
+- Prompt wording must match backend capability honestly (R2-C5).
+
+This session will write that PATTERNS.md entry once C1-C5 are closed
+and the specials route stabilizes.
