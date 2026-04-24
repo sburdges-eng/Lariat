@@ -4,6 +4,10 @@
 //
 // Cookie format: `v1.<base64url(hmac-sha256(secret, "1"))>`.
 // Legacy unsigned `1` is accepted only when the secret is unset.
+//
+// All sign/verify helpers are async because the implementation uses
+// Web Crypto (crypto.subtle) — same code path runs in Node API routes
+// AND the Next.js Edge-runtime middleware.
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,67 +23,69 @@ const SECRET = '813b7d4d4bac2cd4ce19db8574a598704c288455f3e6cc5ee0d8cd2a12e7288f
 const SECRET_ALT = 'a'.repeat(64); // different secret → different mac
 
 describe('signPinCookieValue', () => {
-  it('returns v1.<hmac> when secret is set', () => {
-    const v = signPinCookieValue(SECRET);
+  it('returns v1.<hmac> when secret is set', async () => {
+    const v = await signPinCookieValue(SECRET);
     assert.ok(v.startsWith(SIGNED_COOKIE_PREFIX));
     assert.ok(v.length > SIGNED_COOKIE_PREFIX.length + 10);
   });
 
-  it('is deterministic for the same secret', () => {
-    assert.strictEqual(signPinCookieValue(SECRET), signPinCookieValue(SECRET));
+  it('is deterministic for the same secret', async () => {
+    assert.strictEqual(await signPinCookieValue(SECRET), await signPinCookieValue(SECRET));
   });
 
-  it('differs per secret', () => {
-    assert.notStrictEqual(signPinCookieValue(SECRET), signPinCookieValue(SECRET_ALT));
+  it('differs per secret', async () => {
+    assert.notStrictEqual(await signPinCookieValue(SECRET), await signPinCookieValue(SECRET_ALT));
   });
 
-  it('falls back to legacy "1" when secret is missing', () => {
-    assert.strictEqual(signPinCookieValue(undefined), '1');
-    assert.strictEqual(signPinCookieValue(''), '1');
+  it('falls back to legacy "1" when secret is missing', async () => {
+    assert.strictEqual(await signPinCookieValue(undefined), '1');
+    assert.strictEqual(await signPinCookieValue(''), '1');
   });
 });
 
 describe('verifyPinCookieValue', () => {
-  const signed = signPinCookieValue(SECRET);
-
-  it('accepts a freshly-signed cookie', () => {
-    assert.strictEqual(verifyPinCookieValue(signed, SECRET), true);
+  it('accepts a freshly-signed cookie', async () => {
+    const signed = await signPinCookieValue(SECRET);
+    assert.strictEqual(await verifyPinCookieValue(signed, SECRET), true);
   });
 
-  it('rejects a forged bare "1" when secret is set', () => {
+  it('rejects a forged bare "1" when secret is set', async () => {
     // This is the whole point of the hardening: stop the naked cookie.
-    assert.strictEqual(verifyPinCookieValue('1', SECRET), false);
+    assert.strictEqual(await verifyPinCookieValue('1', SECRET), false);
   });
 
-  it('rejects a cookie signed with a different secret', () => {
-    assert.strictEqual(verifyPinCookieValue(signed, SECRET_ALT), false);
+  it('rejects a cookie signed with a different secret', async () => {
+    const signed = await signPinCookieValue(SECRET);
+    assert.strictEqual(await verifyPinCookieValue(signed, SECRET_ALT), false);
   });
 
-  it('rejects a cookie with a mangled tail', () => {
+  it('rejects a cookie with a mangled tail', async () => {
+    const signed = await signPinCookieValue(SECRET);
     const bad = signed.slice(0, -2) + 'xx';
-    assert.strictEqual(verifyPinCookieValue(bad, SECRET), false);
+    assert.strictEqual(await verifyPinCookieValue(bad, SECRET), false);
   });
 
-  it('rejects a cookie with a v1 prefix but empty body', () => {
-    assert.strictEqual(verifyPinCookieValue('v1.', SECRET), false);
+  it('rejects a cookie with a v1 prefix but empty body', async () => {
+    assert.strictEqual(await verifyPinCookieValue('v1.', SECRET), false);
   });
 
-  it('rejects a cookie that looks signed when secret is missing', () => {
+  it('rejects a cookie that looks signed when secret is missing', async () => {
     // Operator set PIN but forgot PIN_SECRET in some step. Don't let
     // the ghosts through the unchecked legacy path.
-    assert.strictEqual(verifyPinCookieValue(signed, undefined), false);
+    const signed = await signPinCookieValue(SECRET);
+    assert.strictEqual(await verifyPinCookieValue(signed, undefined), false);
   });
 
-  it('accepts legacy "1" in no-secret fallback', () => {
-    assert.strictEqual(verifyPinCookieValue('1', undefined), true);
+  it('accepts legacy "1" in no-secret fallback', async () => {
+    assert.strictEqual(await verifyPinCookieValue('1', undefined), true);
   });
 
-  it('rejects junk input in all modes', () => {
-    assert.strictEqual(verifyPinCookieValue('', SECRET), false);
-    assert.strictEqual(verifyPinCookieValue(null, SECRET), false);
-    assert.strictEqual(verifyPinCookieValue(undefined, SECRET), false);
-    assert.strictEqual(verifyPinCookieValue('0', SECRET), false);
-    assert.strictEqual(verifyPinCookieValue('', undefined), false);
+  it('rejects junk input in all modes', async () => {
+    assert.strictEqual(await verifyPinCookieValue('', SECRET), false);
+    assert.strictEqual(await verifyPinCookieValue(null, SECRET), false);
+    assert.strictEqual(await verifyPinCookieValue(undefined, SECRET), false);
+    assert.strictEqual(await verifyPinCookieValue('0', SECRET), false);
+    assert.strictEqual(await verifyPinCookieValue('', undefined), false);
   });
 });
 
@@ -90,28 +96,28 @@ describe('hasValidPinCookie (Request shape)', () => {
     });
   }
 
-  it('true for a valid signed cookie', () => {
-    const v = signPinCookieValue(SECRET);
-    assert.strictEqual(hasValidPinCookie(reqWithCookie(v), SECRET), true);
+  it('true for a valid signed cookie', async () => {
+    const v = await signPinCookieValue(SECRET);
+    assert.strictEqual(await hasValidPinCookie(reqWithCookie(v), SECRET), true);
   });
 
-  it('false for a forged bare "1" when secret is set', () => {
-    assert.strictEqual(hasValidPinCookie(reqWithCookie('1'), SECRET), false);
+  it('false for a forged bare "1" when secret is set', async () => {
+    assert.strictEqual(await hasValidPinCookie(reqWithCookie('1'), SECRET), false);
   });
 
-  it('true for legacy "1" when secret is unset', () => {
-    assert.strictEqual(hasValidPinCookie(reqWithCookie('1'), undefined), true);
+  it('true for legacy "1" when secret is unset', async () => {
+    assert.strictEqual(await hasValidPinCookie(reqWithCookie('1'), undefined), true);
   });
 
-  it('false when cookie header is absent', () => {
-    assert.strictEqual(hasValidPinCookie(reqWithCookie(null), SECRET), false);
+  it('false when cookie header is absent', async () => {
+    assert.strictEqual(await hasValidPinCookie(reqWithCookie(null), SECRET), false);
   });
 
-  it('ignores other cookies in the header', () => {
-    const v = signPinCookieValue(SECRET);
+  it('ignores other cookies in the header', async () => {
+    const v = await signPinCookieValue(SECRET);
     const req = new Request('http://local/', {
       headers: { cookie: `other=xxx; lariat_pin_ok=${v}; another=yyy` },
     });
-    assert.strictEqual(hasValidPinCookie(req, SECRET), true);
+    assert.strictEqual(await hasValidPinCookie(req, SECRET), true);
   });
 });
