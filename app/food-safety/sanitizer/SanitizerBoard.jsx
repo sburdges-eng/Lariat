@@ -94,12 +94,16 @@ export default function SanitizerBoard({ rows, latest, knownPoints, locationId, 
         FDA §4-703.11 — ppm must land inside the band for the chemistry, or the surface is not sanitized.
       </p>
 
-      {err && <div className="alert alert-red">{err}</div>}
+      {err && (
+        <div className="alert alert-red" role="alert" aria-live="assertive">
+          {err}
+        </div>
+      )}
 
-      <section>
-        <h2 className="section-h">Latest per point ({latest.length})</h2>
+      <section aria-labelledby="sani-latest-h">
+        <h2 className="section-h" id="sani-latest-h">Latest per point ({latest.length})</h2>
         {latest.length === 0 && (
-          <div className="empty-row">No readings today yet. Test the dish pit and buckets before service.</div>
+          <div className="empty-row" role="status" aria-live="polite">No readings today yet. Test the dish pit and buckets before service.</div>
         )}
         <div className="sani-grid">
           {latest.map((l) => {
@@ -128,11 +132,17 @@ export default function SanitizerBoard({ rows, latest, knownPoints, locationId, 
       </section>
 
       {missingToday.length > 0 && (
-        <section className="sani-missing">
-          <h2 className="section-h">Still to check today</h2>
-          <div className="sani-missing-list">
+        <section className="sani-missing" aria-labelledby="sani-missing-h">
+          <h2 className="section-h" id="sani-missing-h">Still to check today</h2>
+          <div className="sani-missing-list" role="list">
             {missingToday.map((p) => (
-              <button key={p.id} className="sani-missing-chip" onClick={() => prefillPoint(p)}>
+              <button
+                key={p.id}
+                type="button"
+                className="sani-missing-chip"
+                onClick={() => prefillPoint(p)}
+                aria-label={`Prefill form for ${p.label} using ${p.chemistry}`}
+              >
                 {p.label} ({p.chemistry})
               </button>
             ))}
@@ -140,21 +150,31 @@ export default function SanitizerBoard({ rows, latest, knownPoints, locationId, 
         </section>
       )}
 
-      <section className="sani-card">
-        <h2 className="section-h">Log a reading</h2>
-        <form onSubmit={submit} className="sani-form">
-          <label>
+      <section className="sani-card" aria-labelledby="sani-log-h">
+        <h2 className="section-h" id="sani-log-h">Log a reading</h2>
+        <form onSubmit={submit} className="sani-form" aria-busy={saving}>
+          <label htmlFor="sani-point">
             <span>Point</span>
             <input
+              id="sani-point"
+              name="sani-point"
+              type="text"
               value={pointLabel}
               onChange={(e) => setPointLabel(e.target.value)}
               placeholder="e.g. dish pit final rinse"
+              autoComplete="off"
+              spellCheck={false}
               required
             />
           </label>
-          <label>
+          <label htmlFor="sani-chem">
             <span>Chemistry</span>
-            <select value={chemistry} onChange={(e) => setChemistry(e.target.value)}>
+            <select
+              id="sani-chem"
+              name="sani-chem"
+              value={chemistry}
+              onChange={(e) => setChemistry(e.target.value)}
+            >
               {CHEMISTRIES.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label}
@@ -162,32 +182,58 @@ export default function SanitizerBoard({ rows, latest, knownPoints, locationId, 
               ))}
             </select>
           </label>
-          <label>
+          <label htmlFor="sani-ppm">
             <span>Strip reading (ppm)</span>
             <input
+              id="sani-ppm"
+              name="sani-ppm"
+              type="text"
               inputMode="decimal"
+              pattern="[0-9]*([.,][0-9]+)?"
+              autoComplete="off"
+              enterKeyHint="next"
               value={ppm}
               onChange={(e) => setPpm(e.target.value)}
               required
             />
           </label>
-          <label>
+          <label htmlFor="sani-water">
             <span>Water temp °F {chemistry === 'chlorine' ? '(required for band)' : '(optional)'}</span>
             <input
+              id="sani-water"
+              name="sani-water"
+              type="text"
               inputMode="decimal"
+              pattern="-?[0-9]*([.,][0-9]+)?"
+              autoComplete="off"
               value={waterTemp}
               onChange={(e) => setWaterTemp(e.target.value)}
             />
           </label>
-          <label className={`sani-form-wide ${needsNote ? 'sani-form-need' : ''}`}>
-            <span>Corrective action (required if out of spec)</span>
+          <label
+            htmlFor="sani-note"
+            className={`sani-form-wide ${needsNote ? 'sani-form-need' : ''}`}
+          >
+            <span>Corrective action {needsNote ? '(required — out of spec)' : '(required if out of spec)'}</span>
             <input
+              id="sani-note"
+              name="sani-note"
+              type="text"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="e.g. re-dosed bucket, re-tested at 200 ppm, all surfaces re-wiped"
+              autoComplete="off"
+              maxLength={500}
+              required={needsNote}
+              aria-required={needsNote ? 'true' : undefined}
+              aria-invalid={needsNote ? 'true' : undefined}
             />
           </label>
-          <button type="submit" disabled={saving}>
+          <button
+            type="submit"
+            disabled={saving}
+            aria-label={saving ? 'Saving sanitizer reading' : 'Record sanitizer reading'}
+          >
             {saving ? 'Saving…' : 'Record reading'}
           </button>
         </form>

@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" font-family="ui-monospace, 'SF Mono', Menlo, monospace" font-size="12">
+  <defs>
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#E8E1D4" stroke-width="0.5"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#B7472A"/>
+    </marker>
+  </defs>
+
+  <!-- paper -->
+  <rect width="960" height="640" fill="#FAF6EC"/>
+  <rect width="960" height="640" fill="url(#grid)"/>
+
+  <!-- title block -->
+  <g transform="translate(32,28)">
+    <text font-size="10" letter-spacing="2" fill="#8E7A54">LARIAT · OPS</text>
+    <text y="22" font-size="22" font-weight="600" fill="#1C1A17">Kitchen Floor Plan</text>
+    <text y="42" font-size="11" fill="#5E554A">Overhead · stations · refrigeration · service flow</text>
+  </g>
+
+  <!-- registration ticks (corners) -->
+  <g stroke="#1C1A17" stroke-width="1" fill="none">
+    <path d="M 24 80 h 12 M 30 74 v 12"/>
+    <path d="M 936 80 h -12 M 930 74 v 12"/>
+    <path d="M 24 616 h 12 M 30 610 v 12"/>
+    <path d="M 936 616 h -12 M 930 610 v 12"/>
+  </g>
+
+  <!-- outer kitchen wall -->
+  <rect x="60" y="108" width="840" height="484" fill="none" stroke="#1C1A17" stroke-width="2"/>
+
+  <!-- WALK-IN COOLER -->
+  <g>
+    <rect x="80" y="128" width="180" height="140" fill="#E7EEF1" stroke="#1C1A17"/>
+    <text x="170" y="152" text-anchor="middle" font-size="10" letter-spacing="2" fill="#3B5B6B">WALK-IN COOLER</text>
+    <text x="170" y="172" text-anchor="middle" font-size="22" font-weight="600" fill="#1C1A17">32–41°F</text>
+    <text x="170" y="196" text-anchor="middle" font-size="10" fill="#5E554A">main unit</text>
+    <text x="170" y="216" text-anchor="middle" font-size="10" fill="#5E554A">→ walk-in-cooler.svg</text>
+    <!-- door -->
+    <path d="M 260 220 a 40 40 0 0 1 -40 -40" fill="none" stroke="#1C1A17" stroke-dasharray="3 3"/>
+  </g>
+
+  <!-- WALK-IN FREEZER -->
+  <g>
+    <rect x="80" y="280" width="180" height="120" fill="#DFE4EA" stroke="#1C1A17"/>
+    <text x="170" y="302" text-anchor="middle" font-size="10" letter-spacing="2" fill="#3B4F6B">WALK-IN FREEZER</text>
+    <text x="170" y="322" text-anchor="middle" font-size="22" font-weight="600" fill="#1C1A17">-10–0°F</text>
+    <text x="170" y="346" text-anchor="middle" font-size="10" fill="#5E554A">→ walk-in-freezer.svg</text>
+    <path d="M 260 352 a 40 40 0 0 1 -40 -40" fill="none" stroke="#1C1A17" stroke-dasharray="3 3"/>
+  </g>
+
+  <!-- DRY STORAGE / SHED -->
+  <g>
+    <rect x="80" y="412" width="180" height="100" fill="#F3EEDF" stroke="#1C1A17"/>
+    <text x="170" y="432" text-anchor="middle" font-size="10" letter-spacing="2" fill="#8E7A54">DRY / SHED</text>
+    <text x="170" y="452" text-anchor="middle" font-size="14" font-weight="600" fill="#1C1A17">ambient</text>
+    <text x="170" y="472" text-anchor="middle" font-size="10" fill="#5E554A">event space above</text>
+  </g>
+
+  <!-- the line (bank of stations) -->
+  <!-- GRILL / SAUTE -->
+  <g transform="translate(320,148)">
+    <rect width="180" height="150" fill="#FDECD9" stroke="#1C1A17"/>
+    <text x="90" y="20" text-anchor="middle" font-size="10" letter-spacing="2" fill="#8E4A1E">GRILL / SAUTE</text>
+    <text x="90" y="46" text-anchor="middle" font-size="16" font-weight="600" fill="#1C1A17">flat top · char · range</text>
+    <text x="90" y="66" text-anchor="middle" font-size="10" fill="#5E554A">ovens · salamander</text>
+    <!-- lowboy band -->
+    <rect x="8" y="82" width="164" height="26" fill="#E7EEF1" stroke="#1C1A17"/>
+    <text x="90" y="100" text-anchor="middle" font-size="10" fill="#3B5B6B">lowboy · 32–41°F · → grill-lowboy.svg</text>
+    <!-- roll top band -->
+    <rect x="8" y="116" width="164" height="22" fill="#F3EEDF" stroke="#1C1A17"/>
+    <text x="90" y="131" text-anchor="middle" font-size="10" fill="#8E7A54">roll top · backups + noodles</text>
+  </g>
+
+  <!-- SALAD / GARDE -->
+  <g transform="translate(520,148)">
+    <rect width="180" height="150" fill="#E9F1E4" stroke="#1C1A17"/>
+    <text x="90" y="20" text-anchor="middle" font-size="10" letter-spacing="2" fill="#3E6B3B">SALAD / GARDE</text>
+    <text x="90" y="46" text-anchor="middle" font-size="16" font-weight="600" fill="#1C1A17">cold line</text>
+    <text x="90" y="66" text-anchor="middle" font-size="10" fill="#5E554A">heat lamps above</text>
+    <rect x="8" y="82" width="164" height="56" fill="#E7EEF1" stroke="#1C1A17"/>
+    <text x="90" y="102" text-anchor="middle" font-size="10" fill="#3B5B6B">top-well · cold prep</text>
+    <text x="90" y="118" text-anchor="middle" font-size="10" fill="#3B5B6B">→ salad-lowboy.svg</text>
+    <text x="90" y="132" text-anchor="middle" font-size="9" fill="#5E554A">sauces below lowboy</text>
+  </g>
+
+  <!-- FRY -->
+  <g transform="translate(720,148)">
+    <rect width="160" height="150" fill="#FEF6DB" stroke="#1C1A17"/>
+    <text x="80" y="20" text-anchor="middle" font-size="10" letter-spacing="2" fill="#8E6B1E">FRY</text>
+    <text x="80" y="46" text-anchor="middle" font-size="14" font-weight="600" fill="#1C1A17">L @ 350°F</text>
+    <text x="80" y="62" text-anchor="middle" font-size="14" font-weight="600" fill="#1C1A17">R @ 305°F</text>
+    <!-- lowboy top -->
+    <rect x="6" y="78" width="148" height="26" fill="#E7EEF1" stroke="#1C1A17"/>
+    <text x="80" y="96" text-anchor="middle" font-size="9" fill="#3B5B6B">lowboy top · → fryer-lowboy-top.svg</text>
+    <!-- freezer -->
+    <rect x="6" y="110" width="148" height="30" fill="#DFE4EA" stroke="#1C1A17"/>
+    <text x="80" y="127" text-anchor="middle" font-size="9" fill="#3B4F6B">lowboy freezer · → fryer-freezer.svg</text>
+  </g>
+
+  <!-- PASS / EXPO -->
+  <g>
+    <rect x="320" y="320" width="560" height="70" fill="#FAF0E8" stroke="#1C1A17"/>
+    <text x="600" y="338" text-anchor="middle" font-size="10" letter-spacing="2" fill="#8E4A1E">PASS · EXPO</text>
+    <text x="600" y="360" text-anchor="middle" font-size="16" font-weight="600" fill="#1C1A17">steam table · heat lamps · hot hold ≥ 135°F</text>
+    <text x="600" y="378" text-anchor="middle" font-size="10" fill="#5E554A">ceramics stack · chip line · sauce/topping hotel pan</text>
+  </g>
+
+  <!-- DISH PIT -->
+  <g>
+    <rect x="320" y="420" width="220" height="120" fill="#EEE8DC" stroke="#1C1A17"/>
+    <text x="430" y="442" text-anchor="middle" font-size="10" letter-spacing="2" fill="#8E7A54">DISH PIT</text>
+    <text x="430" y="466" text-anchor="middle" font-size="14" font-weight="600" fill="#1C1A17">3-comp · dishwasher</text>
+    <text x="430" y="488" text-anchor="middle" font-size="10" fill="#5E554A">sanitizer 200–400 ppm (quat)</text>
+    <text x="430" y="512" text-anchor="middle" font-size="10" fill="#5E554A">or 50–100 ppm (chlorine)</text>
+  </g>
+
+  <!-- PREP / HOOD -->
+  <g>
+    <rect x="560" y="420" width="320" height="120" fill="#F6F1E4" stroke="#1C1A17"/>
+    <text x="720" y="442" text-anchor="middle" font-size="10" letter-spacing="2" fill="#8E7A54">PREP · PREP SINK · WOK</text>
+    <text x="720" y="466" text-anchor="middle" font-size="14" font-weight="600" fill="#1C1A17">prep table bank</text>
+    <text x="720" y="488" text-anchor="middle" font-size="10" fill="#5E554A">Robot Coupe · scales · knives</text>
+    <text x="720" y="512" text-anchor="middle" font-size="10" fill="#5E554A">gas line shut-off at close</text>
+  </g>
+
+  <!-- Hood line across the line (thin bar) -->
+  <line x1="320" y1="142" x2="880" y2="142" stroke="#B7472A" stroke-width="3"/>
+  <text x="600" y="136" text-anchor="middle" font-size="9" letter-spacing="3" fill="#B7472A">HOOD · SHUT AT CLOSE</text>
+
+  <!-- flow arrow walk-in → prep -->
+  <path d="M 260 200 C 360 200, 380 420, 560 440" fill="none" stroke="#B7472A" stroke-width="1.2" marker-end="url(#arrow)" opacity="0.7"/>
+  <text x="300" y="304" font-size="9" fill="#B7472A" transform="rotate(30 300 304)">pull to prep</text>
+
+  <!-- flow arrow line → pass -->
+  <path d="M 410 296 v 20" fill="none" stroke="#1C1A17" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <path d="M 610 296 v 20" fill="none" stroke="#1C1A17" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <path d="M 800 296 v 20" fill="none" stroke="#1C1A17" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- legend -->
+  <g transform="translate(60,598)" font-size="10" fill="#5E554A">
+    <rect x="0" y="-10" width="14" height="12" fill="#E7EEF1" stroke="#1C1A17"/>
+    <text x="20" y="0">cold 32–41°F</text>
+    <rect x="120" y="-10" width="14" height="12" fill="#DFE4EA" stroke="#1C1A17"/>
+    <text x="140" y="0">freezer ≤ 0°F</text>
+    <rect x="240" y="-10" width="14" height="12" fill="#FAF0E8" stroke="#1C1A17"/>
+    <text x="260" y="0">hot hold ≥ 135°F</text>
+    <rect x="380" y="-10" width="14" height="12" fill="#F3EEDF" stroke="#1C1A17"/>
+    <text x="400" y="0">ambient</text>
+    <line x1="470" y1="-4" x2="490" y2="-4" stroke="#B7472A" stroke-width="3"/>
+    <text x="496" y="0">hood run</text>
+    <line x1="570" y1="-4" x2="590" y2="-4" stroke="#B7472A" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <text x="596" y="0">product flow</text>
+  </g>
+</svg>

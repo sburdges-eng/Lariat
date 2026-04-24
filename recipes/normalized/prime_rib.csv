@@ -1,0 +1,2 @@
+ingredient,qty,unit,portions_per_batch,notes
+prime rib,1,ea,~12 portions,Listed in scripts/beo_order_pull.py DEFAULT_WHOLE_BUY_EXACT — whole-buy; the order-pull skips ingredient expansion

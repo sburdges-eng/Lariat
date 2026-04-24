@@ -217,15 +217,23 @@ export default function CalibrationsBoard({
         Default frequency: every {defaultFrequencyDays} days per probe. Both passes and fails are recorded for the audit trail.
       </p>
 
-      <div className="tl-totals">
-        <span className="tl-tot tl-tot-green">{totals.green} in calibration</span>
-        <span className="tl-tot tl-tot-yellow">{totals.yellow} due soon</span>
-        <span className="tl-tot tl-tot-red">{totals.red} overdue / failed</span>
-        <span className="tl-tot tl-tot-gray">{totals.gray} unknown</span>
+      <div className="tl-totals" role="group" aria-label="Calibration totals">
+        <span className="tl-tot tl-tot-green" aria-label={`${totals.green} probes in calibration`}>{totals.green} in calibration</span>
+        <span className="tl-tot tl-tot-yellow" aria-label={`${totals.yellow} probes due soon`}>{totals.yellow} due soon</span>
+        <span className="tl-tot tl-tot-red" aria-label={`${totals.red} probes overdue or failed`}>{totals.red} overdue / failed</span>
+        <span className="tl-tot tl-tot-gray" aria-label={`${totals.gray} probes with unknown status`}>{totals.gray} unknown</span>
       </div>
 
-      {err && <div className="alert alert-red">{err}</div>}
-      {info && <div className="alert">{info}</div>}
+      {err && (
+        <div className="alert alert-red" role="alert" aria-live="assertive">
+          {err}
+        </div>
+      )}
+      {info && (
+        <div className="alert" role="status" aria-live="polite">
+          {info}
+        </div>
+      )}
 
       <section>
         <h2 className="section-h">Probes ({summary.length})</h2>
@@ -269,16 +277,22 @@ export default function CalibrationsBoard({
         </div>
       </section>
 
-      <section className="tl-card">
-        <h2 className="section-h">Log a calibration</h2>
-        <form onSubmit={submit} className="tl-form">
-          <label>
+      <section className="tl-card" aria-labelledby="cal-log-h">
+        <h2 className="section-h" id="cal-log-h">Log a calibration</h2>
+        <form onSubmit={submit} className="tl-form" aria-busy={saving}>
+          <label htmlFor="cal-probe">
             <span>Thermometer id</span>
             <input
+              id="cal-probe"
+              name="cal-probe"
+              type="text"
               value={probeId}
               onChange={(e) => setProbeId(e.target.value)}
               placeholder="e.g. probe-3, IR-gun-A"
               list="lariat-known-probes"
+              autoComplete="off"
+              spellCheck={false}
+              enterKeyHint="next"
               required
               maxLength={64}
             />
@@ -288,9 +302,14 @@ export default function CalibrationsBoard({
               ))}
             </datalist>
           </label>
-          <label>
+          <label htmlFor="cal-method">
             <span>Method</span>
-            <select value={method} onChange={(e) => setMethod(e.target.value)}>
+            <select
+              id="cal-method"
+              name="cal-method"
+              value={method}
+              onChange={(e) => setMethod(e.target.value)}
+            >
               {methods.map((m) => (
                 <option key={m} value={m}>
                   {METHOD_LABELS[m] || m}
@@ -298,41 +317,65 @@ export default function CalibrationsBoard({
               ))}
             </select>
           </label>
-          <label>
+          <label htmlFor="cal-elev">
             <span>Elevation ft (defaults {defaultElevationFt})</span>
             <input
+              id="cal-elev"
+              name="cal-elev"
+              type="text"
               inputMode="decimal"
+              pattern="-?[0-9]*([.,][0-9]+)?"
+              autoComplete="off"
               value={elevationFt}
               onChange={(e) => setElevationFt(e.target.value)}
               placeholder={String(defaultElevationFt)}
             />
           </label>
-          <label>
+          <label htmlFor="cal-reading">
             <span>
               Reading °F {expected !== null ? `(target ${fmtTemp(expected)} ±${toleranceF})` : ''}
             </span>
             <input
+              id="cal-reading"
+              name="cal-reading"
+              type="text"
               inputMode="decimal"
+              pattern="-?[0-9]*([.,][0-9]+)?"
+              autoComplete="off"
               value={reading}
               onChange={(e) => setReading(e.target.value)}
               className={
                 livePass === true ? 'tl-live-green' : livePass === false ? 'tl-live-red' : ''
               }
+              aria-invalid={livePass === false ? 'true' : undefined}
               required
             />
           </label>
-          <label className={`tl-form-wide ${livePass === false ? 'tl-form-need' : ''}`}>
+          <label
+            htmlFor="cal-note"
+            className={`tl-form-wide ${livePass === false ? 'tl-form-need' : ''}`}
+          >
             <span>
               Note {livePass === false ? '(required on fail — what was done about it)' : '(optional)'}
             </span>
             <input
+              id="cal-note"
+              name="cal-note"
+              type="text"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="e.g. retired probe-2; pulled probe-5 from stock"
               maxLength={500}
+              autoComplete="off"
+              required={livePass === false}
+              aria-required={livePass === false ? 'true' : undefined}
             />
           </label>
-          <button type="submit" disabled={saving}>
+          <button
+            type="submit"
+            disabled={saving}
+            aria-label={saving ? 'Saving calibration' : 'Record calibration'}
+          >
             {saving ? 'Saving…' : 'Record calibration'}
           </button>
         </form>

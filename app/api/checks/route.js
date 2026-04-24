@@ -19,9 +19,20 @@ export async function POST(req) {
     const loc = locationFromBody(body);
     const db = getDb();
     const status = body.status === null ? null : (['pass', 'fail', 'na'].includes(body.status) ? body.status : 'na');
+
+    // F15 / FDA §3-301.11: bare-hand-contact-with-RTE attestation.
+    // Tri-state: true → 1, false → 0, anything else (undefined/null) → null.
+    // NULL means "this line-check item doesn't touch RTE food" (e.g. a
+    // raw-only prep task or a cleanup task); the row stays out of the
+    // attestation accounting. The UI opts items in by sending the field.
+    let gloveAttested = null;
+    if (body.glove_change_attested === true) gloveAttested = 1;
+    else if (body.glove_change_attested === false) gloveAttested = 0;
+
     const stmt = db.prepare(`
-      INSERT INTO line_check_entries (shift_date, station_id, item, status, par, have, need, note, cook_id, location_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO line_check_entries
+        (shift_date, station_id, item, status, par, have, need, note, cook_id, glove_change_attested, location_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const info = stmt.run(
       shift_date,
@@ -33,6 +44,7 @@ export async function POST(req) {
       clip(body.need, 64),
       clip(body.note, 1000),
       clip(body.cook_id, 64),
+      gloveAttested,
       loc,
     );
     return Response.json({ ok: true, id: info.lastInsertRowid });

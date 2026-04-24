@@ -6,14 +6,6 @@ import StationChecklist from './StationChecklist';
 
 export const dynamic = 'force-dynamic';
 
-const SETUP_MAP = {
-  grill_saute: 'Tab 1 - Hot Line',
-  brunch: 'Tab 1 - Hot Line',
-  fry: 'Tab 2 - Fry Station',
-  garde: 'Tab 3 - Salad Station',
-  expo: 'Tab 4 - Expo',
-};
-
 export default function StationPage({ params, searchParams }) {
   const station = getStation(params.id);
   if (!station) notFound();
@@ -25,7 +17,7 @@ export default function StationPage({ params, searchParams }) {
   const date = todayISO();
   const items = station.line_check_key ? getLineCheckTemplate(station.line_check_key) : [];
   const setups = getSetups();
-  const setupSteps = SETUP_MAP[station.id] ? (setups[SETUP_MAP[station.id]] || []) : [];
+  const setupSteps = station.setup_key ? (setups[station.setup_key] || []) : [];
 
   const db = getDb();
   const existing = db.prepare(`
