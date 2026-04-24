@@ -104,15 +104,25 @@ export function computeSandboxCost(
       unitDimension(rawUnit) !== unitDimension(packUnit) &&
       rawUnit !== packUnit;
 
-    // Density lookup: use the vendor ingredient's normalized key so the
-    // sandbox pulls the same gram/ml rate as the rest of the costing
-    // pipeline. Missing → null → convertQty refuses cross-dim.
+    // Density lookup: use the LLM-provided `ing.item` (a clean
+    // ingredient name like "flour" / "olive oil") rather than the
+    // vendor row's `ingredient` string. The densities seed CSV uses
+    // clean names (data/seeds/ingredient_densities.csv → "olive oil",
+    // "buttermilk") which get stored under `normalizeIngredientKey`
+    // output; vendor rows carry brand/pack noise ("OLIVE OIL 5GAL",
+    // "EVOO VIRGIN") which doesn't normalize to the same key. Fall
+    // back to the vendor string when the clean name produces no hit —
+    // some vendor rows happen to be clean enough to match.
     let gPerMl: number | null = null;
     if (isCrossDim) {
-      const key = normalizeIngredientKey(row.ingredient);
-      const d = key ? (densityStmt.get(key) as { g_per_ml: number } | undefined) : undefined;
-      if (d && Number.isFinite(d.g_per_ml) && d.g_per_ml > 0) {
-        gPerMl = d.g_per_ml;
+      for (const candidate of [ing.item, row.ingredient]) {
+        const key = normalizeIngredientKey(candidate ?? '');
+        if (!key) continue;
+        const d = densityStmt.get(key) as { g_per_ml: number } | undefined;
+        if (d && Number.isFinite(d.g_per_ml) && d.g_per_ml > 0) {
+          gPerMl = d.g_per_ml;
+          break;
+        }
       }
     }
 

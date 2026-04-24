@@ -45,18 +45,20 @@ export async function POST(request) {
   const periodStart = searchParams.get('period_start') || undefined;
   const periodEnd = searchParams.get('period_end') || undefined;
 
-  // triggerComputeEngine is synchronous (better-sqlite3). Wrap in a
-  // resolved-promise chain so the heavy SQL work doesn't block the
-  // response while still letting a single catch log failures. See
-  // docs/PATTERNS.md §9 (fire-and-forget trigger).
-  Promise.resolve()
-    .then(() => triggerComputeEngine(locationId, {
-      period_start: periodStart,
-      period_end: periodEnd,
-    }))
-    .catch((err) => {
+  // triggerComputeEngine is synchronous (better-sqlite3). Defer via
+  // setImmediate so the response flushes first; microtask chaining
+  // (`Promise.resolve().then`) runs BEFORE response flush and would
+  // block the response on the SQL work. See docs/PATTERNS.md §9.
+  setImmediate(() => {
+    try {
+      triggerComputeEngine(locationId, {
+        period_start: periodStart,
+        period_end: periodEnd,
+      });
+    } catch (err) {
       console.error('Compute Engine Trigger Error:', err);
-    });
+    }
+  });
 
   return NextResponse.json({
     status: 'ok',

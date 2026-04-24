@@ -33,10 +33,26 @@ export function recomputeRecipeCosts(db: Database, locationId: string) {
 
   const variance = computeCostVariance(db, locationId);
 
+  // IMPORTANT — we update ONLY `batch_cost`, never `cost_per_yield_unit`.
+  //
+  // `computeCostVariance` reads `cost_per_yield_unit` as the "theoretical"
+  // baseline and computes "actual" from live vendor_prices × bom_lines.
+  // If this function also wrote back to `cost_per_yield_unit`, the baseline
+  // would be overwritten to match `actual` on every trigger — and every
+  // subsequent variance query would report ~0% drift, destroying the B1
+  // tile's signal.
+  //
+  // Semantic contract after this change:
+  //   - recipe_costs.cost_per_yield_unit  = ingest-time theoretical baseline
+  //                                         (set by scripts/ingest-costing,
+  //                                         never touched by this function)
+  //   - recipe_costs.batch_cost           = live batch-cost reflecting
+  //                                         the most recent vendor prices
+  //                                         (refreshed here on every
+  //                                         triggerComputeEngine call)
   const update = db.prepare(`
     UPDATE recipe_costs
-       SET batch_cost = @batch_cost,
-           cost_per_yield_unit = @cost_per_yield_unit
+       SET batch_cost = @batch_cost
      WHERE recipe_id = @recipe_id
        AND location_id = @location_id
   `);
@@ -48,7 +64,6 @@ export function recomputeRecipeCosts(db: Database, locationId: string) {
       if (!y) continue;
       update.run({
         batch_cost: row.actual * y,
-        cost_per_yield_unit: row.actual,
         recipe_id: row.recipe_id,
         location_id: locationId,
       });

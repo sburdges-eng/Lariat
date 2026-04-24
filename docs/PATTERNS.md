@@ -219,15 +219,18 @@ this shape:
 
 ```js
 // top of file — static import so a resolver/transpile failure is
-// caught at module load, not silently swallowed by a floating promise.
+// caught at module load, not silently swallowed.
 import { triggerComputeEngine } from '../../../lib/computeEngine';
 
 // inside the handler, AFTER the primary write has committed:
-Promise.resolve()
-  .then(() => triggerComputeEngine(location_id))
-  .catch((err) => {
-    console.error('Compute Engine Trigger Error from receiving_log:', err);
-  });
+setImmediate(() => {
+  try {
+    triggerComputeEngine(location_id);
+  } catch (err) {
+    console.error('Compute Engine Trigger Error:', err);
+  }
+});
+return Response.json({ ok: true /* … */ });
 ```
 
 **Rules:**
@@ -236,15 +239,28 @@ Promise.resolve()
    a floating `import(...).then(...)`. The latter silently eats
    resolver failures — the handler returns 200 but the recompute never
    fires and no one finds out.
-2. **Single `.catch` on the trigger chain.** The recompute can throw
-   at any step; log it but don't propagate — the primary write has
-   already committed and the API response should remain authoritative.
-3. **Never return a promise from the recompute to the client.** Use
-   `Promise.resolve().then(...)` so the handler's return value is not
-   tied to the recompute's duration. The point of this pattern is
-   that the client response is unblocked by the refresh.
+2. **`setImmediate`, not a microtask chain.** The trigger is
+   synchronous better-sqlite3 work. `Promise.resolve().then(fn)` runs
+   `fn` as a microtask, which Node executes before returning control
+   to the I/O phase — the response would still wait on the full SQL
+   work to complete. `setImmediate` schedules a macrotask that runs
+   after the I/O phase, so the response flushes first. (If the
+   trigger is truly async — e.g. a `fetch` to another service — a
+   microtask chain is fine; this rule is specifically about
+   synchronous better-sqlite3 work.)
+3. **`try/catch` inside the `setImmediate` callback**, not around the
+   scheduling call. The scheduling call can't throw; the work inside
+   can. Log but do not propagate — the primary write has committed
+   and the response is already authoritative.
 4. **Kick off AFTER the primary write's transaction closes.** A
-   recompute that races the invoice INSERT may read stale data.
+   recompute that races the primary INSERT may read stale data.
+5. **Serverless caveat.** On platforms that freeze the function
+   instance the moment the response is sent (some edge runtimes,
+   Cloudflare Workers without `waitUntil`), `setImmediate` callbacks
+   may never fire. The Node.js runtime on Vercel/AWS Lambda keeps
+   the instance alive while the event loop has pending work, which
+   is the deployment this pattern targets. Document the platform in
+   the handler's module header if deploying elsewhere.
 
 ---
 

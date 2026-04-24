@@ -121,7 +121,8 @@ describe('C1 · recomputeRecipeCosts picks the latest vendor_prices row determin
     // Seed recipe: 1 lb of flour per batch, batch yields 10 servings.
     // cost_per_yield_unit must be non-null for computeCostVariance to
     // consider the recipe (cost_per_yield_unit IS NOT NULL is its gate);
-    // we pick a placeholder that the recompute will overwrite.
+    // we pick a placeholder (ingest-time baseline) that should NOT be
+    // overwritten by recomputeRecipeCosts.
     seedRecipe('R1', 10, 99.0);
     seedBom('R1', 'flour', 1, 'lb');
 
@@ -134,11 +135,12 @@ describe('C1 · recomputeRecipeCosts picks the latest vendor_prices row determin
     const row = testDb.prepare(
       `SELECT batch_cost, cost_per_yield_unit FROM recipe_costs WHERE recipe_id = ?`,
     ).get('R1');
-    // Expected: actual = 1 * 3.0 / 1.0 / 1.0 (qty × price / pack_size / yield_pct)
-    //          per serving = 3.0 / 10 = 0.3
-    //          batch_cost  = 3.0
-    assert.equal(Math.round(row.cost_per_yield_unit * 1000) / 1000, 0.3);
+    // batch_cost reflects the newer $3/lb price: 1 × 3.0 = $3.00.
     assert.equal(Math.round(row.batch_cost * 1000) / 1000, 3.0);
+    // cost_per_yield_unit (theoretical baseline) is preserved so the
+    // variance tile continues to surface drift; see C4 feedback-loop
+    // test below.
+    assert.equal(row.cost_per_yield_unit, 99.0);
   });
 
   it('ties on imported_at break by id DESC (latest inserted wins)', () => {
@@ -151,9 +153,42 @@ describe('C1 · recomputeRecipeCosts picks the latest vendor_prices row determin
 
     recomputeRecipeCosts(testDb, LOC);
     const row = testDb.prepare(
-      `SELECT cost_per_yield_unit FROM recipe_costs WHERE recipe_id = ?`,
+      `SELECT batch_cost FROM recipe_costs WHERE recipe_id = ?`,
     ).get('R2');
-    assert.equal(Math.round(row.cost_per_yield_unit * 1000) / 1000, 1.0);
+    // 5 servings × (qty=1 × price=$5 / pack=1) = $5 batch.
+    assert.equal(Math.round(row.batch_cost * 1000) / 1000, 5.0);
+  });
+
+  it('C4 feedback-loop guard: cost_per_yield_unit is NEVER overwritten (variance tile survives repeat runs)', () => {
+    // This test catches the bug the code-review flagged in c451684:
+    // if recomputeRecipeCosts writes to cost_per_yield_unit, the
+    // variance tile reads that just-written value as "theoretical"
+    // on the next run and reports 0% drift forever.
+    seedRecipe('FeedbackLoop', 10, 1.5); // baseline = $1.50/serving
+    seedBom('FeedbackLoop', 'ingredient_a', 1, 'lb');
+    seedVendorPrice(
+      'ingredient_a', 30.0, 1.0, 'lb', '2026-04-10T00:00:00Z',
+    );
+    // Current market: 30/10 = $3/serving.  Drift vs baseline = 100%.
+
+    // First trigger.
+    recomputeRecipeCosts(testDb, LOC);
+    const after1 = testDb.prepare(
+      `SELECT batch_cost, cost_per_yield_unit FROM recipe_costs WHERE recipe_id = ?`,
+    ).get('FeedbackLoop');
+    assert.equal(after1.cost_per_yield_unit, 1.5);
+    assert.equal(after1.batch_cost, 30);
+
+    // Second trigger — the feedback-loop regression would appear here:
+    // if cost_per_yield_unit got overwritten on run 1, the variance
+    // would now read cost_per_yield_unit=3 and drift=0%.
+    recomputeRecipeCosts(testDb, LOC);
+    const after2 = testDb.prepare(
+      `SELECT batch_cost, cost_per_yield_unit FROM recipe_costs WHERE recipe_id = ?`,
+    ).get('FeedbackLoop');
+    assert.equal(after2.cost_per_yield_unit, 1.5,
+      'cost_per_yield_unit (theoretical baseline) must be preserved across repeat runs');
+    assert.equal(after2.batch_cost, 30);
   });
 });
 
@@ -233,28 +268,31 @@ describe('C3 · computeAccountingVariance windows spend_monthly', () => {
 describe('C4 · recomputeRecipeCosts and computeCostVariance agree on actual batch cost', () => {
   beforeEach(resetTables);
 
-  it('round-trip: write via compute engine, read via T9 benchmarks — no divergence', async () => {
+  it('round-trip: batch_cost written via compute engine matches computeCostVariance actual × yield', async () => {
     const { computeCostVariance } = await import('../../lib/costingBenchmarks.mjs');
 
-    seedRecipe('Chili', 8, 2.0); // baseline cost_per_yield_unit=2.0
+    seedRecipe('Chili', 8, 2.0);
     seedBom('Chili', 'bean', 1, 'lb');
     seedBom('Chili', 'beef', 2, 'lb');
     seedVendorPrice('bean', 4.0, 1.0, 'lb', '2026-04-10T00:00:00Z');
     seedVendorPrice('beef', 6.0, 1.0, 'lb', '2026-04-10T00:00:00Z');
 
-    // Variance before refresh: theoretical=2.0, actual=(1*4 + 2*6)/8 = 2.0 → 0% variance
+    // actual via T9 = (1*4 + 2*6) / 8 = 2.0
     const before = computeCostVariance(testDb, LOC);
     const chiliBefore = before.rows.find((r) => r.recipe_id === 'Chili');
     assert.equal(chiliBefore.actual, 2);
 
     recomputeRecipeCosts(testDb, LOC);
 
-    // After: recipe_costs now reflects the exact same `actual` value.
+    // batch_cost = actual * yield = 2 * 8 = 16. cost_per_yield_unit
+    // stays at 2.0 (this recipe's baseline happens to equal actual
+    // here, which is a coincidence — see the FeedbackLoop test for
+    // the case where they diverge).
     const after = testDb.prepare(
       `SELECT batch_cost, cost_per_yield_unit FROM recipe_costs WHERE recipe_id = ?`,
     ).get('Chili');
-    assert.equal(Math.round(after.cost_per_yield_unit * 1000) / 1000, 2);
     assert.equal(Math.round(after.batch_cost * 1000) / 1000, 16);
+    assert.equal(after.cost_per_yield_unit, 2.0);
   });
 });
 
@@ -326,6 +364,31 @@ describe('I2 · triggerComputeEngine prunes old snapshot rows', () => {
       `SELECT COUNT(*) AS c FROM accounting_variance WHERE location_id = ?`,
     ).get(LOC).c;
     assert.equal(n, 2);
+  });
+
+  it('pruning is per-location — triggering on location A does NOT drop location B rows', () => {
+    // Seed 3 rows on 'default' and 3 on 'lariat-south' directly so we
+    // don't have to call triggerComputeEngine 6 times (which also
+    // exercises recomputeRecipeCosts etc. — not what this test is
+    // pinning).
+    const ins = testDb.prepare(
+      `INSERT INTO accounting_variance (theoretical_cogs, actual_cogs,
+          variance_amount, variance_pct, location_id)
+        VALUES (1, 1, 0, 0, ?)`,
+    );
+    for (let i = 0; i < 3; i++) ins.run('default');
+    for (let i = 0; i < 3; i++) ins.run('lariat-south');
+
+    // Trigger on 'default' with retention=1 — should prune 'default'
+    // to 1 row (plus the 1 row this trigger INSERTs → net ~2 after
+    // retention math, since retention runs after the insert). The
+    // lariat-south rows must remain untouched.
+    triggerComputeEngine('default', { retainPerLocation: 1 });
+
+    const south = testDb.prepare(
+      `SELECT COUNT(*) AS c FROM accounting_variance WHERE location_id = ?`,
+    ).get('lariat-south').c;
+    assert.equal(south, 3, 'pruning on one location must not delete another location\'s rows');
   });
 });
 
