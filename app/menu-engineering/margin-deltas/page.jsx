@@ -158,7 +158,7 @@ export default function MarginDeltasPage({ searchParams }) {
               >
                 <div style={{ flex: '1 1 240px' }}>
                   <div className="check-name">
-                    <Link href="/menu-engineering">{d.dish_name}</Link>
+                    <Link href={`/menu-engineering${locQ()}`}>{d.dish_name}</Link>
                   </div>
                   <div className="meta">
                     {fmtPrice(d.baseline_cost)}{' '}
