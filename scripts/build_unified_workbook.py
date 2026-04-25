@@ -38,9 +38,6 @@ Writes `XL/Lariat_Unified_Workbook_2026-04-24.xlsx` with:
   - 📋 Deferred TODOs         (explicit list of what this build skipped)
 
 Not yet generated (see "📋 Deferred TODOs" sheet for rationale):
-  - 📋 Shamrock Orders (parsing the 68 OC sheets is a separate work item)
-  - 📈 Pricing Trends (needs Shamrock Orders)
-  - 📋 BEO Prep (per-event kitchen sheets; not all BEOs have them)
   - 📊 Dashboard with charts (openpyxl charts are fiddly; deferred)
 
 Usage:
@@ -352,6 +349,80 @@ def build_shamrock_orders(master_xlsx: Path) -> SheetPayload:
     all_rows.sort(key=lambda r: (r[0] or "", r[1] or ""), reverse=True)
     
     return SheetPayload("📋 Shamrock Orders", SHAMROCK_ORDERS_HEADER, all_rows)
+
+
+# ── BEO Prep (mirror hand-curated sheet from Master Workbook) ────────
+
+
+BEO_PREP_HEADER = [
+    "client",
+    "event_date",
+    "type",
+    "item",
+    "amount_qty",
+    "prep_day",
+    "pre_prep",
+    "plating",
+]
+
+
+def _format_event_date(v: Any) -> Any:
+    """openpyxl returns datetime for the master sheet's date column;
+    strings pass through unchanged."""
+    if v is None:
+        return None
+    if hasattr(v, "date") and callable(v.date):
+        return v.date().isoformat()
+    if hasattr(v, "isoformat"):
+        return v.isoformat()
+    s = str(v).strip()
+    return s or None
+
+
+def build_beo_prep_ref(master_xlsx: Path) -> SheetPayload:
+    """Mirror the hand-curated `📋 BEO Prep` sheet from the Master Workbook.
+
+    The master sheet aggregates the per-event 'Kitchen Sheet' tabs in each
+    Lariat Invoice xlsx and adds Type metadata (Main Item / Secondary Prep /
+    Special Sauce) that the raw per-event sheets don't carry. Carried through
+    verbatim — the master is source-of-truth.
+    """
+    wb = openpyxl.load_workbook(master_xlsx, data_only=True, read_only=True)
+    try:
+        ws = wb["📋 BEO Prep"]
+    except KeyError:
+        wb.close()
+        return SheetPayload("📋 BEO Prep", BEO_PREP_HEADER)
+
+    rows: list[list[Any]] = []
+    started = False
+    for row in ws.iter_rows(values_only=True):
+        if not row:
+            continue
+        if not started:
+            # Header row literally starts with 'Client'.
+            if row[0] == "Client":
+                started = True
+            continue
+        # Skip blank rows.
+        if not any(v not in (None, "") for v in row):
+            continue
+        padded = list(row) + [None] * (8 - len(row))
+        client = str(padded[0]).strip() if padded[0] else None
+        event_date = _format_event_date(padded[1])
+        type_ = str(padded[2]).strip() if padded[2] else None
+        item = str(padded[3]).strip() if padded[3] else None
+        amt = padded[4]
+        if amt is not None and not isinstance(amt, (int, float)):
+            amt = str(amt).strip() or None
+        prep_day = str(padded[5]).strip() if padded[5] else None
+        pre_prep = str(padded[6]).strip() if padded[6] else None
+        plating = str(padded[7]).strip() if padded[7] else None
+        rows.append(
+            [client, event_date, type_, item, amt, prep_day, pre_prep, plating]
+        )
+    wb.close()
+    return SheetPayload("📋 BEO Prep", BEO_PREP_HEADER, rows)
 
 
 # ── Sysco Purchase History (line-item rows keyed by SUPC) ────────
@@ -919,14 +990,6 @@ def build_deferred_todos() -> SheetPayload:
     header = ["deferred_sheet", "blocker", "next_step"]
     rows = [
         [
-            "📋 BEO Prep",
-            "Per-event kitchen prep sheets exist as a second sheet in some BEO "
-            "xlsx files ('BEO Kitchen *' sheets in the master). Not all events "
-            "have one, and the layout varies per event.",
-            "Add parse_beo_prep(wb) + append to the output; emit a warning "
-            "for events without a prep sheet instead of failing.",
-        ],
-        [
             "📊 Dashboard (with charts)",
             "openpyxl chart API works but the axis/category binding is fiddly "
             "and the old Dashboard had 3 charts plus a KPI card grid.",
@@ -1022,6 +1085,8 @@ def main(argv: list[str] | None = None) -> int:
 
     shamrock_orders = build_shamrock_orders(master_xlsx)
     print(f"  shamrock orders:        {shamrock_orders.row_count()} rows")
+    beo_prep = build_beo_prep_ref(master_xlsx)
+    print(f"  BEO prep rows:          {beo_prep.row_count()}")
 
     # Derived sheets.
     mpc = build_master_product_catalog(shamrock, sysco_ph, sysco_beo)
@@ -1044,6 +1109,7 @@ def main(argv: list[str] | None = None) -> int:
         shamrock_orders,
         pricing_trends,
         beo,
+        beo_prep,
         comparison,
         *toast_analytics,
         shamrock,
