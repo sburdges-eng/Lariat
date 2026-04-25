@@ -356,6 +356,18 @@ class NormalizeUSDATest(unittest.TestCase):
         self.assertTrue((self.output_dir / "nutrients.jsonl").exists())
         self.assertTrue((self.output_dir / "manifest.json").exists())
 
+    def test_stale_tmp_dir_swept_on_startup(self) -> None:
+        # Simulate an aborted prior run by creating a stale tmp dir under
+        # the output dir. The normalizer must remove it before kicking off
+        # a fresh run (and BEFORE the idempotency check, so a stale tmp
+        # alongside valid outputs doesn't survive).
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        stale = self.output_dir / ".tmp_usda_sort_dummy"
+        stale.mkdir()
+        (stale / "chunk-00000.jsonl").write_text("garbage\n", encoding="utf-8")
+        self._run()
+        self.assertFalse(stale.exists(), "stale tmp dir should be swept")
+
 
 # ---------------------------------------------------------------------------
 # Edge-case tests (I-6): empty archives, missing files, ties, unsorted input,

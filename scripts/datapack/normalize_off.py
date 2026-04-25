@@ -499,7 +499,7 @@ def _build_manifest(
     }
     return {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "input_file": str(input_file),
+        "input_file": input_file.name,  # basename only — keep manifest portable
         "input_bytes": input_file.stat().st_size,
         "row_counts": {
             "total_input": counters.get("total_input", 0),

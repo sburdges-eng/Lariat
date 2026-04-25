@@ -416,7 +416,7 @@ def _external_sort_nutrients(
     deterministically rather than by the lexical ordering of the JSON line.
     """
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_dir = Path(tempfile.mkdtemp(prefix="usda_nutrients_", dir=str(out_path.parent)))
+    tmp_dir = Path(tempfile.mkdtemp(prefix=".tmp_usda_sort_", dir=str(out_path.parent)))
     chunk_paths: list[Path] = []
     by_archive_final: dict[str, int] = {k: 0 for k in ARCHIVE_ORDER}
     total = 0
@@ -587,12 +587,21 @@ def normalize(
     force: bool = False,
     chunk_rows: int = CHUNK_ROWS,
 ) -> dict:
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Sweep stale external-sort tmp dirs from prior aborted runs (SIGKILL,
+    # OOM, kernel termination skip our try/finally cleanup). These are
+    # always garbage — sweep regardless of --force or idempotency state.
+    for stale in output_dir.glob(".tmp_usda_sort_*"):
+        if stale.is_dir():
+            print(f"  ↻ Sweeping stale tmp dir: {stale.name}")
+            shutil.rmtree(stale, ignore_errors=True)
+
     if not force and _is_already_normalized(output_dir):
         manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
         print(f"✓ already normalized — outputs match manifest sha256 in {output_dir}")
         return manifest
 
-    output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Lariat USDA normalizer")
     print(f"  input : {input_root}")
     print(f"  output: {output_dir}")
