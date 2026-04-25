@@ -22,6 +22,7 @@ backups/
 .hf_cache/
 .hf_manual/
 .claude/
+worktrees/
 tsconfig.tsbuildinfo
 *.bak_*
 .lariat_install_opened
@@ -70,3 +71,11 @@ lariat-kms/
 
 # Any DOCX (HR write-ups, manuals)
 *.docx
+
+# ── Data Pack (external SSD via symlink) ──────────────────────
+# Raw downloads, extracted data, indexes — all on external drive
+data/lariat-data/raw/
+data/lariat-data/normalized/
+data/lariat-data/indexes/
+# Keep manifests tracked (small JSON metadata)
+!data/lariat-data/manifests/
