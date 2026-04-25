@@ -227,18 +227,34 @@ export async function POST(req) {
       if (!Number.isInteger(event_id) || !task) {
         return Response.json({ error: 'event_id and task required' }, { status: 400 });
       }
-      const info = db
-        .prepare(
-          `INSERT INTO beo_prep_tasks (event_id, task, due_date, done, sort_order, location_id) VALUES (?,?,?,?,?,?)`
-        )
-        .run(event_id, task, clip(body.due_date, 32), 0, Number(body.sort_order) || 0, loc);
-      return Response.json({ ok: true, id: info.lastInsertRowid });
+      const newId = db.transaction(() => {
+        const info = db
+          .prepare(
+            `INSERT INTO beo_prep_tasks (event_id, task, due_date, done, sort_order, location_id) VALUES (?,?,?,?,?,?)`
+          )
+          .run(event_id, task, clip(body.due_date, 32), 0, Number(body.sort_order) || 0, loc);
+        const id = Number(info.lastInsertRowid);
+        postAuditEvent({
+          entity: 'beo_prep_tasks', entity_id: id, action: 'insert',
+          actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
+          location_id: loc, payload: { event_id, task },
+        });
+        return id;
+      })();
+      return Response.json({ ok: true, id: newId });
     }
 
     if (body.action === 'prep_done') {
       const id = Number(body.id);
       if (!Number.isInteger(id)) return Response.json({ error: 'id required' }, { status: 400 });
-      db.prepare(`UPDATE beo_prep_tasks SET done = ? WHERE id = ?`).run(body.done ? 1 : 0, id);
+      db.transaction(() => {
+        db.prepare(`UPDATE beo_prep_tasks SET done = ? WHERE id = ?`).run(body.done ? 1 : 0, id);
+        postAuditEvent({
+          entity: 'beo_prep_tasks', entity_id: id, action: 'update',
+          actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
+          location_id: loc, payload: { done: body.done ? 1 : 0 },
+        });
+      })();
       return Response.json({ ok: true });
     }
 

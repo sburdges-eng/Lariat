@@ -1061,7 +1061,8 @@ export function initSchema(db: DB): void {
       ON vendor_prices_history(ingredient);
 
     CREATE TABLE IF NOT EXISTS recipe_costs (
-      recipe_id TEXT PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      recipe_id TEXT NOT NULL,
       recipe_name TEXT,
       category TEXT,
       yield REAL,
@@ -1072,7 +1073,8 @@ export function initSchema(db: DB): void {
       total_lines INTEGER,
       interpretations INTEGER,
       location_id TEXT DEFAULT 'default',
-      imported_at TEXT DEFAULT (datetime('now'))
+      imported_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(location_id, recipe_id)
     );
 
     CREATE TABLE IF NOT EXISTS margin_snapshots (
@@ -2246,6 +2248,50 @@ function migrateLegacyColumns(db: DB): void {
     if (cols.length === 0) continue; // table doesn't exist in this build
     if (!cols.includes('archived_at')) {
       try { db.exec(`ALTER TABLE ${tbl} ADD COLUMN archived_at TEXT`); } catch { /* ignore */ }
+    }
+  }
+
+  // recipe_costs was originally created with `recipe_id TEXT PRIMARY KEY`
+  // which blocks multi-location (same recipe_id can't exist in two
+  // locations). Rebuild to `id INTEGER PRIMARY KEY AUTOINCREMENT` +
+  // `UNIQUE(location_id, recipe_id)` matching all other location-scoped
+  // tables.
+  const rcCols = t('recipe_costs');
+  if (rcCols.length > 0 && !rcCols.includes('id')) {
+    try {
+      db.exec(`
+        BEGIN;
+        ALTER TABLE recipe_costs RENAME TO recipe_costs_old;
+        CREATE TABLE recipe_costs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          recipe_id TEXT NOT NULL,
+          recipe_name TEXT,
+          category TEXT,
+          yield REAL,
+          yield_unit TEXT,
+          batch_cost REAL,
+          cost_per_yield_unit REAL,
+          costed_lines INTEGER,
+          total_lines INTEGER,
+          interpretations INTEGER,
+          location_id TEXT DEFAULT 'default',
+          imported_at TEXT DEFAULT (datetime('now')),
+          UNIQUE(location_id, recipe_id)
+        );
+        INSERT INTO recipe_costs
+          (recipe_id, recipe_name, category, yield, yield_unit, batch_cost,
+           cost_per_yield_unit, costed_lines, total_lines, interpretations,
+           location_id, imported_at)
+        SELECT recipe_id, recipe_name, category, yield, yield_unit, batch_cost,
+               cost_per_yield_unit, costed_lines, total_lines, interpretations,
+               location_id, imported_at
+          FROM recipe_costs_old;
+        DROP TABLE recipe_costs_old;
+        COMMIT;
+      `);
+    } catch (err) {
+      try { db.exec('ROLLBACK'); } catch { /* ignore */ }
+      console.error('recipe_costs PK migration failed:', err);
     }
   }
 }

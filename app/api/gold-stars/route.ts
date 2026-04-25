@@ -4,7 +4,7 @@ import { postAuditEvent } from '../../../lib/auditEvents';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req) {
+export async function GET(req: Request) {
   const db = getDb();
   const loc = locationFromRequest(req);
   
@@ -15,7 +15,7 @@ export async function GET(req) {
   return Response.json(rows);
 }
 
-export async function POST(req) {
+export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { cook_name, reason, stars } = body;

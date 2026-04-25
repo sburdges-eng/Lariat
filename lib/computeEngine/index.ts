@@ -77,6 +77,39 @@ function pruneSnapshotTable(
   ).run(locationId, locationId, retain);
 }
 
+/**
+ * Read the most recent `accounting_variance` row for a location, or
+ * `null` when no computation has run yet. Used by the costing page
+ * dashboard tile.
+ */
+export function readLatestAccountingVariance(
+  db: ReturnType<typeof getDb>,
+  locationId: string,
+): {
+  theoretical_cogs: number;
+  actual_cogs: number;
+  variance_amount: number;
+  variance_pct: number;
+  snapshot_at: string;
+} | null {
+  return (
+    (db
+      .prepare(
+        `SELECT theoretical_cogs, actual_cogs, variance_amount, variance_pct, snapshot_at
+           FROM accounting_variance
+          WHERE location_id = ?
+          ORDER BY id DESC LIMIT 1`,
+      )
+      .get(locationId) as {
+      theoretical_cogs: number;
+      actual_cogs: number;
+      variance_amount: number;
+      variance_pct: number;
+      snapshot_at: string;
+    } | undefined) ?? null
+  );
+}
+
 export {
   recomputeRecipeCosts,
   recomputeMarginAnalysis,

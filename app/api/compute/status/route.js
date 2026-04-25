@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
-import { triggerComputeEngine } from '@/lib/computeEngine';
+import { triggerComputeEngine } from '@/lib/computeEngine/index';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);

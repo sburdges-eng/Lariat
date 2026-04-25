@@ -24,7 +24,7 @@ import {
   validateReceivingReading,
 } from '../../../lib/receiving';
 import { postAuditEvent } from '../../../lib/auditEvents';
-import { triggerComputeEngine } from '../../../lib/computeEngine';
+import { triggerComputeEngine } from '../../../lib/computeEngine/index';
 
 export const dynamic = 'force-dynamic';
 

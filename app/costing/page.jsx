@@ -17,6 +17,7 @@ import {
   readLastCostingIngest,
 } from '../../lib/costingBenchmarks.mjs';
 import { computeDishCoverage } from '../../lib/dishCostBridge';
+import { readLatestAccountingVariance } from '../../lib/computeEngine/index';
 
 export const dynamic = 'force-dynamic';
 
@@ -147,7 +148,7 @@ export default function CostingPage() {
 
         {/* Compute Engine: Accounting Variance */}
         {(() => {
-          const v = db.prepare('SELECT variance_pct, variance_amount, theoretical_cogs FROM accounting_variance WHERE location_id = ? ORDER BY id DESC LIMIT 1').get(loc);
+          const v = readLatestAccountingVariance(db, loc);
           return (
             <div className="card" style={{ borderColor: (v && v.variance_pct > 5) ? 'var(--red)' : 'var(--green)' }}>
               <div className="kpi-label">Accounting Variance</div>

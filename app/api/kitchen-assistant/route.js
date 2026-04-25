@@ -7,6 +7,7 @@ import {
   ollamaChat,
 } from '../../../lib/ollama';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
+import { postAuditEvent } from '../../../lib/auditEvents';
 import {
   CalculatorError,
   expandForBEO,
@@ -209,8 +210,15 @@ ARITHMETIC & VALIDATION RULE: The server runs a deterministic calculator and FDA
             actionExecuted = true;
             console.error(`\n🔍 [86 BLOCKED]: ${payload.item} — inventory shows ${invRow.base_qty} ${invRow.unit || ''}\n`);
           } else {
-            const stmt = db.prepare('INSERT INTO eighty_six (location_id, item, shift_date, created_at, reason) VALUES (?, ?, ?, ?, ?)');
-            stmt.run(locationId, itemName, todayISO(), new Date().toISOString(), clip(payload.reason, MAX_NOTE) || 'AI Update');
+            db.transaction(() => {
+              const info = db.prepare('INSERT INTO eighty_six (location_id, item, shift_date, created_at, reason) VALUES (?, ?, ?, ?, ?)')
+                .run(locationId, itemName, todayISO(), new Date().toISOString(), clip(payload.reason, MAX_NOTE) || 'AI Update');
+              postAuditEvent({
+                entity: 'eighty_six', entity_id: Number(info.lastInsertRowid), action: 'insert',
+                actor_cook_id: null, actor_source: 'kitchen_assistant',
+                location_id: locationId, payload: { item: itemName, reason: payload.reason },
+              });
+            })();
             actionMsg = `Marked ${payload.item} as 86'd.`;
             actionExecuted = true;
             console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - 86'd ${payload.item} ⚠️\n`);
@@ -224,8 +232,17 @@ ARITHMETIC & VALIDATION RULE: The server runs a deterministic calculator and FDA
           } else {
             deltaStr = clip(payload.delta, 64);
           }
-          const stmt = db.prepare('INSERT INTO inventory_updates (location_id, item, shift_date, created_at, delta, direction) VALUES (?, ?, ?, ?, ?, ?)');
-          stmt.run(locationId, clip(payload.item, MAX_ITEM), todayISO(), new Date().toISOString(), deltaStr, clip(payload.direction, 16) || null);
+          const itemClip = clip(payload.item, MAX_ITEM);
+          const direction = clip(payload.direction, 16) || null;
+          db.transaction(() => {
+            const info = db.prepare('INSERT INTO inventory_updates (location_id, item, shift_date, created_at, delta, direction) VALUES (?, ?, ?, ?, ?, ?)')
+              .run(locationId, itemClip, todayISO(), new Date().toISOString(), deltaStr, direction);
+            postAuditEvent({
+              entity: 'inventory_updates', entity_id: Number(info.lastInsertRowid), action: 'insert',
+              actor_cook_id: null, actor_source: 'kitchen_assistant',
+              location_id: locationId, payload: { item: itemClip, delta: deltaStr, direction },
+            });
+          })();
           actionMsg = `Logged inventory update for ${payload.item}.`;
           actionExecuted = true;
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Inventory Update ${payload.item} ⚠️\n`);
@@ -250,8 +267,17 @@ ARITHMETIC & VALIDATION RULE: The server runs a deterministic calculator and FDA
             }
           }
 
-          const stmt = db.prepare('INSERT INTO line_check_entries (location_id, shift_date, station_id, item, status, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
-          stmt.run(locationId, todayISO(), clip(payload.station, 64), clip(payload.item, MAX_ITEM), status, note, new Date().toISOString());
+          const stationClip = clip(payload.station, 64);
+          const itemClip = clip(payload.item, MAX_ITEM);
+          db.transaction(() => {
+            const info = db.prepare('INSERT INTO line_check_entries (location_id, shift_date, station_id, item, status, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+              .run(locationId, todayISO(), stationClip, itemClip, status, note, new Date().toISOString());
+            postAuditEvent({
+              entity: 'line_check_entries', entity_id: Number(info.lastInsertRowid), action: 'insert',
+              actor_cook_id: null, actor_source: 'kitchen_assistant',
+              location_id: locationId, payload: { station: stationClip, item: itemClip, status, reading_f: Number.isFinite(readingF) ? readingF : null },
+            });
+          })();
           actionMsg = `Logged line check for ${payload.item}${Number.isFinite(readingF) ? ` at ${readingF}°F` : ''} (${status}).`;
           actionExecuted = true;
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - HACCP Line Check: ${payload.item} (${status}) ⚠️\n`);
@@ -264,8 +290,15 @@ ARITHMETIC & VALIDATION RULE: The server runs a deterministic calculator and FDA
             actionExecuted = true;
           } else {
             const issueString = clip(`Broken: ${payload.equipment}. Issue: ${payload.issue || 'n/a'}`, MAX_NOTE);
-            const stmt = db.prepare('INSERT INTO equipment_maintenance (location_id, equipment_id, service_date, type, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)');
-            stmt.run(locationId, equipId, todayISO(), 'repair_request', issueString, new Date().toISOString());
+            db.transaction(() => {
+              const info = db.prepare('INSERT INTO equipment_maintenance (location_id, equipment_id, service_date, type, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+                .run(locationId, equipId, todayISO(), 'repair_request', issueString, new Date().toISOString());
+              postAuditEvent({
+                entity: 'equipment_maintenance', entity_id: Number(info.lastInsertRowid), action: 'insert',
+                actor_cook_id: null, actor_source: 'kitchen_assistant',
+                location_id: locationId, payload: { equipment: payload.equipment, issue: payload.issue, equipment_id: equipId },
+              });
+            })();
             actionMsg = `Submitted maintenance ticket for ${payload.equipment}.`;
             actionExecuted = true;
             console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Maintenance Ticket: ${payload.equipment} ⚠️\n`);
@@ -296,6 +329,13 @@ ARITHMETIC & VALIDATION RULE: The server runs a deterministic calculator and FDA
                     new Date().toISOString()
                   );
                 }
+                postAuditEvent({
+                  entity: 'line_check_entries', entity_id: null, action: 'insert',
+                  actor_cook_id: null, actor_source: 'kitchen_assistant',
+                  location_id: locationId,
+                  payload: { recipe: result.recipeSlug, scaleFactor: result.scaleFactor, leafCount: result.leafRows.length },
+                  note: `scale_recipe: ${result.leafRows.length} leaf rows`,
+                });
               })();
               actionMsg = `Scaled ${result.recipeSlug} to ${result.targetQty} ${result.targetUnit} (×${result.scaleFactor}). ${tasks.length} ingredient line${tasks.length === 1 ? '' : 's'} — values from deterministic calculator.`;
               actionExecuted = true;
@@ -309,9 +349,18 @@ ARITHMETIC & VALIDATION RULE: The server runs a deterministic calculator and FDA
           }
         } else if (payload.action === 'update_order_guide' && payload.item) {
           const rawUnit = payload.unit ? normalizeUnit(payload.unit) : 'ea';
-          const stmt = db.prepare('INSERT INTO order_guide_items (location_id, ingredient, base_qty, unit, imported_at) VALUES (?, ?, ?, ?, ?)');
-          stmt.run(locationId, clip(payload.item, MAX_ITEM), payload.qty || 1, clip(rawUnit, 16), new Date().toISOString());
-          actionMsg = `Added ${payload.qty || 1} ${rawUnit} of ${payload.item} to the Order Guide.`;
+          const itemClip = clip(payload.item, MAX_ITEM);
+          const qty = payload.qty || 1;
+          db.transaction(() => {
+            const info = db.prepare('INSERT INTO order_guide_items (location_id, ingredient, base_qty, unit, imported_at) VALUES (?, ?, ?, ?, ?)')
+              .run(locationId, itemClip, qty, clip(rawUnit, 16), new Date().toISOString());
+            postAuditEvent({
+              entity: 'order_guide_items', entity_id: Number(info.lastInsertRowid), action: 'insert',
+              actor_cook_id: null, actor_source: 'kitchen_assistant',
+              location_id: locationId, payload: { item: itemClip, qty, unit: rawUnit },
+            });
+          })();
+          actionMsg = `Added ${qty} ${rawUnit} of ${payload.item} to the Order Guide.`;
           actionExecuted = true;
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Order Guide Updated: ${payload.item} ⚠️\n`);
         } else if (payload.action === 'beo_add_prep' && payload.event_id && Array.isArray(payload.tasks)) {
@@ -356,14 +405,30 @@ ARITHMETIC & VALIDATION RULE: The server runs a deterministic calculator and FDA
             for (const t of finalTasks) {
               stmt.run(locationId, payload.event_id, clip(typeof t === 'string' ? t : String(t ?? ''), MAX_NOTE));
             }
+            postAuditEvent({
+              entity: 'beo_prep_tasks', entity_id: null, action: 'insert',
+              actor_cook_id: null, actor_source: 'kitchen_assistant',
+              location_id: locationId,
+              payload: { event_id: payload.event_id, taskCount: finalTasks.length, calcScaled: calcTasks.length > 0 },
+              note: `beo_add_prep: ${finalTasks.length} tasks`,
+            });
           })();
           actionMsg = `Added ${finalTasks.length} ${calcTasks.length > 0 ? 'calculator-scaled' : 'scaled'} side-prep tasks to BEO ID ${payload.event_id}.${calcNotes.length ? ' ' + calcNotes.join(' ') : ''}`;
           actionExecuted = true;
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Added ${finalTasks.length} prep tasks to BEO ${payload.event_id} (calc=${calcTasks.length > 0}) ⚠️\n`);
         } else if (payload.action === 'give_gold_star' && payload.cook_name) {
-          const stmt = db.prepare('INSERT INTO gold_stars (location_id, cook_name, reason, stars) VALUES (?, ?, ?, ?)');
           const starVal = Math.min(Math.max(Number(payload.stars) || 1, 1), 3);
-          stmt.run(locationId, clip(payload.cook_name, 64), clip(payload.reason || 'Exceptional performance', MAX_NOTE), starVal);
+          const cookName = clip(payload.cook_name, 64);
+          const reasonClip = clip(payload.reason || 'Exceptional performance', MAX_NOTE);
+          db.transaction(() => {
+            const info = db.prepare('INSERT INTO gold_stars (location_id, cook_name, reason, stars) VALUES (?, ?, ?, ?)')
+              .run(locationId, cookName, reasonClip, starVal);
+            postAuditEvent({
+              entity: 'gold_stars', entity_id: Number(info.lastInsertRowid), action: 'insert',
+              actor_cook_id: null, actor_source: 'kitchen_assistant',
+              location_id: locationId, payload: { cook_name: cookName, reason: reasonClip, stars: starVal },
+            });
+          })();
           actionMsg = `Awarded ${starVal} Gold Star(s) to ${payload.cook_name} for HR recognition.`;
           actionExecuted = true;
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - HR RECOGNITION: ${starVal} Gold Star(s) awarded to ${payload.cook_name} ⚠️\n`);
@@ -389,8 +454,16 @@ ARITHMETIC & VALIDATION RULE: The server runs a deterministic calculator and FDA
             }
           }
 
-          const stmt = db.prepare('INSERT INTO line_check_entries (location_id, shift_date, station_id, item, status, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
-          stmt.run(locationId, todayISO(), 'haccp_receiving', clip(payload.item, MAX_ITEM), status, note, new Date().toISOString());
+          const itemClip = clip(payload.item, MAX_ITEM);
+          db.transaction(() => {
+            const info = db.prepare('INSERT INTO line_check_entries (location_id, shift_date, station_id, item, status, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+              .run(locationId, todayISO(), 'haccp_receiving', itemClip, status, note, new Date().toISOString());
+            postAuditEvent({
+              entity: 'line_check_entries', entity_id: Number(info.lastInsertRowid), action: 'insert',
+              actor_cook_id: null, actor_source: 'kitchen_assistant',
+              location_id: locationId, payload: { item: itemClip, category: payload.category, status, reading_f: Number.isFinite(readingF) ? readingF : null },
+            });
+          })();
           actionMsg = `Logged HACCP receiving for ${payload.item} (${status}).`;
           actionExecuted = true;
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - HACCP Receiving: ${payload.item} (${status}) ⚠️\n`);
@@ -443,6 +516,13 @@ ARITHMETIC & VALIDATION RULE: The server runs a deterministic calculator and FDA
             for (const row of prepRows) {
               stmt.run(...row);
             }
+            postAuditEvent({
+              entity: 'line_check_entries', entity_id: null, action: 'insert',
+              actor_cook_id: null, actor_source: 'kitchen_assistant',
+              location_id: locationId,
+              payload: { station: payload.station, taskCount: prepRows.length, calcReplacements, calcFailures },
+              note: `generate_prep: ${prepRows.length} rows`,
+            });
           })();
           const calcSuffix =
             calcReplacements > 0

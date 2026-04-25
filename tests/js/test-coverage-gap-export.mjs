@@ -111,7 +111,7 @@ function seedRecipeCost(slug, name, costPerYield, yieldUnit) {
     `INSERT INTO recipe_costs
        (recipe_id, recipe_name, cost_per_yield_unit, yield_unit, location_id)
      VALUES (?, ?, ?, ?, 'default')
-     ON CONFLICT(recipe_id) DO UPDATE SET
+     ON CONFLICT(location_id, recipe_id) DO UPDATE SET
        recipe_name = excluded.recipe_name,
        cost_per_yield_unit = excluded.cost_per_yield_unit,
        yield_unit = excluded.yield_unit`,
