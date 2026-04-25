@@ -550,6 +550,15 @@ def normalize(
     force: bool = False,
     chunk_rows: int = CHUNK_ROWS,
 ) -> dict:
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Sweep stale external-sort tmp dirs from prior aborted runs (SIGKILL,
+    # OOM, kernel termination skip our try/finally cleanup). These are
+    # always garbage — sweep regardless of --force or idempotency state.
+    for stale in output_dir.glob(".tmp_off_sort_*"):
+        print(f"  cleaning stale tmp dir: {stale.name}")
+        shutil.rmtree(stale, ignore_errors=True)
+
     if not force and _is_already_normalized(output_dir):
         manifest = json.loads(
             (output_dir / "manifest.json").read_text(encoding="utf-8")
@@ -557,7 +566,6 @@ def normalize(
         print(f"✓ already normalized — outputs match manifest sha256 in {output_dir}")
         return manifest
 
-    output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Lariat OFF normalizer")
     print(f"  input : {input_file}")
     print(f"  output: {output_dir}")

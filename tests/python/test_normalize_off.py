@@ -346,6 +346,47 @@ class NormalizeOFFTest(unittest.TestCase):
         self.assertNotIn("en:gluten", summary["allergens"])
         self.assertNotIn("en:eggs", summary["allergens"])
 
+    # --- 4b. Duplicate code across chunks → first wins ---------------------
+    def test_duplicate_code_across_chunks_first_wins(self) -> None:
+        """Reviewer note: test 4 covers within-chunk dedup, test 6 covers
+        reverse-sort across chunks. This test covers BOTH paths together —
+        same `code` at row 0 and row 5 with chunk_rows=2 puts the first
+        occurrence in chunk 0 and the duplicate in chunk 2, so the
+        first-occurrence-wins rule is enforced by the merge step (chunk_idx
+        secondary key in heapq.merge), not by within-chunk sorting."""
+        rows = [
+            _make_row(code="0000000000010", product_name="First Wins (chunk 0)",
+                      allergens="en:milk"),
+            _make_row(code="0000000000020", product_name="Other 1"),
+            _make_row(code="0000000000030", product_name="Other 2"),
+            _make_row(code="0000000000040", product_name="Other 3"),
+            _make_row(code="0000000000050", product_name="Other 4"),
+            _make_row(code="0000000000010", product_name="Dup Loses (chunk 2)",
+                      allergens="en:gluten"),
+        ]
+        _write_tsv(self.input_file, HEADER, rows)
+        manifest = self._run()
+        products = _read_jsonl(self.output_dir / "branded_products.jsonl")
+        # 6 input rows, 1 dup → 5 emitted.
+        self.assertEqual(len(products), 5)
+        by_code = {p["code"]: p for p in products}
+        self.assertEqual(
+            by_code["0000000000010"]["product_name"], "First Wins (chunk 0)"
+        )
+        self.assertEqual(
+            by_code["0000000000010"]["allergens_tags"], ["en:milk"]
+        )
+        self.assertEqual(manifest["row_counts"]["duplicate_codes_skipped"], 1)
+        self.assertEqual(manifest["row_counts"]["emitted"], 5)
+        self.assertEqual(manifest["row_counts"]["total_input"], 6)
+        # Allergen counts: only en:milk should appear (from First Wins).
+        # The losing duplicate's en:gluten must NOT contribute.
+        summary = json.loads(
+            (self.output_dir / "allergens.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(summary["allergens"], {"en:milk": 1})
+        self.assertNotIn("en:gluten", summary["allergens"])
+
     # --- 5. Empty allergens / traces ----------------------------------------
     def test_empty_tag_columns_emit_empty_arrays_and_skip_aggregation(self) -> None:
         rows = [
@@ -433,14 +474,20 @@ class NormalizeOFFTest(unittest.TestCase):
         ]
         _write_tsv(self.input_file, HEADER, rows)
         m1 = self._run()
+        # Capture allergens.json content from m1 BEFORE the force rebuild
+        # clobbers it. Reading it twice after m2 would be a placebo (always
+        # equal regardless of determinism).
+        s1 = json.loads(
+            (self.output_dir / "allergens.json").read_text(encoding="utf-8")
+        )
         m2 = normalize(
             input_file=self.input_file,
             output_dir=self.output_dir,
             force=True,
             chunk_rows=2,
         )
-        # branded_products.jsonl + allergens.json have NO generated_at field
-        # (inside the data) — sha must match exactly.
+        # branded_products.jsonl has NO generated_at field — sha must match
+        # exactly across runs.
         self.assertEqual(
             m1["outputs"]["branded_products.jsonl"]["sha256"],
             m2["outputs"]["branded_products.jsonl"]["sha256"],
@@ -450,10 +497,11 @@ class NormalizeOFFTest(unittest.TestCase):
             m2["outputs"]["branded_products.jsonl"]["bytes"],
         )
         # allergens.json HAS generated_at, so its sha will differ. But the
-        # underlying counts dicts must be identical.
-        s1 = json.loads((self.output_dir / "allergens.json").read_text(encoding="utf-8"))
-        # Force again to capture m2's allergens.json content
-        s2 = json.loads((self.output_dir / "allergens.json").read_text(encoding="utf-8"))
+        # underlying counts dicts must be identical between m1 (s1, captured
+        # above) and m2 (s2, read now).
+        s2 = json.loads(
+            (self.output_dir / "allergens.json").read_text(encoding="utf-8")
+        )
         self.assertEqual(s1["allergens"], s2["allergens"])
         self.assertEqual(s1["traces"], s2["traces"])
         self.assertEqual(s1["total_products"], s2["total_products"])
