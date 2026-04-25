@@ -35,10 +35,9 @@ Writes `XL/Lariat_Unified_Workbook_2026-04-24.xlsx` with:
   - ref — Sysco BEO Basics
   - ref — Toast MenuItems
   - ref — Webstaurantstore Spend
-  - 📋 Deferred TODOs         (explicit list of what this build skipped)
-
-Not yet generated (see "📋 Deferred TODOs" sheet for rationale):
-  - 📊 Dashboard with charts (openpyxl charts are fiddly; deferred)
+  - 📊 Dashboard              (KPIs + 3 charts: yearly sales, top categories,
+                                labor % monthly)
+  - 📋 Deferred TODOs         (currently empty — all deferred items have landed)
 
 Usage:
   python3 scripts/build_unified_workbook.py \
@@ -61,6 +60,7 @@ from typing import Any, Iterable
 
 import openpyxl
 from openpyxl import Workbook
+from openpyxl.chart import BarChart, LineChart, Reference
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
@@ -988,22 +988,363 @@ def build_schema_documentation(counts: dict[str, int]) -> SheetPayload:
 
 def build_deferred_todos() -> SheetPayload:
     header = ["deferred_sheet", "blocker", "next_step"]
-    rows = [
-        [
-            "📊 Dashboard (with charts)",
-            "openpyxl chart API works but the axis/category binding is fiddly "
-            "and the old Dashboard had 3 charts plus a KPI card grid.",
-            "Defer to a follow-up PR; the Toast Analytics sheets already give "
-            "operators a numeric readout of the same data.",
-        ],
-    ]
+    rows: list[list[Any]] = []  # all previously-deferred items now landed
     return SheetPayload("📋 Deferred TODOs", header, rows)
+
+
+# ── Dashboard (KPIs + charts) ────────────────────────────────────
+
+
+@dataclass
+class DashboardData:
+    """Inputs for the dashboard sheet — passed in already-built so the
+    dashboard builder doesn't reach back into archive paths."""
+    yearly_sales: SheetPayload    # cols: year, net_sales, gross_sales, orders, checks, guests, ...
+    sales_by_cat: SheetPayload    # cols: year, sales_category, net_sales
+    labor_monthly: SheetPayload   # cols: month, net_sales, total_hours, total_cost, splh, labor_pct
+    pricing_trends: SheetPayload  # for KPI: count of items with |pct_change| > 25%
+    mtl: SheetPayload             # for KPI: total Shamrock purchase $
+    beo: SheetPayload             # for KPI: count of distinct BEO events
+
+
+_TITLE_FONT = Font(bold=True, size=16, color="1B4332")
+_SECTION_FONT = Font(bold=True, size=12, color="2D6A4F")
+_KPI_LABEL_FONT = Font(bold=True, size=10, color="555555")
+_KPI_VALUE_FONT = Font(bold=True, size=14, color="1B4332")
+_KPI_FILL = PatternFill("solid", fgColor="D8F3DC")
+
+
+def _to_float(v: Any) -> float | None:
+    if v is None:
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    s = str(v).strip().replace("$", "").replace(",", "").replace("%", "")
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def _yearly_kpis(yearly: SheetPayload, target_year: int) -> dict[str, Any]:
+    """Pluck a single year's row out of Toast Yearly Sales."""
+    out: dict[str, Any] = {
+        "net_sales": None, "labor_cost": None, "labor_pct": None,
+        "orders": None, "guests": None,
+    }
+    if not yearly.rows:
+        return out
+    # Schema: year, net_sales, gross_sales, orders, checks, guests, ...
+    for r in yearly.rows:
+        if not r:
+            continue
+        y = _to_float(r[0])
+        if y is None or int(y) != target_year:
+            continue
+        out["net_sales"] = _to_float(r[1])
+        out["orders"] = _to_float(r[3]) if len(r) > 3 else None
+        out["guests"] = _to_float(r[5]) if len(r) > 5 else None
+        break
+    return out
+
+
+def _labor_year_totals(labor_monthly: SheetPayload) -> dict[str, float | None]:
+    """Sum labor cost + net sales across the months in `labor_monthly`. The
+    sheet only ever contains the most recent rolling year, so summing it
+    gives a year total — no year filter needed."""
+    total_cost = 0.0
+    total_net = 0.0
+    any_row = False
+    # Schema: month, net_sales, total_hours, total_cost, splh, labor_pct
+    for r in labor_monthly.rows:
+        if not r or len(r) < 4:
+            continue
+        net = _to_float(r[1])
+        cost = _to_float(r[3])
+        if net is not None:
+            total_net += net
+            any_row = True
+        if cost is not None:
+            total_cost += cost
+            any_row = True
+    if not any_row:
+        return {"labor_cost": None, "net_sales": None, "labor_pct": None}
+    pct = (total_cost / total_net) if total_net else None
+    return {"labor_cost": total_cost, "net_sales": total_net, "labor_pct": pct}
+
+
+def _shamrock_total_purchases(mtl: SheetPayload) -> float:
+    # MTL schema: txn_id, date, type, source_counterparty, ..., total_amount
+    total = 0.0
+    for r in mtl.rows:
+        if not r or len(r) < 10:
+            continue
+        if r[2] != "Purchase":
+            continue
+        amt = _to_float(r[9])
+        if amt is not None:
+            total += amt
+    return total
+
+
+def _beo_event_count(beo: SheetPayload) -> int:
+    seen: set[str] = set()
+    for r in beo.rows:
+        if not r:
+            continue
+        ef = r[0]
+        if ef:
+            seen.add(str(ef))
+    return len(seen)
+
+
+def _price_mover_count(pricing: SheetPayload, threshold: float = 0.25) -> int:
+    """Count items whose |pct_change| exceeds threshold (default 25%)."""
+    n = 0
+    # Schema: product_no, description, ..., pct_change (last col)
+    for r in pricing.rows:
+        if not r:
+            continue
+        pct = _to_float(r[-1])
+        if pct is not None and abs(pct) > threshold:
+            n += 1
+    return n
+
+
+def _yearly_sales_chart_block(yearly: SheetPayload) -> list[tuple[int, float]]:
+    """Returns (year, net_sales) ascending by year — chart-ready."""
+    pairs: list[tuple[int, float]] = []
+    for r in yearly.rows:
+        if not r:
+            continue
+        y = _to_float(r[0])
+        ns = _to_float(r[1])
+        if y is None or ns is None:
+            continue
+        pairs.append((int(y), ns))
+    pairs.sort(key=lambda x: x[0])
+    return pairs
+
+
+def _top_categories_block(
+    sales_by_cat: SheetPayload, target_year: int, top_n: int = 10
+) -> list[tuple[str, float]]:
+    rows: list[tuple[str, float]] = []
+    for r in sales_by_cat.rows:
+        if not r or len(r) < 3:
+            continue
+        y = _to_float(r[0])
+        if y is None or int(y) != target_year:
+            continue
+        cat = str(r[1]).strip() if r[1] else None
+        ns = _to_float(r[2])
+        if not cat or ns is None:
+            continue
+        rows.append((cat, ns))
+    rows.sort(key=lambda x: x[1], reverse=True)
+    return rows[:top_n]
+
+
+def _labor_monthly_block(labor_monthly: SheetPayload) -> list[tuple[int, float]]:
+    """Returns (month, labor_pct) ascending by month — chart-ready."""
+    pairs: list[tuple[int, float]] = []
+    for r in labor_monthly.rows:
+        if not r or len(r) < 6:
+            continue
+        m = _to_float(r[0])
+        pct = _to_float(r[5])  # may be a "%" string
+        if m is None or pct is None:
+            continue
+        # Normalize: source emits 27.6 as "27.6%" → /100. If value is already
+        # 0.276 we leave it.
+        if pct > 1:
+            pct = pct / 100
+        pairs.append((int(m), pct))
+    pairs.sort(key=lambda x: x[0])
+    return pairs
+
+
+def _write_kpi_card(
+    ws, *, row: int, col: int, label: str, value: str
+) -> None:
+    """A KPI card spans two cells: label cell + value cell."""
+    label_cell = ws.cell(row=row, column=col, value=label)
+    label_cell.font = _KPI_LABEL_FONT
+    label_cell.fill = _KPI_FILL
+    label_cell.alignment = Alignment(horizontal="left", vertical="center")
+    value_cell = ws.cell(row=row, column=col + 1, value=value)
+    value_cell.font = _KPI_VALUE_FONT
+    value_cell.fill = _KPI_FILL
+    value_cell.alignment = Alignment(horizontal="right", vertical="center")
+
+
+def _fmt_money(n: float | None) -> str:
+    if n is None:
+        return "—"
+    return f"${n:,.0f}"
+
+
+def _fmt_int(n: float | None) -> str:
+    if n is None:
+        return "—"
+    return f"{int(round(n)):,}"
+
+
+def _fmt_pct(p: float | None) -> str:
+    if p is None:
+        return "—"
+    return f"{p * 100:.1f}%"
+
+
+def _build_dashboard_sheet(wb: Workbook, data: DashboardData) -> None:
+    """Insert a 📊 Dashboard sheet at index 1 (after Schema Documentation).
+
+    Layout:
+      A1:H1     title
+      A4-H7     KPI grid (4 cards × 2 rows)
+      A11+      Yearly Net Sales chart + data block (data hidden in cols K-L)
+      A28+      Top Categories chart + data block (cols K-L below)
+      A45+      Labor % Monthly chart + data block (cols K-L below)
+    """
+    target_year = 2025  # the most recent full year in the Toast exports
+
+    # Insert at index 1 — Schema Documentation is index 0.
+    ws = wb.create_sheet(title="📊 Dashboard", index=1)
+
+    # ── Title ────────────────────────────────────────────────────
+    ws.cell(row=1, column=1, value="📊 LARIAT DASHBOARD").font = _TITLE_FONT
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=8)
+    ws.cell(
+        row=2, column=1,
+        value=f"Key metrics from Toast Analytics ({target_year}) + master purchase / event tables.",
+    ).font = Font(italic=True, color="666666")
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=8)
+
+    # ── KPIs ─────────────────────────────────────────────────────
+    yearly_kpi = _yearly_kpis(data.yearly_sales, target_year)
+    labor_totals = _labor_year_totals(data.labor_monthly)
+
+    ws.cell(row=4, column=1, value="KEY PERFORMANCE INDICATORS").font = _SECTION_FONT
+    ws.merge_cells(start_row=4, start_column=1, end_row=4, end_column=8)
+
+    # Row 5 — top KPI strip (Net Sales / Labor / Labor% / Orders)
+    _write_kpi_card(ws, row=5, col=1, label=f"Net Sales {target_year}",
+                    value=_fmt_money(yearly_kpi["net_sales"]))
+    _write_kpi_card(ws, row=5, col=3, label="Labor Cost (rolling year)",
+                    value=_fmt_money(labor_totals["labor_cost"]))
+    _write_kpi_card(ws, row=5, col=5, label="Labor % of Net (rolling)",
+                    value=_fmt_pct(labor_totals["labor_pct"]))
+    _write_kpi_card(ws, row=5, col=7, label=f"Orders {target_year}",
+                    value=_fmt_int(yearly_kpi["orders"]))
+
+    # Row 7 — bottom KPI strip (Guests / Shamrock $ / BEO Events / Price Movers)
+    _write_kpi_card(ws, row=7, col=1, label=f"Guests {target_year}",
+                    value=_fmt_int(yearly_kpi["guests"]))
+    _write_kpi_card(ws, row=7, col=3, label="Shamrock Purchase $ (lifetime)",
+                    value=_fmt_money(_shamrock_total_purchases(data.mtl)))
+    _write_kpi_card(ws, row=7, col=5, label="BEO Events Tracked",
+                    value=str(_beo_event_count(data.beo)))
+    _write_kpi_card(ws, row=7, col=7, label="Price Movers (>25% Δ)",
+                    value=str(_price_mover_count(data.pricing_trends)))
+
+    # KPI cards: widen the value columns so $ figures don't truncate.
+    for col in (1, 3, 5, 7):
+        ws.column_dimensions[get_column_letter(col)].width = 26
+        ws.column_dimensions[get_column_letter(col + 1)].width = 14
+    ws.row_dimensions[5].height = 22
+    ws.row_dimensions[7].height = 22
+
+    # ── Chart 1: Yearly Net Sales (line) ─────────────────────────
+    ws.cell(row=10, column=1, value="YEARLY NET SALES").font = _SECTION_FONT
+    yearly_block = _yearly_sales_chart_block(data.yearly_sales)
+    _write_chart_data(ws, start_row=11, header=("Year", "Net Sales"),
+                      rows=[(y, ns) for y, ns in yearly_block],
+                      data_col=11)  # K
+    if yearly_block:
+        chart = LineChart()
+        chart.title = f"Net Sales by Year ({yearly_block[0][0]}–{yearly_block[-1][0]})"
+        chart.y_axis.title = "Net Sales ($)"
+        chart.x_axis.title = "Year"
+        chart.height = 9
+        chart.width = 18
+        # Data block lives at K11 (header) → K12..K(11+n)
+        n = len(yearly_block)
+        data_ref = Reference(ws, min_col=12, max_col=12, min_row=11, max_row=11 + n)
+        cats_ref = Reference(ws, min_col=11, max_col=11, min_row=12, max_row=11 + n)
+        chart.add_data(data_ref, titles_from_data=True)
+        chart.set_categories(cats_ref)
+        ws.add_chart(chart, "A11")
+
+    # ── Chart 2: Top 10 Categories (bar) ─────────────────────────
+    ws.cell(row=28, column=1, value=f"TOP 10 SALES CATEGORIES — {target_year}").font = _SECTION_FONT
+    cat_block = _top_categories_block(data.sales_by_cat, target_year, top_n=10)
+    _write_chart_data(ws, start_row=29, header=("Category", "Net Sales"),
+                      rows=cat_block, data_col=11)
+    if cat_block:
+        chart = BarChart()
+        chart.type = "bar"  # horizontal — readable for category labels
+        chart.title = f"{target_year} Sales by Category (Top 10)"
+        chart.y_axis.title = "Category"
+        chart.x_axis.title = "Net Sales ($)"
+        chart.height = 11
+        chart.width = 18
+        n = len(cat_block)
+        data_ref = Reference(ws, min_col=12, max_col=12, min_row=29, max_row=29 + n)
+        cats_ref = Reference(ws, min_col=11, max_col=11, min_row=30, max_row=29 + n)
+        chart.add_data(data_ref, titles_from_data=True)
+        chart.set_categories(cats_ref)
+        chart.legend = None
+        ws.add_chart(chart, "A29")
+
+    # ── Chart 3: Labor % Monthly (line) ──────────────────────────
+    ws.cell(row=49, column=1, value="LABOR % OF NET SALES — BY MONTH").font = _SECTION_FONT
+    labor_block = _labor_monthly_block(data.labor_monthly)
+    _write_chart_data(ws, start_row=50, header=("Month", "Labor % of Net"),
+                      rows=labor_block, data_col=11)
+    if labor_block:
+        chart = LineChart()
+        chart.title = "Labor % of Net Sales by Month (rolling year)"
+        chart.y_axis.title = "Labor % of Net Sales"
+        chart.x_axis.title = "Month (1–12)"
+        chart.height = 9
+        chart.width = 18
+        n = len(labor_block)
+        data_ref = Reference(ws, min_col=12, max_col=12, min_row=50, max_row=50 + n)
+        cats_ref = Reference(ws, min_col=11, max_col=11, min_row=51, max_row=50 + n)
+        chart.add_data(data_ref, titles_from_data=True)
+        chart.set_categories(cats_ref)
+        ws.add_chart(chart, "A50")
+
+    # Hide the data-block column band (K=11, L=12) so the dashboard reads
+    # as cards + charts; the data is still present for the charts to bind to.
+    ws.column_dimensions["K"].hidden = True
+    ws.column_dimensions["L"].hidden = True
+    # Pin top rows so KPIs are always visible while scrolling.
+    ws.freeze_panes = "A4"
+
+
+def _write_chart_data(
+    ws, *, start_row: int, header: tuple[str, str],
+    rows: list[tuple[Any, Any]], data_col: int,
+) -> None:
+    """Write a small (label, value) data block with header into two
+    consecutive columns starting at (start_row, data_col)."""
+    ws.cell(row=start_row, column=data_col, value=header[0]).font = Font(bold=True)
+    ws.cell(row=start_row, column=data_col + 1, value=header[1]).font = Font(bold=True)
+    for i, r in enumerate(rows, start=1):
+        ws.cell(row=start_row + i, column=data_col, value=r[0])
+        ws.cell(row=start_row + i, column=data_col + 1, value=r[1])
 
 
 # ── Workbook writer ──────────────────────────────────────────────
 
 
-def write_workbook(path: Path, sheets: Iterable[SheetPayload]) -> None:
+def write_workbook(
+    path: Path,
+    sheets: Iterable[SheetPayload],
+    *,
+    dashboard: "DashboardData | None" = None,
+) -> None:
     wb = Workbook()
     # Remove the default sheet; we'll add our own.
     default = wb.active
@@ -1029,6 +1370,11 @@ def write_workbook(path: Path, sheets: Iterable[SheetPayload]) -> None:
             )
         if s.freeze_top:
             ws.freeze_panes = "A2"
+
+    # Dashboard sheet is built last so we can read SheetPayloads, but moved
+    # to position 1 (right after Schema Documentation) for visibility.
+    if dashboard is not None:
+        _build_dashboard_sheet(wb, dashboard)
 
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(str(path))
@@ -1123,8 +1469,29 @@ def main(argv: list[str] | None = None) -> int:
     schema = build_schema_documentation(counts)
     ordered.insert(0, schema)
 
-    write_workbook(output, ordered)
-    print(f"\n✅ wrote {output}  ({len(ordered)} sheets)")
+    # Dashboard inputs — look up by sheet name so the dashboard builder
+    # never has to know which CSV produced which payload.
+    by_name = {s.name: s for s in toast_analytics}
+    dashboard = DashboardData(
+        yearly_sales=by_name.get(
+            "📊 Toast Analytics — Yearly Sales",
+            SheetPayload("📊 Toast Analytics — Yearly Sales", []),
+        ),
+        sales_by_cat=by_name.get(
+            "📊 Toast Analytics — Sales By Category",
+            SheetPayload("📊 Toast Analytics — Sales By Category", []),
+        ),
+        labor_monthly=by_name.get(
+            "📊 Toast Analytics — Labor Monthly",
+            SheetPayload("📊 Toast Analytics — Labor Monthly", []),
+        ),
+        pricing_trends=pricing_trends,
+        mtl=mtl,
+        beo=beo,
+    )
+
+    write_workbook(output, ordered, dashboard=dashboard)
+    print(f"\n✅ wrote {output}  ({len(ordered) + 1} sheets, +1 dashboard)")
     return 0
 
 
