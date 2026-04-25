@@ -29,11 +29,13 @@ import sys
 import unittest
 from pathlib import Path
 from textwrap import dedent
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from scripts.datapack import normalize_wikibooks  # noqa: E402
 from scripts.datapack.normalize_wikibooks import (  # noqa: E402
     main as normalize_main,
     normalize,
@@ -576,6 +578,64 @@ class NormalizeWikibooksTest(unittest.TestCase):
         _write_xml(self.input_file, pages)
         self._run()
         self.assertFalse(stale.exists(), "stale tmp dir should be swept")
+
+    # --- Additional: outer except guard exercised --------------------------
+    def test_outer_except_guard_isolates_one_bad_page(self) -> None:
+        # Cover the broad `except Exception` around per-page processing
+        # (normalize_wikibooks._stream_pages). The inline ValueError on <ns>
+        # is caught by a narrower handler higher up, so it doesn't exercise
+        # the outer guard. Here we monkeypatch _build_record to raise on a
+        # specific page_id, asserting:
+        #   - parse_errors increments by 1
+        #   - that page is NOT in the JSONL
+        #   - subsequent pages still emit
+        #   - the streaming pipeline does not abort
+        pages = [
+            _make_page(page_id=1, title="Cookbook:A", text="Aaa."),
+            _make_page(page_id=2, title="Cookbook:Boom", text="Bbb."),
+            _make_page(page_id=3, title="Cookbook:C", text="Ccc."),
+        ]
+        _write_xml(self.input_file, pages)
+
+        real_build_record = normalize_wikibooks._build_record
+
+        def _build_record_with_explosion(*args, **kwargs):
+            if kwargs.get("page_id") == 2:
+                raise RuntimeError("synthetic build_record explosion")
+            return real_build_record(*args, **kwargs)
+
+        with patch.object(
+            normalize_wikibooks,
+            "_build_record",
+            side_effect=_build_record_with_explosion,
+        ):
+            manifest = self._run()
+
+        rows = _read_jsonl(self.output_dir / "cookbook_pages.jsonl")
+        self.assertEqual([r["page_id"] for r in rows], [1, 3])
+        self.assertEqual(manifest["row_counts"]["parse_errors"], 1)
+        self.assertEqual(manifest["row_counts"]["cookbook_pages_emitted"], 2)
+        self.assertEqual(manifest["row_counts"]["total_pages_scanned"], 3)
+
+    # --- Additional: case-insensitive File/Image/Category handling ---------
+    def test_case_insensitive_file_image_category_handling(self) -> None:
+        # MediaWiki accepts any case combination of the namespace prefix on
+        # File:/Image:/Category: links. Lock that all three regexes use
+        # re.IGNORECASE rather than first-letter [Cc]/[Ff]/[Ii] classes.
+        self.assertEqual(
+            _extract_categories(
+                "[[CATEGORY:Foo]] [[Category:Bar]] [[category:Baz]]"
+            ),
+            ["Foo", "Bar", "Baz"],
+        )
+        self.assertEqual(
+            _wikitext_to_plain("[[FILE:x.png|caption]] text"),
+            "text",
+        )
+        self.assertEqual(
+            _wikitext_to_plain("[[IMAGE:y.jpg|nope]] hello"),
+            "hello",
+        )
 
     # --- Additional: CLI main path -----------------------------------------
     def test_cli_main(self) -> None:

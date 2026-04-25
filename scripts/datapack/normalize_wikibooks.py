@@ -157,9 +157,11 @@ def _atomic_replace(tmp: Path, final: Path) -> None:
 # ---------------------------------------------------------------------------
 
 # Match a MediaWiki Category link: [[Category:Foo]] or [[Category:Foo|sortkey]].
-# Case-insensitive (the wiki accepts both `Category:` and `category:`).
+# Case-insensitive — MediaWiki accepts any case combination of the namespace
+# prefix (e.g. CATEGORY:, Category:, category:, cAtEgOrY:).
 _CATEGORY_RE = re.compile(
-    r"\[\[\s*[Cc]ategory\s*:\s*([^\]\|]+?)\s*(?:\|[^\]]*)?\]\]"
+    r"\[\[\s*category\s*:\s*([^\]\|]+?)\s*(?:\|[^\]]*)?\]\]",
+    re.IGNORECASE,
 )
 
 # Match File:/Image: links — these may have nested brackets in the caption
@@ -170,14 +172,18 @@ _CATEGORY_RE = re.compile(
 # which leaves the trailing `]]` unbalanced — which our `[^\]]*` link regex
 # below will not touch and our HTML/header passes will then ignore. Good
 # enough for a 500-char summary.
+# Case-insensitive — MediaWiki accepts FILE:, file:, fIlE:, etc.
 _FILE_LINK_RE = re.compile(
-    r"\[\[\s*(?:[Ff]ile|[Ii]mage)\s*:[^\[\]]*?\]\]"
+    r"\[\[\s*(?:file|image)\s*:[^\[\]]*?\]\]",
+    re.IGNORECASE,
 )
 
 # Match a "drop entirely" Category link form (different from _CATEGORY_RE
 # which captures for output). Same shape, but used for stripping.
+# Case-insensitive — see _CATEGORY_RE.
 _CATEGORY_DROP_RE = re.compile(
-    r"\[\[\s*[Cc]ategory\s*:[^\]]*\]\]"
+    r"\[\[\s*category\s*:[^\]]*\]\]",
+    re.IGNORECASE,
 )
 
 # Match wikilinks: [[Target]] or [[Target|Display]]. Captures the display
