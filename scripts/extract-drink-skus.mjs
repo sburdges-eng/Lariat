@@ -131,15 +131,23 @@ export function classifyMenuItem(name, category) {
   return null;
 }
 
+function stripDiacritics(s) {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 function matchesKeyword(haystack, needle) {
-  if (needle.includes(' ')) {
+  // Normalize both sides so accented chars (é→e) don't break \b or
+  // literal comparisons — JS \b is ASCII-only.
+  const h = stripDiacritics(haystack);
+  const n = stripDiacritics(needle);
+  if (n.includes(' ')) {
     // Multi-word phrases: plain substring is fine ("dos equis").
-    return haystack.includes(needle);
+    return h.includes(n);
   }
   // Single words: require word boundaries so "ale" matches "Ale" but not
   // "salad". Lowercased haystack → test with a simple regex.
-  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`\\b${escaped}\\b`).test(haystack);
+  const escaped = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${escaped}\\b`).test(h);
 }
 
 /**
