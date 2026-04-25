@@ -36,6 +36,13 @@ const GOLD_STAR_KEYWORDS = [
 const EQUIPMENT_KEYWORDS = [
   'equipment', 'warranty', 'maintenance', 'service', 'broken', 'repair', 'down',
 ];
+const CATERING_KEYWORDS = [
+  'beo', 'catering', 'cater', 'wedding', 'event', 'buffet', 'banquet',
+  'reception', 'rehearsal', 'birthday', 'party', 'graduation', 'shower',
+];
+const PREP_PLANNING_KEYWORDS = [
+  'prep', 'pre-prep', 'pre prep', 'plate', 'plating', 'scale', 'portion',
+];
 
 const STALE_BEO_WINDOW_DAYS = 2;
 const REPEAT_86_WINDOW_DAYS = 7;
@@ -49,6 +56,8 @@ const MAX_STALE_BEO = 20;
 const MAX_REPEAT_86 = 10;
 const MAX_GOLD_STARS = 10;
 const MAX_WARRANTIES = 10;
+const MAX_BEO_PREP_RECENT_EVENTS = 5;
+const MAX_BEO_PREP_ITEM_HISTORY = 5;
 
 const DAILY_SALES_TREND_WINDOW_DAYS = 7;
 
@@ -291,6 +300,15 @@ export function buildGroundedContext(locationId: string, userQuestion: string): 
         text += `  - ${h.item}: 86'd ${h.freq} times\n`;
       }
       sources.push({ type: 'eighty_six_history', detail: `Top ${hist.length} flagged` });
+    }
+  }
+
+  // ── Conditional: BEO prep history ────────────────────────────────
+  {
+    const beoPrep = renderBeoPrepHistory(db, locationId, qLower);
+    if (beoPrep.text) {
+      text += beoPrep.text;
+      sources.push(...beoPrep.sources);
     }
   }
 
@@ -819,4 +837,118 @@ export function renderDailySalesTrend(
       ? `${rows.length} day(s), ${yoyMatches} with YoY`
       : `${rows.length} day(s)`;
   return { text, source: { type: 'daily_sales_trend', detail } };
+}
+
+interface MultiSourceSection {
+  text: string;
+  sources: ContextSource[];
+}
+
+// Surfaces past catering-event prep data from beo_prep_history.
+//   (a) catering/prep keyword → recent events summary so the AI can
+//       reason about scaling baselines and what we typically prep.
+//   (b) any prior prep item name appears in the question → surface
+//       that item's prep history (last N events that prepped it) so
+//       the AI can reference past prep_day / pre_prep / plating notes.
+// Both branches are best-effort — silently empty if the table has no
+// matches. qLower must already be lowercased + trimmed.
+export function renderBeoPrepHistory(
+  db: DB,
+  locationId: string,
+  qLower: string
+): MultiSourceSection {
+  let text = '';
+  const sources: ContextSource[] = [];
+
+  const isCateringQ =
+    matchesKeywords(qLower, CATERING_KEYWORDS) ||
+    matchesKeywords(qLower, PREP_PLANNING_KEYWORDS);
+
+  if (isCateringQ) {
+    const recentEvents = db
+      .prepare(
+        `SELECT client, event_date,
+                GROUP_CONCAT(item || ' (' || COALESCE(amount_qty, '?') || ')', ', ') AS items
+           FROM (
+             SELECT client, event_date, item, amount_qty
+               FROM beo_prep_history
+              WHERE location_id = ? AND event_date IS NOT NULL
+                AND (type IS NULL OR type = 'Main Item')
+              ORDER BY event_date DESC, id ASC
+           )
+           GROUP BY client, event_date
+           ORDER BY event_date DESC
+           LIMIT ?`
+      )
+      .all(locationId, MAX_BEO_PREP_RECENT_EVENTS) as {
+      client: string | null;
+      event_date: string;
+      items: string;
+    }[];
+    if (recentEvents.length) {
+      text += '\nRECENT BEO EVENTS (prep history, most recent first):\n';
+      for (const ev of recentEvents) {
+        const who = ev.client || 'unknown client';
+        text += `  - ${ev.event_date} ${who}: ${ev.items}\n`;
+      }
+      sources.push({
+        type: 'beo_prep_history_recent',
+        detail: `${recentEvents.length} event(s)`,
+      });
+    }
+  }
+
+  if (qLower.length >= 4) {
+    const itemHits = db
+      .prepare(
+        `SELECT DISTINCT item FROM beo_prep_history
+          WHERE location_id = ? AND item IS NOT NULL`
+      )
+      .all(locationId) as { item: string }[];
+    const matched = itemHits
+      .filter((r) => r.item && qLower.includes(r.item.toLowerCase()))
+      .map((r) => r.item);
+    if (matched.length) {
+      const placeholders = matched.map(() => '?').join(',');
+      const detail = db
+        .prepare(
+          `SELECT item, client, event_date, amount_qty,
+                  pre_prep_notes, plating_notes, prep_day
+             FROM beo_prep_history
+            WHERE location_id = ?
+              AND item IN (${placeholders})
+            ORDER BY (event_date IS NULL), event_date DESC, id DESC
+            LIMIT ?`
+        )
+        .all(locationId, ...matched, MAX_BEO_PREP_ITEM_HISTORY) as {
+        item: string;
+        client: string | null;
+        event_date: string | null;
+        amount_qty: string | null;
+        pre_prep_notes: string | null;
+        plating_notes: string | null;
+        prep_day: string | null;
+      }[];
+      if (detail.length) {
+        text += '\nMATCHED ITEM PREP HISTORY:\n';
+        for (const d of detail) {
+          const parts = [
+            `${d.event_date || '?'}`,
+            d.client || 'unknown',
+            `${d.item} × ${d.amount_qty ?? '?'}`,
+          ];
+          if (d.prep_day) parts.push(`prep:${d.prep_day}`);
+          if (d.pre_prep_notes) parts.push(`pre:${d.pre_prep_notes}`);
+          if (d.plating_notes) parts.push(`plating:${d.plating_notes}`);
+          text += `  - ${parts.join(' | ')}\n`;
+        }
+        sources.push({
+          type: 'beo_prep_history_item',
+          detail: `${detail.length} hit(s) for ${matched.length} item(s)`,
+        });
+      }
+    }
+  }
+
+  return { text, sources };
 }
