@@ -46,6 +46,8 @@ export async function POST(req) {
       const title = clip(body.title, MAX_TITLE);
       if (!title) return Response.json({ error: 'title required' }, { status: 400 });
       const gc = body.guest_count == null ? null : Number(body.guest_count);
+      const taxRate = Number.isFinite(Number(body.tax_rate)) ? Number(body.tax_rate) : 0.0675;
+      const serviceFeePct = Number.isFinite(Number(body.service_fee_pct)) ? Number(body.service_fee_pct) : 20;
       const id = db.transaction(() => {
         const info = db
           .prepare(
@@ -62,15 +64,15 @@ export async function POST(req) {
             Number.isFinite(gc) ? gc : null,
             clip(body.notes, MAX_NOTES),
             clip(body.status, 32) || 'planned',
-            Number.isFinite(Number(body.tax_rate)) ? Number(body.tax_rate) : 0.0675,
-            Number.isFinite(Number(body.service_fee_pct)) ? Number(body.service_fee_pct) : 20,
+            taxRate,
+            serviceFeePct,
             loc,
           );
         const newId = Number(info.lastInsertRowid);
         postAuditEvent({
           entity: 'beo_events', entity_id: newId, action: 'insert',
           actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
-          location_id: loc, payload: { title, tax_rate: body.tax_rate, service_fee_pct: body.service_fee_pct },
+          location_id: loc, payload: { title, tax_rate: taxRate, service_fee_pct: serviceFeePct },
         });
         return newId;
       })();
@@ -84,6 +86,8 @@ export async function POST(req) {
       const gc = body.guest_count == null || body.guest_count === ''
         ? null
         : Number(body.guest_count);
+      const taxRate = Number.isFinite(Number(body.tax_rate)) ? Number(body.tax_rate) : 0.0675;
+      const serviceFeePct = Number.isFinite(Number(body.service_fee_pct)) ? Number(body.service_fee_pct) : 20;
       db.transaction(() => {
         db.prepare(
           `UPDATE beo_events SET
@@ -105,15 +109,15 @@ export async function POST(req) {
           Number.isFinite(gc) ? gc : null,
           clip(body.notes, MAX_NOTES),
           clip(body.status, 32),
-          Number.isFinite(Number(body.tax_rate)) ? Number(body.tax_rate) : 0.0675,
-          Number.isFinite(Number(body.service_fee_pct)) ? Number(body.service_fee_pct) : 20,
+          taxRate,
+          serviceFeePct,
           id,
           loc,
         );
         postAuditEvent({
           entity: 'beo_events', entity_id: id, action: 'update',
           actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
-          location_id: loc, payload: { title, tax_rate: body.tax_rate, service_fee_pct: body.service_fee_pct },
+          location_id: loc, payload: { title, tax_rate: taxRate, service_fee_pct: serviceFeePct },
         });
       })();
       return Response.json({ ok: true });
