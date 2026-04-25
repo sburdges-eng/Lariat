@@ -977,6 +977,97 @@ export function initSchema(db: DB): void {
     );
     CREATE INDEX IF NOT EXISTS idx_inv_shift ON inventory_updates(shift_date, station_id);
 
+    -- Periodic on-hand counts. One header row per "count session" the BOH
+    -- opens (e.g. weekly / EOM); count_lines holds the actual on-hand qty
+    -- per ingredient. Headers are kept open until closed_at is set so a
+    -- count can span a shift; lines are upserted by (count_id, ingredient).
+    CREATE TABLE IF NOT EXISTS inventory_counts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      count_date TEXT NOT NULL,
+      label TEXT,
+      opened_at TEXT DEFAULT (datetime('now')),
+      closed_at TEXT,
+      cook_id TEXT,
+      location_id TEXT NOT NULL DEFAULT 'default'
+    );
+    CREATE INDEX IF NOT EXISTS idx_inv_counts_loc_date
+      ON inventory_counts(location_id, count_date DESC);
+
+    CREATE TABLE IF NOT EXISTS inventory_count_lines (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      count_id INTEGER NOT NULL REFERENCES inventory_counts(id) ON DELETE CASCADE,
+      vendor TEXT,
+      ingredient TEXT NOT NULL,
+      sku TEXT,
+      on_hand_qty REAL,
+      unit TEXT,
+      par_qty REAL,
+      par_unit TEXT,
+      note TEXT,
+      counted_by TEXT,
+      counted_at TEXT DEFAULT (datetime('now')),
+      location_id TEXT NOT NULL DEFAULT 'default',
+      UNIQUE(count_id, ingredient, sku)
+    );
+    CREATE INDEX IF NOT EXISTS idx_inv_count_lines_count
+      ON inventory_count_lines(count_id);
+
+    -- Standing par list: what we keep on hand by ingredient. The par page
+    -- LEFT JOINs latest count_lines against this so cooks can see what's
+    -- below par at a glance. sku is stored as '' (not NULL) so the UNIQUE
+    -- constraint works cleanly for ingredients with no SKU.
+    CREATE TABLE IF NOT EXISTS inventory_par (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      vendor TEXT,
+      ingredient TEXT NOT NULL,
+      sku TEXT NOT NULL DEFAULT '',
+      par_qty REAL,
+      par_unit TEXT,
+      pack_size TEXT,
+      pack_unit TEXT,
+      category TEXT,
+      note TEXT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(location_id, ingredient, sku)
+    );
+    CREATE INDEX IF NOT EXISTS idx_inv_par_loc_cat
+      ON inventory_par(location_id, category, ingredient);
+
+    -- Daily prep board. Shift-bound tasks owned by the kitchen, distinct
+    -- from beo_prep_tasks which are event-bound. Status flows
+    -- todo → in_progress → done (or → skipped for "we're not doing this
+    -- today"). assigned_cook_id is whoever claimed it; done_by is whoever
+    -- finished it (may differ if a shift handoff happens). source/
+    -- source_ref let us track auto-suggested tasks (low_par, beo, …)
+    -- without coupling to those tables.
+    CREATE TABLE IF NOT EXISTS prep_tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      station_id TEXT,
+      task TEXT NOT NULL,
+      qty TEXT,
+      recipe_slug TEXT,
+      notes TEXT,
+      priority INTEGER DEFAULT 0,
+      assigned_cook_id TEXT,
+      status TEXT NOT NULL DEFAULT 'todo'
+        CHECK(status IN ('todo','in_progress','done','skipped')),
+      started_at TEXT,
+      done_at TEXT,
+      done_by TEXT,
+      source TEXT DEFAULT 'manual',
+      source_ref TEXT,
+      sort_order INTEGER DEFAULT 0,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_prep_tasks_loc_date
+      ON prep_tasks(location_id, shift_date, status);
+    CREATE INDEX IF NOT EXISTS idx_prep_tasks_station
+      ON prep_tasks(location_id, shift_date, station_id);
+
     CREATE TABLE IF NOT EXISTS locations (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
