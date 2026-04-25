@@ -121,12 +121,12 @@ export default function GoldStarBoard() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setSubmitError(body?.error || `Could not save (HTTP ${res.status}).`);
+        setSubmitError(body?.error || 'Did not save. Try again.');
         return;
       }
       const data = await res.json();
       if (!data?.ok) {
-        setSubmitError(data?.error || 'Server declined the save — check and try again.');
+        setSubmitError(data?.error || 'Did not save. Check it and try again.');
         return;
       }
       const todayISO = new Date().toISOString().slice(0, 10);
@@ -143,8 +143,8 @@ export default function GoldStarBoard() {
       ]);
       setViewMode('recent');
       setIsModalOpen(false);
-    } catch (err) {
-      setSubmitError('Network error — try again.');
+    } catch {
+      setSubmitError('Lost connection. Try again.');
     } finally {
       setSaving(false);
     }
@@ -167,7 +167,7 @@ export default function GoldStarBoard() {
     if (!removed) return;
     try {
       const res = await fetch(`/api/gold-stars/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(`delete failed (HTTP ${res.status})`);
+      if (!res.ok) throw new Error('delete failed');
     } catch {
       // Re-insert at the original index (best effort — other deletes
       // may have reshuffled the list by the time we roll back).
@@ -223,7 +223,7 @@ export default function GoldStarBoard() {
               fontSize: '1rem',
             }}
           >
-            Recent Feed
+            Recent
           </button>
           <button
             onClick={() => setViewMode('leaderboard')}
@@ -325,7 +325,7 @@ export default function GoldStarBoard() {
                 style={inputStyle}
                 required
               >
-                <option value="" disabled>Choose team member...</option>
+                <option value="" disabled>Pick a cook...</option>
                 {roster.map(c => (
                   <option key={c.id} value={c.name}>{c.name}</option>
                 ))}
@@ -372,7 +372,7 @@ export default function GoldStarBoard() {
                   onClick={() => setIsModalOpen(false)}
                   style={{ flex: 1, padding: '1rem', backgroundColor: 'transparent', border: '1px solid #4b5563', color: '#d1d5db', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 600, fontSize: '1rem' }}
                 >
-                  Cancel
+                  Go back
                 </button>
                 <button
                   type="submit"

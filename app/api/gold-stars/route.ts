@@ -18,10 +18,12 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { cook_name, reason, stars } = body;
+    const cookName = typeof body.cook_name === 'string' ? body.cook_name.trim() : '';
+    const reasonText = typeof body.reason === 'string' ? body.reason.trim() : '';
+    const { stars } = body;
     
-    if (!cook_name || !reason) {
-      return Response.json({ error: 'cook_name and reason required' }, { status: 400 });
+    if (!cookName || !reasonText) {
+      return Response.json({ error: 'Cook and reason needed' }, { status: 400 });
     }
     
     const db = getDb();
@@ -34,18 +36,18 @@ export async function POST(req: Request) {
     const newId = db.transaction(() => {
       const info = db
         .prepare('INSERT INTO gold_stars (cook_name, reason, stars, location_id) VALUES (?,?,?,?)')
-        .run(cook_name, reason, parsedStars, loc);
+        .run(cookName, reasonText, parsedStars, loc);
       const id = Number(info.lastInsertRowid);
       postAuditEvent({
         entity: 'gold_stars', entity_id: id, action: 'insert',
         actor_cook_id: null, actor_source: 'api',
-        location_id: loc, payload: { cook_name, reason, stars: parsedStars },
+        location_id: loc, payload: { cook_name: cookName, reason: reasonText, stars: parsedStars },
       });
       return id;
     })();
       
     return Response.json({ ok: true, id: newId });
-  } catch (error) {
-    return Response.json({ error: 'Failed to process request' }, { status: 500 });
+  } catch {
+    return Response.json({ error: 'Did not save. Try again.' }, { status: 500 });
   }
 }
