@@ -25,6 +25,7 @@
     "seed:webstaurant": "python3 scripts/ingest_webstaurant_purchases.py",
     "seed:kitchen_ops": "python3 scripts/ingest_drive_kitchen_ops.py",
     "seed:catering_menu": "python3 scripts/ingest_catering_menu.py",
+    "seed:beo_prep_history": "python3 scripts/ingest_beo_prep_history.py",
     "seed:all": "npm run seed:densities && npm run seed:yields && npm run seed:unit_weights && npm run seed:catch_weights",
     "training:generate": "node training/generate-qa.mjs",
     "backup": "node scripts/backup.mjs",

@@ -1353,6 +1353,33 @@ export function initSchema(db: DB): void {
     );
     CREATE INDEX IF NOT EXISTS idx_beo_prep_ev ON beo_prep_tasks(event_id);
 
+    -- Historical BEO prep records ingested from past events (catering invoice
+    -- 'Kitchen Sheet' tabs and the master workbook's hand-curated 'BEO Prep'
+    -- aggregate). NOT joined to beo_events -- past events predate the runtime
+    -- cockpit. Read-only reference for kitchen-assistant context
+    -- (e.g. "what was prepped for the last birria event").
+    CREATE TABLE IF NOT EXISTS beo_prep_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      client TEXT,
+      event_date TEXT,            -- ISO YYYY-MM-DD
+      event_file TEXT,            -- source xlsx filename if known
+      type TEXT,                  -- 'Main Item' | 'Secondary Prep' | 'Special Sauce' | …
+      item TEXT NOT NULL,
+      amount_qty TEXT,            -- numeric or descriptive (kept as text)
+      prep_day TEXT,
+      pre_prep_notes TEXT,
+      plating_notes TEXT,
+      source TEXT NOT NULL,       -- e.g. 'master_workbook_2026-04-18'
+      imported_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_beo_prep_hist_loc_date
+      ON beo_prep_history(location_id, event_date);
+    CREATE INDEX IF NOT EXISTS idx_beo_prep_hist_loc_item
+      ON beo_prep_history(location_id, item);
+    CREATE INDEX IF NOT EXISTS idx_beo_prep_hist_loc_source
+      ON beo_prep_history(location_id, source);
+
     CREATE TABLE IF NOT EXISTS equipment (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
