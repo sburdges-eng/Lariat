@@ -26,6 +26,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.datapack.normalize_usda import (  # noqa: E402
+    ARCHIVE_ORDER,
     ARCHIVES,
     main as normalize_main,
     normalize,
@@ -354,6 +355,317 @@ class NormalizeUSDATest(unittest.TestCase):
         self.assertTrue((self.output_dir / "ingredients.jsonl").exists())
         self.assertTrue((self.output_dir / "nutrients.jsonl").exists())
         self.assertTrue((self.output_dir / "manifest.json").exists())
+
+
+# ---------------------------------------------------------------------------
+# Edge-case tests (I-6): empty archives, missing files, ties, unsorted input,
+# unknown nutrient ids, orphan branded rows, idempotency under tampering.
+# ---------------------------------------------------------------------------
+
+
+class NormalizeUSDAEdgeCasesTest(unittest.TestCase):
+    def setUp(self) -> None:
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp_root = Path(self._tmp.name)
+        self.input_root = self.tmp_root / "extracted"
+        self.output_dir = self.tmp_root / "out"
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _read_jsonl(self, name: str) -> list[dict]:
+        return [
+            json.loads(line)
+            for line in (self.output_dir / name).read_text(encoding="utf-8").splitlines()
+            if line
+        ]
+
+    # --- I-6.1 ---------------------------------------------------------------
+    def test_empty_archive_directory_is_silently_skipped(self) -> None:
+        """An archive dir that exists but contains only an empty food.csv (no
+        rows) must not crash; it must just contribute zero foods/nutrients."""
+        # Build a normal sr_legacy archive plus a branded archive whose
+        # food.csv is *just a header*.
+        _build_fixture(self.input_root)
+        br_dir = self.input_root / ARCHIVES["branded"]
+        # Replace branded food.csv + food_nutrient.csv + branded_food.csv with
+        # header-only files. nutrient.csv stays so the catalog still loads.
+        _write_csv(
+            br_dir / "food.csv",
+            ["fdc_id", "data_type", "description", "food_category_id",
+             "publication_date"],
+            [],
+        )
+        _write_csv(
+            br_dir / "food_nutrient.csv",
+            ["id", "fdc_id", "nutrient_id", "amount", "data_points",
+             "derivation_id", "min", "max", "median", "footnote",
+             "min_year_acquired"],
+            [],
+        )
+        _write_csv(
+            br_dir / "branded_food.csv",
+            ["fdc_id", "brand_owner", "brand_name", "subbrand_name", "gtin_upc",
+             "ingredients", "not_a_significant_source_of", "serving_size",
+             "serving_size_unit", "household_serving_fulltext",
+             "branded_food_category"],
+            [],
+        )
+        normalize(
+            input_root=self.input_root,
+            output_dir=self.output_dir,
+            force=False,
+            chunk_rows=2,
+        )
+        ingredients = self._read_jsonl("ingredients.jsonl")
+        nutrients = self._read_jsonl("nutrients.jsonl")
+        # Only sr_legacy contributed.
+        self.assertEqual({r["source_archive"] for r in ingredients}, {"sr_legacy"})
+        self.assertEqual({r["source_archive"] for r in nutrients}, {"sr_legacy"})
+        self.assertEqual(len(ingredients), 2)
+        self.assertEqual(len(nutrients), 3)
+
+    # --- I-6.2 ---------------------------------------------------------------
+    def test_missing_food_nutrient_csv_is_skipped(self) -> None:
+        """When a single archive has no food_nutrient.csv at all, the
+        ``if not path.exists(): continue`` branch in ``_iter_nutrient_rows``
+        must fire. Ingredients from that archive still appear; nutrients
+        from it are silently absent."""
+        _build_fixture(self.input_root)
+        # Delete branded/food_nutrient.csv but leave branded food.csv in place.
+        (self.input_root / ARCHIVES["branded"] / "food_nutrient.csv").unlink()
+        normalize(
+            input_root=self.input_root,
+            output_dir=self.output_dir,
+            force=False,
+            chunk_rows=2,
+        )
+        ingredients = self._read_jsonl("ingredients.jsonl")
+        nutrients = self._read_jsonl("nutrients.jsonl")
+        # Branded ingredient still emits.
+        self.assertIn(1105904, [r["fdc_id"] for r in ingredients])
+        # No nutrient rows from branded.
+        self.assertEqual({r["source_archive"] for r in nutrients}, {"sr_legacy"})
+
+        manifest = json.loads(
+            (self.output_dir / "manifest.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            manifest["row_counts"]["by_archive"]["branded"]["nutrients"], 0,
+        )
+        self.assertEqual(
+            manifest["row_counts"]["by_archive"]["branded"]["ingredients"], 1,
+        )
+
+    # --- I-6.3 ---------------------------------------------------------------
+    def test_load_nutrient_catalog_raises_when_no_archive_has_nutrient_csv(self) -> None:
+        """If every archive lacks nutrient.csv, ``_load_nutrient_catalog``
+        raises FileNotFoundError. We wire that up by building a fixture and
+        then deleting every nutrient.csv."""
+        from scripts.datapack.normalize_usda import _load_nutrient_catalog
+
+        _build_fixture(self.input_root)
+        for key in ARCHIVE_ORDER:
+            p = self.input_root / ARCHIVES[key] / "nutrient.csv"
+            if p.exists():
+                p.unlink()
+        with self.assertRaises(FileNotFoundError):
+            _load_nutrient_catalog(self.input_root)
+
+    # --- I-6.4 ---------------------------------------------------------------
+    def test_unsorted_input_csv_yields_sorted_output(self) -> None:
+        """Rewrite sr_legacy's food.csv and food_nutrient.csv in REVERSE
+        fdc_id order. Outputs must still come out ascending — proves the
+        sort is doing real work."""
+        _build_fixture(self.input_root)
+        sr_dir = self.input_root / ARCHIVES["sr_legacy"]
+        # Reverse food.csv: 319874 first, then 167512.
+        _write_csv(
+            sr_dir / "food.csv",
+            ["fdc_id", "data_type", "description", "food_category_id",
+             "publication_date"],
+            [
+                ["319874", "sr_legacy_food", "HUMMUS, SABRA CLASSIC", "16",
+                 "2019-04-01"],
+                ["167512", "sr_legacy_food", "Pillsbury Biscuits", "18",
+                 "2019-04-01"],
+            ],
+        )
+        # Reverse food_nutrient.csv: 319874 row, then 167512 rows. Within
+        # 167512 also reverse the two nutrient_ids so the chunk sort has to
+        # reorder them.
+        _write_csv(
+            sr_dir / "food_nutrient.csv",
+            ["id", "fdc_id", "nutrient_id", "amount", "data_points",
+             "derivation_id", "min", "max", "median", "footnote",
+             "min_year_acquired"],
+            [
+                ["1283676", "319874", "1003", "8.0", "1", "46", "", "", "", "", ""],
+                ["1283675", "167512", "1257", "17.0", "1", "46", "", "", "", "", ""],
+                ["1283674", "167512", "1003", "5.88", "1", "46", "", "", "", "", ""],
+            ],
+        )
+        # tiny chunk_rows so multiple chunks must be produced and merged.
+        normalize(
+            input_root=self.input_root,
+            output_dir=self.output_dir,
+            force=False,
+            chunk_rows=2,
+        )
+        ing_ids = [r["fdc_id"] for r in self._read_jsonl("ingredients.jsonl")]
+        self.assertEqual(ing_ids, sorted(ing_ids))
+        nut_keys = [
+            (r["fdc_id"], r["nutrient_id"])
+            for r in self._read_jsonl("nutrients.jsonl")
+        ]
+        self.assertEqual(nut_keys, sorted(nut_keys))
+
+    # --- I-6.5 ---------------------------------------------------------------
+    def test_tied_fdc_nutrient_pair_orders_by_derivation_id(self) -> None:
+        """Two rows at the same (fdc, nid) but with different derivation_id
+        values must both emit, and the row with the smaller derivation_id
+        must come first (stable tie-break, I-5)."""
+        _build_fixture(self.input_root)
+        sr_dir = self.input_root / ARCHIVES["sr_legacy"]
+        # Append a second (167512, 1003) row with a DIFFERENT derivation_id.
+        # Write the rows in an order that does NOT happen to be sorted.
+        _write_csv(
+            sr_dir / "food_nutrient.csv",
+            ["id", "fdc_id", "nutrient_id", "amount", "data_points",
+             "derivation_id", "min", "max", "median", "footnote",
+             "min_year_acquired"],
+            [
+                # Larger derivation first — sort must reorder.
+                ["1283674", "167512", "1003", "5.88", "1", "70", "", "", "", "", ""],
+                ["1283677", "167512", "1003", "5.92", "1", "46", "", "", "", "", ""],
+                ["1283675", "167512", "1257", "17.0", "1", "46", "", "", "", "", ""],
+                ["1283676", "319874", "1003", "8.0",  "1", "46", "", "", "", "", ""],
+            ],
+        )
+        normalize(
+            input_root=self.input_root,
+            output_dir=self.output_dir,
+            force=False,
+            chunk_rows=2,
+        )
+        rows = self._read_jsonl("nutrients.jsonl")
+        # Find the two tied rows.
+        tied = [r for r in rows if r["fdc_id"] == 167512 and r["nutrient_id"] == 1003]
+        self.assertEqual(len(tied), 2)
+        # Smaller derivation_id (46) must come before the larger (70).
+        self.assertEqual([r["derivation_id"] for r in tied], [46, 70])
+
+    # --- I-6.6 ---------------------------------------------------------------
+    def test_orphan_branded_food_row_is_silently_dropped(self) -> None:
+        """A branded_food.csv row whose fdc_id has no corresponding food.csv
+        row must NOT cause the orphan to appear in ingredients.jsonl —
+        ingredients are sourced from food.csv, branded_food.csv only enriches
+        existing rows."""
+        _build_fixture(self.input_root)
+        br_dir = self.input_root / ARCHIVES["branded"]
+        # Add an orphan row in branded_food.csv (fdc 9999999), no matching
+        # food.csv row. Keep the original branded food.csv as-is so 1105904
+        # still emits.
+        _write_csv(
+            br_dir / "branded_food.csv",
+            ["fdc_id", "brand_owner", "brand_name", "subbrand_name", "gtin_upc",
+             "ingredients", "not_a_significant_source_of", "serving_size",
+             "serving_size_unit", "household_serving_fulltext",
+             "branded_food_category"],
+            [
+                ["1105904", "Richardson Oilseed Products (US) Limited", "", "",
+                 "00027000612323", "Vegetable Oil", "", "15.0", "ml", "",
+                 "Oils Edible"],
+                ["9999999", "Phantom Brand", "", "", "00000000000000",
+                 "Phantom Ingredients", "", "1.0", "ml", "", "Phantom"],
+            ],
+        )
+        normalize(
+            input_root=self.input_root,
+            output_dir=self.output_dir,
+            force=False,
+            chunk_rows=2,
+        )
+        rows = self._read_jsonl("ingredients.jsonl")
+        ids = [r["fdc_id"] for r in rows]
+        self.assertNotIn(9999999, ids)
+        # Real branded row still present and enriched.
+        br = next(r for r in rows if r["fdc_id"] == 1105904)
+        self.assertEqual(br["brand_owner"], "Richardson Oilseed Products (US) Limited")
+
+    # --- I-6.7 ---------------------------------------------------------------
+    def test_unknown_nutrient_id_emits_null_name_and_unit(self) -> None:
+        """A food_nutrient.csv row that references a nutrient_id absent from
+        the catalog must still emit, with nutrient_name=null and
+        unit_name=null. No crash."""
+        _build_fixture(self.input_root)
+        sr_dir = self.input_root / ARCHIVES["sr_legacy"]
+        # Add a row referencing nutrient_id 9999, which is NOT in the catalog
+        # built by _build_fixture (only 1003 + 1257 exist).
+        _write_csv(
+            sr_dir / "food_nutrient.csv",
+            ["id", "fdc_id", "nutrient_id", "amount", "data_points",
+             "derivation_id", "min", "max", "median", "footnote",
+             "min_year_acquired"],
+            [
+                ["1283674", "167512", "1003", "5.88", "1", "46", "", "", "", "", ""],
+                ["1283675", "167512", "1257", "17.0", "1", "46", "", "", "", "", ""],
+                ["1283676", "319874", "1003", "8.0",  "1", "46", "", "", "", "", ""],
+                ["1283999", "319874", "9999", "1.23", "1", "46", "", "", "", "", ""],
+            ],
+        )
+        normalize(
+            input_root=self.input_root,
+            output_dir=self.output_dir,
+            force=False,
+            chunk_rows=2,
+        )
+        rows = self._read_jsonl("nutrients.jsonl")
+        unknown = [r for r in rows if r["nutrient_id"] == 9999]
+        self.assertEqual(len(unknown), 1)
+        self.assertIsNone(unknown[0]["nutrient_name"])
+        self.assertIsNone(unknown[0]["unit_name"])
+        # Other rows still have proper joins.
+        protein = next(r for r in rows if r["nutrient_id"] == 1003 and r["fdc_id"] == 167512)
+        self.assertEqual(protein["nutrient_name"], "Protein")
+
+    # --- I-6.8 ---------------------------------------------------------------
+    def test_idempotency_under_tampering_triggers_rebuild(self) -> None:
+        """Run once, mutate nutrients.jsonl off-disk, run again without
+        --force. The sha256 mismatch must trigger a rebuild and restore the
+        canonical content."""
+        _build_fixture(self.input_root)
+        m1 = normalize(
+            input_root=self.input_root,
+            output_dir=self.output_dir,
+            force=False,
+            chunk_rows=2,
+        )
+        canonical_sha = m1["outputs"]["nutrients.jsonl"]["sha256"]
+        nutrients_path = self.output_dir / "nutrients.jsonl"
+        canonical_bytes = nutrients_path.read_bytes()
+
+        # Tamper: flip a single byte deep in the file. Use a write that makes
+        # the file's sha256 *not* match the manifest entry.
+        tampered = bytearray(canonical_bytes)
+        # Flip the first byte (must be ASCII so json stays readable-ish; we
+        # don't care, only the sha matters).
+        tampered[0] = (tampered[0] ^ 0x01)
+        nutrients_path.write_bytes(bytes(tampered))
+        post_tamper_sha = hashlib.sha256(nutrients_path.read_bytes()).hexdigest()
+        self.assertNotEqual(post_tamper_sha, canonical_sha)
+
+        # Second run, no --force. Must detect the mismatch and rebuild.
+        m2 = normalize(
+            input_root=self.input_root,
+            output_dir=self.output_dir,
+            force=False,
+            chunk_rows=2,
+        )
+        restored_sha = hashlib.sha256(nutrients_path.read_bytes()).hexdigest()
+        self.assertEqual(restored_sha, canonical_sha)
+        self.assertEqual(m2["outputs"]["nutrients.jsonl"]["sha256"], canonical_sha)
 
 
 if __name__ == "__main__":

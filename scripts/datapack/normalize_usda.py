@@ -329,19 +329,28 @@ def _write_ingredients_jsonl(rows: list[dict], out_path: Path) -> None:
 def _iter_nutrient_rows(
     input_root: Path,
     nutrient_catalog: dict[int, tuple[str, str | None]],
-) -> Iterator[tuple[int, int, str, dict[str, int]]]:
+) -> Iterator[tuple[int, int, int, int, str, str]]:
     """
     Stream every food_nutrient.csv across all archives. Yields
-    (fdc_id, nutrient_id, json_line, by_archive_counter) where
-    by_archive_counter is a shared dict updated as we go (so the caller
-    sees per-archive nutrient counts after exhaustion).
+    ``(fdc_id, nutrient_id, derivation_sort_key, archive_index, source_archive,
+    json_line)`` for each valid row.
+
+    The derivation/archive components are baked into the yielded tuple so that
+    callers (and the external-merge-sort chunk format) can use them directly
+    as part of a stable, total ordering. ``derivation_sort_key`` is the
+    ``derivation_id`` integer or ``-1`` if the source row's derivation_id is
+    null/missing. ``archive_index`` is the ordinal of ``source_archive`` in
+    ``ARCHIVE_ORDER``, which provides a final stable tie-break when the same
+    ``(fdc, nid, derivation_id)`` triple appears in more than one archive.
+
+    Per-archive accounting is *not* done here — the caller increments its own
+    counter as it consumes the iterator (decoupling avoids fragile shared
+    state on early-exit paths).
 
     Skips rows with missing/empty amount, missing fdc_id, or missing
     nutrient_id.
     """
-    by_archive: dict[str, int] = {k: 0 for k in ARCHIVE_ORDER}
-
-    for source_key in ARCHIVE_ORDER:
+    for archive_index, source_key in enumerate(ARCHIVE_ORDER):
         path = input_root / ARCHIVES[source_key] / "food_nutrient.csv"
         if not path.exists():
             continue
@@ -360,18 +369,28 @@ def _iter_nutrient_rows(
                     unit_name: str | None = None
                 else:
                     nutrient_name, unit_name = name_unit
+                derivation_id = _opt_int(row.get("derivation_id"))
+                # -1 sentinel: nulls sort before any real (non-negative) USDA
+                # derivation_id. Real ids are positive integers.
+                derivation_sort_key = derivation_id if derivation_id is not None else -1
                 record = {
                     "fdc_id": fdc,
                     "nutrient_id": nid,
                     "nutrient_name": nutrient_name,
                     "unit_name": unit_name,
                     "amount": amount,
-                    "derivation_id": _opt_int(row.get("derivation_id")),
+                    "derivation_id": derivation_id,
                     "source_archive": source_key,
                 }
                 line = json.dumps(record, ensure_ascii=False, sort_keys=True)
-                by_archive[source_key] += 1
-                yield fdc, nid, line, by_archive
+                yield (
+                    fdc,
+                    nid,
+                    derivation_sort_key,
+                    archive_index,
+                    source_key,
+                    line,
+                )
         finally:
             f.close()
 
@@ -385,10 +404,16 @@ def _external_sort_nutrients(
     """
     External merge sort for nutrients. Returns (total_row_count, by_archive).
 
-    Each chunk holds at most ``chunk_rows`` (fdc_id, nutrient_id, line)
-    tuples sorted in memory and flushed to a temp file. Then heapq.merge
-    streams all chunks into the final sorted output. Memory peaks at one
-    chunk plus the merge front (one line per chunk).
+    Each chunk holds at most ``chunk_rows``
+    ``(fdc_id, nutrient_id, derivation_sort_key, archive_index, line)`` tuples
+    sorted in memory and flushed to a temp file. Then heapq.merge streams all
+    chunks into the final sorted output. Memory peaks at one chunk plus the
+    merge front (one line per chunk).
+
+    The sort key is a four-tuple ``(fdc_id, nutrient_id, derivation_id_or_-1,
+    archive_index)`` so that ties on ``(fdc_id, nutrient_id)`` (real USDA data
+    has multiple measurement methods per food/nutrient pair) are broken
+    deterministically rather than by the lexical ordering of the JSON line.
     """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_dir = Path(tempfile.mkdtemp(prefix="usda_nutrients_", dir=str(out_path.parent)))
@@ -397,22 +422,22 @@ def _external_sort_nutrients(
     total = 0
 
     try:
-        buf: list[tuple[int, int, str]] = []
-        last_counter: dict[str, int] | None = None
-        for fdc, nid, line, by_archive in _iter_nutrient_rows(input_root, nutrient_catalog):
-            buf.append((fdc, nid, line))
-            last_counter = by_archive
+        buf: list[tuple[int, int, int, int, str]] = []
+        for fdc, nid, deriv_key, arch_idx, source_key, line in _iter_nutrient_rows(
+            input_root, nutrient_catalog
+        ):
+            buf.append((fdc, nid, deriv_key, arch_idx, line))
+            # Per-archive accounting is owned by this consumer — see I-1.
+            by_archive_final[source_key] += 1
             if len(buf) >= chunk_rows:
                 chunk_paths.append(_flush_chunk(buf, tmp_dir, len(chunk_paths)))
                 buf = []
         if buf:
             chunk_paths.append(_flush_chunk(buf, tmp_dir, len(chunk_paths)))
             buf = []
-        if last_counter is not None:
-            by_archive_final = dict(last_counter)
 
-        # Merge chunks via heapq.merge over (fdc_id, nutrient_id, line) tuples.
-        # We open all chunks at once and stream lines.
+        # Merge chunks via heapq.merge over the full sort tuple. We open all
+        # chunks at once and stream lines.
         readers: list[TextIO] = []
         try:
             iters = []
@@ -422,7 +447,7 @@ def _external_sort_nutrients(
                 iters.append(_read_chunk(fh))
             tmp_out = out_path.with_suffix(out_path.suffix + ".tmp")
             with open(tmp_out, "w", encoding="utf-8") as out_f:
-                for fdc, nid, line in heapq.merge(*iters):
+                for _fdc, _nid, _deriv, _arch, line in heapq.merge(*iters):
                     out_f.write(line)
                     out_f.write("\n")
                     total += 1
@@ -438,30 +463,37 @@ def _external_sort_nutrients(
     return total, by_archive_final
 
 
-def _flush_chunk(buf: list[tuple[int, int, str]], tmp_dir: Path, idx: int) -> Path:
-    buf.sort(key=lambda t: (t[0], t[1]))
+def _flush_chunk(
+    buf: list[tuple[int, int, int, int, str]], tmp_dir: Path, idx: int
+) -> Path:
+    # Sort key: (fdc_id, nutrient_id, derivation_sort_key, archive_index).
+    # The line itself is excluded from the key — for any given key the line
+    # content is fully determined, so excluding it costs nothing and keeps the
+    # comparison cheap.
+    buf.sort(key=lambda t: (t[0], t[1], t[2], t[3]))
     cp = tmp_dir / f"chunk-{idx:05d}.tsv"
     with open(cp, "w", encoding="utf-8") as f:
-        for fdc, nid, line in buf:
-            # TSV-ish framing: fdc<TAB>nid<TAB>json (json is one line, no tabs
-            # because we json.dumps it; but to be safe escape the tab chars).
+        for fdc, nid, deriv_key, arch_idx, line in buf:
+            # TSV framing: fdc<TAB>nid<TAB>deriv<TAB>arch<TAB>json. The json
+            # body is single-line (json.dumps), but escape any embedded tabs
+            # defensively before reassembly.
             safe_line = line.replace("\t", "\\t")
-            f.write(f"{fdc}\t{nid}\t{safe_line}\n")
+            f.write(f"{fdc}\t{nid}\t{deriv_key}\t{arch_idx}\t{safe_line}\n")
     return cp
 
 
-def _read_chunk(fh: TextIO) -> Iterator[tuple[int, int, str]]:
+def _read_chunk(fh: TextIO) -> Iterator[tuple[int, int, int, int, str]]:
     for raw in fh:
         if not raw:
             continue
         # Strip trailing newline only.
         line = raw[:-1] if raw.endswith("\n") else raw
-        parts = line.split("\t", 2)
-        if len(parts) != 3:
+        parts = line.split("\t", 4)
+        if len(parts) != 5:
             continue
-        fdc_s, nid_s, body = parts
+        fdc_s, nid_s, deriv_s, arch_s, body = parts
         body = body.replace("\\t", "\t")
-        yield int(fdc_s), int(nid_s), body
+        yield int(fdc_s), int(nid_s), int(deriv_s), int(arch_s), body
 
 
 # ---------------------------------------------------------------------------
