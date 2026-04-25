@@ -7,6 +7,7 @@
 
 import { getDb } from './db';
 import { classifyReadings } from './tempLog';
+import { scanExpiringBatches } from './dateMarks';
 
 export interface CommandSummary {
   shift_date: string;
@@ -34,6 +35,8 @@ export interface CommandSummary {
   food_safety: {
     temp_breaches: number;
     temp_readings: number;
+    date_marks_expired: number;
+    date_marks_due_today: number;
   };
   preshift_notes: number;
   events_today: number;
@@ -150,10 +153,30 @@ export function summarize(locationId: string, today: string): CommandSummary {
          FROM temp_log
         WHERE location_id = ? AND shift_date = ?`,
     )
-    .all(locationId, today);
+    .all(locationId, today) as Parameters<typeof classifyReadings>[0];
   const tempBreaches = classifyReadings(temps, { expectAllPoints: false }).filter(
     (t) => t.status === 'red',
   ).length;
+
+  // Active (un-discarded) date marks at this location. scanExpiringBatches
+  // classifies each as 'expired' (past due, must toss now), 'due_today'
+  // (toss before close of business), or 'ok'.
+  const dmRows = db
+    .prepare(
+      `SELECT id, item, prepared_on, discard_on, discarded_at
+         FROM date_marks
+        WHERE location_id = ? AND discarded_at IS NULL`,
+    )
+    .all(locationId) as Array<{
+      id: number;
+      item: string;
+      prepared_on: string;
+      discard_on: string;
+      discarded_at: string | null;
+    }>;
+  const expiringBatches = scanExpiringBatches(dmRows, today);
+  const dateMarksExpired = expiringBatches.filter((b) => b.status === 'expired').length;
+  const dateMarksDueToday = expiringBatches.filter((b) => b.status === 'due_today').length;
 
   const preshiftCount = (db
     .prepare(
@@ -201,6 +224,8 @@ export function summarize(locationId: string, today: string): CommandSummary {
     food_safety: {
       temp_breaches: tempBreaches,
       temp_readings: temps.length,
+      date_marks_expired: dateMarksExpired,
+      date_marks_due_today: dateMarksDueToday,
     },
     preshift_notes: preshiftCount,
     events_today: events.c,

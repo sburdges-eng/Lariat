@@ -33,7 +33,7 @@ const TABLES = [
   'toast_sales_daily', 'eighty_six',
   'inventory_par', 'inventory_count_lines', 'inventory_counts',
   'shift_breaks', 'staff_certifications',
-  'temp_log', 'preshift_notes', 'beo_events',
+  'temp_log', 'date_marks', 'preshift_notes', 'beo_events',
 ];
 
 beforeEach(() => {
@@ -152,6 +152,42 @@ describe('summarize() — labor', () => {
     const s = summarize('default', TODAY);
     assert.strictEqual(s.labor.cert_expired, 1);
     assert.strictEqual(s.labor.cert_expiring_30d, 1);
+  });
+});
+
+describe('summarize() — date marks', () => {
+  it('counts expired and due-today active date marks', () => {
+    const today = new Date(TODAY + 'T00:00:00Z');
+    const minus2 = new Date(today); minus2.setUTCDate(minus2.getUTCDate() - 2);
+    const plus3 = new Date(today); plus3.setUTCDate(plus3.getUTCDate() + 3);
+    const ins = (item, discard, prepared, discardedAt = null) => testDb.prepare(
+      `INSERT INTO date_marks (location_id, item, prepared_on, discard_on, discarded_at)
+       VALUES ('default', ?, ?, ?, ?)`,
+    ).run(item, prepared, discard, discardedAt);
+
+    // expired (past due)
+    ins('aji-verde', minus2.toISOString().slice(0, 10), minus2.toISOString().slice(0, 10));
+    // due today
+    ins('shrimp-stock', TODAY, TODAY);
+    // ok (future)
+    ins('chimichurri', plus3.toISOString().slice(0, 10), TODAY);
+    // already discarded — should be excluded entirely
+    ins('compost-base', minus2.toISOString().slice(0, 10), minus2.toISOString().slice(0, 10), 'datetime("now")');
+
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.food_safety.date_marks_expired, 1);
+    assert.strictEqual(s.food_safety.date_marks_due_today, 1);
+  });
+
+  it('does not leak date marks across locations', () => {
+    testDb.prepare(
+      `INSERT INTO date_marks (location_id, item, prepared_on, discard_on)
+       VALUES ('kitchen-a', 'aioli', ?, ?)`,
+    ).run(TODAY, TODAY);
+    const a = summarize('kitchen-a', TODAY);
+    const b = summarize('kitchen-b', TODAY);
+    assert.strictEqual(a.food_safety.date_marks_due_today, 1);
+    assert.strictEqual(b.food_safety.date_marks_due_today, 0);
   });
 });
 
