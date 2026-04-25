@@ -259,6 +259,101 @@ def build_shamrock_price_list_ref(master_xlsx: Path) -> SheetPayload:
     return SheetPayload("ref — Shamrock Price List", header, rows)
 
 
+# ── Shamrock Orders (from 68 OC sheets in Master Workbook) ─────────
+
+
+SHAMROCK_ORDERS_HEADER = [
+    "ship_date",
+    "order_ref",
+    "product_no",
+    "description",
+    "pack_size",
+    "brand",
+    "quantity",
+    "price",
+    "unit",
+    "line_amount",
+]
+
+
+def parse_shamrock_oc_sheet(ws, sheet_name: str) -> list[list[Any]]:
+    ship_date = None
+    rows: list[list[Any]] = []
+    started = False
+
+    for row in ws.iter_rows(values_only=True):
+        if not started:
+            # Look for ship date
+            for i, cell in enumerate(row):
+                if cell and str(cell).strip().lower() == "ship date":
+                    # find the next non-empty cell in this row
+                    for j in range(i + 1, len(row)):
+                        if row[j] is not None and str(row[j]).strip():
+                            ship_date = str(row[j]).strip()
+                            break
+            # Check for header
+            if len(row) > 2 and row[1] is not None and str(row[1]).strip() == "#":
+                started = True
+            continue
+
+        if len(row) < 19:
+            continue
+
+        product_no = str(row[2]).strip() if row[2] else None
+        if not product_no or product_no.lower() == "none":
+            # stop if we hit an empty row after started
+            if not any(row):
+                break
+            continue
+
+        desc = str(row[3]).strip() if row[3] else None
+        pack = str(row[9]).strip() if row[9] else None
+        brand = str(row[10]).strip() if row[10] else None
+        qty = parse_int_loose(row[13])
+        price = parse_currency(row[14])
+        unit = str(row[17]).strip() if row[17] else None
+        amount = parse_currency(row[18])
+
+        dt = ship_date
+        if ship_date:
+            m = re.match(r"(\d{1,2})/(\d{1,2})/(\d{4})", ship_date)
+            if m:
+                dt = f"{m.group(3)}-{int(m.group(1)):02d}-{int(m.group(2)):02d}"
+
+        rows.append(
+            [
+                dt,
+                sheet_name,
+                product_no,
+                desc,
+                pack,
+                brand,
+                qty,
+                price,
+                unit,
+                amount,
+            ]
+        )
+    return rows
+
+
+def build_shamrock_orders(master_xlsx: Path) -> SheetPayload:
+    wb = openpyxl.load_workbook(master_xlsx, data_only=True, read_only=True)
+    oc_sheet_names = [n for n in wb.sheetnames if n.startswith("Shamrock OC ")]
+    all_rows: list[list[Any]] = []
+    
+    for sheet_name in oc_sheet_names:
+        ws = wb[sheet_name]
+        all_rows.extend(parse_shamrock_oc_sheet(ws, sheet_name))
+        
+    wb.close()
+    
+    # Sort by ship_date (descending) then order_ref
+    all_rows.sort(key=lambda r: (r[0] or "", r[1] or ""), reverse=True)
+    
+    return SheetPayload("📋 Shamrock Orders", SHAMROCK_ORDERS_HEADER, all_rows)
+
+
 # ── Sysco Purchase History (line-item rows keyed by SUPC) ────────
 
 
@@ -641,10 +736,8 @@ MTL_HEADER = [
 ]
 
 
-def build_master_transaction_log(beo: SheetPayload) -> SheetPayload:
-    """BEO rows as revenue transactions. Shamrock purchases from OC sheets
-    are deferred until Shamrock Orders parsing is built (see Deferred TODOs).
-    """
+def build_master_transaction_log(beo: SheetPayload, shamrock_orders: SheetPayload) -> SheetPayload:
+    """BEO rows as revenue transactions and Shamrock purchases as expense transactions."""
     rows: list[list[Any]] = []
     next_id = 5001
     # Try to pluck the event date from the filename (e.g. 'Navratil 4_10.xlsx').
@@ -674,7 +767,92 @@ def build_master_transaction_log(beo: SheetPayload) -> SheetPayload:
             ]
         )
         next_id += 1
+
+    for r in shamrock_orders.rows:
+        ship_date, order_ref, product_no, description, pack_size, brand, quantity, price, unit, line_amount = r
+        rows.append(
+            [
+                f"TXN-{next_id}",
+                ship_date,
+                "Purchase",
+                "Vendor: Shamrock",
+                product_no,
+                description,
+                quantity,
+                price,
+                unit,
+                line_amount,
+                order_ref,
+                "Delivered",
+            ]
+        )
+        next_id += 1
+
+    # Sort by date (descending)
+    rows.sort(key=lambda r: r[1] or "", reverse=True)
+
     return SheetPayload("🔧 Master Transaction Log", MTL_HEADER, rows)
+
+
+# ── Derived: Pricing Trends ──────────────────────────────────────
+
+
+PRICING_TRENDS_HEADER = [
+    "product_no",
+    "description",
+    "first_order_date",
+    "last_order_date",
+    "order_count",
+    "min_price",
+    "max_price",
+    "first_price",
+    "last_price",
+    "pct_change",
+]
+
+
+def build_pricing_trends(shamrock_orders: SheetPayload) -> SheetPayload:
+    grouped: dict[tuple[str, str], list[tuple[str, float]]] = {}
+    for r in shamrock_orders.rows:
+        ship_date, order_ref, product_no, description, pack_size, brand, quantity, price, unit, line_amount = r
+        if not product_no or price is None or not ship_date:
+            continue
+        key = (product_no, str(description or ""))
+        grouped.setdefault(key, []).append((ship_date, float(price)))
+
+    out_rows: list[list[Any]] = []
+    for (product_no, description), records in grouped.items():
+        if len(records) < 2:
+            continue
+        records.sort(key=lambda x: x[0])
+        first_date, first_price = records[0]
+        last_date, last_price = records[-1]
+
+        prices = [p for _, p in records]
+        min_price = min(prices)
+        max_price = max(prices)
+
+        pct_change = None
+        if first_price > 0:
+            pct_change = (last_price - first_price) / first_price
+
+        out_rows.append(
+            [
+                product_no,
+                description,
+                first_date,
+                last_date,
+                len(records),
+                min_price,
+                max_price,
+                first_price,
+                last_price,
+                pct_change,
+            ]
+        )
+
+    out_rows.sort(key=lambda r: r[9] if r[9] is not None else 0, reverse=True)
+    return SheetPayload("📈 Pricing Trends", PRICING_TRENDS_HEADER, out_rows)
 
 
 # ── Schema Documentation sheet ──────────────────────────────────
@@ -741,19 +919,6 @@ def build_deferred_todos() -> SheetPayload:
     header = ["deferred_sheet", "blocker", "next_step"]
     rows = [
         [
-            "📋 Shamrock Orders",
-            "Parsing the 68 'Shamrock OC 9xxxxxx' sheets in Master Workbook.xlsx "
-            "requires walking their formatted-invoice layout (merged cells, "
-            "header block at M12/Q12 for ship date, line items after 'Product #' row).",
-            "Add parse_shamrock_oc_sheet(ws) + call per-sheet in build_unified_workbook.py.",
-        ],
-        [
-            "📈 Pricing Trends",
-            "Depends on 📋 Shamrock Orders — the trend math is over repeat orders "
-            "of the same product_no across ship dates.",
-            "Blocked on Shamrock Orders.",
-        ],
-        [
             "📋 BEO Prep",
             "Per-event kitchen prep sheets exist as a second sheet in some BEO "
             "xlsx files ('BEO Kitchen *' sheets in the master). Not all events "
@@ -767,11 +932,6 @@ def build_deferred_todos() -> SheetPayload:
             "and the old Dashboard had 3 charts plus a KPI card grid.",
             "Defer to a follow-up PR; the Toast Analytics sheets already give "
             "operators a numeric readout of the same data.",
-        ],
-        [
-            "Master Transaction Log — Purchase rows",
-            "Depends on 📋 Shamrock Orders. Currently only BEO Revenue rows land.",
-            "Blocked on Shamrock Orders.",
         ],
     ]
     return SheetPayload("📋 Deferred TODOs", header, rows)
@@ -860,13 +1020,19 @@ def main(argv: list[str] | None = None) -> int:
     for s in toast_analytics:
         print(f"  {s.name}: {s.row_count()} rows")
 
+    shamrock_orders = build_shamrock_orders(master_xlsx)
+    print(f"  shamrock orders:        {shamrock_orders.row_count()} rows")
+
     # Derived sheets.
     mpc = build_master_product_catalog(shamrock, sysco_ph, sysco_beo)
     print(f"  master product catalog: {mpc.row_count()} rows")
     comparison = build_supplier_comparison(shamrock, sysco_ph)
     print(f"  supplier comparison:    {comparison.row_count()} rows")
-    mtl = build_master_transaction_log(beo)
-    print(f"  master transaction log: {mtl.row_count()} rows (BEO only)")
+    mtl = build_master_transaction_log(beo, shamrock_orders)
+    print(f"  master transaction log: {mtl.row_count()} rows")
+    
+    pricing_trends = build_pricing_trends(shamrock_orders)
+    print(f"  pricing trends:         {pricing_trends.row_count()} rows")
 
     deferred = build_deferred_todos()
 
@@ -875,6 +1041,8 @@ def main(argv: list[str] | None = None) -> int:
         # Schema docs first — but we need row counts, so build after everything.
         mpc,
         mtl,
+        shamrock_orders,
+        pricing_trends,
         beo,
         comparison,
         *toast_analytics,
