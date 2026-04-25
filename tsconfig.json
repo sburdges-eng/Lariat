@@ -20,13 +20,15 @@
     "verbatimModuleSyntax": true,
     "jsx": "preserve",
     "incremental": true,
-    "baseUrl": ".",
     "paths": {
+      "@/*": [
+        "./*"
+      ],
       "@/lib/*": [
-        "lib/*"
+        "./lib/*"
       ],
       "@/app/*": [
-        "app/*"
+        "./app/*"
       ]
     },
     "plugins": [
