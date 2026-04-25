@@ -11,8 +11,9 @@ Reads three input classes from the pre-scrub archive:
         - Toast/MenuItems.csv               (Toast menu item export)
         - webstaurantstore/total_spend_2026-04-18.csv
   2. `XL/Lariat Master Workbook.xlsx` — existing monolith with 80+ sheets,
-     including the Shamrock Price List we mirror and the 68 Shamrock OC
-     sheets (parsing deferred; see TODO block in build_shamrock_orders).
+     including the Shamrock Price List we mirror, the 68 Shamrock OC
+     sheets we parse into 📋 Shamrock Orders + 📈 Pricing Trends, and
+     the hand-curated 📋 BEO Prep aggregate we mirror through.
   3. `XL/table-2026-04-24-*.csv` — seven Toast analytics exports from
      2026-04-24 (one file is a duplicate of another; the duplicate is
      dropped before writing).
@@ -21,7 +22,7 @@ Reads three input classes from the pre-scrub archive:
 Writes `XL/Lariat_Unified_Workbook_2026-04-24.xlsx` with:
   - 🔧 Schema Documentation  (first sheet — sheet index + field defs)
   - 🔧 Master Product Catalog (LAR-XXXX IDs)
-  - 🔧 Master Transaction Log (TXN-XXXX IDs; Shamrock purchases deferred)
+  - 🔧 Master Transaction Log (TXN-XXXX IDs; BEO revenue + Shamrock purchases)
   - 📋 BEO Invoices
   - 📈 Supplier Comparison   (Shamrock PL ⟷ Sysco PH by description)
   - 📊 Toast Analytics — Yearly Sales
@@ -788,7 +789,7 @@ def build_supplier_comparison(
     return SheetPayload("📈 Supplier Comparison", SC_HEADER, out)
 
 
-# ── Derived: Master Transaction Log (BEO revenue only, purchases TODO) ──
+# ── Derived: Master Transaction Log (BEO revenue + Shamrock purchases) ──
 
 
 MTL_HEADER = [
