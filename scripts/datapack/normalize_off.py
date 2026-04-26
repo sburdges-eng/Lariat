@@ -242,6 +242,8 @@ def _build_record(row: list[str], header_idx: dict[str, int]) -> dict | None:
 def _stream_with_counters(
     input_file: Path,
     counters: dict[str, int],
+    *,
+    progress_every: int = 1_000_000,
 ) -> Iterator[tuple[str, str]]:
     """Stream the TSV and yield (code, json_line) for valid rows.
 
@@ -251,6 +253,11 @@ def _stream_with_counters(
         skipped_no_name    — rows where `product_name` is empty/whitespace
                              (only counted if `code` was present, so the two
                              counters are disjoint)
+
+    Emits a progress line to stderr every ``progress_every`` consumed rows
+    (counted off ``total_input`` so the cadence is uniform regardless of how
+    many rows survive filtering). TTY-only — silent under capsys / CI / file
+    redirects so existing tests don't see spurious stderr.
     """
     f = open(input_file, "r", encoding="utf-8", errors="replace", newline="")
     try:
@@ -266,6 +273,20 @@ def _stream_with_counters(
 
         for row in reader:
             counters["total_input"] += 1
+            # Emit at N, 2N, 3N, ... — never at 0, never final-summary. TTY
+            # gate keeps tests + redirects silent. The format mirrors
+            # USDA / Wikibooks for log readability.
+            if (
+                counters["total_input"] % progress_every == 0
+                and sys.stderr.isatty()
+            ):
+                print(
+                    f"  ... OFF: {counters['total_input']:,} rows scanned "
+                    f"({counters['skipped_no_code']:,} no-code, "
+                    f"{counters['skipped_no_name']:,} no-name)",
+                    file=sys.stderr,
+                    flush=True,
+                )
             # Defensive bounds check — short rows shouldn't happen in OFF
             # but `errors="replace"` + ragged rows in the wild can.
             raw_code = row[code_idx] if code_idx < len(row) else ""
@@ -295,6 +316,7 @@ def _external_sort(
     out_path: Path,
     counters: dict[str, int],
     chunk_rows: int,
+    progress_every: int = 1_000_000,
 ) -> tuple[int, Counter, Counter, int]:
     """External merge sort by `code`. Returns (emitted, allergen_counts,
     trace_counts, products_with_allergens).
@@ -333,7 +355,9 @@ def _external_sort(
                 trace_counts[tag] += 1
 
     def _gen() -> Iterator[tuple[tuple, str]]:
-        for code, line in _stream_with_counters(input_file, counters):
+        for code, line in _stream_with_counters(
+            input_file, counters, progress_every=progress_every
+        ):
             yield (code,), line
 
     try:

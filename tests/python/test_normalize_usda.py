@@ -680,5 +680,81 @@ class NormalizeUSDAEdgeCasesTest(unittest.TestCase):
         self.assertEqual(m2["outputs"]["nutrients.jsonl"]["sha256"], canonical_sha)
 
 
+class NormalizeUSDAProgressTest(unittest.TestCase):
+    """F2: per-N-row progress logging on stderr.
+
+    Patches ``sys.stderr.isatty`` to True so the gated emit fires, runs the
+    iterator with ``progress_every=2`` (the fixture has 5 valid rows so we
+    expect emits at row 2 and row 4), and asserts at least one matching
+    line shows up in stderr. The TTY gate is the load-bearing thing: every
+    other test in this file runs under unittest's default capture, where
+    ``sys.stderr.isatty()`` is False, so they stay silent.
+    """
+
+    def setUp(self) -> None:
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp_root = Path(self._tmp.name)
+        self.input_root = self.tmp_root / "extracted"
+        _build_fixture(self.input_root)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def test_progress_lines_emit_on_tty(self) -> None:
+        import io
+        from unittest.mock import patch
+
+        from scripts.datapack.normalize_usda import (
+            _iter_nutrient_rows,
+            _load_nutrient_catalog,
+        )
+
+        catalog = _load_nutrient_catalog(self.input_root)
+        captured = io.StringIO()
+        # Patch sys.stderr to a writable buffer whose isatty() returns True,
+        # so the script's gate fires. patching only stderr (not stdout)
+        # ensures phase-boundary lines stay on stdout.
+        captured.isatty = lambda: True  # type: ignore[method-assign]
+        with patch("scripts.datapack.normalize_usda.sys.stderr", captured):
+            # Drain the iterator so all yields execute.
+            rows = list(
+                _iter_nutrient_rows(
+                    self.input_root, catalog, progress_every=2
+                )
+            )
+        # 5 valid rows in the fixture — see _build_fixture docstring.
+        self.assertEqual(len(rows), 5)
+        out = captured.getvalue()
+        self.assertIn("USDA nutrients:", out)
+        # progress_every=2 with 5 rows -> emits at 2 and 4 (not at 0, not
+        # at 5 — final-summary is the driver's responsibility).
+        self.assertIn("2 rows scanned", out)
+        self.assertIn("4 rows scanned", out)
+        # Per-archive breakdown must be present.
+        for key in ARCHIVE_ORDER:
+            self.assertIn(f"{key}:", out)
+
+    def test_progress_silent_when_stderr_not_tty(self) -> None:
+        import io
+        from unittest.mock import patch
+
+        from scripts.datapack.normalize_usda import (
+            _iter_nutrient_rows,
+            _load_nutrient_catalog,
+        )
+
+        catalog = _load_nutrient_catalog(self.input_root)
+        captured = io.StringIO()
+        captured.isatty = lambda: False  # type: ignore[method-assign]
+        with patch("scripts.datapack.normalize_usda.sys.stderr", captured):
+            list(
+                _iter_nutrient_rows(
+                    self.input_root, catalog, progress_every=2
+                )
+            )
+        self.assertEqual(captured.getvalue(), "")
+
+
 if __name__ == "__main__":
     unittest.main()

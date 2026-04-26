@@ -714,5 +714,79 @@ class NormalizeWikibooksTest(unittest.TestCase):
         self.assertTrue((self.output_dir / "manifest.json").exists())
 
 
+class NormalizeWikibooksProgressTest(unittest.TestCase):
+    """F2: per-N-row progress logging on stderr.
+
+    Patches ``sys.stderr.isatty`` to True and runs ``_stream_pages`` with
+    ``progress_every=2`` against a 5-page fixture. Asserts that at least
+    one progress line shows up in stderr. Non-TTY case also covered.
+    """
+
+    def setUp(self) -> None:
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp_root = Path(self._tmp.name)
+        self.input_file = self.tmp_root / "enwikibooks-latest-pages-articles.xml"
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _write_five_pages(self) -> None:
+        pages = [
+            _make_page(page_id=i, title=f"Cookbook:Page {i}",
+                       text=f"Body of page {i}.")
+            for i in (10, 20, 30, 40, 50)
+        ]
+        _write_xml(self.input_file, pages)
+
+    def _empty_counters(self) -> dict:
+        return {
+            "total_pages_scanned": 0,
+            "cookbook_pages_emitted": 0,
+            "cookbook_articles": 0,
+            "cookbook_redirects": 0,
+            "non_cookbook_skipped": 0,
+            "parse_errors": 0,
+        }
+
+    def test_progress_lines_emit_on_tty(self) -> None:
+        import io
+        from scripts.datapack.normalize_wikibooks import _stream_pages
+
+        self._write_five_pages()
+        captured = io.StringIO()
+        captured.isatty = lambda: True  # type: ignore[method-assign]
+        counters = self._empty_counters()
+        with patch("scripts.datapack.normalize_wikibooks.sys.stderr", captured):
+            yielded = list(
+                _stream_pages(
+                    self.input_file, counters, progress_every=2
+                )
+            )
+        # All 5 are cookbook pages -> all yield.
+        self.assertEqual(len(yielded), 5)
+        out = captured.getvalue()
+        self.assertIn("Wikibooks:", out)
+        self.assertIn("2 pages scanned", out)
+        self.assertIn("4 pages scanned", out)
+        self.assertIn("cookbook so far", out)
+
+    def test_progress_silent_when_stderr_not_tty(self) -> None:
+        import io
+        from scripts.datapack.normalize_wikibooks import _stream_pages
+
+        self._write_five_pages()
+        captured = io.StringIO()
+        captured.isatty = lambda: False  # type: ignore[method-assign]
+        counters = self._empty_counters()
+        with patch("scripts.datapack.normalize_wikibooks.sys.stderr", captured):
+            list(
+                _stream_pages(
+                    self.input_file, counters, progress_every=2
+                )
+            )
+        self.assertEqual(captured.getvalue(), "")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -367,6 +367,8 @@ def _build_record(
 def _stream_pages(
     input_file: Path,
     counters: dict[str, int],
+    *,
+    progress_every: int = 10_000,
 ) -> Iterator[tuple[int, str]]:
     """Stream the XML and yield (page_id, json_line) for each cookbook page.
 
@@ -383,6 +385,11 @@ def _stream_pages(
         cookbook_redirects        — emitted rows where is_redirect is True
         non_cookbook_skipped      — pages whose <ns> != 102
         parse_errors              — pages we couldn't parse fully (non-fatal)
+
+    Emits a progress line to stderr every ``progress_every`` SCANNED pages
+    (counted off ``total_pages_scanned`` — pages of any namespace, since the
+    cookbook ns=102 is sparse against the wikibooks corpus). TTY-only so the
+    test suite stays silent.
     """
     # recover=True lets the parser continue past minor XML errors; we still
     # catch per-page exceptions below since `recover` doesn't help if the
@@ -398,6 +405,18 @@ def _stream_pages(
     try:
         for _event, elem in context:
             counters["total_pages_scanned"] += 1
+            # Emit at N, 2N, 3N, ... — never at 0, never final-summary.
+            # TTY gate keeps tests + redirects silent.
+            if (
+                counters["total_pages_scanned"] % progress_every == 0
+                and sys.stderr.isatty()
+            ):
+                print(
+                    f"  ... Wikibooks: {counters['total_pages_scanned']:,} pages scanned "
+                    f"({counters['cookbook_pages_emitted']:,} cookbook so far)",
+                    file=sys.stderr,
+                    flush=True,
+                )
             try:
                 ns_el = elem.find(NS_TAG)
                 if ns_el is None or ns_el.text is None:
@@ -503,6 +522,7 @@ def _external_sort(
     out_path: Path,
     counters: dict[str, int],
     chunk_rows: int,
+    progress_every: int = 10_000,
 ) -> int:
     """External merge sort by page_id. Returns the emitted-row count.
 
@@ -519,7 +539,9 @@ def _external_sort(
     ))
 
     def _gen() -> Iterator[tuple[tuple, str]]:
-        for pid, line in _stream_pages(input_file, counters):
+        for pid, line in _stream_pages(
+            input_file, counters, progress_every=progress_every
+        ):
             yield (pid,), line
 
     try:

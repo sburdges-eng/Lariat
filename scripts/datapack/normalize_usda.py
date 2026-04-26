@@ -301,6 +301,8 @@ def _write_ingredients_jsonl(rows: list[dict], out_path: Path) -> None:
 def _iter_nutrient_rows(
     input_root: Path,
     nutrient_catalog: dict[int, tuple[str, str | None]],
+    *,
+    progress_every: int = 1_000_000,
 ) -> Iterator[tuple[int, int, int, int, str, str]]:
     """
     Stream every food_nutrient.csv across all archives. Yields
@@ -317,11 +319,19 @@ def _iter_nutrient_rows(
 
     Per-archive accounting is *not* done here — the caller increments its own
     counter as it consumes the iterator (decoupling avoids fragile shared
-    state on early-exit paths).
+    state on early-exit paths). Progress logging IS done here because the
+    per-archive breakdown is naturally in scope: we keep a local counter and
+    emit ``"  ... USDA nutrients: N rows scanned (...)"`` to stderr every
+    ``progress_every`` consumed rows, but only when stderr is a TTY (silent in
+    CI / file redirects / test capture).
 
     Skips rows with missing/empty amount, missing fdc_id, or missing
     nutrient_id.
     """
+    # Progress tracking: per-archive counts so the operator can see where in
+    # the four-archive walk the pipeline currently is.
+    progress_by_archive: dict[str, int] = {k: 0 for k in ARCHIVE_ORDER}
+    progress_total = 0
     for archive_index, source_key in enumerate(ARCHIVE_ORDER):
         path = input_root / ARCHIVES[source_key] / "food_nutrient.csv"
         if not path.exists():
@@ -355,6 +365,23 @@ def _iter_nutrient_rows(
                     "source_archive": source_key,
                 }
                 line = json.dumps(record, ensure_ascii=False, sort_keys=True)
+                progress_by_archive[source_key] += 1
+                progress_total += 1
+                # Emit at N, 2N, 3N, ... — never at 0, never a final summary
+                # (the driver's "wrote N rows" line covers that). TTY-only so
+                # tests + CI + file redirects stay silent.
+                if (
+                    progress_total % progress_every == 0
+                    and sys.stderr.isatty()
+                ):
+                    breakdown = ", ".join(
+                        f"{k}: {progress_by_archive[k]:,}" for k in ARCHIVE_ORDER
+                    )
+                    print(
+                        f"  ... USDA nutrients: {progress_total:,} rows scanned ({breakdown})",
+                        file=sys.stderr,
+                        flush=True,
+                    )
                 yield (
                     fdc,
                     nid,
@@ -372,6 +399,7 @@ def _external_sort_nutrients(
     nutrient_catalog: dict[int, tuple[str, str | None]],
     out_path: Path,
     chunk_rows: int = CHUNK_ROWS,
+    progress_every: int = 1_000_000,
 ) -> tuple[int, dict[str, int]]:
     """
     External merge sort for nutrients. Returns (total_row_count, by_archive).
@@ -397,7 +425,7 @@ def _external_sort_nutrients(
 
     def _gen() -> Iterator[tuple[tuple, str]]:
         for fdc, nid, deriv_key, arch_idx, source_key, line in _iter_nutrient_rows(
-            input_root, nutrient_catalog
+            input_root, nutrient_catalog, progress_every=progress_every
         ):
             # Per-archive accounting is owned by this consumer — see I-1.
             by_archive_final[source_key] += 1
