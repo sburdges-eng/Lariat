@@ -303,7 +303,8 @@ export function summarize(locationId: string, today: string): CommandSummary {
   const prep = { todo: 0, in_progress: 0, done: 0, skipped: 0, rush: 0 };
   for (const r of prepRows) {
     if (Object.prototype.hasOwnProperty.call(prep, r.status)) {
-      (prep as Record<string, number>)[r.status] += 1;
+      const p = prep as Record<string, number>;
+      p[r.status] = (p[r.status] ?? 0) + 1;
     }
     if (
       (r.priority === 1 || r.priority === 2) &&
@@ -369,7 +370,8 @@ export function summarize(locationId: string, today: string): CommandSummary {
   };
   for (const r of tableRows) {
     if (Object.prototype.hasOwnProperty.call(dining_tables, r.status)) {
-      (dining_tables as Record<string, number>)[r.status] += 1;
+      const t = dining_tables as Record<string, number>;
+      t[r.status] = (t[r.status] ?? 0) + 1;
     }
     dining_tables.seats_total += Number(r.capacity) || 0;
     if (r.status === 'seated') {
