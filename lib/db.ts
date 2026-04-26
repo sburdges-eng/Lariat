@@ -1068,6 +1068,37 @@ export function initSchema(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_prep_tasks_station
       ON prep_tasks(location_id, shift_date, station_id);
 
+    -- Front-of-house reservations. Distinct from beo_events (catering /
+    -- private events with formal contracts). A reservation is a regular-
+    -- service party. Status flow:
+    --   booked → seated → completed | cancelled | no_show
+    -- table_id is a soft FK to a tables row (M3.1 will create it); kept as
+    -- a plain TEXT here so reservations can ship before floor plan exists.
+    CREATE TABLE IF NOT EXISTS reservations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      party_name TEXT NOT NULL,
+      party_size INTEGER NOT NULL,
+      reservation_at TEXT NOT NULL,           -- 'YYYY-MM-DD HH:MM' local
+      status TEXT NOT NULL DEFAULT 'booked'
+        CHECK(status IN ('booked','seated','completed','cancelled','no_show')),
+      table_id TEXT,                          -- soft FK to tables.id once that exists
+      phone TEXT,
+      email TEXT,
+      notes TEXT,
+      source TEXT DEFAULT 'manual',           -- 'manual', 'opentable', 'phone', etc.
+      source_ref TEXT,
+      seated_at TEXT,
+      completed_at TEXT,
+      cook_id TEXT,                           -- whoever booked or last touched it
+      location_id TEXT NOT NULL DEFAULT 'default',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_reservations_loc_at
+      ON reservations(location_id, reservation_at);
+    CREATE INDEX IF NOT EXISTS idx_reservations_status
+      ON reservations(location_id, status, reservation_at);
+
     CREATE TABLE IF NOT EXISTS locations (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,

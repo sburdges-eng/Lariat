@@ -85,6 +85,17 @@ export const NAV_ITEMS = [
     surface: { sidebar: t, palette: t, shelf: f },
   },
   {
+    id: 'reservations',
+    href: '/reservations',
+    name: 'Reservations',
+    sub: 'Tonight’s book',
+    group: 'Service',
+    shortcut: 'B',
+    terms: 'reservation booking party guest',
+    locAware: t,
+    surface: { sidebar: t, palette: t, shelf: f },
+  },
+  {
     id: 'kitchen-assistant',
     href: '/kitchen-assistant',
     name: 'Ask the kitchen',
