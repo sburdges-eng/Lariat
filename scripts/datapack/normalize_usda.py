@@ -45,7 +45,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import hashlib
 import heapq
 import json
 import os
@@ -59,23 +58,20 @@ from typing import Iterator, TextIO
 # csv field size — branded ingredients lists can be very long.
 csv.field_size_limit(sys.maxsize)
 
-# ---------------------------------------------------------------------------
-# Path resolution
-# ---------------------------------------------------------------------------
+# Make `from scripts.datapack._io import ...` work both as a package import
+# (when tests do `from scripts.datapack.normalize_usda import ...`) and when
+# the script is run directly (`python scripts/datapack/normalize_usda.py`),
+# in which case Python only adds the script's own directory to sys.path.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-SYMLINK_PATH = REPO_ROOT / "data" / "lariat-data"
-DIRECT_PATH = Path("/Volumes/Sean's SSD/lariat-data")
-
-
-def _default_data_root() -> Path:
-    if SYMLINK_PATH.exists():
-        return SYMLINK_PATH.resolve()
-    if DIRECT_PATH.exists():
-        return DIRECT_PATH
-    # Fall back to symlink path even if missing — let the caller fail later
-    # with a clearer error from the actual file open.
-    return SYMLINK_PATH
+from scripts.datapack._io import (  # noqa: E402
+    atomic_replace as _atomic_replace,
+    atomic_write_text as _atomic_write_text,
+    default_data_root as _default_data_root,
+    sha256_file as _sha256_file,
+)
 
 
 def _default_input_root() -> Path:
@@ -112,30 +108,6 @@ CHUNK_ROWS = 500_000
 # ---------------------------------------------------------------------------
 # Small helpers
 # ---------------------------------------------------------------------------
-
-
-def _sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for buf in iter(lambda: f.read(1 << 20), b""):
-            h.update(buf)
-    return h.hexdigest()
-
-
-def _atomic_write_text(path: Path, text: str) -> None:
-    """Write atomically: write to .tmp, fsync, os.replace."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(text)
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(tmp, path)
-
-
-def _atomic_replace(tmp: Path, final: Path) -> None:
-    final.parent.mkdir(parents=True, exist_ok=True)
-    os.replace(tmp, final)
 
 
 def _open_csv(path: Path) -> tuple[TextIO, csv.DictReader]:

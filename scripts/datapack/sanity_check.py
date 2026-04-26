@@ -25,29 +25,23 @@ CLI:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+# Make `from scripts.datapack._io import ...` work both as a package import
+# and when this script is run directly. See normalize_usda.py for context.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
-# ---------------------------------------------------------------------------
-# Path resolution (mirrors normalize_*.py)
-# ---------------------------------------------------------------------------
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-SYMLINK_PATH = REPO_ROOT / "data" / "lariat-data"
-DIRECT_PATH = Path("/Volumes/Sean's SSD/lariat-data")
-
-
-def _default_data_root() -> Path:
-    if SYMLINK_PATH.exists():
-        return SYMLINK_PATH.resolve()
-    if DIRECT_PATH.exists():
-        return DIRECT_PATH
-    return SYMLINK_PATH
+from scripts.datapack._io import (  # noqa: E402
+    default_data_root as _default_data_root,
+    human_bytes as _human_bytes,
+    sha256_file as _sha256_file,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -167,30 +161,6 @@ SOURCES: tuple[SourceSpec, ...] = (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _sha256_file(path: Path) -> str:
-    """Match the hashing idiom in normalize_*.py: 1 MB chunks."""
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for buf in iter(lambda: f.read(1 << 20), b""):
-            h.update(buf)
-    return h.hexdigest()
-
-
-def _human_bytes(n: int) -> str:
-    """Format byte counts as B / KB / MB / GB / TB (1024-based)."""
-    if n < 0:
-        return f"{n} B"
-    units = ("B", "KB", "MB", "GB", "TB", "PB")
-    val = float(n)
-    for u in units:
-        if val < 1024.0 or u == units[-1]:
-            if u == "B":
-                return f"{int(val)} {u}"
-            return f"{val:.1f} {u}"
-        val /= 1024.0
-    return f"{n} B"
 
 
 def _iter_tail_lines(path: Path, n: int) -> list[bytes]:
