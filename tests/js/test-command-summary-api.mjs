@@ -36,7 +36,7 @@ const TABLES = [
   'shift_breaks', 'staff_certifications',
   'temp_log', 'date_marks', 'cleaning_schedule',
   'preshift_notes', 'beo_events', 'reservations', 'prep_tasks',
-  'dining_tables', 'inventory_updates',
+  'dining_tables', 'inventory_updates', 'thermometer_calibrations',
 ];
 
 beforeEach(() => {
@@ -400,6 +400,65 @@ describe('summarize() — waste log', () => {
     const b = summarize('kitchen-b', TODAY);
     assert.strictEqual(a.waste.today, 1);
     assert.strictEqual(b.waste.today, 0);
+  });
+});
+
+describe('summarize() — probe calibrations', () => {
+  // Insert one calibration row. days_ago counts BACK from TODAY.
+  const ins = (loc, probeId, daysAgo, passed = 1, freq = null) => {
+    const d = new Date(TODAY + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() - daysAgo);
+    const at = d.toISOString().slice(0, 10);
+    testDb.prepare(
+      `INSERT INTO thermometer_calibrations
+         (location_id, thermometer_id, method, before_reading_f, passed,
+          calibrated_at, frequency_days)
+       VALUES (?, ?, 'ice_point', 32, ?, ?, ?)`,
+    ).run(loc, probeId, passed, at, freq);
+  };
+
+  it('classifies probes as overdue / failed / due_soon', () => {
+    // P1: passed 5 days ago, default 30d → ok (well within window)
+    ins('default', 'P1', 5, 1);
+    // P2: passed 25 days ago, default 30d → due_soon (within 7d of expiry)
+    ins('default', 'P2', 25, 1);
+    // P3: passed 40 days ago, default 30d → overdue
+    ins('default', 'P3', 40, 1);
+    // P4: most recent reading was a fail → failed (regardless of when)
+    ins('default', 'P4', 2, 0);
+    // P5: per-probe override 7d, last passed 10 days ago → overdue
+    ins('default', 'P5', 10, 1, 7);
+
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.food_safety.probes_due_soon, 1);
+    assert.strictEqual(s.food_safety.probes_overdue, 2);
+    assert.strictEqual(s.food_safety.probes_failed, 1);
+  });
+
+  it('returns zeros when there are no calibration rows', () => {
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.food_safety.probes_overdue, 0);
+    assert.strictEqual(s.food_safety.probes_failed, 0);
+    assert.strictEqual(s.food_safety.probes_due_soon, 0);
+  });
+
+  it('does not leak across locations', () => {
+    ins('kitchen-a', 'P1', 40, 1);
+    const a = summarize('kitchen-a', TODAY);
+    const b = summarize('kitchen-b', TODAY);
+    assert.strictEqual(a.food_safety.probes_overdue, 1);
+    assert.strictEqual(b.food_safety.probes_overdue, 0);
+  });
+
+  it('alertsFor surfaces probes-failed and probes-overdue as red, due-soon as amber', () => {
+    ins('default', 'PA', 40, 1);  // overdue
+    ins('default', 'PB', 2, 0);   // failed
+    ins('default', 'PC', 25, 1);  // due_soon
+    const s = summarize('default', TODAY);
+    const a = alertsFor(s);
+    assert.ok(a.some((x) => x.severity === 'red' && x.source === 'probes-overdue'));
+    assert.ok(a.some((x) => x.severity === 'red' && x.source === 'probes-failed'));
+    assert.ok(a.some((x) => x.severity === 'amber' && x.source === 'probes-due-soon'));
   });
 });
 

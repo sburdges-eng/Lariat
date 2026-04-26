@@ -10,6 +10,7 @@ import { classifyReadings } from './tempLog';
 import { scanExpiringBatches } from './dateMarks';
 import { listPriceShocks } from './vendorPricesRepo';
 import { listMarginDeltas } from './marginDeltas';
+import { classifyProbes } from './calibrations';
 
 export interface CommandSummary {
   shift_date: string;
@@ -41,6 +42,9 @@ export interface CommandSummary {
     date_marks_due_today: number;
     cleaning_overdue: number;
     cleaning_due_today: number;
+    probes_overdue: number;
+    probes_failed: number;
+    probes_due_soon: number;
   };
   preshift_notes: number;
   events_today: number;
@@ -239,6 +243,30 @@ export function summarize(locationId: string, today: string): CommandSummary {
   const dateMarksExpired = expiringBatches.filter((b) => b.status === 'expired').length;
   const dateMarksDueToday = expiringBatches.filter((b) => b.status === 'due_today').length;
 
+  // Probe calibrations. classifyProbes buckets each thermometer_id by
+  // its most recent calibration vs frequency_days (defaults to 30).
+  // overdue = past the window. failed = last reading was a fail.
+  // due_soon = within 7 days of expiration.
+  const calRows = db
+    .prepare(
+      `SELECT thermometer_id, method, before_reading_f, passed,
+              calibrated_at, frequency_days
+         FROM thermometer_calibrations
+        WHERE location_id = ?`,
+    )
+    .all(locationId) as Array<{
+      thermometer_id: string;
+      method: string;
+      before_reading_f: number | null;
+      passed: number;
+      calibrated_at: string;
+      frequency_days: number | null;
+    }>;
+  const probes = classifyProbes(calRows, { now: new Date(today + 'T00:00:00Z') });
+  const probesOverdue = probes.filter((p) => p.status === 'overdue').length;
+  const probesFailed = probes.filter((p) => p.status === 'failed').length;
+  const probesDueSoon = probes.filter((p) => p.status === 'due_soon').length;
+
   // Active cleaning schedule rows where next_due is past or today.
   // archived_at is added at runtime by initSchema, so we filter it
   // here too — retired rows shouldn't show as overdue.
@@ -413,6 +441,9 @@ export function summarize(locationId: string, today: string): CommandSummary {
       date_marks_due_today: dateMarksDueToday,
       cleaning_overdue: cleaningOverdue,
       cleaning_due_today: cleaningDueToday,
+      probes_overdue: probesOverdue,
+      probes_failed: probesFailed,
+      probes_due_soon: probesDueSoon,
     },
     preshift_notes: preshiftCount,
     events_today: events.c,
@@ -462,6 +493,16 @@ export function alertsFor(s: CommandSummary): CommandAlert[] {
     message: `${s.food_safety.cleaning_overdue} cleaning task${s.food_safety.cleaning_overdue === 1 ? '' : 's'} overdue`,
   });
   push({
+    severity: 'red', source: 'probes-failed',
+    count: s.food_safety.probes_failed,
+    message: `${s.food_safety.probes_failed} probe${s.food_safety.probes_failed === 1 ? '' : 's'} flagged as unreliable — recalibrate`,
+  });
+  push({
+    severity: 'red', source: 'probes-overdue',
+    count: s.food_safety.probes_overdue,
+    message: `${s.food_safety.probes_overdue} probe${s.food_safety.probes_overdue === 1 ? '' : 's'} past calibration window`,
+  });
+  push({
     severity: 'red', source: 'cert-expired',
     count: s.labor.cert_expired,
     message: `${s.labor.cert_expired} expired cert${s.labor.cert_expired === 1 ? '' : 's'}`,
@@ -496,6 +537,11 @@ export function alertsFor(s: CommandSummary): CommandAlert[] {
     severity: 'amber', source: 'cleaning-due-today',
     count: s.food_safety.cleaning_due_today,
     message: `${s.food_safety.cleaning_due_today} cleaning task${s.food_safety.cleaning_due_today === 1 ? '' : 's'} due today`,
+  });
+  push({
+    severity: 'amber', source: 'probes-due-soon',
+    count: s.food_safety.probes_due_soon,
+    message: `${s.food_safety.probes_due_soon} probe${s.food_safety.probes_due_soon === 1 ? '' : 's'} due for calibration in 7 days`,
   });
   push({
     severity: 'amber', source: 'inventory-low-par',
