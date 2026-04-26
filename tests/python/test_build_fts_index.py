@@ -22,13 +22,13 @@ fixture tree, then drives ``build_fts_index.build()`` against the resulting
 from __future__ import annotations
 
 import json
+import math
 import sqlite3
 import sys
 import tempfile
 import time
 import unittest
 from pathlib import Path
-from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 if str(ROOT) not in sys.path:
@@ -198,6 +198,16 @@ class BuildFtsIndexSmokeTests(unittest.TestCase):
             }
             self.assertEqual(set(mapped.keys()), fts_rowids)
 
+            # Full bijection: rowid-to-code mapping matches the deterministic
+            # ROW_NUMBER() OVER (ORDER BY code) ordering used by the indexer.
+            expected_pairs = {
+                (rn, p["code"])
+                for rn, p in enumerate(
+                    sorted(OFF_PRODUCTS, key=lambda r: r["code"]), start=1
+                )
+            }
+            self.assertEqual(set(mapped.items()), expected_pairs)
+
             # Wikibooks: 'pie' from the non-redirect page's title.
             rows = conn.execute(
                 "SELECT rowid FROM wikibooks_pages_fts "
@@ -321,12 +331,19 @@ class BuildFtsIndexSmokeTests(unittest.TestCase):
             ).fetchone()
         self.assertIsNotNone(row, "expected at least one MATCH for 'apple'")
         score = row[0]
-        self.assertIsNotNone(score, "bm25() returned NULL for a real match")
+        # FTS5 bm25() with default args is documented as a finite negative
+        # float for any real match (more-negative = better match). We don't
+        # pin a specific value — sqlite/FTS5 versions vary.
+        self.assertIsNotNone(score)
         self.assertIsInstance(score, float)
-        # FTS5 bm25() returns *negative* scores (more-negative = better
-        # match). We don't pin a specific value — sqlite/FTS5 versions
-        # vary — but it must be a finite float.
-        self.assertEqual(score, score, "bm25 must not be NaN")
+        self.assertTrue(
+            math.isfinite(score), f"bm25 must be finite, got {score!r}"
+        )
+        self.assertLess(
+            score,
+            0.0,
+            f"FTS5 bm25() returns negative scores for real matches, got {score!r}",
+        )
 
     def test_missing_input_raises_clearly(self) -> None:
         bogus = self.fts_dir / "does_not_exist.db"
