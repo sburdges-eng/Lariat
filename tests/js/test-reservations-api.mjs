@@ -39,6 +39,7 @@ const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 const db = await import('../../lib/db.ts');
 const route = await import('../../app/api/reservations/route.js');
 const idRoute = await import('../../app/api/reservations/[id]/route.js');
+const tableRoute = await import('../../app/api/dining-tables/route.js');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
@@ -50,7 +51,8 @@ after(() => {
 
 beforeEach(() => {
   testDb.exec('DELETE FROM reservations;');
-  testDb.exec(`DELETE FROM audit_events WHERE entity='reservations';`);
+  testDb.exec('DELETE FROM dining_tables;');
+  testDb.exec(`DELETE FROM audit_events WHERE entity='reservations' OR entity='dining_tables';`);
 });
 
 function postReq(body) {
@@ -96,6 +98,31 @@ async function createRes(overrides = {}) {
   const j = await res.json();
   assert.ok(j.id > 0);
   return j.id;
+}
+
+async function createTable(overrides = {}) {
+  const body = {
+    id: 'T1',
+    name: 'Window 1',
+    capacity: 4,
+    cook_id: 'alice',
+    ...overrides,
+  };
+  const req = new Request('http://localhost/api/dining-tables', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const res = await tableRoute.POST(req);
+  assert.strictEqual(res.status, 200, `expected 200, got ${res.status}`);
+  return body.id;
+}
+
+function tableStatus(id, loc = 'default') {
+  const row = testDb
+    .prepare('SELECT status FROM dining_tables WHERE id=? AND location_id=?')
+    .get(id, loc);
+  return row ? row.status : null;
 }
 
 describe('POST /api/reservations', () => {
@@ -295,6 +322,177 @@ describe('PATCH /api/reservations/:id', () => {
     assert.strictEqual(row.status, 'seated');
     assert.strictEqual(row.table_id, 'T3');
     assert.strictEqual(row.notes, 'window seat');
+  });
+});
+
+describe('PATCH /api/reservations/:id × dining_tables wiring', () => {
+  it('seat propagates: linked table goes open → seated', async () => {
+    await createTable({ id: 'T1' });
+    const id = await createRes({ table_id: 'T1' });
+    assert.strictEqual(tableStatus('T1'), 'open');
+
+    const res = await patchReq(id, { seat: true, cook_id: 'alice' });
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(tableStatus('T1'), 'seated');
+
+    // Audit row written for the table-side mutation.
+    const a = testDb
+      .prepare(
+        `SELECT * FROM audit_events
+          WHERE entity='dining_tables' AND action='update'
+          ORDER BY id DESC LIMIT 1`,
+      )
+      .get();
+    assert.ok(a);
+    const payload = JSON.parse(a.payload_json);
+    assert.strictEqual(payload.id, 'T1');
+    assert.strictEqual(payload.from_status, 'open');
+    assert.strictEqual(payload.to_status, 'seated');
+    assert.strictEqual(payload.triggered_by, 'reservation_seat');
+  });
+
+  it('seat with new table_id overrides original — only the new table seats', async () => {
+    await createTable({ id: 'T1' });
+    await createTable({ id: 'T2' });
+    const id = await createRes({ table_id: 'T1' });
+
+    const res = await patchReq(id, {
+      seat: true,
+      table_id: 'T2',
+      cook_id: 'alice',
+    });
+    assert.strictEqual(res.status, 200);
+
+    const row = testDb.prepare('SELECT * FROM reservations WHERE id=?').get(id);
+    assert.strictEqual(row.table_id, 'T2');
+    assert.strictEqual(row.status, 'seated');
+
+    assert.strictEqual(tableStatus('T1'), 'open', 'original T1 untouched');
+    assert.strictEqual(tableStatus('T2'), 'seated', 'new T2 is now seated');
+  });
+
+  it('complete on a seated reservation moves linked table to dirty', async () => {
+    await createTable({ id: 'T1' });
+    const id = await createRes({ table_id: 'T1' });
+    await patchReq(id, { seat: true, cook_id: 'alice' });
+    assert.strictEqual(tableStatus('T1'), 'seated');
+
+    const res = await patchReq(id, { complete: true, cook_id: 'alice' });
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(tableStatus('T1'), 'dirty');
+
+    const a = testDb
+      .prepare(
+        `SELECT * FROM audit_events
+          WHERE entity='dining_tables' AND action='update'
+          ORDER BY id DESC LIMIT 1`,
+      )
+      .get();
+    const payload = JSON.parse(a.payload_json);
+    assert.strictEqual(payload.from_status, 'seated');
+    assert.strictEqual(payload.to_status, 'dirty');
+    assert.strictEqual(payload.triggered_by, 'reservation_complete');
+  });
+
+  it('cancel on a seated reservation releases the table back to open', async () => {
+    await createTable({ id: 'T1' });
+    const id = await createRes({ table_id: 'T1' });
+    await patchReq(id, { seat: true, cook_id: 'alice' });
+    assert.strictEqual(tableStatus('T1'), 'seated');
+
+    const res = await patchReq(id, { cancel: true, cook_id: 'alice' });
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(tableStatus('T1'), 'open');
+
+    const a = testDb
+      .prepare(
+        `SELECT * FROM audit_events
+          WHERE entity='dining_tables' AND action='update'
+          ORDER BY id DESC LIMIT 1`,
+      )
+      .get();
+    const payload = JSON.parse(a.payload_json);
+    assert.strictEqual(payload.from_status, 'seated');
+    assert.strictEqual(payload.to_status, 'open');
+    assert.strictEqual(payload.triggered_by, 'reservation_cancel');
+  });
+
+  it('no_show on a seated reservation does NOT touch the table', async () => {
+    await createTable({ id: 'T1' });
+    const id = await createRes({ table_id: 'T1' });
+    await patchReq(id, { seat: true, cook_id: 'alice' });
+    assert.strictEqual(tableStatus('T1'), 'seated');
+
+    // Snapshot table audit count before no_show.
+    const beforeCount = testDb
+      .prepare(
+        `SELECT COUNT(*) AS n FROM audit_events
+          WHERE entity='dining_tables' AND action='update'`,
+      )
+      .get().n;
+
+    const res = await patchReq(id, { no_show: true, cook_id: 'alice' });
+    assert.strictEqual(res.status, 200);
+    // Table state unchanged…
+    assert.strictEqual(tableStatus('T1'), 'seated');
+    // …and no new table-side audit event was written.
+    const afterCount = testDb
+      .prepare(
+        `SELECT COUNT(*) AS n FROM audit_events
+          WHERE entity='dining_tables' AND action='update'`,
+      )
+      .get().n;
+    assert.strictEqual(afterCount, beforeCount);
+  });
+
+  it('cancel on a booked-but-not-seated reservation does NOT touch the table', async () => {
+    await createTable({ id: 'T1' });
+    const id = await createRes({ table_id: 'T1' });
+    // Reservation is 'booked', table is still 'open' — never taken.
+    assert.strictEqual(tableStatus('T1'), 'open');
+
+    const beforeCount = testDb
+      .prepare(
+        `SELECT COUNT(*) AS n FROM audit_events
+          WHERE entity='dining_tables' AND action='update'`,
+      )
+      .get().n;
+
+    const res = await patchReq(id, { cancel: true, cook_id: 'alice' });
+    assert.strictEqual(res.status, 200);
+    // Table left alone (was never taken, no release needed).
+    assert.strictEqual(tableStatus('T1'), 'open');
+    const afterCount = testDb
+      .prepare(
+        `SELECT COUNT(*) AS n FROM audit_events
+          WHERE entity='dining_tables' AND action='update'`,
+      )
+      .get().n;
+    assert.strictEqual(afterCount, beforeCount);
+  });
+
+  it('seat with stale table_id (no matching row) — reservation still updates, no error', async () => {
+    // No dining_tables row created.
+    const id = await createRes();
+    const res = await patchReq(id, {
+      seat: true,
+      table_id: 'GHOST',
+      cook_id: 'alice',
+    });
+    assert.strictEqual(res.status, 200);
+
+    const row = testDb.prepare('SELECT * FROM reservations WHERE id=?').get(id);
+    assert.strictEqual(row.status, 'seated');
+    assert.strictEqual(row.table_id, 'GHOST');
+
+    // No table-side audit event because no dining_tables row to mutate.
+    const a = testDb
+      .prepare(
+        `SELECT COUNT(*) AS n FROM audit_events
+          WHERE entity='dining_tables' AND action='update'`,
+      )
+      .get();
+    assert.strictEqual(a.n, 0);
   });
 });
 

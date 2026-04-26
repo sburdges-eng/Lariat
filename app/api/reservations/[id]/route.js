@@ -29,6 +29,16 @@ function parseId(params) {
  * Field edits (no verb required, may also coexist with a non-conflicting
  * verb — e.g. `{ seat: true, notes: 'window seat' }` works):
  *   party_name, party_size, reservation_at, table_id, phone, email, notes
+ *
+ * Reservation × dining_tables wiring (in the same transaction):
+ *   - seat     → linked table.status = 'seated'  (uses body.table_id if
+ *                provided, else the reservation's existing table_id)
+ *   - complete → linked table.status = 'dirty'
+ *   - cancel   → linked table.status = 'open' ONLY if reservation was
+ *                already 'seated'; a booked-but-not-seated cancel does
+ *                not touch any table
+ *   - no_show  → no table touch
+ * A stale table_id (no matching dining_tables row) is skipped silently.
  */
 export async function PATCH(req, { params }) {
   const id = parseId(params);
@@ -157,6 +167,61 @@ export async function PATCH(req, { params }) {
           verb: verb || undefined,
         },
       });
+
+      // Mirror reservation state changes onto the linked dining_tables row,
+      // in the SAME transaction so the two updates are atomic.
+      //   seat     → table.status = 'seated' (use new table_id if provided,
+      //              otherwise the reservation's existing table_id)
+      //   complete → table.status = 'dirty'
+      //   cancel   → table.status = 'open' ONLY if the reservation was
+      //              previously 'seated'. A 'booked' reservation never
+      //              took the table; nothing to release.
+      //   no_show  → no table touch (never seated)
+      // If the linked table_id points at no row (stale reference), skip
+      // silently — the reservation update still stands.
+      const touchTable = (tableId, toStatus, triggeredBy) => {
+        if (!tableId) return;
+        const tRow = db
+          .prepare(
+            `SELECT id, status FROM dining_tables
+              WHERE id = ? AND location_id = ?`,
+          )
+          .get(tableId, loc);
+        if (!tRow) return; // stale table_id — skip silently
+        db.prepare(
+          `UPDATE dining_tables
+              SET status = ?, updated_at = datetime('now')
+            WHERE id = ? AND location_id = ?`,
+        ).run(toStatus, tableId, loc);
+        postAuditEvent({
+          entity: 'dining_tables',
+          entity_id: 0,
+          action: 'update',
+          actor_cook_id: cookId,
+          actor_source: 'api',
+          location_id: loc,
+          payload: {
+            id: tableId,
+            from_status: tRow.status,
+            to_status: toStatus,
+            triggered_by: triggeredBy,
+          },
+        });
+      };
+
+      if (verb === 'seat') {
+        const newTableId =
+          body.table_id !== undefined ? clip(body.table_id, 64) : row.table_id;
+        touchTable(newTableId, 'seated', 'reservation_seat');
+      } else if (verb === 'complete') {
+        touchTable(row.table_id, 'dirty', 'reservation_complete');
+      } else if (verb === 'cancel') {
+        if (row.status === 'seated') {
+          touchTable(row.table_id, 'open', 'reservation_cancel');
+        }
+      }
+      // verb === 'no_show' → no table change.
+
       return { ok: true };
     })();
 
