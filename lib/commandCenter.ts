@@ -8,6 +8,8 @@
 import { getDb } from './db';
 import { classifyReadings } from './tempLog';
 import { scanExpiringBatches } from './dateMarks';
+import { listPriceShocks } from './vendorPricesRepo';
+import { listMarginDeltas } from './marginDeltas';
 
 export interface CommandSummary {
   shift_date: string;
@@ -50,6 +52,23 @@ export interface CommandSummary {
     no_show: number;
     cancelled: number;
     total: number;
+  };
+  prep: {
+    todo: number;
+    in_progress: number;
+    done: number;
+    skipped: number;
+    rush: number;
+  };
+  price_moves: {
+    total: number;
+    up: number;
+    down: number;
+  };
+  margin_moves: {
+    total: number;
+    up: number;
+    down: number;
   };
 }
 
@@ -241,6 +260,47 @@ export function summarize(locationId: string, today: string): CommandSummary {
   reservations.total =
     reservations.booked + reservations.seated + reservations.completed + reservations.no_show;
 
+  // Prep board for today: status counts + a 'rush' count (priority 1 or 2
+  // and not yet done). Mirrors the inline rollup in app/command/page.jsx.
+  const prepRows = db
+    .prepare(
+      `SELECT status, priority FROM prep_tasks
+        WHERE location_id = ? AND shift_date = ?`,
+    )
+    .all(locationId, today) as Array<{ status: string; priority: number | null }>;
+  const prep = { todo: 0, in_progress: 0, done: 0, skipped: 0, rush: 0 };
+  for (const r of prepRows) {
+    if (Object.prototype.hasOwnProperty.call(prep, r.status)) {
+      (prep as Record<string, number>)[r.status] += 1;
+    }
+    if (
+      (r.priority === 1 || r.priority === 2) &&
+      (r.status === 'todo' || r.status === 'in_progress')
+    ) {
+      prep.rush += 1;
+    }
+  }
+
+  // Vendor price + dish-level margin moves over the last 7 days at >= 5%.
+  // Same options the page passes — keep the GM dashboard and the JSON
+  // endpoint pointed at the same window so the numbers don't disagree.
+  const priceShocks = listPriceShocks(db, {
+    location_id: locationId, windowDays: 7, minPctMove: 5, limit: 100,
+  });
+  const marginDeltas = listMarginDeltas(db, {
+    location_id: locationId, windowDays: 7, minPctMove: 5, limit: 100,
+  });
+  const price_moves = {
+    total: priceShocks.length,
+    up: priceShocks.filter((r) => r.direction === 'up').length,
+    down: priceShocks.filter((r) => r.direction === 'down').length,
+  };
+  const margin_moves = {
+    total: marginDeltas.length,
+    up: marginDeltas.filter((r) => r.direction === 'up').length,
+    down: marginDeltas.filter((r) => r.direction === 'down').length,
+  };
+
   const yesterdayNet = Number(yRow.net_sales) || 0;
   const avg7 = Number(trailing.avg_sales) || 0;
   const deltaPct = avg7 > 0 ? (yesterdayNet - avg7) / avg7 : 0;
@@ -280,5 +340,8 @@ export function summarize(locationId: string, today: string): CommandSummary {
     events_today: events.c,
     events_guests: Number(events.guests) || 0,
     reservations,
+    prep,
+    price_moves,
+    margin_moves,
   };
 }

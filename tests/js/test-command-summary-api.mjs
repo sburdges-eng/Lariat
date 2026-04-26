@@ -34,7 +34,7 @@ const TABLES = [
   'inventory_par', 'inventory_count_lines', 'inventory_counts',
   'shift_breaks', 'staff_certifications',
   'temp_log', 'date_marks', 'cleaning_schedule',
-  'preshift_notes', 'beo_events', 'reservations',
+  'preshift_notes', 'beo_events', 'reservations', 'prep_tasks',
 ];
 
 beforeEach(() => {
@@ -279,6 +279,48 @@ describe('summarize() — reservations', () => {
     const b = summarize('kitchen-b', TODAY);
     assert.strictEqual(a.reservations.booked, 1);
     assert.strictEqual(b.reservations.booked, 0);
+  });
+});
+
+describe('summarize() — prep board', () => {
+  const ins = (loc, status, priority, task = 'Brunoise onions') =>
+    testDb.prepare(
+      `INSERT INTO prep_tasks (shift_date, location_id, task, status, priority)
+       VALUES (?, ?, ?, ?, ?)`,
+    ).run(TODAY, loc, task, status, priority);
+
+  it('counts status buckets and rush (priority 1|2 + todo/in_progress)', () => {
+    ins('default', 'todo',        1, 'Demi-glace');     // rush
+    ins('default', 'todo',        3, 'Cut chiffonade'); // not rush
+    ins('default', 'in_progress', 2, 'Roast bones');    // rush
+    ins('default', 'in_progress', 1, 'Sear duck');      // rush
+    ins('default', 'done',        1, 'Pickle daikon');  // priority high but DONE
+    ins('default', 'skipped',     0, 'Drop fries');
+
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.prep.todo, 2);
+    assert.strictEqual(s.prep.in_progress, 2);
+    assert.strictEqual(s.prep.done, 1);
+    assert.strictEqual(s.prep.skipped, 1);
+    assert.strictEqual(s.prep.rush, 3);
+  });
+
+  it('does not leak across locations', () => {
+    ins('kitchen-a', 'todo', 1);
+    const a = summarize('kitchen-a', TODAY);
+    const b = summarize('kitchen-b', TODAY);
+    assert.strictEqual(a.prep.todo, 1);
+    assert.strictEqual(b.prep.todo, 0);
+  });
+});
+
+describe('summarize() — price + margin moves (smoke)', () => {
+  it('returns shape even when there is no vendor data', () => {
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.price_moves.total, 0);
+    assert.strictEqual(s.price_moves.up, 0);
+    assert.strictEqual(s.price_moves.down, 0);
+    assert.strictEqual(s.margin_moves.total, 0);
   });
 });
 
