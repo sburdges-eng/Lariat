@@ -18,10 +18,7 @@ The dump has ~3M rows and 210 columns; loading it into memory is not viable.
 We stream with csv.reader, write sorted chunks of CHUNK_ROWS to disk, then
 heapq.merge them into the final JSONL — same external-merge-sort pattern
 used by ``scripts/datapack/normalize_usda.py`` for the nutrients table.
-TODO: factor with normalize_usda.py — the chunk-flush/heapq.merge pieces
-look like good shared sort helpers, but mixing that refactor with the
-streaming TSV consumer for OFF makes the diff harder to review. Pull it
-out in a follow-up.
+Shared merge-sort skeleton lives in ``scripts/datapack/_io.external_sort_jsonl``.
 
 Idempotent: if outputs already exist with manifest sha256 values that match
 the on-disk file hashes, the script exits early. Pass --force to rebuild.

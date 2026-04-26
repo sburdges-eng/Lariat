@@ -215,6 +215,82 @@ class ExternalSortJsonlTest(unittest.TestCase):
                 key_types=(float,),  # not in _SUPPORTED_KEY_PARSERS
             )
 
+    # ------------------------------------------------------------------
+    # 7. chunk_rows < 1 is rejected (would otherwise produce one chunk
+    #    file per source row and exhaust filesystem inodes on a 26M-row
+    #    USDA nutrient table).
+    # ------------------------------------------------------------------
+    def test_chunk_rows_zero_or_negative_rejected(self) -> None:
+        for bad in (0, -1):
+            with self.subTest(chunk_rows=bad):
+                with self.assertRaises(ValueError):
+                    external_sort_jsonl(
+                        iter([]),
+                        self.out_dir / "rows.jsonl",
+                        chunk_rows=bad,
+                        tmp_dir=self.tmp_dir,
+                        key_types=(int,),
+                    )
+
+    # ------------------------------------------------------------------
+    # 8. Source generator raising mid-iteration must propagate AND must
+    #    not leave a stale .tmp output file behind. The existing per-
+    #    normalizer .tmp_*_sort_* glob does NOT sweep the output's .tmp
+    #    sibling, so the helper itself owns this cleanup.
+    # ------------------------------------------------------------------
+    def test_source_raising_mid_iteration_propagates_and_cleans_tmp(self) -> None:
+        def _exploding_source():
+            yield ((1,), json.dumps({"id": 1}))
+            yield ((2,), json.dumps({"id": 2}))
+            yield ((3,), json.dumps({"id": 3}))
+            raise RuntimeError("source blew up mid-iteration")
+
+        out_path = self.out_dir / "rows.jsonl"
+        tmp_out = out_path.with_suffix(out_path.suffix + ".tmp")
+        with self.assertRaises(RuntimeError):
+            external_sort_jsonl(
+                _exploding_source(),
+                out_path,
+                chunk_rows=2,
+                tmp_dir=self.tmp_dir,
+                key_types=(int,),
+            )
+        self.assertFalse(tmp_out.exists(), f"stale .tmp left behind: {tmp_out}")
+        self.assertFalse(out_path.exists(), f"partial final output written: {out_path}")
+
+    # ------------------------------------------------------------------
+    # 9. on_emit raising must propagate AND must not leave a stale .tmp
+    #    output file behind. Same contract as I-2 source-side cleanup.
+    # ------------------------------------------------------------------
+    def test_on_emit_raising_propagates_and_cleans_tmp(self) -> None:
+        calls = {"n": 0}
+
+        def _hook(_key: tuple, _line: str) -> None:
+            calls["n"] += 1
+            if calls["n"] >= 3:
+                raise RuntimeError("on_emit blew up after 3 callbacks")
+
+        source = [
+            ((1,), json.dumps({"id": 1})),
+            ((2,), json.dumps({"id": 2})),
+            ((3,), json.dumps({"id": 3})),
+            ((4,), json.dumps({"id": 4})),
+            ((5,), json.dumps({"id": 5})),
+        ]
+        out_path = self.out_dir / "rows.jsonl"
+        tmp_out = out_path.with_suffix(out_path.suffix + ".tmp")
+        with self.assertRaises(RuntimeError):
+            external_sort_jsonl(
+                iter(source),
+                out_path,
+                chunk_rows=2,
+                tmp_dir=self.tmp_dir,
+                key_types=(int,),
+                on_emit=_hook,
+            )
+        self.assertFalse(tmp_out.exists(), f"stale .tmp left behind: {tmp_out}")
+        self.assertFalse(out_path.exists(), f"partial final output written: {out_path}")
+
 
 if __name__ == "__main__":
     unittest.main()

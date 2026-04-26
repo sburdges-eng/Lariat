@@ -206,11 +206,17 @@ def external_sort_jsonl(
 
     Errors:
         Source-iterator exceptions propagate. Chunk-write exceptions
-        propagate. Corrupt chunk lines (wrong column count) are silently
-        skipped — this matches the prior in-script behavior. Corrupt key
-        types raise ``ValueError`` from the parser, which propagates;
-        that indicates the on-disk chunk file is malformed and we want
-        a loud failure rather than data loss.
+        propagate. ``on_emit`` exceptions propagate. Corrupt chunk lines
+        (wrong column count) are silently skipped — this matches the
+        prior in-script behavior. Corrupt key types raise ``ValueError``
+        from the parser, which propagates; that indicates the on-disk
+        chunk file is malformed and we want a loud failure rather than
+        data loss. On any exception raised during the merge phase
+        (including ``KeyboardInterrupt``), the partial
+        ``output_path.with_suffix(... + ".tmp")`` file is unlinked
+        before the exception propagates — callers can rely on no stale
+        ``.tmp`` output being left behind. ``tmp_dir`` chunk cleanup
+        remains the caller's responsibility.
 
     Caller responsibilities:
         - Create ``tmp_dir`` before calling (must be on the same
@@ -231,6 +237,8 @@ def external_sort_jsonl(
                 f"external_sort_jsonl: unsupported key type {t!r}; "
                 f"supported: {sorted(p.__name__ for p in _SUPPORTED_KEY_PARSERS)}"
             )
+    if chunk_rows < 1:
+        raise ValueError(f"chunk_rows must be >= 1, got {chunk_rows}")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_dir.mkdir(parents=True, exist_ok=True)
@@ -260,23 +268,32 @@ def external_sort_jsonl(
             readers.append(fh)
             iters.append(_read_sort_chunk(fh, i, key_types))
 
-        with open(tmp_out, "w", encoding="utf-8") as out_f:
-            # heapq.merge sorts on natural tuple ordering: first key_tuple,
-            # then chunk_idx (so earlier-flushed chunk wins ties), then
-            # json_line. The chunk_idx tie-break is what makes
-            # dedup_by_key=True deterministic.
-            for key_tuple, _chunk_idx, json_line in heapq.merge(*iters):
-                if dedup_by_key and last_emitted_key is not None and key_tuple == last_emitted_key:
-                    duplicates_skipped += 1
-                    continue
-                out_f.write(json_line)
-                out_f.write("\n")
-                emitted += 1
-                last_emitted_key = key_tuple
-                if on_emit is not None:
-                    on_emit(key_tuple, json_line)
-            out_f.flush()
-            os.fsync(out_f.fileno())
+        try:
+            with open(tmp_out, "w", encoding="utf-8") as out_f:
+                # heapq.merge sorts on natural tuple ordering: first key_tuple,
+                # then chunk_idx (so earlier-flushed chunk wins ties), then
+                # json_line. The chunk_idx tie-break is what makes
+                # dedup_by_key=True deterministic.
+                for key_tuple, _chunk_idx, json_line in heapq.merge(*iters):
+                    if dedup_by_key and last_emitted_key is not None and key_tuple == last_emitted_key:
+                        duplicates_skipped += 1
+                        continue
+                    out_f.write(json_line)
+                    out_f.write("\n")
+                    emitted += 1
+                    last_emitted_key = key_tuple
+                    if on_emit is not None:
+                        on_emit(key_tuple, json_line)
+                out_f.flush()
+                os.fsync(out_f.fileno())
+        except BaseException:
+            # Don't leave a half-written .tmp behind. tmp_dir cleanup is the
+            # caller's responsibility; the .tmp output file is ours.
+            try:
+                tmp_out.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise
     finally:
         for r in readers:
             r.close()

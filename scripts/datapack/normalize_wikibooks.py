@@ -24,10 +24,7 @@ We use the same external-merge-sort idiom as ``normalize_off.py`` for
 sort-by-page_id; with ~7,786 cookbook pages this is light, but mirroring
 the pattern keeps the streaming guarantee end-to-end and gives us
 deterministic output regardless of input ordering.
-TODO: factor with normalize_{usda,off}.py — the chunk-flush/heapq.merge
-pieces look like good shared sort helpers, but pulling that refactor in
-mid-stream while a third consumer is being added makes the diff harder
-to review. Defer.
+Shared merge-sort skeleton lives in ``scripts/datapack/_io.external_sort_jsonl``.
 
 Idempotent: if outputs already exist with manifest sha256 values that
 match the on-disk file hashes, the script exits early. Pass --force to
