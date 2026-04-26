@@ -12,3 +12,8 @@ pint>=0.23            # unit conversion engine
 xxhash>=3.4           # fast checksums for large files
 huggingface-hub>=0.23  # RecipeNLG dataset & model downloads
 curl_cffi>=0.7         # browser-impersonating fetch for WAF-protected HTML (foodsafety.gov, fsis.usda.gov)
+
+# build_embeddings_index.py only — heavy. Lazy-imported.
+numpy>=1.26
+torch>=2.1
+sentence-transformers>=2.7
