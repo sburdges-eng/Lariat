@@ -13,12 +13,12 @@
  * throws, so it's safe to wire into routes that may run on dev
  * machines without the data pack mounted.
  *
- * Semantic / vector search is intentionally out of scope here —
- * better-sqlite3 is synchronous and great for FTS5 BM25, but BGE
- * inference belongs either in the existing Python pipeline (call
- * scripts/datapack/search.py from a sidecar process) or in
- * transformers.js (separate decision). FTS5 with a porter stemmer
- * already covers the bulk of the lookup use cases.
+ * Semantic / vector search is wired in via `semantic()` below. It
+ * uses transformers.js (`@huggingface/transformers`) to encode queries
+ * with `BAAI/bge-small-en-v1.5` and dot-products them against the
+ * per-bucket `vectors.npy` matrices written by the Python pipeline.
+ * Both the model and the per-bucket vectors are lazy-loaded; FTS5
+ * callers don't pay any of the ONNX runtime cost.
  */
 
 import Database from 'better-sqlite3';
@@ -83,6 +83,7 @@ function getConn(): DB | null {
 }
 
 export function available(): boolean {
+  if (_availableOverride !== null) return _availableOverride;
   return getConn() !== null;
 }
 
@@ -94,7 +95,10 @@ export function dataRoot(): string | null {
 
 /**
  * Test-only hook: drop the cached connection so the next call reopens.
- * Used by tests that mount/unmount the SSD between cases.
+ * Used by tests that mount/unmount the SSD between cases. Also clears
+ * the semantic caches (model + per-bucket vectors) so the next
+ * `semantic()` call reloads from scratch — useful for tests that
+ * stub out the data root mid-suite.
  */
 export function _resetForTest(): void {
   if (_conn) {
@@ -102,6 +106,19 @@ export function _resetForTest(): void {
   }
   _conn = null;
   _resolvedDataRoot = null;
+  _bucketCache.clear();
+  _modelPromise = null;
+  _availableOverride = null;
+}
+
+/**
+ * Test-only hook: force `available()` to report a fixed value
+ * regardless of disk state. Pass `null` to clear the override.
+ * Used to exercise the "data pack unavailable" branch on machines
+ * where the SSD is mounted.
+ */
+export function _setAvailableOverrideForTest(value: boolean | null): void {
+  _availableOverride = value;
 }
 
 // ── FTS5 search ──────────────────────────────────────────────────
@@ -415,4 +432,303 @@ export function stats(): {
     ).n;
   }
   return { sqlite, fts };
+}
+
+// ── Semantic search (BGE via transformers.js) ────────────────────
+//
+// Mirrors `scripts/datapack/search.py::DataPackSearch.semantic`:
+//
+//   - model is `BAAI/bge-small-en-v1.5` (384-d, normalized)
+//   - documents were encoded with no prefix at index time
+//   - queries get the asymmetric retrieval prefix
+//     "Represent this sentence for searching relevant passages: "
+//   - vectors are L2-normalized, so cosine = dot product
+//
+// vectors.npy is read once per bucket via a tiny inline NPY-v1 parser.
+// Pulling `npyjs` for one ~80-byte header parse isn't worth the dep
+// surface — the .npy v1 layout is fully specified, the dtype here is
+// always little-endian float32, and the header is a static Python-dict
+// literal. If we ever need v2 / v3 support or non-f4 dtypes, swap to
+// npyjs at that point.
+//
+// Lazy-loading: the model pipeline is built once on first `semantic()`
+// call (cached in `_modelPromise`); per-bucket vectors+metadata are
+// loaded on first reference (cached in `_bucketCache`). Empty/whitespace
+// queries short-circuit before touching either cache.
+
+/** Asymmetric retrieval prefix for BGE-* models. Documents go in
+ *  unprefixed at index time; queries need this prefix. Hardcoded
+ *  here for the same reason as the Python side: we only ever ship
+ *  BGE right now. */
+const _BGE_QUERY_PREFIX =
+  'Represent this sentence for searching relevant passages: ';
+
+const _BGE_MODEL_ID = 'BAAI/bge-small-en-v1.5';
+
+export interface SemanticHit {
+  /** Cosine similarity in [-1, 1] — higher is better. */
+  score: number;
+  /** Bucket name — echoed from the metadata row. */
+  bucket: string;
+  /** Remaining metadata fields verbatim from `metadata.jsonl`. */
+  [key: string]: unknown;
+}
+
+interface BucketCacheEntry {
+  vectors: Float32Array;
+  rows: number;
+  dims: number;
+  metadata: Array<Record<string, unknown>>;
+}
+
+const _bucketCache: Map<string, BucketCacheEntry | null> = new Map();
+// Promise so concurrent first-callers share one model load.
+let _modelPromise: Promise<(t: string[], opts: object) => Promise<{ data: Float32Array }>> | null =
+  null;
+// Test-only — see `_setAvailableOverrideForTest`.
+let _availableOverride: boolean | null = null;
+
+/**
+ * Parse a NumPy v1 .npy file containing a 2-D little-endian float32
+ * matrix (`<f4`, `fortran_order=False`). Returns the flat Float32Array
+ * (length = rows * dims) plus the parsed shape.
+ *
+ * The .npy v1 layout is:
+ *   bytes 0..5   magic "\x93NUMPY"
+ *   bytes 6..7   version major, minor (here 1, 0)
+ *   bytes 8..9   header length, little-endian uint16
+ *   bytes 10..   ASCII Python-dict literal padded with spaces and a
+ *                trailing '\n', total length = header_len
+ *
+ * We refuse anything that isn't `<f4` / not C-order / not 2-D — those
+ * inputs aren't produced by `build_embeddings_index.py` and silently
+ * mis-parsing them would be worse than throwing.
+ */
+function parseNpyF32Matrix(buf: Buffer): {
+  data: Float32Array;
+  rows: number;
+  dims: number;
+} {
+  if (
+    buf.length < 10 ||
+    buf[0] !== 0x93 ||
+    buf.toString('ascii', 1, 6) !== 'NUMPY'
+  ) {
+    throw new Error('not a .npy file (bad magic)');
+  }
+  const major = buf[6];
+  if (major !== 1) {
+    throw new Error(`unsupported .npy major version ${major}; expected 1`);
+  }
+  const headerLen = buf.readUInt16LE(8);
+  const header = buf.toString('ascii', 10, 10 + headerLen);
+  const dataOffset = 10 + headerLen;
+
+  // The header is a Python repr of a dict. We pluck what we need with
+  // narrow regexes rather than hand-rolling a Python literal parser.
+  const descrMatch = header.match(/'descr'\s*:\s*'([^']+)'/);
+  const fortranMatch = header.match(/'fortran_order'\s*:\s*(True|False)/);
+  const shapeMatch = header.match(/'shape'\s*:\s*\(([^)]*)\)/);
+  if (!descrMatch || !fortranMatch || !shapeMatch) {
+    throw new Error(`malformed .npy header: ${header}`);
+  }
+  if (descrMatch[1] !== '<f4') {
+    throw new Error(
+      `unsupported .npy dtype ${descrMatch[1]}; expected '<f4' (little-endian float32)`
+    );
+  }
+  if (fortranMatch[1] !== 'False') {
+    throw new Error("unsupported .npy fortran_order=True; expected C-order");
+  }
+  const shapeBody = shapeMatch[1] ?? '';
+  const dims = shapeBody
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .map((s) => Number.parseInt(s, 10));
+  if (dims.length !== 2 || dims.some((n) => !Number.isFinite(n) || n < 0)) {
+    throw new Error(`unsupported .npy shape ${JSON.stringify(dims)}; expected 2-D`);
+  }
+  const [rows, cols] = dims as [number, number];
+  const expectedBytes = rows * cols * 4;
+  if (buf.length - dataOffset < expectedBytes) {
+    throw new Error(
+      `.npy data section truncated: expected ${expectedBytes} bytes, ` +
+        `got ${buf.length - dataOffset}`
+    );
+  }
+  // Copy into a freshly-aligned Float32Array. We avoid wrapping the
+  // raw Node buffer because its byteOffset isn't guaranteed to be
+  // 4-aligned for typed-array views.
+  const data = new Float32Array(rows * cols);
+  const view = new DataView(
+    buf.buffer,
+    buf.byteOffset + dataOffset,
+    expectedBytes
+  );
+  for (let i = 0; i < data.length; i++) {
+    data[i] = view.getFloat32(i * 4, true);
+  }
+  return { data, rows, dims: cols };
+}
+
+function loadBucket(bucket: string): BucketCacheEntry | null {
+  if (_bucketCache.has(bucket)) {
+    return _bucketCache.get(bucket) ?? null;
+  }
+  // Resolve the data root via the same path as getConn(). We don't
+  // need the SQLite handle here — semantic search only uses the .npy
+  // + .jsonl files — but we do need the root.
+  const root = _resolvedDataRoot ?? resolveDataRoot();
+  if (!root) {
+    _bucketCache.set(bucket, null);
+    return null;
+  }
+  const dir = path.join(root, 'indexes', 'embeddings', bucket);
+  const vectorsPath = path.join(dir, 'vectors.npy');
+  const metaPath = path.join(dir, 'metadata.jsonl');
+  if (!fs.existsSync(vectorsPath) || !fs.existsSync(metaPath)) {
+    _bucketCache.set(bucket, null);
+    return null;
+  }
+
+  let entry: BucketCacheEntry;
+  try {
+    const buf = fs.readFileSync(vectorsPath);
+    const { data, rows, dims } = parseNpyF32Matrix(buf);
+    const metaRaw = fs.readFileSync(metaPath, 'utf8');
+    const metadata: Array<Record<string, unknown>> = [];
+    for (const line of metaRaw.split('\n')) {
+      if (!line) continue;
+      metadata.push(JSON.parse(line) as Record<string, unknown>);
+    }
+    if (metadata.length !== rows) {
+      throw new Error(
+        `bucket ${bucket}: metadata rows ${metadata.length} != vectors rows ${rows}`
+      );
+    }
+    entry = { vectors: data, rows, dims, metadata };
+  } catch (e) {
+    // A partially-built bucket (e.g. ingredients mid-build with a
+    // truncated vectors.npy) is "no hits" rather than a hard error;
+    // surfacing the failure would block hybrid callers that probe
+    // multiple buckets. We still cache the negative so we don't keep
+    // re-reading a broken file on every call.
+    _bucketCache.set(bucket, null);
+    if (process.env.DATAPACK_DEBUG) {
+      console.warn(`[datapackSearch] failed to load bucket ${bucket}:`, e);
+    }
+    return null;
+  }
+  _bucketCache.set(bucket, entry);
+  return entry;
+}
+
+async function loadModel(): Promise<
+  (t: string[], opts: object) => Promise<{ data: Float32Array }>
+> {
+  if (_modelPromise) return _modelPromise;
+  _modelPromise = (async () => {
+    // Dynamic import keeps transformers.js (and its ~30 MB ONNX
+    // runtime) out of the cold-start path for FTS-only callers.
+    const { pipeline } = await import('@huggingface/transformers');
+    const fe = (await pipeline('feature-extraction', _BGE_MODEL_ID)) as unknown as (
+      t: string[],
+      opts: object
+    ) => Promise<{ data: Float32Array }>;
+    return fe;
+  })();
+  return _modelPromise;
+}
+
+/**
+ * Cosine-similarity search over a per-bucket BGE embedding index.
+ *
+ * `bucket` is a directory under `indexes/embeddings/` (recipes /
+ * techniques / safety / ingredients). Returns `[]` when:
+ *   - the data pack isn't mounted (`available()` is false)
+ *   - the bucket has no `vectors.npy` (e.g. ingredients not built yet)
+ *   - the query is empty / whitespace
+ *
+ * Vectors are L2-normalized at index time; we ask transformers.js to
+ * normalize the query embedding too, so cosine collapses to a dot
+ * product. Top-k is computed via partial sort (heap-equivalent), not a
+ * full O(N log N) sort, so this stays fast even on the multi-million-
+ * row USDA bucket.
+ */
+export async function semantic(
+  query: string,
+  opts: { bucket: string; limit?: number }
+): Promise<SemanticHit[]> {
+  const trimmed = query?.trim();
+  if (!trimmed) return [];
+  if (!available()) return [];
+
+  const bucket = opts.bucket;
+  const limit = Math.max(1, Math.min(200, opts.limit ?? 20));
+
+  const entry = loadBucket(bucket);
+  if (!entry) return [];
+
+  const model = await loadModel();
+  const out = await model([_BGE_QUERY_PREFIX + trimmed], {
+    pooling: 'mean',
+    normalize: true,
+  });
+  // transformers.js returns a Tensor; .data is a Float32Array of length
+  // dims for a single-input batch. Defensive slice in case the runtime
+  // returns the full (1, dims) matrix instead.
+  const qv =
+    out.data.length === entry.dims
+      ? out.data
+      : out.data.subarray(0, entry.dims);
+  if (qv.length !== entry.dims) {
+    throw new Error(
+      `query embedding length ${qv.length} != bucket dims ${entry.dims}`
+    );
+  }
+
+  // Score every row: vectors[i] · qv. Single contiguous Float32Array
+  // multiply — no per-row allocations.
+  const { vectors, rows, dims } = entry;
+  const sims = new Float32Array(rows);
+  for (let i = 0; i < rows; i++) {
+    let s = 0;
+    const base = i * dims;
+    for (let j = 0; j < dims; j++) {
+      s += vectors[base + j]! * qv[j]!;
+    }
+    sims[i] = s;
+  }
+
+  // Top-k via partial selection: scan once, maintain a sorted insert
+  // into a small array of size `limit`. Cheaper than a full sort when
+  // limit << rows, which is the common case (limit=20 vs rows≈4k–2M).
+  const k = Math.min(limit, rows);
+  const topIdx: number[] = [];
+  const topScore: number[] = [];
+  for (let i = 0; i < rows; i++) {
+    const s = sims[i]!;
+    if (topIdx.length < k) {
+      // Insert in descending order.
+      let pos = topIdx.length;
+      while (pos > 0 && topScore[pos - 1]! < s) pos--;
+      topIdx.splice(pos, 0, i);
+      topScore.splice(pos, 0, s);
+    } else if (s > topScore[k - 1]!) {
+      let pos = k - 1;
+      while (pos > 0 && topScore[pos - 1]! < s) pos--;
+      topIdx.splice(pos, 0, i);
+      topScore.splice(pos, 0, s);
+      topIdx.length = k;
+      topScore.length = k;
+    }
+  }
+
+  const hits: SemanticHit[] = [];
+  for (let h = 0; h < topIdx.length; h++) {
+    const meta = entry.metadata[topIdx[h]!]!;
+    hits.push({ score: topScore[h]!, bucket, ...meta } as SemanticHit);
+  }
+  return hits;
 }
