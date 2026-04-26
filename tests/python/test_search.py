@@ -547,11 +547,27 @@ class DataPackSearchSmokeTests(unittest.TestCase):
         with DataPackSearch(data_root=self.data_root) as s:
             rows = s.fts("apple", source="usda", limit=1)
             self.assertEqual(len(rows), 1)
+            # Sanity-check the lookup path works while the context is open
+            # so the post-exit assertion below isn't ambiguous.
+            self.assertIsNotNone(s.get_usda_food(1001))
 
         # After __exit__ the FTS connection is closed; another fts() call
         # must fail. sqlite3 raises ProgrammingError on a closed connection.
         with self.assertRaises(sqlite3.ProgrammingError):
             s.fts("apple", source="usda", limit=1)
+
+        # ``close()`` must also close ``self._sql`` — exercise it via a
+        # method that routes through that connection directly (not via the
+        # FTS connection's ATTACHed ``src`` reference). A future refactor
+        # that closes only ``_fts`` would otherwise slip past this test.
+        with self.assertRaises(sqlite3.ProgrammingError):
+            s.get_usda_food(1001)
+
+        # Belt-and-suspenders: assert directly on the underlying handle in
+        # case ``get_usda_food`` is ever rewritten to lazy-open a new
+        # connection. Direct attribute access is acceptable for a test.
+        with self.assertRaises(sqlite3.ProgrammingError):
+            s._sql.execute("SELECT 1")
 
 
 if __name__ == "__main__":
