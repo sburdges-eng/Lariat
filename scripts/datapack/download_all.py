@@ -21,13 +21,11 @@ import argparse
 import hashlib
 import json
 import os
-import shutil
 import subprocess
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlparse
 
 # ---------------------------------------------------------------------------
 # Resolve data root — follow symlink from repo or fallback to direct path
@@ -172,18 +170,21 @@ SOURCES: dict[str, dict] = {
         "dest": "food_safety",
         "files": [
             {
-                "url": "https://www.foodsafety.gov/food-safety-charts/safe-minimum-internal-temperatures",
+                # Live foodsafety.gov is behind Akamai bot protection (403 to curl/wget).
+                # Wayback /web/2024/ redirects to the latest 2024 snapshot of the chart.
+                "url": "https://web.archive.org/web/2024/https://www.foodsafety.gov/food-safety-charts/safe-minimum-internal-temperatures",
                 "dest_subdir": "foodsafety_gov",
                 "filename": "safe_minimum_internal_temperatures.html",
-                "description": "Safe minimum internal temperature chart (HTML)",
+                "description": "Safe minimum internal temperature chart (HTML, via Wayback)",
                 "expected_size_mb": 1,
                 "is_html_page": True,
             },
             {
-                "url": "https://www.fsis.usda.gov/food-safety/safe-food-handling-and-preparation/food-safety-basics/safe-temperature-chart",
+                # FSIS is also behind Akamai; same Wayback workaround.
+                "url": "https://web.archive.org/web/2024/https://www.fsis.usda.gov/food-safety/safe-food-handling-and-preparation/food-safety-basics/safe-temperature-chart",
                 "dest_subdir": "usda",
                 "filename": "fsis_safe_temp_chart.html",
-                "description": "FSIS safe minimum internal temperature chart",
+                "description": "FSIS safe minimum internal temperature chart (via Wayback)",
                 "expected_size_mb": 1,
                 "is_html_page": True,
             },
@@ -544,7 +545,7 @@ def download_source(source_key: str, source: dict, log: dict,
         elapsed = time.time() - t0
 
         if ok and dest.exists():
-            print(f"    Computing SHA-256...")
+            print("    Computing SHA-256...")
             checksum = sha256_file(dest)
             record_download(log, source_key, fi, dest, checksum, elapsed)
 
@@ -570,7 +571,7 @@ def print_status():
     downloaded_urls = {d["url"] for d in log.get("downloads", [])}
 
     print(f"\n{'='*70}")
-    print(f"  LARIAT DATA PACK — STATUS REPORT")
+    print("  LARIAT DATA PACK — STATUS REPORT")
     print(f"  Data root: {DATA_ROOT}")
     print(f"{'='*70}\n")
 
