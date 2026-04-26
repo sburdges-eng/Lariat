@@ -43,6 +43,14 @@ export interface CommandSummary {
   preshift_notes: number;
   events_today: number;
   events_guests: number;
+  reservations: {
+    booked: number;
+    seated: number;
+    completed: number;
+    no_show: number;
+    cancelled: number;
+    total: number;
+  };
 }
 
 function yesterdayISO(today: string): string {
@@ -211,6 +219,28 @@ export function summarize(locationId: string, today: string): CommandSummary {
     )
     .get(locationId, today) as { c: number; guests: number };
 
+  // Today's book by status. reservation_at is TEXT 'YYYY-MM-DD HH:MM' so a
+  // date-prefix match pulls every booking for today regardless of seating
+  // time. cancelled bookings are surfaced separately, not in the total.
+  const resRows = db
+    .prepare(
+      `SELECT status, COUNT(*) AS c FROM reservations
+        WHERE location_id = ?
+          AND substr(reservation_at, 1, 10) = ?
+        GROUP BY status`,
+    )
+    .all(locationId, today) as Array<{ status: string; c: number }>;
+  const reservations = {
+    booked: 0, seated: 0, completed: 0, no_show: 0, cancelled: 0, total: 0,
+  };
+  for (const r of resRows) {
+    if (Object.prototype.hasOwnProperty.call(reservations, r.status)) {
+      (reservations as Record<string, number>)[r.status] = r.c;
+    }
+  }
+  reservations.total =
+    reservations.booked + reservations.seated + reservations.completed + reservations.no_show;
+
   const yesterdayNet = Number(yRow.net_sales) || 0;
   const avg7 = Number(trailing.avg_sales) || 0;
   const deltaPct = avg7 > 0 ? (yesterdayNet - avg7) / avg7 : 0;
@@ -249,5 +279,6 @@ export function summarize(locationId: string, today: string): CommandSummary {
     preshift_notes: preshiftCount,
     events_today: events.c,
     events_guests: Number(events.guests) || 0,
+    reservations,
   };
 }

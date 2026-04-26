@@ -34,7 +34,7 @@ const TABLES = [
   'inventory_par', 'inventory_count_lines', 'inventory_counts',
   'shift_breaks', 'staff_certifications',
   'temp_log', 'date_marks', 'cleaning_schedule',
-  'preshift_notes', 'beo_events',
+  'preshift_notes', 'beo_events', 'reservations',
 ];
 
 beforeEach(() => {
@@ -238,6 +238,47 @@ describe('summarize() — cleaning schedule', () => {
     const b = summarize('kitchen-b', TODAY);
     assert.strictEqual(a.food_safety.cleaning_due_today, 1);
     assert.strictEqual(b.food_safety.cleaning_due_today, 0);
+  });
+});
+
+describe('summarize() — reservations', () => {
+  const ins = (loc, status, atIso, partyName = 'Smith', size = 2) =>
+    testDb.prepare(
+      `INSERT INTO reservations (party_name, party_size, reservation_at, status, location_id)
+       VALUES (?, ?, ?, ?, ?)`,
+    ).run(partyName, size, atIso, status, loc);
+
+  it('groups today\'s book by status; cancelled excluded from total', () => {
+    ins('default', 'booked',    `${TODAY} 18:30`, 'Garcia');
+    ins('default', 'booked',    `${TODAY} 19:00`, 'Lee');
+    ins('default', 'seated',    `${TODAY} 18:00`, 'Patel');
+    ins('default', 'completed', `${TODAY} 17:30`, 'Kim');
+    ins('default', 'no_show',   `${TODAY} 19:30`, 'Brown');
+    ins('default', 'cancelled', `${TODAY} 20:00`, 'Stone');
+    // Different day — should not be counted.
+    ins('default', 'booked', '2026-04-30 18:00', 'Future');
+
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.reservations.booked, 2);
+    assert.strictEqual(s.reservations.seated, 1);
+    assert.strictEqual(s.reservations.completed, 1);
+    assert.strictEqual(s.reservations.no_show, 1);
+    assert.strictEqual(s.reservations.cancelled, 1);
+    assert.strictEqual(s.reservations.total, 5);
+  });
+
+  it('returns zeros for empty book', () => {
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.reservations.total, 0);
+    assert.strictEqual(s.reservations.booked, 0);
+  });
+
+  it('does not leak across locations', () => {
+    ins('kitchen-a', 'booked', `${TODAY} 18:00`);
+    const a = summarize('kitchen-a', TODAY);
+    const b = summarize('kitchen-b', TODAY);
+    assert.strictEqual(a.reservations.booked, 1);
+    assert.strictEqual(b.reservations.booked, 0);
   });
 });
 
