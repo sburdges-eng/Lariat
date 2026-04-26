@@ -555,6 +555,47 @@ class SanityCheckTests(unittest.TestCase):
         # still pass on a clean fixture.
         self.assertEqual(code, 0, stdout)
 
+    # ---- regression: fail-closed when row_count_key is missing ----
+
+    def test_missing_row_count_key_fails_closed(self) -> None:
+        """If the normalizer renames a row_counts key, sanity_check must
+        fail loudly rather than silently skipping the count check."""
+        _build_off(self.data_root)
+        _build_wikibooks(self.data_root)
+        # Hand-build a USDA manifest that's structurally valid but is
+        # MISSING the 'nutrients' row count key.
+        usda_dir = self.data_root / "normalized" / "usda"
+        usda_dir.mkdir(parents=True, exist_ok=True)
+        ing_path = usda_dir / "ingredients.jsonl"
+        nut_path = usda_dir / "nutrients.jsonl"
+        _write_jsonl(ing_path, [_usda_ingredient_row(1)])
+        _write_jsonl(nut_path, [_usda_nutrient_row(1, 1003)])
+        manifest = {
+            "generated_at": "2026-04-25T22:15:00Z",
+            "input_archives": ["foundation"],
+            "input_files": {"foundation": ["food.csv"]},
+            "row_counts": {
+                "ingredients": 1,
+                # 'nutrients' key intentionally OMITTED — pretend a normalizer
+                # rename happened. sanity_check must fail closed.
+            },
+            "outputs": {
+                "ingredients.jsonl": {
+                    "sha256": _sha256(ing_path),
+                    "bytes": ing_path.stat().st_size,
+                },
+                "nutrients.jsonl": {
+                    "sha256": _sha256(nut_path),
+                    "bytes": nut_path.stat().st_size,
+                },
+            },
+        }
+        _write_json(usda_dir / "manifest.json", manifest)
+        code, stdout, _ = self._run()
+        self.assertEqual(code, 1, stdout)
+        self.assertIn("nutrients", stdout)
+        self.assertIn("missing key", stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

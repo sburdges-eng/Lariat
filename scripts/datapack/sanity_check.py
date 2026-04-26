@@ -362,24 +362,41 @@ def _check_source(
                 )
                 return result
 
-        # 7. Row count vs manifest.
+        # 7. Row count vs manifest. The spec configures `row_count_key` per
+        # JSONL file; if the configured key is absent from the manifest, the
+        # check fails closed rather than silently skipping. Silent-skip would
+        # mask a normalizer-side rename of `row_counts.cookbook_pages_emitted`
+        # → something else.
         row_counts = manifest.get("row_counts")
-        if isinstance(row_counts, dict) and jspec.row_count_key in row_counts:
-            expected_rows = row_counts[jspec.row_count_key]
-            if not isinstance(expected_rows, int):
-                result.rows_ok = False
-                result.fail(
-                    f"manifest row_counts['{jspec.row_count_key}'] is not an int"
-                )
-                return result
-            if expected_rows != line_count:
-                result.rows_ok = False
-                result.fail(
-                    f"row count mismatch on {fname}: "
-                    f"manifest={expected_rows} actual={line_count}"
-                )
-                return result
-            result.total_rows += line_count
+        if not isinstance(row_counts, dict):
+            result.rows_ok = False
+            result.fail(
+                f"manifest is missing 'row_counts' (or it is not an object); "
+                f"cannot verify row count for {fname}"
+            )
+            return result
+        if jspec.row_count_key not in row_counts:
+            result.rows_ok = False
+            result.fail(
+                f"manifest row_counts is missing key '{jspec.row_count_key}' "
+                f"required to verify {fname}"
+            )
+            return result
+        expected_rows = row_counts[jspec.row_count_key]
+        if not isinstance(expected_rows, int):
+            result.rows_ok = False
+            result.fail(
+                f"manifest row_counts['{jspec.row_count_key}'] is not an int"
+            )
+            return result
+        if expected_rows != line_count:
+            result.rows_ok = False
+            result.fail(
+                f"row count mismatch on {fname}: "
+                f"manifest={expected_rows} actual={line_count}"
+            )
+            return result
+        result.total_rows += line_count
 
     # JSON (non-JSONL) sanity: parse-able + presence-of-keys for known files.
     for fname in spec.json_files:
