@@ -581,6 +581,37 @@ class NormalizeOFFTest(unittest.TestCase):
         self.assertTrue((self.output_dir / "manifest.json").exists())
 
     # --- Additional: header-fallback (allergens_tags column when present) ---
+    def test_chunk_format_survives_json_backslash_t_sequences(self) -> None:
+        """Regression: literal `\\t` in source strings (e.g. Windows paths in
+        ingredients_text) get json-escaped to `\\\\t`, which an unescape pass
+        would mangle into an invalid `\\<TAB>` sequence and break json.loads
+        during the merge phase. Chunk format must round-trip cleanly without
+        ANY escape/unescape on the json body."""
+        rows = [
+            _make_row(
+                code="0000000000020",
+                product_name="Backslash-t product",
+                # ingredients_text contains literal `\t` — Python double-backslash
+                # in source = single backslash + t in the actual string value.
+                ingredients_text=r"path: C:\temp and a\tab",
+            ),
+            _make_row(
+                code="0000000000021",
+                product_name="Backslash-n product",
+                ingredients_text=r"line\nbreak",
+            ),
+        ]
+        _write_tsv(self.input_file, HEADER, rows)
+        # _run uses chunk_rows=2 by default, which puts both rows in one chunk.
+        # That still exercises the read path (chunk → merge → json.loads).
+        self._run()
+        products = _read_jsonl(self.output_dir / "branded_products.jsonl")
+        self.assertEqual(len(products), 2)
+        self.assertEqual(
+            products[0]["ingredients_text"], r"path: C:\temp and a\tab"
+        )
+        self.assertEqual(products[1]["ingredients_text"], r"line\nbreak")
+
     def test_allergens_tags_column_preferred_when_present(self) -> None:
         """Older OFF dumps had `allergens_tags`. We must prefer it over
         `allergens` when both are present."""

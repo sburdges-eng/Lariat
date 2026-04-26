@@ -474,11 +474,10 @@ def _flush_chunk(
     cp = tmp_dir / f"chunk-{idx:05d}.tsv"
     with open(cp, "w", encoding="utf-8") as f:
         for fdc, nid, deriv_key, arch_idx, line in buf:
-            # TSV framing: fdc<TAB>nid<TAB>deriv<TAB>arch<TAB>json. The json
-            # body is single-line (json.dumps), but escape any embedded tabs
-            # defensively before reassembly.
-            safe_line = line.replace("\t", "\\t")
-            f.write(f"{fdc}\t{nid}\t{deriv_key}\t{arch_idx}\t{safe_line}\n")
+            # TSV framing: fdc<TAB>nid<TAB>deriv<TAB>arch<TAB>json. json.dumps
+            # always escapes control chars, so the body never contains a literal
+            # tab — split-on-tab(maxsplit=4) reassembles unambiguously.
+            f.write(f"{fdc}\t{nid}\t{deriv_key}\t{arch_idx}\t{line}\n")
     return cp
 
 
@@ -492,7 +491,6 @@ def _read_chunk(fh: TextIO) -> Iterator[tuple[int, int, int, int, str]]:
         if len(parts) != 5:
             continue
         fdc_s, nid_s, deriv_s, arch_s, body = parts
-        body = body.replace("\\t", "\t")
         yield int(fdc_s), int(nid_s), int(deriv_s), int(arch_s), body
 
 

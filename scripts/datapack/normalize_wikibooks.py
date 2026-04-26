@@ -499,16 +499,15 @@ def _stream_pages(
 def _flush_chunk(buf: list[tuple[int, str]], tmp_dir: Path, idx: int) -> Path:
     """Sort chunk by ``page_id`` and flush to a TSV file.
 
-    Chunk format per line: ``page_id<TAB>json_line`` with embedded tabs in
-    the json escaped as ``\\t`` (json.dumps single-line output rarely
-    contains real tabs but we escape defensively).
+    Chunk format per line: ``page_id<TAB>json_line``. ``json.dumps`` always
+    escapes control characters, so the json body never contains a literal
+    tab — splitting on the first tab is unambiguous, no escaping needed.
     """
     buf.sort(key=lambda t: t[0])
     cp = tmp_dir / f"chunk-{idx:05d}.tsv"
     with open(cp, "w", encoding="utf-8") as f:
         for pid, line in buf:
-            safe_line = line.replace("\t", "\\t")
-            f.write(f"{pid}\t{safe_line}\n")
+            f.write(f"{pid}\t{line}\n")
     return cp
 
 
@@ -529,7 +528,6 @@ def _read_chunk(fh: TextIO, chunk_idx: int) -> Iterator[tuple[int, int, str]]:
         if len(parts) != 2:
             continue
         pid_s, body = parts
-        body = body.replace("\\t", "\t")
         try:
             pid = int(pid_s)
         except ValueError:

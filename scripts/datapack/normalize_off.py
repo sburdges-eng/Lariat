@@ -327,16 +327,15 @@ def _stream_with_counters(
 def _flush_chunk(buf: list[tuple[str, str]], tmp_dir: Path, idx: int) -> Path:
     """Sort chunk by `code` and flush to a TSV file.
 
-    Chunk format per line: ``code<TAB>json_line`` with embedded tabs in the
-    json escaped as ``\\t`` (json.dumps single-line output rarely contains
-    real tabs but we escape defensively).
+    Chunk format per line: ``code<TAB>json_line``. ``json.dumps`` always
+    escapes control characters, so the json body never contains literal
+    tabs — splitting on the first tab is unambiguous, no escaping needed.
     """
     buf.sort(key=lambda t: t[0])
     cp = tmp_dir / f"chunk-{idx:05d}.tsv"
     with open(cp, "w", encoding="utf-8") as f:
         for code, line in buf:
-            safe_line = line.replace("\t", "\\t")
-            f.write(f"{code}\t{safe_line}\n")
+            f.write(f"{code}\t{line}\n")
     return cp
 
 
@@ -360,7 +359,6 @@ def _read_chunk(
         if len(parts) != 2:
             continue
         code, body = parts
-        body = body.replace("\\t", "\t")
         yield code, chunk_idx, body
 
 
