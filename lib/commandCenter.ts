@@ -85,6 +85,25 @@ export interface CommandSummary {
   };
 }
 
+/**
+ * One actionable item derived from a CommandSummary.
+ *
+ * Intentionally string-based for the message field so a notification
+ * surface (Slack, SMS, push) can render it directly. The source field
+ * is a stable key for grouping and dedupe — a Slack integration that
+ * wants to suppress a repeating "expired date marks" alert can dedupe
+ * by `source`.
+ */
+export interface CommandAlert {
+  severity: 'red' | 'amber';
+  source: string;        // stable kebab-case key
+  message: string;       // human-readable, line-cook plain English
+  count: number;         // the number behind the alert
+}
+
+const RED_NO_SHOW_THRESHOLD = 3;
+const AMBER_SALES_DROP_PCT = -0.15;
+
 function yesterdayISO(today: string): string {
   const d = new Date(today + 'T00:00:00Z');
   d.setUTCDate(d.getUTCDate() - 1);
@@ -403,4 +422,124 @@ export function summarize(locationId: string, today: string): CommandSummary {
     dining_tables,
     waste,
   };
+}
+
+/**
+ * Convert a summary into a prioritized list of actionable alerts.
+ *
+ * Red = "fix this before service or before close." These are the
+ * food-safety, regulatory, and customer-impact signals (out-of-range
+ * temps, expired marks, overdue cleaning, items 86'd, expired certs,
+ * pile of no-shows).
+ *
+ * Amber = "watch this." Trending or upcoming signals that don't
+ * require immediate intervention but should land in the GM's eye
+ * before the line opens.
+ *
+ * Order: red first, then amber. Within each tier the order is the
+ * sequence below — most-load-bearing first.
+ */
+export function alertsFor(s: CommandSummary): CommandAlert[] {
+  const out: CommandAlert[] = [];
+  const push = (a: CommandAlert) => { if (a.count > 0) out.push(a); };
+
+  // ── Red: food-safety / regulatory / customer-impact ────────────
+  push({
+    severity: 'red', source: 'temp-breaches',
+    count: s.food_safety.temp_breaches,
+    message: `${s.food_safety.temp_breaches} temp reading${s.food_safety.temp_breaches === 1 ? '' : 's'} out of range`,
+  });
+  push({
+    severity: 'red', source: 'date-marks-expired',
+    count: s.food_safety.date_marks_expired,
+    message: `${s.food_safety.date_marks_expired} expired date mark${s.food_safety.date_marks_expired === 1 ? '' : 's'} — toss now`,
+  });
+  push({
+    severity: 'red', source: 'cleaning-overdue',
+    count: s.food_safety.cleaning_overdue,
+    message: `${s.food_safety.cleaning_overdue} cleaning task${s.food_safety.cleaning_overdue === 1 ? '' : 's'} overdue`,
+  });
+  push({
+    severity: 'red', source: 'cert-expired',
+    count: s.labor.cert_expired,
+    message: `${s.labor.cert_expired} expired cert${s.labor.cert_expired === 1 ? '' : 's'}`,
+  });
+  push({
+    severity: 'red', source: 'eighty-six',
+    count: s.eighty_six,
+    message: `${s.eighty_six} item${s.eighty_six === 1 ? '' : 's'} 86’d`,
+  });
+  if (s.reservations.no_show >= RED_NO_SHOW_THRESHOLD) {
+    out.push({
+      severity: 'red', source: 'reservation-no-shows',
+      count: s.reservations.no_show,
+      message: `${s.reservations.no_show} reservation no-show${s.reservations.no_show === 1 ? '' : 's'}`,
+    });
+  }
+
+  // ── Amber: trending / upcoming ─────────────────────────────────
+  if (s.sales.avg7_net > 0 && s.sales.delta_pct < AMBER_SALES_DROP_PCT) {
+    out.push({
+      severity: 'amber', source: 'sales-down',
+      count: 1,
+      message: `Sales ${(s.sales.delta_pct * 100).toFixed(0)}% vs 7-day avg`,
+    });
+  }
+  push({
+    severity: 'amber', source: 'date-marks-due-today',
+    count: s.food_safety.date_marks_due_today,
+    message: `${s.food_safety.date_marks_due_today} date mark${s.food_safety.date_marks_due_today === 1 ? '' : 's'} due today`,
+  });
+  push({
+    severity: 'amber', source: 'cleaning-due-today',
+    count: s.food_safety.cleaning_due_today,
+    message: `${s.food_safety.cleaning_due_today} cleaning task${s.food_safety.cleaning_due_today === 1 ? '' : 's'} due today`,
+  });
+  push({
+    severity: 'amber', source: 'inventory-low-par',
+    count: s.inventory.low_par,
+    message: `${s.inventory.low_par} item${s.inventory.low_par === 1 ? '' : 's'} below par`,
+  });
+  push({
+    severity: 'amber', source: 'inventory-open-counts',
+    count: s.inventory.open_counts,
+    message: `${s.inventory.open_counts} open inventory count${s.inventory.open_counts === 1 ? '' : 's'}`,
+  });
+  push({
+    severity: 'amber', source: 'open-breaks',
+    count: s.labor.open_breaks,
+    message: `${s.labor.open_breaks} open break${s.labor.open_breaks === 1 ? '' : 's'}`,
+  });
+  push({
+    severity: 'amber', source: 'cert-expiring-30d',
+    count: s.labor.cert_expiring_30d,
+    message: `${s.labor.cert_expiring_30d} cert${s.labor.cert_expiring_30d === 1 ? '' : 's'} expiring in 30d`,
+  });
+  push({
+    severity: 'amber', source: 'prep-rush',
+    count: s.prep.rush,
+    message: `${s.prep.rush} rush prep task${s.prep.rush === 1 ? '' : 's'}`,
+  });
+  push({
+    severity: 'amber', source: 'reservations-to-seat',
+    count: s.reservations.booked,
+    message: `${s.reservations.booked} reservation${s.reservations.booked === 1 ? '' : 's'} still to seat`,
+  });
+  push({
+    severity: 'amber', source: 'tables-dirty',
+    count: s.dining_tables.dirty,
+    message: `${s.dining_tables.dirty} dirty table${s.dining_tables.dirty === 1 ? '' : 's'}`,
+  });
+  push({
+    severity: 'amber', source: 'price-moves',
+    count: s.price_moves.total,
+    message: `${s.price_moves.total} vendor price move${s.price_moves.total === 1 ? '' : 's'} this week`,
+  });
+  push({
+    severity: 'amber', source: 'margin-moves',
+    count: s.margin_moves.total,
+    message: `${s.margin_moves.total} dish margin move${s.margin_moves.total === 1 ? '' : 's'} this week`,
+  });
+
+  return out;
 }

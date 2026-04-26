@@ -18,8 +18,9 @@ const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-cmd-summary-'));
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
 const db = await import('../../lib/db.ts');
-const { summarize } = await import('../../lib/commandCenter.ts');
+const { summarize, alertsFor } = await import('../../lib/commandCenter.ts');
 const route = await import('../../app/api/command/summary/route.js');
+const alertsRoute = await import('../../app/api/command/alerts/route.js');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
@@ -460,5 +461,105 @@ describe('GET /api/command/summary', () => {
     const json = await res.json();
     // Whatever today is, it should match the YYYY-MM-DD shape.
     assert.match(json.shift_date, /^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe('alertsFor()', () => {
+  it('emits no alerts on a clean summary', () => {
+    const s = summarize('default', TODAY);
+    const alerts = alertsFor(s);
+    assert.strictEqual(alerts.length, 0);
+  });
+
+  it('orders red alerts before amber', () => {
+    // Plant one red signal and one amber signal.
+    testDb.prepare(
+      `INSERT INTO eighty_six (shift_date, item, location_id) VALUES (?, ?, 'default')`,
+    ).run(TODAY, 'aji-verde');
+    testDb.prepare(
+      `INSERT INTO inventory_par (ingredient, par_qty, par_unit, location_id) VALUES (?, ?, ?, ?)`,
+    ).run('TOMATO', 30, 'lb', 'default');
+    const cId = Number(testDb.prepare(
+      `INSERT INTO inventory_counts (count_date, location_id) VALUES (?, 'default')`,
+    ).run(TODAY).lastInsertRowid);
+    testDb.prepare(
+      `INSERT INTO inventory_count_lines (count_id, ingredient, on_hand_qty, location_id, counted_at)
+       VALUES (?, 'TOMATO', 5, 'default', datetime('now'))`,
+    ).run(cId);
+
+    const s = summarize('default', TODAY);
+    const alerts = alertsFor(s);
+    assert.ok(alerts.length >= 2, 'expected at least 2 alerts');
+    assert.strictEqual(alerts[0].severity, 'red');
+    assert.strictEqual(alerts[0].source, 'eighty-six');
+    assert.ok(alerts.some((a) => a.severity === 'amber' && a.source === 'inventory-low-par'));
+    // Verify all reds precede all ambers.
+    const firstAmber = alerts.findIndex((a) => a.severity === 'amber');
+    const lastRed = alerts.map((a) => a.severity).lastIndexOf('red');
+    assert.ok(firstAmber === -1 || firstAmber > lastRed);
+  });
+
+  it('only fires reservation no-show alert at threshold (3+)', () => {
+    // 2 no-shows: NO red alert
+    for (let i = 0; i < 2; i += 1) {
+      testDb.prepare(
+        `INSERT INTO reservations (party_name, party_size, reservation_at, status, location_id)
+         VALUES (?, 2, ?, 'no_show', 'default')`,
+      ).run(`Party-${i}`, `${TODAY} 18:00`);
+    }
+    const s2 = summarize('default', TODAY);
+    const a2 = alertsFor(s2);
+    assert.ok(!a2.some((a) => a.source === 'reservation-no-shows'));
+
+    // Add a third → red alert appears.
+    testDb.prepare(
+      `INSERT INTO reservations (party_name, party_size, reservation_at, status, location_id)
+       VALUES (?, 2, ?, 'no_show', 'default')`,
+    ).run('Party-3', `${TODAY} 18:00`);
+    const s3 = summarize('default', TODAY);
+    const a3 = alertsFor(s3);
+    assert.ok(a3.some((a) => a.severity === 'red' && a.source === 'reservation-no-shows'));
+  });
+
+  it('fires sales-down only when delta below -15%', () => {
+    // Yesterday $500 vs $1000 7-day avg → -50%
+    testDb.prepare(
+      `INSERT INTO toast_sales_daily (shift_date, net_sales, orders, guests, comparison_group, location_id)
+       VALUES (?, 500, 5, 10, 1, 'default')`,
+    ).run(YESTERDAY);
+    for (let i = 1; i <= 6; i += 1) {
+      const d = new Date(YESTERDAY + 'T00:00:00Z');
+      d.setUTCDate(d.getUTCDate() - i);
+      testDb.prepare(
+        `INSERT INTO toast_sales_daily (shift_date, net_sales, orders, guests, comparison_group, location_id)
+         VALUES (?, 1083.33, 10, 20, 1, 'default')`,
+      ).run(d.toISOString().slice(0, 10));
+    }
+    const s = summarize('default', TODAY);
+    const a = alertsFor(s);
+    assert.ok(a.some((x) => x.severity === 'amber' && x.source === 'sales-down'));
+  });
+});
+
+describe('GET /api/command/alerts', () => {
+  it('returns red/amber counts + alerts list', async () => {
+    testDb.prepare(
+      `INSERT INTO eighty_six (shift_date, item, location_id) VALUES (?, ?, 'default')`,
+    ).run(TODAY, 'duck-confit');
+    const res = await alertsRoute.GET(new Request(`http://localhost/api/command/alerts?date=${TODAY}`));
+    assert.strictEqual(res.status, 200);
+    const j = await res.json();
+    assert.strictEqual(j.shift_date, TODAY);
+    assert.ok(j.red >= 1);
+    assert.ok(Array.isArray(j.alerts));
+    assert.ok(j.alerts.some((a) => a.source === 'eighty-six'));
+  });
+
+  it('clean state returns red=0 amber=0 empty alerts', async () => {
+    const res = await alertsRoute.GET(new Request(`http://localhost/api/command/alerts?date=${TODAY}`));
+    const j = await res.json();
+    assert.strictEqual(j.red, 0);
+    assert.strictEqual(j.amber, 0);
+    assert.strictEqual(j.alerts.length, 0);
   });
 });
