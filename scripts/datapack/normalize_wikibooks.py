@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import argparse
 import heapq
+import html
 import json
 import os
 import re
@@ -162,9 +163,27 @@ _REF_RE = re.compile(r"<ref\b[^>]*/>|<ref\b[^>]*>.*?</ref>", re.DOTALL | re.IGNO
 # Match HTML-ish tags (after we've handled <ref>).
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 
+# Match external links: [http://… display text], [https://…], or [mailto:…].
+# MediaWiki uses single-bracket form for external URLs, distinct from
+# [[wikilinks]]. ``http://`` / ``https://`` / ``ftp://`` use a slash-slash
+# authority; ``mailto:`` does not. A trailing space + display text is
+# optional; when missing, we drop the whole construct (anonymous URL is
+# noise in a 500-char summary).
+_EXTERNAL_LINK_RE = re.compile(
+    r"\[(?:https?://|ftp://|mailto:)\S+?(?:\s+([^\]]+))?\]"
+)
+
 # Match section headers: == Header ==, === Header ===, etc. (any number of
 # `=` >= 2). Keeps the captured header text.
 _HEADER_RE = re.compile(r"^[ \t]*={2,}\s*(.+?)\s*={2,}[ \t]*$", re.MULTILINE)
+
+# Match line-leading list / definition / indent prefixes (`*`, `#`, `;`, `:`,
+# possibly stacked like `**` or `*#`). Strip the marker; keep the content.
+_BULLET_PREFIX_RE = re.compile(r"^[ \t]*[*#;:]+[ \t]*", re.MULTILINE)
+
+# Match bold / italic / bold-italic markup runs (2 to 5 single-quotes). Drop
+# entirely — content between the quotes is preserved.
+_BOLD_ITALIC_RE = re.compile(r"'{2,5}")
 
 # Matches a `#REDIRECT [[Target]]` line at start of wikitext (case-insensitive,
 # with optional whitespace and an optional `:` after the `#REDIRECT`).
@@ -221,21 +240,44 @@ def _replace_links(text: str) -> str:
     return _LINK_RE.sub(_sub, text)
 
 
+def _replace_external_links(text: str) -> str:
+    """Replace ``[url display]`` with ``display``; drop ``[url]``."""
+    def _sub(m: re.Match[str]) -> str:
+        display = m.group(1)
+        return display if display else ""
+
+    return _EXTERNAL_LINK_RE.sub(_sub, text)
+
+
 def _wikitext_to_plain(text: str) -> str:
     """Apply the strip rules in order; collapse whitespace; truncate to 500.
 
-    Order matters: drop templates (which may contain `[[File:...]]`-like
-    syntax internally), then drop category/file/image links, then replace
-    remaining wikilinks with display text, then drop refs and HTML tags,
-    then strip header markup, then collapse whitespace.
+    Order matters:
+      1. Drop ``{{templates}}`` (may contain ``[[...]]``-shaped internals).
+      2. Drop ``[[Category:…]]`` (already extracted via _extract_categories).
+      3. Drop ``[[File:…]]`` / ``[[Image:…]]`` link forms.
+      4. Replace remaining wikilinks with display text.
+      5. Replace ``[url display]`` external links with display text.
+      6. Drop ``<ref>…</ref>`` references.
+      7. Drop remaining HTML-ish tags (post-ref).
+      8. Decode HTML entities (``&amp;``, ``&lt;`` etc.) — AFTER tag strip
+         so reintroduced ``<``/``>`` chars don't confuse the tag pass.
+      9. Strip ``==Header==`` markers, keep the header text.
+     10. Strip line-leading list / definition prefixes (``*``, ``#``, ``;``, ``:``).
+     11. Drop ``'''bold'''`` / ``''italic''`` markup runs.
+     12. Collapse whitespace, truncate to SUMMARY_MAX_CHARS.
     """
     s = _strip_templates(text)
     s = _CATEGORY_DROP_RE.sub("", s)
     s = _FILE_LINK_RE.sub("", s)
     s = _replace_links(s)
+    s = _replace_external_links(s)
     s = _REF_RE.sub("", s)
     s = _HTML_TAG_RE.sub("", s)
+    s = html.unescape(s)
     s = _HEADER_RE.sub(r"\1", s)
+    s = _BULLET_PREFIX_RE.sub("", s)
+    s = _BOLD_ITALIC_RE.sub("", s)
     # Collapse all whitespace runs (including newlines) to single space.
     s = re.sub(r"\s+", " ", s).strip()
     if len(s) > SUMMARY_MAX_CHARS:

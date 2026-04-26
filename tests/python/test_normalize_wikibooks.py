@@ -357,6 +357,66 @@ class NormalizeWikibooksTest(unittest.TestCase):
         self.assertEqual(len(result), 500)
         self.assertEqual(result, "abcde" * 100)
 
+    # --- 4b. Wikitext stripping — wider polish ------------------------------
+    def test_wikitext_stripping_polish(self) -> None:
+        # External links: [url display] -> display.
+        self.assertEqual(
+            _wikitext_to_plain("See [https://example.com Example] for more"),
+            "See Example for more",
+        )
+        # External link with no display text -> dropped entirely.
+        self.assertEqual(
+            _wikitext_to_plain("Anon URL [https://example.com] right here"),
+            "Anon URL right here",
+        )
+        # http and ftp + mailto schemes covered.
+        self.assertEqual(
+            _wikitext_to_plain("Send [mailto:foo@bar.com Foo] now"),
+            "Send Foo now",
+        )
+
+        # Bold / italic / bold-italic markup runs (2-5 single-quotes) dropped.
+        self.assertEqual(
+            _wikitext_to_plain("'''bold''' and ''italic'' text"),
+            "bold and italic text",
+        )
+        self.assertEqual(
+            _wikitext_to_plain("'''''both''''' here"),
+            "both here",
+        )
+
+        # HTML entities decoded — but only AFTER tag strip, so reintroduced
+        # `<`/`>` chars don't accidentally re-strip anything.
+        self.assertEqual(
+            _wikitext_to_plain("A &amp; B and &lt;tag&gt; here"),
+            "A & B and <tag> here",
+        )
+        self.assertEqual(
+            _wikitext_to_plain("Smith&#39;s diner: &quot;open&quot;"),
+            "Smith's diner: \"open\"",
+        )
+
+        # Line-leading bullet/list/definition prefixes stripped.
+        self.assertEqual(
+            _wikitext_to_plain(
+                "* item one\n* item two\n# numbered\n; def\n: indent"
+            ),
+            "item one item two numbered def indent",
+        )
+        # Stacked prefixes (`**`, `*#`) also stripped.
+        self.assertEqual(
+            _wikitext_to_plain("** sub-item\n*# nested-num"),
+            "sub-item nested-num",
+        )
+
+        # Combination smoke test: external link + bold + entity all in one.
+        self.assertEqual(
+            _wikitext_to_plain(
+                "Mix [https://x.com cite] and '''bold''' &amp; entity"
+            ),
+            "Mix cite and bold & entity",
+        )
+
     # --- 5. Category extraction --------------------------------------------
     def test_category_extraction(self) -> None:
         # Case-insensitive 'category:' AND dedup with first-occurrence order.
