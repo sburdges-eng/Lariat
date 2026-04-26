@@ -37,16 +37,14 @@ from __future__ import annotations
 
 import argparse
 import csv
-import heapq
 import json
-import os
 import shutil
 import sys
 import tempfile
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterator, TextIO
+from typing import Iterator
 
 # OFF ingredients_text + categories_tags can be very long.
 csv.field_size_limit(sys.maxsize)
@@ -58,9 +56,9 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from scripts.datapack._io import (  # noqa: E402
-    atomic_replace as _atomic_replace,
     atomic_write_text as _atomic_write_text,
     default_data_root as _default_data_root,
+    external_sort_jsonl as _external_sort_jsonl,
     sha256_file as _sha256_file,
 )
 
@@ -295,44 +293,6 @@ def _stream_with_counters(
         f.close()
 
 
-def _flush_chunk(buf: list[tuple[str, str]], tmp_dir: Path, idx: int) -> Path:
-    """Sort chunk by `code` and flush to a TSV file.
-
-    Chunk format per line: ``code<TAB>json_line``. ``json.dumps`` always
-    escapes control characters, so the json body never contains literal
-    tabs — splitting on the first tab is unambiguous, no escaping needed.
-    """
-    buf.sort(key=lambda t: t[0])
-    cp = tmp_dir / f"chunk-{idx:05d}.tsv"
-    with open(cp, "w", encoding="utf-8") as f:
-        for code, line in buf:
-            f.write(f"{code}\t{line}\n")
-    return cp
-
-
-def _read_chunk(
-    fh: TextIO, chunk_idx: int
-) -> Iterator[tuple[str, int, str]]:
-    """Iterate (code, chunk_idx, json_line) tuples from a chunk file.
-
-    ``chunk_idx`` is the chunk's ordinal (= flush order = source-file
-    order). Including it in the yield tuple gives heapq.merge a stable
-    secondary key: when two chunks have a row with the same `code`, the
-    chunk written earlier (lower ordinal) wins, which corresponds to the
-    earlier occurrence in the input file. This anchors the
-    "first-occurrence-wins" rule for duplicate codes.
-    """
-    for raw in fh:
-        if not raw:
-            continue
-        line = raw[:-1] if raw.endswith("\n") else raw
-        parts = line.split("\t", 1)
-        if len(parts) != 2:
-            continue
-        code, body = parts
-        yield code, chunk_idx, body
-
-
 def _external_sort(
     input_file: Path,
     out_path: Path,
@@ -342,79 +302,59 @@ def _external_sort(
     """External merge sort by `code`. Returns (emitted, allergen_counts,
     trace_counts, products_with_allergens).
 
-    Mutates `counters` (adds: emitted, duplicate_codes_skipped). Counts of
-    allergen / traces tokens are aggregated during the merge step because
-    that is when we know which rows actually emit (post duplicate-skip).
+    Delegates the chunk-flush / heapq.merge / dedup mechanics to
+    ``_io.external_sort_jsonl``. Allergen / traces aggregation runs as the
+    helper's ``on_emit`` callback so that counts reflect exactly the rows
+    that survived dedup (i.e. that actually appear in the output file).
+
+    Mutates `counters`: sets `emitted` and `duplicate_codes_skipped` to
+    the helper's return values.
     """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_dir = Path(tempfile.mkdtemp(prefix=".tmp_off_sort_", dir=str(out_path.parent)))
-    chunk_paths: list[Path] = []
     allergen_counts: Counter = Counter()
     trace_counts: Counter = Counter()
-    products_with_allergens = 0
-    emitted = 0
+    # Wrap in a single-element list so the closure can rebind without
+    # introducing a `nonlocal` declaration on every call.
+    products_with_allergens_box = [0]
+
+    def _aggregate(_key_tuple: tuple, json_line: str) -> None:
+        # Decode the line we just wrote so the counts reflect exactly
+        # what's in the output file.
+        record = json.loads(json_line)
+        a_tags = record.get("allergens_tags") or []
+        t_tags = record.get("traces_tags") or []
+        # De-dupe within a single product so a row with
+        # ['en:milk','en:milk'] only contributes 1 to
+        # allergen_counts['en:milk'] (spec test 9).
+        if a_tags:
+            for tag in set(a_tags):
+                allergen_counts[tag] += 1
+            products_with_allergens_box[0] += 1
+        if t_tags:
+            for tag in set(t_tags):
+                trace_counts[tag] += 1
+
+    def _gen() -> Iterator[tuple[tuple, str]]:
+        for code, line in _stream_with_counters(input_file, counters):
+            yield (code,), line
 
     try:
-        buf: list[tuple[str, str]] = []
-        for code, line in _stream_with_counters(input_file, counters):
-            buf.append((code, line))
-            if len(buf) >= chunk_rows:
-                chunk_paths.append(_flush_chunk(buf, tmp_dir, len(chunk_paths)))
-                buf = []
-        if buf:
-            chunk_paths.append(_flush_chunk(buf, tmp_dir, len(chunk_paths)))
-            buf = []
-
-        readers: list[TextIO] = []
-        try:
-            iters = []
-            for i, cp in enumerate(chunk_paths):
-                fh = open(cp, "r", encoding="utf-8")
-                readers.append(fh)
-                iters.append(_read_chunk(fh, i))
-
-            tmp_out = out_path.with_suffix(out_path.suffix + ".tmp")
-            with open(tmp_out, "w", encoding="utf-8") as out_f:
-                last_code: str | None = None
-                # heapq.merge sorts on the natural tuple ordering: first
-                # `code`, then `chunk_idx` (so earlier-written chunk wins
-                # ties — see _read_chunk docstring), then `json_line`.
-                for code, _chunk_idx, json_line in heapq.merge(*iters):
-                    if last_code is not None and code == last_code:
-                        counters["duplicate_codes_skipped"] += 1
-                        continue
-                    last_code = code
-                    out_f.write(json_line)
-                    out_f.write("\n")
-                    emitted += 1
-                    # Aggregate allergens/traces from the JSON line. We
-                    # decode the line we just wrote so the counts reflect
-                    # exactly what's in the output file.
-                    record = json.loads(json_line)
-                    a_tags = record.get("allergens_tags") or []
-                    t_tags = record.get("traces_tags") or []
-                    # De-dupe within a single product so a row with
-                    # ['en:milk','en:milk'] only contributes 1 to
-                    # allergen_counts['en:milk'] (spec test 9).
-                    if a_tags:
-                        unique_a = set(a_tags)
-                        for tag in unique_a:
-                            allergen_counts[tag] += 1
-                        products_with_allergens += 1
-                    if t_tags:
-                        for tag in set(t_tags):
-                            trace_counts[tag] += 1
-                out_f.flush()
-                os.fsync(out_f.fileno())
-        finally:
-            for r in readers:
-                r.close()
-        _atomic_replace(tmp_out, out_path)
+        emitted, dup_skipped = _external_sort_jsonl(
+            _gen(),
+            out_path,
+            chunk_rows=chunk_rows,
+            tmp_dir=tmp_dir,
+            key_types=(str,),
+            dedup_by_key=True,
+            on_emit=_aggregate,
+        )
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
     counters["emitted"] = emitted
-    return emitted, allergen_counts, trace_counts, products_with_allergens
+    counters["duplicate_codes_skipped"] = dup_skipped
+    return emitted, allergen_counts, trace_counts, products_with_allergens_box[0]
 
 
 # ---------------------------------------------------------------------------
