@@ -315,6 +315,17 @@ export const NAV_ITEMS = [
     surface: { sidebar: f, palette: t, shelf: t },
     shelf: { b: 'Bar', sub: 'cocktails' },
   },
+  {
+    id: 'datapack-search',
+    href: '/datapack-search',
+    name: 'Data pack',
+    sub: 'USDA / OFF / FDA / Wikibooks',
+    group: 'Books',
+    terms: 'datapack data pack usda fda food code open food facts wikibooks cookbook nutrition lookup reference',
+    locAware: f,
+    surface: { sidebar: f, palette: t, shelf: t },
+    shelf: { b: 'Data', sub: 'lookup' },
+  },
 ];
 
 // ── Selectors ─────────────────────────────────────────────────────────
