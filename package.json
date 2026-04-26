@@ -59,6 +59,7 @@
     "test:inventory-par-api": "node --test tests/js/test-inventory-par-api.mjs",
     "test:prep-tasks-api": "node --test tests/js/test-prep-tasks-api.mjs",
     "test:reservations-api": "node --test tests/js/test-reservations-api.mjs",
+    "test:dining-tables-api": "node --test tests/js/test-dining-tables-api.mjs",
     "test:price-shocks": "node --experimental-strip-types --test tests/js/test-price-shocks.mjs",
     "test:margin-deltas": "node --experimental-strip-types --test tests/js/test-margin-deltas.mjs",
     "test:margin-deltas-api": "node --experimental-strip-types --test tests/js/test-margin-deltas-api.mjs",
