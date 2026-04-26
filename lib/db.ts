@@ -1099,6 +1099,31 @@ export function initSchema(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_reservations_status
       ON reservations(location_id, status, reservation_at);
 
+    -- Front-of-house dining-room layout. One row per physical table or
+    -- bar seat. (x, y) is the top-left corner in an arbitrary unit grid;
+    -- (w, h) is the table's footprint. status is the live state — open is
+    -- the default, seated when a party is at it, dirty when it needs a
+    -- bus. The status drives /floor's color tiles; reservations × tables
+    -- wiring (M3.4) updates it via the seat / complete verbs.
+    CREATE TABLE IF NOT EXISTS dining_tables (
+      id TEXT NOT NULL,                     -- e.g. 'T1', 'T2', 'BAR-3'
+      name TEXT NOT NULL,                   -- display label, e.g. 'Window 4'
+      capacity INTEGER NOT NULL DEFAULT 2,
+      x REAL NOT NULL DEFAULT 0,
+      y REAL NOT NULL DEFAULT 0,
+      w REAL NOT NULL DEFAULT 1,
+      h REAL NOT NULL DEFAULT 1,
+      status TEXT NOT NULL DEFAULT 'open'
+        CHECK(status IN ('open','seated','dirty','closed')),
+      notes TEXT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (location_id, id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_dining_tables_loc_status
+      ON dining_tables(location_id, status);
+
     CREATE TABLE IF NOT EXISTS locations (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
