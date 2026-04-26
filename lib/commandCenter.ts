@@ -79,6 +79,10 @@ export interface CommandSummary {
     seats_total: number;
     seats_seated: number;
   };
+  waste: {
+    today: number;
+    last_7d: number;
+  };
 }
 
 function yesterdayISO(today: string): string {
@@ -310,6 +314,28 @@ export function summarize(locationId: string, today: string): CommandSummary {
     down: marginDeltas.filter((r) => r.direction === 'down').length,
   };
 
+  // Waste log: count of inventory_updates with direction='waste' for
+  // today and the rolling 7-day window. Mirrors the rollup that the
+  // /inventory/waste page surfaces in its 7-day card.
+  const wasteToday = (db
+    .prepare(
+      `SELECT COUNT(*) AS c FROM inventory_updates
+        WHERE location_id = ? AND direction = 'waste' AND shift_date = ?`,
+    )
+    .get(locationId, today) as { c: number }).c;
+  const since7 = (() => {
+    const d = new Date(today + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() - 6);
+    return d.toISOString().slice(0, 10);
+  })();
+  const waste7d = (db
+    .prepare(
+      `SELECT COUNT(*) AS c FROM inventory_updates
+        WHERE location_id = ? AND direction = 'waste' AND shift_date >= ?`,
+    )
+    .get(locationId, since7) as { c: number }).c;
+  const waste = { today: wasteToday, last_7d: waste7d };
+
   // Dining-room floor: status counts + seat occupancy. 'dirty' is the
   // bussing-needed signal; 'seated' rolls capacity into seats_seated.
   const tableRows = db
@@ -375,5 +401,6 @@ export function summarize(locationId: string, today: string): CommandSummary {
     price_moves,
     margin_moves,
     dining_tables,
+    waste,
   };
 }

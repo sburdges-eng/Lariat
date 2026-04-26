@@ -35,7 +35,7 @@ const TABLES = [
   'shift_breaks', 'staff_certifications',
   'temp_log', 'date_marks', 'cleaning_schedule',
   'preshift_notes', 'beo_events', 'reservations', 'prep_tasks',
-  'dining_tables',
+  'dining_tables', 'inventory_updates',
 ];
 
 beforeEach(() => {
@@ -361,6 +361,44 @@ describe('summarize() — dining tables', () => {
     const b = summarize('kitchen-b', TODAY);
     assert.strictEqual(a.dining_tables.seated, 1);
     assert.strictEqual(b.dining_tables.seated, 0);
+  });
+});
+
+describe('summarize() — waste log', () => {
+  const ins = (loc, shiftDate, item, direction = 'waste') =>
+    testDb.prepare(
+      `INSERT INTO inventory_updates (shift_date, location_id, item, direction)
+       VALUES (?, ?, ?, ?)`,
+    ).run(shiftDate, loc, item, direction);
+
+  it('counts today and last-7-days waste, ignoring non-waste directions', () => {
+    const today = new Date(TODAY + 'T00:00:00Z');
+    const minus3 = new Date(today); minus3.setUTCDate(minus3.getUTCDate() - 3);
+    const minus10 = new Date(today); minus10.setUTCDate(minus10.getUTCDate() - 10);
+
+    ins('default', TODAY, 'Pork chop');
+    ins('default', TODAY, 'Aji verde');
+    ins('default', minus3.toISOString().slice(0, 10), 'Cilantro');
+    ins('default', minus10.toISOString().slice(0, 10), 'Tomato');     // outside 7-day window
+    ins('default', TODAY, 'Mise',  'restock');                         // not waste
+
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.waste.today, 2);
+    assert.strictEqual(s.waste.last_7d, 3);
+  });
+
+  it('returns zeros for empty log', () => {
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.waste.today, 0);
+    assert.strictEqual(s.waste.last_7d, 0);
+  });
+
+  it('does not leak across locations', () => {
+    ins('kitchen-a', TODAY, 'Item');
+    const a = summarize('kitchen-a', TODAY);
+    const b = summarize('kitchen-b', TODAY);
+    assert.strictEqual(a.waste.today, 1);
+    assert.strictEqual(b.waste.today, 0);
   });
 });
 
