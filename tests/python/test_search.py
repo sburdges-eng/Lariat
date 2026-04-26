@@ -125,34 +125,27 @@ class _FakeCuda:
         return False
 
 
-def _install_fakes() -> dict[str, Any]:
-    """Install the search-test fakes into ``sys.modules`` and return the
-    previous module objects so ``_restore_fakes`` can put them back.
+# The fake-module objects above are constructed once at import time, but
+# their installation into ``sys.modules`` happens per-test (in setUp /
+# tearDown) via the shared install_module_stubs / restore_module_stubs
+# helpers. We do this per-test rather than at module import so that other
+# test modules — notably ``test_build_embeddings_index`` which has its OWN
+# fake encoder with a different ``encode()`` shape — aren't clobbered by
+# load-order accidents under pytest collection.
 
-    We do this per-test (in setUp / tearDown) rather than at module import
-    so that other test modules — notably ``test_build_embeddings_index``
-    which has its OWN fake encoder with a different ``encode()`` shape —
-    aren't clobbered by load-order accidents under pytest collection.
-    The previous fake's behavior is preserved across our test method.
-    """
-    prev_st = sys.modules.get("sentence_transformers")
-    prev_torch = sys.modules.get("torch")
+
+def _build_stub_modules() -> dict[str, types.ModuleType]:
+    """Build the fresh stub module objects to install into ``sys.modules``.
+
+    Constructed once per setUp so each test gets a clean module object
+    (avoids attribute leakage across tests if a future test mutates the
+    module dict directly)."""
     fake_st = types.ModuleType("sentence_transformers")
     fake_st.SentenceTransformer = _FakeSentenceTransformer  # type: ignore[attr-defined]
-    sys.modules["sentence_transformers"] = fake_st
     fake_torch = types.ModuleType("torch")
     fake_torch.backends = _FakeBackends  # type: ignore[attr-defined]
     fake_torch.cuda = _FakeCuda  # type: ignore[attr-defined]
-    sys.modules["torch"] = fake_torch
-    return {"sentence_transformers": prev_st, "torch": prev_torch}
-
-
-def _restore_fakes(prev: dict[str, Any]) -> None:
-    for name, mod in prev.items():
-        if mod is None:
-            sys.modules.pop(name, None)
-        else:
-            sys.modules[name] = mod
+    return {"sentence_transformers": fake_st, "torch": fake_torch}
 
 
 # Production modules are safe to import unconditionally — ``search`` only
@@ -166,6 +159,8 @@ from tests.python._datapack_test_helpers import (  # noqa: E402
     USDA_NUTRIENTS,
     _write_json,
     _write_jsonl,
+    install_module_stubs,
+    restore_module_stubs,
 )
 
 
@@ -347,7 +342,7 @@ class DataPackSearchSmokeTests(unittest.TestCase):
 
     def setUp(self) -> None:
         _FakeSentenceTransformer.reset()
-        self._prev_modules = _install_fakes()
+        self._prev_modules = install_module_stubs(_build_stub_modules())
         self._tmp = tempfile.TemporaryDirectory()
         self.data_root = Path(self._tmp.name)
         self.input_root = self.data_root / "normalized"
@@ -355,7 +350,7 @@ class DataPackSearchSmokeTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self._tmp.cleanup()
-        _restore_fakes(self._prev_modules)
+        restore_module_stubs(self._prev_modules)
 
     # ------------------------------------------------------------------ helpers
 

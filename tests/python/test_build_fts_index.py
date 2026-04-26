@@ -238,8 +238,9 @@ class BuildFtsIndexSmokeTests(unittest.TestCase):
         )
         mtime_before = self.fts_db_path.stat().st_mtime_ns
 
-        # Pause briefly so any rebuild would actually move the mtime — the
-        # test asserts we *don't* rebuild, so this is purely defensive.
+        # Pause so an unexpected rebuild's bumped mtime is unambiguous —
+        # without this, an instant rebuild could in principle land on the
+        # same st_mtime_ns by coincidence on very fast filesystems.
         time.sleep(0.01)
 
         second = build_fts_index.build(

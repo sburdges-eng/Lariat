@@ -5,6 +5,8 @@ Used by:
   * ``tests/python/test_build_sqlite_index.py``
   * ``tests/python/test_build_fts_index.py``
   * ``tests/python/test_build_embeddings_index.py``
+  * ``tests/python/test_normalize_fda_food_code.py``
+  * ``tests/python/test_search.py``
 
 The leading underscore in the filename keeps pytest's default discovery from
 treating this as a test module — it has no test classes / functions, just
@@ -12,12 +14,25 @@ fixture constants and small filesystem helpers.
 
 This module is intentionally self-contained: it does NOT import from any
 test module. The test modules import from it (and only from it).
+
+Determinism tiers across the data-pack test family:
+  * FDA normalize: byte-identical ``sections.jsonl`` across rebuilds (the
+    test asserts via ``read_bytes()`` equality).
+  * SQLite / FTS / embeddings indexers: sha-stable INPUT + stable row
+    counts + stable per-source manifests, but the DB binary is NOT
+    byte-identical across rebuilds (the indexers embed timestamps in
+    their internal ``_manifest`` tables). Tests assert sha + row_count
+    invariants, not byte equality.
+  * Search (DataPackSearch): no determinism story — it is a read-only
+    query API; tests assert ordering and shape contracts.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import sys
+import types
 from pathlib import Path
 from typing import Any
 
@@ -116,6 +131,11 @@ OFF_ALLERGENS_SUMMARY: dict[str, Any] = {
     "traces": {"en:peanuts": 1},
 }
 
+# T3 (test_build_embeddings_index.py) and T5 (test_search.py) define their
+# own _WIKIBOOKS_PAGES with extended rows (knife skills, sourdough, food
+# safety basics) because their tests need bucket-discriminating content
+# this canonical fixture lacks. If you add canonical rows here, audit those
+# files for duplicate page_ids before merging.
 WIKIBOOKS_PAGES: list[dict[str, Any]] = [
     {
         "page_id": 42,
@@ -208,3 +228,40 @@ def _sha256_file(path: Path) -> str:
         for buf in iter(lambda: f.read(1 << 16), b""):
             h.update(buf)
     return h.hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# sys.modules stubbing helpers
+# ---------------------------------------------------------------------------
+#
+# The embeddings / FDA-normalize / search tests inject fake versions of
+# heavy optional dependencies (``sentence_transformers``, ``torch``,
+# ``pdfplumber``) so the production code can import them without the real
+# packages being present. The install + restore must happen per-test rather
+# than at module-import time so two test files with conflicting fakes do
+# not clobber each other under pytest collection order.
+
+
+def install_module_stubs(stubs: dict[str, types.ModuleType]) -> dict[str, object]:
+    """Save+install module stubs in ``sys.modules``.
+
+    Returns a dict of previous values keyed by module name. Pass the
+    returned dict to ``restore_module_stubs`` to restore.
+
+    A previous value of ``None`` means the module wasn't installed before
+    the call.
+    """
+    previous: dict[str, object] = {}
+    for name, mod in stubs.items():
+        previous[name] = sys.modules.get(name)
+        sys.modules[name] = mod
+    return previous
+
+
+def restore_module_stubs(previous: dict[str, object]) -> None:
+    """Restore ``sys.modules`` to the state captured by ``install_module_stubs``."""
+    for name, prev in previous.items():
+        if prev is None:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = prev

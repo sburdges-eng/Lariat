@@ -93,14 +93,6 @@ class _FakeSentenceTransformer:
         cls.last_model_id = None
 
 
-# Install the fake module BEFORE we import build_embeddings_index, so the
-# lazy ``from sentence_transformers import SentenceTransformer`` resolves
-# to our stub. We keep a handle in case any test wants to confirm.
-_fake_st_module = types.ModuleType("sentence_transformers")
-_fake_st_module.SentenceTransformer = _FakeSentenceTransformer  # type: ignore[attr-defined]
-sys.modules["sentence_transformers"] = _fake_st_module
-
-
 # Stub torch's device detection so build() doesn't probe MPS/CUDA on the
 # test host. Use a tiny module so even systems without torch installed pass.
 class _FakeBackends:
@@ -116,12 +108,22 @@ class _FakeCuda:
         return False
 
 
+# Stub modules are CONSTRUCTED here (cheap, no side effects) but INSTALLED
+# into sys.modules per-test class via setUpClass / tearDownClass — see the
+# install_module_stubs / restore_module_stubs helpers. Per-class scope (not
+# per-method) because build_embeddings_index does the lazy
+# ``from sentence_transformers import SentenceTransformer`` only once and
+# caches it; a per-method install would still work but adds churn.
+_fake_st_module = types.ModuleType("sentence_transformers")
+_fake_st_module.SentenceTransformer = _FakeSentenceTransformer  # type: ignore[attr-defined]
 _fake_torch_module = types.ModuleType("torch")
 _fake_torch_module.backends = _FakeBackends  # type: ignore[attr-defined]
 _fake_torch_module.cuda = _FakeCuda  # type: ignore[attr-defined]
-sys.modules["torch"] = _fake_torch_module
 
 
+# build_embeddings_index / build_sqlite_index don't import their lazy deps
+# at module import time, so we can safely import them here without the
+# stubs already being live in sys.modules.
 from scripts.datapack import build_embeddings_index, build_sqlite_index  # noqa: E402
 
 # Reuse the fixture data + fs helpers the T1 tests exercise. This module
@@ -136,6 +138,8 @@ from tests.python._datapack_test_helpers import (  # noqa: E402
     _sha256_file,
     _write_json,
     _write_jsonl,
+    install_module_stubs,
+    restore_module_stubs,
 )
 
 
@@ -245,6 +249,22 @@ def _build_empty_corpus_input_root(input_root: Path) -> dict[str, Path]:
 
 
 class BuildEmbeddingsIndexSmokeTests(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        # Install the fake sentence_transformers + torch modules into
+        # sys.modules for the lifetime of this test class. Restored in
+        # tearDownClass so other test modules aren't clobbered.
+        cls._prev_modules = install_module_stubs(
+            {
+                "sentence_transformers": _fake_st_module,
+                "torch": _fake_torch_module,
+            }
+        )
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        restore_module_stubs(cls._prev_modules)
 
     def setUp(self) -> None:
         _FakeSentenceTransformer.reset()
@@ -426,7 +446,8 @@ class BuildEmbeddingsIndexSmokeTests(unittest.TestCase):
         encode_calls_before = _FakeSentenceTransformer.encode_calls
         init_calls_before = _FakeSentenceTransformer.init_calls
         manifest_mtime_before = manifest_path.stat().st_mtime_ns
-        time.sleep(0.01)  # make a rebuild move the mtime if it happens
+        # Pause so an unexpected rebuild's bumped mtime is unambiguous.
+        time.sleep(0.01)
 
         # Second call — must short-circuit, NOT re-write the manifest.
         build_embeddings_index.build(
@@ -468,6 +489,7 @@ class BuildEmbeddingsIndexSmokeTests(unittest.TestCase):
 
         manifest_path = self._bucket_dir("recipes") / "manifest.json"
         mtime_before = manifest_path.stat().st_mtime_ns
+        # Pause so an unexpected rebuild's bumped mtime is unambiguous.
         time.sleep(0.01)
 
         build_embeddings_index.build(
@@ -495,6 +517,10 @@ class BuildEmbeddingsIndexSmokeTests(unittest.TestCase):
         )
         first_manifest = self._read_manifest("recipes")
         encode_calls_after_first = _FakeSentenceTransformer.encode_calls
+        # Pause between the two build() calls so any mtime-based debugging
+        # of a regression here can distinguish the rebuild from the first
+        # write — the assertion below uses encode_calls, but if that signal
+        # ever weakens we still want a visible mtime delta to inspect.
         time.sleep(0.01)
 
         build_embeddings_index.build(
@@ -543,6 +569,8 @@ class BuildEmbeddingsIndexSmokeTests(unittest.TestCase):
         )
         self.assertEqual(self._read_manifest("recipes")["model_id"], "model-A")
         encode_calls_after_first = _FakeSentenceTransformer.encode_calls
+        # Pause between builds so a regression that fails to rebuild would
+        # show an unchanged mtime as well as unchanged encode_calls.
         time.sleep(0.01)
 
         # Different model_id, no force — must rebuild because the

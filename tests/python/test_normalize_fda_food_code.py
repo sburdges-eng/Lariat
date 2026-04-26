@@ -99,13 +99,24 @@ class _FakePdfplumber:
         return _FakePDFContext(cls.pages_for_path[key])
 
 
+# Stub module CONSTRUCTED here (cheap, no side effects) but INSTALLED into
+# sys.modules per-test class via setUpClass / tearDownClass. Doing the
+# install at import time would clobber other test modules that may want a
+# real (or differently-stubbed) ``pdfplumber`` for their own purposes.
 _fake_pdfplumber_module = types.ModuleType("pdfplumber")
 _fake_pdfplumber_module.open = _FakePdfplumber.open  # type: ignore[attr-defined]
-sys.modules["pdfplumber"] = _fake_pdfplumber_module
 
 
+# normalize_fda_food_code does ``import pdfplumber`` lazily inside
+# ``_extract_pages``, so importing it here (before the stub is live in
+# sys.modules) is safe.
 from scripts.datapack import normalize_fda_food_code  # noqa: E402
 from scripts.datapack._io import sha256_file as _sha256_file  # noqa: E402
+
+from tests.python._datapack_test_helpers import (  # noqa: E402
+    install_module_stubs,
+    restore_module_stubs,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +152,19 @@ ANNEX_HEADER = (
 
 class NormalizeFdaFoodCodeSmokeTests(unittest.TestCase):
     """End-to-end smoke tests for ``normalize_fda_food_code.normalize``."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        # Install the fake pdfplumber module for the lifetime of this test
+        # class. Restored in tearDownClass so other test modules aren't
+        # clobbered if pytest collects them after us.
+        cls._prev_modules = install_module_stubs(
+            {"pdfplumber": _fake_pdfplumber_module}
+        )
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        restore_module_stubs(cls._prev_modules)
 
     def setUp(self) -> None:
         # Hermetic per-test temp dir — input PDF (fake bytes), output dir.
@@ -320,8 +344,9 @@ class NormalizeFdaFoodCodeSmokeTests(unittest.TestCase):
         )
         sections_path = self.output_dir / "sections.jsonl"
         first_mtime_ns = sections_path.stat().st_mtime_ns
-        # Sleep just enough that any rewrite would bump mtime even on
-        # filesystems with second-resolution timestamps.
+        # Pause so an unexpected rebuild's bumped mtime is unambiguous —
+        # without this, an instant rebuild could in principle land on the
+        # same st_mtime_ns by coincidence on very fast filesystems.
         time.sleep(0.05)
 
         second = normalize_fda_food_code.normalize(
