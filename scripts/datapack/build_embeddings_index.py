@@ -418,6 +418,8 @@ def _build_bucket(
             )
             return prev
 
+    import numpy as np  # local import — heavy module, only needed when building
+
     print(f"  → {bucket}: collecting passages…")
     t_collect = time.time()
     texts: list[str] = []
@@ -430,6 +432,29 @@ def _build_bucket(
 
     if n == 0:
         print(f"    (skipping {bucket}: empty corpus)")
+        # Write empty placeholder vectors.npy + metadata.jsonl atomically so
+        # _is_up_to_date() short-circuits on the next run. Without these,
+        # the bucket re-collects from SQLite every invocation and the
+        # manifest's generated_at churns forever even though nothing changed.
+        # We use shape (0,) and dims=None because the model isn't loaded
+        # in this branch — consumers detect the empty case via dims is None.
+        empty_vectors = np.zeros((0,), dtype="float32")
+        tmp_vectors = vectors_path.with_suffix(vectors_path.suffix + ".tmp")
+        tmp_metadata = metadata_path.with_suffix(metadata_path.suffix + ".tmp")
+        for stale in (tmp_vectors, tmp_vectors.with_suffix(tmp_vectors.suffix + ".npy")):
+            if stale.exists():
+                stale.unlink()
+        if tmp_metadata.exists():
+            tmp_metadata.unlink()
+        with open(tmp_vectors, "wb") as f:
+            np.save(f, empty_vectors, allow_pickle=False)
+            f.flush()
+            os.fsync(f.fileno())
+        with open(tmp_metadata, "w", encoding="utf-8") as f:
+            f.flush()
+            os.fsync(f.fileno())
+        _atomic_replace(tmp_vectors, vectors_path)
+        _atomic_replace(tmp_metadata, metadata_path)
         manifest = {
             "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "bucket": bucket,
@@ -441,8 +466,6 @@ def _build_bucket(
         }
         _atomic_write_text(manifest_path, json.dumps(manifest, indent=2, sort_keys=True))
         return manifest
-
-    import numpy as np  # local import — heavy module, only needed when building
 
     print(f"  → {bucket}: encoding (batch={batch_size}, device={model.device})…")
     t_encode = time.time()
