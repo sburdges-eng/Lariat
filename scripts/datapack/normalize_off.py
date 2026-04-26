@@ -486,7 +486,7 @@ def normalize(
     # OOM, kernel termination skip our try/finally cleanup). These are
     # always garbage — sweep regardless of --force or idempotency state.
     for stale in output_dir.glob(".tmp_off_sort_*"):
-        print(f"  cleaning stale tmp dir: {stale.name}")
+        print(f"  ↻ Sweeping stale tmp dir: {stale.name}")
         shutil.rmtree(stale, ignore_errors=True)
 
     if not force and _is_already_normalized(output_dir):
