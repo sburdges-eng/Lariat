@@ -303,6 +303,18 @@ export const NAV_ITEMS = [
     surface: { sidebar: f, palette: t, shelf: t },
     shelf: { b: 'Equip.', sub: 'gear' },
   },
+  {
+    id: 'bar',
+    href: '/bar',
+    name: 'Bar program',
+    sub: 'Cocktail pour costs',
+    group: 'Books',
+    shortcut: 'X',
+    terms: 'bar cocktail drink pour cost beverage',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: t },
+    shelf: { b: 'Bar', sub: 'cocktails' },
+  },
 ];
 
 // ── Selectors ─────────────────────────────────────────────────────────

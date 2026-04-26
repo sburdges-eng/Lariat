@@ -169,10 +169,15 @@ export default function BarPage({ searchParams }) {
     { red: 0, yellow: 0, green: 0, gray: 0 },
   );
 
+  const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
+
   return (
     <div>
       <h1>Bar program</h1>
       <p className="subtitle">Cocktail pour costs at a glance</p>
+      <p style={{ marginTop: -16, marginBottom: 24 }}>
+        <Link href={`/bar/par${locQ}`}>→ Bar par list</Link>
+      </p>
 
       {/* Stats card — one tone-counts summary across all bar recipes */}
       <div className="card mb-20">
