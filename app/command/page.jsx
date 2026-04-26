@@ -201,6 +201,24 @@ function summarize(loc, today) {
     )
     .all(loc, today);
 
+  // ── Reservations: today's book by status ────────────────────────
+  // reservation_at is TEXT 'YYYY-MM-DD HH:MM', so a date-prefix match
+  // pulls everything booked for today regardless of seating time.
+  const resRows = db
+    .prepare(
+      `SELECT status, COUNT(*) AS c FROM reservations
+        WHERE location_id = ?
+          AND substr(reservation_at, 1, 10) = ?
+        GROUP BY status`,
+    )
+    .all(loc, today);
+  const resCounts = { booked: 0, seated: 0, completed: 0, cancelled: 0, no_show: 0 };
+  for (const r of resRows) {
+    if (resCounts[r.status] !== undefined) resCounts[r.status] = r.c;
+  }
+  const resTotal =
+    resCounts.booked + resCounts.seated + resCounts.completed + resCounts.no_show;
+
   return {
     sales: {
       yesterday: yRow.net_sales || 0,
@@ -237,6 +255,13 @@ function summarize(loc, today) {
     prep,
     preshift,
     events: todaysEvents,
+    reservations: {
+      booked: resCounts.booked,
+      seated: resCounts.seated,
+      completed: resCounts.completed,
+      no_show: resCounts.no_show,
+      total: resTotal,
+    },
     yesterday,
   };
 }
@@ -419,6 +444,22 @@ export default function CommandCenter({ searchParams }) {
               n: s.events.reduce((sum, e) => sum + (Number(e.guest_count) || 0), 0),
               label: 'total guests',
             },
+          ]}
+        />
+        <Tile
+          href={`/reservations${locQ}`}
+          title="Reservations"
+          sub="Tonight's book"
+          status={{
+            red: s.reservations.no_show >= 3,
+            amber: s.reservations.booked > 0,
+          }}
+          lines={[
+            { n: s.reservations.booked, label: 'still to seat',
+              tone: s.reservations.booked ? 'amber' : null },
+            { n: s.reservations.seated, label: 'seated' },
+            { n: s.reservations.no_show, label: 'no-shows',
+              tone: s.reservations.no_show ? 'red' : null },
           ]}
         />
       </div>
