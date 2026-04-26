@@ -37,6 +37,8 @@ export interface CommandSummary {
     temp_readings: number;
     date_marks_expired: number;
     date_marks_due_today: number;
+    cleaning_overdue: number;
+    cleaning_due_today: number;
   };
   preshift_notes: number;
   events_today: number;
@@ -178,6 +180,21 @@ export function summarize(locationId: string, today: string): CommandSummary {
   const dateMarksExpired = expiringBatches.filter((b) => b.status === 'expired').length;
   const dateMarksDueToday = expiringBatches.filter((b) => b.status === 'due_today').length;
 
+  // Active cleaning schedule rows where next_due is past or today.
+  // archived_at is added at runtime by initSchema, so we filter it
+  // here too — retired rows shouldn't show as overdue.
+  const cleaningCounts = db
+    .prepare(
+      `SELECT
+         SUM(CASE WHEN next_due IS NOT NULL AND next_due < ? THEN 1 ELSE 0 END) AS overdue,
+         SUM(CASE WHEN next_due = ? THEN 1 ELSE 0 END) AS due_today
+         FROM cleaning_schedule
+        WHERE location_id = ? AND active = 1 AND archived_at IS NULL`,
+    )
+    .get(today, today, locationId) as { overdue: number | null; due_today: number | null };
+  const cleaningOverdue = Number(cleaningCounts.overdue) || 0;
+  const cleaningDueToday = Number(cleaningCounts.due_today) || 0;
+
   const preshiftCount = (db
     .prepare(
       `SELECT COUNT(*) AS c FROM preshift_notes
@@ -226,6 +243,8 @@ export function summarize(locationId: string, today: string): CommandSummary {
       temp_readings: temps.length,
       date_marks_expired: dateMarksExpired,
       date_marks_due_today: dateMarksDueToday,
+      cleaning_overdue: cleaningOverdue,
+      cleaning_due_today: cleaningDueToday,
     },
     preshift_notes: preshiftCount,
     events_today: events.c,

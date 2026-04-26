@@ -33,7 +33,8 @@ const TABLES = [
   'toast_sales_daily', 'eighty_six',
   'inventory_par', 'inventory_count_lines', 'inventory_counts',
   'shift_breaks', 'staff_certifications',
-  'temp_log', 'date_marks', 'preshift_notes', 'beo_events',
+  'temp_log', 'date_marks', 'cleaning_schedule',
+  'preshift_notes', 'beo_events',
 ];
 
 beforeEach(() => {
@@ -188,6 +189,55 @@ describe('summarize() — date marks', () => {
     const b = summarize('kitchen-b', TODAY);
     assert.strictEqual(a.food_safety.date_marks_due_today, 1);
     assert.strictEqual(b.food_safety.date_marks_due_today, 0);
+  });
+});
+
+describe('summarize() — cleaning schedule', () => {
+  const ins = (loc, area, task, nextDue, active = 1, archivedAt = null) =>
+    testDb.prepare(
+      `INSERT INTO cleaning_schedule (location_id, area, task, frequency, next_due, active, archived_at)
+       VALUES (?, ?, ?, 'daily', ?, ?, ?)`,
+    ).run(loc, area, task, nextDue, active, archivedAt);
+
+  it('counts overdue (past) and due-today rows', () => {
+    const today = new Date(TODAY + 'T00:00:00Z');
+    const minus1 = new Date(today); minus1.setUTCDate(minus1.getUTCDate() - 1);
+    const minus5 = new Date(today); minus5.setUTCDate(minus5.getUTCDate() - 5);
+    const plus2 = new Date(today); plus2.setUTCDate(plus2.getUTCDate() + 2);
+
+    ins('default', 'Walk-in', 'Sanitize shelves', minus5.toISOString().slice(0, 10));
+    ins('default', 'Hood', 'Filter swap', minus1.toISOString().slice(0, 10));
+    ins('default', 'Floor', 'Mop drain', TODAY);
+    ins('default', 'Reach-in', 'Wipe gaskets', plus2.toISOString().slice(0, 10));
+
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.food_safety.cleaning_overdue, 2);
+    assert.strictEqual(s.food_safety.cleaning_due_today, 1);
+  });
+
+  it('ignores inactive and archived rows', () => {
+    ins('default', 'Hood', 'Filter swap', TODAY, 0); // inactive
+    ins('default', 'Floor', 'Mop drain', TODAY, 1, '2026-04-01'); // archived
+    ins('default', 'Reach-in', 'Wipe gaskets', TODAY); // active, due today
+
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.food_safety.cleaning_due_today, 1);
+    assert.strictEqual(s.food_safety.cleaning_overdue, 0);
+  });
+
+  it('rows with NULL next_due are not counted as overdue', () => {
+    ins('default', 'Pantry', 'Deep clean', null);
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.food_safety.cleaning_overdue, 0);
+    assert.strictEqual(s.food_safety.cleaning_due_today, 0);
+  });
+
+  it('does not leak across locations', () => {
+    ins('kitchen-a', 'Walk-in', 'Sanitize', TODAY);
+    const a = summarize('kitchen-a', TODAY);
+    const b = summarize('kitchen-b', TODAY);
+    assert.strictEqual(a.food_safety.cleaning_due_today, 1);
+    assert.strictEqual(b.food_safety.cleaning_due_today, 0);
   });
 });
 
