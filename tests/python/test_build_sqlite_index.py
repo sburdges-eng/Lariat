@@ -85,7 +85,7 @@ USDA_NUTRIENTS: list[dict[str, Any]] = [
         "nutrient_name": "Protein",
         "unit_name": "G",
         "amount": 7.14,
-        "derivation_id": 71,
+        "derivation_id": None,
         "source_archive": "FoodData_Central_branded_food_csv_2024-04-18.zip",
     },
 ]
@@ -109,7 +109,7 @@ OFF_PRODUCTS: list[dict[str, Any]] = [
         "code": "0000000005678",
         "product_name": "Sparkling Water",
         "brands": "Bubbly Co",
-        "brand_owner": None,
+        "brand_owner": "Café Équateur",
         "categories_tags": ["en:beverages"],
         "allergens_tags": [],
         "traces_tags": [],
@@ -148,7 +148,7 @@ WIKIBOOKS_PAGES: list[dict[str, Any]] = [
         "is_redirect": True,
         "redirect_target": "Cookbook:Apple Pie",
         "categories": [],
-        "wikitext_length": 24,
+        "wikitext_length": 0,
         "plain_text_summary": "",
         "source_url": "https://en.wikibooks.org/wiki/Cookbook:Apple_Tart",
     },
@@ -298,18 +298,36 @@ class BuildSqliteIndexSmokeTests(unittest.TestCase):
                 self._row_count(conn, "fda_food_code_sections"),
                 len(FDA_FOOD_CODE_SECTIONS),
             )
-            # Allergens summary flattens into key/value rows — at minimum
-            # there should be one row (and there are 5 top-level keys in
-            # the summary, so we can assert that exact count too).
+            # Allergens summary flattens into key/value rows — there are 5
+            # top-level keys in the summary so the row count must match.
             self.assertEqual(
                 self._row_count(conn, "off_allergens"),
                 len(OFF_ALLERGENS_SUMMARY),
             )
-            self.assertGreater(self._row_count(conn, "off_allergens"), 0)
 
             # _manifest table inside the DB carries one row per source
             # (5 JSONL sources + off_allergens summary).
             self.assertEqual(self._row_count(conn, "_manifest"), 6)
+
+            # Each _manifest row's source_sha256 must match the on-disk
+            # fixture sha for that source. The _manifest.source PK matches
+            # the fixture-key naming used in self.fixture_paths.
+            manifest_rows = {
+                row[0]: row[1]
+                for row in conn.execute(
+                    "SELECT source, source_sha256 FROM _manifest"
+                ).fetchall()
+            }
+            self.assertEqual(
+                set(manifest_rows.keys()),
+                set(self.fixture_paths.keys()),
+            )
+            for key, fixture_path in self.fixture_paths.items():
+                self.assertEqual(
+                    manifest_rows[key],
+                    _sha256_file(fixture_path),
+                    f"_manifest sha256 mismatch for {key}",
+                )
 
             # Roundtrip: pick the first fixture row's PK and verify the
             # body fields land in the corresponding columns.
@@ -375,6 +393,36 @@ class BuildSqliteIndexSmokeTests(unittest.TestCase):
                 json.loads(allergens_row[0]),
                 OFF_ALLERGENS_SUMMARY["allergens"],
             )
+
+            # Non-ASCII roundtrip: accented characters in brand_owner survive
+            # the JSONL → SQLite hop without mojibake.
+            (brand_owner,) = conn.execute(
+                "SELECT brand_owner FROM off_products WHERE code = ?",
+                (OFF_PRODUCTS[1]["code"],),
+            ).fetchone()
+            self.assertEqual(brand_owner, "Café Équateur")
+            self.assertIn("é", brand_owner)
+            self.assertIn("É", brand_owner)
+
+            # Boundary integer: wikitext_length = 0 must come back as the
+            # integer 0, NOT as NULL (a NULL would suggest the mapper
+            # silently swallowed a falsy value).
+            (wikitext_length,) = conn.execute(
+                "SELECT wikitext_length FROM wikibooks_pages WHERE page_id = ?",
+                (WIKIBOOKS_PAGES[1]["page_id"],),
+            ).fetchone()
+            self.assertIsNotNone(wikitext_length)
+            self.assertIsInstance(wikitext_length, int)
+            self.assertEqual(wikitext_length, 0)
+
+            # Nutrient NULL coverage: a None derivation_id in the source
+            # JSONL lands as SQLite NULL (Python None) rather than 0 or "".
+            (derivation_id,) = conn.execute(
+                "SELECT derivation_id FROM usda_nutrients "
+                "WHERE fdc_id = ? AND nutrient_id = ?",
+                (USDA_NUTRIENTS[1]["fdc_id"], USDA_NUTRIENTS[1]["nutrient_id"]),
+            ).fetchone()
+            self.assertIsNone(derivation_id)
 
     def test_idempotent_skip(self) -> None:
         first = build_sqlite_index.build(
