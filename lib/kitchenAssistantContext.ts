@@ -12,6 +12,8 @@ import {
 } from './data';
 import type { Recipe, AllergenMatrix, Station } from './data';
 import type { Database as DB } from 'better-sqlite3';
+import * as datapackSearch from './datapackSearch';
+import type { FtsHit, FdaSection } from './datapackSearch';
 
 const MAX_86 = 40;
 const MAX_INV = 20;
@@ -284,6 +286,16 @@ export function buildGroundedContext(locationId: string, userQuestion: string): 
         text += `    corrective: ${c.corrective_action}\n`;
       }
       sources.push({ type: 'food_safety', detail: `${ccps.length} CCP(s)` });
+    }
+
+    // FDA Food Code grounding from the data pack — appended to the
+    // same FOOD_SAFETY_KEYWORDS branch so a single keyword check
+    // gates both the operational CCP block and the regulatory text.
+    // Silently no-ops on machines without the data pack mounted.
+    const fda = renderFdaFoodCode(userQuestion);
+    if (fda.text) {
+      text += fda.text;
+      if (fda.source) sources.push(fda.source);
     }
   }
 
@@ -842,6 +854,147 @@ export function renderDailySalesTrend(
 interface MultiSourceSection {
   text: string;
   sources: ContextSource[];
+}
+
+// ── FDA Food Code grounding ─────────────────────────────────────────
+//
+// Pulls the top-N most relevant sections from the off-tree data pack's
+// fda_food_code_sections table whenever a food-safety question hits
+// the FOOD_SAFETY_KEYWORDS gate. The data pack lives on an external
+// SSD and is absent on most dev machines / in CI; in that case
+// `datapackSearch.available()` returns false and this helper silently
+// no-ops with `{text:'', source:null}` so the rest of the context
+// builder is unaffected.
+//
+// Body text is truncated to MAX_FDA_BODY_CHARS so a single hit
+// (some sections have ~10k-char Annex 3 commentary) can't blow past
+// the overall MAX_CONTEXT_CHARS budget. Hits are deduped by
+// section_id because the corpus has paired regulatory + Annex 3
+// entries with the same id; we keep the first (= best BM25) match.
+
+const MAX_FDA_HITS = 3;
+const MAX_FDA_BODY_CHARS = 1200;
+const MAX_FDA_QUERY_TOKENS = 8;
+
+// Common English stopwords that bring no signal to FTS BM25 — keeping
+// them in the OR expression just dilutes ranking. Intentionally small;
+// FTS5's porter stemmer does the rest.
+const FDA_QUERY_STOPWORDS = new Set([
+  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'but', 'by', 'can', 'do',
+  'does', 'for', 'from', 'how', 'i', 'if', 'in', 'is', 'it', 'its',
+  'me', 'my', 'of', 'on', 'or', 'should', 'so', 'than', 'that', 'the',
+  'this', 'to', 'we', 'what', 'when', 'where', 'which', 'why', 'will',
+  'with', 'you', 'your',
+]);
+
+/**
+ * Build an FTS5 MATCH expression from a free-form user question.
+ * Each surviving token goes through `escapeFtsPhrase` (per the
+ * datapackSearch contract — never pass raw user text to MATCH), and
+ * the quoted phrases are OR'd so any one of them can hit. Tokens
+ * shorter than 3 chars or in the stopword set are dropped to keep
+ * BM25 ranking meaningful. Returns '' when nothing useful survives.
+ */
+function buildFdaQuery(
+  question: string,
+  escape: (s: string) => string
+): string {
+  const tokens = question
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 3 && !FDA_QUERY_STOPWORDS.has(t));
+  // De-dupe while preserving order.
+  const uniq: string[] = [];
+  const seen = new Set<string>();
+  for (const t of tokens) {
+    if (seen.has(t)) continue;
+    seen.add(t);
+    uniq.push(t);
+    if (uniq.length >= MAX_FDA_QUERY_TOKENS) break;
+  }
+  if (!uniq.length) return '';
+  return uniq.map((t) => escape(t)).join(' OR ');
+}
+
+interface DatapackSearchDeps {
+  available: () => boolean;
+  fts: typeof datapackSearch.fts;
+  escapeFtsPhrase: typeof datapackSearch.escapeFtsPhrase;
+  getFdaSection: typeof datapackSearch.getFdaSection;
+}
+
+/**
+ * Truncate a string to at most `n` UTF-16 code units while avoiding
+ * splitting a surrogate pair (which would otherwise leave a lone high
+ * surrogate at the tail and corrupt downstream UTF-8 encoding).
+ * The FDA corpus is ASCII so this is defensive, not load-bearing.
+ */
+function truncateSafe(s: string, n: number): string {
+  if (s.length <= n) return s;
+  let end = n;
+  const code = s.charCodeAt(end - 1);
+  // Lone high surrogate at the tail — drop it.
+  if (code >= 0xd800 && code <= 0xdbff) end -= 1;
+  return `${s.slice(0, end)}…`;
+}
+
+/**
+ * Render the FDA Food Code grounding block. Exported so tests can
+ * exercise it directly without spinning up the full grounded-context
+ * graph. `deps` is an injection seam for tests — production callers
+ * should always use the default real datapackSearch module.
+ */
+export function renderFdaFoodCode(
+  question: string,
+  deps: DatapackSearchDeps = datapackSearch
+): OversightSection {
+  if (!deps.available()) return { text: '', source: null };
+
+  const trimmed = (question || '').trim();
+  if (!trimmed) return { text: '', source: null };
+
+  // FTS5 phrase-OR query built from sanitized user tokens. Wrapping
+  // each token via escapeFtsPhrase keeps user-controlled punctuation
+  // out of the MATCH parser, which would otherwise reject the query.
+  const expr = buildFdaQuery(trimmed, deps.escapeFtsPhrase);
+  if (!expr) return { text: '', source: null };
+
+  const hits = deps.fts(expr, {
+    source: 'fda',
+    limit: MAX_FDA_HITS,
+  }) as FtsHit[];
+  if (!hits.length) return { text: '', source: null };
+
+  // Dedupe by section_id (paired regulatory + Annex 3 rows share an
+  // id). FTS hits are pre-sorted by ascending BM25, so first-write
+  // wins keeps the better match.
+  const seen = new Set<string>();
+  const unique: FtsHit[] = [];
+  for (const h of hits) {
+    const key = (h.subtitle || '').trim();
+    if (key && seen.has(key)) continue;
+    if (key) seen.add(key);
+    unique.push(h);
+  }
+  if (!unique.length) return { text: '', source: null };
+
+  let text = '\nFDA FOOD CODE (regulatory text — cite § when answering):\n';
+  for (const h of unique) {
+    const sectionId = (h.subtitle || '').trim() || '(no §)';
+    const title = (h.title || '').trim() || '(untitled)';
+    const where = (h.extra || '').trim();
+    const sec = deps.getFdaSection({ rowid: Number(h.id) }) as
+      | FdaSection
+      | null;
+    const body = sec?.body ? truncateSafe(sec.body, MAX_FDA_BODY_CHARS) : '';
+    text += `  - [§ ${sectionId}] ${title}${where ? ` (${where})` : ''}\n`;
+    if (body) text += `    ${body.replace(/\n/g, '\n    ')}\n`;
+  }
+
+  return {
+    text,
+    source: { type: 'fda_food_code', detail: `${unique.length} section(s)` },
+  };
 }
 
 // Surfaces past catering-event prep data from beo_prep_history.
