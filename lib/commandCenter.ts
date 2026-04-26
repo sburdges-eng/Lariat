@@ -70,6 +70,15 @@ export interface CommandSummary {
     up: number;
     down: number;
   };
+  dining_tables: {
+    open: number;
+    seated: number;
+    dirty: number;
+    closed: number;
+    total: number;
+    seats_total: number;
+    seats_seated: number;
+  };
 }
 
 function yesterdayISO(today: string): string {
@@ -301,6 +310,28 @@ export function summarize(locationId: string, today: string): CommandSummary {
     down: marginDeltas.filter((r) => r.direction === 'down').length,
   };
 
+  // Dining-room floor: status counts + seat occupancy. 'dirty' is the
+  // bussing-needed signal; 'seated' rolls capacity into seats_seated.
+  const tableRows = db
+    .prepare(
+      `SELECT status, COALESCE(capacity, 0) AS capacity FROM dining_tables
+        WHERE location_id = ?`,
+    )
+    .all(locationId) as Array<{ status: string; capacity: number }>;
+  const dining_tables = {
+    open: 0, seated: 0, dirty: 0, closed: 0,
+    total: tableRows.length, seats_total: 0, seats_seated: 0,
+  };
+  for (const r of tableRows) {
+    if (Object.prototype.hasOwnProperty.call(dining_tables, r.status)) {
+      (dining_tables as Record<string, number>)[r.status] += 1;
+    }
+    dining_tables.seats_total += Number(r.capacity) || 0;
+    if (r.status === 'seated') {
+      dining_tables.seats_seated += Number(r.capacity) || 0;
+    }
+  }
+
   const yesterdayNet = Number(yRow.net_sales) || 0;
   const avg7 = Number(trailing.avg_sales) || 0;
   const deltaPct = avg7 > 0 ? (yesterdayNet - avg7) / avg7 : 0;
@@ -343,5 +374,6 @@ export function summarize(locationId: string, today: string): CommandSummary {
     prep,
     price_moves,
     margin_moves,
+    dining_tables,
   };
 }

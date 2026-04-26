@@ -35,6 +35,7 @@ const TABLES = [
   'shift_breaks', 'staff_certifications',
   'temp_log', 'date_marks', 'cleaning_schedule',
   'preshift_notes', 'beo_events', 'reservations', 'prep_tasks',
+  'dining_tables',
 ];
 
 beforeEach(() => {
@@ -321,6 +322,45 @@ describe('summarize() — price + margin moves (smoke)', () => {
     assert.strictEqual(s.price_moves.up, 0);
     assert.strictEqual(s.price_moves.down, 0);
     assert.strictEqual(s.margin_moves.total, 0);
+  });
+});
+
+describe('summarize() — dining tables', () => {
+  const ins = (loc, id, status, capacity = 4) =>
+    testDb.prepare(
+      `INSERT INTO dining_tables (id, name, capacity, status, location_id)
+       VALUES (?, ?, ?, ?, ?)`,
+    ).run(id, id, capacity, status, loc);
+
+  it('counts status buckets and totals seat occupancy', () => {
+    ins('default', 'T1', 'open',   4);
+    ins('default', 'T2', 'seated', 2);
+    ins('default', 'T3', 'seated', 6);
+    ins('default', 'T4', 'dirty',  4);
+    ins('default', 'T5', 'closed', 2);
+
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.dining_tables.open, 1);
+    assert.strictEqual(s.dining_tables.seated, 2);
+    assert.strictEqual(s.dining_tables.dirty, 1);
+    assert.strictEqual(s.dining_tables.closed, 1);
+    assert.strictEqual(s.dining_tables.total, 5);
+    assert.strictEqual(s.dining_tables.seats_total, 18);
+    assert.strictEqual(s.dining_tables.seats_seated, 8);
+  });
+
+  it('returns zeros when there are no tables yet', () => {
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.dining_tables.total, 0);
+    assert.strictEqual(s.dining_tables.seats_total, 0);
+  });
+
+  it('does not leak across locations', () => {
+    ins('kitchen-a', 'T1', 'seated', 2);
+    const a = summarize('kitchen-a', TODAY);
+    const b = summarize('kitchen-b', TODAY);
+    assert.strictEqual(a.dining_tables.seated, 1);
+    assert.strictEqual(b.dining_tables.seated, 0);
   });
 });
 
