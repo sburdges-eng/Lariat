@@ -628,5 +628,83 @@ class NormalizeOFFTest(unittest.TestCase):
         self.assertEqual(products[0]["allergens_tags"], ["en:gluten"])
 
 
+class NormalizeOFFProgressTest(unittest.TestCase):
+    """F2: per-N-row progress logging on stderr.
+
+    Patches ``sys.stderr.isatty`` to True and runs ``_stream_with_counters``
+    with ``progress_every=2`` against a 5-row fixture. Asserts that at least
+    one progress line shows up in stderr. The non-TTY case is also covered
+    so the gate's silent path is locked in.
+    """
+
+    def setUp(self) -> None:
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp_root = Path(self._tmp.name)
+        self.input_file = self.tmp_root / "openfoodfacts_products.csv"
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _write_five_rows(self) -> None:
+        rows = [
+            _make_row(code=f"000000000001{i}", product_name=f"Prod {i}")
+            for i in range(5)
+        ]
+        _write_tsv(self.input_file, HEADER, rows)
+
+    def _empty_counters(self) -> dict:
+        return {
+            "total_input": 0,
+            "emitted": 0,
+            "skipped_no_code": 0,
+            "skipped_no_name": 0,
+            "duplicate_codes_skipped": 0,
+        }
+
+    def test_progress_lines_emit_on_tty(self) -> None:
+        import io
+        from unittest.mock import patch
+
+        from scripts.datapack.normalize_off import _stream_with_counters
+
+        self._write_five_rows()
+        captured = io.StringIO()
+        captured.isatty = lambda: True  # type: ignore[method-assign]
+        counters = self._empty_counters()
+        with patch("scripts.datapack.normalize_off.sys.stderr", captured):
+            yielded = list(
+                _stream_with_counters(
+                    self.input_file, counters, progress_every=2
+                )
+            )
+        # 5 valid rows -> all yield.
+        self.assertEqual(len(yielded), 5)
+        out = captured.getvalue()
+        self.assertIn("OFF:", out)
+        self.assertIn("2 rows scanned", out)
+        self.assertIn("4 rows scanned", out)
+        self.assertIn("no-code", out)
+        self.assertIn("no-name", out)
+
+    def test_progress_silent_when_stderr_not_tty(self) -> None:
+        import io
+        from unittest.mock import patch
+
+        from scripts.datapack.normalize_off import _stream_with_counters
+
+        self._write_five_rows()
+        captured = io.StringIO()
+        captured.isatty = lambda: False  # type: ignore[method-assign]
+        counters = self._empty_counters()
+        with patch("scripts.datapack.normalize_off.sys.stderr", captured):
+            list(
+                _stream_with_counters(
+                    self.input_file, counters, progress_every=2
+                )
+            )
+        self.assertEqual(captured.getvalue(), "")
+
+
 if __name__ == "__main__":
     unittest.main()

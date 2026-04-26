@@ -45,7 +45,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import heapq
 import json
 import os
 import shutil
@@ -70,6 +69,7 @@ from scripts.datapack._io import (  # noqa: E402
     atomic_replace as _atomic_replace,
     atomic_write_text as _atomic_write_text,
     default_data_root as _default_data_root,
+    external_sort_jsonl as _external_sort_jsonl,
     sha256_file as _sha256_file,
 )
 
@@ -301,6 +301,8 @@ def _write_ingredients_jsonl(rows: list[dict], out_path: Path) -> None:
 def _iter_nutrient_rows(
     input_root: Path,
     nutrient_catalog: dict[int, tuple[str, str | None]],
+    *,
+    progress_every: int = 1_000_000,
 ) -> Iterator[tuple[int, int, int, int, str, str]]:
     """
     Stream every food_nutrient.csv across all archives. Yields
@@ -317,11 +319,19 @@ def _iter_nutrient_rows(
 
     Per-archive accounting is *not* done here — the caller increments its own
     counter as it consumes the iterator (decoupling avoids fragile shared
-    state on early-exit paths).
+    state on early-exit paths). Progress logging IS done here because the
+    per-archive breakdown is naturally in scope: we keep a local counter and
+    emit ``"  ... USDA nutrients: N rows scanned (...)"`` to stderr every
+    ``progress_every`` consumed rows, but only when stderr is a TTY (silent in
+    CI / file redirects / test capture).
 
     Skips rows with missing/empty amount, missing fdc_id, or missing
     nutrient_id.
     """
+    # Progress tracking: per-archive counts so the operator can see where in
+    # the four-archive walk the pipeline currently is.
+    progress_by_archive: dict[str, int] = {k: 0 for k in ARCHIVE_ORDER}
+    progress_total = 0
     for archive_index, source_key in enumerate(ARCHIVE_ORDER):
         path = input_root / ARCHIVES[source_key] / "food_nutrient.csv"
         if not path.exists():
@@ -355,6 +365,23 @@ def _iter_nutrient_rows(
                     "source_archive": source_key,
                 }
                 line = json.dumps(record, ensure_ascii=False, sort_keys=True)
+                progress_by_archive[source_key] += 1
+                progress_total += 1
+                # Emit at N, 2N, 3N, ... — never at 0, never a final summary
+                # (the driver's "wrote N rows" line covers that). TTY-only so
+                # tests + CI + file redirects stay silent.
+                if (
+                    progress_total % progress_every == 0
+                    and sys.stderr.isatty()
+                ):
+                    breakdown = ", ".join(
+                        f"{k}: {progress_by_archive[k]:,}" for k in ARCHIVE_ORDER
+                    )
+                    print(
+                        f"  ... USDA nutrients: {progress_total:,} rows scanned ({breakdown})",
+                        file=sys.stderr,
+                        flush=True,
+                    )
                 yield (
                     fdc,
                     nid,
@@ -372,15 +399,20 @@ def _external_sort_nutrients(
     nutrient_catalog: dict[int, tuple[str, str | None]],
     out_path: Path,
     chunk_rows: int = CHUNK_ROWS,
+    progress_every: int = 1_000_000,
 ) -> tuple[int, dict[str, int]]:
     """
     External merge sort for nutrients. Returns (total_row_count, by_archive).
 
-    Each chunk holds at most ``chunk_rows``
-    ``(fdc_id, nutrient_id, derivation_sort_key, archive_index, line)`` tuples
-    sorted in memory and flushed to a temp file. Then heapq.merge streams all
-    chunks into the final sorted output. Memory peaks at one chunk plus the
-    merge front (one line per chunk).
+    Delegates the chunk-flush / heapq.merge mechanics to
+    ``_io.external_sort_jsonl``. This wrapper is responsible for:
+      - Wrapping ``_iter_nutrient_rows`` into a ``(key_tuple, line)``
+        generator while incrementing the per-archive counter as rows are
+        consumed (decoupled from emission — see I-1; nutrients does not
+        dedup, so consumed == emitted, but the counter still belongs here
+        because ``_iter_nutrient_rows`` already needs the source_key in
+        scope).
+      - Creating + cleaning the chunk tmp dir.
 
     The sort key is a four-tuple ``(fdc_id, nutrient_id, derivation_id_or_-1,
     archive_index)`` so that ties on ``(fdc_id, nutrient_id)`` (real USDA data
@@ -389,81 +421,29 @@ def _external_sort_nutrients(
     """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_dir = Path(tempfile.mkdtemp(prefix=".tmp_usda_sort_", dir=str(out_path.parent)))
-    chunk_paths: list[Path] = []
     by_archive_final: dict[str, int] = {k: 0 for k in ARCHIVE_ORDER}
-    total = 0
 
-    try:
-        buf: list[tuple[int, int, int, int, str]] = []
+    def _gen() -> Iterator[tuple[tuple, str]]:
         for fdc, nid, deriv_key, arch_idx, source_key, line in _iter_nutrient_rows(
-            input_root, nutrient_catalog
+            input_root, nutrient_catalog, progress_every=progress_every
         ):
-            buf.append((fdc, nid, deriv_key, arch_idx, line))
             # Per-archive accounting is owned by this consumer — see I-1.
             by_archive_final[source_key] += 1
-            if len(buf) >= chunk_rows:
-                chunk_paths.append(_flush_chunk(buf, tmp_dir, len(chunk_paths)))
-                buf = []
-        if buf:
-            chunk_paths.append(_flush_chunk(buf, tmp_dir, len(chunk_paths)))
-            buf = []
+            yield (fdc, nid, deriv_key, arch_idx), line
 
-        # Merge chunks via heapq.merge over the full sort tuple. We open all
-        # chunks at once and stream lines.
-        readers: list[TextIO] = []
-        try:
-            iters = []
-            for cp in chunk_paths:
-                fh = open(cp, "r", encoding="utf-8")
-                readers.append(fh)
-                iters.append(_read_chunk(fh))
-            tmp_out = out_path.with_suffix(out_path.suffix + ".tmp")
-            with open(tmp_out, "w", encoding="utf-8") as out_f:
-                for _fdc, _nid, _deriv, _arch, line in heapq.merge(*iters):
-                    out_f.write(line)
-                    out_f.write("\n")
-                    total += 1
-                out_f.flush()
-                os.fsync(out_f.fileno())
-        finally:
-            for r in readers:
-                r.close()
-        _atomic_replace(tmp_out, out_path)
+    try:
+        emitted, _ = _external_sort_jsonl(
+            _gen(),
+            out_path,
+            chunk_rows=chunk_rows,
+            tmp_dir=tmp_dir,
+            key_types=(int, int, int, int),
+            dedup_by_key=False,
+        )
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
-    return total, by_archive_final
-
-
-def _flush_chunk(
-    buf: list[tuple[int, int, int, int, str]], tmp_dir: Path, idx: int
-) -> Path:
-    # Sort key: (fdc_id, nutrient_id, derivation_sort_key, archive_index).
-    # The line itself is excluded from the key — for any given key the line
-    # content is fully determined, so excluding it costs nothing and keeps the
-    # comparison cheap.
-    buf.sort(key=lambda t: (t[0], t[1], t[2], t[3]))
-    cp = tmp_dir / f"chunk-{idx:05d}.tsv"
-    with open(cp, "w", encoding="utf-8") as f:
-        for fdc, nid, deriv_key, arch_idx, line in buf:
-            # TSV framing: fdc<TAB>nid<TAB>deriv<TAB>arch<TAB>json. json.dumps
-            # always escapes control chars, so the body never contains a literal
-            # tab — split-on-tab(maxsplit=4) reassembles unambiguously.
-            f.write(f"{fdc}\t{nid}\t{deriv_key}\t{arch_idx}\t{line}\n")
-    return cp
-
-
-def _read_chunk(fh: TextIO) -> Iterator[tuple[int, int, int, int, str]]:
-    for raw in fh:
-        if not raw:
-            continue
-        # Strip trailing newline only.
-        line = raw[:-1] if raw.endswith("\n") else raw
-        parts = line.split("\t", 4)
-        if len(parts) != 5:
-            continue
-        fdc_s, nid_s, deriv_s, arch_s, body = parts
-        yield int(fdc_s), int(nid_s), int(deriv_s), int(arch_s), body
+    return emitted, by_archive_final
 
 
 # ---------------------------------------------------------------------------

@@ -24,10 +24,7 @@ We use the same external-merge-sort idiom as ``normalize_off.py`` for
 sort-by-page_id; with ~7,786 cookbook pages this is light, but mirroring
 the pattern keeps the streaming guarantee end-to-end and gives us
 deterministic output regardless of input ordering.
-TODO: factor with normalize_{usda,off}.py — the chunk-flush/heapq.merge
-pieces look like good shared sort helpers, but pulling that refactor in
-mid-stream while a third consumer is being added makes the diff harder
-to review. Defer.
+Shared merge-sort skeleton lives in ``scripts/datapack/_io.external_sort_jsonl``.
 
 Idempotent: if outputs already exist with manifest sha256 values that
 match the on-disk file hashes, the script exits early. Pass --force to
@@ -43,17 +40,15 @@ CLI:
 from __future__ import annotations
 
 import argparse
-import heapq
 import html
 import json
-import os
 import re
 import shutil
 import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterator, TextIO
+from typing import Iterator
 
 from lxml import etree
 
@@ -64,9 +59,9 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from scripts.datapack._io import (  # noqa: E402
-    atomic_replace as _atomic_replace,
     atomic_write_text as _atomic_write_text,
     default_data_root as _default_data_root,
+    external_sort_jsonl as _external_sort_jsonl,
     sha256_file as _sha256_file,
 )
 
@@ -372,6 +367,8 @@ def _build_record(
 def _stream_pages(
     input_file: Path,
     counters: dict[str, int],
+    *,
+    progress_every: int = 10_000,
 ) -> Iterator[tuple[int, str]]:
     """Stream the XML and yield (page_id, json_line) for each cookbook page.
 
@@ -388,6 +385,11 @@ def _stream_pages(
         cookbook_redirects        — emitted rows where is_redirect is True
         non_cookbook_skipped      — pages whose <ns> != 102
         parse_errors              — pages we couldn't parse fully (non-fatal)
+
+    Emits a progress line to stderr every ``progress_every`` SCANNED pages
+    (counted off ``total_pages_scanned`` — pages of any namespace, since the
+    cookbook ns=102 is sparse against the wikibooks corpus). TTY-only so the
+    test suite stays silent.
     """
     # recover=True lets the parser continue past minor XML errors; we still
     # catch per-page exceptions below since `recover` doesn't help if the
@@ -403,6 +405,18 @@ def _stream_pages(
     try:
         for _event, elem in context:
             counters["total_pages_scanned"] += 1
+            # Emit at N, 2N, 3N, ... — never at 0, never final-summary.
+            # TTY gate keeps tests + redirects silent.
+            if (
+                counters["total_pages_scanned"] % progress_every == 0
+                and sys.stderr.isatty()
+            ):
+                print(
+                    f"  ... Wikibooks: {counters['total_pages_scanned']:,} pages scanned "
+                    f"({counters['cookbook_pages_emitted']:,} cookbook so far)",
+                    file=sys.stderr,
+                    flush=True,
+                )
             try:
                 ns_el = elem.find(NS_TAG)
                 if ns_el is None or ns_el.text is None:
@@ -503,100 +517,42 @@ def _stream_pages(
         del context
 
 
-def _flush_chunk(buf: list[tuple[int, str]], tmp_dir: Path, idx: int) -> Path:
-    """Sort chunk by ``page_id`` and flush to a TSV file.
-
-    Chunk format per line: ``page_id<TAB>json_line``. ``json.dumps`` always
-    escapes control characters, so the json body never contains a literal
-    tab — splitting on the first tab is unambiguous, no escaping needed.
-    """
-    buf.sort(key=lambda t: t[0])
-    cp = tmp_dir / f"chunk-{idx:05d}.tsv"
-    with open(cp, "w", encoding="utf-8") as f:
-        for pid, line in buf:
-            f.write(f"{pid}\t{line}\n")
-    return cp
-
-
-def _read_chunk(fh: TextIO, chunk_idx: int) -> Iterator[tuple[int, int, str]]:
-    """Iterate (page_id, chunk_idx, json_line) tuples from a chunk file.
-
-    ``chunk_idx`` is the chunk's ordinal (= flush order = source-file
-    order). page_ids are unique within a single XML dump (Wikibooks IDs are
-    monotonic), but including chunk_idx in the merge key gives heapq.merge a
-    stable secondary key for any pathological future input where IDs
-    collide.
-    """
-    for raw in fh:
-        if not raw:
-            continue
-        line = raw[:-1] if raw.endswith("\n") else raw
-        parts = line.split("\t", 1)
-        if len(parts) != 2:
-            continue
-        pid_s, body = parts
-        try:
-            pid = int(pid_s)
-        except ValueError:
-            continue
-        yield pid, chunk_idx, body
-
-
 def _external_sort(
     input_file: Path,
     out_path: Path,
     counters: dict[str, int],
     chunk_rows: int,
+    progress_every: int = 10_000,
 ) -> int:
     """External merge sort by page_id. Returns the emitted-row count.
 
-    Mirrors normalize_off.py's pattern: stream pages into in-memory buffer,
-    flush sorted chunks to a temp dir, heapq.merge them into the final
-    output. Final output is byte-identical across runs (no generated_at in
-    the JSONL itself).
+    Delegates the chunk-flush / heapq.merge mechanics to
+    ``_io.external_sort_jsonl``. Final output is byte-identical across
+    runs (no generated_at in the JSONL itself). Wikibooks IDs are unique
+    within a dump, so dedup is unnecessary; the helper's chunk_idx
+    secondary key still breaks any pathological future ID collisions
+    deterministically by source order.
     """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_dir = Path(tempfile.mkdtemp(
         prefix=".tmp_wikibooks_sort_", dir=str(out_path.parent)
     ))
-    chunk_paths: list[Path] = []
-    emitted = 0
+
+    def _gen() -> Iterator[tuple[tuple, str]]:
+        for pid, line in _stream_pages(
+            input_file, counters, progress_every=progress_every
+        ):
+            yield (pid,), line
 
     try:
-        buf: list[tuple[int, str]] = []
-        for pid, line in _stream_pages(input_file, counters):
-            buf.append((pid, line))
-            if len(buf) >= chunk_rows:
-                chunk_paths.append(_flush_chunk(buf, tmp_dir, len(chunk_paths)))
-                buf = []
-        if buf:
-            chunk_paths.append(_flush_chunk(buf, tmp_dir, len(chunk_paths)))
-            buf = []
-
-        readers: list[TextIO] = []
-        try:
-            iters = []
-            for i, cp in enumerate(chunk_paths):
-                fh = open(cp, "r", encoding="utf-8")
-                readers.append(fh)
-                iters.append(_read_chunk(fh, i))
-
-            tmp_out = out_path.with_suffix(out_path.suffix + ".tmp")
-            with open(tmp_out, "w", encoding="utf-8") as out_f:
-                # heapq.merge sorts on natural tuple ordering: (page_id,
-                # chunk_idx, json_line). Wikibooks IDs are unique, so the
-                # secondary key never breaks ties in practice — see
-                # _read_chunk docstring.
-                for _pid, _chunk_idx, json_line in heapq.merge(*iters):
-                    out_f.write(json_line)
-                    out_f.write("\n")
-                    emitted += 1
-                out_f.flush()
-                os.fsync(out_f.fileno())
-        finally:
-            for r in readers:
-                r.close()
-        _atomic_replace(tmp_out, out_path)
+        emitted, _ = _external_sort_jsonl(
+            _gen(),
+            out_path,
+            chunk_rows=chunk_rows,
+            tmp_dir=tmp_dir,
+            key_types=(int,),
+            dedup_by_key=False,
+        )
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
