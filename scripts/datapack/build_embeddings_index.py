@@ -150,6 +150,43 @@ def _usda_row_to_meta(row: sqlite3.Row, *, bucket: str) -> dict[str, Any]:
     }
 
 
+def _fda_section_to_text(row: sqlite3.Row) -> str:
+    title = (row["title"] or "").strip()
+    body = (row["body"] or "").strip()
+    section_id = (row["section_id"] or "").strip()
+    chapter_or_annex = (row["chapter"] or row["annex"] or "").strip()
+    # Lead with the chapter context + section title so the encoder has
+    # disambiguating signal even for short bodies. BGE truncates at ~512
+    # tokens (~2K chars), so we keep the prefix tight and let the body
+    # take the bulk of the budget.
+    parts: list[str] = []
+    if chapter_or_annex:
+        parts.append(f"[{chapter_or_annex}]")
+    if section_id:
+        parts.append(f"§{section_id}")
+    if title:
+        parts.append(title)
+    header = " ".join(parts)
+    if body:
+        return f"{header}\n\n{body}" if header else body
+    return header
+
+
+def _fda_section_to_meta(row: sqlite3.Row, *, bucket: str) -> dict[str, Any]:
+    return {
+        "source": "fda_food_code",
+        "bucket": bucket,
+        "rowid": row["rowid"],
+        "section_id": row["section_id"],
+        "title": row["title"],
+        "chapter": row["chapter"],
+        "annex": row["annex"],
+        "page_start": row["page_start"],
+        "page_end": row["page_end"],
+        "body_excerpt": (row["body"] or "")[:240],
+    }
+
+
 # A "category match" predicate built as a chain of LIKE clauses on
 # categories_json. SQLite has no native JSON contains-substring with
 # case-insensitive match, so we lower() both sides and OR together.
@@ -224,30 +261,76 @@ def _usda_ingredients_sql() -> str:
     """
 
 
-# Bucket registry: maps name → (sql_fn, text_fn, meta_fn, is_large)
+def _fda_food_code_all_sql() -> str:
+    # Every section with a non-empty body. We don't filter by chapter/annex
+    # — every part of the Food Code is relevant to the safety bucket
+    # (definitions, personnel rules, food handling, equipment, plumbing,
+    # compliance). Sections without bodies (rare empty headers) are
+    # skipped at the row-level by the row→text helper.
+    return """
+        SELECT rowid, section_id, title, chapter, annex, body,
+               page_start, page_end
+        FROM fda_food_code_sections
+        WHERE body IS NOT NULL AND body != ''
+        ORDER BY rowid
+    """
+
+
+# Bucket registry: maps name → list of source configs + is_large flag.
+# Each source contributes rows to the bucket; rows are concatenated in
+# source order, so consumers see (e.g.) FDA Food Code sections first then
+# Wikibooks safety pages within the safety bucket.
 BUCKETS: dict[str, dict[str, Any]] = {
     "recipes": {
-        "sql_fn": _wikibooks_recipes_sql,
-        "text_fn": _wikibooks_row_to_text,
-        "meta_fn": _wikibooks_row_to_meta,
+        "sources": [
+            {
+                "sql_fn": _wikibooks_recipes_sql,
+                "text_fn": _wikibooks_row_to_text,
+                "meta_fn": _wikibooks_row_to_meta,
+            },
+        ],
         "is_large": False,
     },
     "techniques": {
-        "sql_fn": _wikibooks_techniques_sql,
-        "text_fn": _wikibooks_row_to_text,
-        "meta_fn": _wikibooks_row_to_meta,
+        "sources": [
+            {
+                "sql_fn": _wikibooks_techniques_sql,
+                "text_fn": _wikibooks_row_to_text,
+                "meta_fn": _wikibooks_row_to_meta,
+            },
+        ],
         "is_large": False,
     },
     "safety": {
-        "sql_fn": _wikibooks_safety_sql,
-        "text_fn": _wikibooks_row_to_text,
-        "meta_fn": _wikibooks_row_to_meta,
+        "sources": [
+            # FDA Food Code is the load-bearing reference for this bucket;
+            # ~1,250 sections covering definitions, personnel, food handling,
+            # equipment, plumbing, and compliance. Listed first so it gets
+            # the lower row_ids in the metadata.
+            {
+                "sql_fn": _fda_food_code_all_sql,
+                "text_fn": _fda_section_to_text,
+                "meta_fn": _fda_section_to_meta,
+            },
+            # Whatever Wikibooks pages have safety / hygiene / HACCP in
+            # their categories or title. Tiny today (~1 page) but the
+            # bucket should grow with the corpus.
+            {
+                "sql_fn": _wikibooks_safety_sql,
+                "text_fn": _wikibooks_row_to_text,
+                "meta_fn": _wikibooks_row_to_meta,
+            },
+        ],
         "is_large": False,
     },
     "ingredients": {
-        "sql_fn": _usda_ingredients_sql,
-        "text_fn": _usda_row_to_text,
-        "meta_fn": _usda_row_to_meta,
+        "sources": [
+            {
+                "sql_fn": _usda_ingredients_sql,
+                "text_fn": _usda_row_to_text,
+                "meta_fn": _usda_row_to_meta,
+            },
+        ],
         "is_large": True,
     },
 }
@@ -294,19 +377,19 @@ def _stream_bucket(
     bucket: str,
 ) -> Iterator[tuple[str, dict[str, Any]]]:
     cfg = BUCKETS[bucket]
-    sql = cfg["sql_fn"]()
-    text_fn = cfg["text_fn"]
-    meta_fn = cfg["meta_fn"]
-
     # row_factory only on this cursor so other cursors stay tuple-based.
     cur = conn.cursor()
     cur.row_factory = sqlite3.Row
-    for row in cur.execute(sql):
-        text = text_fn(row)
-        if not text or not text.strip():
-            continue
-        meta = meta_fn(row, bucket=bucket)
-        yield text, meta
+    for source in cfg["sources"]:
+        sql = source["sql_fn"]()
+        text_fn = source["text_fn"]
+        meta_fn = source["meta_fn"]
+        for row in cur.execute(sql):
+            text = text_fn(row)
+            if not text or not text.strip():
+                continue
+            meta = meta_fn(row, bucket=bucket)
+            yield text, meta
 
 
 def _build_bucket(

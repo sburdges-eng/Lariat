@@ -141,6 +141,19 @@ DDL_TABLES: tuple[str, ...] = (
     ) WITHOUT ROWID
     """,
     """
+    CREATE TABLE fda_food_code_sections (
+        rowid       INTEGER PRIMARY KEY AUTOINCREMENT,
+        section_id  TEXT,
+        title       TEXT,
+        chapter     TEXT,
+        annex       TEXT,
+        body        TEXT NOT NULL,
+        char_count  INTEGER,
+        page_start  INTEGER,
+        page_end    INTEGER
+    )
+    """,
+    """
     CREATE TABLE _manifest (
         source         TEXT PRIMARY KEY,
         source_file    TEXT NOT NULL,
@@ -162,6 +175,9 @@ DDL_INDEXES: tuple[str, ...] = (
     "CREATE INDEX idx_off_products_brand ON off_products(brand_owner) WHERE brand_owner IS NOT NULL",
     "CREATE INDEX idx_wikibooks_pages_title ON wikibooks_pages(title)",
     "CREATE INDEX idx_wikibooks_pages_slug ON wikibooks_pages(slug)",
+    "CREATE INDEX idx_fda_food_code_section_id ON fda_food_code_sections(section_id) WHERE section_id IS NOT NULL",
+    "CREATE INDEX idx_fda_food_code_chapter ON fda_food_code_sections(chapter) WHERE chapter IS NOT NULL",
+    "CREATE INDEX idx_fda_food_code_annex ON fda_food_code_sections(annex) WHERE annex IS NOT NULL",
 )
 
 # Tuned PRAGMAs for bulk inserts. We restore synchronous=NORMAL after the
@@ -262,13 +278,38 @@ def _row_to_wikibooks_page(r: dict[str, Any]) -> tuple:
     )
 
 
+def _row_to_fda_food_code_section(r: dict[str, Any]) -> tuple:
+    # Skip the AUTOINCREMENT rowid column — SQLite assigns it.
+    return (
+        r.get("section_id"),
+        r.get("title"),
+        r.get("chapter"),
+        r.get("annex"),
+        r.get("body") or "",
+        r.get("char_count"),
+        r.get("page_start"),
+        r.get("page_end"),
+    )
+
+
 # (table, jsonl path key, column count, row mapper)
 SOURCES: tuple[tuple[str, str, int, Callable[[dict[str, Any]], tuple]], ...] = (
     ("usda_foods",       "usda/ingredients.jsonl",           11, _row_to_usda_food),
     ("usda_nutrients",   "usda/nutrients.jsonl",              7, _row_to_usda_nutrient),
     ("off_products",     "openfoodfacts/branded_products.jsonl", 12, _row_to_off_product),
     ("wikibooks_pages",  "wikibooks/cookbook_pages.jsonl",    9, _row_to_wikibooks_page),
+    ("fda_food_code_sections", "fda_food_code/sections.jsonl", 8, _row_to_fda_food_code_section),
 )
+
+# Tables that skip the AUTOINCREMENT rowid in the INSERT (so the column
+# count above counts only the named columns the mapper emits). Anything
+# not in this dict uses a bare ``INSERT INTO {table} VALUES (?, …)`` form.
+NAMED_COLUMN_LOADERS: dict[str, str] = {
+    "fda_food_code_sections": (
+        "section_id, title, chapter, annex, body, char_count, "
+        "page_start, page_end"
+    ),
+}
 
 
 def _load_jsonl_table(
@@ -280,7 +321,10 @@ def _load_jsonl_table(
 ) -> int:
     """Stream a JSONL file into ``table`` in batches, return rows inserted."""
     placeholders = ",".join(["?"] * n_cols)
-    sql = f"INSERT INTO {table} VALUES ({placeholders})"
+    if table in NAMED_COLUMN_LOADERS:
+        sql = f"INSERT INTO {table} ({NAMED_COLUMN_LOADERS[table]}) VALUES ({placeholders})"
+    else:
+        sql = f"INSERT INTO {table} VALUES ({placeholders})"
 
     rows = 0
     batch: list[tuple] = []

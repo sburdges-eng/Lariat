@@ -127,6 +127,21 @@ def _ddl_fts_tables() -> tuple[str, ...]:
             tokenize='{_TOKENIZE}'
         )
         """,
+        # fda_food_code_sections has an INTEGER PRIMARY KEY rowid, so we
+        # route it in as the FTS rowid and consumers join back to the
+        # source table for section_id / page numbers / full body text.
+        # Section_id can't live in the FTS table because contentless mode
+        # discards UNINDEXED columns at SELECT time.
+        f"""
+        CREATE VIRTUAL TABLE fda_food_code_sections_fts USING fts5(
+            title,
+            chapter,
+            annex,
+            body,
+            content='',
+            tokenize='{_TOKENIZE}'
+        )
+        """,
         """
         CREATE TABLE _manifest (
             source         TEXT PRIMARY KEY,
@@ -216,6 +231,21 @@ SOURCE_POPULATIONS: tuple[tuple[str, str, str, str], ...] = (
         WHERE is_redirect = 0
         """,
         "wikibooks_pages (non-redirects only)",
+    ),
+    (
+        "fda_food_code_sections_fts",
+        "fda_food_code_sections",
+        """
+        INSERT INTO fda_food_code_sections_fts(rowid, title, chapter,
+                                               annex, body)
+        SELECT rowid,
+               COALESCE(title, ''),
+               COALESCE(chapter, ''),
+               COALESCE(annex, ''),
+               COALESCE(body, '')
+        FROM src.fda_food_code_sections
+        """,
+        "fda_food_code_sections",
     ),
 )
 
