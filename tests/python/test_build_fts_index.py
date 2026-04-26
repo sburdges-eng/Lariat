@@ -36,11 +36,9 @@ if str(ROOT) not in sys.path:
 
 from scripts.datapack import build_fts_index, build_sqlite_index  # noqa: E402
 
-# Reuse the SQLite-fixture builders from the T1 test module so we exercise
-# the same well-known JSONL → SQLite path. Importing the test module is
-# safe — its top level only declares fixtures and test classes; nothing
-# runs at import time except `unittest.main()` under `__main__`.
-from tests.python.test_build_sqlite_index import (  # noqa: E402
+# Reuse the same JSONL → SQLite fixture builders the T1 tests exercise so
+# both modules drive the indexer through one well-known input shape.
+from tests.python._datapack_test_helpers import (  # noqa: E402
     FDA_FOOD_CODE_SECTIONS,
     OFF_PRODUCTS,
     USDA_FOODS,
