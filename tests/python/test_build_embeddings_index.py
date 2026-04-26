@@ -23,7 +23,6 @@ dimension and tracks how many times ``encode()`` is called.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import sys
 import tempfile
@@ -125,16 +124,15 @@ sys.modules["torch"] = _fake_torch_module
 
 from scripts.datapack import build_embeddings_index, build_sqlite_index  # noqa: E402
 
-# Reuse the SQLite-fixture builders from the T1 test module. Importing it
-# at top-level only declares fixtures + test classes — nothing runs at
-# import time except ``unittest.main()`` under ``__main__``.
-from tests.python.test_build_sqlite_index import (  # noqa: E402
+# Reuse the fixture data + fs helpers the T1 tests exercise. This module
+# ships its own extended wikibooks variant via ``_build_full_input_root``,
+# so the base ``_build_input_root`` from the helpers module isn't imported.
+from tests.python._datapack_test_helpers import (  # noqa: E402
     FDA_FOOD_CODE_SECTIONS,
     OFF_ALLERGENS_SUMMARY,
     OFF_PRODUCTS,
     USDA_FOODS,
     USDA_NUTRIENTS,
-    _build_input_root,
     _sha256_file,
     _write_json,
     _write_jsonl,

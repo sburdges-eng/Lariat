@@ -462,7 +462,10 @@ def _build_bucket(
             "input_sha256": input_sha,
             "rows": 0,
             "dims": None,
-            "elapsed_seconds": 0.0,
+            # Parity with the n>0 branch: consumers reading
+            # ``manifest.get("encode_elapsed_seconds")`` get a real float
+            # in both cases. The empty-bucket path does no encoding, so 0.0.
+            "encode_elapsed_seconds": 0.0,
         }
         _atomic_write_text(manifest_path, json.dumps(manifest, indent=2, sort_keys=True))
         return manifest
