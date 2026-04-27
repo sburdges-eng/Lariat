@@ -25,6 +25,19 @@ const FOOD_SAFETY_KEYWORDS = [
   'temp', 'temperature', 'holding', 'cool', 'reheat', 'haccp',
   'safe', 'food safety', '165', '155', '145', '140', '41',
 ];
+// High-precision triggers for the USDA ingredients bucket. Cold-loading
+// the ingredients vectors costs ~20s on first hit, so generic words
+// ('food', 'cook', 'how much') are deliberately excluded — false
+// positives would burn that latency for non-ingredient questions.
+// Keep this list disjoint from FOOD_SAFETY_KEYWORDS; both gates can
+// fire on the same question, but the wording shouldn't be ambiguous
+// enough that a single word lights both up.
+const INGREDIENT_KEYWORDS = [
+  'ingredient', 'protein', 'calorie', 'kcal', 'carb', 'fiber',
+  'sodium', 'sugar', 'grams', 'gluten', 'vegan', 'vegetarian',
+  'nutrition', 'allergen', 'substitute', 'yield', 'shrinkage',
+  'total lipid', 'total fat',
+];
 const HISTORY_KEYWORDS = ['often', 'history', 'frequent', 'always', 'most', 'past'];
 const VENDOR_KEYWORDS = [
   'sysco', 'vendor', 'order', 'supplier', 'brand', 'purchase', 'catalog', 'case',
@@ -301,6 +314,21 @@ export async function buildGroundedContext(
     if (fda.text) {
       text += fda.text;
       if (fda.source) sources.push(fda.source);
+    }
+  }
+
+  // ── Conditional: USDA ingredients (per-100g nutrient grounding) ──
+  // Gates on INGREDIENT_KEYWORDS so generic chatter doesn't trigger
+  // the +20s cold-load on the ingredients bucket. Silently no-ops on
+  // machines without the data pack mounted (same shape as the FDA
+  // block above). Placed adjacent to FDA so both data-pack-backed
+  // grounding sources sit together in the prompt before the
+  // historical-86 / vendor / catering blocks below.
+  if (matchesKeywords(qLower, INGREDIENT_KEYWORDS)) {
+    const usda = await renderUsdaIngredients(userQuestion);
+    if (usda.text) {
+      text += usda.text;
+      if (usda.source) sources.push(usda.source);
     }
   }
 
@@ -1105,4 +1133,164 @@ export function renderBeoPrepHistory(
   }
 
   return { text, sources };
+}
+
+// ── USDA Foods (ingredients) grounding ───────────────────────────────
+//
+// Surfaces top-N USDA Foundation/SR-Legacy/Survey rows from the data
+// pack whenever an ingredient/nutrient/yield question hits the
+// INGREDIENT_KEYWORDS gate. The bucket is huge (~3 GB of vectors,
+// 2.06M descriptions × 384 dims) and takes ~20s to cold-load on the
+// first call; warm calls are millisecond-scale. The keyword gate
+// keeps generic kitchen chatter from paying that latency.
+//
+// Hits are deduped by fdc_id (FTS + semantic envelopes can both
+// surface the same food row), then for each surviving hit we fetch
+// nutrients via deps.usdaNutrientsFor(fdc_id) and render the same
+// NUTRIENT_PRIORITY subset the /datapack-search UI uses. Format is
+// citation-friendly so the LLM is encouraged to quote `fdc_id N` when
+// it answers — keeps groundedness verifiable.
+//
+// Body (the nutrient line) is bounded by MAX_USDA_BODY_CHARS so a
+// single hit can't blow MAX_CONTEXT_CHARS; with MAX_USDA_HITS=4 and a
+// ~400 char ceiling per body, the whole block stays under ~2K chars.
+
+const MAX_USDA_HITS = 4;
+const MAX_USDA_BODY_CHARS = 400;
+
+// Match the /datapack-search client's NUTRIENT_PRIORITY order. Exact
+// nutrient names from USDA are inconsistent on commas/units, so we
+// match by case-insensitive prefix the same way the UI does.
+const USDA_NUTRIENT_PRIORITY = [
+  'Energy',
+  'Protein',
+  'Carbohydrate',
+  'Total lipid (fat)',
+  'Sodium, Na',
+  'Sugars, total',
+];
+
+interface UsdaSearchDeps {
+  available: () => boolean;
+  hybrid: typeof datapackSearch.hybrid;
+  usdaNutrientsFor: typeof datapackSearch.usdaNutrientsFor;
+}
+
+/**
+ * Pull the fdc_id from a hybrid hit. The two envelopes name it
+ * differently — FTS uses `id` (number), semantic uses `fdc_id`
+ * (number). Returns NaN if neither is a finite number, in which case
+ * the caller should skip the hit.
+ */
+function pickFdcId(h: HybridHit): number {
+  const candidates: unknown[] = [h.fdc_id, h.id];
+  for (const v of candidates) {
+    const n = typeof v === 'number' ? v : Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return NaN;
+}
+
+/**
+ * Format the NUTRIENT_PRIORITY subset for one food as a single
+ * inline line. Returns '' if no priority nutrient was reported.
+ * Each nutrient is rendered as "<short name> <amount> <unit>"
+ * separated by ' · ' to mirror the FDA block's compact aesthetic.
+ */
+function formatPriorityNutrients(nutrients: datapackSearch.UsdaNutrient[]): string {
+  if (!Array.isArray(nutrients) || !nutrients.length) return '';
+  const parts: string[] = [];
+  for (const wanted of USDA_NUTRIENT_PRIORITY) {
+    const found = nutrients.find(
+      (n) =>
+        typeof n.nutrient_name === 'string' &&
+        n.nutrient_name.toLowerCase().startsWith(wanted.toLowerCase())
+    );
+    if (!found) continue;
+    if (found.amount == null) continue;
+    // Trim "Energy" off the long form ("Energy (Atwater General Factors)" etc.)
+    // and normalise common verbose names so the inline line stays compact.
+    const displayName = wanted === 'Total lipid (fat)' ? 'Total lipid (fat)' : wanted;
+    const unit = found.unit_name ? ` ${found.unit_name}` : '';
+    parts.push(`${displayName} ${found.amount}${unit}`);
+  }
+  return parts.join(' · ');
+}
+
+/**
+ * Render the USDA ingredients grounding block. Exported so tests can
+ * exercise it directly without spinning up buildGroundedContext.
+ * `deps` is the test-injection seam — production callers should
+ * always use the default real datapackSearch module.
+ *
+ * Async because hybrid retrieval awaits the BGE model on the
+ * embedding channel and the (potentially +20s) cold-load of the
+ * ingredients vector pack.
+ */
+export async function renderUsdaIngredients(
+  question: string,
+  deps: UsdaSearchDeps = datapackSearch
+): Promise<OversightSection> {
+  if (!deps.available()) return { text: '', source: null };
+
+  const trimmed = (question || '').trim();
+  if (!trimmed) return { text: '', source: null };
+
+  // Pull more than MAX_USDA_HITS so the dedupe-by-fdc_id pass below
+  // has reorder room — both the FTS and semantic channels can surface
+  // the same food row, and we keep the first (highest-RRF) per pair.
+  const hits = await deps.hybrid(trimmed, {
+    bucket: 'ingredients',
+    limit: MAX_USDA_HITS * 2,
+  });
+  if (!hits.length) return { text: '', source: null };
+
+  // Dedupe by fdc_id, preserving RRF order. Hits are pre-sorted by
+  // descending fused score, so first-write wins keeps the better match.
+  const seen = new Set<number>();
+  const unique: { hit: HybridHit; fdcId: number }[] = [];
+  for (const h of hits) {
+    const fdcId = pickFdcId(h);
+    if (!Number.isFinite(fdcId)) continue;
+    if (seen.has(fdcId)) continue;
+    seen.add(fdcId);
+    unique.push({ hit: h, fdcId });
+    if (unique.length >= MAX_USDA_HITS) break;
+  }
+  if (!unique.length) return { text: '', source: null };
+
+  let text =
+    '\nUSDA INGREDIENTS (per-100g unless noted; cite fdc_id when answering):\n';
+  let rendered = 0;
+  for (const { hit, fdcId } of unique) {
+    const description =
+      pickHybridField(hit, 'title', 'description') || '(no description)';
+    const category = pickHybridField(hit, 'subtitle', 'food_category');
+    const archive = pickHybridField(hit, 'extra', 'source_archive');
+    const dataType = pickHybridField(hit, 'data_type');
+
+    // Header line: fdc_id citation + description + (category · archive).
+    // The combination of data_type and source_archive is what the UI
+    // shows after the bullet; both can be sparse so we filter empties.
+    const meta = [dataType, archive].filter(Boolean).join(' · ');
+    const header = `  - [fdc_id ${fdcId}] ${description}${
+      category || meta ? ` (${[category, meta].filter(Boolean).join(' · ')})` : ''
+    }\n`;
+
+    const nutrients = deps.usdaNutrientsFor(fdcId);
+    const nutrientLine = formatPriorityNutrients(nutrients);
+    const body = nutrientLine
+      ? `    ${truncateSafe(nutrientLine, MAX_USDA_BODY_CHARS)}\n`
+      : '';
+
+    text += header + body;
+    rendered += 1;
+  }
+
+  if (!rendered) return { text: '', source: null };
+
+  return {
+    text,
+    source: { type: 'usda_ingredients', detail: `${rendered} food(s)` },
+  };
 }

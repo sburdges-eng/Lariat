@@ -66,6 +66,7 @@
     "test:datapack-semantic": "node --experimental-strip-types --test tests/js/test-datapack-semantic.mjs",
     "test:datapack-toggle-detail": "node --experimental-strip-types --test tests/js/test-datapack-search-toggle-detail.mjs",
     "test:kitchen-assistant-datapack": "node --experimental-strip-types --test tests/js/test-kitchen-assistant-datapack.mjs",
+    "test:kitchen-assistant-usda-ingredients": "node --experimental-strip-types --test tests/js/test-kitchen-assistant-usda-ingredients.mjs",
     "test:margin-deltas": "node --experimental-strip-types --test tests/js/test-margin-deltas.mjs",
     "test:margin-deltas-api": "node --experimental-strip-types --test tests/js/test-margin-deltas-api.mjs",
     "test:command-summary-api": "node --test tests/js/test-command-summary-api.mjs",
@@ -99,7 +100,8 @@
     "test:propose-food-dish-components": "node --experimental-strip-types --test tests/js/test-propose-food-dish-components.mjs",
     "test:dish-components-csv": "node --experimental-strip-types --test tests/js/test-import-dish-components.mjs",
     "test:drink-sku-extraction": "node --test tests/js/test-drink-sku-extraction.mjs",
-    "test:vendor-prices-csv": "node --experimental-strip-types --test tests/js/test-import-vendor-prices.mjs"
+    "test:vendor-prices-csv": "node --experimental-strip-types --test tests/js/test-import-vendor-prices.mjs",
+    "test:cook-message-classifier": "node --experimental-strip-types --test tests/js/test-cook-message-classifier.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
