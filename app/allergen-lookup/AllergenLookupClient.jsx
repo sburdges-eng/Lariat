@@ -78,7 +78,31 @@ function NoAllergenChip() {
   );
 }
 
-function ChipRow({ allergens, traces, loading }) {
+// Distinct from both AllergenChip (solid ember) and NoAllergenChip
+// (solid border, muted). Dashed neutral-grey border + warning glyph
+// signals "we don't know" — line cooks must NOT read this as
+// "safe / no allergens". The whole point of this chip is to refuse
+// to claim a safe-state when the underlying chip-fetch failed.
+function UnknownChip() {
+  return (
+    <span
+      aria-label="Allergen lookup failed for this product"
+      style={{
+        padding: '2px 8px',
+        background: 'transparent',
+        border: '1px dashed var(--muted)',
+        borderRadius: 12,
+        fontSize: 11,
+        color: 'var(--muted)',
+        fontWeight: 600,
+      }}
+    >
+      ⚠ allergens unknown — retry
+    </span>
+  );
+}
+
+function ChipRow({ allergens, traces, loading, error }) {
   if (loading) {
     return (
       <div
@@ -89,6 +113,16 @@ function ChipRow({ allergens, traces, loading }) {
         }}
       >
         loading allergens…
+      </div>
+    );
+  }
+  // Fail-loud: a failed per-product chip-fetch must never collapse
+  // into "no allergens flagged" — that would read as a safe answer
+  // on a kitchen line. Render a distinct chip BEFORE the empty path.
+  if (error) {
+    return (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        <UnknownChip />
       </div>
     );
   }
@@ -125,6 +159,7 @@ function ProductCard({
   traces,
   ingredientsText,
   loading,
+  error,
 }) {
   const sourceUrl = code
     ? `https://world.openfoodfacts.org/product/${encodeURIComponent(code)}`
@@ -150,7 +185,12 @@ function ProductCard({
       ) : null}
 
       <div style={{ marginTop: 8, marginBottom: 8 }}>
-        <ChipRow allergens={allergens} traces={traces} loading={loading} />
+        <ChipRow
+          allergens={allergens}
+          traces={traces}
+          loading={loading}
+          error={error}
+        />
       </div>
 
       {ingredientsText ? (
@@ -353,6 +393,7 @@ export default function AllergenLookupClient() {
           return {
             ...card,
             loading: false,
+            error: undefined,
             productName: enriched.productName || card.productName,
             brand: enriched.brand || card.brand,
             brandOwner: enriched.brandOwner || card.brandOwner,
@@ -361,11 +402,13 @@ export default function AllergenLookupClient() {
             ingredientsText: enriched.ingredientsText,
           };
         }
-        // Failed lookup — drop the spinner, leave the chips empty so
-        // the "no allergens flagged" chip renders. Slightly lossy
-        // but matches the row-as-warning UX (assume safe-ish + show
-        // brand/title we already have from the hit envelope).
-        return { ...card, loading: false };
+        // Failed lookup — drop the spinner and flag the card as
+        // error. We must NOT collapse to "no allergens flagged":
+        // on a kitchen line that would read as an authoritative
+        // safe-answer for what is in fact a fetch failure. The
+        // UnknownChip renders a clearly-distinct "lookup failed"
+        // signal so the cook knows to retry rather than serve.
+        return { ...card, loading: false, error: true };
       });
       return { kind: 'ok-list', cards: next };
     });
