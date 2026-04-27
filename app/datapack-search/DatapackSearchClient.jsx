@@ -19,6 +19,23 @@ const SOURCE_LABEL = Object.fromEntries(
 // Display order when grouping hits — matches the dropdown.
 const GROUP_ORDER = ['usda', 'off', 'wikibooks', 'fda'];
 
+// Semantic mode is keyed off embedding buckets, not source tables. The
+// safety bucket has both fda and wikibooks members; the others are
+// single-source. Bucket → default source for new-results UX
+// (recipes/techniques live entirely in wikibooks; ingredients in usda;
+// safety mixes fda + wikibooks).
+const BUCKET_OPTIONS = [
+  { value: 'recipes', label: 'Recipes (Wikibooks)' },
+  { value: 'techniques', label: 'Techniques (Wikibooks)' },
+  { value: 'safety', label: 'Safety (FDA + Wikibooks)' },
+  { value: 'ingredients', label: 'Ingredients (USDA)' },
+];
+
+const MODE_OPTIONS = [
+  { value: 'lexical', label: 'Lexical (BM25)' },
+  { value: 'semantic', label: 'Semantic (BGE)' },
+];
+
 // Cap the nutrient drill-in to a sensible subset. We match by
 // nutrient_name prefix (USDA names are inconsistent on units) and
 // fall through silently when something isn't reported for a food.
@@ -62,6 +79,59 @@ function parseAllergenTags(raw) {
 
 function hitKey(hit) {
   return `${hit.source}:${hit.id}`;
+}
+
+// Normalize one semantic-result row (shape comes from the per-bucket
+// metadata.jsonl) into the same {score, source, id, title, subtitle,
+// extra} shape the FTS path uses, so the rest of the renderer
+// (grouping, drill-in, lookupUrlFor) doesn't need a second code path.
+//
+// `source: 'fda_food_code'` collapses to `'fda'` to match the FTS
+// source naming and drill-in routing. We keep the cosine similarity
+// untouched — it's positive ([-1, 1]); the formatter below
+// distinguishes positive (semantic) from negative (BM25) scores.
+function normalizeSemanticHit(meta) {
+  const score = typeof meta.score === 'number' ? meta.score : 0;
+  if (meta.source === 'usda') {
+    return {
+      score,
+      source: 'usda',
+      id: meta.fdc_id ?? '',
+      title: meta.description ?? null,
+      subtitle: meta.food_category ?? null,
+      extra: meta.source_archive ?? null,
+    };
+  }
+  if (meta.source === 'wikibooks') {
+    return {
+      score,
+      source: 'wikibooks',
+      id: meta.page_id ?? '',
+      title: meta.title ?? null,
+      subtitle: meta.slug ?? null,
+      extra: meta.source_url ?? null,
+    };
+  }
+  if (meta.source === 'fda_food_code') {
+    return {
+      score,
+      source: 'fda',
+      id: meta.rowid ?? '',
+      title: meta.title ?? null,
+      subtitle: meta.section_id ?? '',
+      extra: meta.chapter ?? meta.annex ?? null,
+    };
+  }
+  // Unknown source — fall through with whatever scalar fields we can
+  // surface so the row at least renders.
+  return {
+    score,
+    source: meta.source ?? 'unknown',
+    id: meta.rowid ?? meta.id ?? '',
+    title: meta.title ?? meta.description ?? null,
+    subtitle: null,
+    extra: null,
+  };
 }
 
 function lookupUrlFor(hit) {
@@ -268,7 +338,9 @@ function DetailPanel({ source, state }) {
 
 export default function DatapackSearchClient() {
   const [query, setQuery] = useState('');
+  const [mode, setMode] = useState('lexical');
   const [source, setSource] = useState('all');
+  const [bucket, setBucket] = useState('recipes');
   // Search response state. `kind` discriminates the union; `data`
   // shape depends on the kind.
   const [response, setResponse] = useState({ kind: 'idle' });
@@ -280,7 +352,7 @@ export default function DatapackSearchClient() {
   // now abort the previous request before issuing a new one.
   const searchAbortRef = useRef(null);
 
-  const runSearch = useCallback(async (q, src) => {
+  const runSearch = useCallback(async (q, modeArg, srcOrBucket) => {
     const trimmed = q.trim();
     if (!trimmed) {
       if (searchAbortRef.current) searchAbortRef.current.abort();
@@ -293,11 +365,16 @@ export default function DatapackSearchClient() {
     searchAbortRef.current = ctrl;
     setResponse({ kind: 'loading' });
     setDetails({});
-    const params = new URLSearchParams({
-      q: trimmed,
-      source: src,
-      limit: '20',
-    });
+    // Mode picks the API op + which selector value to forward:
+    //   lexical   → ?op=search&source=…
+    //   semantic  → ?op=semantic&bucket=…
+    const params = new URLSearchParams({ q: trimmed, limit: '20' });
+    if (modeArg === 'semantic') {
+      params.set('op', 'semantic');
+      params.set('bucket', srcOrBucket);
+    } else {
+      params.set('source', srcOrBucket);
+    }
     let res;
     try {
       res = await fetch(`/api/datapack/search?${params.toString()}`, {
@@ -342,12 +419,28 @@ export default function DatapackSearchClient() {
       return;
     }
 
-    setResponse({ kind: 'ok', hits: body.hits, query: body.query, source: body.source });
+    // Semantic responses carry the per-bucket metadata.jsonl shape
+    // directly. Run them through the normalizer so the rendering
+    // pipeline (grouping, drill-in, lookupUrlFor) sees the same
+    // {score, source, id, title, subtitle, extra} shape lexical
+    // already speaks.
+    const isSemantic = modeArg === 'semantic';
+    const hits = isSemantic
+      ? body.hits.map(normalizeSemanticHit)
+      : body.hits;
+    setResponse({
+      kind: 'ok',
+      hits,
+      query: body.query,
+      mode: modeArg,
+      source: isSemantic ? null : body.source,
+      bucket: isSemantic ? body.bucket : null,
+    });
   }, []);
 
   const onSubmit = (e) => {
     e.preventDefault();
-    runSearch(query, source);
+    runSearch(query, mode, mode === 'semantic' ? bucket : source);
   };
 
   const grouped = useMemo(() => {
@@ -415,7 +508,7 @@ export default function DatapackSearchClient() {
         onSubmit={onSubmit}
         style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 200px auto',
+          gridTemplateColumns: '1fr 180px 220px auto',
           gap: 12,
           marginBottom: 24,
           alignItems: 'end',
@@ -454,7 +547,7 @@ export default function DatapackSearchClient() {
 
         <div>
           <label
-            htmlFor="datapack-src"
+            htmlFor="datapack-mode"
             style={{
               display: 'block',
               fontSize: 12,
@@ -463,12 +556,12 @@ export default function DatapackSearchClient() {
               fontWeight: 500,
             }}
           >
-            Source
+            Mode
           </label>
           <select
-            id="datapack-src"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
+            id="datapack-mode"
+            value={mode}
+            onChange={(e) => setMode(e.target.value)}
             style={{
               width: '100%',
               padding: '10px 12px',
@@ -479,13 +572,85 @@ export default function DatapackSearchClient() {
               fontSize: 14,
             }}
           >
-            {SOURCE_OPTIONS.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
+            {MODE_OPTIONS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
               </option>
             ))}
           </select>
         </div>
+
+        {mode === 'lexical' ? (
+          <div>
+            <label
+              htmlFor="datapack-src"
+              style={{
+                display: 'block',
+                fontSize: 12,
+                color: 'var(--muted)',
+                marginBottom: 6,
+                fontWeight: 500,
+              }}
+            >
+              Source
+            </label>
+            <select
+              id="datapack-src"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                color: 'var(--text)',
+                fontSize: 14,
+              }}
+            >
+              {SOURCE_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div>
+            <label
+              htmlFor="datapack-bucket"
+              style={{
+                display: 'block',
+                fontSize: 12,
+                color: 'var(--muted)',
+                marginBottom: 6,
+                fontWeight: 500,
+              }}
+            >
+              Bucket
+            </label>
+            <select
+              id="datapack-bucket"
+              value={bucket}
+              onChange={(e) => setBucket(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                color: 'var(--text)',
+                fontSize: 14,
+              }}
+            >
+              {BUCKET_OPTIONS.map((b) => (
+                <option key={b.value} value={b.value}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <button
           type="submit"

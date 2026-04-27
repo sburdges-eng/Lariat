@@ -1,5 +1,6 @@
 import {
   fts,
+  semantic,
   escapeFtsPhrase,
   available,
   stats,
@@ -13,6 +14,12 @@ import {
 export const dynamic = 'force-dynamic';
 
 const ALLOWED_SOURCES = new Set(['usda', 'off', 'wikibooks', 'fda', 'all']);
+const ALLOWED_BUCKETS = new Set([
+  'recipes',
+  'techniques',
+  'safety',
+  'ingredients',
+]);
 
 const clipQuery = (s) => {
   if (typeof s !== 'string') return null;
@@ -92,6 +99,40 @@ export async function GET(req) {
       }
       if (!row) return Response.json({ error: 'not found' }, { status: 404 });
       return Response.json({ ok: true, section: row });
+    }
+
+    if (op === 'semantic') {
+      const q = clipQuery(url.searchParams.get('q'));
+      if (!q) {
+        return Response.json({ error: 'q required' }, { status: 400 });
+      }
+      const bucket = url.searchParams.get('bucket');
+      if (!bucket || !ALLOWED_BUCKETS.has(bucket)) {
+        return Response.json(
+          {
+            error: `bucket required; allowed: ${[...ALLOWED_BUCKETS].join(', ')}`,
+          },
+          { status: 400 }
+        );
+      }
+      const limit = parseLimit(url.searchParams.get('limit'));
+      let hits;
+      try {
+        hits = await semantic(q, { bucket, limit });
+      } catch (err) {
+        // Model load failures (corrupted ONNX cache, transient network
+        // failure on first download) bubble up — surface as 502 so the
+        // caller knows it's an upstream problem, not their input.
+        console.error('semantic() failed:', err);
+        return Response.json(
+          {
+            error: 'semantic encode failed',
+            detail: String(err?.message ?? err),
+          },
+          { status: 502 }
+        );
+      }
+      return Response.json({ ok: true, query: q, bucket, hits });
     }
 
     if (op === 'wikibooks_page') {

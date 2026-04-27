@@ -131,6 +131,51 @@ describe('GET /api/datapack/search — search hits', { skip: !isAvailable && ski
   });
 });
 
+describe('GET /api/datapack/search — semantic (op=semantic)', { skip: !isAvailable && skipMsg }, () => {
+  it('rejects missing q', async () => {
+    const res = await GET(getReq('?op=semantic&bucket=recipes'));
+    assert.strictEqual(res.status, 400);
+    const body = await res.json();
+    assert.strictEqual(body.error, 'q required');
+  });
+
+  it('rejects missing bucket', async () => {
+    const res = await GET(getReq('?op=semantic&q=eggs'));
+    assert.strictEqual(res.status, 400);
+    const body = await res.json();
+    assert.match(body.error, /bucket required/);
+  });
+
+  it('rejects an unknown bucket', async () => {
+    const res = await GET(getReq('?op=semantic&q=eggs&bucket=junk'));
+    assert.strictEqual(res.status, 400);
+    const body = await res.json();
+    assert.match(body.error, /bucket required/);
+  });
+
+  it('returns hits sorted by descending cosine for a recipes query', async () => {
+    const res = await GET(
+      getReq('?op=semantic&q=vegetarian%20breakfast%20with%20eggs&bucket=recipes&limit=5')
+    );
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.ok, true);
+    assert.strictEqual(body.bucket, 'recipes');
+    assert.ok(Array.isArray(body.hits));
+    assert.ok(body.hits.length > 0, 'recipes bucket should have hits');
+    for (let i = 1; i < body.hits.length; i++) {
+      assert.ok(body.hits[i - 1].score >= body.hits[i].score, 'sorted by descending cosine');
+    }
+    // Top-3 should mention eggs in some metadata field — same
+    // contract as the lib-level test, just over HTTP.
+    const top3 = body.hits.slice(0, 3);
+    const haveEgg = top3.some((h) =>
+      JSON.stringify(h).toLowerCase().includes('egg')
+    );
+    assert.ok(haveEgg, 'an egg-mentioning recipe should rank in top-3');
+  });
+});
+
 describe('GET /api/datapack/search — direct lookups', { skip: !isAvailable && skipMsg }, () => {
   it('op=usda_food returns food + nutrients', async () => {
     const res = await GET(getReq('?op=usda_food&fdc_id=171688'));
