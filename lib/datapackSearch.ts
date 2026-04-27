@@ -592,6 +592,19 @@ function loadBucket(bucket: string): BucketCacheEntry | null {
     return null;
   }
 
+  // Heap budget warning: the ingredients bucket is ~3.0 GB on disk
+  // (2.06M USDA descriptions × 384 dims × 4 bytes). readFileSync
+  // materializes the whole vectors.npy into a Buffer, then
+  // parseNpyF32Matrix() copies it into a Float32Array — peak memory
+  // is ~6 GB while both live concurrently. Default Node old-space
+  // heap is ~1.7 GB on 64-bit, so loading ingredients without
+  // `--max-old-space-size=8192` (or similar) will throw
+  // RangeError / out-of-memory and the bucket is silently cached as
+  // null. The smaller buckets (recipes, techniques, safety) are
+  // <10 MB each and load fine. TODO: stream-read the .npy header,
+  // then chunk-load the matrix into a pre-sized Float32Array to
+  // halve peak memory before consumers ship ingredients-grounded
+  // queries to production.
   let entry: BucketCacheEntry;
   try {
     const buf = fs.readFileSync(vectorsPath);
@@ -628,9 +641,13 @@ async function loadModel(): Promise<
   (t: string[], opts: object) => Promise<{ data: Float32Array }>
 > {
   if (_modelPromise) return _modelPromise;
-  _modelPromise = (async () => {
-    // Dynamic import keeps transformers.js (and its ~30 MB ONNX
-    // runtime) out of the cold-start path for FTS-only callers.
+  // Dynamic import keeps transformers.js (and its ~30 MB ONNX
+  // runtime) out of the cold-start path for FTS-only callers.
+  // On rejection (network outage, corrupted cache) we clear the
+  // cached promise so the next caller retries — without this, a
+  // single transient failure makes semantic() permanently broken
+  // for the lifetime of the process.
+  const promise = (async () => {
     const { pipeline } = await import('@huggingface/transformers');
     const fe = (await pipeline('feature-extraction', _BGE_MODEL_ID)) as unknown as (
       t: string[],
@@ -638,7 +655,11 @@ async function loadModel(): Promise<
     ) => Promise<{ data: Float32Array }>;
     return fe;
   })();
-  return _modelPromise;
+  _modelPromise = promise;
+  promise.catch(() => {
+    if (_modelPromise === promise) _modelPromise = null;
+  });
+  return promise;
 }
 
 /**

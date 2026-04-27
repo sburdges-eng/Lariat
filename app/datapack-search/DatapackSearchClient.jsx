@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 // Friendly source labels — order is the same display order used to
 // group hits below the form. 'all' is the default.
@@ -274,13 +274,23 @@ export default function DatapackSearchClient() {
   const [response, setResponse] = useState({ kind: 'idle' });
   // Per-row drill-in state, keyed by `${source}:${id}`.
   const [details, setDetails] = useState({});
+  // AbortController for the in-flight search. Fast typing (submit
+  // "egg", then submit "eggplant" before "egg" resolves) used to let
+  // the slower "egg" response overwrite the "eggplant" results — we
+  // now abort the previous request before issuing a new one.
+  const searchAbortRef = useRef(null);
 
   const runSearch = useCallback(async (q, src) => {
     const trimmed = q.trim();
     if (!trimmed) {
+      if (searchAbortRef.current) searchAbortRef.current.abort();
+      searchAbortRef.current = null;
       setResponse({ kind: 'idle' });
       return;
     }
+    if (searchAbortRef.current) searchAbortRef.current.abort();
+    const ctrl = new AbortController();
+    searchAbortRef.current = ctrl;
     setResponse({ kind: 'loading' });
     setDetails({});
     const params = new URLSearchParams({
@@ -290,13 +300,18 @@ export default function DatapackSearchClient() {
     });
     let res;
     try {
-      res = await fetch(`/api/datapack/search?${params.toString()}`);
+      res = await fetch(`/api/datapack/search?${params.toString()}`, {
+        signal: ctrl.signal,
+      });
     } catch (err) {
+      if (err?.name === 'AbortError') return; // superseded by a newer search
       setResponse({
         kind: 'error',
         message: `Network error: ${err?.message ?? String(err)}`,
       });
       return;
+    } finally {
+      if (searchAbortRef.current === ctrl) searchAbortRef.current = null;
     }
 
     if (res.status === 503) {

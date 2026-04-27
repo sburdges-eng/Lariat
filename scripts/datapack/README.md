@@ -74,12 +74,30 @@ download_all.py
         ▼
 extract_and_normalize.py --extract-only
         │
-        ├──► normalize_usda.py        ──► normalized/usda/
-        ├──► normalize_off.py         ──► normalized/openfoodfacts/
-        └──► normalize_wikibooks.py   ──► normalized/wikibooks/
+        ├──► normalize_usda.py             ──► normalized/usda/
+        ├──► normalize_off.py              ──► normalized/openfoodfacts/
+        ├──► normalize_wikibooks.py        ──► normalized/wikibooks/
+        └──► normalize_fda_food_code.py    ──► normalized/fda_food_code/
                                               │
                                               ▼
                                       sanity_check.py
+                                              │
+                                              ▼
+                            ┌───────────────────────────────────┐
+                            │ build_sqlite_index.py             │
+                            │   indexes/sqlite/lariat_data.db   │
+                            ├───────────────────────────────────┤
+                            │ build_fts_index.py                │
+                            │   indexes/search/fts/lariat_fts.db│
+                            ├───────────────────────────────────┤
+                            │ build_embeddings_index.py         │
+                            │   indexes/embeddings/<bucket>/    │
+                            │   {vectors.npy,metadata.jsonl}    │
+                            └───────────────────────────────────┘
+                                              │
+                                              ▼
+                          Node.js consumers (lib/datapackSearch.ts,
+                          /api/datapack/search, /datapack-search)
 ```
 
 ### Commands
@@ -205,6 +223,78 @@ a failure). Any other check failure prints the offending source row with
 
 All of this lives on the external SSD via the `data/lariat-data` symlink.
 Don't put it on the boot disk.
+
+### Indexing
+
+After `sanity_check.py` is green, three index builders take the
+normalized JSONL streams and turn them into queryable artefacts. All
+three are idempotent (sha256-keyed manifests), built atomically via
+`.tmp` + `os.replace`, and skip on no-op runs unless passed `--force`.
+
+```bash
+# SQLite — single 4.8 GB DB, 33M+ rows, joinable across sources.
+python scripts/datapack/build_sqlite_index.py
+# → indexes/sqlite/lariat_data.db
+#   tables: usda_foods (2.06M), usda_nutrients (26.85M),
+#           off_products (4.13M), wikibooks_pages (7.8K),
+#           fda_food_code_sections (1.25K), off_allergens, _manifest
+
+# FTS5 — separate 904 MB DB layered on top via ATTACH; porter+unicode61
+# tokenizer, BM25 ranking. Contentless + side-table for OFF (TEXT GTIN
+# can't ride along as INTEGER FTS rowid).
+python scripts/datapack/build_fts_index.py
+# → indexes/search/fts/lariat_fts.db
+
+# Embeddings — BGE-small (BAAI/bge-small-en-v1.5, 384 dims, ~134 MB
+# model on first download). Per-bucket vectors.npy (float32, L2-norm)
+# + metadata.jsonl. Default builds the small buckets (recipes,
+# techniques, safety); ingredients is opt-in.
+python scripts/datapack/build_embeddings_index.py                 # all-small
+python scripts/datapack/build_embeddings_index.py --bucket safety
+python scripts/datapack/build_embeddings_index.py --bucket ingredients
+# → indexes/embeddings/<bucket>/{vectors.npy,metadata.jsonl,manifest.json}
+```
+
+Per-bucket counts after a full build: recipes 3,771 · techniques 1,328
+· safety 949 · ingredients 2,063,746.
+
+### Node.js consumer
+
+`lib/datapackSearch.ts` is the read-only TypeScript client. It opens
+`lariat_data.db` + `lariat_fts.db` lazily, wraps the FTS5 + ATTACH
+syntax, and exposes a small surface:
+
+| function | purpose |
+|---|---|
+| `available()` | true iff the data pack is mounted on this machine |
+| `fts(q, {source, limit})` | BM25 lexical search (per source or `'all'`) |
+| `semantic(q, {bucket, limit})` | cosine search via BGE-small (transformers.js, ONNX) |
+| `getUsdaFood(fdc_id)` / `usdaNutrientsFor(fdc_id)` | direct USDA lookup |
+| `getOffProduct(code)` | direct OFF lookup |
+| `getFdaSection({section_id})` / `getFdaSection({rowid})` | FDA Food Code lookup |
+| `getWikibooksPage({page_id})` / `getWikibooksPage({title})` | Wikibooks page lookup |
+| `stats()` | row counts per indexed table (sanity / health) |
+
+The HTTP wrapper at `/api/datapack/search` mirrors this surface
+(`?op=search&q=…&source=…` for FTS, `?op=usda_food&fdc_id=…` etc. for
+direct lookups), and the `/datapack-search` page in the cockpit is a
+minimal browser over both. The kitchen assistant context builder
+(`lib/kitchenAssistantContext.ts`) calls `fts(question, source: 'fda')`
+when the user's question matches `FOOD_SAFETY_KEYWORDS`, then inlines
+the §-cited FDA Food Code passages into the LLM context so safety
+answers cite the regulatory text.
+
+### Heap budget for ingredients embeddings
+
+`vectors.npy` for the `ingredients` bucket is ~3 GB on disk (2.06M × 384
+floats). Loading it via `lib/datapackSearch.semantic({bucket:
+'ingredients'})` materializes both the source Buffer and a Float32Array
+concurrently — peak ~6 GB. Default Node old-space heap is ~1.7 GB on
+64-bit, so any process that calls semantic() with the ingredients
+bucket needs `NODE_OPTIONS=--max-old-space-size=8192` (or the equivalent
+flag on `node`). The smaller buckets (recipes, techniques, safety) all
+fit in default heap. Streaming the .npy header + a chunked matrix read
+would halve peak memory; tracked as a follow-up.
 
 ### RecipeNLG (manual)
 
