@@ -35,7 +35,7 @@ async function resolveFdaCitations(question, signal) {
   const res = await fetch(`/api/datapack/search?${params.toString()}`, {
     signal,
   });
-  if (res.status === 503) return { kind: 'unavailable' };
+  if (res.status === 503) return { status: 'unavailable' };
   let body = null;
   try {
     body = await res.json();
@@ -46,7 +46,7 @@ async function resolveFdaCitations(question, signal) {
     const msg =
       (body && typeof body.error === 'string' && body.error) ||
       `HTTP ${res.status}`;
-    return { kind: 'error', message: msg };
+    return { status: 'error', message: msg };
   }
   // Hybrid hits are heterogeneous (FTS envelope vs semantic envelope).
   // We accept both — formatFdaCitation collapses the shape.
@@ -78,7 +78,7 @@ async function resolveFdaCitations(question, signal) {
         : null;
     return formatFdaCitation(h, sectionRow);
   });
-  return { kind: 'ok', citations };
+  return { status: 'ok', citations };
 }
 
 async function resolveUsdaCitations(question, signal) {
@@ -91,7 +91,7 @@ async function resolveUsdaCitations(question, signal) {
   const res = await fetch(`/api/datapack/search?${params.toString()}`, {
     signal,
   });
-  if (res.status === 503) return { kind: 'unavailable' };
+  if (res.status === 503) return { status: 'unavailable' };
   let body = null;
   try {
     body = await res.json();
@@ -102,7 +102,7 @@ async function resolveUsdaCitations(question, signal) {
     const msg =
       (body && typeof body.error === 'string' && body.error) ||
       `HTTP ${res.status}`;
-    return { kind: 'error', message: msg };
+    return { status: 'error', message: msg };
   }
   const hits = body.hits.filter(
     (h) => h && (h.source === 'usda' || h.fdc_id != null || h.id != null)
@@ -127,7 +127,7 @@ async function resolveUsdaCitations(question, signal) {
     const nutrients = payload && payload.nutrients ? payload.nutrients : null;
     return formatUsdaCitation(h, foodRow, nutrients);
   });
-  return { kind: 'ok', citations };
+  return { status: 'ok', citations };
 }
 export default function KitchenAssistantClient({ locQuery }) {
   const [ollamaOk, setOllamaOk] = useState(null);
