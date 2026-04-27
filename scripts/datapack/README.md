@@ -284,17 +284,17 @@ when the user's question matches `FOOD_SAFETY_KEYWORDS`, then inlines
 the §-cited FDA Food Code passages into the LLM context so safety
 answers cite the regulatory text.
 
-### Heap budget for ingredients embeddings
+### Heap footprint for ingredients embeddings
 
 `vectors.npy` for the `ingredients` bucket is ~3 GB on disk (2.06M × 384
-floats). Loading it via `lib/datapackSearch.semantic({bucket:
-'ingredients'})` materializes both the source Buffer and a Float32Array
-concurrently — peak ~6 GB. Default Node old-space heap is ~1.7 GB on
-64-bit, so any process that calls semantic() with the ingredients
-bucket needs `NODE_OPTIONS=--max-old-space-size=8192` (or the equivalent
-flag on `node`). The smaller buckets (recipes, techniques, safety) all
-fit in default heap. Streaming the .npy header + a chunked matrix read
-would halve peak memory; tracked as a follow-up.
+floats). `lib/datapackSearch.semantic({bucket: 'ingredients'})` streams
+the .npy directly into a pre-sized Float32Array (16 MB chunks via
+`fs.read` into a typed-array view) so the source bytes and the matrix
+never coexist — peak RSS for the load is ~700 MB, well under the
+default Node old-space heap of ~1.7 GB. Smaller buckets (recipes,
+techniques, safety) fit in tens of MB. First-call latency on the
+ingredients bucket is ~20 s cold (model load + 3 GB read + JSONL
+parse) and ~2 s warm per query.
 
 ### RecipeNLG (manual)
 

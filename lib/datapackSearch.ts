@@ -481,7 +481,7 @@ interface BucketCacheEntry {
   metadata: Array<Record<string, unknown>>;
 }
 
-const _bucketCache: Map<string, BucketCacheEntry | null> = new Map();
+const _bucketCache: Map<string, Promise<BucketCacheEntry | null>> = new Map();
 // Promise so concurrent first-callers share one model load.
 let _modelPromise: Promise<(t: string[], opts: object) => Promise<{ data: Float32Array }>> | null =
   null;
@@ -489,9 +489,7 @@ let _modelPromise: Promise<(t: string[], opts: object) => Promise<{ data: Float3
 let _availableOverride: boolean | null = null;
 
 /**
- * Parse a NumPy v1 .npy file containing a 2-D little-endian float32
- * matrix (`<f4`, `fortran_order=False`). Returns the flat Float32Array
- * (length = rows * dims) plus the parsed shape.
+ * Parse the header section of a NumPy v1 .npy file.
  *
  * The .npy v1 layout is:
  *   bytes 0..5   magic "\x93NUMPY"
@@ -503,11 +501,15 @@ let _availableOverride: boolean | null = null;
  * We refuse anything that isn't `<f4` / not C-order / not 2-D — those
  * inputs aren't produced by `build_embeddings_index.py` and silently
  * mis-parsing them would be worse than throwing.
+ *
+ * Returns the parsed shape and the byte offset where the matrix
+ * payload begins; the caller is responsible for reading
+ * rows * dims * 4 bytes starting at dataOffset.
  */
-function parseNpyF32Matrix(buf: Buffer): {
-  data: Float32Array;
+function parseNpyHeader(buf: Buffer): {
   rows: number;
   dims: number;
+  dataOffset: number;
 } {
   if (
     buf.length < 10 ||
@@ -521,8 +523,11 @@ function parseNpyF32Matrix(buf: Buffer): {
     throw new Error(`unsupported .npy major version ${major}; expected 1`);
   }
   const headerLen = buf.readUInt16LE(8);
-  const header = buf.toString('ascii', 10, 10 + headerLen);
   const dataOffset = 10 + headerLen;
+  if (buf.length < dataOffset) {
+    throw new Error(`.npy header truncated: need ${dataOffset} bytes, got ${buf.length}`);
+  }
+  const header = buf.toString('ascii', 10, dataOffset);
 
   // The header is a Python repr of a dict. We pluck what we need with
   // narrow regexes rather than hand-rolling a Python literal parser.
@@ -550,91 +555,155 @@ function parseNpyF32Matrix(buf: Buffer): {
     throw new Error(`unsupported .npy shape ${JSON.stringify(dims)}; expected 2-D`);
   }
   const [rows, cols] = dims as [number, number];
-  const expectedBytes = rows * cols * 4;
-  if (buf.length - dataOffset < expectedBytes) {
-    throw new Error(
-      `.npy data section truncated: expected ${expectedBytes} bytes, ` +
-        `got ${buf.length - dataOffset}`
-    );
-  }
-  // Copy into a freshly-aligned Float32Array. We avoid wrapping the
-  // raw Node buffer because its byteOffset isn't guaranteed to be
-  // 4-aligned for typed-array views.
-  const data = new Float32Array(rows * cols);
-  const view = new DataView(
-    buf.buffer,
-    buf.byteOffset + dataOffset,
-    expectedBytes
-  );
-  for (let i = 0; i < data.length; i++) {
-    data[i] = view.getFloat32(i * 4, true);
-  }
-  return { data, rows, dims: cols };
+  return { rows, dims: cols, dataOffset };
 }
 
-function loadBucket(bucket: string): BucketCacheEntry | null {
-  if (_bucketCache.has(bucket)) {
-    return _bucketCache.get(bucket) ?? null;
+/**
+ * Read a 2-D `<f4` .npy matrix from disk directly into a Float32Array,
+ * without ever holding both the source Buffer and the typed array
+ * concurrently. For the ~3 GB ingredients bucket this halves peak
+ * memory (3 GB instead of 6 GB) and makes the bucket loadable in
+ * the default Node heap (~1.7 GB headroom for everything else).
+ *
+ * The implementation:
+ *   1. Reads the first 4 KB to parse the header (NumPy headers are
+ *      always small — typically <200 bytes).
+ *   2. Allocates Float32Array(rows * dims).
+ *   3. Reads the matrix body straight into the typed array's
+ *      underlying ArrayBuffer via a Uint8Array view, in 16 MB
+ *      chunks so a single fs.read syscall doesn't have to handle
+ *      a multi-GB transfer.
+ *
+ * Throws on malformed headers, unsupported dtypes/orders/shapes, or
+ * truncated data — caller decides whether to cache the failure.
+ */
+async function loadNpyF32Matrix(
+  vectorsPath: string
+): Promise<{ data: Float32Array; rows: number; dims: number }> {
+  // Lazy import — fs/promises is already loaded by Node in any
+  // realistic process, but we keep the require local so this
+  // module imports remain identical to the previous shape.
+  const { open } = await import('node:fs/promises');
+  const fh = await open(vectorsPath, 'r');
+  try {
+    // 4 KB is more than enough — npy headers max out at 65,535 chars
+    // by spec but in practice the build_embeddings_index.py output
+    // headers are 50-100 bytes. If we ever bump to v2/v3 this read
+    // would need to grow, but parseNpyHeader rejects those anyway.
+    const headerBuf = Buffer.alloc(4096);
+    const { bytesRead: headerRead } = await fh.read(headerBuf, 0, 4096, 0);
+    const head = parseNpyHeader(headerBuf.subarray(0, headerRead));
+    const { rows, dims, dataOffset } = head;
+    const totalBytes = rows * dims * 4;
+
+    const data = new Float32Array(rows * dims);
+    // Wrap the typed array's backing store as a Uint8Array so fs.read
+    // can write directly into it. ArrayBuffer of a freshly-allocated
+    // Float32Array is 8-byte-aligned, so the view is safe to use.
+    const target = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+
+    const CHUNK = 16 * 1024 * 1024; // 16 MB
+    let written = 0;
+    while (written < totalBytes) {
+      const span = Math.min(CHUNK, totalBytes - written);
+      const slice = target.subarray(written, written + span);
+      const { bytesRead } = await fh.read(slice, 0, span, dataOffset + written);
+      if (bytesRead === 0) {
+        throw new Error(
+          `.npy data section truncated: read ${written}/${totalBytes} bytes`
+        );
+      }
+      written += bytesRead;
+    }
+
+    // Sanity: assert host endianness matches `<f4` (little-endian).
+    // x86_64 + Apple Silicon are both little-endian; throwing here on
+    // a hypothetical big-endian host is loud-failure rather than
+    // silently corrupting all dot-products.
+    const probe = new Uint32Array(new Uint8Array([1, 0, 0, 0]).buffer);
+    if (probe[0] !== 1) {
+      throw new Error('host is big-endian; .npy <f4 byte-swap not implemented');
+    }
+
+    return { data, rows, dims };
+  } finally {
+    await fh.close();
   }
+}
+
+function loadBucket(bucket: string): Promise<BucketCacheEntry | null> {
+  // Promise-based cache: concurrent first-callers share one load
+  // instead of each issuing their own multi-second fs.read against
+  // (e.g.) the 3 GB ingredients vectors.npy.
+  const cached = _bucketCache.get(bucket);
+  if (cached !== undefined) return cached;
+
   // Resolve the data root via the same path as getConn(). We don't
   // need the SQLite handle here — semantic search only uses the .npy
   // + .jsonl files — but we do need the root.
   const root = _resolvedDataRoot ?? resolveDataRoot();
   if (!root) {
-    _bucketCache.set(bucket, null);
-    return null;
+    const nullPromise = Promise.resolve(null);
+    _bucketCache.set(bucket, nullPromise);
+    return nullPromise;
   }
   const dir = path.join(root, 'indexes', 'embeddings', bucket);
   const vectorsPath = path.join(dir, 'vectors.npy');
   const metaPath = path.join(dir, 'metadata.jsonl');
   if (!fs.existsSync(vectorsPath) || !fs.existsSync(metaPath)) {
-    _bucketCache.set(bucket, null);
-    return null;
+    const nullPromise = Promise.resolve(null);
+    _bucketCache.set(bucket, nullPromise);
+    return nullPromise;
   }
 
-  // Heap budget warning: the ingredients bucket is ~3.0 GB on disk
-  // (2.06M USDA descriptions × 384 dims × 4 bytes). readFileSync
-  // materializes the whole vectors.npy into a Buffer, then
-  // parseNpyF32Matrix() copies it into a Float32Array — peak memory
-  // is ~6 GB while both live concurrently. Default Node old-space
-  // heap is ~1.7 GB on 64-bit, so loading ingredients without
-  // `--max-old-space-size=8192` (or similar) will throw
-  // RangeError / out-of-memory and the bucket is silently cached as
-  // null. The smaller buckets (recipes, techniques, safety) are
-  // <10 MB each and load fine. TODO: stream-read the .npy header,
-  // then chunk-load the matrix into a pre-sized Float32Array to
-  // halve peak memory before consumers ship ingredients-grounded
-  // queries to production.
-  let entry: BucketCacheEntry;
-  try {
-    const buf = fs.readFileSync(vectorsPath);
-    const { data, rows, dims } = parseNpyF32Matrix(buf);
-    const metaRaw = fs.readFileSync(metaPath, 'utf8');
-    const metadata: Array<Record<string, unknown>> = [];
-    for (const line of metaRaw.split('\n')) {
-      if (!line) continue;
-      metadata.push(JSON.parse(line) as Record<string, unknown>);
+  // Stream the .npy directly into a Float32Array — the ingredients
+  // bucket is ~3.0 GB on disk (2.06M descriptions × 384 dims × 4 bytes)
+  // and the previous readFileSync + per-element copy double-allocated
+  // for ~6 GB peak, which OOM'd a default-heap Node process. The
+  // metadata.jsonl is ~450 MB for that bucket; that one we still read
+  // up-front because we need every row's metadata anyway and parsing
+  // line-by-line would just shift the same allocation onto V8's
+  // string heap.
+  // Deferred pattern. We need the inner async closure to reference
+  // the outer promise (so the catch handler can invalidate the
+  // cache slot it actually owns), but a `const promise = (async ...)`
+  // self-reference confuses TS's flow analysis. Splitting into an
+  // explicit Promise + an async runner with a tiny `done` flag side-
+  // steps that and is just as cheap.
+  let resolve!: (entry: BucketCacheEntry | null) => void;
+  const promise = new Promise<BucketCacheEntry | null>((r) => {
+    resolve = r;
+  });
+  _bucketCache.set(bucket, promise);
+  void (async () => {
+    try {
+      const { data, rows, dims } = await loadNpyF32Matrix(vectorsPath);
+      const metaRaw = fs.readFileSync(metaPath, 'utf8');
+      const metadata: Array<Record<string, unknown>> = [];
+      for (const line of metaRaw.split('\n')) {
+        if (!line) continue;
+        metadata.push(JSON.parse(line) as Record<string, unknown>);
+      }
+      if (metadata.length !== rows) {
+        throw new Error(
+          `bucket ${bucket}: metadata rows ${metadata.length} != vectors rows ${rows}`
+        );
+      }
+      resolve({ vectors: data, rows, dims, metadata });
+    } catch (e) {
+      // A partially-built bucket (truncated vectors.npy) or a real
+      // I/O error is "no hits" rather than a hard error so hybrid
+      // callers that probe multiple buckets keep working. Half-
+      // written ingredients builds that race a query should succeed
+      // on the next call once the build completes.
+      if (process.env.DATAPACK_DEBUG) {
+        console.warn(`[datapackSearch] failed to load bucket ${bucket}:`, e);
+      }
+      if (_bucketCache.get(bucket) === promise) _bucketCache.delete(bucket);
+      resolve(null);
     }
-    if (metadata.length !== rows) {
-      throw new Error(
-        `bucket ${bucket}: metadata rows ${metadata.length} != vectors rows ${rows}`
-      );
-    }
-    entry = { vectors: data, rows, dims, metadata };
-  } catch (e) {
-    // A partially-built bucket (e.g. ingredients mid-build with a
-    // truncated vectors.npy) is "no hits" rather than a hard error;
-    // surfacing the failure would block hybrid callers that probe
-    // multiple buckets. We still cache the negative so we don't keep
-    // re-reading a broken file on every call.
-    _bucketCache.set(bucket, null);
-    if (process.env.DATAPACK_DEBUG) {
-      console.warn(`[datapackSearch] failed to load bucket ${bucket}:`, e);
-    }
-    return null;
-  }
-  _bucketCache.set(bucket, entry);
-  return entry;
+  })();
+  return promise;
 }
 
 async function loadModel(): Promise<
@@ -688,7 +757,7 @@ export async function semantic(
   const bucket = opts.bucket;
   const limit = Math.max(1, Math.min(200, opts.limit ?? 20));
 
-  const entry = loadBucket(bucket);
+  const entry = await loadBucket(bucket);
   if (!entry) return [];
 
   const model = await loadModel();
