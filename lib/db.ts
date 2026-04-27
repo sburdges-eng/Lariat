@@ -1700,6 +1700,53 @@ export function initSchema(db: DB): void {
   assertCriticalSchemas(db);
   seedDefaultLocation(db);
   ensureIndexes(db);
+
+  // ── Phase 4-narrow: shows / archive / tiktok ─────────────────────
+  // Source-of-truth: drive-event-ops-dl/Lariat_Shows_MKT_Plan(...).xlsx
+  // Lauren edits xlsx; `npm run ingest:shows` is the only mutation path.
+  // Re-ingest is idempotent (DELETE+INSERT keyed on location_id).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS shows (
+      id              INTEGER PRIMARY KEY,
+      location_id     TEXT NOT NULL DEFAULT 'default',
+      band_name       TEXT NOT NULL,
+      show_date       TEXT NOT NULL,
+      price           REAL,
+      door_tix        TEXT,
+      status_json     TEXT NOT NULL DEFAULT '{}',
+      source_row      INTEGER NOT NULL,
+      ingested_at     TEXT NOT NULL,
+      ingest_run_id   INTEGER NOT NULL REFERENCES ingest_runs(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_shows_date ON shows(location_id, show_date);
+    CREATE INDEX IF NOT EXISTS idx_shows_band ON shows(location_id, band_name);
+
+    CREATE TABLE IF NOT EXISTS shows_archive (
+      id            INTEGER PRIMARY KEY,
+      location_id   TEXT NOT NULL DEFAULT 'default',
+      band_name     TEXT NOT NULL,
+      show_date     TEXT NOT NULL,
+      era_year      INTEGER,
+      source_row    INTEGER NOT NULL,
+      ingested_at   TEXT NOT NULL,
+      ingest_run_id INTEGER NOT NULL REFERENCES ingest_runs(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_shows_archive_date ON shows_archive(location_id, show_date);
+    CREATE INDEX IF NOT EXISTS idx_shows_archive_band ON shows_archive(location_id, band_name);
+
+    CREATE TABLE IF NOT EXISTS tiktok_ideas (
+      id            INTEGER PRIMARY KEY,
+      location_id   TEXT NOT NULL DEFAULT 'default',
+      idea          TEXT NOT NULL,
+      video_content TEXT,
+      staff_needed  TEXT,
+      props         TEXT,
+      notes         TEXT,
+      source_row    INTEGER NOT NULL,
+      ingested_at   TEXT NOT NULL,
+      ingest_run_id INTEGER NOT NULL REFERENCES ingest_runs(id)
+    );
+  `);
 }
 
 /**
