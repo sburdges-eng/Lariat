@@ -326,6 +326,17 @@ export const NAV_ITEMS = [
     surface: { sidebar: f, palette: t, shelf: t },
     shelf: { b: 'Data', sub: 'lookup' },
   },
+  {
+    id: 'allergen-lookup',
+    href: '/allergen-lookup',
+    name: 'Allergen lookup',
+    sub: 'OFF allergen check',
+    group: 'Books',
+    terms: 'allergen allergens off open food facts gtin barcode peanut gluten dairy egg soy nut milk wheat',
+    locAware: f,
+    surface: { sidebar: f, palette: t, shelf: t },
+    shelf: { b: 'Allergens', sub: 'check' },
+  },
 ];
 
 // ── Selectors ─────────────────────────────────────────────────────────

@@ -65,6 +65,7 @@
     "test:datapack-route": "node --experimental-strip-types --test tests/js/test-datapack-search-route.mjs",
     "test:datapack-semantic": "node --experimental-strip-types --test tests/js/test-datapack-semantic.mjs",
     "test:datapack-toggle-detail": "node --experimental-strip-types --test tests/js/test-datapack-search-toggle-detail.mjs",
+    "test:allergen-lookup-helpers": "node --test tests/js/test-allergen-lookup-helpers.mjs",
     "test:kitchen-assistant-datapack": "node --experimental-strip-types --test tests/js/test-kitchen-assistant-datapack.mjs",
     "test:kitchen-assistant-usda-ingredients": "node --experimental-strip-types --test tests/js/test-kitchen-assistant-usda-ingredients.mjs",
     "test:margin-deltas": "node --experimental-strip-types --test tests/js/test-margin-deltas.mjs",
