@@ -93,3 +93,4 @@ data/coverage-reports/
 
 # ── Generated test fixtures ──────────────────────────────────
 tests/python/fixtures/shows_minimal.xlsx
+tests/js/.tmp-shows-*.db*
