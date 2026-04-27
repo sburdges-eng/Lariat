@@ -137,13 +137,17 @@ export function ingestShowsFromJson(db, payload, locationId = 'default') {
   const status = (dropped?.length ?? 0) > 0 ? 'partial' : 'ok';
   finalize(status, rowsOut);
 
-  logAuditAction({
-    action: 'shows-xlsx-ingest',
-    run_id: runId,
-    location_id: locationId,
-    counts: summary,
-    dropped: dropped.slice(0, 200), // cap for log hygiene
-  });
+  // Skip audit log for in-memory DBs — tests share `process.cwd()` and would
+  // otherwise scatter `data/audit/management-actions.jsonl` into worktrees.
+  if (db.name !== ':memory:') {
+    logAuditAction({
+      action: 'shows-xlsx-ingest',
+      run_id: runId,
+      location_id: locationId,
+      counts: summary,
+      dropped: dropped.slice(0, 200), // cap for log hygiene
+    });
+  }
 
   return summary;
 }
