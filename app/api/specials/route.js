@@ -1,6 +1,5 @@
 import { buildGroundedContext } from '../../../lib/kitchenAssistantContext';
 import {
-  assistantEnabled,
   getOllamaConfig,
   CREATIVE_SYSTEM,
   ollamaChat,
@@ -44,16 +43,13 @@ function extractAction(content) {
   return { payload, stripped };
 }
 
-/** GET — feature flag + safe config for UI (no secrets). */
+/** GET — Ollama reachability + safe config for UI (no secrets). */
 export async function GET(req) {
   const u = new URL(req.url);
   const ping = u.searchParams.get('ping') === '1';
   const cfg = getOllamaConfig();
-  if (!assistantEnabled()) {
-    return Response.json({ enabled: false, ...cfg });
-  }
   if (!ping) {
-    return Response.json({ enabled: true, ...cfg });
+    return Response.json(cfg);
   }
   try {
     const base = cfg.baseUrl.replace(/\/$/, '');
@@ -61,21 +57,13 @@ export async function GET(req) {
     const t = setTimeout(() => controller.abort(), 3000);
     const r = await fetch(`${base}/api/tags`, { signal: controller.signal });
     clearTimeout(t);
-    const ok = r.ok;
-    return Response.json({ enabled: true, ...cfg, ollamaReachable: ok });
+    return Response.json({ ...cfg, ollamaReachable: r.ok });
   } catch {
-    return Response.json({ enabled: true, ...cfg, ollamaReachable: false });
+    return Response.json({ ...cfg, ollamaReachable: false });
   }
 }
 
 export async function POST(req) {
-  if (!assistantEnabled()) {
-    return Response.json(
-      { error: 'Kitchen assistant is disabled. Set LARIAT_ASSISTANT_ENABLED=1 and run Ollama.' },
-      { status: 503 }
-    );
-  }
-
   let body = {};
   try {
     body = await req.json();
@@ -99,7 +87,7 @@ export async function POST(req) {
   let contextText;
   let sources;
   try {
-    const built = buildGroundedContext(locationId, message);
+    const built = await buildGroundedContext(locationId, message);
     contextText = built.contextText;
     sources = built.sources;
   } catch (e) {

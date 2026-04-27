@@ -13,7 +13,7 @@ import {
 import type { Recipe, AllergenMatrix, Station } from './data';
 import type { Database as DB } from 'better-sqlite3';
 import * as datapackSearch from './datapackSearch';
-import type { FtsHit, FdaSection } from './datapackSearch';
+import type { FdaSection, HybridHit } from './datapackSearch';
 
 const MAX_86 = 40;
 const MAX_INV = 20;
@@ -73,7 +73,10 @@ export interface GroundedContext {
   sources: ContextSource[];
 }
 
-export function buildGroundedContext(locationId: string, userQuestion: string): GroundedContext {
+export async function buildGroundedContext(
+  locationId: string,
+  userQuestion: string
+): Promise<GroundedContext> {
   const date = todayISO();
   const db = getDb();
   const sources: ContextSource[] = [];
@@ -292,7 +295,9 @@ export function buildGroundedContext(locationId: string, userQuestion: string): 
     // same FOOD_SAFETY_KEYWORDS branch so a single keyword check
     // gates both the operational CCP block and the regulatory text.
     // Silently no-ops on machines without the data pack mounted.
-    const fda = renderFdaFoodCode(userQuestion);
+    // Async because hybrid retrieval awaits the BGE model load (~6 s
+    // cold, <50 ms warm) on the embedding channel.
+    const fda = await renderFdaFoodCode(userQuestion);
     if (fda.text) {
       text += fda.text;
       if (fda.source) sources.push(fda.source);
@@ -866,60 +871,25 @@ interface MultiSourceSection {
 // no-ops with `{text:'', source:null}` so the rest of the context
 // builder is unaffected.
 //
+// Retrieval uses datapackSearch.hybrid() over the safety bucket: BM25
+// + BGE-small cosine fused via reciprocal-rank-fusion. Hybrid handles
+// natural-language questions ("what's the cooking temp for chicken?")
+// directly — the previous FTS-only path needed a token-OR workaround
+// because phrasing the whole question as one FTS5 phrase yielded zero
+// hits.
+//
 // Body text is truncated to MAX_FDA_BODY_CHARS so a single hit
 // (some sections have ~10k-char Annex 3 commentary) can't blow past
 // the overall MAX_CONTEXT_CHARS budget. Hits are deduped by
 // section_id because the corpus has paired regulatory + Annex 3
-// entries with the same id; we keep the first (= best BM25) match.
+// entries with the same id; we keep the first (= best fused) match.
 
 const MAX_FDA_HITS = 3;
 const MAX_FDA_BODY_CHARS = 1200;
-const MAX_FDA_QUERY_TOKENS = 8;
-
-// Common English stopwords that bring no signal to FTS BM25 — keeping
-// them in the OR expression just dilutes ranking. Intentionally small;
-// FTS5's porter stemmer does the rest.
-const FDA_QUERY_STOPWORDS = new Set([
-  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'but', 'by', 'can', 'do',
-  'does', 'for', 'from', 'how', 'i', 'if', 'in', 'is', 'it', 'its',
-  'me', 'my', 'of', 'on', 'or', 'should', 'so', 'than', 'that', 'the',
-  'this', 'to', 'we', 'what', 'when', 'where', 'which', 'why', 'will',
-  'with', 'you', 'your',
-]);
-
-/**
- * Build an FTS5 MATCH expression from a free-form user question.
- * Each surviving token goes through `escapeFtsPhrase` (per the
- * datapackSearch contract — never pass raw user text to MATCH), and
- * the quoted phrases are OR'd so any one of them can hit. Tokens
- * shorter than 3 chars or in the stopword set are dropped to keep
- * BM25 ranking meaningful. Returns '' when nothing useful survives.
- */
-function buildFdaQuery(
-  question: string,
-  escape: (s: string) => string
-): string {
-  const tokens = question
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((t) => t.length >= 3 && !FDA_QUERY_STOPWORDS.has(t));
-  // De-dupe while preserving order.
-  const uniq: string[] = [];
-  const seen = new Set<string>();
-  for (const t of tokens) {
-    if (seen.has(t)) continue;
-    seen.add(t);
-    uniq.push(t);
-    if (uniq.length >= MAX_FDA_QUERY_TOKENS) break;
-  }
-  if (!uniq.length) return '';
-  return uniq.map((t) => escape(t)).join(' OR ');
-}
 
 interface DatapackSearchDeps {
   available: () => boolean;
-  fts: typeof datapackSearch.fts;
-  escapeFtsPhrase: typeof datapackSearch.escapeFtsPhrase;
+  hybrid: typeof datapackSearch.hybrid;
   getFdaSection: typeof datapackSearch.getFdaSection;
 }
 
@@ -939,53 +909,84 @@ function truncateSafe(s: string, n: number): string {
 }
 
 /**
+ * Pull a string field from a hybrid hit. Hybrid hits surface either
+ * the FTS envelope (when both channels matched a row) or the
+ * per-bucket semantic metadata envelope (when only the embedding
+ * side scored it). The two name fields differently — `subtitle`
+ * (FTS) vs `section_id` (semantic) for the FDA section id, etc. —
+ * so we look up each field by both names and return the first
+ * non-empty hit.
+ */
+function pickHybridField(
+  h: HybridHit,
+  ...candidates: string[]
+): string {
+  for (const k of candidates) {
+    const v = h[k];
+    if (typeof v === 'string' && v.trim()) return v.trim();
+  }
+  return '';
+}
+
+/**
  * Render the FDA Food Code grounding block. Exported so tests can
  * exercise it directly without spinning up the full grounded-context
  * graph. `deps` is an injection seam for tests — production callers
  * should always use the default real datapackSearch module.
+ *
+ * Async because hybrid retrieval needs to await the BGE model
+ * (transformers.js, ONNX) on the embedding channel; the FTS channel
+ * is synchronous but we await both together via Promise.all inside
+ * datapackSearch.hybrid().
  */
-export function renderFdaFoodCode(
+export async function renderFdaFoodCode(
   question: string,
   deps: DatapackSearchDeps = datapackSearch
-): OversightSection {
+): Promise<OversightSection> {
   if (!deps.available()) return { text: '', source: null };
 
   const trimmed = (question || '').trim();
   if (!trimmed) return { text: '', source: null };
 
-  // FTS5 phrase-OR query built from sanitized user tokens. Wrapping
-  // each token via escapeFtsPhrase keeps user-controlled punctuation
-  // out of the MATCH parser, which would otherwise reject the query.
-  const expr = buildFdaQuery(trimmed, deps.escapeFtsPhrase);
-  if (!expr) return { text: '', source: null };
-
-  const hits = deps.fts(expr, {
-    source: 'fda',
-    limit: MAX_FDA_HITS,
-  }) as FtsHit[];
+  // Hybrid retrieval handles natural-language questions directly —
+  // datapackSearch.hybrid() runs the FTS query through escapeFtsPhrase
+  // internally, so we never pass raw user text to the FTS5 parser.
+  const hits = await deps.hybrid(trimmed, {
+    bucket: 'safety',
+    // Pull more than MAX_FDA_HITS so the dedupe-by-section_id pass
+    // below has room: the safety bucket frequently surfaces paired
+    // regulatory + Annex 3 entries with the same section_id, and we
+    // keep only the first (highest-RRF) per pair.
+    limit: MAX_FDA_HITS * 2,
+  });
   if (!hits.length) return { text: '', source: null };
 
-  // Dedupe by section_id (paired regulatory + Annex 3 rows share an
-  // id). FTS hits are pre-sorted by ascending BM25, so first-write
-  // wins keeps the better match.
+  // Dedupe by section_id. Hybrid hits are pre-sorted by descending
+  // RRF score, so first-write wins keeps the better fused match.
   const seen = new Set<string>();
-  const unique: FtsHit[] = [];
+  const unique: HybridHit[] = [];
   for (const h of hits) {
-    const key = (h.subtitle || '').trim();
-    if (key && seen.has(key)) continue;
-    if (key) seen.add(key);
+    const sectionId = pickHybridField(h, 'subtitle', 'section_id');
+    if (sectionId && seen.has(sectionId)) continue;
+    if (sectionId) seen.add(sectionId);
     unique.push(h);
+    if (unique.length >= MAX_FDA_HITS) break;
   }
   if (!unique.length) return { text: '', source: null };
 
   let text = '\nFDA FOOD CODE (regulatory text — cite § when answering):\n';
   for (const h of unique) {
-    const sectionId = (h.subtitle || '').trim() || '(no §)';
-    const title = (h.title || '').trim() || '(untitled)';
-    const where = (h.extra || '').trim();
-    const sec = deps.getFdaSection({ rowid: Number(h.id) }) as
-      | FdaSection
-      | null;
+    const sectionId = pickHybridField(h, 'subtitle', 'section_id') || '(no §)';
+    const title = pickHybridField(h, 'title') || '(untitled)';
+    const where = pickHybridField(h, 'extra', 'chapter', 'annex');
+    // The hybrid hit's id field varies — FTS envelope uses `id`,
+    // semantic envelope uses `rowid`. Either way, we want the
+    // INTEGER fda_food_code_sections.rowid for the body lookup.
+    const rowidRaw = h.id ?? h.rowid;
+    const rowid = typeof rowidRaw === 'number' ? rowidRaw : Number(rowidRaw);
+    const sec = Number.isFinite(rowid)
+      ? ((deps.getFdaSection({ rowid }) as FdaSection | null) ?? null)
+      : null;
     const body = sec?.body ? truncateSafe(sec.body, MAX_FDA_BODY_CHARS) : '';
     text += `  - [§ ${sectionId}] ${title}${where ? ` (${where})` : ''}\n`;
     if (body) text += `    ${body.replace(/\n/g, '\n    ')}\n`;
