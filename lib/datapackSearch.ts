@@ -753,3 +753,132 @@ export async function semantic(
   }
   return hits;
 }
+
+// ── Hybrid (BM25 + cosine fusion) ─────────────────────────────────
+
+export type HybridBucket = 'recipes' | 'techniques' | 'safety' | 'ingredients';
+
+export interface HybridHit {
+  /** RRF fused score — higher is better. */
+  score: number;
+  /** Which bucket this query targeted. */
+  bucket: HybridBucket;
+  /** Allow either source-table envelope (FTS hit shape) or per-bucket
+   *  metadata fields (semantic hit shape) to ride along — callers
+   *  identify a hit via the per-source id fields. */
+  [k: string]: unknown;
+}
+
+// Bucket → FTS source mapping. Two buckets share one FTS source
+// because the underlying corpus is the same — the embedding bucketing
+// gives us topic separation, not the FTS tokenizer. ingredients goes
+// to USDA, safety to FDA, the two Wikibooks buckets to wikibooks.
+const HYBRID_FTS_SOURCE: Record<HybridBucket, Exclude<FtsSource, 'all'>> = {
+  recipes: 'wikibooks',
+  techniques: 'wikibooks',
+  safety: 'fda',
+  ingredients: 'usda',
+};
+
+// Pick the most-stable id available from a hit (FTS or semantic). Used
+// to dedupe across the two retrieval channels — the same FDA section
+// or USDA food can appear in both lists with different envelope shapes.
+// Order matters: section_id beats fdc_id beats code beats page_id beats
+// rowid beats id beats title. Same priority list as scripts/datapack/
+// search.py so the two clients agree on identity for any future
+// integration tests.
+function hybridKey(row: Record<string, unknown>): string {
+  for (const k of [
+    'section_id',
+    'fdc_id',
+    'code',
+    'page_id',
+    'rowid',
+    'id',
+  ]) {
+    const v = row[k];
+    if (v !== undefined && v !== null && v !== '') {
+      return `${k}:${v}`;
+    }
+  }
+  const t = row['title'];
+  return t !== undefined && t !== null && t !== '' ? `title:${t}` : '';
+}
+
+/**
+ * Reciprocal-rank-fusion of FTS5 + semantic over a single bucket.
+ *
+ * `rrfK` is the standard 60. We pull `Math.max(limit * 4, 40)` from
+ * each side so the fusion has reorder room, then collapse to `limit`.
+ * Returns one merged list ordered by fused score (higher is better).
+ *
+ * Returns `[]` when:
+ *   - the data pack isn't mounted (`available()` is false)
+ *   - the per-bucket vectors aren't built
+ *   - the query is empty / whitespace
+ *   - the BGE model fails to load (caller can retry — model promise
+ *     is cleared on rejection)
+ */
+export async function hybrid(
+  query: string,
+  opts: { bucket: HybridBucket; limit?: number; rrfK?: number }
+): Promise<HybridHit[]> {
+  const trimmed = query?.trim();
+  if (!trimmed) return [];
+  if (!available()) return [];
+
+  const bucket = opts.bucket;
+  const ftsSource = HYBRID_FTS_SOURCE[bucket];
+  if (!ftsSource) return [];
+
+  const limit = Math.max(1, Math.min(200, opts.limit ?? 20));
+  const rrfK = Math.max(1, opts.rrfK ?? 60);
+  const wide = Math.max(limit * 4, 40);
+
+  // Pull both channels concurrently so the 30 ms FTS query and the
+  // model+vector load (or warm-cache 5 ms) overlap rather than serialize.
+  const [ftsHits, semHits] = await Promise.all([
+    Promise.resolve(fts(escapeFtsPhrase(trimmed), { source: ftsSource, limit: wide })),
+    semantic(trimmed, { bucket, limit: wide }),
+  ]);
+
+  // RRF accumulator keyed off hybridKey().
+  type FuseEntry = {
+    fused: number;
+    ftsHit: FtsHit | null;
+    semHit: SemanticHit | null;
+  };
+  const fused = new Map<string, FuseEntry>();
+
+  for (let rank = 0; rank < ftsHits.length; rank++) {
+    const h = ftsHits[rank]!;
+    const k = hybridKey(h as unknown as Record<string, unknown>);
+    if (!k) continue;
+    const cur = fused.get(k) ?? { fused: 0, ftsHit: null, semHit: null };
+    cur.fused += 1 / (rrfK + rank);
+    cur.ftsHit = h;
+    fused.set(k, cur);
+  }
+  for (let rank = 0; rank < semHits.length; rank++) {
+    const h = semHits[rank]!;
+    const k = hybridKey(h as Record<string, unknown>);
+    if (!k) continue;
+    const cur = fused.get(k) ?? { fused: 0, ftsHit: null, semHit: null };
+    cur.fused += 1 / (rrfK + rank);
+    cur.semHit = h;
+    fused.set(k, cur);
+  }
+
+  const ordered = [...fused.values()].sort((a, b) => b.fused - a.fused);
+
+  // Surface shape matches the FTS hit envelope when available (the
+  // route+UI know how to drill into FtsHit by source+id) and falls
+  // back to the semantic envelope otherwise. This keeps the existing
+  // lookupUrlFor / drill-in plumbing in the UI working unchanged.
+  const out: HybridHit[] = [];
+  for (const e of ordered.slice(0, limit)) {
+    const base = e.ftsHit ?? e.semHit ?? {};
+    out.push({ ...(base as Record<string, unknown>), score: e.fused, bucket });
+  }
+  return out;
+}

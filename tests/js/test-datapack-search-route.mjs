@@ -176,6 +176,41 @@ describe('GET /api/datapack/search — semantic (op=semantic)', { skip: !isAvail
   });
 });
 
+describe('GET /api/datapack/search — hybrid (op=hybrid)', { skip: !isAvailable && skipMsg }, () => {
+  it('rejects missing q', async () => {
+    const res = await GET(getReq('?op=hybrid&bucket=safety'));
+    assert.strictEqual(res.status, 400);
+    const body = await res.json();
+    assert.strictEqual(body.error, 'q required');
+  });
+
+  it('rejects missing/unknown bucket', async () => {
+    const r1 = await GET(getReq('?op=hybrid&q=eggs'));
+    assert.strictEqual(r1.status, 400);
+    const r2 = await GET(getReq('?op=hybrid&q=eggs&bucket=junk'));
+    assert.strictEqual(r2.status, 400);
+  });
+
+  it('returns hits sorted by descending RRF score for a safety query', async () => {
+    const res = await GET(
+      getReq('?op=hybrid&q=rules%20for%20thawing%20frozen%20food&bucket=safety&limit=5')
+    );
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.ok, true);
+    assert.strictEqual(body.bucket, 'safety');
+    assert.ok(Array.isArray(body.hits) && body.hits.length > 0);
+    for (let i = 1; i < body.hits.length; i++) {
+      assert.ok(body.hits[i - 1].score >= body.hits[i].score, 'sorted by descending fused score');
+    }
+    // Top-3 should mention thawing somewhere — both the lexical FTS
+    // hit on §3-501.13 Thawing and the semantic top hit on the same
+    // section should fuse into the leader.
+    const top3JSON = JSON.stringify(body.hits.slice(0, 3)).toLowerCase();
+    assert.ok(/thaw|3-501\.1[13]/.test(top3JSON), 'thawing/§3-501.1x section should rank in top-3');
+  });
+});
+
 describe('GET /api/datapack/search — direct lookups', { skip: !isAvailable && skipMsg }, () => {
   it('op=usda_food returns food + nutrients', async () => {
     const res = await GET(getReq('?op=usda_food&fdc_id=171688'));

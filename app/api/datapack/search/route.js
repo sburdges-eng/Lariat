@@ -1,6 +1,7 @@
 import {
   fts,
   semantic,
+  hybrid,
   escapeFtsPhrase,
   available,
   stats,
@@ -127,6 +128,41 @@ export async function GET(req) {
         return Response.json(
           {
             error: 'semantic encode failed',
+            detail: String(err?.message ?? err),
+          },
+          { status: 502 }
+        );
+      }
+      return Response.json({ ok: true, query: q, bucket, hits });
+    }
+
+    if (op === 'hybrid') {
+      const q = clipQuery(url.searchParams.get('q'));
+      if (!q) {
+        return Response.json({ error: 'q required' }, { status: 400 });
+      }
+      const bucket = url.searchParams.get('bucket');
+      if (!bucket || !ALLOWED_BUCKETS.has(bucket)) {
+        return Response.json(
+          {
+            error: `bucket required; allowed: ${[...ALLOWED_BUCKETS].join(', ')}`,
+          },
+          { status: 400 }
+        );
+      }
+      const limit = parseLimit(url.searchParams.get('limit'));
+      let hits;
+      try {
+        hits = await hybrid(q, { bucket, limit });
+      } catch (err) {
+        // Mirrors op=semantic: a model-load failure is upstream, not a
+        // caller bug. The hybrid implementation also catches FTS
+        // syntax errors implicitly via escapeFtsPhrase, so a 502 here
+        // means the embedding side broke.
+        console.error('hybrid() failed:', err);
+        return Response.json(
+          {
+            error: 'hybrid encode failed',
             detail: String(err?.message ?? err),
           },
           { status: 502 }

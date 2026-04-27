@@ -34,6 +34,7 @@ const BUCKET_OPTIONS = [
 const MODE_OPTIONS = [
   { value: 'lexical', label: 'Lexical (BM25)' },
   { value: 'semantic', label: 'Semantic (BGE)' },
+  { value: 'hybrid', label: 'Hybrid (RRF)' },
 ];
 
 // Cap the nutrient drill-in to a sensible subset. We match by
@@ -368,9 +369,13 @@ export default function DatapackSearchClient() {
     // Mode picks the API op + which selector value to forward:
     //   lexical   → ?op=search&source=…
     //   semantic  → ?op=semantic&bucket=…
+    //   hybrid    → ?op=hybrid&bucket=…   (RRF fusion of the above two)
     const params = new URLSearchParams({ q: trimmed, limit: '20' });
     if (modeArg === 'semantic') {
       params.set('op', 'semantic');
+      params.set('bucket', srcOrBucket);
+    } else if (modeArg === 'hybrid') {
+      params.set('op', 'hybrid');
       params.set('bucket', srcOrBucket);
     } else {
       params.set('source', srcOrBucket);
@@ -419,22 +424,31 @@ export default function DatapackSearchClient() {
       return;
     }
 
-    // Semantic responses carry the per-bucket metadata.jsonl shape
-    // directly. Run them through the normalizer so the rendering
+    // Semantic + hybrid responses carry per-bucket metadata.jsonl
+    // fields directly (or, for hybrid, the FtsHit envelope when both
+    // channels matched). Normalize semantic hits so the rendering
     // pipeline (grouping, drill-in, lookupUrlFor) sees the same
     // {score, source, id, title, subtitle, extra} shape lexical
-    // already speaks.
-    const isSemantic = modeArg === 'semantic';
-    const hits = isSemantic
-      ? body.hits.map(normalizeSemanticHit)
+    // already speaks. Hybrid hits prefer the FTS envelope when
+    // available — those already match — but fall through the
+    // normalizer when only the semantic side scored a row.
+    const isBucketed = modeArg === 'semantic' || modeArg === 'hybrid';
+    const hits = isBucketed
+      ? body.hits.map((h) =>
+          // FTS envelope already has the right shape (typeof title is
+          // present even when null; .source / .id are required).
+          typeof h.source === 'string' && 'id' in h && 'title' in h
+            ? h
+            : normalizeSemanticHit(h)
+        )
       : body.hits;
     setResponse({
       kind: 'ok',
       hits,
       query: body.query,
       mode: modeArg,
-      source: isSemantic ? null : body.source,
-      bucket: isSemantic ? body.bucket : null,
+      source: isBucketed ? null : body.source,
+      bucket: isBucketed ? body.bucket : null,
     });
   }, []);
 
