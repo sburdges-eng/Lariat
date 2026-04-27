@@ -42,6 +42,18 @@ describe('renderUsdaIngredients — (a) ingredient question with data pack', { s
     assert.ok(out.source);
     assert.equal(out.source.type, 'usda_ingredients');
     assert.match(out.source.detail, /\d+ food\(s\)/);
+    // Unit casing — USDA's raw `unit_name` is uppercase (`KCAL`); the
+    // renderer must normalise to the conventional `kcal` form.
+    assert.match(out.text, /kcal/);
+    assert.doesNotMatch(out.text, /KCAL/);
+    // Display-name shortening — the verbose "Total lipid (fat)" /
+    // "Sodium, Na" / "Sugars, total" labels are rewritten to the
+    // compact "Fat" / "Sodium" / "Sugars" forms. We can't guarantee any
+    // single one is on the chicken breast result, but the long-form
+    // strings should never appear.
+    assert.doesNotMatch(out.text, /Total lipid \(fat\)/);
+    assert.doesNotMatch(out.text, /Sodium, Na/);
+    assert.doesNotMatch(out.text, /Sugars, total/);
   });
 
   it('renders priority nutrients inline on the body line', async () => {

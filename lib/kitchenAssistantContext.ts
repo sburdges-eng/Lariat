@@ -1191,6 +1191,38 @@ function pickFdcId(h: HybridHit): number {
   return NaN;
 }
 
+// USDA's `unit_name` column is mostly uppercase (`KCAL`, `G`, `MG`,
+// `UG`, `IU`, `MG_ATE`, `SP_GR`) with one mixed-case outlier (`kJ`).
+// Empirically the eight distinct values in the normalized nutrients
+// jsonl are: G, IU, KCAL, MG, MG_ATE, SP_GR, UG, kJ. We rewrite to the
+// conventional human-readable casing so the LLM sees `109 kcal` rather
+// than `109 KCAL`. Anything unexpected passes through unchanged.
+function formatUnit(unitName: string | null | undefined): string {
+  if (!unitName) return '';
+  switch (unitName) {
+    case 'KCAL': return 'kcal';
+    case 'G': return 'g';
+    case 'MG': return 'mg';
+    case 'UG': return 'µg';
+    case 'IU': return 'IU';
+    case 'kJ': return 'kJ';
+    case 'MG_ATE': return 'mg α-TE';
+    case 'SP_GR': return 'sp.gr.';
+    default: return unitName;
+  }
+}
+
+// Short, LLM-friendly inline labels for the priority nutrients. USDA's
+// canonical names are verbose ("Total lipid (fat)", "Sodium, Na",
+// "Sugars, total"); we keep the canonical forms in USDA_NUTRIENT_PRIORITY
+// (used as a case-insensitive prefix match against nutrient_name) but
+// render the compact label here. Anything not in the map passes through.
+const PRIORITY_DISPLAY: Record<string, string> = {
+  'Total lipid (fat)': 'Fat',
+  'Sodium, Na': 'Sodium',
+  'Sugars, total': 'Sugars',
+};
+
 /**
  * Format the NUTRIENT_PRIORITY subset for one food as a single
  * inline line. Returns '' if no priority nutrient was reported.
@@ -1208,10 +1240,9 @@ function formatPriorityNutrients(nutrients: datapackSearch.UsdaNutrient[]): stri
     );
     if (!found) continue;
     if (found.amount == null) continue;
-    // Trim "Energy" off the long form ("Energy (Atwater General Factors)" etc.)
-    // and normalise common verbose names so the inline line stays compact.
-    const displayName = wanted === 'Total lipid (fat)' ? 'Total lipid (fat)' : wanted;
-    const unit = found.unit_name ? ` ${found.unit_name}` : '';
+    const displayName = PRIORITY_DISPLAY[wanted] ?? wanted;
+    const unitText = formatUnit(found.unit_name);
+    const unit = unitText ? ` ${unitText}` : '';
     parts.push(`${displayName} ${found.amount}${unit}`);
   }
   return parts.join(' · ');
