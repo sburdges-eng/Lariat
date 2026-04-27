@@ -1161,7 +1161,13 @@ const MAX_USDA_BODY_CHARS = 400;
 // Match the /datapack-search client's NUTRIENT_PRIORITY order. Exact
 // nutrient names from USDA are inconsistent on commas/units, so we
 // match by case-insensitive prefix the same way the UI does.
-const USDA_NUTRIENT_PRIORITY = [
+//
+// NOTE: this constant is duplicated at app/kitchen-assistant/citationHelpers.js
+// (the chat-UI client component, which can't import from `lib/` cleanly via
+// its current 'use client' shape). Keep these two copies in sync — the guard
+// test in tests/js/test-kitchen-assistant-citations.mjs asserts deep-equal.
+// Exported (rather than module-private) so the guard test can read it.
+export const USDA_NUTRIENT_PRIORITY = [
   'Energy',
   'Protein',
   'Carbohydrate',
@@ -1197,7 +1203,12 @@ function pickFdcId(h: HybridHit): number {
 // jsonl are: G, IU, KCAL, MG, MG_ATE, SP_GR, UG, kJ. We rewrite to the
 // conventional human-readable casing so the LLM sees `109 kcal` rather
 // than `109 KCAL`. Anything unexpected passes through unchanged.
-function formatUnit(unitName: string | null | undefined): string {
+//
+// NOTE: this mapping is duplicated at app/kitchen-assistant/citationHelpers.js
+// as `formatUnit`. Keep the two copies in sync — the guard test in
+// tests/js/test-kitchen-assistant-citations.mjs asserts the same input/output
+// behaviour for both. Exported so the guard test can compare directly.
+export function formatUnit(unitName: string | null | undefined): string {
   if (!unitName) return '';
   switch (unitName) {
     case 'KCAL': return 'kcal';
@@ -1217,7 +1228,11 @@ function formatUnit(unitName: string | null | undefined): string {
 // "Sugars, total"); we keep the canonical forms in USDA_NUTRIENT_PRIORITY
 // (used as a case-insensitive prefix match against nutrient_name) but
 // render the compact label here. Anything not in the map passes through.
-const PRIORITY_DISPLAY: Record<string, string> = {
+//
+// NOTE: duplicated at app/kitchen-assistant/citationHelpers.js as
+// `PRIORITY_DISPLAY`. Keep in sync — the guard test in
+// tests/js/test-kitchen-assistant-citations.mjs asserts deep-equal.
+export const PRIORITY_DISPLAY: Record<string, string> = {
   'Total lipid (fat)': 'Fat',
   'Sodium, Na': 'Sodium',
   'Sugars, total': 'Sugars',

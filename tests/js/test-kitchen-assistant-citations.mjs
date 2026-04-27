@@ -6,10 +6,16 @@
 // shared infrastructure), so this suite pins the duplicate's behaviour
 // and guards against drift.
 //
-// Run: node --test tests/js/test-kitchen-assistant-citations.mjs
+// Run: node --experimental-strip-types --test tests/js/test-kitchen-assistant-citations.mjs
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { register } from 'node:module';
+
+// Resolver hook lets the constant-drift guard at the bottom import the
+// .ts canonical copy from `lib/kitchenAssistantContext.ts` alongside the
+// .js helpers. Without it, Node's ESM resolver wouldn't find the .ts.
+register(new URL('./resolver.mjs', import.meta.url));
 
 import {
   FDA_BODY_EXCERPT_CHARS,
@@ -21,6 +27,8 @@ import {
   formatUsdaCitation,
   pickPriorityNutrients,
 } from '../../app/kitchen-assistant/citationHelpers.js';
+
+const libCtx = await import('../../lib/kitchenAssistantContext.ts');
 
 // ── excerptBody ─────────────────────────────────────────────────
 
@@ -377,5 +385,44 @@ describe('Constants', () => {
   it('FDA_BODY_EXCERPT_CHARS is ~400 (within spec)', () => {
     assert.ok(FDA_BODY_EXCERPT_CHARS <= 400);
     assert.ok(FDA_BODY_EXCERPT_CHARS >= 200);
+  });
+});
+
+// ── Drift guard against lib/kitchenAssistantContext.ts ──────────
+//
+// citationHelpers.js intentionally duplicates NUTRIENT_PRIORITY,
+// PRIORITY_DISPLAY, and the formatUnit mapping from the canonical
+// copy in lib/kitchenAssistantContext.ts (the chat-UI client component
+// can't cleanly import from `lib/` under its current 'use client'
+// shape). Per-file comments warn maintainers to keep the two copies in
+// sync; this block is the durable defence — it FAILS the suite if the
+// constants drift, so a one-sided edit is caught at test time instead
+// of silently changing what the user sees vs. what the LLM saw.
+
+describe('Drift guard — citationHelpers.js mirrors lib/kitchenAssistantContext.ts', () => {
+  it('NUTRIENT_PRIORITY matches USDA_NUTRIENT_PRIORITY exactly', () => {
+    assert.deepEqual(NUTRIENT_PRIORITY, libCtx.USDA_NUTRIENT_PRIORITY);
+  });
+
+  it('PRIORITY_DISPLAY matches the lib copy exactly', () => {
+    assert.deepEqual(PRIORITY_DISPLAY, libCtx.PRIORITY_DISPLAY);
+  });
+
+  it('formatUnit produces the same output as the lib copy for every known input', () => {
+    // Cover every case-arm in the switch + a couple of edge cases.
+    const inputs = [
+      'KCAL', 'G', 'MG', 'UG', 'IU', 'kJ', 'MG_ATE', 'SP_GR',
+      // Pass-through path (unknown unit).
+      'PCT_DV',
+      // Empty / nullish path.
+      '', null, undefined,
+    ];
+    for (const u of inputs) {
+      assert.equal(
+        formatUnit(u),
+        libCtx.formatUnit(u),
+        `formatUnit(${JSON.stringify(u)}) drifted between citationHelpers.js and lib/kitchenAssistantContext.ts`
+      );
+    }
   });
 });

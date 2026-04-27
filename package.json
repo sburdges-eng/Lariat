@@ -68,7 +68,7 @@
     "test:allergen-lookup-helpers": "node --test tests/js/test-allergen-lookup-helpers.mjs",
     "test:kitchen-assistant-datapack": "node --experimental-strip-types --test tests/js/test-kitchen-assistant-datapack.mjs",
     "test:kitchen-assistant-usda-ingredients": "node --experimental-strip-types --test tests/js/test-kitchen-assistant-usda-ingredients.mjs",
-    "test:kitchen-assistant-citations": "node --test tests/js/test-kitchen-assistant-citations.mjs",
+    "test:kitchen-assistant-citations": "node --experimental-strip-types --test tests/js/test-kitchen-assistant-citations.mjs",
     "test:margin-deltas": "node --experimental-strip-types --test tests/js/test-margin-deltas.mjs",
     "test:margin-deltas-api": "node --experimental-strip-types --test tests/js/test-margin-deltas-api.mjs",
     "test:command-summary-api": "node --test tests/js/test-command-summary-api.mjs",

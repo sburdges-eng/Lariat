@@ -278,9 +278,17 @@ export default function KitchenAssistantClient({ locQuery }) {
     const key = badgeCacheKey(type);
     const current = badgeState[key];
 
-    // Already loaded — just collapse / re-open without a re-fetch
-    // (acceptance criteria #4: cache resolved payload per badge).
-    if (current && (current.status === 'ok' || current.status === 'error' || current.status === 'unavailable')) {
+    // Already resolved — toggle collapse without a re-fetch.
+    //
+    //   ok          → cached payload is valid; flip the open/closed bit
+    //                 (acceptance criteria #4: cache resolved payload).
+    //   unavailable → the data pack stays unmounted on this server;
+    //                 a re-fetch wouldn't help, so just toggle the
+    //                 hint visibility.
+    //   error       → fall through to the fresh-fetch path below so a
+    //                 transient 500 doesn't strand the badge in a state
+    //                 that needs a page refresh to recover from.
+    if (current && (current.status === 'ok' || current.status === 'unavailable')) {
       setBadgeState((prev) => ({
         ...prev,
         [key]: { ...current, collapsed: !current.collapsed },
@@ -303,7 +311,11 @@ export default function KitchenAssistantClient({ locQuery }) {
     const q = askedQuestion.trim();
     if (!q) return;
 
-    // Fresh fetch.
+    // Fresh fetch — also the retry path for an errored badge. Abort any
+    // controller still associated with this key (defensive: the prior
+    // failed attempt should have already cleared its own ref in the
+    // catch handler, but if a stale controller leaked we cancel it
+    // before installing the new one).
     badgeAbortRef.current[key]?.abort();
     const ctrl = new AbortController();
     badgeAbortRef.current[key] = ctrl;
