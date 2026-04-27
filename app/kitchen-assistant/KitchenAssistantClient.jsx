@@ -2,15 +2,143 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { formatFdaCitation, formatUsdaCitation } from './citationHelpers';
+
 const LOC_KEY = 'lariat_location';
 const LANG_KEY = 'lariat_language';
+
+// Badge types backed by the data pack — clickable, expand inline to
+// show the actual cited rows. Other badge types (eighty_six,
+// inventory, signoffs, line_checks, recipes, food_safety…) stay as
+// plain text labels per Task D acceptance criteria #5.
+const DATAPACK_BADGE_TYPES = new Set(['fda_food_code', 'usda_ingredients']);
+
+// Badge cache key — meta is rebuilt per submit, so type alone scopes
+// the cache to the lifetime of one assistant answer. (We reset
+// citations on every fresh submit anyway.)
+function badgeCacheKey(type) {
+  return type;
+}
+
+// Resolve `op=hybrid&bucket=…` hits + their per-row follow-ups into
+// the citation payload the UI renders. Fan-out is bounded to the top
+// `limit` hits; follow-up failures are absorbed (we still surface the
+// hit with an empty body / no nutrients) so a single 500 doesn't
+// poison the whole drill-in.
+async function resolveFdaCitations(question, signal) {
+  const params = new URLSearchParams({
+    op: 'hybrid',
+    q: question,
+    bucket: 'safety',
+    limit: '3',
+  });
+  const res = await fetch(`/api/datapack/search?${params.toString()}`, {
+    signal,
+  });
+  if (res.status === 503) return { kind: 'unavailable' };
+  let body = null;
+  try {
+    body = await res.json();
+  } catch {
+    /* fall through */
+  }
+  if (!res.ok || !body || !Array.isArray(body.hits)) {
+    const msg =
+      (body && typeof body.error === 'string' && body.error) ||
+      `HTTP ${res.status}`;
+    return { kind: 'error', message: msg };
+  }
+  // Hybrid hits are heterogeneous (FTS envelope vs semantic envelope).
+  // We accept both — formatFdaCitation collapses the shape.
+  const hits = body.hits.filter(
+    (h) =>
+      h && (h.source === 'fda' || h.source === 'fda_food_code' || h.rowid != null || h.id != null)
+  );
+  // Fan-out the section follow-ups in parallel. allSettled keeps a
+  // partial render when some succeed and some fail.
+  const followUps = await Promise.allSettled(
+    hits.map((h) => {
+      const rowid = h.rowid ?? h.id;
+      if (rowid === null || rowid === undefined) {
+        return Promise.resolve(null);
+      }
+      const url = `/api/datapack/search?op=fda_section&rowid=${encodeURIComponent(
+        String(rowid)
+      )}`;
+      return fetch(url, { signal }).then((r) =>
+        r.ok ? r.json() : null
+      );
+    })
+  );
+  const citations = hits.map((h, i) => {
+    const settled = followUps[i];
+    const sectionRow =
+      settled.status === 'fulfilled' && settled.value && settled.value.section
+        ? settled.value.section
+        : null;
+    return formatFdaCitation(h, sectionRow);
+  });
+  return { kind: 'ok', citations };
+}
+
+async function resolveUsdaCitations(question, signal) {
+  const params = new URLSearchParams({
+    op: 'hybrid',
+    q: question,
+    bucket: 'ingredients',
+    limit: '3',
+  });
+  const res = await fetch(`/api/datapack/search?${params.toString()}`, {
+    signal,
+  });
+  if (res.status === 503) return { kind: 'unavailable' };
+  let body = null;
+  try {
+    body = await res.json();
+  } catch {
+    /* fall through */
+  }
+  if (!res.ok || !body || !Array.isArray(body.hits)) {
+    const msg =
+      (body && typeof body.error === 'string' && body.error) ||
+      `HTTP ${res.status}`;
+    return { kind: 'error', message: msg };
+  }
+  const hits = body.hits.filter(
+    (h) => h && (h.source === 'usda' || h.fdc_id != null || h.id != null)
+  );
+  const followUps = await Promise.allSettled(
+    hits.map((h) => {
+      const fdcId = h.fdc_id ?? h.id;
+      if (fdcId === null || fdcId === undefined) {
+        return Promise.resolve(null);
+      }
+      const url = `/api/datapack/search?op=usda_food&fdc_id=${encodeURIComponent(
+        String(fdcId)
+      )}`;
+      return fetch(url, { signal }).then((r) => (r.ok ? r.json() : null));
+    })
+  );
+  const citations = hits.map((h, i) => {
+    const settled = followUps[i];
+    const payload =
+      settled.status === 'fulfilled' && settled.value ? settled.value : null;
+    const foodRow = payload && payload.food ? payload.food : null;
+    const nutrients = payload && payload.nutrients ? payload.nutrients : null;
+    return formatUsdaCitation(h, foodRow, nutrients);
+  });
+  return { kind: 'ok', citations };
+}
 export default function KitchenAssistantClient({ locQuery }) {
-  const [enabled, setEnabled] = useState(null);
   const [ollamaOk, setOllamaOk] = useState(null);
   const [model, setModel] = useState('');
   const [message, setMessage] = useState('');
   const [answer, setAnswer] = useState('');
   const [meta, setMeta] = useState(null);
+  // Question that produced the current `answer` / `meta` — captured at
+  // submit time so badge clicks have a stable `q` even after the user
+  // edits the textarea for their next question.
+  const [askedQuestion, setAskedQuestion] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const [language, setLanguage] = useState('English');
@@ -18,6 +146,17 @@ export default function KitchenAssistantClient({ locQuery }) {
   const [speechSupported, setSpeechSupported] = useState(false);
   const [SpeechRec, setSpeechRec] = useState(null);
   const recognitionRef = useRef(null);
+  // Per-badge drill-in state, keyed by badge type. Shape:
+  //   { status: 'loading' | 'ok' | 'error' | 'unavailable' | 'closed',
+  //     citations?: [...], message?: string }
+  // 'closed' is only ever the result of an explicit collapse — we keep
+  // the cached payload on the entry so a second click re-opens without
+  // a re-fetch (acceptance criteria #4).
+  const [badgeState, setBadgeState] = useState({});
+  // AbortController for the in-flight badge fan-out, scoped per badge
+  // so a click on the FDA badge doesn't cancel an in-flight USDA fetch
+  // and vice versa.
+  const badgeAbortRef = useRef({});
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -34,12 +173,10 @@ export default function KitchenAssistantClient({ locQuery }) {
     fetch('/api/kitchen-assistant?ping=1')
       .then((r) => r.json())
       .then((d) => {
-        setEnabled(!!d.enabled);
         setModel(d.model || '');
         setOllamaOk(d.ollamaReachable);
       })
       .catch(() => {
-        setEnabled(false);
         setOllamaOk(false);
       });
   }, []);
@@ -92,6 +229,12 @@ export default function KitchenAssistantClient({ locQuery }) {
     setMeta(null);
     const q = message.trim();
     if (!q) return;
+    // Reset badge drill-in state on every fresh submit — the cached
+    // citations from the prior answer are no longer relevant.
+    setBadgeState({});
+    Object.values(badgeAbortRef.current).forEach((c) => c?.abort());
+    badgeAbortRef.current = {};
+    setAskedQuestion(q);
     setLoading(true);
     try {
       const loc = typeof window !== 'undefined' ? window.localStorage.getItem(LOC_KEY) : '';
@@ -121,21 +264,80 @@ export default function KitchenAssistantClient({ locQuery }) {
     }
   };
 
-  if (enabled === false) {
-    return (
-      <div className="card border-yellow">
-        <p className="m-0">
-          <strong>AI is off.</strong> Tell a manager to start the AI server on the office Mac.
-        </p>
-      </div>
-    );
-  }
+  // Cleanup any pending badge fan-outs on unmount so we don't leak
+  // requests if the user navigates mid-fetch.
+  useEffect(() => {
+    return () => {
+      Object.values(badgeAbortRef.current).forEach((c) => c?.abort());
+      badgeAbortRef.current = {};
+    };
+  }, []);
+
+  const toggleBadge = async (type) => {
+    if (!DATAPACK_BADGE_TYPES.has(type)) return;
+    const key = badgeCacheKey(type);
+    const current = badgeState[key];
+
+    // Already loaded — just collapse / re-open without a re-fetch
+    // (acceptance criteria #4: cache resolved payload per badge).
+    if (current && (current.status === 'ok' || current.status === 'error' || current.status === 'unavailable')) {
+      setBadgeState((prev) => ({
+        ...prev,
+        [key]: { ...current, collapsed: !current.collapsed },
+      }));
+      return;
+    }
+
+    // Already loading — second click cancels and collapses.
+    if (current && current.status === 'loading') {
+      badgeAbortRef.current[key]?.abort();
+      delete badgeAbortRef.current[key];
+      setBadgeState((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      return;
+    }
+
+    const q = askedQuestion.trim();
+    if (!q) return;
+
+    // Fresh fetch.
+    badgeAbortRef.current[key]?.abort();
+    const ctrl = new AbortController();
+    badgeAbortRef.current[key] = ctrl;
+    setBadgeState((prev) => ({ ...prev, [key]: { status: 'loading' } }));
+
+    try {
+      const result =
+        type === 'fda_food_code'
+          ? await resolveFdaCitations(q, ctrl.signal)
+          : await resolveUsdaCitations(q, ctrl.signal);
+      // If a newer click superseded this fetch (or unmount aborted),
+      // bail without writing stale state.
+      if (ctrl.signal.aborted) return;
+      if (badgeAbortRef.current[key] === ctrl) {
+        delete badgeAbortRef.current[key];
+      }
+      setBadgeState((prev) => ({ ...prev, [key]: { ...result, collapsed: false } }));
+    } catch (e) {
+      if (e?.name === 'AbortError') return;
+      if (badgeAbortRef.current[key] === ctrl) {
+        delete badgeAbortRef.current[key];
+      }
+      setBadgeState((prev) => ({
+        ...prev,
+        [key]: { status: 'error', message: String(e?.message || e), collapsed: false },
+      }));
+    }
+  };
 
   return (
     <>
-      {enabled && ollamaOk === false && (
+      {ollamaOk === false && (
         <div className="card mb-16 border-red" role="alert" aria-live="assertive">
-          <strong>AI is down.</strong> Can't connect to the server. Ask a manager.
+          <strong>AI is down.</strong> Can't connect to Ollama on the office Mac. Ask a manager to start it.
         </div>
       )}
 
@@ -231,14 +433,56 @@ export default function KitchenAssistantClient({ locQuery }) {
             </p>
           )}
           {meta?.sources && meta.sources.length > 0 && (
-            <details className="mt-12">
+            <details className="mt-12" open>
               <summary className="meta cursor-pointer">Books checked</summary>
-              <ul className="meta mt-8">
-                {meta.sources.map((s) => (
-                  <li key={`${s.type}-${s.detail}`}>
-                    <strong>{s.type}</strong>: {s.detail}
-                  </li>
-                ))}
+              <ul className="meta mt-8" style={{ listStyle: 'none', padding: 0 }}>
+                {meta.sources.map((s) => {
+                  const isClickable = DATAPACK_BADGE_TYPES.has(s.type);
+                  const key = `${s.type}-${s.detail}`;
+                  if (!isClickable) {
+                    return (
+                      <li key={key}>
+                        <strong>{s.type}</strong>: {s.detail}
+                      </li>
+                    );
+                  }
+                  const cacheKey = badgeCacheKey(s.type);
+                  const drill = badgeState[cacheKey];
+                  const open = drill && !drill.collapsed && (drill.status === 'ok' || drill.status === 'error' || drill.status === 'unavailable' || drill.status === 'loading');
+                  return (
+                    <li key={key} style={{ marginBottom: 6 }}>
+                      <button
+                        type="button"
+                        onClick={() => toggleBadge(s.type)}
+                        aria-expanded={Boolean(open)}
+                        aria-label={
+                          s.type === 'fda_food_code'
+                            ? 'Show FDA Food Code citations'
+                            : 'Show USDA ingredient citations'
+                        }
+                        style={{
+                          background: open ? 'var(--panel-2, #2a2a2a)' : 'transparent',
+                          border: '1px solid var(--border, #333)',
+                          borderRadius: 4,
+                          color: 'var(--text, inherit)',
+                          cursor: 'pointer',
+                          fontSize: 'inherit',
+                          padding: '2px 8px',
+                          textAlign: 'left',
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        <strong>{s.type}</strong>: {s.detail}
+                        <span aria-hidden="true" style={{ marginLeft: 6, color: 'var(--muted, #888)' }}>
+                          {open ? '▾' : '▸'}
+                        </span>
+                      </button>
+                      {open && (
+                        <CitationDrillIn type={s.type} state={drill} />
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </details>
           )}
@@ -250,5 +494,125 @@ export default function KitchenAssistantClient({ locQuery }) {
         </div>
       )}
     </>
+  );
+}
+
+// ── Citation drill-in panel ─────────────────────────────────────
+//
+// Rendered inline below an expanded data-pack badge. The state is the
+// per-badge drill-in entry (see badgeState in KitchenAssistantClient):
+// loading / error / unavailable / ok-with-citations. Hits get rendered
+// in priority order — FDA shows section_id + chapter/annex + body
+// excerpt; USDA shows description + food_category + nutrient line.
+
+function CitationDrillIn({ type, state }) {
+  if (!state) return null;
+  const wrapStyle = {
+    marginTop: 8,
+    padding: '8px 10px',
+    background: 'var(--panel-2, #2a2a2a)',
+    border: '1px solid var(--border, #333)',
+    borderRadius: 4,
+    fontSize: 12,
+    lineHeight: 1.5,
+  };
+  if (state.status === 'loading') {
+    return (
+      <div role="status" aria-live="polite" style={{ ...wrapStyle, color: 'var(--muted, #888)' }}>
+        {type === 'fda_food_code'
+          ? 'Fetching FDA citations…'
+          : 'Fetching USDA citations…'}
+      </div>
+    );
+  }
+  if (state.status === 'unavailable') {
+    return (
+      <div role="alert" style={{ ...wrapStyle, color: 'var(--muted, #888)' }}>
+        Data pack not available on this server.
+      </div>
+    );
+  }
+  if (state.status === 'error') {
+    return (
+      <div role="alert" style={{ ...wrapStyle, color: 'var(--ember-deep, #b15)' }}>
+        Couldn't load citations
+        {state.message ? `: ${state.message}` : '.'}
+      </div>
+    );
+  }
+  if (state.status !== 'ok' || !Array.isArray(state.citations)) return null;
+  if (state.citations.length === 0) {
+    return (
+      <div style={{ ...wrapStyle, color: 'var(--muted, #888)' }}>
+        No citations matched.
+      </div>
+    );
+  }
+  if (type === 'fda_food_code') {
+    return (
+      <div style={wrapStyle}>
+        {state.citations.map((c, i) => (
+          <FdaCitationRow key={`${c.rowid ?? i}`} citation={c} />
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div style={wrapStyle}>
+      {state.citations.map((c, i) => (
+        <UsdaCitationRow key={`${c.fdcId ?? i}`} citation={c} />
+      ))}
+    </div>
+  );
+}
+
+function FdaCitationRow({ citation }) {
+  const { title, sectionId, chapter, annex, excerpt } = citation;
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontWeight: 600 }}>{title || '(no title)'}</div>
+      <div style={{ color: 'var(--muted, #888)', fontSize: 11 }}>
+        {sectionId ? <code>{sectionId}</code> : null}
+        {sectionId && (chapter || annex) ? ' · ' : ''}
+        {chapter ? `Ch. ${chapter}` : ''}
+        {chapter && annex ? ' · ' : ''}
+        {annex ? `Annex ${annex}` : ''}
+      </div>
+      {excerpt ? (
+        <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{excerpt}</div>
+      ) : (
+        <div style={{ marginTop: 4, color: 'var(--muted, #888)' }}>
+          (body unavailable)
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UsdaCitationRow({ citation }) {
+  const { description, foodCategory, fdcId, brandOwner, nutrients } = citation;
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontWeight: 600 }}>{description || '(no description)'}</div>
+      <div style={{ color: 'var(--muted, #888)', fontSize: 11 }}>
+        {fdcId != null ? <code>fdc_id {fdcId}</code> : null}
+        {foodCategory ? ` · ${foodCategory}` : ''}
+        {brandOwner ? ` · ${brandOwner}` : ''}
+      </div>
+      {nutrients.length > 0 ? (
+        <div style={{ marginTop: 4 }}>
+          {nutrients
+            .map(
+              (n) =>
+                `${n.displayName} ${n.amount}${n.displayUnit ? ` ${n.displayUnit}` : ''}`
+            )
+            .join(' · ')}
+        </div>
+      ) : (
+        <div style={{ marginTop: 4, color: 'var(--muted, #888)' }}>
+          (no nutrients)
+        </div>
+      )}
+    </div>
   );
 }
