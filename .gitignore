@@ -79,3 +79,9 @@ data/lariat-data/normalized/
 data/lariat-data/indexes/
 # Keep manifests tracked (small JSON metadata)
 !data/lariat-data/manifests/
+
+# ── Toast API (weekly pull) ──────────────────────────────────
+# Token cache holds the bearer JWT — short-lived but sensitive.
+# Snapshots are raw paginated JSONL responses for the last N days;
+# they can hit hundreds of MB on busy weeks. Both belong off-repo.
+data/toast-api/
