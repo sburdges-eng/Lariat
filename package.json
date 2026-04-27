@@ -64,6 +64,7 @@
     "test:datapack": "node --experimental-strip-types --test tests/js/test-datapack-search.mjs",
     "test:datapack-route": "node --experimental-strip-types --test tests/js/test-datapack-search-route.mjs",
     "test:datapack-semantic": "node --experimental-strip-types --test tests/js/test-datapack-semantic.mjs",
+    "test:datapack-toggle-detail": "node --experimental-strip-types --test tests/js/test-datapack-search-toggle-detail.mjs",
     "test:kitchen-assistant-datapack": "node --experimental-strip-types --test tests/js/test-kitchen-assistant-datapack.mjs",
     "test:margin-deltas": "node --experimental-strip-types --test tests/js/test-margin-deltas.mjs",
     "test:margin-deltas-api": "node --experimental-strip-types --test tests/js/test-margin-deltas-api.mjs",

@@ -2,6 +2,8 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { nextDetails } from './detailsState';
+
 // Friendly source labels — order is the same display order used to
 // group hits below the form. 'all' is the default.
 const SOURCE_OPTIONS = [
@@ -470,50 +472,59 @@ export default function DatapackSearchClient() {
       .map(([s, hits]) => ({ source: s, hits }));
   }, [response]);
 
-  const toggleDetail = useCallback(
-    async (hit) => {
-      const key = hitKey(hit);
-      const existing = details[key];
-      // Collapse on second click.
-      if (existing && existing.status !== 'closed') {
-        setDetails((d) => ({ ...d, [key]: { ...existing, status: 'closed' } }));
-        return;
-      }
-      // Re-open from a previously-closed cached payload.
-      if (existing && existing.status === 'closed' && existing.data) {
-        setDetails((d) => ({ ...d, [key]: { ...existing, status: 'ok' } }));
-        return;
-      }
-      const url = lookupUrlFor(hit);
-      if (!url) return;
-      setDetails((d) => ({ ...d, [key]: { status: 'loading' } }));
-      let res;
-      try {
-        res = await fetch(url);
-      } catch (err) {
-        setDetails((d) => ({
-          ...d,
-          [key]: { status: 'error', error: `Network error: ${err?.message ?? String(err)}` },
-        }));
-        return;
-      }
-      let body = null;
-      try {
-        body = await res.json();
-      } catch {
-        /* fall through */
-      }
-      if (!res.ok) {
-        const msg =
-          (body && typeof body.error === 'string' && body.error) ||
-          `HTTP ${res.status}`;
-        setDetails((d) => ({ ...d, [key]: { status: 'error', error: msg } }));
-        return;
-      }
-      setDetails((d) => ({ ...d, [key]: { status: 'ok', data: body } }));
-    },
-    [details]
-  );
+  // toggleDetail closes over no React state. The click is dispatched
+  // through `setDetails((prev) => …)` so the state machine reads the
+  // freshest snapshot — fixes the perf issue where listing `details`
+  // in the dep array reallocated this callback (and every row's
+  // onClick) on every keystroke. The fetch URL is derived from the
+  // `hit` arg, so we only need its key for the post-fetch updates.
+  //
+  // Concurrent-click safety: `nextDetails` returns `'noop-loading'`
+  // when a fetch is already in flight for the same row, and the
+  // updater returns `prev` unchanged. We mirror that by tracking
+  // `shouldFetch` inside the updater and only awaiting the network
+  // when the synchronous flip set the row to `loading` here.
+  const toggleDetail = useCallback(async (hit) => {
+    const key = hitKey(hit);
+    const url = lookupUrlFor(hit);
+    if (!url) return;
+
+    let shouldFetch = false;
+    setDetails((prev) => {
+      const { next, action } = nextDetails(prev, key);
+      shouldFetch = action === 'open-fresh';
+      return next;
+    });
+    if (!shouldFetch) return;
+
+    let res;
+    try {
+      res = await fetch(url);
+    } catch (err) {
+      setDetails((prev) => ({
+        ...prev,
+        [key]: {
+          status: 'error',
+          error: `Network error: ${err?.message ?? String(err)}`,
+        },
+      }));
+      return;
+    }
+    let body = null;
+    try {
+      body = await res.json();
+    } catch {
+      /* fall through */
+    }
+    if (!res.ok) {
+      const msg =
+        (body && typeof body.error === 'string' && body.error) ||
+        `HTTP ${res.status}`;
+      setDetails((prev) => ({ ...prev, [key]: { status: 'error', error: msg } }));
+      return;
+    }
+    setDetails((prev) => ({ ...prev, [key]: { status: 'ok', data: body } }));
+  }, []);
 
   return (
     <div>
