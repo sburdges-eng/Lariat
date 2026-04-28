@@ -119,7 +119,16 @@
     "test:dish-menu-item-match": "node --experimental-strip-types --test tests/js/test-dish-menu-item-match.mjs",
     "test:drink-sku-extraction": "node --test tests/js/test-drink-sku-extraction.mjs",
     "test:vendor-prices-csv": "node --experimental-strip-types --test tests/js/test-import-vendor-prices.mjs",
-    "test:cook-message-classifier": "node --experimental-strip-types --test tests/js/test-cook-message-classifier.mjs"
+    "test:cook-message-classifier": "node --experimental-strip-types --test tests/js/test-cook-message-classifier.mjs",
+    "branches:list": "scripts/branches.sh list",
+    "branches:stale": "scripts/branches.sh stale",
+    "branches:merged": "scripts/branches.sh merged",
+    "branches:prune-merged": "scripts/branches.sh prune-merged",
+    "worktree:new": "scripts/worktree.sh new",
+    "worktree:list": "scripts/worktree.sh list",
+    "worktree:remove": "scripts/worktree.sh remove",
+    "worktree:lock": "scripts/worktree.sh lock",
+    "worktree:unlock": "scripts/worktree.sh unlock"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
@@ -129,7 +138,7 @@
     "react-dom": "18.3.1"
   },
   "simple-git-hooks": {
-    "pre-commit": "npm run typecheck"
+    "pre-commit": "node scripts/check-session-branch.mjs && npm run typecheck"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",

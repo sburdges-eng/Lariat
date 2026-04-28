@@ -13,6 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Schema changes require a migration in `lib/db.ts` (`initSchema` / `initFoodSafetyLaborSchema` / `migrateLegacyColumns`); never edit existing DDL in place.
 - UI copy targets line cooks under pressure. `docs/UI_COPY_RULES.md` is binding for anything a user sees: no SaaS jargon, kitchen verbs, 5th–8th grade reading level. Internal identifiers may stay technical.
 - Vendor data encodings: Toast POS CSVs are **cp1252** (not UTF-8); Shamrock `.xls` files are legacy CDFV2 and need **`xlrd`** (not `openpyxl`).
+- **Multi-session worktree protocol** — for any multi-commit batch, work in a per-tool worktree (`scripts/worktree.sh new claude <branch>` then `cd ../Lariat-worktrees/claude-<slug>`). The pre-commit guard refuses commits if HEAD drifts from the locked branch. See AGENTS.md "Multi-session protocol".
 
 ## Common commands
 

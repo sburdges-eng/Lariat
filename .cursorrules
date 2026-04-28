@@ -1,0 +1,27 @@
+# Cursor — Lariat
+
+Use AGENTS.md as the canonical entrypoint.
+
+Re-assert before generating code:
+
+- This is restaurant ops (Lariat), not the image API (COOLIO) — do not confuse.
+- HACCP logic is regulated; never weaken validations or silently auto-correct.
+- Schema changes require migrations in `lib/db.ts`, not in-place DDL edits.
+- Toast POS CSVs are cp1252-encoded; Shamrock `.xls` requires `xlrd` (not `openpyxl`).
+
+## Multi-session worktree protocol — BINDING
+
+This repo is worked on by Claude Code, Cursor, Codex, and Gemini concurrently. They share `.git/` but trample each other's HEAD if they share a checkout. Real failure mode: Cursor runs `git checkout` mid-session and another tool's next commit lands on the wrong branch.
+
+For any multi-commit batch, isolate yourself in a per-tool worktree:
+
+```bash
+scripts/worktree.sh new cursor <branch>     # e.g. fix/login-bug
+cd ../Lariat-worktrees/cursor-<branch-slug>
+```
+
+The worktree is locked to its branch via `SESSION_BRANCH`; the pre-commit guard (`scripts/check-session-branch.mjs`) refuses commits if HEAD drifts.
+
+Branch naming (binding): `feat/`, `fix/`, `chore/`, `wip/`. No other prefixes.
+
+See AGENTS.md "Multi-session protocol" for full details.
