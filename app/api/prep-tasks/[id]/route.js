@@ -12,6 +12,17 @@ function parseId(params) {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+// 0 normal, 1 high, 2 rush. Anything else collapses to normal.
+// Matches the helper in app/api/prep-tasks/route.js — kept as a local
+// duplicate to follow the same per-route helper convention used by
+// `clip` across the codebase, instead of carving out a shared module
+// for a four-line normalizer.
+function asPriority(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return n === 1 || n === 2 ? n : 0;
+}
+
 /**
  * PATCH transitions:
  *   - { claim: true, cook_id }            → assigns + sets in_progress + started_at if not yet
@@ -20,7 +31,13 @@ function parseId(params) {
  *   - { status: 'skipped', cook_id }      → skipped + done_at (closes the row)
  *   - { status: 'in_progress', cook_id }  → manual start
  *   - { status: 'todo' }                  → manual reset (clears done/started)
- *   - { task, qty, notes, priority }      → field edits (only if status='todo')
+ *   - { task, qty, notes, priority, station_id }
+ *                                         → field edits, allowed in ANY state
+ *                                           (kitchen managers fix typos and line
+ *                                           cooks add post-prep notes regardless
+ *                                           of where the row is in its lifecycle).
+ *                                           Field edits compose with transitions
+ *                                           in the same PATCH.
  */
 export async function PATCH(req, { params }) {
   const id = parseId(params);
@@ -70,21 +87,17 @@ export async function PATCH(req, { params }) {
         }
       }
 
-      // Editable fields when the task is still 'todo' OR when no transition
-      // verb is present (e.g. fixing a typo). We allow notes edits in any
-      // state because the line cook may want to add a "subbed scallions"
-      // note after the fact.
+      // Field edits compose with transition verbs in the same PATCH and
+      // are allowed regardless of current status — line cooks add
+      // "subbed scallions" notes after the fact and managers fix typos
+      // mid-prep.
       const taskEdit =
         body.task !== undefined ? clip(body.task, 300) : undefined;
       const qtyEdit = body.qty !== undefined ? clip(body.qty, 64) : undefined;
       const notesEdit =
         body.notes !== undefined ? clip(body.notes, 1000) : undefined;
       const priorityEdit =
-        body.priority !== undefined
-          ? Number(body.priority) === 1 || Number(body.priority) === 2
-            ? Number(body.priority)
-            : 0
-          : undefined;
+        body.priority !== undefined ? asPriority(body.priority) : undefined;
       const stationEdit =
         body.station_id !== undefined ? clip(body.station_id, 64) : undefined;
 
