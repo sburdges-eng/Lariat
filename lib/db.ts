@@ -1658,6 +1658,39 @@ export function initSchema(db: DB): void {
       imported_at TEXT DEFAULT (datetime('now')),
       UNIQUE(hour_24, comparison_group, location_id)
     );
+
+    -- Toast Inc. as a vendor: monthly subscription invoices Lariat pays Toast
+    -- (handhelds, KDS, software, gift card program, API, catering & events).
+    -- Source: PDFs under data/originals/Toast/Invoices/ (or the pre-scrub archive).
+    -- Full-refresh-per-source: ingest deletes all rows for (location_id, source='toast_subscription_invoices')
+    -- then re-inserts. Headers + lines are siblings, not FK-joined, so the lines
+    -- table can be wiped and rebuilt independently if reparsed.
+    CREATE TABLE IF NOT EXISTS toast_subscription_invoices (
+      invoice_no    TEXT NOT NULL,
+      invoice_date  TEXT NOT NULL,                    -- YYYY-MM-DD
+      invoice_total REAL NOT NULL,
+      line_count    INTEGER NOT NULL,
+      source_pdf    TEXT,
+      location_id   TEXT NOT NULL DEFAULT 'default',
+      ingested_at   TEXT NOT NULL DEFAULT (datetime('now','subsec')),
+      PRIMARY KEY (location_id, invoice_no)
+    );
+    CREATE INDEX IF NOT EXISTS idx_toast_sub_inv_date ON toast_subscription_invoices(location_id, invoice_date);
+
+    CREATE TABLE IF NOT EXISTS toast_subscription_invoice_lines (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      invoice_no   TEXT NOT NULL,
+      invoice_date TEXT NOT NULL,                     -- denormalized for fast year/month rollups
+      line_seq     INTEGER NOT NULL,                  -- 1-based order within the invoice
+      item         TEXT NOT NULL,
+      qty          INTEGER NOT NULL,                  -- can be negative (credit lines)
+      rate         REAL NOT NULL,
+      amount       REAL NOT NULL,                     -- can be negative (credit lines)
+      location_id  TEXT NOT NULL DEFAULT 'default',
+      UNIQUE(location_id, invoice_no, line_seq)
+    );
+    CREATE INDEX IF NOT EXISTS idx_toast_sub_lines_inv ON toast_subscription_invoice_lines(location_id, invoice_no);
+    CREATE INDEX IF NOT EXISTS idx_toast_sub_lines_item ON toast_subscription_invoice_lines(location_id, item, invoice_date);
   `);
 
   initFoodSafetyLaborSchema(db);
@@ -2452,6 +2485,17 @@ function migrateLegacyColumns(db: DB): void {
   if (!lceCols.includes('glove_change_attested')) {
     try {
       db.exec('ALTER TABLE line_check_entries ADD COLUMN glove_change_attested INTEGER');
+    } catch { /* ignore */ }
+  }
+
+  // accounting_variance: per-vendor breakdown of actual_cogs added when the
+  // computation shifted from "spend_monthly.shamrock_total_spend only" to a
+  // unified roll-up across shamrock_invoices + sysco_invoices + (legacy)
+  // spend_monthly. NULL on pre-migration rows.
+  const avCols = t('accounting_variance');
+  if (avCols.length > 0 && !avCols.includes('actual_cogs_breakdown_json')) {
+    try {
+      db.exec('ALTER TABLE accounting_variance ADD COLUMN actual_cogs_breakdown_json TEXT');
     } catch { /* ignore */ }
   }
 
