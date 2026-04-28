@@ -2449,6 +2449,50 @@ function ensureIndexes(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_vp_master ON vendor_prices(master_id);
     CREATE INDEX IF NOT EXISTS idx_bom_master ON bom_lines(master_id);
   `);
+
+  // Bundle-H: NULL-safe uniqueness on (location, dow/date, service_label).
+  // SQLite's table-level UNIQUE constraint already covers the non-NULL case
+  // (each non-NULL label is distinct), so we only need partial unique indexes
+  // to forbid duplicate NULL-label rows. A partial index avoids the
+  // IFNULL(service_label, '') trick, which would conflate NULL with the empty
+  // string '' — those are semantically distinct values.
+  //
+  // These run AFTER the main schema batch, with a deduplication pass and
+  // try/catch protection: a database with pre-existing duplicate NULL rows
+  // (the very condition this hardening targets) must not crash startup.
+  try {
+    db.exec(`
+      DELETE FROM service_hours
+       WHERE service_label IS NULL
+         AND id NOT IN (
+           SELECT MIN(id) FROM service_hours
+            WHERE service_label IS NULL
+            GROUP BY location_id, day_of_week
+         );
+    `);
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_service_hours_null_safe
+        ON service_hours(location_id, day_of_week)
+        WHERE service_label IS NULL;
+    `);
+  } catch { /* ignore — surfaced via assertCriticalSchemas if catastrophic */ }
+
+  try {
+    db.exec(`
+      DELETE FROM preshift_notes
+       WHERE service_label IS NULL
+         AND id NOT IN (
+           SELECT MIN(id) FROM preshift_notes
+            WHERE service_label IS NULL
+            GROUP BY location_id, shift_date
+         );
+    `);
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_preshift_null_safe
+        ON preshift_notes(location_id, shift_date)
+        WHERE service_label IS NULL;
+    `);
+  } catch { /* ignore — surfaced via assertCriticalSchemas if catastrophic */ }
 }
 
 function migrateLegacyColumns(db: DB): void {
@@ -2845,7 +2889,7 @@ export function todayServiceLabel(locationId = 'default'): string | null {
     .prepare(
       `SELECT service_label FROM service_hours
         WHERE location_id = ? AND active = 1 AND day_of_week = ?
-        ORDER BY opens_at ASC LIMIT 1`,
+        ORDER BY opens_at ASC NULLS LAST LIMIT 1`,
     )
     .get(locationId, dow) as { service_label: string | null } | undefined;
   return row?.service_label ?? null;
