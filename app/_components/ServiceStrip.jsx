@@ -22,7 +22,7 @@ function fmtTime(d) {
 }
 function fmtPhaseTime(h) {
   const hh = ((h + 11) % 12) + 1;
-  const s = h >= 12 ? 'p' : 'a';
+  const s = (h % 24) >= 12 ? 'p' : 'a';
   return `${hh}${s}`;
 }
 

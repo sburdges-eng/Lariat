@@ -161,7 +161,7 @@ button { font-family: inherit; cursor: pointer; }
   border-right: 1px solid var(--hair);
   padding: 18px 14px 14px;
   display: flex; flex-direction: column; gap: 4px;
-  overflow: hidden;
+  overflow: auto;
   position: relative;
 }
 .brand {
