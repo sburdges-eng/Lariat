@@ -33,6 +33,15 @@ export interface StationChecklistProps {
   locationId?: string;
 }
 
+const EMPTY_ROW: StationCheckItem = {
+  status: null,
+  par: '',
+  have: '',
+  need: '',
+  note: '',
+  glove_change_attested: null,
+};
+
 export default function StationChecklist({ stationId, stationName, date, items, existing, signoff, locationId = 'default' }: StationChecklistProps) {
   const router = useRouter();
   const cookRef = useRef<string>('');
@@ -75,11 +84,12 @@ export default function StationChecklist({ stationId, stationName, date, items, 
     cookRef.current = cookId;
   }, [cookId]);
 
-  const update = (item: string, patch: Partial<StationCheckItem>) => setState(s => ({ ...s, [item]: { ...s[item], ...patch } }));
+  const update = (item: string, patch: Partial<StationCheckItem>) => setState(s => ({ ...s, [item]: { ...(s[item] ?? EMPTY_ROW), ...patch } }));
+  const rowFor = (item: string): StationCheckItem => state[item] ?? EMPTY_ROW;
 
   const persist = async (item: string) => {
     if (!cookId) { alert('Pick your name in the sidebar first.'); return; }
-    const row = state[item];
+    const row = rowFor(item);
     try {
       const res = await fetch('/api/checks', {
         method: 'POST',
@@ -107,15 +117,19 @@ export default function StationChecklist({ stationId, stationName, date, items, 
   };
 
   const setStatus = async (item: string, status: 'pass' | 'fail') => {
-    const toggled = state[item].status === status ? null : status;
-    update(item, { status: toggled });
-    // Snapshot the row fields AFTER applying the toggle, then fire the
-    // fetch OUTSIDE setState so we can actually await + check res.ok.
-    // The previous implementation called fetch inside the setState callback
-    // and ignored both rejections and non-2xx — silently losing pass/fail
-    // taps and causing the signoff gate to block with "unnoted fails" that
-    // actually WERE noted locally.
-    const prev = state[item] || { par: '', have: '', need: '', note: '' };
+    const toggled = rowFor(item).status === status ? null : status;
+    // Read latest committed state via the functional updater so React 18's
+    // automatic batching of rapid field edits doesn't hand us a stale
+    // snapshot. The fetch fires OUTSIDE setState so we can await + check
+    // res.ok — the prior implementation called fetch inside the setState
+    // callback and ignored both rejections and non-2xx, silently losing
+    // pass/fail taps and causing the signoff gate to block with "unnoted
+    // fails" that actually WERE noted locally.
+    let snapshot!: StationCheckItem;
+    setState(s => {
+      snapshot = { ...(s[item] ?? EMPTY_ROW), status: toggled };
+      return { ...s, [item]: snapshot };
+    });
     const cid = cookRef.current || null;
     try {
       const res = await fetch('/api/checks', {
@@ -123,8 +137,8 @@ export default function StationChecklist({ stationId, stationName, date, items, 
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           shift_date: date, station_id: stationId, item, status: toggled,
-          par: prev.par, have: prev.have, need: prev.need, note: prev.note,
-          glove_change_attested: prev.glove_change_attested,
+          par: snapshot.par, have: snapshot.have, need: snapshot.need, note: snapshot.note,
+          glove_change_attested: snapshot.glove_change_attested,
           cook_id: cid,
           location_id: locationId,
         }),
@@ -159,7 +173,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         shift_date: date, station_id: stationId, item, status: 'fail',
-        par: state[item].par, have: state[item].have, need: state[item].need,
+        par: rowFor(item).par, have: rowFor(item).have, need: rowFor(item).need,
         note: `86: ${reason || 'out'}`, cook_id: cid,
         location_id: locationId,
       }),
@@ -189,7 +203,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
   };
 
   const counts = items.reduce((acc, i) => {
-    const s = state[i].status;
+    const s = rowFor(i).status;
     if (s === 'pass') acc.pass++;
     else if (s === 'fail') acc.fail++;
     else if (s === 'na') acc.na++;
@@ -198,7 +212,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
   const done = counts.pass + counts.fail + counts.na;
   const allDone = done === items.length;
   // HACCP gate: a 'fail' line without a corrective-action note cannot be signed off.
-  const unnotedFails = items.filter(i => state[i].status === 'fail' && !state[i].note.trim());
+  const unnotedFails = items.filter(i => rowFor(i).status === 'fail' && !rowFor(i).note.trim());
   const readyToSign = allDone && unnotedFails.length === 0;
 
   const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'item';
@@ -224,7 +238,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
 
       <div className="checklist" role="list" aria-label={`${stationName} checklist`}>
         {items.map(item => {
-          const row = state[item];
+          const row = rowFor(item);
           const needsNote = row.status === 'fail' && !row.note.trim();
           const key = slug(item);
           const parId = `chk-par-${key}`;
@@ -272,7 +286,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
                 type="button"
                 className={`btn ${row.status === 'pass' ? 'green' : ''}`}
                 aria-label={`Pass ${item}`}
-                aria-pressed={row.status === 'pass'}
+                aria-pressed={row.status === 'pass' ? 'true' : 'false'}
                 onClick={() => setStatus(item, 'pass')}
               >
                 Pass
@@ -281,7 +295,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
                 type="button"
                 className={`btn ${row.status === 'fail' ? 'red' : ''}`}
                 aria-label={`Fail ${item}`}
-                aria-pressed={row.status === 'fail'}
+                aria-pressed={row.status === 'fail' ? 'true' : 'false'}
                 onClick={() => setStatus(item, 'fail')}
               >
                 Fail
@@ -307,7 +321,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
                     update(item, { glove_change_attested: next });
                     // Persist inline so the attestation is durable.
                     const cid = cookRef.current || null;
-                    const cur = { ...state[item], glove_change_attested: next };
+                    const cur: StationCheckItem = { ...rowFor(item), glove_change_attested: next };
                     fetch('/api/checks', {
                       method: 'POST',
                       headers: { 'content-type': 'application/json' },
@@ -343,8 +357,8 @@ export default function StationChecklist({ stationId, stationName, date, items, 
                     enterKeyHint="done"
                     maxLength={500}
                     aria-label={`Corrective action for ${item}`}
-                    aria-required={needsNote}
-                    aria-invalid={needsNote}
+                    aria-required={needsNote ? 'true' : 'false'}
+                    aria-invalid={needsNote ? 'true' : 'false'}
                     value={row.note}
                     onChange={e => update(item, { note: e.target.value })}
                     onBlur={() => persist(item)}
@@ -369,13 +383,13 @@ export default function StationChecklist({ stationId, stationName, date, items, 
           )}
         </div>
       ) : (
-        <div className="flex-between mt-20" style={{ justifyContent: 'flex-end'}}>
+        <div className="flex-between mt-20 justify-end">
           <button
             type="button"
             className="btn primary lg"
             onClick={signOff}
             disabled={!readyToSign || saving}
-            aria-busy={saving}
+            aria-busy={saving ? 'true' : 'false'}
             aria-label={
               saving
                 ? 'Signing off station'

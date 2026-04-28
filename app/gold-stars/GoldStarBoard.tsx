@@ -160,7 +160,7 @@ export default function GoldStarBoard() {
     setRecognitions(list => {
       const i = list.findIndex(r => r.id === id);
       if (i < 0) return list;
-      removed = list[i];
+      removed = list[i] ?? null;
       removedAt = i;
       return list.filter(r => r.id !== id);
     });

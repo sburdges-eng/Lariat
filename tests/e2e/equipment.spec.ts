@@ -44,7 +44,7 @@ test.describe('Equipment warranty UI', () => {
 
     const futureDate = new Date();
     futureDate.setFullYear(futureDate.getFullYear() + 2);
-    const futureISO = futureDate.toISOString().split('T')[0];
+    const futureISO = futureDate.toISOString().split('T')[0]!;
 
     const futureName = '__E2E_FutureWarranty_' + Date.now();
 

@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "checkJs": false,
+    "verbatimModuleSyntax": false,
+    "noUncheckedIndexedAccess": false,
+    "tsBuildInfoFile": ".next/cache/tsconfig.scripts.tsbuildinfo"
+  },
+  "include": [
+    "scripts/**/*.mjs",
+    "scripts/**/*.js",
+    "scripts/**/*.ts",
+    "lib/**/*.ts",
+    "lib/**/*.mjs"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    "scripts/datapack",
+    "scripts/prism_api"
+  ]
+}

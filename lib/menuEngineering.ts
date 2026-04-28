@@ -100,10 +100,10 @@ export function computeMenuEngineering(locationId: string = 'default'): MenuEngi
     .filter((r) => r.margin_pct != null && !Number.isNaN(r.margin_pct))
     .map((r) => r.margin_pct as number);
   const medianMargin = margins.length
-    ? margins.sort((a, b) => a - b)[Math.floor(margins.length / 2)]
+    ? margins.sort((a, b) => a - b)[Math.floor(margins.length / 2)]!
     : 0;
   const pops = rows.map((r) => r.popularity).sort((a, b) => a - b);
-  const medianPop = pops.length ? pops[Math.floor(pops.length / 2)] : 0.5;
+  const medianPop = pops.length ? pops[Math.floor(pops.length / 2)]! : 0.5;
 
   for (const r of rows) {
     const hiM = r.margin_pct != null && r.margin_pct >= medianMargin;
