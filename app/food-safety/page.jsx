@@ -98,7 +98,7 @@ function summarize(loc, today) {
   // last-passing row, not the current shift.
   const calibrationRows = db
     .prepare(
-      `SELECT thermometer_id, method, before_reading_f, passed, calibrated_at
+      `SELECT thermometer_id, method, before_reading_f, passed, calibrated_at, frequency_days
          FROM thermometer_calibrations
          WHERE location_id = ?`,
     )
