@@ -166,6 +166,26 @@ describe('POST /api/inventory/counts/:id/lines', () => {
     assert.strictEqual(lines.length, 1);
     assert.strictEqual(lines[0].on_hand_qty, 18);
     assert.strictEqual(lines[0].unit, 'lb');
+    // Stored shape is the canonical key (lower + alphanum-only +
+    // collapsed whitespace) so cross-cook capitalization can't split
+    // a single ingredient into two count rows.
+    assert.strictEqual(lines[0].ingredient, 'tomato roma');
+  });
+
+  it('canonicalizes ingredient names so different capitalizations dedup to one row', async () => {
+    const open = await postCounts({ label: 'dedup' });
+    const { id: countId } = await open.json();
+
+    // Two cooks counting the same ingredient, formatted differently.
+    await postLine(countId, { ingredient: 'Chicken Stock', on_hand_qty: 4, unit: 'qt' });
+    await postLine(countId, { ingredient: 'chicken stock', on_hand_qty: 7, unit: 'qt' });
+
+    const lines = testDb
+      .prepare('SELECT * FROM inventory_count_lines WHERE count_id = ? ORDER BY id')
+      .all(countId);
+    assert.strictEqual(lines.length, 1, 'expected the second post to upsert, not insert');
+    assert.strictEqual(lines[0].on_hand_qty, 7, 'second value wins (most recent count)');
+    assert.strictEqual(lines[0].ingredient, 'chicken stock');
   });
 
   it('upserts no-SKU produce lines by using the empty string as the SKU key', async () => {
@@ -280,8 +300,10 @@ describe('GET /api/inventory/counts/:id', () => {
     const j = await r.json();
     assert.strictEqual(j.count.id, id);
     assert.strictEqual(j.lines.length, 2);
-    assert.strictEqual(j.lines[0].ingredient, 'AVOCADO');
-    assert.strictEqual(j.lines[1].ingredient, 'ZUCCHINI');
+    // Stored ingredient is normalized — see ingredient canonicalization
+    // test above for rationale.
+    assert.strictEqual(j.lines[0].ingredient, 'avocado');
+    assert.strictEqual(j.lines[1].ingredient, 'zucchini');
   });
 });
 

@@ -2,6 +2,7 @@ import { getDb } from '../../../../../../lib/db';
 import { locationFromBody } from '../../../../../../lib/location';
 import { postAuditEvent } from '../../../../../../lib/auditEvents';
 import { clip } from '../../../../../../lib/clip';
+import { normalizeIngredientKey } from '../../../../../../lib/ingredientKey';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,11 +22,26 @@ export async function POST(req, { params }) {
   if (!countId) return Response.json({ error: 'bad id' }, { status: 400 });
   try {
     const body = await req.json().catch(() => ({}));
-    const ingredient = clip(body.ingredient, 300);
+    const rawIngredient = clip(body.ingredient, 300);
+    if (!rawIngredient) return Response.json({ error: 'ingredient required' }, { status: 400 });
+    // Canonicalize before the upsert so two cooks counting "Chicken
+    // Stock" vs "chicken stock" land on the same row instead of
+    // splitting the count. normalizeIngredientKey is the JS↔Python
+    // parity-tested helper used everywhere else in the codebase
+    // (recipes, vendor_prices match, dish_components). Display fidelity
+    // (capitalization, punctuation) is a known trade — the cook is
+    // matching against an ingredient catalog at count time, not
+    // marketing copy.
+    const ingredient = normalizeIngredientKey(rawIngredient);
     if (!ingredient) return Response.json({ error: 'ingredient required' }, { status: 400 });
     const loc = locationFromBody(body);
     const cookId = clip(body.cook_id, 64);
-    const sku = clip(body.sku, 64) || '';
+    // SQLite UNIQUE treats NULLs as distinct, so a missing sku would
+    // bypass the (count_id, ingredient, sku) conflict and split a single
+    // ingredient into two rows. The inventory_par table already follows
+    // the "empty string, not NULL" convention for the same reason; do
+    // the same here.
+    const sku = clip(body.sku, 64) ?? '';
     const vendor = clip(body.vendor, 64);
     const onHand = asNum(body.on_hand_qty);
     const unit = clip(body.unit, 32);
