@@ -57,13 +57,6 @@ DEFAULT_DB = ROOT / "data" / "lariat.db"
 DEFAULT_CSV = ROOT / "data" / "seeds" / "ingredient_yields.csv"
 
 
-def _coerce_float_or_none(s: str) -> float | None:
-    # Used for loss_factor where empty -> NULL. null_on_empty handles
-    # the empty case in the shared driver; this path only runs for
-    # non-empty strings.
-    return float(s)
-
-
 SPEC = SeedSpec(
     script_name="seed_ingredient_yields",
     table_name="ingredient_yields",
