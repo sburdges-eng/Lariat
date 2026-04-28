@@ -24,6 +24,8 @@
     "ingest:all": "npm run ingest && npm run ingest:costing && npm run ingest:analytics && npm run ingest:toast && npm run ingest:shows",
     "sync:normalized": "node --experimental-strip-types scripts/sync-normalized-to-bom.mjs",
     "sync:normalized:dry": "node --experimental-strip-types scripts/sync-normalized-to-bom.mjs --dry",
+    "debug:event-ops": "node --experimental-strip-types scripts/debug-event-ops.mjs",
+    "debug:event-ops:json": "node --experimental-strip-types scripts/debug-event-ops.mjs --json",
     "job": "node --experimental-strip-types scripts/run-job.mjs",
     "job:list": "node --experimental-strip-types scripts/run-job.mjs --list",
     "job:status": "node --experimental-strip-types scripts/run-job.mjs --status",
