@@ -1,0 +1,48 @@
+{
+  "_README": "Manifest of cron-eligible Lariat jobs. Cron is the scheduler (system-level crontab); scripts/run-job.mjs is the wrapper cron calls. Each entry: command (argv array), cron (POSIX 5-field; informational here — actual cron registration lives in the operator's crontab), timeout_sec (lock stale-after window; the wrapper does NOT enforce this as a hard kill yet), description.",
+  "version": 1,
+  "jobs": {
+    "ingest-costing": {
+      "command": ["npm", "run", "ingest:costing"],
+      "cron": "0 6 * * *",
+      "timeout_sec": 1800,
+      "description": "Daily costing ingest from XL workbook (vendor_prices, recipe_costs, bom_lines, ingredient_maps, order_guide_items)."
+    },
+    "ingest-analytics": {
+      "command": ["npm", "run", "ingest:analytics"],
+      "cron": "0 7 * * *",
+      "timeout_sec": 1200,
+      "description": "Daily Toast analytics ingest. Auto-runs sales depletion at the end."
+    },
+    "ingest-toast": {
+      "command": ["npm", "run", "ingest:toast"],
+      "cron": "15 6 * * *",
+      "timeout_sec": 1200,
+      "description": "Toast weekly sales + labor timeseries pull (manual-drop folder + scheduled orchestrator)."
+    },
+    "ingest-shows": {
+      "command": ["npm", "run", "ingest:shows"],
+      "cron": "30 6 * * *",
+      "timeout_sec": 600,
+      "description": "Prism / DICE event ingest into shows + showStatus."
+    },
+    "sync-normalized": {
+      "command": ["npm", "run", "sync:normalized"],
+      "cron": "45 6 * * *",
+      "timeout_sec": 120,
+      "description": "Sync recipes/normalized/*.csv into entities_recipes + bom_lines (full-refresh per recipe)."
+    },
+    "rebuild-cache": {
+      "command": ["npm", "run", "rebuild-cache"],
+      "cron": "*/30 * * * *",
+      "timeout_sec": 60,
+      "description": "Refresh data/cache/*.json from source CSVs. Cheap, runs every 30 min."
+    },
+    "backup": {
+      "command": ["npm", "run", "backup"],
+      "cron": "0 1 * * *",
+      "timeout_sec": 60,
+      "description": "Snapshot data/lariat.db{,-wal,-shm} into backups/."
+    }
+  }
+}
