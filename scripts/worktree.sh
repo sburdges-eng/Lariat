@@ -27,8 +27,12 @@
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-COMMON_DIR="$(git rev-parse --git-common-dir)"
-WORKTREES_PARENT="$(dirname "$(dirname "$COMMON_DIR")")/Lariat-worktrees"
+# REPO_ROOT is always absolute. Derive WORKTREES_PARENT as a sibling so
+# linked worktrees land at ../Lariat-worktrees/, never nested under the
+# main checkout. (`git rev-parse --git-common-dir` returns ".git" from
+# the main checkout — a relative path — which previously caused
+# WORKTREES_PARENT to resolve to "./Lariat-worktrees" inside the repo.)
+WORKTREES_PARENT="$(dirname "$REPO_ROOT")/Lariat-worktrees"
 
 valid_tool() {
     case "$1" in
