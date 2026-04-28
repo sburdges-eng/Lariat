@@ -24,7 +24,7 @@
  */
 
 import type { Database } from 'better-sqlite3';
-import { postAuditEvent } from './auditEvents';
+import { postAuditEvent } from './auditEvents.ts';
 
 // ── Types ──────────────────────────────────────────────────────────
 
