@@ -1,0 +1,96 @@
+{
+  "by_day": {
+    "Wednesday": [
+      "Cornbread (2?)",
+      "Green chile (1.5?)",
+      "Quesa birria (2?)",
+      "Queso",
+      "Rope pickles",
+      "Succotash",
+      "Pico",
+      "Chips (2 lex)",
+      "Blackened salsa",
+      "Tomatillo",
+      "Bacon jam",
+      "Bacon",
+      "Trim&vac trout",
+      "Honey butter",
+      "Herbal butter"
+    ],
+    "Thursday": [
+      "Chipotle aioli",
+      "Aji verde",
+      "Slaw Dressing",
+      "Lemon Thyme",
+      "Chimichurri",
+      "Confit",
+      "Special sauce",
+      "Caesar",
+      "Cobb dress",
+      "Bama sauce",
+      "Noodles",
+      "Marinade chop",
+      "Chicken jus",
+      "Tomatillo salsa"
+    ]
+  },
+  "by_category": {
+    "Sauces": [
+      "Queso",
+      "Kids Mac",
+      "Black Gold Salsa",
+      "Roasted Tomatillo Salsa",
+      "Nash Oil",
+      "Chicken Jus"
+    ],
+    "Dressings": [
+      "Ranch",
+      "Cobb",
+      "Blue Cheese",
+      "Lemon Thyme",
+      "Aji Verde",
+      "Honey Mustard",
+      "Thai Chilli",
+      "Chipotle Aioli",
+      "Bama White",
+      "Slaw Dressing",
+      "Tartar",
+      "Chimichurri"
+    ],
+    "Butters": [
+      "Honey",
+      "Herb"
+    ],
+    "Starches": [
+      "Chips",
+      "Cornbread",
+      "Noodles",
+      "Crutons",
+      "Roasted Pepitas"
+    ],
+    "Veg Prep": [
+      "Pico de Gallo",
+      "Succotash",
+      "Tomato Confit"
+    ],
+    "Pickles and Spice": [
+      "Lariat Rub",
+      "Nash Rub",
+      "Chicken Dredge",
+      "Beer Batter Flour",
+      "Rope Pickles",
+      "Pickled Red onion"
+    ],
+    "Proteins": [
+      "Brine fish",
+      "Brine Chicken",
+      "Pan Burgers",
+      "Cook Bacon",
+      "Green Chile",
+      "Bacon Jam",
+      "Quesa Birria",
+      "Chicken Confit",
+      "Sous Vide Pork Chop"
+    ]
+  }
+}

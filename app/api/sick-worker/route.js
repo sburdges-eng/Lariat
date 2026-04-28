@@ -28,8 +28,8 @@ const clip = (s, max) => {
   return t ? t.slice(0, max) : null;
 };
 
-function gate(req) {
-  if (pinRequiredForPic() && !hasPinCookie(req)) {
+async function gate(req) {
+  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
     return Response.json(
       { error: 'manager PIN required — sick reports are PIC authority' },
       { status: 403 },
@@ -41,7 +41,7 @@ function gate(req) {
 // ── POST /api/sick-worker ────────────────────────────────────────
 
 export async function POST(req) {
-  const blocked = gate(req);
+  const blocked = await gate(req);
   if (blocked) return blocked;
 
   try {
@@ -64,37 +64,45 @@ export async function POST(req) {
     const diagnosisValue = dx === 'invalid' ? null : dx;
 
     const db = getDb();
-    const info = db.prepare(`
-      INSERT INTO sick_worker_reports
-        (shift_date, location_id, cook_id, reported_by_pic_id,
-         symptoms, diagnosed_illness, action, started_at, clearance_source, note)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      shift_date,
-      location_id,
-      cook_id,
-      reported_by_pic_id,
-      symptomsJoined,
-      diagnosisValue,
-      action,
-      started_at,
-      clearance_source,
-      note,
-    );
+    
+    const performWrite = db.transaction(() => {
+      const info = db.prepare(`
+        INSERT INTO sick_worker_reports
+          (shift_date, location_id, cook_id, reported_by_pic_id,
+           symptoms, diagnosed_illness, action, started_at, clearance_source, note)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        shift_date,
+        location_id,
+        cook_id,
+        reported_by_pic_id,
+        symptomsJoined,
+        diagnosisValue,
+        action,
+        started_at,
+        clearance_source,
+        note
+      );
 
-    const row = db.prepare('SELECT * FROM sick_worker_reports WHERE id=?').get(info.lastInsertRowid);
-    postAuditEvent({
-      entity: 'sick_worker_reports',
-      entity_id: Number(info.lastInsertRowid),
-      action: 'insert',
-      actor_cook_id: reported_by_pic_id,
-      actor_source: 'pic_ui',
-      // Payload intentionally does NOT include PII symptoms in the note
-      // field; the JSON blob captures the full row for audit reconstruct.
-      payload: row,
-      shift_date,
-      location_id,
+      const row = db.prepare('SELECT * FROM sick_worker_reports WHERE id=?').get(info.lastInsertRowid);
+      
+      postAuditEvent({
+        entity: 'sick_worker_reports',
+        entity_id: Number(info.lastInsertRowid),
+        action: 'insert',
+        actor_cook_id: reported_by_pic_id,
+        actor_source: 'pic_ui',
+        // Payload intentionally does NOT include PII symptoms in the note
+        // field; the JSON blob captures the full row for audit reconstruct.
+        payload: row,
+        shift_date,
+        location_id,
+      });
+
+      return row;
     });
+
+    const row = performWrite();
 
     return Response.json({ ok: true, entry: row });
   } catch (err) {
@@ -106,7 +114,7 @@ export async function POST(req) {
 // ── PATCH /api/sick-worker ───────────────────────────────────────
 
 export async function PATCH(req) {
-  const blocked = gate(req);
+  const blocked = await gate(req);
   if (blocked) return blocked;
 
   try {
@@ -125,38 +133,45 @@ export async function PATCH(req) {
     const reported_by_pic_id = clip(body.reported_by_pic_id, 64);
 
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM sick_worker_reports WHERE id=?').get(id);
-    if (!existing) {
-      return Response.json({ error: 'unknown sick report' }, { status: 404 });
-    }
-    if (existing.return_at) {
-      return Response.json(
-        { error: 'already cleared', entry: existing },
-        { status: 409 },
-      );
-    }
-
     const now = new Date().toISOString();
-    db.prepare(`
-      UPDATE sick_worker_reports
-         SET return_at=?, clearance_source=?
-       WHERE id=?
-    `).run(now, clearance_source, id);
 
-    const updated = db.prepare('SELECT * FROM sick_worker_reports WHERE id=?').get(id);
-    postAuditEvent({
-      entity: 'sick_worker_reports',
-      entity_id: id,
-      action: 'update',
-      actor_cook_id: reported_by_pic_id,
-      actor_source: 'pic_ui',
-      payload: updated,
-      shift_date: existing.shift_date,
-      location_id: existing.location_id,
-      note: `cleared: ${clearance_source}`,
+    // The pre-check + UPDATE must be in the same transaction so that two
+    // concurrent clearances can't both pass the 409 guard and double-write.
+    const performUpdate = db.transaction(() => {
+      const existing = db.prepare('SELECT * FROM sick_worker_reports WHERE id=?').get(id);
+      if (!existing) return { status: 404, error: 'unknown sick report' };
+      if (existing.return_at) return { status: 409, error: 'already cleared', entry: existing };
+
+      db.prepare(`
+        UPDATE sick_worker_reports
+           SET return_at=?, clearance_source=?
+         WHERE id=?
+      `).run(now, clearance_source, id);
+
+      const updated = db.prepare('SELECT * FROM sick_worker_reports WHERE id=?').get(id);
+
+      postAuditEvent({
+        entity: 'sick_worker_reports',
+        entity_id: id,
+        action: 'update',
+        actor_cook_id: reported_by_pic_id,
+        actor_source: 'pic_ui',
+        payload: updated,
+        shift_date: existing.shift_date,
+        location_id: existing.location_id,
+        note: `cleared: ${clearance_source}`,
+      });
+
+      return { status: 200, updated };
     });
 
-    return Response.json({ ok: true, entry: updated });
+    const result = performUpdate();
+    if (result.status !== 200) {
+      const { status, ...body } = result;
+      return Response.json(body, { status });
+    }
+
+    return Response.json({ ok: true, entry: result.updated });
   } catch (err) {
     console.error('PATCH /api/sick-worker failed:', err);
     return Response.json({ error: 'Failed to clear sick report' }, { status: 500 });
@@ -184,7 +199,7 @@ export async function GET(req) {
     `).all(location_id);
 
     let history = [];
-    if (include_history && hasPinCookie(req)) {
+    if (include_history && (await hasPinCookie(req))) {
       // Full rows only for PIN-authenticated callers.
       history = db.prepare(`
         SELECT * FROM sick_worker_reports

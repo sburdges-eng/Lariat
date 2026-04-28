@@ -29,7 +29,10 @@ function parseDateStrict(s: unknown): Date | null {
   if (typeof s !== 'string' || !DATE_RE.test(s)) return null;
   // Construct as UTC so addDays isn't surprised by DST. We only ever
   // need the calendar date, not wall-clock time.
-  const [y, m, d] = s.split('-').map((p) => parseInt(p, 10));
+  const parts = s.split('-').map((p) => parseInt(p, 10));
+  const y = parts[0]!;
+  const m = parts[1]!;
+  const d = parts[2]!;
   const ms = Date.UTC(y, m - 1, d);
   const dt = new Date(ms);
   // Guard against non-existent dates like 2026-02-30 (Date.UTC

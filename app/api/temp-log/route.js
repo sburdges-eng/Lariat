@@ -2,10 +2,14 @@ import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import {
   classifyReading,
+  classifyReadings,
   entryFromReading,
   getTempPoint,
   validateTempReading,
 } from '../../../lib/tempLog';
+import { calibrationWarningFor, classifyProbes } from '../../../lib/calibrations';
+import { postAuditEvent } from '../../../lib/auditEvents';
+import { hasPinCookie } from '../../../lib/pin';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,19 +26,6 @@ const clip = (s, max) => {
 // name). If LARIAT_PIN isn't configured at all, the gate is disabled
 // the same way middleware.js disables gating — that matches the
 // single-site LAN default where PIN is opt-in.
-
-function hasPinCookie(req) {
-  const raw = req.headers.get('cookie');
-  if (!raw) return false;
-  for (const part of raw.split(';')) {
-    const eq = part.indexOf('=');
-    if (eq === -1) continue;
-    const name = part.slice(0, eq).trim();
-    if (name !== 'lariat_pin_ok') continue;
-    return part.slice(eq + 1).trim() === '1';
-  }
-  return false;
-}
 
 function pinRequiredForDate(shift_date) {
   if (!process.env.LARIAT_PIN) return false;
@@ -64,7 +55,7 @@ export async function POST(req) {
 
     // PIN gate runs BEFORE the point lookup so an unauthenticated caller
     // can't probe point_id validity on past dates.
-    if (pinRequiredForDate(shift_date) && !hasPinCookie(req)) {
+    if (pinRequiredForDate(shift_date) && !(await hasPinCookie(req))) {
       return Response.json(
         { error: 'manager PIN required for past dates' },
         { status: 403 },
@@ -88,6 +79,11 @@ export async function POST(req) {
     const corrective_action = body.corrective_action;
     const cook_id = clip(body.cook_id, 64);
     const location_id = locationFromBody(body);
+    // Bundle G: optional probe id. When provided, the write ALWAYS
+    // succeeds (advisory posture) but the response surfaces a
+    // `calibration_warning` if the referenced probe has no passing
+    // calibration on record (never calibrated / failed / overdue).
+    const probe_id = clip(body.probe_id ?? body.thermometer_id, 64);
 
     const v = validateTempReading(point, reading_f, corrective_action);
     if (!v.ok) {
@@ -112,30 +108,78 @@ export async function POST(req) {
       shift_date,
       cook_id,
       location_id,
+      probe_id,
     });
 
     const db = getDb();
-    const info = db.prepare(`
-      INSERT INTO temp_log (shift_date, location_id, point_id, reading_f, required_min_f, required_max_f, corrective_action, cook_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      row.shift_date,
-      row.location_id,
-      row.point_id,
-      row.reading_f,
-      row.required_min_f,
-      row.required_max_f,
-      row.corrective_action,
-      row.cook_id,
-    );
+    
+    // Bundle G: evaluate the probe's calibration state outside the transaction
+    let calibration_warning = null;
+    if (probe_id) {
+      try {
+        const calRows = db
+          .prepare(
+            `SELECT thermometer_id, method, before_reading_f, passed, calibrated_at, frequency_days
+               FROM thermometer_calibrations
+              WHERE location_id = ? AND thermometer_id = ?`
+          )
+          .all(row.location_id, probe_id);
+        const [summary] = classifyProbes(calRows, {
+          now: new Date(),
+          known_probe_ids: [probe_id],
+        });
+        calibration_warning = calibrationWarningFor(summary);
+      } catch (calErr) {
+        console.error('calibration lookup failed:', calErr);
+      }
+    }
 
-    const inserted = db.prepare('SELECT * FROM temp_log WHERE id = ?').get(info.lastInsertRowid);
     const classification = classifyReading(point, reading_f);
+
+    const performWrite = db.transaction(() => {
+      const info = db.prepare(`
+        INSERT INTO temp_log (shift_date, location_id, point_id, reading_f, required_min_f, required_max_f, corrective_action, cook_id, probe_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        row.shift_date,
+        row.location_id,
+        row.point_id,
+        row.reading_f,
+        row.required_min_f,
+        row.required_max_f,
+        row.corrective_action,
+        row.cook_id,
+        row.probe_id
+      );
+
+      const inserted = db.prepare('SELECT * FROM temp_log WHERE id = ?').get(info.lastInsertRowid);
+
+      const noteParts = [];
+      if (classification === 'out_of_range') noteParts.push(`out_of_range:${point.id}`);
+      if (calibration_warning) noteParts.push(`calibration_warning:${probe_id}`);
+      
+      postAuditEvent({
+        entity: 'temp_log',
+        entity_id: Number(info.lastInsertRowid),
+        action: 'insert',
+        actor_cook_id: cook_id,
+        actor_source: 'cook_ui',
+        payload: inserted,
+        shift_date: row.shift_date,
+        location_id: row.location_id,
+        note: noteParts.length ? noteParts.join('|') : null,
+      });
+
+      return { info, inserted };
+    });
+
+    const { info, inserted } = performWrite();
 
     return Response.json({
       ok: true,
       id: info.lastInsertRowid,
       classification,
+      calibration_warning,
       entry: {
         ...inserted,
         point_label: point.label,
@@ -175,7 +219,13 @@ export async function GET(req) {
       return { ...r, point_label: p ? p.label : null };
     });
 
-    return Response.json({ date, location_id, entries });
+    // Per-point day summary — shaped for the board tiles. Additive to
+    // the existing `entries` payload so older consumers keep working.
+    // `?summary=0` opts out for callers that only want the raw rows.
+    const wantSummary = url.searchParams.get('summary') !== '0';
+    const summary = wantSummary ? classifyReadings(entries, { expectAllPoints: true }) : null;
+
+    return Response.json({ date, location_id, entries, summary });
   } catch (err) {
     console.error('GET /api/temp-log failed:', err);
     return Response.json({ error: 'Failed to load temp log' }, { status: 500 });

@@ -1,0 +1,21 @@
+bom_line_id,ingredient,qty,unit,candidate_rank,candidate_source,candidate_name,vendor,pack_unit,unit_price,confidence,notes
+18,lariat rub,0.5,cup,1,recipe,lariat_rub,,,,high,"[matched_house_recipe] bom ingredient ""lariat rub"" matches existing recipe slug ""lariat_rub"""
+28,baking soda,0.333,cup,1,vendor_prices,Baking Soda,sysco,lb,1.395417,high,"[matched] exact match on ""Baking Soda"""
+28,baking soda,0.333,cup,2,order_guide,baking soda,sysco,cup,0.0030763696596647,medium,"[matched] exact match on ""baking soda""; demoted from high (order_guide: placeholder-price risk)"
+28,baking soda,0.333,cup,3,order_guide,baking powder,sysco,tbsp,0.0030763696596647,low,"[matched] whole-word match on token ""baking""; WARNING: baking soda ≠ baking powder; NOT a real substitute"
+31,achiote paste,1,cup,1,vendor_prices,Achiote Paste,sysco,lb,5.985,high,"[matched] exact match on ""Achiote Paste"""
+31,achiote paste,1,cup,2,vendor_prices,"PASTE, ACHIOTE",shamrock,lb,6.481999999999999,medium,"[matched] whole-word match on all tokens: [achiote, paste]"
+31,achiote paste,1,cup,3,order_guide,achiote paste,sysco,cup,0.0131946771547999,medium,"[matched] exact match on ""achiote paste""; demoted from high (order_guide: placeholder-price risk)"
+41,water,12,cup,1,none,,,,,none,[house] house tap — no vendor mapping
+92,water,8,qt,1,none,,,,,none,[house] house tap — no vendor mapping
+131,baking soda,0.333,cup,1,vendor_prices,Baking Soda,sysco,lb,1.395417,high,"[matched] exact match on ""Baking Soda"""
+131,baking soda,0.333,cup,2,order_guide,baking soda,sysco,cup,0.0030763696596647,medium,"[matched] exact match on ""baking soda""; demoted from high (order_guide: placeholder-price risk)"
+131,baking soda,0.333,cup,3,order_guide,baking powder,sysco,tbsp,0.0030763696596647,low,"[matched] whole-word match on token ""baking""; WARNING: baking soda ≠ baking powder; NOT a real substitute"
+139,water,4,qt,1,none,,,,,none,[house] house tap — no vendor mapping
+152,lariat rub,1.5,cup,1,recipe,lariat_rub,,,,high,"[matched_house_recipe] bom ingredient ""lariat rub"" matches existing recipe slug ""lariat_rub"""
+156,water,16,qt,1,none,,,,,none,[house] house tap — no vendor mapping
+192,lariat rub,1,cup,1,recipe,lariat_rub,,,,high,"[matched_house_recipe] bom ingredient ""lariat rub"" matches existing recipe slug ""lariat_rub"""
+196,lariat rub,3.5,tbsp,1,recipe,lariat_rub,,,,high,"[matched_house_recipe] bom ingredient ""lariat rub"" matches existing recipe slug ""lariat_rub"""
+203,water,2.5,qt,1,none,,,,,none,[house] house tap — no vendor mapping
+235,lariat rub,1.5,cup,1,recipe,lariat_rub,,,,high,"[matched_house_recipe] bom ingredient ""lariat rub"" matches existing recipe slug ""lariat_rub"""
+248,water,2.5,qt,1,none,,,,,none,[house] house tap — no vendor mapping

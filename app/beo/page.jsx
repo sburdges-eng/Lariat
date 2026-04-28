@@ -1,7 +1,9 @@
 import BeoBoard from './BeoBoard.jsx';
+import { getCateringMenu } from '../../lib/data';
 
 export const dynamic = 'force-dynamic';
 
 export default function BeoPage() {
-  return <BeoBoard />;
+  const menu = getCateringMenu();
+  return <BeoBoard initialMenu={menu} />;
 }

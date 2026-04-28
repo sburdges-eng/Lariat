@@ -113,7 +113,8 @@ const sickWorker = tryAll(`
 
 const receivingLog = tryAll(`
   SELECT shift_date, vendor, invoice_ref, category, item, reading_f,
-         required_max_f, status, rejection_reason, shellstock_tag_ref,
+         required_max_f, package_ok, expiration_date, status,
+         rejection_reason, shellstock_tag_ref,
          cook_id, created_at, location_id
   FROM receiving_log WHERE shift_date = ? AND location_id = ? ORDER BY id
 `, date, loc);

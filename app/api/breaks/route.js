@@ -76,23 +76,30 @@ export async function POST(req) {
     const ended_at = waived ? started_at : null;
     const duration_min = waived ? 0 : null;
 
-    const info = db.prepare(`
-      INSERT INTO shift_breaks
-        (shift_date, location_id, cook_id, kind, started_at, ended_at, duration_min, waived, waiver_ref, note)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(shift_date, location_id, cook_id, kind, started_at, ended_at, duration_min, waived, waiver_ref, note);
+    const performWrite = db.transaction(() => {
+      const info = db.prepare(`
+        INSERT INTO shift_breaks
+          (shift_date, location_id, cook_id, kind, started_at, ended_at, duration_min, waived, waiver_ref, note)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(shift_date, location_id, cook_id, kind, started_at, ended_at, duration_min, waived, waiver_ref, note);
 
-    const row = db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(info.lastInsertRowid);
-    postAuditEvent({
-      entity: 'shift_breaks',
-      entity_id: Number(info.lastInsertRowid),
-      action: 'insert',
-      actor_cook_id: cook_id,
-      actor_source: 'cook_ui',
-      payload: row,
-      shift_date,
-      location_id,
+      const row = db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(info.lastInsertRowid);
+      
+      postAuditEvent({
+        entity: 'shift_breaks',
+        entity_id: Number(info.lastInsertRowid),
+        action: 'insert',
+        actor_cook_id: cook_id,
+        actor_source: 'cook_ui',
+        payload: row,
+        shift_date,
+        location_id,
+      });
+
+      return row;
     });
+
+    const row = performWrite();
 
     return Response.json({ ok: true, entry: row });
   } catch (err) {
@@ -117,43 +124,50 @@ export async function PATCH(req) {
     const cook_id = clip(body.cook_id, 64);
 
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(id);
-    if (!existing) {
-      return Response.json({ error: 'unknown break' }, { status: 404 });
-    }
-    if (existing.ended_at) {
-      return Response.json(
-        { error: 'break already ended', entry: existing },
-        { status: 409 },
-      );
-    }
-    const startMs = Date.parse(existing.started_at);
-    const endMs = Date.parse(ended_at);
-    if (endMs <= startMs) {
-      return Response.json(
-        { error: 'ended_at must be after started_at' },
-        { status: 400 },
-      );
-    }
-    const duration_min = (endMs - startMs) / 60000;
 
-    db.prepare(`
-      UPDATE shift_breaks SET ended_at=?, duration_min=? WHERE id=?
-    `).run(ended_at, duration_min, id);
+    // Atomic: existing row read + end-time math + UPDATE. Prevents two
+    // concurrent end-break requests from both passing the 409 guard and
+    // overwriting duration_min with diverging values.
+    const performUpdate = db.transaction(() => {
+      const existing = db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(id);
+      if (!existing) return { status: 404, error: 'unknown break' };
+      if (existing.ended_at) {
+        return { status: 409, error: 'break already ended', entry: existing };
+      }
+      const startMs = Date.parse(existing.started_at);
+      const endMs = Date.parse(ended_at);
+      if (endMs <= startMs) {
+        return { status: 400, error: 'ended_at must be after started_at' };
+      }
+      const duration_min = (endMs - startMs) / 60000;
 
-    const updated = db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(id);
-    postAuditEvent({
-      entity: 'shift_breaks',
-      entity_id: id,
-      action: 'update',
-      actor_cook_id: cook_id || existing.cook_id,
-      actor_source: 'cook_ui',
-      payload: updated,
-      shift_date: existing.shift_date,
-      location_id: existing.location_id,
+      db.prepare(`
+        UPDATE shift_breaks SET ended_at=?, duration_min=? WHERE id=?
+      `).run(ended_at, duration_min, id);
+
+      const updated = db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(id);
+
+      postAuditEvent({
+        entity: 'shift_breaks',
+        entity_id: id,
+        action: 'update',
+        actor_cook_id: cook_id || existing.cook_id,
+        actor_source: 'cook_ui',
+        payload: updated,
+        shift_date: existing.shift_date,
+        location_id: existing.location_id,
+      });
+
+      return { status: 200, updated };
     });
 
-    return Response.json({ ok: true, entry: updated });
+    const result = performUpdate();
+    if (result.status !== 200) {
+      const { status, ...body } = result;
+      return Response.json(body, { status });
+    }
+
+    return Response.json({ ok: true, entry: result.updated });
   } catch (err) {
     console.error('PATCH /api/breaks failed:', err);
     return Response.json({ error: 'Failed to end break' }, { status: 500 });

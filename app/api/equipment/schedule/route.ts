@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '../../../../lib/db';
 
+export const dynamic = 'force-dynamic';
+
 const MAX_TEXT = 500;
 const MAX_NOTES = 2000;
 

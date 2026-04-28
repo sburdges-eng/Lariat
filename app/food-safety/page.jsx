@@ -11,6 +11,10 @@ import { getDb, todayISO } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { scanOpenBatches } from '../../lib/cooling';
 import { scanExpiringBatches } from '../../lib/dateMarks';
+import { classifyReadings } from '../../lib/tempLog';
+import { classifyDeliveries } from '../../lib/receiving';
+import { classifyProbes, DEFAULT_FREQUENCY_DAYS } from '../../lib/calibrations';
+import { scanActiveTphc } from '../../lib/tphc';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +53,95 @@ function summarize(loc, today) {
   }
   const sanitizerOut = Array.from(latestByPoint.values()).filter((r) => r.status !== 'ok');
 
+  const tempLogRows = db
+    .prepare(
+      `SELECT * FROM temp_log WHERE location_id=? AND shift_date=? ORDER BY created_at DESC`,
+    )
+    .all(loc, today);
+  const tempLogSummary = classifyReadings(tempLogRows, { expectAllPoints: true });
+  const tempLogStats = tempLogSummary.reduce(
+    (acc, s) => {
+      if (s.status === 'green') acc.green += 1;
+      else if (s.status === 'yellow') acc.yellow += 1;
+      else if (s.status === 'red') acc.red += 1;
+      else acc.gray += 1;
+      acc.corrective += s.corrective_count;
+      acc.critical += s.critical_count;
+      return acc;
+    },
+    { green: 0, yellow: 0, red: 0, gray: 0, corrective: 0, critical: 0 },
+  );
+
+  const receivingRows = db
+    .prepare(
+      `SELECT category, status, created_at FROM receiving_log
+         WHERE location_id=? AND shift_date=?
+         ORDER BY created_at DESC`,
+    )
+    .all(loc, today);
+  const receivingSummary = classifyDeliveries(receivingRows, { expectAllCategories: true });
+  const receivingStats = receivingRows.reduce(
+    (acc, r) => {
+      if (r.status === 'accepted') acc.accepted += 1;
+      else if (r.status === 'rejected') acc.rejected += 1;
+      else if (r.status === 'accepted_with_note') acc.accepted_with_note += 1;
+      return acc;
+    },
+    { accepted: 0, rejected: 0, accepted_with_note: 0 },
+  );
+  const receivingYellowCats = receivingSummary.filter((s) => s.status === 'yellow').length;
+  const receivingRedCats = receivingSummary.filter((s) => s.status === 'red').length;
+
+  // Bundle G — thermometer calibrations roll-up. Probe summary
+  // spans ALL historical rows (not just today) because the question
+  // "is this probe in calibration?" depends on a possibly-weeks-old
+  // last-passing row, not the current shift.
+  const calibrationRows = db
+    .prepare(
+      `SELECT thermometer_id, method, before_reading_f, passed, calibrated_at, frequency_days
+         FROM thermometer_calibrations
+         WHERE location_id = ?`,
+    )
+    .all(loc);
+  const calibrationSummary = classifyProbes(calibrationRows, {
+    now: new Date(),
+    frequency_days: DEFAULT_FREQUENCY_DAYS,
+  });
+  const calibrationStats = calibrationSummary.reduce(
+    (acc, s) => {
+      if (s.status === 'overdue') acc.overdue += 1;
+      else if (s.status === 'failed') acc.failed += 1;
+      else if (s.status === 'due_soon') acc.dueSoon += 1;
+      else if (s.status === 'unknown') acc.unknown += 1;
+      else acc.ok += 1;
+      return acc;
+    },
+    { ok: 0, dueSoon: 0, overdue: 0, failed: 0, unknown: 0 },
+  );
+
+  const tphcActive = db
+    .prepare(
+      `SELECT id, item, station_id, started_at, cutoff_at, discarded_at
+         FROM tphc_entries
+         WHERE location_id=? AND discarded_at IS NULL
+         ORDER BY cutoff_at ASC`,
+    )
+    .all(loc);
+  const tphcScan = scanActiveTphc(tphcActive, new Date().toISOString());
+  const tphcStats = tphcScan.reduce(
+    (acc, s) => {
+      if (s.status === 'expired') acc.expired += 1;
+      else if (s.status === 'warning') acc.warning += 1;
+      else acc.ok += 1;
+      return acc;
+    },
+    { ok: 0, warning: 0, expired: 0 },
+  );
+
+  const cleaningRows = db.prepare(`SELECT * FROM cleaning_log WHERE location_id=? AND shift_date=?`).all(loc, today);
+  const pestRows = db.prepare(`SELECT * FROM pest_control_log WHERE location_id=? ORDER BY created_at DESC LIMIT 30`).all(loc);
+  const sdsRows = db.prepare(`SELECT * FROM sds_registry WHERE location_id=? AND active=1`).all(loc);
+
   return {
     cooling: {
       open: openCooling.length,
@@ -67,6 +160,42 @@ function summarize(loc, today) {
     sanitizer: {
       today: sanitizerToday.length,
       out: sanitizerOut.length,
+    },
+    tempLog: {
+      total: tempLogSummary.length,
+      corrective: tempLogStats.corrective,
+      critical: tempLogStats.critical,
+      notLogged: tempLogStats.gray,
+    },
+    receiving: {
+      total: receivingRows.length,
+      accepted: receivingStats.accepted,
+      acceptedWithNote: receivingStats.accepted_with_note,
+      rejected: receivingStats.rejected,
+      yellowCats: receivingYellowCats,
+      redCats: receivingRedCats,
+    },
+    calibrations: {
+      total: calibrationSummary.length,
+      ok: calibrationStats.ok,
+      dueSoon: calibrationStats.dueSoon,
+      overdue: calibrationStats.overdue,
+      failed: calibrationStats.failed,
+      unknown: calibrationStats.unknown,
+    },
+    tphc: {
+      active: tphcActive.length,
+      warning: tphcStats.warning,
+      expired: tphcStats.expired,
+    },
+    cleaning: {
+      loggedToday: cleaningRows.length,
+    },
+    pest: {
+      recent: pestRows.length,
+    },
+    sds: {
+      active: sdsRows.length,
     },
   };
 }
@@ -162,6 +291,99 @@ export default function FoodSafetyHub({ searchParams }) {
           lines={[
             { n: s.sanitizer.today, label: 'readings today' },
             { n: s.sanitizer.out, label: 'out of spec (latest per point)', tone: s.sanitizer.out ? 'red' : null },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/temp-log${locQ}`}
+          title="Temp log"
+          sub="FDA §3-501.16, §3-401.11, §3-403.11 — cold/hot hold, cook, reheat"
+          status={{ red: s.tempLog.critical > 0, amber: s.tempLog.corrective > 0 || s.tempLog.notLogged > 0 }}
+          lines={[
+            { n: s.tempLog.total, label: 'CCPs monitored' },
+            { n: s.tempLog.corrective, label: 'corrective (noted)', tone: s.tempLog.corrective ? 'amber' : null },
+            { n: s.tempLog.critical, label: 'critical — no note on fix', tone: s.tempLog.critical ? 'red' : null },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/receiving${locQ}`}
+          title="Receiving"
+          sub="FDA §3-202.11 — delivery temps, §3-202.15 package integrity, §3-101.11 sell-by"
+          status={{
+            red: s.receiving.rejected > 0,
+            amber: s.receiving.acceptedWithNote > 0,
+          }}
+          lines={[
+            { n: s.receiving.total, label: 'deliveries today' },
+            {
+              n: s.receiving.acceptedWithNote,
+              label: 'accepted with note',
+              tone: s.receiving.acceptedWithNote ? 'amber' : null,
+            },
+            {
+              n: s.receiving.rejected,
+              label: 'rejected',
+              tone: s.receiving.rejected ? 'red' : null,
+            },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/calibrations${locQ}`}
+          title="Calibrations"
+          sub="FDA §4-502.11 — probe accuracy ±2°F; altitude-adjusted boiling target"
+          status={{
+            red: s.calibrations.overdue + s.calibrations.failed > 0,
+            amber: s.calibrations.dueSoon > 0,
+          }}
+          lines={[
+            { n: s.calibrations.total, label: 'probes tracked' },
+            {
+              n: s.calibrations.dueSoon,
+              label: 'due soon (≤ 7 days)',
+              tone: s.calibrations.dueSoon ? 'amber' : null,
+            },
+            {
+              n: s.calibrations.overdue + s.calibrations.failed,
+              label: 'overdue / failed',
+              tone: s.calibrations.overdue + s.calibrations.failed ? 'red' : null,
+            },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/tphc${locQ}`}
+          title="Time Control"
+          sub="FDA §3-501.19 — 4h hot, 6h cold. Toss at cutoff."
+          status={{ red: s.tphc.expired > 0, amber: s.tphc.warning > 0 }}
+          lines={[
+            { n: s.tphc.active, label: 'open batches' },
+            { n: s.tphc.warning, label: 'near cutoff (≤ 30m)', tone: s.tphc.warning ? 'amber' : null },
+            { n: s.tphc.expired, label: 'past cutoff — toss now', tone: s.tphc.expired ? 'red' : null },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/cleaning${locQ}`}
+          title="Cleaning Log"
+          sub="HACCP Non-Temp Surface: Daily, Weekly, Monthly Routines"
+          status={{ red: false, amber: s.cleaning.loggedToday === 0 }}
+          lines={[
+            { n: s.cleaning.loggedToday, label: 'areas logged today' },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/pest${locQ}`}
+          title="Pest Control"
+          sub="FDA §6-501.111 — vendor visits & internal sightings"
+          status={{ red: false, amber: false }}
+          lines={[
+            { n: s.pest.recent, label: 'recent records' },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/sds${locQ}`}
+          title="SDS Registry"
+          sub="OSHA HazCom — Safety Data Sheets (FDA §7.1)"
+          status={{ red: false, amber: s.sds.active === 0 }}
+          lines={[
+            { n: s.sds.active, label: 'active records' },
           ]}
         />
       </div>

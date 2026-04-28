@@ -1,0 +1,1384 @@
+{
+  "items": [
+    {
+      "supc": "7180880",
+      "description": "Cleaner Multi Surface Disinfectant Rtu",
+      "pack_size": "32OZ",
+      "brand": "KEYSTONE PRODUCTS",
+      "unit": "OZ",
+      "category": "Chemical & Janitorial",
+      "location": "Chemical Closet",
+      "par": null
+    },
+    {
+      "supc": "5934567",
+      "description": "Liner Trash 39 Inch X 56 Inch 1.7 Mil Silver",
+      "pack_size": "55GAL",
+      "brand": "SYSCO CLASSIC",
+      "unit": "GAL",
+      "category": "Paper & Disposable",
+      "location": "Chemical Closet",
+      "par": null
+    },
+    {
+      "supc": "4690483",
+      "description": "Chip Tortilla Yellow 4 Inches Cut",
+      "pack_size": "30 LB",
+      "brand": "LA BANDERITA",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "6562207",
+      "description": "Tortilla Corn White 4.5 Inch",
+      "pack_size": "50 CT",
+      "brand": "MISSION FOODS",
+      "unit": "CT",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "8139529",
+      "description": "Tortilla Flour 14\"",
+      "pack_size": "12CT",
+      "brand": "LA BANDERITA",
+      "unit": "CT",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "4692174",
+      "description": "Tortilla Flour Pressed 6 Inch",
+      "pack_size": "24CT",
+      "brand": "LA BANDERITA",
+      "unit": "CT",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "5757091",
+      "description": "Pepper Chipotle Adobo Sauce",
+      "pack_size": "7 OZ",
+      "brand": "EMBASA",
+      "unit": "OZ",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "4527903",
+      "description": "Towel Roll Complete 360 Natural 8",
+      "pack_size": "1150FT",
+      "brand": "SYSCO IMPERIAL",
+      "unit": "FT",
+      "category": "Paper & Disposable",
+      "location": "Shed",
+      "par": null
+    },
+    {
+      "supc": "5661467",
+      "description": "Spice Pepper Black Shaker Ground",
+      "pack_size": "5 LB",
+      "brand": "SYSCO IMPERIAL/MCCORMICK",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "5229307",
+      "description": "Spice Pepper Black Cracked",
+      "pack_size": "5 LB",
+      "brand": "SYSCO IMPERIAL/MCCORMICK",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "5229281",
+      "description": "Spice Pepper Black Coarse Ground",
+      "pack_size": "5LB",
+      "brand": "SYSCO IMPERIAL/MCCORMICK",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "6639165",
+      "description": "Spice Garlic Granulated",
+      "pack_size": "26OZ",
+      "brand": "SYSCO IMPERIAL/MCCORMICK",
+      "unit": "OZ",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "5265465",
+      "description": "Spice Garlic Powder",
+      "pack_size": "6LB",
+      "brand": "SYSCO IMPERIAL/MCCORMICK",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "5229117",
+      "description": "Spice Onion Powder",
+      "pack_size": "5.5LB",
+      "brand": "SYSCO IMPERIAL/MCCORMICK",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "5236690",
+      "description": "Spice Paprika Domestic Ground",
+      "pack_size": "4.5LB",
+      "brand": "SYSCO CLASSIC",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "5229406",
+      "description": "Spice Pepper Cayenne Ground",
+      "pack_size": "4.5LB",
+      "brand": "SYSCO IMPERIAL/MCCORMICK",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "5913439",
+      "description": "Spice Cumin Ground",
+      "pack_size": "4.5 LB",
+      "brand": "SYSCO IMPERIAL/MCCORMICK",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "3492692",
+      "description": "Spice Oregano Leaves",
+      "pack_size": "1.75LB",
+      "brand": "SYSCO CLASSIC",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "7258790",
+      "description": "Spice Asian Yuzu Kosho Green",
+      "pack_size": "17.6OZ",
+      "brand": "YAKAMI ORCHARDS",
+      "unit": "OZ",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "5228465",
+      "description": "Spice Celery Salt",
+      "pack_size": "30OZ",
+      "brand": "SYSCO IMPERIAL/MCCORMICK",
+      "unit": "OZ",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "5228499",
+      "description": "Spice Celery Seed Whole",
+      "pack_size": "1LB",
+      "brand": "SYSCO IMPERIAL/MCCORMICK",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "5913454",
+      "description": "Spice Pepper Red Crushed",
+      "pack_size": "3.25LB",
+      "brand": "SYSCO IMPERIAL/MCCORMICK",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "5228549",
+      "description": "Spice Chili Powder Dark",
+      "pack_size": "5.5 LB",
+      "brand": "SYSCO IMPERIAL/MCCORMICK",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "7255866",
+      "description": "Seasoning Powder Birria",
+      "pack_size": "5.2 LB",
+      "brand": "D'ALLASANDRO",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": "Drystorage/shed",
+      "par": null
+    },
+    {
+      "supc": "5847011",
+      "description": "Oil Olive Pomace",
+      "pack_size": "1GAL",
+      "brand": "ARREZZIO CLASSIC",
+      "unit": "GAL",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "5061643",
+      "description": "Oil Salad Canola Zero Trans Fat",
+      "pack_size": "35 LB",
+      "brand": "SYSCO CLASSIC",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "4689212",
+      "description": "Anchovy Fillet Easy Open Tin In Olive Oil",
+      "pack_size": "13 OZ",
+      "brand": "ARREZZIO CLASSIC",
+      "unit": "OZ",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "4220580",
+      "description": "Label Roll Shelf Life Dissolvable 2\" X 3\"",
+      "pack_size": "500CT",
+      "brand": "KEYSTONE PRODUCTS",
+      "unit": "CT",
+      "category": "Paper & Disposable",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1901992",
+      "description": "Sauce Chili Sweet Thai",
+      "pack_size": "32 OZ",
+      "brand": "MAEPLOY (UNIQUE FOODS)",
+      "unit": "OZ",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7166122",
+      "description": "Pepper Italian Calabrese Chopped",
+      "pack_size": "33.51Z",
+      "brand": "CUCINA VIVA",
+      "unit": "OZ",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "3369347",
+      "description": "Sauce Wing Buffalo",
+      "pack_size": "1 GAL",
+      "brand": "SWEET BABY RAY'S",
+      "unit": "GAL",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1225267",
+      "description": "Ice Cream Vanilla Premium",
+      "pack_size": "3 GAL",
+      "brand": "BLUE BUNNY",
+      "unit": "GAL",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "5020197",
+      "description": "Potato Fry Sweet 3/8",
+      "pack_size": "2.5LB",
+      "brand": "SYSCO IMPERIAL",
+      "unit": "LB",
+      "category": "Frozen",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1491552",
+      "description": "Bun Brioche 4.5\"",
+      "pack_size": "10CT",
+      "brand": "TURANO",
+      "unit": "CT",
+      "category": "Frozen",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "758401",
+      "description": "Bun Hamburger Gluten Free Individually Wrapped",
+      "pack_size": "1EA",
+      "brand": "UDI’s Healthy Foods",
+      "unit": "EA",
+      "category": "Frozen",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "3617531",
+      "description": "Vegetarian Blend Sweet Potato & Roasted Root Vegetables",
+      "pack_size": "2.5LB",
+      "brand": "SYSCO SUPREME",
+      "unit": "LB",
+      "category": "Frozen",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "3554615",
+      "description": "Potato Fry 5/16\" Beer Extra Long",
+      "pack_size": "5 LB",
+      "brand": "SYSCO IMPERIAL",
+      "unit": "LB",
+      "category": "Frozen",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1357284",
+      "description": "Churro Prefried",
+      "pack_size": "16 IN",
+      "brand": "HOLA CHURRO",
+      "unit": "\"",
+      "category": "Frozen",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "226060",
+      "description": "Churro Mexican Mini 2 Inch",
+      "pack_size": "500 CT",
+      "brand": "HOLA CHURRO",
+      "unit": "CT",
+      "category": "Frozen",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7085140",
+      "description": "Corn Yellow Roasted Blend",
+      "pack_size": "2.5LB",
+      "brand": "SYSCO IMPERIAL",
+      "unit": "LB",
+      "category": "Frozen",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7075717",
+      "description": "Patty Vegetarian Impossible 1/4 Pound Frozen",
+      "pack_size": "4 OZ",
+      "brand": "IMPOSSIBLE FOODS",
+      "unit": "OZ",
+      "category": "Frozen",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7492218",
+      "description": "Cake Chocolate Fudge 10 Inch",
+      "pack_size": "110 OZ",
+      "brand": "CHEESECAKE FACTORY BAKERY",
+      "unit": "OZ",
+      "category": "Frozen",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "4011110",
+      "description": "Pudding Banana Zero Trans Fat",
+      "pack_size": "#10",
+      "brand": "SYSCO CLASSIC",
+      "unit": "CT",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7005009",
+      "description": "Chile Green Hatch Diced Mild",
+      "pack_size": "5LB",
+      "brand": "YOUNG GUNS PRODUCE",
+      "unit": "LB",
+      "category": "Frozen",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "3852940",
+      "description": "Beef Ground Chuck Brisket Shortrib Patty",
+      "pack_size": "7 OZ",
+      "brand": "BUCKHEAD PRIDE/ NEWPORT PRIDE",
+      "unit": "OZ",
+      "category": "Meats",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1400464",
+      "description": "Chicken Tenders Breaded Golden Flat Large",
+      "pack_size": "5 LB",
+      "brand": "SYSCO CLASSIC",
+      "unit": "LB",
+      "category": "Poultry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "8071803",
+      "description": "Pangasius Fillet Iqf 7-9 Ounce",
+      "pack_size": "15 LB",
+      "brand": "PORTICO IMPERIAL",
+      "unit": "LB",
+      "category": "Seafood",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7121503",
+      "description": "Sausage Breakfast Patty 3.5 Ounce Antibiotic Free",
+      "pack_size": "3.5OZ",
+      "brand": "Polidori",
+      "unit": "OZ",
+      "category": "Meats",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "2369233",
+      "description": "Chicken Wing Steamed Precooked Large",
+      "pack_size": "5LB",
+      "brand": "SYSCO CLASSIC",
+      "unit": "LB",
+      "category": "Poultry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "5098496",
+      "description": "Pork Ham Shank Pig Wing 4 Ounce",
+      "pack_size": "4.5LB",
+      "brand": "SYSCO CLASSIC",
+      "unit": null,
+      "category": "Meats",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "9702150",
+      "description": "Pretzel Soft Bavarian 7 Oz",
+      "pack_size": "4 PK",
+      "brand": "TEXAS TWIST",
+      "unit": "PAC",
+      "category": "Frozen",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "4129336",
+      "description": "Dip Cheese Craft Beer",
+      "pack_size": "5 LB",
+      "brand": "SYSCO CLASSIC",
+      "unit": "LB",
+      "category": "Frozen",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7235243",
+      "description": "Chicken Breast Cutlet 5 Ounce",
+      "pack_size": "5 LB",
+      "brand": "RED BIRD INC (POULTRY)",
+      "unit": "LB",
+      "category": "Poultry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "3777570",
+      "description": "Bacon Shingle Center-cut 7-9 Per Pound Honey Gas Flushed",
+      "pack_size": "15#",
+      "brand": "DAILYS BACON",
+      "unit": "LB",
+      "category": "Meats",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7585326",
+      "description": "Bread Sourdough Thick Sliced .75\"",
+      "pack_size": "32 OZ",
+      "brand": "ROTELLA",
+      "unit": "OZ",
+      "category": "Frozen",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7181814",
+      "description": "Sausage Chorizo Bulk Raw",
+      "pack_size": "7 LB",
+      "brand": "Polidori",
+      "unit": "LB",
+      "category": "Meats",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "6046902",
+      "description": "Pork Butt Boneless 1/4 6-9 Pounds Each Fresh",
+      "pack_size": "6-9#AV",
+      "brand": "BUTCHERS BLOCK",
+      "unit": "LB",
+      "category": "Meats",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "9448986",
+      "description": "Beef Cheek Meat",
+      "pack_size": "30 LB",
+      "brand": "PACKER",
+      "unit": null,
+      "category": "Meats",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "4944450",
+      "description": "Soup Base Chicken Real",
+      "pack_size": "1LB",
+      "brand": "SYSCO IMPERIAL",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "2334680",
+      "description": "Chicken Cvp Leg Qtr Med",
+      "pack_size": "40 LB",
+      "brand": "SYSCO CLASSIC",
+      "unit": "LB",
+      "category": "Poultry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "4874526",
+      "description": "PORK CHOP BONE IN FRENCHED LONG BONE FROZEN",
+      "pack_size": "12 OZ",
+      "brand": "BUCKHEAD PRIDE/ NEWPORT PRIDE",
+      "unit": null,
+      "category": "Meats",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "9869108",
+      "description": "Horseradish White Prepared",
+      "pack_size": "32 OZ",
+      "brand": "SYSCO CLASSIC",
+      "unit": "OZ",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7210310",
+      "description": "Buttermilk Whole Qt",
+      "pack_size": "1 QT",
+      "brand": "MEADOW GOLD",
+      "unit": "QT",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "4676306",
+      "description": "Milk Whole Gallon",
+      "pack_size": "1 GAL",
+      "brand": "WHOLESOME FARMS CLASSIC",
+      "unit": "GAL",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "6935464",
+      "description": "Cream Heavy 40% Extended Shelf Life Stabilized",
+      "pack_size": "32OZ",
+      "brand": "WHOLESOME FARMS CLASSIC",
+      "unit": "OZ",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "3029614",
+      "description": "Butter Clarified 4-5#",
+      "pack_size": "5 LB",
+      "brand": "WHOLESOME FARMS CLASSIC",
+      "unit": "LB",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "3030117",
+      "description": "Butter Solid Unsalted 83% Minimum Butterfat European",
+      "pack_size": "1 LB",
+      "brand": "WHOLESOME FARMS IMPERIAL",
+      "unit": "LB",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7063131",
+      "description": "Pickle Chip Bread Butter Refrigerated 500-650 Count",
+      "pack_size": "2 GAL",
+      "brand": "BLOCK & BARREL CLASSIC",
+      "unit": "GAL",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "6822561",
+      "description": "Dressing Mix Ranch Original",
+      "pack_size": "3.2OZ",
+      "brand": "HIDDEN VALLEY RANCH",
+      "unit": "OZ",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7078475",
+      "description": "Cilantro Bunch Iceless",
+      "pack_size": "30 CT",
+      "brand": "IMPERIAL FRESH",
+      "unit": "CT",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "2005296",
+      "description": "Thyme Fresh Herb",
+      "pack_size": "1 LB",
+      "brand": "IMPERIAL FRESH",
+      "unit": "LB",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "2058907",
+      "description": "Parsley Italian Fresh Herb",
+      "pack_size": "1 LB",
+      "brand": "IMPERIAL FRESH",
+      "unit": "LB",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "2058881",
+      "description": "Chives Fresh Herb",
+      "pack_size": "1 LB",
+      "brand": "IMPERIAL FRESH",
+      "unit": "LB",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "2004992",
+      "description": "Tarragon Fresh Herb",
+      "pack_size": "1 LB",
+      "brand": "IMPERIAL FRESH",
+      "unit": "LB",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "2005114",
+      "description": "Dill Baby Fresh Herb",
+      "pack_size": "4 OZ",
+      "brand": "IMPERIAL FRESH",
+      "unit": "OZ",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1132040",
+      "description": "Lettuce Fresh Tender Greens",
+      "pack_size": "3 LB",
+      "brand": "IMPERIAL FRESH",
+      "unit": "LB",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1675909",
+      "description": "Lettuce Greens Leaf Fresh",
+      "pack_size": "6 CT",
+      "brand": "SYSCO/FRESHPOINT NATURAL",
+      "unit": "CT",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "2004547",
+      "description": "Basil Fresh Herb",
+      "pack_size": "1 LB",
+      "brand": "IMPERIAL FRESH",
+      "unit": "LB",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1821537",
+      "description": "Garlic Peeled Fresh",
+      "pack_size": "5LB",
+      "brand": "IMPERIAL FRESH",
+      "unit": "LB",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7218368",
+      "description": "Shallot Whole Fresh",
+      "pack_size": "10 LB",
+      "brand": "IMPERIAL FRESH",
+      "unit": "LB",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1675701",
+      "description": "Cabbage Green Shredded Fresh In Bag",
+      "pack_size": "5 LB",
+      "brand": "IMPERIAL FRESH",
+      "unit": "LB",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1675719",
+      "description": "Cabbage Red Shredded Fresh",
+      "pack_size": "5 LB",
+      "brand": "IMPERIAL FRESH",
+      "unit": "LB",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1185156",
+      "description": "Pepper Jalapeno Fresh",
+      "pack_size": "5 LB",
+      "brand": "IMPERIAL FRESH",
+      "unit": "LB",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "9927799",
+      "description": "Pepper Jalapeno Fresh",
+      "pack_size": "10 LB",
+      "brand": "IMPERIAL FRESH",
+      "unit": "LB",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "6395974",
+      "description": "Asparagus Jumbo",
+      "pack_size": "11 LB",
+      "brand": "PROPACK",
+      "unit": "LB",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7049597",
+      "description": "Mayonnaise Japanese 64 Ounces",
+      "pack_size": "64 OZ",
+      "brand": "KEWPIE  ORIENTAL PRODUCT",
+      "unit": "OZ",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "4002408",
+      "description": "Mayonnaise Heavy Duty Pail",
+      "pack_size": "28LB",
+      "brand": "SYSCO RELIANCE",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "6206551",
+      "description": "Mustard Yellow Jug",
+      "pack_size": "6.5 LB",
+      "brand": "HEINZ",
+      "unit": "OZ",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "4064978",
+      "description": "Mustard Dijon With White Wine In Tin",
+      "pack_size": "9 LB",
+      "brand": "SYSCO IMPERIAL",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "4064986",
+      "description": "Mustard French Whole Grain In Tin",
+      "pack_size": "8.6 LB",
+      "brand": "SYSCO IMPERIAL",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "6272686",
+      "description": "Dressing Bleu Cheese Deluxe",
+      "pack_size": "1 GAL",
+      "brand": "KEN'S",
+      "unit": "GAL",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "4606388",
+      "description": "Sauce Bbq Sweet And Tangy",
+      "pack_size": "1 GAL",
+      "brand": "SYSCO IMPERIAL",
+      "unit": "GAL",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "5020193",
+      "description": "Cream Sour Cultured Grade A",
+      "pack_size": "5 LB",
+      "brand": "WHOLESOME FARMS CLASSIC",
+      "unit": "LB",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "2575926",
+      "description": "Cheese American Loaf Special Melting White",
+      "pack_size": "5 LB",
+      "brand": "CASA SOLANA IMPERIAL",
+      "unit": "LB",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "2406189",
+      "description": "Cheese Cheddar Jack Fancy Shredded",
+      "pack_size": "5LB",
+      "brand": "CASA SOLANA IMPERIAL",
+      "unit": "LB",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7814881",
+      "description": "Cheese Cheddar Sharp Slice White",
+      "pack_size": "2.5 LB",
+      "brand": "ALP&DELL",
+      "unit": "LB",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "3554553",
+      "description": "Cheese Monterey Pepper Jack Sliced Interleaf .",
+      "pack_size": "1.5LB",
+      "brand": "BLOCK & BARREL IMPERIAL",
+      "unit": "LB",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "671677",
+      "description": "Cheese Blue Crumbles",
+      "pack_size": "5 LB",
+      "brand": "SYSCO IMPERIAL",
+      "unit": "LB",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1552272",
+      "description": "Cheese Mozzarella Fresh Cryovac Log",
+      "pack_size": "1 LB",
+      "brand": "ARREZZIO IMPERIAL",
+      "unit": "LB",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "5979291",
+      "description": "Cheese Cotija Random Cut",
+      "pack_size": "1#AVG",
+      "brand": "QUESO CAMPESINO (DAIRY)",
+      "unit": "LB",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "8149296",
+      "description": "Cheese Chihuahua Shredded",
+      "pack_size": "5LB",
+      "brand": "SUPREMO",
+      "unit": "LB",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "5134365",
+      "description": "Egg Breakfast Blend Scramble Mix Cgfr",
+      "pack_size": "2 LB",
+      "brand": "WHOLESOME FARMS IMPERIAL",
+      "unit": "LB",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7182310",
+      "description": "Egg Shell Medium White Aa Cage Free",
+      "pack_size": "15 DZ",
+      "brand": "WHOLESOME FARMS IMPERIAL",
+      "unit": "DZ",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7199866",
+      "description": "Egg Hardcooked Cgfree Hard Pk",
+      "pack_size": "12 CT",
+      "brand": "WHOLESOME FARMS IMPERIAL",
+      "unit": "CT",
+      "category": "Dairy",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7215467",
+      "description": "Onion Pickled Purple",
+      "pack_size": "2.5 LB",
+      "brand": "DIVINA (COOLER)",
+      "unit": "LB",
+      "category": "Frozen",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1007350",
+      "description": "Avocado Hass Breaking Fresh",
+      "pack_size": "48 CT",
+      "brand": "PROPACK",
+      "unit": "CT",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7134591",
+      "description": "Cucumber English Medium Seedless 12 Count",
+      "pack_size": "12CT",
+      "brand": "IMPERIAL FRESH",
+      "unit": "CT",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1008663",
+      "description": "Tomato 2 Layer 5x6 Fresh",
+      "pack_size": "60 CT",
+      "brand": "IMPERIAL FRESH",
+      "unit": "CT",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7210106",
+      "description": "Onion Red Jumbo Sack",
+      "pack_size": "5 LB",
+      "brand": "IMPERIAL FRESH",
+      "unit": "LB",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1094697",
+      "description": "Onions White Jumbo Bag",
+      "pack_size": "50LB",
+      "brand": "IMPERIAL FRESH",
+      "unit": "LB",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "5661143",
+      "description": "Tomato Cherry Heirloom Mix",
+      "pack_size": ".5 PTS",
+      "brand": "PACKER",
+      "unit": "PT",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "2986487",
+      "description": "Carrots Sticks Brick Pack",
+      "pack_size": "5 LB",
+      "brand": "IMPERIAL FRESH",
+      "unit": "LB",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1120625",
+      "description": "Celery Fresh",
+      "pack_size": "24 CT",
+      "brand": "IMPERIAL FRESH",
+      "unit": "CT",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "5844220",
+      "description": "Bean Black",
+      "pack_size": "#10",
+      "brand": "CASA SOLANA CLASSIC",
+      "unit": "CT",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "9312596",
+      "description": "Milk Condensed Sweetened",
+      "pack_size": "14 OZ",
+      "brand": "CASA SOLANA CLASSIC",
+      "unit": "OZ",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "651828",
+      "description": "Glaze Balsamic Vinegar Of Modena",
+      "pack_size": "12.9OZ",
+      "brand": "ARREZZIO IMPERIAL",
+      "unit": "OZ",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "4045415",
+      "description": "Vinegar Apple Cider",
+      "pack_size": "1GAL",
+      "brand": "HEINZ",
+      "unit": "GAL",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "9123399",
+      "description": "Tomatillo Crushed",
+      "pack_size": "#10",
+      "brand": "DEL SOL (CANNED)",
+      "unit": "CAN",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "3341443",
+      "description": "Sauce Chocolate Designer",
+      "pack_size": "16 OZ",
+      "brand": "LYONS MAGNUS",
+      "unit": "OZ",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "4685614",
+      "description": "Glove Nitrile Foodservice Powder Free Black La",
+      "pack_size": "100CT",
+      "brand": "SYSCO CLASSIC",
+      "unit": "CT",
+      "category": "Paper & Disposable",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "4685621",
+      "description": "Glove Nitrile Foodservice Powder Free Black Ex",
+      "pack_size": "100CT",
+      "brand": "SYSCO CLASSIC",
+      "unit": "CT",
+      "category": "Paper & Disposable",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "4685594",
+      "description": "Glove Nitrile Foodservice Powder Free Black Me",
+      "pack_size": "100CT",
+      "brand": "SYSCO CLASSIC",
+      "unit": "CT",
+      "category": "Paper & Disposable",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "2102509",
+      "description": "Skewer Bamboo 6\" Inch",
+      "pack_size": "1000CT",
+      "brand": "HANDGARD",
+      "unit": "CT",
+      "category": "Paper & Disposable",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1423726",
+      "description": "Container Paper #4 Takeout Kraft",
+      "pack_size": "45CT",
+      "brand": "EARTH PLUS",
+      "unit": "CT",
+      "category": "Paper & Disposable",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "8231512",
+      "description": "Container Plastic Deli Translucent With Lid",
+      "pack_size": "32OZ",
+      "brand": "DELITAINER (NEWSPRING)",
+      "unit": "OZ",
+      "category": "Paper & Disposable",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "8018838",
+      "description": "Container Plastic Deli Translucent With Lid",
+      "pack_size": "16OZ",
+      "brand": "DELITAINER (NEWSPRING)",
+      "unit": "OZ",
+      "category": "Paper & Disposable",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7064453",
+      "description": "Container Paper Polylactic Acid Lined Soup Container 8 Ounce",
+      "pack_size": "25 CT",
+      "brand": "EARTH PLUS",
+      "unit": "CT",
+      "category": "Paper & Disposable",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "5793963",
+      "description": "Grill Brick 3.5\" Thick",
+      "pack_size": "1EA",
+      "brand": "SYSCO SUPPLIES CLASSIC",
+      "unit": "EA",
+      "category": "Supplies & Equipment",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "2970457",
+      "description": "Filter Grease Cone 10 Inch",
+      "pack_size": "50CT",
+      "brand": "SYSCO SUPPLIES CLASSIC",
+      "unit": "CT",
+      "category": "Paper & Disposable",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "2429926",
+      "description": "Pepper Chiles Guajillo Dried",
+      "pack_size": "5 LB",
+      "brand": "PACKER",
+      "unit": "LB",
+      "category": "Produce",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "6693642",
+      "description": "Pepper Red Diced Fancy",
+      "pack_size": "#300",
+      "brand": "SYSCO IMPERIAL",
+      "unit": "CT",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "4595138",
+      "description": "Cleaner Grill And Panini High Temperature",
+      "pack_size": "32 OZ",
+      "brand": "ECOLAB",
+      "unit": "OZ",
+      "category": "Chemical & Janitorial",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1376805",
+      "description": "Pad Scour Green 6\" X 9\" Antimicrobial",
+      "pack_size": "20CT",
+      "brand": "SYSCO SUPPLIES CLASSIC",
+      "unit": "CT",
+      "category": "Supplies & Equipment",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "5793831",
+      "description": "Pad Scrub Stainless Steel 35 Gram 1.25 Ounce",
+      "pack_size": "12CT",
+      "brand": "SYSCO SUPPLIES CLASSIC",
+      "unit": "CT",
+      "category": "Supplies & Equipment",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "8107213",
+      "description": "Spice Pickling",
+      "pack_size": "14 OZ",
+      "brand": "D'ALLASANDRO",
+      "unit": "OZ",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "5229497",
+      "description": "Spice Pickling Whole",
+      "pack_size": "13 OZ",
+      "brand": "SYSCO IMPERIAL/MCCORMICK",
+      "unit": "OZ",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "7116469",
+      "description": "Container Paper Trendz 12 Ounce Round Combo With Plastic Lid",
+      "pack_size": "25CT",
+      "brand": "SYSCO TRENDZ",
+      "unit": "CT",
+      "category": "Paper & Disposable",
+      "location": null,
+      "par": null
+    },
+    {
+      "supc": "1356254",
+      "description": "Achiote Paste",
+      "pack_size": "10 LB",
+      "brand": "EL YUCATECO (SAUCES)",
+      "unit": "LB",
+      "category": "Canned & Dry",
+      "location": null,
+      "par": null
+    }
+  ]
+}

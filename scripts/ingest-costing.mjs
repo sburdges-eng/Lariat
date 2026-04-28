@@ -164,7 +164,7 @@ export function ingestCosting(db, data, locationId = 'default') {
 
   let summaryResult;
   try {
-    summaryResult = _ingestCostingImpl(db, data, locationId);
+    summaryResult = _ingestCostingImpl(db, data, locationId, runId);
   } catch (err) {
     runFinalize('failed', null);
     throw err;
@@ -177,7 +177,15 @@ export function ingestCosting(db, data, locationId = 'default') {
   return summaryResult;
 }
 
-function _ingestCostingImpl(db, data, locationId) {
+// Categories whose rows are NOT wiped by the costing DELETE+INSERT sweep.
+// Beverages live in vendor_prices alongside food but are populated by a
+// separate out-of-band importer (scripts/import-vendor-prices.mjs /
+// lib/vendorPricesRepo.ts) that the costing ingest has no feed for.
+// Without this guard, every `npm run ingest:costing` wiped drink prices.
+// Comparison is case-insensitive via LOWER() in the SQL.
+export const BEVERAGE_CATEGORIES = ['beer', 'wine', 'liquor', 'spirit', 'cocktail'];
+
+function _ingestCostingImpl(db, data, locationId, runId = null) {
   // Build an in-memory lookup of ingredient_key → {yield_pct, loss_factor} once
   // per ingest. Avoids a per-row SELECT on potentially thousands of BOM rows.
   const yieldLookup = new Map();
@@ -260,7 +268,34 @@ function _ingestCostingImpl(db, data, locationId) {
   const del = (sql) => db.prepare(sql).run(locationId);
 
   db.transaction(() => {
-    del('DELETE FROM vendor_prices WHERE location_id = ?');
+    // Snapshot the current vendor_prices rows into vendor_prices_history
+    // BEFORE the DELETE so a price series survives the destructive sweep.
+    // In the same transaction as the DELETE, so a failure rolls back both
+    // the snapshot and the erase — no orphan history rows.
+    db.prepare(`
+      INSERT INTO vendor_prices_history
+        (run_id, source_vendor_price_id, ingredient, vendor, sku,
+         pack_size, pack_unit, pack_price, unit_price, category,
+         yield_pct, actual_received_lb, reconciled_unit_price, master_id,
+         location_id, imported_at, snapshot_reason)
+      SELECT ?, id, ingredient, vendor, sku,
+             pack_size, pack_unit, pack_price, unit_price, category,
+             yield_pct, actual_received_lb, reconciled_unit_price, master_id,
+             location_id, imported_at, 'ingest-costing'
+        FROM vendor_prices
+       WHERE location_id = ?
+    `).run(runId, locationId);
+
+    // Preserve beverage rows — they come from import-vendor-prices and the
+    // costing ingest has no source feed for them. Food rows (category NULL
+    // or any non-beverage category) get wiped as before.
+    const bevPlaceholders = BEVERAGE_CATEGORIES.map(() => '?').join(',');
+    db.prepare(`
+      DELETE FROM vendor_prices
+       WHERE location_id = ?
+         AND COALESCE(LOWER(category), '') NOT IN (${bevPlaceholders})
+    `).run(locationId, ...BEVERAGE_CATEGORIES);
+
     del('DELETE FROM recipe_costs WHERE location_id = ?');
     del('DELETE FROM bom_lines WHERE location_id = ?');
     del('DELETE FROM ingredient_maps WHERE location_id = ?');
@@ -451,6 +486,7 @@ function _ingestCostingImpl(db, data, locationId) {
   summary.ingredient_masters = postPass.ingredient_masters ?? 0;
   summary.vp_master_backfilled_rows = postPass.vp_master_backfilled_rows ?? 0;
   summary.bom_master_backfilled_rows = postPass.bom_master_backfilled_rows ?? 0;
+  summary.excel_drift_warnings = postPass.excel_drift_warnings ?? 0;
   return summary;
 }
 
@@ -483,7 +519,33 @@ export function runCostingPostPass(db, locationId = 'default') {
     ingredient_masters: 0,
     vp_master_backfilled_rows: 0,
     bom_master_backfilled_rows: 0,
+    excel_drift_warnings: 0,
   };
+
+  // ── D4: Excel batch_cost vs raw-sum drift observability ───────────
+  // T3's yield-delta math adds on top of Excel's `recipe_costs.batch_cost`
+  // assuming `excel_batch_cost === Σ (bom_qty × pack_price / pack_size)`
+  // across BOM lines. The current workbook holds this identity, but
+  // per-line rounding / case-minimum bucketing / sub-recipe caching in a
+  // future workbook would silently break it — the yield-delta is still
+  // correct FOR the yield portion, but the resulting batch_cost is
+  // "Excel + our delta" rather than "absolute true cost".
+  //
+  // Snapshot batch_cost BEFORE the T3/T4 UPDATEs, compute the raw-sum
+  // against the same guards the delta loop uses (skip null/zero/infinite
+  // qty / pack_price / pack_size), and log an INFO line when |drift| >
+  // $0.10. Observability only — no behavior change. See
+  // docs/MAPPING_ENGINE_GAPS.md#D4.
+  const excelBatchCostByRecipe = new Map();
+  for (const row of db.prepare(
+    `SELECT recipe_id, batch_cost FROM recipe_costs
+      WHERE location_id = ?
+        AND recipe_id IS NOT NULL
+        AND recipe_id != 'TOTAL'
+        AND batch_cost IS NOT NULL`,
+  ).all(locationId)) {
+    excelBatchCostByRecipe.set(row.recipe_id, row.batch_cost);
+  }
   // ── T3 + T4: yield + loss + unit-conversion post-pass ──────────────
   // After T2c populated bom_lines.{yield_pct, loss_factor, pack_price, pack_size,
   // qty}, sum the per-BOM-line "true cost" adjustment for each recipe and apply
@@ -582,6 +644,11 @@ export function runCostingPostPass(db, locationId = 'default') {
   `).all(locationId);
 
   const perRecipeDelta = new Map(); // recipe_id -> delta (USD)
+  // D4: Σ (qty × pack_price / pack_size) per recipe, using the same
+  // guards as the delta loop. Compared against the Excel-sourced
+  // batch_cost snapshot above to surface workbook-math drift before it
+  // poisons COGS silently. INFO-level log only; no behavior change.
+  const perRecipeRawSum = new Map();
   let guardSkipped = 0;
   let denomSkipped = 0;
   let denomConvertedSkipped = 0;
@@ -607,6 +674,15 @@ export function runCostingPostPass(db, locationId = 'default') {
       guardSkipped++;
       continue;
     }
+    // D4: accumulate the raw Σ (qty × pack_price / pack_size) in bom_line
+    // units — same guard posture as the delta loop, computed BEFORE any
+    // unit-conversion so it matches the Excel formula's assumptions. If
+    // the workbook's batch_cost departs from this sum in a future
+    // Excel revision, the INFO log downstream catches it.
+    perRecipeRawSum.set(
+      recipe_id,
+      (perRecipeRawSum.get(recipe_id) ?? 0) + (qty * pack_price / pack_size),
+    );
     const adj = adjustment(yield_pct, loss_factor);
     if (adj === null) {
       denomSkipped++;
@@ -685,6 +761,31 @@ export function runCostingPostPass(db, locationId = 'default') {
     console.warn(
       `⚠ ${denomConvertedSkipped} bom_line(s) could not convert pack_size → bom_unit (missing density, count unit, or unknown unit) — delta skipped`,
     );
+  }
+
+  // D4: emit one INFO line per recipe whose Excel `batch_cost` differs
+  // from the raw Σ (qty × pack_price / pack_size) by > $0.10. Runs
+  // BEFORE the UPDATE transaction below so the comparison is against
+  // Excel's original value — post-UPDATE, `batch_cost` is "Excel +
+  // yield-delta" and the signal is lost.
+  //
+  // Threshold picked at $0.10 because (a) penny-level float noise from
+  // Excel rounding is routine and noise-floor, and (b) $0.10 × typical
+  // ~50 recipes × weekly runs ≈ $5/week of drift — below that, other
+  // signals in the unmapped queue would catch it first. Raised to hard-
+  // fail at $1.00 per D4's "once observability confirms the invariant"
+  // note, tracked separately.
+  const DRIFT_THRESHOLD_USD = 0.10;
+  for (const [recipe_id, rawSum] of perRecipeRawSum) {
+    const excelValue = excelBatchCostByRecipe.get(recipe_id);
+    if (excelValue == null) continue; // recipe_costs row had NULL batch_cost
+    const drift = excelValue - rawSum;
+    if (Math.abs(drift) > DRIFT_THRESHOLD_USD) {
+      summary.excel_drift_warnings++;
+      console.info(
+        `ℹ D4 Excel drift: recipe_id=${recipe_id} excel_value=$${excelValue.toFixed(4)} computed_sum=$${rawSum.toFixed(4)} drift_usd=$${drift.toFixed(4)}`,
+      );
+    }
   }
 
   // Flag rows that need density (or any other unit-conversion failure). B2's
@@ -829,18 +930,30 @@ export function backfillCatchWeightsIntoVendorPrices(db, locationId = 'default')
 
   for (const { vendor, table } of sources) {
     if (!tables.has(table)) continue;
-    // Latest catch-weight row per SKU. GROUP BY sku + HAVING MAX(delivery_date)
-    // picks the most recent delivered pack for each SKU; SQLite lets aggregates
-    // flow into the projected columns via bare-column selection from the
-    // matching row.
+    // Latest catch-weight row per SKU, preferring rows with non-NULL
+    // reconciled_unit_price so the dashboard surfaces actual drift first.
+    // ROW_NUMBER() guarantees exactly one row per SKU even when multiple
+    // invoice lines share the same delivery_date (the table's UNIQUE
+    // constraint allows that across different invoice_no/item combos).
+    // Replaces the prior GROUP BY sku HAVING MAX(delivery_date) form,
+    // which was non-deterministic in SQLite when non-aggregated columns
+    // were referenced — see PR #41 / cursor/ingest-database-reliability.
     const latest = db.prepare(`
       SELECT sku, actual_received_lb, reconciled_unit_price
-        FROM ${table}
-       WHERE location_id = ?
-         AND actual_received_lb IS NOT NULL
-         AND sku IS NOT NULL AND sku != ''
-       GROUP BY sku
-       HAVING delivery_date = MAX(delivery_date)
+        FROM (
+          SELECT sku, actual_received_lb, reconciled_unit_price,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY sku
+                   ORDER BY delivery_date DESC,
+                            (reconciled_unit_price IS NULL) ASC,
+                            rowid DESC
+                 ) AS rn
+            FROM ${table}
+           WHERE location_id = ?
+             AND actual_received_lb IS NOT NULL
+             AND sku IS NOT NULL AND sku != ''
+        )
+       WHERE rn = 1
     `).all(locationId);
     if (latest.length === 0) { out.by_vendor[vendor] = 0; continue; }
 

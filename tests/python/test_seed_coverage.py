@@ -9,6 +9,17 @@ test catches drift on the production checkout.
 If the live DB isn't available (fresh clone, worktree on a different
 host), the test skips — but prints the skip reason to stdout so it is
 visible in default pytest output instead of silently looking like a pass.
+
+D1 fix (debt-bundle-b, docs/MAPPING_ENGINE_GAPS.md#D1): a skip on "DB
+file not on disk" is the only legitimate skip path. If the live DB IS
+present and ``bom_lines`` is reachable, an *empty* ``bom_lines`` table
+is a real misconfig — a fresh DB that was initialised but never ingested
+would otherwise satisfy the 100% coverage invariant trivially and look
+identical to "passing" in CI. The ``assertGreater(n_bom, 0, ...)``
+below turns that silent-pass scenario into a hard FAIL. Trade-off
+picked over option (b) — renaming to ``coverage_report.py`` — because
+the live-DB path is still the same, and keeping the test under
+``pytest`` preserves its value as an on-every-run regression catcher.
 """
 from __future__ import annotations
 
@@ -90,6 +101,16 @@ class SeedCoverageReporter(unittest.TestCase):
         print(f"covered by yield CSV:  {n_covered}")
         print(f"coverage %:            {pct:.1f}%")
         print(f"first 20 uncovered BOM keys: {missing_preview}")
+
+        # D1 baseline: empty bom_lines is a misconfig, not a trivial pass.
+        # The 100% coverage assertion below evaluates true for n_bom==0
+        # (0 of 0 is 100%), so without this guard a fresh / wiped / never-
+        # ingested DB would look identical to "passing" in CI. See the
+        # module docstring for the debt-bundle-b context.
+        self.assertGreater(
+            n_bom, 0,
+            "bom_lines empty — live DB not populated?",
+        )
 
         # Enforce the 100% claim in MAPPING_ENGINE_GAPS.md. A failure here
         # means a new BOM ingredient was added without a matching row in

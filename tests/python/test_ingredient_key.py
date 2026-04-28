@@ -101,13 +101,41 @@ class NormalizeSeriesRejectsNonSeries(unittest.TestCase):
             normalize_series(["not", "a", "series"])  # type: ignore[arg-type]
 
 
-class NormalizeSeriesPinsNaNBehavior(unittest.TestCase):
-    def test_series_stringifies_nan_to_literal_nan(self) -> None:
-        # pins current behavior — callers must handle NaN/NA explicitly
-        # before normalization if 'nan'/'na' is not acceptable as a real key
+class NormalizeSeriesPreservesNaN(unittest.TestCase):
+    def test_series_preserves_nan_through_astype_str(self) -> None:
+        """NaN / pd.NA pass through normalize_series unchanged as float NaN.
+
+        pandas 3.x changed Series.astype(str) to preserve NaN sentinels —
+        pandas 2.x would coerce them to the string 'nan' / 'na', which
+        silently grouped unrelated missing-ingredient rows under a shared
+        key during downstream joins. The new behavior is more correct:
+        missing ingredients form unique singletons (NaN != NaN per IEEE
+        754) rather than false-merging.
+
+        Callers who need a canonical key for missing ingredients must
+        pre-fill the series (e.g. ``series.fillna("")``) BEFORE calling
+        ``normalize_series``. rebuild_merged_prices.py already guards
+        every numeric field with ``pd.isna`` and the groupby on this
+        column now treats each NaN as its own bucket — strictly better
+        than the 2.x 'nan'-string false-merge.
+
+        This test was previously NormalizeSeriesPinsNaNBehavior and pinned
+        the pandas-2.x coercion; flipped to the pass-through contract
+        after the pandas 3.x upgrade.
+        """
         series = pd.Series(["Yellow Onion", float("nan"), pd.NA, "Heavy Cream"])
         result = list(normalize_series(series))
-        self.assertEqual(result, ["yellow onion", "nan", "na", "heavy cream"])
+        self.assertEqual(result[0], "yellow onion")
+        self.assertTrue(pd.isna(result[1]), f"float NaN should pass through; got {result[1]!r}")
+        self.assertTrue(pd.isna(result[2]), f"pd.NA should pass through; got {result[2]!r}")
+        self.assertEqual(result[3], "heavy cream")
+
+    def test_fillna_then_normalize_produces_empty_string_key(self) -> None:
+        """Documents the recommended caller pattern for missing ingredients."""
+        series = pd.Series(["Yellow Onion", float("nan"), pd.NA])
+        prefilled = series.fillna("")
+        result = list(normalize_series(prefilled))
+        self.assertEqual(result, ["yellow onion", "", ""])
 
 
 if __name__ == "__main__":

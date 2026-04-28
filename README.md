@@ -26,7 +26,7 @@ For **datasheet + scheduling** work with **Codex**, **Gemini**, and **Claude** i
 ## First run
 
 1. Install Node.js (LTS) from <https://nodejs.org> if you don't have it.
-2. **Double-click `scripts/Lariat Cockpit.command`**.
+2. **Double-click `scripts/Lariat Cockpit.command`** (or the `Lariat.app` bundle at the repo root — same launcher, Dock-friendly).
 3. First run installs dependencies (≈1 minute). After that it's instant.
 4. The Terminal window will print two URLs:
    - `http://localhost:3000` — open in Safari/Chrome on this Mac

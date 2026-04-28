@@ -5,6 +5,9 @@ import {
   formatDepletionDelta,
   formatShrinkageNote,
 } from '../../../lib/inventoryShrinkage';
+import { postAuditEvent } from '../../../lib/auditEvents';
+
+export const dynamic = 'force-dynamic';
 
 /**
  * T8 — Inventory-depletion POST endpoint. Writes to `inventory_updates`.
@@ -86,7 +89,7 @@ export async function POST(req) {
     const loc = locationFromBody(body);
     const db = getDb();
 
-    const source = clip(body.source, 32) || 'manual';
+    const source = (clip(body.source, 32) || 'manual').toLowerCase();
     const userNote = clip(body.note, 500);
     const direction = clip(body.direction, 16) || 'out';
 
@@ -125,26 +128,37 @@ export async function POST(req) {
       delta = formatDepletionDelta(qty, unit);
     }
 
-    const info = db
-      .prepare(
-        `INSERT INTO inventory_updates
-           (shift_date, station_id, item, delta, direction, note, cook_id, location_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        clip(body.shift_date, 32) || todayISO(),
-        clip(body.station_id, 64),
-        item,
-        delta,
-        direction,
-        persistedNote,
-        clip(body.cook_id, 64),
-        loc,
-      );
+    // ACID: inventory movements affect COGS — transaction + audit trail.
+    const result = db.transaction(() => {
+      const info = db
+        .prepare(
+          `INSERT INTO inventory_updates
+             (shift_date, station_id, item, delta, direction, note, cook_id, location_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          clip(body.shift_date, 32) || todayISO(),
+          clip(body.station_id, 64),
+          item,
+          delta,
+          direction,
+          persistedNote,
+          clip(body.cook_id, 64),
+          loc,
+        );
+      const newId = Number(info.lastInsertRowid);
+      postAuditEvent({
+        entity: 'inventory_updates', entity_id: newId, action: 'insert',
+        actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
+        location_id: loc,
+        payload: { item, delta, direction, source, shrinkage_applied: shrinkageApplied },
+      });
+      return newId;
+    })();
 
     return Response.json({
       ok: true,
-      id: info.lastInsertRowid,
+      id: result,
       source,
       delta,
       shrinkage_applied: shrinkageApplied,

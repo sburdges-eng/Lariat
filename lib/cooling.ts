@@ -137,7 +137,10 @@ export function classifyCoolingStage(x: CoolingStageInput): StageDecision {
 
   // Stage 1 hasn't closed yet.
   if (!x.row.stage1_at) {
-    const elapsed = minutesBetween(x.row.started_at, x.at as string)!;
+    const elapsed = minutesBetween(x.row.started_at, x.at as string);
+    if (elapsed === null) {
+      return { ok: false, reason: 'Cannot compute elapsed time — batch started_at is not a valid ISO timestamp' };
+    }
     if (elapsed < 0) {
       return { ok: false, reason: 'Reading is before the batch start time' };
     }
