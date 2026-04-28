@@ -79,7 +79,8 @@ export function pipelineCounts(
   const rows = upcomingShows(db, locationId, { today, weeks: opts.weeks ?? 52 });
   for (const r of rows) {
     const past = r.show_date < today;
-    counts[pipelineStage(r.status, past)] += 1;
+    const stage = pipelineStage(r.status, past);
+    counts[stage] = (counts[stage] ?? 0) + 1;
   }
   return counts as Record<PipelineStage, number>;
 }
