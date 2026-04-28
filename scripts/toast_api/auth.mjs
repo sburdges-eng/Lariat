@@ -82,10 +82,16 @@ function readCache() {
 function writeCache(entry) {
   fs.mkdirSync(CACHE_DIR, { recursive: true });
   // Atomic-ish: write to .tmp + rename so a crash mid-write can't
-  // corrupt the cache.
+  // corrupt the cache. Force 0600 so the bearer token isn't world-
+  // readable on systems with a permissive umask — Toast's published
+  // guidance treats the access token as credential-grade material.
   const tmp = `${CACHE_FILE}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(entry, null, 2), 'utf8');
+  fs.writeFileSync(tmp, JSON.stringify(entry, null, 2), { encoding: 'utf8', mode: 0o600 });
   fs.renameSync(tmp, CACHE_FILE);
+  // writeFileSync only sets mode on file creation; chmod afterwards is
+  // a no-op on a fresh file but corrects an older 0644 cache that
+  // pre-dates this hardening.
+  try { fs.chmodSync(CACHE_FILE, 0o600); } catch { /* best effort */ }
 }
 
 function nowSeconds() {
@@ -128,17 +134,42 @@ function readEnvOrThrow() {
   return { host: normalizedHost, clientId, clientSecret };
 }
 
+// Bound the login request so a hung Toast endpoint doesn't block a
+// long-running ingest forever. Configurable via env for the rare case
+// of a high-latency network; default 30s is plenty for the size of the
+// /authentication/login response.
+const FETCH_TIMEOUT_MS = Math.max(
+  5_000,
+  parseInt(process.env.TOAST_AUTH_TIMEOUT_MS || '30000', 10) || 30_000,
+);
+
 async function fetchToken({ host, clientId, clientSecret }) {
   const url = `https://${host}/authentication/v1/authentication/login`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      clientId,
-      clientSecret,
-      userAccessType: 'TOAST_MACHINE_CLIENT',
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientId,
+        clientSecret,
+        userAccessType: 'TOAST_MACHINE_CLIENT',
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      throw new Error(
+        `Toast /authentication/login timed out after ${FETCH_TIMEOUT_MS}ms ` +
+          `(clientId=${maskSecret(clientId)})`,
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
   // We never log the secret on failure. The status + a short body excerpt
   // is enough to debug 401 (bad credentials) vs 403 vs 5xx.
   if (!res.ok) {
