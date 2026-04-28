@@ -11,7 +11,16 @@ cd "$(dirname "$0")/.."
 
 export HF_HOME="${HF_HOME:-$PWD/.hf_cache}"
 export HF_HUB_DISABLE_XET=1
-export PATH="/Users/seanburdges/Library/Python/3.9/bin:/opt/homebrew/bin:$PATH"
+
+PY_USER_BASE="$(python3 -m site --user-base 2>/dev/null || true)"
+if [ -n "$PY_USER_BASE" ] && [ -d "$PY_USER_BASE/bin" ]; then
+  export PATH="$PY_USER_BASE/bin:$PATH"
+fi
+
+if ! command -v mlx_lm.lora >/dev/null 2>&1; then
+  echo "mlx_lm.lora not found. Install mlx-lm or add it to PATH." >&2
+  exit 1
+fi
 
 mkdir -p "$HF_HOME"
 

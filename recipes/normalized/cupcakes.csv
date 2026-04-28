@@ -1,0 +1,2 @@
+ingredient,qty,unit,portions_per_batch,notes
+cupcakes (vendor whole-buy),1,case,~1 case,Listed in scripts/beo_order_pull.py DEFAULT_WHOLE_BUY_EXACT — always ordered whole

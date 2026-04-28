@@ -75,7 +75,7 @@ export async function expandForBEO(
     recipes.map((r) =>
       expandRecipe({
         recipeSlug: r.slug,
-        multiplier: r.portionsPerGuest * guestCount,
+        qty: r.portionsPerGuest * guestCount,
       }),
     ),
   );

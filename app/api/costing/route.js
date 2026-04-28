@@ -11,10 +11,20 @@
  *     location_id,
  *     variance: {
  *       max_variance_pct, mean_variance_pct, recipes_over_5pct,
- *       rows: [{recipe_id, recipe_name, theoretical, actual, variance_pct}, ...]
+ *       rows: [{recipe_id, recipe_name, theoretical, actual, variance_pct,
+ *              total_lines, unmatched_lines, excluded, exclusion_reason}, ...]
+ *       summary: { healthy, yellow, red, excluded_high_unmatched }   // D6
  *     },
  *     ingest: { last_run_at, last_status, age_minutes }
  *   }
+ *
+ * D6: per-row `total_lines`, `unmatched_lines`, `excluded`, `exclusion_reason`
+ * and a `summary` block are new. Existing fields (`max_variance_pct`,
+ * `mean_variance_pct`, `recipes_over_5pct`, per-row `variance_pct`,
+ * `theoretical`, `actual`) stay in the same place so the dashboard UI
+ * doesn't break. `variance_pct` / `actual` are `null` on excluded rows
+ * (previously unreachable — the pre-D6 BOM fallback always produced a
+ * number).
  */
 
 import { getDb } from '../../../lib/db';
@@ -34,7 +44,9 @@ export async function GET(req) {
     const ingest = readLastCostingIngest(db);
 
     // Top 5 only for the dashboard tile; full list stays out of the JSON to
-    // bound payload size on a production workbook (~300 recipes).
+    // bound payload size on a production workbook (~300 recipes). Excluded
+    // rows sort to the end in computeCostVariance, so slicing the first 5
+    // still prioritizes the highest-variance healthy recipes.
     return Response.json({
       location_id: loc,
       variance: {
@@ -42,6 +54,7 @@ export async function GET(req) {
         mean_variance_pct: variance.mean_variance_pct,
         recipes_over_5pct: variance.recipes_over_5pct,
         rows: variance.rows.slice(0, 5),
+        summary: variance.summary,
       },
       ingest,
     });

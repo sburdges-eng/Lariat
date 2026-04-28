@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  scripts/toast_weekly/com.lariat.toast-weekly.plist.template
+
+  launchd plist template for the Toast weekly-ingest job. Copy to
+    ~/Library/LaunchAgents/com.lariat.toast-weekly.plist
+  and replace HOME_DIR with your absolute home path before bootstrapping.
+
+  Schedule: Mondays at 06:05 local time. The 5-minute offset gives a
+  noisy network 5 minutes to settle past 06:00 wall-clock cron storms.
+
+  Install:
+    sed "s|HOME_DIR|$HOME|g" \
+      scripts/toast_weekly/com.lariat.toast-weekly.plist.template \
+      > ~/Library/LaunchAgents/com.lariat.toast-weekly.plist
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.lariat.toast-weekly.plist
+
+  Verify state:
+    launchctl print gui/$(id -u)/com.lariat.toast-weekly | grep -E 'state|last exit'
+
+  Trigger an ad-hoc run:
+    launchctl kickstart -k gui/$(id -u)/com.lariat.toast-weekly
+
+  Remove:
+    launchctl bootout gui/$(id -u)/com.lariat.toast-weekly
+    rm ~/Library/LaunchAgents/com.lariat.toast-weekly.plist
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.lariat.toast-weekly</string>
+
+  <!-- /usr/bin/env so we pick up the user's PATH (node, python3) -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>node</string>
+    <string>HOME_DIR/Dev/Lariat/scripts/toast-weekly-ingest.mjs</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>HOME_DIR/Dev/Lariat</string>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key><integer>1</integer>  <!-- Monday -->
+    <key>Hour</key><integer>6</integer>
+    <key>Minute</key><integer>5</integer>
+  </dict>
+
+  <!-- Logs into the drop folder so they're alongside the data. -->
+  <key>StandardOutPath</key>
+  <string>HOME_DIR/Dev/Lariat/data/imports/toast-weekly/_log/last-run.log</string>
+  <key>StandardErrorPath</key>
+  <string>HOME_DIR/Dev/Lariat/data/imports/toast-weekly/_log/last-run.err.log</string>
+
+  <!-- Run as a one-shot per schedule, not a daemon. -->
+  <key>RunAtLoad</key><false/>
+  <key>KeepAlive</key><false/>
+
+  <!-- Inherit the user's PATH so brew-installed node/python3 are found. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+</dict>
+</plist>

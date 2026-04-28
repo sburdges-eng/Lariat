@@ -352,6 +352,359 @@ describe('idempotency', () => {
   });
 });
 
+describe('T6 — pack_size_changes schema', () => {
+  it('initSchema creates pack_size_changes with the expected columns', () => {
+    const info = /** @type {{name: string, type: string, notnull: number, dflt_value: unknown}[]} */ (
+      db.prepare('PRAGMA table_info(pack_size_changes)').all()
+    );
+    const byName = new Map(info.map((c) => [c.name, c]));
+    for (const name of [
+      'id', 'vendor', 'sku', 'prev_pack', 'new_pack',
+      'prev_price', 'new_price', 'detected_at', 'acknowledged',
+    ]) {
+      assert.ok(byName.has(name), `pack_size_changes.${name} missing`);
+    }
+    assert.strictEqual(byName.get('vendor').notnull, 1, 'vendor must be NOT NULL');
+    assert.strictEqual(byName.get('sku').notnull, 1, 'sku must be NOT NULL');
+    assert.strictEqual(byName.get('prev_pack').type.toUpperCase(), 'TEXT');
+    assert.strictEqual(byName.get('new_pack').type.toUpperCase(), 'TEXT');
+    assert.strictEqual(byName.get('prev_price').type.toUpperCase(), 'REAL');
+    assert.strictEqual(byName.get('new_price').type.toUpperCase(), 'REAL');
+    // id is the PRIMARY KEY AUTOINCREMENT column.
+    assert.strictEqual(byName.get('id').pk, 1, 'id must be the primary key');
+  });
+
+  it('acknowledged defaults to 0', () => {
+    const r = db.prepare(
+      `INSERT INTO pack_size_changes (vendor, sku, prev_pack, new_pack, prev_price, new_price)
+       VALUES ('sysco', 'T6-TEST', '6x#10', '4x#10', 42.0, 36.0)`,
+    ).run();
+    const row = /** @type {{acknowledged: number, detected_at: string}} */ (
+      db.prepare('SELECT acknowledged, detected_at FROM pack_size_changes WHERE id = ?').get(r.lastInsertRowid)
+    );
+    assert.strictEqual(row.acknowledged, 0);
+    assert.ok(typeof row.detected_at === 'string' && row.detected_at.length > 0,
+      'detected_at default must populate on insert');
+  });
+
+  it('rejects inserts missing vendor or sku', () => {
+    assert.throws(() =>
+      db.prepare(
+        `INSERT INTO pack_size_changes (sku, prev_pack, new_pack) VALUES (?, ?, ?)`,
+      ).run('S', 'p', 'n'),
+      /NOT NULL/i,
+    );
+    assert.throws(() =>
+      db.prepare(
+        `INSERT INTO pack_size_changes (vendor, prev_pack, new_pack) VALUES (?, ?, ?)`,
+      ).run('V', 'p', 'n'),
+      /NOT NULL/i,
+    );
+  });
+});
+
+describe('T6 — vendor_prices.map_status migration', () => {
+  it('pre-T6 vendor_prices without map_status gets the column ALTERed in', () => {
+    const legacy = new Database(':memory:');
+    try {
+      // Simulate a post-T5a, pre-T6 DB: vendor_prices has yield_pct +
+      // catch-weight columns but no map_status yet.
+      legacy.exec(`
+        CREATE TABLE vendor_prices (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ingredient TEXT NOT NULL,
+          vendor TEXT,
+          sku TEXT,
+          pack_size REAL,
+          pack_unit TEXT,
+          pack_price REAL,
+          unit_price REAL,
+          category TEXT,
+          location_id TEXT DEFAULT 'default',
+          imported_at TEXT DEFAULT (datetime('now')),
+          yield_pct REAL,
+          actual_received_lb REAL,
+          reconciled_unit_price REAL
+        );
+        INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price)
+        VALUES ('Legacy', 'sysco', 'LEGACY-1', 6, '#10', 42.0);
+      `);
+
+      const pre = /** @type {{name: string}[]} */ (
+        legacy.prepare('PRAGMA table_info(vendor_prices)').all()
+      ).map((c) => c.name);
+      assert.ok(!pre.includes('map_status'), 'pre-migration fixture must not have map_status');
+
+      initSchema(legacy);
+
+      const post = /** @type {{name: string}[]} */ (
+        legacy.prepare('PRAGMA table_info(vendor_prices)').all()
+      ).map((c) => c.name);
+      assert.ok(post.includes('map_status'), 'migration did not add vendor_prices.map_status');
+
+      // Legacy row must survive, with NULL in the freshly added column.
+      const row = /** @type {{ingredient: string, map_status: string | null}} */ (
+        legacy.prepare(`SELECT ingredient, map_status FROM vendor_prices WHERE sku = 'LEGACY-1'`).get()
+      );
+      assert.strictEqual(row.ingredient, 'Legacy');
+      assert.strictEqual(row.map_status, null);
+    } finally {
+      legacy.close();
+    }
+  });
+
+  it('map_status is TEXT and nullable', () => {
+    const info = /** @type {{name: string, type: string, notnull: number}[]} */ (
+      db.prepare('PRAGMA table_info(vendor_prices)').all()
+    );
+    const ms = info.find((c) => c.name === 'map_status');
+    assert.ok(ms, 'vendor_prices.map_status missing');
+    assert.strictEqual(ms.type.toUpperCase(), 'TEXT');
+    assert.strictEqual(ms.notnull, 0, 'vendor_prices.map_status must be nullable');
+  });
+});
+
+describe('T7 — ingredient_masters schema', () => {
+  it('exists in sqlite_master with master_id PRIMARY KEY', () => {
+    const row = /** @type {{sql: string} | undefined} */ (
+      db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='ingredient_masters'`).get()
+    );
+    assert.ok(row, 'ingredient_masters table not found');
+    assert.ok(/PRIMARY KEY/i.test(row.sql),
+      `expected PRIMARY KEY in CREATE TABLE ingredient_masters: ${row.sql}`);
+    assert.ok(/canonical_name[\s\S]*NOT NULL/i.test(row.sql),
+      `expected canonical_name NOT NULL: ${row.sql}`);
+  });
+
+  it('has required columns with correct nullability', () => {
+    const info = /** @type {{name: string, pk: number, notnull: number, type: string}[]} */ (
+      db.prepare('PRAGMA table_info(ingredient_masters)').all()
+    );
+    const byName = new Map(info.map((c) => [c.name, c]));
+    for (const name of ['master_id', 'canonical_name', 'category',
+                        'preferred_vendor', 'last_reviewed']) {
+      assert.ok(byName.has(name), `ingredient_masters.${name} missing`);
+    }
+    assert.strictEqual(byName.get('master_id').pk, 1, 'master_id must be PK');
+    assert.strictEqual(byName.get('canonical_name').notnull, 1,
+      'canonical_name must be NOT NULL');
+    assert.strictEqual(byName.get('category').notnull, 0, 'category must be nullable');
+    assert.strictEqual(byName.get('preferred_vendor').notnull, 0,
+      'preferred_vendor must be nullable');
+    assert.strictEqual(byName.get('last_reviewed').notnull, 0,
+      'last_reviewed must be nullable');
+  });
+
+  it('rejects duplicate master_id via PRIMARY KEY', () => {
+    db.prepare(
+      `INSERT INTO ingredient_masters (master_id, canonical_name) VALUES ('t7_dup', 'Test Dup')`,
+    ).run();
+    assert.throws(
+      () => db.prepare(
+        `INSERT INTO ingredient_masters (master_id, canonical_name) VALUES ('t7_dup', 'Test Dup 2')`,
+      ).run(),
+      /UNIQUE|PRIMARY/i,
+    );
+  });
+
+  it('rejects inserts missing canonical_name', () => {
+    assert.throws(
+      () => db.prepare(
+        `INSERT INTO ingredient_masters (master_id) VALUES ('t7_noname')`,
+      ).run(),
+      /NOT NULL/i,
+    );
+  });
+});
+
+describe('T7 — vendor_prices.master_id migration', () => {
+  it('pre-T7 vendor_prices without master_id gets the column ALTERed in', () => {
+    const legacy = new Database(':memory:');
+    try {
+      // Post-T6, pre-T7 shape: vendor_prices has yield_pct + catch-weight +
+      // map_status, but no master_id.
+      legacy.exec(`
+        CREATE TABLE vendor_prices (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ingredient TEXT NOT NULL,
+          vendor TEXT,
+          sku TEXT,
+          pack_size REAL,
+          pack_unit TEXT,
+          pack_price REAL,
+          unit_price REAL,
+          category TEXT,
+          location_id TEXT DEFAULT 'default',
+          imported_at TEXT DEFAULT (datetime('now')),
+          yield_pct REAL,
+          actual_received_lb REAL,
+          reconciled_unit_price REAL,
+          map_status TEXT
+        );
+        INSERT INTO vendor_prices (ingredient, vendor, sku, pack_price)
+        VALUES ('Legacy VP', 'sysco', 'LEGACY-1', 10.0);
+      `);
+      const pre = legacy.prepare('PRAGMA table_info(vendor_prices)').all()
+        .map((c) => c.name);
+      assert.ok(!pre.includes('master_id'),
+        'pre-migration fixture must not have master_id');
+
+      initSchema(legacy);
+
+      const post = legacy.prepare('PRAGMA table_info(vendor_prices)').all()
+        .map((c) => c.name);
+      assert.ok(post.includes('master_id'),
+        'migration did not add vendor_prices.master_id');
+
+      const row = /** @type {{ingredient: string, master_id: string | null}} */ (
+        legacy.prepare(`SELECT ingredient, master_id FROM vendor_prices WHERE sku='LEGACY-1'`).get()
+      );
+      assert.strictEqual(row.ingredient, 'Legacy VP');
+      assert.strictEqual(row.master_id, null,
+        'ALTER ADD COLUMN must land NULL on pre-existing rows');
+    } finally {
+      legacy.close();
+    }
+  });
+
+  it('master_id is TEXT and nullable', () => {
+    const info = /** @type {{name: string, type: string, notnull: number}[]} */ (
+      db.prepare('PRAGMA table_info(vendor_prices)').all()
+    );
+    const ms = info.find((c) => c.name === 'master_id');
+    assert.ok(ms, 'vendor_prices.master_id missing');
+    assert.strictEqual(ms.type.toUpperCase(), 'TEXT');
+    assert.strictEqual(ms.notnull, 0, 'vendor_prices.master_id must be nullable');
+  });
+});
+
+describe('T7 — bom_lines.master_id migration', () => {
+  it('pre-T7 bom_lines without master_id gets the column ALTERed in', () => {
+    const legacy = new Database(':memory:');
+    try {
+      // Post-T1, pre-T7 shape: bom_lines already has yield_pct + loss_factor.
+      legacy.exec(`
+        CREATE TABLE bom_lines (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          recipe_id TEXT NOT NULL,
+          ingredient TEXT,
+          qty REAL,
+          unit TEXT,
+          sub_recipe TEXT,
+          vendor_ingredient TEXT,
+          map_status TEXT,
+          vendor TEXT,
+          pack_price REAL,
+          pack_size REAL,
+          location_id TEXT DEFAULT 'default',
+          imported_at TEXT DEFAULT (datetime('now')),
+          yield_pct REAL,
+          loss_factor REAL
+        );
+        INSERT INTO bom_lines (recipe_id, ingredient, qty, unit)
+        VALUES ('r1', 'Legacy BOM', 1.0, 'lb');
+      `);
+      const pre = legacy.prepare('PRAGMA table_info(bom_lines)').all()
+        .map((c) => c.name);
+      assert.ok(!pre.includes('master_id'),
+        'pre-migration fixture must not have master_id');
+
+      initSchema(legacy);
+
+      const post = legacy.prepare('PRAGMA table_info(bom_lines)').all()
+        .map((c) => c.name);
+      assert.ok(post.includes('master_id'),
+        'migration did not add bom_lines.master_id');
+
+      const row = /** @type {{ingredient: string, master_id: string | null}} */ (
+        legacy.prepare(`SELECT ingredient, master_id FROM bom_lines WHERE recipe_id='r1'`).get()
+      );
+      assert.strictEqual(row.ingredient, 'Legacy BOM');
+      assert.strictEqual(row.master_id, null);
+    } finally {
+      legacy.close();
+    }
+  });
+
+  it('master_id is TEXT and nullable', () => {
+    const info = /** @type {{name: string, type: string, notnull: number}[]} */ (
+      db.prepare('PRAGMA table_info(bom_lines)').all()
+    );
+    const ms = info.find((c) => c.name === 'master_id');
+    assert.ok(ms, 'bom_lines.master_id missing');
+    assert.strictEqual(ms.type.toUpperCase(), 'TEXT');
+    assert.strictEqual(ms.notnull, 0, 'bom_lines.master_id must be nullable');
+  });
+});
+
+describe('T7 — master_id indexes exist', () => {
+  it('idx_vp_master on vendor_prices(master_id)', () => {
+    const rows = /** @type {{name: string}[]} */ (
+      db.prepare(`SELECT name FROM sqlite_master WHERE type='index'`).all()
+    );
+    const names = rows.map((r) => r.name);
+    assert.ok(names.includes('idx_vp_master'),
+      `idx_vp_master missing from ${JSON.stringify(names)}`);
+  });
+
+  it('idx_bom_master on bom_lines(master_id)', () => {
+    const rows = /** @type {{name: string}[]} */ (
+      db.prepare(`SELECT name FROM sqlite_master WHERE type='index'`).all()
+    );
+    const names = rows.map((r) => r.name);
+    assert.ok(names.includes('idx_bom_master'),
+      `idx_bom_master missing from ${JSON.stringify(names)}`);
+  });
+});
+
+describe('T7 — assertCriticalSchemas catches drift on ingredient_masters', () => {
+  it('throws when a legacy ingredient_masters is missing required columns', () => {
+    const drifted = new Database(':memory:');
+    try {
+      drifted.exec(`
+        CREATE TABLE ingredient_masters (
+          master_id TEXT PRIMARY KEY,
+          canonical_name TEXT NOT NULL
+        );
+      `);
+      assert.throws(
+        () => initSchema(drifted),
+        (err) => err instanceof Error &&
+                 /schema drift on 'ingredient_masters'/.test(err.message) &&
+                 /preferred_vendor/.test(err.message),
+      );
+    } finally {
+      drifted.close();
+    }
+  });
+});
+
+describe('T6 — assertCriticalSchemas catches drift on pack_size_changes', () => {
+  it('throws when a legacy pack_size_changes is missing required columns', () => {
+    const drifted = new Database(':memory:');
+    try {
+      // Partial-deploy fixture: only vendor + sku present, everything else
+      // missing. CREATE TABLE IF NOT EXISTS would silently skip it.
+      drifted.exec(`
+        CREATE TABLE pack_size_changes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          vendor TEXT NOT NULL,
+          sku TEXT NOT NULL
+        );
+      `);
+      assert.throws(
+        () => initSchema(drifted),
+        (err) =>
+          err instanceof Error &&
+          /schema drift on 'pack_size_changes'/.test(err.message) &&
+          /acknowledged/.test(err.message),
+      );
+    } finally {
+      drifted.close();
+    }
+  });
+});
+
 describe('legacy schema migration — pre-T1 bom_lines', () => {
   it('migrates legacy bom_lines table preserving rows', () => {
     // Build an isolated DB that mimics the production pre-T1 state: bom_lines

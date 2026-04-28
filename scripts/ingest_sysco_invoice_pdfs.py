@@ -576,6 +576,112 @@ def date_key(d: str) -> tuple[int, int, int]:
     return (int(yr), int(mo), int(da))
 
 
+def _to_iso_date(d: str | None) -> str | None:
+    """'M/D/YYYY' -> 'YYYY-MM-DD' for correct lexicographic ordering in SQLite."""
+    if not d:
+        return None
+    parts = d.split('/')
+    if len(parts) == 3:
+        mo, da, yr = parts
+        return f'{int(yr):04d}-{int(mo):02d}-{int(da):02d}'
+    return d
+
+
+def ensure_sysco_invoices_table(con: sqlite3.Connection) -> None:
+    """DDL for sysco_invoices — the SQLite companion to vendor_summary.json.
+
+    Same shape as shamrock_invoices (see scripts/ingest_shamrock_invoices.py)
+    so the T5b.3 backfill can scan both tables uniformly. Idempotent via
+    CREATE TABLE IF NOT EXISTS. No migration block needed since we're
+    introducing this for the first time.
+    """
+    con.executescript("""
+    CREATE TABLE IF NOT EXISTS sysco_invoices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      invoice_no TEXT NOT NULL,
+      delivery_date TEXT,
+      description TEXT NOT NULL,
+      sku TEXT,
+      qty INTEGER,
+      category TEXT,
+      unit_price REAL,
+      line_total REAL,
+      actual_received_lb REAL,
+      reconciled_unit_price REAL,
+      source_file TEXT,
+      location_id TEXT DEFAULT 'default',
+      imported_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(invoice_no, description, location_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_sysco_inv_date ON sysco_invoices(delivery_date);
+    CREATE INDEX IF NOT EXISTS idx_sysco_inv_no ON sysco_invoices(invoice_no);
+    CREATE INDEX IF NOT EXISTS idx_sysco_inv_sku ON sysco_invoices(sku);
+    """)
+
+
+def persist_sysco_items_to_sqlite(
+    db_path: Path,
+    items: list[dict],
+    source_file: str,
+) -> int:
+    """Upsert parsed Sysco line items into sysco_invoices. Mirrors
+    shamrock_invoices's full-refresh-per-invoice pattern: DELETE rows for
+    this invoice_no + REINSERT. Idempotent across runs; safe on a pre-T5b
+    DB (creates the table if missing).
+
+    Returns the count of rows persisted. No-op when db_path doesn't exist.
+    """
+    if not db_path.exists():
+        return 0
+    with sqlite3.connect(str(db_path)) as con:
+        ensure_sysco_invoices_table(con)
+        invoices = {str(it.get('invoice', '')) for it in items if it.get('invoice')}
+        try:
+            con.execute("BEGIN")
+            if invoices:
+                # Clear prior rows for the specific invoice(s) we're about to
+                # rewrite. Don't touch unrelated invoices.
+                placeholders = ','.join('?' for _ in invoices)
+                con.execute(
+                    f"DELETE FROM sysco_invoices WHERE invoice_no IN ({placeholders}) "
+                    f"AND location_id = 'default'",
+                    list(invoices),
+                )
+            rows = []
+            for it in items:
+                skus = it.get('skus') or []
+                sysco_supc = skus[-1] if skus else None  # SUPC is the last peeled SKU
+                rows.append({
+                    'invoice_no': str(it.get('invoice', '')),
+                    'delivery_date': _to_iso_date(it.get('delivery_date')),
+                    'description': str(it.get('description', '')),
+                    'sku': sysco_supc,
+                    'qty': int(it['qty']) if isinstance(it.get('qty'), (int, float)) else None,
+                    'category': it.get('category'),
+                    'unit_price': it.get('unit_price'),
+                    'line_total': it.get('line_total'),
+                    'actual_received_lb': it.get('actual_received_lb'),
+                    'reconciled_unit_price': it.get('reconciled_unit_price'),
+                    'source_file': source_file,
+                    'location_id': 'default',
+                })
+            con.executemany(
+                """INSERT INTO sysco_invoices
+                   (invoice_no, delivery_date, description, sku, qty, category,
+                    unit_price, line_total, actual_received_lb, reconciled_unit_price,
+                    source_file, location_id)
+                   VALUES (:invoice_no, :delivery_date, :description, :sku, :qty, :category,
+                           :unit_price, :line_total, :actual_received_lb, :reconciled_unit_price,
+                           :source_file, :location_id)""",
+                rows,
+            )
+            con.commit()
+        except Exception:
+            con.rollback()
+            raise
+    return len(items)
+
+
 def enrich_catch_weights(
     db_path: Path,
     items: list[dict],
@@ -726,6 +832,7 @@ def main() -> int:
             pdfs.append(SRC_DIR / fn)
 
     added_total = 0
+    sqlite_total = 0
     new_dates: list[str] = []
     lariat_db = ROOT / 'data' / 'lariat.db'
     cw_counters_total = {"matched": 0, "reconciled": 0, "no_catalog": 0, "no_actual": 0}
@@ -737,6 +844,11 @@ def main() -> int:
         cw_counters = enrich_catch_weights(lariat_db, items)
         for k, v in cw_counters.items():
             cw_counters_total[k] += v
+        # T5b follow-up: dual-write per-line items to sysco_invoices so the
+        # T5b.3 vendor_prices backfill can scan both vendors uniformly. The
+        # JSON cache write below still runs — existing consumers of
+        # vendor_summary.json are unaffected during this transition.
+        sqlite_total += persist_sysco_items_to_sqlite(lariat_db, items, pdf.name)
         new_for_pdf = 0
         for it in items:
             key = (it['invoice'], it['description'])
@@ -751,6 +863,8 @@ def main() -> int:
             f'  {pdf.name}: invoice={invoice} date={delivery_date} '
             f'parsed={len(items)} new={new_for_pdf}'
         )
+    if sqlite_total:
+        print(f'sysco_invoices SQLite rows upserted: {sqlite_total}')
     if cw_counters_total["matched"] or cw_counters_total["reconciled"]:
         print(
             f'catch-weight enrichment: matched={cw_counters_total["matched"]} '
@@ -784,7 +898,7 @@ def main() -> int:
 
     # Atomic write.
     tmp = CACHE.with_suffix('.json.tmp')
-    tmp.write_text(json.dumps(cache, indent=2) + '\n')
+    tmp.write_text(json.dumps(cache, indent=2, ensure_ascii=False) + '\n')
     os.replace(tmp, CACHE)
 
     # Validate: re-read.

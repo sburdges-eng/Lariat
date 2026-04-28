@@ -1,5 +1,5 @@
 import { getRecipes } from '../../lib/data';
-import RecipeBrowser from './RecipeBrowser.jsx';
+import RecipeBrowserEnhanced from './RecipeBrowserEnhanced.jsx';
 
 export default function RecipesPage() {
   const all = getRecipes().map(r => ({
@@ -12,7 +12,7 @@ export default function RecipesPage() {
     <div>
       <h1>Recipe Hub</h1>
       <p className="subtitle">{all.length} recipes from the Lariat Recipe Book. Search by name, ingredient, or allergen.</p>
-      <RecipeBrowser recipes={all} />
+      <RecipeBrowserEnhanced recipes={all} />
     </div>
   );
 }

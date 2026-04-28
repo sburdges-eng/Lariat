@@ -1,6 +1,8 @@
 import { getDb } from '../../../lib/db';
 import { locationFromBody } from '../../../lib/location';
 
+export const dynamic = 'force-dynamic';
+
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
@@ -39,19 +41,28 @@ export async function POST(req) {
     }
     const loc = locationFromBody(body);
     const db = getDb();
-    const unnoted = failsMissingCorrectiveAction(db, shift_date, station_id, loc);
-    if (unnoted.length) {
-      return Response.json(
-        { error: 'note the fix for failed items before signing off', items: unnoted },
-        { status: 409 },
-      );
+
+    // Gate check + INSERT run in one transaction so two concurrent sign-offs
+    // can't both pass the unnoted-fails check and double-INSERT into
+    // station_signoffs for the same (shift, station, cook).
+    const result = db.transaction(() => {
+      const unnoted = failsMissingCorrectiveAction(db, shift_date, station_id, loc);
+      if (unnoted.length) {
+        return { status: 409, error: 'note the fix for failed items before signing off', items: unnoted };
+      }
+      const info = db.prepare(`
+        INSERT INTO station_signoffs (shift_date, station_id, cook_id, signoff_type, location_id)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(shift_date, station_id, cook_id, clip(body.signoff_type, 32) || 'self', loc);
+      const row = db.prepare('SELECT * FROM station_signoffs WHERE id=?').get(info.lastInsertRowid);
+      return { status: 200, row };
+    })();
+
+    if (result.status !== 200) {
+      const { status, ...body } = result;
+      return Response.json(body, { status });
     }
-    const info = db.prepare(`
-      INSERT INTO station_signoffs (shift_date, station_id, cook_id, signoff_type, location_id)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(shift_date, station_id, cook_id, clip(body.signoff_type, 32) || 'self', loc);
-    const row = db.prepare('SELECT * FROM station_signoffs WHERE id=?').get(info.lastInsertRowid);
-    return Response.json(row);
+    return Response.json(result.row);
   } catch (err) {
     console.error('POST /api/signoff failed:', err);
     return Response.json({ error: 'Failed to save signoff' }, { status: 500 });

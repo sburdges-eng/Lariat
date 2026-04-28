@@ -121,9 +121,13 @@ const DEFAULT_OPS = path.join(ROOT, 'XL', 'lariat_operations_workbook_2026-04-10
  *   total_yield_delta_usd: number,
  *   max_recipe_yield_delta_usd: number,
  *   bom_lines_needs_density: number,
- * }} Summary of rows inserted, yield coverage, yield-adjustment totals, and
+ *   pack_size_changes: number,
+ * }} Summary of rows inserted, yield coverage, yield-adjustment totals,
  *    count of BOM rows flagged `map_status='NEEDS_DENSITY'` by the T4
- *    volume↔weight conversion pass (these surface in B2's unmapped queue).
+ *    volume↔weight conversion pass (these surface in B2's unmapped queue),
+ *    and count of vendor pack-size substitutions (T6) detected this run —
+ *    each backed by a row in the `pack_size_changes` audit table and
+ *    `vendor_prices.map_status='PACK_CHANGED'` on the freshly-inserted row.
  */
 export function ingestCosting(db, data, locationId = 'default') {
   initSchema(db);
@@ -160,7 +164,7 @@ export function ingestCosting(db, data, locationId = 'default') {
 
   let summaryResult;
   try {
-    summaryResult = _ingestCostingImpl(db, data, locationId);
+    summaryResult = _ingestCostingImpl(db, data, locationId, runId);
   } catch (err) {
     runFinalize('failed', null);
     throw err;
@@ -173,7 +177,15 @@ export function ingestCosting(db, data, locationId = 'default') {
   return summaryResult;
 }
 
-function _ingestCostingImpl(db, data, locationId) {
+// Categories whose rows are NOT wiped by the costing DELETE+INSERT sweep.
+// Beverages live in vendor_prices alongside food but are populated by a
+// separate out-of-band importer (scripts/import-vendor-prices.mjs /
+// lib/vendorPricesRepo.ts) that the costing ingest has no feed for.
+// Without this guard, every `npm run ingest:costing` wiped drink prices.
+// Comparison is case-insensitive via LOWER() in the SQL.
+export const BEVERAGE_CATEGORIES = ['beer', 'wine', 'liquor', 'spirit', 'cocktail'];
+
+function _ingestCostingImpl(db, data, locationId, runId = null) {
   // Build an in-memory lookup of ingredient_key → {yield_pct, loss_factor} once
   // per ingest. Avoids a per-row SELECT on potentially thousands of BOM rows.
   const yieldLookup = new Map();
@@ -202,12 +214,88 @@ function _ingestCostingImpl(db, data, locationId) {
     recipes_yield_adjusted: 0,
     total_yield_delta_usd: 0,
     bom_lines_needs_density: 0,
+    pack_size_changes: 0,
+    ingredient_masters: 0,
+    vp_master_backfilled_rows: 0,
+    bom_master_backfilled_rows: 0,
+  };
+
+  // ── T6: pack-size substitution detection ──────────────────────────
+  // Snapshot the current vendor_prices rows (latest per (vendor, sku))
+  // BEFORE the DELETE below — otherwise there's no "prior" pack to diff
+  // against. The key is `${vendor}\u0001${sku}` so empty vendor or sku
+  // don't collide with anything. Units are compared post-normalizeUnit
+  // so 'CS' vs 'cs' or 'pound' vs 'lb' doesn't log a spurious change.
+  //
+  // Shared (vendor, sku) key — used both here to snapshot prior packs
+  // AND below inside the transaction loop to look them up. One definition
+  // avoids drift between the two sites.
+  const pkey = (v, s) => `${v ?? ''}\u0001${s ?? ''}`;
+  const priorPackByKey = new Map();
+  for (const row of db.prepare(
+    `SELECT vendor, sku, pack_size, pack_unit, pack_price, imported_at, id
+       FROM vendor_prices
+      WHERE location_id = ?
+        AND vendor IS NOT NULL AND vendor != ''
+        AND sku IS NOT NULL AND sku != ''
+      ORDER BY imported_at DESC, id DESC`,
+  ).all(locationId)) {
+    const k = pkey(row.vendor, row.sku);
+    if (!priorPackByKey.has(k)) {
+      priorPackByKey.set(k, {
+        pack_size: row.pack_size,
+        pack_unit: row.pack_unit,
+        pack_price: row.pack_price,
+      });
+    }
+  }
+  // Format a "{size}x{unit}" human-readable pack string. If either side
+  // is null or empty we return null outright — a half-populated "6x" or
+  // "x#10" would be ambiguous in the audit log, and the ingest persists
+  // a null pack_unit as '' (see `pack_unit: r.pack_unit ?? ''` in the
+  // INSERT below), so treating '' same as null keeps round-trips clean.
+  // Detection logic above also null-checks independently, so this is
+  // defensive rather than load-bearing, but it keeps prev_pack/new_pack
+  // self-describing.
+  const formatPack = (packSize, packUnit) => {
+    if (packSize == null || packUnit == null) return null;
+    const sz = String(packSize);
+    const un = String(packUnit);
+    if (!sz || !un) return null;
+    return `${sz}x${un}`;
   };
 
   const del = (sql) => db.prepare(sql).run(locationId);
 
   db.transaction(() => {
-    del('DELETE FROM vendor_prices WHERE location_id = ?');
+    // Snapshot the current vendor_prices rows into vendor_prices_history
+    // BEFORE the DELETE so a price series survives the destructive sweep.
+    // In the same transaction as the DELETE, so a failure rolls back both
+    // the snapshot and the erase — no orphan history rows.
+    db.prepare(`
+      INSERT INTO vendor_prices_history
+        (run_id, source_vendor_price_id, ingredient, vendor, sku,
+         pack_size, pack_unit, pack_price, unit_price, category,
+         yield_pct, actual_received_lb, reconciled_unit_price, master_id,
+         location_id, imported_at, snapshot_reason)
+      SELECT ?, id, ingredient, vendor, sku,
+             pack_size, pack_unit, pack_price, unit_price, category,
+             yield_pct, actual_received_lb, reconciled_unit_price, master_id,
+             location_id, imported_at, 'ingest-costing'
+        FROM vendor_prices
+       WHERE location_id = ?
+    `).run(runId, locationId);
+
+    // Preserve beverage rows — they come from import-vendor-prices and the
+    // costing ingest has no source feed for them. Food rows (category NULL
+    // or any non-beverage category) get wiped as before.
+    const bevPlaceholders = BEVERAGE_CATEGORIES.map(() => '?').join(',');
+    db.prepare(`
+      DELETE FROM vendor_prices
+       WHERE location_id = ?
+         AND COALESCE(LOWER(category), '') NOT IN (${bevPlaceholders})
+    `).run(locationId, ...BEVERAGE_CATEGORIES);
+
     del('DELETE FROM recipe_costs WHERE location_id = ?');
     del('DELETE FROM bom_lines WHERE location_id = ?');
     del('DELETE FROM ingredient_maps WHERE location_id = ?');
@@ -216,12 +304,78 @@ function _ingestCostingImpl(db, data, locationId) {
     // Named parameters — D3 in MAPPING_ENGINE_GAPS.md. Positional `?` lists
     // silently succeed when the schema gains a column (new slot stays NULL).
     // Named binds force a schema match at prepare-time.
+    //
+    // T6 binds map_status here so a detected pack-size substitution can flag
+    // the freshly-INSERTed row in the same statement (no follow-up UPDATE).
     const ivp = db.prepare(`
-      INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, category, yield_pct, location_id)
-      VALUES (@ingredient, @vendor, @sku, @pack_size, @pack_unit, @pack_price, @unit_price, @category, @yield_pct, @location_id)
+      INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, category, yield_pct, map_status, location_id)
+      VALUES (@ingredient, @vendor, @sku, @pack_size, @pack_unit, @pack_price, @unit_price, @category, @yield_pct, @map_status, @location_id)
+    `);
+    const ipsc = db.prepare(`
+      INSERT INTO pack_size_changes (vendor, sku, prev_pack, new_pack, prev_price, new_price)
+      VALUES (@vendor, @sku, @prev_pack, @new_pack, @prev_price, @new_price)
     `);
     for (const r of data.vendor_prices || []) {
       const y = lookup(r.ingredient);
+
+      // T6 diff: only meaningful when BOTH vendor and sku are non-empty
+      // (can't key a substitution on blanks). Compare normalized pack_unit
+      // + numeric pack_size against the latest prior row; on mismatch log
+      // a pack_size_changes audit row and flag the new row 'PACK_CHANGED'.
+      //
+      // Attention-queue semantics (read this before changing map_status):
+      //   vendor_prices.map_status='PACK_CHANGED' is a RUN-SCOPED signal.
+      //   It lives on the freshly-INSERTed vendor_prices row and reflects
+      //   "this ingest run observed a pack-size diff for (vendor, sku)."
+      //   Because the DELETE+INSERT sweep in the transaction wipes
+      //   vendor_prices every run, the flag does NOT persist across a
+      //   subsequent quiet re-ingest of the post-swap state (run 3 of
+      //   the same pack + price after run 2 detected the change): there's
+      //   no diff to re-emit, so map_status lands as NULL again.
+      //
+      //   The DURABLE "surface until acknowledged" queue source is the
+      //   pack_size_changes table — specifically `WHERE acknowledged=0`.
+      //   pack_size_changes is never DELETEd by the ingest, so the full
+      //   per-(vendor,sku) change history is preserved and operators can
+      //   acknowledge explicitly (UPDATE … SET acknowledged=1) without
+      //   any ingest side-effect racing them. Downstream UI / attention
+      //   queues MUST key on pack_size_changes.acknowledged, not on
+      //   vendor_prices.map_status, for persistence guarantees.
+      let mapStatus = null;
+      const hasVendor = r.vendor != null && String(r.vendor) !== '';
+      const hasSku = r.sku != null && String(r.sku) !== '';
+      if (hasVendor && hasSku) {
+        const prior = priorPackByKey.get(pkey(r.vendor, r.sku));
+        if (prior) {
+          const newUnitCanon = normalizeUnit(r.pack_unit);
+          const oldUnitCanon = normalizeUnit(prior.pack_unit);
+          const newSize = r.pack_size ?? null;
+          const oldSize = prior.pack_size ?? null;
+          // Treat numeric equality tolerantly for REAL ↔ int round-trips
+          // (SQLite stores 6 as 6.0); unit equality uses canonical form.
+          const sizeEq = (newSize == null && oldSize == null) ||
+                         (newSize != null && oldSize != null && Number(newSize) === Number(oldSize));
+          const unitEq = newUnitCanon === oldUnitCanon;
+          if (!(sizeEq && unitEq)) {
+            ipsc.run({
+              vendor: String(r.vendor),
+              sku: String(r.sku),
+              prev_pack: formatPack(prior.pack_size, prior.pack_unit),
+              new_pack: formatPack(r.pack_size, r.pack_unit),
+              prev_price: prior.pack_price ?? null,
+              new_price: r.pack_price ?? null,
+            });
+            summary.pack_size_changes++;
+            mapStatus = 'PACK_CHANGED';
+          }
+        }
+      }
+
+      // NOTE: map_status bound below is run-scoped (see block comment
+      // above). A quiet re-ingest of the post-swap state will land this
+      // column as NULL because there's no new diff; that is intentional.
+      // The persistent attention-queue source for pack substitutions is
+      // `pack_size_changes WHERE acknowledged=0`.
       ivp.run({
         ingredient: r.ingredient,
         vendor: r.vendor,
@@ -233,6 +387,7 @@ function _ingestCostingImpl(db, data, locationId) {
         category: r.category ?? null,
         // NULL on miss — NEVER default to 1.0 (would silently poison COGS).
         yield_pct: y?.yield_pct ?? null,
+        map_status: mapStatus,
         location_id: locationId,
       });
       summary.vendor_prices++;
@@ -327,6 +482,11 @@ function _ingestCostingImpl(db, data, locationId) {
   summary.total_yield_delta_usd = postPass.total_yield_delta_usd;
   summary.max_recipe_yield_delta_usd = postPass.max_recipe_yield_delta_usd;
   summary.bom_lines_needs_density = postPass.bom_lines_needs_density;
+  summary.catch_weight_backfilled_rows = postPass.catch_weight_backfilled_rows ?? 0;
+  summary.ingredient_masters = postPass.ingredient_masters ?? 0;
+  summary.vp_master_backfilled_rows = postPass.vp_master_backfilled_rows ?? 0;
+  summary.bom_master_backfilled_rows = postPass.bom_master_backfilled_rows ?? 0;
+  summary.excel_drift_warnings = postPass.excel_drift_warnings ?? 0;
   return summary;
 }
 
@@ -355,7 +515,37 @@ export function runCostingPostPass(db, locationId = 'default') {
     total_yield_delta_usd: 0,
     max_recipe_yield_delta_usd: 0,
     bom_lines_needs_density: 0,
+    catch_weight_backfilled_rows: 0,
+    ingredient_masters: 0,
+    vp_master_backfilled_rows: 0,
+    bom_master_backfilled_rows: 0,
+    excel_drift_warnings: 0,
   };
+
+  // ── D4: Excel batch_cost vs raw-sum drift observability ───────────
+  // T3's yield-delta math adds on top of Excel's `recipe_costs.batch_cost`
+  // assuming `excel_batch_cost === Σ (bom_qty × pack_price / pack_size)`
+  // across BOM lines. The current workbook holds this identity, but
+  // per-line rounding / case-minimum bucketing / sub-recipe caching in a
+  // future workbook would silently break it — the yield-delta is still
+  // correct FOR the yield portion, but the resulting batch_cost is
+  // "Excel + our delta" rather than "absolute true cost".
+  //
+  // Snapshot batch_cost BEFORE the T3/T4 UPDATEs, compute the raw-sum
+  // against the same guards the delta loop uses (skip null/zero/infinite
+  // qty / pack_price / pack_size), and log an INFO line when |drift| >
+  // $0.10. Observability only — no behavior change. See
+  // docs/MAPPING_ENGINE_GAPS.md#D4.
+  const excelBatchCostByRecipe = new Map();
+  for (const row of db.prepare(
+    `SELECT recipe_id, batch_cost FROM recipe_costs
+      WHERE location_id = ?
+        AND recipe_id IS NOT NULL
+        AND recipe_id != 'TOTAL'
+        AND batch_cost IS NOT NULL`,
+  ).all(locationId)) {
+    excelBatchCostByRecipe.set(row.recipe_id, row.batch_cost);
+  }
   // ── T3 + T4: yield + loss + unit-conversion post-pass ──────────────
   // After T2c populated bom_lines.{yield_pct, loss_factor, pack_price, pack_size,
   // qty}, sum the per-BOM-line "true cost" adjustment for each recipe and apply
@@ -454,6 +644,11 @@ export function runCostingPostPass(db, locationId = 'default') {
   `).all(locationId);
 
   const perRecipeDelta = new Map(); // recipe_id -> delta (USD)
+  // D4: Σ (qty × pack_price / pack_size) per recipe, using the same
+  // guards as the delta loop. Compared against the Excel-sourced
+  // batch_cost snapshot above to surface workbook-math drift before it
+  // poisons COGS silently. INFO-level log only; no behavior change.
+  const perRecipeRawSum = new Map();
   let guardSkipped = 0;
   let denomSkipped = 0;
   let denomConvertedSkipped = 0;
@@ -479,6 +674,15 @@ export function runCostingPostPass(db, locationId = 'default') {
       guardSkipped++;
       continue;
     }
+    // D4: accumulate the raw Σ (qty × pack_price / pack_size) in bom_line
+    // units — same guard posture as the delta loop, computed BEFORE any
+    // unit-conversion so it matches the Excel formula's assumptions. If
+    // the workbook's batch_cost departs from this sum in a future
+    // Excel revision, the INFO log downstream catches it.
+    perRecipeRawSum.set(
+      recipe_id,
+      (perRecipeRawSum.get(recipe_id) ?? 0) + (qty * pack_price / pack_size),
+    );
     const adj = adjustment(yield_pct, loss_factor);
     if (adj === null) {
       denomSkipped++;
@@ -557,6 +761,31 @@ export function runCostingPostPass(db, locationId = 'default') {
     console.warn(
       `⚠ ${denomConvertedSkipped} bom_line(s) could not convert pack_size → bom_unit (missing density, count unit, or unknown unit) — delta skipped`,
     );
+  }
+
+  // D4: emit one INFO line per recipe whose Excel `batch_cost` differs
+  // from the raw Σ (qty × pack_price / pack_size) by > $0.10. Runs
+  // BEFORE the UPDATE transaction below so the comparison is against
+  // Excel's original value — post-UPDATE, `batch_cost` is "Excel +
+  // yield-delta" and the signal is lost.
+  //
+  // Threshold picked at $0.10 because (a) penny-level float noise from
+  // Excel rounding is routine and noise-floor, and (b) $0.10 × typical
+  // ~50 recipes × weekly runs ≈ $5/week of drift — below that, other
+  // signals in the unmapped queue would catch it first. Raised to hard-
+  // fail at $1.00 per D4's "once observability confirms the invariant"
+  // note, tracked separately.
+  const DRIFT_THRESHOLD_USD = 0.10;
+  for (const [recipe_id, rawSum] of perRecipeRawSum) {
+    const excelValue = excelBatchCostByRecipe.get(recipe_id);
+    if (excelValue == null) continue; // recipe_costs row had NULL batch_cost
+    const drift = excelValue - rawSum;
+    if (Math.abs(drift) > DRIFT_THRESHOLD_USD) {
+      summary.excel_drift_warnings++;
+      console.info(
+        `ℹ D4 Excel drift: recipe_id=${recipe_id} excel_value=$${excelValue.toFixed(4)} computed_sum=$${rawSum.toFixed(4)} drift_usd=$${drift.toFixed(4)}`,
+      );
+    }
   }
 
   // Flag rows that need density (or any other unit-conversion failure). B2's
@@ -641,84 +870,365 @@ export function runCostingPostPass(db, locationId = 'default') {
   const cwBackfill = backfillCatchWeightsIntoVendorPrices(db, locationId);
   summary.catch_weight_backfilled_rows = cwBackfill.updated;
 
+  // T7: populate ingredient_masters from confirmed ingredient_maps rows,
+  // then backfill master_id onto vendor_prices and bom_lines. Runs after
+  // the DELETE+INSERT sweep and the other post-passes because it reads
+  // the fresh ingredient_maps rows this ingest just wrote. Unconfirmed
+  // maps do NOT produce masters — they stay in the unmapped queue (same
+  // "no fuzz match" posture as `_make_join_key`).
+  const masterSync = rebuildIngredientMasters(db, locationId);
+  summary.ingredient_masters = masterSync.masters;
+  summary.vp_master_backfilled_rows = masterSync.vp_backfilled;
+  summary.bom_master_backfilled_rows = masterSync.bom_backfilled;
+
   return summary;
 }
 
 /**
  * T5b.3 — join the most recent per-(vendor, sku) invoice catch-weight
- * reconciliation into vendor_prices. Writes both actual_received_lb and
- * reconciled_unit_price on matching vendor_prices rows; leaves unchanged
- * rows that have no invoice match. Runs in a single transaction.
+ * reconciliation into vendor_prices. Scans both shamrock_invoices and
+ * sysco_invoices; writes actual_received_lb + reconciled_unit_price on
+ * matching vendor_prices rows. Leaves unchanged rows that have no invoice
+ * match. Runs in a single transaction per vendor.
  *
- * Only Shamrock is wired for now because its invoice history lives in
- * the shamrock_invoices table. Sysco invoices live in vendor_summary.json
- * (file-cached); a future follow-up can import that into a sibling table
- * and extend this function to scan both sources.
+ * Each source table either exists (written by its respective invoice
+ * ingest) or is absent on fresh DBs — missing tables are silently skipped,
+ * so callers can run the backfill on any DB state. vendor_prices.{
+ * actual_received_lb, reconciled_unit_price} require the T5a migration;
+ * if either column is absent, the whole backfill is a no-op.
  *
  * @param {import('better-sqlite3').Database} db
  * @param {string} [locationId='default']
- * @returns {{updated: number}}
+ * @returns {{updated: number, by_vendor: Record<string, number>}}
  */
 export function backfillCatchWeightsIntoVendorPrices(db, locationId = 'default') {
-  const out = { updated: 0 };
-  // Guard: shamrock_invoices may be absent on fresh DBs where the ingest
-  // hasn't run yet. vendor_prices.actual_received_lb / reconciled_unit_price
-  // likewise require the T5a migration. Either missing → skip cleanly.
+  const out = { updated: 0, by_vendor: {} };
   const tables = new Set(
     db.prepare("SELECT name FROM sqlite_master WHERE type='table'")
       .all()
       .map((r) => r.name),
   );
-  if (!tables.has('shamrock_invoices') || !tables.has('vendor_prices')) return out;
+  if (!tables.has('vendor_prices')) return out;
   const vpCols = new Set(
     db.prepare('PRAGMA table_info(vendor_prices)').all().map((c) => c.name),
   );
   if (!vpCols.has('actual_received_lb') || !vpCols.has('reconciled_unit_price')) return out;
 
-  // Latest catch-weight row per SKU, preferring rows with non-NULL
-  // reconciled_unit_price so the dashboard surfaces actual drift first.
-  // ROW_NUMBER() guarantees exactly one row per SKU even when multiple
-  // invoice lines share the same delivery_date (the table's UNIQUE
-  // constraint allows that across different invoice_no/item combos).
-  const latest = db.prepare(`
-    SELECT sku, actual_received_lb, reconciled_unit_price
-      FROM (
-        SELECT sku, actual_received_lb, reconciled_unit_price,
-               ROW_NUMBER() OVER (
-                 PARTITION BY sku
-                 ORDER BY delivery_date DESC,
-                          (reconciled_unit_price IS NULL) ASC,
-                          rowid DESC
-               ) AS rn
-          FROM shamrock_invoices
-         WHERE location_id = ?
-           AND actual_received_lb IS NOT NULL
-           AND sku IS NOT NULL AND sku != ''
-      )
-     WHERE rn = 1
-  `).all(locationId);
-
-  if (latest.length === 0) return out;
+  const sources = [
+    { vendor: 'shamrock', table: 'shamrock_invoices' },
+    { vendor: 'sysco',    table: 'sysco_invoices'    },
+  ];
 
   const upd = db.prepare(`
     UPDATE vendor_prices
        SET actual_received_lb = @actual_received_lb,
            reconciled_unit_price = @reconciled_unit_price
-     WHERE vendor = 'shamrock'
+     WHERE vendor = @vendor
        AND sku = @sku
        AND location_id = @location_id
   `);
+
+  for (const { vendor, table } of sources) {
+    if (!tables.has(table)) continue;
+    // Latest catch-weight row per SKU, preferring rows with non-NULL
+    // reconciled_unit_price so the dashboard surfaces actual drift first.
+    // ROW_NUMBER() guarantees exactly one row per SKU even when multiple
+    // invoice lines share the same delivery_date (the table's UNIQUE
+    // constraint allows that across different invoice_no/item combos).
+    // Replaces the prior GROUP BY sku HAVING MAX(delivery_date) form,
+    // which was non-deterministic in SQLite when non-aggregated columns
+    // were referenced — see PR #41 / cursor/ingest-database-reliability.
+    const latest = db.prepare(`
+      SELECT sku, actual_received_lb, reconciled_unit_price
+        FROM (
+          SELECT sku, actual_received_lb, reconciled_unit_price,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY sku
+                   ORDER BY delivery_date DESC,
+                            (reconciled_unit_price IS NULL) ASC,
+                            rowid DESC
+                 ) AS rn
+            FROM ${table}
+           WHERE location_id = ?
+             AND actual_received_lb IS NOT NULL
+             AND sku IS NOT NULL AND sku != ''
+        )
+       WHERE rn = 1
+    `).all(locationId);
+    if (latest.length === 0) { out.by_vendor[vendor] = 0; continue; }
+
+    let vendorUpdated = 0;
+    db.transaction(() => {
+      for (const row of latest) {
+        const r = upd.run({
+          vendor,
+          sku: row.sku,
+          actual_received_lb: row.actual_received_lb,
+          reconciled_unit_price: row.reconciled_unit_price ?? null,
+          location_id: locationId,
+        });
+        vendorUpdated += r.changes;
+      }
+    })();
+    out.by_vendor[vendor] = vendorUpdated;
+    out.updated += vendorUpdated;
+  }
+  return out;
+}
+
+/**
+ * T7 — derive the master_id slug for a given recipe_ingredient string.
+ *
+ * v1 formula: `normalizeIngredientKey(x).replace(/ /g, '_')`. So
+ * `"Tomato Paste"` → `"tomato_paste"`. This is coarser than the spec's
+ * ideal encoding (brand + pack, e.g. `"ketchup_heinz_1gal"`) because we
+ * don't yet carry structured brand / pack metadata on ingredient_maps.
+ * Switching to the richer slug later is a pure migration — readers can
+ * already tolerate arbitrary slug text.
+ *
+ * Returns null when the ingredient string normalizes to empty so the
+ * caller skips the row rather than inserting a PK='' row that would
+ * collide across every blank-ingredient map.
+ *
+ * @param {string | null | undefined} recipeIngredient
+ * @returns {string | null}
+ */
+export function deriveMasterId(recipeIngredient) {
+  const norm = normalizeIngredientKey(recipeIngredient ?? '');
+  if (!norm) return null;
+  return norm.replace(/ /g, '_');
+}
+
+/**
+ * T7 — rebuild ingredient_masters from confirmed ingredient_maps rows,
+ * then backfill master_id onto vendor_prices and bom_lines.
+ *
+ * Seeding posture matches `_make_join_key` (no fuzz match): ONLY rows with
+ * `ingredient_maps.status='confirmed'` produce a master. Unconfirmed /
+ * mapped / auto_mapped rows stay in the unmapped queue until a human
+ * promotes them. Re-entrant: UPSERT on master_id means a second run with
+ * the same confirmed maps is a no-op; a newly confirmed map on the next
+ * run picks up a master without touching earlier ones.
+ *
+ * Backfill join rules:
+ *   vendor_prices.master_id ← set when vendor_prices.ingredient matches
+ *     either recipe_ingredient OR vendor_ingredient (raw OR normalized)
+ *     on a confirmed map. First-wins on ties (same collation as the T4
+ *     post-pass vendor-prices lookup).
+ *   bom_lines.master_id ← set when bom_lines.ingredient matches the
+ *     recipe_ingredient (raw OR normalized) on a confirmed map.
+ *
+ * Master metadata:
+ *   canonical_name = recipe_ingredient
+ *   category       = NULL (future extension from recipe_costs.category)
+ *   preferred_vendor = first vendor observed in vendor_prices for this
+ *                      ingredient (NULL when no match yet)
+ *   last_reviewed = datetime('now')
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} [locationId='default']
+ * @returns {{masters: number, vp_backfilled: number, bom_backfilled: number}}
+ */
+export function rebuildIngredientMasters(db, locationId = 'default') {
+  const out = { masters: 0, vp_backfilled: 0, bom_backfilled: 0 };
+
+  // Guardrail: columns / table may be absent on pre-T7 DBs that skipped
+  // initSchema. Silently no-op so legacy smoke paths don't blow up.
+  const tables = new Set(
+    db.prepare("SELECT name FROM sqlite_master WHERE type='table'")
+      .all().map((r) => r.name),
+  );
+  if (!tables.has('ingredient_masters')) return out;
+  const vpCols = new Set(
+    db.prepare('PRAGMA table_info(vendor_prices)').all().map((c) => c.name),
+  );
+  const bomCols = new Set(
+    db.prepare('PRAGMA table_info(bom_lines)').all().map((c) => c.name),
+  );
+  if (!vpCols.has('master_id') || !bomCols.has('master_id')) return out;
+
+  // Confirmed maps only — same posture as the existing ingest's "no fuzz
+  // match" rule. Returns recipe_ingredient + vendor_ingredient for join-
+  // string coverage.
+  const confirmed = db.prepare(
+    `SELECT recipe_ingredient, vendor_ingredient
+       FROM ingredient_maps
+      WHERE location_id = ?
+        AND status = 'confirmed'
+        AND recipe_ingredient IS NOT NULL
+        AND recipe_ingredient != ''`,
+  ).all(locationId);
+
+  if (confirmed.length === 0) return out;
+
+  // Snapshot vendor_prices once so preferred_vendor can be derived from
+  // "first vendor observed" without a per-master subquery. Ordering by
+  // imported_at DESC + id DESC mirrors the costing benchmark's "latest
+  // vendor row per ingredient" semantics (costingBenchmarks.mjs).
+  const vpRows = db.prepare(
+    `SELECT ingredient, vendor
+       FROM vendor_prices
+      WHERE location_id = ?
+      ORDER BY imported_at DESC, id DESC`,
+  ).all(locationId);
+  const vendorByRaw = new Map();
+  const vendorByNorm = new Map();
+  for (const r of vpRows) {
+    const raw = r.ingredient ?? '';
+    if (raw && !vendorByRaw.has(raw) && r.vendor) vendorByRaw.set(raw, r.vendor);
+    const key = normalizeIngredientKey(raw);
+    if (key && !vendorByNorm.has(key) && r.vendor) vendorByNorm.set(key, r.vendor);
+  }
+
+  // Build (master_id → {canonical_name, preferred_vendor, join_strings})
+  // index. A single master can be reached through multiple map rows (a
+  // "ketchup" recipe ingredient with two vendor_ingredient aliases) —
+  // collapse them so the INSERT runs once per master.
+  const masterIndex = new Map();
+  for (const m of confirmed) {
+    const masterId = deriveMasterId(m.recipe_ingredient);
+    if (!masterId) continue;
+    let entry = masterIndex.get(masterId);
+    if (!entry) {
+      entry = {
+        canonical_name: m.recipe_ingredient,
+        preferred_vendor: null,
+        recipe_ingredients: new Set(),
+        vendor_ingredients: new Set(),
+      };
+      masterIndex.set(masterId, entry);
+    }
+    entry.recipe_ingredients.add(m.recipe_ingredient);
+    if (m.vendor_ingredient) entry.vendor_ingredients.add(m.vendor_ingredient);
+    // First vendor hit wins — vendorByRaw lookup against any of the join
+    // strings for this master. Normalized fallback mirrors T4 resolver.
+    if (entry.preferred_vendor == null) {
+      for (const s of [m.recipe_ingredient, m.vendor_ingredient]) {
+        if (!s) continue;
+        const v = vendorByRaw.get(s) ?? vendorByNorm.get(normalizeIngredientKey(s));
+        if (v) { entry.preferred_vendor = v; break; }
+      }
+    }
+  }
+
+  // UPSERT ingredient_masters rows. ON CONFLICT updates canonical_name /
+  // last_reviewed so a renamed confirmed mapping propagates without
+  // manual intervention. category is left alone — operator-curated.
+  // preferred_vendor is INTENTIONALLY omitted from the UPDATE clause:
+  // on first INSERT we seed it from the first-vendor-observed derivation
+  // (useful default), but once the row exists any operator override in
+  // ingredient_masters.preferred_vendor must persist across re-ingests.
+  // COALESCE(excluded.preferred_vendor, ...) would silently revert an
+  // operator-set 'shamrock' back to auto-derived 'sysco' as soon as the
+  // seed vendor changed.
+  const upsert = db.prepare(`
+    INSERT INTO ingredient_masters (master_id, canonical_name, category, preferred_vendor, last_reviewed)
+    VALUES (@master_id, @canonical_name, NULL, @preferred_vendor, datetime('now'))
+    ON CONFLICT(master_id) DO UPDATE SET
+      canonical_name   = excluded.canonical_name,
+      category         = COALESCE(excluded.category, ingredient_masters.category),
+      last_reviewed    = excluded.last_reviewed
+      -- preferred_vendor intentionally omitted: preserve operator curation.
+  `);
+
+  // Raw-string backfill. `master_id IS NULL` guard is critical: without
+  // it a second confirmed map that normalizes to a different slug but
+  // shares a vendor_ingredient raw string would silently overwrite the
+  // earlier master's claim, and re-running ingest would flap master_id
+  // back and forth between aliases on every run. First-write-wins
+  // matches the normalized sweep below, and makes result.changes == 0
+  // on idempotent re-runs.
+  const updateVp = db.prepare(`
+    UPDATE vendor_prices
+       SET master_id = @master_id
+     WHERE location_id = @location_id
+       AND master_id IS NULL
+       AND ingredient = @match
+  `);
+  const updateVpNorm = db.prepare(`
+    UPDATE vendor_prices
+       SET master_id = @master_id
+     WHERE location_id = @location_id
+       AND master_id IS NULL
+       AND ingredient IS NOT NULL
+       AND LOWER(TRIM(ingredient)) = @norm_match
+  `);
+  const updateBom = db.prepare(`
+    UPDATE bom_lines
+       SET master_id = @master_id
+     WHERE location_id = @location_id
+       AND master_id IS NULL
+       AND ingredient = @match
+  `);
+  const updateBomNorm = db.prepare(`
+    UPDATE bom_lines
+       SET master_id = @master_id
+     WHERE location_id = @location_id
+       AND master_id IS NULL
+       AND ingredient IS NOT NULL
+       AND LOWER(TRIM(ingredient)) = @norm_match
+  `);
+
   db.transaction(() => {
-    for (const row of latest) {
-      const r = upd.run({
-        sku: row.sku,
-        actual_received_lb: row.actual_received_lb,
-        reconciled_unit_price: row.reconciled_unit_price ?? null,
-        location_id: locationId,
+    for (const [masterId, entry] of masterIndex) {
+      // Deterministic canonical_name: Set iteration order is insertion
+      // order, which depends on the SQLite row order of confirmed maps
+      // (not guaranteed stable across reruns). Sort + take first so the
+      // displayed name is reproducible even when multiple case-variant
+      // recipe_ingredients collapse to one master ('Salt' + 'salt').
+      const canonical =
+        Array.from(entry.recipe_ingredients).sort()[0] ?? entry.canonical_name;
+
+      upsert.run({
+        master_id: masterId,
+        canonical_name: canonical,
+        preferred_vendor: entry.preferred_vendor,
       });
-      out.updated += r.changes;
+      out.masters++;
+
+      // Backfill vendor_prices.master_id. Raw-string joins first (exact
+      // match on recipe_ingredient or vendor_ingredient), then a
+      // normalized-key sweep for any rows that differ only in case /
+      // whitespace. Both passes are guarded by `master_id IS NULL` so
+      // the first master to claim a row keeps it — prevents two
+      // confirmed maps pointing at the same vendor_ingredient from
+      // clobbering each other's master_id on every ingest run.
+      for (const s of entry.recipe_ingredients) {
+        const r = updateVp.run({ master_id: masterId, location_id: locationId, match: s });
+        out.vp_backfilled += r.changes;
+      }
+      for (const s of entry.vendor_ingredients) {
+        const r = updateVp.run({ master_id: masterId, location_id: locationId, match: s });
+        out.vp_backfilled += r.changes;
+      }
+      // Normalized sweep: compare LOWER(TRIM(ingredient)) against the
+      // normalized join strings. normalizeIngredientKey strips punctuation
+      // entirely, which would over-match ("tomato paste" vs "tomato
+      // (paste)"), so the SQL comparison uses a lighter LOWER(TRIM) that
+      // catches case / whitespace drift without fuzz-matching — matches
+      // the "no auto fuzz" posture.
+      for (const s of [...entry.recipe_ingredients, ...entry.vendor_ingredients]) {
+        const norm = (s ?? '').toLowerCase().trim();
+        if (!norm) continue;
+        const rNorm = updateVpNorm.run({ master_id: masterId, location_id: locationId,
+                                         norm_match: norm });
+        out.vp_backfilled += rNorm.changes;
+      }
+
+      for (const s of entry.recipe_ingredients) {
+        const r = updateBom.run({ master_id: masterId, location_id: locationId, match: s });
+        out.bom_backfilled += r.changes;
+      }
+      for (const s of entry.recipe_ingredients) {
+        const norm = (s ?? '').toLowerCase().trim();
+        if (!norm) continue;
+        const rNorm = updateBomNorm.run({ master_id: masterId, location_id: locationId,
+                                          norm_match: norm });
+        out.bom_backfilled += rNorm.changes;
+      }
     }
   })();
+
   return out;
 }
 
@@ -761,6 +1271,11 @@ function main() {
     if (summary.bom_lines > 0 && summary.bom_coverage_pct < 50) {
       console.warn(
         `⚠ yield coverage ${summary.bom_coverage_pct.toFixed(1)}% is below 50% — ingredient_yields seed may be stale vs current BOM ingredient names`,
+      );
+    }
+    if (summary.pack_size_changes > 0) {
+      console.warn(
+        `⚠ T6: ${summary.pack_size_changes} vendor pack-size substitution(s) detected — review the pack_size_changes table / attention queue`,
       );
     }
   } finally {

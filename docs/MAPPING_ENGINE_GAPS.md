@@ -243,18 +243,37 @@ well as a backfilled snapshot on `vendor_prices`.
   `reconciled_unit_price=$18.29/lb` for pork chop (matches the invoice's
   stamped unit price exactly) and `$5.70/lb` for chicken breast.
 
-**Known limitations / follow-ups:**
-- No Shamrock entries in `data/seeds/vendor_pack_weights.csv` yet — the
-  seed CSV came from the Sysco product catalog filter. Shamrock
-  catch-weight catalog rows need to be measured in-house or pulled
-  from Shamrock's catalog before Shamrock reconciliation fires on
-  anything. Until then, the enrichment correctly stores
-  `actual_received_lb` but leaves `reconciled_unit_price` NULL (the
-  "no catalog" bucket).
-- Sysco catch-weight data lives in `vendor_summary.json`, not a SQLite
-  table. The T5b.3 backfill only reads `shamrock_invoices`. Adding a
-  `sysco_invoices` table (or lifting the cache into SQLite) is the
-  natural next step to round out vendor_prices backfill for Sysco too.
+**T5b follow-ups landed (PR #5):**
+- [x] **Shamrock catch-weight catalog seed.** Extracted 11 catch-weight
+  SKUs from archived Shamrock .xls invoices (BEEF CHEEK, TROUT, HAM,
+  TURKEY WHL / TOM, CHICKEN BRST CUTLET, COTIJA rndm / qtrd, CHICKEN
+  WOG HALAL / FRYER, PORK BUTT BI). Pack notation (e.g. `3/10/LBAV`)
+  gave the nominal catalog weight. Lives in
+  `data/seeds/vendor_pack_weights_shamrock.csv`; ingested via
+  `npm run seed:catch_weights:shamrock` (fanout from `seed:all`). The
+  ingest script accepts `--vendor` + `--csv` flags so the same
+  `ingest_catch_weights.py` handles any vendor — no code change needed
+  to add more vendors later.
+- [x] **sysco_invoices SQLite table + dual-write.** New
+  `sysco_invoices` table owned by `scripts/ingest_sysco_invoice_pdfs.py`
+  (same pattern as `shamrock_invoices`). The Sysco ingest now dual-
+  writes each line item: existing `vendor_summary.json` cache path is
+  preserved for existing consumers, AND per-item rows land in
+  `sysco_invoices` with `actual_received_lb` + `reconciled_unit_price`
+  populated from the T/WT= extraction. Rerun is idempotent (DELETE +
+  REINSERT per `invoice_no`; other invoices untouched).
+- [x] **backfillCatchWeightsIntoVendorPrices generalized.** Now scans
+  BOTH `shamrock_invoices` and `sysco_invoices` in a single pass,
+  returning `{updated, by_vendor: {shamrock, sysco}}`. Missing tables
+  skip gracefully. The Sysco side now lights up once per-invoice
+  reconciliation has any catalog matches in `vendor_catch_weights`.
+
+**Tests added:** 3 JS tests for multi-vendor backfill (sysco alone,
+both vendors, missing table is no-op); 6 Python tests for
+`persist_sysco_items_to_sqlite` (fresh DB / missing path no-op / SUPC
+picked from last peeled SKU / idempotent rerun / other invoices
+untouched / NULL catch-weight persists). Plus regression: all 9
+catch-weight-backfill tests still green.
 
 ---
 
@@ -280,40 +299,73 @@ well as a backfilled snapshot on `vendor_prices`.
 - [ ] **Test fixture.** Two successive ingest runs for SKU `SYSCO-12345`: run 1 = `6x#10, $42.00`; run 2 = `4x#10, $36.00`. Assert one row in `pack_size_changes`, `acknowledged=0`.
 - [ ] **Acceptance.** Synthetic fixture passes. Manual run against the last two real Sysco invoice pairs shows zero false positives for same-pack price changes.
 
+**T6 B2 queue extension — DONE (debt-bundle-d).** The "surface in the unmapped/attention queue" half of the Behavior line is now wired end-to-end. `computeUnmapped` in `lib/costingBenchmarks.mjs` UNIONs the existing `bom_lines` unmapped rows with `vendor_prices` rows where `map_status='PACK_CHANGED'`. Each row carries a `kind` field (`'bom_line'` vs `'vendor_pack_change'`) so the UI can render distinct copy. The response also adds `pack_size_changes_unacknowledged`: a count (not an expanded row list) of rows in `pack_size_changes` with `acknowledged=0` — the durable attention-queue signal that survives a quiet re-ingest (the run-scoped `map_status='PACK_CHANGED'` flag gets wiped by the DELETE+INSERT sweep, but `pack_size_changes` is never DELETEd). Dashboard tile `/costing` renders both: PACK_CHANGED rows in the first-10 detail table, unacknowledged-swap count as a yellow pip under the tile KPI. Tests in `tests/js/test-t9-benchmarks.mjs` cover the union, the summary counter, an end-to-end ingest-driven scenario, and the no-double-count invariant (bom_lines and vendor_prices live in different tables with independent keys). T6 still has the core detection work outstanding (the `[ ]` checkboxes above stay — no change to the detector itself).
+
 ---
 
 ### T7 — Multi-vendor SKU collapse (ingredient master)
 
-- [ ] **Task.** Collapse Sysco and Shamrock rows for the same thing into one internal master. Fixes fragmented inventory and menu-engineering joins.
-- [ ] **Files.** `lib/db.ts` (new table + extend `vendor_prices`). `scripts/rebuild_merged_prices.py` (populate). `app/api/costing/route.js` (join via master).
-- [ ] **Schema delta.**
+- [x] **Task.** Collapse Sysco and Shamrock rows for the same thing into one internal master. Fixes fragmented inventory and menu-engineering joins.
+- [x] **Files.** `lib/db.ts` (new `ingredient_masters` table + `master_id` on `vendor_prices` / `bom_lines` via migrations). `scripts/ingest-costing.mjs` (`rebuildIngredientMasters` replaces the originally-planned standalone `rebuild_merged_prices.py` — the backfill belongs inside the costing ingest's post-pass chain so the DELETE+INSERT sweep doesn't strand masters). `lib/costingBenchmarks.mjs` (master-first `computeCostVariance` with `resolveMergedCost`).
+- [x] **Schema delta landed.**
   ```sql
   CREATE TABLE IF NOT EXISTS ingredient_masters (
-    master_id     TEXT PRIMARY KEY,     -- slug: "ketchup_heinz_1gal"
-    canonical_name TEXT NOT NULL,
-    category      TEXT,
+    master_id        TEXT PRIMARY KEY,
+    canonical_name   TEXT NOT NULL,
+    category         TEXT,
     preferred_vendor TEXT,
-    last_reviewed TEXT
+    last_reviewed    TEXT
   );
-  ALTER TABLE vendor_prices ADD COLUMN master_id TEXT;       -- FK to ingredient_masters
+  ALTER TABLE vendor_prices ADD COLUMN master_id TEXT;
   ALTER TABLE bom_lines     ADD COLUMN master_id TEXT;
-  CREATE INDEX IF NOT EXISTS idx_vp_master ON vendor_prices(master_id);
+  CREATE INDEX IF NOT EXISTS idx_vp_master  ON vendor_prices(master_id);
   CREATE INDEX IF NOT EXISTS idx_bom_master ON bom_lines(master_id);
   ```
-- [ ] **Population strategy.** Seed masters from the existing `ingredient_maps` (lib/db.ts:410-417) that are `status='confirmed'`. Unconfirmed rows enter the unmapped queue. Do **not** fuzz-match automatically (`_make_join_key` deliberately refuses this — same posture).
-- [ ] **Menu-engineering.** `lib/menuEngineering.ts` joins on `master_id`, not `ingredient` string.
-- [ ] **Test fixture.** Seed `heinz_ketchup_1gal` master. Insert a Sysco row and a Shamrock row both pointing at it. Assert a recipe consuming "ketchup" pulls a single merged cost (weighted avg or preferred-vendor, your call — default to preferred_vendor with avg fallback).
-- [ ] **Acceptance.** After backfill, `SELECT COUNT(DISTINCT master_id)` < `SELECT COUNT(DISTINCT ingredient)` (i.e., collapse happened). Zero `vendor_prices.master_id IS NULL` rows in categories that have any confirmed master.
+  `ingredient_masters` also joined `assertCriticalSchemas` so a partial-deploy shadow table trips a clean error instead of silently skipping the CREATE.
+- [x] **Population strategy.** `rebuildIngredientMasters(db, locationId)` runs inside `runCostingPostPass` after the T4.1 + T5b.3 passes. It reads `ingredient_maps WHERE status='confirmed'`, UPSERTs one `ingredient_masters` row per distinct `recipe_ingredient`, and backfills `vendor_prices.master_id` + `bom_lines.master_id` by matching raw strings (recipe_ingredient OR vendor_ingredient) first, then a normalized `LOWER(TRIM(...))` sweep for case / whitespace drift. No fuzz-matching anywhere — same posture as `scripts/lib/ingredient_key.py::_make_join_key`. Unconfirmed / auto_mapped / blank-status rows stay in the unmapped queue.
+- [x] **Menu-engineering.** `lib/menuEngineering.ts` continues to join sales → `recipe_costs.cost_per_yield_unit` at the dish level (item_name ↔ recipe_name), but the numbers it reads are now master-aware because `computeCostVariance` and the costing post-pass aggregate per `master_id` upstream. No structural change was needed at the dish-level join; a doc block on the file captures the invariant so future callers know to key on `master_id` for ingredient-level reads.
+- [x] **Costing API.** `app/api/costing/route.js` serializes `computeCostVariance(db, loc)` from `lib/costingBenchmarks.mjs`. The pure-function layer is where the master-first switch landed — when `bom_lines.master_id` and at least one `vendor_prices.master_id` row exist on the same master, `resolveMergedCost` picks the `preferred_vendor` row; otherwise it takes the simple mean across latest-per-vendor rows. Both sides NULL → falls back to the legacy normalized-ingredient-key join so a partial T7 backfill doesn't strand BOM lines.
+
+**Design decisions (why these choices):**
+- **Slug format** is `normalizeIngredientKey(recipe_ingredient).replace(/ /g, '_')` (e.g. `"Tomato Paste" → "tomato_paste"`). Coarser than the spec's ideal `"ketchup_heinz_1gal"` because `ingredient_maps` doesn't yet carry structured brand / pack metadata — switching to the richer slug later is a pure migration, readers tolerate arbitrary slug text.
+- **Merged cost = preferred_vendor, mean fallback.** Simple mean (not weighted avg) because `vendor_prices` has no procurement-volume signal — the only weight we could invent is `pack_size × pack_price`, which biases toward bigger packs regardless of actual usage. Operators who know their buying pattern set `preferred_vendor`; the mean is a safe fallback for pre-curated DBs, not the target steady-state.
+- **Graceful fallback to ingredient string** when `master_id` is NULL on either side of a join. Guarantees that a partial T7 backfill (older runs that never touched a given ingredient) doesn't drop rows from variance math. Once the backfill covers a row, the master-first branch wins on subsequent runs with zero behavior change for already-covered ingredients.
+
+**Tests added:** `tests/js/test-ingredient-masters.mjs` — 25 tests covering schema (4), pre-T7 migration + drift guards (2), slug formula (3), seeding posture (3), backfill join (3), `resolveMergedCost` (4), end-to-end merged cost via `computeCostVariance` (3), and acceptance / count assertions (3). `tests/js/test-schema-migrations.mjs` gained 11 T7 cases (ingredient_masters shape, vendor_prices + bom_lines migrations, both indexes, and ingredient_masters drift guard). All pre-existing suites stay green: schema 45, pack-size-detect 10, catch-weight-backfill 9, t4-integration 24, yield-math 14, ingest-yields 15, unit-convert 54, catch-weights 5.
+
+**Acceptance.** Synthetic fixture: 4 distinct `vendor_prices.ingredient` strings (3 vendor aliases for the same ketchup + 1 mustard with no confirmed map) collapse to 1 `master_id`, so `DISTINCT(master_id)=1 < DISTINCT(ingredient)=4` holds. Manual spot-check: the spec's `heinz_ketchup_1gal` fixture with sysco $12 / shamrock $11 rows and `preferred_vendor='shamrock'` returns `actual=$11` from `computeCostVariance` (single merged cost, no duplicate contribution from the sysco row).
 
 ---
 
 ### T8 — Cooking shrinkage in inventory depletion
 
-- [ ] **Task.** Toast sells cooked 8 oz burger; inventory depletes raw 10.66 oz (25% loss). Currently depletes 8 oz or nothing.
-- [ ] **Files.** `app/api/inventory/route.js` — when the inventory movement originates from a POS sale (source='toast'), lookup `bom_lines.loss_factor` for the cook step and divide.
-- [ ] **Schema delta.** None beyond T1. `bom_lines.loss_factor` from T1 is the source of truth per-ingredient-per-recipe.
-- [ ] **Test fixture.** Seed burger recipe with patty loss_factor=0.25. Post a Toast sale for 1 burger. Assert inventory_updates row has `delta = -10.66 oz` (raw), not `-8 oz`.
-- [ ] **Acceptance.** Mock Toast sales of a known loss-factor recipe deplete inventory at the raw-weight equivalent ±0.1 oz.
+- [x] **Task.** Toast sells cooked 8 oz burger; inventory depletes raw 10.667 oz (25% loss) instead of 8 oz. POS depletion is now shrinkage-aware.
+- [x] **Files.** New `app/api/inventory/route.js` (the route was missing pre-T8 — `inventory_updates` was only written to ad-hoc by the kitchen-assistant handler). New `lib/inventoryShrinkage.ts` carries the pure-function math layer so the route is a thin wrapper and the boundary cases are unit-testable without a request round-trip.
+- [x] **Schema delta.** None beyond T1, as specified. `bom_lines.loss_factor` (T1) is the source of truth. The audit trail for which loss factor was applied to a given depletion lives in `inventory_updates.note` — formatted like `T8: cooked=8 oz × 1/(1-0.25) → raw=10.667 oz [shrinkage_applied]`, re-parseable by a future cost-variance audit job.
+- [x] **Formula.** `raw_qty = cooked_qty / (1 − loss_factor)`. Fires only when `source='toast'` AND a `recipe_id` AND an `ingredient` AND a positive numeric `qty` are all present on the request. Any other source (`manual`, unset, anything else) preserves the pre-T8 free-text `delta` contract so kitchen waste logs and non-POS inventory moves are unaffected.
+- [x] **Fallback semantics.** The shrinkage path degrades gracefully to `delta = -cooked_qty` (no shrinkage) and a `reason` annotation on the note when: no `bom_lines` row matches the (recipe_id, ingredient) pair (`no_bom_line`), the matching row has `loss_factor IS NULL` (`no_loss_factor`), or the factor is out of the safe range `(0, 1)` open interval (`loss_factor_out_of_range` — covers 0, 1, negatives, and >1). The `loss_factor=1` case is the divide-by-zero trap; treating it as out-of-range is what keeps the math honest for "100% loss = nothing left" ingredients that shouldn't be depleting inventory at all.
+
+**Design decisions (why these choices):**
+- **Source gate, not always-on.** The same 8 oz walk-in inventory check-in and an 8 oz Toast sale have different meanings. The source field is the only reliable signal the API has to tell them apart, so shrinkage math gates on `source === 'toast'` explicitly. Extending to `source='square'` or other POS integrations later is a one-line change.
+- **Audit note over new column.** T1 already pays for a migration; the spec explicitly forbids one here. Formatting the math into `inventory_updates.note` trades SQL-indexability for zero schema risk and human-readable audit trails. The cost-variance regression job in T9 B1 can grep for `shrinkage_applied` if it ever needs to back out the math.
+- **Case-insensitive + whitespace-tolerant BOM lookup.** `bom_lines.ingredient` vs Toast's menu-item mapping drift constantly on casing and trailing whitespace (same story as T7 `rebuildIngredientMasters`). The lookup normalizes both sides with `LOWER(TRIM(...))`. No fuzz-matching — same posture as `scripts/lib/ingredient_key.py::_make_join_key`. When an exact match doesn't exist, fallback is the cooked-qty delta, not a silent wrong answer.
+- **Pure-fn layer.** `lib/inventoryShrinkage.ts` exports `applyShrinkage`, `resolveCookingShrinkage`, `lookupLossFactor`, `formatDepletionDelta`, `formatShrinkageNote`. The route only composes them. 32 tests — 24 on the pure functions (covering every boundary), 8 on the route (covering the source gate, the happy path, and the fallback reasons end-to-end). Keeps the route handler readable and moves most of the assertion surface off of `Request`/`Response` plumbing.
+
+**Tests added:** `tests/js/test-t8-cooking-shrinkage.mjs` — 32 tests covering `applyShrinkage` boundary matrix (0 / 1 / negative / >1 / NULL / invalid cooked), `formatDepletionDelta` / `formatShrinkageNote` shape, `lookupLossFactor` join (case-insensitive, NULL-aware, location-scoped), `resolveCookingShrinkage` end-to-end, the spec's acceptance test fixture (burger recipe with `loss_factor=0.25`, Toast sale, assert delta ≈ -10.667 oz ±0.1), the source-gate (source=manual and default source both preserve cooked-qty semantic), all fallback reasons (no_bom_line / no_loss_factor / loss_factor_out_of_range on 0 and 1 / missing recipe_id), and the free-text `delta` passthrough for non-toast callers. Wired as `npm run test:t8-cooking-shrinkage`.
+
+**Acceptance.** Spec fixture passes: `POST /api/inventory` with `source='toast'`, `recipe_id='burger'`, `ingredient='patty'`, `qty=8`, `unit='oz'` against a DB seeded with `bom_lines.loss_factor=0.25` produces an `inventory_updates` row with `delta='-10.667 oz'` — within the ±0.1 oz threshold for every typical Toast menu-item weight. All regressions green: schema 45, ingredient-masters 28, pack-size-detect 10, catch-weight-backfill 9, t4-integration 24, yield-math 14.
+
+**DONE — landed in post-T8 cleanup (PR #8 reviewer nits, branch `t8-nits`):**
+
+1. **Collapse dead `if (loss_factor === 0)` branch** (`lib/inventoryShrinkage.ts`). The guard `loss_factor < 0 || loss_factor >= 1` did not catch `0`, so a separate duplicate block followed with identical output. Collapsed to `loss_factor <= 0 || loss_factor >= 1` and the dead block removed. Behavior unchanged (tests already asserted `lf=0 → reason='loss_factor_out_of_range'`).
+
+2. **Normalize `source` casing at parse time** (`app/api/inventory/route.js`). A POST with `source: 'TOAST'` would trigger shrinkage (case-insensitive gate) but echo `'TOAST'` verbatim in the response and store it in `inventory_updates`. Fixed by lowercasing at parse time so the persisted `source` value and the response body are always canonical lowercase.
+
+3. **Export named constant `SHRINKAGE_REASONS`** (`lib/inventoryShrinkage.ts`). The five reason strings (`shrinkage_applied`, `no_loss_factor`, `loss_factor_out_of_range`, `no_bom_line`, `invalid_cooked_qty`) are the public contract — tests pin on them, they persist in `inventory_updates.note`, and T9 B1 variance may grep for them. Exported as `SHRINKAGE_REASONS` const + `ShrinkageReason` type. Internal string literals refactored to reference the constant. Five constant-equality tests added to catch future drift.
+
+4. **`export const dynamic = 'force-dynamic'`** (`app/api/inventory/route.js`). Added for parity with `app/api/beo/route.js`, `app/api/cooling/route.js`, and `app/api/kitchen-assistant/route.js`.
+
+5. **Extended test matrix** (`tests/js/test-t8-cooking-shrinkage.mjs`). Added 7 new test cases: negative qty (gate skips, row stored with null delta), known recipe + ingredient typo (`no_bom_line`), string qty `"8"` (treated as missing — typeof check), NaN qty (JSON-serializes to null → gate skips), Infinity qty (JSON-serializes to null → gate skips), `applyShrinkage(Infinity)` direct call (hits `Number.isFinite` guard → `invalid_cooked_qty`), and source casing normalization verification.
 
 ---
 
@@ -321,14 +373,16 @@ well as a backfilled snapshot on `vendor_prices`.
 
 This is the bar that lets us say the engine works.
 
-- [ ] **B1 — Variance metric.**
-  - Files: `app/api/costing/route.js`, `lib/menuEngineering.ts`.
-  - Compute per-recipe `actual_avg_unit_cost` (from rolling 30-day `vendor_prices`) vs `recipe_costs.cost_per_yield_unit`. Expose `cost_variance_pct`.
-  - Dashboard tile: red if any recipe >5%, yellow >2%.
-- [ ] **B2 — Unmapped queue.**
-  - New `app/api/unmapped/route.js` returning `{ total_items, unmapped_count, pct, rows: [...] }` from `bom_lines.map_status NOT IN ('confirmed','mapped')` + `vendor_prices.master_id IS NULL` + `map_status IN ('NEEDS_DENSITY','PACK_CHANGED')`.
-  - Target <1%, red >3%.
-- [ ] **B3 — Ingest latency.**
+- [x] **B1 — Variance metric.**
+  - Files: `app/api/costing/route.js`, `lib/costingBenchmarks.mjs::computeCostVariance`, `app/costing/page.jsx` tile.
+  - Per-recipe `actual` vs `theoretical` (`recipe_costs.cost_per_yield_unit`) → `variance_pct`. Uses T7 `master_id` where available (`resolveMergedCost`) with fallback to normalized ingredient-key join.
+  - D6 close: recipes whose `unmatched_lines / total_lines > 30%` are excluded from the aggregate with `exclusion_reason='high_unmatched_ratio'` and their `variance_pct` / `actual` surface as `null`. Summary block (`healthy / yellow / red / excluded_high_unmatched`) is on the response.
+  - Dashboard tile: green `< 2%`, yellow `2–5%`, red `≥ 5%` off `max_variance_pct`. Excluded-recipe count rendered as a yellow pip under the tile value.
+- [x] **B2 — Unmapped queue.**
+  - Files: `app/api/unmapped/route.js`, `lib/costingBenchmarks.mjs::computeUnmapped`, `app/costing/page.jsx` tile + first-10 detail table.
+  - UNION of three signals: `bom_lines.map_status NOT IN ('confirmed','mapped','auto_mapped')`, BOM rows flagged `NEEDS_DENSITY` (T4), and `vendor_prices.map_status='PACK_CHANGED'` (T6). Durable counter `pack_size_changes_unacknowledged` (T6 B2 queue extension, debt-bundle-d) is surfaced as a yellow pip so a quiet re-ingest doesn't hide the swap.
+  - Dashboard thresholds: green `< 1%`, yellow `1–3%`, red `≥ 3%`.
+- [x] **B3 — Ingest latency.**
   ```sql
   CREATE TABLE IF NOT EXISTS ingest_runs (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -340,9 +394,9 @@ This is the bar that lets us say the engine works.
     status     TEXT                -- 'ok' | 'partial' | 'failed'
   );
   ```
-  - Every `scripts/ingest-*.{mjs,py}` opens a run row at start, closes at end.
-  - Dashboard shows last-ingest-age per kind; red if any >1h stale.
-- [ ] **Acceptance.** All three tiles render in `app/costing/` with live numbers off the seed data. No dummy values.
+  - `lib/costingBenchmarks.mjs::readLastCostingIngest` reads the most-recent `kind='costing'` row; API exposes `{ last_run_at, last_status, age_minutes }`. Stays timezone-safe by appending `Z` to the SQLite `datetime('now')` output before `Date.parse` so wall-clock drift doesn't manufacture a fake 6-hour age.
+  - Dashboard thresholds: green `< 60 min`, yellow `60–1440 min`, red `≥ 1440 min`, NULL, or `'failed'`.
+- [x] **Acceptance.** `app/costing/page.jsx` renders B1 / B2 / B3 tiles plus a B4 dish-bridge coverage tile, all off live data. `tests/js/test-t9-benchmarks.mjs` covers the pure helpers (32 cases across variance, merged-cost resolution, unmapped queue union, ingest latency, D6 exclusion, T6 queue extension).
 
 ---
 
@@ -364,41 +418,51 @@ All three green → engine is deploy-ready. Any red → fix the root cause, not 
 
 These are tracked follow-ups from code-quality reviews. Non-blocking; address when touching the affected subsystem.
 
-### D1 — Coverage test can silently self-delete
+### D1 — Coverage test can silently self-delete — DONE
 
-`tests/python/test_seed_coverage.py` is a no-op test by design (informational reporter, no assertions). If the hard-coded live-DB path moves or the live DB is unavailable, the test silently skips with a message that default `pytest` output hides. A future misconfig that leaves the test skipping forever would look identical to "passing" in CI.
+**Resolved by this bundle (debt-bundle-b).** `tests/python/test_seed_coverage.py` now `self.assertGreater(n_bom, 0, "bom_lines empty — live DB not populated?")` as a baseline assertion ahead of the 100% coverage check. Verified empirically: pointing the test at a DB with an empty `bom_lines` table fails with `AssertionError: 0 not greater than 0`. Skips on DB-not-on-disk remain (those are genuinely unavailable — a worktree on a fresh clone shouldn't fail CI). Kept the full text below so the reviewer trail stays intact.
 
-**Fix when touched:** either (a) add `self.assertGreater(n_bom, 0)` as a baseline assertion so an empty-DB state fails instead of passes, or (b) rename the file to `coverage_report.py` and invoke it as a standalone tool rather than a pytest test.
+> `tests/python/test_seed_coverage.py` is a no-op test by design (informational reporter, no assertions). If the hard-coded live-DB path moves or the live DB is unavailable, the test silently skips with a message that default `pytest` output hides. A future misconfig that leaves the test skipping forever would look identical to "passing" in CI.
+>
+> **Fix when touched:** either (a) add `self.assertGreater(n_bom, 0)` as a baseline assertion so an empty-DB state fails instead of passes, or (b) rename the file to `coverage_report.py` and invoke it as a standalone tool rather than a pytest test.
 
-### D2 — Seed script duplication
+### D2 — Seed script duplication — DONE
 
-`scripts/seed_ingredient_densities.py` and `scripts/seed_ingredient_yields.py` share ~95% of their structure. Drift risk when a fix lands in one but not the other (e.g., the I1 CSV shape guard was added in lockstep — a future fix may not be).
+**Resolved by this bundle (d2-seed-refactor).** Shared skeleton lives in `scripts/lib/seed_upsert.py` as a `SeedSpec` + `ColumnSpec` dataclass pair and a `seed_upsert_main(spec, db, csv, **injected)` driver. The I1 CSV shape guard, per-row validation loop, single-transaction UPSERT with rollback, and the `"<script>: read=N upserted=N skipped=N"` stderr summary all live in one place. Four consolidated scripts: `seed_ingredient_densities.py`, `seed_ingredient_yields.py`, `seed_ingredient_unit_weights.py`, `ingest_catch_weights.py`. Line counts across the four callers went from 810 → 503 (~38% reduction); each script now declares a `SPEC` and calls into the shared driver. Composite PKs, injected constant columns (e.g. `--vendor`), source-enum checks (required vs optional), and `post_normalize` for the unit_weights `unit` column are all supported via `ColumnSpec` flags. The driver is covered end-to-end by `tests/python/test_seed_upsert.py` (19 tests, parameterized over the shared layer); the pre-existing per-script tests continue to pass byte-unchanged. Kept the full text below so the reviewer trail stays intact.
 
-**Fix when touched:** extract shared upsert logic into `scripts/lib/seed_upsert.py` with a `SeedSpec` dataclass carrying `(table_name, pk_column, columns, validators)`. Both seed scripts become ~40-line thin callers.
+> `scripts/seed_ingredient_densities.py` and `scripts/seed_ingredient_yields.py` share ~95% of their structure. Drift risk when a fix lands in one but not the other (e.g., the I1 CSV shape guard was added in lockstep — a future fix may not be).
+>
+> **Fix when touched:** extract shared upsert logic into `scripts/lib/seed_upsert.py` with a `SeedSpec` dataclass carrying `(table_name, pk_column, columns, validators)`. Both seed scripts become ~40-line thin callers.
 
 ### D3 — Positional-column INSERT fragility (flagged by T2c review) — DONE
 
 **Resolved by commit `7df45b3` ("refactor(costing): named-parameter INSERTs in ingest-costing", 2026-04-20).** Both `vendor_prices` and `bom_lines` INSERTs in `scripts/ingest-costing.mjs` now use `@name` bindings, so a schema/column mismatch raises at `prepare()`-time instead of silently NULL-ing a new column. T5 catch-weight columns cannot land half-wired. Kept here as a marker so the historical reviewer trail stays intact.
 
-### D4 — Excel batch_cost vs raw-sum drift (flagged by T3 review)
+### D4 — Excel batch_cost vs raw-sum drift — DONE (observability)
 
-T3 adds yield-delta on top of Excel's `recipe_costs.batch_cost`, assuming `excel_batch_cost === Σ (bom_qty × pack_price / pack_size)` across BOM lines. Current workbook holds this. If Excel ever introduces per-line rounding, case-minimum bucketing, sub-recipe caching, or other non-trivial adjustments, T3's delta still adjusts correctly FOR the yield portion but the resulting batch_cost becomes "Excel + our delta" rather than "absolute true cost".
+**Resolved by this bundle (debt-bundle-b).** `runCostingPostPass` in `scripts/ingest-costing.mjs` now snapshots `recipe_costs.batch_cost` BEFORE the T3/T4 UPDATEs, computes `Σ (qty × pack_price / pack_size)` per recipe using the existing T3 guards (null/zero/infinite rows excluded), and emits `console.info("ℹ D4 Excel drift: recipe_id=… excel_value=$… computed_sum=$… drift_usd=$…")` for every recipe whose `|excel − computed| > $0.10`. The count surfaces on the ingest summary as `excel_drift_warnings`. Observability only — no behavior change to the batch_cost math. A hard CHECK at ≥ $1.00 drift is still deferred until production data confirms the invariant is noise-free. Kept the full text below so the reviewer trail stays intact.
 
-**Fix when workbook scales up:** at T3-pass time, compute `Σ (qty × pack_price / pack_size)` per recipe and compare against `recipe_costs.batch_cost`. Log an INFO line when drift exceeds $0.10. Observability only — no behavior change, catches the scenario early. Consider a hard CHECK (≥ $1.00 drift) once observability confirms the invariant in production.
+> T3 adds yield-delta on top of Excel's `recipe_costs.batch_cost`, assuming `excel_batch_cost === Σ (bom_qty × pack_price / pack_size)` across BOM lines. Current workbook holds this. If Excel ever introduces per-line rounding, case-minimum bucketing, sub-recipe caching, or other non-trivial adjustments, T3's delta still adjusts correctly FOR the yield portion but the resulting batch_cost becomes "Excel + our delta" rather than "absolute true cost".
+>
+> **Fix when workbook scales up:** at T3-pass time, compute `Σ (qty × pack_price / pack_size)` per recipe and compare against `recipe_costs.batch_cost`. Log an INFO line when drift exceeds $0.10. Observability only — no behavior change, catches the scenario early. Consider a hard CHECK (≥ $1.00 drift) once observability confirms the invariant in production.
 
-### D5 — Missing null-guard matrix coverage in T3 yield-math tests (flagged by T3 review)
+### D5 — Missing null-guard matrix coverage in T3 yield-math tests — DONE
 
-`tests/js/test-ingest-costing-yield-math.mjs` tests 2 of the 5 zero/NULL guards: zero `pack_size` and NULL `pack_price`. Missing: zero `bom_qty`, NULL `bom_qty`, NULL `pack_size`. Code guards all 5 uniformly at `scripts/ingest-costing.mjs:213-220` so these are coverage gaps, not functionality gaps.
+**Resolved by this bundle (debt-bundle-b).** `tests/js/test-ingest-costing-yield-math.mjs` now carries a parameterized "T3 / D5 — null-guard matrix" suite iterating over all 6 cells (`qty`, `pack_price`, `pack_size` × `{NULL, 0}`), plus a seventh `Infinity pack_price` regression case pinning the `Number.isFinite` leg of the guard. Each case seeds one bad BOM line and asserts (a) batch_cost unchanged from the Excel seed, (b) `recipes_yield_adjusted === 0`, and (c) exactly one guardSkipped summary warning fires (captured via console.warn shim). The pre-existing collapsed "NULL yield_pct + NULL loss_factor" test stays (valid case) and two new isolated tests split off for "NULL yield_pct + non-null loss_factor=0" and "non-null yield_pct=1.0 + NULL loss_factor" so a broken single-field default can't hide behind a compensating pass. Test count went from 14 → 27 in this file. Kept the full text below so the reviewer trail stays intact.
 
-**Fix when touched:** parameterize the null-guard matrix — one parameterized test × 6 cases (3 columns × {NULL, 0}) closes the gap cheaply. Also split the current collapsed "NULL yield_pct + NULL loss_factor" test (line 87) into two cases so a broken single-field default can't hide behind a compensating pass.
+> `tests/js/test-ingest-costing-yield-math.mjs` tests 2 of the 5 zero/NULL guards: zero `pack_size` and NULL `pack_price`. Missing: zero `bom_qty`, NULL `bom_qty`, NULL `pack_size`. Code guards all 5 uniformly at `scripts/ingest-costing.mjs:213-220` so these are coverage gaps, not functionality gaps.
+>
+> **Fix when touched:** parameterize the null-guard matrix — one parameterized test × 6 cases (3 columns × {NULL, 0}) closes the gap cheaply. Also split the current collapsed "NULL yield_pct + NULL loss_factor" test (line 87) into two cases so a broken single-field default can't hide behind a compensating pass.
 
-### D6 — B1 variance fallback silently masks unmapped rows (flagged by T9 review)
+### D6 — B1 variance fallback silently masks unmapped rows — DONE
 
-`lib/costingBenchmarks.mjs:92-93` falls back to the BOM line's own `pack_price` / `pack_size` when no `vendor_prices` row matches on normalized ingredient_key. This keeps variance = 0 byte-exact on fresh ingest (correct contract), but also means a recipe with zero vendor-price matches silently reports "healthy" variance while failing completely in B2's unmapped queue. An operator reading B1 in isolation could miss a mapping-engine regression.
+**Resolved by this bundle (debt-bundle-d).** Option (a) — the stricter fix — landed in `lib/costingBenchmarks.mjs`. The pre-D6 fallback to the BOM line's own `pack_price` / `pack_size` is gone. Lines that match no `vendor_prices` row (neither by `master_id` nor by normalized ingredient key) count toward a new `unmatched_lines` counter and are excluded from the actual-cost accumulator. Each recipe in the response now carries `total_lines`, `unmatched_lines`, `excluded`, and `exclusion_reason` fields alongside the existing `variance_pct` / `theoretical` / `actual`. Recipes with `unmatched_lines / total_lines > UNMATCHED_THRESHOLD` (default 0.30, overridable via `opts.unmatchedThreshold`) are excluded from the aggregate with `exclusion_reason='high_unmatched_ratio'`; their `variance_pct` and `actual` surface as `null` so the UI can render them separately from the healthy tail. The response also grows a `summary: { healthy, yellow, red, excluded_high_unmatched }` block; the dashboard surfaces the excluded count as a pip on the B1 tile and renders per-row `unmatched_lines/total_lines` in the top-5 variance table so operators can see coverage at a glance. The default threshold choice (0.30) is conservative — a recipe with up to 30% unmapped lines still contributes; anything stricter risked excluding recipes in pre-T7 DBs where master_id backfill coverage was still rolling in. Operators can tighten via the opt-arg once coverage stabilizes. Kept the full text below so the reviewer trail stays intact.
 
-**Partially addressed by T4 (2026-04-20):** BOM rows whose pack_size unit cannot be interpreted (missing density for cross-dim, count unit, unknown unit) now carry `map_status='NEEDS_DENSITY'` and surface in B2 via `reason='unmapped_status'`. The worst case — a recipe costed from BOM rows whose vendor units can't even be dim-checked — now shows up in B2 rather than being swallowed silently. The B1 fallback path is still present for the "no vendor_prices row matches" case, so the debt narrows but does not close.
-
-**Fix when touched:** either (a) drop the fallback — lines without a vendor match contribute to a separate `unmatched_lines` counter, and recipes where `unmatched_lines/total_lines > threshold` are excluded from the variance aggregate with an explicit reason; or (b) add page-level copy that reads the three tiles in priority order (unmapped first, variance only meaningful when unmapped is green). Option (a) is stricter and better matches operator intuition at a glance.
+> `lib/costingBenchmarks.mjs:92-93` falls back to the BOM line's own `pack_price` / `pack_size` when no `vendor_prices` row matches on normalized ingredient_key. This keeps variance = 0 byte-exact on fresh ingest (correct contract), but also means a recipe with zero vendor-price matches silently reports "healthy" variance while failing completely in B2's unmapped queue. An operator reading B1 in isolation could miss a mapping-engine regression.
+>
+> **Partially addressed by T4 (2026-04-20):** BOM rows whose pack_size unit cannot be interpreted (missing density for cross-dim, count unit, unknown unit) now carry `map_status='NEEDS_DENSITY'` and surface in B2 via `reason='unmapped_status'`. The worst case — a recipe costed from BOM rows whose vendor units can't even be dim-checked — now shows up in B2 rather than being swallowed silently. The B1 fallback path is still present for the "no vendor_prices row matches" case, so the debt narrows but does not close.
+>
+> **Fix when touched:** either (a) drop the fallback — lines without a vendor match contribute to a separate `unmatched_lines` counter, and recipes where `unmatched_lines/total_lines > threshold` are excluded from the variance aggregate with an explicit reason; or (b) add page-level copy that reads the three tiles in priority order (unmapped first, variance only meaningful when unmapped is green). Option (a) is stricter and better matches operator intuition at a glance.
 
 ### Intentionally not debt (just flagging)
 
