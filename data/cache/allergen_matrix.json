@@ -2342,7 +2342,9 @@
     },
     {
       "ingredient": "vanilla wafers",
-      "big9": [],
+      "big9": [
+        "wheat"
+      ],
       "notes": ""
     },
     {
@@ -2779,9 +2781,7 @@
     },
     {
       "ingredient": "corn tortillas",
-      "big9": [
-        "wheat"
-      ],
+      "big9": [],
       "notes": ""
     },
     {

@@ -135,9 +135,13 @@ const INGREDIENT_ALLERGENS = {
   // Wheat / gluten
   'ap flour': ['wheat'], 'flour': ['wheat'], 'bread': ['wheat'],
   'breadcrumbs': ['wheat'], 'bread crumbs': ['wheat'], 'panko': ['wheat'],
-  'tortilla': ['wheat'], 'brioche': ['wheat'], 'bun': ['wheat'],
+  'flour tortilla': ['wheat'], 'flour tortillas': ['wheat'],
+  'wheat tortilla': ['wheat'], 'wheat tortillas': ['wheat'],
+  'brioche': ['wheat'], 'bun': ['wheat'],
   'sourdough': ['wheat'], 'pasta': ['wheat'], 'noodle': ['wheat'],
-  'beer': ['wheat'], 'soy sauce': ['wheat', 'soybeans'],
+  'baguette': ['wheat'], 'cracker': ['wheat'], 'crackers': ['wheat'],
+  'wafer': ['wheat'], 'wafers': ['wheat'], 'vanilla wafer': ['wheat'],
+  'vanilla wafers': ['wheat'], 'ciabatta': ['wheat'], 'beer': ['wheat'], 'soy sauce': ['wheat', 'soybeans'],
   // Soybeans / soy
   'soy': ['soybeans'], 'soybean': ['soybeans'], 'tofu': ['soybeans'],
   'edamame': ['soybeans'], 'miso': ['soybeans'], 'tempeh': ['soybeans'],
@@ -148,8 +152,17 @@ const INGREDIENT_ALLERGENS = {
   'tahini': ['sesame'],
 };
 
-// Fuzzy match: check if any key is a substring of the ingredient name (lowercased)
-function inferAllergens(ingredientName) {
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function containsIngredientPhrase(ingredientName, allergenKey) {
+  const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegExp(allergenKey)}([^a-z0-9]|$)`);
+  return pattern.test(ingredientName);
+}
+
+// Fuzzy match: check if any key is present as a whole ingredient phrase.
+export function inferAllergens(ingredientName) {
   const lower = ingredientName.toLowerCase().trim();
   const found = new Set();
 
@@ -159,9 +172,10 @@ function inferAllergens(ingredientName) {
     return [...found];
   }
 
-  // Substring / partial match
+  // Phrase match. Raw substring matching makes short keys unsafe:
+  // "reggiano" contains "egg" but Parmigiano-Reggiano has no eggs.
   for (const [key, allergens] of Object.entries(INGREDIENT_ALLERGENS)) {
-    if (lower.includes(key) || key.includes(lower)) {
+    if (containsIngredientPhrase(lower, key)) {
       for (const a of allergens) found.add(a);
     }
   }
@@ -1055,4 +1069,14 @@ function main() {
   console.log('Done.');
 }
 
-main();
+const isMain = (() => {
+  const arg = process.argv[1];
+  if (!arg) return false;
+  try {
+    return import.meta.url === new URL(`file://${path.resolve(arg)}`).href;
+  } catch {
+    return false;
+  }
+})();
+
+if (isMain) main();
