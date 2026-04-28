@@ -91,6 +91,21 @@ describe('listDepletionExceptions', () => {
     );
   });
 
+  it('aggregates casing variants under one unmapped dish exception', () => {
+    seedSale('Baja Taco', 5, 50, '2026-W17');
+    seedSale('BAJA TACO', 2, 20, '2026-W18');
+    const out = listDepletionExceptions(db, { location_id: 'default' });
+    assert.equal(out.length, 1);
+    assert.equal(out[0].dish_name, 'Baja Taco');
+    assert.equal(out[0].affected_sales_count, 2);
+    assert.equal(out[0].total_quantity_sold, 7);
+    assert.equal(out[0].total_net_sales, 70);
+    assert.deepEqual(
+      [...out[0].sample_period_labels].sort(),
+      ['2026-W17', '2026-W18'],
+    );
+  });
+
   it('orders by net_sales DESC then quantity DESC', () => {
     seedSale('Cheap Item', 100, 50);
     seedSale('Expensive Item', 5, 500);

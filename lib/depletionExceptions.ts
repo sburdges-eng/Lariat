@@ -86,17 +86,52 @@ export function listDepletionExceptions(
   }
 
   const aggSql = `
-    SELECT item_name,
-           COUNT(*)                AS affected_sales_count,
-           SUM(quantity_sold)      AS total_quantity_sold,
-           SUM(net_sales)          AS total_net_sales,
-           MAX(imported_at)        AS latest_imported_at,
-           GROUP_CONCAT(DISTINCT period_label) AS sample_period_labels
-      FROM sales_lines
-     WHERE ${where}
-     GROUP BY item_name
-     ORDER BY COALESCE(total_net_sales, 0) DESC,
-              total_quantity_sold DESC
+    WITH sales AS (
+      SELECT LOWER(TRIM(item_name)) AS item_key,
+             TRIM(item_name)        AS item_name,
+             quantity_sold,
+             net_sales,
+             imported_at,
+             period_label
+        FROM sales_lines
+       WHERE ${where}
+    ),
+    display_names AS (
+      SELECT item_key,
+             item_name
+        FROM (
+          SELECT item_key,
+                 item_name,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY item_key
+                   ORDER BY quantity_sold DESC,
+                            COALESCE(net_sales, 0) DESC,
+                            item_name ASC
+                 ) AS display_rank
+            FROM sales
+        )
+       WHERE display_rank = 1
+    ),
+    aggregates AS (
+      SELECT item_key,
+             COUNT(*)                AS affected_sales_count,
+             SUM(quantity_sold)      AS total_quantity_sold,
+             SUM(net_sales)          AS total_net_sales,
+             MAX(imported_at)        AS latest_imported_at,
+             GROUP_CONCAT(DISTINCT period_label) AS sample_period_labels
+        FROM sales
+       GROUP BY item_key
+    )
+    SELECT display_names.item_name,
+           aggregates.affected_sales_count,
+           aggregates.total_quantity_sold,
+           aggregates.total_net_sales,
+           aggregates.latest_imported_at,
+           aggregates.sample_period_labels
+      FROM aggregates
+      JOIN display_names ON display_names.item_key = aggregates.item_key
+     ORDER BY COALESCE(aggregates.total_net_sales, 0) DESC,
+              aggregates.total_quantity_sold DESC
   `;
 
   const rows = db.prepare(aggSql).all(...params) as SalesAggRow[];
