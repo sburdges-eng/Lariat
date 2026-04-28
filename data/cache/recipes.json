@@ -3338,7 +3338,9 @@
     ],
     "notes": "Vendor whole-buy frozen + chipotle_aioli dip",
     "direct_allergens": [
-      "eggs"
+      "eggs",
+      "milk",
+      "soybeans"
     ]
   },
   {
@@ -3385,7 +3387,11 @@
       "Corn Dogs (BEO)"
     ],
     "notes": "Corndog batter + honey mustard",
-    "direct_allergens": []
+    "direct_allergens": [
+      "eggs",
+      "milk",
+      "wheat"
+    ]
   },
   {
     "name": "Artisanal Board",
@@ -3830,7 +3836,8 @@
     "notes": "Wired to existing in-house sub-recipes — chef confirm cover counts + bread/salad",
     "direct_allergens": [
       "eggs",
-      "milk"
+      "milk",
+      "wheat"
     ]
   },
   {
@@ -3914,6 +3921,9 @@
     ],
     "notes": "Wired to existing in-house sub-recipes plus USDA-default rice + beans — chef confirm tortilla counts",
     "direct_allergens": [
+      "eggs",
+      "milk",
+      "soybeans",
       "wheat"
     ]
   },

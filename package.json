@@ -22,6 +22,8 @@
     "toast:ingest": "node scripts/toast-weekly-ingest.mjs",
     "toast:ingest:dry": "node scripts/toast-weekly-ingest.mjs --dry-run",
     "ingest:all": "npm run ingest && npm run ingest:costing && npm run ingest:analytics && npm run ingest:toast && npm run ingest:shows",
+    "sync:normalized": "node --experimental-strip-types scripts/sync-normalized-to-bom.mjs",
+    "sync:normalized:dry": "node --experimental-strip-types scripts/sync-normalized-to-bom.mjs --dry",
     "validate-cache": "node scripts/validate-cache.mjs",
     "export": "node scripts/export.mjs",
     "rebuild-cache": "node scripts/rebuild-cache.mjs",

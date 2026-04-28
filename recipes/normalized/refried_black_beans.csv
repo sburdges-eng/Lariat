@@ -1,10 +1,10 @@
 ingredient,qty,unit,portions_per_batch,notes
-canned black beans,8,can,3 qt,15 oz cans; reserve liquid. SOURCE: usda_myplate (Refried Beans + Black Beans)
-yellow onion,1,lb,3 qt,small dice (1/4-in per USDA). SOURCE: usda_myplate
-garlic,6,clove,3 qt,minced. SOURCE: usda_myplate
-vegetable oil,0.5,cup,3 qt,for sauteing aromatics + frying mashed beans. SOURCE: usda_myplate
-ground cumin,2,tbsp,3 qt,SOURCE: usda_myplate
-dried oregano,1,tbsp,3 qt,Mexican oregano preferred. SOURCE: usda_myplate (Black Beans variant)
-kosher salt,1,tbsp,3 qt,to taste. SOURCE: usda_myplate
-black pepper,1,tsp,3 qt,freshly ground. SOURCE: usda_myplate
-lime juice,0.25,cup,3 qt,brightens at finish. SOURCE: chef_template
+canned black beans,8,can,3 qt,15 oz cans; reserve liquid. SOURCE: usda_myplate (Refried Beans + Black Beans). chef_approved 2026-04-28 sburdges
+yellow onion,1,lb,3 qt,small dice (1/4-in per USDA). SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
+garlic,6,clove,3 qt,minced. SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
+vegetable oil,0.5,cup,3 qt,for sauteing aromatics + frying mashed beans. SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
+ground cumin,2,tbsp,3 qt,SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
+dried oregano,1,tbsp,3 qt,Mexican oregano preferred. SOURCE: usda_myplate (Black Beans variant). chef_approved 2026-04-28 sburdges
+kosher salt,1,tbsp,3 qt,to taste. SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
+black pepper,1,tsp,3 qt,freshly ground. SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
+lime juice,0.25,cup,3 qt,brightens at finish. SOURCE: chef_template. chef_approved 2026-04-28 sburdges
