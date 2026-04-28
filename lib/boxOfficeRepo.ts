@@ -192,16 +192,25 @@ export function createBoxOfficeLine(
 /**
  * Mark a single box-office line as scanned at the door.
  *
+ * Scoped by show_id + location_id so a request to /api/shows/X/.../<lineId>
+ * cannot mutate a line owned by a different show even if the line_id
+ * collides — cash custody is regulated and the audit trail must reflect
+ * the show in the URL.
+ *
  * Returns the updated row, or null if no eligible row matched (already
- * scanned, missing, or location mismatch). Audit emission lives inside
+ * scanned, missing, show/location mismatch). Audit emission lives inside
  * the same tx as the UPDATE so an audit failure rolls back the scan.
  */
 export function markScanned(
   db: Database,
+  show_id: number,
   line_id: number,
   location_id: string,
   actor_cook_id: string | null,
 ): BoxOfficeLine | null {
+  if (!Number.isInteger(show_id) || show_id <= 0) {
+    throw new Error('show_id must be a positive integer');
+  }
   if (!Number.isInteger(line_id) || line_id <= 0) {
     throw new Error('line_id must be a positive integer');
   }
@@ -210,8 +219,8 @@ export function markScanned(
     const info = db.prepare(
       `UPDATE box_office_lines
           SET scanned_at = datetime('now')
-        WHERE id = ? AND location_id = ? AND scanned_at IS NULL`,
-    ).run(line_id, location_id);
+        WHERE id = ? AND show_id = ? AND location_id = ? AND scanned_at IS NULL`,
+    ).run(line_id, show_id, location_id);
     if (info.changes === 0) return null;
 
     const row = db

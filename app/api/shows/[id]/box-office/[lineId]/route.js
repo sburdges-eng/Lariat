@@ -34,9 +34,10 @@ async function requirePin(req) {
 export async function PATCH(req, { params }) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
+  const showId = parsePositiveInt(params?.id);
   const lineId = parsePositiveInt(params?.lineId);
-  if (lineId == null) {
-    return Response.json({ error: 'Invalid line id' }, { status: 400 });
+  if (showId == null || lineId == null) {
+    return Response.json({ error: 'Invalid show or line id' }, { status: 400 });
   }
 
   let body;
@@ -59,7 +60,7 @@ export async function PATCH(req, { params }) {
 
   try {
     const db = getDb();
-    const line = markScanned(db, lineId, loc, actor);
+    const line = markScanned(db, showId, lineId, loc, actor);
     if (!line) {
       return Response.json({ error: 'NotFound or already scanned' }, { status: 404 });
     }

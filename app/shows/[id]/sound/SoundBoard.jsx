@@ -52,6 +52,15 @@ export default function SoundBoard({ showId, locationId, initialScenes, complete
   const lastHashRef = useRef(null);
   const inFlightRef = useRef(null); // promise of current save
 
+  const refresh = useCallback(async () => {
+    const url = `/api/shows/${showId}/sound${locationId !== 'default' ? `?location=${locationId}` : ''}`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    setScenes(data.scenes ?? []);
+    setScore(data.completeness?.score ?? 0);
+  }, [showId, locationId]);
+
   const buildPayload = useCallback(() => {
     const plot = parsePlot(plotText);
     if (!plot || !sceneName.trim()) return null;
@@ -99,6 +108,7 @@ export default function SoundBoard({ showId, locationId, initialScenes, complete
         if (data.scene?.id && currentSceneId == null) setCurrentSceneId(data.scene.id);
         lastHashRef.current = sig;
         setSaveState({ status: 'saved', error: null, savedAt: new Date() });
+        await refresh();
       } catch (err) {
         setSaveState({ status: 'error', error: err.message, savedAt: null });
         throw err;
@@ -106,7 +116,7 @@ export default function SoundBoard({ showId, locationId, initialScenes, complete
     })();
     inFlightRef.current = promise.catch(() => {});
     return promise;
-  }, [buildPayload, currentSceneId, showId]);
+  }, [buildPayload, currentSceneId, showId, refresh]);
 
   // Autosave on a 30s tick.
   useEffect(() => {
