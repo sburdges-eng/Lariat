@@ -67,4 +67,8 @@ low_country_boil,Low Country Boil,buffet,12,portion,4,,saute,Low Country Boil (B
 gazpacho,Gazpacho,soup,4,qt,14,,saute,Gazpacho (BEO),USDA MyPlate canonical — needs chef review for restaurant scale + seasoning
 chilled_corn_leek,Chilled Corn Leek,soup,4,qt,15,,saute,Chilled Corn Leek (BEO),USDA Corn Soup base + vichyssoise template — needs chef review
 italian_dinner,Italian Dinner,dinner,1,menu,7,baked_ziti;caprese_skewers;artisanal_board,expo,Italian Dinner (BEO),Wired to existing in-house sub-recipes — chef confirm cover counts + bread/salad
-mexican_dinner,Mexican Dinner,dinner,1,menu,10,birria;mexi_slaw;pico_de_gallo;tomatillo_salsa;mini_rellenos,expo,Mexican Dinner (BEO),Wired to existing in-house sub-recipes — chef confirm rice/beans (UNMAPPED) + tortilla counts
+mexican_dinner,Mexican Dinner,dinner,1,menu,10,birria;mexi_slaw;pico_de_gallo;tomatillo_salsa;mini_rellenos;spanish_rice;refried_black_beans,expo,Mexican Dinner (BEO),Wired to existing in-house sub-recipes plus USDA-default rice + beans — chef confirm tortilla counts
+spanish_rice,Spanish Rice,side,3,qt,9,,saute,Mexican Dinner (BEO),USDA MyPlate canonical (Spanish Rice / Mexican Rice II) — needs chef review for restaurant scale + seasoning
+refried_black_beans,Refried Black Beans,side,3,qt,9,,saute,Mexican Dinner (BEO),USDA MyPlate canonical (Refried Beans + Black Beans) — needs chef review
+beef_tenderloin_crostini,Beef Tenderloin Crostini,appetizer,50,ea,14,,grill;garde,Beef Tenderloin Crostini (BEO),In-house — seared tenderloin + crostini + horseradish cream + arugula
+tomato_confit,Tomato Confit,prep,1,pan,4,,saute,prep / dish garnish,In-house — 1/3 hotel pan 6-in deep; cherry tomatoes + thyme + 100g garlic + EVOO to cover

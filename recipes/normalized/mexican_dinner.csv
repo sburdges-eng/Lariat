@@ -4,8 +4,8 @@ mexi slaw,1,portion,1 menu,sub-recipe — slaw side. SOURCE: in-house
 pico de gallo,1,portion,1 menu,sub-recipe — table salsa. SOURCE: in-house
 tomatillo salsa,1,portion,1 menu,sub-recipe — green salsa. SOURCE: in-house
 mini rellenos,1,case,1 menu,sub-recipe — vendor whole-buy passed app. SOURCE: in-house
+spanish rice,1,batch,1 menu,sub-recipe (3 qt batch). SOURCE: usda_myplate via spanish_rice.csv
+refried black beans,1,batch,1 menu,sub-recipe (3 qt batch). SOURCE: usda_myplate via refried_black_beans.csv
 flour tortillas,50,ea,1 menu,8-in; warmed; for birria service. CHEF REVIEW: confirm vendor + count per cover.
 corn tortillas,50,ea,1 menu,6-in; warmed. CHEF REVIEW: confirm vendor + count per cover.
-spanish rice,3,qt,1 menu,side. CHEF REVIEW: needs its own recipe (currently UNMAPPED).
-refried black beans,3,qt,1 menu,side. CHEF REVIEW: needs its own recipe (currently UNMAPPED).
 lime wedges,2,lb,1 menu,for service. CHEF REVIEW.

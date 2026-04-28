@@ -7,9 +7,7 @@ undercount them (AGENTS.md rule #4 — silence is not an option).
 
 ## Open
 
-| BEO item | Category | Status / what's needed |
-|---|---|---|
-| Beef tenderloin crostini | Passed Apps | Needs ingredient list — house recipe (seared tenderloin + crostini + aioli) or vendor whole-buy? |
+(none — see "Pending chef review" and the "Resolved" lists below)
 
 ## Pending chef review (USDA-default templates in place)
 
@@ -38,6 +36,13 @@ ingredient at a vendor SKU (see `mini_rellenos.csv`, `churros.csv`,
 `chocolate_cake.csv` for the whole-buy pattern).
 
 Close an item here with the PR that expands the recipe.
+
+## Resolved 2026-04-28
+
+- **Beef tenderloin crostini** — house recipe; see `recipes/normalized/beef_tenderloin_crostini.csv` (seared tenderloin + crostini + horseradish cream + arugula; 50 ea per batch).
+- **Spanish rice** — USDA MyPlate canonical (`spanish_rice.csv`, 3 qt yield); referenced as sub-recipe by `mexican_dinner`.
+- **Refried black beans** — USDA MyPlate canonical (`refried_black_beans.csv`, 3 qt yield); referenced as sub-recipe by `mexican_dinner`.
+- **Tomato confit** — house recipe; 6"-deep 1/3 hotel pan filled with cherry tomatoes + 1 sprig thyme + 100g garlic + EVOO to cover.
 
 ## Resolved 2026-04-24
 
