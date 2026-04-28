@@ -39,6 +39,7 @@
     "propose:plan-action-items": "node --experimental-strip-types scripts/propose-plan-action-items.mjs",
     "export:coverage-gap": "node scripts/export-coverage-gap.mjs",
     "propose:food-dish-components": "node scripts/propose-food-dish-components.mjs",
+    "seed:menu-item-declarations": "node --experimental-strip-types scripts/seed-menu-item-declarations.mjs",
     "import:dish-components": "node scripts/import-dish-components.mjs",
     "export:dish-components": "node scripts/export-dish-components.mjs",
     "coverage:gap": "node --experimental-strip-types scripts/dish-components-coverage.mjs",
@@ -111,6 +112,7 @@
     "test:coverage-gap-export": "node --experimental-strip-types --test tests/js/test-coverage-gap-export.mjs",
     "test:propose-food-dish-components": "node --experimental-strip-types --test tests/js/test-propose-food-dish-components.mjs",
     "test:dish-components-csv": "node --experimental-strip-types --test tests/js/test-import-dish-components.mjs",
+    "test:dish-menu-item-match": "node --experimental-strip-types --test tests/js/test-dish-menu-item-match.mjs",
     "test:drink-sku-extraction": "node --test tests/js/test-drink-sku-extraction.mjs",
     "test:vendor-prices-csv": "node --experimental-strip-types --test tests/js/test-import-vendor-prices.mjs",
     "test:cook-message-classifier": "node --experimental-strip-types --test tests/js/test-cook-message-classifier.mjs"
