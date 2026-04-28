@@ -1850,3 +1850,323 @@ textarea.input { resize: vertical; }
   color: var(--red);
   font-size: 13px;
 }
+
+/* ── Gold Stars (recognition board) ──────────────────────────── */
+
+.gs-root { position: relative; font-family: inherit; }
+
+.gs-section {
+  background: transparent;
+  padding: 0;
+  color: var(--ink);
+  max-width: 600px;
+}
+
+.gs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.gs-title {
+  font-size: 1.25rem;
+  margin: 0;
+  color: var(--brass);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.gs-give-btn {
+  background: transparent;
+  color: var(--brass);
+  border: 1px solid var(--brass);
+  padding: 0.5rem 1.25rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: background 0.15s var(--easing), color 0.15s var(--easing);
+}
+.gs-give-btn:hover {
+  background: var(--brass);
+  color: white;
+}
+
+/* ── Tabs ── */
+
+.gs-tabs {
+  display: flex;
+  gap: 1.5rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.gs-tab {
+  padding: 0.5rem 0;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s var(--easing);
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-size: 1rem;
+}
+.gs-tab[aria-selected="true"] {
+  border-bottom-color: var(--brass);
+  color: var(--ink);
+}
+
+/* ── List / Leaderboard ── */
+
+.gs-list { display: flex; flex-direction: column; }
+
+.gs-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.gs-row-info {
+  flex: 1;
+  min-width: 0;
+  padding-right: 1rem;
+}
+
+.gs-row-name {
+  margin: 0 0 0.35rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.gs-row-reason {
+  margin: 0;
+  color: var(--char);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.gs-row-date {
+  display: block;
+  margin-top: 0.5rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.gs-row-aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.gs-stars {
+  color: var(--brass);
+  font-size: 1.25rem;
+  letter-spacing: 0.05em;
+}
+
+.gs-remove-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: color 0.2s var(--easing);
+  padding: 0;
+}
+.gs-remove-btn:hover { color: var(--red); }
+
+/* ── Leaderboard rows ── */
+
+.gs-lb-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.gs-lb-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.gs-lb-rank {
+  font-size: 1.125rem;
+  font-weight: 600;
+  width: 24px;
+}
+.gs-lb-rank--top { color: var(--brass); }
+.gs-lb-rank--rest { color: var(--muted); }
+
+.gs-lb-name {
+  color: var(--ink);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.gs-lb-total {
+  color: var(--brass);
+  font-weight: 600;
+  font-size: 1.125rem;
+}
+
+/* ── Empty + loading states ── */
+
+.gs-empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--muted);
+}
+
+.gs-loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* ── Modal overlay + panel ── */
+
+.gs-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 1rem;
+}
+
+.gs-modal {
+  background: var(--cream);
+  padding: 2rem;
+  border-radius: 1rem;
+  width: 100%;
+  max-width: 450px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.gs-modal-title {
+  margin: 0 0 1.5rem 0;
+  color: var(--ink);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.gs-error {
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background: rgba(139, 46, 31, 0.1);
+  border: 1px solid var(--red);
+  border-radius: 0.5rem;
+  color: var(--red);
+  font-size: 0.9rem;
+}
+
+/* ── Form elements ── */
+
+.gs-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.gs-input {
+  width: 100%;
+  padding: 1rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  color: var(--ink);
+  margin-bottom: 1rem;
+  box-sizing: border-box;
+  font-size: 1rem;
+  font-family: inherit;
+}
+.gs-input:focus {
+  outline: none;
+  border-color: var(--brass);
+}
+
+.gs-textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+/* ── Star-tier toggles ── */
+
+.gs-tiers {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.gs-tier-btn {
+  flex: 1;
+  padding: 1rem 0;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.15s var(--easing);
+  background: var(--paper-2);
+  color: var(--muted);
+}
+.gs-tier-btn[aria-pressed="true"] {
+  background: var(--brass);
+  color: white;
+}
+
+/* ── Modal action bar ── */
+
+.gs-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.gs-cancel-btn {
+  flex: 1;
+  padding: 1rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--char);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: background 0.15s var(--easing);
+}
+.gs-cancel-btn:hover {
+  background: var(--paper);
+}
+
+.gs-submit-btn {
+  flex: 2;
+  padding: 1rem;
+  background: var(--brass);
+  border: none;
+  color: white;
+  font-weight: bold;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: opacity 0.15s var(--easing);
+}
+.gs-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
