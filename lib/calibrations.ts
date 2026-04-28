@@ -260,11 +260,6 @@ function parseTs(s: string | null | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function addDaysISO(d: Date, days: number): string {
-  const ms = d.getTime() + days * 86400000;
-  return new Date(ms).toISOString();
-}
-
 /**
  * Aggregate calibration rows into one summary per probe.
  *
@@ -321,7 +316,7 @@ export function classifyProbes(
       if (av < bv) return 1;
       return 0;
     });
-    const last = sorted[0];
+    const last = sorted[0]!;
     const freq =
       typeof last.frequency_days === 'number' && last.frequency_days > 0
         ? last.frequency_days

@@ -30,6 +30,8 @@
     "useUnknownInCatchVariables": true,
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
 
     "paths": {
       "@/*": ["./*"],

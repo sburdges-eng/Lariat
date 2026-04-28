@@ -114,7 +114,7 @@ export async function verifyPinCookieValue(
     // Constant-time comparison
     let diff = 0;
     for (let i = 0; i < expected.length; i++) {
-      diff |= expected[i] ^ provided[i];
+      diff |= expected[i]! ^ provided[i]!;
     }
     return diff === 0;
   }

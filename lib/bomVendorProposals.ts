@@ -846,7 +846,7 @@ export function matchRawCutForGrind(
     };
   }
 
-  const top = sorted[0];
+  const top = sorted[0]!;
   const note =
     top.confidence === 'high'
       ? `${sorted.length} raw-cut candidate${sorted.length === 1 ? '' : 's'} (top: ${top.confidence}, whole/raw form available)`

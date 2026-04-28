@@ -330,14 +330,12 @@ export function computeDishCost(
   let total = 0;
   let allOk = components.length > 0;
   let anyOk = false;
-  let anyMissing = false;
   for (const c of components) {
     if (c.per_serving_cost != null) {
       total += c.per_serving_cost;
       anyOk = true;
     } else {
       allOk = false;
-      anyMissing = true;
     }
   }
 
