@@ -102,25 +102,39 @@ export async function POST(req) {
           row: existing,
         };
       }
-
-      const ack = acknowledgePackChange(db, id);
-      logAuditAction({
-        action: 'pack_size_change_acknowledged',
-        pack_size_changes_id: id,
-        vendor: existing.vendor,
-        sku: existing.sku,
-        prev_pack: existing.prev_pack,
-        new_pack: existing.new_pack,
-        note,
-      });
-      return ack;
+      return acknowledgePackChange(db, id);
     })();
+
     if (!result.found) {
       return Response.json(
         { error: 'pack_size_changes row not found', id },
         { status: 404 },
       );
     }
+
+    // Audit-log AFTER the DB tx commits. logAuditAction writes to the
+    // management-action JSONL file (not the regulated audit_events
+    // table), so file-write failures must not roll back the ack — the
+    // row is already acknowledged. Log and continue.
+    if (!result.was_already_acknowledged) {
+      try {
+        logAuditAction({
+          action: 'pack_size_change_acknowledged',
+          pack_size_changes_id: id,
+          vendor: result.row.vendor,
+          sku: result.row.sku,
+          prev_pack: result.row.prev_pack,
+          new_pack: result.row.new_pack,
+          note,
+        });
+      } catch (auditErr) {
+        console.error(
+          'POST /api/costing/pack-changes audit write failed:',
+          auditErr,
+        );
+      }
+    }
+
     return Response.json({
       id,
       acknowledged: 1,
