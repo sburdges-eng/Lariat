@@ -126,16 +126,6 @@ export function applyShrinkage(
       reason: 'loss_factor_out_of_range',
     };
   }
-  if (loss_factor === 0) {
-    return {
-      cooked_qty,
-      unit,
-      raw_qty: cooked_qty,
-      applied: false,
-      loss_factor: 0,
-      reason: 'loss_factor_out_of_range',
-    };
-  }
   const raw_qty = cooked_qty / (1 - loss_factor);
   return {
     cooked_qty,
