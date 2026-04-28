@@ -38,6 +38,12 @@
       "timeout_sec": 60,
       "description": "Refresh data/cache/*.json from source CSVs. Cheap, runs every 30 min."
     },
+    "compliance-build": {
+      "command": ["npm", "run", "compliance:build"],
+      "cron": "0 5 * * *",
+      "timeout_sec": 60,
+      "description": "Rebuild data/cache/compliance.db from data/normalized/compliance_rules.jsonl. Idempotent — short-circuits when the JSONL sha is unchanged."
+    },
     "backup": {
       "command": ["npm", "run", "backup"],
       "cron": "0 1 * * *",
