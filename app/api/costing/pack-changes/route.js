@@ -84,17 +84,17 @@ export async function POST(req) {
 
   try {
     const db = getDb();
-    const existing = getPackChangeById(db, id);
-    if (!existing) {
-      return Response.json(
-        { error: 'pack_size_changes row not found', id },
-        { status: 404 },
-      );
-    }
-
-    const wasAlreadyAcknowledged = existing.acknowledged === 1;
     const result = db.transaction(() => {
-      if (wasAlreadyAcknowledged) {
+      const existing = getPackChangeById(db, id);
+      if (!existing) {
+        return {
+          found: false,
+          was_already_acknowledged: false,
+          acknowledged: 0,
+          row: null,
+        };
+      }
+      if (existing.acknowledged === 1) {
         return {
           found: true,
           was_already_acknowledged: true,
@@ -102,6 +102,8 @@ export async function POST(req) {
           row: existing,
         };
       }
+
+      const ack = acknowledgePackChange(db, id);
       logAuditAction({
         action: 'pack_size_change_acknowledged',
         pack_size_changes_id: id,
@@ -111,9 +113,14 @@ export async function POST(req) {
         new_pack: existing.new_pack,
         note,
       });
-      return acknowledgePackChange(db, id);
+      return ack;
     })();
-
+    if (!result.found) {
+      return Response.json(
+        { error: 'pack_size_changes row not found', id },
+        { status: 404 },
+      );
+    }
     return Response.json({
       id,
       acknowledged: 1,
