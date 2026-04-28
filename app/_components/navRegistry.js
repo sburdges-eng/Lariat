@@ -337,6 +337,36 @@ export const NAV_ITEMS = [
     surface: { sidebar: f, palette: t, shelf: t },
     shelf: { b: 'Allergens', sub: 'check' },
   },
+  {
+    id: 'booking',
+    href: '/booking',
+    name: 'Booking',
+    sub: 'Calendar + pipeline',
+    group: 'Entertainment',
+    terms: 'booking calendar pipeline shows',
+    locAware: t,
+    surface: { sidebar: t, palette: t, shelf: f },
+  },
+  {
+    id: 'playbook',
+    href: '/playbook',
+    name: 'Playbook',
+    sub: 'Show marketing',
+    group: 'Entertainment',
+    terms: 'playbook marketing ads tickets dice',
+    locAware: t,
+    surface: { sidebar: t, palette: t, shelf: f },
+  },
+  {
+    id: 'shows-archive',
+    href: '/shows/archive',
+    name: 'Past shows',
+    sub: 'Archive search',
+    group: 'Entertainment',
+    terms: 'archive past shows history',
+    locAware: t,
+    surface: { sidebar: t, palette: t, shelf: f },
+  },
 ];
 
 // ── Selectors ─────────────────────────────────────────────────────────
