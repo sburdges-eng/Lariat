@@ -336,8 +336,11 @@ function LineItemsTable({ items, onUpdate, onDelete, event, onEventSave }) {
 
   useEffect(() => {
     setLocalTax(taxRate);
+  }, [event.id, taxRate]);
+
+  useEffect(() => {
     setLocalFee(feePct);
-  }, [event.id, taxRate, feePct]);
+  }, [event.id, feePct]);
 
   const tax = roundMoney(subtotal * taxRate);
   const fee = roundMoney(subtotal * (feePct / 100));
