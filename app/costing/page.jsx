@@ -109,10 +109,13 @@ export default function CostingPage() {
           </div>
           {/* T6 B2 queue extension: surface the durable "still unacknowledged
               pack-size swap" count alongside the bom-line tile. Source is
-              pack_size_changes.acknowledged=0 (never cleared by re-ingest). */}
+              pack_size_changes.acknowledged=0 (never cleared by re-ingest).
+              Links into the per-row triage queue at /costing/pack-changes. */}
           {unmapped.pack_size_changes_unacknowledged > 0 ? (
             <div style={{ fontSize: 11, marginTop: 4, color: 'var(--yellow)' }}>
-              {unmapped.pack_size_changes_unacknowledged} unack'd pack-size swap(s)
+              <Link href="/costing/pack-changes">
+                {unmapped.pack_size_changes_unacknowledged} unack'd pack-size swap(s) →
+              </Link>
             </div>
           ) : null}
         </div>
@@ -161,6 +164,20 @@ export default function CostingPage() {
             </div>
           );
         })()}
+      </div>
+
+      {/* Phase-1 triage links — every queue is one click from the dashboard. */}
+      <div className="card form-row" style={{ marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
+        <span style={{ opacity: 0.75, marginRight: 4 }}>Triage queues:</span>
+        <Link href="/costing/depletion-exceptions" className="btn">
+          Depletion exceptions
+        </Link>
+        <Link href="/costing/pack-changes" className="btn">
+          Pack-size changes
+        </Link>
+        <Link href="/costing/price-shocks" className="btn">
+          Price moves
+        </Link>
       </div>
 
       {/* B1 detail */}
