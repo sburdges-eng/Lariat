@@ -12,12 +12,16 @@ const SENSITIVE_PREFIXES = [
   '/menu-engineering',
   '/beo',
   '/management',
+  '/booking',
+  '/playbook',
+  '/shows',
   '/api/costing',
   '/api/analytics',
   '/api/menu-engineering',
   '/api/beo',
   '/api/audit',
   '/api/compute',
+  '/api/shows',
 ];
 
 function isSensitive(pathname) {
@@ -48,6 +52,9 @@ export const config = {
     '/menu-engineering/:path*',
     '/beo/:path*',
     '/management/:path*',
+    '/booking/:path*',
+    '/playbook/:path*',
+    '/shows/:path*',
     '/login-pin',
     '/api/costing/:path*',
     '/api/analytics/:path*',
@@ -55,5 +62,6 @@ export const config = {
     '/api/beo/:path*',
     '/api/audit/:path*',
     '/api/compute/:path*',
+    '/api/shows/:path*',
   ],
 };

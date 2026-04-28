@@ -120,3 +120,7 @@ data/*.pdf
 
 # ── Local MCP server config (hardcoded user path) ─────────────
 .mcp.json
+
+# ── Generated test fixtures ──────────────────────────────────
+tests/python/fixtures/shows_minimal.xlsx
+tests/js/.tmp-shows-*.db*

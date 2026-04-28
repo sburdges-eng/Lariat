@@ -16,11 +16,12 @@
     "ingest:analytics": "node scripts/ingest-analytics.mjs",
     "ingest:toast": "node --experimental-strip-types scripts/ingest-toast-timeseries.mjs",
     "ingest:toast-invoices": "node --experimental-strip-types scripts/ingest-toast-invoices.mjs",
+    "ingest:shows": "node --experimental-strip-types scripts/ingest-shows.mjs",
     "toast:pull": "node scripts/toast-weekly-pull.mjs",
     "toast:pull:dry": "node scripts/toast-weekly-pull.mjs --dry-run",
     "toast:ingest": "node scripts/toast-weekly-ingest.mjs",
     "toast:ingest:dry": "node scripts/toast-weekly-ingest.mjs --dry-run",
-    "ingest:all": "npm run ingest && npm run ingest:costing && npm run ingest:analytics && npm run ingest:toast",
+    "ingest:all": "npm run ingest && npm run ingest:costing && npm run ingest:analytics && npm run ingest:toast && npm run ingest:shows",
     "validate-cache": "node scripts/validate-cache.mjs",
     "export": "node scripts/export.mjs",
     "rebuild-cache": "node scripts/rebuild-cache.mjs",
@@ -128,7 +129,13 @@
     "worktree:list": "scripts/worktree.sh list",
     "worktree:remove": "scripts/worktree.sh remove",
     "worktree:lock": "scripts/worktree.sh lock",
-    "worktree:unlock": "scripts/worktree.sh unlock"
+    "worktree:unlock": "scripts/worktree.sh unlock",
+    "test:show-status": "node --experimental-strip-types --test tests/js/test-show-status.mjs",
+    "test:shows-ingest": "node --experimental-strip-types --test tests/js/test-shows-ingest.mjs",
+    "test:shows-repo": "node --experimental-strip-types --test tests/js/test-shows-repo.mjs",
+    "test:shows-api": "node --experimental-strip-types --test tests/js/test-shows-api.mjs",
+    "test:shows-py": "pytest tests/python/test_ingest_shows_xlsx.py",
+    "test:shows": "npm run test:show-status && npm run test:shows-ingest && npm run test:shows-repo && npm run test:shows-api && npm run test:shows-py"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
