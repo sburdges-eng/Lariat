@@ -74,10 +74,22 @@ export function pipelineCounts(
   opts: { today?: string; weeks?: number } = {},
 ): Record<PipelineStage, number> {
   const today = opts.today ?? todayIso();
+  const weeks = opts.weeks ?? 52;
+  const upper = addDays(today, weeks * 7);
   const counts: Record<string, number> = {};
   for (const s of KNOWN_STAGES) counts[s] = 0;
-  const rows = upcomingShows(db, locationId, { today, weeks: opts.weeks ?? 52 });
-  for (const r of rows) {
+  // Count active rows through the pipeline window, including unarchived past
+  // shows, so the past-show Settled rule can run.
+  const rows = db
+    .prepare(
+      `SELECT * FROM shows
+        WHERE location_id = ?
+          AND show_date <= ?
+        ORDER BY show_date ASC, id ASC`,
+    )
+    .all(locationId, upper) as any[];
+  for (const raw of rows) {
+    const r = rowToShow(raw);
     const past = r.show_date < today;
     const stage = pipelineStage(r.status, past);
     counts[stage] = (counts[stage] ?? 0) + 1;

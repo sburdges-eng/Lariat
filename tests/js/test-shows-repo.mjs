@@ -49,11 +49,28 @@ test('upcomingShows: scoped by location_id', () => {
   assert.equal(other.length, 0);
 });
 
-test('pipelineCounts: sums to total upcoming', () => {
+test('pipelineCounts: includes upcoming plus past active shows', () => {
+  db.prepare(
+    `INSERT INTO shows
+      (location_id, band_name, show_date, price, door_tix, status_json,
+       source_row, ingested_at, ingest_run_id)
+     VALUES
+      (?, ?, ?, ?, ?, ?, ?, datetime('now','subsec'), ?)`,
+  ).run(
+    'default',
+    'the settled late show',
+    '2026-04-01',
+    10,
+    'sold',
+    JSON.stringify({ create_dice_tickets: 'y', dice_email: 'tix, dos' }),
+    999,
+    1,
+  );
   const counts = pipelineCounts(db, 'default', { today: '2026-04-25', weeks: 52 });
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   const upcoming = upcomingShows(db, 'default', { today: '2026-04-25', weeks: 52 });
-  assert.equal(total, upcoming.length);
+  assert.equal(total, upcoming.length + 1);
+  assert.equal(counts.Settled, 1);
 });
 
 test('pipelineCounts: every key is a known stage', () => {
