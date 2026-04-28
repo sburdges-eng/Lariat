@@ -930,18 +930,30 @@ export function backfillCatchWeightsIntoVendorPrices(db, locationId = 'default')
 
   for (const { vendor, table } of sources) {
     if (!tables.has(table)) continue;
-    // Latest catch-weight row per SKU. GROUP BY sku + HAVING MAX(delivery_date)
-    // picks the most recent delivered pack for each SKU; SQLite lets aggregates
-    // flow into the projected columns via bare-column selection from the
-    // matching row.
+    // Latest catch-weight row per SKU, preferring rows with non-NULL
+    // reconciled_unit_price so the dashboard surfaces actual drift first.
+    // ROW_NUMBER() guarantees exactly one row per SKU even when multiple
+    // invoice lines share the same delivery_date (the table's UNIQUE
+    // constraint allows that across different invoice_no/item combos).
+    // Replaces the prior GROUP BY sku HAVING MAX(delivery_date) form,
+    // which was non-deterministic in SQLite when non-aggregated columns
+    // were referenced — see PR #41 / cursor/ingest-database-reliability.
     const latest = db.prepare(`
       SELECT sku, actual_received_lb, reconciled_unit_price
-        FROM ${table}
-       WHERE location_id = ?
-         AND actual_received_lb IS NOT NULL
-         AND sku IS NOT NULL AND sku != ''
-       GROUP BY sku
-       HAVING delivery_date = MAX(delivery_date)
+        FROM (
+          SELECT sku, actual_received_lb, reconciled_unit_price,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY sku
+                   ORDER BY delivery_date DESC,
+                            (reconciled_unit_price IS NULL) ASC,
+                            rowid DESC
+                 ) AS rn
+            FROM ${table}
+           WHERE location_id = ?
+             AND actual_received_lb IS NOT NULL
+             AND sku IS NOT NULL AND sku != ''
+        )
+       WHERE rn = 1
     `).all(locationId);
     if (latest.length === 0) { out.by_vendor[vendor] = 0; continue; }
 
