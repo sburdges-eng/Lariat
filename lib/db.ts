@@ -1746,6 +1746,62 @@ export function initSchema(db: DB): void {
       ingested_at   TEXT NOT NULL,
       ingest_run_id INTEGER NOT NULL REFERENCES ingest_runs(id)
     );
+
+    -- ── Phase 2 event-ops tables ────────────────────────────────────
+    -- Per-show operator-mutable state: stage setup (room config + run-of-show
+    -- + hospitality + tech rider), sound scenes (multiple per show),
+    -- box-office lines (one row per ticket-source line). FK shows.id.
+    -- All audited via lib/auditEvents.ts in the same tx as the source INSERT.
+    -- See docs/PHASE2_PLAN.md for the full schema + migration story.
+
+    CREATE TABLE IF NOT EXISTS stage_setups (
+      id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+      show_id                INTEGER NOT NULL REFERENCES shows(id),
+      location_id            TEXT NOT NULL DEFAULT 'default',
+      room_config            TEXT NOT NULL,
+      run_of_show_json       TEXT NOT NULL DEFAULT '[]',
+      hospitality_rider_json TEXT NOT NULL DEFAULT '{}',
+      tech_rider_json        TEXT NOT NULL DEFAULT '{}',
+      notes                  TEXT,
+      created_at             TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at             TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (show_id, location_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_stage_setups_show
+      ON stage_setups(show_id, location_id);
+
+    CREATE TABLE IF NOT EXISTS sound_scenes (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      show_id          INTEGER NOT NULL REFERENCES shows(id),
+      location_id      TEXT NOT NULL DEFAULT 'default',
+      scene_name       TEXT NOT NULL,
+      plot_json        TEXT NOT NULL,
+      spl_limit_db     REAL,
+      notes            TEXT,
+      saved_by_cook_id TEXT,
+      saved_at         TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sound_scenes_show
+      ON sound_scenes(show_id, location_id);
+
+    CREATE TABLE IF NOT EXISTS box_office_lines (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      show_id       INTEGER NOT NULL REFERENCES shows(id),
+      location_id   TEXT NOT NULL DEFAULT 'default',
+      source        TEXT NOT NULL CHECK (source IN ('dice','walkup','comp','will_call','guestlist')),
+      ticket_class  TEXT,
+      qty           INTEGER NOT NULL DEFAULT 1,
+      face_price    REAL,
+      fees          REAL,
+      external_ref  TEXT,
+      scanned_at    TEXT,
+      notes         TEXT,
+      created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_box_office_show
+      ON box_office_lines(show_id, location_id);
+    CREATE INDEX IF NOT EXISTS idx_box_office_source_ext
+      ON box_office_lines(source, external_ref);
   `);
 }
 
