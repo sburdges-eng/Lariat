@@ -12,6 +12,19 @@ ANALYTICS = os.environ.get("LARIAT_ANALYTICS", "")
 
 out = {"sales_lines": [], "spend_monthly": [], "toast_sheet": None}
 
+
+def is_aggregate_footer_row(item_name) -> bool:
+    """True iff `item_name` is a Toast export aggregate-footer row that
+    should not land in sales_lines (TOTAL, TOTALS, GRAND TOTAL, etc.).
+    """
+    if item_name is None:
+        return True
+    s = str(item_name).strip()
+    if not s or s in {"-", "--", "—"}:
+        return True
+    return s.upper() in {"TOTAL", "TOTALS", "GRAND TOTAL", "SUBTOTAL", "TOTAL SALES"}
+
+
 # Pick first matching Toast - Item Sales sheet
 def find_item_sales_sheet(wb):
     for name in wb.sheetnames:
@@ -36,6 +49,8 @@ def load_unified(path):
             started = True
             continue
         if not started:
+            continue
+        if is_aggregate_footer_row(a):
             continue
         qty, rev = row[1], row[2]
         out["sales_lines"].append(
@@ -76,10 +91,11 @@ def load_analytics_spend(path):
         out["spend_monthly"].append({"month": month, "shamrock_total_spend": amt, "source": "analytics_workbook"})
 
 
-if UNIFIED and os.path.exists(UNIFIED):
-    load_unified(UNIFIED)
-if ANALYTICS and os.path.exists(ANALYTICS):
-    load_analytics_spend(ANALYTICS)
+if __name__ == "__main__":
+    if UNIFIED and os.path.exists(UNIFIED):
+        load_unified(UNIFIED)
+    if ANALYTICS and os.path.exists(ANALYTICS):
+        load_analytics_spend(ANALYTICS)
 
-print(json.dumps(out))
-sys.stdout.flush()
+    print(json.dumps(out))
+    sys.stdout.flush()
