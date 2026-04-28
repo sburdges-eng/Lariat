@@ -11,6 +11,7 @@
     "ingest:costing": "node --experimental-strip-types scripts/ingest-costing.mjs",
     "ingest:analytics": "node scripts/ingest-analytics.mjs",
     "ingest:toast": "node --experimental-strip-types scripts/ingest-toast-timeseries.mjs",
+    "ingest:toast-invoices": "node --experimental-strip-types scripts/ingest-toast-invoices.mjs",
     "toast:pull": "node scripts/toast-weekly-pull.mjs",
     "toast:pull:dry": "node scripts/toast-weekly-pull.mjs --dry-run",
     "toast:ingest": "node scripts/toast-weekly-ingest.mjs",
@@ -40,6 +41,8 @@
     "propose:food-dish-components": "node scripts/propose-food-dish-components.mjs",
     "import:dish-components": "node scripts/import-dish-components.mjs",
     "export:dish-components": "node scripts/export-dish-components.mjs",
+    "coverage:gap": "node --experimental-strip-types scripts/dish-components-coverage.mjs",
+    "coverage:weekly": "node --experimental-strip-types scripts/coverage-weekly.mjs",
     "extract:drink-skus": "node scripts/extract-drink-skus.mjs",
     "import:vendor-prices": "node scripts/import-vendor-prices.mjs",
     "test:e2e": "npx playwright test",
@@ -71,6 +74,7 @@
     "test:datapack-toggle-detail": "node --experimental-strip-types --test tests/js/test-datapack-search-toggle-detail.mjs",
     "test:toast-api-helpers": "node --test tests/js/test-toast-api-helpers.mjs",
     "test:toast-weekly-router": "node --test tests/js/test-toast-weekly-router.mjs",
+    "test:toast-invoices": "node --experimental-strip-types --test tests/js/test-toast-invoices-ingest.mjs",
     "test:allergen-lookup-helpers": "node --test tests/js/test-allergen-lookup-helpers.mjs",
     "test:kitchen-assistant-datapack": "node --experimental-strip-types --test tests/js/test-kitchen-assistant-datapack.mjs",
     "test:kitchen-assistant-usda-ingredients": "node --experimental-strip-types --test tests/js/test-kitchen-assistant-usda-ingredients.mjs",
@@ -113,7 +117,7 @@
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
-    "better-sqlite3": "^11.3.0",
+    "better-sqlite3": "^11.10.0",
     "next": "14.2.15",
     "react": "18.3.1",
     "react-dom": "18.3.1"

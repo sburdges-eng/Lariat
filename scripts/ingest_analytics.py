@@ -13,16 +13,32 @@ ANALYTICS = os.environ.get("LARIAT_ANALYTICS", "")
 out = {"sales_lines": [], "spend_monthly": [], "toast_sheet": None}
 
 
+# Toast export footer-row labels. Tested against in tests/python/test_ingest_analytics.py
+# — extracted to module-level frozensets so the test can import them and stay in
+# sync with the parser's stop list.
+AGGREGATE_FOOTER_LABELS = frozenset({
+    "TOTAL",
+    "TOTALS",
+    "GRAND TOTAL",
+    "SUBTOTAL",
+    "TOTAL SALES",
+})
+
+# Placeholder values Excel/Toast emit for "no data this row" — also dropped.
+DASH_PLACEHOLDERS = frozenset({"-", "--", "—"})
+
+
 def is_aggregate_footer_row(item_name) -> bool:
     """True iff `item_name` is a Toast export aggregate-footer row that
     should not land in sales_lines (TOTAL, TOTALS, GRAND TOTAL, etc.).
+    Match is case-insensitive and trimmed.
     """
     if item_name is None:
         return True
     s = str(item_name).strip()
-    if not s or s in {"-", "--", "—"}:
+    if not s or s in DASH_PLACEHOLDERS:
         return True
-    return s.upper() in {"TOTAL", "TOTALS", "GRAND TOTAL", "SUBTOTAL", "TOTAL SALES"}
+    return s.upper() in AGGREGATE_FOOTER_LABELS
 
 
 # Pick first matching Toast - Item Sales sheet

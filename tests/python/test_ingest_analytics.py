@@ -14,7 +14,40 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.ingest_analytics import is_aggregate_footer_row  # noqa: E402
+from scripts.ingest_analytics import (  # noqa: E402
+    AGGREGATE_FOOTER_LABELS,
+    DASH_PLACEHOLDERS,
+    is_aggregate_footer_row,
+)
+
+
+class StopListConstants(unittest.TestCase):
+    """Lock the stop-list constants so a future maintainer can't drift
+    the test from the script. Each label/placeholder must be filtered
+    by is_aggregate_footer_row."""
+
+    def test_aggregate_footer_labels_match_expected_set(self) -> None:
+        self.assertEqual(
+            AGGREGATE_FOOTER_LABELS,
+            frozenset({"TOTAL", "TOTALS", "GRAND TOTAL", "SUBTOTAL", "TOTAL SALES"}),
+        )
+
+    def test_dash_placeholders_match_expected_set(self) -> None:
+        self.assertEqual(DASH_PLACEHOLDERS, frozenset({"-", "--", "—"}))
+
+    def test_every_aggregate_label_is_filtered(self) -> None:
+        for label in AGGREGATE_FOOTER_LABELS:
+            self.assertTrue(
+                is_aggregate_footer_row(label),
+                f"label {label!r} should be filtered",
+            )
+
+    def test_every_dash_placeholder_is_filtered(self) -> None:
+        for placeholder in DASH_PLACEHOLDERS:
+            self.assertTrue(
+                is_aggregate_footer_row(placeholder),
+                f"placeholder {placeholder!r} should be filtered",
+            )
 
 
 class IsAggregateFooterRowTrueCases(unittest.TestCase):

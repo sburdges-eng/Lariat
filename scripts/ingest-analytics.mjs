@@ -33,6 +33,42 @@ const PY = path.join(__dirname, 'ingest_analytics.py');
 const DEFAULT_UNIFIED = path.join(ROOT, 'XL', 'Lariat_Unified_Workbook.xlsx');
 const DEFAULT_ANALYTICS = path.join(ROOT, 'XL', 'Lariat_Analytics_Workbook.xlsx');
 
+// Lightweight .env.local loader — same shape as scripts/toast_api/auth.mjs
+// and scripts/sevenshifts_api/auth.mjs (deliberate copy, not a shared
+// import: scripts/lib is reserved for parity-tested Python↔JS modules).
+// Existing process.env entries WIN, so an inline `LARIAT_UNIFIED=…` still
+// overrides .env.local. Format: KEY=VALUE per line, `#` comments,
+// trim, optionally quoted. Idempotent — safe to call multiple times.
+function loadEnvLocalIfPresent() {
+  const envPath = path.join(ROOT, '.env.local');
+  if (!fs.existsSync(envPath)) return;
+  const raw = fs.readFileSync(envPath, 'utf8');
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    if (key in process.env) continue;
+    let val = trimmed.slice(eq + 1).trim();
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1);
+    }
+    // ~ expansion so operators can put `LARIAT_UNIFIED=~/Dev/_archives/...`
+    // in .env.local without thinking about absolute paths. Only handles
+    // the leading "~" + "~/" form — no $HOME interpolation, no user-
+    // home-of-other-user lookups, etc.
+    if (val === '~' || val.startsWith('~/')) {
+      val = path.join(process.env.HOME || '', val.slice(1));
+    }
+    process.env[key] = val;
+  }
+}
+loadEnvLocalIfPresent();
+
 function parseArgs(argv) {
   const args = { skipDepletion: false, forceEmpty: false };
   for (const a of argv.slice(2)) {
