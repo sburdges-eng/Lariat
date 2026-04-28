@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" font-family="ui-monospace, 'SF Mono', Menlo, monospace" font-size="12">
+  <defs>
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#E8E1D4" stroke-width="0.5"/>
+    </pattern>
+  </defs>
+
+  <!-- paper -->
+  <rect width="960" height="640" fill="#FAF6EC"/>
+  <rect width="960" height="640" fill="url(#grid)"/>
+
+  <!-- title -->
+  <g transform="translate(32,28)">
+    <text font-size="10" letter-spacing="2" fill="#3B4F6B">LARIAT · OPS · WALK-IN FREEZER</text>
+    <text y="22" font-size="22" font-weight="600" fill="#1C1A17">Walk-in Freezer — Shelf Plan</text>
+    <text y="42" font-size="11" fill="#5E554A">-10 to 0°F · bulk reserves · thaw in walk-in cooler, never on counter</text>
+  </g>
+
+  <!-- registration -->
+  <g stroke="#1C1A17" stroke-width="1" fill="none">
+    <path d="M 24 96 h 12 M 30 90 v 12"/>
+    <path d="M 936 96 h -12 M 930 90 v 12"/>
+    <path d="M 24 616 h 12 M 30 610 v 12"/>
+    <path d="M 936 616 h -12 M 930 610 v 12"/>
+  </g>
+
+  <!-- cabinet -->
+  <rect x="80" y="108" width="800" height="472" fill="#DFE4EA" stroke="#1C1A17" stroke-width="2"/>
+
+  <!-- left column (wall A) / right column (wall B) split line -->
+  <line x1="480" y1="108" x2="480" y2="580" stroke="#1C1A17"/>
+
+  <!-- Left wall: 4 shelves -->
+  <g transform="translate(80,108)">
+    <text x="200" y="20" text-anchor="middle" font-size="9" letter-spacing="3" fill="#3B4F6B">WALL A · LEFT</text>
+
+    <rect x="14" y="32" width="372" height="100" fill="#DFE4EA" stroke="#1C1A17"/>
+    <text x="26" y="52" font-size="9" letter-spacing="2" fill="#3B4F6B">A1 · TOP</text>
+    <text x="26" y="80" font-size="16" font-weight="600" fill="#1C1A17">Bread &amp; dough</text>
+    <text x="26" y="102" font-size="10" fill="#5E554A">buns · pretzel bites · cornbread batter</text>
+    <text x="26" y="120" font-size="10" fill="#5E554A">frozen desserts · churros</text>
+
+    <rect x="14" y="142" width="372" height="100" fill="#DFE4EA" stroke="#1C1A17"/>
+    <text x="26" y="162" font-size="9" letter-spacing="2" fill="#3B4F6B">A2</text>
+    <text x="26" y="190" font-size="16" font-weight="600" fill="#1C1A17">Seafood — frozen reserves</text>
+    <text x="26" y="212" font-size="10" fill="#5E554A">cod case · trout portions</text>
+    <text x="26" y="230" font-size="10" fill="#5E554A">pull 24h ahead to cooler</text>
+
+    <rect x="14" y="252" width="372" height="100" fill="#DFE4EA" stroke="#1C1A17"/>
+    <text x="26" y="272" font-size="9" letter-spacing="2" fill="#3B4F6B">A3</text>
+    <text x="26" y="300" font-size="16" font-weight="600" fill="#1C1A17">Fry backup</text>
+    <text x="26" y="322" font-size="10" fill="#5E554A">sweet fries · battered fries · veggie blend</text>
+    <text x="26" y="340" font-size="10" fill="#5E554A">breaded tenders · stocks flow to fryer-freezer</text>
+
+    <rect x="14" y="362" width="372" height="100" fill="#DFE4EA" stroke="#1C1A17"/>
+    <text x="26" y="382" font-size="9" letter-spacing="2" fill="#3B4F6B">A4 · BOTTOM</text>
+    <text x="26" y="410" font-size="16" font-weight="600" fill="#1C1A17">Stocks &amp; broths</text>
+    <text x="26" y="432" font-size="10" fill="#5E554A">consume · birria · jus · beef stock</text>
+    <text x="26" y="450" font-size="10" fill="#5E554A">portion in 1 qt deli · dated · FIFO</text>
+  </g>
+
+  <!-- Right wall: 4 shelves -->
+  <g transform="translate(480,108)">
+    <text x="200" y="20" text-anchor="middle" font-size="9" letter-spacing="3" fill="#3B4F6B">WALL B · RIGHT</text>
+
+    <rect x="14" y="32" width="372" height="100" fill="#DFE4EA" stroke="#1C1A17"/>
+    <text x="26" y="52" font-size="9" letter-spacing="2" fill="#3B4F6B">B1 · TOP</text>
+    <text x="26" y="80" font-size="16" font-weight="600" fill="#1C1A17">Whole cuts — beef, pork</text>
+    <text x="26" y="102" font-size="10" fill="#5E554A">steak case · pork chop case</text>
+    <text x="26" y="120" font-size="10" fill="#5E554A">pig wing raw stock</text>
+
+    <rect x="14" y="142" width="372" height="100" fill="#DFE4EA" stroke="#1C1A17"/>
+    <text x="26" y="162" font-size="9" letter-spacing="2" fill="#3B4F6B">B2</text>
+    <text x="26" y="190" font-size="16" font-weight="600" fill="#1C1A17">Ground — beef, pork, sausage</text>
+    <text x="26" y="212" font-size="10" fill="#5E554A">burger patty case · chorizo · breakfast sausage</text>
+    <text x="26" y="230" font-size="10" fill="#5E554A">always under whole cuts, never above</text>
+
+    <rect x="14" y="252" width="372" height="100" fill="#DFE4EA" stroke="#1C1A17"/>
+    <text x="26" y="272" font-size="9" letter-spacing="2" fill="#3B4F6B">B3</text>
+    <text x="26" y="300" font-size="16" font-weight="600" fill="#1C1A17">Poultry case</text>
+    <text x="26" y="322" font-size="10" fill="#5E554A">chicken case · whole · parts</text>
+    <text x="26" y="340" font-size="10" fill="#5E554A">bottom of this wall — drip sealed</text>
+
+    <rect x="14" y="362" width="372" height="100" fill="#DFE4EA" stroke="#1C1A17"/>
+    <text x="26" y="382" font-size="9" letter-spacing="2" fill="#3B4F6B">B4 · BOTTOM</text>
+    <text x="26" y="410" font-size="16" font-weight="600" fill="#1C1A17">Ice · dunnage</text>
+    <text x="26" y="432" font-size="10" fill="#5E554A">ice bags · dunnage pallet · spare lexans</text>
+    <text x="26" y="450" font-size="10" fill="#5E554A">never store food directly on the floor</text>
+  </g>
+
+  <!-- Rules -->
+  <g transform="translate(80,600)" font-size="10" fill="#5E554A">
+    <rect x="0" y="-12" width="14" height="12" fill="#DFE4EA" stroke="#1C1A17"/>
+    <text x="20" y="-2">freezer ≤ 0°F · log 2×/day · any thaw event = corrective action + discard decision</text>
+  </g>
+  <text x="80" y="622" font-size="10" fill="#5E554A">HACCP order still applies: RTE/bread top → whole cuts → ground → poultry on the bottom</text>
+</svg>

@@ -12,6 +12,8 @@ import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { scanOpenBatches } from '../../lib/cooling';
 import { scanExpiringBatches } from '../../lib/dateMarks';
 import { classifyReadings } from '../../lib/tempLog';
+import { classifyProbes, DEFAULT_FREQUENCY_DAYS } from '../../lib/calibrations';
+import { scanActiveTphc } from '../../lib/tphc';
 
 export const dynamic = 'force-dynamic';
 
@@ -85,6 +87,56 @@ function summarize(loc, today) {
     },
     { accepted: 0, rejected: 0, accepted_with_note: 0 },
   );
+  // Bundle G — thermometer calibrations roll-up. Probe summary
+  // spans ALL historical rows (not just today) because the question
+  // "is this probe in calibration?" depends on a possibly-weeks-old
+  // last-passing row, not the current shift.
+  const calibrationRows = db
+    .prepare(
+      `SELECT thermometer_id, method, before_reading_f, passed, calibrated_at, frequency_days
+         FROM thermometer_calibrations
+         WHERE location_id = ?`,
+    )
+    .all(loc);
+  const calibrationSummary = classifyProbes(calibrationRows, {
+    now: new Date(),
+    frequency_days: DEFAULT_FREQUENCY_DAYS,
+  });
+  const calibrationStats = calibrationSummary.reduce(
+    (acc, s) => {
+      if (s.status === 'overdue') acc.overdue += 1;
+      else if (s.status === 'failed') acc.failed += 1;
+      else if (s.status === 'due_soon') acc.dueSoon += 1;
+      else if (s.status === 'unknown') acc.unknown += 1;
+      else acc.ok += 1;
+      return acc;
+    },
+    { ok: 0, dueSoon: 0, overdue: 0, failed: 0, unknown: 0 },
+  );
+
+  const tphcActive = db
+    .prepare(
+      `SELECT id, item, station_id, started_at, cutoff_at, discarded_at
+         FROM tphc_entries
+         WHERE location_id=? AND discarded_at IS NULL
+         ORDER BY cutoff_at ASC`,
+    )
+    .all(loc);
+  const tphcScan = scanActiveTphc(tphcActive, new Date().toISOString());
+  const tphcStats = tphcScan.reduce(
+    (acc, s) => {
+      if (s.status === 'expired') acc.expired += 1;
+      else if (s.status === 'warning') acc.warning += 1;
+      else acc.ok += 1;
+      return acc;
+    },
+    { ok: 0, warning: 0, expired: 0 },
+  );
+
+  const cleaningRows = db.prepare(`SELECT * FROM cleaning_log WHERE location_id=? AND shift_date=?`).all(loc, today);
+  const pestRows = db.prepare(`SELECT * FROM pest_control_log WHERE location_id=? ORDER BY created_at DESC LIMIT 30`).all(loc);
+  const sdsRows = db.prepare(`SELECT * FROM sds_registry WHERE location_id=? AND active=1`).all(loc);
+
   return {
     cooling: {
       open: openCooling.length,
@@ -115,6 +167,28 @@ function summarize(loc, today) {
       accepted: receivingStats.accepted,
       acceptedWithNote: receivingStats.accepted_with_note,
       rejected: receivingStats.rejected,
+    },
+    calibrations: {
+      total: calibrationSummary.length,
+      ok: calibrationStats.ok,
+      dueSoon: calibrationStats.dueSoon,
+      overdue: calibrationStats.overdue,
+      failed: calibrationStats.failed,
+      unknown: calibrationStats.unknown,
+    },
+    tphc: {
+      active: tphcActive.length,
+      warning: tphcStats.warning,
+      expired: tphcStats.expired,
+    },
+    cleaning: {
+      loggedToday: cleaningRows.length,
+    },
+    pest: {
+      recent: pestRows.length,
+    },
+    sds: {
+      active: sdsRows.length,
     },
   };
 }
@@ -243,6 +317,66 @@ export default function FoodSafetyHub({ searchParams }) {
               label: 'rejected',
               tone: s.receiving.rejected ? 'red' : null,
             },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/calibrations${locQ}`}
+          title="Calibrations"
+          sub="FDA §4-502.11 — probe accuracy ±2°F; altitude-adjusted boiling target"
+          status={{
+            red: s.calibrations.overdue + s.calibrations.failed > 0,
+            amber: s.calibrations.dueSoon > 0,
+          }}
+          lines={[
+            { n: s.calibrations.total, label: 'probes tracked' },
+            {
+              n: s.calibrations.dueSoon,
+              label: 'due soon (≤ 7 days)',
+              tone: s.calibrations.dueSoon ? 'amber' : null,
+            },
+            {
+              n: s.calibrations.overdue + s.calibrations.failed,
+              label: 'overdue / failed',
+              tone: s.calibrations.overdue + s.calibrations.failed ? 'red' : null,
+            },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/tphc${locQ}`}
+          title="Time Control"
+          sub="FDA §3-501.19 — 4h hot, 6h cold. Toss at cutoff."
+          status={{ red: s.tphc.expired > 0, amber: s.tphc.warning > 0 }}
+          lines={[
+            { n: s.tphc.active, label: 'open batches' },
+            { n: s.tphc.warning, label: 'near cutoff (≤ 30m)', tone: s.tphc.warning ? 'amber' : null },
+            { n: s.tphc.expired, label: 'past cutoff — toss now', tone: s.tphc.expired ? 'red' : null },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/cleaning${locQ}`}
+          title="Cleaning Log"
+          sub="HACCP Non-Temp Surface: Daily, Weekly, Monthly Routines"
+          status={{ red: false, amber: s.cleaning.loggedToday === 0 }}
+          lines={[
+            { n: s.cleaning.loggedToday, label: 'areas logged today' },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/pest${locQ}`}
+          title="Pest Control"
+          sub="FDA §6-501.111 — vendor visits & internal sightings"
+          status={{ red: false, amber: false }}
+          lines={[
+            { n: s.pest.recent, label: 'recent records' },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/sds${locQ}`}
+          title="SDS Registry"
+          sub="OSHA HazCom — Safety Data Sheets (FDA §7.1)"
+          status={{ red: false, amber: s.sds.active === 0 }}
+          lines={[
+            { n: s.sds.active, label: 'active records' },
           ]}
         />
       </div>

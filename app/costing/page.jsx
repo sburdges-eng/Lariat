@@ -8,6 +8,7 @@
 //   unmapped:  green < 1   | yellow 1–3   | red ≥ 3
 //   ingest:    green < 60m | yellow 60–1440m | red ≥ 1440m, NULL, or 'failed'
 
+import Link from 'next/link';
 import { getDb } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import {
@@ -15,6 +16,8 @@ import {
   computeUnmapped,
   readLastCostingIngest,
 } from '../../lib/costingBenchmarks.mjs';
+import { computeDishCoverage } from '../../lib/dishCostBridge';
+import { readLatestAccountingVariance } from '../../lib/computeEngine/index';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,6 +42,15 @@ function ingestColor(ageMin, status) {
   return 'var(--green)';
 }
 
+// dish-coverage tile color: red if more dishes are unlinked than linked,
+// yellow if any are unlinked at all, green when fully wired.
+function coverageColor(c) {
+  if (!c || c.total_sales_dishes === 0) return 'var(--muted)';
+  if (c.unlinked > c.fully_linked) return 'var(--red)';
+  if (c.unlinked > 0 || c.declared_only > 0 || c.partial > 0) return 'var(--yellow)';
+  return 'var(--green)';
+}
+
 function formatAge(ageMin) {
   if (ageMin == null) return 'no runs on record';
   if (ageMin < 60) return `${ageMin} min ago`;
@@ -52,6 +64,7 @@ export default function CostingPage() {
   const variance = computeCostVariance(db, loc);
   const unmapped = computeUnmapped(db, loc);
   const ingest = readLastCostingIngest(db);
+  const dishCoverage = computeDishCoverage(loc);
 
   const topVariance = variance.rows.slice(0, 5);
   const firstUnmapped = unmapped.rows.slice(0, 10);
@@ -113,6 +126,41 @@ export default function CostingPage() {
             {ingest.last_run_at ?? '—'} &middot; status {ingest.last_status ?? 'none'}
           </div>
         </div>
+
+        {/* B4 — Dish bridge coverage. Wires Toast dishes through
+            recipes.menu_items[] + dish_components → recipe_costs. */}
+        <div className="card" style={{ borderColor: coverageColor(dishCoverage) }}>
+          <div className="kpi-label">Dish → recipe bridge</div>
+          <div className="kpi-value" style={{ color: coverageColor(dishCoverage) }}>
+            {dishCoverage.total_sales_dishes > 0
+              ? `${dishCoverage.fully_linked} / ${dishCoverage.total_sales_dishes}`
+              : '—'}
+          </div>
+          <div style={{ fontSize: 12, marginTop: 6 }}>
+            {dishCoverage.unlinked} no link &middot; {dishCoverage.declared_only} no qty
+          </div>
+          <div style={{ fontSize: 11, marginTop: 4 }}>
+            <Link href="/menu-engineering/components" style={{ color: 'var(--blue)' }}>
+              edit dish_components →
+            </Link>
+          </div>
+        </div>
+
+        {/* Compute Engine: Accounting Variance */}
+        {(() => {
+          const v = readLatestAccountingVariance(db, loc);
+          return (
+            <div className="card" style={{ borderColor: (v && v.variance_pct > 5) ? 'var(--red)' : 'var(--green)' }}>
+              <div className="kpi-label">Accounting Variance</div>
+              <div className="kpi-value" style={{ color: (v && v.variance_pct > 5) ? 'var(--red)' : 'var(--green)' }}>
+                {v ? `${v.variance_pct.toFixed(2)}%` : '—'}
+              </div>
+              <div style={{ fontSize: 12, marginTop: 6 }}>
+                {v ? `$${v.variance_amount.toFixed(2)} vs $${v.theoretical_cogs.toFixed(2)} (Theoretical)` : 'No computation yet'}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* B1 detail */}

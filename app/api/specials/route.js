@@ -1,27 +1,55 @@
 import { buildGroundedContext } from '../../../lib/kitchenAssistantContext';
 import {
-  assistantEnabled,
   getOllamaConfig,
   CREATIVE_SYSTEM,
   ollamaChat,
 } from '../../../lib/ollama';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
+import { computeSandboxCost } from '../../../lib/computeEngine/sandboxCosting';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 const MAX_MESSAGE = 2000;
 
-/** GET — feature flag + safe config for UI (no secrets). */
+function stripFences(s) {
+  return s.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+}
+
+function extractAction(content) {
+  const braceStart = content.indexOf('{');
+  if (braceStart < 0) return { payload: null, stripped: stripFences(content) };
+
+  let depth = 0, inStr = false, esc = false, end = -1;
+  for (let i = braceStart; i < content.length; i++) {
+    const ch = content[i];
+    if (esc) { esc = false; continue; }
+    if (ch === '\\') { esc = true; continue; }
+    if (ch === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (ch === '{') depth++;
+    else if (ch === '}') { depth--; if (depth === 0) { end = i; break; } }
+  }
+  if (end < 0) return { payload: null, stripped: stripFences(content) };
+
+  let payload = null;
+  try { payload = JSON.parse(content.slice(braceStart, end + 1)); }
+  catch { return { payload: null, stripped: stripFences(content) }; }
+
+  if (!payload || typeof payload !== 'object' || typeof payload.action !== 'string') {
+    return { payload: null, stripped: stripFences(content) };
+  }
+  const stripped = stripFences(content.slice(0, braceStart) + content.slice(end + 1));
+  return { payload, stripped };
+}
+
+/** GET — Ollama reachability + safe config for UI (no secrets). */
 export async function GET(req) {
   const u = new URL(req.url);
   const ping = u.searchParams.get('ping') === '1';
   const cfg = getOllamaConfig();
-  if (!assistantEnabled()) {
-    return Response.json({ enabled: false, ...cfg });
-  }
   if (!ping) {
-    return Response.json({ enabled: true, ...cfg });
+    return Response.json(cfg);
   }
   try {
     const base = cfg.baseUrl.replace(/\/$/, '');
@@ -29,21 +57,13 @@ export async function GET(req) {
     const t = setTimeout(() => controller.abort(), 3000);
     const r = await fetch(`${base}/api/tags`, { signal: controller.signal });
     clearTimeout(t);
-    const ok = r.ok;
-    return Response.json({ enabled: true, ...cfg, ollamaReachable: ok });
+    return Response.json({ ...cfg, ollamaReachable: r.ok });
   } catch {
-    return Response.json({ enabled: true, ...cfg, ollamaReachable: false });
+    return Response.json({ ...cfg, ollamaReachable: false });
   }
 }
 
 export async function POST(req) {
-  if (!assistantEnabled()) {
-    return Response.json(
-      { error: 'Kitchen assistant is disabled. Set LARIAT_ASSISTANT_ENABLED=1 and run Ollama.' },
-      { status: 503 }
-    );
-  }
-
   let body = {};
   try {
     body = await req.json();
@@ -67,7 +87,7 @@ export async function POST(req) {
   let contextText;
   let sources;
   try {
-    const built = buildGroundedContext(locationId, message);
+    const built = await buildGroundedContext(locationId, message);
     contextText = built.contextText;
     sources = built.sources;
   } catch (e) {
@@ -84,9 +104,39 @@ export async function POST(req) {
         { role: 'user', content: userContent },
       ],
     });
+    
+    let finalAnswer = content;
+    const { payload, stripped } = extractAction(content);
+    if (payload && payload.action === 'cost_special' && Array.isArray(payload.ingredients)) {
+      finalAnswer = stripped || '';
+      try {
+        const costResult = computeSandboxCost(locationId, payload.ingredients);
+
+        const totalLabel = costResult.partial
+          ? `PARTIAL RECIPE COST: $${costResult.totalCost.toFixed(2)} (some ingredients skipped — see table)`
+          : `COMPUTED RECIPE COST: $${costResult.totalCost.toFixed(2)}`;
+        let costMarkdown = `\n\n> [!NOTE]\n> **⚡ ${totalLabel}**\n`;
+        if (costResult.breakdown.length > 0) {
+          costMarkdown += `>\n> | Ingredient | Requested | Vendor Match | Pack Price | Cost |\n`;
+          costMarkdown += `> |---|---|---|---|---|\n`;
+          for (const row of costResult.breakdown) {
+            if (row.cost !== null) {
+              costMarkdown += `> | ${row.item} | ${row.req_qty} ${row.req_unit} | ${row.match} (${row.pack_size} ${row.pack_unit}) | $${row.pack_price.toFixed(2)} | $${row.cost.toFixed(2)} |\n`;
+            } else {
+              costMarkdown += `> | ${row.item} | ${row.req_qty || '?'} ${row.req_unit || ''} | — | — | *${row.note}* |\n`;
+            }
+          }
+        }
+        finalAnswer += costMarkdown;
+      } catch (err) {
+        console.error("Sandbox costing error:", err);
+        finalAnswer += `\n\n> [!WARNING]\n> Could not compute deterministic cost: ${err.message}`;
+      }
+    }
+
     const latencyMs = Date.now() - started;
     return Response.json({
-      answer: content,
+      answer: finalAnswer,
       model,
       location_id: locationId,
       sources,

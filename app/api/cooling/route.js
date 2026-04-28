@@ -49,23 +49,28 @@ export async function POST(req) {
         : Number(body.start_reading_f);
 
     const db = getDb();
-    const info = db.prepare(`
-      INSERT INTO cooling_log
-        (shift_date, location_id, item, station_id, started_at, start_reading_f, status, cook_id)
-      VALUES (?, ?, ?, ?, ?, ?, 'in_progress', ?)
-    `).run(shift_date, location_id, item, station_id, started_at, start_reading_f, cook_id);
+    const performWrite = db.transaction(() => {
+      const info = db.prepare(`
+        INSERT INTO cooling_log
+          (shift_date, location_id, item, station_id, started_at, start_reading_f, status, cook_id)
+        VALUES (?, ?, ?, ?, ?, ?, 'in_progress', ?)
+      `).run(shift_date, location_id, item, station_id, started_at, start_reading_f, cook_id);
 
-    const row = db.prepare('SELECT * FROM cooling_log WHERE id=?').get(info.lastInsertRowid);
-    postAuditEvent({
-      entity: 'cooling_log',
-      entity_id: Number(info.lastInsertRowid),
-      action: 'insert',
-      actor_cook_id: cook_id,
-      actor_source: 'cook_ui',
-      payload: row,
-      shift_date,
-      location_id,
+      const row = db.prepare('SELECT * FROM cooling_log WHERE id=?').get(info.lastInsertRowid);
+      postAuditEvent({
+        entity: 'cooling_log',
+        entity_id: Number(info.lastInsertRowid),
+        action: 'insert',
+        actor_cook_id: cook_id,
+        actor_source: 'cook_ui',
+        payload: row,
+        shift_date,
+        location_id,
+      });
+      return row;
     });
+
+    const row = performWrite();
 
     return Response.json({ ok: true, entry: row });
   } catch (err) {
@@ -98,87 +103,81 @@ export async function PATCH(req) {
     }
 
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM cooling_log WHERE id=?').get(id);
-    if (!existing) {
-      return Response.json({ error: 'unknown cooling batch' }, { status: 404 });
-    }
-
-    const decision = classifyCoolingStage({
-      row: existing,
-      reading_f,
-      at,
-      corrective_action,
-    });
-    if (!decision.ok) {
-      return Response.json({ error: decision.reason }, { status: 400 });
-    }
-
-    // A breach MUST have a corrective_action; FDA requires documentation.
-    if (decision.status === 'breach' && !corrective_action) {
-      return Response.json(
-        { error: 'breach requires a corrective action note', needs_corrective_action: true },
-        { status: 422 },
-      );
-    }
-
     const cook_id = clip(body.cook_id, 64);
-    // Build the update. We only write the stage-appropriate fields; the
-    // other stage's columns stay NULL if they were NULL.
-    let sql;
-    let args;
-    if (decision.stage === 1) {
-      sql = `UPDATE cooling_log
-               SET stage1_at=?, stage1_reading_f=?, status=?, breach_reason=?,
-                   corrective_action=COALESCE(?, corrective_action)
-             WHERE id=?`;
-      args = [
-        at,
-        reading_f,
-        decision.status,
-        decision.breach_reason,
-        corrective_action,
-        id,
-      ];
-    } else {
-      sql = `UPDATE cooling_log
-               SET stage2_at=?, stage2_reading_f=?, status=?, breach_reason=?,
-                   corrective_action=COALESCE(?, corrective_action),
-                   closed_by_cook_id=?
-             WHERE id=?`;
-      args = [
-        at,
-        reading_f,
-        decision.status,
-        decision.breach_reason,
-        corrective_action,
-        cook_id,
-        id,
-      ];
-    }
-    db.prepare(sql).run(...args);
 
-    const updated = db.prepare('SELECT * FROM cooling_log WHERE id=?').get(id);
-    postAuditEvent({
-      entity: 'cooling_log',
-      entity_id: id,
-      action: 'update',
-      actor_cook_id: cook_id,
-      actor_source: 'cook_ui',
-      payload: updated,
-      shift_date: existing.shift_date,
-      location_id: existing.location_id,
-      note: decision.breach_reason ? `breach: ${decision.breach_reason}` : null,
+    // SELECT + classifyCoolingStage + UPDATE must run in one transaction so
+    // two concurrent stage-2 logs can't both decide stage off the same stale
+    // pre-update `existing`, producing duplicate stage rows.
+    const performUpdate = db.transaction(() => {
+      const existing = db.prepare('SELECT * FROM cooling_log WHERE id=?').get(id);
+      if (!existing) return { status: 404, error: 'unknown cooling batch' };
+
+      const decision = classifyCoolingStage({
+        row: existing,
+        reading_f,
+        at,
+        corrective_action,
+      });
+      if (!decision.ok) return { status: 400, error: decision.reason };
+      if (decision.status === 'breach' && !corrective_action) {
+        return {
+          status: 422,
+          error: 'breach requires a corrective action note',
+          needs_corrective_action: true,
+        };
+      }
+
+      // Build the update. We only write the stage-appropriate fields; the
+      // other stage's columns stay NULL if they were NULL.
+      let sql;
+      let args;
+      if (decision.stage === 1) {
+        sql = `UPDATE cooling_log
+                 SET stage1_at=?, stage1_reading_f=?, status=?, breach_reason=?,
+                     corrective_action=COALESCE(?, corrective_action)
+               WHERE id=?`;
+        args = [at, reading_f, decision.status, decision.breach_reason, corrective_action, id];
+      } else {
+        sql = `UPDATE cooling_log
+                 SET stage2_at=?, stage2_reading_f=?, status=?, breach_reason=?,
+                     corrective_action=COALESCE(?, corrective_action),
+                     closed_by_cook_id=?
+               WHERE id=?`;
+        args = [at, reading_f, decision.status, decision.breach_reason, corrective_action, cook_id, id];
+      }
+
+      db.prepare(sql).run(...args);
+
+      const updated = db.prepare('SELECT * FROM cooling_log WHERE id=?').get(id);
+      postAuditEvent({
+        entity: 'cooling_log',
+        entity_id: id,
+        action: 'update',
+        actor_cook_id: cook_id,
+        actor_source: 'cook_ui',
+        payload: updated,
+        shift_date: existing.shift_date,
+        location_id: existing.location_id,
+        note: decision.breach_reason ? `breach: ${decision.breach_reason}` : null,
+      });
+      return { status: 200, updated, decision };
     });
+
+    const result = performUpdate();
+    if (result.status !== 200) {
+      const { status, ...body } = result;
+      return Response.json(body, { status });
+    }
 
     return Response.json({
       ok: true,
       decision: {
-        stage: decision.stage,
-        status: decision.status,
-        breach_reason: decision.breach_reason,
-        minutes_elapsed: decision.minutes_elapsed,
+        stage: result.decision.stage,
+        status: result.decision.status,
+        breach_reason: result.decision.breach_reason,
+        minutes_elapsed: result.decision.minutes_elapsed,
       },
-      entry: updated,
+      entry: result.updated,
     });
   } catch (err) {
     console.error('PATCH /api/cooling failed:', err);

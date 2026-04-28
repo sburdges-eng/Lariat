@@ -41,23 +41,31 @@ export async function POST(req) {
     const discard_on = computeDiscardOn(prepared_on);
 
     const db = getDb();
-    const info = db.prepare(`
-      INSERT INTO date_marks
-        (location_id, item, batch_ref, prepared_on, discard_on, cook_id)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(location_id, item, batch_ref, prepared_on, discard_on, cook_id);
+    
+    const performWrite = db.transaction(() => {
+      const info = db.prepare(`
+        INSERT INTO date_marks
+          (location_id, item, batch_ref, prepared_on, discard_on, cook_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(location_id, item, batch_ref, prepared_on, discard_on, cook_id);
 
-    const row = db.prepare('SELECT * FROM date_marks WHERE id=?').get(info.lastInsertRowid);
-    postAuditEvent({
-      entity: 'date_marks',
-      entity_id: Number(info.lastInsertRowid),
-      action: 'insert',
-      actor_cook_id: cook_id,
-      actor_source: 'cook_ui',
-      payload: row,
-      shift_date: prepared_on,
-      location_id,
+      const row = db.prepare('SELECT * FROM date_marks WHERE id=?').get(info.lastInsertRowid);
+      
+      postAuditEvent({
+        entity: 'date_marks',
+        entity_id: Number(info.lastInsertRowid),
+        action: 'insert',
+        actor_cook_id: cook_id,
+        actor_source: 'cook_ui',
+        payload: row,
+        shift_date: prepared_on,
+        location_id,
+      });
+      
+      return row;
     });
+
+    const row = performWrite();
 
     return Response.json({ ok: true, entry: row });
   } catch (err) {
@@ -89,38 +97,47 @@ export async function PATCH(req) {
     const cook_id = clip(body.cook_id, 64);
 
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM date_marks WHERE id=?').get(id);
-    if (!existing) {
-      return Response.json({ error: 'unknown date mark' }, { status: 404 });
-    }
-    if (existing.discarded_at) {
-      return Response.json(
-        { error: 'already discarded', entry: existing },
-        { status: 409 },
-      );
-    }
-
     const now = new Date().toISOString();
-    db.prepare(`
-      UPDATE date_marks
-         SET discarded_at=?, discarded_by_cook_id=?, discard_reason=?
-       WHERE id=?
-    `).run(now, cook_id, reason, id);
 
-    const updated = db.prepare('SELECT * FROM date_marks WHERE id=?').get(id);
-    postAuditEvent({
-      entity: 'date_marks',
-      entity_id: id,
-      action: 'update',
-      actor_cook_id: cook_id,
-      actor_source: 'cook_ui',
-      payload: updated,
-      shift_date: existing.prepared_on,
-      location_id: existing.location_id,
-      note: `discarded: ${reason}`,
+    // Pre-check + UPDATE + audit must be atomic so two concurrent discards
+    // can't both pass the 409 guard and double-write.
+    const performUpdate = db.transaction(() => {
+      const existing = db.prepare('SELECT * FROM date_marks WHERE id=?').get(id);
+      if (!existing) return { status: 404, error: 'unknown date mark' };
+      if (existing.discarded_at) {
+        return { status: 409, error: 'already discarded', entry: existing };
+      }
+
+      db.prepare(`
+        UPDATE date_marks
+           SET discarded_at=?, discarded_by_cook_id=?, discard_reason=?
+         WHERE id=?
+      `).run(now, cook_id, reason, id);
+
+      const updated = db.prepare('SELECT * FROM date_marks WHERE id=?').get(id);
+
+      postAuditEvent({
+        entity: 'date_marks',
+        entity_id: id,
+        action: 'update',
+        actor_cook_id: cook_id,
+        actor_source: 'cook_ui',
+        payload: updated,
+        shift_date: existing.prepared_on,
+        location_id: existing.location_id,
+        note: `discarded: ${reason}`,
+      });
+
+      return { status: 200, updated };
     });
 
-    return Response.json({ ok: true, entry: updated });
+    const result = performUpdate();
+    if (result.status !== 200) {
+      const { status, ...body } = result;
+      return Response.json(body, { status });
+    }
+
+    return Response.json({ ok: true, entry: result.updated });
   } catch (err) {
     console.error('PATCH /api/date-marks failed:', err);
     return Response.json({ error: 'Failed to discard date mark' }, { status: 500 });

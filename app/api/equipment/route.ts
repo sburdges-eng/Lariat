@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '../../../lib/db';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const locationId = searchParams.get('location_id') || 'default';

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  scripts/coverage_weekly/com.lariat.coverage-weekly.plist.template
+
+  launchd plist for the weekly dish-components coverage report.
+  Mirrors the toast-weekly pattern.
+
+  Schedule: Mondays at 08:05 local time. Five-minute offset matches the
+  toast-weekly job's stagger so cron storms don't pile up at :00.
+
+  Install:
+    sed "s|HOME_DIR|$HOME|g" \
+      scripts/coverage_weekly/com.lariat.coverage-weekly.plist.template \
+      > ~/Library/LaunchAgents/com.lariat.coverage-weekly.plist
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.lariat.coverage-weekly.plist
+
+  Verify state:
+    launchctl print gui/$(id -u)/com.lariat.coverage-weekly | grep -E 'state|last exit'
+
+  Trigger an ad-hoc run:
+    launchctl kickstart -k gui/$(id -u)/com.lariat.coverage-weekly
+
+  Remove:
+    launchctl bootout gui/$(id -u)/com.lariat.coverage-weekly
+    rm ~/Library/LaunchAgents/com.lariat.coverage-weekly.plist
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.lariat.coverage-weekly</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>node</string>
+    <string>--experimental-strip-types</string>
+    <string>HOME_DIR/Dev/Lariat/scripts/coverage-weekly.mjs</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>HOME_DIR/Dev/Lariat</string>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key><integer>1</integer>  <!-- Monday -->
+    <key>Hour</key><integer>8</integer>
+    <key>Minute</key><integer>5</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>HOME_DIR/Dev/Lariat/data/coverage-reports/_log/last-run.log</string>
+  <key>StandardErrorPath</key>
+  <string>HOME_DIR/Dev/Lariat/data/coverage-reports/_log/last-run.err.log</string>
+
+  <key>RunAtLoad</key><false/>
+  <key>KeepAlive</key><false/>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+</dict>
+</plist>

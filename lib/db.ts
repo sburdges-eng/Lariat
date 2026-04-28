@@ -38,6 +38,16 @@ export interface LineCheckEntry {
   need: string | null;
   note: string | null;
   cook_id: string | null;
+  /**
+   * F15 / FDA §3-301.11 bare-hand-contact-with-RTE attestation.
+   *  null = item does not touch ready-to-eat food (not applicable)
+   *  0    = item touches RTE; cook has NOT attested glove change
+   *  1    = cook has attested fresh gloves for this row
+   *
+   * Populated on POST /api/checks when body carries a boolean
+   * `glove_change_attested`. Pre-migration rows stay NULL.
+   */
+  glove_change_attested: 0 | 1 | null;
   created_at: string;
   location_id: string;
 }
@@ -84,6 +94,10 @@ export interface Location {
   id: string;
   name: string;
   created_at: string;
+  tax_rate?: number | null;
+  service_fee_pct?: number | null;
+  phone?: string | null;
+  address?: string | null;
 }
 
 export interface VendorPrice {
@@ -146,6 +160,30 @@ export interface RecipeCost {
   interpretations: number | null;
   location_id: string;
   imported_at: string;
+}
+
+/**
+ * Per-serving component quantity for a Toast dish. A component is EITHER
+ * a sub-recipe (component_type='recipe', recipe_slug populated) OR a raw
+ * distributor item (component_type='vendor_item', vendor_ingredient populated).
+ *
+ * `dish_name` is stored canonical (lowercased + alphanumeric-only via
+ * normalizeDishName in lib/dishCostBridge). `recipe_slug` matches
+ * recipes.json slug = bom_lines.recipe_id = recipe_costs.recipe_id.
+ * `vendor_ingredient` matches order_guide_items.ingredient / vendor_prices.ingredient.
+ */
+export interface DishComponent {
+  id: number;
+  location_id: string;
+  dish_name: string;
+  component_type: 'recipe' | 'vendor_item';
+  recipe_slug: string | null;
+  vendor_ingredient: string | null;
+  qty_per_serving: number;
+  unit: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface BomLine {
@@ -239,9 +277,13 @@ export interface BeoEvent {
   id: number;
   title: string;
   event_date: string | null;
+  event_time: string | null;          // "5-7pm", "4:30 PM", etc. — free-text
+  contact_name: string | null;
   guest_count: number | null;
   notes: string | null;
   status: string;
+  tax_rate: number;                   // 0.0675 = 6.75%
+  service_fee_pct: number;            // 20 = 20%
   location_id: string;
   created_at: string;
 }
@@ -254,6 +296,17 @@ export interface BeoTask {
   done: number;
   sort_order: number;
   location_id: string;
+}
+
+export interface BeoLineItem {
+  id: number;
+  event_id: number;
+  sort_order: number;
+  item_name: string;
+  category: string | null;
+  unit_cost: number;
+  quantity: number;
+  created_at: string;
 }
 
 export interface Equipment {
@@ -334,6 +387,9 @@ export interface TempLogEntry {
   required_max_f: number | null;
   corrective_action: string | null;
   cook_id: string | null;
+  /** Bundle G: optional thermometer id tying this reading back to a
+   *  probe in thermometer_calibrations. null on pre-G rows. */
+  probe_id: string | null;
   created_at: string;
 }
 
@@ -543,6 +599,41 @@ export interface ShiftPic {
 }
 
 /**
+ * Pre-shift heads-up note written by the head chef. One row per
+ * (location, shift_date, service_label). Empty service_label means
+ * a prep-day note (the kitchen is closed that day).
+ */
+export interface PreshiftNote {
+  id: number;
+  location_id: string;
+  shift_date: string;
+  service_label: string | null;    // 'Dinner' | 'Brunch' | NULL
+  body: string;
+  author_cook_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Service hours by day-of-week. `day_of_week` follows JS
+ * Date.getDay() (0=Sun..6=Sat). A day with no row is closed. Multiple
+ * rows per day are allowed for split services (e.g. lunch + dinner),
+ * disambiguated by service_label.
+ */
+export interface ServiceHoursRow {
+  id: number;
+  location_id: string;
+  day_of_week: number;             // 0=Sun..6=Sat (JS Date.getDay)
+  opens_at: string | null;         // 'HH:MM' 24h
+  closes_at: string | null;
+  service_label: string | null;    // 'Dinner', 'Brunch', 'Lunch', ...
+  notes: string | null;
+  active: number;
+  created_at: string;
+  archived_at: string | null;      // set by /api/service-hours DELETE + archive:stale sweep
+}
+
+/**
  * Cleaning schedule (FDA §4-602, §4-702). Master list of recurring
  * cleaning tasks (hood, floor drains, walk-in gaskets, ice machine,
  * fry vats). `frequency` is free-text but should parse as 'daily' |
@@ -560,6 +651,7 @@ export interface CleaningScheduleItem {
   notes: string | null;
   active: number;                  // 0/1 — retired rows stay for history
   created_at: string;
+  archived_at: string | null;      // set by /api/cleaning-schedule DELETE + archive:stale sweep
 }
 
 export interface CleaningLogEntry {
@@ -835,6 +927,10 @@ export function initSchema(db: DB): void {
       need TEXT,
       note TEXT,
       cook_id TEXT,
+      -- F15 (FDA §3-301.11): NULL = item doesn't touch RTE food;
+      -- 0 = glove-change required but not yet attested;
+      -- 1 = cook has attested fresh gloves for this line-check row.
+      glove_change_attested INTEGER,
       created_at TEXT DEFAULT (datetime('now')),
       location_id TEXT DEFAULT 'default'
     );
@@ -881,11 +977,187 @@ export function initSchema(db: DB): void {
     );
     CREATE INDEX IF NOT EXISTS idx_inv_shift ON inventory_updates(shift_date, station_id);
 
+    -- Periodic on-hand counts. One header row per "count session" the BOH
+    -- opens (e.g. weekly / EOM); count_lines holds the actual on-hand qty
+    -- per ingredient. Headers are kept open until closed_at is set so a
+    -- count can span a shift; lines are upserted by (count_id, ingredient).
+    CREATE TABLE IF NOT EXISTS inventory_counts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      count_date TEXT NOT NULL,
+      label TEXT,
+      opened_at TEXT DEFAULT (datetime('now')),
+      closed_at TEXT,
+      cook_id TEXT,
+      location_id TEXT NOT NULL DEFAULT 'default'
+    );
+    CREATE INDEX IF NOT EXISTS idx_inv_counts_loc_date
+      ON inventory_counts(location_id, count_date DESC);
+
+    CREATE TABLE IF NOT EXISTS inventory_count_lines (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      count_id INTEGER NOT NULL REFERENCES inventory_counts(id) ON DELETE CASCADE,
+      vendor TEXT,
+      ingredient TEXT NOT NULL,
+      sku TEXT,
+      on_hand_qty REAL,
+      unit TEXT,
+      par_qty REAL,
+      par_unit TEXT,
+      note TEXT,
+      counted_by TEXT,
+      counted_at TEXT DEFAULT (datetime('now')),
+      location_id TEXT NOT NULL DEFAULT 'default',
+      UNIQUE(count_id, ingredient, sku)
+    );
+    CREATE INDEX IF NOT EXISTS idx_inv_count_lines_count
+      ON inventory_count_lines(count_id);
+
+    -- Standing par list: what we keep on hand by ingredient. The par page
+    -- LEFT JOINs latest count_lines against this so cooks can see what's
+    -- below par at a glance. sku is stored as '' (not NULL) so the UNIQUE
+    -- constraint works cleanly for ingredients with no SKU.
+    CREATE TABLE IF NOT EXISTS inventory_par (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      vendor TEXT,
+      ingredient TEXT NOT NULL,
+      sku TEXT NOT NULL DEFAULT '',
+      par_qty REAL,
+      par_unit TEXT,
+      pack_size TEXT,
+      pack_unit TEXT,
+      category TEXT,
+      note TEXT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(location_id, ingredient, sku)
+    );
+    CREATE INDEX IF NOT EXISTS idx_inv_par_loc_cat
+      ON inventory_par(location_id, category, ingredient);
+
+    -- Daily prep board. Shift-bound tasks owned by the kitchen, distinct
+    -- from beo_prep_tasks which are event-bound. Status flows
+    -- todo → in_progress → done (or → skipped for "we're not doing this
+    -- today"). assigned_cook_id is whoever claimed it; done_by is whoever
+    -- finished it (may differ if a shift handoff happens). source/
+    -- source_ref let us track auto-suggested tasks (low_par, beo, …)
+    -- without coupling to those tables.
+    CREATE TABLE IF NOT EXISTS prep_tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shift_date TEXT NOT NULL,
+      station_id TEXT,
+      task TEXT NOT NULL,
+      qty TEXT,
+      recipe_slug TEXT,
+      notes TEXT,
+      priority INTEGER DEFAULT 0,
+      assigned_cook_id TEXT,
+      status TEXT NOT NULL DEFAULT 'todo'
+        CHECK(status IN ('todo','in_progress','done','skipped')),
+      started_at TEXT,
+      done_at TEXT,
+      done_by TEXT,
+      source TEXT DEFAULT 'manual',
+      source_ref TEXT,
+      sort_order INTEGER DEFAULT 0,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_prep_tasks_loc_date
+      ON prep_tasks(location_id, shift_date, status);
+    CREATE INDEX IF NOT EXISTS idx_prep_tasks_station
+      ON prep_tasks(location_id, shift_date, station_id);
+
+    -- Front-of-house reservations. Distinct from beo_events (catering /
+    -- private events with formal contracts). A reservation is a regular-
+    -- service party. Status flow:
+    --   booked → seated → completed | cancelled | no_show
+    -- table_id is a soft FK to a tables row (M3.1 will create it); kept as
+    -- a plain TEXT here so reservations can ship before floor plan exists.
+    CREATE TABLE IF NOT EXISTS reservations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      party_name TEXT NOT NULL,
+      party_size INTEGER NOT NULL,
+      reservation_at TEXT NOT NULL,           -- 'YYYY-MM-DD HH:MM' local
+      status TEXT NOT NULL DEFAULT 'booked'
+        CHECK(status IN ('booked','seated','completed','cancelled','no_show')),
+      table_id TEXT,                          -- soft FK to tables.id once that exists
+      phone TEXT,
+      email TEXT,
+      notes TEXT,
+      source TEXT DEFAULT 'manual',           -- 'manual', 'opentable', 'phone', etc.
+      source_ref TEXT,
+      seated_at TEXT,
+      completed_at TEXT,
+      cook_id TEXT,                           -- whoever booked or last touched it
+      location_id TEXT NOT NULL DEFAULT 'default',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_reservations_loc_at
+      ON reservations(location_id, reservation_at);
+    CREATE INDEX IF NOT EXISTS idx_reservations_status
+      ON reservations(location_id, status, reservation_at);
+
+    -- Front-of-house dining-room layout. One row per physical table or
+    -- bar seat. (x, y) is the top-left corner in an arbitrary unit grid;
+    -- (w, h) is the table's footprint. status is the live state — open is
+    -- the default, seated when a party is at it, dirty when it needs a
+    -- bus. The status drives /floor's color tiles; reservations × tables
+    -- wiring (M3.4) updates it via the seat / complete verbs.
+    CREATE TABLE IF NOT EXISTS dining_tables (
+      id TEXT NOT NULL,                     -- e.g. 'T1', 'T2', 'BAR-3'
+      name TEXT NOT NULL,                   -- display label, e.g. 'Window 4'
+      capacity INTEGER NOT NULL DEFAULT 2,
+      x REAL NOT NULL DEFAULT 0,
+      y REAL NOT NULL DEFAULT 0,
+      w REAL NOT NULL DEFAULT 1,
+      h REAL NOT NULL DEFAULT 1,
+      status TEXT NOT NULL DEFAULT 'open'
+        CHECK(status IN ('open','seated','dirty','closed')),
+      notes TEXT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (location_id, id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_dining_tables_loc_status
+      ON dining_tables(location_id, status);
+
     CREATE TABLE IF NOT EXISTS locations (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS service_hours (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      day_of_week INTEGER NOT NULL,
+      opens_at TEXT,
+      closes_at TEXT,
+      service_label TEXT,
+      notes TEXT,
+      active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(location_id, day_of_week, service_label)
+    );
+    CREATE INDEX IF NOT EXISTS idx_service_hours_loc
+      ON service_hours(location_id, day_of_week);
+
+    CREATE TABLE IF NOT EXISTS preshift_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      shift_date TEXT NOT NULL,
+      service_label TEXT,
+      body TEXT NOT NULL,
+      author_cook_id TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(location_id, shift_date, service_label)
+    );
+    CREATE INDEX IF NOT EXISTS idx_preshift_date
+      ON preshift_notes(location_id, shift_date);
 
     CREATE TABLE IF NOT EXISTS vendor_prices (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -902,8 +1174,42 @@ export function initSchema(db: DB): void {
     );
     CREATE INDEX IF NOT EXISTS idx_vp_loc ON vendor_prices(location_id);
 
+    -- Append-only snapshot of vendor_prices taken before each destructive
+    -- ingest sweep. Lets operators look back at historical price trends even
+    -- though the live vendor_prices table is DELETE+INSERT per run.
+    -- Rows never deleted or updated; queries DISTINCT ON (vendor, sku)
+    -- ORDER BY snapshot_at for per-SKU price series.
+    CREATE TABLE IF NOT EXISTS vendor_prices_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      run_id INTEGER,
+      source_vendor_price_id INTEGER,
+      ingredient TEXT NOT NULL,
+      vendor TEXT,
+      sku TEXT,
+      pack_size REAL,
+      pack_unit TEXT,
+      pack_price REAL,
+      unit_price REAL,
+      category TEXT,
+      yield_pct REAL,
+      actual_received_lb REAL,
+      reconciled_unit_price REAL,
+      master_id TEXT,
+      location_id TEXT DEFAULT 'default',
+      imported_at TEXT,
+      snapshot_at TEXT DEFAULT (datetime('now','subsec')),
+      snapshot_reason TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_vph_loc_vendor_sku
+      ON vendor_prices_history(location_id, vendor, sku);
+    CREATE INDEX IF NOT EXISTS idx_vph_snapshot_at
+      ON vendor_prices_history(snapshot_at);
+    CREATE INDEX IF NOT EXISTS idx_vph_ingredient
+      ON vendor_prices_history(ingredient);
+
     CREATE TABLE IF NOT EXISTS recipe_costs (
-      recipe_id TEXT PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      recipe_id TEXT NOT NULL,
       recipe_name TEXT,
       category TEXT,
       yield REAL,
@@ -914,8 +1220,38 @@ export function initSchema(db: DB): void {
       total_lines INTEGER,
       interpretations INTEGER,
       location_id TEXT DEFAULT 'default',
-      imported_at TEXT DEFAULT (datetime('now'))
+      imported_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(location_id, recipe_id)
     );
+
+    CREATE TABLE IF NOT EXISTS margin_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_name TEXT NOT NULL,
+      net_sales REAL,
+      cost_per_unit REAL,
+      margin_pct REAL,
+      popularity REAL,
+      quadrant TEXT,
+      snapshot_at TEXT DEFAULT (datetime('now')),
+      location_id TEXT DEFAULT 'default'
+    );
+    -- Latest-per-location read path + retention DELETE both need this.
+    CREATE INDEX IF NOT EXISTS idx_margin_snapshots_loc_id
+      ON margin_snapshots(location_id, id DESC);
+
+    CREATE TABLE IF NOT EXISTS accounting_variance (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      period_start TEXT,
+      period_end TEXT,
+      theoretical_cogs REAL,
+      actual_cogs REAL,
+      variance_amount REAL,
+      variance_pct REAL,
+      snapshot_at TEXT DEFAULT (datetime('now')),
+      location_id TEXT DEFAULT 'default'
+    );
+    CREATE INDEX IF NOT EXISTS idx_accounting_variance_loc_id
+      ON accounting_variance(location_id, id DESC);
 
     CREATE TABLE IF NOT EXISTS bom_lines (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1061,7 +1397,12 @@ export function initSchema(db: DB): void {
       vendor TEXT,
       unit_price REAL,
       location_id TEXT DEFAULT 'default',
-      imported_at TEXT DEFAULT (datetime('now'))
+      imported_at TEXT DEFAULT (datetime('now')),
+      -- 1 = row holds a recipe-derived placeholder cost (no real vendor
+      -- invoice yet) and MUST be ignored by the costing bridge. Backfill
+      -- script scripts/flag-placeholder-order-guide.mjs stamps it for
+      -- known bad rows; ingest pipelines never set it to 1.
+      is_placeholder INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS sales_lines (
@@ -1075,6 +1416,39 @@ export function initSchema(db: DB): void {
       imported_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_sales_loc ON sales_lines(location_id);
+
+    -- dish_components: per-serving component quantities for a Toast dish.
+    -- A "component" is either a sub-recipe (recipe_slug populated) or a raw
+    -- distributor item (vendor_ingredient populated). Examples:
+    --   - bacon_jam (recipe) — house-made sauce
+    --   - 8oz Burger Patty (vendor_item) — bought direct from Sysco
+    --   - Brioche Bun (vendor_item) — bought direct from Shamrock
+    -- Bridges menu pricing → recipe_costs OR vendor_prices.
+    -- Each row is "X qty of component Y per single serving of dish Z."
+    -- Populated via /menu-engineering/components.
+    CREATE TABLE IF NOT EXISTS dish_components (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      dish_name TEXT NOT NULL,
+      component_type TEXT NOT NULL DEFAULT 'recipe'
+        CHECK(component_type IN ('recipe', 'vendor_item')),
+      recipe_slug TEXT,
+      vendor_ingredient TEXT,
+      qty_per_serving REAL NOT NULL,
+      unit TEXT NOT NULL,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      CHECK (
+        (component_type = 'recipe' AND recipe_slug IS NOT NULL AND vendor_ingredient IS NULL) OR
+        (component_type = 'vendor_item' AND vendor_ingredient IS NOT NULL AND recipe_slug IS NULL)
+      )
+    );
+    -- Partial UNIQUE indexes are created after migrateLegacyColumns ensures
+    -- the column shape is current (old dish_components tables without
+    -- component_type must be rebuilt before an index can reference it).
+    CREATE INDEX IF NOT EXISTS idx_dish_components_dish
+      ON dish_components(location_id, dish_name);
 
     CREATE TABLE IF NOT EXISTS spend_monthly (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1090,12 +1464,29 @@ export function initSchema(db: DB): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
       event_date TEXT,
+      event_time TEXT,
+      contact_name TEXT,
       guest_count INTEGER,
       notes TEXT,
       status TEXT DEFAULT 'planned',
+      tax_rate REAL DEFAULT 0.0675,
+      service_fee_pct REAL DEFAULT 20,
       location_id TEXT DEFAULT 'default',
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS beo_line_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id INTEGER NOT NULL,
+      sort_order INTEGER DEFAULT 0,
+      item_name TEXT NOT NULL,
+      category TEXT,
+      unit_cost REAL NOT NULL DEFAULT 0,
+      quantity REAL NOT NULL DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (event_id) REFERENCES beo_events(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_beo_line_ev ON beo_line_items(event_id);
 
     CREATE TABLE IF NOT EXISTS beo_prep_tasks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1108,6 +1499,33 @@ export function initSchema(db: DB): void {
       FOREIGN KEY (event_id) REFERENCES beo_events(id) ON DELETE CASCADE
     );
     CREATE INDEX IF NOT EXISTS idx_beo_prep_ev ON beo_prep_tasks(event_id);
+
+    -- Historical BEO prep records ingested from past events (catering invoice
+    -- 'Kitchen Sheet' tabs and the master workbook's hand-curated 'BEO Prep'
+    -- aggregate). NOT joined to beo_events -- past events predate the runtime
+    -- cockpit. Read-only reference for kitchen-assistant context
+    -- (e.g. "what was prepped for the last birria event").
+    CREATE TABLE IF NOT EXISTS beo_prep_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      client TEXT,
+      event_date TEXT,            -- ISO YYYY-MM-DD
+      event_file TEXT,            -- source xlsx filename if known
+      type TEXT,                  -- 'Main Item' | 'Secondary Prep' | 'Special Sauce' | …
+      item TEXT NOT NULL,
+      amount_qty TEXT,            -- numeric or descriptive (kept as text)
+      prep_day TEXT,
+      pre_prep_notes TEXT,
+      plating_notes TEXT,
+      source TEXT NOT NULL,       -- e.g. 'master_workbook_2026-04-18'
+      imported_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_beo_prep_hist_loc_date
+      ON beo_prep_history(location_id, event_date);
+    CREATE INDEX IF NOT EXISTS idx_beo_prep_hist_loc_item
+      ON beo_prep_history(location_id, item);
+    CREATE INDEX IF NOT EXISTS idx_beo_prep_hist_loc_source
+      ON beo_prep_history(location_id, source);
 
     CREATE TABLE IF NOT EXISTS equipment (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1189,6 +1607,10 @@ export function initSchema(db: DB): void {
       required_max_f REAL,
       corrective_action TEXT,
       cook_id TEXT,
+      -- Bundle G: optional thermometer id linking the reading to a
+      -- probe calibration record (see thermometer_calibrations). Null
+      -- means "no probe recorded" — reading is still persisted.
+      probe_id TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_temp_log_shift ON temp_log(shift_date, location_id, point_id);
@@ -1236,14 +1658,323 @@ export function initSchema(db: DB): void {
       imported_at TEXT DEFAULT (datetime('now')),
       UNIQUE(hour_24, comparison_group, location_id)
     );
+
+    -- Toast Inc. as a vendor: monthly subscription invoices Lariat pays Toast
+    -- (handhelds, KDS, software, gift card program, API, catering & events).
+    -- Source: PDFs under data/originals/Toast/Invoices/ (or the pre-scrub archive).
+    -- Full-refresh-per-source: ingest deletes all rows for (location_id, source='toast_subscription_invoices')
+    -- then re-inserts. Headers + lines are siblings, not FK-joined, so the lines
+    -- table can be wiped and rebuilt independently if reparsed.
+    CREATE TABLE IF NOT EXISTS toast_subscription_invoices (
+      invoice_no    TEXT NOT NULL,
+      invoice_date  TEXT NOT NULL,                    -- YYYY-MM-DD
+      invoice_total REAL NOT NULL,
+      line_count    INTEGER NOT NULL,
+      source_pdf    TEXT,
+      location_id   TEXT NOT NULL DEFAULT 'default',
+      ingested_at   TEXT NOT NULL DEFAULT (datetime('now','subsec')),
+      PRIMARY KEY (location_id, invoice_no)
+    );
+    CREATE INDEX IF NOT EXISTS idx_toast_sub_inv_date ON toast_subscription_invoices(location_id, invoice_date);
+
+    CREATE TABLE IF NOT EXISTS toast_subscription_invoice_lines (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      invoice_no   TEXT NOT NULL,
+      invoice_date TEXT NOT NULL,                     -- denormalized for fast year/month rollups
+      line_seq     INTEGER NOT NULL,                  -- 1-based order within the invoice
+      item         TEXT NOT NULL,
+      qty          INTEGER NOT NULL,                  -- can be negative (credit lines)
+      rate         REAL NOT NULL,
+      amount       REAL NOT NULL,                     -- can be negative (credit lines)
+      location_id  TEXT NOT NULL DEFAULT 'default',
+      UNIQUE(location_id, invoice_no, line_seq)
+    );
+    CREATE INDEX IF NOT EXISTS idx_toast_sub_lines_inv ON toast_subscription_invoice_lines(location_id, invoice_no);
+    CREATE INDEX IF NOT EXISTS idx_toast_sub_lines_item ON toast_subscription_invoice_lines(location_id, item, invoice_date);
   `);
 
   initFoodSafetyLaborSchema(db);
+  initEntitySchema(db);
 
   migrateLegacyColumns(db);
   assertCriticalSchemas(db);
   seedDefaultLocation(db);
   ensureIndexes(db);
+}
+
+/**
+ * Canonical entity layer (Phase 1 of the entity-layer rollout).
+ *
+ * Goal: every Employee, Vendor, MenuItem, Recipe, Ingredient, and
+ * PurchaseOrder gets ONE permanent UUID v7 PK that all source-system
+ * tables (Toast, 7shifts, Prism, Shamrock, Sysco, manual) reference
+ * via the `external_ids` registry. Replaces today's free-text-string
+ * joins documented in audit §1/§2/§9.
+ *
+ * Posture:
+ *   - Additive only — existing tables (sales_lines, bom_lines, etc.) are
+ *     untouched in Phase 1; their migration to FK against these UUIDs is
+ *     Phase 2.
+ *   - PKs are UUID v7 strings (lib/uuid.ts::uuidv7). Time-ordered so SQLite
+ *     B-tree pages stay tight under high-cardinality inserts.
+ *   - external_ids carries (source_system, external_id, location_id,
+ *     entity_type) as the unique key. Toast guids are per-location, so
+ *     location_id is part of the key — same Toast guid at two restaurants
+ *     resolves to two distinct UUIDs.
+ *   - All entity tables carry created_at/updated_at audit timestamps.
+ */
+function initEntitySchema(db: DB): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS entities_employees (
+      uuid TEXT PRIMARY KEY,
+      display_name TEXT NOT NULL,
+      primary_email TEXT,
+      primary_phone TEXT,
+      active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS entities_vendors (
+      uuid TEXT PRIMARY KEY,
+      display_name TEXT NOT NULL,
+      category TEXT,
+      active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS entities_menu_items (
+      uuid TEXT PRIMARY KEY,
+      display_name TEXT NOT NULL,
+      category TEXT,
+      base_price REAL,
+      active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
+      location_id TEXT NOT NULL DEFAULT 'default',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_entities_menu_items_loc
+      ON entities_menu_items(location_id, active);
+
+    -- Recipes get a UUID PK plus a stable slug for backward compatibility
+    -- with recipes.json. Slug is unique per location since recipes are
+    -- location-scoped (a "house ranch" at site A is a different recipe
+    -- than at site B).
+    CREATE TABLE IF NOT EXISTS entities_recipes (
+      uuid TEXT PRIMARY KEY,
+      slug TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      yield_qty REAL,
+      yield_unit TEXT,
+      category TEXT,
+      active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
+      location_id TEXT NOT NULL DEFAULT 'default',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(slug, location_id)
+    );
+
+    -- Ingredients carry both a UUID PK and a normalized ingredient_key
+    -- (parity with scripts/lib/ingredient_key.py). The key is what existing
+    -- tables (vendor_prices, bom_lines, ingredient_densities) join on
+    -- today; the UUID is what Phase-2 FKs will reference.
+    CREATE TABLE IF NOT EXISTS entities_ingredients (
+      uuid TEXT PRIMARY KEY,
+      display_name TEXT NOT NULL,
+      ingredient_key TEXT NOT NULL,
+      category TEXT,
+      default_unit TEXT,
+      active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(ingredient_key)
+    );
+
+    -- Events are first-class entities (Phase 1 declared 'event' in the
+    -- external_ids CHECK enum but the table itself was deferred to Phase 5
+    -- when Prism.fm wiring lands). Distinct from beo_events: entities_events
+    -- is the canonical "this booking exists" record; beo_events stays the
+    -- operations sheet (line items, prep tasks, tax/service-fee snapshot).
+    -- Phase 5 backfills beo_events.id ↔ entities_events.uuid via external_ids.
+    CREATE TABLE IF NOT EXISTS entities_events (
+      uuid TEXT PRIMARY KEY,
+      display_name TEXT NOT NULL,
+      event_date TEXT,
+      event_time TEXT,
+      venue TEXT,
+      headliner TEXT,
+      guest_count INTEGER,
+      status TEXT NOT NULL DEFAULT 'planned'
+        CHECK(status IN ('planned','confirmed','cancelled','completed')),
+      location_id TEXT NOT NULL DEFAULT 'default',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_entities_events_date
+      ON entities_events(location_id, event_date);
+
+    CREATE TABLE IF NOT EXISTS entities_purchase_orders (
+      uuid TEXT PRIMARY KEY,
+      vendor_uuid TEXT NOT NULL REFERENCES entities_vendors(uuid),
+      po_number TEXT,
+      ordered_at TEXT,
+      expected_at TEXT,
+      received_at TEXT,
+      status TEXT NOT NULL DEFAULT 'open'
+        CHECK(status IN ('open','sent','received','cancelled','closed')),
+      total_amount REAL,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_entities_po_vendor
+      ON entities_purchase_orders(vendor_uuid, status);
+    CREATE INDEX IF NOT EXISTS idx_entities_po_loc_date
+      ON entities_purchase_orders(location_id, ordered_at);
+
+    -- Cross-system identity registry. Each row says "source S calls this
+    -- thing X; internally it's UUID U of type T at location L." A single
+    -- UUID can have many rows (Toast guid + 7shifts user_id + manual
+    -- alias), but a (source, external_id, location, type) tuple resolves
+    -- to exactly one UUID.
+    --
+    -- entity_type is an enum so a typo at write time fails loud rather
+    -- than silently creating a bogus mapping. metadata_json holds source-
+    -- specific extras (department, hire date, GUID variant, etc.) that
+    -- don't deserve their own column.
+    CREATE TABLE IF NOT EXISTS external_ids (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      entity_type TEXT NOT NULL CHECK(entity_type IN
+        ('employee','vendor','menu_item','recipe','ingredient',
+         'purchase_order','event')),
+      entity_uuid TEXT NOT NULL,
+      source_system TEXT NOT NULL,
+      external_id TEXT NOT NULL,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      metadata_json TEXT,
+      first_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(source_system, external_id, location_id, entity_type)
+    );
+    CREATE INDEX IF NOT EXISTS idx_external_ids_uuid
+      ON external_ids(entity_uuid, entity_type);
+    CREATE INDEX IF NOT EXISTS idx_external_ids_lookup
+      ON external_ids(source_system, entity_type, location_id);
+
+    -- Sales-driven inventory depletion (Phase 3). One row per
+    -- (location_id, period_label) successfully applied. Lets the CLI
+    -- skip a re-run on a period thats already depleted, and gives
+    -- operators an audit trail of "did Mar 2026 already deplete?"
+    --
+    -- inventory_updates rows written by a depletion run carry a
+    -- note of the form "[deplete-run=<id>] ..." so a future
+    -- --reapply path can DELETE them safely without touching manual
+    -- waste-log rows. Phase 3 doesnt ship --reapply yet (skip-on-
+    -- duplicate is the default), but the sentinel is forward-compatible.
+    -- Phase 4: 7shifts raw-landing tables. Each row maps directly to one
+    -- 7shifts API object (user / shift / time punch). seven_id is the
+    -- 7shifts primary key; we keep it on the row alongside the resolver-
+    -- assigned employee_uuid so a re-run can ON CONFLICT UPDATE without
+    -- losing the entity link. Time fields are ISO-8601 UTC strings
+    -- (whatever 7shifts emits — we don't reformat).
+    CREATE TABLE IF NOT EXISTS sevenshifts_users (
+      seven_id TEXT NOT NULL,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      employee_uuid TEXT,
+      first_name TEXT,
+      last_name TEXT,
+      preferred_name TEXT,
+      email TEXT,
+      phone TEXT,
+      employee_id TEXT,
+      role_ids_json TEXT,
+      hire_date TEXT,
+      active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
+      raw_json TEXT,
+      ingested_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (seven_id, location_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS sevenshifts_shifts (
+      seven_id TEXT NOT NULL,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      user_seven_id TEXT,
+      employee_uuid TEXT,
+      role_id TEXT,
+      department_id TEXT,
+      start_at TEXT,
+      end_at TEXT,
+      published INTEGER,
+      deleted INTEGER NOT NULL DEFAULT 0 CHECK(deleted IN (0,1)),
+      raw_json TEXT,
+      ingested_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (seven_id, location_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_sevenshifts_shifts_user
+      ON sevenshifts_shifts(user_seven_id, location_id, start_at);
+
+    CREATE TABLE IF NOT EXISTS sevenshifts_time_punches (
+      seven_id TEXT NOT NULL,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      user_seven_id TEXT,
+      employee_uuid TEXT,
+      role_id TEXT,
+      clocked_in_at TEXT,
+      clocked_out_at TEXT,
+      hours_worked REAL,
+      approved INTEGER,
+      raw_json TEXT,
+      ingested_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (seven_id, location_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_sevenshifts_punches_user
+      ON sevenshifts_time_punches(user_seven_id, location_id, clocked_in_at);
+
+    -- Phase 5: Prism.fm raw-landing table. Field set is conservative —
+    -- we capture the bits Lariat consumes (date, headliner, guest count,
+    -- status) plus the full raw_json for forward compatibility. The
+    -- ingest script in scripts/ingest-prism.mjs is a SCAFFOLD; the
+    -- actual API client is gated on credentials we don't have yet
+    -- (see scripts/prism_api/README.md).
+    CREATE TABLE IF NOT EXISTS prism_events (
+      prism_id TEXT NOT NULL,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      event_uuid TEXT,
+      display_name TEXT,
+      event_date TEXT,
+      doors_at TEXT,
+      show_at TEXT,
+      venue TEXT,
+      headliner TEXT,
+      supports_json TEXT,
+      ticket_count INTEGER,
+      capacity INTEGER,
+      status TEXT,
+      raw_json TEXT,
+      ingested_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (prism_id, location_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_prism_events_date
+      ON prism_events(location_id, event_date);
+
+    -- Append-only: a --force re-run inserts a NEW row rather than
+    -- updating in place. The skip-on-already-applied check picks the
+    -- latest row by id and treats any prior run as a "yes, applied"
+    -- signal.
+    CREATE TABLE IF NOT EXISTS sales_depletion_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL,
+      period_label TEXT NOT NULL,
+      shift_date TEXT NOT NULL,
+      sales_rows_processed INTEGER NOT NULL DEFAULT 0,
+      depletions_written INTEGER NOT NULL DEFAULT 0,
+      unresolved_dish_count INTEGER NOT NULL DEFAULT 0,
+      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sales_depletion_runs_period
+      ON sales_depletion_runs(location_id, period_label, id DESC);
+  `);
 }
 
 /**
@@ -1487,6 +2218,10 @@ function initFoodSafetyLaborSchema(db: DB): void {
       action_taken TEXT,
       cook_id TEXT,
       calibrated_at TEXT NOT NULL,
+      -- Per-probe calibration frequency override in days. NULL means
+      -- "use the default 30-day schedule". A positive integer overrides
+      -- the default for this probe (e.g. high-use probes every 14 days).
+      frequency_days INTEGER,
       created_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_thermcal_recent
@@ -1714,6 +2449,50 @@ function ensureIndexes(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_vp_master ON vendor_prices(master_id);
     CREATE INDEX IF NOT EXISTS idx_bom_master ON bom_lines(master_id);
   `);
+
+  // Bundle-H: NULL-safe uniqueness on (location, dow/date, service_label).
+  // SQLite's table-level UNIQUE constraint already covers the non-NULL case
+  // (each non-NULL label is distinct), so we only need partial unique indexes
+  // to forbid duplicate NULL-label rows. A partial index avoids the
+  // IFNULL(service_label, '') trick, which would conflate NULL with the empty
+  // string '' — those are semantically distinct values.
+  //
+  // These run AFTER the main schema batch, with a deduplication pass and
+  // try/catch protection: a database with pre-existing duplicate NULL rows
+  // (the very condition this hardening targets) must not crash startup.
+  try {
+    db.exec(`
+      DELETE FROM service_hours
+       WHERE service_label IS NULL
+         AND id NOT IN (
+           SELECT MIN(id) FROM service_hours
+            WHERE service_label IS NULL
+            GROUP BY location_id, day_of_week
+         );
+    `);
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_service_hours_null_safe
+        ON service_hours(location_id, day_of_week)
+        WHERE service_label IS NULL;
+    `);
+  } catch { /* ignore — surfaced via assertCriticalSchemas if catastrophic */ }
+
+  try {
+    db.exec(`
+      DELETE FROM preshift_notes
+       WHERE service_label IS NULL
+         AND id NOT IN (
+           SELECT MIN(id) FROM preshift_notes
+            WHERE service_label IS NULL
+            GROUP BY location_id, shift_date
+         );
+    `);
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_preshift_null_safe
+        ON preshift_notes(location_id, shift_date)
+        WHERE service_label IS NULL;
+    `);
+  } catch { /* ignore — surfaced via assertCriticalSchemas if catastrophic */ }
 }
 
 function migrateLegacyColumns(db: DB): void {
@@ -1743,6 +2522,27 @@ function migrateLegacyColumns(db: DB): void {
   addLoc('station_signoffs', t('station_signoffs'));
   addLoc('inventory_updates', t('inventory_updates'));
 
+  // F15 (FDA §3-301.11): glove-change attestation on each line-check row
+  // that touches ready-to-eat food. NULL on pre-migration rows so the
+  // backfill is additive and the legacy data stays queryable.
+  const lceCols = t('line_check_entries');
+  if (!lceCols.includes('glove_change_attested')) {
+    try {
+      db.exec('ALTER TABLE line_check_entries ADD COLUMN glove_change_attested INTEGER');
+    } catch { /* ignore */ }
+  }
+
+  // accounting_variance: per-vendor breakdown of actual_cogs added when the
+  // computation shifted from "spend_monthly.shamrock_total_spend only" to a
+  // unified roll-up across shamrock_invoices + sysco_invoices + (legacy)
+  // spend_monthly. NULL on pre-migration rows.
+  const avCols = t('accounting_variance');
+  if (avCols.length > 0 && !avCols.includes('actual_cogs_breakdown_json')) {
+    try {
+      db.exec('ALTER TABLE accounting_variance ADD COLUMN actual_cogs_breakdown_json TEXT');
+    } catch { /* ignore */ }
+  }
+
   // Extend equipment table with vendor / manual / model-number / notes columns
   const equipCols = t('equipment');
   const equipMigrations: [string, string][] = [
@@ -1754,6 +2554,102 @@ function migrateLegacyColumns(db: DB): void {
   ];
   for (const [col, ddl] of equipMigrations) {
     if (!equipCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  // dish_components gained component_type + vendor_ingredient so a dish can
+  // hold both sub-recipes and raw distributor items (buns, patties, cheese).
+  // The old shape had recipe_slug NOT NULL and a single composite UNIQUE,
+  // neither of which are compatible with the vendor_item branch. SQLite can't
+  // drop a column-level NOT NULL or UNIQUE, so the "unpatchable" path is to
+  // rebuild the table. For dev DBs that already created the old shape but
+  // haven't had any rows inserted yet, we detect via missing column and
+  // rebuild in place, preserving any pre-existing rows as recipe-type.
+  const dcCols = t('dish_components');
+  if (dcCols.length > 0 && !dcCols.includes('component_type')) {
+    // Rebuild the old-shape table: SQLite can't drop a NOT NULL from
+    // recipe_slug or change a composite UNIQUE in place, so we rename +
+    // recreate + copy. Preserves any existing rows as component_type='recipe'.
+    try {
+      db.exec(`
+        BEGIN;
+        ALTER TABLE dish_components RENAME TO dish_components_old;
+        CREATE TABLE dish_components (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          location_id TEXT NOT NULL DEFAULT 'default',
+          dish_name TEXT NOT NULL,
+          component_type TEXT NOT NULL DEFAULT 'recipe'
+            CHECK(component_type IN ('recipe', 'vendor_item')),
+          recipe_slug TEXT,
+          vendor_ingredient TEXT,
+          qty_per_serving REAL NOT NULL,
+          unit TEXT NOT NULL,
+          notes TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now')),
+          CHECK (
+            (component_type = 'recipe' AND recipe_slug IS NOT NULL AND vendor_ingredient IS NULL) OR
+            (component_type = 'vendor_item' AND vendor_ingredient IS NOT NULL AND recipe_slug IS NULL)
+          )
+        );
+        INSERT INTO dish_components
+          (id, location_id, dish_name, component_type, recipe_slug, vendor_ingredient,
+           qty_per_serving, unit, notes, created_at, updated_at)
+        SELECT id, location_id, dish_name, 'recipe', recipe_slug, NULL,
+               qty_per_serving, unit, notes, created_at, updated_at
+          FROM dish_components_old;
+        DROP TABLE dish_components_old;
+        COMMIT;
+      `);
+    } catch (err) {
+      try { db.exec('ROLLBACK'); } catch { /* ignore */ }
+      console.error('dish_components rebuild migration failed:', err);
+    }
+  }
+
+  // Partial UNIQUE indexes live here (not in the main schemaSQL block) so
+  // they're only created AFTER the column shape is guaranteed current.
+  // Idempotent: IF NOT EXISTS skips them on subsequent runs.
+  const dcColsAfter = t('dish_components');
+  if (dcColsAfter.includes('component_type')) {
+    try {
+      db.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_dish_components_recipe_unique
+          ON dish_components(location_id, dish_name, recipe_slug)
+          WHERE component_type = 'recipe';
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_dish_components_vendor_unique
+          ON dish_components(location_id, dish_name, vendor_ingredient)
+          WHERE component_type = 'vendor_item';
+      `);
+    } catch (err) {
+      console.error('dish_components partial-index creation failed:', err);
+    }
+  }
+
+  // BEO events gained event_time / contact_name / tax_rate / service_fee_pct
+  // so the worksheet-style board can store the invoice-header fields.
+  const beoCols = t('beo_events');
+  const beoMigrations: [string, string][] = [
+    ['event_time',      'ALTER TABLE beo_events ADD COLUMN event_time TEXT'],
+    ['contact_name',    'ALTER TABLE beo_events ADD COLUMN contact_name TEXT'],
+    ['tax_rate',        'ALTER TABLE beo_events ADD COLUMN tax_rate REAL DEFAULT 0.0675'],
+    ['service_fee_pct', 'ALTER TABLE beo_events ADD COLUMN service_fee_pct REAL DEFAULT 20'],
+  ];
+  for (const [col, ddl] of beoMigrations) {
+    if (!beoCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  // BEO line items gained prep-sheet columns (mirrors the archive xlsx
+  // layout: ITEM | PREP | SECONDARY PREP | ORDER ITEMS + fire time).
+  const beoLineCols = t('beo_line_items');
+  const beoLineMigrations: [string, string][] = [
+    ['prep_notes',           'ALTER TABLE beo_line_items ADD COLUMN prep_notes TEXT'],
+    ['secondary_prep_notes', 'ALTER TABLE beo_line_items ADD COLUMN secondary_prep_notes TEXT'],
+    ['order_items_notes',    'ALTER TABLE beo_line_items ADD COLUMN order_items_notes TEXT'],
+    ['order_time',           'ALTER TABLE beo_line_items ADD COLUMN order_time TEXT'],
+    ['group_note',           'ALTER TABLE beo_line_items ADD COLUMN group_note TEXT'],
+  ];
+  for (const [col, ddl] of beoLineMigrations) {
+    if (!beoLineCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
   }
 
   // Extend bom_lines with yield / cooking-loss factors used by COGS mapping.
@@ -1804,6 +2700,17 @@ function migrateLegacyColumns(db: DB): void {
     if (!vpCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
   }
 
+  // order_guide_items.is_placeholder — rows whose unit_price is a
+  // recipe-derived placeholder (no real vendor invoice yet) set this to
+  // 1 so the dishCostBridge fallback can skip them. Pre-migration rows
+  // default to 0; a separate backfill script stamps the known-bad rows.
+  const ogCols = t('order_guide_items');
+  if (ogCols.length > 0 && !ogCols.includes('is_placeholder')) {
+    try {
+      db.exec(`ALTER TABLE order_guide_items ADD COLUMN is_placeholder INTEGER DEFAULT 0`);
+    } catch { /* ignore */ }
+  }
+
   // Bundle F — receiving_log gains package_ok (§3-202.15) and
   // expiration_date (§3-101.11). Pre-F rows stay NULL on both; that's
   // the conventional "unrecorded" sentinel the route + rule module
@@ -1815,6 +2722,115 @@ function migrateLegacyColumns(db: DB): void {
   ];
   for (const [col, ddl] of recvMigrations) {
     if (!recvCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  // Bundle G — temp_log gains `probe_id` so a reading can be tied
+  // back to the thermometer that produced it. The column is optional:
+  // pre-G rows stay NULL (their probe is not on record) and post-G
+  // rows can still omit it if the operator is using an uncalibrated
+  // wall thermometer. The calibrations rule module uses this column
+  // to surface an advisory warning when a cook references a probe
+  // that has a failed / overdue / missing calibration — the write is
+  // NOT rejected (that's a worse posture than letting the reading
+  // land and flagging the probe), it's just audited.
+  const tempCols = t('temp_log');
+  const tempMigrations: [string, string][] = [
+    ['probe_id', 'ALTER TABLE temp_log ADD COLUMN probe_id TEXT'],
+  ];
+  for (const [col, ddl] of tempMigrations) {
+    if (!tempCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  // Bundle G-fix — thermometer_calibrations gains `frequency_days` so
+  // per-probe calibration interval overrides are reachable from the API
+  // (not just from test fixtures). NULL means "use the default 30-day
+  // schedule"; a positive integer overrides the default for that probe.
+  const thermcalCols = t('thermometer_calibrations');
+  const thermcalMigrations: [string, string][] = [
+    ['frequency_days', 'ALTER TABLE thermometer_calibrations ADD COLUMN frequency_days INTEGER'],
+  ];
+  for (const [col, ddl] of thermcalMigrations) {
+    if (!thermcalCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  // Location-level configuration — the BEO worksheet previously hardcoded
+  // tax_rate (0.0675) and service_fee_pct (20) as per-event fallbacks, which
+  // meant a manager editing default tax/service had no reachable surface.
+  // These columns let /admin/settings drive a per-location default that
+  // /api/beo reads when the request body doesn't provide the field.
+  const locCols = t('locations');
+  const locMigrations: [string, string][] = [
+    ['tax_rate',        'ALTER TABLE locations ADD COLUMN tax_rate REAL DEFAULT 0.0675'],
+    ['service_fee_pct', 'ALTER TABLE locations ADD COLUMN service_fee_pct REAL DEFAULT 20'],
+    ['phone',           'ALTER TABLE locations ADD COLUMN phone TEXT'],
+    ['address',         'ALTER TABLE locations ADD COLUMN address TEXT'],
+  ];
+  for (const [col, ddl] of locMigrations) {
+    if (!locCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  // Soft-archive timestamps. Tables that already use an `active` 0/1 flag get
+  // a paired `archived_at` TEXT column. `scripts/archive-stale.mjs` (npm run
+  // archive:stale) stamps it when a row is marked inactive, and list UIs can
+  // filter `archived_at IS NULL` to hide retired rows. NULL = live; a
+  // datetime('now') value = archived. Existing `active = 0` rows are fixed
+  // up by the sweep script on first run.
+  const archiveTables: string[] = [
+    'service_hours',
+    'cleaning_schedule',
+    'sds_registry',
+    'staff_certifications',
+  ];
+  for (const tbl of archiveTables) {
+    const cols = t(tbl);
+    if (cols.length === 0) continue; // table doesn't exist in this build
+    if (!cols.includes('archived_at')) {
+      try { db.exec(`ALTER TABLE ${tbl} ADD COLUMN archived_at TEXT`); } catch { /* ignore */ }
+    }
+  }
+
+  // recipe_costs was originally created with `recipe_id TEXT PRIMARY KEY`
+  // which blocks multi-location (same recipe_id can't exist in two
+  // locations). Rebuild to `id INTEGER PRIMARY KEY AUTOINCREMENT` +
+  // `UNIQUE(location_id, recipe_id)` matching all other location-scoped
+  // tables.
+  const rcCols = t('recipe_costs');
+  if (rcCols.length > 0 && !rcCols.includes('id')) {
+    try {
+      db.exec(`
+        BEGIN;
+        ALTER TABLE recipe_costs RENAME TO recipe_costs_old;
+        CREATE TABLE recipe_costs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          recipe_id TEXT NOT NULL,
+          recipe_name TEXT,
+          category TEXT,
+          yield REAL,
+          yield_unit TEXT,
+          batch_cost REAL,
+          cost_per_yield_unit REAL,
+          costed_lines INTEGER,
+          total_lines INTEGER,
+          interpretations INTEGER,
+          location_id TEXT DEFAULT 'default',
+          imported_at TEXT DEFAULT (datetime('now')),
+          UNIQUE(location_id, recipe_id)
+        );
+        INSERT INTO recipe_costs
+          (recipe_id, recipe_name, category, yield, yield_unit, batch_cost,
+           cost_per_yield_unit, costed_lines, total_lines, interpretations,
+           location_id, imported_at)
+        SELECT recipe_id, recipe_name, category, yield, yield_unit, batch_cost,
+               cost_per_yield_unit, costed_lines, total_lines, interpretations,
+               location_id, imported_at
+          FROM recipe_costs_old;
+        DROP TABLE recipe_costs_old;
+        COMMIT;
+      `);
+    } catch (err) {
+      try { db.exec('ROLLBACK'); } catch { /* ignore */ }
+      console.error('recipe_costs PK migration failed:', err);
+    }
   }
 }
 
@@ -1836,12 +2852,67 @@ export function getDb(): DB {
   _db = new Database(target);
   _db.pragma('journal_mode = WAL');
   _db.pragma('foreign_keys = ON');
+  // ACID-D: fsync WAL on every commit so financial/personal data survives
+  // power loss. ~1-5ms write penalty on SSD; imperceptible at BOH write rates.
+  _db.pragma('synchronous = FULL');
   initSchema(_db);
   return _db;
 }
 
 export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Return all active service-hour rows for a location, ordered Sun→Sat.
+ * A day with no row is closed.
+ */
+export function getServiceHours(locationId = 'default'): ServiceHoursRow[] {
+  return getDb()
+    .prepare(
+      `SELECT * FROM service_hours
+        WHERE location_id = ? AND active = 1
+        ORDER BY day_of_week, service_label`,
+    )
+    .all(locationId) as ServiceHoursRow[];
+}
+
+/**
+ * Today's primary service label for a location, derived from
+ * service_hours. Returns null when nothing is scheduled (prep day).
+ * If multiple services exist on the same day, the one opening first
+ * wins.
+ */
+export function todayServiceLabel(locationId = 'default'): string | null {
+  const dow = new Date().getDay();
+  const row = getDb()
+    .prepare(
+      `SELECT service_label FROM service_hours
+        WHERE location_id = ? AND active = 1 AND day_of_week = ?
+        ORDER BY opens_at ASC NULLS LAST LIMIT 1`,
+    )
+    .get(locationId, dow) as { service_label: string | null } | undefined;
+  return row?.service_label ?? null;
+}
+
+/**
+ * Get the current pre-shift note for the given date + service slot,
+ * or null if none exists. A NULL service_label means a prep-day note.
+ */
+export function getPreshiftNote(
+  locationId: string,
+  shiftDate: string,
+  serviceLabel: string | null,
+): PreshiftNote | null {
+  const row = getDb()
+    .prepare(
+      `SELECT * FROM preshift_notes
+        WHERE location_id = ? AND shift_date = ?
+          AND (service_label IS ? OR service_label = ?)
+        LIMIT 1`,
+    )
+    .get(locationId, shiftDate, serviceLabel, serviceLabel) as PreshiftNote | undefined;
+  return row ?? null;
 }
 
 export const DB_FILE = DB_PATH;

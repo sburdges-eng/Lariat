@@ -2,6 +2,9 @@ import { getDb, todayISO } from '../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { getRecipes } from '../../../lib/data';
 import { cascadedFromEightySix } from '../../../lib/subRecipeGraph';
+import { postAuditEvent } from '../../../lib/auditEvents';
+
+export const dynamic = 'force-dynamic';
 
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
@@ -42,20 +45,30 @@ export async function POST(req) {
     if (!item) return Response.json({ error: 'item required' }, { status: 400 });
     const loc = locationFromBody(body);
     const db = getDb();
-    const info = db.prepare(`
-      INSERT INTO eighty_six (shift_date, station_id, item, kind, reason, quantity, cook_id, location_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      clip(body.shift_date, 32) || todayISO(),
-      clip(body.station_id, 64),
-      item,
-      clip(body.kind, 32) || 'item',
-      clip(body.reason, 100),
-      clip(body.quantity, 64),
-      clip(body.cook_id, 64),
-      loc,
-    );
-    return Response.json({ ok: true, id: info.lastInsertRowid });
+    // ACID: 86 actions affect menu availability + COGS — transaction + audit trail.
+    const newId = db.transaction(() => {
+      const info = db.prepare(`
+        INSERT INTO eighty_six (shift_date, station_id, item, kind, reason, quantity, cook_id, location_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        clip(body.shift_date, 32) || todayISO(),
+        clip(body.station_id, 64),
+        item,
+        clip(body.kind, 32) || 'item',
+        clip(body.reason, 100),
+        clip(body.quantity, 64),
+        clip(body.cook_id, 64),
+        loc,
+      );
+      const id = Number(info.lastInsertRowid);
+      postAuditEvent({
+        entity: 'eighty_six', entity_id: id, action: 'insert',
+        actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
+        location_id: loc, payload: { item, kind: body.kind, reason: body.reason },
+      });
+      return id;
+    })();
+    return Response.json({ ok: true, id: newId });
   } catch (err) {
     console.error('POST /api/eighty-six failed:', err);
     return Response.json({ error: 'Failed to save 86' }, { status: 500 });

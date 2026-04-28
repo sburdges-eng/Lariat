@@ -12,6 +12,8 @@ import {
 } from './data';
 import type { Recipe, AllergenMatrix, Station } from './data';
 import type { Database as DB } from 'better-sqlite3';
+import * as datapackSearch from './datapackSearch';
+import type { FdaSection, HybridHit } from './datapackSearch';
 
 const MAX_86 = 40;
 const MAX_INV = 20;
@@ -22,6 +24,19 @@ const MAX_CONTEXT_CHARS = 12000;
 const FOOD_SAFETY_KEYWORDS = [
   'temp', 'temperature', 'holding', 'cool', 'reheat', 'haccp',
   'safe', 'food safety', '165', '155', '145', '140', '41',
+];
+// High-precision triggers for the USDA ingredients bucket. Cold-loading
+// the ingredients vectors costs ~20s on first hit, so generic words
+// ('food', 'cook', 'how much') are deliberately excluded — false
+// positives would burn that latency for non-ingredient questions.
+// Keep this list disjoint from FOOD_SAFETY_KEYWORDS; both gates can
+// fire on the same question, but the wording shouldn't be ambiguous
+// enough that a single word lights both up.
+const INGREDIENT_KEYWORDS = [
+  'ingredient', 'protein', 'calorie', 'kcal', 'carb', 'fiber',
+  'sodium', 'sugar', 'grams', 'gluten', 'vegan', 'vegetarian',
+  'nutrition', 'allergen', 'substitute', 'yield', 'shrinkage',
+  'total lipid', 'total fat',
 ];
 const HISTORY_KEYWORDS = ['often', 'history', 'frequent', 'always', 'most', 'past'];
 const VENDOR_KEYWORDS = [
@@ -36,6 +51,13 @@ const GOLD_STAR_KEYWORDS = [
 const EQUIPMENT_KEYWORDS = [
   'equipment', 'warranty', 'maintenance', 'service', 'broken', 'repair', 'down',
 ];
+const CATERING_KEYWORDS = [
+  'beo', 'catering', 'cater', 'wedding', 'event', 'buffet', 'banquet',
+  'reception', 'rehearsal', 'birthday', 'party', 'graduation', 'shower',
+];
+const PREP_PLANNING_KEYWORDS = [
+  'prep', 'pre-prep', 'pre prep', 'plate', 'plating', 'scale', 'portion',
+];
 
 const STALE_BEO_WINDOW_DAYS = 2;
 const REPEAT_86_WINDOW_DAYS = 7;
@@ -49,6 +71,8 @@ const MAX_STALE_BEO = 20;
 const MAX_REPEAT_86 = 10;
 const MAX_GOLD_STARS = 10;
 const MAX_WARRANTIES = 10;
+const MAX_BEO_PREP_RECENT_EVENTS = 5;
+const MAX_BEO_PREP_ITEM_HISTORY = 5;
 
 const DAILY_SALES_TREND_WINDOW_DAYS = 7;
 
@@ -62,7 +86,10 @@ export interface GroundedContext {
   sources: ContextSource[];
 }
 
-export function buildGroundedContext(locationId: string, userQuestion: string): GroundedContext {
+export async function buildGroundedContext(
+  locationId: string,
+  userQuestion: string
+): Promise<GroundedContext> {
   const date = todayISO();
   const db = getDb();
   const sources: ContextSource[] = [];
@@ -276,6 +303,33 @@ export function buildGroundedContext(locationId: string, userQuestion: string): 
       }
       sources.push({ type: 'food_safety', detail: `${ccps.length} CCP(s)` });
     }
+
+    // FDA Food Code grounding from the data pack — appended to the
+    // same FOOD_SAFETY_KEYWORDS branch so a single keyword check
+    // gates both the operational CCP block and the regulatory text.
+    // Silently no-ops on machines without the data pack mounted.
+    // Async because hybrid retrieval awaits the BGE model load (~6 s
+    // cold, <50 ms warm) on the embedding channel.
+    const fda = await renderFdaFoodCode(userQuestion);
+    if (fda.text) {
+      text += fda.text;
+      if (fda.source) sources.push(fda.source);
+    }
+  }
+
+  // ── Conditional: USDA ingredients (per-100g nutrient grounding) ──
+  // Gates on INGREDIENT_KEYWORDS so generic chatter doesn't trigger
+  // the +20s cold-load on the ingredients bucket. Silently no-ops on
+  // machines without the data pack mounted (same shape as the FDA
+  // block above). Placed adjacent to FDA so both data-pack-backed
+  // grounding sources sit together in the prompt before the
+  // historical-86 / vendor / catering blocks below.
+  if (matchesKeywords(qLower, INGREDIENT_KEYWORDS)) {
+    const usda = await renderUsdaIngredients(userQuestion);
+    if (usda.text) {
+      text += usda.text;
+      if (usda.source) sources.push(usda.source);
+    }
   }
 
   // ── Conditional: Historical 86 ───────────────────────────────────
@@ -291,6 +345,15 @@ export function buildGroundedContext(locationId: string, userQuestion: string): 
         text += `  - ${h.item}: 86'd ${h.freq} times\n`;
       }
       sources.push({ type: 'eighty_six_history', detail: `Top ${hist.length} flagged` });
+    }
+  }
+
+  // ── Conditional: BEO prep history ────────────────────────────────
+  {
+    const beoPrep = renderBeoPrepHistory(db, locationId, qLower);
+    if (beoPrep.text) {
+      text += beoPrep.text;
+      sources.push(...beoPrep.sources);
     }
   }
 
@@ -348,8 +411,13 @@ export function buildGroundedContext(locationId: string, userQuestion: string): 
   if (beos.length) {
     text += '\nUPCOMING BANQUETS & PARTIES (BEO):\n';
     const beoIds = beos.map(b => b.id);
+    // SQLite rejects `IN ()`; the outer beos.length guard above ensures
+    // beoIds is non-empty, but a defensive short-circuit here lets the
+    // query shape stay stable if this block is ever called on an empty list.
     const placeholders = beoIds.map(() => '?').join(',');
-    const allTasks = db.prepare(`SELECT * FROM beo_prep_tasks WHERE event_id IN (${placeholders}) ORDER BY sort_order`).all(...beoIds) as { event_id: number; task: string; done: number }[];
+    const allTasks = beoIds.length
+      ? (db.prepare(`SELECT * FROM beo_prep_tasks WHERE event_id IN (${placeholders}) ORDER BY sort_order`).all(...beoIds) as { event_id: number; task: string; done: number }[])
+      : [];
     
     for (const b of beos) {
       text += `  - [BEO ID: ${b.id}] ${b.title} on ${b.event_date} (Covers: ${b.guest_count || 'TBD'})\n`;
@@ -691,15 +759,9 @@ function renderRepeat86s(db: DB, locationId: string): OversightSection {
 }
 
 function renderGoldStars(db: DB, locationId: string): OversightSection {
-  db.exec(`CREATE TABLE IF NOT EXISTS gold_stars (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    cook_name TEXT NOT NULL,
-    reason TEXT NOT NULL,
-    stars INTEGER DEFAULT 1,
-    awarded_date TEXT DEFAULT (date('now')),
-    location_id TEXT DEFAULT 'default',
-    created_at TEXT DEFAULT (datetime('now'))
-  )`);
+  // Schema lives in initSchema (lib/db.ts) — do NOT run DDL in a read-path
+  // helper. This was throwing when a caller wrapped buildGroundedContext in
+  // a db.transaction (nested transactions not allowed on better-sqlite3).
   const rows = db
     .prepare(
       `SELECT cook_name, reason, stars, awarded_date FROM gold_stars
@@ -820,4 +882,461 @@ export function renderDailySalesTrend(
       ? `${rows.length} day(s), ${yoyMatches} with YoY`
       : `${rows.length} day(s)`;
   return { text, source: { type: 'daily_sales_trend', detail } };
+}
+
+interface MultiSourceSection {
+  text: string;
+  sources: ContextSource[];
+}
+
+// ── FDA Food Code grounding ─────────────────────────────────────────
+//
+// Pulls the top-N most relevant sections from the off-tree data pack's
+// fda_food_code_sections table whenever a food-safety question hits
+// the FOOD_SAFETY_KEYWORDS gate. The data pack lives on an external
+// SSD and is absent on most dev machines / in CI; in that case
+// `datapackSearch.available()` returns false and this helper silently
+// no-ops with `{text:'', source:null}` so the rest of the context
+// builder is unaffected.
+//
+// Retrieval uses datapackSearch.hybrid() over the safety bucket: BM25
+// + BGE-small cosine fused via reciprocal-rank-fusion. Hybrid handles
+// natural-language questions ("what's the cooking temp for chicken?")
+// directly — the previous FTS-only path needed a token-OR workaround
+// because phrasing the whole question as one FTS5 phrase yielded zero
+// hits.
+//
+// Body text is truncated to MAX_FDA_BODY_CHARS so a single hit
+// (some sections have ~10k-char Annex 3 commentary) can't blow past
+// the overall MAX_CONTEXT_CHARS budget. Hits are deduped by
+// section_id because the corpus has paired regulatory + Annex 3
+// entries with the same id; we keep the first (= best fused) match.
+
+const MAX_FDA_HITS = 3;
+const MAX_FDA_BODY_CHARS = 1200;
+
+interface DatapackSearchDeps {
+  available: () => boolean;
+  hybrid: typeof datapackSearch.hybrid;
+  getFdaSection: typeof datapackSearch.getFdaSection;
+}
+
+/**
+ * Truncate a string to at most `n` UTF-16 code units while avoiding
+ * splitting a surrogate pair (which would otherwise leave a lone high
+ * surrogate at the tail and corrupt downstream UTF-8 encoding).
+ * The FDA corpus is ASCII so this is defensive, not load-bearing.
+ */
+function truncateSafe(s: string, n: number): string {
+  if (s.length <= n) return s;
+  let end = n;
+  const code = s.charCodeAt(end - 1);
+  // Lone high surrogate at the tail — drop it.
+  if (code >= 0xd800 && code <= 0xdbff) end -= 1;
+  return `${s.slice(0, end)}…`;
+}
+
+/**
+ * Pull a string field from a hybrid hit. Hybrid hits surface either
+ * the FTS envelope (when both channels matched a row) or the
+ * per-bucket semantic metadata envelope (when only the embedding
+ * side scored it). The two name fields differently — `subtitle`
+ * (FTS) vs `section_id` (semantic) for the FDA section id, etc. —
+ * so we look up each field by both names and return the first
+ * non-empty hit.
+ */
+function pickHybridField(
+  h: HybridHit,
+  ...candidates: string[]
+): string {
+  for (const k of candidates) {
+    const v = h[k];
+    if (typeof v === 'string' && v.trim()) return v.trim();
+  }
+  return '';
+}
+
+/**
+ * Render the FDA Food Code grounding block. Exported so tests can
+ * exercise it directly without spinning up the full grounded-context
+ * graph. `deps` is an injection seam for tests — production callers
+ * should always use the default real datapackSearch module.
+ *
+ * Async because hybrid retrieval needs to await the BGE model
+ * (transformers.js, ONNX) on the embedding channel; the FTS channel
+ * is synchronous but we await both together via Promise.all inside
+ * datapackSearch.hybrid().
+ */
+export async function renderFdaFoodCode(
+  question: string,
+  deps: DatapackSearchDeps = datapackSearch
+): Promise<OversightSection> {
+  if (!deps.available()) return { text: '', source: null };
+
+  const trimmed = (question || '').trim();
+  if (!trimmed) return { text: '', source: null };
+
+  // Hybrid retrieval handles natural-language questions directly —
+  // datapackSearch.hybrid() runs the FTS query through escapeFtsPhrase
+  // internally, so we never pass raw user text to the FTS5 parser.
+  const hits = await deps.hybrid(trimmed, {
+    bucket: 'safety',
+    // Pull more than MAX_FDA_HITS so the dedupe-by-section_id pass
+    // below has room: the safety bucket frequently surfaces paired
+    // regulatory + Annex 3 entries with the same section_id, and we
+    // keep only the first (highest-RRF) per pair.
+    limit: MAX_FDA_HITS * 2,
+  });
+  if (!hits.length) return { text: '', source: null };
+
+  // Dedupe by section_id. Hybrid hits are pre-sorted by descending
+  // RRF score, so first-write wins keeps the better fused match.
+  const seen = new Set<string>();
+  const unique: HybridHit[] = [];
+  for (const h of hits) {
+    const sectionId = pickHybridField(h, 'subtitle', 'section_id');
+    if (sectionId && seen.has(sectionId)) continue;
+    if (sectionId) seen.add(sectionId);
+    unique.push(h);
+    if (unique.length >= MAX_FDA_HITS) break;
+  }
+  if (!unique.length) return { text: '', source: null };
+
+  let text = '\nFDA FOOD CODE (regulatory text — cite § when answering):\n';
+  for (const h of unique) {
+    const sectionId = pickHybridField(h, 'subtitle', 'section_id') || '(no §)';
+    const title = pickHybridField(h, 'title') || '(untitled)';
+    const where = pickHybridField(h, 'extra', 'chapter', 'annex');
+    // The hybrid hit's id field varies — FTS envelope uses `id`,
+    // semantic envelope uses `rowid`. Either way, we want the
+    // INTEGER fda_food_code_sections.rowid for the body lookup.
+    const rowidRaw = h.id ?? h.rowid;
+    const rowid = typeof rowidRaw === 'number' ? rowidRaw : Number(rowidRaw);
+    const sec = Number.isFinite(rowid)
+      ? ((deps.getFdaSection({ rowid }) as FdaSection | null) ?? null)
+      : null;
+    const body = sec?.body ? truncateSafe(sec.body, MAX_FDA_BODY_CHARS) : '';
+    text += `  - [§ ${sectionId}] ${title}${where ? ` (${where})` : ''}\n`;
+    if (body) text += `    ${body.replace(/\n/g, '\n    ')}\n`;
+  }
+
+  return {
+    text,
+    source: { type: 'fda_food_code', detail: `${unique.length} section(s)` },
+  };
+}
+
+// Surfaces past catering-event prep data from beo_prep_history.
+//   (a) catering/prep keyword → recent events summary so the AI can
+//       reason about scaling baselines and what we typically prep.
+//   (b) any prior prep item name appears in the question → surface
+//       that item's prep history (last N events that prepped it) so
+//       the AI can reference past prep_day / pre_prep / plating notes.
+// Both branches are best-effort — silently empty if the table has no
+// matches. qLower must already be lowercased + trimmed.
+export function renderBeoPrepHistory(
+  db: DB,
+  locationId: string,
+  qLower: string
+): MultiSourceSection {
+  let text = '';
+  const sources: ContextSource[] = [];
+
+  const isCateringQ =
+    matchesKeywords(qLower, CATERING_KEYWORDS) ||
+    matchesKeywords(qLower, PREP_PLANNING_KEYWORDS);
+
+  if (isCateringQ) {
+    const recentEvents = db
+      .prepare(
+        `SELECT client, event_date,
+                GROUP_CONCAT(item || ' (' || COALESCE(amount_qty, '?') || ')', ', ') AS items
+           FROM (
+             SELECT client, event_date, item, amount_qty
+               FROM beo_prep_history
+              WHERE location_id = ? AND event_date IS NOT NULL
+                AND (type IS NULL OR type = 'Main Item')
+              ORDER BY event_date DESC, id ASC
+           )
+           GROUP BY client, event_date
+           ORDER BY event_date DESC
+           LIMIT ?`
+      )
+      .all(locationId, MAX_BEO_PREP_RECENT_EVENTS) as {
+      client: string | null;
+      event_date: string;
+      items: string;
+    }[];
+    if (recentEvents.length) {
+      text += '\nRECENT BEO EVENTS (prep history, most recent first):\n';
+      for (const ev of recentEvents) {
+        const who = ev.client || 'unknown client';
+        text += `  - ${ev.event_date} ${who}: ${ev.items}\n`;
+      }
+      sources.push({
+        type: 'beo_prep_history_recent',
+        detail: `${recentEvents.length} event(s)`,
+      });
+    }
+  }
+
+  if (qLower.length >= 4) {
+    const itemHits = db
+      .prepare(
+        `SELECT DISTINCT item FROM beo_prep_history
+          WHERE location_id = ? AND item IS NOT NULL`
+      )
+      .all(locationId) as { item: string }[];
+    const matched = itemHits
+      .filter((r) => r.item && qLower.includes(r.item.toLowerCase()))
+      .map((r) => r.item);
+    if (matched.length) {
+      const placeholders = matched.map(() => '?').join(',');
+      const detail = db
+        .prepare(
+          `SELECT item, client, event_date, amount_qty,
+                  pre_prep_notes, plating_notes, prep_day
+             FROM beo_prep_history
+            WHERE location_id = ?
+              AND item IN (${placeholders})
+            ORDER BY (event_date IS NULL), event_date DESC, id DESC
+            LIMIT ?`
+        )
+        .all(locationId, ...matched, MAX_BEO_PREP_ITEM_HISTORY) as {
+        item: string;
+        client: string | null;
+        event_date: string | null;
+        amount_qty: string | null;
+        pre_prep_notes: string | null;
+        plating_notes: string | null;
+        prep_day: string | null;
+      }[];
+      if (detail.length) {
+        text += '\nMATCHED ITEM PREP HISTORY:\n';
+        for (const d of detail) {
+          const parts = [
+            `${d.event_date || '?'}`,
+            d.client || 'unknown',
+            `${d.item} × ${d.amount_qty ?? '?'}`,
+          ];
+          if (d.prep_day) parts.push(`prep:${d.prep_day}`);
+          if (d.pre_prep_notes) parts.push(`pre:${d.pre_prep_notes}`);
+          if (d.plating_notes) parts.push(`plating:${d.plating_notes}`);
+          text += `  - ${parts.join(' | ')}\n`;
+        }
+        sources.push({
+          type: 'beo_prep_history_item',
+          detail: `${detail.length} hit(s) for ${matched.length} item(s)`,
+        });
+      }
+    }
+  }
+
+  return { text, sources };
+}
+
+// ── USDA Foods (ingredients) grounding ───────────────────────────────
+//
+// Surfaces top-N USDA Foundation/SR-Legacy/Survey rows from the data
+// pack whenever an ingredient/nutrient/yield question hits the
+// INGREDIENT_KEYWORDS gate. The bucket is huge (~3 GB of vectors,
+// 2.06M descriptions × 384 dims) and takes ~20s to cold-load on the
+// first call; warm calls are millisecond-scale. The keyword gate
+// keeps generic kitchen chatter from paying that latency.
+//
+// Hits are deduped by fdc_id (FTS + semantic envelopes can both
+// surface the same food row), then for each surviving hit we fetch
+// nutrients via deps.usdaNutrientsFor(fdc_id) and render the same
+// NUTRIENT_PRIORITY subset the /datapack-search UI uses. Format is
+// citation-friendly so the LLM is encouraged to quote `fdc_id N` when
+// it answers — keeps groundedness verifiable.
+//
+// Body (the nutrient line) is bounded by MAX_USDA_BODY_CHARS so a
+// single hit can't blow MAX_CONTEXT_CHARS; with MAX_USDA_HITS=4 and a
+// ~400 char ceiling per body, the whole block stays under ~2K chars.
+
+const MAX_USDA_HITS = 4;
+const MAX_USDA_BODY_CHARS = 400;
+
+// Match the /datapack-search client's NUTRIENT_PRIORITY order. Exact
+// nutrient names from USDA are inconsistent on commas/units, so we
+// match by case-insensitive prefix the same way the UI does.
+//
+// NOTE: this constant is duplicated at app/kitchen-assistant/citationHelpers.js
+// (the chat-UI client component, which can't import from `lib/` cleanly via
+// its current 'use client' shape). Keep these two copies in sync — the guard
+// test in tests/js/test-kitchen-assistant-citations.mjs asserts deep-equal.
+// Exported (rather than module-private) so the guard test can read it.
+export const USDA_NUTRIENT_PRIORITY = [
+  'Energy',
+  'Protein',
+  'Carbohydrate',
+  'Total lipid (fat)',
+  'Sodium, Na',
+  'Sugars, total',
+];
+
+interface UsdaSearchDeps {
+  available: () => boolean;
+  hybrid: typeof datapackSearch.hybrid;
+  usdaNutrientsFor: typeof datapackSearch.usdaNutrientsFor;
+}
+
+/**
+ * Pull the fdc_id from a hybrid hit. The two envelopes name it
+ * differently — FTS uses `id` (number), semantic uses `fdc_id`
+ * (number). Returns NaN if neither is a finite number, in which case
+ * the caller should skip the hit.
+ */
+function pickFdcId(h: HybridHit): number {
+  const candidates: unknown[] = [h.fdc_id, h.id];
+  for (const v of candidates) {
+    const n = typeof v === 'number' ? v : Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return NaN;
+}
+
+// USDA's `unit_name` column is mostly uppercase (`KCAL`, `G`, `MG`,
+// `UG`, `IU`, `MG_ATE`, `SP_GR`) with one mixed-case outlier (`kJ`).
+// Empirically the eight distinct values in the normalized nutrients
+// jsonl are: G, IU, KCAL, MG, MG_ATE, SP_GR, UG, kJ. We rewrite to the
+// conventional human-readable casing so the LLM sees `109 kcal` rather
+// than `109 KCAL`. Anything unexpected passes through unchanged.
+//
+// NOTE: this mapping is duplicated at app/kitchen-assistant/citationHelpers.js
+// as `formatUnit`. Keep the two copies in sync — the guard test in
+// tests/js/test-kitchen-assistant-citations.mjs asserts the same input/output
+// behaviour for both. Exported so the guard test can compare directly.
+export function formatUnit(unitName: string | null | undefined): string {
+  if (!unitName) return '';
+  switch (unitName) {
+    case 'KCAL': return 'kcal';
+    case 'G': return 'g';
+    case 'MG': return 'mg';
+    case 'UG': return 'µg';
+    case 'IU': return 'IU';
+    case 'kJ': return 'kJ';
+    case 'MG_ATE': return 'mg α-TE';
+    case 'SP_GR': return 'sp.gr.';
+    default: return unitName;
+  }
+}
+
+// Short, LLM-friendly inline labels for the priority nutrients. USDA's
+// canonical names are verbose ("Total lipid (fat)", "Sodium, Na",
+// "Sugars, total"); we keep the canonical forms in USDA_NUTRIENT_PRIORITY
+// (used as a case-insensitive prefix match against nutrient_name) but
+// render the compact label here. Anything not in the map passes through.
+//
+// NOTE: duplicated at app/kitchen-assistant/citationHelpers.js as
+// `PRIORITY_DISPLAY`. Keep in sync — the guard test in
+// tests/js/test-kitchen-assistant-citations.mjs asserts deep-equal.
+export const PRIORITY_DISPLAY: Record<string, string> = {
+  'Total lipid (fat)': 'Fat',
+  'Sodium, Na': 'Sodium',
+  'Sugars, total': 'Sugars',
+};
+
+/**
+ * Format the NUTRIENT_PRIORITY subset for one food as a single
+ * inline line. Returns '' if no priority nutrient was reported.
+ * Each nutrient is rendered as "<short name> <amount> <unit>"
+ * separated by ' · ' to mirror the FDA block's compact aesthetic.
+ */
+function formatPriorityNutrients(nutrients: datapackSearch.UsdaNutrient[]): string {
+  if (!Array.isArray(nutrients) || !nutrients.length) return '';
+  const parts: string[] = [];
+  for (const wanted of USDA_NUTRIENT_PRIORITY) {
+    const found = nutrients.find(
+      (n) =>
+        typeof n.nutrient_name === 'string' &&
+        n.nutrient_name.toLowerCase().startsWith(wanted.toLowerCase())
+    );
+    if (!found) continue;
+    if (found.amount == null) continue;
+    const displayName = PRIORITY_DISPLAY[wanted] ?? wanted;
+    const unitText = formatUnit(found.unit_name);
+    const unit = unitText ? ` ${unitText}` : '';
+    parts.push(`${displayName} ${found.amount}${unit}`);
+  }
+  return parts.join(' · ');
+}
+
+/**
+ * Render the USDA ingredients grounding block. Exported so tests can
+ * exercise it directly without spinning up buildGroundedContext.
+ * `deps` is the test-injection seam — production callers should
+ * always use the default real datapackSearch module.
+ *
+ * Async because hybrid retrieval awaits the BGE model on the
+ * embedding channel and the (potentially +20s) cold-load of the
+ * ingredients vector pack.
+ */
+export async function renderUsdaIngredients(
+  question: string,
+  deps: UsdaSearchDeps = datapackSearch
+): Promise<OversightSection> {
+  if (!deps.available()) return { text: '', source: null };
+
+  const trimmed = (question || '').trim();
+  if (!trimmed) return { text: '', source: null };
+
+  // Pull more than MAX_USDA_HITS so the dedupe-by-fdc_id pass below
+  // has reorder room — both the FTS and semantic channels can surface
+  // the same food row, and we keep the first (highest-RRF) per pair.
+  const hits = await deps.hybrid(trimmed, {
+    bucket: 'ingredients',
+    limit: MAX_USDA_HITS * 2,
+  });
+  if (!hits.length) return { text: '', source: null };
+
+  // Dedupe by fdc_id, preserving RRF order. Hits are pre-sorted by
+  // descending fused score, so first-write wins keeps the better match.
+  const seen = new Set<number>();
+  const unique: { hit: HybridHit; fdcId: number }[] = [];
+  for (const h of hits) {
+    const fdcId = pickFdcId(h);
+    if (!Number.isFinite(fdcId)) continue;
+    if (seen.has(fdcId)) continue;
+    seen.add(fdcId);
+    unique.push({ hit: h, fdcId });
+    if (unique.length >= MAX_USDA_HITS) break;
+  }
+  if (!unique.length) return { text: '', source: null };
+
+  let text =
+    '\nUSDA INGREDIENTS (per-100g unless noted; cite fdc_id when answering):\n';
+  let rendered = 0;
+  for (const { hit, fdcId } of unique) {
+    const description =
+      pickHybridField(hit, 'title', 'description') || '(no description)';
+    const category = pickHybridField(hit, 'subtitle', 'food_category');
+    const archive = pickHybridField(hit, 'extra', 'source_archive');
+    const dataType = pickHybridField(hit, 'data_type');
+
+    // Header line: fdc_id citation + description + (category · archive).
+    // The combination of data_type and source_archive is what the UI
+    // shows after the bullet; both can be sparse so we filter empties.
+    const meta = [dataType, archive].filter(Boolean).join(' · ');
+    const header = `  - [fdc_id ${fdcId}] ${description}${
+      category || meta ? ` (${[category, meta].filter(Boolean).join(' · ')})` : ''
+    }\n`;
+
+    const nutrients = deps.usdaNutrientsFor(fdcId);
+    const nutrientLine = formatPriorityNutrients(nutrients);
+    const body = nutrientLine
+      ? `    ${truncateSafe(nutrientLine, MAX_USDA_BODY_CHARS)}\n`
+      : '';
+
+    text += header + body;
+    rendered += 1;
+  }
+
+  if (!rendered) return { text: '', source: null };
+
+  return {
+    text,
+    source: { type: 'usda_ingredients', detail: `${rendered} food(s)` },
+  };
 }

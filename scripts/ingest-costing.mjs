@@ -164,7 +164,7 @@ export function ingestCosting(db, data, locationId = 'default') {
 
   let summaryResult;
   try {
-    summaryResult = _ingestCostingImpl(db, data, locationId);
+    summaryResult = _ingestCostingImpl(db, data, locationId, runId);
   } catch (err) {
     runFinalize('failed', null);
     throw err;
@@ -177,7 +177,15 @@ export function ingestCosting(db, data, locationId = 'default') {
   return summaryResult;
 }
 
-function _ingestCostingImpl(db, data, locationId) {
+// Categories whose rows are NOT wiped by the costing DELETE+INSERT sweep.
+// Beverages live in vendor_prices alongside food but are populated by a
+// separate out-of-band importer (scripts/import-vendor-prices.mjs /
+// lib/vendorPricesRepo.ts) that the costing ingest has no feed for.
+// Without this guard, every `npm run ingest:costing` wiped drink prices.
+// Comparison is case-insensitive via LOWER() in the SQL.
+export const BEVERAGE_CATEGORIES = ['beer', 'wine', 'liquor', 'spirit', 'cocktail'];
+
+function _ingestCostingImpl(db, data, locationId, runId = null) {
   // Build an in-memory lookup of ingredient_key → {yield_pct, loss_factor} once
   // per ingest. Avoids a per-row SELECT on potentially thousands of BOM rows.
   const yieldLookup = new Map();
@@ -260,7 +268,34 @@ function _ingestCostingImpl(db, data, locationId) {
   const del = (sql) => db.prepare(sql).run(locationId);
 
   db.transaction(() => {
-    del('DELETE FROM vendor_prices WHERE location_id = ?');
+    // Snapshot the current vendor_prices rows into vendor_prices_history
+    // BEFORE the DELETE so a price series survives the destructive sweep.
+    // In the same transaction as the DELETE, so a failure rolls back both
+    // the snapshot and the erase — no orphan history rows.
+    db.prepare(`
+      INSERT INTO vendor_prices_history
+        (run_id, source_vendor_price_id, ingredient, vendor, sku,
+         pack_size, pack_unit, pack_price, unit_price, category,
+         yield_pct, actual_received_lb, reconciled_unit_price, master_id,
+         location_id, imported_at, snapshot_reason)
+      SELECT ?, id, ingredient, vendor, sku,
+             pack_size, pack_unit, pack_price, unit_price, category,
+             yield_pct, actual_received_lb, reconciled_unit_price, master_id,
+             location_id, imported_at, 'ingest-costing'
+        FROM vendor_prices
+       WHERE location_id = ?
+    `).run(runId, locationId);
+
+    // Preserve beverage rows — they come from import-vendor-prices and the
+    // costing ingest has no source feed for them. Food rows (category NULL
+    // or any non-beverage category) get wiped as before.
+    const bevPlaceholders = BEVERAGE_CATEGORIES.map(() => '?').join(',');
+    db.prepare(`
+      DELETE FROM vendor_prices
+       WHERE location_id = ?
+         AND COALESCE(LOWER(category), '') NOT IN (${bevPlaceholders})
+    `).run(locationId, ...BEVERAGE_CATEGORIES);
+
     del('DELETE FROM recipe_costs WHERE location_id = ?');
     del('DELETE FROM bom_lines WHERE location_id = ?');
     del('DELETE FROM ingredient_maps WHERE location_id = ?');
@@ -895,18 +930,30 @@ export function backfillCatchWeightsIntoVendorPrices(db, locationId = 'default')
 
   for (const { vendor, table } of sources) {
     if (!tables.has(table)) continue;
-    // Latest catch-weight row per SKU. GROUP BY sku + HAVING MAX(delivery_date)
-    // picks the most recent delivered pack for each SKU; SQLite lets aggregates
-    // flow into the projected columns via bare-column selection from the
-    // matching row.
+    // Latest catch-weight row per SKU, preferring rows with non-NULL
+    // reconciled_unit_price so the dashboard surfaces actual drift first.
+    // ROW_NUMBER() guarantees exactly one row per SKU even when multiple
+    // invoice lines share the same delivery_date (the table's UNIQUE
+    // constraint allows that across different invoice_no/item combos).
+    // Replaces the prior GROUP BY sku HAVING MAX(delivery_date) form,
+    // which was non-deterministic in SQLite when non-aggregated columns
+    // were referenced — see PR #41 / cursor/ingest-database-reliability.
     const latest = db.prepare(`
       SELECT sku, actual_received_lb, reconciled_unit_price
-        FROM ${table}
-       WHERE location_id = ?
-         AND actual_received_lb IS NOT NULL
-         AND sku IS NOT NULL AND sku != ''
-       GROUP BY sku
-       HAVING delivery_date = MAX(delivery_date)
+        FROM (
+          SELECT sku, actual_received_lb, reconciled_unit_price,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY sku
+                   ORDER BY delivery_date DESC,
+                            (reconciled_unit_price IS NULL) ASC,
+                            rowid DESC
+                 ) AS rn
+            FROM ${table}
+           WHERE location_id = ?
+             AND actual_received_lb IS NOT NULL
+             AND sku IS NOT NULL AND sku != ''
+        )
+       WHERE rn = 1
     `).all(locationId);
     if (latest.length === 0) { out.by_vendor[vendor] = 0; continue; }
 

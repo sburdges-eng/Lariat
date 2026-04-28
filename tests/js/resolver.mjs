@@ -42,7 +42,11 @@ async function resolveRelative(specifier, parentURL) {
   // Has a known extension already — let the default handler deal with
   // it. In particular: `.js` does NOT get auto-remapped to `.ts`.
   if (ext && KNOWN_EXTS.has(ext)) return null;
-  if (await exists(abs)) return null;
+  // Only pass through if the path resolves to a *file*. If it's a
+  // directory, fall through to the INDEX_ORDER probe below so that
+  // `import '…/computeEngine'` resolves to `computeEngine/index.ts`.
+  const s = await stat(abs).catch(() => null);
+  if (s && s.isFile()) return null;
 
   for (const e of EXT_ORDER) {
     const candidate = abs + e;

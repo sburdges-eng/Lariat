@@ -1,5 +1,7 @@
 /** GET — whether PIN gate is configured (does not reveal the PIN). POST { pin } sets cookie. DELETE clears. */
 
+import { signPinCookieValue } from '../../../../lib/pinCookie';
+
 /* ------------------------------------------------------------------ */
 /* In-memory rate limiter — 5 failed attempts per IP per 60 seconds.  */
 /* Resets on process restart (acceptable for LAN-only deployment).    */
@@ -56,7 +58,12 @@ function cookieHeader(name, value, maxAgeSec) {
 /* Routes                                                              */
 /* ------------------------------------------------------------------ */
 export async function GET() {
-  return Response.json({ pin_enabled: !!process.env.LARIAT_PIN });
+  return Response.json({
+    pin_enabled: !!process.env.LARIAT_PIN,
+    // Exposed so the RoleProvider / ops tooling can tell when the
+    // deploy is running in the legacy (unsigned-cookie) fallback.
+    pin_signed: !!process.env.LARIAT_PIN_SECRET,
+  });
 }
 
 export async function POST(req) {
@@ -88,9 +95,11 @@ export async function POST(req) {
   }
 
   clearAttempts(ip);
-  // Session cookie: 8-hour expiry (covers a double shift)
+  // Session cookie: 8-hour expiry (covers a double shift). The value is
+  // HMAC-signed with LARIAT_PIN_SECRET (A2 hardening); see lib/pinCookie.
+  const signed = await signPinCookieValue(process.env.LARIAT_PIN_SECRET);
   const res = Response.json({ ok: true });
-  res.headers.append('Set-Cookie', cookieHeader('lariat_pin_ok', '1', 60 * 60 * 8));
+  res.headers.append('Set-Cookie', cookieHeader('lariat_pin_ok', signed, 60 * 60 * 8));
   return res;
 }
 

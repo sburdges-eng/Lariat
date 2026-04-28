@@ -11,11 +11,14 @@ Decide **which file wins** when two sources disagree. Suggested defaults:
 | **Sysco** (vendor) | Per delivery / weekly | Purchase history, catalog, item pricing | `npm run rebuild-cache` (reads `data/csv/sysco_*.csv`) |
 | **7shifts** (labor) | Weekly or per schedule publish | Labor hours, cost by role, OT | Export CSVs to `dev/exports/YYYY-MM-DD/Labor - *.csv`, then `npm run rebuild-cache` |
 | **Manual spreadsheets** | When KM updates costing or menus | Master Costing, operations workbook | `npm run ingest:costing` |
+| **Drink-price CSV** (liquor/beer/wine) | When beverage prices change | `vendor_prices` rows with `category IN ('Beer','Wine','Liquor','Spirit','Cocktail')` | `npm run import:vendor-prices -- <path/to.csv>` |
 | **Recipe Hub** (normalized CSVs) | When recipes change | Ingredients, allergens, procedures | `npm run rebuild-cache` |
 | **Menu CSVs** | When menu version changes | Menu items, station map, Toast links | `npm run rebuild-cache` |
 | **HACCP templates** | Annually or after audit | Food safety CCPs, temp limits | `npm run rebuild-cache` |
 
 Re-run the relevant ingest/rebuild after updating source files; restart the app if it was already running.
+
+**Drink-price cadence note.** Drink rows live in the same `vendor_prices` table as food rows, but the costing-ingest DELETE+INSERT sweep preserves them (any row whose `category` is a beverage). So drink prices **do NOT need to be re-imported after every `ingest:costing`** — they survive. The protection lives in `scripts/ingest-costing.mjs` (`BEVERAGE_CATEGORIES`). Full pre-DELETE snapshot of every row (food + drink) is kept in `vendor_prices_history` for trend analysis — query by `(vendor, sku)` ordered by `snapshot_at`.
 
 ## Kitchen assistant (local LLM, grounded)
 

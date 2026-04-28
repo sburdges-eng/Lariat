@@ -66,6 +66,7 @@ export default function GoldStarBoard() {
   const [reason, setReason] = useState('');
   const [starCount, setStarCount] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -98,6 +99,7 @@ export default function GoldStarBoard() {
     setSelectedCook('');
     setReason('');
     setStarCount(1);
+    setSubmitError(null);
     setIsModalOpen(true);
   }, []);
 
@@ -106,6 +108,7 @@ export default function GoldStarBoard() {
     const trimmed = reason.trim();
     if (!selectedCook || !trimmed) return;
     setSaving(true);
+    setSubmitError(null);
     try {
       const res = await fetch('/api/gold-stars', {
         method: 'POST',
@@ -116,43 +119,62 @@ export default function GoldStarBoard() {
           stars: starCount,
         }),
       });
-      const data = await res.json();
-      if (data?.ok) {
-        const todayISO = new Date().toISOString().slice(0, 10);
-        setRecognitions(prev => [
-          {
-            id: data.id,
-            name: selectedCook,
-            reason: trimmed,
-            stars: starCount,
-            awardedDate: todayISO,
-            date: formatAwardedDate(todayISO),
-          },
-          ...prev,
-        ]);
-        setViewMode('recent');
-        setIsModalOpen(false);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setSubmitError(body?.error || 'Did not save. Try again.');
+        return;
       }
+      const data = await res.json();
+      if (!data?.ok) {
+        setSubmitError(data?.error || 'Did not save. Check it and try again.');
+        return;
+      }
+      const todayISO = new Date().toISOString().slice(0, 10);
+      setRecognitions(prev => [
+        {
+          id: data.id,
+          name: selectedCook,
+          reason: trimmed,
+          stars: starCount,
+          awardedDate: todayISO,
+          date: formatAwardedDate(todayISO),
+        },
+        ...prev,
+      ]);
+      setViewMode('recent');
+      setIsModalOpen(false);
     } catch {
-      /* swallow */
+      setSubmitError('Lost connection. Try again.');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    const index = recognitions.findIndex(r => r.id === id);
-    if (index < 0) return;
-    const record = recognitions[index];
-    setRecognitions(list => list.filter(r => r.id !== id));
+    // Capture the row + its position via a functional updater so the
+    // rollback path doesn't depend on the render-time closure of
+    // `recognitions` — under rapid-fire deletes the closure value
+    // could be stale by the time this handler fires.
+    let removed: RecognitionRecord | null = null;
+    let removedAt = -1;
+    setRecognitions(list => {
+      const i = list.findIndex(r => r.id === id);
+      if (i < 0) return list;
+      removed = list[i] ?? null;
+      removedAt = i;
+      return list.filter(r => r.id !== id);
+    });
+    if (!removed) return;
     try {
       const res = await fetch(`/api/gold-stars/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('delete failed');
     } catch {
+      // Re-insert at the original index (best effort — other deletes
+      // may have reshuffled the list by the time we roll back).
       setRecognitions(list => {
         if (list.some(r => r.id === id)) return list;
         const next = list.slice();
-        next.splice(Math.min(index, next.length), 0, record);
+        next.splice(Math.min(removedAt, next.length), 0, removed as RecognitionRecord);
         return next;
       });
     }
@@ -201,7 +223,7 @@ export default function GoldStarBoard() {
               fontSize: '1rem',
             }}
           >
-            Recent Feed
+            Recent
           </button>
           <button
             onClick={() => setViewMode('leaderboard')}
@@ -276,15 +298,34 @@ export default function GoldStarBoard() {
           >
             <h3 style={{ margin: '0 0 1.5rem 0', color: '#f3f4f6', fontSize: '1.5rem', fontWeight: 600 }}>Give a Gold Star</h3>
 
+            {submitError && (
+              <div
+                role="alert"
+                style={{
+                  padding: '0.75rem 1rem', marginBottom: '1rem',
+                  backgroundColor: '#451a1a', border: '1px solid #7f1d1d',
+                  borderRadius: '0.5rem', color: '#fca5a5', fontSize: '0.9rem',
+                }}
+              >
+                {submitError}
+              </div>
+            )}
+
             <form onSubmit={submit}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#9ca3af', fontWeight: 500 }}>Who</label>
+              <label
+                htmlFor="gold-star-who"
+                style={{ display: 'block', marginBottom: '0.5rem', color: '#9ca3af', fontWeight: 500 }}
+              >
+                Who
+              </label>
               <select
+                id="gold-star-who"
                 value={selectedCook}
                 onChange={(e) => setSelectedCook(e.target.value)}
                 style={inputStyle}
                 required
               >
-                <option value="" disabled>Choose team member...</option>
+                <option value="" disabled>Pick a cook...</option>
                 {roster.map(c => (
                   <option key={c.id} value={c.name}>{c.name}</option>
                 ))}
@@ -310,8 +351,14 @@ export default function GoldStarBoard() {
                 ))}
               </div>
 
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#9ca3af', fontWeight: 500 }}>What they did</label>
+              <label
+                htmlFor="gold-star-reason"
+                style={{ display: 'block', marginBottom: '0.5rem', color: '#9ca3af', fontWeight: 500 }}
+              >
+                What they did
+              </label>
               <textarea
+                id="gold-star-reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 style={{ ...inputStyle as React.CSSProperties, minHeight: 100, resize: 'vertical' }}
@@ -325,7 +372,7 @@ export default function GoldStarBoard() {
                   onClick={() => setIsModalOpen(false)}
                   style={{ flex: 1, padding: '1rem', backgroundColor: 'transparent', border: '1px solid #4b5563', color: '#d1d5db', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 600, fontSize: '1rem' }}
                 >
-                  Cancel
+                  Go back
                 </button>
                 <button
                   type="submit"

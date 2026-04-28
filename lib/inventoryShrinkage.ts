@@ -202,9 +202,18 @@ export function resolveCookingShrinkage(
  * the default JS toString from emitting `10.666666666666666`.
  */
 export function formatDepletionDelta(raw_qty: number, unit: string | null): string {
-  const sign = -Math.abs(raw_qty);
-  const rounded = Math.round(sign * 1000) / 1000;
-  const qtyStr = rounded.toFixed(3).replace(/\.?0+$/, '') || '0';
+  const signed = -Math.abs(raw_qty);
+  const rounded = Math.round(signed * 1000) / 1000;
+  // `toFixed(3).replace(/\.?0+$/, '')` collapses 0.000 → '' which then falls
+  // through to '0' via `||`, silently dropping the negative sign. Guard the
+  // zero case explicitly so sub-millionth inputs don't masquerade as a
+  // zero-delta record.
+  let qtyStr: string;
+  if (rounded === 0) {
+    qtyStr = '0';
+  } else {
+    qtyStr = rounded.toFixed(3).replace(/\.?0+$/, '');
+  }
   const u = unit && unit.trim() ? unit.trim() : '';
   return u ? `${qtyStr} ${u}` : qtyStr;
 }

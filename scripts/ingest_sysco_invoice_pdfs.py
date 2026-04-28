@@ -576,6 +576,17 @@ def date_key(d: str) -> tuple[int, int, int]:
     return (int(yr), int(mo), int(da))
 
 
+def _to_iso_date(d: str | None) -> str | None:
+    """'M/D/YYYY' -> 'YYYY-MM-DD' for correct lexicographic ordering in SQLite."""
+    if not d:
+        return None
+    parts = d.split('/')
+    if len(parts) == 3:
+        mo, da, yr = parts
+        return f'{int(yr):04d}-{int(mo):02d}-{int(da):02d}'
+    return d
+
+
 def ensure_sysco_invoices_table(con: sqlite3.Connection) -> None:
     """DDL for sysco_invoices — the SQLite companion to vendor_summary.json.
 
@@ -642,7 +653,7 @@ def persist_sysco_items_to_sqlite(
                 sysco_supc = skus[-1] if skus else None  # SUPC is the last peeled SKU
                 rows.append({
                     'invoice_no': str(it.get('invoice', '')),
-                    'delivery_date': it.get('delivery_date') or None,
+                    'delivery_date': _to_iso_date(it.get('delivery_date')),
                     'description': str(it.get('description', '')),
                     'sku': sysco_supc,
                     'qty': int(it['qty']) if isinstance(it.get('qty'), (int, float)) else None,
@@ -887,7 +898,7 @@ def main() -> int:
 
     # Atomic write.
     tmp = CACHE.with_suffix('.json.tmp')
-    tmp.write_text(json.dumps(cache, indent=2) + '\n')
+    tmp.write_text(json.dumps(cache, indent=2, ensure_ascii=False) + '\n')
     os.replace(tmp, CACHE)
 
     # Validate: re-read.

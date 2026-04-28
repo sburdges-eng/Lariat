@@ -122,7 +122,16 @@ function load<T>(name: string): T | null {
   const mtimeMs = stat.mtimeMs;
   const cached = _mem.get(name) as CacheEntry<T> | undefined;
   if (cached && cached.mtimeMs === mtimeMs) return cached.data;
-  const data = JSON.parse(fs.readFileSync(p, 'utf8')) as T;
+  // A cache file mid-write (partial flush from an ingest run) or hand-edited
+  // into invalid JSON must not crash every page load. Every getter has a
+  // `|| {}` / `|| []` fallback, so returning null here is the safe degrade path.
+  let data: T;
+  try {
+    data = JSON.parse(fs.readFileSync(p, 'utf8')) as T;
+  } catch (err) {
+    console.error(`lib/data: failed to parse ${name} (serving empty fallback):`, err);
+    return null;
+  }
   _mem.set(name, { mtimeMs, data });
   return data;
 }
@@ -168,6 +177,45 @@ export function getLaborSummary(): LaborSummary | null {
 
 export function getAllergenMatrix(): AllergenMatrix {
   return load<AllergenMatrix>('allergen_matrix.json') || {};
+}
+
+export function getClosings(): Record<string, string[]> {
+  return load<Record<string, string[]>>('closings.json') || {};
+}
+
+export interface WeeklyPrep {
+  by_day: Record<string, string[]>;
+  by_category: Record<string, string[]>;
+}
+
+export function getWeeklyPrep(): WeeklyPrep {
+  return load<WeeklyPrep>('weekly_prep.json') || { by_day: {}, by_category: {} };
+}
+
+export interface CateringMenuItem {
+  category: string;
+  name: string;
+  cost: number;
+}
+
+export function getCateringMenu(): CateringMenuItem[] {
+  return load<CateringMenuItem[]>('catering_menu.json') || [];
+}
+
+export interface OrderGuideItem {
+  supc: string;
+  description: string;
+  pack_size: string | null;
+  brand: string | null;
+  unit: string | null;
+  category: string | null;
+  location: string | null;
+  par: string | null;
+}
+
+export function getOrderGuide(): OrderGuideItem[] {
+  const wrapped = load<{ items?: OrderGuideItem[] }>('order_guide.json');
+  return wrapped?.items || [];
 }
 
 export function getStation(id: string): Station | null {
