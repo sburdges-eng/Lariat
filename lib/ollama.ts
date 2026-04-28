@@ -3,7 +3,7 @@
  */
 
 const DEFAULT_BASE = process.env.LARIAT_OLLAMA_URL || 'http://127.0.0.1:11434';
-const DEFAULT_MODEL = process.env.LARIAT_OLLAMA_MODEL || 'gemma2:2b';
+const DEFAULT_MODEL = process.env.LARIAT_OLLAMA_MODEL || 'lari-the-kitchen-assistant';
 const DEFAULT_TIMEOUT_MS = Math.min(
   120000,
   Math.max(5000, parseInt(process.env.LARIAT_OLLAMA_TIMEOUT_MS || '45000', 10) || 45000)
@@ -105,7 +105,6 @@ export interface OllamaConfig {
   baseUrl: string;
   model: string;
   timeoutMs: number;
-  enabled: boolean;
 }
 
 // ── API ────────────────────────────────────────────────────────────
@@ -137,6 +136,12 @@ export async function ollamaChat(opts: OllamaChatOpts): Promise<OllamaChatResult
       body: JSON.stringify({
         model,
         stream: false,
+        // DeepSeek R1 and other thinking-capable models route reasoning into a
+        // separate `thinking` channel that consumes num_predict before any
+        // visible content is emitted. LaRi's grounded prompts and JSON
+        // action contracts need deterministic short replies, so always
+        // disable thinking. Models without thinking ignore this flag.
+        think: false,
         messages: opts.messages,
         options: {
           temperature,
@@ -163,19 +168,11 @@ export async function ollamaChat(opts: OllamaChatOpts): Promise<OllamaChatResult
   }
 }
 
-export function assistantEnabled(): boolean {
-  const v = process.env.LARIAT_ASSISTANT_ENABLED;
-  if (!v) return false;
-  const s = String(v).toLowerCase();
-  return s === '1' || s === 'true' || s === 'yes';
-}
-
 export function getOllamaConfig(): OllamaConfig {
   return {
     baseUrl: DEFAULT_BASE,
     model: process.env.LARIAT_OLLAMA_MODEL || DEFAULT_MODEL,
     timeoutMs: DEFAULT_TIMEOUT_MS,
-    enabled: assistantEnabled(),
   };
 }
 

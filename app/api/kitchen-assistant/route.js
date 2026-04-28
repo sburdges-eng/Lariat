@@ -16,6 +16,7 @@ import {
 import { validateReceivingReading, dbStatusFor } from '../../../lib/receiving';
 import { validateTempReading, getTempPoint } from '../../../lib/tempLog';
 import { normalizeUnit } from '../../../lib/unitConvert.mjs';
+import { isImperativeCommand } from '../../../lib/cookMessageClassifier';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -113,20 +114,21 @@ export async function POST(req) {
     return Response.json({ error: 'Failed to load kitchen context' }, { status: 500 });
   }
 
-  let userContent = `CONTEXT (authoritative — only use these facts for operational claims):\n\n${contextText}\n\n---\nCOOK QUESTION:\n${message}`;
-  
+  // Q-vs-C routing happens here in deterministic code, not in the LLM.
+  // Models can misread sentences containing "86" as commands when they do
+  // the routing in-prompt — see lib/cookMessageClassifier.ts.
+  const isCommand = isImperativeCommand(message);
+
+  let userContent = `CONTEXT (authoritative — only use these facts for operational claims):\n\n${contextText}\n\n---\nCOOK MESSAGE:\n${message}`;
+
   if (body.language && body.language !== 'English') {
-    userContent += `\n\nTRANSLATION DIRECTIVE: You MUST answer the cook's question entirely in ${body.language}. Ensure you use accurate culinary terms and maintain the requested formatting.`;
+    userContent += `\n\nTRANSLATION DIRECTIVE: You MUST answer the cook entirely in ${body.language}. Ensure you use accurate culinary terms and maintain the requested formatting.`;
   }
-  
-  userContent += `\n\nACTION ENGINE DIRECTIVE:
 
-QUESTIONS vs COMMANDS — read this first:
-- If the cook is ASKING something (how many, what is, is there, where, when, why, do we have, can I…) → answer with plain prose ONLY. Do NOT emit any JSON block.
-- Only emit a JSON action block when the cook issues an IMPERATIVE COMMAND to change state (e.g. "86 the salmon", "log 5 lb of carrots received", "mark the walk-in broken", "give Jenny a gold star").
-- When in doubt whether it's a question or a command, treat it as a question.
+  if (isCommand) {
+    userContent += `\n\nACTION ENGINE DIRECTIVE:
 
-If and only if it is a command, begin your response with a single fenced JSON block using exactly this format:
+The cook has issued an imperative command to change kitchen state. Begin your response with a single fenced JSON block using exactly this format:
 \`\`\`json
 { ... }
 \`\`\`
@@ -145,6 +147,13 @@ Schemas (use exactly one):
 - Generate Prep: { "action": "generate_prep", "station": "Station Name", "tasks": [{ "item": "Name", "need": "short velocity rationale", "recipe_slug": "slug", "multiplier": Number }] } — when a task maps to a recipe, supply recipe_slug + multiplier; the server expands leaves via the calculator. The "need" field is optional context, NOT a computed quantity.
 
 ARITHMETIC & VALIDATION RULE: The server runs a deterministic calculator and FDA rules engine. NEVER compute ingredient totals in-token, and NEVER compute if a temperature passes or fails FDA rules. Your job is to extract the raw numbers (multiplier, reading_f, delta) for the server to process.`;
+  } else {
+    userContent += `\n\nANSWER FORMAT:
+
+This is a question, not a command. Answer with plain prose only — bullets are fine. NEVER emit a JSON action block.
+
+In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like "what's 86?", "is X 86 today?", or "anything 86?" as inventory inquiries — not commands. Cite what the CONTEXT shows on the 86 board, or say nothing is 86 if it's empty.`;
+  }
 
   try {
     const { content, model } = await ollamaChat({
@@ -160,7 +169,18 @@ ARITHMETIC & VALIDATION RULE: The server runs a deterministic calculator and FDA
     const { payload, stripped } = extractAction(content);
     let finalAnswer = stripped || content;
 
-    if (payload) {
+    // Hard-block action execution on the question path. The classifier
+    // already told the LLM not to emit JSON, but if it does anyway
+    // (hallucination, locale drift), we must not write to regulated
+    // state — strip the JSON to plain text and continue as prose. If
+    // the LLM emitted *only* a JSON block (stripped is empty), fall
+    // back to a neutral apology rather than leaking the raw JSON.
+    if (payload && !isCommand) {
+      finalAnswer = stripped
+        ? stripped
+        : "Sorry — I couldn't put that together as an answer. Could you rephrase?";
+    }
+    if (payload && isCommand) {
       try {
         const db = getDb();
 

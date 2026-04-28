@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import PrepHistoryPanel from './PrepHistoryPanel';
 
 /* ── formatting helpers ───────────────────────────────────────── */
 
@@ -224,8 +225,14 @@ export default function BeoBoard({ initialMenu = [] }) {
             />
           </div>
 
-          {/* ───── RIGHT: expandable menu (add button per item) ───── */}
-          <MenuPanel menu={menu} onPick={(item) => addLine(openEvent.id, item)} />
+          {/* ───── RIGHT: stacked menu picker + past-prep reference ───── */}
+          <div className="beo-rail">
+            <MenuPanel menu={menu} onPick={(item) => addLine(openEvent.id, item)} />
+            <PrepHistoryPanel
+              itemNames={lineItems.map((l) => l.item_name)}
+              location={openEvent.location_id}
+            />
+          </div>
         </div>
       )}
     </div>
