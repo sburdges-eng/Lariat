@@ -347,12 +347,6 @@ export interface PointSummary {
   last_reading_at: string | null;
 }
 
-function normalizeNoteField(x: unknown): string | null {
-  if (typeof x !== 'string') return null;
-  const trimmed = x.trim();
-  return trimmed.length === 0 ? null : trimmed;
-}
-
 /**
  * Pick the "newer" of two readings for the `last_reading_*` fields.
  * `created_at` is an ISO string from sqlite — lexicographic comparison
@@ -420,7 +414,7 @@ export function classifyReadings(
         continue;
       }
       // out_of_range — split on whether a note was recorded
-      const note = normalizeNoteField(r.corrective_action);
+      const note = normalizeCorrectiveAction(r.corrective_action);
       if (note) corrective += 1;
       else critical += 1;
     }
