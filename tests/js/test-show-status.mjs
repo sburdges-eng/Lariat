@@ -49,18 +49,21 @@ test('statusColor: unknown value → green (Approach 1: never red on novelty)', 
   });
 });
 
-test('pipelineStage: exhaustive — every fixture row maps to a known stage', () => {
+test('pipelineStage: every fixture row maps to its expected stage', () => {
+  // Each fixture: [row, showIsPast, expected stage].
   const fixtures = [
-    {}, // all empty → Inquiry
-    { announce_date: 'y' }, // announced → Hold
-    { announce_date: 'y', meta_ads: 'y' }, // marketing started → Offer Out
-    { announce_date: 'y', meta_ads: 'y', fb_event: 'y', assets: 'y' }, // → Confirmed
-    { announce_date: 'y', meta_ads: 'y', fb_event: 'y', create_dice_tickets: 'y' }, // → On Sale
-    { create_dice_tickets: 'y', dice_email: 'tix, dos' }, // → Settled
+    [{}, false, 'Inquiry'],
+    [{ announce_date: 'y' }, false, 'Hold'],
+    [{ announce_date: 'y', meta_ads: 'y' }, false, 'Offer Out'],
+    [{ announce_date: 'y', meta_ads: 'y', fb_event: 'y', assets: 'y' }, false, 'Confirmed'],
+    [{ announce_date: 'y', meta_ads: 'y', fb_event: 'y', create_dice_tickets: 'y' }, false, 'On Sale'],
+    // Settled requires showIsPast=true; without it, ticketed rows stay On Sale.
+    [{ create_dice_tickets: 'y', dice_email: 'tix, dos' }, true, 'Settled'],
   ];
-  for (const f of fixtures) {
-    const stage = pipelineStage(f);
+  for (const [f, past, expected] of fixtures) {
+    const stage = pipelineStage(f, past);
     assert.ok(KNOWN_STAGES.includes(stage), `${stage} not in KNOWN_STAGES`);
+    assert.equal(stage, expected, `fixture ${JSON.stringify(f)} (past=${past})`);
   }
 });
 
