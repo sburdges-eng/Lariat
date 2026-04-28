@@ -331,3 +331,195 @@ export function listPriceSeries(
     )
     .all(location_id, vendor, sku, limit) as PriceSeriesRow[];
 }
+
+/**
+ * Options for {@link listPriceShocks}.
+ *
+ * windowDays: how far back to compare against (default 7, clamps to [1, 90]).
+ *             We pick the EARLIEST snapshot inside the window as the
+ *             baseline ("price one week ago") and compare to the LATEST
+ *             snapshot in vendor_prices_history. Operators are typically
+ *             watching for "what changed since Monday" — the inside-window
+ *             baseline matches that mental model better than min/max.
+ *
+ * minPctMove: only return rows whose absolute % change ≥ this value.
+ *             Default 5. Clamps to [0, 1000].
+ *
+ * limit:      cap on returned rows (default 50, clamps to [1, 500]).
+ *             Sorted by absolute % change DESC, so the cap drops the
+ *             smallest movers first.
+ */
+export type PriceShockOptions = {
+  location_id?: string;
+  windowDays?: number;
+  minPctMove?: number;
+  limit?: number;
+};
+
+/**
+ * One row in the price-shock list: a vendor SKU whose unit_price moved
+ * by more than minPctMove inside the lookback window.
+ */
+export type PriceShockRow = {
+  vendor: string;
+  sku: string;
+  ingredient: string;
+  category: string | null;
+  baseline_unit_price: number;
+  baseline_at: string;
+  latest_unit_price: number;
+  latest_at: string;
+  delta_pct: number;
+  direction: 'up' | 'down';
+};
+
+/**
+ * Rank vendor SKUs by absolute price change over a lookback window.
+ *
+ * Inputs collapse to:
+ *   baseline = oldest snapshot inside [now - windowDays, now]
+ *   latest   = newest snapshot in vendor_prices_history (no upper bound —
+ *              if a SKU moved today and the previous snapshot was 6 days
+ *              ago, that's a 6-day shock, not 7)
+ *   delta_pct = (latest - baseline) / baseline × 100
+ *
+ * Rows where baseline_unit_price is null/zero are skipped (can't
+ * compute %). SKUs with only a single snapshot in the window are
+ * skipped (no comparison possible). Beverage / category-preserved
+ * SKUs flow through unchanged — the caller can filter by `category`
+ * if they want to scope to food-only.
+ *
+ * Returned rows are not deduped on (vendor, sku, ingredient). In
+ * practice the natural key (vendor, sku, location_id) is unique in
+ * vendor_prices, but vendor_prices_history can have multiple ingredient
+ * spellings if the upstream catalog renamed mid-stream — surface them
+ * separately rather than silently picking one.
+ */
+export function listPriceShocks(
+  db: DB,
+  opts: PriceShockOptions = {},
+): PriceShockRow[] {
+  const location_id =
+    typeof opts.location_id === 'string' && opts.location_id.trim()
+      ? opts.location_id.trim()
+      : 'default';
+
+  const rawWindow = Number(opts.windowDays);
+  const windowDays =
+    Number.isFinite(rawWindow) && rawWindow > 0
+      ? Math.min(90, Math.max(1, Math.floor(rawWindow)))
+      : 7;
+
+  const rawMin = Number(opts.minPctMove);
+  const minPctMove =
+    Number.isFinite(rawMin) && rawMin >= 0
+      ? Math.min(1000, rawMin)
+      : 5;
+
+  const rawLimit = Number(opts.limit);
+  const limit =
+    Number.isFinite(rawLimit) && rawLimit > 0
+      ? Math.min(500, Math.floor(rawLimit))
+      : 50;
+
+  // SQLite datetime arithmetic: snapshot_at >= datetime('now', '-Nd days').
+  // We bind the days literal as part of the modifier string.
+  const sinceModifier = `-${windowDays} days`;
+
+  // Two passes: collect baseline (oldest in window) + latest per
+  // (vendor, sku, ingredient), then compute delta in JS. Doing this in
+  // pure SQL with two correlated subqueries works but is hard to read;
+  // history tables here cap at <100k rows in practice so the JS pass
+  // is cheap.
+  const rows = db
+    .prepare(
+      `SELECT vendor, sku, ingredient, category,
+              snapshot_at, unit_price
+         FROM vendor_prices_history
+        WHERE location_id = ?
+          AND snapshot_at >= datetime('now', ?)
+          AND vendor IS NOT NULL
+          AND sku IS NOT NULL
+          AND unit_price IS NOT NULL
+        ORDER BY vendor, sku, ingredient, snapshot_at ASC, id ASC`,
+    )
+    .all(location_id, sinceModifier) as Array<{
+    vendor: string;
+    sku: string;
+    ingredient: string;
+    category: string | null;
+    snapshot_at: string;
+    unit_price: number;
+  }>;
+
+  type Group = {
+    vendor: string;
+    sku: string;
+    ingredient: string;
+    category: string | null;
+    baseline_unit_price: number | null;
+    baseline_at: string | null;
+    latest_unit_price: number | null;
+    latest_at: string | null;
+  };
+
+  const groups = new Map<string, Group>();
+  for (const r of rows) {
+    const key = `${r.vendor}|${r.sku}|${r.ingredient}`;
+    let g = groups.get(key);
+    if (!g) {
+      g = {
+        vendor: r.vendor,
+        sku: r.sku,
+        ingredient: r.ingredient,
+        category: r.category,
+        baseline_unit_price: null,
+        baseline_at: null,
+        latest_unit_price: null,
+        latest_at: null,
+      };
+      groups.set(key, g);
+    }
+    if (g.baseline_at == null) {
+      g.baseline_unit_price = r.unit_price;
+      g.baseline_at = r.snapshot_at;
+    }
+    g.latest_unit_price = r.unit_price;
+    g.latest_at = r.snapshot_at;
+    // category may have been null on the first row but populated later;
+    // keep the most recent non-null.
+    if (r.category != null) g.category = r.category;
+  }
+
+  const out: PriceShockRow[] = [];
+  for (const g of groups.values()) {
+    if (
+      g.baseline_unit_price == null ||
+      g.latest_unit_price == null ||
+      g.baseline_at == null ||
+      g.latest_at == null ||
+      g.baseline_at === g.latest_at ||
+      g.baseline_unit_price <= 0
+    ) {
+      continue;
+    }
+    const delta_pct =
+      ((g.latest_unit_price - g.baseline_unit_price) / g.baseline_unit_price) * 100;
+    if (Math.abs(delta_pct) < minPctMove) continue;
+    out.push({
+      vendor: g.vendor,
+      sku: g.sku,
+      ingredient: g.ingredient,
+      category: g.category,
+      baseline_unit_price: g.baseline_unit_price,
+      baseline_at: g.baseline_at,
+      latest_unit_price: g.latest_unit_price,
+      latest_at: g.latest_at,
+      delta_pct,
+      direction: delta_pct > 0 ? 'up' : 'down',
+    });
+  }
+
+  out.sort((a, b) => Math.abs(b.delta_pct) - Math.abs(a.delta_pct));
+  return out.slice(0, limit);
+}
