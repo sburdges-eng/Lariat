@@ -176,6 +176,106 @@ export function createSoundScene(
   return tx();
 }
 
+export interface UpdateSoundScenePatch {
+  scene_name?: string;
+  plot?: SoundPlot;
+  spl_limit_db?: number | null;
+  notes?: string | null;
+  saved_by_cook_id?: string | null;
+}
+
+export function updateSoundScene(
+  db: Database,
+  id: number,
+  location_id: string,
+  patch: UpdateSoundScenePatch,
+): SoundScene {
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error('id must be a positive integer');
+  }
+  if (patch.scene_name !== undefined && !patch.scene_name.trim()) {
+    throw new Error('scene_name cannot be empty');
+  }
+
+  const tx = db.transaction((): SoundScene => {
+    const existing = db
+      .prepare(`SELECT * FROM sound_scenes WHERE id = ? AND location_id = ?`)
+      .get(id, location_id) as RawSceneRow | undefined;
+    if (!existing) throw new Error('NotFound');
+
+    const next = {
+      scene_name: patch.scene_name !== undefined ? patch.scene_name.trim() : existing.scene_name,
+      plot_json: patch.plot !== undefined
+        ? JSON.stringify(patch.plot)
+        : existing.plot_json,
+      spl_limit_db: patch.spl_limit_db !== undefined ? patch.spl_limit_db : existing.spl_limit_db,
+      notes: patch.notes !== undefined ? patch.notes : existing.notes,
+      saved_by_cook_id: patch.saved_by_cook_id !== undefined
+        ? patch.saved_by_cook_id
+        : existing.saved_by_cook_id,
+    };
+
+    db.prepare(
+      `UPDATE sound_scenes
+          SET scene_name = ?, plot_json = ?, spl_limit_db = ?, notes = ?,
+              saved_by_cook_id = ?, saved_at = datetime('now')
+        WHERE id = ? AND location_id = ?`,
+    ).run(
+      next.scene_name,
+      next.plot_json,
+      next.spl_limit_db,
+      next.notes,
+      next.saved_by_cook_id,
+      id,
+      location_id,
+    );
+
+    const row = db
+      .prepare(`SELECT * FROM sound_scenes WHERE id = ?`)
+      .get(id) as RawSceneRow;
+
+    logAuditAction({
+      action: 'sound_scene_updated',
+      scene_id: id,
+      show_id: row.show_id,
+      location_id,
+      scene_name: row.scene_name,
+      saved_by_cook_id: next.saved_by_cook_id,
+    });
+    return rowToScene(row);
+  });
+  return tx();
+}
+
+export function deleteSoundScene(
+  db: Database,
+  id: number,
+  location_id: string,
+): boolean {
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error('id must be a positive integer');
+  }
+
+  const tx = db.transaction((): boolean => {
+    const existing = db
+      .prepare(`SELECT id, show_id, scene_name FROM sound_scenes WHERE id = ? AND location_id = ?`)
+      .get(id, location_id) as { id: number; show_id: number; scene_name: string } | undefined;
+    if (!existing) throw new Error('NotFound');
+
+    db.prepare(`DELETE FROM sound_scenes WHERE id = ? AND location_id = ?`).run(id, location_id);
+
+    logAuditAction({
+      action: 'sound_scene_deleted',
+      scene_id: id,
+      show_id: existing.show_id,
+      location_id,
+      scene_name: existing.scene_name,
+    });
+    return true;
+  });
+  return tx();
+}
+
 // ── Completeness signal (parallel to stageCompleteness) ───────────
 
 export interface SoundCompleteness {
