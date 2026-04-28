@@ -143,6 +143,17 @@ describe('listDepletionExceptions', () => {
     assert.equal(out.length, 2);
   });
 
+  it('applies the limit after filtering out resolved dishes', () => {
+    seedMappedDish();
+    seedSale('Baja Taco', 10, 1000);
+    seedSale('Mystery Plate', 1, 10);
+
+    const out = listDepletionExceptions(db, { location_id: 'default', limit: 1 });
+
+    assert.equal(out.length, 1);
+    assert.equal(out[0].dish_name, 'Mystery Plate');
+  });
+
   it('flags recipe_missing_yield when sub-recipe has no yield', () => {
     db.prepare(
       `INSERT INTO dish_components

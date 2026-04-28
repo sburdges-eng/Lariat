@@ -97,9 +97,7 @@ export function listDepletionExceptions(
      GROUP BY item_name
      ORDER BY COALESCE(total_net_sales, 0) DESC,
               total_quantity_sold DESC
-     LIMIT ?
   `;
-  params.push(limit);
 
   const rows = db.prepare(aggSql).all(...params) as SalesAggRow[];
 
@@ -126,6 +124,7 @@ export function listDepletionExceptions(
         ? r.sample_period_labels.split(',').slice(0, 5)
         : [],
     });
+    if (exceptions.length >= limit) break;
   }
   return exceptions;
 }

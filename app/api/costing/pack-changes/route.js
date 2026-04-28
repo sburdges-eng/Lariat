@@ -13,6 +13,7 @@ import {
   listPackChanges,
   unacknowledgedCount,
   acknowledgePackChange,
+  getPackChangeById,
 } from '../../../../lib/packChangesRepo';
 import { logAuditAction } from '../../../../lib/auditLog.mjs';
 
@@ -83,24 +84,36 @@ export async function POST(req) {
 
   try {
     const db = getDb();
-    const result = acknowledgePackChange(db, id);
-    if (!result.found) {
+    const existing = getPackChangeById(db, id);
+    if (!existing) {
       return Response.json(
         { error: 'pack_size_changes row not found', id },
         { status: 404 },
       );
     }
-    if (!result.was_already_acknowledged) {
+
+    const wasAlreadyAcknowledged = existing.acknowledged === 1;
+    const result = db.transaction(() => {
+      if (wasAlreadyAcknowledged) {
+        return {
+          found: true,
+          was_already_acknowledged: true,
+          acknowledged: 1,
+          row: existing,
+        };
+      }
       logAuditAction({
         action: 'pack_size_change_acknowledged',
         pack_size_changes_id: id,
-        vendor: result.row?.vendor ?? null,
-        sku: result.row?.sku ?? null,
-        prev_pack: result.row?.prev_pack ?? null,
-        new_pack: result.row?.new_pack ?? null,
+        vendor: existing.vendor,
+        sku: existing.sku,
+        prev_pack: existing.prev_pack,
+        new_pack: existing.new_pack,
         note,
       });
-    }
+      return acknowledgePackChange(db, id);
+    })();
+
     return Response.json({
       id,
       acknowledged: 1,

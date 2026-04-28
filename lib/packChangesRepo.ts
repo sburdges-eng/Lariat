@@ -127,6 +127,17 @@ export interface AcknowledgeResult {
   row: PackSizeChange | null;
 }
 
+export function getPackChangeById(
+  db: Database,
+  id: number,
+): PackSizeChange | null {
+  return (
+    db
+      .prepare(`SELECT * FROM pack_size_changes WHERE id = ?`)
+      .get(id) as PackSizeChange | undefined
+  ) ?? null;
+}
+
 /**
  * Mark one pack_size_changes row as acknowledged. Idempotent — a second
  * call on the same id returns `was_already_acknowledged=true` without
@@ -137,9 +148,7 @@ export function acknowledgePackChange(
   db: Database,
   id: number,
 ): AcknowledgeResult {
-  const row = db
-    .prepare(`SELECT * FROM pack_size_changes WHERE id = ?`)
-    .get(id) as PackSizeChange | undefined;
+  const row = getPackChangeById(db, id) ?? undefined;
   if (!row) {
     return {
       found: false,

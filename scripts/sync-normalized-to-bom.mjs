@@ -89,6 +89,24 @@ function looksLikeSubRecipe(notes) {
   return /\bsub[\s_-]?recipe\b/.test(n) || /\bvia\s+[a-z0-9_]+\.csv\b/.test(n);
 }
 
+function refreshRecipeFields(db, recipe) {
+  db.prepare(
+    `UPDATE entities_recipes
+        SET display_name = ?,
+            yield_qty = ?,
+            yield_unit = ?,
+            category = ?
+      WHERE slug = ? AND location_id = ?`,
+  ).run(
+    recipe.display_name,
+    recipe.yield_qty,
+    recipe.yield_unit,
+    recipe.category,
+    recipe.slug,
+    recipe.location_id,
+  );
+}
+
 // ── Core sync function ─────────────────────────────────────────────
 //
 // Pure-ish: takes a DB handle + already-parsed inputs. Splitting parsing
@@ -146,7 +164,7 @@ export function syncNormalizedRecipes(db, opts) {
         if (!dryRun) {
           const yieldQty = Number.parseFloat(row.yield);
           const yieldUnit = (row.yield_unit || '').trim() || null;
-          resolveRecipe(db, {
+          const recipe = {
             source_system: 'manual',
             external_id: slug,
             slug,
@@ -155,7 +173,9 @@ export function syncNormalizedRecipes(db, opts) {
             yield_unit: yieldUnit,
             category: (row.category || '').trim() || null,
             location_id: locationId,
-          });
+          };
+          resolveRecipe(db, recipe);
+          refreshRecipeFields(db, recipe);
           summary.recipes_upserted++;
 
           delBomForRecipe.run(slug, locationId);

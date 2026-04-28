@@ -255,7 +255,11 @@
         "unit": "cup"
       }
     ],
-    "procedure": "Disperse vodka/stout mix into bowl. Incorporate equal parts flour gradually into bowl (DRY YOUR WET). Whisk until consistency is smooth and runs off whisk (no clumping/dripping).",
+    "procedure": [
+      "Disperse vodka/stout mix into bowl.",
+      "Incorporate equal parts flour gradually into bowl (DRY YOUR WET).",
+      "Whisk until consistency is smooth and runs off whisk (no clumping/dripping)."
+    ],
     "allergens": [
       "wheat"
     ],
@@ -1747,7 +1751,9 @@
       "soybeans"
     ],
     "source": "official_book_2026-04-18",
-    "procedure": "Combine ingredients.",
+    "procedure": [
+      "Combine ingredients."
+    ],
     "category": "side",
     "yield_qty": 5,
     "yield_unit": "lb",
@@ -1785,7 +1791,11 @@
         "unit": "cup"
       }
     ],
-    "procedure": "Whisk miso, honey, and water together until smooth. PDF p37 source is ambiguous on line 2 ingredient name — honey inferred from recipe title. Verify in kitchen.",
+    "procedure": [
+      "Whisk miso, honey, and water together until smooth.",
+      "PDF p37 source is ambiguous on line 2 ingredient name — honey inferred from recipe title.",
+      "Verify in kitchen."
+    ],
     "slug": "miso_honey",
     "source": "official_book_2026-04-18",
     "allergens": [
@@ -2844,7 +2854,16 @@
       "milk"
     ],
     "source": "official_book_2026-04-18",
-    "procedure": "In a heavy pot or rondeau over medium heat, melt butter.\nAdd onions and a pinch of salt; cook 8-10 minutes, stirring, until translucent and tender.\nAdd garlic and cook 30 seconds more, just until fragrant.\nAdd white wine and thyme sprigs.\nSimmer 5-6 minutes, reducing the wine by about one-third.\nStir in stock.\nSimmer gently for 15-20 minutes.\nStir in heavy cream; reduce heat to low. Season with salt and pepper.",
+    "procedure": [
+      "In a heavy pot or rondeau over medium heat, melt butter.",
+      "Add onions and a pinch of salt; cook 8-10 minutes, stirring, until translucent and tender.",
+      "Add garlic and cook 30 seconds more, just until fragrant.",
+      "Add white wine and thyme sprigs.",
+      "Simmer 5-6 minutes, reducing the wine by about one-third.",
+      "Stir in stock.",
+      "Simmer gently for 15-20 minutes.",
+      "Stir in heavy cream; reduce heat to low. Season with salt and pepper."
+    ],
     "category": "soup",
     "yield_qty": 4,
     "yield_unit": "qt",
@@ -2999,7 +3018,6 @@
     ],
     "procedure": [],
     "allergens": [
-      "eggs",
       "milk",
       "wheat"
     ],
@@ -3076,7 +3094,8 @@
     ],
     "procedure": [],
     "allergens": [
-      "milk"
+      "milk",
+      "wheat"
     ],
     "source": "recipe_index",
     "category": "appetizer",
@@ -3088,7 +3107,8 @@
     ],
     "notes": "Ciliegine + cherry tomato + basil + prosciutto on 6in bamboo skewer",
     "direct_allergens": [
-      "milk"
+      "milk",
+      "wheat"
     ]
   },
   {
@@ -3233,7 +3253,8 @@
     ],
     "procedure": [],
     "allergens": [
-      "milk"
+      "milk",
+      "wheat"
     ],
     "source": "recipe_index",
     "category": "dessert",
@@ -3425,7 +3446,8 @@
     ],
     "procedure": [],
     "allergens": [
-      "milk"
+      "milk",
+      "wheat"
     ],
     "source": "recipe_index",
     "category": "appetizer",
@@ -3437,7 +3459,8 @@
     ],
     "notes": "Vendor whole-buy composition — cheeses + cured meats + bread + fruit + olive",
     "direct_allergens": [
-      "milk"
+      "milk",
+      "wheat"
     ]
   },
   {
@@ -3477,8 +3500,7 @@
     ],
     "procedure": [],
     "allergens": [
-      "eggs",
-      "milk"
+      "eggs"
     ],
     "source": "recipe_index",
     "category": "appetizer",
@@ -3490,8 +3512,7 @@
     ],
     "notes": "Sysco hardboiled eggs + house seasoning (mayo/mustard/paprika) — refine to house formula",
     "direct_allergens": [
-      "eggs",
-      "milk"
+      "eggs"
     ]
   },
   {
@@ -3835,7 +3856,6 @@
     ],
     "notes": "Wired to existing in-house sub-recipes — chef confirm cover counts + bread/salad",
     "direct_allergens": [
-      "eggs",
       "milk",
       "wheat"
     ]
@@ -4131,7 +4151,8 @@
     "procedure": [],
     "allergens": [
       "eggs",
-      "milk"
+      "milk",
+      "wheat"
     ],
     "source": "recipe_index",
     "category": "appetizer",
@@ -4143,8 +4164,8 @@
     ],
     "notes": "In-house — seared tenderloin + crostini + horseradish cream + arugula",
     "direct_allergens": [
-      "eggs",
-      "milk"
+      "milk",
+      "wheat"
     ]
   }
 ]

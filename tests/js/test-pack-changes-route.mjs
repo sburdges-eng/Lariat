@@ -10,6 +10,7 @@ import { register } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { chmodSync } from 'node:fs';
 
 register(new URL('./resolver.mjs', import.meta.url));
 
@@ -160,6 +161,24 @@ describe('POST /api/costing/pack-changes (acknowledge)', () => {
     assert.equal(entry.action, 'pack_size_change_acknowledged');
     assert.equal(entry.pack_size_changes_id, id);
     assert.equal(entry.note, 'Confirmed pack swap with Sysco rep');
+  });
+
+  it('does not acknowledge when the audit log write fails', async () => {
+    const id = seedChange({ sku: 'A' });
+    const auditDir = path.dirname(auditFile);
+    fs.mkdirSync(auditDir, { recursive: true });
+    chmodSync(auditDir, 0o500);
+    try {
+      const res = await POST(postReq({ id, note: 'audit path blocked' }));
+      assert.equal(res.status, 500);
+
+      const persisted = db.prepare(
+        'SELECT acknowledged FROM pack_size_changes WHERE id = ?',
+      ).get(id);
+      assert.equal(persisted.acknowledged, 0);
+    } finally {
+      chmodSync(auditDir, 0o700);
+    }
   });
 
   it('idempotent — second acknowledge does not double-audit', async () => {

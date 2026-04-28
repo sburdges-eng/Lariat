@@ -2427,7 +2427,9 @@
     },
     {
       "ingredient": "crackers or baguette",
-      "big9": [],
+      "big9": [
+        "wheat"
+      ],
       "notes": ""
     },
     {
@@ -2473,9 +2475,7 @@
     },
     {
       "ingredient": "pepper",
-      "big9": [
-        "milk"
-      ],
+      "big9": [],
       "notes": ""
     }
   ],
@@ -2729,8 +2729,7 @@
     {
       "ingredient": "parmesan reggiano",
       "big9": [
-        "milk",
-        "eggs"
+        "milk"
       ],
       "notes": ""
     }
@@ -2893,7 +2892,9 @@
     },
     {
       "ingredient": "baguette",
-      "big9": [],
+      "big9": [
+        "wheat"
+      ],
       "notes": ""
     },
     {
@@ -2958,8 +2959,7 @@
     {
       "ingredient": "parmesan reggiano",
       "big9": [
-        "milk",
-        "eggs"
+        "milk"
       ],
       "notes": ""
     }

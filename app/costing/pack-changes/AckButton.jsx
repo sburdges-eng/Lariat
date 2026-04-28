@@ -23,6 +23,7 @@ export default function AckButton({ id }) {
       'Optional note for the audit log (e.g. "Confirmed pack swap with Sysco rep"):',
       '',
     );
+    if (note === null) return;
     setBusy(true);
     setError(null);
     try {

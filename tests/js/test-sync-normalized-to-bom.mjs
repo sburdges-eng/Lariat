@@ -200,6 +200,40 @@ describe('syncNormalizedRecipes — apply mode', () => {
     assert.equal(erCount, 1);
   });
 
+  it('refreshes existing recipe metadata when recipe_index.csv changes', () => {
+    const csvByRecipeId = new Map([
+      ['gazpacho', [ingRow({ ingredient: 'tomato', qty: '6', unit: 'lb' })]],
+    ]);
+
+    call({
+      indexRows: [indexRow()],
+      csvByRecipeId,
+    });
+    call({
+      indexRows: [
+        indexRow({
+          recipe_name: 'Late Summer Gazpacho',
+          category: 'chilled soup',
+          yield: '6',
+          yield_unit: 'quart',
+        }),
+      ],
+      csvByRecipeId,
+    });
+
+    const er = db.prepare(`
+      SELECT display_name, yield_qty, yield_unit, category
+        FROM entities_recipes
+       WHERE slug='gazpacho'
+    `).get();
+    assert.deepEqual(er, {
+      display_name: 'Late Summer Gazpacho',
+      yield_qty: 6,
+      yield_unit: 'quart',
+      category: 'chilled soup',
+    });
+  });
+
   it('refreshes bom_lines on edit — row count updates, no orphans', () => {
     const indexRows = [indexRow()];
     const v1 = new Map([['gazpacho', [
