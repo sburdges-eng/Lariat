@@ -16,6 +16,7 @@ import { register } from 'node:module';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import Database from 'better-sqlite3';
 
 register(new URL('./resolver.mjs', import.meta.url));
 
@@ -40,6 +41,28 @@ beforeEach(() => {
     'DELETE FROM inventory_count_lines; DELETE FROM inventory_counts;',
   );
 });
+
+function createLegacyNullableSkuCountLinesTable(dbConn) {
+  dbConn.exec(`
+    DROP TABLE IF EXISTS inventory_count_lines;
+    CREATE TABLE inventory_count_lines (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      count_id INTEGER NOT NULL REFERENCES inventory_counts(id) ON DELETE CASCADE,
+      vendor TEXT,
+      ingredient TEXT NOT NULL,
+      sku TEXT,
+      on_hand_qty REAL,
+      unit TEXT,
+      par_qty REAL,
+      par_unit TEXT,
+      note TEXT,
+      counted_by TEXT,
+      counted_at TEXT DEFAULT (datetime('now')),
+      location_id TEXT NOT NULL DEFAULT 'default',
+      UNIQUE(count_id, ingredient, sku)
+    );
+  `);
+}
 
 function postCounts(body) {
   return countsRoute.POST(new Request('http://localhost/api/inventory/counts', {
@@ -145,6 +168,36 @@ describe('POST /api/inventory/counts/:id/lines', () => {
     assert.strictEqual(lines[0].unit, 'lb');
   });
 
+  it('upserts no-SKU produce lines by using the empty string as the SKU key', async () => {
+    const open = await postCounts({ label: 'produce count' });
+    const { id: countId } = await open.json();
+
+    const r1 = await postLine(countId, {
+      ingredient: 'ROMA TOMATO',
+      on_hand_qty: 12,
+      unit: 'lb',
+    });
+    assert.strictEqual(r1.status, 200);
+    const j1 = await r1.json();
+
+    const r2 = await postLine(countId, {
+      ingredient: 'ROMA TOMATO',
+      sku: '   ',
+      on_hand_qty: 18,
+      unit: 'lb',
+    });
+    assert.strictEqual(r2.status, 200);
+    const j2 = await r2.json();
+    assert.strictEqual(j2.id, j1.id);
+
+    const lines = testDb
+      .prepare('SELECT sku, on_hand_qty FROM inventory_count_lines WHERE count_id = ?')
+      .all(countId);
+    assert.strictEqual(lines.length, 1);
+    assert.strictEqual(lines[0].sku, '');
+    assert.strictEqual(lines[0].on_hand_qty, 18);
+  });
+
   it('400 when ingredient is missing', async () => {
     const open = await postCounts({});
     const { id: countId } = await open.json();
@@ -229,5 +282,70 @@ describe('GET /api/inventory/counts/:id', () => {
     assert.strictEqual(j.lines.length, 2);
     assert.strictEqual(j.lines[0].ingredient, 'AVOCADO');
     assert.strictEqual(j.lines[1].ingredient, 'ZUCCHINI');
+  });
+});
+
+describe('inventory_count_lines schema migration', () => {
+  it('rebuilds nullable sku rows into the non-null upsert key and keeps latest duplicates', async () => {
+    const legacyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-inv-counts-legacy-'));
+    const legacyDbPath = path.join(legacyDir, 'legacy.db');
+    const legacyDb = new Database(legacyDbPath);
+    try {
+      legacyDb.pragma('foreign_keys = ON');
+      legacyDb.exec(`
+        CREATE TABLE inventory_counts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          count_date TEXT NOT NULL,
+          label TEXT,
+          opened_at TEXT DEFAULT (datetime('now')),
+          closed_at TEXT,
+          cook_id TEXT,
+          location_id TEXT NOT NULL DEFAULT 'default'
+        );
+        CREATE TABLE inventory_count_lines (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          count_id INTEGER NOT NULL REFERENCES inventory_counts(id) ON DELETE CASCADE,
+          vendor TEXT,
+          ingredient TEXT NOT NULL,
+          sku TEXT,
+          on_hand_qty REAL,
+          unit TEXT,
+          par_qty REAL,
+          par_unit TEXT,
+          note TEXT,
+          counted_by TEXT,
+          counted_at TEXT DEFAULT (datetime('now')),
+          location_id TEXT NOT NULL DEFAULT 'default',
+          UNIQUE(count_id, ingredient, sku)
+        );
+      `);
+      legacyDb.prepare(
+        `INSERT INTO inventory_counts (id, count_date, location_id) VALUES (1, '2026-04-28', 'default')`,
+      ).run();
+      legacyDb.prepare(
+        `INSERT INTO inventory_count_lines
+           (id, count_id, ingredient, sku, on_hand_qty, unit, counted_at, location_id)
+         VALUES (?, 1, 'ROMA TOMATO', NULL, ?, 'lb', ?, 'default')`,
+      ).run(1, 12, '2026-04-28 08:00:00');
+      legacyDb.prepare(
+        `INSERT INTO inventory_count_lines
+           (id, count_id, ingredient, sku, on_hand_qty, unit, counted_at, location_id)
+         VALUES (?, 1, 'ROMA TOMATO', NULL, ?, 'lb', ?, 'default')`,
+      ).run(2, 18, '2026-04-28 09:00:00');
+
+      db.initSchema(legacyDb);
+      const skuInfo = legacyDb
+        .prepare(`PRAGMA table_info(inventory_count_lines)`)
+        .all()
+        .find((c) => c.name === 'sku');
+      assert.strictEqual(skuInfo.notnull, 1);
+      const rows = legacyDb
+        .prepare(`SELECT id, sku, on_hand_qty FROM inventory_count_lines ORDER BY id`)
+        .all();
+      assert.deepStrictEqual(rows, [{ id: 2, sku: '', on_hand_qty: 18 }]);
+    } finally {
+      legacyDb.close();
+      try { fs.rmSync(legacyDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    }
   });
 });

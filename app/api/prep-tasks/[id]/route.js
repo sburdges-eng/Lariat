@@ -1,14 +1,9 @@
 import { getDb } from '../../../../lib/db';
 import { locationFromBody } from '../../../../lib/location';
 import { postAuditEvent } from '../../../../lib/auditEvents';
+import { clip } from '../../../../lib/clip';
 
 export const dynamic = 'force-dynamic';
-
-const clip = (s, max) => {
-  if (typeof s !== 'string') return null;
-  const t = s.trim();
-  return t ? t.slice(0, max) : null;
-};
 
 const STATUSES = new Set(['todo', 'in_progress', 'done', 'skipped']);
 

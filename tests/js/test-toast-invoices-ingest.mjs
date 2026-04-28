@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 
 import { initSchema } from '../../lib/db.ts';
-import { ingestToastInvoices } from '../../scripts/ingest-toast-invoices.mjs';
+import { ingestToastInvoices, parseArgs } from '../../scripts/ingest-toast-invoices.mjs';
 
 const LOC = 'default';
 
@@ -186,5 +186,29 @@ describe('ingestToastInvoices', () => {
       `SELECT status FROM ingest_runs WHERE kind = 'toast_invoices' ORDER BY id DESC LIMIT 1`,
     ).get();
     assert.equal(run.status, 'failed');
+  });
+});
+
+describe('parseArgs', () => {
+  it('accepts both --dir path and --dir=path forms documented for operators', () => {
+    assert.deepEqual(
+      parseArgs(['node', 'script', '--dir', 'data/imports/toast-pdfs']),
+      { location: 'default', skipPython: false, dir: 'data/imports/toast-pdfs' },
+    );
+    assert.deepEqual(
+      parseArgs(['node', 'script', '--dir=data/imports/toast-pdfs']),
+      { location: 'default', skipPython: false, dir: 'data/imports/toast-pdfs' },
+    );
+  });
+
+  it('accepts both --location main and --location=main for symmetry with --dir', () => {
+    assert.deepEqual(
+      parseArgs(['node', 'script', '--location', 'main', '--skip-python']),
+      { location: 'main', skipPython: true, dir: null },
+    );
+    assert.deepEqual(
+      parseArgs(['node', 'script', '--location=main', '--skip-python']),
+      { location: 'main', skipPython: true, dir: null },
+    );
   });
 });

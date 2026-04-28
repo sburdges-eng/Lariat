@@ -1,14 +1,9 @@
 import { getDb } from '../../../../../../lib/db';
 import { locationFromBody } from '../../../../../../lib/location';
 import { postAuditEvent } from '../../../../../../lib/auditEvents';
+import { clip } from '../../../../../../lib/clip';
 
 export const dynamic = 'force-dynamic';
-
-const clip = (s, max) => {
-  if (typeof s !== 'string') return null;
-  const t = s.trim();
-  return t ? t.slice(0, max) : null;
-};
 
 function parseId(params) {
   const id = Number(params?.id);
@@ -30,7 +25,7 @@ export async function POST(req, { params }) {
     if (!ingredient) return Response.json({ error: 'ingredient required' }, { status: 400 });
     const loc = locationFromBody(body);
     const cookId = clip(body.cook_id, 64);
-    const sku = clip(body.sku, 64);
+    const sku = clip(body.sku, 64) || '';
     const vendor = clip(body.vendor, 64);
     const onHand = asNum(body.on_hand_qty);
     const unit = clip(body.unit, 32);

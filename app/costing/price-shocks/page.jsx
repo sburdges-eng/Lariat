@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { listPriceShocks } from '../../../lib/vendorPricesRepo';
+import { affectedDishes, affectedRecipes } from '../../../lib/priceShockImpact';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,51 +50,6 @@ function fmtDate(iso) {
   }
 }
 
-function affectedDishes(db, loc, ingredients) {
-  if (ingredients.length === 0) return new Map();
-  const placeholders = ingredients.map(() => '?').join(',');
-  const rows = db
-    .prepare(
-      `SELECT vendor_ingredient AS ingredient, dish_name
-         FROM dish_components
-        WHERE location_id = ?
-          AND component_type = 'vendor_item'
-          AND vendor_ingredient IN (${placeholders})`,
-    )
-    .all(loc, ...ingredients);
-  const out = new Map();
-  for (const r of rows) {
-    if (!out.has(r.ingredient)) out.set(r.ingredient, []);
-    out.get(r.ingredient).push(r.dish_name);
-  }
-  // Dedupe per ingredient.
-  for (const [k, v] of out) {
-    out.set(k, [...new Set(v)].sort());
-  }
-  return out;
-}
-
-function affectedRecipes(db, ingredients) {
-  if (ingredients.length === 0) return new Map();
-  const placeholders = ingredients.map(() => '?').join(',');
-  const rows = db
-    .prepare(
-      `SELECT vendor_ingredient AS ingredient, recipe_id
-         FROM bom_lines
-        WHERE vendor_ingredient IN (${placeholders})`,
-    )
-    .all(...ingredients);
-  const out = new Map();
-  for (const r of rows) {
-    if (!out.has(r.ingredient)) out.set(r.ingredient, []);
-    out.get(r.ingredient).push(r.recipe_id);
-  }
-  for (const [k, v] of out) {
-    out.set(k, [...new Set(v)].sort());
-  }
-  return out;
-}
-
 function clampInt(s, dflt, min, max) {
   const n = Number(s);
   if (!Number.isFinite(n)) return dflt;
@@ -124,7 +80,7 @@ export default function PriceShocksPage({ searchParams }) {
 
   const ingredients = [...new Set(shocks.map((s) => s.ingredient))];
   const dishes = affectedDishes(db, loc, ingredients);
-  const recipes = affectedRecipes(db, ingredients);
+  const recipes = affectedRecipes(db, loc, ingredients);
 
   // Whether vendor_prices_history has any rows — we tell the operator
   // when a zero-state is "no movement" vs "no data ingested yet".

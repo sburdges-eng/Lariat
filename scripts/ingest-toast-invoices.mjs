@@ -29,12 +29,16 @@ const PY = path.join(ROOT, '.venv', 'bin', 'python');
 const PARSER = path.join(__dirname, 'ingest_toast_invoices.py');
 const CACHE = path.join(ROOT, 'data', 'cache', 'toast_invoices.json');
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const out = { location: 'default', skipPython: false, dir: null };
-  for (const arg of argv.slice(2)) {
+  const args = argv.slice(2);
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
     if (arg === '--skip-python') out.skipPython = true;
     else if (arg.startsWith('--location=')) out.location = arg.slice('--location='.length);
+    else if (arg === '--location' && args[i + 1]) out.location = args[++i];
     else if (arg.startsWith('--dir=')) out.dir = arg.slice('--dir='.length);
+    else if (arg === '--dir' && args[i + 1]) out.dir = args[++i];
   }
   return out;
 }

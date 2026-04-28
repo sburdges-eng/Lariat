@@ -998,7 +998,7 @@ export function initSchema(db: DB): void {
       count_id INTEGER NOT NULL REFERENCES inventory_counts(id) ON DELETE CASCADE,
       vendor TEXT,
       ingredient TEXT NOT NULL,
-      sku TEXT,
+      sku TEXT NOT NULL DEFAULT '',
       on_hand_qty REAL,
       unit TEXT,
       par_qty REAL,
@@ -2622,6 +2622,58 @@ function migrateLegacyColumns(db: DB): void {
       `);
     } catch (err) {
       console.error('dish_components partial-index creation failed:', err);
+    }
+  }
+
+  const invLineCols = db.prepare('PRAGMA table_info(inventory_count_lines)').all() as {
+    name: string;
+    notnull: number;
+  }[];
+  const invSku = invLineCols.find((c) => c.name === 'sku');
+  if (invLineCols.length > 0 && invSku && invSku.notnull === 0) {
+    try {
+      db.exec(`
+        BEGIN;
+        DROP INDEX IF EXISTS idx_inv_count_lines_count;
+        ALTER TABLE inventory_count_lines RENAME TO inventory_count_lines_old;
+        CREATE TABLE inventory_count_lines (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          count_id INTEGER NOT NULL REFERENCES inventory_counts(id) ON DELETE CASCADE,
+          vendor TEXT,
+          ingredient TEXT NOT NULL,
+          sku TEXT NOT NULL DEFAULT '',
+          on_hand_qty REAL,
+          unit TEXT,
+          par_qty REAL,
+          par_unit TEXT,
+          note TEXT,
+          counted_by TEXT,
+          counted_at TEXT DEFAULT (datetime('now')),
+          location_id TEXT NOT NULL DEFAULT 'default',
+          UNIQUE(count_id, ingredient, sku)
+        );
+        INSERT INTO inventory_count_lines
+          (id, count_id, vendor, ingredient, sku, on_hand_qty, unit, par_qty,
+           par_unit, note, counted_by, counted_at, location_id)
+        SELECT id, count_id, vendor, ingredient, COALESCE(sku, ''), on_hand_qty,
+               unit, par_qty, par_unit, note, counted_by, counted_at, location_id
+          FROM (
+            SELECT *,
+                   ROW_NUMBER() OVER (
+                     PARTITION BY count_id, ingredient, COALESCE(sku, '')
+                     ORDER BY datetime(counted_at) DESC, id DESC
+                   ) AS rn
+              FROM inventory_count_lines_old
+          )
+         WHERE rn = 1;
+        CREATE INDEX idx_inv_count_lines_count
+          ON inventory_count_lines(count_id);
+        DROP TABLE inventory_count_lines_old;
+        COMMIT;
+      `);
+    } catch (err) {
+      try { db.exec('ROLLBACK'); } catch { /* ignore */ }
+      console.error('inventory_count_lines SKU migration failed:', err);
     }
   }
 
