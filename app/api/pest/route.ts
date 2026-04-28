@@ -2,14 +2,9 @@ import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import { validatePestControl } from '../../../lib/pestControl';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { clip } from '../../../lib/clip';
 
 export const dynamic = 'force-dynamic';
-
-const clip = (s: string | unknown, max: number) => {
-  if (typeof s !== 'string') return null;
-  const t = s.trim();
-  return t ? t.slice(0, max) : null;
-};
 
 export async function POST(req: Request) {
   try {
