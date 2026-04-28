@@ -155,29 +155,42 @@ export default function StationChecklist({ stationId, stationName, date, items, 
     const reason = window.prompt(`86 "${item}" — reason? (out / spoiled / dropped / no_make / burned / prep_short / other)`, 'out');
     if (reason === null) return;
     const cid = cookRef.current || null;
-    await fetch('/api/eighty-six', {
-      method: 'POST',
-      headers: { 'content-type':'application/json' },
-      body: JSON.stringify({
-        shift_date: date,
-        station_id: stationId,
-        item,
-        reason: reason || 'out',
-        cook_id: cid,
-        location_id: locationId,
-      }),
-    });
-    update(item, { status: 'fail' });
-    await fetch('/api/checks', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        shift_date: date, station_id: stationId, item, status: 'fail',
-        par: rowFor(item).par, have: rowFor(item).have, need: rowFor(item).need,
-        note: `86: ${reason || 'out'}`, cook_id: cid,
-        location_id: locationId,
-      }),
-    });
+    try {
+      const res86 = await fetch('/api/eighty-six', {
+        method: 'POST',
+        headers: { 'content-type':'application/json' },
+        body: JSON.stringify({
+          shift_date: date,
+          station_id: stationId,
+          item,
+          reason: reason || 'out',
+          cook_id: cid,
+          location_id: locationId,
+        }),
+      });
+      if (!res86.ok) {
+        alert(`Couldn’t 86 "${item}" — retry. (HTTP ${res86.status})`);
+        return;
+      }
+      update(item, { status: 'fail' });
+      const resCheck = await fetch('/api/checks', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          shift_date: date, station_id: stationId, item, status: 'fail',
+          par: rowFor(item).par, have: rowFor(item).have, need: rowFor(item).need,
+          note: `86: ${reason || 'out'}`, cook_id: cid,
+          location_id: locationId,
+        }),
+      });
+      if (!resCheck.ok) {
+        alert(`86’d "${item}" but couldn’t write the check row — retry. (HTTP ${resCheck.status})`);
+        return;
+      }
+    } catch {
+      alert(`Lost connection while 86’ing "${item}" — retry.`);
+      return;
+    }
     router.refresh();
   };
 
@@ -316,29 +329,41 @@ export default function StationChecklist({ stationId, stationName, date, items, 
                 <input
                   type="checkbox"
                   checked={row.glove_change_attested === true}
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const next = e.target.checked ? true : null;
+                    const prev = rowFor(item).glove_change_attested;
                     update(item, { glove_change_attested: next });
-                    // Persist inline so the attestation is durable.
+                    // Persist inline. FDA §3-301.11 attestation is regulatory —
+                    // if the write fails, roll back the optimistic toggle so
+                    // the UI never lies about a glove change that didn't land.
                     const cid = cookRef.current || null;
                     const cur: StationCheckItem = { ...rowFor(item), glove_change_attested: next };
-                    fetch('/api/checks', {
-                      method: 'POST',
-                      headers: { 'content-type': 'application/json' },
-                      body: JSON.stringify({
-                        shift_date: date,
-                        station_id: stationId,
-                        item,
-                        status: cur.status,
-                        par: cur.par,
-                        have: cur.have,
-                        need: cur.need,
-                        note: cur.note,
-                        glove_change_attested: cur.glove_change_attested,
-                        cook_id: cid,
-                        location_id: locationId,
-                      }),
-                    });
+                    try {
+                      const res = await fetch('/api/checks', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({
+                          shift_date: date,
+                          station_id: stationId,
+                          item,
+                          status: cur.status,
+                          par: cur.par,
+                          have: cur.have,
+                          need: cur.need,
+                          note: cur.note,
+                          glove_change_attested: cur.glove_change_attested,
+                          cook_id: cid,
+                          location_id: locationId,
+                        }),
+                      });
+                      if (!res.ok) {
+                        update(item, { glove_change_attested: prev });
+                        alert(`Couldn’t save glove change for "${item}" — retry. (HTTP ${res.status})`);
+                      }
+                    } catch {
+                      update(item, { glove_change_attested: prev });
+                      alert(`Lost connection saving glove change for "${item}" — retry.`);
+                    }
                   }}
                   aria-label={`Glove change attested for ${item}`}
                 />

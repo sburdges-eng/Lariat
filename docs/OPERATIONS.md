@@ -20,30 +20,33 @@ Re-run the relevant ingest/rebuild after updating source files; restart the app 
 
 **Drink-price cadence note.** Drink rows live in the same `vendor_prices` table as food rows, but the costing-ingest DELETE+INSERT sweep preserves them (any row whose `category` is a beverage). So drink prices **do NOT need to be re-imported after every `ingest:costing`** — they survive. The protection lives in `scripts/ingest-costing.mjs` (`BEVERAGE_CATEGORIES`). Full pre-DELETE snapshot of every row (food + drink) is kept in `vendor_prices_history` for trend analysis — query by `(vendor, sku)` ordered by `snapshot_at`.
 
-## Kitchen assistant (local LLM, grounded)
+## Kitchen assistant (local LLM, grounded — required)
 
-The **Kitchen assistant** page (`/kitchen-assistant`) calls **Ollama** on the same Mac as the Next.js server. Each request injects a **snapshot of live data** (today’s active 86s, recent inventory rows, line-check progress, sign-offs, and recipe snippets matched from `data/cache/recipes.json`) so the model is instructed to **only** use that context for operational claims—reducing hallucination and avoiding “fake POS” answers.
+The **Kitchen assistant** page (`/kitchen-assistant`) and the **Specials Sandbox** (`/specials`) both call **Ollama** on the same Mac as the Next.js server. **Ollama must be running** — the routes have no feature flag and will return `502` (with `ollamaReachable: false` on the GET ping) if the daemon is not reachable. Each request injects a **snapshot of live data** (today’s active 86s, recent inventory rows, line-check progress, sign-offs, and recipe snippets matched from `data/cache/recipes.json`) so the model is instructed to **only** use that context for operational claims—reducing hallucination and avoiding “fake POS” answers.
 
 **Allergen / dietary:** Tags in context are **heuristic** (from the recipe book ingest), not legal allergen statements. The UI and system prompt tell staff to escalate allergies to a manager.
 
-**Latency:** Use a **small quantized model** on 16 GB Macs (e.g. `gemma2:2b` or `gemma2:9b` Q4). Tune timeouts and token limits if replies are slow or cut off.
+**Latency:** On 16 GB+ Macs the kitchen-tested base is `deepseek-r1:14b` (~9 GB resident, ~30 tok/s on M4). For older Macs or 8 GB Airs, `deepseek-r1:7b` is recommended (~4.7 GB resident). Tune `LARIAT_OLLAMA_TIMEOUT_MS` / `LARIAT_ASSISTANT_MAX_TOKENS` / `LARIAT_ASSISTANT_NUM_CTX` if replies are slow or cut off.
+
+**DeepSeek R1 reasoning note.** DeepSeek R1 is a reasoning model that uses a `<think>` block for internal monologues. `lib/ollama.ts::ollamaChat()` sends `think: false` on every request to suppress this thinking output from the final response — this is required for the JSON-action contracts to work correctly in the UI. Don't remove it.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `LARIAT_ASSISTANT_ENABLED` | (off) | Set to `1` or `true` to enable `/api/kitchen-assistant` and the nav link. |
 | `LARIAT_OLLAMA_URL` | `http://127.0.0.1:11434` | Ollama API base. |
-| `LARIAT_OLLAMA_MODEL` | `gemma2:2b` | Model name as shown by `ollama list`. |
+| `LARIAT_OLLAMA_MODEL` | `lari-the-kitchen-assistant` | Model name as shown by `ollama list`. The default is the custom Modelfile-built model in `training/Modelfile` (FROM `deepseek-r1:14b`). Override to point at any other tag. |
 | `LARIAT_OLLAMA_TIMEOUT_MS` | `45000` | Abort inference after this many ms (502 to client). |
 | `LARIAT_ASSISTANT_TEMPERATURE` | `0.2` | Lower = less creative / fewer inventions. |
 | `LARIAT_ASSISTANT_MAX_TOKENS` | `512` | `num_predict` cap for shorter, faster replies. |
 | `LARIAT_ASSISTANT_NUM_CTX` | `4096` | Context window size sent to Ollama. |
 
-**Setup (kitchen Mac):**
+**Setup (kitchen Mac) — required for the Kitchen Assistant and Specials Sandbox:**
 
 1. Install [Ollama](https://ollama.com) and run it (menu bar app).
-2. `ollama pull gemma2:2b` (or your chosen model matching `LARIAT_OLLAMA_MODEL`).
-3. In `.env.local`: `LARIAT_ASSISTANT_ENABLED=1` (and optional overrides above).
+2. `ollama pull deepseek-r1:14b` (the base for the custom model).
+3. `ollama create lari-the-kitchen-assistant -f training/Modelfile` (builds the grounded kitchen-assistant model the app expects by default).
 4. Restart `npm run start` / the launcher.
+
+If Ollama is not running, `/kitchen-assistant` and `/specials` show an "AI is down" banner and `POST /api/kitchen-assistant` / `POST /api/specials` return `502`. The rest of the app (line ops, costing, HACCP, BEO, …) works unchanged.
 
 The assistant uses **`location_id`** from the sidebar (`?location=` / `lariat_location` in localStorage) so multi-site 86/inventory/sign-off context stays aligned with the rest of the app.
 
@@ -51,7 +54,7 @@ The assistant uses **`location_id`** from the sidebar (`?location=` / `lariat_lo
 
 See `training/SETUP.md` for full instructions. Quick summary:
 
-1. **Ollama custom model** (recommended first): Uses a Modelfile with the Lariat system prompt baked in. No GPU training needed — just `ollama create lariat-assistant -f training/Modelfile`.
+1. **Ollama custom model** (recommended first): Uses a Modelfile with the Lariat system prompt baked in. No GPU training needed — just `ollama create lari-the-kitchen-assistant -f training/Modelfile`.
 2. **LoRA fine-tuning** (optional, for better grounding): Uses `mlx-lm` on Apple Silicon to fine-tune a small model on Lariat Q&A pairs. Requires ~12 GB RAM for a 3B model.
 
 The assistant works well out of the box with the grounded context approach (no fine-tuning needed). Fine-tuning is for marginal gains in restaurant-specific phrasing and faster inference.
