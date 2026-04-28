@@ -365,16 +365,19 @@ def enrich_catch_weights(
     counters = {"matched": 0, "reconciled": 0, "no_catalog": 0, "no_actual": 0}
     # Pre-load catalog for this vendor to keep the enrichment O(N).
     catalog: dict[str, tuple[float, float | None]] = {}
-    try:
-        cur = con.execute(
-            "SELECT sku, catalog_wt_lb, tare_lb FROM vendor_catch_weights WHERE vendor = ?",
-            (vendor,),
-        )
-    except sqlite3.OperationalError:
-        # vendor_catch_weights table not present in DB (pre-T5a) —
-        # enrichment is a no-op rather than a hard failure so the
-        # pre-T5a Shamrock ingest can still complete.
+    # vendor_catch_weights may not exist in pre-T5a DBs — treat that
+    # specific case as a no-op so the ingest can still complete, but
+    # let any other OperationalError (locked DB, I/O, schema drift,
+    # etc.) propagate so real failures stay visible to callers.
+    table_exists = con.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='vendor_catch_weights'"
+    ).fetchone()
+    if not table_exists:
         return counters
+    cur = con.execute(
+        "SELECT sku, catalog_wt_lb, tare_lb FROM vendor_catch_weights WHERE vendor = ?",
+        (vendor,),
+    )
     for sku, catalog_wt_lb, tare_lb in cur:
         catalog[str(sku)] = (float(catalog_wt_lb), float(tare_lb) if tare_lb else None)
 
