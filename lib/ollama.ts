@@ -3,7 +3,7 @@
  */
 
 const DEFAULT_BASE = process.env.LARIAT_OLLAMA_URL || 'http://127.0.0.1:11434';
-const DEFAULT_MODEL = process.env.LARIAT_OLLAMA_MODEL || 'gemma2:2b';
+const DEFAULT_MODEL = process.env.LARIAT_OLLAMA_MODEL || 'lari-the-kitchen-assistant';
 const DEFAULT_TIMEOUT_MS = Math.min(
   120000,
   Math.max(5000, parseInt(process.env.LARIAT_OLLAMA_TIMEOUT_MS || '45000', 10) || 45000)
@@ -21,7 +21,7 @@ const HACCP_BLOCK = `HACCP TEMPERATURE RULES (cite when relevant):
 - Ground beef / pork: >= 155 F for 15 sec
 - Fish / seafood: >= 145 F for 15 sec
 - Hot holding: >= 140 F at all times
-- Cooling: 140 -> 70 F within 2 hr, then 70 -> 41 F within 4 hr (total 6 hr max)
+- Cooling: 135 -> 70 F within 2 hr, then 70 -> 41 F within 4 hr (total 6 hr max, per FDA §3-501.14)
 - Reheat (for hot holding): >= 165 F within 2 hr
 - Walk-in refrigeration: <= 41 F
 - Freezer: <= 0 F
@@ -75,7 +75,11 @@ Rules:
 1) BE CREATIVE: Unlike the strict floor assistant, you SHOULD brainstorm flavors, suggest substitutions, help utilize overstock, and design novel recipes.
 2) ${ALLERGEN_BLOCK}
 3) ${HACCP_BLOCK}
-4) PRICING & COSTING: If asked, provide rough industry estimates for dish costing or recommend ways to stretch high-cost proteins.
+4) PRICING & COSTING: NEVER estimate ingredient or recipe costs yourself. If the chef asks for a cost estimate of a recipe, you MUST output a JSON action block using this exact format on a new line:
+\`\`\`json
+{ "action": "cost_special", "ingredients": [{ "item": "Name", "qty": Number, "unit": "String" }] }
+\`\`\`
+The deterministic Lariat backend will intercept this JSON, query the latest vendor prices, and append a computed cost table. Cross-dimensional unit conversions (e.g. a volume spec vs. a vendor sold by weight) require an ingredient density on file; ingredients without a density are shown as "—" in the table and excluded from the total, which is labeled PARTIAL when that happens. Treat any "cost_special" output as precise where a cost row is shown and indicative where it isn't.
 5) FORMATTING: Output incredibly clean, readable markdown. Use robust ingredient lists and professional procedural steps.`;
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -101,7 +105,6 @@ export interface OllamaConfig {
   baseUrl: string;
   model: string;
   timeoutMs: number;
-  enabled: boolean;
 }
 
 // ── API ────────────────────────────────────────────────────────────
@@ -133,6 +136,12 @@ export async function ollamaChat(opts: OllamaChatOpts): Promise<OllamaChatResult
       body: JSON.stringify({
         model,
         stream: false,
+        // DeepSeek R1 and other thinking-capable models route reasoning into a
+        // separate `thinking` channel that consumes num_predict before any
+        // visible content is emitted. LaRi's grounded prompts and JSON
+        // action contracts need deterministic short replies, so always
+        // disable thinking. Models without thinking ignore this flag.
+        think: false,
         messages: opts.messages,
         options: {
           temperature,
@@ -159,19 +168,11 @@ export async function ollamaChat(opts: OllamaChatOpts): Promise<OllamaChatResult
   }
 }
 
-export function assistantEnabled(): boolean {
-  const v = process.env.LARIAT_ASSISTANT_ENABLED;
-  if (!v) return false;
-  const s = String(v).toLowerCase();
-  return s === '1' || s === 'true' || s === 'yes';
-}
-
 export function getOllamaConfig(): OllamaConfig {
   return {
     baseUrl: DEFAULT_BASE,
     model: process.env.LARIAT_OLLAMA_MODEL || DEFAULT_MODEL,
     timeoutMs: DEFAULT_TIMEOUT_MS,
-    enabled: assistantEnabled(),
   };
 }
 

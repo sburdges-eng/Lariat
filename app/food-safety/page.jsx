@@ -14,6 +14,7 @@ import { scanExpiringBatches } from '../../lib/dateMarks';
 import { classifyReadings } from '../../lib/tempLog';
 import { classifyDeliveries } from '../../lib/receiving';
 import { classifyProbes, DEFAULT_FREQUENCY_DAYS } from '../../lib/calibrations';
+import { scanActiveTphc } from '../../lib/tphc';
 
 export const dynamic = 'force-dynamic';
 
@@ -97,7 +98,7 @@ function summarize(loc, today) {
   // last-passing row, not the current shift.
   const calibrationRows = db
     .prepare(
-      `SELECT thermometer_id, method, before_reading_f, passed, calibrated_at
+      `SELECT thermometer_id, method, before_reading_f, passed, calibrated_at, frequency_days
          FROM thermometer_calibrations
          WHERE location_id = ?`,
     )
@@ -116,6 +117,25 @@ function summarize(loc, today) {
       return acc;
     },
     { ok: 0, dueSoon: 0, overdue: 0, failed: 0, unknown: 0 },
+  );
+
+  const tphcActive = db
+    .prepare(
+      `SELECT id, item, station_id, started_at, cutoff_at, discarded_at
+         FROM tphc_entries
+         WHERE location_id=? AND discarded_at IS NULL
+         ORDER BY cutoff_at ASC`,
+    )
+    .all(loc);
+  const tphcScan = scanActiveTphc(tphcActive, new Date().toISOString());
+  const tphcStats = tphcScan.reduce(
+    (acc, s) => {
+      if (s.status === 'expired') acc.expired += 1;
+      else if (s.status === 'warning') acc.warning += 1;
+      else acc.ok += 1;
+      return acc;
+    },
+    { ok: 0, warning: 0, expired: 0 },
   );
 
   const cleaningRows = db.prepare(`SELECT * FROM cleaning_log WHERE location_id=? AND shift_date=?`).all(loc, today);
@@ -162,6 +182,11 @@ function summarize(loc, today) {
       overdue: calibrationStats.overdue,
       failed: calibrationStats.failed,
       unknown: calibrationStats.unknown,
+    },
+    tphc: {
+      active: tphcActive.length,
+      warning: tphcStats.warning,
+      expired: tphcStats.expired,
     },
     cleaning: {
       loggedToday: cleaningRows.length,
@@ -321,6 +346,17 @@ export default function FoodSafetyHub({ searchParams }) {
               label: 'overdue / failed',
               tone: s.calibrations.overdue + s.calibrations.failed ? 'red' : null,
             },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/tphc${locQ}`}
+          title="Time Control"
+          sub="FDA §3-501.19 — 4h hot, 6h cold. Toss at cutoff."
+          status={{ red: s.tphc.expired > 0, amber: s.tphc.warning > 0 }}
+          lines={[
+            { n: s.tphc.active, label: 'open batches' },
+            { n: s.tphc.warning, label: 'near cutoff (≤ 30m)', tone: s.tphc.warning ? 'amber' : null },
+            { n: s.tphc.expired, label: 'past cutoff — toss now', tone: s.tphc.expired ? 'red' : null },
           ]}
         />
         <Tile

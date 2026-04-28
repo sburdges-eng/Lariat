@@ -1,0 +1,23 @@
+{
+  "flake8.cwd": "${fileDirname}",
+  "flake8.ignorePatterns": [
+    "**/.claude-worktrees/**",
+    "**/.mypy_cache/**",
+    "**/.pytest_cache/**",
+    "**/.venv/**",
+    "**/__pycache__/**",
+    "**/node_modules/**",
+    "**/venv/**"
+  ],
+  "flake8.severity": {
+    "convention": "Information",
+    "error": "Error",
+    "fatal": "Error",
+    "info": "Information",
+    "refactor": "Hint",
+    "warning": "Warning",
+    "E501": "Warning",
+    "F401": "Warning",
+    "F821": "Error"
+  }
+}

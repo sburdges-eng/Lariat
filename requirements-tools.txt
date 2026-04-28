@@ -1,6 +1,6 @@
 # Optional Python tools for CSV / data work (Food/Bev lab)
 # pip install -r requirements-tools.txt
-pandas>=2.0
+pandas>=3.0
 openpyxl>=3.1
 # CLI CSV Swiss army knife (also: brew install csvkit xsv)
 csvkit>=1.1

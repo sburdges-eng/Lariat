@@ -24,6 +24,7 @@ import {
   validateReceivingReading,
 } from '../../../lib/receiving';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { triggerComputeEngine } from '../../../lib/computeEngine/index';
 
 export const dynamic = 'force-dynamic';
 
@@ -194,6 +195,22 @@ export async function POST(req) {
     });
 
     const { info, row } = performWrite();
+
+    // Fire-and-forget: schedule the real-time cost + margin + variance
+    // refresh on the next tick via `setImmediate` so the response can
+    // flush before the (synchronous) better-sqlite3 work starts. A
+    // microtask-chained `Promise.resolve().then(...)` would run BEFORE
+    // the response flushes and defeat the deferral (Node schedules
+    // microtasks before returning control to the I/O phase). Static
+    // import so a transpile/resolver failure is caught at module load,
+    // not silently swallowed.  See docs/PATTERNS.md §9.
+    setImmediate(() => {
+      try {
+        triggerComputeEngine(location_id);
+      } catch (err) {
+        console.error('Compute Engine Trigger Error from receiving_log:', err);
+      }
+    });
 
     return Response.json({
       ok: true,

@@ -58,8 +58,23 @@ function kickerFor(hours) {
   return 'Wind it down. Log the losses. Sign it off.';
 }
 
-function dayName() {
-  return new Date().toLocaleDateString(undefined, { weekday: 'long' });
+// Derive the day name from the DB's `today` (todayISO()) — a stable
+// YYYY-MM-DD string — using UTC formatting so the server and client render
+// the same value regardless of timezone. Previously we called `new Date()`
+// in the render pass, producing a hydration mismatch across a TZ boundary
+// (most visible at midnight rollover).
+function dayName(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return new Date(Date.UTC(y, m - 1, d))
+    .toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+}
+
+function formatDateChip(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  return new Date(Date.UTC(y, m - 1, d))
+    .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
 
 export default function TodayPage({ searchParams }) {
@@ -104,8 +119,13 @@ export default function TodayPage({ searchParams }) {
     0
   );
 
-  const day = dayName();
-  const hours = new Date().getHours() + new Date().getMinutes() / 60;
+  const day = dayName(date);
+  // Kicker wall-clock reading uses the server's local time. On a single-site
+  // LAN install the server TZ matches the restaurant TZ (documented in
+  // project checkpoint). One `new Date()` call only — avoids the risk that
+  // two back-to-back calls straddle a minute boundary.
+  const nowLocal = new Date();
+  const hours = nowLocal.getHours() + nowLocal.getMinutes() / 60;
   const kicker = kickerFor(hours);
 
   const serviceLabel = todayServiceLabel(loc);
@@ -117,13 +137,7 @@ export default function TodayPage({ searchParams }) {
         <div>
           <div className="date-bar">
             <span className="dot" />
-            <span>
-              {new Date().toLocaleDateString(undefined, {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-              })}
-            </span>
+            <span>{formatDateChip(date)}</span>
             <span style={{ opacity: 0.5 }}>·</span>
             <span>{locQ ? loc : 'the lariat'}</span>
           </div>

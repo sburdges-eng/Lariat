@@ -2,14 +2,9 @@ import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import { validateSds } from '../../../lib/sds';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { clip } from '../../../lib/clip';
 
 export const dynamic = 'force-dynamic';
-
-const clip = (s: string | unknown, max: number) => {
-  if (typeof s !== 'string') return null;
-  const t = s.trim();
-  return t ? t.slice(0, max) : null;
-};
 
 export async function POST(req: Request) {
   try {
@@ -26,7 +21,7 @@ export async function POST(req: Request) {
     const url_external = clip(body.url, 300);
     const last_reviewed = clip(body.last_reviewed, 32) || todayISO();
     const cook_id = clip(body.cook_id, 64);
-    const active = body.active !== undefined ? (body.active ? 1 : 0) : 1;
+    const active = body.active != null ? (body.active ? 1 : 0) : 1;
 
     const db = getDb();
     

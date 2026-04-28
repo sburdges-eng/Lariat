@@ -1,0 +1,49 @@
+{
+  "garde": [
+    "Restock/top fill station",
+    "Flip station",
+    "Refill/replace sauce bottles",
+    "Wrap line (Garde & fry)",
+    "Wipe down cutting boards (bleach every few days)",
+    "Sanitize prep sink/knives/surfaces"
+  ],
+  "fry": [
+    "Restock/top fill station",
+    "Flip station",
+    "Refill/replace sauce bottles",
+    "Turn off fryers",
+    "Clean/filter fryer oil",
+    "Sanitize surfaces"
+  ],
+  "grill_saute": [
+    "Restock/top fill station",
+    "Flip station",
+    "Wrap station",
+    "Refill/replace squeeze bottles",
+    "Shut off all equip. (hot well, ovens range, grills)",
+    "Clean stovetop,char-broil,flattop",
+    "Season flattop",
+    "Sanitize surfaces",
+    "Empty grease trays"
+  ],
+  "expo": [
+    "Refill/replace sauce bottles",
+    "wrap/ice bath steamwell contents (Expo&Sautee)",
+    "Turn off steamwells and heatlamps (Expo&Sautee)",
+    "Re-stock ceramics for line",
+    "Line baskets with paper",
+    "Sanitize surfaces"
+  ],
+  "house": [
+    "Shut off steam well, grill, fryer, and oven",
+    "Restock reach in",
+    "Wipe down stainless surfaces, cutting boards",
+    "Wash and put away dishes. Drain dishwasher",
+    "sweep and mop floor. Empty mop bucket",
+    "shut of gas line to wok station",
+    "check all closing procedures have been done",
+    "Shut off hood vent",
+    "double check all closing procedures have been done",
+    "Clock out"
+  ]
+}

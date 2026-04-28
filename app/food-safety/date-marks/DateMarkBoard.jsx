@@ -104,48 +104,83 @@ export default function DateMarkBoard({ active, scan, recent, today, locationId 
         7-day rule — day of prep is day 1. Anything past its discard date is toss-or-explain, no exceptions.
       </p>
 
-      {err && <div className="alert alert-red">{err}</div>}
+      {err && (
+        <div className="alert alert-red" role="alert" aria-live="assertive">
+          {err}
+        </div>
+      )}
 
-      <section className="datemark-card datemark-new">
-        <form onSubmit={createMark} className="datemark-new-form">
-          <div className="datemark-new-label">New batch</div>
+      <section className="datemark-card datemark-new" aria-labelledby="dm-new-h">
+        <form onSubmit={createMark} className="datemark-new-form" aria-busy={saving}>
+          <div className="datemark-new-label" id="dm-new-h">New batch</div>
+          <label htmlFor="dm-item" className="sr-only">Item</label>
           <input
+            id="dm-item"
+            name="dm-item"
+            type="text"
             placeholder="Item (e.g. cooked rice, aioli)"
             value={item}
             onChange={(e) => setItem(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            enterKeyHint="next"
+            aria-label="Item"
             required
           />
+          <label htmlFor="dm-batch" className="sr-only">Batch or lot reference</label>
           <input
+            id="dm-batch"
+            name="dm-batch"
+            type="text"
             placeholder="Batch / lot ref (optional)"
             value={batchRef}
             onChange={(e) => setBatchRef(e.target.value)}
+            autoComplete="off"
+            aria-label="Batch or lot reference (optional)"
           />
+          <label htmlFor="dm-prepped" className="sr-only">Prepared on</label>
           <input
+            id="dm-prepped"
+            name="dm-prepped"
             type="date"
             value={preparedOn}
             onChange={(e) => setPreparedOn(e.target.value)}
+            aria-label="Prepared on"
             required
           />
-          <button type="submit" disabled={saving}>
+          <button
+            type="submit"
+            disabled={saving}
+            aria-label={saving ? 'Saving mark' : 'Create date mark'}
+          >
             {saving ? 'Saving…' : 'Create mark'}
           </button>
         </form>
       </section>
 
-      <section>
-        <h2 className="section-h">Active ({sorted.length})</h2>
-        {sorted.length === 0 && <div className="empty-row">Nothing currently held.</div>}
-        <div className="datemark-list">
+      <section aria-labelledby="dm-active-h">
+        <h2 className="section-h" id="dm-active-h">Active ({sorted.length})</h2>
+        {sorted.length === 0 && (
+          <div className="empty-row" role="status" aria-live="polite">Nothing currently held.</div>
+        )}
+        <ul className="datemark-list" aria-label="Active date marks" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {sorted.map((m) => {
             const s = scan[m.id] || { status: 'ok' };
             const tone =
               s.status === 'expired' ? 'red' : s.status === 'due_today' ? 'amber' : 'green';
+            const selectId = `dm-discard-${m.id}`;
             return (
-              <article key={m.id} className={`datemark-row datemark-tone-${tone}`}>
+              <li
+                key={m.id}
+                className={`datemark-row datemark-tone-${tone}`}
+                aria-label={`${m.item}${s.status === 'expired' ? ' — expired' : s.status === 'due_today' ? ' — due today' : ''}`}
+              >
                 <div className="datemark-main">
                   <div className="datemark-item">{m.item}</div>
                   <div className="datemark-meta">
-                    prepped {fmtDate(m.prepared_on)} · discard by {fmtDate(m.discard_on)}
+                    prepped <time dateTime={m.prepared_on}>{fmtDate(m.prepared_on)}</time>
+                    {' · discard by '}
+                    <time dateTime={m.discard_on}>{fmtDate(m.discard_on)}</time>
                     {m.batch_ref && ` · ${m.batch_ref}`}
                   </div>
                 </div>
@@ -155,8 +190,14 @@ export default function DateMarkBoard({ active, scan, recent, today, locationId 
                   {s.status === 'ok' && `${s.days_remaining}d left`}
                 </div>
                 <div className="datemark-actions">
+                  <label htmlFor={selectId} className="sr-only">
+                    Discard {m.item}
+                  </label>
                   <select
+                    id={selectId}
+                    name={selectId}
                     defaultValue=""
+                    aria-label={`Discard ${m.item}`}
                     onChange={(e) => {
                       const v = e.target.value;
                       e.target.value = '';
@@ -173,26 +214,26 @@ export default function DateMarkBoard({ active, scan, recent, today, locationId 
                     ))}
                   </select>
                 </div>
-              </article>
+              </li>
             );
           })}
-        </div>
+        </ul>
       </section>
 
       {recent.length > 0 && (
-        <section>
-          <h2 className="section-h">Recently discarded</h2>
-          <div className="datemark-recent-list">
+        <section aria-labelledby="dm-recent-h">
+          <h2 className="section-h" id="dm-recent-h">Recently discarded</h2>
+          <ul className="datemark-recent-list" aria-label="Recently discarded items" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
             {recent.map((d) => (
-              <div key={d.id} className="datemark-recent">
+              <li key={d.id} className="datemark-recent">
                 <span className="datemark-recent-item">{d.item}</span>
                 <span className="datemark-recent-reason">{d.discard_reason}</span>
-                <span className="datemark-recent-time">
+                <time className="datemark-recent-time" dateTime={d.discarded_at}>
                   {new Date(d.discarded_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                </span>
-              </div>
+                </time>
+              </li>
             ))}
-          </div>
+          </ul>
         </section>
       )}
     </div>

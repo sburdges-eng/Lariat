@@ -1,39 +1,25 @@
 import { getDb } from './db';
-import type { RecipeCost } from './db';
+import {
+  buildDishComponentMap,
+  cleanedSalesRows,
+  computeDishCost,
+  type DishComponentResolved,
+} from './dishCostBridge';
 
 /**
- * T7 master-aware menu engineering.
+ * Menu engineering joins POS sales with dish-level cost via the
+ * dish→recipe bridge in `lib/dishCostBridge.ts`.
  *
- * The sales → recipe_costs join in this file happens at the dish level
- * (item_name ↔ recipe_name), so master_id doesn't directly affect the
- * name-matching path. What master_id DOES change is the
- * `cost_per_yield_unit` value we're reading here — computed upstream by
- * `lib/costingBenchmarks.mjs::computeCostVariance` and the ingest
- * post-pass, which now group-costs per master_id when both sides carry
- * one (falling back to the normalized ingredient string otherwise).
+ * Cost source priority:
+ *   1. dish_components rows + recipe_costs (true per-serving cost)
+ *   2. nothing — surfaced as null. The prior fuzzy substring matcher
+ *      against recipe_costs.recipe_name was structurally doomed because
+ *      almost every recipe in this repo is a sub-recipe (sauces, batters,
+ *      brines), not a dish.
  *
- * Consequence for this file: no code change is needed to pick up
- * merged-cost accuracy, but downstream callers that want to peek at the
- * underlying master-grouped math should read
- * `bom_lines.master_id` / `vendor_prices.master_id` directly and join
- * on master_id — NOT on the ingredient string, which fragments across
- * Sysco / Shamrock.
+ * 'TOTAL' / 'TOTALS' rows from the Toast CSV footer are filtered before
+ * any join math runs (cleanedSalesRows in lib/dishCostBridge).
  */
-function norm(s: string | null | undefined): string {
-  if (!s) return '';
-  return String(s)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-}
-
-function findRecipeCost(byNorm: Map<string, RecipeCost>, itemNorm: string): RecipeCost | null {
-  if (byNorm.has(itemNorm)) return byNorm.get(itemNorm)!;
-  for (const [k, v] of byNorm) {
-    if (itemNorm.includes(k) || k.includes(itemNorm)) return v;
-  }
-  return null;
-}
 
 export type Quadrant = 'star' | 'puzzle' | 'plowhorse' | 'dog' | 'unknown';
 
@@ -42,59 +28,66 @@ export interface MenuEngineeringRow {
   qty: number;
   net_sales: number;
   avg_price: number;
-  recipe_id: string | null;
   cost_per_unit: number | null;
   margin_pct: number | null;
   popularity: number;
   quadrant?: Quadrant;
+  /** How the dish was linked. 'fully_linked' = clean costing; others surface gaps. */
+  link_state: 'fully_linked' | 'partial' | 'declared_only' | 'unlinked';
+  /** Components considered for this dish (empty when unlinked). */
+  components: DishComponentResolved[];
 }
 
 export interface MenuEngineeringResult {
   rows: MenuEngineeringRow[];
   medianMargin: number;
   medianPop: number;
+  /** Bridge-state counters useful for UI banner. */
+  coverage: {
+    fully_linked: number;
+    partial: number;
+    declared_only: number;
+    unlinked: number;
+    total: number;
+  };
 }
 
 export function computeMenuEngineering(locationId: string = 'default'): MenuEngineeringResult {
   const db = getDb();
-  const sales = db
+  const salesRaw = db
     .prepare(
-      `SELECT item_name, SUM(quantity_sold) as qty, SUM(net_sales) as rev FROM sales_lines WHERE location_id = ? GROUP BY item_name`
+      `SELECT item_name, SUM(quantity_sold) AS qty, SUM(net_sales) AS rev
+         FROM sales_lines
+        WHERE location_id = ?
+        GROUP BY item_name`,
     )
     .all(locationId) as { item_name: string; qty: number; rev: number }[];
-  const costs = db
-    .prepare(
-      `SELECT recipe_id, recipe_name, cost_per_yield_unit, yield_unit FROM recipe_costs WHERE location_id = ?`
-    )
-    .all(locationId) as RecipeCost[];
+  const sales = cleanedSalesRows(salesRaw);
 
-  const byNorm = new Map<string, RecipeCost>();
-  for (const c of costs) {
-    const n = norm(c.recipe_name);
-    if (n) byNorm.set(n, c);
-  }
+  // Build the bridge map ONCE; reuse for every dish.
+  const map = buildDishComponentMap(locationId);
 
   const rows: MenuEngineeringRow[] = [];
+  const counts = { fully_linked: 0, partial: 0, declared_only: 0, unlinked: 0, total: 0 };
   for (const s of sales) {
+    counts.total++;
     const qty = Number(s.qty) || 0;
     const rev = Number(s.rev) || 0;
     const avg = qty > 0 ? rev / qty : 0;
-    const itemNorm = norm(s.item_name);
-    const rc = findRecipeCost(byNorm, itemNorm);
-    const cpu = rc ? Number(rc.cost_per_yield_unit) || 0 : null;
-    let marginPct: number | null = null;
-    if (cpu != null && avg > 0) {
-      marginPct = ((avg - cpu) / avg) * 100;
-    }
+    const dishCost = computeDishCost(s.item_name, locationId, map);
+    const cpu = dishCost.total_cost;
+    const marginPct = cpu != null && avg > 0 ? ((avg - cpu) / avg) * 100 : null;
+    counts[dishCost.link_state]++;
     rows.push({
       item_name: s.item_name,
       qty,
       net_sales: rev,
       avg_price: avg,
-      recipe_id: rc?.recipe_id ?? null,
       cost_per_unit: cpu,
       margin_pct: marginPct,
       popularity: qty,
+      link_state: dishCost.link_state,
+      components: dishCost.components,
     });
   }
 
@@ -105,10 +98,12 @@ export function computeMenuEngineering(locationId: string = 'default'): MenuEngi
 
   const margins = rows
     .filter((r) => r.margin_pct != null && !Number.isNaN(r.margin_pct))
-    .map((r) => r.margin_pct!);
-  const medianMargin = margins.length ? margins.sort((a, b) => a - b)[Math.floor(margins.length / 2)] : 0;
+    .map((r) => r.margin_pct as number);
+  const medianMargin = margins.length
+    ? margins.sort((a, b) => a - b)[Math.floor(margins.length / 2)]!
+    : 0;
   const pops = rows.map((r) => r.popularity).sort((a, b) => a - b);
-  const medianPop = pops.length ? pops[Math.floor(pops.length / 2)] : 0.5;
+  const medianPop = pops.length ? pops[Math.floor(pops.length / 2)]! : 0.5;
 
   for (const r of rows) {
     const hiM = r.margin_pct != null && r.margin_pct >= medianMargin;
@@ -120,5 +115,5 @@ export function computeMenuEngineering(locationId: string = 'default'): MenuEngi
     else r.quadrant = 'dog';
   }
 
-  return { rows, medianMargin, medianPop };
+  return { rows, medianMargin, medianPop, coverage: counts };
 }

@@ -1,0 +1,30 @@
+dish_name,component_type,recipe_slug,vendor_ingredient,qty_per_serving,unit,notes
+Quesa Birria Tacos,recipe,birria,,,qt,declared_only; revenue $1052.00
+Quesa Birria Tacos,recipe,qb_seasoning,,,cup,declared_only; revenue $1052.00
+BAJA FISH TACOS,recipe,aji_verde,,,qt,declared_only; revenue $948.00
+BAJA FISH TACOS,recipe,chipotle_aioli,,,qt,declared_only; revenue $948.00
+BAJA FISH TACOS,recipe,fish_brine,,,qt,declared_only; revenue $948.00
+BAJA FISH TACOS,recipe,pico_de_gallo,,,qt,declared_only; revenue $948.00
+Chicken Wings,recipe,beer_batter,,,qt,declared_only; revenue $750.00
+Chicken Wings,recipe,chicken_flour,,,qt,declared_only; revenue $750.00
+The Trio,recipe,blackened_tomato_salsa,,,qt,declared_only; revenue $525.00
+The Trio,recipe,queso_mac_sauce,,,qt,declared_only; revenue $525.00
+Cobb Salad,recipe,cobb_dressing,,,qt,declared_only; revenue $377.00
+Pig Wings,recipe,alabama_white_sauce,,,qt,declared_only; revenue $289.00
+FISH AND CHIPS,recipe,beer_batter,,,qt,"seeded via menu_items fuzz match (exact_normalized); declared ""Fish & Chips""; fuzz_confidence=high"
+FISH AND CHIPS,recipe,beer_flour,,,qt,"seeded via menu_items fuzz match (exact_normalized); declared ""Fish & Chips""; fuzz_confidence=high"
+FISH AND CHIPS,recipe,coleslaw,,,qt,"seeded via menu_items fuzz match (exact_normalized); declared ""Fish & Chips""; fuzz_confidence=high"
+FISH AND CHIPS,recipe,fish_brine,,,qt,"seeded via menu_items fuzz match (exact_normalized); declared ""Fish & Chips""; fuzz_confidence=high"
+FISH AND CHIPS,recipe,tartar_sauce,,,qt,"seeded via menu_items fuzz match (exact_normalized); declared ""Fish & Chips""; fuzz_confidence=high"
+NASHVILLE CHICKEN SANDWICH,recipe,special_sauce,,,qt,"seeded via menu_items fuzz match (sale_subset_of_declared); declared ""Nashville Hot Chicken Sandwich""; fuzz_confidence=medium"
+CLASSIC BLT,recipe,coleslaw,,,qt,"seeded via menu_items fuzz match (exact_normalized); declared ""BLT""; fuzz_confidence=high"
+Rope Salad,recipe,black_bean_corn_succotash,,,qt,"seeded via menu_items fuzz match (exact_normalized); declared ""The Rope Salad""; fuzz_confidence=high"
+Rope Salad,recipe,roasted_pepitas,,,qt,"seeded via menu_items fuzz match (exact_normalized); declared ""The Rope Salad""; fuzz_confidence=high"
+Rope Salad,recipe,santa_fe_caesar,,,qt,"seeded via menu_items fuzz match (exact_normalized); declared ""The Rope Salad""; fuzz_confidence=high"
+Mountain Mac And Cheese,recipe,queso_mac_sauce,,,qt,"seeded via menu_items fuzz match (exact_normalized); declared ""Mtn Mac & Cheese""; fuzz_confidence=high"
+Jalapeno Cheddar Cornbread,recipe,cornbread,,,pan,"seeded via menu_items fuzz match (exact_normalized); declared ""Jalapeño Cheddar Cornbread""; fuzz_confidence=high"
+Jalapeno Cheddar Cornbread,recipe,honey_butter,,,lb,"seeded via menu_items fuzz match (exact_normalized); declared ""Jalapeño Cheddar Cornbread""; fuzz_confidence=high"
+EL JEFE BURGER,recipe,pickles,,,qt,"seeded via menu_items fuzz match (declared_subset_of_sale); declared ""burgers""; fuzz_confidence=medium"
+ROASTED TROUT,recipe,herbal_butter,,,lb,"seeded via menu_items fuzz match (sale_subset_of_declared); declared ""Whole Roasted Trout""; fuzz_confidence=medium"
+Green Chili,recipe,green_chile,,,qt,"seeded via menu_items fuzz match (sale_subset_of_declared); declared ""Green Chile (cup/bowl)""; fuzz_confidence=medium"
+Green Chili,recipe,tomatillo_salsa,,,qt,"seeded via menu_items fuzz match (sale_subset_of_declared); declared ""Green Chile ingredient""; fuzz_confidence=medium"
