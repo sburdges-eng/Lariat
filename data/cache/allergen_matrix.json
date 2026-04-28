@@ -2068,17 +2068,22 @@
   ],
   "tomato_confit": [
     {
-      "ingredient": "Thyme",
+      "ingredient": "cherry tomatoes",
       "big9": [],
       "notes": ""
     },
     {
-      "ingredient": "Tarragon",
+      "ingredient": "fresh thyme",
       "big9": [],
       "notes": ""
     },
     {
-      "ingredient": "Rosemary",
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "extra-virgin olive oil",
       "big9": [],
       "notes": ""
     }
@@ -2136,6 +2141,826 @@
     {
       "ingredient": "black pepper",
       "big9": [],
+      "notes": ""
+    }
+  ],
+  "marinara_sauce": [
+    {
+      "ingredient": "tomato sauce",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "basil fresh",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "thyme fresh",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic cloves",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "baked_ziti": [
+    {
+      "ingredient": "ziti noodles",
+      "big9": [
+        "wheat"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "marinara sauce",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "tomato sauce",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "ricotta cheese",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "mozzarella shredded",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "parmesan grated",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "basil fresh",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "thyme fresh",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "mac_balls": [
+    {
+      "ingredient": "ditalini noodles",
+      "big9": [
+        "wheat"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "queso mac sauce",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "colby jack shredded",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "ap flour",
+      "big9": [
+        "wheat"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "panko bread crumbs",
+      "big9": [
+        "wheat"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "eggs",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    }
+  ],
+  "mini_rellenos": [
+    {
+      "ingredient": "mini rellenos (sysco)",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "caprese_skewers": [
+    {
+      "ingredient": "mozzarella ciliegine",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "cherry tomatoes",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "basil fresh",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "prosciutto",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "bamboo skewers 6in",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "churros": [
+    {
+      "ingredient": "churros (sysco)",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "philo_bites": [
+    {
+      "ingredient": "philo bites (sysco)",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "chocolate_cake": [
+    {
+      "ingredient": "chocolate cake whole (shamrock/sysco)",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "cupcakes": [
+    {
+      "ingredient": "cupcakes (vendor whole-buy)",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "tiramisu": [
+    {
+      "ingredient": "tiramisu whole (vendor whole-buy)",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "banana_cream_pudding": [
+    {
+      "ingredient": "pudding vanilla base (shamrock/sysco)",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "bananas",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "vanilla wafers",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "whipped cream",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    }
+  ],
+  "prime_rib": [
+    {
+      "ingredient": "prime rib",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "crab_cake_remoulade": [
+    {
+      "ingredient": "crab cakes frozen (vendor whole-buy)",
+      "big9": [
+        "shellfish"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "remoulade sauce",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "tex_mex_egg_rolls": [
+    {
+      "ingredient": "tex mex egg rolls (vendor whole-buy)",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "chipotle aioli",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    }
+  ],
+  "corn_dogs": [
+    {
+      "ingredient": "corndog batter",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "hot dogs",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "bamboo skewers 6in",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "honey mustard",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "artisanal_board": [
+    {
+      "ingredient": "assorted cheeses (vendor whole-buy)",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "assorted cured meats (vendor whole-buy)",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "crackers or baguette",
+      "big9": [
+        "wheat"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "fruit or preserve",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "olives or pickle",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "deviled_eggs": [
+    {
+      "ingredient": "hardboiled eggs (sysco)",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "mayo",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "yellow mustard",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "paprika",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "pepper",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "pork_belly_bao_bun": [
+    {
+      "ingredient": "pork belly",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "hoisin sauce",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "sesame oil",
+      "big9": [
+        "sesame"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "sesame seed",
+      "big9": [
+        "sesame"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "bao buns (sysco)",
+      "big9": [
+        "wheat"
+      ],
+      "notes": ""
+    }
+  ],
+  "low_country_boil": [
+    {
+      "ingredient": "shrimp",
+      "big9": [
+        "shellfish"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "corn on the cob",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "red russet potatoes",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "old bay seasoning",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "gazpacho": [
+    {
+      "ingredient": "roma tomatoes",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "cucumber",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "red bell pepper",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "yellow onion",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "day-old bread",
+      "big9": [
+        "wheat"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "red wine vinegar",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "extra-virgin olive oil",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "ground cumin",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "fresh cilantro",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lemon juice",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "kosher salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "black pepper",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "water",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "chilled_corn_leek": [
+    {
+      "ingredient": "corn kernels",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "leeks",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "yellow onion",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "yukon gold potato",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "unsalted butter",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "chicken stock",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "heavy cream",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "whole milk",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "bay leaf",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "fresh thyme",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lemon juice",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "kosher salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "white pepper",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "chives",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "italian_dinner": [
+    {
+      "ingredient": "baked ziti",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "caprese skewers",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "artisanal board",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "ciabatta loaf",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "salted butter",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "mixed greens",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "parmesan reggiano",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    }
+  ],
+  "mexican_dinner": [
+    {
+      "ingredient": "birria",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "mexi slaw",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "pico de gallo",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "tomatillo salsa",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "mini rellenos",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "spanish rice",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "refried black beans",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "flour tortillas",
+      "big9": [
+        "wheat"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "corn tortillas",
+      "big9": [
+        "wheat"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "lime wedges",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "spanish_rice": [
+    {
+      "ingredient": "long-grain white rice",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "yellow onion",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "vegetable oil",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "canned diced tomatoes",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "chicken stock",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "ground cumin",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "kosher salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "black pepper",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "refried_black_beans": [
+    {
+      "ingredient": "canned black beans",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "yellow onion",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "vegetable oil",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "ground cumin",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "dried oregano",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "kosher salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "black pepper",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "lime juice",
+      "big9": [],
+      "notes": ""
+    }
+  ],
+  "beef_tenderloin_crostini": [
+    {
+      "ingredient": "beef tenderloin",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "baguette",
+      "big9": [
+        "wheat"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "extra-virgin olive oil",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "garlic",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "kosher salt",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "black pepper",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "sour cream",
+      "big9": [
+        "milk"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "mayonnaise",
+      "big9": [
+        "eggs"
+      ],
+      "notes": ""
+    },
+    {
+      "ingredient": "prepared horseradish",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "dijon mustard",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "fresh chives",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "arugula",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "capers",
+      "big9": [],
+      "notes": ""
+    },
+    {
+      "ingredient": "parmesan reggiano",
+      "big9": [
+        "milk"
+      ],
       "notes": ""
     }
   ]

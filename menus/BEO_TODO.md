@@ -7,26 +7,42 @@ undercount them (AGENTS.md rule #4 — silence is not an option).
 
 ## Open
 
-| BEO item | Category | Status / what's needed |
+(none — see "Pending chef review" and the "Resolved" lists below)
+
+## Pending chef review (USDA-default templates in place)
+
+The four items below moved out of STUB on the Phase 1 sweep — each got
+a starter ingredient list so the BEO order pull no longer loses them to
+the unmapped counter. Provenance is recorded per-row in the `notes`
+column of each CSV (`SOURCE: usda_myplate`, `SOURCE: chef_template`,
+`SOURCE: in-house`). Quantities are restaurant-scale defaults derived
+from the canonical USDA MyPlate publications (public domain) plus
+classical vichyssoise-tradition additions where USDA had no direct
+match. **Every row tagged `CHEF REVIEW` needs operator confirmation
+before the next costing ingest treats these as authoritative.**
+
+| BEO item | Source | Review focus |
 |---|---|---|
-| Beef tenderloin crostini | Passed Apps | Needs ingredient list — house recipe (seared tenderloin + crostini + aioli) or vendor whole-buy? |
-| Gazpacho | Passed Apps | STUB recipe in place; ingredient list pending. Update `recipes/normalized/gazpacho.csv` when ready. |
-| Chilled Corn Leek | Passed Apps | STUB recipe in place; ingredient list pending. Update `recipes/normalized/chilled_corn_leek.csv` when ready. |
-| Italian Dinner | Dinners | STUB menu in place; component recipes pending (entrée + sides). Update `recipes/normalized/italian_dinner.csv` + add `sub_recipes` on `recipe_index.csv` row. |
-| Mexican Dinner | Dinners | STUB menu in place; component recipes pending. Update `recipes/normalized/mexican_dinner.csv` + add `sub_recipes`. |
+| Gazpacho | USDA MyPlate (`whatscooking.fns.usda.gov/recipes/myplate-cnpp/gazpacho`) — combined classic + Farmers Market variants | Confirm yield (currently 4 qt), bread-vs-no-bread, cumin level |
+| Chilled Corn Leek | USDA MyPlate Corn Soup (`myplate.gov/recipes/corn-soup`) base + vichyssoise template (cream + leek + potato — no direct .gov match) | Confirm cream ratio, potato quantity, garnish (chives default) |
+| Italian Dinner | Composite — wires `baked_ziti` + `caprese_skewers` + `artisanal_board` sub-recipes; USDA does not publish multi-course menu plans | Confirm bread vendor + count, decide whether salad is its own sub-recipe |
+| Mexican Dinner | Composite — wires `birria` + `mexi_slaw` + `pico_de_gallo` + `tomatillo_salsa` + `mini_rellenos` sub-recipes | Confirm rice/beans recipes (currently UNMAPPED — need their own CSV+row), tortilla counts per cover |
 
-The four STUB items above have minimal recipe files so the beo order
-pull doesn't lose them to the unmapped counter, but they report as
-1 placeholder ingredient until filled in. Search for `STUB` in
-`recipes/normalized/` to find them.
-
-**Resolution path** for each: decide whether the item is (a) made
-in-house → expand the STUB's `.csv` with real ingredients + update the
-`ingredient_count` column on `recipe_index.csv`; OR (b) bought whole →
-point the single ingredient at a vendor SKU (see `mini_rellenos.csv`,
-`churros.csv`, `chocolate_cake.csv` for the whole-buy pattern).
+**Resolution path** for the remaining open item: decide whether
+"Beef tenderloin crostini" is (a) made in-house → expand the STUB's
+`.csv` with real ingredients + update the `ingredient_count` column
+on `recipe_index.csv`; OR (b) bought whole → point the single
+ingredient at a vendor SKU (see `mini_rellenos.csv`, `churros.csv`,
+`chocolate_cake.csv` for the whole-buy pattern).
 
 Close an item here with the PR that expands the recipe.
+
+## Resolved 2026-04-28
+
+- **Beef tenderloin crostini** — house recipe; see `recipes/normalized/beef_tenderloin_crostini.csv` (seared tenderloin + crostini + horseradish cream + arugula; 50 ea per batch).
+- **Spanish rice** — USDA MyPlate canonical (`spanish_rice.csv`, 3 qt yield); referenced as sub-recipe by `mexican_dinner`.
+- **Refried black beans** — USDA MyPlate canonical (`refried_black_beans.csv`, 3 qt yield); referenced as sub-recipe by `mexican_dinner`.
+- **Tomato confit** — house recipe; 6"-deep 1/3 hotel pan filled with cherry tomatoes + 1 sprig thyme + 100g garlic + EVOO to cover.
 
 ## Resolved 2026-04-24
 
