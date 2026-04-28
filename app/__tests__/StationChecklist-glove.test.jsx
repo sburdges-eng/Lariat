@@ -191,3 +191,87 @@ describe('StationChecklist glove attestation', () => {
     expect(body.cook_id).toBe('alex');
   });
 });
+
+// Sad-path coverage for the glove handler. FDA §3-301.11 RTE attestation
+// is regulatory — if the persist fails, the optimistic toggle MUST roll
+// back so the UI never claims a glove change that didn't audit-log.
+describe('StationChecklist glove attestation — failure rollback', () => {
+  let alertSpy;
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    alertSpy.mockRestore();
+  });
+
+  test('non-2xx response — checkbox rolls back to unchecked and alert fires', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: 'boom' }),
+    });
+
+    renderChecklist({ existing: {} });
+    const checkbox = screen.getByRole('checkbox', { name: /Glove change attested for Bacon/i });
+    fireEvent.click(checkbox);
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
+
+    // Optimistic toggle reverted.
+    expect(checkbox).not.toBeChecked();
+    const label = checkbox.closest('label.glove-toggle');
+    expect(label.className).not.toMatch(/\bon\b/);
+
+    // Alert message names the item and the HTTP status so cooks can
+    // tell saved-vs-not at a glance.
+    const alertMsg = alertSpy.mock.calls[0][0];
+    expect(alertMsg).toMatch(/Bacon/);
+    expect(alertMsg).toMatch(/500/);
+  });
+
+  test('connection drop (fetch rejects) — checkbox rolls back and alert fires', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('NetworkError'));
+
+    renderChecklist({ existing: {} });
+    const checkbox = screen.getByRole('checkbox', { name: /Glove change attested for Bacon/i });
+    fireEvent.click(checkbox);
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
+
+    expect(checkbox).not.toBeChecked();
+    const label = checkbox.closest('label.glove-toggle');
+    expect(label.className).not.toMatch(/\bon\b/);
+
+    const alertMsg = alertSpy.mock.calls[0][0];
+    expect(alertMsg).toMatch(/Lost connection/);
+    expect(alertMsg).toMatch(/Bacon/);
+  });
+
+  test('clearing a previously-attested glove also rolls back to true on failure', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({}),
+    });
+
+    renderChecklist({ existing: { Bacon: { glove_change_attested: true } } });
+    const checkbox = screen.getByRole('checkbox', { name: /Glove change attested for Bacon/i });
+    expect(checkbox).toBeChecked();
+
+    fireEvent.click(checkbox);
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
+
+    // Originally-true attestation must come back when the clear fails —
+    // otherwise the audit log says "still attested" while the UI says
+    // "not attested" and the line cook re-changes gloves on a stale view.
+    expect(checkbox).toBeChecked();
+    const label = checkbox.closest('label.glove-toggle');
+    expect(label.className).toMatch(/\bon\b/);
+  });
+});
