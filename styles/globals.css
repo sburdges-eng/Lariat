@@ -576,6 +576,7 @@ textarea.input { resize: vertical; }
 .flex-1 { flex: 1; }
 .list-none { list-style: none; }
 .flex-center-gap { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.justify-end { justify-content: flex-end; }
 .cursor-pointer { cursor: pointer; }
 .border-top { border-top: 1px solid var(--border); padding-top: 12px; }
 
@@ -1605,6 +1606,48 @@ textarea.input { resize: vertical; }
   line-height: 1;
   text-align: center;
 }
+
+/* ── Right-side rail wrapping the menu picker + past-prep panel ── */
+.beo-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* ── Past-prep reference panel ── */
+.beo-prep-history-hint {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+.beo-prep-history-row {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.beo-prep-history-row:last-child { border-bottom: none; }
+.beo-prep-history-line1 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-weight: 600;
+}
+.beo-prep-history-date {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.beo-prep-history-client { color: var(--text); }
+.beo-prep-history-qty {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.beo-prep-history-line2 {
+  color: var(--text);
+  margin-top: 2px;
+}
+.beo-prep-history-line2 b { color: var(--muted); font-weight: 600; }
 
 /* ── Prep-sheet grid — mirrors BEO/BID SHEET xlsx customizations ──
    True-to-sheet styling: white cells, thin black gridlines like Excel,
