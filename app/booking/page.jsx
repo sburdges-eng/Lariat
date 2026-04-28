@@ -1,5 +1,6 @@
+import Link from 'next/link';
 import { getDb } from '../../lib/db';
-import { upcomingShows, pipelineCounts } from '../../lib/showsRepo';
+import { upcomingShows, pipelineCounts, nextUpcoming } from '../../lib/showsRepo';
 import BookingCalendar from './BookingCalendar';
 import BookingPipeline from './BookingPipeline';
 
@@ -10,6 +11,7 @@ export default function BookingPage() {
   const today = new Date().toISOString().slice(0, 10);
   const rows = upcomingShows(db, 'default', { today, weeks: 5 });
   const counts = pipelineCounts(db, 'default', { today, weeks: 52 });
+  const next = nextUpcoming(db, 'default', { today });
 
   return (
     <div className="page">
@@ -19,6 +21,22 @@ export default function BookingPage() {
           The <em>calendar</em>
         </h1>
         <div className="row-meta">Five weeks ahead — click an artist to open the playbook.</div>
+        {next && (
+          <div className="toggles" style={{ marginTop: 12, gap: 6 }}>
+            <span className="row-meta" style={{ alignSelf: 'center' }}>
+              Next show ({next.band_name}):
+            </span>
+            <Link className="btn sm" href={`/shows/${next.id}/stage`}>
+              Stage
+            </Link>
+            <Link className="btn sm" href={`/shows/${next.id}/sound`}>
+              Sound
+            </Link>
+            <Link className="btn sm" href={`/shows/${next.id}/box-office`}>
+              Box office
+            </Link>
+          </div>
+        )}
       </header>
       <section style={{ marginBottom: 24 }}>
         <div className="sec-head">

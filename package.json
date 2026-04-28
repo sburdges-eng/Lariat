@@ -24,6 +24,8 @@
     "ingest:all": "npm run ingest && npm run ingest:costing && npm run ingest:analytics && npm run ingest:toast && npm run ingest:shows",
     "sync:normalized": "node --experimental-strip-types scripts/sync-normalized-to-bom.mjs",
     "sync:normalized:dry": "node --experimental-strip-types scripts/sync-normalized-to-bom.mjs --dry",
+    "debug:event-ops": "node --experimental-strip-types scripts/debug-event-ops.mjs",
+    "debug:event-ops:json": "node --experimental-strip-types scripts/debug-event-ops.mjs --json",
     "job": "node --experimental-strip-types scripts/run-job.mjs",
     "job:list": "node --experimental-strip-types scripts/run-job.mjs --list",
     "job:status": "node --experimental-strip-types scripts/run-job.mjs --status",
@@ -140,7 +142,12 @@
     "test:shows-repo": "node --experimental-strip-types --test tests/js/test-shows-repo.mjs",
     "test:shows-api": "node --experimental-strip-types --test tests/js/test-shows-api.mjs",
     "test:shows-py": "pytest tests/python/test_ingest_shows_xlsx.py",
-    "test:shows": "npm run test:show-status && npm run test:shows-ingest && npm run test:shows-repo && npm run test:shows-api && npm run test:shows-py"
+    "test:shows": "npm run test:show-status && npm run test:shows-ingest && npm run test:shows-repo && npm run test:shows-api && npm run test:shows-py",
+    "test:stage-repo": "node --experimental-strip-types --test tests/js/test-stage-repo.mjs",
+    "test:sound-repo": "node --experimental-strip-types --test tests/js/test-sound-repo.mjs",
+    "test:box-office-repo": "node --experimental-strip-types --test tests/js/test-box-office-repo.mjs",
+    "test:event-ops-routes": "node --test tests/js/test-event-ops-routes.mjs",
+    "test:event-ops": "npm run test:stage-repo && npm run test:sound-repo && npm run test:box-office-repo && npm run test:event-ops-routes"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

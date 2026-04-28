@@ -33,6 +33,12 @@ export default function PlaybookHeader({ show, activeTab }) {
           </Link>
         ))}
       </nav>
+      <nav className="toggles" style={{ marginTop: 8, gap: 6 }}>
+        <span className="row-meta" style={{ alignSelf: 'center' }}>Event ops:</span>
+        <Link className="btn sm" href={`/shows/${show.id}/stage`}>Stage</Link>
+        <Link className="btn sm" href={`/shows/${show.id}/sound`}>Sound</Link>
+        <Link className="btn sm" href={`/shows/${show.id}/box-office`}>Box office</Link>
+      </nav>
     </header>
   );
 }
