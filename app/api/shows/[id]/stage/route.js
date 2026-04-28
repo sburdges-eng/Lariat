@@ -10,6 +10,7 @@
 
 import { getDb } from '../../../../../lib/db';
 import { locationFromRequest, locationFromBody } from '../../../../../lib/location';
+import { hasPinCookie, pinRequiredForPic } from '../../../../../lib/pin';
 import {
   getStageSetup,
   upsertStageSetup,
@@ -26,7 +27,16 @@ function parseShowId(rawId) {
   return n;
 }
 
+async function requirePin(req) {
+  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+    return Response.json({ error: 'PIN required' }, { status: 401 });
+  }
+  return null;
+}
+
 export async function GET(req, { params }) {
+  const pinFail = await requirePin(req);
+  if (pinFail) return pinFail;
   const showId = parseShowId(params?.id);
   if (showId == null) {
     return Response.json({ error: 'Invalid show id' }, { status: 400 });
@@ -49,6 +59,8 @@ export async function GET(req, { params }) {
 }
 
 export async function POST(req, { params }) {
+  const pinFail = await requirePin(req);
+  if (pinFail) return pinFail;
   const showId = parseShowId(params?.id);
   if (showId == null) {
     return Response.json({ error: 'Invalid show id' }, { status: 400 });
