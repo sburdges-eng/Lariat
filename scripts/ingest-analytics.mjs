@@ -9,6 +9,13 @@
 // CLI flags:
 //   --skip-depletion   Bypass the post-ingest depletion sweep (legacy
 //                      behavior — write only sales_lines / spend_monthly).
+//   --force-empty      Allow the DELETE-then-INSERT refresh to proceed
+//                      even when the parser returned zero rows. Without
+//                      this, an empty parser result is treated as a
+//                      "wrong workbook" signal and the script exits
+//                      non-zero rather than wiping good data. Only set
+//                      when you genuinely want to clear sales_lines /
+//                      spend_monthly (e.g. starting fresh).
 //
 // Note: applyDepletionsForPeriod is idempotent — already-applied
 // (location, period) tuples are skipped — so the default sweep is safe
@@ -27,9 +34,10 @@ const DEFAULT_UNIFIED = path.join(ROOT, 'XL', 'Lariat_Unified_Workbook.xlsx');
 const DEFAULT_ANALYTICS = path.join(ROOT, 'XL', 'Lariat_Analytics_Workbook.xlsx');
 
 function parseArgs(argv) {
-  const args = { skipDepletion: false };
+  const args = { skipDepletion: false, forceEmpty: false };
   for (const a of argv.slice(2)) {
     if (a === '--skip-depletion') args.skipDepletion = true;
+    else if (a === '--force-empty') args.forceEmpty = true;
     else if (a === '-h' || a === '--help') args.help = true;
     else {
       console.error(`unknown arg: ${a}`);
@@ -47,8 +55,70 @@ Usage:
 
 Flags:
   --skip-depletion   Skip the post-ingest sales-driven depletion sweep.
+  --force-empty      Allow the refresh to proceed even when the parser
+                     returned zero rows (default: refuse, to prevent
+                     wrong-workbook accidents wiping good data).
   -h, --help         Show this help.
 `);
+}
+
+/**
+ * Pure write of parsed analytics data into the live DB tables. Each
+ * table is refreshed (DELETE+INSERT inside one transaction) only when
+ * the parser supplied at least one row OR the operator passed
+ * forceEmpty=true. This guards against the failure mode where pointing
+ * LARIAT_UNIFIED at a stripped working-copy workbook (no Toast sheet)
+ * silently truncates sales_lines.
+ *
+ * Returns counts: { sales_written, spend_written, sales_skipped_empty,
+ * spend_skipped_empty }. Tests drive this directly with synthetic
+ * data objects so they don't need the Python parser.
+ */
+export function applyAnalyticsData(db, data, { location_id, period, forceEmpty = false } = {}) {
+  const sales = Array.isArray(data?.sales_lines) ? data.sales_lines : [];
+  const spend = Array.isArray(data?.spend_monthly) ? data.spend_monthly : [];
+
+  let salesWritten = 0;
+  let spendWritten = 0;
+  let salesSkippedEmpty = false;
+  let spendSkippedEmpty = false;
+
+  db.transaction(() => {
+    if (sales.length > 0 || forceEmpty) {
+      db.prepare('DELETE FROM sales_lines WHERE location_id = ?').run(location_id);
+      const ins = db.prepare(`
+        INSERT INTO sales_lines (period_label, item_name, quantity_sold, net_sales, source, location_id)
+        VALUES (?,?,?,?,?,?)
+      `);
+      for (const r of sales) {
+        ins.run(period, r.item_name, r.quantity_sold ?? null, r.net_sales ?? null, 'toast_import', location_id);
+        salesWritten++;
+      }
+    } else {
+      salesSkippedEmpty = true;
+    }
+
+    if (spend.length > 0 || forceEmpty) {
+      db.prepare('DELETE FROM spend_monthly WHERE location_id = ?').run(location_id);
+      const isp = db.prepare(`
+        INSERT INTO spend_monthly (month, shamrock_total_spend, source, location_id)
+        VALUES (?,?,?,?)
+      `);
+      for (const r of spend) {
+        isp.run(r.month, r.shamrock_total_spend ?? null, r.source || 'analytics', location_id);
+        spendWritten++;
+      }
+    } else {
+      spendSkippedEmpty = true;
+    }
+  })();
+
+  return {
+    sales_written: salesWritten,
+    spend_written: spendWritten,
+    sales_skipped_empty: salesSkippedEmpty,
+    spend_skipped_empty: spendSkippedEmpty,
+  };
 }
 
 /**
@@ -166,33 +236,39 @@ async function main() {
   const LOC = 'default';
   const period = data.toast_sheet || 'toast_item_sales';
 
+  // Empty-parser guard: if the Python parser found NO Toast sheet at all
+  // (data.toast_sheet === null), the workbook is almost certainly the
+  // wrong file (e.g. a stripped working copy without sales data). Refuse
+  // to truncate live tables unless --force-empty was passed.
+  const sheetFound = data.toast_sheet != null;
+  const salesEmpty = !Array.isArray(data.sales_lines) || data.sales_lines.length === 0;
+  if (!sheetFound && salesEmpty && !args.forceEmpty) {
+    console.error(`✗ ingest_analytics.py found no "Toast - Item Sales*" sheet in the workbook.`);
+    console.error(`  workbook: ${UNIFIED}`);
+    console.error(`  refusing to truncate sales_lines without a fresh dataset.`);
+    console.error(`  if intentional (starting fresh), pass --force-empty.`);
+    process.exit(1);
+  }
+
   // getDb() handles schema init internally and respects setDbPathForTest.
   const { getDb } = await import('../lib/db.ts');
   const db = getDb();
 
-  db.transaction(() => {
-    db.prepare('DELETE FROM sales_lines WHERE location_id = ?').run(LOC);
-    db.prepare('DELETE FROM spend_monthly WHERE location_id = ?').run(LOC);
+  const writeStats = applyAnalyticsData(db, data, {
+    location_id: LOC,
+    period,
+    forceEmpty: args.forceEmpty,
+  });
 
-    const ins = db.prepare(`
-      INSERT INTO sales_lines (period_label, item_name, quantity_sold, net_sales, source, location_id)
-      VALUES (?,?,?,?,?,?)
-    `);
-    for (const r of data.sales_lines || []) {
-      ins.run(period, r.item_name, r.quantity_sold ?? null, r.net_sales ?? null, 'toast_import', LOC);
-    }
-
-    const isp = db.prepare(`
-      INSERT INTO spend_monthly (month, shamrock_total_spend, source, location_id)
-      VALUES (?,?,?,?)
-    `);
-    for (const r of data.spend_monthly || []) {
-      isp.run(r.month, r.shamrock_total_spend ?? null, r.source || 'analytics', LOC);
-    }
-  })();
-
+  const salesNote = writeStats.sales_skipped_empty
+    ? ' (sales_lines: NOT touched — parser returned 0 rows; pass --force-empty to wipe)'
+    : '';
+  const spendNote = writeStats.spend_skipped_empty
+    ? ' (spend_monthly: NOT touched — parser returned 0 rows; pass --force-empty to wipe)'
+    : '';
   console.log(
-    `✓ Analytics ingest: ${data.sales_lines?.length || 0} item sales rows (${data.toast_sheet || 'n/a'}), ${data.spend_monthly?.length || 0} monthly spend rows → SQLite (${LOC})`,
+    `✓ Analytics ingest: ${writeStats.sales_written} item sales rows (${data.toast_sheet || 'n/a'}), ` +
+      `${writeStats.spend_written} monthly spend rows → SQLite (${LOC})${salesNote}${spendNote}`,
   );
 
   // Depletion sweep runs AFTER the sales_lines transaction commits.
