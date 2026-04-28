@@ -102,6 +102,10 @@ export async function POST(req) {
           row: existing,
         };
       }
+      return acknowledgePackChange(db, id);
+    })();
+
+    if (!result.was_already_acknowledged) {
       logAuditAction({
         action: 'pack_size_change_acknowledged',
         pack_size_changes_id: id,
@@ -111,8 +115,7 @@ export async function POST(req) {
         new_pack: existing.new_pack,
         note,
       });
-      return acknowledgePackChange(db, id);
-    })();
+    }
 
     return Response.json({
       id,
