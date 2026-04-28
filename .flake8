@@ -1,0 +1,12 @@
+[flake8]
+max-line-length = 120
+extend-exclude =
+    .claude-worktrees,
+    .git,
+    .mypy_cache,
+    .pytest_cache,
+    .venv,
+    __pycache__,
+    archive,
+    node_modules,
+    venv
