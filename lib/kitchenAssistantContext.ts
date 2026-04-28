@@ -58,6 +58,26 @@ const CATERING_KEYWORDS = [
 const PREP_PLANNING_KEYWORDS = [
   'prep', 'pre-prep', 'pre prep', 'plate', 'plating', 'scale', 'portion',
 ];
+// Manager-level legal / policy questions ground against the in-tree
+// compliance index built by scripts/build-compliance-index.mjs from
+// data/normalized/compliance_rules.jsonl. Keep the list narrow:
+// the index is small but the index lookup is BM25-ranked text search,
+// so generic words ("rule", "policy") would over-trigger noise.
+const COMPLIANCE_KEYWORDS = [
+  // Labor
+  'overtime', 'wage', 'minimum wage', 'tip', 'tips', 'tipped',
+  'sick leave', 'hfwa', 'meal break', 'rest break', 'comps order',
+  'final paycheck', 'youth labor', 'minor', 'equal pay',
+  // Liquor
+  'liquor', 'alcohol', 'id check', 'fake id', 'underage',
+  'visibly intoxicated', 'over-served', 'overserved', 'dram shop',
+  'responsible vendor', 'refusal of service',
+  // Security
+  'bouncer', 'door security', 'use of force', 'detain', 'restrain',
+  'patron search', 'bag check', 'eject', 'remove patron',
+  // Cross-cutting
+  'compliance', 'colorado law', 'cdle', 'cdor',
+];
 
 const STALE_BEO_WINDOW_DAYS = 2;
 const REPEAT_86_WINDOW_DAYS = 7;
@@ -403,6 +423,19 @@ export async function buildGroundedContext(
         }
       }
       sources.push({ type: 'labor_summary', detail: labor.period || 'loaded' });
+    }
+  }
+
+  // ── Conditional: Compliance (CO labor / liquor / security) ──────
+  // Grounds against the in-tree FTS5 index at data/cache/compliance.db
+  // built from data/normalized/compliance_rules.jsonl. Silently no-ops
+  // when the index has not been built (build via npm run compliance:build).
+  if (matchesKeywords(qLower, COMPLIANCE_KEYWORDS)) {
+    const { renderCompliance } = await import('./complianceSearch.ts');
+    const block = renderCompliance(userQuestion);
+    if (block.text) {
+      text += block.text;
+      if (block.source) sources.push(block.source);
     }
   }
 
