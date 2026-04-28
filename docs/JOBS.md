@@ -50,7 +50,7 @@ row with `kind = 'job:<name>'`, spawns the command (`stdio: 'inherit'`),
 updates the row with `status = 'ok' | 'failed'`, releases the lock.
 Failures append to `data/audit/job-failures.jsonl`.
 
-```
+```text
 usage: run-job.mjs <job-name>
        run-job.mjs --list
        run-job.mjs --status [<job-name>]
@@ -99,22 +99,50 @@ npm run job:status ingest-costing
 
 ## Operator crontab
 
-The contract is: cron `cd`s into the repo before invoking. Lariat does
-not assume any cwd in production — all paths the runner writes to are
-either repo-rooted (manifest, lockfile dir) or cwd-rooted (failure log,
-audit log). Cron entries should look like:
+Cron's environment is sparse — no Homebrew PATH, no NVM init, no
+shell rc files. Calling `npm run job` directly from cron usually
+fails with "node: command not found". Two pieces handle this:
 
-```cron
-0 6 * * * cd ~/Dev/Lariat && npm run job ingest-costing >> /tmp/lariat-cron.log 2>&1
-0 7 * * * cd ~/Dev/Lariat && npm run job ingest-analytics >> /tmp/lariat-cron.log 2>&1
-*/30 * * * * cd ~/Dev/Lariat && npm run job rebuild-cache >> /tmp/lariat-cron.log 2>&1
+- **`scripts/cron-wrapper.sh`** — sets a sane PATH (Homebrew + system),
+  cd's to the repo via `BASH_SOURCE` (not relative to the operator's
+  cwd), exports `TZ=America/Denver` so `ingest_runs` timestamps stay
+  consistent, then `exec`s `npm run job <name>`.
+
+- **`examples/lariat.crontab`** — paste-able crontab block delimited
+  by `# LARIAT_CRON_BEGIN` / `# LARIAT_CRON_END` markers. Calls the
+  wrapper, not `npm` directly.
+
+- **`scripts/install-cron.sh`** — idempotent installer. Reads the
+  current crontab, strips any prior block bounded by the markers,
+  appends the template, pipes to `crontab -`. Non-Lariat lines pass
+  through verbatim. Run it as many times as you want.
+
+```bash
+# Preview what would be installed:
+bash scripts/install-cron.sh --dry
+
+# Install or update:
+bash scripts/install-cron.sh
+
+# Remove the Lariat block entirely:
+bash scripts/install-cron.sh --remove
 ```
+
+After install, verify with `crontab -l`. Watch live cron output with
+`tail -f /tmp/lariat-cron.log`.
 
 `MAILTO=` at the top of the crontab routes non-zero exits to the
 operator's inbox. Exit code 75 (lock held) is *not* a failure for a
 short job that runs more often than its peers — operators may want to
 filter it out, e.g. by piping `MAILTO`'d output through a script that
 ignores the canonical "already locked" message.
+
+### Crontab if you want to edit by hand
+
+If you'd rather not use the installer, paste the block from
+[`examples/lariat.crontab`](../examples/lariat.crontab) into
+`crontab -e` directly. The wrapper resolves the repo root from its own
+file location, so you don't need a `cd` step in the cron entries.
 
 ## How a new job lands
 

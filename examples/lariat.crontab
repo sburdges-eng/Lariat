@@ -1,0 +1,35 @@
+# Lariat scheduled jobs — paste below your existing crontab entries.
+#
+# The block is delimited by # LARIAT_CRON_BEGIN and # LARIAT_CRON_END
+# markers so scripts/install-cron.sh can update it idempotently. Do not
+# remove the markers; they are how the installer knows what to replace.
+#
+# Adjust REPO_ROOT to match your install path. Default: ~/Dev/Lariat.
+# Each job name maps to an entry in data/scheduled-jobs.json.
+
+# Routes job-failure stderr to your inbox via local mail. Comment out
+# if you don't have local mail configured.
+# MAILTO=sburdges@gmail.com
+
+# LARIAT_CRON_BEGIN — managed block; do not edit by hand
+# Daily costing ingest from XL workbook (vendor_prices, recipe_costs, bom_lines).
+0 6 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" ingest-costing >> /tmp/lariat-cron.log 2>&1
+
+# Toast weekly sales + labor timeseries pull.
+15 6 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" ingest-toast >> /tmp/lariat-cron.log 2>&1
+
+# Prism / DICE event ingest into shows + showStatus.
+30 6 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" ingest-shows >> /tmp/lariat-cron.log 2>&1
+
+# Sync recipes/normalized/*.csv into entities_recipes + bom_lines.
+45 6 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" sync-normalized >> /tmp/lariat-cron.log 2>&1
+
+# Daily Toast analytics ingest. Auto-runs sales depletion at the end.
+0 7 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" ingest-analytics >> /tmp/lariat-cron.log 2>&1
+
+# Refresh data/cache/*.json from source CSVs every 30 min.
+*/30 * * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" rebuild-cache >> /tmp/lariat-cron.log 2>&1
+
+# Nightly DB snapshot.
+0 1 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" backup >> /tmp/lariat-cron.log 2>&1
+# LARIAT_CRON_END
