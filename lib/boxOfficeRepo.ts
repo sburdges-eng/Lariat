@@ -189,6 +189,57 @@ export function createBoxOfficeLine(
   return tx();
 }
 
+/**
+ * Mark a single box-office line as scanned at the door.
+ *
+ * Returns the updated row, or null if no eligible row matched (already
+ * scanned, missing, or location mismatch). Audit emission lives inside
+ * the same tx as the UPDATE so an audit failure rolls back the scan.
+ */
+export function markScanned(
+  db: Database,
+  line_id: number,
+  location_id: string,
+  actor_cook_id: string | null,
+): BoxOfficeLine | null {
+  if (!Number.isInteger(line_id) || line_id <= 0) {
+    throw new Error('line_id must be a positive integer');
+  }
+
+  const tx = db.transaction((): BoxOfficeLine | null => {
+    const info = db.prepare(
+      `UPDATE box_office_lines
+          SET scanned_at = datetime('now')
+        WHERE id = ? AND location_id = ? AND scanned_at IS NULL`,
+    ).run(line_id, location_id);
+    if (info.changes === 0) return null;
+
+    const row = db
+      .prepare(`SELECT * FROM box_office_lines WHERE id = ?`)
+      .get(line_id) as BoxOfficeLine;
+
+    postAuditEvent({
+      entity: 'box_office_lines',
+      entity_id: line_id,
+      action: 'update',
+      actor_cook_id: actor_cook_id ?? null,
+      actor_source: 'box_office',
+      location_id,
+      shift_date: new Date().toISOString().slice(0, 10),
+      payload: {
+        op: 'mark_scanned',
+        show_id: row.show_id,
+        source: row.source,
+        qty: row.qty,
+        external_ref: row.external_ref,
+        scanned_at: row.scanned_at,
+      },
+    });
+    return row;
+  });
+  return tx();
+}
+
 // ── Completeness signal ───────────────────────────────────────────
 
 export interface BoxOfficeCompleteness {
