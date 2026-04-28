@@ -1,2 +1,8 @@
 ingredient,qty,unit,portions_per_batch,notes
-italian dinner placeholder,1,menu,1 menu,STUB — composite dinner menu; component recipes pending; see menus/BEO_TODO.md
+baked ziti,1,hotel pan,1 menu,sub-recipe — main entree (≈ 24 portions per pan). SOURCE: in-house
+caprese skewers,50,ea,1 menu,sub-recipe — passed app. SOURCE: in-house
+artisanal board,1,portion,1 menu,sub-recipe — italian-style cured meats + cheeses. SOURCE: in-house
+ciabatta loaf,4,ea,1 menu,sliced; warmed; service-side. CHEF REVIEW: confirm bread vendor + count.
+salted butter,8,oz,1 menu,for bread service. CHEF REVIEW: optional swap for olive oil + balsamic dish.
+mixed greens,2,lb,1 menu,for accompanying salad. CHEF REVIEW: confirm dressing — likely lemon_thyme_vinaigrette sub-recipe.
+parmesan reggiano,8,oz,1 menu,grated; tableside. CHEF REVIEW.

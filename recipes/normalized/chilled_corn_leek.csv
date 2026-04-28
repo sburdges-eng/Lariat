@@ -1,2 +1,16 @@
 ingredient,qty,unit,portions_per_batch,notes
-chilled corn leek placeholder,1,batch,1 batch,STUB — recipe details pending; see menus/BEO_TODO.md
+corn kernels,4,lb,4 qt,fresh off the cob ideal; frozen acceptable. Base from USDA MyPlate Corn Soup. SOURCE: usda_myplate (corn-soup base)
+leeks,2,lb,4 qt,white + pale-green parts only; sliced; rinsed (sand). Vichyssoise-tradition addition. SOURCE: chef_template (vichyssoise)
+yellow onion,1,lb,4 qt,medium; finely diced. SOURCE: usda_myplate (corn-soup base)
+yukon gold potato,1.5,lb,4 qt,peeled; 1/2-in dice; provides body when blended. SOURCE: chef_template (vichyssoise)
+garlic,4,clove,4 qt,minced. SOURCE: usda_myplate (corn-soup base)
+unsalted butter,4,oz,4 qt,1 stick; for sweating leeks/onion. SOURCE: chef_template
+chicken stock,3,qt,4 qt,low-sodium; vegetable stock acceptable substitute. SOURCE: usda_myplate (corn-soup base)
+heavy cream,2,cup,4 qt,added off-heat. SOURCE: chef_template (vichyssoise)
+whole milk,1,cup,4 qt,thins to chilled consistency. SOURCE: chef_template
+bay leaf,2,ea,4 qt,remove before blending. SOURCE: usda_myplate (corn-soup base)
+fresh thyme,4,sprig,4 qt,tied; remove before blending. SOURCE: chef_template
+lemon juice,2,tbsp,4 qt,brightens cold soup. SOURCE: chef_template
+kosher salt,2,tsp,4 qt,to taste. SOURCE: usda_myplate (corn-soup base)
+white pepper,1,tsp,4 qt,classical pairing for cream-based cold soup. SOURCE: chef_template
+chives,0.25,cup,4 qt,thinly sliced; service garnish. SOURCE: chef_template

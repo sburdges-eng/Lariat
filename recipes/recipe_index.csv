@@ -64,7 +64,7 @@ artisanal_board,Artisanal Board,appetizer,20,portion,5,,garde,French / Italian /
 deviled_eggs,Deviled Eggs,appetizer,48,ea,6,,garde,Deviled Eggs (BEO),Sysco hardboiled eggs + house seasoning (mayo/mustard/paprika) — refine to house formula
 pork_belly_bao_bun,Pork Belly Bao Bun,appetizer,30,ea,5,,saute,Pork Belly bao bun (BEO),Braised pork belly + hoisin/sesame + Sysco bao buns
 low_country_boil,Low Country Boil,buffet,12,portion,4,,saute,Low Country Boil (BEO),Shrimp + corn + red russet + Old Bay
-gazpacho,Gazpacho,soup,1,batch,1,,saute,Gazpacho (BEO),STUB — recipe details pending
-chilled_corn_leek,Chilled Corn Leek,soup,1,batch,1,,saute,Chilled Corn Leek (BEO),STUB — recipe details pending
-italian_dinner,Italian Dinner,dinner,1,menu,1,,expo,Italian Dinner (BEO),STUB — composite menu; components pending
-mexican_dinner,Mexican Dinner,dinner,1,menu,1,,expo,Mexican Dinner (BEO),STUB — composite menu; components pending
+gazpacho,Gazpacho,soup,4,qt,14,,saute,Gazpacho (BEO),USDA MyPlate canonical — needs chef review for restaurant scale + seasoning
+chilled_corn_leek,Chilled Corn Leek,soup,4,qt,15,,saute,Chilled Corn Leek (BEO),USDA Corn Soup base + vichyssoise template — needs chef review
+italian_dinner,Italian Dinner,dinner,1,menu,7,baked_ziti;caprese_skewers;artisanal_board,expo,Italian Dinner (BEO),Wired to existing in-house sub-recipes — chef confirm cover counts + bread/salad
+mexican_dinner,Mexican Dinner,dinner,1,menu,10,birria;mexi_slaw;pico_de_gallo;tomatillo_salsa;mini_rellenos,expo,Mexican Dinner (BEO),Wired to existing in-house sub-recipes — chef confirm rice/beans (UNMAPPED) + tortilla counts
