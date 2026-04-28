@@ -1,7 +1,7 @@
 # Lariat System Architecture
 
 **Current Version**: 2026-04-24
-**Core Stack**: Next.js 14, React 18, better-sqlite3, Node.js LTS, Python 3 (openpyxl, xlrd, pdfplumber), optional Ollama.
+**Core Stack**: Next.js 14, React 18, better-sqlite3, Node.js LTS, Python 3 (openpyxl, xlrd, pdfplumber), Ollama (required for Kitchen Assistant + Specials Sandbox).
 **Data Philosophy**: Local-first, deterministic, Excel-to-JSON/SQLite ETL. Append-only audit trail on regulated surfaces. No hidden runtime AI coupling.
 
 See also: [`PATTERNS.md`](PATTERNS.md) for canonical module patterns (HACCP rule modules, ingest delegation, audit split, location scoping).

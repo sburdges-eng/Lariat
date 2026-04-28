@@ -418,93 +418,6 @@ def download_file(url: str, dest: Path, description: str = "",
         raise
 
 
-def download_hf_repo(hf_info: dict, dest_base: Path, log: dict,
-                     source_key: str, dry_run: bool = False) -> bool:
-    """
-    Download a HuggingFace dataset or model repo to a local directory.
-    Uses huggingface_hub snapshot_download for robust, resumable downloads.
-    """
-    repo_id = hf_info["repo_id"]
-    repo_type = hf_info["type"]  # "dataset" or "model"
-    desc = hf_info.get("description", repo_id)
-    dest = dest_base / hf_info["dest_subdir"]
-
-    # Check for completion marker
-    marker = dest / ".hf_download_complete"
-    if marker.exists():
-        print(f"  ✓ Already downloaded: {repo_id}")
-        if not dry_run:
-            # Count size on disk
-            total = sum(f.stat().st_size for f in dest.rglob("*") if f.is_file())
-            print(f"    On disk: {sizeof_fmt(total)}")
-        return True
-
-    if dry_run:
-        print(f"  [PENDING] {desc}")
-        print(f"    HuggingFace: {repo_type}:{repo_id}")
-        return True
-
-    print(f"  ↓ Downloading from HuggingFace: {desc}")
-    print(f"    Repo: {repo_type}:{repo_id}")
-    print(f"    Dest: {dest}")
-
-    try:
-        from huggingface_hub import snapshot_download
-    except ImportError:
-        print("  ✗ huggingface_hub not installed.")
-        print("    Run: pip install huggingface-hub")
-        return False
-
-    t0 = time.time()
-    try:
-        # snapshot_download caches to ~/.cache/huggingface by default;
-        # we set local_dir to write directly to our SSD tree.
-        downloaded_path = snapshot_download(
-            repo_id=repo_id,
-            repo_type=repo_type,
-            local_dir=str(dest),
-            local_dir_use_symlinks=False,  # real copies, not symlinks
-        )
-        elapsed = time.time() - t0
-
-        # Mark complete
-        marker.write_text(
-            json.dumps({
-                "repo_id": repo_id,
-                "repo_type": repo_type,
-                "downloaded_at": datetime.now(timezone.utc).isoformat(),
-                "elapsed_seconds": round(elapsed, 2),
-            }, indent=2)
-        )
-
-        total = sum(f.stat().st_size for f in dest.rglob("*") if f.is_file())
-        print(f"  ✓ Complete: {repo_id} ({sizeof_fmt(total)}, {elapsed:.0f}s)")
-
-        # Log it
-        entry = {
-            "source": source_key,
-            "url": f"https://huggingface.co/{'' if repo_type == 'model' else 'datasets/'}{repo_id}",
-            "filename": repo_id,
-            "description": desc,
-            "dest": str(dest),
-            "size_bytes": total,
-            "sha256": "(huggingface-managed)",
-            "downloaded_at": datetime.now(timezone.utc).isoformat(),
-            "elapsed_seconds": round(elapsed, 2),
-        }
-        log["downloads"].append(entry)
-        save_download_log(log)
-        return True
-
-    except Exception as e:
-        elapsed = time.time() - t0
-        print(f"  ✗ HuggingFace download failed ({elapsed:.0f}s): {e}")
-        return False
-    except KeyboardInterrupt:
-        print(f"\n  ⚠ HuggingFace download interrupted: {repo_id}")
-        raise
-
-
 def download_source(source_key: str, source: dict, log: dict,
                     dry_run: bool = False):
     """Download all files for a single source."""
@@ -515,10 +428,7 @@ def download_source(source_key: str, source: dict, log: dict,
     if source.get("note"):
         print(f"\n  NOTE: {source['note']}")
 
-    has_files = bool(source["files"])
-    has_hf = bool(source.get("hf_downloads"))
-
-    if not has_files and not has_hf:
+    if not source["files"]:
         print("  (no automatic downloads — see note above)")
         return
 
@@ -555,10 +465,6 @@ def download_source(source_key: str, source: dict, log: dict,
             cksum_file = cksum_dir / f"{fi['filename']}.sha256"
             cksum_file.write_text(f"{checksum}  {fi['filename']}\n")
             print(f"    SHA-256: {checksum[:16]}...")
-
-    # ── HuggingFace Hub downloads ──
-    for hf in source.get("hf_downloads", []):
-        download_hf_repo(hf, dest_base, log, source_key, dry_run=dry_run)
 
 
 # ---------------------------------------------------------------------------

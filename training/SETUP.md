@@ -17,16 +17,16 @@ ollama serve          # leave running in a background terminal
 
 ## 2. Pull the base model
 
-Recommended (fits comfortably in 16 GB):
+Recommended (fits comfortably in 16 GB+):
 
 ```bash
-ollama pull gemma2:2b
+ollama pull deepseek-r1:14b
 ```
 
-Optional larger model (needs ~6 GB for inference):
+Optional smaller model (for 8 GB Air):
 
 ```bash
-ollama pull llama3.1:8b
+ollama pull deepseek-r1:7b
 ```
 
 ## 3. Create the custom model
@@ -35,14 +35,14 @@ The `Modelfile` bakes in the Lariat system prompt so every chat session
 starts with the grounded kitchen-assistant rules:
 
 ```bash
-ollama create lariat-assistant -f training/Modelfile
+ollama create lari-the-kitchen-assistant -f training/Modelfile
 ```
 
 Verify it loaded:
 
 ```bash
-ollama list            # should show "lariat-assistant"
-ollama run lariat-assistant "What are you?"
+ollama list            # should show "lari-the-kitchen-assistant"
+ollama run lari-the-kitchen-assistant "What are you?"
 ```
 
 ## 4. Configure the app
@@ -50,8 +50,7 @@ ollama run lariat-assistant "What are you?"
 Create `.env.local` in the project root (or copy the template below):
 
 ```env
-LARIAT_ASSISTANT_ENABLED=1
-LARIAT_OLLAMA_MODEL=lariat-assistant
+LARIAT_OLLAMA_MODEL=lari-the-kitchen-assistant
 # Optional overrides:
 # LARIAT_OLLAMA_URL=http://127.0.0.1:11434
 # LARIAT_ASSISTANT_TEMPERATURE=0.2
@@ -142,9 +141,8 @@ LARIAT_OLLAMA_MODEL=lariat-finetuned
 ## .env.local template
 
 ```env
-# --- Lariat Kitchen Assistant ---
-LARIAT_ASSISTANT_ENABLED=1
-LARIAT_OLLAMA_MODEL=lariat-assistant
+# --- Lariat Kitchen Assistant (Ollama is required) ---
+LARIAT_OLLAMA_MODEL=lari-the-kitchen-assistant
 # LARIAT_OLLAMA_URL=http://127.0.0.1:11434
 # LARIAT_ASSISTANT_TEMPERATURE=0.2
 # LARIAT_ASSISTANT_MAX_TOKENS=512
