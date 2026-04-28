@@ -1,2 +1,15 @@
 ingredient,qty,unit,portions_per_batch,notes
-gazpacho placeholder,1,batch,1 batch,STUB — recipe details pending; see menus/BEO_TODO.md
+roma tomatoes,6,lb,4 qt,USDA MyPlate canonical — ripe; cored; rough chop. 24 medium ≈ 6 lb. SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
+cucumber,2,lb,4 qt,peeled; seeded; rough chop. SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
+red bell pepper,1.5,lb,4 qt,cored; seeded; rough chop. SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
+yellow onion,1,lb,4 qt,small; rough chop. SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
+garlic,6,clove,4 qt,peeled. SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
+day-old bread,4,oz,4 qt,Spanish-style; soaked + squeezed; binds the puree (omit for gluten-free). SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
+red wine vinegar,0.5,cup,4 qt,sherry vinegar acceptable substitute. SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
+extra-virgin olive oil,0.5,cup,4 qt,SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
+ground cumin,1,tbsp,4 qt,SOURCE: usda_myplate (Farmers Market variant). chef_approved 2026-04-28 sburdges
+fresh cilantro,0.5,cup,4 qt,chopped. SOURCE: usda_myplate (Farmers Market variant). chef_approved 2026-04-28 sburdges
+lemon juice,0.25,cup,4 qt,fresh; ≈ 2 lemons. SOURCE: usda_myplate (Farmers Market variant). chef_approved 2026-04-28 sburdges
+kosher salt,2,tsp,4 qt,to taste. SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
+black pepper,1,tsp,4 qt,freshly ground; to taste. SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
+water,1.5,cup,4 qt,adjust for desired consistency. SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges

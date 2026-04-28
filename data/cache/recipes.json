@@ -255,7 +255,11 @@
         "unit": "cup"
       }
     ],
-    "procedure": "Disperse vodka/stout mix into bowl. Incorporate equal parts flour gradually into bowl (DRY YOUR WET). Whisk until consistency is smooth and runs off whisk (no clumping/dripping).",
+    "procedure": [
+      "Disperse vodka/stout mix into bowl.",
+      "Incorporate equal parts flour gradually into bowl (DRY YOUR WET).",
+      "Whisk until consistency is smooth and runs off whisk (no clumping/dripping)."
+    ],
     "allergens": [
       "wheat"
     ],
@@ -1747,7 +1751,9 @@
       "soybeans"
     ],
     "source": "official_book_2026-04-18",
-    "procedure": "Combine ingredients.",
+    "procedure": [
+      "Combine ingredients."
+    ],
     "category": "side",
     "yield_qty": 5,
     "yield_unit": "lb",
@@ -1785,7 +1791,11 @@
         "unit": "cup"
       }
     ],
-    "procedure": "Whisk miso, honey, and water together until smooth. PDF p37 source is ambiguous on line 2 ingredient name — honey inferred from recipe title. Verify in kitchen.",
+    "procedure": [
+      "Whisk miso, honey, and water together until smooth.",
+      "PDF p37 source is ambiguous on line 2 ingredient name — honey inferred from recipe title.",
+      "Verify in kitchen."
+    ],
     "slug": "miso_honey",
     "source": "official_book_2026-04-18",
     "allergens": [
@@ -2751,31 +2761,39 @@
     "name": "Tomato Confit",
     "ingredients": [
       {
-        "item": "Thyme",
-        "qty": 20,
-        "unit": "grams"
+        "item": "cherry tomatoes",
+        "qty": 6,
+        "unit": "lb"
       },
       {
-        "item": "Tarragon",
-        "qty": 20,
-        "unit": "grams"
+        "item": "fresh thyme",
+        "qty": 1,
+        "unit": "sprig"
       },
       {
-        "item": "Rosemary",
-        "qty": 20,
-        "unit": "grams"
+        "item": "garlic",
+        "qty": 100,
+        "unit": "g"
       },
       {
-        "item": "Notes:",
-        "qty": "⚠️ Recipe appears incomplete in source",
-        "unit": ""
+        "item": "extra-virgin olive oil",
+        "qty": 1,
+        "unit": "qt"
       }
     ],
     "procedure": [],
     "slug": "tomato_confit",
     "source": "excel",
     "allergens": [],
-    "direct_allergens": []
+    "direct_allergens": [],
+    "category": "prep",
+    "yield_qty": 1,
+    "yield_unit": "pan",
+    "station": "saute",
+    "menu_items": [
+      "prep / dish garnish"
+    ],
+    "notes": "In-house — 1/3 hotel pan 6-in deep; cherry tomatoes + thyme + 100g garlic + EVOO to cover"
   },
   {
     "slug": "tomato_soup",
@@ -2836,7 +2854,16 @@
       "milk"
     ],
     "source": "official_book_2026-04-18",
-    "procedure": "In a heavy pot or rondeau over medium heat, melt butter.\nAdd onions and a pinch of salt; cook 8-10 minutes, stirring, until translucent and tender.\nAdd garlic and cook 30 seconds more, just until fragrant.\nAdd white wine and thyme sprigs.\nSimmer 5-6 minutes, reducing the wine by about one-third.\nStir in stock.\nSimmer gently for 15-20 minutes.\nStir in heavy cream; reduce heat to low. Season with salt and pepper.",
+    "procedure": [
+      "In a heavy pot or rondeau over medium heat, melt butter.",
+      "Add onions and a pinch of salt; cook 8-10 minutes, stirring, until translucent and tender.",
+      "Add garlic and cook 30 seconds more, just until fragrant.",
+      "Add white wine and thyme sprigs.",
+      "Simmer 5-6 minutes, reducing the wine by about one-third.",
+      "Stir in stock.",
+      "Simmer gently for 15-20 minutes.",
+      "Stir in heavy cream; reduce heat to low. Season with salt and pepper."
+    ],
     "category": "soup",
     "yield_qty": 4,
     "yield_unit": "qt",
@@ -2847,6 +2874,1298 @@
     "notes": "Creamy tomato soup base — butter + onion + garlic + wine + stock + cream",
     "direct_allergens": [
       "milk"
+    ]
+  },
+  {
+    "name": "Marinara Sauce",
+    "slug": "marinara_sauce",
+    "ingredients": [
+      {
+        "item": "tomato sauce",
+        "qty": 1,
+        "unit": "gal"
+      },
+      {
+        "item": "basil fresh",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "thyme fresh",
+        "qty": 1,
+        "unit": "tbsp"
+      },
+      {
+        "item": "garlic cloves",
+        "qty": 8,
+        "unit": "ea"
+      }
+    ],
+    "procedure": [],
+    "allergens": [],
+    "source": "recipe_index",
+    "category": "sauce",
+    "yield_qty": 4,
+    "yield_unit": "qt",
+    "station": "saute",
+    "menu_items": [
+      "Baked Ziti (BEO)"
+    ],
+    "notes": "Simple basil + thyme + garlic tomato base; sub-recipe for baked_ziti",
+    "direct_allergens": []
+  },
+  {
+    "name": "Baked Ziti",
+    "slug": "baked_ziti",
+    "ingredients": [
+      {
+        "item": "ziti noodles",
+        "qty": 2,
+        "unit": "lb"
+      },
+      {
+        "item": "marinara sauce",
+        "qty": 2,
+        "unit": "qt"
+      },
+      {
+        "item": "tomato sauce",
+        "qty": 1,
+        "unit": "qt"
+      },
+      {
+        "item": "ricotta cheese",
+        "qty": 2,
+        "unit": "lb"
+      },
+      {
+        "item": "mozzarella shredded",
+        "qty": 1.5,
+        "unit": "lb"
+      },
+      {
+        "item": "parmesan grated",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "basil fresh",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "thyme fresh",
+        "qty": 2,
+        "unit": "tsp"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "milk",
+      "wheat"
+    ],
+    "source": "recipe_index",
+    "category": "entree",
+    "yield_qty": 1,
+    "yield_unit": "hotel pan",
+    "station": "saute",
+    "sub_recipes": [
+      "marinara_sauce"
+    ],
+    "menu_items": [
+      "Baked Ziti (BEO)"
+    ],
+    "notes": "Standard no-bake layered ziti — 1 hotel pan ≈ 24 portions",
+    "direct_allergens": [
+      "milk",
+      "wheat"
+    ]
+  },
+  {
+    "name": "Mac Balls",
+    "slug": "mac_balls",
+    "ingredients": [
+      {
+        "item": "ditalini noodles",
+        "qty": 2,
+        "unit": "lb"
+      },
+      {
+        "item": "queso mac sauce",
+        "qty": 3,
+        "unit": "qt"
+      },
+      {
+        "item": "colby jack shredded",
+        "qty": 1,
+        "unit": "lb"
+      },
+      {
+        "item": "ap flour",
+        "qty": 2,
+        "unit": "cup"
+      },
+      {
+        "item": "panko bread crumbs",
+        "qty": 4,
+        "unit": "cup"
+      },
+      {
+        "item": "eggs",
+        "qty": 6,
+        "unit": "ea"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "milk",
+      "wheat"
+    ],
+    "source": "recipe_index",
+    "category": "appetizer",
+    "yield_qty": 60,
+    "yield_unit": "ea",
+    "station": "fry",
+    "sub_recipes": [
+      "queso_mac_sauce"
+    ],
+    "menu_items": [
+      "Mac Balls (BEO)"
+    ],
+    "notes": "Fried mac-and-cheese balls — ditalini + colby jack; dredge flour / egg / panko",
+    "direct_allergens": [
+      "eggs",
+      "milk",
+      "wheat"
+    ]
+  },
+  {
+    "name": "Mini Rellenos",
+    "slug": "mini_rellenos",
+    "ingredients": [
+      {
+        "item": "mini rellenos (sysco)",
+        "qty": 1,
+        "unit": "case"
+      }
+    ],
+    "procedure": [],
+    "allergens": [],
+    "source": "recipe_index",
+    "category": "appetizer",
+    "yield_qty": 1,
+    "yield_unit": "case",
+    "station": "fry",
+    "menu_items": [
+      "Mini Rellenos (BEO)"
+    ],
+    "notes": "Whole-buy from Sysco (see purchase history for SKU + cost); fry from frozen",
+    "direct_allergens": []
+  },
+  {
+    "name": "Caprese Skewers",
+    "slug": "caprese_skewers",
+    "ingredients": [
+      {
+        "item": "mozzarella ciliegine",
+        "qty": 2,
+        "unit": "lb"
+      },
+      {
+        "item": "cherry tomatoes",
+        "qty": 2,
+        "unit": "lb"
+      },
+      {
+        "item": "basil fresh",
+        "qty": 1,
+        "unit": "bunch"
+      },
+      {
+        "item": "prosciutto",
+        "qty": 1,
+        "unit": "lb"
+      },
+      {
+        "item": "bamboo skewers 6in",
+        "qty": 50,
+        "unit": "ea"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "milk",
+      "wheat"
+    ],
+    "source": "recipe_index",
+    "category": "appetizer",
+    "yield_qty": 50,
+    "yield_unit": "ea",
+    "station": "garde",
+    "menu_items": [
+      "Caprese Skewers (BEO)"
+    ],
+    "notes": "Ciliegine + cherry tomato + basil + prosciutto on 6in bamboo skewer",
+    "direct_allergens": [
+      "milk",
+      "wheat"
+    ]
+  },
+  {
+    "name": "Churros",
+    "slug": "churros",
+    "ingredients": [
+      {
+        "item": "churros (sysco)",
+        "qty": 1,
+        "unit": "case"
+      }
+    ],
+    "procedure": [],
+    "allergens": [],
+    "source": "recipe_index",
+    "category": "dessert",
+    "yield_qty": 1,
+    "yield_unit": "case",
+    "station": "fry",
+    "menu_items": [
+      "Churros (BEO)"
+    ],
+    "notes": "Whole-buy from Sysco (see purchase history for SKU + cost); fry from frozen",
+    "direct_allergens": []
+  },
+  {
+    "name": "Philo Bites",
+    "slug": "philo_bites",
+    "ingredients": [
+      {
+        "item": "philo bites (sysco)",
+        "qty": 1,
+        "unit": "case"
+      }
+    ],
+    "procedure": [],
+    "allergens": [],
+    "source": "recipe_index",
+    "category": "appetizer",
+    "yield_qty": 1,
+    "yield_unit": "case",
+    "station": "fry",
+    "menu_items": [
+      "Philo Bites (BEO)"
+    ],
+    "notes": "Whole-buy from Sysco (see purchase history for SKU + cost); fry from frozen",
+    "direct_allergens": []
+  },
+  {
+    "name": "Chocolate Cake",
+    "slug": "chocolate_cake",
+    "ingredients": [
+      {
+        "item": "chocolate cake whole (shamrock/sysco)",
+        "qty": 1,
+        "unit": "ea"
+      }
+    ],
+    "procedure": [],
+    "allergens": [],
+    "source": "recipe_index",
+    "category": "dessert",
+    "yield_qty": 1,
+    "yield_unit": "ea",
+    "station": "expo",
+    "menu_items": [
+      "Chocolate Cake (BEO)"
+    ],
+    "notes": "Whole-buy — Shamrock CAKE CHOC FUDGY WUDGY 14SLI / Sysco Fudgy Wudgy 14ct; thaw + slice",
+    "direct_allergens": []
+  },
+  {
+    "name": "Cupcakes",
+    "slug": "cupcakes",
+    "ingredients": [
+      {
+        "item": "cupcakes (vendor whole-buy)",
+        "qty": 1,
+        "unit": "case"
+      }
+    ],
+    "procedure": [],
+    "allergens": [],
+    "source": "recipe_index",
+    "category": "dessert",
+    "yield_qty": 1,
+    "yield_unit": "case",
+    "station": "expo",
+    "menu_items": [
+      "Cupcakes (BEO)"
+    ],
+    "notes": "Vendor whole-buy — in scripts/beo_order_pull DEFAULT_WHOLE_BUY_EXACT",
+    "direct_allergens": []
+  },
+  {
+    "name": "Tiramisu",
+    "slug": "tiramisu",
+    "ingredients": [
+      {
+        "item": "tiramisu whole (vendor whole-buy)",
+        "qty": 1,
+        "unit": "ea"
+      }
+    ],
+    "procedure": [],
+    "allergens": [],
+    "source": "recipe_index",
+    "category": "dessert",
+    "yield_qty": 1,
+    "yield_unit": "ea",
+    "station": "expo",
+    "menu_items": [
+      "Tiramisu (BEO)"
+    ],
+    "notes": "Vendor whole-buy — frozen; thaw + slice",
+    "direct_allergens": []
+  },
+  {
+    "name": "Banana Cream Pudding",
+    "slug": "banana_cream_pudding",
+    "ingredients": [
+      {
+        "item": "pudding vanilla base (shamrock/sysco)",
+        "qty": 1,
+        "unit": "can"
+      },
+      {
+        "item": "bananas",
+        "qty": 6,
+        "unit": "ea"
+      },
+      {
+        "item": "vanilla wafers",
+        "qty": 1,
+        "unit": "box"
+      },
+      {
+        "item": "whipped cream",
+        "qty": 1,
+        "unit": "qt"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "milk",
+      "wheat"
+    ],
+    "source": "recipe_index",
+    "category": "dessert",
+    "yield_qty": 12,
+    "yield_unit": "portion",
+    "station": "expo",
+    "menu_items": [
+      "Banana Cream Pudding (BEO)"
+    ],
+    "notes": "Shamrock/Sysco pudding base + bananas + vanilla wafers + whipped cream",
+    "direct_allergens": [
+      "milk"
+    ]
+  },
+  {
+    "name": "Prime Rib",
+    "slug": "prime_rib",
+    "ingredients": [
+      {
+        "item": "prime rib",
+        "qty": 1,
+        "unit": "ea"
+      }
+    ],
+    "procedure": [],
+    "allergens": [],
+    "source": "recipe_index",
+    "category": "entree",
+    "yield_qty": 12,
+    "yield_unit": "portion",
+    "station": "grill",
+    "menu_items": [
+      "Prime Rib Dinner",
+      "Prime Rib Sliders (BEO)"
+    ],
+    "notes": "Whole-buy — in scripts/beo_order_pull DEFAULT_WHOLE_BUY_EXACT",
+    "direct_allergens": []
+  },
+  {
+    "name": "Crab Cake Remoulade",
+    "slug": "crab_cake_remoulade",
+    "ingredients": [
+      {
+        "item": "crab cakes frozen (vendor whole-buy)",
+        "qty": 1,
+        "unit": "case"
+      },
+      {
+        "item": "remoulade sauce",
+        "qty": 1,
+        "unit": "qt"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "shellfish"
+    ],
+    "source": "recipe_index",
+    "category": "appetizer",
+    "yield_qty": 24,
+    "yield_unit": "ea",
+    "station": "fry",
+    "menu_items": [
+      "Crab Cake Remoulade (BEO)"
+    ],
+    "notes": "Whole-buy crab cakes + house or vendor remoulade",
+    "direct_allergens": [
+      "shellfish"
+    ]
+  },
+  {
+    "name": "Tex Mex Egg Rolls",
+    "slug": "tex_mex_egg_rolls",
+    "ingredients": [
+      {
+        "item": "tex mex egg rolls (vendor whole-buy)",
+        "qty": 1,
+        "unit": "case"
+      },
+      {
+        "item": "chipotle aioli",
+        "qty": 1,
+        "unit": "qt"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "eggs",
+      "milk",
+      "soybeans"
+    ],
+    "source": "recipe_index",
+    "category": "appetizer",
+    "yield_qty": 50,
+    "yield_unit": "ea",
+    "station": "fry",
+    "sub_recipes": [
+      "chipotle_aioli"
+    ],
+    "menu_items": [
+      "Tex Mex Egg Rolls (BEO)"
+    ],
+    "notes": "Vendor whole-buy frozen + chipotle_aioli dip",
+    "direct_allergens": [
+      "eggs",
+      "milk",
+      "soybeans"
+    ]
+  },
+  {
+    "name": "Corn Dogs",
+    "slug": "corn_dogs",
+    "ingredients": [
+      {
+        "item": "corndog batter",
+        "qty": 4,
+        "unit": "qt"
+      },
+      {
+        "item": "hot dogs",
+        "qty": 50,
+        "unit": "ea"
+      },
+      {
+        "item": "bamboo skewers 6in",
+        "qty": 50,
+        "unit": "ea"
+      },
+      {
+        "item": "honey mustard",
+        "qty": 1,
+        "unit": "qt"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "eggs",
+      "milk",
+      "wheat"
+    ],
+    "source": "recipe_index",
+    "category": "appetizer",
+    "yield_qty": 50,
+    "yield_unit": "ea",
+    "station": "fry",
+    "sub_recipes": [
+      "corndog_batter",
+      "honey_mustard"
+    ],
+    "menu_items": [
+      "Corn Dogs (BEO)"
+    ],
+    "notes": "Corndog batter + honey mustard",
+    "direct_allergens": [
+      "eggs",
+      "milk",
+      "wheat"
+    ]
+  },
+  {
+    "name": "Artisanal Board",
+    "slug": "artisanal_board",
+    "ingredients": [
+      {
+        "item": "assorted cheeses (vendor whole-buy)",
+        "qty": 2,
+        "unit": "lb"
+      },
+      {
+        "item": "assorted cured meats (vendor whole-buy)",
+        "qty": 1,
+        "unit": "lb"
+      },
+      {
+        "item": "crackers or baguette",
+        "qty": 1,
+        "unit": "loaf"
+      },
+      {
+        "item": "fruit or preserve",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "olives or pickle",
+        "qty": 1,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "milk",
+      "wheat"
+    ],
+    "source": "recipe_index",
+    "category": "appetizer",
+    "yield_qty": 20,
+    "yield_unit": "portion",
+    "station": "garde",
+    "menu_items": [
+      "French / Italian / Spanish Artisanal Board (BEO)"
+    ],
+    "notes": "Vendor whole-buy composition — cheeses + cured meats + bread + fruit + olive",
+    "direct_allergens": [
+      "milk",
+      "wheat"
+    ]
+  },
+  {
+    "name": "Deviled Eggs",
+    "slug": "deviled_eggs",
+    "ingredients": [
+      {
+        "item": "hardboiled eggs (sysco)",
+        "qty": 24,
+        "unit": "ea"
+      },
+      {
+        "item": "mayo",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "yellow mustard",
+        "qty": 2,
+        "unit": "tbsp"
+      },
+      {
+        "item": "paprika",
+        "qty": 1,
+        "unit": "tsp"
+      },
+      {
+        "item": "salt",
+        "qty": 1,
+        "unit": "tsp"
+      },
+      {
+        "item": "pepper",
+        "qty": 0.5,
+        "unit": "tsp"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "eggs"
+    ],
+    "source": "recipe_index",
+    "category": "appetizer",
+    "yield_qty": 48,
+    "yield_unit": "ea",
+    "station": "garde",
+    "menu_items": [
+      "Deviled Eggs (BEO)"
+    ],
+    "notes": "Sysco hardboiled eggs + house seasoning (mayo/mustard/paprika) — refine to house formula",
+    "direct_allergens": [
+      "eggs"
+    ]
+  },
+  {
+    "name": "Pork Belly Bao Bun",
+    "slug": "pork_belly_bao_bun",
+    "ingredients": [
+      {
+        "item": "pork belly",
+        "qty": 5,
+        "unit": "lb"
+      },
+      {
+        "item": "hoisin sauce",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "sesame oil",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "sesame seed",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "bao buns (sysco)",
+        "qty": 30,
+        "unit": "ea"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "sesame",
+      "wheat"
+    ],
+    "source": "recipe_index",
+    "category": "appetizer",
+    "yield_qty": 30,
+    "yield_unit": "ea",
+    "station": "saute",
+    "menu_items": [
+      "Pork Belly bao bun (BEO)"
+    ],
+    "notes": "Braised pork belly + hoisin/sesame + Sysco bao buns",
+    "direct_allergens": [
+      "sesame",
+      "wheat"
+    ]
+  },
+  {
+    "name": "Low Country Boil",
+    "slug": "low_country_boil",
+    "ingredients": [
+      {
+        "item": "shrimp",
+        "qty": 5,
+        "unit": "lb"
+      },
+      {
+        "item": "corn on the cob",
+        "qty": 12,
+        "unit": "ea"
+      },
+      {
+        "item": "red russet potatoes",
+        "qty": 4,
+        "unit": "lb"
+      },
+      {
+        "item": "old bay seasoning",
+        "qty": 0.5,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "shellfish"
+    ],
+    "source": "recipe_index",
+    "category": "buffet",
+    "yield_qty": 12,
+    "yield_unit": "portion",
+    "station": "saute",
+    "menu_items": [
+      "Low Country Boil (BEO)"
+    ],
+    "notes": "Shrimp + corn + red russet + Old Bay",
+    "direct_allergens": [
+      "shellfish"
+    ]
+  },
+  {
+    "name": "Gazpacho",
+    "slug": "gazpacho",
+    "ingredients": [
+      {
+        "item": "roma tomatoes",
+        "qty": 6,
+        "unit": "lb"
+      },
+      {
+        "item": "cucumber",
+        "qty": 2,
+        "unit": "lb"
+      },
+      {
+        "item": "red bell pepper",
+        "qty": 1.5,
+        "unit": "lb"
+      },
+      {
+        "item": "yellow onion",
+        "qty": 1,
+        "unit": "lb"
+      },
+      {
+        "item": "garlic",
+        "qty": 6,
+        "unit": "clove"
+      },
+      {
+        "item": "day-old bread",
+        "qty": 4,
+        "unit": "oz"
+      },
+      {
+        "item": "red wine vinegar",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "extra-virgin olive oil",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "ground cumin",
+        "qty": 1,
+        "unit": "tbsp"
+      },
+      {
+        "item": "fresh cilantro",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "lemon juice",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "kosher salt",
+        "qty": 2,
+        "unit": "tsp"
+      },
+      {
+        "item": "black pepper",
+        "qty": 1,
+        "unit": "tsp"
+      },
+      {
+        "item": "water",
+        "qty": 1.5,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "wheat"
+    ],
+    "source": "recipe_index",
+    "category": "soup",
+    "yield_qty": 4,
+    "yield_unit": "qt",
+    "station": "saute",
+    "menu_items": [
+      "Gazpacho (BEO)"
+    ],
+    "notes": "USDA MyPlate canonical — needs chef review for restaurant scale + seasoning",
+    "direct_allergens": [
+      "wheat"
+    ]
+  },
+  {
+    "name": "Chilled Corn Leek",
+    "slug": "chilled_corn_leek",
+    "ingredients": [
+      {
+        "item": "corn kernels",
+        "qty": 4,
+        "unit": "lb"
+      },
+      {
+        "item": "leeks",
+        "qty": 2,
+        "unit": "lb"
+      },
+      {
+        "item": "yellow onion",
+        "qty": 1,
+        "unit": "lb"
+      },
+      {
+        "item": "yukon gold potato",
+        "qty": 1.5,
+        "unit": "lb"
+      },
+      {
+        "item": "garlic",
+        "qty": 4,
+        "unit": "clove"
+      },
+      {
+        "item": "unsalted butter",
+        "qty": 4,
+        "unit": "oz"
+      },
+      {
+        "item": "chicken stock",
+        "qty": 3,
+        "unit": "qt"
+      },
+      {
+        "item": "heavy cream",
+        "qty": 2,
+        "unit": "cup"
+      },
+      {
+        "item": "whole milk",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "bay leaf",
+        "qty": 2,
+        "unit": "ea"
+      },
+      {
+        "item": "fresh thyme",
+        "qty": 4,
+        "unit": "sprig"
+      },
+      {
+        "item": "lemon juice",
+        "qty": 2,
+        "unit": "tbsp"
+      },
+      {
+        "item": "kosher salt",
+        "qty": 2,
+        "unit": "tsp"
+      },
+      {
+        "item": "white pepper",
+        "qty": 1,
+        "unit": "tsp"
+      },
+      {
+        "item": "chives",
+        "qty": 0.25,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "milk"
+    ],
+    "source": "recipe_index",
+    "category": "soup",
+    "yield_qty": 4,
+    "yield_unit": "qt",
+    "station": "saute",
+    "menu_items": [
+      "Chilled Corn Leek (BEO)"
+    ],
+    "notes": "USDA Corn Soup base + vichyssoise template — needs chef review",
+    "direct_allergens": [
+      "milk"
+    ]
+  },
+  {
+    "name": "Italian Dinner",
+    "slug": "italian_dinner",
+    "ingredients": [
+      {
+        "item": "baked ziti",
+        "qty": 1,
+        "unit": "hotel pan"
+      },
+      {
+        "item": "caprese skewers",
+        "qty": 50,
+        "unit": "ea"
+      },
+      {
+        "item": "artisanal board",
+        "qty": 1,
+        "unit": "portion"
+      },
+      {
+        "item": "ciabatta loaf",
+        "qty": 4,
+        "unit": "ea"
+      },
+      {
+        "item": "salted butter",
+        "qty": 8,
+        "unit": "oz"
+      },
+      {
+        "item": "mixed greens",
+        "qty": 2,
+        "unit": "lb"
+      },
+      {
+        "item": "parmesan reggiano",
+        "qty": 8,
+        "unit": "oz"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "eggs",
+      "milk",
+      "wheat"
+    ],
+    "source": "recipe_index",
+    "category": "dinner",
+    "yield_qty": 1,
+    "yield_unit": "menu",
+    "station": "expo",
+    "sub_recipes": [
+      "baked_ziti",
+      "caprese_skewers",
+      "artisanal_board"
+    ],
+    "menu_items": [
+      "Italian Dinner (BEO)"
+    ],
+    "notes": "Wired to existing in-house sub-recipes — chef confirm cover counts + bread/salad",
+    "direct_allergens": [
+      "milk",
+      "wheat"
+    ]
+  },
+  {
+    "name": "Mexican Dinner",
+    "slug": "mexican_dinner",
+    "ingredients": [
+      {
+        "item": "birria",
+        "qty": 1,
+        "unit": "portion"
+      },
+      {
+        "item": "mexi slaw",
+        "qty": 1,
+        "unit": "portion"
+      },
+      {
+        "item": "pico de gallo",
+        "qty": 1,
+        "unit": "portion"
+      },
+      {
+        "item": "tomatillo salsa",
+        "qty": 1,
+        "unit": "portion"
+      },
+      {
+        "item": "mini rellenos",
+        "qty": 1,
+        "unit": "case"
+      },
+      {
+        "item": "spanish rice",
+        "qty": 1,
+        "unit": "batch"
+      },
+      {
+        "item": "refried black beans",
+        "qty": 1,
+        "unit": "batch"
+      },
+      {
+        "item": "flour tortillas",
+        "qty": 50,
+        "unit": "ea"
+      },
+      {
+        "item": "corn tortillas",
+        "qty": 50,
+        "unit": "ea"
+      },
+      {
+        "item": "lime wedges",
+        "qty": 2,
+        "unit": "lb"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "eggs",
+      "milk",
+      "soybeans",
+      "wheat"
+    ],
+    "source": "recipe_index",
+    "category": "dinner",
+    "yield_qty": 1,
+    "yield_unit": "menu",
+    "station": "expo",
+    "sub_recipes": [
+      "birria",
+      "mexi_slaw",
+      "pico_de_gallo",
+      "tomatillo_salsa",
+      "mini_rellenos",
+      "spanish_rice",
+      "refried_black_beans"
+    ],
+    "menu_items": [
+      "Mexican Dinner (BEO)"
+    ],
+    "notes": "Wired to existing in-house sub-recipes plus USDA-default rice + beans — chef confirm tortilla counts",
+    "direct_allergens": [
+      "eggs",
+      "milk",
+      "soybeans",
+      "wheat"
+    ]
+  },
+  {
+    "name": "Spanish Rice",
+    "slug": "spanish_rice",
+    "ingredients": [
+      {
+        "item": "long-grain white rice",
+        "qty": 1.5,
+        "unit": "lb"
+      },
+      {
+        "item": "yellow onion",
+        "qty": 1,
+        "unit": "lb"
+      },
+      {
+        "item": "garlic",
+        "qty": 4,
+        "unit": "clove"
+      },
+      {
+        "item": "vegetable oil",
+        "qty": 4,
+        "unit": "tbsp"
+      },
+      {
+        "item": "canned diced tomatoes",
+        "qty": 4,
+        "unit": "cup"
+      },
+      {
+        "item": "chicken stock",
+        "qty": 2,
+        "unit": "qt"
+      },
+      {
+        "item": "ground cumin",
+        "qty": 2,
+        "unit": "tsp"
+      },
+      {
+        "item": "kosher salt",
+        "qty": 1,
+        "unit": "tbsp"
+      },
+      {
+        "item": "black pepper",
+        "qty": 1,
+        "unit": "tsp"
+      }
+    ],
+    "procedure": [],
+    "allergens": [],
+    "source": "recipe_index",
+    "category": "side",
+    "yield_qty": 3,
+    "yield_unit": "qt",
+    "station": "saute",
+    "menu_items": [
+      "Mexican Dinner (BEO)"
+    ],
+    "notes": "USDA MyPlate canonical (Spanish Rice / Mexican Rice II) — needs chef review for restaurant scale + seasoning",
+    "direct_allergens": []
+  },
+  {
+    "name": "Refried Black Beans",
+    "slug": "refried_black_beans",
+    "ingredients": [
+      {
+        "item": "canned black beans",
+        "qty": 8,
+        "unit": "can"
+      },
+      {
+        "item": "yellow onion",
+        "qty": 1,
+        "unit": "lb"
+      },
+      {
+        "item": "garlic",
+        "qty": 6,
+        "unit": "clove"
+      },
+      {
+        "item": "vegetable oil",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "ground cumin",
+        "qty": 2,
+        "unit": "tbsp"
+      },
+      {
+        "item": "dried oregano",
+        "qty": 1,
+        "unit": "tbsp"
+      },
+      {
+        "item": "kosher salt",
+        "qty": 1,
+        "unit": "tbsp"
+      },
+      {
+        "item": "black pepper",
+        "qty": 1,
+        "unit": "tsp"
+      },
+      {
+        "item": "lime juice",
+        "qty": 0.25,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [],
+    "allergens": [],
+    "source": "recipe_index",
+    "category": "side",
+    "yield_qty": 3,
+    "yield_unit": "qt",
+    "station": "saute",
+    "menu_items": [
+      "Mexican Dinner (BEO)"
+    ],
+    "notes": "USDA MyPlate canonical (Refried Beans + Black Beans) — needs chef review",
+    "direct_allergens": []
+  },
+  {
+    "name": "Beef Tenderloin Crostini",
+    "slug": "beef_tenderloin_crostini",
+    "ingredients": [
+      {
+        "item": "beef tenderloin",
+        "qty": 3,
+        "unit": "lb"
+      },
+      {
+        "item": "baguette",
+        "qty": 4,
+        "unit": "ea"
+      },
+      {
+        "item": "extra-virgin olive oil",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "garlic",
+        "qty": 4,
+        "unit": "clove"
+      },
+      {
+        "item": "kosher salt",
+        "qty": 1,
+        "unit": "tbsp"
+      },
+      {
+        "item": "black pepper",
+        "qty": 1,
+        "unit": "tsp"
+      },
+      {
+        "item": "sour cream",
+        "qty": 1,
+        "unit": "cup"
+      },
+      {
+        "item": "mayonnaise",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "prepared horseradish",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "dijon mustard",
+        "qty": 1,
+        "unit": "tbsp"
+      },
+      {
+        "item": "fresh chives",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "arugula",
+        "qty": 0.5,
+        "unit": "lb"
+      },
+      {
+        "item": "capers",
+        "qty": 2,
+        "unit": "tbsp"
+      },
+      {
+        "item": "parmesan reggiano",
+        "qty": 2,
+        "unit": "oz"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "eggs",
+      "milk",
+      "wheat"
+    ],
+    "source": "recipe_index",
+    "category": "appetizer",
+    "yield_qty": 50,
+    "yield_unit": "ea",
+    "station": "grill;garde",
+    "menu_items": [
+      "Beef Tenderloin Crostini (BEO)"
+    ],
+    "notes": "In-house — seared tenderloin + crostini + horseradish cream + arugula",
+    "direct_allergens": [
+      "milk",
+      "wheat"
     ]
   }
 ]

@@ -82,6 +82,29 @@ describe('recipes.json', () => {
     );
   });
 
+  it('BEO crostini and board recipes declare bread wheat without phantom egg or milk tags', () => {
+    const recipes = readJSON('recipes.json');
+    const bySlug = new Map(recipes.map((r) => [r.slug, r]));
+
+    const board = bySlug.get('artisanal_board');
+    assert.ok(board, 'artisanal_board recipe must exist');
+    assert.ok(board.allergens.includes('wheat'), 'artisanal_board should include wheat from crackers or baguette');
+
+    const eggs = bySlug.get('deviled_eggs');
+    assert.ok(eggs, 'deviled_eggs recipe must exist');
+    assert.deepEqual(eggs.direct_allergens, ['eggs']);
+    assert.deepEqual(eggs.allergens, ['eggs']);
+
+    const italian = bySlug.get('italian_dinner');
+    assert.ok(italian, 'italian_dinner recipe must exist');
+    assert.ok(!italian.direct_allergens.includes('eggs'), 'parmesan should not add egg allergen');
+
+    const crostini = bySlug.get('beef_tenderloin_crostini');
+    assert.ok(crostini, 'beef_tenderloin_crostini recipe must exist');
+    assert.ok(crostini.allergens.includes('wheat'), 'baguette should add wheat allergen');
+    assert.deepEqual(crostini.direct_allergens, ['eggs', 'milk', 'wheat']);
+  });
+
   it('preserves procedure arrays from existing cache', () => {
     const recipes = readJSON('recipes.json');
     // Queso should have multi-step procedure
@@ -116,6 +139,25 @@ describe('allergen_matrix.json', () => {
         assert.ok(Array.isArray(entry.big9), `big9 must be array in ${recipeId}`);
       }
     }
+  });
+
+  it('keeps high-risk BEO ingredient allergens accurate', () => {
+    const matrix = readJSON('allergen_matrix.json');
+
+    const boardBread = matrix.artisanal_board.find((e) => e.ingredient === 'crackers or baguette');
+    assert.deepEqual(boardBread.big9, ['wheat']);
+
+    const pepper = matrix.deviled_eggs.find((e) => e.ingredient === 'pepper');
+    assert.deepEqual(pepper.big9, []);
+
+    const italianParm = matrix.italian_dinner.find((e) => e.ingredient === 'parmesan reggiano');
+    assert.deepEqual(italianParm.big9, ['milk']);
+
+    const crostiniBread = matrix.beef_tenderloin_crostini.find((e) => e.ingredient === 'baguette');
+    assert.deepEqual(crostiniBread.big9, ['wheat']);
+
+    const crostiniParm = matrix.beef_tenderloin_crostini.find((e) => e.ingredient === 'parmesan reggiano');
+    assert.deepEqual(crostiniParm.big9, ['milk']);
   });
 });
 
