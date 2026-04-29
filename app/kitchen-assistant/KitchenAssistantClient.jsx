@@ -359,8 +359,8 @@ export default function KitchenAssistantClient({ locQuery }) {
         aria-busy={loading}
         aria-describedby={err ? 'ka-err' : undefined}
       >
-        <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <label htmlFor="ka-q" className="label" style={{ margin: 0 }}>
+        <div className="flex justify-between items-center mb-12">
+          <label htmlFor="ka-q" className="label m-0">
             Ask a question
           </label>
           <label htmlFor="ka-lang" className="sr-only">Answer language</label>
@@ -372,8 +372,7 @@ export default function KitchenAssistantClient({ locQuery }) {
               setLanguage(e.target.value);
               if (typeof window !== 'undefined') window.localStorage.setItem(LANG_KEY, e.target.value);
             }}
-            className="input"
-            style={{ width: 'auto' }}
+            className="input w-auto"
             aria-label="Answer language"
           >
             <option value="English">English</option>
@@ -447,7 +446,7 @@ export default function KitchenAssistantClient({ locQuery }) {
           {meta?.sources && meta.sources.length > 0 && (
             <details className="mt-12" open>
               <summary className="meta cursor-pointer">Books checked</summary>
-              <ul className="meta mt-8" style={{ listStyle: 'none', padding: 0 }}>
+              <ul className="meta mt-8 list-none p-0">
                 {meta.sources.map((s) => {
                   const isClickable = DATAPACK_BADGE_TYPES.has(s.type);
                   const key = `${s.type}-${s.detail}`;
@@ -462,7 +461,7 @@ export default function KitchenAssistantClient({ locQuery }) {
                   const drill = badgeState[cacheKey];
                   const open = drill && !drill.collapsed && (drill.status === 'ok' || drill.status === 'error' || drill.status === 'unavailable' || drill.status === 'loading');
                   return (
-                    <li key={key} style={{ marginBottom: 6 }}>
+                    <li key={key} className="mb-6">
                       <button
                         type="button"
                         onClick={() => toggleBadge(s.type)}
@@ -472,20 +471,10 @@ export default function KitchenAssistantClient({ locQuery }) {
                             ? 'Show FDA Food Code citations'
                             : 'Show USDA ingredient citations'
                         }
-                        style={{
-                          background: open ? 'var(--panel-2, #2a2a2a)' : 'transparent',
-                          border: '1px solid var(--border, #333)',
-                          borderRadius: 4,
-                          color: 'var(--text, inherit)',
-                          cursor: 'pointer',
-                          fontSize: 'inherit',
-                          padding: '2px 8px',
-                          textAlign: 'left',
-                          fontFamily: 'inherit',
-                        }}
+                        className={`ka-badge-toggle${open ? ' is-open' : ''}`}
                       >
                         <strong>{s.type}</strong>: {s.detail}
-                        <span aria-hidden="true" style={{ marginLeft: 6, color: 'var(--muted, #888)' }}>
+                        <span aria-hidden="true" className="ml-6 text-muted">
                           {open ? '▾' : '▸'}
                         </span>
                       </button>
@@ -519,18 +508,9 @@ export default function KitchenAssistantClient({ locQuery }) {
 
 function CitationDrillIn({ type, state }) {
   if (!state) return null;
-  const wrapStyle = {
-    marginTop: 8,
-    padding: '8px 10px',
-    background: 'var(--panel-2, #2a2a2a)',
-    border: '1px solid var(--border, #333)',
-    borderRadius: 4,
-    fontSize: 12,
-    lineHeight: 1.5,
-  };
   if (state.status === 'loading') {
     return (
-      <div role="status" aria-live="polite" style={{ ...wrapStyle, color: 'var(--muted, #888)' }}>
+      <div role="status" aria-live="polite" className="ka-citation-wrap text-muted">
         {type === 'fda_food_code'
           ? 'Fetching FDA citations…'
           : 'Fetching USDA citations…'}
@@ -539,14 +519,14 @@ function CitationDrillIn({ type, state }) {
   }
   if (state.status === 'unavailable') {
     return (
-      <div role="alert" style={{ ...wrapStyle, color: 'var(--muted, #888)' }}>
+      <div role="alert" className="ka-citation-wrap text-muted">
         Data pack not available on this server.
       </div>
     );
   }
   if (state.status === 'error') {
     return (
-      <div role="alert" style={{ ...wrapStyle, color: 'var(--ember-deep, #b15)' }}>
+      <div role="alert" className="ka-citation-wrap text-ember-deep">
         Couldn't load citations
         {state.message ? `: ${state.message}` : '.'}
       </div>
@@ -555,14 +535,14 @@ function CitationDrillIn({ type, state }) {
   if (state.status !== 'ok' || !Array.isArray(state.citations)) return null;
   if (state.citations.length === 0) {
     return (
-      <div style={{ ...wrapStyle, color: 'var(--muted, #888)' }}>
+      <div className="ka-citation-wrap text-muted">
         No citations matched.
       </div>
     );
   }
   if (type === 'fda_food_code') {
     return (
-      <div style={wrapStyle}>
+      <div className="ka-citation-wrap">
         {state.citations.map((c, i) => (
           <FdaCitationRow key={`${c.rowid ?? i}`} citation={c} />
         ))}
@@ -570,7 +550,7 @@ function CitationDrillIn({ type, state }) {
     );
   }
   return (
-    <div style={wrapStyle}>
+    <div className="ka-citation-wrap">
       {state.citations.map((c, i) => (
         <UsdaCitationRow key={`${c.fdcId ?? i}`} citation={c} />
       ))}
@@ -581,9 +561,9 @@ function CitationDrillIn({ type, state }) {
 function FdaCitationRow({ citation }) {
   const { title, sectionId, chapter, annex, excerpt } = citation;
   return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ fontWeight: 600 }}>{title || '(no title)'}</div>
-      <div style={{ color: 'var(--muted, #888)', fontSize: 11 }}>
+    <div className="mb-10">
+      <div className="fw-600">{title || '(no title)'}</div>
+      <div className="text-muted fs-11">
         {sectionId ? <code>{sectionId}</code> : null}
         {sectionId && (chapter || annex) ? ' · ' : ''}
         {chapter ? `Ch. ${chapter}` : ''}
@@ -591,9 +571,9 @@ function FdaCitationRow({ citation }) {
         {annex ? `Annex ${annex}` : ''}
       </div>
       {excerpt ? (
-        <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{excerpt}</div>
+        <div className="mt-4 whitespace-pre-wrap">{excerpt}</div>
       ) : (
-        <div style={{ marginTop: 4, color: 'var(--muted, #888)' }}>
+        <div className="mt-4 text-muted">
           (body unavailable)
         </div>
       )}
@@ -604,15 +584,15 @@ function FdaCitationRow({ citation }) {
 function UsdaCitationRow({ citation }) {
   const { description, foodCategory, fdcId, brandOwner, nutrients } = citation;
   return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ fontWeight: 600 }}>{description || '(no description)'}</div>
-      <div style={{ color: 'var(--muted, #888)', fontSize: 11 }}>
+    <div className="mb-10">
+      <div className="fw-600">{description || '(no description)'}</div>
+      <div className="text-muted fs-11">
         {fdcId != null ? <code>fdc_id {fdcId}</code> : null}
         {foodCategory ? ` · ${foodCategory}` : ''}
         {brandOwner ? ` · ${brandOwner}` : ''}
       </div>
       {nutrients.length > 0 ? (
-        <div style={{ marginTop: 4 }}>
+        <div className="mt-4">
           {nutrients
             .map(
               (n) =>
@@ -621,7 +601,7 @@ function UsdaCitationRow({ citation }) {
             .join(' · ')}
         </div>
       ) : (
-        <div style={{ marginTop: 4, color: 'var(--muted, #888)' }}>
+        <div className="mt-4 text-muted">
           (no nutrients)
         </div>
       )}

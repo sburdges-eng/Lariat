@@ -561,13 +561,17 @@ textarea.input { resize: vertical; }
 }
 
 /* Spacing and Borders (Added during tech debt resolution) */
+.mb-6 { margin-bottom: 6px; }
+.mb-10 { margin-bottom: 10px; }
 .mb-12 { margin-bottom: 12px; }
 .mb-16 { margin-bottom: 16px; }
 .mb-20 { margin-bottom: 20px; }
 .mb-24 { margin-bottom: 24px; }
+.mt-4 { margin-top: 4px; }
 .mt-8 { margin-top: 8px; }
 .mt-12 { margin-top: 12px; }
 .mt-16 { margin-top: 16px; }
+.ml-6 { margin-left: 6px; }
 .border-red { border-color: var(--red) !important; }
 .border-yellow { border-color: var(--yellow) !important; }
 .p-0 { padding: 0; }
@@ -577,8 +581,15 @@ textarea.input { resize: vertical; }
 .list-none { list-style: none; }
 .flex-center-gap { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .justify-end { justify-content: flex-end; }
+.justify-between { justify-content: space-between; }
+.items-center { align-items: center; }
 .cursor-pointer { cursor: pointer; }
 .border-top { border-top: 1px solid var(--border); padding-top: 12px; }
+.fw-600 { font-weight: 600; }
+.fs-11 { font-size: 11px; }
+.w-auto { width: auto; }
+.whitespace-pre-wrap { white-space: pre-wrap; }
+.text-ember-deep { color: var(--ember-deep); }
 
 /* ── Rush home (kitchen-optimized Today screen) ────────────── */
 
@@ -1414,6 +1425,12 @@ textarea.input { resize: vertical; }
   letter-spacing: 0.04em;
   padding: 4px 0;
 }
+.beo-add-party .field-name    { flex: 2 1 220px; }
+.beo-add-party .field-date    { flex: 1 1 150px; }
+.beo-add-party .field-time    { flex: 1 1 130px; }
+.beo-add-party .field-contact { flex: 1 1 160px; }
+.beo-add-party .field-covers  { flex: 0 1 100px; }
+.beo-add-party .field-notes   { flex: 3 1 100%;  }
 .beo-worksheet {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.6fr);
@@ -2212,4 +2229,30 @@ textarea.input { resize: vertical; }
 .gs-submit-btn:disabled {
   opacity: 0.7;
   cursor: wait;
+}
+
+/* ── Kitchen Assistant: data-pack badge + citation drill-in ─── */
+
+.ka-badge-toggle {
+  background: transparent;
+  border: 1px solid var(--border, #333);
+  border-radius: 4px;
+  color: var(--text, inherit);
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
+  padding: 2px 8px;
+  text-align: left;
+}
+.ka-badge-toggle.is-open {
+  background: var(--panel-2, #2a2a2a);
+}
+.ka-citation-wrap {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--panel-2, #2a2a2a);
+  border: 1px solid var(--border, #333);
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.5;
 }

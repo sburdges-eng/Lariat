@@ -139,7 +139,7 @@ export default function BeoBoard({ initialMenu = [] }) {
         </div>
       </div>
 
-      {err && <div className="card border-red mb-20" style={{ color: 'var(--red)' }}>{err}</div>}
+      {err && <div className="card border-red mb-20 text-red">{err}</div>}
 
       {/* Event picker */}
       <div className="beo-event-bar">
@@ -167,35 +167,35 @@ export default function BeoBoard({ initialMenu = [] }) {
       <details className="beo-add-party">
         <summary>+ New party</summary>
         <form onSubmit={addParty} className="form-row mt-12">
-          <div style={{ flex: '2 1 220px' }}>
+          <div className="field-name">
             <label className="label">Party name</label>
             <input className="input form-field" value={newTitle}
                    onChange={(e)=>setNewTitle(e.target.value)}
                    placeholder="e.g. Bob Clauss" required />
           </div>
-          <div style={{ flex: '1 1 150px' }}>
+          <div className="field-date">
             <label className="label">Date</label>
             <input type="date" className="input form-field" value={newDate}
                    onChange={(e)=>setNewDate(e.target.value)} />
           </div>
-          <div style={{ flex: '1 1 130px' }}>
+          <div className="field-time">
             <label className="label">Time</label>
             <input className="input form-field" value={newTime}
                    onChange={(e)=>setNewTime(e.target.value)}
                    placeholder="5-7pm" />
           </div>
-          <div style={{ flex: '1 1 160px' }}>
+          <div className="field-contact">
             <label className="label">Contact</label>
             <input className="input form-field" value={newContact}
                    onChange={(e)=>setNewContact(e.target.value)}
                    placeholder="point of contact" />
           </div>
-          <div style={{ flex: '0 1 100px' }}>
+          <div className="field-covers">
             <label className="label">Covers</label>
             <input type="number" className="input form-field" value={newGuests}
                    onChange={(e)=>setNewGuests(e.target.value)} />
           </div>
-          <div style={{ flex: '3 1 100%' }}>
+          <div className="field-notes">
             <label className="label">Notes</label>
             <textarea className="input form-field" rows={2} value={newNotes}
                       onChange={(e)=>setNewNotes(e.target.value)}
