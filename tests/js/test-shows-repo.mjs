@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import { register } from 'node:module';
 import Database from 'better-sqlite3';
+import { requirePythonDeps, VENV_PYTHON } from './_helpers/python-preflight.mjs';
 
 register(new URL('./resolver.mjs', import.meta.url));
 
@@ -21,13 +22,14 @@ const FIXTURE = path.join(ROOT, 'tests', 'python', 'fixtures', 'shows_minimal.xl
 let db;
 
 beforeEach(() => {
-  execSync(`python3 ${path.join(ROOT, 'tests/python/fixtures/build_shows_fixture.py')}`, {
+  requirePythonDeps();
+  execSync(`"${VENV_PYTHON}" ${path.join(ROOT, 'tests/python/fixtures/build_shows_fixture.py')}`, {
     stdio: 'pipe',
   });
   db = new Database(':memory:');
   initSchema(db);
   const json = execSync(
-    `python3 ${path.join(ROOT, 'scripts/ingest_shows_xlsx.py')} ${FIXTURE}`,
+    `"${VENV_PYTHON}" ${path.join(ROOT, 'scripts/ingest_shows_xlsx.py')} ${FIXTURE}`,
     { encoding: 'utf8' },
   );
   ingestShowsFromJson(db, JSON.parse(json), 'default');
