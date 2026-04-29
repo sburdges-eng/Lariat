@@ -21,14 +21,18 @@ export async function GET(req) {
     const db = getDb();
     const events = db.prepare(`SELECT * FROM beo_events WHERE location_id = ? ORDER BY event_date DESC, id DESC`).all(loc);
     const tasks = db.prepare(`SELECT * FROM beo_prep_tasks WHERE location_id = ? ORDER BY event_id, sort_order, id`).all(loc);
-    const eventIds = events.map((e) => e.id);
-    const lineItems = eventIds.length === 0
-      ? []
-      : db.prepare(
-          `SELECT * FROM beo_line_items
-            WHERE event_id IN (${eventIds.map(() => '?').join(',')})
-            ORDER BY event_id, sort_order, id`,
-        ).all(...eventIds);
+    // line_items has no location_id column, so the previous code built
+    // `WHERE event_id IN (?, ?, ...)` with one bound parameter per event.
+    // That hits SQLite's compile-time host-parameter limit (default 32766)
+    // at scale and changes the SQL string on every call, defeating
+    // prepared-statement reuse. The correlated subquery form keeps a
+    // single stable SQL string with one bound parameter regardless of
+    // event count.
+    const lineItems = db.prepare(
+      `SELECT * FROM beo_line_items
+        WHERE event_id IN (SELECT id FROM beo_events WHERE location_id = ?)
+        ORDER BY event_id, sort_order, id`,
+    ).all(loc);
     return Response.json({ location_id: loc, events, prep_tasks: tasks, line_items: lineItems });
   } catch (err) {
     console.error('GET /api/beo failed:', err);
