@@ -1,5 +1,24 @@
 # Lariat Cockpit — operations
 
+## Python test setup (one-time, per checkout)
+
+Several test suites shell out to Python fixture builders and ingest scripts that
+require `openpyxl`, `xlrd`, and `pandas`.  A project-local venv isolates these
+from whatever Python is on your PATH.
+
+```bash
+bash scripts/install-python-deps.sh   # creates .venv, installs requirements-dev.txt
+```
+
+Run this once after cloning (or after pulling a `requirements-dev.txt` change).
+`npm run test:shows` and the individual `test:shows-ingest / test:shows-repo /
+test:shows-api / test:shows-py` targets all rely on `.venv/bin/python3` and
+`.venv/bin/pytest`.  If `.venv` is missing the JS tests print a clear error with
+the setup command.
+
+The `.venv` is gitignored.  `.venv-datapack` (heavy ML deps for the data pack)
+is a separate venv managed independently; see `scripts/datapack/`.
+
 ## Source-of-truth cadence (Toast, Shamrock, Sysco, 7shifts, spreadsheets)
 
 Decide **which file wins** when two sources disagree. Suggested defaults:
