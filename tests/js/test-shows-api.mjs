@@ -6,6 +6,7 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import { register } from 'node:module';
 import Database from 'better-sqlite3';
+import { requirePythonDeps, VENV_PYTHON } from './_helpers/python-preflight.mjs';
 
 register(new URL('./resolver.mjs', import.meta.url));
 
@@ -19,7 +20,8 @@ const FIXTURE = path.join(ROOT, 'tests', 'python', 'fixtures', 'shows_minimal.xl
 const TMP_DB = path.join(ROOT, 'tests', 'js', `.tmp-shows-${process.pid}.db`);
 
 beforeEach(() => {
-  execSync(`python3 ${path.join(ROOT, 'tests/python/fixtures/build_shows_fixture.py')}`, {
+  requirePythonDeps();
+  execSync(`"${VENV_PYTHON}" ${path.join(ROOT, 'tests/python/fixtures/build_shows_fixture.py')}`, {
     stdio: 'pipe',
   });
   try { fs.rmSync(TMP_DB, { force: true }); } catch {}
@@ -27,7 +29,7 @@ beforeEach(() => {
   const db = new Database(TMP_DB);
   initSchema(db);
   const json = execSync(
-    `python3 ${path.join(ROOT, 'scripts/ingest_shows_xlsx.py')} ${FIXTURE}`,
+    `"${VENV_PYTHON}" ${path.join(ROOT, 'scripts/ingest_shows_xlsx.py')} ${FIXTURE}`,
     { encoding: 'utf8' },
   );
   ingestShowsFromJson(db, JSON.parse(json), 'default');

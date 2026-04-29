@@ -6,14 +6,15 @@ import { execSync } from 'node:child_process';
 import Database from 'better-sqlite3';
 import { initSchema } from '../../lib/db.ts';
 import { ingestShowsFromJson } from '../../scripts/ingest-shows.mjs';
+import { requirePythonDeps, VENV_PYTHON } from './_helpers/python-preflight.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..', '..');
 const FIXTURE = path.join(ROOT, 'tests', 'python', 'fixtures', 'shows_minimal.xlsx');
 
 before(() => {
-  // Make sure the fixture exists.
-  execSync(`python3 ${path.join(ROOT, 'tests/python/fixtures/build_shows_fixture.py')}`, {
+  requirePythonDeps();
+  execSync(`"${VENV_PYTHON}" ${path.join(ROOT, 'tests/python/fixtures/build_shows_fixture.py')}`, {
     stdio: 'pipe',
   });
 });
@@ -26,7 +27,7 @@ function freshDb() {
 
 function runFromFixture(db) {
   const json = execSync(
-    `python3 ${path.join(ROOT, 'scripts/ingest_shows_xlsx.py')} ${FIXTURE}`,
+    `"${VENV_PYTHON}" ${path.join(ROOT, 'scripts/ingest_shows_xlsx.py')} ${FIXTURE}`,
     { encoding: 'utf8' },
   );
   return ingestShowsFromJson(db, JSON.parse(json), 'default');

@@ -141,7 +141,7 @@
     "test:shows-ingest": "node --experimental-strip-types --test tests/js/test-shows-ingest.mjs",
     "test:shows-repo": "node --experimental-strip-types --test tests/js/test-shows-repo.mjs",
     "test:shows-api": "node --experimental-strip-types --test tests/js/test-shows-api.mjs",
-    "test:shows-py": "pytest tests/python/test_ingest_shows_xlsx.py",
+    "test:shows-py": ".venv/bin/pytest tests/python/test_ingest_shows_xlsx.py",
     "test:shows": "npm run test:show-status && npm run test:shows-ingest && npm run test:shows-repo && npm run test:shows-api && npm run test:shows-py",
     "test:stage-repo": "node --experimental-strip-types --test tests/js/test-stage-repo.mjs",
     "test:sound-repo": "node --experimental-strip-types --test tests/js/test-sound-repo.mjs",
