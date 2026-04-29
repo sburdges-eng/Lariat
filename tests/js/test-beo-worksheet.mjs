@@ -470,6 +470,67 @@ describe('FK cascade — beo_events → beo_line_items', () => {
   });
 });
 
+// ── FK cascade: deleting an event drops its prep_tasks ───────────
+//
+// The schema declares beo_prep_tasks.event_id REFERENCES beo_events(id)
+// ON DELETE CASCADE (lib/db.ts, FOREIGN KEY clause inside the
+// beo_prep_tasks CREATE TABLE). PRAGMA foreign_keys = ON is set when
+// the connection opens (lib/db.ts, getDb()). Together that means
+// deleting a beo_events row should sweep its beo_prep_tasks children
+// without the route handler having to issue an explicit DELETE.
+//
+// This test asserts that cascade fires from the FK alone — not from
+// the (since-removed) `DELETE FROM beo_prep_tasks WHERE event_id = ?`
+// the handler used to run. Diff-bisect: with that line still in place
+// this passes (the handler does the work); with it removed this still
+// passes (the FK does the work). That's the proof the FK is what's
+// actually doing it.
+
+describe('FK cascade — beo_events → beo_prep_tasks', () => {
+  it('delete_event removes the event and all its prep_tasks via FK cascade', async () => {
+    const createdRes = await POST(postReq({
+      action: 'event',
+      title: 'Prep cascade host',
+      event_date: '2026-07-04',
+    }));
+    const { id: event_id } = await createdRes.json();
+
+    for (const task of ['Brine birds', 'Portion sauce', 'Set up buffet']) {
+      await POST(postReq({ action: 'prep', event_id, task }));
+    }
+    assert.strictEqual(
+      testDb.prepare(`SELECT COUNT(*) AS c FROM beo_prep_tasks WHERE event_id = ?`).get(event_id).c,
+      3,
+      'sanity: 3 prep_tasks rows should exist before delete',
+    );
+
+    const res = await POST(postReq({ action: 'delete_event', id: event_id }));
+    assert.strictEqual(res.status, 200);
+
+    assert.strictEqual(
+      testDb.prepare(`SELECT COUNT(*) AS c FROM beo_events WHERE id = ?`).get(event_id).c,
+      0,
+    );
+    assert.strictEqual(
+      testDb.prepare(`SELECT COUNT(*) AS c FROM beo_prep_tasks WHERE event_id = ?`).get(event_id).c,
+      0,
+      'child beo_prep_tasks rows should be cascade-deleted by the FK alone',
+    );
+  });
+
+  it('FK enforcement is actually on for this connection', () => {
+    // Belt-and-suspenders: if PRAGMA foreign_keys ever gets flipped off
+    // the cascade test above could give a false positive (the handler
+    // delete is gone, but rows could still survive without FK
+    // enforcement — wait, no, they couldn't, because they'd have no
+    // parent. Still: keep this assertion to lock in the connection
+    // setup so a future refactor of getDb() that drops the pragma
+    // surfaces here, not as a silent regression in production.)
+    const [{ foreign_keys }] = testDb.pragma('foreign_keys');
+    assert.strictEqual(foreign_keys, 1, 'PRAGMA foreign_keys must be ON');
+  });
+});
+
 // ── Unknown action ───────────────────────────────────────────────
 
 describe('POST /api/beo unknown action', () => {

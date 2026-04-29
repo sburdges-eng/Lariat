@@ -265,11 +265,11 @@ export async function POST(req) {
     if (body.action === 'delete_event') {
       const id = Number(body.id);
       if (!Number.isInteger(id)) return Response.json({ error: 'id required' }, { status: 400 });
-      // beo_prep_tasks has no ON DELETE CASCADE (legacy schema), so delete
-      // manually. beo_line_items DOES cascade via FK. Wrap in a transaction
-      // so we can't end up with an event whose prep_tasks survived a crash.
+      // Both beo_line_items.event_id and beo_prep_tasks.event_id declare
+      // ON DELETE CASCADE against beo_events(id), and PRAGMA foreign_keys
+      // is ON for every connection (lib/db.ts::getDb), so the single
+      // DELETE on beo_events sweeps both child tables atomically.
       db.transaction(() => {
-        db.prepare(`DELETE FROM beo_prep_tasks WHERE event_id = ?`).run(id);
         db.prepare(`DELETE FROM beo_events WHERE id = ?`).run(id);
         postAuditEvent({
           entity: 'beo_events', entity_id: id, action: 'delete',
