@@ -399,55 +399,55 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
             actionExecuted = true;
             console.error(`\n🔍 [BEO PREP BLOCKED]: event_id=${eventIdNum} belongs to location=${beoEvent.location_id}, requester=${locationId} (cross-location attempt)\n`);
           } else {
-          const stmt = db.prepare('INSERT INTO beo_prep_tasks (location_id, event_id, task, done, sort_order) VALUES (?, ?, ?, 0, 0)');
-          let calcNotes = [];
-          // Optional `recipes` array: [{recipe|recipe_slug, portions_per_guest}].
-          // If present AND the BEO row has a guest_count, compute authoritative quantities
-          // via the calculator and append those task strings instead of trusting the model's math.
-          const beoRecipes = Array.isArray(payload.recipes) ? payload.recipes : [];
-          let calcTasks = [];
-          if (beoRecipes.length > 0) {
-            const guests = Number(beoEvent.guest_count);
-            if (Number.isFinite(guests) && guests > 0) {
-              try {
-                const results = await expandForBEO(
-                  beoRecipes
-                    .map((r) => ({
-                      slug: String(r.recipe_slug || r.recipe || ''),
-                      portionsPerGuest: Number(r.portions_per_guest ?? 1),
-                    }))
-                    .filter((r) => r.slug),
-                  guests
-                );
-                for (const res of results) {
-                  for (const task of formatLeafRowsAsTasks(res.leafRows)) {
-                    calcTasks.push(`[${res.recipeSlug}] ${task}`);
+            const stmt = db.prepare('INSERT INTO beo_prep_tasks (location_id, event_id, task, done, sort_order) VALUES (?, ?, ?, 0, 0)');
+            let calcNotes = [];
+            // Optional `recipes` array: [{recipe|recipe_slug, portions_per_guest}].
+            // If present AND the BEO row has a guest_count, compute authoritative quantities
+            // via the calculator and append those task strings instead of trusting the model's math.
+            const beoRecipes = Array.isArray(payload.recipes) ? payload.recipes : [];
+            let calcTasks = [];
+            if (beoRecipes.length > 0) {
+              const guests = Number(beoEvent.guest_count);
+              if (Number.isFinite(guests) && guests > 0) {
+                try {
+                  const results = await expandForBEO(
+                    beoRecipes
+                      .map((r) => ({
+                        slug: String(r.recipe_slug || r.recipe || ''),
+                        portionsPerGuest: Number(r.portions_per_guest ?? 1),
+                      }))
+                      .filter((r) => r.slug),
+                    guests
+                  );
+                  for (const res of results) {
+                    for (const task of formatLeafRowsAsTasks(res.leafRows)) {
+                      calcTasks.push(`[${res.recipeSlug}] ${task}`);
+                    }
                   }
+                  calcNotes.push(`Calculator produced ${calcTasks.length} scaled prep lines for ${guests} guests.`);
+                } catch (e) {
+                  const code = e instanceof CalculatorError ? e.code : 'unknown';
+                  calcNotes.push(`Calculator error (${code}): ${e.message}. Falling back to model-provided tasks.`);
                 }
-                calcNotes.push(`Calculator produced ${calcTasks.length} scaled prep lines for ${guests} guests.`);
-              } catch (e) {
-                const code = e instanceof CalculatorError ? e.code : 'unknown';
-                calcNotes.push(`Calculator error (${code}): ${e.message}. Falling back to model-provided tasks.`);
               }
             }
-          }
-          const finalTasks = calcTasks.length > 0 ? calcTasks : payload.tasks;
-          // ACID-A: all prep tasks land or none do.
-          db.transaction(() => {
-            for (const t of finalTasks) {
-              stmt.run(locationId, eventIdNum, clip(typeof t === 'string' ? t : String(t ?? ''), MAX_NOTE));
-            }
-            postAuditEvent({
-              entity: 'beo_prep_tasks', entity_id: null, action: 'insert',
-              actor_cook_id: null, actor_source: 'kitchen_assistant',
-              location_id: locationId,
-              payload: { event_id: eventIdNum, taskCount: finalTasks.length, calcScaled: calcTasks.length > 0 },
-              note: `beo_add_prep: ${finalTasks.length} tasks`,
-            });
-          })();
-          actionMsg = `Added ${finalTasks.length} ${calcTasks.length > 0 ? 'calculator-scaled' : 'scaled'} side-prep tasks to BEO ID ${eventIdNum}.${calcNotes.length ? ' ' + calcNotes.join(' ') : ''}`;
-          actionExecuted = true;
-          console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Added ${finalTasks.length} prep tasks to BEO ${eventIdNum} (calc=${calcTasks.length > 0}) ⚠️\n`);
+            const finalTasks = calcTasks.length > 0 ? calcTasks : payload.tasks;
+            // ACID-A: all prep tasks land or none do.
+            db.transaction(() => {
+              for (const t of finalTasks) {
+                stmt.run(locationId, eventIdNum, clip(typeof t === 'string' ? t : String(t ?? ''), MAX_NOTE));
+              }
+              postAuditEvent({
+                entity: 'beo_prep_tasks', entity_id: null, action: 'insert',
+                actor_cook_id: null, actor_source: 'kitchen_assistant',
+                location_id: locationId,
+                payload: { event_id: eventIdNum, taskCount: finalTasks.length, calcScaled: calcTasks.length > 0 },
+                note: `beo_add_prep: ${finalTasks.length} tasks`,
+              });
+            })();
+            actionMsg = `Added ${finalTasks.length} ${calcTasks.length > 0 ? 'calculator-scaled' : 'scaled'} side-prep tasks to BEO ID ${eventIdNum}.${calcNotes.length ? ' ' + calcNotes.join(' ') : ''}`;
+            actionExecuted = true;
+            console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Added ${finalTasks.length} prep tasks to BEO ${eventIdNum} (calc=${calcTasks.length > 0}) ⚠️\n`);
           } // close cross-location guard else-branch (event exists + matches locationId)
         } else if (payload.action === 'give_gold_star' && payload.cook_name) {
           const starVal = Math.min(Math.max(Number(payload.stars) || 1, 1), 3);
