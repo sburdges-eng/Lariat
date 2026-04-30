@@ -205,6 +205,10 @@ export async function POST(req) {
       const time = textPatch('order_time', 32);
       const grp  = textPatch('group_note', MAX_NOTES);
       db.transaction(() => {
+        // beo_line_items has no location_id of its own — it inherits
+        // via event_id → beo_events.location_id. Scope the UPDATE so a
+        // request from location A cannot mutate a line attached to an
+        // event in location B (Bundle-H follow-up, T4).
         db.prepare(
           `UPDATE beo_line_items SET
              item_name             = COALESCE(?, item_name),
@@ -216,7 +220,8 @@ export async function POST(req) {
              order_items_notes     = CASE WHEN ? THEN ? ELSE order_items_notes END,
              order_time            = CASE WHEN ? THEN ? ELSE order_time END,
              group_note            = CASE WHEN ? THEN ? ELSE group_note END
-           WHERE id = ?`,
+           WHERE id = ?
+             AND event_id IN (SELECT id FROM beo_events WHERE location_id = ?)`,
         ).run(
           item_name, cost, qty, clip(body.category, 64),
           'prep_notes'           in body ? 1 : 0, prep.val,
@@ -225,6 +230,7 @@ export async function POST(req) {
           'order_time'           in body ? 1 : 0, time.val,
           'group_note'           in body ? 1 : 0, grp.val,
           id,
+          loc,
         );
         postAuditEvent({
           entity: 'beo_line_items', entity_id: id, action: 'update',
@@ -239,7 +245,13 @@ export async function POST(req) {
       const id = Number(body.id);
       if (!Number.isInteger(id)) return Response.json({ error: 'id required' }, { status: 400 });
       db.transaction(() => {
-        db.prepare(`DELETE FROM beo_line_items WHERE id = ?`).run(id);
+        // Scope by parent event's location_id; see update_line above
+        // for the rationale (Bundle-H follow-up, T4).
+        db.prepare(
+          `DELETE FROM beo_line_items
+             WHERE id = ?
+               AND event_id IN (SELECT id FROM beo_events WHERE location_id = ?)`,
+        ).run(id, loc);
         postAuditEvent({
           entity: 'beo_line_items', entity_id: id, action: 'delete',
           actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
