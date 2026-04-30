@@ -27,39 +27,21 @@
 import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 
 register(new URL('./resolver.mjs', import.meta.url));
 
-const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-beo-many-events-'));
-const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
+const {
+  createTempBeoDb,
+  postReq,
+  getReq,
+} = await import('./helpers/beo-fixtures.mjs');
 
-const db = await import('../../lib/db.ts');
+const { testDb, cleanup } = await createTempBeoDb('many-events');
 const route = await import('../../app/api/beo/route.js');
-
-db.setDbPathForTest(TMP_DB);
-const testDb = db.getDb();
 
 const { POST, GET } = route;
 
-after(() => {
-  db.setDbPathForTest(null);
-  try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
-});
-
-function postReq(body) {
-  return new Request('http://localhost/api/beo', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-}
-
-function getReq(qs = '') {
-  return new Request(`http://localhost/api/beo${qs}`);
-}
+after(cleanup);
 
 describe('GET /api/beo — high-volume events (line_items subquery scaling)', () => {
   it('returns line_items + prep_tasks for 50 events without an IN-list parameter chain', async () => {

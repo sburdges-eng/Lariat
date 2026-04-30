@@ -19,62 +19,30 @@
 import { describe, it, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 
 register(new URL('./resolver.mjs', import.meta.url));
 
-const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-beo-update-patch-'));
-const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
+const {
+  createTempBeoDb,
+  clearBeoTables,
+  postReq,
+  seedEvent,
+} = await import('./helpers/beo-fixtures.mjs');
 
-const db = await import('../../lib/db.ts');
+const { testDb, cleanup } = await createTempBeoDb('update-patch');
 const route = await import('../../app/api/beo/route.js');
-
-db.setDbPathForTest(TMP_DB);
-const testDb = db.getDb();
 
 const { POST } = route;
 
-after(() => {
-  db.setDbPathForTest(null);
-  try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
-});
+after(cleanup);
 
 beforeEach(() => {
-  testDb.exec(
-    'DELETE FROM beo_line_items; DELETE FROM beo_prep_tasks; DELETE FROM beo_events;',
-  );
+  clearBeoTables(testDb);
 });
-
-function postReq(body) {
-  return new Request('http://localhost/api/beo', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-}
-
-async function seedEvent(overrides = {}) {
-  const res = await POST(postReq({
-    action: 'event',
-    title: 'Wallace anniversary',
-    event_date: '2026-07-04',
-    event_time: '6-9pm',
-    contact_name: 'Marie Wallace',
-    guest_count: 32,
-    notes: 'two vegetarians, one tree-nut allergy',
-    tax_rate: 0.08,
-    service_fee_pct: 22,
-    ...overrides,
-  }));
-  const { id } = await res.json();
-  return id;
-}
 
 describe("POST /api/beo action='update_event' — partial patch preserves omitted columns", () => {
   it('patching only event_time leaves all other columns intact', async () => {
-    const id = await seedEvent();
+    const id = await seedEvent(POST);
 
     const before = testDb.prepare(`SELECT * FROM beo_events WHERE id = ?`).get(id);
 
@@ -105,7 +73,7 @@ describe("POST /api/beo action='update_event' — partial patch preserves omitte
   });
 
   it('patching only tax_rate leaves contact / time / notes / fee intact', async () => {
-    const id = await seedEvent();
+    const id = await seedEvent(POST);
     const before = testDb.prepare(`SELECT * FROM beo_events WHERE id = ?`).get(id);
 
     const res = await POST(postReq({
@@ -125,7 +93,7 @@ describe("POST /api/beo action='update_event' — partial patch preserves omitte
   });
 
   it('patching only contact_name leaves the numeric / time columns intact', async () => {
-    const id = await seedEvent();
+    const id = await seedEvent(POST);
     const before = testDb.prepare(`SELECT * FROM beo_events WHERE id = ?`).get(id);
 
     const res = await POST(postReq({
