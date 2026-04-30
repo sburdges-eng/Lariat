@@ -40,15 +40,15 @@ function seedSale(item_name, quantity_sold, net_sales, period_label = '2026-W17'
   ).run(period_label, item_name, quantity_sold, net_sales);
 }
 
-function seedMappedDish() {
+function seedMappedDish(dishName = 'Baja Taco', ingredient = 'cabbage slaw mix') {
   // A dish with a complete dish_components mapping — should NOT appear
   // in the exception queue.
   db.prepare(
     `INSERT INTO dish_components
        (location_id, dish_name, component_type, vendor_ingredient,
         qty_per_serving, unit)
-     VALUES ('default', 'Baja Taco', 'vendor_item', 'cabbage slaw mix', 2, 'oz')`,
-  ).run();
+     VALUES ('default', ?, 'vendor_item', ?, 2, 'oz')`,
+  ).run(dishName, ingredient);
 }
 
 describe('listDepletionExceptions', () => {
@@ -85,6 +85,21 @@ describe('listDepletionExceptions', () => {
     assert.equal(out[0].affected_sales_count, 3);
     assert.equal(out[0].total_quantity_sold, 8);
     assert.equal(out[0].total_net_sales, 72);
+    assert.deepEqual(
+      [...out[0].sample_period_labels].sort(),
+      ['2026-W17', '2026-W18'],
+    );
+  });
+
+  it('aggregates casing variants under one unmapped dish exception', () => {
+    seedSale('Baja Taco', 5, 50, '2026-W17');
+    seedSale('BAJA TACO', 2, 20, '2026-W18');
+    const out = listDepletionExceptions(db, { location_id: 'default' });
+    assert.equal(out.length, 1);
+    assert.equal(out[0].dish_name, 'Baja Taco');
+    assert.equal(out[0].affected_sales_count, 2);
+    assert.equal(out[0].total_quantity_sold, 7);
+    assert.equal(out[0].total_net_sales, 70);
     assert.deepEqual(
       [...out[0].sample_period_labels].sort(),
       ['2026-W17', '2026-W18'],
@@ -143,15 +158,23 @@ describe('listDepletionExceptions', () => {
     assert.equal(out.length, 2);
   });
 
-  it('applies the limit after filtering out resolved dishes', () => {
-    seedMappedDish();
-    seedSale('Baja Taco', 10, 1000);
-    seedSale('Mystery Plate', 1, 10);
+  it('applies limit after filtering out dishes that resolve cleanly', () => {
+    seedMappedDish('Mapped Top Seller A', 'cabbage slaw mix');
+    seedMappedDish('Mapped Top Seller B', 'pickled onion');
+    seedSale('Mapped Top Seller A', 50, 1000);
+    seedSale('Mapped Top Seller B', 40, 900);
+    seedSale('Mystery Low Seller A', 2, 20);
+    seedSale('Mystery Low Seller B', 1, 10);
 
-    const out = listDepletionExceptions(db, { location_id: 'default', limit: 1 });
+    const out = listDepletionExceptions(db, {
+      location_id: 'default',
+      limit: 2,
+    });
 
-    assert.equal(out.length, 1);
-    assert.equal(out[0].dish_name, 'Mystery Plate');
+    assert.deepEqual(
+      out.map((r) => r.dish_name),
+      ['Mystery Low Seller A', 'Mystery Low Seller B'],
+    );
   });
 
   it('flags recipe_missing_yield when sub-recipe has no yield', () => {

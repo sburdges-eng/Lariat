@@ -26,6 +26,8 @@
     "sync:normalized:dry": "node --experimental-strip-types scripts/sync-normalized-to-bom.mjs --dry",
     "debug:event-ops": "node --experimental-strip-types scripts/debug-event-ops.mjs",
     "debug:event-ops:json": "node --experimental-strip-types scripts/debug-event-ops.mjs --json",
+    "compliance:build": "node scripts/build-compliance-index.mjs",
+    "compliance:build:force": "node scripts/build-compliance-index.mjs --force",
     "job": "node --experimental-strip-types scripts/run-job.mjs",
     "job:list": "node --experimental-strip-types scripts/run-job.mjs --list",
     "job:status": "node --experimental-strip-types scripts/run-job.mjs --status",

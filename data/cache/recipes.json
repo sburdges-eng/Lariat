@@ -3266,7 +3266,8 @@
     ],
     "notes": "Shamrock/Sysco pudding base + bananas + vanilla wafers + whipped cream",
     "direct_allergens": [
-      "milk"
+      "milk",
+      "wheat"
     ]
   },
   {
@@ -3837,7 +3838,6 @@
     ],
     "procedure": [],
     "allergens": [
-      "eggs",
       "milk",
       "wheat"
     ],
@@ -4164,6 +4164,7 @@
     ],
     "notes": "In-house — seared tenderloin + crostini + horseradish cream + arugula",
     "direct_allergens": [
+      "eggs",
       "milk",
       "wheat"
     ]
