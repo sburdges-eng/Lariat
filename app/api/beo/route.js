@@ -82,33 +82,57 @@ export async function POST(req) {
     if (body.action === 'update_event') {
       const id = Number(body.id);
       if (!Number.isInteger(id)) return Response.json({ error: 'id required' }, { status: 400 });
+      // Title and status remain unconditional COALESCE keys — those are
+      // the fields the UI explicitly edits, and the existing semantics
+      // were already partial-patch friendly.
       const title = clip(body.title, MAX_TITLE);
-      const gc = body.guest_count == null || body.guest_count === ''
-        ? null
-        : Number(body.guest_count);
-      const taxRate = Number.isFinite(Number(body.tax_rate)) ? Number(body.tax_rate) : 0.0675;
-      const serviceFeePct = Number.isFinite(Number(body.service_fee_pct)) ? Number(body.service_fee_pct) : 20;
+      const status = clip(body.status, 32);
+      // Every other column is a partial-patch field. If the request body
+      // omits the key (or sends null/undefined), we pass SQL NULL so the
+      // `col = COALESCE(?, col)` clause preserves the existing value.
+      // For numeric columns we only coerce when the body actually carries
+      // the field, so an omitted tax_rate doesn't reset to the default.
+      const eventDate = 'event_date' in body ? clip(body.event_date, 32) : null;
+      const eventTime = 'event_time' in body ? clip(body.event_time, 32) : null;
+      const contactName = 'contact_name' in body ? clip(body.contact_name, 120) : null;
+      const notes = 'notes' in body ? clip(body.notes, MAX_NOTES) : null;
+      let guestCount = null;
+      if ('guest_count' in body) {
+        const raw = body.guest_count;
+        if (raw === null || raw === '' || raw === undefined) {
+          guestCount = null;
+        } else {
+          const n = Number(raw);
+          guestCount = Number.isFinite(n) ? n : null;
+        }
+      }
+      const taxRate = 'tax_rate' in body && Number.isFinite(Number(body.tax_rate))
+        ? Number(body.tax_rate)
+        : null;
+      const serviceFeePct = 'service_fee_pct' in body && Number.isFinite(Number(body.service_fee_pct))
+        ? Number(body.service_fee_pct)
+        : null;
       db.transaction(() => {
         db.prepare(
           `UPDATE beo_events SET
-             title = COALESCE(?, title),
-             event_date = ?,
-             event_time = ?,
-             contact_name = ?,
-             guest_count = ?,
-             notes = ?,
-             status = COALESCE(?, status),
-             tax_rate = ?,
-             service_fee_pct = ?
+             title           = COALESCE(?, title),
+             event_date      = COALESCE(?, event_date),
+             event_time      = COALESCE(?, event_time),
+             contact_name    = COALESCE(?, contact_name),
+             guest_count     = COALESCE(?, guest_count),
+             notes           = COALESCE(?, notes),
+             status          = COALESCE(?, status),
+             tax_rate        = COALESCE(?, tax_rate),
+             service_fee_pct = COALESCE(?, service_fee_pct)
            WHERE id = ? AND location_id = ?`,
         ).run(
           title,
-          clip(body.event_date, 32),
-          clip(body.event_time, 32),
-          clip(body.contact_name, 120),
-          Number.isFinite(gc) ? gc : null,
-          clip(body.notes, MAX_NOTES),
-          clip(body.status, 32),
+          eventDate,
+          eventTime,
+          contactName,
+          guestCount,
+          notes,
+          status,
           taxRate,
           serviceFeePct,
           id,
