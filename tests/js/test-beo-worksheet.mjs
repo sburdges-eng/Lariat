@@ -23,47 +23,28 @@
 import { describe, it, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 
 register(new URL('./resolver.mjs', import.meta.url));
 
-const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-beo-worksheet-'));
-const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
+const {
+  createTempBeoDb,
+  clearBeoTables,
+  postReq,
+  getReq,
+} = await import('./helpers/beo-fixtures.mjs');
 
-const db = await import('../../lib/db.ts');
+const { db, testDb, cleanup } = await createTempBeoDb('worksheet');
 const route = await import('../../app/api/beo/route.js');
-
-db.setDbPathForTest(TMP_DB);
-const testDb = db.getDb();
 
 const { POST, GET } = route;
 
-after(() => {
-  db.setDbPathForTest(null);
-  try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
-});
+after(cleanup);
 
 beforeEach(() => {
   // Cascade through children first so FK-enforced DELETE can't choke on
   // prep_tasks / line_items that still reference an event.
-  testDb.exec(
-    'DELETE FROM beo_line_items; DELETE FROM beo_prep_tasks; DELETE FROM beo_events;',
-  );
+  clearBeoTables(testDb);
 });
-
-function postReq(body) {
-  return new Request('http://localhost/api/beo', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-}
-
-function getReq(qs = '') {
-  return new Request(`http://localhost/api/beo${qs}`);
-}
 
 const columnsOf = (table) =>
   testDb.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);

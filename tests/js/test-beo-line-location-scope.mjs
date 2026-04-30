@@ -24,96 +24,33 @@
 import { describe, it, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 
 register(new URL('./resolver.mjs', import.meta.url));
 
-const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-beo-line-loc-'));
-const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
+const {
+  createTempBeoDb,
+  clearBeoTables,
+  postReq,
+  setupTwoLocations,
+} = await import('./helpers/beo-fixtures.mjs');
 
-const db = await import('../../lib/db.ts');
+const { testDb, cleanup } = await createTempBeoDb('line-loc');
 const route = await import('../../app/api/beo/route.js');
-
-db.setDbPathForTest(TMP_DB);
-const testDb = db.getDb();
 
 const { POST } = route;
 
-after(() => {
-  db.setDbPathForTest(null);
-  try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
-});
+after(cleanup);
 
 beforeEach(() => {
   // Cascade through children first so FK-enforced DELETE can't choke.
-  testDb.exec(
-    'DELETE FROM beo_line_items; DELETE FROM beo_prep_tasks; DELETE FROM beo_events;',
-  );
+  clearBeoTables(testDb);
 });
-
-function postReq(body) {
-  return new Request('http://localhost/api/beo', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-}
-
-// Build a two-location fixture: one event at LOC_A with one line, one
-// event at LOC_B with one line. Returns the line ids per location so
-// each test can attempt a cross-location attack.
-async function setupTwoLocations() {
-  const LOC_A = 'site-a';
-  const LOC_B = 'site-b';
-
-  const evA = await POST(postReq({
-    action: 'event',
-    location_id: LOC_A,
-    title: 'Site A Wedding',
-    event_date: '2026-07-04',
-  }));
-  const { id: eventA } = await evA.json();
-
-  const evB = await POST(postReq({
-    action: 'event',
-    location_id: LOC_B,
-    title: 'Site B Anniversary',
-    event_date: '2026-07-04',
-  }));
-  const { id: eventB } = await evB.json();
-
-  const lineA_res = await POST(postReq({
-    action: 'line',
-    location_id: LOC_A,
-    event_id: eventA,
-    item_name: 'Site A Brisket',
-    category: 'Entree',
-    unit_cost: 18.0,
-    quantity: 50,
-  }));
-  const { id: lineA } = await lineA_res.json();
-
-  const lineB_res = await POST(postReq({
-    action: 'line',
-    location_id: LOC_B,
-    event_id: eventB,
-    item_name: 'Site B Salmon',
-    category: 'Entree',
-    unit_cost: 22.0,
-    quantity: 30,
-  }));
-  const { id: lineB } = await lineB_res.json();
-
-  return { LOC_A, LOC_B, eventA, eventB, lineA, lineB };
-}
 
 // ── delete_line: scoped to parent event's location_id ──────────────
 
 describe("POST /api/beo action='delete_line' — location-scoped via parent event", () => {
   it('deletes the line when location_id matches the parent event', async () => {
-    const { LOC_A, lineA } = await setupTwoLocations();
+    const { LOC_A, lineA } = await setupTwoLocations(POST);
     const res = await POST(postReq({
       action: 'delete_line',
       location_id: LOC_A,
@@ -127,7 +64,7 @@ describe("POST /api/beo action='delete_line' — location-scoped via parent even
   });
 
   it('does NOT delete a line whose parent event lives in a different location', async () => {
-    const { LOC_A, lineB } = await setupTwoLocations();
+    const { LOC_A, lineB } = await setupTwoLocations(POST);
     // LOC_A request targeting LOC_B's line. Pre-fix: SQL ignores
     // location_id and the row is destroyed. Post-fix: the subquery
     // filters event_id by location and the row survives.
@@ -150,7 +87,7 @@ describe("POST /api/beo action='delete_line' — location-scoped via parent even
 
 describe("POST /api/beo action='update_line' — location-scoped via parent event", () => {
   it('updates the line when location_id matches the parent event', async () => {
-    const { LOC_A, lineA } = await setupTwoLocations();
+    const { LOC_A, lineA } = await setupTwoLocations(POST);
     const res = await POST(postReq({
       action: 'update_line',
       location_id: LOC_A,
@@ -169,7 +106,7 @@ describe("POST /api/beo action='update_line' — location-scoped via parent even
   });
 
   it('does NOT mutate a line whose parent event lives in a different location', async () => {
-    const { LOC_A, lineB } = await setupTwoLocations();
+    const { LOC_A, lineB } = await setupTwoLocations(POST);
     // LOC_A request trying to mutate LOC_B's line. Pre-fix: SQL ignores
     // location and the row is rewritten. Post-fix: the subquery filters
     // and the row's content stays exactly as LOC_B set it.
@@ -195,7 +132,7 @@ describe("POST /api/beo action='update_line' — location-scoped via parent even
 
 describe('BEO line ops — cross-location isolation', () => {
   it("LOC_A's delete_line on its own line leaves LOC_B's line untouched", async () => {
-    const { LOC_A, lineA, lineB } = await setupTwoLocations();
+    const { LOC_A, lineA, lineB } = await setupTwoLocations(POST);
     await POST(postReq({
       action: 'delete_line',
       location_id: LOC_A,
