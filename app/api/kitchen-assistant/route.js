@@ -375,6 +375,30 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Order Guide Updated: ${payload.item} ⚠️\n`);
         } else if (payload.action === 'beo_add_prep' && Number.isInteger(Number(payload.event_id)) && Array.isArray(payload.tasks)) {
           const eventIdNum = Number(payload.event_id);
+          // Cross-location guard: the LLM is free to emit any event_id, so
+          // before touching beo_prep_tasks we MUST confirm the parent
+          // beo_events row exists AND belongs to the requesting locationId.
+          // Without this an attacker (or a hallucinating model) at location A
+          // could inject a prep task whose parent event lives at location B —
+          // surfacing location-B operational state inside location A's
+          // worksheets and mutating location-B planning data.
+          //
+          // HACCP rule (CLAUDE.md): never weaken validations or silently
+          // auto-correct. We surface the rejection in actionMsg using the
+          // same soft-reject pattern as `maintenance` ("Could not find
+          // equipment …") and DO NOT fall back to a default location_id.
+          const beoEvent = db
+            .prepare('SELECT location_id, guest_count FROM beo_events WHERE id = ?')
+            .get(eventIdNum);
+          if (!beoEvent) {
+            actionMsg = `Add BEO Prep blocked — event ${eventIdNum} does not exist. Ask a manager to create the BEO first.`;
+            actionExecuted = true;
+            console.error(`\n🔍 [BEO PREP BLOCKED]: event_id=${eventIdNum} not found (location=${locationId})\n`);
+          } else if (beoEvent.location_id !== locationId) {
+            actionMsg = `Add BEO Prep blocked — event ${eventIdNum} belongs to a different location. Cross-location prep injection is not allowed.`;
+            actionExecuted = true;
+            console.error(`\n🔍 [BEO PREP BLOCKED]: event_id=${eventIdNum} belongs to location=${beoEvent.location_id}, requester=${locationId} (cross-location attempt)\n`);
+          } else {
           const stmt = db.prepare('INSERT INTO beo_prep_tasks (location_id, event_id, task, done, sort_order) VALUES (?, ?, ?, 0, 0)');
           let calcNotes = [];
           // Optional `recipes` array: [{recipe|recipe_slug, portions_per_guest}].
@@ -383,10 +407,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           const beoRecipes = Array.isArray(payload.recipes) ? payload.recipes : [];
           let calcTasks = [];
           if (beoRecipes.length > 0) {
-            const beoRow = db
-              .prepare('SELECT guest_count FROM beo_events WHERE id = ? AND location_id = ?')
-              .get(eventIdNum, locationId);
-            const guests = Number(beoRow?.guest_count);
+            const guests = Number(beoEvent.guest_count);
             if (Number.isFinite(guests) && guests > 0) {
               try {
                 const results = await expandForBEO(
@@ -427,6 +448,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           actionMsg = `Added ${finalTasks.length} ${calcTasks.length > 0 ? 'calculator-scaled' : 'scaled'} side-prep tasks to BEO ID ${eventIdNum}.${calcNotes.length ? ' ' + calcNotes.join(' ') : ''}`;
           actionExecuted = true;
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Added ${finalTasks.length} prep tasks to BEO ${eventIdNum} (calc=${calcTasks.length > 0}) ⚠️\n`);
+          } // close cross-location guard else-branch (event exists + matches locationId)
         } else if (payload.action === 'give_gold_star' && payload.cook_name) {
           const starVal = Math.min(Math.max(Number(payload.stars) || 1, 1), 3);
           const cookName = clip(payload.cook_name, 64);
