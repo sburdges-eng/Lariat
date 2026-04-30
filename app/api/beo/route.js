@@ -14,25 +14,48 @@ const clip = (s, max) => {
   return t ? t.slice(0, max) : null;
 };
 
+// Prepared-statement cache for the GET handler, keyed by db instance.
+// WeakMap survives `setDbPathForTest()` (which closes + nulls the cached
+// connection) because each rebound test DB is a different instance and
+// the old one is GC'd along with its cached statements.
+const _getStatementCache = new WeakMap();
+function _getBeoStatements(db) {
+  let stmts = _getStatementCache.get(db);
+  if (!stmts) {
+    stmts = {
+      events: db.prepare(
+        `SELECT * FROM beo_events WHERE location_id = ? ORDER BY event_date DESC, id DESC`,
+      ),
+      tasks: db.prepare(
+        `SELECT * FROM beo_prep_tasks WHERE location_id = ? ORDER BY event_id, sort_order, id`,
+      ),
+      // line_items has no location_id column, so we filter via a correlated
+      // subquery on beo_events. That keeps a single stable SQL string with
+      // one bound parameter regardless of event count, vs. building a
+      // variable `WHERE event_id IN (?, ?, ...)` clause that would defeat
+      // statement caching and could hit SQLite's host-parameter limit
+      // (default 32766) at scale.
+      lineItems: db.prepare(
+        `SELECT * FROM beo_line_items
+          WHERE event_id IN (SELECT id FROM beo_events WHERE location_id = ?)
+          ORDER BY event_id, sort_order, id`,
+      ),
+    };
+    _getStatementCache.set(db, stmts);
+  }
+  return stmts;
+}
+
 export async function GET(req) {
   try {
     const u = new URL(req.url);
     const loc = u.searchParams.get('location') || DEFAULT_LOCATION_ID;
     const db = getDb();
-    const events = db.prepare(`SELECT * FROM beo_events WHERE location_id = ? ORDER BY event_date DESC, id DESC`).all(loc);
-    const tasks = db.prepare(`SELECT * FROM beo_prep_tasks WHERE location_id = ? ORDER BY event_id, sort_order, id`).all(loc);
-    // line_items has no location_id column, so the previous code built
-    // `WHERE event_id IN (?, ?, ...)` with one bound parameter per event.
-    // That hits SQLite's compile-time host-parameter limit (default 32766)
-    // at scale and changes the SQL string on every call, defeating
-    // prepared-statement reuse. The correlated subquery form keeps a
-    // single stable SQL string with one bound parameter regardless of
-    // event count.
-    const lineItems = db.prepare(
-      `SELECT * FROM beo_line_items
-        WHERE event_id IN (SELECT id FROM beo_events WHERE location_id = ?)
-        ORDER BY event_id, sort_order, id`,
-    ).all(loc);
+    // Statements are prepared once per db instance and reused across requests.
+    const stmts = _getBeoStatements(db);
+    const events = stmts.events.all(loc);
+    const tasks = stmts.tasks.all(loc);
+    const lineItems = stmts.lineItems.all(loc);
     return Response.json({ location_id: loc, events, prep_tasks: tasks, line_items: lineItems });
   } catch (err) {
     console.error('GET /api/beo failed:', err);
