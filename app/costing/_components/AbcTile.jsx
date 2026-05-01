@@ -46,7 +46,7 @@ export default function AbcTile({ menuRows }) {
               <ol style={{ margin: '6px 0 0 18px', padding: 0 }}>
                 {topA.map((r) => (
                   <li key={r.itemName} style={{ fontSize: 13 }}>
-                    {r.itemName} · {dollars(r.contributionDollars / r.qty || 0)}{' '}
+                    {r.itemName} · {dollars(r.qty ? r.contributionDollars / r.qty : 0)}{' '}
                     margin/unit · {r.qty} sold
                   </li>
                 ))}
