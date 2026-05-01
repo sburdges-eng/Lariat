@@ -66,6 +66,19 @@ describe('getPrepMedianForItems — empty inputs', () => {
     assert.equal(m.size, 1);
     assert.ok(m.has('mac balls'));
   });
+
+  it('keys the returned Map by trim().toLowerCase() — callers must do the same', () => {
+    // Pinned contract for callers that look medians up by name. The
+    // menu-engineering page does `r.item_name.trim().toLowerCase()`;
+    // omitting the trim would silently miss when sales rows carry
+    // stray whitespace (the bug both review bots flagged on PR #76).
+    insert({ item: 'Mac Balls', amount_qty: '50' });
+    const m = helper.getPrepMedianForItems(testDb, LOC, ['  Mac Balls  ']);
+    assert.equal(m.size, 1);
+    assert.ok(m.has('mac balls'));
+    assert.equal(m.has(' mac balls '), false);
+    assert.equal(m.has('  Mac Balls  '), false);
+  });
 });
 
 describe('getPrepMedianForItems — numeric coercion', () => {

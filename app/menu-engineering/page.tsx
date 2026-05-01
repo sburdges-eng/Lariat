@@ -200,8 +200,11 @@ export default function MenuEngineeringPage({ searchParams }: { searchParams?: {
                   <td>{r.qty != null ? Number(r.qty).toFixed(0) : '—'}</td>
                   <td>
                     {(() => {
+                      // Match the helper's key shape: trim() THEN toLowerCase().
+                      // A Toast item with stray whitespace would otherwise miss
+                      // even when matching prep history exists for it.
                       const key = typeof r.item_name === 'string'
-                        ? r.item_name.toLowerCase()
+                        ? r.item_name.trim().toLowerCase()
                         : null;
                       const m = key ? prepMedians.get(key) : undefined;
                       if (!m) return <span style={{ color: 'var(--muted)' }}>—</span>;
