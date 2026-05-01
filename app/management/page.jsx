@@ -12,10 +12,7 @@ import path from 'node:path';
 
 import { getDb } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
-import {
-  computeUnmapped,
-  readLastCostingIngest,
-} from '../../lib/costingBenchmarks.mjs';
+import { readLastCostingIngest } from '../../lib/costingBenchmarks.mjs';
 import { computeDishCoverage } from '../../lib/dishCostBridge';
 import { readLatestAccountingVariance } from '../../lib/computeEngine/index';
 
@@ -72,6 +69,25 @@ function formatAge(ageMin) {
   return `${Math.floor(ageMin / 1440)} d ago`;
 }
 
+/**
+ * Count unacknowledged pack-size changes. O(1) — replaces the prior
+ * `computeUnmapped()` call that scanned every bom_lines row on each page
+ * load. `pack_size_changes` has no `location_id` column (intentional —
+ * vendor SKUs are global per ingest), so the location parameter is
+ * accepted for symmetry but not bound. Guarded for legacy DBs that
+ * predate the table.
+ */
+function readPackSizeChangesUnacked(db) {
+  try {
+    const row = db
+      .prepare('SELECT COUNT(*) AS c FROM pack_size_changes WHERE acknowledged = 0')
+      .get();
+    return row?.c ?? 0;
+  } catch {
+    return null;
+  }
+}
+
 // ── Per-tile readers (each isolates failure so one bad signal can't blank the page) ──
 
 /** Count `verification.status === 'unverified'` rows in the curated rules JSONL. */
@@ -115,6 +131,14 @@ function safeGet(fn, fallback) {
 
 // ── Page ──
 
+// Hard cap — `computeDishCoverage` scans `dish_components` + `sales_lines`.
+// Above this many distinct sales dishes, skip the read so the page stays
+// snappy and surface a "view full report" prompt instead.
+// TODO(management): introduce dish_coverage_snapshots populated by the
+// compute engine and read from that table here. Tracked separately — out
+// of scope for the rollup-tile PR.
+const DISH_COVERAGE_CAP = 500;
+
 export default function ManagementRollupPage({ searchParams }) {
   // Server component — read location from the query string so the
   // dashboard scopes to the same site the rest of the UI is viewing.
@@ -130,8 +154,22 @@ export default function ManagementRollupPage({ searchParams }) {
   // Each helper call is isolated so a single thrown read can't blank the dashboard.
   const variance = safeGet(() => readLatestAccountingVariance(db, loc), null);
   const ingest = safeGet(() => readLastCostingIngest(db), { last_run_at: null, last_status: null, age_minutes: null });
-  const coverage = safeGet(() => computeDishCoverage(loc), null);
-  const unmapped = safeGet(() => computeUnmapped(db, loc), null);
+
+  // Cheap pre-check: how many distinct sales dishes are on file? If it
+  // exceeds the cap, skip the full coverage scan so the page stays
+  // responsive on large fleets.
+  const dishCount = safeGet(
+    () => db.prepare(
+      `SELECT COUNT(DISTINCT item_name) AS c FROM sales_lines WHERE location_id = ?`,
+    ).get(loc)?.c ?? 0,
+    0,
+  );
+  const coverageCapped = dishCount > DISH_COVERAGE_CAP;
+  const coverage = coverageCapped
+    ? null
+    : safeGet(() => computeDishCoverage(loc), null);
+
+  const packChangesUnacked = readPackSizeChangesUnacked(db);
   const compliance = readComplianceUnverified();
   const cleaning = readCleaningToday(db, loc);
 
@@ -170,20 +208,25 @@ export default function ManagementRollupPage({ searchParams }) {
           href="/costing"
         />
 
-        {/* Tile 3 — Dish-bridge coverage */}
+        {/* Tile 3 — Dish-bridge coverage (capped to keep page load O(1)) */}
         <RollupTile
           label="Dish-bridge coverage"
           value={
-            coverage && coverage.total_sales_dishes > 0
-              ? `${coverage.fully_linked}/${coverage.total_sales_dishes}`
-              : '—'
+            coverageCapped
+              ? '—'
+              : coverage && coverage.total_sales_dishes > 0
+                ? `${coverage.fully_linked}/${coverage.total_sales_dishes}`
+                : '—'
           }
-          color={coverageColor(coverage)}
+          color={coverageCapped ? 'var(--muted)' : coverageColor(coverage)}
           sub={
-            coverage && coverage.total_sales_dishes > 0
-              ? `${coverage.unlinked} unlinked · ${coverage.declared_only} no-components`
-              : 'no sales dishes on file'
+            coverageCapped
+              ? `${dishCount} dishes — too many to scan inline`
+              : coverage && coverage.total_sales_dishes > 0
+                ? `${coverage.unlinked} unlinked · ${coverage.declared_only} no-components`
+                : 'no sales dishes on file'
           }
+          note={coverageCapped ? 'open menu performance for full report' : null}
           href="/menu-engineering"
         />
 
@@ -204,9 +247,9 @@ export default function ManagementRollupPage({ searchParams }) {
         {/* Tile 5 — Pack-size unack'd */}
         <RollupTile
           label="Pack-size changes unack'd"
-          value={unmapped == null ? '—' : unmapped.pack_size_changes_unacknowledged}
-          color={packChangeColor(unmapped?.pack_size_changes_unacknowledged)}
-          sub={unmapped == null ? 'compute unavailable' : 'acknowledge in Pack-size changes'}
+          value={packChangesUnacked == null ? '—' : packChangesUnacked}
+          color={packChangeColor(packChangesUnacked)}
+          sub={packChangesUnacked == null ? 'compute unavailable' : 'acknowledge in Pack-size changes'}
           href="/costing/pack-changes"
         />
 
