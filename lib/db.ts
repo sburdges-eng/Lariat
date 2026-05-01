@@ -2698,6 +2698,36 @@ function migrateLegacyColumns(db: DB): void {
   addLoc('station_signoffs', t('station_signoffs'));
   addLoc('inventory_updates', t('inventory_updates'));
 
+  // Phase 3 closed-loop receiving — inventory_updates rows written by the
+  // closed-loop credit path stamp the source receiving_log row id here.
+  // The partial UNIQUE index below makes the credit at-most-once per
+  // receiving_log row: if the route ever re-enters with the same source
+  // id (e.g. a stray retry inside the same transaction or a future
+  // backfill that double-runs) the second INSERT fails the constraint
+  // and the surrounding tx rolls back. Manual on-hand adjustments + the
+  // sales-depletion path leave this NULL — the partial index ignores
+  // those rows so they aren't constrained.
+  // NOTE: this does NOT defend against true client double-tap (each POST
+  // creates a fresh receiving_log row with a fresh id). That's a UI /
+  // network-boundary concern; see app/api/receiving/route.js for the
+  // documented limit. The handle here protects against in-process
+  // double-credit on the SAME source row.
+  const invCols = t('inventory_updates');
+  if (!invCols.includes('receiving_log_id')) {
+    try {
+      db.exec(
+        'ALTER TABLE inventory_updates ADD COLUMN receiving_log_id INTEGER REFERENCES receiving_log(id)',
+      );
+    } catch { /* ignore */ }
+  }
+  try {
+    db.exec(
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_updates_receiving_log_id
+         ON inventory_updates(receiving_log_id)
+         WHERE receiving_log_id IS NOT NULL`,
+    );
+  } catch { /* ignore */ }
+
   // F15 (FDA §3-301.11): glove-change attestation on each line-check row
   // that touches ready-to-eat food. NULL on pre-migration rows so the
   // backfill is additive and the legacy data stays queryable.

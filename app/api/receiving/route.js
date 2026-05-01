@@ -255,11 +255,19 @@ export async function POST(req) {
       // ghost-delivery + drifted-on-hand state this feature exists
       // to eliminate. The caller sees a 500.
       if (shouldCreditInventory) {
+        // receiving_log_id stamps the source row so the partial UNIQUE
+        // index in lib/db.ts (idx_inventory_updates_receiving_log_id)
+        // can enforce at-most-once crediting per receiving_log row.
+        // A second insert against the same source id raises a SQLITE
+        // UNIQUE constraint, which propagates out of this transaction
+        // and rolls back the receiving_log row + its audit too —
+        // exactly the "no half-applied close" posture this feature
+        // exists to enforce.
         const invInfo = db
           .prepare(
             `INSERT INTO inventory_updates
-               (shift_date, location_id, item, delta, direction, note, cook_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`
+               (shift_date, location_id, item, delta, direction, note, cook_id, receiving_log_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
           )
           .run(
             shift_date,
@@ -269,6 +277,7 @@ export async function POST(req) {
             'in',
             `closed-loop receiving from receiving_log #${info.lastInsertRowid}`,
             cook_id,
+            Number(info.lastInsertRowid),
           );
 
         const invRow = db

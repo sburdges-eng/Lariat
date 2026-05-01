@@ -34,7 +34,9 @@ after(() => {
 });
 
 beforeEach(() => {
-  testDb.exec('DELETE FROM receiving_log; DELETE FROM inventory_updates; DELETE FROM audit_events;');
+  // Order matters: inventory_updates.receiving_log_id is a FK into
+  // receiving_log; clearing the parent first would trip the constraint.
+  testDb.exec('DELETE FROM inventory_updates; DELETE FROM receiving_log; DELETE FROM audit_events;');
 });
 
 function postReq(body) {
@@ -434,6 +436,7 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     assert.strictEqual(invRow.direction, 'in');
     assert.strictEqual(invRow.cook_id, 'alice');
     assert.match(invRow.note, /closed-loop receiving from receiving_log #\d+/);
+    assert.strictEqual(invRow.receiving_log_id, recvRow.id);
 
     const invAudit = testDb
       .prepare('SELECT * FROM audit_events WHERE entity=?')
@@ -593,9 +596,60 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
           note TEXT,
           cook_id TEXT,
           created_at TEXT DEFAULT (datetime('now')),
-          location_id TEXT DEFAULT 'default'
+          location_id TEXT DEFAULT 'default',
+          receiving_log_id INTEGER REFERENCES receiving_log(id)
         );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_updates_receiving_log_id
+          ON inventory_updates(receiving_log_id)
+          WHERE receiving_log_id IS NOT NULL;
       `);
     }
+  });
+
+  it('partial UNIQUE index prevents double-credit on the same receiving_log row', async () => {
+    // Document the at-most-once invariant. Each /api/receiving POST
+    // creates a NEW receiving_log row with a NEW id, so true client
+    // double-tap is a UI/network concern (see route.js) — the DB
+    // constraint here protects the in-process invariant: ONE inventory
+    // credit per source receiving_log row.
+    const res = await POST(postReq({
+      vendor: 'Shamrock',
+      category: 'refrigerated',
+      item: 'chicken breast 40lb CS',
+      reading_f: 38,
+      package_ok: true,
+      received_qty: 40,
+      received_unit: 'lb',
+    }));
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(countInventoryUpdates(), 1);
+
+    const recvRow = testDb.prepare('SELECT * FROM receiving_log').get();
+    assert.throws(
+      () => {
+        testDb
+          .prepare(
+            `INSERT INTO inventory_updates
+               (shift_date, location_id, item, delta, direction, note, cook_id, receiving_log_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .run(
+            recvRow.shift_date,
+            recvRow.location_id,
+            recvRow.item,
+            '40 lb',
+            'in',
+            'duplicate credit attempt',
+            null,
+            recvRow.id,
+          );
+      },
+      /UNIQUE constraint/,
+      'partial unique index must reject a second credit for the same receiving_log_id',
+    );
+
+    // The original credit row is the only one — the failed second
+    // INSERT did not leak through.
+    assert.strictEqual(countInventoryUpdates(), 1);
   });
 });
