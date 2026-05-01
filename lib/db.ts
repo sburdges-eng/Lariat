@@ -1802,6 +1802,26 @@ export function initSchema(db: DB): void {
       ON box_office_lines(show_id, location_id);
     CREATE INDEX IF NOT EXISTS idx_box_office_source_ext
       ON box_office_lines(source, external_ref);
+
+    -- Phase 2 task B: deal-point inputs for the per-show settlement.
+    -- Cents-as-INTEGER everywhere so settlement math never sees float drift.
+    -- Audited via lib/auditEvents.ts (DB stream — talent payouts are
+    -- regulated cash custody) inside the same tx as the upsert.
+    CREATE TABLE IF NOT EXISTS show_deals (
+      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+      show_id            INTEGER NOT NULL REFERENCES shows(id),
+      location_id        TEXT NOT NULL DEFAULT 'default',
+      guarantee_cents    INTEGER NOT NULL DEFAULT 0,
+      vs_pct_after_costs REAL,
+      costs_off_top_json TEXT NOT NULL DEFAULT '[]',
+      buyout_cents       INTEGER NOT NULL DEFAULT 0,
+      notes              TEXT,
+      updated_at         TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_by_cook_id TEXT,
+      UNIQUE (show_id, location_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_show_deals_show
+      ON show_deals(show_id, location_id);
   `);
 }
 
