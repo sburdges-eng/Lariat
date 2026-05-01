@@ -1,6 +1,7 @@
 import { getDb } from '../../../../../../lib/db';
 import { logAuditAction } from '../../../../../../lib/auditLog.mjs';
 import { locationFromRequest } from '../../../../../../lib/location';
+import { hasPinCookie, pinRequiredForPic } from '../../../../../../lib/pin';
 import {
   validateSlug,
   validateYieldQty,
@@ -23,6 +24,10 @@ export async function POST(req, { params }) {
     body = await req.json();
   } catch {
     return Response.json({ error: 'invalid JSON body' }, { status: 400 });
+  }
+
+  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+    return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
 
   const slugRes = validateSlug(body.slug);

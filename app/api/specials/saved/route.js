@@ -2,6 +2,7 @@ import { getDb } from '../../../../lib/db';
 import { uuidv7 } from '../../../../lib/uuid';
 import { logAuditAction } from '../../../../lib/auditLog.mjs';
 import { locationFromBody, locationFromRequest } from '../../../../lib/location';
+import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
 import {
   validateName,
   coerceJsonField,
@@ -23,6 +24,10 @@ export async function POST(req) {
     body = await req.json();
   } catch {
     return Response.json({ error: 'invalid JSON body' }, { status: 400 });
+  }
+
+  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+    return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
 
   const nameRes = validateName(body.name);
@@ -96,6 +101,10 @@ export async function POST(req) {
 }
 
 export async function GET(req) {
+  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+    return Response.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
   const url = new URL(req.url);
   const location = url.searchParams.get('location') || 'default';
 
