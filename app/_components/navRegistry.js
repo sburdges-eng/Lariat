@@ -411,6 +411,22 @@ export const NAV_ITEMS = [
     locAware: t,
     surface: { sidebar: f, palette: t, shelf: f },
   },
+
+  // ── Management ──────────────────────────────────────────────────────
+  // Rollup dashboard at /management composes already-shipped signals
+  // (variance, costing freshness, coverage, compliance, pack-size, cleaning).
+  // Palette-only — sidebar already has dedicated tiles for the underlying
+  // surfaces; management is a roll-up for managers, not a new daily route.
+  {
+    id: 'management',
+    href: '/management',
+    name: 'Management',
+    sub: 'GM rollup',
+    group: 'Management',
+    terms: 'management rollup gm dashboard manager overview',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
 ];
 
 // ── Selectors ─────────────────────────────────────────────────────────
