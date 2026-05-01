@@ -117,3 +117,43 @@ describe('GET /api/shows/[id]/deal', () => {
     assert.equal(body.deal, null);
   });
 });
+
+const settlementRoute = await import(
+  '../../app/api/shows/[id]/settlement/route.js'
+);
+
+describe('GET /api/shows/[id]/settlement — auth', () => {
+  it('returns 401 with no cookie', async () => {
+    const req = new Request('http://localhost/api/shows/1/settlement', {
+      method: 'GET',
+    });
+    const res = await settlementRoute.GET(req, { params: { id: '1' } });
+    assert.equal(res.status, 401);
+  });
+});
+
+describe('GET /api/shows/[id]/settlement — happy path', () => {
+  it('returns a SettlementSummary JSON body', async () => {
+    const cookie = await validCookie();
+    const req = new Request('http://localhost/api/shows/1/settlement', {
+      method: 'GET',
+      headers: { cookie: `lariat_pin_ok=${cookie}` },
+    });
+    const res = await settlementRoute.GET(req, { params: { id: '1' } });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.show.id, 1);
+    assert.equal(body.deal.guaranteeCents, 0);
+    assert.ok('netDoorCents' in body);
+  });
+
+  it('returns 404 for unknown show', async () => {
+    const cookie = await validCookie();
+    const req = new Request('http://localhost/api/shows/9999/settlement', {
+      method: 'GET',
+      headers: { cookie: `lariat_pin_ok=${cookie}` },
+    });
+    const res = await settlementRoute.GET(req, { params: { id: '9999' } });
+    assert.equal(res.status, 404);
+  });
+});
