@@ -106,15 +106,25 @@ export async function POST(req) {
     })();
 
     if (!result.was_already_acknowledged) {
-      logAuditAction({
-        action: 'pack_size_change_acknowledged',
-        pack_size_changes_id: id,
-        vendor: existing.vendor,
-        sku: existing.sku,
-        prev_pack: existing.prev_pack,
-        new_pack: existing.new_pack,
-        note,
-      });
+      try {
+        logAuditAction({
+          action: 'pack_size_change_acknowledged',
+          pack_size_changes_id: id,
+          vendor: existing.vendor,
+          sku: existing.sku,
+          prev_pack: existing.prev_pack,
+          new_pack: existing.new_pack,
+          note,
+        });
+      } catch (auditErr) {
+        // The DB acknowledgement is already committed; surfacing this as a 500
+        // would cause the client to retry, but the row is already acknowledged
+        // and the audit write would be permanently skipped. Log and continue.
+        console.error(
+          'POST /api/costing/pack-changes audit write failed:',
+          auditErr,
+        );
+      }
     }
 
     return Response.json({
