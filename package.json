@@ -28,6 +28,7 @@
     "debug:event-ops:json": "node --experimental-strip-types scripts/debug-event-ops.mjs --json",
     "compliance:build": "node scripts/build-compliance-index.mjs",
     "compliance:build:force": "node scripts/build-compliance-index.mjs --force",
+    "compliance:worklist": "node scripts/list-unverified-compliance.mjs",
     "job": "node --experimental-strip-types scripts/run-job.mjs",
     "job:list": "node --experimental-strip-types scripts/run-job.mjs --list",
     "job:status": "node --experimental-strip-types scripts/run-job.mjs --status",
