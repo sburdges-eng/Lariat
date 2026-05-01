@@ -107,9 +107,15 @@ function parseAmountQty(raw: string | null | undefined): number | null {
   const trimmed = String(raw).trim();
   if (!trimmed) return null;
   // Common shape: "<number>[ <unit>]". Take the leading numeric token.
-  const m = trimmed.match(/^(-?\d+(?:\.\d+)?)/);
+  // Also accept thousands-separator commas ("1,000", "2,500 ea") so large
+  // catering quantities aren't silently truncated to the leading digits.
+  const m = trimmed.match(
+    /^(-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?)/
+  );
   if (!m) return null;
-  const n = Number(m[1]);
+  const captured = m[1];
+  if (!captured) return null;
+  const n = Number(captured.replace(/,/g, ''));
   if (!Number.isFinite(n) || n <= 0) return null;
   return n;
 }

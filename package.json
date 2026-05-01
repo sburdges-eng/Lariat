@@ -31,6 +31,7 @@
     "compliance:embed": "node scripts/build-compliance-embeddings.mjs",
     "compliance:embed:force": "node scripts/build-compliance-embeddings.mjs --force",
     "compliance:full": "npm run compliance:build && npm run compliance:embed",
+    "compliance:worklist": "node scripts/list-unverified-compliance.mjs",
     "job": "node --experimental-strip-types scripts/run-job.mjs",
     "job:list": "node --experimental-strip-types scripts/run-job.mjs --list",
     "job:status": "node --experimental-strip-types scripts/run-job.mjs --status",

@@ -9,11 +9,11 @@ import { getPrepMedianForItems } from '../../lib/beoPrepHistory';
 export const dynamic = 'force-dynamic';
 
 const Q: Record<string, { label: string; desc: string; color: string }> = {
-  star:      { label: 'Star',      desc: 'High margin & popularity',  color: 'var(--green)' },
-  plowhorse: { label: 'Plowhorse', desc: 'Low margin, high popularity', color: 'var(--yellow)' },
-  puzzle:    { label: 'Puzzle',    desc: 'High margin, low popularity', color: 'var(--blue)' },
-  dog:       { label: 'Dog',       desc: 'Low margin & popularity',     color: 'var(--muted)' },
-  unknown:   { label: 'Unknown',   desc: 'Need cost data',              color: 'var(--border)' },
+  star:      { label: 'Star',      desc: 'High margin & popularity. Protect availability — never 86 a star.', color: 'var(--green)' },
+  plowhorse: { label: 'Plowhorse', desc: 'Low margin, high popularity. Reprice or sub a cheaper component before margin drift sinks the night.', color: 'var(--yellow)' },
+  puzzle:    { label: 'Puzzle',    desc: 'High margin, low popularity. Push it on specials boards — the room does not know it exists.', color: 'var(--blue)' },
+  dog:       { label: 'Dog',       desc: 'Low margin & popularity. Cut from the menu unless it anchors a category.', color: 'var(--muted)' },
+  unknown:   { label: 'Unknown',   desc: 'Need cost data — wire dish_components first.', color: 'var(--border)' },
 };
 
 const LINK_BADGE: Record<MenuEngineeringRow['link_state'], { label: string; color: string }> = {

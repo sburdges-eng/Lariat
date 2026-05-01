@@ -35,6 +35,9 @@ export default function BookingPage() {
             <Link className="btn sm" href={`/shows/${next.id}/box-office`}>
               Box office
             </Link>
+            <Link className="btn sm" href={`/shows/${next.id}/settlement`}>
+              Settlement
+            </Link>
           </div>
         )}
       </header>
