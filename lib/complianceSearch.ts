@@ -629,3 +629,29 @@ export function _setModelForTest(
   _modelOverride = fn;
   _modelPromise = null;
 }
+
+/**
+ * Test-only: full reset of every cached/overridden piece of module
+ * state. Mirrors lib/datapackSearch.ts::_resetForTest() so test files
+ * have a single hook to call between cases instead of remembering each
+ * `_set*ForTest(null)` individually. Closes the cached SQLite handle,
+ * clears DB / vectors / ids overrides, drops the model override, and
+ * resets the lazy promises so the next call starts cold.
+ */
+export function _resetForTest(): void {
+  if (_conn) {
+    try {
+      _conn.close();
+    } catch {
+      /* ignore */
+    }
+    _conn = null;
+  }
+  _dbPathOverride = null;
+  _availableOverride = null;
+  _vectorsPathOverride = null;
+  _idsPathOverride = null;
+  _vectorsCachePromise = null;
+  _modelOverride = null;
+  _modelPromise = null;
+}
