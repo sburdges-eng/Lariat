@@ -22,6 +22,7 @@ export default function SavedSpecialsPage({ searchParams }) {
     typeof searchParams?.location === 'string' && searchParams.location.trim()
       ? searchParams.location.trim()
       : DEFAULT_LOCATION_ID;
+  const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
 
   const db = getDb();
   let rows = [];
@@ -45,12 +46,12 @@ export default function SavedSpecialsPage({ searchParams }) {
       {rows.length === 0 ? (
         <div className="card">
           <p className="meta mb-12">No saved specials yet.</p>
-          <Link href="/specials" className="btn">Open the sandbox</Link>
+          <Link href={`/specials${locQ}`} className="btn">Open the sandbox</Link>
         </div>
       ) : (
         <div className="grid-2">
           {rows.map((r) => (
-            <Link key={r.id} href={`/specials/saved/${r.id}`} className="card" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <Link key={r.id} href={`/specials/saved/${r.id}${locQ}`} className="card" style={{ textDecoration: 'none', color: 'inherit' }}>
               <h2 className="section-head mb-12">{r.name}</h2>
               <p className="meta mb-12">
                 {formatDate(r.created_at)}
