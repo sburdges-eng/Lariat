@@ -235,3 +235,60 @@ describe('available()', () => {
     assert.equal(compliance.available(), false);
   });
 });
+
+describe('buildIndex empty-input guard', () => {
+  it('throws on a JSONL file that parses to zero rows', () => {
+    const emptyJsonl = path.join(tmpRoot, 'empty.jsonl');
+    fs.writeFileSync(emptyJsonl, '   \n\n   \n');
+    const emptyDbPath = path.join(tmpRoot, 'empty.db');
+    if (fs.existsSync(emptyDbPath)) fs.rmSync(emptyDbPath);
+    const db = new Database(emptyDbPath);
+    try {
+      assert.throws(
+        () => buildIndex(db, { jsonlPath: emptyJsonl, jsonlSha: 'sha' }),
+        /aborting to preserve existing index/,
+      );
+    } finally {
+      db.close();
+    }
+  });
+});
+
+// Regression test against the actual in-tree compliance corpus.
+// This is the canary that catches a tokenizer / sanitizer regression
+// silently dropping a previously-resolved compliance question. Skips
+// gracefully if the corpus file isn't checked out in this worktree
+// (some agent worktrees may not include data/normalized/).
+describe('production corpus regression', () => {
+  const PROD_JSONL = path.join(
+    process.cwd(),
+    'data',
+    'normalized',
+    'compliance_rules.jsonl',
+  );
+  const corpusAvailable = fs.existsSync(PROD_JSONL);
+  let prodDbPath;
+
+  before(() => {
+    if (!corpusAvailable) return;
+    prodDbPath = path.join(tmpRoot, 'compliance.prod.db');
+    if (fs.existsSync(prodDbPath)) fs.rmSync(prodDbPath);
+    const db = new Database(prodDbPath);
+    buildIndex(db, { jsonlPath: PROD_JSONL, jsonlSha: 'prod' });
+    db.close();
+    compliance._setDbPathForTest(prodDbPath);
+  });
+
+  it('top-ranks co_labor_007 for the canonical HFWA paid-sick-leave question', { skip: !corpusAvailable }, () => {
+    const hits = compliance.searchCompliance(
+      'How does HFWA paid sick leave accrual work?',
+      { limit: 3 },
+    );
+    assert.ok(hits.length >= 1, 'expected at least one hit from production corpus');
+    assert.equal(
+      hits[0].id,
+      'co_labor_007',
+      `expected co_labor_007 as top hit, got ${hits[0]?.id} (top 3: ${hits.map((h) => h.id).join(', ')})`,
+    );
+  });
+});
