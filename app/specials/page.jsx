@@ -87,8 +87,9 @@ export default function SpecialsPage() {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        if (res.status === 401) setSaveErr('Manager PIN required to save.');
+      const pinRedirect = res.redirected && res.url.includes('/login-pin');
+      if (!res.ok || pinRedirect) {
+        if (res.status === 401 || pinRedirect) setSaveErr('Manager PIN required to save.');
         else setSaveErr(data.error || 'Save failed.');
         return;
       }
