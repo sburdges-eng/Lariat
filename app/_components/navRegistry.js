@@ -397,6 +397,20 @@ export const NAV_ITEMS = [
     locAware: t,
     surface: { sidebar: t, palette: t, shelf: f },
   },
+  // Per-show settlement is reachable from a show detail page; the palette
+  // entry exists so a manager can jump straight to a show's settlement
+  // by typing the band name. The href is a template — palette wires the
+  // selected show id at click time. Sidebar is off (not a top-level page).
+  {
+    id: 'show-settlement',
+    href: '/shows/[id]/settlement',
+    name: 'Show settlement',
+    sub: 'Per-show payout + net door',
+    group: 'Entertainment',
+    terms: 'settlement payout door talent guarantee deal',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
 ];
 
 // ── Selectors ─────────────────────────────────────────────────────────
