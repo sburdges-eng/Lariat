@@ -110,6 +110,38 @@ describe('getLatestSoundScene', () => {
     const latest = sound.getLatestSoundScene(db, 1, 'default');
     assert.equal(latest?.scene_name, 'set 1');
   });
+
+  it('respects location_id scoping (no cross-location bleed)', () => {
+    // Same show ids exist at default + satellite per the `before` hook.
+    // The latest scene at one location must not be reachable from the other,
+    // even when the satellite scene is newer than the default one.
+    sound.createSoundScene(db, {
+      show_id: 1, location_id: 'default', scene_name: 'default-only', plot: samplePlot(),
+    });
+    sound.createSoundScene(db, {
+      show_id: 2, location_id: 'satellite', scene_name: 'satellite-only', plot: samplePlot(),
+    });
+    assert.equal(sound.getLatestSoundScene(db, 1, 'default')?.scene_name, 'default-only');
+    assert.equal(sound.getLatestSoundScene(db, 2, 'satellite')?.scene_name, 'satellite-only');
+    assert.equal(sound.getLatestSoundScene(db, 1, 'satellite'), null);
+    assert.equal(sound.getLatestSoundScene(db, 2, 'default'), null);
+  });
+
+  it('falls back to an empty plot when plot_json is corrupt', () => {
+    // safeJson() in soundRepo is graceful-degraded — a partial-write or
+    // hand-edited DB row should not crash the dashboard. Pin the contract:
+    // the row is still returned, plot collapses to {channels:[],monitors:[]}.
+    db.prepare(
+      `INSERT INTO sound_scenes
+         (show_id, location_id, scene_name, plot_json, saved_at)
+       VALUES (1, 'default', 'corrupt', '{not valid json', datetime('now'))`,
+    ).run();
+    const latest = sound.getLatestSoundScene(db, 1, 'default');
+    assert.ok(latest);
+    assert.equal(latest.scene_name, 'corrupt');
+    assert.deepEqual(latest.plot.channels, []);
+    assert.deepEqual(latest.plot.monitors, []);
+  });
 });
 
 describe('createSoundScene', () => {

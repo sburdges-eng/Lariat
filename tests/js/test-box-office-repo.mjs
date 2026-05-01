@@ -87,6 +87,87 @@ describe('createBoxOfficeLine — sources', () => {
   });
 });
 
+describe('createBoxOfficeLine — transactional audit', () => {
+  // Cash custody is regulated → DB audit lives inside the same
+  // db.transaction(...) as the source INSERT (per docs/PATTERNS.md §3).
+  // If the audit row cannot be written, the source row MUST roll back.
+  // Mirror of the settlement-repo rollback contract (PR #78).
+  //
+  // To force a deterministic audit failure we drop the `audit_events`
+  // table for the duration of the assertion, then restore it. SQLite
+  // will throw "no such table: audit_events" inside the tx, which must
+  // propagate out of `createBoxOfficeLine` AND leave `box_office_lines`
+  // empty. The settlement test uses an FK violation; we use a missing
+  // table because box_office_lines has no FK on audit_events.
+  it('rolls back the source row when the audit insert fails', () => {
+    // Snapshot the audit_events DDL so we can recreate it after.
+    const ddlRow = db.prepare(
+      `SELECT sql FROM sqlite_master WHERE type='table' AND name='audit_events'`,
+    ).get();
+    assert.ok(ddlRow?.sql, 'audit_events DDL should be discoverable');
+
+    db.exec(`DROP TABLE audit_events;`);
+    try {
+      assert.throws(
+        () => box.createBoxOfficeLine(db, {
+          show_id: 1, location_id: 'default', source: 'walkup',
+          qty: 3, face_price: 25, actor_cook_id: 'door_anna',
+        }),
+        /audit_events/,
+      );
+      // No box_office_lines row should have been left behind.
+      const lines = db.prepare(
+        `SELECT COUNT(*) AS c FROM box_office_lines WHERE show_id = 1`,
+      ).get();
+      assert.equal(lines.c, 0, 'audit failure must roll back the source insert');
+    } finally {
+      db.exec(ddlRow.sql);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_events(entity, entity_id);`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_audit_shift ON audit_events(location_id, shift_date);`);
+    }
+  });
+
+  it('rolls back markScanned when the audit insert fails', () => {
+    const line = box.createBoxOfficeLine(db, {
+      show_id: 1, location_id: 'default', source: 'dice', qty: 1,
+      face_price: 30, external_ref: 'DICE-ROLLBACK-1',
+    });
+
+    const ddlRow = db.prepare(
+      `SELECT sql FROM sqlite_master WHERE type='table' AND name='audit_events'`,
+    ).get();
+    db.exec(`DROP TABLE audit_events;`);
+    try {
+      assert.throws(
+        () => box.markScanned(db, line.id, 'default', 'door_anna'),
+        /audit_events/,
+      );
+      // scanned_at must still be NULL — the UPDATE rolled back with the audit failure.
+      const fresh = db.prepare(
+        `SELECT scanned_at FROM box_office_lines WHERE id = ?`,
+      ).get(line.id);
+      assert.equal(fresh.scanned_at, null, 'audit failure must roll back the scan UPDATE');
+    } finally {
+      db.exec(ddlRow.sql);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_events(entity, entity_id);`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_audit_shift ON audit_events(location_id, shift_date);`);
+    }
+  });
+
+  it('schema CHECK on box_office_lines.source rejects bypass attempts', () => {
+    // The repo's VALID_SOURCES set is a soft validator at the JS layer.
+    // The CHECK constraint at the DB layer is the second line of defence
+    // — assert it fires if a future code path skips the validator.
+    assert.throws(
+      () => db.prepare(
+        `INSERT INTO box_office_lines (show_id, location_id, source, qty)
+         VALUES (1, 'default', 'free', 1)`,
+      ).run(),
+      /CHECK constraint/,
+    );
+  });
+});
+
 describe('listLinesForShow', () => {
   it('returns lines newest-first', () => {
     box.createBoxOfficeLine(db, {
