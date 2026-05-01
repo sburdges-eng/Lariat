@@ -95,6 +95,81 @@ export interface RecentEvent {
   items: { item: string; amount_qty: string | null }[];
 }
 
+export interface RecipePrepHistoryRow extends PrepHistoryRow {
+  item: string;
+}
+
+/**
+ * Look up prep history rows whose `item` text relates to a recipe name,
+ * via case-insensitive substring matching in either direction:
+ *
+ *   - BEO `item` contains the recipe name  (e.g. recipe "Tacos" →
+ *     items "Carnitas Tacos Buffet", "Fish Taco Buffet")
+ *   - Recipe name contains the BEO `item`  (e.g. recipe "Aji Verde" →
+ *     items "Aji", "Aji verde")
+ *
+ * Reason for both directions: BEO sheets are hand-typed and routinely
+ * abbreviate ("Aji" vs the recipe "Aji Verde") OR pluralize/expand
+ * ("Carnitas Tacos Buffet" vs the recipe "Tacos"). A single-direction
+ * LIKE catches one but misses the other.
+ *
+ * Returns rows ordered most-recent-first (NULL event_date last). The
+ * matched `item` text is included on each row so the UI can show
+ * "as 'Aji verde'" when the BEO variant differs from the recipe name.
+ *
+ * Recipe names shorter than `MIN_RECIPE_NAME_LEN` characters return
+ * empty — a 1- or 2-letter recipe would substring-match nearly every
+ * BEO row and the result would be useless.
+ */
+const MIN_RECIPE_NAME_LEN = 3;
+
+export function getRecipePrepHistory(
+  db: DB,
+  locationId: string,
+  recipeName: string,
+  limit: number = DEFAULT_LIMIT
+): RecipePrepHistoryRow[] {
+  const name = (recipeName || '').trim();
+  if (name.length < MIN_RECIPE_NAME_LEN) return [];
+
+  const cap = clampLimit(limit);
+  const lower = name.toLowerCase();
+
+  // Pull all rows for the location and filter the bidirectional substring
+  // match in JS. Doing this in SQL would require LIKE wildcards in both
+  // directions and escape-handling for `%`/`_` in BOTH the recipe name
+  // AND the BEO item text — easy to get wrong. Volume is small
+  // (single-location prep_history rarely exceeds a few thousand rows)
+  // so the round-trip + JS filter is faster than careful escaping.
+  const allRows = db
+    .prepare(
+      `SELECT item, event_date, client, type, amount_qty,
+              prep_day, pre_prep_notes, plating_notes,
+              source, imported_at
+         FROM beo_prep_history
+        WHERE location_id = ? AND item IS NOT NULL
+        ORDER BY (event_date IS NULL), event_date DESC, id DESC`
+    )
+    .all(locationId) as RecipePrepHistoryRow[];
+
+  const matched: RecipePrepHistoryRow[] = [];
+  for (const r of allRows) {
+    const itemLower = r.item.toLowerCase();
+    // Direction A: BEO item contains the recipe name.
+    // Direction B: recipe name contains the BEO item, but only if the
+    //   BEO item is at least MIN_RECIPE_NAME_LEN chars — shorter items
+    //   would substring-match nearly every recipe and produce noise.
+    if (
+      itemLower.includes(lower) ||
+      (itemLower.length >= MIN_RECIPE_NAME_LEN && lower.includes(itemLower))
+    ) {
+      matched.push(r);
+      if (matched.length >= cap) break;
+    }
+  }
+  return matched;
+}
+
 export function getRecentEvents(
   db: DB,
   locationId: string,
