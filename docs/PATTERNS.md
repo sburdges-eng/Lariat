@@ -45,6 +45,54 @@ Example: cooling (F1, §3-501.14).
 - The rule module is the single source of truth for the threshold. A
   yellow/red-band tweak touches one file, not three.
 
+### 1a. Five-file-shape audit (2026-05-01)
+
+A full sweep of the 11 regulated concepts against the convention.
+Use this table as the punch-list when extending coverage; do not
+revert any of the gaps below silently.
+
+| Concept | `lib/<c>.ts` | `app/api/<slug>/route.*` | `app/food-safety/<slug>/` | Hub tile | rules test | api test |
+|---|---|---|---|---|---|---|
+| cooling | `cooling.ts` | `cooling/route.js` | yes | yes | yes | **missing** |
+| temp-log | `tempLog.ts` | `temp-log/route.js` | yes | yes | yes | yes |
+| receiving | `receiving.ts` | `receiving/route.js` | yes | yes | yes | yes |
+| sanitizer | `sanitizer.ts` | `sanitizer-check/route.js` ⚠ slug mismatch | yes | yes | yes | **missing** |
+| date-marks | `dateMarks.ts` | `date-marks/route.js` | yes | yes | yes (`test-date-mark-rules.mjs`) | **missing** |
+| sick-worker | `sickWorker.ts` | `sick-worker/route.js` | yes | yes | yes | **missing** |
+| calibrations | `calibrations.ts` | `thermometer-calibrations/route.js` ⚠ slug mismatch | yes | yes | yes | yes |
+| cleaning | `cleaning.ts` | `cleaning/route.ts` | **missing board UI** | yes (links to 404) | yes | **missing** (`test-cleaning-schedule-api.mjs` covers a different surface) |
+| pest | `pestControl.ts` ⚠ slug mismatch | `pest/route.ts` | **missing board UI** | yes (links to 404) | yes (added 2026-05-01) | **missing** |
+| sds | `sds.ts` | `sds/route.ts` | **missing board UI** | yes (links to 404) | yes | **missing** |
+| tphc | `tphc.ts` | `tphc/route.js` | yes | yes | yes | yes |
+
+**Gaps to close, ranked by user impact:**
+
+1. **Board UI for cleaning, pest, sds.** Hub tiles link to 404
+   pages because `app/food-safety/cleaning/`, `pest/`, and `sds/`
+   don't exist. Either build the boards (one PR per concept,
+   matching the `<Concept>Board.jsx` shape used by tphc/sanitizer)
+   or temporarily route the tile to the management surface that
+   does exist (e.g. `/management/sds`).
+2. **API tests** for cooling, sanitizer, date-marks, sick-worker,
+   cleaning, pest, sds. Each must verify audit-event emission and
+   transactional rollback (per `docs/PATTERNS.md §3`). The
+   existing `test-receiving-api.mjs` and `test-tphc-api.mjs` are
+   the templates.
+3. **Rule-module citation constants for `lib/pestControl.ts`.**
+   Currently the module exposes only `validatePestControl()`; per
+   the §1 invariant, FDA §6-501.111 should be a named export. Same
+   shape as `SDS_CITATION` in `lib/sds.ts`.
+4. **Slug mismatches:** `lib/pestControl.ts` should be
+   `lib/pest.ts` (or the slug should be `pest-control` everywhere
+   else), and `app/api/sanitizer-check/` and
+   `app/api/thermometer-calibrations/` deviate from their
+   `<concept>` slugs. These are pre-existing; renaming is a
+   gitnexus-rename operation, not a textual find-replace, because
+   the route paths leak into UI fetch URLs.
+
+`npm run test:rules` covers every rule module that *has* a test;
+it is the gate for §1 conformance below the API layer.
+
 ---
 
 ## 2. Ingest delegation (Excel/PDF → SQLite)
