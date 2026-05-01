@@ -9,6 +9,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import Link from 'next/link';
 
 import { getDb } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
@@ -283,7 +284,7 @@ export default function ManagementRollupPage({ searchParams }) {
       <div style={{ marginTop: 16 }}>
         <h2 style={{ fontSize: 14, marginBottom: 8 }}>Other management surfaces</h2>
         <ul style={{ fontSize: 13 }}>
-          <li><a href="/management/audit-log">Audit log</a> — management actions outside regulated tables</li>
+          <li><Link href="/management/audit-log">Audit log</Link> — management actions outside regulated tables</li>
         </ul>
       </div>
     </div>
