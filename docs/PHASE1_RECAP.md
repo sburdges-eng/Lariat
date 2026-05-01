@@ -93,6 +93,6 @@
 | Workbook ingest of new `bom_lines` rows | The 4 USDA-sourced + 4 in-house recipes are now in the DB via the sync script; `npm run ingest:costing` (against the workbook in `~/Dev/_archives/`) is still authoritative for vendor pricing fields, which sync deliberately leaves NULL. |
 | Verify `unverified` compliance rows | Each legal-rule row in `compliance_rules.jsonl` cites the source statute but the language has not been read against current text. Re-verification flips `verification.status` to `verified` with a `last_verified` date. |
 | Compliance JSONL semantic search | The current FTS5 index is BM25 only. A future pass can add BGE embeddings into a vectors.npy (same shape as the off-tree Data Pack) for queries that miss on lexical match. |
-| Five-file-shape audit | All 11 HACCP regulated concepts have the structure per `npm run test:rules` (258 passing across 37 suites) — but a full sweep of the `app/food-safety/*` tree against the convention hasn't been formalized. |
+| ~~Five-file-shape audit~~ | ✅ Done 2026-05-01 — see `docs/PATTERNS.md §1a` for the full coverage table. Three concepts (cleaning, pest, sds) lack board UI; seven concepts lack API tests; pest gained its first rule test in this slice. Each gap is now an explicit follow-up rather than implicit drift. |
 
 Phase 2 launch: see [PHASE2_PLAN.md](PHASE2_PLAN.md).
