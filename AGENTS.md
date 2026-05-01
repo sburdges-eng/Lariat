@@ -50,7 +50,20 @@ npm run branches:prune-merged          # delete merged ones (asks)
 
 One-off single commits in the main checkout are fine. The protocol kicks in for **multi-commit batches** and for **long-running sessions** where another tool may interleave. If you're unsure, default to a worktree — they're cheap to create and remove.
 
-See also: `scripts/worktree.sh` (commands and locking semantics), `scripts/check-session-branch.mjs` (the pre-commit guard).
+## Multi-Agent Coordination Protocol (MACP)
+
+To prevent collision and trample in this multi-agent environment, follow these rules:
+
+1.  **Isolate via Worktrees**: Always work in a dedicated worktree per task/agent (`scripts/worktree.sh new <agent> <branch>`).
+2.  **Claim Your Files**: Before editing, announce the files you intend to touch by updating your session:
+    `node scripts/agent-session.mjs update --claimed "path/to/file1,path/to/file2"`
+3.  **Check for Collisions**: Run `node scripts/agent-session.mjs list` before starting a task to see if other agents have claimed your files or are working on related branches.
+4.  **Ownership**: One branch owner per active PR. Do not trample another agent's branch.
+5.  **Pre-Push Sync**: Before pushing or merging, perform a `git fetch` and compare your status against the remote to ensure you aren't overwriting concurrent changes.
+
+The shared session board lives at `.agent-sessions/` (gitignored).
+
+See also: `scripts/worktree.sh` (commands and locking semantics), `scripts/check-session-branch.mjs` (the pre-commit guard), `scripts/agent-session.mjs` (the coordination utility).
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
