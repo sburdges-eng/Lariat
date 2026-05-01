@@ -90,12 +90,14 @@ export default function SpecialDetailClient({ special }) {
 
   const downloadCsv = (csv) => {
     const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = url;
     a.download = `${exportSlug}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -194,7 +196,13 @@ export default function SpecialDetailClient({ special }) {
                 <label className="label mb-12">Procedure override (optional)</label>
                 <textarea className="input mb-12" rows={4} value={exportProcedure} onChange={(e) => setExportProcedure(e.target.value)} />
                 <div className="flex-center-gap">
-                  <button type="submit" className="btn primary" disabled={exporting}>{exporting ? 'Exporting...' : 'Generate CSV'}</button>
+                  <button
+                    type="submit"
+                    className="btn primary"
+                    disabled={exporting || !exportSlug.trim() || !exportYieldQty}
+                  >
+                    {exporting ? 'Exporting...' : 'Generate CSV'}
+                  </button>
                   <button type="button" className="btn" onClick={() => setShowExport(false)}>Cancel</button>
                 </div>
                 {exportErr && <p className="meta mb-12" style={{ color: 'var(--red)' }}>{exportErr}</p>}

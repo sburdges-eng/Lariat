@@ -54,7 +54,7 @@ export default function SavedSpecialsPage({ searchParams }) {
               <h2 className="section-head mb-12">{r.name}</h2>
               <p className="meta mb-12">
                 {formatDate(r.created_at)}
-                {r.cost_total !== null ? ` · $${r.cost_total.toFixed(2)}` : ''}
+                {r.cost_total !== null ? ` · $${Number(r.cost_total).toFixed(2)}` : ''}
                 {r.last_exported_at ? ' · Exported' : ''}
               </p>
               <p style={{ whiteSpace: 'pre-wrap' }}>{snippet(r.ai_answer)}</p>
