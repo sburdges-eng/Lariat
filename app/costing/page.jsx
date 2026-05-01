@@ -18,6 +18,10 @@ import {
 } from '../../lib/costingBenchmarks.mjs';
 import { computeDishCoverage } from '../../lib/dishCostBridge';
 import { readLatestAccountingVariance } from '../../lib/computeEngine/index';
+import { computeMenuEngineering } from '../../lib/menuEngineering';
+import { getVarianceTrend } from '../../lib/varianceTrend';
+import AbcTile from './_components/AbcTile';
+import VarianceTrend from './_components/VarianceTrend';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +72,21 @@ export default function CostingPage() {
 
   const topVariance = variance.rows.slice(0, 5);
   const firstUnmapped = unmapped.rows.slice(0, 10);
+
+  let menuRows = [];
+  try {
+    const me = computeMenuEngineering(loc);
+    menuRows = me.rows.map((r) => ({
+      itemName: r.item_name,
+      qty: r.qty,
+      costPerUnit: r.cost_per_unit,
+      marginPct: r.margin_pct,
+      netSales: r.net_sales,
+    }));
+  } catch (e) {
+    console.error('costing: menu-engineering compute failed', e);
+  }
+  const trend = getVarianceTrend(loc);
 
   return (
     <div>
@@ -164,6 +183,14 @@ export default function CostingPage() {
             </div>
           );
         })()}
+      </div>
+
+      {/* Phase-2 task E: master costing tile — ABC contribution +
+          28-day COGS variance trend. Both render gracefully when
+          their data sources are empty (amber notice, not error). */}
+      <div className="grid grid-stations" style={{ marginBottom: 20 }}>
+        <AbcTile menuRows={menuRows} />
+        <VarianceTrend trend={trend} />
       </div>
 
       {/* Phase-1 triage links — every queue is one click from the dashboard. */}
