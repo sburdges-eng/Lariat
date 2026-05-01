@@ -115,8 +115,16 @@ function safeGet(fn, fallback) {
 
 // ── Page ──
 
-export default function ManagementRollupPage() {
-  const loc = DEFAULT_LOCATION_ID;
+export default function ManagementRollupPage({ searchParams }) {
+  // Server component — read location from the query string so the
+  // dashboard scopes to the same site the rest of the UI is viewing.
+  // Client-side useLocation() pushes ?location=… on every nav.
+  const locParam = searchParams?.location;
+  const loc =
+    typeof locParam === 'string' && locParam.trim()
+      ? locParam.trim()
+      : DEFAULT_LOCATION_ID;
+
   const db = getDb();
 
   // Each helper call is isolated so a single thrown read can't blank the dashboard.
