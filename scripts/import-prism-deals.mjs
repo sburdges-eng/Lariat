@@ -57,6 +57,7 @@ const { values } = parseArgs({
     'dry-run': { type: 'boolean', default: false },
     overwrite: { type: 'boolean', default: false },
     'cook-id': { type: 'string' },
+    encoding: { type: 'string' },
     help: { type: 'boolean', short: 'h', default: false },
   },
 });
@@ -64,7 +65,8 @@ const { values } = parseArgs({
 if (values.help || !values.csv) {
   process.stdout.write(
     'Usage: node scripts/import-prism-deals.mjs --csv <path> ' +
-      '[--dry-run] [--location <id>] [--overwrite] [--cook-id <id>]\n',
+      '[--dry-run] [--location <id>] [--overwrite] [--cook-id <id>] ' +
+      '[--encoding <utf-8|cp1252>]\n',
   );
   process.exit(values.help ? 0 : 1);
 }
@@ -140,7 +142,28 @@ const REQUIRED_COLUMNS = [
   'notes',
 ];
 
-const text = fs.readFileSync(csvPath, 'utf8');
+// Encoding handling. Prism's CSV export encoding isn't documented by the
+// vendor — we default to UTF-8 but support cp1252 for the common
+// Windows-origin SaaS export case. Pass --encoding cp1252 if band names
+// arrive mojibaked (curly quotes, accented characters mangled). All
+// supported labels are TextDecoder-native; no iconv dependency.
+const SUPPORTED_ENCODINGS = ['utf-8', 'cp1252', 'windows-1252', 'latin1', 'iso-8859-1'];
+const encodingArg = (values.encoding || 'utf-8').toLowerCase().replace(/^utf8$/, 'utf-8');
+if (!SUPPORTED_ENCODINGS.includes(encodingArg)) {
+  process.stderr.write(
+    `import-prism-deals: unsupported --encoding "${values.encoding}". ` +
+      `Supported: ${SUPPORTED_ENCODINGS.join(', ')}\n`,
+  );
+  process.exit(1);
+}
+if (encodingArg === 'utf-8' && !values.encoding) {
+  process.stderr.write(
+    'import-prism-deals: reading as UTF-8 (Prism encoding is unconfirmed; ' +
+      'pass --encoding cp1252 if band names arrive mojibaked)\n',
+  );
+}
+const buf = fs.readFileSync(csvPath);
+const text = new TextDecoder(encodingArg, { fatal: false }).decode(buf);
 const raw = parseCsv(text);
 if (raw.length === 0) {
   process.stderr.write('import-prism-deals: empty CSV\n');

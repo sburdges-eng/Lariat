@@ -294,3 +294,58 @@ describe('import-prism-deals CLI: flags', () => {
     assert.equal(audit[1].action, 'correction');
   });
 });
+
+// ── --encoding ─────────────────────────────────────────────────────
+
+describe('import-prism-deals CLI: --encoding', () => {
+  it('rejects an unsupported --encoding label', () => {
+    const csv = HEADER + 'Cassette Future,2025-10-04,1500,,,0,enc\n';
+    const p = writeCsv('enc-bad.csv', csv);
+    const r = runImporter(p, ['--encoding', 'shift-jis']);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /unsupported --encoding "shift-jis"/);
+    assert.equal(queryDeals().length, 0);
+  });
+
+  it('warns when reading default UTF-8 (Prism encoding unconfirmed)', () => {
+    const csv = HEADER + 'Cassette Future,2025-10-04,1500,,,0,enc\n';
+    const p = writeCsv('enc-default.csv', csv);
+    const r = runImporter(p);
+    assert.equal(r.status, 0, `stderr: ${r.stderr}`);
+    assert.match(r.stderr, /reading as UTF-8 \(Prism encoding is unconfirmed/);
+  });
+
+  it('reads cp1252-encoded bytes when --encoding cp1252 is passed', () => {
+    // Seed an extra show with a non-ASCII band so we can prove the decode
+    // happened correctly. The native cp1252 byte for 'é' is 0xE9, which
+    // is invalid UTF-8 — so a UTF-8 read of the same bytes produces U+FFFD
+    // and the band lookup fails. This test exists to catch a future
+    // regression where the flag is silently ignored.
+    const dbExtra = openFresh();
+    dbExtra
+      .prepare(
+        `INSERT INTO shows (id, location_id, band_name, show_date, source_row,
+                            ingested_at, ingest_run_id)
+           VALUES (?, 'default', ?, ?, ?, datetime('now'), 1)`,
+      )
+      .run(20, 'Café Bleu', '2026-02-14', 20);
+    dbMod.setDbPathForTest(null);
+
+    const headerBytes = Buffer.from(HEADER, 'utf-8');
+    // Row: "Café Bleu,2026-02-14,500,,,0,enc-cp1252\n" with 0xE9 for 'é'.
+    const rowParts = [
+      Buffer.from('Caf', 'utf-8'),
+      Buffer.from([0xe9]), // 'é' in cp1252
+      Buffer.from(' Bleu,2026-02-14,500,,,0,enc-cp1252\n', 'utf-8'),
+    ];
+    const csvBuf = Buffer.concat([headerBytes, ...rowParts]);
+    const p = path.join(CSV_DIR, 'enc-cp1252.csv');
+    fs.writeFileSync(p, csvBuf);
+
+    const r = runImporter(p, ['--encoding', 'cp1252']);
+    assert.equal(r.status, 0, `stderr: ${r.stderr}`);
+    const deals = queryDeals();
+    assert.equal(deals.length, 1);
+    assert.equal(deals[0].show_id, 20);
+  });
+});
