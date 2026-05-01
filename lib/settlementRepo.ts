@@ -27,8 +27,14 @@ export function upsertDeal(
   deal: DealPoint,
   cookId: string,
   locationId: string,
+  opts?: { notes?: string | null; actorSource?: string },
 ): void {
   const db = getDb();
+  const notes = opts?.notes ?? null;
+  // Default actor_source preserves existing manager_ui audit trail; the
+  // Prism backfill importer overrides this to 'prism_backfill' so the
+  // audit log distinguishes operator entries from imported history.
+  const actorSource = opts?.actorSource ?? 'manager_ui';
   db.transaction(() => {
     const existing = db
       .prepare(
@@ -39,13 +45,14 @@ export function upsertDeal(
     db.prepare(
       `INSERT INTO show_deals
          (show_id, location_id, guarantee_cents, vs_pct_after_costs,
-          costs_off_top_json, buyout_cents, updated_at, updated_by_cook_id)
-       VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?)
+          costs_off_top_json, buyout_cents, notes, updated_at, updated_by_cook_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
        ON CONFLICT(show_id, location_id) DO UPDATE SET
          guarantee_cents    = excluded.guarantee_cents,
          vs_pct_after_costs = excluded.vs_pct_after_costs,
          costs_off_top_json = excluded.costs_off_top_json,
          buyout_cents       = excluded.buyout_cents,
+         notes              = excluded.notes,
          updated_at         = datetime('now'),
          updated_by_cook_id = excluded.updated_by_cook_id`,
     ).run(
@@ -55,6 +62,7 @@ export function upsertDeal(
       deal.vsPctAfterCosts,
       JSON.stringify(deal.costsOffTop),
       deal.buyoutCents,
+      notes,
       cookId,
     );
 
@@ -71,8 +79,8 @@ export function upsertDeal(
       entity_id: dealId,
       action: existing ? 'correction' : 'insert',
       actor_cook_id: cookId,
-      actor_source: 'manager_ui',
-      payload: deal,
+      actor_source: actorSource,
+      payload: notes ? { ...deal, notes } : deal,
       location_id: locationId,
     });
   })();
