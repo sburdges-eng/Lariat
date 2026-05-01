@@ -122,6 +122,16 @@ export function buildIndex(db, opts) {
   const { jsonlPath, jsonlSha } = opts;
   const rows = readJsonlRows(jsonlPath);
 
+  // Refuse to build an index against an empty input — destroying the
+  // existing on-disk DB on a parser regression would silently disable
+  // every compliance-grounded KA answer. This mirrors the empty-parser
+  // guard called out in CLAUDE.md "Verification Discipline".
+  if (rows.length === 0) {
+    throw new Error(
+      'build-compliance-index: input parsed to 0 rows — aborting to preserve existing index',
+    );
+  }
+
   for (const ddl of SCHEMA_DDL) db.exec(ddl);
 
   const insRule = db.prepare(`
