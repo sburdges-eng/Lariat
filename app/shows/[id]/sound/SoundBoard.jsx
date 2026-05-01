@@ -108,10 +108,14 @@ export default function SoundBoard({ showId, locationId, initialScenes, complete
         if (data.scene?.id && currentSceneId == null) setCurrentSceneId(data.scene.id);
         lastHashRef.current = sig;
         setSaveState({ status: 'saved', error: null, savedAt: new Date() });
-        await refresh();
       } catch (err) {
         setSaveState({ status: 'error', error: err.message, savedAt: null });
         throw err;
+      }
+      try {
+        await refresh();
+      } catch {
+        // A failed refresh shouldn't mask a successful save.
       }
     })();
     inFlightRef.current = promise.catch(() => {});
