@@ -83,6 +83,103 @@ export function getItemPrepHistory(
   return out;
 }
 
+export interface PrepMedian {
+  /** Lower-cased canonical key (matches Map key). Use for diagnostics only. */
+  key: string;
+  /** The exact-cased input item the median was computed for. */
+  item: string;
+  /** Median of numeric `amount_qty` values across matching rows. */
+  median: number;
+  /** Count of rows that contributed numeric values to the median. */
+  samples: number;
+  /** Total matching rows including non-numeric `amount_qty` (e.g. "as needed"). */
+  total_rows: number;
+}
+
+/**
+ * Parse `amount_qty` (TEXT in the DB — operators sometimes type "as needed",
+ * "TBD", "30 ea", or just "30") into a positive finite number. Returns
+ * `null` if the value can't be coerced or is non-positive. Strips a single
+ * trailing unit token so "30 ea" / "50 lb" still yield 30 / 50.
+ */
+function parseAmountQty(raw: string | null | undefined): number | null {
+  if (raw == null) return null;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return null;
+  // Common shape: "<number>[ <unit>]". Take the leading numeric token.
+  const m = trimmed.match(/^(-?\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
+
+function median(sorted: number[]): number {
+  // Caller passes a sorted array; trust-the-caller pattern keeps this hot.
+  const n = sorted.length;
+  if (n === 0) return 0;
+  const mid = Math.floor(n / 2);
+  if (n % 2 === 1) return sorted[mid] as number;
+  return ((sorted[mid - 1] as number) + (sorted[mid] as number)) / 2;
+}
+
+/**
+ * Batch median lookup: for each requested item, return the median of its
+ * historical prep quantities (case-insensitive exact match on `item`).
+ *
+ * Returned Map is keyed by `lower(item).trim()`. Items with zero numeric
+ * samples are omitted from the map — callers distinguish "no data" via
+ * `map.has(key)` rather than a sentinel value.
+ *
+ * Median is computed in JS (SQLite has no MEDIAN aggregate). Numeric
+ * coercion happens via `parseAmountQty` so descriptive values like
+ * "as needed" are excluded from the population, not silently treated as 0.
+ */
+export function getPrepMedianForItems(
+  db: DB,
+  locationId: string,
+  items: string[]
+): Map<string, PrepMedian> {
+  const out = new Map<string, PrepMedian>();
+  const cleaned: { key: string; item: string }[] = [];
+  const seenKeys = new Set<string>();
+  for (const raw of items || []) {
+    if (typeof raw !== 'string') continue;
+    const item = raw.trim();
+    if (!item) continue;
+    const key = item.toLowerCase();
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    cleaned.push({ key, item });
+  }
+  if (cleaned.length === 0) return out;
+
+  const stmt = db.prepare(
+    `SELECT amount_qty FROM beo_prep_history
+      WHERE location_id = ? AND LOWER(item) = ?`
+  );
+
+  for (const { key, item } of cleaned) {
+    const rows = stmt.all(locationId, key) as { amount_qty: string | null }[];
+    if (rows.length === 0) continue;
+    const nums: number[] = [];
+    for (const r of rows) {
+      const n = parseAmountQty(r.amount_qty);
+      if (n !== null) nums.push(n);
+    }
+    if (nums.length === 0) continue;
+    nums.sort((a, b) => a - b);
+    out.set(key, {
+      key,
+      item,
+      median: median(nums),
+      samples: nums.length,
+      total_rows: rows.length,
+    });
+  }
+  return out;
+}
+
 /**
  * Recent catering events (most recent first), grouped by client+event_date.
  * Mirrors the renderer in kitchenAssistantContext.ts but returns structured
