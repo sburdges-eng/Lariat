@@ -1,4 +1,4 @@
-import { test, beforeEach } from 'node:test';
+import { test, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,13 +15,13 @@ const { ingestShowsFromJson } = await import('../../scripts/ingest-shows.mjs');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..', '..');
-const FIXTURE = path.join(ROOT, 'tests', 'python', 'fixtures', 'shows_minimal.xlsx');
+const FIXTURE = path.join(ROOT, 'tests', 'js', `.tmp-shows-api-${process.pid}.xlsx`);
 
 const TMP_DB = path.join(ROOT, 'tests', 'js', `.tmp-shows-${process.pid}.db`);
 
 beforeEach(() => {
   requirePythonDeps();
-  execSync(`"${VENV_PYTHON}" ${path.join(ROOT, 'tests/python/fixtures/build_shows_fixture.py')}`, {
+  execSync(`"${VENV_PYTHON}" ${path.join(ROOT, 'tests/python/fixtures/build_shows_fixture.py')} "${FIXTURE}"`, {
     stdio: 'pipe',
   });
   try { fs.rmSync(TMP_DB, { force: true }); } catch {}
@@ -34,6 +34,14 @@ beforeEach(() => {
   );
   ingestShowsFromJson(db, JSON.parse(json), 'default');
   db.close();
+});
+
+after(() => {
+  try {
+    fs.unlinkSync(FIXTURE);
+  } catch {
+    // ignore
+  }
 });
 
 async function fetchRoute(query = '') {

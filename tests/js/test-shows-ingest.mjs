@@ -1,6 +1,7 @@
-import { test, before } from 'node:test';
+import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import Database from 'better-sqlite3';
@@ -10,13 +11,21 @@ import { requirePythonDeps, VENV_PYTHON } from './_helpers/python-preflight.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..', '..');
-const FIXTURE = path.join(ROOT, 'tests', 'python', 'fixtures', 'shows_minimal.xlsx');
+const FIXTURE = path.join(ROOT, 'tests', 'js', `.tmp-shows-ingest-${process.pid}.xlsx`);
 
 before(() => {
   requirePythonDeps();
-  execSync(`"${VENV_PYTHON}" ${path.join(ROOT, 'tests/python/fixtures/build_shows_fixture.py')}`, {
+  execSync(`"${VENV_PYTHON}" ${path.join(ROOT, 'tests/python/fixtures/build_shows_fixture.py')} "${FIXTURE}"`, {
     stdio: 'pipe',
   });
+});
+
+after(() => {
+  try {
+    fs.unlinkSync(FIXTURE);
+  } catch {
+    // ignore
+  }
 });
 
 function freshDb() {
