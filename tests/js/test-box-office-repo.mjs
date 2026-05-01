@@ -224,7 +224,7 @@ describe('markScanned', () => {
       show_id: 1, location_id: 'default', source: 'dice', qty: 1, face_price: 30,
       external_ref: 'DICE-7777',
     });
-    const scanned = box.markScanned(db, line.id, 'default', 'door_anna');
+    const scanned = box.markScanned(db, 1, line.id, 'default', 'door_anna');
     assert.ok(scanned);
     assert.ok(scanned.scanned_at);
     const events = auditFor(line.id);
@@ -239,8 +239,8 @@ describe('markScanned', () => {
     const line = box.createBoxOfficeLine(db, {
       show_id: 1, location_id: 'default', source: 'walkup', qty: 1, face_price: 25,
     });
-    box.markScanned(db, line.id, 'default', 'door_anna');
-    const second = box.markScanned(db, line.id, 'default', 'door_anna');
+    box.markScanned(db, 1, line.id, 'default', 'door_anna');
+    const second = box.markScanned(db, 1, line.id, 'default', 'door_anna');
     assert.equal(second, null);
     const events = auditFor(line.id);
     assert.equal(events.length, 2); // insert + first scan only
@@ -250,14 +250,27 @@ describe('markScanned', () => {
     const line = box.createBoxOfficeLine(db, {
       show_id: 1, location_id: 'default', source: 'walkup', qty: 1, face_price: 25,
     });
-    assert.equal(box.markScanned(db, line.id, 'satellite', null), null);
+    assert.equal(box.markScanned(db, 1, line.id, 'satellite', null), null);
     // Confirm scanned_at is still null on the original row.
     const fresh = db.prepare(`SELECT scanned_at FROM box_office_lines WHERE id = ?`).get(line.id);
     assert.equal(fresh.scanned_at, null);
   });
 
+  it('returns null on show_id mismatch (cross-show authorization gap)', () => {
+    const line = box.createBoxOfficeLine(db, {
+      show_id: 1, location_id: 'default', source: 'walkup', qty: 1, face_price: 25,
+    });
+    assert.equal(box.markScanned(db, 2, line.id, 'default', null), null);
+    const fresh = db.prepare(`SELECT scanned_at FROM box_office_lines WHERE id = ?`).get(line.id);
+    assert.equal(fresh.scanned_at, null);
+  });
+
   it('rejects non-positive line_id', () => {
-    assert.throws(() => box.markScanned(db, 0, 'default', null), /line_id/);
+    assert.throws(() => box.markScanned(db, 1, 0, 'default', null), /line_id/);
+  });
+
+  it('rejects non-positive show_id', () => {
+    assert.throws(() => box.markScanned(db, 0, 1, 'default', null), /show_id/);
   });
 });
 
