@@ -70,6 +70,21 @@ function formatAge(ageMin) {
 }
 
 /**
+ * Format `snapshot_at` (SQLite `datetime('now')` → "YYYY-MM-DD HH:MM:SS",
+ * UTC, no zone) for the variance tile sub-line. Returns null on bad input
+ * so the tile renders cleanly without a trailing " · as of —".
+ */
+function formatSnapshotAt(value) {
+  if (typeof value !== 'string' || !value) return null;
+  // datetime('now') has no 'Z'; treat as UTC for parsing, render in local.
+  const iso = value.includes('T') ? value : value.replace(' ', 'T') + 'Z';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/**
  * Count unacknowledged pack-size changes. O(1) — replaces the prior
  * `computeUnmapped()` call that scanned every bom_lines row on each page
  * load. `pack_size_changes` has no `location_id` column (intentional —
@@ -173,6 +188,8 @@ export default function ManagementRollupPage({ searchParams }) {
   const compliance = readComplianceUnverified();
   const cleaning = readCleaningToday(db, loc);
 
+  const varianceSnapshot = formatSnapshotAt(variance?.snapshot_at);
+
   return (
     <div>
       <h1>Management</h1>
@@ -193,7 +210,7 @@ export default function ManagementRollupPage({ searchParams }) {
           color={varianceColor(variance?.variance_pct)}
           sub={
             variance
-              ? `theoretical $${(variance.theoretical_cogs ?? 0).toFixed(0)} vs actual $${(variance.actual_cogs ?? 0).toFixed(0)}`
+              ? `theoretical $${(variance.theoretical_cogs ?? 0).toFixed(0)} vs actual $${(variance.actual_cogs ?? 0).toFixed(0)}${varianceSnapshot ? ` · as of ${varianceSnapshot}` : ''}`
               : 'no compute run yet'
           }
           href="/costing"
