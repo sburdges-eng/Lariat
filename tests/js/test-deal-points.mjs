@@ -55,3 +55,69 @@ describe('parseDeal', () => {
     assert.equal(dp.parseDeal(row).vsPctAfterCosts, null);
   });
 });
+
+describe('computeTalentPayout', () => {
+  const flat = {
+    guaranteeCents: 100000,
+    vsPctAfterCosts: null,
+    costsOffTop: [],
+    buyoutCents: 0,
+  };
+  const vs85 = {
+    guaranteeCents: 100000,
+    vsPctAfterCosts: 0.85,
+    costsOffTop: [{ label: 'Sound', cents: 5000 }],
+    buyoutCents: 0,
+  };
+
+  it('flat guarantee, revenue > guarantee → bonus 0', () => {
+    const r = dp.computeTalentPayout({ deal: flat, ticketRevenueCents: 200000 });
+    assert.equal(r.guaranteeCents, 100000);
+    assert.equal(r.vsBonusCents, 0);
+    assert.equal(r.totalCents, 100000);
+  });
+
+  it('vs deal, revenue ≤ guarantee + costs → bonus 0', () => {
+    const r = dp.computeTalentPayout({ deal: vs85, ticketRevenueCents: 100000 });
+    assert.equal(r.vsBonusCents, 0);
+    assert.equal(r.totalCents, 100000);
+  });
+
+  it('vs deal, revenue above guarantee + costs → bonus split', () => {
+    // overage = 200000 - 5000 - 100000 = 95000, vsBonus = floor(95000 * 0.85) = 80750
+    const r = dp.computeTalentPayout({ deal: vs85, ticketRevenueCents: 200000 });
+    assert.equal(r.vsBonusCents, 80750);
+    assert.equal(r.totalCents, 180750);
+  });
+
+  it('all-zero deal → total 0', () => {
+    const r = dp.computeTalentPayout({
+      deal: dp.emptyDeal(),
+      ticketRevenueCents: 999999,
+    });
+    assert.equal(r.totalCents, 0);
+  });
+
+  it('costs > revenue → overage clamped at 0', () => {
+    const deal = {
+      guaranteeCents: 0,
+      vsPctAfterCosts: 0.5,
+      costsOffTop: [{ label: 'Sound', cents: 50000 }],
+      buyoutCents: 0,
+    };
+    const r = dp.computeTalentPayout({ deal, ticketRevenueCents: 10000 });
+    assert.equal(r.vsBonusCents, 0);
+    assert.equal(r.totalCents, 0);
+  });
+
+  it('buyout-only → total = buyout', () => {
+    const deal = {
+      guaranteeCents: 0,
+      vsPctAfterCosts: null,
+      costsOffTop: [],
+      buyoutCents: 75000,
+    };
+    const r = dp.computeTalentPayout({ deal, ticketRevenueCents: 0 });
+    assert.equal(r.totalCents, 75000);
+  });
+});

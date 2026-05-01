@@ -62,3 +62,36 @@ export function parseDeal(row: ShowDealRow): DealPoint {
     buyoutCents: Math.round(row.buyout_cents),
   };
 }
+
+export interface TalentPayout {
+  guaranteeCents: number;
+  vsBonusCents: number;
+  buyoutCents: number;
+  totalCents: number;
+}
+
+export function computeTalentPayout(args: {
+  deal: DealPoint;
+  ticketRevenueCents: number;
+}): TalentPayout {
+  const { deal, ticketRevenueCents } = args;
+  const costsOffTopCents = deal.costsOffTop.reduce(
+    (sum, c) => sum + c.cents,
+    0,
+  );
+  const overage = Math.max(
+    0,
+    ticketRevenueCents - costsOffTopCents - deal.guaranteeCents,
+  );
+  const vsBonusCents =
+    deal.vsPctAfterCosts === null
+      ? 0
+      : Math.floor(overage * deal.vsPctAfterCosts);
+  const totalCents = deal.guaranteeCents + vsBonusCents + deal.buyoutCents;
+  return {
+    guaranteeCents: deal.guaranteeCents,
+    vsBonusCents,
+    buyoutCents: deal.buyoutCents,
+    totalCents,
+  };
+}
