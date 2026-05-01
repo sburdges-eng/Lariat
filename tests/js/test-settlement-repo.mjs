@@ -80,3 +80,90 @@ describe('upsertDeal', () => {
     assert.equal(audit.length, 0);
   });
 });
+
+describe('getSettlement', () => {
+  beforeEach(() => {
+    db.exec(`
+      DELETE FROM show_deals;
+      DELETE FROM box_office_lines;
+      DELETE FROM toast_sales_daily;
+      DELETE FROM audit_events;
+    `);
+  });
+
+  it('returns emptyDeal + zeros when nothing has been entered', () => {
+    const s = repo.getSettlement(1, 'default');
+    assert.equal(s.show.id, 1);
+    assert.equal(s.show.bandName, 'Test Band');
+    assert.equal(s.deal.guaranteeCents, 0);
+    assert.equal(s.ticketing.grossCents, 0);
+    assert.equal(s.toast.totalCents, 0);
+    assert.equal(s.toast.rowsFound, 0);
+    assert.equal(s.netDoorCents, 0);
+  });
+
+  it('aggregates ticket revenue + fees by source', () => {
+    db.prepare(
+      `INSERT INTO box_office_lines (show_id, location_id, source, qty, face_price, fees)
+       VALUES (1, 'default', 'dice', 10, 35.00, 4.50),
+              (1, 'default', 'walkup', 5, 40.00, 0)`,
+    ).run();
+    const s = repo.getSettlement(1, 'default');
+    // dice: 10 × 35.00 = 350.00 → 35000c, 10 × 4.50 = 4500c
+    // walkup: 5 × 40.00 = 200.00 → 20000c, 0 fees
+    assert.equal(s.ticketing.grossCents, 55000);
+    assert.equal(s.ticketing.feesCents, 4500);
+    assert.equal(s.ticketing.netCents, 50500);
+    assert.equal(s.ticketing.bySource.dice.qty, 10);
+    assert.equal(s.ticketing.bySource.dice.grossCents, 35000);
+    assert.equal(s.ticketing.bySource.walkup.qty, 5);
+  });
+
+  it('aggregates Toast revenue for shift_date = show_date', () => {
+    db.prepare(
+      `INSERT INTO toast_sales_daily
+         (shift_date, net_sales, orders, guests, comparison_group, source, location_id)
+       VALUES ('2026-05-01', 1234.56, 80, 120, 0, 'test', 'default'),
+              ('2026-04-30', 999.99, 50, 70, 0, 'test', 'default')`,
+    ).run();
+    const s = repo.getSettlement(1, 'default');
+    assert.equal(s.toast.totalCents, 123456);
+    assert.equal(s.toast.ordersCount, 80);
+    assert.equal(s.toast.guestsCount, 120);
+    assert.equal(s.toast.rowsFound, 1);
+    assert.equal(s.toast.attributionDate, '2026-05-01');
+  });
+
+  it('applies talent payout from the deal', () => {
+    db.prepare(
+      `INSERT INTO box_office_lines (show_id, location_id, source, qty, face_price, fees)
+       VALUES (1, 'default', 'dice', 100, 30.00, 3.00)`,
+    ).run();
+    repo.upsertDeal(
+      1,
+      {
+        guaranteeCents: 100000,
+        vsPctAfterCosts: 0.85,
+        costsOffTop: [{ label: 'Sound', cents: 5000 }],
+        buyoutCents: 0,
+      },
+      'cook-jane',
+      'default',
+    );
+    const s = repo.getSettlement(1, 'default');
+    // ticket gross = 300000c, fees = 30000c, net = 270000c
+    // overage = 300000 - 5000 - 100000 = 195000
+    // vsBonus = floor(195000 * 0.85) = 165750
+    // talent = 100000 + 165750 + 0 = 265750
+    // costs_off_top = 5000
+    // net_door = 270000 - 5000 - 265750 = -750
+    assert.equal(s.ticketing.grossCents, 300000);
+    assert.equal(s.talent.totalCents, 265750);
+    assert.equal(s.costsOffTopCents, 5000);
+    assert.equal(s.netDoorCents, -750);
+  });
+
+  it('throws if the show does not exist', () => {
+    assert.throws(() => repo.getSettlement(9999, 'default'), /show 9999 not found/);
+  });
+});
