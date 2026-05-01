@@ -251,6 +251,43 @@ describe('validateReceivingReading — rejected path', () => {
   });
 });
 
+// ── validateReceivingReading — unknown category ───────────────────
+
+describe('validateReceivingReading — unknown category', () => {
+  // Direct lib callers (test fixtures, legacy-export scripts) must get a
+  // non-throwing path when category isn't in the registry. The route
+  // hard-400s these upstream; the lib stays loud-but-safe.
+  it('unknown category returns accept_with_note, does NOT throw', () => {
+    assert.doesNotThrow(() => {
+      validateReceivingReading({ category: 'specialty_bakery', package_ok: true });
+    });
+    const v = validateReceivingReading({ category: 'specialty_bakery', package_ok: true });
+    assert.strictEqual(v.status, 'accept_with_note');
+    assert.match(v.reason, /Unknown category/);
+    assert.strictEqual(v.citation, null);
+    assert.strictEqual(v.required_max_f, null);
+    assert.strictEqual(v.closed_loop_error, null);
+  });
+
+  it('null/undefined category falls through to accept_with_note', () => {
+    const a = validateReceivingReading({ category: null, package_ok: true });
+    assert.strictEqual(a.status, 'accept_with_note');
+    const b = validateReceivingReading({ category: undefined, package_ok: true });
+    assert.strictEqual(b.status, 'accept_with_note');
+  });
+
+  it('unknown category still surfaces closed_loop_error when qty/unit are malformed', () => {
+    const v = validateReceivingReading({
+      category: 'specialty_bakery',
+      package_ok: true,
+      received_qty: -5,
+      received_unit: 'lb',
+    });
+    assert.strictEqual(v.status, 'accept_with_note');
+    assert.match(v.closed_loop_error, /received_qty/);
+  });
+});
+
 
 // ── classifyDeliveries — tile aggregator ──────────────────────────
 
