@@ -4,6 +4,7 @@ import type { MenuEngineeringRow } from '../../lib/menuEngineering';
 import { computeDishCoverage } from '../../lib/dishCostBridge';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { getDb } from '../../lib/db';
+import { getPrepMedianForItems } from '../../lib/beoPrepHistory';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,6 +56,21 @@ export default function MenuEngineeringPage({ searchParams }: { searchParams?: {
   const hazards = rows.filter(
     (r) => r.quadrant === 'plowhorse' && r.margin_pct != null && r.margin_pct < 20.0,
   );
+
+  // Past-prep medians from beo_prep_history — second-opinion baseline next
+  // to sales qty. Exact case-insensitive match on item_name; misses where
+  // BEO sheet typo'd a different name (no fuzzy here — this column needs
+  // to be precise to be useful as a planning number).
+  let prepMedians: ReturnType<typeof getPrepMedianForItems> = new Map();
+  try {
+    prepMedians = getPrepMedianForItems(
+      getDb(),
+      loc,
+      rows.map((r) => r.item_name).filter((n): n is string => typeof n === 'string'),
+    );
+  } catch (err) {
+    console.error('menu-engineering prep-median compute failed:', err);
+  }
 
   return (
     <div>
@@ -161,6 +177,7 @@ export default function MenuEngineeringPage({ searchParams }: { searchParams?: {
               <th>Item</th>
               <th>Bridge</th>
               <th>Qty</th>
+              <th title="Typical amount prepped at past events.">Prep median</th>
               <th>Net $</th>
               <th>Avg $</th>
               <th>Cost/u</th>
@@ -181,6 +198,26 @@ export default function MenuEngineeringPage({ searchParams }: { searchParams?: {
                     </span>
                   </td>
                   <td>{r.qty != null ? Number(r.qty).toFixed(0) : '—'}</td>
+                  <td>
+                    {(() => {
+                      // Match the helper's key shape: trim() THEN toLowerCase().
+                      // A Toast item with stray whitespace would otherwise miss
+                      // even when matching prep history exists for it.
+                      const key = typeof r.item_name === 'string'
+                        ? r.item_name.trim().toLowerCase()
+                        : null;
+                      const m = key ? prepMedians.get(key) : undefined;
+                      if (!m) return <span style={{ color: 'var(--muted)' }}>—</span>;
+                      return (
+                        <span title={`${m.samples} event${m.samples === 1 ? '' : 's'} contributed`}>
+                          {m.median.toFixed(0)}
+                          <span style={{ color: 'var(--muted)', fontSize: 11, marginLeft: 4 }}>
+                            ({m.samples})
+                          </span>
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td>{r.net_sales != null ? `$${Number(r.net_sales).toFixed(2)}` : '—'}</td>
                   <td>{r.avg_price != null ? `$${r.avg_price.toFixed(2)}` : '—'}</td>
                   <td>{r.cost_per_unit != null ? `$${r.cost_per_unit.toFixed(2)}` : '—'}</td>

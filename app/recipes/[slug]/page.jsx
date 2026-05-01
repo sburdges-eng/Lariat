@@ -2,7 +2,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getRecipeBySlug } from '../../../lib/data';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
+import { getDb } from '../../../lib/db';
+import { getRecipePrepHistory } from '../../../lib/beoPrepHistory';
 import RecipeScaler from './RecipeScaler.jsx';
+import PreviouslyPlatedAs from './PreviouslyPlatedAs.jsx';
 
 export default function RecipeDetail({ params, searchParams }) {
   const recipe = getRecipeBySlug(params.slug);
@@ -12,6 +15,25 @@ export default function RecipeDetail({ params, searchParams }) {
       ? searchParams.location.trim()
       : DEFAULT_LOCATION_ID;
   const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
+
+  // Prefetch on the server so we never need a public API endpoint —
+  // `client` is dropped before the props cross to the client bundle so
+  // catering customer names stay PIN-gated (the BEO endpoint serves the
+  // full row to managers).
+  let prepHistory = [];
+  try {
+    const db = getDb();
+    prepHistory = getRecipePrepHistory(db, loc, recipe.name).map((r) => ({
+      item: r.item,
+      event_date: r.event_date,
+      amount_qty: r.amount_qty,
+      prep_day: r.prep_day,
+      pre_prep_notes: r.pre_prep_notes,
+      plating_notes: r.plating_notes,
+    }));
+  } catch (err) {
+    console.error('recipes prep-history prefetch failed:', err);
+  }
   return (
     <div className="recipe-detail">
       <Link href={`/recipes${locQ}`} style={{ color:'var(--muted)', fontSize:13 }}>← All recipes</Link>
@@ -30,6 +52,7 @@ export default function RecipeDetail({ params, searchParams }) {
           </div>
         </>
       )}
+      <PreviouslyPlatedAs recipeName={recipe.name} history={prepHistory} />
     </div>
   );
 }

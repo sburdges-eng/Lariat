@@ -83,6 +83,103 @@ export function getItemPrepHistory(
   return out;
 }
 
+export interface PrepMedian {
+  /** Lower-cased canonical key (matches Map key). Use for diagnostics only. */
+  key: string;
+  /** The exact-cased input item the median was computed for. */
+  item: string;
+  /** Median of numeric `amount_qty` values across matching rows. */
+  median: number;
+  /** Count of rows that contributed numeric values to the median. */
+  samples: number;
+  /** Total matching rows including non-numeric `amount_qty` (e.g. "as needed"). */
+  total_rows: number;
+}
+
+/**
+ * Parse `amount_qty` (TEXT in the DB — operators sometimes type "as needed",
+ * "TBD", "30 ea", or just "30") into a positive finite number. Returns
+ * `null` if the value can't be coerced or is non-positive. Strips a single
+ * trailing unit token so "30 ea" / "50 lb" still yield 30 / 50.
+ */
+function parseAmountQty(raw: string | null | undefined): number | null {
+  if (raw == null) return null;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return null;
+  // Common shape: "<number>[ <unit>]". Take the leading numeric token.
+  const m = trimmed.match(/^(-?\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
+
+function median(sorted: number[]): number {
+  // Caller passes a sorted array; trust-the-caller pattern keeps this hot.
+  const n = sorted.length;
+  if (n === 0) return 0;
+  const mid = Math.floor(n / 2);
+  if (n % 2 === 1) return sorted[mid] as number;
+  return ((sorted[mid - 1] as number) + (sorted[mid] as number)) / 2;
+}
+
+/**
+ * Batch median lookup: for each requested item, return the median of its
+ * historical prep quantities (case-insensitive exact match on `item`).
+ *
+ * Returned Map is keyed by `lower(item).trim()`. Items with zero numeric
+ * samples are omitted from the map — callers distinguish "no data" via
+ * `map.has(key)` rather than a sentinel value.
+ *
+ * Median is computed in JS (SQLite has no MEDIAN aggregate). Numeric
+ * coercion happens via `parseAmountQty` so descriptive values like
+ * "as needed" are excluded from the population, not silently treated as 0.
+ */
+export function getPrepMedianForItems(
+  db: DB,
+  locationId: string,
+  items: string[]
+): Map<string, PrepMedian> {
+  const out = new Map<string, PrepMedian>();
+  const cleaned: { key: string; item: string }[] = [];
+  const seenKeys = new Set<string>();
+  for (const raw of items || []) {
+    if (typeof raw !== 'string') continue;
+    const item = raw.trim();
+    if (!item) continue;
+    const key = item.toLowerCase();
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    cleaned.push({ key, item });
+  }
+  if (cleaned.length === 0) return out;
+
+  const stmt = db.prepare(
+    `SELECT amount_qty FROM beo_prep_history
+      WHERE location_id = ? AND LOWER(item) = ?`
+  );
+
+  for (const { key, item } of cleaned) {
+    const rows = stmt.all(locationId, key) as { amount_qty: string | null }[];
+    if (rows.length === 0) continue;
+    const nums: number[] = [];
+    for (const r of rows) {
+      const n = parseAmountQty(r.amount_qty);
+      if (n !== null) nums.push(n);
+    }
+    if (nums.length === 0) continue;
+    nums.sort((a, b) => a - b);
+    out.set(key, {
+      key,
+      item,
+      median: median(nums),
+      samples: nums.length,
+      total_rows: rows.length,
+    });
+  }
+  return out;
+}
+
 /**
  * Recent catering events (most recent first), grouped by client+event_date.
  * Mirrors the renderer in kitchenAssistantContext.ts but returns structured
@@ -93,6 +190,81 @@ export interface RecentEvent {
   event_date: string;
   client: string | null;
   items: { item: string; amount_qty: string | null }[];
+}
+
+export interface RecipePrepHistoryRow extends PrepHistoryRow {
+  item: string;
+}
+
+/**
+ * Look up prep history rows whose `item` text relates to a recipe name,
+ * via case-insensitive substring matching in either direction:
+ *
+ *   - BEO `item` contains the recipe name  (e.g. recipe "Tacos" →
+ *     items "Carnitas Tacos Buffet", "Fish Taco Buffet")
+ *   - Recipe name contains the BEO `item`  (e.g. recipe "Aji Verde" →
+ *     items "Aji", "Aji verde")
+ *
+ * Reason for both directions: BEO sheets are hand-typed and routinely
+ * abbreviate ("Aji" vs the recipe "Aji Verde") OR pluralize/expand
+ * ("Carnitas Tacos Buffet" vs the recipe "Tacos"). A single-direction
+ * LIKE catches one but misses the other.
+ *
+ * Returns rows ordered most-recent-first (NULL event_date last). The
+ * matched `item` text is included on each row so the UI can show
+ * "as 'Aji verde'" when the BEO variant differs from the recipe name.
+ *
+ * Recipe names shorter than `MIN_RECIPE_NAME_LEN` characters return
+ * empty — a 1- or 2-letter recipe would substring-match nearly every
+ * BEO row and the result would be useless.
+ */
+const MIN_RECIPE_NAME_LEN = 3;
+
+export function getRecipePrepHistory(
+  db: DB,
+  locationId: string,
+  recipeName: string,
+  limit: number = DEFAULT_LIMIT
+): RecipePrepHistoryRow[] {
+  const name = (recipeName || '').trim();
+  if (name.length < MIN_RECIPE_NAME_LEN) return [];
+
+  const cap = clampLimit(limit);
+  const lower = name.toLowerCase();
+
+  // Pull all rows for the location and filter the bidirectional substring
+  // match in JS. Doing this in SQL would require LIKE wildcards in both
+  // directions and escape-handling for `%`/`_` in BOTH the recipe name
+  // AND the BEO item text — easy to get wrong. Volume is small
+  // (single-location prep_history rarely exceeds a few thousand rows)
+  // so the round-trip + JS filter is faster than careful escaping.
+  const allRows = db
+    .prepare(
+      `SELECT item, event_date, client, type, amount_qty,
+              prep_day, pre_prep_notes, plating_notes,
+              source, imported_at
+         FROM beo_prep_history
+        WHERE location_id = ? AND item IS NOT NULL
+        ORDER BY (event_date IS NULL), event_date DESC, id DESC`
+    )
+    .all(locationId) as RecipePrepHistoryRow[];
+
+  const matched: RecipePrepHistoryRow[] = [];
+  for (const r of allRows) {
+    const itemLower = r.item.toLowerCase();
+    // Direction A: BEO item contains the recipe name.
+    // Direction B: recipe name contains the BEO item, but only if the
+    //   BEO item is at least MIN_RECIPE_NAME_LEN chars — shorter items
+    //   would substring-match nearly every recipe and produce noise.
+    if (
+      itemLower.includes(lower) ||
+      (itemLower.length >= MIN_RECIPE_NAME_LEN && lower.includes(itemLower))
+    ) {
+      matched.push(r);
+      if (matched.length >= cap) break;
+    }
+  }
+  return matched;
 }
 
 export function getRecentEvents(
