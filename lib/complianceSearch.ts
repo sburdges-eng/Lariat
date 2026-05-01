@@ -258,16 +258,374 @@ export function renderCompliance(
   };
 }
 
+// ── Semantic search (BGE via transformers.js) ────────────────────
+//
+// Mirrors the off-tree Data Pack pattern (lib/datapackSearch.ts):
+//   - model is `BAAI/bge-small-en-v1.5` (384-d, normalized)
+//   - documents encoded WITHOUT prefix at index time
+//     (build-compliance-embeddings.mjs)
+//   - queries get the asymmetric retrieval prefix
+//   - vectors L2-normalized, so cosine == dot product
+//
+// Vectors live at `data/cache/compliance.vectors.npy` plus an id
+// sidecar at `data/cache/compliance.vectors.ids.json`. Both are
+// optional — if either is missing, semantic() returns []. The
+// hybrid path then degrades gracefully to pure BM25.
+
+const _BGE_QUERY_PREFIX =
+  'Represent this sentence for searching relevant passages: ';
+const _BGE_MODEL_ID = 'BAAI/bge-small-en-v1.5';
+
+interface VectorsCache {
+  vectors: Float32Array;
+  ids: string[];
+  rows: number;
+  dims: number;
+}
+
+let _vectorsCachePromise: Promise<VectorsCache | null> | null = null;
+let _modelPromise:
+  | Promise<(t: string[], opts: object) => Promise<{ data: Float32Array }>>
+  | null = null;
+let _vectorsPathOverride: string | null = null;
+let _idsPathOverride: string | null = null;
+
+function vectorsPaths(): { npy: string; ids: string } {
+  const dir = path.dirname(dbPath());
+  return {
+    npy: _vectorsPathOverride ?? path.join(dir, 'compliance.vectors.npy'),
+    ids: _idsPathOverride ?? path.join(dir, 'compliance.vectors.ids.json'),
+  };
+}
+
+function parseNpyHeaderLocal(buf: Buffer): {
+  rows: number;
+  dims: number;
+  dataOffset: number;
+} {
+  if (
+    buf.length < 10 ||
+    buf[0] !== 0x93 ||
+    buf.toString('ascii', 1, 6) !== 'NUMPY'
+  ) {
+    throw new Error('not a .npy file (bad magic)');
+  }
+  const major = buf[6];
+  if (major !== 1)
+    throw new Error(`unsupported .npy major version ${major}`);
+  const headerLen = buf.readUInt16LE(8);
+  const dataOffset = 10 + headerLen;
+  const header = buf.toString('ascii', 10, dataOffset);
+  const descrMatch = header.match(/'descr'\s*:\s*'([^']+)'/);
+  const fortranMatch = header.match(/'fortran_order'\s*:\s*(True|False)/);
+  const shapeMatch = header.match(/'shape'\s*:\s*\(([^)]*)\)/);
+  if (!descrMatch || !fortranMatch || !shapeMatch) {
+    throw new Error('malformed .npy header');
+  }
+  if (descrMatch[1] !== '<f4')
+    throw new Error(`unsupported dtype ${descrMatch[1]}`);
+  if (fortranMatch[1] !== 'False')
+    throw new Error('unsupported fortran_order=True');
+  const dims = (shapeMatch[1] ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .map((s) => Number.parseInt(s, 10));
+  if (dims.length !== 2) throw new Error('expected 2-D shape');
+  const [rows, cols] = dims as [number, number];
+  return { rows, dims: cols, dataOffset };
+}
+
+async function loadVectors(): Promise<VectorsCache | null> {
+  if (_vectorsCachePromise) return _vectorsCachePromise;
+  const promise = (async (): Promise<VectorsCache | null> => {
+    const { npy: npyPath, ids: idsPath } = vectorsPaths();
+    if (!fs.existsSync(npyPath) || !fs.existsSync(idsPath)) return null;
+    const sidecar = JSON.parse(fs.readFileSync(idsPath, 'utf-8')) as {
+      ids: string[];
+    };
+    if (!Array.isArray(sidecar.ids)) return null;
+    const buf = fs.readFileSync(npyPath);
+    const { rows, dims, dataOffset } = parseNpyHeaderLocal(buf);
+    if (rows !== sidecar.ids.length) {
+      throw new Error(
+        `compliance vectors: row count ${rows} != id count ${sidecar.ids.length}`,
+      );
+    }
+    const vectors = new Float32Array(
+      buf.buffer.slice(
+        buf.byteOffset + dataOffset,
+        buf.byteOffset + dataOffset + rows * dims * 4,
+      ),
+    );
+    return { vectors, ids: sidecar.ids, rows, dims };
+  })();
+  _vectorsCachePromise = promise;
+  promise.catch(() => {
+    if (_vectorsCachePromise === promise) _vectorsCachePromise = null;
+  });
+  return promise;
+}
+
+type ModelFn = (
+  t: string[],
+  opts: object,
+) => Promise<{ data: Float32Array }>;
+
+let _modelOverride: ModelFn | null = null;
+
+async function loadModel(): Promise<ModelFn> {
+  if (_modelOverride) return _modelOverride;
+  if (_modelPromise) return _modelPromise;
+  const promise = (async () => {
+    const { pipeline } = await import('@huggingface/transformers');
+    const fe = (await pipeline(
+      'feature-extraction',
+      _BGE_MODEL_ID,
+    )) as unknown as ModelFn;
+    return fe;
+  })();
+  _modelPromise = promise;
+  promise.catch(() => {
+    if (_modelPromise === promise) _modelPromise = null;
+  });
+  return promise;
+}
+
+export interface SemanticHit {
+  id: string;
+  /** Cosine similarity in [-1, 1] — higher is better. */
+  score: number;
+}
+
+/**
+ * BGE semantic search over the compliance corpus. Returns [] when
+ * vectors haven't been built yet (graceful degrade — the hybrid
+ * path falls back to pure BM25 in that case).
+ */
+export async function searchComplianceSemantic(
+  query: string,
+  opts: { limit?: number } = {},
+): Promise<SemanticHit[]> {
+  const trimmed = (query || '').trim();
+  if (!trimmed) return [];
+  const cache = await loadVectors();
+  if (!cache) return [];
+
+  let model;
+  try {
+    model = await loadModel();
+  } catch {
+    return [];
+  }
+  const out = await model([_BGE_QUERY_PREFIX + trimmed], {
+    pooling: 'mean',
+    normalize: true,
+  });
+  // Accept either a flat per-batch vector or the full (1, dims) tensor
+  // payload, then assert the query and corpus dims match — which is
+  // the actual invariant the dot product needs. (The constant
+  // _BGE_DIMS = 384 still drives the embedder script; this runtime
+  // check supports both 384-d production and small-d test fakes.)
+  const qv =
+    out.data.length === cache.dims
+      ? out.data
+      : out.data.length > cache.dims
+        ? out.data.subarray(0, cache.dims)
+        : out.data;
+  if (qv.length !== cache.dims) {
+    throw new Error(
+      `compliance vectors: query dim ${qv.length} != corpus dim ${cache.dims}`,
+    );
+  }
+
+  const limit = Math.max(1, Math.min(25, opts.limit ?? 5));
+  const { vectors, rows, dims, ids } = cache;
+  const scored: { id: string; score: number }[] = [];
+  for (let i = 0; i < rows; i++) {
+    let s = 0;
+    const base = i * dims;
+    for (let j = 0; j < dims; j++) s += vectors[base + j]! * qv[j]!;
+    scored.push({ id: ids[i]!, score: s });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit);
+}
+
+// ── Hybrid (BM25 ⊕ BGE) via Reciprocal Rank Fusion ──────────────
+
+/**
+ * Reciprocal Rank Fusion. Each input list contributes a score of
+ * 1/(k + rank) per item, summed across lists. k=60 is the standard
+ * Cormack/Clarke/Buettcher 2009 value.
+ */
+export function rrf(
+  lists: Array<Array<{ id: string }>>,
+  k: number = 60,
+): { id: string; score: number }[] {
+  const scores = new Map<string, number>();
+  for (const list of lists) {
+    for (let rank = 0; rank < list.length; rank++) {
+      const id = list[rank]!.id;
+      const inc = 1 / (k + rank + 1);
+      scores.set(id, (scores.get(id) ?? 0) + inc);
+    }
+  }
+  return Array.from(scores.entries())
+    .map(([id, score]) => ({ id, score }))
+    .sort((a, b) => b.score - a.score);
+}
+
+export interface HybridHit extends SearchHit {
+  /** RRF-fused score (higher is better). */
+  fused: number;
+}
+
+/**
+ * Hybrid BM25 ⊕ BGE search. Falls back to pure BM25 when vectors
+ * or transformers.js aren't available. Async because the model and
+ * vectors are loaded lazily on first call.
+ */
+export async function searchComplianceHybrid(
+  query: string,
+  opts: SearchOptions = {},
+): Promise<HybridHit[]> {
+  const limit = Math.max(1, Math.min(25, opts.limit ?? 5));
+  const wide = Math.max(limit, 10);
+  const bmRaw = searchCompliance(query, { ...opts, limit: wide });
+  const semRaw = await searchComplianceSemantic(query, { limit: wide });
+
+  if (semRaw.length === 0) {
+    return bmRaw.slice(0, limit).map((h) => ({ ...h, fused: 0 }));
+  }
+
+  const fused = rrf([bmRaw, semRaw]);
+  const byId = new Map(bmRaw.map((h) => [h.id, h]));
+  const conn = getConn();
+  const out: HybridHit[] = [];
+  for (const f of fused) {
+    if (out.length >= limit) break;
+    const bm = byId.get(f.id);
+    if (bm) {
+      out.push({ ...bm, fused: f.score });
+      continue;
+    }
+    if (!conn) continue;
+    const row = conn
+      .prepare(
+        `SELECT id, domain, jurisdiction, topic, audience, verification_status, payload
+           FROM compliance_rules WHERE id = ?`,
+      )
+      .get(f.id) as
+      | {
+          id: string;
+          domain: string;
+          jurisdiction: string;
+          topic: string;
+          audience: string;
+          verification_status: string;
+          payload: string;
+        }
+      | undefined;
+    if (!row) continue;
+    out.push({
+      id: row.id,
+      domain: row.domain,
+      jurisdiction: row.jurisdiction,
+      topic: row.topic,
+      audience: JSON.parse(row.audience),
+      verification_status: row.verification_status,
+      bm25: 0,
+      rule: JSON.parse(row.payload) as ComplianceRulePayload,
+      fused: f.score,
+    });
+  }
+  return out;
+}
+
+/**
+ * Async render via the hybrid path. Existing `renderCompliance`
+ * stays sync (BM25-only) for callers that can't `await`; this is
+ * the upgraded surface for the KA context block.
+ */
+export async function renderComplianceHybrid(
+  question: string,
+  opts: SearchOptions = {},
+): Promise<ComplianceContextBlock> {
+  const hits = await searchComplianceHybrid(question, {
+    limit: opts.limit ?? 3,
+    domains: opts.domains,
+  });
+  if (hits.length === 0) return { text: '', source: null };
+
+  let text = '\nCOLORADO COMPLIANCE (verify before acting):\n';
+  for (const h of hits) {
+    const r = h.rule;
+    text += `  - [${h.id}] ${r.topic} (${r.domain})\n`;
+    text += `    summary: ${r.plain_language_summary}\n`;
+    if (r.required_actions.length > 0) {
+      text += `    required: ${r.required_actions.slice(0, 3).join('; ')}\n`;
+    }
+    if (r.prohibited_actions.length > 0) {
+      text += `    prohibited: ${r.prohibited_actions.slice(0, 3).join('; ')}\n`;
+    }
+    if (r.escalation?.manager_required)
+      text += `    escalation: manager required\n`;
+    if (r.escalation?.police_required)
+      text += `    escalation: police required\n`;
+    if (r.escalation?.ems_required) text += `    escalation: EMS required\n`;
+    text += `    source: ${r.source.title}\n`;
+    text += `    verification: ${h.verification_status}\n`;
+  }
+  text += '  NOTE: rows tagged "unverified" or "internal_house_policy_draft" are reference only — verify with counsel before treating as authoritative.\n';
+
+  return {
+    text,
+    source: {
+      type: 'compliance',
+      detail: `${hits.length} CO compliance rule(s) [hybrid]`,
+    },
+  };
+}
+
 // ── Test-only hooks ───────────────────────────────────────────────
 
 export function _setDbPathForTest(p: string | null): void {
   if (_conn) {
-    try { _conn.close(); } catch { /* ignore */ }
+    try {
+      _conn.close();
+    } catch {
+      /* ignore */
+    }
     _conn = null;
   }
   _dbPathOverride = p;
+  _vectorsCachePromise = null;
 }
 
 export function _setAvailableOverrideForTest(v: boolean | null): void {
   _availableOverride = v;
+}
+
+export function _setVectorsPathForTest(
+  npy: string | null,
+  ids: string | null,
+): void {
+  _vectorsCachePromise = null;
+  _vectorsPathOverride = npy;
+  _idsPathOverride = ids;
+}
+
+/**
+ * Test-only: inject a fake feature-extraction model so tests can
+ * exercise the dot-product + RRF path without downloading the real
+ * BGE weights from Hugging Face.
+ */
+export function _setModelForTest(
+  fn:
+    | ((t: string[], opts: object) => Promise<{ data: Float32Array }>)
+    | null,
+): void {
+  _modelOverride = fn;
+  _modelPromise = null;
 }
