@@ -25,11 +25,10 @@ export default function PreviouslyPlatedAs({ recipeName, history }) {
     return Array.from(byItem.values());
   }, [history]);
 
-  if (!history) return null;
+  if (!history || history.length === 0) return null;
 
   const showVariantHint =
     recipeName &&
-    grouped.length > 0 &&
     grouped.some((g) => g.item.toLowerCase() !== recipeName.toLowerCase());
 
   return (
@@ -44,10 +43,6 @@ export default function PreviouslyPlatedAs({ recipeName, history }) {
           {showVariantHint && ' Event-sheet names may differ.'}
         </div>
       </div>
-
-      {grouped.length === 0 && (
-        <div className="beo-empty-row">No prior prep on file.</div>
-      )}
 
       {grouped.map((g) => (
         <details key={g.item} className="beo-menu-group" open>
