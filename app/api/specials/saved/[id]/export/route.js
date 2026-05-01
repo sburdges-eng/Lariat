@@ -95,9 +95,9 @@ export async function POST(req, { params }) {
   const csv = buildExportCsv({ recipe_row, ingredient_rows });
 
   const now = Date.now();
-  const stmt = db.prepare('UPDATE specials SET last_exported_at = ?, updated_at = ? WHERE id = ?');
+  const stmt = db.prepare('UPDATE specials SET last_exported_at = ?, updated_at = ? WHERE id = ? AND location_id = ?');
   const txn = db.transaction(() => {
-    stmt.run(now, now, id);
+    stmt.run(now, now, id, locationId);
     logAuditAction({
       action: 'specials.export',
       special_id: id,

@@ -70,7 +70,7 @@ export async function PATCH(req, { params }) {
     if (!SAFE_COLS.has(k)) throw new Error(`refusing to UPDATE unsafe column: ${k}`);
     return `${k} = @${k}`;
   }).concat(['updated_at = @updated_at']);
-  const stmt = db.prepare(`UPDATE specials SET ${setFragments.join(', ')} WHERE id = @id`);
+  const stmt = db.prepare(`UPDATE specials SET ${setFragments.join(', ')} WHERE id = @id AND location_id = @location_id`);
 
   const txn = db.transaction((args) => {
     stmt.run(args);
@@ -81,7 +81,7 @@ export async function PATCH(req, { params }) {
       location_id: locationId,
     });
   });
-  txn({ ...updates, updated_at: now, id });
+  txn({ ...updates, updated_at: now, id, location_id: locationId });
 
   return Response.json({ ok: true }, { status: 200 });
 }
@@ -96,9 +96,9 @@ export async function DELETE(req, { params }) {
   if (!existing) return Response.json({ error: 'not found' }, { status: 404 });
   if (existing.archived_at !== null) return Response.json({ ok: true }, { status: 200 });
 
-  const stmt = db.prepare('UPDATE specials SET archived_at = ?, updated_at = ? WHERE id = ?');
+  const stmt = db.prepare('UPDATE specials SET archived_at = ?, updated_at = ? WHERE id = ? AND location_id = ?');
   const txn = db.transaction(() => {
-    stmt.run(now, now, id);
+    stmt.run(now, now, id, locationId);
     logAuditAction({
       action: 'specials.delete',
       special_id: id,

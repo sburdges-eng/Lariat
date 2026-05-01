@@ -57,6 +57,7 @@ export const config = {
     '/booking/:path*',
     '/playbook/:path*',
     '/shows/:path*',
+    '/specials/saved',
     '/specials/saved/:path*',
     '/login-pin',
     '/api/costing/:path*',
@@ -66,6 +67,7 @@ export const config = {
     '/api/audit/:path*',
     '/api/compute/:path*',
     '/api/shows/:path*',
+    '/api/specials/saved',
     '/api/specials/saved/:path*',
   ],
 };
