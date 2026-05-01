@@ -62,7 +62,11 @@ function listSessions() {
     return;
   }
 
-  const sessions = files.map(f => JSON.parse(fs.readFileSync(path.join(SESSION_DIR, f), 'utf8')));
+  const sessions = files.map(f => {
+    const s = JSON.parse(fs.readFileSync(path.join(SESSION_DIR, f), 'utf8'));
+    s.role = s.role || 'none';
+    return s;
+  });
   const roles = [...new Set(sessions.map(s => s.role))].sort();
 
   console.log('\nACTIVE AGENT SESSIONS');
@@ -114,6 +118,7 @@ function handoff(args) {
   targetSession.branch = session.branch;
   targetSession.worktree = session.worktree;
   targetSession.status = `Handoff from ${currentTool}: ${session.status}`;
+  targetSession.role = session.role || targetSession.role || 'none';
   targetSession.claimedFiles = [...(session.claimedFiles || [])];
   targetSession.lastUpdate = new Date().toISOString();
 
@@ -132,11 +137,17 @@ function handoff(args) {
 
 const cmd = process.argv[2];
 const args = {};
-process.argv.slice(3).forEach((val, index, array) => {
+const positional = [];
+const rawArgs = process.argv.slice(3);
+for (let i = 0; i < rawArgs.length; i++) {
+  const val = rawArgs[i];
   if (val.startsWith('--')) {
-    args[val.slice(2)] = array[index + 1];
+    args[val.slice(2)] = rawArgs[i + 1];
+    i++;
+  } else {
+    positional.push(val);
   }
-});
+}
 
 switch (cmd) {
   case 'update':
@@ -149,7 +160,7 @@ switch (cmd) {
     handoff(args);
     break;
   case 'claim':
-    args.claimed = args.claimed || process.argv[3]; // support simple claim <f>
+    args.claimed = args.claimed || positional[0]; // support simple claim <f>
     updateSession(args);
     break;
   default:
