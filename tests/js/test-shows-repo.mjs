@@ -1,6 +1,7 @@
-import { test, beforeEach } from 'node:test';
+import { test, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import { register } from 'node:module';
@@ -17,13 +18,13 @@ const {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..', '..');
-const FIXTURE = path.join(ROOT, 'tests', 'python', 'fixtures', 'shows_minimal.xlsx');
+const FIXTURE = path.join(ROOT, 'tests', 'js', `.tmp-shows-repo-${process.pid}.xlsx`);
 
 let db;
 
 beforeEach(() => {
   requirePythonDeps();
-  execSync(`"${VENV_PYTHON}" ${path.join(ROOT, 'tests/python/fixtures/build_shows_fixture.py')}`, {
+  execSync(`"${VENV_PYTHON}" ${path.join(ROOT, 'tests/python/fixtures/build_shows_fixture.py')} "${FIXTURE}"`, {
     stdio: 'pipe',
   });
   db = new Database(':memory:');
@@ -33,6 +34,14 @@ beforeEach(() => {
     { encoding: 'utf8' },
   );
   ingestShowsFromJson(db, JSON.parse(json), 'default');
+});
+
+after(() => {
+  try {
+    fs.unlinkSync(FIXTURE);
+  } catch {
+    // ignore
+  }
 });
 
 test('upcomingShows: respects 35-day window from a fixed today', () => {
