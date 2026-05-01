@@ -319,17 +319,30 @@ function checkClosedLoopFields(input: ValidateReceivingInput): string | null {
 export function validateReceivingReading(
   input: ValidateReceivingInput,
 ): ValidateReceivingResult {
-  const rule = getReceivingRule(input.category);
-  if (!rule) {
-    throw new Error(`unknown receiving category: ${String(input.category)}`);
-  }
-
   // Phase 3 closed-loop receiving — pre-compute once. Travels alongside
   // the rule decision rather than overriding it: a bad qty doesn't
   // make the temp wrong, and a missed temp doesn't excuse a bad qty.
   // The route surfaces this as a 400 (input error), not a 422
   // (needs_corrective_action).
   const closed_loop_error = checkClosedLoopFields(input);
+
+  const rule = getReceivingRule(input.category);
+  if (!rule) {
+    // Unknown category is a soft "yes, with a note" rather than a
+    // throw. The route hard-400s unknown categories upstream, but
+    // direct lib callers (test fixtures, scripts that synthesize a
+    // ReceivingRow from a legacy export) need a non-throwing path so
+    // an orphan category doesn't crash the whole batch. The rule
+    // module's job is to score a reading; classification of "is this
+    // a category we know" is the caller's job.
+    return {
+      status: 'accept_with_note',
+      reason: 'Unknown category — accept with note',
+      citation: null,
+      required_max_f: null,
+      closed_loop_error,
+    };
+  }
 
   // §3-202.15 — visible adulteration / compromised package is an
   // outright rejection; temperature is moot.
