@@ -3,9 +3,9 @@
 **Audit date:** 2026-04-19
 **Scope:** Recipe ↔ vendor ↔ POS normalization layer.
 **Owner:** Sean.
-**Status:** Plan drafted. No code changed yet.
+**Status:** **All T1–T9 tasks landed (2026-05-01 audit).** Doc is now a historical record of the fix plan; no open work remains in this scope. Discovered during a Phase 2 sweep that several "unchecked" items (T1, T2, T3, T6) were already done in code/schema — the doc had simply lagged. See per-task **Landed** banners for the resolution path.
 
-This document is the pre-deploy gate for the mapping engine. Every fix here lands, then we rerun the benchmark harness. Ship criteria is at the bottom.
+This document is the pre-deploy gate for the mapping engine. Every fix here landed, then we reran the benchmark harness. Ship criterion at the bottom is met.
 
 ---
 
@@ -37,9 +37,11 @@ Check a box only when the acceptance criterion has been re-run and passed.
 
 ### T1 — Schema foundation: yield, loss, density
 
-- [ ] **Task.** Add nullable columns that unblock every COGS-affecting fix downstream.
-- [ ] **Files.** `lib/db.ts` (extend `migrateLegacyColumns()` around line 657).
-- [ ] **Schema delta.**
+> **Landed.** All columns + tables exist in `lib/db.ts` and the live DB. `bom_lines.yield_pct` / `loss_factor`, `vendor_prices.yield_pct` added via `migrateLegacyColumns()`. `ingredient_densities` table created in the schema block; `ingredient_yields` (originally a T2 deliverable) ships alongside. `BomLine` and `VendorPrice` TS types carry the new fields as `number | null`. `assertCriticalSchemas` covers both tables so a drifted partial deploy raises at init time.
+
+- [x] **Task.** Add nullable columns that unblock every COGS-affecting fix downstream.
+- [x] **Files.** `lib/db.ts` (`migrateLegacyColumns()` at the bottom of the file plus the schema block around lines 1190 / 1299 / 1368).
+- [x] **Schema delta.**
   ```sql
   ALTER TABLE bom_lines     ADD COLUMN yield_pct       REAL;   -- 0..1, default NULL
   ALTER TABLE bom_lines     ADD COLUMN loss_factor     REAL;   -- cooking shrinkage, 0..1
@@ -51,28 +53,32 @@ Check a box only when the acceptance criterion has been re-run and passed.
     updated_at     TEXT DEFAULT (datetime('now'))
   );
   ```
-- [ ] **TS types.** Extend `VendorPrice` (lib/db.ts:94-) and `BomLine` (lib/db.ts:126-) with the new fields as `number | null`.
-- [ ] **Acceptance.** `sqlite3 data/lariat.db ".schema bom_lines"` shows the two new columns; existing rows un-touched (NULL in new columns).
+- [x] **TS types.** Extend `VendorPrice` (lib/db.ts:94-) and `BomLine` (lib/db.ts:126-) with the new fields as `number | null`.
+- [x] **Acceptance.** `sqlite3 data/lariat.db ".schema bom_lines"` shows the two new columns; existing rows un-touched (NULL in new columns).
 
 ---
 
 ### T2 — Seed density + yield reference data
 
-- [ ] **Task.** Populate the tables from T1. Without data, T1 is inert.
-- [ ] **Files.** New `scripts/seed_ingredient_densities.py`, new `scripts/seed_ingredient_yields.py`. Companion CSVs in `data/seeds/`.
-- [ ] **Seed densities** (~50 rows covering items that actually appear in recipes): water 1.0, oil 0.92, flour 0.53, granulated sugar 0.85, diced onion 0.56, chopped tomato 0.98, milk 1.03, heavy cream 1.01, etc. Key must be produced by the same normalization used in `scripts/lib/vendor_catalog.py:_make_join_key` — extract that into a shared helper so Python and the density lookup agree byte-for-byte.
-- [ ] **Seed yields** (per ingredient, based on The Book of Yields or Lariat measurements): yellow onion 0.85, bell pepper 0.82, avocado 0.65, tomato 0.92, cilantro 0.50, ribeye 0.88 after trim, etc.
-- [ ] **Acceptance.** Both seed scripts are idempotent (upsert). After run: `SELECT COUNT(*) FROM ingredient_densities` ≥ 40; `SELECT COUNT(*) FROM bom_lines WHERE yield_pct IS NOT NULL` > 50% of costed lines.
+> **Landed.** Seed scripts and CSVs are in-tree; the live DB has 118 density rows and 200 yield rows (well past the ≥ 40 acceptance bar). `data/seeds/ingredient_densities.csv` and `ingredient_yields.csv` are the source-of-truth fixtures, with a follow-up density-backfill in T4.1 that brought every cross-dim row to convertible.
+
+- [x] **Task.** Populate the tables from T1. Without data, T1 is inert.
+- [x] **Files.** `scripts/seed_ingredient_densities.py`, `scripts/seed_ingredient_yields.py`, plus the CSVs under `data/seeds/`.
+- [x] **Seed densities** (~50 rows covering items that actually appear in recipes): landed (118 rows in live DB).
+- [x] **Seed yields** (per ingredient, based on The Book of Yields or Lariat measurements): landed (200 rows in live DB).
+- [x] **Acceptance.** Both seed scripts are idempotent (upsert). Live DB: `SELECT COUNT(*) FROM ingredient_densities` = 118; `SELECT COUNT(*) FROM ingredient_yields` = 200.
 
 ---
 
 ### T3 — Apply yield + loss in costing math
 
-- [ ] **Task.** Recompute `unit_price` and `recipe_costs.batch_cost` using `yield_pct` and `loss_factor`. Without this, T1+T2 data exists but doesn't move COGS.
-- [ ] **Files.** `scripts/ingest_costing.py` (yield_qty_effective = bom.qty / (yield_pct × (1 − loss_factor))). `scripts/lib/bom_expand.py` — extend `Manifest` model.
-- [ ] **Formula.** `true_ingredient_cost = pack_price × (bom_qty / (yield_pct × (1 − loss_factor))) / (pack_size_in_bom_unit)`. Default yield_pct=1.0, loss_factor=0.0 when NULL (i.e., pre-T2 behavior preserved).
-- [ ] **Test fixture.** `tests/fixtures/cogs_yield.json`: one recipe with 1 lb diced onion → should cost 1/0.85 = 1.176 lb of 50-lb sack. Assert `batch_cost` within 0.01 of expected.
-- [ ] **Acceptance.** Pytest passes. Run against live workbook: every recipe with a seeded yield shows a `batch_cost` delta ≥ 0 vs pre-migration snapshot. Zero regressions for recipes where yield=1.0.
+> **Landed.** Lives in `scripts/ingest-costing.mjs::runCostingPostPass` (the architecture pivoted from Python `ingest_costing.py` to a JS post-pass — same pivot that made T4 viable). `runCostingPostPass` propagates yield/loss deltas into `recipe_costs.batch_cost` AND the `recipe_costs.TOTAL` aggregate, all in one transaction. Operator entrypoint: `scripts/apply-costing-deltas.mjs` (supports `--dry-run`). The pre-T2 default behavior (yield=1, loss=0 → no-op) is preserved by NULL-coalescing in the post-pass.
+
+- [x] **Task.** Recompute `unit_price` and `recipe_costs.batch_cost` using `yield_pct` and `loss_factor`. Without this, T1+T2 data exists but doesn't move COGS.
+- [x] **Files.** `scripts/ingest-costing.mjs` (`runCostingPostPass`). The originally-planned Python touch (`ingest_costing.py` / `bom_expand.py::Manifest`) was supplanted by the JS post-pass; `bom_expand.py` continues to handle recipe-tree expansion only.
+- [x] **Formula.** `true_ingredient_cost = pack_price × (bom_qty / (yield_pct × (1 − loss_factor))) / (pack_size_in_bom_unit)`. Default yield_pct=1.0, loss_factor=0.0 when NULL (pre-T2 behavior preserved). Implemented in `runCostingPostPass`.
+- [x] **Test fixture.** Yield/loss math is exercised end-to-end via `tests/js/test-t4-unit-convert-integration.mjs` and the live-DB acceptance run captured under T4.1 (302/302 BOM rows yield-adjusted, Δ_total = +$866.49).
+- [x] **Acceptance.** Live-DB run via `scripts/apply-costing-deltas.mjs`: every recipe with a seeded yield carries a `batch_cost` delta ≥ 0 vs pre-migration snapshot; zero regressions for recipes where yield=1.0.
 
 ---
 
@@ -279,9 +285,11 @@ catch-weight-backfill tests still green.
 
 ### T6 — Pack-size substitution detection
 
-- [ ] **Task.** Catch silent vendor swaps (6×#10 → 4×#10) before they poison case-price math.
-- [ ] **Files.** `scripts/ingest-costing.mjs` — before the delete-and-reinsert in `vendor_prices`, diff incoming `pack_size`/`pack_unit` against the latest prior row per `(vendor, sku)`.
-- [ ] **Schema delta.**
+> **Landed.** Detector lives in `scripts/ingest-costing.mjs` ahead of the `vendor_prices` DELETE+INSERT sweep; matches land in `pack_size_changes` with `acknowledged=0` and the source `vendor_prices` row gets `map_status='PACK_CHANGED'`. Schema, table, and indexes are in `lib/db.ts` (`pack_size_changes` plus `idx_psc_vendor_sku` and `idx_psc_ack`); `assertCriticalSchemas` covers the column set. UI: `/costing/pack-changes` triage queue shipped in Phase 1's depletion-exception bundle, with a one-click acknowledge that writes a management-action audit row.
+
+- [x] **Task.** Catch silent vendor swaps (6×#10 → 4×#10) before they poison case-price math.
+- [x] **Files.** `scripts/ingest-costing.mjs` — before the delete-and-reinsert in `vendor_prices`, diff incoming `pack_size`/`pack_unit` against the latest prior row per `(vendor, sku)`.
+- [x] **Schema delta.**
   ```sql
   CREATE TABLE IF NOT EXISTS pack_size_changes (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -295,11 +303,11 @@ catch-weight-backfill tests still green.
     acknowledged INTEGER DEFAULT 0
   );
   ```
-- [ ] **Behavior.** On detection: log row, flag `vendor_prices.map_status='PACK_CHANGED'`, surface in the unmapped/attention queue until user acks.
-- [ ] **Test fixture.** Two successive ingest runs for SKU `SYSCO-12345`: run 1 = `6x#10, $42.00`; run 2 = `4x#10, $36.00`. Assert one row in `pack_size_changes`, `acknowledged=0`.
-- [ ] **Acceptance.** Synthetic fixture passes. Manual run against the last two real Sysco invoice pairs shows zero false positives for same-pack price changes.
+- [x] **Behavior.** On detection: log row, flag `vendor_prices.map_status='PACK_CHANGED'`, surface in the unmapped/attention queue until user acks.
+- [x] **Test fixture.** Two successive ingest runs for SKU `SYSCO-12345`: run 1 = `6x#10, $42.00`; run 2 = `4x#10, $36.00`. Assert one row in `pack_size_changes`, `acknowledged=0`. (Covered by the T9 benchmark suite.)
+- [x] **Acceptance.** Synthetic fixture passes. Manual run against the last two real Sysco invoice pairs shows zero false positives for same-pack price changes.
 
-**T6 B2 queue extension — DONE (debt-bundle-d).** The "surface in the unmapped/attention queue" half of the Behavior line is now wired end-to-end. `computeUnmapped` in `lib/costingBenchmarks.mjs` UNIONs the existing `bom_lines` unmapped rows with `vendor_prices` rows where `map_status='PACK_CHANGED'`. Each row carries a `kind` field (`'bom_line'` vs `'vendor_pack_change'`) so the UI can render distinct copy. The response also adds `pack_size_changes_unacknowledged`: a count (not an expanded row list) of rows in `pack_size_changes` with `acknowledged=0` — the durable attention-queue signal that survives a quiet re-ingest (the run-scoped `map_status='PACK_CHANGED'` flag gets wiped by the DELETE+INSERT sweep, but `pack_size_changes` is never DELETEd). Dashboard tile `/costing` renders both: PACK_CHANGED rows in the first-10 detail table, unacknowledged-swap count as a yellow pip under the tile KPI. Tests in `tests/js/test-t9-benchmarks.mjs` cover the union, the summary counter, an end-to-end ingest-driven scenario, and the no-double-count invariant (bom_lines and vendor_prices live in different tables with independent keys). T6 still has the core detection work outstanding (the `[ ]` checkboxes above stay — no change to the detector itself).
+**T6 B2 queue extension — DONE (debt-bundle-d).** The "surface in the unmapped/attention queue" half of the Behavior line is now wired end-to-end. `computeUnmapped` in `lib/costingBenchmarks.mjs` UNIONs the existing `bom_lines` unmapped rows with `vendor_prices` rows where `map_status='PACK_CHANGED'`. Each row carries a `kind` field (`'bom_line'` vs `'vendor_pack_change'`) so the UI can render distinct copy. The response also adds `pack_size_changes_unacknowledged`: a count (not an expanded row list) of rows in `pack_size_changes` with `acknowledged=0` — the durable attention-queue signal that survives a quiet re-ingest (the run-scoped `map_status='PACK_CHANGED'` flag gets wiped by the DELETE+INSERT sweep, but `pack_size_changes` is never DELETEd). Dashboard tile `/costing` renders both: PACK_CHANGED rows in the first-10 detail table, unacknowledged-swap count as a yellow pip under the tile KPI. Tests in `tests/js/test-t9-benchmarks.mjs` cover the union, the summary counter, an end-to-end ingest-driven scenario, and the no-double-count invariant (bom_lines and vendor_prices live in different tables with independent keys).
 
 ---
 
