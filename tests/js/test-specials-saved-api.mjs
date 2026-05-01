@@ -25,6 +25,7 @@ const db = await import('../../lib/db.ts');
 db.setDbPathForTest(TMP_DB);
 
 const create = await import('../../app/api/specials/saved/route.js');
+const detail = await import('../../app/api/specials/saved/[id]/route.js');
 
 after(() => {
   db.setDbPathForTest(null);
@@ -141,5 +142,125 @@ describe('GET /api/specials/saved (list)', () => {
     const data = await res.json();
     assert.equal(data.items.length, 1);
     assert.equal(data.items[0].name, 'A');
+  });
+});
+
+async function createOne(overrides = {}) {
+  const res = await create.POST(jsonRequest('http://x/api/specials/saved', { ...validBody, ...overrides }));
+  return (await res.json()).id;
+}
+
+describe('GET /api/specials/saved/[id]', () => {
+  it('returns the full record', async () => {
+    const id = await createOne();
+    const res = await detail.GET(new Request(`http://x/api/specials/saved/${id}`), { params: { id } });
+    assert.equal(res.status, 200);
+    const row = await res.json();
+    assert.equal(row.id, id);
+    assert.equal(row.name, 'Pork Belly App');
+    assert.equal(row.ai_answer, 'Sear belly. Plate over slaw.');
+  });
+
+  it('404s on unknown id', async () => {
+    const res = await detail.GET(new Request('http://x/api/specials/saved/missing'), { params: { id: 'missing' } });
+    assert.equal(res.status, 404);
+  });
+
+  it('404s when id exists but in a different location', async () => {
+    const id = await createOne({ location_id: 'a' });
+    const res = await detail.GET(new Request(`http://x/api/specials/saved/${id}?location=b`), { params: { id } });
+    assert.equal(res.status, 404);
+  });
+});
+
+describe('PATCH /api/specials/saved/[id]', () => {
+  it('updates allowed fields and bumps updated_at', async () => {
+    const id = await createOne();
+    const beforeRow = db.getDb().prepare('SELECT updated_at FROM specials WHERE id = ?').get(id);
+    await new Promise((r) => setTimeout(r, 5));
+    const res = await detail.PATCH(
+      new Request(`http://x/api/specials/saved/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Renamed', scratch_notes: 'hello' }),
+      }),
+      { params: { id } },
+    );
+    assert.equal(res.status, 200);
+    const row = db.getDb().prepare('SELECT * FROM specials WHERE id = ?').get(id);
+    assert.equal(row.name, 'Renamed');
+    assert.equal(row.scratch_notes, 'hello');
+    assert.ok(row.updated_at > beforeRow.updated_at);
+  });
+
+  it('rejects disallowed fields with the rejected list', async () => {
+    const id = await createOne();
+    const res = await detail.PATCH(
+      new Request(`http://x/api/specials/saved/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'OK', ai_answer: 'NO', cost_total: 99 }),
+      }),
+      { params: { id } },
+    );
+    assert.equal(res.status, 400);
+    const data = await res.json();
+    assert.deepEqual(data.rejected.sort(), ['ai_answer', 'cost_total']);
+  });
+
+  it('keeps captured session fields immutable', async () => {
+    const id = await createOne();
+    const before = db.getDb().prepare('SELECT ai_answer, cost_total FROM specials WHERE id = ?').get(id);
+    await detail.PATCH(
+      new Request(`http://x/api/specials/saved/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'X' }),
+      }),
+      { params: { id } },
+    );
+    const after = db.getDb().prepare('SELECT ai_answer, cost_total FROM specials WHERE id = ?').get(id);
+    assert.equal(after.ai_answer, before.ai_answer);
+    assert.equal(after.cost_total, before.cost_total);
+  });
+
+  it('writes a specials.update file-audit line', async () => {
+    const id = await createOne();
+    fs.unlinkSync(AUDIT_PATH); // clear the create row
+    await detail.PATCH(
+      new Request(`http://x/api/specials/saved/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Renamed' }),
+      }),
+      { params: { id } },
+    );
+    const audit = JSON.parse(fs.readFileSync(AUDIT_PATH, 'utf8').trim());
+    assert.equal(audit.action, 'specials.update');
+    assert.equal(audit.special_id, id);
+  });
+});
+
+describe('DELETE /api/specials/saved/[id]', () => {
+  it('soft-deletes (sets archived_at, removes from list)', async () => {
+    const id = await createOne();
+    const res = await detail.DELETE(
+      new Request(`http://x/api/specials/saved/${id}`, { method: 'DELETE' }),
+      { params: { id } },
+    );
+    assert.equal(res.status, 200);
+    const row = db.getDb().prepare('SELECT archived_at FROM specials WHERE id = ?').get(id);
+    assert.ok(row.archived_at !== null);
+
+    const list = await create.GET(new Request('http://x/api/specials/saved?location=default'));
+    const data = await list.json();
+    assert.equal(data.items.length, 0);
+  });
+
+  it('is idempotent on re-delete', async () => {
+    const id = await createOne();
+    await detail.DELETE(new Request(`http://x/api/specials/saved/${id}`, { method: 'DELETE' }), { params: { id } });
+    const res = await detail.DELETE(new Request(`http://x/api/specials/saved/${id}`, { method: 'DELETE' }), { params: { id } });
+    assert.equal(res.status, 200);
   });
 });
