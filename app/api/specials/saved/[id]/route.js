@@ -65,7 +65,11 @@ export async function PATCH(req, { params }) {
   const existing = loadRow(db, id, locationId);
   if (!existing) return Response.json({ error: 'not found' }, { status: 404 });
 
-  const setFragments = Object.keys(updates).map((k) => `${k} = @${k}`).concat(['updated_at = @updated_at']);
+  const SAFE_COLS = new Set(['name', 'scratch_notes']);
+  const setFragments = Object.keys(updates).map((k) => {
+    if (!SAFE_COLS.has(k)) throw new Error(`refusing to UPDATE unsafe column: ${k}`);
+    return `${k} = @${k}`;
+  }).concat(['updated_at = @updated_at']);
   const stmt = db.prepare(`UPDATE specials SET ${setFragments.join(', ')} WHERE id = @id`);
 
   const txn = db.transaction((args) => {
