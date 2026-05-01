@@ -4,6 +4,7 @@ const TABS = [
   { k: 'stage', l: 'Stage', sub: 'Room + run-of-show' },
   { k: 'sound', l: 'Sound', sub: 'Scenes + monitors' },
   { k: 'box-office', l: 'Box Office', sub: 'Tickets + scans' },
+  { k: 'settlement', l: 'Settlement', sub: 'Payout + net door' },
 ];
 
 export default function TabStrip({ showId, locationId, active }) {
