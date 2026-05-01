@@ -34,7 +34,7 @@ after(() => {
 });
 
 beforeEach(() => {
-  testDb.exec('DELETE FROM receiving_log; DELETE FROM audit_events;');
+  testDb.exec('DELETE FROM receiving_log; DELETE FROM inventory_updates; DELETE FROM audit_events;');
 });
 
 function postReq(body) {
@@ -51,6 +51,10 @@ function getReq(qs = '') {
 
 function countReceiving() {
   return testDb.prepare('SELECT COUNT(*) AS c FROM receiving_log').get().c;
+}
+
+function countInventoryUpdates() {
+  return testDb.prepare('SELECT COUNT(*) AS c FROM inventory_updates').get().c;
 }
 
 function countAudit(entity) {
@@ -387,5 +391,211 @@ describe('GET /api/receiving', () => {
     const body = await res.json();
     assert.strictEqual(body.entries.length, 1);
     assert.strictEqual(body.entries[0].location_id, 'downtown');
+  });
+});
+
+// ── POST — closed-loop inventory receiving ───────────────────────
+//
+// Phase 3 closed-loop receiving: an accepted delivery with received_qty
+// + received_unit credits inventory in the same transaction as the
+// receiving_log INSERT. Rejected deliveries don't credit; missing
+// qty/unit gracefully skips the credit; transactional rollback
+// guarantees we never leave a delivery row without its companion
+// inventory row when the credit was due.
+
+describe('POST /api/receiving — closed-loop inventory crediting', () => {
+  it('happy path: accepted + qty + unit writes BOTH rows + 2 audits', async () => {
+    const res = await POST(postReq({
+      vendor: 'Shamrock',
+      category: 'refrigerated',
+      item: 'chicken breast 40lb CS',
+      reading_f: 38,
+      package_ok: true,
+      received_qty: 40,
+      received_unit: 'lb',
+      cook_id: 'alice',
+    }));
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.ok, true);
+
+    assert.strictEqual(countReceiving(), 1);
+    assert.strictEqual(countInventoryUpdates(), 1);
+    assert.strictEqual(countAudit('receiving_log'), 1);
+    assert.strictEqual(countAudit('inventory_updates'), 1);
+
+    const recvRow = testDb.prepare('SELECT * FROM receiving_log').get();
+    assert.strictEqual(recvRow.received_qty, 40);
+    assert.strictEqual(recvRow.received_unit, 'lb');
+
+    const invRow = testDb.prepare('SELECT * FROM inventory_updates').get();
+    assert.strictEqual(invRow.item, 'chicken breast 40lb CS');
+    assert.strictEqual(invRow.delta, '40 lb');
+    assert.strictEqual(invRow.direction, 'in');
+    assert.strictEqual(invRow.cook_id, 'alice');
+    assert.match(invRow.note, /closed-loop receiving from receiving_log #\d+/);
+
+    const invAudit = testDb
+      .prepare('SELECT * FROM audit_events WHERE entity=?')
+      .get('inventory_updates');
+    assert.strictEqual(invAudit.action, 'insert');
+    assert.strictEqual(invAudit.actor_source, 'receiving_closed_loop');
+    assert.strictEqual(invAudit.actor_cook_id, 'alice');
+    assert.match(invAudit.note, /receiving_log:\d+/);
+    assert.ok(invAudit.payload_json);
+  });
+
+  it('accepted_with_note + qty + unit also credits inventory', async () => {
+    const res = await POST(postReq({
+      vendor: 'Shamrock',
+      category: 'refrigerated',
+      item: 'milk 2% gal',
+      reading_f: 43,
+      package_ok: true,
+      corrective_action: 'pulled down in reach-in, verified 39°F 20min later',
+      received_qty: 6,
+      received_unit: 'gal',
+    }));
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(countReceiving(), 1);
+    assert.strictEqual(countInventoryUpdates(), 1);
+    const invRow = testDb.prepare('SELECT * FROM inventory_updates').get();
+    assert.strictEqual(invRow.delta, '6 gal');
+  });
+
+  it('rejected delivery with qty + unit does NOT credit inventory', async () => {
+    const res = await POST(postReq({
+      vendor: 'Shamrock',
+      category: 'refrigerated',
+      item: 'milk 2%',
+      reading_f: 50,
+      package_ok: true,
+      corrective_action: 'reefer alarm — full credit issued',
+      received_qty: 6,
+      received_unit: 'gal',
+    }));
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(countReceiving(), 1);
+    const recvRow = testDb.prepare('SELECT * FROM receiving_log').get();
+    assert.strictEqual(recvRow.status, 'rejected');
+    // Even though qty+unit were captured, rejected goods don't move on-hand.
+    assert.strictEqual(countInventoryUpdates(), 0);
+    assert.strictEqual(countAudit('inventory_updates'), 0);
+    // The receiving_log audit row is still emitted as usual.
+    assert.strictEqual(countAudit('receiving_log'), 1);
+  });
+
+  it('accepted without qty/unit: graceful skip — receiving lands, no inventory write', async () => {
+    const res = await POST(postReq({
+      vendor: 'Shamrock',
+      category: 'refrigerated',
+      item: 'chicken breast 40lb CS',
+      reading_f: 38,
+      package_ok: true,
+      // no received_qty, no received_unit
+    }));
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(countReceiving(), 1);
+    assert.strictEqual(countInventoryUpdates(), 0);
+    assert.strictEqual(countAudit('inventory_updates'), 0);
+  });
+
+  it('accepted with qty but no unit: 400 (both required when one is provided)', async () => {
+    const res = await POST(postReq({
+      vendor: 'Shamrock',
+      category: 'refrigerated',
+      item: 'chicken breast',
+      reading_f: 38,
+      package_ok: true,
+      received_qty: 40,
+      // received_unit deliberately missing
+    }));
+    assert.strictEqual(res.status, 400);
+    assert.strictEqual(countReceiving(), 0);
+    assert.strictEqual(countInventoryUpdates(), 0);
+  });
+
+  it('accepted with item missing: graceful skip (no item key to debit later)', async () => {
+    const res = await POST(postReq({
+      vendor: 'Shamrock',
+      category: 'dry_goods',
+      // item omitted — closed loop has no debit target
+      received_qty: 10,
+      received_unit: 'case',
+    }));
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(countReceiving(), 1);
+    assert.strictEqual(countInventoryUpdates(), 0);
+  });
+
+  it('validator rejects negative qty as 400', async () => {
+    const res = await POST(postReq({
+      vendor: 'Shamrock',
+      category: 'refrigerated',
+      item: 'chicken breast',
+      reading_f: 38,
+      package_ok: true,
+      received_qty: -5,
+      received_unit: 'lb',
+    }));
+    assert.strictEqual(res.status, 400);
+    const body = await res.json();
+    assert.match(body.error, /received_qty/);
+    assert.strictEqual(countReceiving(), 0);
+    assert.strictEqual(countInventoryUpdates(), 0);
+  });
+
+  it('validator rejects zero qty as 400', async () => {
+    const res = await POST(postReq({
+      vendor: 'Shamrock',
+      category: 'refrigerated',
+      item: 'chicken breast',
+      reading_f: 38,
+      package_ok: true,
+      received_qty: 0,
+      received_unit: 'lb',
+    }));
+    assert.strictEqual(res.status, 400);
+    assert.strictEqual(countReceiving(), 0);
+    assert.strictEqual(countInventoryUpdates(), 0);
+  });
+
+  it('transactional rollback: forced inventory_updates failure rolls back receiving + audit', async () => {
+    // Drop the inventory_updates table mid-test to force the closed-loop
+    // INSERT to fail. The route must then roll back the receiving_log
+    // INSERT + its audit row — we should see ZERO new rows of any kind.
+    testDb.exec('DROP TABLE inventory_updates');
+    try {
+      const res = await POST(postReq({
+        vendor: 'Shamrock',
+        category: 'refrigerated',
+        item: 'chicken breast',
+        reading_f: 38,
+        package_ok: true,
+        received_qty: 40,
+        received_unit: 'lb',
+      }));
+      assert.strictEqual(res.status, 500);
+      assert.strictEqual(countReceiving(), 0);
+      assert.strictEqual(countAudit('receiving_log'), 0);
+      assert.strictEqual(countAudit('inventory_updates'), 0);
+    } finally {
+      // Re-create the table so afterEach DELETE doesn't blow up and
+      // subsequent tests in this run still have a clean fixture.
+      testDb.exec(`
+        CREATE TABLE IF NOT EXISTS inventory_updates (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          shift_date TEXT NOT NULL,
+          station_id TEXT,
+          item TEXT NOT NULL,
+          delta TEXT,
+          direction TEXT,
+          note TEXT,
+          cook_id TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          location_id TEXT DEFAULT 'default'
+        );
+      `);
+    }
   });
 });

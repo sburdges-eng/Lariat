@@ -102,6 +102,24 @@ export async function POST(req) {
       reading_f = n;
     }
 
+    // Phase 3 closed-loop receiving — optional inventory crediting on
+    // accepted lines. Coerce only; the rule-module validator (extended
+    // by checkClosedLoopFields) does range/type checks so the live UI
+    // and the API land on identical messages. Missing/blank → null →
+    // closed loop is silently skipped on this row.
+    let received_qty = null;
+    if (body.received_qty !== undefined && body.received_qty !== null && body.received_qty !== '') {
+      const n = Number(body.received_qty);
+      if (!Number.isFinite(n)) {
+        return Response.json(
+          { error: 'received_qty must be a number or omitted' },
+          { status: 400 },
+        );
+      }
+      received_qty = n;
+    }
+    const received_unit = clip(body.received_unit, 32);
+
     // Reject (not silently truncate) over-long corrective actions.
     if (
       typeof body.corrective_action === 'string' &&
@@ -126,7 +144,21 @@ export async function POST(req) {
       package_ok,
       expiration_date,
       received_at: shift_date,
+      received_qty,
+      received_unit,
     });
+
+    // Phase 3 closed-loop receiving — input-shape errors on the new
+    // qty/unit fields surface as 400 (caller fix), NOT 422 (which is
+    // reserved for "HACCP says you need a corrective note"). The
+    // route refuses the whole write rather than writing the receiving
+    // row and silently dropping the inventory crediting.
+    if (decision.closed_loop_error) {
+      return Response.json(
+        { error: decision.closed_loop_error, field: 'received_qty/received_unit' },
+        { status: 400 },
+      );
+    }
 
     // Both 'rejected' and 'accept_with_note' require a corrective /
     // rejection note. 'rejected' because the audit chain needs to
@@ -149,14 +181,36 @@ export async function POST(req) {
 
     const db = getDb();
     
+    // Phase 3 closed-loop receiving — credit inventory only when
+    // ALL of:
+    //   1. status lands at 'accepted' or 'accepted_with_note'
+    //      (rejected deliveries don't move on-hand — the product is
+    //      not in the building)
+    //   2. received_qty is present and positive (validator already
+    //      enforced > 0 above; we re-test here as a tripwire so a
+    //      future validator change can't silently break the gate)
+    //   3. received_unit is a non-empty trimmed string
+    //   4. item is present (without an item we'd be debiting "" —
+    //      meaningless for inventory reconciliation)
+    // Missing any one → graceful skip. The receiving row still lands.
+    const shouldCreditInventory =
+      (dbStatus === 'accepted' || dbStatus === 'accepted_with_note') &&
+      typeof received_qty === 'number' &&
+      received_qty > 0 &&
+      typeof received_unit === 'string' &&
+      received_unit.length > 0 &&
+      typeof item === 'string' &&
+      item.length > 0;
+
     const performWrite = db.transaction(() => {
       const info = db
         .prepare(
           `INSERT INTO receiving_log
              (shift_date, location_id, vendor, invoice_ref, category, item,
               reading_f, required_max_f, package_ok, expiration_date,
+              received_qty, received_unit,
               status, rejection_reason, shellstock_tag_ref, cook_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           shift_date,
@@ -169,6 +223,8 @@ export async function POST(req) {
           decision.required_max_f,
           package_ok ? 1 : 0,
           expiration_date,
+          received_qty,
+          received_unit,
           dbStatus,
           corrective_action,
           shellstock_tag_ref,
@@ -190,6 +246,47 @@ export async function POST(req) {
         location_id,
         note: decision.status === 'ok' ? null : `${decision.status}:${category}`,
       });
+
+      // Phase 3 closed-loop receiving — credit inventory in the SAME
+      // transaction as the receiving row. If this INSERT or its
+      // companion audit row fails (e.g. table missing on a partial
+      // deploy), the receiving_log row rolls back too. That's
+      // intentional: a half-applied write would create exactly the
+      // ghost-delivery + drifted-on-hand state this feature exists
+      // to eliminate. The caller sees a 500.
+      if (shouldCreditInventory) {
+        const invInfo = db
+          .prepare(
+            `INSERT INTO inventory_updates
+               (shift_date, location_id, item, delta, direction, note, cook_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`
+          )
+          .run(
+            shift_date,
+            location_id,
+            item,
+            `${received_qty} ${received_unit}`,
+            'in',
+            `closed-loop receiving from receiving_log #${info.lastInsertRowid}`,
+            cook_id,
+          );
+
+        const invRow = db
+          .prepare('SELECT * FROM inventory_updates WHERE id = ?')
+          .get(invInfo.lastInsertRowid);
+
+        postAuditEvent({
+          entity: 'inventory_updates',
+          entity_id: Number(invInfo.lastInsertRowid),
+          action: 'insert',
+          actor_cook_id: cook_id,
+          actor_source: 'receiving_closed_loop',
+          payload: invRow,
+          shift_date,
+          location_id,
+          note: `receiving_log:${info.lastInsertRowid}`,
+        });
+      }
 
       return { info, row };
     });

@@ -2569,6 +2569,17 @@ function assertCriticalSchemas(db: DB): void {
       'master_id', 'canonical_name', 'category',
       'preferred_vendor', 'last_reviewed',
     ],
+    // Phase 3 closed-loop receiving — guard the new closed-loop columns
+    // alongside Bundle F so a partial deploy fails loudly at init time
+    // instead of dropping silently into a "delivery logged but inventory
+    // untouched" state. Pre-Bundle-F rows still carry NULLs on package_ok
+    // / expiration_date; the column-presence check is what we're asserting.
+    receiving_log: [
+      'id', 'shift_date', 'location_id', 'vendor', 'category', 'item',
+      'reading_f', 'required_max_f', 'package_ok', 'expiration_date',
+      'received_qty', 'received_unit',
+      'status', 'rejection_reason',
+    ],
   };
   for (const [table, required] of Object.entries(requirements)) {
     const cols = (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[])
@@ -2920,10 +2931,19 @@ function migrateLegacyColumns(db: DB): void {
   // expiration_date (§3-101.11). Pre-F rows stay NULL on both; that's
   // the conventional "unrecorded" sentinel the route + rule module
   // reason about.
+  // Phase 3 closed-loop receiving — receiving_log gains received_qty
+  // and received_unit so an accepted delivery can credit inventory in
+  // the same transaction as the source INSERT. Both NULLable: pre-Phase-3
+  // rows + new rows where the cook didn't capture a quantity stay NULL
+  // (the closed-loop write is opt-in per row; missing qty/unit means
+  // "delivery logged, on-hand untouched"). Backfill is intentionally
+  // not attempted — historical rows have no provenance for qty/unit.
   const recvCols = t('receiving_log');
   const recvMigrations: [string, string][] = [
     ['package_ok', 'ALTER TABLE receiving_log ADD COLUMN package_ok INTEGER'],
     ['expiration_date', 'ALTER TABLE receiving_log ADD COLUMN expiration_date TEXT'],
+    ['received_qty', 'ALTER TABLE receiving_log ADD COLUMN received_qty REAL'],
+    ['received_unit', 'ALTER TABLE receiving_log ADD COLUMN received_unit TEXT'],
   ];
   for (const [col, ddl] of recvMigrations) {
     if (!recvCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
