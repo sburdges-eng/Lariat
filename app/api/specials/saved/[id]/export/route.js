@@ -69,8 +69,9 @@ export async function POST(req, { params }) {
     if (collide) {
       return Response.json({ error: 'slug already exists', slug: slugRes.value }, { status: 409 });
     }
-  } catch {
-    /* table not present in this test/db — skip the check */
+  } catch (e) {
+    if (!/no such table/i.test(String(e?.message))) throw e;
+    /* entities_recipes not present (test DB) — skip the collision check */
   }
 
   let breakdown = [];
