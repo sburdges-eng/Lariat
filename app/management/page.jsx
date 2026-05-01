@@ -195,14 +195,13 @@ export default function ManagementRollupPage({ searchParams }) {
     <div>
       <h1>Management</h1>
       <p className="subtitle">
-        At-a-glance rollup. Each tile composes an existing dashboard signal — drill into the linked
-        section for detail.
+        Your numbers at a glance. Tap any card to dig in.
       </p>
 
       <div className="grid grid-stations" style={{ marginBottom: 24 }}>
-        {/* Tile 1 — COGS variance current */}
+        {/* Tile 1 — Food cost vs. target (accounting variance) */}
         <RollupTile
-          label="COGS variance (current)"
+          label="Food cost vs. target"
           value={
             variance && variance.variance_pct != null
               ? `${variance.variance_pct.toFixed(2)}%`
@@ -226,9 +225,9 @@ export default function ManagementRollupPage({ searchParams }) {
           href="/costing"
         />
 
-        {/* Tile 3 — Dish-bridge coverage (capped to keep page load O(1)) */}
+        {/* Tile 3 — Menu items costed (capped to keep page load O(1)) */}
         <RollupTile
-          label="Dish-bridge coverage"
+          label="Menu items costed"
           value={
             coverageCapped
               ? '—'
@@ -248,9 +247,9 @@ export default function ManagementRollupPage({ searchParams }) {
           href="/menu-engineering"
         />
 
-        {/* Tile 4 — Compliance health (curated rules JSONL) */}
+        {/* Tile 4 — Unverified rules (curated rules JSONL) */}
         <RollupTile
-          label="Compliance rules unverified"
+          label="Unverified rules"
           value={compliance.unverified == null ? '—' : compliance.unverified}
           color={complianceColor(compliance.unverified)}
           sub={
@@ -282,7 +281,7 @@ export default function ManagementRollupPage({ searchParams }) {
       </div>
 
       <div style={{ marginTop: 16 }}>
-        <h2 style={{ fontSize: 14, marginBottom: 8 }}>Other management surfaces</h2>
+        <h2 style={{ fontSize: 14, marginBottom: 8 }}>More tools</h2>
         <ul style={{ fontSize: 13 }}>
           <li><Link href="/management/audit-log">Audit log</Link> — management actions outside regulated tables</li>
         </ul>
