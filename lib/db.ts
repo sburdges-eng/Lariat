@@ -529,6 +529,18 @@ export interface ReceivingEntry {
   shellstock_tag_ref: string | null;  // §3-203.12 shellstock 90-day retention ref
   cook_id: string | null;
   created_at: string;
+  /**
+   * Phase 3 closed-loop receiving — quantity actually received in the
+   * units the case label reports (lb, case, ea, gal, ...). NULL on pre-
+   * Phase-3 rows and on lines where the cook didn't capture a qty
+   * (closed-loop credit is opt-in per row). Pairs with `received_unit`.
+   */
+  received_qty: number | null;
+  /**
+   * Phase 3 closed-loop receiving — free-form unit string paired with
+   * `received_qty`. NULL when the closed-loop write was skipped.
+   */
+  received_unit: string | null;
 }
 
 /**
