@@ -16,8 +16,13 @@ function slugifyName(name) {
     .slice(0, 80);
 }
 
-export default function SpecialDetailClient({ special }) {
+const DEFAULT_LOCATION_ID = 'default';
+
+export default function SpecialDetailClient({ special, locationId }) {
   const router = useRouter();
+  const locQ = locationId && locationId !== DEFAULT_LOCATION_ID
+    ? `?location=${encodeURIComponent(locationId)}`
+    : '';
 
   const [name, setName] = useState(special.name);
   const [scratch, setScratch] = useState(special.scratch_notes);
@@ -38,7 +43,7 @@ export default function SpecialDetailClient({ special }) {
     setMetaErr('');
     setSavingMeta(true);
     try {
-      const res = await fetch(`/api/specials/saved/${special.id}`, {
+      const res = await fetch(`/api/specials/saved/${special.id}${locQ}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), scratch_notes: scratch }),
@@ -54,8 +59,8 @@ export default function SpecialDetailClient({ special }) {
 
   const onDelete = async () => {
     if (!confirm('Delete this saved special? It will be removed from the list.')) return;
-    const res = await fetch(`/api/specials/saved/${special.id}`, { method: 'DELETE' });
-    if (res.ok) router.push('/specials/saved');
+    const res = await fetch(`/api/specials/saved/${special.id}${locQ}`, { method: 'DELETE' });
+    if (res.ok) router.push(`/specials/saved${locQ}`);
   };
 
   const submitExport = async (e) => {
@@ -64,7 +69,7 @@ export default function SpecialDetailClient({ special }) {
     setExportResult(null);
     setExporting(true);
     try {
-      const res = await fetch(`/api/specials/saved/${special.id}/export`, {
+      const res = await fetch(`/api/specials/saved/${special.id}/export${locQ}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({

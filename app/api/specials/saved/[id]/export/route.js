@@ -30,6 +30,10 @@ export async function POST(req, { params }) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
 
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return Response.json({ error: 'request body must be a JSON object' }, { status: 400 });
+  }
+
   const slugRes = validateSlug(body.slug);
   if (!slugRes.ok) return Response.json({ error: slugRes.error }, { status: 400 });
 

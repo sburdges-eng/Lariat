@@ -30,6 +30,10 @@ export async function POST(req) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
 
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return Response.json({ error: 'request body must be a JSON object' }, { status: 400 });
+  }
+
   const nameRes = validateName(body.name);
   if (!nameRes.ok) return Response.json({ error: nameRes.error }, { status: 400 });
 

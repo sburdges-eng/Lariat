@@ -11,6 +11,7 @@ export default function SavedSpecialDetail({ params, searchParams }) {
     typeof searchParams?.location === 'string' && searchParams.location.trim()
       ? searchParams.location.trim()
       : DEFAULT_LOCATION_ID;
+  const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
 
   const db = getDb();
   const row = db.prepare('SELECT * FROM specials WHERE id = ? AND location_id = ?').get(params.id, loc);
@@ -18,17 +19,24 @@ export default function SavedSpecialDetail({ params, searchParams }) {
 
   let costBreakdown = [];
   if (row.cost_breakdown) {
-    try { costBreakdown = JSON.parse(row.cost_breakdown); } catch { costBreakdown = []; }
+    try {
+      const parsed = JSON.parse(row.cost_breakdown);
+      if (Array.isArray(parsed)) costBreakdown = parsed;
+    } catch { /* keep [] */ }
   }
   let sources = [];
   if (row.sources) {
-    try { sources = JSON.parse(row.sources); } catch { sources = []; }
+    try {
+      const parsed = JSON.parse(row.sources);
+      if (Array.isArray(parsed)) sources = parsed;
+    } catch { /* keep [] */ }
   }
 
   return (
     <div>
-      <Link href="/specials/saved" style={{ color: 'var(--muted)', fontSize: 13 }}>← Saved Specials</Link>
+      <Link href={`/specials/saved${locQ}`} style={{ color: 'var(--muted)', fontSize: 13 }}>← Saved Specials</Link>
       <SpecialDetailClient
+        locationId={loc}
         special={{
           id: row.id,
           name: row.name,

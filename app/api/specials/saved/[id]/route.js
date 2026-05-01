@@ -45,6 +45,10 @@ export async function PATCH(req, { params }) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
 
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return Response.json({ error: 'request body must be a JSON object' }, { status: 400 });
+  }
+
   const keysRes = validatePatchKeys(body);
   if (!keysRes.ok) {
     if (keysRes.rejected.length === 0) {
