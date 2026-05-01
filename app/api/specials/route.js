@@ -106,11 +106,12 @@ export async function POST(req) {
     });
     
     let finalAnswer = content;
+    let costResult = null;
     const { payload, stripped } = extractAction(content);
     if (payload && payload.action === 'cost_special' && Array.isArray(payload.ingredients)) {
       finalAnswer = stripped || '';
       try {
-        const costResult = computeSandboxCost(locationId, payload.ingredients);
+        costResult = computeSandboxCost(locationId, payload.ingredients);
 
         const totalLabel = costResult.partial
           ? `PARTIAL RECIPE COST: $${costResult.totalCost.toFixed(2)} (some ingredients skipped — see table)`
@@ -140,6 +141,8 @@ export async function POST(req) {
       model,
       location_id: locationId,
       sources,
+      cost_breakdown: costResult ? costResult.breakdown : null,
+      cost_total: costResult ? costResult.totalCost : null,
       latencyMs,
       disclaimer:
         'Answers use only the context snapshot above. Allergen tags are not legal allergen advice. Verify critical items on the floor and with a manager.',

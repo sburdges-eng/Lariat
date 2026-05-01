@@ -1803,6 +1803,36 @@ export function initSchema(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_box_office_source_ext
       ON box_office_lines(source, external_ref);
   `);
+
+  // ── Specials persistence ─────────────────────────────────────────
+  // Session snapshots from the Specials Sandbox chat: pantry text,
+  // prompt, AI answer/model, captured cost breakdown, scratch notes,
+  // and grounding sources. Soft-delete via archived_at; export tracking
+  // via last_exported_at. Indexed by (location_id, created_at) and a
+  // partial index on active rows only.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS specials (
+      id                 TEXT PRIMARY KEY,
+      location_id        TEXT NOT NULL DEFAULT 'default',
+      name               TEXT NOT NULL,
+      pantry_text        TEXT NOT NULL DEFAULT '',
+      prompt_text        TEXT NOT NULL DEFAULT '',
+      ai_answer          TEXT NOT NULL DEFAULT '',
+      ai_model           TEXT NOT NULL DEFAULT '',
+      cost_breakdown     TEXT,
+      cost_total         REAL,
+      scratch_notes      TEXT NOT NULL DEFAULT '',
+      sources            TEXT,
+      last_exported_at   INTEGER,
+      created_at         INTEGER NOT NULL,
+      updated_at         INTEGER NOT NULL,
+      archived_at        INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_specials_loc_created
+      ON specials(location_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_specials_active
+      ON specials(location_id, archived_at) WHERE archived_at IS NULL;
+  `);
 }
 
 /**

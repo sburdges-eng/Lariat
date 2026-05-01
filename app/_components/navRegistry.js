@@ -151,6 +151,16 @@ export const NAV_ITEMS = [
     surface: { sidebar: t, palette: t, shelf: f },
   },
   {
+    id: 'specials-saved',
+    href: '/specials/saved',
+    name: 'Saved Specials',
+    sub: 'Promoted sandbox sessions',
+    group: 'Service',
+    terms: 'saved specials sandbox export csv',
+    locAware: t,
+    surface: { sidebar: t, palette: t, shelf: f },
+  },
+  {
     id: 'gold-stars',
     href: '/gold-stars',
     name: 'Gold stars',
