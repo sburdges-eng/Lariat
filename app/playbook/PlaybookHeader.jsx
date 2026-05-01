@@ -38,6 +38,7 @@ export default function PlaybookHeader({ show, activeTab }) {
         <Link className="btn sm" href={`/shows/${show.id}/stage`}>Stage</Link>
         <Link className="btn sm" href={`/shows/${show.id}/sound`}>Sound</Link>
         <Link className="btn sm" href={`/shows/${show.id}/box-office`}>Box office</Link>
+        <Link className="btn sm" href={`/shows/${show.id}/settlement`}>Settlement</Link>
       </nav>
     </header>
   );
