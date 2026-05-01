@@ -606,6 +606,65 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     }
   });
 
+  it('HACCP rejection priority: a rejected delivery 422s even with a malformed received_qty', async () => {
+    // The cook's first concern is "are the goods coming inside or
+    // not?". A malformed qty travels with the row but doesn't change
+    // the rejection — 400ing on qty would mask the real failure
+    // reason, and the cook would fix the qty, retry, and still get
+    // 422. Reject (without note) wins; cook records the corrective
+    // note and the qty stays whatever they typed.
+    const res = await POST(postReq({
+      vendor: 'Shamrock',
+      category: 'refrigerated',
+      item: 'milk 2%',
+      reading_f: 38,
+      package_ok: false,         // forces HACCP reject per §3-202.15
+      received_qty: -5,          // also a malformed closed-loop value
+      received_unit: 'gal',
+    }));
+    assert.strictEqual(res.status, 422);
+    const body = await res.json();
+    assert.strictEqual(body.status, 'rejected');
+    assert.match(body.citation, /§3-202\.15/);
+    assert.strictEqual(body.needs_corrective_action, true);
+    assert.strictEqual(countReceiving(), 0);
+  });
+
+  it('HACCP rejection priority: temp-rejected delivery with bad qty also 422s', async () => {
+    const res = await POST(postReq({
+      vendor: 'Shamrock',
+      category: 'refrigerated',
+      item: 'milk 2%',
+      reading_f: 50,             // past drift band → reject
+      package_ok: true,
+      received_qty: 0,           // also a malformed closed-loop value
+      received_unit: 'gal',
+    }));
+    assert.strictEqual(res.status, 422);
+    const body = await res.json();
+    assert.strictEqual(body.status, 'rejected');
+    assert.strictEqual(countReceiving(), 0);
+  });
+
+  it('accept_with_note + bad qty still 400s (drift-band path lands a row, so qty must be valid)', async () => {
+    // Accept-with-note actually writes to receiving_log AND credits
+    // inventory if qty/unit are present, so a malformed qty on this
+    // path has to block — it'd otherwise either persist a bad row or
+    // silently drop the credit. The 400 keeps that contract intact.
+    const res = await POST(postReq({
+      vendor: 'Shamrock',
+      category: 'refrigerated',
+      item: 'milk 2%',
+      reading_f: 43,             // drift band → accept_with_note
+      package_ok: true,
+      corrective_action: 'pulled down in reach-in',
+      received_qty: -2,          // malformed
+      received_unit: 'gal',
+    }));
+    assert.strictEqual(res.status, 400);
+    assert.strictEqual(countReceiving(), 0);
+  });
+
   it('partial UNIQUE index prevents double-credit on the same receiving_log row', async () => {
     // Document the at-most-once invariant. Each /api/receiving POST
     // creates a NEW receiving_log row with a NEW id, so true client

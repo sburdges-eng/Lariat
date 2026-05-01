@@ -148,6 +148,26 @@ export async function POST(req) {
       received_unit,
     });
 
+    // HACCP outright rejections take priority over input-shape errors.
+    // If package_ok / temp / sell-by says "refuse this delivery", the
+    // goods aren't entering the building — a malformed qty doesn't
+    // change that, and 400ing on the qty would mask the real reason
+    // the line failed (the cook would fix the qty, retry, and still
+    // get a 422). The 'accept_with_note' branch stays AFTER the
+    // closed_loop_error gate below: that path actually persists the
+    // row and credits inventory, so a bad qty there has to block.
+    if (decision.status === 'rejected' && !corrective_action) {
+      return Response.json(
+        {
+          error: decision.reason,
+          status: decision.status,
+          citation: decision.citation,
+          needs_corrective_action: true,
+        },
+        { status: 422 },
+      );
+    }
+
     // Phase 3 closed-loop receiving — input-shape errors on the new
     // qty/unit fields surface as 400 (caller fix), NOT 422 (which is
     // reserved for "HACCP says you need a corrective note"). The
@@ -160,11 +180,13 @@ export async function POST(req) {
       );
     }
 
-    // Both 'rejected' and 'accept_with_note' require a corrective /
-    // rejection note. 'rejected' because the audit chain needs to
-    // record WHY the delivery was refused (invoice credit, vendor
-    // callback); 'accept_with_note' because that is the whole point
-    // of the drift band — documented fix or nothing.
+    // Both 'rejected' (with corrective note) and 'accept_with_note'
+    // need a corrective / rejection note. 'rejected' because the
+    // audit chain needs to record WHY the delivery was refused
+    // (invoice credit, vendor callback); 'accept_with_note' because
+    // that is the whole point of the drift band — documented fix or
+    // nothing. The note-less 'rejected' branch already returned above;
+    // this gate now only fires on note-less 'accept_with_note'.
     if (decision.status !== 'ok' && !corrective_action) {
       return Response.json(
         {
