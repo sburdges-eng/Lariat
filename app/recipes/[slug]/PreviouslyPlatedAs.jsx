@@ -25,7 +25,7 @@ export default function PreviouslyPlatedAs({ recipeName, history }) {
     return Array.from(byItem.values());
   }, [history]);
 
-  if (!history) return null;
+  if (!history || history.length === 0) return null;
 
   const showVariantHint =
     recipeName &&
