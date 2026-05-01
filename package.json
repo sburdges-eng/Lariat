@@ -9,6 +9,9 @@
     "typecheck:scripts": "tsc -p tsconfig.scripts.json --noEmit",
     "verify": "npm run typecheck && npm run test:unit && npm run test:rules && npm run build",
     "prepare": "simple-git-hooks",
+    "mdns:advertise": "node --experimental-strip-types scripts/start-mdns.mjs",
+    "mdns:discover": "node --experimental-strip-types scripts/start-mdns.mjs --discover",
+    "test:mdns-discovery": "node --experimental-strip-types --test tests/js/test-mdns-discovery.mjs",
     "start": "next start -H 0.0.0.0 -p 3000",
     "restart": "lsof -t -i :3000 -sTCP:LISTEN 2>/dev/null | xargs -r kill; sleep 1 && next start -H 0.0.0.0 -p 3000",
     "ingest": "node scripts/ingest.mjs",
@@ -156,6 +159,7 @@
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
     "better-sqlite3": "^11.10.0",
+    "bonjour-service": "^1.3.0",
     "next": "14.2.15",
     "react": "18.3.1",
     "react-dom": "18.3.1"
