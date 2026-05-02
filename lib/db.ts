@@ -1814,6 +1814,18 @@ export function initSchema(db: DB): void {
       ON box_office_lines(show_id, location_id);
     CREATE INDEX IF NOT EXISTS idx_box_office_source_ext
       ON box_office_lines(source, external_ref);
+    -- Phase 2 DICE box-office ingest — idempotency on (source, external_ref).
+    -- The DICE order id is the natural key per Phase 2 plan §C2 + the
+    -- doc-comment in lib/boxOfficeRepo.ts. A partial UNIQUE index lets
+    -- bulkUpsertFromDice use ON CONFLICT to dedupe retries — without
+    -- it, a network-hiccup retry produces duplicate rows that inflate
+    -- grossCents in getSettlement, which inflates the talent vsBonus,
+    -- which silently overpays talent. Walkup / comp / will_call lines
+    -- legitimately have no external_ref and must NOT collide with each
+    -- other — the WHERE clause restricts the constraint to non-NULL.
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_box_office_external_ref_unique
+      ON box_office_lines(source, external_ref)
+      WHERE external_ref IS NOT NULL;
 
     -- Phase 2 task B: deal-point inputs for the per-show settlement.
     -- Cents-as-INTEGER everywhere so settlement math never sees float drift.
