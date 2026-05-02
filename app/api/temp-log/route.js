@@ -10,6 +10,7 @@ import {
 import { calibrationWarningFor, classifyProbes } from '../../../lib/calibrations';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { hasPinCookie } from '../../../lib/pin';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,10 @@ function pinRequiredForDate(shift_date) {
 // ── POST /api/temp-log ─────────────────────────────────────────────
 
 export async function POST(req) {
+  return withIdempotency(req, () => tempLogHandler(req));
+}
+
+async function tempLogHandler(req) {
   try {
     const body = await req.json();
 

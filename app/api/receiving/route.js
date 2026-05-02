@@ -25,6 +25,7 @@ import {
 } from '../../../lib/receiving';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { triggerComputeEngine } from '../../../lib/computeEngine/index';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,10 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 // ── POST /api/receiving ──────────────────────────────────────────
 
 export async function POST(req) {
+  return withIdempotency(req, () => receivingHandler(req));
+}
+
+async function receivingHandler(req) {
   try {
     const body = await req.json();
 

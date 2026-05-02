@@ -73,14 +73,16 @@ beforeEach(() => {
     DELETE FROM sick_worker_reports;
     DELETE FROM shift_breaks;
     DELETE FROM staff_certifications;
+    DELETE FROM idempotency_keys;
   `);
 });
 
-function postReq(url, body, { pin = false } = {}) {
+function postReq(url, body, { pin = false, idempotencyKey } = {}) {
   const headers = { 'content-type': 'application/json' };
   // PIN-gated routes (sick-worker, certifications, some others) check
   // the lariat_pin_ok cookie via lib/pin.ts. Tests opt-in per call.
   if (pin) headers.cookie = 'lariat_pin_ok=1';
+  if (idempotencyKey) headers['idempotency-key'] = idempotencyKey;
   return new Request(url, {
     method: 'POST',
     headers,
@@ -370,6 +372,131 @@ describe('HACCP routes — insert + audit commit together (happy path)', () => {
     assert.strictEqual(res.status, 200);
     assert.strictEqual(countRows('staff_certifications'), 1);
     assert.strictEqual(countAudit('staff_certifications'), 1);
+  });
+});
+
+// §8 P1 Task 3 — temp-log + receiving idempotency replay.
+// Closes the "on-reconnect sync never duplicates rows" doctrine for
+// the highest-volume regulated routes. Same pattern as the signoff +
+// box-office retrofit in #119.
+
+describe('POST /api/temp-log — idempotency replay', () => {
+  const samePayload = () => ({
+    shift_date: todayISO(),
+    point_id: 'walk_in_cooler',
+    reading_f: 38,
+    cook_id: 'alice',
+  });
+
+  it('same key replay writes ONE temp_log row + ONE audit row', async () => {
+    const KEY = 'tlog-key-aaaaaaaaaaaa';
+    const r1 = await tempLog.POST(
+      postReq('http://localhost/api/temp-log', samePayload(), { idempotencyKey: KEY }),
+    );
+    assert.strictEqual(r1.status, 200);
+    const body1 = await r1.json();
+
+    const r2 = await tempLog.POST(
+      postReq('http://localhost/api/temp-log', samePayload(), { idempotencyKey: KEY }),
+    );
+    assert.strictEqual(r2.status, 200);
+    const body2 = await r2.json();
+
+    assert.deepStrictEqual(body1, body2);
+    assert.strictEqual(countRows('temp_log'), 1);
+    assert.strictEqual(countAudit('temp_log'), 1);
+  });
+
+  it('distinct keys for the same point write two rows', async () => {
+    await tempLog.POST(
+      postReq('http://localhost/api/temp-log', samePayload(), { idempotencyKey: 'k-aaaaaaaaaaaaaaaa' }),
+    );
+    await tempLog.POST(
+      postReq('http://localhost/api/temp-log', samePayload(), { idempotencyKey: 'k-bbbbbbbbbbbbbbbb' }),
+    );
+    assert.strictEqual(countRows('temp_log'), 2);
+  });
+
+  it('same key + different reading_f returns 409 without writing', async () => {
+    const KEY = 'tlog-409-aaaaaaaaaaaa';
+    const r1 = await tempLog.POST(
+      postReq('http://localhost/api/temp-log', samePayload(), { idempotencyKey: KEY }),
+    );
+    assert.strictEqual(r1.status, 200, `r1 must succeed; got ${r1.status}: ${await r1.clone().text()}`);
+    assert.strictEqual(countRows('temp_log'), 1);
+
+    const r2 = await tempLog.POST(
+      postReq(
+        'http://localhost/api/temp-log',
+        { ...samePayload(), reading_f: 39 },
+        { idempotencyKey: KEY },
+      ),
+    );
+    assert.strictEqual(
+      r2.status, 409,
+      `r2 must 409 on hash mismatch; got ${r2.status}: ${await r2.clone().text()}`,
+    );
+    assert.strictEqual(countRows('temp_log'), 1);
+  });
+});
+
+describe('POST /api/receiving — idempotency replay', () => {
+  const samePayload = () => ({
+    shift_date: todayISO(),
+    vendor: 'Shamrock',
+    invoice_ref: 'INV-1001',
+    category: 'refrigerated',
+    item: 'chicken breast 40lb CS',
+    reading_f: 38,
+    package_ok: true,
+    cook_id: 'alice',
+  });
+
+  it('same key replay writes ONE receiving_log + ONE audit', async () => {
+    const KEY = 'recv-key-aaaaaaaaaaaa';
+    const r1 = await receiving.POST(
+      postReq('http://localhost/api/receiving', samePayload(), { idempotencyKey: KEY }),
+    );
+    assert.strictEqual(r1.status, 200);
+    const body1 = await r1.json();
+
+    const r2 = await receiving.POST(
+      postReq('http://localhost/api/receiving', samePayload(), { idempotencyKey: KEY }),
+    );
+    assert.strictEqual(r2.status, 200);
+    const body2 = await r2.json();
+
+    assert.deepStrictEqual(body1, body2);
+    assert.strictEqual(countRows('receiving_log'), 1);
+    assert.strictEqual(countAudit('receiving_log'), 1);
+  });
+
+  it('distinct keys for same delivery write two rows', async () => {
+    await receiving.POST(
+      postReq('http://localhost/api/receiving', samePayload(), { idempotencyKey: 'k-aaaaaaaaaaaaaaaa' }),
+    );
+    await receiving.POST(
+      postReq('http://localhost/api/receiving', samePayload(), { idempotencyKey: 'k-bbbbbbbbbbbbbbbb' }),
+    );
+    assert.strictEqual(countRows('receiving_log'), 2);
+  });
+
+  it('same key + different temp returns 409 without writing', async () => {
+    const KEY = 'recv-409-aaaaaaaaaaaa';
+    await receiving.POST(
+      postReq('http://localhost/api/receiving', samePayload(), { idempotencyKey: KEY }),
+    );
+    assert.strictEqual(countRows('receiving_log'), 1);
+
+    const r2 = await receiving.POST(
+      postReq(
+        'http://localhost/api/receiving',
+        { ...samePayload(), reading_f: 99 },
+        { idempotencyKey: KEY },
+      ),
+    );
+    assert.strictEqual(r2.status, 409);
+    assert.strictEqual(countRows('receiving_log'), 1);
   });
 });
 
