@@ -173,7 +173,11 @@ export async function POST(req) {
     // reserved for "HACCP says you need a corrective note"). The
     // route refuses the whole write rather than writing the receiving
     // row and silently dropping the inventory crediting.
-    if (decision.closed_loop_error) {
+    // Skip for rejected-with-note: no inventory credit happens on a
+    // rejection, so a malformed qty/unit is irrelevant — blocking the
+    // rejection write would mask the real HACCP outcome and force the
+    // cook to fix an unused field before the rejection can be logged.
+    if (decision.closed_loop_error && decision.status !== 'rejected') {
       return Response.json(
         { error: decision.closed_loop_error, field: 'received_qty/received_unit' },
         { status: 400 },
