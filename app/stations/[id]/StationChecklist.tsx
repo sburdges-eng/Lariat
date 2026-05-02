@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { clientFetch } from '@/lib/clientFetch';
 
 export interface StationCheckItem {
   status: 'pass' | 'fail' | 'na' | null;
@@ -197,10 +198,11 @@ export default function StationChecklist({ stationId, stationName, date, items, 
   const signOff = async () => {
     if (!cookId) { alert('Pick your name in the sidebar first.'); return; }
     setSaving(true);
-    const res = await fetch('/api/signoff', {
+    const res = await clientFetch('/api/signoff', {
       method: 'POST',
       headers: { 'content-type':'application/json' },
       body: JSON.stringify({ shift_date: date, station_id: stationId, cook_id: cookId, location_id: locationId }),
+      idempotent: true,
     });
     const j = await res.json();
     setSaving(false);
