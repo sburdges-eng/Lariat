@@ -135,6 +135,8 @@ Per-show roll-up: ticket revenue (face × qty) − fees − talent buyout − de
 | B3 | Settlement publish surface | `/shows/[id]/settlement` page, signed PDF export. PIN-gated. |
 | B4 | Reconciliation against DICE | After DICE ingest writes to `box_office_lines`, reconcile against `shows.status_json.tickets_sold`. Surface variance > $X in `/costing/depletion-exceptions`-shaped queue. |
 
+**Rounding convention.** `lib/dealPoints.ts::computeTalentPayout` uses `Math.floor` for the vs%-bonus calculation — i.e., venue-favorable on any non-clean overage. The talent loses the fractional cent per show. This matches the long-running deal-buyer convention; the alternative (round / round-half-up / banker's) would produce slightly different parity numbers against Prism. Money values stored as INTEGER cents at every boundary; `parseDeal` rounds at the INPUT side via `Math.round` for guarantee/buyout/costs (no float drift). The asymmetry is documented in code at `lib/dealPoints.ts::computeTalentPayout` and pinned by the fractional-cent fixture in `tests/js/test-deal-points.mjs`.
+
 ### C. DICE Box Office ingest
 
 | # | Task | Notes |

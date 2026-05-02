@@ -19,6 +19,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { humanize } from '../../../lib/userError';
 
 export default function AuditLogPage() {
   const router = useRouter();
@@ -58,7 +59,8 @@ export default function AuditLogPage() {
       setLogs(data.logs || []);
       setError(null);
     } catch (err) {
-      setError(err.message);
+      console.error('audit-log fetch failed:', err);
+      setError(humanize(err));
       setLogs([]);
     } finally {
       setLoading(false);

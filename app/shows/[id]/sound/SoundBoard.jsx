@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { humanize } from '../../../../lib/userError';
 
 const AUTOSAVE_INTERVAL_MS = 30_000;
 
@@ -109,7 +110,8 @@ export default function SoundBoard({ showId, locationId, initialScenes, complete
         lastHashRef.current = sig;
         setSaveState({ status: 'saved', error: null, savedAt: new Date() });
       } catch (err) {
-        setSaveState({ status: 'error', error: err.message, savedAt: null });
+        console.error('SoundBoard save failed:', err);
+        setSaveState({ status: 'error', error: humanize(err), savedAt: null });
         throw err;
       }
       try {

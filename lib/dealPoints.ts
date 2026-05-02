@@ -83,6 +83,15 @@ export function computeTalentPayout(args: {
     0,
     ticketRevenueCents - costsOffTopCents - deal.guaranteeCents,
   );
+  // Rounding convention — venue-favorable floor.
+  //
+  // Math.floor is intentional. On any non-clean overage (e.g.
+  // 1_000_001 cents × 0.65 = 650_000.65) the talent loses the
+  // fractional cent per show — matches the long-running deal-buyer
+  // convention. Documented in docs/PHASE2_PLAN.md §B "Settlement
+  // math". The two other rounds in this module (parseDeal) use
+  // Math.round at INPUT boundaries; only the bonus is venue-favorable.
+  // Found via the 2026-05-02 breaker §5 P3 finding.
   const vsBonusCents =
     deal.vsPctAfterCosts === null
       ? 0
