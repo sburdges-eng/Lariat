@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { humanize } from '../../../../../lib/userError';
 
 function dollarsFromCents(cents) {
   return ((Number(cents) || 0) / 100).toFixed(2);
@@ -104,7 +105,8 @@ export default function DealEditor({ showId, locationId, initialDeal }) {
         }
         window.location.reload();
       } catch (err) {
-        setError(err.message);
+        console.error('DealEditor save failed:', err);
+        setError(humanize(err));
       }
     });
   };

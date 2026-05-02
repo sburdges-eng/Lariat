@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { humanize } from '../../../../lib/userError';
 
 export default function RecipeEditForm({ slug }) {
   const router = useRouter();
@@ -79,7 +80,8 @@ export default function RecipeEditForm({ slug }) {
       router.push(`/recipes/${slug}`);
       router.refresh();
     } catch (err) {
-      setError(err.message || 'An error occurred while saving');
+      console.error('RecipeEditForm save failed:', err);
+      setError(humanize(err));
       setSaving(false);
     }
   };

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useCallback } from 'react';
+import { humanize } from '../../../../lib/userError';
 
 const EMPTY_RIDER = '{}';
 
@@ -77,7 +78,8 @@ export default function StageBoard({
         setScore(data.completeness?.score ?? score);
         setSaveState({ status: 'saved', error: null });
       } catch (err) {
-        setSaveState({ status: 'error', error: err.message });
+        console.error('StageBoard save failed:', err);
+        setSaveState({ status: 'error', error: humanize(err) });
       }
     },
     [showId, locationId, roomConfig, runOfShowText, hospitalityText, techText, notes, score],

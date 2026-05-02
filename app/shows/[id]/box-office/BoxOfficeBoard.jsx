@@ -1,5 +1,6 @@
 'use client';
 import { useState, useTransition } from 'react';
+import { humanize } from '../../../../lib/userError';
 
 const SOURCES = [
   { k: 'walkup', l: 'Walk-up' },
@@ -82,7 +83,8 @@ export default function BoxOfficeBoard({
         setForm(initialForm);
         await refresh();
       } catch (err) {
-        setError(err.message);
+        console.error('BoxOfficeBoard add line failed:', err);
+        setError(humanize(err));
       }
     });
   };
@@ -101,7 +103,8 @@ export default function BoxOfficeBoard({
         }
         await refresh();
       } catch (err) {
-        setError(err.message);
+        console.error('BoxOfficeBoard scan failed:', err);
+        setError(humanize(err));
       }
     });
   };
