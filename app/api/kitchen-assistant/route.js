@@ -5,7 +5,7 @@ import {
   GROUNDED_SYSTEM,
   ollamaChat,
 } from '../../../lib/ollama';
-import { locationFromBody, locationFromRequest } from '../../../lib/location';
+import { locationFromBodyOrRequest } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import {
   CalculatorError,
@@ -98,9 +98,7 @@ export async function POST(req) {
     return Response.json({ error: `message too long (max ${MAX_MESSAGE} chars)` }, { status: 400 });
   }
 
-  const locFromBody = locationFromBody(body);
-  const locFromReq = locationFromRequest(req);
-  const locationId = locFromBody !== 'default' ? locFromBody : locFromReq;
+  const locationId = locationFromBodyOrRequest(body, req);
 
   const started = Date.now();
   let contextText;
