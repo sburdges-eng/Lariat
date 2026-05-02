@@ -1,10 +1,11 @@
 'use client';
 import React from 'react';
 import StatusPill from '../StatusPill';
+import { formatDollars } from '../../../lib/formatMoney';
 
 export default function TicketsTab({ show }) {
   const s = show?.status ?? {};
-  const price = show?.price == null ? '—' : `$${Number(show.price).toFixed(2)}`;
+  const price = formatDollars(show?.price);
   return (
     <div className="card" style={{ padding: 14 }}>
       <table className="tbl">

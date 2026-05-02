@@ -13,12 +13,12 @@ import { notFound } from 'next/navigation';
 import { getDb } from '../../../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../../../lib/location';
 import { listPriceSeries } from '../../../../../lib/vendorPricesRepo';
+import { formatDollars } from '../../../../../lib/formatMoney';
 
 export const dynamic = 'force-dynamic';
 
 function fmtPrice(n) {
-  if (n == null || !Number.isFinite(Number(n))) return '—';
-  return `$${Number(n).toFixed(4)}`;
+  return formatDollars(n, { decimals: 4 });
 }
 
 function fmtDate(iso) {

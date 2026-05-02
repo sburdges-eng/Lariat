@@ -1,5 +1,6 @@
 import { getDb } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
+import { formatDollars } from '../../lib/formatMoney';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,7 +47,7 @@ export default function PurchasingPage() {
                 <td>{r.base_qty != null ? String(r.base_qty) : '—'}</td>
                 <td>{r.unit}</td>
                 <td>{r.vendor}</td>
-                <td>{r.unit_price != null ? `$${Number(r.unit_price).toFixed(2)}` : '—'}</td>
+                <td>{formatDollars(r.unit_price)}</td>
               </tr>
             ))}
           </tbody>
