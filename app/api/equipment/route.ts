@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server';
+
 import { getDb } from '../../../lib/db';
+import { locationFromRequest, locationFromBody } from '../../../lib/location';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const locationId = searchParams.get('location_id') || 'default';
+  const locationId = locationFromRequest(request);
   const db = getDb();
 
   try {
@@ -18,10 +18,10 @@ export async function GET(request: Request) {
       ORDER BY e.category, e.name
     `).all(locationId);
 
-    return NextResponse.json(rows);
+    return Response.json(rows);
   } catch (err) {
     console.error('GET /api/equipment failed:', err);
-    return NextResponse.json({ error: 'Failed to load equipment' }, { status: 500 });
+    return Response.json({ error: 'Failed to load equipment' }, { status: 500 });
   }
 }
 
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const name = clip(body?.name, MAX_NAME);
-    if (!name) return NextResponse.json({ error: 'name required' }, { status: 400 });
+    if (!name) return Response.json({ error: 'name required' }, { status: 400 });
 
     const db = getDb();
     const info = db.prepare(`
@@ -75,12 +75,12 @@ export async function POST(request: Request) {
       manual_path: clip(body?.manual_path, MAX_TEXT),
       notes: clip(body?.notes, MAX_NOTES),
       status: clip(body?.status, 32) || 'active',
-      location_id: clip(body?.location_id, 64) || 'default',
+      location_id: locationFromBody(body),
     });
 
-    return NextResponse.json({ success: true, id: info.lastInsertRowid });
+    return Response.json({ success: true, id: info.lastInsertRowid });
   } catch (err) {
     console.error('POST /api/equipment failed:', err);
-    return NextResponse.json({ error: 'Failed to save equipment' }, { status: 500 });
+    return Response.json({ error: 'Failed to save equipment' }, { status: 500 });
   }
 }

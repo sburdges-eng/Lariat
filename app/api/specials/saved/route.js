@@ -1,7 +1,7 @@
 import { getDb } from '../../../../lib/db';
 import { uuidv7 } from '../../../../lib/uuid';
 import { logAuditAction } from '../../../../lib/auditLog.mjs';
-import { locationFromBody, locationFromRequest } from '../../../../lib/location';
+import { locationFromBodyOrRequest, locationFromRequest } from '../../../../lib/location';
 import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
 import {
   validateName,
@@ -56,9 +56,7 @@ export async function POST(req) {
     typeof body.cost_total === 'number' && Number.isFinite(body.cost_total) ? body.cost_total : null;
   const scratch = typeof body.scratch_notes === 'string' ? body.scratch_notes : '';
 
-  const locFromBody = locationFromBody(body);
-  const locFromReq = locationFromRequest(req);
-  const locationId = locFromBody !== 'default' ? locFromBody : locFromReq;
+  const locationId = locationFromBodyOrRequest(body, req);
 
   const id = uuidv7();
   const now = Date.now();

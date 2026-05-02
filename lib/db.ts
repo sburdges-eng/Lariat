@@ -529,6 +529,18 @@ export interface ReceivingEntry {
   shellstock_tag_ref: string | null;  // §3-203.12 shellstock 90-day retention ref
   cook_id: string | null;
   created_at: string;
+  /**
+   * Phase 3 closed-loop receiving — quantity actually received in the
+   * units the case label reports (lb, case, ea, gal, ...). NULL on pre-
+   * Phase-3 rows and on lines where the cook didn't capture a qty
+   * (closed-loop credit is opt-in per row). Pairs with `received_unit`.
+   */
+  received_qty: number | null;
+  /**
+   * Phase 3 closed-loop receiving — free-form unit string paired with
+   * `received_qty`. NULL when the closed-loop write was skipped.
+   */
+  received_unit: string | null;
 }
 
 /**
@@ -1802,6 +1814,18 @@ export function initSchema(db: DB): void {
       ON box_office_lines(show_id, location_id);
     CREATE INDEX IF NOT EXISTS idx_box_office_source_ext
       ON box_office_lines(source, external_ref);
+    -- Phase 2 DICE box-office ingest — idempotency on (source, external_ref).
+    -- The DICE order id is the natural key per Phase 2 plan §C2 + the
+    -- doc-comment in lib/boxOfficeRepo.ts. A partial UNIQUE index lets
+    -- bulkUpsertFromDice use ON CONFLICT to dedupe retries — without
+    -- it, a network-hiccup retry produces duplicate rows that inflate
+    -- grossCents in getSettlement, which inflates the talent vsBonus,
+    -- which silently overpays talent. Walkup / comp / will_call lines
+    -- legitimately have no external_ref and must NOT collide with each
+    -- other — the WHERE clause restricts the constraint to non-NULL.
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_box_office_external_ref_unique
+      ON box_office_lines(source, external_ref)
+      WHERE external_ref IS NOT NULL;
 
     -- Phase 2 task B: deal-point inputs for the per-show settlement.
     -- Cents-as-INTEGER everywhere so settlement math never sees float drift.
@@ -2569,6 +2593,17 @@ function assertCriticalSchemas(db: DB): void {
       'master_id', 'canonical_name', 'category',
       'preferred_vendor', 'last_reviewed',
     ],
+    // Phase 3 closed-loop receiving — guard the new closed-loop columns
+    // alongside Bundle F so a partial deploy fails loudly at init time
+    // instead of dropping silently into a "delivery logged but inventory
+    // untouched" state. Pre-Bundle-F rows still carry NULLs on package_ok
+    // / expiration_date; the column-presence check is what we're asserting.
+    receiving_log: [
+      'id', 'shift_date', 'location_id', 'vendor', 'category', 'item',
+      'reading_f', 'required_max_f', 'package_ok', 'expiration_date',
+      'received_qty', 'received_unit',
+      'status', 'rejection_reason',
+    ],
   };
   for (const [table, required] of Object.entries(requirements)) {
     const cols = (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[])
@@ -2674,6 +2709,63 @@ function migrateLegacyColumns(db: DB): void {
   addLoc('line_check_entries', t('line_check_entries'));
   addLoc('station_signoffs', t('station_signoffs'));
   addLoc('inventory_updates', t('inventory_updates'));
+
+  // Phase 3 closed-loop receiving — inventory_updates rows written by the
+  // closed-loop credit path stamp the source receiving_log row id here.
+  // The partial UNIQUE index below makes the credit at-most-once per
+  // receiving_log row: if the route ever re-enters with the same source
+  // id (e.g. a stray retry inside the same transaction or a future
+  // backfill that double-runs) the second INSERT fails the constraint
+  // and the surrounding tx rolls back. Manual on-hand adjustments + the
+  // sales-depletion path leave this NULL — the partial index ignores
+  // those rows so they aren't constrained.
+  // NOTE: this does NOT defend against true client double-tap (each POST
+  // creates a fresh receiving_log row with a fresh id). That's a UI /
+  // network-boundary concern; see app/api/receiving/route.js for the
+  // documented limit. The handle here protects against in-process
+  // double-credit on the SAME source row.
+  const invCols = t('inventory_updates');
+  if (!invCols.includes('receiving_log_id')) {
+    try {
+      db.exec(
+        'ALTER TABLE inventory_updates ADD COLUMN receiving_log_id INTEGER REFERENCES receiving_log(id)',
+      );
+    } catch { /* ignore */ }
+  }
+  try {
+    db.exec(
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_updates_receiving_log_id
+         ON inventory_updates(receiving_log_id)
+         WHERE receiving_log_id IS NOT NULL`,
+    );
+  } catch { /* ignore */ }
+
+  // §8 P1 cutover — service-worker replay idempotency.
+  //
+  // Every regulated POST handler that opts into withIdempotency() (in
+  // lib/idempotency.ts) writes the cached response here keyed on the
+  // client-supplied UUIDv7 idempotency-key header. A replayed request
+  // (e.g. SW retry after a dropped 201) hits the cache and returns the
+  // original response without re-running the handler.
+  //
+  // 24h TTL via lazy sweep on each wrapped POST — no background job.
+  // Acceptable because shifts are <24h. Spec + plan at
+  // docs/superpowers/{specs,plans}/2026-05-02-sw-replay-idempotency-*.md
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS idempotency_keys (
+        key             TEXT PRIMARY KEY,
+        method          TEXT NOT NULL,
+        path            TEXT NOT NULL,
+        request_hash    TEXT NOT NULL,
+        response_status INTEGER NOT NULL,
+        response_body   TEXT NOT NULL,
+        created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_idempotency_created
+        ON idempotency_keys(created_at);
+    `);
+  } catch { /* ignore */ }
 
   // F15 (FDA §3-301.11): glove-change attestation on each line-check row
   // that touches ready-to-eat food. NULL on pre-migration rows so the
@@ -2920,10 +3012,19 @@ function migrateLegacyColumns(db: DB): void {
   // expiration_date (§3-101.11). Pre-F rows stay NULL on both; that's
   // the conventional "unrecorded" sentinel the route + rule module
   // reason about.
+  // Phase 3 closed-loop receiving — receiving_log gains received_qty
+  // and received_unit so an accepted delivery can credit inventory in
+  // the same transaction as the source INSERT. Both NULLable: pre-Phase-3
+  // rows + new rows where the cook didn't capture a quantity stay NULL
+  // (the closed-loop write is opt-in per row; missing qty/unit means
+  // "delivery logged, on-hand untouched"). Backfill is intentionally
+  // not attempted — historical rows have no provenance for qty/unit.
   const recvCols = t('receiving_log');
   const recvMigrations: [string, string][] = [
     ['package_ok', 'ALTER TABLE receiving_log ADD COLUMN package_ok INTEGER'],
     ['expiration_date', 'ALTER TABLE receiving_log ADD COLUMN expiration_date TEXT'],
+    ['received_qty', 'ALTER TABLE receiving_log ADD COLUMN received_qty REAL'],
+    ['received_unit', 'ALTER TABLE receiving_log ADD COLUMN received_unit TEXT'],
   ];
   for (const [col, ddl] of recvMigrations) {
     if (!recvCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }

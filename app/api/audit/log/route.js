@@ -1,20 +1,28 @@
-import { cookies } from 'next/headers';
 import { getRecentAuditLog, getAuditLogByAction, getAuditLogForRecipe } from '../../../../lib/auditLog.mjs';
+import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
 
-// GET /api/audit/log - retrieve audit logs (management only)
-export async function GET(request) {
-  // Verify management role via the PIN cookie (same gate as
-  // middleware.js uses for other sensitive surfaces). One cookie,
-  // one source of truth.
-  const cookieStore = await cookies();
-  const pinOk = cookieStore.get('lariat_pin_ok');
+// GET /api/audit/log - retrieve audit logs (management only).
+//
+// Pre-fix this route did `pinOk?.value !== '1'`, which silently rejected
+// the HMAC-signed cookie format (`v1.<base64>`) introduced in
+// lib/pinCookie.ts. With LARIAT_PIN_SECRET configured every legitimate
+// manager would 403 here. The fix uses the canonical hasPinCookie()
+// helper from lib/pin.ts so legacy and signed cookies are both
+// validated through the same path as middleware.js.
 
-  if (pinOk?.value !== '1') {
+async function requirePin(req) {
+  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
     return Response.json(
       { error: 'Unauthorized. Management access required.' },
-      { status: 403 }
+      { status: 401 },
     );
   }
+  return null;
+}
+
+export async function GET(request) {
+  const pinFail = await requirePin(request);
+  if (pinFail) return pinFail;
 
   try {
     const { searchParams } = new URL(request.url);

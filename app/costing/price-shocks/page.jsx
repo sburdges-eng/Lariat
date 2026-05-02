@@ -13,6 +13,7 @@
 import Link from 'next/link';
 import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
+import { formatDollars } from '../../../lib/formatMoney';
 import { listPriceShocks } from '../../../lib/vendorPricesRepo';
 import { affectedDishes, affectedRecipes } from '../../../lib/priceShockImpact';
 
@@ -35,8 +36,7 @@ function fmtPct(n) {
 }
 
 function fmtPrice(n) {
-  if (n == null || !Number.isFinite(Number(n))) return '—';
-  return `$${Number(n).toFixed(4)}`;
+  return formatDollars(n, { decimals: 4 });
 }
 
 function fmtDate(iso) {

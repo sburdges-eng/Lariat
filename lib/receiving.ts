@@ -204,6 +204,27 @@ export interface ValidateReceivingInput {
    * against `expiration_date`.
    */
   received_at?: unknown;
+  /**
+   * Phase 3 closed-loop receiving — quantity actually received, in the
+   * units the case label reports (lb, case, ea, gal, ...). Optional:
+   * when present alongside a non-empty `received_unit` AND a positive
+   * value AND `status` lands at 'ok' / 'accept_with_note', the API
+   * route credits inventory in the same transaction as the receiving
+   * row. When absent, the closed-loop write is silently skipped — the
+   * delivery still records, but on-hand isn't bumped. Negative or
+   * zero values are an outright validation error (see
+   * `validateReceivingReading` decision-order step 3a).
+   */
+  received_qty?: unknown;
+  /**
+   * Phase 3 closed-loop receiving — unit string paired with
+   * `received_qty`. Free-form by design (no enum) because vendor case
+   * labels vary by SKU; the inventory_updates table stores the same
+   * string verbatim so depletion reconciliation can compare like for
+   * like. Empty/whitespace strings are treated as "absent" — the
+   * closed-loop write is then skipped without an error.
+   */
+  received_unit?: unknown;
 }
 
 export interface ValidateReceivingResult {
@@ -218,6 +239,15 @@ export interface ValidateReceivingResult {
    * to cross-reference the mutable rule registry.
    */
   required_max_f: number | null;
+  /**
+   * Phase 3 closed-loop receiving — non-null when the caller provided
+   * `received_qty` / `received_unit` but they didn't type-check (e.g.
+   * negative qty, empty unit). This is a 400-class *input* error,
+   * NOT a HACCP rule decision, so it travels separately from `status`
+   * (which keeps temp/package/sell-by semantics). The route surfaces
+   * this as a 400 response; `status` may still be 'ok' alongside it.
+   */
+  closed_loop_error: string | null;
 }
 
 const ABS_MIN_F = -100;
@@ -255,12 +285,63 @@ function asNumberOrNull(x: unknown): number | null {
  * gate it on a non-empty corrective_action field at the API boundary.
  * `rejected` is an unconditional no.
  */
+/**
+ * Phase 3 closed-loop receiving — type/range-check the optional
+ * inventory fields. Returns null when both fields are absent (closed
+ * loop opt-out, the common pre-Phase-3 happy path) OR both are valid.
+ * Returns a 400-class error string when the caller provided malformed
+ * data. Pure: no side effects, no rule lookups.
+ */
+function checkClosedLoopFields(input: ValidateReceivingInput): string | null {
+  const qtyRaw = input.received_qty;
+  const unitRaw = input.received_unit;
+  const qtyProvided = qtyRaw !== undefined && qtyRaw !== null && qtyRaw !== '';
+  const unitProvided = unitRaw !== undefined && unitRaw !== null && unitRaw !== '';
+  if (!qtyProvided && !unitProvided) return null;
+
+  const qtyNum = asNumberOrNull(qtyRaw);
+  if (qtyNum === null) {
+    return 'received_qty must be a number when capturing closed-loop receiving';
+  }
+  if (!(qtyNum > 0)) {
+    return `received_qty must be greater than 0 (got ${qtyNum})`;
+  }
+  const unitStr = asStringOrNull(unitRaw);
+  if (!unitStr) {
+    return 'received_unit must be a non-empty string when received_qty is provided';
+  }
+  if (unitStr.length > 32) {
+    return `received_unit too long (max 32 chars; got ${unitStr.length})`;
+  }
+  return null;
+}
+
 export function validateReceivingReading(
   input: ValidateReceivingInput,
 ): ValidateReceivingResult {
+  // Phase 3 closed-loop receiving — pre-compute once. Travels alongside
+  // the rule decision rather than overriding it: a bad qty doesn't
+  // make the temp wrong, and a missed temp doesn't excuse a bad qty.
+  // The route surfaces this as a 400 (input error), not a 422
+  // (needs_corrective_action).
+  const closed_loop_error = checkClosedLoopFields(input);
+
   const rule = getReceivingRule(input.category);
   if (!rule) {
-    throw new Error(`unknown receiving category: ${String(input.category)}`);
+    // Unknown category is a soft "yes, with a note" rather than a
+    // throw. The route hard-400s unknown categories upstream, but
+    // direct lib callers (test fixtures, scripts that synthesize a
+    // ReceivingRow from a legacy export) need a non-throwing path so
+    // an orphan category doesn't crash the whole batch. The rule
+    // module's job is to score a reading; classification of "is this
+    // a category we know" is the caller's job.
+    return {
+      status: 'accept_with_note',
+      reason: 'Unknown category — accept with note',
+      citation: null,
+      required_max_f: null,
+      closed_loop_error,
+    };
   }
 
   // §3-202.15 — visible adulteration / compromised package is an
@@ -271,6 +352,7 @@ export function validateReceivingReading(
       reason: 'package integrity compromised — reject per §3-202.15',
       citation: 'FDA §3-202.15 — package integrity',
       required_max_f: rule.required_max_f,
+      closed_loop_error,
     };
   }
 
@@ -285,6 +367,7 @@ export function validateReceivingReading(
         reason: `past sell-by date (${exp} < ${received}) — reject per §3-101.11`,
         citation: 'FDA §3-101.11 — safe, unadulterated, honestly presented',
         required_max_f: rule.required_max_f,
+        closed_loop_error,
       };
     }
   }
@@ -297,6 +380,7 @@ export function validateReceivingReading(
       reason: null,
       citation: null,
       required_max_f: rule.required_max_f,
+      closed_loop_error,
     };
   }
 
@@ -307,6 +391,7 @@ export function validateReceivingReading(
       reason: `${rule.label} requires a temperature reading at receiving — no reading recorded`,
       citation: rule.citation,
       required_max_f: rule.required_max_f,
+      closed_loop_error,
     };
   }
   if (r < ABS_MIN_F || r > ABS_MAX_F) {
@@ -315,6 +400,7 @@ export function validateReceivingReading(
       reason: `reading ${r}°F is off the charts — check the probe and re-take`,
       citation: rule.citation,
       required_max_f: rule.required_max_f,
+      closed_loop_error,
     };
   }
 
@@ -328,6 +414,7 @@ export function validateReceivingReading(
         reason: `${r}°F is above the ${max}°F limit but within the ${dMax}°F drift band — accept only with a corrective action`,
         citation: rule.citation,
         required_max_f: max,
+        closed_loop_error,
       };
     }
     return {
@@ -335,6 +422,7 @@ export function validateReceivingReading(
       reason: `${r}°F exceeds the ${dMax ?? max}°F reject limit for ${rule.label}`,
       citation: rule.citation,
       required_max_f: max,
+      closed_loop_error,
     };
   }
 
@@ -346,6 +434,7 @@ export function validateReceivingReading(
         reason: `${r}°F is below the ${min}°F floor but within the ${dMin}°F drift band — accept only with a corrective action`,
         citation: rule.citation,
         required_max_f: max,
+        closed_loop_error,
       };
     }
     return {
@@ -353,6 +442,7 @@ export function validateReceivingReading(
       reason: `${r}°F is below the ${dMin ?? min}°F reject floor for ${rule.label}`,
       citation: rule.citation,
       required_max_f: max,
+      closed_loop_error,
     };
   }
 
@@ -361,6 +451,7 @@ export function validateReceivingReading(
     reason: null,
     citation: null,
     required_max_f: max,
+    closed_loop_error,
   };
 }
 

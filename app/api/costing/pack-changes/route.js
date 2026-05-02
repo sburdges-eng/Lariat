@@ -9,6 +9,7 @@
  */
 
 import { getDb } from '../../../../lib/db';
+import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
 import {
   listPackChanges,
   unacknowledgedCount,
@@ -21,6 +22,13 @@ export const dynamic = 'force-dynamic';
 
 const VALID_FILTERS = new Set(['open', 'acknowledged', 'all']);
 
+async function requirePin(req) {
+  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+    return Response.json({ error: 'PIN required' }, { status: 401 });
+  }
+  return null;
+}
+
 function clampLimit(raw) {
   if (raw == null || raw === '') return 200;
   const n = Number(raw);
@@ -29,6 +37,8 @@ function clampLimit(raw) {
 }
 
 export async function GET(req) {
+  const pinFail = await requirePin(req);
+  if (pinFail) return pinFail;
   try {
     const url = new URL(req.url);
     const filterRaw = url.searchParams.get('filter') ?? 'open';
@@ -61,6 +71,8 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  const pinFail = await requirePin(req);
+  if (pinFail) return pinFail;
   let body;
   try {
     body = await req.json();
@@ -84,17 +96,17 @@ export async function POST(req) {
 
   try {
     const db = getDb();
+    const existing = getPackChangeById(db, id);
+    if (!existing) {
+      return Response.json(
+        { error: 'pack_size_changes row not found', id },
+        { status: 404 },
+      );
+    }
+
+    const wasAlreadyAcknowledged = existing.acknowledged === 1;
     const result = db.transaction(() => {
-      const existing = getPackChangeById(db, id);
-      if (!existing) {
-        return {
-          found: false,
-          was_already_acknowledged: false,
-          acknowledged: 0,
-          row: null,
-        };
-      }
-      if (existing.acknowledged === 1) {
+      if (wasAlreadyAcknowledged) {
         return {
           found: true,
           was_already_acknowledged: true,
@@ -102,25 +114,31 @@ export async function POST(req) {
           row: existing,
         };
       }
-
-      const ack = acknowledgePackChange(db, id);
-      logAuditAction({
-        action: 'pack_size_change_acknowledged',
-        pack_size_changes_id: id,
-        vendor: existing.vendor,
-        sku: existing.sku,
-        prev_pack: existing.prev_pack,
-        new_pack: existing.new_pack,
-        note,
-      });
-      return ack;
+      return acknowledgePackChange(db, id);
     })();
-    if (!result.found) {
-      return Response.json(
-        { error: 'pack_size_changes row not found', id },
-        { status: 404 },
-      );
+
+    if (!result.was_already_acknowledged) {
+      try {
+        logAuditAction({
+          action: 'pack_size_change_acknowledged',
+          pack_size_changes_id: id,
+          vendor: existing.vendor,
+          sku: existing.sku,
+          prev_pack: existing.prev_pack,
+          new_pack: existing.new_pack,
+          note,
+        });
+      } catch (auditErr) {
+        // The DB acknowledgement is already committed; surfacing this as a 500
+        // would cause the client to retry, but the row is already acknowledged
+        // and the audit write would be permanently skipped. Log and continue.
+        console.error(
+          'POST /api/costing/pack-changes audit write failed:',
+          auditErr,
+        );
+      }
     }
+
     return Response.json({
       id,
       acknowledged: 1,

@@ -78,6 +78,12 @@ export default function ReceivingBoard({
   const [packageOk, setPackageOk] = useState(true);
   const [expiration, setExpiration] = useState('');
   const [note, setNote] = useState('');
+  // Phase 3 closed-loop receiving — optional fields. When both are
+  // filled in alongside an accepted line, the server credits stock
+  // automatically. Blank → server skips the stock write; the receiving
+  // row still lands.
+  const [receivedQty, setReceivedQty] = useState('');
+  const [receivedUnit, setReceivedUnit] = useState('');
   const [needsNote, setNeedsNote] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -140,6 +146,8 @@ export default function ReceivingBoard({
           expiration_date: expiration.trim() || null,
           corrective_action: note.trim() || null,
           cook_id: cookId || null,
+          received_qty: receivedQty.trim() === '' ? null : Number(receivedQty),
+          received_unit: receivedUnit.trim() || null,
         }),
       });
       if (!res.ok) {
@@ -159,6 +167,8 @@ export default function ReceivingBoard({
       setPackageOk(true);
       setExpiration('');
       setNote('');
+      setReceivedQty('');
+      setReceivedUnit('');
       setNeedsNote(false);
       await refetch();
     } catch {
@@ -327,6 +337,43 @@ export default function ReceivingBoard({
               value={expiration}
               onChange={(e) => setExpiration(e.target.value)}
             />
+          </label>
+          <label htmlFor="rcv-qty">
+            <span>How much? — optional</span>
+            <input
+              id="rcv-qty"
+              name="rcv-qty"
+              type="text"
+              inputMode="decimal"
+              pattern="[0-9]*([.,][0-9]+)?"
+              autoComplete="off"
+              value={receivedQty}
+              onChange={(e) => setReceivedQty(e.target.value)}
+              placeholder="e.g. 40"
+            />
+          </label>
+          <label htmlFor="rcv-unit">
+            <span>Unit — optional</span>
+            <input
+              id="rcv-unit"
+              name="rcv-unit"
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              maxLength={32}
+              list="rcv-unit-options"
+              value={receivedUnit}
+              onChange={(e) => setReceivedUnit(e.target.value)}
+              placeholder="lb, case, ea, gal"
+            />
+            <datalist id="rcv-unit-options">
+              <option value="lb" />
+              <option value="case" />
+              <option value="ea" />
+              <option value="gal" />
+              <option value="oz" />
+              <option value="kg" />
+            </datalist>
           </label>
           <label className="rcv-form-pkg" htmlFor="rcv-pkg">
             <input

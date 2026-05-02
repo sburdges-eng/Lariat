@@ -14,6 +14,7 @@ import type { Recipe, AllergenMatrix, Station } from './data';
 import type { Database as DB } from 'better-sqlite3';
 import * as datapackSearch from './datapackSearch';
 import type { FdaSection, HybridHit } from './datapackSearch';
+import { renderCompliance } from './complianceSearch';
 
 const MAX_86 = 40;
 const MAX_INV = 20;
@@ -431,7 +432,6 @@ export async function buildGroundedContext(
   // built from data/normalized/compliance_rules.jsonl. Silently no-ops
   // when the index has not been built (build via npm run compliance:build).
   if (matchesKeywords(qLower, COMPLIANCE_KEYWORDS)) {
-    const { renderCompliance } = await import('./complianceSearch.ts');
     const block = renderCompliance(userQuestion);
     if (block.text) {
       text += block.text;

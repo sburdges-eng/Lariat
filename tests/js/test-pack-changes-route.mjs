@@ -162,25 +162,38 @@ describe('POST /api/costing/pack-changes (acknowledge)', () => {
     assert.equal(entry.note, 'Confirmed pack swap with Sysco rep');
   });
 
-  it('does not acknowledge the row when management audit logging fails', async () => {
+  it('still acknowledges the row when management audit logging fails', async () => {
+    // Audit-write atomicity contract: logAuditAction targets the
+    // management JSONL file (lib/auditLog.mjs), NOT the regulated
+    // audit_events table. A file-write failure must NOT roll back the
+    // DB ack — the row is already acknowledged from the operator's
+    // standpoint and a 5xx would prompt a retry that re-acks the same
+    // row, doubling the audit attempts. The route catches and logs.
     const id = seedChange({ sku: 'A' });
     fs.writeFileSync(path.join(tmpRoot, 'data'), 'not a directory');
 
     const originalError = console.error;
-    console.error = () => {};
+    let captured;
+    console.error = (...args) => {
+      captured = args;
+    };
     let res;
     try {
       res = await POST(postReq({ id, note: 'audit path blocked' }));
     } finally {
       console.error = originalError;
     }
-    assert.equal(res.status, 500);
+    assert.equal(res.status, 200);
 
     const persisted = db.prepare(
       'SELECT acknowledged FROM pack_size_changes WHERE id = ?',
     ).get(id);
-    assert.equal(persisted.acknowledged, 0);
+    assert.equal(persisted.acknowledged, 1);
     assert.equal(fs.existsSync(auditFile), false);
+    assert.ok(
+      captured && /audit write failed/.test(String(captured[0])),
+      'audit failure should be logged via console.error',
+    );
   });
 
   it('idempotent — second acknowledge does not double-audit', async () => {

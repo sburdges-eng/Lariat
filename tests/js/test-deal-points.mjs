@@ -120,4 +120,26 @@ describe('computeTalentPayout', () => {
     const r = dp.computeTalentPayout({ deal, ticketRevenueCents: 0 });
     assert.equal(r.totalCents, 75000);
   });
+
+  // §5 P3 — venue-favorable rounding (Math.floor). Documented in
+  // docs/PHASE2_PLAN.md §B "Rounding convention". Pin the choice so
+  // a future refactor doesn't silently flip to round / banker's.
+  it('vs%-bonus floors fractional cents (venue-favorable convention)', () => {
+    const deal = {
+      guaranteeCents: 0,
+      vsPctAfterCosts: 0.65,
+      costsOffTop: [],
+      buyoutCents: 0,
+    };
+    // overage = 1_000_001 - 0 - 0 = 1_000_001
+    // overage * 0.65 = 650_000.65
+    // floor(650_000.65) = 650_000  (talent loses 0.65 cents)
+    // Math.round would give 650_001.
+    const r = dp.computeTalentPayout({
+      deal,
+      ticketRevenueCents: 1_000_001,
+    });
+    assert.equal(r.vsBonusCents, 650_000);
+    assert.equal(r.totalCents, 650_000);
+  });
 });

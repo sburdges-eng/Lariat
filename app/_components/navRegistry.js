@@ -411,6 +411,35 @@ export const NAV_ITEMS = [
     locAware: t,
     surface: { sidebar: f, palette: t, shelf: f },
   },
+
+  // ── Management ──────────────────────────────────────────────────────
+  // Rollup dashboard at /management composes already-shipped signals
+  // (variance, costing freshness, coverage, compliance, pack-size, cleaning).
+  // Palette-only — sidebar already has dedicated tiles for the underlying
+  // surfaces; management is a roll-up for managers, not a new daily route.
+  {
+    id: 'management',
+    href: '/management',
+    name: 'Management',
+    sub: 'GM rollup',
+    group: 'Management',
+    terms: 'management rollup gm dashboard manager overview',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  // Audit-log lives under /management. Palette-only — sidebar would
+  // crowd the rail, but jumping to "audit" via ⌘K is a common GM move
+  // when reconciling who edited what.
+  {
+    id: 'management-audit-log',
+    href: '/management/audit-log',
+    name: 'Audit log',
+    sub: 'Management actions outside regulated tables',
+    group: 'Management',
+    terms: 'audit log management actions recipes cost edits trail history',
+    locAware: f,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
 ];
 
 // ── Selectors ─────────────────────────────────────────────────────────

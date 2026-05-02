@@ -1,8 +1,17 @@
-import { NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
-import { triggerComputeEngine } from '@/lib/computeEngine/index';
+import { getDb } from '../../../../lib/db';
+import { triggerComputeEngine } from '../../../../lib/computeEngine/index';
+import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
+
+async function requirePin(req) {
+  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+    return Response.json({ error: 'PIN required' }, { status: 401 });
+  }
+  return null;
+}
 
 export async function GET(request) {
+  const pinFail = await requirePin(request);
+  if (pinFail) return pinFail;
   const { searchParams } = new URL(request.url);
   const locationId = searchParams.get('location') || 'default';
 
@@ -25,7 +34,7 @@ export async function GET(request) {
       ORDER BY id DESC LIMIT 10
     `).all(locationId);
 
-    return NextResponse.json({
+    return Response.json({
       status: 'ok',
       engine: 'online',
       data: {
@@ -35,11 +44,13 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error('Compute Status Error:', error);
-    return NextResponse.json({ status: 'error', message: error.message }, { status: 500 });
+    return Response.json({ status: 'error', message: error.message }, { status: 500 });
   }
 }
 
 export async function POST(request) {
+  const pinFail = await requirePin(request);
+  if (pinFail) return pinFail;
   const { searchParams } = new URL(request.url);
   const locationId = searchParams.get('location') || 'default';
   const periodStart = searchParams.get('period_start') || undefined;
@@ -60,7 +71,7 @@ export async function POST(request) {
     }
   });
 
-  return NextResponse.json({
+  return Response.json({
     status: 'ok',
     message: 'Compute Engine triggered',
     location_id: locationId,

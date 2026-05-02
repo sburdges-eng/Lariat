@@ -1,12 +1,27 @@
 'use client';
 
+// Management audit log — manager-only review of out-of-table actions.
+//
+// PIN gate: `/management/*` is in middleware.js SENSITIVE_PREFIXES, so the
+// browser cannot reach this page without a valid `lariat_pin_ok` cookie.
+// As defence-in-depth (and because the cookie can expire mid-session), we
+// also treat a 401/403 from `/api/audit/log` as authoritative — on that
+// signal we route the user to `/login-pin?next=/management/audit-log` so
+// they can re-PIN and come back, rather than dumping them on /recipes
+// (which leaves the dashboard surface in a confusing zombie state).
+//
+// We do NOT use RoleProvider for the gate any more: it derives its state
+// from a non-HttpOnly shadow cookie that's only set in jsdom tests, so in
+// production `canViewFinancials` is always false and the redirect always
+// fired, breaking the page entirely. The middleware + the API's signed
+// PIN-cookie check are the real gates.
+
 import { useEffect, useState } from 'react';
-import { useRole } from '../../_components/RoleProvider';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { humanize } from '../../../lib/userError';
 
 export default function AuditLogPage() {
-  const { canViewFinancials } = useRole();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState([]);
@@ -15,16 +30,6 @@ export default function AuditLogPage() {
   const [filterSlug, setFilterSlug] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-
-  useEffect(() => {
-    if (!canViewFinancials) {
-      router.push('/recipes');
-    }
-  }, [canViewFinancials, router]);
-
-  if (!canViewFinancials) {
-    return null;
-  }
 
   const fetchAuditLog = async () => {
     setRefreshing(true);
@@ -37,6 +42,15 @@ export default function AuditLogPage() {
         method: 'GET',
       });
 
+      // PIN expired or never set — bounce to /login-pin and come back.
+      // The API uses the same `lariat_pin_ok` gate as middleware, so a
+      // 401/403 here is the authoritative "you don't have manager
+      // authority" signal.
+      if (response.status === 401 || response.status === 403) {
+        router.replace(`/login-pin?next=${encodeURIComponent('/management/audit-log')}`);
+        return;
+      }
+
       if (!response.ok) {
         throw new Error(`Failed to fetch audit log: ${response.statusText}`);
       }
@@ -45,7 +59,8 @@ export default function AuditLogPage() {
       setLogs(data.logs || []);
       setError(null);
     } catch (err) {
-      setError(err.message);
+      console.error('audit-log fetch failed:', err);
+      setError(humanize(err));
       setLogs([]);
     } finally {
       setLoading(false);
@@ -55,6 +70,7 @@ export default function AuditLogPage() {
 
   useEffect(() => {
     fetchAuditLog();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterAction, filterSlug]);
 
   const uniqueActions = Array.from(
@@ -305,8 +321,8 @@ export default function AuditLogPage() {
 
       {/* Navigation Link */}
       <div style={{ marginTop: 24 }}>
-        <Link href="/recipes" style={{ color: 'var(--accent)', fontSize: 13 }}>
-          ← Back to recipes
+        <Link href="/management" style={{ color: 'var(--accent)', fontSize: 13 }}>
+          ← Back to management
         </Link>
       </div>
     </div>

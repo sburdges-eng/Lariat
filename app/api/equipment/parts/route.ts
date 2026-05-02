@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+
 import { getDb } from '../../../../lib/db';
+import { locationFromRequest, locationFromBody } from '../../../../lib/location';
 
 const MAX_TEXT = 500;
 const MAX_NOTES = 2000;
@@ -17,8 +18,8 @@ function toNum(v: unknown): number | null {
 }
 
 export async function GET(request: Request) {
+  const locationId = locationFromRequest(request);
   const { searchParams } = new URL(request.url);
-  const locationId = searchParams.get('location_id') || 'default';
   const equipmentId = searchParams.get('equipment_id');
   const db = getDb();
 
@@ -31,10 +32,10 @@ export async function GET(request: Request) {
     }
     q += ` ORDER BY equipment_id, part_number`;
     const rows = db.prepare(q).all(...params);
-    return NextResponse.json(rows);
+    return Response.json(rows);
   } catch (err) {
     console.error('GET /api/equipment/parts failed:', err);
-    return NextResponse.json({ error: 'Failed to load parts' }, { status: 500 });
+    return Response.json({ error: 'Failed to load parts' }, { status: 500 });
   }
 }
 
@@ -44,10 +45,10 @@ export async function POST(request: Request) {
     const equipment_id = Number(body?.equipment_id);
     const part_number = clip(body?.part_number, MAX_TEXT);
     if (!Number.isInteger(equipment_id) || equipment_id <= 0) {
-      return NextResponse.json({ error: 'equipment_id required' }, { status: 400 });
+      return Response.json({ error: 'equipment_id required' }, { status: 400 });
     }
     if (!part_number) {
-      return NextResponse.json({ error: 'part_number required' }, { status: 400 });
+      return Response.json({ error: 'part_number required' }, { status: 400 });
     }
 
     const db = getDb();
@@ -70,12 +71,12 @@ export async function POST(request: Request) {
       last_ordered: clip(body?.last_ordered, 32),
       last_order_ref: clip(body?.last_order_ref, MAX_TEXT),
       notes: clip(body?.notes, MAX_NOTES),
-      location_id: clip(body?.location_id, 64) || 'default',
+      location_id: locationFromBody(body),
     });
 
-    return NextResponse.json({ success: true, id: info.lastInsertRowid });
+    return Response.json({ success: true, id: info.lastInsertRowid });
   } catch (err) {
     console.error('POST /api/equipment/parts failed:', err);
-    return NextResponse.json({ error: 'Failed to save part' }, { status: 500 });
+    return Response.json({ error: 'Failed to save part' }, { status: 500 });
   }
 }

@@ -16,9 +16,17 @@
 
 import { getDb } from '../../../../lib/db';
 import { locationFromRequest } from '../../../../lib/location';
+import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
 import { listDepletionExceptions } from '../../../../lib/depletionExceptions';
 
 export const dynamic = 'force-dynamic';
+
+async function requirePin(req) {
+  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+    return Response.json({ error: 'PIN required' }, { status: 401 });
+  }
+  return null;
+}
 
 function clampLimit(raw) {
   if (raw == null || raw === '') return 200;
@@ -28,6 +36,8 @@ function clampLimit(raw) {
 }
 
 export async function GET(req) {
+  const pinFail = await requirePin(req);
+  if (pinFail) return pinFail;
   try {
     const loc = locationFromRequest(req);
     const url = new URL(req.url);

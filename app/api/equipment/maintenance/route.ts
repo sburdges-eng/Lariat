@@ -1,11 +1,12 @@
-import { NextResponse } from 'next/server';
+
 import { getDb } from '../../../../lib/db';
+import { locationFromRequest, locationFromBody } from '../../../../lib/location';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
+  const locationId = locationFromRequest(request);
   const { searchParams } = new URL(request.url);
-  const locationId = searchParams.get('location_id') || 'default';
   const equipmentId = searchParams.get('equipment_id');
   const db = getDb();
 
@@ -19,10 +20,10 @@ export async function GET(request: Request) {
     q += ` ORDER BY service_date DESC, id DESC`;
 
     const rows = db.prepare(q).all(...params);
-    return NextResponse.json(rows);
+    return Response.json(rows);
   } catch (err) {
     console.error('GET /api/equipment/maintenance failed:', err);
-    return NextResponse.json({ error: 'Failed to load maintenance' }, { status: 500 });
+    return Response.json({ error: 'Failed to load maintenance' }, { status: 500 });
   }
 }
 
@@ -47,10 +48,10 @@ export async function POST(request: Request) {
     const equipment_id = Number(body?.equipment_id);
     const service_date = clip(body?.service_date, 32);
     if (!Number.isInteger(equipment_id) || equipment_id <= 0) {
-      return NextResponse.json({ error: 'equipment_id required' }, { status: 400 });
+      return Response.json({ error: 'equipment_id required' }, { status: 400 });
     }
     if (!service_date) {
-      return NextResponse.json({ error: 'service_date required' }, { status: 400 });
+      return Response.json({ error: 'service_date required' }, { status: 400 });
     }
 
     const db = getDb();
@@ -65,12 +66,12 @@ export async function POST(request: Request) {
       notes: clip(body?.notes, MAX_NOTE),
       receipt_reference: clip(body?.receipt_reference, MAX_REF),
       cook_id: clip(body?.cook_id, 64),
-      location_id: clip(body?.location_id, 64) || 'default',
+      location_id: locationFromBody(body),
     });
 
-    return NextResponse.json({ success: true, id: info.lastInsertRowid });
+    return Response.json({ success: true, id: info.lastInsertRowid });
   } catch (err) {
     console.error('POST /api/equipment/maintenance failed:', err);
-    return NextResponse.json({ error: 'Failed to save maintenance' }, { status: 500 });
+    return Response.json({ error: 'Failed to save maintenance' }, { status: 500 });
   }
 }

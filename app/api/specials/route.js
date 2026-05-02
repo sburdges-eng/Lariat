@@ -4,7 +4,7 @@ import {
   CREATIVE_SYSTEM,
   ollamaChat,
 } from '../../../lib/ollama';
-import { locationFromBody, locationFromRequest } from '../../../lib/location';
+import { locationFromBodyOrRequest } from '../../../lib/location';
 import { computeSandboxCost } from '../../../lib/computeEngine/sandboxCosting';
 
 export const dynamic = 'force-dynamic';
@@ -79,9 +79,7 @@ export async function POST(req) {
     return Response.json({ error: `message too long (max ${MAX_MESSAGE} chars)` }, { status: 400 });
   }
 
-  const locFromBody = locationFromBody(body);
-  const locFromReq = locationFromRequest(req);
-  const locationId = locFromBody !== 'default' ? locFromBody : locFromReq;
+  const locationId = locationFromBodyOrRequest(body, req);
 
   const started = Date.now();
   let contextText;
@@ -110,8 +108,22 @@ export async function POST(req) {
     const { payload, stripped } = extractAction(content);
     if (payload && payload.action === 'cost_special' && Array.isArray(payload.ingredients)) {
       finalAnswer = stripped || '';
+      // §6 P3 — guard payload.* field types before they flow into compute
+      // code per docs/PATTERNS.md §10. Drop any ingredient whose item
+      // isn't a non-empty string, whose unit isn't a string, or whose
+      // qty isn't a finite number. The LLM sometimes emits Array unit
+      // values or null item names; bad shapes silently round-trip
+      // through computeSandboxCost as wrong-but-not-crashing rows.
+      const cleaned = payload.ingredients.filter(
+        (i) =>
+          i &&
+          typeof i.item === 'string' &&
+          i.item.trim() &&
+          typeof i.unit === 'string' &&
+          Number.isFinite(Number(i.qty)),
+      );
       try {
-        costResult = computeSandboxCost(locationId, payload.ingredients);
+        costResult = computeSandboxCost(locationId, cleaned);
 
         const totalLabel = costResult.partial
           ? `PARTIAL RECIPE COST: $${costResult.totalCost.toFixed(2)} (some ingredients skipped — see table)`

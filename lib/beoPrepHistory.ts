@@ -112,8 +112,10 @@ function parseAmountQty(raw: string | null | undefined): number | null {
   const m = trimmed.match(
     /^(-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?)/
   );
-  if (!m || !m[1]) return null;
-  const n = Number(m[1].replace(/,/g, ''));
+  if (!m) return null;
+  const captured = m[1];
+  if (!captured) return null;
+  const n = Number(captured.replace(/,/g, ''));
   if (!Number.isFinite(n) || n <= 0) return null;
   return n;
 }

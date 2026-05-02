@@ -11,6 +11,7 @@
 import Link from 'next/link';
 import { getDb } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
+import { formatDollars } from '../../lib/formatMoney';
 import {
   computeCostVariance,
   computeUnmapped,
@@ -178,7 +179,7 @@ export default function CostingPage() {
                 {v ? `${v.variance_pct.toFixed(2)}%` : '—'}
               </div>
               <div style={{ fontSize: 12, marginTop: 6 }}>
-                {v ? `$${v.variance_amount.toFixed(2)} vs $${v.theoretical_cogs.toFixed(2)} (Theoretical)` : 'No computation yet'}
+                {v ? `${formatDollars(v.variance_amount)} vs ${formatDollars(v.theoretical_cogs)} (Theoretical)` : 'No computation yet'}
               </div>
             </div>
           );

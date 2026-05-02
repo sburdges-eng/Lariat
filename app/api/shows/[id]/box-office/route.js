@@ -14,6 +14,7 @@
 import { getDb } from '../../../../../lib/db';
 import { locationFromRequest, locationFromBody } from '../../../../../lib/location';
 import { hasPinCookie, pinRequiredForPic } from '../../../../../lib/pin';
+import { withIdempotency } from '../../../../../lib/idempotency';
 import {
   listLinesForShow,
   summarizeBoxOffice,
@@ -62,6 +63,10 @@ export async function GET(req, { params }) {
 export async function POST(req, { params }) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
+  return withIdempotency(req, () => boxOfficePostHandler(req, { params }));
+}
+
+async function boxOfficePostHandler(req, { params }) {
   const showId = parseShowId(params?.id);
   if (showId == null) return Response.json({ error: 'Invalid show id' }, { status: 400 });
 
