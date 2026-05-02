@@ -1,6 +1,7 @@
 import { getDb } from '../../../lib/db';
 import { locationFromBody } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,10 @@ function failsMissingCorrectiveAction(db, shift_date, station_id, location_id) {
 }
 
 export async function POST(req) {
+  return withIdempotency(req, () => signoffHandler(req));
+}
+
+async function signoffHandler(req) {
   try {
     const body = await req.json();
     const shift_date = clip(body.shift_date, 32);

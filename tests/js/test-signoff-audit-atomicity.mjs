@@ -50,13 +50,16 @@ beforeEach(() => {
     DELETE FROM audit_events;
     DELETE FROM station_signoffs;
     DELETE FROM line_check_entries;
+    DELETE FROM idempotency_keys;
   `);
 });
 
-function postReq(url, body) {
+function postReq(url, body, { idempotencyKey } = {}) {
+  const headers = { 'content-type': 'application/json' };
+  if (idempotencyKey) headers['idempotency-key'] = idempotencyKey;
   return new Request(url, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   });
 }
@@ -180,5 +183,88 @@ describe('POST /api/signoff — audit atomicity', () => {
     assert.strictEqual(res.status, 409);
     assert.strictEqual(countRows('station_signoffs'), 0, 'no signoff written');
     assert.strictEqual(countAudit('station_signoffs'), 0, 'no audit written');
+  });
+});
+
+// §8 P1 Task 2 — idempotency replay must NOT double-write the
+// regulated CCP attestation. Closes the doctrine gap surfaced by
+// docs/agentic/findings/2026-05-02-sw-replay-no-idempotency.md.
+describe('POST /api/signoff — idempotency replay', () => {
+  it('replayed POST with same key writes ONE row, ONE audit, returns identical body', async () => {
+    const KEY = 'signoff-key-aaaaaaaaaaaa';
+    const payload = {
+      shift_date: todayISO(),
+      station_id: 'saute',
+      cook_id: 'alice',
+      signoff_type: 'self',
+    };
+
+    const r1 = await signoff.POST(
+      postReq('http://localhost/api/signoff', payload, { idempotencyKey: KEY }),
+    );
+    assert.strictEqual(r1.status, 200);
+    const body1 = await r1.json();
+
+    // Replay — same key, same payload.
+    const r2 = await signoff.POST(
+      postReq('http://localhost/api/signoff', payload, { idempotencyKey: KEY }),
+    );
+    assert.strictEqual(r2.status, 200);
+    const body2 = await r2.json();
+
+    assert.deepStrictEqual(body1, body2, 'replay must return the cached body verbatim');
+    assert.strictEqual(
+      countRows('station_signoffs'), 1,
+      'replay must NOT write a second signoff row',
+    );
+    assert.strictEqual(
+      countAudit('station_signoffs'), 1,
+      'replay must NOT write a second audit row',
+    );
+  });
+
+  it('different idempotency-key writes a second row (distinct mutation)', async () => {
+    const payload = {
+      shift_date: todayISO(),
+      station_id: 'saute',
+      cook_id: 'alice',
+      signoff_type: 'self',
+    };
+    await signoff.POST(
+      postReq('http://localhost/api/signoff', payload, { idempotencyKey: 'k-aaaaaaaaaaaaaaaa' }),
+    );
+    await signoff.POST(
+      postReq(
+        'http://localhost/api/signoff',
+        { ...payload, cook_id: 'bob' },
+        { idempotencyKey: 'k-bbbbbbbbbbbbbbbb' },
+      ),
+    );
+    assert.strictEqual(countRows('station_signoffs'), 2);
+  });
+
+  it('same key + different body returns 409 without writing a second row', async () => {
+    const KEY = 'signoff-409-aaaaaaaaaaaa';
+    await signoff.POST(
+      postReq(
+        'http://localhost/api/signoff',
+        { shift_date: todayISO(), station_id: 'saute', cook_id: 'alice', signoff_type: 'self' },
+        { idempotencyKey: KEY },
+      ),
+    );
+    assert.strictEqual(countRows('station_signoffs'), 1);
+
+    const r2 = await signoff.POST(
+      postReq(
+        'http://localhost/api/signoff',
+        { shift_date: todayISO(), station_id: 'saute', cook_id: 'bob', signoff_type: 'pic' },
+        { idempotencyKey: KEY },
+      ),
+    );
+    assert.strictEqual(r2.status, 409);
+    assert.strictEqual(
+      countRows('station_signoffs'), 1,
+      'mismatched-hash replay must NOT write a row',
+    );
   });
 });
