@@ -1,8 +1,16 @@
 import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
+import { hasPinCookie, pinRequiredForPic } from '../../../lib/pin';
 import { postAuditEvent } from '../../../lib/auditEvents';
 
 export const dynamic = 'force-dynamic';
+
+async function requirePin(req) {
+  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+    return Response.json({ error: 'PIN required' }, { status: 401 });
+  }
+  return null;
+}
 
 const MAX_TITLE = 200;
 const MAX_TASK = 500;
@@ -47,6 +55,8 @@ function _getBeoStatements(db) {
 }
 
 export async function GET(req) {
+  const pinFail = await requirePin(req);
+  if (pinFail) return pinFail;
   try {
     const u = new URL(req.url);
     const loc = u.searchParams.get('location') || DEFAULT_LOCATION_ID;
@@ -64,6 +74,8 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  const pinFail = await requirePin(req);
+  if (pinFail) return pinFail;
   try {
     const body = await req.json();
     const loc = body.location_id || DEFAULT_LOCATION_ID;

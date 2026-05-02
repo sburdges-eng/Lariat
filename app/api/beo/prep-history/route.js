@@ -1,5 +1,6 @@
 import { getDb } from '../../../../lib/db';
 import { locationFromRequest } from '../../../../lib/location';
+import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
 import {
   getItemPrepHistory,
   getRecentEvents,
@@ -9,7 +10,16 @@ export const dynamic = 'force-dynamic';
 
 const MAX_ITEMS_PER_REQUEST = 50;
 
+async function requirePin(req) {
+  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+    return Response.json({ error: 'PIN required' }, { status: 401 });
+  }
+  return null;
+}
+
 export async function GET(req) {
+  const pinFail = await requirePin(req);
+  if (pinFail) return pinFail;
   try {
     const url = new URL(req.url);
     const items = url.searchParams.getAll('item').slice(0, MAX_ITEMS_PER_REQUEST);

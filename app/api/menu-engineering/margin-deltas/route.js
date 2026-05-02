@@ -18,14 +18,24 @@
  *     rows: MarginDeltaRow[]
  *   }
  *
- * No PIN gate — same posture as /api/vendor-prices/shocks.
+ * PIN-gated via the /api/menu-engineering/:path* matcher in
+ * middleware.js, plus the in-route hasPinCookie() re-check below
+ * so curl/replay can't bypass the middleware.
  */
 
 import { getDb } from '../../../../lib/db';
 import { locationFromRequest } from '../../../../lib/location';
+import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
 import { listMarginDeltas } from '../../../../lib/marginDeltas';
 
 export const dynamic = 'force-dynamic';
+
+async function requirePin(req) {
+  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+    return Response.json({ error: 'PIN required' }, { status: 401 });
+  }
+  return null;
+}
 
 // Number(null) === 0 (finite!), Number('') === 0, so we must short-
 // circuit on the raw string before coercing — otherwise an absent param
@@ -45,6 +55,8 @@ function asNum(v, dflt, min, max) {
 }
 
 export async function GET(req) {
+  const pinFail = await requirePin(req);
+  if (pinFail) return pinFail;
   try {
     const url = new URL(req.url);
     const loc = locationFromRequest(req);
