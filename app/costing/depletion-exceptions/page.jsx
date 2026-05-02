@@ -15,6 +15,7 @@
 import Link from 'next/link';
 import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
+import { formatDollars } from '../../../lib/formatMoney';
 import {
   listDepletionExceptions,
   REASON_LABELS,
@@ -23,8 +24,7 @@ import {
 export const dynamic = 'force-dynamic';
 
 function fmtCurrency(n) {
-  if (n == null || !Number.isFinite(Number(n))) return '—';
-  return `$${Number(n).toFixed(2)}`;
+  return formatDollars(n);
 }
 
 function fmtQty(n) {

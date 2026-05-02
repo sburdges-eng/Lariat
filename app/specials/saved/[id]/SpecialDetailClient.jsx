@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { formatDollars } from '../../../../lib/formatMoney';
 
 function formatDateTime(ts) {
   if (!ts) return '';
@@ -137,7 +138,7 @@ export default function SpecialDetailClient({ special, locationId }) {
           {special.cost_breakdown.length > 0 && (
             <div className="card">
               <h2 className="section-head mb-12">Cost breakdown</h2>
-              {special.cost_total !== null && <p className="mb-12"><strong>${special.cost_total.toFixed(2)}</strong></p>}
+              {special.cost_total !== null && <p className="mb-12"><strong>{formatDollars(special.cost_total)}</strong></p>}
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
@@ -153,7 +154,7 @@ export default function SpecialDetailClient({ special, locationId }) {
                       <td>{row.item}</td>
                       <td>{row.req_qty} {row.req_unit}</td>
                       <td>{row.match || <em>unmatched</em>}</td>
-                      <td style={{ textAlign: 'right' }}>{row.cost !== null && row.cost !== undefined ? `$${Number(row.cost).toFixed(2)}` : '—'}</td>
+                      <td style={{ textAlign: 'right' }}>{formatDollars(row.cost)}</td>
                     </tr>
                   ))}
                 </tbody>

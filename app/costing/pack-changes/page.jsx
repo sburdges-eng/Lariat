@@ -14,6 +14,7 @@
 import Link from 'next/link';
 import { getDb } from '../../../lib/db';
 import { listPackChanges, unacknowledgedCount } from '../../../lib/packChangesRepo';
+import { formatDollars } from '../../../lib/formatMoney';
 import AckButton from './AckButton.jsx';
 
 export const dynamic = 'force-dynamic';
@@ -25,8 +26,7 @@ const FILTER_OPTIONS = [
 ];
 
 function fmtPrice(n) {
-  if (n == null || !Number.isFinite(Number(n))) return '—';
-  return `$${Number(n).toFixed(2)}`;
+  return formatDollars(n);
 }
 
 function fmtPct(p) {
