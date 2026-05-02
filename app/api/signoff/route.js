@@ -1,5 +1,6 @@
 import { getDb } from '../../../lib/db';
 import { locationFromBody } from '../../../lib/location';
+import { postAuditEvent } from '../../../lib/auditEvents';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,9 +43,11 @@ export async function POST(req) {
     const loc = locationFromBody(body);
     const db = getDb();
 
-    // Gate check + INSERT run in one transaction so two concurrent sign-offs
-    // can't both pass the unnoted-fails check and double-INSERT into
-    // station_signoffs for the same (shift, station, cook).
+    // Gate check + INSERT + audit run in one transaction so two concurrent
+    // sign-offs can't both pass the unnoted-fails check and double-INSERT into
+    // station_signoffs for the same (shift, station, cook), and an audit-row
+    // failure rolls back the source signoff per docs/PATTERNS.md §3.
+    const signoff_type = clip(body.signoff_type, 32) || 'self';
     const result = db.transaction(() => {
       const unnoted = failsMissingCorrectiveAction(db, shift_date, station_id, loc);
       if (unnoted.length) {
@@ -53,8 +56,18 @@ export async function POST(req) {
       const info = db.prepare(`
         INSERT INTO station_signoffs (shift_date, station_id, cook_id, signoff_type, location_id)
         VALUES (?, ?, ?, ?, ?)
-      `).run(shift_date, station_id, cook_id, clip(body.signoff_type, 32) || 'self', loc);
+      `).run(shift_date, station_id, cook_id, signoff_type, loc);
       const row = db.prepare('SELECT * FROM station_signoffs WHERE id=?').get(info.lastInsertRowid);
+      postAuditEvent({
+        entity: 'station_signoffs',
+        entity_id: Number(info.lastInsertRowid),
+        action: 'insert',
+        actor_cook_id: cook_id,
+        actor_source: 'cook_ui',
+        location_id: loc,
+        shift_date,
+        payload: { station_id, signoff_type },
+      });
       return { status: 200, row };
     })();
 
