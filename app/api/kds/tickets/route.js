@@ -24,12 +24,7 @@
 // the route function is loadable from the Node test runner — same
 // pattern as /api/shows/[id]/settlement/route.js.
 
-function json(body, init) {
-  return new Response(JSON.stringify(body), {
-    ...init,
-    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
-  });
-}
+import { json } from '../../../../lib/routeHelpers';
 
 // Synthetic ticket fixtures, mirrored from Lariat-KDS MockTicketSource so
 // the Swift app sees a familiar shape during integration. Timestamps are

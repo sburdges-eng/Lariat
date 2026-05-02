@@ -6,13 +6,7 @@
 import { hasPinCookie } from '../../../../../lib/pin';
 import { locationFromRequest } from '../../../../../lib/location';
 import { getSettlement } from '../../../../../lib/settlementRepo';
-
-function json(body, init) {
-  return new Response(JSON.stringify(body), {
-    ...init,
-    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
-  });
-}
+import { json } from '../../../../../lib/routeHelpers';
 
 export async function GET(req, { params }) {
   if (!(await hasPinCookie(req)))

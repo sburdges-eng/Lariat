@@ -7,13 +7,7 @@ import { locationFromRequest } from '../../../../../lib/location';
 import { upsertDeal, getSettlement } from '../../../../../lib/settlementRepo';
 import { getDb } from '../../../../../lib/db';
 import { parseDeal } from '../../../../../lib/dealPoints';
-
-function json(body, init) {
-  return new Response(JSON.stringify(body), {
-    ...init,
-    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
-  });
-}
+import { json } from '../../../../../lib/routeHelpers';
 
 function validateDeal(d) {
   if (!d || typeof d !== 'object') return 'deal: must be an object';
