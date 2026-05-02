@@ -9,6 +9,7 @@
  */
 
 import { getDb } from '../../../../lib/db';
+import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
 import {
   listPackChanges,
   unacknowledgedCount,
@@ -21,6 +22,13 @@ export const dynamic = 'force-dynamic';
 
 const VALID_FILTERS = new Set(['open', 'acknowledged', 'all']);
 
+async function requirePin(req) {
+  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+    return Response.json({ error: 'PIN required' }, { status: 401 });
+  }
+  return null;
+}
+
 function clampLimit(raw) {
   if (raw == null || raw === '') return 200;
   const n = Number(raw);
@@ -29,6 +37,8 @@ function clampLimit(raw) {
 }
 
 export async function GET(req) {
+  const pinFail = await requirePin(req);
+  if (pinFail) return pinFail;
   try {
     const url = new URL(req.url);
     const filterRaw = url.searchParams.get('filter') ?? 'open';
@@ -61,6 +71,8 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  const pinFail = await requirePin(req);
+  if (pinFail) return pinFail;
   let body;
   try {
     body = await req.json();
