@@ -1,6 +1,7 @@
 'use client';
 import { useState, useTransition } from 'react';
 import { humanize } from '../../../../lib/userError';
+import { clientFetch } from '@/lib/clientFetch';
 
 const SOURCES = [
   { k: 'walkup', l: 'Walk-up' },
@@ -71,10 +72,11 @@ export default function BoxOfficeBoard({
     };
     startTransition(async () => {
       try {
-        const res = await fetch(`/api/shows/${showId}/box-office`, {
+        const res = await clientFetch(`/api/shows/${showId}/box-office`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(payload),
+          idempotent: true,
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
