@@ -2740,6 +2740,33 @@ function migrateLegacyColumns(db: DB): void {
     );
   } catch { /* ignore */ }
 
+  // §8 P1 cutover — service-worker replay idempotency.
+  //
+  // Every regulated POST handler that opts into withIdempotency() (in
+  // lib/idempotency.ts) writes the cached response here keyed on the
+  // client-supplied UUIDv7 idempotency-key header. A replayed request
+  // (e.g. SW retry after a dropped 201) hits the cache and returns the
+  // original response without re-running the handler.
+  //
+  // 24h TTL via lazy sweep on each wrapped POST — no background job.
+  // Acceptable because shifts are <24h. Spec + plan at
+  // docs/superpowers/{specs,plans}/2026-05-02-sw-replay-idempotency-*.md
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS idempotency_keys (
+        key             TEXT PRIMARY KEY,
+        method          TEXT NOT NULL,
+        path            TEXT NOT NULL,
+        request_hash    TEXT NOT NULL,
+        response_status INTEGER NOT NULL,
+        response_body   TEXT NOT NULL,
+        created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_idempotency_created
+        ON idempotency_keys(created_at);
+    `);
+  } catch { /* ignore */ }
+
   // F15 (FDA §3-301.11): glove-change attestation on each line-check row
   // that touches ready-to-eat food. NULL on pre-migration rows so the
   // backfill is additive and the legacy data stays queryable.
