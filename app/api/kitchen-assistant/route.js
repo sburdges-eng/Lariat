@@ -482,7 +482,12 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
                 note = `[${val.reason}] ${note || ''}`;
               }
             } catch (err) {
-              status = 'na';
+              // Validator threw — surface as 'fail' (regulated red marker
+              // on the cook's board) rather than 'na' (no signal). 'na'
+              // is reserved for items that genuinely don't apply at this
+              // station/shift. A thrown validator is a HACCP signal a
+              // manager must see, not a quiet skip.
+              status = 'fail';
               note = `[Validation Error: ${err.message}] ${note || ''}`;
             }
           }
