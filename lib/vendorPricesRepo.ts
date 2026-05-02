@@ -169,6 +169,26 @@ export function upsertVendorPrice(db: DB, row: VendorPriceRow): UpsertResult {
     }
 
     if (existing) {
+      // Snapshot the pre-update row into the append-only history BEFORE
+      // the UPDATE so the prior price/pack survives the in-place mutation.
+      // The food side gets this through scripts/ingest-costing.mjs which
+      // snapshot-then-DELETE-then-INSERTs; this path is the missing
+      // beverage-import equivalent. Same db.transaction means an UPDATE
+      // failure rolls the snapshot back too — no orphan history rows.
+      db.prepare(
+        `INSERT INTO vendor_prices_history
+           (source_vendor_price_id, ingredient, vendor, sku,
+            pack_size, pack_unit, pack_price, unit_price, category,
+            yield_pct, actual_received_lb, reconciled_unit_price, master_id,
+            location_id, imported_at, snapshot_reason)
+         SELECT id, ingredient, vendor, sku,
+                pack_size, pack_unit, pack_price, unit_price, category,
+                yield_pct, actual_received_lb, reconciled_unit_price, master_id,
+                location_id, imported_at, 'upsert-vendor-price'
+           FROM vendor_prices
+          WHERE id = ?`,
+      ).run(existing.id);
+
       db.prepare(
         `UPDATE vendor_prices
             SET pack_size = ?, pack_unit = ?, pack_price = ?, unit_price = ?,
