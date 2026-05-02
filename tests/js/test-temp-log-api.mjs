@@ -270,3 +270,60 @@ describe('POST /api/temp-log — writes an audit_events row per insert', () => {
     assert.strictEqual(audit.shift_date, todayISO());
   });
 });
+
+// ── POST — idempotency-key replay protection ──────────────────────
+//
+// The withIdempotency wrapper around POST means a SW replay (or a
+// rapid double-submit on the iPad) that carries the same
+// idempotency-key must produce ONE row, not two — and ONE audit
+// event, not two. This is the regulatory-critical case: every
+// duplicate audit_events row would be a duplicate HACCP attestation.
+
+function postReqWithKey(body, key) {
+  return new Request('http://localhost/api/temp-log', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'idempotency-key': key,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+describe('POST /api/temp-log — withIdempotency dedup on repeated key', () => {
+  beforeEach(() => {
+    testDb.exec('DELETE FROM idempotency_keys;');
+  });
+
+  it('two POSTs with the same idempotency-key produce one temp_log row and one audit row', async () => {
+    const body = {
+      shift_date: todayISO(),
+      point_id: 'walk_in_cooler',
+      reading_f: 38,
+      cook_id: 'alice',
+    };
+    const key = 'test-key-tlog-dedup-aaa';
+
+    const r1 = await POST(postReqWithKey(body, key));
+    assert.strictEqual(r1.status, 200);
+
+    const r2 = await POST(postReqWithKey(body, key));
+    assert.strictEqual(r2.status, 200, 'replay must succeed (cached response), not error');
+
+    assert.strictEqual(countTempLog(), 1, 'second POST must be deduped, not re-inserted');
+    assert.strictEqual(countAudit('temp_log'), 1, 'duplicate audit attestation would be a HACCP violation');
+  });
+
+  it('two POSTs with DIFFERENT idempotency-keys produce two rows (legitimate distinct readings)', async () => {
+    const body = {
+      shift_date: todayISO(),
+      point_id: 'walk_in_cooler',
+      reading_f: 38,
+      cook_id: 'alice',
+    };
+    await POST(postReqWithKey(body, 'test-key-tlog-distinct-1'));
+    await POST(postReqWithKey(body, 'test-key-tlog-distinct-2'));
+    assert.strictEqual(countTempLog(), 2);
+    assert.strictEqual(countAudit('temp_log'), 2);
+  });
+});
