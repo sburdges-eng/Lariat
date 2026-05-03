@@ -8,6 +8,7 @@ import { upsertDeal, getSettlement } from '../../../../../lib/settlementRepo';
 import { getDb } from '../../../../../lib/db';
 import { parseDeal } from '../../../../../lib/dealPoints';
 import { json } from '../../../../../lib/routeHelpers';
+import { withIdempotency } from '../../../../../lib/idempotency';
 
 function validateDeal(d) {
   if (!d || typeof d !== 'object') return 'deal: must be an object';
@@ -48,10 +49,13 @@ export async function GET(req, { params }) {
   return json({ deal: row ? parseDeal(row) : null });
 }
 
-export async function PUT(req, { params }) {
+export async function PUT(req, ctx) {
   if (!(await hasPinCookie(req)))
     return json({ error: 'unauthorized' }, { status: 401 });
+  return withIdempotency(req, () => dealPutHandler(req, ctx));
+}
 
+async function dealPutHandler(req, { params }) {
   const showId = Number(params.id);
   if (!Number.isInteger(showId))
     return json({ error: 'bad show id' }, { status: 400 });

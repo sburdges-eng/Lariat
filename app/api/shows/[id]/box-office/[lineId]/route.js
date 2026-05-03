@@ -15,6 +15,7 @@ import { getDb } from '../../../../../../lib/db';
 import { locationFromRequest, locationFromBody } from '../../../../../../lib/location';
 import { hasPinCookie, pinRequiredForPic } from '../../../../../../lib/pin';
 import { markScanned } from '../../../../../../lib/boxOfficeRepo';
+import { withIdempotency } from '../../../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,9 +32,13 @@ async function requirePin(req) {
   return null;
 }
 
-export async function PATCH(req, { params }) {
+export async function PATCH(req, ctx) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
+  return withIdempotency(req, () => boxOfficeLinePatchHandler(req, ctx));
+}
+
+async function boxOfficeLinePatchHandler(req, { params }) {
   const showId = parsePositiveInt(params?.id);
   const lineId = parsePositiveInt(params?.lineId);
   if (showId == null || lineId == null) {
