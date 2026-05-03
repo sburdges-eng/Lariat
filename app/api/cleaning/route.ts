@@ -2,6 +2,7 @@ import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import { validateCleaningLog } from '../../../lib/cleaning';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 import { clip } from '../../../lib/clip';
 
 export const dynamic = 'force-dynamic';
@@ -9,6 +10,10 @@ export const dynamic = 'force-dynamic';
 // ── POST /api/cleaning ────────────────────────────────────────────
 
 export async function POST(req: Request) {
+  return withIdempotency(req, () => cleaningPostHandler(req));
+}
+
+async function cleaningPostHandler(req: Request) {
   try {
     const body = await req.json();
     const v = validateCleaningLog(body);

@@ -16,6 +16,7 @@ import {
   validateCoolingStart,
 } from '../../../lib/cooling';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,10 @@ const clip = (s, max) => {
 // ── POST /api/cooling ─────────────────────────────────────────────
 
 export async function POST(req) {
+  return withIdempotency(req, () => coolingPostHandler(req));
+}
+
+async function coolingPostHandler(req) {
   try {
     const body = await req.json();
     const v = validateCoolingStart({
@@ -82,6 +87,10 @@ export async function POST(req) {
 // ── PATCH /api/cooling ────────────────────────────────────────────
 
 export async function PATCH(req) {
+  return withIdempotency(req, () => coolingPatchHandler(req));
+}
+
+async function coolingPatchHandler(req) {
   try {
     const body = await req.json();
     const id = Number(body.id);

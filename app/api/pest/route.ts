@@ -2,11 +2,16 @@ import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import { validatePestControl } from '../../../lib/pestControl';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 import { clip } from '../../../lib/clip';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
+  return withIdempotency(req, () => pestPostHandler(req));
+}
+
+async function pestPostHandler(req: Request) {
   try {
     const body = await req.json();
     const v = validatePestControl(body);

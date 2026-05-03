@@ -19,6 +19,7 @@ import {
 } from '../../../lib/sickWorker';
 import { hasPinCookie, pinRequiredForPic } from '../../../lib/pin';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +44,10 @@ async function gate(req) {
 export async function POST(req) {
   const blocked = await gate(req);
   if (blocked) return blocked;
+  return withIdempotency(req, () => sickWorkerPostHandler(req));
+}
 
+async function sickWorkerPostHandler(req) {
   try {
     const body = await req.json();
     const v = validateSickReport(body);
@@ -116,7 +120,10 @@ export async function POST(req) {
 export async function PATCH(req) {
   const blocked = await gate(req);
   if (blocked) return blocked;
+  return withIdempotency(req, () => sickWorkerPatchHandler(req));
+}
 
+async function sickWorkerPatchHandler(req) {
   try {
     const body = await req.json();
     const id = Number(body.id);

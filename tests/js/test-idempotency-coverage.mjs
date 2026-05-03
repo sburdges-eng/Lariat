@@ -106,20 +106,9 @@ const TODO_RETROFIT = new Set([
   'certifications',
   // Breaks — labor; defer.
   'breaks',
-  // HACCP rule-module routes — should retrofit next; ship coverage
-  // test first so new HACCP routes that land before the retrofit are
-  // forced to wrap. Each writes audit_events on every POST so a
-  // duplicate replay = duplicate audit attestation.
-  'beo',
-  'cleaning',
-  'cooling',
-  'date-marks',
-  'pest',
-  'sanitizer-check',
-  'sds',
-  'sick-worker',
-  'thermometer-calibrations',
-  'tphc',
+  // (HACCP rule-module routes drained in feat/idempotency-retrofit-haccp-rules:
+  //  beo, cleaning, cooling, date-marks, pest, sanitizer-check, sds, sick-worker,
+  //  thermometer-calibrations, tphc — all now wrap withIdempotency.)
 ]);
 
 function walkRoutes(dir, prefix = '') {

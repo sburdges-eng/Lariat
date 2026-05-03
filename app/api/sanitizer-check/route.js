@@ -17,6 +17,7 @@ import {
   validateSanitizerCheck,
 } from '../../../lib/sanitizer';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,10 @@ const clip = (s, max) => {
 // ── POST /api/sanitizer-check ────────────────────────────────────
 
 export async function POST(req) {
+  return withIdempotency(req, () => sanitizerPostHandler(req));
+}
+
+async function sanitizerPostHandler(req) {
   try {
     const body = await req.json();
     const v = validateSanitizerCheck({
