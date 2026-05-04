@@ -56,25 +56,16 @@ const TODO_RETROFIT = new Set([
   // (dining-tables + dining-tables/[id] drained in feat/idempotency-retrofit-foh)
   // (equipment + maintenance + parts + schedule drained in feat/idempotency-retrofit-equipment)
   // (gold-stars + gold-stars/[id] + prep-tasks + prep-tasks/[id] drained in feat/idempotency-retrofit-prep-tracking)
-  'kitchen-assistant',
   // (reservations + reservations/[id] + service-hours drained in feat/idempotency-retrofit-foh)
   // (preshift-notes drained in feat/idempotency-retrofit-prep-tracking)
-  'checks',
-  'cleaning-schedule',
-  // Recipe edit — slug uniqueness gives partial protection but a
-  // PUT replay would still re-write all fields. Defer.
-  'recipes/[slug]',
+  // (checks, cleaning-schedule, recipes/[slug] PUT, compute/status,
+  //  costing/pack-changes, dish-components, kitchen-assistant — all
+  //  drained in feat/idempotency-retrofit-misc-finishers. Final batch
+  //  of §8 P1 SW-replay idempotency rollout.)
   // (specials, specials/saved, specials/saved/[id] drained in
   //  feat/idempotency-retrofit-specials. /api/specials POST drives
   //  Ollama — wrap dedupes both DB writes from saved + wasted Ollama
   //  cycles on replay. PIN gate runs first on saved/[id] PATCH/DELETE.)
-  // Compute trigger — POSTs to status route. Defer.
-  'compute/status',
-  // Costing pack-changes — already covered by acknowledged uniqueness
-  // (pack_size_changes.id); wrap is defense-in-depth. Defer.
-  'costing/pack-changes',
-  // Dish-components POST — operational/financial; defer.
-  'dish-components',
   // (Inventory cluster — inventory, inventory/counts (+ [id], + [id]/lines),
   //  inventory/par — drained in feat/idempotency-retrofit-inventory.
   //  All write inventory_updates / inventory_counts / inventory_count_lines /

@@ -3,6 +3,7 @@ import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../.
 import { validateDishComponent } from '../../../lib/dishComponents';
 import { normalizeDishName } from '../../../lib/dishCostBridge';
 import { upsertDishComponent } from '../../../lib/dishComponentsRepo';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +51,10 @@ export async function GET(req: Request) {
 // Upsert routed through lib/dishComponentsRepo so the CLI importer
 // and this API route share the same SQL and identical-row detection.
 export async function POST(req: Request) {
+  return withIdempotency(req, () => dishComponentsPostHandler(req));
+}
+
+async function dishComponentsPostHandler(req: Request) {
   try {
     const body = await req.json();
     const v = validateDishComponent(body);
@@ -91,6 +96,10 @@ export async function POST(req: Request) {
 // ── DELETE /api/dish-components ──────────────────────────────────
 // Body: { id } — delete by primary key.
 export async function DELETE(req: Request) {
+  return withIdempotency(req, () => dishComponentsDeleteHandler(req));
+}
+
+async function dishComponentsDeleteHandler(req: Request) {
   try {
     const body = await req.json();
     const id = Number(body?.id);

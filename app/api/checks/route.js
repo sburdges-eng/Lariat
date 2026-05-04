@@ -1,5 +1,6 @@
 import { getDb } from '../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,10 @@ const clip = (s, max) => {
 };
 
 export async function POST(req) {
+  return withIdempotency(req, () => checksPostHandler(req));
+}
+
+async function checksPostHandler(req) {
   try {
     const body = await req.json();
     const shift_date = clip(body.shift_date, 32);
