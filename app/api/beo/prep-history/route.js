@@ -1,6 +1,6 @@
 import { getDb } from '../../../../lib/db';
 import { locationFromRequest } from '../../../../lib/location';
-import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
+import { hasPinOrTempPin, pinRequiredForPic } from '../../../../lib/pin';
 import {
   getItemPrepHistory,
   getRecentEvents,
@@ -10,8 +10,10 @@ export const dynamic = 'force-dynamic';
 
 const MAX_ITEMS_PER_REQUEST = 50;
 
+const SCOPE = 'menu.prep_history';
+
 async function requirePin(req) {
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+  if (pinRequiredForPic() && !(await hasPinOrTempPin(req, SCOPE))) {
     return Response.json({ error: 'PIN required' }, { status: 401 });
   }
   return null;

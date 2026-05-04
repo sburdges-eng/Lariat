@@ -1,6 +1,6 @@
 import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
-import { hasPinCookie, pinRequiredForPic } from '../../../lib/pin';
+import { hasPinCookie, hasPinOrTempPin, pinRequiredForPic } from '../../../lib/pin';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
 import { parseCourseIdPatch } from '../../../lib/beoCourses';
@@ -12,6 +12,36 @@ async function requirePin(req) {
     return Response.json({ error: 'PIN required' }, { status: 401 });
   }
   return null;
+}
+
+// Per-body gate (T2 of beo-pin-gate-fixes — closes the bug where a
+// sous chef with a temp PIN could create a course but couldn't bind
+// line items to it). An update_line that ONLY touches course_id
+// accepts hasPinOrTempPin('beo.fire_at_edit'). Any other field —
+// item_name, prices, prep_notes, etc. — keeps the master-only gate.
+//
+// The allowed-keys whitelist is the safety boundary: ANY data field
+// outside this set forces the strict gate. New action shapes that want
+// the relaxed gate must opt in by explicit listing here.
+const COURSE_ONLY_ALLOWED_KEYS = new Set([
+  'action', 'id', 'course_id', 'location', 'location_id', 'cook_id',
+]);
+function isCourseIdOnlyPatch(body) {
+  if (!body || body.action !== 'update_line') return false;
+  if (!('course_id' in body)) return false;
+  for (const k of Object.keys(body)) {
+    if (!COURSE_ONLY_ALLOWED_KEYS.has(k)) return false;
+  }
+  return true;
+}
+
+async function checkPostGate(req, body) {
+  if (!pinRequiredForPic()) return null;
+  const ok = isCourseIdOnlyPatch(body)
+    ? await hasPinOrTempPin(req, 'beo.fire_at_edit')
+    : await hasPinCookie(req);
+  if (ok) return null;
+  return Response.json({ error: 'PIN required' }, { status: 401 });
 }
 
 const MAX_TITLE = 200;
@@ -76,14 +106,14 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  const pinFail = await requirePin(req);
-  if (pinFail) return pinFail;
   return withIdempotency(req, () => beoPostHandler(req));
 }
 
 async function beoPostHandler(req) {
   try {
     const body = await req.json();
+    const gateFail = await checkPostGate(req, body);
+    if (gateFail) return gateFail;
     const loc = body.location_id || DEFAULT_LOCATION_ID;
     const db = getDb();
 

@@ -13,7 +13,7 @@
 
 import { getDb } from '../../../../../lib/db';
 import { locationFromRequest, locationFromBody } from '../../../../../lib/location';
-import { hasPinCookie, pinRequiredForPic } from '../../../../../lib/pin';
+import { hasPinOrTempPin, pinRequiredForPic } from '../../../../../lib/pin';
 import { withIdempotency } from '../../../../../lib/idempotency';
 import {
   listLinesForShow,
@@ -30,8 +30,10 @@ function parseShowId(rawId) {
   return n;
 }
 
+const SCOPE = 'event.box_office';
+
 async function requirePin(req) {
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+  if (pinRequiredForPic() && !(await hasPinOrTempPin(req, SCOPE))) {
     return Response.json({ error: 'PIN required' }, { status: 401 });
   }
   return null;

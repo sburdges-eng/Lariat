@@ -41,6 +41,11 @@ const ALLOWLIST = new Set([
   'audit/log',
   // CSV export endpoint — generates output, no DB write.
   'specials/saved/[id]/export',
+  // Temp-PIN login (PR #141) — the PIN itself is the idempotency token;
+  // a replay just re-validates and re-issues the same cookie. Wrapping
+  // would cache the cookie value across replays which is undesirable
+  // for an auth-exchange endpoint.
+  'auth/temp-pin/login',
 ]);
 
 // Routes that SHOULD be wrapped per the §8 P1 plan but haven't been
