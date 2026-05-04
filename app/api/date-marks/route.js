@@ -12,6 +12,7 @@ import {
   validateDateMarkCreate,
 } from '../../../lib/dateMarks';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +25,10 @@ const clip = (s, max) => {
 // ── POST /api/date-marks ──────────────────────────────────────────
 
 export async function POST(req) {
+  return withIdempotency(req, () => dateMarksPostHandler(req));
+}
+
+async function dateMarksPostHandler(req) {
   try {
     const body = await req.json();
     const v = validateDateMarkCreate({
@@ -77,6 +82,10 @@ export async function POST(req) {
 // ── PATCH /api/date-marks ─────────────────────────────────────────
 
 export async function PATCH(req) {
+  return withIdempotency(req, () => dateMarksPatchHandler(req));
+}
+
+async function dateMarksPatchHandler(req) {
   try {
     const body = await req.json();
     const id = Number(body.id);

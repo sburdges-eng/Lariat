@@ -34,6 +34,7 @@ import {
   validateCalibrationReading,
 } from '../../../lib/calibrations';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +47,10 @@ const clip = (s, max) => {
 // ── POST /api/thermometer-calibrations ────────────────────────────
 
 export async function POST(req) {
+  return withIdempotency(req, () => calibrationsPostHandler(req));
+}
+
+async function calibrationsPostHandler(req) {
   try {
     const body = await req.json();
 

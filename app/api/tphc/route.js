@@ -19,6 +19,7 @@ import {
   validateTphcCreate,
 } from '../../../lib/tphc';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +32,10 @@ const clip = (s, max) => {
 // ── POST /api/tphc ────────────────────────────────────────────────
 
 export async function POST(req) {
+  return withIdempotency(req, () => tphcPostHandler(req));
+}
+
+async function tphcPostHandler(req) {
   try {
     const body = await req.json();
     const v = validateTphcCreate({
@@ -92,6 +97,10 @@ export async function POST(req) {
 // ── PATCH /api/tphc ───────────────────────────────────────────────
 
 export async function PATCH(req) {
+  return withIdempotency(req, () => tphcPatchHandler(req));
+}
+
+async function tphcPatchHandler(req) {
   try {
     const body = await req.json();
     const id = Number(body.id);
