@@ -73,12 +73,10 @@ const TODO_RETROFIT = new Set([
   // Recipe edit — slug uniqueness gives partial protection but a
   // PUT replay would still re-write all fields. Defer.
   'recipes/[slug]',
-  // Specials — already idempotent at slug level for saved; cost
-  // computation has no DB write. cost_special LLM action's gap was
-  // captured as the §6 P3.
-  'specials',
-  'specials/saved',
-  'specials/saved/[id]',
+  // (specials, specials/saved, specials/saved/[id] drained in
+  //  feat/idempotency-retrofit-specials. /api/specials POST drives
+  //  Ollama — wrap dedupes both DB writes from saved + wasted Ollama
+  //  cycles on replay. PIN gate runs first on saved/[id] PATCH/DELETE.)
   // Compute trigger — POSTs to status route. Defer.
   'compute/status',
   // Costing pack-changes — already covered by acknowledged uniqueness

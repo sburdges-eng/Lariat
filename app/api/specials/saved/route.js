@@ -7,6 +7,7 @@ import {
   validateName,
   coerceJsonField,
 } from '../../../../lib/specialsValidators';
+import { withIdempotency } from '../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,15 +20,18 @@ function snippet(s) {
 }
 
 export async function POST(req) {
+  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+    return Response.json({ error: 'unauthorized' }, { status: 401 });
+  }
+  return withIdempotency(req, () => specialsSavedPostHandler(req));
+}
+
+async function specialsSavedPostHandler(req) {
   let body;
   try {
     body = await req.json();
   } catch {
     return Response.json({ error: 'invalid JSON body' }, { status: 400 });
-  }
-
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
-    return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
 
   if (!body || typeof body !== 'object' || Array.isArray(body)) {

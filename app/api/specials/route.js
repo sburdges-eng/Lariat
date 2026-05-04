@@ -6,6 +6,7 @@ import {
 } from '../../../lib/ollama';
 import { locationFromBodyOrRequest } from '../../../lib/location';
 import { computeSandboxCost } from '../../../lib/computeEngine/sandboxCosting';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -64,6 +65,10 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  return withIdempotency(req, () => specialsPostHandler(req));
+}
+
+async function specialsPostHandler(req) {
   let body = {};
   try {
     body = await req.json();
