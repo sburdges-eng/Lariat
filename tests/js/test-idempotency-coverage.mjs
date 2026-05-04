@@ -79,13 +79,12 @@ const TODO_RETROFIT = new Set([
   // Costing pack-changes — already covered by acknowledged uniqueness
   // (pack_size_changes.id); wrap is defense-in-depth. Defer.
   'costing/pack-changes',
-  // Dish-components / inventory POSTs — operational/financial; defer.
+  // Dish-components POST — operational/financial; defer.
   'dish-components',
-  'inventory',
-  'inventory/counts',
-  'inventory/counts/[id]',
-  'inventory/counts/[id]/lines',
-  'inventory/par',
+  // (Inventory cluster — inventory, inventory/counts (+ [id], + [id]/lines),
+  //  inventory/par — drained in feat/idempotency-retrofit-inventory.
+  //  All write inventory_updates / inventory_counts / inventory_count_lines /
+  //  inventory_par with audit_events; wrapper sits above the existing tx.)
   // (Eighty-six + resolve, breaks, certifications drained in
   //  feat/idempotency-retrofit-labor-stockout — the labor-compliance and
   //  regulated-stockout block. Each wraps withIdempotency at the

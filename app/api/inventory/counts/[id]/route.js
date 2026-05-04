@@ -1,6 +1,7 @@
 import { getDb } from '../../../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../../../lib/location';
 import { postAuditEvent } from '../../../../../lib/auditEvents';
+import { withIdempotency } from '../../../../../lib/idempotency';
 import { clip } from '../../../../../lib/clip';
 
 export const dynamic = 'force-dynamic';
@@ -34,7 +35,11 @@ export async function GET(req, { params }) {
   return Response.json({ count: head, lines });
 }
 
-export async function PATCH(req, { params }) {
+export async function PATCH(req, ctx) {
+  return withIdempotency(req, () => inventoryCountPatchHandler(req, ctx));
+}
+
+async function inventoryCountPatchHandler(req, { params }) {
   const id = parseId(params);
   if (!id) return Response.json({ error: 'bad id' }, { status: 400 });
   try {

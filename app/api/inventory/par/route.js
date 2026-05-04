@@ -1,6 +1,7 @@
 import { getDb } from '../../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../../lib/location';
 import { postAuditEvent } from '../../../../lib/auditEvents';
+import { withIdempotency } from '../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +46,10 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  return withIdempotency(req, () => inventoryParPostHandler(req));
+}
+
+async function inventoryParPostHandler(req) {
   try {
     const body = await req.json().catch(() => ({}));
     const loc = locationFromBody(body);
@@ -107,6 +112,10 @@ export async function POST(req) {
 }
 
 export async function DELETE(req) {
+  return withIdempotency(req, () => inventoryParDeleteHandler(req));
+}
+
+async function inventoryParDeleteHandler(req) {
   try {
     const url = new URL(req.url);
     const id = Number(url.searchParams.get('id'));

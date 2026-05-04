@@ -6,6 +6,7 @@ import {
   formatShrinkageNote,
 } from '../../../lib/inventoryShrinkage';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,6 +83,10 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  return withIdempotency(req, () => inventoryPostHandler(req));
+}
+
+async function inventoryPostHandler(req) {
   try {
     const body = await req.json();
     const item = clip(body.item, 300);

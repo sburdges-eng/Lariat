@@ -1,6 +1,7 @@
 import { getDb } from '../../../../../../lib/db';
 import { locationFromBody } from '../../../../../../lib/location';
 import { postAuditEvent } from '../../../../../../lib/auditEvents';
+import { withIdempotency } from '../../../../../../lib/idempotency';
 import { clip } from '../../../../../../lib/clip';
 import { normalizeIngredientKey } from '../../../../../../lib/ingredientKey';
 
@@ -17,7 +18,11 @@ function asNum(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-export async function POST(req, { params }) {
+export async function POST(req, ctx) {
+  return withIdempotency(req, () => inventoryCountLinesPostHandler(req, ctx));
+}
+
+async function inventoryCountLinesPostHandler(req, { params }) {
   const countId = parseId(params);
   if (!countId) return Response.json({ error: 'bad id' }, { status: 400 });
   try {
