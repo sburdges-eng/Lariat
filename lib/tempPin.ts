@@ -14,7 +14,10 @@ export const PIN_MAX_LEN = 6;
  *  Add to this list when introducing a new gated surface; route handlers
  *  reference these by name. */
 export const KNOWN_SCOPES = [
-  'beo.fire_at_edit',
+  'beo.fire_at_edit',     // course CRUD + line→course binding (BEO fire times)
+  'event.box_office',     // door crew: walkup tickets + comp + scan
+  'event.sound_config',   // sound engineer: scene save/edit during a show
+  'menu.prep_history',    // line lead: read-only prep-history lookup
 ] as const;
 export type KnownScope = (typeof KNOWN_SCOPES)[number];
 
