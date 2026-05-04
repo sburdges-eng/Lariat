@@ -33,9 +33,18 @@ function isoToLocalHHMM(iso) {
   return `${h}:${m}`;
 }
 
-export default function CoursePanel({ event, lines = [] }) {
-  const [courses, setCourses] = useState([]);
-  const [loaded, setLoaded] = useState(false);
+export default function CoursePanel({ event, lines = [], courses: externalCourses, onCoursesChanged }) {
+  // T11 made BeoBoard the source of truth for courses. When `externalCourses`
+  // is supplied we render from it and call `onCoursesChanged` after mutations
+  // so the parent refetches. When it's not, we fall back to self-fetching
+  // (preserves the standalone-component behavior used by tests).
+  const externallyManaged = Array.isArray(externalCourses);
+  const [internalCourses, setInternalCourses] = useState([]);
+  const courses = externallyManaged ? externalCourses : internalCourses;
+  const setCourses = externallyManaged
+    ? () => { onCoursesChanged?.(); }
+    : setInternalCourses;
+  const [loaded, setLoaded] = useState(externallyManaged);
   const [err, setErr] = useState('');
 
   // Add-form state
@@ -50,8 +59,14 @@ export default function CoursePanel({ event, lines = [] }) {
   const location = event?.location_id ?? 'default';
 
   const load = async () => {
+    // When the parent owns courses, this is a no-op — parent refetches
+    // through onCoursesChanged.
+    if (externallyManaged) {
+      onCoursesChanged?.();
+      return;
+    }
     if (!eventId) {
-      setCourses([]);
+      setInternalCourses([]);
       setLoaded(true);
       return;
     }
@@ -65,7 +80,7 @@ export default function CoursePanel({ event, lines = [] }) {
         return;
       }
       const j = await res.json();
-      setCourses(Array.isArray(j.courses) ? j.courses : []);
+      setInternalCourses(Array.isArray(j.courses) ? j.courses : []);
       setLoaded(true);
     } catch {
       setErr('Couldn’t load courses');
@@ -74,9 +89,9 @@ export default function CoursePanel({ event, lines = [] }) {
   };
 
   useEffect(() => {
-    load();
+    if (!externallyManaged) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]);
+  }, [eventId, externallyManaged]);
 
   const addCourse = async () => {
     setErr('');

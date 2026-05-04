@@ -22,6 +22,10 @@ export default function BeoBoard({ initialMenu = [] }) {
   const [menu] = useState(initialMenu);
   const [openEventId, setOpenEventId] = useState(null);
   const [err, setErr] = useState('');
+  // T11: courses live at BeoBoard so PrepSheetTable + CoursePanel share
+  // one source of truth. Refetched on event change and after CoursePanel
+  // mutations call back through onCoursesChanged.
+  const [courses, setCourses] = useState([]);
 
   // Add-party form state
   const [newTitle, setNewTitle] = useState('');
@@ -44,6 +48,29 @@ export default function BeoBoard({ initialMenu = [] }) {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const loadCourses = async (eventId, locationId = 'default') => {
+    if (!eventId) {
+      setCourses([]);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/beo/courses?event_id=${encodeURIComponent(eventId)}&location=${encodeURIComponent(locationId)}`,
+      );
+      if (!res.ok) return;
+      const j = await res.json();
+      setCourses(Array.isArray(j.courses) ? j.courses : []);
+    } catch {
+      // silent — UI will show empty course list
+    }
+  };
+
+  useEffect(() => {
+    const ev = (data?.events || []).find((e) => e.id === openEventId);
+    loadCourses(openEventId, ev?.location_id || 'default');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openEventId, data?.events]);
 
   const post = async (body) => {
     setErr('');
@@ -223,13 +250,19 @@ export default function BeoBoard({ initialMenu = [] }) {
               onDelete={deleteLine}
               event={openEvent}
               onEventSave={(patch) => updateEvent(openEvent, patch)}
+              courses={courses}
             />
           </div>
 
           {/* ───── RIGHT: stacked menu picker + courses + past-prep reference ───── */}
           <div className="beo-rail">
             <MenuPanel menu={menu} onPick={(item) => addLine(openEvent.id, item)} />
-            <CoursePanel event={openEvent} lines={lineItems} />
+            <CoursePanel
+              event={openEvent}
+              lines={lineItems}
+              courses={courses}
+              onCoursesChanged={() => loadCourses(openEventId, openEvent?.location_id)}
+            />
             <PrepHistoryPanel
               itemNames={lineItems.map((l) => l.item_name)}
               location={openEvent.location_id}
@@ -339,7 +372,7 @@ function EventHeader({ event, onSave }) {
    dropdowns at ITEM / PREP / SECONDARY-PREP level.
 ─────────────────────────────────────────────────────────────── */
 
-function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave }) {
+function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave, courses = [] }) {
   const rows = items.map((it) => ({ ...it, line_total: roundMoney(it.unit_cost * it.quantity) }));
   const subtotal = rows.reduce((s, r) => s + r.line_total, 0);
   const taxRate = Number(event.tax_rate || 0);
@@ -379,6 +412,7 @@ function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave }) {
           <col className="beo-col-prep" />
           <col className="beo-col-sec" />
           <col className="beo-col-order" />
+          <col className="beo-col-course" />
           <col className="beo-col-time" />
           <col className="beo-col-cost" />
           <col className="beo-col-qty" />
@@ -392,6 +426,7 @@ function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave }) {
             <th className="beo-h-prep">PREP</th>
             <th className="beo-h-sec">SECONDARY PREP</th>
             <th className="beo-h-order">ORDER ITEMS</th>
+            <th className="beo-h-course">COURSE</th>
             <th className="beo-h-time">TIME</th>
             <th className="beo-h-cost num">COST</th>
             <th className="beo-h-qty num">QTY</th>
@@ -402,7 +437,7 @@ function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave }) {
         <tbody>
           {rows.length === 0 && (
             <tr className="beo-empty-row">
-              <td colSpan={10}>No items yet. Pick from the menu on the right →</td>
+              <td colSpan={11}>No items yet. Pick from the menu on the right →</td>
             </tr>
           )}
           {groups.map((g, gi) =>
@@ -414,18 +449,19 @@ function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave }) {
                 span={g.rows.length}
                 onUpdate={onUpdate}
                 onDelete={onDelete}
+                courses={courses}
               />
             )),
           )}
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan={8} className="beo-total-label">Sub total</td>
+            <td colSpan={9} className="beo-total-label">Sub total</td>
             <td className="num">{USD(subtotal)}</td>
             <td />
           </tr>
           <tr>
-            <td colSpan={8} className="beo-total-label">
+            <td colSpan={9} className="beo-total-label">
               <span>Tax</span>
               <input
                 type="number"
@@ -445,7 +481,7 @@ function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave }) {
             <td />
           </tr>
           <tr>
-            <td colSpan={8} className="beo-total-label">
+            <td colSpan={9} className="beo-total-label">
               <span>Service fee</span>
               <input
                 type="number"
@@ -465,7 +501,7 @@ function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave }) {
             <td />
           </tr>
           <tr className="beo-grand-total">
-            <td colSpan={8} className="beo-total-label">Total</td>
+            <td colSpan={9} className="beo-total-label">Total</td>
             <td className="num">{USD(total)}</td>
             <td />
           </tr>
@@ -478,7 +514,7 @@ function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave }) {
 /* Single prep-sheet row — each cell color-coded, each level expandable.
    The recipe "dropdowns" noted in the archive sheet ride as <details> blocks
    that open inline so a chef can drill ITEM → PREP → SECONDARY PREP. */
-function PrepSheetRow({ row, first, span, onUpdate, onDelete }) {
+function PrepSheetRow({ row, first, span, onUpdate, onDelete, courses = [] }) {
   const [name, setName]   = useState(row.item_name);
   const [cost, setCost]   = useState(row.unit_cost);
   const [qty,  setQty]    = useState(row.quantity);
@@ -600,6 +636,26 @@ function PrepSheetRow({ row, first, span, onUpdate, onDelete }) {
           onBlur={() => pushIf({ order_items_notes: ord || null })}
           placeholder="ingredients to order (rolls up ITEM + PREP + SECONDARY)"
         />
+      </td>
+
+      {/* COURSE — bind this line to a course (T11). null = unbound. */}
+      <td className="beo-c-course">
+        <select
+          className="beo-cell beo-cell-course"
+          value={row.course_id ?? ''}
+          onChange={(e) => {
+            const v = e.target.value === '' ? null : Number(e.target.value);
+            onUpdate(row.id, { course_id: v });
+          }}
+          aria-label="course"
+        >
+          <option value="">—</option>
+          {courses.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.course_label}
+            </option>
+          ))}
+        </select>
       </td>
 
       {/* TIME — fire/serve time */}
