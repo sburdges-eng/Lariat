@@ -800,3 +800,81 @@ describe('legacy schema migration — pre-T1 bom_lines', () => {
     }
   });
 });
+
+// ── BEO course schema (T4) ─────────────────────────────────────────
+
+describe('beo_courses table — T4 additions', () => {
+  it('exists in sqlite_master', () => {
+    const row = db
+      .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='beo_courses'`)
+      .get();
+    assert.ok(row, 'beo_courses table should exist after initSchema');
+  });
+
+  it('has all required columns with the right shape', () => {
+    const cols = columnsOf('beo_courses');
+    for (const required of ['id', 'event_id', 'location_id', 'course_label', 'fire_at', 'notes', 'sort_order', 'created_at', 'updated_at']) {
+      assert.ok(cols.includes(required), `beo_courses must have ${required}`);
+    }
+  });
+
+  it('id is INTEGER PRIMARY KEY AUTOINCREMENT', () => {
+    const info = db.prepare(`PRAGMA table_info(beo_courses)`).all();
+    const idCol = info.find((c) => c.name === 'id');
+    assert.equal(idCol.pk, 1);
+    assert.equal(idCol.type.toUpperCase(), 'INTEGER');
+  });
+
+  it('fire_at is NOT NULL per PRAGMA', () => {
+    const info = db.prepare(`PRAGMA table_info(beo_courses)`).all();
+    const fireCol = info.find((c) => c.name === 'fire_at');
+    assert.equal(fireCol.notnull, 1);
+  });
+
+  it('FOREIGN KEY (event_id) → beo_events ON DELETE CASCADE', () => {
+    const fks = db.prepare(`PRAGMA foreign_key_list(beo_courses)`).all();
+    const eventFk = fks.find((f) => f.from === 'event_id');
+    assert.ok(eventFk, 'event_id FK to beo_events must exist');
+    assert.equal(eventFk.table, 'beo_events');
+    assert.equal(eventFk.on_delete, 'CASCADE');
+  });
+
+  it('rejects an insert missing fire_at', () => {
+    db.exec(`INSERT INTO beo_events (title, event_date, location_id) VALUES ('Test Banquet', '2026-05-04', 'default')`);
+    const eventId = db.prepare(`SELECT last_insert_rowid() AS id`).get().id;
+    assert.throws(
+      () => db.prepare(`INSERT INTO beo_courses (event_id, course_label) VALUES (?, ?)`).run(eventId, 'Entree'),
+      /fire_at|NOT NULL/i,
+    );
+  });
+
+  it('accepts a well-formed row', () => {
+    const evRes = db.prepare(`INSERT INTO beo_events (title, event_date, location_id) VALUES ('Test Banquet', '2026-05-04', 'default')`).run();
+    const evId = evRes.lastInsertRowid;
+    const res = db
+      .prepare(`INSERT INTO beo_courses (event_id, location_id, course_label, fire_at) VALUES (?, ?, ?, ?)`)
+      .run(evId, 'default', 'Entree', '2026-05-04T19:30:00.000Z');
+    assert.ok(res.lastInsertRowid > 0);
+  });
+});
+
+describe('beo_line_items.course_id — T4 ALTER', () => {
+  it('column was added by migrateLegacyColumns', () => {
+    const cols = columnsOf('beo_line_items');
+    assert.ok(cols.includes('course_id'), 'beo_line_items.course_id must exist');
+  });
+
+  it('is nullable (pre-existing rows have no course)', () => {
+    const info = db.prepare(`PRAGMA table_info(beo_line_items)`).all();
+    const c = info.find((x) => x.name === 'course_id');
+    assert.equal(c.notnull, 0);
+  });
+
+  it('FK to beo_courses is ON DELETE SET NULL', () => {
+    const fks = db.prepare(`PRAGMA foreign_key_list(beo_line_items)`).all();
+    const courseFk = fks.find((f) => f.from === 'course_id');
+    assert.ok(courseFk, 'course_id FK should be present');
+    assert.equal(courseFk.table, 'beo_courses');
+    assert.equal(courseFk.on_delete, 'SET NULL');
+  });
+});
