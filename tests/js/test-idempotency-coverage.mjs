@@ -91,19 +91,17 @@ const TODO_RETROFIT = new Set([
   'inventory/counts/[id]',
   'inventory/counts/[id]/lines',
   'inventory/par',
-  // Eighty-six (regulated stockout) and resolve. Should retrofit; defer.
-  'eighty-six',
-  'eighty-six/resolve',
+  // (Eighty-six + resolve, breaks, certifications drained in
+  //  feat/idempotency-retrofit-labor-stockout — the labor-compliance and
+  //  regulated-stockout block. Each wraps withIdempotency at the
+  //  POST/PATCH boundary; PIN-gated routes (certifications) keep the
+  //  gate ordering: gate first, wrapper second.)
   // (Show event-ops Phase 2 routes — sound/stage/deal/box-office/[lineId]/
   //  sound/[sceneId] — drained in feat/idempotency-retrofit-shows-phase2;
   //  all five routes now wrap withIdempotency at the PUT/POST/PATCH/DELETE
   //  boundary. The PIN-gate runs first; the wrapper sits between the gate
   //  and the handler body. Defense-in-depth on top of repo-level row guards
   //  like markScanned's scanned_at IS NULL.)
-  // Certifications — labor compliance; defer.
-  'certifications',
-  // Breaks — labor; defer.
-  'breaks',
   // (HACCP rule-module routes drained in feat/idempotency-retrofit-haccp-rules:
   //  beo, cleaning, cooling, date-marks, pest, sanitizer-check, sds, sick-worker,
   //  thermometer-calibrations, tphc — all now wrap withIdempotency.)

@@ -3,6 +3,7 @@ import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { getRecipes } from '../../../lib/data';
 import { cascadedFromEightySix } from '../../../lib/subRecipeGraph';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,6 +40,10 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  return withIdempotency(req, () => eightySixPostHandler(req));
+}
+
+async function eightySixPostHandler(req) {
   try {
     const body = await req.json();
     const item = clip(body.item, 300);

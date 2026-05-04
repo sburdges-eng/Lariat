@@ -12,6 +12,7 @@ import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import { hasPinCookie, pinRequiredForPic } from '../../../lib/pin';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,7 +63,10 @@ export async function GET(req) {
 export async function POST(req) {
   const blocked = await gate(req);
   if (blocked) return blocked;
+  return withIdempotency(req, () => certificationsPostHandler(req));
+}
 
+async function certificationsPostHandler(req) {
   try {
     const body = await req.json();
     const cook_id = clip(body.cook_id, 64);
@@ -140,7 +144,10 @@ export async function POST(req) {
 export async function PATCH(req) {
   const blocked = await gate(req);
   if (blocked) return blocked;
+  return withIdempotency(req, () => certificationsPatchHandler(req));
+}
 
+async function certificationsPatchHandler(req) {
   try {
     const body = await req.json();
     const id = Number(body.id);
