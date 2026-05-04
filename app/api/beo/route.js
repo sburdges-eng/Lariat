@@ -3,6 +3,7 @@ import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { hasPinCookie, pinRequiredForPic } from '../../../lib/pin';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
+import { parseCourseIdPatch } from '../../../lib/beoCourses';
 
 export const dynamic = 'force-dynamic';
 
@@ -248,6 +249,19 @@ async function beoPostHandler(req) {
       const ord  = textPatch('order_items_notes', MAX_NOTES);
       const time = textPatch('order_time', 32);
       const grp  = textPatch('group_note', MAX_NOTES);
+
+      // course_id (T5): absent = no change, null = clear binding, integer = set.
+      // parseCourseIdPatch throws on a malformed value (e.g. "abc"); convert
+      // that to a 422 instead of letting it 500 inside the transaction.
+      let coursePatch;
+      try {
+        coursePatch = parseCourseIdPatch(body);
+      } catch (err) {
+        return Response.json({ error: String(err.message || err) }, { status: 422 });
+      }
+      const courseTouch = coursePatch.kind !== 'absent' ? 1 : 0;
+      const courseVal = coursePatch.kind === 'set' ? coursePatch.course_id : null;
+
       db.transaction(() => {
         // beo_line_items has no location_id of its own — it inherits
         // via event_id → beo_events.location_id. Scope the UPDATE so a
@@ -263,7 +277,8 @@ async function beoPostHandler(req) {
              secondary_prep_notes  = CASE WHEN ? THEN ? ELSE secondary_prep_notes END,
              order_items_notes     = CASE WHEN ? THEN ? ELSE order_items_notes END,
              order_time            = CASE WHEN ? THEN ? ELSE order_time END,
-             group_note            = CASE WHEN ? THEN ? ELSE group_note END
+             group_note            = CASE WHEN ? THEN ? ELSE group_note END,
+             course_id             = CASE WHEN ? THEN ? ELSE course_id END
            WHERE id = ?
              AND event_id IN (SELECT id FROM beo_events WHERE location_id = ?)`,
         ).run(
@@ -273,6 +288,7 @@ async function beoPostHandler(req) {
           'order_items_notes'    in body ? 1 : 0, ord.val,
           'order_time'           in body ? 1 : 0, time.val,
           'group_note'           in body ? 1 : 0, grp.val,
+          courseTouch, courseVal,
           id,
           loc,
         );
