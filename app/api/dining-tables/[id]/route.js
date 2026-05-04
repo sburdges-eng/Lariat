@@ -1,6 +1,7 @@
 import { getDb } from '../../../../lib/db';
 import { locationFromBody } from '../../../../lib/location';
 import { postAuditEvent } from '../../../../lib/auditEvents';
+import { withIdempotency } from '../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +28,11 @@ function parseId(params) {
  *
  * 400 if no fields would change. 404 if not at this location.
  */
-export async function PATCH(req, { params }) {
+export async function PATCH(req, ctx) {
+  return withIdempotency(req, () => diningTablePatchHandler(req, ctx));
+}
+
+async function diningTablePatchHandler(req, { params }) {
   const id = parseId(params);
   if (!id) return Response.json({ error: 'bad id' }, { status: 400 });
   try {
@@ -152,7 +157,11 @@ export async function PATCH(req, { params }) {
   }
 }
 
-export async function DELETE(req, { params }) {
+export async function DELETE(req, ctx) {
+  return withIdempotency(req, () => diningTableDeleteHandler(req, ctx));
+}
+
+async function diningTableDeleteHandler(req, { params }) {
   const id = parseId(params);
   if (!id) return Response.json({ error: 'bad id' }, { status: 400 });
   try {

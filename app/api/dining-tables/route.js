@@ -1,6 +1,7 @@
 import { getDb } from '../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,6 +56,10 @@ export async function GET(req) {
  * 400 on validation failure. 409 on duplicate (location_id, id).
  */
 export async function POST(req) {
+  return withIdempotency(req, () => diningTablesPostHandler(req));
+}
+
+async function diningTablesPostHandler(req) {
   try {
     const body = await req.json().catch(() => ({}));
 

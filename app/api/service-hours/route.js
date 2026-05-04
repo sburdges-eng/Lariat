@@ -4,6 +4,7 @@ import {
   locationFromBody,
   locationFromRequest,
 } from '../../../lib/location';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,6 +59,10 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  return withIdempotency(req, () => serviceHoursPostHandler(req));
+}
+
+async function serviceHoursPostHandler(req) {
   try {
     const body = await req.json();
 
@@ -113,6 +118,10 @@ export async function POST(req) {
 }
 
 export async function PATCH(req) {
+  return withIdempotency(req, () => serviceHoursPatchHandler(req));
+}
+
+async function serviceHoursPatchHandler(req) {
   try {
     const body = await req.json();
     const id = Number(body.id);
@@ -191,6 +200,10 @@ export async function PATCH(req) {
 }
 
 export async function DELETE(req) {
+  return withIdempotency(req, () => serviceHoursDeleteHandler(req));
+}
+
+async function serviceHoursDeleteHandler(req) {
   try {
     const body = await req.json();
     const id = Number(body.id);

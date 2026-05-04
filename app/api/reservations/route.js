@@ -1,6 +1,7 @@
 import { getDb } from '../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,6 +71,10 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  return withIdempotency(req, () => reservationsPostHandler(req));
+}
+
+async function reservationsPostHandler(req) {
   try {
     const body = await req.json().catch(() => ({}));
     const partyName = clip(body.party_name, 200);
