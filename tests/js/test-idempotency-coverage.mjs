@@ -53,17 +53,14 @@ const ALLOWLIST = new Set([
 const TODO_RETROFIT = new Set([
   // Operational / front-of-house — duplicate writes are annoying but
   // not regulatorily critical; lower priority than HACCP/financial.
-  'dining-tables',
-  'dining-tables/[id]',
+  // (dining-tables + dining-tables/[id] drained in feat/idempotency-retrofit-foh)
   // (equipment + maintenance + parts + schedule drained in feat/idempotency-retrofit-equipment)
   'gold-stars',
   'gold-stars/[id]',
   'kitchen-assistant',
   'prep-tasks',
   'prep-tasks/[id]',
-  'reservations',
-  'reservations/[id]',
-  'service-hours',
+  // (reservations + reservations/[id] + service-hours drained in feat/idempotency-retrofit-foh)
   'preshift-notes',
   'checks',
   'cleaning-schedule',
