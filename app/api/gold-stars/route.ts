@@ -1,6 +1,7 @@
 import { getDb } from '../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  return withIdempotency(req, () => goldStarsPostHandler(req));
+}
+
+async function goldStarsPostHandler(req: Request) {
   try {
     const body = await req.json();
     const cookName = typeof body.cook_name === 'string' ? body.cook_name.trim() : '';

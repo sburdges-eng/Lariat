@@ -55,13 +55,10 @@ const TODO_RETROFIT = new Set([
   // not regulatorily critical; lower priority than HACCP/financial.
   // (dining-tables + dining-tables/[id] drained in feat/idempotency-retrofit-foh)
   // (equipment + maintenance + parts + schedule drained in feat/idempotency-retrofit-equipment)
-  'gold-stars',
-  'gold-stars/[id]',
+  // (gold-stars + gold-stars/[id] + prep-tasks + prep-tasks/[id] drained in feat/idempotency-retrofit-prep-tracking)
   'kitchen-assistant',
-  'prep-tasks',
-  'prep-tasks/[id]',
   // (reservations + reservations/[id] + service-hours drained in feat/idempotency-retrofit-foh)
-  'preshift-notes',
+  // (preshift-notes drained in feat/idempotency-retrofit-prep-tracking)
   'checks',
   'cleaning-schedule',
   // Recipe edit — slug uniqueness gives partial protection but a

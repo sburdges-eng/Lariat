@@ -5,6 +5,7 @@ import {
   locationFromRequest,
 } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +46,10 @@ export async function GET(req: Request) {
 
 /** POST /api/preshift-notes — upsert by (location, shift_date, service_label). */
 export async function POST(req: Request) {
+  return withIdempotency(req, () => preshiftNotesPostHandler(req));
+}
+
+async function preshiftNotesPostHandler(req: Request) {
   try {
     const body = await req.json();
 

@@ -1,6 +1,7 @@
 import { getDb, todayISO } from '../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 import { clip } from '../../../lib/clip';
 
 export const dynamic = 'force-dynamic';
@@ -36,6 +37,10 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  return withIdempotency(req, () => prepTasksPostHandler(req));
+}
+
+async function prepTasksPostHandler(req) {
   try {
     const body = await req.json().catch(() => ({}));
     const task = clip(body.task, 300);
