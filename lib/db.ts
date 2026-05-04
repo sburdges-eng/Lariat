@@ -2607,6 +2607,27 @@ function initFoodSafetyLaborSchema(db: DB): void {
       ON audit_events(entity, entity_id);
     CREATE INDEX IF NOT EXISTS idx_audit_shift
       ON audit_events(location_id, shift_date);
+
+    -- KDS bump-back state (protocol v2 — Lariat-KDS/docs/lariat-kds-protocol.md §3).
+    -- A row exists iff the ticket has been bumped. Re-bump UPDATEs bumped_at
+    -- and writes a 'correction' audit row; the prior bumped_at is captured
+    -- in the audit payload so the trail is reconstructable. ticket_id alone
+    -- is the natural key — Toast ticket guids are globally unique — but we
+    -- carry location_id for multi-site isolation per docs/PATTERNS.md §4.
+    -- bumped_pin_hash is the SHA-256 of the cook PIN; the raw PIN is never
+    -- stored. Anonymous bumps (no pin) leave bumped_pin_hash NULL.
+    CREATE TABLE IF NOT EXISTS kds_ticket_states (
+      ticket_id TEXT NOT NULL,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      bumped_at TEXT NOT NULL,
+      bumped_station TEXT,
+      bumped_pin_hash TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (ticket_id, location_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_kds_states_recent
+      ON kds_ticket_states(location_id, bumped_at DESC);
   `);
 }
 

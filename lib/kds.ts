@@ -1,0 +1,112 @@
+// KDS bump-back rule module (v2 protocol — Lariat-KDS/docs/lariat-kds-protocol.md §3).
+//
+// Pure module: validation, station-slug recognition, PIN hashing, and the
+// canonical response shape. No I/O — the route owns the db.transaction.
+// Per docs/PATTERNS.md §1 (HACCP rule-module shape), thresholds and
+// citations live exactly once, here.
+//
+// The Swift parser at Lariat-KDS/Sources/LariatKDSCore/TicketParser.swift
+// fails closed on any drift in the response shape; treat `BumpResponse`
+// as the binding contract and do not change field names without updating
+// the protocol doc first (Lariat-KDS/CLAUDE.md hard rule).
+
+import { createHash } from 'node:crypto';
+
+/** Known station slugs from protocol §2. Unknown values are accepted —
+ *  KDS renders them with the default chip — so this list is informational. */
+export const KNOWN_STATIONS = ['grill', 'sides', 'bar'] as const;
+export type KnownStation = (typeof KNOWN_STATIONS)[number];
+
+/** Lowercased non-empty string. KDS protocol §2 normalizes to lowercase. */
+export function isStationSlug(s: unknown): s is string {
+  return typeof s === 'string' && s.length > 0 && s === s.toLowerCase();
+}
+
+/** Canonical ISO-8601 UTC: round-trips through Date.toISOString().
+ *  Mirrors the round-trip check in tests/js/test-kds-tickets-route.mjs:57. */
+export function isIso8601Utc(s: unknown): s is string {
+  if (typeof s !== 'string') return false;
+  const ms = Date.parse(s);
+  if (!Number.isFinite(ms)) return false;
+  return new Date(ms).toISOString() === s;
+}
+
+/** Stable per-PIN hash. SHA-256 is overkill for a 4-digit PIN but the cost
+ *  is negligible and the determinism keeps integration testing simple. The
+ *  raw PIN is never stored — only this hash makes it to kds_ticket_states. */
+export function hashPin(pin: string): string {
+  return createHash('sha256').update(pin).digest('hex');
+}
+
+export interface BumpPayload {
+  /** ISO-8601 UTC, or null to let the route stamp server-now. */
+  bumped_at: string | null;
+  /** Lowercased slug, or null if the KDS doesn't know. */
+  station: string | null;
+  /** Raw PIN (will be hashed before storage), or null for anonymous bumps. */
+  cook_pin: string | null;
+}
+
+export type ValidationResult =
+  | { ok: true; payload: BumpPayload }
+  | { ok: false; error: string };
+
+/**
+ * Parse the POST body. All three fields are optional per protocol §3 —
+ * a fully empty body is a valid bump (server stamps the time, station and
+ * cook are recorded as unknown). Anything *present* must match the rules.
+ *
+ * The intent is to accept generously and reject loudly: a rogue field type
+ * (e.g. `bumped_at: 1717000000`) is a 422, not a silent coercion. Cooks
+ * tap fast; we want the KDS bug to surface to a developer, not a cook.
+ */
+export function validateBumpPayload(body: unknown): ValidationResult {
+  if (body === null || body === undefined) {
+    return { ok: true, payload: { bumped_at: null, station: null, cook_pin: null } };
+  }
+  if (typeof body !== 'object') {
+    return { ok: false, error: 'body must be a JSON object' };
+  }
+  const b = body as Record<string, unknown>;
+
+  let bumped_at: string | null = null;
+  if (b.bumped_at !== undefined && b.bumped_at !== null) {
+    if (!isIso8601Utc(b.bumped_at)) {
+      return { ok: false, error: 'bumped_at must be a canonical ISO-8601 UTC string' };
+    }
+    bumped_at = b.bumped_at as string;
+  }
+
+  let station: string | null = null;
+  if (b.station !== undefined && b.station !== null) {
+    if (!isStationSlug(b.station)) {
+      return { ok: false, error: 'station must be a non-empty lowercased slug' };
+    }
+    station = b.station as string;
+  }
+
+  let cook_pin: string | null = null;
+  if (b.cook_pin !== undefined && b.cook_pin !== null) {
+    if (typeof b.cook_pin !== 'string' || b.cook_pin.length === 0) {
+      return { ok: false, error: 'cook_pin must be a non-empty string when present' };
+    }
+    cook_pin = b.cook_pin;
+  }
+
+  return { ok: true, payload: { bumped_at, station, cook_pin } };
+}
+
+/** Wire-format response per protocol §3. The Swift parser pins these names. */
+export interface BumpResponse {
+  id: string;
+  bumped_at: string;
+}
+
+/** Action the audit row should record for a bump.
+ *  - 'insert' on the first bump for a ticket
+ *  - 'correction' on a re-bump (cook tapped twice; kept-latest semantics) */
+export type BumpAuditAction = 'insert' | 'correction';
+
+export function bumpActionForExisting(existing: { bumped_at: string } | null | undefined): BumpAuditAction {
+  return existing ? 'correction' : 'insert';
+}
