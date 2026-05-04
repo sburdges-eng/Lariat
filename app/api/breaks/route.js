@@ -8,6 +8,7 @@ import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import { evaluateShift } from '../../../lib/breaks';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,10 @@ const clip = (s, max) => {
 // ── POST /api/breaks ──────────────────────────────────────────────
 
 export async function POST(req) {
+  return withIdempotency(req, () => breaksPostHandler(req));
+}
+
+async function breaksPostHandler(req) {
   try {
     const body = await req.json();
     const kind = clip(body.kind, 8);
@@ -111,6 +116,10 @@ export async function POST(req) {
 // ── PATCH /api/breaks ─────────────────────────────────────────────
 
 export async function PATCH(req) {
+  return withIdempotency(req, () => breaksPatchHandler(req));
+}
+
+async function breaksPatchHandler(req) {
   try {
     const body = await req.json();
     const id = Number(body.id);

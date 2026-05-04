@@ -1,9 +1,14 @@
 import { getDb } from '../../../../lib/db';
 import { locationFromBody } from '../../../../lib/location';
+import { withIdempotency } from '../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req) {
+  return withIdempotency(req, () => eightySixResolvePostHandler(req));
+}
+
+async function eightySixResolvePostHandler(req) {
   try {
     const body = await req.json();
     const { id, cook_id } = body || {};
