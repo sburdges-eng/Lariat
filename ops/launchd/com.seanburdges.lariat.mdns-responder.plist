@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Long-running mDNS responder for Lariat. Advertises this instance on
+  the LAN as a `_lariat._tcp` service (RFC 6335) so iPads + peer Lariat
+  hubs can find it without anyone typing IP addresses into a settings
+  screen. The Lariat-KDS Swift app's discover probe is the immediate
+  consumer. See lib/mdnsDiscovery.ts and docs/lariat-kds-protocol.md §1.
+
+  Unlike the other agents in this folder (which are scheduled tasks),
+  this is a daemon: KeepAlive=true so launchd restarts it if the
+  responder dies, RunAtLoad=true so it comes up at login, no
+  StartCalendarInterval. ThrottleInterval=30 keeps a persistently-
+  failing process from tight-looping (e.g. on a host with no IPv4
+  multicast — bonjour-service warns once and exits).
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.seanburdges.lariat.mdns-responder</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>npm run mdns:advertise</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/seanburdges/Dev/Lariat</string>
+
+  <!-- Daemon posture: come up at login, restart on crash, but throttle
+       restarts so a host with no multicast doesn't burn CPU on retries. -->
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+
+  <key>StandardOutPath</key>
+  <string>/Users/seanburdges/Dev/Lariat/logs/mdns-responder.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/seanburdges/Dev/Lariat/logs/mdns-responder.err.log</string>
+
+  <!-- The advertise script reads PORT and LARIAT_LOCATION_ID from the
+       environment. PORT must match whatever Lariat is bound to (3000
+       by default per `npm run dev`; 4000+ if you flip it for a second
+       instance per docs/multi-instance.md). LARIAT_LOCATION_ID lets
+       upstairs/downstairs splits be distinguished in the TXT record.
+       Override by editing this file (then unload+load — see README). -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PORT</key>
+    <string>3000</string>
+    <key>LARIAT_LOCATION_ID</key>
+    <string>default</string>
+  </dict>
+</dict>
+</plist>
