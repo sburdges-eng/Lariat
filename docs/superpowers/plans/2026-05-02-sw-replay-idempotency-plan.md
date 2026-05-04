@@ -129,3 +129,32 @@ Abort task and re-scope if any of these come up:
 - Task 4: 2–3 hours (coverage test + ~15 route retrofits)
 
 Total: 5–9 hours across 4 PRs. Can be paused mid-plan; each task ships independently.
+
+---
+
+## Phase 2 — client activation (closed)
+
+Tasks 1–4 above shipped the server-side wrapper, schema, coverage gate, and the 48-route `TODO_RETROFIT` allowlist. They also shipped `lib/clientFetch.ts` with an opt-in `idempotent: true` flag — but **no cockpit surface ever opted in**. The wrapper saw no `idempotency-key` header on any iPad submission and fell through to "case 1: no header" (handler runs unchanged, nothing cached). Phase 2 closes that dormancy gap by migrating the 4 wrapped routes' iPad cockpit callers to `clientFetch({ idempotent: true })`:
+
+- `8ecc20f feat(idempotency): activate clientFetch on ReceivingBoard (Phase 2 #1)` — `app/food-safety/receiving/ReceivingBoard.jsx`. Also pins the clientFetch contract in `tests/js/test-clientFetch.mjs` (header injection, opt-in shape, fresh key per call, caller-override respected).
+- `4f5522a feat(idempotency): activate clientFetch on TempLogBoard (Phase 2 #2)` — `app/food-safety/temp-log/TempLogBoard.jsx`. Adds two route-level dedup tests to `tests/js/test-temp-log-api.mjs` (same key → 1 temp_log + 1 audit_events, different keys → 2 + 2).
+- `beaa568 feat(idempotency): activate clientFetch on StationChecklist (Phase 2 #3)` — `app/stations/[id]/StationChecklist.tsx`. Signoff dedup contract was already pinned by `tests/js/test-signoff-audit-atomicity.mjs` (PR #119).
+- `f0666a9 feat(idempotency): activate clientFetch on BoxOfficeBoard (Phase 2 #4)` — `app/shows/[id]/box-office/BoxOfficeBoard.jsx`. Touches only the `POST /api/shows/[id]/box-office` caller; the per-line PATCH at line 93 hits `[lineId]` which is in `TODO_RETROFIT` and stays bare. Box-office dedup contract was pinned by `tests/js/test-box-office-route-idempotency.mjs` (PR #119).
+
+### Phase 2 e2e — deliberately not added
+
+The original spec called for a Playwright test that drives the full offline → SW queue → online → replay round-trip and asserts the server dedups. That test is **not feasible under the current Playwright harness**: `context.setOffline()` does not block service-worker–initiated fetches, which is the same limitation that already caused `tests/e2e/offline-queue.spec.ts:80-83` to leave its full-round-trip case as `test.skip(... 'manual only')`. The dormancy property is instead proven by the chain:
+
+1. **Client emits the header.** `tests/js/test-clientFetch.mjs` (4 cases).
+2. **SW preserves the header verbatim through queue serialization.** `public/sw.js:106-107` captures every header into the IndexedDB row; `public/sw.js:131-135` replays with those exact headers. The round-trip property is structural, not stateful — no cache TTL, no header rewriting.
+3. **Server dedups identical-key requests.** `tests/js/test-idempotency-wrapper.mjs` (5 cases) + `tests/js/test-temp-log-api.mjs` (2 new) + `tests/js/test-signoff-audit-atomicity.mjs` (3) + `tests/js/test-box-office-route-idempotency.mjs` (5).
+
+Manual verification on an iPad (per `OPERATIONS.md`): submit, kill wifi, submit again, restore wifi — DB shows one row per real action.
+
+## Phase 3 — HACCP retrofit (deferred)
+
+Wrap the 9 HACCP rule-module routes still in `TODO_RETROFIT`: `cooling`, `sanitizer-check`, `sds`, `pest`, `sick-worker`, `date-marks`, `tphc`, `cleaning`, `thermometer-calibrations`. Each writes `audit_events` per POST → duplicate replay = duplicate HACCP attestation. Same regulatory weight as Phase 2; lands as its own plan.
+
+## Phase 4 — operational drain (deferred)
+
+Remaining 39 entries in `TODO_RETROFIT` (event-ops Phase 2 subroutes, dining/reservations, inventory, prep, equipment, eighty-six, breaks/certs, recipes, specials, costing pack-changes, compute/status). Lower regulatory weight; lands as its own plan.

@@ -12,6 +12,7 @@
 // action" field into the form instead of silently failing.
 
 import { useEffect, useMemo, useState } from 'react';
+import { clientFetch } from '@/lib/clientFetch';
 
 function fmtTime(iso) {
   if (!iso) return '—';
@@ -101,7 +102,7 @@ export default function TempLogBoard({
     setSaving(true);
     setErr('');
     try {
-      const res = await fetch('/api/temp-log', {
+      const res = await clientFetch('/api/temp-log', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -112,6 +113,7 @@ export default function TempLogBoard({
           corrective_action: note.trim() || null,
           cook_id: cookId || null,
         }),
+        idempotent: true,
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));

@@ -14,6 +14,7 @@
 // board flips into needsNote mode and red-borders the note field.
 
 import { useEffect, useMemo, useState } from 'react';
+import { clientFetch } from '@/lib/clientFetch';
 
 function fmtTime(iso) {
   if (!iso) return '—';
@@ -131,7 +132,7 @@ export default function ReceivingBoard({
     setSaving(true);
     setErr('');
     try {
-      const res = await fetch('/api/receiving', {
+      const res = await clientFetch('/api/receiving', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -149,6 +150,7 @@ export default function ReceivingBoard({
           received_qty: receivedQty.trim() === '' ? null : Number(receivedQty),
           received_unit: receivedUnit.trim() || null,
         }),
+        idempotent: true,
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
