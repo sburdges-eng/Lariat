@@ -437,6 +437,19 @@ export const NAV_ITEMS = [
     locAware: t,
     surface: { sidebar: f, palette: t, shelf: f },
   },
+  // Temp PINs (T10): manager mints scoped 1-shift PINs. Palette-only —
+  // not a daily destination, but a quick ⌘K target when handing
+  // authority to a sous chef for a banquet.
+  {
+    id: 'management-temp-pins',
+    href: '/management/temp-pins',
+    name: 'Temp PINs',
+    sub: 'Hand out 1-shift PINs',
+    group: 'Management',
+    terms: 'temp pin scoped pass shift authority sous chef',
+    locAware: f,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
   // Audit-log lives under /management. Palette-only — sidebar would
   // crowd the rail, but jumping to "audit" via ⌘K is a common GM move
   // when reconciling who edited what.
