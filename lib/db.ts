@@ -2567,6 +2567,27 @@ function initFoodSafetyLaborSchema(db: DB): void {
       ON audit_events(entity, entity_id);
     CREATE INDEX IF NOT EXISTS idx_audit_shift
       ON audit_events(location_id, shift_date);
+
+    -- Temp PINs: scoped, time-boxed authority handed out by a manager
+    -- (per docs/superpowers/specs/2026-05-04-beo-fire-times.md). pin_hash
+    -- is SHA-256(pin); the raw PIN is shown ONCE on issuance and never
+    -- persisted. Validation in lib/tempPin.ts is fail-closed: a malformed
+    -- expires_at or scopes_json column reads as expired / no scopes.
+    CREATE TABLE IF NOT EXISTS temp_pins (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      pin_hash TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL,
+      scopes_json TEXT NOT NULL,
+      issued_by TEXT,
+      issued_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT NOT NULL,
+      revoked_at TEXT
+    );
+    -- Partial index on the hot path: "is this PIN active right now?"
+    CREATE INDEX IF NOT EXISTS idx_temp_pins_active
+      ON temp_pins(location_id, expires_at)
+      WHERE revoked_at IS NULL;
   `);
 }
 
