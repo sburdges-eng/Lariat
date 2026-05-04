@@ -6,6 +6,7 @@ import {
   validateName,
   validatePatchKeys,
 } from '../../../../../lib/specialsValidators';
+import { withIdempotency } from '../../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +34,11 @@ export async function GET(req, { params }) {
   return Response.json(row, { status: 200 });
 }
 
-export async function PATCH(req, { params }) {
+export async function PATCH(req, ctx) {
+  return withIdempotency(req, () => specialsSavedPatchHandler(req, ctx));
+}
+
+async function specialsSavedPatchHandler(req, { params }) {
   let body;
   try {
     body = await req.json();
@@ -99,11 +104,14 @@ export async function PATCH(req, { params }) {
   return Response.json({ ok: true }, { status: 200 });
 }
 
-export async function DELETE(req, { params }) {
+export async function DELETE(req, ctx) {
   if (pinRequiredForPic() && !(await hasPinCookie(req))) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
+  return withIdempotency(req, () => specialsSavedDeleteHandler(req, ctx));
+}
 
+async function specialsSavedDeleteHandler(req, { params }) {
   const id = params.id;
   const locationId = locationFromRequest(req);
   const now = Date.now();
