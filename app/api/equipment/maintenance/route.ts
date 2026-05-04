@@ -1,6 +1,7 @@
 
 import { getDb } from '../../../../lib/db';
 import { locationFromRequest, locationFromBody } from '../../../../lib/location';
+import { withIdempotency } from '../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +44,10 @@ function toMoney(v: unknown): number | null {
 }
 
 export async function POST(request: Request) {
+  return withIdempotency(request, () => maintenancePostHandler(request));
+}
+
+async function maintenancePostHandler(request: Request) {
   try {
     const body = await request.json();
     const equipment_id = Number(body?.equipment_id);

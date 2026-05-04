@@ -1,6 +1,7 @@
 
 import { getDb } from '../../../../lib/db';
 import { locationFromRequest, locationFromBody } from '../../../../lib/location';
+import { withIdempotency } from '../../../../lib/idempotency';
 
 const MAX_TEXT = 500;
 const MAX_NOTES = 2000;
@@ -40,6 +41,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  return withIdempotency(request, () => partsPostHandler(request));
+}
+
+async function partsPostHandler(request: Request) {
   try {
     const body = await request.json();
     const equipment_id = Number(body?.equipment_id);
