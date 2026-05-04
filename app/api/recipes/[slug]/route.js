@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { logAuditAction } from '../../../../lib/auditLog.mjs';
+import { withIdempotency } from '../../../../lib/idempotency';
 
 // GET endpoint - fetch recipe details
 export async function GET(request, { params }) {
@@ -14,7 +15,11 @@ export async function GET(request, { params }) {
 }
 
 // PUT endpoint - update recipe (management only)
-export async function PUT(request, { params }) {
+export async function PUT(request, ctx) {
+  return withIdempotency(request, () => recipeSlugPutHandler(request, ctx));
+}
+
+async function recipeSlugPutHandler(request, { params }) {
   const { slug } = params;
 
   // Verify management role via the PIN cookie (same gate as

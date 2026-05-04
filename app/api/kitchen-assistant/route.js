@@ -7,6 +7,7 @@ import {
 } from '../../../lib/ollama';
 import { locationFromBodyOrRequest } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { withIdempotency } from '../../../lib/idempotency';
 import {
   CalculatorError,
   expandForBEO,
@@ -83,6 +84,10 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  return withIdempotency(req, () => kitchenAssistantPostHandler(req));
+}
+
+async function kitchenAssistantPostHandler(req) {
   let body = {};
   try {
     body = await req.json();

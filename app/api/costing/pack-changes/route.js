@@ -10,6 +10,7 @@
 
 import { getDb } from '../../../../lib/db';
 import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
+import { withIdempotency } from '../../../../lib/idempotency';
 import {
   listPackChanges,
   unacknowledgedCount,
@@ -73,6 +74,10 @@ export async function GET(req) {
 export async function POST(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
+  return withIdempotency(req, () => packChangesPostHandler(req));
+}
+
+async function packChangesPostHandler(req) {
   let body;
   try {
     body = await req.json();

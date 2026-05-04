@@ -4,6 +4,7 @@ import {
   locationFromBody,
   locationFromRequest,
 } from '../../../lib/location';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +50,10 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  return withIdempotency(req, () => cleaningSchedulePostHandler(req));
+}
+
+async function cleaningSchedulePostHandler(req) {
   try {
     const body = await req.json();
 
@@ -98,6 +103,10 @@ export async function POST(req) {
 }
 
 export async function PATCH(req) {
+  return withIdempotency(req, () => cleaningSchedulePatchHandler(req));
+}
+
+async function cleaningSchedulePatchHandler(req) {
   try {
     const body = await req.json();
     const id = Number(body.id);
@@ -176,6 +185,10 @@ export async function PATCH(req) {
 }
 
 export async function DELETE(req) {
+  return withIdempotency(req, () => cleaningScheduleDeleteHandler(req));
+}
+
+async function cleaningScheduleDeleteHandler(req) {
   try {
     const body = await req.json();
     const id = Number(body.id);

@@ -1,6 +1,7 @@
 import { getDb } from '../../../../lib/db';
 import { triggerComputeEngine } from '../../../../lib/computeEngine/index';
 import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
+import { withIdempotency } from '../../../../lib/idempotency';
 
 async function requirePin(req) {
   if (pinRequiredForPic() && !(await hasPinCookie(req))) {
@@ -51,6 +52,10 @@ export async function GET(request) {
 export async function POST(request) {
   const pinFail = await requirePin(request);
   if (pinFail) return pinFail;
+  return withIdempotency(request, () => computeStatusPostHandler(request));
+}
+
+async function computeStatusPostHandler(request) {
   const { searchParams } = new URL(request.url);
   const locationId = searchParams.get('location') || 'default';
   const periodStart = searchParams.get('period_start') || undefined;
