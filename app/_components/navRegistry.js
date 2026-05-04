@@ -63,6 +63,17 @@ export const NAV_ITEMS = [
 
   // ── Service ─────────────────────────────────────────────────────────
   {
+    id: 'kds-punch',
+    href: '/kds/punch',
+    name: 'Punch ticket',
+    sub: 'Send to the line',
+    group: 'Service',
+    shortcut: 'P',
+    terms: 'punch ticket order kds expo fire send line',
+    locAware: t,
+    surface: { sidebar: t, palette: t, shelf: f },
+  },
+  {
     id: 'eighty-six',
     href: '/eighty-six',
     name: '86 Board',
