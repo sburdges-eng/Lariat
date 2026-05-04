@@ -1,6 +1,7 @@
 
 import { getDb } from '../../../../lib/db';
 import { locationFromRequest, locationFromBody } from '../../../../lib/location';
+import { withIdempotency } from '../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  return withIdempotency(request, () => schedulePostHandler(request));
+}
+
+async function schedulePostHandler(request: Request) {
   try {
     const body = await request.json();
     const equipment_id = Number(body?.equipment_id);

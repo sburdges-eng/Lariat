@@ -55,10 +55,7 @@ const TODO_RETROFIT = new Set([
   // not regulatorily critical; lower priority than HACCP/financial.
   'dining-tables',
   'dining-tables/[id]',
-  'equipment',
-  'equipment/maintenance',
-  'equipment/parts',
-  'equipment/schedule',
+  // (equipment + maintenance + parts + schedule drained in feat/idempotency-retrofit-equipment)
   'gold-stars',
   'gold-stars/[id]',
   'kitchen-assistant',
