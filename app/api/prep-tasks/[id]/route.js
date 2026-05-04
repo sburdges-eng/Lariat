@@ -1,6 +1,7 @@
 import { getDb } from '../../../../lib/db';
 import { locationFromBody } from '../../../../lib/location';
 import { postAuditEvent } from '../../../../lib/auditEvents';
+import { withIdempotency } from '../../../../lib/idempotency';
 import { clip } from '../../../../lib/clip';
 
 export const dynamic = 'force-dynamic';
@@ -39,7 +40,11 @@ function asPriority(v) {
  *                                           Field edits compose with transitions
  *                                           in the same PATCH.
  */
-export async function PATCH(req, { params }) {
+export async function PATCH(req, ctx) {
+  return withIdempotency(req, () => prepTaskPatchHandler(req, ctx));
+}
+
+async function prepTaskPatchHandler(req, { params }) {
   const id = parseId(params);
   if (!id) return Response.json({ error: 'bad id' }, { status: 400 });
   try {
@@ -173,7 +178,11 @@ export async function PATCH(req, { params }) {
   }
 }
 
-export async function DELETE(req, { params }) {
+export async function DELETE(req, ctx) {
+  return withIdempotency(req, () => prepTaskDeleteHandler(req, ctx));
+}
+
+async function prepTaskDeleteHandler(req, { params }) {
   const id = parseId(params);
   if (!id) return Response.json({ error: 'bad id' }, { status: 400 });
   try {
