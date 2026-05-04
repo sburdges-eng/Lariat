@@ -1877,6 +1877,46 @@ export function initSchema(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_specials_active
       ON specials(location_id, archived_at) WHERE archived_at IS NULL;
   `);
+
+  // ── KDS tickets ──────────────────────────────────────────────────
+  // Manual ticket entry for the Lariat-KDS Swift iPad app, used until
+  // the Toast Partner ingest lands (the "SWAP POINT" called out in
+  // app/api/kds/tickets/route.js). FOH/expo punches a ticket on Lariat,
+  // the iPad polls /api/kds/tickets and renders it. Wire shape mirrors
+  // docs/lariat-kds-protocol.md §2 verbatim — same field names + types
+  // so the Swift parser at Sources/LariatKDSCore/TicketParser.swift
+  // doesn't need to change when Toast lands.
+  //
+  // IDs are TEXT (UUIDv7 from lib/uuid.ts) per the protocol's
+  // "string id, stable per ticket / per line" rule. `bumped_at` is
+  // present but unused in v1; reserved for the v2 bump-back endpoint.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS kds_tickets (
+      id            TEXT PRIMARY KEY,
+      location_id   TEXT NOT NULL DEFAULT 'default',
+      order_number  TEXT NOT NULL,
+      placed_at     TEXT NOT NULL,
+      destination   TEXT,
+      bumped_at     TEXT,
+      created_by_cook_id TEXT,
+      created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_kds_tickets_active
+      ON kds_tickets(location_id, placed_at DESC)
+      WHERE bumped_at IS NULL;
+
+    CREATE TABLE IF NOT EXISTS kds_ticket_lines (
+      id          TEXT PRIMARY KEY,
+      ticket_id   TEXT NOT NULL REFERENCES kds_tickets(id) ON DELETE CASCADE,
+      sort_order  INTEGER NOT NULL DEFAULT 0,
+      item_name   TEXT NOT NULL,
+      quantity    INTEGER NOT NULL CHECK (quantity >= 1),
+      station     TEXT NOT NULL,
+      modifiers   TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_kds_ticket_lines_ticket
+      ON kds_ticket_lines(ticket_id, sort_order, id);
+  `);
 }
 
 /**
