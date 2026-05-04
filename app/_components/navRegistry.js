@@ -118,6 +118,16 @@ export const NAV_ITEMS = [
     surface: { sidebar: t, palette: t, shelf: f },
   },
   {
+    id: 'fire-schedule',
+    href: '/prep/fire-schedule',
+    name: 'Fire schedule',
+    sub: "Tonight's banquet fires",
+    group: 'Service',
+    terms: 'fire schedule banquet course beo timing wall board',
+    locAware: f,
+    surface: { sidebar: t, palette: t, shelf: f },
+  },
+  {
     id: 'reservations',
     href: '/reservations',
     name: 'Reservations',
@@ -436,6 +446,19 @@ export const NAV_ITEMS = [
     group: 'Management',
     terms: 'management rollup gm dashboard manager overview',
     locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  // Temp PINs (T10): manager mints scoped 1-shift PINs. Palette-only —
+  // not a daily destination, but a quick ⌘K target when handing
+  // authority to a sous chef for a banquet.
+  {
+    id: 'management-temp-pins',
+    href: '/management/temp-pins',
+    name: 'Temp PINs',
+    sub: 'Hand out 1-shift PINs',
+    group: 'Management',
+    terms: 'temp pin scoped pass shift authority sous chef',
+    locAware: f,
     surface: { sidebar: f, palette: t, shelf: f },
   },
   // Audit-log lives under /management. Palette-only — sidebar would

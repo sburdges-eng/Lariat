@@ -2628,6 +2628,50 @@ function initFoodSafetyLaborSchema(db: DB): void {
     );
     CREATE INDEX IF NOT EXISTS idx_kds_states_recent
       ON kds_ticket_states(location_id, bumped_at DESC);
+
+    -- Temp PINs: scoped, time-boxed authority handed out by a manager
+    -- (per docs/superpowers/specs/2026-05-04-beo-fire-times.md). pin_hash
+    -- is SHA-256(pin); the raw PIN is shown ONCE on issuance and never
+    -- persisted. Validation in lib/tempPin.ts is fail-closed: a malformed
+    -- expires_at or scopes_json column reads as expired / no scopes.
+    CREATE TABLE IF NOT EXISTS temp_pins (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      pin_hash TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL,
+      scopes_json TEXT NOT NULL,
+      issued_by TEXT,
+      issued_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT NOT NULL,
+      revoked_at TEXT
+    );
+    -- Partial index on the hot path: "is this PIN active right now?"
+    CREATE INDEX IF NOT EXISTS idx_temp_pins_active
+      ON temp_pins(location_id, expires_at)
+      WHERE revoked_at IS NULL;
+
+    -- BEO courses (per docs/superpowers/specs/2026-05-04-beo-fire-times.md).
+    -- A course groups one or more beo_line_items under a single fire time.
+    -- fire_at is canonical ISO-8601 UTC; the line_items inherit it via FK
+    -- so drift is structurally impossible. ON DELETE CASCADE: deleting an
+    -- event drops its courses; child line_items.course_id is set NULL by
+    -- the FK on beo_line_items (added in migrateLegacyColumns below).
+    CREATE TABLE IF NOT EXISTS beo_courses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id INTEGER NOT NULL,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      course_label TEXT NOT NULL,
+      fire_at TEXT NOT NULL,
+      notes TEXT,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (event_id) REFERENCES beo_events(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_beo_courses_loc_fire
+      ON beo_courses(location_id, fire_at);
+    CREATE INDEX IF NOT EXISTS idx_beo_courses_event
+      ON beo_courses(event_id, sort_order);
   `);
 }
 
@@ -3005,9 +3049,26 @@ function migrateLegacyColumns(db: DB): void {
     ['order_items_notes',    'ALTER TABLE beo_line_items ADD COLUMN order_items_notes TEXT'],
     ['order_time',           'ALTER TABLE beo_line_items ADD COLUMN order_time TEXT'],
     ['group_note',           'ALTER TABLE beo_line_items ADD COLUMN group_note TEXT'],
+    // T4 (BEO course fire-times): nullable FK so pre-existing rows stay
+    // valid. ON DELETE SET NULL — deleting a course unbinds its lines
+    // rather than dropping them.
+    ['course_id',            'ALTER TABLE beo_line_items ADD COLUMN course_id INTEGER REFERENCES beo_courses(id) ON DELETE SET NULL'],
   ];
   for (const [col, ddl] of beoLineMigrations) {
     if (!beoLineCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
+  // T7: per-course station_id. Recon showed dish_components has no
+  // station_id column, so the SPEC's join chain doesn't work. Per
+  // operator mental model ("the entree course goes to grill"),
+  // station belongs on the course, not the line. NULL = unassigned
+  // bucket on the rollup page.
+  const beoCourseCols = t('beo_courses');
+  const beoCourseMigrations: [string, string][] = [
+    ['station_id', 'ALTER TABLE beo_courses ADD COLUMN station_id TEXT'],
+  ];
+  for (const [col, ddl] of beoCourseMigrations) {
+    if (!beoCourseCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
   }
 
   // Extend bom_lines with yield / cooking-loss factors used by COGS mapping.
