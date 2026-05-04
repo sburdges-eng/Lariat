@@ -74,7 +74,7 @@ async function createHandler(req) {
 
   const v = validateCoursePayload(body);
   if (!v.ok) return json({ error: v.error }, { status: 422 });
-  const { course_label, fire_at, notes, sort_order: sortOrderIn } = v.payload;
+  const { course_label, fire_at, notes, sort_order: sortOrderIn, station_id: stationId } = v.payload;
 
   const location = locationFromBodyOrRequest(body, req);
   const db = getDb();
@@ -102,10 +102,10 @@ async function createHandler(req) {
       const info = db
         .prepare(
           `INSERT INTO beo_courses
-             (event_id, location_id, course_label, fire_at, notes, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+             (event_id, location_id, course_label, fire_at, notes, sort_order, station_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
         )
-        .run(eventId, location, course_label, fire_at, notes, resolvedSortOrder);
+        .run(eventId, location, course_label, fire_at, notes, resolvedSortOrder, stationId);
       newId = Number(info.lastInsertRowid);
 
       postAuditEvent({
@@ -115,7 +115,7 @@ async function createHandler(req) {
         actor_cook_id: null,
         actor_source: 'manager_ui',
         location_id: location,
-        payload: { event_id: eventId, course_label, fire_at, sort_order: resolvedSortOrder },
+        payload: { event_id: eventId, course_label, fire_at, sort_order: resolvedSortOrder, station_id: stationId },
       });
     })();
   } catch (err) {

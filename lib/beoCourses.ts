@@ -22,6 +22,12 @@ export interface CoursePayload {
   fire_at: string;       // canonical ISO-8601 UTC
   notes: string | null;
   sort_order: number | null;
+  station_id: string | null;  // T7: lowercased slug; null = "unassigned" rollup bucket
+}
+
+/** Same shape as KDS protocol §2: lowercased non-empty slug. */
+export function isStationSlug(s: unknown): s is string {
+  return typeof s === 'string' && s.length > 0 && s === s.toLowerCase();
 }
 
 export type ValidationResult =
@@ -70,9 +76,23 @@ export function validateCoursePayload(body: unknown): ValidationResult {
     sortOrder = n;
   }
 
+  let stationId: string | null = null;
+  if (b.station_id !== undefined && b.station_id !== null) {
+    if (!isStationSlug(b.station_id)) {
+      return { ok: false, error: 'station_id must be a non-empty lowercased slug' };
+    }
+    stationId = b.station_id as string;
+  }
+
   return {
     ok: true,
-    payload: { course_label: courseLabel, fire_at: fireAt, notes, sort_order: sortOrder },
+    payload: {
+      course_label: courseLabel,
+      fire_at: fireAt,
+      notes,
+      sort_order: sortOrder,
+      station_id: stationId,
+    },
   };
 }
 

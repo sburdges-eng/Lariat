@@ -2997,6 +2997,19 @@ function migrateLegacyColumns(db: DB): void {
     if (!beoLineCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
   }
 
+  // T7: per-course station_id. Recon showed dish_components has no
+  // station_id column, so the SPEC's join chain doesn't work. Per
+  // operator mental model ("the entree course goes to grill"),
+  // station belongs on the course, not the line. NULL = unassigned
+  // bucket on the rollup page.
+  const beoCourseCols = t('beo_courses');
+  const beoCourseMigrations: [string, string][] = [
+    ['station_id', 'ALTER TABLE beo_courses ADD COLUMN station_id TEXT'],
+  ];
+  for (const [col, ddl] of beoCourseMigrations) {
+    if (!beoCourseCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
   // Extend bom_lines with yield / cooking-loss factors used by COGS mapping.
   // T7 adds master_id as a non-indexed FK-style pointer to
   // ingredient_masters.master_id. Pre-T7 rows remain NULL until the T7

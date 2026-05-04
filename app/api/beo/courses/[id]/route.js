@@ -11,7 +11,7 @@ import { hasPinOrTempPin, pinRequiredForPic } from '../../../../../lib/pin';
 import { postAuditEvent } from '../../../../../lib/auditEvents';
 import { withIdempotency } from '../../../../../lib/idempotency';
 import { locationFromBodyOrRequest } from '../../../../../lib/location';
-import { isIso8601Utc } from '../../../../../lib/beoCourses';
+import { isIso8601Utc, isStationSlug } from '../../../../../lib/beoCourses';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,6 +93,19 @@ async function patchHandler(req, { params }) {
     sortToSet = n;
   }
 
+  // station_id: absent = no change; null/empty = clear; non-empty slug = set.
+  let stationPatch = { touch: false, val: null };
+  if ('station_id' in body) {
+    stationPatch.touch = true;
+    if (body.station_id == null || body.station_id === '') {
+      stationPatch.val = null;
+    } else if (isStationSlug(body.station_id)) {
+      stationPatch.val = body.station_id;
+    } else {
+      return json({ error: 'station_id must be a non-empty lowercased slug' }, { status: 422 });
+    }
+  }
+
   const location = locationFromBodyOrRequest(body, req);
   const db = getDb();
 
@@ -109,6 +122,7 @@ async function patchHandler(req, { params }) {
            fire_at      = COALESCE(?, fire_at),
            notes        = CASE WHEN ? THEN ? ELSE notes END,
            sort_order   = COALESCE(?, sort_order),
+           station_id   = CASE WHEN ? THEN ? ELSE station_id END,
            updated_at   = datetime('now')
          WHERE id = ?`,
       ).run(
@@ -116,6 +130,7 @@ async function patchHandler(req, { params }) {
         fireAtToSet ?? null,
         notesPatch.touch ? 1 : 0, notesPatch.val,
         sortToSet ?? null,
+        stationPatch.touch ? 1 : 0, stationPatch.val,
         id,
       );
 
