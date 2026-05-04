@@ -12,6 +12,9 @@
 // only when LARIAT_PIN_SECRET is unset (deployment-safe fallback).
 
 import { hasValidPinCookie } from './pinCookie';
+import { readTempPinId } from './tempPinCookie';
+import { getDb } from './db';
+import { parseScopes, hasScope } from './tempPin';
 
 /** True when the PIC has entered the PIN in this browser session. */
 export async function hasPinCookie(req: Request): Promise<boolean> {
@@ -30,4 +33,40 @@ export function pinConfigured(): boolean {
  */
 export function pinRequiredForPic(): boolean {
   return pinConfigured();
+}
+
+/**
+ * Unified gate (T3 — spec §C):
+ *   - If the master PIN cookie is valid, allow through (manager has all scopes).
+ *   - Else if a temp-PIN cookie is present, look up the row in temp_pins;
+ *     allow only when revoked_at IS NULL, expires_at is in the future, and
+ *     scopes_json includes `scope`.
+ *
+ * Per spec invariant 5: the cookie alone NEVER bypasses the DB check —
+ * we hit temp_pins on every gated request so revocation/expiry takes
+ * effect immediately.
+ *
+ * Existing routes that need *master-only* authority (e.g. issuing temp PINs)
+ * keep using `hasPinCookie(req)` directly — this function deliberately
+ * widens the gate.
+ */
+export async function hasPinOrTempPin(req: Request, scope: string): Promise<boolean> {
+  if (await hasPinCookie(req)) return true;
+
+  const id = await readTempPinId(req);
+  if (id === null) return false;
+
+  const row = getDb()
+    .prepare(
+      // datetime() normalizes ISO 'T'/'Z' form vs SQLite 'YYYY-MM-DD HH:MM:SS'.
+      `SELECT scopes_json
+         FROM temp_pins
+        WHERE id = ?
+          AND revoked_at IS NULL
+          AND datetime(expires_at) > datetime('now')`,
+    )
+    .get(id) as { scopes_json: string } | undefined;
+
+  if (!row) return false;
+  return hasScope(parseScopes(row.scopes_json), scope);
 }
