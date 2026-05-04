@@ -2,7 +2,7 @@ import { getDb } from '../../../../lib/db';
 import { uuidv7 } from '../../../../lib/uuid';
 import { logAuditAction } from '../../../../lib/auditLog.mjs';
 import { locationFromBodyOrRequest, locationFromRequest } from '../../../../lib/location';
-import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
+import { hasPinOrTempPin, pinRequiredForPic } from '../../../../lib/pin';
 import {
   validateName,
   coerceJsonField,
@@ -20,7 +20,7 @@ function snippet(s) {
 }
 
 export async function POST(req) {
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+  if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'menu.specials_edit'))) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
   return withIdempotency(req, () => specialsSavedPostHandler(req));
@@ -107,7 +107,7 @@ async function specialsSavedPostHandler(req) {
 }
 
 export async function GET(req) {
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+  if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'menu.specials_edit'))) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
 

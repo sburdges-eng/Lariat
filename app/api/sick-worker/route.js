@@ -17,7 +17,10 @@ import {
   normalizeDiagnosis,
   validateSickReport,
 } from '../../../lib/sickWorker';
-import { hasPinCookie, pinRequiredForPic } from '../../../lib/pin';
+// hasPinCookie is kept for the master-only history filter at line ~209
+// (full sick-report history is master-PIN-only by design — temp-PIN
+// holders see active reports but not historical PHI).
+import { hasPinCookie, hasPinOrTempPin, pinRequiredForPic } from '../../../lib/pin';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
 
@@ -30,7 +33,7 @@ const clip = (s, max) => {
 };
 
 async function gate(req) {
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+  if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'pic.sick_worker'))) {
     return Response.json(
       { error: 'manager PIN required — sick reports are PIC authority' },
       { status: 403 },

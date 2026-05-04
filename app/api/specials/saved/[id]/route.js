@@ -1,7 +1,7 @@
 import { getDb } from '../../../../../lib/db';
 import { logAuditAction } from '../../../../../lib/auditLog.mjs';
 import { locationFromRequest } from '../../../../../lib/location';
-import { hasPinCookie, pinRequiredForPic } from '../../../../../lib/pin';
+import { hasPinOrTempPin, pinRequiredForPic } from '../../../../../lib/pin';
 import {
   validateName,
   validatePatchKeys,
@@ -22,7 +22,7 @@ function loadAnyRow(db, id, locationId) {
 }
 
 export async function GET(req, { params }) {
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+  if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'menu.specials_edit'))) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
 
@@ -46,7 +46,7 @@ async function specialsSavedPatchHandler(req, { params }) {
     return Response.json({ error: 'invalid JSON body' }, { status: 400 });
   }
 
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+  if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'menu.specials_edit'))) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
 
@@ -105,7 +105,7 @@ async function specialsSavedPatchHandler(req, { params }) {
 }
 
 export async function DELETE(req, ctx) {
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+  if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'menu.specials_edit'))) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
   return withIdempotency(req, () => specialsSavedDeleteHandler(req, ctx));

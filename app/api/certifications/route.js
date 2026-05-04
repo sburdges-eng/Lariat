@@ -10,7 +10,7 @@
 
 import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
-import { hasPinCookie, pinRequiredForPic } from '../../../lib/pin';
+import { hasPinOrTempPin, pinRequiredForPic } from '../../../lib/pin';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
 
@@ -25,7 +25,7 @@ const clip = (s, max) => {
 };
 
 async function gate(req) {
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+  if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'pic.staff_certs'))) {
     return Response.json(
       { error: 'manager PIN required — certifications are PIC authority' },
       { status: 403 },
