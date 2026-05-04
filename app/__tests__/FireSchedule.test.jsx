@@ -17,6 +17,9 @@ function mockFetch(payload) {
 
 beforeEach(() => {
   _resetFiredForTest();
+  // T12: localStorage consent persists across tests by default — clear it
+  // so each test starts from "no consent" unless it sets one explicitly.
+  try { window.localStorage.removeItem('lariat_fire_sound_consent'); } catch {}
 });
 
 afterEach(() => {
@@ -73,7 +76,8 @@ describe('FireSchedulePage', () => {
 
   test('shows "Turn sound on" button until clicked', async () => {
     // Provide a stub AudioContext on window so enable click works.
-    window.AudioContext = jest.fn().mockImplementation(() => ({}));
+    // state='running' so audio is "ready" after click.
+    window.AudioContext = jest.fn().mockImplementation(() => ({ state: 'running' }));
     mockFetch(SAMPLE);
     render(<FireSchedulePage />);
     await waitFor(() => screen.getByTestId('enable-sound'));
@@ -81,6 +85,24 @@ describe('FireSchedulePage', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('enable-sound')).not.toBeInTheDocument();
     });
+    // T12: consent persisted to localStorage
+    expect(window.localStorage.getItem('lariat_fire_sound_consent')).toBe('1');
+  });
+
+  test('auto-creates AudioContext on mount when localStorage consent is set (T12)', async () => {
+    // Pre-set consent (cook tapped "Turn sound on" yesterday).
+    window.localStorage.setItem('lariat_fire_sound_consent', '1');
+    // Suspended context — autoplay policy.
+    const resume = jest.fn().mockResolvedValue(undefined);
+    window.AudioContext = jest.fn().mockImplementation(() => ({ state: 'suspended', resume }));
+    mockFetch(SAMPLE);
+    render(<FireSchedulePage />);
+    await waitFor(() => screen.getByText(/hendricks wedding/i));
+    // Button is shown but with the "wake" copy (context is suspended)
+    expect(screen.getByTestId('enable-sound')).toHaveTextContent(/wake sound/i);
+    // Tap it — calls resume() and the button hides
+    fireEvent.click(screen.getByTestId('enable-sound'));
+    await waitFor(() => expect(resume).toHaveBeenCalled());
   });
 
   test('shows error message when fetch fails', async () => {
