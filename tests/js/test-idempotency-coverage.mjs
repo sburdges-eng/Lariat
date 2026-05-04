@@ -94,14 +94,12 @@ const TODO_RETROFIT = new Set([
   // Eighty-six (regulated stockout) and resolve. Should retrofit; defer.
   'eighty-six',
   'eighty-six/resolve',
-  // Show event-ops Phase 2 routes — sound/stage/deal write event-ops
-  // rows; markScanned [lineId] is idempotent at the row level via
-  // scanned_at IS NULL guard but defense-in-depth wrap is desirable.
-  'shows/[id]/box-office/[lineId]',
-  'shows/[id]/deal',
-  'shows/[id]/sound',
-  'shows/[id]/sound/[sceneId]',
-  'shows/[id]/stage',
+  // (Show event-ops Phase 2 routes — sound/stage/deal/box-office/[lineId]/
+  //  sound/[sceneId] — drained in feat/idempotency-retrofit-shows-phase2;
+  //  all five routes now wrap withIdempotency at the PUT/POST/PATCH/DELETE
+  //  boundary. The PIN-gate runs first; the wrapper sits between the gate
+  //  and the handler body. Defense-in-depth on top of repo-level row guards
+  //  like markScanned's scanned_at IS NULL.)
   // Certifications — labor compliance; defer.
   'certifications',
   // Breaks — labor; defer.

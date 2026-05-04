@@ -18,6 +18,7 @@ import {
   isKnownRoomConfig,
   KNOWN_ROOM_CONFIGS,
 } from '../../../../../lib/stageRepo';
+import { withIdempotency } from '../../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,9 +59,13 @@ export async function GET(req, { params }) {
   }
 }
 
-export async function POST(req, { params }) {
+export async function POST(req, ctx) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
+  return withIdempotency(req, () => stagePostHandler(req, ctx));
+}
+
+async function stagePostHandler(req, { params }) {
   const showId = parseShowId(params?.id);
   if (showId == null) {
     return Response.json({ error: 'Invalid show id' }, { status: 400 });

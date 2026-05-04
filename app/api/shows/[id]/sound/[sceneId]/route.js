@@ -20,6 +20,7 @@ import {
   updateSoundScene,
   deleteSoundScene,
 } from '../../../../../../lib/soundRepo';
+import { withIdempotency } from '../../../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,9 +37,13 @@ async function requirePin(req) {
   return null;
 }
 
-export async function PATCH(req, { params }) {
+export async function PATCH(req, ctx) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
+  return withIdempotency(req, () => scenePatchHandler(req, ctx));
+}
+
+async function scenePatchHandler(req, { params }) {
   const showId = parsePositiveInt(params?.id);
   const sceneId = parsePositiveInt(params?.sceneId);
   if (showId == null || sceneId == null) {
@@ -83,9 +88,13 @@ export async function PATCH(req, { params }) {
   }
 }
 
-export async function DELETE(req, { params }) {
+export async function DELETE(req, ctx) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
+  return withIdempotency(req, () => sceneDeleteHandler(req, ctx));
+}
+
+async function sceneDeleteHandler(req, { params }) {
   const sceneId = parsePositiveInt(params?.sceneId);
   if (sceneId == null) {
     return Response.json({ error: 'Invalid scene id' }, { status: 400 });

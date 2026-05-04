@@ -18,6 +18,7 @@ import {
   createSoundScene,
   soundCompleteness,
 } from '../../../../../lib/soundRepo';
+import { withIdempotency } from '../../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,9 +56,13 @@ export async function GET(req, { params }) {
   }
 }
 
-export async function POST(req, { params }) {
+export async function POST(req, ctx) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
+  return withIdempotency(req, () => soundPostHandler(req, ctx));
+}
+
+async function soundPostHandler(req, { params }) {
   const showId = parseShowId(params?.id);
   if (showId == null) return Response.json({ error: 'Invalid show id' }, { status: 400 });
 
