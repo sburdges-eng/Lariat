@@ -107,6 +107,16 @@ export const NAV_ITEMS = [
     surface: { sidebar: t, palette: t, shelf: f },
   },
   {
+    id: 'fire-schedule',
+    href: '/prep/fire-schedule',
+    name: 'Fire schedule',
+    sub: "Tonight's banquet fires",
+    group: 'Service',
+    terms: 'fire schedule banquet course beo timing wall board',
+    locAware: f,
+    surface: { sidebar: t, palette: t, shelf: f },
+  },
+  {
     id: 'reservations',
     href: '/reservations',
     name: 'Reservations',

@@ -80,12 +80,17 @@ export default function PrepPage({ searchParams }) {
   const stations = getStations();
 
   return (
-    <PrepBoard
-      tasks={tasks}
-      stations={stations}
-      suggested={suggested}
-      date={date}
-      locationId={loc}
-    />
+    <>
+      <a href="/prep/fire-schedule" className="prep-fire-schedule-link" data-testid="prep-tile-fire-schedule">
+        Fire schedule — tonight&apos;s banquet courses →
+      </a>
+      <PrepBoard
+        tasks={tasks}
+        stations={stations}
+        suggested={suggested}
+        date={date}
+        locationId={loc}
+      />
+    </>
   );
 }
