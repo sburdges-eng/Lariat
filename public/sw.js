@@ -94,17 +94,24 @@ self.addEventListener('fetch', (event) => {
 });
 
 async function handleMutation(request) {
+  // Capture body + headers BEFORE the network attempt. `fetch(request)`
+  // consumes the request body stream; if we wait until the catch branch
+  // to read it via `request.text()`, we get an empty string — and the
+  // replay-fetch later sends an empty body, which the server rejects as
+  // SyntaxError → 500 → the entry stays queued forever in the 5xx
+  // branch of replay() and grows the queue indefinitely.
+  // NOTE: captures whatever headers the fetch API exposes. Do not add
+  // Authorization/bearer tokens without auditing — replayed requests
+  // would resend them. Cookies are browser-managed, not captured here.
+  let bodyText = '';
+  try { bodyText = await request.clone().text(); } catch {}
+  const headers = {};
+  request.headers.forEach((v, k) => { headers[k] = v; });
   try {
     const res = await fetch(request);
     return res;
   } catch {
     // Network failure — queue and return synthetic 202
-    let bodyText = '';
-    try { bodyText = await request.text(); } catch {}
-    // NOTE: captures whatever headers the fetch API exposes. Do not add Authorization/bearer tokens
-    // without auditing — replayed requests would resend them. Cookies are browser-managed, not captured.
-    const headers = {};
-    request.headers.forEach((v, k) => { headers[k] = v; });
     const id = await enqueue({
       url: request.url,
       method: request.method,
