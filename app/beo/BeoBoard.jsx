@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import PrepHistoryPanel from './PrepHistoryPanel';
+import CoursePanel from './_components/CoursePanel';
 
 /* ── formatting helpers ───────────────────────────────────────── */
 
@@ -225,9 +226,10 @@ export default function BeoBoard({ initialMenu = [] }) {
             />
           </div>
 
-          {/* ───── RIGHT: stacked menu picker + past-prep reference ───── */}
+          {/* ───── RIGHT: stacked menu picker + courses + past-prep reference ───── */}
           <div className="beo-rail">
             <MenuPanel menu={menu} onPick={(item) => addLine(openEvent.id, item)} />
+            <CoursePanel event={openEvent} lines={lineItems} />
             <PrepHistoryPanel
               itemNames={lineItems.map((l) => l.item_name)}
               location={openEvent.location_id}

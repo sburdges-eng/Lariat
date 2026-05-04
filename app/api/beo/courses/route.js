@@ -24,6 +24,35 @@ async function requireAuth(req) {
   return null;
 }
 
+// GET ?event_id=&location= — list courses for one event.
+// Same gate as POST: managers (master PIN) or temp-PIN with the
+// 'beo.fire_at_edit' scope. The fire-schedule rollup (T7) is separate
+// and PUBLIC; this list endpoint is the editor side and stays gated.
+export async function GET(req) {
+  const fail = await requireAuth(req);
+  if (fail) return fail;
+
+  const url = new URL(req.url);
+  const eventId = Number(url.searchParams.get('event_id'));
+  const location = url.searchParams.get('location') || 'default';
+
+  if (!Number.isInteger(eventId) || eventId <= 0) {
+    return json({ error: 'event_id required' }, { status: 422 });
+  }
+
+  const db = getDb();
+  const courses = db
+    .prepare(
+      `SELECT id, event_id, location_id, course_label, fire_at, notes, sort_order, created_at, updated_at
+         FROM beo_courses
+        WHERE event_id = ? AND location_id = ?
+        ORDER BY sort_order, fire_at, id`,
+    )
+    .all(eventId, location);
+
+  return json({ courses }, { status: 200 });
+}
+
 export async function POST(req) {
   const fail = await requireAuth(req);
   if (fail) return fail;
