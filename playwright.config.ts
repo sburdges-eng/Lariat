@@ -1,5 +1,12 @@
 import { defineConfig } from '@playwright/test';
 
+// Allow LARIAT_E2E_PORT to override the dev-server port for runs against an
+// alternate localhost. Useful when port 3000 is held by another process
+// (an MCP server, another Next.js instance, etc.). Defaults to 3000 to
+// preserve the historical command shape (`npm run test:e2e`).
+const PORT = Number(process.env.LARIAT_E2E_PORT) || 3000;
+const BASE_URL = `http://localhost:${PORT}`;
+
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 30_000,
@@ -9,13 +16,13 @@ export default defineConfig({
   retries: 0,
   reporter: [['list']],
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: BASE_URL,
     headless: true,
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: 'npm run dev',
-    port: 3000,
+    command: `next dev -H 0.0.0.0 -p ${PORT}`,
+    port: PORT,
     reuseExistingServer: true,
     timeout: 30_000,
   },
