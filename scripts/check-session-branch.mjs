@@ -23,6 +23,40 @@ function git(args) {
 const gitDir = git('rev-parse --git-dir');
 const sessionFile = join(gitDir, 'SESSION_BRANCH');
 
+// Branch-naming rule (binding — see AGENTS.md "Branch naming"). Allow
+// only feat/ fix/ chore/ wip/. The guard sits before the SESSION_BRANCH
+// check so a fresh branch with a bad name fails loudly on the first
+// commit, not after the operator has stacked five of them. Override
+// for legacy-fixup work via LARIAT_ALLOW_ANY_BRANCH=1.
+const ALLOWED_BRANCH_PREFIXES = ['feat/', 'fix/', 'chore/', 'wip/'];
+
+let _currentBranch = null;
+function currentBranch() {
+    if (_currentBranch !== null) return _currentBranch;
+    try {
+        _currentBranch = git('symbolic-ref --short HEAD');
+    } catch {
+        _currentBranch = '';
+    }
+    return _currentBranch;
+}
+
+if (!process.env.LARIAT_ALLOW_ANY_BRANCH) {
+    const branch = currentBranch();
+    // Skip the check on main / detached HEAD; main is the merge target,
+    // detached HEAD is its own (different) failure mode handled below.
+    if (branch && branch !== 'main' && branch !== 'master') {
+        const ok = ALLOWED_BRANCH_PREFIXES.some((p) => branch.startsWith(p));
+        if (!ok) {
+            console.error(`✗ refusing to commit: branch "${branch}" violates AGENTS.md naming rule.`);
+            console.error('  Use one of: feat/<short-name>, fix/<short-name>, chore/<short-name>, wip/<short-name>.');
+            console.error(`  To fix:    git branch -m feat/${branch}   (or fix/, chore/, wip/)`);
+            console.error('  Override:  LARIAT_ALLOW_ANY_BRANCH=1 git commit ...   (legacy-fixup only)');
+            process.exit(1);
+        }
+    }
+}
+
 // 1. Check Branch Lock
 if (existsSync(sessionFile)) {
     const expected = readFileSync(sessionFile, 'utf8').trim();
