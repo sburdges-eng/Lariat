@@ -118,7 +118,7 @@ Expected: passes. The `IF NOT EXISTS` clauses make the migration idempotent agai
 ```bash
 node -e "
 const db = require('./lib/db.ts');
-db.setDbPathForTest('/tmp/lariat-schema-check.db');
+db.setDbPathForTest(path.join(os.tmpdir(), 'lariat-schema-check.db'));
 const d = db.getDb();
 console.log(d.prepare(\"SELECT name FROM sqlite_master WHERE type='table' AND name='specials'\").all());
 console.log(d.prepare(\"SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='specials'\").all());

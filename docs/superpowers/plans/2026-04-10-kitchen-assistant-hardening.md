@@ -49,7 +49,7 @@
 - [ ] **Step 1: Fetch and check out the kitchen assistant branch locally**
 
 ```bash
-cd /Users/seanburdges/Dev/Lariat
+cd "$HOME/Dev/Lariat"
 git fetch origin cursor/fix-build-and-ops-a820
 git checkout -b cursor/fix-build-and-ops-a820 origin/cursor/fix-build-and-ops-a820
 ```

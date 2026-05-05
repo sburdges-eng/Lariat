@@ -75,7 +75,7 @@ This preserves the spec's intent (dropped rows are auditable) without DDL drift.
 - [ ] **Step 1: Create the worktree**
 
 ```bash
-cd /Users/seanburdges/Dev/lariat
+cd "$HOME/Dev/Lariat"
 git worktree add -b feature/lariat2-phase4-narrow .claude-worktrees/phase4-narrow main
 cd .claude-worktrees/phase4-narrow
 ```

@@ -24,17 +24,21 @@ from typing import Callable, Iterable, Iterator, TextIO
 # depth 2 from the repo root.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SYMLINK_PATH = REPO_ROOT / "data" / "lariat-data"
-DIRECT_PATH = Path("/Volumes/Sean's SSD/lariat-data")
+ENV_DATA_ROOT = "LARIAT_DATA_ROOT"
 
 
 def default_data_root() -> Path:
-    """Resolve the data root: prefer the in-repo symlink, fall back to the
-    direct SSD path. Returns the symlink path even when nothing exists yet
-    so that the caller's first file-open raises a clear error."""
+    """Resolve the data root.
+
+    Prefer the in-repo symlink, then the operator-provided environment path.
+    Returns the symlink path even when nothing exists yet so the caller's first
+    file-open raises a clear error.
+    """
     if SYMLINK_PATH.exists():
         return SYMLINK_PATH.resolve()
-    if DIRECT_PATH.exists():
-        return DIRECT_PATH
+    env_root = os.environ.get(ENV_DATA_ROOT)
+    if env_root:
+        return Path(env_root).expanduser()
     return SYMLINK_PATH
 
 

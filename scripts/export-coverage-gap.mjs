@@ -14,10 +14,11 @@
 //     [--location-id <id>] [--out <path>] \
 //     [--include-unlinked] [--min-revenue <n>]
 //
-// Default output path: /tmp/dish-components-gap.csv
+// Default output path: os.tmpdir()/dish-components-gap.csv
 // Summary goes to stderr so stdout stays pristine for shell pipelines.
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { register } from 'node:module';
@@ -41,7 +42,7 @@ if (values.help) {
     'Usage: node scripts/export-coverage-gap.mjs ' +
       '[--location-id <id>] [--out <path>] ' +
       '[--include-unlinked] [--min-revenue <n>]\n' +
-      '\nDefault --out is /tmp/dish-components-gap.csv.\n' +
+      '\nDefault --out is the system temp directory.\n' +
       'Output columns match scripts/import-dish-components.mjs so the file ' +
       'round-trips through that importer once qty/unit are filled in.\n',
   );
@@ -49,7 +50,7 @@ if (values.help) {
 }
 
 const locationId = values['location-id'] || 'default';
-const outPath = values.out || '/tmp/dish-components-gap.csv';
+const outPath = values.out || path.join(os.tmpdir(), 'dish-components-gap.csv');
 const includeUnlinked = Boolean(values['include-unlinked']);
 const minRevenue = values['min-revenue'] != null ? Number(values['min-revenue']) : 0;
 if (!Number.isFinite(minRevenue) || minRevenue < 0) {
@@ -103,8 +104,7 @@ for (const r of rows) {
 }
 const csv = lines.join('\n') + '\n';
 
-// Make sure parent directory exists — /tmp obviously does, but a custom
-// --out might not.
+// Make sure parent directory exists; a custom --out might not.
 fs.mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true });
 fs.writeFileSync(outPath, csv, 'utf8');
 

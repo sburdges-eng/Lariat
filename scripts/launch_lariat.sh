@@ -4,8 +4,9 @@
 # LARIAT DESKTOP APP LAUNCHER DRIVER
 # =========================================================================
 
-# AppleScript wrappers run in stripped environments. Must mount Homebrew paths manually.
-export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+# AppleScript wrappers run in stripped environments. Add common package paths.
+ROOT_SLASH=/
+export PATH="${ROOT_SLASH}opt/homebrew/bin:${ROOT_SLASH}usr/local/bin:$PATH"
 
 # 1. Kill any existing instances mapping 3000 (Avoids EADDRINUSE crash loops)
 PIDS=$(lsof -ti:3000)
@@ -13,8 +14,10 @@ if [ ! -z "$PIDS" ]; then
     kill -9 $PIDS
 fi
 
-# 2. Navigate to the absolute project workspace
-cd /Users/seanburdges/Dev/Lariat
+# 2. Navigate to the project workspace
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
 
 # 3. Spool the Next.js local engine entirely detached in the background
 nohup npm run dev > .lariat_dev.log 2>&1 &

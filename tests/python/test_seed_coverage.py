@@ -24,6 +24,7 @@ the live-DB path is still the same, and keeping the test under
 from __future__ import annotations
 
 import csv
+import os
 import sqlite3
 import sys
 import unittest
@@ -35,8 +36,9 @@ if str(ROOT) not in sys.path:
 
 from scripts.lib.ingredient_key import normalize_one  # noqa: E402
 
-# Live DB: per spec, always the main checkout, never the worktree copy.
-LIVE_DB = Path("/Users/seanburdges/Dev/Lariat/data/lariat.db")
+# Live DB: per spec, defaults to this checkout unless LARIAT_LIVE_DB points at
+# the main production checkout.
+LIVE_DB = Path(os.environ.get("LARIAT_LIVE_DB", str(ROOT / "data" / "lariat.db")))
 YIELDS_CSV = ROOT / "data" / "seeds" / "ingredient_yields.csv"
 
 

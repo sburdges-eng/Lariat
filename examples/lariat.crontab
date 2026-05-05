@@ -13,23 +13,23 @@
 
 # LARIAT_CRON_BEGIN — managed block; do not edit by hand
 # Daily costing ingest from XL workbook (vendor_prices, recipe_costs, bom_lines).
-0 6 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" ingest-costing >> /tmp/lariat-cron.log 2>&1
+0 6 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" ingest-costing >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 
 # Toast weekly sales + labor timeseries pull.
-15 6 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" ingest-toast >> /tmp/lariat-cron.log 2>&1
+15 6 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" ingest-toast >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 
 # Prism / DICE event ingest into shows + showStatus.
-30 6 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" ingest-shows >> /tmp/lariat-cron.log 2>&1
+30 6 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" ingest-shows >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 
 # Sync recipes/normalized/*.csv into entities_recipes + bom_lines.
-45 6 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" sync-normalized >> /tmp/lariat-cron.log 2>&1
+45 6 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" sync-normalized >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 
 # Daily Toast analytics ingest. Auto-runs sales depletion at the end.
-0 7 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" ingest-analytics >> /tmp/lariat-cron.log 2>&1
+0 7 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" ingest-analytics >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 
 # Refresh data/cache/*.json from source CSVs every 30 min.
-*/30 * * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" rebuild-cache >> /tmp/lariat-cron.log 2>&1
+*/30 * * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" rebuild-cache >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 
 # Nightly DB snapshot.
-0 1 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" backup >> /tmp/lariat-cron.log 2>&1
+0 1 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" backup >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 # LARIAT_CRON_END

@@ -9,7 +9,7 @@ symlinked into the repo at `data/lariat-data`.
 ## Storage Layout
 
 ```
-/Volumes/Sean's SSD/lariat-data/      ← physical location (external SSD)
+<external-data-root>/lariat-data/     ← physical location (external SSD)
   ↑ symlinked from data/lariat-data/
 
   raw/                                ← untouched downloads

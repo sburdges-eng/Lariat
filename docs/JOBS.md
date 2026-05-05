@@ -129,7 +129,7 @@ bash scripts/install-cron.sh --remove
 ```
 
 After install, verify with `crontab -l`. Watch live cron output with
-`tail -f /tmp/lariat-cron.log`.
+`tail -f "$HOME/Library/Logs/Lariat/lariat-cron.log"`.
 
 `MAILTO=` at the top of the crontab routes non-zero exits to the
 operator's inbox. Exit code 75 (lock held) is *not* a failure for a

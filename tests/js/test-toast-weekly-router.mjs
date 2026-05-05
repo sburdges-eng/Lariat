@@ -39,7 +39,7 @@ describe('classify', () => {
 
   it('strips a directory prefix before classifying', () => {
     assert.equal(
-      classify('/Users/x/Downloads/SalesSummary_2026-04-20_2026-04-26.zip').kind,
+      classify('Downloads/SalesSummary_2026-04-20_2026-04-26.zip').kind,
       'sales_summary'
     );
     assert.equal(

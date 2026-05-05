@@ -5,7 +5,7 @@
  * `scripts/build-compliance-index.mjs` from `data/normalized/compliance_rules.jsonl`.
  *
  * Two reasons this index lives in-tree (not in the off-tree Data Pack
- * at /Volumes/Sean's SSD/lariat-data):
+ * reached through `data/lariat-data` or `LARIAT_DATA_ROOT`):
  *   1. The compliance corpus is small enough (kilobytes) to ship with
  *      the repo — we don't need the per-bucket vector layout the Data
  *      Pack uses for its multi-GB sources.

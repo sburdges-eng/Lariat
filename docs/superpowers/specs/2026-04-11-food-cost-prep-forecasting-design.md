@@ -189,7 +189,7 @@ npm run ingest:toast-api
 
 This is a "shell out to the API" script, **not** a long-running daemon. Meant to be run by cron overnight:
 ```
-0 3 * * * cd /Users/seanburdges/Dev/Lariat && npm run ingest:toast-api
+0 3 * * * cd "$HOME/Dev/Lariat" && npm run ingest:toast-api
 ```
 
 ### Documentation

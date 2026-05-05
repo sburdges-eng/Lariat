@@ -23,7 +23,7 @@
  *   node scripts/flag-placeholder-order-guide.mjs --apply
  *
  *   # Custom DB path (defaults to data/lariat.db under repo root):
- *   LARIAT_DB=/tmp/lariat.db node scripts/flag-placeholder-order-guide.mjs --apply
+ *   LARIAT_DB="$(mktemp -t lariat.XXXXXX.db)" node scripts/flag-placeholder-order-guide.mjs --apply
  *
  * Idempotent: re-running against an already-flagged DB is a no-op.
  *

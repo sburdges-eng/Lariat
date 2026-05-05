@@ -2,7 +2,7 @@
 """Ingest Shamrock order-confirmation .xls files into `shamrock_invoices`.
 
 Source: data/originals/shamrock/invoice history shamrock/the-lariat-order-confirmation-NNNNNNN.xls
-(originals were moved to ~/Dev/_archives/lariat-pre-scrub-2026-04-18/ on 2026-04-18;
+(originals were moved to the repo-adjacent pre-scrub archive on 2026-04-18;
 this script reads them in place.)
 
 Sheet layout (single sheet 'confirmation', ~65-70 files, all consistent):
@@ -45,6 +45,7 @@ overwritten — manual reconciliation if discrepancies appear.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sqlite3
 import sys
@@ -69,10 +70,13 @@ from scripts.lib.invoice_processor import (  # noqa: E402
 RE_ACTUAL_WEIGHT = re.compile(r"Actual\s+Weight:\s*([0-9]+(?:\.[0-9]+)?)\s*lbs?", re.IGNORECASE)
 
 SHAMROCK_VENDOR = "shamrock"
-DEFAULT_DIR = (
-    Path("/Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18/data/")
-    / "originals/shamrock/invoice history shamrock"
+ARCHIVE_DATA = Path(
+    os.environ.get(
+        "LARIAT_PRE_SCRUB_DATA",
+        str(ROOT.parent / "_archives" / "lariat-pre-scrub-2026-04-18" / "data"),
+    )
 )
+DEFAULT_DIR = ARCHIVE_DATA / "originals/shamrock/invoice history shamrock"
 DEFAULT_DB = ROOT / "data" / "lariat.db"
 SOURCE_LABEL = "shamrock_invoices_2026-04-18"
 

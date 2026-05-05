@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Ingest the Toast MenuItems + MenuOption catalog into lariat.db.
 
-Sources (originals were moved to ~/Dev/_archives/lariat-pre-scrub-2026-04-18/
-on 2026-04-18; this script reads them in place):
+Sources (originals were moved to the repo-adjacent pre-scrub archive on
+2026-04-18; this script reads them in place):
 
     data/originals/Toast/MenuItems.csv               (3590 rows, 11 cols)
     data/originals/Toast/MenuOption.csv              (416 rows, 9 cols)
@@ -29,15 +29,19 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import sqlite3
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ARCHIVE = Path(
-    "/Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18/data/"
-    "originals/Toast"
+ARCHIVE_DATA = Path(
+    os.environ.get(
+        "LARIAT_PRE_SCRUB_DATA",
+        str(ROOT.parent / "_archives" / "lariat-pre-scrub-2026-04-18" / "data"),
+    )
 )
+ARCHIVE = ARCHIVE_DATA / "originals" / "Toast"
 DEFAULT_ITEMS_CSV = ARCHIVE / "MenuItems.csv"
 DEFAULT_OPTION_CSV = ARCHIVE / "MenuOption.csv"
 DEFAULT_OPTION_GROUP_CSV = ARCHIVE / "MenuOptionGroupcurrent.csv"

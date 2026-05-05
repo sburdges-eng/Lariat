@@ -183,7 +183,7 @@ class SyscoEnrichment(unittest.TestCase):
 
     def test_missing_db_is_noop(self) -> None:
         items = self._items()
-        counters = sysco_enrich(Path("/tmp/does-not-exist-t5b.db"), items)
+        counters = sysco_enrich(Path("tmp/does-not-exist-t5b.db"), items)
         self.assertEqual(counters, {"matched": 0, "reconciled": 0, "no_catalog": 0, "no_actual": 0})
         for it in items:
             self.assertIsNone(it["reconciled_unit_price"])

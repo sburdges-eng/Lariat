@@ -2,8 +2,8 @@
 """Refresh `order_guide_items` for vendor='shamrock' from the Shamrock Order Sheet.
 
 Source: data/originals/shamrock/Order Sheet.xls (CDFV2 binary .xls -> xlrd)
-        Originals were moved to ~/Dev/_archives/lariat-pre-scrub-2026-04-18/
-        on 2026-04-18; this script reads them in place.
+        Originals were moved to the repo-adjacent pre-scrub archive on
+        2026-04-18; this script reads them in place.
 
 Sheet layout (single sheet 'ordersheet'):
     row 0..2: header banner (date, account, four undated 'Date:' columns)
@@ -48,6 +48,7 @@ Strategy: full refresh of vendor='shamrock' rows only.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sqlite3
 import sys
@@ -56,10 +57,13 @@ from pathlib import Path
 import xlrd
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_XLS = (
-    Path("/Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18/data/")
-    / "originals/shamrock/Order Sheet.xls"
+ARCHIVE_DATA = Path(
+    os.environ.get(
+        "LARIAT_PRE_SCRUB_DATA",
+        str(ROOT.parent / "_archives" / "lariat-pre-scrub-2026-04-18" / "data"),
+    )
 )
+DEFAULT_XLS = ARCHIVE_DATA / "originals/shamrock/Order Sheet.xls"
 DEFAULT_DB = ROOT / "data" / "lariat.db"
 SOURCE_LABEL = "shamrock_order_sheet_2026-04-18"  # for log lines; no source col
 

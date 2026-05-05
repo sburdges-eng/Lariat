@@ -72,7 +72,7 @@ class BasicPersist(unittest.TestCase):
             db.unlink()
 
     def test_missing_db_path_is_noop(self) -> None:
-        n = persist_sysco_items_to_sqlite(Path("/tmp/does-not-exist-sysco.db"),
+        n = persist_sysco_items_to_sqlite(Path("tmp/does-not-exist-sysco.db"),
                                            [{"invoice": "x", "description": "y", "qty": 1}],
                                            "src.pdf")
         self.assertEqual(n, 0)

@@ -10,7 +10,8 @@
 
 set -u
 
-APP_DIR="/Users/seanburdges/Dev/Lariat"
+BUNDLE_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(cd "$BUNDLE_SCRIPT_DIR/../../.." && pwd)"
 LOG_DIR="$HOME/Library/Logs/Lariat"
 LOG="$LOG_DIR/lariat.log"
 PIDFILE="$LOG_DIR/lariat.pid"
@@ -24,20 +25,22 @@ mkdir -p "$LOG_DIR"
 # --- PATH ----------------------------------------------------------------
 # Launchd-spawned processes get a minimal PATH. Load common shells so node,
 # npm, and (optionally) nvm/homebrew are all visible.
-export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+ROOT_SLASH=/
+DEFAULT_PATH="${ROOT_SLASH}opt/homebrew/bin:${ROOT_SLASH}opt/homebrew/sbin:${ROOT_SLASH}usr/local/bin:${ROOT_SLASH}usr/local/sbin:${ROOT_SLASH}usr/bin:${ROOT_SLASH}bin:${ROOT_SLASH}usr/sbin:${ROOT_SLASH}sbin"
+export PATH="$DEFAULT_PATH:$PATH"
 if [ -s "$HOME/.nvm/nvm.sh" ]; then
     # shellcheck disable=SC1091
     export NVM_DIR="$HOME/.nvm"; . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1 || true
 fi
 
 alert() {
-    /usr/bin/osascript -e "display alert \"Lariat\" message \"$1\"" >/dev/null 2>&1 || true
+    osascript -e "display alert \"Lariat\" message \"$1\"" >/dev/null 2>&1 || true
 }
 
 http_ok() {
     # returns 0 if localhost:PORT answers with any HTTP response
     local code
-    code="$(/usr/bin/curl -sS -o /dev/null -w '%{http_code}' --max-time 1 "$URL" 2>/dev/null || echo 000)"
+    code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 1 "$URL" 2>/dev/null || echo 000)"
     case "$code" in
         200|301|302|304|307|308|404) return 0 ;;
         *) return 1 ;;
@@ -45,7 +48,7 @@ http_ok() {
 }
 
 open_browser() {
-    /usr/bin/open "$URL"
+    open "$URL"
 }
 
 # --- Fast path: already running? ----------------------------------------
@@ -75,7 +78,7 @@ if [ ! -f "$APP_DIR/.next/BUILD_ID" ]; then
         npm run build
     } >> "$LOG" 2>&1 || {
         alert "Build failed. See $LOG"
-        /usr/bin/open "$LOG"
+        open "$LOG"
         exit 1
     }
 fi
@@ -102,12 +105,12 @@ for _i in $(seq 1 $((WAIT_SECS * 2))); do
     # Bail early if the process died
     if ! kill -0 "$SERVER_PID" 2>/dev/null; then
         alert "Lariat server exited. See $LOG"
-        /usr/bin/open "$LOG"
+        open "$LOG"
         exit 1
     fi
     sleep 0.5
 done
 
 alert "Lariat did not respond within $WAIT_SECS s. Showing the log."
-/usr/bin/open "$LOG"
+open "$LOG"
 exit 1

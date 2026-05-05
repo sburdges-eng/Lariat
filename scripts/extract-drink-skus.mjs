@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Extract distinct drink SKUs from sales_lines and produce a fill-me CSV
 // sorted by total revenue. Does NOT write to the DB; its only output is
-// the file at --out (default /tmp/drink-skus.csv).
+// the file at --out (default os.tmpdir()/drink-skus.csv).
 //
 // Usage:
 //   node scripts/extract-drink-skus.mjs [--out <path>] [--location-id <id>]
@@ -25,6 +25,7 @@
 //      claims — no cost data is invented.
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { register } from 'node:module';
@@ -242,7 +243,7 @@ async function main() {
     return;
   }
 
-  const outPath = path.resolve(values.out || '/tmp/drink-skus.csv');
+  const outPath = path.resolve(values.out || path.join(os.tmpdir(), 'drink-skus.csv'));
   const locationId = values['location-id'] || 'default';
 
   register(new URL('../tests/js/resolver.mjs', import.meta.url));

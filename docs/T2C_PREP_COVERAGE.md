@@ -27,8 +27,8 @@ The 49.7% line-weighted figure is the correct ceiling for a clean density seed. 
 ## Reproduce
 
 ```bash
-cd /Users/seanburdges/Dev/Lariat-worktrees/t2b-seeds
-/Users/seanburdges/Dev/Lariat/.venv/bin/python3 /tmp/t2c_coverage_check.py
+cd "$HOME/Dev/Lariat-worktrees/t2b-seeds"
+"$HOME/Dev/Lariat/.venv/bin/python3" "$TMPDIR/t2c_coverage_check.py"
 ```
 
 (Generator script lives at `/tmp/t2c_coverage_check.py`.)

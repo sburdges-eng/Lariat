@@ -9,7 +9,10 @@
   toast-weekly job's stagger so cron storms don't pile up at :00.
 
   Install:
-    sed "s|HOME_DIR|$HOME|g" \
+    sed \
+      -e "s|HOME_DIR|$HOME|g" \
+      -e "s|ENV_LAUNCHER|$(command -v env)|g" \
+      -e "s|LAUNCHD_PATH|$PATH|g" \
       scripts/coverage_weekly/com.lariat.coverage-weekly.plist.template \
       > ~/Library/LaunchAgents/com.lariat.coverage-weekly.plist
     launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.lariat.coverage-weekly.plist
@@ -33,7 +36,7 @@
 
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/env</string>
+    <string>ENV_LAUNCHER</string>
     <string>node</string>
     <string>--experimental-strip-types</string>
     <string>HOME_DIR/Dev/Lariat/scripts/coverage-weekly.mjs</string>
@@ -60,7 +63,7 @@
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
-    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <string>LAUNCHD_PATH</string>
   </dict>
 </dict>
 </plist>

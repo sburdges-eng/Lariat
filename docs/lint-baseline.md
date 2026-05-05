@@ -65,10 +65,10 @@ the standard `console`/`setTimeout` family — fixed by registering the
 ## Re-running the baseline
 
 ```bash
-node_modules/.bin/eslint . --format json --output-file /tmp/eslint-baseline.json
+node_modules/.bin/eslint . --format json --output-file "$TMPDIR/eslint-baseline.json"
 node -e "
 import('fs').then(({readFileSync}) => {
-  const data = JSON.parse(readFileSync('/tmp/eslint-baseline.json','utf8'));
+  const data = JSON.parse(readFileSync(`${process.env.TMPDIR}/eslint-baseline.json`,'utf8'));
   let e = 0, w = 0; const r = {};
   for (const f of data) { e += f.errorCount; w += f.warningCount;
     for (const m of f.messages) { const k = m.ruleId || '(fatal)';

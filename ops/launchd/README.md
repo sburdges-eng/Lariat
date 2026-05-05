@@ -16,7 +16,7 @@ The agent writes logs to `logs/` under the Lariat checkout. That directory is
 git-ignored and not created by this repo, so make it before loading:
 
 ```sh
-mkdir -p /Users/seanburdges/Dev/Lariat/logs
+mkdir -p "$HOME/Dev/Lariat/logs"
 ```
 
 If `logs/` is missing when launchd fires, the job will fail with a "no such
@@ -27,7 +27,7 @@ file or directory" error on `StandardOutPath`/`StandardErrorPath`.
 The two log files (`logs/archive-stale.out.log`, `logs/archive-stale.err.log`)
 are append-only; on a noisy error day `err.log` can grow unboundedly. For a
 quick manual trim after a known-good inspection, truncate in place:
-`: > /Users/seanburdges/Dev/Lariat/logs/archive-stale.err.log`. For automatic
+`: > "$HOME/Dev/Lariat/logs/archive-stale.err.log"`. For automatic
 rotation, drop a `newsyslog` rule at
 `/etc/newsyslog.d/lariat-archive-stale.conf` (not committed here).
 
@@ -59,8 +59,8 @@ launchctl start com.seanburdges.lariat.archive-stale
 Then inspect the logs:
 
 ```sh
-tail -n 100 /Users/seanburdges/Dev/Lariat/logs/archive-stale.out.log
-tail -n 100 /Users/seanburdges/Dev/Lariat/logs/archive-stale.err.log
+tail -n 100 "$HOME/Dev/Lariat/logs/archive-stale.out.log"
+tail -n 100 "$HOME/Dev/Lariat/logs/archive-stale.err.log"
 ```
 
 The job is wrapped in `/bin/zsh -lc "..."` so the login shell populates `PATH`
@@ -103,7 +103,7 @@ multicast.
 ### Install
 
 ```sh
-mkdir -p /Users/seanburdges/Dev/Lariat/logs
+mkdir -p "$HOME/Dev/Lariat/logs"
 cp ops/launchd/com.seanburdges.lariat.mdns-responder.plist ~/Library/LaunchAgents/
 launchctl load ~/Library/LaunchAgents/com.seanburdges.lariat.mdns-responder.plist
 ```
@@ -146,8 +146,8 @@ launchctl load ~/Library/LaunchAgents/com.seanburdges.lariat.mdns-responder.plis
 ### Logs
 
 ```sh
-tail -n 100 /Users/seanburdges/Dev/Lariat/logs/mdns-responder.out.log
-tail -n 100 /Users/seanburdges/Dev/Lariat/logs/mdns-responder.err.log
+tail -n 100 "$HOME/Dev/Lariat/logs/mdns-responder.out.log"
+tail -n 100 "$HOME/Dev/Lariat/logs/mdns-responder.err.log"
 ```
 
 `err.log` will show a single warning (and the responder will exit, then

@@ -33,6 +33,7 @@ so a mid-insert failure rolls back rather than emptying the table.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sqlite3
 import sys
@@ -41,11 +42,13 @@ from pathlib import Path
 import xlrd
 
 ROOT = Path(__file__).resolve().parent.parent
-# Originals were moved to ~/Dev/_archives/lariat-pre-scrub-2026-04-18/ on 2026-04-18; this script reads them in place.
-DEFAULT_XLS = (
-    Path("/Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18/data/")
-    / "originals/shamrock/Inventory Sheet.xls"
+ARCHIVE_DATA = Path(
+    os.environ.get(
+        "LARIAT_PRE_SCRUB_DATA",
+        str(ROOT.parent / "_archives" / "lariat-pre-scrub-2026-04-18" / "data"),
+    )
 )
+DEFAULT_XLS = ARCHIVE_DATA / "originals/shamrock/Inventory Sheet.xls"
 DEFAULT_DB = ROOT / "data" / "lariat.db"
 SOURCE_LABEL = "shamrock_inventory_sheet_2026-04-18"
 

@@ -42,10 +42,10 @@ Writes `XL/Lariat_Unified_Workbook_2026-04-24.xlsx` with:
 
 Usage:
   python3 scripts/build_unified_workbook.py \
-    --archive /Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18 \
-    --output  /Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18/XL/Lariat_Unified_Workbook_2026-04-24.xlsx
+    --archive ../_archives/lariat-pre-scrub-2026-04-18 \
+    --output  ../_archives/lariat-pre-scrub-2026-04-18/XL/Lariat_Unified_Workbook_2026-04-24.xlsx
 
-  Both flags default to those exact paths.
+  Both flags default to the sibling pre-scrub archive path from this checkout.
 """
 from __future__ import annotations
 
@@ -65,9 +65,14 @@ from openpyxl.chart import BarChart, LineChart, Reference
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
-DEFAULT_ARCHIVE = "/Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18"
-DEFAULT_OUTPUT = (
-    f"{DEFAULT_ARCHIVE}/XL/Lariat_Unified_Workbook_2026-04-24.xlsx"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_ARCHIVE = os.environ.get(
+    "LARIAT_PRE_SCRUB_ARCHIVE",
+    str(REPO_ROOT.parent / "_archives" / "lariat-pre-scrub-2026-04-18"),
+)
+DEFAULT_OUTPUT = os.environ.get(
+    "LARIAT_UNIFIED_WORKBOOK_OUTPUT",
+    str(Path(DEFAULT_ARCHIVE) / "XL" / "Lariat_Unified_Workbook_2026-04-24.xlsx"),
 )
 
 CURRENCY_RE = re.compile(r"^\s*\$?-?[\d,]+(?:\.\d+)?\s*$")

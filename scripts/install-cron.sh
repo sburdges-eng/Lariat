@@ -18,7 +18,7 @@
 #
 # Verify after install:
 #   crontab -l                             # see the merged crontab
-#   tail -f /tmp/lariat-cron.log           # watch live cron output
+#   tail -f "$HOME/Library/Logs/Lariat/lariat-cron.log"  # watch live cron output
 #   npm run job:status                     # check if any jobs are currently locked
 
 set -e
@@ -88,4 +88,4 @@ fi
 
 printf '%s' "${MERGED}" | crontab -
 echo "install-cron: installed/updated the Lariat block"
-echo "install-cron: run 'crontab -l' to verify, 'tail -f /tmp/lariat-cron.log' to watch output"
+echo 'install-cron: run "crontab -l" to verify, tail the Lariat cron log to watch output'

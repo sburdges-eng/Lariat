@@ -81,14 +81,14 @@ describe('buildSummaryText', () => {
       asOf: '2026-04-27',
       location: 'default',
       report: sampleReport,
-      csvPath: '/tmp/report.csv',
+      csvPath: 'tmp/report.csv',
     });
     assert.match(text, /coverage — 2026-04-27/);
     assert.match(text, /location: default/);
     assert.match(text, /2 dishes missing dish_components/);
     assert.match(text, /75% of recent sales velocity/);
     assert.match(text, /150\/200 units sold/);
-    assert.match(text, /CSV: \/tmp\/report\.csv/);
+    assert.match(text, /CSV: tmp\/report\.csv/);
     // Embedded top-N section
     assert.match(text, /BAJA FISH TACOS/);
   });
@@ -104,7 +104,7 @@ describe('buildSummaryText', () => {
         total_qty: 200,
         gap_pct: 0,
       },
-      csvPath: '/tmp/empty.csv',
+      csvPath: 'tmp/empty.csv',
     });
     assert.match(text, /0 dishes missing/);
     assert.match(text, /0% of recent sales velocity/);

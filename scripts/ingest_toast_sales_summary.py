@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import re
 import sqlite3
 import sys
@@ -43,10 +44,13 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_ZIP = (
-    Path("/Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18/data/")
-    / "originals/Toast/RevanueandLabor/SalesSummary_2020-04-06_2026-04-12.zip"
+ARCHIVE_DATA = Path(
+    os.environ.get(
+        "LARIAT_PRE_SCRUB_DATA",
+        str(ROOT.parent / "_archives" / "lariat-pre-scrub-2026-04-18" / "data"),
+    )
 )
+DEFAULT_ZIP = ARCHIVE_DATA / "originals/Toast/RevanueandLabor/SalesSummary_2020-04-06_2026-04-12.zip"
 DEFAULT_DB = ROOT / "data" / "lariat.db"
 PERIOD_LABEL = "2020-04-06_2026-04-12"
 SOURCE_LABEL = "toast_sales_summary_2020-04-06_2026-04-12"

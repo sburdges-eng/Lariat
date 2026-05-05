@@ -1,0 +1,5 @@
+# GitNexus' current tree-sitter binding rejects Python inputs at 32 KiB.
+# These legacy data-rebuild scripts remain executable, but are skipped by
+# the graph index until they are split into smaller modules.
+scripts/build_unified_workbook.py
+scripts/ingest_sysco_invoice_pdfs.py

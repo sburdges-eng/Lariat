@@ -6,12 +6,12 @@
  * assistant context builder, etc.) call this module instead of
  * touching ATTACH syntax or the raw FTS5 query format directly.
  *
- * The data pack lives off-tree on the external SSD and is pulled in
- * via the `data/lariat-data` symlink, so this module is a NO-OP on
- * machines where that symlink isn't set up — the connection stays
- * lazy and `available()` returns false. Importing this module never
- * throws, so it's safe to wire into routes that may run on dev
- * machines without the data pack mounted.
+ * The data pack lives off-tree and is pulled in via the `data/lariat-data`
+ * symlink or the `LARIAT_DATA_ROOT` environment variable, so this module is
+ * a NO-OP on machines where that location isn't set up — the connection stays
+ * lazy and `available()` returns false. Importing this module never throws,
+ * so it's safe to wire into routes that may run on dev machines without the
+ * data pack mounted.
  *
  * Semantic / vector search is wired in via `semantic()` below. It
  * uses transformers.js (`@huggingface/transformers`) to encode queries
@@ -26,12 +26,12 @@ import type { Database as DB } from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
-// Resolve the data root the same way the Python pipeline does:
-// prefer the in-repo symlink at data/lariat-data, fall back to the
-// hard-coded SSD path. We don't try to write either; if neither
-// exists the module reports unavailable and every call no-ops.
+// Resolve the data root the same way the Python pipeline does: prefer the
+// in-repo symlink at data/lariat-data, then an explicit operator-provided
+// LARIAT_DATA_ROOT. We don't try to write either; if neither exists the module
+// reports unavailable and every call no-ops.
 const SYMLINK_PATH = path.join(process.cwd(), 'data', 'lariat-data');
-const DIRECT_PATH = "/Volumes/Sean's SSD/lariat-data";
+const ENV_DATA_ROOT = 'LARIAT_DATA_ROOT';
 
 function resolveDataRoot(): string | null {
   try {
@@ -39,10 +39,11 @@ function resolveDataRoot(): string | null {
       return fs.realpathSync(SYMLINK_PATH);
     }
   } catch {
-    // ignore — fall through to direct path probe
+    // ignore — fall through to env path probe
   }
-  if (fs.existsSync(DIRECT_PATH)) {
-    return DIRECT_PATH;
+  const envDataRoot = process.env[ENV_DATA_ROOT];
+  if (envDataRoot && fs.existsSync(envDataRoot)) {
+    return fs.realpathSync(envDataRoot);
   }
   return null;
 }

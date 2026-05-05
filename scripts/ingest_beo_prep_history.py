@@ -3,8 +3,8 @@
 ``beo_prep_history``.
 
 Source: ``XL/Lariat Master Workbook.xlsx`` → sheet ``📋 BEO Prep``
-   (originals were moved to ~/Dev/_archives/lariat-pre-scrub-2026-04-18/
-   on 2026-04-18; this script reads them in place.)
+   (originals were moved to the repo-adjacent pre-scrub archive on
+   2026-04-18; this script reads them in place.)
 
 Sheet layout (header in row 1, data row-by-row after):
     Client | Event Date | Type | Item | Amount/Qty | Prep Day | Pre-Prep | Plating
@@ -29,6 +29,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import os
 import sqlite3
 import sys
 from pathlib import Path
@@ -37,10 +38,13 @@ from typing import Any
 import openpyxl
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_XLSX = Path(
-    "/Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18/"
-    "XL/Lariat Master Workbook.xlsx"
+ARCHIVE_ROOT = Path(
+    os.environ.get(
+        "LARIAT_PRE_SCRUB_ARCHIVE",
+        str(ROOT.parent / "_archives" / "lariat-pre-scrub-2026-04-18"),
+    )
 )
+DEFAULT_XLSX = ARCHIVE_ROOT / "XL" / "Lariat Master Workbook.xlsx"
 DEFAULT_DB = ROOT / "data" / "lariat.db"
 DEFAULT_SOURCE = "master_workbook_2026-04-18"
 SHEET_NAME = "📋 BEO Prep"

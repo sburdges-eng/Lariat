@@ -21,19 +21,14 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# Resolve paths (same logic as other datapack scripts)
-# ---------------------------------------------------------------------------
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SYMLINK_PATH = REPO_ROOT / "data" / "lariat-data"
-DIRECT_PATH = Path("/Volumes/Sean's SSD/lariat-data")
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-if SYMLINK_PATH.exists():
-    DATA_ROOT = SYMLINK_PATH.resolve()
-elif DIRECT_PATH.exists():
-    DATA_ROOT = DIRECT_PATH
-else:
+from scripts.datapack._io import default_data_root as _default_data_root  # noqa: E402
+
+DATA_ROOT = _default_data_root()
+if not DATA_ROOT.exists():
     print("ERROR: Cannot find lariat-data directory.")
     sys.exit(1)
 

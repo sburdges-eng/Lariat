@@ -60,18 +60,27 @@ SYSCO_VENDOR = "sysco"
 try:
     import pdfplumber
 except ModuleNotFoundError:
-    _venv_sp = Path('/Users/seanburdges/Dev/Lariat/.venv/lib/python3.14/site-packages')
+    _venv_sp = (
+        ROOT_FOR_IMPORT
+        / '.venv'
+        / 'lib'
+        / f'python{sys.version_info.major}.{sys.version_info.minor}'
+        / 'site-packages'
+    )
     if _venv_sp.exists():
         sys.path.insert(0, str(_venv_sp))
         import pdfplumber  # noqa: E402,F401
     else:
         raise
 
-ROOT = Path('/Users/seanburdges/Dev/Lariat')
-SRC_DIR = Path(
-    '/Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18/'
-    'data/originals/sysco/invoices'
+ROOT = ROOT_FOR_IMPORT
+ARCHIVE_ROOT = Path(
+    os.environ.get(
+        'LARIAT_PRE_SCRUB_ARCHIVE',
+        str(ROOT.parent / '_archives' / 'lariat-pre-scrub-2026-04-18'),
+    )
 )
+SRC_DIR = ARCHIVE_ROOT / 'data' / 'originals' / 'sysco' / 'invoices'
 CACHE = ROOT / 'data' / 'cache' / 'vendor_summary.json'
 
 # Invoices to (re)parse. The set is filtered against existing cache by the

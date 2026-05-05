@@ -25,7 +25,7 @@
 //   node --experimental-strip-types scripts/run-job.mjs --status [<job-name>]
 //
 // Example crontab entry:
-//   0 6 * * * cd ~/Dev/Lariat && node --experimental-strip-types scripts/run-job.mjs ingest-costing >> /tmp/lariat-cron.log 2>&1
+//   0 6 * * * cd "$HOME/Dev/Lariat" && node --experimental-strip-types scripts/run-job.mjs ingest-costing >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 
 import fs from 'node:fs';
 import path from 'node:path';

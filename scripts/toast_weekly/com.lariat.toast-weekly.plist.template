@@ -10,7 +10,10 @@
   noisy network 5 minutes to settle past 06:00 wall-clock cron storms.
 
   Install:
-    sed "s|HOME_DIR|$HOME|g" \
+    sed \
+      -e "s|HOME_DIR|$HOME|g" \
+      -e "s|ENV_LAUNCHER|$(command -v env)|g" \
+      -e "s|LAUNCHD_PATH|$PATH|g" \
       scripts/toast_weekly/com.lariat.toast-weekly.plist.template \
       > ~/Library/LaunchAgents/com.lariat.toast-weekly.plist
     launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.lariat.toast-weekly.plist
@@ -32,10 +35,10 @@
   <key>Label</key>
   <string>com.lariat.toast-weekly</string>
 
-  <!-- /usr/bin/env so we pick up the user's PATH (node, python3) -->
+  <!-- Env launcher placeholder so we pick up the user's PATH (node, python3). -->
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/env</string>
+    <string>ENV_LAUNCHER</string>
     <string>node</string>
     <string>HOME_DIR/Dev/Lariat/scripts/toast-weekly-ingest.mjs</string>
   </array>
@@ -64,7 +67,7 @@
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
-    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <string>LAUNCHD_PATH</string>
   </dict>
 </dict>
 </plist>

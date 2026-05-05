@@ -27,23 +27,22 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# Resolve data root — follow symlink from repo or fallback to direct path
-# ---------------------------------------------------------------------------
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SYMLINK_PATH = REPO_ROOT / "data" / "lariat-data"
-DIRECT_PATH = Path("/Volumes/Sean's SSD/lariat-data")
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-if SYMLINK_PATH.exists():
-    DATA_ROOT = SYMLINK_PATH.resolve()
-elif DIRECT_PATH.exists():
-    DATA_ROOT = DIRECT_PATH
-else:
+from scripts.datapack._io import (  # noqa: E402
+    ENV_DATA_ROOT,
+    SYMLINK_PATH,
+    default_data_root as _default_data_root,
+)
+
+DATA_ROOT = _default_data_root()
+if not DATA_ROOT.exists():
     print("ERROR: Cannot find lariat-data directory.")
     print(f"  Checked symlink: {SYMLINK_PATH}")
-    print(f"  Checked direct:  {DIRECT_PATH}")
-    print("  Is the external drive mounted?")
+    print(f"  Checked {ENV_DATA_ROOT}: {os.environ.get(ENV_DATA_ROOT, '<unset>')}")
+    print("  Is the data volume mounted or LARIAT_DATA_ROOT set?")
     sys.exit(1)
 
 RAW = DATA_ROOT / "raw"
