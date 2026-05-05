@@ -103,9 +103,9 @@ export function enqueue(
  * note below).
  *
  * Recovery: if the process dies between claim() and ack/nack, the row
- * is left with claimed_at set but never resolved. A future drainer
- * should sweep stale claims (e.g. claimed_at < now - 5min) back to
- * queued state. Out of scope for this PR; not yet implemented.
+ * is left with claimed_at set but never resolved. The drainer should
+ * call sweepStaleClaims() on each tick before claiming to reset
+ * orphaned rows back to the queued state.
  */
 export function claim(maxBatch: number): OutboxBatch[] {
   if (!Number.isInteger(maxBatch) || maxBatch <= 0) return [];
@@ -205,6 +205,38 @@ export function depth(): number {
     )
     .get() as { n: number };
   return row.n;
+}
+
+/**
+ * Recover orphaned in-flight claims. If a process dies between claim()
+ * and ack()/nack(), the row is left with `claimed_at` set forever and is
+ * invisible to subsequent claim() calls. This function resets such rows
+ * back to the queued state so they can be re-claimed.
+ *
+ * Resets `claimed_at` to NULL on rows where `claimed_at` is older than
+ * `maxAgeSeconds` ago AND the row is not dead-lettered. Returns the
+ * number of rows actually swept.
+ *
+ * Does NOT touch `attempts` (the work was attempted at claim time and
+ * that history stands — the result was just lost), and does NOT touch
+ * `last_error` or dead-lettered rows (terminal state).
+ *
+ * Default `maxAgeSeconds = 300` (5 minutes) — long enough that a
+ * healthy in-flight push will finish, short enough that an
+ * outage-recovery cycle isn't badly delayed. The eventual drainer
+ * should call this on each tick before claiming.
+ */
+export function sweepStaleClaims(maxAgeSeconds: number = 300): number {
+  const result = getDb()
+    .prepare(
+      `UPDATE cloud_bridge_outbox
+          SET claimed_at = NULL
+        WHERE claimed_at IS NOT NULL
+          AND dead_letter = 0
+          AND claimed_at < datetime('now', ?)`,
+    )
+    .run(`-${maxAgeSeconds} seconds`);
+  return result.changes;
 }
 
 /** Count of dead-lettered batches (manual triage required). */
