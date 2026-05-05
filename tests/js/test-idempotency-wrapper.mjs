@@ -198,6 +198,61 @@ describe('withIdempotency — input validation', () => {
   });
 });
 
+describe('withIdempotency — 401 responses are not cached (auth is per-request)', () => {
+  it('a 401 from the handler must NOT be cached; subsequent authed call runs fresh', async () => {
+    // Surfaced by ultrathink debug pass: cache key is (key, request_hash) —
+    // it does NOT include auth state. If a 401 is cached against the
+    // (key, body) tuple, a user who taps Save without a PIN, then
+    // authenticates, then taps Save again with the same key gets back the
+    // cached 401 — confused-deputy UX bug. 401 responses must always
+    // re-run the handler.
+    const headers = { 'idempotency-key': KEY_A };
+    const body = JSON.stringify({ x: 1 });
+
+    let callCount = 0;
+    const handler = async () => {
+      callCount++;
+      // First call: simulate "no auth" -> 401. Second call: simulate
+      // "auth granted" -> 200. Pure function of callCount, not of the
+      // request — proves the wrapper actually re-ran the handler the
+      // second time rather than returning the cached 401.
+      return callCount === 1
+        ? Response.json({ error: 'unauthorized' }, { status: 401 })
+        : Response.json({ ok: true }, { status: 200 });
+    };
+
+    const r1 = await withIdempotency(makeReq({ body, headers }), handler);
+    assert.strictEqual(r1.status, 401);
+    // 401 must NOT be cached.
+    const cacheCount = testDb
+      .prepare('SELECT COUNT(*) AS c FROM idempotency_keys')
+      .get().c;
+    assert.strictEqual(cacheCount, 0, '401 response must not produce a cache row');
+
+    // Second call with same key — handler MUST run again, not return cached 401.
+    const r2 = await withIdempotency(makeReq({ body, headers }), handler);
+    assert.strictEqual(callCount, 2, 'handler should have re-run on the second call');
+    assert.strictEqual(r2.status, 200, 'expected 200 after auth, not the cached 401');
+  });
+
+  it('non-401 4xx responses (e.g. 422) ARE still cached — they are deterministic per body', async () => {
+    // Sanity check that we narrowed the carve-out to 401 only and
+    // didn\'t broaden it. 422 from a malformed body is the right
+    // answer on retry too.
+    const headers = { 'idempotency-key': KEY_A };
+    const body = JSON.stringify({ x: 1 });
+    let callCount = 0;
+    const handler = async () => {
+      callCount++;
+      return Response.json({ error: 'malformed' }, { status: 422 });
+    };
+
+    await withIdempotency(makeReq({ body, headers }), handler);
+    await withIdempotency(makeReq({ body, headers }), handler);
+    assert.strictEqual(callCount, 1, '422 should be cached on first call, replayed on second');
+  });
+});
+
 describe('withIdempotency — handler errors are not cached', () => {
   it('a thrown handler does not write a cache row', async () => {
     const headers = { 'idempotency-key': KEY_A };
