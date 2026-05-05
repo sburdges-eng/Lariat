@@ -27,12 +27,24 @@
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-# REPO_ROOT is always absolute. Derive WORKTREES_PARENT as a sibling so
-# linked worktrees land at ../Lariat-worktrees/, never nested under the
-# main checkout. (`git rev-parse --git-common-dir` returns ".git" from
-# the main checkout — a relative path — which previously caused
-# WORKTREES_PARENT to resolve to "./Lariat-worktrees" inside the repo.)
-WORKTREES_PARENT="$(dirname "$REPO_ROOT")/Lariat-worktrees"
+
+# MAIN_CHECKOUT is the original (unlinked) checkout — `git worktree list
+# --porcelain` always lists it first. We need this independent of CWD so
+# the script works whether the operator runs it from main or from a
+# linked worktree. (Pre-fix: $REPO_ROOT inside a worktree pointed at
+# the worktree itself, so dirname produced .../Lariat-worktrees/, which
+# made WORKTREES_PARENT resolve to .../Lariat-worktrees/Lariat-worktrees/
+# and nested every new worktree under that bogus dir. Same root cause
+# also broke the node_modules / .venv symlinks.)
+MAIN_CHECKOUT="$(git worktree list --porcelain | awk 'NR==1 && $1=="worktree" {print $2; exit}')"
+if [ -z "$MAIN_CHECKOUT" ]; then
+    echo "✗ couldn't determine main checkout from git worktree list" >&2
+    exit 1
+fi
+
+# Derive WORKTREES_PARENT as a sibling of MAIN_CHECKOUT so linked
+# worktrees always land at ../Lariat-worktrees/, regardless of CWD.
+WORKTREES_PARENT="$(dirname "$MAIN_CHECKOUT")/Lariat-worktrees"
 
 valid_tool() {
     case "$1" in
@@ -86,11 +98,23 @@ case "$cmd" in
         wt_git_dir="$(git -C "$wt_path" rev-parse --git-dir)"
         echo "$branch" > "$wt_git_dir/SESSION_BRANCH"
 
-        # Share node_modules from the main checkout so `npm run typecheck`,
+        # Share node_modules from the MAIN checkout so `npm run typecheck`,
         # `npm test`, and the pre-commit hook find their binaries without a
         # second `npm install`. Linked worktrees don't get one for free.
-        if [ ! -e "$wt_path/node_modules" ] && [ -d "$REPO_ROOT/node_modules" ]; then
-            ln -s "$REPO_ROOT/node_modules" "$wt_path/node_modules"
+        if [ ! -e "$wt_path/node_modules" ] && [ -d "$MAIN_CHECKOUT/node_modules" ]; then
+            ln -s "$MAIN_CHECKOUT/node_modules" "$wt_path/node_modules"
+        fi
+
+        # Same trick for the Python test venv — tests/js/_helpers/python-preflight.mjs
+        # hard-fails any test-shows-* / test-temp-log-api / test-clientFetch run
+        # if .venv/bin/python3 isn't present in the worktree. Symlinking the
+        # MAIN checkout's venv is much faster than re-running install-python-deps.sh
+        # in every fresh worktree (~30s saved per worktree).
+        if [ ! -e "$wt_path/.venv" ] && [ -d "$MAIN_CHECKOUT/.venv" ]; then
+            ln -s "$MAIN_CHECKOUT/.venv" "$wt_path/.venv"
+            venv_note="  pyenv: .venv linked from $MAIN_CHECKOUT"
+        else
+            venv_note="  pyenv: NOT linked (run \`bash scripts/install-python-deps.sh\` in main checkout first)"
         fi
 
         echo
@@ -98,7 +122,8 @@ case "$cmd" in
         echo "  path:   $wt_path"
         echo "  branch: $branch (locked via SESSION_BRANCH)"
         echo "  base:   $(git -C "$wt_path" log -1 --format='%h %s')"
-        echo "  deps:   node_modules linked from $REPO_ROOT"
+        echo "  deps:   node_modules linked from $MAIN_CHECKOUT"
+        echo "$venv_note"
         echo
         echo "  cd $wt_path"
         ;;
