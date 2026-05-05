@@ -164,9 +164,22 @@ export async function withIdempotency(
 
   const res = await handler();
 
+  // 401 short-circuit: auth state is per-request, NOT a function of
+  // (key + body). Caching a 401 against the (key, body) tuple confused-
+  // deputies a user who taps Save without a PIN, then authenticates,
+  // then taps Save again with the same key — they get back the cached
+  // 401 instead of the post-auth 200. Always re-run the handler on
+  // the next attempt by skipping the cache write here.
+  // 422 / 4xx for malformed body remain cached: they ARE deterministic
+  // for a given body, so re-running just produces the same response
+  // with extra audit noise.
+  if (res.status === 401) {
+    return res;
+  }
+
   // Cache the response. We clone before reading text() so the caller
-  // can still use res normally. Non-2xx responses ARE cached (see
-  // function header comment).
+  // can still use res normally. Non-2xx responses (other than 401 above)
+  // ARE cached — see function header comment.
   let responseBody = '';
   try {
     responseBody = await res.clone().text();
