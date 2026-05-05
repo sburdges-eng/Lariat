@@ -84,7 +84,10 @@ const cookId = values['cook-id'] || 'prism-backfill';
 
 // ── RFC-4180-ish CSV parser (matches sibling importers) ────────────
 function parseCsv(text) {
-  const src = text.replace(/^﻿/, '');
+  // Strip the UTF-8 BOM (U+FEFF) if Excel/Google-Sheets prepended one.
+  // Use \uFEFF escape rather than the literal byte so eslint's
+  // no-irregular-whitespace rule doesn't flag the line.
+  const src = text.replace(/^\uFEFF/, '');
   const rows = [];
   let row = [];
   let field = '';

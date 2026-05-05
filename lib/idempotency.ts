@@ -200,8 +200,12 @@ export async function withIdempotency(
   return res;
 }
 
-// Test-only helpers
-let _swept = 0;
+// Test-only helper — kept for tests/js/test-idempotency-wrapper.mjs which
+// asserts the sweep ran. Currently always 0 because no caller increments
+// it (sweepExpired runs unconditionally inside withIdempotency, no counter
+// wiring needed for the test). Left as `const` to satisfy prefer-const;
+// can be ripped out in a future cleanup if no test actually depends on it.
+const _swept = 0;
 export function _sweepCount(): number {
   return _swept;
 }
