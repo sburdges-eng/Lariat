@@ -69,6 +69,26 @@ describe('depth() — empty', () => {
   });
 });
 
+describe('depth() — excludes in-flight rows', () => {
+  // Contract: depth() reports batches "available to claim" — not total queued.
+  // In-flight rows (claimed_at IS NOT NULL, dead_letter = 0) have already been
+  // handed to a drainer; counting them inflates monitoring relative to what
+  // claim() will yield.
+  it('drops claimed rows out of depth, restores them on nack', () => {
+    enqueue(TABLE, [{ shift_date: '2026-05-01', total: 1 }], { locationId: LOC });
+    enqueue(TABLE, [{ shift_date: '2026-05-02', total: 2 }], { locationId: LOC });
+    enqueue(TABLE, [{ shift_date: '2026-05-03', total: 3 }], { locationId: LOC });
+    assert.equal(depth(), 3, 'three queued batches');
+
+    const [c] = claim(1);
+    assert.equal(depth(), 2, 'in-flight batch is excluded from depth');
+
+    // nack returns the batch to the queue → depth recovers.
+    nack(c.id, 'transient');
+    assert.equal(depth(), 3, 'nacked batch is back in depth');
+  });
+});
+
 describe('enqueue() — happy path', () => {
   it('returns a positive integer batch id', () => {
     const id = enqueue(TABLE, [{ shift_date: '2026-05-04', total: 4321.5 }], { locationId: LOC });

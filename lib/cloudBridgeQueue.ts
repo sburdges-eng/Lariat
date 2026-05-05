@@ -201,7 +201,8 @@ export function depth(): number {
     .prepare(
       `SELECT COUNT(*) AS n
          FROM cloud_bridge_outbox
-        WHERE dead_letter = 0`,
+        WHERE dead_letter = 0
+          AND claimed_at IS NULL`,
     )
     .get() as { n: number };
   return row.n;
