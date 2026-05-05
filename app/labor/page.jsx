@@ -1,45 +1,76 @@
-// Labor hub — tile grid for the labor-compliance subpages.
+// Labor hub — CO COMPS #39, HFWA, certs, tip pool, wage notices.
 //
-// New tiles for Task A/B/C: Sick time (HFWA L2), Tip pool (L4),
-// Wage notices (L7). The hub stays minimal — each tile counts current
-// records and links to its board.
+// Single morning-sanity page for the labor-compliance surface. The
+// lens is "what is the restaurant liable for if a cook files a claim
+// tomorrow?" Each tile counts current records and a status colour
+// (red = action required, amber = soon, green = clean).
 
 import Link from 'next/link';
-import { getDb } from '../../lib/db';
+import { getDb, todayISO } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 
 export const dynamic = 'force-dynamic';
 
-function summarize(loc, year, today) {
+function summarize(loc, today, year) {
   const db = getDb();
 
-  // L2 — sick leave: count cooks with a balance row this year +
-  // count those at cap.
+  // L1 — breaks owed today.
+  const breaksToday = db
+    .prepare(
+      `SELECT kind, ended_at, waived FROM shift_breaks
+        WHERE location_id=? AND shift_date=?`,
+    )
+    .all(loc, today);
+  const openBreaks = breaksToday.filter((b) => !b.ended_at && !b.waived).length;
+  const mealsLogged = breaksToday.filter((b) => b.kind === 'meal').length;
+  const restsLogged = breaksToday.filter((b) => b.kind === 'rest').length;
+
+  // L3 — cert expiry within 30d.
+  const expiryRows = db
+    .prepare(
+      `SELECT id, cert_type, holder_cook_id, expires_on
+         FROM staff_certifications
+        WHERE location_id=?
+          AND expires_on IS NOT NULL`,
+    )
+    .all(loc);
+  const now = new Date(today + 'T00:00:00').getTime();
+  let expired = 0;
+  let soon = 0;
+  for (const c of expiryRows) {
+    const exp = new Date(c.expires_on + 'T00:00:00').getTime();
+    const days = Math.floor((exp - now) / 86400000);
+    if (days < 0) expired += 1;
+    else if (days <= 30) soon += 1;
+  }
+
+  // L2 — sick leave: count cooks tracked + at cap.
   const sickRows = db
     .prepare(
       `SELECT cook_id, hours_accrued, cap_hours
          FROM paid_sick_leave_balances
-        WHERE location_id = ? AND accrual_year = ?`,
+        WHERE location_id=? AND accrual_year=?`,
     )
     .all(loc, year);
-  const sickAtCap = sickRows.filter((r) => r.hours_accrued >= (r.cap_hours ?? 48) - 1e-9).length;
+  const sickAtCap = sickRows.filter(
+    (r) => r.hours_accrued >= (r.cap_hours ?? 48) - 1e-9,
+  ).length;
 
-  // L4 — tip pool: count today's distributions and sum cents.
+  // L4 — tip pool: lines + total cents today.
   const tipRow = db
     .prepare(
       `SELECT COUNT(*) AS lines, COALESCE(SUM(amount_cents), 0) AS cents
          FROM tip_pool_distributions
-        WHERE location_id = ? AND shift_date = ?`,
+        WHERE location_id=? AND shift_date=?`,
     )
     .get(loc, today);
 
-  // L7 — wage notices: count distinct cooks with a notice on file +
-  // count those whose latest notice is older than 365 days.
+  // L7 — wage notices: cooks on file + count stale (>365d).
   const wageRows = db
     .prepare(
       `SELECT cook_id, MAX(signed_on) AS latest
          FROM wage_notices
-        WHERE location_id = ?
+        WHERE location_id=?
         GROUP BY cook_id`,
     )
     .all(loc);
@@ -51,10 +82,18 @@ function summarize(loc, year, today) {
   const wageStale = wageRows.filter((r) => r.latest && r.latest < cutoff).length;
 
   return {
+    breaks: { open: openBreaks, meals: mealsLogged, rests: restsLogged },
+    certs: { expired, soon, total: expiryRows.length },
     sick: { tracked: sickRows.length, atCap: sickAtCap },
     tips: { lines: tipRow.lines, cents: tipRow.cents },
     wage: { cooks: wageRows.length, stale: wageStale },
   };
+}
+
+function tone(s) {
+  if (s.red) return 'red';
+  if (s.amber) return 'amber';
+  return 'green';
 }
 
 function fmtMoney(cents) {
@@ -64,55 +103,113 @@ function fmtMoney(cents) {
   return `${sign}$${(abs / 100).toFixed(2)}`;
 }
 
-export default function LaborPage({ searchParams }) {
+function Tile({ href, title, sub, status, lines }) {
+  const t = tone(status);
+  return (
+    <Link href={href} className={`fs-tile fs-tile-${t}`}>
+      <div className="fs-tile-head">
+        <span className="fs-tile-title">{title}</span>
+        <span className={`fs-tile-pip fs-tile-pip-${t}`} />
+      </div>
+      <div className="fs-tile-sub">{sub}</div>
+      <ul className="fs-tile-lines">
+        {lines.map((l, i) => (
+          <li key={i} className={l.tone ? `fs-line-${l.tone}` : ''}>
+            <span className="fs-line-num">{l.n}</span>
+            <span className="fs-line-lbl">{l.label}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="fs-tile-arrow">Open →</div>
+    </Link>
+  );
+}
+
+export default function LaborHub({ searchParams }) {
   const loc =
     typeof searchParams?.location === 'string' && searchParams.location.trim()
       ? searchParams.location.trim()
       : DEFAULT_LOCATION_ID;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   const year = new Date().getFullYear();
-
-  const s = summarize(loc, year, today);
+  const s = summarize(loc, today, year);
   const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
 
   return (
-    <div className="p-4 space-y-4">
-      <h1 className="text-xl font-semibold">Labor</h1>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-        <Link
+    <div className="fs-hub">
+      <h1>Labor</h1>
+      <p className="subtitle">
+        Breaks, certs, sick time, tip pool, and wage notices in one place.
+      </p>
+      <div className="fs-tiles">
+        <Tile
+          href={`/labor/breaks${locQ}`}
+          title="Breaks"
+          sub="COMPS #39 — 10 min paid rest / 4h, 30 min meal on shifts ≥ 5h"
+          status={{ red: false, amber: s.breaks.open > 0 }}
+          lines={[
+            {
+              n: s.breaks.open,
+              label: 'open breaks (forgotten end?)',
+              tone: s.breaks.open ? 'amber' : null,
+            },
+            { n: s.breaks.meals, label: 'meals logged today' },
+            { n: s.breaks.rests, label: 'rests logged today' },
+          ]}
+        />
+        <Tile
+          href={`/labor/certs${locQ}`}
+          title="Certifications"
+          sub="CFPM, food-handler, alcohol-service — CO 6 CCR 1010-2"
+          status={{ red: s.certs.expired > 0, amber: s.certs.soon > 0 }}
+          lines={[
+            { n: s.certs.total, label: 'tracked certs' },
+            {
+              n: s.certs.soon,
+              label: 'expiring in 30 days',
+              tone: s.certs.soon ? 'amber' : null,
+            },
+            { n: s.certs.expired, label: 'expired', tone: s.certs.expired ? 'red' : null },
+          ]}
+        />
+        <Tile
           href={`/labor/sick-leave${locQ}`}
-          className={`block rounded border p-4 ${s.sick.atCap > 0 ? 'border-amber-400 bg-amber-50' : 'border-neutral-200 bg-white'}`}
-        >
-          <div className="text-sm text-neutral-500">Sick time</div>
-          <div className="text-2xl font-bold mt-1">{s.sick.tracked}</div>
-          <div className="text-xs text-neutral-600 mt-1">
-            cooks tracked this year
-            {s.sick.atCap > 0 ? ` · ${s.sick.atCap} at cap` : ''}
-          </div>
-        </Link>
-
-        <Link
+          title="Sick time"
+          sub="HFWA — earn 1h per 30h worked, 48h cap"
+          status={{ red: false, amber: s.sick.atCap > 0 }}
+          lines={[
+            { n: s.sick.tracked, label: 'cooks tracked this year' },
+            {
+              n: s.sick.atCap,
+              label: 'at the 48h cap',
+              tone: s.sick.atCap ? 'amber' : null,
+            },
+          ]}
+        />
+        <Tile
           href={`/labor/tip-pool${locQ}`}
-          className="block rounded border p-4 border-neutral-200 bg-white"
-        >
-          <div className="text-sm text-neutral-500">Tip pool</div>
-          <div className="text-2xl font-bold mt-1">{fmtMoney(s.tips.cents)}</div>
-          <div className="text-xs text-neutral-600 mt-1">
-            {s.tips.lines} {s.tips.lines === 1 ? 'line' : 'lines'} today
-          </div>
-        </Link>
-
-        <Link
+          title="Tip pool"
+          sub="COMPS #39 §3.3, §3.4 — pool excludes managers"
+          status={{ red: false, amber: false }}
+          lines={[
+            { n: s.tips.lines, label: 'lines today' },
+            { n: fmtMoney(s.tips.cents), label: 'paid out today' },
+          ]}
+        />
+        <Tile
           href={`/labor/wage-notices${locQ}`}
-          className={`block rounded border p-4 ${s.wage.stale > 0 ? 'border-red-400 bg-red-50' : 'border-neutral-200 bg-white'}`}
-        >
-          <div className="text-sm text-neutral-500">Wage notices</div>
-          <div className="text-2xl font-bold mt-1">{s.wage.cooks}</div>
-          <div className="text-xs text-neutral-600 mt-1">
-            cooks on file
-            {s.wage.stale > 0 ? ` · ${s.wage.stale} need new` : ''}
-          </div>
-        </Link>
+          title="Wage notices"
+          sub="CO Wage Theft Transparency — refresh yearly or on change"
+          status={{ red: s.wage.stale > 0, amber: false }}
+          lines={[
+            { n: s.wage.cooks, label: 'cooks on file' },
+            {
+              n: s.wage.stale,
+              label: 'need a new notice',
+              tone: s.wage.stale ? 'red' : null,
+            },
+          ]}
+        />
       </div>
     </div>
   );
