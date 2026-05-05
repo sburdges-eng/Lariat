@@ -33,6 +33,15 @@ Severity uses a 5×5 matrix: **S** (likelihood 1–5) × **I** (impact 1–5) = 
 
 ### 2.1 Food-safety gaps
 
+> **Status (2026-05-05) — F-row delivery rollup**
+>
+> | # | Status | Notes |
+> |---|---|---|
+> | F13 | **shipped** | `lib/correctiveActions.ts` + `GET /api/corrective-actions` aggregate `temp_log.corrective_action` and `line_check_entries.note` (where `status='fail'`) into one chronological feed; cite FDA §8-405.11. Tests: `test-corrective-actions-{rules,api}.mjs`. |
+> | F14 | **shipped** | `scripts/export.mjs` already emits 19 sheets including temp log, cooling, sanitizer, date marks, sick worker, receiving, breaks, certs, SDS — the original "export doesn't include food-safety artifacts" finding is closed. Doc update only. |
+>
+> Original finding rows below remain authoritative for residual nits.
+
 | # | Finding | Citation | L | I | R | State |
 |---|---|---|---|---|---|---|
 | F1 | **Cooling log not modeled.** `tempLog.ts` explicitly says CCP-8 (cooling) "is not modeled as a single threshold here." Cooling is the highest-risk BOH process: pathogens multiply fastest in 70–120 °F. | FDA 2022 §3-501.14; CO 6-CCR-1010-2 §3-501.14 (135→70 °F ≤ 2 h, 70→41 °F ≤ 4 h more, total ≤ 6 h) | 5 | 5 | **25** | Hardening in migration `20260421_01_food_safety.sql` + `/food-safety/cooling` |
@@ -55,18 +64,20 @@ Severity uses a 5×5 matrix: **S** (likelihood 1–5) × **I** (impact 1–5) = 
 
 ### 2.2 Labor gaps (Colorado + federal)
 
-**Status (2026-05-05):** L1, L2, L3, L4, L7 are shipped on the
-`labor-compliance` branch. The "State" column below describes the
-*original* finding; see the shipped table for current routes/tests.
-
-| L# | Shipped | Surfaces |
-|----|---------|----------|
-| L1 | yes — pre-merge (now committed) | `lib/breaks.ts`, `app/api/breaks/route.js`, `app/labor/breaks/` |
-| L2 | yes — labor-compliance | `lib/sickLeave.ts`, `app/api/sick-leave/route.js`, `app/labor/sick-leave/` |
-| L3 | yes — pre-merge (now committed) | `app/labor/certs/` (existing API) |
-| L4 | yes — labor-compliance | `lib/tipPool.ts`, `app/api/tip-pool/route.js`, `app/labor/tip-pool/` |
-| L7 | yes — labor-compliance | `lib/wageNotices.ts`, `app/api/wage-notices/route.js`, `app/labor/wage-notices/` |
-| L5, L6, L8, L9, L10 | no — see rows below | |
+> **Status (2026-05-05) — L-row delivery rollup**
+>
+> | # | Status | Notes |
+> |---|---|---|
+> | L1 | **shipped** | `lib/breaks.ts`, `app/api/breaks/route.js`, `app/labor/breaks/` (recovered from gitignored on-disk state in PR #152). |
+> | L2 | **shipped** | `lib/sickLeave.ts`, `app/api/sick-leave/route.js`, `app/labor/sick-leave/` — HFWA accrual (1h/30h, 48h cap) + balance + audit (PR #152). |
+> | L3 | **shipped** | `app/labor/certs/` recovered in PR #152; existing API was already in place. |
+> | L4 | **shipped** | `lib/tipPool.ts`, `app/api/tip-pool/route.js`, `app/labor/tip-pool/` — tip-credit math + pool-eligibility check; money in INTEGER CENTS only (PR #152). |
+> | L5 | **shipped** | `lib/minorRestrictions.ts` defines the prohibited-station pattern set (slicer / grinder / mixer / bakery / prep-* / fryer-*) and citation (CO YEOA + 29 CFR 570.50+). `/api/signoff` 422s a signoff when the cook has an active `staff_flags(flag='minor', effective_to IS NULL)` row and the station id matches. Pattern-list expansion is by code-edit; no manager UI yet. Tests: `test-minor-restrictions-rules.mjs` + `test-signoff-gates-api.mjs` (PR #153). |
+> | L6 | **shipped** | `lib/sickWorkerGate.ts` + the `/api/signoff` gate refuse line work when the cook has an open `sick_worker_reports` row (`return_at IS NULL`) with `action IN ('excluded','restricted')`; `monitor`/`none` are informational. Cites FDA §2-201.12. Tests: `test-sick-worker-gate-rules.mjs` + `test-signoff-gates-api.mjs` (PR #153). |
+> | L7 | **shipped** | `lib/wageNotices.ts`, `app/api/wage-notices/route.js`, `app/labor/wage-notices/` (PR #152). |
+> | L5, L6, L8, L9, L10 finding rows | informational | L8/L9/L10 still open; L5/L6 shipped per above. |
+>
+> Original finding rows below remain authoritative for residual nits.
 
 | # | Finding | Citation | L | I | R | State |
 |---|---|---|---|---|---|---|
