@@ -1,0 +1,53 @@
+# PR + main-push CI gate. Mirrors the local pre-commit + `npm run verify`
+# discipline so a regression that slips past a developer's machine still gets
+# caught before merge.
+#
+# Steps run as discrete jobs (rather than `npm run verify` as one) so a red
+# build points cleanly at which gate failed. Order matches the verify
+# script: typecheck → jest → rule tests → schema migrations → next build.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: typecheck · tests · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: typecheck
+        run: npm run typecheck
+
+      - name: jest unit tests
+        run: npm run test:unit
+
+      - name: HACCP rule tests
+        run: npm run test:rules
+
+      - name: schema-migration idempotency
+        run: npm run test:schema
+
+      - name: next build
+        run: npm run build
+        env:
+          NODE_ENV: production
