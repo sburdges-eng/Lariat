@@ -116,18 +116,36 @@ describe('electHub', () => {
     assert.equal(electHub([a, b, c]), a);
   });
 
-  it('is deterministic — same input returns same object reference', () => {
-    const peers = [
-      peer({ name: 'Lariat (2)', started_at: '2026-05-05T12:00:00.000Z' }),
-      peer({ name: 'Lariat', started_at: '2026-05-03T09:30:00.000Z' }),
-      peer({ name: 'Lariat (3)', started_at: '2026-05-01T08:00:00.000Z' }),
+  it('is deterministic — every permutation elects the same peer reference', () => {
+    const a = peer({ name: 'Lariat (2)', started_at: '2026-05-05T12:00:00.000Z' });
+    const b = peer({ name: 'Lariat', started_at: '2026-05-03T09:30:00.000Z' });
+    const c = peer({ name: 'Lariat (3)', started_at: '2026-05-01T08:00:00.000Z' });
+    // c has the earliest started_at, so it must win every time regardless of
+    // input order. All 6 permutations of [a,b,c] catch a non-deterministic
+    // tie-breaker (e.g. a random pick among equals) that a single rotation
+    // would miss.
+    const expected = c;
+    const permutations = [
+      [a, b, c],
+      [a, c, b],
+      [b, a, c],
+      [b, c, a],
+      [c, a, b],
+      [c, b, a],
     ];
-    const winner1 = electHub(peers);
-    const winner2 = electHub(peers);
+    for (const perm of permutations) {
+      assert.equal(
+        electHub(perm),
+        expected,
+        `permutation ${perm.map((p) => p.name).join(',')} must elect ${expected.name}`
+      );
+    }
+    // Same input twice in a row returns the same object reference (the
+    // narrower "stable across repeated calls" claim, kept explicit).
+    const winner1 = electHub([a, b, c]);
+    const winner2 = electHub([a, b, c]);
     assert.equal(winner1, winner2);
-    // Shuffled input should produce the same winner.
-    const shuffled = [peers[1], peers[2], peers[0]];
-    assert.equal(electHub(shuffled), winner1);
+    assert.equal(winner1, expected);
   });
 
   it('does not mutate the caller’s array', () => {

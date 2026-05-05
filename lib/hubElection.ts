@@ -24,12 +24,6 @@
 
 import type { DiscoveredInstance } from './mdnsDiscovery';
 
-/** True when the peer advertised a non-empty started_at TXT field. */
-function hasStartedAt(p: DiscoveredInstance): boolean {
-  const s = p.txt.started_at;
-  return typeof s === 'string' && s.length > 0;
-}
-
 /**
  * Compare two peers for hub-election order. Returns a negative number if
  * `a` should be hub over `b`, positive if `b` wins, 0 if indistinguishable.
@@ -43,14 +37,17 @@ function compareForHub(
   a: DiscoveredInstance,
   b: DiscoveredInstance
 ): number {
-  const aHas = hasStartedAt(a);
-  const bHas = hasStartedAt(b);
+  // Hoist the txt fields so TS can narrow them inline below — splitting the
+  // check into a separate `hasStartedAt` helper hides the narrowing from TS
+  // and forces ugly `as string` casts at the comparison site.
+  const aStarted = a.txt.started_at;
+  const bStarted = b.txt.started_at;
+  const aHas = typeof aStarted === 'string' && aStarted.length > 0;
+  const bHas = typeof bStarted === 'string' && bStarted.length > 0;
   if (aHas !== bHas) return aHas ? -1 : 1;
 
-  if (aHas && bHas) {
-    // Non-null assertions are safe: hasStartedAt() proved both are strings.
-    const aStarted = a.txt.started_at as string;
-    const bStarted = b.txt.started_at as string;
+  if (aStarted && bStarted) {
+    // TS narrows both to `string` here from the truthiness check.
     if (aStarted < bStarted) return -1;
     if (aStarted > bStarted) return 1;
   }
@@ -69,12 +66,10 @@ function compareForHub(
 export function electHub(
   peers: DiscoveredInstance[]
 ): DiscoveredInstance | null {
-  if (peers.length === 0) return null;
   // Copy the array before sorting so the caller's input is untouched.
   // We're sorting references, not deep-cloning peers — the function still
   // returns one of the original objects (preserves reference equality).
-  const sorted = [...peers].sort(compareForHub);
-  // length >= 1 was already established above, so sorted[0] exists; the
-  // assertion sidesteps `noUncheckedIndexedAccess` widening to `undefined`.
-  return sorted[0] as DiscoveredInstance;
+  // `?? null` covers the empty-array case without an explicit length check
+  // and keeps `noUncheckedIndexedAccess` happy without a cast.
+  return [...peers].sort(compareForHub)[0] ?? null;
 }
