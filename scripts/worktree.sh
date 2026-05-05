@@ -163,6 +163,16 @@ case "$cmd" in
             echo "✗ no worktree at $wt_path" >&2
             exit 1
         fi
+        # Pre-clean the symlinks `new` created plus macOS Finder noise.
+        # Targets (node_modules, .venv dirs) are gitignored, but the
+        # symlinks themselves are not — they show up as untracked. macOS
+        # also drops .DS_Store files into any browsed folder. Both cases
+        # make `git worktree remove` refuse without --force, and we don't
+        # reach for --force because it would also wipe any genuine
+        # uncommitted work the operator forgot to commit.
+        [ -L "$wt_path/node_modules" ] && rm "$wt_path/node_modules"
+        [ -L "$wt_path/.venv" ] && rm "$wt_path/.venv"
+        find "$wt_path" -name ".DS_Store" -delete 2>/dev/null || true
         git worktree remove "$wt_path"
         echo "✓ removed $wt_path"
         ;;
