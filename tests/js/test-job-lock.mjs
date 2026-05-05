@@ -211,3 +211,47 @@ describe('inspectLock', () => {
     r.handle.release();
   });
 });
+
+// ── Disk-full / write-error during lock create ─────────────────────
+
+describe('acquireLock — write-error mid-create cleanup', () => {
+  it('does NOT leak the fd or leave a partial lockfile when writeSync throws', () => {
+    // Simulate a disk-full / I/O error mid-write by stubbing fs.writeSync.
+    // Without the finally-block cleanup, the fd would leak (process-lifetime
+    // leak) AND the partial lockfile would block subsequent acquires until
+    // the stale-reclaim cycle ran. The fix: try/finally ensures both are
+    // cleaned up even when the write throws.
+    const realWrite = fs.writeSync;
+    let lockfileBeforeFinally = '';
+    fs.writeSync = () => {
+      // Capture state at the moment of failure: the openSync has run
+      // (lockfile exists), but writeSync now throws.
+      lockfileBeforeFinally = path.join(lockDir, 'simfail.lock');
+      throw Object.assign(new Error('ENOSPC: no space left on device'), {
+        code: 'ENOSPC',
+      });
+    };
+    try {
+      const r = acquireLock('simfail', { lockDir, pid: 999 });
+      assert.equal(r.ok, false);
+      assert.equal(r.reason, 'lock_dir_unwritable');
+      assert.match(r.error, /ENOSPC/);
+      // The lockfile must have been unlinked by the finally block —
+      // a leaked partial lockfile would block the next acquire until
+      // the stale-reclaim cycle.
+      assert.equal(
+        fs.existsSync(lockfileBeforeFinally),
+        false,
+        'partial lockfile should have been unlinked by the finally cleanup',
+      );
+    } finally {
+      fs.writeSync = realWrite;
+    }
+
+    // After cleanup, a fresh acquire on the same name should succeed
+    // immediately (no stale-reclaim path needed).
+    const r2 = acquireLock('simfail', { lockDir, pid: 1000 });
+    assert.equal(r2.ok, true, 'next acquire after the cleanup should succeed cleanly');
+    r2.handle.release();
+  });
+});

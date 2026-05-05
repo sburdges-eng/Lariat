@@ -158,8 +158,9 @@ export function acquireLock(
   const lockfilePath = path.join(lockDir, `${jobName}.lock`);
 
   const tryCreate = (): AcquireResult => {
+    let fd: number | null = null;
     try {
-      const fd = fs.openSync(lockfilePath, 'wx');
+      fd = fs.openSync(lockfilePath, 'wx');
       const content: LockFileContent = {
         pid,
         jobName,
@@ -167,6 +168,7 @@ export function acquireLock(
       };
       fs.writeSync(fd, JSON.stringify(content));
       fs.closeSync(fd);
+      fd = null; // closed cleanly — don't double-close in finally
       return {
         ok: true,
         handle: {
@@ -185,6 +187,15 @@ export function acquireLock(
         reason: 'lock_dir_unwritable',
         error: (err as Error).message,
       };
+    } finally {
+      // If we opened the fd but writeSync threw before we closed it (e.g.
+      // disk-full mid-write), close it now and unlink the partial lockfile
+      // so we don't leak the descriptor and don't leave a zero-byte
+      // lockfile that the next reclaim cycle has to clean up.
+      if (fd !== null) {
+        try { fs.closeSync(fd); } catch { /* already gone */ }
+        try { fs.unlinkSync(lockfilePath); } catch { /* already gone */ }
+      }
     }
   };
 
