@@ -159,8 +159,12 @@ case "$cmd" in
         git -C "$MAIN_CHECKOUT" fetch origin --quiet 2>/dev/null || true
         echo "MACP — multi-agent coordination check:"
         if [ -f "$MAIN_CHECKOUT/scripts/agent-session.mjs" ]; then
-            node "$MAIN_CHECKOUT/scripts/agent-session.mjs" list 2>/dev/null || true
+            # Don't suppress stderr — real agent-session.mjs bugs should surface.
+            node "$MAIN_CHECKOUT/scripts/agent-session.mjs" list || true
+        else
+            echo "  (agent-session.mjs not found in main checkout — skipping)"
         fi
+        echo
         echo "→ Claim files before editing: AGENT_NAME=$tool node scripts/agent-session.mjs update --tool $tool --claimed \"path1,path2\""
         ;;
 
