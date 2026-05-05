@@ -6,6 +6,10 @@ import {
   isStationProhibitedForMinor,
   MINOR_PROHIBITION_CITATION,
 } from '../../../lib/minorRestrictions';
+import {
+  cookHasActiveExclusion,
+  SICK_WORKER_EXCLUSION_CITATION,
+} from '../../../lib/sickWorkerGate';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,6 +56,19 @@ function cookHasActiveMinorFlag(db, location_id, cook_id) {
   return Boolean(row);
 }
 
+// L6 (FDA 2022 §2-201.12): pull every OPEN sick-worker report for
+// this cook + location. The pure helper `cookHasActiveExclusion`
+// (lib/sickWorkerGate) decides whether any of them blocks line work
+// (action 'excluded' or 'restricted'); 'monitor' / 'none' do not.
+function cookSickExclusionRows(db, location_id, cook_id) {
+  return db.prepare(`
+    SELECT action, return_at FROM sick_worker_reports
+     WHERE location_id = ?
+       AND cook_id = ?
+       AND return_at IS NULL
+  `).all(location_id, cook_id);
+}
+
 export async function POST(req) {
   return withIdempotency(req, () => signoffHandler(req));
 }
@@ -73,10 +90,12 @@ async function signoffHandler(req) {
     // station_signoffs for the same (shift, station, cook), and an audit-row
     // failure rolls back the source signoff per docs/PATTERNS.md §3.
     //
-    // Gate ordering: regulatory blocks first (minor/HO equipment) → operational
-    // block (unnoted line-check fails) → INSERT. Regulatory issues return 422
-    // ("fix and resubmit"); operational issues return 409 ("conflict with
-    // existing state"). Neither writes audit.
+    // Gate ordering: regulatory > operational > write. L5 (minor/HO
+    // equipment) and L6 (sick-worker exclusion) are both 422 "fix and
+    // resubmit" regulatory blocks; the unnoted-fails check is the
+    // existing 409 operational block. Regulatory blocks come first so
+    // an excluded cook on a prohibited station gets the L5 citation
+    // (the more actionable one — reassign, don't wait on clearance).
     const signoff_type = clip(body.signoff_type, 32) || 'self';
     const result = db.transaction(() => {
       // L5 — minor on prohibited station (CO YEOA + HOs 14-16).
@@ -86,6 +105,16 @@ async function signoffHandler(req) {
           error: "this station has equipment minors can't use",
           citation: MINOR_PROHIBITION_CITATION,
           station_id,
+        };
+      }
+
+      // L6 — sick-worker exclusion (FDA 2022 §2-201.12).
+      const exclusionRows = cookSickExclusionRows(db, loc, cook_id);
+      if (cookHasActiveExclusion(exclusionRows)) {
+        return {
+          status: 422,
+          error: "this cook is on a reportable-illness exclusion and can't work the line",
+          citation: SICK_WORKER_EXCLUSION_CITATION,
         };
       }
 

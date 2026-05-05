@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // Integration tests for /api/signoff regulatory gates: L5 (minor +
-// hazardous station). L6 (sick-worker exclusion) cases are appended
-// in the L6 commit.
+// hazardous station) and L6 (sick-worker exclusion).
 // Run: node --experimental-strip-types --test tests/js/test-signoff-gates-api.mjs
 
 import { describe, it, after, beforeEach } from 'node:test';
@@ -55,6 +54,15 @@ function setMinorFlag({ cook_id, effective_to = null, location_id = LOC }) {
     INSERT INTO staff_flags (location_id, cook_id, flag, effective_from, effective_to)
     VALUES (?, ?, 'minor', ?, ?)
   `).run(location_id, cook_id, '2026-01-01', effective_to);
+}
+
+function setSickReport({ cook_id, action, return_at = null, location_id = LOC }) {
+  testDb.prepare(`
+    INSERT INTO sick_worker_reports
+      (shift_date, location_id, cook_id, reported_by_pic_id, symptoms,
+       diagnosed_illness, action, started_at, return_at, clearance_source, note)
+    VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, NULL, NULL)
+  `).run(SHIFT, location_id, cook_id, 'pic-1', 'vomiting', action, '2026-05-05T08:00:00Z', return_at);
 }
 
 function countSignoffs() {
@@ -150,5 +158,110 @@ describe('POST /api/signoff — clean path baseline', () => {
       .prepare(`SELECT COUNT(*) AS c FROM audit_events WHERE entity='station_signoffs'`)
       .get().c;
     assert.strictEqual(audits, 1);
+  });
+});
+
+// ── L6 ───────────────────────────────────────────────────────────
+
+describe('POST /api/signoff — L6 sick-worker exclusion', () => {
+  it('blocks active "excluded" report with 422 + FDA §2-201.12', async () => {
+    setSickReport({ cook_id: 'cook-sick', action: 'excluded' });
+    const res = await POST(postReq({
+      shift_date: SHIFT,
+      station_id: 'line',
+      cook_id: 'cook-sick',
+    }));
+    assert.strictEqual(res.status, 422);
+    const body = await res.json();
+    assert.match(body.error, /exclusion|illness/i);
+    assert.match(body.citation, /2-201\.12/);
+    assert.strictEqual(countSignoffs(), 0);
+  });
+
+  it('allows signoff after clearance (return_at set)', async () => {
+    setSickReport({
+      cook_id: 'cook-was-sick',
+      action: 'excluded',
+      return_at: '2026-05-04T14:00:00Z',
+    });
+    const res = await POST(postReq({
+      shift_date: SHIFT,
+      station_id: 'line',
+      cook_id: 'cook-was-sick',
+    }));
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(countSignoffs(), 1);
+  });
+
+  it('allows signoff when action is "monitor" (informational only)', async () => {
+    setSickReport({ cook_id: 'cook-monitor', action: 'monitor' });
+    const res = await POST(postReq({
+      shift_date: SHIFT,
+      station_id: 'line',
+      cook_id: 'cook-monitor',
+    }));
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(countSignoffs(), 1);
+  });
+
+  it('blocks active "restricted" report (also blocking)', async () => {
+    setSickReport({ cook_id: 'cook-restricted', action: 'restricted' });
+    const res = await POST(postReq({
+      shift_date: SHIFT,
+      station_id: 'line',
+      cook_id: 'cook-restricted',
+    }));
+    assert.strictEqual(res.status, 422);
+    assert.strictEqual(countSignoffs(), 0);
+  });
+
+  it('only blocks sick reports in the same location', async () => {
+    setSickReport({
+      cook_id: 'cook-sick',
+      action: 'excluded',
+      location_id: 'other-site',
+    });
+    const res = await POST(postReq({
+      shift_date: SHIFT,
+      station_id: 'line',
+      cook_id: 'cook-sick',
+      location_id: LOC,
+    }));
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(countSignoffs(), 1);
+  });
+});
+
+// ── Combined / ordering ─────────────────────────────────────────
+
+describe('POST /api/signoff — gate ordering', () => {
+  it('L5 fires before L6 (minor + sick on slicer → minor citation)', async () => {
+    setMinorFlag({ cook_id: 'cook-both' });
+    setSickReport({ cook_id: 'cook-both', action: 'excluded' });
+    const res = await POST(postReq({
+      shift_date: SHIFT,
+      station_id: 'slicer',
+      cook_id: 'cook-both',
+    }));
+    assert.strictEqual(res.status, 422);
+    const body = await res.json();
+    // Both citations would be regulatory blocks; the route documents
+    // L5 before L6, so the minor citation surfaces first (more
+    // actionable: reassign the cook, don't wait on clearance).
+    assert.match(body.citation, /YEOA|Hazardous Orders/);
+    assert.strictEqual(countSignoffs(), 0);
+  });
+
+  it('sick on prohibited station with non-minor → L6 citation', async () => {
+    // No minor flag — L5 short-circuit doesn't trigger, L6 does.
+    setSickReport({ cook_id: 'cook-adult-sick', action: 'excluded' });
+    const res = await POST(postReq({
+      shift_date: SHIFT,
+      station_id: 'slicer',
+      cook_id: 'cook-adult-sick',
+    }));
+    assert.strictEqual(res.status, 422);
+    const body = await res.json();
+    assert.match(body.citation, /2-201\.12/);
   });
 });
