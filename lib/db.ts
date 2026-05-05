@@ -1705,6 +1705,30 @@ export function initSchema(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_toast_sub_lines_item ON toast_subscription_invoice_lines(location_id, item, invoice_date);
   `);
 
+  // Cloud-bridge outbox — disk-backed queue for outage tolerance when
+  // pushing snapshots to a future cloud peer. See docs/cloud-bridge-design.md
+  // ("Next PR's job" item 3) and lib/cloudBridgeQueue.ts. Status today:
+  // queue + tests landed, drainer + remote backend land in a follow-on PR
+  // once the operator picks the cloud peer (Cloudflare Worker etc.).
+  //
+  // claimed_at NULL = queued; non-NULL = in-flight or dead-lettered.
+  // dead_letter = 1 means attempts > maxAttempts; never re-claimed.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS cloud_bridge_outbox (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      table_name    TEXT NOT NULL,
+      location_id   TEXT NOT NULL DEFAULT 'default',
+      rows_json     TEXT NOT NULL,
+      attempts      INTEGER NOT NULL DEFAULT 0,
+      last_error    TEXT,
+      dead_letter   INTEGER NOT NULL DEFAULT 0,
+      enqueued_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      claimed_at    TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_cbo_drain
+      ON cloud_bridge_outbox(dead_letter, claimed_at, id);
+  `);
+
   initFoodSafetyLaborSchema(db);
   initEntitySchema(db);
 
