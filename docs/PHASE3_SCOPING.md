@@ -21,6 +21,7 @@ A **read-only ticket mirror**: pull open Toast checks via the Partner API, rende
 ### Decisions the operator has to make
 
 1. **Read-only mirror vs. authoritative bump** — does the bump round-trip to Toast via `lib/toastApi.ts` (same pattern as Phase 2 86-sync) or stay local in `kds_ticket_states`?
+   - **Decided + shipped (PR #140):** Lariat-local bump persisted in `kds_ticket_states`. Bump events from the Lariat-KDS Swift app POST to `/api/kds/tickets/:id/bump`; protocol contract in `~/Dev/Lariat-KDS/docs/lariat-kds-protocol.md` §3. The Toast-roundtrip variant remains a Phase 3.5 / Phase 4 follow-on.
 2. **Polling vs. webhook** — webhooks need a public ingress; polling fits the offline-first stance and caps freshness at the interval.
 3. **Per-station routing** — auto-route by `dish_components.station_id` or operator-assigned rules in a new `kds_routing_rules` table?
 4. **Per-cook accountability** — bump tied to `cook_id` (PIN) or anonymous?
@@ -103,4 +104,21 @@ Rollup tile: **S**. Scheduled email/PDF: **M** (cron exists; PDF generation is t
 2. **Advanced reporting v1 — single `/management` rollup tile (S).** Composes existing computes, no new contracts, PIN gate already there. Once receiving is closed-loop, the COGS% number on this tile is finally trustworthy. This is the "operator-facing payoff" for the receiving work.
 3. **KDS workflow management — read-only Toast ticket mirror (M).** Largest of the three, biggest unknowns (poll vs. webhook, station-routing model), and it requires Toast Partner API write-paths to reach its full value. Sequence it last so the receiving + reporting work above can ride the existing Phase 2 Toast auth scaffolding without competing for it.
 
-The Shamrock catalog sync, Toast Inventory mirror, scheduled-PDF reporting, and authoritative KDS bump are all sensible Phase 3.5 / Phase 4 follow-ons — but each is a different commitment, and none of them should ship before the operator picks the forks above.
+The Shamrock catalog sync, Toast Inventory mirror, scheduled-PDF reporting, and **authoritative** KDS bump (the Toast round-trip variant — the Lariat-local bump-back shipped via PR #140) are all sensible Phase 3.5 / Phase 4 follow-ons — but each is a different commitment, and none of them should ship before the operator picks the forks above.
+
+## Status updates since this doc was written
+
+Reality drift — what's shipped vs. what was scoped here.
+
+| Item | Status | PR(s) |
+|------|--------|-------|
+| KDS v1 ticket-mirror stub (`/api/kds/tickets`) | ✅ shipped | #98 |
+| KDS Swift app + protocol v1 | ✅ shipped | Lariat-KDS repo |
+| KDS v2 bump-back (Lariat-local, no Toast round-trip) | ✅ shipped | #140 + Lariat-KDS#1 |
+| KDS manual ticket entry | ✅ shipped | #138 |
+| BEO course fire-times + per-station rollup *(orthogonal to this doc)* | ✅ shipped | #141 |
+| Temp-PIN subsystem *(orthogonal — scoped, time-boxed authority)* | ✅ shipped | #141, #142, #143, #145 |
+| Authoritative Toast bump round-trip | ⏳ Phase 3.5 / Phase 4 | — |
+| Closed-loop receiving | ✅ shipped | #95 |
+| `/management` rollup tile | ✅ shipped | #96 |
+| Shamrock catalog sync, Toast Inventory mirror, scheduled-PDF reporting | ⏳ Phase 3.5 / Phase 4 | — |
