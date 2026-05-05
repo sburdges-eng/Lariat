@@ -2,6 +2,10 @@ import { getDb } from '../../../lib/db';
 import { locationFromBody } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
+import {
+  isStationProhibitedForMinor,
+  MINOR_PROHIBITION_CITATION,
+} from '../../../lib/minorRestrictions';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +36,22 @@ function failsMissingCorrectiveAction(db, shift_date, station_id, location_id) {
   `).all(shift_date, station_id, location_id).map(r => r.item);
 }
 
+// L5 (CO YEOA + 29 CFR 570.50+): is the cook flagged as a minor with
+// an ACTIVE staff_flags row? "Active" means effective_to IS NULL — a
+// row with an effective_to timestamp set is a closed/historical flag
+// and should NOT trigger the gate.
+function cookHasActiveMinorFlag(db, location_id, cook_id) {
+  const row = db.prepare(`
+    SELECT 1 FROM staff_flags
+     WHERE location_id = ?
+       AND cook_id = ?
+       AND flag = 'minor'
+       AND effective_to IS NULL
+     LIMIT 1
+  `).get(location_id, cook_id);
+  return Boolean(row);
+}
+
 export async function POST(req) {
   return withIdempotency(req, () => signoffHandler(req));
 }
@@ -52,8 +72,23 @@ async function signoffHandler(req) {
     // sign-offs can't both pass the unnoted-fails check and double-INSERT into
     // station_signoffs for the same (shift, station, cook), and an audit-row
     // failure rolls back the source signoff per docs/PATTERNS.md §3.
+    //
+    // Gate ordering: regulatory blocks first (minor/HO equipment) → operational
+    // block (unnoted line-check fails) → INSERT. Regulatory issues return 422
+    // ("fix and resubmit"); operational issues return 409 ("conflict with
+    // existing state"). Neither writes audit.
     const signoff_type = clip(body.signoff_type, 32) || 'self';
     const result = db.transaction(() => {
+      // L5 — minor on prohibited station (CO YEOA + HOs 14-16).
+      if (cookHasActiveMinorFlag(db, loc, cook_id) && isStationProhibitedForMinor(station_id)) {
+        return {
+          status: 422,
+          error: "this station has equipment minors can't use",
+          citation: MINOR_PROHIBITION_CITATION,
+          station_id,
+        };
+      }
+
       const unnoted = failsMissingCorrectiveAction(db, shift_date, station_id, loc);
       if (unnoted.length) {
         return { status: 409, error: 'note the fix for failed items before signing off', items: unnoted };
