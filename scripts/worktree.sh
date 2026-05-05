@@ -53,6 +53,19 @@ valid_tool() {
     esac
 }
 
+# Branch naming rule (binding — see AGENTS.md "Branch naming"). New
+# branches must use feat/ fix/ chore/ wip/ exactly. Other prefixes
+# (cursor/, feature/ with -ure, bundle-h-*) are legacy and being
+# retired; do not create new ones. Override only for legacy-fixup work
+# via LARIAT_ALLOW_ANY_BRANCH=1.
+valid_branch_name() {
+    [ -n "${LARIAT_ALLOW_ANY_BRANCH:-}" ] && return 0
+    case "$1" in
+        feat/*|fix/*|chore/*|wip/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 slugify_branch() {
     # feat/price-shocks → price-shocks ;  fix/foo-bar → foo-bar
     # Strips the leading prefix-with-slash and replaces remaining slashes.
@@ -74,6 +87,13 @@ case "$cmd" in
         fi
         if ! valid_tool "$tool"; then
             echo "✗ unknown tool '$tool' — must be claude|cursor|codex|gemini|sean" >&2
+            exit 1
+        fi
+        if ! valid_branch_name "$branch"; then
+            echo "✗ branch name '$branch' violates AGENTS.md naming rule." >&2
+            echo "  Use one of: feat/<short-name>, fix/<short-name>, chore/<short-name>, wip/<short-name>." >&2
+            echo "  Example:    $0 new $tool feat/${branch}" >&2
+            echo "  Override:   LARIAT_ALLOW_ANY_BRANCH=1 $0 new $tool $branch  (legacy-fixup only)" >&2
             exit 1
         fi
 
