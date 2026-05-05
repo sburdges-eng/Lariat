@@ -39,15 +39,16 @@ export async function PATCH(req, ctx) {
 }
 
 async function specialsSavedPatchHandler(req, { params }) {
+  // Auth first — don't waste a JSON parse on an unauthenticated body.
+  if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'menu.specials_edit'))) {
+    return Response.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
   let body;
   try {
     body = await req.json();
   } catch {
     return Response.json({ error: 'invalid JSON body' }, { status: 400 });
-  }
-
-  if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'menu.specials_edit'))) {
-    return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
 
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
