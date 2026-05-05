@@ -1,0 +1,6 @@
+{
+  "*.{js,mjs,jsx,ts,tsx}": [
+    "eslint --no-warn-ignored --fix"
+  ]
+}
+
