@@ -55,6 +55,19 @@ Severity uses a 5×5 matrix: **S** (likelihood 1–5) × **I** (impact 1–5) = 
 
 ### 2.2 Labor gaps (Colorado + federal)
 
+**Status (2026-05-05):** L1, L2, L3, L4, L7 are shipped on the
+`labor-compliance` branch. The "State" column below describes the
+*original* finding; see the shipped table for current routes/tests.
+
+| L# | Shipped | Surfaces |
+|----|---------|----------|
+| L1 | yes — pre-merge (now committed) | `lib/breaks.ts`, `app/api/breaks/route.js`, `app/labor/breaks/` |
+| L2 | yes — labor-compliance | `lib/sickLeave.ts`, `app/api/sick-leave/route.js`, `app/labor/sick-leave/` |
+| L3 | yes — pre-merge (now committed) | `app/labor/certs/` (existing API) |
+| L4 | yes — labor-compliance | `lib/tipPool.ts`, `app/api/tip-pool/route.js`, `app/labor/tip-pool/` |
+| L7 | yes — labor-compliance | `lib/wageNotices.ts`, `app/api/wage-notices/route.js`, `app/labor/wage-notices/` |
+| L5, L6, L8, L9, L10 | no — see rows below | |
+
 | # | Finding | Citation | L | I | R | State |
 |---|---|---|---|---|---|---|
 | L1 | **No shift break tracking.** Colorado COMPS Order #39 requires a 30-minute unpaid meal period before end of the 5th hour when shifts ≥ 5 h, and a paid 10-minute rest period for every 4 h (or major fraction). Labor summary shows cooks averaging 8+ h shifts. No break recording = default wage-theft exposure. | 7 CCR 1103-1 §5.1, §5.2 (COMPS Order #39) | 5 | 4 | **20** | New `shift_breaks` + `/labor/breaks` |

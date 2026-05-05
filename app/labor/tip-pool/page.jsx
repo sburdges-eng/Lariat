@@ -1,0 +1,52 @@
+// Tip pool board (L4 / COMPS #39 §3.3, §3.4).
+// Server-renders the day's distributions and pool summary, hands off
+// to the client board. Default view is today; URL query takes a
+// `?date=YYYY-MM-DD` for back-fill.
+
+import { getDb, todayISO } from '../../../lib/db';
+import { DEFAULT_LOCATION_ID } from '../../../lib/location';
+import {
+  CO_STD_MIN_WAGE_CENTS_2026,
+  CO_TIPPED_MIN_WAGE_CENTS_2026,
+  CO_TIP_CREDIT_CENTS_2026,
+  summarizePool,
+} from '../../../lib/tipPool';
+import TipPoolBoard from './TipPoolBoard.jsx';
+
+export const dynamic = 'force-dynamic';
+
+export default function TipPoolPage({ searchParams }) {
+  const loc =
+    typeof searchParams?.location === 'string' && searchParams.location.trim()
+      ? searchParams.location.trim()
+      : DEFAULT_LOCATION_ID;
+  const date =
+    typeof searchParams?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date)
+      ? searchParams.date
+      : todayISO();
+
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT * FROM tip_pool_distributions
+         WHERE location_id = ? AND shift_date = ?
+         ORDER BY id ASC`,
+    )
+    .all(loc, date);
+
+  const summary = summarizePool(rows);
+
+  return (
+    <TipPoolBoard
+      initialRows={rows}
+      initialSummary={summary}
+      locationId={loc}
+      date={date}
+      comps={{
+        std_min_wage_cents: CO_STD_MIN_WAGE_CENTS_2026,
+        tipped_min_wage_cents: CO_TIPPED_MIN_WAGE_CENTS_2026,
+        tip_credit_cents: CO_TIP_CREDIT_CENTS_2026,
+      }}
+    />
+  );
+}
