@@ -146,6 +146,22 @@ case "$cmd" in
         echo "$venv_note"
         echo
         echo "  cd $wt_path"
+
+        # MACP — Multi-Agent Coordination Protocol reminder. AGENTS.md
+        # §53–66 requires every agent to (a) check the shared session
+        # board for collisions before starting and (b) claim the files
+        # they're about to edit. Surfacing this on every `new` makes the
+        # rule impossible to forget. All steps are best-effort —
+        # worktree creation has already succeeded above and must not be
+        # rolled back if any of this fails (offline, missing script,
+        # etc.).
+        echo
+        git -C "$MAIN_CHECKOUT" fetch origin --quiet 2>/dev/null || true
+        echo "MACP — multi-agent coordination check:"
+        if [ -f "$MAIN_CHECKOUT/scripts/agent-session.mjs" ]; then
+            node "$MAIN_CHECKOUT/scripts/agent-session.mjs" list 2>/dev/null || true
+        fi
+        echo "→ Claim files before editing: AGENT_NAME=$tool node scripts/agent-session.mjs update --tool $tool --claimed \"path1,path2\""
         ;;
 
     list)
