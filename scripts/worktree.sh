@@ -111,6 +111,12 @@ case "$cmd" in
             git worktree add "$wt_path" "$branch"
         else
             sp="${start_point:-origin/main}"
+            # Refresh remote-tracking refs BEFORE branching off them so the new
+            # worktree starts from current origin/main, not whatever stale ref
+            # this checkout last fetched. Best-effort — offline `new` still works.
+            if [[ "$sp" == origin/* ]]; then
+                git -C "$MAIN_CHECKOUT" fetch origin --quiet 2>/dev/null || true
+            fi
             git worktree add "$wt_path" -b "$branch" "$sp"
         fi
 
@@ -156,7 +162,6 @@ case "$cmd" in
         # rolled back if any of this fails (offline, missing script,
         # etc.).
         echo
-        git -C "$MAIN_CHECKOUT" fetch origin --quiet 2>/dev/null || true
         echo "MACP — multi-agent coordination check:"
         if [ -f "$MAIN_CHECKOUT/scripts/agent-session.mjs" ]; then
             # Don't suppress stderr — real agent-session.mjs bugs should surface.
@@ -165,7 +170,11 @@ case "$cmd" in
             echo "  (agent-session.mjs not found in main checkout — skipping)"
         fi
         echo
-        echo "→ Claim files before editing: AGENT_NAME=$tool node scripts/agent-session.mjs update --tool $tool --claimed \"path1,path2\""
+        # Use the absolute path so claims land on the SHARED board
+        # (main-checkout's .agent-sessions/), not the worktree-local copy
+        # the user gets if they `cd` first and run a relative path.
+        echo "→ Claim files before editing:"
+        echo "  AGENT_NAME=$tool node $MAIN_CHECKOUT/scripts/agent-session.mjs update --tool $tool --claimed \"path1,path2\""
         ;;
 
     list)
