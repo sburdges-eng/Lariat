@@ -227,6 +227,7 @@ export function depth(): number {
  * should call this on each tick before claiming.
  */
 export function sweepStaleClaims(maxAgeSeconds: number = 300): number {
+  if (!Number.isFinite(maxAgeSeconds) || maxAgeSeconds < 0) return 0;
   const result = getDb()
     .prepare(
       `UPDATE cloud_bridge_outbox

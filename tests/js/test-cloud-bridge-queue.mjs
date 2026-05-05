@@ -283,6 +283,24 @@ describe('sweepStaleClaims()', () => {
     assert.equal(c2.attempts, 2, 'subsequent claim increments attempts as usual');
   });
 
+  it('rejects non-finite or negative maxAgeSeconds (no-op, returns 0)', () => {
+    enqueue(TABLE, [{ shift_date: '2026-05-01', total: 1 }], { locationId: LOC });
+    const [c] = claim(1);
+    backdateClaim(c.id, '-10 minutes');
+
+    // Negatives, NaN, Infinity → silent no-op. Mirrors the input-validation
+    // shape of claim() / ack() / nack().
+    assert.equal(sweepStaleClaims(-1), 0);
+    assert.equal(sweepStaleClaims(NaN), 0);
+    assert.equal(sweepStaleClaims(Infinity), 0);
+
+    // The stale row is still in-flight (not swept).
+    assert.deepStrictEqual(claim(10), [], 'still claimed; nothing newly claimable');
+
+    // Sanity: a valid call still works after the no-ops.
+    assert.equal(sweepStaleClaims(300), 1);
+  });
+
   it('honors a custom maxAgeSeconds (e.g. 60 sweeps a 2-minute-old claim)', () => {
     const id = enqueue(TABLE, [{ shift_date: '2026-05-01', total: 1 }], { locationId: LOC });
     claim(1);
