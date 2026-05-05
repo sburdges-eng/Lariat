@@ -44,6 +44,8 @@ XL/
 compliance/
 hr/
 labor/
+!app/labor/
+!app/labor/**
 catering/
 inventory/
 !app/api/inventory/
