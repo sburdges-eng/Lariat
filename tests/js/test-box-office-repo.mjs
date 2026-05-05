@@ -138,8 +138,13 @@ describe('createBoxOfficeLine — transactional audit', () => {
     ).get();
     db.exec(`DROP TABLE audit_events;`);
     try {
+      // markScanned signature is (db, show_id, line_id, location_id, actor_cook_id) —
+      // earlier this call was missing show_id, so the validator threw
+      // 'line_id must be a positive integer' (because the location string
+      // shifted into the line_id slot) before the audit failure ever fired.
+      // Pass the show_id that createBoxOfficeLine used above (1).
       assert.throws(
-        () => box.markScanned(db, line.id, 'default', 'door_anna'),
+        () => box.markScanned(db, 1, line.id, 'default', 'door_anna'),
         /audit_events/,
       );
       // scanned_at must still be NULL — the UPDATE rolled back with the audit failure.

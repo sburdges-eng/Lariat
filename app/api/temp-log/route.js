@@ -9,7 +9,7 @@ import {
 } from '../../../lib/tempLog';
 import { calibrationWarningFor, classifyProbes } from '../../../lib/calibrations';
 import { postAuditEvent } from '../../../lib/auditEvents';
-import { hasPinCookie } from '../../../lib/pin';
+import { hasPinOrTempPin } from '../../../lib/pin';
 import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
@@ -60,7 +60,11 @@ async function tempLogHandler(req) {
 
     // PIN gate runs BEFORE the point lookup so an unauthenticated caller
     // can't probe point_id validity on past dates.
-    if (pinRequiredForDate(shift_date) && !(await hasPinCookie(req))) {
+    // Conditional gate: only fires when back-dating beyond today.
+    // Master PIN passes; a temp PIN scoped 'haccp.back_date' also passes
+    // so a manager can hand a sous chef the ability to back-date a
+    // forgotten fridge log without sharing the master PIN.
+    if (pinRequiredForDate(shift_date) && !(await hasPinOrTempPin(req, 'haccp.back_date'))) {
       return Response.json(
         { error: 'manager PIN required for past dates' },
         { status: 403 },
