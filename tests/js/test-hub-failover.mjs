@@ -91,20 +91,23 @@ describe('detectHubChange', () => {
     assert.equal(result.prevHub, prevHub);
   });
 
-  it('hub set, prev hub still in peers (by name) → unchanged returns prev reference', () => {
+  it('hub set, prev hub still in peers (same host + started_at) → unchanged returns prev reference', () => {
     const prevHub = peer({
       name: 'Lariat',
+      host: 'mac1.local.',
       addresses: ['192.168.1.10'],
       started_at: '2026-05-03T09:30:00.000Z',
     });
-    // Freshly-discovered "same" peer — same name, fresh object.
+    // Freshly-discovered "same" peer — same identity, fresh object.
     const fresh = peer({
       name: 'Lariat',
+      host: 'mac1.local.',
       addresses: ['192.168.1.10'],
       started_at: '2026-05-03T09:30:00.000Z',
     });
     const other = peer({
       name: 'Lariat (2)',
+      host: 'mac2.local.',
       addresses: ['192.168.1.11'],
       started_at: '2026-05-05T12:00:00.000Z',
     });
@@ -116,23 +119,63 @@ describe('detectHubChange', () => {
     assert.notEqual(result.hub, fresh);
   });
 
-  it('hub set, prev hub still in peers but started_at changed → unchanged', () => {
-    // Design choice (documented in lib/hubFailover.ts): match key is `name`
-    // only. A restart with the same name and a fresher started_at keeps the
-    // hub assignment — we don't conflate restart-detection with failover.
-    // Future callers that care about restarts can compare started_at
-    // separately; this function deliberately doesn't.
+  it('hub set, same machine restarted (host same, started_at fresh) → elected-new', () => {
+    // A restart wipes the hub's in-memory state. From peers' perspective
+    // this is a new hub instance even though the host is the same — they
+    // can't carry the old reference forward.
     const prevHub = peer({
       name: 'Lariat',
+      host: 'mac1.local.',
       started_at: '2026-05-01T08:00:00.000Z',
     });
     const restarted = peer({
       name: 'Lariat',
+      host: 'mac1.local.',
       started_at: '2026-05-05T12:00:00.000Z',
     });
     const result = detectHubChange({ hub: prevHub }, [restarted]);
+    assert.equal(result.action, 'elected-new');
+    assert.equal(result.hub, restarted);
+    assert.equal(result.prevHub, prevHub);
+  });
+
+  it('mDNS conflict suffix change (same host + started_at, new name) → unchanged', () => {
+    // Bonjour appends "(2)" when another peer briefly held the canonical
+    // name. The original instance is unchanged from peers' perspective —
+    // matching by name would falsely report `elected-new`.
+    const prevHub = peer({
+      name: 'Lariat',
+      host: 'mac1.local.',
+      started_at: '2026-05-03T09:30:00.000Z',
+    });
+    const renamed = peer({
+      name: 'Lariat (2)',
+      host: 'mac1.local.',
+      started_at: '2026-05-03T09:30:00.000Z',
+    });
+    const result = detectHubChange({ hub: prevHub }, [renamed]);
     assert.equal(result.action, 'unchanged');
     assert.equal(result.hub, prevHub);
+  });
+
+  it('different instance reclaims prev name (different host) → elected-new', () => {
+    // Original "Lariat" went offline; a different machine then advertised
+    // and got assigned "Lariat" by Bonjour. Matching by name alone would
+    // falsely report `unchanged`.
+    const prevHub = peer({
+      name: 'Lariat',
+      host: 'mac1.local.',
+      started_at: '2026-05-01T08:00:00.000Z',
+    });
+    const usurper = peer({
+      name: 'Lariat',
+      host: 'mac2.local.',
+      started_at: '2026-05-05T12:00:00.000Z',
+    });
+    const result = detectHubChange({ hub: prevHub }, [usurper]);
+    assert.equal(result.action, 'elected-new');
+    assert.equal(result.hub, usurper);
+    assert.equal(result.prevHub, prevHub);
   });
 
   it('hub set, prev hub gone from peers → elected-new with electHub winner', () => {

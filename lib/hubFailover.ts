@@ -20,18 +20,34 @@
  *   set      | has prev   | unchanged       (hub still there)
  *   set      | gone       | elected-new     (hub disappeared, re-elect)
  *
- * Match key: `peer.name`. The discover() contract guarantees `name` is a
- * non-empty string, and it's the stable identifier across restarts. A
- * restart with the same name but a different `started_at` is treated as
- * `unchanged` here — restart-detection is a separate signal future callers
- * can derive from `started_at`, and conflating it with failover would
- * cause needless hub churn on every reboot.
+ * Match key: `(host, started_at)`. Service `name` is NOT a stable
+ * identifier — bonjour appends conflict suffixes ("Lariat (2)") when two
+ * peers advertise the same service name, and a name vacated by a peer
+ * going offline can be reclaimed by a different peer. Both cases would
+ * cause name-based matching to lie:
+ *
+ *   - Same physical instance gets a new mDNS suffix after the network
+ *     blips (its `host` and `started_at` are unchanged) → identity by
+ *     name says "elected-new"; identity by `(host, started_at)` correctly
+ *     reports `unchanged`.
+ *   - A different instance reuses the prev hub's name after that hub
+ *     vanishes → identity by name says "unchanged"; identity by
+ *     `(host, started_at)` correctly reports `elected-new`.
+ *
+ * Restart of the same machine (same `host`, fresh `started_at`) is
+ * treated as a NEW hub instance, because the prior hub's in-memory state
+ * is gone — peers must re-elect rather than carry the old reference. If
+ * a caller wants explicit "same machine restarted" detection, it can
+ * compare `prev.hub.host` to the new hub's `host` independently.
+ *
+ * Fallbacks for degraded mDNS records (missing `host` or `started_at`):
+ * use whichever stable signal is available, then `name` as a last resort.
  *
  * Reference stability: in the `unchanged` case we return `prev.hub` (the
  * original object reference, not a freshly-discovered copy with the same
- * name). Callers can `===`-compare `result.hub` to their cached hub to
- * detect change cheaply. In `elected-new`, the returned `hub` is one of
- * the objects in the input `peers` array (whatever `electHub` picks).
+ * identity). Callers can `===`-compare `result.hub` to their cached hub
+ * to detect change cheaply. In `elected-new`, the returned `hub` is one
+ * of the objects in the input `peers` array (whatever `electHub` picks).
  */
 
 import type { DiscoveredInstance } from './mdnsDiscovery.ts';
@@ -52,6 +68,22 @@ export type HubChange =
     }
   | { action: 'lost-hub'; hub: null; prevHub: DiscoveredInstance }
   | { action: 'no-peers'; hub: null; prevHub: DiscoveredInstance | null };
+
+/**
+ * Stable identity for a discovered peer. `(host, started_at)` is the
+ * canonical key — the same physical instance keeps both across mDNS
+ * name-suffix shuffles, and any restart or different machine differs in
+ * one of them. Falls back gracefully when a TXT record is missing those
+ * fields (degraded discovery shouldn't crash failover).
+ */
+function peerKey(p: DiscoveredInstance): string {
+  const host = p.host;
+  const startedAt = p.txt.started_at;
+  if (host && startedAt) return `hs:${host}|${startedAt}`;
+  if (host) return `h:${host}`;
+  if (startedAt) return `s:${startedAt}`;
+  return `n:${p.name}`;
+}
 
 /**
  * Classify the transition from `prev.hub` to a freshly-discovered peer list.
@@ -86,9 +118,10 @@ export function detectHubChange(
     return { action: 'first-election', hub: elected };
   }
 
-  // Match by name (stable identifier). Same-name + different started_at
-  // counts as the same hub — see module docstring for the rationale.
-  const stillPresent = peers.some((p) => p.name === prevHub.name);
+  // Match by (host, started_at) — see module docstring. Service name is
+  // not a stable identifier on mDNS.
+  const prevKey = peerKey(prevHub);
+  const stillPresent = peers.some((p) => peerKey(p) === prevKey);
   if (stillPresent) {
     // Return the PREV reference, not the freshly-discovered copy, so callers
     // can `===`-compare to detect change.
