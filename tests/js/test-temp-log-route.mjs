@@ -338,6 +338,50 @@ describe('POST /api/temp-log — PIN gate for past-dated writes', () => {
     assert.strictEqual(countRows(), 1);
   });
 
+  it('past shift_date WITH temp PIN scoped haccp.back_date → 200', async () => {
+    const tempPin = await import('../../lib/tempPin.ts');
+    const tempPinCookie = await import('../../lib/tempPinCookie.ts');
+    const future = new Date(Date.now() + 60 * 60_000).toISOString();
+    const id = Number(
+      db.getDb()
+        .prepare(
+          `INSERT INTO temp_pins (location_id, pin_hash, label, scopes_json, expires_at)
+           VALUES ('default', ?, ?, ?, ?)`,
+        )
+        .run(tempPin.hashPin('5678'), 'PIC delegate', tempPin.serializeScopes(['haccp.back_date']), future)
+        .lastInsertRowid,
+    );
+    const value = await tempPinCookie.signTempPinCookieValue(id, undefined);
+    const res = await POST(postReq(
+      { shift_date: yesterday(), point_id: 'walk_in_cooler', reading_f: 38 },
+      { cookie: `${tempPinCookie.TEMP_PIN_COOKIE_NAME}=${value}` },
+    ));
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(countRows(), 1);
+  });
+
+  it('past shift_date WITH temp PIN of WRONG scope → 403', async () => {
+    const tempPin = await import('../../lib/tempPin.ts');
+    const tempPinCookie = await import('../../lib/tempPinCookie.ts');
+    const future = new Date(Date.now() + 60 * 60_000).toISOString();
+    const id = Number(
+      db.getDb()
+        .prepare(
+          `INSERT INTO temp_pins (location_id, pin_hash, label, scopes_json, expires_at)
+           VALUES ('default', ?, ?, ?, ?)`,
+        )
+        .run(tempPin.hashPin('9999'), 'Wrong scope', tempPin.serializeScopes(['menu.specials_edit']), future)
+        .lastInsertRowid,
+    );
+    const value = await tempPinCookie.signTempPinCookieValue(id, undefined);
+    const res = await POST(postReq(
+      { shift_date: yesterday(), point_id: 'walk_in_cooler', reading_f: 38 },
+      { cookie: `${tempPinCookie.TEMP_PIN_COOKIE_NAME}=${value}` },
+    ));
+    assert.strictEqual(res.status, 403);
+    assert.strictEqual(countRows(), 0);
+  });
+
   it('PIN cookie with wrong value does not open the gate', async () => {
     // Only value '1' counts. Anything else is still gated.
     const res = await POST(postReq(
