@@ -34,6 +34,8 @@ export interface CommandSummary {
     open_breaks: number;
     cert_expiring_30d: number;
     cert_expired: number;
+    performance_reviews_today: number;
+    performance_reviews_total: number;
   };
   food_safety: {
     temp_breaches: number;
@@ -210,6 +212,19 @@ export function summarize(locationId: string, today: string): CommandSummary {
     if (days < 0) expired += 1;
     else if (days <= 30) soon += 1;
   }
+
+  const reviewsToday = (db
+    .prepare(
+      `SELECT COUNT(*) AS c FROM performance_reviews
+        WHERE location_id = ? AND review_date = ?`,
+    )
+    .get(locationId, today) as { c: number }).c;
+  const reviewsTotal = (db
+    .prepare(
+      `SELECT COUNT(*) AS c FROM performance_reviews
+        WHERE location_id = ?`,
+    )
+    .get(locationId) as { c: number }).c;
 
   const temps = db
     .prepare(
@@ -433,6 +448,8 @@ export function summarize(locationId: string, today: string): CommandSummary {
       open_breaks: openBreaks,
       cert_expiring_30d: soon,
       cert_expired: expired,
+      performance_reviews_today: reviewsToday,
+      performance_reviews_total: reviewsTotal,
     },
     food_safety: {
       temp_breaches: tempBreaches,
@@ -563,6 +580,13 @@ export function alertsFor(s: CommandSummary): CommandAlert[] {
     count: s.labor.cert_expiring_30d,
     message: `${s.labor.cert_expiring_30d} cert${s.labor.cert_expiring_30d === 1 ? '' : 's'} expiring in 30d`,
   });
+  if (s.labor.performance_reviews_today === 0) {
+    out.push({
+      severity: 'amber', source: 'performance-reviews-none',
+      count: 1,
+      message: 'No staff reviews logged today',
+    });
+  }
   push({
     severity: 'amber', source: 'prep-rush',
     count: s.prep.rush,

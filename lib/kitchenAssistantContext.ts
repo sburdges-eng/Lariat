@@ -49,6 +49,9 @@ const LABOR_KEYWORDS = [
 const GOLD_STAR_KEYWORDS = [
   'recognition', 'gold star', 'gold', 'award', 'praise', 'kudos', 'star',
 ];
+const PERFORMANCE_KEYWORDS = [
+  'review', 'performance', 'evaluation', 'metric', 'rating', 'feedback', 'appraisal',
+];
 const EQUIPMENT_KEYWORDS = [
   'equipment', 'warranty', 'maintenance', 'service', 'broken', 'repair', 'down',
 ];
@@ -91,6 +94,7 @@ const MAX_EQUIPMENT_DOWN = 15;
 const MAX_STALE_BEO = 20;
 const MAX_REPEAT_86 = 10;
 const MAX_GOLD_STARS = 10;
+const MAX_PERFORMANCE_REVIEWS = 15;
 const MAX_WARRANTIES = 10;
 const MAX_BEO_PREP_RECENT_EVENTS = 5;
 const MAX_BEO_PREP_ITEM_HISTORY = 5;
@@ -490,6 +494,13 @@ export async function buildGroundedContext(
     if (goldStars.source) sources.push(goldStars.source);
   }
 
+  // ── Conditional: Performance Reviews / evaluations ───────────────
+  if (matchesKeywords(qLower, PERFORMANCE_KEYWORDS)) {
+    const perfReviews = renderPerformanceReviews(db, locationId);
+    text += perfReviews.text;
+    if (perfReviews.source) sources.push(perfReviews.source);
+  }
+
   // ── Conditional: Equipment warranty expirations ──────────────────
   if (matchesKeywords(qLower, EQUIPMENT_KEYWORDS)) {
     const warranty = renderWarrantyAlerts(db, locationId);
@@ -813,6 +824,35 @@ function renderGoldStars(db: DB, locationId: string): OversightSection {
     text += `  - [${r.awarded_date}] ${r.cook_name} (${r.stars}★): ${r.reason}\n`;
   }
   return { text, source: { type: 'gold_stars', detail: `${rows.length} recognition(s)` } };
+}
+
+function renderPerformanceReviews(db: DB, locationId: string): OversightSection {
+  const rows = db
+    .prepare(
+      `SELECT cook_name, cook_uuid, review_date, punctuality_score, technique_score, speed_score, notes, reviewer_name
+       FROM performance_reviews
+       WHERE location_id = ?
+       ORDER BY review_date DESC, id DESC LIMIT ?`
+    )
+    .all(locationId, MAX_PERFORMANCE_REVIEWS) as {
+    cook_name: string;
+    cook_uuid: string | null;
+    review_date: string;
+    punctuality_score: number;
+    technique_score: number;
+    speed_score: number;
+    notes: string | null;
+    reviewer_name: string;
+  }[];
+  if (!rows.length) return { text: '', source: null };
+  let text = '\nRECENT PERFORMANCE REVIEWS (staff evaluations):\n';
+  for (const r of rows) {
+    const uuid = r.cook_uuid ? ` [uuid:${r.cook_uuid}]` : '';
+    text += `  - [${r.review_date}] ${r.cook_name}${uuid} | scores: on-time=${r.punctuality_score}, tech=${r.technique_score}, speed=${r.speed_score} | by ${r.reviewer_name}`;
+    if (r.notes) text += ` | notes: ${r.notes}`;
+    text += '\n';
+  }
+  return { text, source: { type: 'performance_reviews', detail: `${rows.length} evaluation(s)` } };
 }
 
 function renderWarrantyAlerts(db: DB, locationId: string): OversightSection {

@@ -28,7 +28,7 @@ The Lariat project operates on a "Workbook-as-Source" model with a local JSON + 
 3.  **Runtime Read Model**:
     - **JSON cache** (`data/cache/*.json`, 14 files) — templates: recipes, stations, staff, line_checks, setups, menu, allergen_matrix, food_safety, vendor_summary, labor_summary, closings, weekly_prep, order_guide, catering_menu. Read by `lib/data.ts` (mtime-aware in-memory cache).
     - **SQLite** (`data/lariat.db`) — 40+ tables grouped by family:
-        - **Line ops:** `line_check_entries`, `station_signoffs`, `eighty_six`, `inventory_updates`, `specials`, `gold_stars`, `preshift_notes`, `service_hours`, `locations`
+        - **Line ops:** `line_check_entries`, `station_signoffs`, `eighty_six`, `inventory_updates`, `specials`, `gold_stars`, `performance_reviews`, `preshift_notes`, `service_hours`, `locations`
         - **HACCP (F1–F17):** `cooling_log`, `date_marks`, `receiving_log`, `sanitizer_checks`, `sick_worker_reports`, `shift_pic`, `cleaning_schedule`, `cleaning_log`, `pest_control_log`, `thermometer_calibrations`, `tphc_entries`, `sds_registry`, `temp_log`, `employee_health_acknowledgments`
         - **Labor (L1–L7):** `shift_breaks`, `paid_sick_leave_balances`, `staff_certifications`, `tip_pool_distributions`, `staff_flags`, `wage_notices`
         - **Audit (A1):** `audit_events` (append-only, within-transaction writes from every regulated route)
@@ -48,7 +48,7 @@ The Lariat project operates on a "Workbook-as-Source" model with a local JSON + 
 31 files split between pure rule modules, data/infra, and bridges. Full catalog in [`PATTERNS.md`](PATTERNS.md); highlights:
 
 **Infra (core runtime, consumed everywhere):**
-- `lib/db.ts` — better-sqlite3 singleton (WAL mode), 40+ table DDL, `initSchema()`, `initFoodSafetyLaborSchema()`, `migrateLegacyColumns()`, `assertCriticalSchemas()`, `todayISO()`, type interfaces for every row.
+- `lib/db.ts` — better-sqlite3 singleton (WAL mode), 40+ table DDL, `initSchema()`, `initFoodSafetyLaborSchema()`, `initManagementSchema()`, `migrateLegacyColumns()`, `assertCriticalSchemas()`, `todayISO()`, type interfaces for every row.
 - `lib/data.ts` — JSON cache reader; mtime-aware in-memory cache; `getRecipes()`, `getStations()`, `getStaff()`, `getMenu()`, `getFoodSafety()`, `getAllergenMatrix()`, `getVendorSummary()`, `getLaborSummary()`, etc.
 - `lib/location.ts` — `DEFAULT_LOCATION_ID`, `locationFromRequest()`, `locationFromBody()`. Every row that can vary per site carries `location_id`.
 - `lib/pin.ts` — PIN cookie helpers; `hasPinCookie()`, `pinConfigured()`, `pinRequiredForPic()`. HMAC-signed cookie (see §4).

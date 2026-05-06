@@ -63,6 +63,12 @@ function cleaningColor(n) {
   return 'var(--green)';
 }
 
+function reviewColor(n) {
+  if (n == null) return 'var(--muted)';
+  if (n === 0) return 'var(--yellow)';
+  return 'var(--green)';
+}
+
 function formatAge(ageMin) {
   if (ageMin == null) return 'no runs on record';
   if (ageMin < 60) return `${ageMin} min ago`;
@@ -141,6 +147,18 @@ function readCleaningToday(db, locationId) {
   }
 }
 
+/** Total performance reviews on file for the current location. */
+function readPerformanceReviewsCount(db, locationId) {
+  try {
+    const row = db.prepare(
+      `SELECT COUNT(*) AS c FROM performance_reviews WHERE location_id = ?`,
+    ).get(locationId);
+    return row?.c ?? 0;
+  } catch {
+    return null;
+  }
+}
+
 function safeGet(fn, fallback) {
   try { return fn(); } catch { return fallback; }
 }
@@ -188,6 +206,7 @@ export default function ManagementRollupPage({ searchParams }) {
   const packChangesUnacked = readPackSizeChangesUnacked(db);
   const compliance = readComplianceUnverified();
   const cleaning = readCleaningToday(db, loc);
+  const reviewsCount = readPerformanceReviewsCount(db, loc);
 
   const varianceSnapshot = formatSnapshotAt(variance?.snapshot_at);
 
@@ -278,11 +297,21 @@ export default function ManagementRollupPage({ searchParams }) {
           sub={cleaning.today ? `for ${cleaning.today}` : 'cleaning_log unavailable'}
           href="/food-safety"
         />
+
+        {/* Tile 7 — Staff Reviews */}
+        <RollupTile
+          label="Staff reviews"
+          value={reviewsCount == null ? '—' : reviewsCount}
+          color={reviewColor(reviewsCount)}
+          sub={reviewsCount == null ? 'reviews unavailable' : 'total reviews on record'}
+          href="/management/performance-reviews"
+        />
       </div>
 
       <div style={{ marginTop: 16 }}>
         <h2 style={{ fontSize: 14, marginBottom: 8 }}>More tools</h2>
         <ul style={{ fontSize: 13 }}>
+          <li><Link href="/management/performance-reviews">Staff reviews</Link> — log and view performance</li>
           <li><Link href="/management/audit-log">Audit log</Link> — management actions outside regulated tables</li>
         </ul>
       </div>

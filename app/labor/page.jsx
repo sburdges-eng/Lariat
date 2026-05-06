@@ -8,6 +8,7 @@
 import Link from 'next/link';
 import { getDb, todayISO } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
+import { classifyReview } from '../../lib/performanceReviews';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,12 +82,34 @@ function summarize(loc, today, year) {
   })();
   const wageStale = wageRows.filter((r) => r.latest && r.latest < cutoff).length;
 
+  // L8 — performance reviews: count today + total.
+  const reviewsTodayRows = db
+    .prepare(
+      `SELECT punctuality_score, technique_score, speed_score
+         FROM performance_reviews
+        WHERE location_id=? AND review_date=?`,
+    )
+    .all(loc, today);
+  
+  const reviewsTodayCount = reviewsTodayRows.length;
+  const reviewsTotal = db
+    .prepare(
+      `SELECT COUNT(*) AS c FROM performance_reviews
+        WHERE location_id=?`,
+    )
+    .get(loc).c;
+
+  const classifications = reviewsTodayRows.map(r => classifyReview(r));
+  const reviewsRed = classifications.filter(c => c.status === 'red').length;
+  const reviewsAmber = classifications.filter(c => c.status === 'amber').length;
+
   return {
     breaks: { open: openBreaks, meals: mealsLogged, rests: restsLogged },
     certs: { expired, soon, total: expiryRows.length },
     sick: { tracked: sickRows.length, atCap: sickAtCap },
     tips: { lines: tipRow.lines, cents: tipRow.cents },
     wage: { cooks: wageRows.length, stale: wageStale },
+    reviews: { today: reviewsTodayCount, total: reviewsTotal, red: reviewsRed, amber: reviewsAmber },
   };
 }
 
@@ -208,6 +231,16 @@ export default function LaborHub({ searchParams }) {
               label: 'need a new notice',
               tone: s.wage.stale ? 'red' : null,
             },
+          ]}
+        />
+        <Tile
+          href={`/management/performance-reviews${locQ}`}
+          title="Staff reviews"
+          sub="Performance logs — technique, speed, and punctuality"
+          status={{ red: s.reviews.red > 0, amber: s.reviews.amber > 0 }}
+          lines={[
+            { n: s.reviews.today, label: 'logged today' },
+            { n: s.reviews.total, label: 'total on record' },
           ]}
         />
       </div>
