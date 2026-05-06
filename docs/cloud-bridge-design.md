@@ -75,9 +75,14 @@ existing PIN / manager surface in a future PR (the manager enters a
 one-time pairing code at the iPad, the server fetches a long-lived API
 key, key is stored in the local SQLite-backed config).
 
-For the stub, the key is read from `process.env.LARIAT_CLOUD_API_KEY`.
-If unset, `createCloudBridge()` still returns a usable handle, but
-`pushSnapshot` / `pullSnapshot` will fail loudly when called.
+The Item-7 wire-in (HMAC, per the §7 decision in
+`docs/cloud-bridge-backend-decision.md`) reads the per-location secret
+from `process.env.LARIAT_CLOUD_BRIDGE_SECRET` and the base URL from
+`process.env.LARIAT_CLOUD_BRIDGE_URL`. If either is unset,
+`createCloudBridge()` still returns a usable handle, but `pushSnapshot`
+throws `CLOUD_BRIDGE_NOT_IMPLEMENTED` and `pullSnapshot` throws it
+unconditionally (pull is v2). A SQLite-backed config read so operators
+can rotate the secret without a redeploy is a follow-up after Item 7.
 
 ## Out-of-scope acknowledgments
 
