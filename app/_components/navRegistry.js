@@ -474,6 +474,16 @@ export const NAV_ITEMS = [
     locAware: f,
     surface: { sidebar: f, palette: t, shelf: f },
   },
+  {
+    id: 'management-performance-reviews',
+    href: '/management/performance-reviews',
+    name: 'Staff reviews',
+    sub: 'Log and view performance',
+    group: 'Management',
+    terms: 'performance review staff evaluation manager log review history',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
 ];
 
 // ── Selectors ─────────────────────────────────────────────────────────

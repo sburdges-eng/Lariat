@@ -81,12 +81,27 @@ function summarize(loc, today, year) {
   })();
   const wageStale = wageRows.filter((r) => r.latest && r.latest < cutoff).length;
 
+  // L8 — performance reviews: count today + total.
+  const reviewsToday = db
+    .prepare(
+      `SELECT COUNT(*) AS c FROM performance_reviews
+        WHERE location_id=? AND review_date=?`,
+    )
+    .get(loc, today).c;
+  const reviewsTotal = db
+    .prepare(
+      `SELECT COUNT(*) AS c FROM performance_reviews
+        WHERE location_id=?`,
+    )
+    .get(loc).c;
+
   return {
     breaks: { open: openBreaks, meals: mealsLogged, rests: restsLogged },
     certs: { expired, soon, total: expiryRows.length },
     sick: { tracked: sickRows.length, atCap: sickAtCap },
     tips: { lines: tipRow.lines, cents: tipRow.cents },
     wage: { cooks: wageRows.length, stale: wageStale },
+    reviews: { today: reviewsToday, total: reviewsTotal },
   };
 }
 
@@ -208,6 +223,16 @@ export default function LaborHub({ searchParams }) {
               label: 'need a new notice',
               tone: s.wage.stale ? 'red' : null,
             },
+          ]}
+        />
+        <Tile
+          href={`/management/performance-reviews${locQ}`}
+          title="Staff reviews"
+          sub="Performance logs — technique, speed, and punctuality"
+          status={{ red: false, amber: false }}
+          lines={[
+            { n: s.reviews.today, label: 'logged today' },
+            { n: s.reviews.total, label: 'total on record' },
           ]}
         />
       </div>

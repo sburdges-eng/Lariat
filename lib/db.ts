@@ -377,6 +377,19 @@ export interface GoldStar {
   created_at: string;
 }
 
+export interface PerformanceReview {
+  id: number;
+  cook_name: string;
+  review_date: string;
+  punctuality_score: number;
+  technique_score: number;
+  speed_score: number;
+  notes: string | null;
+  reviewer_name: string;
+  location_id: string;
+  created_at: string;
+}
+
 export interface TempLogEntry {
   id: number;
   shift_date: string;
@@ -1731,6 +1744,7 @@ export function initSchema(db: DB): void {
 
   initFoodSafetyLaborSchema(db);
   initEntitySchema(db);
+  initManagementSchema(db);
 
   migrateLegacyColumns(db);
   assertCriticalSchemas(db);
@@ -2700,6 +2714,27 @@ function initFoodSafetyLaborSchema(db: DB): void {
 }
 
 /**
+ * Management-layer surfaces (reviews, KPIs, rollup data).
+ */
+function initManagementSchema(db: DB): void {
+  db.exec(`
+    -- Performance reviews (Lightweight manager-only log).
+    CREATE TABLE IF NOT EXISTS performance_reviews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cook_name TEXT NOT NULL,
+      review_date TEXT NOT NULL,
+      punctuality_score INTEGER,
+      technique_score INTEGER,
+      speed_score INTEGER,
+      notes TEXT,
+      reviewer_name TEXT NOT NULL,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+}
+
+/**
  * Guard against `CREATE TABLE IF NOT EXISTS` silently skipping a legacy
  * table that exists but carries a mismatched schema (e.g. from a failed
  * partial deploy of an earlier T-task). If that happens, INSERTs later fail
@@ -2733,6 +2768,11 @@ function assertCriticalSchemas(db: DB): void {
       'received_qty', 'received_unit',
       'status', 'rejection_reason',
     ],
+    performance_reviews: [
+      'id', 'cook_name', 'review_date', 'punctuality_score',
+      'technique_score', 'speed_score', 'notes', 'reviewer_name',
+      'location_id', 'created_at',
+    ],
   };
   for (const [table, required] of Object.entries(requirements)) {
     const cols = (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[])
@@ -2765,6 +2805,7 @@ function ensureIndexes(db: DB): void {
     -- on a non-existent column" failure.
     CREATE INDEX IF NOT EXISTS idx_vp_master ON vendor_prices(master_id);
     CREATE INDEX IF NOT EXISTS idx_bom_master ON bom_lines(master_id);
+    CREATE INDEX IF NOT EXISTS idx_perf_review_cook ON performance_reviews(cook_name, location_id);
   `);
 
   // Bundle-H: NULL-safe uniqueness on (location, dow/date, service_label).

@@ -165,6 +165,12 @@ const shiftBreaks = tryAll(`
   FROM shift_breaks WHERE shift_date = ? AND location_id = ? ORDER BY cook_id, started_at, id
 `, date, loc);
 
+const performanceReviews = tryAll(`
+  SELECT cook_name, review_date, punctuality_score, technique_score,
+         speed_score, notes, reviewer_name, created_at, location_id
+  FROM performance_reviews WHERE review_date = ? AND location_id = ? ORDER BY cook_name, id
+`, date, loc);
+
 // Registries (no date filter) — snapshot of active state.
 const staffCerts = tryAll(`
   SELECT cook_id, cert_type, cert_label, issuer, cert_number,
@@ -214,6 +220,7 @@ fs.writeFileSync(path.join(OUT, `thermometer_cal_${date}.csv`), csv(thermCal));
 fs.writeFileSync(path.join(OUT, `tphc_${date}.csv`), csv(tphc));
 fs.writeFileSync(path.join(OUT, `shift_pic_${date}.csv`), csv(shiftPic));
 fs.writeFileSync(path.join(OUT, `shift_breaks_${date}.csv`), csv(shiftBreaks));
+fs.writeFileSync(path.join(OUT, `performance_reviews_${date}.csv`), csv(performanceReviews));
 fs.writeFileSync(path.join(OUT, `staff_certs_${date}.csv`), csv(staffCerts));
 fs.writeFileSync(path.join(OUT, `sds_${date}.csv`), csv(sds));
 fs.writeFileSync(path.join(OUT, `audit_events_${date}.csv`), csv(auditEvents));
@@ -243,6 +250,7 @@ const payload = {
     'TPHC': tphc,
     'Shift PIC': shiftPic,
     'Shift Breaks': shiftBreaks,
+    'Performance Reviews': performanceReviews,
     'Staff Certs': staffCerts,
     'SDS Registry': sds,
     'Audit Events': auditEvents,
@@ -310,6 +318,7 @@ const complianceSummary = [
   `${tphc.length} tphc`,
   `${shiftPic.length} pic`,
   `${shiftBreaks.length} breaks`,
+  `${performanceReviews.length} reviews`,
   `${staffCerts.length} certs`,
   `${sds.length} sds`,
   `${auditEvents.length} audit`,

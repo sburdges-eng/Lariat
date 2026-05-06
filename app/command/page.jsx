@@ -189,9 +189,10 @@ export default function CommandCenter({ searchParams }) {
           lines={[
             { n: s.labor.open_breaks, label: 'open breaks',
               tone: s.labor.open_breaks ? 'amber' : null },
+            { n: s.labor.performance_reviews_today, label: 'reviews today' },
             { n: s.labor.cert_expiring_30d, label: 'certs expiring 30d',
               tone: s.labor.cert_expiring_30d ? 'amber' : null },
-            { n: s.labor.cert_expired, label: 'expired',
+            { n: s.labor.cert_expired, label: 'expired certs',
               tone: s.labor.cert_expired ? 'red' : null },
           ]}
         />
