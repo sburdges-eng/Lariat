@@ -1,11 +1,13 @@
 'use client';
 import React, { useEffect, useState } from 'react';
+import { classifyReview } from '../../../lib/performanceReviews';
 
 const SCORE_LABELS = ['Poor', 'Fair', 'Good', 'Great', 'Top Notch'];
 
 export interface PerformanceReviewRecord {
   id: number;
   cook_name: string;
+  cook_uuid: string | null;
   review_date: string;
   punctuality_score: number;
   technique_score: number;
@@ -33,7 +35,7 @@ export default function PerformanceReviewBoard() {
   const [search, setSearch] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCook, setSelectedCook] = useState('');
+  const [selectedCook, setSelectedCook] = useState<CookDisplay | null>(null);
   const [reviewDate, setReviewDate] = useState(new Date().toISOString().slice(0, 10));
   const [punctuality, setPunctuality] = useState(3);
   const [technique, setTechnique] = useState(3);
@@ -62,7 +64,7 @@ export default function PerformanceReviewBoard() {
   }, []);
 
   const openModal = () => {
-    setSelectedCook('');
+    setSelectedCook(null);
     setReviewDate(new Date().toISOString().slice(0, 10));
     setPunctuality(3);
     setTechnique(3);
@@ -82,7 +84,8 @@ export default function PerformanceReviewBoard() {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          cook_name: selectedCook,
+          cook_name: selectedCook.name,
+          cook_uuid: selectedCook.id,
           review_date: reviewDate,
           punctuality_score: punctuality,
           technique_score: technique,
@@ -99,7 +102,8 @@ export default function PerformanceReviewBoard() {
       const data = await res.json();
       const newRecord: PerformanceReviewRecord = {
         id: data.id,
-        cook_name: selectedCook,
+        cook_name: selectedCook.name,
+        cook_uuid: selectedCook.id,
         review_date: reviewDate,
         punctuality_score: punctuality,
         technique_score: technique,
@@ -155,24 +159,33 @@ export default function PerformanceReviewBoard() {
         </div>
 
         <div className="pr-list">
-          {filtered.map(record => (
-            <div key={record.id} className="pr-row">
-              <div className="pr-row-info">
-                <div className="pr-row-top">
-                  <h3 className="pr-row-name">{record.cook_name}</h3>
-                  <span className="pr-row-date">{record.review_date}</span>
+          {filtered.map(record => {
+            const { average_score, status, label } = classifyReview(record);
+            return (
+              <div key={record.id} className="pr-row">
+                <div className="pr-row-info">
+                  <div className="pr-row-top">
+                    <h3 className="pr-row-name">{record.cook_name}</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className={`fs-tile-pip fs-tile-pip-${status}`} title={label} />
+                      <span style={{ fontSize: '0.9rem', fontWeight: 600, color: `var(--${status})` }}>
+                        {average_score} - {label}
+                      </span>
+                    </div>
+                    <span className="pr-row-date">{record.review_date}</span>
+                  </div>
+                  <div className="pr-scores">
+                    <span className="pr-score">On Time: {record.punctuality_score}/5</span>
+                    <span className="pr-score">Tech: {record.technique_score}/5</span>
+                    <span className="pr-score">Speed: {record.speed_score}/5</span>
+                  </div>
+                  {record.notes && <p className="pr-row-notes">{record.notes}</p>}
+                  <span className="pr-row-reviewer">By: {record.reviewer_name}</span>
                 </div>
-                <div className="pr-scores">
-                  <span className="pr-score">On Time: {record.punctuality_score}/5</span>
-                  <span className="pr-score">Tech: {record.technique_score}/5</span>
-                  <span className="pr-score">Speed: {record.speed_score}/5</span>
-                </div>
-                {record.notes && <p className="pr-row-notes">{record.notes}</p>}
-                <span className="pr-row-reviewer">By: {record.reviewer_name}</span>
+                <button onClick={() => handleDelete(record.id)} className="pr-remove-btn">Remove</button>
               </div>
-              <button onClick={() => handleDelete(record.id)} className="pr-remove-btn">Remove</button>
-            </div>
-          ))}
+            );
+          })}
           {reviews.length > 0 && filtered.length === 0 && (
             <div className="pr-empty">No reviews match your search.</div>
           )}
@@ -190,13 +203,16 @@ export default function PerformanceReviewBoard() {
                 <div>
                   <label className="gs-label">Who</label>
                   <select
-                    value={selectedCook}
-                    onChange={e => setSelectedCook(e.target.value)}
+                    value={selectedCook?.id || ''}
+                    onChange={e => {
+                      const c = roster.find(r => r.id === e.target.value);
+                      setSelectedCook(c || null);
+                    }}
                     className="gs-input"
                     required
                   >
                     <option value="" disabled>Pick a cook...</option>
-                    {roster.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    {roster.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
                 <div>

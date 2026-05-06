@@ -59,6 +59,7 @@ describe('POST /api/performance-reviews', () => {
   it('accepts a valid review', async () => {
     const res = await POST(postReq({
       cook_name: 'Alice',
+      cook_uuid: 'uuid-alice-123',
       review_date: '2026-05-05',
       punctuality_score: 5,
       technique_score: 4,
@@ -100,6 +101,7 @@ describe('GET /api/performance-reviews', () => {
   it('returns reviews for the current location', async () => {
     await POST(postReq({
       cook_name: 'Alice',
+      cook_uuid: 'uuid-alice-123',
       review_date: '2026-05-05',
       punctuality_score: 5,
       technique_score: 4,
@@ -117,6 +119,7 @@ describe('GET /api/performance-reviews', () => {
   it('filters by location', async () => {
     await POST(postReq({
       cook_name: 'Alice',
+      cook_uuid: 'uuid-alice-123',
       review_date: '2026-05-05',
       punctuality_score: 5,
       technique_score: 4,

@@ -3,6 +3,7 @@ import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
 import { logAuditAction } from '../../../lib/auditLog.mjs';
+import { validateScores } from '../../../lib/performanceReviews';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,7 @@ async function performanceReviewPostHandler(req: Request) {
   try {
     const body = await req.json();
     const cookName = typeof body.cook_name === 'string' ? body.cook_name.trim() : '';
+    const cookUuid = typeof body.cook_uuid === 'string' ? body.cook_uuid.trim() : null;
     const reviewDate = typeof body.review_date === 'string' ? body.review_date.trim() : '';
     const notes = typeof body.notes === 'string' ? body.notes.trim() : '';
     const reviewerName = typeof body.reviewer_name === 'string' ? body.reviewer_name.trim() : '';
@@ -41,8 +43,14 @@ async function performanceReviewPostHandler(req: Request) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    if (isNaN(punctuality) || isNaN(technique) || isNaN(speed)) {
-      return Response.json({ error: 'Scores must be numbers' }, { status: 400 });
+    const validationError = validateScores({
+      punctuality_score: punctuality,
+      technique_score: technique,
+      speed_score: speed,
+    });
+
+    if (validationError) {
+      return Response.json({ error: validationError }, { status: 400 });
     }
 
     const db = getDb();
@@ -51,10 +59,10 @@ async function performanceReviewPostHandler(req: Request) {
     const newId = db.transaction(() => {
       const info = db.prepare(`
         INSERT INTO performance_reviews (
-          cook_name, review_date, punctuality_score, technique_score, speed_score, 
+          cook_name, cook_uuid, review_date, punctuality_score, technique_score, speed_score, 
           notes, reviewer_name, location_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(cookName, reviewDate, punctuality, technique, speed, notes, reviewerName, loc);
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(cookName, cookUuid, reviewDate, punctuality, technique, speed, notes, reviewerName, loc);
       
       const id = Number(info.lastInsertRowid);
       postAuditEvent({
@@ -66,6 +74,7 @@ async function performanceReviewPostHandler(req: Request) {
         location_id: loc, 
         payload: { 
           cook_name: cookName, 
+          cook_uuid: cookUuid,
           review_date: reviewDate, 
           punctuality, technique, speed, 
           reviewer_name: reviewerName 
@@ -75,7 +84,7 @@ async function performanceReviewPostHandler(req: Request) {
       logAuditAction({
         action: 'performance_review_logged',
         user: reviewerName,
-        changes: { cook: cookName, date: reviewDate },
+        changes: { cook: cookName, cook_uuid: cookUuid, date: reviewDate },
         location: loc,
       });
 

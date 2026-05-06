@@ -89,6 +89,15 @@ export default function CommandCenter({ searchParams }) {
     )
     .all(loc, today);
 
+  const reviews = db
+    .prepare(
+      `SELECT id, cook_name, review_date, punctuality_score, technique_score, speed_score, reviewer_name
+         FROM performance_reviews
+        WHERE location_id = ? AND review_date = ?
+        ORDER BY id DESC`,
+    )
+    .all(loc, today);
+
   const salesAmber = s.sales.avg7_net > 0 && s.sales.delta_pct < -0.15;
 
   return (
@@ -249,7 +258,7 @@ export default function CommandCenter({ searchParams }) {
         />
       </div>
 
-      {(preshift.length > 0 || events.length > 0) && (
+      {(preshift.length > 0 || events.length > 0 || reviews.length > 0) && (
         <div style={{ marginTop: 24, display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
           {preshift.length > 0 && (
             <section className="card">
@@ -285,6 +294,25 @@ export default function CommandCenter({ searchParams }) {
                         {e.event_time && <>{fmtTime(e.event_time)} · </>}
                         {e.guest_count != null && <>{e.guest_count} guests</>}
                         {e.status && e.status !== 'planned' && <> · {e.status}</>}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {reviews.length > 0 && (
+            <section className="card">
+              <h2 style={{ fontSize: 16, margin: '0 0 8px' }}>Reviews today</h2>
+              <ul className="checklist" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                {reviews.map((r) => (
+                  <li key={r.id} className="check-row">
+                    <div>
+                      <div className="check-name">
+                        <Link href={`/management/performance-reviews${locQ}`}>{r.cook_name}</Link>
+                      </div>
+                      <div className="meta">
+                        Scores: {r.punctuality_score}/{r.technique_score}/{r.speed_score} · by {r.reviewer_name}
                       </div>
                     </div>
                   </li>

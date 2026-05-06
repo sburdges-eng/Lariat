@@ -829,13 +829,14 @@ function renderGoldStars(db: DB, locationId: string): OversightSection {
 function renderPerformanceReviews(db: DB, locationId: string): OversightSection {
   const rows = db
     .prepare(
-      `SELECT cook_name, review_date, punctuality_score, technique_score, speed_score, notes, reviewer_name
+      `SELECT cook_name, cook_uuid, review_date, punctuality_score, technique_score, speed_score, notes, reviewer_name
        FROM performance_reviews
        WHERE location_id = ?
        ORDER BY review_date DESC, id DESC LIMIT ?`
     )
     .all(locationId, MAX_PERFORMANCE_REVIEWS) as {
     cook_name: string;
+    cook_uuid: string | null;
     review_date: string;
     punctuality_score: number;
     technique_score: number;
@@ -846,7 +847,8 @@ function renderPerformanceReviews(db: DB, locationId: string): OversightSection 
   if (!rows.length) return { text: '', source: null };
   let text = '\nRECENT PERFORMANCE REVIEWS (staff evaluations):\n';
   for (const r of rows) {
-    text += `  - [${r.review_date}] ${r.cook_name} | scores: on-time=${r.punctuality_score}, tech=${r.technique_score}, speed=${r.speed_score} | by ${r.reviewer_name}`;
+    const uuid = r.cook_uuid ? ` [uuid:${r.cook_uuid}]` : '';
+    text += `  - [${r.review_date}] ${r.cook_name}${uuid} | scores: on-time=${r.punctuality_score}, tech=${r.technique_score}, speed=${r.speed_score} | by ${r.reviewer_name}`;
     if (r.notes) text += ` | notes: ${r.notes}`;
     text += '\n';
   }

@@ -61,9 +61,10 @@ Create endpoints for CRUD operations with transactional integrity and audit logg
 ### 3.3 UI Integration
 - **Management Dashboard (`app/management/page.jsx`)**: Add a rollup tile showing total review counts.
 - **Labor Hub (`app/labor/page.jsx`)**: Add a Staff Reviews tile summarizing reviews logged today and total on record.
-- **Command Center (`app/command/page.jsx` & `lib/commandCenter.ts`)**: Integrate performance review counts into the Labor tile and add an amber alert if no reviews are logged today.
+- **Command Center (`app/command/page.jsx` & `lib/commandCenter.ts`)**: Integrate review counts into the Labor tile, add an amber alert if no reviews are logged today, and add a "Reviews today" list section to the bottom of the dashboard.
 - **Kitchen Assistant (`lib/kitchenAssistantContext.ts`)**: Ground the AI in recent performance reviews when staff-related keywords are detected.
-- **Review Board (`app/management/performance-reviews/`)**: Dedicated management interface for evaluation logging.
+- **Review Board (`app/management/performance-reviews/`)**: Dedicated management interface for evaluation logging with search and classification.
+- **Standard Operating Procedure (`docs/SOP_STAFF_PERFORMANCE_REVIEWS.md`)**: Formalized scoring rubric and review cadence for managers.
 - **Navigation (`app/_components/navRegistry.js`)**: Register for ⌘K palette access.
 
 ### 3.4 Exports (`scripts/export.mjs`)
@@ -75,6 +76,7 @@ Include `performance_reviews` in daily CSV/XLSX compliance reports.
 
 ## 5. Verification Plan
 1. **Schema**: Run `npm run test:schema` to verify idempotent table creation.
-2. **API**: Execute the new integration test suite `tests/js/test-performance-reviews-api.mjs`.
-3. **Typecheck**: Run `npm run typecheck` to ensure interface consistency.
+2. **Pure Logic**: Execute `node --test tests/js/test-performance-reviews-rules.mjs` to verify classification and validation boundaries.
+3. **API**: Execute the integration test suite `tests/js/test-performance-reviews-api.mjs`.
+4. **Typecheck**: Run `npm run typecheck` to ensure interface consistency.
 4. **MACP**: Run `node scripts/agent-session.mjs list` to verify no collisions.

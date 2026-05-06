@@ -380,6 +380,7 @@ export interface GoldStar {
 export interface PerformanceReview {
   id: number;
   cook_name: string;
+  cook_uuid: string | null;
   review_date: string;
   punctuality_score: number;
   technique_score: number;
@@ -2722,6 +2723,7 @@ function initManagementSchema(db: DB): void {
     CREATE TABLE IF NOT EXISTS performance_reviews (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       cook_name TEXT NOT NULL,
+      cook_uuid TEXT,
       review_date TEXT NOT NULL,
       punctuality_score INTEGER,
       technique_score INTEGER,
@@ -2769,7 +2771,7 @@ function assertCriticalSchemas(db: DB): void {
       'status', 'rejection_reason',
     ],
     performance_reviews: [
-      'id', 'cook_name', 'review_date', 'punctuality_score',
+      'id', 'cook_name', 'cook_uuid', 'review_date', 'punctuality_score',
       'technique_score', 'speed_score', 'notes', 'reviewer_name',
       'location_id', 'created_at',
     ],
@@ -2805,7 +2807,7 @@ function ensureIndexes(db: DB): void {
     -- on a non-existent column" failure.
     CREATE INDEX IF NOT EXISTS idx_vp_master ON vendor_prices(master_id);
     CREATE INDEX IF NOT EXISTS idx_bom_master ON bom_lines(master_id);
-    CREATE INDEX IF NOT EXISTS idx_perf_review_cook ON performance_reviews(cook_name, location_id);
+    CREATE INDEX IF NOT EXISTS idx_perf_review_cook ON performance_reviews(cook_name, cook_uuid, location_id);
   `);
 
   // Bundle-H: NULL-safe uniqueness on (location, dow/date, service_label).
