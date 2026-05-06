@@ -1,6 +1,6 @@
 # Cloud Bridge — Backend Decision
 
-Status: **stub / scoping — operator decision pending.**
+Status: **decided — Cloudflare Worker (D1) + per-location HMAC. Ed25519 migration tracked against Item 13.**
 
 This document operationalizes the seam described in
 [`docs/cloud-bridge-design.md`](./cloud-bridge-design.md). It does **not**
@@ -235,10 +235,23 @@ Three candidates. The operator picks one.
 
 ### Auth — operator pick
 
-`_(operator to fill in: mTLS | HMAC | Ed25519-sign-of-body)_`
+**HMAC (4.2) — per-location shared secret, signing `body || idempotency-key`.**
 
-If picking Ed25519: confirm Item 13 has shipped (pubkey exposure +
-TXT advertisement). If not, ship HMAC now and plan the migration.
+Item 13 (per-instance Ed25519 keypair, mDNS TXT pubkey advertisement)
+has not shipped — see the remaining-work plan; it is gated on PRs
+\#163 and \#164 merging first. Per §4.3 above, the prescribed
+fallback is HMAC now with a planned migration to Ed25519
+sign-of-body once Item 13 lands. The `X-Lariat-Signature` header
+carries either scheme; switching is a server-side verification
+swap plus a rotation, not a wire-format break.
+
+Secret distribution piggybacks on the existing manager-PIN pairing
+flow (the design doc names it). Storage on the venue side: the
+secret lands alongside `LARIAT_CLOUD_API_KEY`. Today
+`lib/cloudBridge.ts` only reads that key from `process.env`; if we
+want operator-rotatable secrets without a redeploy, the Item-7
+implementer should add a SQLite-backed config read (the design
+doc already implies this surface — make it real).
 
 ---
 
@@ -426,36 +439,86 @@ write goes inside the same tx that ack/nacks the outbox row.
 
 ### Backend tier
 
-`_(operator to fill in: Cloudflare Worker (Option A) | Self-hosted HTTPS (Option B))_`
+**Cloudflare Worker + D1 (Option A).**
+
+Why: the load is small and bursty (5 venues × 3 allow-listed tables
+× ~20 batches/day ≈ ~300 batches/day, ~10 KB each). The three
+current tables — `settlement_summaries`, `beo_events`,
+`spend_monthly` — are coarse aggregates well under D1's row-size
+ceiling. Workers + D1 free tier likely absorbs this entirely;
+paid still rounds to a few dollars/month. The real cost we're
+buying down is **operator-hours**: this is a single-operator
+restaurant ops codebase, and §2's Option B "real ops burden"
+column (TLS lifecycle, patching, fail-over alerting) is exactly
+the cost we don't want to be carrying alongside HACCP rule
+modules and ingest pipelines. Vendor lock is on the cloud-side
+schema only — the wire contract (§5) is portable, so the venue
+side never has to move if we swap clouds later.
+
+R2 is reserved for any future blob-shipping table (§2 names a
+daily settlement PDF as the canonical example); not used in v1.
+
+If a future allow-listed table breaks the D1 row ceiling: split
+to R2 by reference (the wire contract carries a row payload that
+can hold an `r2_key` instead of an inline blob — backwards
+compatible with the §5.3 schema). Re-evaluate the choice if more
+than one table needs the R2 path; that's the threshold where
+self-hosted's "native blob" pro starts mattering.
 
 ### Auth model
 
-`_(operator to fill in: mTLS | HMAC | Ed25519-sign-of-body)_`
+**Per-location HMAC (4.2)**, signing `body || idempotency-key`,
+verified server-side.
+
+Why: Ed25519 (§4.3) is the natural alignment but is gated on Item
+13 (per-instance keypair + mDNS TXT pubkey), which has not landed.
+HMAC is the §4.3-prescribed fallback. The wire contract's
+`X-Lariat-Signature` header carries either scheme — switching
+when Item 13 ships is a server verification swap plus a rotation,
+not a wire-format break.
+
+Secret distribution: the existing manager-PIN pairing flow named
+in the design doc. One secret per `location_id`, rotatable.
 
 ### Filling this in commits the project to:
 
-- [ ] Standing up the chosen backend (Worker + D1 vs. host + service).
+- [ ] Standing up the Cloudflare Worker + D1 instance (one Worker
+      route per environment, D1 unique index on
+      `(location_id, batch_id)` for §5.5 dedup, retention ≥ 7
+      days).
 - [ ] Implementing the `/v1/snapshot` handler per §5 (with dedup
       on `(location_id, batch_id)` and per-table allow-list
-      defense-in-depth).
-- [ ] Per-venue auth-credential issuance via the existing manager-PIN
-      pairing flow (the design doc names this; the chosen scheme
-      shapes the payload).
-- [ ] Implementing Item 7 (`pushSnapshot` against the chosen backend,
+      defense-in-depth — re-validate against `ALLOWED_TABLES` on
+      the cloud side; the venue queue already enforces it but
+      defense-in-depth is cheap).
+- [ ] Per-venue HMAC-secret issuance via the existing manager-PIN
+      pairing flow. Server stores per-`location_id` secret;
+      drainer signs `body || idempotency-key`. Plan a rotation
+      flow now even if v1 ships without one — pre-Ed25519 we will
+      need it.
+- [ ] Implementing Item 7 (`pushSnapshot` against the Worker,
       replacing the `CLOUD_BRIDGE_NOT_IMPLEMENTED` sentinel in
-      `lib/cloudBridge.ts`).
+      `lib/cloudBridge.ts`). While here, add the SQLite-backed
+      config read for the HMAC secret + base URL so operators can
+      rotate without a redeploy (§4 "Auth — operator pick" notes
+      the gap).
 - [ ] Implementing Item 8 (drainer loop: `sweepStaleClaims` →
       `claim(N)` → `POST /v1/snapshot` → `ack` on 2xx, `nack` on
-      5xx/network, `ack` on 4xx, with a sane backoff between ticks).
-- [ ] If picking Ed25519: confirming Item 13 has landed and the
-      pubkey is exposed at instance start. If not: ship HMAC and
-      plan the migration when Item 13 lands.
-- [ ] Per-location request-rate budgets and the observability
-      surfaces enumerated in §6.
+      5xx/network, `ack` on 4xx, with a sane backoff between
+      ticks).
+- [ ] **Ed25519 migration when Item 13 lands.** Server adds
+      Ed25519 verification path (keyed on instance pubkey
+      registered at pairing); drainer flips signing scheme; HMAC
+      verification stays for one rotation window then is removed.
+      Tracked against Item 13 in
+      `docs/superpowers/plans/2026-05-06-lariat-remaining-work.md`.
+- [ ] Per-location request-rate budgets (§6.1: 600/hr/location
+      hard cap on the Worker) and the observability surfaces
+      enumerated in §6.2 / §6.3.
 - [ ] Updating `docs/cloud-bridge-design.md` § "Next PR's job" to
       point at this decision (replace the "likely a tiny HTTPS
       service we own; Cloudflare Worker or similar" line with the
-      decided answer).
+      decided answer: Cloudflare Worker + D1, per-location HMAC).
 
 ### What this does NOT commit to:
 
