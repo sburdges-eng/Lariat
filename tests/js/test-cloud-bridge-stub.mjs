@@ -1,16 +1,14 @@
 #!/usr/bin/env node
-// Tests for the cloud-bridge stub.
+// Tests for the cloud-bridge surface (lib/cloudBridge.ts).
 //
-// Today these tests pin the contract:
-//   - createCloudBridge() returns the right shape.
-//   - pushSnapshot / pullSnapshot throw the documented sentinel.
-//   - status() returns the empty-state object.
-//   - GET /api/cloud-bridge/status returns 401 without a PIN cookie
-//     (when LARIAT_PIN is configured).
+// Post-Item-7: pushSnapshot delegates to lib/cloudBridgePush.ts when
+// configured (LARIAT_CLOUD_BRIDGE_URL + LARIAT_CLOUD_BRIDGE_SECRET) and
+// throws the CLOUD_BRIDGE_NOT_IMPLEMENTED sentinel when not configured.
+// pullSnapshot still throws the sentinel unconditionally — pull is v2.
 //
-// When the next PR replaces the stub with a real client, most of
-// these tests should be ported to characterize the real behavior;
-// the contract-shape and PIN-gate tests stay as regressions.
+// These tests pin the unconfigured behavior + interface shape. The HTTP
+// client (configured path) is exercised by tests/js/test-cloud-bridge-push.mjs
+// against a stub server; this file does not double-cover that.
 //
 // Run:
 //   node --experimental-strip-types --test tests/js/test-cloud-bridge-stub.mjs
@@ -20,6 +18,17 @@ import assert from 'node:assert/strict';
 import { register } from 'node:module';
 
 register(new URL('./resolver.mjs', import.meta.url));
+
+// Force the unconfigured path regardless of host env so the sentinel
+// assertions don't depend on whoever's machine is running the test.
+const SAVED_BRIDGE_SECRET = process.env.LARIAT_CLOUD_BRIDGE_SECRET;
+const SAVED_BRIDGE_URL = process.env.LARIAT_CLOUD_BRIDGE_URL;
+delete process.env.LARIAT_CLOUD_BRIDGE_SECRET;
+delete process.env.LARIAT_CLOUD_BRIDGE_URL;
+process.on('exit', () => {
+  if (SAVED_BRIDGE_SECRET !== undefined) process.env.LARIAT_CLOUD_BRIDGE_SECRET = SAVED_BRIDGE_SECRET;
+  if (SAVED_BRIDGE_URL !== undefined) process.env.LARIAT_CLOUD_BRIDGE_URL = SAVED_BRIDGE_URL;
+});
 
 const cloudBridge = await import('../../lib/cloudBridge.ts');
 const { createCloudBridge, isCloudBridgeConfigured, CLOUD_BRIDGE_NOT_IMPLEMENTED } =
@@ -73,15 +82,15 @@ describe('createCloudBridge — stub shape', () => {
 });
 
 describe('isCloudBridgeConfigured', () => {
-  it('returns false when neither apiKey nor baseUrl is set', () => {
+  it('returns false when neither secret nor baseUrl is set', () => {
     // Use explicit args so test doesn't depend on the host env.
-    assert.equal(isCloudBridgeConfigured({ apiKey: undefined, baseUrl: undefined }), false);
+    assert.equal(isCloudBridgeConfigured({ secret: undefined, baseUrl: undefined }), false);
   });
 
-  it('returns true only when both apiKey and baseUrl are set', () => {
-    assert.equal(isCloudBridgeConfigured({ apiKey: 'k', baseUrl: undefined }), false);
-    assert.equal(isCloudBridgeConfigured({ apiKey: undefined, baseUrl: 'u' }), false);
-    assert.equal(isCloudBridgeConfigured({ apiKey: 'k', baseUrl: 'u' }), true);
+  it('returns true only when both secret and baseUrl are set', () => {
+    assert.equal(isCloudBridgeConfigured({ secret: 'k', baseUrl: undefined }), false);
+    assert.equal(isCloudBridgeConfigured({ secret: undefined, baseUrl: 'u' }), false);
+    assert.equal(isCloudBridgeConfigured({ secret: 'k', baseUrl: 'u' }), true);
   });
 });
 

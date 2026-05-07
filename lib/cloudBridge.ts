@@ -1,19 +1,31 @@
-// Cloud Bridge — stub interface for future WAN sync.
+// Cloud Bridge — interface + stub-or-real factory for WAN sync.
 //
-// This module defines the contract between Lariat (local-first,
-// better-sqlite3 / WAL) and a future cloud peer. It is a STUB:
-// push/pull throw a sentinel error; status() returns an empty
-// state. The point is to land the surface so the next PR can
-// fill in a real backend without redesigning callers.
+// This module owns the public CloudBridge surface. push/pull historically
+// threw a sentinel error; as of the Item-7 wire-in, pushSnapshot delegates
+// to lib/cloudBridgePush.ts::pushBatch when the bridge is configured
+// (LARIAT_CLOUD_BRIDGE_URL + LARIAT_CLOUD_BRIDGE_SECRET). When not
+// configured, the sentinel still throws — that's how callers that haven't
+// migrated to the queue-based path detect "bridge is dormant on this
+// host."
 //
-// See docs/cloud-bridge-design.md for the full scoping doc:
-// what this is, what this is not, why a bridge instead of direct
-// DB replication, and the per-table allow/deny list.
+// The production push path is the queue (lib/cloudBridgeQueue.ts) drained
+// by Item 8's drainer loop. pushSnapshot here is a thin direct-push
+// affordance: it synthesizes an OutboxBatch with a Date.now() id and
+// calls pushBatch. Server-side dedup on (location_id, batch_id) per §5.5
+// of docs/cloud-bridge-backend-decision.md keeps the contract honest.
+//
+// See docs/cloud-bridge-design.md (scope) and
+// docs/cloud-bridge-backend-decision.md (wire contract).
+
+import { pushBatch } from './cloudBridgePush';
+import type { OutboxBatch } from './cloudBridgeQueue';
 
 /**
- * Sentinel thrown by stub implementations of push/pull. Callers
- * (future API routes) should wrap calls in try/catch and degrade
- * gracefully — the bridge is best-effort by design.
+ * Sentinel thrown when the bridge is unconfigured (env vars absent).
+ * Kept exported for back-compat: pre-Item-7 callers wrap their calls
+ * and degrade gracefully on this string. Once a caller has migrated
+ * to checking isCloudBridgeConfigured() up front, it never sees this
+ * error — but legacy code paths still do.
  */
 export const CLOUD_BRIDGE_NOT_IMPLEMENTED = 'cloud bridge: not implemented yet';
 
@@ -22,6 +34,9 @@ export interface CloudBridge {
    * Push a batch of rows for `table` up to the cloud peer. Per-table
    * opt-in: see the design doc for the allow/deny list. Returns the
    * count the peer accepted vs. rejected (e.g., schema drift, dup).
+   *
+   * Direct-push only. Production code uses the queue+drainer path —
+   * cloudBridgeQueue.enqueue() then the Item-8 drainer.
    */
   pushSnapshot(
     table: string,
@@ -32,9 +47,8 @@ export interface CloudBridge {
   /**
    * Pull rows for `table` modified at or after `since` (RFC 3339
    * timestamp). Used by sibling-venue read-only snapshots and corp
-   * consolidation views. Pull is lower-priority than push; it is
-   * stubbed first so callers can be written, but the first real
-   * implementation will likely cover push only.
+   * consolidation views. Still stubbed — push is the v1 priority per
+   * the design doc.
    */
   pullSnapshot(
     table: string,
@@ -42,10 +56,9 @@ export interface CloudBridge {
   ): Promise<unknown[]>;
 
   /**
-   * Liveness / config probe. Safe to call without an API key — used
-   * by the GET /api/cloud-bridge/status endpoint as an "is the
-   * bridge configured?" check. Empty fields mean "no activity yet",
-   * not an error.
+   * Liveness / config probe. Safe to call without a secret — used by
+   * the GET /api/cloud-bridge/status endpoint. Empty fields mean "no
+   * activity yet", not an error.
    */
   status(): Promise<{
     lastPushAt: string | null;
@@ -56,36 +69,68 @@ export interface CloudBridge {
 }
 
 export interface CloudBridgeOptions {
-  /** API key for the cloud peer. Defaults to env LARIAT_CLOUD_API_KEY. */
-  apiKey?: string;
-  /** Base URL for the cloud peer. Defaults to env LARIAT_CLOUD_BASE_URL. */
+  /** Per-location HMAC secret. Defaults to env LARIAT_CLOUD_BRIDGE_SECRET. */
+  secret?: string;
+  /** Cloud peer base URL. Defaults to env LARIAT_CLOUD_BRIDGE_URL. */
   baseUrl?: string;
 }
 
 /**
- * Default stub implementation. push/pull throw the sentinel error
- * so failures are loud during development. status() returns an
- * empty state — there is no real activity to report.
- *
- * The configured fields (apiKey, baseUrl) are captured so a future
- * implementation can swap this constructor for a real one without
- * changing call sites.
+ * Default implementation: real client when configured, sentinel-throwing
+ * stub otherwise. status()/pullSnapshot() stay stubbed in v1 — push is
+ * the only direction the wire contract serves today.
  */
-class StubCloudBridge implements CloudBridge {
-  private readonly apiKey: string | undefined;
+class CloudBridgeImpl implements CloudBridge {
+  private readonly secret: string | undefined;
   private readonly baseUrl: string | undefined;
 
   constructor(opts: CloudBridgeOptions = {}) {
-    this.apiKey = opts.apiKey ?? process.env.LARIAT_CLOUD_API_KEY;
-    this.baseUrl = opts.baseUrl ?? process.env.LARIAT_CLOUD_BASE_URL;
+    this.secret = opts.secret ?? process.env.LARIAT_CLOUD_BRIDGE_SECRET;
+    this.baseUrl = opts.baseUrl ?? process.env.LARIAT_CLOUD_BRIDGE_URL;
   }
 
   async pushSnapshot(
-    _table: string,
-    _rows: unknown[],
-    _opts: { locationId: string },
+    table: string,
+    rows: unknown[],
+    opts: { locationId: string },
   ): Promise<{ accepted: number; rejected: number }> {
-    throw new Error(CLOUD_BRIDGE_NOT_IMPLEMENTED);
+    if (!this.secret || !this.baseUrl) {
+      throw new Error(CLOUD_BRIDGE_NOT_IMPLEMENTED);
+    }
+    if (!Array.isArray(rows) || rows.length === 0) {
+      // Server would 4xx anyway per §5.3 ("empty rows → 4xx"); short-circuit.
+      return { accepted: 0, rejected: 0 };
+    }
+
+    // Synthesize an OutboxBatch shape for the pushBatch wire contract.
+    // The id doubles as the Idempotency-Key + body batch_id; Date.now()
+    // is monotonic-enough for direct-push (the production drain path
+    // uses real outbox row ids).
+    const batch: OutboxBatch = {
+      id: Date.now(),
+      table,
+      locationId: opts.locationId,
+      rows,
+      attempts: 0,
+      enqueuedAt: new Date().toISOString(),
+    };
+
+    const result = await pushBatch(batch, {
+      url: this.baseUrl,
+      secret: this.secret,
+    });
+
+    if (result.ok) {
+      return { accepted: rows.length, rejected: 0 };
+    }
+    if (result.permanent) {
+      // Permanent rejects (bad signature, table not allow-listed,
+      // malformed body) — surface as rejected; caller doesn't retry.
+      return { accepted: 0, rejected: rows.length };
+    }
+    // Transient — caller's retry policy decides. Throwing matches the
+    // pre-Item-7 sentinel-on-failure contract.
+    throw new Error(result.reason ?? 'cloud bridge: transient push failure');
   }
 
   async pullSnapshot(
@@ -111,26 +156,24 @@ class StubCloudBridge implements CloudBridge {
 
   /** Internal: lets the status route report whether config is present. */
   isConfigured(): boolean {
-    return Boolean(this.apiKey && this.baseUrl);
+    return Boolean(this.secret && this.baseUrl);
   }
 }
 
 /**
- * Construct a CloudBridge handle. In stub mode, always returns the
- * stub implementation. Future PRs replace this factory body to
- * return a real client when config is present, and the stub
- * otherwise — call sites do not change.
+ * Construct a CloudBridge handle. Always returns the same impl —
+ * configured-vs-not is decided at call time by reading the env vars.
  */
 export function createCloudBridge(opts: CloudBridgeOptions = {}): CloudBridge {
-  return new StubCloudBridge(opts);
+  return new CloudBridgeImpl(opts);
 }
 
 /**
- * Convenience: report config presence without instantiating a real
- * client elsewhere. Used by the status route.
+ * Convenience: report config presence without instantiating a client
+ * elsewhere. Used by the status route.
  */
 export function isCloudBridgeConfigured(opts: CloudBridgeOptions = {}): boolean {
-  const apiKey = opts.apiKey ?? process.env.LARIAT_CLOUD_API_KEY;
-  const baseUrl = opts.baseUrl ?? process.env.LARIAT_CLOUD_BASE_URL;
-  return Boolean(apiKey && baseUrl);
+  const secret = opts.secret ?? process.env.LARIAT_CLOUD_BRIDGE_SECRET;
+  const baseUrl = opts.baseUrl ?? process.env.LARIAT_CLOUD_BRIDGE_URL;
+  return Boolean(secret && baseUrl);
 }
