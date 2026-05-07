@@ -100,6 +100,20 @@ schedule. `RunAtLoad=true` starts it at login; `KeepAlive=true` restarts it
 if it dies; `ThrottleInterval=30` prevents tight-looping on hosts with no
 multicast.
 
+### Conflicts with the Next.js auto-start — pick one
+
+Do **not** run this LaunchAgent on a host that's also running `npm run dev`
+or `npm run start`. Next.js's [`instrumentation.ts`](../../instrumentation.ts)
+hook auto-advertises the same `_lariat._tcp` Bonjour service at process boot,
+so two simultaneous advertisers from the same host produce duplicate entries
+on the wire and the second one to start sees `EADDRINUSE` on the multicast
+socket and exits — `KeepAlive=true` will then bounce the LaunchAgent against
+`ThrottleInterval=30` in a slow restart loop. Pick one: the **LaunchAgent**
+for headless deploys without a Next.js process (e.g. an iPad-server box that
+only runs the Lariat-KDS bridge), or the **instrumentation hook** for hosts
+where Next.js is the primary process. To switch from the LaunchAgent to the
+instrumentation hook, follow `### Uninstall` below before next `npm run dev`.
+
 ### Install
 
 ```sh
