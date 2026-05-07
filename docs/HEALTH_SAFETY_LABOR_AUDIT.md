@@ -243,7 +243,7 @@ Closed the last gap on the existing temp-log subsystem: the rule module and API 
 
 - **Registry expanded to 10 CCPs.** `lib/tempLog.ts` `TempPoints` gained `receiving_frozen` (§3-202.11 — practical ≤ 10°F ceiling to catch surface-thawed deliveries) and `reach_in_cooler` (§3-501.16 — distinct from walk-in since they have different failure modes). Covers the full set the brief asked for: receiving cold/frozen, walk-in + reach-in cold hold, freezer, cook per protein (poultry 165 / ground beef 155 / fish 145), hot hold 140, reheat 165.
 - **Aggregate rule function.** New `classifyReadings(readings, { expectAllPoints })` in `lib/tempLog.ts` turns a day's rows into one `PointSummary` per CCP with `status ∈ {green, yellow, red, gray}` and counts for `ok_count`, `corrective_count`, `critical_count`, `invalid_count`. The yellow/red split encodes the FDA distinction between "out-of-range reading with a documented fix" (compliant) and "out-of-range reading with no note of the fix" (inspector red-flag).
-- **API extensions.** `/api/temp-log` GET now returns a `summary` array alongside `entries` (opt out with `?summary=0`). POST emits a `postAuditEvent({ entity: 'temp_log', action: 'insert', ... })` on accepted writes — matching the append-only audit pattern used by `/api/sanitizer-check`, `/api/cooling`, `/api/sick-worker`, and `/api/date-marks`. Rejected writes (422 or 400) leave no audit row so the chain stays clean.
+- **API extensions.** `/api/temp-log` GET now returns a `summary` array alongside `entries` (opt out with `?summary=0`). POST emits a `postAuditEvent({ entity: 'temp_log', action: 'insert', ... })` on accepted writes — matching the append-only audit pattern used by `/api/sanitizer`, `/api/cooling`, `/api/sick-worker`, and `/api/date-marks`. Rejected writes (422 or 400) leave no audit row so the chain stays clean.
 - **Board UI.** `/app/food-safety/temp-log/` — server-rendered page.jsx pulls today's rows through `getDb()` directly (not an internal fetch) and hands them to `TempLogBoard.jsx`, a client component. Grid of CCP tiles colored per status, totals chips across the top, entry form with live out-of-range detection that surfaces the corrective-action field as soon as the typed value would fail validation. On 422 the UI flips into `needsNote` mode with a red-bordered note input.
 - **Hub tile.** `/app/food-safety/page.jsx` gained a Temp-log tile summarizing the day ("10 CCPs monitored · N corrective · N critical"). Tile colors match the main grid.
 - **Sidebar link.** `app/_components/Sidebar.jsx` gained a "Temp log" sub-link under "Food safety" so cooks can jump straight to the board.
@@ -504,7 +504,7 @@ window in which a HACCP row can exist without its audit-trail row.
 
 **Routes hardened:**
 `/api/temp-log`, `/api/receiving`, `/api/thermometer-calibrations`,
-`/api/cooling` (POST + PATCH), `/api/sanitizer-check`,
+`/api/cooling` (POST + PATCH), `/api/sanitizer`,
 `/api/date-marks` (POST + PATCH), `/api/sick-worker` (POST + PATCH),
 `/api/breaks` (POST + PATCH), `/api/certifications` (POST + PATCH).
 

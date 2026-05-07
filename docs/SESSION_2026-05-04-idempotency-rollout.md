@@ -6,7 +6,7 @@
 
 ### Idempotency wrapper rollout (10 PRs)
 
-- **#126** — HACCP rule-module routes (10): `beo`, `cleaning`, `cooling`, `date-marks`, `pest`, `sanitizer-check`, `sds`, `sick-worker`, `thermometer-calibrations`, `tphc`
+- **#126** — HACCP rule-module routes (10): `beo`, `cleaning`, `cooling`, `date-marks`, `pest`, `sanitizer`, `sds`, `sick-worker`, `thermometer-calibrations`, `tphc`
 - **#127** — Shows phase-2 (5): `shows/[id]/{deal,sound,sound/[sceneId],stage,box-office/[lineId]}`
 - **#129** — Labor compliance + regulated stockout (4): `eighty-six`, `eighty-six/resolve`, `breaks`, `certifications`
 - **#130** — Inventory financial (5): `inventory`, `inventory/counts`, `inventory/counts/[id]`, `inventory/counts/[id]/lines`, `inventory/par`

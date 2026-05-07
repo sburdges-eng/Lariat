@@ -53,7 +53,7 @@ sed -n '80,90p' tests/e2e/offline-queue.spec.ts
 - `public/sw.js:96–152` — replace `handleMutation` + `replay` shape; the wrapper that generates Idempotency-Key needs to live in client code (either a `lib/clientFetch.ts` thin wrapper or a small inline helper) so the SW just queues whatever the client sent.
 - `lib/db.ts` — new `idempotency_keys` table inside `migrateLegacyColumns` (the now-canonical migration entry from #113's debug).
 - `lib/idempotency.ts` (new) — `withIdempotency(req, handler)` wrapper that EVERY regulated POST handler routes through.
-- Every regulated POST handler — opt-in to the wrapper (`/api/temp-log`, `/api/receiving`, `/api/cooling`, `/api/sanitizer-check`, `/api/date-marks`, `/api/sick-worker`, `/api/breaks`, `/api/eighty-six`, `/api/signoff`, `/api/inventory`, `/api/shows/[id]/box-office`, etc.). The shows/[id]/* routes have the highest blast radius (cash custody) and should retrofit first.
+- Every regulated POST handler — opt-in to the wrapper (`/api/temp-log`, `/api/receiving`, `/api/cooling`, `/api/sanitizer`, `/api/date-marks`, `/api/sick-worker`, `/api/breaks`, `/api/eighty-six`, `/api/signoff`, `/api/inventory`, `/api/shows/[id]/box-office`, etc.). The shows/[id]/* routes have the highest blast radius (cash custody) and should retrofit first.
 - New: `tests/js/test-idempotency-key.mjs` — pin the header → cached-response contract.
 - `tests/e2e/offline-queue.spec.ts:83` — un-skip the full round-trip test once the wrapper exists; assert no duplicate rows on a second replay.
 
