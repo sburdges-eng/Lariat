@@ -524,10 +524,16 @@ describe('GET /api/command/summary', () => {
 });
 
 describe('alertsFor()', () => {
-  it('emits no alerts on a clean summary', () => {
+  it('emits only the perf-reviews-none amber on an otherwise clean summary', () => {
+    // Absence-as-alert: when no rows exist in performance_reviews for
+    // today, alertsFor() pushes one amber `performance-reviews-none`
+    // (lib/commandCenter.ts L583). Every other signal is empty on a
+    // clean DB, so the contract is exactly that one alert.
     const s = summarize('default', TODAY);
     const alerts = alertsFor(s);
-    assert.strictEqual(alerts.length, 0);
+    assert.strictEqual(alerts.length, 1);
+    assert.strictEqual(alerts[0].severity, 'amber');
+    assert.strictEqual(alerts[0].source, 'performance-reviews-none');
   });
 
   it('orders red alerts before amber', () => {
@@ -614,11 +620,15 @@ describe('GET /api/command/alerts', () => {
     assert.ok(j.alerts.some((a) => a.source === 'eighty-six'));
   });
 
-  it('clean state returns red=0 amber=0 empty alerts', async () => {
+  it('clean state returns red=0 plus the perf-reviews-none amber', async () => {
+    // Mirrors the alertsFor() contract above: a clean DB always
+    // surfaces the absence-of-perf-reviews amber, never any reds.
+    // See lib/commandCenter.ts::alertsFor L583.
     const res = await alertsRoute.GET(new Request(`http://localhost/api/command/alerts?date=${TODAY}`));
     const j = await res.json();
     assert.strictEqual(j.red, 0);
-    assert.strictEqual(j.amber, 0);
-    assert.strictEqual(j.alerts.length, 0);
+    assert.strictEqual(j.amber, 1);
+    assert.strictEqual(j.alerts.length, 1);
+    assert.strictEqual(j.alerts[0].source, 'performance-reviews-none');
   });
 });
