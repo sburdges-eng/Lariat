@@ -29,6 +29,11 @@
  *   started_at  — ISO 8601 timestamp of when this instance came up.
  *                 Used by future failover logic to break ties and detect
  *                 stale advertisements.
+ *   pubkey_fp   — optional 16-hex-char Ed25519 pubkey fingerprint
+ *                 (`lib/peerKeypair.ts::fingerprint`). When present, peers
+ *                 can ask this host to prove ownership of the matching
+ *                 private key during cross-host sync handshakes. Absent
+ *                 on peers that pre-date keypair auth.
  */
 
 export interface AdvertiseOptions {
@@ -37,6 +42,12 @@ export interface AdvertiseOptions {
   locationId?: string;
   /** Optional override; falls back to the value read from package.json. */
   version?: string;
+  /**
+   * Truncated SHA-256 fingerprint of this peer's Ed25519 public key
+   * (see `lib/peerKeypair.ts::fingerprint`). Optional — backwards
+   * compatible with peers that haven't enabled keypair auth yet.
+   */
+  pubkeyFp?: string;
 }
 
 export interface AdvertiseHandle {
@@ -55,6 +66,7 @@ export interface DiscoveredInstance {
     version?: string;
     location_id?: string;
     started_at?: string;
+    pubkey_fp?: string;
   };
 }
 
@@ -71,7 +83,7 @@ let warned = false;
 function warnOnce(reason: string, err?: unknown): void {
   if (warned) return;
   warned = true;
-  // eslint-disable-next-line no-console
+   
   console.warn(
     `[mdnsDiscovery] disabled: ${reason}` +
       (err instanceof Error ? ` (${err.message})` : '')
@@ -159,6 +171,17 @@ export async function advertise(
     return NOOP_HANDLE;
   }
 
+  // TXT keys are spelled in snake_case on the wire (mDNS convention) and
+  // surfaced as such on `DiscoveredInstance.txt`. Only include pubkey_fp
+  // when the caller actually has one, so peers without keypair-auth yet
+  // don't broadcast a literal "undefined".
+  const txt: Record<string, string> = {
+    version,
+    location_id: locationId,
+    started_at: startedAt,
+  };
+  if (options.pubkeyFp) txt['pubkey_fp'] = options.pubkeyFp;
+
   let service: ReturnType<InstanceType<BonjourCtor>['publish']>;
   try {
     service = bonjour.publish({
@@ -166,11 +189,7 @@ export async function advertise(
       type: LARIAT_SERVICE_TYPE,
       port: options.port,
       host: options.hostname,
-      txt: {
-        version,
-        location_id: locationId,
-        started_at: startedAt,
-      },
+      txt,
     });
   } catch (err) {
     warnOnce('Bonjour publish failed', err);
@@ -250,6 +269,7 @@ export async function discover(
           version: txt['version'],
           location_id: txt['location_id'],
           started_at: txt['started_at'],
+          pubkey_fp: txt['pubkey_fp'],
         },
       });
     });

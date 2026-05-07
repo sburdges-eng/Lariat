@@ -52,6 +52,23 @@ describe('mdnsDiscovery.advertise', () => {
     assert.equal(handle.active, false, 'invalid config should degrade to no-op');
     await handle.stop(); // must still be safe to call
   });
+
+  it('accepts pubkeyFp without throwing (TXT record gains pubkey_fp)', async () => {
+    // We can't directly inspect bonjour-service's published TXT in
+    // unit tests, but the handle contract is: advertise() must accept
+    // the optional pubkeyFp option without rejecting and return a
+    // valid handle. The on-the-wire assertion lives in the manual
+    // smoke test (`dns-sd -L`) documented in the Item 13 plan.
+    const handle = await mdns.advertise({
+      port: 38741,
+      locationId: 'test-fp',
+      pubkeyFp: 'a1b2c3d4e5f60718',
+    });
+    handles.push(handle);
+    assert.ok(handle, 'advertise() must always resolve to a handle');
+    assert.equal(typeof handle.active, 'boolean');
+    await handle.stop();
+  });
 });
 
 describe('mdnsDiscovery.discover', () => {

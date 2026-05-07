@@ -4,6 +4,8 @@ data/lariat.db
 data/lariat.db-journal
 data/lariat.db-shm
 data/lariat.db-wal
+# Per-peer Ed25519 keypair (lib/peerKeypair.ts) — local secret, never commit.
+data/peer-keypair.json
 .DS_Store
 exports/*.xlsx
 **/.~lock*

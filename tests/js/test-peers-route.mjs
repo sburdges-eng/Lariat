@@ -37,10 +37,12 @@ function peer(overrides = {}) {
     version,
     location_id = 'default',
     started_at,
+    pubkey_fp,
   } = overrides;
   const txt = { location_id };
   if (version !== undefined) txt.version = version;
   if (started_at !== undefined) txt.started_at = started_at;
+  if (pubkey_fp !== undefined) txt.pubkey_fp = pubkey_fp;
   return { name, host, addresses, port, txt };
 }
 
@@ -121,6 +123,35 @@ describe('loadPeersAndHub helper', () => {
       },
     });
     assert.deepEqual(received, { timeoutMs: undefined });
+  });
+
+  it('preserves pubkey_fp on each peer through to the result', async () => {
+    // The Item 13 contract: clients of /api/peers can read
+    // peer.txt.pubkey_fp directly. The route does a verbatim JSON
+    // passthrough, so the helper must not strip the field.
+    const a = peer({
+      host: 'host-a.local.',
+      started_at: '2026-05-05T12:00:00.000Z',
+      pubkey_fp: 'a1b2c3d4e5f60718',
+    });
+    const b = peer({
+      host: 'host-b.local.',
+      started_at: '2026-05-05T13:00:00.000Z',
+      pubkey_fp: 'fedcba9876543210',
+    });
+    const result = await loadPeersAndHub({
+      discoverFn: async () => [a, b],
+    });
+    assert.equal(result.peers[0].txt.pubkey_fp, 'a1b2c3d4e5f60718');
+    assert.equal(result.peers[1].txt.pubkey_fp, 'fedcba9876543210');
+  });
+
+  it('treats a peer without pubkey_fp as undefined (back-compat)', async () => {
+    const noFp = peer({ host: 'legacy.local.' });
+    const result = await loadPeersAndHub({
+      discoverFn: async () => [noFp],
+    });
+    assert.equal(result.peers[0].txt.pubkey_fp, undefined);
   });
 });
 
