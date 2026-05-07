@@ -131,6 +131,7 @@ export default function PeersBoard({ initialPeers, initialHub }) {
                 <th>Host</th>
                 <th>Version</th>
                 <th>Started</th>
+                <th>Fingerprint</th>
                 <th>Role</th>
                 <th>Action</th>
               </tr>
@@ -151,6 +152,12 @@ export default function PeersBoard({ initialPeers, initialHub }) {
                     <td>{peer.txt?.version || '—'}</td>
                     <td style={{ fontSize: 12, color: 'var(--muted)' }}>
                       {formatStarted(peer.txt?.started_at)}
+                    </td>
+                    <td
+                      style={{ fontFamily: 'monospace', fontSize: 12 }}
+                      title={peer.txt?.pubkey_fp || 'No fingerprint advertised'}
+                    >
+                      {peer.txt?.pubkey_fp || '?'}
                     </td>
                     <td>
                       <span

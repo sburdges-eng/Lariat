@@ -175,12 +175,37 @@ export async function bootMdnsAutostart(): Promise<void> {
   const port = Number.parseInt(process.env.PORT ?? '3000', 10);
   const locationId = process.env.LARIAT_LOCATION_ID ?? 'default';
 
-  const handle = await startAdvertiseOnce({ port, locationId, version });
+  // Load (or create on first boot) the per-peer Ed25519 keypair and
+  // derive a 16-hex fingerprint for the TXT record. We dynamic-import
+  // peerKeypair so webpack never tries to bundle node:fs/node:crypto
+  // into edge-runtime bundles. Failure is non-fatal — degrade to mDNS
+  // without pubkey_fp rather than refusing to advertise at all.
+  let pubkeyFp: string | undefined;
+  try {
+    const { loadOrCreateKeypair, fingerprint } = await import('./peerKeypair.ts');
+    const kp = loadOrCreateKeypair();
+    pubkeyFp = fingerprint(kp.pubKey);
+  } catch (err) {
+     
+    console.warn(
+      '[mdns] could not load peer keypair — advertising without pubkey_fp',
+      err instanceof Error ? err.message : err
+    );
+  }
+
+  const handle = await startAdvertiseOnce({
+    port,
+    locationId,
+    version,
+    pubkeyFp,
+  });
 
   if (handle.active) {
     // eslint-disable-next-line no-console
     console.log(
-      `[mdns] advertising as Lariat on port ${port} (location=${locationId}, v${version})`
+      `[mdns] advertising as Lariat on port ${port} (location=${locationId}, v${version}${
+        pubkeyFp ? `, fp=${pubkeyFp}` : ''
+      })`
     );
   } else {
     // eslint-disable-next-line no-console
