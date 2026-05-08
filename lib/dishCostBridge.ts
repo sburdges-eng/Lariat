@@ -317,6 +317,12 @@ function resolveComponentCost(c: DishComponentResolved): DishComponentResolved {
 
 /**
  * Convenience: cost roll-up for a single dish.
+ *
+ * Positional-arg note: `db` is the 5th positional. To thread only a `db`
+ * (no map/override), pass `undefined` for both 3rd and 4th args:
+ *   `computeDishCost(name, loc, undefined, undefined, db)`
+ * If you find yourself doing that often, prefer wrapping in a higher-level
+ * call site (as `computeMenuEngineering` does) rather than re-inventing it.
  */
 export function computeDishCost(
   dishName: string,
