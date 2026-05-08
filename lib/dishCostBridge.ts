@@ -29,6 +29,7 @@
  * footer noise from Toast exports) are filtered upstream by `cleanedSalesRows`.
  */
 
+import type { Database } from 'better-sqlite3';
 import { getDb, type RecipeCost, type DishComponent } from './db';
 import { getRecipes, type Recipe } from './data';
 // Reuse the costing engine's unit converter.
@@ -119,8 +120,8 @@ export interface DishCostResult {
 export function buildDishComponentMap(
   locationId: string = 'default',
   recipesOverride?: Recipe[],
+  db: Database = getDb(),
 ): Map<string, DishComponentResolved[]> {
-  const db = getDb();
   const recipes = recipesOverride ?? getRecipes();
 
   // ── Recipe pricing index ──
@@ -316,14 +317,21 @@ function resolveComponentCost(c: DishComponentResolved): DishComponentResolved {
 
 /**
  * Convenience: cost roll-up for a single dish.
+ *
+ * Positional-arg note: `db` is the 5th positional. To thread only a `db`
+ * (no map/override), pass `undefined` for both 3rd and 4th args:
+ *   `computeDishCost(name, loc, undefined, undefined, db)`
+ * If you find yourself doing that often, prefer wrapping in a higher-level
+ * call site (as `computeMenuEngineering` does) rather than re-inventing it.
  */
 export function computeDishCost(
   dishName: string,
   locationId: string = 'default',
   precomputedMap?: Map<string, DishComponentResolved[]>,
   recipesOverride?: Recipe[],
+  db: Database = getDb(),
 ): DishCostResult {
-  const map = precomputedMap || buildDishComponentMap(locationId, recipesOverride);
+  const map = precomputedMap || buildDishComponentMap(locationId, recipesOverride, db);
   const norm = normalizeDishName(dishName);
   const components = map.get(norm) || [];
 

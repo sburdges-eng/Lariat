@@ -1,3 +1,4 @@
+import type { Database } from 'better-sqlite3';
 import { getDb } from './db';
 import {
   buildDishComponentMap,
@@ -52,8 +53,10 @@ export interface MenuEngineeringResult {
   };
 }
 
-export function computeMenuEngineering(locationId: string = 'default'): MenuEngineeringResult {
-  const db = getDb();
+export function computeMenuEngineering(
+  locationId: string = 'default',
+  db: Database = getDb(),
+): MenuEngineeringResult {
   const salesRaw = db
     .prepare(
       `SELECT item_name, SUM(quantity_sold) AS qty, SUM(net_sales) AS rev
@@ -65,7 +68,9 @@ export function computeMenuEngineering(locationId: string = 'default'): MenuEngi
   const sales = cleanedSalesRows(salesRaw);
 
   // Build the bridge map ONCE; reuse for every dish.
-  const map = buildDishComponentMap(locationId);
+  // Thread the handle so we don't open a second connection inside
+  // buildDishComponentMap (audit §4 Compute HIGH — db threading).
+  const map = buildDishComponentMap(locationId, undefined, db);
 
   const rows: MenuEngineeringRow[] = [];
   const counts = { fully_linked: 0, partial: 0, declared_only: 0, unlinked: 0, total: 0 };
@@ -74,7 +79,7 @@ export function computeMenuEngineering(locationId: string = 'default'): MenuEngi
     const qty = Number(s.qty) || 0;
     const rev = Number(s.rev) || 0;
     const avg = qty > 0 ? rev / qty : 0;
-    const dishCost = computeDishCost(s.item_name, locationId, map);
+    const dishCost = computeDishCost(s.item_name, locationId, map, undefined, db);
     const cpu = dishCost.total_cost;
     const marginPct = cpu != null && avg > 0 ? ((avg - cpu) / avg) * 100 : null;
     counts[dishCost.link_state]++;
