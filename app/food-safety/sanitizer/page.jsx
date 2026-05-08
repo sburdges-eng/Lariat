@@ -35,7 +35,6 @@ export default function SanitizerPage({ searchParams }) {
 
   return (
     <SanitizerBoard
-      rows={rows}
       latest={latest}
       knownPoints={DEFAULT_POINTS}
       locationId={loc}

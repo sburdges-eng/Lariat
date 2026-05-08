@@ -16,7 +16,7 @@ function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-export default function SanitizerBoard({ rows, latest, knownPoints, locationId, date }) {
+export default function SanitizerBoard({ latest, knownPoints, locationId, date }) {
   const router = useRouter();
   const [cookId, setCookId] = useState('');
   const [pointLabel, setPointLabel] = useState('');
