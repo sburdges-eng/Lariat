@@ -241,6 +241,13 @@ describe('POST /api/auth/temp-pin/login — TRUST_PROXY on (per-IP)', () => {
   before(async () => {
     process.env.LARIAT_TRUST_PROXY = '1';
     // Cache-bust the route so it re-reads TRUST_PROXY at module scope.
+    // FRAGILE: relies on Node ESM treating distinct query strings as
+    // distinct module URLs (re-evaluation). Undocumented behavior — if
+    // a future Node version or a custom resolver normalizes the URL,
+    // this returns the original cached module (with TRUST_PROXY=false)
+    // and the per-IP-independence assertions silently pass against the
+    // wrong code path. Revisit on Node upgrade or if `tests/js/resolver.mjs`
+    // is touched.
     trustedRoute = await import('../../app/api/auth/temp-pin/login/route.js?trustproxy=1');
   });
 
