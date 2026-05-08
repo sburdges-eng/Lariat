@@ -26,6 +26,7 @@ import {
 } from '../../../../../../lib/cloudBridgeQueue';
 import { logAuditAction } from '../../../../../../lib/auditLog.mjs';
 import { locationFromRequest } from '../../../../../../lib/location';
+import { withIdempotency } from '../../../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +42,11 @@ function parseId(raw) {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
-export async function POST(req, { params }) {
+export async function POST(req, ctx) {
+  return withIdempotency(req, () => dropDeadLetterPostHandler(req, ctx));
+}
+
+async function dropDeadLetterPostHandler(req, { params }) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
 
