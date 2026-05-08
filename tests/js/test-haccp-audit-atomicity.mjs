@@ -1,18 +1,16 @@
 #!/usr/bin/env node
 // Cross-HACCP audit atomicity hardening — regression pins.
 //
-// All 9 HACCP POST/PATCH routes now wrap the source-table insert/update
-// and the accompanying postAuditEvent call in a single db.transaction,
-// so a failure in either rolls back both. postAuditEvent additionally
-// emits a console.warn when called outside a transaction context, which
-// catches any future caller that regresses the pattern.
+// All 9 HACCP POST/PATCH routes wrap the source-table insert/update and
+// the accompanying postAuditEvent call in a single db.transaction, so a
+// failure in either rolls back both. postAuditEvent THROWS when called
+// outside a transaction context — the unit-level enforcement of that
+// invariant lives in tests/js/test-audit-events-tx-enforcement.mjs.
 //
 // This file pins:
 //   1. Rollback on audit failure — if postAuditEvent throws inside the
 //      transaction, the source-table insert is rolled back.
-//   2. postAuditEvent warns when called outside a db.transaction context.
-//   3. postAuditEvent does NOT warn when called inside a db.transaction.
-//   4. End-to-end insert+audit commit pair for each route category:
+//   2. End-to-end insert+audit commit pair for each route category:
 //      temp_log, receiving, thermometer_calibrations, cooling, sanitizer,
 //      date_marks, sick_worker, breaks, certifications.
 //
@@ -118,59 +116,7 @@ function captureWarns(fn) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 1. postAuditEvent warn behavior
-// ─────────────────────────────────────────────────────────────────
-
-describe('postAuditEvent — transaction-context warn', () => {
-  it('WARNS when called outside a db.transaction', () => {
-    const { captured } = captureWarns(() => {
-      postAuditEvent({
-        entity: 'temp_log',
-        entity_id: null,
-        action: 'insert',
-        actor_cook_id: null,
-        actor_source: 'api',
-      });
-    });
-    assert.strictEqual(captured.length, 1, 'expected exactly one warn');
-    assert.match(captured[0], /postAuditEvent called outside of a transaction context/);
-    assert.match(captured[0], /temp_log/);
-    assert.match(captured[0], /insert/);
-  });
-
-  it('does NOT warn when called inside a db.transaction', () => {
-    const { captured } = captureWarns(() => {
-      const run = testDb.transaction(() => {
-        postAuditEvent({
-          entity: 'temp_log',
-          entity_id: null,
-          action: 'insert',
-          actor_cook_id: null,
-          actor_source: 'api',
-        });
-      });
-      run();
-    });
-    assert.strictEqual(captured.length, 0, `unexpected warns: ${captured.join(' | ')}`);
-  });
-
-  it('still inserts the audit row when called outside a transaction (warn only, not fatal)', () => {
-    const before = countAudit('temp_log');
-    captureWarns(() => {
-      postAuditEvent({
-        entity: 'temp_log',
-        entity_id: null,
-        action: 'insert',
-        actor_cook_id: null,
-        actor_source: 'api',
-      });
-    });
-    assert.strictEqual(countAudit('temp_log'), before + 1);
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────
-// 2. Rollback on audit failure
+// 1. Rollback on audit failure
 // ─────────────────────────────────────────────────────────────────
 //
 // We can't easily make postAuditEvent itself throw from outside, but
@@ -229,7 +175,7 @@ describe('db.transaction — rollback on audit-inner failure', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────
-// 3. Happy-path insert+audit commit pairs per route category
+// 2. Happy-path insert+audit commit pairs per route category
 // ─────────────────────────────────────────────────────────────────
 
 describe('HACCP routes — insert + audit commit together (happy path)', () => {
