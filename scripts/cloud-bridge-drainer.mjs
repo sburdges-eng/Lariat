@@ -45,12 +45,24 @@ console.log(
     `staleClaimAgeSec=${staleClaimAgeSec ?? 300})`,
 );
 
+// Hold the event loop open until SIGTERM/SIGINT triggers shutdown().
+// Without this, the unref'd setInterval inside the drainer (which is
+// itself unref'd so unit tests don't hang) would let the process exit
+// immediately. We keep this interval REF'd so the drainer process
+// stays alive regardless of Node's handler-keepalive semantics.
+//
+// Cleanup: shutdown() (the SIGTERM/SIGINT path) calls clearInterval
+// on the handle below before exiting. The 100ms setTimeout in
+// shutdown() gives any in-flight tick a moment to settle.
+const keepalive = setInterval(() => {}, 1 << 30);
+
 let stopping = false;
 function shutdown(signal) {
   if (stopping) return;
   stopping = true;
   console.log(`cloud-bridge: ${signal} received, stopping drainer`);
   stopDrainer();
+  clearInterval(keepalive);
   // Give in-flight tick (if any) a moment to settle, then exit.
   setTimeout(() => process.exit(0), 100).unref();
 }
@@ -58,10 +70,4 @@ function shutdown(signal) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
-// Hold the event loop open. Without this, the unref'd setInterval
-// inside the drainer would let the process exit immediately.
-const keepalive = setInterval(() => {}, 1 << 30);
-keepalive.unref(); // still won't actually keep alive — but the
-// SIGTERM/SIGINT handlers above register listeners which DO keep
-// the loop alive until they fire, which is what we want.
 void handle;
