@@ -46,6 +46,10 @@ const ALLOWLIST = new Set([
   // would cache the cookie value across replays which is undesirable
   // for an auth-exchange endpoint.
   'auth/temp-pin/login',
+  // Manager-issued temp PIN — response body contains the raw PIN;
+  // caching it in idempotency_keys for 24h would expose active
+  // credentials. Handler has its own collision-retry loop.
+  'auth/temp-pin/issue',
 ]);
 
 // Routes that SHOULD be wrapped per the §8 P1 plan but haven't been
