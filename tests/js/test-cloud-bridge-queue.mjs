@@ -42,6 +42,10 @@ const {
   depth,
   deadLetterDepth,
   sweepStaleClaims,
+  listDeadLetters,
+  getDeadLetter,
+  requeueDeadLetter,
+  dropDeadLetter,
   CLOUD_BRIDGE_TABLE_DENIED,
   ALLOWED_TABLES,
 } = queue;
@@ -336,6 +340,190 @@ describe('sweepStaleClaims()', () => {
       .prepare(`SELECT claimed_at FROM cloud_bridge_outbox WHERE id = ?`)
       .get(id);
     assert.equal(row.claimed_at, null);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────
+// Dead-letter triage helpers (Item 9).
+//
+// Drives a fresh batch all the way to dead-letter via 5 nack cycles
+// so the listDeadLetters / getDeadLetter / requeueDeadLetter /
+// dropDeadLetter contracts can be exercised against real rows.
+//
+// Placed BEFORE the persistence block on purpose: the persistence
+// test calls setDbPathForTest(null) then re-opens, which leaves the
+// cached `testDb` reference at the top of this file pointing at a
+// closed DB. Any tests that run after persistence and reach for
+// `testDb` in beforeEach blow up with "database connection is not
+// open."
+// ─────────────────────────────────────────────────────────────────
+
+function deadLetterBatch(rows, opts = {}) {
+  const id = enqueue(opts.table ?? TABLE, rows, {
+    locationId: opts.locationId ?? LOC,
+  });
+  for (let i = 0; i < 5; i++) {
+    const [c] = claim(1);
+    nack(c.id, opts.lastError ?? `transient ${i + 1}`);
+  }
+  return id;
+}
+
+describe('listDeadLetters()', () => {
+  it('returns [] when no dead letters exist', () => {
+    enqueue(TABLE, [{ shift_date: '2026-05-01', total: 1 }], { locationId: LOC });
+    assert.deepStrictEqual(listDeadLetters(), []);
+  });
+
+  it('returns hydrated batches in FIFO id order', () => {
+    const id1 = deadLetterBatch([{ shift_date: '2026-05-01', total: 1 }]);
+    const id2 = deadLetterBatch([{ shift_date: '2026-05-02', total: 2 }]);
+
+    const dlqs = listDeadLetters();
+    assert.equal(dlqs.length, 2);
+    assert.equal(dlqs[0].id, id1);
+    assert.equal(dlqs[1].id, id2);
+    assert.deepStrictEqual(dlqs[0].rows, [{ shift_date: '2026-05-01', total: 1 }]);
+    assert.equal(dlqs[0].table, TABLE);
+    assert.equal(dlqs[0].locationId, LOC);
+    assert.equal(dlqs[0].attempts, 5, 'attempts is captured at dead-letter time');
+    assert.match(dlqs[0].lastError ?? '', /transient 5/);
+    assert.ok(dlqs[0].enqueuedAt, 'enqueuedAt is populated');
+  });
+
+  it('does not include alive (queued or in-flight) rows', () => {
+    deadLetterBatch([{ shift_date: '2026-05-01', total: 1 }]);
+    enqueue(TABLE, [{ shift_date: '2026-05-02', total: 2 }], { locationId: LOC }); // queued
+    const queuedId = enqueue(TABLE, [{ shift_date: '2026-05-03', total: 3 }], { locationId: LOC });
+    claim(1); // marks one row in-flight; dead-letter list must skip it
+
+    const dlqs = listDeadLetters();
+    assert.equal(dlqs.length, 1);
+    assert.notEqual(dlqs[0].id, queuedId);
+  });
+
+  it('filters by locationId when provided', () => {
+    deadLetterBatch([{ shift_date: '2026-05-01', total: 1 }], { locationId: 'site-a' });
+    deadLetterBatch([{ shift_date: '2026-05-02', total: 2 }], { locationId: 'site-b' });
+
+    const a = listDeadLetters({ locationId: 'site-a' });
+    const b = listDeadLetters({ locationId: 'site-b' });
+    const all = listDeadLetters();
+    assert.equal(a.length, 1);
+    assert.equal(a[0].locationId, 'site-a');
+    assert.equal(b.length, 1);
+    assert.equal(b[0].locationId, 'site-b');
+    assert.equal(all.length, 2);
+  });
+
+  it('hydrates corrupt rows_json as [] (does not crash the triage UI)', () => {
+    const id = deadLetterBatch([{ shift_date: '2026-05-01', total: 1 }]);
+    testDb.prepare('UPDATE cloud_bridge_outbox SET rows_json = ? WHERE id = ?')
+      .run('not-json', id);
+
+    const dlqs = listDeadLetters();
+    assert.equal(dlqs.length, 1);
+    assert.deepStrictEqual(dlqs[0].rows, []);
+  });
+});
+
+describe('getDeadLetter()', () => {
+  it('returns null for unknown ids', () => {
+    assert.equal(getDeadLetter(99999), null);
+    assert.equal(getDeadLetter(0), null);
+    assert.equal(getDeadLetter(-1), null);
+  });
+
+  it('returns null for an alive (queued) id', () => {
+    const id = enqueue(TABLE, [{ shift_date: '2026-05-01', total: 1 }], { locationId: LOC });
+    assert.equal(getDeadLetter(id), null);
+  });
+
+  it('returns the hydrated batch for a dead-lettered id', () => {
+    const id = deadLetterBatch([{ shift_date: '2026-05-01', total: 99 }]);
+    const row = getDeadLetter(id);
+    assert.ok(row);
+    assert.equal(row.id, id);
+    assert.equal(row.attempts, 5);
+    assert.deepStrictEqual(row.rows, [{ shift_date: '2026-05-01', total: 99 }]);
+  });
+});
+
+describe('requeueDeadLetter()', () => {
+  it('returns false for unknown ids', () => {
+    assert.equal(requeueDeadLetter(99999), false);
+    assert.equal(requeueDeadLetter(0), false);
+  });
+
+  it('returns false (and changes nothing) for an alive queued id', () => {
+    const id = enqueue(TABLE, [{ shift_date: '2026-05-01', total: 1 }], { locationId: LOC });
+    assert.equal(requeueDeadLetter(id), false);
+    // Row remains intact and claimable.
+    const [c] = claim(1);
+    assert.equal(c.id, id);
+    assert.equal(c.attempts, 1, 'attempts unchanged by the no-op requeue');
+  });
+
+  it('clears dead_letter, resets attempts, last_error, claimed_at', () => {
+    const id = deadLetterBatch([{ shift_date: '2026-05-01', total: 1 }]);
+    assert.equal(deadLetterDepth(), 1);
+
+    assert.equal(requeueDeadLetter(id), true);
+    assert.equal(deadLetterDepth(), 0);
+    assert.equal(depth(), 1, 'requeued batch is back in the active queue');
+
+    const row = testDb
+      .prepare(
+        `SELECT dead_letter, attempts, last_error, claimed_at
+           FROM cloud_bridge_outbox WHERE id = ?`,
+      )
+      .get(id);
+    assert.equal(row.dead_letter, 0);
+    assert.equal(row.attempts, 0, 'fresh retry budget');
+    assert.equal(row.last_error, null);
+    assert.equal(row.claimed_at, null);
+
+    // Drainer can pick it up again.
+    const [c] = claim(1);
+    assert.equal(c.id, id);
+    assert.equal(c.attempts, 1, 'first claim after requeue counts as attempt 1');
+  });
+
+  it('a second requeue of the same id is a no-op (already alive)', () => {
+    const id = deadLetterBatch([{ shift_date: '2026-05-01', total: 1 }]);
+    assert.equal(requeueDeadLetter(id), true);
+    assert.equal(requeueDeadLetter(id), false, 'no longer dead-lettered');
+  });
+});
+
+describe('dropDeadLetter()', () => {
+  it('returns false for unknown ids', () => {
+    assert.equal(dropDeadLetter(99999), false);
+    assert.equal(dropDeadLetter(0), false);
+  });
+
+  it('returns false (and changes nothing) for an alive queued id', () => {
+    const id = enqueue(TABLE, [{ shift_date: '2026-05-01', total: 1 }], { locationId: LOC });
+    assert.equal(dropDeadLetter(id), false);
+    assert.equal(depth(), 1, 'alive row was not deleted');
+  });
+
+  it('deletes a dead-lettered row by id', () => {
+    const id = deadLetterBatch([{ shift_date: '2026-05-01', total: 1 }]);
+    assert.equal(deadLetterDepth(), 1);
+    assert.equal(dropDeadLetter(id), true);
+    assert.equal(deadLetterDepth(), 0);
+
+    const row = testDb
+      .prepare('SELECT id FROM cloud_bridge_outbox WHERE id = ?')
+      .get(id);
+    assert.equal(row, undefined, 'row is gone');
+  });
+
+  it('a second drop of the same id is a no-op', () => {
+    const id = deadLetterBatch([{ shift_date: '2026-05-01', total: 1 }]);
+    assert.equal(dropDeadLetter(id), true);
+    assert.equal(dropDeadLetter(id), false);
   });
 });
 

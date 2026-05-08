@@ -484,6 +484,18 @@ export const NAV_ITEMS = [
     locAware: t,
     surface: { sidebar: f, palette: t, shelf: f },
   },
+  // Cloud-bridge dead-letter triage. Palette-only — managers visit when
+  // the rollup or a status alert flags a stuck batch.
+  {
+    id: 'management-cloud-bridge',
+    href: '/management/cloud-bridge',
+    name: 'Cloud bridge',
+    sub: 'Stuck snapshots — retry or drop',
+    group: 'Management',
+    terms: 'cloud bridge dead letter dlq queue stuck retry requeue drop snapshot',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
 ];
 
 // ── Selectors ─────────────────────────────────────────────────────────

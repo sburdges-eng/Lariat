@@ -313,6 +313,7 @@ export default function ManagementRollupPage({ searchParams }) {
         <ul style={{ fontSize: 13 }}>
           <li><Link href="/management/performance-reviews">Staff reviews</Link> — log and view performance</li>
           <li><Link href="/management/audit-log">Audit log</Link> — management actions outside regulated tables</li>
+          <li><Link href="/management/cloud-bridge">Cloud bridge</Link> — stuck snapshots heading to corp</li>
         </ul>
       </div>
     </div>
