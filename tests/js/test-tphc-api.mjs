@@ -551,3 +551,55 @@ describe('/api/tphc — location scoping cross-cut', () => {
     assert.strictEqual(body.active.length, 1);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────
+// PATCH — structural TOCTOU invariant
+//
+// The 404 (unknown id) + 409 (already discarded) guards in the PATCH
+// handler must run inside the same db.transaction(...) as the UPDATE.
+// If either guard is hoisted above the transaction, two concurrent
+// PATCHes on the same id can both pass `discarded_at IS NULL` and
+// double-stamp the row.
+//
+// Source-grep test: assert no `SELECT * FROM tphc_entries WHERE id=?`
+// appears in the PATCH handler region above its `db.transaction(`
+// boundary. Brittle to formatting but explicit, and durable enough
+// for a regulated handler that should not grow another out-of-tx
+// SELECT.
+// ─────────────────────────────────────────────────────────────────
+
+describe('PATCH /api/tphc — TOCTOU structural invariant', () => {
+  it('PATCH handler does not SELECT tphc_entries before opening db.transaction(...)', async () => {
+    const fs2 = await import('node:fs');
+    const path2 = await import('node:path');
+    const url2 = await import('node:url');
+    const here = path2.dirname(url2.fileURLToPath(import.meta.url));
+    const routePath = path2.resolve(here, '../../app/api/tphc/route.js');
+    const src = fs2.readFileSync(routePath, 'utf8');
+
+    // Locate the PATCH handler body.
+    const patchStart = src.indexOf('async function tphcPatchHandler');
+    assert.ok(patchStart > 0, 'tphcPatchHandler must exist');
+    // Find the next top-level export after PATCH handler (GET).
+    const nextHandler = src.indexOf('export async function GET', patchStart);
+    assert.ok(nextHandler > patchStart, 'GET handler must follow PATCH handler');
+    const patchBody = src.slice(patchStart, nextHandler);
+
+    const txIdx = patchBody.indexOf('db.transaction(');
+    assert.ok(
+      txIdx > 0,
+      'PATCH handler must open db.transaction(...) — guards belong inside it',
+    );
+
+    const beforeTx = patchBody.slice(0, txIdx);
+    // No SELECT against tphc_entries may appear before the transaction
+    // opens. The existence + already-discarded checks must be inside
+    // the same tx as the UPDATE so two concurrent PATCHes can't both
+    // pass `discarded_at IS NULL` against a stale snapshot.
+    assert.doesNotMatch(
+      beforeTx,
+      /SELECT[\s\S]*?FROM\s+tphc_entries/i,
+      'PATCH handler must not SELECT tphc_entries before db.transaction(...) — TOCTOU race',
+    );
+  });
+});
