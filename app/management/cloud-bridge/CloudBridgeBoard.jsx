@@ -15,7 +15,7 @@
 //
 // Auto-refresh: every 30s, identical cadence to /management/peers.
 
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -33,6 +33,34 @@ function previewError(text) {
   if (!text) return '—';
   if (text.length <= 80) return text;
   return text.slice(0, 77) + '…';
+}
+
+// Human-readable table name for the row column. The allow-listed tables
+// are kitchen-meaningful when translated; an unknown table falls back to
+// underscore-stripped passthrough so a future-allowed table still reads
+// reasonably without a code change here.
+const BATCH_LABELS = {
+  settlement_summaries: 'Settlement totals',
+  beo_events: 'Event prep',
+  spend_monthly: 'Monthly spend',
+};
+function batchLabel(table) {
+  if (!table) return 'Batch';
+  return BATCH_LABELS[table] ?? String(table).replaceAll('_', ' ');
+}
+
+// Recursively replace underscores in object keys so the inspect view
+// reads as plain English ("shift date") instead of dev-shaped column
+// names ("shift_date"). Arrays/primitives passed through.
+function displayPayload(value) {
+  if (Array.isArray(value)) return value.map(displayPayload);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([k, v]) => [
+      k.replaceAll('_', ' '),
+      displayPayload(v),
+    ]),
+  );
 }
 
 export default function CloudBridgeBoard({
@@ -90,12 +118,12 @@ export default function CloudBridgeBoard({
     return () => clearInterval(id);
   }, [refresh]);
 
-  const doRequeue = async (id) => {
+  const postAction = async (id, action) => {
     setBusyId(id);
     setErr('');
     try {
       const res = await fetch(
-        `/api/cloud-bridge/dead-letters/${id}/requeue`,
+        `/api/cloud-bridge/dead-letters/${id}/${action}`,
         { method: 'POST' },
       );
       if (res.status === 401 || res.status === 403) {
@@ -106,40 +134,15 @@ export default function CloudBridgeBoard({
       }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setErr(body?.error || `Couldn’t requeue (${res.status})`);
+        const verb = action === 'drop' ? 'drop' : 'requeue';
+        setErr(body?.error || `Couldn’t ${verb} (${res.status})`);
         return;
       }
-      setFlash(`Requeued #${id}`);
-      await refresh();
-    } catch {
-      setErr('Lost connection');
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const doDrop = async (id) => {
-    setBusyId(id);
-    setErr('');
-    try {
-      const res = await fetch(
-        `/api/cloud-bridge/dead-letters/${id}/drop`,
-        { method: 'POST' },
-      );
-      if (res.status === 401 || res.status === 403) {
-        router.replace(
-          `/login-pin?next=${encodeURIComponent('/management/cloud-bridge')}`,
-        );
-        return;
+      setFlash(action === 'drop' ? `Dropped #${id}` : `Requeued #${id}`);
+      if (action === 'drop') {
+        setConfirmDropId(null);
+        if (expandedId === id) setExpandedId(null);
       }
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setErr(body?.error || `Couldn’t drop (${res.status})`);
-        return;
-      }
-      setFlash(`Dropped #${id}`);
-      setConfirmDropId(null);
-      if (expandedId === id) setExpandedId(null);
       await refresh();
     } catch {
       setErr('Lost connection');
@@ -289,12 +292,13 @@ export default function CloudBridgeBoard({
                 const isExpanded = expandedId === row.id;
                 const isConfirmingDrop = confirmDropId === row.id;
                 const isBusy = busyId === row.id;
-                return [
-                  <tr key={row.id} data-testid={`dlq-row-${row.id}`}>
+                return (
+                  <Fragment key={row.id}>
+                  <tr data-testid={`dlq-row-${row.id}`}>
                     <td style={{ fontFamily: 'monospace', fontSize: 12 }}>
                       {row.id}
                     </td>
-                    <td>{row.table}</td>
+                    <td>{batchLabel(row.table)}</td>
                     <td>{row.locationId}</td>
                     <td>{row.attempts}</td>
                     <td
@@ -335,7 +339,7 @@ export default function CloudBridgeBoard({
                         </button>
                         <button
                           type="button"
-                          onClick={() => doRequeue(row.id)}
+                          onClick={() => postAction(row.id, 'requeue')}
                           disabled={isBusy}
                           style={{
                             background: 'var(--accent)',
@@ -354,7 +358,7 @@ export default function CloudBridgeBoard({
                           <>
                             <button
                               type="button"
-                              onClick={() => doDrop(row.id)}
+                              onClick={() => postAction(row.id, 'drop')}
                               disabled={isBusy}
                               style={{
                                 background: 'var(--red)',
@@ -407,10 +411,9 @@ export default function CloudBridgeBoard({
                         )}
                       </div>
                     </td>
-                  </tr>,
-                  isExpanded && (
+                  </tr>
+                  {isExpanded && (
                     <tr
-                      key={`${row.id}-detail`}
                       id={`dlq-detail-${row.id}`}
                       style={{ background: 'var(--panel-2)' }}
                     >
@@ -438,12 +441,13 @@ export default function CloudBridgeBoard({
                             overflow: 'auto',
                           }}
                         >
-                          {JSON.stringify(row.rows, null, 2)}
+                          {JSON.stringify(displayPayload(row.rows), null, 2)}
                         </pre>
                       </td>
                     </tr>
-                  ),
-                ];
+                  )}
+                  </Fragment>
+                );
               })}
             </tbody>
           </table>
