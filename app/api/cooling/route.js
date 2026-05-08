@@ -117,9 +117,21 @@ async function coolingPatchHandler(req) {
     // SELECT + classifyCoolingStage + UPDATE must run in one transaction so
     // two concurrent stage-2 logs can't both decide stage off the same stale
     // pre-update `existing`, producing duplicate stage rows.
+    // Caller's location scope, taken from ?location=. Used as a
+    // cross-location IDOR guard below.
+    const callerLocation = locationFromRequest(req);
+
     const performUpdate = db.transaction(() => {
       const existing = db.prepare('SELECT * FROM cooling_log WHERE id=?').get(id);
       if (!existing) return { status: 404, error: 'unknown cooling batch' };
+
+      // Cross-location IDOR guard: a cook scoped to site-A must not be
+      // able to mutate a cooling batch belonging to site-B by guessing
+      // the numeric id. Surfaced as 404 (not 403) so the existence of a
+      // batch at another site doesn't leak.
+      if (existing.location_id !== callerLocation) {
+        return { status: 404, error: 'unknown cooling batch' };
+      }
 
       const decision = classifyCoolingStage({
         row: existing,

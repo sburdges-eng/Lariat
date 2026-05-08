@@ -26,10 +26,19 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-// next/headers cookies() mock has to load BEFORE the resolver picks
-// up the route's relative imports.
+// next-headers-mock-loader is preserved (some legacy code paths still
+// import next/headers); resolver.mjs handles extensionless specifiers.
 register(new URL('./next-headers-mock-loader.mjs', import.meta.url));
 register(new URL('./resolver.mjs', import.meta.url));
+
+// Force the PIN gate ON for these tests regardless of host env so the
+// 403 paths exercise the same code path production hits. With
+// LARIAT_PIN_SECRET unset, hasValidPinCookie accepts the legacy
+// unsigned 'lariat_pin_ok=1' cookie.
+const SAVED_PIN = process.env.LARIAT_PIN;
+const SAVED_PIN_SECRET = process.env.LARIAT_PIN_SECRET;
+process.env.LARIAT_PIN = '0000';
+delete process.env.LARIAT_PIN_SECRET;
 
 // chdir to a sandbox BEFORE importing lib/db so DB_PATH (captured at
 // module load) resolves under TMP_DIR. Recipes.json lives under
@@ -39,7 +48,6 @@ const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-recipes-slug-'));
 process.chdir(TMP_DIR);
 fs.mkdirSync(path.join(TMP_DIR, 'data', 'cache'), { recursive: true });
 
-const headersMock = await import('./next-headers-mock.mjs');
 const db = await import('../../lib/db.ts');
 
 db.setDbPathForTest(':memory:');
@@ -51,11 +59,13 @@ const { GET, PUT } = route;
 after(() => {
   db.setDbPathForTest(null);
   process.chdir(ORIGINAL_CWD);
+  if (SAVED_PIN === undefined) delete process.env.LARIAT_PIN;
+  else process.env.LARIAT_PIN = SAVED_PIN;
+  if (SAVED_PIN_SECRET !== undefined) process.env.LARIAT_PIN_SECRET = SAVED_PIN_SECRET;
   try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
 });
 
 beforeEach(() => {
-  headersMock.__setCookies(null);
   testDb.exec('DELETE FROM entities_recipes; DELETE FROM audit_events;');
   // Reset recipes.json between tests so the rewrite path is exercised
   // from a known starting state each time.
@@ -65,10 +75,19 @@ beforeEach(() => {
 
 const SLUG = 'house_ranch_dressing';
 
-function putReq(body) {
+// Default: ship the legacy unsigned PIN cookie so most tests are
+// authenticated. PIN-gate negative tests pass `{ withAuth: false }` or
+// `{ cookieValue: '0' }` to exercise the 403 path.
+function putReq(body, { withAuth = true, cookieValue } = {}) {
+  const headers = { 'content-type': 'application/json' };
+  if (cookieValue !== undefined) {
+    headers.cookie = `lariat_pin_ok=${cookieValue}`;
+  } else if (withAuth) {
+    headers.cookie = 'lariat_pin_ok=1';
+  }
   return new Request(`http://localhost/api/recipes/${SLUG}`, {
     method: 'PUT',
-    headers: { 'content-type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   });
 }
@@ -107,15 +126,14 @@ function countAuditForRecipe() {
 describe('PUT /api/recipes/[slug] — PIN gate produces no side effect', () => {
   it('403 without cookie writes neither entity nor audit row', async () => {
     const before = { ent: countEntities(), aud: countAuditForRecipe() };
-    const res = await PUT(putReq(VALID_BODY), { params: { slug: SLUG } });
+    const res = await PUT(putReq(VALID_BODY, { withAuth: false }), { params: { slug: SLUG } });
     assert.strictEqual(res.status, 403);
     assert.strictEqual(countEntities(), before.ent);
     assert.strictEqual(countAuditForRecipe(), before.aud);
   });
 
   it('403 with wrong cookie value writes nothing', async () => {
-    headersMock.__setCookies({ lariat_pin_ok: '0' });
-    const res = await PUT(putReq(VALID_BODY), { params: { slug: SLUG } });
+    const res = await PUT(putReq(VALID_BODY, { cookieValue: '0' }), { params: { slug: SLUG } });
     assert.strictEqual(res.status, 403);
     assert.strictEqual(countEntities(), 0);
     assert.strictEqual(countAuditForRecipe(), 0);
@@ -127,9 +145,7 @@ describe('PUT /api/recipes/[slug] — PIN gate produces no side effect', () => {
 // ─────────────────────────────────────────────────────────────────
 
 describe('PUT /api/recipes/[slug] — DB persistence', () => {
-  beforeEach(() => {
-    headersMock.__setCookies({ lariat_pin_ok: '1' });
-  });
+  // putReq defaults to withAuth=true; cookie ships automatically.
 
   it('200 + writes one row to entities_recipes with slug + name + yield', async () => {
     assert.strictEqual(countEntities(), 0);
@@ -254,9 +270,7 @@ describe('PUT /api/recipes/[slug] — DB persistence', () => {
 // ─────────────────────────────────────────────────────────────────
 
 describe('GET /api/recipes/[slug] — round-trip', () => {
-  beforeEach(() => {
-    headersMock.__setCookies({ lariat_pin_ok: '1' });
-  });
+  // putReq defaults to withAuth=true; cookie ships automatically.
 
   it('returns the recipe doc that the most recent PUT persisted', async () => {
     await PUT(putReq(VALID_BODY), { params: { slug: SLUG } });

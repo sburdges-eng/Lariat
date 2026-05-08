@@ -3,7 +3,7 @@
 // endpoint + placeholder GET endpoint.
 //
 // The PUT handler:
-//   - 403s when the `lariat_pin_ok` cookie is missing or not '1'
+//   - 403s when the `lariat_pin_ok` cookie is missing or invalid
 //   - 400s on missing/empty name or non-array ingredients
 //   - 200s on valid payload, returns an audit entry
 //   - 500s on malformed JSON body
@@ -14,10 +14,11 @@
 // Pattern mirrors test-checks-api.mjs: we import the route handler
 // directly and call it with `Request` objects — no running server.
 //
-// Wrinkle: the PUT handler reads the PIN cookie via `cookies()` from
-// `next/headers`, which only works inside a Next request-scope. The
-// next-headers-mock-loader swaps that import for a local mock whose
-// cookie jar we control via `__setCookies()` before each call.
+// Auth gate: as of 2026-05-08, the route reads the cookie via
+// hasPinCookie(req) (the same shape every other PIN-gated route uses)
+// rather than next/headers cookies(). We set LARIAT_PIN at the top of
+// this file so pinRequiredForPic() returns true; with LARIAT_PIN_SECRET
+// unset, the bare 'lariat_pin_ok=1' cookie is accepted (legacy mode).
 //
 // Run: node --test tests/js/test-recipe-api.mjs
 
@@ -28,12 +29,19 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-// Order matters. next/headers redirect must resolve BEFORE the
-// resolver.mjs gets a crack at extensionless specifiers. Either
-// order works since they have disjoint matching domains, but this
-// is the intentional read.
+// next-headers-mock-loader is preserved (some legacy code paths still
+// import next/headers); resolver.mjs handles extensionless specifiers.
 register(new URL('./next-headers-mock-loader.mjs', import.meta.url));
 register(new URL('./resolver.mjs', import.meta.url));
+
+// Force the PIN gate ON for these tests regardless of host env so the
+// 403 paths exercise the same code path production hits. With
+// LARIAT_PIN_SECRET unset, hasValidPinCookie accepts the legacy
+// unsigned 'lariat_pin_ok=1' cookie.
+const SAVED_PIN = process.env.LARIAT_PIN;
+const SAVED_PIN_SECRET = process.env.LARIAT_PIN_SECRET;
+process.env.LARIAT_PIN = '0000';
+delete process.env.LARIAT_PIN_SECRET;
 
 // The auditLog module writes to `${process.cwd()}/data/audit/`. Point
 // cwd at a throw-away dir BEFORE importing the route so the module
@@ -43,7 +51,6 @@ const ORIGINAL_CWD = process.cwd();
 const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-recipe-api-'));
 process.chdir(TMP_DIR);
 
-const headersMock = await import('./next-headers-mock.mjs');
 const route = await import('../../app/api/recipes/[slug]/route.js');
 
 const { GET, PUT } = route;
@@ -51,19 +58,27 @@ const SLUG = 'test-recipe';
 
 after(() => {
   process.chdir(ORIGINAL_CWD);
+  if (SAVED_PIN === undefined) delete process.env.LARIAT_PIN;
+  else process.env.LARIAT_PIN = SAVED_PIN;
+  if (SAVED_PIN_SECRET !== undefined) process.env.LARIAT_PIN_SECRET = SAVED_PIN_SECRET;
   try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
-});
-
-beforeEach(() => {
-  headersMock.__setCookies(null);
 });
 
 // ── Helpers ──────────────────────────────────────────────────────
 
-function putReq(body, { rawBody } = {}) {
+// Default: include the legacy unsigned PIN cookie so most tests are
+// authenticated. Auth-gate tests pass `{ withAuth: false }` to omit it,
+// or `{ cookieValue: 'something' }` to set a specific value.
+function putReq(body, { rawBody, withAuth = true, cookieValue } = {}) {
+  const headers = { 'content-type': 'application/json' };
+  if (cookieValue !== undefined) {
+    headers.cookie = `lariat_pin_ok=${cookieValue}`;
+  } else if (withAuth) {
+    headers.cookie = 'lariat_pin_ok=1';
+  }
   return new Request(`http://localhost/api/recipes/${SLUG}`, {
     method: 'PUT',
-    headers: { 'content-type': 'application/json' },
+    headers,
     body: rawBody !== undefined ? rawBody : JSON.stringify(body),
   });
 }
@@ -87,25 +102,35 @@ const VALID_BODY = {
 
 describe('PUT /api/recipes/[slug] — auth gate', () => {
   it('403 when the lariat_pin_ok cookie is absent', async () => {
-    // No __setCookies → empty jar
-    const res = await PUT(putReq(VALID_BODY), ctx);
+    const res = await PUT(putReq(VALID_BODY, { withAuth: false }), ctx);
     assert.strictEqual(res.status, 403);
     const body = await res.json();
     assert.match(body.error, /Unauthorized/);
   });
 
-  it('403 when lariat_pin_ok is not "1"', async () => {
-    headersMock.__setCookies({ lariat_pin_ok: '0' });
-    const res = await PUT(putReq(VALID_BODY), ctx);
+  it('403 when lariat_pin_ok is "0"', async () => {
+    const res = await PUT(putReq(VALID_BODY, { cookieValue: '0' }), ctx);
     assert.strictEqual(res.status, 403);
   });
 
   it('403 when lariat_pin_ok is some other truthy value', async () => {
-    // Pins the strict-equality-with-"1" check. Prevents a regression
-    // where someone relaxes the gate to pinOk?.value (truthy).
-    headersMock.__setCookies({ lariat_pin_ok: 'yes' });
-    const res = await PUT(putReq(VALID_BODY), ctx);
+    // Pins the strict-equality-with-"1" check (in legacy unsigned mode
+    // — LARIAT_PIN_SECRET unset). Prevents a regression where someone
+    // relaxes the gate to truthy-string acceptance.
+    const res = await PUT(putReq(VALID_BODY, { cookieValue: 'yes' }), ctx);
     assert.strictEqual(res.status, 403);
+  });
+
+  it('403 when a forged unsigned cookie is sent and LARIAT_PIN_SECRET is set', async () => {
+    // With the secret set, only signed v1.<base64> cookies pass. A
+    // bare '=1' is rejected — that is the entire point of signing.
+    process.env.LARIAT_PIN_SECRET = 'test-secret-please-ignore';
+    try {
+      const res = await PUT(putReq(VALID_BODY), ctx);
+      assert.strictEqual(res.status, 403);
+    } finally {
+      delete process.env.LARIAT_PIN_SECRET;
+    }
   });
 });
 
@@ -114,9 +139,8 @@ describe('PUT /api/recipes/[slug] — auth gate', () => {
 // ─────────────────────────────────────────────────────────────────
 
 describe('PUT /api/recipes/[slug] — payload validation', () => {
-  beforeEach(() => {
-    headersMock.__setCookies({ lariat_pin_ok: '1' });
-  });
+  // putReq defaults to withAuth=true so the cookie ships on every
+  // request — these tests focus on the 400 paths beyond the auth gate.
 
   it('400 when name is empty string', async () => {
     const res = await PUT(putReq({ ...VALID_BODY, name: '' }), ctx);
@@ -159,9 +183,7 @@ describe('PUT /api/recipes/[slug] — payload validation', () => {
 // ─────────────────────────────────────────────────────────────────
 
 describe('PUT /api/recipes/[slug] — success path', () => {
-  beforeEach(() => {
-    headersMock.__setCookies({ lariat_pin_ok: '1' });
-  });
+  // putReq defaults to withAuth=true; cookie ships automatically.
 
   it('200 with audit entry on valid payload', async () => {
     const res = await PUT(putReq(VALID_BODY), ctx);
@@ -241,7 +263,6 @@ describe('PUT /api/recipes/[slug] — success path', () => {
 
 describe('PUT /api/recipes/[slug] — malformed body', () => {
   it('500 with error message when body is not valid JSON', async () => {
-    headersMock.__setCookies({ lariat_pin_ok: '1' });
     const res = await PUT(putReq(null, { rawBody: 'invalid json {' }), ctx);
     assert.strictEqual(res.status, 500);
     const body = await res.json();
