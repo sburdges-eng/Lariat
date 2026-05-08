@@ -97,6 +97,107 @@ describe('POST /api/performance-reviews', () => {
   });
 });
 
+// ─────────────────────────────────────────────────────────────────
+// Two-track audit isolation (2026-05-08 fix)
+//
+// Per docs/PATTERNS.md §3, the file audit (logAuditAction → JSONL)
+// MUST run AFTER the db.transaction commits, not inside it. The fix
+// moves logAuditAction outside the transaction so a file-write failure
+// can no longer roll back the DB review row, and a DB-commit failure
+// can no longer leave a ghost JSONL entry.
+// ─────────────────────────────────────────────────────────────────
+
+describe('POST /api/performance-reviews — two-track audit isolation', () => {
+  it('writes a file-audit JSONL entry when LARIAT_AUDIT_PATH is honored', async () => {
+    const auditFile = path.join(TMP_DIR, 'mgmt-actions.jsonl');
+    if (fs.existsSync(auditFile)) fs.unlinkSync(auditFile);
+
+    const prevAuditPath = process.env.LARIAT_AUDIT_PATH;
+    process.env.LARIAT_AUDIT_PATH = auditFile;
+    try {
+      const res = await POST(postReq({
+        cook_name: 'Alice',
+        cook_uuid: 'uuid-alice-123',
+        review_date: '2026-05-05',
+        punctuality_score: 5,
+        technique_score: 4,
+        speed_score: 5,
+        reviewer_name: 'Chef Bob',
+      }));
+      assert.strictEqual(res.status, 200);
+    } finally {
+      if (prevAuditPath === undefined) delete process.env.LARIAT_AUDIT_PATH;
+      else process.env.LARIAT_AUDIT_PATH = prevAuditPath;
+    }
+
+    assert.ok(fs.existsSync(auditFile), 'audit JSONL file was written');
+    const lines = fs.readFileSync(auditFile, 'utf8').split('\n').filter(Boolean);
+    assert.strictEqual(lines.length, 1);
+    const entry = JSON.parse(lines[0]);
+    assert.strictEqual(entry.action, 'performance_review_logged');
+    assert.strictEqual(entry.user, 'Chef Bob');
+    assert.strictEqual(entry.changes.cook, 'Alice');
+  });
+
+  it('a failing file-audit write does NOT roll back the DB review row', async () => {
+    // Point LARIAT_AUDIT_PATH at a path whose parent will be created by
+    // the auditLog module (ensureAuditDir mkdirs); then chmod the parent
+    // to read-only so the appendFileSync inside logAuditAction fails.
+    // POSIX-only — skip on platforms where chmod doesn't restrict the
+    // current user (root, Windows).
+    if (process.getuid && process.getuid() === 0) return; // root bypasses perms
+    if (process.platform === 'win32') return;
+
+    const auditDir = path.join(TMP_DIR, 'readonly-audit');
+    fs.mkdirSync(auditDir, { recursive: true });
+    const auditFile = path.join(auditDir, 'mgmt-actions.jsonl');
+
+    // Pre-create the file so chmod 0o400 still leaves the path
+    // resolvable; appendFileSync on a read-only file is the actual
+    // failure we're forcing.
+    fs.writeFileSync(auditFile, '');
+    fs.chmodSync(auditFile, 0o400);
+
+    const prevAuditPath = process.env.LARIAT_AUDIT_PATH;
+    process.env.LARIAT_AUDIT_PATH = auditFile;
+    try {
+      const res = await POST(postReq({
+        cook_name: 'Bob',
+        cook_uuid: 'uuid-bob-456',
+        review_date: '2026-05-06',
+        punctuality_score: 4,
+        technique_score: 5,
+        speed_score: 4,
+        reviewer_name: 'Chef Carol',
+      }));
+
+      // The DB write succeeded and the response is 200 — the
+      // best-effort file audit failure does not roll back the durable
+      // DB row.
+      assert.strictEqual(res.status, 200);
+
+      // DB row landed.
+      assert.strictEqual(countReviews(), 1);
+      const reviewRow = testDb
+        .prepare('SELECT cook_name FROM performance_reviews ORDER BY id DESC LIMIT 1')
+        .get();
+      assert.strictEqual(reviewRow.cook_name, 'Bob');
+
+      // DB-track audit row landed (postAuditEvent runs inside the tx).
+      assert.strictEqual(countAudit(), 1);
+
+      // File-track audit DID NOT land (the file is still empty).
+      const txt = fs.readFileSync(auditFile, 'utf8');
+      assert.strictEqual(txt, '', 'file-audit write failed silently');
+    } finally {
+      // Restore perms so the after() rmSync can clean up.
+      try { fs.chmodSync(auditFile, 0o600); } catch { /* ignore */ }
+      if (prevAuditPath === undefined) delete process.env.LARIAT_AUDIT_PATH;
+      else process.env.LARIAT_AUDIT_PATH = prevAuditPath;
+    }
+  });
+});
+
 describe('GET /api/performance-reviews', () => {
   it('returns reviews for the current location', async () => {
     await POST(postReq({

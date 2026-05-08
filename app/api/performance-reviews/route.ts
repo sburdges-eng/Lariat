@@ -56,40 +56,67 @@ async function performanceReviewPostHandler(req: Request) {
     const db = getDb();
     const loc = locationFromBody(body);
 
+    // Two-track audit per docs/PATTERNS.md §3:
+    //   - DB audit (audit_events) MUST be inside the same db.transaction
+    //     as the source INSERT — a rollback wipes the audit row with the
+    //     source row.
+    //   - File audit (data/audit/management-actions.jsonl, via
+    //     lib/auditLog.mjs::logAuditAction) is a separate track, owned
+    //     by the management-actions surface, and writes via
+    //     fs.appendFileSync.
+    //
+    // The two MUST NOT mix. Calling logAuditAction inside the
+    // db.transaction was a regression: a synchronous file-write failure
+    // (disk full, audit dir missing) would abort the SQLite transaction
+    // and roll back the already-INSERTed review row. Inverse: a SQLite
+    // commit failure AFTER the file write left a ghost JSONL entry with
+    // no DB row backing it.
+    //
+    // Fix: emit the file audit AFTER the transaction commits. If the
+    // file-write fails the DB row + audit_events row are durable and
+    // authoritative; we log and move on (best-effort, mirrors the
+    // recipes/[slug] PUT pattern).
     const newId = db.transaction(() => {
       const info = db.prepare(`
         INSERT INTO performance_reviews (
-          cook_name, cook_uuid, review_date, punctuality_score, technique_score, speed_score, 
+          cook_name, cook_uuid, review_date, punctuality_score, technique_score, speed_score,
           notes, reviewer_name, location_id
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(cookName, cookUuid, reviewDate, punctuality, technique, speed, notes, reviewerName, loc);
-      
+
       const id = Number(info.lastInsertRowid);
       postAuditEvent({
-        entity: 'performance_reviews', 
-        entity_id: id, 
+        entity: 'performance_reviews',
+        entity_id: id,
         action: 'insert',
-        actor_cook_id: null, 
+        actor_cook_id: null,
         actor_source: 'api',
-        location_id: loc, 
-        payload: { 
-          cook_name: cookName, 
+        location_id: loc,
+        payload: {
+          cook_name: cookName,
           cook_uuid: cookUuid,
-          review_date: reviewDate, 
-          punctuality, technique, speed, 
-          reviewer_name: reviewerName 
+          review_date: reviewDate,
+          punctuality, technique, speed,
+          reviewer_name: reviewerName
         },
       });
 
+      return id;
+    })();
+
+    // File-track audit fires after the DB tx commits. Best-effort —
+    // a write failure here is logged but does NOT roll back the
+    // (already-committed) DB row + audit_events row.
+    try {
       logAuditAction({
         action: 'performance_review_logged',
         user: reviewerName,
         changes: { cook: cookName, cook_uuid: cookUuid, date: reviewDate },
         location: loc,
       });
-
-      return id;
-    })();
+    } catch (auditErr) {
+      console.error('POST /api/performance-reviews: file-audit write failed:', auditErr);
+    }
 
     return Response.json({ ok: true, id: newId });
   } catch (err) {
