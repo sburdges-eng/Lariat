@@ -369,7 +369,12 @@ describe('PATCH /api/cleaning-schedule', () => {
     assert.strictEqual(res.status, 400);
   });
 
-  it('rejects empty-string location_id with 400 (no silent default substitution)', async () => {
+  it('silently ignores body.location_id (not a PATCH-able field; row stays put)', async () => {
+    // location_id is row-identity, not a mutable property — see
+    // test-cleaning-schedule-patch-location-immutable.mjs for the full
+    // security regression suite. Here we just pin that the existing PATCH
+    // contract no longer treats location_id as editable: any value
+    // (empty, blank, or a different site) is silently dropped.
     const row = await postRow(base({ location_id: 'downtown' }));
     const res = await route.PATCH(jsonReq(
       'PATCH', 'http://localhost/api/cleaning-schedule', {
@@ -377,10 +382,13 @@ describe('PATCH /api/cleaning-schedule', () => {
         location_id: '',
       },
     ));
+    // Body has only {id, location_id} now — location_id is no longer
+    // counted as an editable field, so we get the standard "no editable
+    // fields supplied" 400 instead of a location-specific error.
     assert.strictEqual(res.status, 400);
     const j = await res.json();
-    assert.match(String(j.error || ''), /location_id/);
-    // The row must not have been silently moved.
+    assert.match(String(j.error || ''), /no editable fields supplied/);
+    // The row must not have been silently moved or blanked.
     const after = selectById(row.id);
     assert.strictEqual(after.location_id, 'downtown');
   });

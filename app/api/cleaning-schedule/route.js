@@ -127,16 +127,13 @@ async function cleaningSchedulePatchHandler(req) {
       vals.push(val);
     };
 
-    if ('location_id' in body) {
-      // Blank string is an explicit error (don't silently move the row to
-      // DEFAULT_LOCATION_ID). Absent key is handled above by the `in` check
-      // and falls through to the usual create/edit path.
-      if (typeof body.location_id === 'string' && body.location_id.trim() === '') {
-        return Response.json({ error: 'location_id cannot be empty' }, { status: 400 });
-      }
-      const loc = clip(body.location_id, 64) || DEFAULT_LOCATION_ID;
-      push('location_id', loc);
-    }
+    // SECURITY: location_id is row-identity, not a mutable property. The
+    // route is not PIN-gated, so accepting body.location_id on PATCH would
+    // let any LAN client move a row into another site's UI (cross-tenant
+    // leak + data poisoning). Initial creation (POST) is the right place
+    // to set location; on PATCH the field is silently ignored. To "move"
+    // a routine, create a new row at the target location.
+    // Audit: docs/audit/2026-05-08-codebase-audit.md §1, Tier-1 HIGH #4.
     if ('area' in body) {
       const area = clip(body.area, 120);
       if (!area) {
