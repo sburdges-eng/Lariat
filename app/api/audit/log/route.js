@@ -1,6 +1,11 @@
 import { getRecentAuditLog, getAuditLogByAction, getAuditLogForRecipe } from '../../../../lib/auditLog.mjs';
 import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
 
+// Force dynamic — the handler reads request.url and the audit JSONL
+// from disk on every call, so static prerender at build time can't
+// produce a useful response and surfaces a 500 in build logs.
+export const dynamic = 'force-dynamic';
+
 // GET /api/audit/log - retrieve audit logs (management only).
 //
 // Pre-fix this route did `pinOk?.value !== '1'`, which silently rejected
@@ -46,8 +51,12 @@ export async function GET(request) {
       logs: logs.slice(0, limit),
     });
   } catch (error) {
+    // Don't echo error.message to the caller — it can leak SQL, file
+    // paths, or other internals. Server logs keep the detail; the
+    // client gets a generic 500.
+    console.error('GET /api/audit/log failed:', error);
     return Response.json(
-      { error: `Failed to retrieve audit logs: ${error.message}` },
+      { error: 'Failed to retrieve audit logs' },
       { status: 500 }
     );
   }
