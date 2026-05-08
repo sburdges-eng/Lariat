@@ -23,10 +23,9 @@
 // Run:
 //   node --experimental-strip-types --test tests/js/test-cloud-bridge-push.mjs
 
-import { describe, it, before, after } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
-import http from 'node:http';
 import crypto from 'node:crypto';
 
 register(new URL('./resolver.mjs', import.meta.url));
@@ -49,173 +48,194 @@ function makeBatch(overrides = {}) {
   };
 }
 
-/**
- * Spin up a one-handler HTTP server on a random port. Returns
- * { url, server, requests } — `requests` is an array the caller
- * can inspect after pushBatch resolves to assert headers + body
- * matched the contract.
- */
-function startStubServer(handler) {
+async function withMockFetch(handler, fn) {
+  const originalFetch = globalThis.fetch;
   const requests = [];
-  const server = http.createServer((req, res) => {
-    let body = '';
-    req.on('data', (chunk) => { body += chunk; });
-    req.on('end', () => {
-      requests.push({ method: req.method, url: req.url, headers: req.headers, body });
-      handler(req, res, body);
-    });
-  });
-  return new Promise((resolve) => {
-    server.listen(0, '127.0.0.1', () => {
-      const { port } = server.address();
-      resolve({ url: `http://127.0.0.1:${port}`, server, requests });
-    });
-  });
-}
 
-function close(server) {
-  return new Promise((resolve) => server.close(() => resolve()));
+  globalThis.fetch = async (url, init = {}) => {
+    const req = {
+      url: String(url),
+      method: init.method,
+      headers: init.headers ?? {},
+      body: typeof init.body === 'string' ? init.body : '',
+      signal: init.signal,
+    };
+    requests.push(req);
+    return handler(req);
+  };
+
+  try {
+    return await fn(requests);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 }
 
 describe('pushBatch — happy path (202)', () => {
-  let stub;
-  before(async () => {
-    stub = await startStubServer((req, res, _body) => {
-      res.writeHead(202, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ batch_id: 4271 }));
-    });
-  });
-  after(async () => { await close(stub.server); });
-
   it('returns { ok: true } and posts to /v1/snapshot', async () => {
-    const result = await pushBatch(makeBatch(), { url: stub.url, secret: SECRET });
-    assert.deepStrictEqual(result, { ok: true });
-    assert.equal(stub.requests.length, 1);
-    assert.equal(stub.requests[0].method, 'POST');
-    assert.equal(stub.requests[0].url, '/v1/snapshot');
+    await withMockFetch(
+      () => new Response(JSON.stringify({ batch_id: 4271 }), {
+        status: 202,
+        headers: { 'content-type': 'application/json' },
+      }),
+      async (requests) => {
+        const result = await pushBatch(makeBatch(), {
+          url: 'https://bridge.example',
+          secret: SECRET,
+        });
+        assert.deepStrictEqual(result, { ok: true });
+        assert.equal(requests.length, 1);
+        assert.equal(requests[0].method, 'POST');
+        assert.equal(requests[0].url, 'https://bridge.example/v1/snapshot');
+      },
+    );
   });
 });
 
 describe('pushBatch — 4xx is permanent reject', () => {
-  let stub;
-  before(async () => {
-    stub = await startStubServer((req, res) => {
-      res.writeHead(422, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ error: 'table not on allow-list', table: 'sales_lines' }));
-    });
-  });
-  after(async () => { await close(stub.server); });
-
   it('returns { ok: false, permanent: true, status: 422 } so the drainer ack-drops', async () => {
-    const result = await pushBatch(makeBatch(), { url: stub.url, secret: SECRET });
-    assert.equal(result.ok, false);
-    assert.equal(result.permanent, true);
-    assert.equal(result.status, 422);
-    assert.match(result.reason ?? '', /allow-list/);
+    await withMockFetch(
+      () => new Response(JSON.stringify({ error: 'table not on allow-list', table: 'sales_lines' }), {
+        status: 422,
+        headers: { 'content-type': 'application/json' },
+      }),
+      async () => {
+        const result = await pushBatch(makeBatch(), {
+          url: 'https://bridge.example',
+          secret: SECRET,
+        });
+        assert.equal(result.ok, false);
+        assert.equal(result.permanent, true);
+        assert.equal(result.status, 422);
+        assert.match(result.reason ?? '', /allow-list/);
+      },
+    );
   });
 });
 
 describe('pushBatch — 5xx is transient', () => {
-  let stub;
-  before(async () => {
-    stub = await startStubServer((req, res) => {
-      res.writeHead(503, { 'content-type': 'text/plain' });
-      res.end('upstream is napping');
-    });
-  });
-  after(async () => { await close(stub.server); });
-
   it('returns { ok: false, permanent: false, status: 503 } so the drainer nack-retries', async () => {
-    const result = await pushBatch(makeBatch(), { url: stub.url, secret: SECRET });
-    assert.equal(result.ok, false);
-    assert.equal(result.permanent, false);
-    assert.equal(result.status, 503);
+    await withMockFetch(
+      () => new Response('upstream is napping', {
+        status: 503,
+        headers: { 'content-type': 'text/plain' },
+      }),
+      async () => {
+        const result = await pushBatch(makeBatch(), {
+          url: 'https://bridge.example',
+          secret: SECRET,
+        });
+        assert.equal(result.ok, false);
+        assert.equal(result.permanent, false);
+        assert.equal(result.status, 503);
+      },
+    );
   });
 });
 
 describe('pushBatch — network error is transient', () => {
   it('returns { ok: false, permanent: false } when the URL is unreachable', async () => {
-    // Pick a port unlikely to be open; even if something is, the test
-    // server isn't there so we'll get a non-2xx or ECONNREFUSED.
-    const result = await pushBatch(
-      makeBatch(),
-      { url: 'http://127.0.0.1:1', secret: SECRET, timeoutMs: 1500 },
+    await withMockFetch(
+      () => {
+        throw new Error('connect ECONNREFUSED');
+      },
+      async () => {
+        const result = await pushBatch(
+          makeBatch(),
+          { url: 'https://bridge.example', secret: SECRET, timeoutMs: 1500 },
+        );
+        assert.equal(result.ok, false);
+        assert.equal(result.permanent, false);
+        assert.ok(result.reason);
+      },
     );
-    assert.equal(result.ok, false);
-    assert.equal(result.permanent, false);
-    assert.ok(result.reason);
   });
 });
 
 describe('pushBatch — timeout is transient', () => {
-  let stub;
-  before(async () => {
-    // Server never responds — pushBatch should hit timeoutMs and abort.
-    stub = await startStubServer((_req, _res, _body) => {
-      // intentionally no res.end
-    });
-  });
-  after(async () => { await close(stub.server); });
-
   it('returns { ok: false, permanent: false } and aborts within timeoutMs', async () => {
-    const t0 = Date.now();
-    const result = await pushBatch(
-      makeBatch(),
-      { url: stub.url, secret: SECRET, timeoutMs: 250 },
+    await withMockFetch(
+      ({ signal }) => new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => {
+          reject(new DOMException('The operation was aborted.', 'AbortError'));
+        }, { once: true });
+      }),
+      async () => {
+        const t0 = Date.now();
+        const result = await pushBatch(
+          makeBatch(),
+          { url: 'https://bridge.example', secret: SECRET, timeoutMs: 250 },
+        );
+        const elapsed = Date.now() - t0;
+        assert.equal(result.ok, false);
+        assert.equal(result.permanent, false);
+        // Generous upper bound — abort scheduling + GC overhead can land
+        // ~300ms on a loaded test runner; tighter would be flaky.
+        assert.ok(elapsed < 2000, `timeout took ${elapsed}ms, expected < 2000`);
+      },
     );
-    const elapsed = Date.now() - t0;
-    assert.equal(result.ok, false);
-    assert.equal(result.permanent, false);
-    // Generous upper bound — node:http abort + GC overhead can land ~300ms
-    // on a loaded test runner; tighter would be flaky.
-    assert.ok(elapsed < 2000, `timeout took ${elapsed}ms, expected < 2000`);
   });
 });
 
 describe('pushBatch — wire contract (§5)', () => {
-  let stub;
-  before(async () => {
-    stub = await startStubServer((req, res, _body) => {
-      res.writeHead(202, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ batch_id: 4271 }));
-    });
-  });
-  after(async () => { await close(stub.server); });
-
   it('sets Idempotency-Key, X-Lariat-Location, and a present X-Lariat-Signature', async () => {
-    await pushBatch(makeBatch(), { url: stub.url, secret: SECRET });
-    const req = stub.requests.at(-1);
-    assert.equal(req.headers['idempotency-key'], '4271');
-    assert.equal(req.headers['x-lariat-location'], 'default');
-    assert.equal(req.headers['content-type'], 'application/json');
-    assert.ok(req.headers['x-lariat-signature'], 'signature header missing');
-    assert.match(req.headers['x-lariat-signature'], /^[0-9a-f]{64}$/, 'signature should be 64-hex SHA-256');
+    await withMockFetch(
+      () => new Response(JSON.stringify({ batch_id: 4271 }), {
+        status: 202,
+        headers: { 'content-type': 'application/json' },
+      }),
+      async (requests) => {
+        await pushBatch(makeBatch(), { url: 'https://bridge.example', secret: SECRET });
+        const req = requests.at(-1);
+        assert.equal(req.headers['idempotency-key'], '4271');
+        assert.equal(req.headers['x-lariat-location'], 'default');
+        assert.equal(req.headers['content-type'], 'application/json');
+        assert.ok(req.headers['x-lariat-signature'], 'signature header missing');
+        assert.match(req.headers['x-lariat-signature'], /^[0-9a-f]{64}$/, 'signature should be 64-hex SHA-256');
+      },
+    );
   });
 
   it('signs HMAC-SHA256(secret, body || idempotency-key) — server-side recompute matches', async () => {
-    await pushBatch(makeBatch({ id: 999, locationId: 'kitchen-1' }), {
-      url: stub.url,
-      secret: SECRET,
-    });
-    const req = stub.requests.at(-1);
-    const sig = req.headers['x-lariat-signature'];
-    const expected = crypto
-      .createHmac('sha256', SECRET)
-      .update(req.body)
-      .update(String(req.headers['idempotency-key']))
-      .digest('hex');
-    assert.equal(sig, expected);
+    await withMockFetch(
+      () => new Response(JSON.stringify({ batch_id: 999 }), {
+        status: 202,
+        headers: { 'content-type': 'application/json' },
+      }),
+      async (requests) => {
+        await pushBatch(makeBatch({ id: 999, locationId: 'kitchen-1' }), {
+          url: 'https://bridge.example',
+          secret: SECRET,
+        });
+        const req = requests.at(-1);
+        const sig = req.headers['x-lariat-signature'];
+        const expected = crypto
+          .createHmac('sha256', SECRET)
+          .update(req.body)
+          .update(String(req.headers['idempotency-key']))
+          .digest('hex');
+        assert.equal(sig, expected);
+      },
+    );
   });
 
   it('body shape matches §5.3 — { table, location_id, batch_id, rows }', async () => {
-    await pushBatch(makeBatch(), { url: stub.url, secret: SECRET });
-    const req = stub.requests.at(-1);
-    const parsed = JSON.parse(req.body);
-    assert.equal(parsed.table, 'settlement_summaries');
-    assert.equal(parsed.location_id, 'default');
-    assert.equal(parsed.batch_id, 4271);
-    assert.ok(Array.isArray(parsed.rows));
-    assert.equal(parsed.rows.length, 1);
-    assert.equal(parsed.rows[0].totals_cents, 12345);
+    await withMockFetch(
+      () => new Response(JSON.stringify({ batch_id: 4271 }), {
+        status: 202,
+        headers: { 'content-type': 'application/json' },
+      }),
+      async (requests) => {
+        await pushBatch(makeBatch(), { url: 'https://bridge.example', secret: SECRET });
+        const req = requests.at(-1);
+        const parsed = JSON.parse(req.body);
+        assert.equal(parsed.table, 'settlement_summaries');
+        assert.equal(parsed.location_id, 'default');
+        assert.equal(parsed.batch_id, 4271);
+        assert.ok(Array.isArray(parsed.rows));
+        assert.equal(parsed.rows.length, 1);
+        assert.equal(parsed.rows[0].totals_cents, 12345);
+      },
+    );
   });
 });
