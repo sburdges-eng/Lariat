@@ -1,4 +1,26 @@
+// Pest-control rule module (F8 / FDA §6-501.111).
+//
+// FDA §6-501.111 requires the operator to control pests by routinely
+// inspecting incoming shipments, the premises, and using methods that
+// minimize pest presence. We log three entry kinds — vendor service
+// visits, line-cook sightings, and trap-check sweeps — so the inspector
+// has a contemporaneous record on the door.
+//
+// Citations are FDA 2022 Food Code (Colorado incorporates by reference
+// at 6 CCR 1010-2 §3-101). The §-cite lives as a named constant here
+// so the UI / inspector tooltip / audit row never hand-types it.
+//
+// Pure module: no I/O, no DB, no clock read.
+
 import type { PestControlEntry } from './db';
+
+// ── Citations (single source of truth) ────────────────────────────
+
+/** Controlling FDA Food Code section for pest presence on the premises. */
+export const PEST_CITATION =
+  'FDA §6-501.111 — controlling pests; minimizing presence of pests on the premises';
+
+// ── Enums ─────────────────────────────────────────────────────────
 
 const ENTRY_TYPES = new Set(['service_visit', 'sighting', 'trap_check']);
 const PESTS = new Set(['roach', 'mouse', 'fly', 'ant', 'other']);
