@@ -10,19 +10,27 @@ import { cookies } from 'next/headers';
 import { getDb, todayISO } from '../../../lib/db';
 import { getStaff } from '../../../lib/data';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
+import { verifyPinCookieValue } from '../../../lib/pinCookie';
 import CertBoard from './CertBoard.jsx';
 
 export const dynamic = 'force-dynamic';
 
-export default function CertsPage({ searchParams }) {
+export default async function CertsPage({ searchParams }) {
   const loc =
     typeof searchParams?.location === 'string' && searchParams.location.trim()
       ? searchParams.location.trim()
       : DEFAULT_LOCATION_ID;
   const today = todayISO();
 
+  // Verify via the HMAC path that middleware uses. Pre-2026-05-08 the
+  // raw `=== '1'` compare was always false with LARIAT_PIN_SECRET set
+  // (the cookie value is `v1.<base64>`), so the PIC-only renew form
+  // never appeared for authenticated managers.
   const jar = cookies();
-  const pinOk = jar.get('lariat_pin_ok')?.value === '1';
+  const pinOk = await verifyPinCookieValue(
+    jar.get('lariat_pin_ok')?.value,
+    process.env.LARIAT_PIN_SECRET,
+  );
 
   const db = getDb();
   const rows = db

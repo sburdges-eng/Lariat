@@ -9,18 +9,27 @@ import { cookies } from 'next/headers';
 import { getDb } from '../../../lib/db';
 import { getStaff } from '../../../lib/data';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
+import { verifyPinCookieValue } from '../../../lib/pinCookie';
 import SickWorkerBoard from './SickWorkerBoard.jsx';
 
 export const dynamic = 'force-dynamic';
 
-export default function SickWorkerPage({ searchParams }) {
+export default async function SickWorkerPage({ searchParams }) {
   const loc =
     typeof searchParams?.location === 'string' && searchParams.location.trim()
       ? searchParams.location.trim()
       : DEFAULT_LOCATION_ID;
 
+  // Verify the cookie via the same HMAC path middleware uses. The pre-
+  // 2026-05-08 raw `=== '1'` compare was always false when
+  // LARIAT_PIN_SECRET was set (the cookie value is `v1.<base64>`),
+  // so the PIC history block + form never rendered for authenticated
+  // managers. UI bug only — POST gates are separate.
   const jar = cookies();
-  const pinOk = jar.get('lariat_pin_ok')?.value === '1';
+  const pinOk = await verifyPinCookieValue(
+    jar.get('lariat_pin_ok')?.value,
+    process.env.LARIAT_PIN_SECRET,
+  );
 
   const db = getDb();
   const active = db

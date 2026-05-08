@@ -1,6 +1,31 @@
 /** GET — whether PIN gate is configured (does not reveal the PIN). POST { pin } sets cookie. DELETE clears. */
 
+import crypto from 'node:crypto';
 import { signPinCookieValue } from '../../../../lib/pinCookie';
+
+/**
+ * Constant-time PIN compare. The 5/60s in-memory rate limiter mitigates
+ * brute-force, but a JS string `!==` short-circuits at the first
+ * mismatching byte — measurable on a low-jitter LAN. Use
+ * `crypto.timingSafeEqual` over Buffers padded to equal length so the
+ * compare time is independent of where the PINs diverge.
+ *
+ * Pads both sides to the longer of the two so timingSafeEqual doesn't
+ * throw on length mismatch (which would itself leak the expected
+ * length); a length difference is then detected as a non-equal compare
+ * after the constant-time pass.
+ */
+function pinsMatch(provided, expected) {
+  const a = Buffer.from(String(provided), 'utf8');
+  const b = Buffer.from(String(expected), 'utf8');
+  const len = Math.max(a.length, b.length);
+  const aPad = Buffer.concat([a, Buffer.alloc(len - a.length)], len);
+  const bPad = Buffer.concat([b, Buffer.alloc(len - b.length)], len);
+  // Constant-time over the padded buffers; final `&` masks the
+  // length-equal check so a length difference still fails.
+  const equal = crypto.timingSafeEqual(aPad, bPad);
+  return equal && a.length === b.length;
+}
 
 /* ------------------------------------------------------------------ */
 /* In-memory rate limiter — 5 failed attempts per IP per 60 seconds.  */
@@ -89,7 +114,7 @@ export async function POST(req) {
   }
 
   const pin = body.pin != null ? String(body.pin) : '';
-  if (pin !== expected) {
+  if (!pinsMatch(pin, expected)) {
     recordFailedAttempt(ip);
     return Response.json({ error: 'invalid pin' }, { status: 401 });
   }
