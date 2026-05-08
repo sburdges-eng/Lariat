@@ -40,11 +40,20 @@ register(new URL('./resolver.mjs', import.meta.url));
 const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-ka-beo-prep-'));
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
-// Pin gate: the route requires a manager PIN header for `beo_add_prep`.
-// We set both the env var and the header so we can exercise the
-// downstream cross-location guard.
+// PIN gate: post-PR #184, KA write actions require a valid HMAC-signed
+// `lariat_pin_ok` cookie (not the legacy `x-lariat-pin` header). Mirror
+// the same migration applied to test-kitchen-assistant-action-hardening.mjs:
+// set LARIAT_PIN_SECRET, mint a signed cookie at module load, and send
+// it on every postReq() so the cross-location guard downstream is the
+// gate actually being exercised.
 const ORIGINAL_PIN = process.env.LARIAT_PIN;
+const ORIGINAL_PIN_SECRET = process.env.LARIAT_PIN_SECRET;
 process.env.LARIAT_PIN = '4242';
+process.env.LARIAT_PIN_SECRET = 'test-secret-for-ka-beo-prep-scope-suite';
+
+const { signPinCookieValue } = await import('../../lib/pinCookie.ts');
+const SIGNED_PIN_COOKIE = await signPinCookieValue(process.env.LARIAT_PIN_SECRET);
+const COOKIE_HEADER = `lariat_pin_ok=${SIGNED_PIN_COOKIE}`;
 
 // Stub Ollama: lib/ollama.ts hits POST /api/chat. Return a fenced
 // JSON action shaped exactly like the LLM would emit for "Add BEO
@@ -83,6 +92,8 @@ after(() => {
   globalThis.fetch = ORIGINAL_FETCH;
   if (ORIGINAL_PIN === undefined) delete process.env.LARIAT_PIN;
   else process.env.LARIAT_PIN = ORIGINAL_PIN;
+  if (ORIGINAL_PIN_SECRET === undefined) delete process.env.LARIAT_PIN_SECRET;
+  else process.env.LARIAT_PIN_SECRET = ORIGINAL_PIN_SECRET;
   try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
 });
 
@@ -122,8 +133,10 @@ function postReq({ locationId, eventId, message = 'add prep for tonight' }) {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      // Route reads the PIN from a header (NOT a cookie).
-      'x-lariat-pin': '4242',
+      // Post-#184: KA write actions require a signed lariat_pin_ok cookie
+      // (the legacy x-lariat-pin header is dead). Same gate every
+      // regulated mutation route uses.
+      cookie: COOKIE_HEADER,
     },
     body: JSON.stringify({ message, location_id: locationId }),
   });
