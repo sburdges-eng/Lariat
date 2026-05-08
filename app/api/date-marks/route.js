@@ -40,6 +40,14 @@ async function dateMarksPostHandler(req) {
 
     const item = clip(body.item, 200);
     const prepared_on = clip(body.prepared_on, 10);
+    // Belt-and-suspenders: the validator above already rejects a missing
+    // item/prepared_on, but clip() can independently return null on a
+    // whitespace-only string. Re-check so the validator-vs-clip pair
+    // can never drift into computeDiscardOn(null) — which throws and
+    // would surface as an opaque 500 instead of a clean 400.
+    if (!item || !prepared_on) {
+      return Response.json({ error: 'item and prepared_on are required' }, { status: 400 });
+    }
     const batch_ref = clip(body.batch_ref, 120);
     const cook_id = clip(body.cook_id, 64);
     const location_id = locationFromBody(body);
