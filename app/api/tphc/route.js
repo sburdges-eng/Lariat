@@ -119,6 +119,10 @@ async function tphcPatchHandler(req) {
     const db = getDb();
     const now = new Date().toISOString();
 
+    // Caller's location scope, taken from ?location=. Used as a
+    // cross-location IDOR guard inside the transaction below.
+    const callerLocation = locationFromRequest(req);
+
     // SELECT (existence) + already-discarded guard + UPDATE + audit must
     // all run in one transaction. Pre-fix the SELECT + guards ran outside
     // the tx, which let two concurrent PATCHes on the same id both pass
@@ -127,6 +131,15 @@ async function tphcPatchHandler(req) {
     const performUpdate = db.transaction(() => {
       const existing = db.prepare('SELECT * FROM tphc_entries WHERE id=?').get(id);
       if (!existing) return { status: 404, error: 'unknown tphc entry' };
+
+      // Cross-location IDOR guard: a cook scoped to site-A must not be
+      // able to mutate a TPHC batch belonging to site-B by guessing the
+      // numeric id. Surfaced as 404 (not 403) so the existence of a
+      // batch at another site doesn't leak. Mirrors cooling's PATCH.
+      if (existing.location_id !== callerLocation) {
+        return { status: 404, error: 'unknown tphc entry' };
+      }
+
       if (existing.discarded_at) {
         return { status: 409, error: 'already discarded', entry: existing };
       }
