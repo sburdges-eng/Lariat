@@ -8,6 +8,7 @@ import {
 import { locationFromBodyOrRequest } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
+import { hasPinCookie } from '../../../lib/pin';
 import {
   CalculatorError,
   expandForBEO,
@@ -187,9 +188,14 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
       try {
         const db = getDb();
 
-        const pin = req.headers.get('x-lariat-pin');
-        const expectedPin = process.env.LARIAT_PIN;
-        const hasPin = expectedPin && pin === expectedPin;
+        // Auth ticket: the HMAC-signed `lariat_pin_ok` cookie issued by
+        // POST /api/auth/pin. Replaces the prior `x-lariat-pin` header
+        // path which was timing-attackable (naked `===`), un-rate-limited,
+        // and leaked the plaintext PIN through any proxy/log — and also
+        // bypassed the cookie scheme from PR #182 entirely. Every other
+        // regulated mutation route uses this same gate; the chat path
+        // above remains unauthenticated for line-cook ergonomics.
+        const hasPin = await hasPinCookie(req);
         // Every write action that mutates regulated or operator-visible state
         // must be PIN-gated. `eighty_six` keeps its additional inventory-based
         // soft-block below, but now also fails closed without a PIN.

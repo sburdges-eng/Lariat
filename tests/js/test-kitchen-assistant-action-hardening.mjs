@@ -36,9 +36,16 @@ const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-ka-action-hardenin
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
 // Pin gate: every action under test except give_gold_star (which is
-// also gated) requires LARIAT_PIN. We set both env + header.
+// also gated) requires a valid `lariat_pin_ok` cookie. We mint a
+// signed cookie at setup time using a fixed test secret.
 const ORIGINAL_PIN = process.env.LARIAT_PIN;
+const ORIGINAL_PIN_SECRET = process.env.LARIAT_PIN_SECRET;
 process.env.LARIAT_PIN = '4242';
+process.env.LARIAT_PIN_SECRET = 'test-secret-for-hardening-suite';
+
+const { signPinCookieValue } = await import('../../lib/pinCookie');
+const signedPinCookie = await signPinCookieValue(process.env.LARIAT_PIN_SECRET);
+const COOKIE_HEADER = `lariat_pin_ok=${signedPinCookie}`;
 
 const ORIGINAL_FETCH = globalThis.fetch;
 let stubbedAction = null;
@@ -71,6 +78,8 @@ after(() => {
   globalThis.fetch = ORIGINAL_FETCH;
   if (ORIGINAL_PIN === undefined) delete process.env.LARIAT_PIN;
   else process.env.LARIAT_PIN = ORIGINAL_PIN;
+  if (ORIGINAL_PIN_SECRET === undefined) delete process.env.LARIAT_PIN_SECRET;
+  else process.env.LARIAT_PIN_SECRET = ORIGINAL_PIN_SECRET;
   try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
 });
 
@@ -98,7 +107,7 @@ function postReq(action, message = 'log this update') {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-lariat-pin': '4242',
+      cookie: COOKIE_HEADER,
     },
     body: JSON.stringify({ message, location_id: LOC }),
   });
