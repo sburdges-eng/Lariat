@@ -110,29 +110,33 @@ export function enqueue(
 export function claim(maxBatch: number): OutboxBatch[] {
   if (!Number.isInteger(maxBatch) || maxBatch <= 0) return [];
   const db = getDb();
-  const rows = db
-    .prepare(
-      `SELECT id, table_name, location_id, rows_json, attempts, enqueued_at
-         FROM cloud_bridge_outbox
-        WHERE dead_letter = 0
-          AND claimed_at IS NULL
-        ORDER BY id ASC
-        LIMIT ?`,
-    )
-    .all(maxBatch) as OutboxRow[];
-
-  if (rows.length === 0) return [];
-
+  const select = db.prepare(
+    `SELECT id, table_name, location_id, rows_json, attempts, enqueued_at
+       FROM cloud_bridge_outbox
+      WHERE dead_letter = 0
+        AND claimed_at IS NULL
+      ORDER BY id ASC
+      LIMIT ?`,
+  );
   const update = db.prepare(
     `UPDATE cloud_bridge_outbox
         SET attempts = attempts + 1,
             claimed_at = datetime('now')
       WHERE id = ?`,
   );
-  const tx = db.transaction((ids: number[]) => {
-    for (const id of ids) update.run(id);
+
+  // SELECT + UPDATE must be one tx — without this, two concurrent
+  // drainers (e.g. instrumentation in-process + standalone script) can
+  // both SELECT the same candidate rows before either UPDATE fires and
+  // double-push the same batch. Audit ref: docs/audit/2026-05-08 §3.
+  const tx = db.transaction((n: number): OutboxRow[] => {
+    const candidates = select.all(n) as OutboxRow[];
+    for (const r of candidates) update.run(r.id);
+    return candidates;
   });
-  tx(rows.map((r) => r.id));
+  const rows = tx(maxBatch);
+
+  if (rows.length === 0) return [];
 
   return rows.map((r) => ({
     id: r.id,
@@ -171,28 +175,37 @@ export function nack(
   const maxAttempts = opts.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const db = getDb();
 
-  // We need attempts to decide queued vs dead-letter. Read first.
-  const row = db
-    .prepare(`SELECT attempts FROM cloud_bridge_outbox WHERE id = ?`)
-    .get(id) as { attempts: number } | undefined;
-  if (!row) return;
+  const selectAttempts = db.prepare(
+    `SELECT attempts FROM cloud_bridge_outbox WHERE id = ?`,
+  );
+  const deadLetterUpdate = db.prepare(
+    `UPDATE cloud_bridge_outbox
+        SET dead_letter = 1,
+            last_error = ?,
+            claimed_at = datetime('now')
+      WHERE id = ?`,
+  );
+  const requeueUpdate = db.prepare(
+    `UPDATE cloud_bridge_outbox
+        SET claimed_at = NULL,
+            last_error = ?
+      WHERE id = ?`,
+  );
 
-  if (row.attempts >= maxAttempts) {
-    db.prepare(
-      `UPDATE cloud_bridge_outbox
-          SET dead_letter = 1,
-              last_error = ?,
-              claimed_at = datetime('now')
-        WHERE id = ?`,
-    ).run(errorMessage, id);
-  } else {
-    db.prepare(
-      `UPDATE cloud_bridge_outbox
-          SET claimed_at = NULL,
-              last_error = ?
-        WHERE id = ?`,
-    ).run(errorMessage, id);
-  }
+  // SELECT attempts + branch UPDATE must be one tx — without this, a
+  // concurrent sweepStaleClaims() can reset claimed_at between the
+  // SELECT and the UPDATE, exposing the row to claim() again before
+  // the nack UPDATE fires. Audit ref: docs/audit/2026-05-08 §3.
+  const tx = db.transaction((): void => {
+    const row = selectAttempts.get(id) as { attempts: number } | undefined;
+    if (!row) return;
+    if (row.attempts >= maxAttempts) {
+      deadLetterUpdate.run(errorMessage, id);
+    } else {
+      requeueUpdate.run(errorMessage, id);
+    }
+  });
+  tx();
 }
 
 /** Count of batches available to claim (queued, not in-flight, not dead). */
