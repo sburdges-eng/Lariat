@@ -8,11 +8,10 @@
 // in tests/js/test-pest-api.mjs, which does not yet exist — see
 // docs/PATTERNS.md §1 audit table.
 //
-// FDA citation: §6-501.111 (controlling pests). The rule module
-// does not yet export this as a constant — tracked in the same
-// audit table. When that lands, this file should grow citation
-// assertions matching the test-sds-rules / test-cleaning-rules
-// shape.
+// FDA citation: §6-501.111 (controlling pests). Exported from the
+// rule module as PEST_CITATION — see test-pest-citation.mjs for the
+// full shape assertions matching the test-sds-rules /
+// test-cleaning-rules convention.
 //
 // Run: node --experimental-strip-types --test tests/js/test-pest-rules.mjs
 
