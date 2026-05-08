@@ -252,3 +252,151 @@ export function deadLetterDepth(): number {
     .get() as { n: number };
   return row.n;
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Dead-letter triage helpers (Item 9).
+//
+// The drainer dead-letters a batch after DEFAULT_MAX_ATTEMPTS failed
+// pushes; it stays on disk forever for diagnostics but is invisible
+// to claim(). These helpers power the /management/cloud-bridge UI so
+// a manager can inspect, requeue, or drop dead-lettered rows.
+//
+// All three are pure SQLite — audit/PIN/location-scoping live at the
+// route layer, not here.
+// ─────────────────────────────────────────────────────────────────
+
+export interface DeadLetterBatch {
+  id: number;
+  table: string;
+  locationId: string;
+  rows: unknown[];
+  attempts: number;
+  lastError: string | null;
+  enqueuedAt: string;
+  /** When the row was last claimed; nack-to-DLQ stamps this as a tombstone. */
+  claimedAt: string | null;
+}
+
+interface DeadLetterRow {
+  id: number;
+  table_name: string;
+  location_id: string;
+  rows_json: string;
+  attempts: number;
+  last_error: string | null;
+  enqueued_at: string;
+  claimed_at: string | null;
+}
+
+function hydrateDeadLetterBatch(row: DeadLetterRow): DeadLetterBatch {
+  let rows: unknown[];
+  try {
+    const parsed = JSON.parse(row.rows_json);
+    rows = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    // Defensive: a corrupt rows_json shouldn't crash the triage UI.
+    // The operator still needs to see (and probably drop) this row.
+    rows = [];
+  }
+  return {
+    id: row.id,
+    table: row.table_name,
+    locationId: row.location_id,
+    rows,
+    attempts: row.attempts,
+    lastError: row.last_error,
+    enqueuedAt: row.enqueued_at,
+    claimedAt: row.claimed_at,
+  };
+}
+
+/**
+ * List dead-lettered batches, oldest-first (FIFO of failure). Optional
+ * `locationId` filter scopes to one site so a manager viewing the
+ * `default` location doesn't see another site's dead letters.
+ *
+ * Returns a fully-hydrated payload (rows are JSON-parsed) so the UI can
+ * render an inspect modal without a second round-trip.
+ */
+export function listDeadLetters(
+  opts: { locationId?: string } = {},
+): DeadLetterBatch[] {
+  const db = getDb();
+  const sql = opts.locationId
+    ? `SELECT id, table_name, location_id, rows_json, attempts,
+              last_error, enqueued_at, claimed_at
+         FROM cloud_bridge_outbox
+        WHERE dead_letter = 1
+          AND location_id = ?
+        ORDER BY id ASC`
+    : `SELECT id, table_name, location_id, rows_json, attempts,
+              last_error, enqueued_at, claimed_at
+         FROM cloud_bridge_outbox
+        WHERE dead_letter = 1
+        ORDER BY id ASC`;
+  const rows = (
+    opts.locationId
+      ? db.prepare(sql).all(opts.locationId)
+      : db.prepare(sql).all()
+  ) as DeadLetterRow[];
+  return rows.map(hydrateDeadLetterBatch);
+}
+
+/** Read one dead-lettered batch by id. Returns null when not found or alive. */
+export function getDeadLetter(id: number): DeadLetterBatch | null {
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const row = getDb()
+    .prepare(
+      `SELECT id, table_name, location_id, rows_json, attempts,
+              last_error, enqueued_at, claimed_at
+         FROM cloud_bridge_outbox
+        WHERE id = ?
+          AND dead_letter = 1`,
+    )
+    .get(id) as DeadLetterRow | undefined;
+  return row ? hydrateDeadLetterBatch(row) : null;
+}
+
+/**
+ * Requeue a dead-lettered batch — clears `dead_letter`, resets `attempts`
+ * to zero, drops the stale `claimed_at` tombstone, and clears
+ * `last_error` so the next claim sees a clean slate. Returns true when a
+ * row was actually requeued.
+ *
+ * Refuses to touch healthy queued/in-flight rows: only `dead_letter = 1`
+ * rows are eligible, so a misrouted action can't kick a live row.
+ */
+export function requeueDeadLetter(id: number): boolean {
+  if (!Number.isInteger(id) || id <= 0) return false;
+  const result = getDb()
+    .prepare(
+      `UPDATE cloud_bridge_outbox
+          SET dead_letter = 0,
+              attempts = 0,
+              claimed_at = NULL,
+              last_error = NULL
+        WHERE id = ?
+          AND dead_letter = 1`,
+    )
+    .run(id);
+  return result.changes > 0;
+}
+
+/**
+ * Drop a dead-lettered batch — DELETE by id. Returns true when a row
+ * was actually deleted.
+ *
+ * Refuses to touch healthy queued/in-flight rows for the same reason as
+ * requeueDeadLetter: only `dead_letter = 1` rows are eligible.
+ */
+export function dropDeadLetter(id: number): boolean {
+  if (!Number.isInteger(id) || id <= 0) return false;
+  const result = getDb()
+    .prepare(
+      `DELETE FROM cloud_bridge_outbox
+        WHERE id = ?
+          AND dead_letter = 1`,
+    )
+    .run(id);
+  return result.changes > 0;
+}

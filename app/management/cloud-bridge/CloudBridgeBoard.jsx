@@ -1,0 +1,460 @@
+'use client';
+
+// CloudBridgeBoard — manager view of cloud-bridge queue health and
+// dead-letter triage. See app/management/cloud-bridge/page.jsx for the
+// server-side first-paint plumbing.
+//
+// Actions:
+//   - Inspect: expand a row to show its row payload (read-only).
+//   - Requeue: clear dead_letter, reset attempts, re-arm for the drainer.
+//   - Drop: DELETE the row. Requires explicit confirm (a typed click —
+//           we render a "Are you sure?" inline state, not a window.confirm).
+//
+// The mutation routes write a management-action audit row server-side
+// (see app/api/cloud-bridge/dead-letters/[id]/{requeue,drop}/route.js).
+//
+// Auto-refresh: every 30s, identical cadence to /management/peers.
+
+import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+
+function formatTime(value) {
+  if (!value) return '—';
+  // SQLite datetime('now') is "YYYY-MM-DD HH:MM:SS" without a 'Z'.
+  // Treat as UTC for parsing, render local.
+  const iso = value.includes('T') ? value : value.replace(' ', 'T') + 'Z';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString();
+}
+
+function previewError(text) {
+  if (!text) return '—';
+  if (text.length <= 80) return text;
+  return text.slice(0, 77) + '…';
+}
+
+export default function CloudBridgeBoard({
+  configured,
+  location,
+  initialQueuedDepth,
+  initialDeadLetterTotal,
+  initialDeadLetters,
+  initialError,
+}) {
+  const router = useRouter();
+  const [queuedDepth, setQueuedDepth] = useState(initialQueuedDepth ?? 0);
+  const [deadLetterTotal, setDeadLetterTotal] = useState(
+    initialDeadLetterTotal ?? 0,
+  );
+  const [deadLetters, setDeadLetters] = useState(initialDeadLetters ?? []);
+  const [refreshing, setRefreshing] = useState(false);
+  const [err, setErr] = useState(initialError || '');
+  const [expandedId, setExpandedId] = useState(null);
+  const [confirmDropId, setConfirmDropId] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+  const [flash, setFlash] = useState('');
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    setErr('');
+    try {
+      const url = `/api/cloud-bridge/dead-letters?location=${encodeURIComponent(location)}`;
+      const res = await fetch(url);
+      if (res.status === 401 || res.status === 403) {
+        router.replace(
+          `/login-pin?next=${encodeURIComponent('/management/cloud-bridge')}`,
+        );
+        return;
+      }
+      if (!res.ok) {
+        setErr('Couldn’t load the queue — try again');
+        return;
+      }
+      const data = await res.json();
+      setQueuedDepth(data.queued_depth ?? 0);
+      setDeadLetterTotal(data.dead_letter_depth_total ?? 0);
+      setDeadLetters(Array.isArray(data.dead_letters) ? data.dead_letters : []);
+    } catch {
+      setErr('Lost connection');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [location, router]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      refresh();
+    }, 30000);
+    return () => clearInterval(id);
+  }, [refresh]);
+
+  const doRequeue = async (id) => {
+    setBusyId(id);
+    setErr('');
+    try {
+      const res = await fetch(
+        `/api/cloud-bridge/dead-letters/${id}/requeue`,
+        { method: 'POST' },
+      );
+      if (res.status === 401 || res.status === 403) {
+        router.replace(
+          `/login-pin?next=${encodeURIComponent('/management/cloud-bridge')}`,
+        );
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setErr(body?.error || `Couldn’t requeue (${res.status})`);
+        return;
+      }
+      setFlash(`Requeued #${id}`);
+      await refresh();
+    } catch {
+      setErr('Lost connection');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const doDrop = async (id) => {
+    setBusyId(id);
+    setErr('');
+    try {
+      const res = await fetch(
+        `/api/cloud-bridge/dead-letters/${id}/drop`,
+        { method: 'POST' },
+      );
+      if (res.status === 401 || res.status === 403) {
+        router.replace(
+          `/login-pin?next=${encodeURIComponent('/management/cloud-bridge')}`,
+        );
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setErr(body?.error || `Couldn’t drop (${res.status})`);
+        return;
+      }
+      setFlash(`Dropped #${id}`);
+      setConfirmDropId(null);
+      if (expandedId === id) setExpandedId(null);
+      await refresh();
+    } catch {
+      setErr('Lost connection');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const flashClear = useCallback(() => {
+    setFlash('');
+  }, []);
+  useEffect(() => {
+    if (!flash) return undefined;
+    const t = setTimeout(flashClear, 4000);
+    return () => clearTimeout(t);
+  }, [flash, flashClear]);
+
+  return (
+    <div>
+      <h1>Cloud bridge</h1>
+      <p className="subtitle">
+        Outage queue for snapshots heading to the corp office. Stuck batches
+        land here for the manager to look at, retry, or drop.
+      </p>
+
+      {/* Status strip */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+          gap: 12,
+          marginBottom: 16,
+        }}
+      >
+        <div className="card" style={{ padding: 12 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>Bridge</div>
+          <div
+            style={{
+              fontSize: 16,
+              fontWeight: 600,
+              color: configured ? 'var(--green)' : 'var(--muted)',
+            }}
+          >
+            {configured ? 'Set up' : 'Not set up'}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+            {configured
+              ? 'URL + secret on file'
+              : 'No URL or secret — drainer is idle'}
+          </div>
+        </div>
+        <div className="card" style={{ padding: 12 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>Waiting to send</div>
+          <div style={{ fontSize: 16, fontWeight: 600 }}>{queuedDepth}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+            queued, not yet pushed
+          </div>
+        </div>
+        <div className="card" style={{ padding: 12 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>Stuck</div>
+          <div
+            style={{
+              fontSize: 16,
+              fontWeight: 600,
+              color:
+                deadLetterTotal > 0 ? 'var(--red)' : 'var(--muted)',
+            }}
+          >
+            {deadLetterTotal}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+            gave up after retry
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+        <button
+          onClick={refresh}
+          disabled={refreshing}
+          style={{
+            padding: '10px 14px',
+            background: 'var(--accent)',
+            border: 'none',
+            borderRadius: 6,
+            color: '#fff',
+            fontSize: 14,
+            fontWeight: 500,
+            cursor: refreshing ? 'not-allowed' : 'pointer',
+            opacity: refreshing ? 0.6 : 1,
+          }}
+        >
+          {refreshing ? 'Refreshing…' : 'Refresh'}
+        </button>
+        <span style={{ alignSelf: 'center', fontSize: 12, color: 'var(--muted)' }}>
+          Showing site: <strong>{location}</strong>
+        </span>
+      </div>
+
+      {flash && (
+        <div
+          role="status"
+          style={{
+            color: 'var(--green)',
+            marginBottom: 12,
+            fontSize: 13,
+          }}
+        >
+          {flash}
+        </div>
+      )}
+
+      {err && (
+        <div role="alert" style={{ color: 'var(--red)', marginBottom: 16, fontSize: 13 }}>
+          {err}
+        </div>
+      )}
+
+      {deadLetters.length === 0 ? (
+        <div
+          style={{
+            textAlign: 'center',
+            padding: '40px 20px',
+            color: 'var(--muted)',
+            background: 'var(--panel-2)',
+            borderRadius: 6,
+          }}
+        >
+          <p>No stuck batches.</p>
+        </div>
+      ) : (
+        <div className="card" style={{ overflowX: 'auto' }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th style={{ width: 70 }}>#</th>
+                <th>Table</th>
+                <th>Site</th>
+                <th style={{ width: 70 }}>Tries</th>
+                <th>Last error</th>
+                <th>Queued</th>
+                <th style={{ width: 240 }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {deadLetters.map((row) => {
+                const isExpanded = expandedId === row.id;
+                const isConfirmingDrop = confirmDropId === row.id;
+                const isBusy = busyId === row.id;
+                return [
+                  <tr key={row.id} data-testid={`dlq-row-${row.id}`}>
+                    <td style={{ fontFamily: 'monospace', fontSize: 12 }}>
+                      {row.id}
+                    </td>
+                    <td>{row.table}</td>
+                    <td>{row.locationId}</td>
+                    <td>{row.attempts}</td>
+                    <td
+                      style={{
+                        fontSize: 12,
+                        color: 'var(--red)',
+                        maxWidth: 280,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title={row.lastError || ''}
+                    >
+                      {previewError(row.lastError)}
+                    </td>
+                    <td style={{ fontSize: 12, color: 'var(--muted)' }}>
+                      {formatTime(row.enqueuedAt)}
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedId(isExpanded ? null : row.id)
+                          }
+                          aria-expanded={isExpanded}
+                          aria-controls={`dlq-detail-${row.id}`}
+                          style={{
+                            background: 'none',
+                            border: '1px solid var(--border)',
+                            borderRadius: 4,
+                            padding: '4px 8px',
+                            fontSize: 12,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {isExpanded ? 'Hide' : 'Inspect'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => doRequeue(row.id)}
+                          disabled={isBusy}
+                          style={{
+                            background: 'var(--accent)',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: 4,
+                            padding: '4px 10px',
+                            fontSize: 12,
+                            cursor: isBusy ? 'not-allowed' : 'pointer',
+                            opacity: isBusy ? 0.6 : 1,
+                          }}
+                        >
+                          {isBusy ? 'Working…' : 'Requeue'}
+                        </button>
+                        {isConfirmingDrop ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => doDrop(row.id)}
+                              disabled={isBusy}
+                              style={{
+                                background: 'var(--red)',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: 4,
+                                padding: '4px 10px',
+                                fontSize: 12,
+                                fontWeight: 600,
+                                cursor: isBusy ? 'not-allowed' : 'pointer',
+                                opacity: isBusy ? 0.6 : 1,
+                              }}
+                            >
+                              {isBusy ? 'Dropping…' : 'Yes, drop'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDropId(null)}
+                              disabled={isBusy}
+                              style={{
+                                background: 'none',
+                                border: '1px solid var(--border)',
+                                borderRadius: 4,
+                                padding: '4px 10px',
+                                fontSize: 12,
+                                cursor: isBusy ? 'not-allowed' : 'pointer',
+                              }}
+                            >
+                              Go back
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDropId(row.id)}
+                            disabled={isBusy}
+                            style={{
+                              background: 'none',
+                              border: '1px solid var(--red)',
+                              color: 'var(--red)',
+                              borderRadius: 4,
+                              padding: '4px 10px',
+                              fontSize: 12,
+                              cursor: isBusy ? 'not-allowed' : 'pointer',
+                              opacity: isBusy ? 0.6 : 1,
+                            }}
+                          >
+                            Drop
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>,
+                  isExpanded && (
+                    <tr
+                      key={`${row.id}-detail`}
+                      id={`dlq-detail-${row.id}`}
+                      style={{ background: 'var(--panel-2)' }}
+                    >
+                      <td colSpan={7} style={{ padding: 12 }}>
+                        <div style={{ fontSize: 12, marginBottom: 6 }}>
+                          <strong>Full last error:</strong>{' '}
+                          <span style={{ color: 'var(--red)' }}>
+                            {row.lastError || '—'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12, marginBottom: 6 }}>
+                          <strong>Rows ({Array.isArray(row.rows) ? row.rows.length : 0}):</strong>
+                        </div>
+                        <pre
+                          style={{
+                            fontSize: 11,
+                            fontFamily: 'monospace',
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                            background: 'var(--bg)',
+                            padding: 10,
+                            borderRadius: 4,
+                            margin: 0,
+                            maxHeight: 320,
+                            overflow: 'auto',
+                          }}
+                        >
+                          {JSON.stringify(row.rows, null, 2)}
+                        </pre>
+                      </td>
+                    </tr>
+                  ),
+                ];
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div style={{ marginTop: 24 }}>
+        <Link href="/management" style={{ color: 'var(--accent)', fontSize: 13 }}>
+          ← Back to management
+        </Link>
+      </div>
+    </div>
+  );
+}
