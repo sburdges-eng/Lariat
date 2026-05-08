@@ -7,16 +7,19 @@
 // DB only ever stores SHA-256(pin). If the cook loses the PIN, revoke
 // and reissue — there is no recovery.
 //
-// Idempotent via withIdempotency: a re-tap of the issue button (same
-// idempotency-key) returns the same response without minting a duplicate
-// row. The wrapper caches the (key, request_hash) → (status, body) tuple.
+// Not wrapped in withIdempotency: the response body contains the raw
+// PIN, and a 24h cache of that secret in idempotency_keys is unaccept-
+// able (audit 2026-05-08, Tier-1 HIGH #2). The route is manager-
+// triggered from the management UI — there is no SW-replay path that
+// would re-fire it — and the handler's own collision-retry loop
+// (MAX_COLLISION_RETRIES) covers transient INSERT failures. Allow-
+// listed in tests/js/test-idempotency-coverage.mjs.
 
 import { randomInt } from 'node:crypto';
 import { json } from '../../../../../lib/routeHelpers';
 import { getDb } from '../../../../../lib/db';
 import { hasPinCookie, pinRequiredForPic } from '../../../../../lib/pin';
 import { postAuditEvent } from '../../../../../lib/auditEvents';
-import { withIdempotency } from '../../../../../lib/idempotency';
 import { locationFromBody } from '../../../../../lib/location';
 import {
   hashPin,
@@ -62,7 +65,7 @@ function isCanonicalIso(s) {
 export async function POST(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
-  return withIdempotency(req, () => issueHandler(req));
+  return issueHandler(req);
 }
 
 async function issueHandler(req) {

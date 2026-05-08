@@ -116,12 +116,18 @@ describe('POST /api/auth/temp-pin/issue', () => {
     assert.equal(res.status, 422);
   });
 
-  it('idempotent replay returns the same PIN, not a fresh one', async () => {
+  it('a replay with the same idempotency-key mints a FRESH PIN (no caching)', async () => {
+    // Audit 2026-05-08 §1 HIGH #2: this route is intentionally not
+    // wrapped in withIdempotency — caching the response would leak
+    // the raw PIN into idempotency_keys for 24h. The previously-
+    // coupled "re-tap returns same response" contract is gone.
+    // Manager UI is the only caller (no SW-replay path) so dedup
+    // is unnecessary; if the manager taps Issue twice they get two
+    // PINs and can revoke the spare. Pinned in detail by
+    // tests/js/test-temp-pin-issue-no-cache.mjs.
     const key = 'aaaaaaaaaaaaaaaa1';
-    // expires_at is captured ONCE — request body must be byte-identical
-    // for the idempotency wrapper's hash to match on replay.
     const fixed = futureIso();
-    const body = { label: 'Once', expires_at: fixed, scopes: ['beo.fire_at_edit'] };
+    const body = { label: 'Twice', expires_at: fixed, scopes: ['beo.fire_at_edit'] };
     const first = await issueRoute.POST(
       makeReq({
         method: 'POST',
@@ -140,11 +146,11 @@ describe('POST /api/auth/temp-pin/issue', () => {
     );
     const j1 = await first.json();
     const j2 = await second.json();
-    assert.equal(j1.id, j2.id);
-    assert.equal(j1.pin, j2.pin);
-    // Only one row in temp_pins
+    assert.notEqual(j1.id, j2.id, 'replay must mint a new row');
+    assert.notEqual(j1.pin, j2.pin, 'replay must mint a new PIN');
+    // Two rows in temp_pins
     const count = conn.prepare(`SELECT COUNT(*) AS n FROM temp_pins`).get().n;
-    assert.equal(count, 1);
+    assert.equal(count, 2);
   });
 });
 
