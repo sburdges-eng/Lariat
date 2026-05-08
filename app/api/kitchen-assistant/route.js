@@ -237,13 +237,17 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           }
         } else if (payload.action === 'update_inventory' && payload.item) {
           const rawDelta = Number(payload.delta);
-          const rawUnit = payload.unit ? normalizeUnit(payload.unit) : null;
-          let deltaStr = null;
-          if (Number.isFinite(rawDelta)) {
-            deltaStr = rawUnit ? `${rawDelta} ${rawUnit}` : `${rawDelta}`;
+          // Strict numeric guard — pre-2026-05-08 a non-finite payload.delta
+          // (e.g. "5 lbs", "a", null) silently fell through to clip()
+          // and stored a junk string in inventory_updates.delta. Soft-reject
+          // here so the LLM can retry with a clean number.
+          if (!Number.isFinite(rawDelta)) {
+            actionMsg = `Inventory update blocked — delta "${payload.delta}" is not a number. Try again with just the count.`;
+            actionExecuted = true;
+            console.error(`\n[KA BLOCKED]: update_inventory rejected — non-finite delta=${payload.delta}\n`);
           } else {
-            deltaStr = clip(payload.delta, 64);
-          }
+          const rawUnit = payload.unit ? normalizeUnit(payload.unit) : null;
+          const deltaStr = rawUnit ? `${rawDelta} ${rawUnit}` : `${rawDelta}`;
           const itemClip = clip(payload.item, MAX_ITEM);
           const direction = clip(payload.direction, 16) || null;
           db.transaction(() => {
@@ -258,6 +262,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           actionMsg = `Logged inventory update for ${payload.item}.`;
           actionExecuted = true;
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Inventory Update ${payload.item} ⚠️\n`);
+          }
         } else if (payload.action === 'line_check' && payload.item && payload.station) {
           let status = clip(payload.status, 16) || 'na';
           let note = clip(payload.note, MAX_NOTE) || null;
@@ -295,7 +300,11 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - HACCP Line Check: ${payload.item} (${status}) ⚠️\n`);
         } else if (payload.action === 'maintenance' && payload.equipment) {
           const equipName = clip(payload.equipment, MAX_ITEM);
-          const row = db.prepare('SELECT id FROM equipment WHERE name LIKE ? AND location_id = ?').get(equipName, locationId);
+          // Wrap in % wildcards for partial matching, consistent with the
+          // eighty_six lookup pattern earlier in this file. Pre-fix the
+          // raw `equipName` only matched on exact equality, defeating the
+          // LIKE — the LLM had to know the exact stored name to resolve.
+          const row = db.prepare('SELECT id FROM equipment WHERE name LIKE ? AND location_id = ?').get(`%${equipName}%`, locationId);
           const equipId = row ? row.id : null;
           if (!equipId) {
             actionMsg = `Could not find equipment "${equipName}" — ask a manager to add it first.`;
@@ -363,7 +372,17 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
         } else if (payload.action === 'update_order_guide' && payload.item) {
           const rawUnit = payload.unit ? normalizeUnit(payload.unit) : 'ea';
           const itemClip = clip(payload.item, MAX_ITEM);
-          const qty = payload.qty || 1;
+          // Strict numeric guard on qty. Pre-2026-05-08 the route did
+          // `qty = payload.qty || 1`, so an LLM emitting "5 lbs" or
+          // null wrote a string/falsy-coerced value into base_qty. Now
+          // we soft-reject so the LLM can retry with a clean number.
+          const rawQty = Number(payload.qty);
+          if (!Number.isFinite(rawQty) || rawQty <= 0) {
+            actionMsg = `Order Guide update blocked — qty "${payload.qty}" is not a positive number. Try again with just the count.`;
+            actionExecuted = true;
+            console.error(`\n[KA BLOCKED]: update_order_guide rejected — non-finite qty=${payload.qty}\n`);
+          } else {
+          const qty = rawQty;
           db.transaction(() => {
             const info = db.prepare('INSERT INTO order_guide_items (location_id, ingredient, base_qty, unit, imported_at) VALUES (?, ?, ?, ?, ?)')
               .run(locationId, itemClip, qty, clip(rawUnit, 16), new Date().toISOString());
@@ -376,6 +395,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           actionMsg = `Added ${qty} ${rawUnit} of ${payload.item} to the Order Guide.`;
           actionExecuted = true;
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Order Guide Updated: ${payload.item} ⚠️\n`);
+          }
         } else if (payload.action === 'beo_add_prep' && Number.isInteger(Number(payload.event_id)) && Array.isArray(payload.tasks)) {
           const eventIdNum = Number(payload.event_id);
           // Cross-location guard: the LLM is free to emit any event_id, so
@@ -456,6 +476,45 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           const starVal = Math.min(Math.max(Number(payload.stars) || 1, 1), 3);
           const cookName = clip(payload.cook_name, 64);
           const reasonClip = clip(payload.reason || 'Exceptional performance', MAX_NOTE);
+          // Roster validation. Pre-2026-05-08 there was none — the LLM
+          // could invent a cook name (or hallucinate one from its
+          // training data) and a recognition row would land for a
+          // non-existent person. The system prompt claimed "Exact
+          // Roster match" but the backend didn't enforce it.
+          //
+          // Soft-reject pattern: if the name doesn't match a known
+          // active employee on entities_employees (case-insensitive
+          // exact match on display_name), surface a "couldn't find"
+          // message so the LLM can retry. Skip the gate when the
+          // entities_employees table is empty (fresh DB / not yet
+          // populated) — better to allow recognition than block on
+          // missing seed data.
+          let rosterOk = true;
+          let rosterEmpty = false;
+          try {
+            const totalRow = db
+              .prepare('SELECT COUNT(*) AS n FROM entities_employees WHERE active = 1')
+              .get();
+            rosterEmpty = !totalRow || (totalRow.n ?? 0) === 0;
+            if (!rosterEmpty) {
+              const match = db
+                .prepare(
+                  'SELECT uuid FROM entities_employees WHERE active = 1 AND LOWER(display_name) = LOWER(?) LIMIT 1',
+                )
+                .get(cookName);
+              rosterOk = !!match;
+            }
+          } catch {
+            // entities_employees missing on a legacy / partially-migrated
+            // DB — fall back to allowing the action so the recognition
+            // surface keeps working.
+            rosterOk = true;
+          }
+          if (!rosterOk) {
+            actionMsg = `Gold Star blocked — "${payload.cook_name}" is not on the active roster. Ask a manager to confirm the name or add the cook first.`;
+            actionExecuted = true;
+            console.error(`\n[KA BLOCKED]: give_gold_star rejected — unknown cook ${payload.cook_name} (location=${locationId})\n`);
+          } else {
           db.transaction(() => {
             const info = db.prepare('INSERT INTO gold_stars (location_id, cook_name, reason, stars) VALUES (?, ?, ?, ?)')
               .run(locationId, cookName, reasonClip, starVal);
@@ -468,6 +527,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           actionMsg = `Awarded ${starVal} Gold Star(s) to ${payload.cook_name} for HR recognition.`;
           actionExecuted = true;
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - HR RECOGNITION: ${starVal} Gold Star(s) awarded to ${payload.cook_name} ⚠️\n`);
+          }
         } else if (payload.action === 'haccp_receive' && payload.item) {
           let status = 'pass';
           let note = clip(payload.note, MAX_NOTE) || null;
