@@ -45,44 +45,45 @@ Example: cooling (F1, §3-501.14).
 - The rule module is the single source of truth for the threshold. A
   yellow/red-band tweak touches one file, not three.
 
-### 1a. Five-file-shape audit (2026-05-01)
+### 1a. Five-file-shape audit (rebaselined 2026-05-08)
 
 A full sweep of the 11 regulated concepts against the convention.
-Use this table as the punch-list when extending coverage; do not
-revert any of the gaps below silently.
+As of this rebaseline every concept has all five files; the table
+below documents the current shape so future regressions are
+obvious. Slug deviations are still called out — they are
+pre-existing and rename-only follow-ups.
 
 | Concept | `lib/<c>.ts` | `app/api/<slug>/route.*` | `app/food-safety/<slug>/` | Hub tile | rules test | api test |
 |---|---|---|---|---|---|---|
-| cooling | `cooling.ts` | `cooling/route.js` | yes | yes | yes | **missing** |
+| cooling | `cooling.ts` | `cooling/route.js` | yes | yes | yes | yes |
 | temp-log | `tempLog.ts` | `temp-log/route.js` | yes | yes | yes | yes |
 | receiving | `receiving.ts` | `receiving/route.js` | yes | yes | yes | yes |
-| sanitizer | `sanitizer.ts` | `sanitizer-check/route.js` ⚠ slug mismatch | yes | yes | yes | **missing** |
-| date-marks | `dateMarks.ts` | `date-marks/route.js` | yes | yes | yes (`test-date-mark-rules.mjs`) | **missing** |
-| sick-worker | `sickWorker.ts` | `sick-worker/route.js` | yes | yes | yes | **missing** |
+| sanitizer | `sanitizer.ts` | `sanitizer-check/route.js` ⚠ slug mismatch (rename to `sanitizer/` _pending PR_) | yes | yes | yes | yes (`test-sanitizer-check-api.mjs`) |
+| date-marks | `dateMarks.ts` | `date-marks/route.js` | yes | yes | yes (`test-date-mark-rules.mjs`) | yes (`test-date-marks-api.mjs`) |
+| sick-worker | `sickWorker.ts` | `sick-worker/route.js` | yes | yes | yes | yes |
 | calibrations | `calibrations.ts` | `thermometer-calibrations/route.js` ⚠ slug mismatch | yes | yes | yes | yes |
-| cleaning | `cleaning.ts` | `cleaning/route.ts` | **missing board UI** | yes (links to 404) | yes | **missing** (`test-cleaning-schedule-api.mjs` covers a different surface) |
-| pest | `pestControl.ts` ⚠ slug mismatch | `pest/route.ts` | **missing board UI** | yes (links to 404) | yes (added 2026-05-01) | **missing** |
-| sds | `sds.ts` | `sds/route.ts` | **missing board UI** | yes (links to 404) | yes | **missing** |
+| cleaning | `cleaning.ts` | `cleaning/route.ts` | yes | yes | yes | yes (`test-cleaning-api.mjs`; `test-cleaning-schedule-api.mjs` covers a separate surface) |
+| pest | `pestControl.ts` ⚠ slug mismatch | `pest/route.ts` | yes | yes | yes | yes |
+| sds | `sds.ts` | `sds/route.ts` | yes | yes | yes | yes |
 | tphc | `tphc.ts` | `tphc/route.js` | yes | yes | yes | yes |
 
-**Gaps to close, ranked by user impact:**
+**Status notes (as of 2026-05-08):**
 
-1. **Board UI for cleaning, pest, sds.** Hub tiles link to 404
-   pages because `app/food-safety/cleaning/`, `pest/`, and `sds/`
-   don't exist. Either build the boards (one PR per concept,
-   matching the `<Concept>Board.jsx` shape used by tphc/sanitizer)
-   or temporarily route the tile to the management surface that
-   does exist (e.g. `/management/sds`).
-2. **API tests** for cooling, sanitizer, date-marks, sick-worker,
-   cleaning, pest, sds. Each must verify audit-event emission and
-   transactional rollback (per `docs/PATTERNS.md §3`). The
-   existing `test-receiving-api.mjs` and `test-tphc-api.mjs` are
-   the templates.
-3. **Rule-module citation constants for `lib/pestControl.ts`.**
+- §1a is fully covered — every regulated concept has the complete
+  five-file shape and a paired rules + api test.
+- The sanitizer slug rename (`/api/sanitizer-check` →
+  `/api/sanitizer`) lands in a separate PR (_pending PR_); the
+  table name `sanitizer_checks` is unchanged.
+- The DB table for sanitizer remains `sanitizer_checks`; only the
+  HTTP route slug is being renamed.
+
+**Remaining follow-ups (cosmetic, not coverage gaps):**
+
+1. **Rule-module citation constants for `lib/pestControl.ts`.**
    Currently the module exposes only `validatePestControl()`; per
    the §1 invariant, FDA §6-501.111 should be a named export. Same
    shape as `SDS_CITATION` in `lib/sds.ts`.
-4. **Slug mismatches:** `lib/pestControl.ts` should be
+2. **Slug mismatches:** `lib/pestControl.ts` should be
    `lib/pest.ts` (or the slug should be `pest-control` everywhere
    else), and `app/api/sanitizer-check/` and
    `app/api/thermometer-calibrations/` deviate from their
