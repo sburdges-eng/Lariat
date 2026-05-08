@@ -117,20 +117,20 @@ async function tphcPatchHandler(req) {
     const cook_id = clip(body.cook_id, 64);
 
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM tphc_entries WHERE id=?').get(id);
-    if (!existing) {
-      return Response.json({ error: 'unknown tphc entry' }, { status: 404 });
-    }
-    if (existing.discarded_at) {
-      return Response.json(
-        { error: 'already discarded', entry: existing },
-        { status: 409 },
-      );
-    }
-
     const now = new Date().toISOString();
 
+    // SELECT (existence) + already-discarded guard + UPDATE + audit must
+    // all run in one transaction. Pre-fix the SELECT + guards ran outside
+    // the tx, which let two concurrent PATCHes on the same id both pass
+    // `discarded_at IS NULL` against the same stale snapshot and double-
+    // stamp the row. Returning a tagged shape mirrors the cooling PATCH.
     const performUpdate = db.transaction(() => {
+      const existing = db.prepare('SELECT * FROM tphc_entries WHERE id=?').get(id);
+      if (!existing) return { status: 404, error: 'unknown tphc entry' };
+      if (existing.discarded_at) {
+        return { status: 409, error: 'already discarded', entry: existing };
+      }
+
       db.prepare(`
         UPDATE tphc_entries
            SET discarded_at=?, discard_reason=?
@@ -151,11 +151,15 @@ async function tphcPatchHandler(req) {
         note: `discarded: ${reason}`,
       });
 
-      return updated;
+      return { status: 200, updated };
     });
 
-    const updated = performUpdate();
-    return Response.json({ ok: true, entry: updated });
+    const result = performUpdate();
+    if (result.status !== 200) {
+      const { status, ...body } = result;
+      return Response.json(body, { status });
+    }
+    return Response.json({ ok: true, entry: result.updated });
   } catch (err) {
     console.error('PATCH /api/tphc failed:', err);
     return Response.json({ error: 'Failed to discard TPHC batch' }, { status: 500 });
