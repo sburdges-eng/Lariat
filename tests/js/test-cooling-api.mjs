@@ -142,3 +142,69 @@ describe('GET /api/cooling', () => {
     assert.ok(Array.isArray(body.scan));
   });
 });
+
+// ─────────────────────────────────────────────────────────────────
+// PATCH /api/cooling — cross-location IDOR guard
+//
+// A cook scoped to site-A must not be able to mutate a cooling batch
+// belonging to site-B by guessing the numeric id. Surfaced as 404
+// (not 403) so existence at another site does not leak.
+// ─────────────────────────────────────────────────────────────────
+
+describe('PATCH /api/cooling — cross-location IDOR guard', () => {
+  it('404 when caller location does not match the row location', async () => {
+    // Open a batch at site-B.
+    const openRes = await POST(postReq({
+      item: 'site-b stew',
+      started_at: T_START,
+      location_id: 'site-b',
+    }));
+    const id = (await openRes.json()).entry.id;
+
+    // Site-A cook tries to patch the site-B batch.
+    const res = await PATCH(new Request(
+      'http://localhost/api/cooling?location=site-a',
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          reading_f: 65,
+          at: T_STAGE1_OK,
+          corrective_action: 'malicious',
+        }),
+      },
+    ));
+    assert.strictEqual(res.status, 404);
+
+    // Row at site-B was not mutated.
+    const row = testDb.prepare('SELECT status, stage1_at FROM cooling_log WHERE id=?').get(id);
+    assert.strictEqual(row.status, 'in_progress');
+    assert.strictEqual(row.stage1_at, null);
+
+    // No audit update was emitted.
+    const updates = testDb
+      .prepare(`SELECT COUNT(*) AS c FROM audit_events WHERE entity='cooling_log' AND action='update'`)
+      .get().c;
+    assert.strictEqual(updates, 0);
+  });
+
+  it('200 when caller location matches the row location', async () => {
+    const openRes = await POST(postReq({
+      item: 'site-b stew',
+      started_at: T_START,
+      location_id: 'site-b',
+    }));
+    const id = (await openRes.json()).entry.id;
+
+    const res = await PATCH(new Request(
+      'http://localhost/api/cooling?location=site-b',
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id, reading_f: 65, at: T_STAGE1_OK }),
+      },
+    ));
+    assert.strictEqual(res.status, 200);
+  });
+});

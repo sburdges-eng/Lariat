@@ -134,12 +134,24 @@ async function breaksPatchHandler(req) {
 
     const db = getDb();
 
+    // Caller's location scope, taken from ?location=. Used as a
+    // cross-location IDOR guard inside the transaction below.
+    const callerLocation = locationFromRequest(req);
+
     // Atomic: existing row read + end-time math + UPDATE. Prevents two
     // concurrent end-break requests from both passing the 409 guard and
     // overwriting duration_min with diverging values.
     const performUpdate = db.transaction(() => {
       const existing = db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(id);
       if (!existing) return { status: 404, error: 'unknown break' };
+
+      // Cross-location IDOR guard: a cook scoped to site-A must not
+      // be able to end a break that belongs to site-B by guessing the
+      // numeric id. Surfaced as 404 so existence does not leak.
+      if (existing.location_id !== callerLocation) {
+        return { status: 404, error: 'unknown break' };
+      }
+
       if (existing.ended_at) {
         return { status: 409, error: 'break already ended', entry: existing };
       }

@@ -19,12 +19,12 @@
 // management-action track per the two-track audit pattern, distinct
 // from the regulated DB track.
 
-import { cookies } from 'next/headers';
 import { logAuditAction } from '../../../../lib/auditLog.mjs';
 import { withIdempotency } from '../../../../lib/idempotency';
 import { getDb } from '../../../../lib/db';
 import { locationFromBody } from '../../../../lib/location';
 import { postAuditEvent } from '../../../../lib/auditEvents';
+import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
 import { upsertRecipeEntity, writeRecipeDoc, readRecipeDoc } from '../../../../lib/recipes';
 
 // GET — fetch a recipe by slug.
@@ -53,12 +53,19 @@ export async function PUT(request, ctx) {
 async function recipeSlugPutHandler(request, { params }) {
   const { slug } = params;
 
-  // PIN gate — same lariat_pin_ok cookie as middleware.js uses for
-  // every other management surface (analytics, costing, purchasing).
-  // One cookie, one source of truth.
-  const cookieStore = await cookies();
-  const pinOk = cookieStore.get('lariat_pin_ok');
-  if (pinOk?.value !== '1') {
+  // PIN gate — verify the HMAC-signed lariat_pin_ok cookie via
+  // hasPinCookie() (the same pattern every other PIN-gated API route
+  // uses). This route is NOT in middleware.js SENSITIVE_PREFIXES on
+  // purpose: GET /api/recipes/[slug] is intentionally public (recipes
+  // are not sensitive in isolation), so middleware can't gate the
+  // whole prefix. We gate per-method here instead.
+  //
+  // Pre-2026-05-08 the gate did a raw cookieStore.get('lariat_pin_ok').value === '1'
+  // compare, which (a) rejected every legitimate signed cookie when
+  // LARIAT_PIN_SECRET was set (DoS), and (b) accepted forged '=1'
+  // when the secret was unset. hasPinCookie() handles both cases via
+  // verifyPinCookieValue().
+  if (pinRequiredForPic() && !(await hasPinCookie(request))) {
     return Response.json(
       { error: 'Unauthorized. Management access required.' },
       { status: 403 }
