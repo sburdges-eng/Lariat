@@ -29,6 +29,7 @@
  * footer noise from Toast exports) are filtered upstream by `cleanedSalesRows`.
  */
 
+import type { Database } from 'better-sqlite3';
 import { getDb, type RecipeCost, type DishComponent } from './db';
 import { getRecipes, type Recipe } from './data';
 // Reuse the costing engine's unit converter.
@@ -119,8 +120,8 @@ export interface DishCostResult {
 export function buildDishComponentMap(
   locationId: string = 'default',
   recipesOverride?: Recipe[],
+  db: Database = getDb(),
 ): Map<string, DishComponentResolved[]> {
-  const db = getDb();
   const recipes = recipesOverride ?? getRecipes();
 
   // ── Recipe pricing index ──
@@ -322,8 +323,9 @@ export function computeDishCost(
   locationId: string = 'default',
   precomputedMap?: Map<string, DishComponentResolved[]>,
   recipesOverride?: Recipe[],
+  db: Database = getDb(),
 ): DishCostResult {
-  const map = precomputedMap || buildDishComponentMap(locationId, recipesOverride);
+  const map = precomputedMap || buildDishComponentMap(locationId, recipesOverride, db);
   const norm = normalizeDishName(dishName);
   const components = map.get(norm) || [];
 

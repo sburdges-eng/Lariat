@@ -2,8 +2,11 @@ import type { Database } from 'better-sqlite3';
 import { computeMenuEngineering } from '../menuEngineering';
 
 export function recomputeMarginAnalysis(db: Database, locationId: string) {
-  // Compute the current Menu Engineering quadrants based on active sales and costing
-  const results = computeMenuEngineering(locationId);
+  // Compute the current Menu Engineering quadrants based on active sales and costing.
+  // Thread `db` through so we don't open a second connection — sibling steps
+  // (recomputeRecipeCosts, computeAccountingVariance) already do this; the
+  // margin step regressed silently. See audit §4 Compute HIGH (db threading).
+  const results = computeMenuEngineering(locationId, db);
 
   // Save the snapshot to the database
   db.transaction(() => {
