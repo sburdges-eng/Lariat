@@ -54,6 +54,14 @@
 // which only runs from the Node.js runtime guard in instrumentation.ts.
 import type { AdvertiseHandle, AdvertiseOptions } from './mdnsDiscovery.ts';
 
+// peerKeypair is loaded statically. This file (mdnsAdvertiseLifecycle)
+// is itself only loaded under the NEXT_RUNTIME==='nodejs' guard in
+// instrumentation.ts, so webpack never bundles us into the edge build —
+// a static import is safe here. PATTERNS.md §10 rule 4 forbids dynamic-
+// import-in-try because it silently swallows module-load errors; using
+// a static import surfaces a load error at boot (fail loud).
+import { loadOrCreateKeypair, fingerprint } from './peerKeypair.ts';
+
 type AdvertiseFn = (_opts: AdvertiseOptions) => Promise<AdvertiseHandle>;
 
 interface LifecycleStash {
@@ -176,17 +184,18 @@ export async function bootMdnsAutostart(): Promise<void> {
   const locationId = process.env.LARIAT_LOCATION_ID ?? 'default';
 
   // Load (or create on first boot) the per-peer Ed25519 keypair and
-  // derive a 16-hex fingerprint for the TXT record. We dynamic-import
-  // peerKeypair so webpack never tries to bundle node:fs/node:crypto
-  // into edge-runtime bundles. Failure is non-fatal — degrade to mDNS
-  // without pubkey_fp rather than refusing to advertise at all.
+  // derive a 16-hex fingerprint for the TXT record. The try/catch
+  // wraps the function CALLS (filesystem read/write, signature math) —
+  // those failure modes are runtime, not load-time, and we degrade to
+  // mDNS without pubkey_fp rather than refusing to advertise. The
+  // static import above means a missing peerKeypair module surfaces
+  // at boot, not silently here.
   let pubkeyFp: string | undefined;
   try {
-    const { loadOrCreateKeypair, fingerprint } = await import('./peerKeypair.ts');
     const kp = loadOrCreateKeypair();
     pubkeyFp = fingerprint(kp.pubKey);
   } catch (err) {
-     
+
     console.warn(
       '[mdns] could not load peer keypair — advertising without pubkey_fp',
       err instanceof Error ? err.message : err
