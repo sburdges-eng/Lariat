@@ -51,7 +51,11 @@ function safeJson(x: unknown): string | null {
 export function postAuditEvent(input: AuditEventInput): number {
   const db = getDb();
   if (!db.inTransaction) {
-    console.warn(`postAuditEvent called outside of a transaction context! Entity: ${input.entity}, Action: ${input.action}. This is unsafe and defies atomicity guarantees.`);
+    throw new Error(
+      `postAuditEvent called outside of a transaction context (entity=${input.entity}, action=${input.action}). ` +
+      `Atomicity is required — an audit failure must roll back the source row. ` +
+      `Wrap the source INSERT and the postAuditEvent call inside a single db.transaction(...).`,
+    );
   }
 
   const info = db
