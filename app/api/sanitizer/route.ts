@@ -1,7 +1,7 @@
 // Sanitizer concentration log (F4 / FDA §4-703.11).
 //
-// POST /api/sanitizer-check    → record a ppm reading (+ corrective note if out of range)
-// GET  /api/sanitizer-check    → today's readings + latest-per-point roll-up
+// POST /api/sanitizer    → record a ppm reading (+ corrective note if out of range)
+// GET  /api/sanitizer    → today's readings + latest-per-point roll-up
 //
 // Sanitizer checks are point-in-time, not range-based — every row is a
 // completed observation, there is no PATCH. Out-of-range readings
@@ -16,24 +16,20 @@ import {
   classifySanitizer,
   validateSanitizerCheck,
 } from '../../../lib/sanitizer';
+import type { Chemistry } from '../../../lib/sanitizer';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
+import { clip } from '../../../lib/clip';
 
 export const dynamic = 'force-dynamic';
 
-const clip = (s, max) => {
-  if (typeof s !== 'string') return null;
-  const t = s.trim();
-  return t ? t.slice(0, max) : null;
-};
+// ── POST /api/sanitizer ──────────────────────────────────────────
 
-// ── POST /api/sanitizer-check ────────────────────────────────────
-
-export async function POST(req) {
+export async function POST(req: Request) {
   return withIdempotency(req, () => sanitizerPostHandler(req));
 }
 
-async function sanitizerPostHandler(req) {
+async function sanitizerPostHandler(req: Request) {
   try {
     const body = await req.json();
     const v = validateSanitizerCheck({
@@ -44,7 +40,7 @@ async function sanitizerPostHandler(req) {
     });
     if (!v.ok) return Response.json({ error: v.reason }, { status: 400 });
 
-    const chemistry = body.chemistry;
+    const chemistry = body.chemistry as Chemistry;
     const concentration_ppm = Number(body.concentration_ppm);
     const water_temp_f =
       body.water_temp_f === null || body.water_temp_f === undefined
@@ -79,7 +75,7 @@ async function sanitizerPostHandler(req) {
     }
 
     const db = getDb();
-    
+
     const performWrite = db.transaction(() => {
       const info = db.prepare(`
         INSERT INTO sanitizer_checks
@@ -118,7 +114,7 @@ async function sanitizerPostHandler(req) {
       return { info, row };
     });
 
-    const { info, row } = performWrite();
+    const { row } = performWrite();
 
     return Response.json({
       ok: true,
@@ -131,30 +127,36 @@ async function sanitizerPostHandler(req) {
       },
     });
   } catch (err) {
-    console.error('POST /api/sanitizer-check failed:', err);
+    console.error('POST /api/sanitizer failed:', err);
     return Response.json({ error: 'Failed to record sanitizer check' }, { status: 500 });
   }
 }
 
-// ── GET /api/sanitizer-check ─────────────────────────────────────
+// ── GET /api/sanitizer ───────────────────────────────────────────
 
-export async function GET(req) {
+interface SanitizerRow {
+  id: number;
+  point_label: string;
+  [key: string]: unknown;
+}
+
+export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const date = url.searchParams.get('date') || todayISO();
-    const location_id = locationFromRequest(req) || DEFAULT_LOCATION_ID;
+    const location_id = locationFromRequest(req as any) || DEFAULT_LOCATION_ID;
 
     const db = getDb();
     const rows = db.prepare(`
       SELECT * FROM sanitizer_checks
        WHERE location_id=? AND shift_date=?
        ORDER BY created_at ASC
-    `).all(location_id, date);
+    `).all(location_id, date) as SanitizerRow[];
 
     // Latest reading per point_label — the dashboard uses this to show
     // "is every bucket currently in spec?" without asking the cook to
     // scroll through the full log.
-    const latestByPoint = new Map();
+    const latestByPoint = new Map<string, SanitizerRow>();
     for (const r of rows) {
       latestByPoint.set(r.point_label, r);
     }
@@ -173,7 +175,7 @@ export async function GET(req) {
       chemistries: CHEMISTRIES,
     });
   } catch (err) {
-    console.error('GET /api/sanitizer-check failed:', err);
+    console.error('GET /api/sanitizer failed:', err);
     return Response.json({ error: 'Failed to load sanitizer checks' }, { status: 500 });
   }
 }

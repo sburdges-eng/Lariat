@@ -45,7 +45,7 @@ export default function SanitizerBoard({ rows, latest, knownPoints, locationId, 
     setSaving(true);
     setErr('');
     try {
-      const res = await fetch('/api/sanitizer-check', {
+      const res = await fetch('/api/sanitizer', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({

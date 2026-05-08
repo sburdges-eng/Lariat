@@ -48,7 +48,7 @@ const tempLog = await import('../../app/api/temp-log/route.js');
 const receiving = await import('../../app/api/receiving/route.js');
 const calibrations = await import('../../app/api/thermometer-calibrations/route.js');
 const cooling = await import('../../app/api/cooling/route.js');
-const sanitizer = await import('../../app/api/sanitizer-check/route.js');
+const sanitizer = await import('../../app/api/sanitizer/route.ts');
 const dateMarks = await import('../../app/api/date-marks/route.js');
 const sickWorker = await import('../../app/api/sick-worker/route.js');
 const breaks = await import('../../app/api/breaks/route.js');
@@ -302,8 +302,8 @@ describe('HACCP routes — insert + audit commit together (happy path)', () => {
     assert.strictEqual(countAudit('cooling_log'), 1);
   });
 
-  it('POST /api/sanitizer-check commits both sanitizer_checks and audit_events', async () => {
-    const res = await sanitizer.POST(postReq('http://localhost/api/sanitizer-check', {
+  it('POST /api/sanitizer commits both sanitizer_checks and audit_events', async () => {
+    const res = await sanitizer.POST(postReq('http://localhost/api/sanitizer', {
       shift_date: todayISO(),
       location_id: 'default',
       station_id: 'dish_3comp',

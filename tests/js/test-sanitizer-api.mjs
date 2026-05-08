@@ -1,14 +1,11 @@
 #!/usr/bin/env node
-// Integration tests for /api/sanitizer-check (F4 / FDA §4-703.11).
-// Note the route slug is `sanitizer-check`, not `sanitizer` — this is
-// the pre-existing slug mismatch the §1a audit flagged. Tests target
-// the actual route path.
+// Integration tests for /api/sanitizer (F4 / FDA §4-703.11).
 //
 // Pure rule module is covered by test-sanitizer-rules.mjs. This file
 // exercises route-level behavior: POST happy path, 422 needs-note for
 // out-of-band readings, GET roll-up.
 //
-// Run: node --experimental-strip-types --test tests/js/test-sanitizer-check-api.mjs
+// Run: node --experimental-strip-types --test tests/js/test-sanitizer-api.mjs
 
 import { describe, it, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -23,7 +20,7 @@ const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-sanitizer-api-'));
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
 const db = await import('../../lib/db.ts');
-const route = await import('../../app/api/sanitizer-check/route.js');
+const route = await import('../../app/api/sanitizer/route.ts');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
@@ -40,14 +37,14 @@ beforeEach(() => {
 });
 
 function postReq(body) {
-  return new Request('http://localhost/api/sanitizer-check', {
+  return new Request('http://localhost/api/sanitizer', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
 function getReq(qs = '') {
-  return new Request(`http://localhost/api/sanitizer-check${qs}`);
+  return new Request(`http://localhost/api/sanitizer${qs}`);
 }
 function countChecks() {
   return testDb.prepare('SELECT COUNT(*) AS c FROM sanitizer_checks').get().c;
@@ -56,7 +53,7 @@ function countAudit(entity) {
   return testDb.prepare('SELECT COUNT(*) AS c FROM audit_events WHERE entity=?').get(entity).c;
 }
 
-describe('POST /api/sanitizer-check — happy path', () => {
+describe('POST /api/sanitizer — happy path', () => {
   it('in-band quat reading → 200, row + audit written', async () => {
     const res = await POST(postReq({
       chemistry: 'quat',
@@ -78,7 +75,7 @@ describe('POST /api/sanitizer-check — happy path', () => {
   });
 });
 
-describe('POST /api/sanitizer-check — validation + 422', () => {
+describe('POST /api/sanitizer — validation + 422', () => {
   it('400 on unknown chemistry', async () => {
     const res = await POST(postReq({
       chemistry: 'lemon_juice',
@@ -119,7 +116,7 @@ describe('POST /api/sanitizer-check — validation + 422', () => {
   });
 });
 
-describe('GET /api/sanitizer-check', () => {
+describe('GET /api/sanitizer', () => {
   it('returns rows + latest-per-point roll-up', async () => {
     await POST(postReq({
       chemistry: 'quat',

@@ -87,7 +87,7 @@ const TODO_RETROFIT = new Set([
   //  and the handler body. Defense-in-depth on top of repo-level row guards
   //  like markScanned's scanned_at IS NULL.)
   // (HACCP rule-module routes drained in feat/idempotency-retrofit-haccp-rules:
-  //  beo, cleaning, cooling, date-marks, pest, sanitizer-check, sds, sick-worker,
+  //  beo, cleaning, cooling, date-marks, pest, sanitizer, sds, sick-worker,
   //  thermometer-calibrations, tphc — all now wrap withIdempotency.)
 ]);
 

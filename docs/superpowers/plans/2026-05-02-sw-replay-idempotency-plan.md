@@ -77,7 +77,7 @@
 **Failing-first** — the test fires, identifies the un-retrofitted routes, then the test acts as the punch list. Bulk-retrofit:
 
 - `app/api/cooling/route.js`
-- `app/api/sanitizer-check/route.js`
+- `app/api/sanitizer/route.ts`
 - `app/api/date-marks/route.js`
 - `app/api/sick-worker/route.js`
 - `app/api/breaks/route.js`
@@ -153,7 +153,7 @@ Manual verification on an iPad (per `OPERATIONS.md`): submit, kill wifi, submit 
 
 ## Phase 3 — HACCP retrofit (deferred)
 
-Wrap the 9 HACCP rule-module routes still in `TODO_RETROFIT`: `cooling`, `sanitizer-check`, `sds`, `pest`, `sick-worker`, `date-marks`, `tphc`, `cleaning`, `thermometer-calibrations`. Each writes `audit_events` per POST → duplicate replay = duplicate HACCP attestation. Same regulatory weight as Phase 2; lands as its own plan.
+Wrap the 9 HACCP rule-module routes still in `TODO_RETROFIT`: `cooling`, `sanitizer`, `sds`, `pest`, `sick-worker`, `date-marks`, `tphc`, `cleaning`, `thermometer-calibrations`. Each writes `audit_events` per POST → duplicate replay = duplicate HACCP attestation. Same regulatory weight as Phase 2; lands as its own plan.
 
 ## Phase 4 — operational drain (deferred)
 

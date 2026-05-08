@@ -58,7 +58,7 @@ pre-existing and rename-only follow-ups.
 | cooling | `cooling.ts` | `cooling/route.js` | yes | yes | yes | yes |
 | temp-log | `tempLog.ts` | `temp-log/route.js` | yes | yes | yes | yes |
 | receiving | `receiving.ts` | `receiving/route.js` | yes | yes | yes | yes |
-| sanitizer | `sanitizer.ts` | `sanitizer-check/route.js` ⚠ slug mismatch (rename to `sanitizer/` _pending PR_) | yes | yes | yes | yes (`test-sanitizer-check-api.mjs`) |
+| sanitizer | `sanitizer.ts` | `sanitizer/route.ts` | yes | yes | yes | yes (`test-sanitizer-api.mjs`) |
 | date-marks | `dateMarks.ts` | `date-marks/route.js` | yes | yes | yes (`test-date-mark-rules.mjs`) | yes (`test-date-marks-api.mjs`) |
 | sick-worker | `sickWorker.ts` | `sick-worker/route.js` | yes | yes | yes | yes |
 | calibrations | `calibrations.ts` | `thermometer-calibrations/route.js` ⚠ slug mismatch | yes | yes | yes | yes |
@@ -72,10 +72,8 @@ pre-existing and rename-only follow-ups.
 - §1a is fully covered — every regulated concept has the complete
   five-file shape and a paired rules + api test.
 - The sanitizer slug rename (`/api/sanitizer-check` →
-  `/api/sanitizer`) lands in a separate PR (_pending PR_); the
-  table name `sanitizer_checks` is unchanged.
-- The DB table for sanitizer remains `sanitizer_checks`; only the
-  HTTP route slug is being renamed.
+  `/api/sanitizer`) is complete; the DB table for sanitizer
+  remains `sanitizer_checks` (only the HTTP route slug was renamed).
 
 **Remaining follow-ups (cosmetic, not coverage gaps):**
 
@@ -85,9 +83,8 @@ pre-existing and rename-only follow-ups.
    shape as `SDS_CITATION` in `lib/sds.ts`.
 2. **Slug mismatches:** `lib/pestControl.ts` should be
    `lib/pest.ts` (or the slug should be `pest-control` everywhere
-   else), and `app/api/sanitizer-check/` and
-   `app/api/thermometer-calibrations/` deviate from their
-   `<concept>` slugs. These are pre-existing; renaming is a
+   else), and `app/api/thermometer-calibrations/` deviates from
+   its `<concept>` slug. These are pre-existing; renaming is a
    gitnexus-rename operation, not a textual find-replace, because
    the route paths leak into UI fetch URLs.
 
