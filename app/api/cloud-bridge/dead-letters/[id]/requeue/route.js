@@ -22,6 +22,7 @@ import {
   requeueDeadLetter,
 } from '../../../../../../lib/cloudBridgeQueue';
 import { logAuditAction } from '../../../../../../lib/auditLog.mjs';
+import { locationFromRequest } from '../../../../../../lib/location';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,6 +53,17 @@ export async function POST(req, { params }) {
     // 404 cleanly when the row isn't dead-lettered (or doesn't exist).
     const before = getDeadLetter(id);
     if (!before) {
+      return Response.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    // Cross-location IDOR guard: a caller scoped to site-A must not be
+    // able to act on a row whose location_id is site-B by guessing the
+    // numeric id. Surfaced as 404 (not 403) so the existence of a row
+    // at another site doesn't leak. If the caller didn't pass ?location=
+    // we default to DEFAULT_LOCATION_ID per locationFromRequest, which
+    // matches the GET list scope.
+    const callerLocation = locationFromRequest(req);
+    if (before.locationId !== callerLocation) {
       return Response.json({ error: 'Not found' }, { status: 404 });
     }
 

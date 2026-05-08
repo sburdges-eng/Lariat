@@ -360,5 +360,110 @@ describe('POST /api/cloud-bridge/dead-letters/[id]/drop — happy path', () => {
     assert.equal(audits[0].changes.location_id, 'default');
     assert.equal(audits[0].changes.attempts, 5);
     assert.equal(audits[0].changes.rows_count, rows.length);
+    // Full row payload is captured so an errant drop is recoverable.
+    // The allow-list keeps PII out of this column.
+    assert.deepStrictEqual(audits[0].changes.rows, rows);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────
+// Cross-location IDOR guard on mutation routes.
+//
+// A manager scoped to site-A must not be able to act on a row at
+// site-B by guessing the numeric id. Surfaced as 404 (not 403) so the
+// existence of a row at another site doesn't leak. Audit must NOT
+// record a successful action when the guard fires.
+// ─────────────────────────────────────────────────────────────────
+
+describe('Cross-location IDOR guard', () => {
+  let prevPin;
+  before(() => {
+    prevPin = process.env.LARIAT_PIN;
+    delete process.env.LARIAT_PIN;
+  });
+  after(() => {
+    if (prevPin !== undefined) process.env.LARIAT_PIN = prevPin;
+  });
+
+  it('requeue: 404 when caller location does not match row location', async () => {
+    // Row is at site-B; caller passes ?location=site-A.
+    const id = deadLetterBatch([{ shift_date: '2026-05-01', total: 1 }], {
+      locationId: 'site-b',
+    });
+
+    const res = await requeuePOST(
+      new Request(
+        `http://localhost/api/cloud-bridge/dead-letters/${id}/requeue?location=site-a`,
+        { method: 'POST' },
+      ),
+      { params: { id: String(id) } },
+    );
+    assert.equal(res.status, 404);
+
+    // Row is unchanged.
+    const row = testDb
+      .prepare('SELECT dead_letter, attempts FROM cloud_bridge_outbox WHERE id = ?')
+      .get(id);
+    assert.equal(row.dead_letter, 1);
+    assert.equal(row.attempts, 5);
+
+    // No audit row was written.
+    assert.deepStrictEqual(readAuditEntries(), []);
+  });
+
+  it('drop: 404 when caller location does not match row location', async () => {
+    const id = deadLetterBatch([{ shift_date: '2026-05-02', total: 2 }], {
+      locationId: 'site-b',
+    });
+
+    const res = await dropPOST(
+      new Request(
+        `http://localhost/api/cloud-bridge/dead-letters/${id}/drop?location=site-a`,
+        { method: 'POST' },
+      ),
+      { params: { id: String(id) } },
+    );
+    assert.equal(res.status, 404);
+
+    // Row still on disk.
+    const row = testDb
+      .prepare('SELECT id FROM cloud_bridge_outbox WHERE id = ?')
+      .get(id);
+    assert.ok(row);
+    assert.deepStrictEqual(readAuditEntries(), []);
+  });
+
+  it('requeue: 200 when caller location matches row location', async () => {
+    const id = deadLetterBatch([{ shift_date: '2026-05-03', total: 3 }], {
+      locationId: 'site-b',
+    });
+
+    const res = await requeuePOST(
+      new Request(
+        `http://localhost/api/cloud-bridge/dead-letters/${id}/requeue?location=site-b`,
+        { method: 'POST' },
+      ),
+      { params: { id: String(id) } },
+    );
+    assert.equal(res.status, 200);
+    const audits = readAuditEntries();
+    assert.equal(audits.length, 1);
+    assert.equal(audits[0].changes.location_id, 'site-b');
+  });
+
+  it('mutation routes default to "default" location when ?location= is absent', async () => {
+    // Row at non-default site; no ?location= on the request → caller
+    // location = 'default' → IDOR guard fires → 404.
+    const id = deadLetterBatch([{ shift_date: '2026-05-04', total: 4 }], {
+      locationId: 'site-b',
+    });
+
+    const res = await dropPOST(
+      new Request(`http://localhost/api/cloud-bridge/dead-letters/${id}/drop`, {
+        method: 'POST',
+      }),
+      { params: { id: String(id) } },
+    );
+    assert.equal(res.status, 404);
   });
 });

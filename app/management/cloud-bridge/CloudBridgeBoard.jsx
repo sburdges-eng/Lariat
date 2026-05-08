@@ -122,10 +122,10 @@ export default function CloudBridgeBoard({
     setBusyId(id);
     setErr('');
     try {
-      const res = await fetch(
-        `/api/cloud-bridge/dead-letters/${id}/${action}`,
-        { method: 'POST' },
-      );
+      // Pass ?location= so the route's cross-location IDOR guard
+      // matches against the same site the board is currently scoped to.
+      const url = `/api/cloud-bridge/dead-letters/${id}/${action}?location=${encodeURIComponent(location)}`;
+      const res = await fetch(url, { method: 'POST' });
       if (res.status === 401 || res.status === 403) {
         router.replace(
           `/login-pin?next=${encodeURIComponent('/management/cloud-bridge')}`,

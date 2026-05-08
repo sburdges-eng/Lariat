@@ -9,8 +9,12 @@
  * Same PIN gate as the sibling status / dead-letters routes.
  *
  * Audit: writes a `cloud_bridge_dead_letter_dropped` row to the
- * management-actions JSONL — payload is captured in `changes` so the
- * trail still has the rows even though the outbox row is gone.
+ * management-actions JSONL — the full row payload (rows[]) is captured
+ * in `changes` so the trail still has the data even after the outbox
+ * row is gone. The allow-listed tables (settlement_summaries,
+ * beo_events, spend_monthly per ALLOWED_TABLES) are non-PII by design,
+ * so capturing the rows in audit is safe; HACCP / sales-line / temp-log
+ * surfaces are NOT on the allow-list and never reach this code path.
  *
  * Response: 200 on delete; 404 if the id is unknown or already alive.
  */
@@ -21,6 +25,7 @@ import {
   dropDeadLetter,
 } from '../../../../../../lib/cloudBridgeQueue';
 import { logAuditAction } from '../../../../../../lib/auditLog.mjs';
+import { locationFromRequest } from '../../../../../../lib/location';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,6 +58,12 @@ export async function POST(req, { params }) {
       return Response.json({ error: 'Not found' }, { status: 404 });
     }
 
+    // Cross-location IDOR guard — see requeue route for the full note.
+    const callerLocation = locationFromRequest(req);
+    if (before.locationId !== callerLocation) {
+      return Response.json({ error: 'Not found' }, { status: 404 });
+    }
+
     const ok = dropDeadLetter(id);
     if (!ok) {
       return Response.json({ error: 'Not found' }, { status: 404 });
@@ -67,6 +78,10 @@ export async function POST(req, { params }) {
         attempts: before.attempts,
         last_error: before.lastError,
         rows_count: Array.isArray(before.rows) ? before.rows.length : 0,
+        // Capture the full payload so an errant drop is recoverable
+        // from the audit trail. Allow-list (cloudBridgeQueue.ts) keeps
+        // PII out of this column.
+        rows: Array.isArray(before.rows) ? before.rows : [],
       },
     });
 
