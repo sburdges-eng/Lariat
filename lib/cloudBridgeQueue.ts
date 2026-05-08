@@ -365,10 +365,28 @@ export function getDeadLetter(id: number): DeadLetterBatch | null {
  *
  * Refuses to touch healthy queued/in-flight rows: only `dead_letter = 1`
  * rows are eligible, so a misrouted action can't kick a live row.
+ *
+ * Also refuses to requeue a row whose `table_name` is NOT on the current
+ * `ALLOWED_TABLES` list. Today every row in the outbox passed the
+ * allow-list at enqueue() time, so this is purely defense-in-depth — but
+ * if `ALLOWED_TABLES` is ever tightened (a table removed from the
+ * allow-list because a future audit reclassifies it as PII-bearing), the
+ * old rows shouldn't slip back into the active queue and get pushed to
+ * the cloud peer.
  */
 export function requeueDeadLetter(id: number): boolean {
   if (!Number.isInteger(id) || id <= 0) return false;
-  const result = getDb()
+  const db = getDb();
+
+  // Defense-in-depth allow-list recheck. Read the row's table_name and
+  // refuse if it's no longer on the allow-list.
+  const row = db
+    .prepare(`SELECT table_name FROM cloud_bridge_outbox WHERE id = ? AND dead_letter = 1`)
+    .get(id) as { table_name: string } | undefined;
+  if (!row) return false;
+  if (!ALLOWED_TABLES.has(row.table_name)) return false;
+
+  const result = db
     .prepare(
       `UPDATE cloud_bridge_outbox
           SET dead_letter = 0,

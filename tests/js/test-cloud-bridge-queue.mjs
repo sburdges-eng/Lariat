@@ -494,6 +494,29 @@ describe('requeueDeadLetter()', () => {
     assert.equal(requeueDeadLetter(id), true);
     assert.equal(requeueDeadLetter(id), false, 'no longer dead-lettered');
   });
+
+  it('REFUSES to requeue a row whose table_name is not on the current allow-list', () => {
+    // Defense-in-depth: simulate a future state where ALLOWED_TABLES
+    // has been tightened — a previously-allow-listed table got
+    // reclassified, so an old dead-letter row's table_name is no
+    // longer on the list. Force this by enqueuing normally, dead-
+    // lettering, then mutating the row's table_name to something
+    // off the list. The requeue must refuse rather than re-arm
+    // a row that would now fail at enqueue().
+    const id = deadLetterBatch([{ shift_date: '2026-05-01', total: 1 }]);
+    testDb
+      .prepare('UPDATE cloud_bridge_outbox SET table_name = ? WHERE id = ?')
+      .run('retired_table_name', id);
+
+    assert.equal(requeueDeadLetter(id), false, 'not on allow-list → refuse');
+
+    // Row stays dead-lettered.
+    const row = testDb
+      .prepare('SELECT dead_letter, attempts FROM cloud_bridge_outbox WHERE id = ?')
+      .get(id);
+    assert.equal(row.dead_letter, 1, 'still dead-lettered');
+    assert.equal(row.attempts, 5, 'attempts not reset');
+  });
 });
 
 describe('dropDeadLetter()', () => {
