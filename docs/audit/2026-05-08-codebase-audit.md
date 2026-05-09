@@ -11,6 +11,8 @@
 
 **Verification status.** The 4 security HIGH findings were spot-checked against live source by the orchestrator after agent return; all 4 confirmed real. Other HIGH findings are agent-claimed and should be triaged with a fresh `Read` before action — agents occasionally misread line numbers or conflate adjacent files.
 
+> **Note on auditor tooling (added 2026-05-09):** the 2026-05-08 audit's tooling silently stripped NUL bytes when reading source files. This affected at least the `lib/marginDeltas.ts` review (claim #203 about `skuGroups` map key separator was incorrect for this reason). Future audit runs against this codebase should use binary-safe file readers and verify any "separator" or "key joiner" claims via `od -c` or `git diff --text` first.
+
 ---
 
 ## Severity summary
@@ -191,6 +193,7 @@
 ### LOW / INFO
 
 - `lib/ingredientKey.ts:22` — JS does not call `.trim()` after final `WHITESPACE` replace; Python (`scripts/lib/ingredient_key.py:30`) does. Inputs ending in punctuation (e.g. `"Poblano!"`) produce `"poblano "` (JS) vs `"poblano"` (Py). Fixture should expose this if regenerated. **Fix:** Add `.trim()` after final replace; regenerate fixture; add punctuation-tail test.
+  - **[RESOLVED-INVALID 2026-05-09]** — JS `lib/ingredientKey.ts:21`'s inner `.trim()` (after the `NONALNUM` replace) handles the punctuation-tail case before the final `WHITESPACE` replace, which becomes a no-op. Both implementations produce identical output for all 6 traced edge cases including `"Poblano!"` → `"poblano"`. PR #213 added 5 regression test cases via the existing fixture-generator pinning the parity.
 - `lib/costingBenchmarks.mjs:87` — `resolveMergedCost` computes `mean(pack_price/pack_size)`, not `(Σ pack_price)/(Σ pack_size)`. Algebraically different when pack sizes vary. Comment says "simple mean" without flagging the volume-weighting limitation. **Fix:** Expand comment.
 - `lib/computeEngine/index.ts:68-77` — `pruneSnapshotTable` uses `id NOT IN (SELECT id … LIMIT ?)` subquery scan. Cheap at default 365 retention; flag for awareness if scaled.
 - `scripts/ingest-costing.mjs:778` — D4 Excel-drift threshold hard-coded `$0.10` with comment promising future `$1.00` hard-fail. No tracked ticket. **Fix:** Add issue number; consider promoting to non-zero exit code.
@@ -201,14 +204,17 @@
 - `computeAccountingVariance` does DB reads inside the write transaction (`computeActualCogsBreakdown` at `accountingVariance.ts:191,205`). Externalize as pure read step before the write tx for composability.
 - `sandboxCosting.ts:62` — `LIKE '%ingredient%'` per-ingredient against `vendor_prices`. O(N) per call on every Specials-sandbox submission. Main engine uses `Map` lookups; sandbox should follow.
 - `lib/marginDeltas.ts:171` — `skuGroups` map key uses plain space separator (`${ingredient} ${vendor} ${sku}`) while file's other keys use NUL byte. Inconsistent; latent collision risk if values contain matching substrings.
+  - **[RESOLVED-INVALID 2026-05-09]** — claim is WRONG: `od -c` of `lib/marginDeltas.ts:171` confirms `${s.ingredient}\0${s.vendor}\0${s.sku}` with NUL bytes throughout the file (consistent with the rest of marginDeltas). Audit tooling appears to have silently stripped NUL bytes when reading the source. See project memory `project_margindeltas_nul_byte_key_joiner.md` and the new top-level "Note on auditor tooling" callout.
 
 ### Test coverage gaps
 
 - **No `tests/js/test-vendor-prices-history.mjs`** — invariant (snapshot before DELETE, run_id keying, BEVERAGE preservation) is exercised only indirectly via `test-compute-engine.mjs`. Add dedicated test asserting (a) row-count parity, (b) run_id matches `ingest_runs.id`, (c) `snapshot_at` populated, (d) beverage rows survive DELETE.
+  - **[RESOLVED-INVALID 2026-05-09]** — dedicated test files exist (`tests/js/test-vendor-prices-history-and-beverage-preserve.mjs`, `tests/js/test-vendor-prices-history-on-upsert.mjs`) covering snapshot-before-DELETE, run_id keying, and BEVERAGE preservation. Audit may have run before these landed.
 - **No `tests/js/test-costing-*.mjs`** — `scripts/ingest-costing.mjs` T3/T4/T5b/T6/T7 post-passes (yield-delta, unit convert, catch-weight backfill, pack-size detect, master-id backfill) have no isolated suite. C4 round-trip in `test-compute-engine.mjs` exercises final result only.
 - `scripts/lib/generate_ingredient_key_fixture.py:19` — re-running the generator with the corrected JS `.trim()` would expose the parity drift. Manual verification step.
 - `test-compute-engine.mjs` — no test for `computeActualCogsBreakdown` multi-vendor precedence (Shamrock-preferred over `spend_monthly`; Sysco no-fallback paths untested).
 - `test-price-shocks.mjs` — does not test `listMarginDeltas` from `lib/marginDeltas.ts`. Margin deltas have no test file.
+  - **[RESOLVED-INVALID 2026-05-09]** — `tests/js/test-margin-deltas.mjs` has shipped since 2026-04-25 (commit `ef22a5e`) with 10 cases; PR #214 (`87b7165`) added 4 more (empty-input, NUL collision, top-3 trim). Audit ran before #214 but the original 10-case file already existed at audit time.
 
 ---
 
@@ -239,6 +245,7 @@
 - Modelfile correctly has no baked SYSTEM block — system prompt source-of-truth in `lib/ollama.ts`.
 - `extractAction` duplicated verbatim in KA + Specials routes (`route.js:39-64` / `specials/route.js:20-45`) — byte-identical 26 lines. Future fixes must apply twice.
 - `USDA_NUTRIENT_PRIORITY`, `formatUnit`, `PRIORITY_DISPLAY` documented as duplicated at `app/kitchen-assistant/citationHelpers.js:1241,1282,1307`. Guarded by `test-kitchen-assistant-citations.mjs`. Acceptable.
+  - **[RESOLVED-INVALID 2026-05-09]** — duplication is documented as deliberate per `app/kitchen-assistant/citationHelpers.js:8-14`'s prior-task comment ("It's OK to copy the small constants/helpers into the client component — don't refactor lib/kitchenAssistantContext.ts to share them"), with parity pinned by `test-kitchen-assistant-citations.mjs`. The audit's MEDIUM rating predates that decision.
 
 ### Tech-debt / refactor opportunities
 
