@@ -19,6 +19,7 @@ import { validateReceivingReading, dbStatusFor } from '../../../lib/receiving';
 import { validateTempReading, getTempPoint } from '../../../lib/tempLog';
 import { normalizeUnit } from '../../../lib/unitConvert.mjs';
 import { isImperativeCommand } from '../../../lib/cookMessageClassifier';
+import { extractAction } from '../../../lib/extractAction';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -31,37 +32,6 @@ function clip(s, max) {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
-}
-
-function stripFences(s) {
-  return s.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
-}
-
-function extractAction(content) {
-  const braceStart = content.indexOf('{');
-  if (braceStart < 0) return { payload: null, stripped: stripFences(content) };
-
-  let depth = 0, inStr = false, esc = false, end = -1;
-  for (let i = braceStart; i < content.length; i++) {
-    const ch = content[i];
-    if (esc) { esc = false; continue; }
-    if (ch === '\\') { esc = true; continue; }
-    if (ch === '"') { inStr = !inStr; continue; }
-    if (inStr) continue;
-    if (ch === '{') depth++;
-    else if (ch === '}') { depth--; if (depth === 0) { end = i; break; } }
-  }
-  if (end < 0) return { payload: null, stripped: stripFences(content) };
-
-  let payload = null;
-  try { payload = JSON.parse(content.slice(braceStart, end + 1)); }
-  catch { return { payload: null, stripped: stripFences(content) }; }
-
-  if (!payload || typeof payload !== 'object' || typeof payload.action !== 'string') {
-    return { payload: null, stripped: stripFences(content) };
-  }
-  const stripped = stripFences(content.slice(0, braceStart) + content.slice(end + 1));
-  return { payload, stripped };
 }
 
 /** GET — Ollama reachability + safe config for UI (no secrets). */
