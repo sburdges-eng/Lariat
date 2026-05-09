@@ -162,12 +162,18 @@ async function receivingHandler(req) {
     // closed_loop_error gate below: that path actually persists the
     // row and credits inventory, so a bad qty there has to block.
     if (decision.status === 'rejected' && !corrective_action) {
+      // A rejection is an outright refusal — the goods are not coming
+      // inside. Surface a wire-distinct flag from the drift-band
+      // "add a fix note to accept" case (`needs_corrective_action`).
+      // The cook still needs to record WHY the delivery was refused
+      // (invoice credit, vendor callback) — that's a rejection note,
+      // not a corrective fix.
       return Response.json(
         {
           error: decision.reason,
           status: decision.status,
           citation: decision.citation,
-          needs_corrective_action: true,
+          needs_rejection_note: true,
         },
         { status: 422 },
       );

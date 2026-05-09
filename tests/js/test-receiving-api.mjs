@@ -194,7 +194,12 @@ describe('POST /api/receiving — 422 without corrective_action', () => {
     }));
     assert.strictEqual(res.status, 422);
     const body = await res.json();
+    // Drift-band path keeps the legacy `needs_corrective_action: true`
+    // contract — this is the "add a fix note to accept" case.
     assert.strictEqual(body.needs_corrective_action, true);
+    // Drift-band path must NOT carry the rejection-note flag — those
+    // are wire-distinct codes (see needs_rejection_note tests below).
+    assert.notStrictEqual(body.needs_rejection_note, true);
     assert.strictEqual(body.status, 'accept_with_note');
     assert.match(body.citation, /§/);
     assert.strictEqual(countReceiving(), 0);
@@ -227,7 +232,14 @@ describe('POST /api/receiving — 422 without corrective_action', () => {
     assert.strictEqual(res.status, 422);
     const body = await res.json();
     assert.strictEqual(body.status, 'rejected');
+    // Rejection-without-note must surface `needs_rejection_note: true`
+    // — the semantic is "document why you refused this delivery", not
+    // "add a fix note to accept it". Wire-distinct from drift-band.
+    assert.strictEqual(body.needs_rejection_note, true);
+    assert.notStrictEqual(body.needs_corrective_action, true);
+    assert.match(body.citation, /§/);
     assert.strictEqual(countReceiving(), 0);
+    assert.strictEqual(countAudit('receiving_log'), 0);
   });
 
   it('refrigerated @ 50°F WITH a rejection reason is saved as rejected (+ audit)', async () => {
@@ -252,6 +264,12 @@ describe('POST /api/receiving — 422 without corrective_action', () => {
       package_ok: false,
     }));
     assert.strictEqual(resA.status, 422);
+    const bodyA = await resA.json();
+    // Package integrity rejection is a refusal, not a drift fix —
+    // surfaces needs_rejection_note, NOT needs_corrective_action.
+    assert.strictEqual(bodyA.status, 'rejected');
+    assert.strictEqual(bodyA.needs_rejection_note, true);
+    assert.notStrictEqual(bodyA.needs_corrective_action, true);
     assert.strictEqual(countReceiving(), 0);
 
     const resB = await POST(postReq({
@@ -626,7 +644,10 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     const body = await res.json();
     assert.strictEqual(body.status, 'rejected');
     assert.match(body.citation, /§3-202\.15/);
-    assert.strictEqual(body.needs_corrective_action, true);
+    // Rejection priority over malformed qty surfaces a refusal, not a
+    // drift fix — needs_rejection_note, not needs_corrective_action.
+    assert.strictEqual(body.needs_rejection_note, true);
+    assert.notStrictEqual(body.needs_corrective_action, true);
     assert.strictEqual(countReceiving(), 0);
   });
 
