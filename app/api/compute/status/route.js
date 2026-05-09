@@ -58,8 +58,33 @@ export async function POST(request) {
 async function computeStatusPostHandler(request) {
   const { searchParams } = new URL(request.url);
   const locationId = searchParams.get('location') || 'default';
-  const periodStart = searchParams.get('period_start') || undefined;
-  const periodEnd = searchParams.get('period_end') || undefined;
+  const queryStart = searchParams.get('period_start');
+  const queryEnd = searchParams.get('period_end');
+
+  // Body fields take precedence over URL params — consistent with
+  // locationFromBody and other Lariat compute routes (see
+  // docs/audit/2026-05-08-codebase-audit.md §4 Compute, MEDIUM).
+  // Only `period_start` / `period_end` are honored; any other body
+  // field is ignored. Malformed JSON falls back silently to URL params
+  // so curl/scripts that mis-format a body still get the URL behavior.
+  let body = {};
+  if (request.headers.get('content-length')) {
+    try {
+      body = await request.json();
+      if (body == null || typeof body !== 'object') body = {};
+    } catch {
+      body = {};
+    }
+  }
+
+  const periodStart =
+    (typeof body.period_start === 'string' && body.period_start) ||
+    queryStart ||
+    undefined;
+  const periodEnd =
+    (typeof body.period_end === 'string' && body.period_end) ||
+    queryEnd ||
+    undefined;
 
   // triggerComputeEngine is synchronous (better-sqlite3). Defer via
   // setImmediate so the response flushes first; microtask chaining
