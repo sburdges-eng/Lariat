@@ -3,12 +3,18 @@
  *
  * Next calls `register()` exactly once per server worker on boot — both
  * for `next dev` and `next start`. We use it as the single, framework-
- * sanctioned place to start two long-running side-services:
+ * sanctioned place to start three long-running side-services:
  *
  *   1. mDNS responder — so peers on the LAN can find this Lariat instance.
  *   2. Cloud-bridge drainer — so rows enqueued in `cloud_bridge_outbox`
  *      get pushed to the configured cloud peer without an external
  *      supervisor. Skipped silently if env vars are absent.
+ *   3. Data-pack pre-warm — fires the BGE embedding model + ingredients
+ *      vector bucket load on a `setImmediate` so the first
+ *      INGREDIENT_KEYWORDS-gated Kitchen Assistant query doesn't pay
+ *      the ~20s cold-load tax. Graceful-degraded: silently no-ops on
+ *      machines where the data pack symlink isn't mounted. See
+ *      `lib/datapackSearch.ts::prewarmDataPack`.
  *
  * Why here and not in `next.config.mjs` or a route module:
  *   - `next.config.mjs` runs at config time, before the server has a port.
@@ -45,4 +51,24 @@ export async function register(): Promise<void> {
     './lib/cloudBridgeDrainerLifecycle.ts'
   );
   await bootCloudBridgeDrainer();
+
+  // Defer data-pack pre-warm to the next tick so boot is not blocked
+  // by the BGE model + ~3 GB ingredients bucket load (cold-load is
+  // ~20s). The dynamic import + setImmediate combo keeps the
+  // instrumentation-hook tick fast and lets Next finish its own
+  // bootstrap before the pre-warm starts pulling weights into memory.
+  // The helper is graceful-degraded — no-ops on machines without the
+  // data pack symlink and swallows any internal failure — so we don't
+  // need to await the result here.
+  setImmediate(async () => {
+    try {
+      const { prewarmDataPack } = await import('./lib/datapackSearch.ts');
+      await prewarmDataPack();
+    } catch (err) {
+      // Lazy-import shouldn't fail in the nodejs runtime, but keep a
+      // defensive log so a future module-resolution change doesn't
+      // silently break the pre-warm.
+      console.warn('[instrumentation] datapack pre-warm import failed:', err);
+    }
+  });
 }

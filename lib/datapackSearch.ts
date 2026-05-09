@@ -824,6 +824,56 @@ export async function semantic(
   return hits;
 }
 
+// ── Boot-time pre-warm ────────────────────────────────────────────
+
+/**
+ * Pre-warm the BGE embedding model + ingredients vector bucket so the
+ * first user-triggered INGREDIENT_KEYWORDS query in the Kitchen
+ * Assistant doesn't pay the ~20s cold-load tax. The ingredients bucket
+ * is the heaviest one (~3 GB on disk, 2.06M descriptions × 384 dims),
+ * so warming it lands the model weights too — every other bucket is
+ * cheap relative to it.
+ *
+ * Designed to be dispatched once per server worker via a `setImmediate`
+ * inside `instrumentation.ts::register()` so boot is not blocked.
+ *
+ * Contract:
+ *   - graceful-degraded: when the data pack isn't mounted on this
+ *     machine (`available()` is false — common on dev laptops without
+ *     the SSD attached) the call short-circuits silently. No throw,
+ *     no log.
+ *   - idempotent: subsequent calls hit the warm bucket+model caches
+ *     and return in milliseconds. Safe to call repeatedly (e.g. from
+ *     a dev HMR worker restart).
+ *   - non-crashing: any internal failure (semantic throw, model load
+ *     failure, half-built bucket) is logged and swallowed. Pre-warm
+ *     is opportunistic; a transient failure here must not take down
+ *     the server boot path. The next user-triggered query will retry
+ *     and surface its own error if the failure persists.
+ *
+ * Audit reference: docs/audit/2026-05-08-codebase-audit.md §5,
+ * Kitchen Assistant MEDIUM (INGREDIENT_KEYWORDS cold-load).
+ */
+export async function prewarmDataPack(): Promise<void> {
+  if (!available()) return;
+  try {
+    // A benign one-row probe against the heaviest bucket. semantic()
+    // already short-circuits on empty/whitespace queries, so we send
+    // a real (but trivial) token so the model load + vector read both
+    // execute. The result is discarded — we only care about the side
+    // effect of populating `_modelPromise` and `_bucketCache`.
+    await semantic('warmup', { bucket: 'ingredients', limit: 1 });
+  } catch (err) {
+    // Pre-warm is opportunistic. Log once for observability and move
+    // on; the next real query will hit the same code path and surface
+    // its own error if the underlying problem persists.
+    console.warn(
+      '[datapackSearch] pre-warm failed (will retry on first query):',
+      err
+    );
+  }
+}
+
 // ── Hybrid (BM25 + cosine fusion) ─────────────────────────────────
 
 export type HybridBucket = 'recipes' | 'techniques' | 'safety' | 'ingredients';
