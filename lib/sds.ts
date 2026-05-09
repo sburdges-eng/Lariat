@@ -235,9 +235,24 @@ export function validateSds(input: unknown): ValidateResult {
     if (!ISO_DATE_RE.test(body.last_reviewed)) {
       return { ok: false, reason: 'last_reviewed must match YYYY-MM-DD' };
     }
-    // Round-trip parse to catch stuff like 2026-13-40.
-    const ms = Date.parse(body.last_reviewed);
-    if (!Number.isFinite(ms)) {
+    // Round-trip parse to catch non-existent dates like 2026-02-30.
+    // Date.parse silently normalizes them (Feb 30 → Mar 2) — the format
+    // regex above and a finite-ms check would both pass, leaving the
+    // operator-typed string in the DB while the inspector-facing "current
+    // SDS" date check sorts/compares against the normalized real date.
+    // Mirrors lib/dateMarks.ts::parseDateStrict.
+    const parts = body.last_reviewed.split('-').map((p: string) => parseInt(p, 10));
+    const y = parts[0]!;
+    const m = parts[1]!;
+    const d = parts[2]!;
+    const ms = Date.UTC(y, m - 1, d);
+    const dt = new Date(ms);
+    if (
+      !Number.isFinite(ms) ||
+      dt.getUTCFullYear() !== y ||
+      dt.getUTCMonth() !== m - 1 ||
+      dt.getUTCDate() !== d
+    ) {
       return { ok: false, reason: 'last_reviewed is not a real calendar date' };
     }
     lastReviewedValue = body.last_reviewed;

@@ -276,6 +276,61 @@ describe('validateSds — last_reviewed (ISO date)', () => {
   });
 });
 
+// ── last_reviewed phantom-date guard ─────────────────────────────
+//
+// Date.parse silently normalizes invalid calendar dates: '2026-02-30'
+// becomes 2026-03-02 instead of returning NaN, so a format-only check
+// would let the corruption through. The corruption is invisible to the
+// inspector-facing "current SDS" date check — the operator-typed string
+// renders as Feb 30 but sorts/compares as Mar 2. The validator must
+// round-trip the parsed Y/M/D back to the input.
+//
+// Audit reference: docs/audit/2026-05-08-codebase-audit.md §2 (HACCP
+// MEDIUM, sds last_reviewed phantom dates).
+
+describe('validateSds — last_reviewed phantom dates', () => {
+  const base = { product_name: 'Quat 256' };
+
+  it('rejects 2026-02-30 (Date.parse silently normalizes to Mar 2)', () => {
+    const r = validateSds({ ...base, last_reviewed: '2026-02-30' });
+    assert.strictEqual(r.ok, false);
+    assert.match(r.reason, /not a real calendar date/i);
+  });
+
+  it('rejects 2025-13-01 (month 13 does not exist)', () => {
+    const r = validateSds({ ...base, last_reviewed: '2025-13-01' });
+    assert.strictEqual(r.ok, false);
+    assert.match(r.reason, /last_reviewed/);
+  });
+
+  it('rejects 2026-04-31 (April only has 30 days)', () => {
+    const r = validateSds({ ...base, last_reviewed: '2026-04-31' });
+    assert.strictEqual(r.ok, false);
+    assert.match(r.reason, /not a real calendar date/i);
+  });
+
+  it('rejects 2026-06-31 (June only has 30 days)', () => {
+    const r = validateSds({ ...base, last_reviewed: '2026-06-31' });
+    assert.strictEqual(r.ok, false);
+    assert.match(r.reason, /not a real calendar date/i);
+  });
+
+  it('accepts 2026-02-28 (real date, regression guard)', () => {
+    const r = validateSds({ ...base, last_reviewed: '2026-02-28' });
+    assert.strictEqual(r.ok, true);
+  });
+
+  it('accepts 2024-02-29 (leap year, regression guard)', () => {
+    const r = validateSds({ ...base, last_reviewed: '2024-02-29' });
+    assert.strictEqual(r.ok, true);
+  });
+
+  it('accepts 2026-12-31 (year boundary, regression guard)', () => {
+    const r = validateSds({ ...base, last_reviewed: '2026-12-31' });
+    assert.strictEqual(r.ok, true);
+  });
+});
+
 // ── active flag ──────────────────────────────────────────────────
 
 describe('validateSds — active flag', () => {
