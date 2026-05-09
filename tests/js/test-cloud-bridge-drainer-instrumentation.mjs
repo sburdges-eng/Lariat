@@ -25,9 +25,11 @@ function makeFakeDrainer() {
   let startCount = 0;
   let stopCount = 0;
   let running = false;
+  const startCalls = [];
   return {
-    start() {
+    start(opts) {
       startCount += 1;
+      startCalls.push(opts);
       running = true;
       return {
         start() { /* re-arm — no-op for fake */ },
@@ -43,6 +45,7 @@ function makeFakeDrainer() {
     get startCount() { return startCount; },
     get stopCount() { return stopCount; },
     get running() { return running; },
+    get startCalls() { return startCalls; },
   };
 }
 
@@ -208,5 +211,113 @@ describe('cloudBridgeDrainerLifecycle', () => {
     await lifecycle.bootCloudBridgeDrainer(opts);
 
     assert.equal(fake.startCount, 2, 'reset must let startDrainer run again');
+  });
+
+  // ── Env-var threading (audit 2026-05-08 §3, Cloud-bridge LOW) ────────
+  //
+  // bootCloudBridgeDrainer must pass LARIAT_DRAINER_TICK_MS and
+  // LARIAT_DRAINER_STALE_AGE_S into startDrainer({ ... }) instead of only
+  // logging the tickMs value. The standalone runner
+  // (scripts/cloud-bridge-drainer.mjs) already wires both correctly; the
+  // instrumentation boot path was the gap.
+
+  describe('env-var threading into startDrainer', () => {
+    let prevTickMs;
+    let prevStaleAge;
+
+    beforeEach(() => {
+      prevTickMs = process.env.LARIAT_DRAINER_TICK_MS;
+      prevStaleAge = process.env.LARIAT_DRAINER_STALE_AGE_S;
+      delete process.env.LARIAT_DRAINER_TICK_MS;
+      delete process.env.LARIAT_DRAINER_STALE_AGE_S;
+    });
+
+    afterEach(() => {
+      if (prevTickMs === undefined) {
+        delete process.env.LARIAT_DRAINER_TICK_MS;
+      } else {
+        process.env.LARIAT_DRAINER_TICK_MS = prevTickMs;
+      }
+      if (prevStaleAge === undefined) {
+        delete process.env.LARIAT_DRAINER_STALE_AGE_S;
+      } else {
+        process.env.LARIAT_DRAINER_STALE_AGE_S = prevStaleAge;
+      }
+    });
+
+    it('threads LARIAT_DRAINER_TICK_MS into startDrainer opts', async () => {
+      process.env.LARIAT_DRAINER_TICK_MS = '5000';
+      const fake = makeFakeDrainer();
+      await lifecycle.bootCloudBridgeDrainer({
+        customIsConfigured: () => true,
+        customStartDrainer: fake.start.bind(fake),
+        customStopDrainer: fake.stop.bind(fake),
+      });
+
+      assert.equal(fake.startCount, 1, 'startDrainer must be called once');
+      const calledWith = fake.startCalls[0];
+      assert.ok(
+        calledWith && typeof calledWith === 'object',
+        `expected startDrainer to be called with an opts object, got: ${JSON.stringify(calledWith)}`,
+      );
+      assert.equal(calledWith.tickMs, 5000, 'tickMs must be threaded as a number');
+      assert.equal(
+        calledWith.staleClaimAgeSec,
+        300,
+        'staleClaimAgeSec default (300) must still be threaded when env unset',
+      );
+    });
+
+    it('threads LARIAT_DRAINER_STALE_AGE_S into startDrainer opts', async () => {
+      process.env.LARIAT_DRAINER_STALE_AGE_S = '60';
+      const fake = makeFakeDrainer();
+      await lifecycle.bootCloudBridgeDrainer({
+        customIsConfigured: () => true,
+        customStartDrainer: fake.start.bind(fake),
+        customStopDrainer: fake.stop.bind(fake),
+      });
+
+      const calledWith = fake.startCalls[0];
+      assert.ok(calledWith && typeof calledWith === 'object');
+      assert.equal(calledWith.staleClaimAgeSec, 60, 'staleClaimAgeSec must be threaded');
+      assert.equal(
+        calledWith.tickMs,
+        30000,
+        'tickMs default (30000) must still be threaded when env unset',
+      );
+    });
+
+    it('applies defaults (tickMs=30000, staleClaimAgeSec=300) when both env vars unset', async () => {
+      const fake = makeFakeDrainer();
+      await lifecycle.bootCloudBridgeDrainer({
+        customIsConfigured: () => true,
+        customStartDrainer: fake.start.bind(fake),
+        customStopDrainer: fake.stop.bind(fake),
+      });
+
+      const calledWith = fake.startCalls[0];
+      assert.ok(calledWith && typeof calledWith === 'object');
+      assert.equal(calledWith.tickMs, 30000);
+      assert.equal(calledWith.staleClaimAgeSec, 300);
+    });
+
+    it('log line reflects both tickMs and staleClaimAgeSec values', async () => {
+      process.env.LARIAT_DRAINER_TICK_MS = '5000';
+      process.env.LARIAT_DRAINER_STALE_AGE_S = '60';
+      const fake = makeFakeDrainer();
+      await lifecycle.bootCloudBridgeDrainer({
+        customIsConfigured: () => true,
+        customStartDrainer: fake.start.bind(fake),
+        customStopDrainer: fake.stop.bind(fake),
+      });
+
+      const startedLine = logCapture.lines.find((l) => /drainer started/.test(l));
+      assert.ok(
+        startedLine,
+        `expected a "drainer started" log line, got: ${JSON.stringify(logCapture.lines)}`,
+      );
+      assert.match(startedLine, /tickMs=5000/);
+      assert.match(startedLine, /staleClaimAgeSec=60/);
+    });
   });
 });
