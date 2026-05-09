@@ -137,3 +137,32 @@ describe('GET /api/sanitizer', () => {
     assert.ok(Array.isArray(body.chemistries));
   });
 });
+
+// ─────────────────────────────────────────────────────────────────
+// POST /api/sanitizer — transactional rollback
+//
+// Per docs/PATTERNS.md §3, postAuditEvent() runs inside the same
+// transaction as the source INSERT. If the audit write fails the
+// sanitizer_checks row MUST also roll back — no stranded readings
+// without their audit trail. We simulate by renaming audit_events
+// out of the way mid-test so the audit insert throws.
+// ─────────────────────────────────────────────────────────────────
+
+describe('POST /api/sanitizer — transactional rollback', () => {
+  it('rollback: drop audit_events mid-flight → sanitizer_checks insert rolls back (zero stranded rows)', async () => {
+    testDb.exec(`ALTER TABLE audit_events RENAME TO audit_events_stash`);
+    try {
+      const before = countChecks();
+      const res = await POST(postReq({
+        chemistry: 'quat',
+        concentration_ppm: 200,                  // in-band — would otherwise succeed
+        point_label: 'Wiping bucket — line',
+        cook_id: 'alice',
+      }));
+      assert.strictEqual(res.status, 500, 'route must 500 when audit write fails');
+      assert.strictEqual(countChecks(), before, 'sanitizer_checks must be rolled back — no stranded rows');
+    } finally {
+      testDb.exec(`ALTER TABLE audit_events_stash RENAME TO audit_events`);
+    }
+  });
+});

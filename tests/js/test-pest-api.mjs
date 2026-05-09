@@ -138,3 +138,33 @@ describe('GET /api/pest', () => {
     assert.ok(body.location_id);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────
+// POST /api/pest — transactional rollback
+//
+// Per docs/PATTERNS.md §3, postAuditEvent() runs inside the same
+// transaction as the source INSERT. If the audit write fails the
+// pest_control_log row MUST also roll back — no stranded mutations
+// without their audit trail. We simulate by renaming audit_events
+// out of the way mid-test so the audit insert throws.
+// ─────────────────────────────────────────────────────────────────
+
+describe('POST /api/pest — transactional rollback', () => {
+  it('rollback: drop audit_events mid-flight → pest_control_log insert rolls back (zero stranded rows)', async () => {
+    testDb.exec(`ALTER TABLE audit_events RENAME TO audit_events_stash`);
+    try {
+      const before = countLogs();
+      const res = await POST(postReq({
+        entry_type: 'service_visit',
+        vendor: 'Acme Pest',
+        technician: 'Jorge',
+        findings: 'No activity in any traps.',
+        cook_id: 'alice',
+      }));
+      assert.strictEqual(res.status, 500, 'route must 500 when audit write fails');
+      assert.strictEqual(countLogs(), before, 'pest_control_log must be rolled back — no stranded rows');
+    } finally {
+      testDb.exec(`ALTER TABLE audit_events_stash RENAME TO audit_events`);
+    }
+  });
+});
