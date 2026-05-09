@@ -93,8 +93,9 @@ describe('getAuditLogByAction — stream-read past 1000-entry cap', () => {
 
     const matches = auditLog.getAuditLogByAction('recipe_edit');
     assert.equal(matches.length, 2, 'misformed line must be skipped, valid neighbors preserved');
-    const ids = matches.map(m => m.id).sort();
-    assert.deepEqual(ids, ['1', '2']);
+    // Newest-first ordering — id '2' has the later timestamp.
+    const ids = matches.map(m => m.id);
+    assert.deepEqual(ids, ['2', '1']);
   });
 });
 
