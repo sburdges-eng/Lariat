@@ -374,7 +374,7 @@ function dedupeCandidates(ranked: readonly RankedCandidate[]): RankedCandidate[]
       byKey.set(key, c);
     }
   }
-  return [...byKey.values()];
+  return Array.from(byKey.values());
 }
 
 /**
@@ -683,7 +683,7 @@ function variantDiscriminatorsOnlyInCandidate(
   candWords: Set<string>,
 ): string[] {
   const out: string[] = [];
-  for (const w of candWords) {
+  for (const w of Array.from(candWords)) {
     if (VARIETY_DISCRIMINATOR_TOKENS.has(w) && !bomTokens.has(w)) out.push(w);
   }
   return out;
@@ -753,8 +753,8 @@ export function matchRawCutForGrind(
     );
     if (!anchor) continue;
 
-    const hasRawKw = [...candWords].some((w) => RAW_CUT_KEYWORDS.has(w));
-    const hasBulkKw = [...candWords].some((w) => BULK_FORM_KEYWORDS.has(w));
+    const hasRawKw = Array.from(candWords).some((w) => RAW_CUT_KEYWORDS.has(w));
+    const hasBulkKw = Array.from(candWords).some((w) => BULK_FORM_KEYWORDS.has(w));
 
     let confidence: MatchConfidence;
     let reason: string;
@@ -812,7 +812,7 @@ export function matchRawCutForGrind(
   // name asc. The penalized-ordering key is what prevents a cheap
   // variety-penalized candidate (e.g. red bell peppers at $0.11/oz)
   // from out-ranking a real bulk black-pepper SKU (e.g. $15.99/lb).
-  const sortedEntries = [...byKey.values()].sort((a, b) => {
+  const sortedEntries = Array.from(byKey.values()).sort((a, b) => {
     const cr = confidenceRank(a.c.confidence) - confidenceRank(b.c.confidence);
     if (cr !== 0) return cr;
     const pr = (a.penalized ? 1 : 0) - (b.penalized ? 1 : 0);

@@ -38,7 +38,7 @@
  * `tests/js/test-cloud-bridge-drainer-instrumentation.mjs`.
  */
 
-import type { DrainerHandle, DrainerOpts } from './cloudBridgeDrainer.ts';
+import type { DrainerHandle, DrainerOpts } from './cloudBridgeDrainer';
 
 type StartDrainerFn = (_opts?: DrainerOpts) => DrainerHandle;
 type StopDrainerFn = () => void;
@@ -110,8 +110,8 @@ export async function bootCloudBridgeDrainer(
     // Lazy imports: keep `better-sqlite3` (via db.ts) out of any caller
     // that runs in the edge runtime. instrumentation.ts gates on
     // NEXT_RUNTIME before reaching here, but defence in depth.
-    const cb = await import('./cloudBridge.ts');
-    const drainer = await import('./cloudBridgeDrainer.ts');
+    const cb = await import('./cloudBridge');
+    const drainer = await import('./cloudBridgeDrainer');
     isConfigured ??= cb.isCloudBridgeConfigured;
     startDrainer ??= drainer.startDrainer;
     stopDrainer ??= drainer.stopDrainer;

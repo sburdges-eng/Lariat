@@ -83,7 +83,7 @@ export function resolveSchedule(
 
   // Within each station, sort courses chronologically by fire_at; ties
   // broken by event_id (deterministic) then course id.
-  for (const arr of buckets.values()) {
+  for (const arr of Array.from(buckets.values())) {
     arr.sort(
       (a, b) =>
         Date.parse(a.fire_at) - Date.parse(b.fire_at) ||

@@ -79,10 +79,10 @@ function getIp(req) {
 }
 
 // Test-only hooks. Must NEVER be called in production code paths.
-export function _resetAttemptsForTest() {
+function _resetAttemptsForTest() {
   attempts.clear();
 }
-export function _setNowForTest(fn) {
+function _setNowForTest(fn) {
   nowFn = typeof fn === 'function' ? fn : () => Date.now();
 }
 

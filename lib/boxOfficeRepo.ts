@@ -24,7 +24,7 @@
  */
 
 import type { Database } from 'better-sqlite3';
-import { postAuditEvent } from './auditEvents.ts';
+import { postAuditEvent } from './auditEvents';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -126,7 +126,7 @@ export interface CreateLineInput {
   actor_cook_id?: string | null;
 }
 
-const VALID_SOURCES: ReadonlySet<BoxOfficeSource> = new Set([
+const VALID_SOURCES: ReadonlySet<BoxOfficeSource> = new Set<BoxOfficeSource>([
   'dice',
   'walkup',
   'comp',

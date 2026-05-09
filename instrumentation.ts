@@ -44,11 +44,11 @@ export async function register(): Promise<void> {
   // Edge runtime can't speak multicast and doesn't have node: imports. Bail.
   if (process.env.NEXT_RUNTIME !== 'nodejs') return;
 
-  const { bootMdnsAutostart } = await import('./lib/mdnsAdvertiseLifecycle.ts');
+  const { bootMdnsAutostart } = await import('./lib/mdnsAdvertiseLifecycle');
   await bootMdnsAutostart();
 
   const { bootCloudBridgeDrainer } = await import(
-    './lib/cloudBridgeDrainerLifecycle.ts'
+    './lib/cloudBridgeDrainerLifecycle'
   );
   await bootCloudBridgeDrainer();
 
@@ -62,7 +62,7 @@ export async function register(): Promise<void> {
   // need to await the result here.
   setImmediate(async () => {
     try {
-      const { prewarmDataPack } = await import('./lib/datapackSearch.ts');
+      const { prewarmDataPack } = await import('./lib/datapackSearch');
       await prewarmDataPack();
     } catch (err) {
       // Lazy-import shouldn't fail in the nodejs runtime, but keep a

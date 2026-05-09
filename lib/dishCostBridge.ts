@@ -287,9 +287,9 @@ export function buildDishComponentMap(
 
   // Stage 3: compute per_serving_cost per component.
   const out = new Map<string, DishComponentResolved[]>();
-  for (const [dishKey, comps] of map) {
+  for (const [dishKey, comps] of Array.from(map)) {
     const list: DishComponentResolved[] = [];
-    for (const c of comps.values()) {
+    for (const c of Array.from(comps.values())) {
       list.push(resolveComponentCost(c));
     }
     out.set(dishKey, list);

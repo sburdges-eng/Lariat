@@ -989,7 +989,7 @@ export async function hybrid(
     fused.set(k, cur);
   }
 
-  const ordered = [...fused.values()].sort((a, b) => b.fused - a.fused);
+  const ordered = Array.from(fused.values()).sort((a, b) => b.fused - a.fused);
 
   // Surface shape matches the FTS hit envelope when available (the
   // route+UI know how to drill into FtsHit by source+id) and falls

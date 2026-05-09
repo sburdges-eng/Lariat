@@ -137,3 +137,7 @@ tests/js/.tmp-shows-*.db*
 # Runtime file-audit log containing management-actions.jsonl (lib/auditLog.mjs)
 data/audit/
 cad-kernel/build/
+
+# Floor-plan layout scratch files (jsx scaffolding, sketches, uploads).
+# Add with `git add -f line_setups/<file>` if a specific asset belongs in tree.
+line_setups/

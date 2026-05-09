@@ -35,7 +35,7 @@
 // transaction boundary.
 
 import { createHash } from 'node:crypto';
-import { getDb } from './db.ts';
+import { getDb } from './db';
 
 const KEY_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 

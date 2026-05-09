@@ -1,58 +1,27 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "es2022",
     "lib": ["dom", "dom.iterable", "esnext"],
-
     "allowJs": true,
-    "checkJs": false,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
     "esModuleInterop": true,
-    "resolveJsonModule": true,
-
     "module": "esnext",
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-
-    "noEmit": true,
     "jsx": "preserve",
     "incremental": true,
-    "tsBuildInfoFile": ".next/cache/tsconfig.tsbuildinfo",
-
-    "skipLibCheck": true,
-
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitReturns": true,
-    "forceConsistentCasingInFileNames": true,
-    "useUnknownInCatchVariables": true,
-    "allowUnreachableCode": false,
-    "allowUnusedLabels": false,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
-      "@/*": ["./*"],
-      "@/lib/*": ["./lib/*"],
-      "@/app/*": ["./app/*"]
-    },
-    "plugins": [{ "name": "next" }]
+      "@/*": ["./*"]
+    }
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    "**/*.js",
-    "**/*.jsx",
-    ".next/types/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "Lariat-v2",
-    "lariat-kms",
-    "EXPERIMENTS",
-    ".next"
-  ]
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/(ops)/cad/page.tsx"],
+  "exclude": ["node_modules", "cad-kernel/build", "cad-kernel"]
 }

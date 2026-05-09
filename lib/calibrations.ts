@@ -290,7 +290,7 @@ export function classifyProbes(
   }
 
   const out: ProbeSummary[] = [];
-  for (const id of ids) {
+  for (const id of Array.from(ids)) {
     const bucket = grouped.get(id) ?? [];
     if (bucket.length === 0) {
       out.push({

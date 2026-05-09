@@ -11,8 +11,8 @@
 // because every caller would want slightly different filters (by actor,
 // by date range, by action). Keep the surface small.
 
-import type { AuditEvent } from './db.ts';
-import { getDb, todayISO } from './db.ts';
+import type { AuditEvent } from './db';
+import { getDb, todayISO } from './db';
 
 export interface AuditEventInput {
   entity: string;                 // 'temp_log' | 'cooling_log' | 'signoff' | ...
