@@ -10,7 +10,15 @@ import {
   getAllergenMatrix,
   getStaff,
 } from './data';
-import type { Recipe, AllergenMatrix, Station } from './data';
+import type {
+  Recipe,
+  AllergenMatrix,
+  Station,
+  StaffMember,
+  FoodSafetyData,
+  VendorSummary,
+  LaborSummary,
+} from './data';
 import type { Database as DB } from 'better-sqlite3';
 import * as datapackSearch from './datapackSearch';
 import type { FdaSection, HybridHit } from './datapackSearch';
@@ -111,6 +119,14 @@ export interface GroundedContext {
   sources: ContextSource[];
 }
 
+/**
+ * Coordinator: assembles every grounded context section into one prompt
+ * blob. Per-section rendering is delegated to renderXxxContext() helpers
+ * defined below; this function is only responsible for ordering, gating
+ * conditional sections on keyword matches, and the final char-budget
+ * truncation. See "Helpers" / "Render helpers" sections below for the
+ * actual section logic.
+ */
 export async function buildGroundedContext(
   locationId: string,
   userQuestion: string
@@ -120,392 +136,92 @@ export async function buildGroundedContext(
   const sources: ContextSource[] = [];
   const qLower = (userQuestion || '').toLowerCase().trim();
 
-  // ── 86s ──────────────────────────────────────────────────────────
-  const active86 = db
-    .prepare(
-      `SELECT item, station_id, reason, quantity, created_at FROM eighty_six
-       WHERE shift_date = ? AND resolved_at IS NULL AND location_id = ?
-       ORDER BY id DESC LIMIT ?`
-    )
-    .all(date, locationId, MAX_86) as { item: string; station_id: string | null; reason: string | null; quantity: string | null; created_at: string }[];
-  sources.push({ type: 'eighty_six', detail: `${active86.length} active (today)` });
-
-  // ── Inventory ────────────────────────────────────────────────────
-  const inv = db
-    .prepare(
-      `SELECT item, direction, delta, station_id, note, created_at FROM inventory_updates
-       WHERE shift_date = ? AND location_id = ?
-       ORDER BY id DESC LIMIT ?`
-    )
-    .all(date, locationId, MAX_INV) as { item: string; direction: string | null; delta: string | null; station_id: string | null; note: string | null; created_at: string }[];
-  sources.push({ type: 'inventory', detail: `${inv.length} rows (today)` });
-
-  // ── Sign-offs ────────────────────────────────────────────────────
-  const signoffs = db
-    .prepare(
-      `SELECT station_id, cook_id, created_at FROM station_signoffs
-       WHERE shift_date = ? AND location_id = ? ORDER BY id ASC`
-    )
-    .all(date, locationId) as { station_id: string; cook_id: string; created_at: string }[];
-  sources.push({ type: 'signoffs', detail: `${signoffs.length} sign-off(s) (today)` });
-
-  // ── Line checks ──────────────────────────────────────────────────
-  const stations = getStations();
-  interface LineSummary {
-    station: string;
-    station_id: string;
-    checked: number;
-    total: number;
-    fail: number;
-  }
-  const lineSummary: LineSummary[] = [];
-  for (const s of stations) {
-    if (!s.line_check_key) continue;
-    const template = getLineCheckTemplate(s.line_check_key);
-    if (!template.length) continue;
-    const rows = db
-      .prepare(
-        `SELECT item, status FROM line_check_entries
-         WHERE shift_date = ? AND station_id = ? AND location_id = ?
-         ORDER BY id ASC`
-      )
-      .all(date, s.id, locationId) as { item: string; status: string }[];
-    const byItem = new Map<string, string>();
-    for (const r of rows) byItem.set(r.item, r.status);
-    let done = 0;
-    let fail = 0;
-    for (const item of template) {
-      const st = byItem.get(item);
-      if (st === 'pass' || st === 'fail' || st === 'na') {
-        done++;
-        if (st === 'fail') fail++;
-      }
-    }
-    lineSummary.push({
-      station: s.name,
-      station_id: s.id,
-      checked: done,
-      total: template.length,
-      fail,
-    });
-  }
-  sources.push({ type: 'line_checks', detail: `${lineSummary.length} station(s) with templates` });
-
-  // ── Recipes (with menu-item and sub-recipe expansion) ────────────
+  // Recipe selection: picked + subRecipes are also needed for the
+  // up-front `recipes` source push, so the resolver stays inline.
   const recipes = getRecipes();
   const menu = getMenu();
   const allergenMatrix = getAllergenMatrix();
-
   const menuMatchedSlugs = resolveMenuItemsToRecipes(qLower, menu, recipes);
   const picked = pickRelevantRecipes(qLower, recipes, MAX_RECIPES_IN_CONTEXT, menuMatchedSlugs);
+  const subRecipes = collectSubRecipes(picked, recipes);
+  const stations = getStations();
 
-  const subRecipeSlugs = new Set<string>();
-  for (const r of picked) {
-    for (const slug of r.sub_recipes || []) {
-      if (!picked.some((p) => p.slug === slug)) {
-        subRecipeSlugs.add(slug);
-      }
-    }
-  }
-  const subRecipes: Recipe[] = [];
-  for (const slug of subRecipeSlugs) {
-    const found = recipes.find((r) => r.slug === slug);
-    if (found) subRecipes.push(found);
-  }
-
-  if (picked.length) {
-    const allNames = [...picked, ...subRecipes].map((r) => r.name);
-    sources.push({ type: 'recipes', detail: allNames.join(', ') });
-  }
-
-  // ── Build context text ───────────────────────────────────────────
   let text = `DATE: ${date} (shift_date in database)\nLOCATION_ID: ${locationId}\n\n`;
+  const append = (section: { text: string; source: ContextSource | null }): void => {
+    text += section.text;
+    if (section.source) sources.push(section.source);
+  };
+  const appendMulti = (section: MultiSourceSection): void => {
+    text += section.text;
+    if (section.sources.length) sources.push(...section.sources);
+  };
 
-  text += 'ACTIVE 86 (unresolved, today):\n';
-  if (!active86.length) text += '  (none)\n';
-  else {
-    for (const e of active86) {
-      text += `  - ${e.item}${e.station_id ? ` @ ${e.station_id}` : ''}${e.reason ? ` | ${e.reason}` : ''}${e.quantity ? ` | qty ${e.quantity}` : ''}\n`;
-    }
+  // Source-push order mirrors the pre-refactor function exactly:
+  //   eighty_six, inventory, signoffs, line_checks, recipes,
+  //   staff_roster (during text build), then everything else in
+  //   text-build order. Tests assert sources order, so this matters.
+  const active86 = renderActive86s(db, locationId, date);
+  const inventory = renderInventoryUpdates(db, locationId, date);
+  const signoffs = renderStationSignoffs(db, locationId, date);
+  const lineCheckProgress = renderLineCheckProgress(db, locationId, date, stations);
+  if (active86.source) sources.push(active86.source);
+  if (inventory.source) sources.push(inventory.source);
+  if (signoffs.source) sources.push(signoffs.source);
+  if (lineCheckProgress.source) sources.push(lineCheckProgress.source);
+  if (picked.length) {
+    sources.push({
+      type: 'recipes',
+      detail: [...picked, ...subRecipes].map((r) => r.name).join(', '),
+    });
   }
 
-  text += '\nRECENT INVENTORY UPDATES (today, newest first):\n';
-  if (!inv.length) text += '  (none)\n';
-  else {
-    for (const u of inv) {
-      const bits = [u.direction, u.delta, u.station_id, u.note].filter(Boolean).join(' · ');
-      text += `  - ${u.item}${bits ? ` | ${bits}` : ''}\n`;
-    }
-  }
+  text += active86.text;
+  text += inventory.text;
+  append(renderStaffRoster(getStaff()));
+  text += signoffs.text;
+  text += lineCheckProgress.text;
+  append(renderLineCheckFailures(db, locationId, date));
+  append(renderMissingSignoffs(db, locationId, date, stations));
+  append(renderEquipmentDown(db, locationId));
+  append(renderRepeat86s(db, locationId));
+  append(renderSalesVelocity(db, locationId));
+  append(renderDailySalesTrend(db, locationId, date));
+  text += renderRecipeBlock(picked, subRecipes, allergenMatrix);
 
-  // ── Staff Roster ─────────────────────────────────────────────────
-  const roster = getStaff().filter((s: any) => s.active !== false);
-  if (roster.length) {
-    text += '\nACTIVE STAFF ROSTER (Use exact full names for Gold Stars or HR actions):\n';
-    for (const s of roster) {
-      text += `  - ${s.first} ${s.last} (ID: ${s.id})\n`;
-    }
-    sources.push({ type: 'staff_roster', detail: `${roster.length} active staff` });
-  }
-
-  text += '\nSTATION SIGN-OFFS (today):\n';
-  if (!signoffs.length) text += '  (none)\n';
-  else {
-    for (const so of signoffs) {
-      text += `  - ${so.station_id} by ${so.cook_id}\n`;
-    }
-  }
-
-  text += '\nLINE CHECK PROGRESS (today, from database vs template counts):\n';
-  for (const ls of lineSummary) {
-    text += `  - ${ls.station} (${ls.station_id}): ${ls.checked}/${ls.total} items recorded`;
-    if (ls.fail) text += `, ${ls.fail} fail`;
-    text += '\n';
-  }
-
-  // ── Oversight: failed line-check items (itemized) ────────────────
-  const failures = renderLineCheckFailures(db, locationId, date);
-  text += failures.text;
-  if (failures.source) sources.push(failures.source);
-
-  // ── Oversight: stations without sign-off ─────────────────────────
-  const missingSignoffs = renderMissingSignoffs(db, locationId, date, stations);
-  text += missingSignoffs.text;
-  if (missingSignoffs.source) sources.push(missingSignoffs.source);
-
-  // ── Oversight: equipment out of service ──────────────────────────
-  const equipDown = renderEquipmentDown(db, locationId);
-  text += equipDown.text;
-  if (equipDown.source) sources.push(equipDown.source);
-
-  // ── Oversight: repeat 86s (systemic supply/prep issue) ───────────
-  const repeat86 = renderRepeat86s(db, locationId);
-  text += repeat86.text;
-  if (repeat86.source) sources.push(repeat86.source);
-
-  // ── Sales Velocities ─────────────────────────────────────────────
-  const sales = db.prepare(`SELECT item_name, SUM(quantity_sold) as qty FROM sales_lines WHERE location_id = ? GROUP BY item_name ORDER BY qty DESC LIMIT 15`).all(locationId) as { item_name: string; qty: number }[];
-  if (sales.length) {
-    text += '\nSALES VELOCITY (Historical volume to calculate dynamic prep against):\n';
-    for (const s of sales) {
-      if (s.qty) text += `  - ${s.item_name}: ${Math.round(s.qty)} units sold\n`;
-    }
-    sources.push({ type: 'sales_velocity', detail: 'Top 15 items' });
-  }
-
-  // ── Daily sales trend (Toast) ────────────────────────────────────
-  const trend = renderDailySalesTrend(db, locationId, date);
-  text += trend.text;
-  if (trend.source) sources.push(trend.source);
-
-  // ── Recipe snippets ──────────────────────────────────────────────
-  text += '\nRECIPES (Isolated in XML tags - do not cross-reference ingredients between tags):\n';
-  if (!picked.length) {
-    text += '  (no recipe matched — do not invent recipe or allergen facts)\n';
-  } else {
-    for (const r of picked) {
-      text += formatRecipeSnippet(r, allergenMatrix, false);
-    }
-    if (subRecipes.length) {
-      text += '  SUB-RECIPES (referenced by above):\n';
-      for (const r of subRecipes) {
-        text += formatRecipeSnippet(r, allergenMatrix, true);
-      }
-    }
-  }
-
-  // ── Conditional: HACCP / Food Safety ─────────────────────────────
+  // ── Conditional sections (gated on keyword matches) ──────────────
   if (matchesKeywords(qLower, FOOD_SAFETY_KEYWORDS)) {
-    const safety = getFoodSafety();
-    const ccps = safety.ccps || [];
-    if (ccps.length) {
-      text += '\nHACCP CRITICAL CONTROL POINTS:\n';
-      for (const c of ccps) {
-        text += `  - [${c.ccp_id}] ${c.critical_control_point}\n`;
-        text += `    hazard: ${c.hazard} | limit: ${c.critical_limit}\n`;
-        text += `    monitor: ${c.monitoring_procedure}\n`;
-        text += `    corrective: ${c.corrective_action}\n`;
-      }
-      sources.push({ type: 'food_safety', detail: `${ccps.length} CCP(s)` });
-    }
-
-    // FDA Food Code grounding from the data pack — appended to the
-    // same FOOD_SAFETY_KEYWORDS branch so a single keyword check
-    // gates both the operational CCP block and the regulatory text.
-    // Silently no-ops on machines without the data pack mounted.
-    // Async because hybrid retrieval awaits the BGE model load (~6 s
-    // cold, <50 ms warm) on the embedding channel.
-    const fda = await renderFdaFoodCode(userQuestion);
-    if (fda.text) {
-      text += fda.text;
-      if (fda.source) sources.push(fda.source);
-    }
+    appendMulti(await renderFoodSafetyContext(userQuestion, getFoodSafety()));
   }
-
-  // ── Conditional: USDA ingredients (per-100g nutrient grounding) ──
-  // Gates on INGREDIENT_KEYWORDS so generic chatter doesn't trigger
-  // the +20s cold-load on the ingredients bucket. Silently no-ops on
-  // machines without the data pack mounted (same shape as the FDA
-  // block above). Placed adjacent to FDA so both data-pack-backed
-  // grounding sources sit together in the prompt before the
-  // historical-86 / vendor / catering blocks below.
   if (matchesKeywords(qLower, INGREDIENT_KEYWORDS)) {
-    const usda = await renderUsdaIngredients(userQuestion);
-    if (usda.text) {
-      text += usda.text;
-      if (usda.source) sources.push(usda.source);
-    }
+    append(await renderUsdaIngredients(userQuestion));
   }
-
-  // ── Conditional: Historical 86 ───────────────────────────────────
   if (matchesKeywords(qLower, HISTORY_KEYWORDS)) {
-    const hist = db.prepare(
-      `SELECT item, COUNT(*) as freq FROM eighty_six 
-       WHERE location_id = ?
-       GROUP BY item ORDER BY freq DESC LIMIT 15`
-    ).all(locationId) as { item: string; freq: number }[];
-    if (hist.length) {
-      text += '\nHISTORICAL 86 FREQUENCY (Lifetime):\n';
-      for (const h of hist) {
-        text += `  - ${h.item}: 86'd ${h.freq} times\n`;
-      }
-      sources.push({ type: 'eighty_six_history', detail: `Top ${hist.length} flagged` });
-    }
+    append(renderHistorical86s(db, locationId));
   }
-
-  // ── Conditional: BEO prep history ────────────────────────────────
-  {
-    const beoPrep = renderBeoPrepHistory(db, locationId, qLower);
-    if (beoPrep.text) {
-      text += beoPrep.text;
-      sources.push(...beoPrep.sources);
-    }
-  }
-
-  // ── Conditional: Vendor / Sysco ──────────────────────────────────
+  appendMulti(renderBeoPrepHistory(db, locationId, qLower));
   if (matchesKeywords(qLower, VENDOR_KEYWORDS)) {
-    const vendor = getVendorSummary();
-    if (vendor?.sysco?.recent_items?.length) {
-      const items = vendor.sysco.recent_items.slice(0, 15);
-      text += '\nSYSCO RECENT ITEMS (top 15):\n';
-      for (const v of items) {
-        const parts = [v.description, v.category, v.pack_size, v.price != null ? `$${v.price}` : null]
-          .filter(Boolean)
-          .join(' | ');
-        text += `  - ${parts}\n`;
-      }
-      if (vendor.sysco.last_invoice_date) {
-        text += `  last invoice: ${vendor.sysco.last_invoice_date}\n`;
-      }
-      sources.push({ type: 'vendor_summary', detail: `${items.length} Sysco item(s)` });
-    }
+    append(renderVendorSummaryBlock(getVendorSummary()));
   }
-
-  // ── Conditional: Labor ───────────────────────────────────────────
   if (matchesKeywords(qLower, LABOR_KEYWORDS)) {
-    const labor = getLaborSummary();
-    if (labor) {
-      text += '\nLABOR SUMMARY (from 7shifts export):\n';
-      text += `  period: ${labor.period || 'n/a'}\n`;
-      text += `  net sales: $${(labor.net_sales || 0).toLocaleString()}\n`;
-      text += `  labor cost: $${(labor.labor_cost || 0).toLocaleString()} (${((labor.labor_pct_net || 0) * 100).toFixed(1)}% of net)\n`;
-      if (labor.splh_net) text += `  SPLH (net): $${labor.splh_net}\n`;
-      if (labor.by_role?.length) {
-        text += '  by role:\n';
-        for (const r of labor.by_role) {
-          const otHrs = r.ot_hours || 0;
-          const ot = otHrs > 0 ? ` (${otHrs.toFixed(0)} OT)` : '';
-          text += `    - ${r.job_title || r.role}: ${(r.total_hours || 0).toFixed(0)} hrs${ot}, $${(r.total_cost || 0).toLocaleString()} (${((r.labor_pct_net || 0) * 100).toFixed(1)}% net)\n`;
-        }
-      }
-      if (labor.by_employee?.length) {
-        text += '  by employee (top 10 by hours):\n';
-        const sorted = [...labor.by_employee].sort((a: any, b: any) => (b.total_hours || 0) - (a.total_hours || 0)).slice(0, 10);
-        for (const e of sorted as any[]) {
-          const eOtHrs = e.ot_hours || 0;
-          const ot = eOtHrs > 0 ? ` (${eOtHrs.toFixed(0)} OT)` : '';
-          text += `    - ${e.first_name} ${e.last_name} (${e.job_title}): ${(e.total_hours || 0).toFixed(0)} hrs${ot}, $${(e.total_cost || 0).toLocaleString()}\n`;
-        }
-      }
-      sources.push({ type: 'labor_summary', detail: labor.period || 'loaded' });
-    }
+    append(renderLaborSummaryBlock(getLaborSummary()));
   }
-
-  // ── Conditional: Compliance (CO labor / liquor / security) ──────
-  // Grounds against the in-tree FTS5 index at data/cache/compliance.db
-  // built from data/normalized/compliance_rules.jsonl. Silently no-ops
-  // when the index has not been built (build via npm run compliance:build).
   if (matchesKeywords(qLower, COMPLIANCE_KEYWORDS)) {
-    const block = renderCompliance(userQuestion);
-    if (block.text) {
-      text += block.text;
-      if (block.source) sources.push(block.source);
-    }
+    append(renderCompliance(userQuestion));
   }
 
-  // ── BEO Events & Prep ──────────────────────────────────────────────
-  const beos = db.prepare(`SELECT * FROM beo_events WHERE location_id = ? AND date(event_date) >= date(?) ORDER BY event_date ASC LIMIT 5`).all(locationId, date) as { id: number; title: string; event_date: string; guest_count: number; notes: string }[];
-  if (beos.length) {
-    text += '\nUPCOMING BANQUETS & PARTIES (BEO):\n';
-    const beoIds = beos.map(b => b.id);
-    // SQLite rejects `IN ()`; the outer beos.length guard above ensures
-    // beoIds is non-empty, but a defensive short-circuit here lets the
-    // query shape stay stable if this block is ever called on an empty list.
-    const placeholders = beoIds.map(() => '?').join(',');
-    const allTasks = beoIds.length
-      ? (db.prepare(`SELECT * FROM beo_prep_tasks WHERE event_id IN (${placeholders}) ORDER BY sort_order`).all(...beoIds) as { event_id: number; task: string; done: number }[])
-      : [];
-    
-    for (const b of beos) {
-      text += `  - [BEO ID: ${b.id}] ${b.title} on ${b.event_date} (Covers: ${b.guest_count || 'TBD'})\n`;
-      if (b.notes) text += `    Notes: ${b.notes}\n`;
-      const pts = allTasks.filter(t => t.event_id === b.id);
-      if (pts.length) {
-        text += `    Prep List:\n`;
-        for (const pt of pts) {
-          text += `      [${pt.done ? 'DONE' : 'PENDING'}] ${pt.task}\n`;
-        }
-      } else {
-        text += `    Prep List: (none yet)\n`;
-      }
-    }
-    sources.push({ type: 'beo_events', detail: `${beos.length} upcoming party(s)` });
-  }
+  // ── BEO events + stale prep + order guide ────────────────────────
+  append(renderBeoEvents(db, locationId, date));
+  append(renderStaleBeoPrep(db, locationId, date));
+  append(renderOrderGuide(db, locationId));
 
-  // ── Oversight: stale BEO prep (event within 2 days, not done) ────
-  const staleBeo = renderStaleBeoPrep(db, locationId, date);
-  text += staleBeo.text;
-  if (staleBeo.source) sources.push(staleBeo.source);
-
-  // ── Order Guide ──────────────────────────────────────────────────
-  const orderGuide = db.prepare(`SELECT * FROM order_guide_items WHERE location_id = ? ORDER BY ingredient LIMIT 20`).all(locationId) as { ingredient: string; base_qty: number; unit: string }[];
-  if (orderGuide.length) {
-    text += '\nORDER GUIDE (Items required for upcoming sysco drops):\n';
-    for (const og of orderGuide) {
-      text += `  - ${og.ingredient} (Target: ${og.base_qty} ${og.unit})\n`;
-    }
-    sources.push({ type: 'order_guide', detail: `${orderGuide.length} item(s)` });
-  }
-
-  // ── Conditional: Gold Stars / recognition ────────────────────────
   if (matchesKeywords(qLower, GOLD_STAR_KEYWORDS)) {
-    const goldStars = renderGoldStars(db, locationId);
-    text += goldStars.text;
-    if (goldStars.source) sources.push(goldStars.source);
+    append(renderGoldStars(db, locationId));
   }
-
-  // ── Conditional: Performance Reviews / evaluations ───────────────
   if (matchesKeywords(qLower, PERFORMANCE_KEYWORDS)) {
-    const perfReviews = renderPerformanceReviews(db, locationId);
-    text += perfReviews.text;
-    if (perfReviews.source) sources.push(perfReviews.source);
+    append(renderPerformanceReviews(db, locationId));
   }
-
-  // ── Conditional: Equipment warranty expirations ──────────────────
   if (matchesKeywords(qLower, EQUIPMENT_KEYWORDS)) {
-    const warranty = renderWarrantyAlerts(db, locationId);
-    text += warranty.text;
-    if (warranty.source) sources.push(warranty.source);
+    append(renderWarrantyAlerts(db, locationId));
   }
 
   text +=
@@ -520,6 +236,21 @@ export async function buildGroundedContext(
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
+
+function collectSubRecipes(picked: Recipe[], recipes: Recipe[]): Recipe[] {
+  const subRecipeSlugs = new Set<string>();
+  for (const r of picked) {
+    for (const slug of r.sub_recipes || []) {
+      if (!picked.some((p) => p.slug === slug)) subRecipeSlugs.add(slug);
+    }
+  }
+  const out: Recipe[] = [];
+  for (const slug of subRecipeSlugs) {
+    const found = recipes.find((r) => r.slug === slug);
+    if (found) out.push(found);
+  }
+  return out;
+}
 
 function resolveMenuItemsToRecipes(
   qLower: string,
@@ -878,6 +609,451 @@ function renderWarrantyAlerts(db: DB, locationId: string): OversightSection {
     text += `  - ${r.name} (${r.category}) — expires ${r.warranty_expiration}\n`;
   }
   return { text, source: { type: 'warranty_alerts', detail: `${rows.length} item(s)` } };
+}
+
+// ── Always-on / coordinator render helpers ──────────────────────────
+//
+// Each block extracted from the inline body of buildGroundedContext.
+// All return { text, source } (or MultiSourceSection where multiple
+// pushes are needed). Pure where possible — DB-backed helpers take
+// the better-sqlite3 handle so tests can drive an in-memory DB.
+
+/**
+ * Active 86s for the given shift_date. Always emits a header (and a
+ * source row reporting the count, including zero) — the absence of
+ * 86s is itself signal for the assistant.
+ */
+export function renderActive86s(
+  db: DB,
+  locationId: string,
+  date: string
+): OversightSection {
+  const rows = db
+    .prepare(
+      `SELECT item, station_id, reason, quantity, created_at FROM eighty_six
+       WHERE shift_date = ? AND resolved_at IS NULL AND location_id = ?
+       ORDER BY id DESC LIMIT ?`
+    )
+    .all(date, locationId, MAX_86) as {
+    item: string;
+    station_id: string | null;
+    reason: string | null;
+    quantity: string | null;
+    created_at: string;
+  }[];
+  let text = 'ACTIVE 86 (unresolved, today):\n';
+  if (!rows.length) text += '  (none)\n';
+  else {
+    for (const e of rows) {
+      text += `  - ${e.item}${e.station_id ? ` @ ${e.station_id}` : ''}${e.reason ? ` | ${e.reason}` : ''}${e.quantity ? ` | qty ${e.quantity}` : ''}\n`;
+    }
+  }
+  return { text, source: { type: 'eighty_six', detail: `${rows.length} active (today)` } };
+}
+
+/**
+ * Recent inventory updates for the shift_date. Same always-on contract
+ * as renderActive86s — emits header even when empty so the prompt's
+ * structure stays predictable.
+ */
+export function renderInventoryUpdates(
+  db: DB,
+  locationId: string,
+  date: string
+): OversightSection {
+  const rows = db
+    .prepare(
+      `SELECT item, direction, delta, station_id, note, created_at FROM inventory_updates
+       WHERE shift_date = ? AND location_id = ?
+       ORDER BY id DESC LIMIT ?`
+    )
+    .all(date, locationId, MAX_INV) as {
+    item: string;
+    direction: string | null;
+    delta: string | null;
+    station_id: string | null;
+    note: string | null;
+    created_at: string;
+  }[];
+  let text = '\nRECENT INVENTORY UPDATES (today, newest first):\n';
+  if (!rows.length) text += '  (none)\n';
+  else {
+    for (const u of rows) {
+      const bits = [u.direction, u.delta, u.station_id, u.note].filter(Boolean).join(' · ');
+      text += `  - ${u.item}${bits ? ` | ${bits}` : ''}\n`;
+    }
+  }
+  return { text, source: { type: 'inventory', detail: `${rows.length} rows (today)` } };
+}
+
+/**
+ * Station sign-offs for the day. Always-on; the LLM uses this to
+ * reason about station coverage and who closed what.
+ */
+export function renderStationSignoffs(
+  db: DB,
+  locationId: string,
+  date: string
+): OversightSection {
+  const rows = db
+    .prepare(
+      `SELECT station_id, cook_id, created_at FROM station_signoffs
+       WHERE shift_date = ? AND location_id = ? ORDER BY id ASC`
+    )
+    .all(date, locationId) as {
+    station_id: string;
+    cook_id: string;
+    created_at: string;
+  }[];
+  let text = '\nSTATION SIGN-OFFS (today):\n';
+  if (!rows.length) text += '  (none)\n';
+  else {
+    for (const so of rows) {
+      text += `  - ${so.station_id} by ${so.cook_id}\n`;
+    }
+  }
+  return { text, source: { type: 'signoffs', detail: `${rows.length} sign-off(s) (today)` } };
+}
+
+/**
+ * Per-station line-check progress (checked vs template count, fail
+ * count). Reads station list + per-station JSON cache template and
+ * cross-references against line_check_entries rows. Always emits
+ * the header even when zero stations have templates loaded.
+ */
+export function renderLineCheckProgress(
+  db: DB,
+  locationId: string,
+  date: string,
+  stations: Station[]
+): OversightSection {
+  interface LineSummary {
+    station: string;
+    station_id: string;
+    checked: number;
+    total: number;
+    fail: number;
+  }
+  const lineSummary: LineSummary[] = [];
+  for (const s of stations) {
+    if (!s.line_check_key) continue;
+    const template = getLineCheckTemplate(s.line_check_key);
+    if (!template.length) continue;
+    const rows = db
+      .prepare(
+        `SELECT item, status FROM line_check_entries
+         WHERE shift_date = ? AND station_id = ? AND location_id = ?
+         ORDER BY id ASC`
+      )
+      .all(date, s.id, locationId) as { item: string; status: string }[];
+    const byItem = new Map<string, string>();
+    for (const r of rows) byItem.set(r.item, r.status);
+    let done = 0;
+    let fail = 0;
+    for (const item of template) {
+      const st = byItem.get(item);
+      if (st === 'pass' || st === 'fail' || st === 'na') {
+        done++;
+        if (st === 'fail') fail++;
+      }
+    }
+    lineSummary.push({
+      station: s.name,
+      station_id: s.id,
+      checked: done,
+      total: template.length,
+      fail,
+    });
+  }
+  let text = '\nLINE CHECK PROGRESS (today, from database vs template counts):\n';
+  for (const ls of lineSummary) {
+    text += `  - ${ls.station} (${ls.station_id}): ${ls.checked}/${ls.total} items recorded`;
+    if (ls.fail) text += `, ${ls.fail} fail`;
+    text += '\n';
+  }
+  return {
+    text,
+    source: { type: 'line_checks', detail: `${lineSummary.length} station(s) with templates` },
+  };
+}
+
+/**
+ * Active staff roster (filters out members with active === false).
+ * Pure — takes the loaded staff list as a parameter so tests can drive
+ * it without touching the JSON cache. Returns an empty section when
+ * no active staff are present (the original was conditional on
+ * roster.length too).
+ */
+export function renderStaffRoster(staff: StaffMember[]): OversightSection {
+  const roster = staff.filter((s) => s.active !== false);
+  if (!roster.length) return { text: '', source: null };
+  let text =
+    '\nACTIVE STAFF ROSTER (Use exact full names for Gold Stars or HR actions):\n';
+  for (const s of roster) {
+    text += `  - ${s.first} ${s.last} (ID: ${s.id})\n`;
+  }
+  return { text, source: { type: 'staff_roster', detail: `${roster.length} active staff` } };
+}
+
+/**
+ * Top-15 sales velocity by item_name across the location's full
+ * sales_lines history. Conditional in the original — empty rows
+ * skip the header.
+ */
+export function renderSalesVelocity(db: DB, locationId: string): OversightSection {
+  const rows = db
+    .prepare(
+      `SELECT item_name, SUM(quantity_sold) as qty FROM sales_lines
+       WHERE location_id = ?
+       GROUP BY item_name ORDER BY qty DESC LIMIT 15`
+    )
+    .all(locationId) as { item_name: string; qty: number }[];
+  if (!rows.length) return { text: '', source: null };
+  let text = '\nSALES VELOCITY (Historical volume to calculate dynamic prep against):\n';
+  for (const s of rows) {
+    if (s.qty) text += `  - ${s.item_name}: ${Math.round(s.qty)} units sold\n`;
+  }
+  return { text, source: { type: 'sales_velocity', detail: 'Top 15 items' } };
+}
+
+/**
+ * Recipe XML block (recipes + sub-recipes). Pure — takes the already-
+ * resolved selection as input. Recipe selection itself stays inline
+ * in the coordinator because the resolver outputs (`picked`,
+ * `subRecipes`) are also needed for the up-front `recipes` source push.
+ */
+function renderRecipeBlock(
+  picked: Recipe[],
+  subRecipes: Recipe[],
+  allergenMatrix: AllergenMatrix
+): string {
+  let text =
+    '\nRECIPES (Isolated in XML tags - do not cross-reference ingredients between tags):\n';
+  if (!picked.length) {
+    text += '  (no recipe matched — do not invent recipe or allergen facts)\n';
+    return text;
+  }
+  for (const r of picked) text += formatRecipeSnippet(r, allergenMatrix, false);
+  if (subRecipes.length) {
+    text += '  SUB-RECIPES (referenced by above):\n';
+    for (const r of subRecipes) text += formatRecipeSnippet(r, allergenMatrix, true);
+  }
+  return text;
+}
+
+/**
+ * HACCP / FDA Food Code grounding. The original gated both the
+ * operational CCP block (from data/cache/food_safety.json) and the
+ * regulatory FDA Food Code block (from the data pack) on a single
+ * FOOD_SAFETY_KEYWORDS check. We preserve that coupling here so the
+ * coordinator only has one branch.
+ *
+ * Async because renderFdaFoodCode awaits BGE on the embedding channel.
+ * Returns MultiSourceSection because it can push two sources
+ * (food_safety + fda_food_code) when both blocks fire.
+ */
+export async function renderFoodSafetyContext(
+  userQuestion: string,
+  safety: FoodSafetyData
+): Promise<MultiSourceSection> {
+  let text = '';
+  const sources: ContextSource[] = [];
+  const ccpBlock = renderHaccpCcps(safety);
+  text += ccpBlock.text;
+  if (ccpBlock.source) sources.push(ccpBlock.source);
+  const fda = await renderFdaFoodCode(userQuestion);
+  text += fda.text;
+  if (fda.source) sources.push(fda.source);
+  return { text, sources };
+}
+
+/**
+ * HACCP CCP block from the static food_safety.json cache. Pure — takes
+ * the loaded FoodSafetyData object so tests can drive a small fixture
+ * without touching the JSON cache.
+ */
+export function renderHaccpCcps(safety: FoodSafetyData): OversightSection {
+  const ccps = safety.ccps || [];
+  if (!ccps.length) return { text: '', source: null };
+  let text = '\nHACCP CRITICAL CONTROL POINTS:\n';
+  for (const c of ccps) {
+    text += `  - [${c.ccp_id}] ${c.critical_control_point}\n`;
+    text += `    hazard: ${c.hazard} | limit: ${c.critical_limit}\n`;
+    text += `    monitor: ${c.monitoring_procedure}\n`;
+    text += `    corrective: ${c.corrective_action}\n`;
+  }
+  return { text, source: { type: 'food_safety', detail: `${ccps.length} CCP(s)` } };
+}
+
+/**
+ * Lifetime 86 frequency aggregation. Conditional — only fires when
+ * the question matches HISTORY_KEYWORDS in the coordinator. Returns
+ * empty when no historical 86s exist.
+ */
+export function renderHistorical86s(db: DB, locationId: string): OversightSection {
+  const rows = db
+    .prepare(
+      `SELECT item, COUNT(*) as freq FROM eighty_six
+       WHERE location_id = ?
+       GROUP BY item ORDER BY freq DESC LIMIT 15`
+    )
+    .all(locationId) as { item: string; freq: number }[];
+  if (!rows.length) return { text: '', source: null };
+  let text = '\nHISTORICAL 86 FREQUENCY (Lifetime):\n';
+  for (const h of rows) {
+    text += `  - ${h.item}: 86'd ${h.freq} times\n`;
+  }
+  return {
+    text,
+    source: { type: 'eighty_six_history', detail: `Top ${rows.length} flagged` },
+  };
+}
+
+/**
+ * Vendor / Sysco recent-items block. Pure — takes the loaded
+ * VendorSummary cache object. Renders the first 15 sysco items plus
+ * the optional last_invoice_date footer. Empty / missing summary →
+ * graceful no-op.
+ */
+export function renderVendorSummaryBlock(
+  vendor: VendorSummary | null
+): OversightSection {
+  if (!vendor?.sysco?.recent_items?.length) return { text: '', source: null };
+  const items = vendor.sysco.recent_items.slice(0, 15);
+  let text = '\nSYSCO RECENT ITEMS (top 15):\n';
+  for (const v of items) {
+    const parts = [
+      v.description,
+      v.category,
+      v.pack_size,
+      v.price != null ? `$${v.price}` : null,
+    ]
+      .filter(Boolean)
+      .join(' | ');
+    text += `  - ${parts}\n`;
+  }
+  if (vendor.sysco.last_invoice_date) {
+    text += `  last invoice: ${vendor.sysco.last_invoice_date}\n`;
+  }
+  return {
+    text,
+    source: { type: 'vendor_summary', detail: `${items.length} Sysco item(s)` },
+  };
+}
+
+/**
+ * Labor summary block (period totals + by-role + top-10 employees by
+ * hours). Pure — takes the loaded LaborSummary cache object. Falls
+ * back to "loaded" detail when period is missing (matches the
+ * pre-refactor behaviour exactly).
+ */
+export function renderLaborSummaryBlock(
+  labor: LaborSummary | null
+): OversightSection {
+  if (!labor) return { text: '', source: null };
+  let text = '\nLABOR SUMMARY (from 7shifts export):\n';
+  text += `  period: ${labor.period || 'n/a'}\n`;
+  text += `  net sales: $${(labor.net_sales || 0).toLocaleString()}\n`;
+  text += `  labor cost: $${(labor.labor_cost || 0).toLocaleString()} (${((labor.labor_pct_net || 0) * 100).toFixed(1)}% of net)\n`;
+  if (labor.splh_net) text += `  SPLH (net): $${labor.splh_net}\n`;
+  if (labor.by_role?.length) {
+    text += '  by role:\n';
+    for (const r of labor.by_role) {
+      const otHrs = r.ot_hours || 0;
+      const ot = otHrs > 0 ? ` (${otHrs.toFixed(0)} OT)` : '';
+      text += `    - ${r.job_title || r.role}: ${(r.total_hours || 0).toFixed(0)} hrs${ot}, $${(r.total_cost || 0).toLocaleString()} (${((r.labor_pct_net || 0) * 100).toFixed(1)}% net)\n`;
+    }
+  }
+  if (labor.by_employee?.length) {
+    text += '  by employee (top 10 by hours):\n';
+    const sorted = [...labor.by_employee]
+      .sort((a, b) => (b.total_hours || 0) - (a.total_hours || 0))
+      .slice(0, 10);
+    for (const e of sorted) {
+      const eOtHrs = e.ot_hours || 0;
+      const ot = eOtHrs > 0 ? ` (${eOtHrs.toFixed(0)} OT)` : '';
+      text += `    - ${e.first_name} ${e.last_name} (${e.job_title}): ${(e.total_hours || 0).toFixed(0)} hrs${ot}, $${(e.total_cost || 0).toLocaleString()}\n`;
+    }
+  }
+  return {
+    text,
+    source: { type: 'labor_summary', detail: labor.period || 'loaded' },
+  };
+}
+
+/**
+ * Upcoming BEO events (banquets / parties) in the next window plus
+ * their prep tasks. Conditional — empty / no upcoming events skip
+ * the header.
+ */
+export function renderBeoEvents(
+  db: DB,
+  locationId: string,
+  date: string
+): OversightSection {
+  const beos = db
+    .prepare(
+      `SELECT * FROM beo_events WHERE location_id = ?
+         AND date(event_date) >= date(?)
+         ORDER BY event_date ASC LIMIT 5`
+    )
+    .all(locationId, date) as {
+    id: number;
+    title: string;
+    event_date: string;
+    guest_count: number;
+    notes: string;
+  }[];
+  if (!beos.length) return { text: '', source: null };
+  let text = '\nUPCOMING BANQUETS & PARTIES (BEO):\n';
+  const beoIds = beos.map((b) => b.id);
+  // SQLite rejects `IN ()`; the outer beos.length guard above ensures
+  // beoIds is non-empty, but a defensive short-circuit here lets the
+  // query shape stay stable if this block is ever called on an empty list.
+  const placeholders = beoIds.map(() => '?').join(',');
+  const allTasks = beoIds.length
+    ? (db
+        .prepare(
+          `SELECT * FROM beo_prep_tasks WHERE event_id IN (${placeholders}) ORDER BY sort_order`
+        )
+        .all(...beoIds) as { event_id: number; task: string; done: number }[])
+    : [];
+  for (const b of beos) {
+    text += `  - [BEO ID: ${b.id}] ${b.title} on ${b.event_date} (Covers: ${b.guest_count || 'TBD'})\n`;
+    if (b.notes) text += `    Notes: ${b.notes}\n`;
+    const pts = allTasks.filter((t) => t.event_id === b.id);
+    if (pts.length) {
+      text += `    Prep List:\n`;
+      for (const pt of pts) {
+        text += `      [${pt.done ? 'DONE' : 'PENDING'}] ${pt.task}\n`;
+      }
+    } else {
+      text += `    Prep List: (none yet)\n`;
+    }
+  }
+  return {
+    text,
+    source: { type: 'beo_events', detail: `${beos.length} upcoming party(s)` },
+  };
+}
+
+/**
+ * Order guide (top 20 items by ingredient name). Conditional — empty
+ * order_guide_items skip the header.
+ */
+export function renderOrderGuide(db: DB, locationId: string): OversightSection {
+  const rows = db
+    .prepare(
+      `SELECT * FROM order_guide_items WHERE location_id = ?
+       ORDER BY ingredient LIMIT 20`
+    )
+    .all(locationId) as { ingredient: string; base_qty: number; unit: string }[];
+  if (!rows.length) return { text: '', source: null };
+  let text = '\nORDER GUIDE (Items required for upcoming sysco drops):\n';
+  for (const og of rows) {
+    text += `  - ${og.ingredient} (Target: ${og.base_qty} ${og.unit})\n`;
+  }
+  return { text, source: { type: 'order_guide', detail: `${rows.length} item(s)` } };
 }
 
 function fmtUsd(n: number | null | undefined): string {
