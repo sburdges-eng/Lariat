@@ -126,13 +126,18 @@ export async function bootCloudBridgeDrainer(
     return;
   }
 
-  startDrainer();
+  const tickMs = Number(process.env.LARIAT_DRAINER_TICK_MS) || 30000;
+  const staleClaimAgeSec =
+    Number(process.env.LARIAT_DRAINER_STALE_AGE_S) || 300;
+
+  startDrainer({ tickMs, staleClaimAgeSec });
   stash.booted = true;
   installSignalHandlersOnce(stash, stopDrainer);
 
-  const tickMs = Number(process.env.LARIAT_DRAINER_TICK_MS) || 30000;
   // eslint-disable-next-line no-console
-  console.log(`[cloud-bridge] drainer started (tickMs=${tickMs})`);
+  console.log(
+    `[cloud-bridge] drainer started (tickMs=${tickMs}, staleClaimAgeSec=${staleClaimAgeSec})`,
+  );
 }
 
 /**
