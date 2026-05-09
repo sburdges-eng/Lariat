@@ -101,6 +101,11 @@ describe('renderStationSignoffs', () => {
     ).run('grill', 'cook-1', DATE, LOC, '2026-05-08T11:00:00Z');
     out = ctx.renderStationSignoffs(testDb, LOC, DATE);
     assert.match(out.text, /grill by cook-1/);
+    // Pin source.type so a rename (e.g. to 'station_signoffs') trips the
+    // test loudly. Per code-quality reviewer on PR review of this refactor:
+    // the source.type naming is currently ad-hoc per helper and a future
+    // convention sweep should canonicalize.
+    assert.equal(out.source.type, 'signoffs');
     assert.match(out.source.detail, /1 sign-off/);
   });
 });
