@@ -168,6 +168,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
     });
     
     let actionExecuted = false;
+    let actionError = false;
     let actionMsg = '';
 
     const { payload, stripped } = extractAction(content);
@@ -272,7 +273,14 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
         } else if (payload.action === 'line_check' && payload.item && payload.station) {
           let status = clip(payload.status, 16) || 'na';
           let note = clip(payload.note, MAX_NOTE) || null;
-          let readingF = Number(payload.reading_f);
+          // Coerce-before-isFinite cleanup: gate on `typeof === 'number'`
+          // first so an object/array payload doesn't silently feed Number()
+          // and trip the validate-temp branch via NaN. Matches the
+          // haccp_receive guard pattern below. Already caught downstream
+          // by Number.isFinite, but the inconsistency was a footgun.
+          let readingF = (typeof payload.reading_f === 'number' && Number.isFinite(payload.reading_f))
+            ? payload.reading_f
+            : NaN;
 
           if (payload.temp_point_id && Number.isFinite(readingF)) {
             const pt = getTempPoint(payload.temp_point_id);
@@ -479,7 +487,20 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
             console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Added ${finalTasks.length} prep tasks to BEO ${eventIdNum} (calc=${calcTasks.length > 0}) ⚠️\n`);
           } // close cross-location guard else-branch (event exists + matches locationId)
         } else if (payload.action === 'give_gold_star' && payload.cook_name) {
-          const starVal = Math.min(Math.max(Number(payload.stars) || 1, 1), 3);
+          // Strict numeric guard on stars. Pre-2026-05-08 the route did
+          // `Number(payload.stars) || 1`, which silently coerced null,
+          // "three", {}, etc. to 1 and wrote a recognition row. That
+          // diverges from the Number.isFinite guards on
+          // update_inventory.delta and update_order_guide.qty. Soft-reject
+          // here using the same shape so the LLM can retry with a clean
+          // 1/2/3 integer.
+          const starsRaw = Number(payload.stars);
+          if (!Number.isFinite(starsRaw) || starsRaw < 1) {
+            actionMsg = `Could not give gold star — "stars" must be a number between 1 and 3.`;
+            actionExecuted = true;
+            console.error(`\n[KA BLOCKED]: give_gold_star rejected — non-finite stars=${payload.stars}\n`);
+          } else {
+          const starVal = Math.min(Math.max(Math.round(starsRaw), 1), 3);
           const cookName = clip(payload.cook_name, 64);
           const reasonClip = clip(payload.reason || 'Exceptional performance', MAX_NOTE);
           // Roster validation. Pre-2026-05-08 there was none — the LLM
@@ -534,6 +555,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           actionExecuted = true;
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - HR RECOGNITION: ${starVal} Gold Star(s) awarded to ${payload.cook_name} ⚠️\n`);
           }
+          } // close stars-payload type guard else-branch
         } else if (payload.action === 'haccp_receive' && payload.item) {
           let status = 'pass';
           let note = clip(payload.note, MAX_NOTE) || null;
@@ -642,7 +664,18 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Dynamic Prep List for ${payload.station} (${payload.tasks.length} items, calc=${calcReplacements}) ⚠️\n`);
         }
       } catch (e) {
+        // Pre-2026-05-08 this catch swallowed handler exceptions
+        // silently — the route returned 200 with the stripped LLM
+        // answer and no `actionExecuted` flag, so a failed write was
+        // invisible to the caller. Surface an `actionError` flag and
+        // a generic operator-actionable message instead. Do NOT
+        // include the underlying exception text — `e.message` can
+        // leak DB column names, schema details, or PII embedded in
+        // payload values that round-tripped into the error string.
         console.error("Action Engine Execution Error:", e);
+        actionError = true;
+        actionMsg = `Action failed unexpectedly. Show a manager — they may need to check logs.`;
+        actionExecuted = true;
       }
     }
 
@@ -657,6 +690,8 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
       location_id: locationId,
       sources,
       latencyMs,
+      actionExecuted,
+      actionError,
       disclaimer:
         'Check tags with a manager. Do not trust AI for allergies.',
     });

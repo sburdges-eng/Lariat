@@ -95,6 +95,7 @@ beforeEach(() => {
      DELETE FROM equipment_maintenance;
      DELETE FROM gold_stars;
      DELETE FROM entities_employees;
+     DELETE FROM line_check_entries;
      DELETE FROM audit_events;`,
   );
 });
@@ -124,6 +125,9 @@ function countMaintenance() {
 }
 function countGoldStars() {
   return testDb.prepare('SELECT COUNT(*) AS c FROM gold_stars').get().c;
+}
+function countLineCheckEntries() {
+  return testDb.prepare('SELECT COUNT(*) AS c FROM line_check_entries').get().c;
 }
 
 function seedEquipment(name, category = 'cooking') {
@@ -313,5 +317,130 @@ describe('kitchen-assistant give_gold_star — roster validation', () => {
     }));
     assert.equal(res.status, 200);
     assert.equal(countGoldStars(), 1, 'fresh-DB fallback wrote the recognition row');
+  });
+});
+
+// ── give_gold_star: stars-payload type guard (audit fix 1) ──────────
+//
+// Pre-fix the route used `Number(payload.stars) || 1`, so non-finite or
+// non-numeric `stars` (null, "three", {}) silently coerced to 1 and a
+// gold-star row landed. Inconsistent with the Number.isFinite guards on
+// update_inventory.delta and update_order_guide.qty. Soft-reject those
+// payloads via the same shape used by peer actions (eighty_six et al.).
+
+describe('kitchen-assistant give_gold_star — stars payload type guard', () => {
+  it('REJECTS stars: null and writes no gold_star row', async () => {
+    seedEmployee('Alice');
+    const res = await POST(postReq({
+      action: 'give_gold_star',
+      cook_name: 'Alice',
+      stars: null,                 // pre-fix coerced to 1 silently
+      reason: 'crushed Saturday brunch',
+    }));
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.match(
+      body.answer || '',
+      /must be a number/i,
+      'response should call out the bad stars value',
+    );
+    assert.equal(countGoldStars(), 0, 'no gold_stars row should land');
+  });
+
+  it('REJECTS stars: "three" (non-numeric string) and writes no gold_star row', async () => {
+    seedEmployee('Alice');
+    const res = await POST(postReq({
+      action: 'give_gold_star',
+      cook_name: 'Alice',
+      stars: 'three',              // pre-fix Number("three") || 1 = 1
+      reason: 'crushed Saturday brunch',
+    }));
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.match(body.answer || '', /must be a number/i);
+    assert.equal(countGoldStars(), 0);
+  });
+});
+
+// ── line_check: object reading_f doesn't trip validate-temp branch ──
+//
+// Pre-fix `let readingF = Number(payload.reading_f)` ran unconditionally;
+// `Number({foo:1})` returns NaN which the downstream isFinite check
+// catches, but the inconsistency with haccp_receive's typeof guard was a
+// footgun. Pin the post-fix behavior: object payloads do NOT crash, do
+// NOT trip the validate-temp path, and the row still writes with the
+// no-reading default ('na' unless the LLM supplies a status).
+
+describe('kitchen-assistant line_check — non-numeric reading_f type guard', () => {
+  it('treats reading_f: {foo:1} as no reading; row writes with status na', async () => {
+    const res = await POST(postReq({
+      action: 'line_check',
+      station: 'grill',
+      item: 'walk-in cooler probe',
+      reading_f: { foo: 1 },        // garbage object payload
+      temp_point_id: 'walk_in_cooler',
+      // no explicit status → falls back to 'na'
+    }));
+    assert.equal(res.status, 200, 'request must not crash on garbage reading_f');
+    assert.equal(countLineCheckEntries(), 1, 'line_check row still writes');
+    const row = testDb
+      .prepare('SELECT status, item FROM line_check_entries ORDER BY id DESC LIMIT 1')
+      .get();
+    // The validate-temp branch must be skipped (status would be pass/fail
+    // if it ran). Default is 'na' — the no-reading sentinel.
+    assert.equal(row.status, 'na', 'no usable reading → no validate-temp branch');
+    assert.equal(row.item, 'walk-in cooler probe');
+  });
+});
+
+// ── action-engine outer try/catch surfaces handler exceptions ──────
+//
+// Pre-fix a thrown handler (e.g. a DB schema mismatch on a new table)
+// was swallowed by the outer catch — response went 200 with the
+// stripped LLM answer and no `actionExecuted` flag, so the caller
+// silently saw a successful inference and the failed action was
+// invisible. Post-fix: an `actionError: true` flag rides in the
+// response body, `actionExecuted` is true, and `actionMsg` carries
+// an operator-actionable string (no underlying exception text).
+
+describe('kitchen-assistant action-engine — handler exception surfaces actionError', () => {
+  it('surfaces actionError + actionExecuted when an action handler throws', async () => {
+    // Inject a CHECK-constraint violation through the line_check
+    // handler's INSERT. `clip(payload.status, 16) || 'na'` preserves
+    // any short string the LLM emits, but line_check_entries.status
+    // has CHECK(status IN ('pass','fail','na')). With a temp_point_id
+    // of null (so the validate-temp branch is skipped) the INSERT
+    // throws SQLITE_CONSTRAINT_CHECK inside the action engine.
+    //
+    // This avoids touching grounded-context-read tables (equipment,
+    // gold_stars, inventory_updates) — buildGroundedContext is the
+    // wrong system under test here. We want the outer try/catch
+    // around the action handlers (route.js ~L644) to be exercised.
+    const res = await POST(postReq({
+      action: 'line_check',
+      station: 'grill',
+      item: 'walk-in cooler probe',
+      status: 'INVALID_STATUS',     // violates CHECK(status IN (...))
+      // no temp_point_id → validate-temp branch skipped; raw status hits INSERT
+    }));
+    assert.equal(res.status, 200, 'route still returns 200; the failure is in the body');
+    const body = await res.json();
+    assert.equal(body.actionExecuted, true, 'action attempt must be flagged');
+    assert.equal(body.actionError, true, 'actionError flag must be set');
+    assert.match(
+      body.answer || '',
+      /action failed/i,
+      'answer should carry an operator-actionable failure note',
+    );
+    // Guardrail: don't leak the raw SQLite error text into the
+    // cook-facing answer. PII / secret leak risk per audit fix 3.
+    assert.doesNotMatch(
+      body.answer || '',
+      /CHECK constraint|SQLITE_/i,
+      'underlying exception text must not leak to the cook-facing answer',
+    );
+    // And no line_check_entries row should land — the transaction
+    // rolled back when the INSERT threw.
+    assert.equal(countLineCheckEntries(), 0, 'transaction rolled back; no row');
   });
 });
