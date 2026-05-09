@@ -154,6 +154,16 @@ export default function ReceivingBoard({
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
+        if (res.status === 422 && j.needs_rejection_note) {
+          // Rejection-without-note: refusing the delivery; cook
+          // documents WHY it was refused (invoice credit, vendor
+          // callback). Different copy from the drift-band fix case
+          // (`needs_corrective_action`) which means "add a note to
+          // accept this drift". Two semantically distinct codes.
+          setNeedsNote(true);
+          setErr(`${j.error || 'Refused delivery'} — write down why and re-submit.`);
+          return;
+        }
         if (res.status === 422 && j.needs_corrective_action) {
           setNeedsNote(true);
           setErr(`${j.error || 'Needs a corrective action'} — add a note and re-submit.`);
