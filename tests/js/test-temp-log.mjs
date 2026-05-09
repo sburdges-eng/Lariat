@@ -29,9 +29,13 @@ describe('TempPoints registry', () => {
     assert.ok(TempPoints.length <= 16, `expected <= 16 points, got ${TempPoints.length}`);
   });
 
-  it('every point is grounded in a CCP (CCP-n id)', () => {
+  it('every point is grounded in a CCP (CCP-n[a-z] id)', () => {
+    // 2026-05-08 audit: cook_eggs split out from CCP-5 → CCP-5e (egg
+    // subgroup of comminuted-meat CCP). The id shape is now
+    // `CCP-<digits>` with an optional single-letter subgroup suffix,
+    // so e.g. CCP-5 and CCP-5e both pass.
     for (const p of TempPoints) {
-      assert.match(p.ccp_id, /^CCP-\d+$/, `bad ccp_id on ${p.id}: ${p.ccp_id}`);
+      assert.match(p.ccp_id, /^CCP-\d+[a-z]?$/, `bad ccp_id on ${p.id}: ${p.ccp_id}`);
     }
   });
 
