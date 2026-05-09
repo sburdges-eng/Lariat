@@ -151,13 +151,23 @@ export function computeActualCogsBreakdown(
  *
  * Theoretical COGS = Σ (sales_lines.quantity_sold ×
  *                       recipe_costs.cost_per_yield_unit).
- *   `sales_lines` carries no per-row date today — the analytics ingest
- *   deletes and re-inserts one period's worth at a time (see
- *   `scripts/ingest-analytics.mjs`), so "the current contents of
- *   sales_lines for this location" is operationally scoped to the
- *   latest ingest. We sum all rows and trust that convention.
- *   Adding row-level dates is a follow-up schema change; see
- *   docs/COMPUTE_ENGINE_REVIEW C3.
+ *   `sales_lines` has a `period_label` column (writer-controlled,
+ *   currently the Toast workbook sheet name — opaque, NOT canonical
+ *   YYYY-MM). We do NOT filter the SELECT by it. The 2026-05-08 audit
+ *   raised "what if a partial-ingest abort leaves a stranded prior-
+ *   period row?" — that vector is structurally closed at the writer:
+ *   `applyAnalyticsData` (scripts/ingest-analytics.mjs) runs
+ *   `DELETE FROM sales_lines WHERE location_id = ?` followed by the
+ *   per-row INSERT inside ONE `db.transaction()`. Either both happen
+ *   or neither does, so a stranded row is impossible by construction;
+ *   only ONE period's data is ever present per location. Summing all
+ *   rows is correct under that invariant.
+ *
+ *   To turn `period_label` into a canonical query-side filter, the
+ *   writer must first emit YYYY-MM (today it emits the sheet name).
+ *   That's a separate breaking change for operators who rely on the
+ *   implicit `data.toast_sheet` fallback in ingest-analytics.mjs:273
+ *   and is not in scope for the variance calc as it stands.
  *
  * Actual COGS      = computeActualCogsBreakdown (multi-vendor roll-up
  *                       across shamrock_invoices + sysco_invoices +
