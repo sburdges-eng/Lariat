@@ -136,3 +136,4 @@ tests/js/.tmp-shows-*.db*
 .gitnexus
 # Runtime file-audit log containing management-actions.jsonl (lib/auditLog.mjs)
 data/audit/
+cad-kernel/build/
