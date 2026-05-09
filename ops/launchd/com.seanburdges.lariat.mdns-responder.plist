@@ -19,6 +19,11 @@
   <key>Label</key>
   <string>com.seanburdges.lariat.mdns-responder</string>
 
+  <!-- `npm run mdns:advertise` is an npm-script indirection — it maps to
+       `node --experimental-strip-types scripts/start-mdns.mjs` via the
+       "scripts" block in package.json. There is intentionally no
+       scripts/mdns-advertise.mjs; future readers/auditors should grep
+       package.json before assuming the referenced script is missing. -->
   <key>ProgramArguments</key>
   <array>
     <string>/bin/zsh</string>
