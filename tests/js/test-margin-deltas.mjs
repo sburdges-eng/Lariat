@@ -362,3 +362,127 @@ describe('listMarginDeltas — multi-vendor SKU resolution', () => {
     assert.ok(Math.abs(rows[0].delta_pct - 50) < 1e-6);
   });
 });
+
+// ── Regression-guard cases (audit §4 / 2026-05-08) ───────────────────
+// These pin invariants the audit flagged as untested. The dish-name +
+// ingredient values are deliberately substring-overlapping to exercise
+// the NUL-joined skuGroups key (`${ingredient}\0${vendor}\0${sku}`).
+// If a future refactor swaps the NUL for a plain space or empty string,
+// the collision test below will fail loudly.
+
+describe('listMarginDeltas — empty-input guard', () => {
+  it('returns [] when no dish_components exist', () => {
+    // Snapshots present in vendor_prices_history, but no dish to
+    // attribute the cost to ⇒ nothing to roll up.
+    insertSnapshot({
+      vendor: 'sysco', sku: 'AVO-1', ingredient: 'Hass Avocado',
+      unit_price: 1.50, snapshot_at: isoDaysAgo(5),
+    });
+    insertSnapshot({
+      vendor: 'sysco', sku: 'AVO-1', ingredient: 'Hass Avocado',
+      unit_price: 2.00, snapshot_at: isoDaysAgo(0),
+    });
+    const rows = repo.listMarginDeltas(db, { windowDays: 7, minPctMove: 1 });
+    assert.deepStrictEqual(rows, []);
+  });
+
+  it('returns [] when neither dish_components nor history have rows', () => {
+    const rows = repo.listMarginDeltas(db, { windowDays: 7, minPctMove: 1 });
+    assert.deepStrictEqual(rows, []);
+  });
+});
+
+describe('listMarginDeltas — NUL-joined key avoids collisions', () => {
+  it('treats (ingredient,vendor) pairs that would naively concatenate-collide as distinct', () => {
+    // Without a robust separator, these two rows would share a key:
+    //   "Sysco" + "Brioche Bun"  →  "SyscoBrioche Bun"
+    //   "Sysco Brioche" + "Bun"  →  "Sysco BriocheBun"
+    // (… same string when joined without a separator). The actual
+    // implementation joins on \0, so the keys are distinct and BOTH
+    // SKUs resolve independently.
+    //
+    // We register them under the same dish + ingredient name. The
+    // most-recently-refreshed vendor wins the resolver tie — that's a
+    // *separate* contract pinned in the multi-vendor suite above. Here
+    // we only care that the snapshots are NOT silently merged into one
+    // bucket by a sloppy key.
+
+    // Vendor "Sysco Brioche", sku "Bun" — refreshed 4d ago.
+    insertSnapshot({
+      vendor: 'Sysco Brioche', sku: 'Bun', ingredient: 'Brioche Roll',
+      unit_price: 0.40, snapshot_at: isoDaysAgo(6),
+    });
+    insertSnapshot({
+      vendor: 'Sysco Brioche', sku: 'Bun', ingredient: 'Brioche Roll',
+      unit_price: 0.45, snapshot_at: isoDaysAgo(4),
+    });
+
+    // Vendor "Sysco", sku "Brioche Bun" — refreshed today.
+    insertSnapshot({
+      vendor: 'Sysco', sku: 'Brioche Bun', ingredient: 'Brioche Roll',
+      unit_price: 0.50, snapshot_at: isoDaysAgo(5),
+    });
+    insertSnapshot({
+      vendor: 'Sysco', sku: 'Brioche Bun', ingredient: 'Brioche Roll',
+      unit_price: 0.80, snapshot_at: isoDaysAgo(0),
+    });
+
+    insertVendorComponent({
+      dish_name: 'House Cheeseburger', vendor_ingredient: 'Brioche Roll',
+      qty_per_serving: 1,
+    });
+
+    const rows = repo.listMarginDeltas(db, { windowDays: 7, minPctMove: 1 });
+    assert.strictEqual(rows.length, 1);
+    const r = rows[0];
+    // The "Sysco" / "Brioche Bun" SKU has the more recent snapshot
+    // (isoDaysAgo(0) vs isoDaysAgo(4)), so it wins resolution. Its
+    // own baseline=0.50 / latest=0.80 yields +60%. If the keys had
+    // collided into one bucket, the baseline would be 0.40 (the
+    // earliest of all four rows) and delta_pct would be +100%.
+    assert.strictEqual(r.top_contributors[0].vendor, 'Sysco');
+    assert.strictEqual(r.top_contributors[0].sku, 'Brioche Bun');
+    assert.ok(
+      Math.abs(r.delta_pct - 60) < 1e-6,
+      `expected +60% from un-collided "Sysco/Brioche Bun" bucket, got ${r.delta_pct}`,
+    );
+  });
+});
+
+describe('listMarginDeltas — top_contributors trimmed to 3', () => {
+  it('caps top_contributors at three entries even when the dish has more', () => {
+    // Five vendor_item components, all moving. Per the source
+    // `contributors.slice(0, 3)`, only the top three by |contribution|
+    // are returned.
+    const ingredients = [
+      ['Beef Tenderloin', 5.00, 6.00, 0.5],   // +0.50
+      ['Heirloom Tomato', 1.20, 1.80, 0.25],  // +0.15
+      ['Sysco Brioche Bun', 0.50, 0.55, 1],   // +0.05
+      ['House Sriracha Aioli Base', 2.00, 2.10, 0.1], // +0.01
+      ['Iceberg Lettuce', 0.40, 0.41, 0.05],  // +0.0005
+    ];
+    for (const [ing, base, latest] of ingredients) {
+      insertSnapshot({ vendor: 'sysco', sku: `SKU-${ing}`, ingredient: ing,
+        unit_price: base, snapshot_at: isoDaysAgo(5) });
+      insertSnapshot({ vendor: 'sysco', sku: `SKU-${ing}`, ingredient: ing,
+        unit_price: latest, snapshot_at: isoDaysAgo(0) });
+    }
+    for (const [ing, , , qty] of ingredients) {
+      insertVendorComponent({
+        dish_name: 'Tenderloin Plate', vendor_ingredient: ing,
+        qty_per_serving: qty,
+      });
+    }
+
+    const rows = repo.listMarginDeltas(db, { windowDays: 7, minPctMove: 1 });
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(rows[0].top_contributors.length, 3);
+    // Top three by absolute contribution must be the largest movers
+    // by total dollar delta: Beef (0.50), Heirloom Tomato (0.15),
+    // Brioche Bun (0.05).
+    assert.deepStrictEqual(
+      rows[0].top_contributors.map((c) => c.ingredient),
+      ['Beef Tenderloin', 'Heirloom Tomato', 'Sysco Brioche Bun'],
+    );
+  });
+});
