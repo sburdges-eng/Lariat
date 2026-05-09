@@ -119,6 +119,72 @@ describe('POST /api/specials/saved', () => {
   });
 });
 
+describe('POST /api/specials/saved — length caps on user-editable fields', () => {
+  // Audit reference: docs/audit/2026-05-08-codebase-audit.md §5
+  // scratch_notes / pantry_text / prompt_text are user-editable and must be
+  // clipped before INSERT to prevent runaway disk usage. ai_answer is
+  // intentionally uncapped — the LLM occasionally produces several KB of
+  // markdown for complex specials, and clipping mid-response would corrupt
+  // the recipe / cost breakdown.
+  const SCRATCH_NOTES_MAX = 4000;
+  const PANTRY_TEXT_MAX = 4000;
+  const PROMPT_TEXT_MAX = 2000;
+
+  it('clips scratch_notes to SCRATCH_NOTES_MAX chars', async () => {
+    const big = 'n'.repeat(SCRATCH_NOTES_MAX + 500);
+    const res = await create.POST(jsonRequest('http://x/api/specials/saved', {
+      ...validBody, scratch_notes: big,
+    }));
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    const row = db.getDb().prepare('SELECT scratch_notes FROM specials WHERE id = ?').get(data.id);
+    assert.equal(row.scratch_notes.length, SCRATCH_NOTES_MAX);
+  });
+
+  it('clips pantry_text to PANTRY_TEXT_MAX chars', async () => {
+    const big = 'p'.repeat(PANTRY_TEXT_MAX + 500);
+    const res = await create.POST(jsonRequest('http://x/api/specials/saved', {
+      ...validBody, pantry_text: big,
+    }));
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    const row = db.getDb().prepare('SELECT pantry_text FROM specials WHERE id = ?').get(data.id);
+    assert.equal(row.pantry_text.length, PANTRY_TEXT_MAX);
+  });
+
+  it('clips prompt_text to PROMPT_TEXT_MAX chars', async () => {
+    const big = 'q'.repeat(PROMPT_TEXT_MAX + 500);
+    const res = await create.POST(jsonRequest('http://x/api/specials/saved', {
+      ...validBody, prompt_text: big,
+    }));
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    const row = db.getDb().prepare('SELECT prompt_text FROM specials WHERE id = ?').get(data.id);
+    assert.equal(row.prompt_text.length, PROMPT_TEXT_MAX);
+  });
+
+  it('does NOT clip ai_answer (intentional exception)', async () => {
+    const tenK = 'a'.repeat(10_000);
+    const res = await create.POST(jsonRequest('http://x/api/specials/saved', {
+      ...validBody, ai_answer: tenK,
+    }));
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    const row = db.getDb().prepare('SELECT ai_answer FROM specials WHERE id = ?').get(data.id);
+    assert.equal(row.ai_answer.length, 10_000);
+  });
+
+  it('passes through scratch_notes shorter than the cap unchanged', async () => {
+    const res = await create.POST(jsonRequest('http://x/api/specials/saved', {
+      ...validBody, scratch_notes: 'short note',
+    }));
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    const row = db.getDb().prepare('SELECT scratch_notes FROM specials WHERE id = ?').get(data.id);
+    assert.equal(row.scratch_notes, 'short note');
+  });
+});
+
 describe('GET /api/specials/saved (list)', () => {
   it('returns active rows newest-first for the requested location', async () => {
     await create.POST(jsonRequest('http://x/api/specials/saved', { ...validBody, name: 'Old' }));
@@ -222,6 +288,23 @@ describe('PATCH /api/specials/saved/[id]', () => {
     const after = db.getDb().prepare('SELECT ai_answer, cost_total FROM specials WHERE id = ?').get(id);
     assert.equal(after.ai_answer, before.ai_answer);
     assert.equal(after.cost_total, before.cost_total);
+  });
+
+  it('clips scratch_notes to SCRATCH_NOTES_MAX chars on update', async () => {
+    const SCRATCH_NOTES_MAX = 4000;
+    const id = await createOne();
+    const big = 'n'.repeat(SCRATCH_NOTES_MAX + 500);
+    const res = await detail.PATCH(
+      new Request(`http://x/api/specials/saved/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ scratch_notes: big }),
+      }),
+      { params: { id } },
+    );
+    assert.equal(res.status, 200);
+    const row = db.getDb().prepare('SELECT scratch_notes FROM specials WHERE id = ?').get(id);
+    assert.equal(row.scratch_notes.length, SCRATCH_NOTES_MAX);
   });
 
   it('writes a specials.update file-audit line', async () => {

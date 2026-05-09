@@ -6,6 +6,10 @@ import { hasPinOrTempPin, pinRequiredForPic } from '../../../../lib/pin';
 import {
   validateName,
   coerceJsonField,
+  clipText,
+  SCRATCH_NOTES_MAX,
+  PANTRY_TEXT_MAX,
+  PROMPT_TEXT_MAX,
 } from '../../../../lib/specialsValidators';
 import { withIdempotency } from '../../../../lib/idempotency';
 
@@ -91,13 +95,18 @@ async function specialsSavedPostHandler(req) {
     id,
     location_id: locationId,
     name: nameRes.value,
-    pantry_text: pantry,
-    prompt_text: prompt,
+    // User-editable fields are clipped to prevent runaway disk usage from
+    // pasted-in essays. See lib/specialsValidators.ts for the rationale and
+    // why ai_answer is intentionally uncapped.
+    pantry_text: clipText(pantry, PANTRY_TEXT_MAX),
+    prompt_text: clipText(prompt, PROMPT_TEXT_MAX),
+    // ai_answer: uncapped — LLM markdown can be several KB; mid-response
+    // truncation would corrupt the recipe / cost breakdown.
     ai_answer: answer,
     ai_model: model,
     cost_breakdown: cb.value,
     cost_total: costTotal,
-    scratch_notes: scratch,
+    scratch_notes: clipText(scratch, SCRATCH_NOTES_MAX),
     sources: sources.value,
     created_at: now,
     updated_at: now,
