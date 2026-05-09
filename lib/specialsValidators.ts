@@ -14,6 +14,22 @@ const YIELD_UNIT_MAX = 32;
 
 const ALLOWED_PATCH_KEYS = new Set(['name', 'scratch_notes']);
 
+// Length caps on user-editable text fields, applied at the route layer
+// before INSERT / UPDATE. Operator-generous bounds — clipping prevents
+// runaway disk usage from pasted-in essays without surfacing an error
+// in the kitchen UI. ai_answer is intentionally NOT capped here: the
+// LLM occasionally produces several KB of markdown for complex specials,
+// and clipping mid-response would corrupt the recipe / cost breakdown.
+// Audit reference: docs/audit/2026-05-08-codebase-audit.md §5.
+export const SCRATCH_NOTES_MAX = 4000;
+export const PANTRY_TEXT_MAX = 4000;
+export const PROMPT_TEXT_MAX = 2000;
+
+export function clipText(input: unknown, max: number): string {
+  if (typeof input !== 'string' || input.length === 0) return '';
+  return input.length <= max ? input : input.slice(0, max);
+}
+
 export function validateName(input: unknown): Result<string> {
   if (typeof input !== 'string') return { ok: false, error: 'name must be a string' };
   const trimmed = input.trim();

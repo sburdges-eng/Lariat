@@ -16,17 +16,10 @@
 
 import { getDb } from '../../../../lib/db';
 import { locationFromRequest } from '../../../../lib/location';
-import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
+import { requirePin } from '../../../../lib/pin';
 import { listDepletionExceptions } from '../../../../lib/depletionExceptions';
 
 export const dynamic = 'force-dynamic';
-
-async function requirePin(req) {
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
-    return Response.json({ error: 'PIN required' }, { status: 401 });
-  }
-  return null;
-}
 
 function clampLimit(raw) {
   if (raw == null || raw === '') return 200;

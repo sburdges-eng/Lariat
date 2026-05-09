@@ -5,6 +5,8 @@ import { hasPinOrTempPin, pinRequiredForPic } from '../../../../../lib/pin';
 import {
   validateName,
   validatePatchKeys,
+  clipText,
+  SCRATCH_NOTES_MAX,
 } from '../../../../../lib/specialsValidators';
 import { withIdempotency } from '../../../../../lib/idempotency';
 
@@ -73,7 +75,9 @@ async function specialsSavedPatchHandler(req, { params }) {
     if (typeof body.scratch_notes !== 'string') {
       return Response.json({ error: 'scratch_notes must be a string' }, { status: 400 });
     }
-    updates.scratch_notes = body.scratch_notes;
+    // Clip to prevent runaway disk usage from pasted-in essays.
+    // See lib/specialsValidators.ts for the rationale.
+    updates.scratch_notes = clipText(body.scratch_notes, SCRATCH_NOTES_MAX);
   }
 
   const id = params.id;

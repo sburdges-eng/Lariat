@@ -12,17 +12,10 @@
  * Today's implementation is a stub — see docs/cloud-bridge-design.md.
  */
 
-import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
+import { requirePin } from '../../../../lib/pin';
 import { createCloudBridge, isCloudBridgeConfigured } from '../../../../lib/cloudBridge';
 
 export const dynamic = 'force-dynamic';
-
-async function requirePin(req) {
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
-    return Response.json({ error: 'PIN required' }, { status: 401 });
-  }
-  return null;
-}
 
 export async function GET(req) {
   const pinFail = await requirePin(req);

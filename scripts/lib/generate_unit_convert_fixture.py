@@ -29,7 +29,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.lib.units import (  # noqa: E402
-    COUNT_TO_EA,
     VOLUME_TO_ML,
     WEIGHT_TO_G,
     normalize_unit,
@@ -149,7 +148,11 @@ CASES: list[tuple[float, object, object, object]] = [
     (1.0, "bag", "oz", 2.0),                 # count rejected
     (1.0, "cup", "ea", 1.0),                 # volume → count rejected
     # ── unknown units ────────────────────────────────────────────────
-    (1.0, "#10 can", "lb", None),            # unknown left → null
+    # NB: "#10 can" is a SYNONYM for "can" (a count unit), so it's
+    # count-rejected (count → weight without per-can mass), NOT an
+    # unknown-unit case. Listed here for proximity to the other null
+    # cases; the path is the same as the "case"/"bag" rows above.
+    (1.0, "#10 can", "lb", None),            # count synonym → count-rejected → null
     (1.0, "lb", "blorp", None),              # unknown right → null
     (1.0, "", "lb", None),                   # empty string → null
     (1.0, None, "lb", None),                 # None → null

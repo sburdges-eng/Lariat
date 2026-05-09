@@ -1,6 +1,6 @@
 import { getDb } from '../../../../lib/db';
 import { locationFromRequest } from '../../../../lib/location';
-import { hasPinOrTempPin, pinRequiredForPic } from '../../../../lib/pin';
+import { requirePinOrScope } from '../../../../lib/pin';
 import {
   getItemPrepHistory,
   getRecentEvents,
@@ -12,15 +12,8 @@ const MAX_ITEMS_PER_REQUEST = 50;
 
 const SCOPE = 'menu.prep_history';
 
-async function requirePin(req) {
-  if (pinRequiredForPic() && !(await hasPinOrTempPin(req, SCOPE))) {
-    return Response.json({ error: 'PIN required' }, { status: 401 });
-  }
-  return null;
-}
-
 export async function GET(req) {
-  const pinFail = await requirePin(req);
+  const pinFail = await requirePinOrScope(req, SCOPE);
   if (pinFail) return pinFail;
   try {
     const url = new URL(req.url);

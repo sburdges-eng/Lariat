@@ -763,7 +763,7 @@ export function runCostingPostPass(db, locationId = 'default') {
     );
   }
 
-  // D4: emit one INFO line per recipe whose Excel `batch_cost` differs
+  // D4: emit one WARN line per recipe whose Excel `batch_cost` differs
   // from the raw Σ (qty × pack_price / pack_size) by > $0.10. Runs
   // BEFORE the UPDATE transaction below so the comparison is against
   // Excel's original value — post-UPDATE, `batch_cost` is "Excel +
@@ -772,9 +772,15 @@ export function runCostingPostPass(db, locationId = 'default') {
   // Threshold picked at $0.10 because (a) penny-level float noise from
   // Excel rounding is routine and noise-floor, and (b) $0.10 × typical
   // ~50 recipes × weekly runs ≈ $5/week of drift — below that, other
-  // signals in the unmapped queue would catch it first. Raised to hard-
-  // fail at $1.00 per D4's "once observability confirms the invariant"
-  // note, tracked separately.
+  // signals in the unmapped queue would catch it first.
+  //
+  // Promotion to a $1.00 hard-fail (throw + non-zero CLI exit code) is
+  // gated on observability confirming the invariant — see
+  // docs/audit/2026-05-08-codebase-audit.md §4 LOW (D4 threshold).
+  // File a GitHub issue + raise this to throw once N consecutive
+  // ingests show no drift > $0.10. Until then we stay at WARN-only so
+  // legitimate vendor-renegotiation drifts ($0.10–$1.00) don't break
+  // the weekly ingest.
   const DRIFT_THRESHOLD_USD = 0.10;
   for (const [recipe_id, rawSum] of perRecipeRawSum) {
     const excelValue = excelBatchCostByRecipe.get(recipe_id);
@@ -782,8 +788,8 @@ export function runCostingPostPass(db, locationId = 'default') {
     const drift = excelValue - rawSum;
     if (Math.abs(drift) > DRIFT_THRESHOLD_USD) {
       summary.excel_drift_warnings++;
-      console.info(
-        `ℹ D4 Excel drift: recipe_id=${recipe_id} excel_value=$${excelValue.toFixed(4)} computed_sum=$${rawSum.toFixed(4)} drift_usd=$${drift.toFixed(4)}`,
+      console.warn(
+        `⚠ D4 Excel drift: recipe_id=${recipe_id} excel_value=$${excelValue.toFixed(4)} computed_sum=$${rawSum.toFixed(4)} drift_usd=$${drift.toFixed(4)} — investigate before next ingest (audit ref: docs/audit/2026-05-08-codebase-audit.md §4 LOW)`,
       );
     }
   }
@@ -1276,6 +1282,11 @@ function main() {
     if (summary.pack_size_changes > 0) {
       console.warn(
         `⚠ T6: ${summary.pack_size_changes} vendor pack-size substitution(s) detected — review the pack_size_changes table / attention queue`,
+      );
+    }
+    if (summary.excel_drift_warnings > 0) {
+      console.warn(
+        `⚠ D4: ${summary.excel_drift_warnings} Excel batch_cost drift warning(s) > $0.10 — see WARN lines above (audit ref: docs/audit/2026-05-08-codebase-audit.md §4 LOW)`,
       );
     }
   } finally {

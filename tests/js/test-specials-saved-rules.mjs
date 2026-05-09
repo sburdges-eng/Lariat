@@ -123,6 +123,38 @@ describe('validatePatchKeys', () => {
   });
 });
 
+describe('clipText', () => {
+  it('returns the string unchanged when shorter than max', () => {
+    assert.equal(v.clipText('hello', 100), 'hello');
+  });
+  it('clips to exactly max chars when longer', () => {
+    assert.equal(v.clipText('x'.repeat(50), 10).length, 10);
+    assert.equal(v.clipText('x'.repeat(50), 10), 'x'.repeat(10));
+  });
+  it('returns empty string for non-string input', () => {
+    assert.equal(v.clipText(null, 10), '');
+    assert.equal(v.clipText(undefined, 10), '');
+    assert.equal(v.clipText(42, 10), '');
+  });
+  it('returns empty string for empty input', () => {
+    assert.equal(v.clipText('', 10), '');
+  });
+  it('handles boundary: exactly max chars unchanged', () => {
+    assert.equal(v.clipText('x'.repeat(10), 10).length, 10);
+  });
+});
+
+describe('SCRATCH_NOTES_MAX / PANTRY_TEXT_MAX / PROMPT_TEXT_MAX', () => {
+  it('exports operator-generous caps for user-editable text fields', () => {
+    assert.equal(typeof v.SCRATCH_NOTES_MAX, 'number');
+    assert.equal(typeof v.PANTRY_TEXT_MAX, 'number');
+    assert.equal(typeof v.PROMPT_TEXT_MAX, 'number');
+    assert.ok(v.SCRATCH_NOTES_MAX >= 1000);
+    assert.ok(v.PANTRY_TEXT_MAX >= 1000);
+    assert.ok(v.PROMPT_TEXT_MAX >= 500);
+  });
+});
+
 describe('coerceJsonField', () => {
   it('accepts an object', () => {
     assert.deepEqual(v.coerceJsonField({ a: 1 }), { ok: true, value: '{"a":1}' });

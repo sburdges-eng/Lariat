@@ -12,6 +12,18 @@
 //   vendor, vendor_sku, ingredient_name, pack_size, pack_unit, pack_price,
 //   unit_price, imported_at, notes
 //
+// Optional columns (recognized when present in the header):
+//   category — set to `beer`, `wine`, `liquor`, `spirit`, or `cocktail`
+//     for beverage SKUs that must survive the costing-ingest DELETE
+//     sweep (scripts/ingest-costing.mjs preserves rows whose
+//     LOWER(category) is in BEVERAGE_CATEGORIES). Leave blank for
+//     non-beverage items. If absent or blank, the row is imported
+//     with category=NULL — and if the ingredient name LOOKS like a
+//     beverage (matches one of beer/wine/liquor/whiskey/whisky/vodka/
+//     gin/rum/tequila/champagne/prosecco/cocktail/spirit), the
+//     importer logs a one-line WARNING so the operator can repair the
+//     CSV before the next costing ingest wipes the row.
+//
 // Semantics:
 //   - vendor_sku and ingredient_name are renamed from the DB columns
 //     (sku, ingredient) purely for human readability in the fill-me
@@ -139,6 +151,46 @@ const REQUIRED_COLUMNS = [
   'notes',
 ];
 
+// Optional columns recognized when present in the CSV header. Absent →
+// treated as null for every row. See header docblock for `category`.
+// `pick()` already falls back to '' when a column is missing, so optional
+// columns require no header-validation gate; this comment documents intent.
+
+// Heuristic name-match keywords. If a row imports with category=null AND
+// its ingredient name matches one of these (case-insensitive substring),
+// the importer logs a WARNING because the next costing ingest will WIPE
+// the row (only LOWER(category) IN BEVERAGE_CATEGORIES survives the
+// DELETE sweep — see scripts/ingest-costing.mjs::BEVERAGE_CATEGORIES).
+// This is a heuristic — the operator owns the CSV; we do NOT auto-classify.
+const BEVERAGE_KEYWORDS = [
+  'beer',
+  'wine',
+  'liquor',
+  'whiskey',
+  'whisky',
+  'vodka',
+  'gin',
+  'rum',
+  'tequila',
+  'champagne',
+  'prosecco',
+  'cocktail',
+  'spirit',
+];
+
+function looksLikeBeverage(ingredient) {
+  if (!ingredient) return false;
+  const lower = String(ingredient).toLowerCase();
+  // Word-boundary match so 'gin' doesn't fire on 'ginger' or 'origin'.
+  // (Substring match would be too noisy; '\bgin\b' avoids the worst false
+  // positives while still catching 'Hendrick Gin 750ml'.)
+  for (const kw of BEVERAGE_KEYWORDS) {
+    const re = new RegExp(`\\b${kw}\\b`, 'i');
+    if (re.test(lower)) return true;
+  }
+  return false;
+}
+
 const text = fs.readFileSync(csvPath, 'utf8');
 const raw = parseCsv(text);
 if (raw.length === 0) {
@@ -180,6 +232,10 @@ function numOrNull(raw) {
   return Number.isFinite(n) ? n : NaN;
 }
 
+// Track null-category rows that look like beverages so the final summary
+// can surface the count. Warnings themselves are logged inline below.
+let nullCategoryBeverageCount = 0;
+
 const staged = []; // { lineNumber, row, errors }
 for (let i = 1; i < raw.length; i++) {
   const fields = raw[i];
@@ -194,6 +250,10 @@ for (let i = 1; i < raw.length; i++) {
   const packUnit = pick(fields, 'pack_unit').trim();
   const packPrice = numOrNull(pick(fields, 'pack_price'));
   let unitPrice = numOrNull(pick(fields, 'unit_price'));
+  // Optional `category` — recognized only when the column is present in
+  // the header. clipTrim returns null for absent/blank cells, which is
+  // exactly what we want: same default as the legacy behavior.
+  const category = clipTrim(pick(fields, 'category'), 64);
 
   // Derive unit_price from pack_price / pack_size if the CSV left it
   // blank. This is a convenience for humans filling in the template:
@@ -221,11 +281,27 @@ for (let i = 1; i < raw.length; i++) {
     pack_unit: packUnit,
     pack_price: packPrice,
     unit_price: unitPrice,
-    // category not surfaced in the template yet; drinks flow will add
-    // it when the fill-me CSV grows a column for it.
-    category: null,
+    category,
   };
   const v = validateVendorPriceRow(rawRow);
+
+  // Operator-facing warning for likely-beverage-but-null-category rows.
+  // The next `npm run ingest:costing` will WIPE these rows because the
+  // DELETE sweep only preserves LOWER(category) IN BEVERAGE_CATEGORIES.
+  // Fired regardless of --dry-run so operators can preview the warning.
+  // Validation errors don't suppress the warning — if a row is borderline
+  // we still want the operator to see both signals.
+  if (category === null && looksLikeBeverage(ingredient)) {
+    nullCategoryBeverageCount += 1;
+    process.stderr.write(
+      `[import-vendor-prices] WARNING: line ${i + 1} "${ingredient}" looks ` +
+        `like a beverage but has category=null. The next ` +
+        `\`npm run ingest:costing\` will WIPE this row during the ` +
+        `vendor_prices DELETE sweep. Set category=beer/wine/liquor/spirit/` +
+        `cocktail in the CSV to survive.\n`,
+    );
+  }
+
   staged.push({
     lineNumber: i + 1, // 1-indexed, accounting for header
     row: rawRow,
@@ -237,10 +313,19 @@ for (let i = 1; i < raw.length; i++) {
 const errored = staged.filter((s) => s.errors.length > 0);
 const good = staged.filter((s) => s.errors.length === 0);
 
+function formatBeverageWarningSummary(count) {
+  if (count <= 0) return '';
+  return (
+    ` (${count} null-category row${count === 1 ? '' : 's'} look like ` +
+    `beverages — see WARNINGs above)`
+  );
+}
+
 if (dryRun) {
   process.stdout.write(
     `import-vendor-prices: DRY RUN — ${staged.length} rows parsed ` +
-      `(${good.length} valid, ${errored.length} errored)\n`,
+      `(${good.length} valid, ${errored.length} errored)` +
+      `${formatBeverageWarningSummary(nullCategoryBeverageCount)}\n`,
   );
   if (errored.length) {
     process.stdout.write('\nerrored rows:\n');
@@ -295,6 +380,7 @@ try {
 
 process.stdout.write(
   `import-vendor-prices: inserted: ${inserted}, updated: ${updated}, ` +
-    `skipped: ${skipped} (already identical), errored: 0\n`,
+    `skipped: ${skipped} (already identical), errored: 0` +
+    `${formatBeverageWarningSummary(nullCategoryBeverageCount)}\n`,
 );
 process.exit(0);
