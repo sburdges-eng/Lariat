@@ -131,3 +131,105 @@ describe('getAuditLogForRecipe — same stream-read fix applies', () => {
     assert.deepEqual(matches, []);
   });
 });
+
+describe('exportAuditLog — same stream-read fix applies', () => {
+  it('returns ALL date-range matches even when they sit before the last 5000 rows', () => {
+    // Seed 6100 entries: 5 sparse January matches planted at row
+    // indices 10, 50, 100, 250, 700, and 6095 February noise rows
+    // filling the rest. The January matches sit before the legacy
+    // 5000-entry tail window (rows 1100..6099), so pre-fix the
+    // function — which routed through getRecentAuditLog(5000) — saw
+    // zero January matches because none were inside that tail window.
+    const entries = [];
+    const janPositions = [10, 50, 100, 250, 700];
+    const janSet = new Set(janPositions);
+    let janCount = 0;
+    for (let i = 0; i < 6100; i++) {
+      if (janSet.has(i)) {
+        // Stamp January matches with strictly increasing timestamps so
+        // the newest-first ordering is deterministic for assertion.
+        entries.push({
+          id: `audit_jan_${i}`,
+          timestamp: new Date(Date.UTC(2026, 0, 1, 0, janCount, 0)).toISOString(),
+          action: 'recipe_edit',
+          month: 'jan',
+          index: i,
+        });
+        janCount += 1;
+      } else {
+        entries.push({
+          id: `audit_feb_${i}`,
+          timestamp: new Date(Date.UTC(2026, 1, 1, 0, 0, i % 60, (i * 17) % 1000)).toISOString(),
+          action: 'noise_action',
+          month: 'feb',
+          index: i,
+        });
+      }
+    }
+    seedJsonl(entries);
+
+    const start = new Date(Date.UTC(2026, 0, 1, 0, 0, 0));
+    const end = new Date(Date.UTC(2026, 0, 31, 23, 59, 59));
+    const matches = auditLog.exportAuditLog(start, end);
+    assert.equal(matches.length, 5, 'all 5 January matches must surface (no silent 5000-cap drop)');
+    const indices = matches.map(m => m.index);
+    // Newest-first ordering — streamFilter reverses before return.
+    // janCount increases with row index, so later rows have later
+    // timestamps within January.
+    assert.deepEqual(indices, [700, 250, 100, 50, 10]);
+  });
+
+  it('returns date-range matches in newest-first order', () => {
+    // 5 entries spaced 1 hour apart; export bounds cover all 5; assert
+    // the returned array is newest-first via direct ordered comparison.
+    const entries = [];
+    for (let i = 0; i < 5; i++) {
+      entries.push({
+        id: `audit_${i}`,
+        timestamp: new Date(Date.UTC(2026, 2, 1, i, 0, 0)).toISOString(),
+        action: 'recipe_edit',
+        index: i,
+      });
+    }
+    seedJsonl(entries);
+
+    const start = new Date(Date.UTC(2026, 2, 1, 0, 0, 0));
+    const end = new Date(Date.UTC(2026, 2, 1, 23, 59, 59));
+    const matches = auditLog.exportAuditLog(start, end);
+    const indices = matches.map(m => m.index);
+    assert.deepEqual(indices, [4, 3, 2, 1, 0]);
+  });
+
+  it('returns empty array when start > end (empty range)', () => {
+    seedJsonl([
+      { id: 'a', action: 'recipe_edit', timestamp: '2026-03-15T00:00:00.000Z' },
+      { id: 'b', action: 'recipe_edit', timestamp: '2026-03-16T00:00:00.000Z' },
+    ]);
+    const start = new Date(Date.UTC(2026, 2, 31, 0, 0, 0));
+    const end = new Date(Date.UTC(2026, 2, 1, 0, 0, 0));
+    const matches = auditLog.exportAuditLog(start, end);
+    assert.deepEqual(matches, []);
+  });
+
+  it('skips entries with misformed timestamps without crashing', () => {
+    seedJsonl([
+      { id: 'before', action: 'recipe_edit', timestamp: '2026-04-01T00:00:00.000Z' },
+      { id: 'bad', action: 'recipe_edit', timestamp: 'not-a-date' },
+      { id: 'after', action: 'recipe_edit', timestamp: '2026-04-02T00:00:00.000Z' },
+    ]);
+    const start = new Date(Date.UTC(2026, 0, 1, 0, 0, 0));
+    const end = new Date(Date.UTC(2026, 11, 31, 23, 59, 59));
+    const matches = auditLog.exportAuditLog(start, end);
+    const ids = matches.map(m => m.id);
+    // Newest-first; bad entry is dropped, valid neighbors preserved.
+    assert.deepEqual(ids, ['after', 'before']);
+  });
+
+  it('returns empty array for a missing audit file', () => {
+    // No seed → file does not exist.
+    const start = new Date(Date.UTC(2026, 0, 1, 0, 0, 0));
+    const end = new Date(Date.UTC(2026, 11, 31, 23, 59, 59));
+    const matches = auditLog.exportAuditLog(start, end);
+    assert.deepEqual(matches, []);
+  });
+});
