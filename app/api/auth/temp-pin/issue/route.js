@@ -18,7 +18,7 @@
 import { randomInt } from 'node:crypto';
 import { json } from '../../../../../lib/routeHelpers';
 import { getDb } from '../../../../../lib/db';
-import { hasPinCookie, pinRequiredForPic } from '../../../../../lib/pin';
+import { requirePin } from '../../../../../lib/pin';
 import { postAuditEvent } from '../../../../../lib/auditEvents';
 import { locationFromBody } from '../../../../../lib/location';
 import {
@@ -40,13 +40,6 @@ const clip = (s, max) => {
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
-
-async function requirePin(req) {
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
-    return json({ error: 'PIN required' }, { status: 401 });
-  }
-  return null;
-}
 
 function generatePin(length) {
   // randomInt(min, max) is exclusive of max. We pad to ensure leading

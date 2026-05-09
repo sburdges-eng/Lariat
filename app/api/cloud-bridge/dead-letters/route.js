@@ -11,19 +11,12 @@
  * render the inspect modal without a second round-trip.
  */
 
-import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
+import { requirePin } from '../../../../lib/pin';
 import { listDeadLetters, deadLetterDepth, depth } from '../../../../lib/cloudBridgeQueue';
 import { isCloudBridgeConfigured } from '../../../../lib/cloudBridge';
 import { locationFromRequest } from '../../../../lib/location';
 
 export const dynamic = 'force-dynamic';
-
-async function requirePin(req) {
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
-    return Response.json({ error: 'PIN required' }, { status: 401 });
-  }
-  return null;
-}
 
 export async function GET(req) {
   const pinFail = await requirePin(req);

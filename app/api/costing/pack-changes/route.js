@@ -9,7 +9,7 @@
  */
 
 import { getDb } from '../../../../lib/db';
-import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
+import { requirePin } from '../../../../lib/pin';
 import { withIdempotency } from '../../../../lib/idempotency';
 import {
   listPackChanges,
@@ -22,13 +22,6 @@ import { logAuditAction } from '../../../../lib/auditLog.mjs';
 export const dynamic = 'force-dynamic';
 
 const VALID_FILTERS = new Set(['open', 'acknowledged', 'all']);
-
-async function requirePin(req) {
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
-    return Response.json({ error: 'PIN required' }, { status: 401 });
-  }
-  return null;
-}
 
 function clampLimit(raw) {
   if (raw == null || raw === '') return 200;
