@@ -127,7 +127,11 @@ export const TempPoints: readonly TempPoint[] = [
   {
     id: 'cook_eggs',
     label: 'Cook — shell eggs',
-    ccp_id: 'CCP-5',
+    // CCP-5e (e for eggs) — split out from CCP-5 (comminuted meat) on
+    // 2026-05-08. Shell eggs (§3-401.11(A)(2)) and ground meat are
+    // different CCP categories; sharing CCP-5 conflated them in
+    // inspector-grouped views.
+    ccp_id: 'CCP-5e',
     required_min_f: 155,
     required_max_f: null,
     citation: 'FDA §3-401.11(A)(2) — shell eggs for hot-hold 155°F / 15s',
@@ -138,7 +142,10 @@ export const TempPoints: readonly TempPoint[] = [
     ccp_id: 'CCP-7',
     required_min_f: 140,
     required_max_f: null,
-    citation: 'FDA §3-501.16(A)(1) — hot-hold ≥ 135°F (house policy 140)',
+    // Canonical, machine-parseable form: both numbers are explicit and
+    // separated by a semicolon — no informal parenthetical to confuse
+    // inspectors who pull citations programmatically.
+    citation: 'FDA §3-501.16(A)(1) — hot-hold ≥ 135°F; house floor raised to 140°F',
   },
   {
     id: 'reheat',
