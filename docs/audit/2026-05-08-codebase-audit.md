@@ -153,7 +153,7 @@
 
 - `lib/cloudBridgeQueue.ts:183-187` — DLQ rows stamp `claimed_at = datetime('now')` as a tombstone; field name misleading. **Fix:** rename or add `dead_lettered_at` column in a future migration.
 - `lib/cloudBridgeDrainerLifecycle.ts:133-135` — reads `LARIAT_DRAINER_TICK_MS` for log message but does NOT pass it to `startDrainer()`. Env var has no effect when booted via instrumentation. **Fix:** thread `{tickMs}` into `startDrainer()`.
-- `ops/launchd/com.seanburdges.lariat.mdns-responder.plist:27` — runs `npm run mdns:advertise` but `scripts/mdns-advertise.mjs` was not found via glob. If plist is loaded, launchd will restart the failing command every ThrottleInterval (30s) burning CPU. **Fix:** Verify script exists (orchestrator note: `mdns:advertise` may map to a different script via package.json — confirm before creating).
+- ~~`ops/launchd/com.seanburdges.lariat.mdns-responder.plist:27` — runs `npm run mdns:advertise` but `scripts/mdns-advertise.mjs` was not found via glob.~~ **Resolved (stale finding):** `npm run mdns:advertise` maps to `node --experimental-strip-types scripts/start-mdns.mjs` via package.json's `scripts` block — that file exists, calls `lib/mdnsDiscovery::advertise()`, and handles SIGTERM cleanly. The orchestrator-note hedge in the original finding turned out to be the right call. A clarifying comment was added to the plist (above `ProgramArguments`) so the next reader doesn't repeat the same investigation.
 - `lib/cloudBridgeDrainerLifecycle.ts:26` — header section titled "Mutual exclusion" but actual behavior is "coexistence under claim/ack dedup." Misleading. **Fix:** rename to "Coexistence."
 
 ### Tech-debt / refactor opportunities
