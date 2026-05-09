@@ -78,16 +78,37 @@ export interface DiscoverOptions {
 export const LARIAT_SERVICE_TYPE = 'lariat'; // bonjour-service prepends `_` and `._tcp`
 export const LARIAT_SERVICE_NAME = 'Lariat';
 
-let warned = false;
+// Per-reason dedup. The pre-fix shared `warned` boolean meant that the
+// first warning (e.g. "package not loaded") silently suppressed every
+// subsequent unrelated warning — so a later Bonjour ctor / publish /
+// find failure was swallowed. We key dedup on the `reason` string so
+// each distinct failure mode fires its console.warn exactly once.
+const warnedReasons = new Set<string>();
 
-function warnOnce(reason: string, err?: unknown): void {
-  if (warned) return;
-  warned = true;
-   
+/**
+ * Internal helper, exported only for unit tests. Keeps a single warning
+ * per `reason` string for the lifetime of the process.
+ *
+ * Production code should NOT import this directly — it's a stable
+ * test seam, not part of the public API of this module.
+ */
+export function warnOnce(reason: string, err?: unknown): void {
+  if (warnedReasons.has(reason)) return;
+  warnedReasons.add(reason);
+
   console.warn(
     `[mdnsDiscovery] disabled: ${reason}` +
       (err instanceof Error ? ` (${err.message})` : '')
   );
+}
+
+/**
+ * Test-only: forget every previously-warned reason so a unit test can
+ * assert per-reason dedup behavior from a clean slate. Must NEVER be
+ * called in production.
+ */
+export function _resetWarnedReasonsForTest(): void {
+  warnedReasons.clear();
 }
 
 function readPackageVersion(): string {
