@@ -511,11 +511,11 @@ describe('T3 / D5 — null-guard matrix', () => {
 // no INFO line fires; excel_drift_warnings stays at 0, which existing
 // tests don't inspect anyway.
 describe('T3 / D4 — Excel batch_cost vs raw-sum drift', () => {
-  it('drift > $0.10 increments excel_drift_warnings counter and logs INFO', () => {
+  it('drift > $0.10 increments excel_drift_warnings counter and logs WARN', () => {
     // Row raw = 1 × 50 / 50 = $1.00; seed batch_cost at $5.00 → drift $4.00.
-    const infoLines = [];
-    const origInfo = console.info;
-    console.info = (msg) => infoLines.push(String(msg));
+    const warnLines = [];
+    const origWarn = console.warn;
+    console.warn = (msg) => warnLines.push(String(msg));
     try {
       const db = buildDb([
         { raw: 'onion', yield_pct: 1.0, loss_factor: null },
@@ -529,15 +529,19 @@ describe('T3 / D4 — Excel batch_cost vs raw-sum drift', () => {
         s.excel_drift_warnings, 1,
         'one recipe should trip the drift counter',
       );
-      const driftLine = infoLines.find((l) => l.includes('D4 Excel drift'));
-      assert.ok(driftLine, `expected INFO line containing "D4 Excel drift"; got: ${JSON.stringify(infoLines)}`);
+      const driftLine = warnLines.find((l) => l.includes('D4 Excel drift'));
+      assert.ok(driftLine, `expected WARN line containing "D4 Excel drift"; got: ${JSON.stringify(warnLines)}`);
       assert.ok(driftLine.includes('recipe_id=r_drift'), driftLine);
       assert.ok(driftLine.includes('excel_value=$5.0000'), driftLine);
       assert.ok(driftLine.includes('computed_sum=$1.0000'), driftLine);
       assert.ok(driftLine.includes('drift_usd=$4.0000'), driftLine);
+      assert.ok(
+        driftLine.includes('docs/audit/2026-05-08-codebase-audit.md'),
+        `WARN line must reference the audit doc; got: ${driftLine}`,
+      );
       db.close();
     } finally {
-      console.info = origInfo;
+      console.warn = origWarn;
     }
   });
 
@@ -547,11 +551,11 @@ describe('T3 / D4 — Excel batch_cost vs raw-sum drift', () => {
     // threshold to exercise the "noise-floor" branch. The strict-greater
     // semantics are documented on the DRIFT_THRESHOLD_USD constant in
     // ingest-costing.mjs; the key invariant tested here is that small
-    // penny-level rounding doesn't trigger a spurious INFO line per
+    // penny-level rounding doesn't trigger a spurious WARN line per
     // ingest.
-    const infoLines = [];
-    const origInfo = console.info;
-    console.info = (msg) => infoLines.push(String(msg));
+    const warnLines = [];
+    const origWarn = console.warn;
+    console.warn = (msg) => warnLines.push(String(msg));
     try {
       // Raw sum = 1, excel = 1.05 → drift $0.05.
       const db = buildDb([
@@ -564,20 +568,20 @@ describe('T3 / D4 — Excel batch_cost vs raw-sum drift', () => {
       const s = ingestCosting(db, data, LOC);
       assert.strictEqual(s.excel_drift_warnings, 0, 'sub-threshold drift must not fire');
       assert.ok(
-        !infoLines.some((l) => l.includes('D4 Excel drift')),
-        'no INFO line for sub-threshold drift',
+        !warnLines.some((l) => l.includes('D4 Excel drift')),
+        'no WARN line for sub-threshold drift',
       );
       db.close();
     } finally {
-      console.info = origInfo;
+      console.warn = origWarn;
     }
   });
 
   it('healthy recipe (excel === raw-sum) does not trip the counter', () => {
     // Regression guard: the mixed-recipe test pattern should NEVER fire.
-    const infoLines = [];
-    const origInfo = console.info;
-    console.info = (msg) => infoLines.push(String(msg));
+    const warnLines = [];
+    const origWarn = console.warn;
+    console.warn = (msg) => warnLines.push(String(msg));
     try {
       const db = buildDb([
         { raw: 'onion',   yield_pct: 0.85, loss_factor: null },
@@ -596,20 +600,20 @@ describe('T3 / D4 — Excel batch_cost vs raw-sum drift', () => {
       const s = ingestCosting(db, data, LOC);
       assert.strictEqual(s.excel_drift_warnings, 0);
       assert.ok(
-        !infoLines.some((l) => l.includes('D4 Excel drift')),
-        'healthy recipe must not emit the drift INFO line',
+        !warnLines.some((l) => l.includes('D4 Excel drift')),
+        'healthy recipe must not emit the drift WARN line',
       );
       db.close();
     } finally {
-      console.info = origInfo;
+      console.warn = origWarn;
     }
   });
 
   it('negative drift (excel < raw-sum) also trips the counter', () => {
     // Excel $1.00, raw sum $5.00 → drift −$4.00, |drift|=$4 > $0.10.
-    const infoLines = [];
-    const origInfo = console.info;
-    console.info = (msg) => infoLines.push(String(msg));
+    const warnLines = [];
+    const origWarn = console.warn;
+    console.warn = (msg) => warnLines.push(String(msg));
     try {
       const db = buildDb([
         { raw: 'onion', yield_pct: 1.0, loss_factor: null },
@@ -620,12 +624,12 @@ describe('T3 / D4 — Excel batch_cost vs raw-sum drift', () => {
       };
       const s = ingestCosting(db, data, LOC);
       assert.strictEqual(s.excel_drift_warnings, 1);
-      const line = infoLines.find((l) => l.includes('D4 Excel drift'));
+      const line = warnLines.find((l) => l.includes('D4 Excel drift'));
       assert.ok(line);
       assert.ok(line.includes('drift_usd=$-4.0000'), line);
       db.close();
     } finally {
-      console.info = origInfo;
+      console.warn = origWarn;
     }
   });
 });
