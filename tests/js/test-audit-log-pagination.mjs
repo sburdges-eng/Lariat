@@ -63,8 +63,10 @@ describe('getAuditLogByAction — stream-read past 1000-entry cap', () => {
 
     const matches = auditLog.getAuditLogByAction('recipe_edit');
     assert.equal(matches.length, 5, 'all 5 matching entries must surface (no silent 1000-cap drop)');
-    const indices = matches.map(m => m.index).sort((a, b) => a - b);
-    assert.deepEqual(indices, [10, 50, 100, 250, 700]);
+    // Newest-first ordering — preserve the prior contract so the
+    // route's `.slice(0, limit)` returns recent edits, not ancient ones.
+    const indices = matches.map(m => m.index);
+    assert.deepEqual(indices, [700, 250, 100, 50, 10]);
   });
 
   it('returns empty array for a missing audit file', () => {
@@ -115,8 +117,9 @@ describe('getAuditLogForRecipe — same stream-read fix applies', () => {
 
     const matches = auditLog.getAuditLogForRecipe('braised-short-rib');
     assert.equal(matches.length, 3);
-    const indices = matches.map(m => m.index).sort((a, b) => a - b);
-    assert.deepEqual(indices, [5, 100, 200]);
+    // Newest-first ordering — same contract as getAuditLogByAction.
+    const indices = matches.map(m => m.index);
+    assert.deepEqual(indices, [200, 100, 5]);
   });
 
   it('returns empty array when no entries match the slug', () => {
