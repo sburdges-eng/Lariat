@@ -135,6 +135,14 @@ describe('recomputeMarginAnalysis persists every MenuEngineeringRow', () => {
       `SELECT COUNT(*) AS c FROM margin_snapshots WHERE location_id = ?`,
     ).get(LOC).c;
 
+    // Sanity guard: equality assertion passes vacuously when both sides
+    // are 0 (e.g. if recomputeMarginAnalysis silently no-op'd due to a
+    // location-id propagation bug). Pin > 0 first so the equality check
+    // only validates the intended invariant.
+    assert.ok(
+      snapshotCount > 0,
+      'snapshot table must not be empty after recompute (sanity guard)',
+    );
     assert.equal(
       snapshotCount,
       distinctItems,
