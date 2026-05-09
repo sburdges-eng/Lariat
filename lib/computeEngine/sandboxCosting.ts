@@ -31,6 +31,14 @@ export interface SandboxCostResult {
   partial: boolean;
 }
 
+interface VendorRow {
+  ingredient: string;
+  pack_price: number;
+  pack_size: number;
+  pack_unit: string;
+  yield_pct: number;
+}
+
 /**
  * Ad-hoc recipe costing for the Kitchen Assistant's Specials sandbox.
  *
@@ -46,6 +54,23 @@ export interface SandboxCostResult {
  * costing ingest uses, and refuse cross-dim conversions when no
  * density row exists — the breakdown row returns `cost: null` with a
  * note, and `partial = true` flags the aggregate.
+ *
+ * Audit §4 (perf): the previous implementation ran a
+ * `WHERE ingredient LIKE '%X%'` SELECT against `vendor_prices` ONCE
+ * PER INGREDIENT in the LLM's payload. With thousands of vendor rows
+ * and the Kitchen Assistant firing on every specials submission this
+ * was an O(N) SQLite roundtrip per ingredient. We now pull the
+ * location-scoped vendor list once (newest-first ordering preserved)
+ * and look up via an exact-lowercase Map for O(1) hits with an
+ * in-memory linear fallback for substring matches. Behavior is
+ * unchanged: the original `LIMIT 1` after `ORDER BY imported_at
+ * DESC, id DESC` is mirrored by "first row in the pre-sorted array
+ * wins per ingredient name" plus "first substring hit wins on
+ * fallback." This is sandbox-local on purpose — the matching
+ * semantics here (substring against vendor.ingredient) differ from
+ * `lib/costingBenchmarks.mjs::computeCostVariance` (exact normalized-
+ * ingredient-key match), so the existing helper's `vpByKey` Map
+ * doesn't fit. See task brief.
  */
 export function computeSandboxCost(
   locationId: string,
@@ -55,14 +80,47 @@ export function computeSandboxCost(
   const densityStmt = db.prepare(
     `SELECT g_per_ml FROM ingredient_densities WHERE ingredient_key = ?`,
   );
-  const vendorStmt = db.prepare(
-    `SELECT ingredient, pack_price, pack_size, pack_unit,
-            COALESCE(yield_pct, 1.0) AS yield_pct
-       FROM vendor_prices
-      WHERE location_id = ? AND ingredient LIKE ?
-      ORDER BY imported_at DESC, id DESC
-      LIMIT 1`,
-  );
+
+  // Pull all vendor_prices for the location ONCE, newest-first. Same
+  // ORDER BY the pre-fix per-call SELECT used, so "newest row wins"
+  // semantics carry over: when we walk the array on substring fallback
+  // (and when we populate the exact-match Map below) the first row we
+  // see per ingredient name IS the most recent.
+  const vendorRows = db
+    .prepare(
+      `SELECT ingredient, pack_price, pack_size, pack_unit,
+              COALESCE(yield_pct, 1.0) AS yield_pct
+         FROM vendor_prices
+        WHERE location_id = ?
+        ORDER BY imported_at DESC, id DESC`,
+    )
+    .all(locationId) as VendorRow[];
+
+  // Exact-lowercase Map: O(1) lookup for the common case where the
+  // LLM-provided ingredient matches a vendor row verbatim. First-seen
+  // wins, which means the newest row wins because of the ORDER BY
+  // above.
+  const vendorByLowerName = new Map<string, VendorRow>();
+  for (const v of vendorRows) {
+    const key = (v.ingredient ?? '').toLowerCase();
+    if (key && !vendorByLowerName.has(key)) vendorByLowerName.set(key, v);
+  }
+
+  function lookupVendor(item: string): VendorRow | undefined {
+    const lower = (item ?? '').toLowerCase();
+    if (!lower) return undefined;
+    // 1. Exact lowercase hit — O(1).
+    const exact = vendorByLowerName.get(lower);
+    if (exact) return exact;
+    // 2. Substring fallback — O(N) but in-memory, no SQLite roundtrip.
+    //    Mirrors the pre-fix `WHERE ingredient LIKE '%X%'` semantics:
+    //    the LLM-provided `item` is the SUBSTRING and the vendor row's
+    //    `ingredient` is the HAYSTACK. First row wins; vendorRows is
+    //    ordered newest-first so that's the latest match.
+    return vendorRows.find((v) =>
+      (v.ingredient ?? '').toLowerCase().includes(lower),
+    );
+  }
 
   let totalCost = 0;
   const breakdown: SandboxCostLine[] = [];
@@ -77,15 +135,7 @@ export function computeSandboxCost(
       continue;
     }
 
-    const row = vendorStmt.get(locationId, `%${ing.item}%`) as
-      | {
-          ingredient: string;
-          pack_price: number;
-          pack_size: number;
-          pack_unit: string;
-          yield_pct: number;
-        }
-      | undefined;
+    const row = lookupVendor(ing.item);
 
     if (!row) {
       breakdown.push({
