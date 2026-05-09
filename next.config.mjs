@@ -25,21 +25,25 @@ const nextConfig = {
   },
   webpack: (config, { isServer, nextRuntime, webpack }) => {
     // Instrumentation hook builds for both `nodejs` and `edge` runtimes.
-    // Two leaf chains reach Node-only modules transitively:
+    // Three leaf chains reach Node-only modules transitively:
     //   1. mDNS:    instrumentation.ts → lifecycle → mdnsDiscovery.ts
     //               → bonjour-service (uses node:dgram / node:os).
     //   2. Drainer: instrumentation.ts → cloudBridgeDrainerLifecycle.ts
     //               → cloudBridgeDrainer.ts → db.ts → better-sqlite3
     //               (uses node:path / node:fs via `bindings` +
     //               `file-uri-to-path`).
+    //   3. Datapack pre-warm: instrumentation.ts → datapackSearch.ts
+    //               → @huggingface/transformers → onnxruntime-web/-node
+    //               (ONNX/WASM bundle uses `import.meta` and dynamic
+    //               require which the edge minifier rejects).
     //
     // - For the Node-server bundle: mark the npm packages external so
     //   webpack lets Node resolve them at runtime instead of trying to
     //   bundle native code.
     // - For the edge bundle: alias the same packages — plus the node
     //   built-ins `path` / `fs` reached via the drainer chain — to
-    //   `false` so webpack replaces them with empty stubs. Both chains
-    //   are gated behind a `NEXT_RUNTIME === 'nodejs'` check in
+    //   `false` so webpack replaces them with empty stubs. All three
+    //   chains are gated behind a `NEXT_RUNTIME === 'nodejs'` check in
     //   `instrumentation.ts`, so the edge bundle never executes the
     //   stubs at runtime.
     const externalPackages = [
@@ -49,6 +53,9 @@ const nextConfig = {
       'better-sqlite3',
       'bindings',
       'file-uri-to-path',
+      '@huggingface/transformers',
+      'onnxruntime-web',
+      'onnxruntime-node',
     ];
     if (isServer && nextRuntime === 'nodejs') {
       config.externals = config.externals || [];
