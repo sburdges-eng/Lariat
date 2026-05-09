@@ -13,7 +13,7 @@
 
 import { getDb } from '../../../../../lib/db';
 import { locationFromRequest, locationFromBody } from '../../../../../lib/location';
-import { hasPinOrTempPin, pinRequiredForPic } from '../../../../../lib/pin';
+import { requirePinOrScope } from '../../../../../lib/pin';
 import { withIdempotency } from '../../../../../lib/idempotency';
 import {
   listLinesForShow,
@@ -32,15 +32,8 @@ function parseShowId(rawId) {
 
 const SCOPE = 'event.box_office';
 
-async function requirePin(req) {
-  if (pinRequiredForPic() && !(await hasPinOrTempPin(req, SCOPE))) {
-    return Response.json({ error: 'PIN required' }, { status: 401 });
-  }
-  return null;
-}
-
 export async function GET(req, { params }) {
-  const pinFail = await requirePin(req);
+  const pinFail = await requirePinOrScope(req, SCOPE);
   if (pinFail) return pinFail;
   const showId = parseShowId(params?.id);
   if (showId == null) return Response.json({ error: 'Invalid show id' }, { status: 400 });
@@ -63,7 +56,7 @@ export async function GET(req, { params }) {
 }
 
 export async function POST(req, { params }) {
-  const pinFail = await requirePin(req);
+  const pinFail = await requirePinOrScope(req, SCOPE);
   if (pinFail) return pinFail;
   return withIdempotency(req, () => boxOfficePostHandler(req, { params }));
 }

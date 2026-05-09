@@ -13,7 +13,7 @@
 
 import { getDb } from '../../../../../../lib/db';
 import { locationFromRequest, locationFromBody } from '../../../../../../lib/location';
-import { hasPinOrTempPin, pinRequiredForPic } from '../../../../../../lib/pin';
+import { requirePinOrScope } from '../../../../../../lib/pin';
 import { markScanned } from '../../../../../../lib/boxOfficeRepo';
 import { withIdempotency } from '../../../../../../lib/idempotency';
 
@@ -27,15 +27,8 @@ function parsePositiveInt(raw) {
 
 const SCOPE = 'event.box_office';
 
-async function requirePin(req) {
-  if (pinRequiredForPic() && !(await hasPinOrTempPin(req, SCOPE))) {
-    return Response.json({ error: 'PIN required' }, { status: 401 });
-  }
-  return null;
-}
-
 export async function PATCH(req, ctx) {
-  const pinFail = await requirePin(req);
+  const pinFail = await requirePinOrScope(req, SCOPE);
   if (pinFail) return pinFail;
   return withIdempotency(req, () => boxOfficeLinePatchHandler(req, ctx));
 }

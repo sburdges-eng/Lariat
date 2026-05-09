@@ -234,7 +234,9 @@ function callsPinGateAtRoute(src) {
   // Either the canonical helpers from lib/pin.ts, or the per-route
   // requirePin shim used by ~16 routes (audit §1 flags consolidating
   // these as a separate finding — until then, both count as gated).
-  return /\b(?:hasPinCookie|hasPinOrTempPin|requirePin)\b/.test(src);
+  // requirePin(?:OrScope)? matches both the unscoped (PR #221) and the
+  // scoped (PR #222) extracted helpers in lib/pin.ts.
+  return /\b(?:hasPinCookie|hasPinOrTempPin|requirePin(?:OrScope)?)\b/.test(src);
 }
 
 // ------- test -------
