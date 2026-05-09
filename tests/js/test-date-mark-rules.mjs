@@ -182,4 +182,27 @@ describe('scanExpiringBatches', () => {
     const out = scanExpiringBatches(rows, '2026-03-10');
     assert.strictEqual(out[0].days_until_discard, -3);
   });
+
+  it('skips rows where discarded_at is non-null (already-tossed batch should not appear)', () => {
+    // Regression pin for the discarded_at skip-path. A flipped filter
+    // (`if (r.discarded_at === null) continue`) would silently surface
+    // already-tossed batches in the inspector-facing date-mark roll-up.
+    const now = '2026-05-09';
+    const rows = [
+      // Row A: prepared 6 days ago, NOT discarded — should appear (sanity).
+      { id: 1, item: 'Diced onions',  prepared_on: '2026-05-03', discard_on: '2026-05-09', discarded_at: null },
+      // Row B: prepared 6 days ago, ALREADY DISCARDED — must NOT appear.
+      { id: 2, item: 'Pico de gallo', prepared_on: '2026-05-03', discard_on: '2026-05-09', discarded_at: '2026-05-04T15:30:00Z' },
+    ];
+    const out = scanExpiringBatches(rows, now);
+    // Row A appears; Row B is filtered.
+    assert.strictEqual(out.length, 1, 'only the non-discarded row should appear');
+    assert.strictEqual(out[0].id, 1);
+    // Strong guard: assert the discarded row is NOT in output by id, so a
+    // future field addition can't mask the regression behind a length match.
+    assert.ok(
+      !out.some((r) => r.id === 2),
+      'discarded row must not appear in output regardless of expiry status',
+    );
+  });
 });
