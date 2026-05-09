@@ -21,6 +21,32 @@ export async function hasPinCookie(req: Request): Promise<boolean> {
   return hasValidPinCookie(req);
 }
 
+/**
+ * Check the PIN cookie on a request. Returns null when the request is
+ * authorized (or PIN-gating is disabled in the deployment); returns a
+ * 401 Response when the cookie is missing or invalid.
+ *
+ * Use at the top of any regulated mutation route handler:
+ *   const pinFail = await requirePin(req);
+ *   if (pinFail) return pinFail;
+ *
+ * Was duplicated as a local function in 22+ route files before this
+ * extraction. Centralizing here means future hardening (Vary: Cookie
+ * header, deny-side logging, rate-limit hooks) lands in one place.
+ *
+ * Routes that need to *widen* the gate to scoped temp PINs continue to
+ * use `hasPinOrTempPin(req, scope)` directly — this helper deliberately
+ * implements only the master-PIN check, matching the local copies it
+ * replaces.
+ */
+// TODO(audit-DiD): Vary: Cookie + deny logging — see docs/audit/2026-05-08-codebase-audit.md §1.
+export async function requirePin(req: Request): Promise<Response | null> {
+  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
+    return Response.json({ error: 'PIN required' }, { status: 401 });
+  }
+  return null;
+}
+
 /** True if the PIN gate is configured at all (env var set). */
 export function pinConfigured(): boolean {
   return !!process.env.LARIAT_PIN;

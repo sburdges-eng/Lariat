@@ -7,18 +7,11 @@
 
 import { json } from '../../../../../lib/routeHelpers';
 import { getDb } from '../../../../../lib/db';
-import { hasPinCookie, pinRequiredForPic } from '../../../../../lib/pin';
+import { requirePin } from '../../../../../lib/pin';
 import { locationFromRequest } from '../../../../../lib/location';
 import { parseScopes } from '../../../../../lib/tempPin';
 
 export const dynamic = 'force-dynamic';
-
-async function requirePin(req) {
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
-    return json({ error: 'PIN required' }, { status: 401 });
-  }
-  return null;
-}
 
 export async function GET(req) {
   const pinFail = await requirePin(req);

@@ -1,18 +1,11 @@
 import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
-import { hasPinCookie, hasPinOrTempPin, pinRequiredForPic } from '../../../lib/pin';
+import { hasPinCookie, hasPinOrTempPin, pinRequiredForPic, requirePin } from '../../../lib/pin';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
 import { parseCourseIdPatch } from '../../../lib/beoCourses';
 
 export const dynamic = 'force-dynamic';
-
-async function requirePin(req) {
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
-    return Response.json({ error: 'PIN required' }, { status: 401 });
-  }
-  return null;
-}
 
 // Per-body gate (T2 of beo-pin-gate-fixes — closes the bug where a
 // sous chef with a temp PIN could create a course but couldn't bind

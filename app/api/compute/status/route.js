@@ -1,14 +1,7 @@
 import { getDb } from '../../../../lib/db';
 import { triggerComputeEngine } from '../../../../lib/computeEngine/index';
-import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
+import { requirePin } from '../../../../lib/pin';
 import { withIdempotency } from '../../../../lib/idempotency';
-
-async function requirePin(req) {
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
-    return Response.json({ error: 'PIN required' }, { status: 401 });
-  }
-  return null;
-}
 
 export async function GET(request) {
   const pinFail = await requirePin(request);

@@ -19,7 +19,7 @@
  * Response: 200 on delete; 404 if the id is unknown or already alive.
  */
 
-import { hasPinCookie, pinRequiredForPic } from '../../../../../../lib/pin';
+import { requirePin } from '../../../../../../lib/pin';
 import {
   getDeadLetter,
   dropDeadLetter,
@@ -29,13 +29,6 @@ import { locationFromRequest } from '../../../../../../lib/location';
 import { withIdempotency } from '../../../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
-
-async function requirePin(req) {
-  if (pinRequiredForPic() && !(await hasPinCookie(req))) {
-    return Response.json({ error: 'PIN required' }, { status: 401 });
-  }
-  return null;
-}
 
 function parseId(raw) {
   const n = Number(raw);
