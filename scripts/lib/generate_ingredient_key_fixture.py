@@ -59,6 +59,17 @@ INPUTS = [
     "Heavy\u00a0Cream",        # non-breaking space between words
     "Jalapen\u0303o",           # combining tilde (decomposed) — no NFC normalization
     "\u0130stanbul",            # Turkish dotted capital I — casing edge case
+    # Punctuation-tail / leading-punctuation edge cases — pin parity for
+    # the 2026-05-08 audit §4 finding. The audit claimed JS dropped a
+    # final .strip() and would produce "poblano " for "Poblano!"; the actual
+    # JS has an inner .trim() (lib/ingredientKey.ts:21) after the NONALNUM
+    # replace so both sides agree. These rows pin the behavior so a future
+    # drift is caught.
+    " Poblano! ",               # leading + trailing whitespace + punctuation
+    "!Poblano!",                # leading + trailing punctuation, no whitespace
+    "  !  ",                    # only non-alphanumerics -> ""
+    "a !  b",                   # mid-string punctuation collapses to single space
+    "Poblano!!!   ",            # multi-punctuation tail + trailing whitespace
     None,  # normalize_one handles None
 ]
 
