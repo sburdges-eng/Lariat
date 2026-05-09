@@ -170,7 +170,7 @@ export async function POST(req) {
     `${TEMP_PIN_COOKIE_NAME}=${cookieValue}`,
     'Path=/',
     'HttpOnly',
-    'SameSite=Lax',
+    'SameSite=Strict',
     `Max-Age=${COOKIE_TTL_HOURS * 60 * 60}`,
   ].join('; ');
 
