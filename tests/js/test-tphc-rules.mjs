@@ -210,4 +210,44 @@ describe('scanActiveTphc', () => {
   it('rejects malformed now', () => {
     assert.throws(() => scanActiveTphc([], 'not-a-time'));
   });
+
+  it('exactly TPHC_WARNING_MINUTES from cutoff is warning (boundary inclusive)', () => {
+    // Pin the lower edge of the warning band: at exactly TPHC_WARNING_MINUTES
+    // remaining, status must be 'warning'. A future regression that flipped
+    // the comparison from `<=` to `<` would land silently without this test.
+    const refMs = new Date(now).getTime();
+    const cutoff_at = new Date(refMs + TPHC_WARNING_MINUTES * 60 * 1000).toISOString();
+    const rows = [
+      {
+        id: 10,
+        item: 'edge tomato',
+        station_id: 'salad',
+        started_at: '2026-04-24T08:00:00Z',
+        cutoff_at,
+        discarded_at: null,
+      },
+    ];
+    const s = scanActiveTphc(rows, now);
+    assert.strictEqual(s[0].status, 'warning');
+    assert.strictEqual(s[0].minutes_until_cutoff, TPHC_WARNING_MINUTES);
+  });
+
+  it('TPHC_WARNING_MINUTES + 1 from cutoff is ok (boundary exclusive on the upper side)', () => {
+    // Pin the upper edge: one minute beyond the warning band must be 'ok'.
+    const refMs = new Date(now).getTime();
+    const cutoff_at = new Date(refMs + (TPHC_WARNING_MINUTES + 1) * 60 * 1000).toISOString();
+    const rows = [
+      {
+        id: 11,
+        item: 'edge pepper',
+        station_id: 'grill',
+        started_at: '2026-04-24T08:00:00Z',
+        cutoff_at,
+        discarded_at: null,
+      },
+    ];
+    const s = scanActiveTphc(rows, now);
+    assert.strictEqual(s[0].status, 'ok');
+    assert.strictEqual(s[0].minutes_until_cutoff, TPHC_WARNING_MINUTES + 1);
+  });
 });
