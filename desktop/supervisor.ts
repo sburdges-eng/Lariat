@@ -47,6 +47,7 @@ export class Supervisor {
   private stoppedByUser = false;
   private logStream: fs.WriteStream | null = null;
   private opts: SupervisorOptions;
+  private restartTimer: NodeJS.Timeout | null = null;
 
   constructor(opts: SupervisorOptions) {
     this.opts = opts;
@@ -61,6 +62,10 @@ export class Supervisor {
   /** Sends shutdown IPC, waits up to 8s, then SIGTERM, then SIGKILL. */
   async shutdown(): Promise<void> {
     this.stoppedByUser = true;
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = null;
+    }
     if (!this.child) return;
     const c = this.child;
 
@@ -90,6 +95,7 @@ export class Supervisor {
   }
 
   private spawnOnce(): void {
+    if (this.stoppedByUser) return;
     if (!this.logStream) {
       this.logStream = fs.createWriteStream(serverLogPath(), { flags: 'a' });
     }
@@ -133,7 +139,10 @@ export class Supervisor {
     this.opts.onCrash?.(info);
 
     if (decision.action === 'give_up') return;
-    setTimeout(() => this.spawnOnce(), decision.delayMs);
+    this.restartTimer = setTimeout(() => {
+      this.restartTimer = null;
+      this.spawnOnce();
+    }, decision.delayMs);
   }
 
   private appendCrash(info: CrashInfo): void {
