@@ -1,0 +1,53 @@
+appId: com.seanburdges.lariat.cockpit
+productName: Lariat
+copyright: © 2026 Lariat — kitchen cockpit
+artifactName: ${productName}-${version}-${arch}.${ext}
+
+directories:
+  output: dist
+  buildResources: desktop/icons
+
+files:
+  - "desktop/dist/**"
+  - "desktop/server-entry.cjs"
+  - ".next/standalone/**"
+  - ".next/static/**"
+  - "public/**"
+  - "package.json"
+  - "node_modules/better-sqlite3/**"
+  - "node_modules/next/**"
+  - "node_modules/react/**"
+  - "node_modules/react-dom/**"
+  - "!node_modules/**/*.{md,ts,map}"
+  - "!**/test/**"
+  - "!**/__tests__/**"
+
+asar: false
+
+mac:
+  category: public.app-category.business
+  icon: desktop/icons/AppIcon.icns
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  identity: null
+  entitlements: desktop/entitlements.mac.plist
+  entitlementsInherit: desktop/entitlements.mac.plist
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  extendInfo:
+    LSMinimumSystemVersion: "11.0"
+    NSLocalNetworkUsageDescription: "Lariat needs local network access so kitchen iPads can connect to the hub."
+    NSBonjourServices:
+      - "_lariat._tcp"
+
+dmg:
+  title: "Lariat ${version}"
+  icon: desktop/icons/AppIcon.icns
+  background: desktop/icons/dmg-background.png
+  contents:
+    - { x: 130, y: 220, type: file }
+    - { x: 410, y: 220, type: link, path: /Applications }
+  window: { width: 540, height: 380 }
