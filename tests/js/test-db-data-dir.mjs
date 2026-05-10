@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import path from 'path';
-import os from 'os';
-import fs from 'fs';
+import path from 'node:path';
+import os from 'node:os';
+import fs from 'node:fs';
 
 test('lib/db.ts uses process.cwd()/data when LARIAT_DATA_DIR is unset', async () => {
   delete process.env.LARIAT_DATA_DIR;

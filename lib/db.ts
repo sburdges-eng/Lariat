@@ -9,14 +9,12 @@ const DB_DIR = process.env.LARIAT_DATA_DIR
 const DB_PATH = path.join(DB_DIR, 'lariat.db');
 
 /**
- * Test-only: resolve the DB path the same way module init does, so a test
- * can assert env behavior without poking module state. Production code
- * never calls this.
+ * Test-only: returns the DB path the module resolved at load time. Tests
+ * use cache-busting dynamic imports to recompute DB_PATH against the
+ * current LARIAT_DATA_DIR. Production code never calls this.
  */
 export function _resolveDbPathForTest(): string {
-  return process.env.LARIAT_DATA_DIR
-    ? path.join(path.resolve(process.env.LARIAT_DATA_DIR), 'lariat.db')
-    : path.join(process.cwd(), 'data', 'lariat.db');
+  return DB_PATH;
 }
 
 let _db: DB | null = null;
