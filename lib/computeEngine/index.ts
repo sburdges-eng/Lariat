@@ -1,10 +1,10 @@
-import { getDb } from '../db';
-import { recomputeRecipeCosts } from './recipeCosting';
-import { recomputeMarginAnalysis } from './marginAnalysis';
+import { getDb } from '../db.ts';
+import { recomputeRecipeCosts } from './recipeCosting.ts';
+import { recomputeMarginAnalysis } from './marginAnalysis.ts';
 import {
   computeAccountingVariance,
   type AccountingVarianceOptions,
-} from './accountingVariance';
+} from './accountingVariance.ts';
 
 /**
  * Lariat Real-Time Compute Engine

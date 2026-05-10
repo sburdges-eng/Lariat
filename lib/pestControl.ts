@@ -12,7 +12,7 @@
 //
 // Pure module: no I/O, no DB, no clock read.
 
-import type { PestControlEntry } from './db';
+import type { PestControlEntry } from './db.ts';
 
 // ── Citations (single source of truth) ────────────────────────────
 

@@ -45,8 +45,8 @@
 
 import type { Database } from 'better-sqlite3';
 import { convertQty, normalizeUnit, unitDimension } from './unitConvert.mjs';
-import { applyShrinkage, formatDepletionDelta } from './inventoryShrinkage';
-import { postAuditEvent } from './auditEvents';
+import { applyShrinkage, formatDepletionDelta } from './inventoryShrinkage.ts';
+import { postAuditEvent } from './auditEvents.ts';
 
 // ── Types ──────────────────────────────────────────────────────────
 

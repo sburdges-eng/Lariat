@@ -52,7 +52,7 @@
 // chain into `bonjour-service` for edge-runtime bundles. The real
 // `advertise()` is loaded via dynamic import in startAdvertiseOnce(),
 // which only runs from the Node.js runtime guard in instrumentation.ts.
-import type { AdvertiseHandle, AdvertiseOptions } from './mdnsDiscovery';
+import type { AdvertiseHandle, AdvertiseOptions } from './mdnsDiscovery.ts';
 
 // peerKeypair is loaded statically. This file (mdnsAdvertiseLifecycle)
 // is itself only loaded under the NEXT_RUNTIME==='nodejs' guard in
@@ -60,7 +60,7 @@ import type { AdvertiseHandle, AdvertiseOptions } from './mdnsDiscovery';
 // a static import is safe here. PATTERNS.md §10 rule 4 forbids dynamic-
 // import-in-try because it silently swallows module-load errors; using
 // a static import surfaces a load error at boot (fail loud).
-import { loadOrCreateKeypair, fingerprint } from './peerKeypair';
+import { loadOrCreateKeypair, fingerprint } from './peerKeypair.ts';
 
 type AdvertiseFn = (_opts: AdvertiseOptions) => Promise<AdvertiseHandle>;
 

@@ -5,12 +5,12 @@
 // All numbers are derived — no new tables. Adding a new signal here is
 // a SELECT against existing schema, not a migration.
 
-import { getDb } from './db';
-import { classifyReadings } from './tempLog';
-import { scanExpiringBatches } from './dateMarks';
-import { listPriceShocks } from './vendorPricesRepo';
-import { listMarginDeltas } from './marginDeltas';
-import { classifyProbes } from './calibrations';
+import { getDb } from './db.ts';
+import { classifyReadings } from './tempLog.ts';
+import { scanExpiringBatches } from './dateMarks.ts';
+import { listPriceShocks } from './vendorPricesRepo.ts';
+import { listMarginDeltas } from './marginDeltas.ts';
+import { classifyProbes } from './calibrations.ts';
 
 export interface CommandSummary {
   shift_date: string;

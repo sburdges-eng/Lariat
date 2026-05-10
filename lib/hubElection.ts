@@ -22,7 +22,7 @@
  *      has a real one — they only win if no one has a timestamp.
  */
 
-import type { DiscoveredInstance } from './mdnsDiscovery';
+import type { DiscoveredInstance } from './mdnsDiscovery.ts';
 
 /**
  * Compare two peers for hub-election order. Returns a negative number if

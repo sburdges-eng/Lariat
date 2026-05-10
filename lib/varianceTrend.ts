@@ -8,7 +8,7 @@
 // Color buckets reuse the T9 dashboard thresholds (< 2 / 2-5 / >= 5)
 // so the tile reads consistently with the existing B1 tile.
 
-import { getDb } from './db';
+import { getDb } from './db.ts';
 
 export interface VarianceTrendPoint {
   periodStart: string;

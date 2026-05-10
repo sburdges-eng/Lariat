@@ -38,7 +38,7 @@
  * `tests/js/test-cloud-bridge-drainer-instrumentation.mjs`.
  */
 
-import type { DrainerHandle, DrainerOpts } from './cloudBridgeDrainer';
+import type { DrainerHandle, DrainerOpts } from './cloudBridgeDrainer.ts';
 
 type StartDrainerFn = (_opts?: DrainerOpts) => DrainerHandle;
 type StopDrainerFn = () => void;

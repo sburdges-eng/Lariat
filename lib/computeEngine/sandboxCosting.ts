@@ -1,6 +1,6 @@
-import { getDb } from '../db';
+import { getDb } from '../db.ts';
 import { normalizeUnit, convertQty, unitDimension } from '../unitConvert.mjs';
-import { normalizeIngredientKey } from '../ingredientKey';
+import { normalizeIngredientKey } from '../ingredientKey.ts';
 
 export interface SandboxIngredient {
   item: string;

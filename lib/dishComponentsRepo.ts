@@ -11,7 +11,7 @@
 
 import type { Database as DB } from 'better-sqlite3';
 import { normalizeUnit, unitDimension } from './unitConvert.mjs';
-import type { DishComponent } from './db';
+import type { DishComponent } from './db.ts';
 
 export type DishComponentRow = {
   location_id: string;

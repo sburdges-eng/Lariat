@@ -22,7 +22,7 @@
 //
 // The schema lives in lib/db.ts::initSchema (cloud_bridge_outbox table).
 
-import { getDb } from './db';
+import { getDb } from './db.ts';
 
 /** Sentinel error: caller tried to enqueue a table not on the allow-list. */
 export const CLOUD_BRIDGE_TABLE_DENIED = 'cloud bridge: table not on allow-list';

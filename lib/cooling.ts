@@ -14,7 +14,7 @@
 //   A reading of 70.5°F at 1h 58m is NOT stage 1. Callers who want to
 //   round for UI display can do so in the UI layer.
 
-import type { CoolingLogEntry } from './db';
+import type { CoolingLogEntry } from './db.ts';
 
 // Phase-1 ceiling: food must be AT or BELOW this to close stage 1.
 export const STAGE1_CEILING_F = 70;

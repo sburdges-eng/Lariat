@@ -1,4 +1,4 @@
-import type { Recipe } from './data';
+import type { Recipe } from './data.ts';
 
 /** A recipe that is transitively unavailable because one of its
  *  sub-recipes was 86'd. */

@@ -1,5 +1,5 @@
 import type { Database } from 'better-sqlite3';
-import { computeMenuEngineering } from '../menuEngineering';
+import { computeMenuEngineering } from '../menuEngineering.ts';
 
 /**
  * Persist a margin snapshot for every sales-line item.

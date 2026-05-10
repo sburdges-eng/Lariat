@@ -21,7 +21,7 @@
  */
 
 import type { Database } from 'better-sqlite3';
-import { uuidv7 } from './uuid';
+import { uuidv7 } from './uuid.ts';
 
 export type EntityType =
   | 'employee'

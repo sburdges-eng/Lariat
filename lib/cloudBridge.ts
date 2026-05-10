@@ -17,8 +17,8 @@
 // See docs/cloud-bridge-design.md (scope) and
 // docs/cloud-bridge-backend-decision.md (wire contract).
 
-import { pushBatch } from './cloudBridgePush';
-import type { OutboxBatch } from './cloudBridgeQueue';
+import { pushBatch } from './cloudBridgePush.ts';
+import type { OutboxBatch } from './cloudBridgeQueue.ts';
 
 /**
  * Sentinel thrown when the bridge is unconfigured (env vars absent).

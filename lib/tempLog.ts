@@ -2,7 +2,7 @@
 // All temperatures are Fahrenheit. Points are grounded in
 // data/cache/food_safety.json (ccps[] entries whose critical_limit is a temp).
 
-import type { TempLogEntry } from './db';
+import type { TempLogEntry } from './db.ts';
 
 export interface TempPoint {
   /** Stable id used in DB rows and API payloads. snake_case. */

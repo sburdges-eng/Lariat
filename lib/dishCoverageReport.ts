@@ -15,14 +15,14 @@
  * resulting file can be hand-filled in a spreadsheet and piped back
  * through scripts/import-dish-components.mjs without any reshaping.
  */
-import { getDb, type RecipeCost } from './db';
-import { getRecipes } from './data';
+import { getDb, type RecipeCost } from './db.ts';
+import { getRecipes } from './data.ts';
 import {
   buildDishComponentMap,
   computeDishCoverage,
   normalizeDishName,
   type DishComponentResolved,
-} from './dishCostBridge';
+} from './dishCostBridge.ts';
 
 /**
  * One row of the gap CSV. Columns match
