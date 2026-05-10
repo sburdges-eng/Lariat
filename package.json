@@ -166,7 +166,11 @@
     "test:sound-repo": "node --experimental-strip-types --test tests/js/test-sound-repo.mjs",
     "test:box-office-repo": "node --experimental-strip-types --test tests/js/test-box-office-repo.mjs",
     "test:event-ops-routes": "node --test tests/js/test-event-ops-routes.mjs",
-    "test:event-ops": "npm run test:stage-repo && npm run test:sound-repo && npm run test:box-office-repo && npm run test:event-ops-routes"
+    "test:event-ops": "npm run test:stage-repo && npm run test:sound-repo && npm run test:box-office-repo && npm run test:event-ops-routes",
+    "desktop:dev": "tsc -p desktop && electron desktop/dist/main.js",
+    "desktop:build": "next build && tsc -p desktop && vite build --config desktop/firstRunWizard/vite.config.ts",
+    "desktop:dist": "npm run desktop:build && electron-builder --mac --arm64 --x64",
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
@@ -180,6 +184,7 @@
     "pre-commit": "node scripts/check-session-branch.mjs && npx lint-staged && npm run typecheck"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.7.2",
     "@eslint/js": "^9.39.4",
     "@next/eslint-plugin-next": "^15.5.15",
     "@playwright/test": "^1.59.1",
@@ -191,6 +196,10 @@
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3",
+    "electron-window-state": "^5.0.3",
     "eslint": "^9.39.4",
     "eslint-plugin-eslint-comments": "^3.2.0",
     "eslint-plugin-react": "^7.37.5",
@@ -201,6 +210,7 @@
     "lint-staged": "^15.5.2",
     "simple-git-hooks": "^2.13.1",
     "typescript": "^6.0.2",
-    "typescript-eslint": "^8.59.2"
+    "typescript-eslint": "^8.59.2",
+    "vite": "^5.4.21"
   }
 }

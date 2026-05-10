@@ -54,6 +54,8 @@
     "lariat-kms",
     "EXPERIMENTS",
     ".next",
-    "cad-kernel"
+    "cad-kernel",
+    "desktop/**",
+    "electron-builder.yml"
   ]
 }
