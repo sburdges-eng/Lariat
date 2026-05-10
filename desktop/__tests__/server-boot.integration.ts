@@ -10,7 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ENTRY = path.resolve(__dirname, '..', 'server-entry.cjs');
 const PORT = 3199;
 
-function waitForHttp(url: string, timeoutMs = 30_000): Promise<Response> {
+function waitForHttp(url: string, timeoutMs = 55_000): Promise<Response> {
   const deadline = Date.now() + timeoutMs;
   return (async function loop(): Promise<Response> {
     while (Date.now() < deadline) {

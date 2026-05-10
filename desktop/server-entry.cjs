@@ -43,7 +43,8 @@ process.on('message', (msg) => {
   if (msg && msg.type === 'shutdown') {
     if (!server) return process.exit(0);
     const forceTimer = setTimeout(() => process.exit(0), 5_000);
-    server.close(() => {
+    server.close((err) => {
+      if (err) console.error('[server-entry] server.close error during shutdown:', err);
       clearTimeout(forceTimer);
       process.exit(0);
     });
