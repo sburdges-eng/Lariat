@@ -5,30 +5,12 @@ import os from 'node:os';
 import { Supervisor } from './supervisor';
 import { readSettings, saveSettings, type Settings } from './settings';
 import { settingsPath, dataDirDefault, logDir, crashLogPath } from './paths';
-// Existing Lariat module — supervisor.ts doesn't need it but main.ts does
-// because mDNS lifecycle should outlive the child. Loaded via require()
-// (not import) so the desktop tsconfig's rootDir: "." doesn't refuse the
-// out-of-tree path; runtime semantics are identical under module: commonjs.
-// The mirrored type slice covers only the surface we touch here — see
-// lib/mdnsDiscovery.ts for the canonical AdvertiseOptions / AdvertiseHandle.
-interface AdvertiseOptions {
-  port: number;
-  hostname?: string;
-  locationId?: string;
-}
-interface AdvertiseHandle {
-  readonly active: boolean;
-  stop(): Promise<void>;
-}
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { advertise } = require('../lib/mdnsDiscovery') as {
-  advertise: (_opts: AdvertiseOptions) => Promise<AdvertiseHandle>;
-};
+import { advertise, type AdvertiseHandle } from '../lib/mdnsDiscovery';
 
 let supervisor: Supervisor | null = null;
 let mainWindow: BrowserWindow | null = null;
 let wizardWindow: BrowserWindow | null = null;
-let mdnsHandle: { stop: () => void } | null = null;
+let mdnsHandle: AdvertiseHandle | null = null;
 
 function entryPath(): string {
   // In production the .app unpacks resources at process.resourcesPath/app
@@ -81,8 +63,7 @@ async function bootSupervisor(settings: Settings): Promise<void> {
 
   // Start mDNS responder so iPads can find the hub
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- known type-hack from plan literal; AdvertiseOptions.hostname is optional but the spec keeps the explicit `undefined` to flag it as a deliberate "let the OS pick" passthrough
-    mdnsHandle = await advertise({ port: settings.port, hostname: undefined as any, locationId: 'default' });
+    mdnsHandle = await advertise({ port: settings.port, locationId: 'default' });
   } catch (e) {
     console.warn('[main] mDNS advertise failed (non-fatal):', e);
   }
@@ -108,7 +89,6 @@ function openWizard(): Promise<Settings> {
     wizardWindow = new BrowserWindow({
       width: 600,
       height: 500,
-      modal: true,
       title: 'Lariat — Setup',
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
@@ -189,9 +169,9 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', async (event) => {
-  if (!supervisor) return;
+  if (!supervisor) return;       // re-entry guard: app.exit(0) below re-fires before-quit
   event.preventDefault();
-  try { mdnsHandle?.stop(); } catch {}
+  try { await mdnsHandle?.stop(); } catch {}
   await supervisor.shutdown();
   supervisor = null;
   app.exit(0);
