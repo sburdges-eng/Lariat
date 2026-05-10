@@ -1,0 +1,44 @@
+name: desktop-smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'electron-builder.yml'
+      - 'package.json'
+      - 'lib/db.ts'
+      - 'lib/datapackSearch.ts'
+      - 'lib/mdnsDiscovery.ts'
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - 'electron-builder.yml'
+      - 'package.json'
+      - 'lib/db.ts'
+      - 'lib/datapackSearch.ts'
+      - 'lib/mdnsDiscovery.ts'
+
+jobs:
+  smoke:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build
+      - run: npm run desktop:build
+      - name: Run desktop unit tests
+        run: |
+          node --experimental-strip-types --test desktop/__tests__/paths.test.ts
+          node --experimental-strip-types --test desktop/__tests__/settings.test.ts
+          node --experimental-strip-types --test desktop/__tests__/supervisor.test.ts
+      - name: Run desktop integration tests
+        run: |
+          node --experimental-strip-types --test desktop/__tests__/server-boot.integration.ts
+          node --experimental-strip-types --test desktop/__tests__/crash-recovery.integration.ts
+      - name: Run lib regression test
+        run: node --experimental-strip-types --test tests/js/test-db-data-dir.mjs
+      # NOT running electron-builder --mac on CI — packaging is local-only for v1
