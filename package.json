@@ -184,6 +184,7 @@
     "pre-commit": "node scripts/check-session-branch.mjs && npx lint-staged && npm run typecheck"
   },
   "devDependencies": {
+    "@electron/notarize": "^2",
     "@electron/rebuild": "^3.7.2",
     "@eslint/js": "^9.39.4",
     "@next/eslint-plugin-next": "^15.5.15",
@@ -197,6 +198,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.7.0",
+    "dotenv": "^16",
     "electron": "^31.7.7",
     "electron-builder": "^24.13.3",
     "electron-window-state": "^5.0.3",
