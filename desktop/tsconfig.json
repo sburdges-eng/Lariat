@@ -5,6 +5,8 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "ignoreDeprecations": "6.0",
+    "noEmit": false,
+    "rewriteRelativeImportExtensions": true,
     "outDir": "./dist",
     "rootDir": "..",
     "strict": true,
