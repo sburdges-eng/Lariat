@@ -2,6 +2,7 @@
   "name": "lariat-cockpit",
   "version": "0.1.0",
   "private": true,
+  "main": "desktop/dist/desktop/main.js",
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3000",
     "build": "next build",
