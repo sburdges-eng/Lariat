@@ -98,7 +98,7 @@ function openWizard(): Promise<Settings> {
     });
     const wizardHtml = app.isPackaged
       ? path.join(process.resourcesPath, 'app', 'desktop', 'dist', 'wizard', 'index.html')
-      : path.resolve(__dirname, 'wizard', 'index.html');
+      : path.resolve(__dirname, '..', 'wizard', 'index.html');
     wizardWindow.loadFile(wizardHtml);
 
     ipcMain.handleOnce('wizard:proceed', (_evt, settings: Settings) => {
