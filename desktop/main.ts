@@ -11,6 +11,8 @@ let supervisor: Supervisor | null = null;
 let mainWindow: BrowserWindow | null = null;
 let wizardWindow: BrowserWindow | null = null;
 let mdnsHandle: AdvertiseHandle | null = null;
+let wizardResolver: ((settings: Settings) => void) | null = null;
+let wizardRejecter: ((err: Error) => void) | null = null;
 
 function entryPath(): string {
   // In production the .app unpacks resources at process.resourcesPath/app
@@ -86,6 +88,8 @@ function openMainWindow(port: number): void {
 
 function openWizard(): Promise<Settings> {
   return new Promise((resolve, reject) => {
+    wizardResolver = resolve;
+    wizardRejecter = reject;
     wizardWindow = new BrowserWindow({
       width: 600,
       height: 500,
@@ -100,18 +104,6 @@ function openWizard(): Promise<Settings> {
       ? path.join(process.resourcesPath, 'app', 'desktop', 'dist', 'wizard', 'index.html')
       : path.resolve(__dirname, '..', 'wizard', 'index.html');
     wizardWindow.loadFile(wizardHtml);
-
-    ipcMain.handleOnce('wizard:proceed', (_evt, settings: Settings) => {
-      saveSettings(settingsPath(), settings);
-      wizardWindow?.close();
-      wizardWindow = null;
-      resolve(settings);
-    });
-    ipcMain.handleOnce('wizard:cancel', () => {
-      wizardWindow?.close();
-      wizardWindow = null;
-      reject(new Error('wizard cancelled'));
-    });
   });
 }
 
@@ -136,6 +128,33 @@ ipcMain.handle('dialog:pickDirectory', async (_evt, defaultPath?: string) => {
   return r.canceled ? null : r.filePaths[0];
 });
 ipcMain.handle('paths:dataDirDefault', () => dataDirDefault());
+
+// Wizard IPC handlers — registered at module load so openWizard() can be
+// called multiple times in a process lifetime (e.g., future "settings reopen").
+// handleOnce would throw "Attempted to register a second handler" on reuse.
+ipcMain.handle('wizard:proceed', async (_evt, settings: Settings) => {
+  // saveSettings throws on disk-full / permission errors. We deliberately
+  // do NOT catch — the throw propagates to the renderer's invoke() so
+  // wizard.tsx can show the error, and the close() below stays unreachable
+  // so the wizard window remains open for the user to retry.
+  saveSettings(settingsPath(), settings);
+  wizardWindow?.close();
+  wizardWindow = null;
+  if (wizardResolver) {
+    wizardResolver(settings);
+    wizardResolver = null;
+    wizardRejecter = null;
+  }
+});
+ipcMain.handle('wizard:cancel', async () => {
+  wizardWindow?.close();
+  wizardWindow = null;
+  if (wizardRejecter) {
+    wizardRejecter(new Error('wizard cancelled'));
+    wizardResolver = null;
+    wizardRejecter = null;
+  }
+});
 
 /**
  * Spec §6.6: detect a pre-existing dev-tree DB so the wizard can offer

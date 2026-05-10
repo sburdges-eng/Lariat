@@ -74,7 +74,13 @@ function App(): JSX.Element {
     };
   }, []);
 
-  const showExistingBanner = existingDb !== null && existingDb !== dataDir;
+  // Normalize trailing slashes so `/Users/foo/data` and `/Users/foo/data/`
+  // don't trigger a false-positive banner. The renderer can't use Node's
+  // `path` module without a polyfill, and trailing-slash differences are the
+  // common case worth defending against.
+  const norm = (p: string): string => p.replace(/\/+$/, '');
+  const showExistingBanner =
+    existingDb !== null && norm(existingDb) !== norm(dataDir);
 
   const onPick = async (
     setter: (v: string) => void,
