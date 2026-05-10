@@ -5,22 +5,21 @@ import os from 'node:os';
 import { Supervisor } from './supervisor';
 import { readSettings, saveSettings, type Settings } from './settings';
 import { settingsPath, dataDirDefault, logDir, crashLogPath } from './paths';
-import { advertise, type AdvertiseHandle } from '../lib/mdnsDiscovery';
 
 let supervisor: Supervisor | null = null;
 let mainWindow: BrowserWindow | null = null;
 let wizardWindow: BrowserWindow | null = null;
-let mdnsHandle: AdvertiseHandle | null = null;
 let wizardResolver: ((settings: Settings) => void) | null = null;
 let wizardRejecter: ((err: Error) => void) | null = null;
 
 function entryPath(): string {
   // In production the .app unpacks resources at process.resourcesPath/app
-  // In dev (npm run desktop:dev) __dirname is desktop/dist/
+  // In dev (npm run desktop:dev) __dirname is desktop/dist/desktop/, so climb
+  // two levels to reach desktop/server-entry.cjs (the source, not emitted).
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'app', 'desktop', 'server-entry.cjs');
   }
-  return path.resolve(__dirname, '..', 'server-entry.cjs');
+  return path.resolve(__dirname, '..', '..', 'server-entry.cjs');
 }
 
 async function bootSupervisor(settings: Settings): Promise<void> {
@@ -30,6 +29,10 @@ async function bootSupervisor(settings: Settings): Promise<void> {
     PORT: String(settings.port),
     HOST: '0.0.0.0',
     NODE_ENV: 'production',
+    // process.execPath is the Electron binary inside a packaged .app; without
+    // this flag, fork() would spawn a second windowless Electron instead of
+    // running server-entry.cjs as Node.
+    ELECTRON_RUN_AS_NODE: '1',
   };
   if (settings.datapackDir) env.LARIAT_DATA_ROOT = settings.datapackDir;
   if (settings.pythonPath) env.LARIAT_PYTHON = settings.pythonPath;
@@ -40,6 +43,7 @@ async function bootSupervisor(settings: Settings): Promise<void> {
     electronExecPath: process.execPath,
     env,
     onCrash: (info) => {
+      const detail = `Server exited (code=${info.exitCode}, signal=${info.signal}). See ${crashLogPath()} for details.`;
       if (mainWindow && !mainWindow.isDestroyed()) {
         dialog.showMessageBox(mainWindow, {
           type: 'error',
@@ -50,6 +54,9 @@ async function bootSupervisor(settings: Settings): Promise<void> {
         }).then(({ response }) => {
           if (response === 0) shell.openPath(crashLogPath());
         });
+      } else {
+        // No main window yet (boot phase) — at least surface to a system dialog
+        dialog.showErrorBox('Lariat server crashed', detail);
       }
     },
   });
@@ -63,12 +70,7 @@ async function bootSupervisor(settings: Settings): Promise<void> {
     return;
   }
 
-  // Start mDNS responder so iPads can find the hub
-  try {
-    mdnsHandle = await advertise({ port: settings.port, locationId: 'default' });
-  } catch (e) {
-    console.warn('[main] mDNS advertise failed (non-fatal):', e);
-  }
+  // mDNS responder runs inside the Next child via instrumentation.ts; do not duplicate here
 
   openMainWindow(settings.port);
 }
@@ -190,7 +192,6 @@ app.on('window-all-closed', () => {
 app.on('before-quit', async (event) => {
   if (!supervisor) return;       // re-entry guard: app.exit(0) below re-fires before-quit
   event.preventDefault();
-  try { await mdnsHandle?.stop(); } catch {}
   await supervisor.shutdown();
   supervisor = null;
   app.exit(0);

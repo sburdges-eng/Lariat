@@ -168,7 +168,7 @@
     "test:box-office-repo": "node --experimental-strip-types --test tests/js/test-box-office-repo.mjs",
     "test:event-ops-routes": "node --test tests/js/test-event-ops-routes.mjs",
     "test:event-ops": "npm run test:stage-repo && npm run test:sound-repo && npm run test:box-office-repo && npm run test:event-ops-routes",
-    "desktop:dev": "tsc -p desktop && electron desktop/dist/desktop/main.js",
+    "desktop:dev": "tsc -p desktop && vite build --config desktop/firstRunWizard/vite.config.ts && electron desktop/dist/desktop/main.js",
     "desktop:build": "next build && tsc -p desktop && vite build --config desktop/firstRunWizard/vite.config.ts",
     "desktop:dist": "npm run desktop:build && electron-builder --mac --arm64 --x64",
     "postinstall": "electron-builder install-app-deps"
