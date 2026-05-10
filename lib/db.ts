@@ -3,8 +3,21 @@ import type { Database as DB } from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
-const DB_DIR = path.join(process.cwd(), 'data');
+const DB_DIR = process.env.LARIAT_DATA_DIR
+  ? path.resolve(process.env.LARIAT_DATA_DIR)
+  : path.join(process.cwd(), 'data');
 const DB_PATH = path.join(DB_DIR, 'lariat.db');
+
+/**
+ * Test-only: resolve the DB path the same way module init does, so a test
+ * can assert env behavior without poking module state. Production code
+ * never calls this.
+ */
+export function _resolveDbPathForTest(): string {
+  return process.env.LARIAT_DATA_DIR
+    ? path.join(path.resolve(process.env.LARIAT_DATA_DIR), 'lariat.db')
+    : path.join(process.cwd(), 'data', 'lariat.db');
+}
 
 let _db: DB | null = null;
 let _dbPathOverride: string | null = null;
