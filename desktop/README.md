@@ -10,6 +10,8 @@ npm run desktop:dev    # local Electron loop (uses your dev data/lariat.db)
 npm run desktop:dist   # produce dist/Lariat-0.1.0-arm64.dmg
 ```
 
+> After `desktop:dist`, `better-sqlite3` is rebuilt against Electron's Node ABI; run `npm rebuild better-sqlite3` before running system-Node tests again.
+
 ## Prerequisites on the install Mac
 
 The wrapper does NOT bundle these; the wizard points at them.
