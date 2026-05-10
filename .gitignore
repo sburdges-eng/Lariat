@@ -141,3 +141,10 @@ cad-kernel/build/
 # Floor-plan layout scratch files (jsx scaffolding, sketches, uploads).
 # Add with `git add -f line_setups/<file>` if a specific asset belongs in tree.
 line_setups/
+
+# Desktop wrapper build outputs
+dist/
+desktop/dist/
+
+# Local notarization secrets (never commit)
+.lariat-build.env
