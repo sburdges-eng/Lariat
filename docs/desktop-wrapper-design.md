@@ -27,7 +27,7 @@ Package Lariat as a real macOS `.app` (distributed via `.dmg`) that runs on a ki
 | `better-sqlite3` is a native module | Use Electron's bundled Node ABI everywhere → one `electron-rebuild` pass via `electron-builder install-app-deps` postinstall |
 | Python ingest scripts spawned via `execSync` from Node | Wrapper does not bundle Python; wizard exposes a `pythonPath` setting |
 | Ollama runs as separate system service over HTTP | Wrapper-agnostic; wizard exposes `ollamaUrl` setting |
-| `lib/datapackSearch.ts` uses `data/lariat-data` symlink to external SSD | Refactor to honor `LARIAT_DATAPACK_DIR`; remains graceful-degraded if missing |
+| `lib/datapackSearch.ts` already honors `LARIAT_DATA_ROOT` env var (verified: `lib/datapackSearch.ts:34`) | No code change needed — wrapper just populates the existing env var. Symlink fallback (`data/lariat-data`) and graceful-degrade preserved. |
 | CLAUDE.md: "Do not mock SQLite" | All db-related tests use real (in-memory or temp-file) SQLite |
 | CLAUDE.md: `audit_events` writes must be in same `db.transaction(...)` as the source row | Graceful shutdown allows up to 8s for in-flight transactions to complete before SIGTERM |
 
@@ -107,7 +107,7 @@ electron-builder.yml
 | File | Change |
 |---|---|
 | `lib/db.ts` (line 6–7) | `const DB_DIR = process.env.LARIAT_DATA_DIR \|\| path.join(process.cwd(), 'data');` — default unchanged |
-| `lib/datapackSearch.ts` | Honor `LARIAT_DATAPACK_DIR`, fall back to today's `data/lariat-data` symlink |
+| `lib/datapackSearch.ts` | **No change** — already honors `LARIAT_DATA_ROOT` (line 34); wrapper just sets it |
 | `package.json` | Add `electron`, `electron-builder`, `@electron/rebuild` (devDeps); new scripts `desktop:dev`, `desktop:build`, `desktop:dist`; `postinstall: electron-builder install-app-deps` |
 | `tsconfig.json` | Add `desktop/**` to `exclude` so Next's tsc doesn't compile desktop code |
 | `Lariat.app/` | **Deleted.** `AppIcon.icns` moved to `desktop/icons/` |
@@ -152,7 +152,7 @@ Electron main → settings.read() → valid → skip wizard → §6.3
 env = {
   ...process.env,
   LARIAT_DATA_DIR:     settings.dataDir,
-  LARIAT_DATAPACK_DIR: settings.datapackDir,            // unset if skipped
+  LARIAT_DATA_ROOT:    settings.datapackDir,            // unset if skipped — datapackSearch is graceful-degraded
   LARIAT_OLLAMA_URL:   settings.ollamaUrl ?? "http://127.0.0.1:11434",
   PORT:                String(settings.port),
   HOST:                "0.0.0.0",
@@ -342,7 +342,7 @@ Then in `electron-builder.yml`: set `mac.identity` to the Developer ID string, u
 | File | Asserts |
 |---|---|
 | `tests/js/test-db-data-dir.mjs` | `lib/db.ts` honors `LARIAT_DATA_DIR` when set; falls back to `process.cwd()/data` when unset |
-| `tests/js/test-datapack-dir.mjs` | `lib/datapackSearch.ts` honors `LARIAT_DATAPACK_DIR`; graceful-degrade still kicks in if dir missing |
+| _(removed)_ | `lib/datapackSearch.ts` already has `LARIAT_DATA_ROOT` support; existing tests cover it. No new test needed for the wrapper. |
 | `desktop/__tests__/settings.test.ts` | `settings.ts` round-trip, malformed-JSON rejection, atomic write (no corrupt file on partial write) |
 | `desktop/__tests__/supervisor.test.ts` | Backoff sequence [1s, 2s, 5s], 4th-failure-in-60s → no restart + dialog signal. Fake timers; no real Electron. |
 | `desktop/__tests__/paths.test.ts` | `paths.ts` returns correct dirs on macOS; stubable for tests |
