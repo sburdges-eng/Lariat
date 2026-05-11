@@ -22,6 +22,11 @@ export default function BeoBoard({ initialMenu = [] }) {
   const [menu] = useState(initialMenu);
   const [openEventId, setOpenEventId] = useState(null);
   const [err, setErr] = useState('');
+  // Client-share link state. shareUrl is set after we fetch the token for
+  // the open event; copied flips true for a beat so the operator sees the
+  // confirmation. Both reset when openEventId changes.
+  const [shareUrl, setShareUrl] = useState('');
+  const [copied, setCopied] = useState(false);
   // T11: courses live at BeoBoard so PrepSheetTable + CoursePanel share
   // one source of truth. Refetched on event change and after CoursePanel
   // mutations call back through onCoursesChanged.
@@ -69,8 +74,54 @@ export default function BeoBoard({ initialMenu = [] }) {
   useEffect(() => {
     const ev = (data?.events || []).find((e) => e.id === openEventId);
     loadCourses(openEventId, ev?.location_id || 'default');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [openEventId, data?.events]);
+
+  // Clear the share link when switching events — different event, different
+  // token. Operator hits Share again to refresh.
+  useEffect(() => {
+    setShareUrl('');
+    setCopied(false);
+  }, [openEventId]);
+
+  const shareEvent = async (id) => {
+    setErr('');
+    try {
+      const res = await fetch(`/api/beo/${encodeURIComponent(id)}/share-token`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        setErr(j.error || 'Couldn’t generate share link — try again.');
+        return;
+      }
+      const j = await res.json();
+      // share_url may be relative if LARIAT_BASE_URL isn't set on the
+      // server. Absolutize against the current origin so what the operator
+      // copies is the URL the client will actually open.
+      const abs = j.share_url?.startsWith('http')
+        ? j.share_url
+        : `${window.location.origin}${j.share_url || `/beo/share/${j.token}`}`;
+      setShareUrl(abs);
+      setCopied(false);
+    } catch {
+      setErr('Network error — please try again.');
+    }
+  };
+
+  const copyShareUrl = async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API may be unavailable on insecure contexts (e.g. raw IP
+      // over HTTP on a kitchen iPad). Fall back to a select-text prompt.
+      setErr('Couldn’t copy automatically — select and copy the link below.');
+    }
+  };
 
   const post = async (body) => {
     setErr('');
@@ -185,11 +236,31 @@ export default function BeoBoard({ initialMenu = [] }) {
           ))}
         </select>
         {openEvent && (
-          <button type="button" className="btn red" onClick={() => killParty(openEvent.id)}>
-            Kill party
-          </button>
+          <>
+            <button type="button" className="btn" onClick={() => shareEvent(openEvent.id)}>
+              Share with client
+            </button>
+            <button type="button" className="btn red" onClick={() => killParty(openEvent.id)}>
+              Kill party
+            </button>
+          </>
         )}
       </div>
+      {shareUrl && (
+        <div className="card mb-20" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, color: 'var(--muted)' }}>Send this link to the host:</span>
+          <input
+            className="input"
+            readOnly
+            value={shareUrl}
+            onFocus={(e) => e.target.select()}
+            style={{ flex: '1 1 280px', minWidth: 280, fontFamily: 'monospace', fontSize: 12 }}
+          />
+          <button type="button" className="btn" onClick={copyShareUrl}>
+            {copied ? 'Copied' : 'Copy link'}
+          </button>
+        </div>
+      )}
 
       {/* Add-party form */}
       <details className="beo-add-party">

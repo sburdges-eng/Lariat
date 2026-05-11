@@ -26,7 +26,18 @@ const SENSITIVE_PREFIXES = [
   '/api/specials/saved',
 ];
 
+/** Public carve-outs inside otherwise-PIN-gated prefixes. Order matters:
+ *  the client-share BEO doc is intentionally guest-readable via an
+ *  unguessable token in the URL, so we exempt it from the PIN redirect.
+ *  Both the page route and its read+sign API endpoints must be public.
+ */
+const PUBLIC_CARVEOUTS = [
+  '/beo/share/',
+  '/api/beo/share/',
+];
+
 function isSensitive(pathname) {
+  if (PUBLIC_CARVEOUTS.some((p) => pathname.startsWith(p))) return false;
   return SENSITIVE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
