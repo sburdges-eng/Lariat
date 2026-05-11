@@ -166,8 +166,14 @@ export default function Sidebar() {
       const active =
         pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
       return (
-        <Link key={item.id} href={href} className={active ? 'active' : ''}>
-          <span className="nav-key">{item.shortcut || '·'}</span>
+        <Link
+          key={item.id}
+          href={href}
+          className={active ? 'active' : ''}
+          aria-current={active ? 'page' : undefined}
+          aria-label={item.shortcut ? `${item.name} (shortcut ${item.shortcut})` : item.name}
+        >
+          <span className="nav-key" aria-hidden="true">{item.shortcut || '·'}</span>
           <span className="nav-lbl">
             <span className="t">{item.name}</span>
           </span>
@@ -182,8 +188,21 @@ export default function Sidebar() {
     const href = withLocation(`/stations/${s.id}`, locQuery);
     const active = pathname.startsWith(`/stations/${s.id}`);
     const glyph = String(idx + 1);
+    const progressLabel = s.prog
+      ? s.prog.flagged > 0
+        ? `${s.prog.flagged} flagged`
+        : s.prog.signedOff
+          ? 'signed off'
+          : `${s.prog.done} of ${s.prog.total} checks done`
+      : s.line || 'no progress yet';
     return (
-      <Link key={s.id} href={href} className={`station-cell ${active ? 'active' : ''}`}>
+      <Link
+        key={s.id}
+        href={href}
+        className={`station-cell ${active ? 'active' : ''}`}
+        aria-current={active ? 'page' : undefined}
+        aria-label={`Station ${idx + 1}: ${s.name}, ${progressLabel}. Shortcut ${glyph}.`}
+      >
         <StationRing prog={s.prog} glyph={glyph} />
         <div className="sc-body">
           <div className="sc-name">{s.name}</div>
@@ -197,7 +216,7 @@ export default function Sidebar() {
               : s.line || '—'}
           </div>
         </div>
-        <span className="sc-key">{glyph}</span>
+        <span className="sc-key" aria-hidden="true">{glyph}</span>
       </Link>
     );
   };
