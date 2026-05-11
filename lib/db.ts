@@ -2722,6 +2722,24 @@ function initFoodSafetyLaborSchema(db: DB): void {
       ON beo_courses(location_id, fire_at);
     CREATE INDEX IF NOT EXISTS idx_beo_courses_event
       ON beo_courses(event_id, sort_order);
+
+    -- Client-facing BEO signatures. One row per client confirmation on the
+    -- public share link. Append-only by API convention — corrections are a
+    -- fresh row (mirrors audit_events). signed_name is the typed-out
+    -- representative; ip_addr + user_agent are caller-asserted but stored
+    -- as the only attribution signal we have on the unauthenticated path.
+    CREATE TABLE IF NOT EXISTS beo_signatures (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id INTEGER NOT NULL,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      signed_name TEXT NOT NULL,
+      signed_at TEXT NOT NULL DEFAULT (datetime('now')),
+      ip_addr TEXT,
+      user_agent TEXT,
+      FOREIGN KEY (event_id) REFERENCES beo_events(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_beo_signatures_event
+      ON beo_signatures(event_id, signed_at);
   `);
 }
 
@@ -3113,10 +3131,19 @@ function migrateLegacyColumns(db: DB): void {
     ['contact_name',    'ALTER TABLE beo_events ADD COLUMN contact_name TEXT'],
     ['tax_rate',        'ALTER TABLE beo_events ADD COLUMN tax_rate REAL DEFAULT 0.0675'],
     ['service_fee_pct', 'ALTER TABLE beo_events ADD COLUMN service_fee_pct REAL DEFAULT 20'],
+    // Client-share token. NULL until the operator generates one via the
+    // share-token endpoint. Uniqueness enforced by partial index below.
+    ['share_token',     'ALTER TABLE beo_events ADD COLUMN share_token TEXT'],
   ];
   for (const [col, ddl] of beoMigrations) {
     if (!beoCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
   }
+  try {
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_beo_events_share_token
+        ON beo_events(share_token) WHERE share_token IS NOT NULL;
+    `);
+  } catch { /* ignore */ }
 
   // BEO line items gained prep-sheet columns (mirrors the archive xlsx
   // layout: ITEM | PREP | SECONDARY PREP | ORDER ITEMS + fire time).
