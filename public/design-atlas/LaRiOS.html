@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>LaRiOS · Agentic ERP + KDS for The Lariat</title>
+<meta name="viewport" content="width=1440"/>
+<link rel="stylesheet" href="tokens.css"/>
+<style>
+  body{margin:0;background:#e8e4dc;color:var(--ink);font-family:var(--sans);overflow:hidden}
+  /* Cover artboard */
+  .cover{width:1440px;height:920px;position:relative;overflow:hidden;
+    background:linear-gradient(165deg,#f5f1e8 0%, #ebe5d6 60%, #ddd3bd 100%);}
+  .cover .grain{position:absolute;inset:0;
+    background:
+      radial-gradient(ellipse at 20% 10%, rgba(200,90,42,.08), transparent 55%),
+      radial-gradient(ellipse at 90% 90%, rgba(184,137,47,.12), transparent 55%),
+      repeating-linear-gradient(0deg,transparent 0 39px,rgba(60,50,40,.04) 39px 40px);}
+  .cover .marks{position:absolute;inset:0;
+    background-image:
+      linear-gradient(transparent 80%, rgba(60,50,40,.08) 80%),
+      linear-gradient(90deg, transparent 80%, rgba(60,50,40,.06) 80%);
+    background-size: 80px 80px;
+    mix-blend-mode:multiply;opacity:.4;}
+  .cover .corner{position:absolute;font-family:var(--mono);font-size:10px;letter-spacing:.32em;color:var(--muted);text-transform:uppercase}
+  .corner.tl{top:32px;left:38px}
+  .corner.tr{top:32px;right:38px;text-align:right}
+  .corner.bl{bottom:32px;left:38px}
+  .corner.br{bottom:32px;right:38px;text-align:right}
+  .cover .title{position:absolute;left:64px;right:64px;top:160px}
+  .cover .super{font-family:var(--mono);font-size:13px;letter-spacing:.40em;color:var(--ember-deep)}
+  .cover h1{font-family:var(--serif);font-size:188px;line-height:.86;font-weight:400;margin:14px 0 0;color:var(--ink);letter-spacing:-.02em}
+  .cover h1 em{font-style:italic;color:var(--ember)}
+  .cover .lede{font-family:var(--serif);font-size:38px;line-height:1.2;color:var(--char);margin-top:22px;max-width:1000px;font-style:italic;font-weight:400}
+  .cover .legend{position:absolute;left:64px;right:64px;bottom:130px;display:grid;grid-template-columns:repeat(4,1fr);gap:30px}
+  .cover .legend > div{padding-top:14px;border-top:1px solid rgba(60,50,40,.4)}
+  .cover .legend b{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.28em;color:var(--muted);font-weight:600}
+  .cover .legend p{font-family:var(--serif);font-size:19px;line-height:1.35;margin:8px 0 0;color:var(--ink)}
+  .cover .seal{position:absolute;top:90px;right:64px;width:120px;height:120px;border:1px solid rgba(60,50,40,.4);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--char)}
+  .cover .seal-l{font-family:var(--mono);font-size:9px;letter-spacing:.28em}
+  .cover .seal-v{font-family:var(--serif);font-size:36px;line-height:1}
+</style>
+</head>
+<body>
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- Data & shared parts -->
+<script type="text/babel" src="data.js"></script>
+<script type="text/babel" src="lari.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+
+<!-- Artboards: mgmt FIRST (defines InvSnap used by InvTablet) -->
+<script type="text/babel" src="artboards-mgmt.jsx"></script>
+<script type="text/babel" src="artboards-ops.jsx"></script>
+<script type="text/babel" src="artboards-event.jsx"></script>
+<script type="text/babel" src="artboards-ripple.jsx"></script>
+
+<!-- Root -->
+<div id="root"></div>
+
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect } = React;
+
+const TWEAKS_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "lariVoice": "terse",
+  "density": "dense",
+  "ambientLari": true,
+  "showLabels": true
+}/*EDITMODE-END*/;
+
+function Cover(){
+  return (
+    <div className="cover" data-screen-label="01 Cover">
+      <div className="grain"/>
+      <div className="marks"/>
+      <div className="corner tl">The Lariat · Buena Vista, CO</div>
+      <div className="corner tr">LaRiOS v1.0 · May 2026</div>
+      <div className="seal">
+        <div className="seal-l">LARIOS</div>
+        <div className="seal-v">L</div>
+        <div className="seal-l">v1.0</div>
+      </div>
+      <div className="title">
+        <div className="super">EATS · LIBATIONS · MUSIC</div>
+        <h1>LaRi<em>OS</em>.</h1>
+        <div className="lede">The operational nervous system for a venue that cooks dinner, pours cocktails, books bands, and runs weddings — all at the same time.</div>
+      </div>
+      <div className="legend">
+        <div><b>01—02</b><p>Cover & the operating philosophy</p></div>
+        <div><b>03—09</b><p>Operational surfaces: management, KDS, sous, bar, server, host, line cook</p></div>
+        <div><b>10—14</b><p>Event-aware engine: BEO, stage, signage, calendar, inventory</p></div>
+        <div><b>15—18</b><p>Owner brief · handbooks · performance · ban list</p></div>
+      </div>
+      <div className="corner bl">An agentic ERP + KDS, designed for hospitality teams who refuse to cosplay as accountants.</div>
+      <div className="corner br">LaRi · the connective intelligence layer</div>
+    </div>
+  );
+}
+
+/* Philosophy artboard — the operating principles */
+function Philosophy(){
+  const pillars = [
+    ['01','Operational clarity','One surface answers four questions: what matters, what changed, what needs me, what to ignore. Everything else is suppressed.'],
+    ['02','Role-aware','A line cook sees fire times. A sous sees mise + 86 risk. An owner sees the week. The system is the same. The view never is.'],
+    ['03','Cross-domain','A jazz night quietly rewrites the bar forecast. A vegetarian drummer touches tonight\'s prep list. Nothing operates alone.'],
+    ['04','LaRi is ambient','Not a chat box. A coordinator that whispers when it helps, falls silent when it doesn\'t, and never asks "How may I help you today?"'],
+    ['05','Adaptive scale','Wall KDS at 4K. Phone in apron pocket. Same data model, three densities, one design language.'],
+    ['06','Invisible complexity','Permissions, sync, audit, ML — present without being seen. The hostess shouldn\'t know what a microservice is.']
+  ];
+  return (
+    <div data-screen-label="02 Philosophy" style={{width:1440,height:920,padding:'72px 80px',background:'var(--paper)',position:'relative',overflow:'hidden'}}>
+      <div className="eyebrow">02 · Operating philosophy</div>
+      <h2 style={{fontFamily:'var(--serif)',fontSize:80,lineHeight:.95,margin:'8px 0 12px',fontWeight:400}}>What LaRi <em style={{color:'var(--ember)'}}>is</em>, and what it refuses to be.</h2>
+      <div className="muted" style={{fontSize:18,maxWidth:780,lineHeight:1.5,fontFamily:'var(--serif)',fontStyle:'italic'}}>The system should feel like a world-class floor manager, an operations analyst, and a hospitality coordinator — combined. Not a generic AI assistant with a text box and existential emptiness.</div>
+      <div style={{marginTop:48,display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:32,rowGap:42}}>
+        {pillars.map(([n,t,d])=>(
+          <div key={n} style={{paddingTop:18,borderTop:'1px solid var(--ink)'}}>
+            <div style={{fontFamily:'var(--mono)',fontSize:11,letterSpacing:'.28em',color:'var(--ember-deep)'}}>{n}</div>
+            <div style={{fontFamily:'var(--serif)',fontSize:30,lineHeight:1.1,marginTop:8}}>{t}</div>
+            <p style={{fontFamily:'var(--serif)',fontSize:16,lineHeight:1.5,color:'var(--char)',marginTop:8}}>{d}</p>
+          </div>
+        ))}
+      </div>
+      {/* Floating LaRi sigil decoration */}
+      <div style={{position:'absolute',right:-160,bottom:-160,width:560,height:560,
+        borderRadius:'50%',background:'radial-gradient(circle,rgba(200,90,42,.18) 0%,transparent 60%)'}}/>
+      <div style={{position:'absolute',right:60,bottom:60,fontFamily:'var(--mono)',fontSize:10,letterSpacing:'.32em',color:'var(--muted)'}}>LARI · CONNECTIVE INTELLIGENCE</div>
+    </div>
+  );
+}
+
+/* System map — the ecosystem */
+function SystemMap(){
+  return (
+    <div data-screen-label="System map" style={{width:1440,height:920,background:'var(--cream)',padding:'52px 64px',position:'relative',overflow:'hidden'}}>
+      <div className="eyebrow">System map · agentic mesh</div>
+      <div style={{fontFamily:'var(--serif)',fontSize:54,lineHeight:1,marginTop:6}}>How the surfaces talk.</div>
+      <div className="muted" style={{fontSize:14,maxWidth:700,marginTop:6}}>Every domain publishes events; LaRi listens, correlates, and whispers. No surface is downstream-only. Servers can flag the kitchen. The bar can re-rate a band's surge. The owner sees the weather.</div>
+      <svg viewBox="0 0 1320 660" style={{marginTop:24,width:'100%',height:680}}>
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="rgba(60,50,40,.5)"/>
+          </marker>
+        </defs>
+        {/* Center LaRi */}
+        <g transform="translate(660 330)">
+          <circle r="120" fill="rgba(200,90,42,.10)" stroke="var(--ember)" strokeWidth="1.2"/>
+          <circle r="80"  fill="rgba(200,90,42,.20)" stroke="var(--ember)" strokeWidth="1"/>
+          <circle r="40"  fill="var(--ember)" />
+          <text textAnchor="middle" y={-6} fontFamily="var(--serif)" fontSize="28" fill="#1a1308">LaRi</text>
+          <text textAnchor="middle" y={14} fontFamily="var(--mono)" fontSize="9" letterSpacing="4" fill="#1a1308">CONCIERGE</text>
+        </g>
+        {/* Nodes */}
+        {[
+          ['Management',180,120,'10 dashboards · master'],
+          ['BOH · KDS',180,330,'wall + sous + line'],
+          ['Bar',180,540,'tablets + back-bar'],
+          ['Server FOH',1140,120,'tablets + handhelds'],
+          ['Stage / Sound',1140,330,'mezz · patio · public'],
+          ['Host',1140,540,'door · seating · safety'],
+          ['Inventory',460,80,'walk-in + pantry'],
+          ['Events / BEO',860,80,'weddings · ticketed'],
+          ['Public signage',460,600,'lobby · web'],
+          ['Owner / Ops',860,600,'weekly brief']
+        ].map(([n,x,y,sub],i)=>(
+          <g key={n} transform={`translate(${x} ${y})`}>
+            <rect x="-95" y="-32" width="190" height="64" rx="4" fill="var(--paper)" stroke="var(--ink)" strokeWidth=".8"/>
+            <text textAnchor="middle" y={-6} fontFamily="var(--serif)" fontSize="20" fill="var(--ink)">{n}</text>
+            <text textAnchor="middle" y={16} fontFamily="var(--mono)" fontSize="9" letterSpacing="2" fill="var(--muted)">{sub.toUpperCase()}</text>
+          </g>
+        ))}
+        {/* Edges to LaRi */}
+        {[
+          [180,120],[180,330],[180,540],[1140,120],[1140,330],[1140,540],
+          [460,80],[860,80],[460,600],[860,600]
+        ].map((p,i)=>(
+          <line key={i} x1={p[0]} y1={p[1]} x2="660" y2="330" stroke="rgba(60,50,40,.32)" strokeWidth=".8" strokeDasharray="3 4" markerEnd="url(#arr)"/>
+        ))}
+        {/* Periphery connections (cross-domain) */}
+        <path d="M 180 330 C 180 200, 460 80, 460 80" stroke="rgba(200,90,42,.4)" strokeWidth="1" fill="none" markerEnd="url(#arr)"/>
+        <path d="M 1140 330 C 1140 200, 860 80, 860 80" stroke="rgba(200,90,42,.4)" strokeWidth="1" fill="none" markerEnd="url(#arr)"/>
+        <path d="M 180 540 C 460 660, 460 600, 460 600" stroke="rgba(200,90,42,.4)" strokeWidth="1" fill="none" markerEnd="url(#arr)"/>
+        <path d="M 1140 540 C 860 660, 860 600, 860 600" stroke="rgba(200,90,42,.4)" strokeWidth="1" fill="none" markerEnd="url(#arr)"/>
+
+        {/* Legend */}
+        <g transform="translate(70 630)" fontFamily="var(--mono)" fontSize="10" letterSpacing="2" fill="var(--muted)">
+          <line x1="0" y1="-4" x2="24" y2="-4" stroke="rgba(60,50,40,.4)" strokeDasharray="3 4"/><text x="32" y="0">EVENT BUS · BIDIRECTIONAL</text>
+          <line x1="240" y1="-4" x2="264" y2="-4" stroke="rgba(200,90,42,.6)" /><text x="272" y="0">CROSS-DOMAIN RIPPLE</text>
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+function App(){
+  const [tw, setTweak] = window.useTweaks ? window.useTweaks(TWEAKS_DEFAULTS) : [TWEAKS_DEFAULTS, ()=>{}];
+  const dense = tw.density === 'dense';
+
+  return (
+    <>
+      <window.DesignCanvas>
+
+        <window.DCSection id="signature" title="★ Signature feature · the Ripple Engine" subtitle="Drag any moment of tonight. Every surface in the venue recomputes, live.">
+          <window.DCArtboard id="ripple" label="15 · Ripple Engine · the night, live" width={1920} height={1080}><window.RippleEngine/></window.DCArtboard>
+        </window.DCSection>
+
+        <window.DCSection id="atlas" title="Sibling implementation · Lairiat-VI feature atlas" subtitle="The earlier broadsheet-bureau iteration — 40+ surfaces (GM bureau, sound engineer, BEO, hiring, compliance, talent pipeline, owner brief). Embedded live; open in its own tab via the link at the bottom of the artboard.">
+          <window.DCArtboard id="atlas-embed" label="↗ 40+ surfaces · click into the rail to navigate" width={1440} height={920}>
+            <div style={{width:'100%',height:'100%',position:'relative',background:'#1a1308'}}>
+              <iframe src="lariat-vi/atlas.html" style={{width:'100%',height:'100%',border:0,display:'block'}} title="Lairiat-VI atlas"/>
+              <a href="lariat-vi/atlas.html" target="_blank" rel="noreferrer"
+                 style={{position:'absolute',right:18,bottom:18,padding:'10px 16px',background:'var(--ember)',color:'#1a1308',
+                         fontFamily:'var(--mono)',fontSize:11,letterSpacing:'.24em',textTransform:'uppercase',fontWeight:700,
+                         textDecoration:'none',borderRadius:3,boxShadow:'0 8px 24px rgba(0,0,0,.35)'}}>
+                Open atlas ↗
+              </a>
+            </div>
+          </window.DCArtboard>
+        </window.DCSection>
+
+        <window.DCSection id="frame" title="Opening" subtitle="What we're proposing">
+          <window.DCArtboard id="cover" label="01 · Cover" width={1440} height={920}><Cover/></window.DCArtboard>
+          <window.DCArtboard id="philo" label="02 · Operating philosophy" width={1440} height={920}><Philosophy/></window.DCArtboard>
+          <window.DCArtboard id="map" label="System map · agentic mesh" width={1440} height={920}><SystemMap/></window.DCArtboard>
+        </window.DCSection>
+
+        <window.DCSection id="mgmt" title="Management command" subtitle="The only true master surface · everywhere else is downstream">
+          <window.DCArtboard id="mgmt-cmd" label="03 · Manager Command desktop" width={1440} height={920}><window.MgmtCommand/></window.DCArtboard>
+          <window.DCArtboard id="owner" label="11 · Owner / weekly brief" width={1440} height={920}><window.OwnerBrief/></window.DCArtboard>
+        </window.DCSection>
+
+        <window.DCSection id="boh" title="BOH · the kitchen as one organism" subtitle="Wall to sous to line — same data, three densities">
+          <window.DCArtboard id="kds" label="04 · Wall KDS · 4K expo" width={1920} height={1080}><window.WallKDS/></window.DCArtboard>
+          <window.DCArtboard id="sous" label="05 · Sous · mise tablet" width={1024} height={768}><window.SousTablet/></window.DCArtboard>
+          <window.DCArtboard id="line" label="06 · Line cook phone" width={380} height={780}><window.LinePhone/></window.DCArtboard>
+        </window.DCSection>
+
+        <window.DCSection id="foh" title="FOH · libations + service" subtitle="The bar is a band. The server is a translator.">
+          <window.DCArtboard id="bar" label="07 · Bar tablet" width={1024} height={768}><window.BarTablet/></window.DCArtboard>
+          <window.DCArtboard id="server" label="08 · Server tablet" width={1024} height={768}><window.ServerTablet/></window.DCArtboard>
+          <window.DCArtboard id="host" label="09 · Host · door + floor" width={1024} height={768}><window.HostTablet/></window.DCArtboard>
+        </window.DCSection>
+
+        <window.DCSection id="event" title="Music · event-aware engine" subtitle="Weddings and bands rewrite the whole night — so LaRi rewrites the night">
+          <window.DCArtboard id="beo" label="10 · Wedding BEO · coordinator" width={1440} height={920}><window.BEODesktop/></window.DCArtboard>
+          <window.DCArtboard id="stage" label="12 · Stage manager · sound" width={1440} height={920}><window.StageMgr/></window.DCArtboard>
+          <window.DCArtboard id="signage" label="13 · Public signage · 4K lobby" width={1920} height={1080}><window.Signage/></window.DCArtboard>
+        </window.DCSection>
+
+        <window.DCSection id="floorplan" title="Floor plan designer · functioning" subtitle="Live drag-and-drop designer for Stage, Kitchen, and FOH layouts. Each artboard loads the same engine with a different starting config — open in a new tab to save / export.">
+          {[
+            {id:'fp-stage',   label:'Stage · band layout · DI · monitors', cfg:'stage'},
+            {id:'fp-kitchen', label:'Kitchen · line · pass · stations',    cfg:'kitchen'},
+            {id:'fp-foh',     label:'FOH · dining room · booths · bar',    cfg:'foh'},
+          ].map(({id,label,cfg}) => (
+            <window.DCArtboard key={id} id={id} label={label} width={1440} height={920}>
+              <div style={{width:'100%',height:'100%',position:'relative',background:'#1a1308'}}>
+                <iframe src={`floorplan/index.html#${cfg}`} style={{width:'100%',height:'100%',border:0,display:'block'}} title={label}/>
+                <div style={{position:'absolute',left:18,top:18,padding:'8px 14px',background:'rgba(26,19,8,.85)',
+                             color:'var(--ember)',fontFamily:'var(--mono)',fontSize:10,letterSpacing:'.28em',
+                             textTransform:'uppercase',borderRadius:3,pointerEvents:'none'}}>
+                  Config · {cfg}
+                </div>
+                <a href={`floorplan/index.html#${cfg}`} target="_blank" rel="noreferrer"
+                   style={{position:'absolute',right:18,bottom:18,padding:'10px 16px',background:'var(--ember)',color:'#1a1308',
+                           fontFamily:'var(--mono)',fontSize:11,letterSpacing:'.24em',textTransform:'uppercase',fontWeight:700,
+                           textDecoration:'none',borderRadius:3,boxShadow:'0 8px 24px rgba(0,0,0,.35)'}}>
+                  Open ↗
+                </a>
+              </div>
+            </window.DCArtboard>
+          ))}
+        </window.DCSection>
+
+        <window.DCSection id="back" title="Back-of-house intelligence" subtitle="Inventory · calendar · handbooks · people">
+          <window.DCArtboard id="inv" label="14 · Inventory tablet" width={1024} height={768}><window.InvTablet/></window.DCArtboard>
+        </window.DCSection>
+
+      </window.DesignCanvas>
+      {window.TweaksPanel && <window.TweaksPanel title="LaRiOS · tweaks">
+        <window.TweakRadio label="LaRi voice" value={tw.lariVoice}
+          options={[{value:'concierge',label:'Concierge'},{value:'terse',label:'Terse'},{value:'silent',label:'Silent'}]}
+          onChange={v=>setTweak('lariVoice',v)}/>
+        <window.TweakRadio label="Density" value={tw.density}
+          options={[{value:'comfortable',label:'Comfort'},{value:'dense',label:'Dense'}]}
+          onChange={v=>setTweak('density',v)}/>
+        <window.TweakToggle label="Ambient LaRi strip" value={tw.ambientLari} onChange={v=>setTweak('ambientLari',v)}/>
+        <window.TweakToggle label="Show surface labels" value={tw.showLabels} onChange={v=>setTweak('showLabels',v)}/>
+      </window.TweaksPanel>}
+    </>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
+</script>
+
+</body>
+</html>

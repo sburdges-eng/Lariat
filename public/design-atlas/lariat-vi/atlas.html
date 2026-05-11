@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=1320"/>
+<title>The Lariat · Feature Atlas</title>
+<link rel="stylesheet" href="styles.css"/>
+<style>
+  /* index-only additions */
+  .avatar{width:34px;height:34px;border-radius:50%;background:var(--ember);color:#1a1308;
+    display:flex;align-items:center;justify-content:center;font-family:'Instrument Serif',serif;font-size:18px;flex-shrink:0}
+  .pl .grp td{font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);font-weight:700;
+    padding-top:18px;background:transparent}
+  .pl .tot td{border-top:1px solid var(--ink);border-bottom:0;font-weight:700;background:transparent}
+  .kitchen .pl .tot td{border-top-color:var(--ember)}
+  .num.up{color:var(--sage)} .num.down{color:var(--rust)}
+  .bubble{max-width:78%;padding:14px 18px;border-radius:14px;font-size:14px;line-height:1.5}
+  .bubble.me{align-self:flex-end;background:var(--ember);color:#1a1308;border-bottom-right-radius:3px}
+  .bubble.ai{align-self:flex-start;background:var(--paper-2);color:var(--ink);border-bottom-left-radius:3px}
+  .kitchen .bubble.ai{background:#211e19;color:#ece2cf}
+  .pill.sm{padding:1px 6px;font-size:9px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="data.js?v=5"></script>
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" src="components-extra.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="pages-ops.jsx"></script>
+<script type="text/babel" src="pages-event.jsx"></script>
+<script type="text/babel" src="pages-office.jsx"></script>
+<script type="text/babel" src="pages-rest.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const PAGE_COMP = {
+  cockpit: Cockpit, dish: DishPit, prep: PrepCook, line: Line, eightySix: EightySix,
+  sous: SousChef, menuEng: MenuEng, specials: Specials, foodCost: FoodCost, beo: BEO, allergen: Allergen,
+  host: HostStand, server: Server, runner: Runner, mod: MOD, closeout: Closeout,
+  bar: Bar, barInv: BarInv, barBack: BarBack,
+  sound: Sound, booking: Booking, stage: Stage,
+  boxOffice: BoxOffice, promo: Promo, talent: Talent, tonight: Tonight,
+  gm: GM, pl: PL, labor: Labor, hiring: Hiring, vendors: Vendors, marketing: Marketing,
+  feedback: Guest, maint: Maintenance, compliance: Compliance, owner: Owner, scenario: Scenario,
+  accounting: Accounting, hr: HR,
+  inventory: Inventory, haccp: HACCP, analytics: Analytics, guests: Guest, comms: Comms, assistant: Assistant,
+};
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "density": "comfortable",
+  "showCanvasFirst": true
+}/*EDITMODE-END*/;
+
+function App() {
+  const [active, setActive] = useState('canvas');
+  const [now, setNow] = useState(new Date());
+  const [tweaks, setTweaks] = window.useTweaks ? window.useTweaks(TWEAK_DEFAULTS) : [TWEAK_DEFAULTS, ()=>{}];
+
+  useEffect(()=>{
+    const t = setInterval(()=>setNow(new Date()),30000);
+    const onKey = e => {
+      if (e.key >= '1' && e.key <= '6') {
+        const idx = +e.key - 1;
+        const page = NAV[idx]?.items[0];
+        if (page) setActive(page.id);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => { clearInterval(t); window.removeEventListener('keydown', onKey); };
+  },[]);
+
+  const page = findPage(active);
+  const isKitchen = page.mode === 'kitchen';
+  const Comp = active === 'canvas' ? Canvas : (PAGE_COMP[active] || Cockpit);
+
+  // Role label by page
+  const roleLabel = page.role || (page.dept==='OFFICE' ? 'Manager' : page.dept==='X' ? 'Crew' : 'On Shift');
+
+  return (
+    <div className={`app ${isKitchen?'kitchen':''}`}>
+      <ServiceStrip now={now} role={roleLabel} kitchen={isKitchen}/>
+      <Rail active={active} onNav={setActive}/>
+      <main className="main">
+        {Comp === Canvas ? <Canvas onNav={setActive}/> : <Comp/>}
+      </main>
+      <Dock pageLabel={page.label}/>
+      {window.TweaksPanel && <TweaksPanel title="Tweaks">
+        <window.TweakSection label="View">
+          <window.TweakRadio label="Active page" value={active} onChange={setActive}
+            options={[
+              {value:'canvas',label:'Atlas'},
+              {value:'cockpit',label:'Cockpit'},
+              {value:'line',label:'KDS line'},
+              {value:'host',label:'Host stand'},
+              {value:'gm',label:'GM center'},
+              {value:'menuEng',label:'Menu eng.'},
+            ]}/>
+        </window.TweakSection>
+        <window.TweakSection label="Mode">
+          <window.TweakToggle label="Force kitchen mode" value={isKitchen}
+            onChange={()=>{}} disabled/>
+          <div style={{fontSize:11,color:'var(--muted)',marginTop:4}}>Kitchen mode auto-applies on KDS, line, prep, dish, 86, sous, assistant.</div>
+        </window.TweakSection>
+      </TweaksPanel>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
