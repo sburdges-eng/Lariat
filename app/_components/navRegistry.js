@@ -389,6 +389,16 @@ export const NAV_ITEMS = [
     shelf: { b: 'Allergens', sub: 'check' },
   },
   {
+    id: 'tonight',
+    href: '/shows/tonight',
+    name: 'Tonight · Live',
+    sub: 'Run of show + box office + sound',
+    group: 'Entertainment',
+    terms: 'tonight live show running run of show box office door sound stage',
+    locAware: t,
+    surface: { sidebar: t, palette: t, shelf: f },
+  },
+  {
     id: 'booking',
     href: '/booking',
     name: 'Booking',
