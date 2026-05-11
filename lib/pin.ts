@@ -11,10 +11,10 @@
 // forged by hand is rejected. Legacy unsigned cookies are accepted
 // only when LARIAT_PIN_SECRET is unset (deployment-safe fallback).
 
-import { hasValidPinCookie } from './pinCookie';
-import { readTempPinId } from './tempPinCookie';
-import { getDb } from './db';
-import { parseScopes, hasScope } from './tempPin';
+import { hasValidPinCookie } from './pinCookie.ts';
+import { readTempPinId } from './tempPinCookie.ts';
+import { getDb } from './db.ts';
+import { parseScopes, hasScope } from './tempPin.ts';
 
 /** True when the PIC has entered the PIN in this browser session. */
 export async function hasPinCookie(req: Request): Promise<boolean> {

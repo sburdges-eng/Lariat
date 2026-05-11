@@ -50,8 +50,8 @@
  * of the objects in the input `peers` array (whatever `electHub` picks).
  */
 
-import type { DiscoveredInstance } from './mdnsDiscovery';
-import { electHub } from './hubElection';
+import type { DiscoveredInstance } from './mdnsDiscovery.ts';
+import { electHub } from './hubElection.ts';
 
 export interface HubState {
   /** Last known hub, or null on cold start / after total LAN loss. */

@@ -13,9 +13,9 @@
  * advertises, so the route can `Response.json(await loadPeersAndHub(...))`
  * without reshaping.
  */
-import { discover } from './mdnsDiscovery';
-import type { DiscoveredInstance, DiscoverOptions } from './mdnsDiscovery';
-import { electHub } from './hubElection';
+import { discover } from './mdnsDiscovery.ts';
+import type { DiscoveredInstance, DiscoverOptions } from './mdnsDiscovery.ts';
+import { electHub } from './hubElection.ts';
 
 export interface PeersAndHub {
   peers: DiscoveredInstance[];

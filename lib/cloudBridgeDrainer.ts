@@ -20,10 +20,10 @@
 // helpers stash a single instance on globalThis so multiple imports
 // (instrumentation hook + standalone script) can't double-tick.
 
-import * as queue from './cloudBridgeQueue';
-import { pushBatch as defaultPushBatch, type PushResult } from './cloudBridgePush';
-import type { OutboxBatch } from './cloudBridgeQueue';
-import { getDb } from './db';
+import * as queue from './cloudBridgeQueue.ts';
+import { pushBatch as defaultPushBatch, type PushResult } from './cloudBridgePush.ts';
+import type { OutboxBatch } from './cloudBridgeQueue.ts';
+import { getDb } from './db.ts';
 
 export type PushBatchFn = (
   batch: OutboxBatch,

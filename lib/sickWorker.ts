@@ -10,7 +10,7 @@
 // me every worker excluded for vomiting in Q1" and that query only
 // works if symptoms are stored in a known vocabulary.
 
-import type { SickWorkerReport } from './db';
+import type { SickWorkerReport } from './db.ts';
 
 // ── FDA vocabulary ────────────────────────────────────────────────
 

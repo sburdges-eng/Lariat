@@ -30,8 +30,8 @@
  */
 
 import type { Database } from 'better-sqlite3';
-import { getDb, type RecipeCost, type DishComponent } from './db';
-import { getRecipes, type Recipe } from './data';
+import { getDb, type RecipeCost, type DishComponent } from './db.ts';
+import { getRecipes, type Recipe } from './data.ts';
 // Reuse the costing engine's unit converter.
 import { convertQty } from './unitConvert.mjs';
 

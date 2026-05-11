@@ -1,4 +1,4 @@
-import type { DishComponent } from './db';
+import type { DishComponent } from './db.ts';
 
 const KNOWN_UNITS = new Set([
   // weight

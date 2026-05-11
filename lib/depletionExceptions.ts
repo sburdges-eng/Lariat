@@ -31,7 +31,7 @@ import type { Database } from 'better-sqlite3';
 import {
   resolveDepletionsForSale,
   type UnresolvedDish,
-} from './salesDepletion';
+} from './salesDepletion.ts';
 
 export interface DepletionException {
   /** Original dish_name as recorded on sales_lines. */

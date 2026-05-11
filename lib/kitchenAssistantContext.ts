@@ -1,4 +1,4 @@
-import { getDb, todayISO } from './db';
+import { getDb, todayISO } from './db.ts';
 import {
   getStations,
   getLineCheckTemplate,
@@ -9,7 +9,7 @@ import {
   getLaborSummary,
   getAllergenMatrix,
   getStaff,
-} from './data';
+} from './data.ts';
 import type {
   Recipe,
   AllergenMatrix,
@@ -18,11 +18,11 @@ import type {
   FoodSafetyData,
   VendorSummary,
   LaborSummary,
-} from './data';
+} from './data.ts';
 import type { Database as DB } from 'better-sqlite3';
-import * as datapackSearch from './datapackSearch';
-import type { FdaSection, HybridHit } from './datapackSearch';
-import { renderCompliance } from './complianceSearch';
+import * as datapackSearch from './datapackSearch.ts';
+import type { FdaSection, HybridHit } from './datapackSearch.ts';
+import { renderCompliance } from './complianceSearch.ts';
 
 const MAX_86 = 40;
 const MAX_INV = 20;

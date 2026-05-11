@@ -13,14 +13,14 @@
 // REAL columns (box_office_lines.face_price, fees;
 // toast_sales_daily.net_sales) are rounded at the read boundary.
 
-import { getDb } from './db';
-import { postAuditEvent } from './auditEvents';
+import { getDb } from './db.ts';
+import { postAuditEvent } from './auditEvents.ts';
 import {
   computeTalentPayout,
   emptyDeal,
   parseDeal,
   type DealPoint,
-} from './dealPoints';
+} from './dealPoints.ts';
 
 export function upsertDeal(
   showId: number,

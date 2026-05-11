@@ -5,7 +5,7 @@
  * are deterministic. Production callers default to today's date.
  */
 import type Database from 'better-sqlite3';
-import { pipelineStage, KNOWN_STAGES, type PipelineStage } from './showStatus';
+import { pipelineStage, KNOWN_STAGES, type PipelineStage } from './showStatus.ts';
 
 type DB = Database.Database;
 

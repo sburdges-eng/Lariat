@@ -18,7 +18,7 @@
 // migration time.
 
 import crypto from 'node:crypto';
-import type { OutboxBatch } from './cloudBridgeQueue';
+import type { OutboxBatch } from './cloudBridgeQueue.ts';
 
 /**
  * Result of a single push attempt — drainer maps to outbox actions:

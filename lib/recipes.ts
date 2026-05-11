@@ -27,8 +27,8 @@
 import fs from 'fs';
 import path from 'path';
 import type { Database } from 'better-sqlite3';
-import { uuidv7 } from './uuid';
-import type { Recipe } from './data';
+import { uuidv7 } from './uuid.ts';
+import type { Recipe } from './data.ts';
 
 const CACHE_DIR = path.join(process.cwd(), 'data', 'cache');
 const RECIPES_JSON = path.join(CACHE_DIR, 'recipes.json');

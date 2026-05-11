@@ -1,11 +1,11 @@
 import type { Database } from 'better-sqlite3';
-import { getDb } from './db';
+import { getDb } from './db.ts';
 import {
   buildDishComponentMap,
   cleanedSalesRows,
   computeDishCost,
   type DishComponentResolved,
-} from './dishCostBridge';
+} from './dishCostBridge.ts';
 
 /**
  * Menu engineering joins POS sales with dish-level cost via the
