@@ -32,6 +32,25 @@ The wrapper does NOT bundle these; the wizard points at them.
 - **Data Pack** on external SSD (optional; Kitchen Assistant grounds answers
   in FDA/USDA text when present). Pointed at via the wizard.
 
+## Activating notarization (v1.1)
+
+Today the app is ad-hoc signed (`mac.identity: null`). To flip on Apple
+notarization once a Developer ID is provisioned (per
+`docs/desktop-wrapper-design.md` §7.4):
+
+1. In `electron-builder.yml`, set `mac.identity` to your Developer ID
+   Application string (e.g., `"Developer ID Application: Sean Burdges (TEAMID)"`).
+2. Uncomment the `afterSign: desktop/notarize.cjs` line in the same `mac:` block.
+3. Create `~/.lariat-build.env` (gitignored) with:
+   ```
+   APPLE_ID=you@example.com
+   APPLE_APP_SPECIFIC_PASSWORD=xxxx-xxxx-xxxx-xxxx
+   APPLE_TEAM_ID=ABCDE12345
+   ```
+
+Until step 3 is done, `desktop/notarize.cjs` no-ops with a warning, so
+local `npm run desktop:dist` keeps working.
+
 ## Manual smoke checklist (run after every meaningful build)
 
 - [ ] **Fresh-install path**

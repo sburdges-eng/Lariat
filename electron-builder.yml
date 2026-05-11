@@ -30,7 +30,12 @@ mac:
   icon: desktop/icons/AppIcon.icns
   hardenedRuntime: true
   gatekeeperAssess: false
-  identity: null
+  identity: null                              # TODAY: ad-hoc sign
+  # To activate notarization:
+  #   1. Set identity to your Developer ID Application string (e.g., "Developer ID Application: Sean Burdges (TEAMID)")
+  #   2. Uncomment the afterSign line below
+  #   3. Create ~/.lariat-build.env with APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD (app-specific password), APPLE_TEAM_ID
+  # afterSign: desktop/notarize.cjs
   entitlements: desktop/entitlements.mac.plist
   entitlementsInherit: desktop/entitlements.mac.plist
   target:
