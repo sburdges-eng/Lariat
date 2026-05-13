@@ -12,7 +12,11 @@ exports/*.xlsx
 training/adapters/
 training/fused-model/
 training/*.gguf
+.env
+.env.*
 .env.local
+# Keep .env.example tracked so contributors can see required variables.
+!.env.example
 *.xlsx
 Lariat-v2/
 data/imports/

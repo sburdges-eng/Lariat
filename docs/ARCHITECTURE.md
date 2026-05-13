@@ -97,12 +97,15 @@ The Lariat project operates on a "Workbook-as-Source" model with a local JSON + 
 
 **PIN-based gate** for sensitive pages and the management surface. Enforced by `middleware.js` on the listed prefixes, and re-checked at each gated API route via `lib/pin.ts::hasPinCookie()` so curl / replay cannot bypass the middleware.
 
-**Current matcher** (`middleware.js:41–55`):
+**Current matcher** (see `middleware.js::SENSITIVE_PREFIXES` for the authoritative list):
 
 | Access Level | Page prefixes | API prefixes | Auth Required |
 | :--- | :--- | :--- | :--- |
-| **All staff** | Today, Stations, Recipes, 86 Board, Inventory, Food safety, Labor, Kitchen Assistant, Equipment, Specials, Gold Stars, Admin (cleaning-schedule, service-hours) | `/api/{auth, checks, signoff, inventory, eighty-six, recipes, stations, staff, locations, preshift-notes, specials, gold-stars, cooling, temp-log, receiving, sanitizer, date-marks, sick-worker, thermometer-calibrations, cleaning, cleaning-schedule, service-hours, breaks, certifications, pest, sds, equipment/*, dish-components, dish-coverage, kitchen-assistant, unmapped}` | None |
-| **KM / Manager** | `/analytics`, `/costing`, `/purchasing`, `/menu-engineering`, `/beo`, `/management` | `/api/costing`, `/api/analytics`, `/api/menu-engineering`, `/api/beo`, `/api/audit` | `LARIAT_PIN` env + HMAC-signed `lariat_pin_ok` cookie |
+| **All staff** | Today, Stations, Recipes, 86 Board, Inventory, Food safety, Labor, Kitchen Assistant, Equipment, Specials (sandbox), Gold Stars, Admin (cleaning-schedule, service-hours) | `/api/{auth, checks, signoff, inventory, eighty-six, recipes, stations, staff, locations, preshift-notes, specials, gold-stars, cooling, temp-log, receiving, sanitizer, date-marks, sick-worker, thermometer-calibrations, cleaning, cleaning-schedule, service-hours, breaks, certifications, pest, sds, equipment/*, dish-components, dish-coverage, kitchen-assistant, lari, unmapped}` | None |
+| **KM / Manager** | `/analytics`, `/costing`, `/purchasing`, `/menu-engineering`, `/beo`, `/management`, `/booking`, `/playbook`, `/shows`, `/specials/saved`, `/host` | `/api/costing`, `/api/analytics`, `/api/menu-engineering`, `/api/beo`, `/api/audit`, `/api/compute`, `/api/shows`, `/api/specials/saved`, `/api/host` | `LARIAT_PIN` env + HMAC-signed `lariat_pin_ok` cookie |
+| **Temp-PIN (scoped)** | none | Same staff-API surface; widened by `requirePinOrScope(req, 'scope')` per route — e.g. `show.stage_edit`, `beo.prep_history` | Issued via `POST /api/auth/temp-pin/issue` (manager only); presented as `lariat_temp_pin` cookie; revoked/expired entries fail the live `temp_pins` DB check |
+| **Public carve-outs** | `/beo/share/<token>` (client-share BEO doc via unguessable token) | `/api/beo/share/<token>` | None — token in URL is the auth |
+| **Discovery / cloud-bridge** | none | `/api/peers`, `/api/discover`, `/api/cloud-bridge/*` (dead-letter + drain routes re-check `requirePin` in-handler) | LAN-trust for discovery; PIN for dead-letter mutations |
 
 **Cookie integrity.** The `lariat_pin_ok` cookie is HMAC-signed with `LARIAT_PIN_SECRET` (required alongside `LARIAT_PIN`). A cookie forged as a plain `lariat_pin_ok=1` is rejected by `middleware.js` and `hasPinCookie()`. Rotate the secret to force re-auth across all browsers.
 

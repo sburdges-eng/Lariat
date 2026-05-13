@@ -1,7 +1,15 @@
 import fs from 'fs';
 import path from 'path';
 
-const CACHE = path.join(process.cwd(), 'data', 'cache');
+// Mirror lib/db.ts: honor LARIAT_DATA_DIR for relocated installs so the
+// SQLite root and the JSON-cache root stay in sync. Without this the
+// app could read JSON cache from ./data/cache while SQLite resolves to
+// the env-overridden directory — a split-brain that masquerades as
+// "recipes look stale even though I just re-ingested."
+const DATA_DIR = process.env.LARIAT_DATA_DIR
+  ? path.resolve(process.env.LARIAT_DATA_DIR)
+  : path.join(process.cwd(), 'data');
+const CACHE = path.join(DATA_DIR, 'cache');
 
 // ── Cached JSON types ──────────────────────────────────────────────
 

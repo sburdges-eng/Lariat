@@ -15,7 +15,11 @@
 //
 // This file mirrors the shape of test-tphc-api.mjs (same project patterns,
 // same setDbPathForTest approach, same Request-object construction).
-// /api/checks does not use audit events or PIN gating, so neither is tested.
+// Audit events for /api/checks: every successful POST writes one row to
+// `audit_events` inside the same transaction as the line-check insert
+// (docs/PATTERNS.md §3). The "Audit trail" describe-block below pins
+// that contract. /api/checks is not PIN-gated (cooks need it on the
+// iPad without typing the manager PIN).
 //
 // Run: node --test tests/js/test-checks-api.mjs
 
@@ -49,6 +53,7 @@ after(() => {
 
 beforeEach(() => {
   testDb.exec('DELETE FROM line_check_entries;');
+  testDb.exec('DELETE FROM audit_events;');
 });
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -239,6 +244,60 @@ describe('GET /api/checks — tri-state round-trip', () => {
     // And verify it's a numeric 0, not the boolean false.
     assert.notStrictEqual(rows[0].glove_change_attested, false);
     assert.notStrictEqual(rows[0].glove_change_attested, null);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────
+// Audit trail — per docs/PATTERNS.md §3 every regulated mutation must
+// post one audit_events row inside the same transaction as the source
+// INSERT. line_check_entries is HACCP-regulated (F15 RTE attestation,
+// pass/fail records that feed station sign-off), so /api/checks must
+// audit. Pre-fix, the POST handler INSERTed the row outside any
+// transaction and never called postAuditEvent — silent gap.
+// ─────────────────────────────────────────────────────────────────
+
+describe('POST /api/checks — audit trail (docs/PATTERNS.md §3)', () => {
+  it('successful POST writes one audit_events row tied to the inserted line-check id', async () => {
+    const row = await postAndReturnRow(baseBody({
+      item: 'rte salad portion',
+      cook_id: 'alice',
+      glove_change_attested: true,
+    }));
+    const audit = testDb
+      .prepare(
+        `SELECT * FROM audit_events
+          WHERE entity = 'line_check_entries' AND entity_id = ?`
+      )
+      .get(row.id);
+    assert.ok(audit, 'audit row must exist for the inserted line-check');
+    assert.strictEqual(audit.action, 'insert');
+    assert.strictEqual(audit.actor_source, 'cook_ui');
+    assert.strictEqual(audit.actor_cook_id, 'alice');
+    assert.strictEqual(audit.location_id, 'default');
+    assert.strictEqual(audit.shift_date, SHIFT_DATE);
+
+    const payload = JSON.parse(audit.payload_json || '{}');
+    assert.strictEqual(payload.station_id, STATION);
+    assert.strictEqual(payload.item, 'rte salad portion');
+    assert.strictEqual(payload.status, 'pass');
+    assert.strictEqual(payload.glove_change_attested, 1);
+  });
+
+  it('400 / validation failure writes NO audit row (handler short-circuits before tx)', async () => {
+    const res = await POST(postReq({ station_id: STATION, item: 'x', status: 'pass' }));
+    assert.strictEqual(res.status, 400);
+    const auditCount = testDb
+      .prepare(`SELECT COUNT(*) AS c FROM audit_events WHERE entity = 'line_check_entries'`)
+      .get().c;
+    assert.strictEqual(auditCount, 0);
+  });
+
+  it('one POST → exactly one audit row (no duplicates)', async () => {
+    await postAndReturnRow(baseBody({ item: 'oil temp' }));
+    const c = testDb
+      .prepare(`SELECT COUNT(*) AS c FROM audit_events WHERE entity = 'line_check_entries'`)
+      .get().c;
+    assert.strictEqual(c, 1);
   });
 });
 
