@@ -63,6 +63,114 @@ export function parseDeal(row: ShowDealRow): DealPoint {
   };
 }
 
+// ── External / raw-JSON deal shape (USD, unknown provenance) ──────
+
+export interface DealTermsCostItem {
+  label: string;
+  amount_usd: number;
+}
+
+/**
+ * Raw deal shape as it arrives from external sources (Prism CSV, status_json
+ * blob, API body). Values are in USD (not cents). Use parseDealTerms() to
+ * validate before calling dealTermsToDealPoint() to convert to the internal
+ * cents-based DealPoint.
+ */
+export interface DealTerms {
+  guarantee_usd: number;
+  vs_pct_after_costs?: number | null;
+  costs_off_top?: DealTermsCostItem[];
+  buyout_usd?: number;
+}
+
+function assertNumeric(val: unknown, field: string): asserts val is number {
+  if (typeof val !== 'number' || !Number.isFinite(val)) {
+    throw new Error(`InvalidDealShape: ${field} must be a finite number`);
+  }
+}
+
+/**
+ * Defensive parser for an unknown JSON blob into a validated DealTerms.
+ * Throws Error('InvalidDealShape: ...') on any missing required field or
+ * non-numeric / out-of-range value.
+ */
+export function parseDealTerms(dealJson: unknown): DealTerms {
+  if (dealJson === null || typeof dealJson !== 'object' || Array.isArray(dealJson)) {
+    throw new Error('InvalidDealShape: deal must be a non-null object');
+  }
+  const raw = dealJson as Record<string, unknown>;
+
+  if (!('guarantee_usd' in raw)) {
+    throw new Error('InvalidDealShape: guarantee_usd is required');
+  }
+  assertNumeric(raw['guarantee_usd'], 'guarantee_usd');
+  if ((raw['guarantee_usd'] as number) < 0) {
+    throw new Error('InvalidDealShape: guarantee_usd must be >= 0');
+  }
+
+  let vsPct: number | null | undefined;
+  if ('vs_pct_after_costs' in raw && raw['vs_pct_after_costs'] !== null) {
+    assertNumeric(raw['vs_pct_after_costs'], 'vs_pct_after_costs');
+    const pct = raw['vs_pct_after_costs'] as number;
+    if (pct < 0 || pct > 1) {
+      throw new Error('InvalidDealShape: vs_pct_after_costs must be in [0, 1]');
+    }
+    vsPct = pct;
+  } else {
+    vsPct = raw['vs_pct_after_costs'] === null ? null : undefined;
+  }
+
+  let costsOffTop: DealTermsCostItem[] | undefined;
+  if ('costs_off_top' in raw && raw['costs_off_top'] !== undefined) {
+    if (!Array.isArray(raw['costs_off_top'])) {
+      throw new Error('InvalidDealShape: costs_off_top must be an array');
+    }
+    costsOffTop = (raw['costs_off_top'] as unknown[]).map((item, i) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        throw new Error(`InvalidDealShape: costs_off_top[${i}] must be an object`);
+      }
+      const c = item as Record<string, unknown>;
+      if (typeof c['label'] !== 'string') {
+        throw new Error(`InvalidDealShape: costs_off_top[${i}].label must be a string`);
+      }
+      assertNumeric(c['amount_usd'], `costs_off_top[${i}].amount_usd`);
+      return { label: c['label'] as string, amount_usd: c['amount_usd'] as number };
+    });
+  }
+
+  let buyoutUsd: number | undefined;
+  if ('buyout_usd' in raw && raw['buyout_usd'] !== undefined) {
+    assertNumeric(raw['buyout_usd'], 'buyout_usd');
+    if ((raw['buyout_usd'] as number) < 0) {
+      throw new Error('InvalidDealShape: buyout_usd must be >= 0');
+    }
+    buyoutUsd = raw['buyout_usd'] as number;
+  }
+
+  return {
+    guarantee_usd: raw['guarantee_usd'] as number,
+    ...(vsPct !== undefined ? { vs_pct_after_costs: vsPct } : {}),
+    ...(costsOffTop !== undefined ? { costs_off_top: costsOffTop } : {}),
+    ...(buyoutUsd !== undefined ? { buyout_usd: buyoutUsd } : {}),
+  };
+}
+
+/**
+ * Convert a validated DealTerms (USD) to the internal DealPoint (cents).
+ * Round at this boundary so downstream math is always integer-cents.
+ */
+export function dealTermsToDealPoint(terms: DealTerms): DealPoint {
+  return {
+    guaranteeCents: Math.round(terms.guarantee_usd * 100),
+    vsPctAfterCosts: terms.vs_pct_after_costs ?? null,
+    costsOffTop: (terms.costs_off_top ?? []).map((c) => ({
+      label: c.label,
+      cents: Math.round(c.amount_usd * 100),
+    })),
+    buyoutCents: Math.round((terms.buyout_usd ?? 0) * 100),
+  };
+}
+
 export interface TalentPayout {
   guaranteeCents: number;
   vsBonusCents: number;
