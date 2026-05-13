@@ -8,6 +8,7 @@ import { locationFromBodyOrRequest } from '../../../lib/location';
 import { computeSandboxCost } from '../../../lib/computeEngine/sandboxCosting';
 import { withIdempotency } from '../../../lib/idempotency';
 import { extractAction } from '../../../lib/extractAction';
+import { hasPinCookie } from '../../../lib/pin';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -56,11 +57,19 @@ async function specialsPostHandler(req) {
 
   const locationId = locationFromBodyOrRequest(body, req);
 
+  // Thread the same PIN-aware context tier the kitchen-assistant route uses
+  // (#247). The public Specials Sandbox isn't behind middleware (only
+  // `/specials/saved` is), so an unauthenticated LAN client could otherwise
+  // read labor / sales / perf-review data via this LLM prompt. The Sandbox
+  // is creative R&D and doesn't need the manager-tier context anyway —
+  // grounded on 86s + inventory limits is the documented use case.
+  const hasPin = await hasPinCookie(req);
+
   const started = Date.now();
   let contextText;
   let sources;
   try {
-    const built = await buildGroundedContext(locationId, message);
+    const built = await buildGroundedContext(locationId, message, { hasPin });
     contextText = built.contextText;
     sources = built.sources;
   } catch (e) {

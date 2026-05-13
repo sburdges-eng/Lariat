@@ -120,6 +120,27 @@ export interface GroundedContext {
 }
 
 /**
+ * Auth tier + future-extensibility knob for `buildGroundedContext`.
+ *
+ * The audit fix for GH #247 introduced this so the cook-tier (no PIN) and
+ * manager-tier (signed PIN cookie) callers can drive the same context
+ * pipeline with different visibility. New gates should default to "false"
+ * (cook-tier) and widen only when `hasPin` is true.
+ */
+export interface BuildGroundedContextOpts {
+  /**
+   * True when the caller presented a valid signed PIN cookie. Gates the
+   * manager-tier renderers (labor summary, sales velocity, daily sales
+   * trend, performance reviews, gold stars) so an unauthenticated LAN
+   * client cannot read regulated / HR / financial data via the LLM prompt.
+   *
+   * Defaults to `false` (cook-tier) — see the kitchen-assistant route for
+   * the threading.
+   */
+  hasPin?: boolean;
+}
+
+/**
  * Coordinator: assembles every grounded context section into one prompt
  * blob. Per-section rendering is delegated to renderXxxContext() helpers
  * defined below; this function is only responsible for ordering, gating
@@ -129,8 +150,12 @@ export interface GroundedContext {
  */
 export async function buildGroundedContext(
   locationId: string,
-  userQuestion: string
+  userQuestion: string,
+  opts: BuildGroundedContextOpts = {}
 ): Promise<GroundedContext> {
+  // The cook-tier path is the default. The route widens to manager-tier
+  // only when `hasPinCookie(req)` returned true — see GH #247.
+  const hasPin = opts.hasPin === true;
   const date = todayISO();
   const db = getDb();
   const sources: ContextSource[] = [];
@@ -184,8 +209,15 @@ export async function buildGroundedContext(
   append(renderMissingSignoffs(db, locationId, date, stations));
   append(renderEquipmentDown(db, locationId));
   append(renderRepeat86s(db, locationId));
-  append(renderSalesVelocity(db, locationId));
-  append(renderDailySalesTrend(db, locationId, date));
+  // Manager-tier (#247): sales aggregates reveal POS totals + per-item
+  // velocity that an unauthenticated LAN client must not read. The
+  // SOURCE_BOUNDARIES system prompt in lib/ollama.ts also lists "live
+  // POS / Toast sales data" as NOT available — keeping these renderers
+  // behind the PIN gate is what makes that promise true for cook-tier.
+  if (hasPin) {
+    append(renderSalesVelocity(db, locationId));
+    append(renderDailySalesTrend(db, locationId, date));
+  }
   text += renderRecipeBlock(picked, subRecipes, allergenMatrix);
 
   // ── Conditional sections (gated on keyword matches) ──────────────
@@ -203,7 +235,16 @@ export async function buildGroundedContext(
     append(renderVendorSummaryBlock(getVendorSummary()));
   }
   if (matchesKeywords(qLower, LABOR_KEYWORDS)) {
-    append(renderLaborSummaryBlock(getLaborSummary()));
+    if (hasPin) {
+      append(renderLaborSummaryBlock(getLaborSummary()));
+    } else {
+      // Manager-tier (#247): never inject 7shifts labor cost / hours /
+      // per-employee data into a cook-tier prompt. Replace with a sentinel
+      // line so the LLM tells the cook to ask a manager rather than
+      // hallucinating numbers from training data.
+      text +=
+        '\nLABOR SUMMARY: not available at this auth tier — tell the cook to ask a manager for labor figures.\n';
+    }
   }
   if (matchesKeywords(qLower, COMPLIANCE_KEYWORDS)) {
     append(renderCompliance(userQuestion));
@@ -215,17 +256,32 @@ export async function buildGroundedContext(
   append(renderOrderGuide(db, locationId));
 
   if (matchesKeywords(qLower, GOLD_STAR_KEYWORDS)) {
-    append(renderGoldStars(db, locationId));
+    if (hasPin) {
+      append(renderGoldStars(db, locationId));
+    } else {
+      text +=
+        '\nGOLD STAR RECOGNITION: not available at this auth tier — tell the cook to ask a manager about recognition history.\n';
+    }
   }
   if (matchesKeywords(qLower, PERFORMANCE_KEYWORDS)) {
-    append(renderPerformanceReviews(db, locationId));
+    if (hasPin) {
+      append(renderPerformanceReviews(db, locationId));
+    } else {
+      text +=
+        '\nPERFORMANCE REVIEWS: not available at this auth tier — performance review data is manager-only.\n';
+    }
   }
   if (matchesKeywords(qLower, EQUIPMENT_KEYWORDS)) {
     append(renderWarrantyAlerts(db, locationId));
   }
 
-  text +=
-    '\nNOT IN THIS CONTEXT: live POS, Toast totals, vendor pricing, full menu engineering, items not listed above.\n';
+  // The trailing "not in this context" line is what the LLM uses to refuse
+  // questions whose answer would require manager-tier data. It needs to
+  // describe the *actual* injection for this tier, not a static superset —
+  // otherwise the model learns to ignore SOURCE_BOUNDARIES from drift.
+  text += hasPin
+    ? '\nNOT IN THIS CONTEXT: live POS, vendor pricing, full menu engineering, items not listed above.\n'
+    : '\nNOT IN THIS CONTEXT: live POS, Toast totals, vendor pricing, labor figures, recognition + performance review data, items not listed above.\n';
 
   // ── Context budget truncation ────────────────────────────────────
   if (text.length > MAX_CONTEXT_CHARS) {
