@@ -796,8 +796,10 @@ export function runCostingPostPass(db, locationId = 'default') {
 
   // Flag rows that need density (or any other unit-conversion failure). B2's
   // computeUnmapped treats any map_status not in
-  // {confirmed,mapped,auto_mapped} as reason='unmapped_status', so the new
-  // NEEDS_DENSITY rows appear in the queue without further wiring.
+  // {confirmed, mapped, auto_mapped, no_cost_utility} as
+  // reason='unmapped_status', so the new NEEDS_DENSITY rows appear in the
+  // queue without further wiring. (`no_cost_utility` is additionally
+  // pre-filtered before the per-row checks — see lib/costingBenchmarks.mjs.)
   if (needsDensityIds.length > 0) {
     const flagStmt = db.prepare(
       `UPDATE bom_lines

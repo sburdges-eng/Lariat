@@ -318,6 +318,80 @@ describe('T9 / B2 — unmapped queue', () => {
     db.close();
   });
 
+  it('no_cost_utility rows are excluded from totalItems and never flagged unmapped', () => {
+    // Tap water and other policy-zero ingredients carry map_status='no_cost_utility'.
+    // They have no vendor pack_size/pack_price by design; the unmapped queue must
+    // treat them as out-of-scope rather than as a coverage gap.
+    const db = freshDb();
+    seedBom(db, [
+      { ingredient: 'a', yield_pct: 1.0, map_status: 'mapped' },
+      { ingredient: 'b', yield_pct: 1.0, map_status: 'mapped' },
+      // 3 water rows with NULL pack_size + NULL pack_price + NULL yield_pct —
+      // every per-row check would normally fail. Status must short-circuit them.
+      {
+        ingredient: 'water',
+        pack_size: null,
+        pack_price: null,
+        yield_pct: null,
+        map_status: 'no_cost_utility',
+      },
+      {
+        ingredient: 'water',
+        pack_size: null,
+        pack_price: null,
+        yield_pct: null,
+        map_status: 'no_cost_utility',
+      },
+      {
+        ingredient: 'water',
+        pack_size: null,
+        pack_price: null,
+        yield_pct: null,
+        map_status: 'no_cost_utility',
+      },
+    ]);
+    const r = computeUnmapped(db, LOC);
+    // Denominator excludes the 3 water rows; only the 2 mapped rows count.
+    assert.strictEqual(r.total_items, 2, 'no_cost_utility rows must not inflate totalItems');
+    assert.strictEqual(r.unmapped_count, 0, 'no_cost_utility rows must not appear unmapped');
+    assert.strictEqual(r.unmapped_pct, 0);
+    assert.deepStrictEqual(r.rows, []);
+    db.close();
+  });
+
+  it('no_cost_utility coexists with real unmapped rows without distorting the ratio', () => {
+    const db = freshDb();
+    seedBom(db, [
+      { ingredient: 'a', yield_pct: 1.0, map_status: 'mapped' },
+      { ingredient: 'b', yield_pct: 1.0, map_status: 'mapped' },
+      { ingredient: 'c', yield_pct: 1.0, map_status: 'mapped' },
+      { ingredient: 'd', yield_pct: 1.0, map_status: null }, // 1 real unmapped
+      // Water — out of scope, should not affect denominator
+      {
+        ingredient: 'water',
+        pack_size: null,
+        pack_price: null,
+        yield_pct: null,
+        map_status: 'no_cost_utility',
+      },
+      {
+        ingredient: 'water',
+        pack_size: null,
+        pack_price: null,
+        yield_pct: null,
+        map_status: 'no_cost_utility',
+      },
+    ]);
+    const r = computeUnmapped(db, LOC);
+    // 4 accounted (a,b,c,d) — 1 unmapped (d) → 25%, not 1/6=16.67%
+    assert.strictEqual(r.total_items, 4);
+    assert.strictEqual(r.unmapped_count, 1);
+    assert.strictEqual(r.unmapped_pct, 25.0);
+    assert.strictEqual(r.rows.length, 1);
+    assert.strictEqual(r.rows[0].reason, 'unmapped_status');
+    db.close();
+  });
+
   it('each row has a reason from the known set and rows cap at 50', () => {
     const db = freshDb();
     // Build 60 guaranteed-unmapped rows so we hit both the reason-set check
