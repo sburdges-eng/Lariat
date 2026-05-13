@@ -231,9 +231,56 @@ describe('runBackfill — fixture DB', () => {
       )
       .get();
     assert.equal(pc.pack_price, 106.79);
-    // unit_price = 106.79 / 30, allow float drift
-    assert.ok(Math.abs(pc.unit_price - 106.79 / 30) < 1e-9);
+    // unit_price = round(106.79 / 30, 4) = 3.5597. Both pack_price and
+    // unit_price are now rounded (pack_price=2dp, unit_price=4dp) so downstream
+    // costing math has stable, bounded precision instead of float-drift tails.
+    assert.equal(pc.unit_price, 3.5597);
     assert.equal(pc.category, 'shamrock_invoice_backfill');
+  });
+
+  it('skip_no_unit_price: rows with NULL or non-positive unit_price are not inserted', () => {
+    const db = freshDb();
+    seedInvoice(db, [
+      { sku: 'SKU-OK', item: 'OK', pack_size: 6, pack_unit: 'cs', unit_price: 12 },
+      { sku: 'SKU-NULL-PRICE', item: 'NO PRICE', pack_size: 6, pack_unit: 'cs',
+        unit_price: null },
+      { sku: 'SKU-ZERO-PRICE', item: 'ZERO PRICE', pack_size: 6, pack_unit: 'cs',
+        unit_price: 0 },
+    ]);
+
+    const result = runBackfill(db, { locationId: 'default' });
+    assert.equal(result.candidates, 3);
+    assert.equal(result.inserted, 1);
+    assert.equal(result.skipped_no_unit_price, 2);
+    assert.equal(result.skipped_no_pack_size, 0);
+    assert.deepEqual(
+      result.skipped_skus.sort(),
+      ['SKU-NULL-PRICE', 'SKU-ZERO-PRICE'],
+    );
+  });
+
+  it('catch_weight requires BOTH marker AND pack_unit=lb (cross-check guard)', () => {
+    const db = freshDb();
+    seedInvoice(db, [
+      // Has marker but pack_unit != lb -> per_case (safer fallback)
+      { sku: 'SKU-MARKER-NOT-LB', item: 'ITEM Actual Weight: 10lbs',
+        pack_size: 5, pack_unit: 'cs', unit_price: 50 },
+      // pack_unit=lb but no marker -> per_case (most lb items are not CWT)
+      { sku: 'SKU-LB-NOT-MARKER', item: 'BACON SLICED',
+        pack_size: 15, pack_unit: 'lb', unit_price: 75 },
+      // Both present -> catch_weight
+      { sku: 'SKU-CWT', item: 'CHEESE Actual Weight: 14.8lbs',
+        pack_size: 14.8, pack_unit: 'lb', unit_price: 6 },
+    ]);
+
+    const result = runBackfill(db, { locationId: 'default' });
+    assert.equal(result.inserted, 3);
+    assert.equal(result.branch_catch_weight, 1, 'only the marker+lb row routes to catch_weight');
+    assert.equal(result.branch_per_case, 2);
+
+    const cw = db.prepare("SELECT * FROM vendor_prices WHERE sku='SKU-CWT'").get();
+    assert.equal(cw.unit_price, 6);
+    assert.equal(cw.pack_price, 88.8); // 6 * 14.8
   });
 
   it('idempotency: a second run inserts 0 rows', () => {

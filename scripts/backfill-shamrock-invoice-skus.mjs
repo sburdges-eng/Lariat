@@ -116,20 +116,33 @@ export function recomputePricing(row) {
   const invoiceUnitPrice = Number(row.unit_price);
   if (!Number.isFinite(invoiceUnitPrice) || invoiceUnitPrice <= 0) return null;
 
-  const isCatchWeight =
+  // Catch-weight discriminator: the Python invoice ingest stamps catch-weight
+  // items with an "Actual Weight: NNlbs" suffix in the item text. We require
+  // BOTH the marker AND pack_unit='lb' as a cross-check — if the marker ever
+  // moves or the Python ingest changes its format, a missing marker on a true
+  // CWT item would otherwise silently route to per_case (wrong math by
+  // ~pack_size×). Belt and suspenders.
+  const hasCwtMarker =
     typeof row.item === 'string' && RE_ACTUAL_WEIGHT.test(row.item);
+  const lbUnit = String(row.pack_unit ?? '').trim().toLowerCase() === 'lb';
+  const isCatchWeight = hasCwtMarker && lbUnit;
 
   if (isCatchWeight) {
     return {
       branch: 'catch_weight',
-      unit_price: invoiceUnitPrice,
+      unit_price: Math.round(invoiceUnitPrice * 10000) / 10000,
       pack_price: Math.round(invoiceUnitPrice * packSize * 100) / 100,
     };
   }
   return {
     branch: 'per_case',
     pack_price: Math.round(invoiceUnitPrice * 100) / 100,
-    unit_price: invoiceUnitPrice / packSize,
+    // Round unit_price to 4 decimals — matches the precision of derived
+    // values elsewhere in the costing path and keeps pack_price ↔ unit_price
+    // consistent (pack_price is 2-decimal; unit_price is sub-cent because the
+    // recipe-side ingredient may demand e.g. $/oz precision). Asymmetry with
+    // pack_price is intentional but bounded.
+    unit_price: Math.round((invoiceUnitPrice / packSize) * 10000) / 10000,
   };
 }
 
@@ -359,6 +372,39 @@ if (invokedAsScript) {
       ...result,
     };
     process.stdout.write(JSON.stringify(summary, null, 2) + '\n');
+
+    // Durable file audit (per CLAUDE.md §3: management actions outside
+    // regulated tables go to data/audit/management-actions.jsonl). Captures
+    // run_id, counters, the inserted and skipped SKU lists so future sessions
+    // can find why a given SKU is or isn't in vendor_prices.
+    if (!dryRun) {
+      try {
+        const auditDir = path.join(path.dirname(dbPath), 'audit');
+        fs.mkdirSync(auditDir, { recursive: true });
+        const auditLine = JSON.stringify({
+          ts: new Date().toISOString(),
+          kind: 'shamrock_invoice_sku_backfill',
+          actor: 'backfill-shamrock-invoice-skus.mjs',
+          rows_affected: result.inserted,
+          details: {
+            run_id: result.run_id,
+            before_count: result.before_count,
+            after_count: result.after_count,
+            inserted_skus: result.skus,
+            skipped_skus: result.skipped_skus,
+            skipped_no_pack_size: result.skipped_no_pack_size,
+            skipped_no_unit_price: result.skipped_no_unit_price,
+            branch_per_case: result.branch_per_case,
+            branch_catch_weight: result.branch_catch_weight,
+          },
+        });
+        fs.appendFileSync(path.join(auditDir, 'management-actions.jsonl'), auditLine + '\n');
+      } catch (err) {
+        // Audit-log failure is surfaced but doesn't fail the run — the DB
+        // change is already committed and verified by this point.
+        process.stderr.write(`warning: failed to append audit log: ${err.message}\n`);
+      }
+    }
     process.stderr.write(
       `backfill-shamrock-invoice-skus: ${dryRun ? 'DRY-RUN ' : ''}` +
         `candidates=${result.candidates} inserted=${result.inserted} ` +
