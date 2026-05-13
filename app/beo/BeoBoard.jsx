@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import PrepHistoryPanel from './PrepHistoryPanel';
 import CoursePanel from './_components/CoursePanel';
+import LariAmbient from '../_components/LariAmbient';
 
 /* ── formatting helpers ───────────────────────────────────────── */
 
@@ -217,6 +218,8 @@ export default function BeoBoard({ initialMenu = [] }) {
           <p className="subtitle">Prep-sheet layout — ITEM, PREP, SECONDARY PREP, ORDER ITEMS. Click any row to expand the recipe dropdowns.</p>
         </div>
       </div>
+
+      <LariAmbient surface="beo" location={data?.location_id} />
 
       {err && <div className="card border-red mb-20 text-red">{err}</div>}
 
