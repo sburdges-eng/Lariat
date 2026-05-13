@@ -362,6 +362,7 @@ describe('syncNormalizedRecipes — vendor-column enrichment', () => {
 
     assert.equal(summary.bom_lines_written, 3);
     assert.equal(summary.vendor_columns_populated, 2);
+    assert.equal(summary.vendor_columns_auto_mapped, 2);
     assert.equal(summary.vendor_columns_unmapped, 1);
 
     const rows = db.prepare(`
@@ -370,15 +371,17 @@ describe('syncNormalizedRecipes — vendor-column enrichment', () => {
         FROM bom_lines WHERE recipe_id='gazpacho' ORDER BY id
     `).all();
 
+    // Direct normalized-name matches land via tier 2 → auto_mapped (machine-
+    // inferred; downstream UIs can flag these for review).
     assert.deepEqual(rows[0], {
       ingredient: 'roma tomatoes', vendor: 'sysco',
       pack_price: 24.5, pack_size: 25, vendor_ingredient: 'Roma Tomatoes',
-      map_status: 'mapped', yield_pct: 0.95, master_id: 'mst_tomato',
+      map_status: 'auto_mapped', yield_pct: 0.95, master_id: 'mst_tomato',
     });
     assert.deepEqual(rows[1], {
       ingredient: 'cucumber english', vendor: 'shamrock',
       pack_price: 18.0, pack_size: 12, vendor_ingredient: 'Cucumber English',
-      map_status: 'mapped', yield_pct: 0.88, master_id: null,
+      map_status: 'auto_mapped', yield_pct: 0.88, master_id: null,
     });
     assert.deepEqual(rows[2], {
       ingredient: 'bell pepper', vendor: null,
@@ -402,16 +405,51 @@ describe('syncNormalizedRecipes — vendor-column enrichment', () => {
     const summary = call({ indexRows, csvByRecipeId });
 
     assert.equal(summary.vendor_columns_populated, 1);
+    assert.equal(summary.vendor_columns_auto_mapped, 0, 'tier-1 bridge match must not increment auto_mapped counter');
     assert.equal(summary.vendor_columns_unmapped, 0);
     const row = db.prepare(`
       SELECT vendor, pack_price, pack_size, vendor_ingredient, map_status, master_id
         FROM bom_lines WHERE recipe_id='gazpacho'
     `).get();
+    // Tier-1 bridge (workbook-confirmed via ingredient_maps) → map_status='mapped'.
     assert.deepEqual(row, {
       vendor: 'shamrock', pack_price: 33.01, pack_size: 36,
       vendor_ingredient: 'SALT, SEA WHT GRANULE 3LB KOSHER',
       map_status: 'mapped', master_id: 'mst_salt',
     });
+  });
+
+  it('distinguishes tier-1 (mapped) from tier-2 (auto_mapped) when both exist in one recipe', () => {
+    // kosher salt → tier 1 bridge → 'mapped'
+    seedIngredientMap('kosher salt', 'SALT, SEA WHT GRANULE 3LB KOSHER');
+    seedVendorPrice({
+      ingredient: 'SALT, SEA WHT GRANULE 3LB KOSHER', vendor: 'shamrock',
+      pack_price: 33.01, pack_size: 36,
+    });
+    // roma tomatoes → no ingredient_map entry; direct name match → tier 2 → 'auto_mapped'
+    seedVendorPrice({
+      ingredient: 'Roma Tomatoes', vendor: 'sysco',
+      pack_price: 24.5, pack_size: 25,
+    });
+
+    const indexRows = [indexRow()];
+    const csvByRecipeId = new Map([
+      ['gazpacho', [
+        ingRow({ ingredient: 'kosher salt', qty: '2', unit: 'tbsp' }),
+        ingRow({ ingredient: 'roma tomatoes', qty: '6', unit: 'lb' }),
+      ]],
+    ]);
+    const summary = call({ indexRows, csvByRecipeId });
+
+    assert.equal(summary.vendor_columns_populated, 2, 'both ingredients got vendor rows');
+    assert.equal(summary.vendor_columns_auto_mapped, 1, 'exactly one is tier-2');
+    assert.equal(summary.vendor_columns_unmapped, 0);
+
+    const byIng = Object.fromEntries(
+      db.prepare(`SELECT ingredient, map_status FROM bom_lines WHERE recipe_id='gazpacho'`).all().map((r) => [r.ingredient, r.map_status]),
+    );
+    assert.equal(byIng['kosher salt'], 'mapped', 'tier-1 bridge must be mapped');
+    assert.equal(byIng['roma tomatoes'], 'auto_mapped', 'tier-2 direct match must be auto_mapped');
   });
 
   it('leaves vendor cols NULL when ingredient resolves to multiple distinct vendors', () => {

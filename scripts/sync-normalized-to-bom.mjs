@@ -242,6 +242,16 @@ function pickSingleVendorRow(entry) {
 
 // Resolve enrichment for one ingredient name. Returns either a vendor-
 // columns object (mapped) or { mapped: false } (unmapped/ambiguous).
+//
+// `tier` distinguishes the resolution path so the caller can pick the
+// right map_status: tier 1 (ingredient_maps bridge → human-confirmed →
+// map_status='mapped') vs tier 2 (direct normalized-name fuzzy match →
+// machine-inferred → map_status='auto_mapped'). The B2 attention queue
+// in lib/costingBenchmarks.mjs treats both as "good" (no review needed)
+// but downstream UIs can filter on map_status='auto_mapped' to flag rows
+// that landed via the fuzzy fallback and may need confirmation. Keeping
+// this distinction honest avoids the HACCP "never silently auto-correct"
+// trap.
 function resolveVendorEnrichment(vpIndex, imIndex, ingredientName) {
   const key = normalizeIngredientKey(ingredientName ?? '');
   if (!key) return { mapped: false };
@@ -255,6 +265,7 @@ function resolveVendorEnrichment(vpIndex, imIndex, ingredientName) {
       if (hit) {
         return {
           mapped: true,
+          tier: 1,
           vendor: hit.vendor ?? null,
           pack_price: hit.pack_price ?? null,
           pack_size: hit.pack_size ?? null,
@@ -271,6 +282,7 @@ function resolveVendorEnrichment(vpIndex, imIndex, ingredientName) {
   if (direct) {
     return {
       mapped: true,
+      tier: 2,
       vendor: direct.vendor ?? null,
       pack_price: direct.pack_price ?? null,
       pack_size: direct.pack_size ?? null,
@@ -308,6 +320,7 @@ export function syncNormalizedRecipes(db, opts) {
     bom_lines_written: 0,
     sub_recipe_links: 0,
     vendor_columns_populated: 0,
+    vendor_columns_auto_mapped: 0,
     vendor_columns_unmapped: 0,
   };
 
@@ -404,14 +417,22 @@ export function syncNormalizedRecipes(db, opts) {
             enrichment = resolveVendorEnrichment(vpIndex, imIndex, name);
             if (enrichment.mapped) {
               summary.vendor_columns_populated++;
+              if (enrichment.tier === 2) summary.vendor_columns_auto_mapped++;
             } else {
               summary.vendor_columns_unmapped++;
             }
           }
 
+          // Tier 1 (ingredient_maps bridge, human-confirmed via ingest-costing)
+          // → 'mapped'. Tier 2 (direct normalized-name fuzzy match, machine-
+          // inferred) → 'auto_mapped'. Both pass GOOD_STATUSES in computeUnmapped
+          // so neither shows in the B2 attention queue, but downstream UIs can
+          // distinguish them by status to surface fuzzy matches for confirmation.
           const mapStatus = subRecipe != null
             ? null
-            : (enrichment.mapped ? 'mapped' : 'UNMAPPED');
+            : (!enrichment.mapped
+                ? 'UNMAPPED'
+                : (enrichment.tier === 2 ? 'auto_mapped' : 'mapped'));
 
           if (!dryRun) {
             insBomLine.run(
