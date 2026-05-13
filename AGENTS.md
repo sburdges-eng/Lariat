@@ -2,6 +2,15 @@
 
 Restaurant F&B operations: recipes, costing, inventory, HACCP, POS. Culinary datasets belong to this project.
 
+## Dev-root boundary
+
+This file is project-local. `~/Dev` is only the workspace container; once a session is inside this repo, use this file plus `CLAUDE.md` and project docs as the active rules.
+
+- Scope searches, build commands, tests, DB work, schema changes, and data-ingest checks to this repository unless a sibling repo is explicitly named.
+- Load project-specific code intelligence, schema/database tooling, audit tooling, and CI checks from this repo's docs only.
+- If work touches another folder inside `~/Dev`, switch to that folder's own `AGENTS.md` before editing there.
+- Do not refresh or rely on a `~/Dev`-wide index as the source of truth for this project.
+
 1. Goal: simplify BOH (back-of-house) operations. If a change makes kitchen/manager workflows more complex, it is wrong.
 2. UI rules: no underscores, no dev-style column names, USD to 2 decimals, "Spring"/"Fall" (never "Shoulder"). STRICT: See `docs/UI_COPY_RULES.md` for mandatory line-cook language constraints (e.g. no SaaS jargon, short labels).
 3. This project is food/restaurant ops — do **not** confuse with COOLIO (image API) despite overlapping "cool" naming.
