@@ -16,6 +16,7 @@ const {
   parseStatusJson,
   pickShowTime,
   parseRunOfShow,
+  computeAttendance,
 } = m;
 
 const baseShow = {
@@ -217,5 +218,82 @@ describe('parseRunOfShow', () => {
     const out = parseRunOfShow(raw);
     assert.equal(out.length, 1);
     assert.equal(out[0].label, 'OK');
+  });
+});
+
+describe('computeAttendance', () => {
+  it('returns status:unset and null percents when capacity is null/0/non-numeric', () => {
+    for (const cap of [null, undefined, 0, -5, NaN, 'oops']) {
+      const a = computeAttendance(50, 100, cap);
+      assert.equal(a.status, 'unset', `cap=${cap} should be unset`);
+      assert.equal(a.scanned_pct, null);
+      assert.equal(a.sold_pct, null);
+      assert.equal(a.capacity, null);
+      assert.equal(a.scanned_qty, 50);
+      assert.equal(a.sold_qty, 100);
+    }
+  });
+
+  it('status=under when scanned < 50% of capacity', () => {
+    const a = computeAttendance(40, 60, 100);
+    assert.equal(a.status, 'under');
+    assert.equal(a.scanned_pct, 40);
+    assert.equal(a.sold_pct, 60);
+    assert.equal(a.capacity, 100);
+  });
+
+  it('status=near at 50% scanned exactly', () => {
+    const a = computeAttendance(50, 80, 100);
+    assert.equal(a.status, 'near');
+    assert.equal(a.scanned_pct, 50);
+  });
+
+  it('status=near at 79% scanned', () => {
+    const a = computeAttendance(79, 90, 100);
+    assert.equal(a.status, 'near');
+  });
+
+  it('status=at at 80% scanned exactly', () => {
+    const a = computeAttendance(80, 100, 100);
+    assert.equal(a.status, 'at');
+    assert.equal(a.scanned_pct, 80);
+  });
+
+  it('status=at at 100% scanned (full house)', () => {
+    const a = computeAttendance(150, 150, 150);
+    assert.equal(a.status, 'at');
+    assert.equal(a.scanned_pct, 100);
+  });
+
+  it('status=over when scanned > capacity (capacity exceeded)', () => {
+    const a = computeAttendance(160, 160, 150);
+    assert.equal(a.status, 'over');
+    assert.ok(a.scanned_pct > 100);
+  });
+
+  it('rounds percent to 0.1% precision', () => {
+    const a = computeAttendance(33, 60, 100);
+    assert.equal(a.scanned_pct, 33);
+    const b = computeAttendance(1, 0, 3);   // 33.3333...
+    assert.equal(b.scanned_pct, 33.3);
+  });
+
+  it('clamps negative scanned/sold to 0', () => {
+    const a = computeAttendance(-10, -5, 100);
+    assert.equal(a.scanned_qty, 0);
+    assert.equal(a.sold_qty, 0);
+    assert.equal(a.status, 'under');
+  });
+
+  it('coerces string/null inputs to 0 without throwing', () => {
+    const a = computeAttendance(null, undefined, 100);
+    assert.equal(a.scanned_qty, 0);
+    assert.equal(a.sold_qty, 0);
+    assert.equal(a.status, 'under');
+  });
+
+  it('floors fractional capacity', () => {
+    const a = computeAttendance(50, 50, 99.9);
+    assert.equal(a.capacity, 99);
   });
 });

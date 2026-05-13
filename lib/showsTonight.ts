@@ -132,6 +132,71 @@ function roundBuckets(b: BoxOfficeSummary['by_source']): BoxOfficeSummary['by_so
   return out;
 }
 
+export type AttendanceStatus = 'unset' | 'under' | 'near' | 'at' | 'over';
+
+export interface Attendance {
+  scanned_qty: number;
+  sold_qty: number;
+  capacity: number | null;
+  scanned_pct: number | null;   // 0-100+, null when capacity is unset
+  sold_pct: number | null;
+  status: AttendanceStatus;
+}
+
+/**
+ * Compute attendance + status from the box-office summary and the venue's
+ * configured capacity. status thresholds (against scanned_pct):
+ *   under: < 50  · near: 50–79  · at: 80–100  · over: > 100
+ * When `capacity` is null/0/non-numeric, status is 'unset' and percent
+ * fields are null — the UI tile renders just the raw scanned count in
+ * that case.
+ *
+ * scanned_qty is the door truth (people physically present). sold_qty
+ * is the tickets-sold count, which the tile uses as a "still to arrive"
+ * delta in the second line.
+ */
+export function computeAttendance(
+  scanned_qty: number | null | undefined,
+  sold_qty: number | null | undefined,
+  capacity: number | null | undefined,
+): Attendance {
+  const scanned = Math.max(0, Number(scanned_qty) || 0);
+  const sold = Math.max(0, Number(sold_qty) || 0);
+  const capNum = Number(capacity);
+  const cap = capacity == null || !Number.isFinite(capNum) || capNum <= 0
+    ? null
+    : Math.floor(capNum);
+
+  if (cap == null) {
+    return {
+      scanned_qty: scanned,
+      sold_qty: sold,
+      capacity: null,
+      scanned_pct: null,
+      sold_pct: null,
+      status: 'unset',
+    };
+  }
+
+  const scannedPct = Math.round((scanned / cap) * 1000) / 10;  // 0.1% precision
+  const soldPct = Math.round((sold / cap) * 1000) / 10;
+
+  let status: AttendanceStatus;
+  if (scannedPct > 100) status = 'over';
+  else if (scannedPct >= 80) status = 'at';
+  else if (scannedPct >= 50) status = 'near';
+  else status = 'under';
+
+  return {
+    scanned_qty: scanned,
+    sold_qty: sold,
+    capacity: cap,
+    scanned_pct: scannedPct,
+    sold_pct: soldPct,
+    status,
+  };
+}
+
 /**
  * Parse status_json defensively. Show ingest writes arbitrary JSON; we
  * only read it. Returns an empty object on parse failure so callers can

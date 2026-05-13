@@ -1,7 +1,7 @@
 import { getDb, todayISO } from '../../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../../lib/location';
 import { requirePin } from '../../../../lib/pin';
-import { summarizeBoxOffice, parseRunOfShow, parseStatusJson } from '../../../../lib/showsTonight';
+import { summarizeBoxOffice, parseRunOfShow, parseStatusJson, computeAttendance } from '../../../../lib/showsTonight';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,9 +45,18 @@ export async function GET(req) {
       )
       .get(loc, date);
 
+    // Venue capacity lives on locations.capacity (per-venue config,
+    // operator-set). NULL → the attendance tile renders without a
+    // percent / status color; everything else still works.
+    const locationRow = db
+      .prepare(`SELECT capacity FROM locations WHERE id = ?`)
+      .get(loc);
+    const venue_capacity = locationRow?.capacity ?? null;
+
     let stage_setup = null;
     let latest_sound_scene = null;
     let box_office_summary = null;
+    let attendance = null;
     let run_of_show = [];
 
     if (show) {
@@ -79,6 +88,11 @@ export async function GET(req) {
         )
         .all(show.id, loc);
       box_office_summary = summarizeBoxOffice(boxLines);
+      attendance = computeAttendance(
+        box_office_summary.scanned_qty,
+        box_office_summary.total_qty,
+        venue_capacity,
+      );
 
       if (stage_setup) {
         run_of_show = parseRunOfShow(stage_setup.run_of_show_json);
@@ -93,6 +107,8 @@ export async function GET(req) {
       stage_setup,
       latest_sound_scene,
       box_office_summary,
+      attendance,
+      venue_capacity,
       run_of_show,
       previous_show: previous_show || null,
     });

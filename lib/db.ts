@@ -3163,6 +3163,19 @@ function migrateLegacyColumns(db: DB): void {
     if (!beoLineCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
   }
 
+  // Per-venue max attendance, used by the Tonight · Live attendance tile
+  // to render scanned-vs-capacity. NULL = capacity not set; the tile
+  // renders the basic "X scanned" indicator and skips the percent /
+  // status color in that case. Operators set this once via SQL or a
+  // future settings UI; not auto-detected.
+  const locationCols = t('locations');
+  const locationMigrations: [string, string][] = [
+    ['capacity', 'ALTER TABLE locations ADD COLUMN capacity INTEGER'],
+  ];
+  for (const [col, ddl] of locationMigrations) {
+    if (!locationCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
+  }
+
   // T7: per-course station_id. Recon showed dish_components has no
   // station_id column, so the SPEC's join chain doesn't work. Per
   // operator mental model ("the entree course goes to grill"),
