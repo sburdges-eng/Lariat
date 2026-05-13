@@ -3011,6 +3011,31 @@ function migrateLegacyColumns(db: DB): void {
     `);
   } catch { /* ignore */ }
 
+  // GH #249 — reserve-then-run race fix.
+  //
+  // Pre-fix the withIdempotency wrapper did `lookup → handler() → store`.
+  // Two concurrent identical requests both passed the lookup miss, both
+  // ran the handler (duplicate audit rows + duplicate writes), then one
+  // INSERT lost the PK conflict and the loser silently swallowed it.
+  //
+  // Post-fix the wrapper reserves the slot up-front by inserting with
+  // status='pending'. The second concurrent caller loses the INSERT
+  // race, reads the row, and returns 409 "in flight" instead of running
+  // the handler. On success the row flips to 'complete' with the real
+  // response body; on throw / 401 the row is DELETEd so the next attempt
+  // can run fresh.
+  //
+  // Existing rows are pre-migration completed writes — default 'complete'
+  // is correct.
+  const idemCols = t('idempotency_keys');
+  if (!idemCols.includes('status')) {
+    try {
+      db.exec(
+        `ALTER TABLE idempotency_keys ADD COLUMN status TEXT NOT NULL DEFAULT 'complete'`,
+      );
+    } catch { /* ignore */ }
+  }
+
   // F15 (FDA §3-301.11): glove-change attestation on each line-check row
   // that touches ready-to-eat food. NULL on pre-migration rows so the
   // backfill is additive and the legacy data stays queryable.

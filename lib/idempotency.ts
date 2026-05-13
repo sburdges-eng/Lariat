@@ -10,39 +10,60 @@
 // Plan: docs/superpowers/plans/2026-05-02-sw-replay-idempotency-plan.md
 // Found via: docs/agentic/findings/2026-05-02-sw-replay-no-idempotency.md
 //
-// Contract — three cases the wrapper distinguishes:
+// GH #249 — reserve-then-run race fix. Pre-fix the flow was
+// `lookup → handler() → store`. Two concurrent identical requests both
+// passed the lookup miss, both ran the handler (duplicate audit rows +
+// duplicate writes), then one INSERT lost the PK conflict and the loser
+// silently swallowed it. Now the wrapper reserves the slot up-front by
+// inserting with status='pending'; the second concurrent caller loses
+// the INSERT race, reads the row, and returns 409 "in flight" instead
+// of running the handler.
+//
+// Contract — five cases the wrapper distinguishes:
 //
 //   1. No `idempotency-key` header on the request
 //      → handler runs unchanged; nothing cached.
 //
 //   2. Key present, no cache row (or row aged out via 24h TTL)
-//      → handler runs; the (status, body) pair is cached keyed on
-//        (key, request_hash). Subsequent replays hit case 3.
+//      → claim slot as 'pending', run handler, flip to 'complete'.
+//        Subsequent replays hit case 3.
 //
-//   3. Key present, cache row matches the (key + request_hash)
+//   3. Key present, cache row matches the (key + request_hash) AND
+//      status='complete'
 //      → handler does NOT run; cached response is returned verbatim.
-//        No second audit row, no second DB write.
 //
 //   3'. Key present, cache row exists, request_hash mismatches
 //       → 409 with `idempotency-key reused for a different request`.
-//         Guards against a buggy client that re-uses keys for
-//         distinct mutations.
 //
-// The cache write happens after the handler returns; if the handler
-// throws, nothing is cached and the next attempt runs the handler
-// fresh. Audit posting per docs/PATTERNS.md §3 stays inside the
-// handler's own db.transaction; the wrapper does NOT span the audit
-// transaction boundary.
+//   4. Key present, cache row exists, status='pending'
+//      → 409 with `idempotency-key in flight`. The first request is
+//        still running; the SW (or human) is expected to retry. The
+//        pending row is reaped after 60s if the process crashed.
+//
+// On a handler throw or a 401 response the wrapper DELETEs the pending
+// row so the next attempt runs fresh (auth state is per-request, not
+// keyed on body).
 
 import { createHash } from 'node:crypto';
 import { getDb } from './db.ts';
 
 const KEY_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 
+/**
+ * Pending rows older than this are treated as orphaned (the process
+ * holding them must have crashed) and reaped on the next sweep. 60s
+ * comfortably exceeds the longest legitimate Lariat handler — Ollama
+ * specials calls cap at 120s but those routes have their own timeout
+ * and complete (or 502) cleanly, so a pending row from those will
+ * either be DELETEd by the wrapper's catch path or by this sweep.
+ */
+const PENDING_REAP_SECONDS = 60;
+
 interface CachedResponse {
   request_hash: string;
   response_status: number;
   response_body: string;
+  status: 'pending' | 'complete';
 }
 
 /**
@@ -61,13 +82,21 @@ function hashRequest(method: string, path: string, body: string): string {
 }
 
 /**
- * Lazy sweep — drop rows older than 24h. Called from inside the
- * wrapper so there's no background job. Cheap on a small table.
+ * Lazy sweep — drop completed rows older than 24h and any pending row
+ * that has clearly orphaned (process holding it crashed). Called from
+ * inside the wrapper so there's no background job. Cheap on a small
+ * table.
  */
 function sweepExpired(db: ReturnType<typeof getDb>): void {
   db.prepare(
-    `DELETE FROM idempotency_keys WHERE created_at < datetime('now', '-1 day')`,
+    `DELETE FROM idempotency_keys
+      WHERE status = 'complete' AND created_at < datetime('now', '-1 day')`,
   ).run();
+  db.prepare(
+    `DELETE FROM idempotency_keys
+      WHERE status = 'pending'
+        AND created_at < datetime('now', ?)`,
+  ).run(`-${PENDING_REAP_SECONDS} seconds`);
 }
 
 function lookup(
@@ -76,27 +105,65 @@ function lookup(
 ): CachedResponse | undefined {
   return db
     .prepare(
-      `SELECT request_hash, response_status, response_body
+      `SELECT request_hash, response_status, response_body, status
          FROM idempotency_keys
         WHERE key = ?`,
     )
     .get(key) as CachedResponse | undefined;
 }
 
-function store(
+/**
+ * Try to reserve the slot atomically by inserting a row with
+ * status='pending'. Returns true on success, false on PK conflict
+ * (another request beat us to it). Re-throws on any other DB error.
+ */
+function tryClaimSlot(
   db: ReturnType<typeof getDb>,
   key: string,
   method: string,
   path: string,
   request_hash: string,
+): boolean {
+  try {
+    db.prepare(
+      `INSERT INTO idempotency_keys
+         (key, method, path, request_hash, response_status, response_body, status)
+       VALUES (?, ?, ?, ?, 0, '', 'pending')`,
+    ).run(key, method, path, request_hash);
+    return true;
+  } catch (e) {
+    if (isUniqueConflict(e)) return false;
+    throw e;
+  }
+}
+
+function isUniqueConflict(e: unknown): boolean {
+  if (!e || typeof e !== 'object') return false;
+  const code = (e as { code?: string }).code;
+  return (
+    code === 'SQLITE_CONSTRAINT_PRIMARYKEY' ||
+    code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+    code === 'SQLITE_CONSTRAINT'
+  );
+}
+
+function releaseSlot(db: ReturnType<typeof getDb>, key: string): void {
+  db.prepare(`DELETE FROM idempotency_keys WHERE key = ?`).run(key);
+}
+
+function completeSlot(
+  db: ReturnType<typeof getDb>,
+  key: string,
   response_status: number,
   response_body: string,
 ): void {
   db.prepare(
-    `INSERT INTO idempotency_keys
-       (key, method, path, request_hash, response_status, response_body)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(key, method, path, request_hash, response_status, response_body);
+    `UPDATE idempotency_keys
+        SET response_status = ?,
+            response_body = ?,
+            status = 'complete'
+      WHERE key = ?`,
+  ).run(response_status, response_body, key);
 }
 
 /**
@@ -105,9 +172,10 @@ function store(
  *
  * The handler must return a Response. If the handler throws, the
  * wrapper does NOT cache — the next attempt runs the handler fresh.
- * Non-2xx responses ARE cached: a 422 on a malformed request is the
- * correct response on retry too, and re-running the handler would
- * just produce the same 422 again with extra audit noise.
+ * Non-2xx responses other than 401 ARE cached: a 422 on a malformed
+ * request is the correct response on retry too, and re-running the
+ * handler would just produce the same 422 again with extra audit
+ * noise. 401 is the per-request auth carve-out — never cached.
  */
 export async function withIdempotency(
   req: Request,
@@ -139,14 +207,36 @@ export async function withIdempotency(
     // distinguishes (method, path).
   }
 
-  const path = new URL(req.url).pathname;
-  const request_hash = hashRequest(req.method, path, body);
+  const reqPath = new URL(req.url).pathname;
+  const request_hash = hashRequest(req.method, reqPath, body);
 
   const db = getDb();
   sweepExpired(db);
 
-  const cached = lookup(db, key);
-  if (cached) {
+  // Reserve-then-run: try to claim the slot. If someone else owns it
+  // (pending or complete), read what they have and respond accordingly.
+  const ownedSlot = tryClaimSlot(db, key, req.method, reqPath, request_hash);
+
+  if (!ownedSlot) {
+    const cached = lookup(db, key);
+    if (!cached) {
+      // Race: the row was swept (or DELETEd) between our INSERT
+      // attempt and the SELECT. Recurse once — the slot is now free.
+      return withIdempotency(req, handler);
+    }
+    if (cached.status === 'pending') {
+      // Concurrent identical request is still in flight. The whole
+      // point of #249: do NOT run the handler again. The SW (or the
+      // user) is expected to retry after the in-flight one resolves.
+      return Response.json(
+        {
+          error:
+            'idempotency-key in flight — first request is still being processed, retry shortly',
+        },
+        { status: 409 },
+      );
+    }
+    // status === 'complete'
     if (cached.request_hash !== request_hash) {
       return Response.json(
         {
@@ -162,24 +252,25 @@ export async function withIdempotency(
     });
   }
 
-  const res = await handler();
+  // We own the slot. Run the handler; on throw or 401 release the slot
+  // so the next attempt runs fresh. Otherwise UPDATE to 'complete'.
+  let res: Response;
+  try {
+    res = await handler();
+  } catch (e) {
+    releaseSlot(db, key);
+    throw e;
+  }
 
-  // 401 short-circuit: auth state is per-request, NOT a function of
-  // (key + body). Caching a 401 against the (key, body) tuple confused-
-  // deputies a user who taps Save without a PIN, then authenticates,
-  // then taps Save again with the same key — they get back the cached
-  // 401 instead of the post-auth 200. Always re-run the handler on
-  // the next attempt by skipping the cache write here.
-  // 422 / 4xx for malformed body remain cached: they ARE deterministic
-  // for a given body, so re-running just produces the same response
-  // with extra audit noise.
+  // 401 carve-out: auth state is per-request, NOT a function of
+  // (key + body). Caching a 401 would confused-deputy a user who taps
+  // Save without a PIN, authenticates, then re-taps Save with the same
+  // key. Release the slot so the next attempt runs the handler.
   if (res.status === 401) {
+    releaseSlot(db, key);
     return res;
   }
 
-  // Cache the response. We clone before reading text() so the caller
-  // can still use res normally. Non-2xx responses (other than 401 above)
-  // ARE cached — see function header comment.
   let responseBody = '';
   try {
     responseBody = await res.clone().text();
@@ -189,14 +280,7 @@ export async function withIdempotency(
     // but safe.
   }
 
-  try {
-    store(db, key, req.method, path, request_hash, res.status, responseBody);
-  } catch {
-    // UNIQUE conflict on key (rare race): another concurrent request
-    // got there first. The handler already ran, so just return the
-    // current response — the cache will dedupe future replays.
-  }
-
+  completeSlot(db, key, res.status, responseBody);
   return res;
 }
 
