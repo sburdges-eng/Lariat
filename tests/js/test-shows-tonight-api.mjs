@@ -214,6 +214,30 @@ describe('GET /api/shows/tonight — show present', () => {
     assert.equal(j.show.band_name, 'April 30 Band');
   });
 
+  it('per-show capacity override beats locations.capacity in effective_capacity', async () => {
+    conn.prepare(`UPDATE locations SET capacity = ? WHERE id = ?`).run(220, 'default');
+    const id = seedShow({ band: 'Override Band', status: { capacity: 180 } });
+    seedBoxLine(id, { source: 'dice', qty: 162, face: 20, scanned: true });
+    const res = await route.GET(makeReq({ path: `/api/shows/tonight?date=${DATE}` }));
+    const j = await res.json();
+    assert.equal(j.venue_capacity, 220);
+    assert.equal(j.effective_capacity, 180);
+    assert.equal(j.capacity_override, 180);
+    // 162/180 = 90% → 'at' (>=80%)
+    assert.equal(j.attendance.capacity, 180);
+    assert.equal(j.attendance.status, 'at');
+    void id;
+  });
+
+  it('falls back to venue capacity when status_json.capacity is 0/invalid', async () => {
+    conn.prepare(`UPDATE locations SET capacity = ? WHERE id = ?`).run(220, 'default');
+    seedShow({ band: 'No Override', status: { capacity: 0 } });
+    const res = await route.GET(makeReq({ path: `/api/shows/tonight?date=${DATE}` }));
+    const j = await res.json();
+    assert.equal(j.effective_capacity, 220);
+    assert.equal(j.capacity_override, null);
+  });
+
   it('does NOT cross locations', async () => {
     // Seed a show in a non-default location with the same date — the
     // default-location request must NOT see it.

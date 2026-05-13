@@ -297,3 +297,122 @@ export function soundCompleteness(scenes: SoundScene[]): SoundCompleteness {
     score: milestones / 3,
   };
 }
+
+// ── SPL telemetry ─────────────────────────────────────────────────
+//
+// Append-only time-series of dB readings (V3). Schema lives next to
+// sound_scenes in lib/db.ts. Operational data — audited via the file
+// stream (auditLog.mjs), not the regulated DB stream.
+
+export interface SplReadingRow {
+  id: number;
+  show_id: number;
+  location_id: string;
+  scene_id: number | null;
+  db_value: number;
+  taken_at: string;
+  taken_by_cook_id: string | null;
+  notes: string | null;
+}
+
+export interface AppendSplReadingInput {
+  show_id: number;
+  location_id: string;
+  scene_id?: number | null;
+  db_value: number;
+  taken_by_cook_id?: string | null;
+  notes?: string | null;
+}
+
+const SPL_MIN_DB = 30;
+const SPL_MAX_DB = 160;
+
+export function appendSplReading(
+  db: Database,
+  input: AppendSplReadingInput,
+): SplReadingRow {
+  if (!Number.isInteger(input.show_id) || input.show_id <= 0) {
+    throw new Error('show_id must be a positive integer');
+  }
+  const dbValue = Number(input.db_value);
+  if (!Number.isFinite(dbValue) || dbValue < SPL_MIN_DB || dbValue > SPL_MAX_DB) {
+    throw new Error(`db_value must be a finite number in [${SPL_MIN_DB}, ${SPL_MAX_DB}]`);
+  }
+  const sceneId =
+    input.scene_id == null
+      ? null
+      : (Number.isInteger(input.scene_id) && (input.scene_id as number) > 0
+          ? (input.scene_id as number)
+          : null);
+
+  const tx = db.transaction((): SplReadingRow => {
+    const info = db
+      .prepare(
+        `INSERT INTO spl_readings
+           (show_id, location_id, scene_id, db_value, taken_by_cook_id, notes)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        input.show_id,
+        input.location_id,
+        sceneId,
+        dbValue,
+        input.taken_by_cook_id ?? null,
+        input.notes ?? null,
+      );
+    const row = db
+      .prepare(`SELECT * FROM spl_readings WHERE id = ?`)
+      .get(Number(info.lastInsertRowid)) as SplReadingRow;
+    logAuditAction({
+      action: 'spl_reading_added',
+      show_id: input.show_id,
+      location_id: input.location_id,
+      scene_id: sceneId,
+      db_value: dbValue,
+      taken_by_cook_id: input.taken_by_cook_id ?? null,
+    });
+    return row;
+  });
+  return tx();
+}
+
+export interface ListSplReadingsOpts {
+  sinceIso?: string;
+  limit?: number;
+}
+
+/**
+ * Returns readings ordered oldest → newest so the sparkline can draw
+ * left-to-right without re-sorting. The underlying query sorts DESC
+ * + LIMIT to bound the read; we reverse before returning.
+ */
+export function listSplReadings(
+  db: Database,
+  show_id: number,
+  location_id: string,
+  opts: ListSplReadingsOpts = {},
+): SplReadingRow[] {
+  const limit = Math.max(1, Math.min(2000, Math.floor(Number(opts.limit) || 200)));
+  const since = typeof opts.sinceIso === 'string' && opts.sinceIso.trim()
+    ? opts.sinceIso.trim()
+    : null;
+
+  const rows = since
+    ? (db
+        .prepare(
+          `SELECT * FROM spl_readings
+            WHERE show_id = ? AND location_id = ? AND taken_at >= ?
+            ORDER BY datetime(taken_at) DESC, id DESC
+            LIMIT ?`,
+        )
+        .all(show_id, location_id, since, limit) as SplReadingRow[])
+    : (db
+        .prepare(
+          `SELECT * FROM spl_readings
+            WHERE show_id = ? AND location_id = ?
+            ORDER BY datetime(taken_at) DESC, id DESC
+            LIMIT ?`,
+        )
+        .all(show_id, location_id, limit) as SplReadingRow[]);
+  return rows.reverse();
+}

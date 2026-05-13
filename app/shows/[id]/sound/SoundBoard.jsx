@@ -1,6 +1,8 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { humanize } from '../../../../lib/userError';
+import SparklineSpl from './_components/SparklineSpl';
+import StagePlotSvg from './_components/StagePlotSvg';
 
 const AUTOSAVE_INTERVAL_MS = 30_000;
 
@@ -52,6 +54,11 @@ export default function SoundBoard({ showId, locationId, initialScenes, complete
 
   const lastHashRef = useRef(null);
   const inFlightRef = useRef(null); // promise of current save
+
+  // Live-parse plotText so the StagePlotSvg preview updates as the
+  // engineer edits the textarea. Falls back to the empty plot when
+  // the JSON is mid-edit (parse failure); doesn't gate the autosave.
+  const currentPlot = useMemo(() => parsePlot(plotText) ?? emptyPlot(), [plotText]);
 
   const refresh = useCallback(async () => {
     const url = `/api/shows/${showId}/sound${locationId !== 'default' ? `?location=${locationId}` : ''}`;
@@ -230,6 +237,25 @@ export default function SoundBoard({ showId, locationId, initialScenes, complete
           onBlur={() => save().catch(() => {})}
         />
       </label>
+
+      <SparklineSpl
+        showId={showId}
+        locationId={locationId}
+        sceneId={currentSceneId}
+        sceneSplLimit={Number(splLimit) > 0 ? Number(splLimit) : null}
+      />
+
+      <details style={{ marginBottom: 14 }} open>
+        <summary
+          className="row-meta"
+          style={{ cursor: 'pointer', userSelect: 'none', marginBottom: 8 }}
+        >
+          Stage plot preview · {currentPlot.channels.length} channels · {currentPlot.monitors.length} monitors
+        </summary>
+        <div className="card" style={{ padding: 8 }}>
+          <StagePlotSvg plot={currentPlot} />
+        </div>
+      </details>
 
       <label style={{ display: 'block', marginBottom: 14 }}>
         <div className="row-meta">

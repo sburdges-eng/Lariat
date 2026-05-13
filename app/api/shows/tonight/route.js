@@ -1,7 +1,13 @@
 import { getDb, todayISO } from '../../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../../lib/location';
 import { requirePin } from '../../../../lib/pin';
-import { summarizeBoxOffice, parseRunOfShow, parseStatusJson, computeAttendance } from '../../../../lib/showsTonight';
+import {
+  summarizeBoxOffice,
+  parseRunOfShow,
+  parseStatusJson,
+  computeAttendance,
+  pickEffectiveCapacity,
+} from '../../../../lib/showsTonight';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +65,13 @@ export async function GET(req) {
     let attendance = null;
     let run_of_show = [];
 
+    const show_status = show ? parseStatusJson(show.status_json) : {};
+    const effective_capacity = pickEffectiveCapacity(show_status, venue_capacity);
+    const capacity_override = show && Number.isFinite(Number(show_status.capacity))
+      && Number(show_status.capacity) > 0
+      ? Math.floor(Number(show_status.capacity))
+      : null;
+
     if (show) {
       stage_setup = db
         .prepare(
@@ -91,7 +104,7 @@ export async function GET(req) {
       attendance = computeAttendance(
         box_office_summary.scanned_qty,
         box_office_summary.total_qty,
-        venue_capacity,
+        effective_capacity,
       );
 
       if (stage_setup) {
@@ -103,14 +116,17 @@ export async function GET(req) {
       location_id: loc,
       date,
       show: show || null,
-      show_status: show ? parseStatusJson(show.status_json) : {},
+      show_status,
       stage_setup,
       latest_sound_scene,
       box_office_summary,
       attendance,
       venue_capacity,
+      effective_capacity,
+      capacity_override,
       run_of_show,
       previous_show: previous_show || null,
+      server_time: new Date().toISOString(),
     });
   } catch (err) {
     console.error('GET /api/shows/tonight failed:', err);
