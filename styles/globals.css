@@ -2326,3 +2326,142 @@ textarea.input { resize: vertical; }
   font-size: 12px;
   line-height: 1.5;
 }
+
+/* ── LaRi ambient strip (V5) ────────────────────────────────────────
+   Top-of-surface predictive read. Lives above the page content on
+   BeoBoard and (future PRs) other manager-class surfaces. Uses tokens
+   from styles/tokens.css (#235) — falls back to hex when var() is
+   unresolvable. */
+
+.lari-ambient {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  margin-bottom: 16px;
+  background: linear-gradient(180deg, rgba(29, 26, 21, 0.96), rgba(29, 26, 21, 0.92));
+  color: var(--cream, #f8f3e7);
+  border: 1px solid var(--char, #3a3530);
+  border-radius: 6px;
+  box-shadow: var(--shadow-2, 0 6px 24px rgba(29, 26, 21, 0.10));
+  position: relative;
+}
+.lari-ambient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(140% 60% at 50% 0%, rgba(200, 90, 42, 0.16), transparent 60%);
+}
+.lari-ambient-dense { padding: 10px 14px; gap: 10px; }
+
+.lari-ambient-label {
+  font-family: var(--mono, 'JetBrains Mono', ui-monospace, monospace);
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  color: var(--ember-glow, #e8784a);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.lari-ambient-items {
+  flex: 1;
+  display: flex;
+  gap: 18px;
+  overflow: hidden;
+  align-items: center;
+  min-width: 0;
+}
+.lari-ambient-empty {
+  font-size: 12px;
+  color: var(--muted-2, #a89e8a);
+  font-style: italic;
+}
+
+.lari-ambient-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  font-size: 13px;
+  max-width: 420px;
+  color: var(--cream, #f8f3e7);
+}
+.lari-ambient-dense .lari-ambient-slot { max-width: 280px; font-size: 12px; }
+.lari-ambient-slot-muted { opacity: 0.7; }
+
+.lari-ambient-text {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  min-width: 0;
+}
+.lari-ambient-action {
+  font-family: var(--mono, 'JetBrains Mono', ui-monospace, monospace);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--ember-glow, #e8784a);
+  padding: 2px 6px;
+  border: 1px solid rgba(200, 90, 42, 0.4);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.lari-ambient-ask.btn {
+  background: transparent;
+  color: var(--ember-glow, #e8784a) !important;
+  border: 1px solid var(--char, #3a3530);
+  font-size: 9.5px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+.lari-ambient-ask.btn:hover {
+  background: rgba(200, 90, 42, 0.12);
+  border-color: var(--ember, #c85a2a);
+}
+
+/* dots — severity indicators on each prediction slot */
+.lari-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  background: var(--muted, #7b7268);
+}
+.lari-dot-ok    { background: var(--sage, #5d7a66); }
+.lari-dot-warn  { background: var(--brass, #b8892f); }
+.lari-dot-alert { background: var(--ember, #c85a2a); }
+
+/* orb — pulsing brand mark next to the "LaRi" label */
+.lari-orb {
+  width: 22px;
+  height: 22px;
+  position: relative;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.lari-orb.sm { width: 14px; height: 14px; }
+.lari-orb-core {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, var(--ember-glow, #e8784a), var(--ember-deep, #9a3f1a) 60%, #4a1e0c);
+  box-shadow: 0 0 16px rgba(200, 90, 42, 0.45), inset 0 1px 2px rgba(255, 255, 255, 0.25);
+}
+.lari-orb-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1px solid rgba(200, 90, 42, 0.35);
+  animation: lari-pulse 2.4s cubic-bezier(0.2, 0.7, 0.2, 1) infinite;
+}
+.lari-orb.sm .lari-orb-ring { inset: -3px; }
+@keyframes lari-pulse {
+  0%   { transform: scale(0.85); opacity: 0.9; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lari-orb-ring { animation: none; opacity: 0.5; }
+}
