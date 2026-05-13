@@ -237,6 +237,142 @@ export function buildBeoPredictions(inputs: BeoPredictionInputs): LariPrediction
   return trimPredictions(out);
 }
 
+// ── Sound-engineer prediction builder ─────────────────────────────
+
+export interface SoundScenesInput {
+  id: number;
+  scene_name: string;
+  spl_limit_db: number | null;
+  plot: { channels?: unknown[]; monitors?: unknown[] } | null;
+  saved_at: string;
+}
+
+export interface SplSummaryInput {
+  count: number;
+  latest: number | null;
+  peak: number | null;
+  over_limit_count: number;
+  limit_db: number | null;
+}
+
+export interface SoundPredictionInputs {
+  show_id: number;
+  band_name: string | null;
+  scenes: readonly SoundScenesInput[];
+  spl_summary: SplSummaryInput | null;
+  today: string;
+}
+
+/**
+ * Deterministic V6 sound-surface stub. Walks the supplied scene list +
+ * SPL summary and emits up to 5 predictions ranked by severity. Uses
+ * the same contract as buildBeoPredictions — same trimPredictions cap,
+ * same shape, same naming. The strip component renders both surfaces
+ * identically.
+ *
+ * Heuristics (severity rank, alert first):
+ *   alert  · last reading exceeded scene SPL limit (`over_limit_count`>0)
+ *   alert  · current peak ≥ limit AND no scene saved (running blind)
+ *   warn   · no sound scene saved for this show
+ *   warn   · scene saved but spl_limit_db is null (no ceiling set)
+ *   warn   · scene saved but plot has no channels (stage plot empty)
+ *   ok     · in-band rollup: "N readings tonight, peak X dB"
+ */
+export function buildSoundPredictions(inputs: SoundPredictionInputs): LariPrediction[] {
+  const { show_id, band_name, scenes, spl_summary } = inputs;
+  if (!Array.isArray(scenes)) return [];
+
+  const out: LariPrediction[] = [];
+  const showLabel = band_name ? `"${band_name}"` : `show #${show_id}`;
+
+  // alert · over-limit readings
+  if (spl_summary && spl_summary.over_limit_count > 0 && spl_summary.limit_db != null) {
+    out.push({
+      id: `sound-over-limit-${show_id}`,
+      surface: 'sound',
+      severity: 'alert',
+      text: `SPL exceeded ${spl_summary.limit_db} dB on ${spl_summary.over_limit_count} reading${spl_summary.over_limit_count === 1 ? '' : 's'} — pull the mains.`,
+      action: 'open SPL log',
+      source: `spl_readings:${show_id}`,
+    });
+  }
+
+  // alert · running blind (peak hot, no scene saved)
+  if (
+    spl_summary &&
+    spl_summary.peak != null &&
+    spl_summary.peak >= 100 &&
+    scenes.length === 0
+  ) {
+    out.push({
+      id: `sound-running-blind-${show_id}`,
+      surface: 'sound',
+      severity: 'alert',
+      text: `Peak ${spl_summary.peak} dB tonight and no scene saved for ${showLabel}.`,
+      action: 'save scene',
+      source: `sound_scenes:${show_id}`,
+    });
+  }
+
+  // warn · no scene saved at all
+  if (scenes.length === 0 && !(spl_summary && spl_summary.peak != null && spl_summary.peak >= 100)) {
+    out.push({
+      id: `sound-no-scene-${show_id}`,
+      surface: 'sound',
+      severity: 'warn',
+      text: `No sound scene saved yet for ${showLabel}.`,
+      action: 'save scene',
+      source: `sound_scenes:${show_id}`,
+    });
+  }
+
+  // warn · scene saved but spl_limit_db is null
+  if (scenes.length > 0 && !scenes.some((s) => s.spl_limit_db != null)) {
+    out.push({
+      id: `sound-no-limit-${show_id}`,
+      surface: 'sound',
+      severity: 'warn',
+      text: `Scene saved but no SPL ceiling set — ${showLabel} is running uncapped.`,
+      action: 'set limit',
+      source: `sound_scenes:${show_id}`,
+    });
+  }
+
+  // warn · plot empty (no channels on most-recent scene)
+  if (scenes.length > 0) {
+    const latest = scenes[0];
+    const channels = Array.isArray(latest.plot?.channels) ? latest.plot.channels : [];
+    if (channels.length === 0) {
+      out.push({
+        id: `sound-empty-plot-${show_id}`,
+        surface: 'sound',
+        severity: 'warn',
+        text: `Stage plot for "${latest.scene_name}" has no channels listed.`,
+        action: 'open plot',
+        source: `sound_scenes:${latest.id}`,
+      });
+    }
+  }
+
+  // ok · in-band rollup
+  if (
+    spl_summary &&
+    spl_summary.count > 0 &&
+    spl_summary.over_limit_count === 0 &&
+    spl_summary.peak != null
+  ) {
+    out.push({
+      id: `sound-rollup-${show_id}`,
+      surface: 'sound',
+      severity: 'ok',
+      text: `${spl_summary.count} reading${spl_summary.count === 1 ? '' : 's'} tonight · peak ${spl_summary.peak} dB · in band.`,
+      source: `spl_readings:${show_id}:rollup`,
+    });
+  }
+
+  return trimPredictions(out);
+}
+
 /**
  * Calendar-day distance between two ISO YYYY-MM-DD strings. Returns 0
  * for identical dates, a positive integer for end > start, -1 for any
