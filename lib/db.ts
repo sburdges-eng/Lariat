@@ -1136,6 +1136,30 @@ export function initSchema(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_reservations_status
       ON reservations(location_id, status, reservation_at);
 
+    -- Host-stand waitlist (V6b). Append-only-ish: status transitions
+    -- waiting → seated | left, both terminal. seated_at / left_at carry
+    -- the resolution timestamp. Operational data (no HACCP, no cash) —
+    -- audited via auditLog.mjs (file stream), not the regulated DB
+    -- stream. Party_name is host-supplied free text; quoted-pair-style
+    -- "Dabaja x4" entries are normal kitchen shorthand.
+    CREATE TABLE IF NOT EXISTS waitlist_parties (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      party_name TEXT NOT NULL,
+      party_size INTEGER NOT NULL,
+      joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+      status TEXT NOT NULL DEFAULT 'waiting'
+        CHECK(status IN ('waiting','seated','left')),
+      seated_at TEXT,
+      left_at TEXT,
+      phone TEXT,
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_waitlist_parties_loc_status
+      ON waitlist_parties(location_id, status, joined_at);
+
     -- Front-of-house dining-room layout. One row per physical table or
     -- bar seat. (x, y) is the top-left corner in an arbitrary unit grid;
     -- (w, h) is the table's footprint. status is the live state — open is

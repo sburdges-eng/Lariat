@@ -16,6 +16,7 @@ const {
   trimPredictions,
   buildBeoPredictions,
   buildSoundPredictions,
+  buildHostPredictions,
   daysUntil,
 } = m;
 
@@ -377,5 +378,89 @@ describe('buildSoundPredictions', () => {
     const inputs = { ...baseInputs(), band_name: null };
     const out = buildSoundPredictions(inputs);
     assert.match(out[0].text, /show #42/);
+  });
+});
+
+describe('buildHostPredictions', () => {
+  const TODAY = '2026-05-13';
+  const baseSummary = () => ({
+    total: 0,
+    waiting: 0,
+    seated_today: 0,
+    left_today: 0,
+    avg_wait_minutes: null,
+    longest_wait_minutes: null,
+    longest_wait_party_id: null,
+  });
+
+  it('returns [] when summary is null', () => {
+    assert.deepEqual(buildHostPredictions({ summary: null, today: TODAY }), []);
+  });
+
+  it('returns [] when no activity (all zeros)', () => {
+    assert.deepEqual(buildHostPredictions({ summary: baseSummary(), today: TODAY }), []);
+  });
+
+  it('emits ALERT for long-wait party (>45 min)', () => {
+    const summary = { ...baseSummary(), waiting: 1, longest_wait_minutes: 60, longest_wait_party_id: 7 };
+    const out = buildHostPredictions({ summary, today: TODAY });
+    const alert = out.find((p) => p.id === 'host-long-wait-7');
+    assert.ok(alert);
+    assert.equal(alert.severity, 'alert');
+    assert.match(alert.text, /60 min/);
+  });
+
+  it('does NOT emit long-wait alert when at the 45-min boundary', () => {
+    const summary = { ...baseSummary(), waiting: 1, longest_wait_minutes: 45, longest_wait_party_id: 7 };
+    const out = buildHostPredictions({ summary, today: TODAY });
+    assert.equal(out.find((p) => p.id === 'host-long-wait-7'), undefined);
+  });
+
+  it('emits ALERT overflow when waiting > 8', () => {
+    const summary = { ...baseSummary(), waiting: 9 };
+    const out = buildHostPredictions({ summary, today: TODAY });
+    const alert = out.find((p) => p.id === `host-overflow-${TODAY}`);
+    assert.ok(alert);
+    assert.equal(alert.severity, 'alert');
+  });
+
+  it('emits WARN busy when 5 < waiting ≤ 8', () => {
+    const summary = { ...baseSummary(), waiting: 6 };
+    const out = buildHostPredictions({ summary, today: TODAY });
+    const warn = out.find((p) => p.id === `host-busy-${TODAY}`);
+    assert.ok(warn);
+    assert.equal(warn.severity, 'warn');
+  });
+
+  it('does NOT double-emit busy + overflow together', () => {
+    const summary = { ...baseSummary(), waiting: 10 };
+    const out = buildHostPredictions({ summary, today: TODAY });
+    assert.equal(out.find((p) => p.id === `host-busy-${TODAY}`), undefined);
+    assert.ok(out.find((p) => p.id === `host-overflow-${TODAY}`));
+  });
+
+  it('emits WARN when avg_wait_minutes > 30', () => {
+    const summary = { ...baseSummary(), seated_today: 5, avg_wait_minutes: 35 };
+    const out = buildHostPredictions({ summary, today: TODAY });
+    assert.ok(out.find((p) => p.id === `host-avg-wait-${TODAY}`));
+  });
+
+  it('emits OK rollup with seated + waiting counts', () => {
+    const summary = { ...baseSummary(), waiting: 2, seated_today: 4, avg_wait_minutes: 18 };
+    const out = buildHostPredictions({ summary, today: TODAY });
+    const ok = out.find((p) => p.id === `host-rollup-${TODAY}`);
+    assert.ok(ok);
+    assert.equal(ok.severity, 'ok');
+    assert.match(ok.text, /4 seated today · 2 waiting/);
+    assert.match(ok.text, /avg 18 min/);
+  });
+
+  it('caps total predictions at 5', () => {
+    const summary = {
+      total: 12, waiting: 12, seated_today: 8, left_today: 1,
+      avg_wait_minutes: 50, longest_wait_minutes: 99, longest_wait_party_id: 42,
+    };
+    const out = buildHostPredictions({ summary, today: TODAY });
+    assert.ok(out.length <= 5);
   });
 });

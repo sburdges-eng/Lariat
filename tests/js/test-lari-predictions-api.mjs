@@ -34,7 +34,8 @@ beforeEach(() => {
      DELETE FROM spl_readings;
      DELETE FROM sound_scenes;
      DELETE FROM shows;
-     DELETE FROM ingest_runs;`,
+     DELETE FROM ingest_runs;
+     DELETE FROM waitlist_parties;`,
   );
 });
 
@@ -286,5 +287,55 @@ describe('GET /api/lari/predictions — surface=sound', () => {
     const j2 = await res2.json();
     assert.equal(j2.show_id, idOther);
     assert.ok(j2.predictions.length >= 1);
+  });
+});
+
+// ── Host predictions (V6b) ───────────────────────────────────────
+
+function seedParty({ name = 'X', size = 2, joinedAgoMin = 5, status = 'waiting', location = 'default' } = {}) {
+  const joinedAt = new Date(Date.now() - joinedAgoMin * 60_000).toISOString();
+  const r = conn
+    .prepare(
+      `INSERT INTO waitlist_parties (location_id, party_name, party_size, joined_at, status)
+       VALUES (?, ?, ?, ?, ?)`,
+    )
+    .run(location, name, size, joinedAt, status);
+  return Number(r.lastInsertRowid);
+}
+
+describe('GET /api/lari/predictions — surface=host', () => {
+  it('returns empty predictions when no parties seeded', async () => {
+    const res = await route.GET(makeReq({ path: `/api/lari/predictions?surface=host&date=${TODAY}` }));
+    assert.equal(res.status, 200);
+    const j = await res.json();
+    assert.deepEqual(j.predictions, []);
+  });
+
+  it('emits ALERT when waiting > 8 (overflow)', async () => {
+    for (let i = 0; i < 9; i++) seedParty({ name: `P${i}` });
+    const res = await route.GET(makeReq({ path: `/api/lari/predictions?surface=host&date=${TODAY}` }));
+    const j = await res.json();
+    assert.ok(j.predictions.find((p) => p.id === `host-overflow-${TODAY}`));
+  });
+
+  it('emits ALERT for long-wait party (>45 min)', async () => {
+    const id = seedParty({ name: 'Forgotten', joinedAgoMin: 60 });
+    const res = await route.GET(makeReq({ path: `/api/lari/predictions?surface=host&date=${TODAY}` }));
+    const j = await res.json();
+    const alert = j.predictions.find((p) => p.id === `host-long-wait-${id}`);
+    assert.ok(alert);
+    assert.equal(alert.severity, 'alert');
+  });
+
+  it('respects ?location= scoping', async () => {
+    seedParty({ name: 'Default Loc', location: 'default' });
+    seedParty({ name: 'Other Loc 1', location: 'other' });
+    seedParty({ name: 'Other Loc 2', location: 'other' });
+
+    const res = await route.GET(makeReq({ path: `/api/lari/predictions?surface=host&location=other&date=${TODAY}` }));
+    const j = await res.json();
+    const rollup = j.predictions.find((p) => p.id === `host-rollup-${TODAY}`);
+    assert.ok(rollup);
+    assert.match(rollup.text, /2 waiting/);
   });
 });

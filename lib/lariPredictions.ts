@@ -373,6 +373,111 @@ export function buildSoundPredictions(inputs: SoundPredictionInputs): LariPredic
   return trimPredictions(out);
 }
 
+// ── Host Stand prediction builder ─────────────────────────────────
+
+export interface HostWaitlistSummaryInput {
+  total: number;
+  waiting: number;
+  seated_today: number;
+  left_today: number;
+  avg_wait_minutes: number | null;
+  longest_wait_minutes: number | null;
+  longest_wait_party_id: number | null;
+}
+
+export interface HostPredictionInputs {
+  summary: HostWaitlistSummaryInput | null;
+  today: string;
+}
+
+const WAIT_LONG_MINUTES = 45;
+const WAIT_BUSY_THRESHOLD = 5;
+const WAIT_OVERFLOW_THRESHOLD = 8;
+const AVG_WAIT_WARN_MINUTES = 30;
+
+/**
+ * Deterministic V6b host-surface stub. Reads the rolled-up waitlist
+ * summary and emits up to 5 predictions.
+ *
+ * Heuristics (severity rank, alert first):
+ *   alert  · party has been waiting > 45 min (queue triage failure)
+ *   alert  · waiting > 8 parties (waitlist overflowing)
+ *   warn   · waiting > 5 parties (busy night signal)
+ *   warn   · today's average seating wait > 30 min
+ *   ok     · "N seated · M waiting · avg X min" healthy rollup
+ */
+export function buildHostPredictions(inputs: HostPredictionInputs): LariPrediction[] {
+  const { summary, today } = inputs;
+  if (!summary) return [];
+
+  const out: LariPrediction[] = [];
+
+  // alert · longest waiter is past the threshold
+  if (
+    summary.longest_wait_minutes != null &&
+    summary.longest_wait_minutes > WAIT_LONG_MINUTES &&
+    summary.longest_wait_party_id != null
+  ) {
+    out.push({
+      id: `host-long-wait-${summary.longest_wait_party_id}`,
+      surface: 'host',
+      severity: 'alert',
+      text: `Party #${summary.longest_wait_party_id} has been waiting ${summary.longest_wait_minutes} min — over the ${WAIT_LONG_MINUTES} min threshold.`,
+      action: 'seat or check in',
+      source: `waitlist_parties:${summary.longest_wait_party_id}`,
+    });
+  }
+
+  // alert · waitlist overflowing
+  if (summary.waiting > WAIT_OVERFLOW_THRESHOLD) {
+    out.push({
+      id: `host-overflow-${today}`,
+      surface: 'host',
+      severity: 'alert',
+      text: `${summary.waiting} parties waiting — past the ${WAIT_OVERFLOW_THRESHOLD}-party overflow threshold.`,
+      action: 'call backup host',
+      source: 'waitlist_parties:rollup',
+    });
+  }
+
+  // warn · busy night
+  if (summary.waiting > WAIT_BUSY_THRESHOLD && summary.waiting <= WAIT_OVERFLOW_THRESHOLD) {
+    out.push({
+      id: `host-busy-${today}`,
+      surface: 'host',
+      severity: 'warn',
+      text: `${summary.waiting} parties waiting — pace check the floor.`,
+      source: 'waitlist_parties:rollup',
+    });
+  }
+
+  // warn · today's average wait is creeping
+  if (summary.avg_wait_minutes != null && summary.avg_wait_minutes > AVG_WAIT_WARN_MINUTES) {
+    out.push({
+      id: `host-avg-wait-${today}`,
+      surface: 'host',
+      severity: 'warn',
+      text: `Average seating wait today is ${summary.avg_wait_minutes} min — over ${AVG_WAIT_WARN_MINUTES} min.`,
+      source: 'waitlist_parties:avg',
+    });
+  }
+
+  // ok · healthy rollup
+  if (summary.waiting > 0 || summary.seated_today > 0) {
+    const avgText =
+      summary.avg_wait_minutes != null ? ` · avg ${summary.avg_wait_minutes} min` : '';
+    out.push({
+      id: `host-rollup-${today}`,
+      surface: 'host',
+      severity: 'ok',
+      text: `${summary.seated_today} seated today · ${summary.waiting} waiting${avgText}.`,
+      source: 'waitlist_parties:rollup',
+    });
+  }
+
+  return trimPredictions(out);
+}
+
 /**
  * Calendar-day distance between two ISO YYYY-MM-DD strings. Returns 0
  * for identical dates, a positive integer for end > start, -1 for any
