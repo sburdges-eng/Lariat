@@ -4,9 +4,11 @@ import { requirePin } from '../../../../lib/pin';
 import {
   buildBeoPredictions,
   buildSoundPredictions,
+  buildHostPredictions,
 } from '../../../../lib/lariPredictions';
 import { listSoundScenesForShow, listSplReadings } from '../../../../lib/soundRepo';
 import { summarizeSpl } from '../../../../lib/splTelemetry';
+import { summarizeWaitlist } from '../../../../lib/hostStand';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,10 +26,12 @@ export const dynamic = 'force-dynamic';
 //   ?surface=beo                       → BEO prep + line-item rollup
 //   ?surface=sound&show_id=<n>         → SPL safety + scene readiness for a
 //                                        specific show. Requires show_id.
+//   ?surface=host                      → FOH waitlist rollup (longest wait,
+//                                        overflow threshold, avg wait, etc.)
 // Other values return an empty list rather than 4xx, so the consumer
 // component can ship a generic loader without a per-surface case.
 
-const SUPPORTED_SURFACES = new Set(['beo', 'sound']);
+const SUPPORTED_SURFACES = new Set(['beo', 'sound', 'host']);
 
 export async function GET(req) {
   const pinFail = await requirePin(req);
@@ -50,6 +54,30 @@ export async function GET(req) {
     }
 
     const db = getDb();
+
+    if (surface === 'host') {
+      const todayPrefix = today;
+      const parties = db
+        .prepare(
+          `SELECT id, location_id, party_name, party_size, joined_at, status,
+                  seated_at, left_at, phone, notes
+             FROM waitlist_parties
+            WHERE location_id = ?
+              AND (status = 'waiting'
+                   OR (status = 'seated' AND substr(seated_at, 1, 10) = ?)
+                   OR (status = 'left'   AND substr(left_at,   1, 10) = ?))`,
+        )
+        .all(loc, todayPrefix, todayPrefix);
+      const nowIso = new Date().toISOString();
+      const summary = summarizeWaitlist(parties, nowIso);
+      const predictions = buildHostPredictions({ summary, today });
+      return Response.json({
+        surface,
+        location_id: loc,
+        date: today,
+        predictions,
+      });
+    }
 
     if (surface === 'sound') {
       const showIdRaw = u.searchParams.get('show_id');

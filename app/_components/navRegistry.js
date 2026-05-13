@@ -63,6 +63,17 @@ export const NAV_ITEMS = [
 
   // ── Service ─────────────────────────────────────────────────────────
   {
+    id: 'host',
+    href: '/host',
+    name: 'Host Stand',
+    sub: 'Waitlist + seating',
+    group: 'Service',
+    shortcut: 'H',
+    terms: 'host stand waitlist seat parties foh front of house',
+    locAware: t,
+    surface: { sidebar: t, palette: t, shelf: f },
+  },
+  {
     id: 'kds-punch',
     href: '/kds/punch',
     name: 'Punch ticket',
