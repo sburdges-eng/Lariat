@@ -2,8 +2,13 @@
 //
 // Posture: SOFT-LAUNCH. Most stylistic rules are 'warn' so an iPad-cook-shipping
 // dev can keep moving; only correctness rules that catch real bugs are 'error'.
-// CI gates on `--max-warnings 0` for files changed in a PR (via lint-staged in
-// pre-commit), NOT on full-repo lint — see package.json `lint:changed`.
+//
+// Gate behavior — make sure this matches docs/lint-baseline.md:
+//   - pre-commit (lint-staged): errors ONLY. Warnings do not block commits.
+//   - `npm run lint:changed`: warnings + errors fail (—max-warnings 0). This is
+//     the "am I clean against the warning baseline" check devs can run manually
+//     and that future CI can adopt without changing pre-commit ergonomics.
+//   - `npm run lint`: full repo, advisory until the 299-warning baseline drains.
 //
 // Type-checker (`tsc --noEmit`) keeps doing the heavy semantic lifting; we
 // deliberately skip type-aware ESLint rules to avoid double-reporting and

@@ -11,7 +11,7 @@
     "verify": "npm run typecheck && npm run test:unit && npm run test:rules && npm run build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "lint:changed": "eslint $(git diff --diff-filter=ACMR --name-only origin/main HEAD -- '*.js' '*.mjs' '*.ts' '*.tsx' '*.jsx' 2>/dev/null) --max-warnings 0 || true",
+    "lint:changed": "eslint $(git diff --diff-filter=ACMR --name-only origin/main HEAD -- '*.js' '*.mjs' '*.ts' '*.tsx' '*.jsx' 2>/dev/null) --max-warnings 0",
     "prepare": "simple-git-hooks",
     "mdns:advertise": "node --experimental-strip-types scripts/start-mdns.mjs",
     "mdns:discover": "node --experimental-strip-types scripts/start-mdns.mjs --discover",
