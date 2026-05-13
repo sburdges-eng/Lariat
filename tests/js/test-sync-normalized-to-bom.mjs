@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 
 const { getDb, setDbPathForTest } = await import('../../lib/db.ts');
 const { resolveOrCreateRecipe } = await import('../../lib/entities.ts');
-const { parseCsv, syncNormalizedRecipes } = await import(
+const { parseCsv, syncNormalizedRecipes, SCAFFOLD_SKIP_SLUGS } = await import(
   '../../scripts/sync-normalized-to-bom.mjs'
 );
 
@@ -22,9 +22,44 @@ beforeEach(() => {
     DELETE FROM bom_lines;
     DELETE FROM entities_recipes;
     DELETE FROM external_ids;
+    DELETE FROM vendor_prices;
+    DELETE FROM ingredient_maps;
     DELETE FROM ingest_runs WHERE kind = 'sync_normalized_csv';
   `);
 });
+
+function seedIngredientMap(recipeIngredient, vendorIngredient, opts = {}) {
+  const status = opts.status ?? 'mapped';
+  const locationId = opts.location_id ?? 'default';
+  db.prepare(`
+    INSERT INTO ingredient_maps (recipe_ingredient, vendor_ingredient, status, location_id)
+    VALUES (?, ?, ?, ?)
+  `).run(recipeIngredient, vendorIngredient, status, locationId);
+}
+
+function seedVendorPrice(overrides = {}) {
+  const row = {
+    ingredient: 'tomato',
+    vendor: 'sysco',
+    pack_price: 24.0,
+    pack_size: 25,
+    pack_unit: 'lb',
+    yield_pct: 0.95,
+    master_id: null,
+    location_id: 'default',
+    ...overrides,
+  };
+  db.prepare(`
+    INSERT INTO vendor_prices (
+      ingredient, vendor, pack_price, pack_size, pack_unit,
+      yield_pct, master_id, location_id, imported_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+  `).run(
+    row.ingredient, row.vendor, row.pack_price, row.pack_size, row.pack_unit,
+    row.yield_pct, row.master_id, row.location_id,
+  );
+}
 
 function indexRow(overrides = {}) {
   return {
@@ -296,5 +331,212 @@ describe('syncNormalizedRecipes — dry-run mode', () => {
     assert.equal(db.prepare("SELECT COUNT(*) AS c FROM bom_lines WHERE recipe_id='gazpacho'").get().c, 0);
     assert.equal(db.prepare("SELECT COUNT(*) AS c FROM entities_recipes WHERE slug='gazpacho'").get().c, 0);
     assert.equal(db.prepare("SELECT COUNT(*) AS c FROM ingest_runs WHERE kind='sync_normalized_csv'").get().c, 0);
+  });
+});
+
+describe('syncNormalizedRecipes — vendor-column enrichment', () => {
+  it('attaches vendor cols when a single vendor_prices row matches; marks UNMAPPED otherwise', () => {
+    // Two vendor matches available: "roma tomatoes" → tomato sku; "cucumber"
+    // → english cucumber sku. "bell pepper" intentionally absent.
+    seedVendorPrice({
+      ingredient: 'Roma Tomatoes', vendor: 'sysco',
+      pack_price: 24.5, pack_size: 25, pack_unit: 'lb',
+      yield_pct: 0.95, master_id: 'mst_tomato',
+    });
+    seedVendorPrice({
+      ingredient: 'Cucumber English', vendor: 'shamrock',
+      pack_price: 18.0, pack_size: 12, pack_unit: 'ea',
+      yield_pct: 0.88, master_id: null,
+    });
+
+    const indexRows = [indexRow()];
+    const csvByRecipeId = new Map([
+      ['gazpacho', [
+        ingRow({ ingredient: 'roma tomatoes', qty: '6', unit: 'lb' }),
+        ingRow({ ingredient: 'cucumber english', qty: '2', unit: 'lb' }),
+        ingRow({ ingredient: 'bell pepper', qty: '1.5', unit: 'lb' }),
+      ]],
+    ]);
+
+    const summary = call({ indexRows, csvByRecipeId });
+
+    assert.equal(summary.bom_lines_written, 3);
+    assert.equal(summary.vendor_columns_populated, 2);
+    assert.equal(summary.vendor_columns_unmapped, 1);
+
+    const rows = db.prepare(`
+      SELECT ingredient, vendor, pack_price, pack_size, vendor_ingredient,
+             map_status, yield_pct, master_id
+        FROM bom_lines WHERE recipe_id='gazpacho' ORDER BY id
+    `).all();
+
+    assert.deepEqual(rows[0], {
+      ingredient: 'roma tomatoes', vendor: 'sysco',
+      pack_price: 24.5, pack_size: 25, vendor_ingredient: 'Roma Tomatoes',
+      map_status: 'mapped', yield_pct: 0.95, master_id: 'mst_tomato',
+    });
+    assert.deepEqual(rows[1], {
+      ingredient: 'cucumber english', vendor: 'shamrock',
+      pack_price: 18.0, pack_size: 12, vendor_ingredient: 'Cucumber English',
+      map_status: 'mapped', yield_pct: 0.88, master_id: null,
+    });
+    assert.deepEqual(rows[2], {
+      ingredient: 'bell pepper', vendor: null,
+      pack_price: null, pack_size: null, vendor_ingredient: null,
+      map_status: 'UNMAPPED', yield_pct: null, master_id: null,
+    });
+  });
+
+  it('uses ingredient_maps as a bridge when recipe-side name does not match vendor_prices directly', () => {
+    // Workbook-confirmed bridge: "kosher salt" → "SALT, SEA WHT GRANULE 3LB KOSHER".
+    seedIngredientMap('kosher salt', 'SALT, SEA WHT GRANULE 3LB KOSHER');
+    seedVendorPrice({
+      ingredient: 'SALT, SEA WHT GRANULE 3LB KOSHER', vendor: 'shamrock',
+      pack_price: 33.01, pack_size: 36, yield_pct: 1.0, master_id: 'mst_salt',
+    });
+
+    const indexRows = [indexRow()];
+    const csvByRecipeId = new Map([
+      ['gazpacho', [ingRow({ ingredient: 'kosher salt', qty: '2', unit: 'tbsp' })]],
+    ]);
+    const summary = call({ indexRows, csvByRecipeId });
+
+    assert.equal(summary.vendor_columns_populated, 1);
+    assert.equal(summary.vendor_columns_unmapped, 0);
+    const row = db.prepare(`
+      SELECT vendor, pack_price, pack_size, vendor_ingredient, map_status, master_id
+        FROM bom_lines WHERE recipe_id='gazpacho'
+    `).get();
+    assert.deepEqual(row, {
+      vendor: 'shamrock', pack_price: 33.01, pack_size: 36,
+      vendor_ingredient: 'SALT, SEA WHT GRANULE 3LB KOSHER',
+      map_status: 'mapped', master_id: 'mst_salt',
+    });
+  });
+
+  it('leaves vendor cols NULL when ingredient resolves to multiple distinct vendors', () => {
+    // Same key → two vendors. Ambiguous from name alone; must not silently
+    // pick one or it'd bias variance math.
+    seedVendorPrice({ ingredient: 'tomato', vendor: 'sysco', pack_price: 24.5, pack_size: 25 });
+    seedVendorPrice({ ingredient: 'tomato', vendor: 'shamrock', pack_price: 22.0, pack_size: 25 });
+
+    const indexRows = [indexRow()];
+    const csvByRecipeId = new Map([
+      ['gazpacho', [ingRow({ ingredient: 'tomato', qty: '6', unit: 'lb' })]],
+    ]);
+    const summary = call({ indexRows, csvByRecipeId });
+
+    assert.equal(summary.vendor_columns_populated, 0);
+    assert.equal(summary.vendor_columns_unmapped, 1);
+    const row = db.prepare(`SELECT vendor, map_status FROM bom_lines WHERE recipe_id='gazpacho'`).get();
+    assert.deepEqual(row, { vendor: null, map_status: 'UNMAPPED' });
+  });
+
+  it('treats sub-recipe rows as neither populated nor unmapped (excluded from vendor counters)', () => {
+    const indexRows = [
+      indexRow({ recipe_id: 'mexican_dinner', recipe_name: 'Mexican Dinner', yield: '1', yield_unit: 'menu' }),
+      indexRow({ recipe_id: 'birria', recipe_name: 'Birria', yield: '16', yield_unit: 'qt' }),
+    ];
+    const csvByRecipeId = new Map([
+      ['mexican_dinner', [
+        ingRow({ ingredient: 'birria', qty: '1', unit: 'portion', notes: 'sub-recipe' }),
+        ingRow({ ingredient: 'unknown ingredient', qty: '1', unit: 'lb' }),
+      ]],
+      ['birria', [ingRow({ ingredient: 'beef cheek', qty: '15', unit: 'lb' })]],
+    ]);
+    const summary = call({ indexRows, csvByRecipeId });
+
+    // mexican_dinner: 1 sub-recipe + 1 unmapped real ingredient = 1 unmapped only.
+    // birria: 1 unmapped (no vendor_prices seeded).
+    assert.equal(summary.vendor_columns_unmapped, 2);
+    assert.equal(summary.vendor_columns_populated, 0);
+    assert.equal(summary.sub_recipe_links, 1);
+
+    const sub = db.prepare(`
+      SELECT sub_recipe, map_status FROM bom_lines
+       WHERE recipe_id='mexican_dinner' AND ingredient='birria'
+    `).get();
+    assert.equal(sub.sub_recipe, 'birria');
+    assert.equal(sub.map_status, null);
+  });
+});
+
+describe('syncNormalizedRecipes — scaffold skip set', () => {
+  it('skips scaffold slugs entirely — no entities_recipes, no bom_lines, no error', () => {
+    const indexRows = [
+      indexRow({ recipe_id: 'prime_rib', recipe_name: 'Prime Rib' }),
+      indexRow({ recipe_id: 'chocolate_cake', recipe_name: 'Chocolate Cake' }),
+      indexRow({ recipe_id: 'churros', recipe_name: 'Churros' }),
+      indexRow({ recipe_id: 'cupcakes', recipe_name: 'Cupcakes' }),
+      indexRow({ recipe_id: 'mini_rellenos', recipe_name: 'Mini Rellenos' }),
+      indexRow({ recipe_id: 'philo_bites', recipe_name: 'Philo Bites' }),
+      indexRow({ recipe_id: 'tiramisu', recipe_name: 'Tiramisu' }),
+      indexRow({ recipe_id: 'gazpacho', recipe_name: 'Gazpacho' }), // real one
+    ];
+    const csvByRecipeId = new Map([
+      ['prime_rib', [ingRow({ ingredient: 'prime rib', qty: '1', unit: 'ea' })]],
+      ['chocolate_cake', [ingRow({ ingredient: 'chocolate cake', qty: '1', unit: 'ea' })]],
+      ['churros', [ingRow({ ingredient: 'churros', qty: '1', unit: 'case' })]],
+      ['cupcakes', [ingRow({ ingredient: 'cupcakes', qty: '1', unit: 'case' })]],
+      ['mini_rellenos', [ingRow({ ingredient: 'mini rellenos', qty: '1', unit: 'case' })]],
+      ['philo_bites', [ingRow({ ingredient: 'philo bites', qty: '1', unit: 'case' })]],
+      ['tiramisu', [ingRow({ ingredient: 'tiramisu', qty: '1', unit: 'ea' })]],
+      ['gazpacho', [ingRow({ ingredient: 'tomato', qty: '6', unit: 'lb' })]],
+    ]);
+
+    const summary = call({ indexRows, csvByRecipeId });
+    assert.equal(summary.recipes_skipped_scaffold, 7);
+    assert.equal(summary.recipes_upserted, 1);
+    assert.equal(summary.bom_lines_written, 1);
+
+    for (const slug of SCAFFOLD_SKIP_SLUGS) {
+      const er = db.prepare("SELECT COUNT(*) AS c FROM entities_recipes WHERE slug=?").get(slug).c;
+      const bl = db.prepare("SELECT COUNT(*) AS c FROM bom_lines WHERE recipe_id=?").get(slug).c;
+      assert.equal(er, 0, `${slug} should not appear in entities_recipes`);
+      assert.equal(bl, 0, `${slug} should not appear in bom_lines`);
+    }
+
+    assert.equal(
+      db.prepare("SELECT COUNT(*) AS c FROM entities_recipes WHERE slug='gazpacho'").get().c,
+      1,
+      'non-scaffold recipe should still sync normally',
+    );
+  });
+});
+
+describe('syncNormalizedRecipes — idempotency with vendor enrichment', () => {
+  it('two runs produce identical bom_lines state (counts + vendor cols)', () => {
+    seedVendorPrice({
+      ingredient: 'tomato', vendor: 'sysco',
+      pack_price: 24.5, pack_size: 25, yield_pct: 0.95, master_id: 'mst_tomato',
+    });
+
+    const indexRows = [indexRow()];
+    const csvByRecipeId = new Map([
+      ['gazpacho', [
+        ingRow({ ingredient: 'tomato', qty: '6', unit: 'lb' }),
+        ingRow({ ingredient: 'mystery', qty: '1', unit: 'lb' }),
+      ]],
+    ]);
+
+    const s1 = call({ indexRows, csvByRecipeId });
+    const snapshot1 = db.prepare(`
+      SELECT ingredient, qty, unit, vendor, pack_price, pack_size,
+             vendor_ingredient, map_status, yield_pct, master_id
+        FROM bom_lines WHERE recipe_id='gazpacho' ORDER BY ingredient
+    `).all();
+
+    const s2 = call({ indexRows, csvByRecipeId });
+    const snapshot2 = db.prepare(`
+      SELECT ingredient, qty, unit, vendor, pack_price, pack_size,
+             vendor_ingredient, map_status, yield_pct, master_id
+        FROM bom_lines WHERE recipe_id='gazpacho' ORDER BY ingredient
+    `).all();
+
+    assert.deepEqual(snapshot1, snapshot2);
+    assert.equal(s1.bom_lines_written, s2.bom_lines_written);
+    assert.equal(s1.vendor_columns_populated, s2.vendor_columns_populated);
+    assert.equal(s1.vendor_columns_unmapped, s2.vendor_columns_unmapped);
+    assert.equal(snapshot1.length, 2);
   });
 });
