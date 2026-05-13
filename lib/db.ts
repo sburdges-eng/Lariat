@@ -1846,6 +1846,25 @@ export function initSchema(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_sound_scenes_show
       ON sound_scenes(show_id, location_id);
 
+    -- V3: append-only time-series of dB readings taken by the sound
+    -- engineer during a show. Drives the sparkline in /shows/[id]/sound
+    -- and the SPL pill on Tonight · Live. scene_id is nullable — readings
+    -- can land before a scene exists; once a scene is saved subsequent
+    -- readings carry its id for downstream filtering. Operational data
+    -- (not regulated cash custody / HACCP) — audited via auditLog.mjs.
+    CREATE TABLE IF NOT EXISTS spl_readings (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      show_id          INTEGER NOT NULL REFERENCES shows(id),
+      location_id      TEXT NOT NULL DEFAULT 'default',
+      scene_id         INTEGER REFERENCES sound_scenes(id),
+      db_value         REAL NOT NULL,
+      taken_at         TEXT NOT NULL DEFAULT (datetime('now')),
+      taken_by_cook_id TEXT,
+      notes            TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_spl_readings_show
+      ON spl_readings(show_id, location_id, taken_at);
+
     CREATE TABLE IF NOT EXISTS box_office_lines (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
       show_id       INTEGER NOT NULL REFERENCES shows(id),

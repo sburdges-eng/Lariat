@@ -198,6 +198,26 @@ export function computeAttendance(
 }
 
 /**
+ * Pick the effective capacity for a show. Per-show override in
+ * `status_json.capacity` beats the venue default `locations.capacity`.
+ * Non-numeric, zero, or negative overrides fall through to the venue
+ * default. Returns null when neither is set — the attendance tile then
+ * renders the raw scanned count.
+ */
+export function pickEffectiveCapacity(
+  status: Record<string, unknown> | null | undefined,
+  venueCapacity: number | null | undefined,
+): number | null {
+  const fromStatus = status == null ? undefined : (status as Record<string, unknown>).capacity;
+  const overrideNum = Number(fromStatus);
+  if (Number.isFinite(overrideNum) && overrideNum > 0) {
+    return Math.floor(overrideNum);
+  }
+  const vc = Number(venueCapacity);
+  return Number.isFinite(vc) && vc > 0 ? Math.floor(vc) : null;
+}
+
+/**
  * Parse status_json defensively. Show ingest writes arbitrary JSON; we
  * only read it. Returns an empty object on parse failure so callers can
  * dot-access without guarding.

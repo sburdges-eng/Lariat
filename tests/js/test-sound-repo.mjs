@@ -42,7 +42,7 @@ before(() => {
 });
 
 beforeEach(() => {
-  db.exec(`DELETE FROM sound_scenes;`);
+  db.exec(`DELETE FROM spl_readings; DELETE FROM sound_scenes;`);
   const auditFile = path.join(tmpRoot, 'data', 'audit', 'management-actions.jsonl');
   if (fs.existsSync(auditFile)) fs.rmSync(auditFile);
 });
@@ -260,6 +260,82 @@ describe('deleteSoundScene', () => {
       () => sound.deleteSoundScene(db, s.id, 'satellite'),
       /NotFound/,
     );
+  });
+});
+
+describe('appendSplReading', () => {
+  it('inserts a row + writes a single audit entry inside one tx', () => {
+    const row = sound.appendSplReading(db, {
+      show_id: 1, location_id: 'default', db_value: 95.4, taken_by_cook_id: 'cook-1',
+    });
+    assert.equal(row.show_id, 1);
+    assert.equal(row.db_value, 95.4);
+    assert.ok(row.id > 0);
+
+    const entries = readAuditEntries();
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].action, 'spl_reading_added');
+    assert.equal(entries[0].show_id, 1);
+    assert.equal(entries[0].db_value, 95.4);
+  });
+
+  it('rejects db_value out of [30, 160]', () => {
+    assert.throws(
+      () => sound.appendSplReading(db, { show_id: 1, location_id: 'default', db_value: 5 }),
+      /db_value/,
+    );
+    assert.throws(
+      () => sound.appendSplReading(db, { show_id: 1, location_id: 'default', db_value: 200 }),
+      /db_value/,
+    );
+    assert.throws(
+      () => sound.appendSplReading(db, { show_id: 1, location_id: 'default', db_value: NaN }),
+      /db_value/,
+    );
+    // Nothing should have been written.
+    assert.equal(sound.listSplReadings(db, 1, 'default').length, 0);
+  });
+
+  it('rejects non-positive show_id', () => {
+    assert.throws(
+      () => sound.appendSplReading(db, { show_id: 0, location_id: 'default', db_value: 90 }),
+      /show_id/,
+    );
+  });
+
+  it('accepts and persists a positive scene_id; coerces invalid scene_id to null', () => {
+    const scene = sound.createSoundScene(db, {
+      show_id: 1, location_id: 'default', scene_name: 'soundcheck', plot: samplePlot(),
+    });
+    const r1 = sound.appendSplReading(db, {
+      show_id: 1, location_id: 'default', db_value: 90, scene_id: scene.id,
+    });
+    assert.equal(r1.scene_id, scene.id);
+    const r2 = sound.appendSplReading(db, {
+      show_id: 1, location_id: 'default', db_value: 92, scene_id: -1,
+    });
+    assert.equal(r2.scene_id, null);
+  });
+});
+
+describe('listSplReadings', () => {
+  it('returns rows oldest→newest, bounded by limit', () => {
+    for (const v of [80, 85, 90, 95, 100]) {
+      sound.appendSplReading(db, { show_id: 1, location_id: 'default', db_value: v });
+    }
+    const rows = sound.listSplReadings(db, 1, 'default', { limit: 3 });
+    // limit picks the 3 most recent (DESC then reverse) → 90, 95, 100
+    assert.equal(rows.length, 3);
+    assert.equal(rows[0].db_value, 90);
+    assert.equal(rows[2].db_value, 100);
+  });
+
+  it('respects location scoping', () => {
+    sound.appendSplReading(db, { show_id: 1, location_id: 'default', db_value: 90 });
+    sound.appendSplReading(db, { show_id: 2, location_id: 'satellite', db_value: 100 });
+    assert.equal(sound.listSplReadings(db, 1, 'default').length, 1);
+    assert.equal(sound.listSplReadings(db, 1, 'satellite').length, 0);
+    assert.equal(sound.listSplReadings(db, 2, 'satellite').length, 1);
   });
 });
 

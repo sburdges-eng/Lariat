@@ -17,6 +17,7 @@ const {
   pickShowTime,
   parseRunOfShow,
   computeAttendance,
+  pickEffectiveCapacity,
 } = m;
 
 const baseShow = {
@@ -295,5 +296,34 @@ describe('computeAttendance', () => {
   it('floors fractional capacity', () => {
     const a = computeAttendance(50, 50, 99.9);
     assert.equal(a.capacity, 99);
+  });
+});
+
+describe('pickEffectiveCapacity', () => {
+  it('returns the status_json.capacity override when valid', () => {
+    assert.equal(pickEffectiveCapacity({ capacity: 180 }, 220), 180);
+    assert.equal(pickEffectiveCapacity({ capacity: '180' }, 220), 180);
+  });
+
+  it('floors fractional overrides', () => {
+    assert.equal(pickEffectiveCapacity({ capacity: 180.7 }, 220), 180);
+  });
+
+  it('falls through to venue when override is 0 / negative / non-numeric', () => {
+    assert.equal(pickEffectiveCapacity({ capacity: 0 }, 220), 220);
+    assert.equal(pickEffectiveCapacity({ capacity: -5 }, 220), 220);
+    assert.equal(pickEffectiveCapacity({ capacity: 'soldout' }, 220), 220);
+  });
+
+  it('returns venue when status has no capacity key', () => {
+    assert.equal(pickEffectiveCapacity({}, 220), 220);
+    assert.equal(pickEffectiveCapacity(null, 220), 220);
+    assert.equal(pickEffectiveCapacity(undefined, 220), 220);
+  });
+
+  it('returns null when neither is set', () => {
+    assert.equal(pickEffectiveCapacity({}, null), null);
+    assert.equal(pickEffectiveCapacity({ capacity: 0 }, 0), null);
+    assert.equal(pickEffectiveCapacity({ capacity: -1 }, undefined), null);
   });
 });
