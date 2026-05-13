@@ -31,7 +31,8 @@ beforeEach(() => {
      DELETE FROM sound_scenes;
      DELETE FROM stage_setups;
      DELETE FROM shows;
-     DELETE FROM ingest_runs;`,
+     DELETE FROM ingest_runs;
+     UPDATE locations SET capacity = NULL WHERE id = 'default';`,
   );
 });
 
@@ -166,6 +167,42 @@ describe('GET /api/shows/tonight — show present', () => {
     assert.equal(j.box_office_summary.total_revenue, 50 * 20 + 100 + 8 * 25 + 0);
     assert.equal(j.box_office_summary.by_source.dice.qty, 50);
     assert.equal(j.box_office_summary.by_source.comp.qty, 4);
+  });
+
+  it('returns attendance.status=unset when locations.capacity is null', async () => {
+    const id = seedShow({ band: 'No Cap Band' });
+    seedBoxLine(id, { source: 'dice', qty: 30, face: 20, scanned: true });
+    // default location starts with capacity=NULL per beforeEach
+    const res = await route.GET(makeReq({ path: `/api/shows/tonight?date=${DATE}` }));
+    const j = await res.json();
+    assert.equal(j.venue_capacity, null);
+    assert.equal(j.attendance.status, 'unset');
+    assert.equal(j.attendance.scanned_pct, null);
+    assert.equal(j.attendance.scanned_qty, 30);
+  });
+
+  it('computes attendance status against locations.capacity', async () => {
+    // Capacity 100; 50 scanned → status=near (50% boundary)
+    conn.prepare(`UPDATE locations SET capacity = ? WHERE id = ?`).run(100, 'default');
+    const id = seedShow({ band: 'Capped Band' });
+    seedBoxLine(id, { source: 'dice', qty: 50, face: 20, scanned: true });
+    seedBoxLine(id, { source: 'dice', qty: 20, face: 20 });  // sold but not scanned
+    const res = await route.GET(makeReq({ path: `/api/shows/tonight?date=${DATE}` }));
+    const j = await res.json();
+    assert.equal(j.venue_capacity, 100);
+    assert.equal(j.attendance.status, 'near');
+    assert.equal(j.attendance.scanned_qty, 50);
+    assert.equal(j.attendance.sold_qty, 70);
+    assert.equal(j.attendance.scanned_pct, 50);
+    assert.equal(j.attendance.capacity, 100);
+  });
+
+  it('attendance is null when no show tonight', async () => {
+    // No seed — no show on DATE
+    const res = await route.GET(makeReq({ path: `/api/shows/tonight?date=${DATE}` }));
+    const j = await res.json();
+    assert.equal(j.show, null);
+    assert.equal(j.attendance, null);
   });
 
   it('honors the ?date= override', async () => {

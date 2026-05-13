@@ -6,6 +6,7 @@ import {
   parseStatusJson,
   parseRunOfShow,
   pickShowTime,
+  computeAttendance,
 } from '../../../lib/showsTonight';
 
 export const dynamic = 'force-dynamic';
@@ -136,6 +137,14 @@ export default function TonightLivePage({ searchParams }) {
   const boxOffice = summarizeBoxOffice(boxLines);
   const runOfShow = stageSetup ? parseRunOfShow(stageSetup.run_of_show_json) : [];
 
+  // Per-venue capacity (operator-set; nullable). When set, the
+  // attendance tile renders a percent + status color; when unset, the
+  // tile shows just the raw scanned count.
+  const venueCapacity = db
+    .prepare(`SELECT capacity FROM locations WHERE id = ?`)
+    .get(loc)?.capacity ?? null;
+  const attendance = computeAttendance(boxOffice.scanned_qty, boxOffice.total_qty, venueCapacity);
+
   // Pre-compute a display string for the "next milestone" hint — the next
   // entry in run_of_show whose time field parses as later than now. Best-
   // effort, doesn't gate anything.
@@ -183,7 +192,7 @@ export default function TonightLivePage({ searchParams }) {
       </div>
 
       <div className="grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
-        <KPI label="Tickets sold" value={boxOffice.total_qty || 0} sub={`${boxOffice.scanned_qty || 0} scanned in`} />
+        <AttendanceKPI attendance={attendance} />
         <KPI
           label="Gross revenue"
           value={USD(boxOffice.total_revenue)}
@@ -296,6 +305,80 @@ function KPI({ label, value, sub }) {
       <div
         className="kpi-value"
         style={{ fontFamily: "'Instrument Serif', serif", fontSize: 34, lineHeight: 1, letterSpacing: '-0.02em' }}
+      >
+        {value}
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'JetBrains Mono, monospace' }}>{sub}</div>
+    </div>
+  );
+}
+
+// Status → accent color. Maps onto the existing globals.css vars so the
+// tile inherits whatever the active theme paints; falls back to ember
+// when the var is undefined (theme-poor environments).
+const ATTENDANCE_COLOR = {
+  unset: 'var(--muted)',
+  under: 'var(--muted)',
+  near: 'var(--yellow, var(--ember, #c85a2a))',
+  at: 'var(--green, var(--sage, #5d7a66))',
+  over: 'var(--red, #8b2e1f)',
+};
+
+const ATTENDANCE_LABEL = {
+  unset: 'Tickets sold',
+  under: 'Attendance',
+  near: 'Attendance',
+  at: 'Attendance · full',
+  over: 'Attendance · over',
+};
+
+function AttendanceKPI({ attendance }) {
+  const a = attendance ?? { scanned_qty: 0, sold_qty: 0, capacity: null, scanned_pct: null, status: 'unset' };
+  const color = ATTENDANCE_COLOR[a.status] || ATTENDANCE_COLOR.unset;
+  const label = ATTENDANCE_LABEL[a.status] || ATTENDANCE_LABEL.unset;
+
+  // Value rendering depends on whether capacity is set.
+  const value = a.capacity
+    ? `${a.scanned_qty} / ${a.capacity}`
+    : (a.sold_qty || 0);
+
+  // Sub line: percent + sold-vs-scanned delta when capacity is known;
+  // otherwise the same "X scanned in" the original tile had.
+  let sub;
+  if (a.capacity) {
+    const pct = a.scanned_pct != null ? `${a.scanned_pct.toFixed(0)}%` : '—';
+    const ahead = Math.max(0, (a.sold_qty || 0) - (a.scanned_qty || 0));
+    sub = ahead > 0 ? `${pct} scanned · ${ahead} to arrive` : `${pct} scanned`;
+  } else {
+    sub = `${a.scanned_qty || 0} scanned in`;
+  }
+
+  return (
+    <div
+      className="card"
+      style={{
+        padding: '14px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        borderLeft: a.status !== 'unset' ? `3px solid ${color}` : undefined,
+      }}
+    >
+      <div
+        className="kpi-label"
+        style={{ fontSize: 9.5, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 700 }}
+      >
+        {label}
+      </div>
+      <div
+        className="kpi-value"
+        style={{
+          fontFamily: "'Instrument Serif', serif",
+          fontSize: 34,
+          lineHeight: 1,
+          letterSpacing: '-0.02em',
+          color: a.status === 'unset' ? undefined : color,
+        }}
       >
         {value}
       </div>
