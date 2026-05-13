@@ -50,11 +50,49 @@ const fmtFireAt = (iso) => {
   }
 };
 
+// Reusable inline-style fragments so the JSX below stays terse. Tokens
+// resolve from styles/tokens.css (PR #235) — when capacity for the token
+// vars isn't loaded (e.g. a rare context that imports this page bare),
+// the var() fallbacks keep the doc legible.
+const EYEBROW_STYLE = {
+  fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
+  fontSize: 10,
+  letterSpacing: '0.28em',
+  textTransform: 'uppercase',
+  color: 'var(--ember-deep, #9a3f1a)',
+  fontWeight: 700,
+};
+const SECTION_HEAD_STYLE = {
+  fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
+  fontSize: 10,
+  letterSpacing: '0.24em',
+  textTransform: 'uppercase',
+  color: 'var(--char, #3a3530)',
+  fontWeight: 700,
+  marginBottom: 8,
+};
+
 function notFound() {
   return (
-    <div style={{ padding: 40, fontFamily: 'system-ui', textAlign: 'center' }}>
-      <h1>This invitation isn’t available</h1>
-      <p style={{ color: '#666' }}>
+    <div
+      style={{
+        padding: 40,
+        fontFamily: 'var(--sans, "Inter Tight", system-ui, sans-serif)',
+        textAlign: 'center',
+        color: 'var(--ink, #1d1a15)',
+      }}
+    >
+      <h1
+        style={{
+          fontFamily: 'var(--serif, "Instrument Serif", Georgia, serif)',
+          fontWeight: 400,
+          fontSize: 36,
+          letterSpacing: '-0.01em',
+        }}
+      >
+        This invitation isn’t available
+      </h1>
+      <p style={{ color: 'var(--muted, #7b7268)', maxWidth: 480, margin: '0 auto', lineHeight: 1.5 }}>
         The link may have expired or been entered incorrectly. Please reach out to your event host
         for a fresh link.
       </p>
@@ -123,6 +161,7 @@ export default function BeoSharePage({ params }) {
           .sidebar, .strip, .command, .cmdk-scrim, .skip-link, footer.command { display: none !important; }
           .main { padding: 0 !important; max-width: none !important; }
           .app { display: block !important; height: auto !important; }
+          body { background: var(--bone, #f3ece0) !important; }
           @media print { body { background: white !important; } }
         `,
       }} />
@@ -131,39 +170,63 @@ export default function BeoSharePage({ params }) {
         style={{
           maxWidth: 760,
           margin: '0 auto',
-          padding: '40px 32px 80px',
-          fontFamily: 'Georgia, "Times New Roman", serif',
-          color: '#1a1a1a',
+          padding: '48px 36px 80px',
+          fontFamily: 'var(--serif, "Instrument Serif", Georgia, serif)',
+          color: 'var(--ink, #1d1a15)',
           lineHeight: 1.5,
         }}
       >
-        <header style={{ borderBottom: '2px solid #1a1a1a', paddingBottom: 18, marginBottom: 24 }}>
-          <div style={{ fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#888' }}>
-            Banquet Event Order
-          </div>
-          <h1 style={{ margin: '6px 0 12px', fontSize: 32, lineHeight: 1.15 }}>{event.title}</h1>
-          <dl style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '4px 16px', margin: 0, fontSize: 14 }}>
+        <header
+          style={{
+            borderBottom: '1px solid var(--ink, #1d1a15)',
+            paddingBottom: 22,
+            marginBottom: 28,
+          }}
+        >
+          <div style={EYEBROW_STYLE}>Banquet Event Order</div>
+          <h1
+            style={{
+              margin: '10px 0 18px',
+              fontSize: 48,
+              lineHeight: 1.02,
+              letterSpacing: '-0.02em',
+              fontWeight: 400,
+              color: 'var(--ink, #1d1a15)',
+            }}
+          >
+            {event.title}
+          </h1>
+          <dl
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '120px 1fr',
+              gap: '6px 16px',
+              margin: 0,
+              fontSize: 14,
+              fontFamily: 'var(--sans, "Inter Tight", system-ui, sans-serif)',
+            }}
+          >
             {event.event_date && (
               <>
-                <dt style={{ color: '#666' }}>Date</dt>
+                <dt style={{ color: 'var(--muted, #7b7268)' }}>Date</dt>
                 <dd style={{ margin: 0 }}>{fmtDate(event.event_date)}</dd>
               </>
             )}
             {event.event_time && (
               <>
-                <dt style={{ color: '#666' }}>Time</dt>
+                <dt style={{ color: 'var(--muted, #7b7268)' }}>Time</dt>
                 <dd style={{ margin: 0 }}>{fmtTime(event.event_time)}</dd>
               </>
             )}
             {event.contact_name && (
               <>
-                <dt style={{ color: '#666' }}>Host</dt>
+                <dt style={{ color: 'var(--muted, #7b7268)' }}>Host</dt>
                 <dd style={{ margin: 0 }}>{event.contact_name}</dd>
               </>
             )}
             {event.guest_count != null && (
               <>
-                <dt style={{ color: '#666' }}>Guests</dt>
+                <dt style={{ color: 'var(--muted, #7b7268)' }}>Guests</dt>
                 <dd style={{ margin: 0 }}>{event.guest_count}</dd>
               </>
             )}
@@ -171,27 +234,51 @@ export default function BeoSharePage({ params }) {
         </header>
 
         {event.notes && (
-          <section style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 16, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#444', marginBottom: 6 }}>
-              Notes
-            </h2>
-            <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{event.notes}</p>
+          <section style={{ marginBottom: 32 }}>
+            <h2 style={SECTION_HEAD_STYLE}>Notes</h2>
+            <p
+              style={{
+                margin: 0,
+                whiteSpace: 'pre-wrap',
+                fontFamily: 'var(--sans, "Inter Tight", system-ui, sans-serif)',
+                fontSize: 14,
+              }}
+            >
+              {event.notes}
+            </p>
           </section>
         )}
 
         {courses.length > 0 && (
-          <section style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 16, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#444', marginBottom: 8 }}>
-              Schedule
-            </h2>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+          <section style={{ marginBottom: 32 }}>
+            <h2 style={SECTION_HEAD_STYLE}>Schedule</h2>
+            <table
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontSize: 14,
+                fontFamily: 'var(--sans, "Inter Tight", system-ui, sans-serif)',
+              }}
+            >
               <tbody>
                 {courses.map((c) => (
-                  <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '6px 0', width: 120, color: '#666' }}>{fmtFireAt(c.fire_at)}</td>
-                    <td style={{ padding: '6px 0' }}>
-                      <strong>{c.course_label}</strong>
-                      {c.notes ? <span style={{ color: '#666' }}> — {c.notes}</span> : null}
+                  <tr key={c.id} style={{ borderBottom: '1px solid var(--hair, #c9bda5)' }}>
+                    <td
+                      style={{
+                        padding: '8px 0',
+                        width: 120,
+                        color: 'var(--muted, #7b7268)',
+                        fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
+                        fontSize: 12,
+                      }}
+                    >
+                      {fmtFireAt(c.fire_at)}
+                    </td>
+                    <td style={{ padding: '8px 0' }}>
+                      <strong style={{ fontWeight: 600 }}>{c.course_label}</strong>
+                      {c.notes ? (
+                        <span style={{ color: 'var(--muted, #7b7268)' }}> — {c.notes}</span>
+                      ) : null}
                     </td>
                   </tr>
                 ))}
@@ -201,17 +288,27 @@ export default function BeoSharePage({ params }) {
         )}
 
         {lineItems.length > 0 && (
-          <section style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 16, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#444', marginBottom: 8 }}>
-              Menu
-            </h2>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+          <section style={{ marginBottom: 32 }}>
+            <h2 style={SECTION_HEAD_STYLE}>Menu</h2>
+            <table
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontSize: 14,
+                fontFamily: 'var(--sans, "Inter Tight", system-ui, sans-serif)',
+              }}
+            >
               <thead>
-                <tr style={{ borderBottom: '1px solid #1a1a1a', textAlign: 'left' }}>
-                  <th style={{ padding: '6px 0', fontWeight: 600 }}>Item</th>
-                  <th style={{ padding: '6px 0', fontWeight: 600, width: 80, textAlign: 'right' }}>Qty</th>
-                  <th style={{ padding: '6px 0', fontWeight: 600, width: 100, textAlign: 'right' }}>Each</th>
-                  <th style={{ padding: '6px 0', fontWeight: 600, width: 100, textAlign: 'right' }}>Total</th>
+                <tr
+                  style={{
+                    borderBottom: '1px solid var(--ink, #1d1a15)',
+                    textAlign: 'left',
+                  }}
+                >
+                  <th style={{ padding: '8px 0', fontWeight: 600 }}>Item</th>
+                  <th style={{ padding: '8px 0', fontWeight: 600, width: 80, textAlign: 'right' }}>Qty</th>
+                  <th style={{ padding: '8px 0', fontWeight: 600, width: 100, textAlign: 'right' }}>Each</th>
+                  <th style={{ padding: '8px 0', fontWeight: 600, width: 100, textAlign: 'right' }}>Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -219,73 +316,229 @@ export default function BeoSharePage({ params }) {
                   const lineTotal = Number(l.unit_cost || 0) * Number(l.quantity || 0);
                   const label = courseLabel.get(l.course_id);
                   return (
-                    <tr key={l.id} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: '8px 8px 8px 0' }}>
+                    <tr key={l.id} style={{ borderBottom: '1px solid var(--hair, #c9bda5)' }}>
+                      <td style={{ padding: '10px 8px 10px 0' }}>
                         <div>{l.item_name}</div>
                         {label ? (
-                          <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{label}</div>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: 'var(--muted-2, #9c9282)',
+                              marginTop: 3,
+                              fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
+                              letterSpacing: '0.06em',
+                            }}
+                          >
+                            {label}
+                          </div>
                         ) : l.category ? (
-                          <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{l.category}</div>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: 'var(--muted-2, #9c9282)',
+                              marginTop: 3,
+                              fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
+                              letterSpacing: '0.06em',
+                            }}
+                          >
+                            {l.category}
+                          </div>
                         ) : null}
                       </td>
-                      <td style={{ padding: 8, textAlign: 'right' }}>{l.quantity}</td>
-                      <td style={{ padding: 8, textAlign: 'right' }}>{USD(l.unit_cost)}</td>
-                      <td style={{ padding: 8, textAlign: 'right' }}>{USD(lineTotal)}</td>
+                      <td
+                        style={{
+                          padding: 10,
+                          textAlign: 'right',
+                          fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
+                          fontFeatureSettings: '"tnum"',
+                        }}
+                      >
+                        {l.quantity}
+                      </td>
+                      <td
+                        style={{
+                          padding: 10,
+                          textAlign: 'right',
+                          fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
+                          fontFeatureSettings: '"tnum"',
+                        }}
+                      >
+                        {USD(l.unit_cost)}
+                      </td>
+                      <td
+                        style={{
+                          padding: 10,
+                          textAlign: 'right',
+                          fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
+                          fontFeatureSettings: '"tnum"',
+                        }}
+                      >
+                        {USD(lineTotal)}
+                      </td>
                     </tr>
                   );
                 })}
               </tbody>
-              <tfoot style={{ fontSize: 14 }}>
+              <tfoot
+                style={{
+                  fontSize: 14,
+                  fontFamily: 'var(--sans, "Inter Tight", system-ui, sans-serif)',
+                }}
+              >
                 <tr>
-                  <td colSpan={3} style={{ padding: '12px 8px 4px 0', textAlign: 'right', color: '#666' }}>
+                  <td
+                    colSpan={3}
+                    style={{
+                      padding: '14px 8px 4px 0',
+                      textAlign: 'right',
+                      color: 'var(--muted, #7b7268)',
+                    }}
+                  >
                     Subtotal
                   </td>
-                  <td style={{ padding: '12px 8px 4px', textAlign: 'right' }}>{USD(subtotal)}</td>
+                  <td
+                    style={{
+                      padding: '14px 8px 4px',
+                      textAlign: 'right',
+                      fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
+                      fontFeatureSettings: '"tnum"',
+                    }}
+                  >
+                    {USD(subtotal)}
+                  </td>
                 </tr>
                 {event.service_fee_pct ? (
                   <tr>
-                    <td colSpan={3} style={{ padding: '4px 8px 4px 0', textAlign: 'right', color: '#666' }}>
+                    <td
+                      colSpan={3}
+                      style={{
+                        padding: '4px 8px 4px 0',
+                        textAlign: 'right',
+                        color: 'var(--muted, #7b7268)',
+                      }}
+                    >
                       Service fee ({Number(event.service_fee_pct)}%)
                     </td>
-                    <td style={{ padding: '4px 8px', textAlign: 'right' }}>{USD(serviceFee)}</td>
+                    <td
+                      style={{
+                        padding: '4px 8px',
+                        textAlign: 'right',
+                        fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
+                        fontFeatureSettings: '"tnum"',
+                      }}
+                    >
+                      {USD(serviceFee)}
+                    </td>
                   </tr>
                 ) : null}
                 {event.tax_rate ? (
                   <tr>
-                    <td colSpan={3} style={{ padding: '4px 8px 4px 0', textAlign: 'right', color: '#666' }}>
+                    <td
+                      colSpan={3}
+                      style={{
+                        padding: '4px 8px 4px 0',
+                        textAlign: 'right',
+                        color: 'var(--muted, #7b7268)',
+                      }}
+                    >
                       Tax ({(Number(event.tax_rate) * 100).toFixed(2)}%)
                     </td>
-                    <td style={{ padding: '4px 8px', textAlign: 'right' }}>{USD(tax)}</td>
+                    <td
+                      style={{
+                        padding: '4px 8px',
+                        textAlign: 'right',
+                        fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
+                        fontFeatureSettings: '"tnum"',
+                      }}
+                    >
+                      {USD(tax)}
+                    </td>
                   </tr>
                 ) : null}
-                <tr style={{ borderTop: '2px solid #1a1a1a' }}>
-                  <td colSpan={3} style={{ padding: '8px 8px 4px 0', textAlign: 'right', fontWeight: 700 }}>
+                <tr style={{ borderTop: '1px solid var(--ink, #1d1a15)' }}>
+                  <td
+                    colSpan={3}
+                    style={{
+                      padding: '10px 8px 4px 0',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      color: 'var(--ink, #1d1a15)',
+                    }}
+                  >
                     Total
                   </td>
-                  <td style={{ padding: '8px 8px 4px', textAlign: 'right', fontWeight: 700 }}>{USD(total)}</td>
+                  <td
+                    style={{
+                      padding: '10px 8px 4px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      color: 'var(--ember-deep, #9a3f1a)',
+                      fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
+                      fontFeatureSettings: '"tnum"',
+                    }}
+                  >
+                    {USD(total)}
+                  </td>
                 </tr>
               </tfoot>
             </table>
           </section>
         )}
 
-        <section style={{ marginTop: 36, borderTop: '1px solid #1a1a1a', paddingTop: 24 }}>
-          <h2 style={{ fontSize: 16, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#444', marginBottom: 12 }}>
-            Confirm this event
-          </h2>
-          <p style={{ fontSize: 14, color: '#444', margin: '0 0 16px' }}>
-            By signing below, you confirm the details above for your event.
+        <section
+          style={{
+            marginTop: 40,
+            borderTop: '1px solid var(--ink, #1d1a15)',
+            paddingTop: 28,
+          }}
+        >
+          <h2 style={SECTION_HEAD_STYLE}>Confirm this event</h2>
+          <p
+            style={{
+              fontSize: 14,
+              color: 'var(--char, #3a3530)',
+              margin: '0 0 18px',
+              fontFamily: 'var(--sans, "Inter Tight", system-ui, sans-serif)',
+            }}
+          >
+            By signing below, you confirm the event details above and authorize this banquet event order.
           </p>
           <SignForm token={token} />
 
           {signatures.length > 0 && (
-            <div style={{ marginTop: 24, fontSize: 13, color: '#666' }}>
-              <div style={{ marginBottom: 6, fontWeight: 600, color: '#444' }}>Signed</div>
-              <ul style={{ margin: 0, paddingLeft: 16 }}>
+            <div
+              style={{
+                marginTop: 28,
+                fontSize: 13,
+                color: 'var(--muted, #7b7268)',
+                fontFamily: 'var(--sans, "Inter Tight", system-ui, sans-serif)',
+              }}
+            >
+              <div
+                style={{
+                  marginBottom: 8,
+                  fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
+                  fontSize: 10,
+                  letterSpacing: '0.24em',
+                  textTransform: 'uppercase',
+                  color: 'var(--char, #3a3530)',
+                  fontWeight: 700,
+                }}
+              >
+                Signed
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
                 {signatures.map((s) => (
-                  <li key={s.id} style={{ marginBottom: 2 }}>
-                    {s.signed_name}{' '}
-                    <span style={{ color: '#999' }}>
+                  <li
+                    key={s.id}
+                    style={{
+                      marginBottom: 4,
+                      paddingLeft: 14,
+                      borderLeft: '2px solid var(--sage, #5d7a66)',
+                    }}
+                  >
+                    <strong style={{ color: 'var(--ink, #1d1a15)', fontWeight: 600 }}>{s.signed_name}</strong>{' '}
+                    <span style={{ color: 'var(--muted-2, #9c9282)' }}>
                       — {new Date(s.signed_at).toLocaleString('en-US')}
                     </span>
                   </li>
