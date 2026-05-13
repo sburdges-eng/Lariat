@@ -314,9 +314,11 @@ export default function ManagementRollupPage({ searchParams }) {
           <li><Link href="/management/performance-reviews">Staff reviews</Link> — log and view performance</li>
           <li><Link href="/management/audit-log">Audit log</Link> — management actions outside regulated tables</li>
           <li><Link href="/management/cloud-bridge">Cloud bridge</Link> — stuck snapshots heading to corp</li>
-          {/* Static design reference — the LaRiOS drop. Plain <a> because the
-              target is served straight out of public/, not a Next route. */}
-          <li><a href="/design-atlas/">Design Atlas</a> — LaRiOS prototypes and reference renders</li>
+          {/* Static design reference. Plain <a> because the target is
+              served straight out of public/, not a Next route. The internal
+              "LaRiOS" label from the design drop stays in design-atlas/
+              docs only — user-facing copy says "design prototypes". */}
+          <li><a href="/design-atlas/">Design Atlas</a> — design prototypes and reference renders</li>
         </ul>
       </div>
     </div>
