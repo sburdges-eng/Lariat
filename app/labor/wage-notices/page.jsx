@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Wage notices board (L7 / C.R.S. §8-4-103).
 // Server-renders the latest notice per cook for this location and
 // the freshness summary. Client board posts the "Sign new notice"

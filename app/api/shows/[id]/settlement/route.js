@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // PIN-gated settlement read for a single show. Uses Response.json
 // rather than next/server's NextResponse so the route is loadable
 // from the Node test runner — same pattern as /api/beo/route.js

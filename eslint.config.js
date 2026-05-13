@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // ESLint v9 flat-config root for Lariat.
 //
 // Posture: SOFT-LAUNCH. Most stylistic rules are 'warn' so an iPad-cook-shipping
@@ -151,6 +152,20 @@ export default [
 
       // We use `Function` types in a few generic helper signatures intentionally.
       '@typescript-eslint/no-unsafe-function-type': 'off',
+
+      // `@ts-nocheck` with a description is the GH #250 migration marker —
+      // a 249-file baseline of JS files that fail under checkJs:true. Each
+      // header comment names the issue + the migration plan; the default
+      // `ban-ts-comment: error` would refuse to commit them. Allowing
+      // `@ts-expect-error` / `@ts-ignore` only with descriptions keeps the
+      // gate honest for new uses.
+      '@typescript-eslint/ban-ts-comment': ['error', {
+        'ts-expect-error': 'allow-with-description',
+        'ts-ignore': 'allow-with-description',
+        'ts-nocheck': 'allow-with-description',
+        'ts-check': false,
+        minimumDescriptionLength: 5,
+      }],
 
       // var is never used; let/const enforced via ECMA latest defaults.
     },

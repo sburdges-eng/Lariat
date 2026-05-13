@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // FOH dining-room floor plan. Server-rendered: loads the dining_tables
 // rows for the current location and today's open (booked, not yet seated)
 // reservations so the client can offer "seat a reservation" on each

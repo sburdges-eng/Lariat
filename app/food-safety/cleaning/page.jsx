@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Cleaning board — today's cleaning-log entries + a strip-form to log
 // a completed task. Backed by /api/cleaning (POST insert, GET list).
 //

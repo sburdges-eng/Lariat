@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 import { getDb } from '../../../../lib/db';
 import { getStageSetup, stageCompleteness, KNOWN_ROOM_CONFIGS } from '../../../../lib/stageRepo';
 import TabStrip from '../_components/TabStrip';

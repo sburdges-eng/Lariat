@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // T9 dashboard — three benchmark tiles on a single page:
 //   B1 variance (max_variance_pct, colored + top-5 table)
 //   B2 unmapped queue (unmapped_pct, colored + first-10 table)

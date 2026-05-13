@@ -1,3 +1,8 @@
+// @ts-check
+// GH #250 demonstration: this JS route opts INTO checkJs via the directive
+// above. JSDoc imports below let tsc enforce DiscoveredInstance shape end
+// to end — a typo on `peer.txt.pubkey_fp` or a `DiscoveredInstance` field
+// rename in lib/mdnsDiscovery.ts will fail `npm run typecheck` here.
 /**
  * GET /api/peers — enumerate LAN peers and report the elected hub.
  *
@@ -45,6 +50,8 @@
 import { loadPeersAndHub } from '../../../lib/peers';
 import { hasPinCookie } from '../../../lib/pin';
 
+/** @typedef {import('../../../lib/mdnsDiscovery.ts').DiscoveredInstance} DiscoveredInstance */
+
 export const dynamic = 'force-dynamic';
 
 const MAX_TIMEOUT_MS = 10000;
@@ -53,6 +60,9 @@ const MAX_TIMEOUT_MS = 10000;
  * Parse and clamp the `timeout` query param. Returns undefined for any
  * non-finite, non-positive, or non-numeric input — `loadPeersAndHub` then
  * forwards `undefined` to `discover()`, which uses its own 2000ms default.
+ *
+ * @param {string | null} raw
+ * @returns {number | undefined}
  */
 function parseTimeout(raw) {
   if (raw === null) return undefined;
@@ -71,9 +81,13 @@ function parseTimeout(raw) {
  * (the "another site is online" pill) wants to label peers something more
  * useful than "(unknown)". Both are advertised over mDNS already, so they
  * are not new disclosure surface.
+ *
+ * @param {DiscoveredInstance} peer
+ * @returns {{ name: string; txt: { location_id?: string; started_at?: string } }}
  */
 export function redactPeerForUnauth(peer) {
-  const txt = peer && peer.txt ? peer.txt : {};
+  const txt = peer && peer.txt ? peer.txt : /** @type {DiscoveredInstance['txt']} */ ({});
+  /** @type {{ name: string; txt: { location_id?: string; started_at?: string } }} */
   const out = { name: typeof peer?.name === 'string' ? peer.name : '', txt: {} };
   if (typeof txt.location_id === 'string') out.txt.location_id = txt.location_id;
   if (typeof txt.started_at === 'string') out.txt.started_at = txt.started_at;
@@ -83,6 +97,10 @@ export function redactPeerForUnauth(peer) {
 /**
  * Pure shape-decider used by GET. Exposed for unit tests so the redaction
  * branch can be exercised without stubbing the multicast IO layer.
+ *
+ * @param {DiscoveredInstance[]} peers
+ * @param {DiscoveredInstance | null} hub
+ * @param {{ pinOk: boolean }} opts
  */
 export function buildPeersResponse(peers, hub, { pinOk }) {
   if (pinOk) return { peers, hub };
@@ -93,6 +111,7 @@ export function buildPeersResponse(peers, hub, { pinOk }) {
   };
 }
 
+/** @param {Request} request */
 export async function GET(request) {
   const url = new URL(request.url);
   const timeoutMs = parseTimeout(url.searchParams.get('timeout'));

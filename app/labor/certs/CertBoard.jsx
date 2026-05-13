@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 'use client';
 // Cert expiry board. List all tracked certs sorted by urgency, with an
 // add-cert form visible to PIN-authed managers.

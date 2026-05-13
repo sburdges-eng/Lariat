@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Date-marks subpage — active batches + expiring scan.
 //
 // Walk-in-facing board. Reads today's active date marks, then sorts:

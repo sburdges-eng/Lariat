@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 /* Lariat service worker — GET /api/* cache + BackgroundSync-like queue for POST/DELETE /api/* */
 
 const CACHE_NAME = 'lariat-api-v1';

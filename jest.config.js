@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Jest config for React component tests under app/__tests__/**.
 //
 // Uses next/jest to pick up:

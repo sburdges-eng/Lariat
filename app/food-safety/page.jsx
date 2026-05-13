@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Food-safety hub — one glance at every HACCP surface.
 //
 // This is the "is the kitchen compliant right now?" page. Each tile is

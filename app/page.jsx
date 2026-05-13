@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 import Link from 'next/link';
 import { getStations, getLineCheckTemplate, getRecipes } from '../lib/data';
 import { getDb, todayISO, getPreshiftNote, todayServiceLabel } from '../lib/db';

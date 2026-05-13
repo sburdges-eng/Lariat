@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 'use client';
 // Interactive board for date marks. One form to create, one tap to
 // discard. Sorted by urgency so the expired stuff is always at the top.

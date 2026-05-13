@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // GET /api/beo/fire-schedule?date=YYYY-MM-DD&location=<slug>
 //
 // Per spec §B (T7). PUBLIC endpoint — line cooks read this on a wall

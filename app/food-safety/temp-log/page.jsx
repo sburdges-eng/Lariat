@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Temp-log subpage — the full-CCP grid + a quick-entry form.
 //
 // Every kitchen CCP that's a single-reading check (receiving, cold-hold

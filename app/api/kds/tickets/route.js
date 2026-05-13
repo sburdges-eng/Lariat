@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Lariat <-> KDS tickets endpoint (v1).
 //
 // Spec: ~/Dev/Lariat-KDS/docs/lariat-kds-protocol.md §2.

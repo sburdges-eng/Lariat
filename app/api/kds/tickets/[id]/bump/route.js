@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // POST /api/kds/tickets/:id/bump — KDS bump-back (protocol v2).
 //
 // Spec: ~/Dev/Lariat-KDS/docs/lariat-kds-protocol.md §3.

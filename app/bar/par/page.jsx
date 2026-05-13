@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // /bar/par — bar-only filtered par list.
 //
 // Read-only mirror of /inventory/par scoped to beverage categories.

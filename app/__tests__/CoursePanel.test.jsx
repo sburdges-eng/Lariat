@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // CoursePanel jsdom test (T6) — exercises load + add + delete + bind.
 // Real fetch is mocked; the panel is rendered in isolation.
 

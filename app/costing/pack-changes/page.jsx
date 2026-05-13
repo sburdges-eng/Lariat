@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // /costing/pack-changes — operator triage queue for vendor pack-size flips.
 //
 // During scripts/ingest-costing.mjs (T6), any vendor SKU whose pack_size

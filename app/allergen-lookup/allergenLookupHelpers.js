@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Pure helpers for the /allergen-lookup page. Extracted into their own
 // module so they can be unit-tested under `node --test` without
 // spinning up React or Next.js.

@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Corrective-action read view — F13 (FDA 2022 §8-405.11).
 //
 // GET /api/corrective-actions?date=YYYY-MM-DD&location=…&station_id=…

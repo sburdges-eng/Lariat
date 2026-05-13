@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // PATCH /api/beo/courses/:id  — edit a course (label, fire_at, notes, sort_order).
 // DELETE /api/beo/courses/:id — drop a course; child line_items.course_id → NULL via FK.
 //

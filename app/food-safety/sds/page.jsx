@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // SDS-registry board — every chemical product on site, with add-form.
 // Backed by /api/sds. Citation: OSHA 29 CFR 1910.1200 (HazCom — SDS
 // must be on hand and accessible to employees on every shift).

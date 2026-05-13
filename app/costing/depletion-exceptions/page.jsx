@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // /costing/depletion-exceptions — operator triage queue for Toast sales
 // lines that can't auto-deplete inventory.
 //

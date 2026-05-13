@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Sanitizer subpage — latest ppm reading per point, + a strip entry.
 //
 // The read side shows "is every bucket in spec right now?" by grouping

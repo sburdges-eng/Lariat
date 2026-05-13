@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Pest-control board — recent service visits / sightings / trap checks,
 // plus a strip-form to log a new entry. Backed by /api/pest.
 //

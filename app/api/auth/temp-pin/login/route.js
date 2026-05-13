@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // POST /api/auth/temp-pin/login — exchange a temp PIN for a cookie.
 //
 // Spec: docs/superpowers/specs/2026-05-04-beo-fire-times.md.
