@@ -25,17 +25,34 @@ const DEFAULT_SLOTS = 3;
 export default function LariAmbient({
   surface,
   location,
+  params: extraParams,
   dense = false,
   slots = DEFAULT_SLOTS,
 }) {
   const [predictions, setPredictions] = useState([]);
   const [hadFirstResponse, setHadFirstResponse] = useState(false);
 
+  // Stable serialization of extraParams so identical-shaped objects
+  // from re-renders don't re-trigger the fetch effect.
+  const extraSerialized = extraParams
+    ? Object.entries(extraParams)
+        .filter(([, v]) => v != null && v !== '')
+        .map(([k, v]) => `${k}=${v}`)
+        .sort()
+        .join('&')
+    : '';
+
   const fetchPredictions = useCallback(async () => {
     if (!surface) return;
     try {
       const params = new URLSearchParams({ surface });
       if (location) params.set('location', location);
+      if (extraParams) {
+        for (const [k, v] of Object.entries(extraParams)) {
+          if (v == null || v === '') continue;
+          params.set(k, String(v));
+        }
+      }
       const res = await fetch(`/api/lari/predictions?${params.toString()}`, {
         cache: 'no-store',
       });
@@ -54,7 +71,8 @@ export default function LariAmbient({
       // Network blip — same silent-degrade behavior.
       setHadFirstResponse(true);
     }
-  }, [surface, location]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [surface, location, extraSerialized]);
 
   useEffect(() => {
     fetchPredictions();

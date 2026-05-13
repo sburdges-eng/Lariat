@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { humanize } from '../../../../lib/userError';
 import SparklineSpl from './_components/SparklineSpl';
 import StagePlotSvg from './_components/StagePlotSvg';
+import LariAmbient from '../../../_components/LariAmbient';
 
 const AUTOSAVE_INTERVAL_MS = 30_000;
 
@@ -194,6 +195,11 @@ export default function SoundBoard({ showId, locationId, initialScenes, complete
 
   return (
     <section className="card" style={{ padding: 18 }}>
+      <LariAmbient
+        surface="sound"
+        location={locationId}
+        params={{ show_id: showId }}
+      />
       <div className="row-meta" style={{ marginBottom: 6 }}>
         Completeness · {(score * 100).toFixed(0)}% · {scenes.length} scene
         {scenes.length === 1 ? '' : 's'}

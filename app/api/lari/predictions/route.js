@@ -1,7 +1,12 @@
 import { getDb, todayISO } from '../../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../../lib/location';
 import { requirePin } from '../../../../lib/pin';
-import { buildBeoPredictions } from '../../../../lib/lariPredictions';
+import {
+  buildBeoPredictions,
+  buildSoundPredictions,
+} from '../../../../lib/lariPredictions';
+import { listSoundScenesForShow, listSplReadings } from '../../../../lib/soundRepo';
+import { summarizeSpl } from '../../../../lib/splTelemetry';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,12 +20,14 @@ export const dynamic = 'force-dynamic';
 // PIN-gated via `requirePin()` (defense-in-depth — the consumer pages
 // are already in the middleware matcher list, this re-checks).
 //
-// Surfaces supported in V5:
-//   ?surface=beo  → BEO prep + line-item rollup for tonight + 7d out
+// Surfaces supported:
+//   ?surface=beo                       → BEO prep + line-item rollup
+//   ?surface=sound&show_id=<n>         → SPL safety + scene readiness for a
+//                                        specific show. Requires show_id.
 // Other values return an empty list rather than 4xx, so the consumer
 // component can ship a generic loader without a per-surface case.
 
-const SUPPORTED_SURFACES = new Set(['beo']);
+const SUPPORTED_SURFACES = new Set(['beo', 'sound']);
 
 export async function GET(req) {
   const pinFail = await requirePin(req);
@@ -43,6 +50,47 @@ export async function GET(req) {
     }
 
     const db = getDb();
+
+    if (surface === 'sound') {
+      const showIdRaw = u.searchParams.get('show_id');
+      const showId = Number(showIdRaw);
+      if (!Number.isInteger(showId) || showId <= 0) {
+        return Response.json(
+          { error: 'show_id query param required for surface=sound' },
+          { status: 400 },
+        );
+      }
+      const show = db
+        .prepare(`SELECT id, band_name FROM shows WHERE id = ? AND location_id = ?`)
+        .get(showId, loc);
+      if (!show) {
+        return Response.json({
+          surface,
+          location_id: loc,
+          date: today,
+          predictions: [],
+          note: `Show ${showId} not found at location ${loc}.`,
+        });
+      }
+      const scenes = listSoundScenesForShow(db, showId, loc);
+      const readings = listSplReadings(db, showId, loc, { limit: 200 });
+      const latestSceneLimit = scenes[0]?.spl_limit_db ?? null;
+      const summary = summarizeSpl(readings, latestSceneLimit);
+      const predictions = buildSoundPredictions({
+        show_id: showId,
+        band_name: show.band_name,
+        scenes,
+        spl_summary: summary,
+        today,
+      });
+      return Response.json({
+        surface,
+        location_id: loc,
+        date: today,
+        show_id: showId,
+        predictions,
+      });
+    }
 
     if (surface === 'beo') {
       const events = db

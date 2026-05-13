@@ -15,6 +15,7 @@ const {
   sortBySeverity,
   trimPredictions,
   buildBeoPredictions,
+  buildSoundPredictions,
   daysUntil,
 } = m;
 
@@ -268,5 +269,113 @@ describe('buildBeoPredictions', () => {
     const a = buildBeoPredictions(inputs);
     const b = buildBeoPredictions(inputs);
     assert.deepEqual(a.map((p) => p.id), b.map((p) => p.id));
+  });
+});
+
+describe('buildSoundPredictions', () => {
+  const TODAY = '2026-05-13';
+  const baseInputs = () => ({
+    show_id: 42,
+    band_name: 'The Stand',
+    scenes: [],
+    spl_summary: null,
+    today: TODAY,
+  });
+
+  it('returns [] when scenes is not an array', () => {
+    assert.deepEqual(buildSoundPredictions({ ...baseInputs(), scenes: null }), []);
+    assert.deepEqual(buildSoundPredictions({ ...baseInputs(), scenes: 'oops' }), []);
+  });
+
+  it('returns just a warn when no scene + no readings', () => {
+    const out = buildSoundPredictions(baseInputs());
+    assert.equal(out.length, 1);
+    assert.equal(out[0].id, 'sound-no-scene-42');
+    assert.equal(out[0].severity, 'warn');
+    assert.match(out[0].text, /No sound scene saved yet for "The Stand"/);
+  });
+
+  it('emits ALERT when over_limit_count > 0', () => {
+    const inputs = {
+      ...baseInputs(),
+      scenes: [{ id: 5, scene_name: 'Mix A', spl_limit_db: 100, plot: { channels: [{}] }, saved_at: '' }],
+      spl_summary: { count: 50, latest: 102, peak: 105, over_limit_count: 3, limit_db: 100 },
+    };
+    const out = buildSoundPredictions(inputs);
+    const alert = out.find((p) => p.id === 'sound-over-limit-42');
+    assert.ok(alert);
+    assert.equal(alert.severity, 'alert');
+    assert.match(alert.text, /3 readings/);
+  });
+
+  it('emits ALERT (running blind) when peak ≥ 100 and no scene saved', () => {
+    const inputs = {
+      ...baseInputs(),
+      spl_summary: { count: 12, latest: 102, peak: 103, over_limit_count: 0, limit_db: null },
+    };
+    const out = buildSoundPredictions(inputs);
+    const alert = out.find((p) => p.id === 'sound-running-blind-42');
+    assert.ok(alert);
+    assert.equal(alert.severity, 'alert');
+  });
+
+  it('does NOT double-emit no-scene + running-blind together', () => {
+    const inputs = {
+      ...baseInputs(),
+      spl_summary: { count: 12, latest: 102, peak: 103, over_limit_count: 0, limit_db: null },
+    };
+    const out = buildSoundPredictions(inputs);
+    assert.equal(out.find((p) => p.id === 'sound-no-scene-42'), undefined);
+  });
+
+  it('emits WARN when scene saved but no SPL ceiling', () => {
+    const inputs = {
+      ...baseInputs(),
+      scenes: [{ id: 5, scene_name: 'Mix A', spl_limit_db: null, plot: { channels: [{}] }, saved_at: '' }],
+    };
+    const out = buildSoundPredictions(inputs);
+    const warn = out.find((p) => p.id === 'sound-no-limit-42');
+    assert.ok(warn);
+    assert.equal(warn.severity, 'warn');
+  });
+
+  it('emits WARN when latest scene plot has no channels', () => {
+    const inputs = {
+      ...baseInputs(),
+      scenes: [{ id: 5, scene_name: 'Skeleton', spl_limit_db: 100, plot: { channels: [] }, saved_at: '' }],
+    };
+    const out = buildSoundPredictions(inputs);
+    const warn = out.find((p) => p.id === 'sound-empty-plot-42');
+    assert.ok(warn);
+    assert.match(warn.text, /Skeleton/);
+  });
+
+  it('emits OK rollup when readings exist + in-band', () => {
+    const inputs = {
+      ...baseInputs(),
+      scenes: [{ id: 5, scene_name: 'Mix A', spl_limit_db: 100, plot: { channels: [{}] }, saved_at: '' }],
+      spl_summary: { count: 80, latest: 95, peak: 98, over_limit_count: 0, limit_db: 100 },
+    };
+    const out = buildSoundPredictions(inputs);
+    const ok = out.find((p) => p.id === 'sound-rollup-42');
+    assert.ok(ok);
+    assert.equal(ok.severity, 'ok');
+    assert.match(ok.text, /80 readings tonight · peak 98 dB · in band/);
+  });
+
+  it('caps at 5 predictions even when multiple alerts fire', () => {
+    const inputs = {
+      ...baseInputs(),
+      scenes: [{ id: 5, scene_name: 'X', spl_limit_db: null, plot: { channels: [] }, saved_at: '' }],
+      spl_summary: { count: 80, latest: 105, peak: 110, over_limit_count: 12, limit_db: 100 },
+    };
+    const out = buildSoundPredictions(inputs);
+    assert.ok(out.length <= 5);
+  });
+
+  it('uses show #N when band_name is null', () => {
+    const inputs = { ...baseInputs(), band_name: null };
+    const out = buildSoundPredictions(inputs);
+    assert.match(out[0].text, /show #42/);
   });
 });
