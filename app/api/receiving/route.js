@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Receiving log (F3 / FDA §3-202.11, §3-202.15, §3-101.11).
 //
 // POST /api/receiving   → record one delivery line; 422 if the rule

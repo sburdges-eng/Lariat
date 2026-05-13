@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 import { render, screen, waitFor } from '@testing-library/react';
 import { RoleProvider, useRole } from '../_components/RoleProvider';
 import { useEffect, useState } from 'react';

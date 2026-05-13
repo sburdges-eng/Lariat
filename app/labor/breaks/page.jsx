@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Breaks subpage — start/end meal & rest breaks, COMPS #39 evaluator.
 //
 // Two roles: cooks start and end their own breaks here (writes); the

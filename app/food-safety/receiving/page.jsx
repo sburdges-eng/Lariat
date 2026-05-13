@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Receiving-log subpage — one tile per RECEIVING_CATEGORY plus a
 // quick-entry form for the cook taking the delivery. Pulls today's
 // rows through the DB directly so the first paint is a straight

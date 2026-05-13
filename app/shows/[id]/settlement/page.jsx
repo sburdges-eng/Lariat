@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 import { getSettlement } from '../../../../lib/settlementRepo.ts';
 import TabStrip from '../_components/TabStrip';
 import DealEditor from './_components/DealEditor';

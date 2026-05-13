@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // FireSchedule jsdom test (T8) — page rendering, age coloring, ack flow.
 // Web Audio is mocked at the page boundary; useFireCue's tone path
 // is covered by behavioral assertions on the visual pulse callback.

@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Employee health reports (F5 / FDA §2-201.11).
 //
 // POST  /api/sick-worker           → file a sick report (PIC authority)

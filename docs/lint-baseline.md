@@ -23,8 +23,14 @@ npm run lint:changed
 ```
 
 Pre-commit: `simple-git-hooks` runs `lint-staged` on every staged file
-(autofix + error-only gate). Override in emergencies with `git commit
---no-verify`.
+(autofix + error-only gate — warnings do not block). Override in emergencies
+with `git commit --no-verify`.
+
+`npm run lint:changed` is stricter — it runs ESLint with `--max-warnings 0`
+against everything changed vs `origin/main` and exits non-zero on any warning
+or error. Use it as a "am I clean against the warning baseline" check before
+pushing. It is **not** part of the pre-commit gate (yet); the script exists
+so future CI can adopt it without changing the pre-commit ergonomics.
 
 ## Baseline counts (one-time snapshot)
 

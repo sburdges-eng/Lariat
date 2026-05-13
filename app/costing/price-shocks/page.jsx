@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // /costing/price-shocks — manager-facing view of vendor SKUs that moved
 // in price recently, with the dishes they touch.
 //

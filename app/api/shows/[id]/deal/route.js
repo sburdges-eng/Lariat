@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // PIN-gated deal upsert / read for a single show. Settlement page is
 // the primary caller; backfill scripts can use the same surface with
 // a valid PIN cookie.

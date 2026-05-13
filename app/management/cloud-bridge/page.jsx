@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // /management/cloud-bridge — dead-letter triage for the cloud bridge.
 //
 // PIN gate: `/management/*` is in middleware.js SENSITIVE_PREFIXES, so

@@ -45,10 +45,12 @@ process.env.LARIAT_PIN_SECRET = 'test-secret-for-ka-pin-gate-32bytes!';
 
 const ORIGINAL_FETCH = globalThis.fetch;
 let stubbedAction = null;
+let chatFetchCalls = 0;
 function installFetchStub() {
   globalThis.fetch = async (url) => {
     const u = String(url);
     if (u.endsWith('/api/chat')) {
+      chatFetchCalls += 1;
       const content =
         '```json\n' + JSON.stringify(stubbedAction) + '\n```\n' +
         'OK — action emitted.';
@@ -85,6 +87,7 @@ before(() => {
 });
 
 beforeEach(() => {
+  chatFetchCalls = 0;
   testDb.exec(
     `DELETE FROM eighty_six;
      DELETE FROM audit_events;`,
@@ -115,40 +118,58 @@ const EIGHTY_SIX_ACTION = {
   reason: 'sold out',
 };
 
-// ── 1. No auth at all → soft-blocked ─────────────────────────────────
+// ── 1. No auth at all → short-circuit before Ollama ─────────────────
+//
+// Two contracts pinned at once:
+//   * 2026-05-08 PIN gate: regulated mutations must not run without a PIN.
+//   * #248: that block now happens BEFORE the LLM call. Earlier the route
+//     ran Ollama first and let the action handler soft-block — wasted
+//     compute on every blocked attempt, plus "MGMNT ALERT" log entries
+//     from rate-limit-free LAN abuse. New contract: model='pin-required',
+//     actionExecuted=false, AND no /api/chat fetch happened at all.
 
-describe('kitchen-assistant PIN gate — no auth', () => {
-  it('soft-blocks a write action when neither cookie nor header is present', async () => {
+describe('kitchen-assistant PIN gate — no auth short-circuits before LLM (#248)', () => {
+  it('blocks write action and skips Ollama when neither cookie nor header is present', async () => {
     const res = await POST(makeReq(EIGHTY_SIX_ACTION));
     assert.equal(res.status, 200, 'soft-block contract: 200 + blocked message');
     const body = await res.json();
+    assert.equal(body.model, 'pin-required', 'response should be marked as PIN-required');
+    assert.equal(body.actionExecuted, false, 'no action should be reported as executed');
+    assert.equal(body.actionError, false, 'no action error either — the block is policy, not failure');
     assert.match(
       body.answer || '',
-      /manager PIN required/i,
-      'response should surface the PIN-required block',
+      /ask a manager/i,
+      'response should tell the cook to ask a manager',
     );
     assert.equal(countEightySix(), 0, 'no eighty_six row landed');
+    assert.equal(
+      chatFetchCalls,
+      0,
+      '#248: Ollama must not be called for un-PIN\'d imperative commands',
+    );
   });
 });
 
 // ── 2. Legacy header path is DEAD (regression) ───────────────────────
 
 describe('kitchen-assistant PIN gate — legacy x-lariat-pin header is dead', () => {
-  it('soft-blocks even when x-lariat-pin matches LARIAT_PIN (no cookie)', async () => {
+  it('short-circuits even when x-lariat-pin matches LARIAT_PIN (no cookie)', async () => {
     const res = await POST(
       makeReq(EIGHTY_SIX_ACTION, { headerPin: '4242' }),
     );
     assert.equal(res.status, 200);
     const body = await res.json();
-    assert.match(
-      body.answer || '',
-      /manager PIN required/i,
-      'header path must NOT grant authority — cookie is the only ticket',
-    );
+    assert.equal(body.model, 'pin-required', 'header path must NOT grant authority');
+    assert.equal(body.actionExecuted, false);
     assert.equal(
       countEightySix(),
       0,
       'no eighty_six row should land via the dead header path',
+    );
+    assert.equal(
+      chatFetchCalls,
+      0,
+      '#248: Ollama must not be called even when the legacy header is set',
     );
   });
 });

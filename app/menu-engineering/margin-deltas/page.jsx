@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // /menu-engineering/margin-deltas — manager-facing view of dishes whose
 // per-serving cost moved in the lookback window. Companion to
 // /costing/price-shocks: that page surfaces vendor SKU moves; this one

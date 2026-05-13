@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Tip pool ledger (L4 / COMPS #39 §3.3, §3.4 + 29 CFR 531.52).
 //
 // POST /api/tip-pool   → log a tip / service-charge / direct-tip line

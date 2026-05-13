@@ -1,9 +1,15 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // ESLint v9 flat-config root for Lariat.
 //
 // Posture: SOFT-LAUNCH. Most stylistic rules are 'warn' so an iPad-cook-shipping
 // dev can keep moving; only correctness rules that catch real bugs are 'error'.
-// CI gates on `--max-warnings 0` for files changed in a PR (via lint-staged in
-// pre-commit), NOT on full-repo lint — see package.json `lint:changed`.
+//
+// Gate behavior — make sure this matches docs/lint-baseline.md:
+//   - pre-commit (lint-staged): errors ONLY. Warnings do not block commits.
+//   - `npm run lint:changed`: warnings + errors fail (—max-warnings 0). This is
+//     the "am I clean against the warning baseline" check devs can run manually
+//     and that future CI can adopt without changing pre-commit ergonomics.
+//   - `npm run lint`: full repo, advisory until the 299-warning baseline drains.
 //
 // Type-checker (`tsc --noEmit`) keeps doing the heavy semantic lifting; we
 // deliberately skip type-aware ESLint rules to avoid double-reporting and
@@ -146,6 +152,20 @@ export default [
 
       // We use `Function` types in a few generic helper signatures intentionally.
       '@typescript-eslint/no-unsafe-function-type': 'off',
+
+      // `@ts-nocheck` with a description is the GH #250 migration marker —
+      // a 249-file baseline of JS files that fail under checkJs:true. Each
+      // header comment names the issue + the migration plan; the default
+      // `ban-ts-comment: error` would refuse to commit them. Allowing
+      // `@ts-expect-error` / `@ts-ignore` only with descriptions keeps the
+      // gate honest for new uses.
+      '@typescript-eslint/ban-ts-comment': ['error', {
+        'ts-expect-error': 'allow-with-description',
+        'ts-ignore': 'allow-with-description',
+        'ts-nocheck': 'allow-with-description',
+        'ts-check': false,
+        minimumDescriptionLength: 5,
+      }],
 
       // var is never used; let/const enforced via ECMA latest defaults.
     },

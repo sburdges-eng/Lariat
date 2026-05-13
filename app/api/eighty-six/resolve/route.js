@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // POST /api/eighty-six/resolve — mark an active 86 row resolved.
 //
 // Pre-2026-05-08 this route did:

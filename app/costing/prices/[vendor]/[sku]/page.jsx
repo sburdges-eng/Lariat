@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // /costing/prices/[vendor]/[sku] — single-SKU price history.
 //
 // Renders the full snapshot timeline as an SVG sparkline + table. The

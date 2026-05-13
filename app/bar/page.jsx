@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // /bar — pour-cost dashboard for cocktail-style recipes.
 //
 // Manager-facing analytics: "which cocktails are nailing pour-cost target,

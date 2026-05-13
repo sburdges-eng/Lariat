@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 import { buildGroundedContext } from '../../../lib/kitchenAssistantContext';
 import { getDb, todayISO } from '../../../lib/db';
 import {
@@ -76,22 +77,53 @@ async function kitchenAssistantPostHandler(req) {
 
   const locationId = locationFromBodyOrRequest(body, req);
 
+  // Auth ticket is read here, not deeper in the handler, because two
+  // sibling fixes both need it BEFORE the LLM call:
+  //
+  //   - #247: buildGroundedContext must redact labor / sales / perf-review
+  //           / gold-star sections for cook-tier callers — otherwise a LAN
+  //           client without the PIN can read manager-only data from the
+  //           LLM's prompt context.
+  //   - #248: imperative commands ("86 the salmon") that lack a PIN must
+  //           NOT call Ollama at all. Pre-fix the LLM ran, the action JSON
+  //           got soft-blocked downstream, and a logged "MGMNT ALERT" trail
+  //           accumulated for every blocked attempt. Wasted compute + log
+  //           leakage to anyone with stdout access.
+  const hasPin = await hasPinCookie(req);
+
+  // Q-vs-C routing happens here in deterministic code, not in the LLM.
+  // Models can misread sentences containing "86" as commands when they do
+  // the routing in-prompt — see lib/cookMessageClassifier.ts.
+  const isCommand = isImperativeCommand(message);
+
+  // #248: short-circuit before Ollama on cook-tier imperatives. The inner
+  // `pinRequired.includes(...)` guard below still exists as
+  // defense-in-depth, but the LLM call is the expensive part — skip it.
+  if (isCommand && !hasPin) {
+    return Response.json({
+      answer:
+        "Ask a manager — that's a PIN-only action. Once a manager has tapped through on their tablet I can do it.",
+      model: 'pin-required',
+      location_id: locationId,
+      sources: [],
+      latencyMs: 0,
+      actionExecuted: false,
+      actionError: false,
+      disclaimer: 'Check tags with a manager. Do not trust AI for allergies.',
+    });
+  }
+
   const started = Date.now();
   let contextText;
   let sources;
   try {
-    const built = await buildGroundedContext(locationId, message);
+    const built = await buildGroundedContext(locationId, message, { hasPin });
     contextText = built.contextText;
     sources = built.sources;
   } catch (e) {
     console.error(e);
     return Response.json({ error: 'Failed to load kitchen context' }, { status: 500 });
   }
-
-  // Q-vs-C routing happens here in deterministic code, not in the LLM.
-  // Models can misread sentences containing "86" as commands when they do
-  // the routing in-prompt — see lib/cookMessageClassifier.ts.
-  const isCommand = isImperativeCommand(message);
 
   let userContent = `CONTEXT (authoritative — only use these facts for operational claims):\n\n${contextText}\n\n---\nCOOK MESSAGE:\n${message}`;
 
@@ -159,17 +191,12 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
       try {
         const db = getDb();
 
-        // Auth ticket: the HMAC-signed `lariat_pin_ok` cookie issued by
-        // POST /api/auth/pin. Replaces the prior `x-lariat-pin` header
-        // path which was timing-attackable (naked `===`), un-rate-limited,
-        // and leaked the plaintext PIN through any proxy/log — and also
-        // bypassed the cookie scheme from PR #182 entirely. Every other
-        // regulated mutation route uses this same gate; the chat path
-        // above remains unauthenticated for line-cook ergonomics.
-        const hasPin = await hasPinCookie(req);
-        // Every write action that mutates regulated or operator-visible state
-        // must be PIN-gated. `eighty_six` keeps its additional inventory-based
-        // soft-block below, but now also fails closed without a PIN.
+        // PIN ticket was already read at the top of the handler (#248 fix
+        // moved the check above the LLM call). The inner check kept here
+        // as defense-in-depth: every write action that mutates regulated
+        // or operator-visible state must be PIN-gated. `eighty_six` keeps
+        // its additional inventory-based soft-block below, but now also
+        // fails closed without a PIN.
         const pinRequired = [
           'update_inventory',
           'maintenance',

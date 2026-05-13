@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Thermometer-calibrations subpage — one tile per known probe plus a
 // quick-entry form for ice-point / boiling-point verifications.
 //

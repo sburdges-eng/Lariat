@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Time as Public Health Control (F11 / FDA §3-501.19).
 //
 // POST  /api/tphc   → start a TPHC batch (computes cutoff_at server-side)

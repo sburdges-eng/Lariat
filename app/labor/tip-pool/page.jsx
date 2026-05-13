@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Tip pool board (L4 / COMPS #39 §3.3, §3.4).
 // Server-renders the day's distributions and pool summary, hands off
 // to the client board. Default view is today; URL query takes a

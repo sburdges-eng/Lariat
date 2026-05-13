@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Paid sick leave (HFWA / L2). Tracks per-cook per-year accrual, use,
 // carryover, and cap. Manager PIN gates writes — accrual + use are
 // payroll-sensitive and only PIC may post.

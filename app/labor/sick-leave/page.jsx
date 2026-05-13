@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Sick leave board — per-cook balances under HFWA (L2).
 // Server-renders the current year's balances for this location and
 // hands them to the client board for the manager to log accrual or

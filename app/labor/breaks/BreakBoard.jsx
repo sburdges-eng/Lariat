@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 'use client';
 // Break tracker. "Start meal", "start rest", "end break" — one row per
 // cook, stacked. Open breaks glow so a forgotten-to-end break is loud.

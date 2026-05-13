@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Staff certifications (L3). CFPM, food-handler, TIPS, allergen.
 //
 // GET   /api/certifications            → list for a location (optional scope to one cook)

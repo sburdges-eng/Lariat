@@ -1,3 +1,4 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // 7-day date marks (F2 / FDA §3-501.17).
 //
 // POST  /api/date-marks            → create a new date mark
