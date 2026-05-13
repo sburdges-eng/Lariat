@@ -183,7 +183,11 @@ export function ingestCosting(db, data, locationId = 'default') {
 // lib/vendorPricesRepo.ts) that the costing ingest has no feed for.
 // Without this guard, every `npm run ingest:costing` wiped drink prices.
 // Comparison is case-insensitive via LOWER() in the SQL.
-export const BEVERAGE_CATEGORIES = ['beer', 'wine', 'liquor', 'spirit', 'cocktail'];
+// 'shamrock_invoice_backfill' tags rows seeded by
+// scripts/backfill-shamrock-invoice-skus.mjs from `shamrock_invoices` for
+// SKUs not on the 2025 Shamrock price list. The costing ingest has no feed
+// for those rows either, so include the tag here to survive the wipe.
+export const BEVERAGE_CATEGORIES = ['beer', 'wine', 'liquor', 'spirit', 'cocktail', 'shamrock_invoice_backfill'];
 
 function _ingestCostingImpl(db, data, locationId, runId = null) {
   // Build an in-memory lookup of ingredient_key → {yield_pct, loss_factor} once
