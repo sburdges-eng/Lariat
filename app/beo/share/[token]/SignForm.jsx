@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+const SANS = 'var(--sans, "Inter Tight", system-ui, sans-serif)';
+
 export default function SignForm({ token }) {
   const router = useRouter();
   const [name, setName] = useState('');
@@ -42,22 +44,39 @@ export default function SignForm({ token }) {
     return (
       <div
         style={{
-          padding: '16px 20px',
-          background: '#f4f9f4',
-          border: '1px solid #cfe2cf',
-          borderRadius: 6,
+          padding: '18px 22px',
+          background: 'var(--cream, #f8f3e7)',
+          border: '1px solid var(--sage, #5d7a66)',
+          borderLeft: '4px solid var(--sage, #5d7a66)',
+          borderRadius: 4,
           fontSize: 14,
+          color: 'var(--ink, #1d1a15)',
+          fontFamily: SANS,
         }}
       >
-        Thank you, <strong>{name.trim()}</strong>. Your signature has been recorded.
+        Thank you, <strong style={{ fontWeight: 600 }}>{name.trim()}</strong>. Your signature has been recorded.
       </div>
     );
   }
 
   return (
-    <form onSubmit={submit} style={{ display: 'grid', gap: 12, maxWidth: 480 }}>
-      <label style={{ display: 'grid', gap: 4, fontSize: 13 }}>
-        <span style={{ color: '#444' }}>Full name</span>
+    <form
+      onSubmit={submit}
+      style={{ display: 'grid', gap: 14, maxWidth: 480, fontFamily: SANS }}
+    >
+      <label style={{ display: 'grid', gap: 5, fontSize: 13 }}>
+        <span
+          style={{
+            color: 'var(--char, #3a3530)',
+            fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
+            fontSize: 10,
+            letterSpacing: '0.24em',
+            textTransform: 'uppercase',
+            fontWeight: 700,
+          }}
+        >
+          Full name
+        </span>
         <input
           type="text"
           value={name}
@@ -66,37 +85,66 @@ export default function SignForm({ token }) {
           required
           autoComplete="name"
           style={{
-            padding: '8px 10px',
+            padding: '10px 12px',
             fontSize: 16,
-            fontFamily: 'inherit',
-            border: '1px solid #888',
-            borderRadius: 4,
+            fontFamily: SANS,
+            background: 'var(--cream, #f8f3e7)',
+            color: 'var(--ink, #1d1a15)',
+            border: '1px solid var(--hair, #c9bda5)',
+            borderRadius: 3,
+            outline: 'none',
           }}
         />
       </label>
-      <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13 }}>
+      <label
+        style={{
+          display: 'flex',
+          gap: 10,
+          alignItems: 'flex-start',
+          fontSize: 13,
+          color: 'var(--ink, #1d1a15)',
+          lineHeight: 1.45,
+        }}
+      >
         <input
           type="checkbox"
           checked={agreed}
           onChange={(e) => setAgreed(e.target.checked)}
-          style={{ marginTop: 3 }}
+          style={{ marginTop: 3, accentColor: 'var(--ember-deep, #9a3f1a)' }}
         />
-        <span>I confirm the event details above are correct and authorize this banquet event order.</span>
+        <span>
+          I confirm the event details above are correct and authorize this banquet event order.
+        </span>
       </label>
-      {err ? <div style={{ color: '#b00', fontSize: 13 }}>{err}</div> : null}
+      {err ? (
+        <div
+          style={{
+            color: 'var(--rust, #8b2e1f)',
+            fontSize: 13,
+            paddingLeft: 10,
+            borderLeft: '2px solid var(--rust, #8b2e1f)',
+          }}
+        >
+          {err}
+        </div>
+      ) : null}
       <button
         type="submit"
         disabled={!canSubmit}
         style={{
           justifySelf: 'start',
-          padding: '10px 22px',
-          fontSize: 15,
-          fontFamily: 'inherit',
-          background: canSubmit ? '#1a1a1a' : '#aaa',
-          color: 'white',
-          border: 'none',
-          borderRadius: 4,
+          padding: '11px 24px',
+          fontSize: 11.5,
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          fontWeight: 700,
+          fontFamily: SANS,
+          background: canSubmit ? 'var(--ember, #c85a2a)' : 'var(--hair, #c9bda5)',
+          color: canSubmit ? '#1a1308' : 'var(--muted-2, #9c9282)',
+          border: `1px solid ${canSubmit ? 'var(--ember, #c85a2a)' : 'var(--hair, #c9bda5)'}`,
+          borderRadius: 3,
           cursor: canSubmit ? 'pointer' : 'not-allowed',
+          transition: 'background 0.15s, border-color 0.15s',
         }}
       >
         {busy ? 'Signing…' : 'Sign and confirm'}
