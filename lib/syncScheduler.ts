@@ -91,6 +91,16 @@ export interface SchedulerHandle {
   gracefulStop(timeoutMs?: number): Promise<void>;
   tick(): Promise<TickResult>;
   isRunning(): boolean;
+  /**
+   * Audit M10 (2026-05-14): atomically swap the peer list. Used by the
+   * mDNS-driven discovery path in lib/syncSchedulerLifecycle to feed
+   * fresh peer lists into a running scheduler without restart. Callers
+   * are responsible for ensuring the new peers list is well-formed
+   * (the lifecycle wiring filters via isAllowedBaseUrl).
+   */
+  setPeers(peers: PeerConfig[]): void;
+  /** Current peer list (for diagnostics + tests). */
+  getPeers(): readonly PeerConfig[];
 }
 
 const DEFAULT_TICK_MS = 10_000;
@@ -201,11 +211,17 @@ export function createScheduler(opts: SchedulerOpts): SchedulerHandle {
   const tickMs = opts.tickMs ?? DEFAULT_TICK_MS;
   let timer: ReturnType<typeof setInterval> | null = null;
   let inFlightTickP: Promise<TickResult> | null = null;
+  // Audit M10: peer list is mutable so the lifecycle's mDNS-driven
+  // discovery can swap it at runtime via setPeers(). Initial value
+  // is opts.peers; never mutated by reference (always replaced with a
+  // fresh array) so a tick reading the array can't see a torn write.
+  let currentPeers: readonly PeerConfig[] = [...opts.peers];
 
   async function runTick(): Promise<TickResult> {
-    if (opts.peers.length === 0) return { cycles: [] };
+    const peers = currentPeers;
+    if (peers.length === 0) return { cycles: [] };
     const results = await Promise.all(
-      opts.peers.map((peer) =>
+      peers.map((peer) =>
         runPeerCycle(peer, {
           ourPubKeyHex: opts.ourPubKeyHex,
           ourPrivKey: opts.ourPrivKey,
@@ -267,6 +283,15 @@ export function createScheduler(opts: SchedulerOpts): SchedulerHandle {
     tick: tickTracked,
     isRunning() {
       return timer !== null;
+    },
+    setPeers(peers: PeerConfig[]): void {
+      // Replace by reference with a fresh array — runTick reads the
+      // pointer atomically so a tick mid-iteration can't see a partial
+      // splice. The new list takes effect on the NEXT tick.
+      currentPeers = [...peers];
+    },
+    getPeers(): readonly PeerConfig[] {
+      return currentPeers;
     },
   };
 }

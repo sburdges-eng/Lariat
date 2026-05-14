@@ -355,6 +355,52 @@ describe('createScheduler', () => {
     await inFlight; // should have already resolved by the await above
   });
 
+  it('audit M10: setPeers atomically swaps the peer list mid-flight', async () => {
+    const k = mkKeypair();
+    addPeer(db, k.pubHex);
+    const sched = createScheduler({
+      peers: [{ baseUrl: 'http://localhost', feedKey: 'peer-a' }],
+      tickMs: 1_000_000,
+      ourPubKeyHex: k.pubHex,
+      ourPrivKey: k.privKey,
+      ourPeerKey: 'us',
+      fetchImpl: inProcessFetch,
+    });
+    assert.equal(sched.getPeers().length, 1);
+    assert.equal(sched.getPeers()[0].feedKey, 'peer-a');
+
+    sched.setPeers([
+      { baseUrl: 'http://localhost', feedKey: 'peer-x' },
+      { baseUrl: 'http://localhost', feedKey: 'peer-y' },
+    ]);
+    assert.equal(sched.getPeers().length, 2);
+    assert.deepEqual(
+      sched.getPeers().map((p) => p.feedKey),
+      ['peer-x', 'peer-y'],
+    );
+
+    // Next tick uses the new peers.
+    const result = await sched.tick();
+    const keys = result.cycles.map((c) => c.feedKey).sort();
+    assert.deepEqual(keys, ['peer-x', 'peer-y']);
+  });
+
+  it('audit M10: setPeers([]) → next tick is a no-op', async () => {
+    const k = mkKeypair();
+    addPeer(db, k.pubHex);
+    const sched = createScheduler({
+      peers: [{ baseUrl: 'http://localhost', feedKey: 'p1' }],
+      tickMs: 1_000_000,
+      ourPubKeyHex: k.pubHex,
+      ourPrivKey: k.privKey,
+      ourPeerKey: 'us',
+      fetchImpl: inProcessFetch,
+    });
+    sched.setPeers([]);
+    const r = await sched.tick();
+    assert.deepEqual(r.cycles, []);
+  });
+
   it("one peer's failure does NOT break the other peer's cycle", async () => {
     const k = mkKeypair();
     addPeer(db, k.pubHex);

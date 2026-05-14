@@ -199,9 +199,14 @@ export function signProof(privKey: Buffer, nonce: Buffer | string): string {
  * Verify `sigHex` against `nonce` for the raw 32-byte Ed25519 public key.
  *
  * Returns false on any failure (bad hex, length mismatch, sig mismatch)
- * rather than throwing — callers should treat false as "untrusted peer"
- * and never log the error path, because malformed inputs are exactly
- * what an attacker would feed.
+ * rather than throwing — callers should treat false as "untrusted peer."
+ *
+ * Audit M4 (2026-05-14): distinguish input-shape failures (silent —
+ * malformed inputs are exactly what an attacker would feed, and
+ * logging is an oracle) from crypto-subsystem failures (FIPS module
+ * absent, OOM, OpenSSL internal error) which DO get logged at warn
+ * level. Without this, a degraded crypto state silently 401s every
+ * sync request with no observable signal.
  */
 export function verifyProof(
   pubKey: Buffer,
@@ -217,11 +222,21 @@ export function verifyProof(
       type: 'spki',
     });
   } catch {
+    // Input shape: bad pubkey bytes. Silent — attacker-controlled.
     return false;
   }
   try {
     return cryptoVerify(null, data, key, Buffer.from(sigHex, 'hex'));
-  } catch {
+  } catch (err) {
+    // Audit M4: surface real crypto failures so a degraded subsystem
+    // is observable. ERR_OSSL_* is the OpenSSL family; ERR_CRYPTO_*
+    // covers the Node-side ones. Anything else (e.g. bad sigHex
+    // shape) is input-controlled — stay silent.
+    const code = (err as NodeJS.ErrnoException)?.code ?? '';
+    if (code.startsWith('ERR_OSSL_') || code.startsWith('ERR_CRYPTO_')) {
+       
+      console.warn(`[peerKeypair] crypto subsystem error during verify: ${code}`);
+    }
     return false;
   }
 }

@@ -11,6 +11,7 @@ const {
   bootSyncScheduler,
   parsePeersEnv,
   isAllowedBaseUrl,
+  discoveredToPeers,
   _resetSyncSchedulerLifecycleForTests,
 } = await import('../../lib/syncSchedulerLifecycle.ts');
 
@@ -168,6 +169,87 @@ describe('parsePeersEnv — M2 baseUrl filtering', () => {
 // ─────────────────────────────────────────────────────────────────
 // bootSyncScheduler — idempotency + no-peers no-op + start invocation
 // ─────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────
+// Audit M10 — discoveredToPeers
+// ─────────────────────────────────────────────────────────────────
+
+describe('discoveredToPeers', () => {
+  beforeEach(() => {
+    delete process.env.LARIAT_SYNC_ALLOW_PRIVATE;
+  });
+
+  it('returns [] for empty input', () => {
+    assert.deepEqual(discoveredToPeers([], false), []);
+  });
+
+  it('drops instances missing pubkey_fp', () => {
+    const r = discoveredToPeers(
+      [
+        { name: 'a', host: 'a.local', addresses: ['1.1.1.1'], port: 3000, txt: {} },
+      ],
+      false,
+    );
+    assert.equal(r.length, 0);
+  });
+
+  it('maps a well-formed public instance to a PeerConfig', () => {
+    const r = discoveredToPeers(
+      [
+        {
+          name: 'lariat-public',
+          host: 'a.example',
+          addresses: ['203.0.113.5'],
+          port: 3000,
+          txt: { pubkey_fp: 'abc123' },
+        },
+      ],
+      false,
+    );
+    assert.equal(r.length, 1);
+    assert.equal(r[0].baseUrl, 'http://203.0.113.5:3000');
+    assert.equal(r[0].feedKey, 'mdns:abc123');
+    assert.equal(r[0].label, 'lariat-public');
+  });
+
+  it('filters out RFC1918 addresses unless allowPrivate=true', () => {
+    const inst = {
+      name: 'lan-peer',
+      host: 'tablet.local',
+      addresses: ['192.168.1.42'],
+      port: 3000,
+      txt: { pubkey_fp: 'fp1' },
+    };
+    assert.equal(discoveredToPeers([inst], false).length, 0);
+    assert.equal(discoveredToPeers([inst], true).length, 1);
+  });
+
+  it('prefers IPv4 address when both v4 and v6 are present', () => {
+    const r = discoveredToPeers(
+      [
+        {
+          name: 'dual',
+          host: 'a.example',
+          addresses: ['fe80::1', '203.0.113.5'],
+          port: 3000,
+          txt: { pubkey_fp: 'fp' },
+        },
+      ],
+      false,
+    );
+    assert.equal(r[0].baseUrl, 'http://203.0.113.5:3000');
+  });
+
+  it('skips instances with no addresses', () => {
+    const r = discoveredToPeers(
+      [
+        { name: 'a', host: 'a.local', addresses: [], port: 3000, txt: { pubkey_fp: 'fp' } },
+      ],
+      false,
+    );
+    assert.equal(r.length, 0);
+  });
+});
 
 describe('bootSyncScheduler', () => {
   it('no-op + log when no peers configured', async () => {

@@ -249,3 +249,56 @@ export async function bootSyncScheduler(opts: BootOptions = {}): Promise<void> {
 export function _resetSyncSchedulerLifecycleForTests(): void {
   globalThis[HANDLE_KEY] = undefined;
 }
+
+/**
+ * Audit M10 (2026-05-14): build a PeerConfig[] from a one-shot mDNS
+ * discovery pass. Operators who want dynamic peer discovery wire this
+ * into a setInterval that calls scheduler.setPeers() on each tick.
+ *
+ * Pure mapping function — picks the first IPv4 address per
+ * DiscoveredInstance and assumes http (mDNS doesn't carry scheme;
+ * production LAN sync should standardize on http on the bound port).
+ * Filters out instances that don't expose a pubkey_fp (those can't be
+ * used as a feedKey).
+ *
+ * For dynamic wiring, a typical operator-runtime pattern is:
+ *
+ *   const handle = startScheduler({ ..., peers: [] });
+ *   setInterval(async () => {
+ *     const discovered = await import('./mdnsDiscovery.ts').then(m => m.discover());
+ *     handle.setPeers(discoveredToPeers(discovered));
+ *   }, 60_000);
+ *
+ * NOT auto-wired by bootSyncScheduler today — operators opt in via
+ * the env or a future settings flag. Documented in tasks.yaml as a
+ * follow-up.
+ */
+export function discoveredToPeers(
+  discovered: Array<{
+    name: string;
+    host: string;
+    addresses: string[];
+    port: number;
+    txt: { pubkey_fp?: string };
+  }>,
+  allowPrivate: boolean = process.env.LARIAT_SYNC_ALLOW_PRIVATE === '1',
+): PeerConfig[] {
+  const out: PeerConfig[] = [];
+  for (const inst of discovered) {
+    const fp = inst.txt?.pubkey_fp;
+    if (!fp || typeof fp !== 'string') continue;
+    // Prefer the first IPv4 address; fall back to the first address overall.
+    const addr =
+      inst.addresses.find((a) => /^\d+\.\d+\.\d+\.\d+$/.test(a)) ??
+      inst.addresses[0];
+    if (!addr) continue;
+    const baseUrl = `http://${addr}:${inst.port}`;
+    if (!isAllowedBaseUrl(baseUrl, allowPrivate)) continue;
+    out.push({
+      baseUrl,
+      feedKey: `mdns:${fp}`,
+      label: inst.name,
+    });
+  }
+  return out;
+}
