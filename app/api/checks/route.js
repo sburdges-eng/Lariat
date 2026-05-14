@@ -3,6 +3,8 @@ import { getDb } from '../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { withIdempotency } from '../../../lib/idempotency';
 import { postAuditEvent } from '../../../lib/auditEvents';
+import { appendOp } from '../../../lib/syncFeed';
+import { localIdentityFields } from '../../../lib/localIdentity';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,6 +80,37 @@ async function checksPostHandler(req) {
         location_id: loc,
         shift_date,
         payload: { station_id, item, status, glove_change_attested: gloveAttested },
+      });
+      // Cross-host sync feed (audit C2). Stays inside the tx so a feed-
+      // append failure rolls back the source INSERT. rowJson snapshots
+      // the after-state — the receiver applies via lib/syncApply with
+      // family-1 INSERT OR IGNORE semantics. We deliberately exclude
+      // `id` from rowJson to dodge cross-host AUTOINCREMENT collisions
+      // (audit finding C4 interim mitigation): the receiver assigns its
+      // own local id, and op_id is the cross-host idempotency key.
+      const identity = localIdentityFields();
+      appendOp({
+        opId: identity.opId,
+        tableName: 'line_check_entries',
+        locationId: loc,
+        opKind: 'insert',
+        rowPk: String(r.lastInsertRowid),
+        rowJson: JSON.stringify({
+          shift_date,
+          station_id,
+          item,
+          status,
+          par,
+          have,
+          need,
+          note,
+          cook_id,
+          glove_change_attested: gloveAttested,
+          location_id: loc,
+        }),
+        createdAt: identity.createdAt,
+        sourceHost: identity.sourceHost,
+        sourceStartedAt: identity.sourceStartedAt,
       });
       return r;
     })();

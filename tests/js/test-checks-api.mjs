@@ -50,6 +50,7 @@ after(() => {
 beforeEach(() => {
   testDb.exec('DELETE FROM line_check_entries;');
   testDb.exec('DELETE FROM audit_events;');
+  testDb.exec('DELETE FROM sync_feed;');
 });
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -294,6 +295,59 @@ describe('POST /api/checks — audit trail (docs/PATTERNS.md §3)', () => {
       .prepare(`SELECT COUNT(*) AS c FROM audit_events WHERE entity = 'line_check_entries'`)
       .get().c;
     assert.strictEqual(c, 1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────
+// Sync feed — per audit C2 the POST must append one sync_feed row
+// inside the same transaction as the source INSERT so cross-host
+// replication actually carries data instead of staying empty.
+// ─────────────────────────────────────────────────────────────────
+
+describe('POST /api/checks — sync_feed (audit C2)', () => {
+  it('successful POST writes one sync_feed row tied to the line-check', async () => {
+    const row = await postAndReturnRow(baseBody({
+      item: 'rte salad portion',
+      cook_id: 'alice',
+      glove_change_attested: true,
+    }));
+    const feed = testDb
+      .prepare(`SELECT * FROM sync_feed WHERE table_name = 'line_check_entries'`)
+      .all();
+    assert.strictEqual(feed.length, 1, 'exactly one sync_feed row per POST');
+    const op = feed[0];
+    assert.strictEqual(op.op_kind, 'insert');
+    assert.strictEqual(op.row_pk, String(row.id));
+    assert.strictEqual(op.location_id, 'default');
+    assert.ok(op.op_id, 'op_id populated');
+    assert.ok(op.source_host, 'source_host populated');
+    assert.ok(op.source_started_at, 'source_started_at populated');
+    const payload = JSON.parse(op.row_json);
+    assert.strictEqual(payload.item, 'rte salad portion');
+    assert.strictEqual(payload.cook_id, 'alice');
+    // audit-finding C4 mitigation: row_json must NOT carry the source
+    // host's AUTOINCREMENT id, so the receiver assigns its own and
+    // cross-host collisions are impossible.
+    assert.ok(!('id' in payload), 'row_json must not include source id');
+  });
+
+  it('400 / validation failure writes NO sync_feed row (rolls back with the source INSERT)', async () => {
+    const res = await POST(postReq({ station_id: STATION, item: 'x', status: 'pass' }));
+    assert.strictEqual(res.status, 400);
+    const c = testDb
+      .prepare(`SELECT COUNT(*) AS c FROM sync_feed WHERE table_name = 'line_check_entries'`)
+      .get().c;
+    assert.strictEqual(c, 0);
+  });
+
+  it('two distinct POSTs land two distinct sync_feed rows with unique op_ids', async () => {
+    await postAndReturnRow(baseBody({ item: 'first' }));
+    await postAndReturnRow(baseBody({ item: 'second' }));
+    const rows = testDb
+      .prepare(`SELECT op_id FROM sync_feed WHERE table_name = 'line_check_entries' ORDER BY id ASC`)
+      .all();
+    assert.strictEqual(rows.length, 2);
+    assert.notStrictEqual(rows[0].op_id, rows[1].op_id);
   });
 });
 
