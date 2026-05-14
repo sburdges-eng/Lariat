@@ -66,6 +66,23 @@ interface OnDiskKeypair {
 // LARIAT_DATA_DIR with a `<cwd>/data` fallback. A bare relative
 // `'data/peer-keypair.json'` silently fails ENOENT inside packaged
 // Electron because cwd is `Resources/app/`, where no `data/` exists.
+//
+// Audit H9 (2026-05-14): defaultKeypairPath() is a function (not a
+// const) so the path resolves at CALL time rather than module-load
+// time. This matches the lazy contract from lib/dataDir.ts — tests
+// and Electron boot flows that set LARIAT_DATA_DIR after this module
+// imports now pick up the right path.
+export function defaultKeypairPath(): string {
+  return join(resolveDataDir(), 'peer-keypair.json');
+}
+
+/**
+ * @deprecated Prefer `defaultKeypairPath()`. The const was captured
+ * at module load and ignores LARIAT_DATA_DIR changes after import.
+ * Kept only for callers that read the path for logging; for actual
+ * keypair loading, `loadOrCreateKeypair()` already uses the lazy
+ * function by default.
+ */
 export const DEFAULT_KEYPAIR_PATH = join(resolveDataDir(), 'peer-keypair.json');
 
 // Ed25519 ASN.1 prefixes are fixed-length and well-known. Reconstructing
@@ -100,7 +117,10 @@ function pkcs8FromRawPriv(rawPriv: Buffer): Buffer {
  * same file and yield byte-identical keys. Callers can safely invoke
  * this once per boot without reasoning about lifecycle.
  */
-export function loadOrCreateKeypair(path: string = DEFAULT_KEYPAIR_PATH): Keypair {
+export function loadOrCreateKeypair(pathArg?: string): Keypair {
+  // Audit H9: resolve at call time so a test/Electron boot that sets
+  // LARIAT_DATA_DIR after this module imports still gets the right path.
+  const path: string = pathArg ?? defaultKeypairPath();
   if (existsSync(path)) {
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as OnDiskKeypair;
     if (parsed.v !== 1) {

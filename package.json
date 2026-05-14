@@ -189,6 +189,7 @@
     "test:sync-scheduler-lifecycle": "node --experimental-strip-types --test tests/js/test-sync-scheduler-lifecycle.mjs",
     "test:sync-status": "node --experimental-strip-types --test tests/js/test-sync-status.mjs",
     "test:local-identity": "node --experimental-strip-types --test tests/js/test-local-identity.mjs",
+    "test:peer-keypair-h9": "node --experimental-strip-types --test tests/js/test-peer-keypair-h9.mjs",
     "sync:status": "node --experimental-strip-types scripts/sync-status.mjs",
     "sync:status:json": "node --experimental-strip-types scripts/sync-status.mjs --json",
     "digest:settlement": "node --experimental-strip-types scripts/weekly-settlement-digest.mjs",

@@ -213,6 +213,14 @@ describe('runPeerCycle', () => {
     assert.equal(r1.newCheckpoint, realHigh);
     assert.equal(getReplayCheckpoint('peer-gap', 'remote'), realHigh);
 
+    // H1 nonce-cache reset between cycles. The two cycles in this
+    // test use the SAME ourPeerKey but DIFFERENT from_op queries, so
+    // their signing payloads differ → no real-world collision. But
+    // in CI the two awaits can land on the same ms timestamp, and
+    // some test orderings populate the cache with a colliding entry
+    // from earlier. Reset to keep this test deterministic.
+    _resetSeenNoncesForTest();
+
     // Second cycle must return no-new-ops, not re-fetch.
     const r2 = await runPeerCycle(peer, opts);
     assert.equal(r2.outcome, 'no-new-ops');
@@ -239,6 +247,9 @@ describe('runPeerCycle', () => {
     assert.equal(r1.applied, 1);
     const cp = getReplayCheckpoint('peer-x', 'remote');
     assert.ok(cp > 0);
+
+    // Same-ms flake guard as the H3 test above.
+    _resetSeenNoncesForTest();
 
     // Add a second op AFTER the first cycle.
     seedRow(

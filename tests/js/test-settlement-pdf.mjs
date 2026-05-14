@@ -165,6 +165,22 @@ describe('GET /api/shows/[id]/settlement/pdf — auth', () => {
 });
 
 describe('GET /api/shows/[id]/settlement/pdf — happy path', () => {
+  it('audit H7: response includes Content-Security-Policy + X-Content-Type-Options headers', async () => {
+    const cookie = await validCookie();
+    const req = new Request('http://localhost/api/shows/1/settlement/pdf', {
+      headers: { cookie: `lariat_pin_ok=${cookie}` },
+    });
+    const res = await pdfRoute.GET(req, { params: { id: '1' } });
+    assert.equal(res.status, 200);
+    const csp = res.headers.get('content-security-policy') || '';
+    assert.match(csp, /default-src 'none'/);
+    assert.match(csp, /script-src/);
+    assert.match(csp, /style-src/);
+    assert.match(csp, /frame-ancestors 'none'/);
+    assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(res.headers.get('referrer-policy'), 'no-referrer');
+  });
+
   it('returns 200 with text/html', async () => {
     const cookie = await validCookie();
     const req = new Request('http://localhost/api/shows/1/settlement/pdf', {

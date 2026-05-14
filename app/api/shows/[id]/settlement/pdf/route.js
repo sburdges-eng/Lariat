@@ -33,6 +33,18 @@ export async function GET(req, { params }) {
     headers: {
       'content-type': 'text/html; charset=utf-8',
       'cache-control': 'no-store',
+      // Audit H7 (2026-05-14): defense-in-depth headers. Every
+      // interpolated field in renderSettlementHtml flows through
+      // escapeHtml, and the inline <style> + <script> blocks are
+      // static today — so this CSP is no behaviour change. It locks
+      // out external loads and pins the inline-only contract so a
+      // future contributor adding user-data interpolation into the
+      // STYLE/script blocks would need an explicit CSP relaxation
+      // (visible diff), not a silent regression.
+      'content-security-policy':
+        "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      'x-content-type-options': 'nosniff',
+      'referrer-policy': 'no-referrer',
     },
   });
 }
