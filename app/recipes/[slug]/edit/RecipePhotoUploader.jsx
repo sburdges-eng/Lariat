@@ -26,6 +26,72 @@ function bytes(n) {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/**
+ * Inline caption editor — click to edit, blur to PATCH.
+ *
+ * Normalizes whitespace-only input to null so the wire payload
+ * matches what the server stores. Suppresses the PATCH when the
+ * caption is unchanged on blur (no audit noise from open-then-close).
+ */
+function EditableCaption({ value, onSave, fallback }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? '');
+
+  useEffect(() => {
+    if (!editing) setDraft(value ?? '');
+  }, [value, editing]);
+
+  const commit = useCallback(() => {
+    const trimmed = draft.trim();
+    const next = trimmed === '' ? null : trimmed;
+    const prev = value ?? null;
+    if (next !== prev) onSave(next);
+    setEditing(false);
+  }, [draft, value, onSave]);
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.currentTarget.blur();
+          } else if (e.key === 'Escape') {
+            setDraft(value ?? '');
+            setEditing(false);
+          }
+        }}
+        style={{
+          font: 'inherit',
+          color: 'inherit',
+          background: 'transparent',
+          border: 'none',
+          borderBottom: '1px solid var(--ember)',
+          outline: 'none',
+          padding: 0,
+          width: '100%',
+        }}
+      />
+    );
+  }
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => setEditing(true)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setEditing(true); }}
+      title="Click to edit caption"
+      style={{ cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+    >
+      {value || fallback}
+    </div>
+  );
+}
+
 export default function RecipePhotoUploader({ slug }) {
   const inputRef = useRef(null);
   const [photos, setPhotos] = useState([]);
@@ -106,6 +172,24 @@ export default function RecipePhotoUploader({ slug }) {
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || `pin failed (HTTP ${res.status})`);
+      }
+      await refresh();
+    } catch (e) {
+      setError(String(e.message || e));
+    }
+  }, [slug, refresh]);
+
+  const onSaveCaption = useCallback(async (id, caption) => {
+    setError('');
+    try {
+      const res = await fetch(`/api/recipes/${slug}/photos/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ caption }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `caption save failed (HTTP ${res.status})`);
       }
       await refresh();
     } catch (e) {
@@ -203,8 +287,12 @@ export default function RecipePhotoUploader({ slug }) {
                 />
               </a>
               <figcaption style={{ padding: '8px 10px', fontSize: 12, color: 'var(--char)', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {p.caption || p.original_name}
+                <div style={{ fontWeight: 500 }}>
+                  <EditableCaption
+                    value={p.caption}
+                    fallback={p.original_name}
+                    onSave={(next) => onSaveCaption(p.id, next)}
+                  />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--muted)', fontFamily: 'var(--mono, inherit)', fontSize: 10, letterSpacing: '0.08em' }}>
                   <span>{bytes(p.size_bytes)}</span>

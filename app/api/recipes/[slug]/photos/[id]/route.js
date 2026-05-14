@@ -68,10 +68,30 @@ export async function PATCH(req, { params }) {
 
   // Only the listed fields are updatable. Unknown keys are ignored.
   const hasHero = Object.prototype.hasOwnProperty.call(body, 'is_hero');
-  if (!hasHero) {
+  const hasCaption = Object.prototype.hasOwnProperty.call(body, 'caption');
+  if (!hasHero && !hasCaption) {
     return Response.json({ error: 'no updatable fields' }, { status: 400 });
   }
-  const wantHero = body.is_hero ? 1 : 0;
+
+  // Validate caption type up front: string | null. Whitespace-only
+  // strings normalize to null (matches the POST handler's behaviour
+  // for FormData caption fields).
+  let nextCaption;
+  if (hasCaption) {
+    const raw = body.caption;
+    if (raw === null) {
+      nextCaption = null;
+    } else if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      nextCaption = trimmed === '' ? null : trimmed;
+    } else {
+      return Response.json(
+        { error: 'caption must be string or null' },
+        { status: 400 },
+      );
+    }
+  }
+  const wantHero = hasHero ? (body.is_hero ? 1 : 0) : null;
 
   const db = getDb();
   const row = db
@@ -87,9 +107,9 @@ export async function PATCH(req, { params }) {
     return Response.json({ error: 'photo not found' }, { status: 404 });
   }
 
-  // One transaction: clear all peers, then set the target. Order
-  // matters — clear first so a re-set on the current hero ends up =1
-  // without bouncing through =0. Scope = (location_id, recipe_slug).
+  // One transaction so the hero invariant never goes through a
+  // "two heroes briefly" state. Caption is independent — it can
+  // update alongside is_hero or alone.
   const tx = db.transaction(() => {
     if (wantHero === 1) {
       db.prepare(
@@ -101,22 +121,48 @@ export async function PATCH(req, { params }) {
             AND is_hero = 1`,
       ).run(slug, location, id);
     }
-    db.prepare(
-      `UPDATE recipe_photos
-          SET is_hero = ?
-        WHERE id = ?
-          AND recipe_slug = ?
-          AND location_id = ?`,
-    ).run(wantHero, id, slug, location);
+    if (hasHero) {
+      db.prepare(
+        `UPDATE recipe_photos
+            SET is_hero = ?
+          WHERE id = ?
+            AND recipe_slug = ?
+            AND location_id = ?`,
+      ).run(wantHero, id, slug, location);
+    }
+    if (hasCaption) {
+      db.prepare(
+        `UPDATE recipe_photos
+            SET caption = ?
+          WHERE id = ?
+            AND recipe_slug = ?
+            AND location_id = ?`,
+      ).run(nextCaption, id, slug, location);
+    }
   });
   tx();
 
-  await logAuditAction('recipe_photo_set_hero', {
-    recipe_slug: slug,
-    location_id: location,
-    photo_id: id,
-    is_hero: wantHero,
-  });
+  if (hasHero) {
+    await logAuditAction('recipe_photo_set_hero', {
+      recipe_slug: slug,
+      location_id: location,
+      photo_id: id,
+      is_hero: wantHero,
+    });
+  }
+  if (hasCaption) {
+    await logAuditAction('recipe_photo_set_caption', {
+      recipe_slug: slug,
+      location_id: location,
+      photo_id: id,
+      caption: nextCaption,
+    });
+  }
 
-  return Response.json({ ok: true, id, is_hero: wantHero });
+  return Response.json({
+    ok: true,
+    id,
+    ...(hasHero ? { is_hero: wantHero } : {}),
+    ...(hasCaption ? { caption: nextCaption } : {}),
+  });
 }
