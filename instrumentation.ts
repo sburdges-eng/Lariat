@@ -52,6 +52,15 @@ export async function register(): Promise<void> {
   );
   await bootCloudBridgeDrainer();
 
+  // Cross-host sync scheduler. Dormant when LARIAT_SYNC_PEERS is unset
+  // or empty — matches the "no peers configured" steady state for a
+  // single-instance Lariat install. See lib/syncSchedulerLifecycle.ts
+  // for the env contract.
+  const { bootSyncScheduler } = await import(
+    './lib/syncSchedulerLifecycle'
+  );
+  await bootSyncScheduler();
+
   // Defer data-pack pre-warm to the next tick so boot is not blocked
   // by the BGE model + ~3 GB ingredients bucket load (cold-load is
   // ~20s). The dynamic import + setImmediate combo keeps the

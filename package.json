@@ -184,6 +184,8 @@
     "test:cloud-bridge-graceful-stop": "node --experimental-strip-types --test tests/js/test-cloud-bridge-graceful-stop.mjs",
     "test:sync-apply": "node --experimental-strip-types --test tests/js/test-sync-apply.mjs",
     "test:sync-client": "node --experimental-strip-types --test tests/js/test-sync-client.mjs",
+    "test:sync-scheduler": "node --experimental-strip-types --test tests/js/test-sync-scheduler.mjs",
+    "test:sync-scheduler-lifecycle": "node --experimental-strip-types --test tests/js/test-sync-scheduler-lifecycle.mjs",
     "digest:settlement": "node --experimental-strip-types scripts/weekly-settlement-digest.mjs",
     "desktop:dev": "tsc -p desktop && vite build --config desktop/firstRunWizard/vite.config.ts && electron desktop/dist/desktop/main.js",
     "desktop:build": "next build && tsc -p desktop && vite build --config desktop/firstRunWizard/vite.config.ts",
