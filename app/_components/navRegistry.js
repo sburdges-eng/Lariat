@@ -343,6 +343,16 @@ export const NAV_ITEMS = [
     surface: { sidebar: f, palette: t, shelf: f },
   },
   {
+    id: 'ingredient-masters',
+    href: '/costing/ingredient-masters',
+    name: 'Ingredient masters',
+    sub: 'Canonical ingredient list',
+    group: 'Books',
+    terms: 'ingredient master canonical sku map preferred vendor category t7 review',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  {
     id: 'beo',
     href: '/beo',
     name: 'Events & prep',
