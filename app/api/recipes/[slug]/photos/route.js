@@ -35,12 +35,12 @@ export async function GET(req, { params }) {
   const rows = db
     .prepare(
       `SELECT id, original_name, mime, size_bytes, caption,
-              uploaded_by_cook_id, uploaded_at
+              uploaded_by_cook_id, uploaded_at, is_hero
          FROM recipe_photos
         WHERE recipe_slug = ?
           AND location_id = ?
           AND deleted_at IS NULL
-        ORDER BY id DESC`,
+        ORDER BY is_hero DESC, id DESC`,
     )
     .all(slug, location);
   return Response.json({ photos: rows });

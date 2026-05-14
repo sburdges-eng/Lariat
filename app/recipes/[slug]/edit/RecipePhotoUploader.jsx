@@ -95,6 +95,24 @@ export default function RecipePhotoUploader({ slug }) {
     }
   }, [slug, refresh]);
 
+  const onToggleHero = useCallback(async (id, currentIsHero) => {
+    setError('');
+    try {
+      const res = await fetch(`/api/recipes/${slug}/photos/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ is_hero: !currentIsHero }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `pin failed (HTTP ${res.status})`);
+      }
+      await refresh();
+    } catch (e) {
+      setError(String(e.message || e));
+    }
+  }, [slug, refresh]);
+
   return (
     <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid var(--border)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
@@ -190,21 +208,40 @@ export default function RecipePhotoUploader({ slug }) {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--muted)', fontFamily: 'var(--mono, inherit)', fontSize: 10, letterSpacing: '0.08em' }}>
                   <span>{bytes(p.size_bytes)}</span>
-                  <button
-                    type="button"
-                    onClick={() => onDelete(p.id)}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#991b1b',
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      padding: 0,
-                      fontFamily: 'inherit',
-                    }}
-                  >
-                    delete
-                  </button>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => onToggleHero(p.id, !!p.is_hero)}
+                      aria-pressed={!!p.is_hero}
+                      title={p.is_hero ? 'This photo is the cookbook hero' : 'Pin as the cookbook hero'}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: p.is_hero ? 'var(--ember)' : 'var(--muted)',
+                        fontSize: 11,
+                        cursor: 'pointer',
+                        padding: 0,
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      {p.is_hero ? 'Hero ★' : 'Make hero'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDelete(p.id)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#991b1b',
+                        fontSize: 11,
+                        cursor: 'pointer',
+                        padding: 0,
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      delete
+                    </button>
+                  </div>
                 </div>
               </figcaption>
             </figure>
