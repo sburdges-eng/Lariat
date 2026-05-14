@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Lariat cloud-bridge drainer — launchd unit template.
+
+  The drainer is a LONG-RUNNING process (holds the event loop open
+  until SIGTERM/SIGINT and only then runs gracefulStop, which releases
+  all claimed rows). Cron is NOT the right launcher — use this launchd
+  plist on macOS, or the analogous systemd service file on Linux.
+
+  Install (one-time, per operator):
+
+    1. Copy this file into the user agents directory:
+         cp examples/launchd-cloud-bridge.plist \
+            ~/Library/LaunchAgents/local.lariat.cloud-bridge.plist
+
+    2. Edit the WorkingDirectory + log paths below to match your
+       install (the template assumes /Users/operator/Dev/Lariat). Set
+       LARIAT_CLOUD_BRIDGE_URL + LARIAT_CLOUD_BRIDGE_SECRET to your
+       per-location cloud peer + HMAC secret.
+
+    3. Load the agent:
+         launchctl load -w ~/Library/LaunchAgents/local.lariat.cloud-bridge.plist
+
+    4. Inspect:
+         launchctl list | grep cloud-bridge
+         tail -f ~/Library/Logs/Lariat/cloud-bridge.log
+
+  Reload after editing the plist or upgrading Lariat:
+
+    launchctl unload ~/Library/LaunchAgents/local.lariat.cloud-bridge.plist
+    launchctl load   ~/Library/LaunchAgents/local.lariat.cloud-bridge.plist
+
+  Uninstall:
+
+    launchctl unload -w ~/Library/LaunchAgents/local.lariat.cloud-bridge.plist
+    rm ~/Library/LaunchAgents/local.lariat.cloud-bridge.plist
+
+  Graceful shutdown:
+    SIGTERM (sent by `launchctl unload`) triggers the script's
+    gracefulStop path — stops the interval, awaits the in-flight tick
+    (5s budget), then releases all claimed rows so the next start
+    picks them up immediately rather than waiting staleClaimAgeSec.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>local.lariat.cloud-bridge</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-lc</string>
+    <!-- Login shell so PATH picks up nvm / Homebrew node. -->
+    <string>npm run cloud-bridge:drain</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <!-- Edit to match your install path. -->
+  <string>/Users/operator/Dev/Lariat</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <dict>
+    <!-- Restart on crash, but NOT on a clean (operator-driven) stop. -->
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <key>StandardOutPath</key>
+  <string>/Users/operator/Library/Logs/Lariat/cloud-bridge.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/operator/Library/Logs/Lariat/cloud-bridge.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- Required: set BOTH or the drainer exits with code 2. -->
+    <key>LARIAT_CLOUD_BRIDGE_URL</key>
+    <string>https://api.lariat.example</string>
+
+    <key>LARIAT_CLOUD_BRIDGE_SECRET</key>
+    <string>REPLACE_WITH_PER_LOCATION_HMAC_SECRET</string>
+
+    <!-- Optional: drainer tick interval (default 30000 ms) and
+         stale-claim reclaim window (default 300 s).
+    <key>LARIAT_DRAINER_TICK_MS</key>
+    <string>30000</string>
+    <key>LARIAT_DRAINER_STALE_AGE_S</key>
+    <string>300</string>
+    -->
+
+    <!-- Optional: when the install lives off the default
+         process.cwd()/data — e.g. on an external SSD.
+    <key>LARIAT_DATA_DIR</key>
+    <string>/Volumes/External/lariat</string>
+    -->
+  </dict>
+</dict>
+</plist>

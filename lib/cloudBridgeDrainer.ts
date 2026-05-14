@@ -61,6 +61,14 @@ export interface DrainerHandle {
   start(): void;
   /** Stop the interval. Idempotent — second call is a no-op. */
   stop(): void;
+  /**
+   * Graceful shutdown for SIGTERM/SIGINT: stop the interval, await any
+   * in-flight tick to settle (up to `timeoutMs`), then release every
+   * still-claimed row back to the queue so the next drainer doesn't
+   * have to wait the full staleClaimAgeSec window. Idempotent. Returns
+   * the number of rows released.
+   */
+  gracefulStop(timeoutMs?: number): Promise<number>;
   /** Run one tick synchronously. Used by the interval and by tests/manual flush. */
   tick(): Promise<TickResult>;
   /** Whether the interval is currently armed. */
@@ -162,13 +170,28 @@ export function createDrainer(opts: DrainerOpts = {}): DrainerHandle {
     }
   }
 
+  // Tracks the current in-flight tick promise so gracefulStop can
+  // await its settlement before releasing claims.
+  let inFlightPromise: Promise<TickResult> | null = null;
+
+  async function tickGuardedTracked(): Promise<TickResult> {
+    if (inFlight) return { swept: 0, claimed: 0, outcome: 'no-op' };
+    const p = (async () => tickGuarded())();
+    inFlightPromise = p;
+    try {
+      return await p;
+    } finally {
+      if (inFlightPromise === p) inFlightPromise = null;
+    }
+  }
+
   return {
     start() {
       if (timer !== null) return;
       timer = setInterval(() => {
         // Floating promise is intentional — interval owns scheduling,
         // tickGuarded swallows errors into TickResult.
-        void tickGuarded();
+        void tickGuardedTracked();
       }, tickMs);
       // Don't keep the event loop alive just for the drainer.
       if (typeof timer.unref === 'function') timer.unref();
@@ -178,7 +201,31 @@ export function createDrainer(opts: DrainerOpts = {}): DrainerHandle {
       clearInterval(timer);
       timer = null;
     },
-    tick: tickGuarded,
+    async gracefulStop(timeoutMs: number = 5000): Promise<number> {
+      // Step 1: stop firing new ticks.
+      if (timer !== null) {
+        clearInterval(timer);
+        timer = null;
+      }
+      // Step 2: wait for any in-flight tick to settle. Bounded by the
+      // caller's timeout so a hung push doesn't pin the shutdown.
+      if (inFlightPromise !== null) {
+        const pending = inFlightPromise;
+        const timeout = new Promise<void>((resolve) =>
+          setTimeout(resolve, Math.max(0, timeoutMs)).unref?.(),
+        );
+        try {
+          await Promise.race([pending, timeout]);
+        } catch {
+          // Tick errors fold into TickResult; never throw here.
+        }
+      }
+      // Step 3: release any still-claimed rows so the next drainer can
+      // pick them up immediately on restart instead of waiting
+      // staleClaimAgeSec.
+      return queue.releaseAllClaimedRows();
+    },
+    tick: tickGuardedTracked,
     isRunning() {
       return timer !== null;
     },

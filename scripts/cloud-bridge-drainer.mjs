@@ -57,17 +57,27 @@ console.log(
 const keepalive = setInterval(() => {}, 1 << 30);
 
 let stopping = false;
-function shutdown(signal) {
+async function shutdown(signal) {
   if (stopping) return;
   stopping = true;
-  console.log(`cloud-bridge: ${signal} received, stopping drainer`);
-  stopDrainer();
+  console.log(`cloud-bridge: ${signal} received, stopping drainer gracefully`);
+  // gracefulStop: (1) stop firing new ticks, (2) await any in-flight
+  // tick (5s budget), (3) release all claimed rows back to the queue
+  // so the next drainer doesn't wait staleClaimAgeSec. Logs how many
+  // rows were released for incident-response context.
+  let released = 0;
+  try {
+    released = await handle.gracefulStop(5000);
+  } catch (err) {
+    console.error('cloud-bridge: gracefulStop threw:', err);
+    stopDrainer(); // fallback to legacy sync stop
+  }
+  console.log(`cloud-bridge: stopped (${released} claim(s) released)`);
   clearInterval(keepalive);
-  // Give in-flight tick (if any) a moment to settle, then exit.
-  setTimeout(() => process.exit(0), 100).unref();
+  process.exit(0);
 }
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));
 
-void handle;
+void stopDrainer; // referenced by gracefulStop fallback path

@@ -254,6 +254,28 @@ export function sweepStaleClaims(maxAgeSeconds: number = 300): number {
   return result.changes;
 }
 
+/**
+ * Release ALL claimed-but-not-dead rows back to the queued state. Used
+ * by the drainer's graceful-shutdown path on SIGTERM/SIGINT — we don't
+ * want claims to wait the full staleClaimAgeSec window on restart when
+ * the operator has already signaled the process to stop.
+ *
+ * Skips dead-lettered rows (they have a terminal claimed_at tombstone).
+ * Returns the number of rows actually released. Idempotent: a second
+ * call with no in-flight claims returns 0.
+ */
+export function releaseAllClaimedRows(): number {
+  const result = getDb()
+    .prepare(
+      `UPDATE cloud_bridge_outbox
+          SET claimed_at = NULL
+        WHERE claimed_at IS NOT NULL
+          AND dead_letter = 0`,
+    )
+    .run();
+  return result.changes;
+}
+
 /** Count of dead-lettered batches (manual triage required). */
 export function deadLetterDepth(): number {
   const row = getDb()
