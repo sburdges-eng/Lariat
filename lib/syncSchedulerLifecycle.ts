@@ -70,9 +70,68 @@ function installSignalHandlersOnce(stash: LifecycleStash, stop: StopFn): void {
 }
 
 /**
+ * Audit M2 (2026-05-14): refuse baseUrls that point at non-HTTP(S)
+ * schemes or LAN-private hosts unless LARIAT_SYNC_ALLOW_PRIVATE=1.
+ *
+ * Threat model: if an attacker can influence LARIAT_SYNC_PEERS
+ * (compromised settings.json, env-var injection on the host), they
+ * can otherwise point the scheduler at `file:///etc/passwd` or
+ * `http://169.254.169.254/latest/meta-data/` (AWS metadata SSRF).
+ * The scheduler signs its outbound requests with our Ed25519 key so
+ * the attacker would also get a signed exfil channel.
+ *
+ * Allowed: http: and https: only.
+ * Allowed hosts: anything NOT in (localhost / loopback / link-local /
+ * RFC1918). LAN-private hosts are exactly the legitimate target for
+ * LAN sync, so we keep them under an opt-in env knob —
+ * LARIAT_SYNC_ALLOW_PRIVATE=1 — which the typical LAN deployment sets
+ * explicitly. Production hosted setups leave it unset and only sync
+ * to public peers.
+ */
+function isPrivateOrLoopbackHost(hostname: string): boolean {
+  let h = hostname.toLowerCase();
+  // Node's URL.hostname returns IPv6 addrs wrapped in brackets ("[::1]").
+  // Strip them so the literal comparisons below match.
+  if (h.startsWith('[') && h.endsWith(']')) h = h.slice(1, -1);
+  if (!h) return true;
+  if (h === 'localhost' || h.endsWith('.localhost')) return true;
+  // mDNS .local — fine for LAN sync, but classed as "private" so the
+  // opt-in env knob still gates it.
+  if (h.endsWith('.local')) return true;
+  if (h === '127.0.0.1' || h === '::1') return true;
+  // IPv4 RFC1918 + link-local.
+  if (/^10\./.test(h)) return true;
+  if (/^192\.168\./.test(h)) return true;
+  if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(h)) return true;
+  if (/^169\.254\./.test(h)) return true;
+  // IPv6 link-local.
+  if (h.startsWith('fe80:')) return true;
+  // IPv6 unique-local.
+  if (/^f[cd][0-9a-f]{2}:/.test(h)) return true;
+  return false;
+}
+
+export function isAllowedBaseUrl(
+  baseUrl: string,
+  allowPrivate: boolean = process.env.LARIAT_SYNC_ALLOW_PRIVATE === '1',
+): boolean {
+  let u: URL;
+  try {
+    u = new URL(baseUrl);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+  if (!allowPrivate && isPrivateOrLoopbackHost(u.hostname)) return false;
+  return true;
+}
+
+/**
  * Parse LARIAT_SYNC_PEERS into a typed PeerConfig[]. Returns [] for
  * anything malformed or absent so the scheduler stays dormant rather
- * than crashing the Next worker boot.
+ * than crashing the Next worker boot. Audit M2: rejects file://,
+ * data://, javascript://, and LAN-private hosts unless
+ * LARIAT_SYNC_ALLOW_PRIVATE=1 (the typical LAN sync deployment).
  */
 export function parsePeersEnv(raw: string | undefined | null): PeerConfig[] {
   if (!raw || !raw.trim()) return [];
@@ -89,8 +148,10 @@ export function parsePeersEnv(raw: string | undefined | null): PeerConfig[] {
     const obj = item as Record<string, unknown>;
     if (typeof obj.baseUrl !== 'string' || !obj.baseUrl.trim()) continue;
     if (typeof obj.feedKey !== 'string' || !obj.feedKey.trim()) continue;
+    const baseUrl = obj.baseUrl.trim();
+    if (!isAllowedBaseUrl(baseUrl)) continue;
     const peer: PeerConfig = {
-      baseUrl: obj.baseUrl.trim(),
+      baseUrl,
       feedKey: obj.feedKey.trim(),
     };
     if (typeof obj.label === 'string' && obj.label.trim()) {

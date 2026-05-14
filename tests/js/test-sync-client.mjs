@@ -203,6 +203,60 @@ describe('fetchSyncSince', () => {
     assert.match(res.reason, /invalid JSON/);
   });
 
+  it('audit M11: rejects oversized response body via Content-Length', async () => {
+    const k = mkKeypair();
+    addPeer(db, k.pubHex);
+    // Server claims a body 100 MB long — pre-cap fetch would buffer it.
+    const hugeFetch = async () =>
+      new Response('{}', {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'content-length': String(100 * 1024 * 1024),
+        },
+      });
+    const res = await fetchSyncSince({
+      baseUrl: 'http://localhost',
+      peerId: 'hub',
+      fromOp: 0,
+      ourPubKeyHex: k.pubHex,
+      ourPrivKey: k.privKey,
+      fetchImpl: hugeFetch,
+    });
+    assert.equal(res.ok, false);
+    if (res.ok) return;
+    assert.match(res.reason, /body too large/);
+  });
+
+  it('audit M11: rejects oversized response body via streaming', async () => {
+    const k = mkKeypair();
+    addPeer(db, k.pubHex);
+    // No content-length header — body is read from the stream and the
+    // cap kicks in mid-flight. Construct a Response whose body stream
+    // emits enough chunks to exceed the 10 MB default.
+    const chunk = 'x'.repeat(1024 * 1024); // 1 MB
+    const stream = new ReadableStream({
+      start(controller) {
+        // 12 MB total — over the default 10 MB cap.
+        for (let i = 0; i < 12; i++) controller.enqueue(new TextEncoder().encode(chunk));
+        controller.close();
+      },
+    });
+    const overflowFetch = async () =>
+      new Response(stream, { status: 200, headers: { 'content-type': 'application/json' } });
+    const res = await fetchSyncSince({
+      baseUrl: 'http://localhost',
+      peerId: 'hub',
+      fromOp: 0,
+      ourPubKeyHex: k.pubHex,
+      ourPrivKey: k.privKey,
+      fetchImpl: overflowFetch,
+    });
+    assert.equal(res.ok, false);
+    if (res.ok) return;
+    assert.match(res.reason, /body too large/);
+  });
+
   it('rejects when response is missing ops array', async () => {
     const k = mkKeypair();
     addPeer(db, k.pubHex);

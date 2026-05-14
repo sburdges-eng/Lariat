@@ -69,6 +69,62 @@ export type SyncFetchResult =
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
+// Audit M11 (2026-05-14): cap on the response body size we'll buffer
+// before parsing JSON. A misbehaving or malicious peer could otherwise
+// stream a 1 GB JSON document and exhaust the puller's memory. 10 MB
+// is far above realistic sync windows (default 500 ops × ~2 KB row =
+// ~1 MB) and well below buffer-DoS territory. Override via
+// LARIAT_SYNC_MAX_BODY_BYTES if a deployment needs bigger.
+const DEFAULT_MAX_BODY_BYTES = 10 * 1024 * 1024;
+
+function maxBodyBytes(): number {
+  const env = Number(process.env.LARIAT_SYNC_MAX_BODY_BYTES);
+  return Number.isFinite(env) && env > 0 ? env : DEFAULT_MAX_BODY_BYTES;
+}
+
+/**
+ * Read a Response body with a size cap. Reads chunks via the streaming
+ * body reader and accumulates up to `maxBytes` — returns an error if
+ * the body exceeds that bound. Falls back to `res.text()` if the body
+ * stream isn't available (older runtimes, Polyfilled fetch).
+ */
+async function readBodyCapped(res: Response, maxBytes: number): Promise<{ ok: true; text: string } | { ok: false; reason: string }> {
+  // Content-Length short-circuit when present.
+  const len = res.headers.get('content-length');
+  if (len !== null) {
+    const n = Number(len);
+    if (Number.isFinite(n) && n > maxBytes) {
+      return { ok: false, reason: `body too large (${n} > ${maxBytes})` };
+    }
+  }
+  const reader = res.body?.getReader();
+  if (!reader) {
+    const text = await res.text();
+    if (text.length > maxBytes) {
+      return { ok: false, reason: `body too large (${text.length} > ${maxBytes})` };
+    }
+    return { ok: true, text };
+  }
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const decoder = new TextDecoder('utf-8');
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      // Best-effort cancel to free the underlying connection.
+      try { await reader.cancel('body too large'); } catch { /* ignore */ }
+      return { ok: false, reason: `body too large (${total} > ${maxBytes})` };
+    }
+    chunks.push(value);
+  }
+  const buf = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) { buf.set(c, off); off += c.byteLength; }
+  return { ok: true, text: decoder.decode(buf) };
+}
+
 /** Fetch one sync-since window from a peer. */
 export async function fetchSyncSince(opts: SyncClientOpts): Promise<SyncFetchResult> {
   const fetchImpl = opts.fetchImpl ?? globalThis.fetch;
@@ -114,17 +170,32 @@ export async function fetchSyncSince(opts: SyncClientOpts): Promise<SyncFetchRes
   if (!res.ok) {
     let reason = `HTTP ${res.status}`;
     try {
-      const body = (await res.json()) as { error?: string };
-      if (body?.error) reason = `HTTP ${res.status}: ${body.error}`;
+      // Audit M11: cap the error-body read too — a hostile peer can
+      // serve a huge error body just as easily as a huge success body.
+      const cap = await readBodyCapped(res, maxBodyBytes());
+      if (cap.ok) {
+        try {
+          const body = JSON.parse(cap.text) as { error?: string };
+          if (body?.error) reason = `HTTP ${res.status}: ${body.error}`;
+        } catch {
+          // ignore parse error
+        }
+      }
     } catch {
-      // ignore parse error
+      // ignore read error
     }
     return { ok: false, status: res.status, reason };
   }
 
+  // Audit M11: bound body buffering to maxBodyBytes() to defend against
+  // a peer that serves a huge JSON payload and exhausts our memory.
+  const cap = await readBodyCapped(res, maxBodyBytes());
+  if (!cap.ok) {
+    return { ok: false, status: res.status, reason: cap.reason };
+  }
   let body: unknown;
   try {
-    body = await res.json();
+    body = JSON.parse(cap.text);
   } catch {
     return { ok: false, status: res.status, reason: 'invalid JSON body' };
   }
