@@ -2301,6 +2301,50 @@ function initEntitySchema(db: DB): void {
     );
     CREATE INDEX IF NOT EXISTS idx_sales_depletion_runs_period
       ON sales_depletion_runs(location_id, period_label, id DESC);
+
+    -- Cross-host change-feed (docs/multi-instance-sync.md). APPEND-ONLY.
+    -- One row per logical operation on a synced source table. Replicated
+    -- between LAN peers via the (future) /api/peers/sync-since route.
+    -- source_host + source_started_at form the stable identity from
+    -- lib/hubFailover.ts; do not use service name.
+    CREATE TABLE IF NOT EXISTS sync_feed (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      -- UUIDv7. Globally unique; idempotency key for replay.
+      op_id TEXT NOT NULL UNIQUE,
+      -- Source table on the originating host (e.g. 'cooling_log').
+      table_name TEXT NOT NULL,
+      -- Multi-tenant scope; matches the source row's location_id.
+      location_id TEXT NOT NULL DEFAULT 'default',
+      -- Operation kind; see SyncOpKind in lib/syncFeed.ts.
+      op_kind TEXT NOT NULL
+        CHECK(op_kind IN ('insert','update','delete','delete-batch')),
+      -- Stringified PK (or batch key for delete-batch).
+      row_pk TEXT NOT NULL,
+      -- JSON-encoded row body. '{}' for delete; rows-array payload for
+      -- delete-batch envelopes.
+      row_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      -- Originating instance identity. Pair: (host, started_at) per
+      -- lib/hubFailover.ts.
+      source_host TEXT NOT NULL,
+      source_started_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_sync_feed_replay
+      ON sync_feed(id);
+    CREATE INDEX IF NOT EXISTS idx_sync_feed_source
+      ON sync_feed(source_host, source_started_at, id);
+    CREATE INDEX IF NOT EXISTS idx_sync_feed_table
+      ON sync_feed(location_id, table_name, id);
+
+    -- Per-peer replay cursor. One row per known peer. last_op_rowid is the
+    -- highest sync_feed.id this peer has acknowledged applying.
+    CREATE TABLE IF NOT EXISTS replay_checkpoints (
+      peer_id TEXT NOT NULL,
+      feed_scope TEXT NOT NULL DEFAULT 'local',
+      last_op_rowid INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (peer_id, feed_scope)
+    );
   `);
 }
 

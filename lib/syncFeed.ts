@@ -75,28 +75,158 @@ export interface SyncOp {
   sourceStartedAt: string;
 }
 
+import { getDb } from './db.ts';
+
 /**
  * Append a single op to the local sync feed. Intended call site is the
  * same `db.transaction(...)` block that writes the source row, so an
  * append failure rolls back the source mutation (matches `postAuditEvent`
  * semantics in `lib/auditEvents.ts`).
  *
- * Stub. Real implementation lands after perf-reviews unblocks `lib/db.ts`
- * for the `sync_feed` migration.
+ * Throws when called outside a transaction so the caller can't acci-
+ * dentally drift from the regulated source-write semantics. On a
+ * duplicate `op_id` the INSERT no-ops via the UNIQUE index — this is
+ * the cross-host idempotency property: the same op arriving twice from
+ * a re-fetched window must not double-apply.
  */
-export function appendOp(_op: SyncOp): never {
-  throw new Error('NOT_IMPLEMENTED');
+export function appendOp(op: SyncOp): void {
+  const db = getDb();
+  if (!db.inTransaction) {
+    throw new Error(
+      `appendOp called outside of a transaction context (table=${op.tableName}, op_id=${op.opId}). ` +
+        `Atomicity is required — an append failure must roll back the source row. ` +
+        `Wrap the source INSERT and the appendOp call inside a single db.transaction(...).`,
+    );
+  }
+  // ON CONFLICT (op_id) DO NOTHING is the *narrow* idempotency carve-out:
+  // a duplicate op arriving from a re-fetched window is silently absorbed.
+  // CHECK constraint violations (e.g. an invalid op_kind) and any other
+  // table-level rejection still throw — we never want to silently lose
+  // a malformed op that the caller built incorrectly.
+  db.prepare(
+    `INSERT INTO sync_feed
+       (op_id, table_name, location_id, op_kind, row_pk, row_json,
+        created_at, source_host, source_started_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(op_id) DO NOTHING`,
+  ).run(
+    op.opId,
+    op.tableName,
+    op.locationId,
+    op.opKind,
+    op.rowPk,
+    op.rowJson,
+    op.createdAt,
+    op.sourceHost,
+    op.sourceStartedAt,
+  );
 }
+
+export interface ReplayPage {
+  ops: SyncOp[];
+  /** Next rowid to fetch — null when caught up. */
+  nextOp: number | null;
+}
+
+const DEFAULT_REPLAY_LIMIT = 500;
+const MAX_REPLAY_LIMIT = 2000;
 
 /**
  * Replay every op a given peer has not yet observed, ordered by feed
  * rowid (insertion order). Idempotent: callers that re-request from the
- * same `fromRowId` get the same result, and `op_id` collisions on the
- * receiver are no-ops.
+ * same `fromRowId` get the same result.
  *
- * Stub. Real implementation lands alongside the
- * `/api/peers/sync-since` route in a future PR.
+ * The peer cursor (`replay_checkpoints` row) is **read but not written**
+ * by this function — the receiver advances its own checkpoint after it
+ * successfully applies a contiguous prefix. That keeps replaySince a
+ * pure read operation so a stale or malicious caller cannot DoS the
+ * server-side cursor.
+ *
+ * Args:
+ *   peerId    — caller's stable `peerKey()` (host, started_at).
+ *   fromRowId — caller's highest applied rowid from this server's feed.
+ *   limit     — optional page size; clamped to [1, MAX_REPLAY_LIMIT].
  */
-export function replaySince(_peerId: string, _fromRowId: number): never {
-  throw new Error('NOT_IMPLEMENTED');
+export function replaySince(
+  peerId: string,
+  fromRowId: number,
+  limit?: number,
+): ReplayPage {
+  // peerId is currently unused by the read query — every peer sees the
+  // same feed. It is captured here for forward-compatible logging and
+  // for the future hub-of-hubs topology where the feed_scope filter
+  // might depend on the requesting peer's role.
+  void peerId;
+
+  const lim = Math.max(
+    1,
+    Math.min(MAX_REPLAY_LIMIT, Math.floor(limit ?? DEFAULT_REPLAY_LIMIT)),
+  );
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT
+         id,
+         op_id        AS opId,
+         table_name   AS tableName,
+         location_id  AS locationId,
+         op_kind      AS opKind,
+         row_pk       AS rowPk,
+         row_json     AS rowJson,
+         created_at   AS createdAt,
+         source_host  AS sourceHost,
+         source_started_at AS sourceStartedAt
+       FROM sync_feed
+       WHERE id > ?
+       ORDER BY id ASC
+       LIMIT ?`,
+    )
+    .all(fromRowId, lim + 1) as ({ id: number } & SyncOp)[];
+
+  // We over-fetched by 1 to detect "more available". Trim to `lim`
+  // and use the (lim+1)-th row to compute nextOp.
+  const hasMore = rows.length > lim;
+  const page = hasMore ? rows.slice(0, lim) : rows;
+  const lastId = page.length > 0 ? page[page.length - 1]!.id : fromRowId;
+   
+  const ops: SyncOp[] = page.map(({ id: _id, ...rest }) => rest);
+  return { ops, nextOp: hasMore ? lastId : null };
+}
+
+/** Read a peer's current replay checkpoint. Returns 0 when no row exists. */
+export function getReplayCheckpoint(
+  peerId: string,
+  feedScope: string = 'local',
+): number {
+  const db = getDb();
+  const row = db
+    .prepare(
+      `SELECT last_op_rowid FROM replay_checkpoints
+       WHERE peer_id = ? AND feed_scope = ?`,
+    )
+    .get(peerId, feedScope) as { last_op_rowid: number } | undefined;
+  return row?.last_op_rowid ?? 0;
+}
+
+/**
+ * Advance (or set) a peer's replay checkpoint. The receiver calls this
+ * after it successfully applies a contiguous prefix from replaySince().
+ *
+ * Idempotent: setting to a value ≤ current is a no-op (checkpoints
+ * MUST NOT regress except through an explicit reset call, which this
+ * function deliberately does not provide).
+ */
+export function setReplayCheckpoint(
+  peerId: string,
+  lastOpRowId: number,
+  feedScope: string = 'local',
+): void {
+  const db = getDb();
+  db.prepare(
+    `INSERT INTO replay_checkpoints (peer_id, feed_scope, last_op_rowid, updated_at)
+     VALUES (?, ?, ?, datetime('now'))
+     ON CONFLICT(peer_id, feed_scope) DO UPDATE SET
+       last_op_rowid = MAX(replay_checkpoints.last_op_rowid, excluded.last_op_rowid),
+       updated_at    = datetime('now')`,
+  ).run(peerId, feedScope, lastOpRowId);
 }
