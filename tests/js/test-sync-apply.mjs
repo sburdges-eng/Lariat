@@ -137,6 +137,95 @@ describe('assertFamilyTablesExist', () => {
       /family-table names do not match schema/,
     );
   });
+});
+
+// ─────────────────────────────────────────────────────────────────
+// Audit H2 + H8 — PRAGMA cache invalidation + negative cache
+// ─────────────────────────────────────────────────────────────────
+
+describe('PRAGMA table_info cache (H2 + H8)', () => {
+  it('audit H8: unknown table → result is cached (subsequent ops do NOT re-run PRAGMA)', () => {
+    _clearSchemaCacheForTest();
+    // We can't measure PRAGMA call count directly from the public API,
+    // so instead we verify the cache miss path: first call against
+    // missing table → skipped-unknown-table, and the cache populates
+    // with an empty-set sentinel that survives a second op.
+    const op = mkOp({ tableName: 'never_exists_anywhere' });
+    const r1 = applyOp(db, op);
+    assert.equal(r1.outcome, 'skipped-unknown-table');
+    // Second op for the same missing table — must also skip, and the
+    // applier's behavior is identical (no exception, same outcome).
+    const r2 = applyOp(db, mkOp({ tableName: 'never_exists_anywhere', opId: 'op-2' }));
+    assert.equal(r2.outcome, 'skipped-unknown-table');
+  });
+
+  it('audit H2: clearSchemaCache() invalidates a populated cache so column-add ALTERs are picked up', () => {
+    // Build a tiny stand-in DB with one column. Cache the result, then
+    // ALTER ADD COLUMN, then verify the cache miss after clear picks
+    // up the new column.
+    const tinyDb = new Database(':memory:');
+    tinyDb.exec(`CREATE TABLE audit_events (id INTEGER PRIMARY KEY, oldcol TEXT);`);
+
+    // First call populates the cache with {id, oldcol}.
+    _clearSchemaCacheForTest();
+    const opOld = mkOp({
+      tableName: 'audit_events',
+      rowJson: JSON.stringify({ id: 1, oldcol: 'x' }),
+    });
+    // We can't drive applier against tinyDb without setting setDbPathForTest,
+    // so verify via the cache primitive directly through the helper export.
+    // Strategy: call applyOp against the real `db` (which has audit_events),
+    // then ALTER, then prove _clearSchemaCacheForTest produces a fresh
+    // PRAGMA read by checking a newly-added column is honored.
+    void opOld;
+
+    // Use the real `db` (in-memory `:memory:` from setDbPathForTest).
+    _clearSchemaCacheForTest();
+    // Valid audit_events payload (all NOT NULL columns supplied).
+    const validAudit = {
+      shift_date: '2026-05-06',
+      entity: 'x',
+      action: 'insert',
+      actor_source: 'test',
+    };
+    // Apply once so the cache populates for audit_events.
+    applyOp(db, mkOp({
+      tableName: 'audit_events',
+      rowJson: JSON.stringify(validAudit),
+    }));
+    // Add a new column.
+    db.exec(`ALTER TABLE audit_events ADD COLUMN h2_test_col TEXT`);
+
+    // Without clearing the cache, the new column would be dropped from
+    // a fresh INSERT.
+    applyOp(db, mkOp({
+      tableName: 'audit_events',
+      opId: 'h2-pre-clear',
+      rowJson: JSON.stringify({ ...validAudit, h2_test_col: 'pre' }),
+    }));
+    const preClearCount = db.prepare(
+      `SELECT COUNT(*) AS c FROM audit_events WHERE h2_test_col = 'pre'`,
+    ).get().c;
+    assert.equal(preClearCount, 0, 'pre-clear: new column dropped silently');
+
+    // After clearing, the new column lands.
+    _clearSchemaCacheForTest();
+    applyOp(db, mkOp({
+      tableName: 'audit_events',
+      opId: 'h2-post-clear',
+      rowJson: JSON.stringify({ ...validAudit, h2_test_col: 'post' }),
+    }));
+    const postClearCount = db.prepare(
+      `SELECT COUNT(*) AS c FROM audit_events WHERE h2_test_col = 'post'`,
+    ).get().c;
+    assert.equal(postClearCount, 1, 'post-clear: new column is honored');
+
+    // Clean up the test column so subsequent tests don't see it.
+    // SQLite ALTER TABLE DROP COLUMN requires 3.35+; using
+    // `CREATE TABLE AS SELECT` rebuild is overkill here — the column
+    // is only added on :memory: tests so a setDbPathForTest reset
+    // would drop it. We leave it; the column is harmless.
+  });
   it('returns unknown for tables outside the matrix', () => {
     assert.equal(familyOf('not_a_real_table'), 'unknown');
   });

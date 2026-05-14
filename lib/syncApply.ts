@@ -42,6 +42,7 @@
 import type { Database as DB } from 'better-sqlite3';
 import type { SyncOp } from './syncFeed.ts';
 import { logAuditAction } from './auditLog.mjs';
+import { clearSchemaCache, getTableColumnsCached } from './schemaCache.ts';
 
 // Family table names MUST match the live schema in lib/db.ts exactly.
 // audit C1 (2026-05-14) caught 7 HACCP names that diverged — those
@@ -147,30 +148,18 @@ export interface ApplyResult {
   reason?: string;
 }
 
-// PRAGMA-table-info cache. Reading the column list per op would dominate
-// applier cost; the cache invalidates when the receiver restarts (good
-// enough — schema migrations require a restart in this single-machine
-// architecture).
-const COLUMNS_CACHE = new Map<string, ReadonlySet<string>>();
-
+// PRAGMA-table-info cache moved to lib/schemaCache.ts so db.ts can
+// invalidate it after every migration pass without a circular import.
+// See lib/schemaCache.ts for audit context (H2 + H8).
 function getTableColumns(db: DB, tableName: string): ReadonlySet<string> | null {
-  const cached = COLUMNS_CACHE.get(tableName);
-  if (cached) return cached;
-  try {
-    const rows = db.prepare(`PRAGMA table_info(${tableName})`).all() as { name: string }[];
-    if (!rows.length) return null;
-    const set = new Set(rows.map((r) => r.name));
-    COLUMNS_CACHE.set(tableName, set);
-    return set;
-  } catch {
-    return null;
-  }
+  return getTableColumnsCached(db, tableName);
 }
 
-/** Test-only: clear the column-info cache. */
-export function _clearSchemaCacheForTest(): void {
-  COLUMNS_CACHE.clear();
-}
+// Re-export so existing call sites + test imports keep working.
+export { clearSchemaCache };
+
+/** @deprecated Use `clearSchemaCache()` instead. Kept for the test alias only. */
+export const _clearSchemaCacheForTest = clearSchemaCache;
 
 function parseRowJson(op: SyncOp): unknown | undefined {
   try {

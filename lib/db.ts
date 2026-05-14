@@ -3,6 +3,7 @@ import type { Database as DB } from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { resolveDataDir } from './dataDir.ts';
+import { clearSchemaCache } from './schemaCache.ts';
 
 const DB_DIR = resolveDataDir();
 const DB_PATH = path.join(DB_DIR, 'lariat.db');
@@ -2026,6 +2027,12 @@ export function initSchema(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_kds_ticket_lines_ticket
       ON kds_ticket_lines(ticket_id, sort_order, id);
   `);
+
+  // Audit H2 (2026-05-14): clear the PRAGMA table_info cache so
+  // column-add ALTERs propagate without a process restart. Lives in
+  // its own module (lib/schemaCache.ts) to break the import cycle
+  // db.ts → syncApply.ts → syncFeed.ts → db.ts.
+  clearSchemaCache();
 }
 
 /**
