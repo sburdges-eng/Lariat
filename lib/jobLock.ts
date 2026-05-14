@@ -28,6 +28,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveDataDir } from './dataDir.ts';
 
 const DEFAULT_STALE_AFTER_SEC = 4 * 60 * 60; // 4 hours
 
@@ -73,7 +74,14 @@ export interface AcquireOptions {
 }
 
 function defaultLockDir(): string {
-  return path.join(process.cwd(), 'data', 'locks');
+  // Audit M6 (2026-05-14): honor LARIAT_DATA_DIR via the shared
+  // resolver. Pre-fix, lockfiles landed at `<cwd>/data/locks` even
+  // when SQLite + JSON cache had been relocated via LARIAT_DATA_DIR,
+  // splitting the install across two directories. Concurrent-run
+  // prevention still worked because both processes shared cwd, but a
+  // restart from a different cwd or LARIAT_DATA_DIR layout could
+  // orphan locks. Now lock-dir tracks the same root as the rest.
+  return path.join(resolveDataDir(), 'locks');
 }
 
 function pidAliveDefault(pid: number): boolean {
