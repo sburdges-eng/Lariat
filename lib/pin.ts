@@ -39,10 +39,24 @@ export async function hasPinCookie(req: Request): Promise<boolean> {
  * implements only the master-PIN check, matching the local copies it
  * replaces.
  */
-// TODO(audit-DiD): Vary: Cookie + deny logging — see docs/audit/2026-05-08-codebase-audit.md §1.
 export async function requirePin(req: Request): Promise<Response | null> {
   if (pinRequiredForPic() && !(await hasPinCookie(req))) {
-    return Response.json({ error: 'PIN required' }, { status: 401 });
+    // Audit-DiD (docs/audit/2026-05-08-codebase-audit.md §1):
+    // `Vary: Cookie` on the deny response so intermediate caches
+    // (browser HTTP cache + any future reverse proxy) key the 401
+    // by cookie state — without it, a cached 401 from a no-cookie
+    // request could be served to the same user after they set the
+    // PIN cookie. `Cache-Control: no-store` is belt-and-suspenders.
+    return Response.json(
+      { error: 'PIN required' },
+      {
+        status: 401,
+        headers: {
+          'vary': 'Cookie',
+          'cache-control': 'no-store',
+        },
+      },
+    );
   }
   return null;
 }
@@ -64,13 +78,26 @@ export async function requirePin(req: Request): Promise<Response | null> {
  * rate-limit hooks) lands in one place. See PR #221 for the
  * unscoped sibling and audit reference.
  */
-// TODO(audit-DiD): Vary: Cookie + deny logging + scope-mismatch logging — see docs/audit/2026-05-08-codebase-audit.md §1.
 export async function requirePinOrScope(
   req: Request,
   scope: string,
 ): Promise<Response | null> {
   if (pinRequiredForPic() && !(await hasPinOrTempPin(req, scope))) {
-    return Response.json({ error: 'PIN required' }, { status: 401 });
+    // Audit-DiD (docs/audit/2026-05-08-codebase-audit.md §1):
+    // see requirePin for the cache-headers rationale. Scope-mismatch
+    // logging is deferred to a follow-up that wants the structured
+    // log surface — folding it into console.warn here would create
+    // noise on every cook-without-PIN POST.
+    return Response.json(
+      { error: 'PIN required' },
+      {
+        status: 401,
+        headers: {
+          'vary': 'Cookie',
+          'cache-control': 'no-store',
+        },
+      },
+    );
   }
   return null;
 }
