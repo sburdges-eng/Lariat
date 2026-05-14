@@ -22,17 +22,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { useRole } from '../_components/RoleProvider';
-
-const CATEGORY_ORDER = [
-  'appetizer',
-  'entree',
-  'side',
-  'sauce',
-  'dressing',
-  'seasoning',
-  'prep',
-  'dessert',
-];
+import { groupRecipesByCategory } from '../../lib/recipeCookbookGrouping';
 
 function categoryLabel(c) {
   if (!c) return 'Uncategorized';
@@ -66,22 +56,9 @@ export default function RecipeBrowserEnhanced({ recipes }) {
   }, [recipes, searchTerm, filterAllergen]);
 
   // Group by category, ordered by CATEGORY_ORDER then alpha for unknowns.
-  const grouped = useMemo(() => {
-    const buckets = new Map();
-    filtered.forEach((r) => {
-      const key = r.category || '_unknown';
-      if (!buckets.has(key)) buckets.set(key, []);
-      buckets.get(key).push(r);
-    });
-    const known = CATEGORY_ORDER.filter((c) => buckets.has(c)).map((c) => [
-      c,
-      buckets.get(c),
-    ]);
-    const extras = [...buckets.keys()]
-      .filter((c) => !CATEGORY_ORDER.includes(c))
-      .sort();
-    return [...known, ...extras.map((c) => [c, buckets.get(c)])];
-  }, [filtered]);
+  // Pure logic lives in lib/recipeCookbookGrouping.ts so the unit test
+  // can assert ordering without rendering.
+  const grouped = useMemo(() => groupRecipesByCategory(filtered), [filtered]);
 
   const handleSignOut = async () => {
     setSigningOut(true);
