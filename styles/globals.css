@@ -13,6 +13,7 @@
    new tokens (--ember-glow, --paper-3, --indigo, --plum, --lari*) and
    exposes the .k-dark / .k-night theme classes for future surfaces. */
 @import url('./tokens.css');
+@import url('./cookbook.css');
 
 :root {
   /* Warm palette */

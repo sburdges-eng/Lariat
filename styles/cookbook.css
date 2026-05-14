@@ -1,0 +1,381 @@
+/* ==================================================================
+ * THE LARIAT · Cookbook
+ *
+ * Stylesheet for the recipes browser (/recipes). Visual language
+ * follows the 2026-05-13 LaRiOS drop: Instrument Serif display,
+ * paper-stack backgrounds, ember accent, monospace metadata.
+ *
+ * Additive-only. Scoped via the .cookbook* class prefix so it
+ * cannot collide with other surfaces. Tokens (--ember, --paper,
+ * --hair, --serif, --mono, etc.) are defined in tokens.css.
+ * ================================================================== */
+
+.cookbook {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 8px 4px 64px;
+}
+
+/* ---- Header ------------------------------------------------------ */
+
+.cookbook-head {
+  position: relative;
+  padding: 12px 0 28px;
+  border-bottom: 1px solid var(--hair);
+  margin-bottom: 28px;
+}
+
+.cookbook-eyebrow {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.cookbook-title {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(40px, 6.5vw, 76px);
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
+  color: var(--ink);
+}
+.cookbook-title em {
+  font-style: italic;
+  color: var(--ember-deep);
+}
+
+.cookbook-lede {
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.4;
+  color: var(--char);
+  margin: 0;
+  max-width: 62ch;
+  font-style: italic;
+}
+
+.cookbook-mode {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+  padding: 10px 14px;
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-left: 3px solid var(--brass);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--char);
+}
+.cookbook-mode--mgmt {
+  border-left-color: var(--ember);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--ember) 6%, var(--panel)) 0%,
+    var(--panel) 60%
+  );
+}
+.cookbook-mode-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ember);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ember) 18%, transparent);
+}
+.cookbook-mode-label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--ink);
+}
+.cookbook-mode-sub {
+  color: var(--muted);
+  flex: 1;
+}
+.cookbook-mode-sub a {
+  color: var(--ember-deep);
+  font-weight: 600;
+  text-decoration: none;
+}
+.cookbook-mode-out {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.cookbook-mode-out:hover:not(:disabled) {
+  border-color: var(--ember);
+  background: color-mix(in srgb, var(--ember) 8%, transparent);
+}
+.cookbook-mode-out:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ---- Controls ---------------------------------------------------- */
+
+.cookbook-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 2fr;
+  gap: 24px;
+  margin-bottom: 32px;
+  align-items: start;
+}
+@media (max-width: 720px) {
+  .cookbook-controls { grid-template-columns: 1fr; }
+}
+
+.cookbook-label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.cookbook-search input {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: 6px;
+  font-family: var(--sans);
+  font-size: 15px;
+  color: var(--ink);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.cookbook-search input::placeholder {
+  color: var(--muted-2);
+  font-style: italic;
+}
+.cookbook-search input:focus {
+  outline: none;
+  border-color: var(--ember);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ember) 18%, transparent);
+}
+
+.cookbook-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cookbook-chip {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 6px 12px;
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  color: var(--char);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+.cookbook-chip:hover {
+  border-color: var(--ember);
+  color: var(--ink);
+}
+.cookbook-chip.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bone);
+}
+
+/* ---- Sections ---------------------------------------------------- */
+
+.cookbook-section {
+  margin-bottom: 40px;
+}
+
+.cookbook-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hair);
+}
+.cookbook-section-title {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 28px;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--ink);
+}
+.cookbook-section-count {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.cookbook-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* ---- Card -------------------------------------------------------- */
+
+.cookbook-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s, transform 0.12s, box-shadow 0.15s;
+}
+.cookbook-card:hover {
+  border-color: var(--ember);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(29, 26, 21, 0.10);
+}
+.cookbook-card:focus-visible {
+  outline: none;
+  border-color: var(--ember);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ember) 22%, transparent);
+}
+
+.cookbook-card-photo {
+  aspect-ratio: 4 / 3;
+  background: var(--paper-2);
+  position: relative;
+  overflow: hidden;
+}
+.cookbook-card-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s var(--easing, ease);
+}
+.cookbook-card:hover .cookbook-card-photo img {
+  transform: scale(1.04);
+}
+.cookbook-card-photo.is-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    linear-gradient(
+      135deg,
+      var(--paper) 0%,
+      var(--paper-2) 60%,
+      var(--paper-3) 100%
+    );
+}
+.cookbook-card-placeholder {
+  font-family: var(--serif);
+  font-size: 64px;
+  line-height: 1;
+  color: var(--ember);
+  font-style: italic;
+  opacity: 0.5;
+  user-select: none;
+}
+
+.cookbook-card-body {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.cookbook-card-name {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--ink);
+}
+.cookbook-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.cookbook-card-allergens {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.cookbook-card-allergens li {
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  background: color-mix(in srgb, var(--brass) 12%, transparent);
+  color: var(--brass-deep);
+  border-radius: 3px;
+}
+.cookbook-card-allergens li.cookbook-card-more {
+  background: transparent;
+  color: var(--muted);
+}
+
+.cookbook-card-edit {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px dashed var(--hair-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.20em;
+  text-transform: uppercase;
+  color: var(--ember-deep);
+  font-weight: 700;
+}
+
+/* ---- Empty ------------------------------------------------------- */
+
+.cookbook-empty {
+  padding: 56px 20px;
+  text-align: center;
+  background: var(--panel);
+  border: 1px dashed var(--hair);
+  border-radius: 8px;
+}
+.cookbook-empty p {
+  margin: 0;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 18px;
+  color: var(--muted);
+}
