@@ -1,114 +1,234 @@
 # tasks.yaml — orchestrator manifest, drafted 2026-05-14
 #
-# Open threads from the current session that are tractable as
-# independent parallel TDD tasks. Each task includes acceptance tests
-# that must exit 0 before the reviewer is dispatched.
+# Phase 3.5 / Phase 4 wave. Reflects the *real* outstanding work after
+# auditing main vs. the Explore agent's backlog map:
 #
-# Reads: .claude/agents/coordinator.md  (the slash-command entrypoint)
-# Status output: ORCHESTRATOR_STATUS.md  (updated after every state change)
+#   shipped (do NOT re-do):
+#     - sales depletion auto-wire + --skip-depletion         (ingest-analytics.mjs)
+#     - dish-components coverage CLI + CSV scaffold          (dish-components-coverage.mjs)
+#     - depletion pipeline E2E + integration tests           (test-toast-to-depletion-pipeline.mjs)
+#     - cloud-bridge push, queue, drainer, lifecycle         (lib/cloudBridge*.ts)
+#     - multi-instance sync feed                             (lib/syncFeed.ts)
+#     - desktop wrapper supervisor/server-entry/settings     (desktop/{supervisor,server-entry,settings,main}.ts)
+#     - settlement PDF/print view                            (lib/settlementPrint.ts, b1a39ec)
+#
+#   real gaps (this manifest):
+#     - ingredient_masters operator review surface
+#     - line_check_entries HACCP audit-row gap (regulated bug)
+#     - LARIAT_DATA_DIR JSON-cache resolution
+#     - .env hygiene in .gitignore
+#     - scheduled-PDF reporting (cron-driven weekly settlement digest)
+#     - desktop wrapper first-run wizard + electron-builder.yml
+#     - peer auth (Ed25519 keypair, signed sync-since requests)
+#     - cloud-bridge production wiring (HMAC secret, real Worker)
+#
+# Reads:  .claude/agents/coordinator.md  (the slash-command entrypoint)
+# Status: ORCHESTRATOR_STATUS.md  (updated by the coordinator on each state change)
 
 tasks:
   - id: T1
     description: |
-      Cover the recipe-photo upload backend with node --test integration
-      tests. Stand up an in-memory DB (setDbPathForTest pattern) and a
-      tmp uploads dir, then exercise:
-        - POST without PIN cookie → 401
-        - POST with PIN + 87-byte PNG → 201, file lands on disk, row in
-          recipe_photos with correct mime / size_bytes / cook_id
-        - POST with bad mime (text/plain) → 415
-        - POST with empty body → 400
-        - POST > MAX_PHOTO_BYTES → 413
-        - GET list returns the row; soft-deleted rows are hidden
-        - DELETE soft-deletes and the file stays on disk (audit trail)
-        - GET raw 200 with correct content-type before delete;
-          GET raw 404 after delete
-      Also add a unit test for lib/recipePhotos.ts (storePhoto sanitizes
-      slug, ext derivation falls back when original name has none).
-      Wire `npm run test:recipe-photos` into package.json.
+      HACCP gap: app/api/checks/route.js writes line_check_entries rows
+      WITHOUT calling postAuditEvent inside the source transaction.
+      docs/PATTERNS.md §3 mandates an audit_events row for every
+      regulated mutation, in the SAME tx, so a failed audit rolls the
+      INSERT back. The KA route's `line_check` action already audits;
+      the primary cook-UI path silently does not.
+
+      Fix: wrap the INSERT in db.transaction() and call
+      postAuditEvent({ entity: 'line_check_entries', action: 'insert',
+                       actor_source: 'cook_ui', payload: {...} }).
+      Match the pattern from app/api/cooling/route.js or
+      app/api/temp-log/route.js.
+
+      Tests: extend tests/js/test-checks-api.mjs — a successful POST
+      writes BOTH a line_check_entries row AND a matching audit_events
+      row in one tx, and a synthetic audit failure rolls back the
+      INSERT. The audit fixes branch
+      `audit/codebase-fixes-2026-05-13` already has a working version
+      of this fix at commit 1f85e02 — cherry-pick onto a fresh
+      `fix/line-check-audit-row` branch instead of rebasing.
     acceptance_tests:
-      - npm run test:recipe-photos
+      - node --experimental-strip-types --test tests/js/test-checks-api.mjs
+      - npm run test:rules
     dependencies: []
     paths_touched:
-      - tests/js/test-recipe-photos-api.mjs
-      - tests/js/test-recipe-photos-lib.mjs
-      - package.json
+      - app/api/checks/route.js
+      - tests/js/test-checks-api.mjs
 
   - id: T2
     description: |
-      Add a "hero" flag so management can pin which uploaded photo shows
-      on the cookbook card. Schema: ALTER TABLE recipe_photos ADD COLUMN
-      is_hero INTEGER NOT NULL DEFAULT 0 (additive, via migrateLegacyColumns).
-      API: PATCH /api/recipes/[slug]/photos/[id] { is_hero: true } sets the
-      target row's is_hero=1 and zeroes every other row for the same
-      (location_id, recipe_slug) in one transaction. PIN-gated, audit-logged.
-      UI: in RecipePhotoUploader, render a "Make hero" / "Hero ★" toggle on
-      each thumb. In app/recipes/page.jsx, change the first-photo SELECT to
-      prefer is_hero=1 over MAX(id). Audit-events row uses action='recipe_photo_set_hero'.
+      lib/data.ts resolves SQLite via LARIAT_DATA_DIR but the JSON-cache
+      root is pinned to process.cwd()/data/cache — so a relocated
+      install reads stale recipes/stations against a fresh DB.
+      Honor LARIAT_DATA_DIR for the cache root too. Add a node --test
+      that sets LARIAT_DATA_DIR to a tmp dir and asserts the cache is
+      read from there. Same source as T1 (commit 1f85e02 in
+      audit/codebase-fixes-2026-05-13).
     acceptance_tests:
-      - npm run test:recipe-photos-hero
-    dependencies: [T1]
+      - node --experimental-strip-types --test tests/js/test-data-cache-data-dir.mjs
+    dependencies: []
     paths_touched:
-      - lib/db.ts
-      - app/api/recipes/[slug]/photos/[id]/route.js
-      - app/recipes/[slug]/edit/RecipePhotoUploader.jsx
-      - app/recipes/page.jsx
-      - tests/js/test-recipe-photos-hero.mjs
-      - package.json
+      - lib/data.ts
+      - tests/js/test-data-cache-data-dir.mjs
 
   - id: T3
     description: |
-      Add caption editing on photo thumbs. Server: PATCH route already
-      added in T2 accepts { caption: string|null }. Client: clicking a
-      thumb's caption text turns it into a contenteditable input that
-      PATCHes onBlur. UI uses Lariat cookbook tokens (--ember on focus).
-      Caption shows on the recipe detail page strip as alt-text + hover
-      title. Acceptance: API test PATCHes caption; component test
-      ensures blur fires the PATCH; round-trip the caption back to the
-      list endpoint.
+      .gitignore currently has .env.local + .lariat-build.env but NOT
+      bare .env or .env.* — a developer dropping a plain .env at the
+      repo root could commit secrets accidentally. Add:
+        .env
+        .env.*
+        !.env.example
+      Verify with `git check-ignore -v .env` after the change.
+      No code or test changes.
     acceptance_tests:
-      - npm run test:recipe-photos-caption
-      - npm run test:unit -- --testPathPattern=RecipePhotoUploader
-    dependencies: [T1]
+      - git check-ignore -v .env >/dev/null
+    dependencies: []
     paths_touched:
-      - app/api/recipes/[slug]/photos/[id]/route.js
-      - app/recipes/[slug]/edit/RecipePhotoUploader.jsx
-      - app/recipes/[slug]/RecipePhotoStrip.jsx
-      - app/recipes/__tests__/RecipePhotoUploader.test.jsx
-      - tests/js/test-recipe-photos-caption.mjs
-      - package.json
+      - .gitignore
 
   - id: T4
     description: |
-      Unit-test the cookbook browser's pure logic: search filter is
-      case-insensitive, allergen chip toggle is XOR (clicking active
-      chip clears), category grouping orders by CATEGORY_ORDER and
-      buckets unknown categories alphabetically at the end. Use jest
-      + @testing-library/react. Do NOT mock SQLite (the component
-      takes recipes as a prop — purely a render test). Extract the
-      grouping function to a separate exported helper so the unit test
-      doesn't have to query the rendered DOM for ordering.
+      Ingredient-masters operator review surface. ingredient_masters is
+      populated by ingest-costing.mjs but there's no UI to review the
+      slugs, set preferred_vendor, edit canonical_name, or stamp
+      last_reviewed. Build:
+
+      - page  app/costing/ingredient-masters/page.jsx — PIN-gated,
+              lists every master with canonical_name / category /
+              preferred_vendor / last_reviewed and counts of mapped
+              vendor_prices + bom_lines rows. Sort by "needs review"
+              first (NULL last_reviewed OR older than 90 days).
+      - api   app/api/costing/ingredient-masters/route.js GET (list)
+              and PATCH (update one master). PATCH writes via single
+              db.transaction with postAuditEvent
+              (entity='ingredient_masters', action='correction').
+      - nav   register in app/_components/navRegistry.js so the palette
+              + sidebar pick it up.
+
+      Tests: rules-style unit test for the SELECT/UPDATE helper +
+      api-style integration test (401 no cookie, 422 bad payload,
+      200 happy path with audit_events emitted).
     acceptance_tests:
-      - npm run test:unit -- --testPathPattern=RecipeBrowserEnhanced
+      - node --experimental-strip-types --test tests/js/test-ingredient-masters-api.mjs
+      - npm run test:unit -- --testPathPattern=IngredientMasters
     dependencies: []
     paths_touched:
-      - app/recipes/RecipeBrowserEnhanced.jsx
-      - app/recipes/__tests__/RecipeBrowserEnhanced.test.jsx
-      - lib/recipeCookbookGrouping.ts
+      - app/costing/ingredient-masters/page.jsx
+      - app/costing/ingredient-masters/IngredientMastersBoard.jsx
+      - app/api/costing/ingredient-masters/route.js
+      - app/_components/navRegistry.js
+      - tests/js/test-ingredient-masters-api.mjs
+      - app/costing/ingredient-masters/__tests__/IngredientMastersBoard.test.jsx
 
   - id: T5
     description: |
-      Retention housekeeping for soft-deleted recipe photos. New script
-      scripts/cleanup-recipe-photos.mjs scans recipe_photos rows whose
-      deleted_at is older than 30 days, hard-deletes the file from
-      data/uploads/recipes/, and DELETEs the row. Idempotent (skip rows
-      whose stored_path no longer exists). Adds `npm run cleanup:recipe-photos`
-      and a node --test that seeds a deleted row + on-disk file, runs the
-      script in dry-run mode (no changes), then live mode (both gone).
+      Scheduled-PDF reporting v1 — weekly settlement digest. cron
+      orchestrator already exists (scripts/run-job.mjs +
+      data/scheduled-jobs.json). Add:
+
+      - script scripts/weekly-settlement-digest.mjs — for the past
+              week, list every show with computed netDoorCents,
+              talent.totalCents, gross/fees/net, Toast attribution,
+              and any exceptions. Render via lib/settlementPrint.ts
+              (already exists post-b1a39ec) concatenated into one HTML
+              doc, write to data/exports/YYYY-Www_settlement.html.
+      - job   register in data/scheduled-jobs.json with cron `0 8 * * 1`
+              (every Monday 8am).
+      - npm   script `npm run digest:settlement` (one-shot run).
+
+      No PDF library — the operator opens the HTML in a browser and
+      saves as PDF (same UX as the on-demand /settlement/pdf route).
+      Tests: a node --test seeds three shows in a tmp DB, runs the
+      script, asserts the HTML file is produced and contains each
+      band name + netDoorCents.
     acceptance_tests:
-      - npm run test:cleanup-recipe-photos
-    dependencies: [T1]
+      - node --experimental-strip-types --test tests/js/test-weekly-settlement-digest.mjs
+    dependencies: []
     paths_touched:
-      - scripts/cleanup-recipe-photos.mjs
-      - tests/js/test-cleanup-recipe-photos.mjs
+      - scripts/weekly-settlement-digest.mjs
+      - data/scheduled-jobs.json
+      - tests/js/test-weekly-settlement-digest.mjs
       - package.json
+
+  - id: T6
+    description: |
+      Desktop wrapper first-run wizard (T9 of docs/desktop-wrapper-design.md).
+      Supervisor, server-entry, settings already exist. Missing piece:
+      the first-launch UX that lets the operator pick:
+        1. data dir          (LARIAT_DATA_DIR)
+        2. python path       (LARIAT_PYTHON, defaults to `which python3`)
+        3. data-pack dir     (the off-tree SSD location for the BGE
+                              vectors + parquet files)
+
+      Build the React component at desktop/firstRunWizard/{App.tsx,
+      main.tsx, vite.config.ts} per the design doc; have supervisor.ts
+      launch it when settings.json doesn't exist yet. Persist user
+      choices via desktop/settings.ts writeSettings(). Unit test the
+      pure-fn validator (path exists + is writable for data dir;
+      python --version returns 3.x for python path).
+    acceptance_tests:
+      - node --experimental-strip-types --test desktop/__tests__/test-first-run-validator.mjs
+      - npm run desktop:build
+    dependencies: []
+    paths_touched:
+      - desktop/firstRunWizard/App.tsx
+      - desktop/firstRunWizard/main.tsx
+      - desktop/firstRunWizard/vite.config.ts
+      - desktop/supervisor.ts
+      - desktop/__tests__/test-first-run-validator.mjs
+
+  - id: T7
+    description: |
+      Peer auth — Ed25519 keypair per Lariat instance, signed
+      /api/peers/sync-since requests. Currently sync requests are
+      open on the LAN-trust surface (docs/multi-instance.md item 3
+      flagged as gated on this). Build:
+
+      - lib/peerKeypair.ts — generate (once) + load Ed25519 keypair,
+        store private key in `${LARIAT_DATA_DIR}/peer-keys/`.
+      - lib/peerSign.ts — sign(reqBody, privKey) + verify(reqBody,
+        signature, peerPubKey) using node:crypto subtle/sign with the
+        ed25519 algorithm.
+      - app/api/peers/sync-since/route.js — accept X-Lariat-Peer-Key
+        + X-Lariat-Signature headers; reject 401 if missing or invalid.
+        Allow-listing of trusted peer public keys via a new
+        peer_trust table seeded by an operator action on /management.
+      - test       tests/js/test-peer-auth.mjs
+
+      No mDNS changes; this is auth on top of an existing discovery
+      surface.
+    acceptance_tests:
+      - node --experimental-strip-types --test tests/js/test-peer-auth.mjs
+    dependencies: []
+    paths_touched:
+      - lib/peerKeypair.ts
+      - lib/peerSign.ts
+      - app/api/peers/sync-since/route.js
+      - lib/db.ts
+      - tests/js/test-peer-auth.mjs
+
+  - id: T8
+    description: |
+      Cloud-bridge production wiring. lib/cloudBridgePush.ts +
+      cloudBridgeDrainer.ts + scripts/cloud-bridge-drainer.mjs already
+      exist (per docs/cloud-bridge-backend-decision.md). Remaining:
+
+      - HMAC secret stored via desktop/settings.ts (LARIAT_CLOUD_HMAC)
+        rather than env var; surface a setting toggle on /management.
+      - Drainer crash-resume — record claim/ack state durably in
+        cloud_bridge_queue so a restart doesn't re-deliver acked rows.
+      - Register the drainer as a scheduled job in
+        data/scheduled-jobs.json (e.g. cloud-bridge-drain every 5 min)
+        rather than relying on launchd.
+    acceptance_tests:
+      - npm run test:cloud-bridge-push
+      - npm run test:cloud-bridge-drainer
+    dependencies: []
+    paths_touched:
+      - lib/cloudBridgePush.ts
+      - lib/cloudBridgeDrainer.ts
+      - data/scheduled-jobs.json
+      - desktop/settings.ts
+      - app/management/page.jsx

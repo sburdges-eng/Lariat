@@ -12,6 +12,9 @@ exports/*.xlsx
 training/adapters/
 training/fused-model/
 training/*.gguf
+.env
+.env.*
+!.env.example
 .env.local
 *.xlsx
 Lariat-v2/
