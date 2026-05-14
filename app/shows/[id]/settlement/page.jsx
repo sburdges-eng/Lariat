@@ -49,11 +49,36 @@ export default function SettlementPage({ params, searchParams }) {
     ([, value]) => value.qty > 0,
   );
 
+  const pdfHref = `/api/shows/${showId}/settlement/pdf${
+    locationId && locationId !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(locationId)}` : ''
+  }`;
+
   return (
     <>
       <TabStrip showId={showId} locationId={locationId} active="settlement" />
 
       <section style={{ display: 'grid', gap: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <a
+            href={pdfHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="button button-secondary"
+            style={{
+              display: 'inline-block',
+              padding: '8px 14px',
+              borderRadius: 6,
+              border: '1px solid var(--line, #cfc6b0)',
+              background: 'var(--panel-2, #f7f2e8)',
+              color: 'var(--ink, #1c160e)',
+              textDecoration: 'none',
+              fontWeight: 600,
+              fontSize: 14,
+            }}
+          >
+            Download PDF
+          </a>
+        </div>
         <div className="grid-2">
           <section className="card" style={{ padding: 16 }}>
             <div className="row-meta" style={{ marginBottom: 8 }}>
