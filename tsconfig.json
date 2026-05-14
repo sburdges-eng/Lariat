@@ -56,6 +56,10 @@
     ".next",
     "cad-kernel",
     "desktop/**",
-    "electron-builder.yml"
+    "electron-builder.yml",
+    "design/**",
+    "line_setups/**",
+    "app/inventory/**",
+    "public/**"
   ]
 }

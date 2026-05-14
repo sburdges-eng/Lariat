@@ -38,6 +38,10 @@ archive/originals_legacy_2026-04-18/
 archive/experiments/
 data/originals/
 data/imports/
+
+# Recipe / product photos — uploaded via /api/recipes/[slug]/photos.
+# Files live off-tree (proprietary plated/product imagery).
+data/uploads/
 dev/exports/
 dev/reference/
 reports/
@@ -148,3 +152,6 @@ desktop/dist/
 
 # Local notarization secrets (never commit)
 .lariat-build.env
+
+# Cross-tool agent handoff scratch
+.agent-sessions/

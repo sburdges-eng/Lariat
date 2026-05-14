@@ -30,7 +30,7 @@ function summarize(loc, today, year) {
   // L3 — cert expiry within 30d.
   const expiryRows = db
     .prepare(
-      `SELECT id, cert_type, holder_cook_id, expires_on
+      `SELECT id, cert_type, cook_id, expires_on
          FROM staff_certifications
         WHERE location_id=?
           AND expires_on IS NOT NULL`,
