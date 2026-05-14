@@ -2,10 +2,9 @@ import Database from 'better-sqlite3';
 import type { Database as DB } from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import { resolveDataDir } from './dataDir.ts';
 
-const DB_DIR = process.env.LARIAT_DATA_DIR
-  ? path.resolve(process.env.LARIAT_DATA_DIR)
-  : path.join(process.cwd(), 'data');
+const DB_DIR = resolveDataDir();
 const DB_PATH = path.join(DB_DIR, 'lariat.db');
 
 /**

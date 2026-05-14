@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { resolveDataDir } from './dataDir.ts';
 
 // CACHE is the on-disk root for JSON snapshots populated by
 // `npm run ingest` / `rebuild-cache`. Tests override via
@@ -11,12 +12,13 @@ import path from 'path';
 // app could read JSON cache from ./data/cache while SQLite resolves to
 // the env-overridden directory — a split-brain that masquerades as
 // "recipes look stale even though I just re-ingested."
-const DATA_DIR = process.env.LARIAT_DATA_DIR
-  ? path.resolve(process.env.LARIAT_DATA_DIR)
-  : path.join(process.cwd(), 'data');
 let _cacheOverride: string | null = null;
 function cacheRoot(): string {
-  return _cacheOverride ?? path.join(DATA_DIR, 'cache');
+  // resolveDataDir() reads env at call time, so tests that set
+  // LARIAT_DATA_DIR after import (via cache-busting dynamic-import)
+  // pick up the new value without the module remembering its module-
+  // load resolution.
+  return _cacheOverride ?? path.join(resolveDataDir(), 'cache');
 }
 
 /** Test-only — re-points the cache root and flushes in-memory state. */

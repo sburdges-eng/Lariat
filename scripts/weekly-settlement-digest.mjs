@@ -86,11 +86,13 @@ function defaultAnchor() {
   return now;
 }
 
-function defaultOutPath(label) {
-  const dataDir = process.env.LARIAT_DATA_DIR
-    ? path.resolve(process.env.LARIAT_DATA_DIR)
-    : path.join(process.cwd(), 'data');
-  return path.join(dataDir, 'exports', `${label}_settlement.html`);
+async function defaultOutPath(label) {
+  // Lazy import keeps lib/dataDir.ts (a .ts module) off the script's
+  // synchronous top-level import path. Node strips types for these
+  // dynamic imports via --experimental-strip-types when the script
+  // runs.
+  const { resolveDataDir } = await import('../lib/dataDir.ts');
+  return path.join(resolveDataDir(), 'exports', `${label}_settlement.html`);
 }
 
 export async function runDigest(args, deps) {
@@ -121,7 +123,7 @@ export async function runDigest(args, deps) {
     noAutoPrint: true,
   });
 
-  const outPath = args.out || defaultOutPath(range.label);
+  const outPath = args.out || (await defaultOutPath(range.label));
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, html);
   return { outPath, range, count: summaries.length };

@@ -176,6 +176,7 @@
     "test:settlement-deal-parser": "node --experimental-strip-types --test tests/js/test-settlement-deal-parser.mjs",
     "test:settlement-pdf": "node --experimental-strip-types --test tests/js/test-settlement-pdf.mjs",
     "test:data-cache-data-dir": "node --experimental-strip-types --test tests/js/test-data-cache-data-dir.mjs",
+    "test:data-dir": "node --experimental-strip-types --test tests/js/test-data-dir.mjs",
     "test:weekly-settlement-digest": "node --experimental-strip-types --test tests/js/test-weekly-settlement-digest.mjs",
     "test:ingredient-masters-repo": "node --experimental-strip-types --test tests/js/test-ingredient-masters-repo.mjs",
     "test:ingredient-masters-api": "node --experimental-strip-types --test tests/js/test-ingredient-masters-api.mjs",

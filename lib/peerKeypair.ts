@@ -45,7 +45,8 @@ import {
   readFileSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
+import { resolveDataDir } from './dataDir.ts';
 
 export interface Keypair {
   /** Raw 32-byte Ed25519 public key. Hash this for the fingerprint. */
@@ -61,15 +62,11 @@ interface OnDiskKeypair {
   created_at: string;
 }
 
-// Resolve the data dir the same way `lib/db.ts` does: honor
-// `LARIAT_DATA_DIR` first, fall back to `<cwd>/data`. A bare relative
+// Resolve the data dir via the shared helper (lib/dataDir.ts) — honors
+// LARIAT_DATA_DIR with a `<cwd>/data` fallback. A bare relative
 // `'data/peer-keypair.json'` silently fails ENOENT inside packaged
 // Electron because cwd is `Resources/app/`, where no `data/` exists.
-const DATA_DIR = process.env.LARIAT_DATA_DIR
-  ? resolve(process.env.LARIAT_DATA_DIR)
-  : join(process.cwd(), 'data');
-
-export const DEFAULT_KEYPAIR_PATH = join(DATA_DIR, 'peer-keypair.json');
+export const DEFAULT_KEYPAIR_PATH = join(resolveDataDir(), 'peer-keypair.json');
 
 // Ed25519 ASN.1 prefixes are fixed-length and well-known. Reconstructing
 // SPKI/PKCS8 from a raw seed lets us hand a KeyObject to node:crypto's
