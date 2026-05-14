@@ -5,9 +5,18 @@ import path from 'path';
 // `npm run ingest` / `rebuild-cache`. Tests override via
 // `setCacheRootForTest()` so they can write under tmpdir without
 // trampling `data/cache/` in the working tree.
+//
+// Mirrors lib/db.ts: honor LARIAT_DATA_DIR for relocated installs so the
+// SQLite root and the JSON-cache root stay in sync. Without this, the
+// app could read JSON cache from ./data/cache while SQLite resolves to
+// the env-overridden directory — a split-brain that masquerades as
+// "recipes look stale even though I just re-ingested."
+const DATA_DIR = process.env.LARIAT_DATA_DIR
+  ? path.resolve(process.env.LARIAT_DATA_DIR)
+  : path.join(process.cwd(), 'data');
 let _cacheOverride: string | null = null;
 function cacheRoot(): string {
-  return _cacheOverride ?? path.join(process.cwd(), 'data', 'cache');
+  return _cacheOverride ?? path.join(DATA_DIR, 'cache');
 }
 
 /** Test-only — re-points the cache root and flushes in-memory state. */

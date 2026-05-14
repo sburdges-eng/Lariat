@@ -175,6 +175,7 @@
     "test:event-ops": "npm run test:stage-repo && npm run test:sound-repo && npm run test:box-office-repo && npm run test:event-ops-routes",
     "test:settlement-deal-parser": "node --experimental-strip-types --test tests/js/test-settlement-deal-parser.mjs",
     "test:settlement-pdf": "node --experimental-strip-types --test tests/js/test-settlement-pdf.mjs",
+    "test:data-cache-data-dir": "node --experimental-strip-types --test tests/js/test-data-cache-data-dir.mjs",
     "desktop:dev": "tsc -p desktop && vite build --config desktop/firstRunWizard/vite.config.ts && electron desktop/dist/desktop/main.js",
     "desktop:build": "next build && tsc -p desktop && vite build --config desktop/firstRunWizard/vite.config.ts",
     "desktop:dist": "npm run desktop:build && electron-builder install-app-deps && electron-builder --mac --arm64 --x64"
