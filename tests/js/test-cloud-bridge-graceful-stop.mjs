@@ -95,6 +95,47 @@ describe('releaseAllClaimedRows', () => {
     assert.equal(queue.releaseAllClaimedRows(), 1);
     assert.equal(queue.releaseAllClaimedRows(), 0);
   });
+
+  it('audit H6: does NOT release rows claimed by a different process owner', () => {
+    enqueue();
+    // Manually mimic "another process claimed this row": set
+    // claimed_at + a DIFFERENT claim_owner UUID. releaseAllClaimedRows
+    // from THIS process must leave the row alone.
+    const otherOwner = 'other-process-uuid';
+    testDb.prepare(
+      `UPDATE cloud_bridge_outbox
+          SET claimed_at = datetime('now'),
+              claim_owner = ?`,
+    ).run(otherOwner);
+    const released = queue.releaseAllClaimedRows();
+    assert.equal(released, 0, 'must not release other-process claims');
+    // Sanity: the row is still claimed by the other owner.
+    const row = testDb.prepare(`SELECT claimed_at, claim_owner FROM cloud_bridge_outbox`).get();
+    assert.ok(row.claimed_at, 'claimed_at preserved');
+    assert.equal(row.claim_owner, otherOwner, 'other-owner preserved');
+  });
+
+  it('audit H6: claim() stamps the current process OWNER on claimed rows', () => {
+    enqueue();
+    const [batch] = queue.claim(1);
+    assert.ok(batch);
+    const row = testDb.prepare(
+      `SELECT claim_owner FROM cloud_bridge_outbox WHERE id = ?`,
+    ).get(batch.id);
+    assert.equal(row.claim_owner, queue.OWNER, 'claim stamps OWNER');
+  });
+
+  it('audit H6: releases legacy rows with NULL claim_owner (pre-migration)', () => {
+    enqueue();
+    // Simulate a pre-H6 row: claimed_at set, claim_owner NULL.
+    testDb.prepare(
+      `UPDATE cloud_bridge_outbox
+          SET claimed_at = datetime('now'),
+              claim_owner = NULL`,
+    ).run();
+    const released = queue.releaseAllClaimedRows();
+    assert.equal(released, 1, 'NULL-owner legacy rows are released (no stranding)');
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────

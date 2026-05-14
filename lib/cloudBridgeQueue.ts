@@ -22,7 +22,24 @@
 //
 // The schema lives in lib/db.ts::initSchema (cloud_bridge_outbox table).
 
+import { randomUUID } from 'node:crypto';
 import { getDb } from './db.ts';
+
+/**
+ * Audit H6 (2026-05-14): per-process claim owner.
+ *
+ * Generated once at module load so every drainer instance in this
+ * process shares one identity. Two drainers running in two different
+ * processes (e.g. the in-process drainer from instrumentation.ts AND
+ * the standalone scripts/cloud-bridge-drainer.mjs running alongside
+ * it) each get their own OWNER and can't yank each other's claims
+ * via releaseAllClaimedRows.
+ *
+ * sweepStaleClaims still ignores ownership — it's a time-based
+ * recovery for crashed holders, where the original owner process is
+ * by definition gone.
+ */
+export const OWNER = randomUUID();
 
 /** Sentinel error: caller tried to enqueue a table not on the allow-list. */
 export const CLOUD_BRIDGE_TABLE_DENIED = 'cloud bridge: table not on allow-list';
@@ -121,7 +138,8 @@ export function claim(maxBatch: number): OutboxBatch[] {
   const update = db.prepare(
     `UPDATE cloud_bridge_outbox
         SET attempts = attempts + 1,
-            claimed_at = datetime('now')
+            claimed_at = datetime('now'),
+            claim_owner = ?
       WHERE id = ?`,
   );
 
@@ -131,7 +149,9 @@ export function claim(maxBatch: number): OutboxBatch[] {
   // double-push the same batch. Audit ref: docs/audit/2026-05-08 §3.
   const tx = db.transaction((n: number): OutboxRow[] => {
     const candidates = select.all(n) as OutboxRow[];
-    for (const r of candidates) update.run(r.id);
+    // Audit H6: stamp this process's owner so releaseAllClaimedRows
+    // from another process can't yank the claim mid-push.
+    for (const r of candidates) update.run(OWNER, r.id);
     return candidates;
   });
   const rows = tx(maxBatch);
@@ -255,24 +275,36 @@ export function sweepStaleClaims(maxAgeSeconds: number = 300): number {
 }
 
 /**
- * Release ALL claimed-but-not-dead rows back to the queued state. Used
- * by the drainer's graceful-shutdown path on SIGTERM/SIGINT — we don't
- * want claims to wait the full staleClaimAgeSec window on restart when
- * the operator has already signaled the process to stop.
+ * Release THIS PROCESS's claimed-but-not-dead rows back to the queued
+ * state. Used by the drainer's graceful-shutdown path on SIGTERM/SIGINT
+ * — we don't want claims to wait the full staleClaimAgeSec window on
+ * restart when the operator has already signaled the process to stop.
  *
- * Skips dead-lettered rows (they have a terminal claimed_at tombstone).
- * Returns the number of rows actually released. Idempotent: a second
- * call with no in-flight claims returns 0.
+ * Audit H6 (2026-05-14): scopes the release to rows owned by `OWNER`
+ * — the per-process UUID generated at module load. Pre-fix, this
+ * function released ALL claimed rows regardless of which process held
+ * the claim, so a graceful stop in process B could yank an in-flight
+ * claim out from under process A and cause double-delivery.
+ *
+ * Also releases rows with NULL claim_owner — these are pre-migration
+ * legacy claims that pre-date the H6 fix; freeing them matches the
+ * pre-fix behaviour and avoids stranding rows on installs upgraded
+ * across this commit.
+ *
+ * Skips dead-lettered rows (terminal claimed_at tombstone). Returns
+ * the number of rows actually released. Idempotent.
  */
 export function releaseAllClaimedRows(): number {
   const result = getDb()
     .prepare(
       `UPDATE cloud_bridge_outbox
-          SET claimed_at = NULL
+          SET claimed_at = NULL,
+              claim_owner = NULL
         WHERE claimed_at IS NOT NULL
-          AND dead_letter = 0`,
+          AND dead_letter = 0
+          AND (claim_owner = ? OR claim_owner IS NULL)`,
     )
-    .run();
+    .run(OWNER);
   return result.changes;
 }
 

@@ -1789,7 +1789,18 @@ export function initSchema(db: DB): void {
       last_error    TEXT,
       dead_letter   INTEGER NOT NULL DEFAULT 0,
       enqueued_at   TEXT NOT NULL DEFAULT (datetime('now')),
-      claimed_at    TEXT
+      claimed_at    TEXT,
+      -- Audit H6 (2026-05-14): per-process claim owner. Set by claim()
+      -- to lib/cloudBridgeQueue::OWNER (a UUID generated at module
+      -- load). releaseAllClaimedRows() filters by this so a graceful
+      -- shutdown only releases rows THIS process is holding — never
+      -- yanks an in-flight claim out from under another drainer
+      -- running in a different process (e.g. the standalone
+      -- scripts/cloud-bridge-drainer.mjs alongside the in-process
+      -- drainer from instrumentation.ts). sweepStaleClaims still
+      -- ignores ownership (it's a time-based recovery for crashed
+      -- holders, where the original owner is by definition gone).
+      claim_owner   TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_cbo_drain
       ON cloud_bridge_outbox(dead_letter, claimed_at, id);
@@ -3013,6 +3024,19 @@ function ensureIndexes(db: DB): void {
 }
 
 function migrateLegacyColumns(db: DB): void {
+  // Audit H6 (2026-05-14): claim_owner column on cloud_bridge_outbox.
+  // Existing installs created the table before this column existed;
+  // ALTER TABLE ADD COLUMN is the additive-migration shape per the
+  // project convention. Rows pre-dating the migration have NULL owner
+  // and are visible to releaseAllClaimedRows from any process
+  // (matches the pre-fix behaviour for legacy rows).
+  try {
+    const colsCbo = db.prepare('PRAGMA table_info(cloud_bridge_outbox)').all() as { name: string }[];
+    if (!colsCbo.some((c) => c.name === 'claim_owner')) {
+      db.exec('ALTER TABLE cloud_bridge_outbox ADD COLUMN claim_owner TEXT');
+    }
+  } catch { /* table missing in some test configs — ignore */ }
+
   const cols86 = db.prepare('PRAGMA table_info(eighty_six)').all() as { name: string }[];
   const names86 = cols86.map((c) => c.name);
   const migrations: [string, string][] = [
