@@ -2971,6 +2971,20 @@ function migrateLegacyColumns(db: DB): void {
   addLoc('station_signoffs', t('station_signoffs'));
   addLoc('inventory_updates', t('inventory_updates'));
 
+  // T2 — additive is_hero pin for recipe_photos. Default 0; at most
+  // one row per (location_id, recipe_slug) is set to 1 by the PATCH
+  // route. The cookbook page falls back to MAX(id) when no hero is
+  // pinned. Never edit the original recipe_photos DDL in place — this
+  // migration is the only place new columns are added.
+  const photoCols = t('recipe_photos');
+  if (!photoCols.includes('is_hero')) {
+    try {
+      db.exec(
+        'ALTER TABLE recipe_photos ADD COLUMN is_hero INTEGER NOT NULL DEFAULT 0',
+      );
+    } catch { /* ignore */ }
+  }
+
   // Phase 3 closed-loop receiving — inventory_updates rows written by the
   // closed-loop credit path stamp the source receiving_log row id here.
   // The partial UNIQUE index below makes the credit at-most-once per

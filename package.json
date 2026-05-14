@@ -117,6 +117,8 @@
     "test:command-summary-api": "node --test tests/js/test-command-summary-api.mjs",
     "test:recipe-api": "node --test tests/js/test-recipe-api.mjs",
     "test:recipe-photos": "node --experimental-strip-types --test tests/js/test-recipe-photos-api.mjs tests/js/test-recipe-photos-lib.mjs",
+    "test:recipe-photos-hero": "node --experimental-strip-types --test tests/js/test-recipe-photos-hero.mjs",
+    "test:recipe-photos-caption": "node --experimental-strip-types --test tests/js/test-recipe-photos-caption.mjs",
     "test:tphc": "node --test tests/js/test-tphc-rules.mjs tests/js/test-tphc-api.mjs",
     "test:tphc-api": "node --test tests/js/test-tphc-api.mjs",
     "test:toctou-races": "node --test tests/js/test-toctou-race-regressions.mjs",
