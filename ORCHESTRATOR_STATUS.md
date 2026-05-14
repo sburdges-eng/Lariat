@@ -1,4 +1,4 @@
-# Orchestrator status — 2026-05-14 (Phase 3.5 wave: COMPLETE)
+# Orchestrator status — 2026-05-14 (Phase 3.5 + Phase 4: COMPLETE)
 
 ## Recipe-photo wave (closed 2026-05-13)
 
@@ -33,9 +33,23 @@ All 8 tasks (+ audit + Phase 2B B3) shipped this session.
 | T8 — Graceful drainer stop + launchd template | shipped | a09804f | 9/9 |
 | T8b — cloud-bridge secret in settings | shipped | 8104a2b | 15/15 (6 new) |
 
+## Phase 4 wave (2026-05-14 evening) — COMPLETE
+
+Goal: phase 4 completion including debugging and refactoring.
+
+| Task | Status | Commit | Tests |
+|------|--------|--------|-------|
+| #17 — Sync apply scheduler (closes T7 pull-loop) | shipped | f15de27 | 20/20 (10 core + 10 lifecycle) |
+| #18 — Shared LARIAT_DATA_DIR resolver | shipped | ea2f8bd | 8/8 |
+| #19 — Operator diagnostic CLI (sync-status) | shipped | 491aaf1 | 5/5 |
+
 ## Session commits — 2026-05-14
 
 ```
+491aaf1 feat(sync): operator diagnostic CLI for the sync stack (Phase 4)
+ea2f8bd refactor(data): extract shared LARIAT_DATA_DIR resolver (Phase 4)
+f15de27 feat(sync): periodic apply scheduler closes the T7 pull-loop (Phase 4)
+c77372a chore(orch): Phase 3.5 wave COMPLETE
 82989af feat(sync): receiving-side appliers + signed sync-since client (T7c)
 8104a2b feat(desktop): cloudBridgeUrl + cloudBridgeSecret in settings (T8b)
 92310f4 chore(orch): close T6/T7a/T7b/T8 partial; T7c + T8b queued

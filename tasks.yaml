@@ -1,55 +1,31 @@
 # tasks.yaml — orchestrator manifest
 #
 # Phase 3.5 wave: COMPLETE (2026-05-14).
+# Phase 4 wave:   COMPLETE (2026-05-14, same session).
 #
-# All 8 originally-pending tasks shipped this session, plus the 4 audit-
-# branch fixes and Phase 2B B3 (settlement PDF). Commit refs in
-# ORCHESTRATOR_STATUS.md.
+# Phase 4 shipped (commit refs in ORCHESTRATOR_STATUS.md):
+#   - #17 sync apply scheduler                                    (f15de27)
+#   - #18 shared LARIAT_DATA_DIR resolver                         (ea2f8bd)
+#   - #19 operator diagnostic CLI for the sync stack              (491aaf1)
 #
-#   shipped this session:
-#     - Phase 2B B3 — printable settlement view + Download PDF       (b1a39ec)
-#     - T1 — line_check_entries HACCP audit-row gap                  (3f22201)
-#     - T2 — LARIAT_DATA_DIR JSON-cache resolution                   (c0df793)
-#     - T3 — .env hygiene in .gitignore                              (fbbeddb)
-#     - T4 — ingredient_masters operator review UI                   (45e4684)
-#     - T5 — weekly settlement digest cron + renderDigestHtml        (4758e27)
-#     - audit branch §4 access-matrix refresh                        (36c7246)
-#     - T6 — desktop first-run wizard                                (already on main)
-#     - T7a — sync_feed schema + appendOp + replaySince              (aedd10e)
-#     - T7b — /api/peers/sync-since + Ed25519 auth + peer_trust      (6143758)
-#     - T7c — receiving-side appliers + sync client                  (82989af)
-#     - T8  — graceful drainer stop + launchd template               (a09804f)
-#     - T8b — cloudBridgeUrl + cloudBridgeSecret in settings         (8104a2b)
+# Future work (NOT in this manifest — captured here for planning):
 #
-# Open follow-ons (NOT blocking — captured for future planning):
-#
-#   1. /management/cloud-bridge operator UI form
+#   1. /management/cloud-bridge operator UI form  (Phase 4.1)
 #      Touches: app/management/cloud-bridge/page.jsx, desktop/main.ts
 #               (settings:set IPC handler).
-#      Wires the settings shape from T8b into a PIN-gated form so the
-#      operator can set URL + secret from the browser instead of editing
-#      settings.json by hand. Touches the dead-letter triage in the
-#      same surface (Item 9 of cloud-bridge-backend-decision.md).
 #
-#   2. Sync apply scheduler (run loop)
-#      The T7 stack is composable: producer (T7a) + endpoint (T7b) +
-#      puller (T7c client) + applier (T7c applyWindow). What's NOT yet
-#      shipped is the periodic scheduler that polls each known peer for
-#      a new window and advances replay_checkpoints. Likely lives in
-#      instrumentation.ts alongside the cloud-bridge drainer auto-start,
-#      or as a scheduled job in data/scheduled-jobs.json (poll cadence
-#      5–15s).
+#   2. appendOp integration into source-table mutations  (Phase 4.1)
+#      Wire lib/syncFeed.appendOp into the regulated source-write
+#      paths (line_check_entries, cooling_log, temp_log_entries, …)
+#      inside the same tx that writes the row. Needs a runtime identity
+#      resolver to populate sourceHost + sourceStartedAt — likely a
+#      thin helper that reads from lib/hubFailover.ts at boot.
 #
 #   3. Family-3 LWW applier (recipes, dish_components, entities_*)
-#      Deferred per docs/multi-instance-sync.md design — v1 single-KM
-#      workflow doesn't exercise collaborative recipe edits, and the
-#      OT/CRDT model is intentionally not in v1 scope. The T7c applier
-#      SKIPs family-3 ops with an audit-log entry today.
+#      Deferred per docs/multi-instance-sync.md design.
 #
 #   4. Ed25519 migration for cloud-bridge auth (Item 13)
-#      Cloud-bridge currently uses HMAC (§4.2). The Ed25519 path
-#      (§4.3) is documented but not built. Out of scope for Phase 3.5
-#      because the cloud peer's verifier must ship in lockstep.
+#      Out of scope until the cloud peer's verifier ships.
 #
 # Read:   .claude/agents/coordinator.md  (slash-command entrypoint)
 # Status: ORCHESTRATOR_STATUS.md
