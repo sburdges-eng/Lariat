@@ -119,6 +119,8 @@
     "test:recipe-photos": "node --experimental-strip-types --test tests/js/test-recipe-photos-api.mjs tests/js/test-recipe-photos-lib.mjs",
     "test:recipe-photos-hero": "node --experimental-strip-types --test tests/js/test-recipe-photos-hero.mjs",
     "test:recipe-photos-caption": "node --experimental-strip-types --test tests/js/test-recipe-photos-caption.mjs",
+    "test:cleanup-recipe-photos": "node --experimental-strip-types --test tests/js/test-cleanup-recipe-photos.mjs",
+    "cleanup:recipe-photos": "node --experimental-strip-types scripts/cleanup-recipe-photos.mjs",
     "test:tphc": "node --test tests/js/test-tphc-rules.mjs tests/js/test-tphc-api.mjs",
     "test:tphc-api": "node --test tests/js/test-tphc-api.mjs",
     "test:toctou-races": "node --test tests/js/test-toctou-race-regressions.mjs",
