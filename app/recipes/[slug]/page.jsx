@@ -7,6 +7,7 @@ import { getDb } from '../../../lib/db';
 import { getRecipePrepHistory } from '../../../lib/beoPrepHistory';
 import RecipeScaler from './RecipeScaler.jsx';
 import PreviouslyPlatedAs from './PreviouslyPlatedAs.jsx';
+import RecipePhotoStrip from './RecipePhotoStrip.jsx';
 
 export default function RecipeDetail({ params, searchParams }) {
   const recipe = getRecipeBySlug(params.slug);
@@ -44,6 +45,7 @@ export default function RecipeDetail({ params, searchParams }) {
           {recipe.allergens.map(a => <span key={a} className="allergen-tag">{a}</span>)}
         </div>
       )}
+      <RecipePhotoStrip slug={params.slug} />
       <RecipeScaler ingredients={recipe.ingredients || []} />
       {(recipe.procedure && recipe.procedure.length > 0) && (
         <>

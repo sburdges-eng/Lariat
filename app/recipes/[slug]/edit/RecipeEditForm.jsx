@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { humanize } from '../../../../lib/userError';
+import RecipePhotoUploader from './RecipePhotoUploader.jsx';
 
 export default function RecipeEditForm({ slug }) {
   const router = useRouter();
@@ -300,6 +301,8 @@ export default function RecipeEditForm({ slug }) {
           Cancel
         </button>
       </div>
+
+      <RecipePhotoUploader slug={slug} />
     </form>
   );
 }

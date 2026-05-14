@@ -1285,6 +1285,23 @@ export function initSchema(db: DB): void {
       UNIQUE(location_id, recipe_id)
     );
 
+    CREATE TABLE IF NOT EXISTS recipe_photos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      recipe_slug TEXT NOT NULL,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      original_name TEXT NOT NULL,
+      stored_path TEXT NOT NULL,
+      mime TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      caption TEXT,
+      uploaded_by_cook_id TEXT,
+      uploaded_at TEXT NOT NULL DEFAULT (datetime('now')),
+      deleted_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_recipe_photos_slug
+      ON recipe_photos(location_id, recipe_slug, id DESC)
+      WHERE deleted_at IS NULL;
+
     CREATE TABLE IF NOT EXISTS margin_snapshots (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       item_name TEXT NOT NULL,
