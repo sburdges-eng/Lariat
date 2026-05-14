@@ -1,0 +1,114 @@
+# tasks.yaml — orchestrator manifest, drafted 2026-05-14
+#
+# Open threads from the current session that are tractable as
+# independent parallel TDD tasks. Each task includes acceptance tests
+# that must exit 0 before the reviewer is dispatched.
+#
+# Reads: .claude/agents/coordinator.md  (the slash-command entrypoint)
+# Status output: ORCHESTRATOR_STATUS.md  (updated after every state change)
+
+tasks:
+  - id: T1
+    description: |
+      Cover the recipe-photo upload backend with node --test integration
+      tests. Stand up an in-memory DB (setDbPathForTest pattern) and a
+      tmp uploads dir, then exercise:
+        - POST without PIN cookie → 401
+        - POST with PIN + 87-byte PNG → 201, file lands on disk, row in
+          recipe_photos with correct mime / size_bytes / cook_id
+        - POST with bad mime (text/plain) → 415
+        - POST with empty body → 400
+        - POST > MAX_PHOTO_BYTES → 413
+        - GET list returns the row; soft-deleted rows are hidden
+        - DELETE soft-deletes and the file stays on disk (audit trail)
+        - GET raw 200 with correct content-type before delete;
+          GET raw 404 after delete
+      Also add a unit test for lib/recipePhotos.ts (storePhoto sanitizes
+      slug, ext derivation falls back when original name has none).
+      Wire `npm run test:recipe-photos` into package.json.
+    acceptance_tests:
+      - npm run test:recipe-photos
+    dependencies: []
+    paths_touched:
+      - tests/js/test-recipe-photos-api.mjs
+      - tests/js/test-recipe-photos-lib.mjs
+      - package.json
+
+  - id: T2
+    description: |
+      Add a "hero" flag so management can pin which uploaded photo shows
+      on the cookbook card. Schema: ALTER TABLE recipe_photos ADD COLUMN
+      is_hero INTEGER NOT NULL DEFAULT 0 (additive, via migrateLegacyColumns).
+      API: PATCH /api/recipes/[slug]/photos/[id] { is_hero: true } sets the
+      target row's is_hero=1 and zeroes every other row for the same
+      (location_id, recipe_slug) in one transaction. PIN-gated, audit-logged.
+      UI: in RecipePhotoUploader, render a "Make hero" / "Hero ★" toggle on
+      each thumb. In app/recipes/page.jsx, change the first-photo SELECT to
+      prefer is_hero=1 over MAX(id). Audit-events row uses action='recipe_photo_set_hero'.
+    acceptance_tests:
+      - npm run test:recipe-photos-hero
+    dependencies: [T1]
+    paths_touched:
+      - lib/db.ts
+      - app/api/recipes/[slug]/photos/[id]/route.js
+      - app/recipes/[slug]/edit/RecipePhotoUploader.jsx
+      - app/recipes/page.jsx
+      - tests/js/test-recipe-photos-hero.mjs
+      - package.json
+
+  - id: T3
+    description: |
+      Add caption editing on photo thumbs. Server: PATCH route already
+      added in T2 accepts { caption: string|null }. Client: clicking a
+      thumb's caption text turns it into a contenteditable input that
+      PATCHes onBlur. UI uses Lariat cookbook tokens (--ember on focus).
+      Caption shows on the recipe detail page strip as alt-text + hover
+      title. Acceptance: API test PATCHes caption; component test
+      ensures blur fires the PATCH; round-trip the caption back to the
+      list endpoint.
+    acceptance_tests:
+      - npm run test:recipe-photos-caption
+      - npm run test:unit -- --testPathPattern=RecipePhotoUploader
+    dependencies: [T1]
+    paths_touched:
+      - app/api/recipes/[slug]/photos/[id]/route.js
+      - app/recipes/[slug]/edit/RecipePhotoUploader.jsx
+      - app/recipes/[slug]/RecipePhotoStrip.jsx
+      - app/recipes/__tests__/RecipePhotoUploader.test.jsx
+      - tests/js/test-recipe-photos-caption.mjs
+      - package.json
+
+  - id: T4
+    description: |
+      Unit-test the cookbook browser's pure logic: search filter is
+      case-insensitive, allergen chip toggle is XOR (clicking active
+      chip clears), category grouping orders by CATEGORY_ORDER and
+      buckets unknown categories alphabetically at the end. Use jest
+      + @testing-library/react. Do NOT mock SQLite (the component
+      takes recipes as a prop — purely a render test). Extract the
+      grouping function to a separate exported helper so the unit test
+      doesn't have to query the rendered DOM for ordering.
+    acceptance_tests:
+      - npm run test:unit -- --testPathPattern=RecipeBrowserEnhanced
+    dependencies: []
+    paths_touched:
+      - app/recipes/RecipeBrowserEnhanced.jsx
+      - app/recipes/__tests__/RecipeBrowserEnhanced.test.jsx
+      - lib/recipeCookbookGrouping.ts
+
+  - id: T5
+    description: |
+      Retention housekeeping for soft-deleted recipe photos. New script
+      scripts/cleanup-recipe-photos.mjs scans recipe_photos rows whose
+      deleted_at is older than 30 days, hard-deletes the file from
+      data/uploads/recipes/, and DELETEs the row. Idempotent (skip rows
+      whose stored_path no longer exists). Adds `npm run cleanup:recipe-photos`
+      and a node --test that seeds a deleted row + on-disk file, runs the
+      script in dry-run mode (no changes), then live mode (both gone).
+    acceptance_tests:
+      - npm run test:cleanup-recipe-photos
+    dependencies: [T1]
+    paths_touched:
+      - scripts/cleanup-recipe-photos.mjs
+      - tests/js/test-cleanup-recipe-photos.mjs
+      - package.json
