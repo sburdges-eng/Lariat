@@ -21,6 +21,8 @@ import { register } from 'node:module';
 
 register(new URL('./resolver.mjs', import.meta.url));
 
+const Database = (await import('better-sqlite3')).default;
+
 // lib/auditLog.mjs captures process.cwd() at module-load time —
 // sandbox cwd before importing applyOp so audit lines don't pollute
 // the working tree.
@@ -41,6 +43,7 @@ const {
   applyOp,
   applyWindow,
   familyOf,
+  assertFamilyTablesExist,
   FAMILY_1_TABLES,
   FAMILY_2_TABLES,
   FAMILY_3_TABLES,
@@ -91,11 +94,48 @@ describe('familyOf', () => {
   });
   it('classifies family-2 tables', () => {
     assert.equal(familyOf('vendor_prices'), 'family2');
-    assert.equal(familyOf('settlement_summaries'), 'family2');
+    assert.equal(familyOf('spend_monthly'), 'family2');
   });
   it('classifies family-3 tables', () => {
-    assert.equal(familyOf('recipes'), 'family3');
     assert.equal(familyOf('dish_components'), 'family3');
+    assert.equal(familyOf('entities_recipes'), 'family3');
+  });
+  it('family-1 table names match the live schema', () => {
+    // C1 audit-finding regression: 7 names previously did not match.
+    assert.equal(familyOf('temp_log'), 'family1');             // was temp_log_entries
+    assert.equal(familyOf('sanitizer_checks'), 'family1');     // was sanitizer_log
+    assert.equal(familyOf('sick_worker_reports'), 'family1'); // was sick_worker_log
+    assert.equal(familyOf('thermometer_calibrations'), 'family1'); // was calibrations_log
+    assert.equal(familyOf('pest_control_log'), 'family1');    // was pest_log
+    assert.equal(familyOf('sds_registry'), 'family1');         // was sds_log
+    assert.equal(familyOf('tphc_entries'), 'family1');         // was tphc_log
+  });
+  it('recipes is NOT a family-3 table (JSON cache, not SQL)', () => {
+    // C1 audit-finding: recipes was incorrectly listed and there is no
+    // `recipes` table in the schema. Removed from FAMILY_3_TABLES.
+    assert.equal(familyOf('recipes'), 'unknown');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────
+// assertFamilyTablesExist — boot guard against schema drift
+// ─────────────────────────────────────────────────────────────────
+
+describe('assertFamilyTablesExist', () => {
+  it('passes against the live schema (no throw)', () => {
+    assert.doesNotThrow(() => assertFamilyTablesExist(db));
+  });
+
+  it('throws with a helpful message when a family name does not exist', () => {
+    // Point the assertion at a fresh DB that's missing every family
+    // table except `audit_events` — every other name should land in
+    // the missing list.
+    const tinyDb = new Database(':memory:');
+    tinyDb.exec(`CREATE TABLE audit_events (id INTEGER PRIMARY KEY);`);
+    assert.throws(
+      () => assertFamilyTablesExist(tinyDb),
+      /family-table names do not match schema/,
+    );
   });
   it('returns unknown for tables outside the matrix', () => {
     assert.equal(familyOf('not_a_real_table'), 'unknown');
@@ -267,9 +307,10 @@ describe('applyOp — family 2', () => {
 describe('applyOp — family 3', () => {
   it('returns skipped-family3', () => {
     const op = mkOp({
-      tableName: 'recipes',
+      tableName: 'dish_components',
       opKind: 'update',
-      rowJson: JSON.stringify({ slug: 'x', name: 'X' }),
+      rowPk: 'pasta:tomato',
+      rowJson: JSON.stringify({ dish_name: 'pasta', ingredient: 'tomato' }),
     });
     const r = applyOp(db, op);
     assert.equal(r.outcome, 'skipped-family3');
@@ -295,9 +336,9 @@ describe('applyWindow', () => {
     const badPayload = mkOp({ rowJson: 'nope{' });
     const unknownTable = mkOp({ tableName: 'this_does_not_exist' });
     const family3 = mkOp({
-      tableName: 'recipes',
+      tableName: 'dish_components',
       opKind: 'update',
-      rowJson: JSON.stringify({ slug: 'a' }),
+      rowJson: JSON.stringify({ dish_name: 'a', ingredient: 'b' }),
     });
     const schemaDrift = mkOp({
       rowJson: JSON.stringify({ only_unknown_col: 'x' }),

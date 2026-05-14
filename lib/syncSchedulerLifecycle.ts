@@ -127,6 +127,20 @@ export async function bootSyncScheduler(opts: BootOptions = {}): Promise<void> {
     loadKeypair ??= keypairMod.loadOrCreateKeypair;
   }
 
+  // C1 audit-finding boot guard: refuse to start the scheduler if
+  // FAMILY_*_TABLES doesn't match the live schema. Without this, a
+  // typo in a table name produces "skipped-unknown-table" forever and
+  // the operator dashboard counts the loss as zero. We'd rather crash
+  // the worker boot than ship silently-lossy sync.
+  try {
+    const { assertFamilyTablesExist } = await import('./syncApply.ts');
+    const { getDb } = await import('./db.ts');
+    assertFamilyTablesExist(getDb());
+  } catch (err) {
+    console.error('[sync-scheduler] schema-name check failed:', err);
+    throw err;
+  }
+
   const peers = parsePeersEnv(
     opts.envPeersJson ?? process.env.LARIAT_SYNC_PEERS ?? null,
   );

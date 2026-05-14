@@ -43,20 +43,27 @@ import type { Database as DB } from 'better-sqlite3';
 import type { SyncOp } from './syncFeed.ts';
 import { logAuditAction } from './auditLog.mjs';
 
+// Family table names MUST match the live schema in lib/db.ts exactly.
+// audit C1 (2026-05-14) caught 7 HACCP names that diverged — those
+// tables silently skipped replication because familyOf() returned
+// 'unknown' for them. The names here are now verified against
+// `CREATE TABLE IF NOT EXISTS <name>` in lib/db.ts; the
+// assertFamilyTablesExist() helper below pins the contract at boot.
+
 /** Family 1: append-only HACCP + live-ops. INSERT OR IGNORE semantics. */
 export const FAMILY_1_TABLES: ReadonlySet<string> = new Set([
   'audit_events',
   'cooling_log',
-  'temp_log_entries',
+  'temp_log',                  // (was temp_log_entries)
   'receiving_log',
-  'sanitizer_log',
+  'sanitizer_checks',          // (was sanitizer_log)
   'date_marks',
-  'sick_worker_log',
-  'calibrations_log',
+  'sick_worker_reports',       // (was sick_worker_log)
+  'thermometer_calibrations',  // (was calibrations_log)
   'cleaning_log',
-  'pest_log',
-  'sds_log',
-  'tphc_log',
+  'pest_control_log',          // (was pest_log)
+  'sds_registry',              // (was sds_log)
+  'tphc_entries',              // (was tphc_log)
   'beo_events',
   'beo_courses',
   'beo_line_items',
@@ -74,13 +81,19 @@ export const FAMILY_2_TABLES: ReadonlySet<string> = new Set([
   'recipe_costs',
   'bom_lines',
   'order_guide_items',
-  'settlement_summaries',
+  // 'settlement_summaries' removed — settlements are computed at read
+  // time from show_deals + box_office_lines + toast_sales_daily, not
+  // persisted in a settlement_summaries table. If a future PR adds
+  // such a table, re-add this set entry alongside.
   'spend_monthly',
 ]);
 
 /** Family 3: LWW live state. v1 SKIPs these — see module doc. */
 export const FAMILY_3_TABLES: ReadonlySet<string> = new Set([
-  'recipes',
+  // 'recipes' removed — recipes live in the JSON cache, not a SQL table.
+  // Cross-host recipe sync, if it ever lands, would replicate through
+  // a different mechanism (file-based or a new entities_recipe_edits
+  // surface), not this family.
   'dish_components',
   'entities_employees',
   'entities_ingredients',
@@ -88,6 +101,30 @@ export const FAMILY_3_TABLES: ReadonlySet<string> = new Set([
   'entities_menu_items',
   'entities_vendors',
 ]);
+
+/**
+ * Boot-time guard. Throws if any table name in the family sets does
+ * not exist in the live schema. Called by the scheduler lifecycle
+ * (lib/syncSchedulerLifecycle.ts) so a future schema rename fails
+ * loud, not silent.
+ *
+ * Cheap to run (single PRAGMA scan); safe to call repeatedly.
+ */
+export function assertFamilyTablesExist(db: DB): void {
+  const all = new Set([...FAMILY_1_TABLES, ...FAMILY_2_TABLES, ...FAMILY_3_TABLES]);
+  const present = new Set(
+    (db
+      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table'`)
+      .all() as { name: string }[]).map((r) => r.name),
+  );
+  const missing = [...all].filter((t) => !present.has(t));
+  if (missing.length) {
+    throw new Error(
+      `syncApply: family-table names do not match schema: ${missing.join(', ')}. ` +
+        `Update FAMILY_*_TABLES in lib/syncApply.ts to match lib/db.ts DDL.`,
+    );
+  }
+}
 
 export type Family = 'family1' | 'family2' | 'family3' | 'unknown';
 
