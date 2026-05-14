@@ -2345,6 +2345,24 @@ function initEntitySchema(db: DB): void {
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (peer_id, feed_scope)
     );
+
+    -- Peer trust allowlist for /api/peers/sync-since. A peer must
+    -- present its raw 32-byte Ed25519 pubkey (hex) as X-Lariat-Peer-Pubkey
+    -- and a signature over the canonical signing payload (see
+    -- lib/peerTrust.ts::SIGNING_PAYLOAD). The fingerprint is a derived
+    -- 16-hex-char identifier (lib/peerKeypair.ts::fingerprint) used by
+    -- mDNS TXT records + the /management peers UI. Revoked peers stay
+    -- on the row for audit but their requests are rejected.
+    CREATE TABLE IF NOT EXISTS peer_trust (
+      pubkey_hex TEXT PRIMARY KEY,
+      fingerprint TEXT NOT NULL UNIQUE,
+      label TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_seen_at TEXT,
+      revoked INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_peer_trust_fingerprint
+      ON peer_trust(fingerprint);
   `);
 }
 

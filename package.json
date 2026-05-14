@@ -180,6 +180,7 @@
     "test:ingredient-masters-repo": "node --experimental-strip-types --test tests/js/test-ingredient-masters-repo.mjs",
     "test:ingredient-masters-api": "node --experimental-strip-types --test tests/js/test-ingredient-masters-api.mjs",
     "test:sync-feed": "node --experimental-strip-types --test tests/js/test-sync-feed.mjs",
+    "test:peer-auth": "node --experimental-strip-types --test tests/js/test-peer-auth.mjs",
     "digest:settlement": "node --experimental-strip-types scripts/weekly-settlement-digest.mjs",
     "desktop:dev": "tsc -p desktop && vite build --config desktop/firstRunWizard/vite.config.ts && electron desktop/dist/desktop/main.js",
     "desktop:build": "next build && tsc -p desktop && vite build --config desktop/firstRunWizard/vite.config.ts",
