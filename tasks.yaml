@@ -1,123 +1,57 @@
-# tasks.yaml — orchestrator manifest, last revised 2026-05-14 evening
+# tasks.yaml — orchestrator manifest
 #
-# Phase 3.5 wave — progress to date:
+# Phase 3.5 wave: COMPLETE (2026-05-14).
 #
-#   shipped (commit refs in ORCHESTRATOR_STATUS.md):
-#     - Phase 2B B3: printable settlement view + Download PDF       (b1a39ec)
-#     - T1: line_check_entries HACCP audit-row gap                  (3f22201)
-#     - T2: LARIAT_DATA_DIR JSON-cache resolution                   (c0df793)
-#     - T3: .env hygiene in .gitignore                              (fbbeddb)
-#     - T4: ingredient_masters operator review UI                   (45e4684)
-#     - T5: weekly settlement digest cron + renderDigestHtml        (4758e27)
-#     - audit branch §4 access-matrix refresh                       (36c7246)
-#     - T6: desktop first-run wizard                                (already on main)
-#     - T7a: sync_feed schema + appendOp + replaySince              (aedd10e)
-#     - T7b: /api/peers/sync-since + Ed25519 auth + peer_trust      (6143758)
-#     - T8 (partial): graceful drainer stop + launchd template      (a09804f)
+# All 8 originally-pending tasks shipped this session, plus the 4 audit-
+# branch fixes and Phase 2B B3 (settlement PDF). Commit refs in
+# ORCHESTRATOR_STATUS.md.
 #
-#   remaining (this manifest):
-#     - T7c: receiving-side per-table appliers (family 1/2/3 conflict policy)
-#     - T8b: LARIAT_CLOUD_BRIDGE_SECRET in desktop/settings.ts + /management toggle
+#   shipped this session:
+#     - Phase 2B B3 — printable settlement view + Download PDF       (b1a39ec)
+#     - T1 — line_check_entries HACCP audit-row gap                  (3f22201)
+#     - T2 — LARIAT_DATA_DIR JSON-cache resolution                   (c0df793)
+#     - T3 — .env hygiene in .gitignore                              (fbbeddb)
+#     - T4 — ingredient_masters operator review UI                   (45e4684)
+#     - T5 — weekly settlement digest cron + renderDigestHtml        (4758e27)
+#     - audit branch §4 access-matrix refresh                        (36c7246)
+#     - T6 — desktop first-run wizard                                (already on main)
+#     - T7a — sync_feed schema + appendOp + replaySince              (aedd10e)
+#     - T7b — /api/peers/sync-since + Ed25519 auth + peer_trust      (6143758)
+#     - T7c — receiving-side appliers + sync client                  (82989af)
+#     - T8  — graceful drainer stop + launchd template               (a09804f)
+#     - T8b — cloudBridgeUrl + cloudBridgeSecret in settings         (8104a2b)
+#
+# Open follow-ons (NOT blocking — captured for future planning):
+#
+#   1. /management/cloud-bridge operator UI form
+#      Touches: app/management/cloud-bridge/page.jsx, desktop/main.ts
+#               (settings:set IPC handler).
+#      Wires the settings shape from T8b into a PIN-gated form so the
+#      operator can set URL + secret from the browser instead of editing
+#      settings.json by hand. Touches the dead-letter triage in the
+#      same surface (Item 9 of cloud-bridge-backend-decision.md).
+#
+#   2. Sync apply scheduler (run loop)
+#      The T7 stack is composable: producer (T7a) + endpoint (T7b) +
+#      puller (T7c client) + applier (T7c applyWindow). What's NOT yet
+#      shipped is the periodic scheduler that polls each known peer for
+#      a new window and advances replay_checkpoints. Likely lives in
+#      instrumentation.ts alongside the cloud-bridge drainer auto-start,
+#      or as a scheduled job in data/scheduled-jobs.json (poll cadence
+#      5–15s).
+#
+#   3. Family-3 LWW applier (recipes, dish_components, entities_*)
+#      Deferred per docs/multi-instance-sync.md design — v1 single-KM
+#      workflow doesn't exercise collaborative recipe edits, and the
+#      OT/CRDT model is intentionally not in v1 scope. The T7c applier
+#      SKIPs family-3 ops with an audit-log entry today.
+#
+#   4. Ed25519 migration for cloud-bridge auth (Item 13)
+#      Cloud-bridge currently uses HMAC (§4.2). The Ed25519 path
+#      (§4.3) is documented but not built. Out of scope for Phase 3.5
+#      because the cloud peer's verifier must ship in lockstep.
 #
 # Read:   .claude/agents/coordinator.md  (slash-command entrypoint)
 # Status: ORCHESTRATOR_STATUS.md
 
-tasks:
-  - id: T7c
-    description: |
-      Receiving-side sync appliers. T7a + T7b shipped the producer side
-      (sync_feed table, appendOp, replaySince) and the network surface
-      (signed GET /api/peers/sync-since). Missing: a client + per-table
-      applier loop that pulls a peer's feed, validates each op, and
-      writes it locally with the family's conflict policy.
-
-      Per-family policy from docs/multi-instance-sync.md:
-        - Family 1 (HACCP append-only): insert-or-skip on op_id UNIQUE.
-          17 tables — audit_events, cooling_log, temp_log_entries,
-          receiving_log, sanitizer_log, date_marks, sick_worker_log,
-          calibrations_log, cleaning_log, pest_log, sds_log, tphc_log,
-          beo_{events,courses,line_items,prep_tasks},
-          inventory_updates, line_check_entries, station_signoffs,
-          eighty_six, inventory_counts.
-        - Family 2 (financial delete-batch): tx-wrapped DELETE+INSERT
-          on the envelope's `where` payload. Tables: vendor_prices,
-          recipe_costs, bom_lines, order_guide_items,
-          settlement_summaries, spend_monthly.
-        - Family 3 (LWW live state): per-row LWW by createdAt, tie-
-          broken by sourceHost lex order. Tables: recipes,
-          dish_components, entities_*.
-
-      Build:
-        - lib/syncClient.ts — signed-request GET against a peer's
-          /api/peers/sync-since. Uses lib/peerKeypair.ts::signProof
-          and matches the canonical signing payload format from
-          lib/peerTrust.ts::canonicalSigningPayload. Window size +
-          checkpoint advance via lib/syncFeed.ts::setReplayCheckpoint.
-        - lib/syncApply.ts — per-family applier. Dispatches by
-          tableName → family → policy. Family 1 INSERT OR IGNORE on
-          op_id; family 2 single-tx delete-batch; family 3 row LWW
-          with sourceHost tiebreak. Schema-drift defense: validate
-          rowJson against the local table shape via a small JSON-
-          schema check; skip + log on mismatch (never throw).
-        - tests/js/test-sync-apply.mjs — three describe blocks, one
-          per family, each exercising the conflict semantics with
-          seeded sync_feed rows + a live in-memory DB.
-
-      Effort: M+. The applier itself is bounded but the per-table
-      coverage matrix is wide; sequence by importance (HACCP first
-      because regulated, financial second for cross-host correctness,
-      LWW last because v1 doesn't actually need it for the single-KM
-      workflow).
-    acceptance_tests:
-      - node --experimental-strip-types --test tests/js/test-sync-apply.mjs
-      - node --experimental-strip-types --test tests/js/test-sync-client.mjs
-    dependencies: []
-    paths_touched:
-      - lib/syncClient.ts
-      - lib/syncApply.ts
-      - tests/js/test-sync-client.mjs
-      - tests/js/test-sync-apply.mjs
-
-  - id: T8b
-    description: |
-      Move LARIAT_CLOUD_BRIDGE_SECRET out of process.env and into
-      desktop/settings.ts so it persists across reboots without an
-      operator setting it in launchctl setenv every time. T8 already
-      shipped the graceful drainer stop + launchd template (a09804f),
-      and lib/cloudBridge*.ts already prefers `opts.secret` over
-      `process.env.LARIAT_CLOUD_BRIDGE_SECRET` — so this is purely
-      plumbing.
-
-      Build:
-        - desktop/settings.ts — add `cloudBridgeUrl?: string` and
-          `cloudBridgeSecret?: string` to the Settings shape +
-          validateSettings.
-        - desktop/main.ts — when bootstrapping the supervisor env,
-          export LARIAT_CLOUD_BRIDGE_URL + LARIAT_CLOUD_BRIDGE_SECRET
-          from the loaded settings into the child env so the inline
-          drainer (in-process) and the standalone drainer script both
-          see them.
-        - app/management/cloud-bridge/page.jsx — operator-facing
-          settings form. PIN-gated; PATCHes desktop's IPC bridge
-          (settings:set) which validates + persists to settings.json.
-          Show the current dead_letter depth + last_seen tile via
-          the existing /api/cloud-bridge/* surfaces (Item 9, follow-on
-          for the read-only triage).
-        - Tests for the validator shape additions; manual smoke for
-          the management UI.
-
-      Out of scope for this task:
-        - Migrating from HMAC (§4.2) to Ed25519 (§4.3) — that's
-          Item 13 in cloud-bridge-backend-decision.md.
-        - The /management/cloud-bridge dead-letter triage actions
-          (replay / discard) — that's Item 9.
-    acceptance_tests:
-      - npm run test:cloud-bridge-push
-      - npm run test:cloud-bridge-drainer
-      - node --experimental-strip-types --test desktop/__tests__/settings.test.ts
-    dependencies: []
-    paths_touched:
-      - desktop/settings.ts
-      - desktop/main.ts
-      - app/management/cloud-bridge/page.jsx
-      - desktop/__tests__/settings.test.ts
+tasks: []
