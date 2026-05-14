@@ -145,22 +145,17 @@ export async function runPeerCycle(
   const apply = applyWindow(db, res.ops);
   const anyApplied = apply.applied > 0;
 
-  // The cursor advances when ANY op landed in this window. Even a window
-  // that's "all family-3 skips" still consumed the window — we don't
-  // want to re-fetch the same range forever — so we advance to nextOp
-  // (or, when nextOp is null because the window was exhaustive, to the
-  // highest rowid the response saw).
+  // Audit H3 fix: checkpoint advances to MAX(nextOp, lastSeenId).
+  // Both come from the server.
+  //   nextOp     — next rowid to fetch (null when caught up)
+  //   lastSeenId — highest rowid the server actually observed
+  // Pre-fix the receiver synthesized `fromOp + ops.length` when nextOp
+  // was null, which loops forever if sync_feed.id has gaps (rolled-back
+  // txs, WAL recovery). lastSeenId is authoritative — use it directly.
   let newCheckpoint: number | null = null;
-  if (res.nextOp !== null) {
-    setReplayCheckpoint(peer.feedKey, res.nextOp, 'remote');
-    newCheckpoint = res.nextOp;
-  } else if (res.ops.length > 0) {
-    // No more rows after this window. The applier's contract doesn't
-    // expose rowids (they're a server-side detail), so we use fromOp +
-    // ops.length as a coarse advance. The server-side replaySince
-    // re-validates `> from_op` so a duplicate slice on a re-pull is
-    // safe (op_id idempotency on the producer side).
-    const advance = fromOp + res.ops.length;
+  const advance =
+    res.nextOp !== null ? Math.max(res.nextOp, res.lastSeenId) : res.lastSeenId;
+  if (advance > fromOp) {
     setReplayCheckpoint(peer.feedKey, advance, 'remote');
     newCheckpoint = advance;
   }

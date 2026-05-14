@@ -126,6 +126,17 @@ export interface ReplayPage {
   ops: SyncOp[];
   /** Next rowid to fetch — null when caught up. */
   nextOp: number | null;
+  /**
+   * Highest rowid the server actually observed in this scan. Always
+   * present, regardless of whether more rows exist. Receivers MUST
+   * checkpoint to MAX(currentCheckpoint, lastSeenId) on success rather
+   * than synthesizing `fromOp + ops.length`, which skips rows when
+   * `sync_feed.id` has gaps (rolled-back txs, WAL recovery, etc.).
+   *
+   * Audit fix H3 (2026-05-14): pre-fix the receiver could enter an
+   * infinite re-fetch loop on a sparse rowid sequence.
+   */
+  lastSeenId: number;
 }
 
 const DEFAULT_REPLAY_LIMIT = 500;
@@ -188,9 +199,11 @@ export function replaySince(
   const hasMore = rows.length > lim;
   const page = hasMore ? rows.slice(0, lim) : rows;
   const lastId = page.length > 0 ? page[page.length - 1]!.id : fromRowId;
-   
+
   const ops: SyncOp[] = page.map(({ id: _id, ...rest }) => rest);
-  return { ops, nextOp: hasMore ? lastId : null };
+  // lastSeenId is the highest rowid we OBSERVED in this scan, regardless
+  // of whether more rows exist beyond `lim`. Empty page → unchanged.
+  return { ops, nextOp: hasMore ? lastId : null, lastSeenId: lastId };
 }
 
 /** Read a peer's current replay checkpoint. Returns 0 when no row exists. */

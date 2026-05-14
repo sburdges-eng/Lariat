@@ -88,6 +88,11 @@ export async function GET(req) {
       from_op: fromOp,
       ops: page.ops,
       next_op: page.nextOp,
+      // Audit H3: highest rowid the server actually observed, surfaced
+      // so the caller can checkpoint unconditionally rather than
+      // synthesizing from fromOp + ops.length (which skips rows when
+      // sync_feed.id has gaps).
+      last_seen_id: page.lastSeenId,
       caller_fingerprint: auth.peer.fingerprint,
     });
   } catch (err) {

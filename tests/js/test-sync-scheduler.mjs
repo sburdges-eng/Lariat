@@ -172,6 +172,50 @@ describe('runPeerCycle', () => {
     assert.ok(r.newCheckpoint !== null && r.newCheckpoint > 0);
   });
 
+  it('audit H3: no infinite re-fetch loop when sync_feed.id has gaps', async () => {
+    // Seed 5 rows, then DELETE rows 2+3 to simulate rolled-back tx
+    // rowids. Pre-fix, the scheduler would advance to fromOp + ops.length
+    // = 3, but the real surviving max id is 5 — so it would re-request
+    // from 3 every tick forever.
+    const k = mkKeypair();
+    addPeer(db, k.pubHex);
+    db.transaction(() => {
+      for (let i = 0; i < 5; i++) {
+        appendOp({
+          opId: `gap-${i}`,
+          tableName: 'cooling_log',
+          locationId: 'default',
+          opKind: 'insert',
+          rowPk: String(i),
+          rowJson: '{}',
+          createdAt: '2026-05-06T00:00:00Z',
+          sourceHost: 'h',
+          sourceStartedAt: '2026-05-06T00:00:00Z',
+        });
+      }
+    })();
+    db.exec(`DELETE FROM sync_feed WHERE id IN (SELECT id FROM sync_feed ORDER BY id LIMIT 2 OFFSET 1)`);
+    const realHigh = db.prepare(`SELECT MAX(id) AS m FROM sync_feed`).get().m;
+
+    const peer = { baseUrl: 'http://localhost', feedKey: 'peer-gap' };
+    const opts = {
+      ourPubKeyHex: k.pubHex,
+      ourPrivKey: k.privKey,
+      ourPeerKey: 'us',
+      fetchImpl: inProcessFetch,
+    };
+    const r1 = await runPeerCycle(peer, opts);
+    // Checkpoint must land on the actual highest surviving rowid, NOT
+    // on 0 + 3 = 3.
+    assert.equal(r1.newCheckpoint, realHigh);
+    assert.equal(getReplayCheckpoint('peer-gap', 'remote'), realHigh);
+
+    // Second cycle must return no-new-ops, not re-fetch.
+    const r2 = await runPeerCycle(peer, opts);
+    assert.equal(r2.outcome, 'no-new-ops');
+    assert.equal(r2.fromOp, realHigh);
+  });
+
   it('reuses prior checkpoint as fromOp on next call (only new ops are fetched)', async () => {
     const k = mkKeypair();
     addPeer(db, k.pubHex);

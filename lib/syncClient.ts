@@ -51,6 +51,14 @@ export type SyncFetchResult =
       fromOp: number;
       ops: SyncOp[];
       nextOp: number | null;
+      /**
+       * Highest rowid the server observed in this scan. Receivers use
+       * this for unconditional checkpoint advance per audit H3 — see
+       * lib/syncScheduler.runPeerCycle. Always present on a successful
+       * response; falls back to `fromOp` when the server returned no
+       * ops (i.e., already caught up).
+       */
+      lastSeenId: number;
       callerFingerprint: string;
     }
   | {
@@ -132,13 +140,23 @@ export async function fetchSyncSince(opts: SyncClientOpts): Promise<SyncFetchRes
   const nextOp =
     typeof b.next_op === 'number' && Number.isFinite(b.next_op) ? b.next_op : null;
   const callerFingerprint = typeof b.caller_fingerprint === 'string' ? b.caller_fingerprint : '';
+  // Audit H3: prefer the server-reported last_seen_id for checkpoint
+  // advance. Fall back to fromOp when the server omits it (pre-H3
+  // routes) — that's the pre-fix behavior, which is no worse than what
+  // the receiver had before.
+  const fromOpEcho = typeof b.from_op === 'number' ? b.from_op : opts.fromOp;
+  const lastSeenId =
+    typeof b.last_seen_id === 'number' && Number.isFinite(b.last_seen_id)
+      ? b.last_seen_id
+      : fromOpEcho;
 
   return {
     ok: true,
     peerId: typeof b.peer_id === 'string' ? b.peer_id : opts.peerId,
-    fromOp: typeof b.from_op === 'number' ? b.from_op : opts.fromOp,
+    fromOp: fromOpEcho,
     ops: b.ops as SyncOp[],
     nextOp,
+    lastSeenId,
     callerFingerprint,
   };
 }

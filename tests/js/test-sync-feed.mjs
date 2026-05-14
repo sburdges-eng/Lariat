@@ -204,6 +204,46 @@ describe('replaySince', () => {
     assert.equal(page.nextOp, null, 'no more rows → nextOp null');
   });
 
+  it('audit H3: lastSeenId is the highest rowid observed, even when nextOp is null', () => {
+    seedN(3);
+    const page = replaySince('peer-1', 0);
+    // 3 rows, nextOp null (exhausted), lastSeenId is the highest id.
+    assert.equal(page.nextOp, null);
+    assert.ok(page.lastSeenId > 0, 'lastSeenId is populated');
+    // lastSeenId equals the actual highest sync_feed.id from the page.
+    const realHigh = db.prepare(`SELECT MAX(id) AS m FROM sync_feed`).get().m;
+    assert.equal(page.lastSeenId, realHigh);
+  });
+
+  it('audit H3: lastSeenId reflects sparse rowid sequences (no loop on gaps)', () => {
+    // Seed 5 rows then DELETE rows 2 and 3 to simulate the
+    // rolled-back-tx scenario (rowids 1, 4, 5 remain). The applier's
+    // checkpoint must advance to 5 — synthesizing fromOp + ops.length
+    // would advance to 3 and re-fetch rows 4 + 5 forever.
+    db.transaction(() => {
+      for (let i = 0; i < 5; i++) {
+        appendOp(mkOp({ opId: `gap-${i}`, rowPk: String(i) }));
+      }
+    })();
+    db.exec(`DELETE FROM sync_feed WHERE id IN (SELECT id FROM sync_feed ORDER BY id LIMIT 2 OFFSET 1)`);
+    const page = replaySince('peer-1', 0);
+    assert.equal(page.ops.length, 3, 'three rows survived the gap');
+    assert.equal(page.nextOp, null);
+    const realHigh = db.prepare(`SELECT MAX(id) AS m FROM sync_feed`).get().m;
+    assert.equal(page.lastSeenId, realHigh, 'lastSeenId is the survivor max');
+    // The crucial property: fromOp + ops.length is < lastSeenId.
+    assert.ok(0 + page.ops.length < page.lastSeenId, 'naive advance would skip rows');
+  });
+
+  it('audit H3: lastSeenId on an empty page falls back to fromRowId', () => {
+    seedN(3);
+    // Request past the end → no rows, lastSeenId stays at fromRowId.
+    const high = db.prepare(`SELECT MAX(id) AS m FROM sync_feed`).get().m;
+    const page = replaySince('peer-1', high + 100);
+    assert.equal(page.ops.length, 0);
+    assert.equal(page.lastSeenId, high + 100);
+  });
+
   it('camelCase field shape matches SyncOp', () => {
     seedN(1);
     const op = replaySince('peer-1', 0).ops[0];
