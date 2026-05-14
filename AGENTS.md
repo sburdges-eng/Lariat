@@ -74,6 +74,21 @@ The shared session board lives at `.agent-sessions/` (gitignored).
 
 See also: `scripts/worktree.sh` (commands and locking semantics), `scripts/check-session-branch.mjs` (the pre-commit guard), `scripts/agent-session.mjs` (the coordination utility).
 
+## Trio orchestration (Claude + Gemini + Codex)
+
+Claude Code is the **orchestrator** on this project. Gemini and Codex are specialists Claude consults via MCP (`mcp__gemini-cli__ask-gemini`) and the codex plugin (`/codex rescue`). The full policy + decision rules live in [`.claude/ORCHESTRATION.md`](.claude/ORCHESTRATION.md); a `/trio` Claude command runs the full consult-and-synthesize flow.
+
+**Cross-tool handoff file**: `.agent-sessions/handoff.md` (append-only, gitignored). Gemini and Codex, when invoked from this project, MUST append their findings here in addition to returning them — that's how state survives across sessions. Entry format:
+
+```
+## YYYY-MM-DD HH:MM <tool> <topic>
+- context: ...
+- finding/sketch: ...
+- next: ...
+```
+
+Codex specifically: propose, do not commit. Claude reviews your sketch and owns the final edit + commit.
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
