@@ -125,6 +125,27 @@ describe('releaseAllClaimedRows', () => {
     assert.equal(row.claim_owner, queue.OWNER, 'claim stamps OWNER');
   });
 
+  it('audit L4: gracefulStopVerbose returns released count + awaitedMs', async () => {
+    const h = createDrainer({ tickMs: 1_000_000 });
+    h.start();
+    enqueue();
+    queue.claim(1); // leave claimed so release happens
+    const result = await h.gracefulStopVerbose(100);
+    assert.equal(result.released, 1);
+    assert.equal(typeof result.awaitedMs, 'number');
+    assert.ok(result.awaitedMs >= 0);
+  });
+
+  it('audit L4: gracefulStop (legacy shape) still returns just the released count', async () => {
+    const h = createDrainer({ tickMs: 1_000_000 });
+    h.start();
+    enqueue();
+    queue.claim(1);
+    const result = await h.gracefulStop(100);
+    assert.equal(typeof result, 'number');
+    assert.equal(result, 1);
+  });
+
   it('audit H6: releases legacy rows with NULL claim_owner (pre-migration)', () => {
     enqueue();
     // Simulate a pre-H6 row: claimed_at set, claim_owner NULL.

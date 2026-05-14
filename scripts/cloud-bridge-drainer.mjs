@@ -61,18 +61,23 @@ async function shutdown(signal) {
   if (stopping) return;
   stopping = true;
   console.log(`cloud-bridge: ${signal} received, stopping drainer gracefully`);
-  // gracefulStop: (1) stop firing new ticks, (2) await any in-flight
-  // tick (5s budget), (3) release all claimed rows back to the queue
-  // so the next drainer doesn't wait staleClaimAgeSec. Logs how many
-  // rows were released for incident-response context.
+  // gracefulStopVerbose: (1) stop firing new ticks, (2) await any
+  // in-flight tick (5s budget), (3) release all claimed rows back to
+  // the queue. Returns { released, awaitedMs } so the operator log
+  // captures both numbers for incident-response triage (audit L4).
   let released = 0;
+  let awaitedMs = 0;
   try {
-    released = await handle.gracefulStop(5000);
+    const r = await handle.gracefulStopVerbose(5000);
+    released = r.released;
+    awaitedMs = r.awaitedMs;
   } catch (err) {
     console.error('cloud-bridge: gracefulStop threw:', err);
     stopDrainer(); // fallback to legacy sync stop
   }
-  console.log(`cloud-bridge: stopped (${released} claim(s) released)`);
+  console.log(
+    `cloud-bridge: stopped (${released} claim(s) released, awaited in-flight tick ${awaitedMs}ms)`,
+  );
   clearInterval(keepalive);
   process.exit(0);
 }

@@ -65,10 +65,20 @@ export interface DrainerHandle {
    * Graceful shutdown for SIGTERM/SIGINT: stop the interval, await any
    * in-flight tick to settle (up to `timeoutMs`), then release every
    * still-claimed row back to the queue so the next drainer doesn't
-   * have to wait the full staleClaimAgeSec window. Idempotent. Returns
-   * the number of rows released.
+   * have to wait the full staleClaimAgeSec window. Idempotent.
+   *
+   * Returns the number of rows released. The legacy signature is
+   * preserved; for incident-response visibility, call
+   * `gracefulStopVerbose` instead — it returns { released, awaitedMs }.
    */
   gracefulStop(timeoutMs?: number): Promise<number>;
+  /**
+   * Audit L4 (2026-05-14): same as gracefulStop but returns both the
+   * released-rows count AND how long the in-flight-tick wait took.
+   * Operators running `npm run cloud-bridge:drain` see a more useful
+   * shutdown log line than just "stopped (N claims released)".
+   */
+  gracefulStopVerbose(timeoutMs?: number): Promise<{ released: number; awaitedMs: number }>;
   /** Run one tick synchronously. Used by the interval and by tests/manual flush. */
   tick(): Promise<TickResult>;
   /** Whether the interval is currently armed. */
@@ -124,11 +134,19 @@ export function createDrainer(opts: DrainerOpts = {}): DrainerHandle {
       // outbox row's last_error for triage.
       const reason = err instanceof Error ? err.message : 'pushBatch threw';
       queue.nack(batch.id, reason);
-      const stillInQueue = queue.deadLetterDepth() === 0 || hasRowAlive(batch.id);
+      // Audit L2 (2026-05-14): pre-fix this read
+      //   `deadLetterDepth() === 0 || hasRowAlive(batch.id)`
+      // The `|| hasRowAlive(...)` is the load-bearing check —
+      // hasRowAlive returns true when the row is queued (not dead-
+      // lettered) and false when nack pushed it past max-attempts.
+      // The deadLetterDepth() check is redundant noise: when depth is
+      // zero, hasRowAlive is the only honest answer; when depth is
+      // non-zero AND the row is alive, the OR still picks "alive."
+      // Removed for clarity. Behaviour identical.
       return {
         swept,
         claimed: 1,
-        outcome: stillInQueue ? 'nack-retry' : 'nack-dead-letter',
+        outcome: hasRowAlive(batch.id) ? 'nack-retry' : 'nack-dead-letter',
         error: reason,
       };
     }
@@ -185,6 +203,32 @@ export function createDrainer(opts: DrainerOpts = {}): DrainerHandle {
     }
   }
 
+  // Inner helper shared by gracefulStop (back-compat shape) and
+  // gracefulStopVerbose (audit L4). Returns both rows-released and
+  // the await-duration so operators can log the shutdown cost.
+  async function gracefulStopInner(timeoutMs: number): Promise<{ released: number; awaitedMs: number }> {
+    if (timer !== null) {
+      clearInterval(timer);
+      timer = null;
+    }
+    let awaitedMs = 0;
+    if (inFlightPromise !== null) {
+      const start = Date.now();
+      const pending = inFlightPromise;
+      const timeout = new Promise<void>((resolve) =>
+        setTimeout(resolve, Math.max(0, timeoutMs)).unref?.(),
+      );
+      try {
+        await Promise.race([pending, timeout]);
+      } catch {
+        // Tick errors fold into TickResult; never throw here.
+      }
+      awaitedMs = Date.now() - start;
+    }
+    const released = queue.releaseAllClaimedRows();
+    return { released, awaitedMs };
+  }
+
   return {
     start() {
       if (timer !== null) return;
@@ -202,28 +246,11 @@ export function createDrainer(opts: DrainerOpts = {}): DrainerHandle {
       timer = null;
     },
     async gracefulStop(timeoutMs: number = 5000): Promise<number> {
-      // Step 1: stop firing new ticks.
-      if (timer !== null) {
-        clearInterval(timer);
-        timer = null;
-      }
-      // Step 2: wait for any in-flight tick to settle. Bounded by the
-      // caller's timeout so a hung push doesn't pin the shutdown.
-      if (inFlightPromise !== null) {
-        const pending = inFlightPromise;
-        const timeout = new Promise<void>((resolve) =>
-          setTimeout(resolve, Math.max(0, timeoutMs)).unref?.(),
-        );
-        try {
-          await Promise.race([pending, timeout]);
-        } catch {
-          // Tick errors fold into TickResult; never throw here.
-        }
-      }
-      // Step 3: release any still-claimed rows so the next drainer can
-      // pick them up immediately on restart instead of waiting
-      // staleClaimAgeSec.
-      return queue.releaseAllClaimedRows();
+      const r = await gracefulStopInner(timeoutMs);
+      return r.released;
+    },
+    async gracefulStopVerbose(timeoutMs: number = 5000): Promise<{ released: number; awaitedMs: number }> {
+      return gracefulStopInner(timeoutMs);
     },
     tick: tickGuardedTracked,
     isRunning() {
