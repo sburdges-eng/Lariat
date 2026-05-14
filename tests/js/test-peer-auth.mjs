@@ -33,6 +33,7 @@ const {
   listPeers,
   canonicalSigningPayload,
   authenticateSyncRequest,
+  _resetSeenNoncesForTest,
   CLOCK_SKEW_WINDOW_MS,
 } = await import('../../lib/peerTrust.ts');
 const { appendOp } = await import('../../lib/syncFeed.ts');
@@ -46,6 +47,10 @@ beforeEach(() => {
     DELETE FROM replay_checkpoints;
     DELETE FROM sqlite_sequence WHERE name = 'sync_feed';
   `);
+  // H1: reset the nonce cache between tests so they don't bleed
+  // state into each other (a previous test's signed payload would
+  // otherwise be remembered as already-seen).
+  _resetSeenNoncesForTest();
 });
 
 // ── Test helpers — generate a key + sign + drive the route end-to-end ──
@@ -306,6 +311,49 @@ describe('authenticateSyncRequest', () => {
     );
     assert.equal(res.ok, true);
   });
+
+  it('audit H1: replaying the same signed request is rejected as a nonce collision', () => {
+    const { pubHex, privKeyObj } = mkKeypair();
+    addPeer(db, pubHex);
+    const sig = signPayload(privKeyObj, canonicalSigningPayload('GET', PATH, QUERY, TS));
+    const req = {
+      pubkeyHex: pubHex,
+      timestampIso: TS,
+      signatureHex: sig,
+    };
+    // First call: accepted.
+    const r1 = authenticateSyncRequest(db, 'GET', PATH, QUERY, req, NOW);
+    assert.equal(r1.ok, true);
+    // Replay with the EXACT same headers: rejected.
+    const r2 = authenticateSyncRequest(db, 'GET', PATH, QUERY, req, NOW);
+    assert.equal(r2.ok, false);
+    if (r2.ok) return;
+    assert.equal(r2.status, 401);
+    assert.match(r2.reason, /replay|nonce/);
+  });
+
+  it('audit H1: nonce-cache rejects replay even after stat changes that would still parse fine', () => {
+    // Sanity check: a slightly altered timestamp (still within window)
+    // gets a NEW nonce entry and is accepted. Pre-fix this was also
+    // accepted; the cache exists so identical (pubkey, timestamp)
+    // pairs collide.
+    const { pubHex, privKeyObj } = mkKeypair();
+    addPeer(db, pubHex);
+    const ts1 = TS;
+    const ts2 = new Date(NOW + 1000).toISOString();
+    const sig1 = signPayload(privKeyObj, canonicalSigningPayload('GET', PATH, QUERY, ts1));
+    const sig2 = signPayload(privKeyObj, canonicalSigningPayload('GET', PATH, QUERY, ts2));
+    const r1 = authenticateSyncRequest(
+      db, 'GET', PATH, QUERY,
+      { pubkeyHex: pubHex, timestampIso: ts1, signatureHex: sig1 }, NOW,
+    );
+    const r2 = authenticateSyncRequest(
+      db, 'GET', PATH, QUERY,
+      { pubkeyHex: pubHex, timestampIso: ts2, signatureHex: sig2 }, NOW + 1000,
+    );
+    assert.equal(r1.ok, true);
+    assert.equal(r2.ok, true, 'distinct (pubkey, timestamp) → distinct nonces');
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────
@@ -339,18 +387,30 @@ describe('GET /api/peers/sync-since', () => {
     assert.equal(res.status, 401);
   });
 
-  it('returns 400 when peer_id is missing', async () => {
+  it('audit H4: missing peer_id now returns 401 (no 400-vs-401 oracle)', async () => {
     const k = mkKeypair();
     addPeer(db, k.pubHex);
     const res = await route.GET(mkSignedReq({ ...k, query: 'from_op=0' }));
-    assert.equal(res.status, 400);
+    assert.equal(res.status, 401, 'param-shape failures unified with auth failures');
   });
 
-  it('returns 400 when from_op is malformed', async () => {
+  it('audit H4: malformed from_op now returns 401', async () => {
     const k = mkKeypair();
     addPeer(db, k.pubHex);
     const res = await route.GET(mkSignedReq({ ...k, query: 'peer_id=h&from_op=abc' }));
-    assert.equal(res.status, 400);
+    assert.equal(res.status, 401);
+  });
+
+  it('audit H4: bad-params request does NOT update last_seen_at', async () => {
+    const k = mkKeypair();
+    addPeer(db, k.pubHex);
+    const before = getPeerByPubkey(db, k.pubHex).last_seen_at;
+    assert.equal(before, null);
+    // Valid signature, bad params — pre-fix this would 401 but still
+    // bump last_seen_at. Post-fix the touch is gated on a real replay.
+    await route.GET(mkSignedReq({ ...k, query: 'from_op=0' }));
+    const after = getPeerByPubkey(db, k.pubHex).last_seen_at;
+    assert.equal(after, null, 'last_seen_at must stay null when params were bad');
   });
 
   it('happy path: returns ops + next_op + caller fingerprint', async () => {

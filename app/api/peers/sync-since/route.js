@@ -46,6 +46,16 @@ export async function GET(req) {
   const url = new URL(req.url);
   const db = getDb();
 
+  // Audit H4: validate query-param shape BEFORE running auth so an
+  // attacker who happens to have a valid signed request can't
+  // distinguish "auth passed but params bad" (400) from "auth failed"
+  // (401). Both shapes now return 401 with a generic body.
+  const peerIdRaw = url.searchParams.get('peer_id');
+  const peerIdTrimmed = peerIdRaw?.trim() ?? '';
+  const fromOpParsed = parseFromOp(url.searchParams.get('from_op'));
+  const limit = parseLimit(url.searchParams.get('limit'));
+  const paramsOk = peerIdTrimmed.length > 0 && fromOpParsed !== null;
+
   const auth = authenticateSyncRequest(
     db,
     'GET',
@@ -57,34 +67,27 @@ export async function GET(req) {
       signatureHex: req.headers.get('x-lariat-signature'),
     },
   );
-  if (!auth.ok) {
-    return Response.json({ error: 'unauthorized' }, { status: auth.status });
+  if (!auth.ok || !paramsOk) {
+    // Generic 401 for ANY rejection — auth failure, param shape, etc.
+    return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  // Authentication succeeded — record contact for the audit trail.
-  // Done outside the auth path so a clock-skew rejection or revoked-peer
-  // probe doesn't update last_seen.
-  try {
-    touchPeerLastSeen(db, auth.peer.pubkey_hex);
-  } catch {
-    // Non-fatal — the audit-trail touch should never block a valid request.
-  }
-
-  const peerId = url.searchParams.get('peer_id');
-  if (!peerId || !peerId.trim()) {
-    return Response.json({ error: 'peer_id required' }, { status: 400 });
-  }
-
-  const fromOp = parseFromOp(url.searchParams.get('from_op'));
-  if (fromOp === null) {
-    return Response.json({ error: 'from_op must be a non-negative integer' }, { status: 400 });
-  }
-  const limit = parseLimit(url.searchParams.get('limit'));
+  const peerId = peerIdTrimmed;
+  const fromOp = fromOpParsed;
 
   try {
-    const page = replaySince(peerId.trim(), fromOp, limit);
+    const page = replaySince(peerId, fromOp, limit);
+    // Audit H4: touch last_seen_at only AFTER replaySince succeeds —
+    // pre-fix this fired immediately after auth, so a valid-signature
+    // request with bogus params (which now 401s above anyway) still
+    // bumped the audit trail. Now it's gated on a real fetch.
+    try {
+      touchPeerLastSeen(db, auth.peer.pubkey_hex);
+    } catch {
+      // Non-fatal — the audit-trail touch should never block a valid request.
+    }
     return Response.json({
-      peer_id: peerId.trim(),
+      peer_id: peerId,
       from_op: fromOp,
       ops: page.ops,
       next_op: page.nextOp,

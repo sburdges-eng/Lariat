@@ -26,6 +26,47 @@ import { fingerprint as fingerprintOf, verifyProof } from './peerKeypair.ts';
 
 export const CLOCK_SKEW_WINDOW_MS = 60_000;
 
+// Audit H1 (2026-05-14): seen-nonce cache to defeat signature replay.
+//
+// Pre-fix, a captured signed GET was replayable for up to ~120 s total
+// (±60 s around the timestamp). The sync-since route is read-only and
+// idempotent so the impact was limited to feed-dump information
+// disclosure, but defense-in-depth wants the standard
+// "one-signed-request, one-use" property. We cache the (pubkey,
+// timestamp) tuple of every successfully-authenticated request and
+// reject duplicates within the window.
+//
+// Implementation: a Map<key, expireAtMs>. Periodically pruned on every
+// insertion — no setInterval keeps the module side-effect-free.
+const SEEN_NONCES = new Map<string, number>();
+const MAX_NONCE_CACHE_ENTRIES = 10_000;
+
+function noncePruneStale(nowMs: number): void {
+  for (const [k, exp] of SEEN_NONCES) {
+    if (exp <= nowMs) SEEN_NONCES.delete(k);
+  }
+}
+
+function nonceCheckAndRecord(pubkeyHex: string, timestampIso: string, nowMs: number): boolean {
+  // Cap the cache size: if we somehow blow past MAX_NONCE_CACHE_ENTRIES
+  // (DoS attempt), drop the whole cache rather than allow unbounded
+  // growth. Worst case: a tiny window where one stale signature might
+  // be re-accepted before its real expiry. Trade-off vs OOM is correct.
+  if (SEEN_NONCES.size > MAX_NONCE_CACHE_ENTRIES) {
+    SEEN_NONCES.clear();
+  }
+  noncePruneStale(nowMs);
+  const key = `${pubkeyHex}:${timestampIso}`;
+  if (SEEN_NONCES.has(key)) return false; // replay
+  SEEN_NONCES.set(key, nowMs + CLOCK_SKEW_WINDOW_MS);
+  return true;
+}
+
+/** Test-only: clear the seen-nonce cache. */
+export function _resetSeenNoncesForTest(): void {
+  SEEN_NONCES.clear();
+}
+
 export interface PeerTrustRow {
   pubkey_hex: string;
   fingerprint: string;
@@ -158,6 +199,14 @@ export function authenticateSyncRequest(
   const verified = verifyProof(Buffer.from(pubkey, 'hex'), payload, sig);
   if (!verified) {
     return { ok: false, status: 401, reason: 'signature mismatch' };
+  }
+
+  // Audit H1: nonce-cache replay check runs AFTER signature verify so
+  // an attacker can't poison the cache with forged (pubkey, timestamp)
+  // pairs they don't actually hold the signature for. A valid replay
+  // hits the cache and is rejected.
+  if (!nonceCheckAndRecord(pubkey, timestamp, nowMs)) {
+    return { ok: false, status: 401, reason: 'signature replay (nonce already seen)' };
   }
 
   return { ok: true, peer };
