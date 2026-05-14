@@ -49,6 +49,12 @@
       "cron": "0 1 * * *",
       "timeout_sec": 60,
       "description": "Snapshot data/lariat.db{,-wal,-shm} into backups/."
+    },
+    "weekly-settlement-digest": {
+      "command": ["npm", "run", "digest:settlement"],
+      "cron": "0 8 * * 1",
+      "timeout_sec": 120,
+      "description": "Render the prior Mon→Sun week of show settlements into one HTML doc at data/exports/YYYY-Www_settlement.html. Operator opens it in a browser and uses Save-as-PDF for distribution."
     }
   }
 }

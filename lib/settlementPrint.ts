@@ -161,7 +161,10 @@ const AUTO_PRINT_SCRIPT = `
   }
 `;
 
-export function renderSettlementHtml(summary: SettlementSummary): string {
+// Builds the per-show body markup (everything inside <body> except the
+// outer chrome). Shared by renderSettlementHtml (one show per doc) and
+// renderDigestHtml (multiple shows in one doc).
+function renderShowSection(summary: SettlementSummary): string {
   const bandName = escapeHtml(summary.show.bandName);
   const date = escapeHtml(summary.show.date);
   const locationId = escapeHtml(summary.show.locationId);
@@ -177,14 +180,7 @@ export function renderSettlementHtml(summary: SettlementSummary): string {
       ? `<div class="row-meta warning">No Toast rows for ${date} yet — settlement may be incomplete.</div>`
       : '';
 
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Settlement — ${bandName} — ${date}</title>
-<style>${STYLE}</style>
-</head>
-<body>
+  return `<section class="show-block">
 <header class="sheet-header">
   <h1>${bandName}</h1>
   <div class="meta">${date} · ${locationId}</div>
@@ -242,8 +238,85 @@ export function renderSettlementHtml(summary: SettlementSummary): string {
   <div>Computed ${computedAt}</div>
   <div>Lariat settlement · ${bandName}</div>
 </footer>
+</section>`;
+}
 
+export function renderSettlementHtml(summary: SettlementSummary): string {
+  const bandName = escapeHtml(summary.show.bandName);
+  const date = escapeHtml(summary.show.date);
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settlement — ${bandName} — ${date}</title>
+<style>${STYLE}</style>
+</head>
+<body>
+${renderShowSection(summary)}
 <script>${AUTO_PRINT_SCRIPT}</script>
+</body>
+</html>`;
+}
+
+export interface DigestOptions {
+  /** Week-of label printed in the document header, e.g. "2026-W19". */
+  weekOf: string;
+  /** Optional location id for the header subtitle. Default 'default'. */
+  locationId?: string;
+  /** Suppress window.print() auto-trigger — useful for headless rendering. */
+  noAutoPrint?: boolean;
+}
+
+export function renderDigestHtml(
+  summaries: SettlementSummary[],
+  opts: DigestOptions,
+): string {
+  const weekOf = escapeHtml(opts.weekOf);
+  const locationId = escapeHtml(opts.locationId ?? 'default');
+  const auto = opts.noAutoPrint ? '' : `<script>${AUTO_PRINT_SCRIPT}</script>`;
+
+  // Header rollup: total tickets gross, total net door, total talent
+  // payout across all shows in the digest. Operators glance at this
+  // before drilling into individual show settlements.
+  const totalsTickets = summaries.reduce((s, x) => s + x.ticketing.grossCents, 0);
+  const totalsNetDoor = summaries.reduce((s, x) => s + x.netDoorCents, 0);
+  const totalsTalent = summaries.reduce((s, x) => s + x.talent.totalCents, 0);
+
+  const empty =
+    summaries.length === 0
+      ? `<section class="card"><h2>No shows</h2><div class="row-meta">No settlements for ${weekOf}.</div></section>`
+      : '';
+
+  const shows = summaries.map(renderShowSection).join('\n<div class="page-break"></div>\n');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lariat Weekly Settlement — ${weekOf}</title>
+<style>${STYLE}
+  .page-break { page-break-after: always; }
+  .digest-header { padding: 24px 0 18px; border-bottom: 2px solid var(--ink); margin-bottom: 18px; }
+  .digest-header h1 { font-size: 28px; margin: 0 0 6px 0; }
+  .digest-totals { display: flex; gap: 24px; margin-top: 12px; }
+  .digest-totals .stat { flex: 1; }
+  .digest-totals .stat .lbl { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .digest-totals .stat .val { font-size: 22px; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="digest-header">
+  <h1>Weekly Settlement Digest</h1>
+  <div class="meta">Week of ${weekOf} · ${locationId} · ${summaries.length} show${summaries.length === 1 ? '' : 's'}</div>
+  <div class="digest-totals">
+    <div class="stat"><div class="lbl">Tickets gross</div><div class="val">${dollars(totalsTickets)}</div></div>
+    <div class="stat"><div class="lbl">Talent payout</div><div class="val">${dollars(totalsTalent)}</div></div>
+    <div class="stat"><div class="lbl">Net to door</div><div class="val">${dollars(totalsNetDoor)}</div></div>
+  </div>
+</div>
+${empty}
+${shows}
+${auto}
 </body>
 </html>`;
 }

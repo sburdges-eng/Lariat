@@ -32,4 +32,7 @@
 
 # Nightly DB snapshot.
 0 1 * * * "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" backup >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
+
+# Monday 8am — weekly settlement digest for the Mon→Sun week that just ended.
+0 8 * * 1 "$HOME/Dev/Lariat/scripts/cron-wrapper.sh" weekly-settlement-digest >> "$HOME/Library/Logs/Lariat/lariat-cron.log" 2>&1
 # LARIAT_CRON_END
