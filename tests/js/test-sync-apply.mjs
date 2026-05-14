@@ -47,6 +47,7 @@ const {
   FAMILY_1_TABLES,
   FAMILY_2_TABLES,
   FAMILY_3_TABLES,
+  FAMILY_2_REQUIRED_WHERE,
   _clearSchemaCacheForTest,
 } = await import('../../lib/syncApply.ts');
 
@@ -391,6 +392,27 @@ describe('applyOp — family 2', () => {
     assert.match(r.reason || '', /empty where would wipe/);
     const survivors = db.prepare(`SELECT COUNT(*) AS c FROM vendor_prices`).get().c;
     assert.equal(survivors, 1, 'pre-seed row must NOT have been deleted');
+  });
+
+  it('audit H5: FAMILY_2_REQUIRED_WHERE covers every FAMILY_2 table', () => {
+    // Pins the contract: any future FAMILY_2 table must come with a
+    // required-where entry. Catches the drift case where a contributor
+    // adds a table to FAMILY_2_TABLES but forgets the scoping rule.
+    for (const t of FAMILY_2_TABLES) {
+      assert.ok(
+        FAMILY_2_REQUIRED_WHERE.has(t),
+        `FAMILY_2_REQUIRED_WHERE missing entry for ${t}`,
+      );
+    }
+  });
+
+  it('audit H5: every required-where set includes location_id', () => {
+    // Defense in depth — location_id is the universal scope and C3
+    // already required it. The per-table map is the H5 extension
+    // point; verify every entry still carries that minimum.
+    for (const [t, required] of FAMILY_2_REQUIRED_WHERE) {
+      assert.ok(required.has('location_id'), `${t} required-where missing location_id`);
+    }
   });
 
   it('audit C3: where missing location_id → skipped-bad-payload', () => {

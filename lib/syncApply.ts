@@ -89,6 +89,36 @@ export const FAMILY_2_TABLES: ReadonlySet<string> = new Set([
   'spend_monthly',
 ]);
 
+/**
+ * Audit H5 (2026-05-14): per-table required `where` columns for the
+ * family-2 DELETE+INSERT envelope.
+ *
+ * The applier refuses any envelope whose `where` doesn't include every
+ * column listed for that table. Pre-fix, only `location_id` was
+ * required (audit C3). Per-table tightening is the extension point for
+ * the schema-drift case the audit called out: when the receiver has
+ * columns the producer didn't address, a narrow `where` widens the
+ * DELETE on the receiver and wipes more rows than intended.
+ *
+ * Today every table requires only `location_id` because that matches
+ * the producer's actual ingest pattern (scripts/ingest-costing.mjs
+ * rebuilds per location). Future PRs can tighten per-table by adding
+ * natural-key columns (e.g. `recipe_id` for bom_lines, `vendor` +
+ * `sku` for vendor_prices) once the producer envelope shape settles.
+ *
+ * MUST be a superset of any whereCols a legitimate producer sends.
+ * Tables not in this map are refused outright — defense against typos
+ * in FAMILY_2_TABLES or future tables added there without an entry
+ * here.
+ */
+export const FAMILY_2_REQUIRED_WHERE: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  ['vendor_prices', new Set(['location_id'])],
+  ['recipe_costs', new Set(['location_id'])],
+  ['bom_lines', new Set(['location_id'])],
+  ['order_guide_items', new Set(['location_id'])],
+  ['spend_monthly', new Set(['location_id'])],
+]);
+
 /** Family 3: LWW live state. v1 SKIPs these — see module doc. */
 export const FAMILY_3_TABLES: ReadonlySet<string> = new Set([
   // 'recipes' removed — recipes live in the JSON cache, not a SQL table.
@@ -264,16 +294,22 @@ function applyFamily2(db: DB, op: SyncOp): ApplyResult {
     };
   }
 
-  // Audit C3 hardening: every family-2 envelope must be scoped by
-  // location_id. Even with non-empty `where`, an envelope that omits
-  // location scoping can wipe ALL locations' rows where its filter
-  // matches. location_id is the universal scoping column across all
-  // financial tables (see lib/db.ts) and matches the producer's
-  // local DELETE+INSERT pattern in scripts/ingest-costing.mjs.
-  if (!whereCols.includes('location_id')) {
+  // Audit H5: per-table required-where check. Tables not in the map
+  // are refused outright (defensive against typos in FAMILY_2_TABLES
+  // or future entries added without a corresponding required-where).
+  const required = FAMILY_2_REQUIRED_WHERE.get(op.tableName);
+  if (!required) {
     return {
       outcome: 'skipped-bad-payload',
-      reason: 'where must include location_id',
+      reason: `table ${op.tableName} has no FAMILY_2_REQUIRED_WHERE entry`,
+    };
+  }
+  const whereColsSet = new Set(whereCols);
+  const missingRequired = [...required].filter((c) => !whereColsSet.has(c));
+  if (missingRequired.length) {
+    return {
+      outcome: 'skipped-bad-payload',
+      reason: `where missing required cols: ${missingRequired.join(',')}`,
     };
   }
 
