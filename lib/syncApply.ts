@@ -264,6 +264,30 @@ function applyFamily2(db: DB, op: SyncOp): ApplyResult {
   }
 
   const whereCols = Object.keys(rawWhere);
+
+  // Audit C3 guard: an empty `where` would build `DELETE FROM <table>`
+  // with no WHERE — wiping every row in the financial table from a
+  // single op. Compromised or buggy peer is the threat model. Refuse.
+  if (whereCols.length === 0) {
+    return {
+      outcome: 'skipped-bad-payload',
+      reason: 'empty where would wipe entire table — refusing',
+    };
+  }
+
+  // Audit C3 hardening: every family-2 envelope must be scoped by
+  // location_id. Even with non-empty `where`, an envelope that omits
+  // location scoping can wipe ALL locations' rows where its filter
+  // matches. location_id is the universal scoping column across all
+  // financial tables (see lib/db.ts) and matches the producer's
+  // local DELETE+INSERT pattern in scripts/ingest-costing.mjs.
+  if (!whereCols.includes('location_id')) {
+    return {
+      outcome: 'skipped-bad-payload',
+      reason: 'where must include location_id',
+    };
+  }
+
   const unknownWhere = whereCols.filter((k) => !tableCols.has(k));
   if (unknownWhere.length) {
     return {
@@ -272,9 +296,7 @@ function applyFamily2(db: DB, op: SyncOp): ApplyResult {
     };
   }
 
-  const whereSql = whereCols.length
-    ? `WHERE ${whereCols.map((c) => `${c} = ?`).join(' AND ')}`
-    : ''; // empty WHERE deletes everything; deliberate but rare
+  const whereSql = `WHERE ${whereCols.map((c) => `${c} = ?`).join(' AND ')}`;
   const whereVals = whereCols.map((c) => (rawWhere as Record<string, unknown>)[c]);
 
   let droppedAny: string[] = [];

@@ -272,13 +272,47 @@ describe('applyOp — family 2', () => {
     assert.equal(all[0].location_id, 'lariat-south');
   });
 
-  it('unknown `where` column → skipped-schema-drift', () => {
+  it('unknown `where` column (after C3 location_id check passes) → skipped-schema-drift', () => {
+    // C3 hardening: this where now includes location_id (so the
+    // empty-where + missing-location_id guards pass), but the extra
+    // not_a_real_col still trips the schema-drift check downstream.
     const op = mkOp({
       tableName: 'vendor_prices',
-      rowJson: JSON.stringify({ where: { not_a_real_col: 'x' }, rows: [] }),
+      rowJson: JSON.stringify({
+        where: { location_id: 'default', not_a_real_col: 'x' },
+        rows: [],
+      }),
     });
     const r = applyOp(db, op);
     assert.equal(r.outcome, 'skipped-schema-drift');
+  });
+
+  it('audit C3: empty where → skipped-bad-payload (refuses to wipe table)', () => {
+    const op = mkOp({
+      tableName: 'vendor_prices',
+      rowJson: JSON.stringify({ where: {}, rows: [] }),
+    });
+    // Pre-seed a row that MUST NOT be wiped.
+    db.prepare(
+      `INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, location_id)
+       VALUES ('a', 'sysco', 'A', 1, 'lb', 1, 1, 'default')`,
+    ).run();
+    const r = applyOp(db, op);
+    assert.equal(r.outcome, 'skipped-bad-payload');
+    assert.match(r.reason || '', /empty where would wipe/);
+    const survivors = db.prepare(`SELECT COUNT(*) AS c FROM vendor_prices`).get().c;
+    assert.equal(survivors, 1, 'pre-seed row must NOT have been deleted');
+  });
+
+  it('audit C3: where missing location_id → skipped-bad-payload', () => {
+    const op = mkOp({
+      tableName: 'vendor_prices',
+      // sku alone — would only scope by SKU across all locations.
+      rowJson: JSON.stringify({ where: { sku: 'X' }, rows: [] }),
+    });
+    const r = applyOp(db, op);
+    assert.equal(r.outcome, 'skipped-bad-payload');
+    assert.match(r.reason || '', /location_id/);
   });
 
   it('non-array rows → skipped-bad-payload', () => {
