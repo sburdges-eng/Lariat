@@ -8,6 +8,13 @@ export interface Settings {
   datapackDir?: string;          // populates LARIAT_DATA_ROOT
   pythonPath?: string;           // populates LARIAT_PYTHON
   ollamaUrl?: string;            // defaults to http://127.0.0.1:11434 if absent
+  // Cloud-bridge wiring. Both must be present for the drainer to start;
+  // either-absent silently disables the bridge (per docs/cloud-bridge-
+  // backend-decision.md §"non-configured fallback"). When set, they
+  // populate LARIAT_CLOUD_BRIDGE_URL / LARIAT_CLOUD_BRIDGE_SECRET in
+  // the supervised child env.
+  cloudBridgeUrl?: string;       // populates LARIAT_CLOUD_BRIDGE_URL
+  cloudBridgeSecret?: string;    // populates LARIAT_CLOUD_BRIDGE_SECRET
 }
 
 function isString(v: unknown): v is string {
@@ -32,7 +39,27 @@ export function validateSettings(input: unknown): Settings | null {
   if (isString(o.datapackDir)) out.datapackDir = o.datapackDir;
   if (isString(o.pythonPath)) out.pythonPath = o.pythonPath;
   if (isString(o.ollamaUrl)) out.ollamaUrl = o.ollamaUrl;
+  if (isString(o.cloudBridgeUrl)) out.cloudBridgeUrl = o.cloudBridgeUrl;
+  if (isString(o.cloudBridgeSecret)) out.cloudBridgeSecret = o.cloudBridgeSecret;
   return out;
+}
+
+/**
+ * Build the env-var subset that should be merged into a supervised
+ * child process for the given settings. Only emits the env keys whose
+ * source settings are populated — so an unset cloudBridgeSecret leaves
+ * LARIAT_CLOUD_BRIDGE_SECRET unset (and the drainer's
+ * isCloudBridgeConfigured() returns false).
+ */
+export function settingsToChildEnv(settings: Settings): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+  env.LARIAT_DATA_DIR = settings.dataDir;
+  if (settings.datapackDir) env.LARIAT_DATA_ROOT = settings.datapackDir;
+  if (settings.pythonPath) env.LARIAT_PYTHON = settings.pythonPath;
+  if (settings.ollamaUrl) env.LARIAT_OLLAMA_URL = settings.ollamaUrl;
+  if (settings.cloudBridgeUrl) env.LARIAT_CLOUD_BRIDGE_URL = settings.cloudBridgeUrl;
+  if (settings.cloudBridgeSecret) env.LARIAT_CLOUD_BRIDGE_SECRET = settings.cloudBridgeSecret;
+  return env;
 }
 
 export function readSettings(filePath: string): Settings | null {

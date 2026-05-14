@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { readSettings, saveSettings, validateSettings, type Settings } from '../settings.ts';
+import { readSettings, saveSettings, settingsToChildEnv, validateSettings, type Settings } from '../settings.ts';
 
 function makeTmpFile(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-settings-'));
@@ -64,4 +64,65 @@ test('validateSettings rejects non-integer port', () => {
 
 test('validateSettings rejects port out of range', () => {
   assert.equal(validateSettings({ dataDir: '/x', port: 70000 }), null);
+});
+
+test('validateSettings round-trips cloudBridgeUrl + cloudBridgeSecret', () => {
+  const s = validateSettings({
+    dataDir: '/x',
+    port: 3000,
+    cloudBridgeUrl: 'https://api.lariat.example',
+    cloudBridgeSecret: 'hmac-shared-secret',
+  });
+  assert.equal(s?.cloudBridgeUrl, 'https://api.lariat.example');
+  assert.equal(s?.cloudBridgeSecret, 'hmac-shared-secret');
+});
+
+test('validateSettings drops non-string cloudBridge fields', () => {
+  const s = validateSettings({
+    dataDir: '/x',
+    port: 3000,
+    cloudBridgeUrl: 42,
+    cloudBridgeSecret: { nested: 'no' },
+  });
+  assert.equal(s?.cloudBridgeUrl, undefined);
+  assert.equal(s?.cloudBridgeSecret, undefined);
+});
+
+test('settingsToChildEnv emits LARIAT_DATA_DIR always', () => {
+  const env = settingsToChildEnv({ dataDir: '/x', port: 3000 });
+  assert.equal(env.LARIAT_DATA_DIR, '/x');
+});
+
+test('settingsToChildEnv omits optional vars when settings are unset', () => {
+  const env = settingsToChildEnv({ dataDir: '/x', port: 3000 });
+  assert.equal(env.LARIAT_DATA_ROOT, undefined);
+  assert.equal(env.LARIAT_PYTHON, undefined);
+  assert.equal(env.LARIAT_OLLAMA_URL, undefined);
+  assert.equal(env.LARIAT_CLOUD_BRIDGE_URL, undefined);
+  assert.equal(env.LARIAT_CLOUD_BRIDGE_SECRET, undefined);
+});
+
+test('settingsToChildEnv emits cloud-bridge env vars when set', () => {
+  const env = settingsToChildEnv({
+    dataDir: '/x',
+    port: 3000,
+    cloudBridgeUrl: 'https://api.lariat.example',
+    cloudBridgeSecret: 'hmac-shared-secret',
+  });
+  assert.equal(env.LARIAT_CLOUD_BRIDGE_URL, 'https://api.lariat.example');
+  assert.equal(env.LARIAT_CLOUD_BRIDGE_SECRET, 'hmac-shared-secret');
+});
+
+test('settingsToChildEnv emits each optional var independently', () => {
+  // Only cloudBridgeSecret is set; the URL stays unset. The drainer's
+  // isCloudBridgeConfigured() requires BOTH so the runtime treats this
+  // as "not configured" — but settingsToChildEnv itself is a pure
+  // mapping and emits whatever's actually set.
+  const env = settingsToChildEnv({
+    dataDir: '/x',
+    port: 3000,
+    cloudBridgeSecret: 'only-secret',
+  });
+  assert.equal(env.LARIAT_CLOUD_BRIDGE_URL, undefined);
+  assert.equal(env.LARIAT_CLOUD_BRIDGE_SECRET, 'only-secret');
 });

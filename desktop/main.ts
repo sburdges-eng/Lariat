@@ -37,6 +37,12 @@ async function bootSupervisor(settings: Settings): Promise<void> {
   if (settings.datapackDir) env.LARIAT_DATA_ROOT = settings.datapackDir;
   if (settings.pythonPath) env.LARIAT_PYTHON = settings.pythonPath;
   if (settings.ollamaUrl) env.LARIAT_OLLAMA_URL = settings.ollamaUrl;
+  // Cloud-bridge wiring (T8b). Both must be present for the in-process
+  // drainer launched from instrumentation.ts to register as configured;
+  // either-absent leaves LARIAT_CLOUD_BRIDGE_* unset and the drainer
+  // logs a one-line skip per lib/cloudBridgeDrainerLifecycle.ts.
+  if (settings.cloudBridgeUrl) env.LARIAT_CLOUD_BRIDGE_URL = settings.cloudBridgeUrl;
+  if (settings.cloudBridgeSecret) env.LARIAT_CLOUD_BRIDGE_SECRET = settings.cloudBridgeSecret;
 
   supervisor = new Supervisor({
     entryPath: entryPath(),
