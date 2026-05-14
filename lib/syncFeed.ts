@@ -228,12 +228,39 @@ export function getReplayCheckpoint(
  * Idempotent: setting to a value ≤ current is a no-op (checkpoints
  * MUST NOT regress except through an explicit reset call, which this
  * function deliberately does not provide).
+ *
+ * Audit M5 (2026-05-14): peerId and feedScope are clipped to 256 chars
+ * and stripped of control characters. Pre-fix a pathological string
+ * could land as a permanent DB row — the scheduler passes
+ * `peer.feedKey` from LARIAT_SYNC_PEERS JSON, so an operator typo
+ * with an embedded newline or a 10 MB string became durable. Throws
+ * on a non-string argument (signals a programming error, not a typo).
  */
+const MAX_PEER_ID_LEN = 256;
+const MAX_FEED_SCOPE_LEN = 64;
+
+function sanitizeIdent(name: string, value: unknown, max: number): string {
+  if (typeof value !== 'string') {
+    throw new Error(`syncFeed: ${name} must be a string`);
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    throw new Error(`syncFeed: ${name} must be a non-empty string`);
+  }
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x1f\x7f]/.test(trimmed)) {
+    throw new Error(`syncFeed: ${name} must not contain control characters`);
+  }
+  return trimmed.slice(0, max);
+}
+
 export function setReplayCheckpoint(
   peerId: string,
   lastOpRowId: number,
   feedScope: string = 'local',
 ): void {
+  const cleanPeer = sanitizeIdent('peerId', peerId, MAX_PEER_ID_LEN);
+  const cleanScope = sanitizeIdent('feedScope', feedScope, MAX_FEED_SCOPE_LEN);
   const db = getDb();
   db.prepare(
     `INSERT INTO replay_checkpoints (peer_id, feed_scope, last_op_rowid, updated_at)
@@ -241,5 +268,5 @@ export function setReplayCheckpoint(
      ON CONFLICT(peer_id, feed_scope) DO UPDATE SET
        last_op_rowid = MAX(replay_checkpoints.last_op_rowid, excluded.last_op_rowid),
        updated_at    = datetime('now')`,
-  ).run(peerId, feedScope, lastOpRowId);
+  ).run(cleanPeer, cleanScope, lastOpRowId);
 }

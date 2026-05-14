@@ -92,14 +92,22 @@ describe('peer_trust CRUD', () => {
     assert.throws(() => addPeer(db, '0123'.repeat(10))); // wrong length
   });
 
-  it('addPeer is idempotent — reapplying clears revoked', () => {
+  it('audit M3: addPeer preserves revocation; only unrevokePeer can lift it', async () => {
+    const { unrevokePeer } = await import('../../lib/peerTrust.ts');
     const { pubHex } = mkKeypair();
     addPeer(db, pubHex, 'a');
     revokePeer(db, pubHex);
-    addPeer(db, pubHex, 'b'); // re-add → un-revoke + update label
-    const row = getPeerByPubkey(db, pubHex);
+    addPeer(db, pubHex, 'b'); // re-add — label updates but revoked stays
+    let row = getPeerByPubkey(db, pubHex);
+    assert.equal(row.revoked, 1, 'addPeer must NOT auto-unrevoke');
+    assert.equal(row.label, 'b', 'label updated');
+    // Explicit unrevoke flips it.
+    const flipped = unrevokePeer(db, pubHex);
+    assert.equal(flipped, true);
+    row = getPeerByPubkey(db, pubHex);
     assert.equal(row.revoked, 0);
-    assert.equal(row.label, 'b');
+    // Second unrevoke is a no-op (already unrevoked).
+    assert.equal(unrevokePeer(db, pubHex), false);
   });
 
   it('revokePeer flips the bit, does not delete the row', () => {

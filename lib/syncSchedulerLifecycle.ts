@@ -154,8 +154,17 @@ export async function bootSyncScheduler(opts: BootOptions = {}): Promise<void> {
 
   const tickMs =
     opts.envTickMs ?? (Number(process.env.LARIAT_SYNC_TICK_MS) || 10_000);
+  // Audit M1 (2026-05-14): default ourPeerKey to the (host, started_at)
+  // identity from lib/localIdentity.ts. Pre-fix the default was
+  // process.pid — PIDs are reused across reboots, so a remote's
+  // replay_checkpoints row for "peer 1234" would silently mis-track us
+  // after any restart that happened to reuse the same PID. The
+  // host+ISO-timestamp pair is stable per boot and fresh after every
+  // reboot. LARIAT_SYNC_PEER_KEY env override still wins when set.
+  const { getLocalHost, getStartedAt } = await import('./localIdentity.ts');
+  const defaultPeerKey = `hs:${getLocalHost()}|${getStartedAt()}`;
   const ourPeerKey =
-    opts.envOurPeerKey ?? process.env.LARIAT_SYNC_PEER_KEY ?? `${process.pid}`;
+    opts.envOurPeerKey ?? process.env.LARIAT_SYNC_PEER_KEY ?? defaultPeerKey;
 
   const { pubKey, privKey } = loadKeypair();
 

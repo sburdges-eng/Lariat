@@ -296,4 +296,29 @@ describe('replay checkpoints', () => {
     assert.equal(getReplayCheckpoint('peer-x', 'local'), 10);
     assert.equal(getReplayCheckpoint('peer-x', 'other'), 20);
   });
+
+  it('audit M5: setReplayCheckpoint clips peer_id to 256 chars', () => {
+    const long = 'A'.repeat(500);
+    setReplayCheckpoint(long, 42);
+    // The function clips to 256 — reading with the same long string
+    // returns 0 because the stored key is the clipped version, and
+    // reading with the clipped key returns the value.
+    const stored = getReplayCheckpoint(long.slice(0, 256));
+    assert.equal(stored, 42);
+  });
+
+  it('audit M5: setReplayCheckpoint rejects empty peer_id', () => {
+    assert.throws(() => setReplayCheckpoint('', 42), /non-empty/);
+    assert.throws(() => setReplayCheckpoint('   ', 42), /non-empty/);
+  });
+
+  it('audit M5: setReplayCheckpoint rejects control characters in peer_id', () => {
+    assert.throws(() => setReplayCheckpoint('peer\nx', 42), /control characters/);
+    assert.throws(() => setReplayCheckpoint('peer\x00x', 42), /control characters/);
+  });
+
+  it('audit M5: setReplayCheckpoint rejects non-string peer_id', () => {
+    // @ts-expect-error — runtime guard
+    assert.throws(() => setReplayCheckpoint(42, 42), /must be a string/);
+  });
 });

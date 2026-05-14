@@ -76,6 +76,17 @@ export interface PeerTrustRow {
   revoked: number;
 }
 
+/**
+ * Add or update a peer-trust row.
+ *
+ * Audit M3 (2026-05-14): `addPeer` USED TO auto-unrevoke a previously-
+ * revoked row via `ON CONFLICT DO UPDATE SET revoked = 0`. That made
+ * revocation a soft state — anyone with addPeer access could quietly
+ * un-revoke a previously-banned peer. The function now PRESERVES
+ * revoked = 1 on conflict. Callers that want to bring a revoked peer
+ * back must call `unrevokePeer()` explicitly so the action is
+ * intentional and auditable.
+ */
 export function addPeer(
   db: DB,
   pubkeyHex: string,
@@ -90,8 +101,7 @@ export function addPeer(
     `INSERT INTO peer_trust (pubkey_hex, fingerprint, label, created_at, revoked)
      VALUES (?, ?, ?, datetime('now'), 0)
      ON CONFLICT(pubkey_hex) DO UPDATE SET
-       label   = excluded.label,
-       revoked = 0`,
+       label   = excluded.label`,
   ).run(norm, fp, label);
   return getPeerByPubkey(db, norm) as PeerTrustRow;
 }
@@ -100,6 +110,23 @@ export function revokePeer(db: DB, pubkeyHex: string): boolean {
   const norm = pubkeyHex.toLowerCase().trim();
   const info = db
     .prepare(`UPDATE peer_trust SET revoked = 1 WHERE pubkey_hex = ?`)
+    .run(norm);
+  return info.changes > 0;
+}
+
+/**
+ * Lift a revocation on a previously-revoked peer. Audit M3: this is
+ * the only path that flips revoked = 0; addPeer no longer auto-clears
+ * it, so re-trusting a banned peer is now a deliberate audit-trail
+ * event rather than a silent side effect of re-running addPeer.
+ *
+ * No-op if the peer doesn't exist or wasn't revoked. Returns true if
+ * a row was flipped, false otherwise.
+ */
+export function unrevokePeer(db: DB, pubkeyHex: string): boolean {
+  const norm = pubkeyHex.toLowerCase().trim();
+  const info = db
+    .prepare(`UPDATE peer_trust SET revoked = 0 WHERE pubkey_hex = ? AND revoked = 1`)
     .run(norm);
   return info.changes > 0;
 }
