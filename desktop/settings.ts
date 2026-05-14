@@ -82,6 +82,21 @@ export function readSettings(filePath: string): Settings | null {
  * Atomic write: serialize to a sibling .tmp.<rand> file then rename
  * (POSIX rename is atomic on the same filesystem). On any error the
  * .tmp file is removed and the exception propagates.
+ *
+ * File mode: 0o600 (owner read/write only). The settings blob can
+ * carry LARIAT_CLOUD_BRIDGE_SECRET — an HMAC secret with full push
+ * authority against the cloud peer. Audit C5 (2026-05-14): pre-fix
+ * the file landed at the OS default (typically 644), so anyone on
+ * a multi-user macOS install or anyone with backup access could
+ * read it. The peer Ed25519 private key (`peer-keypair.json`) already
+ * uses the same 0o600 pattern via lib/peerKeypair.ts; this brings
+ * settings.json into parity.
+ *
+ * Belt-and-suspenders: pass `mode` to writeFileSync (some platforms
+ * mask it against umask) AND chmod the renamed file explicitly. On
+ * Windows chmod is effectively a no-op but rename preserves the
+ * source mode, so the writeFileSync `mode` still attempts the right
+ * thing on best-effort terms.
  */
 export function saveSettings(filePath: string, settings: Settings): void {
   const validated = validateSettings(settings);
@@ -91,8 +106,19 @@ export function saveSettings(filePath: string, settings: Settings): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   const tmp = `${filePath}.tmp.${crypto.randomBytes(6).toString('hex')}`;
   try {
-    fs.writeFileSync(tmp, JSON.stringify(validated, null, 2), 'utf8');
+    fs.writeFileSync(tmp, JSON.stringify(validated, null, 2), {
+      encoding: 'utf8',
+      mode: 0o600,
+    });
     fs.renameSync(tmp, filePath);
+    try {
+      fs.chmodSync(filePath, 0o600);
+    } catch {
+      // Best-effort on Windows / non-POSIX filesystems where chmod is
+      // unsupported. The writeFileSync mode flag is the primary
+      // defense; chmodSync is belt-and-suspenders on platforms where
+      // umask might have masked the original mode.
+    }
   } catch (e) {
     try { fs.unlinkSync(tmp); } catch { /* nothing to clean */ }
     throw e;

@@ -47,6 +47,32 @@ test('saveSettings writes atomically (temp file gone after success)', () => {
   assert.deepEqual(tempLeft, []);
 });
 
+test('saveSettings writes with file mode 0o600 (audit C5)', () => {
+  // settings.json carries LARIAT_CLOUD_BRIDGE_SECRET — must not be
+  // world-readable. Skip on platforms where chmod is unreliable
+  // (Windows reports 0o666 regardless).
+  if (process.platform === 'win32') return;
+  const p = makeTmpFile();
+  saveSettings(p, {
+    dataDir: '/x',
+    port: 3000,
+    cloudBridgeSecret: 'sensitive-hmac',
+  });
+  const mode = fs.statSync(p).mode & 0o777;
+  assert.strictEqual(mode, 0o600, `expected 0o600, got 0o${mode.toString(8)}`);
+});
+
+test('saveSettings tightens mode even when file already exists at looser permissions', () => {
+  if (process.platform === 'win32') return;
+  const p = makeTmpFile();
+  // Pre-create with 0o644 to simulate a pre-fix install upgrading.
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, '{}', { mode: 0o644 });
+  saveSettings(p, { dataDir: '/x', port: 3000 });
+  const mode = fs.statSync(p).mode & 0o777;
+  assert.strictEqual(mode, 0o600);
+});
+
 test('validateSettings accepts minimal settings (dataDir + port only)', () => {
   assert.deepEqual(
     validateSettings({ dataDir: '/x', port: 3000 }),

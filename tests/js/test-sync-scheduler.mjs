@@ -140,15 +140,17 @@ describe('runPeerCycle', () => {
   it('apply-skipped (family-3-only window) still advances checkpoint to avoid re-fetch loop', async () => {
     const k = mkKeypair();
     addPeer(db, k.pubHex);
-    // Seed a family-3 op (recipes). The applier SKIPs these with audit.
+    // Seed a family-3 op (dish_components — `recipes` was removed
+    // from FAMILY_3_TABLES per audit C1 since it has no SQL table).
+    // The applier SKIPs family-3 ops with audit.
     db.transaction(() => {
       appendOp({
         opId: 'family3-only',
-        tableName: 'recipes',
+        tableName: 'dish_components',
         locationId: 'default',
         opKind: 'update',
-        rowPk: 'pasta',
-        rowJson: '{"slug":"pasta"}',
+        rowPk: 'pasta:tomato',
+        rowJson: '{"dish_name":"pasta","ingredient":"tomato"}',
         createdAt: '2026-05-06T00:00:00Z',
         sourceHost: 'h',
         sourceStartedAt: '2026-05-06T00:00:00Z',
