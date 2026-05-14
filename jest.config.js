@@ -19,7 +19,12 @@ const createJestConfig = nextJest({
 const config = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'jest-environment-jsdom',
-  testMatch: ['<rootDir>/app/__tests__/**/*.test.{js,jsx,ts,tsx}'],
+  testMatch: [
+    '<rootDir>/app/__tests__/**/*.test.{js,jsx,ts,tsx}',
+    // Colocated __tests__ dirs (e.g. app/recipes/__tests__/*.test.jsx)
+    // so feature-area tests live next to the components they cover.
+    '<rootDir>/app/**/__tests__/**/*.test.{js,jsx,ts,tsx}',
+  ],
   testPathIgnorePatterns: ['/node_modules/'],
   // next/jest handles most module resolution; this only adds the rare
   // bare-identifier import style some of our own modules use.
