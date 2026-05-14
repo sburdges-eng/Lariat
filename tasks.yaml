@@ -10,109 +10,114 @@
 #     - T4: ingredient_masters operator review UI                   (45e4684)
 #     - T5: weekly settlement digest cron + renderDigestHtml        (4758e27)
 #     - audit branch §4 access-matrix refresh                       (36c7246)
+#     - T6: desktop first-run wizard                                (already on main)
+#     - T7a: sync_feed schema + appendOp + replaySince              (aedd10e)
+#     - T7b: /api/peers/sync-since + Ed25519 auth + peer_trust      (6143758)
+#     - T8 (partial): graceful drainer stop + launchd template      (a09804f)
 #
 #   remaining (this manifest):
-#     - T6: desktop first-run wizard
-#     - T7: multi-instance sync impl + Ed25519 peer auth on sync-since
-#     - T8: cloud-bridge production wiring (HMAC secret in settings, drainer life)
+#     - T7c: receiving-side per-table appliers (family 1/2/3 conflict policy)
+#     - T8b: LARIAT_CLOUD_BRIDGE_SECRET in desktop/settings.ts + /management toggle
 #
 # Read:   .claude/agents/coordinator.md  (slash-command entrypoint)
 # Status: ORCHESTRATOR_STATUS.md
 
 tasks:
-  - id: T6
+  - id: T7c
     description: |
-      Desktop first-run wizard (T9 of docs/desktop-wrapper-design.md).
-      Supervisor (desktop/supervisor.ts), server-entry (desktop/server-entry.cjs)
-      and settings (desktop/settings.ts) already exist. Missing piece: the
-      first-launch UX that lets the operator pick:
-        1. data dir          (LARIAT_DATA_DIR)
-        2. python path       (LARIAT_PYTHON; defaults to `which python3`)
-        3. data-pack dir     (the off-tree SSD location for BGE vectors +
-                              parquet files)
+      Receiving-side sync appliers. T7a + T7b shipped the producer side
+      (sync_feed table, appendOp, replaySince) and the network surface
+      (signed GET /api/peers/sync-since). Missing: a client + per-table
+      applier loop that pulls a peer's feed, validates each op, and
+      writes it locally with the family's conflict policy.
 
-      Build the React component at desktop/firstRunWizard/{App.tsx,
-      main.tsx, vite.config.ts} per the design doc; have supervisor.ts
-      launch it when settings.json doesn't exist yet. Persist user
-      choices via desktop/settings.ts writeSettings(). Unit-test the
-      pure-fn validator (path exists + is writable for data dir;
-      python --version returns 3.x for python path).
+      Per-family policy from docs/multi-instance-sync.md:
+        - Family 1 (HACCP append-only): insert-or-skip on op_id UNIQUE.
+          17 tables — audit_events, cooling_log, temp_log_entries,
+          receiving_log, sanitizer_log, date_marks, sick_worker_log,
+          calibrations_log, cleaning_log, pest_log, sds_log, tphc_log,
+          beo_{events,courses,line_items,prep_tasks},
+          inventory_updates, line_check_entries, station_signoffs,
+          eighty_six, inventory_counts.
+        - Family 2 (financial delete-batch): tx-wrapped DELETE+INSERT
+          on the envelope's `where` payload. Tables: vendor_prices,
+          recipe_costs, bom_lines, order_guide_items,
+          settlement_summaries, spend_monthly.
+        - Family 3 (LWW live state): per-row LWW by createdAt, tie-
+          broken by sourceHost lex order. Tables: recipes,
+          dish_components, entities_*.
+
+      Build:
+        - lib/syncClient.ts — signed-request GET against a peer's
+          /api/peers/sync-since. Uses lib/peerKeypair.ts::signProof
+          and matches the canonical signing payload format from
+          lib/peerTrust.ts::canonicalSigningPayload. Window size +
+          checkpoint advance via lib/syncFeed.ts::setReplayCheckpoint.
+        - lib/syncApply.ts — per-family applier. Dispatches by
+          tableName → family → policy. Family 1 INSERT OR IGNORE on
+          op_id; family 2 single-tx delete-batch; family 3 row LWW
+          with sourceHost tiebreak. Schema-drift defense: validate
+          rowJson against the local table shape via a small JSON-
+          schema check; skip + log on mismatch (never throw).
+        - tests/js/test-sync-apply.mjs — three describe blocks, one
+          per family, each exercising the conflict semantics with
+          seeded sync_feed rows + a live in-memory DB.
+
+      Effort: M+. The applier itself is bounded but the per-table
+      coverage matrix is wide; sequence by importance (HACCP first
+      because regulated, financial second for cross-host correctness,
+      LWW last because v1 doesn't actually need it for the single-KM
+      workflow).
     acceptance_tests:
-      - node --experimental-strip-types --test desktop/__tests__/test-first-run-validator.mjs
-      - npm run desktop:build
+      - node --experimental-strip-types --test tests/js/test-sync-apply.mjs
+      - node --experimental-strip-types --test tests/js/test-sync-client.mjs
     dependencies: []
     paths_touched:
-      - desktop/firstRunWizard/App.tsx
-      - desktop/firstRunWizard/main.tsx
-      - desktop/firstRunWizard/vite.config.ts
-      - desktop/supervisor.ts
-      - desktop/__tests__/test-first-run-validator.mjs
+      - lib/syncClient.ts
+      - lib/syncApply.ts
+      - tests/js/test-sync-client.mjs
+      - tests/js/test-sync-apply.mjs
 
-  - id: T7
+  - id: T8b
     description: |
-      Multi-instance sync impl. lib/syncFeed.ts has the type shape +
-      stub appendOp/replaySince that throw `never` today (per
-      docs/multi-instance-sync.md). Land the schema + impl + peer-auth:
+      Move LARIAT_CLOUD_BRIDGE_SECRET out of process.env and into
+      desktop/settings.ts so it persists across reboots without an
+      operator setting it in launchctl setenv every time. T8 already
+      shipped the graceful drainer stop + launchd template (a09804f),
+      and lib/cloudBridge*.ts already prefers `opts.secret` over
+      `process.env.LARIAT_CLOUD_BRIDGE_SECRET` — so this is purely
+      plumbing.
 
-      - schema migration: sync_feed table + replay_checkpoints table
-        in lib/db.ts, additive ALTERs via migrateLegacyColumns.
-      - impl: appendOp(op) — write inside the same tx as the source
-        write so the change-feed row commits atomically with the
-        operation.
-      - impl: replaySince(peerId, fromRowId) — advances per-peer
-        replay_checkpoints row, returns the slice.
-      - Family-1 (HACCP) append-only, Family-2 (financial) LWW,
-        Family-3 (live-state) LWW per the design doc.
-      - app/api/peers/sync-since/route.js — accepts X-Lariat-Peer-Key
-        + X-Lariat-Signature headers; verifies via lib/peerKeypair.ts
-        signProof/verifyProof; allowlists peer pubkey fingerprints via
-        a new peer_trust table seeded from an operator action.
-      - tests: appendOp/replaySince round-trip, family-specific conflict
-        rules, route auth (401 missing sig, 401 unknown fingerprint,
-        200 valid signed request).
+      Build:
+        - desktop/settings.ts — add `cloudBridgeUrl?: string` and
+          `cloudBridgeSecret?: string` to the Settings shape +
+          validateSettings.
+        - desktop/main.ts — when bootstrapping the supervisor env,
+          export LARIAT_CLOUD_BRIDGE_URL + LARIAT_CLOUD_BRIDGE_SECRET
+          from the loaded settings into the child env so the inline
+          drainer (in-process) and the standalone drainer script both
+          see them.
+        - app/management/cloud-bridge/page.jsx — operator-facing
+          settings form. PIN-gated; PATCHes desktop's IPC bridge
+          (settings:set) which validates + persists to settings.json.
+          Show the current dead_letter depth + last_seen tile via
+          the existing /api/cloud-bridge/* surfaces (Item 9, follow-on
+          for the read-only triage).
+        - Tests for the validator shape additions; manual smoke for
+          the management UI.
 
-      Effort: M+ — needs schema migration + design choices the dev team
-      should sign off on (e.g. when LWW competes with replaces_id).
-    acceptance_tests:
-      - node --experimental-strip-types --test tests/js/test-sync-feed.mjs
-      - node --experimental-strip-types --test tests/js/test-peer-auth.mjs
-    dependencies: []
-    paths_touched:
-      - lib/db.ts
-      - lib/syncFeed.ts
-      - app/api/peers/sync-since/route.js
-      - tests/js/test-sync-feed.mjs
-      - tests/js/test-peer-auth.mjs
-
-  - id: T8
-    description: |
-      Cloud-bridge production wiring. lib/cloudBridgePush.ts +
-      cloudBridgeDrainer.ts + cloudBridgeDrainerLifecycle.ts +
-      cloudBridgeQueue.ts + scripts/cloud-bridge-drainer.mjs all exist.
-      Remaining:
-
-      - HMAC secret in desktop/settings.ts (LARIAT_CLOUD_HMAC) instead
-        of env var. Surface a settings toggle on /management.
-      - Drainer crash-resume — record claim/ack state durably in
-        cloud_bridge_queue so a restart doesn't re-deliver acked rows.
-        Today the unref'd setInterval gets dropped on shutdown; the
-        next start re-claims rows whose claim is older than
-        staleClaimAgeSec. Add a graceful-stop hook that nack's any
-        in-flight claims so they're available immediately on restart.
-      - Drainer lifecycle from launchd/systemd, NOT cron (drainer is
-        long-running; cron is for short jobs). Add an
-        examples/launchd-cloud-bridge.plist template + install script.
-
-      Effort: M — touches lib + desktop + ops scaffolding. Skipping
-      cron registration because the drainer holds the event loop open
-      until SIGTERM/SIGINT.
+      Out of scope for this task:
+        - Migrating from HMAC (§4.2) to Ed25519 (§4.3) — that's
+          Item 13 in cloud-bridge-backend-decision.md.
+        - The /management/cloud-bridge dead-letter triage actions
+          (replay / discard) — that's Item 9.
     acceptance_tests:
       - npm run test:cloud-bridge-push
       - npm run test:cloud-bridge-drainer
+      - node --experimental-strip-types --test desktop/__tests__/settings.test.ts
     dependencies: []
     paths_touched:
-      - lib/cloudBridgePush.ts
-      - lib/cloudBridgeDrainer.ts
       - desktop/settings.ts
-      - app/management/page.jsx
-      - examples/launchd-cloud-bridge.plist
+      - desktop/main.ts
+      - app/management/cloud-bridge/page.jsx
+      - desktop/__tests__/settings.test.ts

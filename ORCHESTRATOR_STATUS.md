@@ -15,8 +15,6 @@ Outcome: all 5 merged between `c9b9a69` and `42deab5`.
 
 ## Phase 3.5 wave (2026-05-14)
 
-Manifest: current `tasks.yaml`. Shipped vs pending:
-
 | Task | Status | Commit | Tests |
 |------|--------|--------|-------|
 | Phase 2B B3 — Settlement PDF | shipped | b1a39ec | 17/17 |
@@ -26,13 +24,20 @@ Manifest: current `tasks.yaml`. Shipped vs pending:
 | T4 — Ingredient-masters operator review UI | shipped | 45e4684 | 34/34 (17 repo + 17 api) |
 | T5 — Weekly settlement digest | shipped | 4758e27 | 10/10 |
 | Audit §4 access-matrix refresh | shipped | 36c7246 | (docs-only) |
-| T6 — Desktop first-run wizard | pending | — | — |
-| T7 — Sync impl + Ed25519 peer auth | pending | — | — |
-| T8 — Cloud-bridge production wiring | pending | — | — |
+| T6 — Desktop first-run wizard | shipped (already on main) | — | (existing) |
+| T7a — sync_feed schema + appendOp + replaySince | shipped | aedd10e | 22/22 + 1 smoke |
+| T7b — /api/peers/sync-since + Ed25519 auth | shipped | 6143758 | 24/24 |
+| T8 — Graceful drainer stop + launchd template | shipped (partial) | a09804f | 9/9 |
+| T7c — Receiving-side per-table appliers | pending | — | — |
+| T8b — Cloud-bridge HMAC secret in settings.ts | pending | — | — |
 
 ## Session commits — 2026-05-14
 
 ```
+a09804f feat(cloud-bridge): graceful drainer stop + launchd template (T8)
+6143758 feat(peers): /api/peers/sync-since + Ed25519 signed-request auth (T7b)
+aedd10e feat(sync): sync_feed + replay_checkpoints schema + appendOp/replaySince (T7a)
+e264ea0 chore(orch): close out T1-T5 + audit branch, refresh remaining manifest
 36c7246 docs(architecture): refresh §4 access-control matrix to match middleware
 45e4684 feat(costing): /costing/ingredient-masters operator review surface (T4)
 6d8a08a chore(orch): roll up Phase 3.5 progress in ORCHESTRATOR_STATUS
@@ -47,39 +52,41 @@ fdfaf54 chore(docs): trio orchestration handoff protocol + recipe-photo wave clo
 All commits green:
 - typecheck clean on every commit
 - 390/390 HACCP rules tests pass
-- 17 + 10 + 19 + 2 + 34 new tests pass (Settlement PDF, weekly digest,
-  line_check audit, LARIAT_DATA_DIR cache, ingredient-masters)
-- 0 regressions on settlement-route, datapack semantic, datapack-prewarm,
-  data-cache-last-known-good, datapack-search suites.
+- 137 new/regressed tests pass (17 settlement-pdf, 10 weekly-digest,
+  19 checks-api, 2 data-cache-data-dir, 34 ingredient-masters, 22 sync-
+  feed, 24 peer-auth, 9 cloud-bridge-graceful-stop)
+- 0 regressions on existing suites (settlement-route, datapack
+  semantic/prewarm/search, data-cache-last-known-good, cloud-bridge-
+  push, cloud-bridge-drainer, recipe-photos)
 
 ## Followups outstanding
 
-- **Unpushed main** — now 22 commits ahead of `origin/main`. Push when ready.
+- **Unpushed main** — now 25 commits ahead of `origin/main`. Push when ready.
 - **Stale GitNexus index** — `af98d62` sentinel warned across session.
   Run `npx gitnexus analyze` to refresh.
-- **Audit worktree fully drained** — all 4 fixes (T1 + T2 + T3 + audit
-  doc) reapplied to main. The branch `audit/codebase-fixes-2026-05-13`
-  in `/Users/seanburdges/Dev/Lariat-worktrees/` is now obsolete and can
-  be removed.
+- **Audit worktree fully drained** — all 4 fixes reapplied to main.
+  The branch `audit/codebase-fixes-2026-05-13` in
+  `/Users/seanburdges/Dev/Lariat-worktrees/` is now obsolete; remove
+  when convenient.
 - **Uncommitted on main** — `data/normalized/compliance_rules.jsonl`
   (regenerated; project says do not hand-edit), `.vscode/tasks.json`
   (untracked IDE config), `design/` (zips + dirs from the LaRi
   Whole-Design Remix; `ed05b13` already synced the canonical output
   into `public/`).
 
-## Next wave — T6, T7, T8
+## Next wave — T7c, T8b
 
-Each remaining task is M+ effort, warrants its own dedicated session
-or `/team-run` dispatch with a reviewer agent. Recommended order:
+Each remaining task is M+ effort. Recommended order:
 
-1. **T7 — Sync impl + Ed25519 peer auth** — largest design surface
-   (conflict-resolution policy per HACCP/financial/live-state family
-   needs sign-off). Unblocks any real multi-host work. lib/syncFeed.ts
-   already has stubs; lib/peerKeypair.ts already has signProof/verifyProof.
-2. **T8 — Cloud-bridge production wiring** — moves HMAC secret out of
-   env into desktop/settings.ts, adds graceful drainer shutdown,
-   replaces ad-hoc launch with launchd/systemd unit. Cron is NOT
-   appropriate (drainer is long-running).
-3. **T6 — Desktop first-run wizard** — Vite + Electron + React;
-   slowest to ship. Useful once T8's settings.ts work lands so the
-   wizard has more to wire.
+1. **T7c — Receiving-side sync appliers.** Family-1 (HACCP append-
+   only, INSERT OR IGNORE on op_id) first — the bulk of regulated
+   tables, narrowest conflict policy. Family-2 (financial DELETE+
+   INSERT envelopes) second. Family-3 (LWW live state) last; v1
+   single-KM workflow doesn't actually exercise it.
+2. **T8b — Cloud-bridge HMAC in settings.ts + /management toggle.**
+   Pure plumbing (lib/cloudBridge* already prefers opts.secret over
+   env). Sequence after T7c so the desktop wrapper work happens in
+   one wave.
+
+Both tasks are documented in `tasks.yaml` with paths_touched +
+acceptance_tests, ready for `/team-run` dispatch.
