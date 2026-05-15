@@ -38,8 +38,8 @@ export default function ConceptLayoutPage() {
 
   return (
     <div style={{ padding: '20px' }}>
-      <h1>Interactive 2D Floor Plan (Beta Concept)</h1>
-      <p className="subtitle">This is a sandbox layout prototype. Click highlighted stations to view pan layouts.</p>
+      <h1>Floor plan</h1>
+      <p className="subtitle">Tap a station to see what&rsquo;s on the line.</p>
 
       {/* 2D Floor Plan Map mock */}
       <div style={{

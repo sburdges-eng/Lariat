@@ -117,7 +117,7 @@ export default function AnalyticsPage() {
 
   return (
     <div>
-      <h1>Analytics</h1>
+      <h1>Sales numbers</h1>
       {periodLabel && (
         <p
           className="subtitle"

@@ -60,6 +60,7 @@
     "design/**",
     "line_setups/**",
     "app/inventory/**",
-    "public/**"
+    "public/**",
+    "Lariat-worktrees/**"
   ]
 }
