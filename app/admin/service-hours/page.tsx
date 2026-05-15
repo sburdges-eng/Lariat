@@ -44,11 +44,10 @@ export default function ServiceHoursAdminPage() {
 
   return (
     <div>
-      <h1>Service Hours</h1>
+      <h1>Service hours</h1>
       <p className="subtitle">
-        Per-location opening hours by day. Archived rows are hidden by default; toggle
-        &quot;Show archived&quot; to see retired entries and restore them. Soft-delete only —
-        history is never destroyed.
+        Open and close times per room, day by day. Old hours stay tucked away under
+        &ldquo;Show archived&rdquo; and can come back any time. Nothing&rsquo;s ever really thrown out.
       </p>
 
       {locations.length === 0 ? (

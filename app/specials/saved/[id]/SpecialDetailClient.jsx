@@ -187,7 +187,7 @@ export default function SpecialDetailClient({ special, locationId }) {
 
           <div className="card">
             <h2 className="section-head mb-12">Export to recipe (CSV)</h2>
-            <p className="meta mb-12">Generates a workbook-pasteable CSV. Doesn&apos;t modify the recipe DB — paste into the master workbook on your next ingest pass.</p>
+            <p className="meta mb-12">Builds a CSV you can paste straight into the recipe workbook. Doesn&apos;t touch the recipe book here — paste it in next time the book gets updated.</p>
             {!showExport ? (
               <button type="button" className="btn" onClick={() => setShowExport(true)}>Export</button>
             ) : (

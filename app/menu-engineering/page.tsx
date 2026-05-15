@@ -74,11 +74,9 @@ export default function MenuEngineeringPage({ searchParams }: { searchParams?: {
 
   return (
     <div>
-      <h1>Menu engineering</h1>
+      <h1>Menu performance</h1>
       <p className="subtitle">
-        Per-dish cost from <strong>dish_components</strong> rows × <strong>recipe_costs</strong>.
-        Margin = (avg sale price − per-serving cost) / avg sale price.
-        Quadrants split on median margin and popularity (share of max qty).
+        What each dish makes us, and how often it sells. Stars sell a lot and make money. Dogs do neither.
         <br />
         {(() => {
           const v = getDb()

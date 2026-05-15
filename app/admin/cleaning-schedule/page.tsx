@@ -45,11 +45,10 @@ export default function CleaningScheduleAdminPage() {
 
   return (
     <div>
-      <h1>Cleaning Schedule</h1>
+      <h1>Cleaning schedule</h1>
       <p className="subtitle">
-        Per-location cleaning tasks with frequency and due dates. Archived rows are hidden
-        by default; toggle &quot;Show archived&quot; to see retired entries and restore them.
-        Soft-delete only — history is never destroyed.
+        Cleaning tasks per room — how often, when they&rsquo;re due. Old tasks stay tucked away under
+        &ldquo;Show archived&rdquo; and can come back any time. Nothing&rsquo;s ever really thrown out.
       </p>
 
       {locations.length === 0 ? (
