@@ -14,10 +14,10 @@ export default function BookingCalendar({ rows }) {
     return (
       <div className="card" style={{ padding: 18 }}>
         <div className="serif" style={{ fontSize: 22, marginBottom: 6 }}>
-          No shows ingested yet
+          No shows on the books yet
         </div>
         <div className="row-meta">
-          Run <code>npm run ingest:shows</code> after Lauren updates the workbook.
+          Pull fresh after Lauren updates the booking sheet.
         </div>
       </div>
     );

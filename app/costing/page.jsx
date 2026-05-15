@@ -92,10 +92,9 @@ export default function CostingPage() {
 
   return (
     <div>
-      <h1>Costing benchmarks</h1>
+      <h1>Cost checks</h1>
       <p className="subtitle">
-        Pre-deploy gate for the mapping engine. All three tiles must be green before shipping cost-based decisions.
-        Run <code style={{ color: 'var(--accent)' }}>npm run ingest:costing</code> to refresh.
+        Three quick checks before trusting the cost numbers. Each tile turns green when it&rsquo;s in good shape.
       </p>
 
       {/* B1 / B2 / B3 tiles */}

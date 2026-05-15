@@ -19,14 +19,12 @@ export default function PurchasingPage() {
     <div>
       <h1>Order guide</h1>
       <p className="subtitle">
-        From operations workbook <strong>Order Guide</strong> sheet ({n} rows). Run <code style={{ color: 'var(--accent)' }}>npm run ingest:costing</code>{' '}
-        (includes ops workbook when <code>LARIAT_OPS</code> points at it).
+        From the <strong>Order Guide</strong> sheet ({n} items). Pull fresh after the operations workbook is updated.
       </p>
 
       {n === 0 && (
         <div className="card" style={{ borderColor: 'var(--yellow)' }}>
-          No order guide rows yet. Ensure <code>XL/lariat_operations_workbook_*.xlsx</code> exists and run{' '}
-          <strong>npm run ingest:costing</strong>.
+          No order guide yet. Drop the operations workbook in place, then pull fresh.
         </div>
       )}
 

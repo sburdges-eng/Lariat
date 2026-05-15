@@ -73,8 +73,8 @@ export default function PackChangesPage({ searchParams }) {
     <div>
       <h1>Pack-size changes</h1>
       <p className="subtitle">
-        Vendor SKUs whose pack_size or pack_unit flipped between costing ingest
-        runs. Each row is durable until acknowledged. {counts.total} open.
+        Vendor items where the pack size or unit changed since the last cost pull.
+        Each one sticks until you give it the OK. {counts.total} open.
       </p>
 
       <div className="card form-row" style={{ marginBottom: 16, gap: 8, alignItems: 'center' }}>

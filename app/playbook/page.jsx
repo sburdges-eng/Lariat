@@ -31,7 +31,7 @@ export default function PlaybookPage({ searchParams }) {
             No upcoming shows
           </div>
           <div className="row-meta">
-            Run <code>npm run ingest:shows</code> after Lauren updates the workbook.
+            Nothing on the books yet — pull fresh after Lauren updates the booking sheet.
           </div>
         </div>
       </div>
