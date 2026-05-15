@@ -1,0 +1,57 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Trio: Claude",
+      "type": "shell",
+      "command": "claude",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "trio",
+        "reveal": "always",
+        "focus": false,
+        "echo": false
+      }
+    },
+    {
+      "label": "Trio: Gemini",
+      "type": "shell",
+      "command": "gemini",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "trio",
+        "reveal": "always",
+        "focus": false,
+        "echo": false
+      }
+    },
+    {
+      "label": "Trio: Codex",
+      "type": "shell",
+      "command": "codex",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "trio",
+        "reveal": "always",
+        "focus": false,
+        "echo": false
+      }
+    },
+    {
+      "label": "Open Lariat trio",
+      "dependsOn": ["Trio: Claude", "Trio: Gemini", "Trio: Codex"],
+      "dependsOrder": "parallel",
+      "problemMatcher": [],
+      "runOptions": { "runOn": "folderOpen" }
+    }
+  ]
+}
