@@ -59,6 +59,14 @@ catering/
 inventory/
 !app/api/inventory/
 !app/api/inventory/**
+# Operator-curated HOF inventory seed (equipment, maintenance log).
+# These are version-controlled source files — the recurring bulk
+# inventory-count exports (caught by the `inventory/` rule above) are
+# what stays gitignored.
+!data/inventory/
+!data/inventory/hof-*.csv
+!data/inventory/hof-*.md
+!data/inventory/hof-*.json
 pos/
 originals/
 EXPERIMENTS/
