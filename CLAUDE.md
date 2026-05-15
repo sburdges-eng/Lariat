@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - This is **Lariat** (restaurant F&B ops). Do **not** confuse with COOLIO (image API).
 - HACCP / labor logic is regulated. Never weaken validations or silently auto-correct records — surface errors. An out-of-range reading with a corrective note = yellow; without one = red. The 422 `needs_corrective_action` response enforces this at write time.
 - Schema changes require a migration in `lib/db.ts` (`initSchema` / `initFoodSafetyLaborSchema` / `migrateLegacyColumns`); never edit existing DDL in place.
-- UI copy targets line cooks under pressure. `docs/UI_COPY_RULES.md` is binding for anything a user sees: no SaaS jargon, kitchen verbs, 5th–8th grade reading level. Internal identifiers may stay technical.
+- UI copy targets line cooks under pressure. `docs/UI_COPY_RULES.md` is binding for anything a user sees: no SaaS jargon, kitchen verbs, 5th–8th grade reading level. Internal identifiers may stay technical. **Specifically:** never put shell commands (`<code>npm run …</code>`), env-var names (`LARIAT_*`), DB table names, or infra acronyms (LWW, family-1/2/3) into JSX text, button labels, `aria-label`/`placeholder`/`title` attrs, alert/toast strings, or subtitles — even on PIN-gated manager surfaces. Both normalize passes (`a14958d` + `7c08e9c`) drove these to zero; before any UI-touching commit, grep `app/**/*.{jsx,tsx}` for: `<code>npm `, `<code>LARIAT_`, `<code>XL/`, `Soft-delete`, `Archived rows`, `Per-location`, `Sandbox session`, `Generates a`.
 - Vendor data encodings: Toast POS CSVs are **cp1252** (not UTF-8); Shamrock `.xls` files are legacy CDFV2 and need **`xlrd`** (not `openpyxl`).
 - **Multi-session worktree protocol** — for any multi-commit batch, work in a per-tool worktree (`scripts/worktree.sh new claude <branch>` then `cd ../Lariat-worktrees/claude-<slug>`). The pre-commit guard refuses commits if HEAD drifts from the locked branch. See AGENTS.md "Multi-session protocol".
 - **Branch naming is binding.** New branches must use one of `feat/`, `fix/`, `chore/`, `wip/`. Other prefixes (`cursor/`, `feature/` with -ure, `bundle-h-*`) are legacy and being retired — do not create new ones. `scripts/worktree.sh new` and the pre-commit guard both refuse non-conforming names. Override for legacy-fixup with `LARIAT_ALLOW_ANY_BRANCH=1`. See AGENTS.md "Branch naming".
@@ -52,13 +52,20 @@ npm run test:datapack            # hybrid FTS5+BGE search client
 npm run test:price-shocks        # vendor-price shock detection
 npm run backup                   # snapshot data/lariat.db{,-wal,-shm} into backups/
 npm run export                   # exports/YYYY-MM-DD/Lariat_Daily_Export.xlsx
+
+# Kitchen-assistant prompt regression eval (needs `hermes` on PATH;
+# Ollama leg auto-engages if 127.0.0.1:11434 is reachable). Locked
+# baseline is 10/10 PASS — exit-code nonzero on any non-PASS.
+npm run eval:assistant-prompt
 ```
 
 The `--experimental-strip-types` flag is required for any `node --test` that imports a `.ts` file directly. Match the existing pattern in `package.json`.
 
 ## Architecture in one page
 
-**Stack.** Next.js 14 App Router + React 18, Node LTS, **better-sqlite3** in WAL mode, Python 3 (`openpyxl`, `xlrd`, `pdfplumber`) for ingest, **Ollama (required)** for the Kitchen Assistant + Specials Sandbox. Local-first, deterministic, offline-capable. No hidden runtime AI coupling.
+**Stack.** Next.js 16 App Router + React 19, Node LTS, **better-sqlite3** in WAL mode, Python 3 (`openpyxl`, `xlrd`, `pdfplumber`) for ingest, **Ollama (required)** for the Kitchen Assistant + Specials Sandbox. Local-first, deterministic, offline-capable. No hidden runtime AI coupling.
+
+**Next 16 build/dev quirks.** `dev` and `build` scripts pin `--webpack` because next 16 defaults to Turbopack but `next.config.mjs::webpack` does dual-runtime aliasing for three Node-only chains (mDNS via `bonjour-service`, datapack via `@huggingface/transformers` + `onnxruntime-*`, drainer via `better-sqlite3`) — none of that has been ported to Turbopack config. Do **not** drop the `--webpack` flag without porting `next.config.mjs`. `package.json` carries an `overrides` block (`postcss: ^8.5.10`, `esbuild: ^0.25.10`) to clear transitive vulns under next's bundled pipeline; `npm audit fix --force` will try to downgrade `next` itself instead — ignore it. Middleware (`middleware.js`) still functions but prints a deprecation warning at startup; rename → `proxy.ts` is a separate PR (touches the PIN gate everywhere).
 
 **Kitchen Assistant.** No feature flag — `/api/kitchen-assistant` and `/api/specials` go straight to Ollama via `lib/ollama.ts::ollamaChat()`. If Ollama is unreachable the GET ping reports `ollamaReachable: false` (UI shows an "AI is down" banner) and POST returns `502`. Configure with `LARIAT_OLLAMA_URL` / `LARIAT_OLLAMA_MODEL` (default `lari-the-kitchen-assistant` — the custom Modelfile-built tag from `training/Modelfile`, FROM `deepseek-r1:14b`); see `docs/OPERATIONS.md` for the full env table. `lib/ollama.ts::ollamaChat()` sends `think: false` on every request — DeepSeek R1 routes reasoning into a hidden `thinking` channel that consumes `num_predict` before any visible content; older models ignore the flag. The legacy `LARIAT_ASSISTANT_ENABLED` flag has been removed.
 
@@ -98,6 +105,10 @@ The `--experimental-strip-types` flag is required for any `node --test` that imp
 
 **Sales depletion (`lib/salesDepletion.ts`).** Phase 3: when Toast reports "sold 3 Baja Tacos," the system auto-debits BOM-equivalent ingredients from inventory. Two layers: pure resolver `resolveDepletionsForSale(salesLine, dishComponents, bomLines, recipes)` returns depletion rows with no I/O (unit-testable); applier `applyDepletionsForPeriod(location, period)` wraps it in a single tx that writes `inventory_updates` + `audit_events` + a `sales_depletion_runs` row. Resolution chain: `sales_lines.item_name` → `dish_components` → for each row, either `vendor_item` (direct) or `recipe` (expand via `bom_lines` scaled by yield in `entities_recipes`). Pre-phase3 DB snapshot: `data/lariat.db.bak-pre-phase3`.
 
+**KDS sibling repo.** This repo owns the **server** side of the Lariat ↔ KDS protocol (`lib/kds.ts` rule module, `app/api/kds/tickets/route.js`, `app/api/kds/tickets/[id]/bump/route.js`, `app/kds/punch/page.jsx`, `kds_tickets` + `kds_ticket_lines` tables in `lib/db.ts`, Bonjour advertise via `lib/mdnsDiscovery.ts`). The **client** is a separate Swift app at `~/Dev/Lariat-KDS/` (gh: `sburdges-eng/Lariat-KDS`). The protocol spec lives at `Lariat-KDS/docs/lariat-kds-protocol.md`; the Swift parser fails closed on any drift in the response shape. **Do not change `BumpResponse` field names in `lib/kds.ts` without updating the protocol doc first** — that's a hard rule per `Lariat-KDS/CLAUDE.md`.
+
+**Kitchen-assistant prompt eval (`training/eval/`).** Regression harness for `lib/ollama.ts::GROUNDED_SYSTEM`. Two runners (`hermes -z` always; Ollama if `127.0.0.1:11434` reachable) + Hermes grader. Locked baseline: 10/10 PASS — exit-code nonzero on any non-PASS (FAIL, PARTIAL, or ERROR), so the script can gate CI or pre-merge. Run via `npm run eval:assistant-prompt`. Per-run JSON dumps land in `training/eval/results/` (gitignored).
+
 ## Testing rules
 
 - **Do not mock SQLite.** Integration tests use a real in-memory DB via `setDbPathForTest()`. We got burned by mocked costing math; don't retry.
@@ -111,7 +122,7 @@ The `--experimental-strip-types` flag is required for any `node --test` that imp
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Lariat** (23076 symbols, 35210 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Lariat** (23209 symbols, 35392 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
