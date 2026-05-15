@@ -1,0 +1,1106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LaRiOS — Management proposal · 2026-05-15</title>
+<meta name="viewport" content="width=1440">
+<link rel="stylesheet" href="./tokens.css">
+<style>
+/* ──────────────────────────────────────────────────────────────────
+   Proposal-specific scaffolding (extends tokens.css). Stays inside
+   the LaRiOS aesthetic: warm bone paper, ember accent, Instrument
+   Serif italic for emphasis, JetBrains Mono for data, Inter Tight
+   for body. Decorative cues: marquee bulb dots, perforated rules,
+   ticket-stub corner cutouts, paper-grain overlay.
+   ────────────────────────────────────────────────────────────── */
+
+html,body{background:var(--bone)}
+
+/* Subtle paper-grain overlay (SVG noise) — gives the warm cream the
+   character of actual show-program stock rather than flat color. */
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.84' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 .11 0 0 0 0 .10 0 0 0 0 .08 0 0 0 .045 0'/></filter><rect width='240' height='240' filter='url(%23n)'/></svg>");
+  mix-blend-mode:multiply; opacity:.85;
+}
+
+.wrap{position:relative; z-index:1; max-width:1400px; margin:0 auto; padding:0 28px 96px}
+
+/* ── Header marquee — vintage venue program ── */
+.marquee{
+  position:relative; padding:34px 36px 26px; margin-top:28px;
+  background:var(--ink); color:var(--cream);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow-3);
+  overflow:hidden;
+}
+/* marquee bulbs running across the top */
+.marquee::before{
+  content:""; position:absolute; top:14px; left:0; right:0; height:6px;
+  background-image:radial-gradient(circle, var(--ember-glow) 0 2.5px, transparent 3px);
+  background-size:18px 6px; background-repeat:repeat-x;
+  opacity:.55;
+  filter:drop-shadow(0 0 4px var(--ember));
+}
+.marquee::after{
+  content:""; position:absolute; bottom:14px; left:0; right:0; height:6px;
+  background-image:radial-gradient(circle, var(--ember-glow) 0 2.5px, transparent 3px);
+  background-size:18px 6px; background-repeat:repeat-x;
+  opacity:.4;
+  filter:drop-shadow(0 0 3px var(--ember));
+}
+.marquee h1{
+  font-family:var(--serif); font-weight:400; font-size:78px;
+  line-height:.95; letter-spacing:-.025em; margin:0; padding:18px 0 4px;
+  color:var(--cream); position:relative; z-index:1;
+}
+.marquee h1 em{ font-style:italic; color:var(--ember-glow); }
+.marquee .stub{
+  display:flex; justify-content:space-between; align-items:flex-end;
+  gap:30px; position:relative; z-index:1;
+}
+.marquee .stub-l{ display:flex; flex-direction:column; gap:6px }
+.marquee .ticket-no{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.32em;
+  color:var(--muted); font-weight:700; text-transform:uppercase;
+}
+.marquee .sub{
+  font-family:var(--serif); font-style:italic; font-size:18px;
+  color:var(--paper-3); letter-spacing:.005em;
+}
+.marquee .stub-r{ display:flex; align-items:flex-end; gap:18px; }
+.marquee .live{
+  display:flex; align-items:center; gap:9px;
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.28em;
+  text-transform:uppercase; color:var(--ember-glow); font-weight:700;
+}
+.marquee .live .dot{ width:8px; height:8px; border-radius:50%; background:var(--ember-glow);
+  box-shadow:0 0 10px var(--ember); animation:pulse 1.6s ease-in-out infinite;}
+@keyframes pulse{ 50%{ opacity:.35; transform:scale(.7) } }
+.marquee .clock{ font-family:var(--serif); font-size:38px; color:var(--cream); line-height:1;
+  letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
+
+/* ── Subnav: section jump ── */
+.subnav{
+  display:flex; gap:0; margin:0 0 32px;
+  border-bottom:1px solid var(--hair); padding-top:18px;
+  position:sticky; top:0; z-index:5;
+  background:linear-gradient(180deg, var(--bone) 70%, rgba(243,236,224,0));
+  padding-bottom:0;
+}
+.subnav a{
+  display:inline-flex; align-items:center; gap:8px; padding:14px 18px 13px;
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.26em;
+  text-transform:uppercase; font-weight:700; color:var(--muted);
+  text-decoration:none; border-bottom:2px solid transparent; margin-bottom:-1px;
+  transition:all .12s var(--easing);
+}
+.subnav a:hover{ color:var(--ink); }
+.subnav a.on{ color:var(--ink); border-bottom-color:var(--ember); }
+.subnav a .num{ font-family:var(--serif); font-style:italic; font-size:14px;
+  letter-spacing:0; color:var(--ember-deep); font-weight:400; text-transform:none;}
+.subnav .right-stamp{
+  margin-left:auto; padding:14px 0 12px;
+  font-family:var(--mono); font-size:10px; letter-spacing:.24em;
+  text-transform:uppercase; color:var(--muted);
+}
+
+/* ── Section title card — vintage TV title ── */
+.section-card{
+  margin:48px 0 22px; padding:26px 32px;
+  background:var(--cream); border:1px solid var(--hair);
+  position:relative; box-shadow:var(--shadow-1);
+}
+.section-card::before, .section-card::after{
+  content:""; position:absolute; width:18px; height:18px;
+  border:1px solid var(--ember-deep);
+}
+.section-card::before{ top:-1px; left:-1px; border-right:0; border-bottom:0; }
+.section-card::after { bottom:-1px; right:-1px; border-left:0; border-top:0; }
+.section-card .eyebrow{ margin-bottom:8px; }
+.section-card .title{ font-family:var(--serif); font-size:46px; line-height:1; letter-spacing:-.02em;
+  margin:0 0 10px; font-weight:400; }
+.section-card .title em{ font-style:italic; color:var(--ember-deep); }
+.section-card .summary{ font-family:var(--serif); font-size:18px; font-style:italic; color:var(--char);
+  max-width:780px; margin:0; }
+
+/* ── Panels ── */
+.panel{ background:var(--cream); border:1px solid var(--hair); border-radius:var(--radius);
+  padding:22px; box-shadow:var(--shadow-1); }
+.panel-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:18px;}
+.panel-head h3{ margin:0; font-family:var(--serif); font-size:24px; font-weight:400;
+  letter-spacing:-.005em; }
+.panel-head .eyebrow{ font-weight:700; }
+
+/* ── Perforated divider (ticket stub) ── */
+.perforated{ height:1px; background-image:linear-gradient(90deg, var(--hair) 50%, transparent 50%);
+  background-size:8px 1px; margin:14px -22px; }
+
+/* ── KPI strip — stronger than default .kpi for hero ── */
+.kpi-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px;}
+.kpi-strong{
+  position:relative; padding:18px 20px; background:var(--cream);
+  border:1px solid var(--hair); border-radius:var(--radius);
+  box-shadow:var(--shadow-1);
+}
+.kpi-strong .kpi-l{ font-family:var(--mono); font-size:9.5px; letter-spacing:.26em;
+  text-transform:uppercase; color:var(--muted); font-weight:700; }
+.kpi-strong .kpi-v{ font-family:var(--serif); font-size:54px; line-height:1; letter-spacing:-.022em;
+  margin:8px 0 4px; font-feature-settings:"tnum"; }
+.kpi-strong .kpi-v em{ font-style:italic; color:var(--ember-deep); }
+.kpi-strong .kpi-s{ font-family:var(--mono); font-size:11px; color:var(--muted); }
+.kpi-strong .kpi-s.ok{ color:var(--sage-deep) }
+.kpi-strong .kpi-s.warn{ color:var(--brass-deep) }
+.kpi-strong .kpi-s.alert{ color:var(--rust) }
+.kpi-strong .crosshair-cnr{ position:absolute; right:14px; top:14px; }
+.kpi-strong .crosshair-cnr svg{ width:14px; height:14px; opacity:.45; }
+
+/* ── Data tables — operator-grade dense ── */
+table.data{ width:100%; border-collapse:collapse; font-family:var(--sans); font-size:13px; }
+table.data thead th{
+  text-align:left; padding:10px 12px 9px;
+  border-bottom:1px solid var(--hair);
+  font-family:var(--mono); font-size:9.5px; letter-spacing:.22em;
+  text-transform:uppercase; font-weight:700; color:var(--muted);
+}
+table.data tbody td{
+  padding:12px 12px; border-bottom:1px dashed var(--hair-2);
+  vertical-align:middle;
+}
+table.data tbody tr:last-child td{ border-bottom:0 }
+table.data tbody tr:hover{ background:var(--paper) }
+table.data .fp{ font-family:var(--mono); font-size:11px; color:var(--char); letter-spacing:.04em; }
+table.data .num{ font-family:var(--mono); font-feature-settings:"tnum"; }
+table.data .name{ font-family:var(--serif); font-size:16px; letter-spacing:-.005em; }
+table.data .name em{ font-style:italic; color:var(--ember-deep); }
+
+/* small action button-link */
+.act{
+  font-family:var(--mono); font-size:10px; letter-spacing:.18em;
+  text-transform:uppercase; font-weight:700; padding:4px 9px;
+  border:1px solid var(--hair); border-radius:2px; color:var(--char);
+  background:transparent; cursor:pointer; transition:all .12s var(--easing);
+}
+.act:hover{ border-color:var(--ember); color:var(--ember-deep); }
+.act.alert{ color:var(--rust); border-color:rgba(139,46,31,.4); }
+.act.alert:hover{ background:rgba(139,46,31,.08); border-color:var(--rust); }
+
+/* ── Two-column layout for sync panels ── */
+.two-col{ display:grid; grid-template-columns:1.4fr 1fr; gap:18px; }
+.three-col{ display:grid; grid-template-columns:1.2fr 1fr 1fr; gap:18px; }
+
+/* ── Cloud-bridge form ── */
+.form-row{ display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+.form-row label{
+  font-family:var(--mono); font-size:9.5px; letter-spacing:.24em;
+  text-transform:uppercase; font-weight:700; color:var(--muted);
+}
+.form-row input, .form-row select{
+  padding:11px 12px; background:var(--bone); border:1px solid var(--hair);
+  border-radius:var(--radius-sm); font-family:var(--mono); font-size:13px;
+  color:var(--ink); transition:border-color .12s var(--easing);
+}
+.form-row input:focus, .form-row select:focus{ outline:0; border-color:var(--ember); background:var(--cream); }
+.form-row .hint{ font-family:var(--serif); font-style:italic; font-size:13px; color:var(--muted); }
+.secret-row{ position:relative }
+.secret-row .reveal{
+  position:absolute; right:8px; top:8px;
+  font-family:var(--mono); font-size:9px; letter-spacing:.2em; text-transform:uppercase;
+  font-weight:700; padding:5px 8px; background:var(--paper); border:1px solid var(--hair);
+  border-radius:2px; color:var(--muted); cursor:pointer;
+}
+
+/* ── Dead-letter row ── */
+.dl-row{
+  display:grid; grid-template-columns:auto 1fr auto auto; gap:14px;
+  padding:14px 16px; border:1px solid var(--hair); border-radius:var(--radius-sm);
+  background:var(--cream); align-items:center; margin-bottom:10px;
+}
+.dl-row .age{
+  font-family:var(--mono); font-size:11px; color:var(--rust); font-weight:700;
+  padding:3px 7px; background:rgba(139,46,31,.10); border-radius:2px;
+}
+.dl-row .table-name{ font-family:var(--serif); font-size:15px; }
+.dl-row .table-name em{ font-style:italic; color:var(--ember-deep); }
+.dl-row .reason{ font-family:var(--mono); font-size:10.5px; color:var(--muted); letter-spacing:.04em; }
+
+/* ── Equipment cards (HOF) ── */
+.eq-filters{ display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+.eq-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; }
+.eq-card{
+  position:relative; background:var(--cream); border:1px solid var(--hair);
+  border-radius:var(--radius); padding:18px 18px 16px;
+  display:flex; flex-direction:column; gap:10px;
+  transition:transform .12s var(--easing), box-shadow .12s var(--easing);
+}
+.eq-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-2); }
+.eq-card .eq-head{ display:flex; justify-content:space-between; align-items:flex-start; }
+.eq-card .eq-name{ font-family:var(--serif); font-size:20px; line-height:1.1; letter-spacing:-.005em; flex:1 }
+.eq-card .eq-name em{ font-style:italic; color:var(--ember-deep) }
+.eq-card .eq-cat{ font-family:var(--mono); font-size:9px; letter-spacing:.22em;
+  text-transform:uppercase; color:var(--muted); font-weight:700; margin-top:2px; }
+.eq-card .eq-meta{ display:flex; flex-direction:column; gap:6px; font-family:var(--mono); font-size:11.5px;
+  color:var(--char); }
+.eq-card .eq-meta-row{ display:flex; gap:8px; align-items:baseline; }
+.eq-card .eq-meta-l{ font-size:8.5px; letter-spacing:.22em; text-transform:uppercase; color:var(--muted); font-weight:700; width:64px; }
+.eq-card .eq-meta-v{ flex:1; word-break:break-all; }
+.eq-card .eq-foot{ display:flex; align-items:center; gap:10px; margin-top:2px; }
+.eq-card .photo-stack{ display:flex; gap:4px; margin-left:auto; }
+.eq-card .photo-stack i{
+  font-style:normal; font-family:var(--mono); font-size:9px; letter-spacing:.1em;
+  background:var(--paper); padding:3px 6px; color:var(--muted); border-radius:2px;
+}
+.eq-card.needs::after{
+  content:""; position:absolute; top:0; left:0; bottom:0; width:3px;
+  background:var(--rust); border-radius:var(--radius) 0 0 var(--radius);
+}
+.eq-card.scheduled::after{
+  content:""; position:absolute; top:0; left:0; bottom:0; width:3px;
+  background:var(--brass); border-radius:var(--radius) 0 0 var(--radius);
+}
+
+/* ── Floor-plan ── */
+.fp-stage{
+  display:grid; grid-template-columns:1.4fr 1fr; gap:18px; min-height:560px;
+}
+.fp-canvas{
+  position:relative; background:var(--cream); border:1px solid var(--hair);
+  border-radius:var(--radius); padding:18px; box-shadow:var(--shadow-1);
+  overflow:hidden;
+}
+.fp-canvas svg{ display:block; width:100%; height:100%; }
+
+.fp-canvas .stage{ fill:var(--ink); }
+.fp-canvas .stage-label{ font-family:var(--serif); font-size:18px; fill:var(--cream); font-style:italic; }
+.fp-canvas .table{ fill:var(--paper); stroke:var(--hair); stroke-width:1; cursor:pointer; transition:all .15s var(--easing); }
+.fp-canvas .table:hover{ fill:var(--cream); stroke:var(--ember); stroke-width:1.5; }
+.fp-canvas .table.seated{ fill:var(--ember); stroke:var(--ember-deep); }
+.fp-canvas .table.dirty{ fill:var(--brass); stroke:var(--brass-deep); }
+.fp-canvas .table.held{ fill:var(--paper-3); stroke:var(--char); }
+.fp-canvas .table.selected{ stroke:var(--ink); stroke-width:2.5; filter:drop-shadow(0 4px 10px rgba(29,26,21,.25)); }
+.fp-canvas .t-label{ font-family:var(--mono); font-size:10px; fill:var(--char); pointer-events:none; font-weight:700; }
+.fp-canvas .table.seated + .t-label, .fp-canvas .table.seated ~ .t-label { fill:var(--cream); }
+.fp-canvas .zone-label{ font-family:var(--mono); font-size:9.5px; letter-spacing:.22em;
+  text-transform:uppercase; fill:var(--muted); font-weight:700; }
+.fp-canvas .bar-stool{ fill:var(--paper); stroke:var(--char); stroke-width:1; }
+.fp-canvas .bar-line{ stroke:var(--ink); stroke-width:2; fill:none; }
+.fp-canvas .pool{ fill:var(--sage); stroke:var(--sage-deep); stroke-width:1; opacity:.85; }
+.fp-canvas .patio{ fill:none; stroke:var(--hair); stroke-width:1; stroke-dasharray:4,4; }
+.fp-canvas .patio-label{ font-family:var(--mono); font-size:9px; letter-spacing:.18em;
+  text-transform:uppercase; fill:var(--muted); font-weight:700;}
+
+.fp-side{ display:flex; flex-direction:column; gap:14px; }
+.fp-legend{ display:flex; gap:12px; flex-wrap:wrap; margin-top:14px; }
+.fp-legend .leg{ display:inline-flex; align-items:center; gap:6px; font-family:var(--mono);
+  font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+.fp-legend .sw{ width:14px; height:10px; border:1px solid var(--hair); border-radius:2px; }
+.fp-legend .sw.open{ background:var(--paper); }
+.fp-legend .sw.seated{ background:var(--ember); border-color:var(--ember-deep); }
+.fp-legend .sw.dirty{ background:var(--brass); border-color:var(--brass-deep); }
+.fp-legend .sw.held{ background:var(--paper-3); border-color:var(--char); }
+
+.fp-detail{ flex:1; padding:22px; background:var(--cream); border:1px solid var(--hair);
+  border-radius:var(--radius); box-shadow:var(--shadow-1); position:relative; min-height:380px; }
+.fp-detail .crosshair-mark{ position:absolute; }
+.fp-detail .t-no{ font-family:var(--serif); font-size:68px; line-height:1; letter-spacing:-.025em; margin:0; }
+.fp-detail .t-no em{ font-style:italic; color:var(--ember-deep); }
+.fp-detail .t-zone{ font-family:var(--mono); font-size:11px; letter-spacing:.24em;
+  text-transform:uppercase; color:var(--muted); font-weight:700; margin-top:2px; }
+.fp-detail .stat{ margin-top:18px; display:grid; grid-template-columns:auto 1fr; gap:8px 14px;
+  font-family:var(--mono); font-size:12px; color:var(--char); }
+.fp-detail .stat dt{ font-size:9px; letter-spacing:.22em; text-transform:uppercase; color:var(--muted); font-weight:700; padding-top:3px; }
+.fp-detail .stat dd{ margin:0; font-family:var(--sans); font-size:14px; }
+.fp-detail .stat dd em{ font-family:var(--serif); font-style:italic; color:var(--ember-deep); font-size:16px; }
+.fp-detail .actions{ display:flex; gap:8px; margin-top:24px; flex-wrap:wrap; }
+
+/* ── Sparkline (sync feed depth over time) ── */
+.spark{ height:36px; width:100%; display:block; }
+
+/* small inline animation for clock + status dots */
+@keyframes blink{50%{opacity:.2}}
+.blink{ animation:blink 1.1s linear infinite; }
+
+/* ─── Cookline strip (equipment surface) ─── */
+.cookline-strip{ background:var(--ink); color:var(--cream); padding:18px 22px;
+  border-radius:var(--radius); margin-bottom:18px; position:relative; overflow:hidden; }
+.cookline-strip::before{
+  content:""; position:absolute; left:0; right:0; bottom:0; height:3px;
+  background:repeating-linear-gradient(90deg, var(--ember) 0 24px, transparent 24px 32px);
+}
+.cookline-strip .strip-eyebrow{ font-family:var(--mono); font-size:10px;
+  letter-spacing:.28em; text-transform:uppercase; color:var(--paper-3); font-weight:700; }
+.cookline-strip .strip-row{ display:flex; gap:18px; align-items:flex-end; margin-top:14px;
+  font-family:var(--serif); font-size:15px; flex-wrap:wrap; }
+.cookline-strip .strip-row .unit{ display:inline-flex; flex-direction:column; gap:2px; min-width:120px; }
+.cookline-strip .strip-row .unit .name{ font-style:italic; color:var(--ember-glow); font-size:16px; line-height:1.05; }
+.cookline-strip .strip-row .unit .meta{ font-family:var(--mono); font-size:9.5px; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--muted); font-weight:700; }
+.cookline-strip .pipe{ width:1px; height:34px; background:rgba(243,236,224,.15); align-self:center }
+
+/* tiny utility */
+.row{display:flex; align-items:center; gap:10px}
+
+/* hide print-only */
+@media print{ .subnav{position:static} body::before{display:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ────────── MARQUEE HEADER ────────── -->
+  <header class="marquee">
+    <div class="stub">
+      <div class="stub-l">
+        <span class="ticket-no">No 0517 · LaRiOS · House of Fame</span>
+        <h1>Management <em>command</em></h1>
+        <span class="sub">Proposal for /management/sync · /management/cloud-bridge · /equipment/hof · floor-plan editor</span>
+      </div>
+      <div class="stub-r">
+        <span class="live"><span class="dot"></span> On the air</span>
+        <span class="clock" id="clock">—:—:—</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ────────── SECTION JUMP ────────── -->
+  <nav class="subnav">
+    <a href="#sync" class="on"><span class="num">i.</span> sync</a>
+    <a href="#bridge"><span class="num">ii.</span> cloud-bridge</a>
+    <a href="#equipment"><span class="num">iii.</span> equipment · HOF</a>
+    <a href="#floorplan"><span class="num">iv.</span> floor plan</a>
+    <span class="right-stamp">Stamp · 2026-05-15 · House of Fame</span>
+  </nav>
+
+  <!-- ════════════════════════════════════════════════════════
+       § i. /management/sync
+       ════════════════════════════════════════════════════════ -->
+  <section id="sync">
+    <div class="section-card">
+      <div class="eyebrow">§ i · cross-host sync</div>
+      <h2 class="title">The <em>nervous system</em>, watched.</h2>
+      <p class="summary">
+        Every regulated mutation in the venue writes one row to <span class="mono">sync_feed</span>.
+        Peers pull the feed under Ed25519 signed requests; the receiver applies family-1 inserts,
+        family-2 envelopes, and a sober skip-with-audit for family-3 LWW. This page is the operator's
+        live look at who's trusted, who's caught up, and what's stuck.
+      </p>
+    </div>
+
+    <!-- KPI strip -->
+    <div class="kpi-row">
+      <div class="kpi-strong">
+        <span class="crosshair-cnr"><svg viewBox="0 0 12 12"><path d="M0 0h6M0 0v6M12 12h-6M12 12v-6" stroke="currentColor" fill="none"/></svg></span>
+        <div class="kpi-l">Peers trusted</div>
+        <div class="kpi-v">04 <em style="font-size:38px;">/ 06</em></div>
+        <div class="kpi-s ok">2 revoked · 1 unseen ≥ 24h</div>
+      </div>
+      <div class="kpi-strong">
+        <div class="kpi-l">Sync feed depth</div>
+        <div class="kpi-v">12 482</div>
+        <svg class="spark" viewBox="0 0 100 36" preserveAspectRatio="none">
+          <polyline fill="none" stroke="var(--ember)" stroke-width="1.5"
+            points="0,28 5,26 10,22 15,24 20,19 25,17 30,18 35,14 40,13 45,15 50,10 55,11 60,8 65,9 70,6 75,7 80,5 85,4 90,3 95,2 100,4"/>
+          <polyline fill="rgba(200,90,42,.10)" stroke="none"
+            points="0,28 5,26 10,22 15,24 20,19 25,17 30,18 35,14 40,13 45,15 50,10 55,11 60,8 65,9 70,6 75,7 80,5 85,4 90,3 95,2 100,4 100,36 0,36"/>
+        </svg>
+      </div>
+      <div class="kpi-strong">
+        <div class="kpi-l">Oldest unack</div>
+        <div class="kpi-v">2 <em style="font-size:30px">h</em> 11 <em style="font-size:30px">m</em></div>
+        <div class="kpi-s warn">Tablet-2 last applied 14:09</div>
+      </div>
+      <div class="kpi-strong">
+        <div class="kpi-l">Apply skips · 24h</div>
+        <div class="kpi-v">07</div>
+        <div class="kpi-s">6 family-3 · 1 schema-drift</div>
+      </div>
+    </div>
+
+    <!-- two-column body -->
+    <div class="two-col">
+      <!-- peer trust table -->
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Trusted <em style="font-family:var(--serif);font-style:italic;color:var(--ember-deep)">peers</em></h3>
+          <div class="row">
+            <span class="eyebrow">peer_trust</span>
+            <button class="act">+ Add peer</button>
+          </div>
+        </div>
+        <table class="data">
+          <thead>
+            <tr><th style="width:130px">Fingerprint</th><th>Label</th><th style="width:115px">Last seen</th><th style="width:120px">Checkpoint</th><th style="width:90px">State</th><th style="width:50px"></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="fp">fd4ca49758fb9511</td>
+              <td class="name">Hub · <em>kitchen</em></td>
+              <td class="num">14:09:02</td>
+              <td class="num">→ 12 481</td>
+              <td><span class="pill ok"><span class="dot ok"></span>active</span></td>
+              <td><button class="act">⋯</button></td>
+            </tr>
+            <tr>
+              <td class="fp">8a2bc3079111ed</td>
+              <td class="name">Tablet-1 · <em>expo</em></td>
+              <td class="num">14:08:55</td>
+              <td class="num">→ 12 481</td>
+              <td><span class="pill ok"><span class="dot ok"></span>active</span></td>
+              <td><button class="act">⋯</button></td>
+            </tr>
+            <tr>
+              <td class="fp">714d9bb20fc844</td>
+              <td class="name">Tablet-2 · <em>bar</em></td>
+              <td class="num">12:00:33</td>
+              <td class="num">→ 12 109</td>
+              <td><span class="pill warn"><span class="dot warn"></span>stale</span></td>
+              <td><button class="act">⋯</button></td>
+            </tr>
+            <tr>
+              <td class="fp">c12a4ee70bb330</td>
+              <td class="name">Standby · <em>BOH laptop</em></td>
+              <td class="num">07:14:01</td>
+              <td class="num">→ 12 480</td>
+              <td><span class="pill ok"><span class="dot ok"></span>active</span></td>
+              <td><button class="act">⋯</button></td>
+            </tr>
+            <tr style="opacity:.45">
+              <td class="fp">ff990aabb83321</td>
+              <td class="name">Server-3 · <em>retired</em></td>
+              <td class="num">2025-12-04</td>
+              <td class="num">→ 9 401</td>
+              <td><span class="pill alert"><span class="dot alert"></span>revoked</span></td>
+              <td><button class="act">⋯</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- feed source breakdown -->
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Feed <em style="font-family:var(--serif);font-style:italic;color:var(--ember-deep)">sources</em></h3>
+          <span class="eyebrow">12 482 rows · last hour 137</span>
+        </div>
+        <table class="data">
+          <thead>
+            <tr><th>source_host</th><th style="width:80px;text-align:right">count</th><th style="width:140px">share</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="name">Hub · <em>kitchen</em></td><td class="num" style="text-align:right">8 921</td>
+              <td><div class="bar"><i style="width:72%"></i></div></td></tr>
+            <tr><td class="name">Tablet-1 · <em>expo</em></td><td class="num" style="text-align:right">2 145</td>
+              <td><div class="bar"><i style="width:17%;background:var(--brass)"></i></div></td></tr>
+            <tr><td class="name">Tablet-2 · <em>bar</em></td><td class="num" style="text-align:right">980</td>
+              <td><div class="bar"><i class="ok" style="width:8%"></i></div></td></tr>
+            <tr><td class="name">Standby · <em>BOH</em></td><td class="num" style="text-align:right">436</td>
+              <td><div class="bar"><i style="width:3%;background:var(--sage)"></i></div></td></tr>
+          </tbody>
+        </table>
+
+        <div class="perforated"></div>
+
+        <div class="panel-head" style="margin-bottom:12px">
+          <h3 style="font-size:18px">By <em style="font-family:var(--serif);font-style:italic;color:var(--ember-deep)">table</em></h3>
+          <span class="eyebrow">family-1 tier</span>
+        </div>
+        <div class="ticker-row" style="flex-wrap:wrap;gap:14px;font-size:12px">
+          <span>cooling_log <strong style="color:var(--ink)">2 401</strong></span>
+          <span>temp_log <strong style="color:var(--ink)">1 887</strong></span>
+          <span>line_check_entries <strong style="color:var(--ink)">1 511</strong></span>
+          <span>audit_events <strong style="color:var(--ink)">1 244</strong></span>
+          <span>receiving_log <strong style="color:var(--ink)">802</strong></span>
+          <span>date_marks <strong style="color:var(--ink)">541</strong></span>
+          <span>tphc_entries <strong style="color:var(--ink)">421</strong></span>
+          <span class="muted">+ 14 more</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- recent apply outcomes -->
+    <div class="panel" style="margin-top:18px">
+      <div class="panel-head">
+        <h3>Recent <em style="font-family:var(--serif);font-style:italic;color:var(--ember-deep)">apply</em> outcomes</h3>
+        <span class="eyebrow">tailing live · 14:11 → 14:09</span>
+      </div>
+      <table class="data">
+        <thead>
+          <tr><th style="width:80px">14:11</th><th style="width:60px">peer</th><th>op_id</th><th style="width:140px">table</th><th style="width:110px">outcome</th><th>reason</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="num">14:11:07</td><td class="fp">fd4c…</td><td class="fp">019281f1-2b14-7a02-9a01-…</td><td class="name">cooling_log</td><td><span class="pill ok"><span class="dot ok"></span>applied</span></td><td class="muted">—</td></tr>
+          <tr><td class="num">14:11:05</td><td class="fp">8a2b…</td><td class="fp">019281f1-21a4-7a02-9a01-…</td><td class="name">line_check_entries</td><td><span class="pill ok"><span class="dot ok"></span>applied</span></td><td class="muted">—</td></tr>
+          <tr><td class="num">14:10:58</td><td class="fp">8a2b…</td><td class="fp">019281f0-fa30-7a02-9a01-…</td><td class="name">dish_components</td><td><span class="pill warn"><span class="dot warn"></span>skipped</span></td><td class="muted">family 3 deferred</td></tr>
+          <tr><td class="num">14:10:51</td><td class="fp">fd4c…</td><td class="fp">019281f0-c01a-7a02-9a01-…</td><td class="name">temp_log</td><td><span class="pill ok"><span class="dot ok"></span>applied</span></td><td class="muted">—</td></tr>
+          <tr><td class="num">14:10:32</td><td class="fp">714d…</td><td class="fp">019281f0-1004-7a02-9a01-…</td><td class="name">audit_events</td><td><span class="pill ok"><span class="dot ok"></span>applied</span></td><td class="muted">—</td></tr>
+          <tr><td class="num">14:09:11</td><td class="fp">714d…</td><td class="fp">019281ef-aa12-7a02-9a01-…</td><td class="name">vendor_prices</td><td><span class="pill alert"><span class="dot alert"></span>schema-drift</span></td><td class="muted">where missing required cols: location_id</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+
+  <!-- ════════════════════════════════════════════════════════
+       § ii. /management/cloud-bridge
+       ════════════════════════════════════════════════════════ -->
+  <section id="bridge">
+    <div class="section-card">
+      <div class="eyebrow">§ ii · cloud-bridge</div>
+      <h2 class="title">The <em>wire</em> upstairs.</h2>
+      <p class="summary">
+        Outbox-backed push to the cloud peer. HMAC-signed today; will move to Ed25519 once the receiver
+        cuts over. Two operator concerns: (1) keep the URL + secret correct, (2) clear the dead-letter
+        queue when something gets stuck.
+      </p>
+    </div>
+
+    <div class="three-col">
+      <!-- settings form -->
+      <div class="panel">
+        <div class="panel-head">
+          <h3><em style="font-family:var(--serif);font-style:italic;color:var(--ember-deep)">Settings</em></h3>
+          <span class="eyebrow">desktop/settings.ts</span>
+        </div>
+
+        <div class="form-row">
+          <label>Cloud peer URL</label>
+          <input value="https://api.lariat.example" spellcheck="false">
+          <div class="hint">Where push goes. https only.</div>
+        </div>
+
+        <div class="form-row secret-row">
+          <label>HMAC secret</label>
+          <input type="password" value="••••••••••••••••••••••••••••••" spellcheck="false">
+          <button class="reveal">Show</button>
+          <div class="hint">Per-location secret. Rotate by replacing here + at the cloud peer.</div>
+        </div>
+
+        <div class="form-row">
+          <label>Auth algorithm</label>
+          <select>
+            <option>HMAC-SHA256 (v1)</option>
+            <option disabled>Ed25519 (v2 — cloud peer not ready)</option>
+          </select>
+        </div>
+
+        <div class="perforated"></div>
+
+        <div class="row" style="justify-content:flex-end;gap:8px">
+          <button class="btn ghost">Test connection</button>
+          <button class="btn primary">Save</button>
+        </div>
+      </div>
+
+      <!-- push status -->
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Push <em style="font-family:var(--serif);font-style:italic;color:var(--ember-deep)">status</em></h3>
+          <span class="eyebrow">drainer · tick 30s</span>
+        </div>
+
+        <div class="kpi" style="margin-bottom:12px">
+          <span class="kpi-l">Queue depth</span>
+          <span class="kpi-v" style="font-size:48px">7</span>
+          <span class="kpi-s ok">last push 12s ago · 200 OK</span>
+        </div>
+
+        <div class="kpi" style="margin-bottom:12px">
+          <span class="kpi-l">24h success rate</span>
+          <span class="kpi-v" style="font-size:32px">99.<em style="font-style:italic;color:var(--ember-deep)">2%</em></span>
+          <span class="kpi-s">3 transient · 0 dead-letter (24h)</span>
+        </div>
+
+        <svg class="spark" viewBox="0 0 100 36" preserveAspectRatio="none" style="height:46px;margin-top:6px">
+          <polyline fill="none" stroke="var(--sage)" stroke-width="1.5"
+            points="0,8 10,9 20,7 25,12 30,8 40,7 50,9 55,28 60,9 70,6 80,7 90,8 100,7"/>
+        </svg>
+        <div class="ticker-row" style="font-size:10px;color:var(--muted);justify-content:space-between">
+          <span>−24h</span><span>−12h</span><span>now</span>
+        </div>
+      </div>
+
+      <!-- dead-letter triage -->
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Dead <em style="font-family:var(--serif);font-style:italic;color:var(--ember-deep)">letters</em></h3>
+          <span class="eyebrow">cloud_bridge_outbox · 3 stuck</span>
+        </div>
+
+        <div class="dl-row">
+          <span class="age">02h 14m</span>
+          <div>
+            <div class="table-name">settlement_summaries · <em>row #82</em></div>
+            <div class="reason">HTTP 502 × 5 — peer.lariat.example/v1/sync</div>
+          </div>
+          <button class="act">Replay</button>
+          <button class="act alert">Discard</button>
+        </div>
+
+        <div class="dl-row">
+          <span class="age">04h 33m</span>
+          <div>
+            <div class="table-name">beo_events · <em>row #79</em></div>
+            <div class="reason">timeout × 5 — connect ETIMEDOUT</div>
+          </div>
+          <button class="act">Replay</button>
+          <button class="act alert">Discard</button>
+        </div>
+
+        <div class="dl-row">
+          <span class="age">21h 02m</span>
+          <div>
+            <div class="table-name">spend_monthly · <em>row #41</em></div>
+            <div class="reason">HTTP 401 permanent — signature mismatch (pre-key-rotation)</div>
+          </div>
+          <button class="act">Replay</button>
+          <button class="act alert">Discard</button>
+        </div>
+
+        <div class="perforated"></div>
+        <div class="row" style="justify-content:space-between">
+          <span class="eyebrow">All dead-letters &gt; 7 d auto-archived</span>
+          <button class="act">Archive log</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ════════════════════════════════════════════════════════
+       § iii. /equipment/hof
+       ════════════════════════════════════════════════════════ -->
+  <section id="equipment">
+    <div class="section-card">
+      <div class="eyebrow">§ iii · equipment</div>
+      <h2 class="title">The <em>iron</em> on the floor.</h2>
+      <p class="summary">
+        31 units inventoried from the 2026-05-11 photo walk. Two units fully serialized,
+        the rest brand+model with re-photo flags. Three flagged needs_service from visible
+        carbon + grease + a kicked-out fryer vat.
+      </p>
+    </div>
+
+    <!-- cookline strip — visualizes the kitchen-line layout -->
+    <div class="cookline-strip">
+      <span class="strip-eyebrow">cookline · west wall · IMG_4882 → IMG_4942</span>
+      <div class="strip-row">
+        <span class="unit"><span class="name">Vulcan fryer L</span><span class="meta">left vat · ok</span></span>
+        <span class="pipe"></span>
+        <span class="unit"><span class="name">Atosa LG400-1</span><span class="meta">DV1160003 · vat empty</span></span>
+        <span class="pipe"></span>
+        <span class="unit"><span class="name">Vulcan range + char</span><span class="meta">6 burner · needs deep clean</span></span>
+        <span class="pipe"></span>
+        <span class="unit"><span class="name">Bev-Air chef base</span><span class="meta">worktop · active</span></span>
+        <span class="pipe"></span>
+        <span class="unit"><span class="name">Hatco Glo-Ray ×2</span><span class="meta">heat lamps · under shelf</span></span>
+        <span class="pipe"></span>
+        <span class="unit"><span class="name">Accurex XFCC CP-1</span><span class="meta">14901292 · 120V</span></span>
+        <span class="pipe"></span>
+        <span class="unit"><span class="name">Zone Defense 375</span><span class="meta">fire suppression · 2 cyl</span></span>
+      </div>
+    </div>
+
+    <!-- filter chips -->
+    <div class="eq-filters">
+      <button class="pill ember" style="cursor:pointer">All · 31</button>
+      <button class="pill" style="cursor:pointer">Active · 28</button>
+      <button class="pill alert" style="cursor:pointer">Needs service · 3</button>
+      <button class="pill warn" style="cursor:pointer">Re-photo · 16</button>
+      <button class="pill" style="cursor:pointer">Refrigeration</button>
+      <button class="pill" style="cursor:pointer">Cookline</button>
+      <button class="pill" style="cursor:pointer">Hood + suppression</button>
+      <button class="pill" style="cursor:pointer">Small appliance</button>
+      <span class="right" style="margin-left:auto;display:flex;gap:8px">
+        <input placeholder="Search make/model/serial…" style="padding:6px 12px;border:1px solid var(--hair);border-radius:2px;font-family:var(--mono);font-size:11px;background:var(--cream);min-width:220px">
+        <button class="btn xs">+ Add unit</button>
+      </span>
+    </div>
+
+    <!-- equipment grid -->
+    <div class="eq-grid">
+
+      <div class="eq-card">
+        <div class="eq-head">
+          <div>
+            <div class="eq-name">AYOSA <em>Cube</em> ice maker</div>
+            <div class="eq-cat">ice_maker · kitchen</div>
+          </div>
+          <span class="pill ok"><span class="dot ok"></span>active</span>
+        </div>
+        <div class="eq-meta">
+          <div class="eq-meta-row"><span class="eq-meta-l">Model</span><span class="eq-meta-v">YR450-AP-161</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Serial</span><span class="eq-meta-v">YR450-AP-1610100200800000282</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Made</span><span class="eq-meta-v">2020-09 · R290 · 158 lb · 9.6A</span></div>
+        </div>
+        <div class="eq-foot">
+          <span class="tag">ETL 4003735</span>
+          <div class="photo-stack"><i>4880</i><i>4886</i></div>
+        </div>
+      </div>
+
+      <div class="eq-card needs">
+        <div class="eq-head">
+          <div>
+            <div class="eq-name">Vulcan 6-burner <em>range</em> + char</div>
+            <div class="eq-cat">range · cookline</div>
+          </div>
+          <span class="pill alert"><span class="dot alert"></span>needs service</span>
+        </div>
+        <div class="eq-meta">
+          <div class="eq-meta-row"><span class="eq-meta-l">Model</span><span class="eq-meta-v">— (re-photograph plate)</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Issue</span><span class="eq-meta-v">heavy carbon on radiants · rusted manifold</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Service</span><span class="eq-meta-v">Hobart · 1-888-4-HOBART</span></div>
+        </div>
+        <div class="eq-foot">
+          <span class="tag">deep clean due</span>
+          <div class="photo-stack"><i>4917</i><i>4922</i><i>4923</i><i>4949</i><i>4950</i></div>
+        </div>
+      </div>
+
+      <div class="eq-card needs">
+        <div class="eq-head">
+          <div>
+            <div class="eq-name">Atosa <em>LG400-1</em> floor fryer</div>
+            <div class="eq-cat">fryer · cookline</div>
+          </div>
+          <span class="pill alert"><span class="dot alert"></span>needs service</span>
+        </div>
+        <div class="eq-meta">
+          <div class="eq-meta-row"><span class="eq-meta-l">Model</span><span class="eq-meta-v">LG400-1 · 120k BTU nat-gas</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Serial</span><span class="eq-meta-v">DV1160003</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Issue</span><span class="eq-meta-v">middle vat empty · possibly OOS</span></div>
+        </div>
+        <div class="eq-foot">
+          <span class="tag">verify w/ kitchen</span>
+          <div class="photo-stack"><i>4938</i><i>4940</i><i>4941</i></div>
+        </div>
+      </div>
+
+      <div class="eq-card scheduled">
+        <div class="eq-head">
+          <div>
+            <div class="eq-name">Vulcan <em>hood</em> + baffle</div>
+            <div class="eq-cat">hood_equipment · cookline</div>
+          </div>
+          <span class="pill warn"><span class="dot warn"></span>cleaning due</span>
+        </div>
+        <div class="eq-meta">
+          <div class="eq-meta-row"><span class="eq-meta-l">Last</span><span class="eq-meta-v">2024 — TECH Hood Cleaning</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Next</span><span class="eq-meta-v">07/2026 (per IMG_4918 sticker)</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Vendor</span><span class="eq-meta-v">TECH · 251-458-5594</span></div>
+        </div>
+        <div class="eq-foot">
+          <span class="tag">NFPA-96</span>
+          <div class="photo-stack"><i>4905</i><i>4918</i><i>4920</i><i>4924</i></div>
+        </div>
+      </div>
+
+      <div class="eq-card">
+        <div class="eq-head">
+          <div>
+            <div class="eq-name">Accurex <em>XFCC</em> · CP-1</div>
+            <div class="eq-cat">hood_control · kitchen</div>
+          </div>
+          <span class="pill ok"><span class="dot ok"></span>active</span>
+        </div>
+        <div class="eq-meta">
+          <div class="eq-meta-row"><span class="eq-meta-l">Model</span><span class="eq-meta-v">XFCC #470376</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Serial</span><span class="eq-meta-v">14901292 · drawing 7509767-60-PW</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Elec</span><span class="eq-meta-v">120V · 15A · 1ɸ</span></div>
+        </div>
+        <div class="eq-foot">
+          <span class="tag">1-800-333-1400</span>
+          <div class="photo-stack"><i>4908</i><i>4909</i><i>4910</i><i>4911</i></div>
+        </div>
+      </div>
+
+      <div class="eq-card">
+        <div class="eq-head">
+          <div>
+            <div class="eq-name">Zone Defense <em>375</em> wet chem</div>
+            <div class="eq-cat">fire_suppression · cookline</div>
+          </div>
+          <span class="pill warn"><span class="dot warn"></span>annual due</span>
+        </div>
+        <div class="eq-meta">
+          <div class="eq-meta-row"><span class="eq-meta-l">Spec</span><span class="eq-meta-v">2× 3.75 gal cylinders</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Cert</span><span class="eq-meta-v">UL-300 / NFPA-96 — re-shoot cylinder tag</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Cert. by</span><span class="eq-meta-v">— (local certifier · TBD)</span></div>
+        </div>
+        <div class="eq-foot">
+          <span class="tag">type-K</span>
+          <div class="photo-stack"><i>4913</i><i>4914</i></div>
+        </div>
+      </div>
+
+      <div class="eq-card">
+        <div class="eq-head">
+          <div>
+            <div class="eq-name">Carnival King <em>WBM26DGT</em></div>
+            <div class="eq-cat">small_appliance · expo</div>
+          </div>
+          <span class="pill ok"><span class="dot ok"></span>active</span>
+        </div>
+        <div class="eq-meta">
+          <div class="eq-meta-row"><span class="eq-meta-l">Type</span><span class="eq-meta-v">double Belgian waffle baker · digital</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Source</span><span class="eq-meta-v">webstaurantstore.com</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Serial</span><span class="eq-meta-v">— (capture)</span></div>
+        </div>
+        <div class="eq-foot">
+          <span class="tag">2-bay</span>
+          <div class="photo-stack"><i>4896</i><i>4897</i></div>
+        </div>
+      </div>
+
+      <div class="eq-card">
+        <div class="eq-head">
+          <div>
+            <div class="eq-name">Auto-Chlor <em>dish</em> machine</div>
+            <div class="eq-cat">dishwasher · dish pit</div>
+          </div>
+          <span class="pill"><span class="dot"></span>leased</span>
+        </div>
+        <div class="eq-meta">
+          <div class="eq-meta-row"><span class="eq-meta-l">Model</span><span class="eq-meta-v">AF/AC/AH-3D family</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Owner</span><span class="eq-meta-v">Auto-Chlor (property of, leased)</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Service</span><span class="eq-meta-v">719-299-0347</span></div>
+        </div>
+        <div class="eq-foot">
+          <span class="tag">50 ppm Cl₂</span>
+          <div class="photo-stack"><i>4893</i><i>4894</i><i>4898</i></div>
+        </div>
+      </div>
+
+      <div class="eq-card">
+        <div class="eq-head">
+          <div>
+            <div class="eq-name">Square D <em>QOC32UF</em> panel</div>
+            <div class="eq-cat">electrical_panel · BOH</div>
+          </div>
+          <span class="pill ok"><span class="dot ok"></span>active</span>
+        </div>
+        <div class="eq-meta">
+          <div class="eq-meta-row"><span class="eq-meta-l">Spec</span><span class="eq-meta-v">32-space · 125A main</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Circuits</span><span class="eq-meta-v">16 labeled · MUA, exhaust, hood, dish, lamps…</span></div>
+          <div class="eq-meta-row"><span class="eq-meta-l">Make</span><span class="eq-meta-v">Schneider Electric</span></div>
+        </div>
+        <div class="eq-foot">
+          <span class="tag">16 circuits</span>
+          <div class="photo-stack"><i>4915</i><i>4916</i></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ════════════════════════════════════════════════════════
+       § iv. floor plan editor
+       ════════════════════════════════════════════════════════ -->
+  <section id="floorplan">
+    <div class="section-card">
+      <div class="eyebrow">§ iv · dining room</div>
+      <h2 class="title">The <em>room</em>, top down.</h2>
+      <p class="summary">
+        Transcription of the hand-drawn map. Click any table for status, party size, server, ticket #.
+        Drag-to-rearrange enabled only when the room is in <em>edit</em> mode (off during service).
+      </p>
+    </div>
+
+    <div class="fp-stage">
+      <!-- SVG floor plan -->
+      <div class="fp-canvas">
+        <svg viewBox="0 0 720 560" preserveAspectRatio="xMidYMid meet">
+          <!-- STAGE -->
+          <rect class="stage" x="160" y="14" width="400" height="40" rx="3"/>
+          <text class="stage-label" x="360" y="40" text-anchor="middle">STAGE</text>
+
+          <!-- 4x row (back) -->
+          <g id="row-4x">
+            <rect class="table" x="120" y="78" width="40" height="36" rx="2"/><text class="t-label" x="140" y="100" text-anchor="middle">41</text>
+            <rect class="table" x="172" y="78" width="40" height="36" rx="2"/><text class="t-label" x="192" y="100" text-anchor="middle">42</text>
+            <rect class="table seated" x="224" y="78" width="40" height="36" rx="2"/><text class="t-label" x="244" y="100" text-anchor="middle" style="fill:var(--cream)">43</text>
+            <rect class="table" x="276" y="78" width="40" height="36" rx="2"/><text class="t-label" x="296" y="100" text-anchor="middle">44</text>
+            <rect class="table dirty" x="328" y="78" width="40" height="36" rx="2"/><text class="t-label" x="348" y="100" text-anchor="middle">45</text>
+            <rect class="table seated" x="380" y="78" width="40" height="36" rx="2"/><text class="t-label" x="400" y="100" text-anchor="middle" style="fill:var(--cream)">46</text>
+            <rect class="table" x="432" y="78" width="40" height="36" rx="2"/><text class="t-label" x="452" y="100" text-anchor="middle">47</text>
+            <rect class="table seated selected" x="484" y="78" width="40" height="36" rx="2" data-table="48"/><text class="t-label" x="504" y="100" text-anchor="middle" style="fill:var(--cream)">48</text>
+            <rect class="table" x="536" y="78" width="40" height="36" rx="2"/><text class="t-label" x="556" y="100" text-anchor="middle">49</text>
+          </g>
+
+          <!-- 3x row (mid) -->
+          <g id="row-3x">
+            <rect class="table" x="146" y="138" width="40" height="36" rx="2"/><text class="t-label" x="166" y="160" text-anchor="middle">31</text>
+            <rect class="table seated" x="198" y="138" width="40" height="36" rx="2"/><text class="t-label" x="218" y="160" text-anchor="middle" style="fill:var(--cream)">32</text>
+            <rect class="table" x="250" y="138" width="40" height="36" rx="2"/><text class="t-label" x="270" y="160" text-anchor="middle">33</text>
+            <rect class="table" x="302" y="138" width="40" height="36" rx="2"/><text class="t-label" x="322" y="160" text-anchor="middle">34</text>
+            <rect class="table dirty" x="354" y="138" width="40" height="36" rx="2"/><text class="t-label" x="374" y="160" text-anchor="middle">35</text>
+            <rect class="table seated" x="406" y="138" width="40" height="36" rx="2"/><text class="t-label" x="426" y="160" text-anchor="middle" style="fill:var(--cream)">36</text>
+            <rect class="table" x="458" y="138" width="40" height="36" rx="2"/><text class="t-label" x="478" y="160" text-anchor="middle">37</text>
+          </g>
+
+          <!-- 2x row (front) -->
+          <g id="row-2x">
+            <rect class="table" x="172" y="198" width="40" height="36" rx="2"/><text class="t-label" x="192" y="220" text-anchor="middle">21</text>
+            <rect class="table seated" x="224" y="198" width="40" height="36" rx="2"/><text class="t-label" x="244" y="220" text-anchor="middle" style="fill:var(--cream)">22</text>
+            <rect class="table" x="276" y="198" width="40" height="36" rx="2"/><text class="t-label" x="296" y="220" text-anchor="middle">23</text>
+            <rect class="table held" x="328" y="198" width="40" height="36" rx="2"/><text class="t-label" x="348" y="220" text-anchor="middle">24</text>
+            <rect class="table" x="380" y="198" width="40" height="36" rx="2"/><text class="t-label" x="400" y="220" text-anchor="middle">25</text>
+            <rect class="table" x="432" y="198" width="40" height="36" rx="2"/><text class="t-label" x="452" y="220" text-anchor="middle">26</text>
+          </g>
+
+          <!-- CS CM CN counter (right wall) -->
+          <g>
+            <text class="zone-label" x="560" y="158">CS</text>
+            <text class="zone-label" x="560" y="184">CM</text>
+            <text class="zone-label" x="560" y="210">CN</text>
+            <circle class="table" cx="590" cy="156" r="14"/>
+            <circle class="table seated" cx="590" cy="184" r="14"/>
+            <circle class="table" cx="590" cy="212" r="14"/>
+          </g>
+
+          <!-- BAR (middle vertical row of stools + ROUND high-top at end) -->
+          <g>
+            <text class="zone-label" x="340" y="282" text-anchor="middle">BAR</text>
+            <line class="bar-line" x1="340" y1="294" x2="340" y2="420"/>
+            <circle class="bar-stool" cx="324" cy="304" r="7"/>
+            <circle class="bar-stool" cx="356" cy="304" r="7"/>
+            <circle class="bar-stool" cx="324" cy="324" r="7"/>
+            <circle class="bar-stool" cx="356" cy="324" r="7"/>
+            <circle class="bar-stool" cx="324" cy="344" r="7"/>
+            <circle class="bar-stool" cx="356" cy="344" r="7"/>
+            <circle class="bar-stool" cx="324" cy="364" r="7"/>
+            <circle class="bar-stool" cx="356" cy="364" r="7"/>
+            <text class="zone-label" x="420" y="382" text-anchor="middle">ROUND</text>
+            <circle class="table seated" cx="420" cy="404" r="20"/>
+            <text class="t-label" x="420" y="408" text-anchor="middle" style="fill:var(--cream)">RD</text>
+          </g>
+
+          <!-- POOL (lower left) -->
+          <g>
+            <rect class="pool" x="60" y="350" width="80" height="46" rx="3"/>
+            <text class="t-label" x="100" y="376" text-anchor="middle" style="fill:var(--cream)">P1</text>
+            <rect class="pool" x="60" y="412" width="80" height="46" rx="3"/>
+            <text class="t-label" x="100" y="438" text-anchor="middle" style="fill:var(--cream)">P2</text>
+            <text class="zone-label" x="100" y="478" text-anchor="middle">POOL</text>
+          </g>
+
+          <!-- FRONT PATIO (lower right) -->
+          <g>
+            <text class="patio-label" x="510" y="450" text-anchor="middle">FRONT PATIO</text>
+            <rect class="patio" x="450" y="460" width="220" height="84" rx="3"/>
+            <rect class="table" x="464" y="476" width="32" height="28" rx="2"/><text class="t-label" x="480" y="494" text-anchor="middle">11</text>
+            <rect class="table" x="506" y="476" width="32" height="28" rx="2"/><text class="t-label" x="522" y="494" text-anchor="middle">12</text>
+            <rect class="table" x="548" y="476" width="32" height="28" rx="2"/><text class="t-label" x="564" y="494" text-anchor="middle">13</text>
+            <rect class="table seated" x="464" y="510" width="32" height="28" rx="2"/><text class="t-label" x="480" y="528" text-anchor="middle" style="fill:var(--cream)">14</text>
+            <rect class="table" x="506" y="510" width="32" height="28" rx="2"/><text class="t-label" x="522" y="528" text-anchor="middle">15</text>
+            <rect class="table dirty" x="548" y="510" width="32" height="28" rx="2"/><text class="t-label" x="564" y="528" text-anchor="middle">16</text>
+            <rect class="table" x="590" y="476" width="68" height="62" rx="3"/><text class="t-label" x="624" y="510" text-anchor="middle" style="font-family:var(--serif);font-style:italic;font-size:13px;fill:var(--ember-deep)">+</text>
+          </g>
+
+          <!-- compass / signature stamp lower-left corner -->
+          <g transform="translate(20,520)">
+            <text style="font-family:var(--mono);font-size:8px;letter-spacing:.18em;fill:var(--muted);font-weight:700">N ↑   LARIOS · HOF · v1.0</text>
+          </g>
+        </svg>
+
+        <div class="fp-legend">
+          <span class="leg"><span class="sw open"></span>open</span>
+          <span class="leg"><span class="sw seated"></span>seated</span>
+          <span class="leg"><span class="sw dirty"></span>cleaning</span>
+          <span class="leg"><span class="sw held"></span>held</span>
+          <span class="leg" style="margin-left:auto"><button class="act">Edit mode</button></span>
+        </div>
+      </div>
+
+      <!-- detail panel -->
+      <div class="fp-side">
+        <div class="fp-detail">
+          <span class="crosshair-mark" style="top:14px;left:14px"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M0 0h6M0 0v6" stroke="var(--ember-deep)" fill="none"/></svg></span>
+          <span class="crosshair-mark" style="bottom:14px;right:14px"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M6 12h6M12 6v6" stroke="var(--ember-deep)" fill="none"/></svg></span>
+
+          <div class="eyebrow">selected · row 4x</div>
+          <p class="t-no">Table <em>48</em></p>
+          <div class="t-zone">Dining · stage-side · 4-top</div>
+
+          <dl class="stat">
+            <dt>Status</dt>      <dd><em>Seated</em> · 18:42 → now (42 min)</dd>
+            <dt>Party</dt>       <dd>4 guests · birthday (CRM)</dd>
+            <dt>Server</dt>      <dd>Maya · console <span class="mono">M-2</span></dd>
+            <dt>Ticket</dt>      <dd><em>#1284</em> · 3 courses · $87.50</dd>
+            <dt>Course</dt>      <dd>Entrée fired 19:11 · KDS 4m 22s</dd>
+            <dt>Allergens</dt>   <dd>Tree nuts (seat 2) — flagged on print</dd>
+          </dl>
+
+          <div class="actions">
+            <button class="btn primary">Send check</button>
+            <button class="btn">Comp drink</button>
+            <button class="btn ghost">Reassign server</button>
+            <button class="btn ghost">Flag table</button>
+          </div>
+        </div>
+
+        <!-- room summary mini -->
+        <div class="panel" style="padding:18px">
+          <div class="panel-head" style="margin-bottom:10px">
+            <h3 style="font-size:18px">Room <em style="font-family:var(--serif);font-style:italic;color:var(--ember-deep)">tonight</em></h3>
+            <span class="eyebrow">Fri 19:24</span>
+          </div>
+          <div class="ticker-row" style="flex-direction:column;gap:6px;font-size:12px">
+            <div class="split"><span class="muted">Seated</span><span><strong>8</strong> tables · 27 covers</span></div>
+            <div class="split"><span class="muted">Cleaning</span><span><strong>3</strong> tables</span></div>
+            <div class="split"><span class="muted">Held</span><span><strong>1</strong> table (24)</span></div>
+            <div class="split"><span class="muted">Walk-in wait</span><span><strong>18m</strong> · 2 parties</span></div>
+            <div class="split"><span class="muted">Bar covers</span><span><strong>9</strong> · ROUND seated</span></div>
+            <div class="split"><span class="muted">Patio</span><span><strong>1</strong> seated · 1 dirty</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ────────── FOOTER TICKET-STUB ────────── -->
+  <footer style="margin-top:64px;padding:22px 0 0;border-top:1px dashed var(--hair);display:flex;justify-content:space-between;align-items:center">
+    <span class="eyebrow">— end of program · proposal 2026-05-15 — </span>
+    <span class="mono" style="font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)">
+      Stub · LaRiOS · House of Fame · <span id="dt-stamp"></span>
+    </span>
+  </footer>
+</div>
+
+<script>
+// Live clock — marquee header
+function tick(){
+  const d = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('clock').textContent =
+    pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  document.getElementById('dt-stamp').textContent =
+    d.toISOString().slice(0,10) + ' · ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+tick(); setInterval(tick, 1000);
+
+// Subnav scroll-spy
+const links = document.querySelectorAll('.subnav a');
+const sections = ['sync','bridge','equipment','floorplan'].map(id => document.getElementById(id));
+const ix = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const id = e.target.id;
+      links.forEach(l => l.classList.toggle('on', l.getAttribute('href') === '#' + id));
+    }
+  });
+}, { rootMargin: '-40% 0px -55% 0px' });
+sections.forEach(s => s && ix.observe(s));
+
+// Floor plan — click a table → highlight + log
+const tables = document.querySelectorAll('.fp-canvas .table');
+tables.forEach(t => {
+  t.addEventListener('click', () => {
+    tables.forEach(x => x.classList.remove('selected'));
+    t.classList.add('selected');
+  });
+});
+</script>
+</body>
+</html>
