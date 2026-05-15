@@ -66,10 +66,10 @@ export default function IngredientMastersPage({ searchParams }) {
     <div>
       <h1>Ingredient masters</h1>
       <p className="subtitle">
-        Canonical ingredient list driving vendor-price ↔ recipe-cost matching.
-        Review and stamp each master so the queue shrinks over time.
+        Main ingredient list — the link between vendor prices and recipe costs.
+        Check off each one as you confirm it so the queue shrinks.
         {' '}
-        <strong>{totalNeedsReview}</strong> need review · {totalReviewed} reviewed · {totalAll} total.
+        <strong>{totalNeedsReview}</strong> need a look · {totalReviewed} checked · {totalAll} total.
       </p>
 
       <form

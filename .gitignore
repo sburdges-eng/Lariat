@@ -29,7 +29,8 @@ __pycache__/
 backups/
 .hf_cache/
 .hf_manual/
-.claude/
+.claude/*
+!.claude/settings.json
 worktrees/
 tsconfig.tsbuildinfo
 *.bak_*
@@ -60,6 +61,8 @@ catering/
 inventory/
 !app/api/inventory/
 !app/api/inventory/**
+!app/inventory/
+!app/inventory/**
 # Operator-curated HOF inventory seed (equipment, maintenance log).
 # These are version-controlled source files — the recurring bulk
 # inventory-count exports (caught by the `inventory/` rule above) are
@@ -125,6 +128,7 @@ data/cache/*.json
 design/*.zip
 design/Lairiat-VI/
 design/Lariat2/
+design/LaRi WHole design _Remix_/
 design/.DS_Store
 design/cockpit-v2.html
 
@@ -139,6 +143,13 @@ data/*.pdf
 
 # ── Multi-agent worktrees (created by /orchestrate) ───────────
 .claude-worktrees/
+
+# ── Stray worktree-script artifacts (canonical worktrees are at
+#    ~/Dev/Lariat-worktrees/ and ~/Dev/Lariat-KDS/, sibling to Lariat;
+#    older versions of scripts/worktree.sh occasionally leaked the
+#    parent dirs INSIDE the main checkout. Ignore those duplicates).
+Lariat-worktrees/
+Lariat-KDS/
 
 # ── Local MCP server config (hardcoded user path) ─────────────
 .mcp.json

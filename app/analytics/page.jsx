@@ -117,7 +117,7 @@ export default function AnalyticsPage() {
 
   return (
     <div>
-      <h1>Analytics</h1>
+      <h1>Sales numbers</h1>
       {periodLabel && (
         <p
           className="subtitle"
@@ -127,9 +127,7 @@ export default function AnalyticsPage() {
         </p>
       )}
       <p className="subtitle" style={{ opacity: 0.65, fontSize: 12, marginBottom: 28 }}>
-        Toast sales + Shamrock spend. Run{' '}
-        <code className="text-accent">npm run ingest:analytics</code> to
-        refresh.
+        Toast sales and Shamrock spend. Pull fresh numbers after the weekly update.
       </p>
 
       {/* ── KPI ribbon ──────────────────────────────────────────── */}

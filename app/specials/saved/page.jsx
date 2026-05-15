@@ -40,14 +40,14 @@ export default function SavedSpecialsPage({ searchParams }) {
 
   return (
     <div>
-      <Link href="/specials" style={{ color: 'var(--muted)', fontSize: 13 }}>← Specials sandbox</Link>
-      <h1>Saved Specials</h1>
-      <p className="subtitle">Sandbox sessions that someone wanted to keep around.</p>
+      <Link href="/specials" style={{ color: 'var(--muted)', fontSize: 13 }}>← Back to Specials</Link>
+      <h1>Saved specials</h1>
+      <p className="subtitle">Old special ideas someone wanted to keep around.</p>
 
       {rows.length === 0 ? (
         <div className="card">
           <p className="meta mb-12">No saved specials yet.</p>
-          <Link href={`/specials${locQ}`} className="btn">Open the sandbox</Link>
+          <Link href={`/specials${locQ}`} className="btn">Try the Specials board</Link>
         </div>
       ) : (
         <div className="grid-2">

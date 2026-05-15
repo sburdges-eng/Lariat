@@ -93,9 +93,9 @@ export default function DepletionExceptionsPage({ searchParams }) {
     <div>
       <h1>Depletion exceptions</h1>
       <p className="subtitle">
-        Toast sales lines whose dish couldn't auto-deplete inventory. Map the
-        dish in <Link href="/menu-engineering/components">dish-components</Link>{' '}
-        and it falls off this list on the next reload.
+        Sales whose dish didn&rsquo;t pull from inventory. Add the dish&rsquo;s
+        ingredients in <Link href="/menu-engineering/components">what&rsquo;s in dishes</Link>{' '}
+        and it drops off this list after the next reload.
       </p>
 
       {periodFilter ? (
