@@ -1,28 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    // Next 14.2 requires this flag for the `instrumentation.ts` hook to
-    // run. Next 15+ enables it by default. Used by our mDNS auto-start
-    // (`instrumentation.ts` → `lib/mdnsAdvertiseLifecycle.ts`).
-    instrumentationHook: true,
-    // @huggingface/transformers ships ONNX runtime + WASM assets that
-    // webpack can't statically bundle. Marking it (and its onnxruntime
-    // siblings) external lets Node resolve them at runtime via the
-    // package's own loader. Required for `lib/datapackSearch.ts`'s
-    // semantic-search path.
-    serverComponentsExternalPackages: [
-      'better-sqlite3',
-      '@huggingface/transformers',
-      'onnxruntime-node',
-      'onnxruntime-web',
-      // bonjour-service pulls in `multicast-dns` which uses `node:dgram`
-      // and `node:os`. Webpack cannot bundle those for the edge runtime;
-      // marking it external lets Node resolve it at runtime. Reached
-      // transitively via the mDNS auto-start path
-      // (`instrumentation.ts` → lifecycle → `lib/mdnsDiscovery.ts`).
-      'bonjour-service',
-    ],
-  },
+  // Next 16 promoted `experimental.serverComponentsExternalPackages` to
+  // the top-level `serverExternalPackages`. instrumentationHook is on
+  // by default in next 15+, flag dropped. @huggingface/transformers
+  // ships ONNX runtime + WASM assets that webpack can't statically
+  // bundle; marking it (+ onnxruntime siblings) external lets Node
+  // resolve them at runtime. bonjour-service pulls `multicast-dns`
+  // (node:dgram/os) reached via the mDNS auto-start path
+  // (`instrumentation.ts` → lifecycle → `lib/mdnsDiscovery.ts`).
+  serverExternalPackages: [
+    'better-sqlite3',
+    '@huggingface/transformers',
+    'onnxruntime-node',
+    'onnxruntime-web',
+    'bonjour-service',
+  ],
   webpack: (config, { isServer, nextRuntime, webpack }) => {
     // Instrumentation hook builds for both `nodejs` and `edge` runtimes.
     // Three leaf chains reach Node-only modules transitively:

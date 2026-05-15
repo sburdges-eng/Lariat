@@ -4,8 +4,8 @@
   "private": true,
   "main": "desktop/dist/desktop/main.js",
   "scripts": {
-    "dev": "next dev -H 0.0.0.0 -p 3000",
-    "build": "next build",
+    "dev": "next dev --webpack -H 0.0.0.0 -p 3000",
+    "build": "next build --webpack",
     "typecheck": "tsc --noEmit",
     "typecheck:scripts": "tsc -p tsconfig.scripts.json --noEmit",
     "verify": "npm run typecheck && npm run test:unit && npm run test:rules && npm run build",
@@ -21,6 +21,7 @@
     "cloud-bridge:drain": "node --experimental-strip-types scripts/cloud-bridge-drainer.mjs",
     "start": "next start -H 0.0.0.0 -p 3000",
     "restart": "lsof -t -i :3000 -sTCP:LISTEN 2>/dev/null | xargs -r kill; sleep 1 && next start -H 0.0.0.0 -p 3000",
+    "build:webpack": "next build --webpack",
     "ingest": "node scripts/ingest.mjs",
     "ingest:costing": "node --experimental-strip-types scripts/ingest-costing.mjs",
     "ingest:analytics": "node scripts/ingest-analytics.mjs",
@@ -198,16 +199,20 @@
     "gc:sync-feed:apply": "node --experimental-strip-types scripts/gc-sync-feed.mjs --apply",
     "digest:settlement": "node --experimental-strip-types scripts/weekly-settlement-digest.mjs",
     "desktop:dev": "tsc -p desktop && vite build --config desktop/firstRunWizard/vite.config.ts && electron desktop/dist/desktop/main.js",
-    "desktop:build": "next build && tsc -p desktop && vite build --config desktop/firstRunWizard/vite.config.ts",
+    "desktop:build": "next build --webpack && tsc -p desktop && vite build --config desktop/firstRunWizard/vite.config.ts",
     "desktop:dist": "npm run desktop:build && electron-builder install-app-deps && electron-builder --mac --arm64 --x64"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
     "better-sqlite3": "^11.10.0",
     "bonjour-service": "^1.3.0",
-    "next": "14.2.15",
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "next": "^16.2.6",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "overrides": {
+    "postcss": "^8.5.10",
+    "esbuild": "^0.25.10"
   },
   "simple-git-hooks": {
     "pre-commit": "node scripts/check-session-branch.mjs && npx lint-staged && npm run typecheck"
@@ -226,7 +231,7 @@
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^4.7.0",
+    "@vitejs/plugin-react": "^5.2.0",
     "dotenv": "^16",
     "electron": "^42.1.0",
     "electron-builder": "^26.8.1",
@@ -242,6 +247,6 @@
     "simple-git-hooks": "^2.13.1",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.59.2",
-    "vite": "^5.4.21"
+    "vite": "^8.0.13"
   }
 }
