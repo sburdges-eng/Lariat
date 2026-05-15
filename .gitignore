@@ -12,6 +12,7 @@ exports/*.xlsx
 training/adapters/
 training/fused-model/
 training/*.gguf
+training/eval/results/
 .env
 .env.*
 !.env.example
