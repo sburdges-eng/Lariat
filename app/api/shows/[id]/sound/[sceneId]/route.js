@@ -40,6 +40,8 @@ export async function PATCH(req, ctx) {
 }
 
 async function scenePatchHandler(req, { params }) {
+
+  params = await params;
   const showId = parsePositiveInt(params?.id);
   const sceneId = parsePositiveInt(params?.sceneId);
   if (showId == null || sceneId == null) {
@@ -91,6 +93,8 @@ export async function DELETE(req, ctx) {
 }
 
 async function sceneDeleteHandler(req, { params }) {
+
+  params = await params;
   const sceneId = parsePositiveInt(params?.sceneId);
   if (sceneId == null) {
     return Response.json({ error: 'Invalid scene id' }, { status: 400 });

@@ -22,7 +22,8 @@ async function handler(req, ctx) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
 
-  const idRaw = ctx?.params?.id;
+  const params = await ctx?.params;
+  const idRaw = params?.id;
   const eventId = Number(idRaw);
   if (!Number.isInteger(eventId) || eventId <= 0) {
     return Response.json({ error: 'invalid event id' }, { status: 400 });

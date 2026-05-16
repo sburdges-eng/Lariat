@@ -35,6 +35,8 @@ export async function PATCH(req, ctx) {
 }
 
 async function boxOfficeLinePatchHandler(req, { params }) {
+
+  params = await params;
   const showId = parsePositiveInt(params?.id);
   const lineId = parsePositiveInt(params?.lineId);
   if (showId == null || lineId == null) {

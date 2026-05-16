@@ -34,6 +34,8 @@ function parseShowId(rawId) {
 const SCOPE = 'event.box_office';
 
 export async function GET(req, { params }) {
+
+  params = await params;
   const pinFail = await requirePinOrScope(req, SCOPE);
   if (pinFail) return pinFail;
   const showId = parseShowId(params?.id);
@@ -57,12 +59,16 @@ export async function GET(req, { params }) {
 }
 
 export async function POST(req, { params }) {
+
+  params = await params;
   const pinFail = await requirePinOrScope(req, SCOPE);
   if (pinFail) return pinFail;
   return withIdempotency(req, () => boxOfficePostHandler(req, { params }));
 }
 
 async function boxOfficePostHandler(req, { params }) {
+
+  params = await params;
   const showId = parseShowId(params?.id);
   if (showId == null) return Response.json({ error: 'Invalid show id' }, { status: 400 });
 

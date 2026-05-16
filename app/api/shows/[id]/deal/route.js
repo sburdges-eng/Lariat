@@ -35,6 +35,8 @@ function validateDeal(d) {
 }
 
 export async function GET(req, { params }) {
+
+  params = await params;
   if (!(await hasPinCookie(req)))
     return json({ error: 'unauthorized' }, { status: 401 });
   const showId = Number(params.id);
@@ -57,6 +59,8 @@ export async function PUT(req, ctx) {
 }
 
 async function dealPutHandler(req, { params }) {
+
+  params = await params;
   const showId = Number(params.id);
   if (!Number.isInteger(showId))
     return json({ error: 'bad show id' }, { status: 400 });

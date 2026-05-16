@@ -37,6 +37,8 @@ export async function POST(req, ctx) {
 }
 
 async function capacityPostHandler(req, { params }) {
+
+  params = await params;
   const showId = parseShowId(params?.id);
   if (showId == null) {
     return Response.json({ error: 'Invalid show id' }, { status: 400 });

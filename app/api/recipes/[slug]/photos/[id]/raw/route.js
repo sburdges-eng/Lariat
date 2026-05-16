@@ -17,6 +17,8 @@ import { readPhoto } from '../../../../../../../lib/recipePhotos.ts';
 export const runtime = 'nodejs';
 
 export async function GET(req, { params }) {
+
+  params = await params;
   const { slug, id } = params;
   const location = locationFromRequest(req);
   const db = getDb();

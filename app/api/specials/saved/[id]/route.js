@@ -25,6 +25,8 @@ function loadAnyRow(db, id, locationId) {
 }
 
 export async function GET(req, { params }) {
+
+  params = await params;
   if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'menu.specials_edit'))) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
@@ -42,6 +44,8 @@ export async function PATCH(req, ctx) {
 }
 
 async function specialsSavedPatchHandler(req, { params }) {
+
+  params = await params;
   // Auth first — don't waste a JSON parse on an unauthenticated body.
   if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'menu.specials_edit'))) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
@@ -118,6 +122,8 @@ export async function DELETE(req, ctx) {
 }
 
 async function specialsSavedDeleteHandler(req, { params }) {
+
+  params = await params;
   const id = params.id;
   const locationId = locationFromRequest(req);
   const now = Date.now();

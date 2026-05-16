@@ -20,6 +20,8 @@ export const dynamic = 'force-dynamic';
 const CATEGORY_MAX = 64;
 
 export async function POST(req, { params }) {
+
+  params = await params;
   // Auth first — don't waste a JSON parse on an unauthenticated body.
   if (pinRequiredForPic() && !(await hasPinCookie(req))) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });

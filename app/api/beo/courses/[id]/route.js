@@ -51,6 +51,8 @@ export async function DELETE(req, ctx) {
 }
 
 async function patchHandler(req, { params }) {
+
+  params = await params;
   const id = parseId(params);
   if (!id) return json({ error: 'bad id' }, { status: 400 });
 
@@ -160,6 +162,8 @@ async function patchHandler(req, { params }) {
 }
 
 async function deleteHandler(req, { params }) {
+
+  params = await params;
   const id = parseId(params);
   if (!id) return json({ error: 'bad id' }, { status: 400 });
 

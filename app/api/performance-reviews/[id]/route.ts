@@ -16,6 +16,8 @@ async function performanceReviewDeleteHandler(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+
+  params = await params;
   try {
     const id = Number(params?.id);
 

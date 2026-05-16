@@ -13,6 +13,8 @@ function parseId(params) {
 }
 
 export async function GET(req, { params }) {
+
+  params = await params;
   const id = parseId(params);
   if (!id) return Response.json({ error: 'bad id' }, { status: 400 });
   const loc = locationFromRequest(req);
@@ -41,6 +43,8 @@ export async function PATCH(req, ctx) {
 }
 
 async function inventoryCountPatchHandler(req, { params }) {
+
+  params = await params;
   const id = parseId(params);
   if (!id) return Response.json({ error: 'bad id' }, { status: 400 });
   try {

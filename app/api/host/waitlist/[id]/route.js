@@ -28,6 +28,8 @@ export async function PATCH(req, ctx) {
 }
 
 async function patchHandler(req, { params }) {
+
+  params = await params;
   const id = parsePartyId(params?.id);
   if (id == null) {
     return Response.json({ error: 'Invalid party id' }, { status: 400 });

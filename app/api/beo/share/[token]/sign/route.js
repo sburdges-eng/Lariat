@@ -23,7 +23,8 @@ export async function POST(req, ctx) {
 }
 
 async function handler(req, ctx) {
-  const token = ctx?.params?.token;
+  const params = await ctx?.params;
+  const token = params?.token;
   if (!isValidShareTokenShape(token)) {
     return Response.json({ error: 'invalid token' }, { status: 404 });
   }

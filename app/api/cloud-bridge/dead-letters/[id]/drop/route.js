@@ -41,6 +41,8 @@ export async function POST(req, ctx) {
 }
 
 async function dropDeadLetterPostHandler(req, { params }) {
+
+  params = await params;
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
 

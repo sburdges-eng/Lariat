@@ -36,6 +36,7 @@ import { upsertRecipeEntity, writeRecipeDoc, readRecipeDoc } from '../../../../l
 // rebuilt yet — discovery, not error). No PIN gate on reads; sensitive
 // surfaces are gated upstream by middleware.js for management routes.
 export async function GET(_request, { params }) {
+  params = await params;
   const { slug } = params;
   const recipe = readRecipeDoc(slug);
   return Response.json({
@@ -52,6 +53,8 @@ export async function PUT(request, ctx) {
 }
 
 async function recipeSlugPutHandler(request, { params }) {
+
+  params = await params;
   const { slug } = params;
 
   // PIN gate — verify the HMAC-signed lariat_pin_ok cookie via

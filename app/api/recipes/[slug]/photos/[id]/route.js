@@ -24,6 +24,8 @@ import { logAuditAction } from '../../../../../../lib/auditLog.mjs';
 export const runtime = 'nodejs';
 
 export async function DELETE(req, { params }) {
+
+  params = await params;
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
   const { slug, id } = params;
@@ -51,6 +53,8 @@ export async function DELETE(req, { params }) {
 }
 
 export async function PATCH(req, { params }) {
+
+  params = await params;
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
   const { slug, id } = params;

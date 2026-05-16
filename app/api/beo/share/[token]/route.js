@@ -14,7 +14,8 @@ export const dynamic = 'force-dynamic';
 // from the PIN gate. The token itself is the access boundary.
 
 export async function GET(_req, ctx) {
-  const token = ctx?.params?.token;
+  const params = await ctx?.params;
+  const token = params?.token;
   if (!isValidShareTokenShape(token)) {
     return Response.json({ error: 'invalid token' }, { status: 404 });
   }

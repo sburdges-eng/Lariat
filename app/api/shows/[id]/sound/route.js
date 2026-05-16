@@ -32,6 +32,8 @@ function parseShowId(rawId) {
 const SCOPE = 'event.sound_config';
 
 export async function GET(req, { params }) {
+
+  params = await params;
   const pinFail = await requirePinOrScope(req, SCOPE);
   if (pinFail) return pinFail;
   const showId = parseShowId(params?.id);
@@ -59,6 +61,8 @@ export async function POST(req, ctx) {
 }
 
 async function soundPostHandler(req, { params }) {
+
+  params = await params;
   const showId = parseShowId(params?.id);
   if (showId == null) return Response.json({ error: 'Invalid show id' }, { status: 400 });
 

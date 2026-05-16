@@ -13,6 +13,8 @@ import { renderSettlementHtml } from '../../../../../../lib/settlementPrint';
 import { json } from '../../../../../../lib/routeHelpers';
 
 export async function GET(req, { params }) {
+
+  params = await params;
   if (!(await hasPinCookie(req)))
     return json({ error: 'unauthorized' }, { status: 401 });
   const showId = Number(params.id);

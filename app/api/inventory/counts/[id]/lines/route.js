@@ -24,6 +24,8 @@ export async function POST(req, ctx) {
 }
 
 async function inventoryCountLinesPostHandler(req, { params }) {
+
+  params = await params;
   const countId = parseId(params);
   if (!countId) return Response.json({ error: 'bad id' }, { status: 400 });
   try {

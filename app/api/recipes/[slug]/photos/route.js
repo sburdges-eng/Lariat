@@ -29,6 +29,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req, { params }) {
+
+  params = await params;
   const { slug } = params;
   const location = locationFromRequest(req);
   const db = getDb();
@@ -47,6 +49,8 @@ export async function GET(req, { params }) {
 }
 
 export async function POST(req, { params }) {
+
+  params = await params;
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
 

@@ -16,6 +16,8 @@ async function goldStarDeleteHandler(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+
+  params = await params;
   const id = Number(params?.id);
 
   if (!Number.isInteger(id) || id <= 0) {

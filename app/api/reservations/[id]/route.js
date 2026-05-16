@@ -47,6 +47,8 @@ export async function PATCH(req, ctx) {
 }
 
 async function reservationPatchHandler(req, { params }) {
+
+  params = await params;
   const id = parseId(params);
   if (!id) return Response.json({ error: 'bad id' }, { status: 400 });
   try {
@@ -246,6 +248,8 @@ export async function DELETE(req, ctx) {
 }
 
 async function reservationDeleteHandler(req, { params }) {
+
+  params = await params;
   const id = parseId(params);
   if (!id) return Response.json({ error: 'bad id' }, { status: 400 });
   try {

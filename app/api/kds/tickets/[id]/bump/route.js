@@ -48,7 +48,8 @@ export async function POST(req, ctx) {
 }
 
 async function bumpHandler(req, ctx) {
-  const ticketId = parseTicketId(ctx?.params);
+  const params = await ctx?.params;
+  const ticketId = parseTicketId(params);
   if (!ticketId) {
     return Response.json({ error: 'ticket id missing' }, { status: 400 });
   }
