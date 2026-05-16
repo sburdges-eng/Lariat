@@ -27,11 +27,18 @@
 import fs from 'fs';
 import path from 'path';
 import type { Database } from 'better-sqlite3';
+import { resolveDataDir } from './dataDir.ts';
 import { uuidv7 } from './uuid.ts';
 import type { Recipe } from './data.ts';
 
-const CACHE_DIR = path.join(process.cwd(), 'data', 'cache');
-const RECIPES_JSON = path.join(CACHE_DIR, 'recipes.json');
+// Resolve at call time so process.cwd() drift between dev (`npm run dev`
+// from repo root) and prod (Electron child cwd != repo root) doesn't
+// matter. The prod desktop wrapper sets LARIAT_DATA_DIR; the dev server
+// falls back to process.cwd()/data. Mirrors the cacheRoot() pattern in
+// lib/data.ts so this module stays consistent with getRecipeBySlug.
+function recipesJsonPath(): string {
+  return path.join(resolveDataDir(), 'cache', 'recipes.json');
+}
 
 export interface RecipeEntityInput {
   slug: string;
@@ -111,13 +118,15 @@ export function upsertRecipeEntity(
  * leaves the previous file untouched.
  */
 export function writeRecipeDoc(recipe: Recipe): void {
-  if (!fs.existsSync(CACHE_DIR)) {
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
+  const recipesJson = recipesJsonPath();
+  const cacheDir = path.dirname(recipesJson);
+  if (!fs.existsSync(cacheDir)) {
+    fs.mkdirSync(cacheDir, { recursive: true });
   }
   let existing: Recipe[] = [];
-  if (fs.existsSync(RECIPES_JSON)) {
+  if (fs.existsSync(recipesJson)) {
     try {
-      const raw = fs.readFileSync(RECIPES_JSON, 'utf8');
+      const raw = fs.readFileSync(recipesJson, 'utf8');
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) existing = parsed as Recipe[];
     } catch {
@@ -138,19 +147,20 @@ export function writeRecipeDoc(recipe: Recipe): void {
   });
   if (!replaced) next.push(recipe);
 
-  const tmp = `${RECIPES_JSON}.tmp-${process.pid}-${Date.now()}`;
+  const tmp = `${recipesJson}.tmp-${process.pid}-${Date.now()}`;
   fs.writeFileSync(tmp, JSON.stringify(next, null, 2));
-  fs.renameSync(tmp, RECIPES_JSON);
+  fs.renameSync(tmp, recipesJson);
 }
 
 /**
- * Read a single recipe by slug from `data/cache/recipes.json`. Returns
+ * Read a single recipe by slug from `<dataDir>/cache/recipes.json`. Returns
  * null if the cache file is missing or the slug isn't present.
  */
 export function readRecipeDoc(slug: string): Recipe | null {
-  if (!fs.existsSync(RECIPES_JSON)) return null;
+  const recipesJson = recipesJsonPath();
+  if (!fs.existsSync(recipesJson)) return null;
   try {
-    const raw = fs.readFileSync(RECIPES_JSON, 'utf8');
+    const raw = fs.readFileSync(recipesJson, 'utf8');
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return null;
     const found = (parsed as Recipe[]).find((r) => r.slug === slug);

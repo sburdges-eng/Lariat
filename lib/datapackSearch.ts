@@ -25,16 +25,23 @@ import Database from 'better-sqlite3';
 import type { Database as DB } from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import { resolveDataDir } from './dataDir.ts';
 
 // Resolve the data root the same way the Python pipeline does: prefer the
 // in-repo symlink at data/lariat-data, then an explicit operator-provided
 // LARIAT_DATA_ROOT. We don't try to write either; if neither exists the module
 // reports unavailable and every call no-ops.
-const SYMLINK_PATH = path.join(process.cwd(), 'data', 'lariat-data');
 const ENV_DATA_ROOT = 'LARIAT_DATA_ROOT';
+
+function symlinkPath(): string {
+  // Resolve at call time so prod (Electron, LARIAT_DATA_DIR set) and
+  // dev (cwd fallback) both land on <dataDir>/lariat-data.
+  return path.join(resolveDataDir(), 'lariat-data');
+}
 
 function resolveDataRoot(): string | null {
   try {
+    const SYMLINK_PATH = symlinkPath();
     if (fs.existsSync(SYMLINK_PATH)) {
       return fs.realpathSync(SYMLINK_PATH);
     }

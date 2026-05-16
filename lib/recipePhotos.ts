@@ -23,8 +23,13 @@ import { mkdir, writeFile, stat, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { extname } from 'node:path';
 import { uuidv7 } from './uuid.ts';
+import { resolveDataDir } from './dataDir.ts';
 
-const UPLOADS_ROOT = path.join(process.cwd(), 'data', 'uploads', 'recipes');
+// Resolve at call time — prod desktop wrapper sets LARIAT_DATA_DIR; dev
+// falls back to cwd/data. Photos live in <dataDir>/uploads/recipes/.
+function uploadsRoot(): string {
+  return path.join(resolveDataDir(), 'uploads', 'recipes');
+}
 
 /** 10 MB — covers iPhone/Android JPEGs at full resolution. */
 export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
@@ -83,7 +88,7 @@ export async function storePhoto(
   originalName: string,
 ): Promise<StoredPhoto> {
   const sslug = safeSlug(slug);
-  const dir = path.join(UPLOADS_ROOT, sslug);
+  const dir = path.join(uploadsRoot(), sslug);
   await mkdir(dir, { recursive: true });
   const id = uuidv7();
   const ext = extFromMime(mime, originalName);

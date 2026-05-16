@@ -25,8 +25,15 @@ import Database from 'better-sqlite3';
 import type { Database as DB } from 'better-sqlite3';
 import path from 'node:path';
 import fs from 'node:fs';
+import { resolveDataDir } from './dataDir.ts';
 
-const DEFAULT_DB_PATH = path.join(process.cwd(), 'data', 'cache', 'compliance.db');
+// Resolve at call time so the prod desktop wrapper (LARIAT_DATA_DIR set
+// by Electron main.js) and the dev server (process.cwd() fallback) both
+// land on the right compliance.db. Used by `searchCompliance` /
+// `renderCompliance` for LaRi's FDA Food Code grounding.
+function defaultDbPath(): string {
+  return path.join(resolveDataDir(), 'cache', 'compliance.db');
+}
 
 // Tiny stop-word filter — narrow on purpose. We only drop words that
 // almost certainly carry no signal in compliance queries; we leave
@@ -91,7 +98,7 @@ let _availableOverride: boolean | null = null;
 let _dbPathOverride: string | null = null;
 
 function dbPath(): string {
-  return _dbPathOverride ?? DEFAULT_DB_PATH;
+  return _dbPathOverride ?? defaultDbPath();
 }
 
 function getConn(): DB | null {
