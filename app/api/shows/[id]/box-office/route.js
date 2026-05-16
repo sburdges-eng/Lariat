@@ -67,8 +67,6 @@ export async function POST(req, { params }) {
 }
 
 async function boxOfficePostHandler(req, { params }) {
-
-  params = await params;
   const showId = parseShowId(params?.id);
   if (showId == null) return Response.json({ error: 'Invalid show id' }, { status: 400 });
 

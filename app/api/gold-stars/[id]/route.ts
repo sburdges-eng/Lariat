@@ -7,18 +7,17 @@ export const dynamic = 'force-dynamic';
 
 export async function DELETE(
   req: NextRequest,
-  ctx: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }
 ) {
   return withIdempotency(req, () => goldStarDeleteHandler(req, ctx));
 }
 
 async function goldStarDeleteHandler(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-
-  params = await params;
-  const id = Number(params?.id);
+  const resolvedParams = await params;
+  const id = Number(resolvedParams?.id);
 
   if (!Number.isInteger(id) || id <= 0) {
     return NextResponse.json({ error: 'invalid id' }, { status: 400 });
