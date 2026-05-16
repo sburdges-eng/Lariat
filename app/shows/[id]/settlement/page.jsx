@@ -26,9 +26,11 @@ function locationFromSearch(searchParams) {
   return typeof raw === 'string' && raw.trim() ? raw.trim() : DEFAULT_LOCATION_ID;
 }
 
-export default function SettlementPage({ params, searchParams }) {
-  const showId = Number(params?.id);
-  const locationId = locationFromSearch(searchParams);
+export default async function SettlementPage({ params, searchParams }) {
+  const p = (await params) || {};
+  const sp = (await searchParams) || {};
+  const showId = Number(p.id);
+  const locationId = locationFromSearch(sp);
 
   let summary;
   try {

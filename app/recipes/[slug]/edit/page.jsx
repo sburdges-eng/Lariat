@@ -3,18 +3,19 @@
 
 import { useRole } from '../../../_components/RoleProvider';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { use, useEffect } from 'react';
 import RecipeEditForm from './RecipeEditForm.jsx';
 
 export default function RecipeEditPage({ params }) {
+  const { slug } = use(params);
   const { canEditRecipes, isLoading } = useRole();
   const router = useRouter();
 
   useEffect(() => {
     if (!isLoading && !canEditRecipes) {
-      router.push(`/recipes/${params.slug}`);
+      router.push(`/recipes/${slug}`);
     }
-  }, [canEditRecipes, isLoading, params.slug, router]);
+  }, [canEditRecipes, isLoading, slug, router]);
 
   if (isLoading) {
     return <div style={{ padding: '40px', textAlign: 'center' }}>Loading…</div>;
@@ -26,9 +27,9 @@ export default function RecipeEditPage({ params }) {
 
   return (
     <div>
-      <h1>Edit Recipe</h1>
+      <h1>Edit recipe</h1>
       <p className="subtitle">Modify recipe details, ingredients, and allergen information.</p>
-      <RecipeEditForm slug={params.slug} />
+      <RecipeEditForm slug={slug} />
     </div>
   );
 }

@@ -7,15 +7,17 @@ import SpecialDetailClient from './SpecialDetailClient';
 
 export const dynamic = 'force-dynamic';
 
-export default function SavedSpecialDetail({ params, searchParams }) {
+export default async function SavedSpecialDetail({ params, searchParams }) {
+  const { id } = await params;
+  const sp = (await searchParams) || {};
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
 
   const db = getDb();
-  const row = db.prepare('SELECT * FROM specials WHERE id = ? AND location_id = ?').get(params.id, loc);
+  const row = db.prepare('SELECT * FROM specials WHERE id = ? AND location_id = ?').get(id, loc);
   if (!row) notFound();
 
   let costBreakdown = [];

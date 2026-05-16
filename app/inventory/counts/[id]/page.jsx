@@ -6,12 +6,14 @@ import CountSheet from './CountSheet';
 
 export const dynamic = 'force-dynamic';
 
-export default function CountSheetPage({ params, searchParams }) {
-  const id = Number(params?.id);
+export default async function CountSheetPage({ params, searchParams }) {
+  const p = (await params) || {};
+  const sp = (await searchParams) || {};
+  const id = Number(p.id);
   if (!Number.isInteger(id) || id <= 0) return notFound();
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const db = getDb();
   const head = db

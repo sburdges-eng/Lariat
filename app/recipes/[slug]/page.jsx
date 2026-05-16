@@ -9,12 +9,14 @@ import RecipeScaler from './RecipeScaler.jsx';
 import PreviouslyPlatedAs from './PreviouslyPlatedAs.jsx';
 import RecipePhotoStrip from './RecipePhotoStrip.jsx';
 
-export default function RecipeDetail({ params, searchParams }) {
-  const recipe = getRecipeBySlug(params.slug);
+export default async function RecipeDetail({ params, searchParams }) {
+  const { slug } = await params;
+  const sp = (await searchParams) || {};
+  const recipe = getRecipeBySlug(slug);
   if (!recipe) notFound();
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
 
@@ -45,7 +47,7 @@ export default function RecipeDetail({ params, searchParams }) {
           {recipe.allergens.map(a => <span key={a} className="allergen-tag">{a}</span>)}
         </div>
       )}
-      <RecipePhotoStrip slug={params.slug} />
+      <RecipePhotoStrip slug={slug} />
       <RecipeScaler ingredients={recipe.ingredients || []} />
       {(recipe.procedure && recipe.procedure.length > 0) && (
         <>

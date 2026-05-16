@@ -7,13 +7,15 @@ import StationChecklist from './StationChecklist';
 
 export const dynamic = 'force-dynamic';
 
-export default function StationPage({ params, searchParams }) {
-  const station = getStation(params.id);
+export default async function StationPage({ params, searchParams }) {
+  const { id } = await params;
+  const sp = (await searchParams) || {};
+  const station = getStation(id);
   if (!station) notFound();
 
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const date = todayISO();
   const items = station.line_check_key ? getLineCheckTemplate(station.line_check_key) : [];

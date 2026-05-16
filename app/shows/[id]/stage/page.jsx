@@ -7,9 +7,10 @@ import StageBoard from './StageBoard';
 export const dynamic = 'force-dynamic';
 const DEFAULT_LOCATION_ID = 'default';
 
-export default function StagePage({ params, searchParams }) {
-  const id = Number(params?.id);
-  const sp = searchParams ?? {};
+export default async function StagePage({ params, searchParams }) {
+  const p = (await params) || {};
+  const id = Number(p.id);
+  const sp = (await searchParams) ?? {};
   const loc =
     typeof sp.location === 'string' && sp.location.trim()
       ? sp.location.trim()

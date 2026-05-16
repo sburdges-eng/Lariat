@@ -101,8 +101,9 @@ function notFound() {
   );
 }
 
-export default function BeoSharePage({ params }) {
-  const token = params?.token;
+export default async function BeoSharePage({ params }) {
+  const p = (await params) || {};
+  const token = p.token;
   if (!isValidShareTokenShape(token)) return notFound();
 
   const db = getDb();
