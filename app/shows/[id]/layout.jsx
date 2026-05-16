@@ -8,11 +8,12 @@ export const dynamic = 'force-dynamic';
 
 const DEFAULT_LOCATION_ID = 'default';
 
-export default function ShowLayout({ children, params, searchParams }) {
-  const id = Number(params?.id);
+export default async function ShowLayout({ children, params, searchParams }) {
+  const resolvedParams = await params;
+  const id = Number(resolvedParams?.id);
   if (!Number.isFinite(id) || id <= 0) notFound();
 
-  const sp = searchParams ?? {};
+  const sp = (await searchParams) ?? {};
   const loc =
     typeof sp.location === 'string' && sp.location.trim()
       ? sp.location.trim()
