@@ -43,6 +43,11 @@ fi
 mkdir -p "${DEST_DIR}" "${DEST_DIR}/cache" "${DEST_DIR}/uploads"
 
 echo "[install-prod-data] copying ${SRC_DIR}/lariat.db* → ${DEST_DIR}/"
+# Drop any stale WAL/SHM at the destination before copying. If the source DB
+# is checkpoint-clean (no WAL/SHM) but the destination has leftovers from a
+# previous install, SQLite would replay the stale journal against the new
+# DB on first open — silent corruption.
+rm -f "${DEST_DIR}/lariat.db-wal" "${DEST_DIR}/lariat.db-shm"
 cp "${SRC_DIR}/lariat.db" "${DEST_DIR}/lariat.db"
 # WAL + SHM may not exist if the dev DB is checkpoint-clean; that's fine.
 [ -f "${SRC_DIR}/lariat.db-wal" ] && cp "${SRC_DIR}/lariat.db-wal" "${DEST_DIR}/lariat.db-wal" || true
