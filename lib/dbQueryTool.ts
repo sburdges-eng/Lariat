@@ -316,6 +316,7 @@ export function runDbQuery(req: DbQueryRunRequest): DbQueryRunOutcome {
   const db: DB = getDb();
   const rowCap = Math.max(1, spec.rowCap ?? 50);
   let rowsOut: Record<string, unknown>[] = [];
+  let totalRowCount = 0;
   let executionError: string | null = null;
 
   // Wrap in a transaction so postAuditEvent's in-tx guard passes. The
@@ -331,6 +332,7 @@ export function runDbQuery(req: DbQueryRunRequest): DbQueryRunOutcome {
         return;
       }
       rowsOut = (allRows as Record<string, unknown>[]).slice(0, rowCap);
+      totalRowCount = allRows.length;
       postAuditEvent({
         entity: 'db_query',
         entity_id: null,
@@ -350,7 +352,7 @@ export function runDbQuery(req: DbQueryRunRequest): DbQueryRunOutcome {
           paramsRedacted: redactParams(spec, bound),
           rowCount: rowsOut.length,
           rowCap,
-          truncated: rowsOut.length === rowCap && (allRows.length > rowCap),
+          truncated: totalRowCount > rowCap,
         },
         note: `db_query ${spec.name} returned ${rowsOut.length} row(s)`,
       });
@@ -374,7 +376,7 @@ export function runDbQuery(req: DbQueryRunRequest): DbQueryRunOutcome {
     rows: rowsOut,
     rowCount: rowsOut.length,
     rowCap,
-    truncated: rowsOut.length === rowCap,
+    truncated: totalRowCount > rowCap,
     query: { name: spec.name, description: spec.description, tier: spec.tier },
   };
 }
