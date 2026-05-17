@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Lariat — LaRi redesign demo</title>
+  <style>
+    /*
+      Lariat / LaRi UI redesign — demo prototype.
+      Built 2026-05-16 as a self-contained reference for the new design
+      language requested in project_instructions ("sleek modern innovational
+      new design that strays from the stereotypical 'AI design'").
+
+      Design rules in this file:
+        1. NO purple/blue AI gradients. Warm kitchen palette only.
+        2. NO chat-bubble layout. Inline answer that animates upward from
+           a sticky bottom input. Results = inline tables, not "AI cards."
+        3. NO fake typing dots / "AI is thinking" spinner. A steady amber
+           pilot light = "LaRi is ready"; one pulse per step of actual work.
+        4. Spatial navigation — stations chips are the primary nav, not a
+           sidebar. The kitchen IS the menu.
+        5. Tactile hold-to-confirm for any write action (~300ms). Reads are
+           instant. Anything that mutates regulated state highlights amber.
+        6. Cook-tier (default) vs manager-tier (after PIN) flips an accent
+           treatment so the operator instantly knows what mode they're in.
+
+      This is intentionally one HTML file. The production version would be
+      a Next.js component tree using the same tokens; the CSS variables
+      below are the design-token catalog the implementation would consume.
+    */
+
+    :root {
+      /* Surface palette — charcoal kitchen, oxidized copper, cream */
+      --bg:           #1a1614;
+      --bg-elev-1:    #221c19;
+      --bg-elev-2:    #2c2521;
+      --bg-elev-3:    #3a302a;
+      --fg:           #f4ede2;
+      --fg-muted:     #b5a899;
+      --fg-faint:     #7b6e60;
+      --rule:         rgba(255, 240, 222, 0.08);
+      --rule-strong:  rgba(255, 240, 222, 0.18);
+
+      /* Action palette */
+      --copper:       #b87238;   /* primary action / brand */
+      --copper-soft:  #6a4828;
+      --rust:         #b8443f;   /* destructive / write confirm */
+      --tomato:       #d96446;   /* live readouts */
+      --amber:        #d9a946;   /* LaRi pilot light */
+      --moss:         #5a7a4c;   /* pass status */
+      --maroon:       #8a3a3a;   /* fail status */
+
+      /* Typography */
+      --font-ui:      'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono:    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+      /* Geometry */
+      --radius-s:     6px;
+      --radius-m:     10px;
+      --radius-l:     18px;
+
+      /* Motion */
+      --hold-ms:      320ms;     /* time to hold a write button before it commits */
+      --ease-tactile: cubic-bezier(.2, .8, .2, 1);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-ui);
+      font-size: 16px;
+      line-height: 1.4;
+      letter-spacing: -0.005em;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── App shell ──────────────────────────────────────────────── */
+    .shell {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 24px 220px;
+    }
+
+    .topbar {
+      display: flex; align-items: center; gap: 24px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--rule);
+      margin-bottom: 18px;
+    }
+
+    .logo {
+      font-family: var(--font-mono);
+      font-weight: 700; letter-spacing: -0.02em;
+      font-size: 17px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .logo-mark {
+      width: 12px; height: 12px;
+      background: var(--copper);
+      transform: rotate(45deg);
+      border-radius: 2px;
+      box-shadow: 0 0 0 3px var(--bg-elev-2);
+    }
+    .logo-divider { color: var(--fg-faint); font-weight: 400; }
+    .logo-name { color: var(--fg-muted); font-weight: 600; }
+
+    .location {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--fg-muted);
+      padding: 4px 10px;
+      background: var(--bg-elev-1);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-s);
+    }
+    .location.dot::before {
+      content: ''; display: inline-block;
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--moss);
+      margin-right: 6px;
+      box-shadow: 0 0 4px var(--moss);
+    }
+
+    .spacer { flex: 1; }
+
+    .tier-pill {
+      font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      border-radius: var(--radius-s);
+      background: var(--bg-elev-2);
+      color: var(--fg-muted);
+      border: 1px solid var(--rule);
+    }
+    .tier-pill.manager {
+      background: rgba(184, 114, 56, 0.12);
+      color: var(--copper);
+      border-color: rgba(184, 114, 56, 0.4);
+    }
+
+    /* ── Spatial nav (stations as nav) ──────────────────────────── */
+    .station-rail {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-bottom: 28px;
+    }
+    .station {
+      display: flex; align-items: center; gap: 8px;
+      padding: 11px 14px;
+      background: var(--bg-elev-1);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-m);
+      cursor: pointer;
+      transition: background .14s var(--ease-tactile), border-color .14s var(--ease-tactile), transform .08s var(--ease-tactile);
+      font-size: 14px;
+      color: var(--fg-muted);
+      user-select: none;
+    }
+    .station:hover { background: var(--bg-elev-2); color: var(--fg); }
+    .station:active { transform: scale(0.985); }
+    .station.active {
+      background: var(--bg-elev-2);
+      border-color: var(--copper);
+      color: var(--fg);
+    }
+    .station-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--fg-faint);
+    }
+    .station.active .station-dot { background: var(--copper); box-shadow: 0 0 6px var(--copper); }
+    .station-temp {
+      font-family: var(--font-mono); font-size: 12px;
+      color: var(--fg-faint);
+    }
+    .station.warn .station-dot { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+    .station.warn .station-temp { color: var(--amber); }
+    .station.fail .station-dot { background: var(--rust); box-shadow: 0 0 6px var(--rust); }
+    .station.fail .station-temp { color: var(--rust); }
+
+    /* ── Card layout ────────────────────────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 22px;
+    }
+    @media (max-width: 820px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--bg-elev-1);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-l);
+      padding: 22px;
+    }
+    .card-title {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--fg-faint);
+      margin: 0 0 14px 0;
+    }
+    .card-title .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--fg-faint);
+    }
+    .card-title.live .dot { background: var(--tomato); box-shadow: 0 0 6px var(--tomato); animation: pilot 2.2s infinite ease-in-out; }
+
+    @keyframes pilot {
+      0%, 100% { opacity: 0.7; }
+      50% { opacity: 1; }
+    }
+
+    /* ── Tables (inline LaRi answer, not a chat bubble) ─────────── */
+    .laritable {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+    .laritable th, .laritable td {
+      text-align: left; padding: 8px 10px;
+      border-bottom: 1px solid var(--rule);
+      vertical-align: top;
+    }
+    .laritable th {
+      color: var(--fg-faint); font-weight: 500;
+      text-transform: lowercase; letter-spacing: 0.04em;
+    }
+    .laritable td.num { font-variant-numeric: tabular-nums; text-align: right; }
+    .laritable td.up { color: var(--moss); }
+    .laritable td.down { color: var(--maroon); }
+    .laritable tr:hover { background: rgba(255, 240, 222, 0.025); }
+
+    /* ── 86 board (live ops surface) ────────────────────────────── */
+    .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 10px;
+      background: var(--bg-elev-2);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-s);
+      font-size: 13px;
+      color: var(--fg);
+    }
+    .chip.eighty {
+      background: rgba(184, 68, 63, 0.08);
+      border-color: rgba(184, 68, 63, 0.45);
+      color: #f0a89a;
+    }
+    .chip.eighty::before {
+      content: '86'; font-family: var(--font-mono); font-weight: 700;
+      font-size: 11px; padding: 1px 5px;
+      background: var(--rust); color: white;
+      border-radius: 3px; margin-right: 4px;
+    }
+
+    .ticket-tape {
+      display: grid; grid-template-columns: auto 1fr auto;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px dashed var(--rule);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      align-items: baseline;
+    }
+    .ticket-tape:last-child { border-bottom: none; }
+    .ticket-tape .num { color: var(--fg-faint); }
+    .ticket-tape .age { color: var(--amber); font-variant-numeric: tabular-nums; }
+    .ticket-tape.late .age { color: var(--rust); }
+
+    /* ── LaRi composer (sticky bottom, not a chat) ──────────────── */
+    .composer-shroud {
+      position: fixed; left: 0; right: 0; bottom: 0;
+      padding: 18px 24px 24px;
+      background: linear-gradient(to top, var(--bg) 60%, rgba(26, 22, 20, 0.6) 90%, transparent);
+      pointer-events: none;
+    }
+    .composer {
+      max-width: 1180px; margin: 0 auto;
+      pointer-events: all;
+      background: var(--bg-elev-2);
+      border: 1px solid var(--rule-strong);
+      border-radius: var(--radius-l);
+      padding: 14px 16px;
+      display: flex; align-items: center; gap: 12px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    }
+    .pilot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 0 0 6px var(--amber);
+      animation: pilot 2.2s infinite ease-in-out;
+      flex-shrink: 0;
+    }
+    .pilot.working { animation: working 800ms infinite linear; background: var(--copper); box-shadow: 0 0 8px var(--copper); }
+    @keyframes working {
+      0% { transform: scale(0.9); }
+      50% { transform: scale(1.15); }
+      100% { transform: scale(0.9); }
+    }
+
+    .lari-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--fg);
+      font-family: var(--font-ui);
+      font-size: 16px;
+      outline: none;
+      padding: 6px 0;
+    }
+    .lari-input::placeholder { color: var(--fg-faint); }
+
+    .lari-hint {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--fg-faint);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* Inline answer card that animates upward when LaRi replies */
+    .answer {
+      background: var(--bg-elev-1);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-l);
+      padding: 18px 20px;
+      margin-bottom: 22px;
+      animation: rise 320ms var(--ease-tactile);
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .answer-meta {
+      display: flex; align-items: center; gap: 12px;
+      font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--fg-faint);
+      margin-bottom: 12px;
+    }
+    .answer-meta .badge {
+      padding: 2px 8px; background: var(--bg-elev-3); border-radius: 3px;
+      color: var(--copper); font-family: var(--font-mono);
+    }
+    .answer p { margin: 0 0 10px 0; }
+
+    /* ── Action button (hold-to-confirm) ────────────────────────── */
+    .hold-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 10px 16px;
+      background: var(--bg-elev-3);
+      border: 1px solid var(--rule-strong);
+      border-radius: var(--radius-m);
+      color: var(--fg);
+      font-family: var(--font-ui);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+    }
+    .hold-btn::after {
+      content: '';
+      position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+      background: var(--rust);
+      opacity: 0.7;
+      transition: width var(--hold-ms) linear;
+      z-index: 0;
+    }
+    .hold-btn > * { position: relative; z-index: 1; }
+    .hold-btn.holding::after { width: 100%; }
+    .hold-btn.holding { color: white; }
+    .hold-btn .hold-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--fg-faint);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* ── Footer note ────────────────────────────────────────────── */
+    .design-note {
+      margin-top: 32px; padding-top: 18px;
+      border-top: 1px solid var(--rule);
+      font-size: 13px; color: var(--fg-faint);
+      line-height: 1.6;
+    }
+    .design-note h3 { color: var(--fg-muted); font-weight: 600; font-size: 13px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.06em; }
+    .design-note ul { padding-left: 18px; margin: 0; }
+    .design-note li { margin-bottom: 4px; }
+    .design-note code { font-family: var(--font-mono); font-size: 12px; color: var(--copper); }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="logo">
+        <span class="logo-mark"></span>
+        <span>Lariat</span>
+        <span class="logo-divider">/</span>
+        <span class="logo-name">LaRi</span>
+      </div>
+      <div class="spacer"></div>
+      <div class="location dot">main · 7:42 PM rush</div>
+      <div class="tier-pill manager">manager</div>
+    </header>
+
+    <!-- Spatial nav: stations are the menu, not a sidebar -->
+    <nav class="station-rail" aria-label="stations">
+      <div class="station active" data-station="grill">
+        <span class="station-dot"></span><span>Grill</span><span class="station-temp">395 °F</span>
+      </div>
+      <div class="station" data-station="saute">
+        <span class="station-dot"></span><span>Sauté</span><span class="station-temp">3 active</span>
+      </div>
+      <div class="station warn" data-station="cooling">
+        <span class="station-dot"></span><span>Cooling</span><span class="station-temp">1:42 elapsed</span>
+      </div>
+      <div class="station" data-station="garde">
+        <span class="station-dot"></span><span>Garde</span><span class="station-temp">2 ckg</span>
+      </div>
+      <div class="station fail" data-station="walk-in">
+        <span class="station-dot"></span><span>Walk-in</span><span class="station-temp">43 °F</span>
+      </div>
+      <div class="station" data-station="dish">
+        <span class="station-dot"></span><span>Dish pit</span><span class="station-temp">quat 220 ppm</span>
+      </div>
+      <div class="station" data-station="expo">
+        <span class="station-dot"></span><span>Expo</span><span class="station-temp">7 open tix</span>
+      </div>
+    </nav>
+
+    <!-- Inline LaRi answer rendered ABOVE the cards (animates up from composer) -->
+    <div class="answer" id="answer">
+      <div class="answer-meta">
+        <span class="badge">db_query</span>
+        <span>vendor_price_shocks · 4 rows · 142ms · audit #88241</span>
+      </div>
+      <p>Three Sysco items moved more than 10 % since 5/2. The brisket flat is the biggest mover — up 18 %, snapshot is from this morning's costing run.</p>
+      <table class="laritable">
+        <thead>
+          <tr><th>ingredient</th><th>vendor</th><th class="num">prev</th><th class="num">now</th><th class="num">Δ %</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Brisket flat, choice</td><td>sysco</td><td class="num">5.12 / lb</td><td class="num">6.04 / lb</td><td class="num up">+17.9</td></tr>
+          <tr><td>Heavy cream, qt</td><td>sysco</td><td class="num">4.18 / qt</td><td class="num">4.72 / qt</td><td class="num up">+12.9</td></tr>
+          <tr><td>Sesame oil, gal</td><td>sysco</td><td class="num">38.40 / gal</td><td class="num">34.10 / gal</td><td class="num down">−11.2</td></tr>
+          <tr><td>Bone-in chx thigh</td><td>shamrock</td><td class="num">2.85 / lb</td><td class="num">3.21 / lb</td><td class="num up">+12.6</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h3 class="card-title live"><span class="dot"></span>On the line · live</h3>
+
+        <div class="ticket-tape">
+          <span class="num">#1421</span><span>burger ×2 · caesar · fries</span><span class="age">02:14</span>
+        </div>
+        <div class="ticket-tape late">
+          <span class="num">#1420</span><span>brisket plate · wings 12 · steam veg</span><span class="age">14:38</span>
+        </div>
+        <div class="ticket-tape">
+          <span class="num">#1419</span><span>chx noodle bowl ×2</span><span class="age">06:01</span>
+        </div>
+        <div class="ticket-tape">
+          <span class="num">#1418</span><span>kids mac · tots</span><span class="age">03:47</span>
+        </div>
+
+        <h3 class="card-title" style="margin-top: 24px;"><span class="dot"></span>86'd tonight</h3>
+        <div class="chip-row">
+          <span class="chip eighty">Hush puppies</span>
+          <span class="chip eighty">Carrot cake</span>
+          <span class="chip eighty">Sesame green bean side</span>
+        </div>
+
+        <h3 class="card-title" style="margin-top: 24px;"><span class="dot"></span>Cooling</h3>
+        <table class="laritable">
+          <thead><tr><th>item</th><th>started</th><th class="num">elapsed</th><th class="num">stage</th></tr></thead>
+          <tbody>
+            <tr><td>Pork shoulder, 14 lb</td><td>5:58 PM</td><td class="num">1:44</td><td class="num up">stage 1</td></tr>
+            <tr><td>Tomato bisque, 2 gal</td><td>6:22 PM</td><td class="num">1:20</td><td class="num up">stage 1</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h3 class="card-title"><span class="dot"></span>Walk-in alert</h3>
+        <p style="font-size: 14px; color: var(--fg); margin: 0 0 14px;">
+          Reading <span style="font-family: var(--font-mono); color: var(--rust); font-weight: 600;">43 °F</span>
+          at 7:38 PM. Threshold is 41 °F. Last 6 readings drifting up over the past hour.
+        </p>
+        <button class="hold-btn" data-hold>
+          <span>Hold to log corrective action</span>
+          <span class="hold-label">3s</span>
+        </button>
+
+        <h3 class="card-title" style="margin-top: 24px;"><span class="dot"></span>Cleaning · due</h3>
+        <div class="chip-row">
+          <span class="chip">Hood — quarterly</span>
+          <span class="chip">Walk-in floor</span>
+          <span class="chip">Reach-in #2</span>
+        </div>
+
+        <h3 class="card-title" style="margin-top: 24px;"><span class="dot"></span>Cards expiring</h3>
+        <table class="laritable">
+          <thead><tr><th>cook</th><th>cert</th><th class="num">days</th></tr></thead>
+          <tbody>
+            <tr><td>Mateo</td><td>food handler</td><td class="num up">14</td></tr>
+            <tr><td>Sloane</td><td>CFPM</td><td class="num">28</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <div class="design-note">
+      <h3>Design language used here</h3>
+      <ul>
+        <li><strong>No AI clichés.</strong> No purple gradients, no robot icons, no chat bubbles, no "AI is thinking" spinners. LaRi's pilot light is a steady amber dot that beats slower when idle and faster when computing — borrowed from physical kitchen equipment (warmer lights, walk-in thermometers).</li>
+        <li><strong>Stations are the nav.</strong> The horizontal rail at top represents the actual kitchen. Status colors are HACCP-meaningful (moss = pass, amber = watch, rust = breach) so a glance reads the whole line at once.</li>
+        <li><strong>LaRi answers inline.</strong> The new <code>db_query</code> action result appears as a real table with provenance (<code>audit #88241</code>) — not as a separate "AI response card." This mirrors how LaRi grounds against deterministic facts; the prose framing is small and the table is the point.</li>
+        <li><strong>Hold to commit writes.</strong> The walk-in corrective-action button fills with rust color over 320ms — a release before the fill completes cancels. Borrowed from iPad keyboard-shortcut hint UIs; safer than a confirmation dialog because it never interrupts the cook.</li>
+        <li><strong>Manager tier visible at all times.</strong> The pill in the top-right turns copper when a PIN is active. Cook tier shows muted grey. A cook glancing at the screen always knows whether manager actions are unlocked.</li>
+        <li><strong>Type ramp.</strong> Inter for prose, JetBrains Mono for every number / id / time. Numbers always tabular-aligned so a column reads like a thermometer scale.</li>
+      </ul>
+      <h3 style="margin-top: 20px;">What this proves</h3>
+      <ul>
+        <li>The new <code>db_query</code> tool (shipping in <code>feat/lari-expansion-and-audit</code>) has a natural home in the UI: results render as inline tables with source-attribution chips, not as bot-style messages.</li>
+        <li>The audit findings (nav-registry gaps, missing food-safety palette entries) are fixable without a wholesale rewrite — the redesign is additive.</li>
+        <li>A production migration would happen as a parallel route (<code>/v2/...</code>) behind a feature flag — same Next.js shell, same APIs, new component tree using the CSS-variable tokens defined at the top of this file.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="composer-shroud">
+    <div class="composer">
+      <span class="pilot" id="pilot" title="LaRi is ready"></span>
+      <input class="lari-input" placeholder="Ask LaRi — try: any Sysco price shocks since Monday?" />
+      <span class="lari-hint">↵ to send · ⌘K palette</span>
+    </div>
+  </div>
+
+  <script>
+    // Hold-to-commit on every [data-hold] button. The .holding class drives
+    // the ::after fill animation; release before completion cancels.
+    document.querySelectorAll('[data-hold]').forEach((btn) => {
+      let timer = null;
+      const start = () => {
+        btn.classList.add('holding');
+        timer = setTimeout(() => {
+          btn.textContent = '✓ Logged';
+          btn.style.background = 'var(--moss)';
+          btn.classList.remove('holding');
+        }, 320);
+      };
+      const cancel = () => {
+        if (timer) { clearTimeout(timer); timer = null; }
+        btn.classList.remove('holding');
+      };
+      btn.addEventListener('mousedown', start);
+      btn.addEventListener('touchstart', start, { passive: true });
+      btn.addEventListener('mouseup', cancel);
+      btn.addEventListener('mouseleave', cancel);
+      btn.addEventListener('touchend', cancel);
+      btn.addEventListener('touchcancel', cancel);
+    });
+
+    // Pilot light: brief "working" pulse when input is focused (just a demo).
+    const pilot = document.getElementById('pilot');
+    const input = document.querySelector('.lari-input');
+    input.addEventListener('focus', () => pilot.classList.add('working'));
+    input.addEventListener('blur',  () => pilot.classList.remove('working'));
+
+    // Click a station to mark it active (demo only — no routing).
+    document.querySelectorAll('.station').forEach((s) => {
+      s.addEventListener('click', () => {
+        document.querySelectorAll('.station.active').forEach((a) => a.classList.remove('active'));
+        s.classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>
