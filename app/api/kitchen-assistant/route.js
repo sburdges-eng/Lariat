@@ -101,22 +101,17 @@ async function kitchenAssistantPostHandler(req) {
   // the routing in-prompt — see lib/cookMessageClassifier.ts.
   const isCommand = isImperativeCommand(message);
 
-  // #248: short-circuit before Ollama on cook-tier imperatives. The inner
-  // `pinRequired.includes(...)` guard below still exists as
-  // defense-in-depth, but the LLM call is the expensive part — skip it.
-  if (isCommand && !hasPin) {
-    return Response.json({
-      answer:
-        "Ask a manager — that's a PIN-only action. Once a manager has tapped through on their tablet I can do it.",
-      model: 'pin-required',
-      location_id: locationId,
-      sources: [],
-      latencyMs: 0,
-      actionExecuted: false,
-      actionError: false,
-      disclaimer: 'Check tags with a manager. Do not trust AI for allergies.',
-    });
-  }
+  // #248 (revised): cook-tier imperatives used to short-circuit here before
+  // Ollama ran. That blocked `db_query` — a read-only action the LLM emits
+  // for analytical requests ("generate a cooling report", "update me on
+  // sales") that happen to start with imperative verbs. The
+  // `isImperativeCommand` classifier is fine for gating state-mutating
+  // actions but isn't reliable enough to distinguish reads from writes.
+  //
+  // The inner `pinRequired.includes(...)` guard (line ~258) still blocks
+  // every mutating action for cooks without a PIN, so removing this early
+  // return doesn't weaken auth — it just lets the LLM run so it can emit
+  // `db_query` when appropriate.
 
   const started = Date.now();
   let contextText;
