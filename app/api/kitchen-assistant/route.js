@@ -21,6 +21,11 @@ import { validateTempReading, getTempPoint } from '../../../lib/tempLog';
 import { normalizeUnit } from '../../../lib/unitConvert.mjs';
 import { isImperativeCommand } from '../../../lib/cookMessageClassifier';
 import { extractAction } from '../../../lib/extractAction';
+import {
+  runDbQuery,
+  renderQueryCatalog,
+  formatQueryResultForPrompt,
+} from '../../../lib/dbQueryTool';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -125,7 +130,14 @@ async function kitchenAssistantPostHandler(req) {
     return Response.json({ error: 'Failed to load kitchen context' }, { status: 500 });
   }
 
-  let userContent = `CONTEXT (authoritative — only use these facts for operational claims):\n\n${contextText}\n\n---\nCOOK MESSAGE:\n${message}`;
+  // Append the db_query catalog so the LLM knows which named queries it can
+  // request via `{ "action": "db_query", "query": "...", "params": {...} }`.
+  // The runner enforces tier + param shape + row caps; this prompt-side block
+  // is just discoverability. Catalog is small (~12 cook-tier / ~24 manager-tier
+  // one-liners) so the budget impact is bounded.
+  const queryCatalog = renderQueryCatalog(hasPin ? 'manager' : 'cook');
+
+  let userContent = `CONTEXT (authoritative — only use these facts for operational claims):\n\n${contextText}\n\n${queryCatalog}\n---\nCOOK MESSAGE:\n${message}`;
 
   if (body.language && body.language !== 'English') {
     userContent += `\n\nTRANSLATION DIRECTIVE: You MUST answer the cook entirely in ${body.language}. Ensure you use accurate culinary terms and maintain the requested formatting.`;
@@ -176,18 +188,53 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
     const { payload, stripped } = extractAction(content);
     let finalAnswer = stripped || content;
 
-    // Hard-block action execution on the question path. The classifier
-    // already told the LLM not to emit JSON, but if it does anyway
-    // (hallucination, locale drift), we must not write to regulated
-    // state — strip the JSON to plain text and continue as prose. If
-    // the LLM emitted *only* a JSON block (stripped is empty), fall
-    // back to a neutral apology rather than leaking the raw JSON.
-    if (payload && !isCommand) {
+    // db_query is the ONE read action allowed on the question path. It
+    // executes regardless of `isCommand` because cooks ask analytical
+    // questions ("what did we sell yesterday", "any cooling cycles past
+    // 4 hours?") in both question-y and command-y phrasing — the
+    // isImperativeCommand classifier is fine for state-mutating actions
+    // but isn't reliable enough to gate analytical reads.
+    //
+    // Tier enforcement lives inside the runner (manager-tier queries
+    // require hasPin); SQL is hardcoded in the registry; location is
+    // forced from the request. So this branch can short-circuit BEFORE
+    // the broader "strip JSON on question path" defense below.
+    if (payload && payload.action === 'db_query' && typeof payload.query === 'string') {
+      const dbQueryOutcome = runDbQuery({
+        name: payload.query,
+        params: (payload.params && typeof payload.params === 'object') ? payload.params : {},
+        hasPin,
+        requestLocationId: locationId,
+      });
+      if (dbQueryOutcome.ok) {
+        const table = formatQueryResultForPrompt(dbQueryOutcome);
+        actionMsg = table;
+        actionExecuted = true;
+        sources.push({
+          type: 'db_query',
+          detail: `${dbQueryOutcome.query.name} → ${dbQueryOutcome.rowCount} row(s)${dbQueryOutcome.truncated ? ' (truncated)' : ''}`,
+        });
+      } else {
+        actionMsg = dbQueryOutcome.error;
+        actionExecuted = true;
+        actionError = dbQueryOutcome.code !== 'tier_blocked'; // tier_blocked is expected, not an error
+      }
+      // Use the LLM's prose AFTER the JSON as the human-friendly framing
+      // ("Here's the data you asked about:"). If the LLM emitted only JSON,
+      // the table itself is the answer; finalAnswer stays as `stripped` (empty),
+      // and the ACTION EXECUTED prefix below carries the table.
+      finalAnswer = stripped || '';
+    } else if (payload && !isCommand) {
+      // Hard-block action execution on the question path. The classifier
+      // already told the LLM not to emit JSON, but if it does anyway
+      // (hallucination, locale drift), we must not write to regulated
+      // state — strip the JSON to plain text and continue as prose. If
+      // the LLM emitted *only* a JSON block (stripped is empty), fall
+      // back to a neutral apology rather than leaking the raw JSON.
       finalAnswer = stripped
         ? stripped
         : "Sorry — I couldn't put that together as an answer. Could you rephrase?";
-    }
-    if (payload && isCommand) {
+    } else if (payload && isCommand) {
       try {
         const db = getDb();
 
