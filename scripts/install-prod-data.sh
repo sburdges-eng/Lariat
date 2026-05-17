@@ -19,7 +19,12 @@
 
 set -euo pipefail
 
-SRC_DIR="${HOME}/Dev/Lariat/data"
+# Derive SRC_DIR from the script's own location so the script works from
+# any clone of the repo, not just ~/Dev/Lariat. Operator override via
+# LARIAT_DATA_DIR for non-default layouts.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+SRC_DIR="${LARIAT_DATA_DIR:-${REPO_ROOT}/data}"
 DEST_DIR="${HOME}/Library/Application Support/Lariat/data"
 NO_LAUNCH=0
 [ "${1:-}" = "--no-launch" ] && NO_LAUNCH=1
@@ -48,7 +53,11 @@ echo "[install-prod-data] copying ${SRC_DIR}/lariat.db* → ${DEST_DIR}/"
 # previous install, SQLite would replay the stale journal against the new
 # DB on first open — silent corruption.
 rm -f "${DEST_DIR}/lariat.db-wal" "${DEST_DIR}/lariat.db-shm"
-cp "${SRC_DIR}/lariat.db" "${DEST_DIR}/lariat.db"
+# Atomic copy: write to .tmp then rename. cp alone can leave a truncated
+# .db on Ctrl-C / disk-full / power-loss with no recovery path; mv is
+# atomic when src and dst are on the same filesystem (always true here).
+cp "${SRC_DIR}/lariat.db" "${DEST_DIR}/lariat.db.tmp"
+mv "${DEST_DIR}/lariat.db.tmp" "${DEST_DIR}/lariat.db"
 # WAL + SHM may not exist if the dev DB is checkpoint-clean; that's fine.
 [ -f "${SRC_DIR}/lariat.db-wal" ] && cp "${SRC_DIR}/lariat.db-wal" "${DEST_DIR}/lariat.db-wal" || true
 [ -f "${SRC_DIR}/lariat.db-shm" ] && cp "${SRC_DIR}/lariat.db-shm" "${DEST_DIR}/lariat.db-shm" || true
