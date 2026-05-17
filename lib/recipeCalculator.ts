@@ -37,9 +37,15 @@ export class CalculatorError extends Error {
 }
 
 const DEFAULT_TIMEOUT_MS = 5000;
-const PROJECT_ROOT = process.env.LARIAT_ROOT || process.cwd();
-const CLI_PATH = path.join(PROJECT_ROOT, 'scripts', 'bom_expand_cli.py');
 const PYTHON_BIN = process.env.LARIAT_PYTHON || 'python3';
+
+// Resolve at call time, not module load. In Electron, process.cwd() is the
+// .app Resources dir (not the repo) — so module-load resolution would freeze
+// in the wrong path and the BOM expand CLI would fail to spawn. Same class
+// of bug as ce7d041's resolveDataDir() fix for cache paths.
+function resolveProjectRoot(): string {
+  return process.env.LARIAT_ROOT || process.cwd();
+}
 
 type ExpandRequest =
   | { recipeSlug: string; multiplier: number; unit?: string }
@@ -95,7 +101,7 @@ function formatQty(q: number): string {
 // ── internals ────────────────────────────────────────────────────────────
 
 function toCliPayload(req: ExpandRequest): Record<string, unknown> {
-  const payload: Record<string, unknown> = { recipe_slug: req.recipeSlug, root: PROJECT_ROOT };
+  const payload: Record<string, unknown> = { recipe_slug: req.recipeSlug, root: resolveProjectRoot() };
   if ('multiplier' in req) payload.multiplier = req.multiplier;
   if ('qty' in req) payload.qty = req.qty;
   if (req.unit) payload.unit = req.unit;
@@ -104,7 +110,8 @@ function toCliPayload(req: ExpandRequest): Record<string, unknown> {
 
 function runCli(payload: Record<string, unknown>, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn(PYTHON_BIN, [CLI_PATH], { stdio: ['pipe', 'pipe', 'pipe'] });
+    const cliPath = path.join(resolveProjectRoot(), 'scripts', 'bom_expand_cli.py');
+    const child = spawn(PYTHON_BIN, [cliPath], { stdio: ['pipe', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     const timer = setTimeout(() => {
