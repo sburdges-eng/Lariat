@@ -225,11 +225,12 @@ const COOK_QUERIES: DbQuerySpec[] = [
   {
     name: 'equipment_lookup',
     tier: 'cook',
-    description: 'Look up kitchen equipment by name or type to get make/model, model number, serial number, status, vendor, and warranty expiration. Use for spec questions like "what model is the ice machine", "serial number of the fryer", "is the walk-in under warranty".',
+    description: 'Look up kitchen equipment by name, category, or make/model to get model number, serial number, status, vendor, and warranty expiration.',
     locationScoped: true,
     rowCap: 25,
+    auditOmitValues: ['search'],
     params: [
-      { name: 'search', type: 'string', required: true, maxLength: 100, description: 'Equipment name or type (partial match), e.g. "ice machine", "fryer", "Hoshizaki".' },
+      { name: 'search', type: 'string', required: true, maxLength: 100, description: 'Equipment name, category, make, or model (partial match), e.g. "ice machine", "fryer", "Hoshizaki".' },
     ],
     sql: `
       SELECT
@@ -237,7 +238,11 @@ const COOK_QUERIES: DbQuerySpec[] = [
         status, vendor, warranty_expiration
       FROM equipment
       WHERE location_id = :location_id
-        AND lower(name) LIKE '%' || lower(:search) || '%'
+        AND (
+          lower(name) LIKE '%' || lower(:search) || '%'
+          OR lower(category) LIKE '%' || lower(:search) || '%'
+          OR lower(make_model) LIKE '%' || lower(:search) || '%'
+        )
       ORDER BY name ASC
     `,
   },
@@ -299,26 +304,6 @@ const COOK_QUERIES: DbQuerySpec[] = [
       WHERE location_id = :location_id
         AND created_at >= datetime('now', '-' || COALESCE(:hours, 12) || ' hours')
       ORDER BY created_at DESC
-    `,
-  },
-  {
-    name: 'beo_prep_status',
-    tier: 'cook',
-    description: 'Prep tasks for a BEO event with completion status (done=0/1). Joins beo_prep_tasks + beo_events.',
-    locationScoped: true,
-    rowCap: 60,
-    params: [
-      { name: 'event_id', type: 'integer', required: true, min: 1, description: 'BEO event ID.' },
-    ],
-    sql: `
-      SELECT
-        t.id, t.task, t.due_date, t.done, t.sort_order,
-        e.title AS event_title, e.event_date, e.event_time, e.guest_count, e.status AS event_status
-      FROM beo_prep_tasks t
-      JOIN beo_events e ON e.id = t.event_id
-      WHERE t.location_id = :location_id
-        AND t.event_id = :event_id
-      ORDER BY t.sort_order ASC, t.id ASC
     `,
   },
 ];
@@ -580,80 +565,6 @@ const MANAGER_QUERIES: DbQuerySpec[] = [
       FROM ingest_runs
       WHERE (:kind IS NULL OR kind = :kind)
       ORDER BY started_at DESC
-    `,
-  },
-  {
-    name: 'recipe_with_bom',
-    tier: 'manager',
-    description: 'Full recipe with BOM lines: ingredient, vendor, pack price, unit cost, qty.',
-    locationScoped: false,
-    rowCap: 100,
-    params: [
-      { name: 'recipe_id', type: 'string', required: true, maxLength: 128, description: 'Recipe slug (e.g. chicken-parm).' },
-    ],
-    sql: `
-      SELECT
-        rc.recipe_id, rc.recipe_name, rc.category, rc.batch_cost,
-        rc.yield, rc.yield_unit, rc.cost_per_yield_unit,
-        b.ingredient, b.qty, b.unit, b.vendor,
-        b.pack_price, b.pack_size, b.vendor_ingredient, b.map_status,
-        vp.unit_price, vp.pack_unit
-      FROM recipe_costs rc
-      JOIN bom_lines b
-        ON b.recipe_id = rc.recipe_id AND b.location_id = rc.location_id
-      LEFT JOIN vendor_prices vp
-        ON vp.ingredient = b.vendor_ingredient
-        AND vp.vendor = b.vendor
-        AND vp.location_id = rc.location_id
-      WHERE rc.recipe_id = :recipe_id
-      ORDER BY b.id ASC
-    `,
-  },
-  {
-    name: 'sales_depletion_unresolved',
-    tier: 'manager',
-    description: 'Menu items sold but not linked to any recipe via dish_components. Useful for finding gaps in BOM coverage.',
-    locationScoped: true,
-    rowCap: 60,
-    params: [
-      { name: 'period_label', type: 'string', required: false, maxLength: 60, description: 'Optional — exact period_label match (e.g. "2026-05-15"). Omit for all periods.' },
-    ],
-    sql: `
-      SELECT
-        sl.item_name, sl.period_label,
-        SUM(sl.quantity_sold) AS qty_sold,
-        ROUND(SUM(sl.net_sales), 2) AS net_sales
-      FROM sales_lines sl
-      LEFT JOIN dish_components dc
-        ON dc.dish_name = sl.item_name AND dc.location_id = sl.location_id
-      WHERE sl.location_id = :location_id
-        AND dc.id IS NULL
-        AND (:period_label IS NULL OR sl.period_label = :period_label)
-      GROUP BY sl.item_name, sl.period_label
-      ORDER BY net_sales DESC
-    `,
-  },
-  {
-    name: 'equipment_maintenance_due',
-    tier: 'manager',
-    description: 'Equipment with scheduled maintenance due within N days (default 7). Joins equipment + equipment_maintenance_schedule.',
-    locationScoped: true,
-    rowCap: 40,
-    params: [
-      { name: 'lookahead_days', type: 'integer', required: false, min: 1, max: 365, description: 'Days ahead to look for due maintenance. Default 7.' },
-    ],
-    sql: `
-      SELECT
-        eq.id AS equipment_id, eq.name, eq.category, eq.make_model,
-        ms.id AS schedule_id, ms.task, ms.frequency,
-        ms.last_done, ms.next_due, ms.notes,
-        CAST(round(julianday(ms.next_due) - julianday('now')) AS INTEGER) AS days_until_due
-      FROM equipment eq
-      JOIN equipment_maintenance_schedule ms ON ms.equipment_id = eq.id
-      WHERE eq.location_id = :location_id
-        AND eq.status = 'active'
-        AND (ms.next_due IS NULL OR date(ms.next_due) <= date('now', '+' || COALESCE(:lookahead_days, 7) || ' days'))
-      ORDER BY ms.next_due ASC NULLS FIRST
     `,
   },
 ];
