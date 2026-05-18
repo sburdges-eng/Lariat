@@ -43,7 +43,12 @@ const HERMES_MODEL_OVERRIDE = process.env.HERMES_MODEL || '';
 const HERMES_PROVIDER_OVERRIDE = process.env.HERMES_PROVIDER || '';
 const OLLAMA_URL = (process.env.LARIAT_OLLAMA_URL || 'http://127.0.0.1:11434').replace(/\/$/, '');
 const OLLAMA_MODEL = process.env.LARIAT_OLLAMA_MODEL || 'lari-the-kitchen-assistant';
-const HERMES_TIMEOUT_MS = 90_000;
+// 180s gives multi-criterion safety graders (e.g. T03 allergen — 4 must_pass
+// items) headroom over the 90s ceiling that was firing as
+// `grader exit=null: (empty)` from spawnSync's SIGTERM. If hermes truly hangs
+// the timeout still trips eventually; the regression is +90s of clock budget
+// on a wedged provider, which is acceptable for a pre-merge gate.
+const HERMES_TIMEOUT_MS = 180_000;
 const OLLAMA_TIMEOUT_MS = 90_000;
 
 // ── runners ────────────────────────────────────────────────────────────────
