@@ -61,6 +61,7 @@ import type { AdvertiseHandle, AdvertiseOptions } from './mdnsDiscovery.ts';
 // import-in-try because it silently swallows module-load errors; using
 // a static import surfaces a load error at boot (fail loud).
 import { loadOrCreateKeypair, fingerprint } from './peerKeypair.ts';
+import { locationIdFromEnv } from './location.ts';
 
 type AdvertiseFn = (_opts: AdvertiseOptions) => Promise<AdvertiseHandle>;
 
@@ -181,7 +182,7 @@ function readPackageVersion(): string {
 export async function bootMdnsAutostart(): Promise<void> {
   const version = readPackageVersion();
   const port = Number.parseInt(process.env.PORT ?? '3000', 10);
-  const locationId = process.env.LARIAT_LOCATION_ID ?? 'default';
+  const locationId = locationIdFromEnv();
 
   // Load (or create on first boot) the per-peer Ed25519 keypair and
   // derive a 16-hex fingerprint for the TXT record. The try/catch

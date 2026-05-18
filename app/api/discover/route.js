@@ -24,6 +24,8 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { locationIdFromEnv } from '../../../lib/location';
+
 // Captured at module load — same semantic as the mDNS TXT record's
 // started_at. Acceptable because Next.js spins up one server process and
 // route modules load once per process.
@@ -40,11 +42,9 @@ function readVersion() {
 }
 
 function readLocationId() {
-  // LARIAT_LOCATION_ID is the deployment-time hint for which physical
-  // site this instance represents. Falls back to 'default' to match the
-  // location-scoping convention used elsewhere (lib/location.ts).
-  const id = process.env.LARIAT_LOCATION_ID;
-  return typeof id === 'string' && id.length > 0 ? id : 'default';
+  // Delegate to lib/location.ts so the LARIAT_LOCATION → LARIAT_LOCATION_ID
+  // legacy-alias handling (audit F7, 2026-05-16) lives in one place.
+  return locationIdFromEnv();
 }
 
 export async function GET() {
