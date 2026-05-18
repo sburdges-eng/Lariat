@@ -175,7 +175,7 @@ describe('GET /api/health — status roll-up', () => {
 
     const cachePath = path.join(CACHE_DIR, 'recipes.json');
     const saved = fs.readFileSync(cachePath, 'utf8');
-    fs.writeFileSync(cachePath, '{ not an array }');
+    fs.writeFileSync(cachePath, '{"not": "an array"}');
 
     try {
       const res = await GET();
