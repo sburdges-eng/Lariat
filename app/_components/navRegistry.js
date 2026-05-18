@@ -348,6 +348,131 @@ export const NAV_ITEMS = [
     locAware: t,
     surface: { sidebar: t, palette: t, shelf: f },
   },
+  // ── Labor sub-boards (audit F1 fix, 2026-05-17): the /labor hub tiles
+  // already linked to these, but they were missing from the palette so
+  // typing "tips" or "wage" went nowhere. Added palette-only — sidebar
+  // would crowd the rail. Each board is a regulated surface (COMPS #39,
+  // HFWA, C.R.S. §8-4-103, 6 CCR 1010-2) — copy stays plain-language so
+  // line cooks can find them without knowing the statute.
+  {
+    id: 'labor-breaks',
+    href: '/labor/breaks',
+    name: 'Breaks',
+    sub: 'Meal & rest — start, end, waivers',
+    group: 'Compliance',
+    terms: 'breaks meal rest waiver comps 39 missed break pay',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  {
+    id: 'labor-sick-leave',
+    href: '/labor/sick-leave',
+    name: 'Sick time',
+    sub: 'Per-cook balances (HFWA)',
+    group: 'Compliance',
+    terms: 'sick time leave hfwa accrual balance paid',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  {
+    id: 'labor-wage-notices',
+    href: '/labor/wage-notices',
+    name: 'Wage notices',
+    sub: 'New-hire / pay-change sign-offs',
+    group: 'Compliance',
+    terms: 'wage notice pay rate change new hire colorado 8-4-103',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  {
+    id: 'labor-certs',
+    href: '/labor/certs',
+    name: 'Certifications',
+    sub: 'CFPM, food handler, alcohol',
+    group: 'Compliance',
+    terms: 'cert certification cfpm food handler alcohol servsafe tips expiring',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  {
+    id: 'labor-tip-pool',
+    href: '/labor/tip-pool',
+    name: 'Tip pool',
+    sub: 'Daily share & distribution',
+    group: 'Compliance',
+    terms: 'tip pool share tipout distribution comps 39 server bar back of house',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+
+  // ── Inventory sub-boards (audit F1 fix, 2026-05-17) ────────────────
+  // Counts / par / waste pages existed but only the /inventory hub
+  // was registered. Added palette-only so ⌘K finds them.
+  {
+    id: 'inventory-counts',
+    href: '/inventory/counts',
+    name: 'Counts',
+    sub: 'Open and historical count sheets',
+    group: 'Service',
+    terms: 'inventory counts count sheet end of period stocktake',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  {
+    id: 'inventory-par',
+    href: '/inventory/par',
+    name: 'Par levels',
+    sub: 'What to keep on hand',
+    group: 'Service',
+    terms: 'par level inventory stock target reorder',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  {
+    id: 'inventory-waste',
+    href: '/inventory/waste',
+    name: 'Waste',
+    sub: 'What went in the bin',
+    group: 'Service',
+    terms: 'waste spoilage shrink trim toss bin throw out',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  {
+    id: 'bar-par',
+    href: '/bar/par',
+    name: 'Bar par',
+    sub: 'Bottle & keg targets',
+    group: 'Books',
+    terms: 'bar par level bottle keg liquor beer wine stock target',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+
+  // ── Admin (audit F1 fix, 2026-05-17) ───────────────────────────────
+  // Cleaning schedule + service hours — manager-config surfaces that
+  // were unreachable from the palette. PIN-gated by middleware via the
+  // /admin/* prefix.
+  {
+    id: 'admin-cleaning-schedule',
+    href: '/admin/cleaning-schedule',
+    name: 'Cleaning schedule',
+    sub: 'Set what gets cleaned, how often',
+    group: 'Admin',
+    terms: 'cleaning schedule rotational task setup hood walk in floor',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  {
+    id: 'admin-service-hours',
+    href: '/admin/service-hours',
+    name: 'Service hours',
+    sub: 'Open / close times per day',
+    group: 'Admin',
+    terms: 'service hours open close times day of week schedule shifts',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
 
   // ── Books (shelf tiles) ─────────────────────────────────────────────
   {
@@ -398,6 +523,21 @@ export const NAV_ITEMS = [
     surface: { sidebar: f, palette: t, shelf: t },
     shelf: { b: 'Menu', sub: 'perf' },
   },
+  // ── Costing sub-boards (audit F1 fix, 2026-05-17) ──────────────────
+  // Price-shock board surfaces the vendor_prices_history snapshots that
+  // ingest-costing.mjs writes per run (F6 was the same data with a chat
+  // surface — this is the GM-facing page). Palette-only; reachable from
+  // /costing tiles.
+  {
+    id: 'costing-price-shocks',
+    href: '/costing/price-shocks',
+    name: 'Price moves',
+    sub: 'Vendor prices that jumped',
+    group: 'Books',
+    terms: 'price shock spike change vendor sysco shamrock cost moved drift trend',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
   {
     id: 'depletion-exceptions',
     href: '/costing/depletion-exceptions',
@@ -425,6 +565,27 @@ export const NAV_ITEMS = [
     sub: 'Canonical ingredient list',
     group: 'Books',
     terms: 'ingredient master canonical sku map preferred vendor category t7 review',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  // ── Menu-engineering sub-boards (audit F1 fix, 2026-05-17) ────────
+  {
+    id: 'menu-margin-deltas',
+    href: '/menu-engineering/margin-deltas',
+    name: 'Margin moves',
+    sub: 'Dishes whose margin shifted',
+    group: 'Books',
+    terms: 'margin delta change dish moved up down menu performance',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  {
+    id: 'menu-components',
+    href: '/menu-engineering/components',
+    name: 'Dish components',
+    sub: 'Which recipes feed which dishes',
+    group: 'Books',
+    terms: 'dish components recipe map bom sales depletion link',
     locAware: t,
     surface: { sidebar: f, palette: t, shelf: f },
   },
@@ -590,6 +751,19 @@ export const NAV_ITEMS = [
     group: 'Management',
     terms: 'performance review staff evaluation manager log review history',
     locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  // Peers on the LAN — read-only board of other Lariat instances the
+  // mDNS discovery has found. Palette-only; GM visits when reconciling
+  // multi-tablet venue state.
+  {
+    id: 'management-peers',
+    href: '/management/peers',
+    name: 'Peers',
+    sub: 'Other Lariat tablets on the LAN',
+    group: 'Management',
+    terms: 'peers lan mdns bonjour tablets venue multi station discovery',
+    locAware: f,
     surface: { sidebar: f, palette: t, shelf: f },
   },
   // Cloud-bridge dead-letter triage. Palette-only — managers visit when
