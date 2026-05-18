@@ -22,7 +22,22 @@ fs.mkdirSync(OUT, { recursive: true });
 const db = new Database(DB, { readonly: true });
 
 const date = process.argv[2] || new Date().toISOString().slice(0, 10);
-const loc = process.env.LARIAT_EXPORT_LOCATION || process.env.LARIAT_LOCATION || 'default';
+// Audit F7 (2026-05-16): LARIAT_EXPORT_LOCATION still wins (purpose-specific
+// override). After that, prefer canonical LARIAT_LOCATION_ID, then the legacy
+// LARIAT_LOCATION (warned).
+const loc = (
+  process.env.LARIAT_EXPORT_LOCATION ||
+  process.env.LARIAT_LOCATION_ID ||
+  process.env.LARIAT_LOCATION ||
+  'default'
+).trim();
+if (
+  !process.env.LARIAT_EXPORT_LOCATION &&
+  !process.env.LARIAT_LOCATION_ID &&
+  process.env.LARIAT_LOCATION
+) {
+  console.warn('[export] LARIAT_LOCATION is deprecated — rename to LARIAT_LOCATION_ID.');
+}
 
 const checks = db.prepare(`
   SELECT shift_date, station_id, item, status, par, have, need, note, cook_id, created_at, location_id

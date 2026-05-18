@@ -13,7 +13,13 @@ import { convertQty, normalizeUnit, unitDimension } from '../lib/unitConvert.mjs
 import { bridgeCount } from './ingest-costing.mjs';
 
 const DB_PATH = process.env.LARIAT_DB || path.join(process.cwd(), 'data', 'lariat.db');
-const LOCATION = process.env.LARIAT_LOCATION || 'default';
+// Audit F7 (2026-05-16): prefer canonical LARIAT_LOCATION_ID, fall through
+// to the legacy LARIAT_LOCATION for back-compat. Warn on legacy-only so
+// operators migrate before the alias is dropped.
+const LOCATION = (process.env.LARIAT_LOCATION_ID || process.env.LARIAT_LOCATION || 'default').trim();
+if (!process.env.LARIAT_LOCATION_ID && process.env.LARIAT_LOCATION) {
+  console.warn('[diagnose] LARIAT_LOCATION is deprecated — rename to LARIAT_LOCATION_ID.');
+}
 const db = new Database(DB_PATH, { readonly: true });
 
 const densityByKey = new Map();

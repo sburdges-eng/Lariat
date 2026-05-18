@@ -26,7 +26,15 @@ const args = new Set(process.argv.slice(2));
 const isDiscover = args.has('--discover') || args.has('-d');
 
 const port = Number.parseInt(process.env.PORT ?? '3000', 10);
-const locationId = process.env.LARIAT_LOCATION_ID ?? 'default';
+// Honor the legacy LARIAT_LOCATION alias here too (audit F7, 2026-05-16) so
+// operators with old .env files don't see this script silently ignore the
+// configured location while the server picks it up. Canonical is LOCATION_ID.
+const locationId = (process.env.LARIAT_LOCATION_ID || process.env.LARIAT_LOCATION || 'default').trim();
+if (!process.env.LARIAT_LOCATION_ID && process.env.LARIAT_LOCATION) {
+  console.warn(
+    '[start-mdns] LARIAT_LOCATION is deprecated — rename to LARIAT_LOCATION_ID.',
+  );
+}
 
 if (isDiscover) {
   // One-shot scan: 3-second window is enough to catch all peers on a

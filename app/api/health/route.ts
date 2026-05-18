@@ -133,11 +133,26 @@ function probeToastConfig(): Probe {
     : { ok: false, error: 'TOAST credentials unset (optional)', ms: Date.now() - t0 };
 }
 
+// Audit F8 (2026-05-16): canonical name is LARIAT_7SHIFTS_API_KEY (the
+// digit-prefix matches the vendor's own brand convention). The legacy
+// LARIAT_SEVENSHIFTS_API_KEY is honored for back-compat but emits a
+// one-shot warning so operators rename before the alias is dropped.
+let _sevenShiftsLegacyWarned = false;
+
 function probeSevenShiftsConfig(): Probe {
   const t0 = Date.now();
-  const hasCreds = Boolean(
-    process.env.LARIAT_7SHIFTS_API_KEY || process.env.LARIAT_SEVENSHIFTS_API_KEY,
-  );
+  const canonical = process.env.LARIAT_7SHIFTS_API_KEY;
+  const legacy = process.env.LARIAT_SEVENSHIFTS_API_KEY;
+  if (!canonical && legacy && !_sevenShiftsLegacyWarned) {
+    _sevenShiftsLegacyWarned = true;
+     
+    console.warn(
+      '[lariat] LARIAT_SEVENSHIFTS_API_KEY is deprecated — rename to ' +
+        'LARIAT_7SHIFTS_API_KEY. Both names are read for now; the legacy ' +
+        'alias will be dropped after one release.',
+    );
+  }
+  const hasCreds = Boolean(canonical || legacy);
   return hasCreds
     ? { ok: true, detail: 'API key configured', ms: Date.now() - t0 }
     : { ok: false, error: '7SHIFTS API key unset (optional)', ms: Date.now() - t0 };

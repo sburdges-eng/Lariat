@@ -1,6 +1,44 @@
 /** Default kitchen location for single-site installs; v2 multi-location uses query param ?location= or ?location_id= */
 export const DEFAULT_LOCATION_ID = 'default';
 
+let _legacyEnvWarned = false;
+
+/**
+ * Resolve the install's location id from the process environment.
+ *
+ * Canonical name: `LARIAT_LOCATION_ID` (matches the table column
+ * convention `location_id` used everywhere in the schema and matches
+ * how the discovery / mDNS paths already read it).
+ *
+ * Legacy alias: `LARIAT_LOCATION` — still honored but emits a one-shot
+ * stderr warning so operators notice and migrate. Documented in
+ * docs/INTEGRATION_AUDIT.md §F7 (2026-05-16): both names floated around
+ * during the multi-location rollout and split-brain was easy to hit
+ * when one process read the new name and another read the old.
+ *
+ * Resolution order:
+ *   1. LARIAT_LOCATION_ID (preferred — wins even if LOCATION is also set)
+ *   2. LARIAT_LOCATION (legacy — warns once)
+ *   3. DEFAULT_LOCATION_ID
+ */
+export function locationIdFromEnv(): string {
+  const canonical = (process.env.LARIAT_LOCATION_ID || '').trim();
+  if (canonical) return canonical;
+  const legacy = (process.env.LARIAT_LOCATION || '').trim();
+  if (legacy) {
+    if (!_legacyEnvWarned) {
+      _legacyEnvWarned = true;
+       
+      console.warn(
+        '[lariat] LARIAT_LOCATION is deprecated — rename to LARIAT_LOCATION_ID. ' +
+          'Both names are read for now; the legacy alias will be dropped after one release.',
+      );
+    }
+    return legacy;
+  }
+  return DEFAULT_LOCATION_ID;
+}
+
 export function locationFromRequest(req: Request): string {
   try {
     const u = new URL(req.url);

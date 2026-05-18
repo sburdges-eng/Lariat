@@ -33,7 +33,7 @@ describe('BookingCalendar', () => {
 
   test('renders empty-state banner when no rows', () => {
     render(<BookingCalendar rows={[]} />);
-    expect(screen.getByText(/no shows ingested yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/no shows on the books yet/i)).toBeInTheDocument();
   });
 
   test('row link points to /playbook?show=<id>', () => {
