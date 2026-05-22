@@ -128,6 +128,8 @@
     "test:tphc-api": "node --test tests/js/test-tphc-api.mjs",
     "test:toctou-races": "node --test tests/js/test-toctou-race-regressions.mjs",
     "test:compute-engine": "node --experimental-strip-types --test tests/js/test-compute-engine.mjs",
+    "test:abc-ranking": "node --experimental-strip-types --test tests/js/test-abc-ranking.mjs",
+    "test:variance-trend": "node --experimental-strip-types --test tests/js/test-variance-trend.mjs",
     "test:pin-cookie": "node --test tests/js/test-pin-cookie-hmac.mjs",
     "test:unit": "jest",
     "eval:assistant-prompt": "node --experimental-strip-types --no-warnings training/eval/run-eval.mjs",
