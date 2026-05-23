@@ -19,5 +19,6 @@
     "E501": "Warning",
     "F401": "Warning",
     "F821": "Error"
-  }
+  },
+  "cmake.ignoreCMakeListsMissing": true
 }
