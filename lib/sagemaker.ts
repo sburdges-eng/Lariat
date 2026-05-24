@@ -8,13 +8,26 @@
  * and calls sagemakerChat() instead of ollamaChat().
  */
 
-// AWS SDK v3 — runtime-only import for SageMaker inference
-// Install: npm install @aws-sdk/client-sagemaker-runtime
-// @ts-ignore — optional dependency, only needed when LARIAT_SAGEMAKER_ENDPOINT is set
-import {
-  SageMakerRuntimeClient,
-  InvokeEndpointCommand,
-} from '@aws-sdk/client-sagemaker-runtime';
+// Lazy-loaded AWS SDK v3 — optional dependency, only needed when
+// LARIAT_SAGEMAKER_ENDPOINT is set.
+let _SageMakerRuntimeClient: any;
+let _InvokeEndpointCommand: any;
+
+async function ensureSdk(): Promise<void> {
+  if (!_SageMakerRuntimeClient) {
+    try {
+      // @ts-expect-error — optional dependency, only needed at runtime when LARIAT_SAGEMAKER_ENDPOINT is set
+      const mod = await import('@aws-sdk/client-sagemaker-runtime');
+      _SageMakerRuntimeClient = mod.SageMakerRuntimeClient;
+      _InvokeEndpointCommand = mod.InvokeEndpointCommand;
+    } catch {
+      throw new Error(
+        'SageMaker inference requires @aws-sdk/client-sagemaker-runtime. ' +
+        'Install: npm install @aws-sdk/client-sagemaker-runtime'
+      );
+    }
+  }
+}
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 
@@ -40,18 +53,19 @@ export interface SageMakerChatResult {
 
 const ENDPOINT_NAME = process.env.LARIAT_SAGEMAKER_ENDPOINT || 'lariat-kitchen-assistant';
 const AWS_REGION = process.env.AWS_REGION || process.env.LARIAT_AWS_REGION || 'us-east-1';
-const _TIMEOUT_MS = Math.min(
+const TIMEOUT_MS = Math.min(
   120_000,
   Math.max(5_000, parseInt(process.env.LARIAT_SAGEMAKER_TIMEOUT_MS || '60000', 10) || 60_000),
 );
 
 /* ── Client (singleton) ─────────────────────────────────────────────── */
 
-let _client: SageMakerRuntimeClient | null = null;
+let _client: any = null;
 
-function getClient(): SageMakerRuntimeClient {
+async function getClient(): Promise<any> {
+  await ensureSdk();
   if (!_client) {
-    _client = new SageMakerRuntimeClient({
+    _client = new _SageMakerRuntimeClient({
       region: AWS_REGION,
       // Credentials auto-discovered from env, IAM role, or ~/.aws/credentials
     });
@@ -83,14 +97,18 @@ export async function sagemakerChat(
     },
   };
 
-  const command = new InvokeEndpointCommand({
+  await ensureSdk();
+  const command = new _InvokeEndpointCommand({
     EndpointName: ENDPOINT_NAME,
     ContentType: 'application/json',
     Accept: 'application/json',
     Body: JSON.stringify(payload),
   });
 
-  const response = await getClient().send(command);
+  const client = await getClient();
+  const response = await client.send(command, {
+    abortSignal: AbortSignal.timeout(TIMEOUT_MS),
+  });
 
   const body = new TextDecoder().decode(response.Body);
   const parsed = JSON.parse(body);

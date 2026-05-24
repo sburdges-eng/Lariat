@@ -934,6 +934,17 @@ export interface EmployeeHealthAcknowledgment {
  * subsequent "correction" is its own audit_events row referencing
  * the prior one via `replaces_id`.
  */
+export interface DishCoverageSnapshot {
+  id: number;
+  location_id: string;
+  total_dishes: number;
+  covered_dishes: number;
+  coverage_pct: number;
+  uncovered_dishes: string;
+  created_by: string;
+  snapshot_at: string;
+}
+
 export interface AuditEvent {
   id: number;
   shift_date: string;
@@ -2901,6 +2912,17 @@ function initManagementSchema(db: DB): void {
       location_id TEXT NOT NULL DEFAULT 'default',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS dish_coverage_snapshots (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id   TEXT NOT NULL DEFAULT 'default',
+      total_dishes  INTEGER NOT NULL,
+      covered_dishes INTEGER NOT NULL,
+      coverage_pct  REAL NOT NULL,
+      uncovered_dishes TEXT NOT NULL DEFAULT '[]',
+      created_by    TEXT NOT NULL DEFAULT 'compute_engine',
+      snapshot_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 }
 
@@ -3592,6 +3614,9 @@ export function getDb(): DB {
   // ACID-D: fsync WAL on every commit so financial/personal data survives
   // power loss. ~1-5ms write penalty on SSD; imperceptible at BOH write rates.
   _db.pragma('synchronous = FULL');
+  // WAL auto-checkpoint: passive checkpoint every 1000 pages (~4MB).
+  // Prevents unbounded WAL growth during heavy write bursts.
+  _db.pragma('wal_autocheckpoint = 1000');
   initSchema(_db);
   return _db;
 }
