@@ -1,0 +1,13 @@
+# Lariat Kitchen Assistant — Fine-tuned Qwen 2.5 7B
+# Trained on 356 QA pairs (recipes, allergens, actions, HACCP, edge cases)
+# SageMaker job: lariat-ka-qwen-20260524-032134
+
+FROM /Users/seanburdges/Dev/hospitality/Lariat/training/fused-qwen-sagemaker
+
+PARAMETER temperature 0.1
+PARAMETER top_p 0.9
+PARAMETER top_k 40
+PARAMETER num_predict 512
+PARAMETER num_ctx 4096
+PARAMETER repeat_penalty 1.1
+PARAMETER stop "<|im_end|>"

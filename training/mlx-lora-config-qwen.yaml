@@ -1,0 +1,38 @@
+# MLX LoRA config — Qwen 2.5 7B for Lariat kitchen assistant
+# Optimized for M4 MacBook Pro 16GB unified memory
+#
+# Usage:
+#   pip install mlx-lm
+#   python -m mlx_lm.lora --config training/mlx-lora-config-qwen.yaml
+#
+# Memory estimate:
+#   Base model (4-bit): ~4.4 GB
+#   LoRA adapters:      ~0.1 GB
+#   Optimizer states:   ~0.3 GB
+#   KV cache + batch:   ~0.5 GB
+#   Total:              ~5.3 GB (leaves ~6 GB for OS + Next.js)
+
+model: mlx-community/Qwen2.5-7B-Instruct-4bit
+
+# LoRA config — rank 16 for better structured output learning
+lora_layers: 16          # More layers = better domain adaptation (was 8)
+lora_parameters:
+  rank: 16               # Higher rank for JSON pattern learning (was 8)
+  alpha: 32              # 2x rank is standard
+  dropout: 0.05
+  scale: 1.0
+
+# Training
+train: true
+batch_size: 1            # 1 for 16GB; gradient_accumulation compensates
+iters: 400               # More iterations for 356 samples (was 200)
+learning_rate: 5.0e-5    # Lower LR for larger model stability (was 1e-5)
+warmup: 40
+grad_checkpoint: true
+
+# Data
+data: training/data-mlx
+
+# Output
+adapter_path: training/adapters-qwen/
+save_every: 100

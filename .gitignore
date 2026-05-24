@@ -178,3 +178,9 @@ desktop/dist/
 
 # Cross-tool agent handoff scratch
 .agent-sessions/
+cad-kernel/build2/
+training/fused-qwen-sagemaker/
+training/fused-qwen-local/
+training/fused-qwen-fp16/
+training/adapters-qwen/
+training/*.gguf

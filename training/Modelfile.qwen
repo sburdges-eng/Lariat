@@ -1,0 +1,19 @@
+# Lariat Kitchen Assistant — Qwen 2.5 7B Instruct
+# Optimized for M4 MacBook Pro 16GB
+#
+# Build: ollama create lari-qwen -f training/Modelfile.qwen
+# Test:  ollama run lari-qwen "What are the ingredients in the brisket rub?"
+
+FROM qwen2.5:7b-instruct-q4_K_M
+
+# Inference parameters — tuned for structured output reliability
+PARAMETER temperature 0.1
+PARAMETER top_p 0.9
+PARAMETER top_k 40
+PARAMETER num_predict 512
+PARAMETER num_ctx 4096
+PARAMETER repeat_penalty 1.1
+PARAMETER stop "<|im_end|>"
+
+# No SYSTEM block — system prompt injected at runtime from lib/ollama.ts
+# This keeps the model flexible between GROUNDED_SYSTEM and CREATIVE_SYSTEM modes
