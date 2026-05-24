@@ -184,3 +184,4 @@ training/fused-qwen-local/
 training/fused-qwen-fp16/
 training/adapters-qwen/
 training/*.gguf
+*.DS_Store
