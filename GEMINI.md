@@ -10,9 +10,11 @@ Re-assert before generating code:
 - Toast POS CSVs are cp1252-encoded; Shamrock `.xls` requires `xlrd`.
 - For any multi-commit batch, work in a per-tool worktree: `scripts/worktree.sh new gemini <branch>` then `cd ../Lariat-worktrees/gemini-<slug>`. The pre-commit guard refuses commits if HEAD drifts. See AGENTS.md "Multi-session protocol".
 
-## Trio orchestration — handoff protocol (BINDING when invoked by Claude)
+## Trio orchestration — handoff protocol (BINDING)
 
-Claude Code is the primary editor on this project and will call you (Gemini) for second opinions and long-context analysis via the `gemini-cli` MCP server. When you produce findings for Claude, **always append them to `.agent-sessions/handoff.md`** in addition to returning them — Claude reads that file on session start so your analysis survives the round-trip.
+**Codex orchestrates** this project; you are the long-context specialist. Policy: [workspace-scaffold/docs/TRIO_ORCHESTRATION.md](../../workspace-scaffold/docs/TRIO_ORCHESTRATION.md). Antigravity: also read [ANTIGRAVITY.md](ANTIGRAVITY.md).
+
+When Codex, Claude, or the user consults you, **always append findings to `.agent-sessions/handoff.md`** in addition to returning them — other tools read that file on session start.
 
 Append format:
 ```
@@ -22,4 +24,4 @@ Append format:
 - recommendation: ...
 ```
 
-Keep entries terse (5-8 bullets max). Full policy in `.claude/ORCHESTRATION.md`.
+Keep entries terse (5-8 bullets max). Full policy in `workspace-scaffold/docs/TRIO_ORCHESTRATION.md`.

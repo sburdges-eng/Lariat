@@ -2,17 +2,20 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Trio: Claude",
+      "label": "Trio: Codex (orchestrator)",
       "type": "shell",
-      "command": "claude",
-      "options": { "cwd": "${workspaceFolder}" },
+      "command": "codex",
+      "options": {
+        "cwd": "${workspaceFolder:Lariat (app)}",
+        "env": { "LARIAT_ROOT": "${workspaceFolder:Lariat (app)}" }
+      },
       "isBackground": true,
       "problemMatcher": [],
       "presentation": {
         "panel": "dedicated",
         "group": "trio",
         "reveal": "always",
-        "focus": false,
+        "focus": true,
         "echo": false
       }
     },
@@ -20,7 +23,10 @@
       "label": "Trio: Gemini",
       "type": "shell",
       "command": "gemini",
-      "options": { "cwd": "${workspaceFolder}" },
+      "options": {
+        "cwd": "${workspaceFolder:Lariat (app)}",
+        "env": { "LARIAT_ROOT": "${workspaceFolder:Lariat (app)}" }
+      },
       "isBackground": true,
       "problemMatcher": [],
       "presentation": {
@@ -32,10 +38,13 @@
       }
     },
     {
-      "label": "Trio: Codex",
+      "label": "Trio: Claude",
       "type": "shell",
-      "command": "codex",
-      "options": { "cwd": "${workspaceFolder}" },
+      "command": "claude",
+      "options": {
+        "cwd": "${workspaceFolder:Lariat (app)}",
+        "env": { "LARIAT_ROOT": "${workspaceFolder:Lariat (app)}" }
+      },
       "isBackground": true,
       "problemMatcher": [],
       "presentation": {
@@ -47,11 +56,78 @@
       }
     },
     {
-      "label": "Open Lariat trio",
-      "dependsOn": ["Trio: Claude", "Trio: Gemini", "Trio: Codex"],
-      "dependsOrder": "parallel",
+      "label": "Open Lariat trio (Codex first)",
+      "dependsOn": [
+        "Trio: Codex (orchestrator)",
+        "Trio: Gemini",
+        "Trio: Claude"
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      "label": "GitNexus: refresh Lariat (if stale)",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "${workspaceFolder:scripts (shared)}/gitnexus-refresh-lariat.sh",
+        "if-stale"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder:Lariat (app)}",
+        "env": { "LARIAT_ROOT": "${workspaceFolder:Lariat (app)}" }
+      },
       "problemMatcher": [],
-      "runOptions": { "runOn": "folderOpen" }
+      "presentation": { "reveal": "always", "panel": "dedicated", "focus": false }
+    },
+    {
+      "label": "GitNexus: analyze Lariat (full)",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "${workspaceFolder:scripts (shared)}/gitnexus-refresh-lariat.sh",
+        "analyze"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder:Lariat (app)}",
+        "env": { "LARIAT_ROOT": "${workspaceFolder:Lariat (app)}" }
+      },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "focus": false }
+    },
+    {
+      "label": "Attach lariat-trio (tmux)",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "${workspaceFolder:scripts (shared)}/trio-tmux-lariat.sh",
+        "attach"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder:Lariat (app)}",
+        "env": { "LARIAT_ROOT": "${workspaceFolder:Lariat (app)}" }
+      },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "focus": true }
+    },
+    {
+      "label": "Attach lariat-trio + GitNexus",
+      "dependsOn": [
+        "GitNexus: refresh Lariat (if stale)",
+        "Attach lariat-trio (tmux)"
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": false }
+    },
+    {
+      "label": "Trio: show setup (manual)",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder:scripts (shared)}/trio-open-lariat.sh"],
+      "options": { "cwd": "${workspaceFolder:Lariat (app)}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared" }
     }
   ]
 }

@@ -1328,6 +1328,24 @@ export function initSchema(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_margin_snapshots_loc_id
       ON margin_snapshots(location_id, id DESC);
 
+    -- Point-in-time dish-coverage rollup written by the compute engine
+    -- after each margin recompute, so the management page reads a cheap
+    -- snapshot instead of scanning dish_components + sales_lines on load.
+    -- Shape mirrors the DishCoverageSnapshot interface above.
+    CREATE TABLE IF NOT EXISTS dish_coverage_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      total_dishes INTEGER,
+      covered_dishes INTEGER,
+      coverage_pct REAL,
+      uncovered_dishes TEXT,
+      created_by TEXT,
+      snapshot_at TEXT DEFAULT (datetime('now'))
+    );
+    -- Latest-per-location read path.
+    CREATE INDEX IF NOT EXISTS idx_dish_coverage_snapshots_loc_id
+      ON dish_coverage_snapshots(location_id, id DESC);
+
     CREATE TABLE IF NOT EXISTS accounting_variance (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       period_start TEXT,

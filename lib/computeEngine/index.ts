@@ -5,6 +5,8 @@ import {
   computeAccountingVariance,
   type AccountingVarianceOptions,
 } from './accountingVariance.ts';
+import { computeDishCoverage } from '../dishCostBridge.ts';
+import { saveDishCoverageSnapshot } from '../dishCoverageSnapshots.ts';
 
 /**
  * Lariat Real-Time Compute Engine
@@ -41,6 +43,17 @@ export function triggerComputeEngine(
   // 2. Refresh Menu Engineering quadrants (Star / Puzzle / Plowhorse
   //    / Dog) and persist as a margin snapshot.
   recomputeMarginAnalysis(db, locationId);
+
+  // 2b. Persist a dish-coverage snapshot so the management rollup reads a
+  //     cheap row instead of scanning dish_components + sales_lines on load.
+  //     Derived convenience — never let it break the cost/margin/variance
+  //     critical path (this runs fire-and-forget from POST /api/receiving).
+  try {
+    const coverage = computeDishCoverage(locationId);
+    saveDishCoverageSnapshot(coverage, { locationId });
+  } catch {
+    /* coverage snapshot is best-effort; core compute already committed */
+  }
 
   // 3. Reconcile theoretical vs actual COGS for the given window
   //    (defaults to current calendar month in accountingVariance).

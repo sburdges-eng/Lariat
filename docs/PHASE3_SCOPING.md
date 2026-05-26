@@ -122,3 +122,13 @@ Reality drift — what's shipped vs. what was scoped here.
 | Closed-loop receiving | ✅ shipped | #95 |
 | `/management` rollup tile | ✅ shipped | #96 |
 | Shamrock catalog sync, Toast Inventory mirror, scheduled-PDF reporting | ⏳ Phase 3.5 / Phase 4 | — |
+
+## Completion addendum — 2026-05-26
+
+`docs/LARIAT_ERP_MASTER_PROPOSAL.md` is now the master planning synthesis for the ERP direction. This Phase 3 scoping doc remains the historical fork analysis, but the active completion posture is:
+
+- The original Phase 3 near-term recommendations, closed-loop receiving and the `/management` rollup, are shipped.
+- KDS v1 and Lariat-local bump-back are shipped; Toast authoritative bump remains deferred.
+- The next implementation lane is not a database migration or microservice split. It is stabilization of the receiving-to-inventory master contract, followed by management rollup hardening and KDS protocol regression coverage.
+
+Governance impact: planning-only update. No schema, runtime, security, or determinism behavior changes are introduced here.

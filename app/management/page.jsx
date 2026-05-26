@@ -16,6 +16,7 @@ import { getDb } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { readLastCostingIngest } from '../../lib/costingBenchmarks.mjs';
 import { computeDishCoverage } from '../../lib/dishCostBridge';
+import { readLatestDishCoverageSnapshot } from '../../lib/dishCoverageSnapshots';
 import { readLatestAccountingVariance } from '../../lib/computeEngine/index';
 
 import RollupTile from './_components/RollupTile';
@@ -199,10 +200,13 @@ export default function ManagementRollupPage({ searchParams }) {
     ).get(loc)?.c ?? 0,
     0,
   );
+  // Prefer the cheap compute-engine snapshot; fall back to an inline scan
+  // only when no snapshot exists yet (fresh DB / before first compute run).
   const coverageCapped = dishCount > DISH_COVERAGE_CAP;
   const coverage = coverageCapped
     ? null
-    : safeGet(() => computeDishCoverage(loc), null);
+    : safeGet(() => readLatestDishCoverageSnapshot(loc), null) ??
+      safeGet(() => computeDishCoverage(loc), null);
 
   const packChangesUnacked = readPackSizeChangesUnacked(db);
   const compliance = readComplianceUnverified();

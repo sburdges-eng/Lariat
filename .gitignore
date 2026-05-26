@@ -185,3 +185,6 @@ training/fused-qwen-fp16/
 training/adapters-qwen/
 training/*.gguf
 *.DS_Store
+
+# Superpowers brainstorming companion (local mockups)
+.superpowers/

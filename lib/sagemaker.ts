@@ -1,11 +1,19 @@
 /**
- * sagemaker.ts — SageMaker inference client for Lariat kitchen assistant.
+ * sagemaker.ts — EXPERIMENTAL SageMaker inference client for the kitchen assistant.
  *
- * Drop-in alternative to lib/ollama.ts for production. When LARIAT_SAGEMAKER_ENDPOINT
- * is set, the kitchen assistant routes to the SageMaker endpoint instead of local Ollama.
+ * STATUS (v2 freeze, 2026-05-24): NOT WIRED. This module is standalone
+ * scaffolding for a future cloud-inference path. The kitchen-assistant and
+ * specials routes call lib/ollama.ts::ollamaChat() only — they do NOT import or
+ * dispatch to sagemakerChat(), and there is no LARIAT_SAGEMAKER_ENDPOINT check in
+ * the route layer. v1/v2 runtime is local Ollama. See docs/V2_FREEZE_PLAN.md §2.6.
  *
- * The API route (app/api/kitchen-assistant/route.js) checks for this env var
- * and calls sagemakerChat() instead of ollamaChat().
+ * Note also: the AWS training pipeline (training/aws/train_script.py) fine-tunes
+ * Llama 3.1 8B, which diverges from the local Qwen 2.5 7B fine-tune. Reconcile the
+ * base model before any production SageMaker deploy.
+ *
+ * Intended shape (when wired): a drop-in alternative to ollamaChat() that the route
+ * selects when LARIAT_SAGEMAKER_ENDPOINT is set. Do not ship that path without an
+ * eval gate against the deployed endpoint.
  */
 
 // Lazy-loaded AWS SDK v3 — optional dependency, only needed when

@@ -2,6 +2,20 @@
 
 A grounded read on what's left to make the bundled app function correctly and reach its potential. Written after the LaRi-expansion + integration-audit session — the work shipped on `feat/lari-expansion-and-audit` cleared a single slice of the surface; the rest is enumerated here.
 
+## 2026-05-26 ERP planning completion alignment
+
+The ERP master proposal is now captured in `docs/LARIAT_ERP_MASTER_PROPOSAL.md`. That proposal updates the practical next lane without rewriting this roadmap's audit backlog:
+
+| Priority | Lane | Completion criteria |
+|----------|------|---------------------|
+| P0 | Stabilize receiving-to-inventory master contract | Delivery check-in writes audited inventory truth, ambiguous vendor matches fail closed, and management rollup can trust on-hand state |
+| P1 | Harden `/management` rollup | Existing computes are composed into manager-readable tiles with PIN/audit behavior preserved |
+| P1 | Pin KDS protocol drift | KDS response fields are regression-tested against the protocol before any Toast authoritative bump work |
+| P2 | Continue audit backlog | Untested routes, nav gaps, env-var naming, and `@ts-nocheck` cleanup continue in the existing cadence |
+| Deferred | Postgres/MySQL migration and microservices split | Revisit only after local contracts and multi-venue pressure justify the added operational burden |
+
+Architecture impact: this alignment keeps the bundled app local-first and deterministic. It does not authorize runtime cloud AI, schema drift, or a service split.
+
 ## How this was scoped
 
 I read every doc in `docs/`, the last 30 commits, the schema, the nav registry, the API routes, the audit document I produced this session, and the recent audit-cycle history (the M/L/H-numbered hardening sweeps). I excluded recommendations I couldn't ground in observed evidence. Effort estimates: **XS** = <1hr, **S** = half-day, **M** = 1–2 days, **L** = week, **XL** = sprint+.

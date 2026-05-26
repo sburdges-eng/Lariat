@@ -74,20 +74,19 @@ The shared session board lives at `.agent-sessions/` (gitignored).
 
 See also: `scripts/worktree.sh` (commands and locking semantics), `scripts/check-session-branch.mjs` (the pre-commit guard), `scripts/agent-session.mjs` (the coordination utility).
 
-## Trio orchestration (Claude + Gemini + Codex)
+## Trio orchestration (Codex + Gemini + Claude)
 
-Claude Code is the **orchestrator** on this project. Gemini and Codex are specialists Claude consults via MCP (`mcp__gemini-cli__ask-gemini`) and the codex plugin (`/codex rescue`). The full policy + decision rules live in [`.claude/ORCHESTRATION.md`](.claude/ORCHESTRATION.md); a `/trio` Claude command runs the full consult-and-synthesize flow.
+**Codex is the orchestrator** — prompts start in the Codex terminal; Gemini and Claude are specialists. Canonical policy (shared with Cursor, Antigravity, Claude): [`../../workspace-scaffold/docs/TRIO_ORCHESTRATION.md`](../../workspace-scaffold/docs/TRIO_ORCHESTRATION.md).
 
-**Cross-tool handoff file**: `.agent-sessions/handoff.md` (append-only, gitignored). Gemini and Codex, when invoked from this project, MUST append their findings here in addition to returning them — that's how state survives across sessions. Entry format:
+| Tool | Entry |
+|------|--------|
+| Codex | [`CODEX.md`](CODEX.md) |
+| Gemini / Antigravity | [`GEMINI.md`](GEMINI.md), [`ANTIGRAVITY.md`](ANTIGRAVITY.md) |
+| Claude Code | [`.claude/ORCHESTRATION.md`](.claude/ORCHESTRATION.md) (implementation + commits) |
 
-```
-## YYYY-MM-DD HH:MM <tool> <topic>
-- context: ...
-- finding/sketch: ...
-- next: ...
-```
+**IDE:** `~/Dev/workspaces/lariat.code-workspace` → task **Attach lariat-trio + GitNexus** (refresh index, attach tmux). Or **Open Lariat trio (Codex first)** for IDE terminals only. **GitNexus:** MCP in agents + `gitnexus-refresh-lariat.sh`. **Hermes:** `npm run eval:assistant-prompt`; swarm = `hermes_hospitality.py` + `hosp-pipeline`.
 
-Codex specifically: propose, do not commit. Claude reviews your sketch and owns the final edit + commit.
+**Cross-tool handoff file**: `.agent-sessions/handoff.md` (append-only, gitignored). All tools append findings here, not only chat. Codex writes kickoff; Gemini/Codex do not commit — Claude owns commits after review.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
