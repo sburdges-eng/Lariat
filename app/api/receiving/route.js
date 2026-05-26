@@ -36,6 +36,83 @@ const clip = (s, max) => {
   return t ? t.slice(0, max) : null;
 };
 
+const normalizeMatchText = (s) => {
+  if (typeof s !== 'string') return '';
+  return s.trim().replace(/\s+/g, ' ').toLowerCase();
+};
+
+function matchFromMasterIds(masterIds, matchedReason, ambiguousReason) {
+  const unique = [...new Set(masterIds.filter(Boolean))];
+  if (unique.length === 1) {
+    return {
+      status: 'matched',
+      master_id: unique[0],
+      reason: matchedReason,
+    };
+  }
+  if (unique.length > 1) {
+    return {
+      status: 'ambiguous',
+      master_id: null,
+      reason: ambiguousReason,
+    };
+  }
+  return null;
+}
+
+function resolveReceivingMaster(db, { location_id, vendor, vendor_sku, item }) {
+  const vendorKey = normalizeMatchText(vendor);
+  const skuKey = normalizeMatchText(vendor_sku);
+  const itemKey = normalizeMatchText(item);
+
+  if (!vendorKey) {
+    return { status: 'unmatched', master_id: null, reason: 'missing_vendor' };
+  }
+
+  if (skuKey) {
+    const skuRows = db
+      .prepare(
+        `SELECT master_id
+           FROM vendor_prices
+          WHERE location_id = ?
+            AND lower(trim(vendor)) = ?
+            AND lower(trim(COALESCE(sku, ''))) = ?
+            AND master_id IS NOT NULL
+            AND master_id != ''`,
+      )
+      .all(location_id, vendorKey, skuKey);
+    const skuMatch = matchFromMasterIds(
+      skuRows.map((r) => r.master_id),
+      'exact_vendor_sku',
+      'multiple_vendor_sku_matches',
+    );
+    if (skuMatch) return skuMatch;
+  }
+
+  if (itemKey) {
+    const itemRows = db
+      .prepare(
+        `SELECT ingredient, master_id
+           FROM vendor_prices
+          WHERE location_id = ?
+            AND lower(trim(vendor)) = ?
+            AND master_id IS NOT NULL
+            AND master_id != ''`,
+      )
+      .all(location_id, vendorKey);
+    const itemMatch = matchFromMasterIds(
+      itemRows
+        .filter((r) => normalizeMatchText(r.ingredient) === itemKey)
+        .map((r) => r.master_id),
+      'exact_vendor_item',
+      'multiple_vendor_item_matches',
+    );
+    if (itemMatch) return itemMatch;
+  }
+
+  return { status: 'unmatched', master_id: null, reason: 'no_vendor_price_match' };
+}
+
 // YYYY-MM-DD — cheap parse check; the rule module only lex-compares
 // so format correctness is all we need to assert here.
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -69,6 +146,7 @@ async function receivingHandler(req) {
 
     const invoice_ref = clip(body.invoice_ref ?? body.invoice_no, 120);
     const item = clip(body.item, 200);
+    const vendor_sku = clip(body.vendor_sku ?? body.sku, 120);
     const shellstock_tag_ref = clip(body.shellstock_tag_ref, 120);
     const cook_id = clip(body.cook_id, 64);
     const shift_date = clip(body.shift_date, 32) || todayISO();
@@ -218,8 +296,8 @@ async function receivingHandler(req) {
     const dbStatus = dbStatusFor(decision.status);
 
     const db = getDb();
-    
-    // Phase 3 closed-loop receiving — credit inventory only when
+
+    // Phase 3 closed-loop receiving — attempt inventory credit only when
     // ALL of:
     //   1. status lands at 'accepted' or 'accepted_with_note'
     //      (rejected deliveries don't move on-hand — the product is
@@ -231,7 +309,7 @@ async function receivingHandler(req) {
     //   4. item is present (without an item we'd be debiting "" —
     //      meaningless for inventory reconciliation)
     // Missing any one → graceful skip. The receiving row still lands.
-    const shouldCreditInventory =
+    const shouldAttemptInventoryCredit =
       (dbStatus === 'accepted' || dbStatus === 'accepted_with_note') &&
       typeof received_qty === 'number' &&
       received_qty > 0 &&
@@ -240,15 +318,22 @@ async function receivingHandler(req) {
       typeof item === 'string' &&
       item.length > 0;
 
+    const masterMatch = shouldAttemptInventoryCredit
+      ? resolveReceivingMaster(db, { location_id, vendor, vendor_sku, item })
+      : { status: 'not_attempted', master_id: null, reason: null };
+    const shouldCreditInventory =
+      shouldAttemptInventoryCredit && masterMatch.status === 'matched';
+
     const performWrite = db.transaction(() => {
       const info = db
         .prepare(
           `INSERT INTO receiving_log
              (shift_date, location_id, vendor, invoice_ref, category, item,
+              vendor_sku, master_id, match_status, match_reason,
               reading_f, required_max_f, package_ok, expiration_date,
               received_qty, received_unit,
               status, rejection_reason, shellstock_tag_ref, cook_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           shift_date,
@@ -257,6 +342,10 @@ async function receivingHandler(req) {
           invoice_ref,
           category,
           item,
+          vendor_sku,
+          masterMatch.master_id,
+          masterMatch.status,
+          masterMatch.reason,
           reading_f,
           decision.required_max_f,
           package_ok ? 1 : 0,
@@ -304,13 +393,14 @@ async function receivingHandler(req) {
         const invInfo = db
           .prepare(
             `INSERT INTO inventory_updates
-               (shift_date, location_id, item, delta, direction, note, cook_id, receiving_log_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+               (shift_date, location_id, item, master_id, delta, direction, note, cook_id, receiving_log_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
           )
           .run(
             shift_date,
             location_id,
             item,
+            masterMatch.master_id,
             `${received_qty} ${received_unit}`,
             'in',
             `closed-loop receiving from receiving_log #${info.lastInsertRowid}`,
@@ -366,6 +456,7 @@ async function receivingHandler(req) {
         required_max_f: decision.required_max_f,
       },
       entry: row,
+      match: masterMatch,
     });
   } catch (err) {
     console.error('POST /api/receiving failed:', err);

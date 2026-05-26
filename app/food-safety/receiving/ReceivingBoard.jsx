@@ -76,14 +76,13 @@ export default function ReceivingBoard({
   const [invoice, setInvoice] = useState('');
   const [category, setCategory] = useState(categories[0] || 'refrigerated');
   const [item, setItem] = useState('');
+  const [vendorSku, setVendorSku] = useState('');
   const [reading, setReading] = useState('');
   const [packageOk, setPackageOk] = useState(true);
   const [expiration, setExpiration] = useState('');
   const [note, setNote] = useState('');
-  // Phase 3 closed-loop receiving — optional fields. When both are
-  // filled in alongside an accepted line, the server credits stock
-  // automatically. Blank → server skips the stock write; the receiving
-  // row still lands.
+  // Closed-loop receiving optional fields. The server credits stock only
+  // after it resolves the line to exactly one ingredient master.
   const [receivedQty, setReceivedQty] = useState('');
   const [receivedUnit, setReceivedUnit] = useState('');
   const [needsNote, setNeedsNote] = useState(false);
@@ -143,6 +142,7 @@ export default function ReceivingBoard({
           invoice_ref: invoice.trim() || null,
           category,
           item: item.trim() || null,
+          vendor_sku: vendorSku.trim() || null,
           reading_f: reading.trim() === '' ? null : Number(reading),
           package_ok: packageOk,
           expiration_date: expiration.trim() || null,
@@ -176,6 +176,7 @@ export default function ReceivingBoard({
       setVendor('');
       setInvoice('');
       setItem('');
+      setVendorSku('');
       setReading('');
       setPackageOk(true);
       setExpiration('');
@@ -309,7 +310,7 @@ export default function ReceivingBoard({
             </select>
           </label>
           <label htmlFor="rcv-item">
-            <span>Item / SKU</span>
+            <span>Item</span>
             <input
               id="rcv-item"
               name="rcv-item"
@@ -319,6 +320,20 @@ export default function ReceivingBoard({
               placeholder="e.g. chicken breast 40lb CS"
               autoComplete="off"
               spellCheck={false}
+            />
+          </label>
+          <label htmlFor="rcv-sku">
+            <span>SKU — optional</span>
+            <input
+              id="rcv-sku"
+              name="rcv-sku"
+              type="text"
+              value={vendorSku}
+              onChange={(e) => setVendorSku(e.target.value)}
+              placeholder="e.g. CHK-40"
+              autoComplete="off"
+              spellCheck={false}
+              maxLength={120}
             />
           </label>
           <label htmlFor="rcv-reading">
@@ -453,6 +468,7 @@ export default function ReceivingBoard({
                       {e.vendor}
                       {e.invoice_ref ? ` · ${e.invoice_ref}` : ''}
                       {e.item ? ` · ${e.item}` : ''}
+                      {e.vendor_sku ? ` · ${e.vendor_sku}` : ''}
                     </span>
                     <span className="tl-entry-temp">
                       {rule?.label || e.category}

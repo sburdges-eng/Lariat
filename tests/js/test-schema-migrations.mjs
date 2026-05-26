@@ -657,6 +657,124 @@ describe('T7 — master_id indexes exist', () => {
   });
 });
 
+describe('receiving master contract schema', () => {
+  it('receiving_log carries the match contract columns', () => {
+    const info = /** @type {{name: string, type: string, notnull: number, dflt_value: unknown}[]} */ (
+      db.prepare('PRAGMA table_info(receiving_log)').all()
+    );
+    const byName = new Map(info.map((c) => [c.name, c]));
+    for (const name of ['vendor_sku', 'master_id', 'match_status', 'match_reason']) {
+      assert.ok(byName.has(name), `receiving_log.${name} missing`);
+      assert.strictEqual(byName.get(name).type.toUpperCase(), 'TEXT');
+      assert.strictEqual(byName.get(name).notnull, 0, `receiving_log.${name} must be nullable`);
+    }
+  });
+
+  it('inventory_updates carries source receiving and master columns', () => {
+    const info = /** @type {{name: string, type: string, notnull: number}[]} */ (
+      db.prepare('PRAGMA table_info(inventory_updates)').all()
+    );
+    const byName = new Map(info.map((c) => [c.name, c]));
+    assert.ok(byName.has('master_id'), 'inventory_updates.master_id missing');
+    assert.strictEqual(byName.get('master_id').type.toUpperCase(), 'TEXT');
+    assert.strictEqual(byName.get('master_id').notnull, 0);
+    assert.ok(byName.has('receiving_log_id'), 'inventory_updates.receiving_log_id missing');
+    assert.strictEqual(byName.get('receiving_log_id').type.toUpperCase(), 'INTEGER');
+    assert.strictEqual(byName.get('receiving_log_id').notnull, 0);
+  });
+
+  it('pre-contract receiving_log migrates without losing rows', () => {
+    const legacy = new Database(':memory:');
+    try {
+      legacy.exec(`
+        CREATE TABLE receiving_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          shift_date TEXT NOT NULL,
+          location_id TEXT DEFAULT 'default',
+          vendor TEXT NOT NULL,
+          invoice_ref TEXT,
+          category TEXT NOT NULL,
+          item TEXT,
+          reading_f REAL,
+          required_max_f REAL,
+          package_ok INTEGER,
+          expiration_date TEXT,
+          received_qty REAL,
+          received_unit TEXT,
+          status TEXT NOT NULL
+            CHECK(status IN ('accepted','rejected','accepted_with_note')),
+          rejection_reason TEXT,
+          shellstock_tag_ref TEXT,
+          cook_id TEXT,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+        INSERT INTO receiving_log (
+          shift_date, vendor, category, item, received_qty, received_unit, status
+        ) VALUES (
+          '2026-05-26', 'Legacy Vendor', 'refrigerated', 'Legacy Item', 1.0, 'case', 'accepted'
+        );
+      `);
+
+      initSchema(legacy);
+
+      const cols = /** @type {{name: string}[]} */ (
+        legacy.prepare('PRAGMA table_info(receiving_log)').all()
+      ).map((c) => c.name);
+      for (const name of ['vendor_sku', 'master_id', 'match_status', 'match_reason']) {
+        assert.ok(cols.includes(name), `migration did not add receiving_log.${name}`);
+      }
+      const row = /** @type {{vendor: string, vendor_sku: string | null, master_id: string | null, match_status: string | null, match_reason: string | null}} */ (
+        legacy.prepare('SELECT vendor, vendor_sku, master_id, match_status, match_reason FROM receiving_log').get()
+      );
+      assert.strictEqual(row.vendor, 'Legacy Vendor');
+      assert.strictEqual(row.vendor_sku, null);
+      assert.strictEqual(row.master_id, null);
+      assert.strictEqual(row.match_status, 'not_attempted');
+      assert.strictEqual(row.match_reason, null);
+    } finally {
+      legacy.close();
+    }
+  });
+
+  it('pre-contract inventory_updates migrates without losing rows', () => {
+    const legacy = new Database(':memory:');
+    try {
+      legacy.exec(`
+        CREATE TABLE inventory_updates (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          shift_date TEXT NOT NULL,
+          station_id TEXT,
+          item TEXT NOT NULL,
+          delta TEXT,
+          direction TEXT,
+          note TEXT,
+          cook_id TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          location_id TEXT DEFAULT 'default'
+        );
+        INSERT INTO inventory_updates (shift_date, item, delta, direction)
+        VALUES ('2026-05-26', 'Legacy Item', '1 case', 'in');
+      `);
+
+      initSchema(legacy);
+
+      const cols = /** @type {{name: string}[]} */ (
+        legacy.prepare('PRAGMA table_info(inventory_updates)').all()
+      ).map((c) => c.name);
+      assert.ok(cols.includes('master_id'), 'migration did not add inventory_updates.master_id');
+      assert.ok(cols.includes('receiving_log_id'), 'migration did not add inventory_updates.receiving_log_id');
+      const row = /** @type {{item: string, master_id: string | null, receiving_log_id: number | null}} */ (
+        legacy.prepare('SELECT item, master_id, receiving_log_id FROM inventory_updates').get()
+      );
+      assert.strictEqual(row.item, 'Legacy Item');
+      assert.strictEqual(row.master_id, null);
+      assert.strictEqual(row.receiving_log_id, null);
+    } finally {
+      legacy.close();
+    }
+  });
+});
+
 describe('T7 — assertCriticalSchemas catches drift on ingredient_masters', () => {
   it('throws when a legacy ingredient_masters is missing required columns', () => {
     const drifted = new Database(':memory:');

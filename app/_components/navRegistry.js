@@ -717,6 +717,16 @@ export const NAV_ITEMS = [
     locAware: t,
     surface: { sidebar: f, palette: t, shelf: f },
   },
+  {
+    id: 'management-receiving-matches',
+    href: '/management/receiving-matches',
+    name: 'Receiving matches',
+    sub: 'Add stock for unmatched deliveries',
+    group: 'Management',
+    terms: 'receiving match unmatched delivery inventory stock ingredient master',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
   // Temp PINs (T10): manager mints scoped 1-shift PINs. Palette-only —
   // not a daily destination, but a quick ⌘K target when handing
   // authority to a sous chef for a banquet.

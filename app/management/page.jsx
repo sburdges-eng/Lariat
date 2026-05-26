@@ -71,6 +71,12 @@ function reviewColor(n) {
   return 'var(--green)';
 }
 
+function receivingMatchColor(n) {
+  if (n == null) return 'var(--muted)';
+  if (n > 0) return 'var(--yellow)';
+  return 'var(--green)';
+}
+
 function formatAge(ageMin) {
   if (ageMin == null) return 'no runs on record';
   if (ageMin < 60) return `${ageMin} min ago`;
@@ -161,6 +167,28 @@ function readPerformanceReviewsCount(db, locationId) {
   }
 }
 
+/** Accepted receiving rows with quantity that still need a master ingredient. */
+function readReceivingMatchesCount(db, locationId) {
+  try {
+    const row = db.prepare(
+      `SELECT COUNT(*) AS c
+         FROM receiving_log r
+         LEFT JOIN inventory_updates iu ON iu.receiving_log_id = r.id
+        WHERE r.location_id = ?
+          AND r.status IN ('accepted', 'accepted_with_note')
+          AND r.received_qty IS NOT NULL
+          AND r.received_qty > 0
+          AND r.received_unit IS NOT NULL
+          AND TRIM(r.received_unit) <> ''
+          AND r.match_status IN ('unmatched', 'ambiguous')
+          AND iu.id IS NULL`,
+    ).get(locationId);
+    return row?.c ?? 0;
+  } catch {
+    return null;
+  }
+}
+
 function safeGet(fn, fallback) {
   try { return fn(); } catch { return fallback; }
 }
@@ -212,6 +240,7 @@ export default function ManagementRollupPage({ searchParams }) {
   const compliance = readComplianceUnverified();
   const cleaning = readCleaningToday(db, loc);
   const reviewsCount = readPerformanceReviewsCount(db, loc);
+  const receivingMatches = readReceivingMatchesCount(db, loc);
 
   const varianceSnapshot = formatSnapshotAt(variance?.snapshot_at);
 
@@ -311,12 +340,22 @@ export default function ManagementRollupPage({ searchParams }) {
           sub={reviewsCount == null ? 'reviews unavailable' : 'total reviews on record'}
           href="/management/performance-reviews"
         />
+
+        {/* Tile 8 — Receiving rows needing a master ingredient */}
+        <RollupTile
+          label="Receiving to match"
+          value={receivingMatches == null ? '—' : receivingMatches}
+          color={receivingMatchColor(receivingMatches)}
+          sub={receivingMatches == null ? 'receiving unavailable' : 'accepted lines not stocked yet'}
+          href="/management/receiving-matches"
+        />
       </div>
 
       <div style={{ marginTop: 16 }}>
         <h2 style={{ fontSize: 14, marginBottom: 8 }}>More tools</h2>
         <ul style={{ fontSize: 13 }}>
           <li><Link href="/management/performance-reviews">Staff reviews</Link> — log and view performance</li>
+          <li><Link href="/management/receiving-matches">Receiving matches</Link> — add stock for unmatched lines</li>
           <li><Link href="/management/audit-log">Audit log</Link> — management actions outside regulated tables</li>
           <li><Link href="/management/cloud-bridge">Cloud bridge</Link> — stuck snapshots heading to corp</li>
           {/* Static design reference. Plain <a> because the target is

@@ -1016,6 +1016,7 @@ export function initSchema(db: DB): void {
       shift_date TEXT NOT NULL,
       station_id TEXT,
       item TEXT NOT NULL,
+      master_id TEXT,
       delta TEXT,
       direction TEXT,
       note TEXT,
@@ -2480,6 +2481,10 @@ function initFoodSafetyLaborSchema(db: DB): void {
       invoice_ref TEXT,
       category TEXT NOT NULL,
       item TEXT,
+      vendor_sku TEXT,
+      master_id TEXT,
+      match_status TEXT DEFAULT 'not_attempted',
+      match_reason TEXT,
       reading_f REAL,
       required_max_f REAL,
       package_ok INTEGER,               -- 1 = intact, 0 = compromised, NULL = unrecorded (legacy)
@@ -2974,9 +2979,14 @@ function assertCriticalSchemas(db: DB): void {
     // / expiration_date; the column-presence check is what we're asserting.
     receiving_log: [
       'id', 'shift_date', 'location_id', 'vendor', 'category', 'item',
+      'vendor_sku', 'master_id', 'match_status', 'match_reason',
       'reading_f', 'required_max_f', 'package_ok', 'expiration_date',
       'received_qty', 'received_unit',
       'status', 'rejection_reason',
+    ],
+    inventory_updates: [
+      'id', 'shift_date', 'item', 'master_id', 'delta', 'direction',
+      'note', 'cook_id', 'location_id', 'receiving_log_id',
     ],
     performance_reviews: [
       'id', 'cook_name', 'cook_uuid', 'review_date', 'punctuality_score',
@@ -3132,6 +3142,11 @@ function migrateLegacyColumns(db: DB): void {
   // documented limit. The handle here protects against in-process
   // double-credit on the SAME source row.
   const invCols = t('inventory_updates');
+  if (!invCols.includes('master_id')) {
+    try {
+      db.exec('ALTER TABLE inventory_updates ADD COLUMN master_id TEXT');
+    } catch { /* ignore */ }
+  }
   if (!invCols.includes('receiving_log_id')) {
     try {
       db.exec(
@@ -3496,6 +3511,10 @@ function migrateLegacyColumns(db: DB): void {
     ['expiration_date', 'ALTER TABLE receiving_log ADD COLUMN expiration_date TEXT'],
     ['received_qty', 'ALTER TABLE receiving_log ADD COLUMN received_qty REAL'],
     ['received_unit', 'ALTER TABLE receiving_log ADD COLUMN received_unit TEXT'],
+    ['vendor_sku', 'ALTER TABLE receiving_log ADD COLUMN vendor_sku TEXT'],
+    ['master_id', 'ALTER TABLE receiving_log ADD COLUMN master_id TEXT'],
+    ['match_status', "ALTER TABLE receiving_log ADD COLUMN match_status TEXT DEFAULT 'not_attempted'"],
+    ['match_reason', 'ALTER TABLE receiving_log ADD COLUMN match_reason TEXT'],
   ];
   for (const [col, ddl] of recvMigrations) {
     if (!recvCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
