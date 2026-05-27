@@ -42,6 +42,7 @@ after(() => {
 
 beforeEach(() => {
   db.exec('DELETE FROM vendor_prices_history;');
+  db.exec('DELETE FROM vendor_prices;');
 });
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -241,6 +242,61 @@ describe('GET /api/vendor-prices/shocks', () => {
     const j = await res.json();
     assert.strictEqual(j.rows.length, 1);
     assert.strictEqual(j.rows[0].sku, 'BEER1');
+  });
+});
+
+// ── live vendor_prices as the latest point ─────────────────────────
+//
+// The costing ingest snapshots the PRIOR vendor_prices rows into
+// vendor_prices_history, then DELETE+INSERTs the new current prices into
+// vendor_prices. So right after an ingest, the newest price exists ONLY in
+// vendor_prices — a history-only shock query misses it (or is one ingest
+// behind). listPriceShocks must treat the live vendor_prices row as the
+// latest comparison point.
+
+function insertLive({
+  vendor, sku, ingredient, unit_price,
+  category = null, location_id = 'default', imported_at,
+}) {
+  db.prepare(
+    `INSERT INTO vendor_prices
+       (ingredient, vendor, sku, pack_size, pack_unit, pack_price,
+        unit_price, category, location_id, imported_at)
+     VALUES (?, ?, ?, 1, 'lb', ?, ?, ?, ?, ?)`,
+  ).run(ingredient, vendor, sku, unit_price, unit_price, category, location_id, imported_at);
+}
+
+describe('listPriceShocks — live vendor_prices is the latest comparison point', () => {
+  it('surfaces a fresh-ingest price move that lives only in vendor_prices', () => {
+    // Prior price snapshotted to history (within window); the ingest then
+    // wrote the NEW price only to vendor_prices — not yet snapshotted.
+    insertSnapshot({ vendor: 'sysco', sku: 'TOM-1', ingredient: 'Tomatoes', unit_price: 10, snapshot_at: isoDaysAgo(3) });
+    insertLive({ vendor: 'sysco', sku: 'TOM-1', ingredient: 'Tomatoes', unit_price: 12, imported_at: isoDaysAgo(0) });
+
+    const rows = repo.listPriceShocks(db, { windowDays: 30, minPctMove: 5 });
+    const hit = rows.find((r) => r.sku === 'TOM-1');
+    assert.ok(hit, 'fresh price move via live vendor_prices should appear');
+    assert.strictEqual(hit.baseline_unit_price, 10);
+    assert.strictEqual(hit.latest_unit_price, 12);
+    assert.strictEqual(hit.direction, 'up');
+    assert.ok(Math.abs(hit.delta_pct - 20) < 1e-6);
+  });
+
+  it('does not invent a shock when there is no in-window history baseline', () => {
+    insertLive({ vendor: 'sysco', sku: 'ONLY-LIVE', ingredient: 'Onions', unit_price: 5, imported_at: isoDaysAgo(0) });
+    const rows = repo.listPriceShocks(db, { windowDays: 30, minPctMove: 5 });
+    assert.strictEqual(rows.find((r) => r.sku === 'ONLY-LIVE'), undefined);
+  });
+
+  it('live price overrides a stale history latest for the same SKU', () => {
+    insertSnapshot({ vendor: 'v', sku: 'OIL-9', ingredient: 'Oil', unit_price: 10, snapshot_at: isoDaysAgo(6) });
+    insertSnapshot({ vendor: 'v', sku: 'OIL-9', ingredient: 'Oil', unit_price: 10.2, snapshot_at: isoDaysAgo(2) }); // pre-ingest
+    insertLive({ vendor: 'v', sku: 'OIL-9', ingredient: 'Oil', unit_price: 13, imported_at: isoDaysAgo(0) });       // fresh ingest
+    const rows = repo.listPriceShocks(db, { windowDays: 30, minPctMove: 5 });
+    const hit = rows.find((r) => r.sku === 'OIL-9');
+    assert.ok(hit);
+    assert.strictEqual(hit.latest_unit_price, 13, 'live price wins over the stale history latest');
+    assert.strictEqual(hit.baseline_unit_price, 10);
   });
 });
 

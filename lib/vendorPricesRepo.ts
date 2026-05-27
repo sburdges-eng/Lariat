@@ -535,6 +535,41 @@ export function listPriceShocks(
     if (r.category != null) g.category = r.category;
   }
 
+  // Overlay the LIVE current price as the latest comparison point. The
+  // costing ingest snapshots the PRIOR price into vendor_prices_history,
+  // then writes the new price only into vendor_prices — so a just-ingested
+  // move lives only here until the next snapshot. Without this overlay a
+  // fresh price move is invisible (or one ingest behind). We only override
+  // groups that already have an in-window history baseline; a live row with
+  // no baseline can't yield a % change and is skipped (matches prior
+  // single-snapshot behavior).
+  const liveRows = db
+    .prepare(
+      `SELECT vendor, sku, ingredient, category, unit_price, imported_at
+         FROM vendor_prices
+        WHERE location_id = ?
+          AND vendor IS NOT NULL
+          AND sku IS NOT NULL
+          AND unit_price IS NOT NULL`,
+    )
+    .all(location_id) as Array<{
+    vendor: string;
+    sku: string;
+    ingredient: string;
+    category: string | null;
+    unit_price: number;
+    imported_at: string | null;
+  }>;
+  for (const r of liveRows) {
+    const g = groups.get(`${r.vendor}|${r.sku}|${r.ingredient}`);
+    if (!g) continue;
+    // The live vendor_prices row is the authoritative current price (written
+    // after the prior price was snapshotted), so it is the true latest.
+    g.latest_unit_price = r.unit_price;
+    g.latest_at = r.imported_at || g.latest_at;
+    if (r.category != null && g.category == null) g.category = r.category;
+  }
+
   const out: PriceShockRow[] = [];
   for (const g of groups.values()) {
     if (
