@@ -3209,6 +3209,42 @@ function migrateLegacyColumns(db: DB): void {
     } catch { /* ignore */ }
   }
 
+  // Phase 1 C1 (GH #267) — day-level sales support on sales_lines.
+  // Food cost / prep-forecast distinguish daily vs monthly sales rows:
+  //   service_period='day'   → service_date is the YYYY-MM-DD it covers
+  //   service_period='month' → whole-month aggregate, service_date NULL
+  // Never edit the sales_lines DDL in place — this migration is the only
+  // place these columns are added (spec 2026-04-11-food-cost-prep-forecasting
+  // §"Component 1 — Schema migration").
+  const salesCols = t('sales_lines');
+  if (!salesCols.includes('service_date')) {
+    try {
+      db.exec('ALTER TABLE sales_lines ADD COLUMN service_date TEXT');
+    } catch { /* ignore */ }
+  }
+  if (!salesCols.includes('service_period')) {
+    try {
+      db.exec('ALTER TABLE sales_lines ADD COLUMN service_period TEXT');
+    } catch { /* ignore */ }
+  }
+  try {
+    db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_sales_service_date
+         ON sales_lines(service_date, location_id)`,
+    );
+  } catch { /* ignore */ }
+  // Backfill: pre-migration monthly analytics rows have NULL service_period.
+  // Idempotent — only touches rows still NULL whose label is a monthly
+  // "Item Sales" export; daily-ingest rows ('Toast daily …') are left alone.
+  try {
+    db.exec(
+      `UPDATE sales_lines
+          SET service_period = 'month'
+        WHERE service_period IS NULL
+          AND period_label LIKE '%Item Sales%'`,
+    );
+  } catch { /* ignore */ }
+
   // accounting_variance: per-vendor breakdown of actual_cogs added when the
   // computation shifted from "spend_monthly.shamrock_total_spend only" to a
   // unified roll-up across shamrock_invoices + sysco_invoices + (legacy)
