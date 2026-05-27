@@ -223,6 +223,25 @@ const COOK_QUERIES: DbQuerySpec[] = [
     `,
   },
   {
+    name: 'equipment_lookup',
+    tier: 'cook',
+    description: 'Look up kitchen equipment by name or type to get make/model, model number, serial number, status, vendor, and warranty expiration. Use for spec questions like "what model is the ice machine", "serial number of the fryer", "is the walk-in under warranty".',
+    locationScoped: true,
+    rowCap: 25,
+    params: [
+      { name: 'search', type: 'string', required: true, maxLength: 100, description: 'Equipment name or type (partial match), e.g. "ice machine", "fryer", "Hoshizaki".' },
+    ],
+    sql: `
+      SELECT
+        name, category, make_model, model_number, serial_number,
+        status, vendor, warranty_expiration
+      FROM equipment
+      WHERE location_id = :location_id
+        AND lower(name) LIKE '%' || lower(:search) || '%'
+      ORDER BY name ASC
+    `,
+  },
+  {
     name: 'tphc_active',
     tier: 'cook',
     description: 'Time-as-Public-Health-Control items currently on the clock with remaining time to cutoff.',

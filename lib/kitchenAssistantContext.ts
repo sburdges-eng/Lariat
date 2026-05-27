@@ -61,7 +61,19 @@ const PERFORMANCE_KEYWORDS = [
   'review', 'performance', 'evaluation', 'metric', 'rating', 'feedback', 'appraisal',
 ];
 const EQUIPMENT_KEYWORDS = [
+  // Status / maintenance triggers (original set).
   'equipment', 'warranty', 'maintenance', 'service', 'broken', 'repair', 'down',
+  // Spec / identity triggers — so "what model/serial/brand is X" trips the gate.
+  'model', 'serial', 'spec', 'manufacturer', 'brand',
+  // Low-collision equipment nouns, so plain "tell me about the walk-in" fires.
+  // Deliberately NOT gated: 'oven' / 'range' / 'grill' / 'broiler' / 'make' —
+  // they collide with cooking language ("preheat the oven", "orange" contains
+  // "range", "make the sauce"). Those still resolve in renderEquipmentSpecs
+  // once the gate is tripped by a spec/status word.
+  'ice machine', 'ice maker', 'fryer', 'walk-in', 'walk in', 'freezer',
+  'fridge', 'refrigerat', 'cooler', 'reach-in', 'prep table', 'lowboy',
+  'dishwasher', 'dish machine', 'warewash', 'mixer', 'slicer', 'salamander',
+  'griddle', 'flat top', 'convection', 'combi', 'steamer',
 ];
 const CATERING_KEYWORDS = [
   'beo', 'catering', 'cater', 'wedding', 'event', 'buffet', 'banquet',
@@ -104,6 +116,7 @@ const MAX_REPEAT_86 = 10;
 const MAX_GOLD_STARS = 10;
 const MAX_PERFORMANCE_REVIEWS = 15;
 const MAX_WARRANTIES = 10;
+const MAX_EQUIPMENT_SPECS = 12;
 const MAX_BEO_PREP_RECENT_EVENTS = 5;
 const MAX_BEO_PREP_ITEM_HISTORY = 5;
 
@@ -272,6 +285,7 @@ export async function buildGroundedContext(
     }
   }
   if (matchesKeywords(qLower, EQUIPMENT_KEYWORDS)) {
+    append(renderEquipmentSpecs(db, locationId, qLower));
     append(renderWarrantyAlerts(db, locationId));
   }
 
@@ -665,6 +679,90 @@ function renderWarrantyAlerts(db: DB, locationId: string): OversightSection {
     text += `  - ${r.name} (${r.category}) — expires ${r.warranty_expiration}\n`;
   }
   return { text, source: { type: 'warranty_alerts', detail: `${rows.length} item(s)` } };
+}
+
+// Maps regular-English equipment terms to precise SQL filters. Category
+// matches (Fryers / Ovens / Refrigeration) are high-precision; ice and dish
+// units use full-phrase NAME matches so a bare "ice" can't drag in
+// "Choice" / "Dicer" / "Device" line items. `cat:` → category LIKE,
+// everything else → name LIKE.
+const EQUIPMENT_SPEC_SYNONYMS: { phrases: string[]; likes: string[] }[] = [
+  { phrases: ['fryer'], likes: ['cat:fryers', 'name:fryer'] },
+  { phrases: ['oven', 'convection', 'combi'], likes: ['cat:ovens', 'name:oven'] },
+  { phrases: ['salamander', 'griddle', 'flat top', 'broiler'], likes: ['name:griddle', 'name:salamander', 'name:broiler'] },
+  { phrases: ['steamer'], likes: ['name:steamer'] },
+  { phrases: ['mixer'], likes: ['name:mixer'] },
+  { phrases: ['slicer'], likes: ['name:slicer'] },
+  { phrases: ['dishwasher', 'dish machine', 'warewash'], likes: ['name:dishwash', 'name:dish machine', 'name:warewash'] },
+  {
+    phrases: ['walk-in', 'walk in', 'freezer', 'fridge', 'refrigerat', 'cooler', 'reach-in', 'prep table', 'lowboy'],
+    likes: ['cat:refrigeration', 'name:freezer', 'name:cooler'],
+  },
+  { phrases: ['ice machine', 'ice maker', 'ice bin', 'ice cuber'], likes: ['name:ice machine', 'name:ice maker', 'name:ice bin'] },
+];
+
+/**
+ * Deterministic backstop to the `equipment_lookup` db_query: when the cook
+ * asks about a specific unit ("what model is the fryer", "serial of the
+ * walk-in"), inject the matching specs straight into CONTEXT so the answer
+ * doesn't hinge on the small model choosing to call the analytical tool.
+ * Returns empty when the question only carries a generic status word
+ * (e.g. "is anything broken?") — renderEquipmentDown / renderWarrantyAlerts
+ * cover those.
+ */
+function renderEquipmentSpecs(db: DB, locationId: string, qLower: string): OversightSection {
+  const nameLikes = new Set<string>();
+  const catLikes = new Set<string>();
+  for (const grp of EQUIPMENT_SPEC_SYNONYMS) {
+    if (!grp.phrases.some((p) => qLower.includes(p))) continue;
+    for (const l of grp.likes) {
+      if (l.startsWith('cat:')) catLikes.add(l.slice(4));
+      else nameLikes.add(l.slice(5));
+    }
+  }
+  if (!nameLikes.size && !catLikes.size) return { text: '', source: null };
+
+  const clauses: string[] = [];
+  const binds: (string | number)[] = [locationId];
+  for (const c of catLikes) {
+    clauses.push('lower(category) LIKE ?');
+    binds.push(`%${c}%`);
+  }
+  for (const n of nameLikes) {
+    clauses.push('lower(name) LIKE ?');
+    binds.push(`%${n}%`);
+  }
+  binds.push(MAX_EQUIPMENT_SPECS);
+
+  const rows = db
+    .prepare(
+      `SELECT name, category, make_model, model_number, status, vendor
+       FROM equipment
+       WHERE location_id = ? AND (${clauses.join(' OR ')})
+       ORDER BY name ASC LIMIT ?`
+    )
+    .all(...binds) as {
+    name: string;
+    category: string;
+    make_model: string | null;
+    model_number: string | null;
+    status: string;
+    vendor: string | null;
+  }[];
+  if (!rows.length) return { text: '', source: null };
+
+  let text = '\nEQUIPMENT SPECS (matched to your question):\n';
+  for (const r of rows) {
+    const model = r.make_model || r.model_number || 'no model on file';
+    const extras = [
+      r.status && r.status !== 'active' ? `status: ${r.status}` : null,
+      r.vendor ? `vendor: ${r.vendor}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    text += `  - ${r.name} (${r.category}) — model: ${model}${extras ? ` · ${extras}` : ''}\n`;
+  }
+  return { text, source: { type: 'equipment_specs', detail: `${rows.length} unit(s)` } };
 }
 
 // ── Always-on / coordinator render helpers ──────────────────────────
