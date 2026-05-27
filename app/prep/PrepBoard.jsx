@@ -1,17 +1,16 @@
 // @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 'use client';
-
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 const PRIORITY_LABEL = { 0: 'normal', 1: 'high', 2: 'rush' };
+const PRIORITY_TONE = { 0: null, 1: 'amber', 2: 'red' };
 
 function fmtTime(iso) {
   if (!iso) return '';
   try {
     return new Date(iso.replace(' ', 'T') + 'Z').toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
+      hour: 'numeric', minute: '2-digit',
     });
   } catch {
     return iso;
@@ -32,6 +31,7 @@ export default function PrepBoard({ tasks, stations, suggested, date, locationId
     stations.find((s) => s.id === id)?.name || id || 'Any station';
 
   const grouped = useMemo(() => {
+    // Open tasks grouped by station; done/skipped go to a separate bin.
     const open = new Map();
     const closed = [];
     for (const t of tasks) {
@@ -43,7 +43,9 @@ export default function PrepBoard({ tasks, stations, suggested, date, locationId
       if (!open.has(k)) open.set(k, []);
       open.get(k).push(t);
     }
-    const stationKeys = [...open.keys()].sort((a, b) => {
+    // Order: stations in their natural order, then "Any station" last.
+    const stationKeys = [...open.keys()];
+    stationKeys.sort((a, b) => {
       if (a === '' && b !== '') return 1;
       if (b === '' && a !== '') return -1;
       const ai = stations.findIndex((s) => s.id === a);
@@ -71,12 +73,13 @@ export default function PrepBoard({ tasks, stations, suggested, date, locationId
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         setErr(j.error || 'Did not save — try again.');
+        setBusyId(null);
         return;
       }
+      setBusyId(null);
       router.refresh();
     } catch {
       setErr('Lost connection — not saved.');
-    } finally {
       setBusyId(null);
     }
   };
@@ -92,12 +95,13 @@ export default function PrepBoard({ tasks, stations, suggested, date, locationId
       );
       if (!res.ok) {
         setErr('Could not drop.');
+        setBusyId(null);
         return;
       }
+      setBusyId(null);
       router.refresh();
     } catch {
       setErr('Lost connection.');
-    } finally {
       setBusyId(null);
     }
   };
@@ -125,6 +129,7 @@ export default function PrepBoard({ tasks, stations, suggested, date, locationId
       {suggested.length > 0 && (
         <Suggested
           rows={suggested}
+          stations={stations}
           cookId={cookId}
           date={date}
           locationId={locationId}
@@ -173,18 +178,15 @@ export default function PrepBoard({ tasks, stations, suggested, date, locationId
 }
 
 function TaskRow({ t, busy, cookId, onClaim, onRelease, onStart, onDone, onSkip, onDelete }) {
-  const tone = t.priority === 2 ? 'red' : t.priority === 1 ? 'amber' : null;
+  const tone = PRIORITY_TONE[t.priority] || null;
   const mine = t.assigned_cook_id && cookId && t.assigned_cook_id === cookId;
 
   return (
     <li
       className="check-row"
       style={{
-        ...(tone === 'red'
-          ? { borderLeft: '3px solid var(--red)', paddingLeft: 8 }
-          : tone === 'amber'
-            ? { borderLeft: '3px solid var(--orange, #c0531c)', paddingLeft: 8 }
-            : null),
+        ...(tone === 'red' ? { borderLeft: '3px solid var(--red)', paddingLeft: 8 } :
+            tone === 'amber' ? { borderLeft: '3px solid var(--orange, #c0531c)', paddingLeft: 8 } : null),
         display: 'flex',
         gap: 12,
         alignItems: 'flex-start',
@@ -198,12 +200,9 @@ function TaskRow({ t, busy, cookId, onClaim, onRelease, onStart, onDone, onSkip,
           {t.priority > 0 && (
             <span
               style={{
-                marginLeft: 8,
-                padding: '2px 8px',
-                borderRadius: 999,
+                marginLeft: 8, padding: '2px 8px', borderRadius: 999,
                 background: tone === 'red' ? 'var(--red)' : 'var(--orange, #c0531c)',
-                color: '#fff',
-                fontSize: 12,
+                color: '#fff', fontSize: 12,
               }}
             >
               {PRIORITY_LABEL[t.priority]}
@@ -265,8 +264,11 @@ function ClosedSection({ rows, stationName, onReopen }) {
                 {t.task} {t.qty && <span style={{ opacity: 0.75 }}>· {t.qty}</span>}
               </div>
               <div className="meta">
-                {stationName(t.station_id)} · {t.status === 'skipped' ? 'skipped' : 'done'}
-                {t.done_at && <> at <time dateTime={t.done_at}>{fmtTime(t.done_at)}</time></>}
+                {stationName(t.station_id)} ·{' '}
+                {t.status === 'skipped' ? 'skipped' : 'done'}
+                {t.done_at && (
+                  <> at <time dateTime={t.done_at}>{fmtTime(t.done_at)}</time></>
+                )}
                 {t.done_by && <> by {t.done_by}</>}
               </div>
             </div>
@@ -280,7 +282,7 @@ function ClosedSection({ rows, stationName, onReopen }) {
   );
 }
 
-function Suggested({ rows, cookId, date, locationId }) {
+function Suggested({ rows, stations, cookId, date, locationId }) {
   const router = useRouter();
   const [busyKey, setBusyKey] = useState(null);
   const [err, setErr] = useState('');
@@ -308,15 +310,19 @@ function Suggested({ rows, cookId, date, locationId }) {
           priority: 1,
         }),
       });
+      // Mirror patch() / AddTaskForm.submit(): a non-2xx must surface an error,
+      // not silently clear the busy state and refresh (which made the failed
+      // suggestion reappear with no feedback).
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         setErr(j.error || 'Could not add task — try again.');
+        setBusyKey(null);
         return;
       }
+      setBusyKey(null);
       router.refresh();
     } catch {
       setErr('Lost connection — not saved.');
-    } finally {
       setBusyKey(null);
     }
   };
@@ -327,9 +333,9 @@ function Suggested({ rows, cookId, date, locationId }) {
         Below par · suggested
       </h2>
       {err && (
-        <div role="alert" aria-live="assertive" style={{ color: 'var(--red)', marginBottom: 8 }}>
+        <p className="error" role="alert" style={{ margin: '0 0 8px' }}>
           {err}
-        </div>
+        </p>
       )}
       <ul className="checklist" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {rows.map((r) => (
@@ -391,16 +397,17 @@ function AddTaskForm({ stations, cookId, date, locationId }) {
       });
       if (!res.ok) {
         setErr('Did not save — try again.');
+        setBusy(false);
         return;
       }
       setTask('');
       setQty('');
       setNotes('');
       setPriority(0);
+      setBusy(false);
       router.refresh();
     } catch {
       setErr('Lost connection — not saved.');
-    } finally {
       setBusy(false);
     }
   };
