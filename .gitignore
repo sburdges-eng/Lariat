@@ -1,5 +1,8 @@
 node_modules
 .next
+# Generated build-version stamp (scripts/version-stamp.mjs) — derived from
+# package.json#buildVersion at build time; never committed.
+version.json
 data/lariat.db
 data/lariat.db-journal
 data/lariat.db-shm

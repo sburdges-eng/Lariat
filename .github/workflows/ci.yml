@@ -47,6 +47,9 @@ jobs:
       - name: schema-migration idempotency
         run: npm run test:schema
 
+      - name: stamp build version (V.I.NN.NNN)
+        run: npm run version:stamp
+
       - name: next build
         run: npm run build
         env:
