@@ -91,9 +91,16 @@ function main(argv = process.argv.slice(2)) {
     return;
   }
 
+  // The v.I.NN.NNN scheme is the TEST-release channel (offline; external
+  // vendor APIs disabled). Official builds set LARIAT_RELEASE_CHANNEL=official.
+  // This is metadata; runtime behavior is gated by LARIAT_TEST_RELEASE (see
+  // lib/release.ts).
+  const channel = process.env.LARIAT_RELEASE_CHANNEL || 'test';
   const stamp = {
     version,
     semver: pkg.version,
+    channel,
+    testRelease: channel === 'test',
     sha: shortSha(),
     builtAt: new Date().toISOString(),
   };

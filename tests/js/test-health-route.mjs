@@ -50,6 +50,7 @@ const { GET } = route;
 const ENV_SNAPSHOT = {
   LARIAT_PIN: process.env.LARIAT_PIN,
   LARIAT_PIN_SECRET: process.env.LARIAT_PIN_SECRET,
+  LARIAT_TEST_RELEASE: process.env.LARIAT_TEST_RELEASE,
   LARIAT_TOAST_CLIENT_ID: process.env.LARIAT_TOAST_CLIENT_ID,
   LARIAT_TOAST_CLIENT_SECRET: process.env.LARIAT_TOAST_CLIENT_SECRET,
   LARIAT_7SHIFTS_API_KEY: process.env.LARIAT_7SHIFTS_API_KEY,
@@ -234,5 +235,46 @@ describe('GET /api/health — optional integration credentials', () => {
     const res = await GET();
     const body = await res.json();
     assert.equal(body.probes.sevenshifts.ok, true);
+  });
+});
+
+// ── test-release channel (offline; no vendor APIs) ──────────────────
+
+describe('GET /api/health — test release runs without vendor APIs', () => {
+  after(() => {
+    delete process.env.LARIAT_TEST_RELEASE;
+  });
+
+  it('neutralizes Toast/7shifts/Prism/datapack probes (no creds) and reports the test channel', async () => {
+    process.env.LARIAT_PIN = '1234';
+    process.env.LARIAT_PIN_SECRET = 'secret-for-tests';
+    clearOptionalCreds();
+    process.env.LARIAT_TEST_RELEASE = '1';
+
+    const res = await GET();
+    const body = await res.json();
+
+    // External vendor integrations are intentionally disabled — unset creds
+    // must report ok (not failing) so they don't degrade a test release.
+    for (const k of ['toast', 'sevenshifts', 'prism', 'datapack']) {
+      assert.equal(body.probes[k].ok, true, `${k} should be ok (disabled) in a test release`);
+      assert.match(body.probes[k].detail, /test release/i);
+    }
+    assert.equal(body.testRelease, true);
+    assert.equal(body.channel, 'test');
+    // Required probes still hold → never "down".
+    assert.notEqual(res.status, 503);
+  });
+
+  it('still reports those probes as failing in the official channel (no creds)', async () => {
+    process.env.LARIAT_PIN = '1234';
+    process.env.LARIAT_PIN_SECRET = 'secret-for-tests';
+    clearOptionalCreds();
+    process.env.LARIAT_TEST_RELEASE = '0';
+
+    const res = await GET();
+    const body = await res.json();
+    assert.equal(body.probes.toast.ok, false);
+    assert.equal(body.channel, 'official');
   });
 });
