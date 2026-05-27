@@ -17,6 +17,7 @@
 import { getDb } from '../../../lib/db';
 import { getOllamaConfig } from '../../../lib/ollama';
 import { resolveDataDir } from '../../../lib/dataDir';
+import { getReleaseInfo } from '../../../lib/release';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -198,6 +199,20 @@ export async function GET() {
     prism: probePrismConfig(),
   };
 
+  // Test release (v.I.NN.NNN): external vendor integrations are intentionally
+  // OFF and require no credentials. An unconfigured probe is "disabled", not a
+  // fault — so it must not drag the verdict to "degraded". (If creds happen to
+  // be set, the live probe result is kept.) The official channel (v.---.--)
+  // keeps reporting unset creds as failures.
+  const release = getReleaseInfo();
+  if (release.testRelease) {
+    for (const k of ['datapack', 'toast', 'sevenshifts', 'prism'] as const) {
+      if (!probes[k].ok) {
+        probes[k] = { ok: true, detail: `disabled — test release (${k})`, ms: probes[k].ms };
+      }
+    }
+  }
+
   // Status rolls up: down if any *required* probe failed; degraded if
   // any optional probe failed; ok otherwise. Operators only need to
   // act on "down."
@@ -209,7 +224,9 @@ export async function GET() {
   return Response.json(
     {
       status,
-      version: process.env.npm_package_version || 'unknown',
+      version: release.version,
+      channel: release.channel,
+      testRelease: release.testRelease,
       timestamp: new Date().toISOString(),
       probes,
     },
