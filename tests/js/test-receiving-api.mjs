@@ -106,11 +106,11 @@ describe('POST /api/receiving — happy path', () => {
       category: 'shell_eggs',
       item: '15dz flat',
       reading_f: 42,
-      expiration_date: '2026-05-15',
+      expiration_date: '2099-05-15',
     }));
     const row = testDb.prepare('SELECT * FROM receiving_log').get();
     assert.strictEqual(row.invoice_ref, 'INV-2002');
-    assert.strictEqual(row.expiration_date, '2026-05-15');
+    assert.strictEqual(row.expiration_date, '2099-05-15');
   });
 
   it('accepts invoice_no as alias for invoice_ref', async () => {
@@ -582,15 +582,23 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
   });
 
   it('transactional rollback: forced inventory_updates failure rolls back receiving + audit', async () => {
-    // Drop the inventory_updates table mid-test to force the closed-loop
-    // INSERT to fail. The route must then roll back the receiving_log
-    // INSERT + its audit row — we should see ZERO new rows of any kind.
-    testDb.exec('DROP TABLE inventory_updates');
+    // Force exactly this closed-loop INSERT to fail without dropping a
+    // shared table out from under other top-level suites in this file.
+    // The route must then roll back the receiving_log INSERT + its
+    // audit row — we should see ZERO new rows of any kind.
+    testDb.exec(`
+      CREATE TEMP TRIGGER fail_forced_receiving_inventory_insert
+      BEFORE INSERT ON inventory_updates
+      WHEN NEW.item = 'forced rollback chicken breast'
+      BEGIN
+        SELECT RAISE(ABORT, 'forced inventory update failure');
+      END;
+    `);
     try {
       const res = await POST(postReq({
         vendor: 'Shamrock',
         category: 'refrigerated',
-        item: 'chicken breast',
+        item: 'forced rollback chicken breast',
         reading_f: 38,
         package_ok: true,
         received_qty: 40,
@@ -601,26 +609,7 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
       assert.strictEqual(countAudit('receiving_log'), 0);
       assert.strictEqual(countAudit('inventory_updates'), 0);
     } finally {
-      // Re-create the table so afterEach DELETE doesn't blow up and
-      // subsequent tests in this run still have a clean fixture.
-      testDb.exec(`
-        CREATE TABLE IF NOT EXISTS inventory_updates (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          shift_date TEXT NOT NULL,
-          station_id TEXT,
-          item TEXT NOT NULL,
-          delta TEXT,
-          direction TEXT,
-          note TEXT,
-          cook_id TEXT,
-          created_at TEXT DEFAULT (datetime('now')),
-          location_id TEXT DEFAULT 'default',
-          receiving_log_id INTEGER REFERENCES receiving_log(id)
-        );
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_updates_receiving_log_id
-          ON inventory_updates(receiving_log_id)
-          WHERE receiving_log_id IS NOT NULL;
-      `);
+      testDb.exec('DROP TRIGGER IF EXISTS fail_forced_receiving_inventory_insert');
     }
   });
 

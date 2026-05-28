@@ -1,4 +1,4 @@
-FROM /Users/seanburdges/Dev/hospitality/Lariat/training/fused-qwen-local
+FROM ./training/fused-qwen-local
 
 PARAMETER temperature 0.1
 PARAMETER top_p 0.9

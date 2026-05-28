@@ -19,7 +19,7 @@
 This plan has 12 commits. Per `~/.claude/projects/-Users-seanburdges-Dev-Lariat/memory/feedback_multi_session_worktrees.md`, multi-commit batches in Lariat MUST run in a per-tool worktree, not in `main` (other Claude/Cursor/Codex sessions edit main concurrently).
 
 ```bash
-cd /Users/seanburdges/Dev/Lariat
+cd <repo-root>
 scripts/worktree.sh new claude desktop-wrapper
 cd ../Lariat-worktrees/claude-desktop-wrapper
 git branch --show-current   # must print: feat/desktop-wrapper
@@ -587,9 +587,9 @@ test('readSettings returns null when shape fails validation', () => {
 test('saveSettings + readSettings round-trips', () => {
   const p = makeTmpFile();
   const s: Settings = {
-    dataDir: '/tmp/lariat-data',
-    pythonPath: '/tmp/.venv/bin/python3',
-    datapackDir: '/Volumes/SSD/data',
+    dataDir: path.join(os.tmpdir(), 'lariat-data'),
+    pythonPath: path.join(os.tmpdir(), '.venv', 'bin', 'python3'),
+    datapackDir: path.join(os.tmpdir(), 'ssd-data'),
     ollamaUrl: 'http://127.0.0.1:11434',
     port: 3000,
   };

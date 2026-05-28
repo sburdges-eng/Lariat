@@ -2,7 +2,7 @@
 # install-prod-data.sh — copy the dev-tree SQLite DB into the production
 # Lariat.app's data dir, then relaunch the app.
 #
-# The production wrapper at /Applications/Lariat.app reads from
+# The production wrapper installed as Lariat.app reads from
 # ~/Library/Application Support/Lariat/data/ (per desktop/dist/desktop/paths.js).
 # It does NOT auto-sync from the source-of-truth ~/Dev/Lariat/data/. This
 # script does the one-shot copy + restart so the production app shows the

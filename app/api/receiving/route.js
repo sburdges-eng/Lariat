@@ -27,6 +27,8 @@ import {
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { triggerComputeEngine } from '../../../lib/computeEngine/index';
 import { withIdempotency } from '../../../lib/idempotency';
+import { appendOp } from '../../../lib/syncFeed';
+import { localIdentityFields } from '../../../lib/localIdentity';
 
 export const dynamic = 'force-dynamic';
 
@@ -283,6 +285,36 @@ async function receivingHandler(req) {
         shift_date,
         location_id,
         note: decision.status === 'ok' ? null : `${decision.status}:${category}`,
+      });
+
+      const identity = localIdentityFields();
+      appendOp({
+        opId: identity.opId,
+        tableName: 'receiving_log',
+        locationId: location_id,
+        opKind: 'insert',
+        rowPk: String(info.lastInsertRowid),
+        rowJson: JSON.stringify({
+          shift_date,
+          location_id,
+          vendor,
+          invoice_ref,
+          category,
+          item,
+          reading_f,
+          required_max_f: decision.required_max_f,
+          package_ok: package_ok ? 1 : 0,
+          expiration_date,
+          received_qty,
+          received_unit,
+          status: dbStatus,
+          rejection_reason: corrective_action,
+          shellstock_tag_ref,
+          cook_id,
+        }),
+        createdAt: identity.createdAt,
+        sourceHost: identity.sourceHost,
+        sourceStartedAt: identity.sourceStartedAt,
       });
 
       // Phase 3 closed-loop receiving — credit inventory in the SAME

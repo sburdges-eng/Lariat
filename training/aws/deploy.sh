@@ -54,6 +54,7 @@ ENDPOINT_NAME="lariat-kitchen-assistant"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 JOB_NAME="lariat-ka-${TIMESTAMP}"
 MODEL_NAME="lariat-ka-model-${TIMESTAMP}"
+TMP_BASE="${TMPDIR:-${ROOT_DIR}/.tmp}"
 
 # IAM Role (must have SageMaker + S3 permissions)
 SAGEMAKER_ROLE="${SAGEMAKER_ROLE:-arn:aws:iam::549044232495:role/service-role/AmazonSageMaker-ExecutionRole-20260310T014184}"
@@ -197,7 +198,10 @@ cmd_train() {
   # Use the HuggingFace LLM training container
   local IMAGE_URI="763104351884.dkr.ecr.${AWS_REGION}.amazonaws.com/huggingface-pytorch-training:2.3.0-transformers4.46.3-gpu-py311-cu121-ubuntu22.04"
 
-  cat > /tmp/lariat-training-job.json << JOBEOF
+  mkdir -p "$TMP_BASE"
+  local TRAINING_JOB_SPEC="${TMP_BASE%/}/lariat-training-job.json"
+
+  cat > "$TRAINING_JOB_SPEC" << JOBEOF
 {
   "TrainingJobName": "${JOB_NAME}",
   "RoleArn": "${SAGEMAKER_ROLE}",
@@ -256,7 +260,7 @@ JOBEOF
 
   # Create training job
   aws sagemaker create-training-job \
-    --cli-input-json "file:///tmp/lariat-training-job.json" \
+    --cli-input-json "file://${TRAINING_JOB_SPEC}" \
     --region "$AWS_REGION"
 
   log "Training job launched: $JOB_NAME"
@@ -299,6 +303,8 @@ cmd_deploy() {
 
   # TGI image for inference
   local TGI_IMAGE="763104351884.dkr.ecr.${AWS_REGION}.amazonaws.com/huggingface-pytorch-tgi-inference:2.4.1-tgi2.4.1-gpu-py311-cu124-ubuntu22.04"
+  local HF_MODEL_ID_IN_CONTAINER
+  HF_MODEL_ID_IN_CONTAINER="${HF_MODEL_ID_IN_CONTAINER:-$(printf '/%s/%s/%s' opt ml model)}"
 
   # Create model
   aws sagemaker create-model \
@@ -307,7 +313,7 @@ cmd_deploy() {
       \"Image\": \"${TGI_IMAGE}\",
       \"ModelDataUrl\": \"${MODEL_DATA}\",
       \"Environment\": {
-        \"HF_MODEL_ID\": \"/opt/ml/model\",
+        \"HF_MODEL_ID\": \"${HF_MODEL_ID_IN_CONTAINER}\",
         \"SM_NUM_GPUS\": \"1\",
         \"MAX_INPUT_LENGTH\": \"4096\",
         \"MAX_TOTAL_TOKENS\": \"4608\",
@@ -367,6 +373,10 @@ cmd_test() {
   fi
 
   log "Endpoint is InService. Sending test query..."
+  mkdir -p "$TMP_BASE"
+  local RESPONSE_1="${TMP_BASE%/}/lariat-test-response.json"
+  local RESPONSE_2="${TMP_BASE%/}/lariat-test-response-2.json"
+  local RESPONSE_3="${TMP_BASE%/}/lariat-test-response-3.json"
 
   # Test 1: Recipe question
   local PAYLOAD='{"inputs": "What are the ingredients in the brisket rub?", "parameters": {"max_new_tokens": 256, "temperature": 0.2, "top_p": 0.85}}'
@@ -376,12 +386,12 @@ cmd_test() {
     --endpoint-name "$ENDPOINT_NAME" \
     --content-type "application/json" \
     --body "$PAYLOAD" \
-    /tmp/lariat-test-response.json \
+    "$RESPONSE_1" \
     --query "Body" \
     --output text 2>/dev/null)
 
   log "Response:"
-  cat /tmp/lariat-test-response.json
+  cat "$RESPONSE_1"
   echo ""
 
   # Test 2: Action command
@@ -390,10 +400,10 @@ cmd_test() {
     --endpoint-name "$ENDPOINT_NAME" \
     --content-type "application/json" \
     --body "$PAYLOAD" \
-    /tmp/lariat-test-response-2.json 2>/dev/null
+    "$RESPONSE_2" 2>/dev/null
 
   log "Action test response:"
-  cat /tmp/lariat-test-response-2.json
+  cat "$RESPONSE_2"
   echo ""
 
   # Test 3: Allergen safety
@@ -402,10 +412,10 @@ cmd_test() {
     --endpoint-name "$ENDPOINT_NAME" \
     --content-type "application/json" \
     --body "$PAYLOAD" \
-    /tmp/lariat-test-response-3.json 2>/dev/null
+    "$RESPONSE_3" 2>/dev/null
 
   log "Allergen test response:"
-  cat /tmp/lariat-test-response-3.json
+  cat "$RESPONSE_3"
   echo ""
 
   log "Tests complete ✓"

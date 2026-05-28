@@ -1,8 +1,7 @@
 // Pin that lib/data.ts honors LARIAT_DATA_DIR in lockstep with lib/db.ts.
 //
 // Pre-fix, lib/data.ts hard-coded `process.cwd()/data/cache` while lib/db.ts
-// resolved SQLite via LARIAT_DATA_DIR. On a relocated install (e.g.
-// LARIAT_DATA_DIR=/Volumes/External/lariat), SQLite went to the new
+// resolved SQLite via LARIAT_DATA_DIR. On a relocated install, SQLite went to the new
 // location but JSON cache silently kept reading from cwd — the
 // "stations.json looks stale even after re-ingest" split-brain.
 //

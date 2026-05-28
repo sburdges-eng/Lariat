@@ -18,6 +18,8 @@ import {
 } from '../../../lib/cooling';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
+import { appendOp } from '../../../lib/syncFeed';
+import { localIdentityFields } from '../../../lib/localIdentity';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,6 +74,28 @@ async function coolingPostHandler(req) {
         payload: row,
         shift_date,
         location_id,
+      });
+
+      const identity = localIdentityFields();
+      appendOp({
+        opId: identity.opId,
+        tableName: 'cooling_log',
+        locationId: location_id,
+        opKind: 'insert',
+        rowPk: String(info.lastInsertRowid),
+        rowJson: JSON.stringify({
+          shift_date,
+          location_id,
+          item,
+          station_id,
+          started_at,
+          start_reading_f,
+          status: 'in_progress',
+          cook_id,
+        }),
+        createdAt: identity.createdAt,
+        sourceHost: identity.sourceHost,
+        sourceStartedAt: identity.sourceStartedAt,
       });
       return row;
     });

@@ -9,6 +9,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import os from 'node:os';
 import path from 'node:path';
 
 const { defaultKeypairPath, DEFAULT_KEYPAIR_PATH } = await import(
@@ -24,11 +25,12 @@ test('defaultKeypairPath returns <cwd>/data/peer-keypair.json when env unset', (
 });
 
 test('defaultKeypairPath honors LARIAT_DATA_DIR set AFTER import (H9 lazy contract)', () => {
-  process.env.LARIAT_DATA_DIR = '/tmp/relocated-lariat';
+  const dataDir = path.join(os.tmpdir(), 'relocated-lariat');
+  process.env.LARIAT_DATA_DIR = dataDir;
   try {
     assert.equal(
       defaultKeypairPath(),
-      '/tmp/relocated-lariat/peer-keypair.json',
+      path.join(dataDir, 'peer-keypair.json'),
     );
   } finally {
     delete process.env.LARIAT_DATA_DIR;
@@ -38,11 +40,12 @@ test('defaultKeypairPath honors LARIAT_DATA_DIR set AFTER import (H9 lazy contra
 test('defaultKeypairPath reads env at every call (no captured-value drift)', () => {
   delete process.env.LARIAT_DATA_DIR;
   const a = defaultKeypairPath();
-  process.env.LARIAT_DATA_DIR = '/tmp/other';
+  const otherDataDir = path.join(os.tmpdir(), 'other');
+  process.env.LARIAT_DATA_DIR = otherDataDir;
   try {
     const b = defaultKeypairPath();
     assert.notEqual(a, b);
-    assert.equal(b, '/tmp/other/peer-keypair.json');
+    assert.equal(b, path.join(otherDataDir, 'peer-keypair.json'));
   } finally {
     delete process.env.LARIAT_DATA_DIR;
   }

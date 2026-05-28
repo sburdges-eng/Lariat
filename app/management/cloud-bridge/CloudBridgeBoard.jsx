@@ -85,6 +85,41 @@ export default function CloudBridgeBoard({
   const [busyId, setBusyId] = useState(null);
   const [flash, setFlash] = useState('');
 
+  // Configuration state
+  const [configUrl, setConfigUrl] = useState('');
+  const [configSecret, setConfigSecret] = useState('');
+  const [savingConfig, setSavingConfig] = useState(false);
+
+  useEffect(() => {
+    if (window.lariat) {
+      window.lariat.getSettings().then((s) => {
+        if (s) {
+          setConfigUrl(s.cloudBridgeUrl || '');
+          setConfigSecret(s.cloudBridgeSecret || '');
+        }
+      });
+    }
+  }, []);
+
+  const saveConfig = async () => {
+    if (!window.lariat) return;
+    setSavingConfig(true);
+    setErr('');
+    try {
+      const s = await window.lariat.getSettings();
+      await window.lariat.setSettings({
+        ...s,
+        cloudBridgeUrl: configUrl.trim(),
+        cloudBridgeSecret: configSecret.trim(),
+      });
+      setFlash('Settings saved. Restart Lariat to apply.');
+    } catch {
+      setErr('Failed to save settings');
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
   const refresh = useCallback(async () => {
     setRefreshing(true);
     setErr('');
@@ -168,6 +203,56 @@ export default function CloudBridgeBoard({
         Outage queue for snapshots heading to the corp office. Stuck batches
         land here for the manager to look at, retry, or drop.
       </p>
+
+      {/* Configuration Form (Desktop only) */}
+      {typeof window !== 'undefined' && window.lariat && (
+        <div className="card" style={{ padding: 16, marginBottom: 24 }}>
+          <h2 style={{ fontSize: 16, marginBottom: 12 }}>Bridge Configuration</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>
+                Cloud Bridge URL
+              </label>
+              <input
+                type="text"
+                value={configUrl}
+                onChange={(e) => setConfigUrl(e.target.value)}
+                placeholder="https://lariat-cloud.example.com"
+                style={{ width: '100%', padding: '8px', borderRadius: 4, border: '1px solid var(--border)' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>
+                Bridge Secret
+              </label>
+              <input
+                type="password"
+                value={configSecret}
+                onChange={(e) => setConfigSecret(e.target.value)}
+                placeholder="••••••••"
+                style={{ width: '100%', padding: '8px', borderRadius: 4, border: '1px solid var(--border)' }}
+              />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button
+              onClick={saveConfig}
+              disabled={savingConfig}
+              style={{
+                padding: '8px 16px',
+                background: 'var(--accent)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 6,
+                fontSize: 14,
+                cursor: savingConfig ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {savingConfig ? 'Saving…' : 'Save Settings'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Status strip */}
       <div

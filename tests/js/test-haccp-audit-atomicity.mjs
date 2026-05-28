@@ -3,9 +3,11 @@
 //
 // All 9 HACCP POST/PATCH routes wrap the source-table insert/update and
 // the accompanying postAuditEvent call in a single db.transaction, so a
-// failure in either rolls back both. postAuditEvent THROWS when called
-// outside a transaction context — the unit-level enforcement of that
-// invariant lives in tests/js/test-audit-events-tx-enforcement.mjs.
+// failure in either rolls back both. The routes that feed cross-host
+// sync also append sync_feed inside that same transaction. postAuditEvent
+// THROWS when called outside a transaction context — the unit-level
+// enforcement of that invariant lives in
+// tests/js/test-audit-events-tx-enforcement.mjs.
 //
 // This file pins:
 //   1. Rollback on audit failure — if postAuditEvent throws inside the
@@ -13,6 +15,8 @@
 //   2. End-to-end insert+audit commit pair for each route category:
 //      temp_log, receiving, thermometer_calibrations, cooling, sanitizer,
 //      date_marks, sick_worker, breaks, certifications.
+//   3. End-to-end sync_feed append for the routes that opt into
+//      cross-host sync.
 //
 // Run: node --experimental-strip-types --test tests/js/test-haccp-audit-atomicity.mjs
 
@@ -71,6 +75,7 @@ beforeEach(() => {
     DELETE FROM sick_worker_reports;
     DELETE FROM shift_breaks;
     DELETE FROM staff_certifications;
+    DELETE FROM sync_feed;
     DELETE FROM idempotency_keys;
   `);
 });
@@ -97,6 +102,12 @@ function countAudit(entity) {
   return testDb
     .prepare('SELECT COUNT(*) AS c FROM audit_events WHERE entity = ?')
     .get(entity).c;
+}
+
+function countSync(tableName) {
+  return testDb
+    .prepare('SELECT COUNT(*) AS c FROM sync_feed WHERE table_name = ?')
+    .get(tableName).c;
 }
 
 // ── Console capture helper ────────────────────────────────────────
@@ -189,6 +200,7 @@ describe('HACCP routes — insert + audit commit together (happy path)', () => {
     assert.strictEqual(res.status, 200);
     assert.strictEqual(countRows('temp_log'), 1);
     assert.strictEqual(countAudit('temp_log'), 1);
+    assert.strictEqual(countSync('temp_log'), 1);
   });
 
   it('POST /api/temp-log emits NO warn (audit is inside the transaction)', async () => {
@@ -218,6 +230,7 @@ describe('HACCP routes — insert + audit commit together (happy path)', () => {
     assert.strictEqual(res.status, 200);
     assert.strictEqual(countRows('receiving_log'), 1);
     assert.strictEqual(countAudit('receiving_log'), 1);
+    assert.strictEqual(countSync('receiving_log'), 1);
   });
 
   it('POST /api/thermometer-calibrations commits both rows', async () => {
@@ -246,6 +259,7 @@ describe('HACCP routes — insert + audit commit together (happy path)', () => {
     assert.strictEqual(res.status, 200);
     assert.strictEqual(countRows('cooling_log'), 1);
     assert.strictEqual(countAudit('cooling_log'), 1);
+    assert.strictEqual(countSync('cooling_log'), 1);
   });
 
   it('POST /api/sanitizer commits both sanitizer_checks and audit_events', async () => {
@@ -262,6 +276,7 @@ describe('HACCP routes — insert + audit commit together (happy path)', () => {
     assert.strictEqual(res.status, 200);
     assert.strictEqual(countRows('sanitizer_checks'), 1);
     assert.strictEqual(countAudit('sanitizer_checks'), 1);
+    assert.strictEqual(countSync('sanitizer_checks'), 1);
   });
 
   it('POST /api/date-marks commits both date_marks and audit_events', async () => {
@@ -351,6 +366,7 @@ describe('POST /api/temp-log — idempotency replay', () => {
     assert.deepStrictEqual(body1, body2);
     assert.strictEqual(countRows('temp_log'), 1);
     assert.strictEqual(countAudit('temp_log'), 1);
+    assert.strictEqual(countSync('temp_log'), 1);
   });
 
   it('distinct keys for the same point write two rows', async () => {
@@ -361,6 +377,7 @@ describe('POST /api/temp-log — idempotency replay', () => {
       postReq('http://localhost/api/temp-log', samePayload(), { idempotencyKey: 'k-bbbbbbbbbbbbbbbb' }),
     );
     assert.strictEqual(countRows('temp_log'), 2);
+    assert.strictEqual(countSync('temp_log'), 2);
   });
 
   it('same key + different reading_f returns 409 without writing', async () => {
@@ -383,6 +400,7 @@ describe('POST /api/temp-log — idempotency replay', () => {
       `r2 must 409 on hash mismatch; got ${r2.status}: ${await r2.clone().text()}`,
     );
     assert.strictEqual(countRows('temp_log'), 1);
+    assert.strictEqual(countSync('temp_log'), 1);
   });
 });
 
@@ -415,6 +433,7 @@ describe('POST /api/receiving — idempotency replay', () => {
     assert.deepStrictEqual(body1, body2);
     assert.strictEqual(countRows('receiving_log'), 1);
     assert.strictEqual(countAudit('receiving_log'), 1);
+    assert.strictEqual(countSync('receiving_log'), 1);
   });
 
   it('distinct keys for same delivery write two rows', async () => {
@@ -425,6 +444,7 @@ describe('POST /api/receiving — idempotency replay', () => {
       postReq('http://localhost/api/receiving', samePayload(), { idempotencyKey: 'k-bbbbbbbbbbbbbbbb' }),
     );
     assert.strictEqual(countRows('receiving_log'), 2);
+    assert.strictEqual(countSync('receiving_log'), 2);
   });
 
   it('same key + different temp returns 409 without writing', async () => {
@@ -443,6 +463,7 @@ describe('POST /api/receiving — idempotency replay', () => {
     );
     assert.strictEqual(r2.status, 409);
     assert.strictEqual(countRows('receiving_log'), 1);
+    assert.strictEqual(countSync('receiving_log'), 1);
   });
 });
 

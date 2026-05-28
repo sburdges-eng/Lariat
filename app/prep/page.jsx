@@ -1,0 +1,92 @@
+// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// Daily prep board. Server-rendered list of today's prep_tasks grouped
+// by station, with claim/done actions on the client side.
+//
+// Suggested-prep at the top: items below par from the latest count are
+// surfaced as one-click "Add as task" buttons. The page does NOT auto-
+// generate prep_tasks from low par — the BOH chooses what gets prepped
+// today and clicks. This keeps the source of truth in the prep board
+// (not derived) so the line cook's view matches the manager's view.
+
+import { getDb, todayISO } from '../../lib/db';
+import { getStations } from '../../lib/data';
+import { DEFAULT_LOCATION_ID } from '../../lib/location';
+import PrepBoard from './PrepBoard';
+
+export const dynamic = 'force-dynamic';
+
+export default async function PrepPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+  const loc =
+    typeof sp.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
+      : DEFAULT_LOCATION_ID;
+  const date = todayISO();
+  const db = getDb();
+
+  const tasks = db
+    .prepare(
+      `SELECT id, shift_date, station_id, task, qty, recipe_slug, notes,
+              priority, assigned_cook_id, status, started_at, done_at,
+              done_by, source, source_ref, sort_order, created_at, updated_at
+         FROM prep_tasks
+        WHERE shift_date = ? AND location_id = ?
+        ORDER BY priority DESC, sort_order ASC, id ASC`,
+    )
+    .all(date, loc);
+
+  const lowPar = db
+    .prepare(
+      `SELECT p.ingredient, p.par_qty, p.par_unit,
+              latest.on_hand_qty, latest.unit AS on_hand_unit
+         FROM inventory_par p
+         JOIN (
+           SELECT l1.ingredient, l1.sku, l1.on_hand_qty, l1.unit
+             FROM inventory_count_lines l1
+            WHERE l1.location_id = ?
+              AND l1.counted_at = (
+                SELECT MAX(l2.counted_at)
+                  FROM inventory_count_lines l2
+                 WHERE l2.location_id = l1.location_id
+                   AND l2.ingredient = l1.ingredient
+                   AND COALESCE(l2.sku,'') = COALESCE(l1.sku,'')
+              )
+         ) AS latest
+           ON latest.ingredient = p.ingredient
+          AND COALESCE(latest.sku,'') = COALESCE(p.sku,'')
+        WHERE p.location_id = ?
+          AND p.par_qty IS NOT NULL
+          AND latest.on_hand_qty IS NOT NULL
+          AND latest.on_hand_qty < p.par_qty
+        ORDER BY (p.par_qty - latest.on_hand_qty) DESC
+        LIMIT 8`,
+    )
+    .all(loc, loc);
+
+  const openTaskIngredients = new Set(
+    tasks
+      .filter(
+        (t) =>
+          (t.status === 'todo' || t.status === 'in_progress') &&
+          t.source === 'low_par' &&
+          t.source_ref,
+      )
+      .map((t) => t.source_ref),
+  );
+  const suggested = lowPar.filter((r) => !openTaskIngredients.has(r.ingredient));
+
+  return (
+    <>
+      <a href="/prep/fire-schedule" className="prep-fire-schedule-link" data-testid="prep-tile-fire-schedule">
+        Fire schedule — tonight&apos;s banquet courses →
+      </a>
+      <PrepBoard
+        tasks={tasks}
+        stations={getStations()}
+        suggested={suggested}
+        date={date}
+        locationId={loc}
+      />
+    </>
+  );
+}

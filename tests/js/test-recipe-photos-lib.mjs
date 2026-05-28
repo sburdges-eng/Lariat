@@ -31,8 +31,8 @@ describe('storePhoto — slug sanitization', () => {
     const bytes = Buffer.from('not-actually-an-image');
     const stored = await lib.storePhoto('../../evil/path', bytes, 'image/png', 'x.png');
     // Stored path must live under data/uploads/recipes/, not above it.
-    // realpath both sides because macOS aliases /var → /private/var and
-    // friends — we care about logical containment, not the prefix string.
+    // realpath both sides because macOS can expose the same temp path
+    // through multiple root prefixes; we care about logical containment.
     const realUploadsRoot = fs.realpathSync(path.join(TMP_DIR, 'data', 'uploads', 'recipes'));
     const realStored = fs.realpathSync(stored.stored_path);
     assert.ok(

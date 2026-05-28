@@ -357,8 +357,8 @@ export function listPriceSeries(
  *
  * windowDays: how far back to compare against (default 7, clamps to [1, 90]).
  *             We pick the EARLIEST snapshot inside the window as the
- *             baseline ("price one week ago") and compare to the LATEST
- *             snapshot in vendor_prices_history. Operators are typically
+ *             baseline ("price one week ago") and compare to the live
+ *             current vendor_prices row when present. Operators are typically
  *             watching for "what changed since Monday" — the inside-window
  *             baseline matches that mental model better than min/max.
  *
@@ -398,9 +398,10 @@ export type PriceShockRow = {
  *
  * Inputs collapse to:
  *   baseline = oldest snapshot inside [now - windowDays, now]
- *   latest   = newest snapshot in vendor_prices_history (no upper bound —
- *              if a SKU moved today and the previous snapshot was 6 days
- *              ago, that's a 6-day shock, not 7)
+ *   latest   = newest point after unioning vendor_prices_history and the
+ *              live vendor_prices row (no upper bound — if a SKU moved today
+ *              and the previous snapshot was 6 days ago, that's a 6-day
+ *              shock, not 7)
  *   delta_pct = (latest - baseline) / baseline × 100
  *
  * Rows where baseline_unit_price is null/zero are skipped (can't
@@ -453,23 +454,43 @@ export function listPriceShocks(
   // is cheap.
   const rows = db
     .prepare(
-      `SELECT vendor, sku, ingredient, category,
-              snapshot_at, unit_price
-         FROM vendor_prices_history
-        WHERE location_id = ?
-          AND snapshot_at >= datetime('now', ?)
-          AND vendor IS NOT NULL
-          AND sku IS NOT NULL
-          AND unit_price IS NOT NULL
-        ORDER BY vendor, sku, ingredient, snapshot_at ASC, id ASC`,
+      `SELECT vendor, sku, ingredient, category, snapshot_at, unit_price,
+              source_order, row_order
+         FROM (
+           SELECT vendor, sku, ingredient, category,
+                  snapshot_at, unit_price,
+                  0 AS source_order,
+                  id AS row_order
+             FROM vendor_prices_history
+            WHERE location_id = ?
+              AND snapshot_at >= datetime('now', ?)
+              AND vendor IS NOT NULL
+              AND sku IS NOT NULL
+              AND unit_price IS NOT NULL
+           UNION ALL
+           SELECT vendor, sku, ingredient, category,
+                  COALESCE(imported_at, datetime('now')) AS snapshot_at,
+                  unit_price,
+                  1 AS source_order,
+                  id AS row_order
+             FROM vendor_prices
+            WHERE location_id = ?
+              AND COALESCE(imported_at, datetime('now')) >= datetime('now', ?)
+              AND vendor IS NOT NULL
+              AND sku IS NOT NULL
+              AND unit_price IS NOT NULL
+         )
+        ORDER BY vendor, sku, ingredient, snapshot_at ASC, source_order ASC, row_order ASC`,
     )
-    .all(location_id, sinceModifier) as Array<{
+    .all(location_id, sinceModifier, location_id, sinceModifier) as Array<{
     vendor: string;
     sku: string;
     ingredient: string;
     category: string | null;
     snapshot_at: string;
     unit_price: number;
+    source_order: number;
+    row_order: number;
   }>;
 
   type Group = {
@@ -481,6 +502,7 @@ export function listPriceShocks(
     baseline_at: string | null;
     latest_unit_price: number | null;
     latest_at: string | null;
+    point_count: number;
   };
 
   const groups = new Map<string, Group>();
@@ -497,9 +519,11 @@ export function listPriceShocks(
         baseline_at: null,
         latest_unit_price: null,
         latest_at: null,
+        point_count: 0,
       };
       groups.set(key, g);
     }
+    g.point_count += 1;
     if (g.baseline_at == null) {
       g.baseline_unit_price = r.unit_price;
       g.baseline_at = r.snapshot_at;
@@ -518,7 +542,7 @@ export function listPriceShocks(
       g.latest_unit_price == null ||
       g.baseline_at == null ||
       g.latest_at == null ||
-      g.baseline_at === g.latest_at ||
+      g.point_count < 2 ||
       g.baseline_unit_price <= 0
     ) {
       continue;
