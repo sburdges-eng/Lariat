@@ -35,7 +35,6 @@ function fmtDate(iso) {
 
 function Sparkline({ series, width = 600, height = 140, padding = 16 }) {
   if (!series || series.length < 2) return null;
-  const xs = series.map((_, i) => i);
   const ys = series.map((p) => Number(p.unit_price));
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);

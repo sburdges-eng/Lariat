@@ -120,6 +120,17 @@ CREATE TABLE sales_lines (
   id INTEGER PRIMARY KEY, period_label TEXT, item_name TEXT, quantity_sold REAL,
   net_sales REAL, source TEXT, location_id TEXT, imported_at TEXT
 );
+CREATE TABLE bom_lines (
+  id INTEGER PRIMARY KEY, recipe_id TEXT, ingredient TEXT, qty REAL, unit TEXT,
+  sub_recipe TEXT, vendor_ingredient TEXT, map_status TEXT, vendor TEXT,
+  pack_price REAL, pack_size REAL, location_id TEXT, imported_at TEXT
+);
+CREATE TABLE vendor_prices (
+  id INTEGER PRIMARY KEY, ingredient TEXT, vendor TEXT, sku TEXT, pack_size REAL,
+  pack_unit TEXT, pack_price REAL, unit_price REAL, category TEXT, yield_pct REAL,
+  actual_received_lb REAL, reconciled_unit_price REAL, map_status TEXT,
+  master_id TEXT, location_id TEXT, imported_at TEXT
+);
 CREATE TABLE vendor_prices_history (
   id INTEGER PRIMARY KEY, run_id INTEGER, source_vendor_price_id INTEGER,
   ingredient TEXT, vendor TEXT, sku TEXT, pack_size REAL, pack_unit TEXT,
@@ -161,10 +172,29 @@ CREATE TABLE beo_line_items (
   id INTEGER PRIMARY KEY, event_id INTEGER, sort_order INTEGER, item_name TEXT,
   category TEXT, unit_cost REAL, quantity REAL, created_at TEXT
 );
+CREATE TABLE beo_prep_tasks (
+  id INTEGER PRIMARY KEY, event_id INTEGER, task TEXT, due_date TEXT,
+  done INTEGER, sort_order INTEGER, location_id TEXT
+);
+CREATE TABLE dish_components (
+  id INTEGER PRIMARY KEY, location_id TEXT, dish_name TEXT, component_type TEXT,
+  recipe_slug TEXT, vendor_ingredient TEXT, qty_per_serving REAL, unit TEXT,
+  notes TEXT, created_at TEXT, updated_at TEXT
+);
 CREATE TABLE sales_depletion_runs (
   id INTEGER PRIMARY KEY, location_id TEXT, period_label TEXT, shift_date TEXT,
   sales_rows_processed INTEGER, depletions_written INTEGER, unresolved_dish_count INTEGER,
   applied_at TEXT
+);
+CREATE TABLE equipment (
+  id INTEGER PRIMARY KEY, name TEXT, category TEXT, make_model TEXT,
+  model_number TEXT, serial_number TEXT, purchase_date TEXT, warranty_expiration TEXT,
+  purchase_cost REAL, vendor TEXT, vendor_order_ref TEXT, manual_path TEXT,
+  notes TEXT, status TEXT, location_id TEXT
+);
+CREATE TABLE equipment_maintenance_schedule (
+  id INTEGER PRIMARY KEY, equipment_id INTEGER, task TEXT, frequency TEXT,
+  last_done TEXT, next_due TEXT, notes TEXT, location_id TEXT, created_at TEXT
 );
 CREATE TABLE ingest_runs (
   id INTEGER PRIMARY KEY, kind TEXT, started_at TEXT, finished_at TEXT,
