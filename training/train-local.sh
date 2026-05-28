@@ -31,6 +31,7 @@ ADAPTER_DIR="$SCRIPT_DIR/adapters-qwen"
 FUSED_DIR="$SCRIPT_DIR/fused-qwen"
 GGUF_PATH="$SCRIPT_DIR/lari-qwen.gguf"
 CONFIG="$SCRIPT_DIR/mlx-lora-config-qwen.yaml"
+TMP_BASE="${TMPDIR:-${ROOT_DIR}/.tmp}"
 
 # Colors
 GREEN='\033[0;32m'
@@ -211,14 +212,16 @@ cmd_bench() {
 
   # TTFT test
   local START END TTFT
+  mkdir -p "$TMP_BASE"
   for i in 1 2 3; do
     START=$(python3 -c "import time; print(time.time())")
+    local BENCH_OUT="${TMP_BASE%/}/lariat-bench-$i.json"
     curl -s http://127.0.0.1:11434/api/chat -d "{
       \"model\": \"$OLLAMA_MODEL_NAME\",
       \"stream\": false,
       \"messages\": [{\"role\": \"user\", \"content\": \"What are the ingredients in brisket rub?\"}],
       \"options\": {\"num_predict\": 50, \"num_ctx\": 4096, \"temperature\": 0.1}
-    }" > /tmp/lariat-bench-$i.json 2>/dev/null
+    }" > "$BENCH_OUT" 2>/dev/null
     END=$(python3 -c "import time; print(time.time())")
     TTFT=$(python3 -c "print(f'{$END - $START:.2f}s')")
     log "  Run $i: $TTFT"

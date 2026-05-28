@@ -29,10 +29,13 @@ test('readSettings returns null when shape fails validation', () => {
 
 test('saveSettings + readSettings round-trips', () => {
   const p = makeTmpFile();
+  const dataDir = path.join(os.tmpdir(), 'lariat-data');
+  const pythonPath = path.join(os.tmpdir(), '.venv', 'bin', 'python3');
+  const datapackDir = path.join(os.tmpdir(), 'ssd-data');
   const s: Settings = {
-    dataDir: '/tmp/lariat-data',
-    pythonPath: '/tmp/.venv/bin/python3',
-    datapackDir: '/Volumes/SSD/data',
+    dataDir,
+    pythonPath,
+    datapackDir,
     ollamaUrl: 'http://127.0.0.1:11434',
     port: 3000,
   };

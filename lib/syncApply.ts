@@ -346,28 +346,29 @@ function applyFamily2(db: DB, op: SyncOp): ApplyResult {
   };
 }
 
+function applyFamily3(db: DB, op: SyncOp): ApplyResult {
+  void db;
+  try {
+    logAuditAction({
+      action: 'sync_apply.skip_family3',
+      op_id: op.opId,
+      table_name: op.tableName,
+      source_host: op.sourceHost,
+    });
+  } catch {
+    // Audit-log failure must not block replay checkpoint progress.
+  }
+  return { outcome: 'skipped-family3', reason: 'family 3 deferred until LWW metadata exists' };
+}
+
 /**
- * Apply one op. Routes by family. Family-3 ops are SKIPPED with a
- * management-action audit row — v1 deliberately does not implement
- * per-row LWW (see module doc).
+ * Apply one op. Routes by family.
  */
 export function applyOp(db: DB, op: SyncOp): ApplyResult {
   const family = familyOf(op.tableName);
   if (family === 'family1') return applyFamily1(db, op);
   if (family === 'family2') return applyFamily2(db, op);
-  if (family === 'family3') {
-    try {
-      logAuditAction({
-        action: 'sync_apply.skip_family3',
-        op_id: op.opId,
-        table_name: op.tableName,
-        source_host: op.sourceHost,
-      });
-    } catch {
-      // Audit-log failure must not block the apply path's progress.
-    }
-    return { outcome: 'skipped-family3', reason: 'family 3 deferred to v2' };
-  }
+  if (family === 'family3') return applyFamily3(db, op);
   return { outcome: 'skipped-unknown-table', reason: `no family for ${op.tableName}` };
 }
 

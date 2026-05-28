@@ -15,10 +15,11 @@ import PrepBoard from './PrepBoard';
 
 export const dynamic = 'force-dynamic';
 
-export default function PrepPage({ searchParams }) {
+export default async function PrepPage({ searchParams }) {
+  const sp = (await searchParams) || {};
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const date = todayISO();
   const db = getDb();
@@ -34,9 +35,6 @@ export default function PrepPage({ searchParams }) {
     )
     .all(date, loc);
 
-  // Suggested prep: ingredients on the par list with a latest count below
-  // par, ranked by deficit (par - on_hand). Caps at 8 — line cooks don't
-  // need a wall of suggestions, just the top few.
   const lowPar = db
     .prepare(
       `SELECT p.ingredient, p.par_qty, p.par_unit,
@@ -65,7 +63,6 @@ export default function PrepPage({ searchParams }) {
     )
     .all(loc, loc);
 
-  // Don't suggest items that already have an open prep task today.
   const openTaskIngredients = new Set(
     tasks
       .filter(
@@ -78,8 +75,6 @@ export default function PrepPage({ searchParams }) {
   );
   const suggested = lowPar.filter((r) => !openTaskIngredients.has(r.ingredient));
 
-  const stations = getStations();
-
   return (
     <>
       <a href="/prep/fire-schedule" className="prep-fire-schedule-link" data-testid="prep-tile-fire-schedule">
@@ -87,7 +82,7 @@ export default function PrepPage({ searchParams }) {
       </a>
       <PrepBoard
         tasks={tasks}
-        stations={stations}
+        stations={getStations()}
         suggested={suggested}
         date={date}
         locationId={loc}

@@ -12,12 +12,12 @@
 # Usage:
 #   scripts/demo-smoke.sh                          # default base URL + .env.local
 #   BASE=http://192.168.1.42:3000 scripts/demo-smoke.sh
-#   PIN=0708 LOG=/tmp/lariat-dev.log scripts/demo-smoke.sh
+#   PIN=0708 LOG="${TMPDIR%/}/lariat-dev.log" scripts/demo-smoke.sh
 
 set -u
 
 BASE="${BASE:-http://localhost:3000}"
-LOG="${LOG:-/tmp/lariat-dev.log}"
+LOG="${LOG:-${TMPDIR:-.}/lariat-dev.log}"
 COOKIES="$(mktemp -t lariat-pin-cookies.XXXXXX)"
 trap 'rm -f "$COOKIES"' EXIT
 

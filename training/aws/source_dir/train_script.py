@@ -11,7 +11,7 @@ Inputs (via hyperparameters + S3 channels):
   - Training config: epochs, batch size, learning rate, etc.
 
 Output:
-  - Merged model (adapter weights fused into base) saved to /opt/ml/model/
+  - Merged model (adapter weights fused into base) saved to SM_MODEL_DIR
   - Training metrics logged to CloudWatch via SageMaker
 """
 
@@ -80,9 +80,17 @@ def parse_args():
     parser.add_argument("--dataset_text_field", type=str, default="messages")
 
     # SageMaker paths
-    parser.add_argument("--model_dir", type=str, default=os.environ.get("SM_MODEL_DIR", "/opt/ml/model"))
-    parser.add_argument("--training_dir", type=str, default=os.environ.get("SM_CHANNEL_TRAINING", "/opt/ml/input/data/training"))
-    parser.add_argument("--output_data_dir", type=str, default=os.environ.get("SM_OUTPUT_DATA_DIR", "/opt/ml/output/data"))
+    parser.add_argument("--model_dir", type=str, default=os.environ.get("SM_MODEL_DIR", "model"))
+    parser.add_argument(
+        "--training_dir",
+        type=str,
+        default=os.environ.get("SM_CHANNEL_TRAINING", os.path.join("input", "data", "training")),
+    )
+    parser.add_argument(
+        "--output_data_dir",
+        type=str,
+        default=os.environ.get("SM_OUTPUT_DATA_DIR", os.path.join("output", "data")),
+    )
 
     return parser.parse_args()
 

@@ -12,6 +12,8 @@ import { calibrationWarningFor, classifyProbes } from '../../../lib/calibrations
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { hasPinOrTempPin } from '../../../lib/pin';
 import { withIdempotency } from '../../../lib/idempotency';
+import { appendOp } from '../../../lib/syncFeed';
+import { localIdentityFields } from '../../../lib/localIdentity';
 
 export const dynamic = 'force-dynamic';
 
@@ -178,6 +180,29 @@ async function tempLogHandler(req) {
         shift_date: row.shift_date,
         location_id: row.location_id,
         note: noteParts.length ? noteParts.join('|') : null,
+      });
+
+      const identity = localIdentityFields();
+      appendOp({
+        opId: identity.opId,
+        tableName: 'temp_log',
+        locationId: row.location_id,
+        opKind: 'insert',
+        rowPk: String(info.lastInsertRowid),
+        rowJson: JSON.stringify({
+          shift_date: row.shift_date,
+          location_id: row.location_id,
+          point_id: row.point_id,
+          reading_f: row.reading_f,
+          required_min_f: row.required_min_f,
+          required_max_f: row.required_max_f,
+          corrective_action: row.corrective_action,
+          cook_id: row.cook_id,
+          probe_id: row.probe_id,
+        }),
+        createdAt: identity.createdAt,
+        sourceHost: identity.sourceHost,
+        sourceStartedAt: identity.sourceStartedAt,
       });
 
       return { info, inserted };

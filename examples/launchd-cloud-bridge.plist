@@ -13,8 +13,8 @@
          cp examples/launchd-cloud-bridge.plist \
             ~/Library/LaunchAgents/local.lariat.cloud-bridge.plist
 
-    2. Edit the WorkingDirectory + log paths below to match your
-       install (the template assumes /Users/operator/Dev/Lariat). Set
+    2. Replace the placeholder WorkingDirectory + log paths below to
+       match your install. Set
        LARIAT_CLOUD_BRIDGE_URL + LARIAT_CLOUD_BRIDGE_SECRET to your
        per-location cloud peer + HMAC secret.
 
@@ -56,7 +56,7 @@
 
   <key>WorkingDirectory</key>
   <!-- Edit to match your install path. -->
-  <string>/Users/operator/Dev/Lariat</string>
+  <string>__LARIAT_REPO_ROOT__</string>
 
   <key>RunAtLoad</key>
   <true/>
@@ -72,10 +72,10 @@
   <integer>10</integer>
 
   <key>StandardOutPath</key>
-  <string>/Users/operator/Library/Logs/Lariat/cloud-bridge.log</string>
+  <string>__LARIAT_LOG_DIR__/cloud-bridge.log</string>
 
   <key>StandardErrorPath</key>
-  <string>/Users/operator/Library/Logs/Lariat/cloud-bridge.log</string>
+  <string>__LARIAT_LOG_DIR__/cloud-bridge.log</string>
 
   <key>EnvironmentVariables</key>
   <dict>
@@ -94,10 +94,9 @@
     <string>300</string>
     -->
 
-    <!-- Optional: when the install lives off the default
-         process.cwd()/data — e.g. on an external SSD.
+    <!-- Optional: when the install lives off the default process.cwd()/data.
     <key>LARIAT_DATA_DIR</key>
-    <string>/Volumes/External/lariat</string>
+    <string>__LARIAT_DATA_DIR__</string>
     -->
   </dict>
 </dict>

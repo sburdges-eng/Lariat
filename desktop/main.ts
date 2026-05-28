@@ -9,8 +9,8 @@ import { settingsPath, dataDirDefault, logDir, crashLogPath } from './paths';
 let supervisor: Supervisor | null = null;
 let mainWindow: BrowserWindow | null = null;
 let wizardWindow: BrowserWindow | null = null;
-let wizardResolver: ((settings: Settings) => void) | null = null;
-let wizardRejecter: ((err: Error) => void) | null = null;
+let wizardResolver: ((_settings: Settings) => void) | null = null;
+let wizardRejecter: ((_err: Error) => void) | null = null;
 
 function entryPath(): string {
   // In production the .app unpacks resources at process.resourcesPath/app
@@ -128,6 +128,9 @@ async function waitForServer(url: string, timeoutMs: number): Promise<boolean> {
 }
 
 ipcMain.handle('settings:get', () => readSettings(settingsPath()));
+ipcMain.handle('settings:set', async (_evt, settings: Settings) => {
+  saveSettings(settingsPath(), settings);
+});
 ipcMain.handle('dialog:pickDirectory', async (_evt, defaultPath?: string) => {
   const r = await dialog.showOpenDialog({
     properties: ['openDirectory', 'createDirectory'],

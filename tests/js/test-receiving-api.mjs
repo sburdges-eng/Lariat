@@ -21,15 +21,11 @@ const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
 const db = await import('../../lib/db.ts');
 const route = await import('../../app/api/receiving/route.js');
-const matchListRoute = await import('../../app/api/receiving/matches/route.js');
-const matchDetailRoute = await import('../../app/api/receiving/matches/[id]/route.js');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
 
 const { POST, GET } = route;
-const { GET: GET_MATCHES } = matchListRoute;
-const { PATCH: PATCH_MATCH } = matchDetailRoute;
 const { todayISO } = db;
 
 after(() => {
@@ -40,9 +36,7 @@ after(() => {
 beforeEach(() => {
   // Order matters: inventory_updates.receiving_log_id is a FK into
   // receiving_log; clearing the parent first would trip the constraint.
-  testDb.exec(
-    'DELETE FROM inventory_updates; DELETE FROM receiving_log; DELETE FROM audit_events; DELETE FROM vendor_prices; DELETE FROM ingredient_masters;',
-  );
+  testDb.exec('DELETE FROM inventory_updates; DELETE FROM receiving_log; DELETE FROM audit_events;');
 });
 
 function postReq(body) {
@@ -57,21 +51,6 @@ function getReq(qs = '') {
   return new Request(`http://localhost/api/receiving${qs}`);
 }
 
-function getMatchesReq(qs = '') {
-  return new Request(`http://localhost/api/receiving/matches${qs}`);
-}
-
-function patchMatchReq(id, body, qs = '') {
-  return [
-    new Request(`http://localhost/api/receiving/matches/${id}${qs}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    }),
-    { params: { id: String(id) } },
-  ];
-}
-
 function countReceiving() {
   return testDb.prepare('SELECT COUNT(*) AS c FROM receiving_log').get().c;
 }
@@ -84,33 +63,6 @@ function countAudit(entity) {
   return testDb
     .prepare('SELECT COUNT(*) AS c FROM audit_events WHERE entity = ?')
     .get(entity).c;
-}
-
-function seedMaster(masterId, canonicalName) {
-  testDb
-    .prepare(
-      `INSERT INTO ingredient_masters
-         (master_id, canonical_name, category, preferred_vendor, last_reviewed)
-       VALUES (?, ?, 'protein', 'Shamrock', datetime('now'))`,
-    )
-    .run(masterId, canonicalName);
-}
-
-function seedVendorPrice({
-  master_id,
-  ingredient = 'chicken breast 40lb CS',
-  vendor = 'Shamrock',
-  sku = 'CHK-40',
-  location_id = 'default',
-}) {
-  testDb
-    .prepare(
-      `INSERT INTO vendor_prices
-         (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price,
-          category, location_id, master_id)
-       VALUES (?, ?, ?, 40, 'lb', 120, 3, 'protein', ?, ?)`,
-    )
-    .run(ingredient, vendor, sku, location_id, master_id);
 }
 
 // ── POST — happy path ────────────────────────────────────────────
@@ -472,138 +424,9 @@ describe('GET /api/receiving', () => {
 // inventory row when the credit was due.
 
 describe('POST /api/receiving — closed-loop inventory crediting', () => {
-  it('exact vendor+SKU match credits inventory with a stable master_id', async () => {
-    seedMaster('mst_chicken_breast', 'Chicken breast');
-    seedVendorPrice({ master_id: 'mst_chicken_breast' });
-
-    const res = await POST(postReq({
-      vendor: 'Shamrock',
-      vendor_sku: 'CHK-40',
-      category: 'refrigerated',
-      item: 'chicken breast 40lb CS',
-      reading_f: 38,
-      package_ok: true,
-      received_qty: 40,
-      received_unit: 'lb',
-      cook_id: 'alice',
-    }));
-
-    assert.strictEqual(res.status, 200);
-    assert.strictEqual(countReceiving(), 1);
-    assert.strictEqual(countInventoryUpdates(), 1);
-
-    const recvRow = testDb
-      .prepare('SELECT vendor_sku, master_id, match_status, match_reason FROM receiving_log')
-      .get();
-    assert.deepStrictEqual(recvRow, {
-      vendor_sku: 'CHK-40',
-      master_id: 'mst_chicken_breast',
-      match_status: 'matched',
-      match_reason: 'exact_vendor_sku',
-    });
-
-    const invRow = testDb
-      .prepare('SELECT item, delta, direction, master_id FROM inventory_updates')
-      .get();
-    assert.deepStrictEqual(invRow, {
-      item: 'chicken breast 40lb CS',
-      delta: '40 lb',
-      direction: 'in',
-      master_id: 'mst_chicken_breast',
-    });
-  });
-
-  it('exact vendor+item fallback credits inventory when SKU is blank', async () => {
-    seedMaster('mst_tomatoes', 'Canned tomatoes');
-    seedVendorPrice({
-      master_id: 'mst_tomatoes',
-      ingredient: 'canned tomatoes #10',
-      vendor: 'Sysco',
-      sku: 'TOM-10',
-    });
-
-    const res = await POST(postReq({
-      vendor: 'Sysco',
-      category: 'dry_goods',
-      item: ' canned   tomatoes #10 ',
-      received_qty: 3,
-      received_unit: 'case',
-    }));
-
-    assert.strictEqual(res.status, 200);
-    const recvRow = testDb
-      .prepare('SELECT master_id, match_status, match_reason FROM receiving_log')
-      .get();
-    assert.deepStrictEqual(recvRow, {
-      master_id: 'mst_tomatoes',
-      match_status: 'matched',
-      match_reason: 'exact_vendor_item',
-    });
-    const invRow = testDb.prepare('SELECT master_id FROM inventory_updates').get();
-    assert.strictEqual(invRow.master_id, 'mst_tomatoes');
-  });
-
-  it('unmatched accepted delivery queues the receiving row and does not credit inventory', async () => {
-    const res = await POST(postReq({
-      vendor: 'Shamrock',
-      vendor_sku: 'NO-MATCH',
-      category: 'refrigerated',
-      item: 'mystery case',
-      reading_f: 38,
-      package_ok: true,
-      received_qty: 2,
-      received_unit: 'case',
-    }));
-
-    assert.strictEqual(res.status, 200);
-    assert.strictEqual(countReceiving(), 1);
-    assert.strictEqual(countInventoryUpdates(), 0);
-    const recvRow = testDb
-      .prepare('SELECT master_id, match_status, match_reason FROM receiving_log')
-      .get();
-    assert.deepStrictEqual(recvRow, {
-      master_id: null,
-      match_status: 'unmatched',
-      match_reason: 'no_vendor_price_match',
-    });
-  });
-
-  it('ambiguous vendor+SKU match queues the receiving row and does not credit inventory', async () => {
-    seedMaster('mst_a', 'A');
-    seedMaster('mst_b', 'B');
-    seedVendorPrice({ master_id: 'mst_a', ingredient: 'case a', sku: 'DUP-1' });
-    seedVendorPrice({ master_id: 'mst_b', ingredient: 'case b', sku: 'DUP-1' });
-
-    const res = await POST(postReq({
-      vendor: 'Shamrock',
-      vendor_sku: 'DUP-1',
-      category: 'refrigerated',
-      item: 'duplicate sku case',
-      reading_f: 38,
-      package_ok: true,
-      received_qty: 1,
-      received_unit: 'case',
-    }));
-
-    assert.strictEqual(res.status, 200);
-    assert.strictEqual(countInventoryUpdates(), 0);
-    const recvRow = testDb
-      .prepare('SELECT master_id, match_status, match_reason FROM receiving_log')
-      .get();
-    assert.deepStrictEqual(recvRow, {
-      master_id: null,
-      match_status: 'ambiguous',
-      match_reason: 'multiple_vendor_sku_matches',
-    });
-  });
-
   it('happy path: accepted + qty + unit writes BOTH rows + 2 audits', async () => {
-    seedMaster('mst_chicken_breast', 'Chicken breast');
-    seedVendorPrice({ master_id: 'mst_chicken_breast' });
-
     const res = await POST(postReq({
       vendor: 'Shamrock',
-      vendor_sku: 'CHK-40',
       category: 'refrigerated',
       item: 'chicken breast 40lb CS',
       reading_f: 38,
@@ -627,7 +450,6 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
 
     const invRow = testDb.prepare('SELECT * FROM inventory_updates').get();
     assert.strictEqual(invRow.item, 'chicken breast 40lb CS');
-    assert.strictEqual(invRow.master_id, 'mst_chicken_breast');
     assert.strictEqual(invRow.delta, '40 lb');
     assert.strictEqual(invRow.direction, 'in');
     assert.strictEqual(invRow.cook_id, 'alice');
@@ -645,16 +467,8 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
   });
 
   it('accepted_with_note + qty + unit also credits inventory', async () => {
-    seedMaster('mst_milk', 'Milk');
-    seedVendorPrice({
-      master_id: 'mst_milk',
-      ingredient: 'milk 2% gal',
-      sku: 'MILK-2',
-    });
-
     const res = await POST(postReq({
       vendor: 'Shamrock',
-      vendor_sku: 'MILK-2',
       category: 'refrigerated',
       item: 'milk 2% gal',
       reading_f: 43,
@@ -667,7 +481,6 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     assert.strictEqual(countReceiving(), 1);
     assert.strictEqual(countInventoryUpdates(), 1);
     const invRow = testDb.prepare('SELECT * FROM inventory_updates').get();
-    assert.strictEqual(invRow.master_id, 'mst_milk');
     assert.strictEqual(invRow.delta, '6 gal');
   });
 
@@ -769,19 +582,23 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
   });
 
   it('transactional rollback: forced inventory_updates failure rolls back receiving + audit', async () => {
-    seedMaster('mst_chicken_breast', 'Chicken breast');
-    seedVendorPrice({ master_id: 'mst_chicken_breast' });
-
-    // Drop the inventory_updates table mid-test to force the closed-loop
-    // INSERT to fail. The route must then roll back the receiving_log
-    // INSERT + its audit row — we should see ZERO new rows of any kind.
-    testDb.exec('DROP TABLE inventory_updates');
+    // Force exactly this closed-loop INSERT to fail without dropping a
+    // shared table out from under other top-level suites in this file.
+    // The route must then roll back the receiving_log INSERT + its
+    // audit row — we should see ZERO new rows of any kind.
+    testDb.exec(`
+      CREATE TEMP TRIGGER fail_forced_receiving_inventory_insert
+      BEFORE INSERT ON inventory_updates
+      WHEN NEW.item = 'forced rollback chicken breast'
+      BEGIN
+        SELECT RAISE(ABORT, 'forced inventory update failure');
+      END;
+    `);
     try {
       const res = await POST(postReq({
         vendor: 'Shamrock',
-        vendor_sku: 'CHK-40',
         category: 'refrigerated',
-        item: 'chicken breast',
+        item: 'forced rollback chicken breast',
         reading_f: 38,
         package_ok: true,
         received_qty: 40,
@@ -792,27 +609,7 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
       assert.strictEqual(countAudit('receiving_log'), 0);
       assert.strictEqual(countAudit('inventory_updates'), 0);
     } finally {
-      // Re-create the table so afterEach DELETE doesn't blow up and
-      // subsequent tests in this run still have a clean fixture.
-      testDb.exec(`
-        CREATE TABLE IF NOT EXISTS inventory_updates (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          shift_date TEXT NOT NULL,
-          station_id TEXT,
-          item TEXT NOT NULL,
-          master_id TEXT,
-          delta TEXT,
-          direction TEXT,
-          note TEXT,
-          cook_id TEXT,
-          created_at TEXT DEFAULT (datetime('now')),
-          location_id TEXT DEFAULT 'default',
-          receiving_log_id INTEGER REFERENCES receiving_log(id)
-        );
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_updates_receiving_log_id
-          ON inventory_updates(receiving_log_id)
-          WHERE receiving_log_id IS NOT NULL;
-      `);
+      testDb.exec('DROP TRIGGER IF EXISTS fail_forced_receiving_inventory_insert');
     }
   });
 
@@ -879,9 +676,6 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
   });
 
   it('partial UNIQUE index prevents double-credit on the same receiving_log row', async () => {
-    seedMaster('mst_chicken_breast', 'Chicken breast');
-    seedVendorPrice({ master_id: 'mst_chicken_breast' });
-
     // Document the at-most-once invariant. Each /api/receiving POST
     // creates a NEW receiving_log row with a NEW id, so true client
     // double-tap is a UI/network concern (see route.js) — the DB
@@ -889,7 +683,6 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     // credit per source receiving_log row.
     const res = await POST(postReq({
       vendor: 'Shamrock',
-      vendor_sku: 'CHK-40',
       category: 'refrigerated',
       item: 'chicken breast 40lb CS',
       reading_f: 38,
@@ -906,14 +699,13 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
         testDb
           .prepare(
             `INSERT INTO inventory_updates
-               (shift_date, location_id, item, master_id, delta, direction, note, cook_id, receiving_log_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+               (shift_date, location_id, item, delta, direction, note, cook_id, receiving_log_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .run(
             recvRow.shift_date,
             recvRow.location_id,
             recvRow.item,
-            recvRow.master_id,
             '40 lb',
             'in',
             'duplicate credit attempt',
@@ -927,110 +719,6 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
 
     // The original credit row is the only one — the failed second
     // INSERT did not leak through.
-    assert.strictEqual(countInventoryUpdates(), 1);
-  });
-});
-
-// ── Manager queue — unresolved receiving matches ─────────────────
-
-describe('GET/PATCH /api/receiving/matches — unresolved manager queue', () => {
-  it('GET lists accepted qty rows that could not be matched', async () => {
-    await POST(postReq({
-      vendor: 'Shamrock',
-      vendor_sku: 'NO-MATCH',
-      category: 'refrigerated',
-      item: 'mystery case',
-      reading_f: 38,
-      package_ok: true,
-      received_qty: 2,
-      received_unit: 'case',
-    }));
-
-    const res = await GET_MATCHES(getMatchesReq());
-    assert.strictEqual(res.status, 200);
-    const body = await res.json();
-    assert.strictEqual(body.total, 1);
-    assert.strictEqual(body.matches[0].vendor_sku, 'NO-MATCH');
-    assert.strictEqual(body.matches[0].match_status, 'unmatched');
-    assert.strictEqual(body.matches[0].received_qty, 2);
-  });
-
-  it('PATCH resolves an unmatched row, writes one inventory credit, and audits both changes', async () => {
-    seedMaster('mst_mystery_case', 'Mystery case');
-    await POST(postReq({
-      vendor: 'Shamrock',
-      vendor_sku: 'NO-MATCH',
-      category: 'refrigerated',
-      item: 'mystery case',
-      reading_f: 38,
-      package_ok: true,
-      received_qty: 2,
-      received_unit: 'case',
-      cook_id: 'alice',
-    }));
-    const recvRow = testDb.prepare('SELECT * FROM receiving_log').get();
-    assert.strictEqual(countInventoryUpdates(), 0);
-
-    const res = await PATCH_MATCH(
-      ...patchMatchReq(recvRow.id, {
-        master_id: 'mst_mystery_case',
-        cook_id: 'manager-jane',
-      }),
-    );
-    assert.strictEqual(res.status, 200);
-    const body = await res.json();
-    assert.strictEqual(body.ok, true);
-    assert.strictEqual(body.receiving.master_id, 'mst_mystery_case');
-    assert.strictEqual(body.receiving.match_status, 'matched');
-
-    const afterRecv = testDb
-      .prepare('SELECT master_id, match_status, match_reason FROM receiving_log WHERE id=?')
-      .get(recvRow.id);
-    assert.deepStrictEqual(afterRecv, {
-      master_id: 'mst_mystery_case',
-      match_status: 'matched',
-      match_reason: 'manager_selected',
-    });
-
-    const invRow = testDb.prepare('SELECT * FROM inventory_updates').get();
-    assert.strictEqual(invRow.receiving_log_id, recvRow.id);
-    assert.strictEqual(invRow.master_id, 'mst_mystery_case');
-    assert.strictEqual(invRow.delta, '2 case');
-    assert.strictEqual(invRow.direction, 'in');
-
-    const correctionAudit = testDb
-      .prepare(
-        `SELECT * FROM audit_events
-          WHERE entity='receiving_log' AND action='correction'
-          ORDER BY id DESC LIMIT 1`,
-      )
-      .get();
-    assert.ok(correctionAudit, 'manager match resolution must audit receiving_log correction');
-    assert.strictEqual(correctionAudit.actor_cook_id, 'manager-jane');
-    assert.strictEqual(countAudit('inventory_updates'), 1);
-  });
-
-  it('PATCH refuses to credit the same receiving row twice', async () => {
-    seedMaster('mst_mystery_case', 'Mystery case');
-    await POST(postReq({
-      vendor: 'Shamrock',
-      vendor_sku: 'NO-MATCH',
-      category: 'refrigerated',
-      item: 'mystery case',
-      reading_f: 38,
-      package_ok: true,
-      received_qty: 2,
-      received_unit: 'case',
-    }));
-    const recvRow = testDb.prepare('SELECT * FROM receiving_log').get();
-    const first = await PATCH_MATCH(
-      ...patchMatchReq(recvRow.id, { master_id: 'mst_mystery_case' }),
-    );
-    assert.strictEqual(first.status, 200);
-    const second = await PATCH_MATCH(
-      ...patchMatchReq(recvRow.id, { master_id: 'mst_mystery_case' }),
-    );
-    assert.strictEqual(second.status, 409);
     assert.strictEqual(countInventoryUpdates(), 1);
   });
 });

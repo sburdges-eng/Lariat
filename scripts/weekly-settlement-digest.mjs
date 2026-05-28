@@ -14,7 +14,7 @@
 //   node --experimental-strip-types scripts/weekly-settlement-digest.mjs
 //   node --experimental-strip-types scripts/weekly-settlement-digest.mjs --week-of=2026-05-04
 //   node --experimental-strip-types scripts/weekly-settlement-digest.mjs --location=lariat-south
-//   node --experimental-strip-types scripts/weekly-settlement-digest.mjs --out=/tmp/digest.html
+//   node --experimental-strip-types scripts/weekly-settlement-digest.mjs --out=$TMPDIR/digest.html
 //
 // Cron-friendly: exits 0 on success (even when 0 shows in the week —
 // it still writes an empty-state digest so the operator sees the

@@ -3,6 +3,7 @@ import type { Settings } from './settings';
 
 contextBridge.exposeInMainWorld('lariat', {
   getSettings: (): Promise<Settings | null> => ipcRenderer.invoke('settings:get'),
+  setSettings: (settings: Settings): Promise<void> => ipcRenderer.invoke('settings:set', settings),
   pickDirectory: (defaultPath?: string): Promise<string | null> =>
     ipcRenderer.invoke('dialog:pickDirectory', defaultPath),
   getDataDirDefault: (): Promise<string> => ipcRenderer.invoke('paths:dataDirDefault'),

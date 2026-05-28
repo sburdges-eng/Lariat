@@ -1,183 +1,153 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-nocheck - pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts.
 import { getDb } from '../../../../lib/db';
-import { locationFromBody } from '../../../../lib/location';
+import { locationFromBodyOrRequest } from '../../../../lib/location';
 import { postAuditEvent } from '../../../../lib/auditEvents';
 import { withIdempotency } from '../../../../lib/idempotency';
-import { clip } from '../../../../lib/clip';
 
 export const dynamic = 'force-dynamic';
 
 const STATUSES = new Set(['todo', 'in_progress', 'done', 'skipped']);
 
-function parseId(params) {
-  const id = Number(params?.id);
+const clip = (v, max) => {
+  if (typeof v !== 'string') return null;
+  const t = v.trim();
+  return t ? t.slice(0, max) : null;
+};
+
+const cleanInt = (v, fallback = 0) => {
+  if (v === null || v === undefined || v === '') return fallback;
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.trunc(n) : fallback;
+};
+
+const cleanPriority = (v) => Math.max(0, Math.min(2, cleanInt(v, 0)));
+
+async function readId(ctx) {
+  const params = await Promise.resolve(ctx?.params || {});
+  const id = Number(params.id);
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
-// 0 normal, 1 high, 2 rush. Anything else collapses to normal.
-// Matches the helper in app/api/prep-tasks/route.js — kept as a local
-// duplicate to follow the same per-route helper convention used by
-// `clip` across the codebase, instead of carving out a shared module
-// for a four-line normalizer.
-function asPriority(v) {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return 0;
-  return n === 1 || n === 2 ? n : 0;
+function readTask(db, id, loc) {
+  return db
+    .prepare(
+      `SELECT id, shift_date, station_id, task, qty, recipe_slug, notes,
+              priority, assigned_cook_id, status, started_at, done_at, done_by,
+              source, source_ref, sort_order, location_id, created_at, updated_at
+         FROM prep_tasks
+        WHERE id = ? AND location_id = ?`,
+    )
+    .get(id, loc);
 }
 
-/**
- * PATCH transitions:
- *   - { claim: true, cook_id }            → assigns + sets in_progress + started_at if not yet
- *   - { release: true }                   → clears assignee, status back to todo, started_at preserved
- *   - { status: 'done', cook_id }         → done + done_at + done_by
- *   - { status: 'skipped', cook_id }      → skipped + done_at (closes the row)
- *   - { status: 'in_progress', cook_id }  → manual start
- *   - { status: 'todo' }                  → manual reset (clears done/started)
- *   - { task, qty, notes, priority, station_id }
- *                                         → field edits, allowed in ANY state
- *                                           (kitchen managers fix typos and line
- *                                           cooks add post-prep notes regardless
- *                                           of where the row is in its lifecycle).
- *                                           Field edits compose with transitions
- *                                           in the same PATCH.
- */
+function addSet(updates, values, column, value) {
+  updates.push(`${column} = ?`);
+  values.push(value);
+}
+
+function hasOwn(body, key) {
+  return Object.prototype.hasOwnProperty.call(body, key);
+}
+
 export async function PATCH(req, ctx) {
   return withIdempotency(req, () => prepTaskPatchHandler(req, ctx));
 }
 
-async function prepTaskPatchHandler(req, { params }) {
-
-  params = await params;
-  const id = parseId(params);
-  if (!id) return Response.json({ error: 'bad id' }, { status: 400 });
+async function prepTaskPatchHandler(req, ctx) {
   try {
+    const id = await readId(ctx);
+    if (!id) return Response.json({ error: 'bad id' }, { status: 400 });
+
     const body = await req.json().catch(() => ({}));
-    const loc = locationFromBody(body);
-    const cookId = clip(body.cook_id, 64);
+    const loc = locationFromBodyOrRequest(body, req);
+    const cookId = clip(body.cook_id, 64) || clip(body.assigned_cook_id, 64);
+    const updates = [];
+    const values = [];
+
+    if (body.claim === true && body.release === true) {
+      return Response.json({ error: 'pick claim or release' }, { status: 400 });
+    }
+    if (body.claim === true) {
+      if (!cookId) return Response.json({ error: 'cook required' }, { status: 400 });
+      addSet(updates, values, 'assigned_cook_id', cookId);
+    }
+    if (body.release === true) {
+      updates.push('assigned_cook_id = NULL');
+    }
+
+    if (hasOwn(body, 'status')) {
+      const status = clip(body.status, 32);
+      if (!status || !STATUSES.has(status)) {
+        return Response.json({ error: 'bad status' }, { status: 400 });
+      }
+      addSet(updates, values, 'status', status);
+      if (status === 'in_progress') {
+        updates.push("started_at = COALESCE(started_at, datetime('now'))");
+        updates.push('done_at = NULL');
+        updates.push('done_by = NULL');
+      } else if (status === 'done' || status === 'skipped') {
+        updates.push("started_at = COALESCE(started_at, datetime('now'))");
+        updates.push("done_at = datetime('now')");
+        addSet(updates, values, 'done_by', cookId);
+      } else {
+        updates.push('started_at = NULL');
+        updates.push('done_at = NULL');
+        updates.push('done_by = NULL');
+      }
+    }
+
+    if (hasOwn(body, 'task')) {
+      const task = clip(body.task, 300);
+      if (!task) return Response.json({ error: 'task required' }, { status: 400 });
+      addSet(updates, values, 'task', task);
+    }
+    if (hasOwn(body, 'station_id')) addSet(updates, values, 'station_id', clip(body.station_id, 80));
+    if (hasOwn(body, 'qty')) addSet(updates, values, 'qty', clip(body.qty, 80));
+    if (hasOwn(body, 'recipe_slug')) addSet(updates, values, 'recipe_slug', clip(body.recipe_slug, 160));
+    if (hasOwn(body, 'notes')) addSet(updates, values, 'notes', clip(body.notes, 1000));
+    if (hasOwn(body, 'priority')) addSet(updates, values, 'priority', cleanPriority(body.priority));
+    if (hasOwn(body, 'assigned_cook_id') && body.claim !== true) {
+      addSet(updates, values, 'assigned_cook_id', clip(body.assigned_cook_id, 64));
+    }
+    if (hasOwn(body, 'sort_order')) addSet(updates, values, 'sort_order', cleanInt(body.sort_order, 0));
+
+    if (updates.length === 0) {
+      return Response.json({ error: 'nothing to save' }, { status: 400 });
+    }
+
     const db = getDb();
-
     const result = db.transaction(() => {
-      const row = db
-        .prepare(`SELECT * FROM prep_tasks WHERE id = ? AND location_id = ?`)
-        .get(id, loc);
-      if (!row) return { ok: false, status: 404, err: 'not found' };
+      const before = readTask(db, id, loc);
+      if (!before) return { ok: false, status: 404, error: 'not found' };
 
-      // Resolve a target status from the action verbs OR explicit status.
-      let nextStatus = row.status;
-      let updateAssignee = false;
-      let nextAssignee = row.assigned_cook_id;
-      let setStartedAt = false;
-      let setDoneAt = false;
-      let clearStarted = false;
-      let clearDone = false;
+      db.prepare(
+        `UPDATE prep_tasks
+            SET ${updates.join(', ')},
+                updated_at = datetime('now')
+          WHERE id = ? AND location_id = ?`,
+      ).run(...values, id, loc);
 
-      if (body.claim === true) {
-        nextStatus = 'in_progress';
-        updateAssignee = true;
-        nextAssignee = cookId;
-        if (!row.started_at) setStartedAt = true;
-      } else if (body.release === true) {
-        nextStatus = 'todo';
-        updateAssignee = true;
-        nextAssignee = null;
-      } else if (typeof body.status === 'string') {
-        if (!STATUSES.has(body.status)) {
-          return { ok: false, status: 400, err: 'bad status' };
-        }
-        nextStatus = body.status;
-        if (nextStatus === 'in_progress' && !row.started_at) setStartedAt = true;
-        if (nextStatus === 'done' || nextStatus === 'skipped') setDoneAt = true;
-        if (nextStatus === 'todo') {
-          clearStarted = true;
-          clearDone = true;
-          updateAssignee = true;
-          nextAssignee = null;
-        }
-      }
-
-      // Field edits compose with transition verbs in the same PATCH and
-      // are allowed regardless of current status — line cooks add
-      // "subbed scallions" notes after the fact and managers fix typos
-      // mid-prep.
-      const taskEdit =
-        body.task !== undefined ? clip(body.task, 300) : undefined;
-      const qtyEdit = body.qty !== undefined ? clip(body.qty, 64) : undefined;
-      const notesEdit =
-        body.notes !== undefined ? clip(body.notes, 1000) : undefined;
-      const priorityEdit =
-        body.priority !== undefined ? asPriority(body.priority) : undefined;
-      const stationEdit =
-        body.station_id !== undefined ? clip(body.station_id, 64) : undefined;
-
-      const sets = [];
-      const args = [];
-      if (nextStatus !== row.status) {
-        sets.push('status = ?');
-        args.push(nextStatus);
-      }
-      if (updateAssignee) {
-        sets.push('assigned_cook_id = ?');
-        args.push(nextAssignee);
-      }
-      if (setStartedAt) sets.push("started_at = datetime('now')");
-      if (clearStarted) sets.push('started_at = NULL');
-      if (setDoneAt) {
-        sets.push("done_at = datetime('now')");
-        sets.push('done_by = ?');
-        args.push(cookId || row.assigned_cook_id);
-      }
-      if (clearDone) {
-        sets.push('done_at = NULL');
-        sets.push('done_by = NULL');
-      }
-      if (taskEdit !== undefined && taskEdit !== null && taskEdit !== row.task) {
-        sets.push('task = ?');
-        args.push(taskEdit);
-      }
-      if (qtyEdit !== undefined && qtyEdit !== row.qty) {
-        sets.push('qty = ?');
-        args.push(qtyEdit);
-      }
-      if (notesEdit !== undefined && notesEdit !== row.notes) {
-        sets.push('notes = ?');
-        args.push(notesEdit);
-      }
-      if (priorityEdit !== undefined && priorityEdit !== row.priority) {
-        sets.push('priority = ?');
-        args.push(priorityEdit);
-      }
-      if (stationEdit !== undefined && stationEdit !== row.station_id) {
-        sets.push('station_id = ?');
-        args.push(stationEdit);
-      }
-      if (sets.length === 0) return { ok: false, status: 400, err: 'no change' };
-
-      sets.push("updated_at = datetime('now')");
-      args.push(id);
-      db.prepare(`UPDATE prep_tasks SET ${sets.join(', ')} WHERE id = ?`).run(...args);
-
+      const after = readTask(db, id, loc);
       postAuditEvent({
         entity: 'prep_tasks',
         entity_id: id,
         action: 'update',
         actor_cook_id: cookId,
-        actor_source: 'api',
+        actor_source: 'cook_ui',
+        shift_date: after.shift_date,
         location_id: loc,
-        payload: {
-          from_status: row.status,
-          to_status: nextStatus,
-          claim: body.claim === true || undefined,
-          release: body.release === true || undefined,
-        },
+        payload: { before, after },
       });
-      return { ok: true };
+      return { ok: true, task: after };
     })();
 
-    if (!result.ok) return Response.json({ error: result.err }, { status: result.status });
-    return Response.json({ ok: true });
+    if (!result.ok) {
+      return Response.json({ error: result.error }, { status: result.status });
+    }
+    return Response.json({ ok: true, task: result.task });
   } catch (err) {
-    console.error('PATCH /api/prep-tasks/[id] failed:', err);
-    return Response.json({ error: 'Could not update task' }, { status: 500 });
+    console.error('PATCH /api/prep-tasks/:id failed:', err);
+    return Response.json({ error: 'Could not save prep task' }, { status: 500 });
   }
 }
 
@@ -185,39 +155,41 @@ export async function DELETE(req, ctx) {
   return withIdempotency(req, () => prepTaskDeleteHandler(req, ctx));
 }
 
-async function prepTaskDeleteHandler(req, { params }) {
-
-  params = await params;
-  const id = parseId(params);
-  if (!id) return Response.json({ error: 'bad id' }, { status: 400 });
+async function prepTaskDeleteHandler(req, ctx) {
   try {
+    const id = await readId(ctx);
+    if (!id) return Response.json({ error: 'bad id' }, { status: 400 });
+
+    const body = await req.json().catch(() => ({}));
     const url = new URL(req.url);
-    const loc =
-      url.searchParams.get('location') ||
-      url.searchParams.get('location_id') ||
-      'default';
-    const cookId = clip(url.searchParams.get('cook_id'), 64);
+    const loc = locationFromBodyOrRequest(body, req);
+    const cookId = clip(body.cook_id, 64) || clip(url.searchParams.get('cook_id'), 64);
     const db = getDb();
+
     const result = db.transaction(() => {
-      const info = db
-        .prepare(`DELETE FROM prep_tasks WHERE id = ? AND location_id = ?`)
-        .run(id, loc);
-      if (info.changes === 0) return { ok: false };
+      const before = readTask(db, id, loc);
+      if (!before) return { ok: false, status: 404, error: 'not found' };
+
+      db.prepare(`DELETE FROM prep_tasks WHERE id = ? AND location_id = ?`).run(id, loc);
       postAuditEvent({
         entity: 'prep_tasks',
         entity_id: id,
         action: 'delete',
         actor_cook_id: cookId,
-        actor_source: 'api',
+        actor_source: 'cook_ui',
+        shift_date: before.shift_date,
         location_id: loc,
-        payload: {},
+        payload: before,
       });
       return { ok: true };
     })();
-    if (!result.ok) return Response.json({ error: 'not found' }, { status: 404 });
-    return Response.json({ ok: true });
+
+    if (!result.ok) {
+      return Response.json({ error: result.error }, { status: result.status });
+    }
+    return Response.json({ ok: true, id });
   } catch (err) {
-    console.error('DELETE /api/prep-tasks/[id] failed:', err);
-    return Response.json({ error: 'Could not delete task' }, { status: 500 });
+    console.error('DELETE /api/prep-tasks/:id failed:', err);
+    return Response.json({ error: 'Could not delete prep task' }, { status: 500 });
   }
 }

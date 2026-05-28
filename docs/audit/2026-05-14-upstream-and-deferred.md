@@ -36,7 +36,7 @@ The package installs but the entry script throws on startup.
 
 **Repro.**
 ```bash
-cd /Users/seanburdges/Dev/Lariat && npx gitnexus@1.6.4 analyze
+cd <repo-root> && npx gitnexus@1.6.4 analyze
 ```
 
 **Workaround in use.** The GitNexus MCP server still runs and the

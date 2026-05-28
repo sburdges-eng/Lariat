@@ -5,6 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import os from 'node:os';
 import path from 'node:path';
 
 const { resolveDataDir, dataPath } = await import('../../lib/dataDir.ts');
@@ -15,9 +16,10 @@ test('resolveDataDir returns cwd/data when env is unset', () => {
 });
 
 test('resolveDataDir returns env-resolved absolute path when set', () => {
-  process.env.LARIAT_DATA_DIR = '/tmp/lariat-data';
+  const dataDir = path.join(os.tmpdir(), 'lariat-data');
+  process.env.LARIAT_DATA_DIR = dataDir;
   try {
-    assert.equal(resolveDataDir(), '/tmp/lariat-data');
+    assert.equal(resolveDataDir(), dataDir);
   } finally {
     delete process.env.LARIAT_DATA_DIR;
   }
@@ -44,11 +46,12 @@ test('resolveDataDir resolves relative paths against cwd', () => {
 test('resolveDataDir reads env at every call (not captured at import)', () => {
   delete process.env.LARIAT_DATA_DIR;
   const a = resolveDataDir();
-  process.env.LARIAT_DATA_DIR = '/tmp/other-data';
+  const otherDataDir = path.join(os.tmpdir(), 'other-data');
+  process.env.LARIAT_DATA_DIR = otherDataDir;
   try {
     const b = resolveDataDir();
     assert.notEqual(a, b);
-    assert.equal(b, '/tmp/other-data');
+    assert.equal(b, otherDataDir);
   } finally {
     delete process.env.LARIAT_DATA_DIR;
   }
@@ -63,9 +66,10 @@ test('dataPath joins segments after the resolved root', () => {
 });
 
 test('dataPath honors env override too', () => {
-  process.env.LARIAT_DATA_DIR = '/tmp/dx';
+  const dataDir = path.join(os.tmpdir(), 'dx');
+  process.env.LARIAT_DATA_DIR = dataDir;
   try {
-    assert.equal(dataPath('exports', 'foo.html'), '/tmp/dx/exports/foo.html');
+    assert.equal(dataPath('exports', 'foo.html'), path.join(dataDir, 'exports', 'foo.html'));
   } finally {
     delete process.env.LARIAT_DATA_DIR;
   }

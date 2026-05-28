@@ -20,6 +20,8 @@ import type { Chemistry } from '../../../lib/sanitizer';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
 import { clip } from '../../../lib/clip';
+import { appendOp } from '../../../lib/syncFeed';
+import { localIdentityFields } from '../../../lib/localIdentity';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,6 +113,32 @@ async function sanitizerPostHandler(req: Request) {
         note: decision.breach_reason,
       });
 
+      const identity = localIdentityFields();
+      appendOp({
+        opId: identity.opId,
+        tableName: 'sanitizer_checks',
+        locationId: location_id,
+        opKind: 'insert',
+        rowPk: String(info.lastInsertRowid),
+        rowJson: JSON.stringify({
+          shift_date,
+          location_id,
+          station_id,
+          point_label,
+          chemistry,
+          concentration_ppm,
+          required_min_ppm: decision.required_min_ppm,
+          required_max_ppm: decision.required_max_ppm,
+          water_temp_f,
+          status: decision.status,
+          corrective_action,
+          cook_id,
+        }),
+        createdAt: identity.createdAt,
+        sourceHost: identity.sourceHost,
+        sourceStartedAt: identity.sourceStartedAt,
+      });
+
       return { info, row };
     });
 
@@ -144,7 +172,7 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const date = url.searchParams.get('date') || todayISO();
-    const location_id = locationFromRequest(req as any) || DEFAULT_LOCATION_ID;
+    const location_id = locationFromRequest(req) || DEFAULT_LOCATION_ID;
 
     const db = getDb();
     const rows = db.prepare(`

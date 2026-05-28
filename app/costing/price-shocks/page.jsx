@@ -63,13 +63,17 @@ function clampNum(s, dflt, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
-export default function PriceShocksPage({ searchParams }) {
+export default async function PriceShocksPage({ searchParams }) {
+  // Next 16 app router: searchParams is a Promise. Reading it synchronously
+  // yields undefined, so location/days/minPct silently fell back to defaults
+  // (default location's data, 7-day / 5% report) regardless of the URL.
+  const sp = (await searchParams) || {};
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const days = clampInt(searchParams?.days, 7, 1, 90);
-  const minPct = clampNum(searchParams?.minPct, 5, 0, 1000);
+  const days = clampInt(sp.days, 7, 1, 90);
+  const minPct = clampNum(sp.minPct, 5, 0, 1000);
 
   const db = getDb();
   const shocks = listPriceShocks(db, {

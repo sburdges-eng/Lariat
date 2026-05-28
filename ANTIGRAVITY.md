@@ -22,4 +22,4 @@ That workspace includes Lariat plus shared `workspace-scaffold` docs, scripts, a
 
 ## Search scope
 
-Never scan from `~/Dev/` without `path: "/Users/seanburdges/Dev/hospitality/Lariat"`. Skip `node_modules/`, `build/`, `.venv/`, `data/lariat.db*`.
+Never scan from `~/Dev/` without setting the search path to this repo root. Skip `node_modules/`, `build/`, `.venv/`, `data/lariat.db*`.

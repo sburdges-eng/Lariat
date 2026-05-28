@@ -7,7 +7,7 @@
 //     unknown-table skip, bad-payload skip
 //   - family 2: DELETE+INSERT envelope, where defaults to location_id,
 //     unknown-where-col schema-drift skip, bad rowJson skip
-//   - family 3: skipped with audit-log entry
+//   - family 3: skipped with audit-log entry until LWW metadata exists
 //   - applyWindow: counters + reasons aggregation
 //
 // Run: node --experimental-strip-types --test tests/js/test-sync-apply.mjs
@@ -63,6 +63,7 @@ beforeEach(() => {
     DELETE FROM line_check_entries;
     DELETE FROM vendor_prices;
     DELETE FROM audit_events;
+    DELETE FROM dish_components;
   `);
   _clearSchemaCacheForTest();
   fs.rmSync(path.join(tmpRoot, 'data'), { recursive: true, force: true });
@@ -446,20 +447,30 @@ describe('applyOp — family 2', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────
-// Family 3 — deferred to v2
+// Family 3 — deferred until LWW metadata exists
 // ─────────────────────────────────────────────────────────────────
 
 describe('applyOp — family 3', () => {
-  it('returns skipped-family3', () => {
+  it('returns skipped-family3 and does not write dish_components', () => {
     const op = mkOp({
       tableName: 'dish_components',
       opKind: 'update',
-      rowPk: 'pasta:tomato',
-      rowJson: JSON.stringify({ dish_name: 'pasta', ingredient: 'tomato' }),
+      rowPk: '42',
+      rowJson: JSON.stringify({
+        id: 42,
+        dish_name: 'pasta',
+        qty_per_serving: 1.0,
+        unit: 'ea',
+        location_id: 'default',
+        component_type: 'recipe',
+        recipe_slug: 'tomato-sauce',
+      }),
     });
     const r = applyOp(db, op);
     assert.equal(r.outcome, 'skipped-family3');
-    assert.match(r.reason || '', /family 3 deferred/);
+    assert.match(r.reason || '', /LWW metadata/);
+    const row = db.prepare(`SELECT COUNT(*) AS count FROM dish_components`).get();
+    assert.equal(row.count, 0);
   });
 });
 
@@ -483,7 +494,15 @@ describe('applyWindow', () => {
     const family3 = mkOp({
       tableName: 'dish_components',
       opKind: 'update',
-      rowJson: JSON.stringify({ dish_name: 'a', ingredient: 'b' }),
+      rowJson: JSON.stringify({
+        id: 43,
+        dish_name: 'a',
+        qty_per_serving: 1.0,
+        unit: 'ea',
+        location_id: 'default',
+        component_type: 'recipe',
+        recipe_slug: 'b',
+      }),
     });
     const schemaDrift = mkOp({
       rowJson: JSON.stringify({ only_unknown_col: 'x' }),
