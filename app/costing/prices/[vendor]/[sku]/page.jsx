@@ -70,13 +70,15 @@ function Sparkline({ series, width = 600, height = 140, padding = 16 }) {
   );
 }
 
-export default function SkuHistoryPage({ params, searchParams }) {
-  const vendor = (params?.vendor || '').trim();
-  const sku = (params?.sku || '').trim();
+export default async function SkuHistoryPage({ params, searchParams }) {
+  const p = (await params) || {};
+  const sp = (await searchParams) || {};
+  const vendor = (p.vendor || '').trim();
+  const sku = (p.sku || '').trim();
   if (!vendor || !sku) return notFound();
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const db = getDb();
   const series = listPriceSeries(db, { vendor, sku, location_id: loc, limit: 500 });

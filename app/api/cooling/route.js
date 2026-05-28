@@ -29,6 +29,27 @@ const clip = (s, max) => {
   return t ? t.slice(0, max) : null;
 };
 
+function coolingUpdatePayload(row) {
+  return {
+    id: row.id,
+    shift_date: row.shift_date,
+    location_id: row.location_id,
+    item: row.item,
+    station_id: row.station_id,
+    started_at: row.started_at,
+    start_reading_f: row.start_reading_f,
+    stage1_at: row.stage1_at,
+    stage1_reading_f: row.stage1_reading_f,
+    stage2_at: row.stage2_at,
+    stage2_reading_f: row.stage2_reading_f,
+    status: row.status,
+    breach_reason: row.breach_reason,
+    corrective_action: row.corrective_action,
+    cook_id: row.cook_id,
+    closed_by_cook_id: row.closed_by_cook_id,
+  };
+}
+
 // ── POST /api/cooling ─────────────────────────────────────────────
 
 export async function POST(req) {
@@ -206,6 +227,20 @@ async function coolingPatchHandler(req) {
         location_id: existing.location_id,
         note: decision.breach_reason ? `breach: ${decision.breach_reason}` : null,
       });
+
+      const identity = localIdentityFields();
+      appendOp({
+        opId: identity.opId,
+        tableName: 'cooling_log',
+        locationId: existing.location_id,
+        opKind: 'update',
+        rowPk: String(id),
+        rowJson: JSON.stringify(coolingUpdatePayload(updated)),
+        createdAt: identity.createdAt,
+        sourceHost: identity.sourceHost,
+        sourceStartedAt: identity.sourceStartedAt,
+      });
+
       return { status: 200, updated, decision };
     });
 

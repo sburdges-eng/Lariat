@@ -7,7 +7,7 @@
 // Conflict policy per docs/multi-instance-sync.md §"Conflict policy
 // per table family":
 //
-//   Family 1 (HACCP + live-ops append-only):
+//   Family 1 (HACCP + live-ops append-mostly):
 //     17 tables (cooling_log, temp_log_entries, receiving_log, etc.).
 //     INSERT OR IGNORE on op_id-equivalent — but we use the rowJson
 //     payload's natural shape (no `op_id` column on the source table).
@@ -229,11 +229,16 @@ function alignToTable(
 }
 
 /**
- * Family 1 applier: INSERT OR IGNORE one row.
+ * Family 1 applier: INSERT OR IGNORE one row, or update an existing row.
  *
  * The "or ignore" carve-out is for PK / UNIQUE collisions. Schema-drift
  * (producer sent a column the receiver doesn't have) drops the extra
  * keys — the row still lands with the columns both sides agree on.
+ *
+ * Most family-1 tables are append-only. `cooling_log` is the regulated
+ * exception today: the source row is opened by POST, then stage readings
+ * mutate that row by PATCH. Those PATCH feed entries carry opKind=update
+ * plus a full row body, and replay applies that after-state to rowPk.
  */
 function applyFamily1(db: DB, op: SyncOp): ApplyResult {
   const tableCols = getTableColumns(db, op.tableName);
@@ -244,6 +249,28 @@ function applyFamily1(db: DB, op: SyncOp): ApplyResult {
   const { cols, vals, dropped } = alignToTable(parsed, tableCols);
   if (cols.length === 0) {
     return { outcome: 'skipped-schema-drift', reason: 'no columns overlap local table' };
+  }
+
+  if (op.opKind === 'update') {
+    if (!tableCols.has('id')) {
+      return { outcome: 'skipped-schema-drift', reason: 'update op requires an id column' };
+    }
+    const updateCols = cols.filter((c) => c !== 'id');
+    if (updateCols.length === 0) {
+      return { outcome: 'skipped-schema-drift', reason: 'update op has no mutable columns' };
+    }
+    const row = parsed as Record<string, unknown>;
+    const setSql = updateCols.map((c) => `${c} = ?`).join(', ');
+    const updateVals = updateCols.map((c) => row[c]);
+    db.prepare(`UPDATE ${op.tableName} SET ${setSql} WHERE id = ?`).run(
+      ...(updateVals as never[]),
+      op.rowPk,
+    );
+
+    return {
+      outcome: 'applied',
+      reason: dropped.length ? `dropped unknown cols: ${dropped.join(',')}` : undefined,
+    };
   }
 
   const placeholders = cols.map(() => '?').join(', ');

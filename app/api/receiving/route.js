@@ -365,6 +365,28 @@ async function receivingHandler(req) {
           location_id,
           note: `receiving_log:${info.lastInsertRowid}`,
         });
+
+        const inventoryIdentity = localIdentityFields();
+        appendOp({
+          opId: inventoryIdentity.opId,
+          tableName: 'inventory_updates',
+          locationId: location_id,
+          opKind: 'insert',
+          rowPk: String(invInfo.lastInsertRowid),
+          rowJson: JSON.stringify({
+            shift_date,
+            location_id,
+            item: invRow.item,
+            delta: invRow.delta,
+            direction: invRow.direction,
+            note: invRow.note,
+            cook_id: invRow.cook_id,
+            receiving_log_id: invRow.receiving_log_id,
+          }),
+          createdAt: inventoryIdentity.createdAt,
+          sourceHost: inventoryIdentity.sourceHost,
+          sourceStartedAt: inventoryIdentity.sourceStartedAt,
+        });
       }
 
       return { info, row };
