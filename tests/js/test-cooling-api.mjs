@@ -30,12 +30,13 @@ after(() => {
 });
 
 beforeEach(() => {
-  testDb.exec('DELETE FROM cooling_log; DELETE FROM audit_events;');
+  testDb.exec('DELETE FROM sync_feed; DELETE FROM cooling_log; DELETE FROM audit_events;');
 });
 
 const T_START = '2026-04-20T10:00:00.000Z';
 const T_STAGE1_OK = '2026-04-20T11:30:00.000Z';        // +90m, ≤ 70°F
 const T_STAGE1_LATE = '2026-04-20T12:30:00.000Z';      // +150m → over 2h budget
+const T_STAGE2_OK = '2026-04-20T14:30:00.000Z';        // +180m after stage 1, ≤ 41°F
 
 function postReq(body) {
   return new Request('http://localhost/api/cooling', {
@@ -56,6 +57,11 @@ function countCooling() {
 }
 function countAudit(entity) {
   return testDb.prepare('SELECT COUNT(*) AS c FROM audit_events WHERE entity=?').get(entity).c;
+}
+function syncRows() {
+  return testDb
+    .prepare(`SELECT table_name, op_kind, row_pk, row_json FROM sync_feed ORDER BY id ASC`)
+    .all();
 }
 
 describe('POST /api/cooling — happy path', () => {
@@ -128,6 +134,70 @@ describe('PATCH /api/cooling — 422 needs_corrective_action', () => {
       .prepare(`SELECT COUNT(*) AS c FROM audit_events WHERE entity='cooling_log' AND action='update'`)
       .get().c;
     assert.strictEqual(updates, 1);
+  });
+});
+
+describe('PATCH /api/cooling — sync_feed replay', () => {
+  async function openBatch() {
+    const res = await POST(postReq({
+      item: 'pulled pork',
+      started_at: T_START,
+      start_reading_f: 165,
+      cook_id: 'alice',
+    }));
+    return (await res.json()).entry.id;
+  }
+
+  it('stage1 update appends a cooling_log update op with the updated row body', async () => {
+    const id = await openBatch();
+
+    const res = await PATCH(patchReq({
+      id,
+      reading_f: 65,
+      at: T_STAGE1_OK,
+      cook_id: 'alice',
+    }));
+    assert.strictEqual(res.status, 200);
+
+    const feed = syncRows();
+    assert.deepStrictEqual(feed.map((row) => row.op_kind), ['insert', 'update']);
+    assert.strictEqual(feed[1].table_name, 'cooling_log');
+    assert.strictEqual(feed[1].row_pk, String(id));
+    const payload = JSON.parse(feed[1].row_json);
+    assert.strictEqual(payload.id, id);
+    assert.strictEqual(payload.stage1_at, T_STAGE1_OK);
+    assert.strictEqual(payload.stage1_reading_f, 65);
+    assert.strictEqual(payload.status, 'in_progress');
+  });
+
+  it('stage2 closure appends a cooling_log update op with closure fields', async () => {
+    const id = await openBatch();
+
+    const stage1 = await PATCH(patchReq({
+      id,
+      reading_f: 65,
+      at: T_STAGE1_OK,
+      cook_id: 'alice',
+    }));
+    assert.strictEqual(stage1.status, 200);
+
+    const stage2 = await PATCH(patchReq({
+      id,
+      reading_f: 39,
+      at: T_STAGE2_OK,
+      cook_id: 'bob',
+    }));
+    assert.strictEqual(stage2.status, 200);
+
+    const feed = syncRows();
+    assert.deepStrictEqual(feed.map((row) => row.op_kind), ['insert', 'update', 'update']);
+    assert.strictEqual(feed[2].table_name, 'cooling_log');
+    assert.strictEqual(feed[2].row_pk, String(id));
+    const payload = JSON.parse(feed[2].row_json);
+    assert.strictEqual(payload.stage2_at, T_STAGE2_OK);
+    assert.strictEqual(payload.stage2_reading_f, 39);
+    assert.strictEqual(payload.closed_by_cook_id, 'bob');
+    assert.strictEqual(payload.status, 'ok');
   });
 });
 

@@ -243,3 +243,16 @@ describe('GET /api/vendor-prices/shocks', () => {
     assert.strictEqual(j.rows[0].sku, 'BEER1');
   });
 });
+
+describe('SkuHistoryPage Next 16 params contract', () => {
+  it('unwraps promised params and searchParams before reading fields', () => {
+    const source = fs.readFileSync(
+      new URL('../../app/costing/prices/[vendor]/[sku]/page.jsx', import.meta.url),
+      'utf8',
+    );
+
+    assert.match(source, /export\s+default\s+async\s+function\s+SkuHistoryPage/);
+    assert.match(source, /await\s+params/);
+    assert.match(source, /await\s+searchParams/);
+  });
+});

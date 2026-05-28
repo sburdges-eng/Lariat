@@ -36,7 +36,7 @@ after(() => {
 beforeEach(() => {
   // Order matters: inventory_updates.receiving_log_id is a FK into
   // receiving_log; clearing the parent first would trip the constraint.
-  testDb.exec('DELETE FROM inventory_updates; DELETE FROM receiving_log; DELETE FROM audit_events;');
+  testDb.exec('DELETE FROM sync_feed; DELETE FROM inventory_updates; DELETE FROM receiving_log; DELETE FROM audit_events;');
 });
 
 function postReq(body) {
@@ -63,6 +63,12 @@ function countAudit(entity) {
   return testDb
     .prepare('SELECT COUNT(*) AS c FROM audit_events WHERE entity = ?')
     .get(entity).c;
+}
+
+function syncRows() {
+  return testDb
+    .prepare(`SELECT table_name, op_kind, row_pk, row_json FROM sync_feed ORDER BY id ASC`)
+    .all();
 }
 
 // ── POST — happy path ────────────────────────────────────────────
@@ -464,6 +470,21 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     assert.strictEqual(invAudit.actor_cook_id, 'alice');
     assert.match(invAudit.note, /receiving_log:\d+/);
     assert.ok(invAudit.payload_json);
+
+    const feed = syncRows();
+    assert.deepStrictEqual(
+      feed.map((row) => row.table_name),
+      ['receiving_log', 'inventory_updates'],
+      'closed-loop receiving must publish both source rows for replay',
+    );
+    assert.deepStrictEqual(feed.map((row) => row.op_kind), ['insert', 'insert']);
+    assert.strictEqual(feed[0].row_pk, String(recvRow.id));
+    assert.strictEqual(feed[1].row_pk, String(invRow.id));
+    const invPayload = JSON.parse(feed[1].row_json);
+    assert.strictEqual(invPayload.item, 'chicken breast 40lb CS');
+    assert.strictEqual(invPayload.delta, '40 lb');
+    assert.strictEqual(invPayload.direction, 'in');
+    assert.strictEqual(invPayload.receiving_log_id, recvRow.id);
   });
 
   it('accepted_with_note + qty + unit also credits inventory', async () => {

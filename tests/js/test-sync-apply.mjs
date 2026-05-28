@@ -60,6 +60,7 @@ before(() => {
 
 beforeEach(() => {
   db.exec(`
+    DELETE FROM cooling_log;
     DELETE FROM line_check_entries;
     DELETE FROM vendor_prices;
     DELETE FROM audit_events;
@@ -302,6 +303,41 @@ describe('applyOp — family 1', () => {
     });
     const r = applyOp(db, op);
     assert.equal(r.outcome, 'skipped-schema-drift');
+  });
+
+  it('UPDATEs an existing family-1 row for cooling_log stage replay', () => {
+    db.prepare(`
+      INSERT INTO cooling_log
+        (id, shift_date, location_id, item, station_id, started_at, start_reading_f, status, cook_id)
+      VALUES (1, '2026-05-06', 'default', 'chili', 'cold_line',
+              '2026-05-06T10:00:00.000Z', 140, 'in_progress', 'alice')
+    `).run();
+
+    const op = mkOp({
+      tableName: 'cooling_log',
+      opKind: 'update',
+      rowPk: '1',
+      rowJson: JSON.stringify({
+        id: 1,
+        shift_date: '2026-05-06',
+        location_id: 'default',
+        item: 'chili',
+        station_id: 'cold_line',
+        started_at: '2026-05-06T10:00:00.000Z',
+        start_reading_f: 140,
+        stage1_at: '2026-05-06T11:30:00.000Z',
+        stage1_reading_f: 65,
+        status: 'in_progress',
+        cook_id: 'alice',
+      }),
+    });
+
+    const r = applyOp(db, op);
+    assert.equal(r.outcome, 'applied');
+    const row = db.prepare(`SELECT stage1_at, stage1_reading_f, status FROM cooling_log WHERE id = 1`).get();
+    assert.equal(row.stage1_at, '2026-05-06T11:30:00.000Z');
+    assert.equal(row.stage1_reading_f, 65);
+    assert.equal(row.status, 'in_progress');
   });
 });
 
