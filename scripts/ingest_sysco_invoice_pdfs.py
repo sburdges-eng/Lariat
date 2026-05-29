@@ -784,13 +784,31 @@ def main() -> int:
              'silently overwrite any manual corrections. Idempotent and safe '
              'to re-run; use after adding an invoice to the list.',
     )
+    ap.add_argument('--dir', type=Path, default=SRC_DIR,
+                    help='Directory holding EnterpriseInvoice-*.pdf files.')
+    ap.add_argument('--cache', type=Path, default=CACHE,
+                    help='Path to vendor_summary.json cache.')
+    ap.add_argument('--db', type=Path, default=ROOT / 'data' / 'lariat.db',
+                    help='Path to lariat.db SQLite database.')
     args = ap.parse_args()
 
-    if not CACHE.exists():
-        print(f'ERROR: {CACHE} missing', file=sys.stderr)
+    src_dir: Path = args.dir
+    cache_path: Path = args.cache
+    db_path: Path = args.db
+
+    if not src_dir.exists():
+        print(f'ERROR: missing source dir {src_dir}', file=sys.stderr)
         return 2
 
-    cache = json.loads(CACHE.read_text())
+    if not cache_path.exists():
+        print(f'ERROR: {cache_path} missing', file=sys.stderr)
+        return 2
+
+    cache = json.loads(cache_path.read_text())
+    # Snapshot the top-level keys present at load time so the post-write
+    # assertion can verify we didn't accidentally drop any of them
+    # (rather than hardcoding a list of expected sibling keys).
+    initial_top_level_keys = set(cache.keys())
     sysco = cache.setdefault('sysco', {})
     recent = sysco.setdefault('recent_items', [])
 
@@ -808,7 +826,7 @@ def main() -> int:
     if args.backfill:
         pdf_qty_index: dict[tuple[str, str], int] = {}
         for inv in BACKFILL_INVOICES:
-            pdf_path = SRC_DIR / f'EnterpriseInvoice-{inv}.pdf'
+            pdf_path = src_dir / f'EnterpriseInvoice-{inv}.pdf'
             if not pdf_path.exists():
                 continue
             _, _, parsed_items = parse_pdf(pdf_path)
@@ -830,7 +848,7 @@ def main() -> int:
 
     # Find PDFs we should process.
     pdfs: list[Path] = []
-    for fn in sorted(os.listdir(SRC_DIR)):
+    for fn in sorted(os.listdir(src_dir)):
         if not fn.lower().endswith('.pdf'):
             continue
         # 'EnterpriseInvoice-<inv>.pdf' -> inv.
@@ -838,12 +856,12 @@ def main() -> int:
         if not m:
             continue
         if m.group(1) in TARGET_INVOICES:
-            pdfs.append(SRC_DIR / fn)
+            pdfs.append(src_dir / fn)
 
     added_total = 0
     sqlite_total = 0
     new_dates: list[str] = []
-    lariat_db = ROOT / 'data' / 'lariat.db'
+    lariat_db = db_path
     cw_counters_total = {"matched": 0, "reconciled": 0, "no_catalog": 0, "no_actual": 0}
     for pdf in pdfs:
         invoice, delivery_date, items = parse_pdf(pdf)
@@ -906,17 +924,21 @@ def main() -> int:
             print(f'  {inv}  {desc!r}: {old_q} -> {new_q}')
 
     # Atomic write.
-    tmp = CACHE.with_suffix('.json.tmp')
+    tmp = cache_path.with_suffix('.json.tmp')
     tmp.write_text(json.dumps(cache, indent=2, ensure_ascii=False) + '\n')
-    os.replace(tmp, CACHE)
+    os.replace(tmp, cache_path)
 
-    # Validate: re-read.
-    reloaded = json.loads(CACHE.read_text())
-    assert 'sysco' in reloaded and 'webstaurantstore' in reloaded, \
-        'top-level keys lost during write'
+    # Validate: re-read. The intent is "atomic write didn't drop any sibling
+    # top-level key" — assert against the set we observed at load time
+    # rather than hardcoding 'webstaurantstore' (which isn't present on a
+    # fresh / minimal seed cache).
+    reloaded = json.loads(cache_path.read_text())
+    expected_keys = initial_top_level_keys | {'sysco'}
+    missing = expected_keys - set(reloaded.keys())
+    assert not missing, f'top-level keys lost during write: {sorted(missing)}'
     assert len(reloaded['sysco']['recent_items']) == after_count, \
         'recent_items length mismatch after write'
-    print('validate: OK (sysco + webstaurantstore preserved, count matches)')
+    print(f'validate: OK (top-level keys preserved: {sorted(reloaded.keys())}, count matches)')
     return 0
 
 

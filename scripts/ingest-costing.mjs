@@ -302,6 +302,24 @@ function _ingestCostingImpl(db, data, locationId, runId = null) {
 
     del('DELETE FROM recipe_costs WHERE location_id = ?');
     del('DELETE FROM bom_lines WHERE location_id = ?');
+
+    // Snapshot operator-curated ingredient_maps statuses BEFORE the wipe.
+    // Anything other than the auto-statuses produced by the Python parser
+    // (mapped / auto_mapped / empty) is an operator decision that must
+    // survive the workbook refresh. Key joins the two name columns with
+    // an ASCII '::' separator that neither column can legitimately contain.
+    const KEY_SEP = "::";
+    const curatedMapStatuses = new Map();
+    const curatedRows = db.prepare(
+      "SELECT recipe_ingredient, vendor_ingredient, status FROM ingredient_maps " +
+      "WHERE location_id = ? AND status IS NOT NULL " +
+      "AND status NOT IN ('mapped', 'auto_mapped', '')"
+    ).all(locationId);
+    for (const r of curatedRows) {
+      const k = String(r.recipe_ingredient) + KEY_SEP + String(r.vendor_ingredient ?? '');
+      curatedMapStatuses.set(k, r.status);
+    }
+
     del('DELETE FROM ingredient_maps WHERE location_id = ?');
     del('DELETE FROM order_guide_items WHERE location_id = ?');
 
@@ -403,6 +421,12 @@ function _ingestCostingImpl(db, data, locationId, runId = null) {
     `);
     for (const r of data.recipe_costs || []) {
       if (!r.recipe_id) continue;
+      // The Excel "Recipe Cost Summary" sheet emits a trailing TOTAL row
+      // (recipe_id='TOTAL', empty name/yield, batch_cost = workbook sum).
+      // The T3 deltas block already excludes it, and bom_lines never carries
+      // it. Skip the INSERT too so the row never lands in recipe_costs in
+      // the first place.
+      if (r.recipe_id === 'TOTAL') continue;
       irc.run({
         recipe_id: r.recipe_id,
         recipe_name: r.recipe_name,
@@ -452,10 +476,15 @@ function _ingestCostingImpl(db, data, locationId, runId = null) {
       VALUES (@recipe_ingredient, @vendor_ingredient, @status, @location_id)
     `);
     for (const r of data.ingredient_maps || []) {
+      // Restore the operator-curated status if one was snapshotted for this
+      // (recipe_ingredient, vendor_ingredient) key. Falls through to the
+      // Python parser's auto-status when no snapshot exists.
+      const k = String(r.recipe_ingredient) + KEY_SEP + String(r.vendor_ingredient ?? '');
+      const curated = curatedMapStatuses.get(k);
       iim.run({
         recipe_ingredient: r.recipe_ingredient,
         vendor_ingredient: r.vendor_ingredient ?? '',
-        status: r.status ?? '',
+        status: curated ?? r.status ?? '',
         location_id: locationId,
       });
       summary.ingredient_maps++;
