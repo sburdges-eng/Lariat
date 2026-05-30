@@ -270,3 +270,83 @@ describe('rollupRecipeCosts — sub-recipe line pricing', () => {
     assert.ok(Math.abs(cost.cost - 20.0) < 0.0001, `got ${cost.cost}`);
   });
 });
+
+describe('rollupRecipeCosts — end-to-end batch_cost rewrite', () => {
+  it('rolls up a parent that uses a sub-recipe and a vendor-priced leaf', () => {
+    const db = new Database(':memory:');
+    initSchema(db);
+
+    db.prepare(
+      `INSERT INTO recipe_costs (recipe_id, recipe_name, yield, yield_unit, batch_cost, cost_per_yield_unit, location_id)
+       VALUES ('lariat_rub','Lariat Rub',4,'cup',8,2,?),
+              ('parent','Parent',1,'qt',NULL,NULL,?)`,
+    ).run(LOC, LOC);
+
+    db.prepare(
+      `INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, master_id, location_id)
+       VALUES ('OIL, CANOLA CLR FRY ZTF', 'shamrock', '1', 35, 'lb', 35, 1, 'canola_oil', ?)`,
+    ).run(LOC);
+
+    // parent consumes 1 cup lariat rub ($2) + 1 lb canola oil ($1) = $3.
+    db.prepare(
+      `INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, sub_recipe, map_status, yield_pct, loss_factor, master_id, location_id)
+       VALUES ('parent','lariat rub',1,'cup','YES','confirmed',1.0,NULL,NULL,?),
+              ('parent','canola oil',1,'lb',NULL,'confirmed',1.0,NULL,'canola_oil',?)`,
+    ).run(LOC, LOC);
+
+    const result = rollupRecipeCosts(db, LOC);
+    assert.equal(result.updated, 1); // only parent was actually overwritten
+    assert.deepEqual(result.cycles, []);
+
+    const parent = db.prepare(
+      `SELECT batch_cost FROM recipe_costs WHERE recipe_id='parent' AND location_id=?`,
+    ).get(LOC);
+    assert.ok(Math.abs(parent.batch_cost - 3.0) < 0.001, `got ${parent.batch_cost}`);
+    db.close();
+  });
+
+  it('skips cycle members and leaves their batch_cost untouched', () => {
+    const db = new Database(':memory:');
+    initSchema(db);
+    db.prepare(
+      `INSERT INTO recipe_costs (recipe_id, recipe_name, yield, yield_unit, batch_cost, cost_per_yield_unit, location_id)
+       VALUES ('a','A',1,'cup',99,99,?), ('b','B',1,'cup',88,88,?)`,
+    ).run(LOC, LOC);
+    db.prepare(
+      `INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, sub_recipe, map_status, location_id)
+       VALUES ('a','b',0.5,'cup','YES','confirmed',?),
+              ('b','a',0.5,'cup','YES','confirmed',?)`,
+    ).run(LOC, LOC);
+
+    rollupRecipeCosts(db, LOC);
+    const a = db.prepare(`SELECT batch_cost FROM recipe_costs WHERE recipe_id='a'`).get();
+    const b = db.prepare(`SELECT batch_cost FROM recipe_costs WHERE recipe_id='b'`).get();
+    assert.equal(a.batch_cost, 99);
+    assert.equal(b.batch_cost, 88);
+    db.close();
+  });
+
+  it('records a NEEDS_DENSITY entry when sub-recipe units are cross-dimensional and no density is available', () => {
+    const db = new Database(':memory:');
+    initSchema(db);
+    db.prepare(
+      `INSERT INTO recipe_costs (recipe_id, recipe_name, yield, yield_unit, batch_cost, cost_per_yield_unit, location_id)
+       VALUES ('rub','Rub',4,'cup',8,2,?), ('parent','Parent',1,'qt',NULL,NULL,?)`,
+    ).run(LOC, LOC);
+    db.prepare(
+      `INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, sub_recipe, map_status, yield_pct, loss_factor, location_id)
+       VALUES ('parent','rub',1,'lb','YES','confirmed',1.0,NULL,?)`,
+    ).run(LOC);
+
+    const result = rollupRecipeCosts(db, LOC);
+    assert.equal(result.unconverted.length, 1);
+    assert.equal(result.unconverted[0].reason, 'no_density');
+    assert.equal(result.unconverted[0].recipe_id, 'parent');
+
+    const status = db.prepare(
+      `SELECT map_status FROM bom_lines WHERE recipe_id='parent' AND ingredient='rub'`,
+    ).get();
+    assert.equal(status.map_status, 'NEEDS_DENSITY');
+    db.close();
+  });
+});

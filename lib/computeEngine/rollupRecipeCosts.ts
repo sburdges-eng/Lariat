@@ -33,6 +33,7 @@ export type BomRow = {
   sub_recipe: string | null;
   yield_pct: number | null;
   loss_factor: number | null;
+  master_id: string | null;
 };
 
 /**
@@ -357,18 +358,112 @@ export function rollupRecipeCosts(
     }
   }
 
+  // (T3 + T4: build DAG + detect cycles)
   const { children } = _buildRecipeDag(db, locationId);
   const { order, cycles } = _topologicalOrder(children);
   result.cycles = cycles;
   if (cycles.length > 0) {
     console.warn(
-      `⚠ rollupRecipeCosts: ${cycles.length} recipe(s) participate in a cycle — skipped: ${cycles.sort().join(', ')}`,
+      `⚠ rollupRecipeCosts: ${cycles.length} recipe(s) in cycle — skipped: ${cycles.sort().join(', ')}`,
     );
   }
-  // `order` is consumed by the topo walk in Task 8; for now it's unused so
-  // lint doesn't complain — Tasks 5–7 add the per-line costing logic and
-  // Task 8 puts them all together.
-  void order;
+
+  // (T7: topo walk)
+  // Load recipe_costs rows once into a Map so we can look up child cost
+  // without re-querying inside the inner loop. Updates land in this map AND
+  // in the DB on each iteration so a parent's lookup of an already-rolled
+  // child gets the fresh number.
+  const recipesById = new Map<string, RecipeRow>();
+  for (const r of db
+    .prepare(
+      `SELECT recipe_id, yield, yield_unit, batch_cost FROM recipe_costs WHERE location_id = ?`,
+    )
+    .all(locationId) as RecipeRow[]) {
+    recipesById.set(r.recipe_id, r);
+  }
+
+  // Per-recipe BOM lines, grouped.
+  const bomByRecipe = new Map<string, BomRow[]>();
+  for (const r of db
+    .prepare(
+      `SELECT id, recipe_id, ingredient, qty, unit, sub_recipe, yield_pct, loss_factor, master_id
+         FROM bom_lines WHERE location_id = ?`,
+    )
+    .all(locationId) as BomRow[]) {
+    if (!bomByRecipe.has(r.recipe_id)) bomByRecipe.set(r.recipe_id, []);
+    bomByRecipe.get(r.recipe_id)!.push(r);
+  }
+
+  const updateBatchCost = db.prepare(
+    `UPDATE recipe_costs SET batch_cost = ? WHERE recipe_id = ? AND location_id = ?`,
+  );
+  const flagDensity = db.prepare(
+    `UPDATE bom_lines SET map_status = 'NEEDS_DENSITY' WHERE id = ?`,
+  );
+
+  for (const recipeId of order) {
+    const lines = bomByRecipe.get(recipeId) ?? [];
+    let total = 0;
+    let anyContributed = false;
+    for (const line of lines) {
+      const slug = deriveMasterId(line.ingredient ?? '');
+      const isSubRecipe = line.sub_recipe === 'YES' || (slug != null && recipeIds.has(slug));
+      if (isSubRecipe && slug != null && recipesById.has(slug)) {
+        const child = recipesById.get(slug)!;
+        const { cost, reason } = _priceSubRecipeLine(
+          {
+            ingredient: line.ingredient,
+            qty: line.qty,
+            unit: line.unit,
+            yield_pct: line.yield_pct,
+            loss_factor: line.loss_factor,
+          },
+          {
+            recipe_id: child.recipe_id,
+            yield: child.yield,
+            yield_unit: child.yield_unit,
+            batch_cost: child.batch_cost,
+          },
+        );
+        if (cost != null) {
+          total += cost;
+          anyContributed = true;
+        } else if (reason != null) {
+          result.unconverted.push({
+            recipe_id: recipeId,
+            ingredient: line.ingredient,
+            reason,
+          });
+          if (reason === 'no_density' || reason === 'incompatible_units') {
+            flagDensity.run(line.id);
+          }
+        }
+        continue;
+      }
+      // Vendor-priced leaf.
+      const leafCost = _priceLeafLine(db, locationId, {
+        ingredient: line.ingredient,
+        qty: line.qty,
+        unit: line.unit,
+        master_id: line.master_id ?? null,
+        yield_pct: line.yield_pct,
+        loss_factor: line.loss_factor,
+      });
+      if (leafCost != null) {
+        total += leafCost;
+        anyContributed = true;
+      }
+    }
+
+    if (anyContributed) {
+      updateBatchCost.run(total, recipeId, locationId);
+      result.updated += 1;
+      // Refresh the in-memory map so a parent that uses this recipe later
+      // in the topo walk sees the new batch_cost.
+      const cur = recipesById.get(recipeId)!;
+      recipesById.set(recipeId, { ...cur, batch_cost: total });
+    }
+  }
 
   return result;
 }
