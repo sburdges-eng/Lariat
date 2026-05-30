@@ -1,5 +1,4 @@
 import type { Database } from 'better-sqlite3';
-// @ts-ignore TS: ingest-costing.mjs has pre-existing type errors
 import { deriveMasterId } from '../../scripts/ingest-costing.mjs';
 
 export type RollupResult = {
@@ -32,11 +31,6 @@ export type BomRow = {
   yield_pct: number | null;
   loss_factor: number | null;
 };
-
-// Establish that the types are in-use so TS doesn't complain.
-// This is expanded by future tasks that actually reference RecipeRow/BomRow.
-// @ts-expect-error — intentional empty use to register types as "used"
-type _Future = RecipeRow | BomRow;
 
 /**
  * Sub-recipe pricing rollup pass.

@@ -1,5 +1,9 @@
 #!/usr/bin/env node
-// @ts-nocheck — legacy code with pre-existing type issues
+// @ts-nocheck — file has ~80 latent type errors that surfaced only when
+// lib/computeEngine/rollupRecipeCosts.ts started importing deriveMasterId
+// from here under `checkJs: true`. Fixing them is out of scope for the
+// sub-recipe rollup work (see docs/superpowers/plans/2026-05-30-sub-recipe-pricing-rollup.md).
+// TODO: extract deriveMasterId to lib/ingredientKey.ts and drop this pragma.
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
