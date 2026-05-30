@@ -122,9 +122,8 @@ export function _topologicalOrder(
 
   // Anything still in remaining with non-empty deps is in a cycle.
   const cycles: string[] = [];
-  for (const [node, deps] of remaining) {
+  for (const node of remaining.keys()) {
     if (!inOrder.has(node)) cycles.push(node);
-    void deps;
   }
   return { order, cycles };
 }
