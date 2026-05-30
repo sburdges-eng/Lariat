@@ -11,6 +11,8 @@ import { requirePin } from '../../../../../lib/pin';
 import { withIdempotency } from '../../../../../lib/idempotency';
 import { locationFromBody, locationFromRequest } from '../../../../../lib/location';
 import { postAuditEvent } from '../../../../../lib/auditEvents';
+import { appendOp } from '../../../../../lib/syncFeed';
+import { localIdentityFields } from '../../../../../lib/localIdentity';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,11 +70,8 @@ async function patchHandler(req, { params }) {
     }
 
     const existingCredit = db
-      .prepare('SELECT id FROM inventory_updates WHERE receiving_log_id = ?')
+      .prepare('SELECT * FROM inventory_updates WHERE receiving_log_id = ?')
       .get(id);
-    if (existingCredit) {
-      return Response.json({ error: 'stock already added for this delivery' }, { status: 409 });
-    }
 
     if (!['accepted', 'accepted_with_note'].includes(row.status)) {
       return Response.json({ error: 'rejected deliveries cannot add stock' }, { status: 409 });
@@ -119,38 +118,110 @@ async function patchHandler(req, { params }) {
         note: `receiving_match:${id}`,
       });
 
-      const invInfo = db
-        .prepare(
-          `INSERT INTO inventory_updates
-             (shift_date, location_id, item, master_id, delta, direction, note, cook_id, receiving_log_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
-          row.shift_date,
-          location_id,
-          row.item,
-          masterId,
-          `${row.received_qty} ${row.received_unit}`,
-          'in',
-          `manager matched receiving_log #${id}`,
-          cookId,
-          id,
-        );
-      const invRow = db
-        .prepare('SELECT * FROM inventory_updates WHERE id = ?')
-        .get(invInfo.lastInsertRowid);
-
-      postAuditEvent({
-        entity: 'inventory_updates',
-        entity_id: Number(invInfo.lastInsertRowid),
-        action: 'insert',
-        actor_cook_id: cookId,
-        actor_source: 'receiving_match_resolution',
-        payload: invRow,
-        shift_date: row.shift_date,
-        location_id,
-        note: `receiving_match:${id}`,
+      const receivingIdentity = localIdentityFields();
+      appendOp({
+        opId: receivingIdentity.opId,
+        tableName: 'receiving_log',
+        locationId: location_id,
+        opKind: 'update',
+        rowPk: String(id),
+        rowJson: JSON.stringify(after),
+        createdAt: receivingIdentity.createdAt,
+        sourceHost: receivingIdentity.sourceHost,
+        sourceStartedAt: receivingIdentity.sourceStartedAt,
       });
+
+      let invRow;
+      if (existingCredit) {
+        db
+          .prepare(`UPDATE inventory_updates SET master_id = ? WHERE id = ?`)
+          .run(masterId, existingCredit.id);
+        invRow = db
+          .prepare('SELECT * FROM inventory_updates WHERE id = ?')
+          .get(existingCredit.id);
+
+        postAuditEvent({
+          entity: 'inventory_updates',
+          entity_id: Number(existingCredit.id),
+          action: 'correction',
+          actor_cook_id: cookId,
+          actor_source: 'receiving_match_resolution',
+          payload: {
+            before: {
+              id: existingCredit.id,
+              master_id: existingCredit.master_id,
+              receiving_log_id: existingCredit.receiving_log_id,
+            },
+            after: {
+              id: invRow.id,
+              master_id: invRow.master_id,
+              receiving_log_id: invRow.receiving_log_id,
+            },
+          },
+          shift_date: row.shift_date,
+          location_id,
+          note: `receiving_match:${id}`,
+        });
+
+        const inventoryIdentity = localIdentityFields();
+        appendOp({
+          opId: inventoryIdentity.opId,
+          tableName: 'inventory_updates',
+          locationId: location_id,
+          opKind: 'update',
+          rowPk: String(existingCredit.id),
+          rowJson: JSON.stringify(invRow),
+          createdAt: inventoryIdentity.createdAt,
+          sourceHost: inventoryIdentity.sourceHost,
+          sourceStartedAt: inventoryIdentity.sourceStartedAt,
+        });
+      } else {
+        const invInfo = db
+          .prepare(
+            `INSERT INTO inventory_updates
+               (shift_date, location_id, item, master_id, delta, direction, note, cook_id, receiving_log_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .run(
+            row.shift_date,
+            location_id,
+            row.item,
+            masterId,
+            `${row.received_qty} ${row.received_unit}`,
+            'in',
+            `manager matched receiving_log #${id}`,
+            cookId,
+            id,
+          );
+        invRow = db
+          .prepare('SELECT * FROM inventory_updates WHERE id = ?')
+          .get(invInfo.lastInsertRowid);
+
+        postAuditEvent({
+          entity: 'inventory_updates',
+          entity_id: Number(invInfo.lastInsertRowid),
+          action: 'insert',
+          actor_cook_id: cookId,
+          actor_source: 'receiving_match_resolution',
+          payload: invRow,
+          shift_date: row.shift_date,
+          location_id,
+          note: `receiving_match:${id}`,
+        });
+
+        const inventoryIdentity = localIdentityFields();
+        appendOp({
+          opId: inventoryIdentity.opId,
+          tableName: 'inventory_updates',
+          locationId: location_id,
+          opKind: 'insert',
+          rowPk: String(invInfo.lastInsertRowid),
+          rowJson: JSON.stringify(invRow),
+          createdAt: inventoryIdentity.createdAt,
+          sourceHost: inventoryIdentity.sourceHost,
+          sourceStartedAt: inventoryIdentity.sourceStartedAt,
+        });
+      }
 
       return { receiving: after, inventory_update: invRow };
     })();

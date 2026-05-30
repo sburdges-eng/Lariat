@@ -173,15 +173,13 @@ function readReceivingMatchesCount(db, locationId) {
     const row = db.prepare(
       `SELECT COUNT(*) AS c
          FROM receiving_log r
-         LEFT JOIN inventory_updates iu ON iu.receiving_log_id = r.id
         WHERE r.location_id = ?
           AND r.status IN ('accepted', 'accepted_with_note')
           AND r.received_qty IS NOT NULL
           AND r.received_qty > 0
           AND r.received_unit IS NOT NULL
           AND TRIM(r.received_unit) <> ''
-          AND r.match_status IN ('unmatched', 'ambiguous')
-          AND iu.id IS NULL`,
+          AND r.match_status IN ('unmatched', 'ambiguous')`,
     ).get(locationId);
     return row?.c ?? 0;
   } catch {
@@ -346,7 +344,7 @@ export default function ManagementRollupPage({ searchParams }) {
           label="Receiving to match"
           value={receivingMatches == null ? '—' : receivingMatches}
           color={receivingMatchColor(receivingMatches)}
-          sub={receivingMatches == null ? 'receiving unavailable' : 'accepted lines not stocked yet'}
+          sub={receivingMatches == null ? 'receiving unavailable' : 'accepted lines need a master'}
           href="/management/receiving-matches"
         />
       </div>
@@ -355,7 +353,7 @@ export default function ManagementRollupPage({ searchParams }) {
         <h2 style={{ fontSize: 14, marginBottom: 8 }}>More tools</h2>
         <ul style={{ fontSize: 13 }}>
           <li><Link href="/management/performance-reviews">Staff reviews</Link> — log and view performance</li>
-          <li><Link href="/management/receiving-matches">Receiving matches</Link> — add stock for unmatched lines</li>
+          <li><Link href="/management/receiving-matches">Receiving matches</Link> — set masters for unmatched lines</li>
           <li><Link href="/management/pins">Manager PINs</Link> — add and edit manager PINs</li>
           <li><Link href="/management/audit-log">Audit log</Link> — management actions outside regulated tables</li>
           <li><Link href="/management/cloud-bridge">Cloud bridge</Link> — stuck snapshots heading to corp</li>

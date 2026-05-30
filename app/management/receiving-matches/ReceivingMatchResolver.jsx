@@ -84,7 +84,7 @@ export default function ReceivingMatchResolver({ row, masters, locationId }) {
             fontSize: 12,
           }}
         >
-          {state === 'pending' ? 'Adding...' : 'Add stock'}
+          {state === 'pending' ? 'Saving...' : 'Set master'}
         </button>
         {selected ? (
           <span style={{ fontSize: 11, color: 'var(--muted, #6f6758)' }}>

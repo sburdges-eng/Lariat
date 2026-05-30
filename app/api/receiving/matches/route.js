@@ -24,7 +24,6 @@ export async function GET(req) {
       .prepare(
         `SELECT r.*
            FROM receiving_log r
-           LEFT JOIN inventory_updates i ON i.receiving_log_id = r.id
           WHERE r.location_id = ?
             AND r.status IN ('accepted', 'accepted_with_note')
             AND r.received_qty IS NOT NULL
@@ -32,7 +31,6 @@ export async function GET(req) {
             AND r.received_unit IS NOT NULL
             AND trim(r.received_unit) != ''
             AND COALESCE(r.match_status, 'not_attempted') IN ('unmatched', 'ambiguous')
-            AND i.id IS NULL
           ORDER BY r.created_at DESC, r.id DESC`,
       )
       .all(location_id);

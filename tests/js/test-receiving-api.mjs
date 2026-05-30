@@ -19,24 +19,37 @@ register(new URL('./resolver.mjs', import.meta.url));
 const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-receiving-api-'));
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
+const ORIGINAL_PIN = process.env.LARIAT_PIN;
+const ORIGINAL_PIN_SECRET = process.env.LARIAT_PIN_SECRET;
+delete process.env.LARIAT_PIN;
+delete process.env.LARIAT_PIN_SECRET;
+
 const db = await import('../../lib/db.ts');
 const route = await import('../../app/api/receiving/route.js');
+const matchesRoute = await import('../../app/api/receiving/matches/route.js');
+const matchByIdRoute = await import('../../app/api/receiving/matches/[id]/route.js');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
 
 const { POST, GET } = route;
 const { todayISO } = db;
+const { GET: GET_MATCHES } = matchesRoute;
+const { PATCH: PATCH_MATCH } = matchByIdRoute;
 
 after(() => {
   db.setDbPathForTest(null);
+  if (ORIGINAL_PIN === undefined) delete process.env.LARIAT_PIN;
+  else process.env.LARIAT_PIN = ORIGINAL_PIN;
+  if (ORIGINAL_PIN_SECRET === undefined) delete process.env.LARIAT_PIN_SECRET;
+  else process.env.LARIAT_PIN_SECRET = ORIGINAL_PIN_SECRET;
   try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
 });
 
 beforeEach(() => {
   // Order matters: inventory_updates.receiving_log_id is a FK into
   // receiving_log; clearing the parent first would trip the constraint.
-  testDb.exec('DELETE FROM sync_feed; DELETE FROM inventory_updates; DELETE FROM receiving_log; DELETE FROM audit_events;');
+  testDb.exec('DELETE FROM sync_feed; DELETE FROM inventory_updates; DELETE FROM receiving_log; DELETE FROM audit_events; DELETE FROM ingredient_masters;');
 });
 
 function postReq(body) {
@@ -49,6 +62,18 @@ function postReq(body) {
 
 function getReq(qs = '') {
   return new Request(`http://localhost/api/receiving${qs}`);
+}
+
+function matchGetReq(qs = '') {
+  return new Request(`http://localhost/api/receiving/matches${qs}`);
+}
+
+function patchMatchReq(id, body) {
+  return new Request(`http://localhost/api/receiving/matches/${id}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 }
 
 function countReceiving() {
@@ -69,6 +94,16 @@ function syncRows() {
   return testDb
     .prepare(`SELECT table_name, op_kind, row_pk, row_json FROM sync_feed ORDER BY id ASC`)
     .all();
+}
+
+function seedIngredientMaster(masterId, canonicalName = 'Chicken Breast') {
+  testDb
+    .prepare(
+      `INSERT INTO ingredient_masters
+         (master_id, canonical_name, category, preferred_vendor, last_reviewed)
+       VALUES (?, ?, 'protein', 'shamrock', '2026-05-30')`,
+    )
+    .run(masterId, canonicalName);
 }
 
 // ── POST — happy path ────────────────────────────────────────────
@@ -485,6 +520,83 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     assert.strictEqual(invPayload.delta, '40 lb');
     assert.strictEqual(invPayload.direction, 'in');
     assert.strictEqual(invPayload.receiving_log_id, recvRow.id);
+  });
+
+  it('unmatched accepted delivery credits stock immediately and stays in the match queue', async () => {
+    const res = await POST(postReq({
+      vendor: 'Local Farms',
+      category: 'produce',
+      item: 'heirloom tomato case',
+      package_ok: true,
+      received_qty: 2,
+      received_unit: 'case',
+      cook_id: 'maria',
+    }));
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.match.status, 'unmatched');
+    assert.strictEqual(body.match.master_id, null);
+    assert.strictEqual(countReceiving(), 1);
+    assert.strictEqual(countInventoryUpdates(), 1);
+
+    const recvRow = testDb.prepare('SELECT * FROM receiving_log').get();
+    const invRow = testDb.prepare('SELECT * FROM inventory_updates').get();
+    assert.strictEqual(recvRow.match_status, 'unmatched');
+    assert.strictEqual(recvRow.master_id, null);
+    assert.strictEqual(invRow.master_id, null);
+    assert.strictEqual(invRow.receiving_log_id, recvRow.id);
+
+    const queueRes = await GET_MATCHES(matchGetReq());
+    assert.strictEqual(queueRes.status, 200);
+    const queue = await queueRes.json();
+    assert.strictEqual(queue.total, 1);
+    assert.strictEqual(queue.matches[0].id, recvRow.id);
+    assert.strictEqual(queue.matches[0].match_status, 'unmatched');
+  });
+
+  it('manager resolution updates existing credited stock without duplicating inventory', async () => {
+    seedIngredientMaster('heirloom_tomato_case', 'Heirloom Tomato Case');
+
+    const res = await POST(postReq({
+      vendor: 'Local Farms',
+      category: 'produce',
+      item: 'heirloom tomato case',
+      package_ok: true,
+      received_qty: 2,
+      received_unit: 'case',
+      cook_id: 'maria',
+    }));
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(countInventoryUpdates(), 1);
+    const recvBefore = testDb.prepare('SELECT * FROM receiving_log').get();
+    const invBefore = testDb.prepare('SELECT * FROM inventory_updates').get();
+    assert.strictEqual(recvBefore.master_id, null);
+    assert.strictEqual(invBefore.master_id, null);
+
+    const patchRes = await PATCH_MATCH(
+      patchMatchReq(recvBefore.id, {
+        master_id: 'heirloom_tomato_case',
+        cook_id: 'manager-alex',
+      }),
+      { params: { id: String(recvBefore.id) } },
+    );
+    assert.strictEqual(patchRes.status, 200);
+    const patchBody = await patchRes.json();
+    assert.strictEqual(patchBody.ok, true);
+    assert.strictEqual(patchBody.receiving.master_id, 'heirloom_tomato_case');
+    assert.strictEqual(patchBody.inventory_update.master_id, 'heirloom_tomato_case');
+
+    assert.strictEqual(countInventoryUpdates(), 1);
+    const recvAfter = testDb.prepare('SELECT * FROM receiving_log').get();
+    const invAfter = testDb.prepare('SELECT * FROM inventory_updates').get();
+    assert.strictEqual(recvAfter.match_status, 'matched');
+    assert.strictEqual(recvAfter.match_reason, 'manager_selected');
+    assert.strictEqual(recvAfter.master_id, 'heirloom_tomato_case');
+    assert.strictEqual(invAfter.master_id, 'heirloom_tomato_case');
+    assert.strictEqual(invAfter.id, invBefore.id);
+
+    assert.strictEqual(countAudit('receiving_log'), 2);
+    assert.strictEqual(countAudit('inventory_updates'), 2);
   });
 
   it('accepted_with_note + qty + unit also credits inventory', async () => {

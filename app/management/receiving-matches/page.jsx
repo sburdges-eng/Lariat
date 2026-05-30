@@ -17,7 +17,6 @@ function readQueue(db, locationId) {
             r.vendor_sku, r.received_qty, r.received_unit, r.match_status,
             r.match_reason, r.created_at
        FROM receiving_log r
-       LEFT JOIN inventory_updates iu ON iu.receiving_log_id = r.id
       WHERE r.location_id = ?
         AND r.status IN ('accepted', 'accepted_with_note')
         AND r.received_qty IS NOT NULL
@@ -25,7 +24,6 @@ function readQueue(db, locationId) {
         AND r.received_unit IS NOT NULL
         AND TRIM(r.received_unit) <> ''
         AND r.match_status IN ('unmatched', 'ambiguous')
-        AND iu.id IS NULL
       ORDER BY r.created_at DESC, r.id DESC
       LIMIT 100`,
   ).all(locationId);
@@ -73,7 +71,7 @@ export default function ReceivingMatchesPage({ searchParams }) {
     <div>
       <h1>Receiving matches</h1>
       <p className="subtitle">
-        Accepted lines that need a master ingredient before stock is added.
+        Accepted lines that need a master ingredient.
       </p>
 
       <div style={{ marginBottom: 16 }}>
@@ -84,7 +82,7 @@ export default function ReceivingMatchesPage({ searchParams }) {
         <section className="tl-card">
           <h2 className="section-h">All caught up</h2>
           <p className="subtitle" style={{ marginBottom: 0 }}>
-            No accepted delivery lines are waiting for stock.
+            No accepted delivery lines need a master ingredient.
           </p>
         </section>
       ) : (
