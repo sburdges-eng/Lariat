@@ -11,6 +11,7 @@ import {
   rollupRecipeCosts,
   _buildRecipeDag,
   _topologicalOrder,
+  _priceLeafLine,
 } from '../../lib/computeEngine/rollupRecipeCosts.ts';
 import { deriveMasterId } from '../../scripts/ingest-costing.mjs';
 
@@ -184,6 +185,52 @@ describe('rollupRecipeCosts — cycle detection', () => {
 
     const result = rollupRecipeCosts(db, LOC);
     assert.deepEqual(result.cycles.slice().sort(), ['a', 'b']);
+    db.close();
+  });
+});
+
+describe('rollupRecipeCosts — leaf line pricing', () => {
+  it('prices a vendor_prices-matched line via the existing T7 path', () => {
+    const db = new Database(':memory:');
+    initSchema(db);
+
+    db.prepare(
+      `INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, location_id)
+       VALUES ('OIL, CANOLA CLR FRY ZTF', 'shamrock', '1950621', 35, 'lb', 38.01, 1.086, ?)`,
+    ).run(LOC);
+
+    // T7 master_id: the line carries it, the vendor_prices row carries it.
+    db.prepare(`UPDATE vendor_prices SET master_id = 'canola_oil' WHERE ingredient = 'OIL, CANOLA CLR FRY ZTF'`).run();
+
+    // qty=2 lb of canola oil, yield_pct=1.0, loss_factor=0.
+    const line = {
+      ingredient: 'canola oil',
+      qty: 2,
+      unit: 'lb',
+      master_id: 'canola_oil',
+      yield_pct: 1.0,
+      loss_factor: null,
+    };
+    const cost = _priceLeafLine(db, LOC, line);
+    // 2 lb * (38.01 / 35) = 2 * 1.086 = 2.172
+    assert.ok(cost !== null);
+    assert.ok(Math.abs(cost - 2.172) < 0.001, `got ${cost}`);
+
+    db.close();
+  });
+
+  it('returns null when no vendor_prices row matches', () => {
+    const db = new Database(':memory:');
+    initSchema(db);
+    const cost = _priceLeafLine(db, LOC, {
+      ingredient: 'asafoetida',
+      qty: 0.01,
+      unit: 'lb',
+      master_id: null,
+      yield_pct: 1.0,
+      loss_factor: null,
+    });
+    assert.equal(cost, null);
     db.close();
   });
 });

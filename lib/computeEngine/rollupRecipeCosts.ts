@@ -1,5 +1,7 @@
 import type { Database } from 'better-sqlite3';
 import { deriveMasterId } from '../../scripts/ingest-costing.mjs';
+import { normalizeIngredientKey } from '../ingredientKey.ts';
+import { resolveMergedCost } from '../costingBenchmarks.mjs';
 
 export type RollupResult = {
   updated: number;
@@ -122,6 +124,116 @@ export function _topologicalOrder(
     void deps;
   }
   return { order, cycles };
+}
+
+function yieldAdjustment(
+  yieldPct: number | null | undefined,
+  lossFactor: number | null | undefined,
+): number | null {
+  const y = yieldPct == null ? 1.0 : yieldPct;
+  const l = lossFactor == null ? 0.0 : lossFactor;
+  const denom = y * (1 - l);
+  if (!(denom > 0) || !Number.isFinite(denom)) return null;
+  return 1 / denom;
+}
+
+export type LeafLineInput = {
+  ingredient: string;
+  qty: number | null;
+  unit: string | null;
+  master_id: string | null;
+  yield_pct: number | null;
+  loss_factor: number | null;
+};
+
+/**
+ * Price a single BOM line whose ingredient is a vendor-priced leaf (not a
+ * sub-recipe). Returns line cost in USD, or null if no vendor_prices row
+ * matches.
+ *
+ * Lookup order mirrors computeCostVariance:
+ *   1. master_id (when both sides carry one) -> resolveMergedCost
+ *      (preferred_vendor with mean fallback across distinct vendors)
+ *   2. normalized ingredient key -> latest vendor_prices row
+ *
+ * Exported for testing only.
+ */
+export function _priceLeafLine(
+  db: Database,
+  locationId: string,
+  line: LeafLineInput,
+): number | null {
+  const qty = line.qty;
+  if (qty == null || !(qty > 0) || !Number.isFinite(qty)) return null;
+  const adj = yieldAdjustment(line.yield_pct, line.loss_factor);
+  if (adj == null) return null;
+
+  let packPrice: number | null = null;
+  let packSize: number | null = null;
+
+  if (line.master_id) {
+    const rows = db
+      .prepare(
+        `SELECT vendor, pack_price, pack_size FROM vendor_prices
+          WHERE location_id = ? AND master_id = ?
+          ORDER BY imported_at DESC, id DESC`,
+      )
+      .all(locationId, line.master_id) as Array<{
+        vendor: string | null;
+        pack_price: number | null;
+        pack_size: number | null;
+      }>;
+    const preferred = (
+      db
+        .prepare(
+          `SELECT preferred_vendor FROM ingredient_masters WHERE master_id = ?`,
+        )
+        .get(line.master_id) as { preferred_vendor: string | null } | undefined
+    )?.preferred_vendor ?? null;
+    const merged = resolveMergedCost(rows, preferred);
+    if (merged) {
+      packPrice = merged.pack_price;
+      packSize = merged.pack_size;
+    }
+  }
+
+  if (packPrice == null || packSize == null) {
+    const key = normalizeIngredientKey(line.ingredient ?? '');
+    if (key) {
+      const allRows = db
+        .prepare(
+          `SELECT ingredient, pack_price, pack_size FROM vendor_prices
+            WHERE location_id = ?
+            ORDER BY imported_at DESC, id DESC`,
+        )
+        .all(locationId) as Array<{
+          ingredient: string | null;
+          pack_price: number | null;
+          pack_size: number | null;
+        }>;
+      for (const r of allRows) {
+        const k = normalizeIngredientKey(r.ingredient ?? '');
+        if (k === key && r.pack_price != null && r.pack_size != null) {
+          packPrice = r.pack_price;
+          packSize = r.pack_size;
+          break;
+        }
+      }
+    }
+  }
+
+  if (
+    packPrice == null ||
+    packSize == null ||
+    !(packPrice > 0) ||
+    !(packSize > 0) ||
+    !Number.isFinite(packPrice) ||
+    !Number.isFinite(packSize)
+  ) {
+    return null;
+  }
+
+  return (qty * packPrice / packSize) * adj;
 }
 
 /**
