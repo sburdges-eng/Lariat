@@ -24,6 +24,36 @@ interface PathFieldProps {
   required?: boolean;
 }
 
+interface TextFieldProps {
+  label: string;
+  hint?: string;
+  value: string;
+  onChange: (next: string) => void;
+  type?: 'text' | 'password';
+  required?: boolean;
+}
+
+function TextField(props: TextFieldProps): JSX.Element {
+  return (
+    <div className="field">
+      <label>
+        {props.label}
+        {props.required ? ' *' : ''}
+      </label>
+      <input
+        type={props.type || 'text'}
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+        spellCheck={false}
+        autoCorrect="off"
+        autoCapitalize="off"
+        inputMode={props.type === 'password' ? 'numeric' : undefined}
+      />
+      {props.hint ? <div className="hint">{props.hint}</div> : null}
+    </div>
+  );
+}
+
 function PathField(props: PathFieldProps): JSX.Element {
   return (
     <div className="field">
@@ -49,10 +79,18 @@ function PathField(props: PathFieldProps): JSX.Element {
   );
 }
 
+function randomHex(bytes: number): string {
+  const data = new Uint8Array(bytes);
+  window.crypto.getRandomValues(data);
+  return Array.from(data, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 function App(): JSX.Element {
   const [dataDir, setDataDir] = useState<string>('');
   const [datapackDir, setDatapackDir] = useState<string>('');
   const [pythonPath, setPythonPath] = useState<string>('');
+  const [managerPin, setManagerPin] = useState<string>('');
+  const [managerPinSecret, setManagerPinSecret] = useState<string>('');
   const [existingDb, setExistingDb] = useState<string | null>(null);
   const [busy, setBusy] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -61,8 +99,15 @@ function App(): JSX.Element {
     let cancelled = false;
     (async () => {
       try {
+        const saved = await window.lariat.getSettings();
         const def = await window.lariat.getDataDirDefault();
-        if (!cancelled) setDataDir(def);
+        if (!cancelled) {
+          setDataDir(saved?.dataDir || def);
+          setDatapackDir(saved?.datapackDir || '');
+          setPythonPath(saved?.pythonPath || '');
+          setManagerPin(saved?.managerPin || '');
+          setManagerPinSecret(saved?.managerPinSecret || randomHex(32));
+        }
         const existing = await window.lariat.detectExistingDb();
         if (!cancelled) setExistingDb(existing);
       } catch (e) {
@@ -104,9 +149,16 @@ function App(): JSX.Element {
       setError('Data directory is required.');
       return;
     }
+    const cleanPin = managerPin.trim();
+    if (!/^[0-9]{4,6}$/.test(cleanPin)) {
+      setError('Manager PIN must be 4-6 digits.');
+      return;
+    }
     const settings: Settings = {
       dataDir: dataDir.trim(),
       port: 3000,
+      managerPin: cleanPin,
+      managerPinSecret: managerPinSecret || randomHex(32),
     };
     if (datapackDir.trim()) settings.datapackDir = datapackDir.trim();
     if (pythonPath.trim()) settings.pythonPath = pythonPath.trim();
@@ -148,6 +200,15 @@ function App(): JSX.Element {
         value={dataDir}
         onChange={setDataDir}
         onPick={() => onPick(setDataDir, dataDir)}
+        required
+      />
+
+      <TextField
+        label="Manager PIN"
+        hint="4-6 digits. Opens back office."
+        value={managerPin}
+        onChange={setManagerPin}
+        type="password"
         required
       />
 

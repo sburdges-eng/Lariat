@@ -139,3 +139,17 @@ describe('lib/datapackSearch.semantic — data pack unavailable', () => {
     }
   });
 });
+
+describe('lib/datapackSearch.semantic — local embeddings disabled', () => {
+  it('returns [] without loading transformers.js', async () => {
+    const prev = process.env.LARIAT_DISABLE_LOCAL_EMBEDDINGS;
+    process.env.LARIAT_DISABLE_LOCAL_EMBEDDINGS = '1';
+    try {
+      const hits = await semantic('eggs', { bucket: 'recipes', limit: 3 });
+      assert.deepEqual(hits, []);
+    } finally {
+      if (prev === undefined) delete process.env.LARIAT_DISABLE_LOCAL_EMBEDDINGS;
+      else process.env.LARIAT_DISABLE_LOCAL_EMBEDDINGS = prev;
+    }
+  });
+});

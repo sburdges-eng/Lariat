@@ -62,6 +62,7 @@ import type { AdvertiseHandle, AdvertiseOptions } from './mdnsDiscovery.ts';
 // a static import surfaces a load error at boot (fail loud).
 import { loadOrCreateKeypair, fingerprint } from './peerKeypair.ts';
 import { locationIdFromEnv } from './location.ts';
+import { getReleaseInfo } from './release.ts';
 
 type AdvertiseFn = (_opts: AdvertiseOptions) => Promise<AdvertiseHandle>;
 
@@ -160,12 +161,7 @@ export async function stopAdvertiseOnce(): Promise<void> {
 
 function readPackageVersion(): string {
   try {
-    // Use require so webpack's `resolveJsonModule` handles this at build
-    // time and we avoid pulling `node:fs`/`node:url` into the edge bundle.
-    // Mirrors the technique already used in `lib/mdnsDiscovery.ts`.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pkg = require('../package.json') as { version?: string };
-    return typeof pkg.version === 'string' ? pkg.version : '0.0.0';
+    return getReleaseInfo().version;
   } catch {
     return '0.0.0';
   }
@@ -174,7 +170,7 @@ function readPackageVersion(): string {
 /**
  * Boot helper invoked from `instrumentation.ts::register()`.
  *
- * Reads version from package.json (via `require` so webpack handles it),
+ * Reads the stamped release version,
  * port/locationId from env, calls startAdvertiseOnce, and logs one
  * status line. Kept here (not inline in instrumentation.ts) so the boot
  * file stays minimal.
@@ -213,7 +209,7 @@ export async function bootMdnsAutostart(): Promise<void> {
   if (handle.active) {
     // eslint-disable-next-line no-console
     console.log(
-      `[mdns] advertising as Lariat on port ${port} (location=${locationId}, v${version}${
+      `[mdns] advertising as Lariat on port ${port} (location=${locationId}, ${version}${
         pubkeyFp ? `, fp=${pubkeyFp}` : ''
       })`
     );

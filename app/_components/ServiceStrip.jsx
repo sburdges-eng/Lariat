@@ -28,14 +28,17 @@ function fmtPhaseTime(h) {
 }
 
 export default function ServiceStrip() {
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState(null);
 
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 30000); // every 30s
+    const tick = () => setNow(new Date());
+    tick();
+    const t = setInterval(tick, 30000); // every 30s
     return () => clearInterval(t);
   }, []);
 
   const phaseState = useMemo(() => {
+    if (!now) return PHASES.map((p) => ({ ...p, state: 'future' }));
     const h = now.getHours() + now.getMinutes() / 60;
     return PHASES.map((p) => {
       let state = 'future';
@@ -47,6 +50,7 @@ export default function ServiceStrip() {
 
   // Position of the vertical now-marker across the 4-phase track
   const markerLeft = useMemo(() => {
+    if (!now) return '0%';
     const h = now.getHours() + now.getMinutes() / 60;
     const dayStart = PHASES[0].start;
     const dayEnd = PHASES[PHASES.length - 1].end;
@@ -57,11 +61,13 @@ export default function ServiceStrip() {
 
   // Day name + date for the status chip
   const dateLine = useMemo(() => {
+    if (!now) return 'Today';
     const opts = { weekday: 'short', month: 'short', day: 'numeric' };
     return now.toLocaleDateString(undefined, opts);
   }, [now]);
 
   const currentPhase = phaseState.find((p) => p.state === 'now');
+  const clockText = now ? fmtTime(now) : '--:--';
 
   return (
     <header className="strip" role="banner">
@@ -95,7 +101,7 @@ export default function ServiceStrip() {
 
       <div className="status-chip" aria-live="polite">
         <span>{dateLine}</span>
-        <span className="clock">{fmtTime(now)}</span>
+        <span className="clock">{clockText}</span>
         {currentPhase && <span className="heat">{currentPhase.label.toUpperCase()}</span>}
       </div>
     </header>

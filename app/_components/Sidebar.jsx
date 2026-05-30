@@ -288,7 +288,7 @@ export default function Sidebar() {
           <option value="">— pick your name —</option>
           {staff.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.first} {s.last}
+              {s.displayName || [s.first, s.last].filter(Boolean).join(' ')}
             </option>
           ))}
         </select>

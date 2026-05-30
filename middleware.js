@@ -2,9 +2,6 @@
 import { NextResponse } from 'next/server';
 import { verifyPinCookieValue } from './lib/pinCookie';
 
-const PIN = process.env.LARIAT_PIN;
-const PIN_SECRET = process.env.LARIAT_PIN_SECRET;
-
 /** Paths that show financial / sensitive v2 data when PIN is configured */
 const SENSITIVE_PREFIXES = [
   '/analytics',
@@ -45,15 +42,28 @@ function isSensitive(pathname) {
 }
 
 export async function middleware(request) {
-  if (!PIN) return NextResponse.next();
-
   const { pathname } = request.nextUrl;
   if (pathname === '/login-pin') return NextResponse.next();
 
   if (!isSensitive(pathname)) return NextResponse.next();
 
+  const pin = process.env.LARIAT_PIN;
+  const pinSecret = process.env.LARIAT_PIN_SECRET;
+  if (!pin) {
+    if (pathname === '/api' || pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { error: 'PIN setup required' },
+        { status: 503, headers: { 'cache-control': 'no-store' } },
+      );
+    }
+    const setup = new URL('/login-pin', request.url);
+    setup.searchParams.set('next', pathname + request.nextUrl.search);
+    setup.searchParams.set('setup', '1');
+    return NextResponse.redirect(setup);
+  }
+
   const raw = request.cookies.get('lariat_pin_ok')?.value;
-  if (await verifyPinCookieValue(raw, PIN_SECRET)) return NextResponse.next();
+  if (await verifyPinCookieValue(raw, pinSecret)) return NextResponse.next();
 
   const login = new URL('/login-pin', request.url);
   login.searchParams.set('next', pathname + request.nextUrl.search);

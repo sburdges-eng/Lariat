@@ -87,7 +87,7 @@ function clearOptionalCreds() {
 
 // ── shape contract ──────────────────────────────────────────────────
 
-describe('GET /api/health — response shape', () => {
+describe('GET /api/health — response shape', { concurrency: false }, () => {
   before(() => {
     process.env.LARIAT_PIN = '1234';
     process.env.LARIAT_PIN_SECRET = 'secret-for-tests';
@@ -134,7 +134,7 @@ describe('GET /api/health — response shape', () => {
 
 // ── status roll-up ──────────────────────────────────────────────────
 
-describe('GET /api/health — status roll-up', () => {
+describe('GET /api/health — status roll-up', { concurrency: false }, () => {
   it('returns degraded (200) when only optional probes fail', async () => {
     // sqlite + cache reachable, PIN configured, no optional creds set.
     process.env.LARIAT_PIN = '1234';
@@ -209,7 +209,7 @@ describe('GET /api/health — status roll-up', () => {
 
 // ── optional credentials toggle ─────────────────────────────────────
 
-describe('GET /api/health — optional integration credentials', () => {
+describe('GET /api/health — optional integration credentials', { concurrency: false }, () => {
   it('marks Toast / 7shifts / Prism probes ok when credentials are set', async () => {
     process.env.LARIAT_PIN = '1234';
     process.env.LARIAT_PIN_SECRET = 'secret-for-tests';
@@ -240,7 +240,7 @@ describe('GET /api/health — optional integration credentials', () => {
 
 // ── test-release channel (offline; no vendor APIs) ──────────────────
 
-describe('GET /api/health — test release runs without vendor APIs', () => {
+describe('GET /api/health — test release runs without vendor APIs', { concurrency: false }, () => {
   after(() => {
     delete process.env.LARIAT_TEST_RELEASE;
   });

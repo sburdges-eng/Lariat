@@ -13,7 +13,7 @@
  * Body shape: { name, version, location_id, started_at }
  *   name        — always 'lariat' (lets a peer distinguish us from any
  *                  other service answering on the discovered host:port)
- *   version     — package.json version
+ *   version     — stamped build version
  *   location_id — operator-scoped location key
  *   started_at  — ISO timestamp of when this Next process came up
  *
@@ -21,25 +21,13 @@
  * tablet), advertise capabilities, return a public key for sync auth.
  */
 
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-
-import { locationIdFromEnv } from '../../../lib/location';
+import { locationIdFromEnv } from '../../../lib/location.ts';
+import { getReleaseInfo } from '../../../lib/release.ts';
 
 // Captured at module load — same semantic as the mDNS TXT record's
 // started_at. Acceptable because Next.js spins up one server process and
 // route modules load once per process.
 const STARTED_AT = new Date().toISOString();
-
-function readVersion() {
-  try {
-    const pkgPath = path.join(process.cwd(), 'package.json');
-    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
-    return typeof pkg.version === 'string' ? pkg.version : '0.0.0';
-  } catch {
-    return '0.0.0';
-  }
-}
 
 function readLocationId() {
   // Delegate to lib/location.ts so the LARIAT_LOCATION → LARIAT_LOCATION_ID
@@ -50,7 +38,7 @@ function readLocationId() {
 export async function GET() {
   return Response.json({
     name: 'lariat',
-    version: readVersion(),
+    version: getReleaseInfo().version,
     location_id: readLocationId(),
     started_at: STARTED_AT,
   });

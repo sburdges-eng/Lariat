@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import useInstallPrompt from '../_components/useInstallPrompt.js';
+import { isDesktopUserAgent, lanInstallUrl } from './installUrl.js';
 
 function detectBrowser() {
   if (typeof navigator === 'undefined') return 'unknown';
@@ -23,33 +24,42 @@ function detectPlatform() {
 
 export default function InstallPage() {
   const { canInstall, installed, promptInstall } = useInstallPrompt();
+  const [mounted, setMounted] = useState(false);
+  const [desktopApp, setDesktopApp] = useState(false);
   const [browser, setBrowser] = useState('unknown');
   const [platform, setPlatform] = useState('unknown');
   const [lanUrl, setLanUrl] = useState('');
 
   useEffect(() => {
+    setMounted(true);
+    setDesktopApp(isDesktopUserAgent(window.navigator.userAgent));
     setBrowser(detectBrowser());
     setPlatform(detectPlatform());
-    const host = window.location.host;
-    setLanUrl(`http://${host}`);
+    setLanUrl(lanInstallUrl(window.location));
   }, []);
 
   return (
     <div className="install-page">
-      <h1>Install Lariat</h1>
+      <h1>Connect Lariat</h1>
       <p className="install-lede">
-        One-click install — puts Lariat in your Applications folder (Mac) or Home Screen (iPad),
-        runs in its own window, launches straight from the Dock.
+        Add another device, or install the browser app when you are not in the Mac app.
       </p>
 
-      {installed && (
+      {mounted && desktopApp && (
+        <div className="install-section">
+          <h2>Mac app</h2>
+          <p>You&apos;re already using the Mac app. No browser install needed.</p>
+        </div>
+      )}
+
+      {!desktopApp && installed && (
         <div className="install-section">
           <h2>Already installed</h2>
           <p>You&apos;re running Lariat as an installed app. Nothing more to do.</p>
         </div>
       )}
 
-      {!installed && (
+      {mounted && !desktopApp && !installed && (
         <div className="install-section">
           <h2>One-click install</h2>
           {canInstall ? (
@@ -60,19 +70,16 @@ export default function InstallPage() {
                 className="install-btn install-btn--page"
                 onClick={() => promptInstall()}
               >
-                Install Lariat Cockpit
+                Install Lariat
               </button>
             </>
           ) : (
-            <p>
-              Your browser didn&apos;t offer a one-click prompt. Follow the steps below for your
-              browser.
-            </p>
+            <p>Use the steps below for this browser.</p>
           )}
         </div>
       )}
 
-      {platform === 'mac' && (browser === 'chrome' || browser === 'edge') && (
+      {!desktopApp && platform === 'mac' && (browser === 'chrome' || browser === 'edge') && (
         <div className="install-section">
           <h2>Mac — Chrome / Edge</h2>
           <ol>
@@ -83,7 +90,7 @@ export default function InstallPage() {
         </div>
       )}
 
-      {platform === 'mac' && browser === 'safari' && (
+      {!desktopApp && platform === 'mac' && browser === 'safari' && (
         <div className="install-section">
           <h2>Mac — Safari 17+</h2>
           <ol>
@@ -94,7 +101,7 @@ export default function InstallPage() {
         </div>
       )}
 
-      {platform === 'ios' && (
+      {!desktopApp && platform === 'ios' && (
         <div className="install-section">
           <h2>iPad / iPhone — Safari</h2>
           <ol>
@@ -108,11 +115,10 @@ export default function InstallPage() {
       <div className="install-section">
         <h2>Other devices on the network</h2>
         <p>
-          From any other Mac or iPad on the same Wi-Fi, open this URL in the browser and follow
-          the steps above:
+          From another Mac or iPad on the same Wi-Fi, open this address:
         </p>
         <p>
-          <code>{lanUrl || 'http://<this-mac>:3000'}</code>
+          <code>{lanUrl || 'http://lariat.local:3001'}</code>
         </p>
       </div>
     </div>

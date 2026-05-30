@@ -3,6 +3,8 @@
 
 import crypto from 'node:crypto';
 import { signPinCookieValue } from '../../../../lib/pinCookie';
+import { activeManagerPinUserCount, findActiveManagerByPin } from '../../../../lib/managerPins.ts';
+import { locationIdFromEnv } from '../../../../lib/location';
 
 /**
  * Constant-time PIN compare. The 5/60s in-memory rate limiter mitigates
@@ -84,8 +86,18 @@ function cookieHeader(name, value, maxAgeSec) {
 /* Routes                                                              */
 /* ------------------------------------------------------------------ */
 export async function GET() {
+  const location = locationIdFromEnv();
+  let managerCount = 0;
+  try {
+    managerCount = activeManagerPinUserCount(location);
+  } catch {
+    managerCount = 0;
+  }
+  const hasOverride = !!process.env.LARIAT_PIN;
   return Response.json({
-    pin_enabled: !!process.env.LARIAT_PIN,
+    pin_enabled: hasOverride || managerCount > 0,
+    pin_override: hasOverride,
+    manager_pin_users: managerCount,
     // Exposed so the RoleProvider / ops tooling can tell when the
     // deploy is running in the legacy (unsigned-cookie) fallback.
     pin_signed: !!process.env.LARIAT_PIN_SECRET,
@@ -94,8 +106,15 @@ export async function GET() {
 
 export async function POST(req) {
   const expected = process.env.LARIAT_PIN;
-  if (!expected) {
-    return Response.json({ ok: true, pin_disabled: true });
+  const location = locationIdFromEnv();
+  let managerCount = 0;
+  try {
+    managerCount = activeManagerPinUserCount(location);
+  } catch {
+    managerCount = 0;
+  }
+  if (!expected && managerCount === 0) {
+    return Response.json({ error: 'PIN setup required' }, { status: 503 });
   }
 
   const ip = getIp(req);
@@ -115,7 +134,9 @@ export async function POST(req) {
   }
 
   const pin = body.pin != null ? String(body.pin) : '';
-  if (!pinsMatch(pin, expected)) {
+  const overrideMatch = expected ? pinsMatch(pin, expected) : false;
+  const managerUser = overrideMatch ? null : findActiveManagerByPin(pin, location);
+  if (!overrideMatch && !managerUser) {
     recordFailedAttempt(ip);
     return Response.json({ error: 'invalid pin' }, { status: 401 });
   }
@@ -124,7 +145,11 @@ export async function POST(req) {
   // Session cookie: 8-hour expiry (covers a double shift). The value is
   // HMAC-signed with LARIAT_PIN_SECRET (A2 hardening); see lib/pinCookie.
   const signed = await signPinCookieValue(process.env.LARIAT_PIN_SECRET);
-  const res = Response.json({ ok: true });
+  const res = Response.json(
+    managerUser
+      ? { ok: true, source: 'manager_user', user: { id: managerUser.id, name: managerUser.name, role: managerUser.role } }
+      : { ok: true, source: 'override' },
+  );
   res.headers.append('Set-Cookie', cookieHeader('lariat_pin_ok', signed, 60 * 60 * 8));
   return res;
 }

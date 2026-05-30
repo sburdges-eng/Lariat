@@ -13,17 +13,45 @@ files:
   - ".next/**"
   - "!.next/cache/**"
   - "!.next/trace"
+  - "!.next/**/*.map"
   - "public/**"
+  - "!public/design-atlas/**"
   - "package.json"
+  - "version.json"
   - "node_modules/**"
+  - "!node_modules/electron/**"
+  - "!node_modules/electron-builder/**"
+  - "!node_modules/@electron/**"
+  - "!node_modules/@electron-forge/**"
+  - "!node_modules/@playwright/**"
+  - "!node_modules/playwright/**"
+  - "!node_modules/playwright-core/**"
+  - "!node_modules/typescript/**"
+  - "!node_modules/jest/**"
+  - "!node_modules/@jest/**"
+  - "!node_modules/@types/**"
+  - "!node_modules/@testing-library/**"
+  - "!node_modules/@huggingface/**"
+  - "!node_modules/eslint/**"
+  - "!node_modules/@eslint/**"
+  - "!node_modules/typescript-eslint/**"
+  - "!node_modules/vite/**"
+  - "!node_modules/@vitejs/**"
+  - "!node_modules/simple-git-hooks/**"
+  - "!node_modules/lint-staged/**"
+  - "!node_modules/onnxruntime-common/**"
+  - "!node_modules/onnxruntime-node/**"
+  - "!node_modules/onnxruntime-web/**"
   - "!node_modules/**/*.{md,ts,map}"
   - "!node_modules/**/*.{flow,d.ts,d.cts,d.mts}"
   - "!node_modules/**/{test,tests,__tests__,docs,examples,benchmarks}/**"
   - "!node_modules/**/{LICENSE,license,LICENCE,licence,CHANGELOG,changelog,CONTRIBUTING}*"
   - "!**/test/**"
   - "!**/__tests__/**"
+  - "!**/.DS_Store"
 
 asar: false
+afterPack: desktop/after-pack-ad-hoc.cjs
 
 mac:
   category: public.app-category.business
@@ -39,10 +67,8 @@ mac:
   entitlements: desktop/entitlements.mac.plist
   entitlementsInherit: desktop/entitlements.mac.plist
   target:
-    - target: dmg
-      arch: [arm64, x64]
-    - target: zip
-      arch: [arm64, x64]
+    - dmg
+    - zip
   extendInfo:
     LSMinimumSystemVersion: "11.0"
     NSLocalNetworkUsageDescription: "Lariat needs local network access so kitchen iPads can connect to the hub."

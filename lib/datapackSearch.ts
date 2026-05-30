@@ -760,6 +760,7 @@ export async function semantic(
 ): Promise<SemanticHit[]> {
   const trimmed = query?.trim();
   if (!trimmed) return [];
+  if (process.env.LARIAT_DISABLE_LOCAL_EMBEDDINGS === '1') return [];
   if (!available()) return [];
 
   const bucket = opts.bucket;
@@ -768,7 +769,12 @@ export async function semantic(
   const entry = await loadBucket(bucket);
   if (!entry) return [];
 
-  const model = await loadModel();
+  let model;
+  try {
+    model = await loadModel();
+  } catch {
+    return [];
+  }
   const out = await model([_BGE_QUERY_PREFIX + trimmed], {
     pooling: 'mean',
     normalize: true,

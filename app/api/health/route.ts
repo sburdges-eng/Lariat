@@ -18,6 +18,8 @@ import { getDb } from '../../../lib/db';
 import { getOllamaConfig } from '../../../lib/ollama';
 import { resolveDataDir } from '../../../lib/dataDir';
 import { getReleaseInfo } from '../../../lib/release';
+import { managerPinGateConfigured } from '../../../lib/managerPins';
+import { locationIdFromEnv } from '../../../lib/location';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -169,12 +171,12 @@ function probePrismConfig(): Probe {
 
 function probePinGate(): Probe {
   const t0 = Date.now();
-  const hasSecret = Boolean(process.env.LARIAT_PIN_SECRET && process.env.LARIAT_PIN);
-  return hasSecret
+  const configured = managerPinGateConfigured(locationIdFromEnv());
+  return configured
     ? { ok: true, detail: 'PIN gate active', ms: Date.now() - t0 }
     : {
         ok: false,
-        error: 'PIN unset — manager pages are publicly readable on this LAN',
+        error: 'PIN unset - manager pages stay closed until a PIN is set',
         ms: Date.now() - t0,
       };
 }

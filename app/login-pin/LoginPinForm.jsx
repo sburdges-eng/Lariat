@@ -10,6 +10,7 @@ export default function LoginPinForm() {
   // Only accept a same-origin path: must start with `/`, reject protocol-relative (`//`)
   // and backslash tricks (`/\`) that some browsers/proxies treat as host-switching.
   const rawNext = searchParams.get('next') || '';
+  const setupRequired = searchParams.get('setup') === '1';
   const safeNext =
     rawNext.startsWith('/') && !rawNext.startsWith('//') && !rawNext.startsWith('/\\')
       ? rawNext
@@ -17,6 +18,17 @@ export default function LoginPinForm() {
   const [pin, setPin] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+
+  if (setupRequired) {
+    return (
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>Manager PIN needed</h2>
+        <p style={{ color: 'var(--muted)' }}>
+          Set a manager PIN, then reopen Lariat.
+        </p>
+      </div>
+    );
+  }
 
   const onSubmit = async (e) => {
     e.preventDefault();

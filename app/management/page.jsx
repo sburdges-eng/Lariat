@@ -356,6 +356,7 @@ export default function ManagementRollupPage({ searchParams }) {
         <ul style={{ fontSize: 13 }}>
           <li><Link href="/management/performance-reviews">Staff reviews</Link> — log and view performance</li>
           <li><Link href="/management/receiving-matches">Receiving matches</Link> — add stock for unmatched lines</li>
+          <li><Link href="/management/pins">Manager PINs</Link> — add and edit manager PINs</li>
           <li><Link href="/management/audit-log">Audit log</Link> — management actions outside regulated tables</li>
           <li><Link href="/management/cloud-bridge">Cloud bridge</Link> — stuck snapshots heading to corp</li>
           {/* Static design reference. Plain <a> because the target is

@@ -12,8 +12,15 @@ function isMac() {
 
 export default function CommandBar() {
   const [mod, setMod] = useState('⌘');
+  const [version, setVersion] = useState('');
   useEffect(() => {
     setMod(isMac() ? '⌘' : 'Ctrl');
+    fetch('/api/discover', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (body?.version) setVersion(body.version);
+      })
+      .catch(() => {});
   }, []);
 
   return (
@@ -45,7 +52,7 @@ export default function CommandBar() {
         <span className="slot">
           <span>The Lariat</span>
           <span style={{ opacity: 0.4 }}>·</span>
-          <span>v2</span>
+          <span>{version || 'version'}</span>
         </span>
       </div>
     </footer>

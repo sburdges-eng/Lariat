@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getStations, getLineCheckTemplate, getRecipes } from '../lib/data';
 import { getDb, todayISO, getPreshiftNote, todayServiceLabel } from '../lib/db';
 import { DEFAULT_LOCATION_ID } from '../lib/location';
+import { lineSummaryText } from '../lib/lineSummary';
 import { cascadedFromEightySix } from '../lib/subRecipeGraph';
 import PreshiftNotes from './_components/PreshiftNotes';
 
@@ -111,7 +112,6 @@ export default function TodayPage({ searchParams }) {
     .all(date, loc);
 
   // Editorial stats
-  const total = stationsWithProgress.filter((s) => s.prog).length;
   const ready = stationsWithProgress.filter(
     (s) => s.prog && (s.prog.signedOff || s.prog.done >= s.prog.total)
   ).length;
@@ -197,7 +197,7 @@ export default function TodayPage({ searchParams }) {
 
       <div className="section-head">
         <h2>The line, <em>right now</em></h2>
-        <span className="eyebrow">{total} stations · press 1–6 to jump</span>
+        <span className="eyebrow">{lineSummaryText(stationsWithProgress)}</span>
       </div>
 
       <div className="rush-grid">

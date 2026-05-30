@@ -99,11 +99,21 @@ test('validateSettings round-trips cloudBridgeUrl + cloudBridgeSecret', () => {
   const s = validateSettings({
     dataDir: '/x',
     port: 3000,
+    managerPin: '2468',
+    managerPinSecret: 'a'.repeat(64),
     cloudBridgeUrl: 'https://api.lariat.example',
     cloudBridgeSecret: 'hmac-shared-secret',
   });
+  assert.equal(s?.managerPin, '2468');
+  assert.equal(s?.managerPinSecret, 'a'.repeat(64));
   assert.equal(s?.cloudBridgeUrl, 'https://api.lariat.example');
   assert.equal(s?.cloudBridgeSecret, 'hmac-shared-secret');
+});
+
+test('validateSettings rejects malformed manager PIN values', () => {
+  assert.equal(validateSettings({ dataDir: '/x', port: 3000, managerPin: 'abc1' }), null);
+  assert.equal(validateSettings({ dataDir: '/x', port: 3000, managerPin: '123' }), null);
+  assert.equal(validateSettings({ dataDir: '/x', port: 3000, managerPin: '1234567' }), null);
 });
 
 test('validateSettings drops non-string cloudBridge fields', () => {
@@ -135,9 +145,13 @@ test('settingsToChildEnv emits cloud-bridge env vars when set', () => {
   const env = settingsToChildEnv({
     dataDir: '/x',
     port: 3000,
+    managerPin: '2468',
+    managerPinSecret: 'b'.repeat(64),
     cloudBridgeUrl: 'https://api.lariat.example',
     cloudBridgeSecret: 'hmac-shared-secret',
   });
+  assert.equal(env.LARIAT_PIN, '2468');
+  assert.equal(env.LARIAT_PIN_SECRET, 'b'.repeat(64));
   assert.equal(env.LARIAT_CLOUD_BRIDGE_URL, 'https://api.lariat.example');
   assert.equal(env.LARIAT_CLOUD_BRIDGE_SECRET, 'hmac-shared-secret');
 });

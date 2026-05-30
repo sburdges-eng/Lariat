@@ -6,11 +6,15 @@ for the architecture.
 ## Quick reference
 
 ```bash
-npm run desktop:dev    # local Electron loop (uses your dev data/lariat.db)
-npm run desktop:dist   # produce dist/Lariat-0.1.0-arm64.dmg
+npm run desktop:dev        # local Electron loop (uses your dev data/lariat.db)
+npm run desktop:dist:dry   # validate packaging inputs and commands
+npm run desktop:dist       # produce dmg/zip artifacts under dist/
 ```
 
 > After `desktop:dist`, `better-sqlite3` is rebuilt against Electron's Node ABI; run `npm rebuild better-sqlite3` before running system-Node tests again.
+
+See `docs/desktop-packaging.md` for the exact packaging toolchain, asset
+bundling rules, dependency inclusion rules, and signing/notarization posture.
 
 ## Prerequisites on the install Mac
 
@@ -99,7 +103,7 @@ local `npm run desktop:dist` keeps working.
   `data/lariat.db`; the wrapper talks to it over HTTP on localhost like any
   other client. Audit immutability stands — the wrapper never mutates
   `audit_events` or any regulated table directly.
-- **Scaffold-only today.** Runtime code (main, supervisor, server-entry,
-  preload, first-run wizard) lands in T3–T8; `electron-builder.yml` +
-  entitlements in T9; CI smoke in T11. Until those ship, `npm run desktop:dev`
-  has no `.ts` files for `tsc -p desktop` to emit.
+- **One package entrypoint.** `npm run desktop:dist` delegates to
+  `scripts/package-desktop.mjs`, which validates the required source files,
+  runs the production desktop build, rebuilds Electron native dependencies,
+  and invokes Electron Builder with publish disabled.

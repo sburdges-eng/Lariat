@@ -2921,6 +2921,29 @@ function initFoodSafetyLaborSchema(db: DB): void {
  */
 function initManagementSchema(db: DB): void {
   db.exec(`
+    -- Manager PIN users: named local manager credentials beside the
+    -- production override PIN. Raw PINs are never stored; only
+    -- SHA-256(pin) lives in pin_hash. is_active keeps history without
+    -- deleting rows.
+    CREATE TABLE IF NOT EXISTS manager_pin_users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      name TEXT NOT NULL,
+      pin_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'manager'
+        CHECK(role IN ('manager','owner')),
+      is_active INTEGER NOT NULL DEFAULT 1
+        CHECK(is_active IN (0,1)),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      disabled_at TEXT
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_manager_pin_users_active_pin
+      ON manager_pin_users(location_id, pin_hash)
+      WHERE is_active = 1;
+    CREATE INDEX IF NOT EXISTS idx_manager_pin_users_active
+      ON manager_pin_users(location_id, is_active, updated_at DESC);
+
     -- Performance reviews (Lightweight manager-only log).
     CREATE TABLE IF NOT EXISTS performance_reviews (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2960,6 +2983,9 @@ function assertCriticalSchemas(db: DB): void {
   const requirements: Record<string, string[]> = {
     ingredient_yields: [
       'ingredient_key', 'yield_pct', 'loss_factor', 'source', 'notes', 'updated_at',
+    ],
+    manager_pin_users: [
+      'location_id', 'name', 'pin_hash', 'role', 'is_active', 'created_at', 'updated_at', 'disabled_at',
     ],
     ingredient_densities: ['ingredient_key', 'g_per_ml', 'source', 'updated_at'],
     ingredient_unit_weights: ['ingredient_key', 'unit', 'g_per_unit', 'source', 'updated_at'],

@@ -1,11 +1,18 @@
 'use client';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { isDesktopUserAgent } from '../install/installUrl.js';
 import useInstallPrompt from './useInstallPrompt.js';
 
 export default function InstallButton({ variant = 'sidebar' }) {
   const { canInstall, installed, promptInstall } = useInstallPrompt();
+  const [desktopApp, setDesktopApp] = useState(true);
 
-  if (installed) return null;
+  useEffect(() => {
+    setDesktopApp(isDesktopUserAgent(window.navigator.userAgent));
+  }, []);
+
+  if (desktopApp || installed) return null;
 
   const onClick = async () => {
     const outcome = await promptInstall();

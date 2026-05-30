@@ -3,7 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { Supervisor } from './supervisor';
-import { readSettings, saveSettings, type Settings } from './settings';
+import { readSettings, saveSettings, settingsToChildEnv, type Settings } from './settings';
 import { settingsPath, dataDirDefault, logDir, crashLogPath } from './paths';
 
 let supervisor: Supervisor | null = null;
@@ -25,24 +25,18 @@ function entryPath(): string {
 async function bootSupervisor(settings: Settings): Promise<void> {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
-    LARIAT_DATA_DIR: settings.dataDir,
+    ...settingsToChildEnv(settings),
     PORT: String(settings.port),
     HOST: '0.0.0.0',
     NODE_ENV: 'production',
+    LARIAT_DESKTOP_APP: '1',
+    LARIAT_DISABLE_LOCAL_EMBEDDINGS: process.env.LARIAT_DISABLE_LOCAL_EMBEDDINGS ?? '1',
+    LARIAT_TEST_RELEASE: process.env.LARIAT_TEST_RELEASE ?? '1',
     // process.execPath is the Electron binary inside a packaged .app; without
     // this flag, fork() would spawn a second windowless Electron instead of
     // running server-entry.cjs as Node.
     ELECTRON_RUN_AS_NODE: '1',
   };
-  if (settings.datapackDir) env.LARIAT_DATA_ROOT = settings.datapackDir;
-  if (settings.pythonPath) env.LARIAT_PYTHON = settings.pythonPath;
-  if (settings.ollamaUrl) env.LARIAT_OLLAMA_URL = settings.ollamaUrl;
-  // Cloud-bridge wiring (T8b). Both must be present for the in-process
-  // drainer launched from instrumentation.ts to register as configured;
-  // either-absent leaves LARIAT_CLOUD_BRIDGE_* unset and the drainer
-  // logs a one-line skip per lib/cloudBridgeDrainerLifecycle.ts.
-  if (settings.cloudBridgeUrl) env.LARIAT_CLOUD_BRIDGE_URL = settings.cloudBridgeUrl;
-  if (settings.cloudBridgeSecret) env.LARIAT_CLOUD_BRIDGE_SECRET = settings.cloudBridgeSecret;
 
   supervisor = new Supervisor({
     entryPath: entryPath(),
@@ -179,9 +173,13 @@ ipcMain.handle('paths:detectExistingDb', () => {
   return null;
 });
 
+function needsManagerPinSetup(settings: Settings | null): boolean {
+  return !process.env.LARIAT_PIN && !settings?.managerPin;
+}
+
 app.whenReady().then(async () => {
   let settings = readSettings(settingsPath());
-  if (!settings) {
+  if (!settings || needsManagerPinSetup(settings)) {
     try {
       settings = await openWizard();
     } catch {

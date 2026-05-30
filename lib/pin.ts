@@ -15,6 +15,8 @@ import { hasValidPinCookie } from './pinCookie.ts';
 import { readTempPinId } from './tempPinCookie.ts';
 import { getDb } from './db.ts';
 import { parseScopes, hasScope } from './tempPin.ts';
+import { managerPinGateConfigured } from './managerPins.ts';
+import { locationIdFromEnv } from './location.ts';
 
 /** True when the PIC has entered the PIN in this browser session. */
 export async function hasPinCookie(req: Request): Promise<boolean> {
@@ -102,9 +104,9 @@ export async function requirePinOrScope(
   return null;
 }
 
-/** True if the PIN gate is configured at all (env var set). */
+/** True if the PIN gate is configured by env override or local manager users. */
 export function pinConfigured(): boolean {
-  return !!process.env.LARIAT_PIN;
+  return managerPinGateConfigured(locationIdFromEnv());
 }
 
 /**

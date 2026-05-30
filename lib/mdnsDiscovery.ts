@@ -22,7 +22,7 @@
  *
  * Service type: `_lariat._tcp` — RFC 6335 service-name conventions.
  * TXT record fields:
- *   version     — Lariat package.json version (string)
+ *   version     — Lariat stamped release version (string)
  *   location_id — operator-scoped location key (e.g. "default", "main",
  *                 "upstairs"). Lets a peer know which floor/site it's
  *                 looking at when several Lariat instances co-exist.
@@ -40,7 +40,7 @@ export interface AdvertiseOptions {
   port: number;
   hostname?: string;
   locationId?: string;
-  /** Optional override; falls back to the value read from package.json. */
+  /** Optional override; falls back to the stamped release version. */
   version?: string;
   /**
    * Truncated SHA-256 fingerprint of this peer's Ed25519 public key
@@ -78,6 +78,8 @@ export interface DiscoverOptions {
 export const LARIAT_SERVICE_TYPE = 'lariat'; // bonjour-service prepends `_` and `._tcp`
 export const LARIAT_SERVICE_NAME = 'Lariat';
 
+import { getReleaseInfo } from './release.ts';
+
 // Per-reason dedup. The pre-fix shared `warned` boolean meant that the
 // first warning (e.g. "package not loaded") silently suppressed every
 // subsequent unrelated warning — so a later Bonjour ctor / publish /
@@ -113,11 +115,7 @@ export function _resetWarnedReasonsForTest(): void {
 
 function readPackageVersion(): string {
   try {
-    // Read synchronously without taking a hard dependency on `import.meta` quirks.
-    // We resolve relative to cwd so dev/build/test all see the same value.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pkg = require('../package.json') as { version?: string };
-    return typeof pkg.version === 'string' ? pkg.version : '0.0.0';
+    return getReleaseInfo().version;
   } catch {
     return '0.0.0';
   }

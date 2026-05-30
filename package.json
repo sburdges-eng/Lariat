@@ -209,8 +209,9 @@
     "gc:sync-feed:apply": "node --experimental-strip-types scripts/gc-sync-feed.mjs --apply",
     "digest:settlement": "node --experimental-strip-types scripts/weekly-settlement-digest.mjs",
     "desktop:dev": "tsc -p desktop && vite build --config desktop/firstRunWizard/vite.config.ts && electron desktop/dist/desktop/main.js",
-    "desktop:build": "next build --webpack && tsc -p desktop && vite build --config desktop/firstRunWizard/vite.config.ts",
-    "desktop:dist": "npm run desktop:build && electron-builder install-app-deps && electron-builder --mac --arm64 --x64"
+    "desktop:build": "npm run version:stamp && next build --webpack && tsc -p desktop && vite build --config desktop/firstRunWizard/vite.config.ts",
+    "desktop:dist": "node scripts/package-desktop.mjs",
+    "desktop:dist:dry": "node scripts/package-desktop.mjs --dry-run"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

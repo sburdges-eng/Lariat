@@ -20,6 +20,12 @@ const dev = process.env.NODE_ENV !== 'production';
 // In production the .app's Resources/app/ holds package.json + .next/.
 // In dev (npm run desktop:dev) this resolves to the repo root.
 const projectDir = path.resolve(__dirname, '..');
+try {
+  process.chdir(projectDir);
+} catch (err) {
+  console.error('[server-entry] failed to enter project dir:', err);
+  process.exit(1);
+}
 
 const app = next({ dev, dir: projectDir });
 const handle = app.getRequestHandler();

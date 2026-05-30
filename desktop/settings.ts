@@ -5,6 +5,8 @@ import crypto from 'node:crypto';
 export interface Settings {
   dataDir: string;
   port: number;                  // 1024–65535
+  managerPin?: string;           // populates LARIAT_PIN
+  managerPinSecret?: string;     // populates LARIAT_PIN_SECRET
   datapackDir?: string;          // populates LARIAT_DATA_ROOT
   pythonPath?: string;           // populates LARIAT_PYTHON
   ollamaUrl?: string;            // defaults to http://127.0.0.1:11434 if absent
@@ -25,6 +27,14 @@ function isPort(v: unknown): v is number {
   return typeof v === 'number' && Number.isInteger(v) && v >= 1024 && v <= 65535;
 }
 
+function isPin(v: unknown): v is string {
+  return typeof v === 'string' && /^[0-9]{4,6}$/.test(v);
+}
+
+function isHexSecret(v: unknown): v is string {
+  return typeof v === 'string' && /^[0-9a-fA-F]{64}$/.test(v);
+}
+
 /**
  * Validates an unknown blob against the Settings shape. Returns the
  * normalized object on success, null on any structural error. Optional
@@ -36,6 +46,15 @@ export function validateSettings(input: unknown): Settings | null {
   if (!isString(o.dataDir)) return null;
   if (!isPort(o.port)) return null;
   const out: Settings = { dataDir: o.dataDir, port: o.port };
+  if (o.managerPin !== undefined) {
+    if (!isPin(o.managerPin)) return null;
+    out.managerPin = o.managerPin;
+  }
+  if (o.managerPinSecret !== undefined) {
+    if (!isHexSecret(o.managerPinSecret)) return null;
+    out.managerPinSecret = o.managerPinSecret;
+  }
+  if (out.managerPin && !out.managerPinSecret) return null;
   if (isString(o.datapackDir)) out.datapackDir = o.datapackDir;
   if (isString(o.pythonPath)) out.pythonPath = o.pythonPath;
   if (isString(o.ollamaUrl)) out.ollamaUrl = o.ollamaUrl;
@@ -54,6 +73,8 @@ export function validateSettings(input: unknown): Settings | null {
 export function settingsToChildEnv(settings: Settings): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
   env.LARIAT_DATA_DIR = settings.dataDir;
+  if (settings.managerPin) env.LARIAT_PIN = settings.managerPin;
+  if (settings.managerPinSecret) env.LARIAT_PIN_SECRET = settings.managerPinSecret;
   if (settings.datapackDir) env.LARIAT_DATA_ROOT = settings.datapackDir;
   if (settings.pythonPath) env.LARIAT_PYTHON = settings.pythonPath;
   if (settings.ollamaUrl) env.LARIAT_OLLAMA_URL = settings.ollamaUrl;
