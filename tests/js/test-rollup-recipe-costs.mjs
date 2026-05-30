@@ -7,7 +7,11 @@ import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 
 import { initSchema } from '../../lib/db.ts';
-import { rollupRecipeCosts, _buildRecipeDag } from '../../lib/computeEngine/rollupRecipeCosts.ts';
+import {
+  rollupRecipeCosts,
+  _buildRecipeDag,
+  _topologicalOrder,
+} from '../../lib/computeEngine/rollupRecipeCosts.ts';
 import { deriveMasterId } from '../../scripts/ingest-costing.mjs';
 
 const LOC = 'default';
@@ -122,6 +126,64 @@ describe('rollupRecipeCosts — DAG construction', () => {
     assert.deepEqual(children.get('lariat_rub') ?? [], []);
     assert.deepEqual(children.get('pickle_juice') ?? [], []);
 
+    db.close();
+  });
+});
+
+describe('rollupRecipeCosts — cycle detection', () => {
+  it('returns a topo order over a clean DAG (leaves first)', () => {
+    const children = new Map([
+      ['parent', ['lariat_rub']],
+      ['lariat_rub', []],
+    ]);
+    const { order, cycles } = _topologicalOrder(children);
+    assert.deepEqual(order, ['lariat_rub', 'parent']);
+    assert.deepEqual(cycles, []);
+  });
+
+  it('detects a 2-cycle A->B->A and reports both members as cycles', () => {
+    const children = new Map([
+      ['a', ['b']],
+      ['b', ['a']],
+    ]);
+    const { order, cycles } = _topologicalOrder(children);
+    assert.deepEqual(order, []); // nothing can be rolled up
+    assert.deepEqual(cycles.slice().sort(), ['a', 'b']);
+  });
+
+  it('detects a self-loop A->A', () => {
+    const children = new Map([['a', ['a']]]);
+    const { order, cycles } = _topologicalOrder(children);
+    assert.deepEqual(order, []);
+    assert.deepEqual(cycles, ['a']);
+  });
+
+  it('partial cycle: clean recipe is still ordered, cycle members are reported separately', () => {
+    const children = new Map([
+      ['clean', []],
+      ['a', ['b']],
+      ['b', ['a']],
+    ]);
+    const { order, cycles } = _topologicalOrder(children);
+    assert.deepEqual(order, ['clean']);
+    assert.deepEqual(cycles.slice().sort(), ['a', 'b']);
+  });
+
+  it('end-to-end: rollupRecipeCosts surfaces cycle members in result.cycles', () => {
+    const db = new Database(':memory:');
+    initSchema(db);
+    db.prepare(
+      `INSERT INTO recipe_costs (recipe_id, recipe_name, yield, yield_unit, batch_cost, cost_per_yield_unit, location_id)
+       VALUES ('a','A',1,'cup',1,1,?), ('b','B',1,'cup',1,1,?)`,
+    ).run(LOC, LOC);
+    db.prepare(
+      `INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, sub_recipe, map_status, location_id)
+       VALUES ('a','b',0.5,'cup','YES','confirmed',?),
+              ('b','a',0.5,'cup','YES','confirmed',?)`,
+    ).run(LOC, LOC);
+
+    const result = rollupRecipeCosts(db, LOC);
+    assert.deepEqual(result.cycles.slice().sort(), ['a', 'b']);
     db.close();
   });
 });

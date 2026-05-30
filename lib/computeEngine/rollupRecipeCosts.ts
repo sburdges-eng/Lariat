@@ -81,6 +81,50 @@ export function _buildRecipeDag(
 }
 
 /**
+ * Kahn's algorithm. Returns a leaves-first topological order over the DAG
+ * AND the set of recipe_ids that participate in any cycle (i.e. were never
+ * enqueued because they still have unresolved in-degree after the queue
+ * empties).
+ *
+ * Exported for testing only.
+ */
+export function _topologicalOrder(
+  children: Map<string, string[]>,
+): { order: string[]; cycles: string[] } {
+  // Compute in-degree per node (in-degree = number of parents pointing at it).
+  // A "leaf" has zero children -> we want leaves first, so we sort BY children:
+  // enqueue nodes whose children are all already in the order.
+  const remaining = new Map<string, Set<string>>();
+  for (const [parent, kids] of children) {
+    remaining.set(parent, new Set(kids));
+  }
+
+  const order: string[] = [];
+  const queue: string[] = [];
+  for (const [node, deps] of remaining) {
+    if (deps.size === 0) queue.push(node);
+  }
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    order.push(node);
+    for (const [other, deps] of remaining) {
+      if (deps.delete(node) && deps.size === 0 && !order.includes(other)) {
+        queue.push(other);
+      }
+    }
+  }
+
+  // Anything still in remaining with non-empty deps is in a cycle.
+  const cycles: string[] = [];
+  for (const [node, deps] of remaining) {
+    if (!order.includes(node)) cycles.push(node);
+    void deps;
+  }
+  return { order, cycles };
+}
+
+/**
  * Sub-recipe pricing rollup pass.
  *
  * Walks the recipe DAG in topological order, prices each non-cycle recipe
@@ -133,6 +177,19 @@ export function rollupRecipeCosts(
       result.new_subrecipe_flags += 1;
     }
   }
+
+  const { children } = _buildRecipeDag(db, locationId);
+  const { order, cycles } = _topologicalOrder(children);
+  result.cycles = cycles;
+  if (cycles.length > 0) {
+    console.warn(
+      `⚠ rollupRecipeCosts: ${cycles.length} recipe(s) participate in a cycle — skipped: ${cycles.sort().join(', ')}`,
+    );
+  }
+  // `order` is consumed by the topo walk in Task 8; for now it's unused so
+  // lint doesn't complain — Tasks 5–7 add the per-line costing logic and
+  // Task 8 puts them all together.
+  void order;
 
   return result;
 }
