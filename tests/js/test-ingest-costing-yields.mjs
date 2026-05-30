@@ -277,4 +277,20 @@ describe('ingestCosting — non-yield behavior preserved', () => {
     assert.strictEqual(c, 10, 'second ingest must leave 10 rows, not 20');
     assert.strictEqual(s2.bom_lines, 10);
   });
+
+  it('runs the sub-recipe rollup as part of the post-pass', () => {
+    // The existing fixture has no sub-recipes — assert the rollup ran (it's a
+    // no-op on this dataset) without exploding, and that the new counters
+    // appear on the summary.
+    const summary = ingestCosting(
+      db,
+      { bom_lines: BOM_PAYLOAD, vendor_prices: VENDOR_PAYLOAD },
+      LOC,
+    );
+    assert.ok('subrecipe_rollup_updated' in summary, 'summary.subrecipe_rollup_updated missing');
+    assert.ok('subrecipe_rollup_cycles' in summary, 'summary.subrecipe_rollup_cycles missing');
+    assert.ok('subrecipe_rollup_unconverted' in summary, 'summary.subrecipe_rollup_unconverted missing');
+    assert.ok('subrecipe_flags_set' in summary, 'summary.subrecipe_flags_set missing');
+    assert.equal(summary.subrecipe_rollup_cycles, 0);
+  });
 });

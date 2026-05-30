@@ -18,6 +18,7 @@ import {
   WEIGHT_TO_G,
   VOLUME_TO_ML,
 } from '../lib/unitConvert.mjs';
+import { rollupRecipeCosts } from '../lib/computeEngine/rollupRecipeCosts.ts';
 
 /**
  * T4.1 count-bridge. Converts a quantity of a count unit (ea / bunch / can /
@@ -525,6 +526,10 @@ function _ingestCostingImpl(db, data, locationId, runId = null) {
   summary.vp_master_backfilled_rows = postPass.vp_master_backfilled_rows ?? 0;
   summary.bom_master_backfilled_rows = postPass.bom_master_backfilled_rows ?? 0;
   summary.excel_drift_warnings = postPass.excel_drift_warnings ?? 0;
+  summary.subrecipe_rollup_updated = postPass.subrecipe_rollup_updated ?? 0;
+  summary.subrecipe_rollup_cycles = postPass.subrecipe_rollup_cycles ?? 0;
+  summary.subrecipe_rollup_unconverted = postPass.subrecipe_rollup_unconverted ?? 0;
+  summary.subrecipe_flags_set = postPass.subrecipe_flags_set ?? 0;
   return summary;
 }
 
@@ -558,6 +563,10 @@ export function runCostingPostPass(db, locationId = 'default') {
     vp_master_backfilled_rows: 0,
     bom_master_backfilled_rows: 0,
     excel_drift_warnings: 0,
+    subrecipe_rollup_updated: 0,
+    subrecipe_rollup_cycles: 0,
+    subrecipe_rollup_unconverted: 0,
+    subrecipe_flags_set: 0,
   };
 
   // ── D4: Excel batch_cost vs raw-sum drift observability ───────────
@@ -926,6 +935,17 @@ export function runCostingPostPass(db, locationId = 'default') {
   summary.ingredient_masters = masterSync.masters;
   summary.vp_master_backfilled_rows = masterSync.vp_backfilled;
   summary.bom_master_backfilled_rows = masterSync.bom_backfilled;
+
+  // Sub-recipe rollup (2026-05-30 spec): walks the recipe DAG and rewrites
+  // recipe_costs.batch_cost for any recipe whose cost can be assembled from
+  // BOM lines (vendor_prices for leaves, prior rolled child for sub-recipes).
+  // Runs after rebuildIngredientMasters so master_id and confirmed-map
+  // semantics are in place.
+  const rollup = rollupRecipeCosts(db, locationId);
+  summary.subrecipe_rollup_updated = rollup.updated;
+  summary.subrecipe_rollup_cycles = rollup.cycles.length;
+  summary.subrecipe_rollup_unconverted = rollup.unconverted.length;
+  summary.subrecipe_flags_set = rollup.new_subrecipe_flags;
 
   return summary;
 }
@@ -1314,6 +1334,11 @@ function main() {
     console.log(
       `✓ Yield-adjusted ${summary.recipes_yield_adjusted} recipes (Δ_total=$${summary.total_yield_delta_usd.toFixed(2)}, max per-recipe delta=$${summary.max_recipe_yield_delta_usd.toFixed(2)})`,
     );
+    if (summary.subrecipe_rollup_updated > 0 || summary.subrecipe_rollup_cycles > 0) {
+      console.log(
+        `✓ Sub-recipe rollup: ${summary.subrecipe_rollup_updated} recipes updated, ${summary.subrecipe_flags_set} new sub_recipe flags set, ${summary.subrecipe_rollup_cycles} cycle(s), ${summary.subrecipe_rollup_unconverted} unconverted line(s)`,
+      );
+    }
     if (summary.bom_lines > 0 && summary.bom_coverage_pct < 50) {
       console.warn(
         `⚠ yield coverage ${summary.bom_coverage_pct.toFixed(1)}% is below 50% — ingredient_yields seed may be stale vs current BOM ingredient names`,
