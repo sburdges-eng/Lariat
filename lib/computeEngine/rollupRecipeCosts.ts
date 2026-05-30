@@ -103,6 +103,7 @@ export function _topologicalOrder(
   }
 
   const order: string[] = [];
+  const inOrder = new Set<string>();
   const queue: string[] = [];
   for (const [node, deps] of remaining) {
     if (deps.size === 0) queue.push(node);
@@ -111,8 +112,9 @@ export function _topologicalOrder(
   while (queue.length > 0) {
     const node = queue.shift()!;
     order.push(node);
+    inOrder.add(node);
     for (const [other, deps] of remaining) {
-      if (deps.delete(node) && deps.size === 0 && !order.includes(other)) {
+      if (deps.delete(node) && deps.size === 0 && !inOrder.has(other)) {
         queue.push(other);
       }
     }
@@ -121,7 +123,7 @@ export function _topologicalOrder(
   // Anything still in remaining with non-empty deps is in a cycle.
   const cycles: string[] = [];
   for (const [node, deps] of remaining) {
-    if (!order.includes(node)) cycles.push(node);
+    if (!inOrder.has(node)) cycles.push(node);
     void deps;
   }
   return { order, cycles };
