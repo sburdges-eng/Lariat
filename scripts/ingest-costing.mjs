@@ -1311,7 +1311,12 @@ function main() {
     console.log(
       `✓ Yield-adjusted ${summary.recipes_yield_adjusted} recipes (Δ_total=$${summary.total_yield_delta_usd.toFixed(2)}, max per-recipe delta=$${summary.max_recipe_yield_delta_usd.toFixed(2)})`,
     );
-    if (summary.subrecipe_rollup_updated > 0 || summary.subrecipe_rollup_cycles > 0) {
+    if (
+      summary.subrecipe_rollup_updated > 0 ||
+      summary.subrecipe_rollup_cycles > 0 ||
+      summary.subrecipe_flags_set > 0 ||
+      summary.subrecipe_rollup_unconverted > 0
+    ) {
       console.log(
         `✓ Sub-recipe rollup: ${summary.subrecipe_rollup_updated} recipes updated, ${summary.subrecipe_flags_set} new sub_recipe flags set, ${summary.subrecipe_rollup_cycles} cycle(s), ${summary.subrecipe_rollup_unconverted} unconverted line(s)`,
       );
