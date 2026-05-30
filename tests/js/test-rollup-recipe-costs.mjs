@@ -12,6 +12,7 @@ import {
   _buildRecipeDag,
   _topologicalOrder,
   _priceLeafLine,
+  _priceSubRecipeLine,
 } from '../../lib/computeEngine/rollupRecipeCosts.ts';
 import { deriveMasterId } from '../../scripts/ingest-costing.mjs';
 
@@ -232,5 +233,40 @@ describe('rollupRecipeCosts — leaf line pricing', () => {
     });
     assert.equal(cost, null);
     db.close();
+  });
+});
+
+describe('rollupRecipeCosts — sub-recipe line pricing', () => {
+  it('converts the BOM qty from line.unit to child.yield_unit and computes cost', () => {
+    // child: lariat_rub, yield=4 cup, batch_cost=$8 -> $2/cup
+    const child = { recipe_id: 'lariat_rub', yield: 4, yield_unit: 'cup', batch_cost: 8 };
+    // line: parent consumes 16 tbsp lariat rub. 16 tbsp = 1 cup. Cost = 1 * 2 = $2.
+    const cost = _priceSubRecipeLine(
+      { ingredient: 'lariat rub', qty: 16, unit: 'tbsp', yield_pct: 1.0, loss_factor: null },
+      child,
+    );
+    assert.ok(cost.cost !== null);
+    assert.ok(Math.abs(cost.cost - 2.0) < 0.0001, `got ${cost.cost}`);
+    assert.equal(cost.reason, null);
+  });
+
+  it('handles identity units (line.unit == child.yield_unit)', () => {
+    const child = { recipe_id: 'pickle_juice', yield: 2, yield_unit: 'cup', batch_cost: 6 };
+    // 1 cup of pickle juice = $6/2 cup * 1 cup = $3
+    const cost = _priceSubRecipeLine(
+      { ingredient: 'pickle juice', qty: 1, unit: 'cup', yield_pct: 1.0, loss_factor: null },
+      child,
+    );
+    assert.ok(Math.abs(cost.cost - 3.0) < 0.0001);
+  });
+
+  it('applies yield_pct/loss_factor', () => {
+    const child = { recipe_id: 'rub', yield: 1, yield_unit: 'cup', batch_cost: 10 };
+    // qty=1 cup * $10 * adj. yield 0.5, loss 0 -> adj = 1 / (0.5 * 1) = 2.
+    const cost = _priceSubRecipeLine(
+      { ingredient: 'rub', qty: 1, unit: 'cup', yield_pct: 0.5, loss_factor: null },
+      child,
+    );
+    assert.ok(Math.abs(cost.cost - 20.0) < 0.0001, `got ${cost.cost}`);
   });
 });

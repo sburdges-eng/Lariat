@@ -2,6 +2,7 @@ import type { Database } from 'better-sqlite3';
 import { deriveMasterId } from '../../scripts/ingest-costing.mjs';
 import { normalizeIngredientKey } from '../ingredientKey.ts';
 import { resolveMergedCost } from '../costingBenchmarks.mjs';
+import { convertQty } from '../unitConvert.mjs';
 
 export type RollupResult = {
   updated: number;
@@ -234,6 +235,72 @@ export function _priceLeafLine(
   }
 
   return (qty * packPrice / packSize) * adj;
+}
+
+export type SubRecipeLineInput = {
+  ingredient: string;
+  qty: number | null;
+  unit: string | null;
+  yield_pct: number | null;
+  loss_factor: number | null;
+};
+
+export type SubRecipeChild = {
+  recipe_id: string;
+  yield: number | null;
+  yield_unit: string | null;
+  batch_cost: number | null;
+};
+
+/**
+ * Price a single BOM line that references a sub-recipe child.
+ *
+ * Unit math:
+ *   child unit cost  = child.batch_cost / child.yield  (in child.yield_unit)
+ *   qty_converted    = convertQty(line.qty, line.unit, child.yield_unit, undefined)
+ *   line cost        = qty_converted * child_unit_cost * yieldAdjustment(yield_pct, loss_factor)
+ *
+ * gPerMl is undefined — sub-recipes don't have a meaningful density (they're
+ * aggregates of many ingredients), so convertQty will return null on any
+ * cross-dimensional conversion (e.g. cup -> lb). That null is our "incompatible
+ * units / needs density" signal.
+ *
+ * Returns { cost, reason } where reason is null on success or one of the
+ * three unconverted-reason codes on failure.
+ *
+ * Exported for testing only.
+ */
+export function _priceSubRecipeLine(
+  line: SubRecipeLineInput,
+  child: SubRecipeChild,
+): { cost: number | null; reason: RollupResult['unconverted'][number]['reason'] | null } {
+  if (child.yield == null || !(child.yield > 0)) {
+    return { cost: null, reason: 'child_no_yield' };
+  }
+  if (child.batch_cost == null || !(child.batch_cost > 0)) {
+    return { cost: null, reason: 'child_no_yield' };
+  }
+  const qty = line.qty;
+  if (qty == null || !(qty > 0) || !Number.isFinite(qty)) return { cost: null, reason: null };
+  const adj = yieldAdjustment(line.yield_pct, line.loss_factor);
+  if (adj == null) return { cost: null, reason: null };
+
+  const unitCost = child.batch_cost / child.yield; // $/yield_unit
+  const qtyConverted = convertQty(qty, line.unit ?? '', child.yield_unit ?? '', undefined);
+  if (qtyConverted == null) {
+    // convertQty returns null for cross-dim w/o density OR unknown units.
+    // Distinguish (best-effort): same-dim + no density -> 'no_density';
+    // otherwise -> 'incompatible_units'.
+    // Cheap heuristic: try identity to see if both units are at least recognized.
+    const idA = convertQty(1, line.unit ?? '', line.unit ?? '', undefined);
+    const idB = convertQty(1, child.yield_unit ?? '', child.yield_unit ?? '', undefined);
+    if (idA == null || idB == null) {
+      return { cost: null, reason: 'incompatible_units' };
+    }
+    return { cost: null, reason: 'no_density' };
+  }
+
+  return { cost: qtyConverted * unitCost * adj, reason: null };
 }
 
 /**
