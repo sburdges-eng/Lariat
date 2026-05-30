@@ -4,13 +4,10 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { register } from 'node:module';
 import Database from 'better-sqlite3';
 
-register(new URL('./resolver.mjs', import.meta.url));
-
-const { initSchema } = await import('../../lib/db.ts');
-const { rollupRecipeCosts } = await import('../../lib/computeEngine/rollupRecipeCosts.ts');
+import { initSchema } from '../../lib/db.ts';
+import { rollupRecipeCosts } from '../../lib/computeEngine/rollupRecipeCosts.ts';
 
 const LOC = 'default';
 
