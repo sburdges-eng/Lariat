@@ -1,16 +1,11 @@
 #!/usr/bin/env node
-// @ts-nocheck — file has ~80 latent type errors that surfaced only when
-// lib/computeEngine/rollupRecipeCosts.ts started importing deriveMasterId
-// from here under `checkJs: true`. Fixing them is out of scope for the
-// sub-recipe rollup work (see docs/superpowers/plans/2026-05-30-sub-recipe-pricing-rollup.md).
-// TODO: extract deriveMasterId to lib/ingredientKey.ts and drop this pragma.
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { execSync } from 'child_process';
 import Database from 'better-sqlite3';
 import { initSchema, DB_FILE } from '../lib/db.ts';
-import { normalizeIngredientKey } from '../lib/ingredientKey.ts';
+import { normalizeIngredientKey, deriveMasterId } from '../lib/ingredientKey.ts';
 import {
   convertQty,
   normalizeUnit,
@@ -1042,28 +1037,10 @@ export function backfillCatchWeightsIntoVendorPrices(db, locationId = 'default')
   return out;
 }
 
-/**
- * T7 — derive the master_id slug for a given recipe_ingredient string.
- *
- * v1 formula: `normalizeIngredientKey(x).replace(/ /g, '_')`. So
- * `"Tomato Paste"` → `"tomato_paste"`. This is coarser than the spec's
- * ideal encoding (brand + pack, e.g. `"ketchup_heinz_1gal"`) because we
- * don't yet carry structured brand / pack metadata on ingredient_maps.
- * Switching to the richer slug later is a pure migration — readers can
- * already tolerate arbitrary slug text.
- *
- * Returns null when the ingredient string normalizes to empty so the
- * caller skips the row rather than inserting a PK='' row that would
- * collide across every blank-ingredient map.
- *
- * @param {string | null | undefined} recipeIngredient
- * @returns {string | null}
- */
-export function deriveMasterId(recipeIngredient) {
-  const norm = normalizeIngredientKey(recipeIngredient ?? '');
-  if (!norm) return null;
-  return norm.replace(/ /g, '_');
-}
+// deriveMasterId moved to lib/ingredientKey.ts (2026-05-30) — re-export
+// here for backward compatibility with any external callers still
+// importing from the script path.
+export { deriveMasterId } from '../lib/ingredientKey.ts';
 
 /**
  * T7 — rebuild ingredient_masters from confirmed ingredient_maps rows,

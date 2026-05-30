@@ -22,3 +22,17 @@ export function normalizeIngredientKey(value: string | null | undefined): string
   s = s.replace(WHITESPACE, ' ');
   return s;
 }
+
+/**
+ * Derive a stable slug from a recipe-ingredient string. Mirror of the
+ * old function in scripts/ingest-costing.mjs (moved here so lib/ → scripts/
+ * import direction is eliminated and the script's @ts-nocheck can come off).
+ *
+ * v1 formula: normalizeIngredientKey(x).replace(/ /g, '_').
+ * Returns null when the input normalizes to empty (caller skips the row).
+ */
+export function deriveMasterId(recipeIngredient: string | null | undefined): string | null {
+  const norm = normalizeIngredientKey(recipeIngredient ?? '');
+  if (!norm) return null;
+  return norm.replace(/ /g, '_');
+}

@@ -1,6 +1,5 @@
 import type { Database } from 'better-sqlite3';
-import { deriveMasterId } from '../../scripts/ingest-costing.mjs';
-import { normalizeIngredientKey } from '../ingredientKey.ts';
+import { deriveMasterId, normalizeIngredientKey } from '../ingredientKey.ts';
 import { resolveMergedCost } from '../costingBenchmarks.mjs';
 import { convertQty } from '../unitConvert.mjs';
 
