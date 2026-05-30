@@ -16,6 +16,7 @@ import {
 } from '../../lib/computeEngine/rollupRecipeCosts.ts';
 import { recomputeRecipeCosts } from '../../lib/computeEngine/recipeCosting.ts';
 import { deriveMasterId } from '../../scripts/ingest-costing.mjs';
+import { computeCostVariance } from '../../lib/costingBenchmarks.mjs';
 
 const LOC = 'default';
 
@@ -369,6 +370,31 @@ describe('recomputeRecipeCosts — uses rollupRecipeCosts under the hood', () =>
     const parent = db.prepare(`SELECT batch_cost FROM recipe_costs WHERE recipe_id='parent'`).get();
     // 1 cup * $3/cup = $3
     assert.ok(Math.abs(parent.batch_cost - 3.0) < 0.001, `got ${parent.batch_cost}`);
+    db.close();
+  });
+});
+
+describe('computeCostVariance — sub-recipe fallback', () => {
+  it("a recipe whose only unmatched lines are sub-recipes now gets an actual + variance_pct", () => {
+    const db = new Database(':memory:');
+    initSchema(db);
+    db.prepare(
+      `INSERT INTO recipe_costs (recipe_id, recipe_name, yield, yield_unit, batch_cost, cost_per_yield_unit, location_id)
+       VALUES ('child','Child',2,'cup',6,3,?), ('parent','Parent',1,'cup',NULL,5,?)`,
+    ).run(LOC, LOC);
+    // Parent: 1 cup of child = $3. Theoretical = $5. Variance = (5-3)/5 = 40%.
+    db.prepare(
+      `INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, sub_recipe, map_status, yield_pct, loss_factor, location_id)
+       VALUES ('parent','child',1,'cup','YES','confirmed',1.0,NULL,?)`,
+    ).run(LOC);
+
+    const v = computeCostVariance(db, LOC);
+    const parent = v.rows.find((r) => r.recipe_id === 'parent');
+    assert.ok(parent, 'parent should appear in variance rows');
+    assert.equal(parent.excluded, false);
+    assert.ok(parent.actual !== null, 'parent.actual should be non-null after sub-recipe fallback');
+    assert.ok(Math.abs(parent.actual - 3.0) < 0.001, `got actual=${parent.actual}`);
+    assert.ok(parent.variance_pct !== null);
     db.close();
   });
 });
