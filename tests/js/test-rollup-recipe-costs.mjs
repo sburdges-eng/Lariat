@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 
 import { initSchema } from '../../lib/db.ts';
-import { rollupRecipeCosts } from '../../lib/computeEngine/rollupRecipeCosts.ts';
+import { rollupRecipeCosts, _buildRecipeDag } from '../../lib/computeEngine/rollupRecipeCosts.ts';
 import { deriveMasterId } from '../../scripts/ingest-costing.mjs';
 
 const LOC = 'default';
@@ -92,5 +92,36 @@ describe('rollupRecipeCosts — detection + sub_recipe flag autocorrect', () => 
 
   it('sanity: deriveMasterId("Lariat Rub") === "lariat_rub"', () => {
     assert.equal(deriveMasterId('Lariat Rub'), 'lariat_rub');
+  });
+});
+
+describe('rollupRecipeCosts — DAG construction', () => {
+  it('returns adjacency where parent points at every child it references via a sub-recipe BOM line', () => {
+    const db = new Database(':memory:');
+    initSchema(db);
+
+    db.prepare(
+      `INSERT INTO recipe_costs (recipe_id, recipe_name, yield, yield_unit, batch_cost, cost_per_yield_unit, location_id)
+       VALUES ('parent','Parent',1,'qt',NULL,NULL,?),
+              ('lariat_rub','Lariat Rub',4,'cup',8,2,?),
+              ('pickle_juice','Pickle Juice',2,'cup',6,3,?)`,
+    ).run(LOC, LOC, LOC);
+
+    db.prepare(
+      `INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, sub_recipe, map_status, location_id)
+       VALUES ('parent', 'lariat rub',    0.5, 'cup', 'YES', 'confirmed', ?),
+              ('parent', 'pickle juice',  1,   'cup', 'YES', 'confirmed', ?),
+              ('parent', 'kosher salt',   1,   'tsp', NULL,  'confirmed', ?)`,
+    ).run(LOC, LOC, LOC);
+
+    const { children } = _buildRecipeDag(db, LOC);
+    assert.deepEqual(
+      [...(children.get('parent') ?? [])].sort(),
+      ['lariat_rub', 'pickle_juice'],
+    );
+    assert.deepEqual(children.get('lariat_rub') ?? [], []);
+    assert.deepEqual(children.get('pickle_juice') ?? [], []);
+
+    db.close();
   });
 });

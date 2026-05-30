@@ -33,6 +33,54 @@ export type BomRow = {
 };
 
 /**
+ * Build the parent → children adjacency map for the recipe DAG.
+ *
+ * A child is any sub-recipe referenced by a BOM line on the parent —
+ * either via sub_recipe='YES' OR via auto-detect (the line's
+ * deriveMasterId(ingredient) matches an existing recipe_id).
+ *
+ * Exported for testing only; not part of the public surface.
+ */
+export function _buildRecipeDag(
+  db: Database,
+  locationId: string,
+): { children: Map<string, string[]>; recipeIds: Set<string> } {
+  const recipeIds = new Set<string>(
+    (
+      db
+        .prepare(`SELECT recipe_id FROM recipe_costs WHERE location_id = ?`)
+        .all(locationId) as Array<{ recipe_id: string }>
+    ).map((r) => r.recipe_id),
+  );
+
+  const children = new Map<string, string[]>();
+  for (const id of recipeIds) children.set(id, []);
+
+  const bomRows = db
+    .prepare(
+      `SELECT recipe_id, ingredient, sub_recipe FROM bom_lines WHERE location_id = ?`,
+    )
+    .all(locationId) as Array<{
+      recipe_id: string;
+      ingredient: string | null;
+      sub_recipe: string | null;
+    }>;
+
+  for (const r of bomRows) {
+    if (!children.has(r.recipe_id)) continue; // BOM points at a recipe row we don't have
+    const slug = deriveMasterId(r.ingredient ?? '');
+    if (!slug) continue;
+    const isSubRecipe = r.sub_recipe === 'YES' || recipeIds.has(slug);
+    if (!isSubRecipe) continue;
+    if (!recipeIds.has(slug)) continue; // flag says YES but child doesn't exist
+    const arr = children.get(r.recipe_id)!;
+    if (!arr.includes(slug)) arr.push(slug);
+  }
+
+  return { children, recipeIds };
+}
+
+/**
  * Sub-recipe pricing rollup pass.
  *
  * Walks the recipe DAG in topological order, prices each non-cycle recipe
