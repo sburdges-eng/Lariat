@@ -14,6 +14,7 @@ import {
   _priceLeafLine,
   _priceSubRecipeLine,
 } from '../../lib/computeEngine/rollupRecipeCosts.ts';
+import { recomputeRecipeCosts } from '../../lib/computeEngine/recipeCosting.ts';
 import { deriveMasterId } from '../../scripts/ingest-costing.mjs';
 
 const LOC = 'default';
@@ -347,6 +348,27 @@ describe('rollupRecipeCosts — end-to-end batch_cost rewrite', () => {
       `SELECT map_status FROM bom_lines WHERE recipe_id='parent' AND ingredient='rub'`,
     ).get();
     assert.equal(status.map_status, 'NEEDS_DENSITY');
+    db.close();
+  });
+});
+
+describe('recomputeRecipeCosts — uses rollupRecipeCosts under the hood', () => {
+  it('produces the same batch_cost values as a direct rollup call', () => {
+    const db = new Database(':memory:');
+    initSchema(db);
+    db.prepare(
+      `INSERT INTO recipe_costs (recipe_id, recipe_name, yield, yield_unit, batch_cost, cost_per_yield_unit, location_id)
+       VALUES ('child','Child',2,'cup',6,3,?), ('parent','Parent',1,'qt',NULL,NULL,?)`,
+    ).run(LOC, LOC);
+    db.prepare(
+      `INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, sub_recipe, map_status, yield_pct, loss_factor, location_id)
+       VALUES ('parent','child',1,'cup','YES','confirmed',1.0,NULL,?)`,
+    ).run(LOC);
+
+    recomputeRecipeCosts(db, LOC);
+    const parent = db.prepare(`SELECT batch_cost FROM recipe_costs WHERE recipe_id='parent'`).get();
+    // 1 cup * $3/cup = $3
+    assert.ok(Math.abs(parent.batch_cost - 3.0) < 0.001, `got ${parent.batch_cost}`);
     db.close();
   });
 });
