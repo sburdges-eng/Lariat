@@ -12,10 +12,9 @@
 // behavior. PIN-gating is a v3 question per
 // `docs/PHASE3_SCOPING.md` §1 (per-cook accountability fork).
 //
-// Stub-grade: there is no canonical tickets table to validate :id against.
-// When Toast Partner ingest lands, add a SELECT on the live tickets table
-// here and return 404 if the id is unknown — the protocol §3 already
-// documents that path.
+// The local `kds_tickets` table is the current ticket source. Toast Partner
+// ingest can swap that lookup later, but protocol §3 already requires a
+// 404 for ticket ids not known to Lariat.
 //
 // Audit + transaction discipline (docs/PATTERNS.md §3):
 //   - postAuditEvent runs inside the same db.transaction as the upsert.
@@ -77,6 +76,12 @@ async function bumpHandler(req, ctx) {
   const pinHash = cookPin ? hashPin(cookPin) : null;
 
   const db = getDb();
+  const knownTicket = db
+    .prepare('SELECT 1 FROM kds_tickets WHERE id = ? AND location_id = ?')
+    .get(ticketId, location);
+  if (!knownTicket) {
+    return Response.json({ error: 'ticket not found' }, { status: 404 });
+  }
 
   let auditAction = 'insert';
   let priorBumpedAt = null;

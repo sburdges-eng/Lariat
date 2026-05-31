@@ -36,7 +36,11 @@ after(() => {
 
 beforeEach(() => {
   testDb.exec(
-    'DELETE FROM kds_ticket_states; DELETE FROM audit_events; DELETE FROM idempotency_keys;',
+    `DELETE FROM kds_ticket_states;
+     DELETE FROM kds_ticket_lines;
+     DELETE FROM kds_tickets;
+     DELETE FROM audit_events;
+     DELETE FROM idempotency_keys;`,
   );
 });
 
@@ -66,6 +70,16 @@ function readState(ticketId) {
     .get(ticketId);
 }
 
+function seedTicket(ticketId, locationId = 'default') {
+  testDb
+    .prepare(
+      `INSERT INTO kds_tickets
+         (id, location_id, order_number, placed_at, destination, created_by_cook_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .run(ticketId, locationId, '1042', '2026-05-04T18:40:00.000Z', 'T12', 'expo');
+}
+
 function countAudit(entity, action) {
   if (action) {
     return testDb
@@ -82,6 +96,7 @@ function countAudit(entity, action) {
 describe('POST /api/kds/tickets/:id/bump — happy path', () => {
   it('records a bump with all fields and returns the canonical shape', async () => {
     const bumpedAt = '2026-05-04T18:42:11.000Z';
+    seedTicket('tkt_abc');
     const res = await POST(
       bumpReq('tkt_abc', { body: { bumped_at: bumpedAt, station: 'grill', cook_pin: '1234' } }),
       ctx('tkt_abc'),
@@ -105,6 +120,7 @@ describe('POST /api/kds/tickets/:id/bump — happy path', () => {
   });
 
   it('accepts an empty body and stamps server time', async () => {
+    seedTicket('tkt_empty');
     const before = new Date().toISOString();
     const res = await POST(bumpReq('tkt_empty'), ctx('tkt_empty'));
     const body = await res.json();
@@ -122,6 +138,7 @@ describe('POST /api/kds/tickets/:id/bump — happy path', () => {
   });
 
   it('accepts an unknown station slug (forward compat per protocol §2)', async () => {
+    seedTicket('tkt_expo');
     const res = await POST(
       bumpReq('tkt_expo', { body: { station: 'expo' } }),
       ctx('tkt_expo'),
@@ -138,6 +155,7 @@ describe('POST /api/kds/tickets/:id/bump — re-bump', () => {
     const t1 = '2026-05-04T18:00:00.000Z';
     const t2 = '2026-05-04T18:05:00.000Z';
 
+    seedTicket('tkt_re');
     await POST(bumpReq('tkt_re', { body: { bumped_at: t1, station: 'grill' } }), ctx('tkt_re'));
     await POST(bumpReq('tkt_re', { body: { bumped_at: t2, station: 'grill' } }), ctx('tkt_re'));
 
@@ -152,6 +170,7 @@ describe('POST /api/kds/tickets/:id/bump — re-bump', () => {
     const t1 = '2026-05-04T18:00:00.000Z';
     const t2 = '2026-05-04T18:05:00.000Z';
 
+    seedTicket('tkt_pay');
     await POST(bumpReq('tkt_pay', { body: { bumped_at: t1 } }), ctx('tkt_pay'));
     await POST(bumpReq('tkt_pay', { body: { bumped_at: t2 } }), ctx('tkt_pay'));
 
@@ -175,6 +194,7 @@ describe('POST /api/kds/tickets/:id/bump — idempotency', () => {
     const key = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
     const body = { bumped_at: '2026-05-04T18:42:11.000Z', station: 'grill' };
 
+    seedTicket('tkt_idem');
     const res1 = await POST(bumpReq('tkt_idem', { body, key }), ctx('tkt_idem'));
     const body1 = await res1.json();
     const res2 = await POST(bumpReq('tkt_idem', { body, key }), ctx('tkt_idem'));
@@ -188,6 +208,7 @@ describe('POST /api/kds/tickets/:id/bump — idempotency', () => {
 
   it('reused key with a different body returns 409', async () => {
     const key = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    seedTicket('tkt_409');
     await POST(
       bumpReq('tkt_409', { body: { station: 'grill' }, key }),
       ctx('tkt_409'),
@@ -206,6 +227,17 @@ describe('POST /api/kds/tickets/:id/bump — validation', () => {
   it('400 on empty ticket id', async () => {
     const res = await POST(bumpReq(''), ctx(''));
     assert.equal(res.status, 400);
+  });
+
+  it('404 on ticket id not known to Lariat', async () => {
+    const res = await POST(
+      bumpReq('tkt_missing', { body: { bumped_at: '2026-05-04T18:42:11.000Z' } }),
+      ctx('tkt_missing'),
+    );
+
+    assert.equal(res.status, 404);
+    assert.equal(countStates('tkt_missing'), 0);
+    assert.equal(countAudit('kds_ticket_state'), 0);
   });
 
   it('422 on non-canonical ISO-8601', async () => {
@@ -240,6 +272,7 @@ describe('POST /api/kds/tickets/:id/bump — validation', () => {
 describe('POST /api/kds/tickets/:id/bump — atomicity', () => {
   it('audit row + state row are committed together (one tx)', async () => {
     const before = countAudit('kds_ticket_state');
+    seedTicket('tkt_tx');
     await POST(
       bumpReq('tkt_tx', { body: { bumped_at: '2026-05-04T18:42:11.000Z' } }),
       ctx('tkt_tx'),
