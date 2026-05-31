@@ -27,6 +27,20 @@
 const t = true,
   f = false;
 
+// Routes that are intentionally absent from the sidebar and command palette.
+// Keep this list beside NAV_ITEMS so orphan-page audits have a code-level
+// answer for setup/auth surfaces that are reached by redirects or handoff links.
+export const NAV_ROUTE_EXCLUSIONS = [
+  {
+    href: '/install',
+    reason: 'Device setup handoff, reached from onboarding links rather than daily manager navigation.',
+  },
+  {
+    href: '/login-pin',
+    reason: 'PIN auth gate, reached by middleware redirects instead of palette jumps.',
+  },
+];
+
 export const NAV_ITEMS = [
   {
     id: 'today',
