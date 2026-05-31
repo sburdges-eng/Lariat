@@ -198,8 +198,8 @@ pipeline · floor-plan.
    six overclaims. CLAUDE.md's model section is still accurate (DeepSeek stays default). No further
    doc edit strictly required; this file is the canonical reconciliation.
 
-**Deferred (explicitly out of v2):** entity Phase 2 UUID FKs · cloud-bridge pull/status · 7shifts
-backoff · Prism (blocked on external spec) · shows route tests (9) · `@ts-nocheck` migration (256
+**Deferred (explicitly out of v2):** entity Phase 2 UUID FKs · cloud-bridge pull/status ·
+Prism (blocked on external spec) · shows route tests (9) · `@ts-nocheck` migration (256
 files, touch-on-edit) · mDNS unit tests · UI v2 migration · Roadmap Tier 2/3.
 
 **Scope-decision (your call):** `cad-kernel/` move-out · `certs` regulated-or-informational ·

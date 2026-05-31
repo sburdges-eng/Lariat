@@ -71,11 +71,11 @@ I added the 7 food-safety boards. Still missing from navRegistry (per audit F1):
 
 | ID   | Effort | Item |
 |------|--------|------|
-| 1.10 | M | **Toast OAuth refresh-token flow audit.** `LARIAT_TOAST_CLIENT_*` exists but I didn't verify token refresh under expiry. The Toast token typically lives 24h; if the ingest scheduler runs across that boundary, it silently fails. |
+| 1.10 | M | **Closed:** Toast OAuth refresh-token handling is covered by `scripts/toast_api/auth.mjs`; `isCacheStale()` refreshes 5 minutes early and `tests/js/test-toast-api-helpers.mjs` pins the boundary. |
 | 1.11 | M | **Closed:** 7shifts rate-limit handling now lives in `scripts/sevenshifts_api/client.mjs`; HTTP 429 retries honor `Retry-After` with bounded fallback backoff, pinned by fake-fetch coverage in `tests/js/test-sevenshifts.mjs`. |
 | 1.12 | L | **KDS Swift protocol regression suite.** CLAUDE.md says the Swift parser "fails closed on any drift in the response shape." Need a fixture that round-trips every `BumpResponse` field through both sides as a build-time check. |
 | 1.13 | M | **Cloud-bridge replay determinism.** Recent commits show the sync audit (H1–H8, M1–M11) is closed but I didn't see end-to-end replay tests. Build one: capture N hours of outbox writes, replay against a fresh DB, assert state-equivalence. |
-| 1.14 | S | **Idempotency-key TTL.** `idempotency_keys` table exists. Confirm it has a vacuum/cleanup job; without one it grows unbounded. |
+| 1.14 | S | **Closed:** idempotency-key TTL is the lazy `sweepExpired()` path in `lib/idempotency.ts`, covered by `tests/js/test-idempotency-wrapper.mjs` case 5. |
 
 ---
 
