@@ -64,22 +64,16 @@ training/aws/
 │   ├── val.jsonl                # 72 validation pairs (20%)
 │   └── system-prompt.txt        # System prompt reference
 └── README.md                    # This file
-
-lib/sagemaker.ts                 # SageMaker inference client (drop-in for ollama.ts)
 ```
 
 ## Integration with Lariat
 
-When the SageMaker endpoint is running, set this env var:
+This folder is offline from the Lariat runtime. It prepares and launches
+cloud training jobs only; the kitchen assistant and specials routes continue
+to use local Ollama via `lib/ollama.ts`.
 
-```bash
-# In .env.local
-LARIAT_SAGEMAKER_ENDPOINT=lariat-kitchen-assistant
-```
-
-The kitchen assistant API route checks for this env var and routes to
-SageMaker instead of local Ollama. The lib/sagemaker.ts client provides
-the same interface as lib/ollama.ts.
+Do not add runtime SageMaker dispatch without a separate design, an eval gate
+against the deployed endpoint, and an explicit opt-in route change.
 
 ## Commands
 

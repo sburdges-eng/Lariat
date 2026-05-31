@@ -41,8 +41,8 @@ restore.
 | Prompt eval harness | **FROZEN** | `training/eval/` + `npm run eval:assistant-prompt`; 10/10 locked baseline | Does not yet eval the new Qwen checkpoint |
 | **Model: Qwen vs DeepSeek default** | RESOLVED (kept DeepSeek) | `lib/ollama.ts:6` defaults to `lari-the-kitchen-assistant`; eval: DeepSeek 7/10 vs Qwen 1/10 on Ollama leg | Qwen fails the gate; do not flip. See §2.1 |
 | MLX local fine-tune pipeline | DEFERRED (works) | `training/train-local.sh`, `mlx-lora-config-qwen.yaml`, `data-mlx/train.jsonl` (284 pairs) | Runnable; no post-train auto-eval gate |
-| AWS SageMaker pipeline | DEFERRED (works, diverged) | `training/aws/deploy.sh`, `train_script.py` targets **Llama 3.1 8B**, not Qwen | Model mismatch vs local pipeline. See §2.6 |
-| `lib/sagemaker.ts` inference client | **FIX-BEFORE-FREEZE** | Exists (159 LOC) but **zero imports** in `app/`/`lib/` runtime | Orphan. Wire behind env switch or remove. See §2.6 |
+| AWS SageMaker pipeline | DEFERRED (works, diverged) | `training/aws/deploy.sh`, `train_script.py` targets **Llama 3.1 8B**, not Qwen | Cloud training tooling only; model mismatch remains deferred. See §2.6 |
+| SageMaker runtime inference | RESOLVED (removed) | `lib/sagemaker.ts` removed; zero imports in `app/`/`lib/` runtime | v2 runtime stays local Ollama; no cloud inference dispatch. See §2.6 |
 
 ### HACCP food-safety + labor compliance
 
@@ -52,8 +52,8 @@ restore.
 | `needs_corrective_action` 422 gate | **FROZEN** | `cooling:148`, `temp-log:107`, `receiving:212`, `sanitizer:68` | Binding HACCP rule enforced at write time |
 | Audit transactionality | **FROZEN** | `postAuditEvent()` inside `db.transaction()` verified in cooling/temp-log/receiving/sick-leave | Source row + audit roll back together |
 | Labor: breaks/sick-leave/wage-notices/tip-pool | **FROZEN** | each has `lib/*.ts` + API route + UI | |
-| **date-marks** | **FIX-BEFORE-FREEZE** | missing `tests/js/test-date-marks-rules.mjs` | Rule-module threshold tests absent (api test exists) |
-| **calibrations** | **FIX-BEFORE-FREEZE** | API lives at `app/api/thermometer-calibrations/route.ts`, breaking the `app/api/calibrations/` 5-file shape | Rename or document the exception |
+| **date-marks** | RESOLVED (test exists) | `tests/js/test-date-mark-rules.mjs` covers rule thresholds; `tests/js/test-date-marks-api.mjs` covers API/location/audit | Original audit searched the plural filename |
+| **calibrations** | RESOLVED (documented exception) | API lives at `app/api/thermometer-calibrations/route.js`; `tests/js/test-calibrations-rules.mjs` + `test-calibrations-api.mjs` cover the surface | Keep slug exception; renaming is cosmetic risk |
 | labor: **certs** | SCOPE-DECISION | UI exists, no API/rule module | Is it informational-only or regulated? |
 
 ### Costing / compute / entity / depletion
@@ -148,12 +148,10 @@ is an active runtime bug.
 - **Decision:** Harmless. Correct the narrative; no code change.
 
 ### 2.6 SageMaker client orphaned + AWS trainer model mismatch
-- **Reality:** `lib/sagemaker.ts` is unwired; `training/aws/train_script.py` fine-tunes Llama 3.1
-  8B while the local pipeline fine-tunes Qwen.
-- **Decision:** For v2, **remove or env-gate `lib/sagemaker.ts`** (don't ship an orphan inference
-  path), and either align the AWS trainer's base model to Qwen or document the divergence as
-  intentional. Recommend: keep AWS pipeline as DEFERRED cloud-training tooling, align its base
-  model to Qwen, leave runtime on Ollama for v2.
+- **Reality:** `lib/sagemaker.ts` was unwired and is now removed. `training/aws/train_script.py`
+  still fine-tunes Llama 3.1 8B while the local pipeline fine-tunes Qwen.
+- **Decision:** v2 ships no runtime SageMaker inference path. Keep AWS as DEFERRED cloud-training
+  tooling only; align its base model in a future training slice before any production deploy.
 
 ---
 
@@ -188,14 +186,14 @@ pipeline · floor-plan.
 **Fix-before-freeze — status as of 2026-05-24:**
 1. ✅ §2.1 Model — evaluated; Qwen fails (1/10 vs DeepSeek 7/10 on the Ollama leg). Kept DeepSeek.
 2. ✅ §2.3 Dish coverage — wired (table + compute-engine writer + management read). Tests green.
-3. ✅ §2.6 SageMaker — header de-claimed (was falsely claiming the route dispatches to it); left
-   unwired as labeled experimental scaffolding. AWS-trainer/Qwen base-model divergence documented.
+3. ✅ §2.6 SageMaker — removed the unwired runtime inference client; AWS remains deferred
+   cloud-training tooling. AWS-trainer/Qwen base-model divergence documented.
 4. ✅ date-marks rule test — already exists as `tests/js/test-date-mark-rules.mjs` (25 tests, green);
    the audit "gap" was a false positive (searched the plural filename). No action needed.
-5. ⏳ calibrations route — **recommend documented exception, NOT rename.** The route works and is
+5. ✅ calibrations route — **documented exception, NOT rename.** The route works and is
    fully tested (`test-calibrations-api.mjs`); renaming `app/api/thermometer-calibrations/` →
    `app/api/calibrations/` touches the API contract, 2 UI fetch calls, the PIN-gate list, and 4
-   test files. Cosmetic conformance at real risk — document the exception instead. **Needs sign-off.**
+   test files. Cosmetic conformance at real risk; keep the exception.
 6. ⏳ Reconcile `ed0b32e` narrative in docs — V2_FREEZE_PLAN (this file) + memory now capture all
    six overclaims. CLAUDE.md's model section is still accurate (DeepSeek stays default). No further
    doc edit strictly required; this file is the canonical reconciliation.
@@ -226,8 +224,8 @@ shows/venue arm test-harden priority · whether Qwen is the v2 model.
 1. **Decide** §2.1 (model) and §3 (cad-kernel) — these are the only two that need *you*, not code.
 2. **One docs commit** reconciling all six overclaims (§2.1–2.6) + CLAUDE.md/OPERATIONS.md.
 3. **One small feature commit** finishing dish-coverage (§2.3) — table + wire + read.
-4. **One hygiene commit** — date-marks test (§ 4.4), calibrations rename (§4.5), sagemaker
-   env-gate/remove (§2.6).
+4. **One hygiene commit** — complete; date-marks test was present (§4.4), calibrations is a
+   documented exception (§4.5), and the SageMaker runtime client was removed (§2.6).
 5. **Re-run gates** (`test:rules`, `test:schema`, `test:datapack`, `test:compute-engine`,
    `eval:assistant-prompt`) — confirm green.
 6. **Tag the freeze.** Everything in "Deferred" becomes the v2.1 backlog.
