@@ -1363,8 +1363,8 @@ Expected: all prior tests still pass; the new assertion in `test-ingest-costing-
 
 Run:
 ```bash
-LARIAT_COSTING=/Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18/XL/Lariat_Master_Costing_2026-04-09.xlsx \
-LARIAT_OPS=/Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18/XL/lariat_operations_workbook_2026-04-10.xlsx \
+LARIAT_COSTING=path/to/Lariat_Master_Costing_2026-04-09.xlsx \
+LARIAT_OPS=path/to/lariat_operations_workbook_2026-04-10.xlsx \
 PATH="$PWD/.venv/bin:$PATH" \
 node scripts/ingest-costing.mjs 2>&1 | grep -v "D4 Excel drift" | tail -10
 ```
@@ -1625,8 +1625,8 @@ actual + variance_pct."
 - [ ] **Step 1: Re-run the live ingest against `data/lariat.db`**
 
 ```bash
-LARIAT_COSTING=/Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18/XL/Lariat_Master_Costing_2026-04-09.xlsx \
-LARIAT_OPS=/Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18/XL/lariat_operations_workbook_2026-04-10.xlsx \
+LARIAT_COSTING=path/to/Lariat_Master_Costing_2026-04-09.xlsx \
+LARIAT_OPS=path/to/lariat_operations_workbook_2026-04-10.xlsx \
 PATH="$PWD/.venv/bin:$PATH" \
 node scripts/ingest-costing.mjs 2>&1 | grep -v "D4 Excel drift" | tail -10
 ```
@@ -1664,8 +1664,8 @@ The newly-rolled-up `batch_cost` values may differ wildly from the Excel-importe
 
 Run:
 ```bash
-LARIAT_COSTING=/Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18/XL/Lariat_Master_Costing_2026-04-09.xlsx \
-LARIAT_OPS=/Users/seanburdges/Dev/_archives/lariat-pre-scrub-2026-04-18/XL/lariat_operations_workbook_2026-04-10.xlsx \
+LARIAT_COSTING=path/to/Lariat_Master_Costing_2026-04-09.xlsx \
+LARIAT_OPS=path/to/lariat_operations_workbook_2026-04-10.xlsx \
 PATH="$PWD/.venv/bin:$PATH" \
 node scripts/ingest-costing.mjs 2>&1 | grep "⚠ D4" | wc -l
 ```
@@ -1714,4 +1714,3 @@ git commit -m "fix(costing): <one-line fix description from real-data run>"
 - `cost_proxy_sub_recipe` ingredient_maps status: orthogonal — the rollup uses BOM `sub_recipe` flag and recipe_id name match, not ingredient_maps. Existing cost_proxy entries continue to behave as today (they live in `ingredient_maps` and don't drive rollup).
 
 **No placeholders, no TBDs, all file paths absolute or repo-relative.**
-

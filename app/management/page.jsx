@@ -1,7 +1,7 @@
 // @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // /management — GM rollup dashboard.
 //
-// Six read-only tiles composed from already-shipped helpers. No new
+// Read-only tiles composed from already-shipped helpers. No new
 // business logic, no new schema, no new APIs. Each tile must render a
 // graceful empty state on a fresh DB rather than throwing — server
 // component, force-dynamic so it always reflects current DB state.
@@ -12,12 +12,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Link from 'next/link';
 
-import { getDb } from '../../lib/db';
+import { getDb, todayISO } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { readLastCostingIngest } from '../../lib/costingBenchmarks.mjs';
 import { computeDishCoverage } from '../../lib/dishCostBridge';
 import { readLatestDishCoverageSnapshot } from '../../lib/dishCoverageSnapshots';
 import { readLatestAccountingVariance } from '../../lib/computeEngine/index';
+import { listDepletionExceptions } from '../../lib/depletionExceptions';
+import { listPriceShocks } from '../../lib/vendorPricesRepo';
 
 import RollupTile from './_components/RollupTile';
 
@@ -74,6 +76,19 @@ function reviewColor(n) {
 function receivingMatchColor(n) {
   if (n == null) return 'var(--muted)';
   if (n > 0) return 'var(--yellow)';
+  return 'var(--green)';
+}
+
+function warningCountColor(n) {
+  if (n == null) return 'var(--muted)';
+  if (n > 0) return 'var(--yellow)';
+  return 'var(--green)';
+}
+
+function certWarningColor(c) {
+  if (!c) return 'var(--muted)';
+  if (c.expired > 0) return 'var(--red)';
+  if (c.expiringSoon > 0) return 'var(--yellow)';
   return 'var(--green)';
 }
 
@@ -187,8 +202,60 @@ function readReceivingMatchesCount(db, locationId) {
   }
 }
 
+/** Vendor SKUs with a 5%+ move in the same 7-day window as /costing/price-shocks. */
+function readPriceShockSummary(db, locationId) {
+  const shocks = listPriceShocks(db, {
+    location_id: locationId,
+    windowDays: 7,
+    minPctMove: 5,
+    limit: 100,
+  });
+  return {
+    total: shocks.length,
+    up: shocks.filter((s) => s.direction === 'up').length,
+    down: shocks.filter((s) => s.direction === 'down').length,
+  };
+}
+
+/** Current unresolved depletion exception count for the current location. */
+function readDepletionIssuesCount(db, locationId) {
+  return listDepletionExceptions(db, {
+    location_id: locationId,
+    limit: 100,
+  }).length;
+}
+
+/** Active certs that are expired or expiring within 30 days. */
+function readCertWarnings(db, locationId) {
+  const today = todayISO();
+  const rows = db.prepare(
+    `SELECT expires_on
+       FROM staff_certifications
+      WHERE location_id = ?
+        AND active = 1
+        AND expires_on IS NOT NULL`,
+  ).all(locationId);
+
+  const todayMs = new Date(today + 'T00:00:00Z').getTime();
+  let expired = 0;
+  let expiringSoon = 0;
+  for (const r of rows) {
+    const expMs = new Date(r.expires_on + 'T00:00:00Z').getTime();
+    if (Number.isNaN(expMs)) continue;
+    const days = Math.floor((expMs - todayMs) / 86400000);
+    if (days < 0) expired++;
+    else if (days <= 30) expiringSoon++;
+  }
+  return { expired, expiringSoon, total: expired + expiringSoon };
+}
+
 function safeGet(fn, fallback) {
   try { return fn(); } catch { return fallback; }
+}
+
+function locationHref(pathname, locationId) {
+  if (locationId === DEFAULT_LOCATION_ID) return pathname;
+  return `${pathname}?location=${encodeURIComponent(locationId)}`;
 }
 
 // ── Page ──
@@ -239,6 +306,10 @@ export default function ManagementRollupPage({ searchParams }) {
   const cleaning = readCleaningToday(db, loc);
   const reviewsCount = readPerformanceReviewsCount(db, loc);
   const receivingMatches = readReceivingMatchesCount(db, loc);
+  const priceShocks = safeGet(() => readPriceShockSummary(db, loc), null);
+  const depletionIssues = safeGet(() => readDepletionIssuesCount(db, loc), null);
+  const certWarnings = safeGet(() => readCertWarnings(db, loc), null);
+  const locHref = (pathname) => locationHref(pathname, loc);
 
   const varianceSnapshot = formatSnapshotAt(variance?.snapshot_at);
 
@@ -276,7 +347,52 @@ export default function ManagementRollupPage({ searchParams }) {
           href="/costing"
         />
 
-        {/* Tile 3 — Menu items costed (capped to keep page load O(1)) */}
+        {/* Tile 3 — Price shocks */}
+        <RollupTile
+          label="Price shocks"
+          value={priceShocks == null ? '—' : priceShocks.total}
+          color={warningCountColor(priceShocks?.total)}
+          sub={
+            priceShocks == null
+              ? 'price moves unavailable'
+              : priceShocks.total > 0
+                ? `${priceShocks.up} up · ${priceShocks.down} down · 7 days`
+                : 'no 5% moves in 7 days'
+          }
+          href={locHref('/costing/price-shocks')}
+        />
+
+        {/* Tile 4 — Depletion issues */}
+        <RollupTile
+          label="Depletion issues"
+          value={depletionIssues == null ? '—' : depletionIssues}
+          color={warningCountColor(depletionIssues)}
+          sub={
+            depletionIssues == null
+              ? 'depletion queue unavailable'
+              : depletionIssues > 0
+                ? `${depletionIssues} dish${depletionIssues === 1 ? '' : 'es'} need mapping`
+                : 'sold dishes map cleanly'
+          }
+          href={locHref('/costing/depletion-exceptions')}
+        />
+
+        {/* Tile 5 — Cert warnings */}
+        <RollupTile
+          label="Cert warnings"
+          value={certWarnings == null ? '—' : certWarnings.total}
+          color={certWarningColor(certWarnings)}
+          sub={
+            certWarnings == null
+              ? 'certs unavailable'
+              : certWarnings.total > 0
+                ? `${certWarnings.expired} expired · ${certWarnings.expiringSoon} expiring in 30 days`
+                : 'certs current'
+          }
+          href={locHref('/labor/certs')}
+        />
+
+        {/* Tile 6 — Menu items costed (capped to keep page load O(1)) */}
         <RollupTile
           label="Menu items costed"
           value={
@@ -298,7 +414,7 @@ export default function ManagementRollupPage({ searchParams }) {
           href="/menu-engineering"
         />
 
-        {/* Tile 4 — Unverified rules (curated rules JSONL) */}
+        {/* Tile 7 — Unverified rules (curated rules JSONL) */}
         <RollupTile
           label="Unverified rules"
           value={compliance.unverified == null ? '—' : compliance.unverified}
@@ -312,7 +428,7 @@ export default function ManagementRollupPage({ searchParams }) {
           href="/food-safety"
         />
 
-        {/* Tile 5 — Pack-size unack'd */}
+        {/* Tile 8 — Pack-size unack'd */}
         <RollupTile
           label="Pack-size changes unack'd"
           value={packChangesUnacked == null ? '—' : packChangesUnacked}
@@ -321,7 +437,7 @@ export default function ManagementRollupPage({ searchParams }) {
           href="/costing/pack-changes"
         />
 
-        {/* Tile 6 — Cleaning today */}
+        {/* Tile 9 — Cleaning today */}
         <RollupTile
           label="Cleaning logged today"
           value={cleaning.count == null ? '—' : cleaning.count}
@@ -330,7 +446,7 @@ export default function ManagementRollupPage({ searchParams }) {
           href="/food-safety"
         />
 
-        {/* Tile 7 — Staff Reviews */}
+        {/* Tile 10 — Staff Reviews */}
         <RollupTile
           label="Staff reviews"
           value={reviewsCount == null ? '—' : reviewsCount}
@@ -339,7 +455,7 @@ export default function ManagementRollupPage({ searchParams }) {
           href="/management/performance-reviews"
         />
 
-        {/* Tile 8 — Receiving rows needing a master ingredient */}
+        {/* Tile 11 — Receiving rows needing a master ingredient */}
         <RollupTile
           label="Receiving to match"
           value={receivingMatches == null ? '—' : receivingMatches}

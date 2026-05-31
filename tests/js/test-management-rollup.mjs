@@ -28,19 +28,31 @@ register(new URL('./resolver.mjs', import.meta.url));
 
 import { describe, it, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 const { getDb, setDbPathForTest } = await import('../../lib/db.ts');
 const { readLatestAccountingVariance } = await import('../../lib/computeEngine/index.ts');
+const { listDepletionExceptions } = await import('../../lib/depletionExceptions.ts');
+const { listPriceShocks } = await import('../../lib/vendorPricesRepo.ts');
 
 setDbPathForTest(':memory:');
 const db = getDb();
 after(() => setDbPathForTest(null));
 
+const managementPageSource = () =>
+  readFileSync(new URL('../../app/management/page.jsx', import.meta.url), 'utf8');
+
 beforeEach(() => {
   db.exec(`
     DELETE FROM accounting_variance;
+    DELETE FROM bom_lines;
     DELETE FROM cleaning_log;
+    DELETE FROM dish_components;
     DELETE FROM pack_size_changes;
+    DELETE FROM sales_lines;
+    DELETE FROM staff_certifications;
+    DELETE FROM vendor_prices;
+    DELETE FROM vendor_prices_history;
   `);
 });
 
@@ -70,6 +82,73 @@ function readPackSizeChangesUnackedLikePage(db) {
   }
 }
 
+function readPriceShocksCountLikePage(db, locationId) {
+  return listPriceShocks(db, {
+    location_id: locationId,
+    windowDays: 7,
+    minPctMove: 5,
+    limit: 100,
+  }).length;
+}
+
+function readDepletionIssuesCountLikePage(db, locationId) {
+  return listDepletionExceptions(db, {
+    location_id: locationId,
+    limit: 100,
+  }).length;
+}
+
+function readCertWarningsLikePage(db, locationId) {
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = db.prepare(
+    `SELECT expires_on
+       FROM staff_certifications
+      WHERE location_id = ?
+        AND active = 1
+        AND expires_on IS NOT NULL`,
+  ).all(locationId);
+
+  const todayMs = new Date(today + 'T00:00:00Z').getTime();
+  let expired = 0;
+  let expiringSoon = 0;
+  for (const r of rows) {
+    const expMs = new Date(r.expires_on + 'T00:00:00Z').getTime();
+    if (Number.isNaN(expMs)) continue;
+    const days = Math.floor((expMs - todayMs) / 86400000);
+    if (days < 0) expired++;
+    else if (days <= 30) expiringSoon++;
+  }
+  return { expired, expiringSoon, total: expired + expiringSoon };
+}
+
+function isoDaysFromToday(delta) {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
+function isoDateTimeDaysAgo(daysAgo) {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - daysAgo);
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+}
+
+function insertPriceSnapshot({
+  locationId,
+  vendor,
+  sku,
+  ingredient,
+  unitPrice,
+  daysAgo,
+}) {
+  db.prepare(
+    `INSERT INTO vendor_prices_history
+       (run_id, ingredient, vendor, sku, pack_size, pack_unit, pack_price,
+        unit_price, location_id, snapshot_at, snapshot_reason)
+     VALUES (1, ?, ?, ?, 1, 'lb', ?, ?, ?, ?, 'test')`,
+  ).run(ingredient, vendor, sku, unitPrice, unitPrice, locationId, isoDateTimeDaysAgo(daysAgo));
+}
+
 describe('management rollup — empty state', () => {
   it('readLatestAccountingVariance returns null when no rows on file', () => {
     const v = readLatestAccountingVariance(db, 'default');
@@ -82,6 +161,28 @@ describe('management rollup — empty state', () => {
 
   it('pack_size_changes count is 0 on a fresh DB', () => {
     assert.strictEqual(readPackSizeChangesUnackedLikePage(db), 0);
+  });
+
+  it('new management alert counts are 0 on a fresh DB', () => {
+    assert.strictEqual(readPriceShocksCountLikePage(db, 'default'), 0);
+    assert.strictEqual(readDepletionIssuesCountLikePage(db, 'default'), 0);
+    assert.deepStrictEqual(readCertWarningsLikePage(db, 'default'), {
+      expired: 0,
+      expiringSoon: 0,
+      total: 0,
+    });
+  });
+});
+
+describe('management rollup — tile wiring', () => {
+  it('renders links for the new management alert tiles', () => {
+    const source = managementPageSource();
+    assert.match(source, /label="Price shocks"/);
+    assert.match(source, /\/costing\/price-shocks/);
+    assert.match(source, /label="Depletion issues"/);
+    assert.match(source, /\/costing\/depletion-exceptions/);
+    assert.match(source, /label="Cert warnings"/);
+    assert.match(source, /\/labor\/certs/);
   });
 });
 
@@ -139,6 +240,173 @@ describe('management rollup — location scoping', () => {
     assert.ok(v);
     assert.strictEqual(v.variance_pct, 2.0);
     assert.strictEqual(v.theoretical_cogs, 500);
+  });
+});
+
+describe('management rollup — new alert counts', () => {
+  it('counts price shocks with the page window and threshold', () => {
+    insertPriceSnapshot({
+      locationId: 'default',
+      vendor: 'sysco',
+      sku: 'AVO-1',
+      ingredient: 'Avocado',
+      unitPrice: 2,
+      daysAgo: 6,
+    });
+    insertPriceSnapshot({
+      locationId: 'default',
+      vendor: 'sysco',
+      sku: 'AVO-1',
+      ingredient: 'Avocado',
+      unitPrice: 2.5,
+      daysAgo: 0,
+    });
+    insertPriceSnapshot({
+      locationId: 'default',
+      vendor: 'sysco',
+      sku: 'OIL-1',
+      ingredient: 'Canola Oil',
+      unitPrice: 10,
+      daysAgo: 6,
+    });
+    insertPriceSnapshot({
+      locationId: 'default',
+      vendor: 'sysco',
+      sku: 'OIL-1',
+      ingredient: 'Canola Oil',
+      unitPrice: 10.2,
+      daysAgo: 0,
+    });
+
+    assert.strictEqual(readPriceShocksCountLikePage(db, 'default'), 1);
+  });
+
+  it('counts unresolved depletion issues from existing sales mappings', () => {
+    db.prepare(
+      `INSERT INTO sales_lines (period_label, item_name, quantity_sold, net_sales, source, location_id)
+       VALUES ('2026-W17', 'Mystery Plate', 3, 27, 'toast', 'default'),
+              ('2026-W17', 'Mystery Plate', 2, 18, 'toast', 'default'),
+              ('2026-W17', 'Unmapped Burger', 1, 14, 'toast', 'default')`,
+    ).run();
+
+    assert.strictEqual(readDepletionIssuesCountLikePage(db, 'default'), 2);
+  });
+
+  it('counts active certs expired or expiring in 30 days', () => {
+    db.prepare(
+      `INSERT INTO staff_certifications
+         (location_id, cook_id, cert_type, cert_label, expires_on, active)
+       VALUES
+         ('default', 'alice', 'food_handler', 'Food Handler', ?, 1),
+         ('default', 'bob', 'cfpm', 'ServSafe Manager', ?, 1),
+         ('default', 'carla', 'tips', 'TIPS', ?, 1),
+         ('default', 'drew', 'allergen', 'Allergen', ?, 0)`,
+    ).run(
+      isoDaysFromToday(-3),
+      isoDaysFromToday(15),
+      isoDaysFromToday(60),
+      isoDaysFromToday(-10),
+    );
+
+    assert.deepStrictEqual(readCertWarningsLikePage(db, 'default'), {
+      expired: 1,
+      expiringSoon: 1,
+      total: 2,
+    });
+  });
+});
+
+describe('management rollup — new alert location scoping', () => {
+  it('scopes price shocks by location', () => {
+    insertPriceSnapshot({
+      locationId: 'default',
+      vendor: 'sysco',
+      sku: 'AVO-1',
+      ingredient: 'Avocado',
+      unitPrice: 2,
+      daysAgo: 6,
+    });
+    insertPriceSnapshot({
+      locationId: 'default',
+      vendor: 'sysco',
+      sku: 'AVO-1',
+      ingredient: 'Avocado',
+      unitPrice: 2.5,
+      daysAgo: 0,
+    });
+    insertPriceSnapshot({
+      locationId: 'other',
+      vendor: 'shamrock',
+      sku: 'CHEESE-1',
+      ingredient: 'Cheddar',
+      unitPrice: 4,
+      daysAgo: 6,
+    });
+    insertPriceSnapshot({
+      locationId: 'other',
+      vendor: 'shamrock',
+      sku: 'CHEESE-1',
+      ingredient: 'Cheddar',
+      unitPrice: 5,
+      daysAgo: 0,
+    });
+    insertPriceSnapshot({
+      locationId: 'other',
+      vendor: 'shamrock',
+      sku: 'CREAM-1',
+      ingredient: 'Cream',
+      unitPrice: 3,
+      daysAgo: 6,
+    });
+    insertPriceSnapshot({
+      locationId: 'other',
+      vendor: 'shamrock',
+      sku: 'CREAM-1',
+      ingredient: 'Cream',
+      unitPrice: 3.5,
+      daysAgo: 0,
+    });
+
+    assert.strictEqual(readPriceShocksCountLikePage(db, 'default'), 1);
+    assert.strictEqual(readPriceShocksCountLikePage(db, 'other'), 2);
+  });
+
+  it('scopes depletion issues by location', () => {
+    db.prepare(
+      `INSERT INTO sales_lines (period_label, item_name, quantity_sold, net_sales, source, location_id)
+       VALUES ('2026-W17', 'Default Plate', 1, 10, 'toast', 'default'),
+              ('2026-W17', 'Satellite Plate', 1, 12, 'toast', 'other'),
+              ('2026-W17', 'Satellite Bowl', 1, 13, 'toast', 'other')`,
+    ).run();
+
+    assert.strictEqual(readDepletionIssuesCountLikePage(db, 'default'), 1);
+    assert.strictEqual(readDepletionIssuesCountLikePage(db, 'other'), 2);
+  });
+
+  it('scopes cert warnings by location', () => {
+    db.prepare(
+      `INSERT INTO staff_certifications
+         (location_id, cook_id, cert_type, cert_label, expires_on, active)
+       VALUES
+         ('default', 'alice', 'food_handler', 'Food Handler', ?, 1),
+         ('other', 'bob', 'cfpm', 'ServSafe Manager', ?, 1),
+         ('other', 'carla', 'tips', 'TIPS', ?, 1)`,
+    ).run(
+      isoDaysFromToday(15),
+      isoDaysFromToday(-1),
+      isoDaysFromToday(10),
+    );
+
+    assert.deepStrictEqual(readCertWarningsLikePage(db, 'default'), {
+      expired: 0,
+      expiringSoon: 1,
+      total: 1,
+    });
+    assert.deepStrictEqual(readCertWarningsLikePage(db, 'other'), {
+      expired: 1,
+      expiringSoon: 1,
+      total: 2,
+    });
   });
 });
 
