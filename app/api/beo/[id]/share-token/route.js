@@ -4,6 +4,7 @@ import { requirePin } from '../../../../../lib/pin';
 import { postAuditEvent } from '../../../../../lib/auditEvents';
 import { withIdempotency } from '../../../../../lib/idempotency';
 import { generateShareToken, buildShareUrl } from '../../../../../lib/beoShare';
+import { locationFromRequest } from '../../../../../lib/location';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,9 +31,10 @@ async function handler(req, ctx) {
   }
 
   const db = getDb();
+  const location = locationFromRequest(req);
   const event = db
-    .prepare('SELECT id, location_id, share_token FROM beo_events WHERE id = ?')
-    .get(eventId);
+    .prepare('SELECT id, location_id, share_token FROM beo_events WHERE id = ? AND location_id = ?')
+    .get(eventId, location);
   if (!event) return Response.json({ error: 'event not found' }, { status: 404 });
 
   if (event.share_token) {

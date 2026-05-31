@@ -50,13 +50,13 @@ function makeReq({ method = 'GET', path = '/', body, withPin = false, extraHeade
   return new Request(`http://localhost${path}`, init);
 }
 
-function seedEvent({ title = 'Hendricks Wedding', date = '2026-06-15' } = {}) {
+function seedEvent({ title = 'Hendricks Wedding', date = '2026-06-15', location = 'default' } = {}) {
   const r = conn
     .prepare(
       `INSERT INTO beo_events (title, event_date, event_time, contact_name, guest_count, notes, tax_rate, service_fee_pct, location_id)
-       VALUES (?, ?, '5:00pm', 'Sarah Hendricks', 80, 'No nuts please.', 0.0675, 20, 'default')`,
+       VALUES (?, ?, '5:00pm', 'Sarah Hendricks', 80, 'No nuts please.', 0.0675, 20, ?)`,
     )
-    .run(title, date);
+    .run(title, date, location);
   return Number(r.lastInsertRowid);
 }
 
@@ -95,6 +95,22 @@ describe('POST /api/beo/[id]/share-token', () => {
       { params: { id: '9999' } },
     );
     assert.equal(res.status, 404);
+  });
+
+  it('does not mint a token for a BEO in another location', async () => {
+    const id = seedEvent({ location: 'west' });
+    const res = await shareTokenRoute.POST(
+      makeReq({ method: 'POST', path: `/api/beo/${id}/share-token?location=default`, withPin: true }),
+      { params: { id: String(id) } },
+    );
+
+    assert.equal(res.status, 404);
+    const stored = conn.prepare('SELECT share_token FROM beo_events WHERE id = ?').get(id);
+    assert.equal(stored.share_token, null);
+    const audits = conn
+      .prepare(`SELECT * FROM audit_events WHERE entity = 'beo_event' AND entity_id = ?`)
+      .all(id);
+    assert.equal(audits.length, 0);
   });
 
   it('generates a token, persists it, returns share_url + created:true', async () => {
