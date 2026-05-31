@@ -17,6 +17,9 @@ import { readSevenShiftsCreds, bearerHeader } from './auth.mjs';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_PAGE_SIZE = 200;
+const DEFAULT_RATE_LIMIT_RETRIES = 3;
+const MAX_RATE_LIMIT_RETRIES = 5;
+const MAX_RATE_LIMIT_DELAY_MS = 30_000;
 
 function maskUrl(u) {
   // Scrub query params that might carry semi-sensitive cursor or
@@ -27,6 +30,34 @@ function maskUrl(u) {
   } catch {
     return u;
   }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function responseHeader(headers, name) {
+  if (!headers) return null;
+  if (typeof headers.get === 'function') return headers.get(name);
+  return headers[name] ?? headers[name.toLowerCase()] ?? null;
+}
+
+function clampDelay(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  return Math.min(Math.ceil(ms), MAX_RATE_LIMIT_DELAY_MS);
+}
+
+function rateLimitDelayMs(headers, attempt) {
+  const retryAfter = responseHeader(headers, 'Retry-After');
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    const secondsDelay = clampDelay(seconds * 1000);
+    if (secondsDelay != null) return secondsDelay;
+
+    const dateDelay = clampDelay(Date.parse(retryAfter) - Date.now());
+    if (dateDelay != null) return dateDelay;
+  }
+  return Math.min(1000 * 2 ** attempt, MAX_RATE_LIMIT_DELAY_MS);
 }
 
 /**
@@ -47,6 +78,8 @@ export async function get7shifts(
     creds = readSevenShiftsCreds(),
     fetchImpl = globalThis.fetch,
     timeoutMs = DEFAULT_TIMEOUT_MS,
+    rateLimitRetries = DEFAULT_RATE_LIMIT_RETRIES,
+    sleepImpl = sleep,
   } = {},
 ) {
   const u = new URL(`https://${creds.host}/v2/company/${creds.companyId}/${endpoint}`);
@@ -54,17 +87,32 @@ export async function get7shifts(
     if (v == null) continue;
     u.searchParams.set(k, String(v));
   }
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), timeoutMs);
-  try {
-    const res = await fetchImpl(u.toString(), {
-      method: 'GET',
-      headers: {
-        Authorization: bearerHeader(creds.token),
-        Accept: 'application/json',
-      },
-      signal: ac.signal,
-    });
+  const maxRetries = Math.min(
+    Math.max(0, Number(rateLimitRetries) || 0),
+    MAX_RATE_LIMIT_RETRIES,
+  );
+  for (let attempt = 0; ; attempt++) {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), timeoutMs);
+    let res;
+    try {
+      res = await fetchImpl(u.toString(), {
+        method: 'GET',
+        headers: {
+          Authorization: bearerHeader(creds.token),
+          Accept: 'application/json',
+        },
+        signal: ac.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (res.status === 429 && attempt < maxRetries) {
+      await sleepImpl(rateLimitDelayMs(res.headers, attempt));
+      continue;
+    }
+
     if (!res.ok) {
       const excerpt = (await res.text().catch(() => '')).slice(0, 240);
       throw new Error(
@@ -74,8 +122,6 @@ export async function get7shifts(
       );
     }
     return await res.json();
-  } finally {
-    clearTimeout(timer);
   }
 }
 
@@ -99,6 +145,8 @@ export async function* paginate7shifts(
     fetchImpl = globalThis.fetch,
     pageSize = DEFAULT_PAGE_SIZE,
     timeoutMs = DEFAULT_TIMEOUT_MS,
+    rateLimitRetries = DEFAULT_RATE_LIMIT_RETRIES,
+    sleepImpl = sleep,
   } = {},
 ) {
   let cursor = null;
@@ -108,7 +156,14 @@ export async function* paginate7shifts(
   for (let page = 0; page < MAX_PAGES; page++) {
     const q = { limit: pageSize, ...query };
     if (cursor) q.cursor = cursor;
-    const body = await get7shifts(endpoint, { query: q, creds, fetchImpl, timeoutMs });
+    const body = await get7shifts(endpoint, {
+      query: q,
+      creds,
+      fetchImpl,
+      timeoutMs,
+      rateLimitRetries,
+      sleepImpl,
+    });
     const rows = Array.isArray(body?.data) ? body.data : [];
     for (const row of rows) yield row;
     const next = body?.meta?.cursor?.next ?? body?.meta?.next_cursor ?? null;

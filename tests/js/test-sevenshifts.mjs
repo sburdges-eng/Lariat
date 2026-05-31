@@ -119,6 +119,39 @@ describe('paginate7shifts', () => {
     assert.deepStrictEqual(out, ['a', 'b']);
   });
 
+  it('backs off on 429 using Retry-After before retrying the page', async () => {
+    let calls = 0;
+    const sleeps = [];
+    const fetchImpl = async () => {
+      calls++;
+      if (calls === 1) {
+        return {
+          ok: false, status: 429, statusText: 'Too Many Requests',
+          headers: { get: (name) => (name.toLowerCase() === 'retry-after' ? '2' : null) },
+          async json() { return {}; },
+          async text() { return 'rate limited'; },
+        };
+      }
+      return {
+        ok: true, status: 200, statusText: 'OK',
+        async json() { return { data: [{ id: 7 }], meta: {} }; },
+        async text() { return ''; },
+      };
+    };
+    const out = [];
+    for await (const r of paginate7shifts('users', {
+      creds: fakeCreds(),
+      fetchImpl,
+      sleepImpl: async (ms) => { sleeps.push(ms); },
+    })) {
+      out.push(r.id);
+    }
+
+    assert.deepStrictEqual(out, [7]);
+    assert.strictEqual(calls, 2);
+    assert.deepStrictEqual(sleeps, [2000]);
+  });
+
   it('throws on non-2xx with body excerpt and masked token', async () => {
     const fetchImpl = async () => ({
       ok: false, status: 401, statusText: 'Unauthorized',
@@ -127,7 +160,7 @@ describe('paginate7shifts', () => {
     });
     let err;
     try {
-      // eslint-disable-next-line no-unused-vars
+       
       for await (const _ of paginate7shifts('users', { creds: fakeCreds(), fetchImpl })) {
         // no rows expected
       }

@@ -77,7 +77,7 @@ restore.
 | Multi-instance sync | **FROZEN** | `lib/syncFeed.ts` appendOp/replaySince/checkpoint; `/api/peers/sync-since` Ed25519 auth | H1–H9/M1–M5 audit closed |
 | Idempotency cleanup | **FROZEN** | `lib/idempotency.ts:90` lazy `sweepExpired()` per request | No unbounded growth |
 | Env-var canonicalization (F7/F8) | **FROZEN** | `LARIAT_LOCATION_ID` + `LARIAT_7SHIFTS_API_KEY` canonical w/ legacy one-shot warnings | Commit `7caead3` |
-| **7shifts rate-limit backoff** | DEFERRED | `scripts/sevenshifts_api/client.mjs` paginates with no backoff/429 handling | Risk only on >30-day, multi-employee backfills |
+| 7shifts rate-limit backoff | **FROZEN** | `scripts/sevenshifts_api/client.mjs` retries HTTP 429 with `Retry-After`/bounded backoff; `tests/js/test-sevenshifts.mjs` pins fake-fetch coverage | No live API dependency in tests |
 | **Prism integration** | DEFERRED (blocked) | `scripts/prism_api/client.mjs` is a guarded scaffold; `REAL_ENDPOINT_PATH=null`, throws until confirmed | Blocked on external API spec from Prism CSM |
 | Cloud-bridge push | **FROZEN** | `lib/cloudBridge.ts:92` `pushSnapshot()`→`pushBatch()`; DLQ admin routes complete | |
 | **Cloud-bridge `pullSnapshot`/`status`** | DEFERRED (by design) | `cloudBridge.ts:30` `CLOUD_BRIDGE_NOT_IMPLEMENTED`; comment: "stay stubbed in v1 — push is [priority]" | `ed0b32e` claims "pullSnapshot + status implementation" — intentional v1 stub, not done. See §2.4 |
