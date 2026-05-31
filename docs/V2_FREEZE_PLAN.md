@@ -86,7 +86,7 @@ restore.
 
 | Subsystem | Status | Evidence | Note |
 |-----------|--------|----------|------|
-| KDS server protocol | **FROZEN** | `lib/kds.ts:100` `BumpResponse {id, bumped_at}`; bump route + tables; `test-kds-bump-route.mjs` present | Roadmap 1.3 done — bump route now tested |
+| KDS server protocol | **FROZEN** | `lib/kds.ts:100` `BumpResponse {id, bumped_at}`; bump route + tables; `test-kds-bump-route.mjs`; `Lariat-KDS` branch `fix/kds-bump-response-regression` (`c694206`) Swift parser + doc sentinel tests | Roadmap 1.3 and 1.12 done; KDS regression branch is ready for PR |
 | BEO + share-token flow | **FROZEN** | 8 routes; `test-beo-share-api.mjs` covers anonymous-token reads + signature + audit | Security-tested |
 | Live ops (today / eighty-six / kds-punch) | **FROZEN** | pages wired in `navRegistry.js:78-98` | UI-only, no API layer |
 | mDNS discovery | **FROZEN** (untested) | `lib/mdnsDiscovery.ts` advertise/discover, boot-wired via instrumentation | No isolated unit tests |
