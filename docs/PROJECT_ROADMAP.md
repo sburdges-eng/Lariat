@@ -73,7 +73,7 @@ I added the 7 food-safety boards. Still missing from navRegistry (per audit F1):
 |------|--------|------|
 | 1.10 | M | **Closed:** Toast OAuth refresh-token handling is covered by `scripts/toast_api/auth.mjs`; `isCacheStale()` refreshes 5 minutes early and `tests/js/test-toast-api-helpers.mjs` pins the boundary. |
 | 1.11 | M | **Closed:** 7shifts rate-limit handling now lives in `scripts/sevenshifts_api/client.mjs`; HTTP 429 retries honor `Retry-After` with bounded fallback backoff, pinned by fake-fetch coverage in `tests/js/test-sevenshifts.mjs`. |
-| 1.12 | L | **Closed on KDS branch:** `Lariat-KDS` branch `fix/kds-bump-response-regression` (`c694206`) adds the Core `BumpResponse` parser and protocol-doc sentinel tests for `id` + `bumped_at`; `swift test` is 27/27. |
+| 1.12 | L | **Closed:** `Lariat-KDS` PR #2 merged at `84adff3` (head `c694206`), adding the Core `BumpResponse` parser and protocol-doc sentinel tests for `id` + `bumped_at`; `swift test` is 27/27. |
 | 1.13 | M | **Cloud-bridge replay determinism.** Recent commits show the sync audit (H1–H8, M1–M11) is closed but I didn't see end-to-end replay tests. Build one: capture N hours of outbox writes, replay against a fresh DB, assert state-equivalence. |
 | 1.14 | S | **Closed:** idempotency-key TTL is the lazy `sweepExpired()` path in `lib/idempotency.ts`, covered by `tests/js/test-idempotency-wrapper.mjs` case 5. |
 
