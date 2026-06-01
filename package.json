@@ -23,6 +23,7 @@
     "test:mdns-discovery": "node --experimental-strip-types --test tests/js/test-mdns-discovery.mjs",
     "test:cloud-bridge-push": "node --experimental-strip-types --test tests/js/test-cloud-bridge-push.mjs",
     "test:cloud-bridge-drainer": "node --experimental-strip-types --test tests/js/test-cloud-bridge-drainer.mjs",
+    "test:cloud-bridge-replay-determinism": "node --experimental-strip-types --test tests/js/test-cloud-bridge-replay-determinism.mjs",
     "cloud-bridge:drain": "node --experimental-strip-types scripts/cloud-bridge-drainer.mjs",
     "start": "next start -H 0.0.0.0 -p 3000",
     "restart": "lsof -t -i :3000 -sTCP:LISTEN 2>/dev/null | xargs -r kill; sleep 1 && next start -H 0.0.0.0 -p 3000",
