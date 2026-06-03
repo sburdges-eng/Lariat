@@ -33,5 +33,18 @@
       "Bash(diff:*)",
       "Bash(tree:*)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command // \"\"'); case \"$cmd\" in *\"git commit\"*) cd \"$CLAUDE_PROJECT_DIR\" && npm run lint && npm run typecheck || { echo 'Pre-commit gate failed: lint/typecheck must pass before committing.' >&2; exit 2; } ;; esac"
+          }
+        ]
+      }
+    ]
   }
 }
