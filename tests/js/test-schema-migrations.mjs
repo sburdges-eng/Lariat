@@ -996,3 +996,43 @@ describe('beo_line_items.course_id — T4 ALTER', () => {
     assert.equal(courseFk.on_delete, 'SET NULL');
   });
 });
+
+describe('lari_conversation_turns schema', () => {
+  it('exists with canonical columns in order', () => {
+    const info = db.prepare('PRAGMA table_info(lari_conversation_turns)').all();
+    const names = info.map((c) => c.name);
+    assert.deepStrictEqual(names, [
+      'schemaVersion',
+      'id',
+      'location_id',
+      'cook_id',
+      'conversation_session_id',
+      'user_content',
+      'assistant_content',
+      'manager_tier',
+      'created_at',
+      'expires_at',
+    ]);
+  });
+
+  it('requires partition fields, clipped content fields, tier flag, and expiry', () => {
+    const info = db.prepare('PRAGMA table_info(lari_conversation_turns)').all();
+    const byName = Object.fromEntries(info.map((c) => [c.name, c]));
+    assert.equal(byName.schemaVersion.type.toUpperCase(), 'TEXT');
+    assert.equal(byName.schemaVersion.notnull, 1);
+    assert.equal(byName.location_id.notnull, 1);
+    assert.equal(byName.cook_id.notnull, 1);
+    assert.equal(byName.conversation_session_id.notnull, 1);
+    assert.equal(byName.user_content.notnull, 1);
+    assert.equal(byName.assistant_content.notnull, 1);
+    assert.equal(byName.manager_tier.notnull, 1);
+    assert.equal(byName.expires_at.notnull, 1);
+  });
+
+  it('has partition and expiry indexes', () => {
+    const indexes = db.prepare("PRAGMA index_list('lari_conversation_turns')").all();
+    const names = indexes.map((i) => i.name);
+    assert.ok(names.includes('idx_lari_conversation_partition'), 'partition index missing');
+    assert.ok(names.includes('idx_lari_conversation_expiry'), 'expiry index missing');
+  });
+});

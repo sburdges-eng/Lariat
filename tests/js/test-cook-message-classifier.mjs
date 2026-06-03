@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isImperativeCommand } from '../../lib/cookMessageClassifier.ts';
+import {
+  isImperativeCommand,
+  requiresPinBeforeLlm,
+} from '../../lib/cookMessageClassifier.ts';
 
 // The Q-vs-C boundary cases that justify having a code-side classifier
 // at all. The LLM's prompt-side router was tripping on "86" as a noun.
@@ -72,4 +75,20 @@ test('non-string inputs', () => {
   assert.equal(isImperativeCommand(86), false);
   assert.equal(isImperativeCommand({}), false);
   assert.equal(isImperativeCommand([]), false);
+});
+
+test('PIN-required command classifier: clear mutations short-circuit before LLM', () => {
+  assert.equal(requiresPinBeforeLlm('86 the salmon'), true);
+  assert.equal(requiresPinBeforeLlm('eighty-six the salmon'), true);
+  assert.equal(requiresPinBeforeLlm('log 5 lb of carrots received'), true);
+  assert.equal(requiresPinBeforeLlm('mark the walk-in broken'), true);
+  assert.equal(requiresPinBeforeLlm('update inventory for cilantro'), true);
+  assert.equal(requiresPinBeforeLlm('generate prep for grill'), true);
+});
+
+test('PIN-required command classifier: read-like imperatives can still reach db_query', () => {
+  assert.equal(requiresPinBeforeLlm('update me on sales'), false);
+  assert.equal(requiresPinBeforeLlm('generate a cooling report'), false);
+  assert.equal(requiresPinBeforeLlm('show recent temp log'), false);
+  assert.equal(requiresPinBeforeLlm('86 the salmon?'), false);
 });
