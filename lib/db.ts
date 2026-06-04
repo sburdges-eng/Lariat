@@ -1702,7 +1702,9 @@ export function initSchema(db: DB): void {
       stars INTEGER DEFAULT 1,
       awarded_date TEXT DEFAULT (date('now')),
       location_id TEXT DEFAULT 'default',
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (datetime('now')),
+      deleted_at TEXT,
+      deleted_by TEXT
     );
 
     CREATE TABLE IF NOT EXISTS temp_log (
@@ -3019,6 +3021,10 @@ function assertCriticalSchemas(db: DB): void {
       'technique_score', 'speed_score', 'notes', 'reviewer_name',
       'location_id', 'created_at',
     ],
+    gold_stars: [
+      'id', 'cook_name', 'reason', 'stars', 'awarded_date',
+      'location_id', 'created_at', 'deleted_at', 'deleted_by',
+    ],
   };
   for (const [table, required] of Object.entries(requirements)) {
     const cols = (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[])
@@ -3042,6 +3048,7 @@ function ensureIndexes(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_signoff_loc ON station_signoffs(location_id, shift_date);
     CREATE INDEX IF NOT EXISTS idx_86_loc_date ON eighty_six(location_id, shift_date);
     CREATE INDEX IF NOT EXISTS idx_inv_loc_date ON inventory_updates(location_id, shift_date);
+    CREATE INDEX IF NOT EXISTS idx_gold_stars_live ON gold_stars(location_id, id DESC) WHERE deleted_at IS NULL;
     CREATE INDEX IF NOT EXISTS idx_psc_vendor_sku ON pack_size_changes(vendor, sku);
     CREATE INDEX IF NOT EXISTS idx_psc_ack ON pack_size_changes(acknowledged, detected_at);
     -- T7: per-master lookup indexes. Placed in ensureIndexes (not inline in
@@ -3248,6 +3255,18 @@ function migrateLegacyColumns(db: DB): void {
     try {
       db.exec('ALTER TABLE line_check_entries ADD COLUMN glove_change_attested INTEGER');
     } catch { /* ignore */ }
+  }
+
+  // Runtime UX audit 2026-06-04 F2: staff recognition rows must not be
+  // hard-deleted. These nullable columns make the delete path a soft archive
+  // while preserving pre-migration rows as live records.
+  const goldCols = t('gold_stars');
+  const goldMigrations: [string, string][] = [
+    ['deleted_at', 'ALTER TABLE gold_stars ADD COLUMN deleted_at TEXT'],
+    ['deleted_by', 'ALTER TABLE gold_stars ADD COLUMN deleted_by TEXT'],
+  ];
+  for (const [col, ddl] of goldMigrations) {
+    if (!goldCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
   }
 
   // Phase 1 C1 (GH #267) — day-level sales support on sales_lines.

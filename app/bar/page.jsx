@@ -208,7 +208,13 @@ export default function BarPage({ searchParams }) {
       {/* List */}
       {rows.length === 0 ? (
         <div className="card">
-          <p className="meta">No cocktail recipes found.</p>
+          <h2 style={{ marginTop: 0 }}>Bar setup not ready</h2>
+          <p className="meta">
+            No bar recipes are ready for pour-cost tracking yet. Add cocktail recipes with menu prices and recipe costs, then this page will sort them.
+          </p>
+          <p style={{ marginBottom: 0 }}>
+            <Link href="/recipes">Open recipes</Link>
+          </p>
         </div>
       ) : (
         <div className="stack">

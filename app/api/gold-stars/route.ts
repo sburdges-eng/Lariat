@@ -10,7 +10,13 @@ export async function GET(req: Request) {
   const loc = locationFromRequest(req);
   
   const rows = db
-    .prepare('SELECT * FROM gold_stars WHERE location_id = ? ORDER BY id DESC LIMIT 50')
+    .prepare(
+      `SELECT * FROM gold_stars
+        WHERE location_id = ?
+          AND deleted_at IS NULL
+        ORDER BY id DESC
+        LIMIT 50`,
+    )
     .all(loc);
     
   return Response.json(rows);

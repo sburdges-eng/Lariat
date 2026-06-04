@@ -3,18 +3,15 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
+import { destinationLabel, safeNextPath } from './pinDestination.js';
 
 export default function LoginPinForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Only accept a same-origin path: must start with `/`, reject protocol-relative (`//`)
-  // and backslash tricks (`/\`) that some browsers/proxies treat as host-switching.
   const rawNext = searchParams.get('next') || '';
   const setupRequired = searchParams.get('setup') === '1';
-  const safeNext =
-    rawNext.startsWith('/') && !rawNext.startsWith('//') && !rawNext.startsWith('/\\')
-      ? rawNext
-      : '/analytics';
+  const safeNext = safeNextPath(rawNext);
+  const destination = destinationLabel(rawNext);
   const [pin, setPin] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
@@ -50,8 +47,22 @@ export default function LoginPinForm() {
 
   return (
     <form onSubmit={onSubmit} className="card">
-      <label style={{ display: 'block', fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>Manager PIN</label>
+      <h2 style={{ marginTop: 0, marginBottom: 6 }}>Open {destination}</h2>
+      <p style={{ color: 'var(--muted)', marginTop: 0, marginBottom: 16 }}>
+        Manager PIN required for this page.
+      </p>
       <input
+        type="text"
+        name="username"
+        autoComplete="username"
+        value="manager"
+        readOnly
+        hidden
+      />
+      <label htmlFor="manager-pin" style={{ display: 'block', fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>Manager PIN</label>
+      <input
+        id="manager-pin"
+        name="pin"
         type="password"
         autoComplete="current-password"
         value={pin}

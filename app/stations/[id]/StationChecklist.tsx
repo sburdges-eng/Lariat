@@ -87,10 +87,35 @@ export default function StationChecklist({ stationId, stationName, date, items, 
 
   const update = (item: string, patch: Partial<StationCheckItem>) => setState(s => ({ ...s, [item]: { ...(s[item] ?? EMPTY_ROW), ...patch } }));
   const rowFor = (item: string): StationCheckItem => state[item] ?? EMPTY_ROW;
+  const currentCook = () => {
+    const id = cookRef.current || window.localStorage.getItem('lariat_cook') || '';
+    if (id && id !== cookRef.current) cookRef.current = id;
+    if (id && id !== cookId) setCookId(id);
+    return id;
+  };
+
+  const requireCook = () => {
+    const id = currentCook();
+    if (!id) {
+      alert('Pick your name in the sidebar first.');
+      return '';
+    }
+    return id;
+  };
+
+  const requireStatus = (item: string, row: StationCheckItem) => {
+    if (!row.status) {
+      alert(`Tap Pass, Fail, or n/a for "${item}" before saving counts.`);
+      return false;
+    }
+    return true;
+  };
 
   const persist = async (item: string) => {
-    if (!cookId) { alert('Pick your name in the sidebar first.'); return; }
+    const cid = requireCook();
+    if (!cid) return;
     const row = rowFor(item);
+    if (!requireStatus(item, row)) return;
     try {
       const res = await fetch('/api/checks', {
         method: 'POST',
@@ -102,7 +127,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
           status: row.status,
           par: row.par, have: row.have, need: row.need, note: row.note,
           glove_change_attested: row.glove_change_attested,
-          cook_id: cookId,
+          cook_id: cid,
           location_id: locationId,
         }),
       });
@@ -117,27 +142,19 @@ export default function StationChecklist({ stationId, stationName, date, items, 
     router.refresh();
   };
 
-  const setStatus = async (item: string, status: 'pass' | 'fail') => {
-    const toggled = rowFor(item).status === status ? null : status;
-    // Read latest committed state via the functional updater so React 18's
-    // automatic batching of rapid field edits doesn't hand us a stale
-    // snapshot. The fetch fires OUTSIDE setState so we can await + check
-    // res.ok — the prior implementation called fetch inside the setState
-    // callback and ignored both rejections and non-2xx, silently losing
-    // pass/fail taps and causing the signoff gate to block with "unnoted
-    // fails" that actually WERE noted locally.
-    let snapshot!: StationCheckItem;
-    setState(s => {
-      snapshot = { ...(s[item] ?? EMPTY_ROW), status: toggled };
-      return { ...s, [item]: snapshot };
-    });
-    const cid = cookRef.current || null;
+  const setStatus = async (item: string, status: 'pass' | 'fail' | 'na') => {
+    const cid = requireCook();
+    if (!cid) return;
+    const previous = rowFor(item);
+    if (previous.status === status) return;
+    const snapshot = { ...previous, status };
+    update(item, { status });
     try {
       const res = await fetch('/api/checks', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          shift_date: date, station_id: stationId, item, status: toggled,
+          shift_date: date, station_id: stationId, item, status,
           par: snapshot.par, have: snapshot.have, need: snapshot.need, note: snapshot.note,
           glove_change_attested: snapshot.glove_change_attested,
           cook_id: cid,
@@ -145,17 +162,20 @@ export default function StationChecklist({ stationId, stationName, date, items, 
         }),
       });
       if (!res.ok) {
+        setState(s => ({ ...s, [item]: previous }));
         alert(`Couldn’t save ${status} for "${item}" — retry. (HTTP ${res.status})`);
       }
     } catch {
+      setState(s => ({ ...s, [item]: previous }));
       alert(`Lost connection saving ${status} for "${item}" — retry.`);
     }
   };
 
   const eightySix = async (item: string) => {
+    const cid = requireCook();
+    if (!cid) return;
     const reason = window.prompt(`86 "${item}" — reason? (out / spoiled / dropped / no_make / burned / prep_short / other)`, 'out');
     if (reason === null) return;
-    const cid = cookRef.current || null;
     try {
       const res86 = await fetch('/api/eighty-six', {
         method: 'POST',
@@ -317,6 +337,15 @@ export default function StationChecklist({ stationId, stationName, date, items, 
               </button>
               <button
                 type="button"
+                className={`btn ${row.status === 'na' ? 'green' : ''}`}
+                aria-label={`Mark ${item} n/a`}
+                aria-pressed={row.status === 'na' ? 'true' : 'false'}
+                onClick={() => setStatus(item, 'na')}
+              >
+                n/a
+              </button>
+              <button
+                type="button"
                 className="btn"
                 onClick={() => eightySix(item)}
                 title="86 this item"
@@ -332,13 +361,15 @@ export default function StationChecklist({ stationId, stationName, date, items, 
                   type="checkbox"
                   checked={row.glove_change_attested === true}
                   onChange={async (e) => {
+                    const cid = requireCook();
+                    if (!cid) return;
+                    if (!requireStatus(item, rowFor(item))) return;
                     const next = e.target.checked ? true : null;
                     const prev = rowFor(item).glove_change_attested;
                     update(item, { glove_change_attested: next });
                     // Persist inline. FDA §3-301.11 attestation is regulatory —
                     // if the write fails, roll back the optimistic toggle so
                     // the UI never lies about a glove change that didn't land.
-                    const cid = cookRef.current || null;
                     const cur: StationCheckItem = { ...rowFor(item), glove_change_attested: next };
                     try {
                       const res = await fetch('/api/checks', {

@@ -128,7 +128,7 @@ export default function PunchTicketPage() {
               key={idx}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '2fr 80px 110px 2fr 32px',
+                gridTemplateColumns: lines.length > 1 ? '2fr 80px 110px 2fr 32px' : '2fr 80px 110px 2fr',
                 gap: 8,
                 alignItems: 'end',
                 marginBottom: 8,
@@ -177,20 +177,20 @@ export default function PunchTicketPage() {
                   placeholder="no pickle; sub fries"
                 />
               </label>
-              <button
-                type="button"
-                onClick={() => removeLine(idx)}
-                disabled={lines.length === 1}
-                aria-label="Remove line"
-                style={{
-                  height: 36,
-                  border: '1px solid var(--border, #ccc)',
-                  background: 'transparent',
-                  borderRadius: 6,
-                  cursor: lines.length === 1 ? 'not-allowed' : 'pointer',
-                  opacity: lines.length === 1 ? 0.4 : 1,
-                }}
-              >×</button>
+              {lines.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeLine(idx)}
+                  aria-label="Remove line"
+                  style={{
+                    height: 36,
+                    border: '1px solid var(--border, #ccc)',
+                    background: 'transparent',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                  }}
+                >×</button>
+              )}
             </div>
           ))}
 

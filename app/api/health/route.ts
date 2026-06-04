@@ -20,6 +20,7 @@ import { resolveDataDir } from '../../../lib/dataDir';
 import { getReleaseInfo } from '../../../lib/release';
 import { managerPinGateConfigured } from '../../../lib/managerPins';
 import { locationIdFromEnv } from '../../../lib/location';
+import { getMdnsStatus } from '../../../lib/mdnsDiscovery';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -27,8 +28,8 @@ export const dynamic = 'force-dynamic';
 
 const PROBE_TIMEOUT_MS = 2_500;
 
-type ProbeOK = { ok: true; detail: string; ms: number };
-type ProbeDown = { ok: false; error: string; ms: number };
+type ProbeOK = { ok: true; detail: string; ms: number; code?: string };
+type ProbeDown = { ok: false; error: string; ms: number; code?: string };
 type Probe = ProbeOK | ProbeDown;
 
 async function timedFetch(url: string, init?: RequestInit): Promise<Response> {
@@ -181,6 +182,15 @@ function probePinGate(): Probe {
       };
 }
 
+function probeMdns(): Probe {
+  const t0 = Date.now();
+  const status = getMdnsStatus();
+  const ms = Date.now() - t0;
+  return status.ok
+    ? { ok: true, detail: status.detail, code: status.code, ms }
+    : { ok: false, error: status.error, code: status.code, ms };
+}
+
 export async function GET() {
   // Parallel where I/O is involved, sync for the rest. Cap total wall
   // time at PROBE_TIMEOUT_MS + slack.
@@ -191,6 +201,7 @@ export async function GET() {
     sqlite: probeSqlite(),
     cache: probeCache(),
     pin_gate: probePinGate(),
+    mdns: probeMdns(),
     // Required for the LaRi (kitchen assistant):
     ollama,
     compliance: probeCompliance(),

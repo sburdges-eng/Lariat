@@ -85,6 +85,7 @@ function baseBody(overrides = {}) {
     station_id: STATION,
     item: 'tomato dice mise',
     status: 'pass',
+    cook_id: 'alice',
     ...overrides,
   };
 }
@@ -202,10 +203,43 @@ describe('POST /api/checks — required-field validation', () => {
       station_id: STATION,
       item: 'x',
       glove_change_attested: true,
+      cook_id: 'alice',
     }));
     assert.strictEqual(res.status, 400);
     const body = await res.json();
     assert.strictEqual(body.error, 'missing fields');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────
+// POST — HACCP status + actor validation
+// ─────────────────────────────────────────────────────────────────
+
+describe('POST /api/checks — status and cook validation', () => {
+  it('400 when status is null instead of falling through to a SQLite 500', async () => {
+    const res = await POST(postReq(baseBody({ status: null })));
+    assert.strictEqual(res.status, 400);
+    const body = await res.json();
+    assert.match(body.error, /status/i);
+    assert.strictEqual(testDb.prepare('SELECT COUNT(*) AS c FROM line_check_entries').get().c, 0);
+    assert.strictEqual(testDb.prepare('SELECT COUNT(*) AS c FROM audit_events').get().c, 0);
+    assert.strictEqual(testDb.prepare('SELECT COUNT(*) AS c FROM sync_feed').get().c, 0);
+  });
+
+  it('400 when a pass/fail row has no cook_id', async () => {
+    const res = await POST(postReq(baseBody({ cook_id: '' })));
+    assert.strictEqual(res.status, 400);
+    const body = await res.json();
+    assert.match(body.error, /cook/i);
+    assert.strictEqual(testDb.prepare('SELECT COUNT(*) AS c FROM line_check_entries').get().c, 0);
+  });
+
+  it('400 when status is not one of pass, fail, or na', async () => {
+    const res = await POST(postReq(baseBody({ status: 'clear' })));
+    assert.strictEqual(res.status, 400);
+    const body = await res.json();
+    assert.match(body.error, /status/i);
+    assert.strictEqual(testDb.prepare('SELECT COUNT(*) AS c FROM line_check_entries').get().c, 0);
   });
 });
 

@@ -5,5 +5,6 @@ interface StationSummary {
 export function lineSummaryText(stations: StationSummary[]): string {
   const stationCount = stations.length;
   const lineCheckCount = stations.filter((s) => s.prog).length;
-  return `${stationCount} stations · ${lineCheckCount} line checks · press 1–6`;
+  const shortcutText = lineCheckCount > 0 ? `shortcuts 1–${lineCheckCount}` : 'no line-check shortcuts';
+  return `${stationCount} stations · ${lineCheckCount} line checks · ${shortcutText}`;
 }

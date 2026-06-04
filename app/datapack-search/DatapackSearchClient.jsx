@@ -1,7 +1,7 @@
 // @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { nextDetails } from './detailsState';
 
@@ -39,6 +39,8 @@ const MODE_OPTIONS = [
   { value: 'semantic', label: 'Semantic (BGE)' },
   { value: 'hybrid', label: 'Hybrid (RRF)' },
 ];
+
+const DATAPACK_UNAVAILABLE_COPY = 'Reference data is not installed on this Mac. Ask a manager to finish setup.';
 
 // Cap the nutrient drill-in to a sensible subset. We match by
 // nutrient_name prefix (USDA names are inconsistent on units) and
@@ -356,7 +358,34 @@ export default function DatapackSearchClient() {
   // now abort the previous request before issuing a new one.
   const searchAbortRef = useRef(null);
 
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/datapack/search?op=stats')
+      .then(async (res) => {
+        if (!alive) return;
+        if (res.status === 503) {
+          setResponse({ kind: 'unavailable' });
+          return;
+        }
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setResponse({
+            kind: 'error',
+            message: body?.error || `HTTP ${res.status}`,
+            status: res.status,
+          });
+        }
+      })
+      .catch(() => {
+        if (alive) setResponse({ kind: 'error', message: 'Could not check reference data.' });
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const runSearch = useCallback(async (q, modeArg, srcOrBucket) => {
+    if (response.kind === 'unavailable') return;
     const trimmed = q.trim();
     if (!trimmed) {
       if (searchAbortRef.current) searchAbortRef.current.abort();
@@ -453,7 +482,7 @@ export default function DatapackSearchClient() {
       source: isBucketed ? null : body.source,
       bucket: isBucketed ? body.bucket : null,
     });
-  }, []);
+  }, [response.kind]);
 
   const onSubmit = (e) => {
     e.preventDefault();
@@ -680,6 +709,7 @@ export default function DatapackSearchClient() {
 
         <button
           type="submit"
+          disabled={response.kind === 'unavailable'}
           style={{
             padding: '10px 18px',
             background: 'var(--ember)',
@@ -688,7 +718,8 @@ export default function DatapackSearchClient() {
             color: '#fff',
             fontSize: 14,
             fontWeight: 600,
-            cursor: 'pointer',
+            cursor: response.kind === 'unavailable' ? 'not-allowed' : 'pointer',
+            opacity: response.kind === 'unavailable' ? 0.65 : 1,
           }}
         >
           Search
@@ -717,8 +748,7 @@ export default function DatapackSearchClient() {
             fontSize: 13,
           }}
         >
-          Data pack not available on this server — see{' '}
-          <code>scripts/datapack/README.md</code>.
+          {DATAPACK_UNAVAILABLE_COPY}
         </div>
       )}
 

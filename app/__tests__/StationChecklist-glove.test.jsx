@@ -4,8 +4,10 @@
  *
  * Verifies the F15 glove-change checkbox:
  *   • Renders unchecked when `existing[item].glove_change_attested` is missing/null.
- *   • On first click, POSTs to /api/checks with `glove_change_attested: true`
- *     and the label gains the `on` class.
+ *   • Without a row status, clicking gloves alerts and does not POST an
+ *     incomplete HACCP row.
+ *   • With a row status, clicking gloves POSTs to /api/checks with
+ *     `glove_change_attested: true` and the label gains the `on` class.
  *   • On second click, POSTs with `glove_change_attested: null` (tri-state —
  *     never `false`, never missing).
  *   • Renders checked when `existing[item].glove_change_attested === true`.
@@ -42,11 +44,15 @@ describe('StationChecklist glove attestation', () => {
       ok: true,
       json: async () => ({ ok: true }),
     });
+    jest.spyOn(window, 'alert').mockImplementation(() => {});
     window.localStorage.clear();
+    window.localStorage.setItem('lariat_cook', 'alex');
   });
 
   afterEach(() => {
     jest.clearAllMocks();
+    window.alert.mockRestore();
+    window.localStorage.clear();
   });
 
   test('initial render — checkbox unchecked and label has no "on" class when no prior attestation', () => {
@@ -62,13 +68,24 @@ describe('StationChecklist glove attestation', () => {
     expect(label.className).not.toMatch(/\bon\b/);
   });
 
-  test('click to attest — POSTs glove_change_attested:true and label gains "on" class', async () => {
+  test('click without a row status — alerts, does not POST, and stays unchecked', async () => {
     renderChecklist({ existing: {} });
 
     const checkbox = screen.getByRole('checkbox', { name: /Glove change attested for Bacon/i });
     fireEvent.click(checkbox);
 
-    // Fetch should have fired exactly once.
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(window.alert).toHaveBeenCalledTimes(1);
+    expect(window.alert.mock.calls[0][0]).toMatch(/Pass, Fail, or n\/a/);
+    expect(checkbox).not.toBeChecked();
+  });
+
+  test('click to attest after pass — POSTs glove_change_attested:true and label gains "on" class', async () => {
+    renderChecklist({ existing: { Bacon: { status: 'pass' } } });
+
+    const checkbox = screen.getByRole('checkbox', { name: /Glove change attested for Bacon/i });
+    fireEvent.click(checkbox);
+
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
 
     const [url, init] = global.fetch.mock.calls[0];
@@ -82,6 +99,8 @@ describe('StationChecklist glove attestation', () => {
     expect(body.station_id).toBe('grill');
     expect(body.shift_date).toBe('2026-04-23');
     expect(body.location_id).toBe('loc-1');
+    expect(body.status).toBe('pass');
+    expect(body.cook_id).toBe('alex');
 
     // State update → checkbox now checked and label has `on`.
     expect(checkbox).toBeChecked();
@@ -91,7 +110,7 @@ describe('StationChecklist glove attestation', () => {
 
   test('click again to clear — POSTs glove_change_attested:null (literal null, not false, not missing)', async () => {
     renderChecklist({
-      existing: { Bacon: { glove_change_attested: true } },
+      existing: { Bacon: { status: 'pass', glove_change_attested: true } },
     });
 
     const checkbox = screen.getByRole('checkbox', { name: /Glove change attested for Bacon/i });
@@ -132,7 +151,7 @@ describe('StationChecklist glove attestation', () => {
 
   test('persist payload — includes all row fields even when blank', async () => {
     renderChecklist({
-      existing: {},
+      existing: { Lettuce: { status: 'pass' } },
       items: ['Lettuce'],
     });
 
@@ -162,8 +181,8 @@ describe('StationChecklist glove attestation', () => {
       expect(Object.prototype.hasOwnProperty.call(body, key)).toBe(true);
     }
 
-    // Blank-but-present values (the row was never edited, so defaults stand).
-    expect(body.status).toBeNull();
+    // Blank-but-present values (status already exists; quantity fields were never edited).
+    expect(body.status).toBe('pass');
     expect(body.par).toBe('');
     expect(body.have).toBe('');
     expect(body.need).toBe('');
@@ -175,9 +194,7 @@ describe('StationChecklist glove attestation', () => {
   });
 
   test('cook_id round-trip — localStorage lariat_cook is read and echoed in POST body', async () => {
-    window.localStorage.setItem('lariat_cook', 'alex');
-
-    renderChecklist({ existing: {} });
+    renderChecklist({ existing: { Bacon: { status: 'pass' } } });
 
     const checkbox = screen.getByRole('checkbox', { name: /Glove change attested for Bacon/i });
 
@@ -201,6 +218,7 @@ describe('StationChecklist glove attestation — failure rollback', () => {
 
   beforeEach(() => {
     window.localStorage.clear();
+    window.localStorage.setItem('lariat_cook', 'alex');
     alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
   });
 
@@ -216,7 +234,7 @@ describe('StationChecklist glove attestation — failure rollback', () => {
       json: async () => ({ error: 'boom' }),
     });
 
-    renderChecklist({ existing: {} });
+    renderChecklist({ existing: { Bacon: { status: 'pass' } } });
     const checkbox = screen.getByRole('checkbox', { name: /Glove change attested for Bacon/i });
     fireEvent.click(checkbox);
 
@@ -238,7 +256,7 @@ describe('StationChecklist glove attestation — failure rollback', () => {
   test('connection drop (fetch rejects) — checkbox rolls back and alert fires', async () => {
     global.fetch = jest.fn().mockRejectedValue(new Error('NetworkError'));
 
-    renderChecklist({ existing: {} });
+    renderChecklist({ existing: { Bacon: { status: 'pass' } } });
     const checkbox = screen.getByRole('checkbox', { name: /Glove change attested for Bacon/i });
     fireEvent.click(checkbox);
 
@@ -261,7 +279,7 @@ describe('StationChecklist glove attestation — failure rollback', () => {
       json: async () => ({}),
     });
 
-    renderChecklist({ existing: { Bacon: { glove_change_attested: true } } });
+    renderChecklist({ existing: { Bacon: { status: 'pass', glove_change_attested: true } } });
     const checkbox = screen.getByRole('checkbox', { name: /Glove change attested for Bacon/i });
     expect(checkbox).toBeChecked();
 

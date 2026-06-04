@@ -38,6 +38,7 @@ fs.writeFileSync(
 process.env.LARIAT_DATA_DIR = TMP_DIR;
 
 const db = await import('../../lib/db.ts');
+const mdns = await import('../../lib/mdnsDiscovery.ts');
 const route = await import('../../app/api/health/route.ts');
 
 db.setDbPathForTest(TMP_DB);
@@ -114,6 +115,7 @@ describe('GET /api/health — response shape', { concurrency: false }, () => {
       'sqlite',
       'cache',
       'pin_gate',
+      'mdns',
       'ollama',
       'compliance',
       'datapack',
@@ -128,6 +130,29 @@ describe('GET /api/health — response shape', { concurrency: false }, () => {
       assert.equal(typeof p.ms, 'number');
       if (p.ok) assert.equal(typeof p.detail, 'string');
       else assert.equal(typeof p.error, 'string');
+    }
+  });
+
+  it('surfaces mDNS advertise conflicts as a degraded discovery probe', async () => {
+    process.env.LARIAT_PIN = '1234';
+    process.env.LARIAT_PIN_SECRET = 'secret-for-tests';
+    mdns._resetWarnedReasonsForTest();
+    mdns._resetStatusForTest();
+    mdns.warnOnce(
+      'Bonjour publish failed',
+      new Error('Service name is already in use on the network')
+    );
+
+    try {
+      const res = await GET();
+      const body = await res.json();
+      assert.equal(res.status, 200);
+      assert.equal(body.probes.mdns.ok, false);
+      assert.equal(body.probes.mdns.code, 'service_name_conflict');
+      assert.match(body.probes.mdns.error, /already in use/i);
+      assert.notEqual(body.status, 'down');
+    } finally {
+      mdns._resetStatusForTest();
     }
   });
 });
