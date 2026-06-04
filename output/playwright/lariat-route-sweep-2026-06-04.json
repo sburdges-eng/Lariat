@@ -1,0 +1,1295 @@
+[
+  {
+    "route": "/",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/",
+    "h1": [
+      "Thursday. We’re in it."
+    ],
+    "h2": [
+      "THE LINE, RIGHT NOW"
+    ],
+    "problemText": [
+      "No line check"
+    ],
+    "labels": [],
+    "buttons": [
+      {
+        "text": "ADD HEADS-UP",
+        "disabled": false,
+        "pressed": null
+      }
+    ],
+    "links": [
+      {
+        "text": "Grill / Sauté 1 of 43",
+        "href": "/stations/grill_saute"
+      },
+      {
+        "text": "Fry Not checked",
+        "href": "/stations/fry"
+      },
+      {
+        "text": "Garde Manger Not checked",
+        "href": "/stations/garde"
+      },
+      {
+        "text": "Brunch Not checked",
+        "href": "/stations/brunch"
+      },
+      {
+        "text": "Expo Not checked",
+        "href": "/stations/expo"
+      },
+      {
+        "text": "Runner No line check",
+        "href": "/stations/runner"
+      },
+      {
+        "text": "86 an item",
+        "href": "/eighty-six"
+      },
+      {
+        "text": "Log inventory",
+        "href": "/inventory"
+      },
+      {
+        "text": "Recipes",
+        "href": "/recipes"
+      },
+      {
+        "text": "Food safety",
+        "href": "/food-safety"
+      }
+    ],
+    "mainText": "JUN 4, 2026 · THE LARIAT Thursday. We’re in it. Sharpen knives. Proof the sauté. Today starts now. 0 READY 0 FLAGGED 0 86’D HEADS-UP FOR DINNER ADD HEADS-UP Chef hasn’t posted anything yet. THE LINE, RIGHT NOW 6 STATIONS · 5 LINE CHECKS · PRESS 1–6 Grill / Sauté 1 of 43 Fry Not checked Garde Manger Not checked Brunch Not checked Expo Not checked Runner No line check 86 an item Log inventory Recipes Food safety"
+  },
+  {
+    "route": "/command",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/command",
+    "h1": [
+      "Command center"
+    ],
+    "h2": [],
+    "problemText": [],
+    "labels": [],
+    "buttons": [],
+    "links": [
+      {
+        "text": "Sales YESTERDAY VS 7-DAY AVERAGE · 2026-06-03 $0.00 net sales yesterday 0 orders $3,154.28 7-day avg Open →",
+        "href": "/analytics"
+      },
+      {
+        "text": "86 board ACTIVE ITEMS OFF THE MENU RIGHT NOW 0 items 86’d Open →",
+        "href": "/eighty-six"
+      },
+      {
+        "text": "Inventory LATEST COUNT VS PAR 0 below par 137 tracked items 0 open counts Open →",
+        "href": "/inventory/par"
+      },
+      {
+        "text": "Price moves VENDOR SKUS THAT MOVED 5%+ IN 7 DAYS 0 up 0 down 0 total moves Open →",
+        "href": "/costing/price-shocks"
+      },
+      {
+        "text": "Margin moves DISH COSTS THAT MOVED 5%+ IN 7 DAYS 0 up 0 down 0 total moves Open →",
+        "href": "/menu-engineering/margin-deltas"
+      },
+      {
+        "text": "Prep board TODAY'S TASKS ACROSS THE LINE 0 to do 0 in progress 0 high or rush Open →",
+        "href": "/prep"
+      },
+      {
+        "text": "Labor BREAKS OWED + CERT EXPIRY 0 open breaks 0 reviews today 0 certs expiring 30d 0 expired certs Open →",
+        "href": "/labor"
+      },
+      {
+        "text": "Food safety TODAY’S TEMP READINGS + ACTIVE DATE MARKS 0 temp out of range 0 expired marks 0 cleaning overdue Open →",
+        "href": "/food-safety"
+      },
+      {
+        "text": "Today’s events BEOS ON THE BOOKS 0 events today 0 total guests Open →",
+        "href": "/beo"
+      },
+      {
+        "text": "Reservations TONIGHT'S BOOK 0 still to seat 0 seated 0 no-shows Open →",
+        "href": "/reservations"
+      }
+    ],
+    "mainText": "Command center Where the kitchen stands right now. Sales YESTERDAY VS 7-DAY AVERAGE · 2026-06-03 $0.00 net sales yesterday 0 orders $3,154.28 7-day avg Open → 86 board ACTIVE ITEMS OFF THE MENU RIGHT NOW 0 items 86’d Open → Inventory LATEST COUNT VS PAR 0 below par 137 tracked items 0 open counts Open → Price moves VENDOR SKUS THAT MOVED 5%+ IN 7 DAYS 0 up 0 down 0 total moves Open → Margin moves DISH COSTS THAT MOVED 5%+ IN 7 DAYS 0 up 0 down 0 total moves Open → Prep board TODAY'S TASKS ACROSS THE LINE 0 to do 0 in progress 0 high or rush Open → Labor BREAKS OWED + CERT EXPIRY 0 open breaks 0 reviews today 0 certs expiring 30d 0 expired certs Open → Food safety TODAY’S TEMP READINGS + ACTIVE DATE MARKS 0 temp out of range 0 expired marks 0 cleaning overdue Open → Today’s events BEOS ON THE BOOKS 0 events today 0 total guests Open → Reservations TONIGHT'S BOOK 0 still to seat 0 seated 0"
+  },
+  {
+    "route": "/stations/runner",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/stations/runner",
+    "h1": [
+      "Runner"
+    ],
+    "h2": [],
+    "problemText": [
+      "No line check for this station.",
+      "No line check for this station."
+    ],
+    "labels": [],
+    "buttons": [],
+    "links": [],
+    "mainText": "Runner foh line · 0 items No line check for this station."
+  },
+  {
+    "route": "/kds/punch",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/kds/punch",
+    "h1": [
+      "Punch a ticket"
+    ],
+    "h2": [
+      "Items"
+    ],
+    "problemText": [],
+    "labels": [
+      "Order #",
+      "Table or window",
+      "Item",
+      "Qty",
+      "Station\ngrill\nsides\nbar",
+      "Mods",
+      "×"
+    ],
+    "buttons": [
+      {
+        "text": "×",
+        "disabled": true,
+        "pressed": null
+      },
+      {
+        "text": "+ Add item",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "Send to line",
+        "disabled": false,
+        "pressed": null
+      }
+    ],
+    "links": [],
+    "mainText": "Punch a ticket Type the order, send it to the line. The kitchen iPad picks it up. Order # Table or window Items Item Qty Station grill sides bar Mods × + Add item Send to line"
+  },
+  {
+    "route": "/eighty-six",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/eighty-six",
+    "h1": [
+      "86 Board"
+    ],
+    "h2": [],
+    "problemText": [
+      "No Make",
+      "No 86s right now. ✓",
+      "No 86s right now. ✓"
+    ],
+    "labels": [
+      "ITEM",
+      "STATION",
+      "REASON",
+      "QTY",
+      "86 IT"
+    ],
+    "buttons": [
+      {
+        "text": "86 IT",
+        "disabled": true,
+        "pressed": null
+      }
+    ],
+    "links": [],
+    "mainText": "86 Board 0 items out. Mark it back when you've got it. ITEM STATION — any — Grill / Sauté Fry Garde Manger Brunch Expo Runner REASON Out Spoiled Dropped No Make Burned Prep Short Other QTY 86 IT No 86s right now. ✓"
+  },
+  {
+    "route": "/recipes",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/recipes",
+    "h1": [
+      "The Lariat Cookbook"
+    ],
+    "h2": [
+      "Appetizer",
+      "Entree",
+      "Side",
+      "Sauce",
+      "Dressing",
+      "Seasoning",
+      "Prep",
+      "Dessert"
+    ],
+    "problemText": [
+      "Honey Mustard"
+    ],
+    "labels": [
+      "SEARCH\nALLERGEN\nAll\neggs\nfish\nmilk\nsesame\nshellfish\nsoybeans\ntree_nuts\nwheat",
+      "SEARCH",
+      "ALLERGEN\nAll\neggs\nfish\nmilk\nsesame\nshellfish\nsoybeans\ntree_nuts\nwheat"
+    ],
+    "buttons": [
+      {
+        "text": "All",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "eggs",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "fish",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "milk",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "sesame",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "shellfish",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "soybeans",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "tree_nuts",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "wheat",
+        "disabled": false,
+        "pressed": null
+      }
+    ],
+    "links": [
+      {
+        "text": "Unlock",
+        "href": "/recipes/management-pin"
+      },
+      {
+        "text": "M Mac Balls 6 INGREDIENTS · YIELDS 60 EA milk wheat",
+        "href": "/recipes/mac_balls"
+      },
+      {
+        "text": "M Mini Rellenos 1 INGREDIENTS · YIELDS 1 CASE",
+        "href": "/recipes/mini_rellenos"
+      },
+      {
+        "text": "C Caprese Skewers 5 INGREDIENTS · YIELDS 50 EA milk wheat",
+        "href": "/recipes/caprese_skewers"
+      },
+      {
+        "text": "P Philo Bites 1 INGREDIENTS · YIELDS 1 CASE",
+        "href": "/recipes/philo_bites"
+      },
+      {
+        "text": "C Crab Cake Remoulade 2 INGREDIENTS · YIELDS 24 EA shellfish",
+        "href": "/recipes/crab_cake_remoulade"
+      },
+      {
+        "text": "T Tex Mex Egg Rolls 2 INGREDIENTS · YIELDS 50 EA eggs milk soybeans",
+        "href": "/recipes/tex_mex_egg_rolls"
+      },
+      {
+        "text": "C Corn Dogs 4 INGREDIENTS · YIELDS 50 EA eggs milk wheat",
+        "href": "/recipes/corn_dogs"
+      },
+      {
+        "text": "A Artisanal Board 5 INGREDIENTS · YIELDS 20 PORTION milk wheat",
+        "href": "/recipes/artisanal_board"
+      },
+      {
+        "text": "D Deviled Eggs 6 INGREDIENTS · YIELDS 48 EA eggs",
+        "href": "/recipes/deviled_eggs"
+      },
+      {
+        "text": "P Pork Belly Bao Bun 5 INGREDIENTS · YIELDS 30 EA sesame wheat",
+        "href": "/recipes/pork_belly_bao_bun"
+      },
+      {
+        "text": "B Beef Tenderloin Crostini 14 INGREDIENTS · YIELDS 50 EA eggs milk wheat",
+        "href": "/recipes/beef_tenderloin_crostini"
+      },
+      {
+        "text": "Q QB Recipe (Birria) 8 INGREDIENTS · YIELDS 16 QT",
+        "href": "/recipes/birria"
+      },
+      {
+        "text": "G Green Chile 10 INGREDIENTS · YIELDS 8 QT milk wheat",
+        "href": "/recipes/green_chile"
+      },
+      {
+        "text": "T Three Cheese Grilled Cheese 10 INGREDIENTS · YIELDS 8 EA eggs milk wheat",
+        "href": "/recipes/three_cheese_grilled_cheese"
+      },
+      {
+        "text": "B Baked Ziti 8 INGREDIENTS · YIELDS 1 HOTEL PAN milk wheat",
+        "href": "/recipes/baked_ziti"
+      },
+      {
+        "text": "P Prime Rib 1 INGREDIENTS · YIELDS 12 PORTION",
+        "href": "/recipes/prime_rib"
+      },
+      {
+        "text": "M Mexi Slaw 3 INGREDIENTS · YIELDS 5 LB eggs milk soybeans",
+        "href": "/recipes/mexi_slaw"
+      },
+      {
+        "text": "S Spanish Rice 9 INGREDIENTS · YIELDS 3 QT",
+        "href": "/recipes/spanish_rice"
+      },
+      {
+        "text": "R Refried Black Beans 9 INGREDIENTS · YIELDS 3 QT",
+        "href": "/recipes/refried_black_beans"
+      }
+    ],
+    "mainText": "RECIPE BOOK · 73 ON FILE The Lariat Cookbook Every recipe, scaled, allergen-tagged, and ready for the line. Search by name or ingredient; tap a card to open the build. STAFF MODE Unlock to edit recipes or view costs. SEARCH ALLERGEN All eggs fish milk sesame shellfish soybeans tree_nuts wheat Appetizer 11 M Mac Balls 6 INGREDIENTS · YIELDS 60 EA milk wheat M Mini Rellenos 1 INGREDIENTS · YIELDS 1 CASE C Caprese Skewers 5 INGREDIENTS · YIELDS 50 EA milk wheat P Philo Bites 1 INGREDIENTS · YIELDS 1 CASE C Crab Cake Remoulade 2 INGREDIENTS · YIELDS 24 EA shellfish T Tex Mex Egg Rolls 2 INGREDIENTS · YIELDS 50 EA eggs milk soybeans C Corn Dogs 4 INGREDIENTS · YIELDS 50 EA eggs milk wheat A Artisanal Board 5 INGREDIENTS · YIELDS 20 PORTION milk wheat D Deviled Eggs 6 INGREDIENTS · YIELDS 48 EA eggs P Pork Belly Bao Bun 5 INGREDIENTS · YIELDS 30 EA sesame wheat B Beef Tenderloin Crostini 14 IN"
+  },
+  {
+    "route": "/inventory",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/inventory",
+    "h1": [
+      "Inventory"
+    ],
+    "h2": [],
+    "problemText": [],
+    "labels": [
+      "LOG\nCOUNTS\nPAR\nWASTE",
+      "ITEM",
+      "STATION",
+      "ACTION",
+      "QTY",
+      "NOTE",
+      "ADD"
+    ],
+    "buttons": [
+      {
+        "text": "ADD",
+        "disabled": true,
+        "pressed": null
+      }
+    ],
+    "links": [
+      {
+        "text": "LOG",
+        "href": "/inventory"
+      },
+      {
+        "text": "COUNTS",
+        "href": "/inventory/counts"
+      },
+      {
+        "text": "PAR",
+        "href": "/inventory/par"
+      },
+      {
+        "text": "WASTE",
+        "href": "/inventory/waste"
+      }
+    ],
+    "mainText": "LOG COUNTS PAR WASTE Inventory What came in, went out, or got prepped today. ITEM STATION — any — Grill / Sauté Fry Garde Manger Brunch Expo Runner ACTION Received Prepped Used Transferred Counted Low Adjusted QTY NOTE ADD Nothing logged today."
+  },
+  {
+    "route": "/prep",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/prep",
+    "h1": [
+      "Prep board"
+    ],
+    "h2": [],
+    "problemText": [],
+    "labels": [
+      "TASK",
+      "STATION",
+      "QTY",
+      "PRIORITY",
+      "NOTES"
+    ],
+    "buttons": [
+      {
+        "text": "ADD",
+        "disabled": true,
+        "pressed": null
+      }
+    ],
+    "links": [
+      {
+        "text": "Fire schedule — tonight's banquet courses →",
+        "href": "/prep/fire-schedule"
+      }
+    ],
+    "mainText": "Fire schedule — tonight's banquet courses → Prep board What the line is prepping today. TASK STATION — any — Grill / Sauté Fry Garde Manger Brunch Expo Runner QTY PRIORITY Normal High Rush NOTES ADD Nothing on the board yet."
+  },
+  {
+    "route": "/prep/fire-schedule",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/prep/fire-schedule",
+    "h1": [
+      "Fire schedule — 2026-06-04"
+    ],
+    "h2": [],
+    "problemText": [],
+    "labels": [],
+    "buttons": [
+      {
+        "text": "TURN SOUND ON",
+        "disabled": false,
+        "pressed": null
+      }
+    ],
+    "links": [],
+    "mainText": "Fire schedule — 2026-06-04 TURN SOUND ON Lost connection"
+  },
+  {
+    "route": "/reservations",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/reservations",
+    "h1": [
+      "Reservations"
+    ],
+    "h2": [],
+    "problemText": [
+      "No reservations on the book today.",
+      "No reservations on the book today."
+    ],
+    "labels": [
+      "TODAY\nUPCOMING",
+      "PARTY NAME",
+      "PARTY SIZE",
+      "TIME",
+      "TABLE",
+      "PHONE",
+      "NOTES"
+    ],
+    "buttons": [
+      {
+        "text": "ADD RESERVATION",
+        "disabled": false,
+        "pressed": null
+      }
+    ],
+    "links": [
+      {
+        "text": "TODAY",
+        "href": "/reservations?view=today"
+      },
+      {
+        "text": "UPCOMING",
+        "href": "/reservations?view=upcoming"
+      }
+    ],
+    "mainText": "Reservations Today's book · 0 reservations TODAY UPCOMING PARTY NAME PARTY SIZE TIME TABLE PHONE NOTES ADD RESERVATION No reservations on the book today."
+  },
+  {
+    "route": "/floor",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/floor",
+    "h1": [
+      "Floor"
+    ],
+    "h2": [],
+    "problemText": [],
+    "labels": [
+      "Open\nSeated\nDirty\nClosed",
+      "Floor plan",
+      "Table T1, Open, 2 seats",
+      "Table T2, Open, 2 seats",
+      "Table T3, Open, 2 seats",
+      "Table T4, Open, 2 seats",
+      "Table T5, Open, 2 seats",
+      "Table T6, Open, 2 seats"
+    ],
+    "buttons": [],
+    "links": [],
+    "mainText": "Floor 6 tables · 0 seated · 6 open · 0 dirty Open Seated Dirty Closed T1 ppl 2 Open T2 ppl 2 Open T3 ppl 2 Open T4 ppl 2 Open T5 ppl 2 Open T6 ppl 2 Open"
+  },
+  {
+    "route": "/kitchen-assistant",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/kitchen-assistant",
+    "h1": [
+      "Kitchen assistant"
+    ],
+    "h2": [],
+    "problemText": [],
+    "labels": [
+      "ASK A QUESTION",
+      "Answer language",
+      "English\nEspañol\nFrançais\nTagalog\nSwahili (Kenya)",
+      "ASK\nSPEAK 🎤\nModel: lari-the-kitchen-assistant",
+      "ASK",
+      "SPEAK 🎤",
+      "Model: lari-the-kitchen-assistant"
+    ],
+    "buttons": [
+      {
+        "text": "ASK",
+        "disabled": true,
+        "pressed": null
+      },
+      {
+        "text": "SPEAK 🎤",
+        "disabled": false,
+        "pressed": "false"
+      }
+    ],
+    "links": [],
+    "mainText": "Kitchen assistant Local AI with grounded context: today's active 86s, recent inventory log, line-check progress, sign-offs, and recipe snippets that match your question. Low temperature and strict prompts reduce invention; allergen tags from the recipe book are not legal dietary advice. AI is down. Can't connect to Ollama on the office Mac. Ask a manager to start it. ASK A QUESTION Answer language English Español Français Tagalog Swahili (Kenya) ASK SPEAK 🎤 Model: lari-the-kitchen-assistant"
+  },
+  {
+    "route": "/specials",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/specials",
+    "h1": [
+      "Specials"
+    ],
+    "h2": [
+      "YOUR NOTES"
+    ],
+    "problemText": [],
+    "labels": [
+      "WHAT YOU'VE GOT TO USE UP",
+      "WHAT ARE YOU THINKING?"
+    ],
+    "buttons": [
+      {
+        "text": "RUN IT",
+        "disabled": true,
+        "pressed": null
+      }
+    ],
+    "links": [],
+    "mainText": "Specials Use up overstock, price out a dish, or riff on new ideas. WHAT YOU'VE GOT TO USE UP WHAT ARE YOU THINKING? 0 / 2000 RUN IT YOUR NOTES Work out the numbers, adjust portions, clean it up before you pitch it."
+  },
+  {
+    "route": "/gold-stars",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/gold-stars",
+    "h1": [],
+    "h2": [
+      "★\nGold Stars"
+    ],
+    "problemText": [],
+    "labels": [],
+    "buttons": [
+      {
+        "text": "Give a star",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "Recent",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "Leaderboard",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "Remove",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "Remove",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "Remove",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "Remove",
+        "disabled": false,
+        "pressed": null
+      }
+    ],
+    "links": [],
+    "mainText": "★ Gold Stars Give a star Recent Leaderboard KADY simpson Volunteered to cover dish in light of absence of dishwasher during closing procedures Awarded: April 18, 2026 ★★ Remove Jonathan Rodriquez Handled grill solo during a rush without a single dropped ticket Awarded: April 18, 2026 ★★★ Remove Jonathan Rodriquez BASICally setting up line solo Awarded: April 17, 2026 ★★★ Remove Noah Mccune RUNNING LINE CONFIDENTLYEY AND COMPOTENTLY Awarded: April 17, 2026 ★★ Remove"
+  },
+  {
+    "route": "/food-safety",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/food-safety",
+    "h1": [
+      "Food safety"
+    ],
+    "h2": [],
+    "problemText": [
+      "critical — no note on fix",
+      "overdue / failed"
+    ],
+    "labels": [],
+    "buttons": [],
+    "links": [
+      {
+        "text": "Cooling TWO-STAGE COOL — 135 → 70°F IN 2H, 70 → 41°F IN 4H 0 open batches 0 near the 2-hour wall 0 breached — needs corrective action Open →",
+        "href": "/food-safety/cooling"
+      },
+      {
+        "text": "Date marks 7-DAY RULE — DAY OF PREP IS DAY 1 0 active batches 0 use or discard today 0 past discard-on Open →",
+        "href": "/food-safety/date-marks"
+      },
+      {
+        "text": "Sick worker FDA §2-201.11 — BIG-6 DIAGNOSES, 5 REPORTABLE SYMPTOMS 0 open reports 0 excluded from work 0 restricted / monitor Open →",
+        "href": "/food-safety/sick-worker"
+      },
+      {
+        "text": "Sanitizer FDA §4-703.11 — PPM BANDS PER CHEMISTRY 0 readings today 0 out of spec (latest per point) Open →",
+        "href": "/food-safety/sanitizer"
+      },
+      {
+        "text": "Temp log FDA §3-501.16, §3-401.11, §3-403.11 — COLD/HOT HOLD, COOK, REHEAT 13 CCPs monitored 0 corrective (noted) 0 critical — no note on fix Open →",
+        "href": "/food-safety/temp-log"
+      },
+      {
+        "text": "Receiving FDA §3-202.11 — DELIVERY TEMPS, §3-202.15 PACKAGE INTEGRITY, §3-101.11 SELL-BY 0 deliveries today 0 accepted with note 0 rejected Open →",
+        "href": "/food-safety/receiving"
+      },
+      {
+        "text": "Calibrations FDA §4-502.11 — PROBE ACCURACY ±2°F; ALTITUDE-ADJUSTED BOILING TARGET 0 probes tracked 0 due soon (≤ 7 days) 0 overdue / failed Open →",
+        "href": "/food-safety/calibrations"
+      },
+      {
+        "text": "Time Control FDA §3-501.19 — 4H HOT, 6H COLD. TOSS AT CUTOFF. 0 open batches 0 near cutoff (≤ 30m) 0 past cutoff — toss now Open →",
+        "href": "/food-safety/tphc"
+      },
+      {
+        "text": "Cleaning Log HACCP NON-TEMP SURFACE: DAILY, WEEKLY, MONTHLY ROUTINES 0 areas logged today Open →",
+        "href": "/food-safety/cleaning"
+      },
+      {
+        "text": "Pest Control FDA §6-501.111 — VENDOR VISITS & INTERNAL SIGHTINGS 0 recent records Open →",
+        "href": "/food-safety/pest"
+      },
+      {
+        "text": "SDS Registry OSHA HAZCOM — SAFETY DATA SHEETS (FDA §7.1) 0 active records Open →",
+        "href": "/food-safety/sds"
+      }
+    ],
+    "mainText": "Food safety Every HACCP surface the inspector asks about, in one place. Red = resolve now, amber = pending, green = clear. Cooling TWO-STAGE COOL — 135 → 70°F IN 2H, 70 → 41°F IN 4H 0 open batches 0 near the 2-hour wall 0 breached — needs corrective action Open → Date marks 7-DAY RULE — DAY OF PREP IS DAY 1 0 active batches 0 use or discard today 0 past discard-on Open → Sick worker FDA §2-201.11 — BIG-6 DIAGNOSES, 5 REPORTABLE SYMPTOMS 0 open reports 0 excluded from work 0 restricted / monitor Open → Sanitizer FDA §4-703.11 — PPM BANDS PER CHEMISTRY 0 readings today 0 out of spec (latest per point) Open → Temp log FDA §3-501.16, §3-401.11, §3-403.11 — COLD/HOT HOLD, COOK, REHEAT 13 CCPs monitored 0 corrective (noted) 0 critical — no note on fix Open → Receiving FDA §3-202.11 — DELIVERY TEMPS, §3-202.15 PACKAGE INTEGRITY, §3-101.11 SELL-BY 0 deliveries today 0 accepted with note 0 reject"
+  },
+  {
+    "route": "/food-safety/temp-log",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/food-safety/temp-log",
+    "h1": [
+      "Temp log"
+    ],
+    "h2": [
+      "CCPS (13)",
+      "LOG A READING"
+    ],
+    "problemText": [
+      "No reading yet · target ≤ 41°F",
+      "No reading yet · target ≤ 10°F",
+      "No reading yet · target ≤ 41°F",
+      "No reading yet · target ≤ 41°F",
+      "No reading yet · target ≤ 0°F",
+      "No reading yet · target ≥ 165°F",
+      "No reading yet · target ≥ 155°F",
+      "No reading yet · target ≥ 145°F",
+      "No reading yet · target ≥ 145°F",
+      "No reading yet · target ≥ 145°F",
+      "No reading yet · target ≥ 155°F",
+      "No reading yet · target ≥ 140°F",
+      "No reading yet · target ≥ 165°F"
+    ],
+    "labels": [
+      "0 in spec\n0 corrective\n0 critical\n13 not logged yet",
+      "0 in spec",
+      "0 corrective",
+      "0 critical",
+      "13 not logged yet",
+      "POINT (CCP)\nCold delivery (CCP-1)\nFrozen delivery (CCP-1)\nWalk-in cooler (CCP-2)\nReach-in cooler (CCP-2)\nFreezer (CCP-3)\nCook — poultry (CCP-4)\nCook — ground beef (CCP-5)\nCook — fish (CCP-6)\nCook — pork (CCP-6)\nCook — beef steak (CCP-6)\nCook — shell eggs (CCP-5e)\nHot hold (CCP-7)\nReheat (CCP-9)",
+      "READING °F (≤ 41°F)",
+      "Record reading"
+    ],
+    "buttons": [
+      {
+        "text": "Record reading",
+        "disabled": false,
+        "pressed": null
+      }
+    ],
+    "links": [],
+    "mainText": "Temp log FDA §3-501.16 cold/hot hold, §3-401.11 cook temps, §3-403.11 reheat, §3-202.11 receiving. Every CCP the inspector asks for, in one grid. 0 in spec 0 corrective 0 critical 13 not logged yet CCPS (13) Cold delivery CCP-1 — No reading yet · target ≤ 41°F Not logged today Frozen delivery CCP-1 — No reading yet · target ≤ 10°F Not logged today Walk-in cooler CCP-2 — No reading yet · target ≤ 41°F Not logged today Reach-in cooler CCP-2 — No reading yet · target ≤ 41°F Not logged today Freezer CCP-3 — No reading yet · target ≤ 0°F Not logged today Cook — poultry CCP-4 — No reading yet · target ≥ 165°F Not logged today Cook — ground beef CCP-5 — No reading yet · target ≥ 155°F Not logged today Cook — fish CCP-6 — No reading yet · target ≥ 145°F Not logged today Cook — pork CCP-6 — No reading yet · target ≥ 145°F Not logged today Cook — beef steak CCP-6 — No reading yet · target ≥ 145°F "
+  },
+  {
+    "route": "/food-safety/receiving",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/food-safety/receiving",
+    "h1": [
+      "Receiving log"
+    ],
+    "h2": [
+      "BY CATEGORY (7)",
+      "LOG A DELIVERY LINE"
+    ],
+    "problemText": [
+      "No delivery yet",
+      "No delivery yet",
+      "No delivery yet",
+      "No delivery yet",
+      "NO TEMP",
+      "No delivery yet",
+      "NO TEMP",
+      "No delivery yet",
+      "No delivery yet"
+    ],
+    "labels": [
+      "0 clean categories\n0 accept-with-note\n0 with rejects\n7 nothing received yet",
+      "0 clean categories",
+      "0 accept-with-note",
+      "0 with rejects",
+      "7 nothing received yet",
+      "0 accepted\n0 with note\n0 rejected",
+      "0 accepted",
+      "0 with note",
+      "0 rejected",
+      "VENDOR",
+      "INVOICE / PO #",
+      "CATEGORY\nRefrigerated\nFrozen\nShell eggs\nHot-held\nDry goods\nProduce\nShellfish (shellstock)",
+      "ITEM",
+      "SKU — OPTIONAL",
+      "READING °F (≤ 41°F)",
+      "SELL-BY DATE",
+      "HOW MUCH? — OPTIONAL",
+      "UNIT — OPTIONAL",
+      "PACKAGE INTACT (§3-202.15)",
+      "Record delivery"
+    ],
+    "buttons": [
+      {
+        "text": "Record delivery",
+        "disabled": false,
+        "pressed": null
+      }
+    ],
+    "links": [],
+    "mainText": "Receiving log FDA §3-202.11 receiving thresholds, §3-202.15 package integrity, §3-101.11 sell-by rejection. Every delivery to the back door lands here before it touches a walk-in. 0 clean categories 0 accept-with-note 0 with rejects 7 nothing received yet 0 accepted 0 with note 0 rejected BY CATEGORY (7) Refrigerated ≤ 41°F 0 No delivery yet Not received today Frozen ≤ 10°F 0 No delivery yet Not received today Shell eggs ≤ 45°F 0 No delivery yet Not received today Hot-held ≥ 135°F 0 No delivery yet Not received today Dry goods NO TEMP 0 No delivery yet Not received today Produce NO TEMP 0 No delivery yet Not received today Shellfish (shellstock) ≤ 45°F 0 No delivery yet Not received today LOG A DELIVERY LINE VENDOR INVOICE / PO # CATEGORY Refrigerated Frozen Shell eggs Hot-held Dry goods Produce Shellfish (shellstock) ITEM SKU — OPTIONAL READING °F (≤ 41°F) SELL-BY DATE HOW MUCH? — OPTIO"
+  },
+  {
+    "route": "/food-safety/calibrations",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/food-safety/calibrations",
+    "h1": [
+      "Thermometer calibrations"
+    ],
+    "h2": [
+      "PROBES (0)",
+      "LOG A CALIBRATION"
+    ],
+    "problemText": [
+      "0 overdue / failed",
+      "No probe has been calibrated yet. Log an ice-point or boiling-point reading below — one tile will appear per probe id."
+    ],
+    "labels": [
+      "0 in calibration\n0 due soon\n0 overdue / failed\n0 unknown",
+      "0 in calibration",
+      "0 due soon",
+      "0 overdue / failed",
+      "0 unknown",
+      "THERMOMETER ID",
+      "METHOD\nIce-point (32°F slurry)\nBoiling-point (altitude-adjusted)",
+      "ELEVATION FT (DEFAULTS 7800)",
+      "READING °F (TARGET 32.0°F ±2)",
+      "NOTE (OPTIONAL)",
+      "Record calibration"
+    ],
+    "buttons": [
+      {
+        "text": "Record calibration",
+        "disabled": false,
+        "pressed": null
+      }
+    ],
+    "links": [],
+    "mainText": "Thermometer calibrations FDA §4-502.11 — temp measuring device accurate within ±2°F. Ice-point = 32°F. Boiling-point at Lariat (elevation 7800 ft) ≈ 197.8°F (water boils lower at altitude). Default frequency: every 30 days per probe. Both passes and fails are recorded for the audit trail. 0 in calibration 0 due soon 0 overdue / failed 0 unknown PROBES (0) No probe has been calibrated yet. Log an ice-point or boiling-point reading below — one tile will appear per probe id. LOG A CALIBRATION THERMOMETER ID METHOD Ice-point (32°F slurry) Boiling-point (altitude-adjusted) ELEVATION FT (DEFAULTS 7800) READING °F (TARGET 32.0°F ±2) NOTE (OPTIONAL) Record calibration"
+  },
+  {
+    "route": "/food-safety/tphc",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/food-safety/tphc",
+    "h1": [
+      "Time Control"
+    ],
+    "h2": [
+      "Open batches"
+    ],
+    "problemText": [
+      "No open batches."
+    ],
+    "labels": [
+      "Item",
+      "Hot or cold\nHot (4h)\nCold (6h)",
+      "Station",
+      "Batch ref"
+    ],
+    "buttons": [
+      {
+        "text": "Start batch",
+        "disabled": false,
+        "pressed": null
+      }
+    ],
+    "links": [],
+    "mainText": "Time Control For food held by time, not temp. Hot = 4 hours. Cold = 6 hours. Toss at cutoff. Item Hot or cold Hot (4h) Cold (6h) Station Batch ref Start batch Open batches No open batches."
+  },
+  {
+    "route": "/labor",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/labor",
+    "h1": [
+      "Labor"
+    ],
+    "h2": [],
+    "problemText": [],
+    "labels": [],
+    "buttons": [],
+    "links": [
+      {
+        "text": "Breaks COMPS #39 — 10 MIN PAID REST / 4H, 30 MIN MEAL ON SHIFTS ≥ 5H 0 open breaks (forgotten end?) 0 meals logged today 0 rests logged today Open →",
+        "href": "/labor/breaks"
+      },
+      {
+        "text": "Certifications CFPM, FOOD-HANDLER, ALCOHOL-SERVICE — CO 6 CCR 1010-2 0 tracked certs 0 expiring in 30 days 0 expired Open →",
+        "href": "/labor/certs"
+      },
+      {
+        "text": "Sick time HFWA — EARN 1H PER 30H WORKED, 48H CAP 0 cooks tracked this year 0 at the 48h cap Open →",
+        "href": "/labor/sick-leave"
+      },
+      {
+        "text": "Tip pool COMPS #39 §3.3, §3.4 — POOL EXCLUDES MANAGERS 0 lines today $0.00 paid out today Open →",
+        "href": "/labor/tip-pool"
+      },
+      {
+        "text": "Wage notices CO WAGE THEFT TRANSPARENCY — REFRESH YEARLY OR ON CHANGE 0 cooks on file 0 need a new notice Open →",
+        "href": "/labor/wage-notices"
+      },
+      {
+        "text": "Staff reviews PERFORMANCE LOGS — TECHNIQUE, SPEED, AND PUNCTUALITY 0 logged today 1 total on record Open →",
+        "href": "/management/performance-reviews"
+      }
+    ],
+    "mainText": "Labor Breaks, certs, sick time, tip pool, and wage notices in one place. Breaks COMPS #39 — 10 MIN PAID REST / 4H, 30 MIN MEAL ON SHIFTS ≥ 5H 0 open breaks (forgotten end?) 0 meals logged today 0 rests logged today Open → Certifications CFPM, FOOD-HANDLER, ALCOHOL-SERVICE — CO 6 CCR 1010-2 0 tracked certs 0 expiring in 30 days 0 expired Open → Sick time HFWA — EARN 1H PER 30H WORKED, 48H CAP 0 cooks tracked this year 0 at the 48h cap Open → Tip pool COMPS #39 §3.3, §3.4 — POOL EXCLUDES MANAGERS 0 lines today $0.00 paid out today Open → Wage notices CO WAGE THEFT TRANSPARENCY — REFRESH YEARLY OR ON CHANGE 0 cooks on file 0 need a new notice Open → Staff reviews PERFORMANCE LOGS — TECHNIQUE, SPEED, AND PUNCTUALITY 0 logged today 1 total on record Open →"
+  },
+  {
+    "route": "/equipment",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/equipment",
+    "h1": [
+      "Equipment"
+    ],
+    "h2": [],
+    "problemText": [],
+    "labels": [],
+    "buttons": [
+      {
+        "text": "ADD A PIECE",
+        "disabled": false,
+        "pressed": null
+      }
+    ],
+    "links": [],
+    "mainText": "Equipment Your gear, parts, schedules, manuals, and what it's costing you. ADD A PIECE 13 1/4\" x 6 1/2\" x 5 7/8\" Fryer Basket with Front Hook Fryers · Model 190FB1366 · WebstaurantStore $0.00 Maint $14.99 Capital 13 1/4\" x 6 1/2\" x 5 7/8\" Fryer Basket with Front Hook Fryers · Model 190FB1366 · WebstaurantStore $0.00 Maint $14.99 Capital 13 1/4\" x 6 1/2\" x 5 7/8\" Fryer Basket with Front Hook Fryers · Model 190FB1366 · WebstaurantStore $0.00 Maint $14.99 Capital 13 1/4\" x 6 1/2\" x 5 7/8\" Fryer Basket with Front Hook Fryers · Model 190FB1366 · WebstaurantStore $0.00 Maint $14.99 Capital Avantco 177GFKP2N Liquid Propane to Natural Gas Conversion Kit for Gas Floor Fryers Fryers · Model 177GFKP2N · WebstaurantStore $0.00 Maint $48.99 Capital Avantco 177GFKP2N Liquid Propane to Natural Gas Conversion Kit for Gas Floor Fryers Fryers · Model 177GFKP2N · WebstaurantStore $0.00 Maint $48.99 Capital"
+  },
+  {
+    "route": "/bar",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/bar",
+    "h1": [
+      "Bar program"
+    ],
+    "h2": [],
+    "problemText": [
+      "No cocktail recipes found."
+    ],
+    "labels": [],
+    "buttons": [],
+    "links": [
+      {
+        "text": "→ Bar par list",
+        "href": "/bar/par"
+      }
+    ],
+    "mainText": "Bar program Cocktail pour costs at a glance → Bar par list POUR-COST DISTRIBUTION 0 on target(≤ 18%) 0 watch(18–22%) 0 over(> 22%) 0 unpriced(missing cost or menu) No cocktail recipes found."
+  },
+  {
+    "route": "/datapack-search",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/datapack-search",
+    "h1": [
+      "Data pack"
+    ],
+    "h2": [],
+    "problemText": [],
+    "labels": [
+      "Search",
+      "Mode",
+      "Source"
+    ],
+    "buttons": [
+      {
+        "text": "Search",
+        "disabled": false,
+        "pressed": null
+      }
+    ],
+    "links": [],
+    "mainText": "Data pack Look up ingredients and food-safety rules — USDA, Open Food Facts, Wikibooks Cookbook, FDA Food Code. Search Mode Lexical (BM25) Semantic (BGE) Hybrid (RRF) Source All sources USDA Foods Open Food Facts Wikibooks Cookbook FDA Food Code Search Enter a query to search the data pack."
+  },
+  {
+    "route": "/allergen-lookup",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/allergen-lookup",
+    "h1": [
+      "Allergen lookup"
+    ],
+    "h2": [],
+    "problemText": [],
+    "labels": [
+      "Product, brand, or barcode"
+    ],
+    "buttons": [
+      {
+        "text": "Look up",
+        "disabled": false,
+        "pressed": null
+      }
+    ],
+    "links": [],
+    "mainText": "Allergen lookup Quick \"does this product contain X?\" check across the Open Food Facts catalog. Type a product name, brand, or scan a GTIN barcode. Product, brand, or barcode Look up Type a product name, brand, or scan a barcode (8–14 digits) to check allergen status."
+  },
+  {
+    "route": "/install",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/install",
+    "h1": [
+      "Connect Lariat"
+    ],
+    "h2": [
+      "One-click install",
+      "Mac — Chrome / Edge",
+      "Other devices on the network"
+    ],
+    "problemText": [],
+    "labels": [],
+    "buttons": [],
+    "links": [],
+    "mainText": "Connect Lariat Add another device, or install the browser app when you are not in the Mac app. One-click install Use the steps below for this browser. Mac — Chrome / Edge Click the install icon in the URL bar (looks like a small screen with a down arrow) Or: ⋮ menu → Cast, save and share → Install Lariat Cockpit… Confirm. Lariat appears in /Applications and your Dock. Other devices on the network From another Mac or iPad on the same Wi-Fi, open this address: http://lariat.local:3000"
+  },
+  {
+    "route": "/inventory/par",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/inventory/par",
+    "h1": [
+      "Par levels"
+    ],
+    "h2": [
+      "Other"
+    ],
+    "problemText": [
+      "MUSTARD, DIJON ORIG SMOOTH",
+      "MUSTARD, WG",
+      "MUSTARD, YLW CLASSIC 105Z JAR",
+      "[INACTIVE] SOUP BASE, CHICK GRMT NO MSG GF"
+    ],
+    "labels": [
+      "LOG\nCOUNTS\nPAR\nWASTE",
+      "REMOVE",
+      "REMOVE",
+      "REMOVE",
+      "REMOVE",
+      "REMOVE",
+      "REMOVE",
+      "REMOVE",
+      "REMOVE",
+      "REMOVE",
+      "REMOVE",
+      "REMOVE",
+      "REMOVE",
+      "REMOVE",
+      "REMOVE",
+      "REMOVE",
+      "REMOVE",
+      "REMOVE",
+      "REMOVE",
+      "REMOVE"
+    ],
+    "buttons": [
+      {
+        "text": "+ ADD PAR ITEM",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      },
+      {
+        "text": "REMOVE",
+        "disabled": false,
+        "pressed": null
+      }
+    ],
+    "links": [
+      {
+        "text": "LOG",
+        "href": "/inventory"
+      },
+      {
+        "text": "COUNTS",
+        "href": "/inventory/counts"
+      },
+      {
+        "text": "PAR",
+        "href": "/inventory/par"
+      },
+      {
+        "text": "WASTE",
+        "href": "/inventory/waste"
+      },
+      {
+        "text": "ALL (137)",
+        "href": "/inventory/par"
+      },
+      {
+        "text": "LOW (0)",
+        "href": "/inventory/par?low=1"
+      }
+    ],
+    "mainText": "LOG COUNTS PAR WASTE Par levels What we keep on hand. ALL (137) LOW (0) + ADD PAR ITEM Other ANCHOVY, FLT IN OLV OIL 13Z CAN shamrock · par 3 pack · on hand — REMOVE ASPARAGUS, JMBO shamrock · par 1 pack · on hand — REMOVE AVOCADO, BREAKER #1 40-48CT 2LYR shamrock · par 1 pack · on hand — REMOVE BACON, .25\" HNY CRD SUPER WESTERN P12NC shamrock · par 6 pack · on hand — REMOVE BACON, SGL HKRY SMKD 18-22 SLI F2F shamrock · par 2 pack · on hand — REMOVE BASA, FLT 7-9Z BNLS SKNLS VIET IQF SWAI shamrock · par 5 pack · on hand — REMOVE BEAN, BLK SEASN GRD A CAN shamrock · par 6 pack · on hand — REMOVE BEEF, CHEEK MEAT REFRIG shamrock · par 3 pack · on hand — REMOVE BEEF, GRND PTY 7Z 80/20 CHK BRISKET F2F shamrock · par 8 pack · on hand — REMOVE BREAD, SOURDOUGH REUBEN THICK SLI shamrock · par 6 pack · on hand — REMOVE BUN, BRIOCHE HAMBURGER 4.5\" shamrock · par 6 pack · on hand — REMOVE BURGER, "
+  },
+  {
+    "route": "/costing/price-shocks",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/login-pin?next=%2Fcosting%2Fprice-shocks",
+    "h1": [
+      "Sensitive pages"
+    ],
+    "h2": [],
+    "problemText": [],
+    "labels": [
+      "Manager PIN"
+    ],
+    "buttons": [
+      {
+        "text": "OPEN",
+        "disabled": false,
+        "pressed": null
+      }
+    ],
+    "links": [],
+    "mainText": "Sensitive pages Enter the kitchen manager PIN to open sales numbers, costs, and the rest of the back-office pages. Manager PIN OPEN"
+  },
+  {
+    "route": "/menu-engineering/margin-deltas",
+    "navError": null,
+    "events": [],
+    "finalUrl": "/login-pin?next=%2Fmenu-engineering%2Fmargin-deltas",
+    "h1": [
+      "Sensitive pages"
+    ],
+    "h2": [],
+    "problemText": [],
+    "labels": [
+      "Manager PIN"
+    ],
+    "buttons": [
+      {
+        "text": "OPEN",
+        "disabled": false,
+        "pressed": null
+      }
+    ],
+    "links": [],
+    "mainText": "Sensitive pages Enter the kitchen manager PIN to open sales numbers, costs, and the rest of the back-office pages. Manager PIN OPEN"
+  }
+]

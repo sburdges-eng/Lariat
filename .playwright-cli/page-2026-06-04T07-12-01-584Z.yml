@@ -1,0 +1,857 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - img [ref=e6]
+        - generic [ref=e10]:
+          - generic [ref=e11]: The Lariat
+          - generic [ref=e12]: Kitchen Cockpit
+      - generic "Service timeline" [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]:
+            - generic [ref=e17]: Prep
+            - generic [ref=e18]: 8a–11a
+          - generic [ref=e19]:
+            - generic [ref=e21]: Open
+            - generic [ref=e22]: 11a–5p
+          - generic [ref=e23]:
+            - generic [ref=e25]: Rush
+            - generic [ref=e26]: 5p–10p
+          - generic [ref=e27]:
+            - generic [ref=e29]: Close
+            - generic [ref=e30]: 10p–12a
+      - generic [ref=e31]:
+        - generic [ref=e32]: Thu, Jun 4
+        - generic [ref=e33]: 1:12am
+    - complementary [ref=e34]:
+      - generic [ref=e35]:
+        - generic [ref=e36]: The Line
+        - generic [ref=e37]: Cockpit
+      - navigation [ref=e38]:
+        - link "Today (shortcut 0)" [ref=e39] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e40]: "0"
+          - generic [ref=e42]: Today
+        - link "Command (shortcut G)" [ref=e43] [cursor=pointer]:
+          - /url: /command
+          - generic [ref=e44]: G
+          - generic [ref=e46]: Command
+        - generic [ref=e47]: Stations
+        - generic [ref=e48]: Loading stations…
+        - generic [ref=e49]:
+          - generic [ref=e50]: Service
+          - link "Host Stand (shortcut H)" [ref=e51] [cursor=pointer]:
+            - /url: /host
+            - generic [ref=e52]: H
+            - generic [ref=e54]: Host Stand
+          - link "Punch ticket (shortcut P)" [ref=e55] [cursor=pointer]:
+            - /url: /kds/punch
+            - generic [ref=e56]: P
+            - generic [ref=e58]: Punch ticket
+          - link "86 Board (shortcut 8)" [ref=e59] [cursor=pointer]:
+            - /url: /eighty-six
+            - generic [ref=e60]: "8"
+            - generic [ref=e62]: 86 Board
+          - link "Recipes (shortcut R)" [ref=e63] [cursor=pointer]:
+            - /url: /recipes
+            - generic [ref=e64]: R
+            - generic [ref=e66]: Recipes
+          - link "Inventory (shortcut I)" [ref=e67] [cursor=pointer]:
+            - /url: /inventory
+            - generic [ref=e68]: I
+            - generic [ref=e70]: Inventory
+          - link "Prep board (shortcut K)" [ref=e71] [cursor=pointer]:
+            - /url: /prep
+            - generic [ref=e72]: K
+            - generic [ref=e74]: Prep board
+          - link "Fire schedule" [ref=e75] [cursor=pointer]:
+            - /url: /prep/fire-schedule
+            - generic [ref=e76]: ·
+            - generic [ref=e78]: Fire schedule
+          - link "Reservations (shortcut B)" [ref=e79] [cursor=pointer]:
+            - /url: /reservations
+            - generic [ref=e80]: B
+            - generic [ref=e82]: Reservations
+          - link "Floor plan (shortcut A)" [ref=e83] [cursor=pointer]:
+            - /url: /floor
+            - generic [ref=e84]: A
+            - generic [ref=e86]: Floor plan
+          - link "Ask the kitchen (shortcut ?)" [ref=e87] [cursor=pointer]:
+            - /url: /kitchen-assistant
+            - generic [ref=e88]: "?"
+            - generic [ref=e90]: Ask the kitchen
+          - link "Specials (shortcut F)" [ref=e91] [cursor=pointer]:
+            - /url: /specials
+            - generic [ref=e92]: F
+            - generic [ref=e94]: Specials
+          - link "Saved Specials" [ref=e95] [cursor=pointer]:
+            - /url: /specials/saved
+            - generic [ref=e96]: ·
+            - generic [ref=e98]: Saved Specials
+          - link "Gold stars (shortcut ★)" [ref=e99] [cursor=pointer]:
+            - /url: /gold-stars
+            - generic [ref=e100]: ★
+            - generic [ref=e102]: Gold stars
+        - generic [ref=e103]:
+          - generic [ref=e104]: Compliance
+          - link "Food safety" [ref=e105] [cursor=pointer]:
+            - /url: /food-safety
+            - generic [ref=e106]: ·
+            - generic [ref=e108]: Food safety
+          - link "Temp log (shortcut T)" [ref=e109] [cursor=pointer]:
+            - /url: /food-safety/temp-log
+            - generic [ref=e110]: T
+            - generic [ref=e112]: Temp log
+          - link "Receiving (shortcut ↵)" [ref=e113] [cursor=pointer]:
+            - /url: /food-safety/receiving
+            - generic [ref=e114]: ↵
+            - generic [ref=e116]: Receiving
+          - link "Calibrations (shortcut C)" [ref=e117] [cursor=pointer]:
+            - /url: /food-safety/calibrations
+            - generic [ref=e118]: C
+            - generic [ref=e120]: Calibrations
+          - link "Time control" [ref=e121] [cursor=pointer]:
+            - /url: /food-safety/tphc
+            - generic [ref=e122]: ·
+            - generic [ref=e124]: Time control
+          - link "Labor (shortcut L)" [ref=e125] [cursor=pointer]:
+            - /url: /labor
+            - generic [ref=e126]: L
+            - generic [ref=e128]: Labor
+        - generic [ref=e129]:
+          - generic [ref=e130]: Entertainment
+          - link "Tonight · Live" [ref=e131] [cursor=pointer]:
+            - /url: /shows/tonight
+            - generic [ref=e132]: ·
+            - generic [ref=e134]: Tonight · Live
+          - link "Booking" [ref=e135] [cursor=pointer]:
+            - /url: /booking
+            - generic [ref=e136]: ·
+            - generic [ref=e138]: Booking
+          - link "Playbook" [ref=e139] [cursor=pointer]:
+            - /url: /playbook
+            - generic [ref=e140]: ·
+            - generic [ref=e142]: Playbook
+          - link "Past shows" [ref=e143] [cursor=pointer]:
+            - /url: /shows/archive
+            - generic [ref=e144]: ·
+            - generic [ref=e146]: Past shows
+        - generic [ref=e147]: Books
+        - generic [ref=e148]:
+          - link "Sales numbers" [ref=e149] [cursor=pointer]:
+            - /url: /analytics
+            - generic [ref=e150]: Sales
+            - generic [ref=e151]: numbers
+          - link "Costs recipes" [ref=e152] [cursor=pointer]:
+            - /url: /costing
+            - generic [ref=e153]: Costs
+            - generic [ref=e154]: recipes
+          - link "Orders guide" [ref=e155] [cursor=pointer]:
+            - /url: /purchasing
+            - generic [ref=e156]: Orders
+            - generic [ref=e157]: guide
+          - link "Menu perf" [ref=e158] [cursor=pointer]:
+            - /url: /menu-engineering
+            - generic [ref=e159]: Menu
+            - generic [ref=e160]: perf
+          - link "Events & prep" [ref=e161] [cursor=pointer]:
+            - /url: /beo
+            - generic [ref=e162]: Events
+            - generic [ref=e163]: "& prep"
+          - link "Equip. gear" [ref=e164] [cursor=pointer]:
+            - /url: /equipment
+            - generic [ref=e165]: Equip.
+            - generic [ref=e166]: gear
+          - link "Bar cocktails" [ref=e167] [cursor=pointer]:
+            - /url: /bar
+            - generic [ref=e168]: Bar
+            - generic [ref=e169]: cocktails
+          - link "Data lookup" [ref=e170] [cursor=pointer]:
+            - /url: /datapack-search
+            - generic [ref=e171]: Data
+            - generic [ref=e172]: lookup
+          - link "Allergens check" [ref=e173] [cursor=pointer]:
+            - /url: /allergen-lookup
+            - generic [ref=e174]: Allergens
+            - generic [ref=e175]: check
+        - generic [ref=e176]: Location
+        - generic [ref=e177]:
+          - generic [ref=e178]: Room
+          - combobox "Room" [ref=e179]:
+            - option "The Lariat" [selected]
+          - paragraph [ref=e180]: Stays set on this device.
+      - generic [ref=e181]:
+        - text: You're clocked in as
+        - combobox [ref=e182]:
+          - option "— pick your name —" [selected]
+          - option "Tyler Chambers"
+          - option "Tyler Conley"
+          - option "Cody England"
+          - option "Barbara Goode"
+          - option "Jaylynn Goode"
+          - option "James Griffin"
+          - option "Robert Henderson"
+          - option "Noah Mccune"
+          - option "Lucas Nores"
+          - option "Brayden Ortiz"
+          - option "Thomas Potts"
+          - option "Lilly Propernick"
+          - option "Jonathan Rodriquez"
+          - option "Ryan Shaw"
+          - option "Troy Whitmore"
+          - option "Sean Burdges"
+          - option "Kady Simpson"
+          - option "Jacob Wood"
+        - button "Sign out (sensitive pages)" [ref=e183] [cursor=pointer]
+      - link "Install Lariat" [ref=e185] [cursor=pointer]:
+        - /url: /install
+    - main [ref=e186]:
+      - generic [ref=e187]:
+        - heading "Grill / Sauté" [level=1] [ref=e190]
+        - paragraph [ref=e191]: hot line · 43 items
+        - generic [ref=e192]:
+          - 'status "Checklist progress: 1 of 43 complete, 1 pass, 0 fail, 0 not applicable" [ref=e193]':
+            - generic [ref=e194]:
+              - generic [ref=e195]: ✓ 1
+              - generic [ref=e196]: ✗ 0
+              - generic [ref=e197]: n/a 0
+            - generic [ref=e198]: 1 / 43 complete
+          - list "Grill / Sauté checklist" [ref=e199]:
+            - listitem "Cornbread — pass" [ref=e200]:
+              - generic [ref=e201]: Cornbread
+              - generic [ref=e202]: Par for Cornbread
+              - textbox "Par quantity for Cornbread" [ref=e203]:
+                - /placeholder: par
+              - generic [ref=e204]: Have for Cornbread
+              - textbox "Current on-hand quantity for Cornbread" [ref=e205]:
+                - /placeholder: have
+              - button "Pass Cornbread" [pressed] [ref=e206] [cursor=pointer]: Pass
+              - button "Fail Cornbread" [ref=e207] [cursor=pointer]: Fail
+              - button "86 Cornbread" [ref=e208] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e209]:
+                - checkbox "Glove change attested for Cornbread" [ref=e210]
+                - text: 🧤 gloves
+            - listitem "Mayo" [ref=e211]:
+              - generic [ref=e212]: Mayo
+              - generic [ref=e213]: Par for Mayo
+              - textbox "Par quantity for Mayo" [ref=e214]:
+                - /placeholder: par
+              - generic [ref=e215]: Have for Mayo
+              - textbox "Current on-hand quantity for Mayo" [ref=e216]:
+                - /placeholder: have
+              - button "Pass Mayo" [ref=e217] [cursor=pointer]: Pass
+              - button "Fail Mayo" [ref=e218] [cursor=pointer]: Fail
+              - button "86 Mayo" [ref=e219] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e220]:
+                - checkbox "Glove change attested for Mayo" [ref=e221]
+                - text: 🧤 gloves
+            - listitem "Bacon Jam" [ref=e222]:
+              - generic [ref=e223]: Bacon Jam
+              - generic [ref=e224]: Par for Bacon Jam
+              - textbox "Par quantity for Bacon Jam" [ref=e225]:
+                - /placeholder: par
+              - generic [ref=e226]: Have for Bacon Jam
+              - textbox "Current on-hand quantity for Bacon Jam" [ref=e227]:
+                - /placeholder: have
+              - button "Pass Bacon Jam" [ref=e228] [cursor=pointer]: Pass
+              - button "Fail Bacon Jam" [ref=e229] [cursor=pointer]: Fail
+              - button "86 Bacon Jam" [ref=e230] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e231]:
+                - checkbox "Glove change attested for Bacon Jam" [ref=e232]
+                - text: 🧤 gloves
+            - listitem "Burger Pickles" [ref=e233]:
+              - generic [ref=e234]: Burger Pickles
+              - generic [ref=e235]: Par for Burger Pickles
+              - textbox "Par quantity for Burger Pickles" [ref=e236]:
+                - /placeholder: par
+              - generic [ref=e237]: Have for Burger Pickles
+              - textbox "Current on-hand quantity for Burger Pickles" [ref=e238]:
+                - /placeholder: have
+              - button "Pass Burger Pickles" [ref=e239] [cursor=pointer]: Pass
+              - button "Fail Burger Pickles" [ref=e240] [cursor=pointer]: Fail
+              - button "86 Burger Pickles" [ref=e241] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e242]:
+                - checkbox "Glove change attested for Burger Pickles" [ref=e243]
+                - text: 🧤 gloves
+            - listitem "Special Sauce" [ref=e244]:
+              - generic [ref=e245]: Special Sauce
+              - generic [ref=e246]: Par for Special Sauce
+              - textbox "Par quantity for Special Sauce" [ref=e247]:
+                - /placeholder: par
+              - generic [ref=e248]: Have for Special Sauce
+              - textbox "Current on-hand quantity for Special Sauce" [ref=e249]:
+                - /placeholder: have
+              - button "Pass Special Sauce" [ref=e250] [cursor=pointer]: Pass
+              - button "Fail Special Sauce" [ref=e251] [cursor=pointer]: Fail
+              - button "86 Special Sauce" [ref=e252] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e253]:
+                - checkbox "Glove change attested for Special Sauce" [ref=e254]
+                - text: 🧤 gloves
+            - listitem "Thawed Burger Buns" [ref=e255]:
+              - generic [ref=e256]: Thawed Burger Buns
+              - generic [ref=e257]: Par for Thawed Burger Buns
+              - textbox "Par quantity for Thawed Burger Buns" [ref=e258]:
+                - /placeholder: par
+              - generic [ref=e259]: Have for Thawed Burger Buns
+              - textbox "Current on-hand quantity for Thawed Burger Buns" [ref=e260]:
+                - /placeholder: have
+              - button "Pass Thawed Burger Buns" [ref=e261] [cursor=pointer]: Pass
+              - button "Fail Thawed Burger Buns" [ref=e262] [cursor=pointer]: Fail
+              - button "86 Thawed Burger Buns" [ref=e263] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e264]:
+                - checkbox "Glove change attested for Thawed Burger Buns" [ref=e265]
+                - text: 🧤 gloves
+            - listitem "Impossible Burgers" [ref=e266]:
+              - generic [ref=e267]: Impossible Burgers
+              - generic [ref=e268]: Par for Impossible Burgers
+              - textbox "Par quantity for Impossible Burgers" [ref=e269]:
+                - /placeholder: par
+              - generic [ref=e270]: Have for Impossible Burgers
+              - textbox "Current on-hand quantity for Impossible Burgers" [ref=e271]:
+                - /placeholder: have
+              - button "Pass Impossible Burgers" [ref=e272] [cursor=pointer]: Pass
+              - button "Fail Impossible Burgers" [ref=e273] [cursor=pointer]: Fail
+              - button "86 Impossible Burgers" [ref=e274] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e275]:
+                - checkbox "Glove change attested for Impossible Burgers" [ref=e276]
+                - text: 🧤 gloves
+            - listitem "Gluten Free Buns" [ref=e277]:
+              - generic [ref=e278]: Gluten Free Buns
+              - generic [ref=e279]: Par for Gluten Free Buns
+              - textbox "Par quantity for Gluten Free Buns" [ref=e280]:
+                - /placeholder: par
+              - generic [ref=e281]: Have for Gluten Free Buns
+              - textbox "Current on-hand quantity for Gluten Free Buns" [ref=e282]:
+                - /placeholder: have
+              - button "Pass Gluten Free Buns" [ref=e283] [cursor=pointer]: Pass
+              - button "Fail Gluten Free Buns" [ref=e284] [cursor=pointer]: Fail
+              - button "86 Gluten Free Buns" [ref=e285] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e286]:
+                - checkbox "Glove change attested for Gluten Free Buns" [ref=e287]
+                - text: 🧤 gloves
+            - listitem "Thawed Burgers" [ref=e288]:
+              - generic [ref=e289]: Thawed Burgers
+              - generic [ref=e290]: Par for Thawed Burgers
+              - textbox "Par quantity for Thawed Burgers" [ref=e291]:
+                - /placeholder: par
+              - generic [ref=e292]: Have for Thawed Burgers
+              - textbox "Current on-hand quantity for Thawed Burgers" [ref=e293]:
+                - /placeholder: have
+              - button "Pass Thawed Burgers" [ref=e294] [cursor=pointer]: Pass
+              - button "Fail Thawed Burgers" [ref=e295] [cursor=pointer]: Fail
+              - button "86 Thawed Burgers" [ref=e296] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e297]:
+                - checkbox "Glove change attested for Thawed Burgers" [ref=e298]
+                - text: 🧤 gloves
+            - listitem "Chorizo Patties" [ref=e299]:
+              - generic [ref=e300]: Chorizo Patties
+              - generic [ref=e301]: Par for Chorizo Patties
+              - textbox "Par quantity for Chorizo Patties" [ref=e302]:
+                - /placeholder: par
+              - generic [ref=e303]: Have for Chorizo Patties
+              - textbox "Current on-hand quantity for Chorizo Patties" [ref=e304]:
+                - /placeholder: have
+              - button "Pass Chorizo Patties" [ref=e305] [cursor=pointer]: Pass
+              - button "Fail Chorizo Patties" [ref=e306] [cursor=pointer]: Fail
+              - button "86 Chorizo Patties" [ref=e307] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e308]:
+                - checkbox "Glove change attested for Chorizo Patties" [ref=e309]
+                - text: 🧤 gloves
+            - listitem "Brined Pork Chop" [ref=e310]:
+              - generic [ref=e311]: Brined Pork Chop
+              - generic [ref=e312]: Par for Brined Pork Chop
+              - textbox "Par quantity for Brined Pork Chop" [ref=e313]:
+                - /placeholder: par
+              - generic [ref=e314]: Have for Brined Pork Chop
+              - textbox "Current on-hand quantity for Brined Pork Chop" [ref=e315]:
+                - /placeholder: have
+              - button "Pass Brined Pork Chop" [ref=e316] [cursor=pointer]: Pass
+              - button "Fail Brined Pork Chop" [ref=e317] [cursor=pointer]: Fail
+              - button "86 Brined Pork Chop" [ref=e318] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e319]:
+                - checkbox "Glove change attested for Brined Pork Chop" [ref=e320]
+                - text: 🧤 gloves
+            - listitem "Bacon Par Cooked" [ref=e321]:
+              - generic [ref=e322]: Bacon Par Cooked
+              - generic [ref=e323]: Par for Bacon Par Cooked
+              - textbox "Par quantity for Bacon Par Cooked" [ref=e324]:
+                - /placeholder: par
+              - generic [ref=e325]: Have for Bacon Par Cooked
+              - textbox "Current on-hand quantity for Bacon Par Cooked" [ref=e326]:
+                - /placeholder: have
+              - button "Pass Bacon Par Cooked" [ref=e327] [cursor=pointer]: Pass
+              - button "Fail Bacon Par Cooked" [ref=e328] [cursor=pointer]: Fail
+              - button "86 Bacon Par Cooked" [ref=e329] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e330]:
+                - checkbox "Glove change attested for Bacon Par Cooked" [ref=e331]
+                - text: 🧤 gloves
+            - listitem "Birria Beef" [ref=e332]:
+              - generic [ref=e333]: Birria Beef
+              - generic [ref=e334]: Par for Birria Beef
+              - textbox "Par quantity for Birria Beef" [ref=e335]:
+                - /placeholder: par
+              - generic [ref=e336]: Have for Birria Beef
+              - textbox "Current on-hand quantity for Birria Beef" [ref=e337]:
+                - /placeholder: have
+              - button "Pass Birria Beef" [ref=e338] [cursor=pointer]: Pass
+              - button "Fail Birria Beef" [ref=e339] [cursor=pointer]: Fail
+              - button "86 Birria Beef" [ref=e340] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e341]:
+                - checkbox "Glove change attested for Birria Beef" [ref=e342]
+                - text: 🧤 gloves
+            - listitem "Consume" [ref=e343]:
+              - generic [ref=e344]: Consume
+              - generic [ref=e345]: Par for Consume
+              - textbox "Par quantity for Consume" [ref=e346]:
+                - /placeholder: par
+              - generic [ref=e347]: Have for Consume
+              - textbox "Current on-hand quantity for Consume" [ref=e348]:
+                - /placeholder: have
+              - button "Pass Consume" [ref=e349] [cursor=pointer]: Pass
+              - button "Fail Consume" [ref=e350] [cursor=pointer]: Fail
+              - button "86 Consume" [ref=e351] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e352]:
+                - checkbox "Glove change attested for Consume" [ref=e353]
+                - text: 🧤 gloves
+            - listitem "Sliced tomatoes" [ref=e354]:
+              - generic [ref=e355]: Sliced tomatoes
+              - generic [ref=e356]: Par for Sliced tomatoes
+              - textbox "Par quantity for Sliced tomatoes" [ref=e357]:
+                - /placeholder: par
+              - generic [ref=e358]: Have for Sliced tomatoes
+              - textbox "Current on-hand quantity for Sliced tomatoes" [ref=e359]:
+                - /placeholder: have
+              - button "Pass Sliced tomatoes" [ref=e360] [cursor=pointer]: Pass
+              - button "Fail Sliced tomatoes" [ref=e361] [cursor=pointer]: Fail
+              - button "86 Sliced tomatoes" [ref=e362] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e363]:
+                - checkbox "Glove change attested for Sliced tomatoes" [ref=e364]
+                - text: 🧤 gloves
+            - listitem "Lettuce" [ref=e365]:
+              - generic [ref=e366]: Lettuce
+              - generic [ref=e367]: Par for Lettuce
+              - textbox "Par quantity for Lettuce" [ref=e368]:
+                - /placeholder: par
+              - generic [ref=e369]: Have for Lettuce
+              - textbox "Current on-hand quantity for Lettuce" [ref=e370]:
+                - /placeholder: have
+              - button "Pass Lettuce" [ref=e371] [cursor=pointer]: Pass
+              - button "Fail Lettuce" [ref=e372] [cursor=pointer]: Fail
+              - button "86 Lettuce" [ref=e373] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e374]:
+                - checkbox "Glove change attested for Lettuce" [ref=e375]
+                - text: 🧤 gloves
+            - listitem "Mozarella Sliced" [ref=e376]:
+              - generic [ref=e377]: Mozarella Sliced
+              - generic [ref=e378]: Par for Mozarella Sliced
+              - textbox "Par quantity for Mozarella Sliced" [ref=e379]:
+                - /placeholder: par
+              - generic [ref=e380]: Have for Mozarella Sliced
+              - textbox "Current on-hand quantity for Mozarella Sliced" [ref=e381]:
+                - /placeholder: have
+              - button "Pass Mozarella Sliced" [ref=e382] [cursor=pointer]: Pass
+              - button "Fail Mozarella Sliced" [ref=e383] [cursor=pointer]: Fail
+              - button "86 Mozarella Sliced" [ref=e384] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e385]:
+                - checkbox "Glove change attested for Mozarella Sliced" [ref=e386]
+                - text: 🧤 gloves
+            - listitem "Pickled red onion" [ref=e387]:
+              - generic [ref=e388]: Pickled red onion
+              - generic [ref=e389]: Par for Pickled red onion
+              - textbox "Par quantity for Pickled red onion" [ref=e390]:
+                - /placeholder: par
+              - generic [ref=e391]: Have for Pickled red onion
+              - textbox "Current on-hand quantity for Pickled red onion" [ref=e392]:
+                - /placeholder: have
+              - button "Pass Pickled red onion" [ref=e393] [cursor=pointer]: Pass
+              - button "Fail Pickled red onion" [ref=e394] [cursor=pointer]: Fail
+              - button "86 Pickled red onion" [ref=e395] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e396]:
+                - checkbox "Glove change attested for Pickled red onion" [ref=e397]
+                - text: 🧤 gloves
+            - listitem "Grain Mustard (happy hour)" [ref=e398]:
+              - generic [ref=e399]: Grain Mustard (happy hour)
+              - generic [ref=e400]: Par for Grain Mustard (happy hour)
+              - textbox "Par quantity for Grain Mustard (happy hour)" [ref=e401]:
+                - /placeholder: par
+              - generic [ref=e402]: Have for Grain Mustard (happy hour)
+              - textbox "Current on-hand quantity for Grain Mustard (happy hour)" [ref=e403]:
+                - /placeholder: have
+              - button "Pass Grain Mustard (happy hour)" [ref=e404] [cursor=pointer]: Pass
+              - button "Fail Grain Mustard (happy hour)" [ref=e405] [cursor=pointer]: Fail
+              - button "86 Grain Mustard (happy hour)" [ref=e406] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e407]:
+                - checkbox "Glove change attested for Grain Mustard (happy hour)" [ref=e408]
+                - text: 🧤 gloves
+            - listitem "Pepper Jack Cheese sliced" [ref=e409]:
+              - generic [ref=e410]: Pepper Jack Cheese sliced
+              - generic [ref=e411]: Par for Pepper Jack Cheese sliced
+              - textbox "Par quantity for Pepper Jack Cheese sliced" [ref=e412]:
+                - /placeholder: par
+              - generic [ref=e413]: Have for Pepper Jack Cheese sliced
+              - textbox "Current on-hand quantity for Pepper Jack Cheese sliced" [ref=e414]:
+                - /placeholder: have
+              - button "Pass Pepper Jack Cheese sliced" [ref=e415] [cursor=pointer]: Pass
+              - button "Fail Pepper Jack Cheese sliced" [ref=e416] [cursor=pointer]: Fail
+              - button "86 Pepper Jack Cheese sliced" [ref=e417] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e418]:
+                - checkbox "Glove change attested for Pepper Jack Cheese sliced" [ref=e419]
+                - text: 🧤 gloves
+            - listitem "White Cheddar sliced" [ref=e420]:
+              - generic [ref=e421]: White Cheddar sliced
+              - generic [ref=e422]: Par for White Cheddar sliced
+              - textbox "Par quantity for White Cheddar sliced" [ref=e423]:
+                - /placeholder: par
+              - generic [ref=e424]: Have for White Cheddar sliced
+              - textbox "Current on-hand quantity for White Cheddar sliced" [ref=e425]:
+                - /placeholder: have
+              - button "Pass White Cheddar sliced" [ref=e426] [cursor=pointer]: Pass
+              - button "Fail White Cheddar sliced" [ref=e427] [cursor=pointer]: Fail
+              - button "86 White Cheddar sliced" [ref=e428] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e429]:
+                - checkbox "Glove change attested for White Cheddar sliced" [ref=e430]
+                - text: 🧤 gloves
+            - listitem "Quesa Birria Cheese" [ref=e431]:
+              - generic [ref=e432]: Quesa Birria Cheese
+              - generic [ref=e433]: Par for Quesa Birria Cheese
+              - textbox "Par quantity for Quesa Birria Cheese" [ref=e434]:
+                - /placeholder: par
+              - generic [ref=e435]: Have for Quesa Birria Cheese
+              - textbox "Current on-hand quantity for Quesa Birria Cheese" [ref=e436]:
+                - /placeholder: have
+              - button "Pass Quesa Birria Cheese" [ref=e437] [cursor=pointer]: Pass
+              - button "Fail Quesa Birria Cheese" [ref=e438] [cursor=pointer]: Fail
+              - button "86 Quesa Birria Cheese" [ref=e439] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e440]:
+                - checkbox "Glove change attested for Quesa Birria Cheese" [ref=e441]
+                - text: 🧤 gloves
+            - listitem "Honey Butter" [ref=e442]:
+              - generic [ref=e443]: Honey Butter
+              - generic [ref=e444]: Par for Honey Butter
+              - textbox "Par quantity for Honey Butter" [ref=e445]:
+                - /placeholder: par
+              - generic [ref=e446]: Have for Honey Butter
+              - textbox "Current on-hand quantity for Honey Butter" [ref=e447]:
+                - /placeholder: have
+              - button "Pass Honey Butter" [ref=e448] [cursor=pointer]: Pass
+              - button "Fail Honey Butter" [ref=e449] [cursor=pointer]: Fail
+              - button "86 Honey Butter" [ref=e450] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e451]:
+                - checkbox "Glove change attested for Honey Butter" [ref=e452]
+                - text: 🧤 gloves
+            - listitem "Clarified Butter" [ref=e453]:
+              - generic [ref=e454]: Clarified Butter
+              - generic [ref=e455]: Par for Clarified Butter
+              - textbox "Par quantity for Clarified Butter" [ref=e456]:
+                - /placeholder: par
+              - generic [ref=e457]: Have for Clarified Butter
+              - textbox "Current on-hand quantity for Clarified Butter" [ref=e458]:
+                - /placeholder: have
+              - button "Pass Clarified Butter" [ref=e459] [cursor=pointer]: Pass
+              - button "Fail Clarified Butter" [ref=e460] [cursor=pointer]: Fail
+              - button "86 Clarified Butter" [ref=e461] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e462]:
+                - checkbox "Glove change attested for Clarified Butter" [ref=e463]
+                - text: 🧤 gloves
+            - listitem "Sour Dough Whole" [ref=e464]:
+              - generic [ref=e465]: Sour Dough Whole
+              - generic [ref=e466]: Par for Sour Dough Whole
+              - textbox "Par quantity for Sour Dough Whole" [ref=e467]:
+                - /placeholder: par
+              - generic [ref=e468]: Have for Sour Dough Whole
+              - textbox "Current on-hand quantity for Sour Dough Whole" [ref=e469]:
+                - /placeholder: have
+              - button "Pass Sour Dough Whole" [ref=e470] [cursor=pointer]: Pass
+              - button "Fail Sour Dough Whole" [ref=e471] [cursor=pointer]: Fail
+              - button "86 Sour Dough Whole" [ref=e472] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e473]:
+                - checkbox "Glove change attested for Sour Dough Whole" [ref=e474]
+                - text: 🧤 gloves
+            - listitem "Sour Dough Sliced" [ref=e475]:
+              - generic [ref=e476]: Sour Dough Sliced
+              - generic [ref=e477]: Par for Sour Dough Sliced
+              - textbox "Par quantity for Sour Dough Sliced" [ref=e478]:
+                - /placeholder: par
+              - generic [ref=e479]: Have for Sour Dough Sliced
+              - textbox "Current on-hand quantity for Sour Dough Sliced" [ref=e480]:
+                - /placeholder: have
+              - button "Pass Sour Dough Sliced" [ref=e481] [cursor=pointer]: Pass
+              - button "Fail Sour Dough Sliced" [ref=e482] [cursor=pointer]: Fail
+              - button "86 Sour Dough Sliced" [ref=e483] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e484]:
+                - checkbox "Glove change attested for Sour Dough Sliced" [ref=e485]
+                - text: 🧤 gloves
+            - listitem "Oil" [ref=e486]:
+              - generic [ref=e487]: Oil
+              - generic [ref=e488]: Par for Oil
+              - textbox "Par quantity for Oil" [ref=e489]:
+                - /placeholder: par
+              - generic [ref=e490]: Have for Oil
+              - textbox "Current on-hand quantity for Oil" [ref=e491]:
+                - /placeholder: have
+              - button "Pass Oil" [ref=e492] [cursor=pointer]: Pass
+              - button "Fail Oil" [ref=e493] [cursor=pointer]: Fail
+              - button "86 Oil" [ref=e494] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e495]:
+                - checkbox "Glove change attested for Oil" [ref=e496]
+                - text: 🧤 gloves
+            - listitem "Birria Beef" [ref=e497]:
+              - generic [ref=e498]: Birria Beef
+              - generic [ref=e499]: Par for Birria Beef
+              - textbox "Par quantity for Birria Beef" [ref=e500]:
+                - /placeholder: par
+              - generic [ref=e501]: Have for Birria Beef
+              - textbox "Current on-hand quantity for Birria Beef" [ref=e502]:
+                - /placeholder: have
+              - button "Pass Birria Beef" [ref=e503] [cursor=pointer]: Pass
+              - button "Fail Birria Beef" [ref=e504] [cursor=pointer]: Fail
+              - button "86 Birria Beef" [ref=e505] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e506]:
+                - checkbox "Glove change attested for Birria Beef" [ref=e507]
+                - text: 🧤 gloves
+            - listitem "Beer Cheese (happy hour)" [ref=e508]:
+              - generic [ref=e509]: Beer Cheese (happy hour)
+              - generic [ref=e510]: Par for Beer Cheese (happy hour)
+              - textbox "Par quantity for Beer Cheese (happy hour)" [ref=e511]:
+                - /placeholder: par
+              - generic [ref=e512]: Have for Beer Cheese (happy hour)
+              - textbox "Current on-hand quantity for Beer Cheese (happy hour)" [ref=e513]:
+                - /placeholder: have
+              - button "Pass Beer Cheese (happy hour)" [ref=e514] [cursor=pointer]: Pass
+              - button "Fail Beer Cheese (happy hour)" [ref=e515] [cursor=pointer]: Fail
+              - button "86 Beer Cheese (happy hour)" [ref=e516] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e517]:
+                - checkbox "Glove change attested for Beer Cheese (happy hour)" [ref=e518]
+                - text: 🧤 gloves
+            - listitem "Pretzels (Happy hour)" [ref=e519]:
+              - generic [ref=e520]: Pretzels (Happy hour)
+              - generic [ref=e521]: Par for Pretzels (Happy hour)
+              - textbox "Par quantity for Pretzels (Happy hour)" [ref=e522]:
+                - /placeholder: par
+              - generic [ref=e523]: Have for Pretzels (Happy hour)
+              - textbox "Current on-hand quantity for Pretzels (Happy hour)" [ref=e524]:
+                - /placeholder: have
+              - button "Pass Pretzels (Happy hour)" [ref=e525] [cursor=pointer]: Pass
+              - button "Fail Pretzels (Happy hour)" [ref=e526] [cursor=pointer]: Fail
+              - button "86 Pretzels (Happy hour)" [ref=e527] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e528]:
+                - checkbox "Glove change attested for Pretzels (Happy hour)" [ref=e529]
+                - text: 🧤 gloves
+            - listitem "Consume" [ref=e530]:
+              - generic [ref=e531]: Consume
+              - generic [ref=e532]: Par for Consume
+              - textbox "Par quantity for Consume" [ref=e533]:
+                - /placeholder: par
+              - generic [ref=e534]: Have for Consume
+              - textbox "Current on-hand quantity for Consume" [ref=e535]:
+                - /placeholder: have
+              - button "Pass Consume" [ref=e536] [cursor=pointer]: Pass
+              - button "Fail Consume" [ref=e537] [cursor=pointer]: Fail
+              - button "86 Consume" [ref=e538] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e539]:
+                - checkbox "Glove change attested for Consume" [ref=e540]
+                - text: 🧤 gloves
+            - listitem "Par Cooked Noodles" [ref=e541]:
+              - generic [ref=e542]: Par Cooked Noodles
+              - generic [ref=e543]: Par for Par Cooked Noodles
+              - textbox "Par quantity for Par Cooked Noodles" [ref=e544]:
+                - /placeholder: par
+              - generic [ref=e545]: Have for Par Cooked Noodles
+              - textbox "Current on-hand quantity for Par Cooked Noodles" [ref=e546]:
+                - /placeholder: have
+              - button "Pass Par Cooked Noodles" [ref=e547] [cursor=pointer]: Pass
+              - button "Fail Par Cooked Noodles" [ref=e548] [cursor=pointer]: Fail
+              - button "86 Par Cooked Noodles" [ref=e549] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e550]:
+                - checkbox "Glove change attested for Par Cooked Noodles" [ref=e551]
+                - text: 🧤 gloves
+            - listitem "Toasted Panko" [ref=e552]:
+              - generic [ref=e553]: Toasted Panko
+              - generic [ref=e554]: Par for Toasted Panko
+              - textbox "Par quantity for Toasted Panko" [ref=e555]:
+                - /placeholder: par
+              - generic [ref=e556]: Have for Toasted Panko
+              - textbox "Current on-hand quantity for Toasted Panko" [ref=e557]:
+                - /placeholder: have
+              - button "Pass Toasted Panko" [ref=e558] [cursor=pointer]: Pass
+              - button "Fail Toasted Panko" [ref=e559] [cursor=pointer]: Fail
+              - button "86 Toasted Panko" [ref=e560] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e561]:
+                - checkbox "Glove change attested for Toasted Panko" [ref=e562]
+                - text: 🧤 gloves
+            - listitem "Tortilla Flour" [ref=e563]:
+              - generic [ref=e564]: Tortilla Flour
+              - generic [ref=e565]: Par for Tortilla Flour
+              - textbox "Par quantity for Tortilla Flour" [ref=e566]:
+                - /placeholder: par
+              - generic [ref=e567]: Have for Tortilla Flour
+              - textbox "Current on-hand quantity for Tortilla Flour" [ref=e568]:
+                - /placeholder: have
+              - button "Pass Tortilla Flour" [ref=e569] [cursor=pointer]: Pass
+              - button "Fail Tortilla Flour" [ref=e570] [cursor=pointer]: Fail
+              - button "86 Tortilla Flour" [ref=e571] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e572]:
+                - checkbox "Glove change attested for Tortilla Flour" [ref=e573]
+                - text: 🧤 gloves
+            - listitem "Tortilla Corn" [ref=e574]:
+              - generic [ref=e575]: Tortilla Corn
+              - generic [ref=e576]: Par for Tortilla Corn
+              - textbox "Par quantity for Tortilla Corn" [ref=e577]:
+                - /placeholder: par
+              - generic [ref=e578]: Have for Tortilla Corn
+              - textbox "Current on-hand quantity for Tortilla Corn" [ref=e579]:
+                - /placeholder: have
+              - button "Pass Tortilla Corn" [ref=e580] [cursor=pointer]: Pass
+              - button "Fail Tortilla Corn" [ref=e581] [cursor=pointer]: Fail
+              - button "86 Tortilla Corn" [ref=e582] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e583]:
+                - checkbox "Glove change attested for Tortilla Corn" [ref=e584]
+                - text: 🧤 gloves
+            - listitem "Confit Chicken" [ref=e585]:
+              - generic [ref=e586]: Confit Chicken
+              - generic [ref=e587]: Par for Confit Chicken
+              - textbox "Par quantity for Confit Chicken" [ref=e588]:
+                - /placeholder: par
+              - generic [ref=e589]: Have for Confit Chicken
+              - textbox "Current on-hand quantity for Confit Chicken" [ref=e590]:
+                - /placeholder: have
+              - button "Pass Confit Chicken" [ref=e591] [cursor=pointer]: Pass
+              - button "Fail Confit Chicken" [ref=e592] [cursor=pointer]: Fail
+              - button "86 Confit Chicken" [ref=e593] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e594]:
+                - checkbox "Glove change attested for Confit Chicken" [ref=e595]
+                - text: 🧤 gloves
+            - listitem "Chicken Jus" [ref=e596]:
+              - generic [ref=e597]: Chicken Jus
+              - generic [ref=e598]: Par for Chicken Jus
+              - textbox "Par quantity for Chicken Jus" [ref=e599]:
+                - /placeholder: par
+              - generic [ref=e600]: Have for Chicken Jus
+              - textbox "Current on-hand quantity for Chicken Jus" [ref=e601]:
+                - /placeholder: have
+              - button "Pass Chicken Jus" [ref=e602] [cursor=pointer]: Pass
+              - button "Fail Chicken Jus" [ref=e603] [cursor=pointer]: Fail
+              - button "86 Chicken Jus" [ref=e604] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e605]:
+                - checkbox "Glove change attested for Chicken Jus" [ref=e606]
+                - text: 🧤 gloves
+            - listitem "Trout thawed and cleaned" [ref=e607]:
+              - generic [ref=e608]: Trout thawed and cleaned
+              - generic [ref=e609]: Par for Trout thawed and cleaned
+              - textbox "Par quantity for Trout thawed and cleaned" [ref=e610]:
+                - /placeholder: par
+              - generic [ref=e611]: Have for Trout thawed and cleaned
+              - textbox "Current on-hand quantity for Trout thawed and cleaned" [ref=e612]:
+                - /placeholder: have
+              - button "Pass Trout thawed and cleaned" [ref=e613] [cursor=pointer]: Pass
+              - button "Fail Trout thawed and cleaned" [ref=e614] [cursor=pointer]: Fail
+              - button "86 Trout thawed and cleaned" [ref=e615] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e616]:
+                - checkbox "Glove change attested for Trout thawed and cleaned" [ref=e617]
+                - text: 🧤 gloves
+            - listitem "Garlic MInced" [ref=e618]:
+              - generic [ref=e619]: Garlic MInced
+              - generic [ref=e620]: Par for Garlic MInced
+              - textbox "Par quantity for Garlic MInced" [ref=e621]:
+                - /placeholder: par
+              - generic [ref=e622]: Have for Garlic MInced
+              - textbox "Current on-hand quantity for Garlic MInced" [ref=e623]:
+                - /placeholder: have
+              - button "Pass Garlic MInced" [ref=e624] [cursor=pointer]: Pass
+              - button "Fail Garlic MInced" [ref=e625] [cursor=pointer]: Fail
+              - button "86 Garlic MInced" [ref=e626] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e627]:
+                - checkbox "Glove change attested for Garlic MInced" [ref=e628]
+                - text: 🧤 gloves
+            - listitem "Capers" [ref=e629]:
+              - generic [ref=e630]: Capers
+              - generic [ref=e631]: Par for Capers
+              - textbox "Par quantity for Capers" [ref=e632]:
+                - /placeholder: par
+              - generic [ref=e633]: Have for Capers
+              - textbox "Current on-hand quantity for Capers" [ref=e634]:
+                - /placeholder: have
+              - button "Pass Capers" [ref=e635] [cursor=pointer]: Pass
+              - button "Fail Capers" [ref=e636] [cursor=pointer]: Fail
+              - button "86 Capers" [ref=e637] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e638]:
+                - checkbox "Glove change attested for Capers" [ref=e639]
+                - text: 🧤 gloves
+            - listitem "Lemon Half" [ref=e640]:
+              - generic [ref=e641]: Lemon Half
+              - generic [ref=e642]: Par for Lemon Half
+              - textbox "Par quantity for Lemon Half" [ref=e643]:
+                - /placeholder: par
+              - generic [ref=e644]: Have for Lemon Half
+              - textbox "Current on-hand quantity for Lemon Half" [ref=e645]:
+                - /placeholder: have
+              - button "Pass Lemon Half" [ref=e646] [cursor=pointer]: Pass
+              - button "Fail Lemon Half" [ref=e647] [cursor=pointer]: Fail
+              - button "86 Lemon Half" [ref=e648] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e649]:
+                - checkbox "Glove change attested for Lemon Half" [ref=e650]
+                - text: 🧤 gloves
+            - listitem "White Wine" [ref=e651]:
+              - generic [ref=e652]: White Wine
+              - generic [ref=e653]: Par for White Wine
+              - textbox "Par quantity for White Wine" [ref=e654]:
+                - /placeholder: par
+              - generic [ref=e655]: Have for White Wine
+              - textbox "Current on-hand quantity for White Wine" [ref=e656]:
+                - /placeholder: have
+              - button "Pass White Wine" [ref=e657] [cursor=pointer]: Pass
+              - button "Fail White Wine" [ref=e658] [cursor=pointer]: Fail
+              - button "86 White Wine" [ref=e659] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e660]:
+                - checkbox "Glove change attested for White Wine" [ref=e661]
+                - text: 🧤 gloves
+            - listitem "Asparagus" [ref=e662]:
+              - generic [ref=e663]: Asparagus
+              - generic [ref=e664]: Par for Asparagus
+              - textbox "Par quantity for Asparagus" [ref=e665]:
+                - /placeholder: par
+              - generic [ref=e666]: Have for Asparagus
+              - textbox "Current on-hand quantity for Asparagus" [ref=e667]:
+                - /placeholder: have
+              - button "Pass Asparagus" [ref=e668] [cursor=pointer]: Pass
+              - button "Fail Asparagus" [ref=e669] [cursor=pointer]: Fail
+              - button "86 Asparagus" [ref=e670] [cursor=pointer]: "86"
+              - generic "Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)." [ref=e671]:
+                - checkbox "Glove change attested for Asparagus" [ref=e672]
+                - text: 🧤 gloves
+          - generic [ref=e673]:
+            - button "Finish checking 42 remaining items before sign-off" [disabled]: Check every item (42 left)
+        - group [ref=e674]:
+          - generic "▸ Opening steps (18)" [ref=e675] [cursor=pointer]
+    - contentinfo [ref=e676]:
+      - generic [ref=e677]:
+        - generic [ref=e678]:
+          - generic [ref=e679]: ⌘
+          - generic [ref=e680]: K
+          - generic [ref=e681]: Jump
+        - generic [ref=e682]:
+          - generic [ref=e683]: /
+          - generic [ref=e684]: Search
+        - generic [ref=e685]:
+          - generic [ref=e686]: "1"
+          - text: –
+          - generic [ref=e687]: "6"
+          - generic [ref=e688]: Stations
+        - generic [ref=e689]:
+          - generic [ref=e690]: "8"
+          - generic [ref=e691]: "86"
+        - generic [ref=e692]:
+          - generic [ref=e693]: M
+          - generic [ref=e694]: Map
+      - generic [ref=e696]:
+        - generic [ref=e697]: The Lariat
+        - generic [ref=e698]: ·
+        - generic [ref=e699]: version
+  - button "Open kitchen floorplan navigator" [ref=e700] [cursor=pointer]:
+    - img [ref=e701]
+    - generic [ref=e704]:
+      - text: Floor ·
+      - generic [ref=e705]: M
+  - alert [ref=e706]
