@@ -15,11 +15,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 
 register(new URL('./resolver.mjs', import.meta.url));
 
 const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-kds-bump-'));
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 const db = await import('../../lib/db.ts');
 const route = await import('../../app/api/kds/tickets/[id]/bump/route.js');
@@ -91,6 +93,46 @@ function countAudit(entity, action) {
     .get(entity).c;
 }
 
+function resolveKdsProtocolDocPath() {
+  const envPath = process.env.LARIAT_KDS_PROTOCOL_DOC?.trim();
+  const candidates = [
+    envPath,
+    path.join(REPO_ROOT, 'Lariat-KDS/docs/lariat-kds-protocol.md'),
+    path.join(REPO_ROOT, '../../Lariat-KDS/docs/lariat-kds-protocol.md'),
+    path.join(REPO_ROOT, '../../../Lariat-KDS/docs/lariat-kds-protocol.md'),
+    path.join(REPO_ROOT, '../Lariat-KDS/docs/lariat-kds-protocol.md'),
+    path.join(REPO_ROOT, 'tests/fixtures/lariat-kds-protocol.md'),
+  ].filter(Boolean);
+
+  const found = candidates.find((candidate) => fs.existsSync(candidate));
+  assert.ok(
+    found,
+    `Lariat-KDS protocol doc not found. Checked: ${candidates.join(', ')}`,
+  );
+  return found;
+}
+
+function protocolBumpResponseFields() {
+  const doc = fs.readFileSync(resolveKdsProtocolDocPath(), 'utf8');
+  const startMarker = '### Response schema (200)';
+  const endMarker = '### Status codes';
+  const start = doc.indexOf(startMarker);
+  assert.notEqual(start, -1, 'protocol doc must include the v2 response schema section');
+  const end = doc.indexOf(endMarker, start + startMarker.length);
+  assert.notEqual(end, -1, 'protocol doc must include the status-code section after response schema');
+
+  const responseSection = doc.slice(start, end);
+  const jsonBlock = responseSection.match(/```json\s*([\s\S]*?)\s*```/);
+  assert.ok(jsonBlock, 'protocol response schema must include a fenced JSON object');
+
+  const sample = JSON.parse(jsonBlock[1]);
+  assert.ok(
+    sample && typeof sample === 'object' && !Array.isArray(sample),
+    'protocol response schema must be a JSON object',
+  );
+  return Object.keys(sample);
+}
+
 // ── happy path ──────────────────────────────────────────────────
 
 describe('POST /api/kds/tickets/:id/bump — happy path', () => {
@@ -117,6 +159,24 @@ describe('POST /api/kds/tickets/:id/bump — happy path', () => {
     assert.equal(row.bumped_pin_hash, createHash('sha256').update('1234').digest('hex'));
 
     assert.equal(countAudit('kds_ticket_state', 'insert'), 1);
+  });
+
+  it('matches the BumpResponse field names documented in Lariat-KDS', async () => {
+    const protocolFields = protocolBumpResponseFields();
+    const bumpedAt = '2026-05-04T19:15:00.000Z';
+    seedTicket('tkt_contract');
+
+    const res = await POST(
+      bumpReq('tkt_contract', { body: { bumped_at: bumpedAt, station: 'sides' } }),
+      ctx('tkt_contract'),
+    );
+    const body = await res.json();
+
+    assert.equal(res.status, 200);
+    assert.deepStrictEqual(Object.keys(body), protocolFields);
+    for (const field of protocolFields) {
+      assert.ok(Object.hasOwn(body, field), `response missing protocol field ${field}`);
+    }
   });
 
   it('accepts an empty body and stamps server time', async () => {
