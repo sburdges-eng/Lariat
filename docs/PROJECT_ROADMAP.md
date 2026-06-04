@@ -72,15 +72,9 @@ Stuff the audit surfaced that should land before next ship. Each row has a clear
 
 ### 1B. Add the missing nav entries I didn't get to
 
-I added the 7 food-safety boards. Still missing from navRegistry (per audit F1):
+The audit F1 route list is now covered: labor, inventory, admin, and menu-engineering static pages are registered in navRegistry; `/install` and `/login-pin` have explicit setup/auth exclusions; `/management/pins` is now registered as the remaining static Management page.
 
-- `/labor/breaks`, `/labor/sick-leave`, `/labor/wage-notices`, `/labor/certs`, `/labor/tip-pool` — **Compliance** cluster
-- `/inventory/waste`, `/inventory/counts`, `/inventory/par`, `/bar/par` — **Inventory** cluster
-- `/admin/cleaning-schedule`, `/admin/service-hours` — **Admin** cluster
-- `/menu-engineering/margin-deltas`, `/menu-engineering/components` — **Menu Engineering** cluster
-- `/install`, `/login-pin` — review whether they belong in palette at all
-
-| 1.9 | M | Add 13 missing nav entries in 4 commits (one per cluster). Apply `docs/UI_COPY_RULES.md` (kitchen verbs, no SaaS jargon). | All non-dynamic pages either in navRegistry OR explicitly excluded with a code comment. |
+| 1.9 | M | **Closed:** navRegistry now includes the missing static management PIN page and `tests/js/test-nav-shortcuts.mjs` sweeps every non-dynamic app page. | All non-dynamic pages either in navRegistry OR explicitly excluded with a code comment. |
 
 ### 1C. The integration depth the audit didn't have time for
 

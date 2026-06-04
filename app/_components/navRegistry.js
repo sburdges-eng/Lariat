@@ -766,6 +766,16 @@ export const NAV_ITEMS = [
     locAware: t,
     surface: { sidebar: f, palette: t, shelf: f },
   },
+  {
+    id: 'management-pins',
+    href: '/management/pins',
+    name: 'Manager PINs',
+    sub: 'Named house overrides',
+    group: 'Management',
+    terms: 'manager pins named house override owner lead',
+    locAware: f,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
   // Temp PINs (T10): manager mints scoped 1-shift PINs. Palette-only —
   // not a daily destination, but a quick ⌘K target when handing
   // authority to a sous chef for a banquet.
