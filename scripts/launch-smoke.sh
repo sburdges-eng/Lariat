@@ -27,6 +27,7 @@
 set -euo pipefail
 
 URL="${LARIAT_URL:-http://127.0.0.1:3001}"
+SMOKE_SESSION_ID="${LARIAT_SMOKE_SESSION_ID:-00000000-0000-4000-8000-000000000001}"
 PASS=0
 FAIL=0
 WARN=0
@@ -100,7 +101,7 @@ read -r code _ <<<"$(fetch /specials)"
 
 # 8. LaRi
 echo "  (asking LaRi a question — may take up to 30s on first warmup)…"
-result=$(post_json /api/kitchen-assistant '{"message":"What stations are on the line?"}')
+result=$(post_json /api/kitchen-assistant "{\"message\":\"What stations are on the line?\",\"conversation_session_id\":\"${SMOKE_SESSION_ID}\"}")
 code="${result%%::*}"
 body="${result#*::}"
 if [ "$code" = "200" ] && echo "$body" | grep -q '"answer"'; then
@@ -113,7 +114,7 @@ fi
 
 # 9. Compliance grounding
 echo "  (asking LaRi a regulated question — should cite FDA Food Code)…"
-result=$(post_json /api/kitchen-assistant '{"message":"Quote the FDA Food Code rule on hand washing frequency."}')
+result=$(post_json /api/kitchen-assistant "{\"message\":\"Quote the FDA Food Code rule on hand washing frequency.\",\"conversation_session_id\":\"${SMOKE_SESSION_ID}\"}")
 code="${result%%::*}"
 body="${result#*::}"
 if [ "$code" = "200" ] && echo "$body" | grep -qE '"sources".*food_safety|compliance|2-301'; then

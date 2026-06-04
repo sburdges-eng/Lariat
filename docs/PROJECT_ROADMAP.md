@@ -1,4 +1,4 @@
-# Lariat Project Roadmap — 2026-05-16
+# Lariat Project Roadmap — 2026-05-16 (updated 2026-06-04)
 
 A grounded read on what's left to make the bundled app function correctly and reach its potential. Written after the LaRi-expansion + integration-audit session — the work shipped on `feat/lari-expansion-and-audit` cleared a single slice of the surface; the rest is enumerated here.
 
@@ -15,6 +15,21 @@ The ERP master proposal is now captured in `docs/LARIAT_ERP_MASTER_PROPOSAL.md`.
 | Deferred | Postgres/MySQL migration and microservices split | Revisit only after local contracts and multi-venue pressure justify the added operational burden |
 
 Architecture impact: this alignment keeps the bundled app local-first and deterministic. It does not authorize runtime cloud AI, schema drift, or a service split.
+
+## 2026-06-04 post-merge roadmap execution
+
+Current baseline: `main` is at `6d9eec0` after PR #275 merged the runtime UX fixes and the three draft branches were folded into the integration branch. The stale feature branches and extra worktrees from that merge train were cleaned up before this roadmap pass.
+
+This update records four decisions for the next freeze slice:
+
+| Area | Decision | Roadmap impact |
+|------|----------|----------------|
+| `cad-kernel/` | Treat as out-of-scope for Lariat v2. Move it to a CAD/FloorPlanDesigner lane in a separate cleanup; do not build Lariat runtime coupling to it. | Keeps the restaurant app reproducible and avoids carrying an unwired C++ subsystem in the freeze story. |
+| Shows / venue arm | Production-active, not deprecated. Test-harden the 9 untested show/detail routes before changing behavior. | Roadmap 2.14 remains real debt, scoped as coverage and contract work. |
+| Venue target | Single-venue first for v2. Multi-venue remains a later management UX and rollout problem after local contracts are stable. | Roadmap 3.1 stays deferred; do not expand this slice into venue switching or consolidated rollups. |
+| `labor/certs` | Informational-only for v2. No regulated certification write/audit workflow is claimed until requirements are formalized. | Removes the freeze ambiguity without inventing a half-regulated module. |
+
+LaRi status after this pass: multi-turn conversation memory is implemented and merged; `db_query` already includes the top roadmap entries (`recipe_with_bom`, `sales_depletion_unresolved`, `beo_prep_status`) and this branch adds regression coverage plus tighter location-boundary checks for those entries.
 
 ## How this was scoped
 
@@ -89,15 +104,10 @@ The `db_query` action is the foundation. To reach the potential the project_inst
 
 | ID  | Effort | Item |
 |-----|--------|------|
-| 2.1 | M  | **Multi-turn conversations.** Today every LaRi call is stateless. Adding a short conversation buffer (last 4–6 turns) unlocks follow-ups like "show me brisket specifically" after "show me Sysco shocks." Persist per-(location, cook_id, session) keyed to a TTL. |
+| 2.1 | M  | **Closed 2026-06-04:** Multi-turn conversations. Browser-managed `conversation_session_id`, explicit New Chat reset, bounded SQLite history, and final visible-answer storage are merged on `main` via PR #275. |
 | 2.2 | M  | **Summarization pass.** When a `db_query` returns >20 rows, route the table back through a Haiku-class model (or the same Ollama model with a tighter prompt) to produce a 2-sentence summary alongside the raw table. The current `formatQueryResultForPrompt` is verbatim — fine for small tables, overwhelming for big ones. |
 | 2.3 | L  | **Semantic search over recipes + BEOs.** The Data Pack already streams BGE embeddings (`lib/datapackSearch.ts`). Extend to index recipes, BEO line items, and audit-event payloads. New cook-tier `semantic_search` action that finds "that wedding cake recipe with the cherry filling" without needing exact-string match. |
-| 2.4 | M  | **More registered queries.** Top of the wish-list I observed but didn't add this session: |
-|     |    | • `recipe_with_bom` — recipe + every ingredient leaf with current vendor price (joins `recipe_costs` → `bom_lines` → `vendor_prices`). |
-|     |    | • `sales_depletion_unresolved` — Toast sales that didn't map to a BOM (the "we sold something but couldn't deplete inventory for it" canary). |
-|     |    | • `beo_prep_status` — given an upcoming BEO event_id, return the prep tasks + their done state. |
-|     |    | • `equipment_maintenance_due` — service intervals approaching for any equipment. |
-|     |    | • `peer_trust_status` — multi-tablet sync peer health. |
+| 2.4 | M  | **Mostly closed 2026-06-04:** Registered query expansion. `recipe_with_bom`, `sales_depletion_unresolved`, `beo_prep_status`, and `equipment_maintenance_due` are in `lib/dbQueryRegistry.ts`; this branch pins the top three with execution tests and location-boundary canaries. Remaining candidate: `peer_trust_status` for multi-tablet sync peer health. |
 | 2.5 | M  | **Dev-mode code search action** (deferred Phase 1.2 from this session). Env-gated, manager-tier, ripgrep-backed. |
 | 2.6 | L  | **Voice input.** Cooks have wet/dirty hands — typing on an iPad isn't always realistic. Whisper-tiny is ~75MB and runs locally on M-series; wire it into the LaRi composer as a long-press push-to-talk. |
 | 2.7 | M  | **Action confirmation surfaces.** When LaRi takes a write action (86 an item, log a corrective), there's no "undo" window. Build a 30-second undo toast that issues a correction-row to `audit_events`. |
@@ -121,7 +131,7 @@ The `docs/redesign/lari-ui-demo.html` is a prototype. A real migration needs:
 
 | ID  | Effort | Item |
 |-----|--------|------|
-| 2.14 | L  | **Show/box-office route family.** 9 untested routes under `/api/shows/[id]/*` covering settlement, deal terms, box-office lines, stage setups, sound scenes, SPL readings. If the live-music venue arm is in active use, this is genuine debt. If not, mark them deprecated. |
+| 2.14 | L  | **Show/box-office route family.** 9 untested routes under `/api/shows/[id]/*` covering settlement, deal terms, box-office lines, stage setups, sound scenes, SPL readings. Product call on 2026-06-04: the live-music venue arm is production-active, so this is genuine test-hardening debt, not a deprecation path. |
 | 2.15 | M  | **Inventory count routes.** `/api/inventory/counts/[id]` + `/api/inventory/counts/[id]/lines` — count-flow CRUD is no-test, and counts feed `accounting_variance` so divergence here cascades to financials. |
 | 2.16 | M  | **Recipe-photo + raw routes.** `/api/recipes/[slug]/photos/*` — hero pinning + raw image serving. The hero migration (T2 in `lib/db.ts::migrateLegacyColumns`) added behavior worth pinning. |
 | 2.17 | M  | **Cloud-bridge DLQ admin routes.** `/api/cloud-bridge/dead-letters/[id]/{drop,requeue}` — low-frequency but consequential per-call. |
@@ -152,31 +162,34 @@ The `docs/redesign/lari-ui-demo.html` is a prototype. A real migration needs:
 
 ---
 
-## Decisions that need to be made BEFORE work can start
+## Product defaults for the v2 freeze slice
 
-These aren't engineering tasks — they're product calls that block work above.
+These are the defaults used for this roadmap branch. Reopen them only with a specific product change request.
 
-| Decision | Why it matters | Owner suggestion |
-|----------|----------------|------------------|
-| Is the live-music venue arm (shows/box-office) actively used? | Decides whether 2.14 is real debt or deprecated-and-delete. | Sean |
-| Multi-venue or single-venue is the target shape? | 3.1 vs. continuing to optimize single-venue. | Sean |
-| Are cooks getting iPads with Apple Silicon? | Voice (2.6) is M-series-realistic; older iPads need a cloud Whisper. | Sean |
-| Spanish first for i18n, or Spanish + something else? | 3.8 scope. | Sean |
-| Should v2 UI ship as a parallel install (electron flag) or in-app toggle? | 2.10 architecture. | Sean |
+| Decision | Default | Effect |
+|----------|---------|--------|
+| Shows / box-office | Active; test-harden | Keep 2.14 in backlog as coverage debt. |
+| Venue target | Single-venue v2 | Keep 3.1 deferred; no venue switcher in this slice. |
+| `cad-kernel/` | Out-of-scope for Lariat v2 | Move out only in a dedicated cleanup; no runtime coupling. |
+| `labor/certs` | Informational-only | No regulated cert write/audit claim in v2. |
+| Local model | DeepSeek default | Qwen remains deferred until eval-gated. |
+| iPad hardware / voice | Unknown | Keep 2.6 deferred; do not introduce cloud Whisper to satisfy old iPads. |
+| i18n | Unknown | Keep 3.8 deferred. |
+| v2 UI rollout shape | Unknown | Keep 2.10 design-only until a toggle/install decision is made. |
 
 ---
 
 ## How I'd sequence the next sprint
 
-If I had to pick 5 things for the next two weeks:
+If I had to pick 5 things for the next two weeks after this branch:
 
-1. **0.1 → 0.5** — land this session's work cleanly (a day).
-2. **1.3** — KDS bump test (critical for the Swift sibling) (a day).
-3. **1.9** — finish the navRegistry cleanup in 4 small commits (half a day).
-4. **2.4** — add the top 3 missing `db_query` entries (`recipe_with_bom`, `sales_depletion_unresolved`, `beo_prep_status`) (a day).
-5. **2.9** — extract the design tokens from the demo into the codebase (half a day).
+1. **Land the LaRi query hardening + runtime smoke evidence** from this branch.
+2. **2.14** — test-harden the active shows/box-office route family without changing product behavior.
+3. **1.9** — finish the navRegistry cleanup in 4 small commits, keeping install/login surfaces explicitly included or excluded.
+4. **P0 ERP lane** — continue the receiving-to-inventory master contract until the management rollup can trust on-hand state.
+5. **2.9** — extract the design tokens from the demo into the codebase only after the v1 route/nav contract is honest.
 
-That's ~4 days of focused work and leaves the rest of the sprint for the existing audit cadence and whatever else is on the team's plate.
+That sequence keeps this freeze single-venue, local-first, and deterministic while removing the remaining places where the docs used to overclaim or defer product decisions.
 
 ---
 

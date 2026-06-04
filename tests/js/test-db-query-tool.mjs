@@ -22,6 +22,8 @@ register(new URL('./resolver.mjs', import.meta.url));
 
 const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-db-query-tool-'));
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
+let defaultBeoEventId = 0;
+let otherBeoEventId = 0;
 
 const db = await import('../../lib/db.ts');
 const tool = await import('../../lib/dbQueryTool.ts');
@@ -74,6 +76,76 @@ before(() => {
     ins.run('2026-05-15', 'Brisket Sandwich', 24, 336.00, 'default');
     ins.run('2026-05-15', 'Caesar Salad',     14, 112.00, 'default');
     ins.run('2026-05-15', 'Brisket Sandwich',  3,  42.00, 'other-loc'); // cross-location filter check
+  })();
+
+  // dish_components — coverage bridge for sales_depletion_unresolved
+  testDb.transaction(() => {
+    testDb.prepare(
+      `INSERT INTO dish_components
+         (location_id, dish_name, component_type, recipe_slug, qty_per_serving, unit, notes)
+       VALUES ('default', 'Brisket Sandwich', 'recipe', 'brisket-sandwich', 1, 'ea', 'mapped menu item')`,
+    ).run();
+    testDb.prepare(
+      `INSERT INTO dish_components
+         (location_id, dish_name, component_type, recipe_slug, qty_per_serving, unit, notes)
+       VALUES ('other-loc', 'Caesar Salad', 'recipe', 'caesar-salad', 1, 'ea', 'other venue mapping')`,
+    ).run();
+  })();
+
+  // recipe_costs + bom_lines + vendor_prices — recipe_with_bom target
+  testDb.transaction(() => {
+    const insCost = testDb.prepare(
+      `INSERT INTO recipe_costs
+         (recipe_id, recipe_name, category, yield, yield_unit, batch_cost,
+          cost_per_yield_unit, costed_lines, total_lines, interpretations, location_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    insCost.run('brisket-sandwich', 'Brisket Sandwich', 'Entree', 12, 'servings', 96, 8, 2, 2, 0, 'default');
+    insCost.run('brisket-sandwich', 'Other Venue Brisket', 'Entree', 8, 'servings', 72, 9, 1, 1, 0, 'other-loc');
+
+    const insBom = testDb.prepare(
+      `INSERT INTO bom_lines
+         (recipe_id, ingredient, qty, unit, vendor_ingredient, map_status,
+          vendor, pack_price, pack_size, location_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    insBom.run('brisket-sandwich', 'Smoked brisket', 6, 'lb', 'Brisket Flat', 'mapped', 'sysco', 120, 20, 'default');
+    insBom.run('brisket-sandwich', 'Brioche bun', 12, 'ea', 'Brioche Bun', 'mapped', 'shamrock', 18, 12, 'default');
+    insBom.run('brisket-sandwich', 'Other venue brisket', 5, 'lb', 'Other Brisket', 'mapped', 'sysco', 90, 15, 'other-loc');
+
+    const insPrice = testDb.prepare(
+      `INSERT INTO vendor_prices
+         (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, category, location_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    insPrice.run('Brisket Flat', 'sysco', 'BRISK-20', 20, 'lb', 120, 6, 'meat', 'default');
+    insPrice.run('Brioche Bun', 'shamrock', 'BUN-12', 12, 'ea', 18, 1.5, 'bread', 'default');
+    insPrice.run('Other Brisket', 'sysco', 'BRISK-15', 15, 'lb', 90, 6, 'meat', 'other-loc');
+  })();
+
+  // BEO events + prep tasks — beo_prep_status target
+  testDb.transaction(() => {
+    const defaultInfo = testDb.prepare(
+      `INSERT INTO beo_events (title, event_date, event_time, guest_count, status, location_id)
+       VALUES ('Navratil Rehearsal Dinner', '2026-06-15', '5 PM', 42, 'planned', 'default')`,
+    ).run();
+    defaultBeoEventId = Number(defaultInfo.lastInsertRowid);
+    const otherInfo = testDb.prepare(
+      `INSERT INTO beo_events (title, event_date, event_time, guest_count, status, location_id)
+       VALUES ('Other Venue Wedding', '2026-06-16', '6 PM', 80, 'planned', 'other-loc')`,
+    ).run();
+    otherBeoEventId = Number(otherInfo.lastInsertRowid);
+
+    const insTask = testDb.prepare(
+      `INSERT INTO beo_prep_tasks (event_id, task, due_date, done, sort_order, location_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    );
+    insTask.run(defaultBeoEventId, 'Smoke brisket', '2026-06-14', 0, 1, 'default');
+    insTask.run(defaultBeoEventId, 'Pack chafers', '2026-06-15', 1, 2, 'default');
+    insTask.run(otherBeoEventId, 'Other venue prep', '2026-06-16', 0, 1, 'other-loc');
+    // Deliberately inconsistent row: if the query only checks the task's
+    // location_id, it can leak the other venue's event metadata.
+    insTask.run(otherBeoEventId, 'Do not leak private wedding', '2026-06-16', 0, 99, 'default');
   })();
 });
 
@@ -184,6 +256,76 @@ describe('runDbQuery — safety boundaries', () => {
     if (r.ok) {
       assert.strictEqual(r.rowCount, 40, 'recent_temp_log cap is 40');
       assert.strictEqual(r.truncated, true, 'truncated flag must surface');
+    }
+  });
+});
+
+describe('roadmap db_query entries', () => {
+  it('recipe_with_bom is manager-tier, location-scoped, and returns deterministic BOM rows', () => {
+    const blocked = tool.runDbQuery({
+      name: 'recipe_with_bom',
+      params: { recipe_id: 'brisket-sandwich' },
+      hasPin: false,
+      requestLocationId: 'default',
+    });
+    assert.strictEqual(blocked.ok, false);
+    if (!blocked.ok) assert.strictEqual(blocked.code, 'tier_blocked');
+
+    const r = tool.runDbQuery({
+      name: 'recipe_with_bom',
+      params: { recipe_id: 'brisket-sandwich' },
+      hasPin: true,
+      requestLocationId: 'default',
+    });
+    assert.strictEqual(r.ok, true);
+    if (r.ok) {
+      assert.deepStrictEqual(
+        r.rows.map((row) => row.ingredient),
+        ['Smoked brisket', 'Brioche bun'],
+        'BOM rows must stay request-location scoped and ordered by bom_lines.id',
+      );
+      assert.ok(r.rows.every((row) => row.recipe_name === 'Brisket Sandwich'));
+      assert.ok(r.rows.every((row) => row.unit_price !== null));
+    }
+  });
+
+  it('sales_depletion_unresolved returns sold items that are unmapped in the request location only', () => {
+    const r = tool.runDbQuery({
+      name: 'sales_depletion_unresolved',
+      params: { period_label: '2026-05-15' },
+      hasPin: true,
+      requestLocationId: 'default',
+    });
+    assert.strictEqual(r.ok, true);
+    if (r.ok) {
+      assert.deepStrictEqual(r.rows.map((row) => row.item_name), ['Caesar Salad']);
+      assert.strictEqual(r.rows[0].qty_sold, 14);
+      assert.strictEqual(r.rows[0].net_sales, 112);
+    }
+  });
+
+  it('beo_prep_status returns event prep tasks and does not leak cross-location event metadata', () => {
+    const normal = tool.runDbQuery({
+      name: 'beo_prep_status',
+      params: { event_id: defaultBeoEventId },
+      hasPin: false,
+      requestLocationId: 'default',
+    });
+    assert.strictEqual(normal.ok, true);
+    if (normal.ok) {
+      assert.deepStrictEqual(normal.rows.map((row) => row.task), ['Smoke brisket', 'Pack chafers']);
+      assert.ok(normal.rows.every((row) => row.event_title === 'Navratil Rehearsal Dinner'));
+    }
+
+    const crossLocation = tool.runDbQuery({
+      name: 'beo_prep_status',
+      params: { event_id: otherBeoEventId },
+      hasPin: false,
+      requestLocationId: 'default',
+    });
+    assert.strictEqual(crossLocation.ok, true);
+    if (crossLocation.ok) {
+      assert.strictEqual(crossLocation.rowCount, 0);
     }
   });
 });

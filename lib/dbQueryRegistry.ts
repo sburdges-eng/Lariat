@@ -320,7 +320,7 @@ const COOK_QUERIES: DbQuerySpec[] = [
         t.id, t.task, t.due_date, t.done, t.sort_order,
         e.title AS event_title, e.event_date, e.event_time, e.guest_count, e.status AS event_status
       FROM beo_prep_tasks t
-      JOIN beo_events e ON e.id = t.event_id
+      JOIN beo_events e ON e.id = t.event_id AND e.location_id = :location_id
       WHERE t.location_id = :location_id
         AND t.event_id = :event_id
       ORDER BY t.sort_order ASC, t.id ASC
@@ -591,7 +591,7 @@ const MANAGER_QUERIES: DbQuerySpec[] = [
     name: 'recipe_with_bom',
     tier: 'manager',
     description: 'Full recipe with BOM lines: ingredient, vendor, pack price, unit cost, qty.',
-    locationScoped: false,
+    locationScoped: true,
     rowCap: 100,
     params: [
       { name: 'recipe_id', type: 'string', required: true, maxLength: 128, description: 'Recipe slug (e.g. chicken-parm).' },
@@ -611,6 +611,7 @@ const MANAGER_QUERIES: DbQuerySpec[] = [
         AND vp.vendor = b.vendor
         AND vp.location_id = rc.location_id
       WHERE rc.recipe_id = :recipe_id
+        AND rc.location_id = :location_id
       ORDER BY b.id ASC
     `,
   },
@@ -635,7 +636,7 @@ const MANAGER_QUERIES: DbQuerySpec[] = [
         AND dc.id IS NULL
         AND (:period_label IS NULL OR sl.period_label = :period_label)
       GROUP BY sl.item_name, sl.period_label
-      ORDER BY net_sales DESC
+      ORDER BY net_sales DESC, sl.item_name ASC, sl.period_label DESC
     `,
   },
   {

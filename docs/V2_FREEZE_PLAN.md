@@ -18,6 +18,11 @@ gating work before v2 locks. None of the overclaimed items are *active bugs* —
 code, config drift, or by-design v1 stubs — so there is no fire to put out, only honesty to
 restore.
 
+**2026-06-04 update.** `main` is now `6d9eec0` after PR #275 merged the runtime UX fixes,
+LaRi conversation memory, and draft-branch integration cleanup. The product calls that were
+previously ambiguous are recorded here: single-venue v2, shows/venue kept and test-hardened,
+`cad-kernel/` out of Lariat v2 scope, and `labor/certs` informational-only for v2.
+
 ---
 
 ## Status legend
@@ -36,7 +41,7 @@ restore.
 | Subsystem | Status | Evidence | Note |
 |-----------|--------|----------|------|
 | Kitchen Assistant → Ollama | **FROZEN** | `app/api/kitchen-assistant/route.js:7`, `app/api/specials/route.js:84` call `ollamaChat()`; no feature flag | Matches CLAUDE.md |
-| `db_query` LLM action | **FROZEN** | `lib/dbQueryRegistry.ts` (45 queries), tier-gated in `lib/dbQueryTool.ts::runDbQuery()`, audit-wrapped at `app/api/kitchen-assistant/route.js:203` | Injection-safe, location-scoped, 50-row cap |
+| `db_query` LLM action | **FROZEN** | `lib/dbQueryRegistry.ts` (29 queries), tier-gated in `lib/dbQueryTool.ts::runDbQuery()`, audit-wrapped at `app/api/kitchen-assistant/route.js:203`, covered by `tests/js/test-db-query-tool.mjs` | Injection-safe, tier-gated, location-scoped where location-bearing, per-query row caps |
 | Data Pack hybrid search | **FROZEN** | `lib/datapackSearch.ts` RRF fusion (FTS5 ⊕ BGE), graceful-degraded via `available()`; `test:datapack` 3/3 | "normalize dispatcher wired" claim is cosmetic overclaim — no central dispatcher exists |
 | Prompt eval harness | **FROZEN** | `training/eval/` + `npm run eval:assistant-prompt`; 10/10 locked baseline | Does not yet eval the new Qwen checkpoint |
 | **Model: Qwen vs DeepSeek default** | RESOLVED (kept DeepSeek) | `lib/ollama.ts:6` defaults to `lari-the-kitchen-assistant`; eval: DeepSeek 7/10 vs Qwen 1/10 on Ollama leg | Qwen fails the gate; do not flip. See §2.1 |
@@ -54,7 +59,7 @@ restore.
 | Labor: breaks/sick-leave/wage-notices/tip-pool | **FROZEN** | each has `lib/*.ts` + API route + UI | |
 | **date-marks** | RESOLVED (test exists) | `tests/js/test-date-mark-rules.mjs` covers rule thresholds; `tests/js/test-date-marks-api.mjs` covers API/location/audit | Original audit searched the plural filename |
 | **calibrations** | RESOLVED (documented exception) | API lives at `app/api/thermometer-calibrations/route.js`; `tests/js/test-calibrations-rules.mjs` + `test-calibrations-api.mjs` cover the surface | Keep slug exception; renaming is cosmetic risk |
-| labor: **certs** | SCOPE-DECISION | UI exists, no API/rule module | Is it informational-only or regulated? |
+| labor: **certs** | **FROZEN (informational-only)** | UI exists, no API/rule module | v2 does not claim regulated certification tracking; regulated write/audit workflow remains deferred until requirements exist |
 
 ### Costing / compute / entity / depletion
 
@@ -93,8 +98,8 @@ restore.
 | Desktop / Electron | **FROZEN** | `desktop/main.ts`+`supervisor.ts`; Electron 42 + better-sqlite3 12; DMG builds to `dist/` | #257, #264 |
 | Build pipeline | **FROZEN** | `--webpack` present on dev/build/desktop:build; `next.config.mjs` dual-runtime aliasing | Turbopack not used (by design) |
 | Floor-plan (SVG zones) | **FROZEN** | `Floorplan.jsx` hand-drawn zones, no CAD dependency | |
-| **Shows / live-music venue** | DEFERRED (test-harden) | production-active surface; **9 of 12 `/api/shows/[id]/*` routes untested** (deal, capacity, stage, sound/*, settlement/pdf) | Not a prototype — real, but under-tested |
-| **`cad-kernel/` (C++23)** | **SCOPE-DECISION** | full CAD engine (A*/Jacobian/Newton-Raphson/geodesy); **zero** app integration; single commit | Out-of-scope orphan. See §3 |
+| **Shows / live-music venue** | DEFERRED (test-harden) | production-active surface; **9 of 12 `/api/shows/[id]/*` routes untested** (deal, capacity, stage, sound/*, settlement/pdf) | Not a prototype and not deprecated; test-harden before behavior changes |
+| **`cad-kernel/` (C++23)** | DEFERRED (move-out) | full CAD engine (A*/Jacobian/Newton-Raphson/geodesy); **zero** app integration; single commit | Out-of-scope orphan for Lariat v2. See §3 |
 
 ---
 
@@ -155,7 +160,7 @@ is an active runtime bug.
 
 ---
 
-## 3. Scope decision: `cad-kernel/`
+## 3. Scope decision resolved: `cad-kernel/`
 
 A complete **C++23 CAD engine** (A* pathfinding, Jacobian, Newton-Raphson, geodesy, CRS,
 clothoids, BVH, seating layout) lives in the repo with **zero integration** into the Next.js app
@@ -163,10 +168,10 @@ clothoids, BVH, seating layout) lives in the repo with **zero integration** into
 SVG and does not use it. It is one commit (May 9), build artifacts (`build/`, `build2/`) are not
 gitignored.
 
-**Recommendation:** Move `cad-kernel/` to its own repo (e.g. `Lariat-CAD` or fold into
-`FloorPlanDesigner`) — it does not belong in the restaurant-ops tree and bloats it. Recover from
-git history if a future drag-and-drop seating designer needs it. **This needs your call** before
-the freeze, since removing/moving it is irreversible-ish and the code represents real effort.
+**Decision (2026-06-04):** Move `cad-kernel/` to its own repo (e.g. `Lariat-CAD`) or fold it into
+the `FloorPlanDesigner` lane in a separate cleanup. It does not belong in the restaurant-ops v2
+freeze and must not gain hidden runtime coupling to the Lariat app. This branch records the scope
+line only; it does not delete or move the directory.
 
 Secondary cleanup (low priority, v2 hygiene): `src/` (empty dir) → remove; `outputs/` → clarify or
 `.gitkeep`; `recipes/` → confirm still used by ingest or consolidate; `drive-event-ops-dl/`,
@@ -178,7 +183,7 @@ Secondary cleanup (low priority, v2 hygiene): `src/` (empty dir) → remove; `ou
 
 **Frozen (locked, in scope, do not reopen):** Kitchen Assistant + db_query + Data Pack + prompt
 eval · 9/11 HACCP concepts + 422 gate + audit transactionality · breaks/sick-leave/wage-notices/
-tip-pool · compute engine · entity Phase 1 · sales depletion Phase 3 · JS↔Python parity · ingest
+tip-pool · certs informational-only · compute engine · entity Phase 1 · sales depletion Phase 3 · JS↔Python parity · ingest
 pipelines + Toast OAuth · multi-instance sync · idempotency · env canonicalization · cloud-bridge
 push + DLQ · KDS protocol (tested) · BEO (tested) · live ops · mDNS · desktop/Electron · build
 pipeline · floor-plan.
@@ -199,36 +204,37 @@ pipeline · floor-plan.
    doc edit strictly required; this file is the canonical reconciliation.
 
 **Deferred (explicitly out of v2):** entity Phase 2 UUID FKs · cloud-bridge pull/status ·
-Prism (blocked on external spec) · shows route tests (9) · `@ts-nocheck` migration (256
+Prism (blocked on external spec) · shows route tests (9) · regulated cert write/audit workflow ·
+`cad-kernel/` move-out cleanup · multi-venue management UX · `@ts-nocheck` migration (256
 files, touch-on-edit) · mDNS unit tests · UI v2 migration · Roadmap Tier 2/3.
 
-**Scope-decision (your call):** `cad-kernel/` move-out · `certs` regulated-or-informational ·
-shows/venue arm test-harden priority · whether Qwen is the v2 model.
+**Scope-decision remaining:** iPad hardware/voice feasibility · i18n order · v2 UI rollout shape.
 
 ---
 
-## 5. Open product decisions (carried from PROJECT_ROADMAP.md, still open)
+## 5. Product decisions
 
 | Decision | Blocks |
 |----------|--------|
-| Is Qwen 2.5 7B the v2 production model? | §2.1 — flip default + re-baseline eval |
-| Is the live-music venue arm actively used? | shows route-test investment |
-| `cad-kernel/` — keep in-tree, move, or delete? | §3 |
-| Multi-venue or single-venue target shape? | Roadmap 3.1 |
-| Is `labor/certs` regulated or informational? | HACCP 5-file exception |
+| DeepSeek vs Qwen default | Resolved: keep DeepSeek default; Qwen deferred until eval-gated |
+| Shows / live-music venue | Resolved: active; keep and test-harden |
+| `cad-kernel/` | Resolved for v2: out-of-scope, move out in separate cleanup |
+| Venue target shape | Resolved for v2: single-venue first; multi-venue deferred |
+| `labor/certs` | Resolved for v2: informational-only; regulated tracking deferred |
+| iPad hardware / voice | Still open; keeps voice deferred |
+| i18n order | Still open; keeps i18n deferred |
+| v2 UI rollout shape | Still open; keeps UI migration design-only |
 
 ---
 
 ## 6. Recommended freeze sequence
 
-1. **Decide** §2.1 (model) and §3 (cad-kernel) — these are the only two that need *you*, not code.
-2. **One docs commit** reconciling all six overclaims (§2.1–2.6) + CLAUDE.md/OPERATIONS.md.
-3. **One small feature commit** finishing dish-coverage (§2.3) — table + wire + read.
-4. **One hygiene commit** — complete; date-marks test was present (§4.4), calibrations is a
-   documented exception (§4.5), and the SageMaker runtime client was removed (§2.6).
-5. **Re-run gates** (`test:rules`, `test:schema`, `test:datapack`, `test:compute-engine`,
-   `eval:assistant-prompt`) — confirm green.
-6. **Tag the freeze.** Everything in "Deferred" becomes the v2.1 backlog.
+1. **Land this branch**: roadmap/freeze reconciliation, `db_query` location-boundary hardening,
+   and runtime smoke evidence for the June 4 UX fixes.
+2. **Run gates**: `test:db-query-tool`, runtime smoke, path-policy checks, and `npm run verify`.
+3. **Test-harden shows routes** as the next production-active deferred surface.
+4. **Keep v2 single-venue** until local contracts and management rollup behavior are stable.
+5. **Tag the freeze** only after the remaining deferred/scope-decision list is accepted as v2.1+.
 
 That is ~1–2 focused days of work plus two product decisions. Nothing in the frozen set needs
 to be reopened.
