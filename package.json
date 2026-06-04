@@ -32,6 +32,7 @@
     "ingest:costing": "node --experimental-strip-types scripts/ingest-costing.mjs",
     "ingest:analytics": "node scripts/ingest-analytics.mjs",
     "ingest:toast": "node --experimental-strip-types scripts/ingest-toast-timeseries.mjs",
+    "ingest:toast-daily": "node --experimental-strip-types scripts/ingest-toast-daily.mjs",
     "ingest:toast-invoices": "node --experimental-strip-types scripts/ingest-toast-invoices.mjs",
     "ingest:shows": "node --experimental-strip-types scripts/ingest-shows.mjs",
     "toast:pull": "node scripts/toast-weekly-pull.mjs",
