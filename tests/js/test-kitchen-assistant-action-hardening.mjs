@@ -96,11 +96,14 @@ beforeEach(() => {
      DELETE FROM gold_stars;
      DELETE FROM entities_employees;
      DELETE FROM line_check_entries;
+     DELETE FROM lari_conversation_turns;
      DELETE FROM audit_events;`,
   );
 });
 
 const LOC = 'default';
+const SESSION = '55555555-5555-4555-8555-555555555555';
+const COOK = 'cook-action-hardening';
 
 function postReq(action, message = 'log this update') {
   stubbedAction = action;
@@ -110,7 +113,12 @@ function postReq(action, message = 'log this update') {
       'content-type': 'application/json',
       cookie: COOKIE_HEADER,
     },
-    body: JSON.stringify({ message, location_id: LOC }),
+    body: JSON.stringify({
+      message,
+      location_id: LOC,
+      cook_id: COOK,
+      conversation_session_id: SESSION,
+    }),
   });
 }
 

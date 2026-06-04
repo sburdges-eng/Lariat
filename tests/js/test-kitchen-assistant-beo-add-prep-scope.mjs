@@ -103,12 +103,14 @@ before(() => {
 
 beforeEach(() => {
   testDb.exec(
-    `DELETE FROM beo_prep_tasks; DELETE FROM beo_line_items; DELETE FROM beo_events; DELETE FROM audit_events;`,
+    `DELETE FROM beo_prep_tasks; DELETE FROM beo_line_items; DELETE FROM beo_events; DELETE FROM lari_conversation_turns; DELETE FROM audit_events;`,
   );
 });
 
 const LOC_A = 'site-a';
 const LOC_B = 'site-b';
+const SESSION = '44444444-4444-4444-8444-444444444444';
+const COOK = 'cook-beo-prep';
 
 function seedEvent(locationId, title) {
   const info = testDb
@@ -138,7 +140,12 @@ function postReq({ locationId, eventId, message = 'add prep for tonight' }) {
       // regulated mutation route uses.
       cookie: COOKIE_HEADER,
     },
-    body: JSON.stringify({ message, location_id: locationId }),
+    body: JSON.stringify({
+      message,
+      location_id: locationId,
+      cook_id: COOK,
+      conversation_session_id: SESSION,
+    }),
   });
 }
 

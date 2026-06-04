@@ -2961,6 +2961,20 @@ function initManagementSchema(db: DB): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS lari_conversation_turns (
+      schemaVersion TEXT NOT NULL DEFAULT 'lari_conversation_turn_v1'
+        CHECK(schemaVersion = 'lari_conversation_turn_v1'),
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL,
+      cook_id TEXT NOT NULL,
+      conversation_session_id TEXT NOT NULL,
+      user_content TEXT NOT NULL,
+      assistant_content TEXT NOT NULL,
+      manager_tier INTEGER NOT NULL DEFAULT 0 CHECK(manager_tier IN (0, 1)),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS dish_coverage_snapshots (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
       location_id   TEXT NOT NULL DEFAULT 'default',
@@ -3025,6 +3039,11 @@ function assertCriticalSchemas(db: DB): void {
       'id', 'cook_name', 'reason', 'stars', 'awarded_date',
       'location_id', 'created_at', 'deleted_at', 'deleted_by',
     ],
+    lari_conversation_turns: [
+      'schemaVersion', 'id', 'location_id', 'cook_id',
+      'conversation_session_id', 'user_content', 'assistant_content',
+      'manager_tier', 'created_at', 'expires_at',
+    ],
   };
   for (const [table, required] of Object.entries(requirements)) {
     const cols = (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[])
@@ -3059,6 +3078,10 @@ function ensureIndexes(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_vp_master ON vendor_prices(master_id);
     CREATE INDEX IF NOT EXISTS idx_bom_master ON bom_lines(master_id);
     CREATE INDEX IF NOT EXISTS idx_perf_review_cook ON performance_reviews(cook_name, cook_uuid, location_id);
+    CREATE INDEX IF NOT EXISTS idx_lari_conversation_partition
+      ON lari_conversation_turns(location_id, cook_id, conversation_session_id, created_at DESC, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_lari_conversation_expiry
+      ON lari_conversation_turns(expires_at);
   `);
 
   // Bundle-H: NULL-safe uniqueness on (location, dow/date, service_label).
