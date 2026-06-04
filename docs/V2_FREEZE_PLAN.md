@@ -98,7 +98,7 @@ previously ambiguous are recorded here: single-venue v2, shows/venue kept and te
 | Desktop / Electron | **FROZEN** | `desktop/main.ts`+`supervisor.ts`; Electron 42 + better-sqlite3 12; DMG builds to `dist/` | #257, #264 |
 | Build pipeline | **FROZEN** | `--webpack` present on dev/build/desktop:build; `next.config.mjs` dual-runtime aliasing | Turbopack not used (by design) |
 | Floor-plan (SVG zones) | **FROZEN** | `Floorplan.jsx` hand-drawn zones, no CAD dependency | |
-| **Shows / live-music venue** | DEFERRED (test-harden) | production-active surface; **9 of 12 `/api/shows/[id]/*` routes untested** (deal, capacity, stage, sound/*, settlement/pdf) | Not a prototype and not deprecated; test-harden before behavior changes |
+| Shows / live-music venue | **FROZEN** | `test:event-ops` now covers stage, sound, SPL, and box-office repo/route contracts; capacity/deal/settlement/pdf remain covered by focused route tests | Active production surface; route hardening restored deleted handlers/repos without adding cloud/runtime coupling |
 | **`cad-kernel/` (C++23)** | DEFERRED (move-out) | full CAD engine (A*/Jacobian/Newton-Raphson/geodesy); **zero** app integration; single commit | Out-of-scope orphan for Lariat v2. See §3 |
 
 ---
