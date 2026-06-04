@@ -61,8 +61,8 @@ Stuff the audit surfaced that should land before next ship. Each row has a clear
 
 | ID  | Effort | Item | Acceptance |
 |-----|--------|------|------------|
-| 1.1 | S      | F7 — pick canonical `LARIAT_LOCATION_ID`, deprecate `LARIAT_LOCATION`. Add a startup warning in `lib/location.ts` when the old name is set. | One name reads from env in prod; deprecation warning fires once per process for the old name; both `.env.example` and `docs/OPERATIONS.md` show only the canonical name. |
-| 1.2 | S      | F8 — same shape for `LARIAT_7SHIFTS_API_KEY` vs `LARIAT_SEVENSHIFTS_API_KEY`. | Same shape as 1.1. |
+| 1.1 | S      | **Closed:** `LARIAT_LOCATION_ID` is canonical; the older location alias still falls back with a one-shot warning, and operator docs show only the canonical name. | `tests/js/test-env-canonical-vars.mjs` and `tests/js/test-location-from-body-or-request.mjs` pin docs, fallback, canonical precedence, and one-shot warning behavior. |
+| 1.2 | S      | **Closed:** `LARIAT_7SHIFTS_API_KEY` is canonical; the older 7shifts alias still falls back with a one-shot warning, and operator docs show only the canonical name. | `tests/js/test-env-canonical-vars.mjs` and `tests/js/test-health-route.mjs` pin docs, fallback, and one-shot warning behavior. |
 | 1.3 | M      | F3 — write the missing test for `/api/kds/tickets/[id]/bump`. Pin `BumpResponse` field names against `Lariat-KDS/docs/lariat-kds-protocol.md`. | Test asserts every field in the protocol doc appears in the response; CI fails if either drifts. |
 | 1.4 | M      | F3 — `/api/health` test (happy path + degraded-probe path). | Probe-down path returns the right shape; aggregated `ok=false` when any required probe fails. |
 | 1.5 | M      | F3 — BEO share-flow tests (`/api/beo/[id]/share-token`, `/api/beo/share/[token]`, `/api/beo/share/[token]/sign`). Security-sensitive (anonymous-token reads). | Tests cover: valid token reads only that BEO; expired/revoked token rejected; cross-location BEO id doesn't bleed; signature payload validated. |

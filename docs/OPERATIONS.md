@@ -39,6 +39,16 @@ Re-run the relevant ingest/rebuild after updating source files; restart the app 
 
 **Drink-price cadence note.** Drink rows live in the same `vendor_prices` table as food rows, but the costing-ingest DELETE+INSERT sweep preserves them (any row whose `category` is a beverage). So drink prices **do NOT need to be re-imported after every `ingest:costing`** — they survive. The protection lives in `scripts/ingest-costing.mjs` (`BEVERAGE_CATEGORIES`). Full pre-DELETE snapshot of every row (food + drink) is kept in `vendor_prices_history` for trend analysis — query by `(vendor, sku)` ordered by `snapshot_at`.
 
+## Runtime env names
+
+Use the canonical names below in `.env.local` and launchd/environment files. Older aliases are still read for one release and emit a one-time warning when used.
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `LARIAT_LOCATION_ID` | No | Default site id for single-site installs, discovery metadata, and manager PIN/location-scoped helpers. |
+| `LARIAT_EXPORT_LOCATION` | No | Daily export location override when exporting a site other than `LARIAT_LOCATION_ID`. |
+| `LARIAT_7SHIFTS_API_KEY` | No | Optional 7shifts health/degraded-mode credential check. |
+
 ## Kitchen assistant (local LLM, grounded — required)
 
 The **Kitchen assistant** page (`/kitchen-assistant`) and the **Specials Sandbox** (`/specials`) both call **Ollama** on the same Mac as the Next.js server. **Ollama must be running** — the routes have no feature flag and will return `502` (with `ollamaReachable: false` on the GET ping) if the daemon is not reachable. Each request injects a **snapshot of live data** (today’s active 86s, recent inventory rows, line-check progress, sign-offs, and recipe snippets matched from `data/cache/recipes.json`) so the model is instructed to **only** use that context for operational claims—reducing hallucination and avoiding “fake POS” answers.
@@ -84,7 +94,7 @@ Set **`LARIAT_PIN`** in the environment (e.g. `.env.local` on the kitchen Mac). 
 
 ## Multi-location
 
-Operational rows (**line checks**, **sign-offs**, **86**, **inventory**) and all v2 financial tables store **`location_id`** (default `default`). Pass **`?location=your_id`** on pages and APIs once you add rows to the `locations` table. Daily export filters with **`LARIAT_EXPORT_LOCATION`** or **`LARIAT_LOCATION`** (default `default`).
+Operational rows (**line checks**, **sign-offs**, **86**, **inventory**) and all v2 financial tables store **`location_id`** (default `default`). Pass **`?location=your_id`** on pages and APIs once you add rows to the `locations` table. Daily export filters with **`LARIAT_EXPORT_LOCATION`** first, then **`LARIAT_LOCATION_ID`** (default `default`).
 
 ## Backups
 

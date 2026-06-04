@@ -99,6 +99,7 @@
     "test:cleaning-rules": "node --test tests/js/test-cleaning-rules.mjs",
     "test:sds-rules": "node --test tests/js/test-sds-rules.mjs",
     "test:db-query-tool": "node --experimental-strip-types --test tests/js/test-db-query-tool.mjs",
+    "test:env-canonical": "node --experimental-strip-types --test tests/js/test-env-canonical-vars.mjs tests/js/test-location-from-body-or-request.mjs tests/js/test-health-route.mjs",
     "validate:db-query-registry": "python3 scripts/validate-db-query-registry.py",
     "test:performance-reviews-rules": "node --test tests/js/test-performance-reviews-rules.mjs",
     "test:performance-reviews-api": "node --test tests/js/test-performance-reviews-api.mjs",

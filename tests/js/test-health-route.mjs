@@ -251,15 +251,34 @@ describe('GET /api/health — optional integration credentials', { concurrency: 
     assert.equal(body.probes.prism.ok, true);
   });
 
-  it('treats LARIAT_SEVENSHIFTS_API_KEY as an alias for LARIAT_7SHIFTS_API_KEY (audit F8)', async () => {
+  it('treats LARIAT_SEVENSHIFTS_API_KEY as an alias and warns once (audit F8)', async () => {
     process.env.LARIAT_PIN = '1234';
     process.env.LARIAT_PIN_SECRET = 'secret-for-tests';
     delete process.env.LARIAT_7SHIFTS_API_KEY;
     process.env.LARIAT_SEVENSHIFTS_API_KEY = 'sevenshifts-via-legacy-name';
 
-    const res = await GET();
-    const body = await res.json();
-    assert.equal(body.probes.sevenshifts.ok, true);
+    const originalWarn = console.warn;
+    const warnings = [];
+    console.warn = (...args) => {
+      warnings.push(args.map(String).join(' '));
+    };
+    try {
+      const res = await GET();
+      const body = await res.json();
+      assert.equal(body.probes.sevenshifts.ok, true);
+
+      const secondRes = await GET();
+      const secondBody = await secondRes.json();
+      assert.equal(secondBody.probes.sevenshifts.ok, true);
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    const sevenShiftsWarnings = warnings.filter((line) =>
+      line.includes('LARIAT_SEVENSHIFTS_API_KEY is deprecated'),
+    );
+    assert.equal(sevenShiftsWarnings.length, 1);
+    assert.match(sevenShiftsWarnings[0], /LARIAT_7SHIFTS_API_KEY/);
   });
 });
 

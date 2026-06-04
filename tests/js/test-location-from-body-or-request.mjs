@@ -11,13 +11,89 @@
 //
 // Run: node --experimental-strip-types --test tests/js/test-location-from-body-or-request.mjs
 
-import { describe, it } from 'node:test';
+import { describe, it, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { locationFromBodyOrRequest, DEFAULT_LOCATION_ID } from '../../lib/location.ts';
+import {
+  locationFromBodyOrRequest,
+  locationIdFromEnv,
+  DEFAULT_LOCATION_ID,
+} from '../../lib/location.ts';
+
+const LOCATION_ENV_SNAPSHOT = {
+  LARIAT_LOCATION_ID: process.env.LARIAT_LOCATION_ID,
+  LARIAT_LOCATION: process.env.LARIAT_LOCATION,
+};
 
 function req(url) {
   return new Request(url, { method: 'POST' });
 }
+
+function restoreLocationEnv() {
+  for (const [key, value] of Object.entries(LOCATION_ENV_SNAPSHOT)) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+}
+
+function clearLocationEnv() {
+  delete process.env.LARIAT_LOCATION_ID;
+  delete process.env.LARIAT_LOCATION;
+}
+
+function captureWarnings(run) {
+  const originalWarn = console.warn;
+  const warnings = [];
+  console.warn = (...args) => {
+    warnings.push(args.map(String).join(' '));
+  };
+  try {
+    return { value: run(), warnings };
+  } finally {
+    console.warn = originalWarn;
+  }
+}
+
+afterEach(() => {
+  restoreLocationEnv();
+});
+
+describe('locationIdFromEnv — canonical env names', { concurrency: false }, () => {
+  it('prefers LARIAT_LOCATION_ID over the legacy LARIAT_LOCATION without warning', () => {
+    clearLocationEnv();
+    process.env.LARIAT_LOCATION_ID = 'south';
+    process.env.LARIAT_LOCATION = 'north';
+
+    const { value, warnings } = captureWarnings(() => locationIdFromEnv());
+
+    assert.equal(value, 'south');
+    assert.deepEqual(warnings, []);
+  });
+
+  it('honors legacy LARIAT_LOCATION and warns once per process', () => {
+    clearLocationEnv();
+    process.env.LARIAT_LOCATION = 'north';
+
+    const { value: first, warnings } = captureWarnings(() => {
+      const firstValue = locationIdFromEnv();
+      const secondValue = locationIdFromEnv();
+      return [firstValue, secondValue];
+    });
+
+    assert.deepEqual(first, ['north', 'north']);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /LARIAT_LOCATION is deprecated/);
+    assert.match(warnings[0], /LARIAT_LOCATION_ID/);
+  });
+
+  it('falls back to DEFAULT_LOCATION_ID when neither env name is set', () => {
+    clearLocationEnv();
+
+    const { value, warnings } = captureWarnings(() => locationIdFromEnv());
+
+    assert.equal(value, DEFAULT_LOCATION_ID);
+    assert.deepEqual(warnings, []);
+  });
+});
 
 describe('locationFromBodyOrRequest — body present', () => {
   it('body { location_id: "south" } returns "south"', () => {
