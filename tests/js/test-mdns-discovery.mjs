@@ -71,6 +71,25 @@ describe('mdnsDiscovery.advertise', () => {
   });
 });
 
+describe('mdnsDiscovery status', () => {
+  it('retains service-name conflict state for operator-facing health checks', () => {
+    mdns._resetWarnedReasonsForTest();
+    mdns._resetStatusForTest();
+
+    mdns.warnOnce(
+      'Bonjour publish failed',
+      new Error('Service name is already in use on the network')
+    );
+
+    const status = mdns.getMdnsStatus();
+    assert.equal(status.ok, false);
+    assert.equal(status.code, 'service_name_conflict');
+    assert.match(status.error, /already in use/i);
+
+    mdns._resetStatusForTest();
+  });
+});
+
 describe('mdnsDiscovery.discover', () => {
   it('resolves to an array within the timeout (never rejects)', async () => {
     const t0 = Date.now();

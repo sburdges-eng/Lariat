@@ -42,9 +42,8 @@ export async function GET(req) {
   if (!available()) {
     return Response.json(
       {
-        error: 'Data pack not mounted on this machine',
-        hint:
-          'Mount the SSD or symlink data/lariat-data and rebuild the indexes.',
+        error: 'Reference data is not installed on this Mac',
+        hint: 'Ask a manager to finish setup.',
       },
       { status: 503 }
     );

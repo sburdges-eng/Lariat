@@ -151,6 +151,10 @@ export default function GoldStarBoard() {
   };
 
   const handleDelete = async (id: number) => {
+    const target = recognitions.find(r => r.id === id);
+    if (!target) return;
+    if (!window.confirm(`Remove this Gold Star for ${target.name}?`)) return;
+
     // Capture the row + its position via a functional updater so the
     // rollback path doesn't depend on the render-time closure of
     // `recognitions` — under rapid-fire deletes the closure value
@@ -188,9 +192,9 @@ export default function GoldStarBoard() {
     <div className="gs-root">
       <section className="gs-section">
         <div className="gs-header">
-          <h2 className="gs-title">
+          <h1 className="gs-title">
             <span>★</span> Gold Stars
-          </h2>
+          </h1>
           <button onClick={openModal} className="gs-give-btn">
             Give a star
           </button>

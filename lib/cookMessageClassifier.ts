@@ -30,6 +30,15 @@ const QUESTION_LEAD_RE =
 const IMPERATIVE_LEAD_RE =
   /^(86|eighty[\s-]?six|log|mark|add|give|set|update|record|note|reject|receive|reorder|order|adjust|scale|prep|generate)\b/i;
 
+const PIN_REQUIRED_LEAD_RE =
+  /^(86|eighty[\s-]?six|log|mark|add|give|set|record|note|reject|receive|reorder|order|adjust|scale|prep)\b/i;
+
+const PIN_REQUIRED_UPDATE_RE =
+  /^update\s+(inventory|order(?:\s+guide)?|par|prep|line|station|count|counts|quantity|qty)\b/i;
+
+const PIN_REQUIRED_GENERATE_RE =
+  /^generate\s+(?:a\s+)?(?:dynamic\s+)?prep(?:\s+list|\s+for|\b)/i;
+
 export function isImperativeCommand(message: unknown): boolean {
   if (typeof message !== 'string') return false;
   const m = message.trim();
@@ -38,4 +47,12 @@ export function isImperativeCommand(message: unknown): boolean {
   if (QUESTION_LEAD_RE.test(m)) return false;
   if (IMPERATIVE_LEAD_RE.test(m)) return true;
   return false;
+}
+
+export function requiresPinBeforeLlm(message: unknown): boolean {
+  if (!isImperativeCommand(message)) return false;
+  const m = (message as string).trim();
+  return PIN_REQUIRED_LEAD_RE.test(m)
+    || PIN_REQUIRED_UPDATE_RE.test(m)
+    || PIN_REQUIRED_GENERATE_RE.test(m);
 }

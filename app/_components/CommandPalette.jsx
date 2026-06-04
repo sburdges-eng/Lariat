@@ -2,7 +2,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PALETTE_ITEMS, withLocation } from './navRegistry.js';
+import { PALETTE_ITEMS, requiresManagerPinPath, withLocation } from './navRegistry.js';
 import { useLocation } from './useLocation.js';
 
 /* A jump-anywhere palette. Opens on ⌘K / Ctrl+K / the "/" key.
@@ -76,8 +76,9 @@ export default function CommandPalette() {
   }, [open]);
 
   const commands = useMemo(() => {
-    // Live "Line" entries: the first six stations (with progress readouts).
-    const stationCmds = stations.slice(0, 6).map((s, i) => ({
+    // Live "Line" entries: only stations with an active line check get
+    // numbered shortcuts. Position-only stations stay on /stations.
+    const stationCmds = stations.filter((s) => s.prog && s.prog.total).slice(0, 6).map((s, i) => ({
       id: `station-${s.id}`,
       group: 'Line',
       name: s.name,
@@ -175,23 +176,27 @@ export default function CommandPalette() {
             groups.map((g) => (
               <div key={g.name}>
                 <div className="cmdk-group">{g.name}</div>
-                {g.rows.map(({ cmd, idx }) => (
-                  <div
-                    key={cmd.id || `${cmd.group}-${cmd.name}`}
-                    className={`cmdk-row ${idx === cursor ? 'on' : ''}`}
-                    onMouseEnter={() => setCursor(idx)}
-                    onClick={() => go(cmd)}
-                    role="option"
-                    aria-selected={idx === cursor}
-                  >
-                    <div className="cmdk-glyph">{cmd.shortcut}</div>
-                    <div className="cmdk-lbl">
-                      <div className="cmdk-name">{cmd.name}</div>
-                      <div className="cmdk-sub">{cmd.sub}</div>
+                {g.rows.map(({ cmd, idx }) => {
+                  const managerOnly = cmd.managerOnly || requiresManagerPinPath(cmd.href);
+                  return (
+                    <div
+                      key={cmd.id || `${cmd.group}-${cmd.name}`}
+                      className={`cmdk-row ${idx === cursor ? 'on' : ''}`}
+                      onMouseEnter={() => setCursor(idx)}
+                      onClick={() => go(cmd)}
+                      role="option"
+                      aria-selected={idx === cursor}
+                      aria-label={`${cmd.name}${managerOnly ? ', manager PIN required' : ''}`}
+                    >
+                      <div className="cmdk-glyph">{cmd.shortcut}</div>
+                      <div className="cmdk-lbl">
+                        <div className="cmdk-name">{cmd.name}</div>
+                        <div className="cmdk-sub">{managerOnly ? 'PIN · ' : ''}{cmd.sub}</div>
+                      </div>
+                      <div className="cmdk-key">↵</div>
                     </div>
-                    <div className="cmdk-key">↵</div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ))
           )}

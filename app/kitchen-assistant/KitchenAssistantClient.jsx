@@ -7,6 +7,34 @@ import { formatFdaCitation, formatUsdaCitation } from './citationHelpers';
 
 const LOC_KEY = 'lariat_location';
 const LANG_KEY = 'lariat_language';
+const COOK_KEY = 'lariat_cook';
+const CONVERSATION_SESSION_KEY = 'lariat_conversation_session_id';
+
+function fallbackUuidV4() {
+  const bytes = new Uint8Array(16);
+  if (window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i += 1) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function getOrCreateConversationSessionId() {
+  if (typeof window === 'undefined') return '';
+  const existing = window.localStorage.getItem(CONVERSATION_SESSION_KEY);
+  if (existing) return existing;
+  const next = window.crypto?.randomUUID
+    ? window.crypto.randomUUID()
+    : fallbackUuidV4();
+  window.localStorage.setItem(CONVERSATION_SESSION_KEY, next);
+  return next;
+}
 
 // Badge types backed by the data pack — clickable, expand inline to
 // show the actual cited rows. Other badge types (eighty_six,
@@ -239,7 +267,13 @@ export default function KitchenAssistantClient({ locQuery }) {
     setLoading(true);
     try {
       const loc = typeof window !== 'undefined' ? window.localStorage.getItem(LOC_KEY) : '';
-      const body = { message: q, language };
+      const cookId = typeof window !== 'undefined' ? window.localStorage.getItem(COOK_KEY) : '';
+      const body = {
+        message: q,
+        language,
+        conversation_session_id: getOrCreateConversationSessionId(),
+      };
+      if (cookId) body.cook_id = cookId;
       if (loc && loc !== 'default') body.location_id = loc;
       const res = await fetch('/api/kitchen-assistant', {
         method: 'POST',

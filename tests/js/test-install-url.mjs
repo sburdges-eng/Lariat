@@ -42,4 +42,10 @@ describe('install URL helpers', () => {
     assert.match(installPageSource, /<h1>Connect Lariat<\/h1>/);
     assert.doesNotMatch(installPageSource, /Put Lariat on this Mac or iPad/);
   });
+
+  it('surfaces discovery health on the connect screen', () => {
+    assert.match(installPageSource, /\/api\/health/);
+    assert.match(installPageSource, /Discovery warning/);
+    assert.match(installPageSource, /mDNS/);
+  });
 });

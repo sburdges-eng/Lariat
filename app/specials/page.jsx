@@ -1,11 +1,21 @@
 // @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 const MAX_MESSAGE = 2000;
+const AI_DOWN_COPY = "AI is down. Can't connect to Ollama on the office Mac. Ask a manager to start it.";
+
+function specialsErrorCopy(status, error) {
+  const raw = String(error || '');
+  if (status === 502 || /fetch failed|failed to fetch|ECONNREFUSED|Ollama/i.test(raw)) {
+    return AI_DOWN_COPY;
+  }
+  return raw || "Couldn't generate. Try again.";
+}
 
 export default function SpecialsPage() {
+  const [ollamaOk, setOllamaOk] = useState(null);
   const [pantry, setPantry] = useState('');
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,6 +32,21 @@ export default function SpecialsPage() {
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState('');
   const [savedId, setSavedId] = useState('');
+
+  useEffect(() => {
+    fetch('/api/specials?ping=1')
+      .then((r) => r.json())
+      .then((d) => {
+        setModel(d.model || '');
+        const reachable = d.ollamaReachable !== false;
+        setOllamaOk(reachable);
+        if (!reachable) setErr(AI_DOWN_COPY);
+      })
+      .catch(() => {
+        setOllamaOk(false);
+        setErr(AI_DOWN_COPY);
+      });
+  }, []);
 
   const combinedPrompt = useMemo(() => {
     return pantry.trim()
@@ -41,6 +66,10 @@ export default function SpecialsPage() {
       setErr('Prompt + pantry too long — trim to under 2000 chars');
       return;
     }
+    if (ollamaOk === false) {
+      setErr(AI_DOWN_COPY);
+      return;
+    }
 
     setLoading(true);
     try {
@@ -51,7 +80,7 @@ export default function SpecialsPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setErr(data.error || "Couldn't generate. Try again.");
+        setErr(specialsErrorCopy(res.status, data.error));
         return;
       }
       setAnswer(data.answer || '');
@@ -60,7 +89,7 @@ export default function SpecialsPage() {
       setCostTotal(data.cost_total ?? null);
       setSources(data.sources ?? null);
     } catch (ce) {
-      setErr(String(ce.message || ce));
+      setErr(specialsErrorCopy(0, ce?.message || ce));
     } finally {
       setLoading(false);
     }
@@ -133,7 +162,7 @@ export default function SpecialsPage() {
               {combinedPrompt.length} / {MAX_MESSAGE}
             </div>
             <div className="flex-center-gap">
-              <button type="submit" className="btn primary" disabled={loading || (!prompt.trim() && !pantry.trim()) || combinedPrompt.length > MAX_MESSAGE}>
+              <button type="submit" className="btn primary" disabled={loading || ollamaOk === false || (!prompt.trim() && !pantry.trim()) || combinedPrompt.length > MAX_MESSAGE}>
                 {loading ? 'Thinking...' : 'Run it'}
               </button>
               {model && (

@@ -1,0 +1,244 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - img [ref=e6]
+        - generic [ref=e10]:
+          - generic [ref=e11]: The Lariat
+          - generic [ref=e12]: Kitchen Cockpit
+      - generic "Service timeline" [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]:
+            - generic [ref=e17]: Prep
+            - generic [ref=e18]: 8a–11a
+          - generic [ref=e19]:
+            - generic [ref=e21]: Open
+            - generic [ref=e22]: 11a–5p
+          - generic [ref=e23]:
+            - generic [ref=e25]: Rush
+            - generic [ref=e26]: 5p–10p
+          - generic [ref=e27]:
+            - generic [ref=e29]: Close
+            - generic [ref=e30]: 10p–12a
+      - generic [ref=e31]:
+        - generic [ref=e32]: Thu, Jun 4
+        - generic [ref=e33]: 12:57am
+    - complementary [ref=e34]:
+      - generic [ref=e35]:
+        - generic [ref=e36]: The Line
+        - generic [ref=e37]: Cockpit
+      - navigation [ref=e38]:
+        - link "Today (shortcut 0)" [ref=e39] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e40]: "0"
+          - generic [ref=e42]: Today
+        - link "Command (shortcut G)" [ref=e43] [cursor=pointer]:
+          - /url: /command
+          - generic [ref=e44]: G
+          - generic [ref=e46]: Command
+        - generic [ref=e47]: Stations
+        - generic [ref=e48]: Loading stations…
+        - generic [ref=e49]:
+          - generic [ref=e50]: Service
+          - link "Host Stand (shortcut H)" [ref=e51] [cursor=pointer]:
+            - /url: /host
+            - generic [ref=e52]: H
+            - generic [ref=e54]: Host Stand
+          - link "Punch ticket (shortcut P)" [ref=e55] [cursor=pointer]:
+            - /url: /kds/punch
+            - generic [ref=e56]: P
+            - generic [ref=e58]: Punch ticket
+          - link "86 Board (shortcut 8)" [ref=e59] [cursor=pointer]:
+            - /url: /eighty-six
+            - generic [ref=e60]: "8"
+            - generic [ref=e62]: 86 Board
+          - link "Recipes (shortcut R)" [ref=e63] [cursor=pointer]:
+            - /url: /recipes
+            - generic [ref=e64]: R
+            - generic [ref=e66]: Recipes
+          - link "Inventory (shortcut I)" [ref=e67] [cursor=pointer]:
+            - /url: /inventory
+            - generic [ref=e68]: I
+            - generic [ref=e70]: Inventory
+          - link "Prep board (shortcut K)" [ref=e71] [cursor=pointer]:
+            - /url: /prep
+            - generic [ref=e72]: K
+            - generic [ref=e74]: Prep board
+          - link "Fire schedule" [ref=e75] [cursor=pointer]:
+            - /url: /prep/fire-schedule
+            - generic [ref=e76]: ·
+            - generic [ref=e78]: Fire schedule
+          - link "Reservations (shortcut B)" [ref=e79] [cursor=pointer]:
+            - /url: /reservations
+            - generic [ref=e80]: B
+            - generic [ref=e82]: Reservations
+          - link "Floor plan (shortcut A)" [ref=e83] [cursor=pointer]:
+            - /url: /floor
+            - generic [ref=e84]: A
+            - generic [ref=e86]: Floor plan
+          - link "Ask the kitchen (shortcut ?)" [ref=e87] [cursor=pointer]:
+            - /url: /kitchen-assistant
+            - generic [ref=e88]: "?"
+            - generic [ref=e90]: Ask the kitchen
+          - link "Specials (shortcut F)" [ref=e91] [cursor=pointer]:
+            - /url: /specials
+            - generic [ref=e92]: F
+            - generic [ref=e94]: Specials
+          - link "Saved Specials" [ref=e95] [cursor=pointer]:
+            - /url: /specials/saved
+            - generic [ref=e96]: ·
+            - generic [ref=e98]: Saved Specials
+          - link "Gold stars (shortcut ★)" [ref=e99] [cursor=pointer]:
+            - /url: /gold-stars
+            - generic [ref=e100]: ★
+            - generic [ref=e102]: Gold stars
+        - generic [ref=e103]:
+          - generic [ref=e104]: Compliance
+          - link "Food safety" [ref=e105] [cursor=pointer]:
+            - /url: /food-safety
+            - generic [ref=e106]: ·
+            - generic [ref=e108]: Food safety
+          - link "Temp log (shortcut T)" [ref=e109] [cursor=pointer]:
+            - /url: /food-safety/temp-log
+            - generic [ref=e110]: T
+            - generic [ref=e112]: Temp log
+          - link "Receiving (shortcut ↵)" [ref=e113] [cursor=pointer]:
+            - /url: /food-safety/receiving
+            - generic [ref=e114]: ↵
+            - generic [ref=e116]: Receiving
+          - link "Calibrations (shortcut C)" [ref=e117] [cursor=pointer]:
+            - /url: /food-safety/calibrations
+            - generic [ref=e118]: C
+            - generic [ref=e120]: Calibrations
+          - link "Time control" [ref=e121] [cursor=pointer]:
+            - /url: /food-safety/tphc
+            - generic [ref=e122]: ·
+            - generic [ref=e124]: Time control
+          - link "Labor (shortcut L)" [ref=e125] [cursor=pointer]:
+            - /url: /labor
+            - generic [ref=e126]: L
+            - generic [ref=e128]: Labor
+        - generic [ref=e129]:
+          - generic [ref=e130]: Entertainment
+          - link "Tonight · Live" [ref=e131] [cursor=pointer]:
+            - /url: /shows/tonight
+            - generic [ref=e132]: ·
+            - generic [ref=e134]: Tonight · Live
+          - link "Booking" [ref=e135] [cursor=pointer]:
+            - /url: /booking
+            - generic [ref=e136]: ·
+            - generic [ref=e138]: Booking
+          - link "Playbook" [ref=e139] [cursor=pointer]:
+            - /url: /playbook
+            - generic [ref=e140]: ·
+            - generic [ref=e142]: Playbook
+          - link "Past shows" [ref=e143] [cursor=pointer]:
+            - /url: /shows/archive
+            - generic [ref=e144]: ·
+            - generic [ref=e146]: Past shows
+        - generic [ref=e147]: Books
+        - generic [ref=e148]:
+          - link "Sales numbers" [ref=e149] [cursor=pointer]:
+            - /url: /analytics
+            - generic [ref=e150]: Sales
+            - generic [ref=e151]: numbers
+          - link "Costs recipes" [ref=e152] [cursor=pointer]:
+            - /url: /costing
+            - generic [ref=e153]: Costs
+            - generic [ref=e154]: recipes
+          - link "Orders guide" [ref=e155] [cursor=pointer]:
+            - /url: /purchasing
+            - generic [ref=e156]: Orders
+            - generic [ref=e157]: guide
+          - link "Menu perf" [ref=e158] [cursor=pointer]:
+            - /url: /menu-engineering
+            - generic [ref=e159]: Menu
+            - generic [ref=e160]: perf
+          - link "Events & prep" [ref=e161] [cursor=pointer]:
+            - /url: /beo
+            - generic [ref=e162]: Events
+            - generic [ref=e163]: "& prep"
+          - link "Equip. gear" [ref=e164] [cursor=pointer]:
+            - /url: /equipment
+            - generic [ref=e165]: Equip.
+            - generic [ref=e166]: gear
+          - link "Bar cocktails" [ref=e167] [cursor=pointer]:
+            - /url: /bar
+            - generic [ref=e168]: Bar
+            - generic [ref=e169]: cocktails
+          - link "Data lookup" [ref=e170] [cursor=pointer]:
+            - /url: /datapack-search
+            - generic [ref=e171]: Data
+            - generic [ref=e172]: lookup
+          - link "Allergens check" [ref=e173] [cursor=pointer]:
+            - /url: /allergen-lookup
+            - generic [ref=e174]: Allergens
+            - generic [ref=e175]: check
+        - generic [ref=e176]: Location
+        - generic [ref=e177]:
+          - generic [ref=e178]: Room
+          - combobox "Room" [ref=e179]:
+            - option "The Lariat" [selected]
+          - paragraph [ref=e180]: Stays set on this device.
+      - generic [ref=e181]:
+        - text: You're clocked in as
+        - combobox [ref=e182]:
+          - option "— pick your name —" [selected]
+          - option "Tyler Chambers"
+          - option "Tyler Conley"
+          - option "Cody England"
+          - option "Barbara Goode"
+          - option "Jaylynn Goode"
+          - option "James Griffin"
+          - option "Robert Henderson"
+          - option "Noah Mccune"
+          - option "Lucas Nores"
+          - option "Brayden Ortiz"
+          - option "Thomas Potts"
+          - option "Lilly Propernick"
+          - option "Jonathan Rodriquez"
+          - option "Ryan Shaw"
+          - option "Troy Whitmore"
+          - option "Sean Burdges"
+          - option "Kady Simpson"
+          - option "Jacob Wood"
+        - button "Sign out (sensitive pages)" [ref=e183] [cursor=pointer]
+      - link "Install Lariat" [ref=e185] [cursor=pointer]:
+        - /url: /install
+    - main [ref=e186]:
+      - status "Loading page content" [ref=e187]:
+        - generic [ref=e188]: Loading…
+        - generic [ref=e189]: Loading, please wait.
+    - contentinfo [ref=e190]:
+      - generic [ref=e191]:
+        - generic [ref=e192]:
+          - generic [ref=e193]: ⌘
+          - generic [ref=e194]: K
+          - generic [ref=e195]: Jump
+        - generic [ref=e196]:
+          - generic [ref=e197]: /
+          - generic [ref=e198]: Search
+        - generic [ref=e199]:
+          - generic [ref=e200]: "1"
+          - text: –
+          - generic [ref=e201]: "6"
+          - generic [ref=e202]: Stations
+        - generic [ref=e203]:
+          - generic [ref=e204]: "8"
+          - generic [ref=e205]: "86"
+        - generic [ref=e206]:
+          - generic [ref=e207]: M
+          - generic [ref=e208]: Map
+      - generic [ref=e210]:
+        - generic [ref=e211]: The Lariat
+        - generic [ref=e212]: ·
+        - generic [ref=e213]: version
+  - button "Open kitchen floorplan navigator" [ref=e214] [cursor=pointer]:
+    - img [ref=e215]
+    - generic [ref=e218]:
+      - text: Floor ·
+      - generic [ref=e219]: M
+  - text: ▸
+  - alert [ref=e220]

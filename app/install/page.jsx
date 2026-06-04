@@ -29,6 +29,7 @@ export default function InstallPage() {
   const [browser, setBrowser] = useState('unknown');
   const [platform, setPlatform] = useState('unknown');
   const [lanUrl, setLanUrl] = useState('');
+  const [discoveryWarning, setDiscoveryWarning] = useState('');
 
   useEffect(() => {
     setMounted(true);
@@ -36,6 +37,18 @@ export default function InstallPage() {
     setBrowser(detectBrowser());
     setPlatform(detectPlatform());
     setLanUrl(lanInstallUrl(window.location));
+
+    fetch('/api/health')
+      .then((res) => res.json())
+      .then((body) => {
+        const mdns = body?.probes?.mdns;
+        if (mdns && mdns.ok === false) {
+          setDiscoveryWarning(mdns.error || 'mDNS discovery is not advertising this Mac.');
+        }
+      })
+      .catch(() => {
+        /* Connect page still works with the direct URL below. */
+      });
   }, []);
 
   return (
@@ -120,6 +133,11 @@ export default function InstallPage() {
         <p>
           <code>{lanUrl || 'http://lariat.local:3001'}</code>
         </p>
+        {discoveryWarning && (
+          <p role="status">
+            <strong>Discovery warning:</strong> mDNS is not advertising cleanly. Other devices can still use the address above. {discoveryWarning}
+          </p>
+        )}
       </div>
     </div>
   );

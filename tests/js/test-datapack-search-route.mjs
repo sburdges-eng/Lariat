@@ -40,8 +40,9 @@ describe('GET /api/datapack/search — unavailable (503)', () => {
       const res = await GET(getReq('?q=eggs'));
       assert.strictEqual(res.status, 503);
       const body = await res.json();
-      assert.match(body.error, /not mounted/i);
+      assert.match(body.error, /Reference data is not installed/i);
       assert.ok(typeof body.hint === 'string' && body.hint.length > 0);
+      assert.doesNotMatch(`${body.error} ${body.hint}`, /scripts\/datapack|symlink|SSD/i);
     } finally {
       datapack._setAvailableOverrideForTest(null);
     }

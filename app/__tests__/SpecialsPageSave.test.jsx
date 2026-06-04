@@ -29,6 +29,22 @@ function mockChatResponse(overrides = {}) {
   };
 }
 
+function mockPingResponse(overrides = {}) {
+  return {
+    ok: true,
+    json: async () => ({
+      ollamaReachable: true,
+      model: 'lari-the-kitchen-assistant',
+      ...overrides,
+    }),
+  };
+}
+
+function renderSpecialsWithPing(overrides = {}) {
+  global.fetch.mockResolvedValueOnce(mockPingResponse(overrides));
+  return render(<SpecialsPage />);
+}
+
 async function runChat(prompt) {
   fireEvent.change(screen.getByPlaceholderText(/Create a high-margin/i), { target: { value: prompt } });
   await act(async () => {
@@ -37,20 +53,20 @@ async function runChat(prompt) {
 }
 
 test('Save button is hidden before an answer renders', () => {
-  render(<SpecialsPage />);
+  renderSpecialsWithPing();
   expect(screen.queryByRole('button', { name: /save this special/i })).toBeNull();
 });
 
 test('Save button appears after a successful chat response', async () => {
+  renderSpecialsWithPing();
   global.fetch.mockResolvedValueOnce(mockChatResponse());
-  render(<SpecialsPage />);
   await runChat('Make a pork belly app');
   expect(await screen.findByRole('button', { name: /save this special/i })).toBeInTheDocument();
 });
 
 test('Save form requires a name', async () => {
+  renderSpecialsWithPing();
   global.fetch.mockResolvedValueOnce(mockChatResponse());
-  render(<SpecialsPage />);
   await runChat('Make a pork belly app');
   fireEvent.click(screen.getByRole('button', { name: /save this special/i }));
   const submit = screen.getByRole('button', { name: /^save$/i });
@@ -58,10 +74,10 @@ test('Save form requires a name', async () => {
 });
 
 test('Save POSTs the captured session shape', async () => {
+  renderSpecialsWithPing();
   global.fetch
     .mockResolvedValueOnce(mockChatResponse())
     .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'abc-123' }) });
-  render(<SpecialsPage />);
   await runChat('Make a pork belly app');
 
   fireEvent.click(screen.getByRole('button', { name: /save this special/i }));
@@ -78,4 +94,26 @@ test('Save POSTs the captured session shape', async () => {
   expect(body.ai_model).toBe('lari-the-kitchen-assistant');
   expect(body.cost_breakdown).toHaveLength(1);
   expect(body.cost_total).toBe(10);
+});
+
+test('Run it is disabled with clear copy when local AI is down on load', async () => {
+  renderSpecialsWithPing({ ollamaReachable: false });
+
+  expect(await screen.findByText(/AI is down/i)).toBeInTheDocument();
+  const run = screen.getByRole('button', { name: /run it/i });
+  expect(run).toBeDisabled();
+});
+
+test('POST 502 fetch failed is shown as local-AI-down copy, not raw transport text', async () => {
+  renderSpecialsWithPing();
+  global.fetch.mockResolvedValueOnce({
+    ok: false,
+    status: 502,
+    json: async () => ({ error: 'fetch failed' }),
+  });
+
+  await runChat('Make a pork belly app');
+
+  expect(await screen.findByText(/AI is down/i)).toBeInTheDocument();
+  expect(screen.queryByText(/^fetch failed$/i)).toBeNull();
 });

@@ -19,13 +19,23 @@ import {
 import { validateReceivingReading, dbStatusFor } from '../../../lib/receiving';
 import { validateTempReading, getTempPoint } from '../../../lib/tempLog';
 import { normalizeUnit } from '../../../lib/unitConvert.mjs';
-import { isImperativeCommand } from '../../../lib/cookMessageClassifier';
+import {
+  isImperativeCommand,
+  requiresPinBeforeLlm,
+} from '../../../lib/cookMessageClassifier';
 import { extractAction } from '../../../lib/extractAction';
 import {
   runDbQuery,
   renderQueryCatalog,
   formatQueryResultForPrompt,
 } from '../../../lib/dbQueryTool';
+import {
+  normalizeConversationInputs,
+  sweepExpiredConversationTurns,
+  loadRecentConversationTurns,
+  formatConversationHistoryForPrompt,
+  storeConversationTurn,
+} from '../../../lib/lariConversationMemory.ts';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -95,23 +105,43 @@ async function kitchenAssistantPostHandler(req) {
   //           accumulated for every blocked attempt. Wasted compute + log
   //           leakage to anyone with stdout access.
   const hasPin = await hasPinCookie(req);
+  const conversation = normalizeConversationInputs(body);
+  if (!conversation.ok) {
+    return Response.json({ error: conversation.error }, { status: 400 });
+  }
+
+  const conversationDb = getDb();
+  sweepExpiredConversationTurns(conversationDb);
+  const priorTurns = loadRecentConversationTurns(conversationDb, {
+    locationId,
+    cookId: conversation.cookId,
+    sessionId: conversation.sessionId,
+    hasPin,
+  });
+  const conversationHistory = formatConversationHistoryForPrompt(priorTurns);
 
   // Q-vs-C routing happens here in deterministic code, not in the LLM.
   // Models can misread sentences containing "86" as commands when they do
   // the routing in-prompt — see lib/cookMessageClassifier.ts.
   const isCommand = isImperativeCommand(message);
+  if (!hasPin && requiresPinBeforeLlm(message)) {
+    return Response.json({
+      answer: 'Action blocked — manager PIN required. Ask a manager to confirm.',
+      model: 'pin-required',
+      location_id: locationId,
+      sources: [],
+      latencyMs: 0,
+      actionExecuted: false,
+      actionError: false,
+      disclaimer: 'Check tags with a manager. Do not trust AI for allergies.',
+    });
+  }
 
-  // #248 (revised): cook-tier imperatives used to short-circuit here before
-  // Ollama ran. That blocked `db_query` — a read-only action the LLM emits
-  // for analytical requests ("generate a cooling report", "update me on
-  // sales") that happen to start with imperative verbs. The
-  // `isImperativeCommand` classifier is fine for gating state-mutating
-  // actions but isn't reliable enough to distinguish reads from writes.
-  //
-  // The inner `pinRequired.includes(...)` guard (line ~258) still blocks
-  // every mutating action for cooks without a PIN, so removing this early
-  // return doesn't weaken auth — it just lets the LLM run so it can emit
-  // `db_query` when appropriate.
+  // Cook-tier read-like imperatives ("generate a cooling report", "update me
+  // on sales") still reach Ollama so it can emit the read-only `db_query`
+  // action. Every state-mutating action remains blocked before LLM when the
+  // phrase is clear, and again below as defense-in-depth if the model emits
+  // action JSON anyway.
 
   const started = Date.now();
   let contextText;
@@ -132,7 +162,10 @@ async function kitchenAssistantPostHandler(req) {
   // one-liners) so the budget impact is bounded.
   const queryCatalog = renderQueryCatalog(hasPin ? 'manager' : 'cook');
 
-  let userContent = `CONTEXT (authoritative — only use these facts for operational claims):\n\n${contextText}\n\n${queryCatalog}\n---\nCOOK MESSAGE:\n${message}`;
+  const historyBlock = conversationHistory
+    ? `\n---\n${conversationHistory}\n`
+    : '\n';
+  let userContent = `CONTEXT (authoritative — only use these facts for operational claims):\n\n${contextText}\n\n${queryCatalog}${historyBlock}---\nCOOK MESSAGE:\n${message}`;
 
   if (body.language && body.language !== 'English') {
     userContent += `\n\nTRANSLATION DIRECTIVE: You MUST answer the cook entirely in ${body.language}. Ensure you use accurate culinary terms and maintain the requested formatting.`;
@@ -720,6 +753,19 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
 
     if (actionExecuted) {
       finalAnswer = `⚡ ACTION EXECUTED: ${actionMsg}\n\n${finalAnswer}`;
+    }
+
+    try {
+      storeConversationTurn(conversationDb, {
+        locationId,
+        cookId: conversation.cookId,
+        sessionId: conversation.sessionId,
+        userContent: message,
+        assistantContent: finalAnswer,
+        managerTier: hasPin,
+      });
+    } catch (conversationError) {
+      console.error('Conversation memory store failed:', conversationError);
     }
 
     const latencyMs = Date.now() - started;

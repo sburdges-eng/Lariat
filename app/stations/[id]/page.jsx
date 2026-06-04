@@ -1,5 +1,6 @@
 // @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { getStation, getLineCheckTemplate, getSetups } from '../../../lib/data';
 import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
@@ -47,7 +48,17 @@ export default async function StationPage({ params, searchParams }) {
 
       {items.length === 0 ? (
         <div className="empty">
-          No line check for this station.
+          <p style={{ marginTop: 0 }}>
+            {station.name} is a position marker. No line check is assigned yet.
+          </p>
+          <div className="flex-center-gap" style={{ justifyContent: 'center' }}>
+            <Link className="btn" href={`/stations${loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : ''}`}>
+              Back to stations
+            </Link>
+            <Link className="btn primary" href={`/stations/expo${loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : ''}`}>
+              Open Expo
+            </Link>
+          </div>
         </div>
       ) : (
         <StationChecklist

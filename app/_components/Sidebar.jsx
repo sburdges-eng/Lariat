@@ -7,6 +7,7 @@ import PinLogout from './PinLogout.jsx';
 import OfflineIndicator from './OfflineIndicator.jsx';
 import InstallButton from './InstallButton.jsx';
 import {
+  requiresManagerPinPath,
   SIDEBAR_ITEMS,
   SHELF_ITEMS,
   withLocation,
@@ -138,7 +139,12 @@ export default function Sidebar() {
     return locations;
   }, [locations, locationId]);
 
-  // Keyboard shortcuts: 1-6 jump to station N, 8 → 86 board, 0 → Today.
+  const lineCheckStations = useMemo(
+    () => stations.filter((s) => s.prog && s.prog.total),
+    [stations]
+  );
+
+  // Keyboard shortcuts: numbered keys jump to active line checks, 8 → 86 board, 0 → Today.
   useEffect(() => {
     const handler = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -150,7 +156,7 @@ export default function Sidebar() {
         router.push(withLocation('/', locQuery));
       } else if (/^[1-6]$/.test(k)) {
         const idx = parseInt(k, 10) - 1;
-        const s = stations[idx];
+        const s = lineCheckStations[idx];
         if (s) router.push(withLocation(`/stations/${s.id}`, locQuery));
       } else if (k === '8') {
         router.push(withLocation('/eighty-six', locQuery));
@@ -158,7 +164,7 @@ export default function Sidebar() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [stations, locQuery, router]);
+  }, [lineCheckStations, locQuery, router]);
 
   // Render a single primary-nav link, registry-driven.
   const navLink = useCallback(
@@ -166,17 +172,25 @@ export default function Sidebar() {
       const href = item.locAware ? withLocation(item.href, locQuery) : item.href;
       const active =
         pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+      const managerOnly = item.managerOnly || requiresManagerPinPath(item.href);
+      const ariaLabel = [
+        item.shortcut ? `${item.name} (shortcut ${item.shortcut})` : item.name,
+        managerOnly ? 'manager PIN required' : '',
+      ]
+        .filter(Boolean)
+        .join(', ');
       return (
         <Link
           key={item.id}
           href={href}
           className={active ? 'active' : ''}
           aria-current={active ? 'page' : undefined}
-          aria-label={item.shortcut ? `${item.name} (shortcut ${item.shortcut})` : item.name}
+          aria-label={ariaLabel}
         >
           <span className="nav-key" aria-hidden="true">{item.shortcut || '·'}</span>
           <span className="nav-lbl">
             <span className="t">{item.name}</span>
+            {managerOnly && <span className="m">PIN required</span>}
           </span>
         </Link>
       );
@@ -243,7 +257,7 @@ export default function Sidebar() {
         {primary.map(navLink)}
 
         <div className="nav-section">Stations</div>
-        {stations.slice(0, 6).map((s, i) => stationCell(s, i))}
+        {lineCheckStations.slice(0, 6).map((s, i) => stationCell(s, i))}
         {stations.length === 0 && <div className="nav-disabled">Loading stations…</div>}
 
         {groupedSidebar.map((g) => (
@@ -255,16 +269,20 @@ export default function Sidebar() {
 
         <div className="nav-section">Books</div>
         <div className="shelf-grid">
-          {SHELF_ITEMS.map((item) => (
-            <Link
-              key={item.id}
-              href={withLocation(item.href, locQuery)}
-              className="shelf-tile"
-            >
-              <b>{item.shelf?.b || item.name}</b>
-              <span>{item.shelf?.sub || item.sub}</span>
-            </Link>
-          ))}
+          {SHELF_ITEMS.map((item) => {
+            const managerOnly = item.managerOnly || requiresManagerPinPath(item.href);
+            return (
+              <Link
+                key={item.id}
+                href={withLocation(item.href, locQuery)}
+                className="shelf-tile"
+                aria-label={`${item.name}${managerOnly ? ', manager PIN required' : ''}`}
+              >
+                <b>{item.shelf?.b || item.name}</b>
+                <span>{managerOnly ? 'PIN · ' : ''}{item.shelf?.sub || item.sub}</span>
+              </Link>
+            );
+          })}
         </div>
 
         <div className="nav-section">Location</div>

@@ -27,6 +27,33 @@
 const t = true,
   f = false;
 
+const MANAGER_PIN_PREFIXES = [
+  '/analytics',
+  '/costing',
+  '/purchasing',
+  '/menu-engineering',
+  '/beo',
+  '/management',
+  '/booking',
+  '/playbook',
+  '/shows',
+  '/specials/saved',
+  '/host',
+];
+
+const MANAGER_PIN_PUBLIC_CARVEOUTS = ['/beo/share/'];
+
+export function requiresManagerPinPath(pathname) {
+  if (!pathname || typeof pathname !== 'string') return false;
+  const path = pathname.split(/[?#]/, 1)[0];
+  if (MANAGER_PIN_PUBLIC_CARVEOUTS.some((p) => path.startsWith(p))) return false;
+  return MANAGER_PIN_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
+}
+
+function withManagerPinMarker(item) {
+  return { ...item, managerOnly: requiresManagerPinPath(item.href) };
+}
+
 // Routes that are intentionally absent from the sidebar and command palette.
 // Keep this list beside NAV_ITEMS so orphan-page audits have a code-level
 // answer for setup/auth surfaces that are reached by redirects or handoff links.
@@ -800,7 +827,7 @@ export const NAV_ITEMS = [
     locAware: t,
     surface: { sidebar: f, palette: t, shelf: f },
   },
-];
+].map(withManagerPinMarker);
 
 // ── Selectors ─────────────────────────────────────────────────────────
 

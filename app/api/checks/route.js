@@ -28,8 +28,10 @@ async function checksPostHandler(req) {
       return Response.json({ error: 'missing fields' }, { status: 400 });
     }
     const loc = locationFromBody(body);
-    const db = getDb();
-    const status = body.status === null ? null : (['pass', 'fail', 'na'].includes(body.status) ? body.status : 'na');
+    const status = ['pass', 'fail', 'na'].includes(body.status) ? body.status : null;
+    if (!status) {
+      return Response.json({ error: 'status must be pass, fail, or na' }, { status: 400 });
+    }
 
     // F15 / FDA §3-301.11: bare-hand-contact-with-RTE attestation.
     // Tri-state: true → 1, false → 0, anything else (undefined/null) → null.
@@ -45,6 +47,11 @@ async function checksPostHandler(req) {
     const need = clip(body.need, 64);
     const note = clip(body.note, 1000);
     const cook_id = clip(body.cook_id, 64);
+    if (!cook_id) {
+      return Response.json({ error: 'cook_id required for line check' }, { status: 400 });
+    }
+
+    const db = getDb();
 
     const stmt = db.prepare(`
       INSERT INTO line_check_entries

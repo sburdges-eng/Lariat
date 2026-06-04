@@ -1,7 +1,7 @@
 // @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   buildLookupUrl,
@@ -10,6 +10,8 @@ import {
   offProductUrl,
   parseAllergenTags,
 } from './allergenLookupHelpers.js';
+
+const DATAPACK_UNAVAILABLE_COPY = 'Reference data is not installed on this Mac. Ask a manager to finish setup.';
 
 // ── Chip renderers ──────────────────────────────────────────────
 //
@@ -288,7 +290,34 @@ export default function AllergenLookupClient() {
   const [response, setResponse] = useState({ kind: 'idle' });
   const abortRef = useRef(null);
 
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/datapack/search?op=stats')
+      .then(async (res) => {
+        if (!alive) return;
+        if (res.status === 503) {
+          setResponse({ kind: 'unavailable' });
+          return;
+        }
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setResponse({
+            kind: 'error',
+            message: body?.error || `HTTP ${res.status}`,
+            status: res.status,
+          });
+        }
+      })
+      .catch(() => {
+        if (alive) setResponse({ kind: 'error', message: 'Could not check reference data.' });
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const runLookup = useCallback(async (rawQuery) => {
+    if (response.kind === 'unavailable') return;
     const trimmed = rawQuery.trim();
     if (!trimmed) {
       if (abortRef.current) abortRef.current.abort();
@@ -413,7 +442,7 @@ export default function AllergenLookupClient() {
       });
       return { kind: 'ok-list', cards: next };
     });
-  }, []);
+  }, [response.kind]);
 
   const onSubmit = (e) => {
     e.preventDefault();
@@ -468,6 +497,7 @@ export default function AllergenLookupClient() {
 
         <button
           type="submit"
+          disabled={response.kind === 'unavailable'}
           style={{
             padding: '10px 18px',
             background: 'var(--ember)',
@@ -476,7 +506,8 @@ export default function AllergenLookupClient() {
             color: '#fff',
             fontSize: 14,
             fontWeight: 600,
-            cursor: 'pointer',
+            cursor: response.kind === 'unavailable' ? 'not-allowed' : 'pointer',
+            opacity: response.kind === 'unavailable' ? 0.65 : 1,
           }}
         >
           Look up
@@ -506,8 +537,7 @@ export default function AllergenLookupClient() {
             fontSize: 13,
           }}
         >
-          Data pack not available on this server — see{' '}
-          <code>scripts/datapack/README.md</code>.
+          {DATAPACK_UNAVAILABLE_COPY}
         </div>
       )}
 

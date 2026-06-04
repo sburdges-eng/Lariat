@@ -23,15 +23,19 @@ const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-financial-acid-'))
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
 const db = await import('../../lib/db.ts');
+const { signPinCookieValue } = await import('../../lib/pinCookie.ts');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
 
 const { todayISO } = db;
+const ORIGINAL_PIN = process.env.LARIAT_PIN;
+const ORIGINAL_SECRET = process.env.LARIAT_PIN_SECRET;
 
 // Import routes AFTER setDbPathForTest + getDb so handles point at test DB.
 const beoRoute = await import('../../app/api/beo/route.js');
 const goldStarsRoute = await import('../../app/api/gold-stars/route.ts');
+const goldStarByIdRoute = await import('../../app/api/gold-stars/[id]/route.ts');
 const inventoryRoute = await import('../../app/api/inventory/route.js');
 const eightySixRoute = await import('../../app/api/eighty-six/route.js');
 
@@ -41,6 +45,10 @@ const { upsertDishComponent, validateDishComponentRow } = await import('../../li
 
 after(() => {
   db.setDbPathForTest(null);
+  if (ORIGINAL_PIN === undefined) delete process.env.LARIAT_PIN;
+  else process.env.LARIAT_PIN = ORIGINAL_PIN;
+  if (ORIGINAL_SECRET === undefined) delete process.env.LARIAT_PIN_SECRET;
+  else process.env.LARIAT_PIN_SECRET = ORIGINAL_SECRET;
   try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
 });
 
@@ -62,6 +70,17 @@ function postReq(url, body) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
+}
+
+async function pinCookieHeader() {
+  const value = await signPinCookieValue(process.env.LARIAT_PIN_SECRET);
+  return `lariat_pin_ok=${value}`;
+}
+
+function deleteReq(url, cookie) {
+  const headers = {};
+  if (cookie) headers.cookie = cookie;
+  return new Request(url, { method: 'DELETE', headers });
 }
 
 function countRows(table, where = '') {
@@ -232,6 +251,60 @@ describe('Gold Stars — HR data audit trail', () => {
     const payload = JSON.parse(audit.payload_json);
     assert.strictEqual(payload.cook_name, 'Jenny');
     assert.strictEqual(payload.stars, 2);
+  });
+
+  it('DELETE is rejected without a manager PIN cookie when PIN gating is configured', async () => {
+    process.env.LARIAT_PIN = '4242';
+    delete process.env.LARIAT_PIN_SECRET;
+
+    const info = testDb
+      .prepare('INSERT INTO gold_stars (cook_name, reason, stars, location_id) VALUES (?,?,?,?)')
+      .run('Jenny', 'Perfect mise en place all week', 2, 'default');
+    testDb.exec('DELETE FROM audit_events');
+
+    const res = await goldStarByIdRoute.DELETE(
+      deleteReq(`http://localhost/api/gold-stars/${info.lastInsertRowid}`, null),
+      { params: Promise.resolve({ id: String(info.lastInsertRowid) }) },
+    );
+    assert.strictEqual(res.status, 401);
+    assert.strictEqual(countRows('gold_stars'), 1);
+    assert.strictEqual(countAudit('gold_stars'), 0);
+  });
+
+  it('DELETE soft-archives the row and writes a delete audit row atomically', async () => {
+    process.env.LARIAT_PIN = '4242';
+    delete process.env.LARIAT_PIN_SECRET;
+
+    const info = testDb
+      .prepare('INSERT INTO gold_stars (cook_name, reason, stars, location_id) VALUES (?,?,?,?)')
+      .run('Marco', 'Closed brunch cleanly', 3, 'default');
+    const id = Number(info.lastInsertRowid);
+    testDb.exec('DELETE FROM audit_events');
+
+    const res = await goldStarByIdRoute.DELETE(
+      deleteReq(`http://localhost/api/gold-stars/${id}`, await pinCookieHeader()),
+      { params: Promise.resolve({ id: String(id) }) },
+    );
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(countRows('gold_stars'), 1, 'soft delete keeps the source row');
+
+    const row = testDb.prepare('SELECT * FROM gold_stars WHERE id = ?').get(id);
+    assert.ok(row.deleted_at, 'deleted_at must be stamped');
+    assert.strictEqual(row.deleted_by, 'manager_pin');
+
+    const audit = testDb.prepare(`SELECT * FROM audit_events WHERE entity='gold_stars' AND action='delete'`).get();
+    assert.ok(audit, 'delete audit row must exist');
+    assert.strictEqual(audit.entity_id, id);
+    assert.strictEqual(audit.actor_source, 'manager_pin');
+    const payload = JSON.parse(audit.payload_json);
+    assert.strictEqual(payload.cook_name, 'Marco');
+    assert.strictEqual(payload.reason, 'Closed brunch cleanly');
+    assert.strictEqual(payload.stars, 3);
+
+    const listRes = await goldStarsRoute.GET(new Request('http://localhost/api/gold-stars'));
+    assert.strictEqual(listRes.status, 200);
+    const visibleRows = await listRes.json();
+    assert.deepStrictEqual(visibleRows, [], 'soft-deleted rows are hidden from the staff board');
   });
 });
 

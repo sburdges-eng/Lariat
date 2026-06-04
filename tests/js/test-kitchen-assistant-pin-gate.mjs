@@ -90,11 +90,14 @@ beforeEach(() => {
   chatFetchCalls = 0;
   testDb.exec(
     `DELETE FROM eighty_six;
+     DELETE FROM lari_conversation_turns;
      DELETE FROM audit_events;`,
   );
 });
 
 const LOC = 'default';
+const SESSION = '33333333-3333-4333-8333-333333333333';
+const COOK = 'cook-pin-gate';
 
 function countEightySix() {
   return testDb.prepare('SELECT COUNT(*) AS c FROM eighty_six').get().c;
@@ -108,7 +111,12 @@ function makeReq(action, { cookie = null, headerPin = null, message = 'eighty-si
   return new Request('http://localhost/api/kitchen-assistant', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ message, location_id: LOC }),
+    body: JSON.stringify({
+      message,
+      location_id: LOC,
+      cook_id: COOK,
+      conversation_session_id: SESSION,
+    }),
   });
 }
 

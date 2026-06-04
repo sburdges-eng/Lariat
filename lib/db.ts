@@ -1702,7 +1702,9 @@ export function initSchema(db: DB): void {
       stars INTEGER DEFAULT 1,
       awarded_date TEXT DEFAULT (date('now')),
       location_id TEXT DEFAULT 'default',
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (datetime('now')),
+      deleted_at TEXT,
+      deleted_by TEXT
     );
 
     CREATE TABLE IF NOT EXISTS temp_log (
@@ -2959,6 +2961,20 @@ function initManagementSchema(db: DB): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS lari_conversation_turns (
+      schemaVersion TEXT NOT NULL DEFAULT 'lari_conversation_turn_v1'
+        CHECK(schemaVersion = 'lari_conversation_turn_v1'),
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL,
+      cook_id TEXT NOT NULL,
+      conversation_session_id TEXT NOT NULL,
+      user_content TEXT NOT NULL,
+      assistant_content TEXT NOT NULL,
+      manager_tier INTEGER NOT NULL DEFAULT 0 CHECK(manager_tier IN (0, 1)),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS dish_coverage_snapshots (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
       location_id   TEXT NOT NULL DEFAULT 'default',
@@ -3019,6 +3035,15 @@ function assertCriticalSchemas(db: DB): void {
       'technique_score', 'speed_score', 'notes', 'reviewer_name',
       'location_id', 'created_at',
     ],
+    gold_stars: [
+      'id', 'cook_name', 'reason', 'stars', 'awarded_date',
+      'location_id', 'created_at', 'deleted_at', 'deleted_by',
+    ],
+    lari_conversation_turns: [
+      'schemaVersion', 'id', 'location_id', 'cook_id',
+      'conversation_session_id', 'user_content', 'assistant_content',
+      'manager_tier', 'created_at', 'expires_at',
+    ],
   };
   for (const [table, required] of Object.entries(requirements)) {
     const cols = (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[])
@@ -3042,6 +3067,7 @@ function ensureIndexes(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_signoff_loc ON station_signoffs(location_id, shift_date);
     CREATE INDEX IF NOT EXISTS idx_86_loc_date ON eighty_six(location_id, shift_date);
     CREATE INDEX IF NOT EXISTS idx_inv_loc_date ON inventory_updates(location_id, shift_date);
+    CREATE INDEX IF NOT EXISTS idx_gold_stars_live ON gold_stars(location_id, id DESC) WHERE deleted_at IS NULL;
     CREATE INDEX IF NOT EXISTS idx_psc_vendor_sku ON pack_size_changes(vendor, sku);
     CREATE INDEX IF NOT EXISTS idx_psc_ack ON pack_size_changes(acknowledged, detected_at);
     -- T7: per-master lookup indexes. Placed in ensureIndexes (not inline in
@@ -3052,6 +3078,10 @@ function ensureIndexes(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_vp_master ON vendor_prices(master_id);
     CREATE INDEX IF NOT EXISTS idx_bom_master ON bom_lines(master_id);
     CREATE INDEX IF NOT EXISTS idx_perf_review_cook ON performance_reviews(cook_name, cook_uuid, location_id);
+    CREATE INDEX IF NOT EXISTS idx_lari_conversation_partition
+      ON lari_conversation_turns(location_id, cook_id, conversation_session_id, created_at DESC, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_lari_conversation_expiry
+      ON lari_conversation_turns(expires_at);
   `);
 
   // Bundle-H: NULL-safe uniqueness on (location, dow/date, service_label).
@@ -3248,6 +3278,18 @@ function migrateLegacyColumns(db: DB): void {
     try {
       db.exec('ALTER TABLE line_check_entries ADD COLUMN glove_change_attested INTEGER');
     } catch { /* ignore */ }
+  }
+
+  // Runtime UX audit 2026-06-04 F2: staff recognition rows must not be
+  // hard-deleted. These nullable columns make the delete path a soft archive
+  // while preserving pre-migration rows as live records.
+  const goldCols = t('gold_stars');
+  const goldMigrations: [string, string][] = [
+    ['deleted_at', 'ALTER TABLE gold_stars ADD COLUMN deleted_at TEXT'],
+    ['deleted_by', 'ALTER TABLE gold_stars ADD COLUMN deleted_by TEXT'],
+  ];
+  for (const [col, ddl] of goldMigrations) {
+    if (!goldCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
   }
 
   // Phase 1 C1 (GH #267) — day-level sales support on sales_lines.

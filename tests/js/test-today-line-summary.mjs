@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// The Today hero should not say "5 stations · press 1-6" when six station
-// shortcuts are visible.
+// The Today hero should not promise six line-check shortcuts when one visible
+// station is position-only.
 //
 // Run: node --experimental-strip-types --test tests/js/test-today-line-summary.mjs
 
@@ -22,6 +22,6 @@ describe('lineSummaryText', () => {
       { id: 'e', prog: {} },
       { id: 'f', prog: null },
     ];
-    assert.equal(lineSummaryText(stations), '6 stations · 5 line checks · press 1–6');
+    assert.equal(lineSummaryText(stations), '6 stations · 5 line checks · shortcuts 1–5');
   });
 });

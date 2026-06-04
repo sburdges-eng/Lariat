@@ -57,6 +57,10 @@ export interface AdvertiseHandle {
   stop(): Promise<void>;
 }
 
+export type MdnsStatus =
+  | { ok: true; code: 'not_started' | 'advertising'; detail: string; updated_at: string }
+  | { ok: false; code: string; error: string; updated_at: string };
+
 export interface DiscoveredInstance {
   name: string;
   host: string;
@@ -80,12 +84,59 @@ export const LARIAT_SERVICE_NAME = 'Lariat';
 
 import { getReleaseInfo } from './release.ts';
 
+const DEFAULT_MDNS_STATUS: MdnsStatus = {
+  ok: true,
+  code: 'not_started',
+  detail: 'mDNS advertise has not reported a failure',
+  updated_at: new Date(0).toISOString(),
+};
+
 // Per-reason dedup. The pre-fix shared `warned` boolean meant that the
 // first warning (e.g. "package not loaded") silently suppressed every
 // subsequent unrelated warning — so a later Bonjour ctor / publish /
 // find failure was swallowed. We key dedup on the `reason` string so
 // each distinct failure mode fires its console.warn exactly once.
 const warnedReasons = new Set<string>();
+let mdnsStatus: MdnsStatus = DEFAULT_MDNS_STATUS;
+
+function errorMessage(err?: unknown): string {
+  return err instanceof Error ? err.message : err === undefined ? '' : String(err);
+}
+
+function classifyMdnsFailure(reason: string, err?: unknown): string {
+  const text = `${reason} ${errorMessage(err)}`.toLowerCase();
+  if (text.includes('already in use')) return 'service_name_conflict';
+  if (text.includes('eperm') || text.includes('eaddrinuse') || text.includes('bind')) {
+    return 'multicast_unavailable';
+  }
+  if (text.includes('not installed') || text.includes('failed to load')) return 'package_unavailable';
+  if (text.includes('publish')) return 'publish_failed';
+  if (text.includes('browser') || text.includes('find')) return 'browser_failed';
+  return 'mdns_unavailable';
+}
+
+function recordMdnsFailure(reason: string, err?: unknown): void {
+  const msg = errorMessage(err);
+  mdnsStatus = {
+    ok: false,
+    code: classifyMdnsFailure(reason, err),
+    error: msg ? `${reason}: ${msg}` : reason,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function recordMdnsOk(detail: string): void {
+  mdnsStatus = {
+    ok: true,
+    code: 'advertising',
+    detail,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export function getMdnsStatus(): MdnsStatus {
+  return mdnsStatus;
+}
 
 /**
  * Internal helper, exported only for unit tests. Keeps a single warning
@@ -95,6 +146,7 @@ const warnedReasons = new Set<string>();
  * test seam, not part of the public API of this module.
  */
 export function warnOnce(reason: string, err?: unknown): void {
+  recordMdnsFailure(reason, err);
   if (warnedReasons.has(reason)) return;
   warnedReasons.add(reason);
 
@@ -113,6 +165,10 @@ export function _resetWarnedReasonsForTest(): void {
   warnedReasons.clear();
 }
 
+export function _resetStatusForTest(): void {
+  mdnsStatus = DEFAULT_MDNS_STATUS;
+}
+
 function readPackageVersion(): string {
   try {
     return getReleaseInfo().version;
@@ -121,20 +177,36 @@ function readPackageVersion(): string {
   }
 }
 
-type BonjourCtor = new () => {
-  publish: (opts: {
+type BonjourCtor = new (
+  _opts?: Record<string, unknown>,
+  _errorCallback?: (_err: unknown) => void
+) => {
+  publish: (_opts: {
     name: string;
     type: string;
     port: number;
     host?: string;
     txt: Record<string, string>;
-  }) => { stop?: (cb?: () => void) => void };
+  }) => {
+    published?: boolean;
+    once?: (_event: 'up' | 'error', _cb: (..._args: unknown[]) => void) => void;
+    off?: (_event: 'up' | 'error', _cb: (..._args: unknown[]) => void) => void;
+    stop?: (_cb?: () => void) => void;
+  };
   find: (
-    opts: { type: string },
-    onUp: (svc: BonjourFoundService) => void
+    _opts: { type: string },
+    _onUp: (_svc: BonjourFoundService) => void
   ) => { stop?: () => void };
-  destroy: (cb?: () => void) => void;
+  destroy: (_cb?: () => void) => void;
 };
+
+interface BonjourPrivateSurface {
+  server?: {
+    mdns?: {
+      on?: (_event: 'error' | 'warning', _cb: (_err: unknown) => void) => void;
+    };
+  };
+}
 
 interface BonjourFoundService {
   name?: string;
@@ -148,7 +220,7 @@ async function loadBonjour(): Promise<BonjourCtor | null> {
   try {
     // Dynamic import keeps this module importable in environments where
     // `bonjour-service` may not be installed (CI, edge runtime, etc.).
-    const mod = (await import('bonjour-service')) as {
+    const mod = (await import('bonjour-service')) as unknown as {
       Bonjour?: BonjourCtor;
       default?: BonjourCtor;
     };
@@ -159,12 +231,60 @@ async function loadBonjour(): Promise<BonjourCtor | null> {
   }
 }
 
+function attachBonjourMdnsHandlers(
+  bonjour: InstanceType<BonjourCtor>,
+  onError: (_err: unknown) => void,
+  onWarning: (_err: unknown) => void
+): void {
+  const mdns = (bonjour as unknown as BonjourPrivateSurface).server?.mdns;
+  mdns?.on?.('error', onError);
+  mdns?.on?.('warning', onWarning);
+}
+
 const NOOP_HANDLE: AdvertiseHandle = {
   active: false,
   async stop() {
     /* no-op */
   },
 };
+
+const PUBLISH_READY_TIMEOUT_MS = 1_600;
+
+async function waitForPublishReady(
+  service: ReturnType<InstanceType<BonjourCtor>['publish']>,
+  failReason: { current: string | null }
+): Promise<'up' | 'failed' | 'timeout'> {
+  if (service.published) return 'up';
+
+  return await new Promise(resolve => {
+    let done = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const finish = (status: 'up' | 'failed' | 'timeout') => {
+      if (done) return;
+      done = true;
+      if (timer) clearTimeout(timer);
+      service.off?.('up', onUp);
+      service.off?.('error', onError);
+      resolve(status);
+    };
+
+    const onUp = () => finish('up');
+    const onError = (err: unknown) => {
+      warnOnce('Bonjour publish failed', err);
+      finish('failed');
+    };
+
+    service.once?.('up', onUp);
+    service.once?.('error', onError);
+
+    timer = setTimeout(() => {
+      if (failReason.current) finish('failed');
+      else finish('timeout');
+    }, PUBLISH_READY_TIMEOUT_MS);
+    timer.unref?.();
+  });
+}
 
 /**
  * Publish a `_lariat._tcp` advertisement on the LAN.
@@ -183,8 +303,18 @@ export async function advertise(
   const startedAt = new Date().toISOString();
 
   let bonjour: InstanceType<BonjourCtor>;
+  const failReason: { current: string | null } = { current: null };
+  const onBonjourError = (err: unknown): void => {
+    failReason.current = errorMessage(err) || 'Bonjour responder error';
+    warnOnce('Bonjour responder error', err);
+  };
   try {
-    bonjour = new Bonjour();
+    bonjour = new Bonjour({}, onBonjourError);
+    attachBonjourMdnsHandlers(
+      bonjour,
+      onBonjourError,
+      err => warnOnce('Bonjour responder warning', err)
+    );
   } catch (err) {
     warnOnce('Bonjour responder could not start (multicast unavailable?)', err);
     return NOOP_HANDLE;
@@ -219,6 +349,28 @@ export async function advertise(
     }
     return NOOP_HANDLE;
   }
+
+  const ready = await waitForPublishReady(service, failReason);
+  if (ready !== 'up') {
+    const err =
+      ready === 'timeout'
+        ? new Error('Service name is already in use on the network, or mDNS publish did not complete')
+        : new Error(failReason.current ?? 'mDNS publish failed');
+    warnOnce('Bonjour publish failed', err);
+    try {
+      service.stop?.();
+    } catch {
+      /* ignore */
+    }
+    try {
+      bonjour.destroy();
+    } catch {
+      /* ignore */
+    }
+    return NOOP_HANDLE;
+  }
+
+  recordMdnsOk(`advertising ${LARIAT_SERVICE_NAME}._${LARIAT_SERVICE_TYPE}._tcp`);
 
   let active = true;
 
@@ -265,7 +417,14 @@ export async function discover(
 
   let bonjour: InstanceType<BonjourCtor>;
   try {
-    bonjour = new Bonjour();
+    bonjour = new Bonjour({}, err => {
+      warnOnce('Bonjour browser error', err);
+    });
+    attachBonjourMdnsHandlers(
+      bonjour,
+      err => warnOnce('Bonjour browser error', err),
+      err => warnOnce('Bonjour browser warning', err)
+    );
   } catch (err) {
     warnOnce('Bonjour browser could not start (multicast unavailable?)', err);
     return [];
