@@ -168,7 +168,7 @@ These are the defaults used for this roadmap branch. Reopen them only with a spe
 
 | Decision | Default | Effect |
 |----------|---------|--------|
-| Shows / box-office | Active; test-harden | Keep 2.14 in backlog as coverage debt. |
+| Shows / box-office | Active; route-hardened | 2.14 complete: restored active handlers/repos and pins stage, sound, SPL, and box-office with `npm run test:event-ops`. |
 | Venue target | Single-venue v2 | Keep 3.1 deferred; no venue switcher in this slice. |
 | `cad-kernel/` | Out-of-scope for Lariat v2 | Move out only in a dedicated cleanup; no runtime coupling. |
 | `labor/certs` | Informational-only | No regulated cert write/audit claim in v2. |
@@ -183,11 +183,11 @@ These are the defaults used for this roadmap branch. Reopen them only with a spe
 
 If I had to pick 5 things for the next two weeks after this branch:
 
-1. **Land the LaRi query hardening + runtime smoke evidence** from this branch.
-2. **2.14** — test-harden the active shows/box-office route family without changing product behavior.
-3. **1.9** — finish the navRegistry cleanup in 4 small commits, keeping install/login surfaces explicitly included or excluded.
-4. **P0 ERP lane** — continue the receiving-to-inventory master contract until the management rollup can trust on-hand state.
-5. **2.9** — extract the design tokens from the demo into the codebase only after the v1 route/nav contract is honest.
+1. **1.9** — finish the navRegistry cleanup in 4 small commits, keeping install/login surfaces explicitly included or excluded.
+2. **P0 ERP lane** — continue the receiving-to-inventory master contract until the management rollup can trust on-hand state.
+3. **2.9** — extract the design tokens from the demo into the codebase only after the v1 route/nav contract is honest.
+4. **2.10** — decide the v2 UI rollout shape before wiring demo tokens into runtime routes.
+5. **3.1** — keep venue switching deferred unless a concrete multi-venue operator workflow arrives.
 
 That sequence keeps this freeze single-venue, local-first, and deterministic while removing the remaining places where the docs used to overclaim or defer product decisions.
 

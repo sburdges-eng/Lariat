@@ -187,6 +187,16 @@ describe('/api/shows/[id]/sound', () => {
     const patched = await patch.json();
     assert.equal(patched.scene.spl_limit_db, 100);
     assert.equal(patched.scene.scene_name, 'set 1');
+
+    const get = await soundRoute.GET(
+      makeReq({ url: `http://localhost/api/shows/${SHOW_ID}/sound` }),
+      { params: { id: String(SHOW_ID) } },
+    );
+    assert.equal(get.status, 200);
+    const listed = await get.json();
+    assert.equal(listed.scenes.length, 1);
+    assert.equal(listed.scenes[0].scene_name, 'set 1');
+    assert.equal(listed.completeness.has_any_scene, true);
   });
 
   it('PATCH 404 on unknown sceneId', async () => {
@@ -234,6 +244,37 @@ describe('/api/shows/[id]/sound', () => {
     );
     assert.equal(res.status, 400);
   });
+
+  it('DELETE removes a saved scene and GET no longer lists it', async () => {
+    const create = await soundRoute.POST(
+      makeReq({
+        method: 'POST',
+        url: `http://localhost/api/shows/${SHOW_ID}/sound`,
+        body: { scene_name: 'scratch', plot: { channels: [], monitors: [] } },
+      }),
+      { params: { id: String(SHOW_ID) } },
+    );
+    assert.equal(create.status, 201);
+    const sceneId = (await create.json()).scene.id;
+
+    const del = await sceneRoute.DELETE(
+      makeReq({
+        method: 'DELETE',
+        url: `http://localhost/api/shows/${SHOW_ID}/sound/${sceneId}`,
+      }),
+      { params: { id: String(SHOW_ID), sceneId: String(sceneId) } },
+    );
+    assert.equal(del.status, 200);
+    assert.equal((await del.json()).ok, true);
+
+    const get = await soundRoute.GET(
+      makeReq({ url: `http://localhost/api/shows/${SHOW_ID}/sound` }),
+      { params: { id: String(SHOW_ID) } },
+    );
+    const body = await get.json();
+    assert.deepEqual(body.scenes, []);
+    assert.equal(body.completeness.score, 0);
+  });
 });
 
 // ───────────────────────── Box Office ────────────────────────────
@@ -271,6 +312,43 @@ describe('/api/shows/[id]/box-office', () => {
     assert.equal(scan.status, 200);
     const scanned = await scan.json();
     assert.ok(scanned.line.scanned_at);
+  });
+
+  it('GET returns lines, rollup summary, and completeness after POST', async () => {
+    const create = await boxOfficeRoute.POST(
+      makeReq({
+        method: 'POST',
+        url: `http://localhost/api/shows/${SHOW_ID}/box-office`,
+        body: { source: 'walkup', qty: 2, face_price: 25, fees: 3 },
+      }),
+      { params: { id: String(SHOW_ID) } },
+    );
+    assert.equal(create.status, 201);
+
+    const get = await boxOfficeRoute.GET(
+      makeReq({ url: `http://localhost/api/shows/${SHOW_ID}/box-office` }),
+      { params: { id: String(SHOW_ID) } },
+    );
+    assert.equal(get.status, 200);
+    const body = await get.json();
+    assert.equal(body.lines.length, 1);
+    assert.equal(body.summary.total_qty, 2);
+    assert.equal(body.summary.total_revenue, 50);
+    assert.equal(body.summary.total_fees, 3);
+    assert.equal(body.completeness.has_walkup_lines, true);
+  });
+
+  it('PATCH 401 without PIN cookie', async () => {
+    const res = await lineRoute.PATCH(
+      makeReq({
+        method: 'PATCH',
+        url: `http://localhost/api/shows/${SHOW_ID}/box-office/1`,
+        body: { action: 'mark_scanned' },
+        withPin: false,
+      }),
+      { params: { id: String(SHOW_ID), lineId: '1' } },
+    );
+    assert.equal(res.status, 401);
   });
 
   it('POST 400 on invalid source', async () => {
