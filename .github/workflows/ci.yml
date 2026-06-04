@@ -44,13 +44,6 @@ jobs:
       - name: HACCP rule tests
         run: npm run test:rules
 
-      - name: checkout Lariat-KDS protocol contract
-        uses: actions/checkout@v4
-        with:
-          repository: sburdges-eng/Lariat-KDS
-          path: Lariat-KDS
-          fetch-depth: 1
-
       - name: KDS bump protocol route test
         run: npm run test:kds-bump
 

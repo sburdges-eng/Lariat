@@ -101,6 +101,7 @@ function resolveKdsProtocolDocPath() {
     path.join(REPO_ROOT, '../../Lariat-KDS/docs/lariat-kds-protocol.md'),
     path.join(REPO_ROOT, '../../../Lariat-KDS/docs/lariat-kds-protocol.md'),
     path.join(REPO_ROOT, '../Lariat-KDS/docs/lariat-kds-protocol.md'),
+    path.join(REPO_ROOT, 'tests/fixtures/lariat-kds-protocol.md'),
   ].filter(Boolean);
 
   const found = candidates.find((candidate) => fs.existsSync(candidate));
