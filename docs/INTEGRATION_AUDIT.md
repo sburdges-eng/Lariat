@@ -31,12 +31,12 @@ Concrete examples:
 - `/menu-engineering/margin-deltas`, `/menu-engineering/components`
 - `/costing/price-shocks`
 - `/management/peers`
-- `/concept-layout` — looks like a prototype (`/Pan` component, `activeModal` demo)
+- `/concept-layout` — closed after this audit by PR #263; the prototype route is no longer in the app tree
 - `/install`, `/login-pin` — meta surfaces that may intentionally be hidden, but at least `/install` should be reachable from an admin nav for the first-run wizard
 
 **Why it matters.** Cook-tier surfaces like `/food-safety/cooling` are HACCP-critical. If a cook can't find the cooling board via the palette, they fall back to the hub-tile path — slower, more taps under pressure, and prone to "did anybody check cooling today?" misses.
 
-**Fix sketch.** One commit per logical group (food-safety, labor, inventory, menu-engineering, admin). For each: add a `NAV_ITEMS` entry with `id`, `href`, `title`, `palette` (true for searchable), and the right `roles` array. The `/concept-layout` page should be deleted as dead code if confirmed unused (one commit). `/install` and `/login-pin` should be reviewed for whether they belong in an "admin/setup" cluster.
+**Fix sketch.** One commit per logical group (food-safety, labor, inventory, menu-engineering, admin). For each: add a `NAV_ITEMS` entry with `id`, `href`, `title`, `palette` (true for searchable), and the right `roles` array. The `/concept-layout` page was later deleted as dead code by PR #263. `/install` and `/login-pin` should be reviewed for whether they belong in an "admin/setup" cluster.
 
 **Verification I performed.** Grepped for literal `'/path'` and `"/path"` strings in `navRegistry.js`. Did not check for dynamic registration (e.g., entries built from a loop) — I checked the file is mostly literal entries. Cross-verified that food-safety pages ARE linked from `app/food-safety/page.*` so they're reachable, just not via palette.
 
@@ -109,11 +109,13 @@ In code but NOWHERE documented:
 
 ---
 
-### F5. `app/concept-layout/page.tsx` looks like an orphan prototype — S3
+### F5. `app/concept-layout/page.tsx` orphan prototype - S3 (closed)
 
-**What.** Contains a `Pan` size-mapping component and an `activeModal` demo. Not linked from anywhere in the navRegistry, not referenced from other components per a quick grep, and the filename `concept-layout` is unusual (Lariat's pages are domain-noun, not "concept-X"). Reads like a leftover from an earlier design exploration that should have been deleted.
+**Status.** Closed by PR #263 (`7caead3`, 2026-05-18), which deleted `app/concept-layout/page.tsx`. The cleanup follow-up confirmed `app/concept-layout/` is absent and no `app/` or `tests/` references remain.
 
-**Fix sketch.** Confirm with `git log app/concept-layout/page.tsx` (I can't from this sandbox — the index.lock is stuck) — if last commit is > 90 days old with no recent edits, delete the page in a `chore/delete-concept-layout` commit. If it's recent and you want to keep it for reference, move it to `docs/explorations/` and remove the live route.
+**What.** Historical finding: the page contained a `Pan` size-mapping component and an `activeModal` demo. It was not linked from the navRegistry, was not referenced from other components per a quick grep, and the filename `concept-layout` was unusual (Lariat's pages are domain-noun, not "concept-X").
+
+**Fix sketch.** No further delete is required. Keep this closed unless a future route or doc intentionally reintroduces `/concept-layout`.
 
 ---
 
