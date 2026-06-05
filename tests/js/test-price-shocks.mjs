@@ -312,3 +312,18 @@ describe('SkuHistoryPage Next 16 params contract', () => {
     assert.match(source, /await\s+searchParams/);
   });
 });
+
+describe('PriceShocksPage roadmap 1.7 contract', () => {
+  it('defaults to the LaRi 14-day / 10% shock query and renders a table with sparklines', () => {
+    const source = fs.readFileSync(
+      new URL('../../app/costing/price-shocks/page.jsx', import.meta.url),
+      'utf8',
+    );
+
+    assert.match(source, /clampInt\(sp\.days,\s*14,\s*1,\s*90\)/);
+    assert.match(source, /clampNum\(sp\.minPct,\s*10,\s*0,\s*1000\)/);
+    assert.match(source, /<table\b/);
+    assert.match(source, /aria-label="Price move trend"/);
+    assert.match(source, /<polyline\b/);
+  });
+});

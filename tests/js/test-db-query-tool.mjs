@@ -328,6 +328,66 @@ describe('roadmap db_query entries', () => {
       assert.strictEqual(crossLocation.rowCount, 0);
     }
   });
+
+  it('vendor_price_shocks is manager-tier, request-location scoped, and returns page-compatible rows', () => {
+    const stamp = Date.now();
+    const defaultSku = `ROADMAP-AVO-${stamp}`;
+    const otherSku = `ROADMAP-OIL-${stamp}`;
+    const oldAt = new Date(Date.now() - 13 * 86400000).toISOString().slice(0, 19).replace('T', ' ');
+    const newAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const ins = testDb.prepare(
+      `INSERT INTO vendor_prices_history
+         (run_id, ingredient, vendor, sku, pack_size, pack_unit, pack_price,
+          unit_price, category, location_id, snapshot_at, snapshot_reason)
+       VALUES (?, ?, ?, ?, 1, 'lb', ?, ?, ?, ?, ?, 'roadmap-test')`,
+    );
+    ins.run(9101, 'Roadmap Avocado', 'sysco', defaultSku, 2.00, 2.00, 'produce', 'default', oldAt);
+    ins.run(9102, 'Roadmap Avocado', 'sysco', defaultSku, 2.50, 2.50, 'produce', 'default', newAt);
+    ins.run(9201, 'Other Venue Oil', 'shamrock', otherSku, 10.00, 10.00, 'pantry', 'other-loc', oldAt);
+    ins.run(9202, 'Other Venue Oil', 'shamrock', otherSku, 20.00, 20.00, 'pantry', 'other-loc', newAt);
+
+    const blocked = tool.runDbQuery({
+      name: 'vendor_price_shocks',
+      params: {},
+      hasPin: false,
+      requestLocationId: 'default',
+    });
+    assert.strictEqual(blocked.ok, false);
+    if (!blocked.ok) assert.strictEqual(blocked.code, 'tier_blocked');
+
+    const r = tool.runDbQuery({
+      name: 'vendor_price_shocks',
+      params: {},
+      hasPin: true,
+      requestLocationId: 'default',
+    });
+    assert.strictEqual(r.ok, true);
+    if (r.ok) {
+      const hit = r.rows.find((row) => row.sku === defaultSku);
+      assert.ok(hit, 'default-location shock should be visible');
+      assert.strictEqual(hit.ingredient, 'Roadmap Avocado');
+      assert.strictEqual(hit.baseline_unit_price, 2.00);
+      assert.strictEqual(hit.latest_unit_price, 2.50);
+      assert.strictEqual(hit.direction, 'up');
+      assert.strictEqual(hit.delta_pct, 25);
+      assert.strictEqual(
+        r.rows.some((row) => row.sku === otherSku),
+        false,
+        'other-location shock must not leak into default-location query',
+      );
+    }
+
+    const audit = testDb.prepare(
+      `SELECT location_id, payload_json
+         FROM audit_events
+        WHERE entity = 'db_query'
+          AND payload_json LIKE '%vendor_price_shocks%'
+        ORDER BY id DESC LIMIT 1`,
+    ).get();
+    assert.strictEqual(audit.location_id, 'default');
+    const payload = JSON.parse(audit.payload_json);
+    assert.deepStrictEqual(payload.paramKeys.sort(), ['days', 'threshold_pct']);
+  });
 });
 
 // ── 2. SHAPE: param coercion, audit emission ─────────────────────────
