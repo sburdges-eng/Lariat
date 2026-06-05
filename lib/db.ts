@@ -1579,6 +1579,9 @@ export function initSchema(db: DB): void {
       status TEXT DEFAULT 'planned',
       tax_rate REAL DEFAULT 0.0675,
       service_fee_pct REAL DEFAULT 20,
+      share_token TEXT,
+      share_expires_at TEXT,
+      share_revoked_at TEXT,
       location_id TEXT DEFAULT 'default',
       created_at TEXT DEFAULT (datetime('now'))
     );
@@ -3481,9 +3484,12 @@ function migrateLegacyColumns(db: DB): void {
     ['contact_name',    'ALTER TABLE beo_events ADD COLUMN contact_name TEXT'],
     ['tax_rate',        'ALTER TABLE beo_events ADD COLUMN tax_rate REAL DEFAULT 0.0675'],
     ['service_fee_pct', 'ALTER TABLE beo_events ADD COLUMN service_fee_pct REAL DEFAULT 20'],
-    // Client-share token. NULL until the operator generates one via the
-    // share-token endpoint. Uniqueness enforced by partial index below.
-    ['share_token',     'ALTER TABLE beo_events ADD COLUMN share_token TEXT'],
+    // Client-share token lifecycle. NULL token until the operator generates one.
+    // revoked_at closes a leaked URL; expires_at can sunset temporary links.
+    // Uniqueness enforced by partial index below.
+    ['share_token',      'ALTER TABLE beo_events ADD COLUMN share_token TEXT'],
+    ['share_expires_at', 'ALTER TABLE beo_events ADD COLUMN share_expires_at TEXT'],
+    ['share_revoked_at', 'ALTER TABLE beo_events ADD COLUMN share_revoked_at TEXT'],
   ];
   for (const [col, ddl] of beoMigrations) {
     if (!beoCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }

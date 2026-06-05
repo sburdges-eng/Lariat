@@ -43,7 +43,13 @@ async function handler(req, ctx) {
 
   const db = getDb();
   const event = db
-    .prepare('SELECT id, location_id FROM beo_events WHERE share_token = ?')
+    .prepare(
+      `SELECT id, location_id
+         FROM beo_events
+        WHERE share_token = ?
+          AND share_revoked_at IS NULL
+          AND (share_expires_at IS NULL OR datetime(share_expires_at) > datetime('now'))`,
+    )
     .get(token);
   if (!event) return Response.json({ error: 'not found' }, { status: 404 });
 

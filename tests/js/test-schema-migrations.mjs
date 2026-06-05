@@ -997,6 +997,21 @@ describe('beo_line_items.course_id — T4 ALTER', () => {
   });
 });
 
+describe('beo_events share lifecycle schema', () => {
+  it('has nullable share token lifecycle columns', () => {
+    const info = db.prepare(`PRAGMA table_info(beo_events)`).all();
+    const byName = Object.fromEntries(info.map((c) => [c.name, c]));
+
+    assert.ok(byName.share_token, 'share_token column missing');
+    assert.ok(byName.share_expires_at, 'share_expires_at column missing');
+    assert.ok(byName.share_revoked_at, 'share_revoked_at column missing');
+    assert.equal(byName.share_expires_at.type.toUpperCase(), 'TEXT');
+    assert.equal(byName.share_revoked_at.type.toUpperCase(), 'TEXT');
+    assert.equal(byName.share_expires_at.notnull, 0);
+    assert.equal(byName.share_revoked_at.notnull, 0);
+  });
+});
+
 describe('lari_conversation_turns schema', () => {
   it('exists with canonical columns in order', () => {
     const info = db.prepare('PRAGMA table_info(lari_conversation_turns)').all();
