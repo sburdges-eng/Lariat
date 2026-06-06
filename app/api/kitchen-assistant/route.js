@@ -30,6 +30,10 @@ import {
   formatQueryResultForPrompt,
 } from '../../../lib/dbQueryTool';
 import {
+  runSemanticKitchenSearch,
+  formatSemanticKitchenSearchForPrompt,
+} from '../../../lib/kitchenSemanticSearch';
+import {
   normalizeConversationInputs,
   sweepExpiredConversationTurns,
   loadRecentConversationTurns,
@@ -259,11 +263,17 @@ async function kitchenAssistantPostHandler(req) {
   // is just discoverability. Catalog is small (~12 cook-tier / ~24 manager-tier
   // one-liners) so the budget impact is bounded.
   const queryCatalog = renderQueryCatalog(hasPin ? 'manager' : 'cook');
+  const semanticSearchCatalog = `
+SEMANTIC SEARCH ACTION:
+- For fuzzy recipe, BEO, or kitchen audit-memory lookup, you may emit:
+  { "action": "semantic_search", "query": "natural language search text", "limit": 6 }
+- This action is read-only and available at cook tier.
+- Use it when exact names are missing, for example "that wedding cake recipe with the cherry filling".`;
 
   const historyBlock = conversationHistory
     ? `\n---\n${conversationHistory}\n`
     : '\n';
-  let userContent = `CONTEXT (authoritative — only use these facts for operational claims):\n\n${contextText}\n\n${queryCatalog}${historyBlock}---\nCOOK MESSAGE:\n${message}`;
+  let userContent = `CONTEXT (authoritative — only use these facts for operational claims):\n\n${contextText}\n\n${queryCatalog}\n${semanticSearchCatalog}${historyBlock}---\nCOOK MESSAGE:\n${message}`;
 
   if (body.language && body.language !== 'English') {
     userContent += `\n\nTRANSLATION DIRECTIVE: You MUST answer the cook entirely in ${body.language}. Ensure you use accurate culinary terms and maintain the requested formatting.`;
@@ -295,6 +305,7 @@ ARITHMETIC & VALIDATION RULE: The server runs a deterministic calculator and FDA
     userContent += `\n\nANSWER FORMAT:
 
 This is a question, not a command. Answer with plain prose only — bullets are fine. NEVER emit a JSON action block.
+Exception: if the read-only db_query catalog or semantic_search action is the right tool, emit that one JSON action block first, then write a short human framing after it.
 
 In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like "what's 86?", "is X 86 today?", or "anything 86?" as inventory inquiries — not commands. Cite what the CONTEXT shows on the 86 board, or say nothing is 86 if it's empty.`;
   }
@@ -325,7 +336,23 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
     // require hasPin); SQL is hardcoded in the registry; location is
     // forced from the request. So this branch can short-circuit BEFORE
     // the broader "strip JSON on question path" defense below.
-    if (payload && payload.action === 'db_query' && typeof payload.query === 'string') {
+    if (payload && payload.action === 'semantic_search' && typeof payload.query === 'string') {
+      const searchQuery = clip(payload.query, MAX_MESSAGE) || message;
+      const rawLimit = typeof payload.limit === 'number' ? payload.limit : Number(payload.limit);
+      const semanticOutcome = await runSemanticKitchenSearch({
+        db: getDb(),
+        locationId,
+        query: searchQuery,
+        limit: Number.isFinite(rawLimit) ? rawLimit : 6,
+      });
+      actionMsg = formatSemanticKitchenSearchForPrompt(semanticOutcome);
+      actionExecuted = true;
+      sources.push({
+        type: 'semantic_search',
+        detail: `${semanticOutcome.hits.length} hit(s) for "${semanticOutcome.query || 'blank query'}"`,
+      });
+      finalAnswer = stripped || '';
+    } else if (payload && payload.action === 'db_query' && typeof payload.query === 'string') {
       const dbQueryOutcome = runDbQuery({
         name: payload.query,
         params: (payload.params && typeof payload.params === 'object')
