@@ -31,10 +31,10 @@ export async function GET(req, { params }) {
       `SELECT id, vendor, ingredient, sku, on_hand_qty, unit, par_qty, par_unit,
               note, counted_by, counted_at
          FROM inventory_count_lines
-        WHERE count_id = ?
+        WHERE count_id = ? AND location_id = ?
         ORDER BY ingredient ASC`,
     )
-    .all(id);
+    .all(id, loc);
   return Response.json({ count: head, lines });
 }
 
