@@ -1,4 +1,4 @@
-# Lariat Project Roadmap — 2026-05-16 (updated 2026-06-04)
+# Lariat Project Roadmap — 2026-05-16 (updated 2026-06-07)
 
 A grounded read on what's left to make the bundled app function correctly and reach its potential. Written after the LaRi-expansion + integration-audit session — the work shipped on `feat/lari-expansion-and-audit` cleared a single slice of the surface; the rest is enumerated here.
 
@@ -113,8 +113,8 @@ The `docs/redesign/lari-ui-demo.html` is a prototype. A real migration needs:
 
 | ID  | Effort | Item |
 |-----|--------|------|
-| 2.9  | XS | **Extract the design tokens** (the CSS variables at the top of the demo) into `app/_styles/tokens.css`. Even before any migration, having tokens that the current UI can opt into incrementally pays dividends. |
-| 2.10 | L  | **Build the v2 shell.** New route tree at `/v2/...` mirroring the current tree. Feature-flag-gated via cookie. Don't replace anything — both UIs run side-by-side while migration happens. |
+| 2.9  | XS | **Closed:** Design tokens are extracted into `styles/tokens.css` and loaded before the current authoritative `styles/globals.css` definitions so shipped UI can opt in without visual regression; `tests/js/test-design-tokens.mjs` pins the token file, core paper/ember/sage/brass/rust tokens, `.k-dark`/`.k-night`, font import, and import order. |
+| 2.10 | L  | **Build the v2 shell.** Decision closed: new `/v2/...` route tree, opt-in by cookie, v1 remains default, and no route replacement until a cutover doc plus rollback criteria exists. Implementation remains open. |
 | 2.11 | XL | **Migrate cook-tier surfaces first.** Order: `/today` → `/kds/punch` → `/eighty-six` → station boards. These are the screens cooks touch every shift; they should be the proof of concept. |
 | 2.12 | XL | **Migrate manager-tier surfaces.** `/command` → `/management` → `/analytics`. These have less time pressure but more density. |
 | 2.13 | M  | **Cutover plan.** When v2 is shippable, write the v1→v2 rollout doc with rollback criteria. Don't delete v1 routes until v2 has 30 days of clean operation. |
@@ -169,21 +169,21 @@ These are the defaults used for this roadmap branch. Reopen them only with a spe
 | Local model | DeepSeek default | Qwen remains deferred until eval-gated. |
 | iPad hardware / voice | Unknown | Keep 2.6 deferred; do not introduce cloud Whisper to satisfy old iPads. |
 | i18n | Unknown | Keep 3.8 deferred. |
-| v2 UI rollout shape | Unknown | Keep 2.10 design-only until a toggle/install decision is made. |
+| v2 UI rollout shape | Cookie-gated side-by-side `/v2` shell | Build 2.10 as an opt-in route tree; do not replace v1 routes or expose an install-time cutover toggle in this freeze slice. |
 
 ---
 
-## How I'd sequence the next sprint
+## 2026-06-07 status of the prior 1-5 sprint sequence
 
-If I had to pick 5 things for the next two weeks after this branch:
+The old five-item sequence is now reconciled so future agents do not redo finished work:
 
-1. **1.9** — finish the navRegistry cleanup in 4 small commits, keeping install/login surfaces explicitly included or excluded.
-2. **P0 ERP lane** — continue the receiving-to-inventory master contract until the management rollup can trust on-hand state.
-3. **2.9** — extract the design tokens from the demo into the codebase only after the v1 route/nav contract is honest.
-4. **2.10** — decide the v2 UI rollout shape before wiring demo tokens into runtime routes.
-5. **3.1** — keep venue switching deferred unless a concrete multi-venue operator workflow arrives.
+1. **1.9** — closed; navRegistry coverage and install/login exclusions are pinned.
+2. **P0 ERP lane** — continued; receiving-to-inventory now preserves match/master truth in sync payloads, so replay does not drop matched, unmatched, or ambiguous receiving state.
+3. **2.9** — closed; design tokens are extracted and import-order tested.
+4. **2.10** — product decision closed; build the v2 shell as a cookie-gated side-by-side `/v2` tree, with v1 as default and no replacement until cutover criteria exist.
+5. **3.1** — remains deferred; no venue switcher or consolidated multi-venue rollup belongs in this freeze slice.
 
-That sequence keeps this freeze single-venue, local-first, and deterministic while removing the remaining places where the docs used to overclaim or defer product decisions.
+The next implementation work should start from the remaining open rows, not from the stale sequence above: finish any remaining P0 receiving/inventory replay proof, then build the opt-in v2 shell, then continue production coverage debt such as inventory-count route hardening.
 
 ---
 
