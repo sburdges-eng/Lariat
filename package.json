@@ -144,7 +144,7 @@
     "test:unit": "jest",
     "eval:assistant-prompt": "node --experimental-strip-types --no-warnings training/eval/run-eval.mjs",
     "test:rules": "node --test tests/js/test-temp-log.mjs tests/js/test-cooling-rules.mjs tests/js/test-date-mark-rules.mjs tests/js/test-sanitizer-rules.mjs tests/js/test-break-rules.mjs tests/js/test-sick-worker-rules.mjs tests/js/test-tphc-rules.mjs tests/js/test-cleaning-rules.mjs tests/js/test-sds-rules.mjs tests/js/test-pest-rules.mjs tests/js/test-performance-reviews-rules.mjs",
-    "test:schema": "node --experimental-strip-types --test tests/js/test-schema-migrations.mjs tests/js/test-db-query-indexes.mjs",
+    "test:schema": "node --experimental-strip-types --test tests/js/test-schema-migrations.mjs tests/js/test-db-query-indexes.mjs tests/js/test-db-connection-pragmas.mjs",
     "test:ingredient-key": "node --test tests/js/test-ingredient-key-parity.mjs",
     "test:ingest-yields": "node --experimental-strip-types --test tests/js/test-ingest-costing-yields.mjs",
     "test:yield-math": "node --experimental-strip-types --test tests/js/test-ingest-costing-yield-math.mjs",
