@@ -66,6 +66,10 @@ export const NAV_ROUTE_EXCLUSIONS = [
     href: '/login-pin',
     reason: 'PIN auth gate, reached by middleware redirects instead of palette jumps.',
   },
+  {
+    href: '/v2',
+    reason: 'Cookie-gated side-by-side preview shell; kept out of v1 navigation until cutover.',
+  },
 ];
 
 export const NAV_ITEMS = [
