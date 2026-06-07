@@ -43,8 +43,15 @@ export const maxDuration = 120;
 const MAX_MESSAGE = 2000;
 const MAX_ITEM = 300;
 const MAX_NOTE = 500;
+const DB_QUERY_SUMMARY_THRESHOLD_ROWS = 20;
+const DB_QUERY_SUMMARY_SYSTEM = `You summarize vetted Lariat db_query table results for restaurant operators.
+Use ONLY the raw table provided by the server.
+Write exactly two short sentences.
+No markdown table, no JSON, no advice that is not supported by the table.`;
 
 /**
+ * @typedef {import('../../../lib/dbQueryTool').DbQueryRunResult} DbQueryRunResult
+ *
  * @typedef {Record<string, unknown> & {
  *   message?: unknown;
  *   location_id?: unknown;
@@ -87,6 +94,45 @@ function errorMessage(err) {
  */
 function errorName(err) {
   return err && typeof err === 'object' && 'name' in err ? String(err.name) : undefined;
+}
+
+/**
+ * @param {DbQueryRunResult} result
+ * @param {string} table
+ * @returns {Promise<string | null>}
+ */
+async function summarizeDbQueryResult(result, table) {
+  if (result.rowCount <= DB_QUERY_SUMMARY_THRESHOLD_ROWS) return null;
+  try {
+    const rowsLine = result.truncated
+      ? `${result.rowCount} row(s), truncated to ${result.rowCap}`
+      : `${result.rowCount} row(s)`;
+    const { content } = await ollamaChat({
+      messages: [
+        { role: 'system', content: DB_QUERY_SUMMARY_SYSTEM },
+        {
+          role: 'user',
+          content: [
+            `Query: ${result.query.name}`,
+            `Description: ${result.query.description}`,
+            `Rows returned: ${rowsLine}`,
+            '',
+            table,
+            '',
+            'Write exactly two short sentences for a busy restaurant operator.',
+          ].join('\n'),
+        },
+      ],
+      temperature: 0,
+      num_predict: 120,
+      num_ctx: 2048,
+    });
+    const summary = content.trim();
+    return summary || null;
+  } catch (err) {
+    console.error('db_query summary failed:', err);
+    return null;
+  }
 }
 
 /** GET — Ollama reachability + safe config for UI (no secrets). */
@@ -290,12 +336,19 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
       });
       if (dbQueryOutcome.ok) {
         const table = formatQueryResultForPrompt(dbQueryOutcome);
-        actionMsg = table;
+        const summary = await summarizeDbQueryResult(dbQueryOutcome, table);
+        actionMsg = summary ? `Summary:\n${summary}\n\n${table}` : table;
         actionExecuted = true;
         sources.push({
           type: 'db_query',
           detail: `${dbQueryOutcome.query.name} → ${dbQueryOutcome.rowCount} row(s)${dbQueryOutcome.truncated ? ' (truncated)' : ''}`,
         });
+        if (summary) {
+          sources.push({
+            type: 'db_query_summary',
+            detail: `${dbQueryOutcome.query.name} summarized locally`,
+          });
+        }
       } else {
         actionMsg = dbQueryOutcome.error;
         actionExecuted = true;
