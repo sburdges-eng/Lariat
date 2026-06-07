@@ -47,4 +47,26 @@ describe('money-format source guard', () => {
       assert.doesNotMatch(source, LOCAL_MONEY_HELPER);
     });
   }
+
+  it('keeps aggregate KPIs at whole-dollar precision', () => {
+    const analytics = readSource('app/analytics/page.jsx');
+    const management = readSource('app/management/page.jsx');
+
+    assert.match(
+      analytics,
+      /formatDollars\(dailyCurrentTotal,\s*{\s*decimals:\s*0\s*}\)/,
+    );
+    assert.match(
+      analytics,
+      /formatDollars\(totalSpend,\s*{\s*decimals:\s*0\s*}\)/,
+    );
+    assert.match(
+      management,
+      /formatDollars\(variance\.theoretical_cogs \?\? 0,\s*{\s*decimals:\s*0\s*}\)/,
+    );
+    assert.match(
+      management,
+      /formatDollars\(variance\.actual_cogs \?\? 0,\s*{\s*decimals:\s*0\s*}\)/,
+    );
+  });
 });

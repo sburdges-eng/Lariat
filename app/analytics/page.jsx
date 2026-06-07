@@ -129,7 +129,7 @@ export default function AnalyticsPage() {
           <div className="kpi-label">Current period revenue</div>
           <div className="kpi-value">
             {dailyCurrentTotal > 0
-              ? formatDollars(dailyCurrentTotal)
+              ? formatDollars(dailyCurrentTotal, { decimals: 0 })
               : '—'}
           </div>
           {yoyDelta != null && (
@@ -165,7 +165,7 @@ export default function AnalyticsPage() {
           <div className="kpi-label">Shamrock spend ({spend.length} mo)</div>
           <div className="kpi-value">
             {totalSpend > 0
-              ? formatDollars(totalSpend)
+              ? formatDollars(totalSpend, { decimals: 0 })
               : '—'}
           </div>
         </div>

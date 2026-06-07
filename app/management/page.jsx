@@ -333,7 +333,7 @@ export default function ManagementRollupPage({ searchParams }) {
           color={varianceColor(variance?.variance_pct)}
           sub={
             variance
-              ? `theoretical ${formatDollars(variance.theoretical_cogs ?? 0)} vs actual ${formatDollars(variance.actual_cogs ?? 0)}${varianceSnapshot ? ` · as of ${varianceSnapshot}` : ''}`
+              ? `theoretical ${formatDollars(variance.theoretical_cogs ?? 0, { decimals: 0 })} vs actual ${formatDollars(variance.actual_cogs ?? 0, { decimals: 0 })}${varianceSnapshot ? ` · as of ${varianceSnapshot}` : ''}`
               : 'no compute run yet'
           }
           href="/costing"
