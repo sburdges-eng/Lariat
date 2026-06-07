@@ -126,7 +126,7 @@ export default function MenuEngineeringPage({ searchParams }: { searchParams?: {
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             {coverageReport.unlinked_dishes.slice(0, 10).map((d) => (
               <li key={d.item_name} className="meta">
-                <strong>{d.item_name}</strong> — {formatDollars(d.net_sales)} ({d.qty.toFixed(0)} sold)
+                <strong>{d.item_name}</strong> — {formatDollars(d.net_sales, { decimals: 0 })} ({d.qty.toFixed(0)} sold)
               </li>
             ))}
             {coverageReport.unlinked_dishes.length > 10 && (

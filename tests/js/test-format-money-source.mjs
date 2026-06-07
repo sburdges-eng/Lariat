@@ -50,6 +50,7 @@ describe('money-format source guard', () => {
 
   it('keeps aggregate KPIs at whole-dollar precision', () => {
     const analytics = readSource('app/analytics/page.jsx');
+    const menuEngineering = readSource('app/menu-engineering/page.tsx');
     const management = readSource('app/management/page.jsx');
 
     assert.match(
@@ -67,6 +68,10 @@ describe('money-format source guard', () => {
     assert.match(
       management,
       /formatDollars\(variance\.actual_cogs \?\? 0,\s*{\s*decimals:\s*0\s*}\)/,
+    );
+    assert.match(
+      menuEngineering,
+      /formatDollars\(d\.net_sales,\s*{\s*decimals:\s*0\s*}\)/,
     );
   });
 });
