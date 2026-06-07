@@ -15,6 +15,18 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 const MAX_MESSAGE = 2000;
+const AI_DOWN_COPY = "AI is down. Can't connect to Ollama on the office Mac. Ask a manager to start it.";
+
+function specialsModelErrorCopy(e) {
+  if (e?.name === 'AbortError') {
+    return 'Inference timed out — try a shorter question or a smaller model.';
+  }
+  const raw = String(e?.message || e || '');
+  if (/fetch failed|failed to fetch|ECONNREFUSED|ECONNRESET|ENOTFOUND|EHOSTUNREACH|ETIMEDOUT|Ollama/i.test(raw)) {
+    return AI_DOWN_COPY;
+  }
+  return raw || "Couldn't generate. Try again.";
+}
 
 /** GET — Ollama reachability + safe config for UI (no secrets). */
 export async function GET(req) {
@@ -145,7 +157,7 @@ async function specialsPostHandler(req) {
         'Answers use only the context snapshot above. Allergen tags are not legal allergen advice. Verify critical items on the floor and with a manager.',
     });
   } catch (e) {
-    const msg = e?.name === 'AbortError' ? 'Inference timed out — try a shorter question or a smaller model.' : String(e.message || e);
+    const msg = specialsModelErrorCopy(e);
     console.error(e);
     return Response.json({ error: msg }, { status: 502 });
   }
