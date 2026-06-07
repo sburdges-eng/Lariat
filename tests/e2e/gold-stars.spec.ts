@@ -20,8 +20,13 @@ test.describe('Gold-stars optimistic delete', () => {
     const card = page.locator(`text=${COOK}`);
     await expect(card).toBeVisible({ timeout: 5000 });
 
-    // Click the Undo (delete) button on our entry
-    const deleteBtn = page.locator(`text=${COOK}`).locator('..').locator('..').locator('button:has-text("Undo")');
+    // Click the Remove button on our entry and accept the confirmation.
+    const row = page.locator('.gs-row', { hasText: COOK });
+    page.once('dialog', async (dialog) => {
+      expect(dialog.message()).toContain('Remove this Gold Star');
+      await dialog.accept();
+    });
+    const deleteBtn = row.getByRole('button', { name: 'Remove' });
     await deleteBtn.click();
 
     // Row should disappear immediately (optimistic)

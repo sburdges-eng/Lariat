@@ -151,24 +151,14 @@ export default function GoldStarBoard() {
   };
 
   const handleDelete = async (id: number) => {
-    const target = recognitions.find(r => r.id === id);
-    if (!target) return;
+    const removedAt = recognitions.findIndex(r => r.id === id);
+    if (removedAt < 0) return;
+    const removed = recognitions[removedAt];
+    if (!removed) return;
+    const target = removed;
     if (!window.confirm(`Remove this Gold Star for ${target.name}?`)) return;
 
-    // Capture the row + its position via a functional updater so the
-    // rollback path doesn't depend on the render-time closure of
-    // `recognitions` — under rapid-fire deletes the closure value
-    // could be stale by the time this handler fires.
-    let removed: RecognitionRecord | null = null;
-    let removedAt = -1;
-    setRecognitions(list => {
-      const i = list.findIndex(r => r.id === id);
-      if (i < 0) return list;
-      removed = list[i] ?? null;
-      removedAt = i;
-      return list.filter(r => r.id !== id);
-    });
-    if (!removed) return;
+    setRecognitions(list => list.filter(r => r.id !== id));
     try {
       const res = await fetch(`/api/gold-stars/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('delete failed');
