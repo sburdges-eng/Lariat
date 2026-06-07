@@ -1021,6 +1021,9 @@ export function initSchema(db: DB): void {
       direction TEXT,
       note TEXT,
       cook_id TEXT,
+      sync_source_host TEXT,
+      sync_source_started_at TEXT,
+      sync_source_pk TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       location_id TEXT DEFAULT 'default'
     );
@@ -2499,6 +2502,9 @@ function initFoodSafetyLaborSchema(db: DB): void {
       rejection_reason TEXT,
       shellstock_tag_ref TEXT,
       cook_id TEXT,
+      sync_source_host TEXT,
+      sync_source_started_at TEXT,
+      sync_source_pk TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_receiving_shift
@@ -3186,6 +3192,26 @@ function migrateLegacyColumns(db: DB): void {
     } catch { /* ignore */ }
   }
 
+  // Cross-host sync replay provenance. Receiving replay needs to map a
+  // source-host receiving_log id to the local replayed row id before
+  // applying its companion inventory_updates credit. These nullable
+  // columns are populated only by lib/syncApply.ts; local route writes
+  // leave them NULL and keep the existing operator-facing schema.
+  const addSyncSourceCols = (table: string, existingCols: string[]) => {
+    const syncCols: [string, string][] = [
+      ['sync_source_host', `ALTER TABLE ${table} ADD COLUMN sync_source_host TEXT`],
+      ['sync_source_started_at', `ALTER TABLE ${table} ADD COLUMN sync_source_started_at TEXT`],
+      ['sync_source_pk', `ALTER TABLE ${table} ADD COLUMN sync_source_pk TEXT`],
+    ];
+    for (const [col, ddl] of syncCols) {
+      if (!existingCols.includes(col)) {
+        try { db.exec(ddl); } catch { /* ignore */ }
+      }
+    }
+  };
+  addSyncSourceCols('receiving_log', t('receiving_log'));
+  addSyncSourceCols('inventory_updates', t('inventory_updates'));
+
   // Phase 3 closed-loop receiving — inventory_updates rows written by the
   // closed-loop credit path stamp the source receiving_log row id here.
   // The partial UNIQUE index below makes the credit at-most-once per
@@ -3218,6 +3244,24 @@ function migrateLegacyColumns(db: DB): void {
       `CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_updates_receiving_log_id
          ON inventory_updates(receiving_log_id)
          WHERE receiving_log_id IS NOT NULL`,
+    );
+  } catch { /* ignore */ }
+  try {
+    db.exec(
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_receiving_log_sync_source
+         ON receiving_log(sync_source_host, sync_source_started_at, sync_source_pk)
+         WHERE sync_source_host IS NOT NULL
+           AND sync_source_started_at IS NOT NULL
+           AND sync_source_pk IS NOT NULL`,
+    );
+  } catch { /* ignore */ }
+  try {
+    db.exec(
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_updates_sync_source
+         ON inventory_updates(sync_source_host, sync_source_started_at, sync_source_pk)
+         WHERE sync_source_host IS NOT NULL
+           AND sync_source_started_at IS NOT NULL
+           AND sync_source_pk IS NOT NULL`,
     );
   } catch { /* ignore */ }
 
