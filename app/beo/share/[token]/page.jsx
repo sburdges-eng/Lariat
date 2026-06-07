@@ -1,17 +1,10 @@
 // @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 import { getDb } from '../../../../lib/db';
 import { isValidShareTokenShape } from '../../../../lib/beoShare';
+import { formatDollars } from '../../../../lib/formatMoney';
 import SignForm from './SignForm';
 
 export const dynamic = 'force-dynamic';
-
-const USD = (n) =>
-  Number(n || 0).toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 
 const fmtDate = (iso) => {
   if (!iso) return '';
@@ -365,7 +358,7 @@ export default async function BeoSharePage({ params }) {
                           fontFeatureSettings: '"tnum"',
                         }}
                       >
-                        {USD(l.unit_cost)}
+                        {formatDollars(l.unit_cost ?? 0, { nullDisplay: '$0.00' })}
                       </td>
                       <td
                         style={{
@@ -375,7 +368,7 @@ export default async function BeoSharePage({ params }) {
                           fontFeatureSettings: '"tnum"',
                         }}
                       >
-                        {USD(lineTotal)}
+                        {formatDollars(lineTotal ?? 0, { nullDisplay: '$0.00' })}
                       </td>
                     </tr>
                   );
@@ -406,7 +399,7 @@ export default async function BeoSharePage({ params }) {
                       fontFeatureSettings: '"tnum"',
                     }}
                   >
-                    {USD(subtotal)}
+                    {formatDollars(subtotal ?? 0, { nullDisplay: '$0.00' })}
                   </td>
                 </tr>
                 {event.service_fee_pct ? (
@@ -429,7 +422,7 @@ export default async function BeoSharePage({ params }) {
                         fontFeatureSettings: '"tnum"',
                       }}
                     >
-                      {USD(serviceFee)}
+                      {formatDollars(serviceFee ?? 0, { nullDisplay: '$0.00' })}
                     </td>
                   </tr>
                 ) : null}
@@ -453,7 +446,7 @@ export default async function BeoSharePage({ params }) {
                         fontFeatureSettings: '"tnum"',
                       }}
                     >
-                      {USD(tax)}
+                      {formatDollars(tax ?? 0, { nullDisplay: '$0.00' })}
                     </td>
                   </tr>
                 ) : null}
@@ -479,7 +472,7 @@ export default async function BeoSharePage({ params }) {
                       fontFeatureSettings: '"tnum"',
                     }}
                   >
-                    {USD(total)}
+                    {formatDollars(total ?? 0, { nullDisplay: '$0.00' })}
                   </td>
                 </tr>
               </tfoot>

@@ -10,15 +10,9 @@ import Link from 'next/link';
 import { getDb, todayISO } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { summarize } from '../../lib/commandCenter';
+import { formatDollars } from '../../lib/formatMoney';
 
 export const dynamic = 'force-dynamic';
-
-function fmtUSD(n) {
-  if (n == null || !Number.isFinite(Number(n))) return '$0.00';
-  return Number(n).toLocaleString('en-US', {
-    style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2,
-  });
-}
 
 function tone(s) {
   if (s.red) return 'red';
@@ -113,10 +107,10 @@ export default function CommandCenter({ searchParams }) {
           sub={`Yesterday vs 7-day average · ${s.yesterday}`}
           status={{ red: false, amber: salesAmber }}
           lines={[
-            { n: fmtUSD(s.sales.yesterday_net), label: 'net sales yesterday' },
+            { n: formatDollars(s.sales.yesterday_net, { nullDisplay: '$0.00' }), label: 'net sales yesterday' },
             { n: s.sales.orders, label: 'orders' },
             {
-              n: fmtUSD(s.sales.avg7_net),
+              n: formatDollars(s.sales.avg7_net, { nullDisplay: '$0.00' }),
               label: '7-day avg',
               tone: salesAmber ? 'amber' : null,
             },

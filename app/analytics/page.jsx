@@ -1,6 +1,7 @@
 // @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 import { getDb } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
+import { formatDollars } from '../../lib/formatMoney';
 import AnalyticsCharts from './AnalyticsCharts';
 
 export const dynamic = 'force-dynamic';
@@ -8,14 +9,6 @@ export const dynamic = 'force-dynamic';
 export default function AnalyticsPage() {
   const loc = DEFAULT_LOCATION_ID;
   const db = getDb();
-
-  /* ── KPI totals ─────────────────────────────────────────────────── */
-  const totals = db
-    .prepare(
-      `SELECT SUM(net_sales) as rev, SUM(quantity_sold) as qty
-         FROM sales_lines WHERE location_id = ?`,
-    )
-    .get(loc);
 
   /* ── Daily revenue trend (comparison_group 1 = current period) ── */
   const daily = db
@@ -136,9 +129,7 @@ export default function AnalyticsPage() {
           <div className="kpi-label">Current period revenue</div>
           <div className="kpi-value">
             {dailyCurrentTotal > 0
-              ? `$${dailyCurrentTotal.toLocaleString(undefined, {
-                  maximumFractionDigits: 0,
-                })}`
+              ? formatDollars(dailyCurrentTotal, { decimals: 0 })
               : '—'}
           </div>
           {yoyDelta != null && (
@@ -160,7 +151,7 @@ export default function AnalyticsPage() {
           <div className="kpi-label">Avg check</div>
           <div className="kpi-value">
             {avgCheck != null && isFinite(avgCheck)
-              ? `$${avgCheck.toFixed(2)}`
+              ? formatDollars(avgCheck)
               : '—'}
           </div>
         </div>
@@ -174,9 +165,7 @@ export default function AnalyticsPage() {
           <div className="kpi-label">Shamrock spend ({spend.length} mo)</div>
           <div className="kpi-value">
             {totalSpend > 0
-              ? `$${totalSpend.toLocaleString(undefined, {
-                  maximumFractionDigits: 0,
-                })}`
+              ? formatDollars(totalSpend, { decimals: 0 })
               : '—'}
           </div>
         </div>

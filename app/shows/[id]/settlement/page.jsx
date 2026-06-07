@@ -1,5 +1,6 @@
 // @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 import { getSettlement } from '../../../../lib/settlementRepo.ts';
+import { formatMoney } from '../../../../lib/formatMoney';
 import TabStrip from '../_components/TabStrip';
 import DealEditor from './_components/DealEditor';
 
@@ -14,12 +15,6 @@ const SOURCE_LABELS = {
   will_call: 'Will call',
   guestlist: 'Guest list',
 };
-
-function dollars(cents) {
-  const n = Number(cents) || 0;
-  const sign = n < 0 ? '-' : '';
-  return `${sign}$${(Math.abs(n) / 100).toFixed(2)}`;
-}
 
 function locationFromSearch(searchParams) {
   const raw = searchParams?.location;
@@ -97,7 +92,7 @@ export default async function SettlementPage({ params, searchParams }) {
                 : sourceRows.map(([source, value]) => (
                     <span key={source} style={{ marginRight: 14 }}>
                       {SOURCE_LABELS[source] ?? source}: {value.qty} ·{' '}
-                      {dollars(value.grossCents)}
+                      {formatMoney(value.grossCents ?? 0, { nullDisplay: '$0.00' })}
                     </span>
                   ))}
             </div>
@@ -150,7 +145,7 @@ export default async function SettlementPage({ params, searchParams }) {
           >
             <div className="row-meta">Net to door</div>
             <div className="serif" style={{ fontSize: 42, lineHeight: 1 }}>
-              {dollars(summary.netDoorCents)}
+              {formatMoney(summary.netDoorCents ?? 0, { nullDisplay: '$0.00' })}
             </div>
             <div className="row-meta">
               tickets net - costs off top - talent payout
@@ -177,7 +172,7 @@ function MoneyRow({ label, value, strong = false }) {
       }}
     >
       <dt>{label}</dt>
-      <dd style={{ margin: 0 }}>{dollars(value)}</dd>
+      <dd style={{ margin: 0 }}>{formatMoney(value ?? 0, { nullDisplay: '$0.00' })}</dd>
     </div>
   );
 }

@@ -20,6 +20,7 @@ import { readLatestDishCoverageSnapshot } from '../../lib/dishCoverageSnapshots'
 import { readLatestAccountingVariance } from '../../lib/computeEngine/index';
 import { listDepletionExceptions } from '../../lib/depletionExceptions';
 import { listPriceShocks } from '../../lib/vendorPricesRepo';
+import { formatDollars } from '../../lib/formatMoney';
 
 import RollupTile from './_components/RollupTile';
 
@@ -332,7 +333,7 @@ export default function ManagementRollupPage({ searchParams }) {
           color={varianceColor(variance?.variance_pct)}
           sub={
             variance
-              ? `theoretical $${(variance.theoretical_cogs ?? 0).toFixed(0)} vs actual $${(variance.actual_cogs ?? 0).toFixed(0)}${varianceSnapshot ? ` · as of ${varianceSnapshot}` : ''}`
+              ? `theoretical ${formatDollars(variance.theoretical_cogs ?? 0, { decimals: 0 })} vs actual ${formatDollars(variance.actual_cogs ?? 0, { decimals: 0 })}${varianceSnapshot ? ` · as of ${varianceSnapshot}` : ''}`
               : 'no compute run yet'
           }
           href="/costing"

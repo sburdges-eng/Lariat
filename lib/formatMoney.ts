@@ -25,9 +25,25 @@ const NULL_DISPLAY_DEFAULT = '—'; // em dash
 
 export interface FormatMoneyOpts {
   /** 2 (default) for kitchen/manager UI, 4 for vendor unit-price tables. */
-  decimals?: 2 | 4;
+  decimals?: 0 | 1 | 2 | 3 | 4;
   /** What to render when the input is null / undefined. Default '—'. */
   nullDisplay?: string;
+}
+
+export interface FormatCompactDollarsOpts {
+  /** What to render when the input is null / undefined. Default '—'. */
+  nullDisplay?: string;
+}
+
+function renderFiniteDollars(dollars: number, decimals: 0 | 1 | 2 | 3 | 4): string {
+  const negative = dollars < 0;
+  const scale = 10 ** decimals;
+  const rounded = Math.round(Math.abs(dollars) * scale) / scale;
+  const [intPart, fracPart = ''] = rounded.toFixed(decimals).split('.');
+  const intWithSep = intPart!.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const cents = decimals === 0 ? '' : `.${fracPart!.padEnd(decimals, '0')}`;
+  const formatted = `$${intWithSep}${cents}`;
+  return negative ? `-${formatted}` : formatted;
 }
 
 /**
@@ -50,22 +66,7 @@ export function formatMoney(
   if (typeof cents !== 'number' || !Number.isFinite(cents)) return nullDisplay;
 
   const decimals = opts.decimals ?? 2;
-  const negative = cents < 0;
-  const abs = Math.abs(cents);
-
-  // For 2-decimal output, INTEGER cents → divide by 100 and toFixed(2).
-  // For 4-decimal output, INTEGER cents → divide by 100, toFixed(4) gives
-  // two trailing zeros (12.3400) which is the canonical "cents-aware
-  // sub-cent" rendering. The vendor-prices surfaces want sub-cent
-  // precision; the underlying value is still INTEGER cents at the call
-  // site (no float-drift in storage / math).
-  const dollars = abs / 100;
-  const [intPart, fracPart = ''] = dollars.toFixed(decimals).split('.');
-  // Thousands separator on the integer side only.
-  const intWithSep = intPart!.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
-  const formatted = `$${intWithSep}.${fracPart!.padEnd(decimals, '0')}`;
-  return negative ? `-${formatted}` : formatted;
+  return renderFiniteDollars(cents / 100, decimals);
 }
 
 /**
@@ -91,24 +92,27 @@ export function formatDollars(
   if (!Number.isFinite(n)) return nullDisplay;
 
   const decimals = opts.decimals ?? 2;
-  // Internal: convert to cents at the precision the caller requested.
-  // For 2-decimal output we round to whole cents. For 4-decimal output
-  // we keep the sub-cent resolution by scaling by 10000 first.
-  const scale = decimals === 4 ? 10000 : 100;
-  const scaled = Math.round(n * scale);
-  // Re-render via formatMoney so sign/separator/null logic stays in
-  // one place. For 4-decimal we pass scaled-cents and request 4
-  // decimals; helper treats that as cents-with-trailing-zeros, which
-  // doesn't fit perfectly. Simpler: inline render here at 4-dec.
-  if (decimals === 4) {
-    const negative = scaled < 0;
-    const abs = Math.abs(scaled);
-    // abs is in 1/100-cent units; divide by 10000 to get dollars.
-    const dollarsAbs = abs / 10000;
-    const [intPart, fracPart = ''] = dollarsAbs.toFixed(4).split('.');
-    const intWithSep = intPart!.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    const out = `$${intWithSep}.${fracPart!.padEnd(4, '0')}`;
-    return negative ? `-${out}` : out;
-  }
-  return formatMoney(scaled, opts);
+  return renderFiniteDollars(n, decimals);
+}
+
+/**
+ * Compact chart-label formatter for dollar values.
+ *
+ *   formatCompactDollars(1250000)  → '$1.3M'
+ *   formatCompactDollars(-1234)    → '-$1k'
+ *   formatCompactDollars(null)     → '—'
+ */
+export function formatCompactDollars(
+  dollars: number | string | null | undefined,
+  opts: FormatCompactDollarsOpts = {},
+): string {
+  const nullDisplay = opts.nullDisplay ?? NULL_DISPLAY_DEFAULT;
+  if (dollars == null || dollars === '') return nullDisplay;
+  const n = typeof dollars === 'number' ? dollars : Number(dollars);
+  if (!Number.isFinite(n)) return nullDisplay;
+
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return `${formatDollars(n / 1_000_000, { decimals: 1 })}M`;
+  if (abs >= 1_000) return `${formatDollars(n / 1_000, { decimals: 0 })}k`;
+  return formatDollars(n, { decimals: 0 });
 }

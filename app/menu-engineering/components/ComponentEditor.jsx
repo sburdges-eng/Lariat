@@ -3,6 +3,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { formatDollars } from '../../../lib/formatMoney';
 
 const COMMON_UNITS = ['oz', 'g', 'lb', 'tsp', 'tbsp', 'cup', 'fl oz', 'qt', 'gal', 'each'];
 
@@ -329,7 +330,7 @@ export default function ComponentEditor({
                           {distributors.map((d) => (
                             <option key={d.ingredient} value={d.ingredient}>
                               {d.unit_price != null
-                                ? `${d.vendor || '—'} · $${d.unit_price.toFixed(3)}/${d.pack_unit || '?'}`
+                                ? `${d.vendor || '—'} · ${formatDollars(d.unit_price, { decimals: 3 })}/${d.pack_unit || '?'}`
                                 : `${d.vendor || '—'} · no price`}
                             </option>
                           ))}

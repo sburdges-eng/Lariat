@@ -2,8 +2,8 @@
 'use client';
 import React from 'react';
 import Link from 'next/link';
+import { formatDollars } from '../../lib/formatMoney';
 
-const fmtUSD = (n) => (n == null ? '—' : `$${Number(n).toFixed(2)}`);
 const fmtDate = (iso) => {
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -46,7 +46,7 @@ export default function BookingCalendar({ rows }) {
               <td className="num">—</td>
               <td className="num">—</td>
               <td>—</td>
-              <td className="num">{fmtUSD(r.price)}</td>
+              <td className="num">{formatDollars(r.price)}</td>
               <td>{r.door_tix ?? '—'}</td>
             </tr>
           ))}

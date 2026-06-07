@@ -2,16 +2,9 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { formatDollars } from '../../../../lib/formatMoney';
 
 const POLL_MS = 30_000;
-
-const USD = (n) =>
-  Number(n || 0).toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
 
 const SOURCE_LABELS = {
   dice: 'DICE',
@@ -206,8 +199,8 @@ export default function TonightLiveClient({ initialPayload, loc, date, showId })
         />
         <KPI
           label="Gross revenue"
-          value={USD(boxOffice.total_revenue)}
-          sub={boxOffice.total_fees ? `incl ${USD(boxOffice.total_fees)} fees` : 'no fees'}
+          value={formatDollars(boxOffice.total_revenue ?? 0, { decimals: 0, nullDisplay: '$0' })}
+          sub={boxOffice.total_fees ? `incl ${formatDollars(boxOffice.total_fees, { decimals: 0, nullDisplay: '$0' })} fees` : 'no fees'}
         />
         <KPI
           label="Sound scene"
@@ -289,7 +282,7 @@ export default function TonightLiveClient({ initialPayload, loc, date, showId })
                       <td style={{ padding: '8px 8px 8px 0' }}>{SOURCE_LABELS[source] || source}</td>
                       <td style={{ padding: '8px 0', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace' }}>{v.qty}</td>
                       <td style={{ padding: '8px 0', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace' }}>
-                        {USD(v.revenue)}
+                        {formatDollars(v.revenue ?? 0, { decimals: 0, nullDisplay: '$0' })}
                       </td>
                     </tr>
                   ))}
@@ -299,7 +292,7 @@ export default function TonightLiveClient({ initialPayload, loc, date, showId })
                     {boxOffice.total_qty}
                   </td>
                   <td style={{ padding: '8px 0', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>
-                    {USD(boxOffice.total_revenue)}
+                    {formatDollars(boxOffice.total_revenue ?? 0, { decimals: 0, nullDisplay: '$0' })}
                   </td>
                 </tr>
               </tbody>

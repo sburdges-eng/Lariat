@@ -1,6 +1,7 @@
 // @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 'use client';
 import { useState } from 'react';
+import { formatCompactDollars, formatDollars } from '../../lib/formatMoney';
 
 /* ── palette (mirrors CSS custom props for SVG) ──────────────────── */
 const C = {
@@ -12,16 +13,6 @@ const C = {
 };
 
 /* ── formatters ──────────────────────────────────────────────────── */
-function fmtUSD(n) {
-  if (n == null) return '—';
-  return `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-function fmtK(n) {
-  if (n == null) return '—';
-  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(0)}k`;
-  return `$${n.toFixed(0)}`;
-}
 function fmtDate(iso) {
   if (!iso) return '';
   const [, m, d] = iso.split('-');
@@ -106,7 +97,7 @@ function DailyArea({ data }) {
                   stroke={C.hair} strokeWidth=".5" strokeDasharray="3,3" />
             <text x={p.l - 6} y={sy(v) + 3.5} textAnchor="end"
                   fill={C.muted} fontSize="9" fontFamily="'JetBrains Mono',monospace">
-              {fmtK(v)}
+          {formatCompactDollars(v)}
             </text>
           </g>
         ))}
@@ -134,7 +125,7 @@ function DailyArea({ data }) {
       {hd && (
         <Tip style={{ left: `${(hov / Math.max(data.length - 1, 1)) * 100}%`, top: 28, transform: 'translateX(-50%)' }}>
           <div style={{ fontWeight: 700, marginBottom: 2 }}>{fmtDate(hd.shift_date)}</div>
-          <div>{fmtUSD(hd.net_sales)}</div>
+          <div>{formatDollars(hd.net_sales)}</div>
           <div style={{ color: C.hair, fontSize: 10 }}>{fmtNum(hd.orders)} orders · {fmtNum(hd.guests)} guests</div>
         </Tip>
       )}
@@ -178,7 +169,7 @@ function DowBars({ current, prior }) {
         {[0, yMax / 2, yMax].map(v => (
           <text key={`l${v}`} x={p.l - 5} y={sy(v) + 3.5} textAnchor="end"
                 fill={C.muted} fontSize="8.5" fontFamily="'JetBrains Mono',monospace">
-            {fmtK(v)}
+            {formatCompactDollars(v)}
           </text>
         ))}
         {days.map((d, i) => {
@@ -215,7 +206,7 @@ function DowBars({ current, prior }) {
         return (
           <Tip style={{ left: `${((hov + 0.5) / days.length) * 100}%`, top: 0, transform: 'translateX(-50%)' }}>
             <div style={{ fontWeight: 700 }}>{d}</div>
-            <div>Now {fmtK(cv)} · Prior {fmtK(pv)}</div>
+            <div>Now {formatCompactDollars(cv)} · Prior {formatCompactDollars(pv)}</div>
             {chg != null && (
               <div style={{ color: chg >= 0 ? C.sage : C.rust, fontWeight: 700 }}>
                 {chg >= 0 ? '+' : ''}{chg.toFixed(1)}%
@@ -285,7 +276,7 @@ function HourlyLines({ current, prior }) {
         {[0, yMax / 2, yMax].map(v => (
           <text key={`l${v}`} x={p.l - 5} y={sy(v) + 3.5} textAnchor="end"
                 fill={C.muted} fontSize="8.5" fontFamily="'JetBrains Mono',monospace">
-            {fmtK(v)}
+            {formatCompactDollars(v)}
           </text>
         ))}
         <path d={cArea} fill="url(#hg)" />
@@ -327,7 +318,7 @@ function HourlyLines({ current, prior }) {
         return (
           <Tip style={{ left: `${(hov / Math.max(hours.length - 1, 1)) * 100}%`, top: 0, transform: 'translateX(-50%)' }}>
             <div style={{ fontWeight: 700 }}>{cm[h]?.label || fmtHour(h)}</div>
-            <div>Now {fmtK(cv)} · Prior {fmtK(pv)}</div>
+            <div>Now {formatCompactDollars(cv)} · Prior {formatCompactDollars(pv)}</div>
           </Tip>
         );
       })()}
@@ -362,7 +353,7 @@ function SpendBars({ data }) {
                   stroke={C.hair} strokeWidth=".5" strokeDasharray="3,3" />
             <text x={p.l - 5} y={sy(v) + 3.5} textAnchor="end"
                   fill={C.muted} fontSize="8.5" fontFamily="'JetBrains Mono',monospace">
-              {fmtK(v)}
+              {formatCompactDollars(v)}
             </text>
           </g>
         ))}
@@ -386,7 +377,7 @@ function SpendBars({ data }) {
       {hov != null && (
         <Tip style={{ left: `${((hov + 0.5) / data.length) * 100}%`, top: 0, transform: 'translateX(-50%)' }}>
           <div style={{ fontWeight: 700 }}>{data[hov].month}</div>
-          <div>{fmtUSD(data[hov].shamrock_total_spend)}</div>
+          <div>{formatDollars(data[hov].shamrock_total_spend)}</div>
         </Tip>
       )}
     </div>
@@ -430,7 +421,7 @@ function TopItems({ items }) {
                 {fmtNum(r.qty)}
               </td>
               <td style={{ textAlign: 'right', fontFamily: "'JetBrains Mono',monospace", fontSize: 13 }}>
-                {fmtUSD(r.rev)}
+                {formatDollars(r.rev)}
               </td>
               <td>
                 <div style={{
