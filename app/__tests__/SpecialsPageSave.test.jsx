@@ -40,9 +40,13 @@ function mockPingResponse(overrides = {}) {
   };
 }
 
-function renderSpecialsWithPing(overrides = {}) {
+async function renderSpecialsWithPing(overrides = {}) {
   global.fetch.mockResolvedValueOnce(mockPingResponse(overrides));
-  return render(<SpecialsPage />);
+  let view;
+  await act(async () => {
+    view = render(<SpecialsPage />);
+  });
+  return view;
 }
 
 async function runChat(prompt) {
@@ -52,20 +56,20 @@ async function runChat(prompt) {
   });
 }
 
-test('Save button is hidden before an answer renders', () => {
-  renderSpecialsWithPing();
+test('Save button is hidden before an answer renders', async () => {
+  await renderSpecialsWithPing();
   expect(screen.queryByRole('button', { name: /save this special/i })).toBeNull();
 });
 
 test('Save button appears after a successful chat response', async () => {
-  renderSpecialsWithPing();
+  await renderSpecialsWithPing();
   global.fetch.mockResolvedValueOnce(mockChatResponse());
   await runChat('Make a pork belly app');
   expect(await screen.findByRole('button', { name: /save this special/i })).toBeInTheDocument();
 });
 
 test('Save form requires a name', async () => {
-  renderSpecialsWithPing();
+  await renderSpecialsWithPing();
   global.fetch.mockResolvedValueOnce(mockChatResponse());
   await runChat('Make a pork belly app');
   fireEvent.click(screen.getByRole('button', { name: /save this special/i }));
@@ -74,7 +78,7 @@ test('Save form requires a name', async () => {
 });
 
 test('Save POSTs the captured session shape', async () => {
-  renderSpecialsWithPing();
+  await renderSpecialsWithPing();
   global.fetch
     .mockResolvedValueOnce(mockChatResponse())
     .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'abc-123' }) });
@@ -97,7 +101,7 @@ test('Save POSTs the captured session shape', async () => {
 });
 
 test('Run it is disabled with clear copy when local AI is down on load', async () => {
-  renderSpecialsWithPing({ ollamaReachable: false });
+  await renderSpecialsWithPing({ ollamaReachable: false });
 
   expect(await screen.findByText(/AI is down/i)).toBeInTheDocument();
   const run = screen.getByRole('button', { name: /run it/i });
@@ -105,7 +109,7 @@ test('Run it is disabled with clear copy when local AI is down on load', async (
 });
 
 test('POST 502 fetch failed is shown as local-AI-down copy, not raw transport text', async () => {
-  renderSpecialsWithPing();
+  await renderSpecialsWithPing();
   global.fetch.mockResolvedValueOnce({
     ok: false,
     status: 502,
