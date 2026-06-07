@@ -462,7 +462,7 @@ export default function ManagementRollupPage({ searchParams }) {
           value={receivingMatches == null ? '—' : receivingMatches}
           color={receivingMatchColor(receivingMatches)}
           sub={receivingMatches == null ? 'receiving unavailable' : 'accepted lines need a master'}
-          href="/management/receiving-matches"
+          href={locHref('/management/receiving-matches', loc)}
         />
       </div>
 
@@ -470,7 +470,7 @@ export default function ManagementRollupPage({ searchParams }) {
         <h2 style={{ fontSize: 14, marginBottom: 8 }}>More tools</h2>
         <ul style={{ fontSize: 13 }}>
           <li><Link href="/management/performance-reviews">Staff reviews</Link> — log and view performance</li>
-          <li><Link href="/management/receiving-matches">Receiving matches</Link> — set masters for unmatched lines</li>
+          <li><Link href={locHref('/management/receiving-matches', loc)}>Receiving matches</Link> — set masters for unmatched lines</li>
           <li><Link href="/management/pins">Manager PINs</Link> — add and edit manager PINs</li>
           <li><Link href="/management/audit-log">Audit log</Link> — management actions outside regulated tables</li>
           <li><Link href="/management/cloud-bridge">Cloud bridge</Link> — stuck snapshots heading to corp</li>

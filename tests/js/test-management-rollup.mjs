@@ -49,6 +49,7 @@ beforeEach(() => {
     DELETE FROM cleaning_log;
     DELETE FROM dish_components;
     DELETE FROM pack_size_changes;
+    DELETE FROM receiving_log;
     DELETE FROM sales_lines;
     DELETE FROM staff_certifications;
     DELETE FROM vendor_prices;
@@ -121,6 +122,21 @@ function readCertWarningsLikePage(db, locationId) {
   return { expired, expiringSoon, total: expired + expiringSoon };
 }
 
+function readReceivingMatchesCountLikePage(db, locationId) {
+  const row = db.prepare(
+    `SELECT COUNT(*) AS c
+       FROM receiving_log r
+      WHERE r.location_id = ?
+        AND r.status IN ('accepted', 'accepted_with_note')
+        AND r.received_qty IS NOT NULL
+        AND r.received_qty > 0
+        AND r.received_unit IS NOT NULL
+        AND TRIM(r.received_unit) <> ''
+        AND r.match_status IN ('unmatched', 'ambiguous')`,
+  ).get(locationId);
+  return row?.c ?? 0;
+}
+
 function isoDaysFromToday(delta) {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + delta);
@@ -166,6 +182,7 @@ describe('management rollup — empty state', () => {
   it('new management alert counts are 0 on a fresh DB', () => {
     assert.strictEqual(readPriceShocksCountLikePage(db, 'default'), 0);
     assert.strictEqual(readDepletionIssuesCountLikePage(db, 'default'), 0);
+    assert.strictEqual(readReceivingMatchesCountLikePage(db, 'default'), 0);
     assert.deepStrictEqual(readCertWarningsLikePage(db, 'default'), {
       expired: 0,
       expiringSoon: 0,
@@ -183,6 +200,11 @@ describe('management rollup — tile wiring', () => {
     assert.match(source, /\/costing\/depletion-exceptions/);
     assert.match(source, /label="Cert warnings"/);
     assert.match(source, /\/labor\/certs/);
+    assert.match(source, /label="Receiving to match"/);
+    assert.match(
+      source,
+      /href={locHref\('\/management\/receiving-matches', loc\)}/,
+    );
   });
 });
 
@@ -314,6 +336,29 @@ describe('management rollup — new alert counts', () => {
       total: 2,
     });
   });
+
+  it('counts only accepted stock rows that still need manager matching', () => {
+    db.prepare(
+      `INSERT INTO receiving_log
+         (shift_date, location_id, vendor, category, item, status,
+          received_qty, received_unit, match_status)
+       VALUES
+         ('2026-06-07', 'default', 'Local Farms', 'produce', 'Tomato Case',
+          'accepted', 2, 'case', 'unmatched'),
+         ('2026-06-07', 'default', 'Shamrock', 'refrigerated', 'Milk 2%',
+          'accepted_with_note', 6, 'gal', 'ambiguous'),
+         ('2026-06-07', 'default', 'Shamrock', 'refrigerated', 'Chicken Breast',
+          'accepted', 40, 'lb', 'matched'),
+         ('2026-06-07', 'default', 'Shamrock', 'refrigerated', 'Spoiled Milk',
+          'rejected', 6, 'gal', 'unmatched'),
+         ('2026-06-07', 'default', 'Local Farms', 'produce', 'No Qty',
+          'accepted', NULL, 'case', 'unmatched'),
+         ('2026-06-07', 'other', 'Local Farms', 'produce', 'Other Tomato',
+          'accepted', 4, 'case', 'unmatched')`,
+    ).run();
+
+    assert.strictEqual(readReceivingMatchesCountLikePage(db, 'default'), 2);
+  });
 });
 
 describe('management rollup — new alert location scoping', () => {
@@ -407,6 +452,24 @@ describe('management rollup — new alert location scoping', () => {
       expiringSoon: 1,
       total: 2,
     });
+  });
+
+  it('scopes receiving-match debt by location', () => {
+    db.prepare(
+      `INSERT INTO receiving_log
+         (shift_date, location_id, vendor, category, item, status,
+          received_qty, received_unit, match_status)
+       VALUES
+         ('2026-06-07', 'default', 'Local Farms', 'produce', 'Tomato Case',
+          'accepted', 2, 'case', 'unmatched'),
+         ('2026-06-07', 'other', 'Local Farms', 'produce', 'Other Tomato',
+          'accepted', 4, 'case', 'unmatched'),
+         ('2026-06-07', 'other', 'Shamrock', 'refrigerated', 'Other Milk',
+          'accepted_with_note', 6, 'gal', 'ambiguous')`,
+    ).run();
+
+    assert.strictEqual(readReceivingMatchesCountLikePage(db, 'default'), 1);
+    assert.strictEqual(readReceivingMatchesCountLikePage(db, 'other'), 2);
   });
 });
 
