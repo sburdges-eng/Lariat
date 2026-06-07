@@ -134,7 +134,7 @@ The `docs/redesign/lari-ui-demo.html` is a prototype. A real migration needs:
 
 | ID  | Effort | Item |
 |-----|--------|------|
-| 2.18 | M  | **DB index audit.** I read the schema but didn't measure query plans. Several `db_query` registry entries (`vendor_price_shocks`, `audit_log_recent`) do range scans over time-series tables — should be plan-checked against a realistic DB size. |
+| 2.18 | M  | **Closed:** DB index audit is measured and pinned for the named `db_query` suspects. `tests/js/test-db-query-indexes.mjs` seeds realistic vendor-price history and audit-event rows, runs `EXPLAIN QUERY PLAN` against the registered SQL, and proves `vendor_price_shocks` uses `idx_vph_loc_snapshot_shock (location_id, snapshot_at DESC)` while `audit_log_recent` uses `idx_audit_recent_loc_created (location_id, created_at DESC)` with and without optional filters. |
 | 2.19 | M  | **better-sqlite3 WAL checkpoint policy.** WAL is mentioned in CLAUDE.md but I didn't see an explicit checkpoint config. Under heavy write load (busy service), uncontrolled WAL growth can cause latency spikes. |
 | 2.20 | L  | **Bundle-size audit.** Next 16 + React 19 + Electron 42 just happened (commit `30d9232`). Re-measure the production bundle vs. pre-bump; the Turbopack vs. webpack split (`next.config.mjs` does dual-runtime aliasing for three Node-only chains) may have created drift. |
 | 2.21 | M  | **iPad performance.** Cook-tier surfaces run on iPads. Profile under low-power mode on an iPad gen 7 (slowest fleet device). Anything > 100ms tap-to-feedback is too slow for line use. |
@@ -183,7 +183,7 @@ The old five-item sequence is now reconciled so future agents do not redo finish
 4. **2.10** — closed; the first `/v2` shell is cookie-gated, side-by-side, and leaves v1 as default with no route replacement.
 5. **3.1** — remains deferred; no venue switcher or consolidated multi-venue rollup belongs in this freeze slice.
 
-The next implementation work should start from the remaining open rows, not from the stale sequence above: move into the still-open scale/readiness rows such as 2.18 DB index audit, 2.19 WAL checkpoint policy, 2.20 bundle-size audit, and 2.21 iPad performance.
+The next implementation work should start from the remaining open rows, not from the stale sequence above: move into the still-open scale/readiness rows such as 2.19 WAL checkpoint policy, 2.20 bundle-size audit, and 2.21 iPad performance.
 
 ---
 
