@@ -12,8 +12,8 @@ export const dynamic = 'force-dynamic';
 // doesn't already exist; otherwise returns the existing token. The token
 // itself is the auth boundary on the public read+sign endpoints — anyone
 // who has the URL can view and sign. The operator is responsible for who
-// they share it with. Rotation is out of scope here: drop the column via
-// the DB if the token is leaked.
+// they share it with. If a stored token has been revoked or expired, this
+// route mints a fresh URL for the PIN-authenticated operator.
 
 export async function POST(req, ctx) {
   return withIdempotency(req, () => handler(req, ctx));
@@ -33,11 +33,20 @@ async function handler(req, ctx) {
   const db = getDb();
   const location = locationFromRequest(req);
   const event = db
-    .prepare('SELECT id, location_id, share_token FROM beo_events WHERE id = ? AND location_id = ?')
+    .prepare(
+      `SELECT id, location_id, share_token, share_expires_at, share_revoked_at
+         FROM beo_events
+        WHERE id = ? AND location_id = ?`,
+    )
     .get(eventId, location);
   if (!event) return Response.json({ error: 'event not found' }, { status: 404 });
 
-  if (event.share_token) {
+  const tokenActive =
+    event.share_token &&
+    !event.share_revoked_at &&
+    (!event.share_expires_at || Date.parse(event.share_expires_at) > Date.now());
+
+  if (tokenActive) {
     return Response.json({
       event_id: event.id,
       token: event.share_token,
@@ -49,7 +58,13 @@ async function handler(req, ctx) {
   const token = generateShareToken();
   try {
     db.transaction(() => {
-      db.prepare('UPDATE beo_events SET share_token = ? WHERE id = ?').run(token, eventId);
+      db.prepare(
+        `UPDATE beo_events
+            SET share_token = ?,
+                share_expires_at = NULL,
+                share_revoked_at = NULL
+          WHERE id = ?`,
+      ).run(token, eventId);
       postAuditEvent({
         entity: 'beo_event',
         entity_id: eventId,

@@ -69,6 +69,17 @@ function seedLine(eventId, name, qty, unit_cost) {
     .run(eventId, name, qty, unit_cost);
 }
 
+function setShareLifecycle(eventId, { expiresAt = null, revokedAt = null } = {}) {
+  conn
+    .prepare(
+      `UPDATE beo_events
+          SET share_expires_at = ?,
+              share_revoked_at = ?
+        WHERE id = ?`,
+    )
+    .run(expiresAt, revokedAt, eventId);
+}
+
 // ── POST /api/beo/[id]/share-token ─────────────────────────────────
 
 describe('POST /api/beo/[id]/share-token', () => {
@@ -155,6 +166,31 @@ describe('POST /api/beo/[id]/share-token', () => {
       .all(id);
     assert.equal(audits.length, 1, 'no second audit row on idempotent re-call');
   });
+
+  it('mints a fresh token when the stored token is revoked', async () => {
+    const id = seedEvent();
+    const r1 = await shareTokenRoute.POST(
+      makeReq({ method: 'POST', path: `/api/beo/${id}/share-token`, withPin: true }),
+      { params: { id: String(id) } },
+    );
+    const j1 = await r1.json();
+    setShareLifecycle(id, { revokedAt: '2026-01-02T12:00:00.000Z' });
+
+    const r2 = await shareTokenRoute.POST(
+      makeReq({ method: 'POST', path: `/api/beo/${id}/share-token`, withPin: true }),
+      { params: { id: String(id) } },
+    );
+    const j2 = await r2.json();
+
+    assert.equal(r2.status, 200);
+    assert.equal(j2.created, true);
+    assert.notEqual(j2.token, j1.token);
+    const stored = conn
+      .prepare('SELECT share_token, share_revoked_at FROM beo_events WHERE id = ?')
+      .get(id);
+    assert.equal(stored.share_token, j2.token);
+    assert.equal(stored.share_revoked_at, null);
+  });
 });
 
 // ── GET /api/beo/share/[token] ─────────────────────────────────────
@@ -178,6 +214,8 @@ describe('GET /api/beo/share/[token]', () => {
     const id = seedEvent();
     seedLine(id, 'Smoked Brisket', 80, 14.5);
     seedLine(id, 'Charred Carrots', 80, 6);
+    const otherId = seedEvent({ title: 'West Patio Rehearsal', location: 'west' });
+    seedLine(otherId, 'West Patio Salmon', 20, 12);
 
     const tokRes = await shareTokenRoute.POST(
       makeReq({ method: 'POST', path: `/api/beo/${id}/share-token`, withPin: true }),
@@ -195,11 +233,48 @@ describe('GET /api/beo/share/[token]', () => {
     assert.equal(j.event.location_id, undefined, 'location_id is stripped from public view');
     assert.equal(j.line_items.length, 2);
     assert.equal(j.line_items[0].item_name, 'Smoked Brisket');
+    assert.equal(
+      j.line_items.some((row) => row.item_name === 'West Patio Salmon'),
+      false,
+      'public token must return only the linked BEO line items',
+    );
     assert.ok('unit_cost' in j.line_items[0], 'prices are visible — this is a client-facing invoice');
     assert.equal(j.line_items[0].prep_notes, undefined, 'kitchen prep_notes is not in the SELECT');
     assert.equal(Array.isArray(j.courses), true);
     assert.equal(Array.isArray(j.signatures), true);
     assert.equal(j.signatures.length, 0);
+  });
+
+  it('returns 404 for an expired share token', async () => {
+    const id = seedEvent();
+    const tokRes = await shareTokenRoute.POST(
+      makeReq({ method: 'POST', path: `/api/beo/${id}/share-token`, withPin: true }),
+      { params: { id: String(id) } },
+    );
+    const { token } = await tokRes.json();
+    setShareLifecycle(id, { expiresAt: '2026-01-01T00:00:00.000Z' });
+
+    const res = await shareReadRoute.GET(makeReq({ path: `/api/beo/share/${token}` }), {
+      params: { token },
+    });
+
+    assert.equal(res.status, 404);
+  });
+
+  it('returns 404 for a revoked share token', async () => {
+    const id = seedEvent();
+    const tokRes = await shareTokenRoute.POST(
+      makeReq({ method: 'POST', path: `/api/beo/${id}/share-token`, withPin: true }),
+      { params: { id: String(id) } },
+    );
+    const { token } = await tokRes.json();
+    setShareLifecycle(id, { revokedAt: '2026-01-02T12:00:00.000Z' });
+
+    const res = await shareReadRoute.GET(makeReq({ path: `/api/beo/share/${token}` }), {
+      params: { token },
+    });
+
+    assert.equal(res.status, 404);
   });
 });
 
@@ -240,6 +315,42 @@ describe('POST /api/beo/share/[token]/sign', () => {
       { params: { token } },
     );
     assert.equal(res.status, 400);
+  });
+
+  it('rejects expired tokens without inserting a signature', async () => {
+    const { id, token } = await freshToken();
+    setShareLifecycle(id, { expiresAt: '2026-01-01T00:00:00.000Z' });
+
+    const res = await signRoute.POST(
+      makeReq({
+        method: 'POST',
+        path: `/api/beo/share/${token}/sign`,
+        body: { signed_name: 'Sarah Hendricks' },
+      }),
+      { params: { token } },
+    );
+
+    assert.equal(res.status, 404);
+    const count = conn.prepare(`SELECT COUNT(*) AS n FROM beo_signatures WHERE event_id = ?`).get(id);
+    assert.equal(count.n, 0);
+  });
+
+  it('rejects revoked tokens without inserting a signature', async () => {
+    const { id, token } = await freshToken();
+    setShareLifecycle(id, { revokedAt: '2026-01-02T12:00:00.000Z' });
+
+    const res = await signRoute.POST(
+      makeReq({
+        method: 'POST',
+        path: `/api/beo/share/${token}/sign`,
+        body: { signed_name: 'Sarah Hendricks' },
+      }),
+      { params: { token } },
+    );
+
+    assert.equal(res.status, 404);
+    const count = conn.prepare(`SELECT COUNT(*) AS n FROM beo_signatures WHERE event_id = ?`).get(id);
+    assert.equal(count.n, 0);
   });
 
   it('records the signature row + audit event inside a single transaction', async () => {
