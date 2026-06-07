@@ -536,8 +536,14 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     assert.deepStrictEqual(feed.map((row) => row.op_kind), ['insert', 'insert']);
     assert.strictEqual(feed[0].row_pk, String(recvRow.id));
     assert.strictEqual(feed[1].row_pk, String(invRow.id));
+    const recvPayload = JSON.parse(feed[0].row_json);
+    assert.strictEqual(recvPayload.vendor_sku, null);
+    assert.strictEqual(recvPayload.master_id, 'chicken_breast_40lb_cs');
+    assert.strictEqual(recvPayload.match_status, 'matched');
+    assert.strictEqual(recvPayload.match_reason, 'exact_vendor_item');
     const invPayload = JSON.parse(feed[1].row_json);
     assert.strictEqual(invPayload.item, 'chicken breast 40lb CS');
+    assert.strictEqual(invPayload.master_id, 'chicken_breast_40lb_cs');
     assert.strictEqual(invPayload.delta, '40 lb');
     assert.strictEqual(invPayload.direction, 'in');
     assert.strictEqual(invPayload.receiving_log_id, recvRow.id);
@@ -566,6 +572,12 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     const recvRow = testDb.prepare('SELECT * FROM receiving_log').get();
     assert.strictEqual(recvRow.match_status, 'unmatched');
     assert.strictEqual(recvRow.master_id, null);
+    const feedBeforeResolution = syncRows();
+    assert.strictEqual(feedBeforeResolution.length, 1);
+    const recvPayload = JSON.parse(feedBeforeResolution[0].row_json);
+    assert.strictEqual(recvPayload.master_id, null);
+    assert.strictEqual(recvPayload.match_status, 'unmatched');
+    assert.strictEqual(recvPayload.match_reason, 'no_vendor_price_match');
 
     const queueRes = await GET_MATCHES(matchGetReq());
     assert.strictEqual(queueRes.status, 200);
@@ -632,6 +644,13 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     const recvRow = testDb.prepare('SELECT * FROM receiving_log').get();
     assert.strictEqual(recvRow.match_status, 'ambiguous');
     assert.strictEqual(recvRow.master_id, null);
+    const feedBeforeResolution = syncRows();
+    assert.strictEqual(feedBeforeResolution.length, 1);
+    const recvPayload = JSON.parse(feedBeforeResolution[0].row_json);
+    assert.strictEqual(recvPayload.vendor_sku, 'TOM-CASE');
+    assert.strictEqual(recvPayload.master_id, null);
+    assert.strictEqual(recvPayload.match_status, 'ambiguous');
+    assert.strictEqual(recvPayload.match_reason, 'multiple_vendor_sku_matches');
 
     const queueRes = await GET_MATCHES(matchGetReq());
     assert.strictEqual(queueRes.status, 200);
