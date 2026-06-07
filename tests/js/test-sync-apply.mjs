@@ -60,6 +60,8 @@ before(() => {
 
 beforeEach(() => {
   db.exec(`
+    DELETE FROM inventory_updates;
+    DELETE FROM receiving_log;
     DELETE FROM cooling_log;
     DELETE FROM line_check_entries;
     DELETE FROM vendor_prices;
@@ -338,6 +340,77 @@ describe('applyOp — family 1', () => {
     assert.equal(row.stage1_at, '2026-05-06T11:30:00.000Z');
     assert.equal(row.stage1_reading_f, 65);
     assert.equal(row.status, 'in_progress');
+  });
+
+  it('remaps replayed receiving inventory credits to the local receiving row', () => {
+    db.prepare(`
+      INSERT INTO receiving_log
+        (id, shift_date, location_id, vendor, category, item, status)
+      VALUES
+        (1, '2026-05-06', 'default', 'Existing Local', 'dry_goods', 'local flour', 'accepted')
+    `).run();
+
+    const receivingOp = mkOp({
+      opId: 'recv-source-op',
+      tableName: 'receiving_log',
+      rowPk: '1',
+      sourceHost: 'prep-tablet.local',
+      sourceStartedAt: '2026-05-06T08:00:00.000Z',
+      rowJson: JSON.stringify({
+        shift_date: '2026-05-06',
+        location_id: 'default',
+        vendor: 'Shamrock',
+        category: 'refrigerated',
+        item: 'chicken breast 40lb CS',
+        vendor_sku: 'CHX-40',
+        master_id: 'chicken_breast_40lb_cs',
+        match_status: 'matched',
+        match_reason: 'exact_vendor_item',
+        received_qty: 40,
+        received_unit: 'lb',
+        status: 'accepted',
+      }),
+    });
+    const inventoryOp = mkOp({
+      opId: 'inv-source-op',
+      tableName: 'inventory_updates',
+      rowPk: '1',
+      sourceHost: 'prep-tablet.local',
+      sourceStartedAt: '2026-05-06T08:00:00.000Z',
+      rowJson: JSON.stringify({
+        shift_date: '2026-05-06',
+        location_id: 'default',
+        item: 'chicken breast 40lb CS',
+        master_id: 'chicken_breast_40lb_cs',
+        delta: '40 lb',
+        direction: 'in',
+        note: 'closed-loop receiving from receiving_log #1',
+        cook_id: 'alice',
+        receiving_log_id: 1,
+      }),
+    });
+
+    const result = applyWindow(db, [receivingOp, inventoryOp]);
+    assert.equal(result.applied, 2);
+
+    const replayedReceiving = db
+      .prepare(`SELECT id, master_id, match_status FROM receiving_log WHERE vendor = 'Shamrock'`)
+      .get();
+    assert.ok(replayedReceiving);
+    assert.notEqual(
+      replayedReceiving.id,
+      1,
+      'test setup requires source row_pk to collide with an existing local id',
+    );
+    assert.equal(replayedReceiving.master_id, 'chicken_breast_40lb_cs');
+    assert.equal(replayedReceiving.match_status, 'matched');
+
+    const replayedCredit = db
+      .prepare(`SELECT master_id, receiving_log_id FROM inventory_updates WHERE item = ?`)
+      .get('chicken breast 40lb CS');
+    assert.ok(replayedCredit);
+    assert.equal(replayedCredit.master_id, 'chicken_breast_40lb_cs');
+    assert.equal(replayedCredit.receiving_log_id, replayedReceiving.id);
   });
 });
 

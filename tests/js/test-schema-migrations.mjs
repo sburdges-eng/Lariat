@@ -670,6 +670,18 @@ describe('receiving master contract schema', () => {
     }
   });
 
+  it('receiving_log carries sync replay provenance columns', () => {
+    const info = /** @type {{name: string, type: string, notnull: number}[]} */ (
+      db.prepare('PRAGMA table_info(receiving_log)').all()
+    );
+    const byName = new Map(info.map((c) => [c.name, c]));
+    for (const name of ['sync_source_host', 'sync_source_started_at', 'sync_source_pk']) {
+      assert.ok(byName.has(name), `receiving_log.${name} missing`);
+      assert.strictEqual(byName.get(name).type.toUpperCase(), 'TEXT');
+      assert.strictEqual(byName.get(name).notnull, 0, `receiving_log.${name} must be nullable`);
+    }
+  });
+
   it('inventory_updates carries source receiving and master columns', () => {
     const info = /** @type {{name: string, type: string, notnull: number}[]} */ (
       db.prepare('PRAGMA table_info(inventory_updates)').all()
@@ -681,6 +693,26 @@ describe('receiving master contract schema', () => {
     assert.ok(byName.has('receiving_log_id'), 'inventory_updates.receiving_log_id missing');
     assert.strictEqual(byName.get('receiving_log_id').type.toUpperCase(), 'INTEGER');
     assert.strictEqual(byName.get('receiving_log_id').notnull, 0);
+  });
+
+  it('inventory_updates carries sync replay provenance columns', () => {
+    const info = /** @type {{name: string, type: string, notnull: number}[]} */ (
+      db.prepare('PRAGMA table_info(inventory_updates)').all()
+    );
+    const byName = new Map(info.map((c) => [c.name, c]));
+    for (const name of ['sync_source_host', 'sync_source_started_at', 'sync_source_pk']) {
+      assert.ok(byName.has(name), `inventory_updates.${name} missing`);
+      assert.strictEqual(byName.get(name).type.toUpperCase(), 'TEXT');
+      assert.strictEqual(byName.get(name).notnull, 0, `inventory_updates.${name} must be nullable`);
+    }
+  });
+
+  it('sync replay provenance indexes exist for receiving and inventory', () => {
+    const indexes = /** @type {{name: string}[]} */ (
+      db.prepare(`SELECT name FROM sqlite_master WHERE type = 'index'`).all()
+    ).map((r) => r.name);
+    assert.ok(indexes.includes('idx_receiving_log_sync_source'), 'idx_receiving_log_sync_source missing');
+    assert.ok(indexes.includes('idx_inventory_updates_sync_source'), 'idx_inventory_updates_sync_source missing');
   });
 
   it('pre-contract receiving_log migrates without losing rows', () => {
@@ -720,17 +752,28 @@ describe('receiving master contract schema', () => {
       const cols = /** @type {{name: string}[]} */ (
         legacy.prepare('PRAGMA table_info(receiving_log)').all()
       ).map((c) => c.name);
-      for (const name of ['vendor_sku', 'master_id', 'match_status', 'match_reason']) {
+      for (const name of [
+        'vendor_sku',
+        'master_id',
+        'match_status',
+        'match_reason',
+        'sync_source_host',
+        'sync_source_started_at',
+        'sync_source_pk',
+      ]) {
         assert.ok(cols.includes(name), `migration did not add receiving_log.${name}`);
       }
-      const row = /** @type {{vendor: string, vendor_sku: string | null, master_id: string | null, match_status: string | null, match_reason: string | null}} */ (
-        legacy.prepare('SELECT vendor, vendor_sku, master_id, match_status, match_reason FROM receiving_log').get()
+      const row = /** @type {{vendor: string, vendor_sku: string | null, master_id: string | null, match_status: string | null, match_reason: string | null, sync_source_host: string | null, sync_source_started_at: string | null, sync_source_pk: string | null}} */ (
+        legacy.prepare('SELECT vendor, vendor_sku, master_id, match_status, match_reason, sync_source_host, sync_source_started_at, sync_source_pk FROM receiving_log').get()
       );
       assert.strictEqual(row.vendor, 'Legacy Vendor');
       assert.strictEqual(row.vendor_sku, null);
       assert.strictEqual(row.master_id, null);
       assert.strictEqual(row.match_status, 'not_attempted');
       assert.strictEqual(row.match_reason, null);
+      assert.strictEqual(row.sync_source_host, null);
+      assert.strictEqual(row.sync_source_started_at, null);
+      assert.strictEqual(row.sync_source_pk, null);
     } finally {
       legacy.close();
     }
@@ -763,12 +806,18 @@ describe('receiving master contract schema', () => {
       ).map((c) => c.name);
       assert.ok(cols.includes('master_id'), 'migration did not add inventory_updates.master_id');
       assert.ok(cols.includes('receiving_log_id'), 'migration did not add inventory_updates.receiving_log_id');
-      const row = /** @type {{item: string, master_id: string | null, receiving_log_id: number | null}} */ (
-        legacy.prepare('SELECT item, master_id, receiving_log_id FROM inventory_updates').get()
+      for (const name of ['sync_source_host', 'sync_source_started_at', 'sync_source_pk']) {
+        assert.ok(cols.includes(name), `migration did not add inventory_updates.${name}`);
+      }
+      const row = /** @type {{item: string, master_id: string | null, receiving_log_id: number | null, sync_source_host: string | null, sync_source_started_at: string | null, sync_source_pk: string | null}} */ (
+        legacy.prepare('SELECT item, master_id, receiving_log_id, sync_source_host, sync_source_started_at, sync_source_pk FROM inventory_updates').get()
       );
       assert.strictEqual(row.item, 'Legacy Item');
       assert.strictEqual(row.master_id, null);
       assert.strictEqual(row.receiving_log_id, null);
+      assert.strictEqual(row.sync_source_host, null);
+      assert.strictEqual(row.sync_source_started_at, null);
+      assert.strictEqual(row.sync_source_pk, null);
     } finally {
       legacy.close();
     }

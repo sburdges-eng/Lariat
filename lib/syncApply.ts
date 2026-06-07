@@ -203,6 +203,75 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
 }
 
+function hasSyncSourceColumns(tableCols: ReadonlySet<string>): boolean {
+  return (
+    tableCols.has('sync_source_host') &&
+    tableCols.has('sync_source_started_at') &&
+    tableCols.has('sync_source_pk')
+  );
+}
+
+function withSyncSourceColumns(
+  row: Record<string, unknown>,
+  tableCols: ReadonlySet<string>,
+  op: SyncOp,
+): Record<string, unknown> {
+  if (!hasSyncSourceColumns(tableCols)) return row;
+  return {
+    ...row,
+    sync_source_host: op.sourceHost,
+    sync_source_started_at: op.sourceStartedAt,
+    sync_source_pk: op.rowPk,
+  };
+}
+
+function sourcePkValue(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim().length > 0) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return null;
+}
+
+function remapInventoryReceivingLogId(
+  db: DB,
+  row: Record<string, unknown>,
+  op: SyncOp,
+): { row: Record<string, unknown> } | { error: ApplyResult } {
+  if (op.tableName !== 'inventory_updates' || row.receiving_log_id == null) {
+    return { row };
+  }
+
+  const sourceReceivingPk = sourcePkValue(row.receiving_log_id);
+  if (!sourceReceivingPk) {
+    return {
+      error: {
+        outcome: 'skipped-bad-payload',
+        reason: 'inventory_updates.receiving_log_id must be a source row id',
+      },
+    };
+  }
+
+  const localReceiving = db
+    .prepare(
+      `SELECT id FROM receiving_log
+       WHERE sync_source_host = ?
+         AND sync_source_started_at = ?
+         AND sync_source_pk = ?
+       LIMIT 1`,
+    )
+    .get(op.sourceHost, op.sourceStartedAt, sourceReceivingPk) as { id: number } | undefined;
+
+  if (!localReceiving) {
+    return {
+      error: {
+        outcome: 'skipped-bad-payload',
+        reason: `missing receiving_log source mapping for ${sourceReceivingPk}`,
+      },
+    };
+  }
+
+  return { row: { ...row, receiving_log_id: localReceiving.id } };
+}
+
 /**
  * Filter a row object to columns the local table actually has.
  * Returns { cols, vals, dropped } where cols/vals are aligned arrays
@@ -246,7 +315,14 @@ function applyFamily1(db: DB, op: SyncOp): ApplyResult {
   const parsed = parseRowJson(op);
   if (!isObject(parsed)) return { outcome: 'skipped-bad-payload', reason: 'rowJson is not an object' };
 
-  const { cols, vals, dropped } = alignToTable(parsed, tableCols);
+  let rowForApply = parsed;
+  if (op.opKind !== 'update') {
+    const remapped = remapInventoryReceivingLogId(db, rowForApply, op);
+    if ('error' in remapped) return remapped.error;
+    rowForApply = withSyncSourceColumns(remapped.row, tableCols, op);
+  }
+
+  const { cols, vals, dropped } = alignToTable(rowForApply, tableCols);
   if (cols.length === 0) {
     return { outcome: 'skipped-schema-drift', reason: 'no columns overlap local table' };
   }

@@ -178,12 +178,12 @@ These are the defaults used for this roadmap branch. Reopen them only with a spe
 The old five-item sequence is now reconciled so future agents do not redo finished work:
 
 1. **1.9** — closed; navRegistry coverage and install/login exclusions are pinned.
-2. **P0 ERP lane** — continued; receiving-to-inventory now preserves match/master truth in sync payloads, so replay does not drop matched, unmatched, or ambiguous receiving state.
+2. **P0 ERP lane** — closed for the receiving/inventory replay proof; receiving-to-inventory now preserves match/master truth in sync payloads and remaps replayed inventory credits back to the local replayed receiving row, so matched, unmatched, or ambiguous receiving state does not drift across peers.
 3. **2.9** — closed; design tokens are extracted and import-order tested.
 4. **2.10** — closed; the first `/v2` shell is cookie-gated, side-by-side, and leaves v1 as default with no route replacement.
 5. **3.1** — remains deferred; no venue switcher or consolidated multi-venue rollup belongs in this freeze slice.
 
-The next implementation work should start from the remaining open rows, not from the stale sequence above: finish any remaining P0 receiving/inventory replay proof, then move into the still-open scale/readiness rows such as 2.18 DB index audit, 2.19 WAL checkpoint policy, 2.20 bundle-size audit, and 2.21 iPad performance.
+The next implementation work should start from the remaining open rows, not from the stale sequence above: move into the still-open scale/readiness rows such as 2.18 DB index audit, 2.19 WAL checkpoint policy, 2.20 bundle-size audit, and 2.21 iPad performance.
 
 ---
 
