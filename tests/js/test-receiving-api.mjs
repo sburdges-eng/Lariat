@@ -106,6 +106,16 @@ function seedIngredientMaster(masterId, canonicalName = 'Chicken Breast') {
     .run(masterId, canonicalName);
 }
 
+function seedVendorPrice({ vendor, sku, ingredient, masterId, location = 'default' }) {
+  testDb
+    .prepare(
+      `INSERT INTO vendor_prices
+         (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, master_id, location_id)
+       VALUES (?, ?, ?, 1, 'case', 10, 10, ?, ?)`,
+    )
+    .run(ingredient, vendor, sku, masterId, location);
+}
+
 // ── POST — happy path ────────────────────────────────────────────
 
 describe('POST /api/receiving — happy path', () => {
@@ -552,6 +562,71 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     assert.strictEqual(queue.total, 1);
     assert.strictEqual(queue.matches[0].id, recvRow.id);
     assert.strictEqual(queue.matches[0].match_status, 'unmatched');
+  });
+
+  it('ambiguous vendor match queues without crediting inventory until manager resolution', async () => {
+    seedIngredientMaster('shamrock_heirloom_tomato', 'Shamrock Heirloom Tomato');
+    seedIngredientMaster('local_heirloom_tomato', 'Local Heirloom Tomato');
+    seedVendorPrice({
+      vendor: 'Shamrock',
+      sku: 'TOM-CASE',
+      ingredient: 'heirloom tomato case',
+      masterId: 'shamrock_heirloom_tomato',
+    });
+    seedVendorPrice({
+      vendor: 'Shamrock',
+      sku: 'TOM-CASE',
+      ingredient: 'local heirloom tomato case',
+      masterId: 'local_heirloom_tomato',
+    });
+
+    const res = await POST(postReq({
+      vendor: 'Shamrock',
+      vendor_sku: 'TOM-CASE',
+      category: 'produce',
+      item: 'heirloom tomato case',
+      package_ok: true,
+      received_qty: 2,
+      received_unit: 'case',
+      cook_id: 'maria',
+    }));
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.match.status, 'ambiguous');
+    assert.strictEqual(body.match.master_id, null);
+    assert.strictEqual(body.match.reason, 'multiple_vendor_sku_matches');
+    assert.strictEqual(countReceiving(), 1);
+    assert.strictEqual(countInventoryUpdates(), 0);
+
+    const recvRow = testDb.prepare('SELECT * FROM receiving_log').get();
+    assert.strictEqual(recvRow.match_status, 'ambiguous');
+    assert.strictEqual(recvRow.master_id, null);
+
+    const queueRes = await GET_MATCHES(matchGetReq());
+    assert.strictEqual(queueRes.status, 200);
+    const queue = await queueRes.json();
+    assert.strictEqual(queue.total, 1);
+    assert.strictEqual(queue.matches[0].id, recvRow.id);
+    assert.strictEqual(queue.matches[0].match_status, 'ambiguous');
+
+    const patchRes = await PATCH_MATCH(
+      patchMatchReq(recvRow.id, {
+        master_id: 'local_heirloom_tomato',
+        cook_id: 'manager-alex',
+      }),
+      { params: { id: String(recvRow.id) } },
+    );
+    assert.strictEqual(patchRes.status, 200);
+    const patchBody = await patchRes.json();
+    assert.strictEqual(patchBody.ok, true);
+    assert.strictEqual(patchBody.receiving.master_id, 'local_heirloom_tomato');
+    assert.strictEqual(patchBody.inventory_update.master_id, 'local_heirloom_tomato');
+
+    assert.strictEqual(countInventoryUpdates(), 1);
+    const invRow = testDb.prepare('SELECT * FROM inventory_updates').get();
+    assert.strictEqual(invRow.item, 'heirloom tomato case');
+    assert.strictEqual(invRow.delta, '2 case');
+    assert.strictEqual(invRow.receiving_log_id, recvRow.id);
   });
 
   it('manager resolution updates existing credited stock without duplicating inventory', async () => {
