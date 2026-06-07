@@ -324,7 +324,10 @@ async function receivingHandler(req) {
       ? resolveReceivingMaster(db, { location_id, vendor, vendor_sku, item })
       : { status: 'not_attempted', master_id: null, reason: null };
     const shouldCreditInventory =
-      shouldAttemptInventoryCredit && masterMatch.status !== 'ambiguous';
+      shouldAttemptInventoryCredit &&
+      masterMatch.status === 'matched' &&
+      typeof masterMatch.master_id === 'string' &&
+      masterMatch.master_id.length > 0;
 
     const performWrite = db.transaction(() => {
       const info = db
