@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { getStations, getLineCheckTemplate, getRecipes } from '../lib/data';
 import { getDb, todayISO, getPreshiftNote, todayServiceLabel } from '../lib/db';
 import { DEFAULT_LOCATION_ID } from '../lib/location';
-import { lineSummaryText } from '../lib/lineSummary';
+import { activeLineCheckStations, lineSummaryText } from '../lib/lineSummary';
 import { cascadedFromEightySix } from '../lib/subRecipeGraph';
 import PreshiftNotes from './_components/PreshiftNotes';
 
@@ -90,6 +90,7 @@ export default function TodayPage({ searchParams }) {
     ...s,
     prog: stationProgress(s, date, loc),
   }));
+  const lineCheckStationsWithProgress = activeLineCheckStations(stationsWithProgress);
   const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
 
   const db = getDb();
@@ -112,10 +113,10 @@ export default function TodayPage({ searchParams }) {
     .all(date, loc);
 
   // Editorial stats
-  const ready = stationsWithProgress.filter(
+  const ready = lineCheckStationsWithProgress.filter(
     (s) => s.prog && (s.prog.signedOff || s.prog.done >= s.prog.total)
   ).length;
-  const flagged = stationsWithProgress.reduce(
+  const flagged = lineCheckStationsWithProgress.reduce(
     (n, s) => n + (s.prog?.flagged || 0),
     0
   );
@@ -201,7 +202,7 @@ export default function TodayPage({ searchParams }) {
       </div>
 
       <div className="rush-grid">
-        {stationsWithProgress.map((s) => {
+        {lineCheckStationsWithProgress.map((s) => {
           const color = rushColor(s.prog);
           const label = rushLabel(s.prog);
           return (
