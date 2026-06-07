@@ -127,7 +127,7 @@ The `docs/redesign/lari-ui-demo.html` is a prototype. A real migration needs:
 |-----|--------|------|
 | 2.14 | L  | **Show/box-office route family.** 9 untested routes under `/api/shows/[id]/*` covering settlement, deal terms, box-office lines, stage setups, sound scenes, SPL readings. Product call on 2026-06-04: the live-music venue arm is production-active, so this is genuine test-hardening debt, not a deprecation path. |
 | 2.15 | M  | **Closed:** Inventory count routes are pinned across open, line upsert, closed-count rejection, close/reopen, location scoping, GET detail, schema migration, and cross-location line-count/detail leakage canaries. `tests/js/test-inventory-counts-api.mjs` covers `/api/inventory/counts`, `/api/inventory/counts/[id]`, and `/api/inventory/counts/[id]/lines`; summary/detail reads now filter count lines by count location. |
-| 2.16 | M  | **Recipe-photo + raw routes.** `/api/recipes/[slug]/photos/*` — hero pinning + raw image serving. The hero migration (T2 in `lib/db.ts::migrateLegacyColumns`) added behavior worth pinning. |
+| 2.16 | M  | **Closed:** Recipe-photo + raw routes are pinned across upload validation, PIN-gated mutations, list/delete visibility, raw reads, hero pinning, caption edits, cleanup retention, and raw-path containment. `readPhoto()` now only serves files under `data/uploads/recipes`, so a bad `recipe_photos.stored_path` row cannot stream arbitrary local files. |
 | 2.17 | M  | **Cloud-bridge DLQ admin routes.** `/api/cloud-bridge/dead-letters/[id]/{drop,requeue}` — low-frequency but consequential per-call. |
 
 ### 2D. Performance + scale work I didn't audit
@@ -183,7 +183,7 @@ The old five-item sequence is now reconciled so future agents do not redo finish
 4. **2.10** — closed; the first `/v2` shell is cookie-gated, side-by-side, and leaves v1 as default with no route replacement.
 5. **3.1** — remains deferred; no venue switcher or consolidated multi-venue rollup belongs in this freeze slice.
 
-The next implementation work should start from the remaining open rows, not from the stale sequence above: finish any remaining P0 receiving/inventory replay proof, then continue production coverage debt such as recipe-photo/raw route hardening or cloud-bridge DLQ admin route tests.
+The next implementation work should start from the remaining open rows, not from the stale sequence above: finish any remaining P0 receiving/inventory replay proof, then continue production coverage debt such as cloud-bridge DLQ admin route tests.
 
 ---
 
