@@ -191,6 +191,32 @@ describe('POST /api/beo/[id]/share-token', () => {
     assert.equal(stored.share_token, j2.token);
     assert.equal(stored.share_revoked_at, null);
   });
+
+  it('mints a fresh token when expiry is only millisecond-future inside the current second', async () => {
+    const originalNow = Date.now;
+    Date.now = () => Date.parse('2026-01-01T00:00:00.100Z');
+    try {
+      const id = seedEvent();
+      const r1 = await shareTokenRoute.POST(
+        makeReq({ method: 'POST', path: `/api/beo/${id}/share-token`, withPin: true }),
+        { params: { id: String(id) } },
+      );
+      const j1 = await r1.json();
+      setShareLifecycle(id, { expiresAt: '2026-01-01T00:00:00.900Z' });
+
+      const r2 = await shareTokenRoute.POST(
+        makeReq({ method: 'POST', path: `/api/beo/${id}/share-token`, withPin: true }),
+        { params: { id: String(id) } },
+      );
+      const j2 = await r2.json();
+
+      assert.equal(r2.status, 200);
+      assert.equal(j2.created, true);
+      assert.notEqual(j2.token, j1.token);
+    } finally {
+      Date.now = originalNow;
+    }
+  });
 });
 
 // ── GET /api/beo/share/[token] ─────────────────────────────────────

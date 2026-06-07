@@ -44,7 +44,7 @@ async function handler(req, ctx) {
   const tokenActive =
     event.share_token &&
     !event.share_revoked_at &&
-    (!event.share_expires_at || Date.parse(event.share_expires_at) > Date.now());
+    isShareExpiryActive(event.share_expires_at);
 
   if (tokenActive) {
     return Response.json({
@@ -86,4 +86,11 @@ async function handler(req, ctx) {
     share_url: buildShareUrl(token),
     created: true,
   });
+}
+
+function isShareExpiryActive(expiresAt) {
+  if (!expiresAt) return true;
+  const expiresMs = Date.parse(expiresAt);
+  if (!Number.isFinite(expiresMs)) return false;
+  return Math.floor(expiresMs / 1000) > Math.floor(Date.now() / 1000);
 }
