@@ -397,32 +397,81 @@ const MANAGER_QUERIES: DbQuerySpec[] = [
   {
     name: 'vendor_price_shocks',
     tier: 'manager',
-    description: 'Recent price changes above a percent threshold over the last N days (LAG over snapshot history).',
-    locationScoped: false,
+    description: 'Recent price changes above a percent threshold over the last N days (page-compatible vendor SKU rows).',
+    locationScoped: true,
     rowCap: 40,
     params: [
       { name: 'days', type: 'integer', required: false, min: 1, max: 90, description: 'Look-back window in days. Default 14.' },
       { name: 'threshold_pct', type: 'number', required: false, min: 1, max: 500, description: 'Percent change threshold. Default 10.' },
     ],
     sql: `
-      WITH ranked AS (
+      WITH points AS (
         SELECT
-          ingredient, vendor, pack_unit, unit_price, snapshot_at,
-          LAG(unit_price) OVER (PARTITION BY vendor, ingredient, pack_unit ORDER BY snapshot_at) AS prev_unit_price,
-          LAG(snapshot_at) OVER (PARTITION BY vendor, ingredient, pack_unit ORDER BY snapshot_at) AS prev_at
+          vendor, sku, ingredient, category, pack_unit, unit_price,
+          snapshot_at AS point_at,
+          0 AS source_order,
+          id AS row_order
         FROM vendor_prices_history
-        WHERE snapshot_at >= datetime('now', '-' || COALESCE(:days, 14) || ' days')
+        WHERE location_id = :location_id
+          AND snapshot_at >= datetime('now', '-' || COALESCE(:days, 14) || ' days')
+          AND vendor IS NOT NULL
+          AND sku IS NOT NULL
           AND unit_price IS NOT NULL
+        UNION ALL
+        SELECT
+          vendor, sku, ingredient, category, pack_unit, unit_price,
+          COALESCE(imported_at, datetime('now')) AS point_at,
+          1 AS source_order,
+          id AS row_order
+        FROM vendor_prices
+        WHERE location_id = :location_id
+          AND COALESCE(imported_at, datetime('now')) >= datetime('now', '-' || COALESCE(:days, 14) || ' days')
+          AND vendor IS NOT NULL
+          AND sku IS NOT NULL
+          AND unit_price IS NOT NULL
+      ),
+      ranked AS (
+        SELECT
+          vendor, sku, ingredient, category, pack_unit, unit_price, point_at,
+          COUNT(*) OVER (PARTITION BY vendor, sku, ingredient) AS point_count,
+          FIRST_VALUE(unit_price) OVER (
+            PARTITION BY vendor, sku, ingredient
+            ORDER BY point_at ASC, source_order ASC, row_order ASC
+            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+          ) AS baseline_unit_price,
+          FIRST_VALUE(point_at) OVER (
+            PARTITION BY vendor, sku, ingredient
+            ORDER BY point_at ASC, source_order ASC, row_order ASC
+            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+          ) AS baseline_at,
+          FIRST_VALUE(unit_price) OVER (
+            PARTITION BY vendor, sku, ingredient
+            ORDER BY point_at DESC, source_order DESC, row_order DESC
+            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+          ) AS latest_unit_price,
+          FIRST_VALUE(point_at) OVER (
+            PARTITION BY vendor, sku, ingredient
+            ORDER BY point_at DESC, source_order DESC, row_order DESC
+            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+          ) AS latest_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY vendor, sku, ingredient
+            ORDER BY point_at DESC, source_order DESC, row_order DESC
+          ) AS rn
+        FROM points
       )
       SELECT
-        ingredient, vendor, pack_unit, prev_unit_price, unit_price,
-        ROUND(((unit_price - prev_unit_price) / NULLIF(prev_unit_price, 0)) * 100, 1) AS pct_change,
-        prev_at, snapshot_at
+        vendor, sku, ingredient, category, pack_unit,
+        baseline_unit_price, baseline_at,
+        latest_unit_price, latest_at,
+        ROUND(((latest_unit_price - baseline_unit_price) / NULLIF(baseline_unit_price, 0)) * 100, 1) AS delta_pct,
+        CASE WHEN latest_unit_price >= baseline_unit_price THEN 'up' ELSE 'down' END AS direction
       FROM ranked
-      WHERE prev_unit_price IS NOT NULL
-        AND prev_unit_price > 0
-        AND ABS((unit_price - prev_unit_price) / prev_unit_price) * 100 >= COALESCE(:threshold_pct, 10)
-      ORDER BY ABS(pct_change) DESC
+      WHERE rn = 1
+        AND point_count >= 2
+        AND baseline_unit_price > 0
+        AND ABS((latest_unit_price - baseline_unit_price) / baseline_unit_price) * 100 >= COALESCE(:threshold_pct, 10)
+      ORDER BY ABS(delta_pct) DESC, ingredient ASC, vendor ASC, sku ASC
     `,
   },
   {

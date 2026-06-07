@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 import { buildGroundedContext } from '../../../lib/kitchenAssistantContext';
 import { getDb, todayISO } from '../../../lib/db';
 import {
@@ -30,6 +30,10 @@ import {
   formatQueryResultForPrompt,
 } from '../../../lib/dbQueryTool';
 import {
+  runSemanticKitchenSearch,
+  formatSemanticKitchenSearchForPrompt,
+} from '../../../lib/kitchenSemanticSearch';
+import {
   normalizeConversationInputs,
   sweepExpiredConversationTurns,
   loadRecentConversationTurns,
@@ -43,14 +47,103 @@ export const maxDuration = 120;
 const MAX_MESSAGE = 2000;
 const MAX_ITEM = 300;
 const MAX_NOTE = 500;
+const DB_QUERY_SUMMARY_THRESHOLD_ROWS = 20;
+const DB_QUERY_SUMMARY_SYSTEM = `You summarize vetted Lariat db_query table results for restaurant operators.
+Use ONLY the raw table provided by the server.
+Write exactly two short sentences.
+No markdown table, no JSON, no advice that is not supported by the table.`;
 
+/**
+ * @typedef {import('../../../lib/dbQueryTool').DbQueryRunResult} DbQueryRunResult
+ *
+ * @typedef {Record<string, unknown> & {
+ *   message?: unknown;
+ *   location_id?: unknown;
+ *   location?: unknown;
+ *   language?: unknown;
+ *   cook_id?: unknown;
+ *   conversation_session_id?: unknown;
+ * }} KitchenAssistantBody
+ *
+ * @typedef {{ ingredient: string; base_qty: number; unit: string | null }} InventoryRow
+ * @typedef {{ cnt: number }} CountRow
+ * @typedef {{ id: number }} IdRow
+ * @typedef {{ location_id: string; guest_count: number | null }} BeoEventRow
+ * @typedef {{ n: number }} ActiveEmployeeCountRow
+ * @typedef {[string, string, string | null, string | null, string, string | null, string]} PrepRow
+ */
+
+/**
+ * @param {unknown} s
+ * @param {number} max
+ * @returns {string | null}
+ */
 function clip(s, max) {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 }
 
+/**
+ * @param {unknown} err
+ * @returns {string}
+ */
+function errorMessage(err) {
+  return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * @param {unknown} err
+ * @returns {string | undefined}
+ */
+function errorName(err) {
+  return err && typeof err === 'object' && 'name' in err ? String(err.name) : undefined;
+}
+
+/**
+ * @param {DbQueryRunResult} result
+ * @param {string} table
+ * @returns {Promise<string | null>}
+ */
+async function summarizeDbQueryResult(result, table) {
+  if (result.rowCount <= DB_QUERY_SUMMARY_THRESHOLD_ROWS) return null;
+  try {
+    const rowsLine = result.truncated
+      ? `${result.rowCount} row(s), truncated to ${result.rowCap}`
+      : `${result.rowCount} row(s)`;
+    const { content } = await ollamaChat({
+      messages: [
+        { role: 'system', content: DB_QUERY_SUMMARY_SYSTEM },
+        {
+          role: 'user',
+          content: [
+            `Query: ${result.query.name}`,
+            `Description: ${result.query.description}`,
+            `Rows returned: ${rowsLine}`,
+            '',
+            table,
+            '',
+            'Write exactly two short sentences for a busy restaurant operator.',
+          ].join('\n'),
+        },
+      ],
+      temperature: 0,
+      num_predict: 120,
+      num_ctx: 2048,
+    });
+    const summary = content.trim();
+    return summary || null;
+  } catch (err) {
+    console.error('db_query summary failed:', err);
+    return null;
+  }
+}
+
 /** GET — Ollama reachability + safe config for UI (no secrets). */
+/**
+ * @param {Request} req
+ * @returns {Promise<Response>}
+ */
 export async function GET(req) {
   const u = new URL(req.url);
   const ping = u.searchParams.get('ping') === '1';
@@ -70,14 +163,23 @@ export async function GET(req) {
   }
 }
 
+/**
+ * @param {Request} req
+ * @returns {Promise<Response>}
+ */
 export async function POST(req) {
   return withIdempotency(req, () => kitchenAssistantPostHandler(req));
 }
 
+/**
+ * @param {Request} req
+ * @returns {Promise<Response>}
+ */
 async function kitchenAssistantPostHandler(req) {
+  /** @type {KitchenAssistantBody} */
   let body = {};
   try {
-    body = await req.json();
+    body = /** @type {KitchenAssistantBody} */ (await req.json());
   } catch {
     return Response.json({ error: 'Invalid JSON' }, { status: 400 });
   }
@@ -161,11 +263,17 @@ async function kitchenAssistantPostHandler(req) {
   // is just discoverability. Catalog is small (~12 cook-tier / ~24 manager-tier
   // one-liners) so the budget impact is bounded.
   const queryCatalog = renderQueryCatalog(hasPin ? 'manager' : 'cook');
+  const semanticSearchCatalog = `
+SEMANTIC SEARCH ACTION:
+- For fuzzy recipe, BEO, or kitchen audit-memory lookup, you may emit:
+  { "action": "semantic_search", "query": "natural language search text", "limit": 6 }
+- This action is read-only and available at cook tier.
+- Use it when exact names are missing, for example "that wedding cake recipe with the cherry filling".`;
 
   const historyBlock = conversationHistory
     ? `\n---\n${conversationHistory}\n`
     : '\n';
-  let userContent = `CONTEXT (authoritative — only use these facts for operational claims):\n\n${contextText}\n\n${queryCatalog}${historyBlock}---\nCOOK MESSAGE:\n${message}`;
+  let userContent = `CONTEXT (authoritative — only use these facts for operational claims):\n\n${contextText}\n\n${queryCatalog}\n${semanticSearchCatalog}${historyBlock}---\nCOOK MESSAGE:\n${message}`;
 
   if (body.language && body.language !== 'English') {
     userContent += `\n\nTRANSLATION DIRECTIVE: You MUST answer the cook entirely in ${body.language}. Ensure you use accurate culinary terms and maintain the requested formatting.`;
@@ -197,6 +305,7 @@ ARITHMETIC & VALIDATION RULE: The server runs a deterministic calculator and FDA
     userContent += `\n\nANSWER FORMAT:
 
 This is a question, not a command. Answer with plain prose only — bullets are fine. NEVER emit a JSON action block.
+Exception: if the read-only db_query catalog or semantic_search action is the right tool, emit that one JSON action block first, then write a short human framing after it.
 
 In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like "what's 86?", "is X 86 today?", or "anything 86?" as inventory inquiries — not commands. Cite what the CONTEXT shows on the 86 board, or say nothing is 86 if it's empty.`;
   }
@@ -227,21 +336,46 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
     // require hasPin); SQL is hardcoded in the registry; location is
     // forced from the request. So this branch can short-circuit BEFORE
     // the broader "strip JSON on question path" defense below.
-    if (payload && payload.action === 'db_query' && typeof payload.query === 'string') {
+    if (payload && payload.action === 'semantic_search' && typeof payload.query === 'string') {
+      const searchQuery = clip(payload.query, MAX_MESSAGE) || message;
+      const rawLimit = typeof payload.limit === 'number' ? payload.limit : Number(payload.limit);
+      const semanticOutcome = await runSemanticKitchenSearch({
+        db: getDb(),
+        locationId,
+        query: searchQuery,
+        limit: Number.isFinite(rawLimit) ? rawLimit : 6,
+      });
+      actionMsg = formatSemanticKitchenSearchForPrompt(semanticOutcome);
+      actionExecuted = true;
+      sources.push({
+        type: 'semantic_search',
+        detail: `${semanticOutcome.hits.length} hit(s) for "${semanticOutcome.query || 'blank query'}"`,
+      });
+      finalAnswer = stripped || '';
+    } else if (payload && payload.action === 'db_query' && typeof payload.query === 'string') {
       const dbQueryOutcome = runDbQuery({
         name: payload.query,
-        params: (payload.params && typeof payload.params === 'object') ? payload.params : {},
+        params: (payload.params && typeof payload.params === 'object')
+          ? /** @type {Record<string, unknown>} */ (payload.params)
+          : {},
         hasPin,
         requestLocationId: locationId,
       });
       if (dbQueryOutcome.ok) {
         const table = formatQueryResultForPrompt(dbQueryOutcome);
-        actionMsg = table;
+        const summary = await summarizeDbQueryResult(dbQueryOutcome, table);
+        actionMsg = summary ? `Summary:\n${summary}\n\n${table}` : table;
         actionExecuted = true;
         sources.push({
           type: 'db_query',
           detail: `${dbQueryOutcome.query.name} → ${dbQueryOutcome.rowCount} row(s)${dbQueryOutcome.truncated ? ' (truncated)' : ''}`,
         });
+        if (summary) {
+          sources.push({
+            type: 'db_query_summary',
+            detail: `${dbQueryOutcome.query.name} summarized locally`,
+          });
+        }
       } else {
         actionMsg = dbQueryOutcome.error;
         actionExecuted = true;
@@ -288,12 +422,12 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           actionExecuted = true;
         } else if (payload.action === 'eighty_six' && payload.item) {
           const itemName = clip(payload.item, MAX_ITEM);
-          const invRow = db.prepare(
+          const invRow = /** @type {InventoryRow | undefined} */ (db.prepare(
             `SELECT ingredient, base_qty, unit FROM order_guide_items WHERE ingredient LIKE ? AND location_id = ? LIMIT 1`
-          ).get(`%${itemName}%`, locationId);
-          const depletedToday = invRow ? db.prepare(
+          ).get(`%${itemName}%`, locationId));
+          const depletedToday = invRow ? /** @type {CountRow | undefined} */ (db.prepare(
             `SELECT COUNT(*) as cnt FROM inventory_updates WHERE item LIKE ? AND location_id = ? AND shift_date = ? AND direction IN ('out','waste')`
-          ).get(`%${itemName}%`, locationId, todayISO()) : null;
+          ).get(`%${itemName}%`, locationId, todayISO())) : null;
           const stockDepleted = depletedToday && depletedToday.cnt > 0;
           if (invRow && invRow.base_qty > 0 && !stockDepleted && !hasPin) {
             actionMsg = `Hold on — order guide shows ${invRow.base_qty} ${invRow.unit || ''} of ${invRow.ingredient} on hand. Look again, then ask a manager if it's really gone.`;
@@ -355,7 +489,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
             : NaN;
 
           if (payload.temp_point_id && Number.isFinite(readingF)) {
-            const pt = getTempPoint(payload.temp_point_id);
+            const pt = getTempPoint(String(payload.temp_point_id));
             if (pt) {
               const val = validateTempReading(pt, readingF, note);
               if (!val.ok) {
@@ -390,7 +524,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           // eighty_six lookup pattern earlier in this file. Pre-fix the
           // raw `equipName` only matched on exact equality, defeating the
           // LIKE — the LLM had to know the exact stored name to resolve.
-          const row = db.prepare('SELECT id FROM equipment WHERE name LIKE ? AND location_id = ?').get(`%${equipName}%`, locationId);
+          const row = /** @type {IdRow | undefined} */ (db.prepare('SELECT id FROM equipment WHERE name LIKE ? AND location_id = ?').get(`%${equipName}%`, locationId));
           const equipId = row ? row.id : null;
           if (!equipId) {
             actionMsg = `Could not find equipment "${equipName}" — ask a manager to add it first.`;
@@ -450,7 +584,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
               console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Scale Recipe ${result.recipeSlug} ×${result.scaleFactor} ⚠️\n`);
             } catch (e) {
               const code = e instanceof CalculatorError ? e.code : 'unknown';
-              actionMsg = `Scale Recipe failed (${code}): ${e.message}`;
+              actionMsg = `Scale Recipe failed (${code}): ${errorMessage(e)}`;
               actionExecuted = true;
               console.error('Calculator scale_recipe error:', e);
             }
@@ -496,9 +630,9 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           // auto-correct. We surface the rejection in actionMsg using the
           // same soft-reject pattern as `maintenance` ("Could not find
           // equipment …") and DO NOT fall back to a default location_id.
-          const beoEvent = db
+          const beoEvent = /** @type {BeoEventRow | undefined} */ (db
             .prepare('SELECT location_id, guest_count FROM beo_events WHERE id = ?')
-            .get(eventIdNum);
+            .get(eventIdNum));
           if (!beoEvent) {
             actionMsg = `Add BEO Prep blocked — event ${eventIdNum} does not exist. Ask a manager to create the BEO first.`;
             actionExecuted = true;
@@ -536,7 +670,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
                   calcNotes.push(`Calculator produced ${calcTasks.length} scaled prep lines for ${guests} guests.`);
                 } catch (e) {
                   const code = e instanceof CalculatorError ? e.code : 'unknown';
-                  calcNotes.push(`Calculator error (${code}): ${e.message}. Falling back to model-provided tasks.`);
+                  calcNotes.push(`Calculator error (${code}): ${errorMessage(e)}. Falling back to model-provided tasks.`);
                 }
               }
             }
@@ -591,9 +725,9 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           let rosterOk = true;
           let rosterEmpty = false;
           try {
-            const totalRow = db
+            const totalRow = /** @type {ActiveEmployeeCountRow | undefined} */ (db
               .prepare('SELECT COUNT(*) AS n FROM entities_employees WHERE active = 1')
-              .get();
+              .get());
             rosterEmpty = !totalRow || (totalRow.n ?? 0) === 0;
             if (!rosterEmpty) {
               const match = db
@@ -651,7 +785,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
               // station/shift. A thrown validator is a HACCP signal a
               // manager must see, not a quiet skip.
               status = 'fail';
-              note = `[Validation Error: ${err.message}] ${note || ''}`;
+              note = `[Validation Error: ${errorMessage(err)}] ${note || ''}`;
             }
           }
 
@@ -677,6 +811,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           // discard its `need` string and let the calculator produce the authoritative
           // quantity list. Otherwise fall through to the task as provided.
           // Collect all rows first (some branches are async), then insert atomically.
+          /** @type {PrepRow[]} */
           const prepRows = [];
           for (const t of payload.tasks) {
             const slug = t && (t.recipe_slug || t.recipe);
@@ -781,7 +916,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
         'Check tags with a manager. Do not trust AI for allergies.',
     });
   } catch (e) {
-    const msg = e?.name === 'AbortError' ? 'Inference timed out — try a shorter question or a smaller model.' : String(e.message || e);
+    const msg = errorName(e) === 'AbortError' ? 'Inference timed out — try a shorter question or a smaller model.' : errorMessage(e);
     console.error(e);
     return Response.json({ error: msg }, { status: 502 });
   }
