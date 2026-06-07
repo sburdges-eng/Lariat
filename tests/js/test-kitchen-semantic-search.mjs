@@ -137,6 +137,28 @@ function seedRows() {
   );
 }
 
+function seedLineItemForSearch({ itemName, prepNotes, groupNote = null }) {
+  const eventId = Number(testDb.prepare(
+    `INSERT INTO beo_events (title, event_date, contact_name, guest_count, notes, location_id)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(
+    'Lopez Gluten-Free Rehearsal',
+    '2026-06-22',
+    'Mia Lopez',
+    48,
+    'Separate gluten-free dessert plating on request.',
+    LOC,
+  ).lastInsertRowid);
+
+  testDb.prepare(
+    `INSERT INTO beo_line_items
+       (event_id, sort_order, item_name, category, quantity, unit_cost, prep_notes, group_note)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(eventId, 2, itemName, 'Dessert', 48, 3.25, prepNotes, groupNote);
+
+  return eventId;
+}
+
 before(() => {
   writeRecipes();
 });
@@ -194,5 +216,49 @@ describe('runSemanticKitchenSearch', () => {
     assert.equal(result.ok, true);
     assert.deepEqual(result.hits, []);
     assert.match(semantic.formatSemanticKitchenSearchForPrompt(result), /No semantic search matches/);
+  });
+
+  it('matches short kitchen shorthand that normalizes but has no searchable tokens', async () => {
+    seedLineItemForSearch({
+      itemName: 'Berry cobbler',
+      prepNotes: 'GF cobbler needs a separate tray for the celiac guest.',
+      groupNote: 'Celiac dessert',
+    });
+
+    const result = await semantic.runSemanticKitchenSearch({
+      db: testDb,
+      locationId: LOC,
+      query: 'GF',
+      limit: 4,
+      deps: {
+        dataPackAvailable: () => false,
+      },
+    });
+
+    const hit = result.hits.find((row) => row.type === 'beo_line_item' && row.title === 'Berry cobbler');
+    assert.ok(hit, 'expected GF shorthand to match the BEO line item');
+    assert.match(semantic.formatSemanticKitchenSearchForPrompt(result), /gf cobbler/i);
+  });
+
+  it('anchors excerpts around the normalized match when punctuation changes indexes', async () => {
+    seedLineItemForSearch({
+      itemName: 'Dessert service note',
+      prepNotes: `${'!'.repeat(260)} separate tray for gluten-free cake near expo.`,
+      groupNote: 'Celiac dessert',
+    });
+
+    const result = await semantic.runSemanticKitchenSearch({
+      db: testDb,
+      locationId: LOC,
+      query: 'separate tray',
+      limit: 4,
+      deps: {
+        dataPackAvailable: () => false,
+      },
+    });
+
+    const hit = result.hits.find((row) => row.type === 'beo_line_item' && row.title === 'Dessert service note');
+    assert.ok(hit, 'expected punctuation-heavy prep note to match');
+    assert.match(hit.excerpt, /separate tray/i);
   });
 });

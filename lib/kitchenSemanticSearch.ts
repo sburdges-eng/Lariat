@@ -309,7 +309,9 @@ function auditCorpus(db: DB, locationId: string): CorpusRow[] {
 
 function rankCorpus(query: string, rows: CorpusRow[], limit: number): SemanticKitchenHit[] {
   const queryTokens = tokenize(query);
-  if (!queryTokens.length) return [];
+  const normalizedQuery = normalize(query);
+  if (!queryTokens.length && !normalizedQuery) return [];
+  const excerptTokens = queryTokens.length ? queryTokens : [normalizedQuery];
   const out: SemanticKitchenHit[] = [];
   for (const row of rows) {
     const score = scoreRow(query, queryTokens, row);
@@ -319,7 +321,7 @@ function rankCorpus(query: string, rows: CorpusRow[], limit: number): SemanticKi
       score,
       title: row.title,
       detail: row.detail,
-      excerpt: excerpt(row.text, queryTokens),
+      excerpt: excerpt(row.text, excerptTokens),
       id: row.id,
       source: row.source,
     });
@@ -386,13 +388,14 @@ function scoreRow(query: string, queryTokens: string[], row: CorpusRow): number 
 function excerpt(text: string, queryTokens: string[]): string {
   const compact = text.replace(/\s+/g, ' ').trim();
   if (!compact) return '';
-  const normalized = normalize(compact);
+  const { normalized, indexMap } = normalizeWithIndexMap(compact);
   let bestIdx = -1;
   for (const token of queryTokens) {
     const idx = normalized.indexOf(token);
     if (idx >= 0 && (bestIdx < 0 || idx < bestIdx)) bestIdx = idx;
   }
-  const start = bestIdx > 60 ? bestIdx - 60 : 0;
+  const compactIdx = bestIdx >= 0 ? indexMap[bestIdx] ?? 0 : 0;
+  const start = compactIdx > 60 ? compactIdx - 60 : 0;
   return clip(compact.slice(start), 220) || '';
 }
 
@@ -407,6 +410,29 @@ function normalize(text: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
+}
+
+function normalizeWithIndexMap(text: string): { normalized: string; indexMap: number[] } {
+  const chars: string[] = [];
+  const indexMap: number[] = [];
+  let pendingSpace = -1;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text.charAt(i).toLowerCase();
+    if (/[a-z0-9]/.test(ch)) {
+      if (pendingSpace >= 0 && chars.length) {
+        chars.push(' ');
+        indexMap.push(pendingSpace);
+      }
+      pendingSpace = -1;
+      chars.push(ch);
+      indexMap.push(i);
+      continue;
+    }
+    if (chars.length && pendingSpace < 0) pendingSpace = i;
+  }
+
+  return { normalized: chars.join(''), indexMap };
 }
 
 function payloadText(raw: string | null): string {
