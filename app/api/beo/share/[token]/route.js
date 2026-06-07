@@ -26,7 +26,9 @@ export async function GET(_req, ctx) {
       `SELECT id, title, event_date, event_time, contact_name, guest_count,
               notes, tax_rate, service_fee_pct, location_id
          FROM beo_events
-        WHERE share_token = ?`,
+        WHERE share_token = ?
+          AND share_revoked_at IS NULL
+          AND (share_expires_at IS NULL OR datetime(share_expires_at) > datetime('now'))`,
     )
     .get(token);
   if (!event) return Response.json({ error: 'not found' }, { status: 404 });

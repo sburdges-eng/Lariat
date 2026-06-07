@@ -44,6 +44,7 @@ const route = await import('../../app/api/health/route.ts');
 db.setDbPathForTest(TMP_DB);
 
 const { GET } = route;
+const ORIGINAL_FETCH = globalThis.fetch;
 
 // Snapshot env vars we toggle so we can restore them between cases —
 // the route reads env at request time, but other tests in the same
@@ -58,6 +59,7 @@ const ENV_SNAPSHOT = {
   LARIAT_SEVENSHIFTS_API_KEY: process.env.LARIAT_SEVENSHIFTS_API_KEY,
   LARIAT_PRISM_USERNAME: process.env.LARIAT_PRISM_USERNAME,
   LARIAT_PRISM_PASSWORD: process.env.LARIAT_PRISM_PASSWORD,
+  LARIAT_OLLAMA_MODEL: process.env.LARIAT_OLLAMA_MODEL,
 };
 
 after(() => {
@@ -65,6 +67,8 @@ after(() => {
     if (v === undefined) delete process.env[k];
     else process.env[k] = v;
   }
+  if (ORIGINAL_FETCH === undefined) delete globalThis.fetch;
+  else globalThis.fetch = ORIGINAL_FETCH;
   db.setDbPathForTest(null);
   try {
     fs.rmSync(TMP_DIR, { recursive: true, force: true });
@@ -160,6 +164,51 @@ describe('GET /api/health — response shape', { concurrency: false }, () => {
 // ── status roll-up ──────────────────────────────────────────────────
 
 describe('GET /api/health — status roll-up', { concurrency: false }, () => {
+  it('returns ok (200) when every required and optional probe is green', async () => {
+    process.env.LARIAT_PIN = '1234';
+    process.env.LARIAT_PIN_SECRET = 'secret-for-tests';
+    process.env.LARIAT_TOAST_CLIENT_ID = 'tid';
+    process.env.LARIAT_TOAST_CLIENT_SECRET = 'tsec';
+    process.env.LARIAT_7SHIFTS_API_KEY = 'sevenshifts-key';
+    process.env.LARIAT_PRISM_USERNAME = 'prism-user';
+    process.env.LARIAT_PRISM_PASSWORD = 'prism-pass';
+    process.env.LARIAT_OLLAMA_MODEL = 'lari-the-kitchen-assistant';
+    delete process.env.LARIAT_TEST_RELEASE;
+
+    const compliancePath = path.join(CACHE_DIR, 'compliance.db');
+    const datapackPath = path.join(TMP_DIR, 'lariat-data');
+    fs.writeFileSync(compliancePath, '');
+    fs.mkdirSync(datapackPath, { recursive: true });
+    mdns._resetStatusForTest();
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({ models: [{ name: 'lari-the-kitchen-assistant:latest' }] }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+
+    try {
+      const res = await GET();
+      const body = await res.json();
+
+      assert.equal(res.status, 200);
+      assert.equal(body.status, 'ok');
+      assert.equal(body.probes.sqlite.ok, true);
+      assert.equal(body.probes.cache.ok, true);
+      assert.equal(body.probes.pin_gate.ok, true);
+      assert.equal(body.probes.mdns.ok, true);
+      assert.equal(body.probes.ollama.ok, true);
+      assert.equal(body.probes.compliance.ok, true);
+      assert.equal(body.probes.datapack.ok, true);
+      assert.equal(body.probes.toast.ok, true);
+      assert.equal(body.probes.sevenshifts.ok, true);
+      assert.equal(body.probes.prism.ok, true);
+    } finally {
+      globalThis.fetch = ORIGINAL_FETCH;
+      fs.rmSync(compliancePath, { force: true });
+      fs.rmSync(datapackPath, { recursive: true, force: true });
+    }
+  });
+
   it('returns degraded (200) when only optional probes fail', async () => {
     // sqlite + cache reachable, PIN configured, no optional creds set.
     process.env.LARIAT_PIN = '1234';

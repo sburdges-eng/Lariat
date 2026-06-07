@@ -20,6 +20,7 @@ const SESSION = '11111111-1111-4111-8111-111111111111';
 const SECOND_SESSION = '22222222-2222-4222-8222-222222222222';
 const LOC = 'west';
 const COOK = 'cook-alex';
+const MINUTE_MS = 60 * 1000;
 
 const ORIGINAL_PIN = process.env.LARIAT_PIN;
 const ORIGINAL_PIN_SECRET = process.env.LARIAT_PIN_SECRET;
@@ -110,7 +111,7 @@ function seedTurn({
   userContent,
   assistantContent,
   managerTier = false,
-  createdAt = '2026-06-03T12:00:00.000Z',
+  createdAt = new Date(Date.now() - 60 * MINUTE_MS).toISOString(),
 }) {
   memory.storeConversationTurn(testDb, {
     locationId,
@@ -183,7 +184,7 @@ describe('POST /api/kitchen-assistant conversation memory', () => {
       userContent: 'manager-tier marker',
       assistantContent: 'manager-tier assistant',
       managerTier: true,
-      createdAt: '2026-06-03T12:01:00.000Z',
+      createdAt: new Date(Date.now() - 59 * MINUTE_MS).toISOString(),
     });
 
     const cookRes = await POST(postReq());
