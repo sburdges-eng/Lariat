@@ -72,3 +72,14 @@ describe('storePhoto — size and contents', () => {
     assert.equal(onDisk.byteLength, 123);
   });
 });
+
+describe('readPhoto — storage-root containment', () => {
+  it('returns null for an existing path outside data/uploads/recipes', async () => {
+    const outside = path.join(TMP_DIR, 'outside-photo.png');
+    fs.writeFileSync(outside, Buffer.from('private bytes'));
+
+    const read = await lib.readPhoto(outside);
+
+    assert.equal(read, null);
+  });
+});

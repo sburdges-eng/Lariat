@@ -335,4 +335,20 @@ describe('GET /api/recipes/[slug]/photos/[id]/raw', () => {
     const afterDel = await rawGET(rawReq(id), ctxItem(id));
     assert.equal(afterDel.status, 404, 'raw GET must 404 after soft-delete');
   });
+
+  it('410s instead of streaming a DB path outside the recipe upload root', async () => {
+    const outside = path.join(TMP_DIR, 'outside-photo.png');
+    fs.writeFileSync(outside, pngFixture());
+    const inserted = testDb
+      .prepare(
+        `INSERT INTO recipe_photos
+           (recipe_slug, location_id, original_name, stored_path, mime, size_bytes)
+         VALUES (?, 'default', 'outside.png', ?, 'image/png', ?)`,
+      )
+      .run(SLUG, outside, fs.statSync(outside).size);
+
+    const res = await rawGET(rawReq(inserted.lastInsertRowid), ctxItem(inserted.lastInsertRowid));
+
+    assert.equal(res.status, 410);
+  });
 });

@@ -19,7 +19,7 @@
  * file — never happens because we never insert before write succeeds.
  */
 
-import { mkdir, writeFile, stat, readFile } from 'node:fs/promises';
+import { mkdir, writeFile, stat, readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { extname } from 'node:path';
 import { uuidv7 } from './uuid.ts';
@@ -108,9 +108,14 @@ export async function storePhoto(
  */
 export async function readPhoto(storedPath: string): Promise<{ bytes: Buffer; size: number } | null> {
   try {
-    const s = await stat(storedPath);
+    const root = await realpath(uploadsRoot());
+    const realStored = await realpath(storedPath);
+    const relative = path.relative(root, realStored);
+    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return null;
+
+    const s = await stat(realStored);
     if (!s.isFile()) return null;
-    const bytes = await readFile(storedPath);
+    const bytes = await readFile(realStored);
     return { bytes, size: s.size };
   } catch {
     return null;
