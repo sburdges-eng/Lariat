@@ -286,6 +286,29 @@ describe('GET /api/inventory/counts — location scoping', () => {
     assert.strictEqual(bJson.rows.length, 1);
     assert.strictEqual(bJson.rows[0].label, 'B');
   });
+
+  it('counts only same-location lines in the summary line_count', async () => {
+    const open = await postCounts({ label: 'A', location_id: 'kitchen-a' });
+    const { id } = await open.json();
+    await postLine(id, {
+      ingredient: 'AVOCADO',
+      on_hand_qty: 6,
+      location_id: 'kitchen-a',
+    });
+
+    testDb
+      .prepare(
+        `INSERT INTO inventory_count_lines
+           (count_id, ingredient, sku, on_hand_qty, location_id)
+         VALUES (?, 'rogue butter', '', 99, 'kitchen-b')`,
+      )
+      .run(id);
+
+    const res = await getCounts('?location=kitchen-a');
+    const json = await res.json();
+    assert.strictEqual(json.rows.length, 1);
+    assert.strictEqual(json.rows[0].line_count, 1);
+  });
 });
 
 describe('GET /api/inventory/counts/:id', () => {
@@ -304,6 +327,25 @@ describe('GET /api/inventory/counts/:id', () => {
     // test above for rationale.
     assert.strictEqual(j.lines[0].ingredient, 'avocado');
     assert.strictEqual(j.lines[1].ingredient, 'zucchini');
+  });
+
+  it('does not return cross-location lines attached to the same count id', async () => {
+    const open = await postCounts({ label: 'detail' });
+    const { id } = await open.json();
+    await postLine(id, { ingredient: 'AVOCADO', on_hand_qty: 6 });
+
+    testDb
+      .prepare(
+        `INSERT INTO inventory_count_lines
+           (count_id, ingredient, sku, on_hand_qty, location_id)
+         VALUES (?, 'rogue butter', '', 99, 'kitchen-b')`,
+      )
+      .run(id);
+
+    const res = await getCount(id);
+    assert.strictEqual(res.status, 200);
+    const json = await res.json();
+    assert.deepStrictEqual(json.lines.map((line) => line.ingredient), ['avocado']);
   });
 });
 

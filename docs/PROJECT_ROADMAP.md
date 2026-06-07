@@ -114,7 +114,7 @@ The `docs/redesign/lari-ui-demo.html` is a prototype. A real migration needs:
 | ID  | Effort | Item |
 |-----|--------|------|
 | 2.9  | XS | **Closed:** Design tokens are extracted into `styles/tokens.css` and loaded before the current authoritative `styles/globals.css` definitions so shipped UI can opt in without visual regression; `tests/js/test-design-tokens.mjs` pins the token file, core paper/ember/sage/brass/rust tokens, `.k-dark`/`.k-night`, font import, and import order. |
-| 2.10 | L  | **Build the v2 shell.** Decision closed: new `/v2/...` route tree, opt-in by cookie, v1 remains default, and no route replacement until a cutover doc plus rollback criteria exists. Implementation remains open. |
+| 2.10 | L  | **Closed:** The first `/v2` shell is implemented as a cookie-gated side-by-side route tree. `/v2` reads the stable `lariat_v2=1` preview cookie, hides v1 cockpit chrome only inside the v2 subtree, keeps v1 as default, and lists the cook-tier migration anchors without replacing v1 routes. |
 | 2.11 | XL | **Migrate cook-tier surfaces first.** Order: `/today` → `/kds/punch` → `/eighty-six` → station boards. These are the screens cooks touch every shift; they should be the proof of concept. |
 | 2.12 | XL | **Migrate manager-tier surfaces.** `/command` → `/management` → `/analytics`. These have less time pressure but more density. |
 | 2.13 | M  | **Cutover plan.** When v2 is shippable, write the v1→v2 rollout doc with rollback criteria. Don't delete v1 routes until v2 has 30 days of clean operation. |
@@ -126,7 +126,7 @@ The `docs/redesign/lari-ui-demo.html` is a prototype. A real migration needs:
 | ID  | Effort | Item |
 |-----|--------|------|
 | 2.14 | L  | **Show/box-office route family.** 9 untested routes under `/api/shows/[id]/*` covering settlement, deal terms, box-office lines, stage setups, sound scenes, SPL readings. Product call on 2026-06-04: the live-music venue arm is production-active, so this is genuine test-hardening debt, not a deprecation path. |
-| 2.15 | M  | **Inventory count routes.** `/api/inventory/counts/[id]` + `/api/inventory/counts/[id]/lines` — count-flow CRUD is no-test, and counts feed `accounting_variance` so divergence here cascades to financials. |
+| 2.15 | M  | **Closed:** Inventory count routes are pinned across open, line upsert, closed-count rejection, close/reopen, location scoping, GET detail, schema migration, and cross-location line-count/detail leakage canaries. `tests/js/test-inventory-counts-api.mjs` covers `/api/inventory/counts`, `/api/inventory/counts/[id]`, and `/api/inventory/counts/[id]/lines`; summary/detail reads now filter count lines by count location. |
 | 2.16 | M  | **Recipe-photo + raw routes.** `/api/recipes/[slug]/photos/*` — hero pinning + raw image serving. The hero migration (T2 in `lib/db.ts::migrateLegacyColumns`) added behavior worth pinning. |
 | 2.17 | M  | **Cloud-bridge DLQ admin routes.** `/api/cloud-bridge/dead-letters/[id]/{drop,requeue}` — low-frequency but consequential per-call. |
 
@@ -180,10 +180,10 @@ The old five-item sequence is now reconciled so future agents do not redo finish
 1. **1.9** — closed; navRegistry coverage and install/login exclusions are pinned.
 2. **P0 ERP lane** — continued; receiving-to-inventory now preserves match/master truth in sync payloads, so replay does not drop matched, unmatched, or ambiguous receiving state.
 3. **2.9** — closed; design tokens are extracted and import-order tested.
-4. **2.10** — product decision closed; build the v2 shell as a cookie-gated side-by-side `/v2` tree, with v1 as default and no replacement until cutover criteria exist.
+4. **2.10** — closed; the first `/v2` shell is cookie-gated, side-by-side, and leaves v1 as default with no route replacement.
 5. **3.1** — remains deferred; no venue switcher or consolidated multi-venue rollup belongs in this freeze slice.
 
-The next implementation work should start from the remaining open rows, not from the stale sequence above: finish any remaining P0 receiving/inventory replay proof, then build the opt-in v2 shell, then continue production coverage debt such as inventory-count route hardening.
+The next implementation work should start from the remaining open rows, not from the stale sequence above: finish any remaining P0 receiving/inventory replay proof, then continue production coverage debt such as recipe-photo/raw route hardening or cloud-bridge DLQ admin route tests.
 
 ---
 

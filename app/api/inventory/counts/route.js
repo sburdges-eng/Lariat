@@ -17,7 +17,9 @@ export async function GET(req) {
     const rows = db
       .prepare(
         `SELECT c.id, c.count_date, c.label, c.opened_at, c.closed_at, c.cook_id,
-                (SELECT COUNT(*) FROM inventory_count_lines l WHERE l.count_id = c.id) AS line_count
+                (SELECT COUNT(*)
+                   FROM inventory_count_lines l
+                  WHERE l.count_id = c.id AND l.location_id = c.location_id) AS line_count
            FROM inventory_counts c
           WHERE c.location_id = ? ${where}
           ORDER BY c.opened_at DESC
