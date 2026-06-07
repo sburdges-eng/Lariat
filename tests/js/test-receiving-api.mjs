@@ -469,13 +469,21 @@ describe('GET /api/receiving', () => {
 //
 // Phase 3 closed-loop receiving: an accepted delivery with received_qty
 // + received_unit credits inventory in the same transaction as the
-// receiving_log INSERT. Rejected deliveries don't credit; missing
-// qty/unit gracefully skips the credit; transactional rollback
-// guarantees we never leave a delivery row without its companion
-// inventory row when the credit was due.
+// receiving_log INSERT only when it resolves to a stable master. Rejected,
+// unmatched, ambiguous, and qty/unit-incomplete deliveries stay queued
+// without moving on-hand. Transactional rollback guarantees we never leave
+// a delivery row without its companion inventory row when the credit was due.
 
 describe('POST /api/receiving — closed-loop inventory crediting', () => {
-  it('happy path: accepted + qty + unit writes BOTH rows + 2 audits', async () => {
+  it('matched happy path: accepted + qty + unit writes BOTH rows + 2 audits', async () => {
+    seedIngredientMaster('chicken_breast_40lb_cs', 'Chicken Breast 40lb CS');
+    seedVendorPrice({
+      vendor: 'Shamrock',
+      sku: 'CHX-40',
+      ingredient: 'chicken breast 40lb CS',
+      masterId: 'chicken_breast_40lb_cs',
+    });
+
     const res = await POST(postReq({
       vendor: 'Shamrock',
       category: 'refrigerated',
@@ -489,6 +497,8 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     assert.strictEqual(res.status, 200);
     const body = await res.json();
     assert.strictEqual(body.ok, true);
+    assert.strictEqual(body.match.status, 'matched');
+    assert.strictEqual(body.match.master_id, 'chicken_breast_40lb_cs');
 
     assert.strictEqual(countReceiving(), 1);
     assert.strictEqual(countInventoryUpdates(), 1);
@@ -501,6 +511,7 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
 
     const invRow = testDb.prepare('SELECT * FROM inventory_updates').get();
     assert.strictEqual(invRow.item, 'chicken breast 40lb CS');
+    assert.strictEqual(invRow.master_id, 'chicken_breast_40lb_cs');
     assert.strictEqual(invRow.delta, '40 lb');
     assert.strictEqual(invRow.direction, 'in');
     assert.strictEqual(invRow.cook_id, 'alice');
@@ -532,7 +543,9 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     assert.strictEqual(invPayload.receiving_log_id, recvRow.id);
   });
 
-  it('unmatched accepted delivery credits stock immediately and stays in the match queue', async () => {
+  it('unmatched accepted delivery queues without inventory credit until manager resolution', async () => {
+    seedIngredientMaster('heirloom_tomato_case', 'Heirloom Tomato Case');
+
     const res = await POST(postReq({
       vendor: 'Local Farms',
       category: 'produce',
@@ -547,14 +560,12 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     assert.strictEqual(body.match.status, 'unmatched');
     assert.strictEqual(body.match.master_id, null);
     assert.strictEqual(countReceiving(), 1);
-    assert.strictEqual(countInventoryUpdates(), 1);
+    assert.strictEqual(countInventoryUpdates(), 0);
+    assert.strictEqual(countAudit('inventory_updates'), 0);
 
     const recvRow = testDb.prepare('SELECT * FROM receiving_log').get();
-    const invRow = testDb.prepare('SELECT * FROM inventory_updates').get();
     assert.strictEqual(recvRow.match_status, 'unmatched');
     assert.strictEqual(recvRow.master_id, null);
-    assert.strictEqual(invRow.master_id, null);
-    assert.strictEqual(invRow.receiving_log_id, recvRow.id);
 
     const queueRes = await GET_MATCHES(matchGetReq());
     assert.strictEqual(queueRes.status, 200);
@@ -562,6 +573,26 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     assert.strictEqual(queue.total, 1);
     assert.strictEqual(queue.matches[0].id, recvRow.id);
     assert.strictEqual(queue.matches[0].match_status, 'unmatched');
+
+    const patchRes = await PATCH_MATCH(
+      patchMatchReq(recvRow.id, {
+        master_id: 'heirloom_tomato_case',
+        cook_id: 'manager-alex',
+      }),
+      { params: { id: String(recvRow.id) } },
+    );
+    assert.strictEqual(patchRes.status, 200);
+    const patchBody = await patchRes.json();
+    assert.strictEqual(patchBody.ok, true);
+    assert.strictEqual(patchBody.receiving.master_id, 'heirloom_tomato_case');
+    assert.strictEqual(patchBody.inventory_update.master_id, 'heirloom_tomato_case');
+
+    assert.strictEqual(countInventoryUpdates(), 1);
+    assert.strictEqual(countAudit('inventory_updates'), 1);
+    const invRow = testDb.prepare('SELECT * FROM inventory_updates').get();
+    assert.strictEqual(invRow.item, 'heirloom tomato case');
+    assert.strictEqual(invRow.delta, '2 case');
+    assert.strictEqual(invRow.receiving_log_id, recvRow.id);
   });
 
   it('ambiguous vendor match queues without crediting inventory until manager resolution', async () => {
@@ -630,7 +661,14 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
   });
 
   it('manager resolution updates existing credited stock without duplicating inventory', async () => {
+    seedIngredientMaster('legacy_tomato_case', 'Legacy Tomato Case');
     seedIngredientMaster('heirloom_tomato_case', 'Heirloom Tomato Case');
+    seedVendorPrice({
+      vendor: 'Local Farms',
+      sku: 'TOM-LEGACY',
+      ingredient: 'heirloom tomato case',
+      masterId: 'legacy_tomato_case',
+    });
 
     const res = await POST(postReq({
       vendor: 'Local Farms',
@@ -645,8 +683,8 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     assert.strictEqual(countInventoryUpdates(), 1);
     const recvBefore = testDb.prepare('SELECT * FROM receiving_log').get();
     const invBefore = testDb.prepare('SELECT * FROM inventory_updates').get();
-    assert.strictEqual(recvBefore.master_id, null);
-    assert.strictEqual(invBefore.master_id, null);
+    assert.strictEqual(recvBefore.master_id, 'legacy_tomato_case');
+    assert.strictEqual(invBefore.master_id, 'legacy_tomato_case');
 
     const patchRes = await PATCH_MATCH(
       patchMatchReq(recvBefore.id, {
@@ -675,6 +713,14 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
   });
 
   it('accepted_with_note + qty + unit also credits inventory', async () => {
+    seedIngredientMaster('milk_2_gal', 'Milk 2% Gallon');
+    seedVendorPrice({
+      vendor: 'Shamrock',
+      sku: 'MILK-2',
+      ingredient: 'milk 2% gal',
+      masterId: 'milk_2_gal',
+    });
+
     const res = await POST(postReq({
       vendor: 'Shamrock',
       category: 'refrigerated',
@@ -689,6 +735,7 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     assert.strictEqual(countReceiving(), 1);
     assert.strictEqual(countInventoryUpdates(), 1);
     const invRow = testDb.prepare('SELECT * FROM inventory_updates').get();
+    assert.strictEqual(invRow.master_id, 'milk_2_gal');
     assert.strictEqual(invRow.delta, '6 gal');
   });
 
@@ -790,6 +837,14 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
   });
 
   it('transactional rollback: forced inventory_updates failure rolls back receiving + audit', async () => {
+    seedIngredientMaster('forced_rollback_chicken_breast', 'Forced Rollback Chicken Breast');
+    seedVendorPrice({
+      vendor: 'Shamrock',
+      sku: 'FORCED-ROLLBACK',
+      ingredient: 'forced rollback chicken breast',
+      masterId: 'forced_rollback_chicken_breast',
+    });
+
     // Force exactly this closed-loop INSERT to fail without dropping a
     // shared table out from under other top-level suites in this file.
     // The route must then roll back the receiving_log INSERT + its
@@ -884,6 +939,14 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
   });
 
   it('partial UNIQUE index prevents double-credit on the same receiving_log row', async () => {
+    seedIngredientMaster('chicken_breast_40lb_cs', 'Chicken Breast 40lb CS');
+    seedVendorPrice({
+      vendor: 'Shamrock',
+      sku: 'CHX-40',
+      ingredient: 'chicken breast 40lb CS',
+      masterId: 'chicken_breast_40lb_cs',
+    });
+
     // Document the at-most-once invariant. Each /api/receiving POST
     // creates a NEW receiving_log row with a NEW id, so true client
     // double-tap is a UI/network concern (see route.js) — the DB
