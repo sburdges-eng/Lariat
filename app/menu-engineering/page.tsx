@@ -5,6 +5,7 @@ import { computeDishCoverage } from '../../lib/dishCostBridge';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { getDb } from '../../lib/db';
 import { getPrepMedianForItems } from '../../lib/beoPrepHistory';
+import { formatDollars } from '../../lib/formatMoney';
 
 export const dynamic = 'force-dynamic';
 
@@ -125,7 +126,7 @@ export default function MenuEngineeringPage({ searchParams }: { searchParams?: {
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             {coverageReport.unlinked_dishes.slice(0, 10).map((d) => (
               <li key={d.item_name} className="meta">
-                <strong>{d.item_name}</strong> — ${d.net_sales.toFixed(0)} ({d.qty.toFixed(0)} sold)
+                <strong>{d.item_name}</strong> — {formatDollars(d.net_sales)} ({d.qty.toFixed(0)} sold)
               </li>
             ))}
             {coverageReport.unlinked_dishes.length > 10 && (
@@ -216,9 +217,9 @@ export default function MenuEngineeringPage({ searchParams }: { searchParams?: {
                       );
                     })()}
                   </td>
-                  <td>{r.net_sales != null ? `$${Number(r.net_sales).toFixed(2)}` : '—'}</td>
-                  <td>{r.avg_price != null ? `$${r.avg_price.toFixed(2)}` : '—'}</td>
-                  <td>{r.cost_per_unit != null ? `$${r.cost_per_unit.toFixed(2)}` : '—'}</td>
+                  <td>{formatDollars(r.net_sales)}</td>
+                  <td>{formatDollars(r.avg_price)}</td>
+                  <td>{formatDollars(r.cost_per_unit)}</td>
                   <td className={r.margin_pct != null && r.margin_pct < 20 ? 'text-red font-bold' : ''}>
                     {r.margin_pct != null ? `${r.margin_pct.toFixed(1)}%` : '—'}
                   </td>
@@ -251,7 +252,7 @@ export default function MenuEngineeringPage({ searchParams }: { searchParams?: {
                                 : ' · (no qty)'}
                               {c.per_serving_cost != null && (
                                 <span style={{ color: 'var(--muted)' }}>
-                                  {' '}= ${c.per_serving_cost.toFixed(2)}
+                                  {' '}= {formatDollars(c.per_serving_cost)}
                                 </span>
                               )}
                               {c.status !== 'ok' && c.status !== 'no_dish_component' && (

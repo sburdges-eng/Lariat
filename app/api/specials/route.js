@@ -10,6 +10,7 @@ import { computeSandboxCost } from '../../../lib/computeEngine/sandboxCosting';
 import { withIdempotency } from '../../../lib/idempotency';
 import { extractAction } from '../../../lib/extractAction';
 import { hasPinCookie } from '../../../lib/pin';
+import { formatDollars } from '../../../lib/formatMoney';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -123,15 +124,15 @@ async function specialsPostHandler(req) {
         costResult = computeSandboxCost(locationId, cleaned);
 
         const totalLabel = costResult.partial
-          ? `PARTIAL RECIPE COST: $${costResult.totalCost.toFixed(2)} (some ingredients skipped — see table)`
-          : `COMPUTED RECIPE COST: $${costResult.totalCost.toFixed(2)}`;
+          ? `PARTIAL RECIPE COST: ${formatDollars(costResult.totalCost)} (some ingredients skipped — see table)`
+          : `COMPUTED RECIPE COST: ${formatDollars(costResult.totalCost)}`;
         let costMarkdown = `\n\n> [!NOTE]\n> **⚡ ${totalLabel}**\n`;
         if (costResult.breakdown.length > 0) {
           costMarkdown += `>\n> | Ingredient | Requested | Vendor Match | Pack Price | Cost |\n`;
           costMarkdown += `> |---|---|---|---|---|\n`;
           for (const row of costResult.breakdown) {
             if (row.cost !== null) {
-              costMarkdown += `> | ${row.item} | ${row.req_qty} ${row.req_unit} | ${row.match} (${row.pack_size} ${row.pack_unit}) | $${row.pack_price.toFixed(2)} | $${row.cost.toFixed(2)} |\n`;
+              costMarkdown += `> | ${row.item} | ${row.req_qty} ${row.req_unit} | ${row.match} (${row.pack_size} ${row.pack_unit}) | ${formatDollars(row.pack_price)} | ${formatDollars(row.cost)} |\n`;
             } else {
               costMarkdown += `> | ${row.item} | ${row.req_qty || '?'} ${row.req_unit || ''} | — | — | *${row.note}* |\n`;
             }

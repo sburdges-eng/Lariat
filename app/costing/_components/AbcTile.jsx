@@ -1,9 +1,6 @@
 // @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 import { rankByContribution } from '../../../lib/abcRanking';
-
-function dollars(n) {
-  return `$${(Number(n) || 0).toFixed(2)}`;
-}
+import { formatDollars } from '../../../lib/formatMoney';
 
 function tierCount(rows, tier) {
   return rows.filter((r) => r.tier === tier).length;
@@ -47,7 +44,7 @@ export default function AbcTile({ menuRows }) {
               <ol style={{ margin: '6px 0 0 18px', padding: 0 }}>
                 {topA.map((r) => (
                   <li key={r.itemName} style={{ fontSize: 13 }}>
-                    {r.itemName} · {dollars(r.qty ? r.contributionDollars / r.qty : 0)}{' '}
+                    {r.itemName} · {formatDollars(r.qty ? r.contributionDollars / r.qty : 0)}{' '}
                     margin/unit · {r.qty} sold
                   </li>
                 ))}

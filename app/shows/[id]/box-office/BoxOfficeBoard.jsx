@@ -2,6 +2,7 @@
 'use client';
 import { useState, useTransition } from 'react';
 import { humanize } from '../../../../lib/userError';
+import { formatDollars } from '../../../../lib/formatMoney';
 import { clientFetch } from '@/lib/clientFetch';
 
 const SOURCES = [
@@ -11,11 +12,6 @@ const SOURCES = [
   { k: 'will_call', l: 'Will call' },
   { k: 'guestlist', l: 'Guest list' },
 ];
-
-function fmtUsd(n) {
-  if (typeof n !== 'number' || Number.isNaN(n)) return '—';
-  return `$${n.toFixed(2)}`;
-}
 
 const initialForm = {
   source: 'walkup',
@@ -117,7 +113,7 @@ export default function BoxOfficeBoard({
       <div className="card" style={{ padding: 16 }}>
         <div className="row-meta" style={{ marginBottom: 8 }}>
           Completeness · {(score * 100).toFixed(0)}% · {totals?.total_qty ?? 0} tickets ·{' '}
-          {fmtUsd(totals?.total_revenue ?? 0)} face · {totals?.scanned_qty ?? 0} scanned
+          {formatDollars(totals?.total_revenue ?? 0)} face · {totals?.scanned_qty ?? 0} scanned
         </div>
         <table className="table" style={{ width: '100%', fontSize: 13 }}>
           <thead>
@@ -134,7 +130,7 @@ export default function BoxOfficeBoard({
                 <tr key={s.k}>
                   <td>{s.l}</td>
                   <td align="right">{bucket?.qty ?? 0}</td>
-                  <td align="right">{fmtUsd(bucket?.revenue ?? 0)}</td>
+                  <td align="right">{formatDollars(bucket?.revenue ?? 0)}</td>
                 </tr>
               );
             })}
@@ -253,7 +249,7 @@ export default function BoxOfficeBoard({
                   <td>{l.source}</td>
                   <td>{l.ticket_class ?? '—'}</td>
                   <td align="right">{l.qty}</td>
-                  <td align="right">{fmtUsd(l.face_price)}</td>
+                  <td align="right">{formatDollars(l.face_price)}</td>
                   <td>{l.external_ref ?? '—'}</td>
                   <td>{l.scanned_at ? '✓' : '—'}</td>
                   <td>

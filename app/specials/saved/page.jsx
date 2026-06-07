@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
+import { formatDollars } from '../../../lib/formatMoney';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,7 +57,7 @@ export default function SavedSpecialsPage({ searchParams }) {
               <h2 className="section-head mb-12">{r.name}</h2>
               <p className="meta mb-12">
                 {formatDate(r.created_at)}
-                {r.cost_total !== null ? ` · $${Number(r.cost_total).toFixed(2)}` : ''}
+                {r.cost_total !== null ? ` · ${formatDollars(r.cost_total)}` : ''}
                 {r.last_exported_at ? ' · Exported' : ''}
               </p>
               <p style={{ whiteSpace: 'pre-wrap' }}>{snippet(r.ai_answer)}</p>

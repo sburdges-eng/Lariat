@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { getDb, todayISO } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { classifyReview } from '../../lib/performanceReviews';
+import { formatMoney } from '../../lib/formatMoney';
 
 export const dynamic = 'force-dynamic';
 
@@ -120,13 +121,6 @@ function tone(s) {
   return 'green';
 }
 
-function fmtMoney(cents) {
-  if (!Number.isFinite(cents)) return '$0.00';
-  const sign = cents < 0 ? '-' : '';
-  const abs = Math.abs(cents);
-  return `${sign}$${(abs / 100).toFixed(2)}`;
-}
-
 function Tile({ href, title, sub, status, lines }) {
   const t = tone(status);
   return (
@@ -217,7 +211,7 @@ export default function LaborHub({ searchParams }) {
           status={{ red: false, amber: false }}
           lines={[
             { n: s.tips.lines, label: 'lines today' },
-            { n: fmtMoney(s.tips.cents), label: 'paid out today' },
+            { n: formatMoney(s.tips.cents, { nullDisplay: '$0.00' }), label: 'paid out today' },
           ]}
         />
         <Tile

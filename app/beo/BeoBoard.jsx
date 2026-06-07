@@ -5,13 +5,9 @@ import { useEffect, useMemo, useState } from 'react';
 import PrepHistoryPanel from './PrepHistoryPanel';
 import CoursePanel from './_components/CoursePanel';
 import LariAmbient from '../_components/LariAmbient';
+import { formatDollars } from '../../lib/formatMoney';
 
 /* ── formatting helpers ───────────────────────────────────────── */
-
-const USD = (n) =>
-  Number(n || 0).toLocaleString('en-US', {
-    style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2,
-  });
 
 function roundMoney(n) {
   return Math.round(Number(n || 0) * 100) / 100;
@@ -515,7 +511,7 @@ function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave, courses
               <td colSpan={11}>No items yet. Pick from the menu on the right →</td>
             </tr>
           )}
-          {groups.map((g, gi) =>
+          {groups.map((g) =>
             g.rows.map((r, ri) => (
               <PrepSheetRow
                 key={r.id}
@@ -532,7 +528,7 @@ function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave, courses
         <tfoot>
           <tr>
             <td colSpan={9} className="beo-total-label">Sub total</td>
-            <td className="num">{USD(subtotal)}</td>
+            <td className="num">{formatDollars(subtotal ?? 0, { nullDisplay: '$0.00' })}</td>
             <td />
           </tr>
           <tr>
@@ -552,7 +548,7 @@ function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave, courses
               />
               <span className="beo-muted">rate</span>
             </td>
-            <td className="num">{USD(tax)}</td>
+            <td className="num">{formatDollars(tax ?? 0, { nullDisplay: '$0.00' })}</td>
             <td />
           </tr>
           <tr>
@@ -572,12 +568,12 @@ function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave, courses
               />
               <span className="beo-muted">%</span>
             </td>
-            <td className="num">{USD(fee)}</td>
+            <td className="num">{formatDollars(fee ?? 0, { nullDisplay: '$0.00' })}</td>
             <td />
           </tr>
           <tr className="beo-grand-total">
             <td colSpan={9} className="beo-total-label">Total</td>
-            <td className="num">{USD(total)}</td>
+            <td className="num">{formatDollars(total ?? 0, { nullDisplay: '$0.00' })}</td>
             <td />
           </tr>
         </tfoot>
@@ -772,7 +768,7 @@ function PrepSheetRow({ row, first, span, onUpdate, onDelete, courses = [] }) {
           }}
         />
       </td>
-      <td className="num beo-line-total">{USD(row.line_total)}</td>
+      <td className="num beo-line-total">{formatDollars(row.line_total ?? 0, { nullDisplay: '$0.00' })}</td>
       <td>
         <button
           type="button"
@@ -829,7 +825,7 @@ function MenuPanel({ menu, onPick }) {
               title={`Add ${it.name} to prep sheet`}
             >
               <span className="beo-menu-name">{it.name}</span>
-              <span className="beo-menu-cost">{USD(it.cost)}</span>
+              <span className="beo-menu-cost">{formatDollars(it.cost ?? 0, { nullDisplay: '$0.00' })}</span>
               <span className="beo-menu-plus">+</span>
             </button>
           ))}

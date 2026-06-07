@@ -7,11 +7,7 @@
 // "instrument", "execute", "compliance".
 
 import { useMemo, useState } from 'react';
-
-function fmtMoney(cents) {
-  if (!Number.isFinite(cents)) return '—';
-  return `$${(cents / 100).toFixed(2)}`;
-}
+import { formatMoney } from '../../../lib/formatMoney';
 
 function dollarsToCents(s) {
   const n = Number(s);
@@ -137,9 +133,9 @@ export default function WageNoticesBoard({
               >
                 <div className="text-base font-semibold">{row.cook_id}</div>
                 <div className="text-sm mt-1">
-                  {fmtMoney(row.wage_rate_cents)} · {row.pay_basis}
+                  {formatMoney(row.wage_rate_cents)} · {row.pay_basis}
                   {row.pay_basis === 'tipped' && row.tip_credit_cents != null
-                    ? ` · tip credit ${fmtMoney(row.tip_credit_cents)}`
+                    ? ` · tip credit ${formatMoney(row.tip_credit_cents)}`
                     : ''}
                 </div>
                 <div className="text-xs text-neutral-600 mt-1">

@@ -6,17 +6,7 @@
 // "distribute", "transactions".
 
 import { useMemo, useState } from 'react';
-
-function fmtMoney(cents) {
-  if (!Number.isFinite(cents)) return '$0.00';
-  const sign = cents < 0 ? '-' : '';
-  const abs = Math.abs(cents);
-  return `${sign}$${(abs / 100).toFixed(2)}`;
-}
-
-function fmtRate(cents) {
-  return `$${(cents / 100).toFixed(2)}/h`;
-}
+import { formatMoney } from '../../../lib/formatMoney';
 
 export default function TipPoolBoard({ initialRows, initialSummary, locationId, date, comps }) {
   const [rows, setRows] = useState(initialRows || []);
@@ -101,7 +91,7 @@ export default function TipPoolBoard({ initialRows, initialSummary, locationId, 
         setErr(body.error || 'Save failed.');
         return;
       }
-      setInfo(`Saved ${fmtMoney(cents)} for ${cookId.trim()}.`);
+      setInfo(`Saved ${formatMoney(cents, { nullDisplay: '$0.00' })} for ${cookId.trim()}.`);
       setDollars('');
       setNote('');
       await refetch();
@@ -117,26 +107,26 @@ export default function TipPoolBoard({ initialRows, initialSummary, locationId, 
       <header className="flex items-baseline justify-between flex-wrap gap-2">
         <h1 className="text-xl font-semibold">Tip pool</h1>
         <span className="text-sm text-neutral-500">
-          {date} · floor {fmtRate(comps.std_min_wage_cents)} · tipped {fmtRate(comps.tipped_min_wage_cents)}
+          {date} · floor {formatMoney(comps.std_min_wage_cents, { nullDisplay: '$0.00' })}/h · tipped {formatMoney(comps.tipped_min_wage_cents, { nullDisplay: '$0.00' })}/h
         </span>
       </header>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="rounded border border-neutral-200 p-3">
           <div className="text-sm text-neutral-500">Total today</div>
-          <div className="text-2xl font-bold">{fmtMoney(summary.total_cents)}</div>
+          <div className="text-2xl font-bold">{formatMoney(summary.total_cents, { nullDisplay: '$0.00' })}</div>
         </div>
         <div className="rounded border border-neutral-200 p-3">
           <div className="text-sm text-neutral-500">Pool</div>
-          <div className="text-xl font-semibold">{fmtMoney(summary.by_kind.tip_pool || 0)}</div>
+          <div className="text-xl font-semibold">{formatMoney(summary.by_kind.tip_pool || 0, { nullDisplay: '$0.00' })}</div>
         </div>
         <div className="rounded border border-neutral-200 p-3">
           <div className="text-sm text-neutral-500">Service charge</div>
-          <div className="text-xl font-semibold">{fmtMoney(summary.by_kind.service_charge || 0)}</div>
+          <div className="text-xl font-semibold">{formatMoney(summary.by_kind.service_charge || 0, { nullDisplay: '$0.00' })}</div>
         </div>
         <div className="rounded border border-neutral-200 p-3">
           <div className="text-sm text-neutral-500">Direct tips</div>
-          <div className="text-xl font-semibold">{fmtMoney(summary.by_kind.direct_tip || 0)}</div>
+          <div className="text-xl font-semibold">{formatMoney(summary.by_kind.direct_tip || 0, { nullDisplay: '$0.00' })}</div>
         </div>
       </div>
 
@@ -149,7 +139,7 @@ export default function TipPoolBoard({ initialRows, initialSummary, locationId, 
             {cookEntries.map(([cook, cents]) => (
               <li key={cook} className="flex justify-between p-2">
                 <span className="font-medium">{cook}</span>
-                <span>{fmtMoney(cents)}</span>
+                <span>{formatMoney(cents, { nullDisplay: '$0.00' })}</span>
               </li>
             ))}
           </ul>
@@ -258,7 +248,7 @@ export default function TipPoolBoard({ initialRows, initialSummary, locationId, 
                   <td className="p-2">{r.cook_id}</td>
                   <td className="p-2">{r.kind}</td>
                   <td className="p-2">{r.pool_ref}</td>
-                  <td className="p-2 text-right">{fmtMoney(r.amount_cents)}</td>
+                  <td className="p-2 text-right">{formatMoney(r.amount_cents, { nullDisplay: '$0.00' })}</td>
                   <td className="p-2">{r.note || ''}</td>
                 </tr>
               ))}

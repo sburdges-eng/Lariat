@@ -8,7 +8,11 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatMoney, formatDollars } from '../../lib/formatMoney.ts';
+import {
+  formatCompactDollars,
+  formatDollars,
+  formatMoney,
+} from '../../lib/formatMoney.ts';
 
 describe('formatMoney — INTEGER cents in, money string out', () => {
   it('formats 1234 cents as "$12.34"', () => {
@@ -51,6 +55,12 @@ describe('formatMoney — INTEGER cents in, money string out', () => {
     assert.strictEqual(formatMoney(1234, { decimals: 4 }), '$12.3400');
     assert.strictEqual(formatMoney(-1234, { decimals: 4 }), '-$12.3400');
   });
+
+  it('supports whole-dollar and 3-decimal display modes without local helpers', () => {
+    assert.strictEqual(formatMoney(1234, { decimals: 0 }), '$12');
+    assert.strictEqual(formatMoney(-1234, { decimals: 0 }), '-$12');
+    assert.strictEqual(formatMoney(1234, { decimals: 3 }), '$12.340');
+  });
 });
 
 describe('formatDollars — dollar float in, money string out', () => {
@@ -90,9 +100,34 @@ describe('formatDollars — dollar float in, money string out', () => {
     assert.strictEqual(formatDollars(-0.0234, { decimals: 4 }), '-$0.0234');
   });
 
+  it('supports chart and unit-price precision modes', () => {
+    assert.strictEqual(formatDollars(1234.56, { decimals: 0 }), '$1,235');
+    assert.strictEqual(formatDollars(-1234.56, { decimals: 0 }), '-$1,235');
+    assert.strictEqual(formatDollars(12.3456, { decimals: 1 }), '$12.3');
+    assert.strictEqual(formatDollars(0.1234, { decimals: 3 }), '$0.123');
+  });
+
   it('non-finite Number coerce → null fallback', () => {
     assert.strictEqual(formatDollars('not a number'), '—');
     assert.strictEqual(formatDollars(NaN), '—');
+  });
+});
+
+describe('formatCompactDollars — chart labels', () => {
+  it('keeps the sign before the currency symbol', () => {
+    assert.strictEqual(formatCompactDollars(-1234), '-$1k');
+    assert.strictEqual(formatCompactDollars(-1250000), '-$1.3M');
+  });
+
+  it('uses compact labels for chart axes', () => {
+    assert.strictEqual(formatCompactDollars(999), '$999');
+    assert.strictEqual(formatCompactDollars(1234), '$1k');
+    assert.strictEqual(formatCompactDollars(1250000), '$1.3M');
+  });
+
+  it('uses the null fallback for missing values', () => {
+    assert.strictEqual(formatCompactDollars(null), '—');
+    assert.strictEqual(formatCompactDollars(undefined, { nullDisplay: 'n/a' }), 'n/a');
   });
 });
 

@@ -27,6 +27,7 @@ import Link from 'next/link';
 import { getRecipes } from '../../lib/data';
 import { getDb } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
+import { formatDollars } from '../../lib/formatMoney';
 
 export const dynamic = 'force-dynamic';
 
@@ -261,11 +262,11 @@ export default function BarPage({ searchParams }) {
                     <div className="meta" style={{ marginTop: 6, fontSize: 13 }}>
                       Cost{' '}
                       <span style={{ fontWeight: 600 }}>
-                        {r.cost_per_pour != null ? `$${r.cost_per_pour.toFixed(2)}` : '—'}
+                        {formatDollars(r.cost_per_pour)}
                       </span>{' '}
                       / pour &middot; Menu{' '}
                       <span style={{ fontWeight: 600 }}>
-                        {r.menu_price != null ? `$${r.menu_price.toFixed(2)}` : '—'}
+                        {formatDollars(r.menu_price)}
                       </span>
                     </div>
                   </div>

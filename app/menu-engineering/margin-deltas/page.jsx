@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { listMarginDeltas } from '../../../lib/marginDeltas';
+import { formatDollars } from '../../../lib/formatMoney';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,11 +32,6 @@ function fmtPct(n) {
   const v = Number(n);
   const sign = v > 0 ? '+' : '';
   return `${sign}${v.toFixed(1)}%`;
-}
-
-function fmtPrice(n) {
-  if (n == null || !Number.isFinite(Number(n))) return '—';
-  return `$${Number(n).toFixed(4)}`;
 }
 
 function fmtDate(iso) {
@@ -162,10 +158,10 @@ export default function MarginDeltasPage({ searchParams }) {
                     <Link href={`/menu-engineering${locQ()}`}>{d.dish_name}</Link>
                   </div>
                   <div className="meta">
-                    {fmtPrice(d.baseline_cost)}{' '}
+                    {formatDollars(d.baseline_cost, { decimals: 4 })}{' '}
                     <time dateTime={d.baseline_at}>{fmtDate(d.baseline_at)}</time>
                     {' → '}
-                    {fmtPrice(d.latest_cost)}{' '}
+                    {formatDollars(d.latest_cost, { decimals: 4 })}{' '}
                     <time dateTime={d.latest_at}>{fmtDate(d.latest_at)}</time>
                     {d.top_contributors && d.top_contributors.length > 0 && (
                       <ul style={{ margin: '6px 0 0 0', padding: '0 0 0 16px', listStyle: 'disc', opacity: 0.85 }}>
