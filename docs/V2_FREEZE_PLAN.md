@@ -204,11 +204,11 @@ pipeline · floor-plan.
    doc edit strictly required; this file is the canonical reconciliation.
 
 **Deferred (explicitly out of v2):** entity Phase 2 UUID FKs · cloud-bridge pull/status ·
-Prism (blocked on external spec) · shows route tests (9) · regulated cert write/audit workflow ·
+Prism (blocked on external spec) · regulated cert write/audit workflow ·
 `cad-kernel/` move-out cleanup · multi-venue management UX · `@ts-nocheck` migration (256
 files, touch-on-edit) · mDNS unit tests · UI v2 migration · Roadmap Tier 2/3.
 
-**Scope-decision remaining:** iPad hardware/voice feasibility · i18n order · v2 UI rollout shape.
+**Scope-decision remaining:** iPad hardware/voice feasibility · i18n order.
 
 ---
 
@@ -223,18 +223,20 @@ files, touch-on-edit) · mDNS unit tests · UI v2 migration · Roadmap Tier 2/3.
 | `labor/certs` | Resolved for v2: informational-only; regulated tracking deferred |
 | iPad hardware / voice | Still open; keeps voice deferred |
 | i18n order | Still open; keeps i18n deferred |
-| v2 UI rollout shape | Still open; keeps UI migration design-only |
+| v2 UI rollout shape | Resolved for v2: cookie-gated side-by-side `/v2` route tree; v1 stays default until cutover criteria and rollback docs exist |
 
 ---
 
 ## 6. Recommended freeze sequence
 
-1. **Land this branch**: roadmap/freeze reconciliation, `db_query` location-boundary hardening,
-   and runtime smoke evidence for the June 4 UX fixes.
-2. **Run gates**: `test:db-query-tool`, runtime smoke, path-policy checks, and `npm run verify`.
-3. **Test-harden shows routes** as the next production-active deferred surface.
-4. **Keep v2 single-venue** until local contracts and management rollup behavior are stable.
+1. **Keep the P0 receiving-to-inventory lane honest**: delivery check-in, match resolution,
+   sync replay, and management rollup must preserve the same master/on-hand truth.
+2. **Build the v2 shell only as an opt-in `/v2` tree**: cookie-gated, side-by-side with v1,
+   no install-time cutover toggle, and no v1 route replacement in this freeze.
+3. **Keep v2 single-venue** until local contracts and management rollup behavior are stable.
+4. **Run gates before tagging**: route tests, schema/idempotency checks, path-policy checks,
+   cache-artifact checks, typecheck, and production build.
 5. **Tag the freeze** only after the remaining deferred/scope-decision list is accepted as v2.1+.
 
-That is ~1–2 focused days of work plus two product decisions. Nothing in the frozen set needs
-to be reopened.
+Nothing in the frozen set needs to be reopened; the next work is implementation against the
+resolved scope lines above.
