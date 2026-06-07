@@ -136,7 +136,7 @@ The `docs/redesign/lari-ui-demo.html` is a prototype. A real migration needs:
 |-----|--------|------|
 | 2.18 | M  | **Closed:** DB index audit is measured and pinned for the named `db_query` suspects. `tests/js/test-db-query-indexes.mjs` seeds realistic vendor-price history and audit-event rows, runs `EXPLAIN QUERY PLAN` against the registered SQL, and proves `vendor_price_shocks` uses `idx_vph_loc_snapshot_shock (location_id, snapshot_at DESC)` while `audit_log_recent` uses `idx_audit_recent_loc_created (location_id, created_at DESC)` with and without optional filters. |
 | 2.19 | M  | **Closed:** better-sqlite3 WAL checkpoint policy is explicit and pinned. `lib/db.ts` opens the shared app DB in WAL mode, enables foreign keys, keeps `synchronous = FULL`, and sets `wal_autocheckpoint = 1000` (~4MB at the default page size); `tests/js/test-db-connection-pragmas.mjs` now covers those connection PRAGMAs through the CI-backed `npm run test:schema` gate. |
-| 2.20 | L  | **Bundle-size audit.** Next 16 + React 19 + Electron 42 just happened (commit `30d9232`). Re-measure the production bundle vs. pre-bump; the Turbopack vs. webpack split (`next.config.mjs` does dual-runtime aliasing for three Node-only chains) may have created drift. |
+| 2.20 | L  | **Closed:** Bundle-size audit is measured against the pre-bump parent of `30d9232`. `scripts/bundle-size-audit.mjs` reads local `.next` and desktop wizard build artifacts, emits deterministic `schemaVersion` JSON, and fails closed when the production build is missing. Current post-bump baseline: Next static JS 1,509,334 B / 506,209 gzip, Next server JS 8,473,695 B / 2,289,706 gzip, edge runtime 278,291 B / 81,079 gzip, desktop wizard JS 194,626 B / 60,768 gzip. See `docs/audit/2026-06-07-bundle-size-audit.md`; `npm run test:bundle-audit` pins the parser and path invariants. |
 | 2.21 | M  | **iPad performance.** Cook-tier surfaces run on iPads. Profile under low-power mode on an iPad gen 7 (slowest fleet device). Anything > 100ms tap-to-feedback is too slow for line use. |
 
 ---
@@ -183,7 +183,7 @@ The old five-item sequence is now reconciled so future agents do not redo finish
 4. **2.10** — closed; the first `/v2` shell is cookie-gated, side-by-side, and leaves v1 as default with no route replacement.
 5. **3.1** — remains deferred; no venue switcher or consolidated multi-venue rollup belongs in this freeze slice.
 
-The next implementation work should start from the remaining open rows, not from the stale sequence above: move into the still-open scale/readiness rows such as 2.20 bundle-size audit and 2.21 iPad performance.
+The next implementation work should start from the remaining open rows, not from the stale sequence above: move into the still-open scale/readiness row 2.21 iPad performance.
 
 ---
 
