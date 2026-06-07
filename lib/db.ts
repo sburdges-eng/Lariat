@@ -1280,6 +1280,9 @@ export function initSchema(db: DB): void {
       ON vendor_prices_history(location_id, vendor, sku);
     CREATE INDEX IF NOT EXISTS idx_vph_snapshot_at
       ON vendor_prices_history(snapshot_at);
+    CREATE INDEX IF NOT EXISTS idx_vph_loc_snapshot_shock
+      ON vendor_prices_history(location_id, snapshot_at DESC)
+      WHERE vendor IS NOT NULL AND sku IS NOT NULL AND unit_price IS NOT NULL;
     CREATE INDEX IF NOT EXISTS idx_vph_ingredient
       ON vendor_prices_history(ingredient);
 
@@ -2841,6 +2844,8 @@ function initFoodSafetyLaborSchema(db: DB): void {
       ON audit_events(entity, entity_id);
     CREATE INDEX IF NOT EXISTS idx_audit_shift
       ON audit_events(location_id, shift_date);
+    CREATE INDEX IF NOT EXISTS idx_audit_recent_loc_created
+      ON audit_events(location_id, created_at DESC);
 
     -- KDS bump-back state (protocol v2 — Lariat-KDS/docs/lariat-kds-protocol.md §3).
     -- A row exists iff the ticket has been bumped. Re-bump UPDATEs bumped_at
