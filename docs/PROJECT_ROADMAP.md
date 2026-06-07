@@ -25,7 +25,7 @@ This update records four decisions for the next freeze slice:
 | Area | Decision | Roadmap impact |
 |------|----------|----------------|
 | `cad-kernel/` | Treat as out-of-scope for Lariat v2. Move it to a CAD/FloorPlanDesigner lane in a separate cleanup; do not build Lariat runtime coupling to it. | Keeps the restaurant app reproducible and avoids carrying an unwired C++ subsystem in the freeze story. |
-| Shows / venue arm | Production-active, not deprecated. Test-harden the 9 untested show/detail routes before changing behavior. | Roadmap 2.14 remains real debt, scoped as coverage and contract work. |
+| Shows / venue arm | Production-active, not deprecated. The route-hardening gap is now closed; preserve the focused coverage before changing behavior. | Roadmap 2.14 is closed by `npm run test:event-ops` plus focused settlement/capacity route tests. |
 | Venue target | Single-venue first for v2. Multi-venue remains a later management UX and rollout problem after local contracts are stable. | Roadmap 3.1 stays deferred; do not expand this slice into venue switching or consolidated rollups. |
 | `labor/certs` | Informational-only for v2. No regulated certification write/audit workflow is claimed until requirements are formalized. | Removes the freeze ambiguity without inventing a half-regulated module. |
 
@@ -125,10 +125,10 @@ The `docs/redesign/lari-ui-demo.html` is a prototype. A real migration needs:
 
 | ID  | Effort | Item |
 |-----|--------|------|
-| 2.14 | L  | **Show/box-office route family.** 9 untested routes under `/api/shows/[id]/*` covering settlement, deal terms, box-office lines, stage setups, sound scenes, SPL readings. Product call on 2026-06-04: the live-music venue arm is production-active, so this is genuine test-hardening debt, not a deprecation path. |
+| 2.14 | L  | **Closed:** Show/box-office route family is pinned across stage setup, sound scenes, SPL readings, box-office lines, deal terms, settlement reads/print view, and capacity overrides. Product call on 2026-06-04 still stands: the live-music venue arm is production-active, so future changes must preserve this coverage rather than deprecate the surface. `npm run test:event-ops` covers stage/sound/SPL/box-office, while `tests/js/test-settlement-route.mjs`, `tests/js/test-settlement-pdf.mjs`, `tests/js/test-settlement-deal-parser.mjs`, and `tests/js/test-show-capacity-api.mjs` cover the focused settlement/deal/capacity routes. |
 | 2.15 | M  | **Closed:** Inventory count routes are pinned across open, line upsert, closed-count rejection, close/reopen, location scoping, GET detail, schema migration, and cross-location line-count/detail leakage canaries. `tests/js/test-inventory-counts-api.mjs` covers `/api/inventory/counts`, `/api/inventory/counts/[id]`, and `/api/inventory/counts/[id]/lines`; summary/detail reads now filter count lines by count location. |
 | 2.16 | M  | **Closed:** Recipe-photo + raw routes are pinned across upload validation, PIN-gated mutations, list/delete visibility, raw reads, hero pinning, caption edits, cleanup retention, and raw-path containment. `readPhoto()` now only serves files under `data/uploads/recipes`, so a bad `recipe_photos.stored_path` row cannot stream arbitrary local files. |
-| 2.17 | M  | **Cloud-bridge DLQ admin routes.** `/api/cloud-bridge/dead-letters/[id]/{drop,requeue}` — low-frequency but consequential per-call. |
+| 2.17 | M  | **Closed:** Cloud-bridge DLQ admin routes are pinned for PIN-gated reads, location-scoped listing, requeue/drop success paths, 400/404 handling, audit rows, alive-row refusal, and cross-location IDOR guards. `tests/js/test-cloud-bridge-dead-letters-api.mjs` covers `/api/cloud-bridge/dead-letters` plus `/api/cloud-bridge/dead-letters/[id]/{drop,requeue}`, and `tests/js/test-cloud-bridge-queue.mjs` covers the queue primitives behind those handlers. |
 
 ### 2D. Performance + scale work I didn't audit
 
@@ -183,7 +183,7 @@ The old five-item sequence is now reconciled so future agents do not redo finish
 4. **2.10** — closed; the first `/v2` shell is cookie-gated, side-by-side, and leaves v1 as default with no route replacement.
 5. **3.1** — remains deferred; no venue switcher or consolidated multi-venue rollup belongs in this freeze slice.
 
-The next implementation work should start from the remaining open rows, not from the stale sequence above: finish any remaining P0 receiving/inventory replay proof, then continue production coverage debt such as cloud-bridge DLQ admin route tests.
+The next implementation work should start from the remaining open rows, not from the stale sequence above: finish any remaining P0 receiving/inventory replay proof, then move into the still-open scale/readiness rows such as 2.18 DB index audit, 2.19 WAL checkpoint policy, 2.20 bundle-size audit, and 2.21 iPad performance.
 
 ---
 
