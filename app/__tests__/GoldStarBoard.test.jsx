@@ -61,4 +61,23 @@ describe('GoldStarBoard', () => {
     });
     expect(screen.getByText(/Jumped on pantry/i)).toBeInTheDocument();
   });
+
+  test('removes a star after the manager confirms', async () => {
+    window.confirm.mockReturnValueOnce(true);
+
+    render(<GoldStarBoard />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /remove/i }));
+
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringMatching(/remove this gold star/i));
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/gold-stars/1',
+        expect.objectContaining({ method: 'DELETE' })
+      );
+    });
+    await waitFor(() => {
+      expect(screen.queryByText(/Jumped on pantry/i)).not.toBeInTheDocument();
+    });
+  });
 });

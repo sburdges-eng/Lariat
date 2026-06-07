@@ -102,9 +102,10 @@ const ALLOWLIST = new Set([
   'reservations',
   'reservations/[id]',
   'service-hours',
-  // Gold-stars (kudos) — staff recognition, no financial weight.
+  // Gold-stars index (kudos) — staff recognition create/read stays open
+  // to line staff. The by-id DELETE route is explicitly manager-PIN gated
+  // because it removes recognition from the board.
   'gold-stars',
-  'gold-stars/[id]',
 
   // ── Prep / kitchen workflow (line-cook authority) ──────────────────
   'prep-tasks',
