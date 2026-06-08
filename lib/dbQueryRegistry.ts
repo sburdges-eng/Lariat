@@ -711,6 +711,33 @@ const MANAGER_QUERIES: DbQuerySpec[] = [
       ORDER BY ms.next_due ASC NULLS FIRST
     `,
   },
+  {
+    name: 'peer_trust_status',
+    tier: 'manager',
+    description: 'Trusted and revoked LAN sync peers by fingerprint, label, trust status, and last-seen time.',
+    locationScoped: false,
+    rowCap: 50,
+    params: [],
+    sql: `
+      SELECT
+        fingerprint,
+        label,
+        CASE
+          WHEN revoked = 1 THEN 'revoked'
+          WHEN last_seen_at IS NULL THEN 'trusted_never_seen'
+          ELSE 'trusted_seen'
+        END AS trust_status,
+        revoked,
+        created_at,
+        last_seen_at,
+        CASE
+          WHEN last_seen_at IS NULL THEN NULL
+          ELSE CAST(round((julianday('now') - julianday(last_seen_at)) * 24 * 60) AS INTEGER)
+        END AS last_seen_min
+      FROM peer_trust
+      ORDER BY revoked ASC, last_seen_at DESC NULLS LAST, created_at ASC
+    `,
+  },
 ];
 
 export const DB_QUERIES: DbQuerySpec[] = [...COOK_QUERIES, ...MANAGER_QUERIES];

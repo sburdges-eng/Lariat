@@ -41,7 +41,7 @@ previously ambiguous are recorded here: single-venue v2, shows/venue kept and te
 | Subsystem | Status | Evidence | Note |
 |-----------|--------|----------|------|
 | Kitchen Assistant → Ollama | **FROZEN** | `app/api/kitchen-assistant/route.js:7`, `app/api/specials/route.js:84` call `ollamaChat()`; no feature flag | Matches CLAUDE.md |
-| `db_query` LLM action | **FROZEN** | `lib/dbQueryRegistry.ts` (29 queries), tier-gated in `lib/dbQueryTool.ts::runDbQuery()`, audit-wrapped at `app/api/kitchen-assistant/route.js:203`, covered by `tests/js/test-db-query-tool.mjs` | Injection-safe, tier-gated, location-scoped where location-bearing, per-query row caps |
+| `db_query` LLM action | **FROZEN** | `lib/dbQueryRegistry.ts` (30 queries), tier-gated in `lib/dbQueryTool.ts::runDbQuery()`, audit-wrapped at `app/api/kitchen-assistant/route.js:203`, covered by `tests/js/test-db-query-tool.mjs` | Injection-safe, tier-gated, location-scoped where location-bearing, per-query row caps |
 | Data Pack hybrid search | **FROZEN** | `lib/datapackSearch.ts` RRF fusion (FTS5 ⊕ BGE), graceful-degraded via `available()`; `test:datapack` 3/3 | "normalize dispatcher wired" claim is cosmetic overclaim — no central dispatcher exists |
 | Prompt eval harness | **FROZEN** | `training/eval/` + `npm run eval:assistant-prompt`; 10/10 locked baseline | Does not yet eval the new Qwen checkpoint |
 | **Model: Qwen vs DeepSeek default** | RESOLVED (kept DeepSeek) | `lib/ollama.ts:6` defaults to `lari-the-kitchen-assistant`; eval: DeepSeek 7/10 vs Qwen 1/10 on Ollama leg | Qwen fails the gate; do not flip. See §2.1 |
