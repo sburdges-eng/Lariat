@@ -21,20 +21,12 @@
  */
 
 import { requirePin } from '../../../../../../lib/pin';
-import {
-  getDeadLetter,
-  dropDeadLetter,
-} from '../../../../../../lib/cloudBridgeQueue';
+import { dropDeadLetter } from '../../../../../../lib/cloudBridgeQueue';
 import { logAuditAction } from '../../../../../../lib/auditLog.mjs';
-import { locationFromRequest } from '../../../../../../lib/location';
+import { loadScopedDeadLetterTarget } from '../../../../../../lib/cloudBridgeRouteGuards';
 import { withIdempotency } from '../../../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
-
-function parseId(raw) {
-  const n = Number(raw);
-  return Number.isInteger(n) && n > 0 ? n : null;
-}
 
 export async function POST(req, ctx) {
   return withIdempotency(req, () => dropDeadLetterPostHandler(req, ctx));
@@ -46,24 +38,12 @@ async function dropDeadLetterPostHandler(req, { params }) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
 
-  const id = parseId(params?.id);
-  if (id === null) {
-    return Response.json({ error: 'Bad id' }, { status: 400 });
-  }
-
   try {
     // Snapshot before deleting so the audit trail still has the
     // payload — the row itself is gone after dropDeadLetter.
-    const before = getDeadLetter(id);
-    if (!before) {
-      return Response.json({ error: 'Not found' }, { status: 404 });
-    }
-
-    // Cross-location IDOR guard — see requeue route for the full note.
-    const callerLocation = locationFromRequest(req);
-    if (before.locationId !== callerLocation) {
-      return Response.json({ error: 'Not found' }, { status: 404 });
-    }
+    const target = loadScopedDeadLetterTarget(req, params?.id);
+    if (!target.ok) return target.response;
+    const { id, before } = target;
 
     const ok = dropDeadLetter(id);
     if (!ok) {
