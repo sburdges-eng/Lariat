@@ -30,6 +30,12 @@ import {
   formatQueryResultForPrompt,
 } from '../../../lib/dbQueryTool';
 import {
+  DEV_CODE_SEARCH_SCHEMA_VERSION,
+  runDevCodeSearch,
+  renderDevCodeSearchCatalog,
+  formatDevCodeSearchForPrompt,
+} from '../../../lib/devCodeSearch';
+import {
   runSemanticKitchenSearch,
   formatSemanticKitchenSearchForPrompt,
 } from '../../../lib/kitchenSemanticSearch';
@@ -263,6 +269,7 @@ async function kitchenAssistantPostHandler(req) {
   // is just discoverability. Catalog is small (~12 cook-tier / ~24 manager-tier
   // one-liners) so the budget impact is bounded.
   const queryCatalog = renderQueryCatalog(hasPin ? 'manager' : 'cook');
+  const devCodeSearchCatalog = renderDevCodeSearchCatalog({ hasPin });
   const semanticSearchCatalog = `
 SEMANTIC SEARCH ACTION:
 - For fuzzy recipe, BEO, or kitchen audit-memory lookup, you may emit:
@@ -273,7 +280,10 @@ SEMANTIC SEARCH ACTION:
   const historyBlock = conversationHistory
     ? `\n---\n${conversationHistory}\n`
     : '\n';
-  let userContent = `CONTEXT (authoritative — only use these facts for operational claims):\n\n${contextText}\n\n${queryCatalog}\n${semanticSearchCatalog}${historyBlock}---\nCOOK MESSAGE:\n${message}`;
+  let userContent = `CONTEXT (authoritative — only use these facts for operational claims):\n\n${contextText}\n\n${queryCatalog}\n${semanticSearchCatalog}${devCodeSearchCatalog}${historyBlock}---\nCOOK MESSAGE:\n${message}`;
+  const readActionException = devCodeSearchCatalog
+    ? 'if the read-only db_query catalog, semantic_search action, or code_search action is the right tool'
+    : 'if the read-only db_query catalog or semantic_search action is the right tool';
 
   if (body.language && body.language !== 'English') {
     userContent += `\n\nTRANSLATION DIRECTIVE: You MUST answer the cook entirely in ${body.language}. Ensure you use accurate culinary terms and maintain the requested formatting.`;
@@ -305,7 +315,7 @@ ARITHMETIC & VALIDATION RULE: The server runs a deterministic calculator and FDA
     userContent += `\n\nANSWER FORMAT:
 
 This is a question, not a command. Answer with plain prose only — bullets are fine. NEVER emit a JSON action block.
-Exception: if the read-only db_query catalog or semantic_search action is the right tool, emit that one JSON action block first, then write a short human framing after it.
+Exception: ${readActionException}, emit that one JSON action block first, then write a short human framing after it.
 
 In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like "what's 86?", "is X 86 today?", or "anything 86?" as inventory inquiries — not commands. Cite what the CONTEXT shows on the 86 board, or say nothing is 86 if it's empty.`;
   }
@@ -351,6 +361,45 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
         type: 'semantic_search',
         detail: `${semanticOutcome.hits.length} hit(s) for "${semanticOutcome.query || 'blank query'}"`,
       });
+      finalAnswer = stripped || '';
+    } else if (payload && payload.action === 'code_search') {
+      const codeSearchOutcome = runDevCodeSearch({
+        query: payload.query,
+        glob: payload.glob,
+        limit: payload.limit,
+        hasPin,
+      });
+      actionMsg = formatDevCodeSearchForPrompt(codeSearchOutcome);
+      actionExecuted = true;
+      actionError = !codeSearchOutcome.ok && !['disabled', 'tier_blocked'].includes(codeSearchOutcome.code);
+      if (codeSearchOutcome.ok) {
+        sources.push({
+          type: 'code_search',
+          detail: `${codeSearchOutcome.hitCount} hit(s)${codeSearchOutcome.truncated ? ' (truncated)' : ''}`,
+        });
+        try {
+          getDb().transaction(() => {
+            postAuditEvent({
+              entity: 'code_search',
+              entity_id: null,
+              action: 'view',
+              actor_cook_id: conversation.cookId,
+              actor_source: 'kitchen_assistant',
+              location_id: locationId,
+              payload: {
+                schemaVersion: DEV_CODE_SEARCH_SCHEMA_VERSION,
+                queryLength: codeSearchOutcome.query.length,
+                glob: codeSearchOutcome.glob,
+                hitCount: codeSearchOutcome.hitCount,
+                truncated: codeSearchOutcome.truncated,
+              },
+              note: `code_search returned ${codeSearchOutcome.hitCount} hit(s)`,
+            });
+          })();
+        } catch (auditError) {
+          console.error('code_search audit failed:', auditError);
+        }
+      }
       finalAnswer = stripped || '';
     } else if (payload && payload.action === 'db_query' && typeof payload.query === 'string') {
       const dbQueryOutcome = runDbQuery({
