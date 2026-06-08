@@ -18,20 +18,12 @@
  */
 
 import { requirePin } from '../../../../../../lib/pin';
-import {
-  getDeadLetter,
-  requeueDeadLetter,
-} from '../../../../../../lib/cloudBridgeQueue';
+import { requeueDeadLetter } from '../../../../../../lib/cloudBridgeQueue';
 import { logAuditAction } from '../../../../../../lib/auditLog.mjs';
-import { locationFromRequest } from '../../../../../../lib/location';
+import { loadScopedDeadLetterTarget } from '../../../../../../lib/cloudBridgeRouteGuards';
 import { withIdempotency } from '../../../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
-
-function parseId(raw) {
-  const n = Number(raw);
-  return Number.isInteger(n) && n > 0 ? n : null;
-}
 
 export async function POST(req, ctx) {
   return withIdempotency(req, () => requeueDeadLetterPostHandler(req, ctx));
@@ -43,30 +35,13 @@ async function requeueDeadLetterPostHandler(req, { params }) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
 
-  const id = parseId(params?.id);
-  if (id === null) {
-    return Response.json({ error: 'Bad id' }, { status: 400 });
-  }
-
   try {
     // Snapshot before mutating so the audit row records what was acted
     // on (table, location, prior attempts, last_error). Also lets us
     // 404 cleanly when the row isn't dead-lettered (or doesn't exist).
-    const before = getDeadLetter(id);
-    if (!before) {
-      return Response.json({ error: 'Not found' }, { status: 404 });
-    }
-
-    // Cross-location IDOR guard: a caller scoped to site-A must not be
-    // able to act on a row whose location_id is site-B by guessing the
-    // numeric id. Surfaced as 404 (not 403) so the existence of a row
-    // at another site doesn't leak. If the caller didn't pass ?location=
-    // we default to DEFAULT_LOCATION_ID per locationFromRequest, which
-    // matches the GET list scope.
-    const callerLocation = locationFromRequest(req);
-    if (before.locationId !== callerLocation) {
-      return Response.json({ error: 'Not found' }, { status: 404 });
-    }
+    const target = loadScopedDeadLetterTarget(req, params?.id);
+    if (!target.ok) return target.response;
+    const { id, before } = target;
 
     const ok = requeueDeadLetter(id);
     if (!ok) {
