@@ -147,6 +147,38 @@ before(() => {
     // location_id, it can leak the other venue's event metadata.
     insTask.run(otherBeoEventId, 'Do not leak private wedding', '2026-06-16', 0, 99, 'default');
   })();
+
+  // peer_trust — manager-tier sync health status target
+  testDb.transaction(() => {
+    const insPeer = testDb.prepare(
+      `INSERT INTO peer_trust (pubkey_hex, fingerprint, label, created_at, last_seen_at, revoked)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    );
+    insPeer.run(
+      'a'.repeat(64),
+      'aaaabbbbcccc1111',
+      'Prep iPad',
+      '2026-05-14 08:00:00',
+      '2026-05-14 08:20:00',
+      0,
+    );
+    insPeer.run(
+      'b'.repeat(64),
+      'bbbbccccdddd2222',
+      'Expo iPad',
+      '2026-05-14 08:05:00',
+      null,
+      0,
+    );
+    insPeer.run(
+      'c'.repeat(64),
+      'ccccddddeeee3333',
+      'Old standby laptop',
+      '2026-05-14 08:10:00',
+      '2026-05-14 08:25:00',
+      1,
+    );
+  })();
 });
 
 // ── 1. SAFETY: registry / tier / injection / location forcing ────────
@@ -387,6 +419,41 @@ describe('roadmap db_query entries', () => {
     assert.strictEqual(audit.location_id, 'default');
     const payload = JSON.parse(audit.payload_json);
     assert.deepStrictEqual(payload.paramKeys.sort(), ['days', 'threshold_pct']);
+  });
+
+  it('peer_trust_status is manager-tier and reports peer health without exposing pubkeys', () => {
+    const blocked = tool.runDbQuery({
+      name: 'peer_trust_status',
+      params: {},
+      hasPin: false,
+      requestLocationId: 'default',
+    });
+    assert.strictEqual(blocked.ok, false);
+    if (!blocked.ok) assert.strictEqual(blocked.code, 'tier_blocked');
+
+    const r = tool.runDbQuery({
+      name: 'peer_trust_status',
+      params: {},
+      hasPin: true,
+      requestLocationId: 'default',
+    });
+    assert.strictEqual(r.ok, true);
+    if (r.ok) {
+      assert.deepStrictEqual(
+        r.rows.map((row) => row.fingerprint),
+        ['aaaabbbbcccc1111', 'bbbbccccdddd2222', 'ccccddddeeee3333'],
+      );
+      assert.deepStrictEqual(
+        r.rows.map((row) => row.trust_status),
+        ['trusted_seen', 'trusted_never_seen', 'revoked'],
+      );
+      assert.strictEqual(
+        Object.prototype.hasOwnProperty.call(r.rows[0], 'pubkey_hex'),
+        false,
+        'full pubkey must not be exposed to LaRi table output',
+      );
+      assert.strictEqual(r.rows[2].revoked, 1, 'revoked peers must stay visibly revoked, not trusted');
+    }
   });
 });
 
