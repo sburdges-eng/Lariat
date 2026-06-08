@@ -4,7 +4,7 @@
 **Core Stack**: Next.js 14, React 18, better-sqlite3, Node.js LTS, Python 3 (openpyxl, xlrd, pdfplumber), Ollama (required for Kitchen Assistant + Specials Sandbox).
 **Data Philosophy**: Local-first, deterministic, Excel-to-JSON/SQLite ETL. Append-only audit trail on regulated surfaces. No hidden runtime AI coupling.
 
-See also: [`PATTERNS.md`](PATTERNS.md) for canonical module patterns (HACCP rule modules, ingest delegation, audit split, location scoping).
+See also: [`PATTERNS.md`](PATTERNS.md) for canonical module patterns (HACCP rule modules, ingest delegation, audit split, location scoping), and [`PROTECTED_CONTRACTS.md`](PROTECTED_CONTRACTS.md) for the refactor/review boundaries that must not drift on protected surfaces.
 
 ---
 
