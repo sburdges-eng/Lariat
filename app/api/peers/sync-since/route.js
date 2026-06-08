@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 /**
  * /api/peers/sync-since — Ed25519-signed cross-host sync window.
  *
@@ -28,6 +28,16 @@ import { authenticateSyncRequest, touchPeerLastSeen } from '../../../../lib/peer
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * @typedef {{
+ *   peerId: string;
+ *   fromOp: number | null;
+ *   limit: number | undefined;
+ *   paramsOk: boolean;
+ * }} ParsedSyncSinceRequest
+ */
+
+/** @param {string | null} raw */
 function parseFromOp(raw) {
   if (raw == null || raw === '') return 0;
   const n = Number(raw);
@@ -35,6 +45,7 @@ function parseFromOp(raw) {
   return n;
 }
 
+/** @param {string | null} raw */
 function parseLimit(raw) {
   if (raw == null || raw === '') return undefined;
   const n = Number(raw);
@@ -42,6 +53,23 @@ function parseLimit(raw) {
   return Math.floor(n);
 }
 
+/** @param {URLSearchParams} searchParams
+ *  @returns {ParsedSyncSinceRequest}
+ */
+function parseSyncSinceRequest(searchParams) {
+  const peerIdRaw = searchParams.get('peer_id');
+  const peerId = peerIdRaw?.trim() ?? '';
+  const fromOp = parseFromOp(searchParams.get('from_op'));
+  const limit = parseLimit(searchParams.get('limit'));
+  return {
+    peerId,
+    fromOp,
+    limit,
+    paramsOk: peerId.length > 0 && fromOp !== null,
+  };
+}
+
+/** @param {Request} req */
 export async function GET(req) {
   const url = new URL(req.url);
   const db = getDb();
@@ -50,11 +78,7 @@ export async function GET(req) {
   // attacker who happens to have a valid signed request can't
   // distinguish "auth passed but params bad" (400) from "auth failed"
   // (401). Both shapes now return 401 with a generic body.
-  const peerIdRaw = url.searchParams.get('peer_id');
-  const peerIdTrimmed = peerIdRaw?.trim() ?? '';
-  const fromOpParsed = parseFromOp(url.searchParams.get('from_op'));
-  const limit = parseLimit(url.searchParams.get('limit'));
-  const paramsOk = peerIdTrimmed.length > 0 && fromOpParsed !== null;
+  const { peerId, fromOp, limit, paramsOk } = parseSyncSinceRequest(url.searchParams);
 
   const auth = authenticateSyncRequest(
     db,
@@ -71,9 +95,9 @@ export async function GET(req) {
     // Generic 401 for ANY rejection — auth failure, param shape, etc.
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
-
-  const peerId = peerIdTrimmed;
-  const fromOp = fromOpParsed;
+  if (fromOp === null) {
+    return Response.json({ error: 'unauthorized' }, { status: 401 });
+  }
 
   try {
     const page = replaySince(peerId, fromOp, limit);
