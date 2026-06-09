@@ -1,0 +1,19 @@
+# Lariat Graphify — broad scope (keeps code + docs to avoid dangling-edge export crash)
+data
+archive
+backups
+output
+Lariat-KDS
+drive-event-ops-dl
+*.db
+*.sqlite
+*.sqlite3
+*.parquet
+*.csv
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.mp4
+*.zip
