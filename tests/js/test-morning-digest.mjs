@@ -170,6 +170,52 @@ describe('buildMorningDigest()', () => {
     assert.equal(b.eighty_six.count, 1);
     assert.equal(b.maintenance_due.count, 0);
   });
+
+  it('excludes expired certs from the this-week section', () => {
+    db.prepare(
+      `INSERT INTO staff_certifications (cook_id, cert_type, cert_label, expires_on, active, location_id)
+       VALUES
+       ('cook-expired', 'food_handler', 'Food Handler', '2026-04-24', 1, 'default'),
+       ('cook-today', 'food_handler', 'Food Handler', '2026-04-25', 1, 'default'),
+       ('cook-soon', 'food_handler', 'Food Handler', '2026-04-28', 1, 'default')`,
+    ).run();
+
+    const digest = morning.buildMorningDigest('default', TODAY);
+
+    assert.deepEqual(
+      digest.certs_expiring_week.items.map((row) => row.cook_id),
+      ['cook-today', 'cook-soon'],
+    );
+    assert.equal(digest.certs_expiring_week.count, 2);
+  });
+
+  it('limits BEO prep to events that still have open tasks', () => {
+    for (let i = 0; i < 10; i += 1) {
+      const doneEvent = db.prepare(
+        `INSERT INTO beo_events (title, event_date, event_time, guest_count, status, location_id)
+         VALUES (?, ?, '08:00', 20, 'planned', 'default')`,
+      ).run(`Done event ${i + 1}`, TODAY);
+      db.prepare(
+        `INSERT INTO beo_prep_tasks (event_id, task, due_date, done, location_id)
+         VALUES (?, 'Wrapped', ?, 1, 'default')`,
+      ).run(Number(doneEvent.lastInsertRowid), TODAY);
+    }
+
+    const openEvent = db.prepare(
+      `INSERT INTO beo_events (title, event_date, event_time, guest_count, status, location_id)
+       VALUES ('Open prep event', ?, '18:00', 60, 'planned', 'default')`,
+    ).run(TODAY);
+    db.prepare(
+      `INSERT INTO beo_prep_tasks (event_id, task, due_date, done, location_id)
+       VALUES (?, 'Final garnish', ?, 0, 'default')`,
+    ).run(Number(openEvent.lastInsertRowid), TODAY);
+
+    const digest = morning.buildMorningDigest('default', TODAY);
+
+    assert.equal(digest.beo_prep.count, 1);
+    assert.deepEqual(digest.beo_prep.items.map((row) => row.title), ['Open prep event']);
+    assert.equal(digest.beo_prep.items[0].open_tasks, 1);
+  });
 });
 
 describe('GET /api/morning', () => {
@@ -186,5 +232,20 @@ describe('GET /api/morning', () => {
     assert.equal(body.eighty_six.count, 1);
     assert.equal(typeof body.webhook.text, 'string');
     assert.match(body.webhook.text, /Halibut/);
+  });
+});
+
+describe('buildMorningDigestQuery()', () => {
+  it('keeps date and location in drill-down links for non-today digests', async () => {
+    const links = await import('../../lib/morningDigestLinks.ts');
+
+    assert.equal(
+      links.buildMorningDigestQuery({ locationId: 'uptown', date: '2026-04-20', today: '2026-04-25' }),
+      '?location=uptown&date=2026-04-20',
+    );
+    assert.equal(
+      links.buildMorningDigestQuery({ locationId: 'default', date: '2026-04-20', today: '2026-04-25' }),
+      '?date=2026-04-20',
+    );
   });
 });

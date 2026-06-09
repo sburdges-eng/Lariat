@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { todayISO } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { buildMorningDigest } from '../../lib/morningDigest';
+import { buildMorningDigestQuery } from '../../lib/morningDigestLinks';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,10 +25,6 @@ function fmtEventTime(t) {
   return `${h12}:${mm} ${ampm}`;
 }
 
-function locQuery(loc) {
-  return loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
-}
-
 function Section({ title, sub, href, children }) {
   return (
     <section className="card" style={{ marginBottom: 16 }}>
@@ -46,8 +43,9 @@ function Section({ title, sub, href, children }) {
 export default async function MorningPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const loc = typeof sp.location === 'string' && sp.location.trim() ? sp.location.trim() : DEFAULT_LOCATION_ID;
-  const date = typeof sp.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : todayISO();
-  const q = locQuery(loc);
+  const today = todayISO();
+  const date = typeof sp.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : today;
+  const q = buildMorningDigestQuery({ locationId: loc, date, today });
   const digest = buildMorningDigest(loc, date);
 
   return (
@@ -141,7 +139,7 @@ export default async function MorningPage({ searchParams }) {
         )}
       </Section>
 
-      <Section title="Webhook text" sub="Ready to paste into a Slack webhook" href={`/api/morning${q ? `${q}&date=${date}` : `?date=${date}`}`}>
+      <Section title="Webhook text" sub="Ready to paste into a Slack webhook" href={`/api/morning${q}`}>
         <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{digest.webhook.text}</pre>
       </Section>
     </div>

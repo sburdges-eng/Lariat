@@ -176,7 +176,7 @@ export function buildMorningDigest(locationId: string, today: string): MorningDi
       ...row,
       days_until: daysBetween(today, row.expires_on),
     }))
-    .filter((row) => row.days_until <= 7)
+    .filter((row) => row.days_until >= 0 && row.days_until <= 7)
     .slice(0, 10);
 
   const maintenanceRows = db
@@ -221,13 +221,12 @@ export function buildMorningDigest(locationId: string, today: string): MorningDi
           AND e.event_date >= ?
           AND COALESCE(e.status, '') NOT IN ('cancelled', 'canceled')
         GROUP BY e.id, e.title, e.event_date, e.event_time, e.guest_count
-       HAVING COUNT(t.id) > 0
+       HAVING SUM(CASE WHEN COALESCE(t.done, 0) = 0 THEN 1 ELSE 0 END) > 0
         ORDER BY e.event_date ASC, COALESCE(e.event_time, '00:00') ASC
         LIMIT 10`,
     )
     .all(locationId, today) as MorningDigestBeoPrepItem[];
-  const beoCount = beoItems.filter((row) => row.open_tasks > 0).length;
-  const beoOpenItems = beoItems.filter((row) => row.open_tasks > 0);
+  const beoCount = beoItems.length;
 
   const generated_at = new Date().toISOString();
   const digestCore = {
@@ -240,7 +239,7 @@ export function buildMorningDigest(locationId: string, today: string): MorningDi
     price_shocks: { count: priceShockItems.length, items: priceShockItems },
     certs_expiring_week: { count: certItems.length, items: certItems },
     maintenance_due: { count: maintenanceItems.length, items: maintenanceItems },
-    beo_prep: { count: beoCount, items: beoOpenItems },
+    beo_prep: { count: beoCount, items: beoItems },
   };
 
   return {
