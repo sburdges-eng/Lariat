@@ -55,11 +55,13 @@ describe('/v2 opt-in shell navigation boundary', () => {
     );
   });
 
-  it('documents /v2 as a cookie-gated preview exclusion', () => {
-    const exclusion = NAV_ROUTE_EXCLUSIONS.find((route) => route.href === '/v2');
-    assert.ok(exclusion, '/v2 should be explicitly excluded from v1 nav coverage');
-    assert.match(exclusion.reason, /cookie/i);
-    assert.match(exclusion.reason, /side-by-side/i);
+  it('documents every shipped v2 preview route as an explicit exclusion', () => {
+    const excluded = new Map(NAV_ROUTE_EXCLUSIONS.map((route) => [route.href, route.reason]));
+    for (const href of ['/v2', '/v2/today', '/v2/kds/punch', '/v2/eighty-six', '/v2/stations']) {
+      assert.ok(excluded.has(href), `${href} should be explicitly excluded from v1 nav coverage`);
+      assert.match(excluded.get(href), /cookie/i, `${href} exclusion should explain the preview cookie gate`);
+    }
+    assert.match(excluded.get('/v2'), /side-by-side/i);
   });
 });
 

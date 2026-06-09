@@ -75,6 +75,18 @@ export const NAV_ROUTE_EXCLUSIONS = [
     href: '/v2/today',
     reason: 'Cookie-gated side-by-side preview route; keep v2 cook pages out of v1 navigation until cutover.',
   },
+  {
+    href: '/v2/kds/punch',
+    reason: 'Cookie-gated side-by-side preview route; keep v2 cook pages out of v1 navigation until cutover.',
+  },
+  {
+    href: '/v2/eighty-six',
+    reason: 'Cookie-gated side-by-side preview route; keep v2 cook pages out of v1 navigation until cutover.',
+  },
+  {
+    href: '/v2/stations',
+    reason: 'Cookie-gated side-by-side preview route; keep v2 cook pages out of v1 navigation until cutover.',
+  },
 ];
 
 export const NAV_ITEMS = [
