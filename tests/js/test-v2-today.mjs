@@ -38,7 +38,7 @@ describe('/v2/today route file', () => {
 describe('/v2/today landing content', () => {
   it('anchors cooks around today, punch, 86, and station follow-through', () => {
     const source = read(V2_TODAY_PAGE);
-    for (const href of ['/v2/kds/punch', '/v2/eighty-six', '/stations/']) {
+    for (const href of ['/v2/kds/punch', '/v2/eighty-six', '/v2/stations/']) {
       assert.match(source, new RegExp(href.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${href} should be linked from /v2/today`);
     }
   });

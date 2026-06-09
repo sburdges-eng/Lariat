@@ -139,7 +139,7 @@ export default function V2TodayPage({ searchParams }) {
           {activeStations.map((station) => {
             const tone = stationTone(station.prog);
             return (
-              <Link key={station.id} href={`/stations/${station.id}${locationQuery}`} style={stationCardStyle}>
+              <Link key={station.id} href={`/v2/stations/${station.id}${locationQuery}`} style={stationCardStyle}>
                 <div style={{ display: 'grid', gap: 6 }}>
                   <strong>{station.name}</strong>
                   <span style={{ color: tone, fontWeight: 700 }}>{stationLabel(station.prog)}</span>
