@@ -57,7 +57,7 @@ describe('/v2 opt-in shell navigation boundary', () => {
 
   it('documents every shipped v2 preview route as an explicit exclusion', () => {
     const excluded = new Map(NAV_ROUTE_EXCLUSIONS.map((route) => [route.href, route.reason]));
-    for (const href of ['/v2', '/v2/today', '/v2/kds/punch', '/v2/eighty-six', '/v2/stations']) {
+    for (const href of ['/v2', '/v2/today', '/v2/kds/punch', '/v2/eighty-six', '/v2/stations', '/v2/command']) {
       assert.ok(excluded.has(href), `${href} should be explicitly excluded from v1 nav coverage`);
       assert.match(excluded.get(href), /cookie/i, `${href} exclusion should explain the preview cookie gate`);
     }
@@ -68,7 +68,7 @@ describe('/v2 opt-in shell navigation boundary', () => {
 describe('/v2 opt-in shell landing content', () => {
   it('anchors the first shell around cook-tier v2 migration routes', () => {
     const source = read(V2_PAGE);
-    for (const href of ['/v2/today', '/v2/kds/punch', '/v2/eighty-six', '/v2/stations']) {
+    for (const href of ['/v2/today', '/v2/kds/punch', '/v2/eighty-six', '/v2/stations', '/v2/command']) {
       assert.match(source, new RegExp(`href=["']${href.replace('/', '\\/')}["']`), `${href} should be listed`);
     }
   });
