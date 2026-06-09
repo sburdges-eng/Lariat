@@ -3,6 +3,7 @@ data
 archive
 backups
 output
+graphify-out
 Lariat-KDS
 drive-event-ops-dl
 *.db
@@ -17,3 +18,4 @@ drive-event-ops-dl
 *.webp
 *.mp4
 *.zip
+*.bak
