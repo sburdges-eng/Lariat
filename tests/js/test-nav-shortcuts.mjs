@@ -28,6 +28,7 @@ const MANAGER_PIN_ROUTES = [
   '/menu-engineering',
   '/beo',
   '/management',
+  '/morning',
   '/booking',
   '/playbook',
   '/shows/tonight',

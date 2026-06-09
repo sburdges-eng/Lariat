@@ -40,10 +40,23 @@ describe('middleware PIN fail-closed mode', () => {
     assert.equal(res.headers.get('location'), 'http://localhost/login-pin?next=%2Fmanagement%2Fcloud-bridge&setup=1');
   });
 
+  it('also redirects the morning digest page when LARIAT_PIN is unset', async () => {
+    const res = await middleware(req('/morning'));
+    assert.equal(res.status, 307);
+    assert.equal(res.headers.get('location'), 'http://localhost/login-pin?next=%2Fmorning&setup=1');
+  });
+
   it('returns 503 JSON for sensitive APIs when LARIAT_PIN is unset', async () => {
     const res = await middleware(req('/api/costing'));
     assert.equal(res.status, 503);
     assert.match(res.headers.get('content-type') ?? '', /application\/json/);
+    const body = await res.json();
+    assert.equal(body.error, 'PIN setup required');
+  });
+
+  it('also returns 503 JSON for the morning digest API when LARIAT_PIN is unset', async () => {
+    const res = await middleware(req('/api/morning'));
+    assert.equal(res.status, 503);
     const body = await res.json();
     assert.equal(body.error, 'PIN setup required');
   });
