@@ -293,6 +293,21 @@ test('stops voice input when the hold-to-talk button loses focus', async () => {
   await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).toBeInTheDocument());
 });
 
+test('stops voice input when Escape is pressed during hold-to-talk', async () => {
+  render(<KitchenAssistantClient locQuery="" />);
+
+  const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
+  fireEvent.keyDown(voiceButton, { key: 'Enter', code: 'Enter' });
+
+  expect(speechInstances).toHaveLength(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
+
+  fireEvent.keyDown(screen.getByRole('button', { name: /stop voice input/i }), { key: 'Escape', code: 'Escape' });
+
+  expect(speechInstances[0].stop).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).toBeInTheDocument());
+});
+
 test('stops voice input before submitting a question', async () => {
   render(<KitchenAssistantClient locQuery="" />);
 

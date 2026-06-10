@@ -302,6 +302,10 @@ export default function KitchenAssistantClient({ locQuery }) {
   };
 
   const voiceKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      stopListening(e);
+      return;
+    }
     if (e.key !== ' ' && e.key !== 'Enter') return;
     startListening(e);
   };
