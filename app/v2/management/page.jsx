@@ -1,0 +1,96 @@
+// @ts-nocheck - second manager-tier v2 route: /v2/management.
+import Link from 'next/link';
+import ManagementPage from '../../management/page.jsx';
+import { DEFAULT_LOCATION_ID } from '../../../lib/location';
+
+export const dynamic = 'force-dynamic';
+
+export default function V2ManagementPage({ searchParams }) {
+  const locationId =
+    typeof searchParams?.location === 'string' && searchParams.location.trim()
+      ? searchParams.location.trim()
+      : DEFAULT_LOCATION_ID;
+  const locationQuery = locationId !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(locationId)}` : '';
+
+  return (
+    <main style={{ display: 'grid', gap: 18 }}>
+      <section style={heroStyle}>
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div style={eyebrowStyle}>Management rollup</div>
+          <h1 style={titleStyle}>Check the whole house</h1>
+          <p style={copyStyle}>See the key counts fast, then jump into the next manager call without losing your place.</p>
+        </div>
+        <div style={jumpRowStyle}>
+          <Link href={`/v2/command${locationQuery}`} style={jumpCardStyle}>
+            <span style={eyebrowStyle}>Back</span>
+            <strong>Back to command</strong>
+          </Link>
+          <Link href={`/v2/analytics${locationQuery}`} style={jumpCardStyle}>
+            <span style={eyebrowStyle}>Next</span>
+            <strong>Open analytics</strong>
+          </Link>
+        </div>
+      </section>
+
+      <section style={shellStyle}>
+        <ManagementPage searchParams={searchParams} />
+      </section>
+    </main>
+  );
+}
+
+const heroStyle = {
+  display: 'grid',
+  gap: 16,
+  padding: 20,
+  borderRadius: 12,
+  border: '1px solid rgba(246, 240, 229, 0.16)',
+  background: 'rgba(246, 240, 229, 0.06)',
+};
+
+const eyebrowStyle = {
+  fontSize: 11,
+  fontWeight: 800,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
+  color: '#9cc6ac',
+};
+
+const titleStyle = {
+  margin: 0,
+  fontSize: 'clamp(32px, 6vw, 54px)',
+  lineHeight: 0.95,
+  letterSpacing: 0,
+};
+
+const copyStyle = {
+  margin: 0,
+  maxWidth: 560,
+  color: 'rgba(246, 240, 229, 0.74)',
+  lineHeight: 1.4,
+};
+
+const jumpRowStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+  gap: 12,
+};
+
+const jumpCardStyle = {
+  display: 'grid',
+  gap: 4,
+  minHeight: 76,
+  alignContent: 'center',
+  borderRadius: 10,
+  border: '1px solid rgba(246, 240, 229, 0.16)',
+  background: 'rgba(23, 24, 20, 0.32)',
+  padding: 16,
+  textDecoration: 'none',
+};
+
+const shellStyle = {
+  padding: 4,
+  borderRadius: 12,
+  border: '1px solid rgba(246, 240, 229, 0.12)',
+  background: 'rgba(12, 13, 11, 0.24)',
+};

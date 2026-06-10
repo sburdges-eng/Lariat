@@ -34,6 +34,9 @@ const MANAGER_PIN_ROUTES = [
   '/shows/tonight',
   '/specials/saved',
   '/host',
+  '/v2/command',
+  '/v2/management',
+  '/v2/analytics',
 ];
 
 function duplicateShortcuts(items) {
