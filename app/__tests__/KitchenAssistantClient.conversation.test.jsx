@@ -32,6 +32,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  jest.useRealTimers();
   jest.restoreAllMocks();
 });
 
@@ -70,4 +71,154 @@ test('reuses existing conversation_session_id and omits missing cook_id', async 
   expect(global.crypto.randomUUID).not.toHaveBeenCalled();
   expect(body.conversation_session_id).toBe(SESSION);
   expect(Object.prototype.hasOwnProperty.call(body, 'cook_id')).toBe(false);
+});
+
+// ── slice 2.7 — 30-second undo toast card ─────────────────────────
+
+const UNDO_LABEL = "Marked salmon as 86'd.";
+
+function undoAnswerResponse(expiresInMs = 30000) {
+  return {
+    ok: true,
+    json: async () => ({
+      answer: '⚡ ACTION EXECUTED: done.',
+      model: 'lari-the-kitchen-assistant',
+      location_id: 'west',
+      sources: [],
+      latencyMs: 12,
+      actionExecuted: true,
+      actionError: false,
+      undo: {
+        audit_event_id: 42,
+        entity: 'eighty_six',
+        entity_id: 7,
+        expires_at: new Date(Date.now() + expiresInMs).toISOString(),
+        label: UNDO_LABEL,
+      },
+      disclaimer: 'Check tags with a manager. Do not trust AI for allergies.',
+    }),
+  };
+}
+
+async function askForUndo(question = '86 the salmon') {
+  render(<KitchenAssistantClient locQuery="" />);
+  // Flush the mount-time ping fetch before submitting.
+  await act(async () => {});
+  fireEvent.change(screen.getByLabelText(/Ask a question/i), { target: { value: question } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: /Ask kitchen assistant/i }));
+  });
+}
+
+test('shows the undo card with countdown and sends the undo request when tapped', async () => {
+  jest.useFakeTimers();
+  global.fetch = jest.fn()
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ model: 'lari-the-kitchen-assistant', ollamaReachable: true }),
+    })
+    .mockResolvedValueOnce(undoAnswerResponse())
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ok: true, message: 'salmon is back on.', correctedAuditId: 99 }),
+    });
+
+  await askForUndo();
+
+  // Card shows what landed, the time left, and an Undo button.
+  expect(screen.getByText(UNDO_LABEL)).toBeInTheDocument();
+  expect(screen.getByText(/30s to undo/i)).toBeInTheDocument();
+  const undoButton = screen.getByRole('button', { name: /Undo last action/i });
+  expect(undoButton).toBeInTheDocument();
+
+  // Countdown ticks down each second.
+  act(() => {
+    jest.advanceTimersByTime(2000);
+  });
+  expect(screen.getByText(/28s to undo/i)).toBeInTheDocument();
+
+  // Tapping Undo sends the undo request with the audit row id.
+  await act(async () => {
+    fireEvent.click(undoButton);
+  });
+  const undoCall = global.fetch.mock.calls.find(([url]) => url === '/api/kitchen-assistant/undo');
+  expect(undoCall).toBeTruthy();
+  expect(undoCall[1].method).toBe('POST');
+  const undoBody = JSON.parse(undoCall[1].body);
+  expect(undoBody.undo_audit_id).toBe(42);
+  expect(undoBody.location_id).toBe('west');
+
+  // Terse success follow-up replaces the button.
+  expect(screen.getByText('salmon is back on.')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Undo last action/i })).not.toBeInTheDocument();
+});
+
+test('undo card expires after 30 seconds without being tapped', async () => {
+  jest.useFakeTimers();
+  global.fetch = jest.fn()
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ model: 'lari-the-kitchen-assistant', ollamaReachable: true }),
+    })
+    .mockResolvedValueOnce(undoAnswerResponse());
+
+  await askForUndo();
+  expect(screen.getByRole('button', { name: /Undo last action/i })).toBeInTheDocument();
+
+  act(() => {
+    jest.advanceTimersByTime(30001);
+  });
+  expect(screen.queryByRole('button', { name: /Undo last action/i })).not.toBeInTheDocument();
+  expect(screen.queryByText(UNDO_LABEL)).not.toBeInTheDocument();
+});
+
+test('undo card clears on a new question', async () => {
+  global.fetch = jest.fn()
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ model: 'lari-the-kitchen-assistant', ollamaReachable: true }),
+    })
+    .mockResolvedValueOnce(undoAnswerResponse())
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        answer: 'Nothing is 86 right now.',
+        model: 'lari-the-kitchen-assistant',
+        location_id: 'west',
+        sources: [],
+        latencyMs: 12,
+      }),
+    });
+
+  await askForUndo();
+  expect(screen.getByRole('button', { name: /Undo last action/i })).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText(/Ask a question/i), { target: { value: "what's 86?" } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: /Ask kitchen assistant/i }));
+  });
+
+  expect(screen.queryByRole('button', { name: /Undo last action/i })).not.toBeInTheDocument();
+  expect(screen.queryByText(UNDO_LABEL)).not.toBeInTheDocument();
+});
+
+test('undo card shows terse error copy when the undo is rejected', async () => {
+  global.fetch = jest.fn()
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ model: 'lari-the-kitchen-assistant', ollamaReachable: true }),
+    })
+    .mockResolvedValueOnce(undoAnswerResponse())
+    .mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ error: 'Undo time ran out.' }),
+    });
+
+  await askForUndo();
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: /Undo last action/i }));
+  });
+
+  expect(screen.getByText('Undo time ran out.')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Undo last action/i })).not.toBeInTheDocument();
 });

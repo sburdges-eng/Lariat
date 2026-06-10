@@ -46,6 +46,7 @@ import {
   formatConversationHistoryForPrompt,
   storeConversationTurn,
 } from '../../../lib/lariConversationMemory.ts';
+import { buildKitchenAssistantUndoMeta } from '../../../lib/kitchenAssistantUndo';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -61,6 +62,7 @@ No markdown table, no JSON, no advice that is not supported by the table.`;
 
 /**
  * @typedef {import('../../../lib/dbQueryTool').DbQueryRunResult} DbQueryRunResult
+ * @typedef {import('../../../lib/kitchenAssistantUndo').KitchenAssistantUndoMeta} KitchenAssistantUndoMeta
  *
  * @typedef {Record<string, unknown> & {
  *   message?: unknown;
@@ -331,6 +333,8 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
     let actionExecuted = false;
     let actionError = false;
     let actionMsg = '';
+    /** @type {KitchenAssistantUndoMeta | null} */
+    let undo = null;
 
     const { payload, stripped } = extractAction(content);
     let finalAnswer = stripped || content;
@@ -484,10 +488,14 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
             console.error(`\n🔍 [86 BLOCKED]: ${payload.item} — inventory shows ${invRow.base_qty} ${invRow.unit || ''}\n`);
           } else {
             const reasonClip = clip(payload.reason, MAX_NOTE) || 'AI Update';
+            const createdAt = new Date().toISOString();
+            let auditEventId = null;
+            let entityId = null;
             db.transaction(() => {
               const info = db.prepare('INSERT INTO eighty_six (location_id, item, shift_date, created_at, reason) VALUES (?, ?, ?, ?, ?)')
-                .run(locationId, itemName, todayISO(), new Date().toISOString(), reasonClip);
-              postAuditEvent({
+                .run(locationId, itemName, todayISO(), createdAt, reasonClip);
+              entityId = Number(info.lastInsertRowid);
+              auditEventId = postAuditEvent({
                 entity: 'eighty_six', entity_id: Number(info.lastInsertRowid), action: 'insert',
                 actor_cook_id: null, actor_source: 'kitchen_assistant',
                 location_id: locationId, payload: { item: itemName, reason: reasonClip },
@@ -495,6 +503,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
             })();
             actionMsg = `Marked ${payload.item} as 86'd.`;
             actionExecuted = true;
+            undo = buildKitchenAssistantUndoMeta({ auditEventId, entity: 'eighty_six', entityId, label: actionMsg, createdAt });
             console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - 86'd ${payload.item} ⚠️\n`);
           }
         } else if (payload.action === 'update_inventory' && payload.item) {
@@ -512,10 +521,14 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           const deltaStr = rawUnit ? `${rawDelta} ${rawUnit}` : `${rawDelta}`;
           const itemClip = clip(payload.item, MAX_ITEM);
           const direction = clip(payload.direction, 16) || null;
+          const createdAt = new Date().toISOString();
+          let auditEventId = null;
+          let entityId = null;
           db.transaction(() => {
             const info = db.prepare('INSERT INTO inventory_updates (location_id, item, shift_date, created_at, delta, direction) VALUES (?, ?, ?, ?, ?, ?)')
-              .run(locationId, itemClip, todayISO(), new Date().toISOString(), deltaStr, direction);
-            postAuditEvent({
+              .run(locationId, itemClip, todayISO(), createdAt, deltaStr, direction);
+            entityId = Number(info.lastInsertRowid);
+            auditEventId = postAuditEvent({
               entity: 'inventory_updates', entity_id: Number(info.lastInsertRowid), action: 'insert',
               actor_cook_id: null, actor_source: 'kitchen_assistant',
               location_id: locationId, payload: { item: itemClip, delta: deltaStr, direction },
@@ -523,6 +536,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           })();
           actionMsg = `Logged inventory update for ${payload.item}.`;
           actionExecuted = true;
+          undo = buildKitchenAssistantUndoMeta({ auditEventId, entity: 'inventory_updates', entityId, label: actionMsg, createdAt });
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Inventory Update ${payload.item} ⚠️\n`);
           }
         } else if (payload.action === 'line_check' && payload.item && payload.station) {
@@ -555,10 +569,14 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
 
           const stationClip = clip(payload.station, 64);
           const itemClip = clip(payload.item, MAX_ITEM);
+          const createdAt = new Date().toISOString();
+          let auditEventId = null;
+          let entityId = null;
           db.transaction(() => {
             const info = db.prepare('INSERT INTO line_check_entries (location_id, shift_date, station_id, item, status, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-              .run(locationId, todayISO(), stationClip, itemClip, status, note, new Date().toISOString());
-            postAuditEvent({
+              .run(locationId, todayISO(), stationClip, itemClip, status, note, createdAt);
+            entityId = Number(info.lastInsertRowid);
+            auditEventId = postAuditEvent({
               entity: 'line_check_entries', entity_id: Number(info.lastInsertRowid), action: 'insert',
               actor_cook_id: null, actor_source: 'kitchen_assistant',
               location_id: locationId, payload: { station: stationClip, item: itemClip, status, reading_f: Number.isFinite(readingF) ? readingF : null },
@@ -566,6 +584,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           })();
           actionMsg = `Logged line check for ${payload.item}${Number.isFinite(readingF) ? ` at ${readingF}°F` : ''} (${status}).`;
           actionExecuted = true;
+          undo = buildKitchenAssistantUndoMeta({ auditEventId, entity: 'line_check_entries', entityId, label: actionMsg, createdAt });
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - HACCP Line Check: ${payload.item} (${status}) ⚠️\n`);
         } else if (payload.action === 'maintenance' && payload.equipment) {
           const equipName = clip(payload.equipment, MAX_ITEM);
@@ -581,10 +600,14 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           } else {
             const issueClip = clip(payload.issue, MAX_NOTE) || 'n/a';
             const issueString = clip(`Broken: ${equipName}. Issue: ${issueClip}`, MAX_NOTE);
+            const createdAt = new Date().toISOString();
+            let auditEventId = null;
+            let entityId = null;
             db.transaction(() => {
               const info = db.prepare('INSERT INTO equipment_maintenance (location_id, equipment_id, service_date, type, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-                .run(locationId, equipId, todayISO(), 'repair_request', issueString, new Date().toISOString());
-              postAuditEvent({
+                .run(locationId, equipId, todayISO(), 'repair_request', issueString, createdAt);
+              entityId = Number(info.lastInsertRowid);
+              auditEventId = postAuditEvent({
                 entity: 'equipment_maintenance', entity_id: Number(info.lastInsertRowid), action: 'insert',
                 actor_cook_id: null, actor_source: 'kitchen_assistant',
                 location_id: locationId, payload: { equipment: equipName, issue: issueClip, equipment_id: equipId },
@@ -592,6 +615,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
             })();
             actionMsg = `Submitted maintenance ticket for ${payload.equipment}.`;
             actionExecuted = true;
+            undo = buildKitchenAssistantUndoMeta({ auditEventId, entity: 'equipment_maintenance', entityId, label: actionMsg, createdAt });
             console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Maintenance Ticket: ${payload.equipment} ⚠️\n`);
           }
         } else if (payload.action === 'scale_recipe' && payload.recipe) {
@@ -652,10 +676,14 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
             console.error(`\n[KA BLOCKED]: update_order_guide rejected — non-finite qty=${payload.qty}\n`);
           } else {
           const qty = rawQty;
+          const createdAt = new Date().toISOString();
+          let auditEventId = null;
+          let entityId = null;
           db.transaction(() => {
             const info = db.prepare('INSERT INTO order_guide_items (location_id, ingredient, base_qty, unit, imported_at) VALUES (?, ?, ?, ?, ?)')
-              .run(locationId, itemClip, qty, clip(rawUnit, 16), new Date().toISOString());
-            postAuditEvent({
+              .run(locationId, itemClip, qty, clip(rawUnit, 16), createdAt);
+            entityId = Number(info.lastInsertRowid);
+            auditEventId = postAuditEvent({
               entity: 'order_guide_items', entity_id: Number(info.lastInsertRowid), action: 'insert',
               actor_cook_id: null, actor_source: 'kitchen_assistant',
               location_id: locationId, payload: { item: itemClip, qty, unit: rawUnit },
@@ -663,6 +691,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           })();
           actionMsg = `Added ${qty} ${rawUnit} of ${payload.item} to the Order Guide.`;
           actionExecuted = true;
+          undo = buildKitchenAssistantUndoMeta({ auditEventId, entity: 'order_guide_items', entityId, label: actionMsg, createdAt });
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - Order Guide Updated: ${payload.item} ⚠️\n`);
           }
         } else if (payload.action === 'beo_add_prep' && Number.isInteger(Number(payload.event_id)) && Array.isArray(payload.tasks)) {
@@ -797,10 +826,14 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
             actionExecuted = true;
             console.error(`\n[KA BLOCKED]: give_gold_star rejected — unknown cook ${payload.cook_name} (location=${locationId})\n`);
           } else {
+          const createdAt = new Date().toISOString();
+          let auditEventId = null;
+          let entityId = null;
           db.transaction(() => {
             const info = db.prepare('INSERT INTO gold_stars (location_id, cook_name, reason, stars) VALUES (?, ?, ?, ?)')
               .run(locationId, cookName, reasonClip, starVal);
-            postAuditEvent({
+            entityId = Number(info.lastInsertRowid);
+            auditEventId = postAuditEvent({
               entity: 'gold_stars', entity_id: Number(info.lastInsertRowid), action: 'insert',
               actor_cook_id: null, actor_source: 'kitchen_assistant',
               location_id: locationId, payload: { cook_name: cookName, reason: reasonClip, stars: starVal },
@@ -808,6 +841,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           })();
           actionMsg = `Awarded ${starVal} Gold Star(s) to ${payload.cook_name} for HR recognition.`;
           actionExecuted = true;
+          undo = buildKitchenAssistantUndoMeta({ auditEventId, entity: 'gold_stars', entityId, label: actionMsg, createdAt });
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - HR RECOGNITION: ${starVal} Gold Star(s) awarded to ${payload.cook_name} ⚠️\n`);
           }
           } // close stars-payload type guard else-branch
@@ -840,10 +874,14 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
 
           const itemClip = clip(payload.item, MAX_ITEM);
           const categoryClip = clip(payload.category, 64);
+          const createdAt = new Date().toISOString();
+          let auditEventId = null;
+          let entityId = null;
           db.transaction(() => {
             const info = db.prepare('INSERT INTO line_check_entries (location_id, shift_date, station_id, item, status, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-              .run(locationId, todayISO(), 'haccp_receiving', itemClip, status, note, new Date().toISOString());
-            postAuditEvent({
+              .run(locationId, todayISO(), 'haccp_receiving', itemClip, status, note, createdAt);
+            entityId = Number(info.lastInsertRowid);
+            auditEventId = postAuditEvent({
               entity: 'line_check_entries', entity_id: Number(info.lastInsertRowid), action: 'insert',
               actor_cook_id: null, actor_source: 'kitchen_assistant',
               location_id: locationId, payload: { item: itemClip, category: categoryClip, status, reading_f: Number.isFinite(readingF) ? readingF : null },
@@ -851,6 +889,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
           })();
           actionMsg = `Logged HACCP receiving for ${payload.item} (${status}).`;
           actionExecuted = true;
+          undo = buildKitchenAssistantUndoMeta({ auditEventId, entity: 'line_check_entries', entityId, label: actionMsg, createdAt });
           console.error(`\n⚠️ [MGMNT ALERT]: AI ACTION EXECUTED - HACCP Receiving: ${payload.item} (${status}) ⚠️\n`);
         } else if (payload.action === 'generate_prep' && payload.station && Array.isArray(payload.tasks)) {
           const stmt = db.prepare('INSERT INTO line_check_entries (location_id, shift_date, station_id, item, status, need, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
@@ -961,6 +1000,7 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
       latencyMs,
       actionExecuted,
       actionError,
+      undo,
       disclaimer:
         'Check tags with a manager. Do not trust AI for allergies.',
     });
