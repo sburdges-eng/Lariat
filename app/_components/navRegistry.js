@@ -68,6 +68,10 @@ export const NAV_ROUTE_EXCLUSIONS = [
     reason: 'PIN auth gate, reached by middleware redirects instead of palette jumps.',
   },
   {
+    href: '/setup',
+    reason: 'First-run wizard, visited once during onboarding rather than daily manager navigation.',
+  },
+  {
     href: '/v2',
     reason: 'Cookie-gated side-by-side preview shell; kept out of v1 navigation until cutover.',
   },
