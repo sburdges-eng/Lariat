@@ -552,6 +552,20 @@ export const NAV_ITEMS = [
     surface: { sidebar: f, palette: t, shelf: t },
     shelf: { b: 'Sales', sub: 'numbers' },
   },
+  // Operator analytics (roadmap 3.5): manager-tier patterns board —
+  // corrective-action loggers, equipment failure ranking, gold-star
+  // leaders, audit volume trends. Palette-only; reached from ⌘K or
+  // the /analytics book. PIN-gated by middleware via /analytics.
+  {
+    id: 'analytics-operators',
+    href: '/analytics/operators',
+    name: 'Operator analytics',
+    sub: 'Who logs, what fails, who shines',
+    group: 'Books',
+    terms: 'operator analytics corrective actions equipment failures gold stars audit trend manager patterns',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
   {
     id: 'costing',
     href: '/costing',
