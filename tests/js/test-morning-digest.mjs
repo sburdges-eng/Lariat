@@ -235,6 +235,51 @@ describe('GET /api/morning', () => {
   });
 });
 
+describe('POST /api/morning', () => {
+  it('fails closed when the Slack webhook is not configured', async () => {
+    delete process.env.LARIAT_MORNING_SLACK_WEBHOOK_URL;
+
+    const res = await route.POST(new Request(`http://localhost/api/morning?date=${TODAY}`, { method: 'POST' }));
+    assert.equal(res.status, 503);
+    const body = await res.json();
+    assert.equal(body.error, 'Morning digest webhook is not configured');
+  });
+
+  it('posts the digest text to the configured Slack webhook', async () => {
+    db.prepare(
+      `INSERT INTO eighty_six (shift_date, item, location_id)
+       VALUES (?, 'Halibut', 'default')`,
+    ).run(TODAY);
+
+    const oldWebhook = process.env.LARIAT_MORNING_SLACK_WEBHOOK_URL;
+    const oldFetch = globalThis.fetch;
+    const calls = [];
+    process.env.LARIAT_MORNING_SLACK_WEBHOOK_URL = 'https://hooks.slack.test/services/T000/B000/example';
+    globalThis.fetch = async (url, init = {}) => {
+      calls.push({ url, init });
+      return new Response('ok', { status: 200 });
+    };
+
+    try {
+      const res = await route.POST(new Request(`http://localhost/api/morning?date=${TODAY}`, { method: 'POST' }));
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.delivered, true);
+      assert.equal(body.shift_date, TODAY);
+      assert.match(body.webhook.text, /Halibut/);
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0].url, process.env.LARIAT_MORNING_SLACK_WEBHOOK_URL);
+      assert.equal(calls[0].init.method, 'POST');
+      assert.equal(calls[0].init.headers['content-type'], 'application/json; charset=utf-8');
+      assert.deepEqual(JSON.parse(calls[0].init.body), { text: body.webhook.text });
+    } finally {
+      if (oldWebhook == null) delete process.env.LARIAT_MORNING_SLACK_WEBHOOK_URL;
+      else process.env.LARIAT_MORNING_SLACK_WEBHOOK_URL = oldWebhook;
+      globalThis.fetch = oldFetch;
+    }
+  });
+});
+
 describe('buildMorningDigestQuery()', () => {
   it('keeps date and location in drill-down links for non-today digests', async () => {
     const links = await import('../../lib/morningDigestLinks.ts');
