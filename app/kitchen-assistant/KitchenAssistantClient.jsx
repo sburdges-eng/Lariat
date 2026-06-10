@@ -9,6 +9,7 @@ const LOC_KEY = 'lariat_location';
 const LANG_KEY = 'lariat_language';
 const COOK_KEY = 'lariat_cook';
 const CONVERSATION_SESSION_KEY = 'lariat_conversation_session_id';
+const VOICE_INPUT_ERROR = 'Voice input stopped. Check the mic and try again.';
 
 function fallbackUuidV4() {
   const bytes = new Uint8Array(16);
@@ -267,6 +268,7 @@ export default function KitchenAssistantClient({ locQuery }) {
   const startListening = (e) => {
     e?.preventDefault?.();
     if (!SpeechRec || recognitionRef.current) return;
+    setErr('');
 
     try {
       const recognition = new SpeechRec();
@@ -279,6 +281,7 @@ export default function KitchenAssistantClient({ locQuery }) {
         console.error('Speech error:', evt);
         recognitionRef.current = null;
         setIsListening(false);
+        setErr(VOICE_INPUT_ERROR);
       };
       recognition.onend = () => {
         recognitionRef.current = null;
@@ -294,6 +297,7 @@ export default function KitchenAssistantClient({ locQuery }) {
       console.error("Speech recognition fault:", err);
       recognitionRef.current = null;
       setIsListening(false);
+      setErr(VOICE_INPUT_ERROR);
     }
   };
 

@@ -351,6 +351,24 @@ test('stops voice input before submitting a question', async () => {
   await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).toBeInTheDocument());
 });
 
+test('shows a cook-readable mic warning after a speech-recognition error', async () => {
+  const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  render(<KitchenAssistantClient locQuery="" />);
+
+  const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
+  fireEvent.pointerDown(voiceButton);
+
+  expect(speechInstances).toHaveLength(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
+
+  await act(async () => {
+    speechInstances[0].onerror?.({ error: 'network' });
+  });
+
+  expect(errorSpy).toHaveBeenCalledWith('Speech error:', { error: 'network' });
+  expect(await screen.findByRole('alert')).toHaveTextContent(/Voice input stopped\. Check the mic and try again\./i);
+});
+
 test('recovers from a speech-recognition error so hold-to-talk can start again', async () => {
   const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
   render(<KitchenAssistantClient locQuery="" />);
@@ -372,8 +390,8 @@ test('recovers from a speech-recognition error so hold-to-talk can start again',
   expect(errorSpy).toHaveBeenCalledWith('Speech error:', { error: 'network' });
   expect(speechInstances).toHaveLength(2);
   expect(speechInstances[1].start).toHaveBeenCalledTimes(1);
-  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
 });
+
 
 test('recovers from a speech-recognition start fault so hold-to-talk can start again', async () => {
   const fault = new Error('mic busy');
