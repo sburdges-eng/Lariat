@@ -258,15 +258,15 @@ export default function KitchenAssistantClient({ locQuery }) {
     };
   }, [undoState]);
 
-  const toggleListen = (e) => {
-    e.preventDefault();
-    if (!SpeechRec) return;
-    if (isListening) {
-      recognitionRef.current?.stop();
-      recognitionRef.current = null;
-      setIsListening(false);
-      return;
-    }
+  const stopListening = (e) => {
+    e?.preventDefault?.();
+    if (!recognitionRef.current) return;
+    recognitionRef.current.stop();
+  };
+
+  const startListening = (e) => {
+    e?.preventDefault?.();
+    if (!SpeechRec || recognitionRef.current) return;
 
     try {
       const recognition = new SpeechRec();
@@ -293,6 +293,10 @@ export default function KitchenAssistantClient({ locQuery }) {
       console.error("Speech recognition fault:", err);
       setIsListening(false);
     }
+  };
+
+  const ignoreVoiceClick = (e) => {
+    e.preventDefault();
   };
 
   const submit = async (e) => {
@@ -536,12 +540,16 @@ export default function KitchenAssistantClient({ locQuery }) {
           {speechSupported && (
             <button
               type="button"
-              onClick={toggleListen}
+              onClick={ignoreVoiceClick}
+              onPointerDown={startListening}
+              onPointerUp={stopListening}
+              onPointerLeave={stopListening}
+              onPointerCancel={stopListening}
               className={`btn ${isListening ? 'red' : ''}`}
               aria-pressed={isListening}
               aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
             >
-              {isListening ? 'Stop 🛑' : 'Speak 🎤'}
+              {isListening ? 'Release 🎤' : 'Hold 🎤'}
             </button>
           )}
           {model && (

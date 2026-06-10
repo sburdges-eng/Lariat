@@ -6,9 +6,32 @@ import '@testing-library/jest-dom';
 import KitchenAssistantClient from '../kitchen-assistant/KitchenAssistantClient';
 
 const SESSION = '11111111-1111-4111-8111-111111111111';
+let speechInstances = [];
+
+class MockSpeechRecognition {
+  constructor() {
+    this.continuous = false;
+    this.interimResults = false;
+    this.onstart = null;
+    this.onend = null;
+    this.onerror = null;
+    this.onresult = null;
+    this.start = jest.fn(() => {
+      this.onstart?.();
+    });
+    this.stop = jest.fn(() => {
+      this.onend?.();
+    });
+    this.abort = jest.fn();
+    speechInstances.push(this);
+  }
+}
 
 beforeEach(() => {
   window.localStorage.clear();
+  speechInstances = [];
+  window.SpeechRecognition = MockSpeechRecognition;
+  window.webkitSpeechRecognition = undefined;
   global.fetch = jest.fn()
     .mockResolvedValueOnce({
       ok: true,
@@ -221,4 +244,20 @@ test('undo card shows terse error copy when the undo is rejected', async () => {
 
   expect(screen.getByText('Undo time ran out.')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /Undo last action/i })).not.toBeInTheDocument();
+});
+
+test('starts voice input while held and stops when released', async () => {
+  render(<KitchenAssistantClient locQuery="" />);
+
+  const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
+  fireEvent.pointerDown(voiceButton);
+
+  expect(speechInstances).toHaveLength(1);
+  expect(speechInstances[0].start).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
+
+  fireEvent.pointerUp(screen.getByRole('button', { name: /stop voice input/i }));
+
+  expect(speechInstances[0].stop).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).toBeInTheDocument());
 });
