@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getDb } from '../../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../../lib/location';
+import { getPromotionForSpecial } from '../../../../lib/specialsPromotion';
 import SpecialDetailClient from './SpecialDetailClient';
 
 export const dynamic = 'force-dynamic';
@@ -35,11 +36,19 @@ export default async function SavedSpecialDetail({ params, searchParams }) {
     } catch { /* keep [] */ }
   }
 
+  const promotion = getPromotionForSpecial(id, loc, db) || null;
+
   return (
     <div>
       <Link href={`/specials/saved${locQ}`} style={{ color: 'var(--muted)', fontSize: 13 }}>← Saved Specials</Link>
       <SpecialDetailClient
         locationId={loc}
+        promotion={promotion ? {
+          menu_item_name: promotion.menu_item_name,
+          servings: promotion.servings,
+          promoted_at: promotion.promoted_at,
+          updated_at: promotion.updated_at,
+        } : null}
         special={{
           id: row.id,
           name: row.name,

@@ -2040,6 +2040,32 @@ export function initSchema(db: DB): void {
       ON specials(location_id, archived_at) WHERE archived_at IS NULL;
   `);
 
+  // ── Specials → menu promotion records ────────────────────────────
+  // One row per promoted special (roadmap 3.6). Promotion materializes
+  // the special's costed cost_breakdown into dish_components vendor_item
+  // rows under `menu_item_name`, which is how the dish→cost bridge
+  // (lib/dishCostBridge.ts) and menu engineering pick up the cost.
+  // components_json records which vendor_ingredient rows this promotion
+  // owns so an idempotent re-promote can refresh/move them without
+  // touching hand-entered components. UNIQUE(location_id, special_id)
+  // makes re-promote an update, never a duplicate.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS specials_promotions (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      special_id      TEXT NOT NULL,
+      location_id     TEXT NOT NULL DEFAULT 'default',
+      menu_item_name  TEXT NOT NULL,
+      servings        REAL NOT NULL DEFAULT 1,
+      components_json TEXT NOT NULL DEFAULT '[]',
+      promoted_at     INTEGER NOT NULL,
+      updated_at      INTEGER NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_specials_promotions_special
+      ON specials_promotions(location_id, special_id);
+    CREATE INDEX IF NOT EXISTS idx_specials_promotions_menu_item
+      ON specials_promotions(location_id, menu_item_name);
+  `);
+
   // ── KDS tickets ──────────────────────────────────────────────────
   // Manual ticket entry for the Lariat-KDS Swift iPad app, used until
   // the Toast Partner ingest lands (the "SWAP POINT" called out in

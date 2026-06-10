@@ -20,7 +20,7 @@ function slugifyName(name) {
 
 const DEFAULT_LOCATION_ID = 'default';
 
-export default function SpecialDetailClient({ special, locationId }) {
+export default function SpecialDetailClient({ special, locationId, promotion }) {
   const router = useRouter();
   const locQ = locationId && locationId !== DEFAULT_LOCATION_ID
     ? `?location=${encodeURIComponent(locationId)}`
@@ -40,6 +40,16 @@ export default function SpecialDetailClient({ special, locationId }) {
   const [exporting, setExporting] = useState(false);
   const [exportErr, setExportErr] = useState('');
   const [exportResult, setExportResult] = useState(null);
+
+  const [promo, setPromo] = useState(promotion || null);
+  const [showPromote, setShowPromote] = useState(false);
+  const [promoteName, setPromoteName] = useState((promotion && promotion.menu_item_name) || special.name);
+  const [promoteServings, setPromoteServings] = useState(
+    promotion && promotion.servings ? String(promotion.servings) : '1',
+  );
+  const [promoting, setPromoting] = useState(false);
+  const [promoteErr, setPromoteErr] = useState('');
+  const [promoteSkipped, setPromoteSkipped] = useState([]);
 
   const saveMeta = async () => {
     setMetaErr('');
@@ -92,6 +102,35 @@ export default function SpecialDetailClient({ special, locationId }) {
       setExportErr(String(e.message || e));
     } finally {
       setExporting(false);
+    }
+  };
+
+  const submitPromote = async (e) => {
+    e.preventDefault();
+    setPromoteErr('');
+    setPromoteSkipped([]);
+    setPromoting(true);
+    try {
+      const res = await fetch(`/api/specials/saved/${special.id}/promote${locQ}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          menu_item_name: promoteName.trim(),
+          servings: Number(promoteServings) || 1,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPromoteErr(data.error || 'Promote failed.');
+        return;
+      }
+      setPromo(data.promotion);
+      setPromoteSkipped(data.skipped || []);
+      setShowPromote(false);
+    } catch (e) {
+      setPromoteErr(String(e.message || e));
+    } finally {
+      setPromoting(false);
     }
   };
 
@@ -183,6 +222,48 @@ export default function SpecialDetailClient({ special, locationId }) {
               <button type="button" className="btn" onClick={onDelete}>Delete</button>
             </div>
             {metaErr && <p className="meta mb-12" style={{ color: 'var(--red)' }}>{metaErr}</p>}
+          </div>
+
+          <div className="card">
+            <h2 className="section-head mb-12">Promote to menu</h2>
+            <p className="meta mb-12">
+              Puts this special on the menu-engineering cost surface: its matched
+              ingredients become per-serving dish components, so margin shows up
+              automatically once it sells.
+            </p>
+            {promo && (
+              <p className="mb-12">
+                On menu as <strong>“{promo.menu_item_name}”</strong>
+                {' · '}Promoted {formatDateTime(promo.promoted_at)}
+                {promo.updated_at && promo.updated_at !== promo.promoted_at
+                  ? ` · Refreshed ${formatDateTime(promo.updated_at)}`
+                  : ''}
+              </p>
+            )}
+            {!showPromote ? (
+              <button type="button" className="btn primary" onClick={() => setShowPromote(true)}>
+                {promo ? 'Re-promote' : 'Promote to menu'}
+              </button>
+            ) : (
+              <form onSubmit={submitPromote}>
+                <label className="label mb-12">Menu item name</label>
+                <input className="input mb-12" value={promoteName} onChange={(e) => setPromoteName(e.target.value)} maxLength={200} />
+                <label className="label mb-12">Servings the cost breakdown makes</label>
+                <input className="input mb-12" type="number" step="any" min="0" value={promoteServings} onChange={(e) => setPromoteServings(e.target.value)} />
+                <div className="flex-center-gap">
+                  <button type="submit" className="btn primary" disabled={promoting || !promoteName.trim() || !(Number(promoteServings) > 0)}>
+                    {promoting ? 'Promoting...' : promo ? 'Re-promote' : 'Promote'}
+                  </button>
+                  <button type="button" className="btn" onClick={() => setShowPromote(false)}>Cancel</button>
+                </div>
+                {promoteErr && <p className="meta mb-12" style={{ color: 'var(--red)' }}>{promoteErr}</p>}
+              </form>
+            )}
+            {promoteSkipped.length > 0 && (
+              <p className="meta mb-12" style={{ color: 'var(--orange, #b00)' }}>
+                {promoteSkipped.length} ingredient(s) skipped (no vendor match) — their cost won&apos;t flow to menu engineering.
+              </p>
+            )}
           </div>
 
           <div className="card">
