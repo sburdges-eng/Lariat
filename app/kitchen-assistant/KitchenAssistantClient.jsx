@@ -317,6 +317,7 @@ export default function KitchenAssistantClient({ locQuery }) {
     setUndoState(null);
     const q = message.trim();
     if (!q) return;
+    stopListening();
     // Reset badge drill-in state on every fresh submit — the cached
     // citations from the prior answer are no longer relevant.
     setBadgeState({});
