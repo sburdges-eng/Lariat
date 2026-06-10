@@ -547,7 +547,10 @@ export default function KitchenAssistantClient({ locQuery }) {
           id="ka-q"
           name="ka-q"
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={(e) => {
+            setMessage(e.target.value);
+            setErr((prev) => (prev === VOICE_INPUT_ERROR ? '' : prev));
+          }}
           rows={4}
           placeholder="ex: What's 86? How much aji prep? Dairy in the dressing?"
           className="input mb-12"

@@ -369,6 +369,27 @@ test('shows a cook-readable mic warning after a speech-recognition error', async
   expect(await screen.findByRole('alert')).toHaveTextContent(/Voice input stopped\. Check the mic and try again\./i);
 });
 
+test('clears the mic warning once the cook switches back to typing', async () => {
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+  render(<KitchenAssistantClient locQuery="" />);
+
+  const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
+  fireEvent.pointerDown(voiceButton);
+
+  expect(speechInstances).toHaveLength(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
+
+  await act(async () => {
+    speechInstances[0].onerror?.({ error: 'network' });
+  });
+
+  expect(await screen.findByRole('alert')).toHaveTextContent(/Voice input stopped\. Check the mic and try again\./i);
+
+  fireEvent.change(screen.getByLabelText(/Ask a question/i), { target: { value: 'Need a typed follow-up' } });
+
+  await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+});
+
 test('recovers from a speech-recognition error so hold-to-talk can start again', async () => {
   const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
   render(<KitchenAssistantClient locQuery="" />);
