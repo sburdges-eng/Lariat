@@ -158,6 +158,34 @@ async function resolveUsdaCitations(question, signal) {
   });
   return { status: 'ok', citations };
 }
+
+function parseUndoExpiryMs(value) {
+  if (typeof value !== 'string') return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function buildUndoStateFromResponse(data) {
+  const undo = data?.undo;
+  if (!undo || typeof undo !== 'object') return null;
+  const expiresAtMs = parseUndoExpiryMs(undo.expires_at);
+  if (!expiresAtMs || expiresAtMs <= Date.now()) return null;
+  const label = typeof undo.label === 'string' ? undo.label.trim() : '';
+  if (!label) return null;
+  const auditEventId = Number(undo.audit_event_id);
+  if (!Number.isInteger(auditEventId) || auditEventId <= 0) return null;
+  const locationId = typeof data?.location_id === 'string' && data.location_id.trim()
+    ? data.location_id.trim()
+    : 'default';
+  return {
+    status: 'ready',
+    label,
+    auditEventId,
+    expiresAtMs,
+    locationId,
+    message: '',
+  };
+}
 export default function KitchenAssistantClient({ locQuery }) {
   const [ollamaOk, setOllamaOk] = useState(null);
   const [model, setModel] = useState('');
@@ -186,6 +214,8 @@ export default function KitchenAssistantClient({ locQuery }) {
   // so a click on the FDA badge doesn't cancel an in-flight USDA fetch
   // and vice versa.
   const badgeAbortRef = useRef({});
+  const [undoState, setUndoState] = useState(null);
+  const [undoNowMs, setUndoNowMs] = useState(() => Date.now());
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -213,6 +243,20 @@ export default function KitchenAssistantClient({ locQuery }) {
   useEffect(() => {
     return () => { recognitionRef.current?.abort(); };
   }, []);
+
+  useEffect(() => {
+    if (!undoState || undoState.status !== 'ready') return undefined;
+    const tick = () => setUndoNowMs(Date.now());
+    tick();
+    const interval = window.setInterval(tick, 1000);
+    const timeout = window.setTimeout(() => {
+      setUndoState((current) => (current && current.status === 'ready' ? null : current));
+    }, Math.max(0, undoState.expiresAtMs - Date.now()));
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+    };
+  }, [undoState]);
 
   const toggleListen = (e) => {
     e.preventDefault();
@@ -256,6 +300,7 @@ export default function KitchenAssistantClient({ locQuery }) {
     setErr('');
     setAnswer('');
     setMeta(null);
+    setUndoState(null);
     const q = message.trim();
     if (!q) return;
     // Reset badge drill-in state on every fresh submit — the cached
@@ -292,12 +337,59 @@ export default function KitchenAssistantClient({ locQuery }) {
         sources: data.sources,
         disclaimer: data.disclaimer,
       });
+      setUndoNowMs(Date.now());
+      setUndoState(buildUndoStateFromResponse(data));
     } catch (ce) {
       setErr(String(ce.message || ce));
     } finally {
       setLoading(false);
     }
   };
+
+  // Undo the last assistant write action. POSTs the audit row id back
+  // to /api/kitchen-assistant/undo, which reverses the visible write and
+  // records an append-only `correction` audit row (slice 2.7).
+  const performUndo = async () => {
+    if (!undoState || undoState.status !== 'ready') return;
+    const { auditEventId, locationId, label } = undoState;
+    setUndoState({ ...undoState, status: 'pending' });
+    try {
+      const cookId = typeof window !== 'undefined' ? window.localStorage.getItem(COOK_KEY) : '';
+      const body = { undo_audit_id: auditEventId };
+      if (locationId && locationId !== 'default') body.location_id = locationId;
+      if (cookId) body.cook_id = cookId;
+      const res = await fetch('/api/kitchen-assistant/undo', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setUndoState({
+          status: 'error',
+          label,
+          message: data.error || "Couldn't undo that.",
+        });
+        return;
+      }
+      setUndoState({
+        status: 'done',
+        label,
+        message: data.message || 'Undid last action.',
+      });
+    } catch (ue) {
+      setUndoState({
+        status: 'error',
+        label,
+        message: String(ue?.message || ue),
+      });
+    }
+  };
+
+  const undoSecondsLeft =
+    undoState && undoState.status === 'ready'
+      ? Math.max(0, Math.ceil((undoState.expiresAtMs - undoNowMs) / 1000))
+      : 0;
 
   // Cleanup any pending badge fan-outs on unmount so we don't leak
   // requests if the user navigates mid-fetch.
@@ -466,6 +558,32 @@ export default function KitchenAssistantClient({ locQuery }) {
       {err && (
         <div id="ka-err" className="card border-red mb-16" role="alert" aria-live="assertive">
           {err}
+        </div>
+      )}
+
+      {undoState && (
+        <div className="card mb-16" role="status" aria-live="polite" aria-label="Undo last action card">
+          {undoState.status === 'ready' && (
+            <div className="flex justify-between items-center">
+              <div>
+                <div>{undoState.label}</div>
+                <div className="meta">{undoSecondsLeft}s to undo</div>
+              </div>
+              <button
+                type="button"
+                className="btn"
+                onClick={performUndo}
+                aria-label="Undo last action"
+              >
+                Undo
+              </button>
+            </div>
+          )}
+          {undoState.status === 'pending' && <span>Undoing…</span>}
+          {undoState.status === 'done' && <span>{undoState.message}</span>}
+          {undoState.status === 'error' && (
+            <span className="text-ember-deep">{undoState.message}</span>
+          )}
         </div>
       )}
 
