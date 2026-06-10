@@ -46,6 +46,18 @@ describe('middleware PIN fail-closed mode', () => {
     assert.equal(res.headers.get('location'), 'http://localhost/login-pin?next=%2Fmorning&setup=1');
   });
 
+  it('also redirects v2 manager preview pages when LARIAT_PIN is unset', async () => {
+    for (const pathname of ['/v2/command', '/v2/management', '/v2/analytics']) {
+      const res = await middleware(req(pathname));
+      assert.equal(res.status, 307, `${pathname} should fail closed to PIN setup`);
+      assert.equal(
+        res.headers.get('location'),
+        `http://localhost/login-pin?next=${encodeURIComponent(pathname)}&setup=1`,
+        `${pathname} should carry its next= handoff`,
+      );
+    }
+  });
+
   it('returns 503 JSON for sensitive APIs when LARIAT_PIN is unset', async () => {
     const res = await middleware(req('/api/costing'));
     assert.equal(res.status, 503);

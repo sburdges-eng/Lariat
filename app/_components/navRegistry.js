@@ -40,6 +40,9 @@ const MANAGER_PIN_PREFIXES = [
   '/shows',
   '/specials/saved',
   '/host',
+  '/v2/command',
+  '/v2/management',
+  '/v2/analytics',
 ];
 
 const MANAGER_PIN_PUBLIC_CARVEOUTS = ['/beo/share/'];
