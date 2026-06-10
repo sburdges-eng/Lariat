@@ -317,6 +317,21 @@ test('stops voice input when the page is hidden mid-hold', async () => {
   });
 });
 
+test('stops voice input when the window loses focus mid-hold', async () => {
+  render(<KitchenAssistantClient locQuery="" />);
+
+  const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
+  fireEvent.pointerDown(voiceButton);
+
+  expect(speechInstances).toHaveLength(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
+
+  fireEvent(window, new Event('blur'));
+
+  expect(speechInstances[0].stop).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).toBeInTheDocument());
+});
+
 test('stops voice input when Escape is pressed during hold-to-talk', async () => {
   render(<KitchenAssistantClient locQuery="" />);
 

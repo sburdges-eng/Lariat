@@ -306,12 +306,19 @@ export default function KitchenAssistantClient({ locQuery }) {
   };
 
   useEffect(() => {
-    if (typeof document === 'undefined') return undefined;
+    if (typeof document === 'undefined' || typeof window === 'undefined') return undefined;
     const stopWhenHidden = () => {
       if (document.hidden) stopListening();
     };
+    const stopWhenWindowBlurs = () => {
+      stopListening();
+    };
     document.addEventListener('visibilitychange', stopWhenHidden);
-    return () => document.removeEventListener('visibilitychange', stopWhenHidden);
+    window.addEventListener('blur', stopWhenWindowBlurs);
+    return () => {
+      document.removeEventListener('visibilitychange', stopWhenHidden);
+      window.removeEventListener('blur', stopWhenWindowBlurs);
+    };
   }, []);
 
   const voiceKeyDown = (e) => {
