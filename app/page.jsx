@@ -79,10 +79,14 @@ function formatDateChip(iso) {
     .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
 
-export default function TodayPage({ searchParams }) {
+export default async function TodayPage({ searchParams }) {
+  // Next 16 app router passes searchParams as a Promise. Reading
+  // `searchParams.location` synchronously falls back to the default kitchen and
+  // emits a runtime warning in Safari/Simulator. Await before deriving loc.
+  const sp = (await searchParams) || {};
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const date = todayISO();
   const stations = getStations();
@@ -96,7 +100,7 @@ export default function TodayPage({ searchParams }) {
   const db = getDb();
   const out = db
     .prepare(
-      `SELECT item FROM eighty_six WHERE shift_date=? AND resolved_at IS NULL AND location_id=? ORDER BY id DESC`
+      `SELECT id, item FROM eighty_six WHERE shift_date=? AND resolved_at IS NULL AND location_id=? ORDER BY id DESC`
     )
     .all(date, loc);
 
@@ -108,7 +112,7 @@ export default function TodayPage({ searchParams }) {
 
   const moved = db
     .prepare(
-      `SELECT item, direction, delta FROM inventory_updates WHERE shift_date=? AND location_id=? ORDER BY id DESC LIMIT 4`
+      `SELECT id, item, direction, delta FROM inventory_updates WHERE shift_date=? AND location_id=? ORDER BY id DESC LIMIT 4`
     )
     .all(date, loc);
 
@@ -176,8 +180,8 @@ export default function TodayPage({ searchParams }) {
         <Link href={`/eighty-six${locQ}`} className="rush-86">
           <div className="rush-86-label">86&apos;d right now</div>
           <div className="rush-86-items">
-            {out.map((e, i) => (
-              <span key={i} className="rush-86-chip">{e.item}</span>
+            {out.map((e) => (
+              <span key={e.id} className="rush-86-chip">{e.item}</span>
             ))}
           </div>
         </Link>
@@ -235,8 +239,8 @@ export default function TodayPage({ searchParams }) {
       {moved.length > 0 && (
         <div className="rush-recent">
           <div className="rush-recent-label">Inventory today</div>
-          {moved.map((r, i) => (
-            <div key={i} className="rush-recent-row">
+          {moved.map((r) => (
+            <div key={r.id} className="rush-recent-row">
               <span className="rush-recent-item">{r.item}</span>
               <span className="rush-recent-meta">
                 {r.direction}

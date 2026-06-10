@@ -4,8 +4,8 @@
  *
  * Verifies the F15 glove-change checkbox:
  *   • Renders unchecked when `existing[item].glove_change_attested` is missing/null.
- *   • Without a row status, clicking gloves alerts and does not POST an
- *     incomplete HACCP row.
+ *   • Without a row status, clicking gloves shows an inline error and does
+ *     not POST an incomplete HACCP row.
  *   • With a row status, clicking gloves POSTs to /api/checks with
  *     `glove_change_attested: true` and the label gains the `on` class.
  *   • On second click, POSTs with `glove_change_attested: null` (tri-state —
@@ -68,15 +68,15 @@ describe('StationChecklist glove attestation', () => {
     expect(label.className).not.toMatch(/\bon\b/);
   });
 
-  test('click without a row status — alerts, does not POST, and stays unchecked', async () => {
+  test('click without a row status — inline error, does not POST, and stays unchecked', async () => {
     renderChecklist({ existing: {} });
 
     const checkbox = screen.getByRole('checkbox', { name: /Glove change attested for Bacon/i });
     fireEvent.click(checkbox);
 
     expect(global.fetch).not.toHaveBeenCalled();
-    expect(window.alert).toHaveBeenCalledTimes(1);
-    expect(window.alert.mock.calls[0][0]).toMatch(/Pass, Fail, or n\/a/);
+    expect(screen.getByRole('alert').textContent).toMatch(/Pass, Fail, or n\/a/);
+    expect(window.alert).not.toHaveBeenCalled();
     expect(checkbox).not.toBeChecked();
   });
 
@@ -227,7 +227,7 @@ describe('StationChecklist glove attestation — failure rollback', () => {
     alertSpy.mockRestore();
   });
 
-  test('non-2xx response — checkbox rolls back to unchecked and alert fires', async () => {
+  test('non-2xx response — checkbox rolls back to unchecked and inline error fires', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
       status: 500,
@@ -239,21 +239,21 @@ describe('StationChecklist glove attestation — failure rollback', () => {
     fireEvent.click(checkbox);
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
+    const banner = await screen.findByRole('alert');
 
     // Optimistic toggle reverted.
     expect(checkbox).not.toBeChecked();
     const label = checkbox.closest('label.glove-toggle');
     expect(label.className).not.toMatch(/\bon\b/);
 
-    // Alert message names the item and the HTTP status so cooks can
+    // Error message names the item and the HTTP status so cooks can
     // tell saved-vs-not at a glance.
-    const alertMsg = alertSpy.mock.calls[0][0];
-    expect(alertMsg).toMatch(/Bacon/);
-    expect(alertMsg).toMatch(/500/);
+    expect(banner.textContent).toMatch(/Bacon/);
+    expect(banner.textContent).toMatch(/500/);
+    expect(alertSpy).not.toHaveBeenCalled();
   });
 
-  test('connection drop (fetch rejects) — checkbox rolls back and alert fires', async () => {
+  test('connection drop (fetch rejects) — checkbox rolls back and inline error fires', async () => {
     global.fetch = jest.fn().mockRejectedValue(new Error('NetworkError'));
 
     renderChecklist({ existing: { Bacon: { status: 'pass' } } });
@@ -261,15 +261,15 @@ describe('StationChecklist glove attestation — failure rollback', () => {
     fireEvent.click(checkbox);
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
+    const banner = await screen.findByRole('alert');
 
     expect(checkbox).not.toBeChecked();
     const label = checkbox.closest('label.glove-toggle');
     expect(label.className).not.toMatch(/\bon\b/);
 
-    const alertMsg = alertSpy.mock.calls[0][0];
-    expect(alertMsg).toMatch(/Lost connection/);
-    expect(alertMsg).toMatch(/Bacon/);
+    expect(banner.textContent).toMatch(/Lost connection/);
+    expect(banner.textContent).toMatch(/Bacon/);
+    expect(alertSpy).not.toHaveBeenCalled();
   });
 
   test('clearing a previously-attested glove also rolls back to true on failure', async () => {
@@ -284,7 +284,7 @@ describe('StationChecklist glove attestation — failure rollback', () => {
     expect(checkbox).toBeChecked();
 
     fireEvent.click(checkbox);
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
+    await screen.findByRole('alert');
 
     // Originally-true attestation must come back when the clear fails —
     // otherwise the audit log says "still attested" while the UI says

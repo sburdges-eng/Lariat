@@ -7,10 +7,14 @@ import EightySixBoard from './EightySixBoard.jsx';
 
 export const dynamic = 'force-dynamic';
 
-export default function EightySixPage({ searchParams }) {
+export default async function EightySixPage({ searchParams }) {
+  // Next 16 app router passes searchParams as a Promise. Reading
+  // `searchParams.location` synchronously falls back to the default kitchen and
+  // emits a runtime warning in Safari/Simulator. Await before deriving loc.
+  const sp = (await searchParams) || {};
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const date = todayISO();
   const db = getDb();

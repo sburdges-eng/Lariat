@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 export interface StationData {
@@ -37,12 +37,17 @@ export default function InventoryBoard({ updates, stations, date, locationId = '
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  // In-flight guard — `saving` disables the button only after the re-render,
+  // so a fast double-tap can still post the same entry twice without this.
+  const addingRef = useRef(false);
 
   useEffect(() => { setCookId(window.localStorage.getItem('lariat_cook') || ''); }, []);
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!item.trim()) return;
+    if (addingRef.current) return;
+    addingRef.current = true;
     setSaving(true);
     setErr('');
     let ok = false;
@@ -61,6 +66,7 @@ export default function InventoryBoard({ updates, stations, date, locationId = '
     } catch {
       setErr('Lost connection \u2014 not saved');
     }
+    addingRef.current = false;
     setSaving(false);
     if (!ok) return;
     setItem(''); setDelta(''); setNote('');
@@ -189,7 +195,7 @@ export default function InventoryBoard({ updates, stations, date, locationId = '
                   {u.note && <> · {u.note}</>}
                 </div>
               </div>
-              <span></span><span></span><span></span><span></span>
+              <span aria-hidden /><span aria-hidden /><span aria-hidden /><span aria-hidden />
             </li>
           ))}
         </ul>

@@ -43,6 +43,10 @@ const EMPTY_ROW: StationCheckItem = {
   glove_change_attested: null,
 };
 
+// Mirrors the reason list on the 86 Board so both surfaces log the same vocabulary.
+const REASONS = ['out', 'spoiled', 'dropped', 'no_make', 'burned', 'prep_short', 'other'] as const;
+const reasonLabel = (r: string) => r.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+
 export default function StationChecklist({ stationId, stationName, date, items, existing, signoff, locationId = 'default' }: StationChecklistProps) {
   const router = useRouter();
   const cookRef = useRef<string>('');
@@ -74,6 +78,11 @@ export default function StationChecklist({ stationId, stationName, date, items, 
   const [cookId, setCookId] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [signed, setSigned] = useState<SignoffData | null>(signoff || null);
+  // Inline error strip — native alert() blocks the whole iPad mid-service,
+  // so every failure surfaces here instead (same pattern as the 86 Board).
+  const [err, setErr] = useState('');
+  // Item whose inline 86-reason picker is open (replaces window.prompt).
+  const [pending86, setPending86] = useState<string | null>(null);
 
   useEffect(() => {
     const id = window.localStorage.getItem('lariat_cook') || '';
@@ -97,7 +106,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
   const requireCook = () => {
     const id = currentCook();
     if (!id) {
-      alert('Pick your name in the sidebar first.');
+      setErr('Pick your name in the sidebar first.');
       return '';
     }
     return id;
@@ -105,7 +114,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
 
   const requireStatus = (item: string, row: StationCheckItem) => {
     if (!row.status) {
-      alert(`Tap Pass, Fail, or n/a for "${item}" before saving counts.`);
+      setErr(`Tap Pass, Fail, or n/a for "${item}" before saving counts.`);
       return false;
     }
     return true;
@@ -116,6 +125,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
     if (!cid) return;
     const row = rowFor(item);
     if (!requireStatus(item, row)) return;
+    setErr('');
     try {
       const res = await fetch('/api/checks', {
         method: 'POST',
@@ -132,11 +142,11 @@ export default function StationChecklist({ stationId, stationName, date, items, 
         }),
       });
       if (!res.ok) {
-        alert(`Couldn’t save "${item}" — retry. (HTTP ${res.status})`);
+        setErr(`Couldn’t save "${item}" — retry. (HTTP ${res.status})`);
         return;
       }
     } catch {
-      alert(`Lost connection saving "${item}" — retry.`);
+      setErr(`Lost connection saving "${item}" — retry.`);
       return;
     }
     router.refresh();
@@ -149,6 +159,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
     if (previous.status === status) return;
     const snapshot = { ...previous, status };
     update(item, { status });
+    setErr('');
     try {
       const res = await fetch('/api/checks', {
         method: 'POST',
@@ -163,19 +174,19 @@ export default function StationChecklist({ stationId, stationName, date, items, 
       });
       if (!res.ok) {
         setState(s => ({ ...s, [item]: previous }));
-        alert(`Couldn’t save ${status} for "${item}" — retry. (HTTP ${res.status})`);
+        setErr(`Couldn’t save ${status} for "${item}" — retry. (HTTP ${res.status})`);
       }
     } catch {
       setState(s => ({ ...s, [item]: previous }));
-      alert(`Lost connection saving ${status} for "${item}" — retry.`);
+      setErr(`Lost connection saving ${status} for "${item}" — retry.`);
     }
   };
 
-  const eightySix = async (item: string) => {
+  const eightySix = async (item: string, reason: string) => {
     const cid = requireCook();
     if (!cid) return;
-    const reason = window.prompt(`86 "${item}" — reason? (out / spoiled / dropped / no_make / burned / prep_short / other)`, 'out');
-    if (reason === null) return;
+    setPending86(null);
+    setErr('');
     try {
       const res86 = await fetch('/api/eighty-six', {
         method: 'POST',
@@ -190,7 +201,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
         }),
       });
       if (!res86.ok) {
-        alert(`Couldn’t 86 "${item}" — retry. (HTTP ${res86.status})`);
+        setErr(`Couldn’t 86 "${item}" — retry. (HTTP ${res86.status})`);
         return;
       }
       update(item, { status: 'fail' });
@@ -205,18 +216,19 @@ export default function StationChecklist({ stationId, stationName, date, items, 
         }),
       });
       if (!resCheck.ok) {
-        alert(`86’d "${item}" but couldn’t write the check row — retry. (HTTP ${resCheck.status})`);
+        setErr(`86’d "${item}" but couldn’t write the check row — retry. (HTTP ${resCheck.status})`);
         return;
       }
     } catch {
-      alert(`Lost connection while 86’ing "${item}" — retry.`);
+      setErr(`Lost connection while 86’ing "${item}" — retry.`);
       return;
     }
     router.refresh();
   };
 
   const signOff = async () => {
-    if (!cookId) { alert('Pick your name in the sidebar first.'); return; }
+    if (!cookId) { setErr('Pick your name in the sidebar first.'); return; }
+    setErr('');
     setSaving(true);
     const res = await clientFetch('/api/signoff', {
       method: 'POST',
@@ -228,9 +240,9 @@ export default function StationChecklist({ stationId, stationName, date, items, 
     setSaving(false);
     if (!res.ok) {
       const missing = Array.isArray(j?.items) && j.items.length
-        ? `\n• ${j.items.join('\n• ')}`
+        ? ` — ${j.items.join(' · ')}`
         : '';
-      alert(`${j?.error || 'Could not sign off.'}${missing}`);
+      setErr(`${j?.error || 'Could not sign off.'}${missing}`);
       return;
     }
     setSigned(j);
@@ -270,6 +282,17 @@ export default function StationChecklist({ stationId, stationName, date, items, 
         </div>
         <span>{done} / {items.length} complete</span>
       </div>
+
+      {err && (
+        <div
+          className="card border-red mb-20"
+          role="alert"
+          aria-live="assertive"
+          style={{ color: 'var(--red)', fontWeight: 600 }}
+        >
+          {err}
+        </div>
+      )}
 
       <div className="checklist" role="list" aria-label={`${stationName} checklist`}>
         {items.map(item => {
@@ -346,10 +369,14 @@ export default function StationChecklist({ stationId, stationName, date, items, 
               </button>
               <button
                 type="button"
-                className="btn"
-                onClick={() => eightySix(item)}
+                className={`btn ${pending86 === item ? 'red' : ''}`}
+                onClick={() => {
+                  if (!requireCook()) return;
+                  setPending86(p => (p === item ? null : item));
+                }}
                 title="86 this item"
                 aria-label={`86 ${item}`}
+                aria-expanded={pending86 === item}
               >
                 86
               </button>
@@ -391,11 +418,11 @@ export default function StationChecklist({ stationId, stationName, date, items, 
                       });
                       if (!res.ok) {
                         update(item, { glove_change_attested: prev });
-                        alert(`Couldn’t save glove change for "${item}" — retry. (HTTP ${res.status})`);
+                        setErr(`Couldn’t save glove change for "${item}" — retry. (HTTP ${res.status})`);
                       }
                     } catch {
                       update(item, { glove_change_attested: prev });
-                      alert(`Lost connection saving glove change for "${item}" — retry.`);
+                      setErr(`Lost connection saving glove change for "${item}" — retry.`);
                     }
                   }}
                   aria-label={`Glove change attested for ${item}`}
@@ -422,6 +449,28 @@ export default function StationChecklist({ stationId, stationName, date, items, 
                     onBlur={() => persist(item)}
                   />
                 </>
+              )}
+              {pending86 === item && (
+                <div
+                  role="group"
+                  aria-label={`Why is ${item} 86’d?`}
+                  style={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}
+                >
+                  <span className="meta" style={{ fontWeight: 600 }}>86 — why?</span>
+                  {REASONS.map(r => (
+                    <button
+                      key={r}
+                      type="button"
+                      className="btn red"
+                      onClick={() => eightySix(item, r)}
+                    >
+                      {reasonLabel(r)}
+                    </button>
+                  ))}
+                  <button type="button" className="btn" onClick={() => setPending86(null)}>
+                    Cancel
+                  </button>
+                </div>
               )}
             </div>
           );

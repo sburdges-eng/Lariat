@@ -143,6 +143,16 @@ export default function BarPage({ searchParams }) {
       cost_per_pour != null && menu_price != null && menu_price > 0
         ? (cost_per_pour / menu_price) * 100
         : null;
+    // Why a gray row has no pour cost — managers need to know whether to
+    // add a cost, a menu price, or a portionable yield before they can act.
+    const gray_reason =
+      pour_cost_pct != null
+        ? null
+        : !costRow
+          ? 'add recipe cost'
+          : cost_per_pour == null
+            ? 'yield not portionable'
+            : 'add menu price';
     return {
       slug: r.slug,
       name: r.name || r.slug,
@@ -150,6 +160,7 @@ export default function BarPage({ searchParams }) {
       cost_per_pour,
       menu_price,
       pour_cost_pct,
+      gray_reason,
       tone: toneFor(pour_cost_pct),
     };
   });
@@ -279,7 +290,13 @@ export default function BarPage({ searchParams }) {
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    {r.pour_cost_pct != null ? `${r.pour_cost_pct.toFixed(1)}%` : '—'}
+                    {r.pour_cost_pct != null ? (
+                      `${r.pour_cost_pct.toFixed(1)}%`
+                    ) : (
+                      <span className="meta" style={{ fontSize: 12, fontWeight: 600 }}>
+                        {r.gray_reason}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

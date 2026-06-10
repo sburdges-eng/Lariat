@@ -17,12 +17,19 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
   // Per-row in-flight guard so a double-tap on the greasy tablet screen
   // can't fire two POSTs to /api/eighty-six/resolve for the same row.
   const resolvingRef = useRef(new Set());
+  // Same guard for the add form — `saving` disables the button only after
+  // the re-render, so a fast double-tap can still fire two POSTs without this.
+  const addingRef = useRef(false);
+  // Cascade row awaiting inline confirmation (replaces window.confirm).
+  const [confirmSlug, setConfirmSlug] = useState(null);
 
   useEffect(() => { setCookId(window.localStorage.getItem('lariat_cook') || ''); }, []);
 
   const add = async (e) => {
     e.preventDefault();
     if (!item.trim()) return;
+    if (addingRef.current) return;
+    addingRef.current = true;
     setSaving(true);
     setErr('');
     let ok = false;
@@ -45,6 +52,7 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
     } catch {
       setErr('Lost connection \u2014 not saved');
     }
+    addingRef.current = false;
     setSaving(false);
     if (!ok) return;
     setItem(''); setQuantity('');
@@ -75,7 +83,7 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
   };
 
   const confirmCascade = async (c) => {
-    if (!window.confirm(`86 "${c.name}" too?\nAny already prepped and in the walk-in is still OK — only confirm if you're actually out.`)) return;
+    setConfirmSlug(null);
     setErr('');
     setSaving(true);
     try {
@@ -213,7 +221,7 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
                   {e.cook_id && <> · {e.cook_id}</>}
                 </div>
               </div>
-              <span></span><span></span><span></span>
+              <span aria-hidden /><span aria-hidden /><span aria-hidden />
               <button
                 className="btn green"
                 onClick={() => resolve(e.id)}
@@ -238,16 +246,44 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
               <div key={c.slug} className="check-row">
                 <div>
                   <div className="check-name">{c.name}</div>
-                  <div className="meta">uses {c.via}</div>
+                  <div className="meta">
+                    uses {c.via}
+                    {confirmSlug === c.slug && <> — prepped batches may still be fine</>}
+                  </div>
                 </div>
-                <span></span><span></span><span></span>
-                <button
-                  className="btn red"
-                  disabled={saving}
-                  onClick={() => confirmCascade(c)}
-                >
-                  Mark out too
-                </button>
+                {confirmSlug === c.slug ? (
+                  <>
+                    <span aria-hidden /><span aria-hidden />
+                    <button
+                      className="btn"
+                      onClick={() => setConfirmSlug(null)}
+                      aria-label={`Keep ${c.name} on the menu`}
+                    >
+                      Keep it
+                    </button>
+                    <button
+                      className="btn red"
+                      disabled={saving}
+                      onClick={() => confirmCascade(c)}
+                      aria-label={`Confirm 86 for ${c.name}`}
+                    >
+                      Yes — 86 it
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span aria-hidden /><span aria-hidden /><span aria-hidden />
+                    <button
+                      className="btn red"
+                      disabled={saving}
+                      onClick={() => setConfirmSlug(c.slug)}
+                      aria-expanded={false}
+                      aria-label={`Mark ${c.name} out too`}
+                    >
+                      Mark out too
+                    </button>
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -269,7 +305,7 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
                     86&apos;d {fmtTime(e.created_at)} → resolved {fmtTime(e.resolved_at)}
                   </div>
                 </div>
-                <span></span><span></span><span></span><span></span>
+                <span aria-hidden /><span aria-hidden /><span aria-hidden /><span aria-hidden />
               </div>
             ))}
           </div>

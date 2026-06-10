@@ -52,6 +52,35 @@ Row 2.21 can close only after a real hardware run proves all of the following:
 
 Until that hardware evidence exists, this harness is a preflight and regression tool, not proof that the fleet target meets the line-use latency bar.
 
+## Simulator preflight evidence - 2026-06-09
+
+Xcode Simulator was used as a smoke-test preflight on the local host before a real hardware run. This is explicitly non-closing evidence for row 2.21.
+
+Environment:
+
+- Simulator device: `iPad (A16)`
+- Browser: Safari in Xcode Simulator
+- Base URL: `http://127.0.0.1:3000`
+- Result: all three cook-tier routes returned `HTTP/1.1 200 OK`
+
+Captured simulator artifacts:
+
+- `output/sim/stations-grill-saute.png`
+- `output/sim/kds-punch.png`
+- `output/sim/eighty-six.png`
+
+Observed screens:
+
+- `stations-grill-saute.png`: station page for `Grill / Sauté` loaded with visible `PASS`, `FAIL`, and `N/A` controls.
+- `kds-punch.png`: `Punch ticket` page loaded with on-screen helper copy: `Type the order, send it to the line. The kitchen iPad picks it up.`
+- `eighty-six.png`: `86 Board` loaded with visible helper copy: `0 items out. Mark it back when you've got it.`
+
+Why this does not close row 2.21:
+
+- Simulator device is not `iPad (gen 7)`.
+- Simulator does not prove real low-power hardware latency.
+- No Simulator evidence should be treated as a substitute for the required Safari/PWA run on physical Gen 7 hardware.
+
 ## Invariants
 
 - Output JSON starts with `schemaVersion`.

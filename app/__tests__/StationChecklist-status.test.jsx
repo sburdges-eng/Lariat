@@ -55,8 +55,8 @@ describe('StationChecklist status buttons', () => {
     fireEvent.click(screen.getByRole('button', { name: /Pass Bacon/i }));
 
     expect(global.fetch).not.toHaveBeenCalled();
-    expect(alertSpy).toHaveBeenCalledTimes(1);
-    expect(alertSpy.mock.calls[0][0]).toMatch(/Pick your name/);
+    expect(screen.getByRole('alert').textContent).toMatch(/Pick your name/);
+    expect(alertSpy).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: /Pass Bacon/i })).toHaveAttribute('aria-pressed', 'false');
   });
 
@@ -86,6 +86,7 @@ describe('StationChecklist status buttons', () => {
 
     expect(global.fetch).not.toHaveBeenCalled();
     expect(alertSpy).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(pass).toHaveAttribute('aria-pressed', 'true');
   });
 
@@ -102,8 +103,9 @@ describe('StationChecklist status buttons', () => {
     fireEvent.click(pass);
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
+    const banner = await screen.findByRole('alert');
     expect(pass).toHaveAttribute('aria-pressed', 'false');
-    expect(alertSpy.mock.calls[0][0]).toMatch(/500/);
+    expect(banner.textContent).toMatch(/500/);
+    expect(alertSpy).not.toHaveBeenCalled();
   });
 });
