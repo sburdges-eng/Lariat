@@ -34,7 +34,7 @@ export default async function V2CommandPage({ searchParams }) {
       </section>
 
       <section style={shellStyle}>
-        <CommandCenter searchParams={searchParams} />
+        <CommandCenter searchParams={sp} />
       </section>
     </main>
   );

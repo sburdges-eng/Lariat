@@ -34,7 +34,7 @@ export default async function V2ManagementPage({ searchParams }) {
       </section>
 
       <section style={shellStyle}>
-        <ManagementPage searchParams={searchParams} />
+        <ManagementPage searchParams={sp} />
       </section>
     </main>
   );

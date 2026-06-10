@@ -30,7 +30,8 @@ describe('/v2/stations route files', () => {
 
     for (const source of [indexSource, detailSource]) {
       assert.match(source, /export const dynamic\s*=\s*['"]force-dynamic['"]/, 'route should stay dynamic like v1 stations');
-      assert.match(source, /searchParams\?\.location|sp\.location/, 'route should read the location param');
+      assert.match(source, /const sp = \(await searchParams\) \|\| \{\}/, 'route should await searchParams');
+      assert.match(source, /typeof sp\.location === 'string'/, 'route should read location from awaited search params');
       assert.match(source, /DEFAULT_LOCATION_ID/, 'route should default to the canonical location');
     }
   });
@@ -42,10 +43,10 @@ describe('/v2/stations live route reuse', () => {
     const detailSource = read(V2_STATION_DETAIL_PAGE);
 
     assert.match(indexSource, /from ['"].*stations\/page\.jsx['"]/, 'v2 stations should import the live stations page');
-    assert.match(indexSource, /<StationsPage\s+searchParams=\{searchParams\}\s*\/?>/, 'v2 stations should pass searchParams through');
+    assert.match(indexSource, /<StationsPage\s+searchParams=\{sp\}\s+basePath=['"]\/v2\/stations['"]\s*\/?>/, 'v2 stations should keep card links inside the v2 shell');
 
     assert.match(detailSource, /from ['"].*stations\/\[id\]\/page\.jsx['"]/, 'v2 station detail should import the live station detail page');
-    assert.match(detailSource, /<StationPage\s+params=\{params\}\s+searchParams=\{searchParams\}\s*\/?>/, 'v2 station detail should pass params and searchParams through');
+    assert.match(detailSource, /<StationPage\s+params=\{params\}\s+searchParams=\{sp\}\s*\/?>/, 'v2 station detail should pass awaited params and searchParams through');
   });
 
   it('keeps cooks moving between today, stations, and each board', () => {

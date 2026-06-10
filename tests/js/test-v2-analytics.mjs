@@ -24,7 +24,8 @@ describe('/v2/analytics route file', () => {
   it('keeps the route server-rendered and location-aware', () => {
     const source = read(V2_ANALYTICS_PAGE);
     assert.match(source, /export const dynamic\s*=\s*['"]force-dynamic['"]/, 'route should stay dynamic like v1 analytics');
-    assert.match(source, /(searchParams\?\.location|sp\.location)/, 'route should read location from search params');
+    assert.match(source, /const sp = \(await searchParams\) \|\| \{\}/, 'route should await searchParams');
+    assert.match(source, /typeof sp\.location === 'string'/, 'route should read location from awaited search params');
     assert.match(source, /DEFAULT_LOCATION_ID/, 'route should default to the canonical location');
     assert.match(source, /locationId !== DEFAULT_LOCATION_ID \? `\?location=\$\{encodeURIComponent\(locationId\)\}` : ''/, 'default location should not add a redundant query string');
   });
