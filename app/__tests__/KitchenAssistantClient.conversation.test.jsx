@@ -335,3 +335,35 @@ test('recovers from a speech-recognition error so hold-to-talk can start again',
   expect(speechInstances[1].start).toHaveBeenCalledTimes(1);
   await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
 });
+
+test('recovers from a speech-recognition start fault so hold-to-talk can start again', async () => {
+  const fault = new Error('mic busy');
+  const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  let shouldThrow = true;
+  class StartFaultSpeechRecognition extends MockSpeechRecognition {
+    constructor() {
+      super();
+      this.start = jest.fn(() => {
+        if (shouldThrow) {
+          shouldThrow = false;
+          throw fault;
+        }
+        this.onstart?.();
+      });
+    }
+  }
+  window.SpeechRecognition = StartFaultSpeechRecognition;
+  render(<KitchenAssistantClient locQuery="" />);
+
+  const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
+  fireEvent.pointerDown(voiceButton);
+
+  expect(errorSpy).toHaveBeenCalledWith('Speech recognition fault:', fault);
+  await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).toBeInTheDocument());
+
+  fireEvent.pointerDown(screen.getByRole('button', { name: /start voice input/i }));
+
+  expect(speechInstances).toHaveLength(2);
+  expect(speechInstances[1].start).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
+});

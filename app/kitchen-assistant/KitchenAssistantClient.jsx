@@ -292,6 +292,7 @@ export default function KitchenAssistantClient({ locQuery }) {
       recognition.start();
     } catch (err) {
       console.error("Speech recognition fault:", err);
+      recognitionRef.current = null;
       setIsListening(false);
     }
   };
