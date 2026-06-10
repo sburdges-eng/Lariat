@@ -301,6 +301,15 @@ export default function KitchenAssistantClient({ locQuery }) {
     e.preventDefault();
   };
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const stopWhenHidden = () => {
+      if (document.hidden) stopListening();
+    };
+    document.addEventListener('visibilitychange', stopWhenHidden);
+    return () => document.removeEventListener('visibilitychange', stopWhenHidden);
+  }, []);
+
   const voiceKeyDown = (e) => {
     if (e.key === 'Escape') {
       stopListening(e);
