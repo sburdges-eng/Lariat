@@ -647,6 +647,20 @@ export const NAV_ITEMS = [
     locAware: t,
     surface: { sidebar: f, palette: t, shelf: f },
   },
+  // Variance attribution (roadmap 3.2): "the variance moved — what did
+  // we change?" Evidence board between two accounting_variance periods.
+  // Palette-only like the other costing sub-boards; PIN-gated by
+  // middleware via /costing.
+  {
+    id: 'variance-attribution',
+    href: '/costing/variance-attribution',
+    name: 'Variance attribution',
+    sub: 'The variance moved — what changed?',
+    group: 'Books',
+    terms: 'variance attribution cogs moved why price composition count correction depletion evidence',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
   // ── Menu-engineering sub-boards (audit F1 fix, 2026-05-17) ────────
   {
     id: 'menu-margin-deltas',
