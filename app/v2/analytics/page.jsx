@@ -1,11 +1,11 @@
-// @ts-nocheck - second manager-tier v2 route: /v2/management.
+// @ts-nocheck - third manager-tier v2 route: /v2/analytics.
 import Link from 'next/link';
-import ManagementPage from '../../management/page.jsx';
+import AnalyticsPage from '../../analytics/page.jsx';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 
 export const dynamic = 'force-dynamic';
 
-export default function V2ManagementPage({ searchParams }) {
+export default function V2AnalyticsPage({ searchParams }) {
   const locationId =
     typeof searchParams?.location === 'string' && searchParams.location.trim()
       ? searchParams.location.trim()
@@ -16,24 +16,24 @@ export default function V2ManagementPage({ searchParams }) {
     <main style={{ display: 'grid', gap: 18 }}>
       <section style={heroStyle}>
         <div style={{ display: 'grid', gap: 8 }}>
-          <div style={eyebrowStyle}>Management rollup</div>
-          <h1 style={titleStyle}>Check the whole house</h1>
-          <p style={copyStyle}>See the key counts fast, then jump into the next manager call without losing your place.</p>
+          <div style={eyebrowStyle}>Sales numbers</div>
+          <h1 style={titleStyle}>Read the numbers fast</h1>
+          <p style={copyStyle}>Check the trend, then jump back into the next manager call without losing your place.</p>
         </div>
         <div style={jumpRowStyle}>
-          <Link href={`/v2/command${locationQuery}`} style={jumpCardStyle}>
+          <Link href={`/v2/management${locationQuery}`} style={jumpCardStyle}>
             <span style={eyebrowStyle}>Back</span>
-            <strong>Back to command</strong>
+            <strong>Back to management</strong>
           </Link>
-          <Link href={`/v2/analytics${locationQuery}`} style={jumpCardStyle}>
+          <Link href={`/morning${locationQuery}`} style={jumpCardStyle}>
             <span style={eyebrowStyle}>Next</span>
-            <strong>Open analytics</strong>
+            <strong>Open morning</strong>
           </Link>
         </div>
       </section>
 
       <section style={shellStyle}>
-        <ManagementPage searchParams={searchParams} />
+        <AnalyticsPage />
       </section>
     </main>
   );

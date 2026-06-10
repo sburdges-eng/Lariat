@@ -39,7 +39,7 @@ describe('/v2/management live route reuse', () => {
 
   it('keeps managers moving between command, management, and analytics', () => {
     const source = read(V2_MANAGEMENT_PAGE);
-    for (const href of ['/v2/command', '/analytics']) {
+    for (const href of ['/v2/command', '/v2/analytics']) {
       assert.match(source, new RegExp(href.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${href} should be linked from /v2/management`);
     }
   });
