@@ -393,6 +393,16 @@ export const NAV_ITEMS = [
     surface: { sidebar: f, palette: t, shelf: f },
   },
   {
+    id: 'fs-haccp-plan',
+    href: '/food-safety/haccp-plan',
+    name: 'HACCP plan',
+    sub: 'Inspector-ready printable plan',
+    group: 'Compliance',
+    terms: 'haccp plan inspector print pdf ccp citation corrective calibration',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  {
     id: 'labor',
     href: '/labor',
     name: 'Labor',
