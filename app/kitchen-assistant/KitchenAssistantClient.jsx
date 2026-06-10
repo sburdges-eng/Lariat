@@ -299,6 +299,16 @@ export default function KitchenAssistantClient({ locQuery }) {
     e.preventDefault();
   };
 
+  const voiceKeyDown = (e) => {
+    if (e.key !== ' ' && e.key !== 'Enter') return;
+    startListening(e);
+  };
+
+  const voiceKeyUp = (e) => {
+    if (e.key !== ' ' && e.key !== 'Enter') return;
+    stopListening(e);
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     setErr('');
@@ -545,6 +555,8 @@ export default function KitchenAssistantClient({ locQuery }) {
               onPointerUp={stopListening}
               onPointerLeave={stopListening}
               onPointerCancel={stopListening}
+              onKeyDown={voiceKeyDown}
+              onKeyUp={voiceKeyUp}
               className={`btn ${isListening ? 'red' : ''}`}
               aria-pressed={isListening}
               aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
