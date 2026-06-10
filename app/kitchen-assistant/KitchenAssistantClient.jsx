@@ -555,6 +555,7 @@ export default function KitchenAssistantClient({ locQuery }) {
               onPointerUp={stopListening}
               onPointerLeave={stopListening}
               onPointerCancel={stopListening}
+              onBlur={stopListening}
               onKeyDown={voiceKeyDown}
               onKeyUp={voiceKeyUp}
               className={`btn ${isListening ? 'red' : ''}`}
