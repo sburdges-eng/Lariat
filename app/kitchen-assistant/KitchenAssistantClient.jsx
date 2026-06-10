@@ -277,6 +277,7 @@ export default function KitchenAssistantClient({ locQuery }) {
       recognition.onstart = () => setIsListening(true);
       recognition.onerror = (evt) => {
         console.error('Speech error:', evt);
+        recognitionRef.current = null;
         setIsListening(false);
       };
       recognition.onend = () => {
