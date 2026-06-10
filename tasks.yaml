@@ -10,22 +10,21 @@
 #
 # Future work (NOT in this manifest — captured here for planning):
 #
-#   1. /management/cloud-bridge operator UI form  (Phase 4.1)
-#      Touches: app/management/cloud-bridge/page.jsx, desktop/main.ts
-#               (settings:set IPC handler).
+#   1. DONE — /management/cloud-bridge operator UI form shipped
+#      (CloudBridgeBoard.jsx round-trips cloudBridgeUrl/cloudBridgeSecret).
 #
-#   2. appendOp integration into source-table mutations  (Phase 4.1)
-#      Wire lib/syncFeed.appendOp into the regulated source-write
-#      paths (line_check_entries, cooling_log, temp_log_entries, …)
-#      inside the same tx that writes the row. Needs a runtime identity
-#      resolver to populate sourceHost + sourceStartedAt — likely a
-#      thin helper that reads from lib/hubFailover.ts at boot.
+#   2. DONE — appendOp is wired into the regulated source-write paths
+#      (checks, sanitizer, receiving, temp-log, cooling, …) with
+#      lib/localIdentity.ts supplying sourceHost + sourceStartedAt.
 #
 #   3. Family-3 LWW applier (recipes, dish_components, entities_*)
 #      Deferred per docs/multi-instance-sync.md design.
 #
 #   4. Ed25519 migration for cloud-bridge auth (Item 13)
 #      Out of scope until the cloud peer's verifier ships.
+#
+# 2026-06-10: roadmap Tier-3 rows 3.2-3.7 implemented (uncommitted, pending
+# review) on feat/tier3-no-config-features — see docs/PROJECT_ROADMAP.md.
 #
 # Read:   .claude/agents/coordinator.md  (slash-command entrypoint)
 # Status: ORCHESTRATOR_STATUS.md
