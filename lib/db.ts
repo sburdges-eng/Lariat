@@ -2999,6 +2999,26 @@ function initManagementSchema(db: DB): void {
       created_by    TEXT NOT NULL DEFAULT 'compute_engine',
       snapshot_at   TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- Allergen attestations (roadmap 3.3). Append-only: a correction is a
+    -- fresh row and the latest row per (location_id, recipe_slug) wins —
+    -- rows are NEVER updated or deleted. recipe_fingerprint hashes the
+    -- ingredient composition the allergen heuristic reads (own ingredients
+    -- + sub-recipe tree), so a later recipe edit renders the attestation
+    -- STALE instead of silently inheriting the signoff.
+    CREATE TABLE IF NOT EXISTS allergen_attestations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      recipe_slug TEXT NOT NULL,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      allergens_json TEXT NOT NULL DEFAULT '[]',
+      recipe_fingerprint TEXT NOT NULL,
+      attested_by TEXT NOT NULL,
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_allergen_attestations_latest
+      ON allergen_attestations(location_id, recipe_slug, id DESC);
   `);
 }
 

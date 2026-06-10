@@ -1,4 +1,5 @@
 import AllergenLookupClient from './AllergenLookupClient.jsx';
+import RecipeAttestations from './RecipeAttestations.jsx';
 
 export const metadata = {
   title: 'Allergen lookup — Lariat Cockpit',
@@ -13,6 +14,7 @@ export default function AllergenLookupPage() {
         catalog. Type a product name, brand, or scan a GTIN barcode.
       </p>
       <AllergenLookupClient />
+      <RecipeAttestations />
     </div>
   );
 }
