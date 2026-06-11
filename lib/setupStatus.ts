@@ -23,6 +23,7 @@
 import { getDb } from './db.ts';
 import { getRecipes } from './data.ts';
 import { DEFAULT_LOCATION_ID } from './location.ts';
+import { managerPinGateConfigured } from './managerPins.ts';
 
 /** Seed name written by lib/db.ts seedDefaultLocation(). */
 const DEFAULT_SEED_NAME = 'The Lariat';
@@ -51,7 +52,7 @@ export interface SetupStatus {
 }
 
 export function pinConfigured(): boolean {
-  return Boolean((process.env.LARIAT_PIN || '').trim());
+  return managerPinGateConfigured(DEFAULT_LOCATION_ID);
 }
 
 interface LocationRow {

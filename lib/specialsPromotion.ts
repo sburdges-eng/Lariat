@@ -28,6 +28,7 @@ import type { Database } from 'better-sqlite3';
 import { getDb } from './db.ts';
 import { postAuditEvent } from './auditEvents.ts';
 import { normalizeDishName } from './dishCostBridge.ts';
+import { normalizeIngredientKey } from './ingredientKey.ts';
 import { convertQty, normalizeUnit } from './unitConvert.mjs';
 
 /** One cost_breakdown line as produced by lib/computeEngine/sandboxCosting.ts. */
@@ -145,6 +146,59 @@ export function componentsFromBreakdown(
   return { components, skipped };
 }
 
+function alignComponentsToVendorPackUnits(
+  components: PromotedComponent[],
+  skipped: SkippedComponent[],
+  locationId: string,
+  db: Database,
+): PromotedComponent[] {
+  const latestVendorPackUnit = db.prepare(
+    `SELECT pack_unit
+       FROM vendor_prices
+      WHERE location_id = ? AND lower(ingredient) = lower(?)
+      ORDER BY imported_at DESC, id DESC
+      LIMIT 1`,
+  );
+  const densityForIngredient = db.prepare(
+    `SELECT g_per_ml
+       FROM ingredient_densities
+      WHERE ingredient_key = ?`,
+  );
+
+  const aligned: PromotedComponent[] = [];
+  for (const component of components) {
+    const vendorRow = latestVendorPackUnit.get(locationId, component.vendor_ingredient) as
+      | { pack_unit: string | null }
+      | undefined;
+    const packUnit = normalizeUnit(vendorRow?.pack_unit || '');
+    if (!packUnit || packUnit === component.unit) {
+      aligned.push(component);
+      continue;
+    }
+
+    const densityRow = densityForIngredient.get(
+      normalizeIngredientKey(component.vendor_ingredient),
+    ) as { g_per_ml: number | null } | undefined;
+    const convertedQty = convertQty(
+      component.qty_per_serving,
+      component.unit,
+      packUnit,
+      densityRow?.g_per_ml ?? null,
+    );
+    if (convertedQty == null || !Number.isFinite(convertedQty) || convertedQty <= 0) {
+      skipped.push({ item: component.vendor_ingredient, reason: 'invalid_qty' });
+      continue;
+    }
+
+    aligned.push({
+      vendor_ingredient: component.vendor_ingredient,
+      qty_per_serving: convertedQty,
+      unit: packUnit,
+    });
+  }
+  return aligned;
+}
+
 function loadPromotion(
   db: Database,
   specialId: string,
@@ -206,7 +260,8 @@ export function promoteSpecialToMenu(
   const menuItemName = normalizeDishName(input.menuItemName ?? special.name);
 
   const breakdown = parseBreakdown(special.cost_breakdown);
-  const { components, skipped } = componentsFromBreakdown(breakdown, servings);
+  const { components: rawComponents, skipped } = componentsFromBreakdown(breakdown, servings);
+  const components = alignComponentsToVendorPackUnits(rawComponents, skipped, locationId, db);
   if (components.length === 0) return { ok: false, error: 'no_costable_components' };
 
   const now = Date.now();

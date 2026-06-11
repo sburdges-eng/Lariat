@@ -56,6 +56,14 @@ function seedVendorPrice({ ingredient, pack_size = 1, pack_unit = 'lb', pack_pri
   ).run(ingredient, pack_size, pack_unit, pack_price, unit_price, location_id);
 }
 
+function seedIngredientDensity(ingredient_key, g_per_ml) {
+  db.prepare(
+    `INSERT INTO ingredient_densities (ingredient_key, g_per_ml, source)
+     VALUES (?, ?, 'measured')
+     ON CONFLICT(ingredient_key) DO UPDATE SET g_per_ml = excluded.g_per_ml, source = excluded.source`,
+  ).run(ingredient_key, g_per_ml);
+}
+
 function jsonRequest(url, body, method = 'POST') {
   return new Request(url, {
     method,
@@ -207,6 +215,43 @@ describe('promotion pulls cost data through to menu engineering', () => {
     const cost = bridge.computeDishCost('Lariat Belly Stack', 'default', undefined, undefined, db);
     assert.equal(cost.link_state, 'fully_linked');
     assert.ok(Math.abs(cost.total_cost - 10.4) < 1e-9);
+  });
+
+  it('stores promoted vendor rows in the vendor pack unit when density is needed', async () => {
+    seedVendorPrice({
+      ingredient: 'AP FLOUR',
+      pack_size: 1,
+      pack_unit: 'lb',
+      pack_price: 1,
+      unit_price: 1,
+    });
+    seedIngredientDensity('ap flour', 0.5);
+    const id = await createSpecial({
+      name: 'Buttermilk Bites',
+      cost_breakdown: [
+        { item: 'ap flour', req_qty: 1, req_unit: 'cup', match: 'AP FLOUR', cost: 0.26 },
+      ],
+      cost_total: 0.26,
+    });
+
+    const res = await promoteSpecial(id, { menu_item_name: 'Buttermilk Bites', servings: 1 });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.deepEqual(data.skipped, []);
+    assert.equal(data.components.length, 1);
+    assert.equal(data.components[0].vendor_ingredient, 'AP FLOUR');
+    assert.equal(data.components[0].unit, 'lb');
+    assert.ok(Math.abs(data.components[0].qty_per_serving - 0.2607938891256041) < 1e-9);
+
+    const row = db.prepare(
+      `SELECT qty_per_serving, unit FROM dish_components WHERE dish_name = 'Buttermilk Bites' AND vendor_ingredient = 'AP FLOUR'`,
+    ).get();
+    assert.equal(row.unit, 'lb');
+    assert.ok(Math.abs(row.qty_per_serving - 0.2607938891256041) < 1e-9);
+
+    const cost = bridge.computeDishCost('Buttermilk Bites', 'default', undefined, undefined, db);
+    assert.equal(cost.link_state, 'fully_linked');
+    assert.ok(Math.abs(cost.total_cost - 0.2607938891256041) < 1e-9);
   });
 });
 

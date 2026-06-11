@@ -2,6 +2,7 @@ import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
+import { requirePin } from '../../../lib/pin';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,9 @@ export async function POST(req) {
 /** @param {Request} req */
 async function locationsPostHandler(req) {
   try {
+    const pinFail = await requirePin(req);
+    if (pinFail) return pinFail;
+
     let body;
     try {
       body = await req.clone().json();
