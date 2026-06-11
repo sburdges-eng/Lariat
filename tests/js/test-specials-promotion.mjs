@@ -210,6 +210,21 @@ describe('promotion pulls cost data through to menu engineering', () => {
   });
 });
 
+describe('componentsFromBreakdown', () => {
+  it('merges duplicate vendor matches when the units are convertible', () => {
+    const result = promotion.componentsFromBreakdown([
+      { item: 'pork belly roast', req_qty: 4, req_unit: 'lb', match: 'PORK BELLY SKIN-ON' },
+      { item: 'pork belly trim', req_qty: 8, req_unit: 'oz', match: 'PORK BELLY SKIN-ON' },
+    ], 1);
+
+    assert.deepEqual(result.skipped, []);
+    assert.equal(result.components.length, 1);
+    assert.equal(result.components[0].vendor_ingredient, 'PORK BELLY SKIN-ON');
+    assert.equal(result.components[0].unit, 'lb');
+    assert.ok(Math.abs(result.components[0].qty_per_serving - 4.5) < 1e-9);
+  });
+});
+
 describe('idempotent re-promote', () => {
   it('re-promoting with the same args refreshes rather than duplicates', async () => {
     seedDefaultVendors();

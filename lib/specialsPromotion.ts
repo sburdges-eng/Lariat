@@ -28,6 +28,7 @@ import type { Database } from 'better-sqlite3';
 import { getDb } from './db.ts';
 import { postAuditEvent } from './auditEvents.ts';
 import { normalizeDishName } from './dishCostBridge.ts';
+import { convertQty, normalizeUnit } from './unitConvert.mjs';
 
 /** One cost_breakdown line as produced by lib/computeEngine/sandboxCosting.ts. */
 interface CostBreakdownLine {
@@ -109,7 +110,6 @@ export function componentsFromBreakdown(
 ): { components: PromotedComponent[]; skipped: SkippedComponent[] } {
   const components: PromotedComponent[] = [];
   const skipped: SkippedComponent[] = [];
-  const seen = new Set<string>();
   for (const line of breakdown) {
     const item = typeof line?.item === 'string' ? line.item : '';
     const match = typeof line?.match === 'string' ? line.match.trim() : '';
@@ -119,31 +119,27 @@ export function componentsFromBreakdown(
     }
     const qty = Number(line?.req_qty);
     const unit = typeof line?.req_unit === 'string' ? line.req_unit.trim() : '';
-    if (!Number.isFinite(qty) || qty <= 0 || !unit) {
+    const canonUnit = normalizeUnit(unit);
+    if (!Number.isFinite(qty) || qty <= 0 || !canonUnit) {
       skipped.push({ item: item || match, reason: 'invalid_qty' });
       continue;
     }
-    // dish_components is UNIQUE per (location, dish, vendor_ingredient);
-    // collapse duplicate matches (same vendor item used twice) by summing.
+    const qtyPerServing = qty / servings;
     const key = match.toLowerCase();
-    if (seen.has(key)) {
-      const existing = components.find(
-        (c) => c.vendor_ingredient.toLowerCase() === key,
-      );
-      if (existing && existing.unit === unit) {
-        existing.qty_per_serving += qty / servings;
+    const existing = components.find((c) => c.vendor_ingredient.toLowerCase() === key);
+    if (existing) {
+      const convertedQty = convertQty(qtyPerServing, canonUnit, existing.unit, null);
+      if (convertedQty == null) {
+        skipped.push({ item: item || match, reason: 'invalid_qty' });
         continue;
       }
-      if (existing) {
-        skipped.push({ item: item || match, reason: 'unit_conflict' });
-        continue;
-      }
+      existing.qty_per_serving += convertedQty;
+      continue;
     }
-    seen.add(key);
     components.push({
       vendor_ingredient: match,
-      qty_per_serving: qty / servings,
-      unit,
+      qty_per_serving: qtyPerServing,
+      unit: canonUnit,
     });
   }
   return { components, skipped };
