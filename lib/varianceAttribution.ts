@@ -21,6 +21,7 @@
 // the variance delta. That caveat is part of the payload.
 
 import { getDb } from './db.ts';
+import { normalizeDishName } from './dishCostBridge.ts';
 
 export type ThresholdColor = 'green' | 'yellow' | 'red';
 
@@ -417,6 +418,11 @@ function unresolvedDepletions(
 ): UnresolvedDepletionSection {
   const db = getDb();
 
+  // Register normalization so the JOIN matches the canonical dish_name storage.
+  db.function('normalize_dish_name', { deterministic: true }, (s: unknown) =>
+    normalizeDishName(s as string | null | undefined),
+  );
+
   // period_label is date-like ('2026-05-15') for Toast-daily ingests but
   // free-text for some legacy ingests. Only window when this location
   // actually has date-like labels — otherwise fall back to all-time and
@@ -444,7 +450,7 @@ function unresolvedDepletions(
            ROUND(SUM(sl.net_sales), 2) AS net_sales
       FROM sales_lines sl
       LEFT JOIN dish_components dc
-        ON dc.dish_name = sl.item_name AND dc.location_id = sl.location_id
+        ON normalize_dish_name(dc.dish_name) = normalize_dish_name(sl.item_name) AND dc.location_id = sl.location_id
      WHERE sl.location_id = ?
        AND dc.id IS NULL
        ${windowed ? `AND sl.period_label GLOB '${DATE_LABEL_GLOB}' AND sl.period_label > ? AND sl.period_label <= ?` : ''}
