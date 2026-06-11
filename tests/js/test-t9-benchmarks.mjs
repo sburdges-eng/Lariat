@@ -32,6 +32,7 @@ import {
   computeUnmapped,
   DEFAULT_UNMATCHED_THRESHOLD,
 } from '../../lib/costingBenchmarks.mjs';
+import { WEIGHT_TO_G, VOLUME_TO_ML } from '../../lib/unitConvert.mjs';
 
 const LOC = 'default';
 
@@ -247,6 +248,66 @@ describe('T9 / B1 — variance metric', () => {
     assert.ok(Math.abs(r.mean_variance_pct - (0 + 3 + 10) / 3) < 0.02);
     // recipes_over_5pct: only r_hi at 10.
     assert.strictEqual(r.recipes_over_5pct, 1);
+    db.close();
+  });
+
+  it('converts cross-dim pack units via density: cup line off a lb pack', () => {
+    const db = freshDb();
+    db.prepare(
+      `INSERT INTO recipe_costs (recipe_id, recipe_name, batch_cost, cost_per_yield_unit, yield, yield_unit, location_id)
+       VALUES ('r1', 'R1', 1.0, 1.0, 1, 'each', ?)`,
+    ).run(LOC);
+    db.prepare(
+      `INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, pack_price, pack_size, location_id)
+       VALUES ('r1', 'diced onion', 1, 'cup', 50, 50, ?)`,
+    ).run(LOC);
+    db.prepare(
+      `INSERT INTO vendor_prices (ingredient, vendor, pack_size, pack_unit, pack_price, unit_price, location_id)
+       VALUES ('diced onion', 'sysco', 50, 'lb', 50, 1, ?)`,
+    ).run(LOC);
+    db.prepare(
+      `INSERT INTO ingredient_densities (ingredient_key, g_per_ml, source) VALUES ('diced onion', 0.56, 'seed')`,
+    ).run();
+
+    const r = computeCostVariance(db, LOC);
+    assert.strictEqual(r.rows.length, 1);
+    const row = r.rows[0];
+    assert.strictEqual(row.excluded, false);
+    // pack_size in cups: 50 lb × 453.59237 / 0.56 / 236.5882365
+    const packCup = (50 * WEIGHT_TO_G.lb) / 0.56 / VOLUME_TO_ML.cup;
+    const expectedActual = (1 * 50) / packCup; // yield = 1
+    // row.actual is rounded for display downstream — compare loosely. The
+    // signal is converted ≈ 0.29, where the old naive math fabricated 1.0.
+    assert.ok(
+      Math.abs(row.actual - expectedActual) < 1e-3,
+      `actual=${row.actual}, expected ${expectedActual} (naive math would give 1.0)`,
+    );
+    db.close();
+  });
+
+  it('counts a cross-dim line with no density as unmatched (D6 gate fires)', () => {
+    const db = freshDb();
+    db.prepare(
+      `INSERT INTO recipe_costs (recipe_id, recipe_name, batch_cost, cost_per_yield_unit, yield, yield_unit, location_id)
+       VALUES ('r1', 'R1', 1.0, 1.0, 1, 'each', ?)`,
+    ).run(LOC);
+    db.prepare(
+      `INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, pack_price, pack_size, location_id)
+       VALUES ('r1', 'mystery pulp', 1, 'cup', 50, 50, ?)`,
+    ).run(LOC);
+    db.prepare(
+      `INSERT INTO vendor_prices (ingredient, vendor, pack_size, pack_unit, pack_price, unit_price, location_id)
+       VALUES ('mystery pulp', 'sysco', 50, 'lb', 50, 1, ?)`,
+    ).run(LOC);
+    // No density row — the conversion cannot complete; pre-fix the naive
+    // math fabricated actual=1.0 (variance 0) from incompatible units.
+
+    const r = computeCostVariance(db, LOC);
+    assert.strictEqual(r.rows.length, 1);
+    const row = r.rows[0];
+    assert.strictEqual(row.excluded, true);
+    assert.strictEqual(row.actual, null);
+    assert.strictEqual(row.unmatched_lines, 1);
     db.close();
   });
 });

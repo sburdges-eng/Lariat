@@ -2,6 +2,7 @@
 import { todayISO } from '../../../lib/db';
 import { locationFromRequest } from '../../../lib/location';
 import { buildMorningDigest } from '../../../lib/morningDigest';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +28,11 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  // Replaying a queued POST would double-post the digest to Slack.
+  return withIdempotency(req, () => morningPostHandler(req));
+}
+
+async function morningPostHandler(req) {
   try {
     const webhookUrl = process.env.LARIAT_MORNING_SLACK_WEBHOOK_URL;
     if (!webhookUrl) {

@@ -1,7 +1,7 @@
 import type { Database } from 'better-sqlite3';
 import { deriveMasterId, normalizeIngredientKey } from '../ingredientKey.ts';
 import { resolveMergedCost } from '../costingBenchmarks.mjs';
-import { convertQty } from '../unitConvert.mjs';
+import { convertQty, convertPackSizeToLineUnit, normalizeUnit } from '../unitConvert.mjs';
 
 export type RollupResult = {
   updated: number;
@@ -33,6 +33,7 @@ export type BomRow = {
   yield_pct: number | null;
   loss_factor: number | null;
   master_id: string | null;
+  map_status: string | null;
 };
 
 /**
@@ -128,6 +129,10 @@ export function _topologicalOrder(
   return { order, cycles };
 }
 
+// Operator-curated map_status values are never downgraded to NEEDS_DENSITY —
+// same protected set as the ingest T4 pass (scripts/ingest-costing.mjs).
+const PROTECTED_MAP_STATUSES = new Set(['confirmed', 'mapped', 'auto_mapped']);
+
 function yieldAdjustment(
   yieldPct: number | null | undefined,
   lossFactor: number | null | undefined,
@@ -150,13 +155,21 @@ export type LeafLineInput = {
 
 /**
  * Price a single BOM line whose ingredient is a vendor-priced leaf (not a
- * sub-recipe). Returns line cost in USD, or null if no vendor_prices row
- * matches.
+ * sub-recipe). Returns `{ cost, reason }` — cost in USD on success; on
+ * failure cost is null and reason is 'no_density' when the failure is a
+ * unit-conversion problem the B2 unmapped queue should surface (the caller
+ * flags map_status='NEEDS_DENSITY'), or null when there is simply no
+ * usable vendor_prices row.
  *
  * Lookup order mirrors computeCostVariance:
  *   1. master_id (when both sides carry one) -> resolveMergedCost
  *      (preferred_vendor with mean fallback across distinct vendors)
  *   2. normalized ingredient key -> latest vendor_prices row
+ *
+ * Unit math (T4 parity): pack_size is converted from the vendor row's
+ * pack_unit into the line's unit via convertPackSizeToLineUnit — identity
+ * fallback when the vendor row carries no unit, count-bridge via
+ * ingredient_unit_weights, cross-dim via ingredient_densities.
  *
  * Exported for testing only.
  */
@@ -164,19 +177,20 @@ export function _priceLeafLine(
   db: Database,
   locationId: string,
   line: LeafLineInput,
-): number | null {
+): { cost: number | null; reason: 'no_density' | null } {
   const qty = line.qty;
-  if (qty == null || !(qty > 0) || !Number.isFinite(qty)) return null;
+  if (qty == null || !(qty > 0) || !Number.isFinite(qty)) return { cost: null, reason: null };
   const adj = yieldAdjustment(line.yield_pct, line.loss_factor);
-  if (adj == null) return null;
+  if (adj == null) return { cost: null, reason: null };
 
   let packPrice: number | null = null;
   let packSize: number | null = null;
+  let packUnit: string | null = null;
 
   if (line.master_id) {
     const rows = db
       .prepare(
-        `SELECT vendor, pack_price, pack_size FROM vendor_prices
+        `SELECT vendor, pack_price, pack_size, pack_unit FROM vendor_prices
           WHERE location_id = ? AND master_id = ?
           ORDER BY imported_at DESC, id DESC`,
       )
@@ -184,6 +198,7 @@ export function _priceLeafLine(
         vendor: string | null;
         pack_price: number | null;
         pack_size: number | null;
+        pack_unit: string | null;
       }>;
     const preferred = (
       db
@@ -196,6 +211,7 @@ export function _priceLeafLine(
     if (merged) {
       packPrice = merged.pack_price;
       packSize = merged.pack_size;
+      packUnit = merged.pack_unit ?? null;
     }
   }
 
@@ -204,7 +220,7 @@ export function _priceLeafLine(
     if (key) {
       const allRows = db
         .prepare(
-          `SELECT ingredient, pack_price, pack_size FROM vendor_prices
+          `SELECT ingredient, pack_price, pack_size, pack_unit FROM vendor_prices
             WHERE location_id = ?
             ORDER BY imported_at DESC, id DESC`,
         )
@@ -212,12 +228,14 @@ export function _priceLeafLine(
           ingredient: string | null;
           pack_price: number | null;
           pack_size: number | null;
+          pack_unit: string | null;
         }>;
       for (const r of allRows) {
         const k = normalizeIngredientKey(r.ingredient ?? '');
         if (k === key && r.pack_price != null && r.pack_size != null) {
           packPrice = r.pack_price;
           packSize = r.pack_size;
+          packUnit = r.pack_unit ?? null;
           break;
         }
       }
@@ -232,10 +250,39 @@ export function _priceLeafLine(
     !Number.isFinite(packPrice) ||
     !Number.isFinite(packSize)
   ) {
-    return null;
+    return { cost: null, reason: null };
   }
 
-  return (qty * packPrice / packSize) * adj;
+  // T4 parity: convert pack_size into the line's unit before the ratio.
+  const key = normalizeIngredientKey(line.ingredient ?? '');
+  const density = key
+    ? (
+        db
+          .prepare(`SELECT g_per_ml FROM ingredient_densities WHERE ingredient_key = ?`)
+          .get(key) as { g_per_ml: number | null } | undefined
+      )?.g_per_ml ?? undefined
+    : undefined;
+  let unitWeights: Map<string, number> | undefined;
+  if (key) {
+    const rows = db
+      .prepare(`SELECT unit, g_per_unit FROM ingredient_unit_weights WHERE ingredient_key = ?`)
+      .all(key) as Array<{ unit: string | null; g_per_unit: number | null }>;
+    if (rows.length > 0) {
+      unitWeights = new Map();
+      for (const r of rows) {
+        const canon = normalizeUnit(r.unit);
+        if (canon && r.g_per_unit != null) unitWeights.set(canon, r.g_per_unit);
+      }
+    }
+  }
+  const { value: packSizeInLineUnit, flag } = convertPackSizeToLineUnit(
+    packSize, packUnit, line.unit, density, unitWeights,
+  );
+  if (packSizeInLineUnit == null) {
+    return { cost: null, reason: flag ? 'no_density' : null };
+  }
+
+  return { cost: (qty * packPrice / packSizeInLineUnit) * adj, reason: null };
 }
 
 export type SubRecipeLineInput = {
@@ -319,7 +366,9 @@ export function _priceSubRecipeLine(
 export function rollupRecipeCosts(
   db: Database,
   locationId: string,
+  opts: { repriceLeafOnly?: boolean } = {},
 ): RollupResult {
+  const repriceLeafOnly = opts.repriceLeafOnly ?? false;
   const result: RollupResult = {
     updated: 0,
     cycles: [],
@@ -386,7 +435,7 @@ export function rollupRecipeCosts(
   const bomByRecipe = new Map<string, BomRow[]>();
   for (const r of db
     .prepare(
-      `SELECT id, recipe_id, ingredient, qty, unit, sub_recipe, yield_pct, loss_factor, master_id
+      `SELECT id, recipe_id, ingredient, qty, unit, sub_recipe, yield_pct, loss_factor, master_id, map_status
          FROM bom_lines WHERE location_id = ?`,
     )
     .all(locationId) as BomRow[]) {
@@ -403,6 +452,21 @@ export function rollupRecipeCosts(
 
   for (const recipeId of order) {
     const lines = bomByRecipe.get(recipeId) ?? [];
+    // By default only sub-recipe-bearing recipes are rolled up. At ingest,
+    // leaf-only recipes keep the Excel-imported batch_cost adjusted by the
+    // T3/T4 yield-delta pass (scripts/ingest-costing.mjs) — baseline+delta
+    // semantics this engine-from-scratch recompute would discard. The live
+    // recompute path (recomputeRecipeCosts) opts in via repriceLeafOnly —
+    // its longstanding contract is "batch_cost = live actual from latest
+    // vendor prices".
+    if (!repriceLeafOnly) {
+      const hasSubRecipeRef = lines.some((line) => {
+        const slug = deriveMasterId(line.ingredient ?? '');
+        if (slug == null || !recipesById.has(slug)) return false;
+        return line.sub_recipe === 'YES' || recipeIds.has(slug);
+      });
+      if (!hasSubRecipeRef) continue;
+    }
     let total = 0;
     let anyContributed = false;
     for (const line of lines) {
@@ -441,7 +505,7 @@ export function rollupRecipeCosts(
         continue;
       }
       // Vendor-priced leaf.
-      const leafCost = _priceLeafLine(db, locationId, {
+      const leaf = _priceLeafLine(db, locationId, {
         ingredient: line.ingredient,
         qty: line.qty,
         unit: line.unit,
@@ -449,9 +513,21 @@ export function rollupRecipeCosts(
         yield_pct: line.yield_pct,
         loss_factor: line.loss_factor,
       });
-      if (leafCost != null) {
-        total += leafCost;
+      if (leaf.cost != null) {
+        total += leaf.cost;
         anyContributed = true;
+      } else if (leaf.reason != null) {
+        // Unit-conversion failure (cross-dim without density, count without
+        // unit_weight, unknown unit). Surface in the B2 unmapped queue —
+        // but never downgrade an operator-curated map_status (T4 parity).
+        result.unconverted.push({
+          recipe_id: recipeId,
+          ingredient: line.ingredient,
+          reason: leaf.reason,
+        });
+        if (!PROTECTED_MAP_STATUSES.has(line.map_status ?? '')) {
+          flagDensity.run(line.id);
+        }
       }
     }
 

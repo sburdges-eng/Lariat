@@ -448,12 +448,13 @@ describe('T4.1 — new count-unit synonyms', () => {
   });
 });
 
-describe('T4.1 — TOTAL row stays consistent with sum of individual recipes', () => {
-  it('keeps recipe_costs.TOTAL == SUM(batch_cost) after yield-delta apply', () => {
-    // Seed ingest with two recipes + a TOTAL summary row. After post-pass
-    // applies per-recipe deltas, TOTAL must reflect the new sum. Otherwise
-    // downstream dashboards that trust TOTAL (or auditing scripts that
-    // compare TOTAL to SUM) report inconsistent COGS.
+describe('T4.1 — TOTAL summary row is never persisted', () => {
+  it('drops the Excel TOTAL row at insert and still applies per-recipe deltas', () => {
+    // Since 4c0be70 the ingest skips the Excel Recipe Cost Summary TOTAL
+    // row entirely — downstream consumers (lib/dishCostBridge.ts) compute
+    // SUM(batch_cost) themselves and defensively exclude 'TOTAL'. The
+    // contract here: no TOTAL row lands in recipe_costs, and the
+    // per-recipe yield deltas still apply to the real recipes.
     const db = buildDb({
       yields: [
         { raw: 'onion', yield_pct: 0.85, loss_factor: null },
@@ -482,15 +483,13 @@ describe('T4.1 — TOTAL row stays consistent with sum of individual recipes', (
       `SELECT recipe_id, batch_cost FROM recipe_costs WHERE location_id = ?`,
     ).all(LOC);
     const byId = new Map(rows.map((r) => [r.recipe_id, r.batch_cost]));
-    const sumNonTotal = [...byId.entries()]
-      .filter(([rid]) => rid !== 'TOTAL')
-      .reduce((a, [, v]) => a + v, 0);
-    const total = byId.get('TOTAL');
-    assert.ok(total != null, 'TOTAL row should still exist');
-    assert.ok(
-      Math.abs(total - sumNonTotal) < 1e-6,
-      `TOTAL drift: total=${total} sum=${sumNonTotal} diff=${total - sumNonTotal}`,
-    );
+    assert.strictEqual(byId.has('TOTAL'), false, 'TOTAL summary row must not be persisted');
+    // Per-recipe deltas still applied: r1 = 2 + 1·2/1·(1/0.85 − 1),
+    // r2 = 15 + 1·15/1·(1/(0.9·0.8) − 1).
+    const r1Expected = 2.0 + (1 * 2.0 / 1) * (1 / 0.85 - 1);
+    const r2Expected = 15.0 + (1 * 15.0 / 1) * (1 / (0.9 * 0.8) - 1);
+    assert.ok(Math.abs(byId.get('r1') - r1Expected) < 1e-9, `r1 got ${byId.get('r1')}, expected ${r1Expected}`);
+    assert.ok(Math.abs(byId.get('r2') - r2Expected) < 1e-9, `r2 got ${byId.get('r2')}, expected ${r2Expected}`);
     db.close();
   });
 });

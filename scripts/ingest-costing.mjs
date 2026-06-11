@@ -7,86 +7,15 @@ import Database from 'better-sqlite3';
 import { initSchema, DB_FILE } from '../lib/db.ts';
 import { normalizeIngredientKey, deriveMasterId } from '../lib/ingredientKey.ts';
 import {
-  convertQty,
+  convertPackSizeToLineUnit,
   normalizeUnit,
-  unitDimension,
-  WEIGHT_TO_G,
-  VOLUME_TO_ML,
 } from '../lib/unitConvert.mjs';
 import { rollupRecipeCosts } from '../lib/computeEngine/rollupRecipeCosts.ts';
 
-/**
- * T4.1 count-bridge. Converts a quantity of a count unit (ea / bunch / can /
- * …) into a weight or volume unit using a per-ingredient grams-per-unit
- * lookup as the anchor. Returns `null` on any failure path so the caller can
- * fall back to `convertQty` or flag the row.
- *
- *   count → weight:  qty × g_per_unit = g  →  g / WEIGHT_TO_G[to]
- *   count → volume:  qty × g_per_unit = g  →  (g / density) / VOLUME_TO_ML[to]
- *   weight → count:  qty × WEIGHT_TO_G[from] = g  →  g / g_per_unit[to]
- *   volume → count:  qty × VOLUME_TO_ML[from] × density = g  →  g / g_per_unit[to]
- *   count → count:   different units bridged via grams.
- *
- * Assumes `fromCanon` / `toCanon` are already normalized by `normalizeUnit`.
- * `unitWeights` is a Map<string,number> keyed on canonical count unit →
- * grams-per-one, scoped to the specific ingredient (typically
- * `unitWeightByKey.get(normalizeIngredientKey(ingredient))`). May be
- * undefined — treated as empty.
- *
- * @param {number} qty
- * @param {string} fromCanon
- * @param {string} toCanon
- * @param {number | null | undefined} density g/ml
- * @param {Map<string,number> | undefined} unitWeights
- * @returns {number | null}
- */
-export function bridgeCount(qty, fromCanon, toCanon, density, unitWeights) {
-  if (typeof qty !== 'number' || !Number.isFinite(qty) || qty < 0) return null;
-  if (!fromCanon || !toCanon) return null;
-  if (fromCanon === toCanon) return qty;
-
-  const fromDim = unitDimension(fromCanon);
-  const toDim = unitDimension(toCanon);
-  if (!fromDim || !toDim) return null;
-  if (fromDim !== 'count' && toDim !== 'count') return null; // nothing to bridge
-
-  const gramsFromCount = (q, canon) => {
-    const g = unitWeights?.get(canon);
-    return g != null && g > 0 && Number.isFinite(g) ? q * g : null;
-  };
-  const countFromGrams = (g, canon) => {
-    const w = unitWeights?.get(canon);
-    return w != null && w > 0 && Number.isFinite(w) ? g / w : null;
-  };
-
-  let grams;
-  if (fromDim === 'count') {
-    grams = gramsFromCount(qty, fromCanon);
-  } else if (fromDim === 'weight') {
-    const f = WEIGHT_TO_G[fromCanon];
-    if (!(f > 0)) return null;
-    grams = qty * f;
-  } else {
-    // volume → grams requires density.
-    if (density == null || !Number.isFinite(density) || !(density > 0)) return null;
-    const f = VOLUME_TO_ML[fromCanon];
-    if (!(f > 0)) return null;
-    grams = qty * f * density;
-  }
-  if (grams == null || !Number.isFinite(grams) || grams < 0) return null;
-
-  if (toDim === 'count') return countFromGrams(grams, toCanon);
-  if (toDim === 'weight') {
-    const t = WEIGHT_TO_G[toCanon];
-    if (!(t > 0)) return null;
-    return grams / t;
-  }
-  // volume
-  if (density == null || !Number.isFinite(density) || !(density > 0)) return null;
-  const t = VOLUME_TO_ML[toCanon];
-  if (!(t > 0)) return null;
-  return (grams / density) / t;
-}
+// bridgeCount moved to lib/unitConvert.mjs so lib-level pricing
+// (rollupRecipeCosts, costingBenchmarks) can share it. Re-exported here for
+// backward compatibility — tests and tooling import it from this module.
+export { bridgeCount } from '../lib/unitConvert.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -742,45 +671,18 @@ export function runCostingPostPass(db, locationId = 'default') {
     const bomUnit = unit;
     const density = key ? densityByKey.get(key) : undefined;
 
-    let packSizeInBomUnit;
-    const bomCanon = normalizeUnit(bomUnit);
-    const packCanon = normalizeUnit(packUnit);
-    if (!packCanon) {
-      // No vendor_prices row for this ingredient, or vendor row has an empty
-      // pack_unit — no way to dim-check. Fall back to T3's identity
-      // assumption (treat pack_size as already in the bom_line's unit) so a
-      // costing workbook without vendor sheets still computes deltas. B2
-      // already surfaces "unmapped_status" and no_price reasons, and the
-      // variance benchmark would flag gross inaccuracies downstream.
-      packSizeInBomUnit = pack_size;
-    } else if (!bomCanon) {
-      // bom_line unit is empty/unknown but vendor pack_unit is present: we
-      // can't interpret the ratio. Flag and skip.
-      if (!PROTECTED_MAP_STATUSES.has(map_status ?? '')) needsDensityIds.push(id);
+    // Shared T4 conversion (lib/unitConvert.mjs convertPackSizeToLineUnit):
+    // identity fallback when the vendor pack_unit is unknown, flag+skip when
+    // the ratio can't be interpreted (empty bom unit, cross-dim without
+    // density, count involvement without unit_weight, unknown unit),
+    // count-bridge before convertQty otherwise.
+    const { value: packSizeInBomUnit, flag } = convertPackSizeToLineUnit(
+      pack_size, packUnit, bomUnit, density, unitWeightByKey.get(key),
+    );
+    if (packSizeInBomUnit === null) {
+      if (flag && !PROTECTED_MAP_STATUSES.has(map_status ?? '')) needsDensityIds.push(id);
       denomConvertedSkipped++;
       continue;
-    } else if (bomCanon === packCanon) {
-      // Identity — no conversion needed, preserves T3's byte-exact same-unit path.
-      packSizeInBomUnit = pack_size;
-    } else {
-      // T4.1: try count-bridge FIRST when either side is a count unit — the
-      // generic convertQty never returns non-null for count involvement, so
-      // attempting bridgeCount before convertQty keeps a single code path.
-      // The bridge uses grams as the intermediate: count → g (via
-      // unitWeightByKey), g → volume (via density) as needed.
-      const bridged = bridgeCount(pack_size, packCanon, bomCanon, density, unitWeightByKey.get(key));
-      if (bridged !== null) {
-        packSizeInBomUnit = bridged;
-      } else {
-        packSizeInBomUnit = convertQty(pack_size, packUnit, bomUnit, density);
-      }
-      if (packSizeInBomUnit === null || !(packSizeInBomUnit > 0) || !Number.isFinite(packSizeInBomUnit)) {
-        // Cross-dim without density, count involvement without unit_weight,
-        // unknown unit — flag and skip.
-        if (!PROTECTED_MAP_STATUSES.has(map_status ?? '')) needsDensityIds.push(id);
-        denomConvertedSkipped++;
-        continue;
-      }
     }
 
     // delta = qty × pack_price / pack_size_in_bom_unit × (adj - 1)
@@ -884,11 +786,9 @@ export function runCostingPostPass(db, locationId = 'default') {
   db.transaction(() => {
     for (const [recipe_id, delta] of perRecipeDelta) {
       if (delta === 0) continue; // preserves zero-regression invariant byte-exact
-      // recipe_id='TOTAL' is a summary row from Excel's Recipe Cost Summary
-      // sheet — it has no bom_lines of its own but gets INSERTed verbatim by
-      // the ingest. Skip it here so the per-recipe delta doesn't land on the
-      // summary (which would double-apply once we update TOTAL below).
-      // Defensive: bom_lines should never carry recipe_id='TOTAL' anyway.
+      // recipe_id='TOTAL' is the Excel Recipe Cost Summary row. It is never
+      // INSERTed (see the skip in the recipe_costs loop above), so this is
+      // purely defensive — bom_lines should never carry recipe_id='TOTAL'.
       if (recipe_id === 'TOTAL') continue;
       const result = updateRecipe.run({ recipe_id, delta, location_id: locationId });
       if (result.changes > 0) {
@@ -896,13 +796,6 @@ export function runCostingPostPass(db, locationId = 'default') {
         totalDelta += delta;
         if (Math.abs(delta) > Math.abs(maxPerRecipeDelta)) maxPerRecipeDelta = delta;
       }
-    }
-    // Keep the summary row in sync: TOTAL must equal SUM(individual
-    // batch_cost). Without this, dashboards / audits that trust TOTAL see a
-    // stale pre-T3 value while the per-recipe sum reflects the yield-adjusted
-    // delta. Guard: only update if the row actually exists and has a batch_cost.
-    if (totalDelta !== 0) {
-      updateRecipe.run({ recipe_id: 'TOTAL', delta: totalDelta, location_id: locationId });
     }
   })();
 

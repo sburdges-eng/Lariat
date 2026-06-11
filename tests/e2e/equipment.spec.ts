@@ -9,7 +9,7 @@ test.describe('Equipment warranty UI', () => {
     await page.waitForLoadState('networkidle');
 
     // Open the add form
-    await page.locator('button:has-text("Add Equipment")').click();
+    await page.locator('button:has-text("Add a piece")').click();
 
     // Fill required fields
     await page.locator('input[placeholder*="Rational"]').fill(E2E_NAME);
@@ -48,7 +48,7 @@ test.describe('Equipment warranty UI', () => {
 
     const futureName = '__E2E_FutureWarranty_' + Date.now();
 
-    await page.locator('button:has-text("Add Equipment")').click();
+    await page.locator('button:has-text("Add a piece")').click();
     await page.locator('input[placeholder*="Rational"]').fill(futureName);
     await page.locator('input[type="number"]').fill('3000');
     const warrantyInput = page.locator('input[type="date"]').last();

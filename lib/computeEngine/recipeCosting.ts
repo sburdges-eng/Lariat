@@ -20,7 +20,12 @@ import { rollupRecipeCosts } from './rollupRecipeCosts.ts';
  * Semantic contract (unchanged):
  *   - `recipe_costs.cost_per_yield_unit` = Excel theoretical baseline (never overwritten here)
  *   - `recipe_costs.batch_cost`          = engine actual (refreshed on every call)
+ *
+ * repriceLeafOnly: this live-recompute path rewrites EVERY recipe, including
+ * leaf-only ones, from the latest vendor prices. The ingest post-pass calls
+ * rollupRecipeCosts without it so the T4 unit-converted yield-delta numbers
+ * survive ingest.
  */
 export function recomputeRecipeCosts(db: Database, locationId: string) {
-  rollupRecipeCosts(db, locationId);
+  rollupRecipeCosts(db, locationId, { repriceLeafOnly: true });
 }

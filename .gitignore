@@ -199,3 +199,6 @@ training/*.gguf
 
 # Superpowers brainstorming companion (local mockups)
 .superpowers/
+
+# Playwright run artifacts
+test-results/

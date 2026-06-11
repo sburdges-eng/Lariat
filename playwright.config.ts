@@ -1,4 +1,11 @@
 import { defineConfig } from '@playwright/test';
+import dotenv from 'dotenv';
+
+// Specs read LARIAT_PIN to drive login flows (shows.spec.ts, gold-stars.spec.ts).
+// Next.js loads .env.local into the server on its own, but the Playwright
+// process does not — without this the specs fall back to a placeholder PIN
+// and every auth-gated flow fails.
+dotenv.config({ path: '.env.local' });
 
 // Allow LARIAT_E2E_PORT to override the dev-server port for runs against an
 // alternate localhost. Useful when port 3000 is held by another process
