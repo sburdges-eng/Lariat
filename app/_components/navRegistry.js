@@ -40,6 +40,9 @@ const MANAGER_PIN_PREFIXES = [
   '/shows',
   '/specials/saved',
   '/host',
+  '/v2/command',
+  '/v2/management',
+  '/v2/analytics',
 ];
 
 const MANAGER_PIN_PUBLIC_CARVEOUTS = ['/beo/share/'];
@@ -74,6 +77,34 @@ export const NAV_ROUTE_EXCLUSIONS = [
   {
     href: '/v2',
     reason: 'Cookie-gated side-by-side preview shell; kept out of v1 navigation until cutover.',
+  },
+  {
+    href: '/v2/today',
+    reason: 'Cookie-gated side-by-side preview route; keep v2 cook pages out of v1 navigation until cutover.',
+  },
+  {
+    href: '/v2/kds/punch',
+    reason: 'Cookie-gated side-by-side preview route; keep v2 cook pages out of v1 navigation until cutover.',
+  },
+  {
+    href: '/v2/eighty-six',
+    reason: 'Cookie-gated side-by-side preview route; keep v2 cook pages out of v1 navigation until cutover.',
+  },
+  {
+    href: '/v2/stations',
+    reason: 'Cookie-gated side-by-side preview route; keep v2 cook pages out of v1 navigation until cutover.',
+  },
+  {
+    href: '/v2/command',
+    reason: 'Cookie-gated side-by-side preview route; keep v2 manager pages out of v1 navigation until cutover.',
+  },
+  {
+    href: '/v2/management',
+    reason: 'Cookie-gated side-by-side preview route; keep v2 manager pages out of v1 navigation until cutover.',
+  },
+  {
+    href: '/v2/analytics',
+    reason: 'Cookie-gated side-by-side preview route; keep v2 manager pages out of v1 navigation until cutover.',
   },
 ];
 

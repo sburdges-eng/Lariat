@@ -60,7 +60,7 @@ export default function V2ShellPage() {
             }}
           >
             <div style={metricStyle}>
-              <span style={metricNumberStyle}>4</span>
+              <span style={metricNumberStyle}>7</span>
               <span style={metricLabelStyle}>Migration lanes</span>
             </div>
             <div style={metricStyle}>
@@ -82,7 +82,7 @@ export default function V2ShellPage() {
           }}
         >
           <div>
-            <div style={panelEyebrowStyle}>Active lane</div>
+            <div style={panelEyebrowStyle}>Preview lanes</div>
             <h2
               style={{
                 margin: '10px 0 0',
@@ -91,7 +91,7 @@ export default function V2ShellPage() {
                 letterSpacing: 0,
               }}
             >
-              Cook tier
+              Cook + manager
             </h2>
           </div>
           <div style={{ display: 'grid', gap: 10 }}>
@@ -110,6 +110,18 @@ export default function V2ShellPage() {
             <Link href="/v2/stations" style={routeStyle}>
               <span>Stations</span>
               <strong>Line checks</strong>
+            </Link>
+            <Link href="/v2/command" style={routeStyle}>
+              <span>Command</span>
+              <strong>Open the day</strong>
+            </Link>
+            <Link href="/v2/management" style={routeStyle}>
+              <span>Management</span>
+              <strong>Check the whole house</strong>
+            </Link>
+            <Link href="/v2/analytics" style={routeStyle}>
+              <span>Analytics</span>
+              <strong>Read the numbers</strong>
             </Link>
           </div>
         </aside>
@@ -133,6 +145,18 @@ export default function V2ShellPage() {
         <div style={statusStyle}>
           <span style={panelEyebrowStyle}>Line</span>
           <strong>Station checks</strong>
+        </div>
+        <div style={statusStyle}>
+          <span style={panelEyebrowStyle}>Manager</span>
+          <strong>Command center</strong>
+        </div>
+        <div style={statusStyle}>
+          <span style={panelEyebrowStyle}>Rollup</span>
+          <strong>Management checks</strong>
+        </div>
+        <div style={statusStyle}>
+          <span style={panelEyebrowStyle}>Numbers</span>
+          <strong>Analytics read</strong>
         </div>
       </section>
     </main>
