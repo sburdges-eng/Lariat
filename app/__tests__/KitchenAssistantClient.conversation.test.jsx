@@ -366,6 +366,48 @@ test('stops voice input before submitting a question', async () => {
   await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).toBeInTheDocument());
 });
 
+test('does not start hold-to-talk while waiting for an answer', async () => {
+  let resolveAnswer;
+  global.fetch = jest.fn()
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ model: 'lari-the-kitchen-assistant', ollamaReachable: true }),
+    })
+    .mockImplementationOnce(() => new Promise((resolve) => {
+      resolveAnswer = () => resolve({
+        ok: true,
+        json: async () => ({
+          answer: 'Answer.',
+          model: 'lari-the-kitchen-assistant',
+          location_id: 'west',
+          sources: [],
+          latencyMs: 12,
+          disclaimer: 'Check tags with a manager. Do not trust AI for allergies.',
+        }),
+      });
+    }));
+
+  render(<KitchenAssistantClient locQuery="" />);
+  fireEvent.change(screen.getByLabelText(/Ask a question/i), { target: { value: 'what is 86?' } });
+
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: /Ask kitchen assistant/i }));
+  });
+
+  const voiceButton = screen.getByRole('button', { name: /start voice input/i });
+  expect(voiceButton).toBeDisabled();
+
+  fireEvent.pointerDown(voiceButton);
+  expect(speechInstances).toHaveLength(0);
+
+  await act(async () => {
+    resolveAnswer();
+  });
+
+  await screen.findByText('Answer.');
+  await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).not.toBeDisabled());
+});
+
 test('shows a cook-readable mic warning after a speech-recognition error', async () => {
   const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
   render(<KitchenAssistantClient locQuery="" />);

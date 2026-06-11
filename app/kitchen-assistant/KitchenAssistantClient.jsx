@@ -267,7 +267,7 @@ export default function KitchenAssistantClient({ locQuery }) {
 
   const startListening = (e) => {
     e?.preventDefault?.();
-    if (!SpeechRec || recognitionRef.current) return;
+    if (loading || !SpeechRec || recognitionRef.current) return;
     setErr('');
 
     try {
@@ -589,6 +589,7 @@ export default function KitchenAssistantClient({ locQuery }) {
               onKeyDown={voiceKeyDown}
               onKeyUp={voiceKeyUp}
               className={`btn ${isListening ? 'red' : ''}`}
+              disabled={loading}
               aria-pressed={isListening}
               aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
             >
