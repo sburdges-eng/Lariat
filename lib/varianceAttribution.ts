@@ -418,6 +418,7 @@ function unresolvedDepletions(
 ): UnresolvedDepletionSection {
   const db = getDb();
 
+  // Register normalization so the JOIN matches the canonical dish_name storage.
   db.function('normalize_dish_name', { deterministic: true }, (s: unknown) =>
     normalizeDishName(s as string | null | undefined),
   );
@@ -449,8 +450,7 @@ function unresolvedDepletions(
            ROUND(SUM(sl.net_sales), 2) AS net_sales
       FROM sales_lines sl
       LEFT JOIN dish_components dc
-        ON normalize_dish_name(dc.dish_name) = normalize_dish_name(sl.item_name)
-       AND dc.location_id = sl.location_id
+        ON normalize_dish_name(dc.dish_name) = normalize_dish_name(sl.item_name) AND dc.location_id = sl.location_id
      WHERE sl.location_id = ?
        AND dc.id IS NULL
        ${windowed ? `AND sl.period_label GLOB '${DATE_LABEL_GLOB}' AND sl.period_label > ? AND sl.period_label <= ?` : ''}
