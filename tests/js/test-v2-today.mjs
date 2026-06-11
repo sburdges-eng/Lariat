@@ -24,7 +24,7 @@ describe('/v2/today route file', () => {
   it('keeps the route server-rendered and location-aware', () => {
     const source = read(V2_TODAY_PAGE);
     assert.match(source, /export const dynamic\s*=\s*['"]force-dynamic['"]/, 'route should stay dynamic like v1 today');
-    assert.match(source, /searchParams\?\.location/, 'route should read searchParams.location');
+    assert.match(source, /typeof sp\.location === 'string'/, 'route should read location from awaited search params');
     assert.match(source, /DEFAULT_LOCATION_ID/, 'route should default to the canonical location');
     assert.match(source, /location=/, 'route should preserve location in child links');
   });
@@ -32,6 +32,15 @@ describe('/v2/today route file', () => {
   it('keeps default-location links clean', () => {
     const source = read(V2_TODAY_PAGE);
     assert.match(source, /locationId !== DEFAULT_LOCATION_ID \? `\?location=\$\{encodeURIComponent\(locationId\)\}` : ''/, 'default location should not add a redundant query string');
+  });
+
+  it('awaits Next 16 search params and reuses the shared station progress helper', () => {
+    const source = read(V2_TODAY_PAGE);
+    assert.match(source, /export default async function V2TodayPage/, 'v2 today should be async so promised searchParams can be awaited');
+    assert.match(source, /const sp = \(await searchParams\) \|\| \{\}/, 'v2 today should await searchParams before reading location');
+    assert.match(source, /typeof sp\.location === 'string'/, 'v2 today should read location from awaited search params');
+    assert.match(source, /from ['"].*lib\/stationProgress['"]/, 'v2 today should import the shared stationProgress helper');
+    assert.doesNotMatch(source, /function stationProgress\(/, 'v2 today should not keep a duplicate stationProgress helper');
   });
 });
 

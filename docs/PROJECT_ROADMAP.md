@@ -117,7 +117,7 @@ The `docs/redesign/lari-ui-demo.html` is a prototype. A real migration needs:
 | 2.10 | L  | **Closed:** The first `/v2` shell is implemented as a cookie-gated side-by-side route tree. `/v2` reads the stable `lariat_v2=1` preview cookie, hides v1 cockpit chrome only inside the v2 subtree, keeps v1 as default, and lists the cook-tier migration anchors without replacing v1 routes. |
 | 2.11 | XL | **Migrate cook-tier surfaces first.** Order: `/today` → `/kds/punch` → `/eighty-six` → station boards. These are the screens cooks touch every shift; they should be the proof of concept. |
 | 2.12 | XL | **Migrate manager-tier surfaces.** `/command` → `/management` → `/analytics`. These have less time pressure but more density. |
-| 2.13 | M  | **Cutover plan.** When v2 is shippable, write the v1→v2 rollout doc with rollback criteria. Don't delete v1 routes until v2 has 30 days of clean operation. |
+| 2.13 | M  | **Closed:** The v1→v2 rollout + rollback plan now lives in `docs/V2_CUTOVER_PLAN.md`. It keeps `/v2` side-by-side during rollout, defines cutover entry gates and rollback triggers, and explicitly forbids deleting v1 routes until v2 has 30 clean production days. |
 
 ### 2C. Test coverage to production-ready
 

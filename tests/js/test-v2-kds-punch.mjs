@@ -24,7 +24,8 @@ describe('/v2/kds/punch route file', () => {
   it('keeps the route server-rendered and location-aware', () => {
     const source = read(V2_KDS_PUNCH_PAGE);
     assert.match(source, /export const dynamic\s*=\s*['"]force-dynamic['"]/, 'route should stay dynamic like v1 punch');
-    assert.match(source, /searchParams\?\.location/, 'route should read searchParams.location');
+    assert.match(source, /const sp = \(await searchParams\) \|\| \{\}/, 'route should await searchParams');
+    assert.match(source, /typeof sp\.location === 'string'/, 'route should read location from awaited search params');
     assert.match(source, /DEFAULT_LOCATION_ID/, 'route should default to the canonical location');
     assert.match(source, /locationId !== DEFAULT_LOCATION_ID \? `\?location=\$\{encodeURIComponent\(locationId\)\}` : ''/, 'default location should not add a redundant query string');
   });

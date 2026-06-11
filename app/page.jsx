@@ -1,36 +1,14 @@
 // @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 import Link from 'next/link';
-import { getStations, getLineCheckTemplate, getRecipes } from '../lib/data';
+import { getStations, getRecipes } from '../lib/data';
 import { getDb, todayISO, getPreshiftNote, todayServiceLabel } from '../lib/db';
 import { DEFAULT_LOCATION_ID } from '../lib/location';
 import { activeLineCheckStations, lineSummaryText } from '../lib/lineSummary';
+import { stationProgress } from '../lib/stationProgress';
 import { cascadedFromEightySix } from '../lib/subRecipeGraph';
 import PreshiftNotes from './_components/PreshiftNotes';
 
 export const dynamic = 'force-dynamic';
-
-function stationProgress(station, date, loc) {
-  if (!station.line_check_key) return null;
-  const items = getLineCheckTemplate(station.line_check_key);
-  if (!items.length) return null;
-  const db = getDb();
-  const rows = db.prepare(`
-    SELECT item, status, MAX(created_at) as ts
-    FROM line_check_entries
-    WHERE shift_date = ? AND station_id = ? AND location_id = ?
-    GROUP BY item
-  `).all(date, station.id, loc);
-  const byItem = new Map(rows.map(r => [r.item, r]));
-  let done = 0, flagged = 0;
-  for (const item of items) {
-    const r = byItem.get(item);
-    if (r) { done++; if (r.status === 'fail') flagged++; }
-  }
-  const signoff = db.prepare(
-    'SELECT cook_id FROM station_signoffs WHERE shift_date=? AND station_id=? AND location_id=? ORDER BY id DESC LIMIT 1'
-  ).get(date, station.id, loc);
-  return { total: items.length, done, flagged, signedOff: !!signoff };
-}
 
 function rushColor(p) {
   if (!p) return 'var(--muted)';

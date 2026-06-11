@@ -24,7 +24,8 @@ describe('/v2/management route file', () => {
   it('keeps the route server-rendered and location-aware', () => {
     const source = read(V2_MANAGEMENT_PAGE);
     assert.match(source, /export const dynamic\s*=\s*['"]force-dynamic['"]/, 'route should stay dynamic like v1 management');
-    assert.match(source, /searchParams\?\.location/, 'route should read searchParams.location');
+    assert.match(source, /const sp = \(await searchParams\) \|\| \{\}/, 'route should await searchParams');
+    assert.match(source, /typeof sp\.location === 'string'/, 'route should read location from awaited search params');
     assert.match(source, /DEFAULT_LOCATION_ID/, 'route should default to the canonical location');
     assert.match(source, /locationId !== DEFAULT_LOCATION_ID \? `\?location=\$\{encodeURIComponent\(locationId\)\}` : ''/, 'default location should not add a redundant query string');
   });
@@ -34,7 +35,7 @@ describe('/v2/management live route reuse', () => {
   it('reuses the live management page instead of a dead stub', () => {
     const source = read(V2_MANAGEMENT_PAGE);
     assert.match(source, /from ['"].*management\/page\.jsx['"]/, 'v2 management should import the live management page');
-    assert.match(source, /<ManagementPage\s+searchParams=\{searchParams\}\s*\/?>/, 'v2 management should pass searchParams through');
+    assert.match(source, /<ManagementPage\s+searchParams=\{sp\}\s*\/?>/, 'v2 management should pass awaited searchParams through');
   });
 
   it('keeps managers moving between command, management, and analytics', () => {

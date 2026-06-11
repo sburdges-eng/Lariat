@@ -5,7 +5,7 @@ import { DEFAULT_LOCATION_ID } from '../../lib/location';
 
 export const dynamic = 'force-dynamic';
 
-export default function StationsPage({ searchParams }) {
+export default function StationsPage({ searchParams, basePath = '/stations' }) {
   const loc =
     typeof searchParams?.location === 'string' && searchParams.location.trim()
       ? searchParams.location.trim()
@@ -18,7 +18,7 @@ export default function StationsPage({ searchParams }) {
       <p className="subtitle">All kitchen positions. 6 max, 2 min on the line at any time.</p>
       <div className="grid grid-stations">
         {stations.map(s => (
-          <Link key={s.id} href={`/stations/${s.id}${locQ}`} style={{ textDecoration: 'none' }}>
+          <Link key={s.id} href={`${basePath}/${s.id}${locQ}`} style={{ textDecoration: 'none' }}>
             <div className="card station">
               <div className="station-head">
                 <div>

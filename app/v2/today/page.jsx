@@ -1,46 +1,13 @@
 // @ts-nocheck - first cook-tier v2 route. Covered by tests/js/test-v2-today.mjs.
 import Link from 'next/link';
-import { getStations, getLineCheckTemplate, getRecipes } from '../../../lib/data';
+import { getStations, getRecipes } from '../../../lib/data';
 import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { activeLineCheckStations } from '../../../lib/lineSummary';
+import { stationProgress } from '../../../lib/stationProgress';
 import { cascadedFromEightySix } from '../../../lib/subRecipeGraph';
 
 export const dynamic = 'force-dynamic';
-
-function stationProgress(station, date, locationId) {
-  if (!station.line_check_key) return null;
-  const items = getLineCheckTemplate(station.line_check_key);
-  if (!items.length) return null;
-  const db = getDb();
-  const rows = db.prepare(`
-    SELECT item, status
-    FROM line_check_entries
-    WHERE shift_date = ? AND station_id = ? AND location_id = ?
-    ORDER BY id DESC
-  `).all(date, station.id, locationId);
-
-  const latestByItem = new Map();
-  for (const row of rows) {
-    if (!latestByItem.has(row.item)) latestByItem.set(row.item, row);
-  }
-
-  let done = 0;
-  let flagged = 0;
-  for (const item of items) {
-    const row = latestByItem.get(item);
-    if (row) {
-      done += 1;
-      if (row.status === 'fail') flagged += 1;
-    }
-  }
-
-  const signoff = db.prepare(
-    'SELECT cook_id FROM station_signoffs WHERE shift_date=? AND station_id=? AND location_id=? ORDER BY id DESC LIMIT 1'
-  ).get(date, station.id, locationId);
-
-  return { total: items.length, done, flagged, signedOff: Boolean(signoff) };
-}
 
 function stationTone(progress) {
   if (!progress) return 'var(--muted)';
@@ -69,10 +36,11 @@ function formatDateChip(iso) {
   });
 }
 
-export default function V2TodayPage({ searchParams }) {
+export default async function V2TodayPage({ searchParams }) {
+  const sp = (await searchParams) || {};
   const locationId =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const date = todayISO();
   const locationQuery = locationId !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(locationId)}` : '';

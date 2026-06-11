@@ -6,9 +6,32 @@ import '@testing-library/jest-dom';
 import KitchenAssistantClient from '../kitchen-assistant/KitchenAssistantClient';
 
 const SESSION = '11111111-1111-4111-8111-111111111111';
+let speechInstances = [];
+
+class MockSpeechRecognition {
+  constructor() {
+    this.continuous = false;
+    this.interimResults = false;
+    this.onstart = null;
+    this.onend = null;
+    this.onerror = null;
+    this.onresult = null;
+    this.start = jest.fn(() => {
+      this.onstart?.();
+    });
+    this.stop = jest.fn(() => {
+      this.onend?.();
+    });
+    this.abort = jest.fn();
+    speechInstances.push(this);
+  }
+}
 
 beforeEach(() => {
   window.localStorage.clear();
+  speechInstances = [];
+  window.SpeechRecognition = MockSpeechRecognition;
+  window.webkitSpeechRecognition = undefined;
   global.fetch = jest.fn()
     .mockResolvedValueOnce({
       ok: true,
@@ -221,4 +244,261 @@ test('undo card shows terse error copy when the undo is rejected', async () => {
 
   expect(screen.getByText('Undo time ran out.')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /Undo last action/i })).not.toBeInTheDocument();
+});
+
+test('starts voice input while held and stops when released', async () => {
+  render(<KitchenAssistantClient locQuery="" />);
+
+  const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
+  fireEvent.pointerDown(voiceButton);
+
+  expect(speechInstances).toHaveLength(1);
+  expect(speechInstances[0].start).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
+
+  fireEvent.pointerUp(screen.getByRole('button', { name: /stop voice input/i }));
+
+  expect(speechInstances[0].stop).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).toBeInTheDocument());
+});
+
+test('starts voice input on keyboard press and stops on key release', async () => {
+  render(<KitchenAssistantClient locQuery="" />);
+
+  const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
+  fireEvent.keyDown(voiceButton, { key: ' ', code: 'Space' });
+
+  expect(speechInstances).toHaveLength(1);
+  expect(speechInstances[0].start).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
+
+  fireEvent.keyUp(screen.getByRole('button', { name: /stop voice input/i }), { key: ' ', code: 'Space' });
+
+  expect(speechInstances[0].stop).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).toBeInTheDocument());
+});
+
+test('stops voice input when the hold-to-talk button loses focus', async () => {
+  render(<KitchenAssistantClient locQuery="" />);
+
+  const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
+  fireEvent.keyDown(voiceButton, { key: 'Enter', code: 'Enter' });
+
+  expect(speechInstances).toHaveLength(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
+
+  fireEvent.blur(screen.getByRole('button', { name: /stop voice input/i }));
+
+  expect(speechInstances[0].stop).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).toBeInTheDocument());
+});
+
+test('stops voice input when the page is hidden mid-hold', async () => {
+  render(<KitchenAssistantClient locQuery="" />);
+
+  const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
+  fireEvent.pointerDown(voiceButton);
+
+  expect(speechInstances).toHaveLength(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
+
+  Object.defineProperty(document, 'hidden', {
+    configurable: true,
+    value: true,
+  });
+  fireEvent(document, new Event('visibilitychange'));
+
+  expect(speechInstances[0].stop).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).toBeInTheDocument());
+
+  Object.defineProperty(document, 'hidden', {
+    configurable: true,
+    value: false,
+  });
+});
+
+test('stops voice input when the window loses focus mid-hold', async () => {
+  render(<KitchenAssistantClient locQuery="" />);
+
+  const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
+  fireEvent.pointerDown(voiceButton);
+
+  expect(speechInstances).toHaveLength(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
+
+  fireEvent(window, new Event('blur'));
+
+  expect(speechInstances[0].stop).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).toBeInTheDocument());
+});
+
+test('stops voice input when Escape is pressed during hold-to-talk', async () => {
+  render(<KitchenAssistantClient locQuery="" />);
+
+  const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
+  fireEvent.keyDown(voiceButton, { key: 'Enter', code: 'Enter' });
+
+  expect(speechInstances).toHaveLength(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
+
+  fireEvent.keyDown(screen.getByRole('button', { name: /stop voice input/i }), { key: 'Escape', code: 'Escape' });
+
+  expect(speechInstances[0].stop).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).toBeInTheDocument());
+});
+
+test('stops voice input before submitting a question', async () => {
+  render(<KitchenAssistantClient locQuery="" />);
+
+  const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
+  fireEvent.pointerDown(voiceButton);
+
+  expect(speechInstances).toHaveLength(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
+
+  fireEvent.change(screen.getByLabelText(/Ask a question/i), { target: { value: 'what is 86?' } });
+
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: /Ask kitchen assistant/i }));
+  });
+
+  expect(speechInstances[0].stop).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).toBeInTheDocument());
+});
+
+test('does not start hold-to-talk while waiting for an answer', async () => {
+  let resolveAnswer;
+  global.fetch = jest.fn()
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ model: 'lari-the-kitchen-assistant', ollamaReachable: true }),
+    })
+    .mockImplementationOnce(() => new Promise((resolve) => {
+      resolveAnswer = () => resolve({
+        ok: true,
+        json: async () => ({
+          answer: 'Answer.',
+          model: 'lari-the-kitchen-assistant',
+          location_id: 'west',
+          sources: [],
+          latencyMs: 12,
+          disclaimer: 'Check tags with a manager. Do not trust AI for allergies.',
+        }),
+      });
+    }));
+
+  render(<KitchenAssistantClient locQuery="" />);
+  fireEvent.change(screen.getByLabelText(/Ask a question/i), { target: { value: 'what is 86?' } });
+
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: /Ask kitchen assistant/i }));
+  });
+
+  const voiceButton = screen.getByRole('button', { name: /start voice input/i });
+  expect(voiceButton).toBeDisabled();
+
+  fireEvent.pointerDown(voiceButton);
+  expect(speechInstances).toHaveLength(0);
+
+  await act(async () => {
+    resolveAnswer();
+  });
+
+  await screen.findByText('Answer.');
+  await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).not.toBeDisabled());
+});
+
+test('shows a cook-readable mic warning after a speech-recognition error', async () => {
+  const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  render(<KitchenAssistantClient locQuery="" />);
+
+  const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
+  fireEvent.pointerDown(voiceButton);
+
+  expect(speechInstances).toHaveLength(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
+
+  await act(async () => {
+    speechInstances[0].onerror?.({ error: 'network' });
+  });
+
+  expect(errorSpy).toHaveBeenCalledWith('Speech error:', { error: 'network' });
+  expect(await screen.findByRole('alert')).toHaveTextContent(/Voice input stopped\. Check the mic and try again\./i);
+});
+
+test('clears the mic warning once the cook switches back to typing', async () => {
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+  render(<KitchenAssistantClient locQuery="" />);
+
+  const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
+  fireEvent.pointerDown(voiceButton);
+
+  expect(speechInstances).toHaveLength(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
+
+  await act(async () => {
+    speechInstances[0].onerror?.({ error: 'network' });
+  });
+
+  expect(await screen.findByRole('alert')).toHaveTextContent(/Voice input stopped\. Check the mic and try again\./i);
+
+  fireEvent.change(screen.getByLabelText(/Ask a question/i), { target: { value: 'Need a typed follow-up' } });
+
+  await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+});
+
+test('recovers from a speech-recognition error so hold-to-talk can start again', async () => {
+  const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  render(<KitchenAssistantClient locQuery="" />);
+
+  const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
+  fireEvent.pointerDown(voiceButton);
+
+  expect(speechInstances).toHaveLength(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
+
+  await act(async () => {
+    speechInstances[0].onerror?.({ error: 'network' });
+  });
+
+  await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).toBeInTheDocument());
+
+  fireEvent.pointerDown(screen.getByRole('button', { name: /start voice input/i }));
+
+  expect(errorSpy).toHaveBeenCalledWith('Speech error:', { error: 'network' });
+  expect(speechInstances).toHaveLength(2);
+  expect(speechInstances[1].start).toHaveBeenCalledTimes(1);
+});
+
+
+test('recovers from a speech-recognition start fault so hold-to-talk can start again', async () => {
+  const fault = new Error('mic busy');
+  const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  let shouldThrow = true;
+  class StartFaultSpeechRecognition extends MockSpeechRecognition {
+    constructor() {
+      super();
+      this.start = jest.fn(() => {
+        if (shouldThrow) {
+          shouldThrow = false;
+          throw fault;
+        }
+        this.onstart?.();
+      });
+    }
+  }
+  window.SpeechRecognition = StartFaultSpeechRecognition;
+  render(<KitchenAssistantClient locQuery="" />);
+
+  const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
+  fireEvent.pointerDown(voiceButton);
+
+  expect(errorSpy).toHaveBeenCalledWith('Speech recognition fault:', fault);
+  await waitFor(() => expect(screen.getByRole('button', { name: /start voice input/i })).toBeInTheDocument());
+
+  fireEvent.pointerDown(screen.getByRole('button', { name: /start voice input/i }));
+
+  expect(speechInstances).toHaveLength(2);
+  expect(speechInstances[1].start).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(screen.getByRole('button', { name: /stop voice input/i })).toBeInTheDocument());
 });

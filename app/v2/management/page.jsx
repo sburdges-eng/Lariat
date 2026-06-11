@@ -5,10 +5,11 @@ import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 
 export const dynamic = 'force-dynamic';
 
-export default function V2ManagementPage({ searchParams }) {
+export default async function V2ManagementPage({ searchParams }) {
+  const sp = (await searchParams) || {};
   const locationId =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const locationQuery = locationId !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(locationId)}` : '';
 
@@ -33,7 +34,7 @@ export default function V2ManagementPage({ searchParams }) {
       </section>
 
       <section style={shellStyle}>
-        <ManagementPage searchParams={searchParams} />
+        <ManagementPage searchParams={sp} />
       </section>
     </main>
   );

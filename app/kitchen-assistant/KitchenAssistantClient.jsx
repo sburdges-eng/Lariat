@@ -9,6 +9,7 @@ const LOC_KEY = 'lariat_location';
 const LANG_KEY = 'lariat_language';
 const COOK_KEY = 'lariat_cook';
 const CONVERSATION_SESSION_KEY = 'lariat_conversation_session_id';
+const VOICE_INPUT_ERROR = 'Voice input stopped. Check the mic and try again.';
 
 function fallbackUuidV4() {
   const bytes = new Uint8Array(16);
@@ -258,15 +259,16 @@ export default function KitchenAssistantClient({ locQuery }) {
     };
   }, [undoState]);
 
-  const toggleListen = (e) => {
-    e.preventDefault();
-    if (!SpeechRec) return;
-    if (isListening) {
-      recognitionRef.current?.stop();
-      recognitionRef.current = null;
-      setIsListening(false);
-      return;
-    }
+  const stopListening = (e) => {
+    e?.preventDefault?.();
+    if (!recognitionRef.current) return;
+    recognitionRef.current.stop();
+  };
+
+  const startListening = (e) => {
+    e?.preventDefault?.();
+    if (loading || !SpeechRec || recognitionRef.current) return;
+    setErr('');
 
     try {
       const recognition = new SpeechRec();
@@ -277,7 +279,9 @@ export default function KitchenAssistantClient({ locQuery }) {
       recognition.onstart = () => setIsListening(true);
       recognition.onerror = (evt) => {
         console.error('Speech error:', evt);
+        recognitionRef.current = null;
         setIsListening(false);
+        setErr(VOICE_INPUT_ERROR);
       };
       recognition.onend = () => {
         recognitionRef.current = null;
@@ -291,8 +295,44 @@ export default function KitchenAssistantClient({ locQuery }) {
       recognition.start();
     } catch (err) {
       console.error("Speech recognition fault:", err);
+      recognitionRef.current = null;
       setIsListening(false);
+      setErr(VOICE_INPUT_ERROR);
     }
+  };
+
+  const ignoreVoiceClick = (e) => {
+    e.preventDefault();
+  };
+
+  useEffect(() => {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return undefined;
+    const stopWhenHidden = () => {
+      if (document.hidden) stopListening();
+    };
+    const stopWhenWindowBlurs = () => {
+      stopListening();
+    };
+    document.addEventListener('visibilitychange', stopWhenHidden);
+    window.addEventListener('blur', stopWhenWindowBlurs);
+    return () => {
+      document.removeEventListener('visibilitychange', stopWhenHidden);
+      window.removeEventListener('blur', stopWhenWindowBlurs);
+    };
+  }, []);
+
+  const voiceKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      stopListening(e);
+      return;
+    }
+    if (e.key !== ' ' && e.key !== 'Enter') return;
+    startListening(e);
+  };
+
+  const voiceKeyUp = (e) => {
+    if (e.key !== ' ' && e.key !== 'Enter') return;
+    stopListening(e);
   };
 
   const submit = async (e) => {
@@ -303,6 +343,7 @@ export default function KitchenAssistantClient({ locQuery }) {
     setUndoState(null);
     const q = message.trim();
     if (!q) return;
+    stopListening();
     // Reset badge drill-in state on every fresh submit — the cached
     // citations from the prior answer are no longer relevant.
     setBadgeState({});
@@ -513,7 +554,10 @@ export default function KitchenAssistantClient({ locQuery }) {
           id="ka-q"
           name="ka-q"
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={(e) => {
+            setMessage(e.target.value);
+            setErr((prev) => (prev === VOICE_INPUT_ERROR ? '' : prev));
+          }}
           rows={4}
           placeholder="ex: What's 86? How much aji prep? Dairy in the dressing?"
           className="input mb-12"
@@ -536,12 +580,20 @@ export default function KitchenAssistantClient({ locQuery }) {
           {speechSupported && (
             <button
               type="button"
-              onClick={toggleListen}
+              onClick={ignoreVoiceClick}
+              onPointerDown={startListening}
+              onPointerUp={stopListening}
+              onPointerLeave={stopListening}
+              onPointerCancel={stopListening}
+              onBlur={stopListening}
+              onKeyDown={voiceKeyDown}
+              onKeyUp={voiceKeyUp}
               className={`btn ${isListening ? 'red' : ''}`}
+              disabled={loading}
               aria-pressed={isListening}
               aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
             >
-              {isListening ? 'Stop 🛑' : 'Speak 🎤'}
+              {isListening ? 'Release 🎤' : 'Hold 🎤'}
             </button>
           )}
           {model && (
