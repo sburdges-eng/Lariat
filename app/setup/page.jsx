@@ -113,7 +113,13 @@ function LocationForm({ currentName, onSaved }) {
 export default function SetupPage() {
   const [status, setStatus] = useState(/** @type {SetupStatusJson | null} */ (null));
   const [loadError, setLoadError] = useState('');
-  const [toastSkipped, setToastSkipped] = useState(false);
+  const [toastSkipped, setToastSkipped] = useState(() => {
+    try {
+      return globalThis.localStorage?.getItem('lariat_setup_toast_skipped') === '1';
+    } catch {
+      return false;
+    }
+  });
 
   const refresh = useCallback(() => {
     fetch('/api/setup/status', { cache: 'no-store' })
@@ -255,7 +261,10 @@ export default function SetupPage() {
                 Needs Toast API keys from your Toast account. Without them,
                 skip this step — everything else works offline.
               </p>
-              <button type="button" onClick={() => setToastSkipped(true)}>
+              <button type="button" onClick={() => {
+                setToastSkipped(true);
+                try { localStorage.setItem('lariat_setup_toast_skipped', '1'); } catch { /* private browsing */ }
+              }}>
                 Skip for now
               </button>
             </>

@@ -27,6 +27,7 @@
 import type { Database } from 'better-sqlite3';
 import { getDb } from './db.ts';
 import { postAuditEvent } from './auditEvents.ts';
+import { normalizeDishName } from './dishCostBridge.ts';
 
 /** One cost_breakdown line as produced by lib/computeEngine/sandboxCosting.ts. */
 interface CostBreakdownLine {
@@ -55,7 +56,7 @@ export interface PromotedComponent {
 
 export interface SkippedComponent {
   item: string;
-  reason: 'unmatched' | 'invalid_qty';
+  reason: 'unmatched' | 'invalid_qty' | 'unit_conflict';
 }
 
 export interface PromotionRecord {
@@ -127,10 +128,14 @@ export function componentsFromBreakdown(
     const key = match.toLowerCase();
     if (seen.has(key)) {
       const existing = components.find(
-        (c) => c.vendor_ingredient.toLowerCase() === key && c.unit === unit,
+        (c) => c.vendor_ingredient.toLowerCase() === key,
       );
-      if (existing) {
+      if (existing && existing.unit === unit) {
         existing.qty_per_serving += qty / servings;
+        continue;
+      }
+      if (existing) {
+        skipped.push({ item: item || match, reason: 'unit_conflict' });
         continue;
       }
     }
@@ -202,7 +207,7 @@ export function promoteSpecialToMenu(
     typeof input.servings === 'number' && Number.isFinite(input.servings) && input.servings > 0
       ? input.servings
       : 1;
-  const menuItemName = (input.menuItemName ?? special.name).trim();
+  const menuItemName = normalizeDishName(input.menuItemName ?? special.name);
 
   const breakdown = parseBreakdown(special.cost_breakdown);
   const { components, skipped } = componentsFromBreakdown(breakdown, servings);
