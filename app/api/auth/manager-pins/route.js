@@ -12,6 +12,7 @@ import {
   updateManagerPinUser,
 } from '../../../../lib/managerPins.ts';
 import { postAuditEvent } from '../../../../lib/auditEvents';
+import { withIdempotency } from '../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,11 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  // Replaying a queued POST would create a duplicate PIN user + audit row.
+  return withIdempotency(req, () => managerPinsPostHandler(req));
+}
+
+async function managerPinsPostHandler(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
 
@@ -58,6 +64,11 @@ export async function POST(req) {
 }
 
 export async function PATCH(req) {
+  // Replay dedupe keeps the audit trail to one row per real edit.
+  return withIdempotency(req, () => managerPinsPatchHandler(req));
+}
+
+async function managerPinsPatchHandler(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
 
@@ -89,6 +100,11 @@ export async function PATCH(req) {
 }
 
 export async function DELETE(req) {
+  // Replay dedupe keeps the audit trail to one row per real disable.
+  return withIdempotency(req, () => managerPinsDeleteHandler(req));
+}
+
+async function managerPinsDeleteHandler(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
 

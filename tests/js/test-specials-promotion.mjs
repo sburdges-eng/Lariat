@@ -56,6 +56,14 @@ function seedVendorPrice({ ingredient, pack_size = 1, pack_unit = 'lb', pack_pri
   ).run(ingredient, pack_size, pack_unit, pack_price, unit_price, location_id);
 }
 
+function seedIngredientDensity(ingredient_key, g_per_ml) {
+  db.prepare(
+    `INSERT INTO ingredient_densities (ingredient_key, g_per_ml, source)
+     VALUES (?, ?, 'measured')
+     ON CONFLICT(ingredient_key) DO UPDATE SET g_per_ml = excluded.g_per_ml, source = excluded.source`,
+  ).run(ingredient_key, g_per_ml);
+}
+
 function jsonRequest(url, body, method = 'POST') {
   return new Request(url, {
     method,
@@ -121,9 +129,10 @@ describe('POST /api/specials/saved/[id]/promote — happy path', () => {
     assert.deepEqual(data.skipped, [{ item: 'micro greens', reason: 'unmatched' }]);
 
     // dish_components: per-serving quantities (breakdown qty / servings).
+    const canonicalDish = bridge.normalizeDishName('Lariat Belly Stack');
     const rows = db.prepare(
-      `SELECT * FROM dish_components WHERE dish_name = 'Lariat Belly Stack' ORDER BY vendor_ingredient`,
-    ).all();
+      `SELECT * FROM dish_components WHERE dish_name = ? ORDER BY vendor_ingredient`,
+    ).all(canonicalDish);
     assert.equal(rows.length, 2);
     assert.equal(rows[0].component_type, 'vendor_item');
     assert.equal(rows[0].vendor_ingredient, 'BBQ SAUCE SWEET 1GAL');
@@ -166,9 +175,10 @@ describe('POST /api/specials/saved/[id]/promote — happy path', () => {
     const data = await res.json();
     assert.equal(data.promotion.menu_item_name, 'Pork Belly Stack');
     assert.equal(data.promotion.servings, 1);
+    const canonicalDish = bridge.normalizeDishName('Pork Belly Stack');
     const row = db.prepare(
-      `SELECT qty_per_serving FROM dish_components WHERE dish_name = 'Pork Belly Stack' AND vendor_ingredient = 'PORK BELLY SKIN-ON'`,
-    ).get();
+      `SELECT qty_per_serving FROM dish_components WHERE dish_name = ? AND vendor_ingredient = 'PORK BELLY SKIN-ON'`,
+    ).get(canonicalDish);
     assert.equal(row.qty_per_serving, 4);
   });
 });
@@ -208,6 +218,59 @@ describe('promotion pulls cost data through to menu engineering', () => {
     assert.equal(cost.link_state, 'fully_linked');
     assert.ok(Math.abs(cost.total_cost - 10.4) < 1e-9);
   });
+
+  it('stores promoted vendor rows in the vendor pack unit when density is needed', async () => {
+    seedVendorPrice({
+      ingredient: 'AP FLOUR',
+      pack_size: 1,
+      pack_unit: 'lb',
+      pack_price: 1,
+      unit_price: 1,
+    });
+    seedIngredientDensity('ap flour', 0.5);
+    const id = await createSpecial({
+      name: 'Buttermilk Bites',
+      cost_breakdown: [
+        { item: 'ap flour', req_qty: 1, req_unit: 'cup', match: 'AP FLOUR', cost: 0.26 },
+      ],
+      cost_total: 0.26,
+    });
+
+    const res = await promoteSpecial(id, { menu_item_name: 'Buttermilk Bites', servings: 1 });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.deepEqual(data.skipped, []);
+    assert.equal(data.components.length, 1);
+    assert.equal(data.components[0].vendor_ingredient, 'AP FLOUR');
+    assert.equal(data.components[0].unit, 'lb');
+    assert.ok(Math.abs(data.components[0].qty_per_serving - 0.2607938891256041) < 1e-9);
+
+    const canonicalDish = bridge.normalizeDishName('Buttermilk Bites');
+    const row = db.prepare(
+      `SELECT qty_per_serving, unit FROM dish_components WHERE dish_name = ? AND vendor_ingredient = 'AP FLOUR'`,
+    ).get(canonicalDish);
+    assert.equal(row.unit, 'lb');
+    assert.ok(Math.abs(row.qty_per_serving - 0.2607938891256041) < 1e-9);
+
+    const cost = bridge.computeDishCost('Buttermilk Bites', 'default', undefined, undefined, db);
+    assert.equal(cost.link_state, 'fully_linked');
+    assert.ok(Math.abs(cost.total_cost - 0.2607938891256041) < 1e-9);
+  });
+});
+
+describe('componentsFromBreakdown', () => {
+  it('merges duplicate vendor matches when the units are convertible', () => {
+    const result = promotion.componentsFromBreakdown([
+      { item: 'pork belly roast', req_qty: 4, req_unit: 'lb', match: 'PORK BELLY SKIN-ON' },
+      { item: 'pork belly trim', req_qty: 8, req_unit: 'oz', match: 'PORK BELLY SKIN-ON' },
+    ], 1);
+
+    assert.deepEqual(result.skipped, []);
+    assert.equal(result.components.length, 1);
+    assert.equal(result.components[0].vendor_ingredient, 'PORK BELLY SKIN-ON');
+    assert.equal(result.components[0].unit, 'lb');
+    assert.ok(Math.abs(result.components[0].qty_per_serving - 4.5) < 1e-9);
+  });
 });
 
 describe('idempotent re-promote', () => {
@@ -221,8 +284,9 @@ describe('idempotent re-promote', () => {
     assert.equal(data.repromoted, true);
 
     assert.equal(db.prepare('SELECT COUNT(*) AS c FROM specials_promotions').get().c, 1);
+    const canonicalDish = bridge.normalizeDishName('Lariat Belly Stack');
     assert.equal(
-      db.prepare(`SELECT COUNT(*) AS c FROM dish_components WHERE dish_name = 'Lariat Belly Stack'`).get().c,
+      db.prepare(`SELECT COUNT(*) AS c FROM dish_components WHERE dish_name = ?`).get(canonicalDish).c,
       2,
     );
     const audit = db.prepare(
@@ -238,13 +302,15 @@ describe('idempotent re-promote', () => {
     const res = await promoteSpecial(id, { menu_item_name: 'New Name', servings: 4 });
     assert.equal(res.status, 200);
 
+    const oldCanonicalDish = bridge.normalizeDishName('Old Name');
     assert.equal(
-      db.prepare(`SELECT COUNT(*) AS c FROM dish_components WHERE dish_name = 'Old Name'`).get().c,
+      db.prepare(`SELECT COUNT(*) AS c FROM dish_components WHERE dish_name = ?`).get(oldCanonicalDish).c,
       0,
     );
+    const newCanonicalDish = bridge.normalizeDishName('New Name');
     const rows = db.prepare(
-      `SELECT * FROM dish_components WHERE dish_name = 'New Name' ORDER BY vendor_ingredient`,
-    ).all();
+      `SELECT * FROM dish_components WHERE dish_name = ? ORDER BY vendor_ingredient`,
+    ).all(newCanonicalDish);
     assert.equal(rows.length, 2);
     assert.equal(rows[1].qty_per_serving, 1); // 4 lb / 4 servings
 

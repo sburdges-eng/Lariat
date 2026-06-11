@@ -104,7 +104,7 @@ export function hasActiveManagerPinUsers(locationId = DEFAULT_LOCATION_ID): bool
 }
 
 export function managerPinGateConfigured(locationId = DEFAULT_LOCATION_ID): boolean {
-  if (process.env.LARIAT_PIN) return true;
+  if ((process.env.LARIAT_PIN || '').trim()) return true;
   try {
     return hasActiveManagerPinUsers(locationId);
   } catch {

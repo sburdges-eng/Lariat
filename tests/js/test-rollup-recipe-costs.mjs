@@ -17,6 +17,7 @@ import {
 import { recomputeRecipeCosts } from '../../lib/computeEngine/recipeCosting.ts';
 import { deriveMasterId } from '../../scripts/ingest-costing.mjs';
 import { computeCostVariance } from '../../lib/costingBenchmarks.mjs';
+import { WEIGHT_TO_G, VOLUME_TO_ML } from '../../lib/unitConvert.mjs';
 
 const LOC = 'default';
 
@@ -214,18 +215,19 @@ describe('rollupRecipeCosts — leaf line pricing', () => {
       yield_pct: 1.0,
       loss_factor: null,
     };
-    const cost = _priceLeafLine(db, LOC, line);
+    const { cost, reason } = _priceLeafLine(db, LOC, line);
     // 2 lb * (38.01 / 35) = 2 * 1.086 = 2.172
     assert.ok(cost !== null);
+    assert.equal(reason, null);
     assert.ok(Math.abs(cost - 2.172) < 0.001, `got ${cost}`);
 
     db.close();
   });
 
-  it('returns null when no vendor_prices row matches', () => {
+  it('returns null cost (no reason) when no vendor_prices row matches', () => {
     const db = new Database(':memory:');
     initSchema(db);
-    const cost = _priceLeafLine(db, LOC, {
+    const { cost, reason } = _priceLeafLine(db, LOC, {
       ingredient: 'asafoetida',
       qty: 0.01,
       unit: 'lb',
@@ -234,6 +236,102 @@ describe('rollupRecipeCosts — leaf line pricing', () => {
       loss_factor: null,
     });
     assert.equal(cost, null);
+    assert.equal(reason, null);
+    db.close();
+  });
+
+  it('converts cross-dim pack units via density: 1 cup line off a 50 lb sack', () => {
+    const db = new Database(':memory:');
+    initSchema(db);
+    db.prepare(
+      `INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, location_id)
+       VALUES ('diced onion', 'sysco', '7', 50, 'lb', 50, 1, ?)`,
+    ).run(LOC);
+    db.prepare(
+      `INSERT INTO ingredient_densities (ingredient_key, g_per_ml, source) VALUES ('diced onion', 0.56, 'seed')`,
+    ).run();
+
+    const { cost, reason } = _priceLeafLine(db, LOC, {
+      ingredient: 'diced onion',
+      qty: 1,
+      unit: 'cup',
+      master_id: null,
+      yield_pct: 0.85,
+      loss_factor: null,
+    });
+    const packCup = (50 * WEIGHT_TO_G.lb) / 0.56 / VOLUME_TO_ML.cup;
+    const expected = (1 * 50 / packCup) * (1 / 0.85);
+    assert.equal(reason, null);
+    assert.ok(cost !== null && Math.abs(cost - expected) < 1e-6, `got ${cost}, expected ${expected}`);
+    db.close();
+  });
+
+  it("flags 'no_density' on cross-dim pack units when no density is seeded", () => {
+    const db = new Database(':memory:');
+    initSchema(db);
+    db.prepare(
+      `INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, location_id)
+       VALUES ('mystery pulp', 'sysco', '8', 50, 'lb', 50, 1, ?)`,
+    ).run(LOC);
+
+    const { cost, reason } = _priceLeafLine(db, LOC, {
+      ingredient: 'mystery pulp',
+      qty: 1,
+      unit: 'cup',
+      master_id: null,
+      yield_pct: 0.85,
+      loss_factor: null,
+    });
+    assert.equal(cost, null);
+    assert.equal(reason, 'no_density');
+    db.close();
+  });
+
+  it('bridges count units via ingredient_unit_weights: 5 ea off a 10 lb pack', () => {
+    const db = new Database(':memory:');
+    initSchema(db);
+    db.prepare(
+      `INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, location_id)
+       VALUES ('jalapeno', 'sysco', '9', 10, 'lb', 31.95, 3.195, ?)`,
+    ).run(LOC);
+    db.prepare(
+      `INSERT INTO ingredient_unit_weights (ingredient_key, unit, g_per_unit, source) VALUES ('jalapeno', 'ea', 30, 'seed')`,
+    ).run();
+
+    const { cost, reason } = _priceLeafLine(db, LOC, {
+      ingredient: 'jalapeno',
+      qty: 5,
+      unit: 'ea',
+      master_id: null,
+      yield_pct: 1.0,
+      loss_factor: null,
+    });
+    const packEa = (10 * WEIGHT_TO_G.lb) / 30;
+    const expected = 5 * 31.95 / packEa;
+    assert.equal(reason, null);
+    assert.ok(cost !== null && Math.abs(cost - expected) < 1e-6, `got ${cost}, expected ${expected}`);
+    db.close();
+  });
+
+  it('falls back to the identity assumption when the vendor row has no pack_unit', () => {
+    const db = new Database(':memory:');
+    initSchema(db);
+    db.prepare(
+      `INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, location_id)
+       VALUES ('bay leaf', 'sysco', '10', 16, NULL, 8, 0.5, ?)`,
+    ).run(LOC);
+
+    const { cost, reason } = _priceLeafLine(db, LOC, {
+      ingredient: 'bay leaf',
+      qty: 2,
+      unit: 'oz',
+      master_id: null,
+      yield_pct: 1.0,
+      loss_factor: null,
+    });
+    // No pack_unit → T3 identity assumption: 2 × 8/16 = 1.
+    assert.equal(reason, null);
+    assert.ok(cost !== null && Math.abs(cost - 1.0) < 1e-9, `got ${cost}`);
     db.close();
   });
 });
@@ -304,6 +402,99 @@ describe('rollupRecipeCosts — end-to-end batch_cost rewrite', () => {
       `SELECT batch_cost FROM recipe_costs WHERE recipe_id='parent' AND location_id=?`,
     ).get(LOC);
     assert.ok(Math.abs(parent.batch_cost - 3.0) < 0.001, `got ${parent.batch_cost}`);
+    db.close();
+  });
+
+  it('converts cross-dim leaf lines inside a sub-recipe-bearing parent', () => {
+    const db = new Database(':memory:');
+    initSchema(db);
+    db.prepare(
+      `INSERT INTO recipe_costs (recipe_id, recipe_name, yield, yield_unit, batch_cost, cost_per_yield_unit, location_id)
+       VALUES ('lariat_rub','Lariat Rub',4,'cup',8,2,?),
+              ('parent','Parent',1,'qt',NULL,NULL,?)`,
+    ).run(LOC, LOC);
+    db.prepare(
+      `INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, master_id, location_id)
+       VALUES ('diced onion', 'sysco', '11', 50, 'lb', 50, 1, NULL, ?)`,
+    ).run(LOC);
+    db.prepare(
+      `INSERT INTO ingredient_densities (ingredient_key, g_per_ml, source) VALUES ('diced onion', 0.56, 'seed')`,
+    ).run();
+    // parent = 1 cup lariat rub ($2) + 1 cup diced onion off a 50 lb sack.
+    db.prepare(
+      `INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, sub_recipe, map_status, yield_pct, loss_factor, location_id)
+       VALUES ('parent','lariat rub',1,'cup','YES','confirmed',1.0,NULL,?),
+              ('parent','diced onion',1,'cup',NULL,'confirmed',1.0,NULL,?)`,
+    ).run(LOC, LOC);
+
+    const result = rollupRecipeCosts(db, LOC);
+    assert.equal(result.updated, 1);
+    const packCup = (50 * WEIGHT_TO_G.lb) / 0.56 / VOLUME_TO_ML.cup;
+    const expected = 2.0 + (1 * 50 / packCup);
+    const parent = db.prepare(`SELECT batch_cost FROM recipe_costs WHERE recipe_id='parent'`).get();
+    assert.ok(Math.abs(parent.batch_cost - expected) < 1e-6, `got ${parent.batch_cost}, expected ${expected}`);
+    db.close();
+  });
+
+  it('flags a cross-dim leaf with no density inside a sub-recipe-bearing parent and skips it', () => {
+    const db = new Database(':memory:');
+    initSchema(db);
+    db.prepare(
+      `INSERT INTO recipe_costs (recipe_id, recipe_name, yield, yield_unit, batch_cost, cost_per_yield_unit, location_id)
+       VALUES ('lariat_rub','Lariat Rub',4,'cup',8,2,?),
+              ('parent','Parent',1,'qt',NULL,NULL,?)`,
+    ).run(LOC, LOC);
+    db.prepare(
+      `INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, master_id, location_id)
+       VALUES ('mystery pulp', 'sysco', '12', 50, 'lb', 50, 1, NULL, ?)`,
+    ).run(LOC);
+    db.prepare(
+      `INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, sub_recipe, map_status, yield_pct, loss_factor, location_id)
+       VALUES ('parent','lariat rub',1,'cup','YES','confirmed',1.0,NULL,?),
+              ('parent','mystery pulp',1,'cup',NULL,NULL,1.0,NULL,?)`,
+    ).run(LOC, LOC);
+
+    const result = rollupRecipeCosts(db, LOC);
+    // Sub-recipe line still prices; the unconvertible leaf is flagged + skipped.
+    const parent = db.prepare(`SELECT batch_cost FROM recipe_costs WHERE recipe_id='parent'`).get();
+    assert.ok(Math.abs(parent.batch_cost - 2.0) < 1e-9, `got ${parent.batch_cost}`);
+    assert.ok(result.unconverted.some(
+      (u) => u.recipe_id === 'parent' && u.ingredient === 'mystery pulp' && u.reason === 'no_density',
+    ), `unconverted: ${JSON.stringify(result.unconverted)}`);
+    const status = db.prepare(
+      `SELECT map_status FROM bom_lines WHERE recipe_id='parent' AND ingredient='mystery pulp'`,
+    ).get();
+    assert.equal(status.map_status, 'NEEDS_DENSITY');
+    db.close();
+  });
+
+  it('does NOT rewrite leaf-only recipes — their batch_cost is owned by the T4 baseline+delta path', () => {
+    // Regression guard: rollup's _priceLeafLine is unit-naive (qty ×
+    // pack_price / pack_size with no cup↔lb conversion). Letting it
+    // rewrite recipes without sub-recipe lines clobbers the unit-converted
+    // yield-delta math from scripts/ingest-costing.mjs (T4/T4.1) with
+    // wrong numbers. Leaf-only recipes must keep their imported batch_cost.
+    const db = new Database(':memory:');
+    initSchema(db);
+    db.prepare(
+      `INSERT INTO recipe_costs (recipe_id, recipe_name, yield, yield_unit, batch_cost, cost_per_yield_unit, location_id)
+       VALUES ('soup','Soup',1,'qt',12.5,12.5,?)`,
+    ).run(LOC);
+    db.prepare(
+      `INSERT INTO vendor_prices (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, master_id, location_id)
+       VALUES ('diced onion', 'sysco', '2', 50, 'lb', 50, 1, NULL, ?)`,
+    ).run(LOC);
+    // 1 cup of diced onion priced off a 50 lb sack — cross-dim. The naive
+    // leaf path would price this as 1 × $50/50 = $1 and overwrite $12.50.
+    db.prepare(
+      `INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, sub_recipe, map_status, yield_pct, loss_factor, location_id)
+       VALUES ('soup','diced onion',1,'cup',NULL,'confirmed',0.85,NULL,?)`,
+    ).run(LOC);
+
+    const result = rollupRecipeCosts(db, LOC);
+    assert.equal(result.updated, 0, 'leaf-only recipe must not be rewritten');
+    const soup = db.prepare(`SELECT batch_cost FROM recipe_costs WHERE recipe_id='soup'`).get();
+    assert.equal(soup.batch_cost, 12.5);
     db.close();
   });
 

@@ -23,6 +23,7 @@ fs.mkdirSync(TMP_CACHE, { recursive: true });
 
 const dbMod = await import('../../lib/db.ts');
 const dataMod = await import('../../lib/data.ts');
+const managerPinsMod = await import('../../lib/managerPins.ts');
 const setupMod = await import('../../lib/setupStatus.ts');
 const statusRoute = await import('../../app/api/setup/status/route.js');
 const locationsRoute = await import('../../app/api/locations/route.js');
@@ -49,7 +50,7 @@ function writeRecipesCache(recipes) {
 
 beforeEach(() => {
   delete process.env.LARIAT_PIN;
-  for (const t of ['vendor_prices', 'toast_sales_daily', 'audit_events', 'idempotency_keys', 'locations']) {
+  for (const t of ['vendor_prices', 'toast_sales_daily', 'audit_events', 'idempotency_keys', 'manager_pin_users', 'locations']) {
     db.exec(`DELETE FROM ${t};`);
   }
   // Restore the automatic seed row written by lib/db.ts on a fresh DB.
@@ -91,6 +92,12 @@ describe('getSetupStatus() — per-step detection', () => {
     assert.equal(stepById(statusFor(), 'pin').complete, true);
     process.env.LARIAT_PIN = '   ';
     assert.equal(stepById(statusFor(), 'pin').complete, false, 'whitespace PIN is not configured');
+  });
+
+  it('pin flips complete when an active manager PIN user exists in the DB', () => {
+    assert.equal(stepById(statusFor(), 'pin').complete, false);
+    managerPinsMod.createManagerPinUser({ name: 'Chef Alex', pin: '4242' });
+    assert.equal(stepById(statusFor(), 'pin').complete, true);
   });
 
   it('location is incomplete with only the auto-seeded default row', () => {
@@ -206,6 +213,14 @@ function postLocations(body, headers = {}) {
 }
 
 describe('POST /api/locations', () => {
+  it('requires the manager PIN once the PIN gate is configured', async () => {
+    managerPinsMod.createManagerPinUser({ name: 'Chef Alex', pin: '4242' });
+    const res = await postLocations({ name: 'Cool River' });
+    assert.equal(res.status, 401);
+    const body = await res.json();
+    assert.equal(body.error, 'PIN required');
+  });
+
   it('renames the default venue and posts an update audit row', async () => {
     const res = await postLocations({ name: 'Cool River' });
     assert.equal(res.status, 200);

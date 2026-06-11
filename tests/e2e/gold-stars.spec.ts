@@ -1,7 +1,17 @@
 import { test, expect } from '@playwright/test';
 
+const PIN = process.env.LARIAT_PIN || '1234';
+
 test.describe('Gold-stars optimistic delete', () => {
   const COOK = '__E2E_GoldStarCook_' + Date.now();
+
+  // DELETE /api/gold-stars/[id] is PIN-gated (requirePin). Authenticate the
+  // context up front so the browser's fetch carries lariat_pin_ok — without
+  // it the optimistic removal correctly rolls back on the 401.
+  test.beforeEach(async ({ page }) => {
+    const res = await page.request.post('/api/auth/pin', { data: { pin: PIN } });
+    expect(res.ok()).toBe(true);
+  });
 
   test('delete removes row optimistically, row stays gone after server confirms', async ({ page }) => {
     // Create a gold star via API first
@@ -53,9 +63,11 @@ test.describe('Gold-stars optimistic delete', () => {
     // Switch to leaderboard view
     await page.locator('button:has-text("Leaderboard")').click();
 
-    // Should show the cook with star count
-    await expect(page.locator(`text=${cook2}`)).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('text=3 ★')).toBeVisible();
+    // Should show the cook with star count — scope to this cook's row;
+    // leftover rows from other runs may carry the same star total.
+    const lbRow = page.locator('.gs-lb-row', { hasText: cook2 });
+    await expect(lbRow).toBeVisible({ timeout: 5000 });
+    await expect(lbRow.locator('text=3 ★')).toBeVisible();
 
     // Clean up
     const listRes = await page.request.get('/api/gold-stars');

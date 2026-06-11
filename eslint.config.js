@@ -45,6 +45,13 @@ export default [
       'Lariat-v2/**',     // archived
       'lariat-kms/**',    // archived
       'scripts/datapack/build/**',
+      'desktop/dist/**',          // electron build output (gitignored)
+      'design/**',                // design mockup archives (gitignored)
+      'cad-kernel/build/**',      // cad-kernel build output (gitignored)
+      'cad-kernel/build2/**',
+      '.gitnexus/**',             // generated index runner (gitignored)
+      'line_setups/**',           // local scratch, excluded in tsconfig too
+      'worktrees/**',
     ],
   },
 
@@ -183,10 +190,10 @@ export default [
     },
   },
 
-  // Config files (jest.config.js, jest.setup.js, *.config.cjs etc.) —
-  // these are CommonJS by design and use require() legitimately.
+  // CommonJS files — .cjs is CommonJS by definition, plus the classic
+  // config files. require()/module/process are legitimate here.
   {
-    files: ['*.config.{js,cjs}', 'jest.setup.{js,cjs}', 'jest.config.{js,cjs}'],
+    files: ['**/*.cjs', '*.config.{js,cjs}', 'jest.setup.{js,cjs}', 'jest.config.{js,cjs}'],
     languageOptions: { sourceType: 'commonjs' },
     rules: {
       '@typescript-eslint/no-require-imports': 'off',

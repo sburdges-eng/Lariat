@@ -50,6 +50,10 @@ const ALLOWLIST = new Set([
   // caching it in idempotency_keys for 24h would expose active
   // credentials. Handler has its own collision-retry loop.
   'auth/temp-pin/issue',
+  // Recipe photo upload — deliberately unwrapped per the route header:
+  // uploads are inherently fresh; a retried multipart POST should land
+  // a second copy rather than silently no-op (we'd lose images).
+  'recipes/[slug]/photos',
 ]);
 
 // Routes that SHOULD be wrapped per the §8 P1 plan but haven't been

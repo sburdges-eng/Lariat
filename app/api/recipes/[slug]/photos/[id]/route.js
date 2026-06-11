@@ -20,10 +20,17 @@ import { getDb } from '../../../../../../lib/db';
 import { locationFromRequest } from '../../../../../../lib/location';
 import { requirePin } from '../../../../../../lib/pin';
 import { logAuditAction } from '../../../../../../lib/auditLog.mjs';
+import { withIdempotency } from '../../../../../../lib/idempotency';
 
 export const runtime = 'nodejs';
 
-export async function DELETE(req, { params }) {
+export async function DELETE(req, ctx) {
+  // The UPDATE itself is replay-safe (deleted_at IS NULL guard) but the
+  // audit row is not — dedupe keeps one audit entry per real delete.
+  return withIdempotency(req, () => photoDeleteHandler(req, ctx));
+}
+
+async function photoDeleteHandler(req, { params }) {
 
   params = await params;
   const pinFail = await requirePin(req);
@@ -52,7 +59,13 @@ export async function DELETE(req, { params }) {
   return Response.json({ ok: true, id });
 }
 
-export async function PATCH(req, { params }) {
+export async function PATCH(req, ctx) {
+  // Hero/caption writes are absolute-value (replay-safe) but the audit
+  // rows are not — dedupe keeps one audit entry per real edit.
+  return withIdempotency(req, () => photoPatchHandler(req, ctx));
+}
+
+async function photoPatchHandler(req, { params }) {
 
   params = await params;
   const pinFail = await requirePin(req);

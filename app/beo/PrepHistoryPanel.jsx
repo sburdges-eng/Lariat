@@ -34,7 +34,11 @@ export default function PrepHistoryPanel({ itemNames, location }) {
   const [err, setErr] = useState('');
 
   useEffect(() => {
-    if (dedupedItems.length === 0) {
+    // Reconstruct from itemsKey (not dedupedItems) so the effect's deps are
+    // honest — the memoized array gets a fresh identity whenever the parent
+    // re-renders, but the serialized key only changes when content changes.
+    const items = itemsKey === '' ? [] : itemsKey.split('||');
+    if (items.length === 0) {
       setMatches([]);
       setErr('');
       return;
@@ -45,7 +49,7 @@ export default function PrepHistoryPanel({ itemNames, location }) {
     setErr('');
 
     const params = new URLSearchParams();
-    for (const it of dedupedItems) params.append('item', it);
+    for (const it of items) params.append('item', it);
     if (location) params.set('location', location);
     params.set('limit', '3');
 

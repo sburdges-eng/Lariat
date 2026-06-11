@@ -8,7 +8,7 @@ test.describe('PWA infrastructure', () => {
     expect(manifest.name).toBe('Lariat Cockpit');
     expect(manifest.short_name).toBe('Lariat');
     expect(manifest.display).toBe('standalone');
-    expect(manifest.theme_color).toBe('#f59e0b');
+    expect(manifest.theme_color).toBe('#c85a2a');
     expect(manifest.background_color).toBe('#0b0d10');
     expect(manifest.icons).toHaveLength(3);
     expect(manifest.icons.some((i: any) => i.purpose === 'maskable')).toBe(true);
@@ -19,7 +19,7 @@ test.describe('PWA infrastructure', () => {
     const manifest = page.locator('link[rel="manifest"]');
     await expect(manifest).toHaveAttribute('href', '/manifest.json');
     const theme = page.locator('meta[name="theme-color"]');
-    await expect(theme).toHaveAttribute('content', '#f59e0b');
+    await expect(theme).toHaveAttribute('content', '#c85a2a');
   });
 
   test('service worker registers and becomes active', async ({ page }) => {
