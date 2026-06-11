@@ -41,7 +41,9 @@ describe('v2 manager routes', () => {
 
     expect(screen.getByRole('link', { name: /back to line/i })).toHaveAttribute('href', '/v2/today?location=prep-line');
     expect(screen.getByRole('link', { name: /morning digest/i })).toHaveAttribute('href', '/morning?location=prep-line');
-    expect(screen.getByTestId('command-page')).toHaveAttribute('data-search-params-type', 'promise');
+    // The legacy child page reads searchParams?.location synchronously, so
+    // the v2 wrapper must hand it the RESOLVED object, never the promise.
+    expect(screen.getByTestId('command-page')).toHaveAttribute('data-search-params-type', 'object');
   });
 
   test('v2 management awaits Promise searchParams before building jump links', async () => {
@@ -49,7 +51,7 @@ describe('v2 manager routes', () => {
 
     expect(screen.getByRole('link', { name: /back to command/i })).toHaveAttribute('href', '/v2/command?location=expo');
     expect(screen.getByRole('link', { name: /open analytics/i })).toHaveAttribute('href', '/v2/analytics?location=expo');
-    expect(screen.getByTestId('management-page')).toHaveAttribute('data-search-params-type', 'promise');
+    expect(screen.getByTestId('management-page')).toHaveAttribute('data-search-params-type', 'object');
   });
 
   test('v2 analytics awaits Promise searchParams before building jump links', async () => {
