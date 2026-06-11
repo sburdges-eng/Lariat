@@ -30,10 +30,13 @@ export default function SavedSpecialsPage({ searchParams }) {
   let rows = [];
   try {
     rows = db.prepare(`
-      SELECT id, name, ai_answer, cost_total, last_exported_at, created_at
-      FROM specials
-      WHERE location_id = ? AND archived_at IS NULL
-      ORDER BY created_at DESC
+      SELECT s.id, s.name, s.ai_answer, s.cost_total, s.last_exported_at, s.created_at,
+             p.menu_item_name AS promoted_menu_item, p.promoted_at
+      FROM specials s
+      LEFT JOIN specials_promotions p
+        ON p.special_id = s.id AND p.location_id = s.location_id
+      WHERE s.location_id = ? AND s.archived_at IS NULL
+      ORDER BY s.created_at DESC
     `).all(loc);
   } catch (e) {
     console.error('saved-specials list query failed:', e);
@@ -59,6 +62,7 @@ export default function SavedSpecialsPage({ searchParams }) {
                 {formatDate(r.created_at)}
                 {r.cost_total !== null ? ` · ${formatDollars(r.cost_total)}` : ''}
                 {r.last_exported_at ? ' · Exported' : ''}
+                {r.promoted_at ? ` · On menu as “${r.promoted_menu_item}”` : ''}
               </p>
               <p style={{ whiteSpace: 'pre-wrap' }}>{snippet(r.ai_answer)}</p>
             </Link>

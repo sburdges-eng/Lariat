@@ -71,6 +71,10 @@ export const NAV_ROUTE_EXCLUSIONS = [
     reason: 'PIN auth gate, reached by middleware redirects instead of palette jumps.',
   },
   {
+    href: '/setup',
+    reason: 'First-run wizard, visited once during onboarding rather than daily manager navigation.',
+  },
+  {
     href: '/v2',
     reason: 'Cookie-gated side-by-side preview shell; kept out of v1 navigation until cutover.',
   },
@@ -424,6 +428,16 @@ export const NAV_ITEMS = [
     surface: { sidebar: f, palette: t, shelf: f },
   },
   {
+    id: 'fs-haccp-plan',
+    href: '/food-safety/haccp-plan',
+    name: 'HACCP plan',
+    sub: 'Inspector-ready printable plan',
+    group: 'Compliance',
+    terms: 'haccp plan inspector print pdf ccp citation corrective calibration',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  {
     id: 'labor',
     href: '/labor',
     name: 'Labor',
@@ -573,6 +587,20 @@ export const NAV_ITEMS = [
     surface: { sidebar: f, palette: t, shelf: t },
     shelf: { b: 'Sales', sub: 'numbers' },
   },
+  // Operator analytics (roadmap 3.5): manager-tier patterns board —
+  // corrective-action loggers, equipment failure ranking, gold-star
+  // leaders, audit volume trends. Palette-only; reached from ⌘K or
+  // the /analytics book. PIN-gated by middleware via /analytics.
+  {
+    id: 'analytics-operators',
+    href: '/analytics/operators',
+    name: 'Operator analytics',
+    sub: 'Who logs, what fails, who shines',
+    group: 'Books',
+    terms: 'operator analytics corrective actions equipment failures gold stars audit trend manager patterns',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
   {
     id: 'costing',
     href: '/costing',
@@ -651,6 +679,20 @@ export const NAV_ITEMS = [
     sub: 'Canonical ingredient list',
     group: 'Books',
     terms: 'ingredient master canonical sku map preferred vendor category t7 review',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  // Variance attribution (roadmap 3.2): "the variance moved — what did
+  // we change?" Evidence board between two accounting_variance periods.
+  // Palette-only like the other costing sub-boards; PIN-gated by
+  // middleware via /costing.
+  {
+    id: 'variance-attribution',
+    href: '/costing/variance-attribution',
+    name: 'Variance attribution',
+    sub: 'The variance moved — what changed?',
+    group: 'Books',
+    terms: 'variance attribution cogs moved why price composition count correction depletion evidence',
     locAware: t,
     surface: { sidebar: f, palette: t, shelf: f },
   },

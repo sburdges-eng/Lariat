@@ -20,7 +20,7 @@ const { NAV_ITEMS, NAV_ROUTE_EXCLUSIONS, PALETTE_ITEMS, SIDEBAR_ITEMS, requiresM
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const APP_DIR = path.join(REPO_ROOT, 'app');
 const PAGE_FILE_NAMES = new Set(['page.js', 'page.jsx', 'page.ts', 'page.tsx']);
-const SETUP_AUTH_ROUTES = ['/install', '/login-pin'];
+const SETUP_AUTH_ROUTES = ['/install', '/login-pin', '/setup'];
 const MANAGER_PIN_ROUTES = [
   '/analytics',
   '/costing',
