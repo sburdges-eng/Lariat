@@ -257,7 +257,8 @@ export function promoteSpecialToMenu(
     typeof input.servings === 'number' && Number.isFinite(input.servings) && input.servings > 0
       ? input.servings
       : 1;
-  const menuItemName = normalizeDishName(input.menuItemName ?? special.name);
+  const menuItemName = (input.menuItemName ?? special.name).trim();
+  const canonicalMenuItemName = normalizeDishName(menuItemName);
 
   const breakdown = parseBreakdown(special.cost_breakdown);
   const { components: rawComponents, skipped } = componentsFromBreakdown(breakdown, servings);
@@ -300,7 +301,11 @@ export function promoteSpecialToMenu(
         /* keep [] */
       }
       for (const c of priorComponents) {
-        deletePriorComponent.run(locationId, prior.menu_item_name, c.vendor_ingredient);
+        deletePriorComponent.run(
+          locationId,
+          normalizeDishName(prior.menu_item_name),
+          c.vendor_ingredient,
+        );
       }
     }
 
@@ -308,7 +313,7 @@ export function promoteSpecialToMenu(
     for (const c of components) {
       upsertComponent.run(
         locationId,
-        menuItemName,
+        canonicalMenuItemName,
         c.vendor_ingredient,
         c.qty_per_serving,
         c.unit,

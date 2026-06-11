@@ -325,6 +325,21 @@ describe('unresolved_depletions section', () => {
     assert.equal(attr.unresolved_depletions.note, null);
   });
 
+  it('treats punctuation and casing variants as resolved dish links', () => {
+    seedTwoPeriods();
+
+    insertSalesLine({ item_name: 'GUAC---BOWL!!!', period_label: '2026-05-08', qty: 2, net: 24 });
+    insertDishComponent({
+      dish_name: 'Guac Bowl', vendor_ingredient: 'Avocado',
+      created_at: '2026-01-01 00:00:00', updated_at: '2026-01-01 00:00:00',
+    });
+
+    const attr = attrMod.buildVarianceAttribution('default');
+
+    assert.equal(attr.unresolved_depletions.count, 0);
+    assert.deepEqual(attr.unresolved_depletions.items, []);
+  });
+
   it('falls back to all-time with an honest note when period_labels are not date-like', () => {
     seedTwoPeriods();
 

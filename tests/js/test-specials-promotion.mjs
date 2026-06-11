@@ -129,9 +129,10 @@ describe('POST /api/specials/saved/[id]/promote — happy path', () => {
     assert.deepEqual(data.skipped, [{ item: 'micro greens', reason: 'unmatched' }]);
 
     // dish_components: per-serving quantities (breakdown qty / servings).
+    const canonicalDish = bridge.normalizeDishName('Lariat Belly Stack');
     const rows = db.prepare(
-      `SELECT * FROM dish_components WHERE dish_name = 'Lariat Belly Stack' ORDER BY vendor_ingredient`,
-    ).all();
+      `SELECT * FROM dish_components WHERE dish_name = ? ORDER BY vendor_ingredient`,
+    ).all(canonicalDish);
     assert.equal(rows.length, 2);
     assert.equal(rows[0].component_type, 'vendor_item');
     assert.equal(rows[0].vendor_ingredient, 'BBQ SAUCE SWEET 1GAL');
@@ -174,9 +175,10 @@ describe('POST /api/specials/saved/[id]/promote — happy path', () => {
     const data = await res.json();
     assert.equal(data.promotion.menu_item_name, 'Pork Belly Stack');
     assert.equal(data.promotion.servings, 1);
+    const canonicalDish = bridge.normalizeDishName('Pork Belly Stack');
     const row = db.prepare(
-      `SELECT qty_per_serving FROM dish_components WHERE dish_name = 'Pork Belly Stack' AND vendor_ingredient = 'PORK BELLY SKIN-ON'`,
-    ).get();
+      `SELECT qty_per_serving FROM dish_components WHERE dish_name = ? AND vendor_ingredient = 'PORK BELLY SKIN-ON'`,
+    ).get(canonicalDish);
     assert.equal(row.qty_per_serving, 4);
   });
 });
@@ -243,9 +245,10 @@ describe('promotion pulls cost data through to menu engineering', () => {
     assert.equal(data.components[0].unit, 'lb');
     assert.ok(Math.abs(data.components[0].qty_per_serving - 0.2607938891256041) < 1e-9);
 
+    const canonicalDish = bridge.normalizeDishName('Buttermilk Bites');
     const row = db.prepare(
-      `SELECT qty_per_serving, unit FROM dish_components WHERE dish_name = 'Buttermilk Bites' AND vendor_ingredient = 'AP FLOUR'`,
-    ).get();
+      `SELECT qty_per_serving, unit FROM dish_components WHERE dish_name = ? AND vendor_ingredient = 'AP FLOUR'`,
+    ).get(canonicalDish);
     assert.equal(row.unit, 'lb');
     assert.ok(Math.abs(row.qty_per_serving - 0.2607938891256041) < 1e-9);
 
@@ -281,8 +284,9 @@ describe('idempotent re-promote', () => {
     assert.equal(data.repromoted, true);
 
     assert.equal(db.prepare('SELECT COUNT(*) AS c FROM specials_promotions').get().c, 1);
+    const canonicalDish = bridge.normalizeDishName('Lariat Belly Stack');
     assert.equal(
-      db.prepare(`SELECT COUNT(*) AS c FROM dish_components WHERE dish_name = 'Lariat Belly Stack'`).get().c,
+      db.prepare(`SELECT COUNT(*) AS c FROM dish_components WHERE dish_name = ?`).get(canonicalDish).c,
       2,
     );
     const audit = db.prepare(
@@ -298,13 +302,15 @@ describe('idempotent re-promote', () => {
     const res = await promoteSpecial(id, { menu_item_name: 'New Name', servings: 4 });
     assert.equal(res.status, 200);
 
+    const oldCanonicalDish = bridge.normalizeDishName('Old Name');
     assert.equal(
-      db.prepare(`SELECT COUNT(*) AS c FROM dish_components WHERE dish_name = 'Old Name'`).get().c,
+      db.prepare(`SELECT COUNT(*) AS c FROM dish_components WHERE dish_name = ?`).get(oldCanonicalDish).c,
       0,
     );
+    const newCanonicalDish = bridge.normalizeDishName('New Name');
     const rows = db.prepare(
-      `SELECT * FROM dish_components WHERE dish_name = 'New Name' ORDER BY vendor_ingredient`,
-    ).all();
+      `SELECT * FROM dish_components WHERE dish_name = ? ORDER BY vendor_ingredient`,
+    ).all(newCanonicalDish);
     assert.equal(rows.length, 2);
     assert.equal(rows[1].qty_per_serving, 1); // 4 lb / 4 servings
 
