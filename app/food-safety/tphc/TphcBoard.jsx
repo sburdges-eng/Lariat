@@ -44,7 +44,7 @@ export default function TphcBoard({
   active,
   scan,
   recent,
-  now,
+  now: _now,
   locationId,
   kinds,
   discardReasons,

@@ -26,8 +26,8 @@ import type { OutboxBatch } from './cloudBridgeQueue.ts';
 import { getDb } from './db.ts';
 
 export type PushBatchFn = (
-  batch: OutboxBatch,
-  opts: { url: string; secret: string; timeoutMs?: number },
+  _batch: OutboxBatch,
+  _opts: { url: string; secret: string; timeoutMs?: number },
 ) => Promise<PushResult>;
 
 export interface DrainerOpts {
@@ -71,14 +71,14 @@ export interface DrainerHandle {
    * preserved; for incident-response visibility, call
    * `gracefulStopVerbose` instead — it returns { released, awaitedMs }.
    */
-  gracefulStop(timeoutMs?: number): Promise<number>;
+  gracefulStop(_timeoutMs?: number): Promise<number>;
   /**
    * Audit L4 (2026-05-14): same as gracefulStop but returns both the
    * released-rows count AND how long the in-flight-tick wait took.
    * Operators running `npm run cloud-bridge:drain` see a more useful
    * shutdown log line than just "stopped (N claims released)".
    */
-  gracefulStopVerbose(timeoutMs?: number): Promise<{ released: number; awaitedMs: number }>;
+  gracefulStopVerbose(_timeoutMs?: number): Promise<{ released: number; awaitedMs: number }>;
   /** Run one tick synchronously. Used by the interval and by tests/manual flush. */
   tick(): Promise<TickResult>;
   /** Whether the interval is currently armed. */

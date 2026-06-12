@@ -22,11 +22,11 @@ import { saveDishCoverageSnapshot } from '../dishCoverageSnapshots.ts';
  */
 export interface TriggerComputeEngineOptions extends AccountingVarianceOptions {
   /**
-   * Keep at most this many rows in `margin_snapshots` and
-   * `accounting_variance` per location; older rows are deleted at the
-   * end of this run. Set to 0 to disable pruning (unbounded growth;
-   * only appropriate for ad-hoc analysis, not production).
-   * Default: 365 (roughly a year of daily snapshots).
+   * Keep at most this many rows in `margin_snapshots`,
+   * `accounting_variance`, and `dish_coverage_snapshots` per location;
+   * older rows are deleted at the end of this run. Set to 0 to disable
+   * pruning (unbounded growth; only appropriate for ad-hoc analysis,
+   * not production). Default: 365 (roughly a year of daily snapshots).
    */
   retainPerLocation?: number;
 }
@@ -59,7 +59,7 @@ export function triggerComputeEngine(
   //    (defaults to current calendar month in accountingVariance).
   computeAccountingVariance(db, locationId, opts);
 
-  // 4. Retention: both snapshot tables grow linearly with the trigger
+  // 4. Retention: the snapshot tables grow linearly with the trigger
   //    rate (docs/COMPUTE_ENGINE_REVIEW I2). Prune to the N most recent
   //    rows per location. Bounded at ~365 by default — enough to
   //    reconstruct a year of daily snapshots for audit while keeping
@@ -68,12 +68,13 @@ export function triggerComputeEngine(
   if (retain > 0) {
     pruneSnapshotTable(db, 'margin_snapshots', locationId, retain);
     pruneSnapshotTable(db, 'accounting_variance', locationId, retain);
+    pruneSnapshotTable(db, 'dish_coverage_snapshots', locationId, retain);
   }
 }
 
 function pruneSnapshotTable(
   db: ReturnType<typeof getDb>,
-  table: 'margin_snapshots' | 'accounting_variance',
+  table: 'margin_snapshots' | 'accounting_variance' | 'dish_coverage_snapshots',
   locationId: string,
   retain: number,
 ): void {

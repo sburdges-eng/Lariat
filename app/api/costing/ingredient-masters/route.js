@@ -14,7 +14,6 @@ import { requirePin } from '../../../../lib/pin';
 import { withIdempotency } from '../../../../lib/idempotency';
 import {
   listMasters,
-  getMaster,
   updateMaster,
 } from '../../../../lib/ingredientMastersRepo';
 import { locationFromBody, locationFromRequest } from '../../../../lib/location';

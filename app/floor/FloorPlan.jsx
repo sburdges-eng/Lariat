@@ -41,7 +41,7 @@ const STARTER_TABLES = [
   { id: 'T6', name: 'T6', capacity: 2, x: 4, y: 2, w: 1, h: 1 },
 ];
 
-export default function FloorPlan({ tables, reservations, locationId, today }) {
+export default function FloorPlan({ tables, reservations, locationId, today: _today }) {
   const router = useRouter();
   const [cookId, setCookId] = useState('');
   // busyId guards every mutation: while non-null, all action buttons

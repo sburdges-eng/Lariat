@@ -77,7 +77,7 @@ export default function RecipeEditForm({ slug }) {
         throw new Error(data.error || 'Failed to save recipe');
       }
 
-      const data = await res.json();
+      await res.json();
       setSaving(false);
       router.push(`/recipes/${slug}`);
       router.refresh();

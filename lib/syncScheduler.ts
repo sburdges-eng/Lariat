@@ -88,7 +88,7 @@ export interface TickResult {
 export interface SchedulerHandle {
   start(): void;
   stop(): void;
-  gracefulStop(timeoutMs?: number): Promise<void>;
+  gracefulStop(_timeoutMs?: number): Promise<void>;
   tick(): Promise<TickResult>;
   isRunning(): boolean;
   /**
@@ -98,7 +98,7 @@ export interface SchedulerHandle {
    * are responsible for ensuring the new peers list is well-formed
    * (the lifecycle wiring filters via isAllowedBaseUrl).
    */
-  setPeers(peers: PeerConfig[]): void;
+  setPeers(_peers: PeerConfig[]): void;
   /** Current peer list (for diagnostics + tests). */
   getPeers(): readonly PeerConfig[];
 }

@@ -20,7 +20,6 @@ import {
   isPoolEligible,
   summarizePool,
   validateDistributionShape,
-  validateTipCreditPeriod,
 } from '../../../lib/tipPool';
 
 export const dynamic = 'force-dynamic';
