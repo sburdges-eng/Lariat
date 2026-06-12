@@ -13,12 +13,14 @@
 
 import { useState } from 'react';
 import { useLocation } from '../../_components/useLocation';
+import { useT } from '../../_components/I18nProvider.jsx';
 import { clientFetch } from '../../../lib/clientFetch';
 
 const KNOWN_STATIONS = ['grill', 'sides', 'bar'];
 const BLANK_LINE = () => ({ item_name: '', quantity: 1, station: 'grill', modifiers: '' });
 
 export default function PunchTicketPage() {
+  const tt = useT();
   const { locationId } = useLocation();
   const [orderNumber, setOrderNumber] = useState('');
   const [destination, setDestination] = useState('');
@@ -43,11 +45,11 @@ export default function PunchTicketPage() {
     setOk(null);
 
     if (!orderNumber.trim()) {
-      setError('Order number needed');
+      setError(tt('punch.orderNeeded'));
       return;
     }
     if (lines.length === 0 || !lines.some((l) => l.item_name.trim())) {
-      setError('Add at least one item');
+      setError(tt('punch.addOneItem'));
       return;
     }
 
@@ -74,15 +76,15 @@ export default function PunchTicketPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.error || "Couldn't send — try again");
+        setError(data?.error || tt('punch.sendFailed'));
         return;
       }
-      setOk(`Sent #${orderNumber.trim()} to the line`);
+      setOk(tt('punch.sent', { order: orderNumber.trim() }));
       setOrderNumber('');
       setDestination('');
       setLines([BLANK_LINE()]);
     } catch {
-      setError("Couldn't reach the line — check connection");
+      setError(tt('punch.noConnection'));
     } finally {
       setBusy(false);
     }
@@ -90,16 +92,16 @@ export default function PunchTicketPage() {
 
   return (
     <main style={{ padding: 16, maxWidth: 720, margin: '0 auto' }}>
-      <h1 style={{ fontSize: 22, marginBottom: 4 }}>Punch a ticket</h1>
+      <h1 style={{ fontSize: 22, marginBottom: 4 }}>{tt('punch.title')}</h1>
       <p style={{ fontSize: 13, color: 'var(--muted, #888)', marginTop: 0 }}>
-        Type the order, send it to the line. The kitchen iPad picks it up.
+        {tt('punch.subtitle')}
       </p>
 
       <form onSubmit={send} style={{ marginTop: 16 }}>
         <fieldset disabled={busy} style={{ border: 'none', padding: 0, margin: 0 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>Order #</span>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>{tt('punch.orderLabel')}</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -111,7 +113,7 @@ export default function PunchTicketPage() {
               />
             </label>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>Table or window</span>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>{tt('punch.destinationLabel')}</span>
               <input
                 type="text"
                 value={destination}
@@ -122,7 +124,7 @@ export default function PunchTicketPage() {
             </label>
           </div>
 
-          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Items</h2>
+          <h2 style={{ fontSize: 16, marginBottom: 8 }}>{tt('punch.itemsHead')}</h2>
           {lines.map((line, idx) => (
             <div
               key={idx}
@@ -135,7 +137,7 @@ export default function PunchTicketPage() {
               }}
             >
               <label style={fieldStyle}>
-                {idx === 0 && <span style={labelStyle}>Item</span>}
+                {idx === 0 && <span style={labelStyle}>{tt('punch.itemLabel')}</span>}
                 <input
                   type="text"
                   value={line.item_name}
@@ -145,7 +147,7 @@ export default function PunchTicketPage() {
                 />
               </label>
               <label style={fieldStyle}>
-                {idx === 0 && <span style={labelStyle}>Qty</span>}
+                {idx === 0 && <span style={labelStyle}>{tt('punch.qtyLabel')}</span>}
                 <input
                   type="number"
                   min={1}
@@ -156,7 +158,7 @@ export default function PunchTicketPage() {
                 />
               </label>
               <label style={fieldStyle}>
-                {idx === 0 && <span style={labelStyle}>Station</span>}
+                {idx === 0 && <span style={labelStyle}>{tt('punch.stationLabel')}</span>}
                 <select
                   value={line.station}
                   onChange={(e) => updateLine(idx, { station: e.target.value })}
@@ -168,7 +170,7 @@ export default function PunchTicketPage() {
                 </select>
               </label>
               <label style={fieldStyle}>
-                {idx === 0 && <span style={labelStyle}>Mods</span>}
+                {idx === 0 && <span style={labelStyle}>{tt('punch.modsLabel')}</span>}
                 <input
                   type="text"
                   value={line.modifiers}
@@ -181,7 +183,7 @@ export default function PunchTicketPage() {
                 <button
                   type="button"
                   onClick={() => removeLine(idx)}
-                  aria-label="Remove line"
+                  aria-label={tt('punch.removeLine')}
                   style={{
                     height: 36,
                     border: '1px solid var(--border, #ccc)',
@@ -206,7 +208,7 @@ export default function PunchTicketPage() {
               fontSize: 13,
               cursor: 'pointer',
             }}
-          >+ Add item</button>
+          >{tt('punch.addItem')}</button>
 
           <div style={{ marginTop: 24, display: 'flex', gap: 12, alignItems: 'center' }}>
             <button
@@ -222,7 +224,7 @@ export default function PunchTicketPage() {
                 cursor: 'pointer',
               }}
             >
-              {busy ? 'Sending…' : 'Send to line'}
+              {busy ? tt('punch.sending') : tt('punch.sendToLine')}
             </button>
             {error && <span style={{ color: 'var(--red, #ef4444)', fontSize: 13 }}>{error}</span>}
             {ok && <span style={{ color: 'var(--green, #16a34a)', fontSize: 13 }}>{ok}</span>}

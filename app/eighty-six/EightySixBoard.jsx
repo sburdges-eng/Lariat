@@ -2,11 +2,17 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useT, useLocale } from '../_components/I18nProvider.jsx';
 
+// Reason CODES are the API contract (POST /api/eighty-six payloads and
+// DB rows keep these values verbatim); only their display labels go
+// through the i18n catalog (eightySix.reasons.*).
 const REASONS = ['out','spoiled','dropped','no_make','burned','prep_short','other'];
 
 export default function EightySixBoard({ active, resolved, cascaded = [], stations, date, locationId = 'default' }) {
   const router = useRouter();
+  const tt = useT();
+  const locale = useLocale();
   const [cookId, setCookId] = useState('');
   const [item, setItem] = useState('');
   const [stationId, setStationId] = useState('');
@@ -48,9 +54,9 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
         }),
       });
       ok = res.ok;
-      if (!ok) setErr('Didn\u2019t save \u2014 try again');
+      if (!ok) setErr(tt('eightySix.saveFailed'));
     } catch {
-      setErr('Lost connection \u2014 not saved');
+      setErr(tt('eightySix.lostConnection'));
     }
     addingRef.current = false;
     setSaving(false);
@@ -70,11 +76,11 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
         body: JSON.stringify({ id, cook_id: cookId, location_id: locationId }),
       });
       if (!res.ok) {
-        setErr('Didn’t save — try again');
+        setErr(tt('eightySix.saveFailed'));
         return;
       }
     } catch {
-      setErr('Lost connection — not saved');
+      setErr(tt('eightySix.lostConnection'));
       return;
     } finally {
       resolvingRef.current.delete(id);
@@ -101,9 +107,9 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
           note: `uses ${c.via}`,
         }),
       });
-      if (!res.ok) setErr('Didn\u2019t save \u2014 try again');
+      if (!res.ok) setErr(tt('eightySix.saveFailed'));
     } catch {
-      setErr('Lost connection \u2014 not saved');
+      setErr(tt('eightySix.lostConnection'));
     }
     setSaving(false);
     router.refresh();
@@ -113,18 +119,18 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
 
   return (
     <div>
-      <h1>86 Board</h1>
-      <p className="subtitle">{active.length} item{active.length === 1 ? '' : 's'} out. Mark it back when you&apos;ve got it.</p>
+      <h1>{tt('eightySix.title')}</h1>
+      <p className="subtitle">{tt('eightySix.subtitle', { count: active.length, n: active.length })}</p>
 
       <form onSubmit={add} className="card form-row" aria-describedby={err ? 'e86-err' : undefined}>
         <div style={{ flex: '2 1 240px' }}>
-          <label className="label" htmlFor="e86-item">Item</label>
+          <label className="label" htmlFor="e86-item">{tt('eightySix.itemLabel')}</label>
           <input
             id="e86-item"
             name="e86-item"
             value={item}
             onChange={e => setItem(e.target.value)}
-            placeholder="e.g. Pork Chop, House Salad, Aji Verde"
+            placeholder={tt('eightySix.itemPlaceholder')}
             className="input form-field"
             autoComplete="off"
             spellCheck={false}
@@ -134,7 +140,7 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
           />
         </div>
         <div style={{ flex:'1 1 140px' }}>
-          <label className="label" htmlFor="e86-station">Station</label>
+          <label className="label" htmlFor="e86-station">{tt('eightySix.stationLabel')}</label>
           <select
             id="e86-station"
             name="e86-station"
@@ -142,12 +148,12 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
             onChange={e => setStationId(e.target.value)}
             className="input form-field"
           >
-            <option value="">— any —</option>
+            <option value="">{tt('eightySix.anyStation')}</option>
             {stations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
         <div style={{ flex:'1 1 120px' }}>
-          <label className="label" htmlFor="e86-reason">Reason</label>
+          <label className="label" htmlFor="e86-reason">{tt('eightySix.reasonLabel')}</label>
           <select
             id="e86-reason"
             name="e86-reason"
@@ -157,19 +163,19 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
           >
             {REASONS.map(r => (
               <option key={r} value={r}>
-                {r.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                {tt(`eightySix.reasons.${r}`)}
               </option>
             ))}
           </select>
         </div>
         <div style={{ flex:'0 1 100px' }}>
-          <label className="label" htmlFor="e86-qty">Qty</label>
+          <label className="label" htmlFor="e86-qty">{tt('eightySix.qtyLabel')}</label>
           <input
             id="e86-qty"
             name="e86-qty"
             value={quantity}
             onChange={e => setQuantity(e.target.value)}
-            placeholder="opt."
+            placeholder={tt('eightySix.qtyPlaceholder')}
             className="input form-field"
             inputMode="numeric"
             autoComplete="off"
@@ -179,9 +185,9 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
           type="submit"
           className="btn red lg"
           disabled={saving || !itemValid}
-          aria-label={saving ? 'Saving…' : `Mark ${item.trim() || 'item'} as 86'd`}
+          aria-label={saving ? tt('eightySix.saving') : tt('eightySix.addAria', { item: item.trim() || tt('eightySix.genericItem') })}
         >
-          {saving ? 'Saving…' : '86 it'}
+          {saving ? tt('eightySix.saving') : tt('eightySix.addButton')}
         </button>
       </form>
 
@@ -206,18 +212,18 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
       )}
 
       {active.length === 0 ? (
-        <div className="empty" role="status" aria-live="polite">No 86s right now. ✓</div>
+        <div className="empty" role="status" aria-live="polite">{tt('eightySix.none')}</div>
       ) : (
-        <ul className="checklist" aria-label="Currently 86'd items" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        <ul className="checklist" aria-label={tt('eightySix.activeListAria')} style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {active.map(e => (
             <li key={e.id} className="check-row fail">
               <div>
                 <div className="check-name">{e.item}</div>
                 <div className="meta">
                   {e.station_id && <>{e.station_id} · </>}
-                  {e.reason && <>{String(e.reason).replace('_',' ')} · </>}
+                  {e.reason && <>{tt(`eightySix.reasons.${e.reason}`)} · </>}
                   {e.quantity && <>{e.quantity} · </>}
-                  <time dateTime={e.created_at}>{fmtTime(e.created_at)}</time>
+                  <time dateTime={e.created_at}>{fmtTime(e.created_at, locale)}</time>
                   {e.cook_id && <> · {e.cook_id}</>}
                 </div>
               </div>
@@ -225,9 +231,9 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
               <button
                 className="btn green"
                 onClick={() => resolve(e.id)}
-                aria-label={`Mark ${e.item} as back in stock`}
+                aria-label={tt('eightySix.resolveAria', { item: e.item })}
               >
-                Resolve
+                {tt('eightySix.resolveButton')}
               </button>
             </li>
           ))}
@@ -236,10 +242,9 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
 
       {cascaded.length > 0 && (
         <div style={{ marginTop: 24 }}>
-          <div className="section-head">Might also be out</div>
+          <div className="section-head">{tt('eightySix.cascadeHead')}</div>
           <div className="meta" style={{ marginBottom: 8 }}>
-            These use something you just 86&apos;d. Already-prepped ones
-            may still be fine — check and mark any you&apos;re out of.
+            {tt('eightySix.cascadeHint')}
           </div>
           <div className="checklist" style={{ marginTop: 12 }}>
             {cascaded.map(c => (
@@ -247,8 +252,8 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
                 <div>
                   <div className="check-name">{c.name}</div>
                   <div className="meta">
-                    uses {c.via}
-                    {confirmSlug === c.slug && <> — prepped batches may still be fine</>}
+                    {tt('eightySix.uses', { via: c.via })}
+                    {confirmSlug === c.slug && <> {tt('eightySix.preppedMayBeFine')}</>}
                   </div>
                 </div>
                 {confirmSlug === c.slug ? (
@@ -257,17 +262,17 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
                     <button
                       className="btn"
                       onClick={() => setConfirmSlug(null)}
-                      aria-label={`Keep ${c.name} on the menu`}
+                      aria-label={tt('eightySix.keepAria', { name: c.name })}
                     >
-                      Keep it
+                      {tt('eightySix.keepIt')}
                     </button>
                     <button
                       className="btn red"
                       disabled={saving}
                       onClick={() => confirmCascade(c)}
-                      aria-label={`Confirm 86 for ${c.name}`}
+                      aria-label={tt('eightySix.confirmAria', { name: c.name })}
                     >
-                      Yes — 86 it
+                      {tt('eightySix.yes86')}
                     </button>
                   </>
                 ) : (
@@ -278,9 +283,9 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
                       disabled={saving}
                       onClick={() => setConfirmSlug(c.slug)}
                       aria-expanded={false}
-                      aria-label={`Mark ${c.name} out too`}
+                      aria-label={tt('eightySix.markOutAria', { name: c.name })}
                     >
-                      Mark out too
+                      {tt('eightySix.markOutToo')}
                     </button>
                   </>
                 )}
@@ -293,7 +298,7 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
       {resolved.length > 0 && (
         <details style={{ marginTop: 32 }}>
           <summary className="section-head" style={{ cursor:'pointer' }}>
-            Resolved today ({resolved.length})
+            {tt('eightySix.resolvedToday', { n: resolved.length })}
           </summary>
           <div className="checklist" style={{ marginTop: 12 }}>
             {resolved.map(e => (
@@ -301,8 +306,8 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
                 <div>
                   <div className="check-name">{e.item}</div>
                   <div className="meta">
-                    {e.reason && <>{String(e.reason).replace('_',' ')} · </>}
-                    86&apos;d {fmtTime(e.created_at)} → resolved {fmtTime(e.resolved_at)}
+                    {e.reason && <>{tt(`eightySix.reasons.${e.reason}`)} · </>}
+                    {tt('eightySix.resolvedMeta', { created: fmtTime(e.created_at, locale), resolved: fmtTime(e.resolved_at, locale) })}
                   </div>
                 </div>
                 <span aria-hidden /><span aria-hidden /><span aria-hidden /><span aria-hidden />
@@ -315,10 +320,10 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
   );
 }
 
-function fmtTime(iso) {
+function fmtTime(iso, locale = 'en') {
   if (!iso) return '';
   try {
     const d = new Date(iso.replace(' ', 'T') + 'Z');
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return d.toLocaleTimeString(locale === 'es' ? 'es' : 'en-US', { hour: 'numeric', minute: '2-digit' });
   } catch { return iso; }
 }
