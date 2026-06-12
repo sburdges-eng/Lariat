@@ -20,7 +20,7 @@ db.setDbPathForTest(':memory:');
 const conn = db.getDb();
 
 const managerPins = await import('../../lib/managerPins.ts');
-const pinRoute = await import('../../app/api/auth/pin/route.js');
+const pinRoute = await import('../../app/api/auth/pin/route.ts');
 const managerPinRoute = await import('../../app/api/auth/manager-pins/route.js');
 
 const MASTER_COOKIE = 'lariat_pin_ok=1';

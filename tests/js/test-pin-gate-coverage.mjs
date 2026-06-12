@@ -52,7 +52,7 @@ const MIDDLEWARE_PATH = path.join(REPO_ROOT, 'middleware.js');
 const ALLOWLIST = new Set([
   // ── Auth issuance (chicken-and-egg) ────────────────────────────────
   // The PIN itself is the credential being exchanged for the cookie.
-  // Rate-limited (5/60s/IP) per app/api/auth/pin/route.js.
+  // Rate-limited (5/60s/IP) per app/api/auth/pin/route.ts.
   'auth/pin',
   // The temp PIN itself is the credential being exchanged for the
   // temp-pin cookie. Audit §1 flags missing rate limit as a separate

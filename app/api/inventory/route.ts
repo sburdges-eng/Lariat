@@ -1,4 +1,3 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 import { getDb, todayISO } from '../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import {
@@ -50,18 +49,34 @@ export const dynamic = 'force-dynamic';
  * handler.
  */
 
-const clip = (s, max) => {
+interface InventoryPostBody {
+  [key: string]: unknown; // locationFromBody takes Record<string, unknown>
+  item?: unknown;
+  qty?: unknown;
+  unit?: unknown;
+  delta?: unknown;
+  direction?: unknown;
+  source?: unknown;
+  recipe_id?: unknown;
+  ingredient?: unknown;
+  note?: unknown;
+  shift_date?: unknown;
+  station_id?: unknown;
+  cook_id?: unknown;
+}
+
+const clip = (s: unknown, max: number): string | null => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
-function isToastSource(src) {
+function isToastSource(src: unknown): boolean {
   if (typeof src !== 'string') return false;
   return src.trim().toLowerCase() === 'toast';
 }
 
-export async function GET(req) {
+export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const date = url.searchParams.get('date') || todayISO();
@@ -83,13 +98,13 @@ export async function GET(req) {
   }
 }
 
-export async function POST(req) {
+export async function POST(req: Request) {
   return withIdempotency(req, () => inventoryPostHandler(req));
 }
 
-async function inventoryPostHandler(req) {
+async function inventoryPostHandler(req: Request) {
   try {
-    const body = await req.json();
+    const body = (await req.json()) as InventoryPostBody;
     const item = clip(body.item, 300);
     if (!item) return Response.json({ error: 'item required' }, { status: 400 });
     const loc = locationFromBody(body);
@@ -102,8 +117,8 @@ async function inventoryPostHandler(req) {
     let delta = clip(body.delta, 64);
     let persistedNote = userNote;
     let shrinkageApplied = false;
-    let shrinkageReason = null;
-    let rawQty = null;
+    let shrinkageReason: string | null = null;
+    let rawQty: number | null = null;
 
     const qty = typeof body.qty === 'number' ? body.qty : null;
     const unit = clip(body.unit, 32);

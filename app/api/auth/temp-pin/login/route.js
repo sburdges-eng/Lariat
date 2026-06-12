@@ -34,7 +34,7 @@ const COOKIE_TTL_HOURS = 12; // Cookie's natural lifespan; row's expires_at is t
 /* ------------------------------------------------------------------ */
 /* In-memory rate limiter — 5 failed attempts per IP per 60 seconds.  */
 /* Resets on process restart (acceptable for LAN-only deployment).    */
-/* Mirrors the limiter shape in app/api/auth/pin/route.js verbatim.   */
+/* Mirrors the limiter shape in app/api/auth/pin/route.ts verbatim.   */
 /* ------------------------------------------------------------------ */
 const attempts = new Map();          // ip → [timestamp, …]
 const MAX_ATTEMPTS = 5;

@@ -3,7 +3,7 @@
  *
  * Toast sells cooked weight (e.g. 8 oz burger); raw inventory depletes at
  * the pre-cook equivalent (e.g. 10.667 oz at 25% loss). This module is the
- * pure-function layer — the API route (app/api/inventory/route.js) calls
+ * pure-function layer — the API route (app/api/inventory/route.ts) calls
  * `resolveCookingShrinkage` and then formats + persists the result.
  *
  * Design notes:
