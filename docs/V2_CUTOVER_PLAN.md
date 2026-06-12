@@ -6,7 +6,9 @@ audit, Stage-0 smoke `tests/e2e/v2-smoke.spec.ts`, freeze-gate results);
 criterion 4 closed by **operator waiver** of the physical gen-7 iPad run,
 with WebKit software acceptance attached (all flows within threshold) and
 a documented residual risk on the 86-add tap under heavy CPU handicap —
-watch cook-tier responsiveness in Stage 1. Rollout may begin at Stage 0.
+watch cook-tier responsiveness in Stage 1. **Stage 0 executed 2026-06-12 —
+all cook and manager flows pass (see the evidence note); Stage 1 may begin
+once a rollback owner is named.**
 This plan keeps v1 live as the safety rail and defines when to advance,
 when to roll back, and when old routes can finally be deleted.
 
