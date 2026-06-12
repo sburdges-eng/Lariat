@@ -2,6 +2,8 @@
 import Link from 'next/link';
 import PunchTicketPage from '../../../kds/punch/page.jsx';
 import { DEFAULT_LOCATION_ID } from '../../../../lib/location';
+import { getMessages, t } from '../../../../lib/i18n/index.ts';
+import { getLocale } from '../../../../lib/i18n/server.ts';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,23 +14,25 @@ export default async function V2KdsPunchPage({ searchParams }) {
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const locationQuery = locationId !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(locationId)}` : '';
+  const locale = await getLocale();
+  const m = getMessages(locale);
 
   return (
     <main style={{ display: 'grid', gap: 18 }}>
       <section style={heroStyle}>
         <div style={{ display: 'grid', gap: 8 }}>
-          <div style={eyebrowStyle}>Punch now</div>
-          <h1 style={titleStyle}>Send to line</h1>
-          <p style={copyStyle}>Type the order and push it to the kitchen.</p>
+          <div style={eyebrowStyle}>{t(m, 'shells.punch.eyebrow')}</div>
+          <h1 style={titleStyle}>{t(m, 'shells.punch.title')}</h1>
+          <p style={copyStyle}>{t(m, 'shells.punch.copy')}</p>
         </div>
         <div style={jumpRowStyle}>
           <Link href={`/v2/today${locationQuery}`} style={jumpCardStyle}>
-            <span style={eyebrowStyle}>Back</span>
-            <strong>Back to today</strong>
+            <span style={eyebrowStyle}>{t(m, 'common.back')}</span>
+            <strong>{t(m, 'shells.backToToday')}</strong>
           </Link>
           <Link href={`/v2/eighty-six${locationQuery}`} style={jumpCardStyle}>
-            <span style={eyebrowStyle}>Watch</span>
-            <strong>Watch 86</strong>
+            <span style={eyebrowStyle}>{t(m, 'shells.punch.watchEyebrow')}</span>
+            <strong>{t(m, 'shells.punch.watchLink')}</strong>
           </Link>
         </div>
       </section>

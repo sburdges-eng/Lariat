@@ -2,6 +2,8 @@
 import Link from 'next/link';
 import StationPage from '../../../stations/[id]/page.jsx';
 import { DEFAULT_LOCATION_ID } from '../../../../lib/location';
+import { getMessages, t } from '../../../../lib/i18n/index.ts';
+import { getLocale } from '../../../../lib/i18n/server.ts';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,23 +14,25 @@ export default async function V2StationBoardPage({ params, searchParams }) {
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const locationQuery = locationId !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(locationId)}` : '';
+  const locale = await getLocale();
+  const m = getMessages(locale);
 
   return (
     <main style={{ display: 'grid', gap: 18 }}>
       <section style={heroStyle}>
         <div style={{ display: 'grid', gap: 8 }}>
-          <div style={eyebrowStyle}>Line check</div>
-          <h1 style={titleStyle}>Work the board</h1>
-          <p style={copyStyle}>Stay on the station, mark what is ready, and flag what needs help.</p>
+          <div style={eyebrowStyle}>{t(m, 'shells.station.eyebrow')}</div>
+          <h1 style={titleStyle}>{t(m, 'shells.station.title')}</h1>
+          <p style={copyStyle}>{t(m, 'shells.station.copy')}</p>
         </div>
         <div style={jumpRowStyle}>
           <Link href={`/v2/today${locationQuery}`} style={jumpCardStyle}>
-            <span style={eyebrowStyle}>Back</span>
-            <strong>Back to today</strong>
+            <span style={eyebrowStyle}>{t(m, 'common.back')}</span>
+            <strong>{t(m, 'shells.backToToday')}</strong>
           </Link>
           <Link href={`/v2/stations${locationQuery}`} style={jumpCardStyle}>
-            <span style={eyebrowStyle}>All</span>
-            <strong>All boards</strong>
+            <span style={eyebrowStyle}>{t(m, 'shells.station.allEyebrow')}</span>
+            <strong>{t(m, 'shells.station.allLink')}</strong>
           </Link>
         </div>
       </section>

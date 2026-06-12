@@ -709,7 +709,14 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
             value={language}
             onChange={(e) => {
               setLanguage(e.target.value);
-              if (typeof window !== 'undefined') window.localStorage.setItem(LANG_KEY, e.target.value);
+              if (typeof window !== 'undefined') {
+                window.localStorage.setItem(LANG_KEY, e.target.value);
+                // Keep the v2 UI locale in step with the answer language —
+                // Spanish answers + Spanish chrome, anything else → English
+                // chrome until those catalogs exist (lib/i18n).
+                const locale = e.target.value === 'Spanish' ? 'es' : 'en';
+                document.cookie = `lariat_locale=${locale}; Path=/; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+              }
             }}
             className="input w-auto"
             aria-label="Answer language"
