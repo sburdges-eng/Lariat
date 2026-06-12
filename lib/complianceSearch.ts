@@ -246,7 +246,7 @@ interface VectorsCache {
 
 let _vectorsCachePromise: Promise<VectorsCache | null> | null = null;
 let _modelPromise:
-  | Promise<(t: string[], opts: object) => Promise<{ data: Float32Array }>>
+  | Promise<(_t: string[], _opts: object) => Promise<{ data: Float32Array }>>
   | null = null;
 let _vectorsPathOverride: string | null = null;
 let _idsPathOverride: string | null = null;
@@ -326,8 +326,8 @@ async function loadVectors(): Promise<VectorsCache | null> {
 }
 
 type ModelFn = (
-  t: string[],
-  opts: object,
+  _t: string[],
+  _opts: object,
 ) => Promise<{ data: Float32Array }>;
 
 let _modelOverride: ModelFn | null = null;

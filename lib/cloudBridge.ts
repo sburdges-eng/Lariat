@@ -39,9 +39,9 @@ export interface CloudBridge {
    * cloudBridgeQueue.enqueue() then the Item-8 drainer.
    */
   pushSnapshot(
-    table: string,
-    rows: unknown[],
-    opts: { locationId: string },
+    _table: string,
+    _rows: unknown[],
+    _opts: { locationId: string },
   ): Promise<{ accepted: number; rejected: number }>;
 
   /**
@@ -51,8 +51,8 @@ export interface CloudBridge {
    * the design doc.
    */
   pullSnapshot(
-    table: string,
-    opts: { locationId: string; since: string },
+    _table: string,
+    _opts: { locationId: string; since: string },
   ): Promise<unknown[]>;
 
   /**

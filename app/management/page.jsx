@@ -261,12 +261,12 @@ function locationHref(pathname, locationId) {
 
 // ── Page ──
 
-// Hard cap — `computeDishCoverage` scans `dish_components` + `sales_lines`.
-// Above this many distinct sales dishes, skip the read so the page stays
-// snappy and surface a "view full report" prompt instead.
-// TODO(management): introduce dish_coverage_snapshots populated by the
-// compute engine and read from that table here. Tracked separately — out
-// of scope for the rollup-tile PR.
+// Hard cap — the inline `computeDishCoverage` fallback scans
+// `dish_components` + `sales_lines`. Above this many distinct sales dishes,
+// skip that fallback so the page stays snappy and surface a "view full
+// report" prompt instead. The preferred path reads the compute-engine-written
+// `dish_coverage_snapshots` row (see readLatestDishCoverageSnapshot below);
+// the inline scan only runs when no snapshot exists yet.
 const DISH_COVERAGE_CAP = 500;
 
 export default function ManagementRollupPage({ searchParams }) {

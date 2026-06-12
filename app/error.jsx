@@ -1,7 +1,7 @@
 // @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 'use client';
 
-export default function GlobalError({ error, reset }) {
+export default function GlobalError({ error: _error, reset }) {
   return (
     <div
       role="alert"

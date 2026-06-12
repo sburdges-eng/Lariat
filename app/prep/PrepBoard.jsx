@@ -282,7 +282,7 @@ function ClosedSection({ rows, stationName, onReopen }) {
   );
 }
 
-function Suggested({ rows, stations, cookId, date, locationId }) {
+function Suggested({ rows, stations: _stations, cookId, date, locationId }) {
   const router = useRouter();
   const [busyKey, setBusyKey] = useState(null);
   const [err, setErr] = useState('');

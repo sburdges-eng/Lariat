@@ -357,7 +357,7 @@ export function runDbQuery(req: DbQueryRunRequest): DbQueryRunOutcome {
         note: `db_query ${spec.name} returned ${rowsOut.length} row(s)`,
       });
     })();
-  } catch (e) {
+  } catch {
     return {
       ok: false,
       code: 'execution_error',

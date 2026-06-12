@@ -207,9 +207,9 @@ def main():
     )
     parser.add_argument(
         "--source", "-s",
-        choices=list(EXTRACTORS.keys()) + ["all"],
+        choices=list(EXTRACTORS.keys()) + ["fda_food_code", "all"],
         default="all",
-        help="Extract only this source",
+        help="Extract/normalize only this source (fda_food_code is normalize-only)",
     )
     parser.add_argument(
         "--extract-only",
@@ -230,17 +230,64 @@ def main():
         extract_source(src)
 
     if not args.extract_only:
-        print(f"\n{'─'*50}")
-        print(f"  Normalization — not yet implemented")
-        print(f"  Future: JSONL pipelines per source")
-        print(f"{'─'*50}")
-        # TODO: Implement per-source normalization:
-        #   - USDA → ingredients.jsonl, nutrients.jsonl
-        #   - OFF → branded_products.jsonl, allergens.json
-        #   - RecipeNLG → recipes.jsonl, recipe_ingredients.jsonl
-        #   - Wikibooks → techniques.jsonl, knife_skills.jsonl
+        failures = normalize_sources(sources)
+        if failures:
+            print(f"\n✗ Normalization failed for: {', '.join(failures)}\n")
+            sys.exit(1)
 
     print("\n✓ Done\n")
+
+
+def normalize_sources(sources: list) -> list:
+    """Run the per-source normalizers (the modules build_sqlite_index.py
+    consumes from normalized/). RecipeNLG is intentionally NOT normalized —
+    it has no downstream consumer (no entry in sanity_check.py SOURCES and
+    build_sqlite_index.py never reads recipes.jsonl); the raw download is a
+    future-capability placeholder.
+
+    A normalizer exiting 2 means its extracted input is absent on this
+    machine — common on dev checkouts without the full raw archives — and
+    is reported as a skip, not a failure.
+    """
+    # Imports are lazy so `--extract-only` (and --help) stay fast.
+    from scripts.datapack import (  # noqa: PLC0415
+        normalize_fda_food_code,
+        normalize_off,
+        normalize_usda,
+        normalize_wikibooks,
+    )
+
+    normalizers = {
+        "usda": normalize_usda,
+        "openfoodfacts": normalize_off,
+        "wikibooks": normalize_wikibooks,
+        "fda_food_code": normalize_fda_food_code,
+    }
+
+    # `--source all` covers fda_food_code even though it has no extract step.
+    keys = list(normalizers.keys()) if "all" in sources or sources == list(EXTRACTORS.keys()) else sources
+
+    failures = []
+    for src in keys:
+        print(f"\n{'─'*50}")
+        print(f"  Normalize: {src}")
+        print(f"{'─'*50}")
+        mod = normalizers.get(src)
+        if mod is None:
+            print(f"  (no normalizer for {src} — recipenlg is intentionally unconsumed)")
+            continue
+        try:
+            code = mod.main([])
+        except FileNotFoundError as err:
+            # normalize_fda_food_code raises instead of returning 2 — same
+            # "input absent on this machine" condition either way.
+            print(f"  (skipped: {err})")
+            continue
+        if code == 2:
+            print(f"  (skipped: extracted input not present for {src})")
+        elif code != 0:
+            failures.append(src)
+    return failures
 
 
 if __name__ == "__main__":

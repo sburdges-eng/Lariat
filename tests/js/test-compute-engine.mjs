@@ -357,6 +357,17 @@ describe('I2 · triggerComputeEngine prunes old snapshot rows', () => {
     assert.equal(n, 2);
   });
 
+  it('retainPerLocation = 2 leaves at most 2 dish_coverage_snapshots rows per location', () => {
+    triggerComputeEngine(LOC, { retainPerLocation: 2 });
+    triggerComputeEngine(LOC, { retainPerLocation: 2 });
+    triggerComputeEngine(LOC, { retainPerLocation: 2 });
+
+    const n = testDb.prepare(
+      `SELECT COUNT(*) AS c FROM dish_coverage_snapshots WHERE location_id = ?`,
+    ).get(LOC).c;
+    assert.ok(n <= 2, `expected ≤2 dish_coverage_snapshots rows, got ${n}`);
+  });
+
   it('retainPerLocation = 0 disables pruning', () => {
     triggerComputeEngine(LOC, { retainPerLocation: 0 });
     triggerComputeEngine(LOC, { retainPerLocation: 0 });

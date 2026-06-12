@@ -2,7 +2,7 @@
 import { getDb } from '../../../../lib/db';
 import { uuidv7 } from '../../../../lib/uuid';
 import { logAuditAction } from '../../../../lib/auditLog.mjs';
-import { locationFromBodyOrRequest, locationFromRequest } from '../../../../lib/location';
+import { locationFromBodyOrRequest } from '../../../../lib/location';
 import { hasPinOrTempPin, pinRequiredForPic } from '../../../../lib/pin';
 import {
   validateName,

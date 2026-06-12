@@ -70,7 +70,7 @@ export interface AcquireOptions {
   /** Override Date.now-based timestamp — only for tests. */
   now?: () => Date;
   /** Override the liveness probe — only for tests. */
-  isPidAlive?: (pid: number) => boolean;
+  isPidAlive?: (_pid: number) => boolean;
 }
 
 function defaultLockDir(): string {

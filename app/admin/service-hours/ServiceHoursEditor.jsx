@@ -13,11 +13,6 @@ const DAY_NAMES = [
   'Saturday',
 ];
 
-const dayLabel = (n) => {
-  const i = Number(n);
-  return Number.isInteger(i) && i >= 0 && i <= 6 ? DAY_NAMES[i] : String(n);
-};
-
 const emptyDraft = () => ({
   day_of_week: '0',
   service_label: '',

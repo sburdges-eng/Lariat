@@ -88,7 +88,7 @@ describe('RecipePhotoUploader — caption editing', () => {
 
     await waitFor(() => {
       const patchCall = global.fetch.mock.calls.find(
-        ([url, opts]) => opts && opts.method === 'PATCH',
+        ([_url, opts]) => opts && opts.method === 'PATCH',
       );
       expect(patchCall).toBeDefined();
       expect(patchCall[0]).toBe('/api/recipes/house_ranch_dressing/photos/11');

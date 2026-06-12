@@ -106,7 +106,7 @@ if (existsSync(SESSION_DIR)) {
                 if (overlapping.length > 0) {
                     conflicts.push({ agent: data.agent, files: overlapping, updated: data.lastUpdate });
                 }
-            } catch (e) {
+            } catch {
                 // Ignore malformed session files
             }
         }

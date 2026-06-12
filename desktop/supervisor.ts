@@ -28,7 +28,7 @@ export interface SupervisorOptions {
   entryPath: string;     // absolute path to server-entry.cjs
   electronExecPath: string; // process.execPath inside Electron main
   env: NodeJS.ProcessEnv;
-  onCrash?: (info: CrashInfo) => void;
+  onCrash?: (_info: CrashInfo) => void;
   onReady?: () => void;
 }
 

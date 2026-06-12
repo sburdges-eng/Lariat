@@ -22,7 +22,7 @@ export default function BreakBoard({ rows, staff, date, locationId }) {
   const [waiverRef, setWaiverRef] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
-  const [nowTs, setNowTs] = useState(Date.now());
+  const [, setNowTs] = useState(Date.now());
 
   useEffect(() => {
     setCookId(window.localStorage.getItem('lariat_cook') || '');

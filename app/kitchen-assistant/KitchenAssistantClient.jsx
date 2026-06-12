@@ -187,7 +187,7 @@ function buildUndoStateFromResponse(data) {
     message: '',
   };
 }
-export default function KitchenAssistantClient({ locQuery }) {
+export default function KitchenAssistantClient({ locQuery: _locQuery }) {
   const [ollamaOk, setOllamaOk] = useState(null);
   const [model, setModel] = useState('');
   const [message, setMessage] = useState('');

@@ -491,7 +491,7 @@ interface BucketCacheEntry {
 
 const _bucketCache: Map<string, Promise<BucketCacheEntry | null>> = new Map();
 // Promise so concurrent first-callers share one model load.
-let _modelPromise: Promise<(t: string[], opts: object) => Promise<{ data: Float32Array }>> | null =
+let _modelPromise: Promise<(_t: string[], _opts: object) => Promise<{ data: Float32Array }>> | null =
   null;
 // Test-only — see `_setAvailableOverrideForTest`.
 let _availableOverride: boolean | null = null;
@@ -678,7 +678,7 @@ function loadBucket(bucket: string): Promise<BucketCacheEntry | null> {
   // self-reference confuses TS's flow analysis. Splitting into an
   // explicit Promise + an async runner with a tiny `done` flag side-
   // steps that and is just as cheap.
-  let resolve!: (entry: BucketCacheEntry | null) => void;
+  let resolve!: (_entry: BucketCacheEntry | null) => void;
   const promise = new Promise<BucketCacheEntry | null>((r) => {
     resolve = r;
   });
@@ -715,7 +715,7 @@ function loadBucket(bucket: string): Promise<BucketCacheEntry | null> {
 }
 
 async function loadModel(): Promise<
-  (t: string[], opts: object) => Promise<{ data: Float32Array }>
+  (_t: string[], _opts: object) => Promise<{ data: Float32Array }>
 > {
   if (_modelPromise) return _modelPromise;
   // Dynamic import keeps transformers.js (and its ~30 MB ONNX
@@ -727,8 +727,8 @@ async function loadModel(): Promise<
   const promise = (async () => {
     const { pipeline } = await import('@huggingface/transformers');
     const fe = (await pipeline('feature-extraction', _BGE_MODEL_ID)) as unknown as (
-      t: string[],
-      opts: object
+      _t: string[],
+      _opts: object
     ) => Promise<{ data: Float32Array }>;
     return fe;
   })();

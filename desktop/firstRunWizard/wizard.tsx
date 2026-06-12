@@ -6,10 +6,10 @@ declare global {
   interface Window {
     lariat: {
       getSettings: () => Promise<Settings | null>;
-      pickDirectory: (defaultPath?: string) => Promise<string | null>;
+      pickDirectory: (_defaultPath?: string) => Promise<string | null>;
       getDataDirDefault: () => Promise<string>;
       detectExistingDb: () => Promise<string | null>;
-      proceed: (settings: Settings) => Promise<void>;
+      proceed: (_settings: Settings) => Promise<void>;
       cancel: () => Promise<void>;
     };
   }
@@ -19,7 +19,7 @@ interface PathFieldProps {
   label: string;
   hint?: string;
   value: string;
-  onChange: (next: string) => void;
+  onChange: (_next: string) => void;
   onPick: () => void;
   required?: boolean;
 }
@@ -28,7 +28,7 @@ interface TextFieldProps {
   label: string;
   hint?: string;
   value: string;
-  onChange: (next: string) => void;
+  onChange: (_next: string) => void;
   type?: 'text' | 'password';
   required?: boolean;
 }
@@ -128,7 +128,7 @@ function App(): JSX.Element {
     existingDb !== null && norm(existingDb) !== norm(dataDir);
 
   const onPick = async (
-    setter: (v: string) => void,
+    setter: (_v: string) => void,
     current: string,
   ): Promise<void> => {
     const picked = await window.lariat.pickDirectory(current || undefined);
