@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '../../../../lib/db';
 import { locationFromRequest } from '../../../../lib/location';
 import { withIdempotency } from '../../../../lib/idempotency';
+import { requirePin } from '../../../../lib/pin';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,10 @@ async function performanceReviewDeleteHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // HR record deletion — manager PIN required (same gate as the
+  // collection routes).
+  const pinFail = await requirePin(req);
+  if (pinFail) return pinFail;
   const resolvedParams = await params;
   try {
     const id = Number(resolvedParams?.id);

@@ -102,10 +102,9 @@ const ALLOWLIST = new Set([
   'reservations',
   'reservations/[id]',
   'service-hours',
-  // Gold-stars index (kudos) — staff recognition create/read stays open
-  // to line staff. The by-id DELETE route is explicitly manager-PIN gated
-  // because it removes recognition from the board.
-  'gold-stars',
+  // (gold-stars removed from the allowlist 2026-06-12: awarding a star
+  //  is now requirePin-gated alongside the existing DELETE gate, per
+  //  operator direction — the board GET stays open so cooks see it.)
 
   // ── Prep / kitchen workflow (line-cook authority) ──────────────────
   'prep-tasks',
@@ -149,11 +148,9 @@ const ALLOWLIST = new Set([
   // ── Labor surfaces (employee self-service via temp-pin scope) ──────
   // breaks: punch-in/punch-out for the worker themselves.
   'breaks',
-  // performance-reviews: manager surface but not yet middleware-gated.
-  // Tracked as a follow-up in the audit doc; allowlisting here pins
-  // the current posture so we notice if it changes.
-  'performance-reviews',
-  'performance-reviews/[id]',
+  // (performance-reviews removed from the allowlist 2026-06-12: the
+  //  audit follow-up landed — every handler now calls requirePin, so the
+  //  scanner enforces the gate instead of pinning its absence.)
 
   // ── Specials sandbox v1 (ephemeral, pre-PIN by design) ─────────────
   // Audit §1 line 237: "Specials sandbox v1 ephemeral contract holds —

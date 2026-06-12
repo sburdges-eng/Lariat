@@ -4,10 +4,16 @@ import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
 import { logAuditAction } from '../../../lib/auditLog.mjs';
 import { validateScores } from '../../../lib/performanceReviews';
+import { requirePin } from '../../../lib/pin';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
+  // Employee reviews are HR records — manager PIN required even to read
+  // (closes the "not yet middleware-gated" follow-up from the 2026-05-08
+  // audit; the /management page shell was already behind the matcher).
+  const pinFail = await requirePin(req);
+  if (pinFail) return pinFail;
   try {
     const db = getDb();
     const loc = locationFromRequest(req);
@@ -27,6 +33,8 @@ export async function POST(req: Request) {
 }
 
 async function performanceReviewPostHandler(req: Request) {
+  const pinFail = await requirePin(req);
+  if (pinFail) return pinFail;
   try {
     const body = await req.json();
     const cookName = typeof body.cook_name === 'string' ? body.cook_name.trim() : '';
