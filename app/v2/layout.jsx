@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import LocalePicker from '../_components/LocalePicker.jsx';
+import I18nProvider from '../_components/I18nProvider.jsx';
 import { LOCALE_COOKIE, getMessages, normalizeLocale, t } from '../../lib/i18n/index.ts';
 
 export const dynamic = 'force-dynamic';
@@ -147,7 +148,9 @@ export default async function V2Layout({ children }) {
         <section className="v2-shell" data-v2-shell>
           <div className="v2-frame">
             <V2Topbar locale={locale} m={m} />
-            {children}
+            {/* Client boards embedded by v2 pages (EightySixBoard, punch,
+                station checklist) read locale from this context. */}
+            <I18nProvider locale={locale}>{children}</I18nProvider>
           </div>
         </section>
       ) : (
