@@ -117,6 +117,12 @@ const ALLOWLIST = new Set([
   // 86-list — line cooks mark a dish unavailable mid-service.
   'eighty-six',
   'eighty-six/resolve',
+  // Voice transcription for the LaRi composer (LARIAT_WHISPER opt-in).
+  // No DB write — the transcript only lands in the caller's own
+  // textarea; cook-tier surface used mid-service with wet hands, same
+  // posture as the composer it feeds. CPU abuse is bounded by the 413
+  // payload cap and the LAN-only deployment.
+  'transcribe',
 
   // ── Inventory counts (line-cook authority during count nights) ─────
   // Counts are entered on the line by whoever's running inventory; no
