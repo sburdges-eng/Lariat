@@ -89,6 +89,29 @@ Shift-style pass added to the e2e suite:
 - LaRi voice input uses the Web Speech API (PR #320); offline Whisper
   remains deferred (roadmap 2.6 residual).
 
+## Stage 0 — internal shift smoke (EXECUTED 2026-06-12, all flows pass)
+
+Run against a fresh production build (`npm run build && npm start`),
+v1 still the default experience, v2 reached via the preview cookie:
+
+1. Codified suite: `npm run test:e2e` — **22/22** (incl. the 7-test
+   `v2-smoke.spec.ts` Stage-0 pass and the Spanish locale smoke).
+2. Shift-flow drive (one-off script per the cutover plan's Stage-0
+   checklist — the two write-flows the codified suite only
+   render-checks were exercised for real):
+   - `/v2/today` renders the live board
+   - **KDS punch: a real ticket sent to the line** (order `#940180`,
+     "Sent #… to the line" confirmation observed)
+   - 86 round trip: add → propagates to `/v2/today` → resolve
+   - **Station board: opened a board and passed a line item; the
+     `pass` row verified persisted server-side** via
+     `GET /api/checks` (cook `stage0-smoke`)
+   - Manager: `/v2/command`, `/v2/management`, `/v2/analytics` render
+     with consistent location
+
+No critical flow failed → per the plan, Stage 1 (cook-tier pilot) may
+begin once a rollback owner is named.
+
 ## Rollback owner
 
 - _To be named per shift window at Stage-1 start (cutover plan requirement)._

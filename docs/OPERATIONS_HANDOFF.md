@@ -26,10 +26,13 @@ per `docs/audit/2026-06-09-ipad-gen7-hardware-runbook.md`.
 
 Owner-driven per `docs/V2_CUTOVER_PLAN.md`:
 
-- **Stage 0**: internal full-shift smoke in v2 (preview cookie). The
-  automated equivalent already passes (`tests/e2e/v2-smoke.spec.ts`).
-- **Stage 1**: cook-tier pilot — name a rollback owner for the shift window
-  first (placeholder lives in the Stage-0 evidence note).
+- ~~**Stage 0**~~ **EXECUTED 2026-06-12, all flows pass** — production
+  build, 22/22 codified e2e plus a real KDS ticket send and a station
+  line-check persisted server-side; full record in
+  `docs/audit/2026-06-11-v2-stage0-readiness-evidence.md`.
+- **Stage 1 (next)**: cook-tier pilot — name a rollback owner for the
+  shift window first (placeholder lives in the Stage-0 evidence note),
+  then set the `lariat_v2=1` cookie on the pilot devices.
 - **Stage 2**: manager-tier pilot after a clean cook window.
 - **Stage 3**: default-on; start the 30-day clean-operation clock.
 - After 30 clean days: delete v1 routes in a separate reviewable change and
