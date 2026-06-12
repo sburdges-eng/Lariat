@@ -66,14 +66,32 @@ test.describe('Offline indicator + SW queue infrastructure', () => {
     await page.goto('/');
     await page.evaluate(async () => await navigator.serviceWorker.ready);
 
+    // The store is created lazily by the SW's own openDB() (public/sw.js)
+    // on its first queue operation. Opening 'lariat-sw' v1 from the page
+    // context BEFORE the SW has done so creates an empty version-1 DB with
+    // no stores — an order-dependent flake in full-suite runs. Force the
+    // SW's openDB() first via the queueSize message, then probe.
     const exists = await page.evaluate(() => {
       return new Promise((resolve) => {
-        const req = indexedDB.open('lariat-sw', 1);
-        req.onsuccess = () => {
-          const db = req.result;
-          resolve(db.objectStoreNames.contains('mutation-queue'));
+        const probe = () => {
+          const req = indexedDB.open('lariat-sw', 1);
+          req.onsuccess = () => {
+            const db = req.result;
+            const found = db.objectStoreNames.contains('mutation-queue');
+            db.close();
+            resolve(found);
+          };
+          req.onerror = () => resolve(false);
         };
-        req.onerror = () => resolve(false);
+        const handler = (e: MessageEvent) => {
+          if (e.data?.type === 'queueSizeResult') {
+            navigator.serviceWorker.removeEventListener('message', handler);
+            probe();
+          }
+        };
+        navigator.serviceWorker.addEventListener('message', handler);
+        navigator.serviceWorker.controller!.postMessage({ type: 'queueSize' });
+        setTimeout(() => resolve(false), 5000);
       });
     });
 

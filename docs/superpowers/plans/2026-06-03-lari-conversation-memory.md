@@ -1,5 +1,7 @@
 # LaRi Conversation Memory Implementation Plan
 
+> **STATUS: SHIPPED (2026-06-11 audit).** `lib/lariConversationMemory.ts`, the `lari_conversation_turns` schema, and the `test:kitchen-assistant-conversation` suite all exist and pass on main; roadmap row 2.1 is closed. This plan is a historical record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a bounded, per-location/per-cook/per-session LaRi conversation buffer without making prior assistant turns authoritative.

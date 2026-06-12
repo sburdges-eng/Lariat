@@ -1,5 +1,7 @@
 # Cloud-Bridge Replay Determinism Implementation Plan
 
+> **STATUS: SHIPPED (2026-06-11 audit).** `lib/cloudBridgeReplay.ts`, `tests/js/test-cloud-bridge-replay-determinism.mjs`, and the `test:cloud-bridge-replay-determinism` npm script all exist and pass on main; roadmap row 1.13 is closed. This plan is a historical record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a deterministic local replay proof for cloud-bridge outbox batches so roadmap 1.13 is covered without schema or runtime service changes.

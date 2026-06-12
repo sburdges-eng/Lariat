@@ -3,10 +3,16 @@ import { test, expect } from '@playwright/test';
 const PIN = process.env.LARIAT_PIN || '1234';
 
 test('shows surfaces — login → booking → playbook → archive', async ({ page }) => {
-  // Log in via PIN.
+  // Log in via PIN. Wait for the auth POST to land before navigating —
+  // the form sets lariat_pin_ok via fetch, and a goto issued before the
+  // response arrives races the cookie and bounces back to the gate.
   await page.goto('/login-pin');
   await page.fill('input[name="pin"]', PIN);
+  const authResponse = page.waitForResponse(
+    (r) => r.url().includes('/api/auth/pin') && r.request().method() === 'POST',
+  );
   await page.click('button[type="submit"]');
+  expect((await authResponse).ok()).toBe(true);
 
   // Booking.
   await page.goto('/booking');
