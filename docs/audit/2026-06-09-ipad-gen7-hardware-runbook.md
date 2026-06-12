@@ -1,5 +1,13 @@
 # iPad Gen 7 hardware runbook for roadmap row 2.21
 
+> **ACCEPTANCE RULE CHANGED (2026-06-12): the operator waived the physical
+> device run for v2 cutover entry.** Closure evidence is the WebKit
+> software run in `docs/audit/2026-06-12-ipad-profile-software-v2.json`
+> (`--no-hardware --route-prefix /v2`); the chromium 4× stress preflight
+> and its 86-add residual risk are recorded in the Stage-0 evidence note.
+> This runbook remains valid if a device run is ever wanted — drop
+> `--no-hardware` and follow the steps below unchanged.
+
 Purpose: finish the only roadmap row explicitly marked as the next implementation step after the merged freeze work.
 
 Source of truth:

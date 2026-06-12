@@ -57,18 +57,27 @@ Shift-style pass added to the e2e suite:
 | Production build | `npm run build` | clean (`npm run verify` exit 0) |
 | E2E (incl. Stage-0 smoke) | `npm run test:e2e` | 21/21 |
 
-## Criterion 4 — iPad hardware evidence (PENDING — the only blocker)
+## Criterion 4 — iPad hardware evidence (WAIVED by operator, 2026-06-12)
 
-- The profiling harness now supports the v2 tree:
-  `npm run profile:ipad -- --route-prefix /v2` (sets the preview cookie,
-  drives `/v2/stations/grill_saute`, `/v2/kds/punch`, `/v2/eighty-six`).
-- Software-only confirmation run (desktop chromium, 2 iterations,
-  2026-06-11): all three flows within the 100 ms threshold
-  (station-pass / kds-send / 86-add ≈ 26–60 ms tap-to-feedback).
-  **This does not satisfy the hardware gate** — `hardwareRequired` stays
-  true until run on the gen-7 iPad.
-- Hardware procedure: `docs/audit/2026-06-09-ipad-gen7-hardware-runbook.md`;
-  record results in `docs/audit/2026-06-09-ipad-gen7-hardware-evidence-template.md`.
+- **Operator decision 2026-06-12: the physical gen-7 iPad run is waived**
+  for cutover entry ("skip ipad profile"). The acceptance rule changed per
+  the runbook's escape hatch; the profiler gained `--no-hardware` to record
+  software-only acceptance honestly (`hardwareRequired: false` in the report).
+- **Software acceptance run (closure evidence under the waiver)** — WebKit
+  (the iPad's engine family), iPad (gen 7) profile, `/v2` tree, 10
+  iterations: `docs/audit/2026-06-12-ipad-profile-software-v2.json`.
+  All flows pass: station-pass p95 46.4 ms, kds-send p95 59.7 ms,
+  86-add p95 70.9 ms (threshold 100 ms). `hardwareAcceptanceSatisfied: true`.
+- **Stress preflight (context, not acceptance)** — Chromium with 4× CPU
+  throttle, 10 iterations: `docs/audit/2026-06-12-ipad-profile-stress-4x-v2.json`.
+  kds-send passes (59.2 ms); station-pass is marginal (p95 103.3 ms,
+  avg 84.4); 86-add misses (p95 129.9 ms, avg 121.2). **Known residual
+  risk**: on genuinely slow hardware the 86-add tap may exceed 100 ms.
+  Stage-1's rollback trigger ("cook-tier responsiveness regresses enough
+  that service work is materially slowed") is the operational guard.
+- If a device run is ever wanted, the harness and procedure remain:
+  `docs/audit/2026-06-09-ipad-gen7-hardware-runbook.md` (drop
+  `--no-hardware`, add `--route-prefix /v2`).
 
 ## Known limitations acceptable for the first 30 days
 
