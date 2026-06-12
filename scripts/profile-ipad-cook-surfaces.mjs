@@ -32,6 +32,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
     iterations: DEFAULT_ITERATIONS,
     locationId: DEFAULT_LOCATION_ID,
     outPath: '',
+    routePrefix: '',
     thresholdMs: DEFAULT_THRESHOLD_MS,
   };
 
@@ -69,6 +70,11 @@ export function parseArgs(argv = process.argv.slice(2)) {
       opts.locationId = requireValue(argv[i], '--location');
     } else if (arg.startsWith('--location=')) {
       opts.locationId = requireValue(arg.slice('--location='.length), '--location');
+    } else if (arg === '--route-prefix') {
+      i += 1;
+      opts.routePrefix = parseRoutePrefix(requireValue(argv[i], '--route-prefix'));
+    } else if (arg.startsWith('--route-prefix=')) {
+      opts.routePrefix = parseRoutePrefix(arg.slice('--route-prefix='.length));
     } else if (arg === '--cook') {
       i += 1;
       opts.cookId = requireValue(argv[i], '--cook');
@@ -232,6 +238,20 @@ async function newPage(context, opts) {
   return page;
 }
 
+/**
+ * Validate a route prefix ('' for v1 routes, or a slash-leading path like
+ * '/v2' to profile the same cook flows on the v2 route tree). Trailing
+ * slashes are rejected so `${prefix}/kds/punch` composes cleanly.
+ */
+export function parseRoutePrefix(raw) {
+  const value = (raw ?? '').trim();
+  if (value === '') return '';
+  if (!value.startsWith('/') || value.endsWith('/')) {
+    throw new Error("--route-prefix must start with '/' and not end with one (e.g. /v2)");
+  }
+  return value;
+}
+
 async function maybeSetCpuSlowdown(context, page, opts) {
   if (opts.browserName !== 'chromium' || opts.cpuSlowdown === 1) return;
   const session = await context.newCDPSession(page);
@@ -247,7 +267,7 @@ async function timeInteraction(action) {
 async function stationPassSample(context, opts, iteration) {
   const page = await newPage(context, opts);
   await maybeSetCpuSlowdown(context, page, opts);
-  await page.goto(`${opts.baseUrl}/stations/grill_saute?location=${encodeURIComponent(opts.locationId)}`);
+  await page.goto(`${opts.baseUrl}${opts.routePrefix || ''}/stations/grill_saute?location=${encodeURIComponent(opts.locationId)}`);
   await page.waitForLoadState('networkidle');
   const passButtons = page.getByRole('button', { name: /^Pass / });
   const count = await passButtons.count();
@@ -266,10 +286,10 @@ async function kdsSendSample(context, opts, iteration) {
   const page = await newPage(context, opts);
   await maybeSetCpuSlowdown(context, page, opts);
   const orderNo = `P${Date.now()}-${iteration}`;
-  await page.goto(`${opts.baseUrl}/kds/punch?location=${encodeURIComponent(opts.locationId)}`);
+  await page.goto(`${opts.baseUrl}${opts.routePrefix || ''}/kds/punch?location=${encodeURIComponent(opts.locationId)}`);
   await page.waitForLoadState('networkidle');
   await page.getByLabel('Order #').fill(orderNo);
-  await page.getByLabel('Item').first().fill(`Perf burger ${iteration}`);
+  await page.getByRole('textbox', { name: 'Item' }).first().fill(`Perf burger ${iteration}`);
   const sendButton = page.getByRole('button', { name: 'Send to line' });
   const elapsed = await timeInteraction(async () => {
     await sendButton.tap();
@@ -283,9 +303,11 @@ async function eightySixAddSample(context, opts, iteration) {
   const page = await newPage(context, opts);
   await maybeSetCpuSlowdown(context, page, opts);
   const item = `Perf 86 ${Date.now()}-${iteration}`;
-  await page.goto(`${opts.baseUrl}/eighty-six?location=${encodeURIComponent(opts.locationId)}`);
+  await page.goto(`${opts.baseUrl}${opts.routePrefix || ''}/eighty-six?location=${encodeURIComponent(opts.locationId)}`);
   await page.waitForLoadState('networkidle');
-  await page.getByLabel('Item').fill(item);
+  // getByRole textbox: bare getByLabel('Item') substring-matches the submit
+  // button's "Mark item as 86'd" aria-label and trips strict mode.
+  await page.getByRole('textbox', { name: 'Item' }).fill(item);
   const addButton = page.getByRole('button', { name: eightySixSubmitAccessibleName(item) });
   const elapsed = await timeInteraction(async () => {
     await addButton.tap();
@@ -308,6 +330,13 @@ export async function runProfile(opts) {
       ...devices[opts.deviceName],
       baseURL: opts.baseUrl,
     });
+    if (opts.routePrefix === '/v2') {
+      // The v2 route tree is preview-cookie gated (app/v2/layout.jsx).
+      const { hostname } = new URL(opts.baseUrl);
+      await context.addCookies([
+        { name: 'lariat_v2', value: '1', domain: hostname, path: '/' },
+      ]);
+    }
     const measurements = [];
     for (const flowId of opts.flowIds) {
       const flow = FLOW_RUNNERS[flowId];
