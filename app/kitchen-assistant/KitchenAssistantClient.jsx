@@ -187,6 +187,73 @@ function buildUndoStateFromResponse(data) {
     message: '',
   };
 }
+// ── Local-Whisper hold-to-talk capture ──────────────────────────────
+// When /api/transcribe reports enabled (LARIAT_WHISPER=1 server-side),
+// the mic button records raw PCM via Web Audio instead of using the
+// Web Speech API: capture at the device rate, downsample to Whisper's
+// 16 kHz mono, encode PCM16 WAV, POST, append the transcript. Web
+// Speech stays as the fallback so the probe failing (or the flag off)
+// keeps today's behavior byte-identical.
+
+const WHISPER_RATE = 16000;
+
+// Composer picker labels → Whisper language hints (server auto-detects
+// when the label is unknown).
+const WHISPER_LANGUAGE_HINTS = {
+  English: 'en',
+  Spanish: 'es',
+  French: 'fr',
+  Tagalog: 'tl',
+  'Kenyan Swahili': 'sw',
+};
+
+function downsampleToWhisperRate(chunks, fromRate) {
+  let total = 0;
+  for (const c of chunks) total += c.length;
+  const joined = new Float32Array(total);
+  let off = 0;
+  for (const c of chunks) {
+    joined.set(c, off);
+    off += c.length;
+  }
+  if (fromRate === WHISPER_RATE) return joined;
+  const ratio = fromRate / WHISPER_RATE;
+  const outLen = Math.floor(joined.length / ratio);
+  const out = new Float32Array(outLen);
+  for (let i = 0; i < outLen; i += 1) {
+    // Nearest-sample decimation — fine for speech into whisper-tiny;
+    // a windowed-sinc resampler is not worth the battery on an iPad.
+    out[i] = joined[Math.floor(i * ratio)];
+  }
+  return out;
+}
+
+function encodeWavPcm16(pcm) {
+  const buf = new ArrayBuffer(44 + pcm.length * 2);
+  const view = new DataView(buf);
+  const writeTag = (off, s) => {
+    for (let i = 0; i < s.length; i += 1) view.setUint8(off + i, s.charCodeAt(i));
+  };
+  writeTag(0, 'RIFF');
+  view.setUint32(4, 36 + pcm.length * 2, true);
+  writeTag(8, 'WAVE');
+  writeTag(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, WHISPER_RATE, true);
+  view.setUint32(28, WHISPER_RATE * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeTag(36, 'data');
+  view.setUint32(40, pcm.length * 2, true);
+  for (let i = 0; i < pcm.length; i += 1) {
+    const s = Math.max(-1, Math.min(1, pcm[i]));
+    view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return buf;
+}
+
 export default function KitchenAssistantClient({ locQuery: _locQuery }) {
   const [ollamaOk, setOllamaOk] = useState(null);
   const [model, setModel] = useState('');
@@ -204,6 +271,12 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
   const [speechSupported, setSpeechSupported] = useState(false);
   const [SpeechRec, setSpeechRec] = useState(null);
   const recognitionRef = useRef(null);
+  // Local-Whisper capture (see module helpers above). whisperEnabled is
+  // the /api/transcribe probe result; probe failure leaves it false so
+  // the Web Speech path is the default everywhere Whisper isn't set up.
+  const [whisperEnabled, setWhisperEnabled] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const captureRef = useRef(null);
   // Per-badge drill-in state, keyed by badge type. Shape:
   //   { status: 'loading' | 'ok' | 'error' | 'unavailable' | 'closed',
   //     citations?: [...], message?: string }
@@ -239,10 +312,30 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
       .catch(() => {
         setOllamaOk(false);
       });
+
+    fetch('/api/transcribe')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setWhisperEnabled(Boolean(d?.enabled)))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
-    return () => { recognitionRef.current?.abort(); };
+    return () => {
+      recognitionRef.current?.abort();
+      // Unmount mid-capture: discard, don't transcribe (no state to land in).
+      const cap = captureRef.current;
+      if (cap) {
+        captureRef.current = null;
+        try {
+          cap.processor.disconnect();
+          cap.source.disconnect();
+          cap.stream.getTracks().forEach((t) => t.stop());
+          cap.ctx.close();
+        } catch {
+          /* best-effort teardown */
+        }
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -259,16 +352,94 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
     };
   }, [undoState]);
 
+  const finishWhisperCapture = () => {
+    const cap = captureRef.current;
+    if (!cap) return;
+    captureRef.current = null;
+    setIsListening(false);
+    try {
+      cap.processor.disconnect();
+      cap.source.disconnect();
+      cap.stream.getTracks().forEach((t) => t.stop());
+      cap.ctx.close();
+    } catch {
+      /* best-effort teardown — transcribe whatever we captured */
+    }
+    const pcm = downsampleToWhisperRate(cap.chunks, cap.sampleRate);
+    // Sub-0.1s holds are taps, not speech — skip the round-trip.
+    if (pcm.length < WHISPER_RATE / 10) return;
+    const hint = WHISPER_LANGUAGE_HINTS[language];
+    const qs = hint ? `?language=${encodeURIComponent(hint)}` : '';
+    setTranscribing(true);
+    fetch(`/api/transcribe${qs}`, {
+      method: 'POST',
+      headers: { 'content-type': 'audio/wav' },
+      body: encodeWavPcm16(pcm),
+    })
+      .then(async (r) => {
+        const d = await r.json().catch(() => null);
+        if (!r.ok || typeof d?.transcript !== 'string') throw new Error('transcribe failed');
+        const t = d.transcript.trim();
+        if (t) setMessage((prev) => (prev + ' ' + t).trim());
+      })
+      .catch((err) => {
+        console.error('Whisper transcribe failed:', err);
+        setErr(VOICE_INPUT_ERROR);
+      })
+      .finally(() => setTranscribing(false));
+  };
+
+  const startWhisperCapture = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // The pointer may already be up by the time the permission prompt
+      // resolves — bail out instead of recording an unheld mic.
+      if (captureRef.current || recognitionRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new Ctx();
+      const source = ctx.createMediaStreamSource(stream);
+      // ScriptProcessor over AudioWorklet: deprecated but the only path
+      // that works on every iPad Safari this kitchen runs.
+      const processor = ctx.createScriptProcessor(4096, 1, 1);
+      const chunks = [];
+      processor.onaudioprocess = (evt) => {
+        chunks.push(new Float32Array(evt.inputBuffer.getChannelData(0)));
+      };
+      source.connect(processor);
+      processor.connect(ctx.destination);
+      captureRef.current = { stream, ctx, source, processor, chunks, sampleRate: ctx.sampleRate };
+      setIsListening(true);
+    } catch (err) {
+      console.error('Whisper capture fault:', err);
+      captureRef.current = null;
+      setIsListening(false);
+      setErr(VOICE_INPUT_ERROR);
+    }
+  };
+
   const stopListening = (e) => {
     e?.preventDefault?.();
+    if (captureRef.current) {
+      finishWhisperCapture();
+      return;
+    }
     if (!recognitionRef.current) return;
     recognitionRef.current.stop();
   };
 
   const startListening = (e) => {
     e?.preventDefault?.();
-    if (loading || !SpeechRec || recognitionRef.current) return;
+    if (loading || transcribing || recognitionRef.current || captureRef.current) return;
     setErr('');
+
+    if (whisperEnabled) {
+      startWhisperCapture();
+      return;
+    }
+    if (!SpeechRec) return;
 
     try {
       const recognition = new SpeechRec();
@@ -577,7 +748,7 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
           >
             {loading ? 'Wait...' : 'Ask'}
           </button>
-          {speechSupported && (
+          {(speechSupported || whisperEnabled) && (
             <button
               type="button"
               onClick={ignoreVoiceClick}
@@ -589,11 +760,11 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
               onKeyDown={voiceKeyDown}
               onKeyUp={voiceKeyUp}
               className={`btn ${isListening ? 'red' : ''}`}
-              disabled={loading}
+              disabled={loading || transcribing}
               aria-pressed={isListening}
               aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
             >
-              {isListening ? 'Release 🎤' : 'Hold 🎤'}
+              {transcribing ? 'Hearing…' : isListening ? 'Release 🎤' : 'Hold 🎤'}
             </button>
           )}
           {model && (
@@ -604,6 +775,9 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
         </div>
         {isListening && (
           <span className="sr-only" role="status" aria-live="polite">Listening for voice input</span>
+        )}
+        {transcribing && (
+          <span className="sr-only" role="status" aria-live="polite">Transcribing voice input</span>
         )}
       </form>
 

@@ -65,7 +65,8 @@ async function ask(question = 'what is 86?') {
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: /Ask kitchen assistant/i }));
   });
-  await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+  // 3 = boot ping + /api/transcribe whisper probe + the question POST.
+  await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
   const postCall = global.fetch.mock.calls.find(
     ([url, init]) => url === '/api/kitchen-assistant' && init?.method === 'POST',
   );
@@ -140,6 +141,8 @@ test('shows the undo card with countdown and sends the undo request when tapped'
       ok: true,
       json: async () => ({ model: 'lari-the-kitchen-assistant', ollamaReachable: true }),
     })
+    // /api/transcribe whisper probe fires on mount, right after the ping.
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ enabled: false }) })
     .mockResolvedValueOnce(undoAnswerResponse())
     .mockResolvedValueOnce({
       ok: true,
@@ -183,6 +186,8 @@ test('undo card expires after 30 seconds without being tapped', async () => {
       ok: true,
       json: async () => ({ model: 'lari-the-kitchen-assistant', ollamaReachable: true }),
     })
+    // /api/transcribe whisper probe fires on mount, right after the ping.
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ enabled: false }) })
     .mockResolvedValueOnce(undoAnswerResponse());
 
   await askForUndo();
@@ -201,6 +206,8 @@ test('undo card clears on a new question', async () => {
       ok: true,
       json: async () => ({ model: 'lari-the-kitchen-assistant', ollamaReachable: true }),
     })
+    // /api/transcribe whisper probe fires on mount, right after the ping.
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ enabled: false }) })
     .mockResolvedValueOnce(undoAnswerResponse())
     .mockResolvedValueOnce({
       ok: true,
@@ -231,6 +238,8 @@ test('undo card shows terse error copy when the undo is rejected', async () => {
       ok: true,
       json: async () => ({ model: 'lari-the-kitchen-assistant', ollamaReachable: true }),
     })
+    // /api/transcribe whisper probe fires on mount, right after the ping.
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ enabled: false }) })
     .mockResolvedValueOnce(undoAnswerResponse())
     .mockResolvedValueOnce({
       ok: false,
@@ -373,6 +382,8 @@ test('does not start hold-to-talk while waiting for an answer', async () => {
       ok: true,
       json: async () => ({ model: 'lari-the-kitchen-assistant', ollamaReachable: true }),
     })
+    // /api/transcribe whisper probe fires on mount, right after the ping.
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ enabled: false }) })
     .mockImplementationOnce(() => new Promise((resolve) => {
       resolveAnswer = () => resolve({
         ok: true,
