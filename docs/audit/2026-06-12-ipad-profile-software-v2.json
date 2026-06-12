@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "lariat.ipadPerformanceProfile.v1",
+  "target": {
+    "baseUrl": "http://localhost:3000",
+    "browserName": "webkit",
+    "deviceName": "iPad (gen 7)",
+    "hardwareRequired": false,
+    "iterations": 10,
+    "thresholdMs": 100
+  },
+  "summary": {
+    "flowCount": 3,
+    "passingFlows": 3,
+    "failingFlows": 0,
+    "hardwareAcceptanceSatisfied": true
+  },
+  "flows": [
+    {
+      "id": "station-pass",
+      "label": "Station pass tap",
+      "samplesMs": [
+        46.4,
+        34.5,
+        43,
+        39.1,
+        40,
+        29.7,
+        39.1,
+        32.7,
+        34.1,
+        37.3
+      ],
+      "summary": {
+        "count": 10,
+        "minMs": 29.7,
+        "medianMs": 39.1,
+        "avgMs": 37.6,
+        "p95Ms": 46.4,
+        "maxMs": 46.4
+      },
+      "thresholdMs": 100,
+      "withinThreshold": true
+    },
+    {
+      "id": "kds-send",
+      "label": "KDS send tap",
+      "samplesMs": [
+        54.5,
+        58,
+        57.3,
+        59.7,
+        51.3,
+        53.3,
+        58.1,
+        49,
+        54.8,
+        57.2
+      ],
+      "summary": {
+        "count": 10,
+        "minMs": 49,
+        "medianMs": 57.2,
+        "avgMs": 55.3,
+        "p95Ms": 59.7,
+        "maxMs": 59.7
+      },
+      "thresholdMs": 100,
+      "withinThreshold": true
+    },
+    {
+      "id": "eighty-six-add",
+      "label": "86 add tap",
+      "samplesMs": [
+        57.1,
+        63.5,
+        61.5,
+        70.9,
+        65.6,
+        60.5,
+        61.8,
+        60,
+        60.7,
+        61
+      ],
+      "summary": {
+        "count": 10,
+        "minMs": 57.1,
+        "medianMs": 61.5,
+        "avgMs": 62.3,
+        "p95Ms": 70.9,
+        "maxMs": 70.9
+      },
+      "thresholdMs": 100,
+      "withinThreshold": true
+    }
+  ]
+}

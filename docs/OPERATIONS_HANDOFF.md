@@ -6,19 +6,21 @@ decisions, and copy review. Each item carries its exact command or procedure.
 When an item closes, update the matching roadmap row in
 `docs/PROJECT_ROADMAP.md` and strike it here.
 
-## 1. Gen-7 iPad profiling run (roadmap 2.21 — blocks v2 cutover criterion 4)
+## 1. ~~Gen-7 iPad profiling run~~ — WAIVED (2026-06-12); optional device run
 
-The only remaining v2 cutover entry blocker. With the iPad on the kitchen
-network and the server running:
+**Closed by operator waiver.** Cutover criterion 4 is satisfied by the
+WebKit software acceptance (`docs/audit/2026-06-12-ipad-profile-software-v2.json`,
+all flows within threshold). Residual risk to watch during Stage 1: under
+a 4× CPU handicap the 86-add tap exceeded 100 ms — if cooks report a
+sluggish 86 board on real iPads, that's the Stage-1 rollback trigger.
+
+Optional device run (any time, non-blocking):
 
 ```
-npm run profile:ipad -- --route-prefix /v2 --out docs/audit/ipad-gen7-v2-profile.json
+npm run profile:ipad -- --route-prefix /v2 --browser webkit --out docs/audit/ipad-gen7-v2-profile.json
 ```
 
-Procedure and acceptance: `docs/audit/2026-06-09-ipad-gen7-hardware-runbook.md`.
-Record results in `docs/audit/2026-06-09-ipad-gen7-hardware-evidence-template.md`
-and attach the JSON to `docs/audit/2026-06-11-v2-stage0-readiness-evidence.md`.
-Gate: every flow p95 ≤ 100 ms.
+per `docs/audit/2026-06-09-ipad-gen7-hardware-runbook.md`.
 
 ## 2. v2 cutover rollout (Stages 0–3, 30-day clock, v1 deletion)
 

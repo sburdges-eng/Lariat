@@ -48,6 +48,11 @@ describe('iPad performance profiler helpers', () => {
     assert.throws(() => parseArgs(['--out', '../ipad.json']), /--out must stay within/);
   });
 
+  it('--no-hardware flips acceptance to software-only', () => {
+    assert.equal(parseArgs([]).hardwareRequired, true);
+    assert.equal(parseArgs(['--no-hardware']).hardwareRequired, false);
+  });
+
   it('accepts a slash-leading route prefix for profiling the v2 tree', () => {
     assert.equal(parseArgs([]).routePrefix, '');
     assert.equal(parseArgs(['--route-prefix', '/v2']).routePrefix, '/v2');

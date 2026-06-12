@@ -97,6 +97,13 @@ export function parseArgs(argv = process.argv.slice(2)) {
       opts.outPath = requireValue(arg.slice('--out='.length), '--out');
     } else if (arg === '--headed') {
       opts.headed = true;
+    } else if (arg === '--no-hardware') {
+      // Software-only acceptance: the report's hardwareAcceptanceSatisfied
+      // follows the threshold results instead of being pinned false. Used
+      // when the operator waives the physical gen-7 iPad run (record the
+      // waiver in the release evidence — the report still carries
+      // hardwareRequired:false so nobody mistakes it for a device run).
+      opts.hardwareRequired = false;
     } else if (arg === '--json') {
       // JSON is the only output mode; accepted for explicit scripts.
     } else {
@@ -372,8 +379,10 @@ Options:
   --location <id>        Test location id. Default: ${DEFAULT_LOCATION_ID}
   --cook <id>            Cook id stored in localStorage. Default: ${DEFAULT_COOK_ID}
   --cpu-slowdown <n>     Chromium-only CDP throttling. Default: 1
+  --route-prefix <p>     Slash-leading route prefix, e.g. /v2 (sets the preview cookie).
   --out <path>           Optional JSON output path, e.g. output/playwright/ipad-profile.json
   --headed               Show the browser.
+  --no-hardware          Software-only acceptance (operator waives the device run).
 `);
 }
 

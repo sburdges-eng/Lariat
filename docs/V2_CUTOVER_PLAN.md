@@ -1,12 +1,14 @@
 # V2 cutover plan
 
-**Status:** Entry criteria 1–3, 5–6 satisfied as of 2026-06-11 — see
-`docs/audit/2026-06-11-v2-stage0-readiness-evidence.md` (parity audit, Stage-0
-smoke `tests/e2e/v2-smoke.spec.ts`, freeze-gate results). The sole remaining
-entry blocker is criterion 4: gen-7 iPad hardware evidence
-(`npm run profile:ipad -- --route-prefix /v2` per the 2026-06-09 hardware
-runbook). This plan keeps v1 live as the safety rail and defines when to
-advance, when to roll back, and when old routes can finally be deleted.
+**Status:** ALL entry criteria satisfied as of 2026-06-12 — criteria 1–3,
+5–6 per `docs/audit/2026-06-11-v2-stage0-readiness-evidence.md` (parity
+audit, Stage-0 smoke `tests/e2e/v2-smoke.spec.ts`, freeze-gate results);
+criterion 4 closed by **operator waiver** of the physical gen-7 iPad run,
+with WebKit software acceptance attached (all flows within threshold) and
+a documented residual risk on the 86-add tap under heavy CPU handicap —
+watch cook-tier responsiveness in Stage 1. Rollout may begin at Stage 0.
+This plan keeps v1 live as the safety rail and defines when to advance,
+when to roll back, and when old routes can finally be deleted.
 
 ## Goal
 
