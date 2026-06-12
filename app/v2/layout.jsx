@@ -1,6 +1,8 @@
 // @ts-nocheck - v2 preview shell contract is covered by tests/js/test-v2-shell.mjs.
 import Link from 'next/link';
 import { cookies } from 'next/headers';
+import LocalePicker from '../_components/LocalePicker.jsx';
+import { LOCALE_COOKIE, getMessages, normalizeLocale, t } from '../../lib/i18n/index.ts';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,28 +102,31 @@ function V2ChromeReset() {
   );
 }
 
-function V2Topbar() {
+function V2Topbar({ locale, m }) {
   return (
     <header className="v2-topbar">
       <div className="v2-brand">
         <span className="v2-mark" aria-hidden />
-        <span>Lariat v2</span>
+        <span>{t(m, 'shell.brand')}</span>
       </div>
-      <Link className="v2-return" href="/">
-        Return to v1
-      </Link>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <LocalePicker current={locale} label={t(m, 'shell.localeLabel')} />
+        <Link className="v2-return" href="/">
+          {t(m, 'shell.returnV1')}
+        </Link>
+      </div>
     </header>
   );
 }
 
-function V2Gate() {
+function V2Gate({ m }) {
   return (
     <section className="v2-shell v2-gate" data-v2-shell>
       <div className="v2-gate-panel">
-        <h1>Preview is off</h1>
-        <p>The v2 cockpit is only available on devices carrying the preview flag.</p>
+        <h1>{t(m, 'shell.gateTitle')}</h1>
+        <p>{t(m, 'shell.gateBody')}</p>
         <Link className="v2-return" href="/">
-          Return to v1
+          {t(m, 'shell.returnV1')}
         </Link>
       </div>
     </section>
@@ -129,8 +134,11 @@ function V2Gate() {
 }
 
 export default async function V2Layout({ children }) {
-  const previewCookie = (await cookies()).get(V2_PREVIEW_COOKIE);
+  const cookieStore = await cookies();
+  const previewCookie = cookieStore.get(V2_PREVIEW_COOKIE);
   const enabled = previewCookie?.value === '1';
+  const locale = normalizeLocale(cookieStore.get(LOCALE_COOKIE)?.value);
+  const m = getMessages(locale);
 
   return (
     <>
@@ -138,12 +146,12 @@ export default async function V2Layout({ children }) {
       {enabled ? (
         <section className="v2-shell" data-v2-shell>
           <div className="v2-frame">
-            <V2Topbar />
+            <V2Topbar locale={locale} m={m} />
             {children}
           </div>
         </section>
       ) : (
-        <V2Gate />
+        <V2Gate m={m} />
       )}
     </>
   );

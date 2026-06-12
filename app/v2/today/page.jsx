@@ -1,4 +1,6 @@
 // @ts-nocheck - first cook-tier v2 route. Covered by tests/js/test-v2-today.mjs.
+// Copy lives in lib/i18n/messages/* — the copy-contract tests assert
+// against the en catalog, not this file.
 import Link from 'next/link';
 import { getStations, getRecipes } from '../../../lib/data';
 import { getDb, todayISO } from '../../../lib/db';
@@ -6,6 +8,8 @@ import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { activeLineCheckStations } from '../../../lib/lineSummary';
 import { stationProgress } from '../../../lib/stationProgress';
 import { cascadedFromEightySix } from '../../../lib/subRecipeGraph';
+import { getMessages, t } from '../../../lib/i18n/index.ts';
+import { getLocale } from '../../../lib/i18n/server.ts';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,23 +21,22 @@ function stationTone(progress) {
   return 'var(--red)';
 }
 
-function stationLabel(progress) {
-  if (!progress) return 'No line check';
-  if (progress.flagged > 0) return `${progress.flagged} flagged`;
-  if (progress.signedOff) return 'Signed off';
-  if (progress.done >= progress.total) return 'Ready';
-  if (progress.done > 0) return `${progress.done} of ${progress.total}`;
-  return 'Open line';
+function stationLabel(progress, m) {
+  if (!progress) return t(m, 'today.station.noLineCheck');
+  if (progress.flagged > 0) return t(m, 'today.station.flagged', { count: progress.flagged, n: progress.flagged });
+  if (progress.signedOff) return t(m, 'today.station.signedOff');
+  if (progress.done >= progress.total) return t(m, 'today.station.ready');
+  if (progress.done > 0) return t(m, 'today.station.progress', { done: progress.done, total: progress.total });
+  return t(m, 'today.station.openLine');
 }
 
-function formatDateChip(iso) {
+function formatDateChip(iso, locale) {
   const [y, m, d] = iso.split('-').map(Number);
   if (!y || !m || !d) return iso;
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC',
-  });
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(
+    locale === 'es' ? 'es' : 'en-US',
+    { month: 'short', day: 'numeric', timeZone: 'UTC' },
+  );
 }
 
 export default async function V2TodayPage({ searchParams }) {
@@ -44,6 +47,8 @@ export default async function V2TodayPage({ searchParams }) {
       : DEFAULT_LOCATION_ID;
   const date = todayISO();
   const locationQuery = locationId !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(locationId)}` : '';
+  const locale = await getLocale();
+  const m = getMessages(locale);
 
   const stations = getStations().map((station) => ({
     ...station,
@@ -67,41 +72,41 @@ export default async function V2TodayPage({ searchParams }) {
     <main style={{ display: 'grid', gap: 18 }}>
       <section style={heroStyle}>
         <div>
-          <div style={eyebrowStyle}>Today · {formatDateChip(date)}</div>
-          <h1 style={titleStyle}>Line now</h1>
-          <p style={subheadStyle}>See what is ready, what is out, and where to jump next.</p>
+          <div style={eyebrowStyle}>{t(m, 'today.eyebrow', { date: formatDateChip(date, locale) })}</div>
+          <h1 style={titleStyle}>{t(m, 'today.title')}</h1>
+          <p style={subheadStyle}>{t(m, 'today.subhead')}</p>
         </div>
         <div style={statGridStyle}>
           <div style={statCardStyle}>
             <strong style={statNumberStyle}>{activeStations.filter((station) => station.prog?.signedOff || station.prog?.done >= station.prog?.total).length}</strong>
-            <span style={statLabelStyle}>Ready</span>
+            <span style={statLabelStyle}>{t(m, 'today.statReady')}</span>
           </div>
           <div style={statCardStyle}>
             <strong style={statNumberStyle}>{activeStations.reduce((sum, station) => sum + (station.prog?.flagged || 0), 0)}</strong>
-            <span style={statLabelStyle}>Flagged</span>
+            <span style={statLabelStyle}>{t(m, 'today.statFlagged')}</span>
           </div>
           <div style={statCardStyle}>
             <strong style={statNumberStyle}>{outs.length}</strong>
-            <span style={statLabelStyle}>86 now</span>
+            <span style={statLabelStyle}>{t(m, 'today.stat86')}</span>
           </div>
         </div>
       </section>
 
       <section style={actionRowStyle}>
         <Link href={`/v2/kds/punch${locationQuery}`} style={actionCardStyle}>
-          <span style={eyebrowStyle}>Next</span>
-          <strong>Send to line</strong>
+          <span style={eyebrowStyle}>{t(m, 'common.next')}</span>
+          <strong>{t(m, 'today.sendToLine')}</strong>
         </Link>
         <Link href={`/v2/eighty-six${locationQuery}`} style={actionCardStyle}>
-          <span style={eyebrowStyle}>Watch</span>
-          <strong>86 right now</strong>
+          <span style={eyebrowStyle}>{t(m, 'common.watch')}</span>
+          <strong>{t(m, 'today.eightySixNow')}</strong>
         </Link>
       </section>
 
       <section style={sectionStyle}>
         <div style={sectionHeaderStyle}>
-          <h2 style={sectionTitleStyle}>Open line</h2>
-          <span style={sectionMetaStyle}>{activeStations.length} stations</span>
+          <h2 style={sectionTitleStyle}>{t(m, 'today.openLine')}</h2>
+          <span style={sectionMetaStyle}>{t(m, 'today.stations', { count: activeStations.length, n: activeStations.length })}</span>
         </div>
         <div style={stationGridStyle}>
           {activeStations.map((station) => {
@@ -110,7 +115,7 @@ export default async function V2TodayPage({ searchParams }) {
               <Link key={station.id} href={`/v2/stations/${station.id}${locationQuery}`} style={stationCardStyle}>
                 <div style={{ display: 'grid', gap: 6 }}>
                   <strong>{station.name}</strong>
-                  <span style={{ color: tone, fontWeight: 700 }}>{stationLabel(station.prog)}</span>
+                  <span style={{ color: tone, fontWeight: 700 }}>{stationLabel(station.prog, m)}</span>
                 </div>
                 <span style={{ ...dotStyle, background: tone }} aria-hidden />
               </Link>
@@ -121,8 +126,8 @@ export default async function V2TodayPage({ searchParams }) {
 
       <section style={sectionStyle}>
         <div style={sectionHeaderStyle}>
-          <h2 style={sectionTitleStyle}>Stock moves</h2>
-          <span style={sectionMetaStyle}>Latest</span>
+          <h2 style={sectionTitleStyle}>{t(m, 'today.stockMoves')}</h2>
+          <span style={sectionMetaStyle}>{t(m, 'common.latest')}</span>
         </div>
         <div style={listStyle}>
           {recentMoves.length > 0 ? recentMoves.map((row, index) => (
@@ -130,15 +135,15 @@ export default async function V2TodayPage({ searchParams }) {
               <strong>{row.item}</strong>
               <span style={sectionMetaStyle}>{row.direction}{row.delta ? ` ${row.delta}` : ''}</span>
             </div>
-          )) : <div style={emptyRowStyle}>No stock moves yet</div>}
+          )) : <div style={emptyRowStyle}>{t(m, 'today.noStockMoves')}</div>}
         </div>
       </section>
 
       {(outs.length > 0 || cascaded.length > 0) && (
         <section style={sectionStyle}>
           <div style={sectionHeaderStyle}>
-            <h2 style={sectionTitleStyle}>86 right now</h2>
-            <span style={sectionMetaStyle}>{outs.length} open</span>
+            <h2 style={sectionTitleStyle}>{t(m, 'today.eightySixNow')}</h2>
+            <span style={sectionMetaStyle}>{t(m, 'today.open', { count: outs.length, n: outs.length })}</span>
           </div>
           <div style={chipWrapStyle}>
             {outs.map((row, index) => (

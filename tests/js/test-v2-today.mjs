@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const V2_TODAY_PAGE = path.join(REPO_ROOT, 'app', 'v2', 'today', 'page.jsx');
+const EN_CATALOG = path.join(REPO_ROOT, 'lib', 'i18n', 'messages', 'en.ts');
 
 function read(file) {
   return fs.readFileSync(file, 'utf8');
@@ -52,11 +53,18 @@ describe('/v2/today landing content', () => {
     }
   });
 
-  it('uses short kitchen copy for the main cards', () => {
+  it('uses short kitchen copy for the main cards (via the i18n catalog)', () => {
+    // Copy moved to lib/i18n/messages/en.ts (roadmap 3.8); the page must
+    // render through t() and the catalog must carry the kitchen wording.
     const source = read(V2_TODAY_PAGE);
+    assert.match(source, /from ['"].*lib\/i18n\/index\.ts['"]/, 'v2 today should import the i18n helper');
+    assert.match(source, /t\(m, ['"]today\./, 'v2 today copy should render through t()');
+
+    const catalog = read(EN_CATALOG);
     for (const text of ['Line now', '86 right now', 'Stock moves', 'Open line']) {
-      assert.match(source, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${text} should appear in the v2 today copy`);
+      assert.match(catalog, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${text} should appear in the en catalog`);
     }
     assert.doesNotMatch(source, /dashboard|workflow|analytics|submit/i, 'v2 today should avoid SaaS-style wording');
+    assert.doesNotMatch(catalog, /dashboard|workflow|analytics|submit/i, 'the en catalog should avoid SaaS-style wording');
   });
 });
