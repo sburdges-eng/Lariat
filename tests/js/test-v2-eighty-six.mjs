@@ -45,10 +45,16 @@ describe('/v2/eighty-six landing content', () => {
     assert.match(source, /<EightySixPage\s+searchParams=\{sp\}\s*\/?>/, 'v2 route should pass awaited searchParams into the live 86 page');
   });
 
-  it('uses short kitchen copy for the shell', () => {
+  it('uses short kitchen copy for the shell (via the i18n catalog)', () => {
+    // Copy moved to lib/i18n/messages/en.ts (roadmap 3.8); the shell must
+    // render through t() and the catalog carries the kitchen wording
+    // (pinned by tests/js/test-i18n-catalog.mjs banned-word checks).
     const source = read(V2_EIGHTY_SIX_PAGE);
+    assert.match(source, /from ['"].*lib\/i18n\/index\.ts['"]/, 'shell should import the i18n helper');
+    assert.match(source, /t\(m, ['"]shells\.eightySix\./, 'shell copy should render through t()');
+    const catalog = read(path.join(REPO_ROOT, 'lib', 'i18n', 'messages', 'en.ts'));
     for (const text of ['86 now', "What's out", 'Back to today', 'Send to line']) {
-      assert.match(source, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${text} should appear in the v2 86 copy`);
+      assert.match(catalog, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${text} should appear in the en catalog`);
     }
     assert.doesNotMatch(source, /dashboard|workflow|analytics|submit|configure/i, 'v2 86 should avoid SaaS-style wording');
   });

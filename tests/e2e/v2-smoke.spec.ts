@@ -84,6 +84,20 @@ test.describe('v2 Stage-0 smoke — shift-style pass', () => {
     await expect(page).toHaveURL(/\/v2\/stations\/[^/]+/);
   });
 
+  test('locale: Spanish chrome under lariat_locale=es, English after flipping back', async ({ page, context }) => {
+    await context.addCookies([
+      { name: 'lariat_locale', value: 'es', domain: 'localhost', path: '/' },
+    ]);
+    await page.goto('/v2/today');
+    // Server-rendered chrome is Spanish; live DB data stays verbatim.
+    await expect(page.getByRole('heading', { name: 'La línea ahora' })).toBeVisible();
+    await expect(page.getByText('86 ahora', { exact: true })).toBeVisible();
+
+    // Flip the picker back to EN — router.refresh() re-renders in English.
+    await page.getByRole('group', { name: 'Idioma' }).getByRole('button', { name: 'EN' }).click();
+    await expect(page.getByRole('heading', { name: 'Line now' })).toBeVisible();
+  });
+
   test('manager: command, management, analytics render with consistent location', async ({ page }) => {
     await page.goto('/v2/command?location=default');
     await expect(page.getByRole('heading', { name: 'Open the day' })).toBeVisible();

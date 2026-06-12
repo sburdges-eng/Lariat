@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { clientFetch } from '@/lib/clientFetch';
+import { useT, useLocale } from '../../_components/I18nProvider.jsx';
 
 export interface StationCheckItem {
   status: 'pass' | 'fail' | 'na' | null;
@@ -43,12 +44,14 @@ const EMPTY_ROW: StationCheckItem = {
   glove_change_attested: null,
 };
 
-// Mirrors the reason list on the 86 Board so both surfaces log the same vocabulary.
+// Mirrors the reason list on the 86 Board so both surfaces log the same
+// vocabulary. Codes are the API contract; labels render via eightySix.reasons.*.
 const REASONS = ['out', 'spoiled', 'dropped', 'no_make', 'burned', 'prep_short', 'other'] as const;
-const reasonLabel = (r: string) => r.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
 
 export default function StationChecklist({ stationId, stationName, date, items, existing, signoff, locationId = 'default' }: StationChecklistProps) {
   const router = useRouter();
+  const tt = useT();
+  const locale = useLocale();
   const cookRef = useRef<string>('');
   const [state, setState] = useState<Record<string, StationCheckItem>>(() => {
     const m: Record<string, StationCheckItem> = {};
@@ -106,7 +109,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
   const requireCook = () => {
     const id = currentCook();
     if (!id) {
-      setErr('Pick your name in the sidebar first.');
+      setErr(tt('checklist.pickName'));
       return '';
     }
     return id;
@@ -114,7 +117,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
 
   const requireStatus = (item: string, row: StationCheckItem) => {
     if (!row.status) {
-      setErr(`Tap Pass, Fail, or n/a for "${item}" before saving counts.`);
+      setErr(tt('checklist.needStatus', { item }));
       return false;
     }
     return true;
@@ -142,11 +145,11 @@ export default function StationChecklist({ stationId, stationName, date, items, 
         }),
       });
       if (!res.ok) {
-        setErr(`Couldn’t save "${item}" — retry. (HTTP ${res.status})`);
+        setErr(tt('checklist.saveFailed', { item, status: res.status }));
         return;
       }
     } catch {
-      setErr(`Lost connection saving "${item}" — retry.`);
+      setErr(tt('checklist.saveLost', { item }));
       return;
     }
     router.refresh();
@@ -174,11 +177,11 @@ export default function StationChecklist({ stationId, stationName, date, items, 
       });
       if (!res.ok) {
         setState(s => ({ ...s, [item]: previous }));
-        setErr(`Couldn’t save ${status} for "${item}" — retry. (HTTP ${res.status})`);
+        setErr(tt('checklist.statusSaveFailed', { status, item, http: res.status }));
       }
     } catch {
       setState(s => ({ ...s, [item]: previous }));
-      setErr(`Lost connection saving ${status} for "${item}" — retry.`);
+      setErr(tt('checklist.statusSaveLost', { status, item }));
     }
   };
 
@@ -201,7 +204,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
         }),
       });
       if (!res86.ok) {
-        setErr(`Couldn’t 86 "${item}" — retry. (HTTP ${res86.status})`);
+        setErr(tt('checklist.e86Failed', { item, status: res86.status }));
         return;
       }
       update(item, { status: 'fail' });
@@ -216,18 +219,18 @@ export default function StationChecklist({ stationId, stationName, date, items, 
         }),
       });
       if (!resCheck.ok) {
-        setErr(`86’d "${item}" but couldn’t write the check row — retry. (HTTP ${resCheck.status})`);
+        setErr(tt('checklist.e86CheckFailed', { item, status: resCheck.status }));
         return;
       }
     } catch {
-      setErr(`Lost connection while 86’ing "${item}" — retry.`);
+      setErr(tt('checklist.e86Lost', { item }));
       return;
     }
     router.refresh();
   };
 
   const signOff = async () => {
-    if (!cookId) { setErr('Pick your name in the sidebar first.'); return; }
+    if (!cookId) { setErr(tt('checklist.pickName')); return; }
     setErr('');
     setSaving(true);
     const res = await clientFetch('/api/signoff', {
@@ -242,7 +245,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
       const missing = Array.isArray(j?.items) && j.items.length
         ? ` — ${j.items.join(' · ')}`
         : '';
-      setErr(`${j?.error || 'Could not sign off.'}${missing}`);
+      setErr(`${j?.error || tt('checklist.couldNotSignOff')}${missing}`);
       return;
     }
     setSigned(j);
@@ -273,14 +276,14 @@ export default function StationChecklist({ stationId, stationName, date, items, 
         className="flex-between mb-20 text-muted"
         role="status"
         aria-live="polite"
-        aria-label={`Checklist progress: ${done} of ${items.length} complete, ${counts.pass} pass, ${counts.fail} fail, ${counts.na} not applicable`}
+        aria-label={tt('checklist.progressAria', { done, total: items.length, pass: counts.pass, fail: counts.fail, na: counts.na })}
       >
         <div className="flex-center-gap font-bold">
             <span className="text-green">✓ {counts.pass}</span>
             <span className="text-red">✗ {counts.fail}</span>
             <span>n/a {counts.na}</span>
         </div>
-        <span>{done} / {items.length} complete</span>
+        <span>{tt('checklist.complete', { done, total: items.length })}</span>
       </div>
 
       {err && (
@@ -294,7 +297,7 @@ export default function StationChecklist({ stationId, stationName, date, items, 
         </div>
       )}
 
-      <div className="checklist" role="list" aria-label={`${stationName} checklist`}>
+      <div className="checklist" role="list" aria-label={tt('checklist.checklistAria', { station: stationName })}>
         {items.map(item => {
           const row = rowFor(item);
           const needsNote = row.status === 'fail' && !row.note.trim();
@@ -310,32 +313,32 @@ export default function StationChecklist({ stationId, stationName, date, items, 
               aria-label={`${item}${row.status ? ' — ' + row.status : ''}`}
             >
               <div className="check-name">{item}</div>
-              <label htmlFor={parId} className="sr-only">{`Par for ${item}`}</label>
+              <label htmlFor={parId} className="sr-only">{tt('checklist.parSr', { item })}</label>
               <input
                 id={parId}
                 name={parId}
                 type="text"
-                placeholder="par"
+                placeholder={tt('checklist.parPlaceholder')}
                 className="input"
                 inputMode="numeric"
                 autoComplete="off"
                 enterKeyHint="next"
-                aria-label={`Par quantity for ${item}`}
+                aria-label={tt('checklist.parAria', { item })}
                 value={row.par}
                 onChange={e => update(item, { par: e.target.value })}
                 onBlur={() => persist(item)}
               />
-              <label htmlFor={haveId} className="sr-only">{`Have for ${item}`}</label>
+              <label htmlFor={haveId} className="sr-only">{tt('checklist.haveSr', { item })}</label>
               <input
                 id={haveId}
                 name={haveId}
                 type="text"
-                placeholder="have"
+                placeholder={tt('checklist.havePlaceholder')}
                 className="input"
                 inputMode="numeric"
                 autoComplete="off"
                 enterKeyHint="next"
-                aria-label={`Current on-hand quantity for ${item}`}
+                aria-label={tt('checklist.haveAria', { item })}
                 value={row.have}
                 onChange={e => update(item, { have: e.target.value })}
                 onBlur={() => persist(item)}
@@ -343,29 +346,29 @@ export default function StationChecklist({ stationId, stationName, date, items, 
               <button
                 type="button"
                 className={`btn ${row.status === 'pass' ? 'green' : ''}`}
-                aria-label={`Pass ${item}`}
+                aria-label={tt('checklist.passAria', { item })}
                 aria-pressed={row.status === 'pass' ? 'true' : 'false'}
                 onClick={() => setStatus(item, 'pass')}
-              >
-                Pass
+>
+                {tt('checklist.pass')}
               </button>
               <button
                 type="button"
                 className={`btn ${row.status === 'fail' ? 'red' : ''}`}
-                aria-label={`Fail ${item}`}
+                aria-label={tt('checklist.failAria', { item })}
                 aria-pressed={row.status === 'fail' ? 'true' : 'false'}
                 onClick={() => setStatus(item, 'fail')}
-              >
-                Fail
+>
+                {tt('checklist.fail')}
               </button>
               <button
                 type="button"
                 className={`btn ${row.status === 'na' ? 'green' : ''}`}
-                aria-label={`Mark ${item} n/a`}
+                aria-label={tt('checklist.naAria', { item })}
                 aria-pressed={row.status === 'na' ? 'true' : 'false'}
                 onClick={() => setStatus(item, 'na')}
-              >
-                n/a
+>
+                {tt('checklist.na')}
               </button>
               <button
                 type="button"
@@ -374,15 +377,15 @@ export default function StationChecklist({ stationId, stationName, date, items, 
                   if (!requireCook()) return;
                   setPending86(p => (p === item ? null : item));
                 }}
-                title="86 this item"
-                aria-label={`86 ${item}`}
+                title={tt('checklist.e86Title')}
+                aria-label={tt('checklist.e86Aria', { item })}
                 aria-expanded={pending86 === item}
               >
                 86
               </button>
               <label
                 className={`glove-toggle ${row.glove_change_attested ? 'on' : ''}`}
-                title="Touches ready-to-eat food? Tick when you change gloves (FDA §3-301.11)."
+                title={tt('checklist.gloveTitle')}
               >
                 <input
                   type="checkbox"
@@ -418,30 +421,30 @@ export default function StationChecklist({ stationId, stationName, date, items, 
                       });
                       if (!res.ok) {
                         update(item, { glove_change_attested: prev });
-                        setErr(`Couldn’t save glove change for "${item}" — retry. (HTTP ${res.status})`);
+                        setErr(tt('checklist.gloveSaveFailed', { item, status: res.status }));
                       }
                     } catch {
                       update(item, { glove_change_attested: prev });
-                      setErr(`Lost connection saving glove change for "${item}" — retry.`);
+                      setErr(tt('checklist.gloveSaveLost', { item }));
                     }
                   }}
-                  aria-label={`Glove change attested for ${item}`}
+                  aria-label={tt('checklist.gloveAria', { item })}
                 />
-                <span>🧤 gloves</span>
+                <span>{tt('checklist.gloveLabel')}</span>
               </label>
               {row.status === 'fail' && (
                 <>
-                  <label htmlFor={noteId} className="sr-only">{`Corrective action for ${item}`}</label>
+                  <label htmlFor={noteId} className="sr-only">{tt('checklist.noteSr', { item })}</label>
                   <input
                     id={noteId}
                     name={noteId}
                     type="text"
-                    placeholder={needsNote ? 'what did you do about it?' : 'fix noted'}
+                    placeholder={needsNote ? tt('checklist.notePlaceholderNeeds') : tt('checklist.notePlaceholderDone')}
                     className={`input fix-note ${needsNote ? 'needs-note' : ''}`}
                     autoComplete="off"
                     enterKeyHint="done"
                     maxLength={500}
-                    aria-label={`Corrective action for ${item}`}
+                    aria-label={tt('checklist.noteSr', { item })}
                     aria-required={needsNote ? 'true' : 'false'}
                     aria-invalid={needsNote ? 'true' : 'false'}
                     value={row.note}
@@ -453,10 +456,10 @@ export default function StationChecklist({ stationId, stationName, date, items, 
               {pending86 === item && (
                 <div
                   role="group"
-                  aria-label={`Why is ${item} 86’d?`}
+                  aria-label={tt('checklist.whyAria', { item })}
                   style={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}
                 >
-                  <span className="meta" style={{ fontWeight: 600 }}>86 — why?</span>
+                  <span className="meta" style={{ fontWeight: 600 }}>{tt('checklist.why')}</span>
                   {REASONS.map(r => (
                     <button
                       key={r}
@@ -464,11 +467,11 @@ export default function StationChecklist({ stationId, stationName, date, items, 
                       className="btn red"
                       onClick={() => eightySix(item, r)}
                     >
-                      {reasonLabel(r)}
+                      {tt(`eightySix.reasons.${r}`)}
                     </button>
                   ))}
                   <button type="button" className="btn" onClick={() => setPending86(null)}>
-                    Cancel
+                    {tt('checklist.cancel')}
                   </button>
                 </div>
               )}
@@ -479,12 +482,12 @@ export default function StationChecklist({ stationId, stationName, date, items, 
 
       {signed ? (
         <div className="signed-off mt-16" role="status" aria-live="polite">
-          ✓ Signed off · {signed.cook_id || 'cook'}
+          {tt('checklist.signedOff', { cook: signed.cook_id || tt('checklist.cookFallback') })}
           {createdIso && (
             <>
               {' · '}
               <time dateTime={createdIso}>
-                {new Date(createdIso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                {new Date(createdIso).toLocaleTimeString(locale === 'es' ? 'es' : 'en-US', { hour: 'numeric', minute: '2-digit' })}
               </time>
             </>
           )}
@@ -499,23 +502,23 @@ export default function StationChecklist({ stationId, stationName, date, items, 
             aria-busy={saving ? 'true' : 'false'}
             aria-label={
               saving
-                ? 'Signing off station'
+                ? tt('checklist.signingAria')
                 : !allDone
-                  ? `Finish checking ${items.length - done} remaining item${items.length - done === 1 ? '' : 's'} before sign-off`
+                  ? tt('checklist.finishRemainingAria', { count: items.length - done, n: items.length - done })
                   : unnotedFails.length > 0
-                    ? `Add corrective action note for ${unnotedFails.length} failed item${unnotedFails.length === 1 ? '' : 's'}`
-                    : `Sign off ${stationName} station`
+                    ? tt('checklist.addNoteAria', { count: unnotedFails.length, n: unnotedFails.length })
+                    : tt('checklist.signOffAria', { station: stationName })
             }
           >
             {saving
-              ? 'Signing…'
+              ? tt('checklist.signing')
               : !allDone
-                ? `Check every item (${items.length - done} left)`
+                ? tt('checklist.checkEvery', { n: items.length - done })
                 : unnotedFails.length > 0
-                  ? `Note the fix for ${unnotedFails.length} fail${unnotedFails.length === 1 ? '' : 's'}`
+                  ? tt('checklist.noteFix', { count: unnotedFails.length, n: unnotedFails.length })
                   : counts.fail > 0
-                    ? `Sign off (${counts.fail} fail${counts.fail === 1 ? '' : 's'} noted)`
-                    : 'Sign off this station'}
+                    ? tt('checklist.signOffNoted', { count: counts.fail, n: counts.fail })
+                    : tt('checklist.signOffButton')}
           </button>
         </div>
       )}

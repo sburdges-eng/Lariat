@@ -2,6 +2,8 @@
 import Link from 'next/link';
 import EightySixPage from '../../eighty-six/page.jsx';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
+import { getMessages, t } from '../../../lib/i18n/index.ts';
+import { getLocale } from '../../../lib/i18n/server.ts';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,23 +14,25 @@ export default async function V2EightySixPage({ searchParams }) {
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const locationQuery = locationId !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(locationId)}` : '';
+  const locale = await getLocale();
+  const m = getMessages(locale);
 
   return (
     <main style={{ display: 'grid', gap: 18 }}>
       <section style={heroStyle}>
         <div style={{ display: 'grid', gap: 8 }}>
-          <div style={eyebrowStyle}>86 now</div>
-          <h1 style={titleStyle}>{"What's out"}</h1>
-          <p style={copyStyle}>Call the outs fast and keep the line in the loop.</p>
+          <div style={eyebrowStyle}>{t(m, 'shells.eightySix.eyebrow')}</div>
+          <h1 style={titleStyle}>{t(m, 'shells.eightySix.title')}</h1>
+          <p style={copyStyle}>{t(m, 'shells.eightySix.copy')}</p>
         </div>
         <div style={jumpRowStyle}>
           <Link href={`/v2/today${locationQuery}`} style={jumpCardStyle}>
-            <span style={eyebrowStyle}>Back</span>
-            <strong>Back to today</strong>
+            <span style={eyebrowStyle}>{t(m, 'common.back')}</span>
+            <strong>{t(m, 'shells.backToToday')}</strong>
           </Link>
           <Link href={`/v2/kds/punch${locationQuery}`} style={jumpCardStyle}>
-            <span style={eyebrowStyle}>Punch</span>
-            <strong>Send to line</strong>
+            <span style={eyebrowStyle}>{t(m, 'shells.eightySix.punchEyebrow')}</span>
+            <strong>{t(m, 'shells.eightySix.punchLink')}</strong>
           </Link>
         </div>
       </section>

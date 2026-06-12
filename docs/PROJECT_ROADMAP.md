@@ -152,7 +152,7 @@ The `docs/redesign/lari-ui-demo.html` is a prototype. A real migration needs:
 | 3.5 | XL | **Implemented (2026-06-10, `feat/tier3-no-config-features`, pending review):** `/analytics/operators` manager dashboard (PIN-gated via existing `/analytics` prefix): audit-event volume by actor + trend, corrective actions by operator and subject, equipment failure frequency, gold stars by cook, and management-actions JSONL counts, over 7/30/90-day windows. `tests/js/test-operator-analytics.mjs` pins aggregation, window edges, and location scoping. |
 | 3.6 | XL | **Implemented (2026-06-10, `feat/tier3-no-config-features`, pending review):** "Promote to menu" on saved specials (`POST /api/specials/saved/[id]/promote`, PIN + idempotency + audit): materializes per-serving `dish_components` vendor_item rows from the special's cost_breakdown into a new `specials_promotions` linkage, so `computeMenuEngineering` picks the dish up with real cost the moment it sells — no menu-engineering code changes needed. Re-promote refreshes only promotion-owned rows. `tests/js/test-specials-promotion.mjs` pins cost flow-through end to end. |
 | 3.7 | L  | **Implemented (2026-06-10, `feat/tier3-no-config-features`, pending review):** `/food-safety/haccp-plan` inspector-ready printable plan built on demand from local data: CCP inventory with FDA citations, rule-module evidence counts, 30-day corrective-action log, calibration records + probe status board, signature block; browser print-to-PDF per the settlement pattern (no PDF library, no nightly job — on-demand needs no scheduling config). `tests/js/test-haccp-plan.mjs` pins it. |
-| 3.8 | L  | **i18n for cook-tier surfaces.** The kitchen-assistant route already accepts `body.language` and emits a translation directive to the LLM. The UI shell hasn't been internationalized. Adding `next-intl` with Spanish first (common in BOH) would unlock that. |
+| 3.8 | L  | **Closed (2026-06-12, PRs #327/#328/#329):** Cook-tier i18n shipped with Spanish first — hand-rolled `lib/i18n` catalog (next-intl deferred: zero new deps; the cook corpus needs only token interpolation + `_one`/`_other` plurals; key drift is typecheck-enforced via `Messages = typeof en`). Locale rides the `lariat_locale` cookie (v2-topbar EN/ES picker + the kitchen-assistant language picker dual-writes it, so LLM answers and chrome stay in step). Translated: `/v2/today`, the four cook hero shells, EightySixBoard, PunchTicketPage, StationChecklist — chrome only, DB data verbatim, 86 reason codes stay API values. Residuals: `app/v2/page.jsx` nav hub + manager tier stay English by design; **Spanish copy is machine-draft pending operator review** (`docs/OPERATIONS_HANDOFF.md` §5) — the picker stays v2-preview-gated until signed off. |
 
 ---
 
@@ -168,7 +168,7 @@ These are the defaults used for this roadmap branch. Reopen them only with a spe
 | `labor/certs` | Informational-only | No regulated cert write/audit claim in v2. |
 | Local model | DeepSeek default | Qwen remains deferred until eval-gated. |
 | iPad hardware / voice | Unknown | Keep 2.6 deferred; do not introduce cloud Whisper to satisfy old iPads. |
-| i18n | Unknown | Keep 3.8 deferred. |
+| i18n | Shipped post-freeze (2026-06-12) | 3.8 closed via the cookie-scoped `lib/i18n` catalog; es copy gated on operator review. |
 | v2 UI rollout shape | Cookie-gated side-by-side `/v2` shell | Build 2.10 as an opt-in route tree; do not replace v1 routes or expose an install-time cutover toggle in this freeze slice. |
 
 ---
