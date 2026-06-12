@@ -1,5 +1,5 @@
 'use client';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 const STAR_TIERS = [
   { val: 1, label: '★ Good' },
@@ -36,6 +36,15 @@ export interface CookDisplay {
   name: string;
 }
 
+/** Server row from GET /api/gold-stars?view=leaderboard — the permanent
+ *  per-employee record (all-time, survives the daily board reset). */
+export interface LeaderboardRow {
+  cook_name: string;
+  total_stars: number;
+  awards: number;
+  last_awarded: string | null;
+}
+
 function formatAwardedDate(iso: string | null | undefined): string {
   if (!iso) return '';
   const d = new Date(`${iso}T00:00:00`);
@@ -56,7 +65,10 @@ function mapRowToRecord(row: DBRow): RecognitionRecord {
 
 export default function GoldStarBoard() {
   const [roster, setRoster] = useState<CookDisplay[]>([]);
+  // The board feed — today's stars only (the API clears it daily).
   const [recognitions, setRecognitions] = useState<RecognitionRecord[]>([]);
+  // The permanent per-employee record, aggregated server-side.
+  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [viewMode, setViewMode] = useState<'recent' | 'leaderboard'>('recent');
@@ -68,32 +80,31 @@ export default function GoldStarBoard() {
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const refreshLeaderboard = useCallback(() => {
+    fetch('/api/gold-stars?view=leaderboard')
+      .then(r => r.json() as Promise<LeaderboardRow[]>)
+      .then(rows => setLeaderboard(Array.isArray(rows) ? rows : []))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     Promise.all([
       fetch('/api/staff').then(r => r.json() as Promise<RosterItem[]>),
       fetch('/api/gold-stars').then(r => r.json() as Promise<DBRow[]>),
+      fetch('/api/gold-stars?view=leaderboard').then(r => r.json() as Promise<LeaderboardRow[]>),
     ])
-      .then(([staff, stars]) => {
+      .then(([staff, stars, board]) => {
         setRoster(
           (staff || [])
             .filter(s => s.active !== false)
             .map(s => ({ id: s.id, name: `${s.first} ${s.last}` }))
         );
         setRecognitions((stars || []).map(mapRowToRecord));
+        setLeaderboard(Array.isArray(board) ? board : []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
-
-  const leaderboard = useMemo(() => {
-    const stats = recognitions.reduce((acc, r) => {
-      acc[r.name] = (acc[r.name] || 0) + (r.stars || 0);
-      return acc;
-    }, {} as Record<string, number>);
-    return Object.entries(stats)
-      .map(([name, totalStars]) => ({ name, totalStars }))
-      .sort((a, b) => b.totalStars - a.totalStars);
-  }, [recognitions]);
 
   const openModal = useCallback(() => {
     setSelectedCook('');
@@ -141,6 +152,8 @@ export default function GoldStarBoard() {
         },
         ...prev,
       ]);
+      // Keep the permanent per-employee record in step with the new award.
+      refreshLeaderboard();
       setViewMode('recent');
       setIsModalOpen(false);
     } catch {
@@ -162,6 +175,7 @@ export default function GoldStarBoard() {
     try {
       const res = await fetch(`/api/gold-stars/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('delete failed');
+      refreshLeaderboard();
     } catch {
       // Re-insert at the original index (best effort — other deletes
       // may have reshuffled the list by the time we roll back).
@@ -232,20 +246,23 @@ export default function GoldStarBoard() {
           ))}
 
           {viewMode === 'leaderboard' && leaderboard.map((cook, index) => (
-            <div key={cook.name} className="gs-lb-row">
+            <div key={cook.cook_name} className="gs-lb-row">
               <div className="gs-lb-left">
                 <span className={`gs-lb-rank ${index < 3 ? 'gs-lb-rank--top' : 'gs-lb-rank--rest'}`}>
                   #{index + 1}
                 </span>
-                <span className="gs-lb-name">{cook.name}</span>
+                <span className="gs-lb-name">{cook.cook_name}</span>
               </div>
               <div className="gs-lb-total">
-                {cook.totalStars} ★
+                {cook.total_stars} ★
               </div>
             </div>
           ))}
 
-          {recognitions.length === 0 && (
+          {viewMode === 'recent' && recognitions.length === 0 && (
+            <div className="gs-empty">No stars yet today. The board resets each day — all-time totals live on the leaderboard.</div>
+          )}
+          {viewMode === 'leaderboard' && leaderboard.length === 0 && (
             <div className="gs-empty">No stars awarded yet.</div>
           )}
         </div>

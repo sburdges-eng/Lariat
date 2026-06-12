@@ -2,23 +2,52 @@ import { getDb } from '../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
+import { requirePin } from '../../../lib/pin';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * GET /api/gold-stars               → the BOARD feed: today's stars only.
+ *   The recognition wall resets every day by design — yesterday's stars
+ *   leave the board but are never deleted.
+ * GET /api/gold-stars?view=leaderboard → the permanent per-employee record:
+ *   all-time totals per cook (sum of stars, award count, last award date).
+ * "Today" is the venue's local day (created_at in localtime), so a star
+ * given during evening service doesn't vanish at the UTC rollover.
+ */
 export async function GET(req: Request) {
   const db = getDb();
   const loc = locationFromRequest(req);
-  
+  const view = new URL(req.url).searchParams.get('view');
+
+  if (view === 'leaderboard') {
+    const rows = db
+      .prepare(
+        `SELECT cook_name,
+                SUM(stars)        AS total_stars,
+                COUNT(*)          AS awards,
+                MAX(awarded_date) AS last_awarded
+           FROM gold_stars
+          WHERE location_id = ?
+            AND deleted_at IS NULL
+          GROUP BY cook_name
+          ORDER BY total_stars DESC, cook_name ASC`,
+      )
+      .all(loc);
+    return Response.json(rows);
+  }
+
   const rows = db
     .prepare(
       `SELECT * FROM gold_stars
         WHERE location_id = ?
           AND deleted_at IS NULL
+          AND date(created_at, 'localtime') = date('now', 'localtime')
         ORDER BY id DESC
         LIMIT 50`,
     )
     .all(loc);
-    
+
   return Response.json(rows);
 }
 
@@ -27,6 +56,11 @@ export async function POST(req: Request) {
 }
 
 async function goldStarsPostHandler(req: Request) {
+  // HR/personal data — awarding a star is manager authority, same as
+  // removing one (DELETE in [id]/route.ts has carried this gate since
+  // PR #313-era hardening).
+  const pinFail = await requirePin(req);
+  if (pinFail) return pinFail;
   try {
     const body = await req.json();
     const cookName = typeof body.cook_name === 'string' ? body.cook_name.trim() : '';

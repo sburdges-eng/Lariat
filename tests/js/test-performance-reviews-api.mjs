@@ -17,6 +17,14 @@ const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-perf-api-'));
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
 const db = await import('../../lib/db.ts');
+// Reviews are PIN-gated (2026-06-12). Force the gate ON; with
+// LARIAT_PIN_SECRET unset, the legacy unsigned 'lariat_pin_ok=1' cookie
+// is accepted by hasPinCookie — same pattern as test-recipe-photos-api.
+const SAVED_PIN = process.env.LARIAT_PIN;
+const SAVED_PIN_SECRET = process.env.LARIAT_PIN_SECRET;
+process.env.LARIAT_PIN = '0000';
+delete process.env.LARIAT_PIN_SECRET;
+
 const route = await import('../../app/api/performance-reviews/route.ts');
 
 db.setDbPathForTest(TMP_DB);
@@ -26,6 +34,9 @@ const { POST, GET } = route;
 
 after(() => {
   db.setDbPathForTest(null);
+  if (SAVED_PIN === undefined) delete process.env.LARIAT_PIN;
+  else process.env.LARIAT_PIN = SAVED_PIN;
+  if (SAVED_PIN_SECRET !== undefined) process.env.LARIAT_PIN_SECRET = SAVED_PIN_SECRET;
   try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
 });
 
@@ -36,13 +47,15 @@ beforeEach(() => {
 function postReq(body) {
   return new Request('http://localhost/api/performance-reviews', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', cookie: 'lariat_pin_ok=1' },
     body: JSON.stringify(body),
   });
 }
 
 function getReq(qs = '') {
-  return new Request(`http://localhost/api/performance-reviews${qs}`);
+  return new Request(`http://localhost/api/performance-reviews${qs}`, {
+    headers: { cookie: 'lariat_pin_ok=1' },
+  });
 }
 
 function countReviews() {
