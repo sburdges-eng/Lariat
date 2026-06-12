@@ -1,4 +1,3 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 import { getDb } from '../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { withIdempotency } from '../../../lib/idempotency';
@@ -8,19 +7,35 @@ import { localIdentityFields } from '../../../lib/localIdentity';
 
 export const dynamic = 'force-dynamic';
 
-const clip = (s, max) => {
+type CheckStatus = 'pass' | 'fail' | 'na';
+
+interface ChecksPostBody {
+  [key: string]: unknown; // locationFromBody takes Record<string, unknown>
+  shift_date?: unknown;
+  station_id?: unknown;
+  item?: unknown;
+  status?: unknown;
+  glove_change_attested?: unknown;
+  par?: unknown;
+  have?: unknown;
+  need?: unknown;
+  note?: unknown;
+  cook_id?: unknown;
+}
+
+const clip = (s: unknown, max: number): string | null => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
-export async function POST(req) {
+export async function POST(req: Request) {
   return withIdempotency(req, () => checksPostHandler(req));
 }
 
-async function checksPostHandler(req) {
+async function checksPostHandler(req: Request) {
   try {
-    const body = await req.json();
+    const body = (await req.json()) as ChecksPostBody;
     const shift_date = clip(body.shift_date, 32);
     const station_id = clip(body.station_id, 64);
     const item = clip(body.item, 300);
@@ -28,7 +43,10 @@ async function checksPostHandler(req) {
       return Response.json({ error: 'missing fields' }, { status: 400 });
     }
     const loc = locationFromBody(body);
-    const status = ['pass', 'fail', 'na'].includes(body.status) ? body.status : null;
+    const status: CheckStatus | null =
+      body.status === 'pass' || body.status === 'fail' || body.status === 'na'
+        ? body.status
+        : null;
     if (!status) {
       return Response.json({ error: 'status must be pass, fail, or na' }, { status: 400 });
     }
@@ -38,7 +56,7 @@ async function checksPostHandler(req) {
     // NULL means "this line-check item doesn't touch RTE food" (e.g. a
     // raw-only prep task or a cleanup task); the row stays out of the
     // attestation accounting. The UI opts items in by sending the field.
-    let gloveAttested = null;
+    let gloveAttested: 0 | 1 | null = null;
     if (body.glove_change_attested === true) gloveAttested = 1;
     else if (body.glove_change_attested === false) gloveAttested = 0;
 
@@ -129,7 +147,7 @@ async function checksPostHandler(req) {
   }
 }
 
-export async function GET(req) {
+export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const date = url.searchParams.get('date');
@@ -137,7 +155,7 @@ export async function GET(req) {
     const loc = locationFromRequest(req);
     const db = getDb();
     let q = 'SELECT * FROM line_check_entries WHERE location_id = ?';
-    const args = [loc];
+    const args: string[] = [loc];
     if (date) {
       q += ' AND shift_date = ?';
       args.push(date);

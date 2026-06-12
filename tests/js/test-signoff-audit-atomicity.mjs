@@ -38,7 +38,7 @@ const testDb = db.getDb();
 const { todayISO } = db;
 
 // Lazy-imported so setDbPathForTest has already run.
-const signoff = await import('../../app/api/signoff/route.js');
+const signoff = await import('../../app/api/signoff/route.ts');
 
 after(() => {
   db.setDbPathForTest(null);

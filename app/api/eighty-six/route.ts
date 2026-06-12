@@ -1,4 +1,3 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 import { getDb, todayISO } from '../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { getRecipes } from '../../../lib/data';
@@ -8,13 +7,38 @@ import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
-const clip = (s, max) => {
+interface EightySixRow {
+  id: number;
+  shift_date: string;
+  station_id: string | null;
+  item: string;
+  kind: string | null;
+  reason: string | null;
+  quantity: string | null;
+  cook_id: string | null;
+  resolved_at: string | null;
+  location_id: string;
+}
+
+interface EightySixPostBody {
+  [key: string]: unknown; // locationFromBody takes Record<string, unknown>
+  item?: unknown;
+  shift_date?: unknown;
+  station_id?: unknown;
+  kind?: unknown;
+  reason?: unknown;
+  quantity?: unknown;
+  cook_id?: unknown;
+  location?: unknown;
+}
+
+const clip = (s: unknown, max: number): string | null => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
-export async function GET(req) {
+export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const date = url.searchParams.get('date') || todayISO();
@@ -27,7 +51,7 @@ export async function GET(req) {
       ${includeResolved ? '' : 'AND resolved_at IS NULL'}
       ORDER BY id DESC
     `;
-    const rows = db.prepare(q).all(date, loc);
+    const rows = db.prepare(q).all(date, loc) as EightySixRow[];
     const activeItems = rows
       .filter((r) => !r.resolved_at)
       .map((r) => r.item)
@@ -40,13 +64,13 @@ export async function GET(req) {
   }
 }
 
-export async function POST(req) {
+export async function POST(req: Request) {
   return withIdempotency(req, () => eightySixPostHandler(req));
 }
 
-async function eightySixPostHandler(req) {
+async function eightySixPostHandler(req: Request) {
   try {
-    const body = await req.json();
+    const body = (await req.json()) as EightySixPostBody;
     const item = clip(body.item, 300);
     if (!item) return Response.json({ error: 'item required' }, { status: 400 });
     const loc = locationFromBody(body);

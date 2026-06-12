@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+import type { Database } from 'better-sqlite3';
 import { getDb } from '../../../lib/db';
 import { locationFromBody } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
@@ -14,7 +14,21 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const clip = (s, max) => {
+interface StationSignoffRow {
+  id: number;
+  shift_date: string;
+  station_id: string;
+  cook_id: string;
+  signoff_type: string;
+  location_id: string;
+}
+
+type SignoffResult =
+  | { status: 422; error: string; citation: string; station_id?: string }
+  | { status: 409; error: string; items: string[] }
+  | { status: 200; row: StationSignoffRow };
+
+const clip = (s: unknown, max: number): string | null => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
@@ -25,8 +39,14 @@ const clip = (s, max) => {
 // a sign-off if the latest check for any item is 'fail' with no note — the
 // cook has to write what they did about it first. Surfacing this at the
 // API (not just the UI) keeps a curl/replay attack from side-stepping it.
-function failsMissingCorrectiveAction(db, shift_date, station_id, location_id) {
-  return db.prepare(`
+function failsMissingCorrectiveAction(
+  db: Database,
+  shift_date: string,
+  station_id: string,
+  location_id: string,
+): string[] {
+  return (
+    db.prepare(`
     SELECT item FROM line_check_entries AS l
     WHERE shift_date = ? AND station_id = ? AND location_id = ?
       AND id = (
@@ -38,14 +58,15 @@ function failsMissingCorrectiveAction(db, shift_date, station_id, location_id) {
       )
       AND status = 'fail'
       AND (note IS NULL OR TRIM(note) = '')
-  `).all(shift_date, station_id, location_id).map(r => r.item);
+  `).all(shift_date, station_id, location_id) as Array<{ item: string }>
+  ).map((r) => r.item);
 }
 
 // L5 (CO YEOA + 29 CFR 570.50+): is the cook flagged as a minor with
 // an ACTIVE staff_flags row? "Active" means effective_to IS NULL — a
 // row with an effective_to timestamp set is a closed/historical flag
 // and should NOT trigger the gate.
-function cookHasActiveMinorFlag(db, location_id, cook_id) {
+function cookHasActiveMinorFlag(db: Database, location_id: string, cook_id: string): boolean {
   const row = db.prepare(`
     SELECT 1 FROM staff_flags
      WHERE location_id = ?
@@ -61,22 +82,26 @@ function cookHasActiveMinorFlag(db, location_id, cook_id) {
 // this cook + location. The pure helper `cookHasActiveExclusion`
 // (lib/sickWorkerGate) decides whether any of them blocks line work
 // (action 'excluded' or 'restricted'); 'monitor' / 'none' do not.
-function cookSickExclusionRows(db, location_id, cook_id) {
+function cookSickExclusionRows(
+  db: Database,
+  location_id: string,
+  cook_id: string,
+): Array<{ action: string; return_at: string | null }> {
   return db.prepare(`
     SELECT action, return_at FROM sick_worker_reports
      WHERE location_id = ?
        AND cook_id = ?
        AND return_at IS NULL
-  `).all(location_id, cook_id);
+  `).all(location_id, cook_id) as Array<{ action: string; return_at: string | null }>;
 }
 
-export async function POST(req) {
+export async function POST(req: Request) {
   return withIdempotency(req, () => signoffHandler(req));
 }
 
-async function signoffHandler(req) {
+async function signoffHandler(req: Request) {
   try {
-    const body = await req.json();
+    const body = (await req.json()) as Record<string, unknown>;
     const shift_date = clip(body.shift_date, 32);
     const station_id = clip(body.station_id, 64);
     const cook_id = clip(body.cook_id, 64);
@@ -98,7 +123,7 @@ async function signoffHandler(req) {
     // an excluded cook on a prohibited station gets the L5 citation
     // (the more actionable one — reassign, don't wait on clearance).
     const signoff_type = clip(body.signoff_type, 32) || 'self';
-    const result = db.transaction(() => {
+    const result = db.transaction((): SignoffResult => {
       // L5 — minor on prohibited station (CO YEOA + HOs 14-16).
       if (cookHasActiveMinorFlag(db, loc, cook_id) && isStationProhibitedForMinor(station_id)) {
         return {
@@ -127,7 +152,9 @@ async function signoffHandler(req) {
         INSERT INTO station_signoffs (shift_date, station_id, cook_id, signoff_type, location_id)
         VALUES (?, ?, ?, ?, ?)
       `).run(shift_date, station_id, cook_id, signoff_type, loc);
-      const row = db.prepare('SELECT * FROM station_signoffs WHERE id=?').get(info.lastInsertRowid);
+      const row = db
+        .prepare('SELECT * FROM station_signoffs WHERE id=?')
+        .get(info.lastInsertRowid) as StationSignoffRow;
       postAuditEvent({
         entity: 'station_signoffs',
         entity_id: Number(info.lastInsertRowid),
