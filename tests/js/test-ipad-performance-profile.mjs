@@ -48,6 +48,14 @@ describe('iPad performance profiler helpers', () => {
     assert.throws(() => parseArgs(['--out', '../ipad.json']), /--out must stay within/);
   });
 
+  it('accepts a slash-leading route prefix for profiling the v2 tree', () => {
+    assert.equal(parseArgs([]).routePrefix, '');
+    assert.equal(parseArgs(['--route-prefix', '/v2']).routePrefix, '/v2');
+    assert.equal(parseArgs(['--route-prefix=/v2']).routePrefix, '/v2');
+    assert.throws(() => parseArgs(['--route-prefix', 'v2']), /must start with '\//);
+    assert.throws(() => parseArgs(['--route-prefix', '/v2/']), /not end with one/);
+  });
+
   it('builds schema-versioned reports and evaluates every flow threshold', () => {
     const report = buildReport({
       baseUrl: 'http://localhost:4321',
