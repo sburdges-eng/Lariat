@@ -23,9 +23,11 @@ Per the issue's phased plan:
 
 - **P1 (this PR):** flip `checkJs: true`, `// @ts-nocheck` the noisy files,
   add ONE demonstration route (peers) with full JSDoc.
-- **P2 (separate PRs):** migrate the highest-risk handlers
-  (`kitchen-assistant`, `checks`, `signoff`, `eighty-six`, `inventory`,
-  the temp-PIN auth routes) to `.ts` or to clean JSDoc.
+- **P2 — COMPLETE (2026-06-12, PRs #324/#325):** the high-risk handlers are
+  off the baseline: `eighty-six` (+`resolve`), `checks`, `signoff`,
+  `inventory`, and `auth/pin` converted to `.ts`; `kitchen-assistant`
+  runs full `@ts-check` JSDoc with zero suppressions. Remaining auth
+  surface (`auth/temp-pin/*`) stays on the drain-as-touched posture.
 - **P3:** lint rule banning new `.js` route handlers under `app/api/` once
   the migration drains.
 

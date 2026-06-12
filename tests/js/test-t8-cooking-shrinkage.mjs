@@ -10,7 +10,7 @@
 //   1. The pure-math module (lib/inventoryShrinkage.ts) — directly, without
 //      a request round-trip. Covers loss_factor boundary cases and the
 //      formatting helpers.
-//   2. The route handler (app/api/inventory/route.js) — in-process via
+//   2. The route handler (app/api/inventory/route.ts) — in-process via
 //      `new Request(...)`, mirroring test-temp-log-route.mjs. Asserts the
 //      inventory_updates row shape after a POST and the source-gate
 //      semantic (only source='toast' triggers shrinkage).
@@ -31,7 +31,7 @@ const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
 // Dynamic imports so the resolver hook is active.
 const db = await import('../../lib/db.ts');
-const route = await import('../../app/api/inventory/route.js');
+const route = await import('../../app/api/inventory/route.ts');
 const shrinkage = await import('../../lib/inventoryShrinkage.ts');
 
 db.setDbPathForTest(TMP_DB);

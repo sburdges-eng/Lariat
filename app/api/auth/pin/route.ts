@@ -1,4 +1,3 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 /** GET — whether PIN gate is configured (does not reveal the PIN). POST { pin } sets cookie. DELETE clears. */
 
 import crypto from 'node:crypto';
@@ -18,7 +17,7 @@ import { locationIdFromEnv } from '../../../../lib/location';
  * length); a length difference is then detected as a non-equal compare
  * after the constant-time pass.
  */
-function pinsMatch(provided, expected) {
+function pinsMatch(provided: string, expected: string): boolean {
   const a = Buffer.from(String(provided), 'utf8');
   const b = Buffer.from(String(expected), 'utf8');
   const len = Math.max(a.length, b.length);
@@ -34,11 +33,11 @@ function pinsMatch(provided, expected) {
 /* In-memory rate limiter — 5 failed attempts per IP per 60 seconds.  */
 /* Resets on process restart (acceptable for LAN-only deployment).    */
 /* ------------------------------------------------------------------ */
-const attempts = new Map();          // ip → [timestamp, …]
+const attempts = new Map<string, number[]>(); // ip → [timestamp, …]
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 60_000;
 
-function isRateLimited(ip) {
+function isRateLimited(ip: string): boolean {
   const now = Date.now();
   let list = attempts.get(ip) || [];
   list = list.filter(ts => now - ts < WINDOW_MS);
@@ -46,13 +45,13 @@ function isRateLimited(ip) {
   return list.length >= MAX_ATTEMPTS;
 }
 
-function recordFailedAttempt(ip) {
+function recordFailedAttempt(ip: string): void {
   const list = attempts.get(ip) || [];
   list.push(Date.now());
   attempts.set(ip, list);
 }
 
-function clearAttempts(ip) {
+function clearAttempts(ip: string): void {
   attempts.delete(ip);
 }
 
@@ -60,22 +59,23 @@ function clearAttempts(ip) {
 // use the socket-level hint so a client can't spoof an IP to rotate past the limiter.
 const TRUST_PROXY = process.env.LARIAT_TRUST_PROXY === '1';
 
-function getIp(req) {
+function getIp(req: Request): string {
   if (TRUST_PROXY) {
     const xff = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
     if (xff) return xff;
     const xreal = req.headers.get('x-real-ip');
     if (xreal) return xreal;
   }
-  // Next.js runtime exposes the remote address on the request in most adapters;
-  // fall back to a constant bucket (LAN deployment) when unavailable.
-  return req.ip || '127.0.0.1';
+  // Next.js runtime exposes the remote address on the request in most adapters
+  // (not in the standard Request type); fall back to a constant bucket
+  // (LAN deployment) when unavailable.
+  return (req as Request & { ip?: string }).ip || '127.0.0.1';
 }
 
 /* ------------------------------------------------------------------ */
 /* Cookie helper                                                       */
 /* ------------------------------------------------------------------ */
-function cookieHeader(name, value, maxAgeSec) {
+function cookieHeader(name: string, value: string, maxAgeSec?: number): string {
   const parts = [`${name}=${value}`, 'Path=/', 'HttpOnly', 'SameSite=Strict'];
   if (maxAgeSec !== undefined) parts.push(`Max-Age=${maxAgeSec}`);
   if (process.env.NODE_ENV === 'production') parts.push('Secure');
@@ -104,7 +104,7 @@ export async function GET() {
   });
 }
 
-export async function POST(req) {
+export async function POST(req: Request) {
   const expected = process.env.LARIAT_PIN;
   const location = locationIdFromEnv();
   let managerCount = 0;
@@ -126,9 +126,9 @@ export async function POST(req) {
     );
   }
 
-  let body = {};
+  let body: { pin?: unknown } = {};
   try {
-    body = await req.json();
+    body = (await req.json()) as { pin?: unknown };
   } catch {
     return Response.json({ error: 'invalid json' }, { status: 400 });
   }

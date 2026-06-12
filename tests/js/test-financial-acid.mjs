@@ -36,7 +36,7 @@ const ORIGINAL_SECRET = process.env.LARIAT_PIN_SECRET;
 const beoRoute = await import('../../app/api/beo/route.js');
 const goldStarsRoute = await import('../../app/api/gold-stars/route.ts');
 const goldStarByIdRoute = await import('../../app/api/gold-stars/[id]/route.ts');
-const inventoryRoute = await import('../../app/api/inventory/route.js');
+const inventoryRoute = await import('../../app/api/inventory/route.ts');
 const eightySixRoute = await import('../../app/api/eighty-six/route.ts');
 
 // Repo modules

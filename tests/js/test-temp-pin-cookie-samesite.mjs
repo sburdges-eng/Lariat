@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Pins the SameSite policy on the temp-PIN cookie issued by
 // /api/auth/temp-pin/login. Mirrors the master-PIN cookie at
-// app/api/auth/pin/route.js (SameSite=Strict).
+// app/api/auth/pin/route.ts (SameSite=Strict).
 //
 // Background: docs/audit/2026-05-08-codebase-audit.md §1, security
 // MEDIUM #3. The temp-PIN cookie shipped (PR #141) with SameSite=Lax;
