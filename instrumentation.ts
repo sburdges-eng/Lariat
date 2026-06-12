@@ -80,4 +80,16 @@ export async function register(): Promise<void> {
       console.warn('[instrumentation] datapack pre-warm import failed:', err);
     }
   });
+
+  // Local-Whisper ASR pre-warm. prewarmWhisper itself no-ops unless the
+  // operator set LARIAT_WHISPER=1 (the model is a ~75 MB hub download on
+  // first load — an explicit opt-in, see docs/OPERATIONS_HANDOFF.md §6).
+  setImmediate(async () => {
+    try {
+      const { prewarmWhisper } = await import('./lib/whisperTranscribe');
+      await prewarmWhisper();
+    } catch (err) {
+      console.warn('[instrumentation] whisper pre-warm import failed:', err);
+    }
+  });
 }
