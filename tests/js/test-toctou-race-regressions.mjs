@@ -70,7 +70,7 @@ const breaksRoute = await import('../../app/api/breaks/route.js');
 const coolingRoute = await import('../../app/api/cooling/route.js');
 const dateMarksRoute = await import('../../app/api/date-marks/route.js');
 const sickWorkerRoute = await import('../../app/api/sick-worker/route.js');
-const signoffRoute = await import('../../app/api/signoff/route.js');
+const signoffRoute = await import('../../app/api/signoff/route.ts');
 
 const { todayISO } = db;
 

@@ -16,7 +16,7 @@ const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-signoff-gates-'));
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
 const db = await import('../../lib/db.ts');
-const route = await import('../../app/api/signoff/route.js');
+const route = await import('../../app/api/signoff/route.ts');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();

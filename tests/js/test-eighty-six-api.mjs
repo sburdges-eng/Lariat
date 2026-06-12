@@ -24,8 +24,8 @@ const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-eighty-six-api-'))
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
 const db = await import('../../lib/db.ts');
-const eightySixRoute = await import('../../app/api/eighty-six/route.js');
-const resolveRoute = await import('../../app/api/eighty-six/resolve/route.js');
+const eightySixRoute = await import('../../app/api/eighty-six/route.ts');
+const resolveRoute = await import('../../app/api/eighty-six/resolve/route.ts');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();

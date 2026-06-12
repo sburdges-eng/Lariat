@@ -32,7 +32,7 @@ const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-checks-api-'));
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
 const db = await import('../../lib/db.ts');
-const route = await import('../../app/api/checks/route.js');
+const route = await import('../../app/api/checks/route.ts');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();

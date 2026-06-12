@@ -1,4 +1,3 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // POST /api/eighty-six/resolve — mark an active 86 row resolved.
 //
 // Pre-2026-05-08 this route did:
@@ -27,19 +26,32 @@ import { withIdempotency } from '../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
-const clip = (s, max) => {
+interface EightySixRow {
+  id: number;
+  shift_date: string;
+  item: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  location_id: string;
+}
+
+type ResolveResult =
+  | { status: 404 | 409; error: string; entry?: EightySixRow }
+  | { status: 200; updated: EightySixRow };
+
+const clip = (s: unknown, max: number): string | null => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
-export async function POST(req) {
+export async function POST(req: Request) {
   return withIdempotency(req, () => eightySixResolvePostHandler(req));
 }
 
-async function eightySixResolvePostHandler(req) {
+async function eightySixResolvePostHandler(req: Request) {
   try {
-    const body = await req.json();
+    const body = (await req.json()) as { id?: unknown; cook_id?: unknown };
     const id = Number(body?.id);
     if (!Number.isInteger(id) || id <= 0) {
       return Response.json({ error: 'id required' }, { status: 400 });
@@ -49,8 +61,10 @@ async function eightySixResolvePostHandler(req) {
 
     const db = getDb();
 
-    const performUpdate = db.transaction(() => {
-      const existing = db.prepare('SELECT * FROM eighty_six WHERE id=?').get(id);
+    const performUpdate = db.transaction((): ResolveResult => {
+      const existing = db.prepare('SELECT * FROM eighty_six WHERE id=?').get(id) as
+        | EightySixRow
+        | undefined;
       if (!existing) return { status: 404, error: 'unknown 86' };
 
       // Cross-location IDOR guard: 404 (not 403) so existence at
@@ -69,7 +83,7 @@ async function eightySixResolvePostHandler(req) {
         WHERE id = ?
       `).run(cook_id || null, id);
 
-      const updated = db.prepare('SELECT * FROM eighty_six WHERE id=?').get(id);
+      const updated = db.prepare('SELECT * FROM eighty_six WHERE id=?').get(id) as EightySixRow;
 
       postAuditEvent({
         entity: 'eighty_six',
