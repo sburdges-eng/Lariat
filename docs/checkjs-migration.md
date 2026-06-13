@@ -71,7 +71,7 @@ Migration priority, highest first:
 | `app/api/checks/route.js` | HIGH | Line-check entries (temps, glove change). |
 | `app/api/inventory/route.js` | HIGH | Inventory delta writes. |
 | `app/api/auth/pin/*.js` | HIGH | PIN gate / temp-PIN issuance. |
-| `app/api/breaks/route.js`, `certifications/*` | MEDIUM | Labor compliance. |
+| ~~`app/api/breaks/route.js`, `certifications/route.js`~~ | MEDIUM | **Done (2026-06-13):** both migrated to `@ts-check` + JSDoc row typedefs; typecheck clean, `test:breaks` 35/35, pin-gate coverage green. |
 | The rest of `app/api/**/route.js` | LOWER | Generally smaller surface or read-only. |
 | `app/__tests__/*.test.jsx` | LOWEST | Tests run against real DB anyway; weak typing tolerable. |
 
