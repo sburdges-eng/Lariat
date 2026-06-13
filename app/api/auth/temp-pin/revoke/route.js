@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // POST /api/auth/temp-pin/revoke — revoke a temp PIN (manager only).
 //
 // Spec: docs/superpowers/specs/2026-05-04-beo-fire-times.md.
@@ -16,12 +16,14 @@ import { locationFromBody } from '../../../../../lib/location';
 
 export const dynamic = 'force-dynamic';
 
+/** @param {Request} req */
 export async function POST(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
   return withIdempotency(req, () => revokeHandler(req));
 }
 
+/** @param {Request} req */
 async function revokeHandler(req) {
   let body;
   try {
@@ -38,14 +40,15 @@ async function revokeHandler(req) {
   const location = locationFromBody(body);
   const db = getDb();
 
+  /** @type {string | null} */
   let revokedAt = null;
   try {
     db.transaction(() => {
-      const existing = db
+      const existing = /** @type {{ id: number; revoked_at: string | null } | undefined} */ (db
         .prepare(`SELECT id, revoked_at FROM temp_pins WHERE id = ? AND location_id = ?`)
-        .get(id, location);
+        .get(id, location));
       if (!existing) {
-        const err = new Error('not_found');
+        const err = /** @type {Error & { code?: string }} */ (new Error('not_found'));
         err.code = 'NOT_FOUND';
         throw err;
       }
@@ -57,7 +60,7 @@ async function revokeHandler(req) {
       }
 
       db.prepare(`UPDATE temp_pins SET revoked_at = datetime('now') WHERE id = ?`).run(id);
-      const r = db.prepare(`SELECT revoked_at FROM temp_pins WHERE id = ?`).get(id);
+      const r = /** @type {{ revoked_at: string | null }} */ (db.prepare(`SELECT revoked_at FROM temp_pins WHERE id = ?`).get(id));
       revokedAt = r.revoked_at;
 
       postAuditEvent({
@@ -71,7 +74,7 @@ async function revokeHandler(req) {
       });
     })();
   } catch (err) {
-    if (err && err.code === 'NOT_FOUND') {
+    if (err && /** @type {{ code?: string }} */ (err).code === 'NOT_FOUND') {
       return json({ error: 'temp pin not found' }, { status: 404 });
     }
     console.error('revoke temp pin failed:', err);
