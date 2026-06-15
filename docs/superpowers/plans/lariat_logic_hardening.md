@@ -1,5 +1,7 @@
 # Lariat Logic Hardening Master Plan
 
+> **STATUS: SHIPPED (verified 2026-06-15, deep re-check) — all 4 phases done. Phase 1 API try/catch (beo, eighty-six routes). Phase 2 frontend `!res.ok` + `try/catch` feedback on every mutation in EightySixBoard (addItem/resolve/confirmCascade) and BeoBoard; Sidebar has only GET loads (`.catch`-guarded). Phase 3 sanitization via `clip(s,max)` on every input field in `app/api/eighty-six/route.ts` (reason capped at 100, stricter than the planned 500). Phase 4 PWA service worker + offline queue. The earlier PARTIAL verdict was a conservative recon miss.**
+
 ## Context
 A sweep of the Lariat Cockpit architecture revealed four primarily critical vectors for silent data loss and unhandled exceptions:
 1. Missing `try/catch` enclosures around `better-sqlite3` execution chains.

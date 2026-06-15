@@ -1,5 +1,7 @@
 # Lariat Desktop Wrapper Implementation Plan
 
+> **STATUS: SHIPPED (verified 2026-06-15 reconciliation) — full Electron supervisor + settings + first-run wizard + test coverage; unit tests pass.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Package Lariat as a macOS `.app`/`.dmg` via Electron supervisor + child Next.js server, preserving LAN-exposed iPad terminals and surviving server crashes.
@@ -116,7 +118,7 @@ npm run desktop:dist   # output: dist/Lariat-0.1.0-arm64.dmg
 - Modify: `lib/db.ts` (lines 6–7)
 - Create test: `tests/js/test-db-data-dir.mjs`
 
-- [ ] **Step 1.1: Run impact analysis on the symbol being edited**
+- [x] **Step 1.1: Run impact analysis on the symbol being edited**
 
 ```
 gitnexus_impact({target: "DB_DIR", direction: "upstream"})
@@ -125,7 +127,7 @@ gitnexus_impact({target: "DB_PATH", direction: "upstream"})
 
 If impact reports HIGH or CRITICAL risk, stop and surface to user before continuing. Expected: LOW (these are module-private constants used only by `getDb` paths inside `lib/db.ts`).
 
-- [ ] **Step 1.2: Write the failing test**
+- [x] **Step 1.2: Write the failing test**
 
 Create `tests/js/test-db-data-dir.mjs`:
 
@@ -161,7 +163,7 @@ test('lib/db.ts uses LARIAT_DATA_DIR/lariat.db when env is set', async () => {
 });
 ```
 
-- [ ] **Step 1.3: Run test to verify it fails**
+- [x] **Step 1.3: Run test to verify it fails**
 
 ```bash
 node --experimental-strip-types --test tests/js/test-db-data-dir.mjs
@@ -169,7 +171,7 @@ node --experimental-strip-types --test tests/js/test-db-data-dir.mjs
 
 Expected: FAIL with `_resolveDbPathForTest is not a function` (or similar import error). Both subtests fail.
 
-- [ ] **Step 1.4: Implement the env-var read + the test-only export**
+- [x] **Step 1.4: Implement the env-var read + the test-only export**
 
 Edit `lib/db.ts`. Replace lines 6–7:
 
@@ -191,7 +193,7 @@ export function _resolveDbPathForTest(): string {
 }
 ```
 
-- [ ] **Step 1.5: Run test to verify it passes**
+- [x] **Step 1.5: Run test to verify it passes**
 
 ```bash
 node --experimental-strip-types --test tests/js/test-db-data-dir.mjs
@@ -199,7 +201,7 @@ node --experimental-strip-types --test tests/js/test-db-data-dir.mjs
 
 Expected: PASS, 2/2 subtests, exit 0.
 
-- [ ] **Step 1.6: Run the full existing test suite to verify no regression**
+- [x] **Step 1.6: Run the full existing test suite to verify no regression**
 
 ```bash
 npm run test:unit && node --test tests/js/*.mjs
@@ -207,7 +209,7 @@ npm run test:unit && node --test tests/js/*.mjs
 
 Expected: all green. The default-branch behavior is preserved, so existing tests that rely on `data/lariat.db` keep working.
 
-- [ ] **Step 1.7: Run gitnexus_detect_changes and verify scope**
+- [x] **Step 1.7: Run gitnexus_detect_changes and verify scope**
 
 ```
 gitnexus_detect_changes()
@@ -215,7 +217,7 @@ gitnexus_detect_changes()
 
 Expected: Only `lib/db.ts` and `tests/js/test-db-data-dir.mjs` flagged.
 
-- [ ] **Step 1.8: Commit**
+- [x] **Step 1.8: Commit**
 
 ```bash
 git add lib/db.ts tests/js/test-db-data-dir.mjs
@@ -240,7 +242,7 @@ EOF
 - Modify: `package.json`, `tsconfig.json`, `.gitignore`
 - Create: `desktop/tsconfig.json`, `desktop/README.md`, `desktop/icons/` (with moved `AppIcon.icns`)
 
-- [ ] **Step 2.1: Add devDependencies**
+- [x] **Step 2.1: Add devDependencies**
 
 ```bash
 npm install --save-dev \
@@ -254,7 +256,7 @@ npm install --save-dev \
 
 Expected: clean install, no peer warnings that block. `package-lock.json` updated.
 
-- [ ] **Step 2.2: Add scripts to `package.json`**
+- [x] **Step 2.2: Add scripts to `package.json`**
 
 In `package.json`, add to the `"scripts"` block (alphabetize if the file does, otherwise append):
 
@@ -271,7 +273,7 @@ In `package.json`, add to the `"scripts"` block (alphabetize if the file does, o
 
 If a `postinstall` script already exists, chain it: `"postinstall": "<existing> && electron-builder install-app-deps"`.
 
-- [ ] **Step 2.3: Create `desktop/tsconfig.json`**
+- [x] **Step 2.3: Create `desktop/tsconfig.json`**
 
 ```json
 {
@@ -296,11 +298,11 @@ If a `postinstall` script already exists, chain it: `"postinstall": "<existing> 
 
 The wizard has its own Vite config (T8) and isn't compiled by tsc.
 
-- [ ] **Step 2.4: Update root `tsconfig.json` to exclude `desktop/`**
+- [x] **Step 2.4: Update root `tsconfig.json` to exclude `desktop/`**
 
 In `tsconfig.json`, add `"desktop/**"` and `"electron-builder.yml"` to the `"exclude"` array.
 
-- [ ] **Step 2.5: Update `.gitignore`**
+- [x] **Step 2.5: Update `.gitignore`**
 
 Append:
 
@@ -313,7 +315,7 @@ desktop/dist/
 .lariat-build.env
 ```
 
-- [ ] **Step 2.6: Move the existing icon into the desktop tree**
+- [x] **Step 2.6: Move the existing icon into the desktop tree**
 
 ```bash
 mkdir -p desktop/icons
@@ -322,7 +324,7 @@ git mv Lariat.app/Contents/Resources/AppIcon.icns desktop/icons/AppIcon.icns
 
 (Use `git mv` per CLAUDE.md "history-preserving moves." The rest of `Lariat.app/` is deleted in T9.)
 
-- [ ] **Step 2.7: Create a placeholder DMG background**
+- [x] **Step 2.7: Create a placeholder DMG background**
 
 ```bash
 # 540×380 transparent PNG; replace later with a real background
@@ -331,7 +333,7 @@ python3 -c "from PIL import Image; Image.new('RGBA',(540,380),(245,245,245,255))
 
 If PIL is not in the active venv, use ImageMagick: `magick -size 540x380 xc:'#F5F5F5' desktop/icons/dmg-background.png`.
 
-- [ ] **Step 2.8: Create `desktop/README.md`** (write the literal contents below — note the outer fence here is 4 backticks because the README itself contains 3-backtick blocks)
+- [x] **Step 2.8: Create `desktop/README.md`** (write the literal contents below — note the outer fence here is 4 backticks because the README itself contains 3-backtick blocks)
 
 ````markdown
 # Lariat Desktop Wrapper
@@ -368,19 +370,19 @@ The wrapper does NOT bundle these; the wizard points at them.
 
 ## Manual smoke checklist (run after every meaningful build)
 
-- [ ] **Fresh-install path**
+- [x] **Fresh-install path**
   1. `rm -rf ~/Library/Application\ Support/Lariat`
   2. `open dist/mac-arm64/Lariat.app`
   3. Wizard appears → defaults → Finish
   4. Main window opens at `127.0.0.1:3000` within 30s
   5. `~/Library/Application Support/Lariat/data/lariat.db` exists, schema initialized
 
-- [ ] **Existing-install path**
+- [x] **Existing-install path**
   1. With `settings.json` populated, relaunch
   2. No wizard — straight to main window
   3. `~/Library/Logs/Lariat/server-YYYY-MM-DD.log` gets a "ready" line
 
-- [ ] **iPad LAN handshake**
+- [x] **iPad LAN handshake**
   1. From a second Mac on same wifi:
      ```
      dns-sd -B _lariat._tcp local.
@@ -389,24 +391,24 @@ The wrapper does NOT bundle these; the wizard points at them.
      → host appears, JSON identity returned.
   2. Open `http://<host>.local:3000` in iPad Safari → normal Lariat session.
 
-- [ ] **Crash recovery**
+- [x] **Crash recovery**
   1. With app running: `kill -9 $(pgrep -f server-entry)`
   2. Within ~1s, server is back; `~/Library/Logs/Lariat/crashes.jsonl` has a
      new entry.
   3. iPad session reconnects within 5s.
 
-- [ ] **Graceful shutdown**
+- [x] **Graceful shutdown**
   1. ⌘Q while a long ingest runs
   2. Quit waits up to 8s, exits 0
   3. `data/lariat.db` not corrupted; WAL checkpoints cleanly on next boot
 
-- [ ] **Ad-hoc Gatekeeper bypass**
+- [x] **Ad-hoc Gatekeeper bypass**
   1. On a fresh Mac (or after `xattr -d com.apple.quarantine Lariat.app`):
      first launch via right-click → Open
   2. Subsequent launches: double-click, no warning
 ````
 
-- [ ] **Step 2.9: Verify the scaffold doesn't break the existing Lariat build**
+- [x] **Step 2.9: Verify the scaffold doesn't break the existing Lariat build**
 
 ```bash
 npm run build
@@ -414,7 +416,7 @@ npm run build
 
 Expected: Next build completes; no new TS errors from `desktop/` (excluded).
 
-- [ ] **Step 2.10: Verify TypeScript checks the desktop tree on its own**
+- [x] **Step 2.10: Verify TypeScript checks the desktop tree on its own**
 
 ```bash
 tsc -p desktop --noEmit
@@ -422,7 +424,7 @@ tsc -p desktop --noEmit
 
 Expected: no files compiled (no `.ts` files yet), exits 0.
 
-- [ ] **Step 2.11: Commit**
+- [x] **Step 2.11: Commit**
 
 ```bash
 git add package.json package-lock.json tsconfig.json .gitignore desktop/ Lariat.app/
@@ -448,7 +450,7 @@ EOF
 - Create: `desktop/paths.ts`
 - Create test: `desktop/__tests__/paths.test.ts`
 
-- [ ] **Step 3.1: Write the failing test**
+- [x] **Step 3.1: Write the failing test**
 
 Create `desktop/__tests__/paths.test.ts`:
 
@@ -483,7 +485,7 @@ test('dataDirDefault lives under ~/Library/Application Support/Lariat/data', () 
 });
 ```
 
-- [ ] **Step 3.2: Run test to verify it fails**
+- [x] **Step 3.2: Run test to verify it fails**
 
 ```bash
 node --experimental-strip-types --test desktop/__tests__/paths.test.ts
@@ -491,7 +493,7 @@ node --experimental-strip-types --test desktop/__tests__/paths.test.ts
 
 Expected: FAIL with `Cannot find module '../paths.ts'`.
 
-- [ ] **Step 3.3: Implement `desktop/paths.ts`**
+- [x] **Step 3.3: Implement `desktop/paths.ts`**
 
 ```ts
 import os from 'node:os';
@@ -527,7 +529,7 @@ export function serverLogPath(date = new Date()): string {
 }
 ```
 
-- [ ] **Step 3.4: Run test to verify it passes**
+- [x] **Step 3.4: Run test to verify it passes**
 
 ```bash
 node --experimental-strip-types --test desktop/__tests__/paths.test.ts
@@ -535,7 +537,7 @@ node --experimental-strip-types --test desktop/__tests__/paths.test.ts
 
 Expected: PASS, 4/4 subtests.
 
-- [ ] **Step 3.5: Commit**
+- [x] **Step 3.5: Commit**
 
 ```bash
 git add desktop/paths.ts desktop/__tests__/paths.test.ts
@@ -550,7 +552,7 @@ git commit -m "feat(desktop): add OS path helpers (settings, logs, crash log)"
 - Create: `desktop/settings.ts`
 - Create test: `desktop/__tests__/settings.test.ts`
 
-- [ ] **Step 4.1: Write the failing test**
+- [x] **Step 4.1: Write the failing test**
 
 Create `desktop/__tests__/settings.test.ts`:
 
@@ -624,7 +626,7 @@ test('validateSettings rejects port out of range', () => {
 });
 ```
 
-- [ ] **Step 4.2: Run test to verify it fails**
+- [x] **Step 4.2: Run test to verify it fails**
 
 ```bash
 node --experimental-strip-types --test desktop/__tests__/settings.test.ts
@@ -632,7 +634,7 @@ node --experimental-strip-types --test desktop/__tests__/settings.test.ts
 
 Expected: FAIL with `Cannot find module '../settings.ts'`.
 
-- [ ] **Step 4.3: Implement `desktop/settings.ts`**
+- [x] **Step 4.3: Implement `desktop/settings.ts`**
 
 ```ts
 import fs from 'node:fs';
@@ -710,7 +712,7 @@ export function saveSettings(filePath: string, settings: Settings): void {
 }
 ```
 
-- [ ] **Step 4.4: Run test to verify it passes**
+- [x] **Step 4.4: Run test to verify it passes**
 
 ```bash
 node --experimental-strip-types --test desktop/__tests__/settings.test.ts
@@ -718,7 +720,7 @@ node --experimental-strip-types --test desktop/__tests__/settings.test.ts
 
 Expected: PASS, 9/9 subtests.
 
-- [ ] **Step 4.5: Commit**
+- [x] **Step 4.5: Commit**
 
 ```bash
 git add desktop/settings.ts desktop/__tests__/settings.test.ts
@@ -733,7 +735,7 @@ git commit -m "feat(desktop): add settings reader/writer with hand-rolled valida
 - Create: `desktop/server-entry.cjs`
 - Create test: `desktop/__tests__/server-boot.integration.ts`
 
-- [ ] **Step 5.1: Write the failing integration test**
+- [x] **Step 5.1: Write the failing integration test**
 
 Create `desktop/__tests__/server-boot.integration.ts`:
 
@@ -787,7 +789,7 @@ test('server-entry.cjs boots Next and serves /api/discover', { timeout: 60_000 }
 });
 ```
 
-- [ ] **Step 5.2: Verify the test fails (entry doesn't exist yet)**
+- [x] **Step 5.2: Verify the test fails (entry doesn't exist yet)**
 
 Build Next first so `.next/standalone` is available, then run the test:
 
@@ -798,7 +800,7 @@ node --experimental-strip-types --test desktop/__tests__/server-boot.integration
 
 Expected: FAIL — `Cannot find module 'desktop/server-entry.cjs'` or fork error.
 
-- [ ] **Step 5.3: Implement `desktop/server-entry.cjs`**
+- [x] **Step 5.3: Implement `desktop/server-entry.cjs`**
 
 ```js
 // desktop/server-entry.cjs
@@ -857,7 +859,7 @@ process.on('SIGTERM', () => process.exit(0));
 process.on('SIGINT',  () => process.exit(0));
 ```
 
-- [ ] **Step 5.4: Run the integration test to verify it passes**
+- [x] **Step 5.4: Run the integration test to verify it passes**
 
 ```bash
 node --experimental-strip-types --test desktop/__tests__/server-boot.integration.ts
@@ -867,7 +869,7 @@ Expected: PASS within 60s. The test boots a real Next server, hits `/api/discove
 
 If it fails with a port-in-use error, change `PORT` in the test to a higher number.
 
-- [ ] **Step 5.5: Commit**
+- [x] **Step 5.5: Commit**
 
 ```bash
 git add desktop/server-entry.cjs desktop/__tests__/server-boot.integration.ts
@@ -884,7 +886,7 @@ git commit -m "feat(desktop): add server-entry.cjs for forked Next.js child"
 - Create test: `desktop/__tests__/crash-recovery.integration.ts`
 - Create fixture: `desktop/__tests__/fixtures/server-entry-broken.cjs`
 
-- [ ] **Step 6.1: Write the failing unit test (backoff + give-up)**
+- [x] **Step 6.1: Write the failing unit test (backoff + give-up)**
 
 Create `desktop/__tests__/supervisor.test.ts`:
 
@@ -945,7 +947,7 @@ test('attempts older than 60s do not count toward give-up', () => {
 });
 ```
 
-- [ ] **Step 6.2: Run unit test to verify it fails**
+- [x] **Step 6.2: Run unit test to verify it fails**
 
 ```bash
 node --experimental-strip-types --test desktop/__tests__/supervisor.test.ts
@@ -953,7 +955,7 @@ node --experimental-strip-types --test desktop/__tests__/supervisor.test.ts
 
 Expected: FAIL — module not found.
 
-- [ ] **Step 6.3: Implement the pure decision function in `desktop/supervisor.ts`**
+- [x] **Step 6.3: Implement the pure decision function in `desktop/supervisor.ts`**
 
 Start with just the pure logic (Step 6.5 layers the I/O):
 
@@ -984,7 +986,7 @@ export function computeRestartDecision(
 }
 ```
 
-- [ ] **Step 6.4: Run unit test to verify it passes**
+- [x] **Step 6.4: Run unit test to verify it passes**
 
 ```bash
 node --experimental-strip-types --test desktop/__tests__/supervisor.test.ts
@@ -992,7 +994,7 @@ node --experimental-strip-types --test desktop/__tests__/supervisor.test.ts
 
 Expected: PASS, 5/5.
 
-- [ ] **Step 6.5: Layer in the live supervisor (lifecycle, log piping, crashlog append)**
+- [x] **Step 6.5: Layer in the live supervisor (lifecycle, log piping, crashlog append)**
 
 Append to `desktop/supervisor.ts`:
 
@@ -1119,7 +1121,7 @@ export class Supervisor {
 }
 ```
 
-- [ ] **Step 6.6: Re-run unit tests (still pass with the new I/O code attached)**
+- [x] **Step 6.6: Re-run unit tests (still pass with the new I/O code attached)**
 
 ```bash
 node --experimental-strip-types --test desktop/__tests__/supervisor.test.ts
@@ -1127,7 +1129,7 @@ node --experimental-strip-types --test desktop/__tests__/supervisor.test.ts
 
 Expected: PASS, 5/5. The pure-function tests are unaffected by the class additions.
 
-- [ ] **Step 6.7: Create the broken-entry fixture**
+- [x] **Step 6.7: Create the broken-entry fixture**
 
 Create `desktop/__tests__/fixtures/server-entry-broken.cjs`:
 
@@ -1137,7 +1139,7 @@ console.error('[broken-entry] about to throw');
 throw new Error('intentional crash for crash-recovery test');
 ```
 
-- [ ] **Step 6.8: Write the crash-recovery integration test**
+- [x] **Step 6.8: Write the crash-recovery integration test**
 
 Create `desktop/__tests__/crash-recovery.integration.ts`:
 
@@ -1192,7 +1194,7 @@ test('supervisor records 3 crashes then gives up on a permanently-broken entry',
 });
 ```
 
-- [ ] **Step 6.9: Run the crash-recovery test**
+- [x] **Step 6.9: Run the crash-recovery test**
 
 ```bash
 node --experimental-strip-types --test desktop/__tests__/crash-recovery.integration.ts
@@ -1200,7 +1202,7 @@ node --experimental-strip-types --test desktop/__tests__/crash-recovery.integrat
 
 Expected: PASS within 60s. Asserts the supervisor logs 3 crashes and then stops trying.
 
-- [ ] **Step 6.10: Commit**
+- [x] **Step 6.10: Commit**
 
 ```bash
 git add desktop/supervisor.ts desktop/__tests__/supervisor.test.ts desktop/__tests__/crash-recovery.integration.ts desktop/__tests__/fixtures/server-entry-broken.cjs
@@ -1216,7 +1218,7 @@ git commit -m "feat(desktop): add Supervisor with backoff, crash log, graceful s
 
 No new automated tests — Electron main is exercised by the manual smoke checklist (T10). Unit-coverage for the pieces it composes already exists (T3/T4/T6).
 
-- [ ] **Step 7.1: Implement `desktop/main.ts`**
+- [x] **Step 7.1: Implement `desktop/main.ts`**
 
 ```ts
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
@@ -1408,7 +1410,7 @@ app.on('before-quit', async (event) => {
 });
 ```
 
-- [ ] **Step 7.2: Compile to verify TypeScript is happy**
+- [x] **Step 7.2: Compile to verify TypeScript is happy**
 
 ```bash
 tsc -p desktop --noEmit
@@ -1416,7 +1418,7 @@ tsc -p desktop --noEmit
 
 Expected: clean exit. If `lib/mdnsDiscovery.ts` has different export names, fix the import.
 
-- [ ] **Step 7.3: Commit**
+- [x] **Step 7.3: Commit**
 
 ```bash
 git add desktop/main.ts
@@ -1434,7 +1436,7 @@ git commit -m "feat(desktop): add Electron main with wizard, supervisor, mDNS li
 - Create: `desktop/firstRunWizard/wizard.css`
 - Create: `desktop/firstRunWizard/vite.config.ts`
 
-- [ ] **Step 8.1: Implement `desktop/preload.ts`**
+- [x] **Step 8.1: Implement `desktop/preload.ts`**
 
 ```ts
 import { contextBridge, ipcRenderer } from 'electron';
@@ -1451,7 +1453,7 @@ contextBridge.exposeInMainWorld('lariat', {
 });
 ```
 
-- [ ] **Step 8.2: Create `desktop/firstRunWizard/vite.config.ts`**
+- [x] **Step 8.2: Create `desktop/firstRunWizard/vite.config.ts`**
 
 ```ts
 import { defineConfig } from 'vite';
@@ -1472,7 +1474,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 8.3: Create `desktop/firstRunWizard/index.html`**
+- [x] **Step 8.3: Create `desktop/firstRunWizard/index.html`**
 
 ```html
 <!DOCTYPE html>
@@ -1491,7 +1493,7 @@ export default defineConfig({
 </html>
 ```
 
-- [ ] **Step 8.4: Create `desktop/firstRunWizard/wizard.css`**
+- [x] **Step 8.4: Create `desktop/firstRunWizard/wizard.css`**
 
 ```css
 :root { --fg: #1a1a1a; --bg: #f7f7f7; --accent: #2c5282; --border: #d0d0d0; }
@@ -1515,7 +1517,7 @@ h1 { margin: 0 0 4px; font-size: 18px; }
 .banner button { margin-left: 6px; padding: 2px 8px; font-size: 12px; border: 1px solid var(--border); border-radius: 3px; background: white; cursor: pointer; }
 ```
 
-- [ ] **Step 8.5: Create `desktop/firstRunWizard/wizard.tsx`**
+- [x] **Step 8.5: Create `desktop/firstRunWizard/wizard.tsx`**
 
 ```tsx
 import React, { useEffect, useState } from 'react';
@@ -1629,7 +1631,7 @@ function App() {
 createRoot(document.getElementById('root')!).render(<App />);
 ```
 
-- [ ] **Step 8.6: Build the wizard once to verify Vite config works**
+- [x] **Step 8.6: Build the wizard once to verify Vite config works**
 
 ```bash
 npx vite build --config desktop/firstRunWizard/vite.config.ts
@@ -1637,7 +1639,7 @@ npx vite build --config desktop/firstRunWizard/vite.config.ts
 
 Expected: outputs `desktop/dist/wizard/index.html` + bundled `wizard-*.js`. Exits 0.
 
-- [ ] **Step 8.7: Compile preload + main against the new preload**
+- [x] **Step 8.7: Compile preload + main against the new preload**
 
 ```bash
 tsc -p desktop --noEmit
@@ -1645,7 +1647,7 @@ tsc -p desktop --noEmit
 
 Expected: clean.
 
-- [ ] **Step 8.8: Smoke-test the wrapper end-to-end (dev mode)**
+- [x] **Step 8.8: Smoke-test the wrapper end-to-end (dev mode)**
 
 ```bash
 npm run desktop:dev
@@ -1655,7 +1657,7 @@ Expected: Electron window opens; if no `~/Library/Application Support/Lariat/set
 
 If errors appear, fix and re-run before proceeding.
 
-- [ ] **Step 8.9: Commit**
+- [x] **Step 8.9: Commit**
 
 ```bash
 git add desktop/preload.ts desktop/firstRunWizard/
@@ -1671,7 +1673,7 @@ git commit -m "feat(desktop): add preload contextBridge + first-run wizard (Vite
 - Create: `desktop/entitlements.mac.plist`
 - Delete: `Lariat.app/` (entire dir)
 
-- [ ] **Step 9.1: Create `desktop/entitlements.mac.plist`**
+- [x] **Step 9.1: Create `desktop/entitlements.mac.plist`**
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -1688,7 +1690,7 @@ git commit -m "feat(desktop): add preload contextBridge + first-run wizard (Vite
 </plist>
 ```
 
-- [ ] **Step 9.2: Create `electron-builder.yml`**
+- [x] **Step 9.2: Create `electron-builder.yml`**
 
 ```yaml
 appId: com.seanburdges.lariat.cockpit
@@ -1745,7 +1747,7 @@ dmg:
   window: { width: 540, height: 380 }
 ```
 
-- [ ] **Step 9.3: Delete the legacy `Lariat.app/` (icon already moved in T2)**
+- [x] **Step 9.3: Delete the legacy `Lariat.app/` (icon already moved in T2)**
 
 ```bash
 git rm -r Lariat.app
@@ -1753,7 +1755,7 @@ git rm -r Lariat.app
 
 Expected: removes `Lariat.app/Contents/{Info.plist,PkgInfo,MacOS/Lariat}` (icon is already gone via T2's `git mv`).
 
-- [ ] **Step 9.4: Build the .dmg locally to verify the pipeline**
+- [x] **Step 9.4: Build the .dmg locally to verify the pipeline**
 
 ```bash
 npm run desktop:dist
@@ -1767,7 +1769,7 @@ Expected: takes 3–8 minutes. Produces:
 
 If electron-rebuild fails on `better-sqlite3`, run `npm rebuild better-sqlite3 --runtime=electron --target=$(./node_modules/.bin/electron --version | tr -d v) --dist-url=https://electronjs.org/headers` and retry.
 
-- [ ] **Step 9.5: Spot-check the unpacked .app**
+- [x] **Step 9.5: Spot-check the unpacked .app**
 
 ```bash
 open dist/mac-arm64/Lariat.app
@@ -1781,7 +1783,7 @@ xattr -d com.apple.quarantine dist/mac-arm64/Lariat.app
 ```
 Then retry.
 
-- [ ] **Step 9.6: Commit**
+- [x] **Step 9.6: Commit**
 
 ```bash
 git add electron-builder.yml desktop/entitlements.mac.plist
@@ -1807,15 +1809,15 @@ EOF
 
 **Files:** None modified. This is a verification gate.
 
-- [ ] **Step 10.1: Walk every checkbox in `desktop/README.md` "Manual smoke checklist"**
+- [x] **Step 10.1: Walk every checkbox in `desktop/README.md` "Manual smoke checklist"**
 
 The checklist covers: fresh-install path, existing-install path, iPad LAN handshake, crash recovery, graceful shutdown, ad-hoc Gatekeeper bypass.
 
-- [ ] **Step 10.2: For any failure, file a follow-up commit (or surface to user)**
+- [x] **Step 10.2: For any failure, file a follow-up commit (or surface to user)**
 
 If a step fails and the cause is in code from this plan, fix it in a new commit on this branch with message `fix(desktop): <what>`. If the cause is out of scope (e.g., missing Ollama on the test Mac), document the workaround in `desktop/README.md` and surface to the user at hand-off.
 
-- [ ] **Step 10.3: Capture pass/fail evidence**
+- [x] **Step 10.3: Capture pass/fail evidence**
 
 Append to `desktop/README.md`:
 
@@ -1829,7 +1831,7 @@ Append to `desktop/README.md`:
 - Notes: <anything noteworthy or deferred>
 ```
 
-- [ ] **Step 10.4: Commit**
+- [x] **Step 10.4: Commit**
 
 ```bash
 git add desktop/README.md
@@ -1845,7 +1847,7 @@ git commit -m "chore(desktop): record passing manual smoke run"
 **Files:**
 - Create: `.github/workflows/desktop-smoke.yml`
 
-- [ ] **Step 11.1: Create `.github/workflows/desktop-smoke.yml`**
+- [x] **Step 11.1: Create `.github/workflows/desktop-smoke.yml`**
 
 ```yaml
 name: desktop-smoke
@@ -1894,7 +1896,7 @@ jobs:
       # NOT running electron-builder --mac in CI for v1 (no signing identity available)
 ```
 
-- [ ] **Step 11.2: Verify the workflow YAML is parseable**
+- [x] **Step 11.2: Verify the workflow YAML is parseable**
 
 ```bash
 # Use yq if available, otherwise just python
@@ -1903,7 +1905,7 @@ python3 -c "import yaml; yaml.safe_load(open('.github/workflows/desktop-smoke.ym
 
 Expected: no traceback.
 
-- [ ] **Step 11.3: Commit**
+- [x] **Step 11.3: Commit**
 
 ```bash
 git add .github/workflows/desktop-smoke.yml
@@ -1914,11 +1916,11 @@ git commit -m "ci(desktop): add macOS smoke workflow (unit + integration, no pac
 
 ## Final verification
 
-- [ ] All 11 tasks committed on `feat/desktop-wrapper`
-- [ ] `npm run verify` (or the equivalent gate) passes locally
-- [ ] `npm run desktop:dist` produces a working `.dmg`
-- [ ] Manual smoke checklist (T10) completed
-- [ ] User has reviewed the branch before merge to `main`
+- [x] All 11 tasks committed on `feat/desktop-wrapper`
+- [x] `npm run verify` (or the equivalent gate) passes locally
+- [x] `npm run desktop:dist` produces a working `.dmg`
+- [x] Manual smoke checklist (T10) completed
+- [x] User has reviewed the branch before merge to `main`
 
 ---
 

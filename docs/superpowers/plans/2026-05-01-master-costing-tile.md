@@ -1,5 +1,7 @@
 # Master Costing Tile Implementation Plan
 
+> **STATUS: SHIPPED (verified 2026-06-15 reconciliation) — ABC contribution ranking + 28-day variance sparkline wired into /costing; menu-engineering quadrant copy polished; 11/11 tests pass.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Phase 2 task E — add per-recipe ABC ranking and a 28-day COGS-variance trend to `/costing`, plus a small copy polish on the menu-engineering quadrants.
@@ -18,7 +20,7 @@
 - Create: `lib/abcRanking.ts`
 - Create: `tests/js/test-abc-ranking.mjs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```javascript
 // tests/js/test-abc-ranking.mjs
@@ -102,12 +104,12 @@ describe('rankByContribution', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-abc-ranking.mjs`
 Expected: FAIL — module does not exist.
 
-- [ ] **Step 3: Write `lib/abcRanking.ts`**
+- [x] **Step 3: Write `lib/abcRanking.ts`**
 
 ```ts
 // Pure-fn ABC contribution ranking — no I/O.
@@ -213,12 +215,12 @@ export function rankByContribution(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `node --experimental-strip-types --test tests/js/test-abc-ranking.mjs`
 Expected: PASS — 6 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/abcRanking.ts tests/js/test-abc-ranking.mjs
@@ -233,7 +235,7 @@ git commit -m "feat(costing): pure-fn ABC contribution ranking"
 - Create: `lib/varianceTrend.ts`
 - Create: `tests/js/test-variance-trend.mjs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```javascript
 // tests/js/test-variance-trend.mjs
@@ -314,12 +316,12 @@ describe('getVarianceTrend', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-variance-trend.mjs`
 Expected: FAIL — module does not exist.
 
-- [ ] **Step 3: Write `lib/varianceTrend.ts`**
+- [x] **Step 3: Write `lib/varianceTrend.ts`**
 
 ```ts
 // 28-day COGS-variance trend reader.
@@ -430,12 +432,12 @@ export function getVarianceTrend(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `node --experimental-strip-types --test tests/js/test-variance-trend.mjs`
 Expected: PASS — 5 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/varianceTrend.ts tests/js/test-variance-trend.mjs
@@ -449,7 +451,7 @@ git commit -m "feat(costing): 28-day variance trend reader"
 **Files:**
 - Create: `app/costing/_components/AbcTile.jsx`
 
-- [ ] **Step 1: Write the component**
+- [x] **Step 1: Write the component**
 
 ```jsx
 import { rankByContribution } from '../../../lib/abcRanking';
@@ -527,7 +529,7 @@ function TierRow({ tier, rows, label }) {
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add app/costing/_components/AbcTile.jsx
@@ -541,7 +543,7 @@ git commit -m "feat(costing): AbcTile component for /costing"
 **Files:**
 - Create: `app/costing/_components/VarianceTrend.jsx`
 
-- [ ] **Step 1: Write the component**
+- [x] **Step 1: Write the component**
 
 ```jsx
 const COLOR = {
@@ -626,7 +628,7 @@ function Stat({ label, value }) {
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add app/costing/_components/VarianceTrend.jsx
@@ -640,11 +642,11 @@ git commit -m "feat(costing): VarianceTrend sparkline component"
 **Files:**
 - Modify: `app/costing/page.jsx`
 
-- [ ] **Step 1: Find the existing tile region**
+- [x] **Step 1: Find the existing tile region**
 
 The existing page renders B1 / B2 / B3 / dish-coverage tiles inside a grid. The new tiles append below that grid in a second row.
 
-- [ ] **Step 2: Add imports + data plumbing + render**
+- [x] **Step 2: Add imports + data plumbing + render**
 
 Open `app/costing/page.jsx`. After the existing `import { computeDishCoverage } …` line, add:
 
@@ -686,12 +688,12 @@ Then below the closing `</div>` of the existing four-tile grid, before the varia
 
 (If the existing layout doesn't use `grid-2`, mirror the existing tile-grid class — open the file and copy whatever the B1/B2/B3 row uses.)
 
-- [ ] **Step 3: Run typecheck**
+- [x] **Step 3: Run typecheck**
 
 Run: `npm run typecheck`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/costing/page.jsx
@@ -705,7 +707,7 @@ git commit -m "feat(costing): mount AbcTile + VarianceTrend on /costing"
 **Files:**
 - Modify: `app/menu-engineering/page.tsx`
 
-- [ ] **Step 1: Update the `Q` map descriptions**
+- [x] **Step 1: Update the `Q` map descriptions**
 
 Open `app/menu-engineering/page.tsx`. Replace the `Q` object (currently lines ~11–17) with:
 
@@ -719,12 +721,12 @@ const Q: Record<string, { label: string; desc: string; color: string }> = {
 };
 ```
 
-- [ ] **Step 2: Run typecheck**
+- [x] **Step 2: Run typecheck**
 
 Run: `npm run typecheck`
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add app/menu-engineering/page.tsx
@@ -737,7 +739,7 @@ git commit -m "chore(menu-engineering): action-oriented quadrant copy"
 
 **Files:** None changed; verification only.
 
-- [ ] **Step 1: Run the new test files together**
+- [x] **Step 1: Run the new test files together**
 
 ```bash
 node --experimental-strip-types --test \
@@ -747,7 +749,7 @@ node --experimental-strip-types --test \
 
 Expected: PASS — 11 tests total.
 
-- [ ] **Step 2: Run the full repo gates**
+- [x] **Step 2: Run the full repo gates**
 
 ```bash
 npm run test:schema
@@ -761,13 +763,13 @@ Expected: every existing suite stays green.
 
 ## Task 8: PR
 
-- [ ] **Step 1: Push the branch**
+- [x] **Step 1: Push the branch**
 
 ```bash
 git push -u origin feat/phase2-costing-tile
 ```
 
-- [ ] **Step 2: Open the PR**
+- [x] **Step 2: Open the PR**
 
 Title: `feat(phase2): master costing tile (ABC + variance trend + quadrant copy)`
 

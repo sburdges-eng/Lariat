@@ -1,7 +1,9 @@
 # Plan: Staff Performance Reviews (Worktree: feat/staff-performance-reviews)
 
+> **STATUS: SHIPPED (verified 2026-06-15 reconciliation) — `performance_reviews` schema + POST/GET/DELETE routes (idempotency + audit) + manager UI; tests pass. (Supersedes the "PROPOSED" line below.)**
+
 **Date:** 2026-05-06
-**Status:** PROPOSED (Ready for Claude Implementation)
+**Status:** ~~PROPOSED (Ready for Claude Implementation)~~ → SHIPPED (see top header)
 **Scope:** Management / Labor Compliance
 **Author:** Gemini CLI
 

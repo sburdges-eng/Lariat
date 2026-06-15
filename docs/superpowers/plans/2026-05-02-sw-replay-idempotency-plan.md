@@ -1,5 +1,7 @@
 # Service-worker replay idempotency — implementation plan
 
+> **STATUS: SHIPPED (verified 2026-06-15 reconciliation) — `withIdempotency` wrapper + schema + coverage test + Phase 2 client activation; tests pass.**
+
 **Spec:** [`docs/superpowers/specs/2026-05-02-sw-replay-idempotency-design.md`](../specs/2026-05-02-sw-replay-idempotency-design.md)
 
 **TDD shape:** Each task is failing-test-first → minimal implementation → green → commit. Each task ships as its own PR; the next task starts from the merged base.

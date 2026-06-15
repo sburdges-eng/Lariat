@@ -1,5 +1,7 @@
 # Kitchen Assistant Hardening — Implementation Plan
 
+> **STATUS: PARTIAL (2026-06-15 reconciliation) — done: rebuild-cache script (T2), system-prompt hardening (T3), context-builder enrichment (T4). Remaining: OPERATIONS.md source-of-truth table (T5), Ollama Modelfile + training setup (T6).**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Harden the grounded kitchen assistant with full Big 9 allergen matrix, HACCP food safety rules, enriched recipe/menu/sub-recipe context, Sysco vendor and 7shifts labor sources of truth, and a local Ollama training config for Mac M4 16 GB.

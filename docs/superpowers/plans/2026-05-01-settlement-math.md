@@ -1,5 +1,7 @@
 # Settlement Math Implementation Plan
 
+> **STATUS: SHIPPED (verified 2026-06-15 reconciliation) — deal parser + talent payout + settlement repo + PIN-gated API + settlement page with inline editor; 30/30 tests pass.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship Phase 2 task B (deal-point parser + per-show settlement repo + read-only settlement page with inline deal editor) so a manager can compute a Lariat settlement that ties out within $5 / 0.5% of the equivalent Prism number for any show in the DB.
@@ -36,7 +38,7 @@
 - Modify: `lib/db.ts` (Phase 2 init block, after `box_office_lines` definition near line 1804)
 - Test: `tests/js/test-schema-show-deals.mjs` (new)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```javascript
 // tests/js/test-schema-show-deals.mjs
@@ -101,12 +103,12 @@ describe('show_deals schema', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-schema-show-deals.mjs`
 Expected: FAIL with "no such table: show_deals" on the first test.
 
-- [ ] **Step 3: Add the table to `lib/db.ts`**
+- [x] **Step 3: Add the table to `lib/db.ts`**
 
 Find the closing `\`);` of the Phase 2 init block (currently at `lib/db.ts:1805`, immediately after `idx_box_office_source_ext`). Replace the closing `\`);` line with this — keep the new content above it, then close:
 
@@ -129,12 +131,12 @@ Find the closing `\`);` of the Phase 2 init block (currently at `lib/db.ts:1805`
   `);
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --experimental-strip-types --test tests/js/test-schema-show-deals.mjs`
 Expected: PASS — 3 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/db.ts tests/js/test-schema-show-deals.mjs
@@ -149,7 +151,7 @@ git commit -m "feat(db): add show_deals table for Phase 2 settlement"
 - Create: `lib/dealPoints.ts`
 - Create: `tests/js/test-deal-points.mjs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```javascript
 // tests/js/test-deal-points.mjs
@@ -207,12 +209,12 @@ describe('parseDeal', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-deal-points.mjs`
 Expected: FAIL — module does not exist.
 
-- [ ] **Step 3: Write `lib/dealPoints.ts`**
+- [x] **Step 3: Write `lib/dealPoints.ts`**
 
 ```ts
 // Pure-fn deal-point parser + talent payout math.
@@ -281,12 +283,12 @@ export function parseDeal(row: ShowDealRow): DealPoint {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --experimental-strip-types --test tests/js/test-deal-points.mjs`
 Expected: PASS — 4 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/dealPoints.ts tests/js/test-deal-points.mjs
@@ -301,7 +303,7 @@ git commit -m "feat(deal-points): pure-fn parser + emptyDeal"
 - Modify: `lib/dealPoints.ts` (append)
 - Modify: `tests/js/test-deal-points.mjs` (append boundary cases)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/js/test-deal-points.mjs`:
 
@@ -373,12 +375,12 @@ describe('computeTalentPayout', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `node --experimental-strip-types --test tests/js/test-deal-points.mjs`
 Expected: 6 new test failures with "computeTalentPayout is not a function".
 
-- [ ] **Step 3: Append `computeTalentPayout` to `lib/dealPoints.ts`**
+- [x] **Step 3: Append `computeTalentPayout` to `lib/dealPoints.ts`**
 
 ```ts
 export interface TalentPayout {
@@ -413,12 +415,12 @@ export function computeTalentPayout(args: {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `node --experimental-strip-types --test tests/js/test-deal-points.mjs`
 Expected: PASS — 10 tests total.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/dealPoints.ts tests/js/test-deal-points.mjs
@@ -433,7 +435,7 @@ git commit -m "feat(deal-points): computeTalentPayout with boundary tests"
 - Create: `lib/settlementRepo.ts`
 - Create: `tests/js/test-settlement-repo.mjs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```javascript
 // tests/js/test-settlement-repo.mjs
@@ -516,12 +518,12 @@ describe('upsertDeal', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-settlement-repo.mjs`
 Expected: FAIL — module does not exist.
 
-- [ ] **Step 3: Write `lib/settlementRepo.ts` (upsertDeal only — getSettlement in Task 5)**
+- [x] **Step 3: Write `lib/settlementRepo.ts` (upsertDeal only — getSettlement in Task 5)**
 
 ```ts
 // Per-show settlement repo. Two surfaces:
@@ -603,12 +605,12 @@ export function upsertDeal(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --experimental-strip-types --test tests/js/test-settlement-repo.mjs`
 Expected: PASS — 3 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/settlementRepo.ts tests/js/test-settlement-repo.mjs
@@ -623,7 +625,7 @@ git commit -m "feat(settlement): upsertDeal with audit + transactional rollback"
 - Modify: `lib/settlementRepo.ts` (append)
 - Modify: `tests/js/test-settlement-repo.mjs` (append)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/js/test-settlement-repo.mjs`:
 
@@ -716,12 +718,12 @@ describe('getSettlement', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `node --experimental-strip-types --test tests/js/test-settlement-repo.mjs`
 Expected: 5 new test failures with "getSettlement is not a function".
 
-- [ ] **Step 3: Append `getSettlement` to `lib/settlementRepo.ts`**
+- [x] **Step 3: Append `getSettlement` to `lib/settlementRepo.ts`**
 
 ```ts
 export type TicketSource = 'dice' | 'walkup' | 'comp' | 'will_call' | 'guestlist';
@@ -870,12 +872,12 @@ export function getSettlement(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `node --experimental-strip-types --test tests/js/test-settlement-repo.mjs`
 Expected: PASS — 8 tests total.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/settlementRepo.ts tests/js/test-settlement-repo.mjs
@@ -890,7 +892,7 @@ git commit -m "feat(settlement): getSettlement aggregates tickets + Toast + deal
 - Create: `app/api/shows/[id]/deal/route.js`
 - Create: `tests/js/test-settlement-route.mjs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```javascript
 // tests/js/test-settlement-route.mjs
@@ -1012,12 +1014,12 @@ describe('GET /api/shows/[id]/deal', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `node --experimental-strip-types --test tests/js/test-settlement-route.mjs`
 Expected: FAIL — module does not exist.
 
-- [ ] **Step 3: Write `app/api/shows/[id]/deal/route.js`**
+- [x] **Step 3: Write `app/api/shows/[id]/deal/route.js`**
 
 ```javascript
 // PIN-gated deal upsert / read for a single show. Settlement page is the
@@ -1098,12 +1100,12 @@ export async function PUT(req, { params }) {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `node --experimental-strip-types --test tests/js/test-settlement-route.mjs`
 Expected: PASS — 5 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/api/shows/[id]/deal/route.js tests/js/test-settlement-route.mjs
@@ -1118,7 +1120,7 @@ git commit -m "feat(api): /api/shows/[id]/deal GET+PUT (PIN-gated, validated)"
 - Create: `app/api/shows/[id]/settlement/route.js`
 - Modify: `tests/js/test-settlement-route.mjs` (append)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/js/test-settlement-route.mjs`:
 
@@ -1164,12 +1166,12 @@ describe('GET /api/shows/[id]/settlement — happy path', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `node --experimental-strip-types --test tests/js/test-settlement-route.mjs`
 Expected: 3 new failures — module does not exist.
 
-- [ ] **Step 3: Write `app/api/shows/[id]/settlement/route.js`**
+- [x] **Step 3: Write `app/api/shows/[id]/settlement/route.js`**
 
 ```javascript
 import { NextResponse } from 'next/server';
@@ -1195,12 +1197,12 @@ export async function GET(req, { params }) {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `node --experimental-strip-types --test tests/js/test-settlement-route.mjs`
 Expected: PASS — 8 tests total.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/api/shows/[id]/settlement/route.js tests/js/test-settlement-route.mjs
@@ -1216,7 +1218,7 @@ git commit -m "feat(api): /api/shows/[id]/settlement GET (PIN-gated)"
 - Create: `app/shows/[id]/settlement/_components/DealEditor.jsx`
 - Modify: `app/_components/navRegistry.js`
 
-- [ ] **Step 1: Add the nav-registry entry**
+- [x] **Step 1: Add the nav-registry entry**
 
 Open `app/_components/navRegistry.js`. Find the existing show-related entries (search for `/shows/`). Add (alphabetically sorted within its section):
 
@@ -1233,7 +1235,7 @@ Open `app/_components/navRegistry.js`. Find the existing show-related entries (s
 
 (Match the surrounding entry shape — copy the keys from the entry above it and adjust.)
 
-- [ ] **Step 2: Write the page**
+- [x] **Step 2: Write the page**
 
 ```jsx
 // app/shows/[id]/settlement/page.jsx
@@ -1347,7 +1349,7 @@ export default async function SettlementPage({ params, searchParams }) {
 }
 ```
 
-- [ ] **Step 3: Write the deal editor (client component)**
+- [x] **Step 3: Write the deal editor (client component)**
 
 ```jsx
 // app/shows/[id]/settlement/_components/DealEditor.jsx
@@ -1483,7 +1485,7 @@ export default function DealEditor({ showId, initialDeal }) {
 }
 ```
 
-- [ ] **Step 4: Verify the build typechecks and the page renders**
+- [x] **Step 4: Verify the build typechecks and the page renders**
 
 Run: `npm run typecheck`
 Expected: PASS (no type errors).
@@ -1493,7 +1495,7 @@ Expected: page renders, "Edit deal" reveals the editor, save round-trips and re-
 
 (If you're in CI/automated context, skip the manual browser check and rely on the API-route tests from Tasks 6–7.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/shows/[id]/settlement app/_components/navRegistry.js
@@ -1506,7 +1508,7 @@ git commit -m "feat(ui): /shows/[id]/settlement page + DealEditor"
 
 **Files:** None changed; verification only.
 
-- [ ] **Step 1: Run the new test files together**
+- [x] **Step 1: Run the new test files together**
 
 ```bash
 node --experimental-strip-types --test \
@@ -1518,7 +1520,7 @@ node --experimental-strip-types --test \
 
 Expected: all suites pass — roughly 20+ tests, 0 failures.
 
-- [ ] **Step 2: Run the full repo test surface to catch unintended breakage**
+- [x] **Step 2: Run the full repo test surface to catch unintended breakage**
 
 ```bash
 npm run test:schema
@@ -1527,7 +1529,7 @@ npm run test:rules
 
 Expected: every existing suite stays green. If `test:schema` fails on the `assertCriticalSchemas` set, add `show_deals` to that set and re-run.
 
-- [ ] **Step 3: Re-run typecheck**
+- [x] **Step 3: Re-run typecheck**
 
 ```bash
 npm run typecheck
@@ -1535,7 +1537,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit only if any of the above prompted a fix**
+- [x] **Step 4: Commit only if any of the above prompted a fix**
 
 ```bash
 # Only if you needed to add show_deals to assertCriticalSchemas or similar:
@@ -1549,13 +1551,13 @@ git commit -m "test(settlement): add show_deals to critical schema assertions"
 
 **Files:** None changed; PR creation only.
 
-- [ ] **Step 1: Push the branch**
+- [x] **Step 1: Push the branch**
 
 ```bash
 git push -u origin <branch-name>
 ```
 
-- [ ] **Step 2: Open the PR**
+- [x] **Step 2: Open the PR**
 
 Title: `feat(phase2): per-show settlement math (deal points + repo + page)`
 

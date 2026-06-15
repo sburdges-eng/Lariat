@@ -1,7 +1,9 @@
 # PLAN: BEO course fire-times + per-station rollup + temp PINs
 
+> **STATUS: SHIPPED (verified 2026-06-15 reconciliation) — all 10 tasks: temp-PIN subsystem (routes + HMAC cookie), BEO course model + CRUD, fire-schedule rollup, prep UI with audio/visual cues, management temp-PIN UI; tests pass. (Supersedes the "awaiting approval" line below.)**
+
 **Spec:** `docs/superpowers/specs/2026-05-04-beo-fire-times.md`
-**Status:** awaiting approval (skill: spec-plan-tdd, step 3/5)
+**Status:** ~~awaiting approval (skill: spec-plan-tdd, step 3/5)~~ → SHIPPED (see top header)
 **Execution worktree (to be created on approval):** `Lariat-worktrees/claude-beo-fire-times` (branch `feat/beo-fire-times`)
 **Commit convention:** `T<n>: <one-line summary>` per skill rule
 

@@ -1,5 +1,7 @@
 # Lariat Desktop Packaging Implementation Plan
 
+> **STATUS: SHIPPED (verified 2026-06-15 reconciliation) — canonical `scripts/package-desktop.mjs` + docs + npm route; `desktop:dist:dry` validates.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Provide a current implementation plan and one authoritative build script for packaging Lariat as a standalone macOS desktop application.
@@ -23,7 +25,7 @@
 **Files:**
 - Create: `scripts/package-desktop.mjs`
 
-- [ ] **Step 1: Create the script**
+- [x] **Step 1: Create the script**
 
 Create `scripts/package-desktop.mjs` with:
 
@@ -55,7 +57,7 @@ for (const arch of archList) {
 }
 ```
 
-- [ ] **Step 2: Add input validation**
+- [x] **Step 2: Add input validation**
 
 The script must validate these files before it runs a build:
 
@@ -81,7 +83,7 @@ const requiredFiles = [
 ];
 ```
 
-- [ ] **Step 3: Run commands in fixed order**
+- [x] **Step 3: Run commands in fixed order**
 
 The script must run:
 
@@ -98,7 +100,7 @@ Expected result: `dist/` contains per-architecture macOS artifacts.
 **Files:**
 - Modify: `package.json`
 
-- [ ] **Step 1: Replace `desktop:dist`**
+- [x] **Step 1: Replace `desktop:dist`**
 
 Set:
 
@@ -109,7 +111,7 @@ Set:
 }
 ```
 
-- [ ] **Step 2: Validate script discovery**
+- [x] **Step 2: Validate script discovery**
 
 Run:
 
@@ -133,7 +135,7 @@ Dry run complete. No build artifacts were written.
 - Modify: `desktop/README.md`
 - Create: `docs/desktop-packaging.md`
 
-- [ ] **Step 1: Update quick reference**
+- [x] **Step 1: Update quick reference**
 
 `desktop/README.md` must list:
 
@@ -143,7 +145,7 @@ npm run desktop:dist:dry   # validate packaging inputs and commands
 npm run desktop:dist       # build dmg/zip artifacts under dist/
 ```
 
-- [ ] **Step 2: Write the runbook**
+- [x] **Step 2: Write the runbook**
 
 `docs/desktop-packaging.md` must define:
 
@@ -162,7 +164,7 @@ npm run desktop:dist       # build dmg/zip artifacts under dist/
 **Files:**
 - No source edits.
 
-- [ ] **Step 1: Run dry package validation**
+- [x] **Step 1: Run dry package validation**
 
 Run:
 
@@ -172,7 +174,7 @@ npm run desktop:dist:dry
 
 Expected: exit 0.
 
-- [ ] **Step 2: Run desktop TypeScript build**
+- [x] **Step 2: Run desktop TypeScript build**
 
 Run:
 
@@ -182,7 +184,7 @@ npm run desktop:build
 
 Expected: Next production build, desktop TypeScript compile, and wizard Vite build complete.
 
-- [ ] **Step 3: Inspect dirty state**
+- [x] **Step 3: Inspect dirty state**
 
 Run:
 

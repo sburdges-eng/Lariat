@@ -1,5 +1,7 @@
 # Sub-recipe Pricing Rollup Implementation Plan
 
+> **STATUS: SHIPPED (verified 2026-06-15 reconciliation) — all 11 tasks: `rollupRecipeCosts` module (DAG/topo/cycle/leaf+sub-recipe pricing), ingest post-pass + recompute wiring, variance fallback; 44/44 tests pass. Checkboxes below are historical.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Roll up sub-recipe costs into `recipe_costs.batch_cost` so recipes referencing other recipes (lariat rub, pickle juice, etc.) stop being excluded from the variance tile and the engine becomes the source of truth for cost.
@@ -34,7 +36,7 @@
 - Create: `lib/computeEngine/rollupRecipeCosts.ts`
 - Create: `tests/js/test-rollup-recipe-costs.mjs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```javascript
 // tests/js/test-rollup-recipe-costs.mjs
@@ -67,12 +69,12 @@ describe('rollupRecipeCosts — smoke', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs`
 Expected: FAIL with "Cannot find module './lib/computeEngine/rollupRecipeCosts.ts'" (or similar import error).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```typescript
 // lib/computeEngine/rollupRecipeCosts.ts
@@ -111,12 +113,12 @@ export function rollupRecipeCosts(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs`
 Expected: PASS — `tests 1, pass 1, fail 0`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/computeEngine/rollupRecipeCosts.ts tests/js/test-rollup-recipe-costs.mjs
@@ -136,7 +138,7 @@ walk that writes recipe_costs.batch_cost."
 - Modify: `lib/computeEngine/rollupRecipeCosts.ts`
 - Modify: `tests/js/test-rollup-recipe-costs.mjs`
 
-- [ ] **Step 1: Make `deriveMasterId` importable from the rollup module**
+- [x] **Step 1: Make `deriveMasterId` importable from the rollup module**
 
 The function already has `export function deriveMasterId(...)` in `scripts/ingest-costing.mjs` (search for it to confirm). No change needed if the export already exists. Verify:
 
@@ -145,7 +147,7 @@ Expected: prints the export line.
 
 If it doesn't print (or shows only an internal definition), add the `export` keyword. No standalone commit for this — the import will land with the test in step 2.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Add this `describe` block to `tests/js/test-rollup-recipe-costs.mjs`:
 
@@ -221,12 +223,12 @@ describe('rollupRecipeCosts — detection + sub_recipe flag autocorrect', () => 
 });
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs`
 Expected: 3 failures (the smoke test still passes; the new flag tests fail because the stub doesn't set the flag).
 
-- [ ] **Step 4: Implement detection + flag autocorrect**
+- [x] **Step 4: Implement detection + flag autocorrect**
 
 Replace the stub body in `lib/computeEngine/rollupRecipeCosts.ts` with:
 
@@ -309,12 +311,12 @@ export function rollupRecipeCosts(
 }
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs`
 Expected: `tests 4, pass 4, fail 0`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add lib/computeEngine/rollupRecipeCosts.ts tests/js/test-rollup-recipe-costs.mjs scripts/ingest-costing.mjs
@@ -334,7 +336,7 @@ DAG walk in the next task."
 - Modify: `lib/computeEngine/rollupRecipeCosts.ts`
 - Modify: `tests/js/test-rollup-recipe-costs.mjs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `tests/js/test-rollup-recipe-costs.mjs`. Import the new internal helper at the top:
 
@@ -377,12 +379,12 @@ describe('rollupRecipeCosts — DAG construction', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs`
 Expected: import error (`_buildRecipeDag` is not exported).
 
-- [ ] **Step 3: Add the DAG builder**
+- [x] **Step 3: Add the DAG builder**
 
 In `lib/computeEngine/rollupRecipeCosts.ts`, after the type declarations, add:
 
@@ -436,12 +438,12 @@ export function _buildRecipeDag(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs`
 Expected: `tests 5, pass 5, fail 0`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/computeEngine/rollupRecipeCosts.ts tests/js/test-rollup-recipe-costs.mjs
@@ -461,7 +463,7 @@ recipe_id (matching the Task 2 detection rule)."
 - Modify: `lib/computeEngine/rollupRecipeCosts.ts`
 - Modify: `tests/js/test-rollup-recipe-costs.mjs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add the import:
 
@@ -535,12 +537,12 @@ describe('rollupRecipeCosts — cycle detection', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs`
 Expected: import failure (`_topologicalOrder` not exported).
 
-- [ ] **Step 3: Implement Kahn's topological sort + cycle reporting**
+- [x] **Step 3: Implement Kahn's topological sort + cycle reporting**
 
 Add this function to `lib/computeEngine/rollupRecipeCosts.ts`:
 
@@ -607,12 +609,12 @@ Then wire it into `rollupRecipeCosts` (after the flag-autocorrect block, before 
   void order;
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs`
 Expected: `tests 9, pass 9, fail 0`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/computeEngine/rollupRecipeCosts.ts tests/js/test-rollup-recipe-costs.mjs
@@ -633,7 +635,7 @@ because recipe_costs has no such column."
 - Modify: `lib/computeEngine/rollupRecipeCosts.ts`
 - Modify: `tests/js/test-rollup-recipe-costs.mjs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add the import:
 
@@ -696,12 +698,12 @@ describe('rollupRecipeCosts — leaf line pricing', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs`
 Expected: import error (`_priceLeafLine` not exported).
 
-- [ ] **Step 3: Add the leaf pricer**
+- [x] **Step 3: Add the leaf pricer**
 
 Add to `lib/computeEngine/rollupRecipeCosts.ts`. First, add these imports at the top of the file:
 
@@ -834,12 +836,12 @@ export function _priceLeafLine(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs`
 Expected: `tests 11, pass 11, fail 0`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/computeEngine/rollupRecipeCosts.ts tests/js/test-rollup-recipe-costs.mjs
@@ -860,7 +862,7 @@ hoists this into a per-call Map."
 - Modify: `lib/computeEngine/rollupRecipeCosts.ts`
 - Modify: `tests/js/test-rollup-recipe-costs.mjs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add import:
 
@@ -913,12 +915,12 @@ describe('rollupRecipeCosts — sub-recipe line pricing', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs`
 Expected: import error.
 
-- [ ] **Step 3: Add the sub-recipe pricer**
+- [x] **Step 3: Add the sub-recipe pricer**
 
 Add this import at the top of `lib/computeEngine/rollupRecipeCosts.ts`:
 
@@ -996,12 +998,12 @@ export function _priceSubRecipeLine(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs`
 Expected: `tests 14, pass 14, fail 0`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/computeEngine/rollupRecipeCosts.ts tests/js/test-rollup-recipe-costs.mjs
@@ -1021,7 +1023,7 @@ NEEDS_DENSITY signal handled by the topo walk in Task 8."
 - Modify: `lib/computeEngine/rollupRecipeCosts.ts`
 - Modify: `tests/js/test-rollup-recipe-costs.mjs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `tests/js/test-rollup-recipe-costs.mjs`:
 
@@ -1107,12 +1109,12 @@ describe('rollupRecipeCosts — end-to-end batch_cost rewrite', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs`
 Expected: 3 new failures.
 
-- [ ] **Step 3: Implement the topo walk**
+- [x] **Step 3: Implement the topo walk**
 
 Replace the `// ... Task 8 ...` placeholder in `rollupRecipeCosts` (the area after `_topologicalOrder` is called) with this complete topo walk. The full function body for `rollupRecipeCosts` becomes:
 
@@ -1268,12 +1270,12 @@ export function rollupRecipeCosts(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs`
 Expected: `tests 17, pass 17, fail 0`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/computeEngine/rollupRecipeCosts.ts tests/js/test-rollup-recipe-costs.mjs
@@ -1293,7 +1295,7 @@ Cycles are skipped — their Excel batch_cost stays in place."
 - Modify: `scripts/ingest-costing.mjs` — add call + three counters.
 - Modify: `tests/js/test-ingest-costing-yields.mjs` — assert the call landed.
 
-- [ ] **Step 1: Add the post-pass call**
+- [x] **Step 1: Add the post-pass call**
 
 Open `scripts/ingest-costing.mjs`. Find the end of `runCostingPostPass` (look for `summary.bom_master_backfilled_rows = masterSync.bom_backfilled;` followed by `return summary;`). Add the import at the top of the file (near the other lib imports):
 
@@ -1335,7 +1337,7 @@ And add a one-line log near the existing post-pass log lines in `main()` (the `c
     }
 ```
 
-- [ ] **Step 2: Add the integration test assertion**
+- [x] **Step 2: Add the integration test assertion**
 
 Open `tests/js/test-ingest-costing-yields.mjs`. Find the `describe('ingestCosting — non-yield behavior preserved', ...)` block (near the end). Add a new `it` inside it:
 
@@ -1354,12 +1356,12 @@ Open `tests/js/test-ingest-costing-yields.mjs`. Find the `describe('ingestCostin
 
 (The variable `summary` is already in scope from earlier `describe` setup — confirm by reading the surrounding tests.)
 
-- [ ] **Step 3: Run both test files to verify pass**
+- [x] **Step 3: Run both test files to verify pass**
 
 Run: `node --experimental-strip-types --test tests/js/test-ingest-costing-yields.mjs tests/js/test-rollup-recipe-costs.mjs`
 Expected: all prior tests still pass; the new assertion in `test-ingest-costing-yields.mjs` passes.
 
-- [ ] **Step 4: Run the live ingest against the real DB and confirm no crash**
+- [x] **Step 4: Run the live ingest against the real DB and confirm no crash**
 
 Run:
 ```bash
@@ -1371,7 +1373,7 @@ node scripts/ingest-costing.mjs 2>&1 | grep -v "D4 Excel drift" | tail -10
 
 Expected: the existing `✓ Costing ingest:` line plus a new `✓ Sub-recipe rollup:` line with non-zero `recipes updated` (because Nashville Oil and the other sub-recipe-bearing recipes are now in play).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/ingest-costing.mjs tests/js/test-ingest-costing-yields.mjs
@@ -1392,7 +1394,7 @@ line emitted when the pass found anything."
 - Modify: `lib/computeEngine/recipeCosting.ts`
 - Modify: `tests/js/test-rollup-recipe-costs.mjs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `tests/js/test-rollup-recipe-costs.mjs`:
 
@@ -1421,12 +1423,12 @@ describe('recomputeRecipeCosts — uses rollupRecipeCosts under the hood', () =>
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs`
 Expected: the new test fails because `recomputeRecipeCosts` still uses its old variance-based loop, which does NOT handle sub-recipe references.
 
-- [ ] **Step 3: Replace `recomputeRecipeCosts`'s body**
+- [x] **Step 3: Replace `recomputeRecipeCosts`'s body**
 
 Open `lib/computeEngine/recipeCosting.ts`. Replace the entire function body with a single call to `rollupRecipeCosts`. The header (imports + docstring) and contract stay; only the inner implementation changes:
 
@@ -1461,12 +1463,12 @@ export function recomputeRecipeCosts(db: Database, locationId: string) {
 
 Remove the old `computeCostVariance` import and the in-function logic.
 
-- [ ] **Step 4: Run all relevant tests**
+- [x] **Step 4: Run all relevant tests**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs tests/js/test-ingest-costing-yields.mjs`
 Expected: all pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/computeEngine/recipeCosting.ts tests/js/test-rollup-recipe-costs.mjs
@@ -1486,7 +1488,7 @@ cost_per_yield_unit untouched, batch_cost is the live engine value."
 - Modify: `lib/costingBenchmarks.mjs`
 - Modify: `tests/js/test-rollup-recipe-costs.mjs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `tests/js/test-rollup-recipe-costs.mjs`:
 
@@ -1519,12 +1521,12 @@ describe('computeCostVariance — sub-recipe fallback', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs`
 Expected: assertion fails because the parent line counts as unmatched (no vendor_prices match) and the recipe is excluded with `high_unmatched_ratio`.
 
-- [ ] **Step 3: Add the sub-recipe fallback to computeCostVariance**
+- [x] **Step 3: Add the sub-recipe fallback to computeCostVariance**
 
 Open `lib/costingBenchmarks.mjs`. Locate the per-line loop inside `computeCostVariance` — specifically the block that runs after the `master_id` lookup AND the normalized-key fallback have both failed. Currently it does:
 
@@ -1596,12 +1598,12 @@ import { deriveMasterId } from '../scripts/ingest-costing.mjs';
 
 (Both already exist in the codebase; this just makes them visible here.)
 
-- [ ] **Step 4: Run all relevant tests**
+- [x] **Step 4: Run all relevant tests**
 
 Run: `node --experimental-strip-types --test tests/js/test-rollup-recipe-costs.mjs tests/js/test-ingest-costing-yields.mjs tests/js/test-ingest-costing-yield-math.mjs`
 Expected: all pass; the new sub-recipe-fallback test passes; no regressions.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/costingBenchmarks.mjs tests/js/test-rollup-recipe-costs.mjs
@@ -1622,7 +1624,7 @@ actual + variance_pct."
 **Files:**
 - (No code changes — manual verification + commit of any incidental fixes.)
 
-- [ ] **Step 1: Re-run the live ingest against `data/lariat.db`**
+- [x] **Step 1: Re-run the live ingest against `data/lariat.db`**
 
 ```bash
 LARIAT_COSTING=path/to/Lariat_Master_Costing_2026-04-09.xlsx \
@@ -1633,7 +1635,7 @@ node scripts/ingest-costing.mjs 2>&1 | grep -v "D4 Excel drift" | tail -10
 
 Expected: the existing `✓ Costing ingest:` line plus `✓ Sub-recipe rollup:` with `recipes updated > 0`, and a non-zero `subrecipe_flags_set` (we know there are ≥4 sub-recipe lines lacking the flag from the spec's findings).
 
-- [ ] **Step 2: Confirm Nashville Oil is no longer excluded**
+- [x] **Step 2: Confirm Nashville Oil is no longer excluded**
 
 ```bash
 sqlite3 data/lariat.db "SELECT recipe_id, batch_cost FROM recipe_costs WHERE recipe_id='nashville_oil';"
@@ -1658,7 +1660,7 @@ import('./lib/costingBenchmarks.mjs').then(async ({ computeCostVariance }) => {
 
 Expected: `nashville_oil` is no longer `excluded`; `actual` and `variance_pct` are populated. `summary.excluded_high_unmatched` is materially lower than the pre-rollup value of 26.
 
-- [ ] **Step 3: Spot-check for new D4 drift warnings**
+- [x] **Step 3: Spot-check for new D4 drift warnings**
 
 The newly-rolled-up `batch_cost` values may differ wildly from the Excel-imported baseline (which is what the D4 warning compares). Confirm the warnings still print but the *count* hasn't shifted dramatically (the rollup writes batch_cost, but the D4 warning compares Excel-vs-computed-sum which is independent of the rollup).
 
@@ -1672,7 +1674,7 @@ node scripts/ingest-costing.mjs 2>&1 | grep "⚠ D4" | wc -l
 
 Expected: similar order of magnitude to the pre-rollup count of 38 (it's possible a couple shift in either direction; large divergence would be a regression worth investigating).
 
-- [ ] **Step 4: Run the full relevant test suite**
+- [x] **Step 4: Run the full relevant test suite**
 
 ```bash
 node --experimental-strip-types --test \
@@ -1685,7 +1687,7 @@ node --experimental-strip-types --test \
 
 Expected: all green.
 
-- [ ] **Step 5: If steps 1-4 all pass, no commit needed for this task.** The DB state change from running the live ingest is data, not code. If any incidental fix was needed during verification, commit it now as a follow-up:
+- [x] **Step 5: If steps 1-4 all pass, no commit needed for this task.** The DB state change from running the live ingest is data, not code. If any incidental fix was needed during verification, commit it now as a follow-up:
 
 ```bash
 # only if a fix was needed during real-data run:

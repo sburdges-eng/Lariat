@@ -1,5 +1,7 @@
 # Lariat2 Phase 4-narrow Implementation Plan
 
+> **STATUS: SHIPPED (verified 2026-06-15 reconciliation) — Booking/Playbook/Archive pages + shows schema + Python xlsx parser + Node ingest + repo + PIN-gated API; 34/34 tests pass.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Port the Booking, Playbook, and Past-Shows-Archive surfaces from `design/Lariat2/pages-event.jsx` into the live Next.js app, backed by Lauren's xlsx as source of truth.
@@ -72,7 +74,7 @@ This preserves the spec's intent (dropped rows are auditable) without DDL drift.
 **Files:**
 - New worktree under `.claude-worktrees/`
 
-- [ ] **Step 1: Create the worktree**
+- [x] **Step 1: Create the worktree**
 
 ```bash
 cd "$HOME/Dev/Lariat"
@@ -80,12 +82,12 @@ git worktree add -b feature/lariat2-phase4-narrow .claude-worktrees/phase4-narro
 cd .claude-worktrees/phase4-narrow
 ```
 
-- [ ] **Step 2: Verify worktree is clean**
+- [x] **Step 2: Verify worktree is clean**
 
 Run: `git status`
 Expected: `On branch feature/lariat2-phase4-narrow` · `nothing to commit, working tree clean`
 
-- [ ] **Step 3: Install deps if needed (only if `node_modules` missing)**
+- [x] **Step 3: Install deps if needed (only if `node_modules` missing)**
 
 Run: `[ -d node_modules ] || npm ci`
 Expected: either no output (already installed) or successful `npm ci` completion.
@@ -99,12 +101,12 @@ Expected: either no output (already installed) or successful `npm ci` completion
 **Files:**
 - Modify: `lib/db.ts` (append inside `initSchema()`, just before its closing `}`)
 
-- [ ] **Step 1: Locate the insertion point**
+- [x] **Step 1: Locate the insertion point**
 
 Run: `grep -n "^export function initSchema" lib/db.ts`
 Expected: prints one line near `lib/db.ts:917`.
 
-- [ ] **Step 2: Append the three tables**
+- [x] **Step 2: Append the three tables**
 
 Find the closing `}` of `initSchema()` (use `grep -n "^}" lib/db.ts` and pick the one that closes `initSchema`; in current code it is shortly after the last `CREATE INDEX` block within `initSchema`). Insert this block immediately before that closing brace:
 
@@ -157,12 +159,12 @@ Find the closing `}` of `initSchema()` (use `grep -n "^}" lib/db.ts` and pick th
   `);
 ```
 
-- [ ] **Step 3: Verify schema compiles + idempotency**
+- [x] **Step 3: Verify schema compiles + idempotency**
 
 Run: `node --experimental-strip-types -e "import('./lib/db.ts').then(m => { const db = new (require('better-sqlite3'))(':memory:'); m.initSchema(db); m.initSchema(db); console.log(db.prepare(\"SELECT name FROM sqlite_master WHERE type='table' AND name IN ('shows','shows_archive','tiktok_ideas') ORDER BY name\").all()); })"`
 Expected: prints three rows: `shows`, `shows_archive`, `tiktok_ideas`. Second `initSchema` call does not throw.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add lib/db.ts
@@ -177,7 +179,7 @@ git commit -m "shows: add shows / shows_archive / tiktok_ideas tables"
 - Create: `tests/js/test-show-status.mjs`
 - Create: `lib/showStatus.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/js/test-show-status.mjs`:
 
@@ -260,12 +262,12 @@ test('KNOWN_STAGES is exactly the six expected stages', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-show-status.mjs`
 Expected: FAIL — `Cannot find module '../../lib/showStatus.ts'`.
 
-- [ ] **Step 3: Implement `lib/showStatus.ts`**
+- [x] **Step 3: Implement `lib/showStatus.ts`**
 
 Create `lib/showStatus.ts`:
 
@@ -374,12 +376,12 @@ export function pipelineStage(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --experimental-strip-types --test tests/js/test-show-status.mjs`
 Expected: PASS — `# pass 12`, no failures.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/showStatus.ts tests/js/test-show-status.mjs
@@ -395,7 +397,7 @@ git commit -m "showStatus: pure rule module + tests"
 - Create: `tests/python/fixtures/__init__.py` (empty)
 - Modify: `.gitignore`
 
-- [ ] **Step 1: Add `__init__.py`**
+- [x] **Step 1: Add `__init__.py`**
 
 Create `tests/python/fixtures/__init__.py`:
 
@@ -404,7 +406,7 @@ Create `tests/python/fixtures/__init__.py`:
 
 (empty file; lets pytest treat `fixtures` as a package).
 
-- [ ] **Step 2: Write the fixture builder**
+- [x] **Step 2: Write the fixture builder**
 
 Create `tests/python/fixtures/build_shows_fixture.py`:
 
@@ -516,12 +518,12 @@ if __name__ == "__main__":
     print(p)
 ```
 
-- [ ] **Step 3: Run the builder once to verify it produces a valid xlsx**
+- [x] **Step 3: Run the builder once to verify it produces a valid xlsx**
 
 Run: `python3 tests/python/fixtures/build_shows_fixture.py`
 Expected: prints `tests/python/fixtures/shows_minimal.xlsx` and the file exists.
 
-- [ ] **Step 4: Add the xlsx to .gitignore**
+- [x] **Step 4: Add the xlsx to .gitignore**
 
 Append to `.gitignore`:
 
@@ -529,7 +531,7 @@ Append to `.gitignore`:
 tests/python/fixtures/shows_minimal.xlsx
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/python/fixtures/__init__.py tests/python/fixtures/build_shows_fixture.py .gitignore
@@ -544,7 +546,7 @@ git commit -m "shows: pytest fixture builder"
 - Create: `tests/python/test_ingest_shows_xlsx.py`
 - Create: `scripts/ingest_shows_xlsx.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/python/test_ingest_shows_xlsx.py`:
 
@@ -675,12 +677,12 @@ def test_source_row_populated():
         assert row["source_row"] >= 2  # row 1 is header
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pytest tests/python/test_ingest_shows_xlsx.py -v`
 Expected: FAIL — parser script does not exist; subprocess returns non-zero with empty stdout, tests assert `code == 0`.
 
-- [ ] **Step 3: Implement the parser**
+- [x] **Step 3: Implement the parser**
 
 Create `scripts/ingest_shows_xlsx.py`:
 
@@ -871,12 +873,12 @@ if __name__ == "__main__":
     main(sys.argv)
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pytest tests/python/test_ingest_shows_xlsx.py -v`
 Expected: PASS — 7 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/ingest_shows_xlsx.py tests/python/test_ingest_shows_xlsx.py
@@ -891,7 +893,7 @@ git commit -m "shows: Python parser for xlsx → JSON"
 - Create: `tests/js/test-shows-ingest.mjs`
 - Create: `scripts/ingest-shows.mjs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/js/test-shows-ingest.mjs`:
 
@@ -1015,12 +1017,12 @@ test('ingestShowsFromJson: status_json round-trips', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-shows-ingest.mjs`
 Expected: FAIL — `Cannot find module '../../scripts/ingest-shows.mjs'`.
 
-- [ ] **Step 3: Implement the wrapper**
+- [x] **Step 3: Implement the wrapper**
 
 Create `scripts/ingest-shows.mjs`:
 
@@ -1208,12 +1210,12 @@ if (isCli) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --experimental-strip-types --test tests/js/test-shows-ingest.mjs`
 Expected: PASS — 6 tests passing.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/ingest-shows.mjs tests/js/test-shows-ingest.mjs
@@ -1228,7 +1230,7 @@ git commit -m "shows: Node ingest wrapper with transactional writes"
 - Create: `tests/js/test-shows-repo.mjs`
 - Create: `lib/showsRepo.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/js/test-shows-repo.mjs`:
 
@@ -1322,12 +1324,12 @@ test('nextUpcoming: returns soonest future show or null', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-shows-repo.mjs`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement `lib/showsRepo.ts`**
+- [x] **Step 3: Implement `lib/showsRepo.ts`**
 
 Create `lib/showsRepo.ts`:
 
@@ -1479,12 +1481,12 @@ export function nextUpcoming(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --experimental-strip-types --test tests/js/test-shows-repo.mjs`
 Expected: PASS — 8 tests passing.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/showsRepo.ts tests/js/test-shows-repo.mjs
@@ -1499,7 +1501,7 @@ git commit -m "showsRepo: read-only query layer + tests"
 - Create: `tests/js/test-shows-api.mjs`
 - Create: `app/api/shows/route.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/js/test-shows-api.mjs`:
 
@@ -1589,12 +1591,12 @@ test('missing op → 400', async () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-shows-api.mjs`
 Expected: FAIL — `Cannot find module '../../app/api/shows/route.js'`.
 
-- [ ] **Step 3: Implement the route**
+- [x] **Step 3: Implement the route**
 
 Create `app/api/shows/route.js`:
 
@@ -1663,12 +1665,12 @@ export async function GET(req) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --experimental-strip-types --test tests/js/test-shows-api.mjs`
 Expected: PASS — 7 tests passing.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/api/shows/route.js tests/js/test-shows-api.mjs
@@ -1682,7 +1684,7 @@ git commit -m "shows api: GET upcoming|playbook|archive"
 **Files:**
 - Modify: `middleware.js`
 
-- [ ] **Step 1: Add the prefixes**
+- [x] **Step 1: Add the prefixes**
 
 Edit `middleware.js`. Inside `SENSITIVE_PREFIXES`, add four entries:
 
@@ -1733,12 +1735,12 @@ export const config = {
 };
 ```
 
-- [ ] **Step 2: Verify the file parses**
+- [x] **Step 2: Verify the file parses**
 
 Run: `node -e "import('./middleware.js').then(m => console.log(Object.keys(m).sort()))"`
 Expected: `['config','default','middleware']` (or includes `middleware`).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add middleware.js
@@ -1753,7 +1755,7 @@ git commit -m "shows: PIN-gate /booking, /playbook, /shows, /api/shows"
 - Create: `app/playbook/StatusPill.jsx`
 - Create: `app/__tests__/StatusPill.test.jsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `app/__tests__/StatusPill.test.jsx`:
 
@@ -1785,12 +1787,12 @@ describe('StatusPill', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx jest app/__tests__/StatusPill.test.jsx`
 Expected: FAIL — `Cannot find module '../playbook/StatusPill'`.
 
-- [ ] **Step 3: Implement the component**
+- [x] **Step 3: Implement the component**
 
 Create `app/playbook/StatusPill.jsx`:
 
@@ -1809,12 +1811,12 @@ export default function StatusPill({ value, column }) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx jest app/__tests__/StatusPill.test.jsx`
 Expected: PASS — 9 assertions passing.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/playbook/StatusPill.jsx app/__tests__/StatusPill.test.jsx
@@ -1829,7 +1831,7 @@ git commit -m "playbook: StatusPill component"
 - Create: `app/booking/BookingCalendar.jsx`
 - Create: `app/__tests__/BookingCalendar.test.jsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `app/__tests__/BookingCalendar.test.jsx`:
 
@@ -1879,12 +1881,12 @@ describe('BookingCalendar', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx jest app/__tests__/BookingCalendar.test.jsx`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement the component**
+- [x] **Step 3: Implement the component**
 
 Create `app/booking/BookingCalendar.jsx`:
 
@@ -1950,12 +1952,12 @@ export default function BookingCalendar({ rows }) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx jest app/__tests__/BookingCalendar.test.jsx`
 Expected: PASS — 5 tests passing.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/booking/BookingCalendar.jsx app/__tests__/BookingCalendar.test.jsx
@@ -1971,7 +1973,7 @@ git commit -m "booking: BookingCalendar component"
 
 (No dedicated Jest test — this component is purely presentational over `pipelineCounts()` output, which is already pinned by the repo test. We do an inline render assertion at the end of Task 12.)
 
-- [ ] **Step 1: Implement the component**
+- [x] **Step 1: Implement the component**
 
 Create `app/booking/BookingPipeline.jsx`:
 
@@ -2007,7 +2009,7 @@ export default function BookingPipeline({ counts }) {
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add app/booking/BookingPipeline.jsx
@@ -2021,7 +2023,7 @@ git commit -m "booking: BookingPipeline component"
 **Files:**
 - Create: `app/booking/page.jsx`
 
-- [ ] **Step 1: Implement the page**
+- [x] **Step 1: Implement the page**
 
 Create `app/booking/page.jsx`:
 
@@ -2071,12 +2073,12 @@ export default function BookingPage() {
 }
 ```
 
-- [ ] **Step 2: Smoke-render check**
+- [x] **Step 2: Smoke-render check**
 
 Run: `npm run build 2>&1 | tail -40`
 Expected: build succeeds; `/booking` appears in the output's route list. (If TS errors surface, fix them in `lib/showsRepo.ts` or `lib/showStatus.ts` before continuing.)
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add app/booking/page.jsx
@@ -2094,7 +2096,7 @@ git commit -m "booking: server page composing calendar + pipeline"
 - Create: `app/playbook/tabs/DayOfTab.jsx`
 - Create: `app/__tests__/PlaybookTabs.test.jsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `app/__tests__/PlaybookTabs.test.jsx`:
 
@@ -2148,12 +2150,12 @@ describe('Playbook tabs', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx jest app/__tests__/PlaybookTabs.test.jsx`
 Expected: FAIL — modules not found.
 
-- [ ] **Step 3: Implement `AdsTab.jsx`**
+- [x] **Step 3: Implement `AdsTab.jsx`**
 
 Create `app/playbook/tabs/AdsTab.jsx`:
 
@@ -2189,7 +2191,7 @@ export default function AdsTab({ show }) {
 }
 ```
 
-- [ ] **Step 4: Implement `TicketsTab.jsx`**
+- [x] **Step 4: Implement `TicketsTab.jsx`**
 
 Create `app/playbook/tabs/TicketsTab.jsx`:
 
@@ -2228,7 +2230,7 @@ export default function TicketsTab({ show }) {
 }
 ```
 
-- [ ] **Step 5: Implement `NewsTab.jsx`**
+- [x] **Step 5: Implement `NewsTab.jsx`**
 
 Create `app/playbook/tabs/NewsTab.jsx`:
 
@@ -2258,7 +2260,7 @@ export default function NewsTab({ show }) {
 }
 ```
 
-- [ ] **Step 6: Implement `DayOfTab.jsx`**
+- [x] **Step 6: Implement `DayOfTab.jsx`**
 
 Create `app/playbook/tabs/DayOfTab.jsx`:
 
@@ -2296,12 +2298,12 @@ export default function DayOfTab({ show }) {
 }
 ```
 
-- [ ] **Step 7: Run tests to verify they pass**
+- [x] **Step 7: Run tests to verify they pass**
 
 Run: `npx jest app/__tests__/PlaybookTabs.test.jsx`
 Expected: PASS — 4 tests passing.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add app/playbook/tabs app/__tests__/PlaybookTabs.test.jsx
@@ -2316,7 +2318,7 @@ git commit -m "playbook: Ads/Tickets/News/DayOf tab components"
 - Create: `app/playbook/PlaybookHeader.jsx`
 - Create: `app/playbook/page.jsx`
 
-- [ ] **Step 1: Implement `PlaybookHeader.jsx`**
+- [x] **Step 1: Implement `PlaybookHeader.jsx`**
 
 Create `app/playbook/PlaybookHeader.jsx`:
 
@@ -2361,7 +2363,7 @@ export default function PlaybookHeader({ show, activeTab }) {
 }
 ```
 
-- [ ] **Step 2: Implement `/playbook` page**
+- [x] **Step 2: Implement `/playbook` page**
 
 Create `app/playbook/page.jsx`:
 
@@ -2418,12 +2420,12 @@ export default function PlaybookPage({ searchParams }) {
 }
 ```
 
-- [ ] **Step 3: Smoke-render check**
+- [x] **Step 3: Smoke-render check**
 
 Run: `npm run build 2>&1 | tail -40`
 Expected: `/playbook` appears in route list; build succeeds.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/playbook/PlaybookHeader.jsx app/playbook/page.jsx
@@ -2439,7 +2441,7 @@ git commit -m "playbook: header + server page with tab routing"
 - Create: `app/__tests__/ArchiveSearch.test.jsx`
 - Create: `app/shows/archive/page.jsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `app/__tests__/ArchiveSearch.test.jsx`:
 
@@ -2483,12 +2485,12 @@ describe('ArchiveSearch', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx jest app/__tests__/ArchiveSearch.test.jsx`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement `ArchiveSearch.jsx`**
+- [x] **Step 3: Implement `ArchiveSearch.jsx`**
 
 Create `app/shows/archive/ArchiveSearch.jsx`:
 
@@ -2555,12 +2557,12 @@ export default function ArchiveSearch({ initialRows, eras }) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx jest app/__tests__/ArchiveSearch.test.jsx`
 Expected: PASS — 4 tests passing.
 
-- [ ] **Step 5: Implement `app/shows/archive/page.jsx`**
+- [x] **Step 5: Implement `app/shows/archive/page.jsx`**
 
 Create `app/shows/archive/page.jsx`:
 
@@ -2594,12 +2596,12 @@ export default function ArchivePage() {
 }
 ```
 
-- [ ] **Step 6: Smoke-render check**
+- [x] **Step 6: Smoke-render check**
 
 Run: `npm run build 2>&1 | tail -40`
 Expected: `/shows/archive` in route list; build succeeds.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add app/shows/archive app/__tests__/ArchiveSearch.test.jsx
@@ -2613,7 +2615,7 @@ git commit -m "shows/archive: server page + client search/filter"
 **Files:**
 - Modify: `app/_components/navRegistry.js`
 
-- [ ] **Step 1: Add the three entries**
+- [x] **Step 1: Add the three entries**
 
 Open `app/_components/navRegistry.js`. After the last entry in `NAV_ITEMS` and before its closing `]`, append:
 
@@ -2650,12 +2652,12 @@ Open `app/_components/navRegistry.js`. After the last entry in `NAV_ITEMS` and b
   },
 ```
 
-- [ ] **Step 2: Verify the registry parses**
+- [x] **Step 2: Verify the registry parses**
 
 Run: `node -e "import('./app/_components/navRegistry.js').then(m => console.log(m.NAV_ITEMS.filter(i => i.group === 'Entertainment').map(i => i.id)))"`
 Expected: `[ 'booking', 'playbook', 'shows-archive' ]`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add app/_components/navRegistry.js
@@ -2669,7 +2671,7 @@ git commit -m "nav: register Entertainment group (booking, playbook, archive)"
 **Files:**
 - Modify: `package.json`
 
-- [ ] **Step 1: Add ingest script**
+- [x] **Step 1: Add ingest script**
 
 In the `"scripts"` block of `package.json`, add a new entry near the other `ingest:` scripts:
 
@@ -2679,7 +2681,7 @@ In the `"scripts"` block of `package.json`, add a new entry near the other `inge
 
 If `ingest:all` exists, append `&& npm run ingest:shows` to its command. (If it doesn't, skip — Lauren can run `ingest:shows` alone.)
 
-- [ ] **Step 2: Add test scripts near the other `test:` entries**
+- [x] **Step 2: Add test scripts near the other `test:` entries**
 
 ```json
 "test:show-status": "node --experimental-strip-types --test tests/js/test-show-status.mjs",
@@ -2695,12 +2697,12 @@ Optional convenience aggregator if it fits the existing convention:
 "test:shows": "npm run test:show-status && npm run test:shows-ingest && npm run test:shows-repo && npm run test:shows-api && npm run test:shows-py",
 ```
 
-- [ ] **Step 3: Verify all scripts run end-to-end**
+- [x] **Step 3: Verify all scripts run end-to-end**
 
 Run: `npm run test:shows`
 Expected: every sub-test passes (mirrors the individual task runs).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add package.json
@@ -2714,7 +2716,7 @@ git commit -m "scripts: ingest:shows + test:shows-* aggregator"
 **Files:**
 - Create: `tests/e2e/shows.spec.ts`
 
-- [ ] **Step 1: Write the test**
+- [x] **Step 1: Write the test**
 
 Create `tests/e2e/shows.spec.ts`:
 
@@ -2746,7 +2748,7 @@ test('shows surfaces — login → booking → playbook → archive', async ({ p
 });
 ```
 
-- [ ] **Step 2: Run the e2e (requires `npm run dev` or `npm run build && npm run start`)**
+- [x] **Step 2: Run the e2e (requires `npm run dev` or `npm run build && npm run start`)**
 
 In one terminal: `npm run build && npm run start`
 In another: `npm run test:e2e -- shows.spec.ts`
@@ -2754,7 +2756,7 @@ Expected: 1 test passing.
 
 (If the dev DB has no ingested shows, the test still passes — the click block is guarded with `if (await firstLink.count())`.)
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests/e2e/shows.spec.ts
@@ -2767,17 +2769,17 @@ git commit -m "e2e: shows surfaces smoke (login → booking → playbook → arc
 
 **Files:** none
 
-- [ ] **Step 1: Run the real ingest**
+- [x] **Step 1: Run the real ingest**
 
 Run: `npm run ingest:shows`
 Expected: prints `shows: <N>  archive: <M>  tiktok: <K>` and exits 0 (or `partial` with a `dropped: …` summary).
 
-- [ ] **Step 2: Start the dev server**
+- [x] **Step 2: Start the dev server**
 
 Run: `npm run dev`
 Expected: server up on `:3000`.
 
-- [ ] **Step 3: Visual eyeball — open each surface**
+- [x] **Step 3: Visual eyeball — open each surface**
 
 In a browser:
 - `http://localhost:3000/booking` — calendar populated, pipeline cards counting.
@@ -2788,11 +2790,11 @@ Compare each against the matching prototype function in `design/Lariat2/pages-ev
 - `Booking` (line 197) — the calendar table + pipeline cards.
 - `Playbook` (line 1042) — KPI strip + tab nav (we ship 4 of the 6 tabs).
 
-- [ ] **Step 4: If any visual gap is significant, file a follow-up**
+- [x] **Step 4: If any visual gap is significant, file a follow-up**
 
 Use a TODO comment in the relevant `.jsx` file (`// TODO(phase4-narrow-followup): …`) — do not in-line a fix. The plan is complete when functional behavior is correct and tests are green; pixel-level polish is explicitly out of scope per the spec.
 
-- [ ] **Step 5: Final commit (only if Step 4 produced any changes)**
+- [x] **Step 5: Final commit (only if Step 4 produced any changes)**
 
 ```bash
 git add -A
@@ -2805,7 +2807,7 @@ git commit -m "shows: phase4-narrow polish notes from visual review"
 
 **Files:** none
 
-- [ ] **Step 1: Run the full test sweep**
+- [x] **Step 1: Run the full test sweep**
 
 ```bash
 npm run test:shows
@@ -2816,12 +2818,12 @@ pytest tests/python/test_ingest_shows_xlsx.py
 
 Expected: all green. (Also re-run any pre-existing test:* scripts that touch `lib/db.ts` or `middleware.js` — the schema additions and prefix list are the most-likely regression surfaces.)
 
-- [ ] **Step 2: Diff the worktree against main**
+- [x] **Step 2: Diff the worktree against main**
 
 Run: `git log --oneline main..HEAD`
 Expected: ~17–20 small commits, each focused.
 
-- [ ] **Step 3: Decide merge mechanism**
+- [x] **Step 3: Decide merge mechanism**
 
 Pick one (the user is the decider):
 
