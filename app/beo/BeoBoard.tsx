@@ -1,24 +1,84 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import type { FormEvent } from 'react';
 import PrepHistoryPanel from './PrepHistoryPanel';
 import CoursePanel from './_components/CoursePanel';
 import LariAmbient from '../_components/LariAmbient';
 import { formatDollars } from '../../lib/formatMoney';
+import type { CateringMenuItem } from '../../lib/data';
+
+/* ── types ────────────────────────────────────────────────────── */
+
+/** A catering-menu pick rendered in the right-rail MenuPanel. */
+type MenuItem = CateringMenuItem;
+
+/** A BEO event (party) as returned by /api/beo. */
+interface BeoEvent {
+  id: number;
+  title: string;
+  event_date: string | null;
+  event_time: string | null;
+  contact_name: string | null;
+  guest_count: number | null;
+  notes: string | null;
+  tax_rate: number | null;
+  service_fee_pct: number | null;
+  location_id?: string | null;
+}
+
+/** A prep-sheet / invoice line item. Notes columns are nullable free-text. */
+interface LineItem {
+  id: number;
+  event_id: number;
+  item_name: string;
+  category: string | null;
+  unit_cost: number;
+  quantity: number;
+  course_id?: number | null;
+  order_time?: string | null;
+  prep_notes?: string | null;
+  secondary_prep_notes?: string | null;
+  order_items_notes?: string | null;
+  group_note?: string | null;
+}
+
+/** A LineItem decorated with its computed line total (dollars). */
+type LineItemWithTotal = LineItem & { line_total: number };
+
+/** A course a line can be bound to (T11). */
+interface Course {
+  id: number;
+  course_label: string;
+}
+
+/** Top-level shape of the /api/beo payload. */
+interface BeoData {
+  events?: BeoEvent[];
+  line_items?: LineItem[];
+  location_id?: string | null;
+}
+
+/** Patch object for partial event/line updates. */
+type Patch = Record<string, unknown>;
 
 /* ── formatting helpers ───────────────────────────────────────── */
 
-function roundMoney(n) {
+function roundMoney(n: unknown): number {
   return Math.round(Number(n || 0) * 100) / 100;
 }
 
 /* ── main ─────────────────────────────────────────────────────── */
 
-export default function BeoBoard({ initialMenu = [] }) {
-  const [data, setData] = useState(null);
-  const [menu] = useState(initialMenu);
-  const [openEventId, setOpenEventId] = useState(null);
+interface BeoBoardProps {
+  /** Catering menu rendered in the right-rail picker. */
+  initialMenu?: MenuItem[];
+}
+
+export default function BeoBoard({ initialMenu = [] }: BeoBoardProps) {
+  const [data, setData] = useState<BeoData | null>(null);
+  const [menu] = useState<MenuItem[]>(initialMenu);
+  const [openEventId, setOpenEventId] = useState<number | null>(null);
   const [err, setErr] = useState('');
   // Client-share link state. shareUrl is set after we fetch the token for
   // the open event; copied flips true for a beat so the operator sees the
@@ -28,7 +88,7 @@ export default function BeoBoard({ initialMenu = [] }) {
   // T11: courses live at BeoBoard so PrepSheetTable + CoursePanel share
   // one source of truth. Refetched on event change and after CoursePanel
   // mutations call back through onCoursesChanged.
-  const [courses, setCourses] = useState([]);
+  const [courses, setCourses] = useState<Course[]>([]);
 
   // Add-party form state
   const [newTitle, setNewTitle] = useState('');
@@ -52,18 +112,19 @@ export default function BeoBoard({ initialMenu = [] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadCourses = async (eventId, locationId = 'default') => {
+  const loadCourses = async (eventId: number | null, locationId: string | null | undefined = 'default') => {
+    const resolvedLocation = locationId ?? 'default';
     if (!eventId) {
       setCourses([]);
       return;
     }
     try {
       const res = await fetch(
-        `/api/beo/courses?event_id=${encodeURIComponent(eventId)}&location=${encodeURIComponent(locationId)}`,
+        `/api/beo/courses?event_id=${encodeURIComponent(eventId)}&location=${encodeURIComponent(resolvedLocation)}`,
       );
       if (!res.ok) return;
       const j = await res.json();
-      setCourses(Array.isArray(j.courses) ? j.courses : []);
+      setCourses(Array.isArray(j.courses) ? (j.courses as Course[]) : []);
     } catch {
       // silent — UI will show empty course list
     }
@@ -82,7 +143,7 @@ export default function BeoBoard({ initialMenu = [] }) {
     setCopied(false);
   }, [openEventId]);
 
-  const shareEvent = async (id) => {
+  const shareEvent = async (id: number) => {
     setErr('');
     try {
       const res = await fetch(`/api/beo/${encodeURIComponent(id)}/share-token`, {
@@ -121,7 +182,7 @@ export default function BeoBoard({ initialMenu = [] }) {
     }
   };
 
-  const post = async (body) => {
+  const post = async (body: Record<string, unknown>) => {
     setErr('');
     try {
       const res = await fetch('/api/beo', {
@@ -137,7 +198,7 @@ export default function BeoBoard({ initialMenu = [] }) {
     }
   };
 
-  const addParty = async (e) => {
+  const addParty = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
     const ok = await post({
@@ -155,7 +216,7 @@ export default function BeoBoard({ initialMenu = [] }) {
     load();
   };
 
-  const addLine = async (event_id, item) => {
+  const addLine = async (event_id: number, item: MenuItem) => {
     const ok = await post({
       action: 'line',
       event_id,
@@ -167,17 +228,17 @@ export default function BeoBoard({ initialMenu = [] }) {
     if (ok) load();
   };
 
-  const updateLine = async (id, patch) => {
+  const updateLine = async (id: number, patch: Patch) => {
     const ok = await post({ action: 'update_line', id, ...patch });
     if (ok) load();
   };
 
-  const deleteLine = async (id) => {
+  const deleteLine = async (id: number) => {
     const ok = await post({ action: 'delete_line', id });
     if (ok) load();
   };
 
-  const updateEvent = async (ev, patch) => {
+  const updateEvent = async (ev: BeoEvent, patch: Patch) => {
     const ok = await post({
       action: 'update_event',
       id: ev.id,
@@ -194,7 +255,7 @@ export default function BeoBoard({ initialMenu = [] }) {
     if (ok) load();
   };
 
-  const killParty = async (id) => {
+  const killParty = async (id: number) => {
     if (!window.confirm('Delete this party and everything under it?')) return;
     const ok = await post({ action: 'delete_event', id });
     if (ok) {
@@ -216,7 +277,9 @@ export default function BeoBoard({ initialMenu = [] }) {
         </div>
       </div>
 
-      <LariAmbient surface="beo" location={data?.location_id} />
+      {/* params omitted (undefined) — LariAmbient treats it as no extra query params.
+          Explicit here only because the untyped .jsx infers `params` as required. */}
+      <LariAmbient surface="beo" location={data?.location_id} params={undefined} />
 
       {err && <div className="card border-red mb-20 text-red">{err}</div>}
 
@@ -247,14 +310,13 @@ export default function BeoBoard({ initialMenu = [] }) {
         )}
       </div>
       {shareUrl && (
-        <div className="card mb-20" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 13, color: 'var(--muted)' }}>Send this link to the host:</span>
+        <div className="card mb-20 flex-center-gap">
+          <span className="beo-share-label">Send this link to the host:</span>
           <input
-            className="input"
+            className="input beo-share-input"
             readOnly
             value={shareUrl}
             onFocus={(e) => e.target.select()}
-            style={{ flex: '1 1 280px', minWidth: 280, fontFamily: 'monospace', fontSize: 12 }}
           />
           <button type="button" className="btn" onClick={copyShareUrl}>
             {copied ? 'Copied' : 'Copy link'}
@@ -328,9 +390,11 @@ export default function BeoBoard({ initialMenu = [] }) {
           {/* ───── RIGHT: stacked menu picker + courses + past-prep reference ───── */}
           <div className="beo-rail">
             <MenuPanel menu={menu} onPick={(item) => addLine(openEvent.id, item)} />
+            {/* CoursePanel is an untyped (.jsx, @ts-nocheck) component whose
+                `lines` default infers as never[]; cast at the boundary. */}
             <CoursePanel
               event={openEvent}
-              lines={lineItems}
+              lines={lineItems as never}
               courses={courses}
               onCoursesChanged={() => loadCourses(openEventId, openEvent?.location_id)}
             />
@@ -347,7 +411,12 @@ export default function BeoBoard({ initialMenu = [] }) {
 
 /* ── Event header (title / date / time / contact / guests / notes) ─ */
 
-function EventHeader({ event, onSave }) {
+interface EventHeaderProps {
+  event: BeoEvent;
+  onSave: (_patch: Patch) => void;
+}
+
+function EventHeader({ event, onSave }: EventHeaderProps) {
   const [title, setTitle] = useState(event.title || '');
   const [date, setDate] = useState(event.event_date || '');
   const [time, setTime] = useState(event.event_time || '');
@@ -365,7 +434,7 @@ function EventHeader({ event, onSave }) {
   }, [event.id, event.title, event.event_date, event.event_time,
       event.contact_name, event.guest_count, event.notes]);
 
-  const commit = (patch) => onSave(patch);
+  const commit = (patch: Patch) => onSave(patch);
 
   return (
     <div className="beo-header">
@@ -443,14 +512,25 @@ function EventHeader({ event, onSave }) {
    dropdowns at ITEM / PREP / SECONDARY-PREP level.
 ─────────────────────────────────────────────────────────────── */
 
-function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave, courses = [] }) {
-  const rows = items.map((it) => ({ ...it, line_total: roundMoney(it.unit_cost * it.quantity) }));
+interface PrepSheetTableProps {
+  items: LineItem[];
+  onUpdate: (_id: number, _patch: Patch) => void;
+  onDelete: (_id: number) => void;
+  event: BeoEvent;
+  onEventSave: (_patch: Patch) => void;
+  courses?: Course[];
+}
+
+function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave, courses = [] }: PrepSheetTableProps) {
+  const rows: LineItemWithTotal[] = items.map((it) => ({ ...it, line_total: roundMoney(it.unit_cost * it.quantity) }));
   const subtotal = rows.reduce((s, r) => s + r.line_total, 0);
   const taxRate = Number(event.tax_rate || 0);
   const feePct = Number(event.service_fee_pct || 0);
 
-  const [localTax, setLocalTax] = useState(taxRate);
-  const [localFee, setLocalFee] = useState(feePct);
+  // Local inputs hold the raw <input> value (string) while editing, falling
+  // back to the numeric rate; committed as Number() on blur.
+  const [localTax, setLocalTax] = useState<number | string>(taxRate);
+  const [localFee, setLocalFee] = useState<number | string>(feePct);
 
   useEffect(() => {
     setLocalTax(taxRate);
@@ -466,7 +546,7 @@ function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave, courses
 
   // Group consecutive rows that share a category — the `group_note` on the
   // first row of a run spans the whole run (merged-A-column behavior).
-  const groups = [];
+  const groups: { category: string; rows: LineItemWithTotal[] }[] = [];
   for (const r of rows) {
     const cat = r.category || '';
     const last = groups[groups.length - 1];
@@ -585,10 +665,20 @@ function PrepSheetTable({ items, onUpdate, onDelete, event, onEventSave, courses
 /* Single prep-sheet row — each cell color-coded, each level expandable.
    The recipe "dropdowns" noted in the archive sheet ride as <details> blocks
    that open inline so a chef can drill ITEM → PREP → SECONDARY PREP. */
-function PrepSheetRow({ row, first, span, onUpdate, onDelete, courses = [] }) {
+interface PrepSheetRowProps {
+  row: LineItemWithTotal;
+  first: boolean;
+  span: number;
+  onUpdate: (_id: number, _patch: Patch) => void;
+  onDelete: (_id: number) => void;
+  courses?: Course[];
+}
+
+function PrepSheetRow({ row, first, span, onUpdate, onDelete, courses = [] }: PrepSheetRowProps) {
   const [name, setName]   = useState(row.item_name);
-  const [cost, setCost]   = useState(row.unit_cost);
-  const [qty,  setQty]    = useState(row.quantity);
+  // cost/qty hold raw <input> strings while editing; committed as Number() on blur.
+  const [cost, setCost]   = useState<number | string>(row.unit_cost);
+  const [qty,  setQty]    = useState<number | string>(row.quantity);
   const [time, setTime]   = useState(row.order_time || '');
   const [prep, setPrep]   = useState(row.prep_notes || '');
   const [sec,  setSec]    = useState(row.secondary_prep_notes || '');
@@ -608,10 +698,11 @@ function PrepSheetRow({ row, first, span, onUpdate, onDelete, courses = [] }) {
       row.order_time, row.prep_notes, row.secondary_prep_notes,
       row.order_items_notes, row.group_note]);
 
-  const pushIf = (patch) => {
+  const pushIf = (patch: Patch) => {
     const keys = Object.keys(patch);
+    const rowRecord = row as unknown as Record<string, unknown>;
     for (const k of keys) {
-      if ((row[k] ?? '') !== (patch[k] ?? '')) {
+      if ((rowRecord[k] ?? '') !== (patch[k] ?? '')) {
         onUpdate(row.id, patch);
         return;
       }
@@ -786,15 +877,21 @@ function PrepSheetRow({ row, first, span, onUpdate, onDelete, courses = [] }) {
 
 /* ── Right-side expandable menu panel ─────────────────────────── */
 
-function MenuPanel({ menu, onPick }) {
+interface MenuPanelProps {
+  menu: MenuItem[];
+  onPick: (_item: MenuItem) => void;
+}
+
+function MenuPanel({ menu, onPick }: MenuPanelProps) {
   const [filter, setFilter] = useState('');
   const grouped = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    const by = new Map();
+    const by = new Map<string, MenuItem[]>();
     for (const it of menu) {
       if (q && !it.name.toLowerCase().includes(q) && !it.category.toLowerCase().includes(q)) continue;
-      if (!by.has(it.category)) by.set(it.category, []);
-      by.get(it.category).push(it);
+      const bucket = by.get(it.category) ?? [];
+      bucket.push(it);
+      by.set(it.category, bucket);
     }
     return Array.from(by.entries());
   }, [menu, filter]);
