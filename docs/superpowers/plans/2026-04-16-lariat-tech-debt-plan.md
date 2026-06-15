@@ -1,5 +1,7 @@
 # Lariat Tech Debt & Hardening Plan
 
+> **STATUS: PARTIAL (2026-06-15 reconciliation) — done: gold-stars `.tsx` migration, rate limiting, Lariat-v2 removal, Python `scripts/lib/` move. Remaining: `BeoBoard.jsx`→`.tsx`, inline-style extraction (`.flex-center`/`.text-muted`), full Python import-path audit.**
+
 This plan addresses the tech debt and architecture tasks requested for the Lariat Cockpit application. 
 
 ## Proposed Changes

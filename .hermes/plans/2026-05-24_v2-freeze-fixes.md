@@ -1,5 +1,7 @@
 # V2 Freeze Fixes — Implementation Plan
 
+> **STATUS: PARTIAL (2026-06-15 reconciliation) — done: `dish_coverage_snapshots` table/type, WAL autocheckpoint pragma, 4 `db_query` registry entries. Remaining: KDS bump test, BEO share test, `sagemaker.ts` task (no such file — likely N/A), full verification run.**
+
 > **For Hermes:** Use subagent-driven-development skill to implement this plan task-by-task.
 
 **Goal:** Close all remaining gaps identified in the V2 freeze audit so the codebase can be tagged `v2.0.0`.

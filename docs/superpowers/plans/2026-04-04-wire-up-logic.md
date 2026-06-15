@@ -1,5 +1,7 @@
 # Plan: Wire Up All Logic — Costing Pipeline + Operations
 
+> **STATUS: NOT STARTED / SUPERSEDED (2026-06-15 reconciliation) — no implementing code found for this plan's Streamlit-style costing pipeline (T1–4), catering prep timeline (T5), or Menu Engineering BCG (T6); legacy Python scripts remain unintegrated. The costing pipeline was instead delivered via later plans (sub-recipe rollup, master-costing-tile) in the Next.js app, so this specific approach is superseded.**
+
 ## Context
 90% of BOM ingredient costs are dummy-priced ($1/ea). The ingredient_vendor_map has 147 entries and the Sysco/Shamrock catalogs have real prices, but the pipeline fails to connect them because:
 1. The merged_prices file is incomplete (only ~130 entries, many from dummy supplements)

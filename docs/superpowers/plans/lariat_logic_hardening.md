@@ -1,5 +1,7 @@
 # Lariat Logic Hardening Master Plan
 
+> **STATUS: PARTIAL (2026-06-15 reconciliation) — done: API try/catch (beo, eighty-six), PWA service worker + offline queue. Remaining: input-string sanitization bounds (Phase 3), frontend `.catch()` audit on mutation fetches (Phase 2).**
+
 ## Context
 A sweep of the Lariat Cockpit architecture revealed four primarily critical vectors for silent data loss and unhandled exceptions:
 1. Missing `try/catch` enclosures around `better-sqlite3` execution chains.

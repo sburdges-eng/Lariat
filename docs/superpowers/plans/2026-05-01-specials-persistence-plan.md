@@ -1,5 +1,7 @@
 # Specials Persistence Implementation Plan
 
+> **STATUS: SHIPPED (verified 2026-06-15 reconciliation) — persistence layer: validators, CSV export, PIN-gated `/specials/saved/*` routes + pages; tests pass.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a manager-curated persistence layer to the existing Specials sandbox: save sessions, list/edit/soft-delete them, and export them as workbook-pasteable CSVs — all PIN-gated under `/specials/saved/*`. The existing `/specials` chat surface stays unchanged and stays open to line cooks.
@@ -47,7 +49,7 @@
 
 **Files:** none (env setup only)
 
-- [ ] **Step 1: Create the worktree per Lariat protocol**
+- [x] **Step 1: Create the worktree per Lariat protocol**
 
 ```bash
 scripts/worktree.sh new claude specials-persistence
@@ -56,7 +58,7 @@ cd ../Lariat-worktrees/claude-specials-persistence
 
 This locks the implementer to branch `feat/specials-persistence` (the pre-commit guard refuses commits if HEAD drifts). All subsequent tasks run from the worktree root.
 
-- [ ] **Step 2: Verify clean tree**
+- [x] **Step 2: Verify clean tree**
 
 Run: `git status`
 Expected: `On branch feat/specials-persistence` and `nothing to commit, working tree clean`.
@@ -69,11 +71,11 @@ Expected: `On branch feat/specials-persistence` and `nothing to commit, working 
 - Modify: `lib/db.ts` — append a new block to `initSchema` (do not edit existing DDL)
 - Test: covered indirectly by `npm run test:schema` and Task 4 API tests; no new test file in this task
 
-- [ ] **Step 1: Locate the end of `initSchema` in `lib/db.ts`**
+- [x] **Step 1: Locate the end of `initSchema` in `lib/db.ts`**
 
 Use `grep -n "initSchema\|initFoodSafetyLaborSchema" lib/db.ts | head` to find the boundary. Append the new `db.exec` block immediately before the closing of `initSchema`. Do **not** modify any existing CREATE TABLE / CREATE INDEX statement.
 
-- [ ] **Step 2: Add the `specials` table**
+- [x] **Step 2: Add the `specials` table**
 
 Append this block inside `initSchema`:
 
@@ -103,17 +105,17 @@ Append this block inside `initSchema`:
   `);
 ```
 
-- [ ] **Step 3: Run typecheck**
+- [x] **Step 3: Run typecheck**
 
 Run: `npm run typecheck`
 Expected: passes with no errors.
 
-- [ ] **Step 4: Run schema test**
+- [x] **Step 4: Run schema test**
 
 Run: `npm run test:schema`
 Expected: passes. The `IF NOT EXISTS` clauses make the migration idempotent against an existing DB.
 
-- [ ] **Step 5: Sanity-check the new table on a fresh DB**
+- [x] **Step 5: Sanity-check the new table on a fresh DB**
 
 ```bash
 node -e "
@@ -128,7 +130,7 @@ db.setDbPathForTest(null);
 
 Expected: prints `[ { name: 'specials' } ]` and the two index rows.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add lib/db.ts
@@ -150,7 +152,7 @@ partial index on active rows only.
 - Create: `lib/specialsValidators.ts`
 - Test: `tests/js/test-specials-saved-rules.mjs`
 
-- [ ] **Step 1: Write the failing test file**
+- [x] **Step 1: Write the failing test file**
 
 Create `tests/js/test-specials-saved-rules.mjs`:
 
@@ -300,12 +302,12 @@ describe('coerceJsonField', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-specials-saved-rules.mjs`
 Expected: FAIL with "Cannot find module" for `lib/specialsValidators.ts`.
 
-- [ ] **Step 3: Create `lib/specialsValidators.ts`**
+- [x] **Step 3: Create `lib/specialsValidators.ts`**
 
 ```ts
 // Pure validators for the specials persistence layer. No I/O, no DB,
@@ -389,12 +391,12 @@ export function coerceJsonField(input: unknown): Result<string | null> {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `node --experimental-strip-types --test tests/js/test-specials-saved-rules.mjs`
 Expected: PASS — all describe blocks green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/specialsValidators.ts tests/js/test-specials-saved-rules.mjs
@@ -414,7 +416,7 @@ right error shape per surface.
 - Create: `lib/specialsExport.ts`
 - Test: `tests/js/test-specials-export.mjs`
 
-- [ ] **Step 1: Write the failing test file**
+- [x] **Step 1: Write the failing test file**
 
 Create `tests/js/test-specials-export.mjs`:
 
@@ -553,12 +555,12 @@ describe('buildExportCsv', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-specials-export.mjs`
 Expected: FAIL with "Cannot find module" for `lib/specialsExport.ts`.
 
-- [ ] **Step 3: Create `lib/specialsExport.ts`**
+- [x] **Step 3: Create `lib/specialsExport.ts`**
 
 ```ts
 // Pure CSV builder and helpers for the specials export pipeline.
@@ -638,12 +640,12 @@ export function buildExportCsv(input: { recipe_row: RecipeRow; ingredient_rows: 
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `node --experimental-strip-types --test tests/js/test-specials-export.mjs`
 Expected: PASS — all describe blocks green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/specialsExport.ts tests/js/test-specials-export.mjs
@@ -663,7 +665,7 @@ trailing cost blockquote from an AI answer for use as procedure prose.
 - Create: `app/api/specials/saved/route.js`
 - Test: `tests/js/test-specials-saved-api.mjs` (initial cut — extended in Tasks 5 and 6)
 
-- [ ] **Step 1: Write the failing test file with create + list scenarios**
+- [x] **Step 1: Write the failing test file with create + list scenarios**
 
 Create `tests/js/test-specials-saved-api.mjs`:
 
@@ -815,12 +817,12 @@ describe('GET /api/specials/saved (list)', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-specials-saved-api.mjs`
 Expected: FAIL — `Cannot find module './../../app/api/specials/saved/route.js'`.
 
-- [ ] **Step 3: Update `lib/auditLog.mjs` to honor `LARIAT_AUDIT_PATH` env**
+- [x] **Step 3: Update `lib/auditLog.mjs` to honor `LARIAT_AUDIT_PATH` env**
 
 The default audit file path is hard-coded. Tests need it overridable. Read the current file:
 
@@ -836,7 +838,7 @@ const AUDIT_LOG = process.env.LARIAT_AUDIT_PATH || path.join(process.cwd(), 'dat
 
 If the file already supports an env override, skip this step.
 
-- [ ] **Step 4: Create the route handler**
+- [x] **Step 4: Create the route handler**
 
 Create `app/api/specials/saved/route.js`:
 
@@ -963,12 +965,12 @@ export async function GET(req) {
 }
 ```
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `node --experimental-strip-types --test tests/js/test-specials-saved-api.mjs`
 Expected: PASS — all describe blocks green.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/api/specials/saved/route.js tests/js/test-specials-saved-api.mjs lib/auditLog.mjs
@@ -989,7 +991,7 @@ first, with a 120-char ai_answer snippet for the list cards.
 - Create: `app/api/specials/saved/[id]/route.js`
 - Test: extend `tests/js/test-specials-saved-api.mjs`
 
-- [ ] **Step 1: Append failing tests for the [id] route**
+- [x] **Step 1: Append failing tests for the [id] route**
 
 Add these `describe` blocks to `tests/js/test-specials-saved-api.mjs`, after the existing GET-list block, and at the top add:
 
@@ -1121,12 +1123,12 @@ describe('DELETE /api/specials/saved/[id]', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-specials-saved-api.mjs`
 Expected: FAIL on the new describe blocks — `Cannot find module 'app/api/specials/saved/[id]/route.js'`.
 
-- [ ] **Step 3: Create the [id] route handler**
+- [x] **Step 3: Create the [id] route handler**
 
 Create `app/api/specials/saved/[id]/route.js`:
 
@@ -1240,12 +1242,12 @@ export async function DELETE(req, { params }) {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `node --experimental-strip-types --test tests/js/test-specials-saved-api.mjs`
 Expected: PASS — all describe blocks (POST, GET list, GET detail, PATCH, DELETE) green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/api/specials/saved/[id]/route.js tests/js/test-specials-saved-api.mjs
@@ -1267,7 +1269,7 @@ audit line inside the db.transaction.
 - Create: `app/api/specials/saved/[id]/export/route.js`
 - Test: extend `tests/js/test-specials-export.mjs` with route-level cases
 
-- [ ] **Step 1: Append failing tests for the export route**
+- [x] **Step 1: Append failing tests for the export route**
 
 The existing `tests/js/test-specials-export.mjs` (from Task 3) is pure-builder only. Now add a DB-backed harness and route-level tests.
 
@@ -1424,12 +1426,12 @@ describe('POST /api/specials/saved/[id]/export', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `node --experimental-strip-types --test tests/js/test-specials-export.mjs`
 Expected: FAIL — `Cannot find module 'app/api/specials/saved/[id]/export/route.js'`.
 
-- [ ] **Step 3: Create the export route handler**
+- [x] **Step 3: Create the export route handler**
 
 Create `app/api/specials/saved/[id]/export/route.js`:
 
@@ -1546,12 +1548,12 @@ export async function POST(req, { params }) {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `node --experimental-strip-types --test tests/js/test-specials-export.mjs`
 Expected: PASS — pure-builder tests + route-level tests all green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/api/specials/saved/[id]/export/route.js tests/js/test-specials-export.mjs
@@ -1574,11 +1576,11 @@ file-audit line inside the db.transaction.
 - Modify: `app/api/specials/route.js`
 - Test: covered by manual verification in Task 8 (jsdom test exercises the field shape)
 
-- [ ] **Step 1: Locate the JSON response near the bottom of `app/api/specials/route.js`**
+- [x] **Step 1: Locate the JSON response near the bottom of `app/api/specials/route.js`**
 
 Currently the route returns `{ answer, model, location_id, sources, latencyMs, disclaimer }` at line ~138. The page needs `cost_breakdown` and `cost_total` to send into the save endpoint.
 
-- [ ] **Step 2: Hoist the cost result so it can be read after the action handler**
+- [x] **Step 2: Hoist the cost result so it can be read after the action handler**
 
 Inside the `if (payload && payload.action === 'cost_special' …)` block, the local `costResult` is currently scoped inside the try. Hoist it:
 
@@ -1598,7 +1600,7 @@ Inside the `if (payload && payload.action === 'cost_special' …)` block, the lo
     }
 ```
 
-- [ ] **Step 3: Extend the success response**
+- [x] **Step 3: Extend the success response**
 
 Update the final `return Response.json({...})` to:
 
@@ -1616,7 +1618,7 @@ Update the final `return Response.json({...})` to:
     });
 ```
 
-- [ ] **Step 4: Run the existing kitchen-assistant tests**
+- [x] **Step 4: Run the existing kitchen-assistant tests**
 
 Run: `npm run test:rules` (catches anything that imports from lib/ollama.ts or shares constants).
 Expected: PASS.
@@ -1624,7 +1626,7 @@ Expected: PASS.
 Run: `node --experimental-strip-types --test tests/js/test-specials-export.mjs`
 Expected: still PASS (no regression).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/api/specials/route.js
@@ -1644,7 +1646,7 @@ when no cost_special action ran.
 - Modify: `app/specials/page.jsx`
 - Create: `app/__tests__/SpecialsPageSave.test.jsx`
 
-- [ ] **Step 1: Write the failing component test**
+- [x] **Step 1: Write the failing component test**
 
 Create `app/__tests__/SpecialsPageSave.test.jsx`:
 
@@ -1732,12 +1734,12 @@ test('Save POSTs the captured session shape', async () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm run test:unit -- --testPathPattern SpecialsPageSave`
 Expected: FAIL — Save button isn't rendered (it doesn't exist yet).
 
-- [ ] **Step 3: Update `app/specials/page.jsx`**
+- [x] **Step 3: Update `app/specials/page.jsx`**
 
 Replace the file with:
 
@@ -1952,12 +1954,12 @@ export default function SpecialsPage() {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npm run test:unit -- --testPathPattern SpecialsPageSave`
 Expected: PASS — all four tests green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/specials/page.jsx app/__tests__/SpecialsPageSave.test.jsx
@@ -1978,7 +1980,7 @@ swap the button for a 'Saved → view' link.
 **Files:**
 - Create: `app/specials/saved/page.jsx`
 
-- [ ] **Step 1: Write the page**
+- [x] **Step 1: Write the page**
 
 Create `app/specials/saved/page.jsx`:
 
@@ -2052,16 +2054,16 @@ export default function SavedSpecialsPage({ searchParams }) {
 }
 ```
 
-- [ ] **Step 2: Run typecheck**
+- [x] **Step 2: Run typecheck**
 
 Run: `npm run typecheck`
 Expected: passes.
 
-- [ ] **Step 3: Manual smoke check (optional)**
+- [x] **Step 3: Manual smoke check (optional)**
 
 Start the dev server: `npm run dev`. Visit `http://localhost:3000/specials/saved` after entering the PIN; the empty-state should render. (PIN gate is added in Task 11; until then the page renders unauthenticated, which is fine for local smoke testing.)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/specials/saved/page.jsx
@@ -2081,7 +2083,7 @@ ai_answer snippet. Empty state links back to /specials.
 - Create: `app/specials/saved/[id]/page.jsx`
 - Create: `app/specials/saved/[id]/SpecialDetailClient.jsx`
 
-- [ ] **Step 1: Write the server wrapper**
+- [x] **Step 1: Write the server wrapper**
 
 Create `app/specials/saved/[id]/page.jsx`:
 
@@ -2138,7 +2140,7 @@ export default function SavedSpecialDetail({ params, searchParams }) {
 }
 ```
 
-- [ ] **Step 2: Write the client component**
+- [x] **Step 2: Write the client component**
 
 Create `app/specials/saved/[id]/SpecialDetailClient.jsx`:
 
@@ -2367,12 +2369,12 @@ export default function SpecialDetailClient({ special }) {
 }
 ```
 
-- [ ] **Step 3: Run typecheck**
+- [x] **Step 3: Run typecheck**
 
 Run: `npm run typecheck`
 Expected: passes.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/specials/saved/[id]/page.jsx app/specials/saved/[id]/SpecialDetailClient.jsx
@@ -2394,7 +2396,7 @@ download once the response returns.
 - Modify: `middleware.js`
 - Modify: `app/_components/navRegistry.js`
 
-- [ ] **Step 1: Add the gated paths**
+- [x] **Step 1: Add the gated paths**
 
 Edit `middleware.js`. Locate the `SENSITIVE_PREFIXES` array and add two entries (preserve the existing order):
 
@@ -2423,7 +2425,7 @@ const SENSITIVE_PREFIXES = [
 
 The chat surface at `/specials` and `/api/specials` (without `/saved`) stays open — only the persistence surface is gated.
 
-- [ ] **Step 2: Add the nav entry**
+- [x] **Step 2: Add the nav entry**
 
 Edit `app/_components/navRegistry.js`. Locate the existing `id: 'specials'` entry around line 143 and add a sibling entry directly after it:
 
@@ -2440,11 +2442,11 @@ Edit `app/_components/navRegistry.js`. Locate the existing `id: 'specials'` entr
   },
 ```
 
-- [ ] **Step 3: Smoke test**
+- [x] **Step 3: Smoke test**
 
 Start dev server: `npm run dev`. Without a PIN cookie, visit `/specials/saved` — should redirect to the PIN page. Enter PIN; saved-specials list should render. Open the command palette (⌘K) — "Saved Specials" should appear and route to `/specials/saved`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add middleware.js app/_components/navRegistry.js
@@ -2463,34 +2465,34 @@ sync.
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Run the full Node test suite**
+- [x] **Step 1: Run the full Node test suite**
 
 Run: `node --test --experimental-strip-types tests/js/test-specials-saved-rules.mjs tests/js/test-specials-saved-api.mjs tests/js/test-specials-export.mjs`
 Expected: every describe block passes.
 
-- [ ] **Step 2: Run the Jest unit tests**
+- [x] **Step 2: Run the Jest unit tests**
 
 Run: `npm run test:unit -- --testPathPattern Specials`
 Expected: SpecialsPageSave tests pass.
 
-- [ ] **Step 3: Run the schema regression**
+- [x] **Step 3: Run the schema regression**
 
 Run: `npm run test:schema`
 Expected: passes (specials table is idempotent).
 
-- [ ] **Step 4: Typecheck + build**
+- [x] **Step 4: Typecheck + build**
 
 Run: `npm run typecheck`
 Run: `npm run build`
 Expected: both pass.
 
-- [ ] **Step 5: GitNexus impact check**
+- [x] **Step 5: GitNexus impact check**
 
 Run: `npx gitnexus analyze` (refresh the index)
 Run: `gitnexus_detect_changes` via the MCP tool
 Expected: only the symbols introduced in this branch (table `specials`, validators, exporter, route handlers, page components, navRegistry entry, middleware update) appear in the change set.
 
-- [ ] **Step 6: Manual e2e on dev server**
+- [x] **Step 6: Manual e2e on dev server**
 
 Start dev server: `npm run dev`. Walk the flow:
 
@@ -2504,7 +2506,7 @@ Start dev server: `npm run dev`. Walk the flow:
 8. Click Delete; confirm. Land back on the list with the row gone.
 9. Verify command palette (⌘K) shows "Saved Specials" and routes correctly.
 
-- [ ] **Step 7: Push the branch**
+- [x] **Step 7: Push the branch**
 
 ```bash
 git push -u origin feat/specials-persistence

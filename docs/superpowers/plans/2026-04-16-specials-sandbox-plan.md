@@ -1,5 +1,7 @@
 # Specials & R&D Sandbox Implementation Plan
 
+> **STATUS: SHIPPED (verified 2026-06-15 reconciliation) — specials sandbox fully implemented: nav (navRegistry), UI page, creative API endpoint (CREATIVE_SYSTEM + `cost_special` action), saved-specials dashboard. Checkboxes below are historical.**
+
 The goal is to add a creative "Specials" sandbox to the Lariat Cockpit. Unlike the strict "Kitchen Assistant" which prevents all fabrication, this section encourages the AI to generate new recipes, estimate costs, and suggest uses for overstock.
 
 ## Proposed Changes

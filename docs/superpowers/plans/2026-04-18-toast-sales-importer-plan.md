@@ -1,5 +1,7 @@
 # Toast Sales Timeseries Importer Plan
 
+> **STATUS: SHIPPED (verified 2026-06-15 reconciliation) — Toast three-table importer (daily/dow/hour): CSV parser, Node ingest wrapper, kitchen-assistant integration; 53/53 tests pass.**
+
 Date: 2026-04-18
 Source files: `data/originals/Toast/sales-by-{date,day,time}-apr6-2020-apr17,2026.csv`
 
