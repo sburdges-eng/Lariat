@@ -6,6 +6,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "apple/graphics/collaboration.hpp"
 #include "apple/graphics/intents_bridge.hpp"
 #include "apple/graphics/render_backend.hpp"
 #include "apple/graphics/scene_object.hpp"
@@ -76,6 +77,11 @@ public:
     // API, so update() is not involved.
     [[nodiscard]] AppIntentsBridge& intents() { return intents_; }
 
+    // The engine's SharePlay-style collaboration session. Owns the participant
+    // roster (Spatial Personas) and the replicated op log. It is independently
+    // thread-safe (its own mutex), so it is exposed directly.
+    [[nodiscard]] CollaborationManager& collab() { return collab_; }
+
     [[nodiscard]] std::optional<ObjectType> typeOf(const std::string& id) const;
     [[nodiscard]] std::optional<geom::AffineMatrix2D> globalTransformOf(const std::string& id) const;
 
@@ -85,6 +91,7 @@ private:
     geom::Quadtree quad_;
     std::unique_ptr<RenderBackend> renderer_;
     AppIntentsBridge intents_;
+    CollaborationManager collab_;
     mutable std::mutex mutex_;
 
     // O(1) id -> raw node lookup, maintained on add/remove. Raw pointers are

@@ -52,7 +52,8 @@ AppleUnifiedEngine::AppleUnifiedEngine(geom::AABB worldBounds,
     : root_(std::make_unique<core::SceneNode>("root")),
       quad_(worldBounds),
       renderer_(backend ? std::move(backend)
-                        : std::make_unique<NullRenderBackend>()) {
+                        : std::make_unique<NullRenderBackend>()),
+      collab_("local") {
     index_["root"] = root_.get();
 }
 
