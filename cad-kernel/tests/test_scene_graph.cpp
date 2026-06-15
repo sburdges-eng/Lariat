@@ -52,6 +52,52 @@ TEST(SceneGraphTest, ChildrenIteration) {
     EXPECT_EQ(kids[1]->getId(), "b");
 }
 
+TEST(SceneGraphTest, RemoveChildDetachesAndClearsParent) {
+    SceneNode root("root");
+    ASSERT_TRUE(root.addChild(std::make_unique<SceneNode>("a")).has_value());
+    ASSERT_TRUE(root.addChild(std::make_unique<SceneNode>("b")).has_value());
+
+    auto removed = root.removeChild("a");
+    ASSERT_TRUE(removed.has_value());
+    ASSERT_NE(removed->get(), nullptr);
+    EXPECT_EQ((*removed)->getId(), "a");
+    EXPECT_EQ((*removed)->getParent(), nullptr);
+
+    // Only the sibling remains attached to root.
+    auto kids = root.children();
+    ASSERT_EQ(kids.size(), 1u);
+    EXPECT_EQ(kids[0]->getId(), "b");
+}
+
+TEST(SceneGraphTest, RemoveChildUnknownIdFails) {
+    SceneNode root("root");
+    ASSERT_TRUE(root.addChild(std::make_unique<SceneNode>("a")).has_value());
+
+    auto removed = root.removeChild("missing");
+    ASSERT_FALSE(removed.has_value());
+
+    // The existing child is untouched.
+    auto kids = root.children();
+    ASSERT_EQ(kids.size(), 1u);
+    EXPECT_EQ(kids[0]->getId(), "a");
+}
+
+TEST(SceneGraphTest, RemoveChildOnlyMatchesDirectChildren) {
+    SceneNode root("root");
+    auto mid = std::make_unique<SceneNode>("mid");
+    SceneNode* mid_raw = mid.get();
+    ASSERT_TRUE(root.addChild(std::move(mid)).has_value());
+    ASSERT_TRUE(mid_raw->addChild(std::make_unique<SceneNode>("leaf")).has_value());
+
+    // "leaf" is a grandchild, not a direct child of root.
+    EXPECT_FALSE(root.removeChild("leaf").has_value());
+    EXPECT_EQ(root.children().size(), 1u);
+
+    // It is a direct child of mid.
+    EXPECT_TRUE(mid_raw->removeChild("leaf").has_value());
+    EXPECT_EQ(mid_raw->children().size(), 0u);
+}
+
 TEST(SceneGraphTest, NestedGlobalTransformComposition) {
     // root translated (10,5), child local translation (3,0).
     // child global transformPoint(0,0) must equal (13,5).

@@ -18,6 +18,13 @@ public:
     void setLocalTransform(const geom::AffineMatrix2D& transform) { local_transform_ = transform; }
 
     [[nodiscard]] std::expected<void, std::string> addChild(std::unique_ptr<SceneNode> child);
+
+    // Detaches the DIRECT child with the given id, clears its parent_ back-
+    // reference, and transfers ownership to the caller. Returns std::unexpected
+    // if no direct child with that id exists. Dropping the returned pointer
+    // frees the detached node and its whole subtree.
+    [[nodiscard]] std::expected<std::unique_ptr<SceneNode>, std::string> removeChild(const std::string& id);
+
     [[nodiscard]] geom::AffineMatrix2D computeGlobalTransform() const;
 
     // parent_ is a non-owning observer pointer: the parent owns the child via
