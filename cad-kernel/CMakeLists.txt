@@ -15,7 +15,7 @@ add_library(geom STATIC src/geom/bounding_volume.cpp src/geom/boolean_ops.cpp sr
 add_library(core STATIC src/core/scene_graph.cpp)
 add_library(ops STATIC src/ops/pathfinding.cpp src/ops/seating_layout.cpp)
 add_library(io STATIC src/io/dxf_parser.cpp)
-add_library(apple STATIC src/apple/graphics/scene_object.cpp src/apple/graphics/render_backend.cpp src/apple/graphics/engine.cpp)
+add_library(apple STATIC src/apple/graphics/scene_object.cpp src/apple/graphics/render_backend.cpp src/apple/graphics/engine.cpp src/apple/graphics/intents_bridge.cpp)
 
 # Enforce strict agentic safety protocols ONLY on our targets
 target_compile_options(solver PRIVATE -Wall -Wextra -Wpedantic -Werror -O3 -fno-fast-math)
@@ -41,7 +41,7 @@ FetchContent_MakeAvailable(googletest)
 
 enable_testing()
 
-add_executable(kernel_tests tests/test_main.cpp tests/test_solver.cpp tests/test_transform.cpp tests/test_curves.cpp tests/test_geodesy.cpp tests/test_clothoid.cpp tests/test_tin.cpp tests/test_octree.cpp tests/test_quadtree.cpp tests/test_selection.cpp tests/test_scene_graph.cpp tests/test_pathfinding.cpp tests/test_seating_layout.cpp tests/test_crs.cpp tests/test_vertical_alignment.cpp tests/test_mass_properties.cpp tests/test_dimensioning.cpp tests/test_io.cpp tests/test_apple_engine.cpp)
+add_executable(kernel_tests tests/test_main.cpp tests/test_solver.cpp tests/test_transform.cpp tests/test_curves.cpp tests/test_geodesy.cpp tests/test_clothoid.cpp tests/test_tin.cpp tests/test_octree.cpp tests/test_quadtree.cpp tests/test_selection.cpp tests/test_scene_graph.cpp tests/test_pathfinding.cpp tests/test_seating_layout.cpp tests/test_crs.cpp tests/test_vertical_alignment.cpp tests/test_mass_properties.cpp tests/test_dimensioning.cpp tests/test_io.cpp tests/test_apple_engine.cpp tests/test_apple_intents.cpp)
 target_compile_options(kernel_tests PRIVATE -Wall -Wextra -Wpedantic -Werror -O3 -fno-fast-math)
 target_link_libraries(kernel_tests PRIVATE apple ops core io solver geom gtest_main)
 add_test(NAME kernel_tests COMMAND kernel_tests)

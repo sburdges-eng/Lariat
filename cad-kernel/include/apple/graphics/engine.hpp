@@ -6,6 +6,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "apple/graphics/intents_bridge.hpp"
 #include "apple/graphics/render_backend.hpp"
 #include "apple/graphics/scene_object.hpp"
 #include "apple/graphics/types.hpp"
@@ -68,6 +69,13 @@ public:
     [[nodiscard]] const geom::Quadtree& quadtree() const { return quad_; }
     [[nodiscard]] RenderBackend& renderer() { return *renderer_; }
 
+    // The engine's App Intents bridge. Later constructs register their Assistant
+    // Schemas on this shared bridge so an assistant can drive them. Dispatch is
+    // synchronous (no intent queue): the bridge runs the handler inline, and any
+    // engine-mutating handler is expected to go through the engine's own locked
+    // API, so update() is not involved.
+    [[nodiscard]] AppIntentsBridge& intents() { return intents_; }
+
     [[nodiscard]] std::optional<ObjectType> typeOf(const std::string& id) const;
     [[nodiscard]] std::optional<geom::AffineMatrix2D> globalTransformOf(const std::string& id) const;
 
@@ -76,6 +84,7 @@ private:
     ObjectStore store_;
     geom::Quadtree quad_;
     std::unique_ptr<RenderBackend> renderer_;
+    AppIntentsBridge intents_;
     mutable std::mutex mutex_;
 
     // O(1) id -> raw node lookup, maintained on add/remove. Raw pointers are
