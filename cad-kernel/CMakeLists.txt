@@ -31,6 +31,12 @@ target_link_libraries(ops PRIVATE geom core solver)
 target_link_libraries(io PRIVATE geom)
 target_link_libraries(apple PRIVATE core geom ops)
 
+# Standalone end-to-end demo for the Apple Unified Engine. This is the only main()
+# in the apple module; it is NOT part of the `apple` library or `kernel_tests`.
+add_executable(apple_demo src/apple/demo_main.cpp)
+target_compile_options(apple_demo PRIVATE -Wall -Wextra -Wpedantic -Werror -O3 -fno-fast-math)
+target_link_libraries(apple_demo PRIVATE apple ops core geom)
+
 include(FetchContent)
 FetchContent_Declare(
   googletest
