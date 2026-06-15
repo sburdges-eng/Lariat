@@ -6,6 +6,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "apple/audio/audio_session.hpp"
+#include "apple/audio/procedural_synth.hpp"
 #include "apple/graphics/collaboration.hpp"
 #include "apple/graphics/intents_bridge.hpp"
 #include "apple/graphics/render_backend.hpp"
@@ -82,6 +84,13 @@ public:
     // thread-safe (its own mutex), so it is exposed directly.
     [[nodiscard]] CollaborationManager& collab() { return collab_; }
 
+    // The engine's procedural audio synth. Constructs trigger SoundEvents on it
+    // so user-facing interactions produce procedural audio cues.
+    [[nodiscard]] AppleAudio::ProceduralSynthesizer& synth() { return synth_; }
+
+    // The engine's audio session manager (route-change handling).
+    [[nodiscard]] AppleAudio::AudioSessionManager& audioSession() { return audioSession_; }
+
     [[nodiscard]] std::optional<ObjectType> typeOf(const std::string& id) const;
     [[nodiscard]] std::optional<geom::AffineMatrix2D> globalTransformOf(const std::string& id) const;
 
@@ -92,6 +101,8 @@ private:
     std::unique_ptr<RenderBackend> renderer_;
     AppIntentsBridge intents_;
     CollaborationManager collab_;
+    AppleAudio::ProceduralSynthesizer synth_;
+    AppleAudio::AudioSessionManager audioSession_;
     mutable std::mutex mutex_;
 
     // O(1) id -> raw node lookup, maintained on add/remove. Raw pointers are
