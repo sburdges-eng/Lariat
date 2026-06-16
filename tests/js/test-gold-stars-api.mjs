@@ -60,14 +60,22 @@ function getReq(qs = '') {
   return new Request(`http://localhost/api/gold-stars${qs}`);
 }
 
-/** Insert a star dated `daysAgo` local days back (0 = today). */
+/**
+ * Insert a star dated `daysAgo` days back (0 = today).
+ *
+ * Stores `awarded_date`/`created_at` in UTC to match how the route writes
+ * rows in production (the column defaults are `date('now')` / `datetime('now')`,
+ * both UTC). The board query re-applies `'localtime'` to `created_at`, so
+ * seeding in localtime here would double-convert and misclassify "today" as
+ * "yesterday" during the early-morning UTC-offset window (flaky-by-clock).
+ */
 function seedStar(cook, stars, daysAgo) {
   testDb
     .prepare(
       `INSERT INTO gold_stars (cook_name, reason, stars, location_id, awarded_date, created_at)
        VALUES (?, 'seed', ?, 'default',
-               date('now', 'localtime', ?),
-               datetime('now', 'localtime', ?))`,
+               date('now', ?),
+               datetime('now', ?))`,
     )
     .run(cook, stars, `-${daysAgo} days`, `-${daysAgo} days`);
 }

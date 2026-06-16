@@ -20,7 +20,7 @@ const MONEY_SOURCE_FILES = [
   'app/labor/tip-pool/TipPoolBoard.jsx',
   'app/labor/wage-notices/WageNoticesBoard.jsx',
   'app/command/page.jsx',
-  'app/beo/BeoBoard.jsx',
+  'app/beo/BeoBoard.tsx',
   'app/beo/share/[token]/page.jsx',
   'app/shows/tonight/_components/TonightLiveClient.jsx',
   'app/shows/[id]/box-office/BoxOfficeBoard.jsx',
