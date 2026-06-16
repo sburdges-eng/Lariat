@@ -4,3 +4,7 @@ pandas>=3.0
 openpyxl>=3.1
 # CLI CSV Swiss army knife (also: brew install csvkit xsv)
 csvkit>=1.1
+# XML/HTML parsing for the Data Pack normalizers (Wikibooks etc.)
+lxml>=5.0
+# PDF text/table extraction for photographed-invoice ingest (Sysco PDFs)
+pdfplumber>=0.11

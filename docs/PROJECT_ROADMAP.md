@@ -31,6 +31,19 @@ This update records four decisions for the next freeze slice:
 
 LaRi status after this pass: multi-turn conversation memory is implemented and merged; `db_query` already includes the top roadmap entries (`recipe_with_bom`, `sales_depletion_unresolved`, `beo_prep_status`) and this branch adds regression coverage plus tighter location-boundary checks for those entries.
 
+## 2026-06-16 v2.0.0 freeze close-out
+
+The v2 freeze-fixes plan (`.hermes/plans/2026-05-24_v2-freeze-fixes.md`, T1–T8) is
+closed out on `chore/v2-freeze-closeout`. T1–T6 were already shipped; T7 full
+verification now passes on a clean tree (eslint 0 err · tsc app+scripts 0 err ·
+jest 139 · node tests 4398/4399 — the lone failure is the known `peers-route` mDNS
+concurrent-sweep flake, green in isolation · pytest 339 · `next build` clean). Two
+pre-existing test defects were fixed (BeoBoard `.jsx`→`.tsx` source-guard path;
+gold-stars `created_at` double-localtime flake) and `lxml`+`pdfplumber` were declared
+in `requirements-tools.txt`. `CHANGELOG.md` is written. The `v2.0.0` tag is pending
+operator go-ahead plus the environment-gated checks that can't run headless (Electron
+notarize, PWA offline smoke, `lari-qwen` fresh-Ollama check, SageMaker teardown).
+
 ## How this was scoped
 
 I read every doc in `docs/`, the last 30 commits, the schema, the nav registry, the API routes, the audit document I produced this session, and the recent audit-cycle history (the M/L/H-numbered hardening sweeps). I excluded recommendations I couldn't ground in observed evidence. Effort estimates: **XS** = <1hr, **S** = half-day, **M** = 1–2 days, **L** = week, **XL** = sprint+.
