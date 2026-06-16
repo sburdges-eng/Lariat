@@ -199,9 +199,23 @@ pipeline · floor-plan.
    fully tested (`test-calibrations-api.mjs`); renaming `app/api/thermometer-calibrations/` →
    `app/api/calibrations/` touches the API contract, 2 UI fetch calls, the PIN-gate list, and 4
    test files. Cosmetic conformance at real risk; keep the exception.
-6. ⏳ Reconcile `ed0b32e` narrative in docs — V2_FREEZE_PLAN (this file) + memory now capture all
-   six overclaims. CLAUDE.md's model section is still accurate (DeepSeek stays default). No further
-   doc edit strictly required; this file is the canonical reconciliation.
+6. ✅ Reconcile `ed0b32e` narrative in docs — V2_FREEZE_PLAN (this file) + memory now capture all
+   six overclaims. CLAUDE.md's model section is still accurate (DeepSeek stays default). This file
+   is the canonical reconciliation.
+
+**2026-06-16 close-out (`feat/v2-freeze-closeout`).** Freeze-fixes T1–T7 verified
+complete; full gate suite green (eslint 0 err · tsc app+scripts 0 err · jest 139 ·
+node tests 4398/4399 with the one known `peers-route` mDNS concurrent-sweep flake ·
+pytest 339 · `next build` clean). Two pre-existing test defects fixed during close-out:
+the `test-format-money-source` source guard still pointed at `app/beo/BeoBoard.jsx`
+(migrated to `.tsx` in #336), and `test-gold-stars-api` seeded `created_at` in
+localtime, double-converting against the route's `date(created_at,'localtime')` and
+going flaky in the early-morning UTC-offset window. `lxml` + `pdfplumber` are now
+declared in `requirements-tools.txt` (real runtime deps of the Data Pack normalizer
+and Sysco-PDF ingest) so their Python tests are collectible. CHANGELOG.md written.
+Tagging `v2.0.0` is gated on operator go-ahead plus the environment-gated checklist
+(Electron notarize, PWA offline smoke, `lari-qwen` fresh-Ollama check, SageMaker
+teardown) that cannot run headless.
 
 **Deferred (explicitly out of v2):** entity Phase 2 UUID FKs · cloud-bridge pull/status ·
 Prism (blocked on external spec) · regulated cert write/audit workflow ·

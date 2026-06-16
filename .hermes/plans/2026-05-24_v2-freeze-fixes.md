@@ -1,6 +1,6 @@
 # V2 Freeze Fixes — Implementation Plan
 
-> **STATUS: PARTIAL (2026-06-15 reconciliation) — done: `dish_coverage_snapshots` table/type, WAL autocheckpoint pragma, 4 `db_query` registry entries. Remaining: KDS bump test, BEO share test, `sagemaker.ts` task (no such file — likely N/A), full verification run.**
+> **STATUS: COMPLETE (2026-06-16 close-out) — T1 dish_coverage_snapshots table/type ✅, T2 WAL autocheckpoint ✅, T3 sagemaker.ts ⚪️ N/A (file removed per V2_FREEZE_PLAN §2.6), T4 KDS bump test ✅ (`tests/js/test-kds-bump.mjs`, #337), T5 BEO share test ✅ (`tests/js/test-beo-share.mjs`, #337), T6 4 db_query entries ✅, T7 full verification ✅ (eslint 0 err · tsc app+scripts 0 err · jest 139 · node 4398/4399 — 1 known mDNS concurrent-sweep flake · pytest 339 · build clean). T8 docs/tag prepped on `feat/v2-freeze-closeout`. Close-out also fixed two stale/flaky tests (BeoBoard `.jsx`→`.tsx` source-guard path; gold-stars `created_at` double-localtime) and declared `lxml`+`pdfplumber` in `requirements-tools.txt`. Tag `v2.0.0` pending operator go-ahead + the environment-gated checklist below.**
 
 > **For Hermes:** Use subagent-driven-development skill to implement this plan task-by-task.
 
