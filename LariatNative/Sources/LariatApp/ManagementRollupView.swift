@@ -58,15 +58,15 @@ struct ManagementRollupView: View {
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 220))], spacing: 16) {
                         // Tile 1 — Food cost vs. target (accounting variance)
-                        // DEFERRED (P1a): per-tile traffic-light COLOR signaling (web uses
-                        // varianceColor/ingestColor/etc.) is NOT implemented — tiles show
-                        // value/label only.
+                        // Per-tile traffic-light color mirrors the web rules via
+                        // RollupTileColor (parity-tested in RollupTileColorTests).
                         if let v = s.variance {
                             Tile(
                                 title: "Food cost vs. target",
                                 value: v.variancePct.map { String(format: "%.2f%%", $0) } ?? "—",
                                 // Mirror web: append "· as of <snapshot_at>" when present.
-                                sub: varianceSubLine(v)
+                                sub: varianceSubLine(v),
+                                severity: RollupTileColor.variance(pct: v.variancePct)
                             )
                         } else {
                             TileDegrade(
@@ -84,7 +84,8 @@ struct ManagementRollupView: View {
                                 // "never ingested" only applies when no ingest record exists at all
                                 // (the TileDegrade path below). A present-but-statusless record
                                 // means status is unknown, not that it was never run.
-                                sub: ingest.lastStatus.map { "last status: \($0)" } ?? "status unknown"
+                                sub: ingest.lastStatus.map { "last status: \($0)" } ?? "status unknown",
+                                severity: RollupTileColor.ingest(ageMinutes: ingest.ageMinutes, status: ingest.lastStatus)
                             )
                         } else {
                             TileDegrade(
@@ -101,7 +102,8 @@ struct ManagementRollupView: View {
                                 value: "\(shocks.total)",
                                 sub: shocks.total > 0
                                     ? "\(shocks.up) up · \(shocks.down) down · 7 days"
-                                    : "no 5% moves in 7 days"
+                                    : "no 5% moves in 7 days",
+                                severity: RollupTileColor.warningCount(shocks.total)
                             )
                         } else {
                             TileDegrade(
@@ -117,18 +119,22 @@ struct ManagementRollupView: View {
                             value: "\(s.depletionExceptionCount)",
                             sub: s.depletionExceptionCount > 0
                                 ? "\(s.depletionExceptionCount) dish\(s.depletionExceptionCount == 1 ? "" : "es") need mapping"
-                                : "sold dishes map cleanly"
+                                : "sold dishes map cleanly",
+                            severity: RollupTileColor.warningCount(s.depletionExceptionCount)
                         )
 
                         // Tile 5 — Menu items costed (dish coverage)
                         // DEFERRED (P1a): coverage sub-line lacks the web's "X unlinked ·
                         // Y no-components" breakdown because DishCoverageView doesn't carry
-                        // those counts (model gap, deferred to a follow-up).
+                        // those counts (model gap, deferred to a follow-up). For the same
+                        // reason this tile stays muted (severity: nil) — the web
+                        // coverageColor needs that unlinked/declared_only/partial breakdown.
                         if let c = s.coverage {
                             Tile(
                                 title: "Menu items costed",
                                 value: coverageValue(c),
-                                sub: c.coveragePct.map { String(format: "%.1f%% costed", $0) }
+                                sub: c.coveragePct.map { String(format: "%.1f%% costed", $0) },
+                                severity: nil
                             )
                         } else {
                             TileDegrade(
@@ -146,7 +152,8 @@ struct ManagementRollupView: View {
                                 Tile(
                                     title: "Pack-size changes unack'd",
                                     value: "\(s.unacknowledgedPackSizeChanges)",
-                                    sub: "tap to review and give OK"
+                                    sub: "tap to review and give OK",
+                                    severity: RollupTileColor.packChange(s.unacknowledgedPackSizeChanges)
                                 )
                             }
                             .buttonStyle(.plain)
@@ -154,7 +161,8 @@ struct ManagementRollupView: View {
                             Tile(
                                 title: "Pack-size changes unack'd",
                                 value: "\(s.unacknowledgedPackSizeChanges)",
-                                sub: "acks need write access — check data folder"
+                                sub: "acks need write access — check data folder",
+                                severity: RollupTileColor.packChange(s.unacknowledgedPackSizeChanges)
                             )
                         }
                     }
@@ -201,15 +209,42 @@ private struct Tile: View {
     let title: String
     let value: String
     var sub: String?
+    /// Traffic-light severity (nil == muted / no signal), computed by
+    /// `RollupTileColor` to mirror the web `app/management/page.jsx` colors.
+    var severity: ThresholdColor?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Self.indicatorColor(severity))
+                    .frame(width: 8, height: 8)
+                    .accessibilityLabel(Self.accessibilityLabel(severity))
+                Text(title).font(.caption).foregroundStyle(.secondary)
+            }
             Text(value).font(.system(.title, design: .rounded)).bold()
             if let sub { Text(sub).font(.caption2).foregroundStyle(.tertiary) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    static func indicatorColor(_ severity: ThresholdColor?) -> Color {
+        switch severity {
+        case .red: return .red
+        case .yellow: return .yellow
+        case .green: return .green
+        case nil: return .gray
+        }
+    }
+
+    static func accessibilityLabel(_ severity: ThresholdColor?) -> String {
+        switch severity {
+        case .red: return "needs attention"
+        case .yellow: return "watch"
+        case .green: return "ok"
+        case nil: return "no signal"
+        }
     }
 }
