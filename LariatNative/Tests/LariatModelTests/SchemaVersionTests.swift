@@ -46,9 +46,10 @@ final class SchemaVersionTests: XCTestCase {
             try db.execute(sql: "INSERT INTO schema_migrations VALUES ('20240202000000')")
         }
         let state = try q.read { db in SchemaVersionGuard.probe(db) }
-        if case .unknown = state {
-            XCTFail("Expected .known when schema_migrations table is present, got .unknown")
+        guard case let .known(n) = state else {
+            return XCTFail("Expected .known when schema_migrations table is present, got \(state)")
         }
+        XCTAssertEqual(n, 2)
     }
 
     // MARK: - Edge cases
@@ -63,9 +64,8 @@ final class SchemaVersionTests: XCTestCase {
     }
 
     /// The guard must be non-throwing even when the DB is truly minimal.
-    func testProbeNeverThrows() {
-        let q = try? DatabaseQueue()
-        XCTAssertNotNil(q)
-        XCTAssertNoThrow(try q!.read { db in SchemaVersionGuard.probe(db) })
+    func testProbeNeverThrows() throws {
+        let q = try DatabaseQueue()
+        XCTAssertNoThrow(try q.read { db in SchemaVersionGuard.probe(db) })
     }
 }
