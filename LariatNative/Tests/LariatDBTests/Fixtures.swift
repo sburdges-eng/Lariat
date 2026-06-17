@@ -585,6 +585,63 @@ func seedFixtureDatabase() throws -> String {
                   ('default', 'Table 3', 'dirty',  2),
                   ('default', 'Table 4', 'closed', 4);
                 """)
+
+            // ── T10: Costing surface extensions ───────────────────────────────
+            //
+            // 1. sales_lines: add cost_per_unit column (pre-computed per-dish cost,
+            //    simplifying the native port of computeMenuEngineering vs web's
+            //    dishCostBridge multi-table JOIN).
+            //
+            //    Known values:
+            //      Burger   cost_per_unit=4.0  → margin_pct=(15-4)/15*100=73.333%
+            //      Tacos    cost_per_unit=5.0  → margin_pct=(15-5)/15*100=66.667%
+            //      MysteryX cost_per_unit=NULL → margin_pct=nil → quadrant=unknown
+            //
+            // 2. accounting_variance: add period_start / period_end columns for the
+            //    getVarianceTrend() 28-day window query (lib/varianceTrend.ts).
+            //    Two new trend rows are added with runtime-relative dates so the test
+            //    always falls within the window regardless of when it runs.
+            //
+            //    Known values:
+            //      Row A: period_end=date('now','-7 days')  variance_pct=8.0  → red  (abs>=5)
+            //      Row B: period_end=date('now')            variance_pct=5.5  → red  (abs>=5)
+            //      MAX(period_end) = date('now')
+            //      28-day cutoff  = date('now','-28 days')
+            //      Both rows satisfy period_end >= cutoff → rowsFound=2
+            //      pCurrent=5.5  pAverage=(8.0+5.5)/2=6.75
+            try db.execute(sql: """
+                -- T10: Add cost_per_unit to sales_lines (nullable; NULL = no dish cost mapped)
+                ALTER TABLE sales_lines ADD COLUMN cost_per_unit REAL;
+
+                UPDATE sales_lines SET cost_per_unit = 4.0 WHERE item_name = 'Burger'   AND location_id = 'default';
+                UPDATE sales_lines SET cost_per_unit = 5.0 WHERE item_name = 'Tacos'    AND location_id = 'default';
+                -- MysteryX intentionally left NULL
+
+                -- T10: Add period_start / period_end to accounting_variance for trend queries
+                ALTER TABLE accounting_variance ADD COLUMN period_start TEXT;
+                ALTER TABLE accounting_variance ADD COLUMN period_end   TEXT;
+
+                -- Two trend rows within the 28-day window (runtime-relative dates).
+                -- Existing P0 rows (ids 1 and 2) keep their snapshot_at; period_start/period_end
+                -- remain NULL on them — the trend query uses WHERE period_end IS NOT NULL.
+                --
+                -- snapshot_at is fixed to 2026-01 (before any P0 row) so ManagementRollupRepository
+                -- still resolves its "latest by snapshot_at" to the P0 row (2026-06-16 10:00:00,
+                -- actual_cogs=950.0). Only the period_start/period_end columns need runtime-relative
+                -- dates so they remain inside the 28-day variance trend window.
+                --
+                --   Row A: snapshot_at fixed early  period_end = 7 days ago  variance_pct=8.0 → red
+                --   Row B: snapshot_at fixed early  period_end = today        variance_pct=5.5 → red
+                -- Both period_end values fall within the 28-day window of MAX(period_end)=date('now').
+                INSERT INTO accounting_variance
+                  (location_id, theoretical_cogs, actual_cogs, variance_amount, variance_pct,
+                   snapshot_at, period_start, period_end)
+                VALUES
+                  ('default', 920.0, 993.6, 73.6, 8.0,
+                   '2026-01-15 10:00:00', date('now', '-14 days'), date('now', '-7 days')),
+                  ('default', 900.0, 949.5, 49.5, 5.5,
+                   '2026-01-22 10:00:00', date('now', '-7 days'),  date('now'));
+                """)
         }
         // writer deinits here, closing the pool; WAL mode persists in the file.
     }

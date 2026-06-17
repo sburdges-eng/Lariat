@@ -276,3 +276,66 @@ public struct CmdDiningTableRow: FetchableRecord, Decodable {
     public let status: String
     public let capacity: Int
 }
+
+// ── Costing projection records (Task 10) ─────────────────────────────────────
+// These mirror the fetches in app/costing/page.jsx, lib/menuEngineering.ts,
+// and lib/varianceTrend.ts.
+
+/// Aggregated sales line for menu engineering + ABC input.
+/// Mirrors: SELECT item_name, SUM(quantity_sold) AS qty, SUM(net_sales) AS rev,
+///          AVG(cost_per_unit) AS cost_per_unit FROM sales_lines GROUP BY item_name
+public struct CostingSalesLine: FetchableRecord, Decodable {
+    public let itemName: String
+    public let qty: Double
+    public let rev: Double
+    public let costPerUnit: Double?
+    enum CodingKeys: String, CodingKey {
+        case itemName = "item_name"; case qty; case rev; case costPerUnit = "cost_per_unit"
+    }
+    public init(itemName: String, qty: Double, rev: Double, costPerUnit: Double?) {
+        self.itemName = itemName; self.qty = qty; self.rev = rev; self.costPerUnit = costPerUnit
+    }
+}
+
+/// accounting_variance trend row — one period of the variance history.
+/// Mirrors: SELECT period_start, period_end, variance_amount, variance_pct
+///          FROM accounting_variance WHERE period_end IS NOT NULL ...
+public struct CostingVarianceTrendRow: FetchableRecord, Decodable {
+    public let periodStart: String
+    public let periodEnd: String
+    public let varianceAmount: Double?
+    public let variancePct: Double?
+    enum CodingKeys: String, CodingKey {
+        case periodStart = "period_start"; case periodEnd = "period_end"
+        case varianceAmount = "variance_amount"; case variancePct = "variance_pct"
+    }
+    public init(periodStart: String, periodEnd: String, varianceAmount: Double?, variancePct: Double?) {
+        self.periodStart = periodStart; self.periodEnd = periodEnd
+        self.varianceAmount = varianceAmount; self.variancePct = variancePct
+    }
+}
+
+/// Raw bundle produced by `CostingRepository.fetch`. No compute — that is
+/// `CostingCompute`'s job.
+public struct CostingBundle {
+    /// Latest variance snapshot (reused P0 record — most recent snapshot_at DESC).
+    public let latestVariance: AccountingVariance?
+    /// Latest dish-coverage snapshot (reused P0 record).
+    public let latestCoverage: DishCoverageSnapshot?
+    /// Aggregated sales lines for menu engineering + ABC (quantity_sold > 0 only).
+    public let salesLines: [CostingSalesLine]
+    /// Variance trend rows within the 28-day window, ordered period_end ASC.
+    public let varianceTrendRows: [CostingVarianceTrendRow]
+
+    public init(
+        latestVariance: AccountingVariance?,
+        latestCoverage: DishCoverageSnapshot?,
+        salesLines: [CostingSalesLine],
+        varianceTrendRows: [CostingVarianceTrendRow]
+    ) {
+        self.latestVariance = latestVariance
+        self.latestCoverage = latestCoverage
+        self.salesLines = salesLines
+        self.varianceTrendRows = varianceTrendRows
+    }
+}
