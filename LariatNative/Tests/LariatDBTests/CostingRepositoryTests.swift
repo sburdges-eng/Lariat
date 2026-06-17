@@ -82,10 +82,10 @@ final class CostingRepositoryTests: XCTestCase {
         XCTAssertEqual(bundle.salesLines[0].itemName, "Burger")
         XCTAssertEqual(bundle.salesLines[0].qty,      40.0, accuracy: 0.001)
         XCTAssertEqual(bundle.salesLines[0].rev,      600.0, accuracy: 0.001)
-        XCTAssertEqual(bundle.salesLines[0].costPerUnit ?? -1, 4.0, accuracy: 0.001)
+        XCTAssertNil(bundle.salesLines[0].costPerUnit, "production query omits sales_lines.cost_per_unit")
 
         XCTAssertEqual(bundle.salesLines[1].itemName, "Tacos")
-        XCTAssertEqual(bundle.salesLines[1].costPerUnit ?? -1, 5.0, accuracy: 0.001)
+        XCTAssertNil(bundle.salesLines[1].costPerUnit, "production query omits sales_lines.cost_per_unit")
 
         XCTAssertEqual(bundle.salesLines[2].itemName, "MysteryX")
         XCTAssertNil(bundle.salesLines[2].costPerUnit, "MysteryX has no cost → nil")

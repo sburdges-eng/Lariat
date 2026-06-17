@@ -580,16 +580,7 @@ private func formatCompact(_ value: Double) -> String {
     }
 }
 
-/// Maps an integer `day_of_week` to a short weekday name.
-///
-/// Assumes the SQLite `strftime('%w')` convention where 0 = Sunday, 1 = Monday … 6 = Saturday.
-/// The modulo guard handles any out-of-range values safely.
-///
-/// **Known verification item:** if production `toast_sales_dow.day_of_week` is stored with an
-/// ISO-style 1=Mon–7=Sun convention instead, the axis labels will be off-by-one and this
-/// mapping will need adjustment to match the ingest pipeline.
-private func dayName(_ dow: Int) -> String {
-    let names = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
-    let idx = ((dow % 7) + 7) % 7
-    return names[idx]
+/// Toast TEXT day key (`Mon`…`Sun`) for chart axis labels.
+private func dayName(_ dow: String) -> String {
+    dow
 }

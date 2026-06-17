@@ -57,190 +57,206 @@ public struct ManagementRollupRepository {
 
     public func load() async throws -> RollupSnapshot {
         try await database.pool.read { db in
-            let v = try AccountingVariance.fetchOne(db,
+            // Per-tile degrade: optional sub-queries must not fail the whole screen.
+            let v = try? AccountingVariance.fetchOne(db,
                 sql: "SELECT * FROM accounting_variance WHERE location_id = ? ORDER BY snapshot_at DESC, id DESC LIMIT 1",
                 arguments: [locationId])
-            let c = try DishCoverageSnapshot.fetchOne(db,
+            let c = try? DishCoverageSnapshot.fetchOne(db,
                 sql: "SELECT * FROM dish_coverage_snapshots WHERE location_id = ? ORDER BY snapshot_at DESC, id DESC LIMIT 1",
                 arguments: [locationId])
-            let unack = try Int.fetchOne(db,
-                sql: "SELECT COUNT(*) FROM pack_size_changes WHERE acknowledged = 0") ?? 0
-
-            // B3 — costing ingest freshness.
-            // Mirrors readLastCostingIngest() in lib/costingBenchmarks.mjs.
-            // ingest_runs has no location_id; scoped at application layer (matches web).
-            let ingestView: CostingIngestView? = try {
-                guard let row = try Row.fetchOne(db,
-                    sql: """
-                        SELECT id, kind, started_at, finished_at, rows_in, rows_out, status
-                          FROM ingest_runs
-                         WHERE kind = 'costing'
-                         ORDER BY started_at DESC, id DESC
-                         LIMIT 1
-                        """) else { return nil }
-                let startedAt: String = row["started_at"]
-                let status: String? = row["status"]
-                // Append 'Z' if absent so Date parsing treats it as UTC, not local time.
-                // (matches the JS: /Z$/.test(row.started_at) ? row.started_at : `${row.started_at}Z`)
-                // SQLite datetime('now') returns "YYYY-MM-DD HH:MM:SS" (space separator, no T/Z).
-                // Normalize to ISO 8601 with T separator and Z suffix before parsing.
-                let normalized: String
-                if startedAt.hasSuffix("Z") {
-                    normalized = startedAt
-                } else {
-                    // Replace first space with 'T' to satisfy ISO8601DateFormatter
-                    normalized = startedAt.replacingOccurrences(of: " ", with: "T", options: [], range: startedAt.range(of: " ")) + "Z"
-                }
-                var ageMinutes: Int? = nil
-                let fmt = ISO8601DateFormatter()
-                if let t = fmt.date(from: normalized) {
-                    let elapsed = Date().timeIntervalSince(t)
-                    if elapsed.isFinite {
-                        ageMinutes = max(0, Int(elapsed / 60))
-                    }
-                }
-                return CostingIngestView(lastRunAt: startedAt, lastStatus: status, ageMinutes: ageMinutes)
-            }()
-
-            // Price-shock summary.
-            // Mirrors readPriceShockSummary(db, locationId) → listPriceShocks(db, {
-            //   location_id, windowDays:7, minPctMove:5, limit:100 })
-            // SQL unions vendor_prices_history (within 7-day window) with vendor_prices (live),
-            // groups by (vendor, sku, ingredient), computes delta_pct, filters |delta| >= 5%.
-            let priceShocks: PriceShockSummary? = try {
-                let sinceModifier = "-7 days"
-                let minPctMove: Double = 5.0
-                let limit = 100
-                // Collect all in-window rows ordered ascending (oldest first per group).
-                let rows = try Row.fetchAll(db,
-                    sql: """
-                        SELECT vendor, sku, ingredient, snapshot_at, unit_price
-                          FROM (
-                            SELECT vendor, sku, ingredient,
-                                   snapshot_at, unit_price,
-                                   0 AS source_order, id AS row_order
-                              FROM vendor_prices_history
-                             WHERE location_id = ?
-                               AND snapshot_at >= datetime('now', ?)
-                               AND vendor IS NOT NULL
-                               AND sku IS NOT NULL
-                               AND unit_price IS NOT NULL
-                            UNION ALL
-                            SELECT vendor, sku, ingredient,
-                                   COALESCE(imported_at, datetime('now')) AS snapshot_at,
-                                   unit_price,
-                                   1 AS source_order, id AS row_order
-                              FROM vendor_prices
-                             WHERE location_id = ?
-                               AND COALESCE(imported_at, datetime('now')) >= datetime('now', ?)
-                               AND vendor IS NOT NULL
-                               AND sku IS NOT NULL
-                               AND unit_price IS NOT NULL
-                          )
-                         ORDER BY vendor, sku, ingredient,
-                                  snapshot_at ASC, source_order ASC, row_order ASC
-                        """,
-                    arguments: [locationId, sinceModifier, locationId, sinceModifier])
-
-                // Group by (vendor|sku|ingredient): track baseline (first) and latest (last).
-                typealias GroupKey = String
-                struct Group {
-                    var baselinePrice: Double
-                    var latestPrice: Double
-                    var pointCount: Int
-                }
-                var groups: [GroupKey: Group] = [:]
-                for row in rows {
-                    let vendor: String = row["vendor"]
-                    let sku: String = row["sku"]
-                    let ingredient: String = row["ingredient"] as String? ?? ""
-                    let unitPrice: Double = row["unit_price"]
-                    let key = "\(vendor)|\(sku)|\(ingredient)"
-                    if var g = groups[key] {
-                        g.latestPrice = unitPrice
-                        g.pointCount += 1
-                        groups[key] = g
-                    } else {
-                        groups[key] = Group(baselinePrice: unitPrice, latestPrice: unitPrice, pointCount: 1)
-                    }
-                }
-
-                // Live vendor_prices overlay: update latestPrice for groups already in window.
-                let liveRows = try Row.fetchAll(db,
-                    sql: """
-                        SELECT vendor, sku, ingredient, unit_price
-                          FROM vendor_prices
-                         WHERE location_id = ?
-                           AND vendor IS NOT NULL AND sku IS NOT NULL AND unit_price IS NOT NULL
-                        """,
-                    arguments: [locationId])
-                for row in liveRows {
-                    let vendor: String = row["vendor"]
-                    let sku: String = row["sku"]
-                    let ingredient: String = row["ingredient"] as String? ?? ""
-                    let unitPrice: Double = row["unit_price"]
-                    let key = "\(vendor)|\(sku)|\(ingredient)"
-                    if var g = groups[key] {
-                        g.latestPrice = unitPrice
-                        groups[key] = g
-                    }
-                }
-
-                // Compute shocks: require ≥2 data points, baseline > 0, |delta| ≥ minPctMove.
-                var shockRows: [(deltaPct: Double, direction: String)] = []
-                for g in groups.values {
-                    guard g.pointCount >= 2, g.baselinePrice > 0 else { continue }
-                    let delta = (g.latestPrice - g.baselinePrice) / g.baselinePrice * 100.0
-                    guard abs(delta) >= minPctMove else { continue }
-                    shockRows.append((deltaPct: delta, direction: delta > 0 ? "up" : "down"))
-                }
-                // Sort by absolute delta DESC, cap at limit.
-                shockRows.sort { abs($0.deltaPct) > abs($1.deltaPct) }
-                let capped = shockRows.prefix(limit)
-                let total = capped.count
-                let up = capped.filter { $0.direction == "up" }.count
-                let down = capped.filter { $0.direction == "down" }.count
-                return PriceShockSummary(total: total, up: up, down: down)
-            }()
-
-            // Depletion exception count (partial port — no_dish_components reason only).
-            // Full listDepletionExceptions resolver parity (recipe_missing_yield,
-            // cross_dim_unit_mismatch, invalid_qty) is deferred to Task 10.
-            // Scans unique dish names from sales_lines, checks dish_components; those
-            // with NO matching component row are counted (no_dish_components reason).
-            let depletionExceptionCount: Int = try {
-                // Collect distinct non-empty item_names with quantity_sold > 0.
-                let names = try String.fetchAll(db,
-                    sql: """
-                        SELECT DISTINCT TRIM(item_name) AS item_name
-                          FROM sales_lines
-                         WHERE location_id = ?
-                           AND quantity_sold > 0
-                           AND item_name IS NOT NULL
-                           AND TRIM(item_name) != ''
-                        """,
-                    arguments: [locationId])
-                var count = 0
-                for name in names {
-                    let hasComponents = try Int.fetchOne(db,
-                        sql: """
-                            SELECT COUNT(*) FROM dish_components
-                             WHERE LOWER(TRIM(dish_name)) = LOWER(TRIM(?))
-                               AND location_id = ?
-                            """,
-                        arguments: [name, locationId]) ?? 0
-                    if hasComponents == 0 { count += 1 }
-                }
-                return count
-            }()
+            let unack = (try? Int.fetchOne(db,
+                sql: "SELECT COUNT(*) FROM pack_size_changes WHERE acknowledged = 0")) ?? 0
 
             return RollupSnapshot(
                 variance: v.map { AccountingVarianceView(theoreticalCogs: $0.theoreticalCogs, actualCogs: $0.actualCogs, variancePct: $0.variancePct, snapshotAt: $0.snapshotAt) },
                 coverage: c.map { DishCoverageView(coveragePct: $0.coveragePct, totalDishes: $0.totalDishes, coveredDishes: $0.coveredDishes) },
                 unacknowledgedPackSizeChanges: unack,
-                lastCostingIngest: ingestView,
-                priceShocks: priceShocks,
-                depletionExceptionCount: depletionExceptionCount)
+                lastCostingIngest: Self.loadCostingIngest(db),
+                priceShocks: Self.loadPriceShocks(db, locationId: locationId),
+                depletionExceptionCount: Self.loadDepletionExceptionCount(db, locationId: locationId))
+        }
+    }
+}
+
+
+
+// MARK: - Per-tile loaders (failures degrade individual tiles, not the screen)
+
+private extension ManagementRollupRepository {
+
+    /// Parse ingest_runs.started_at — supports SQLite datetime, ISO8601, and fractional seconds.
+    static func parseIngestStartedAt(_ startedAt: String) -> Date? {
+        let normalized: String
+        if startedAt.hasSuffix("Z") {
+            normalized = startedAt
+        } else if startedAt.contains("T") {
+            normalized = startedAt + "Z"
+        } else if let range = startedAt.range(of: " ") {
+            normalized = startedAt.replacingCharacters(in: range, with: "T") + "Z"
+        } else {
+            normalized = startedAt + "Z"
+        }
+
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = withFraction.date(from: normalized) { return d }
+
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        if let d = plain.date(from: normalized) { return d }
+
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.timeZone = TimeZone(secondsFromGMT: 0)
+        for pattern in ["yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", "yyyy-MM-dd'T'HH:mm:ss'Z'"] {
+            df.dateFormat = pattern
+            if let d = df.date(from: normalized) { return d }
+        }
+        return nil
+    }
+
+    static func loadCostingIngest(_ db: Database) -> CostingIngestView? {
+        guard let row = try? Row.fetchOne(db,
+            sql: """
+                SELECT id, kind, started_at, finished_at, rows_in, rows_out, status
+                  FROM ingest_runs
+                 WHERE kind = 'costing'
+                 ORDER BY started_at DESC, id DESC
+                 LIMIT 1
+                """) else { return nil }
+        let startedAt: String = row["started_at"]
+        let status: String? = row["status"]
+        var ageMinutes: Int? = nil
+        if let t = parseIngestStartedAt(startedAt) {
+            let elapsed = Date().timeIntervalSince(t)
+            if elapsed.isFinite {
+                ageMinutes = max(0, Int(elapsed / 60))
+            }
+        }
+        return CostingIngestView(lastRunAt: startedAt, lastStatus: status, ageMinutes: ageMinutes)
+    }
+
+    static func loadPriceShocks(_ db: Database, locationId: String) -> PriceShockSummary? {
+        do {
+            let sinceModifier = "-7 days"
+            let minPctMove: Double = 5.0
+            let limit = 100
+            let rows = try Row.fetchAll(db,
+                sql: """
+                    SELECT vendor, sku, ingredient, snapshot_at, unit_price
+                      FROM (
+                        SELECT vendor, sku, ingredient,
+                               snapshot_at, unit_price,
+                               0 AS source_order, id AS row_order
+                          FROM vendor_prices_history
+                         WHERE location_id = ?
+                           AND snapshot_at >= datetime('now', ?)
+                           AND vendor IS NOT NULL
+                           AND sku IS NOT NULL
+                           AND unit_price IS NOT NULL
+                        UNION ALL
+                        SELECT vendor, sku, ingredient,
+                               COALESCE(imported_at, datetime('now')) AS snapshot_at,
+                               unit_price,
+                               1 AS source_order, id AS row_order
+                          FROM vendor_prices
+                         WHERE location_id = ?
+                           AND COALESCE(imported_at, datetime('now')) >= datetime('now', ?)
+                           AND vendor IS NOT NULL
+                           AND sku IS NOT NULL
+                           AND unit_price IS NOT NULL
+                      )
+                     ORDER BY vendor, sku, ingredient,
+                              snapshot_at ASC, source_order ASC, row_order ASC
+                    """,
+                arguments: [locationId, sinceModifier, locationId, sinceModifier])
+
+            typealias GroupKey = String
+            struct Group {
+                var baselinePrice: Double
+                var latestPrice: Double
+                var pointCount: Int
+            }
+            var groups: [GroupKey: Group] = [:]
+            for row in rows {
+                let vendor: String = row["vendor"]
+                let sku: String = row["sku"]
+                let ingredient: String = row["ingredient"] as String? ?? ""
+                let unitPrice: Double = row["unit_price"]
+                let key = "\(vendor)|\(sku)|\(ingredient)"
+                if var g = groups[key] {
+                    g.latestPrice = unitPrice
+                    g.pointCount += 1
+                    groups[key] = g
+                } else {
+                    groups[key] = Group(baselinePrice: unitPrice, latestPrice: unitPrice, pointCount: 1)
+                }
+            }
+
+            let liveRows = try Row.fetchAll(db,
+                sql: """
+                    SELECT vendor, sku, ingredient, unit_price
+                      FROM vendor_prices
+                     WHERE location_id = ?
+                       AND vendor IS NOT NULL AND sku IS NOT NULL AND unit_price IS NOT NULL
+                    """,
+                arguments: [locationId])
+            for row in liveRows {
+                let vendor: String = row["vendor"]
+                let sku: String = row["sku"]
+                let ingredient: String = row["ingredient"] as String? ?? ""
+                let unitPrice: Double = row["unit_price"]
+                let key = "\(vendor)|\(sku)|\(ingredient)"
+                if var g = groups[key] {
+                    g.latestPrice = unitPrice
+                    groups[key] = g
+                }
+            }
+
+            var shockRows: [(deltaPct: Double, direction: String)] = []
+            for g in groups.values {
+                guard g.pointCount >= 2, g.baselinePrice > 0 else { continue }
+                let delta = (g.latestPrice - g.baselinePrice) / g.baselinePrice * 100.0
+                guard abs(delta) >= minPctMove else { continue }
+                shockRows.append((deltaPct: delta, direction: delta > 0 ? "up" : "down"))
+            }
+            shockRows.sort { abs($0.deltaPct) > abs($1.deltaPct) }
+            let capped = shockRows.prefix(limit)
+            return PriceShockSummary(
+                total: capped.count,
+                up: capped.filter { $0.direction == "up" }.count,
+                down: capped.filter { $0.direction == "down" }.count)
+        } catch {
+            return nil
+        }
+    }
+
+    static func loadDepletionExceptionCount(_ db: Database, locationId: String) -> Int {
+        do {
+            let names = try String.fetchAll(db,
+                sql: """
+                    SELECT DISTINCT TRIM(item_name) AS item_name
+                      FROM sales_lines
+                     WHERE location_id = ?
+                       AND quantity_sold > 0
+                       AND item_name IS NOT NULL
+                       AND TRIM(item_name) != ''
+                    """,
+                arguments: [locationId])
+            var count = 0
+            for name in names {
+                let hasComponents = try Int.fetchOne(db,
+                    sql: """
+                        SELECT COUNT(*) FROM dish_components
+                         WHERE LOWER(TRIM(dish_name)) = LOWER(TRIM(?))
+                           AND location_id = ?
+                        """,
+                    arguments: [name, locationId]) ?? 0
+                if hasComponents == 0 { count += 1 }
+            }
+            return count
+        } catch {
+            return 0
         }
     }
 }

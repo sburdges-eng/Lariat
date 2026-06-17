@@ -52,7 +52,7 @@ final class AnalyticsRepositoryTests: XCTestCase {
         let bundle = try await repo.fetch()
 
         XCTAssertEqual(bundle.dowCurrent.count, 1)
-        XCTAssertEqual(bundle.dowCurrent[0].dayOfWeek, 0)
+        XCTAssertEqual(bundle.dowCurrent[0].dayOfWeek, "Sun")
         XCTAssertEqual(bundle.dowCurrent[0].netSales ?? -1, 4200.0, accuracy: 0.001)
     }
 
@@ -63,7 +63,7 @@ final class AnalyticsRepositoryTests: XCTestCase {
         let bundle = try await repo.fetch()
 
         XCTAssertEqual(bundle.dowPrior.count, 1)
-        XCTAssertEqual(bundle.dowPrior[0].dayOfWeek, 0)
+        XCTAssertEqual(bundle.dowPrior[0].dayOfWeek, "Sun")
         XCTAssertEqual(bundle.dowPrior[0].netSales ?? -1, 3800.0, accuracy: 0.001)
     }
 

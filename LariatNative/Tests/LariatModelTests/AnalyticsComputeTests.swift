@@ -22,10 +22,10 @@ final class AnalyticsComputeTests: XCTestCase {
             AnalyticsDailyRow(shiftDate: "2026-06-15", netSales: 4200.0, orders: 180, guests: 230),
         ]
         let dowCurrent: [AnalyticsDowRow] = [
-            AnalyticsDowRow(dayOfWeek: 0, netSales: 4200.0, orders: 180, guests: 230),
+            AnalyticsDowRow(dayOfWeek: "Sun", netSales: 4200.0, orders: 180, guests: 230),
         ]
         let dowPrior: [AnalyticsDowRow] = [
-            AnalyticsDowRow(dayOfWeek: 0, netSales: 3800.0, orders: 160, guests: 198),
+            AnalyticsDowRow(dayOfWeek: "Sun", netSales: 3800.0, orders: 160, guests: 198),
         ]
         let hourlyCurrent: [AnalyticsHourlyRow] = [
             AnalyticsHourlyRow(hour24: 18, label: "6 PM", netSales: 1200.0, orders: 52, guests: 68),
@@ -179,10 +179,29 @@ final class AnalyticsComputeTests: XCTestCase {
     func testDowPairsBuilt() {
         let kpis = AnalyticsCompute.summarize(bundle: makeBundle())
         XCTAssertEqual(kpis.dowPairs.count, 1)
-        XCTAssertEqual(kpis.dowPairs[0].dayOfWeek, 0)
+        XCTAssertEqual(kpis.dowPairs[0].dayOfWeek, "Sun")
         XCTAssertEqual(kpis.dowPairs[0].current.netSales ?? -1, 4200.0, accuracy: 0.001)
         XCTAssertNotNil(kpis.dowPairs[0].prior)
         XCTAssertEqual(kpis.dowPairs[0].prior?.netSales ?? -1, 3800.0, accuracy: 0.001)
+    }
+
+
+    func testDowPairsDedupeAndSort() {
+        let bundle = AnalyticsBundle(
+            daily: [],
+            dowCurrent: [
+                AnalyticsDowRow(dayOfWeek: "Mon", netSales: 100.0, orders: 10, guests: 12),
+                AnalyticsDowRow(dayOfWeek: "Mon", netSales: 200.0, orders: 20, guests: 24),
+                AnalyticsDowRow(dayOfWeek: "Wed", netSales: 50.0, orders: 5, guests: 6),
+            ],
+            dowPrior: [],
+            hourlyCurrent: [], hourlyPrior: [],
+            spend: [], top: [],
+            dailyPriorRev: nil, dateRange: nil
+        )
+        let kpis = AnalyticsCompute.summarize(bundle: bundle)
+        XCTAssertEqual(kpis.dowPairs.map(\.dayOfWeek), ["Mon", "Wed"])
+        XCTAssertEqual(kpis.dowPairs[0].current.netSales ?? -1, 200.0, accuracy: 0.001)
     }
 
     // ── Hourly pairing ─────────────────────────────────────────────────────

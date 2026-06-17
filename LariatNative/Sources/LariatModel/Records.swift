@@ -54,17 +54,60 @@ public struct AnalyticsDailyRow: FetchableRecord, Decodable {
     }
 }
 
-/// toast_sales_dow row
-public struct AnalyticsDowRow: FetchableRecord, Decodable {
-    public let dayOfWeek: Int
+/// Chart key order for toast_sales_dow (matches `AnalyticsCharts.jsx` DowBars).
+public enum ToastWeekday {
+    public static let chartOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    private static let intToName = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+    /// Normalize Toast TEXT day keys (`Mon` … `Sun`) for dictionary lookup.
+    public static func normalize(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.count == 3 {
+            return trimmed.prefix(1).uppercased() + trimmed.dropFirst().lowercased()
+        }
+        let longNames: [String: String] = [
+            "Sunday": "Sun", "Monday": "Mon", "Tuesday": "Tue", "Wednesday": "Wed",
+            "Thursday": "Thu", "Friday": "Fri", "Saturday": "Sat",
+        ]
+        return longNames[trimmed] ?? trimmed
+    }
+
+    /// Test-fixture helper: INTEGER 0=Sun … 6=Sat (strftime '%w').
+    public static func fromInteger(_ dow: Int) -> String {
+        let idx = ((dow % 7) + 7) % 7
+        return intToName[idx]
+    }
+}
+
+/// toast_sales_dow row — production stores `day_of_week` as TEXT (`Mon`…`Sun`).
+public struct AnalyticsDowRow: FetchableRecord {
+    public let dayOfWeek: String
     public let netSales: Double?
     public let orders: Int?
     public let guests: Int?
-    enum CodingKeys: String, CodingKey {
-        case dayOfWeek = "day_of_week"; case netSales = "net_sales"; case orders; case guests
-    }
-    public init(dayOfWeek: Int, netSales: Double?, orders: Int?, guests: Int?) {
+
+    public init(dayOfWeek: String, netSales: Double?, orders: Int?, guests: Int?) {
         self.dayOfWeek = dayOfWeek; self.netSales = netSales; self.orders = orders; self.guests = guests
+    }
+
+    public init(row: Row) throws {
+        if let i: Int64 = row["day_of_week"] {
+            dayOfWeek = ToastWeekday.fromInteger(Int(i))
+        } else if let i: Int = row["day_of_week"] {
+            dayOfWeek = ToastWeekday.fromInteger(i)
+        } else if let text: String = row["day_of_week"] {
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let n = Int(trimmed), trimmed == String(n) {
+                dayOfWeek = ToastWeekday.fromInteger(n)
+            } else {
+                dayOfWeek = ToastWeekday.normalize(text)
+            }
+        } else {
+            throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Missing day_of_week"))
+        }
+        netSales = row["net_sales"]
+        orders = row["orders"]
+        guests = row["guests"]
     }
 }
 

@@ -54,10 +54,11 @@ public struct AnalyticsSummary {
     // ── Nested types ────────────────────────────────────────────────────────
 
     public struct DowPair {
-        public let dayOfWeek: Int
+        /// Toast TEXT key (`Mon`…`Sun`) — stable ForEach identity after dedupe.
+        public let dayOfWeek: String
         public let current: AnalyticsDowRow
         public let prior: AnalyticsDowRow?
-        public init(dayOfWeek: Int, current: AnalyticsDowRow, prior: AnalyticsDowRow?) {
+        public init(dayOfWeek: String, current: AnalyticsDowRow, prior: AnalyticsDowRow?) {
             self.dayOfWeek = dayOfWeek; self.current = current; self.prior = prior
         }
     }
@@ -118,16 +119,25 @@ public enum AnalyticsCompute {
         let totalSpend = bundle.spend.reduce(0.0) { $0 + ($1.shamrockTotalSpend ?? 0.0) }
 
         // ── DOW pairs ────────────────────────────────────────────────────────
-        // Build a dictionary from dowPrior keyed by day_of_week for O(1) lookup.
+        // Mirrors AnalyticsCharts DowBars: dedupe by day_of_week (last row wins),
+        // then emit Mon→Sun in chart order for stable SwiftUI ForEach identity.
+        let currentDowMap = Dictionary(
+            bundle.dowCurrent.map { ($0.dayOfWeek, $0) },
+            uniquingKeysWith: { _, last in last }
+        )
         let priorDowMap = Dictionary(
             bundle.dowPrior.map { ($0.dayOfWeek, $0) },
-            uniquingKeysWith: { first, _ in first }
+            uniquingKeysWith: { _, last in last }
         )
-        let dowPairs = bundle.dowCurrent.map { curr in
+        let orderedDays = ToastWeekday.chartOrder.filter { currentDowMap[$0] != nil }
+        let extraDays = Set(currentDowMap.keys)
+            .subtracting(ToastWeekday.chartOrder)
+            .sorted()
+        let dowPairs = (orderedDays + extraDays).map { day in
             AnalyticsSummary.DowPair(
-                dayOfWeek: curr.dayOfWeek,
-                current: curr,
-                prior: priorDowMap[curr.dayOfWeek]
+                dayOfWeek: day,
+                current: currentDowMap[day]!,
+                prior: priorDowMap[day]
             )
         }
 

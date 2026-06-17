@@ -60,21 +60,19 @@ public struct CostingRepository {
             //    Mirrors the SELECT in computeMenuEngineering() (lib/menuEngineering.ts):
             //      SELECT item_name, SUM(quantity_sold) AS qty, SUM(net_sales) AS rev
             //        FROM sales_lines WHERE location_id=? GROUP BY item_name
-            //    Extended with AVG(cost_per_unit) for the native cost bridge.
             //    Filtered quantity_sold > 0 to skip TOTAL/footer rows (mirrors
             //    cleanedSalesRows() in lib/dishCostBridge.ts which drops zero-qty rows).
             //    Ordered rev DESC to match the analytics top-item convention (stable order).
             //
-            //    PARITY GAP (carry to T14): web computeMenuEngineering derives cost via
-            //    dishCostBridge (dish_components → recipe_costs); we read a cost_per_unit
-            //    column that production does not yet populate — rows fall to 'unknown' until
-            //    ingest provides it. Full cost-rollup port deferred.
+            //    cost_per_unit is NULL here — production sales_lines has no such column.
+            //    Web computeMenuEngineering joins dish_components via dishCostBridge;
+            //    native rows fall to 'unknown' until that bridge is ported (P1b+).
             let salesLines = try CostingSalesLine.fetchAll(db,
                 sql: """
                     SELECT item_name,
                            SUM(quantity_sold)  AS qty,
                            SUM(net_sales)      AS rev,
-                           AVG(cost_per_unit)  AS cost_per_unit
+                           CAST(NULL AS REAL)  AS cost_per_unit
                       FROM sales_lines
                      WHERE location_id = ?
                        AND quantity_sold > 0
