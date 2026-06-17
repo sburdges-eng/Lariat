@@ -78,11 +78,13 @@ func seedFixtureDatabase() throws -> String {
             //     next_due='2026-06-20'  active=1  archived_at=NULL  (future → neither)
             //   vendor_prices_history:
             //     vendor='Sysco' sku='F001' ingredient='Chicken Breast' unit_price=3.50
-            //       snapshot_at='2026-06-09 10:00:00'  (baseline, within 7-day window)
+            //       snapshot_at=datetime('now','-5 days')  (baseline; exact ISO string is runtime-determined)
             //     vendor='Sysco' sku='F001' ingredient='Chicken Breast' unit_price=3.85
-            //       snapshot_at='2026-06-14 10:00:00'  (latest; delta≈10% → price shock up)
+            //       snapshot_at=datetime('now','-1 day')   (latest; delta≈+10% and direction remain fixed)
+            //     Both rows stay permanently inside the 7-day listPriceShocks window.
             //   ingest_runs:
-            //     kind='costing'  started_at='2026-06-16 08:00:00'  status='ok'  rows_in=200  rows_out=195
+            //     kind='costing'  started_at=datetime('now','-2 hours')  status='ok'  rows_in=200  rows_out=195
+            //     age_minutes is runtime-relative; downstream parity tests should assert age_minutes >= 0
 
             try db.execute(sql: """
                 -- analytics/page.jsx: daily revenue trend
@@ -222,8 +224,8 @@ func seedFixtureDatabase() throws -> String {
                   ('default', 'Hood exhaust check',  '2026-06-20', 1, NULL);
 
                 -- vendorPricesRepo.ts (listPriceShocks): vendor price history
-                -- Two snapshots for Sysco/F001 within a 7-day window → delta ≈ +10% (up shock)
-                -- baseline_unit_price=3.50 @ 2026-06-09, latest_unit_price=3.85 @ 2026-06-14
+                -- Two snapshots for Sysco/F001; both permanently within the 7-day window via relative offsets.
+                -- baseline_unit_price=3.50 @ now-5d, latest_unit_price=3.85 @ now-1d → delta ≈ +10% (up shock)
                 CREATE TABLE vendor_prices_history (
                   id                     INTEGER PRIMARY KEY AUTOINCREMENT,
                   source_vendor_price_id INTEGER,
@@ -249,15 +251,16 @@ func seedFixtureDatabase() throws -> String {
                   (location_id, vendor, sku, ingredient, pack_size, pack_unit,
                    pack_price, unit_price, category, snapshot_at, snapshot_reason)
                 VALUES
-                  -- baseline snapshot: 2026-06-09, unit_price=3.50
+                  -- baseline snapshot: now-5 days, unit_price=3.50
                   ('default', 'Sysco', 'F001', 'Chicken Breast',
-                   40.0, 'lb', 140.0, 3.50, 'protein', '2026-06-09 10:00:00', 'ingest'),
-                  -- latest snapshot: 2026-06-14, unit_price=3.85 → delta ≈ +10%
+                   40.0, 'lb', 140.0, 3.50, 'protein', datetime('now', '-5 days'), 'ingest'),
+                  -- latest snapshot: now-1 day, unit_price=3.85 → delta ≈ +10%
                   ('default', 'Sysco', 'F001', 'Chicken Breast',
-                   40.0, 'lb', 154.0, 3.85, 'protein', '2026-06-14 10:00:00', 'ingest');
+                   40.0, 'lb', 154.0, 3.85, 'protein', datetime('now', '-1 day'), 'ingest');
 
                 -- costingBenchmarks.mjs (readLastCostingIngest): ingest run log
-                -- One 'costing' run completed successfully at 2026-06-16 08:00:00
+                -- One 'costing' run completed successfully; started_at is runtime-relative (now-2h).
+                -- ingest_runs has no location_id column; scoped at application layer
                 CREATE TABLE ingest_runs (
                   id          INTEGER PRIMARY KEY AUTOINCREMENT,
                   kind        TEXT NOT NULL,
@@ -267,8 +270,9 @@ func seedFixtureDatabase() throws -> String {
                   rows_out    INTEGER,
                   status      TEXT);
 
+                -- ingest_runs has no location_id column; scoped at application layer
                 INSERT INTO ingest_runs (kind, started_at, finished_at, rows_in, rows_out, status)
-                VALUES ('costing', '2026-06-16 08:00:00', '2026-06-16 08:02:15', 200, 195, 'ok');
+                VALUES ('costing', datetime('now', '-2 hours'), datetime('now', '-118 minutes'), 200, 195, 'ok');
                 """)
         }
         // writer deinits here, closing the pool; WAL mode persists in the file.
