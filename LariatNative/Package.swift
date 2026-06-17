@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "LariatNative",
-    platforms: [.macOS(.v13), .iOS(.v16)],
+    platforms: [.macOS(.v14), .iOS(.v17)],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift.git", from: "6.29.0")
     ],
