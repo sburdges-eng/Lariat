@@ -1,5 +1,6 @@
 import SwiftUI
 import LariatDB
+import LariatModel
 
 @main
 struct LariatApp: App {
@@ -20,11 +21,13 @@ struct LariatApp: App {
 
   private let sharedDatabase: LariatDatabase?
   private let sharedWriteDatabase: LariatWriteDatabase?
+  private let stationCatalog: StationCatalog?
 
   init() {
     let path = resolveDatabasePath()
     sharedDatabase = try? LariatDatabase(path: path)
     sharedWriteDatabase = try? LariatWriteDatabase(path: path)
+    stationCatalog = try? StationCatalog.load()
   }
 
   var body: some Scene {
@@ -71,8 +74,18 @@ struct LariatApp: App {
   private func detailView(database: LariatDatabase) -> some View {
     switch selection {
     case .cook(.today):
-      TodayView(database: database)
-    case .cook(.eightySix), .cook(.stations), .cook(.kds):
+      TodayView(database: database, onOpenEightySix: { selection = .cook(.eightySix) })
+    case .cook(.eightySix):
+      if let writeDB = sharedWriteDatabase, let catalog = stationCatalog {
+        EightySixView(readDB: database, writeDB: writeDB, catalog: catalog)
+      } else {
+        TileDegrade(
+          title: "86 unavailable",
+          message: "Could not open the write database or station catalog.",
+          systemImage: "lock"
+        )
+      }
+    case .cook(.stations), .cook(.kds):
       TileDegrade(title: "Coming soon", message: "This cook screen ships in a later phase.", systemImage: "clock")
     case .manager(.command):
       CommandView(database: database, writeDatabase: sharedWriteDatabase)

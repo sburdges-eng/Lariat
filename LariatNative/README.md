@@ -1,4 +1,4 @@
-# LariatNative (P2a Cook + AuditedWrite foundation + P1b manager writes)
+# LariatNative (P2b 86 board + P2a Cook + AuditedWrite foundation + P1b manager writes)
 
 macOS/iOS app reading the live `lariat.db` (shared with the web app) via GRDB.
 
@@ -7,14 +7,19 @@ and repositories for Command, Analytics, Costing, and Management rollup (6 tiles
 **Read-only by default** (`LariatDatabase`); pack-size acknowledge uses `LariatWriteDatabase` (JSONL audit).
 
 **AuditedWrite foundation** adds in-transaction `audit_events` writes (`AuditEventWriter`, `AuditedWriteRunner`) —
-parity with `lib/auditEvents.ts` so regulated native writes (86 board, line checks) can ship in P2b+.
-`RuleGate` remains stub until HACCP corrective-action UX.
+parity with `lib/auditEvents.ts`. **P2b** ships the first **cook-tier** regulated write: 86 board add/resolve
+with `actor_source = native_cook` and Encodable row payloads on resolve.
+`RuleGate` remains stub until HACCP corrective-action UX (P3).
 
-## Cook tier (P2a)
+## Cook tier (P2a + P2b)
 
-First **iPad-first** cook surface: **Today** shift board (`/v2/today` parity) in a **Cook** sidebar
-section. Read-only — station progress, open 86 list, stock moves, cascaded recipe impacts. 86 writes,
-station checklists, and KDS are stubbed ("Soon") until P2b–P2d.
+First **iPad-first** cook surface in a **Cook** sidebar section.
+
+- **Today** (`TodayView`) — shift board (`/v2/today` parity): station progress, open 86 list, stock moves, cascaded recipe impacts. Deep link to 86 board.
+- **86** (`EightySixView`) — **P2b** add/resolve with audited writes, staff picker (`data/cache/staff.json`), cascade confirm on resolve.
+- **Stations / KDS** — stubbed ("Soon") until P2c–P2d.
+
+Cook identity persists in `UserDefaults` (`lariat_cook`); optional on first write (web parity).
 
 ```bash
 # Point at the web app's data dir (needs data/cache/*.json + lariat.db)
@@ -23,8 +28,9 @@ LARIAT_DATA_DIR=/absolute/path/to/lariat/data swift run LariatApp
 
 | Cook screen | Status |
 |---|---|
-| `TodayView` | **P2a** — hero stats, station grid, stock moves, 86 chips |
-| 86 / Stations / KDS | Stubbed |
+| `TodayView` | **P2a** — hero stats, station grid, stock moves, 86 chips, "86 right now" link |
+| `EightySixView` | **P2b** — add item, resolve, cascade warning |
+| Stations / KDS | Stubbed (P2c–P2d) |
 
 ## Deployment floor: macOS 14 / iOS 17
 
@@ -47,7 +53,7 @@ web app's `lib/dataDir.ts`).
 
 ```bash
 swift test   # host-run Core tests (LariatDB + LariatModel); no simulator needed
-# 150 tests (AuditedWrite foundation + P2a Today + P1b pack-size write)
+# 168 tests (P2b 86 + AuditedWrite + P2a Today + P1b pack-size write)
 ```
 
 ## Architecture
@@ -96,7 +102,9 @@ LariatNative/
     LariatModel/
       Records.swift                 — GRDB record types for every table
       InvariantContracts.swift      — AuditedWrite / RuleGate / PinGate
-      AuditEvent.swift              — AuditEventInput, RegulatedWriteContext
+      AuditEvent.swift              — AuditEventInput, RegulatedWriteContext, nativeCook()
+      StaffCatalog.swift            — staff.json loader (lib/staffDisplay.ts parity)
+      EightySixRecords.swift        — 86 row types + write errors
       ShiftDate.swift               — todayISO() parity with lib/db.ts
       LocationScope.swift           — location filter (LARIAT_LOCATION_ID env var)
       SchemaVersion.swift           — read-only schema-version probe
@@ -112,6 +120,8 @@ LariatNative/
       LariatWriteDatabase.swift     — writable pool (never migrates)
       AuditEventWriter.swift        — in-tx audit_events insert (lib/auditEvents.ts)
       AuditedWriteRunner.swift      — regulated write transaction helper
+      EightySixRepository.swift     — 86 board read/add/resolve (audited)
+      TodayBoardRepository.swift    — Today shift board fetch
       DatabasePaths.swift           — path resolution (LARIAT_DATA_DIR env var)
       ManagementRollupRepository.swift
       CommandRepository.swift
@@ -119,6 +129,11 @@ LariatNative/
       CostingRepository.swift
     LariatApp/
       LariatApp.swift               — @main, NavigationSplitView shell, shared DB DI
+      TodayView.swift               — Cook shift board (P2a)
+      EightySixView.swift           — 86 board writes (P2b)
+      EightySixViewModel.swift
+      CookIdentityStore.swift       — persisted cook id
+      CookIdentityPicker.swift      — staff.json picker + manual fallback
       ManagementRollupView.swift    — 6-tile management rollup
       CommandView.swift             — shift command screen
       AnalyticsView.swift           — Swift Charts analytics screen
@@ -137,4 +152,5 @@ LariatNative/
 - **Margin moves** — `listMarginDeltas` not ported.
 - **Costing variance section** — recipe-level `computeCostVariance` not ported.
 - **Pack-size acknowledge (P1b)** — JSONL management audit (not `audit_events`).
-- **Regulated writes (P2b+)** — use `AuditEventWriter` inside the same transaction as the source row.
+- **Regulated cook writes (P2b)** — 86 add/resolve via `AuditEventWriter` + `native_cook` actor source.
+- **Line checks / KDS (P2c–P2d)** — not yet ported.
