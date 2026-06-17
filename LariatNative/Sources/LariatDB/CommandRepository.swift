@@ -2,32 +2,9 @@ import Foundation
 import GRDB
 import LariatModel
 
-/// Raw bundle of every row-set that commandCenter.ts summarize() reads.
-/// No aggregation — that is CommandCompute's job (Task 8).
-public struct CommandBundle {
-    public let salesYesterday: CmdSalesDailyRow?
-    public let salesTrailing: CmdSalesTrailingAvg?
-    public let eightySixCount: Int
-    public let lowParIngredients: [CmdLowParIngredient]
-    public let parTotal: Int
-    public let openCountsCount: Int
-    public let shiftBreaks: [CmdShiftBreakRow]
-    public let certRows: [CmdCertRow]
-    public let performanceReviewsToday: Int
-    public let performanceReviewsTotal: Int
-    public let tempLogRows: [CmdTempLogRow]
-    public let dateMarkRows: [CmdDateMarkRow]
-    public let calibrationRows: [CmdCalibrationRow]
-    public let cleaningCounts: CmdCleaningCounts?
-    public let preshiftNoteCount: Int
-    public let eventsCount: Int
-    public let eventsGuests: Int
-    public let reservationRows: [CmdReservationRow]
-    public let prepTaskRows: [CmdPrepTaskRow]
-    public let wasteTodayCount: Int
-    public let waste7dCount: Int
-    public let diningTableRows: [CmdDiningTableRow]
-}
+// `CommandBundle` is defined in LariatModel (Compute/CommandCompute.swift) so it
+// is shared by both this repository and the GRDB-free CommandCompute layer.
+// The `Cmd*` projection records it holds also live in LariatModel (Records.swift).
 
 public struct CommandRepository {
     let database: LariatDatabase
