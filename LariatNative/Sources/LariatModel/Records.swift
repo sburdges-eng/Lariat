@@ -36,3 +36,352 @@ public struct PackSizeChange: FetchableRecord, Decodable {
     public let sku: String
     public let acknowledged: Bool
 }
+
+// ── Analytics projection records (Task 9) ────────────────────────────────────
+// These mirror the SELECTs in app/analytics/page.jsx exactly.
+
+/// toast_sales_daily row (comparison_group = 1)
+public struct AnalyticsDailyRow: FetchableRecord, Decodable {
+    public let shiftDate: String
+    public let netSales: Double?
+    public let orders: Int?
+    public let guests: Int?
+    enum CodingKeys: String, CodingKey {
+        case shiftDate = "shift_date"; case netSales = "net_sales"; case orders; case guests
+    }
+    public init(shiftDate: String, netSales: Double?, orders: Int?, guests: Int?) {
+        self.shiftDate = shiftDate; self.netSales = netSales; self.orders = orders; self.guests = guests
+    }
+}
+
+/// Chart key order for toast_sales_dow (matches `AnalyticsCharts.jsx` DowBars).
+public enum ToastWeekday {
+    public static let chartOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    private static let intToName = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+    /// Normalize Toast TEXT day keys (`Mon` … `Sun`) for dictionary lookup.
+    public static func normalize(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.count == 3 {
+            return trimmed.prefix(1).uppercased() + trimmed.dropFirst().lowercased()
+        }
+        let longNames: [String: String] = [
+            "Sunday": "Sun", "Monday": "Mon", "Tuesday": "Tue", "Wednesday": "Wed",
+            "Thursday": "Thu", "Friday": "Fri", "Saturday": "Sat",
+        ]
+        return longNames[trimmed] ?? trimmed
+    }
+
+    /// Test-fixture helper: INTEGER 0=Sun … 6=Sat (strftime '%w').
+    public static func fromInteger(_ dow: Int) -> String {
+        let idx = ((dow % 7) + 7) % 7
+        return intToName[idx]
+    }
+}
+
+/// toast_sales_dow row — production stores `day_of_week` as TEXT (`Mon`…`Sun`).
+public struct AnalyticsDowRow: FetchableRecord {
+    public let dayOfWeek: String
+    public let netSales: Double?
+    public let orders: Int?
+    public let guests: Int?
+
+    public init(dayOfWeek: String, netSales: Double?, orders: Int?, guests: Int?) {
+        self.dayOfWeek = dayOfWeek; self.netSales = netSales; self.orders = orders; self.guests = guests
+    }
+
+    public init(row: Row) throws {
+        if let i: Int64 = row["day_of_week"] {
+            dayOfWeek = ToastWeekday.fromInteger(Int(i))
+        } else if let i: Int = row["day_of_week"] {
+            dayOfWeek = ToastWeekday.fromInteger(i)
+        } else if let text: String = row["day_of_week"] {
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let n = Int(trimmed), trimmed == String(n) {
+                dayOfWeek = ToastWeekday.fromInteger(n)
+            } else {
+                dayOfWeek = ToastWeekday.normalize(text)
+            }
+        } else {
+            throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Missing day_of_week"))
+        }
+        netSales = row["net_sales"]
+        orders = row["orders"]
+        guests = row["guests"]
+    }
+}
+
+/// toast_sales_hour row
+public struct AnalyticsHourlyRow: FetchableRecord, Decodable {
+    public let hour24: Int
+    public let label: String?
+    public let netSales: Double?
+    public let orders: Int?
+    public let guests: Int?
+    enum CodingKeys: String, CodingKey {
+        case hour24 = "hour_24"; case label; case netSales = "net_sales"; case orders; case guests
+    }
+    public init(hour24: Int, label: String?, netSales: Double?, orders: Int?, guests: Int?) {
+        self.hour24 = hour24; self.label = label; self.netSales = netSales
+        self.orders = orders; self.guests = guests
+    }
+}
+
+/// spend_monthly row
+public struct AnalyticsSpendRow: FetchableRecord, Decodable {
+    public let month: String
+    public let shamrockTotalSpend: Double?
+    enum CodingKeys: String, CodingKey {
+        case month; case shamrockTotalSpend = "shamrock_total_spend"
+    }
+    public init(month: String, shamrockTotalSpend: Double?) {
+        self.month = month; self.shamrockTotalSpend = shamrockTotalSpend
+    }
+}
+
+/// sales_lines top-item aggregation row
+public struct AnalyticsTopItem: FetchableRecord, Decodable {
+    public let itemName: String
+    public let qty: Double?
+    public let rev: Double?
+    enum CodingKeys: String, CodingKey {
+        case itemName = "item_name"; case qty; case rev
+    }
+    public init(itemName: String, qty: Double?, rev: Double?) {
+        self.itemName = itemName; self.qty = qty; self.rev = rev
+    }
+}
+
+/// toast_sales_daily scalar — SUM(net_sales) for comparison_group = 2
+public struct AnalyticsPriorRev: FetchableRecord, Decodable {
+    public let rev: Double?
+}
+
+/// toast_sales_daily scalar — date_range from comparison_group = 1
+public struct AnalyticsDateRange: FetchableRecord, Decodable {
+    public let dateRange: String?
+    enum CodingKeys: String, CodingKey { case dateRange = "date_range" }
+}
+
+// ── Analytics input bundle (Task 9) ──────────────────────────────────────────
+
+/// Raw bundle produced by `AnalyticsRepository.fetch`. No aggregation — that is
+/// `AnalyticsCompute.summarize`'s job.
+public struct AnalyticsBundle {
+    public let daily: [AnalyticsDailyRow]
+    public let dowCurrent: [AnalyticsDowRow]
+    public let dowPrior: [AnalyticsDowRow]
+    public let hourlyCurrent: [AnalyticsHourlyRow]
+    public let hourlyPrior: [AnalyticsHourlyRow]
+    public let spend: [AnalyticsSpendRow]
+    public let top: [AnalyticsTopItem]
+    public let dailyPriorRev: Double?       // SUM(net_sales) WHERE cg=2; nil when no rows
+    public let dateRange: String?           // date_range from cg=1 LIMIT 1
+
+    public init(
+        daily: [AnalyticsDailyRow],
+        dowCurrent: [AnalyticsDowRow],
+        dowPrior: [AnalyticsDowRow],
+        hourlyCurrent: [AnalyticsHourlyRow],
+        hourlyPrior: [AnalyticsHourlyRow],
+        spend: [AnalyticsSpendRow],
+        top: [AnalyticsTopItem],
+        dailyPriorRev: Double?,
+        dateRange: String?
+    ) {
+        self.daily = daily
+        self.dowCurrent = dowCurrent
+        self.dowPrior = dowPrior
+        self.hourlyCurrent = hourlyCurrent
+        self.hourlyPrior = hourlyPrior
+        self.spend = spend
+        self.top = top
+        self.dailyPriorRev = dailyPriorRev
+        self.dateRange = dateRange
+    }
+}
+
+// ── Command Center projection records (Task 7) ────────────────────────────────
+// These mirror the SELECTs in commandCenter.ts summarize().
+
+/// toast_sales_daily — single yesterday row
+public struct CmdSalesDailyRow: FetchableRecord, Decodable {
+    public let netSales: Double?
+    public let orders: Int?
+    public let guests: Int?
+    enum CodingKeys: String, CodingKey {
+        case netSales = "net_sales"; case orders; case guests
+    }
+}
+
+/// toast_sales_daily — trailing 7-day average subquery
+public struct CmdSalesTrailingAvg: FetchableRecord, Decodable {
+    public let avgSales: Double?
+    public let avgOrders: Double?
+    enum CodingKeys: String, CodingKey {
+        case avgSales = "avg_sales"; case avgOrders = "avg_orders"
+    }
+}
+
+/// shift_breaks row
+public struct CmdShiftBreakRow: FetchableRecord, Decodable {
+    public let endedAt: String?
+    public let waived: Int
+    enum CodingKeys: String, CodingKey {
+        case endedAt = "ended_at"; case waived
+    }
+}
+
+/// staff_certifications row
+public struct CmdCertRow: FetchableRecord, Decodable {
+    public let expiresOn: String
+    enum CodingKeys: String, CodingKey { case expiresOn = "expires_on" }
+}
+
+/// temp_log row
+public struct CmdTempLogRow: FetchableRecord, Decodable {
+    public let id: Int64
+    public let pointId: String?
+    public let readingF: Double?
+    public let requiredMinF: Double?
+    public let requiredMaxF: Double?
+    public let correctiveAction: String?
+    public let createdAt: String?
+    enum CodingKeys: String, CodingKey {
+        case id; case pointId = "point_id"; case readingF = "reading_f"
+        case requiredMinF = "required_min_f"; case requiredMaxF = "required_max_f"
+        case correctiveAction = "corrective_action"; case createdAt = "created_at"
+    }
+}
+
+/// date_marks row
+public struct CmdDateMarkRow: FetchableRecord, Decodable {
+    public let id: Int64
+    public let item: String?
+    public let preparedOn: String?
+    public let discardOn: String?
+    public let discardedAt: String?
+    enum CodingKeys: String, CodingKey {
+        case id; case item; case preparedOn = "prepared_on"
+        case discardOn = "discard_on"; case discardedAt = "discarded_at"
+    }
+}
+
+/// thermometer_calibrations row
+public struct CmdCalibrationRow: FetchableRecord, Decodable {
+    public let thermometerId: String?
+    public let method: String?
+    public let beforeReadingF: Double?
+    public let passed: Int
+    public let calibratedAt: String?
+    public let frequencyDays: Int?
+    enum CodingKeys: String, CodingKey {
+        case thermometerId = "thermometer_id"; case method
+        case beforeReadingF = "before_reading_f"; case passed
+        case calibratedAt = "calibrated_at"; case frequencyDays = "frequency_days"
+    }
+}
+
+/// beo_events count + total guests (typed projection — avoids Double/Int64 cast ambiguity)
+public struct BeoEventsCount: FetchableRecord, Decodable {
+    public let c: Int
+    public let guests: Int
+}
+
+/// cleaning_schedule aggregation row
+public struct CmdCleaningCounts: FetchableRecord, Decodable {
+    public let overdue: Int?
+    public let dueToday: Int?
+    enum CodingKeys: String, CodingKey {
+        case overdue; case dueToday = "due_today"
+    }
+}
+
+/// inventory_par low-par ingredient
+public struct CmdLowParIngredient: FetchableRecord, Decodable {
+    public let ingredient: String
+}
+
+/// reservations status-count row
+public struct CmdReservationRow: FetchableRecord, Decodable {
+    public let status: String
+    public let c: Int
+}
+
+/// prep_tasks row
+public struct CmdPrepTaskRow: FetchableRecord, Decodable {
+    public let status: String
+    public let priority: Int?
+}
+
+/// dining_tables row
+public struct CmdDiningTableRow: FetchableRecord, Decodable {
+    public let status: String
+    public let capacity: Int
+}
+
+// ── Costing projection records (Task 10) ─────────────────────────────────────
+// These mirror the fetches in app/costing/page.jsx, lib/menuEngineering.ts,
+// and lib/varianceTrend.ts.
+
+/// Aggregated sales line for menu engineering + ABC input.
+/// Mirrors: SELECT item_name, SUM(quantity_sold) AS qty, SUM(net_sales) AS rev,
+///          AVG(cost_per_unit) AS cost_per_unit FROM sales_lines GROUP BY item_name
+public struct CostingSalesLine: FetchableRecord, Decodable {
+    public let itemName: String
+    public let qty: Double
+    public let rev: Double
+    public let costPerUnit: Double?
+    enum CodingKeys: String, CodingKey {
+        case itemName = "item_name"; case qty; case rev; case costPerUnit = "cost_per_unit"
+    }
+    public init(itemName: String, qty: Double, rev: Double, costPerUnit: Double?) {
+        self.itemName = itemName; self.qty = qty; self.rev = rev; self.costPerUnit = costPerUnit
+    }
+}
+
+/// accounting_variance trend row — one period of the variance history.
+/// Mirrors: SELECT period_start, period_end, variance_amount, variance_pct
+///          FROM accounting_variance WHERE period_end IS NOT NULL ...
+///
+/// `periodStart` is optional so a partially-migrated production row (period_end NOT NULL,
+/// period_start NULL) decodes gracefully instead of throwing.
+public struct CostingVarianceTrendRow: FetchableRecord, Decodable {
+    public let periodStart: String?
+    public let periodEnd: String
+    public let varianceAmount: Double?
+    public let variancePct: Double?
+    enum CodingKeys: String, CodingKey {
+        case periodStart = "period_start"; case periodEnd = "period_end"
+        case varianceAmount = "variance_amount"; case variancePct = "variance_pct"
+    }
+    public init(periodStart: String?, periodEnd: String, varianceAmount: Double?, variancePct: Double?) {
+        self.periodStart = periodStart; self.periodEnd = periodEnd
+        self.varianceAmount = varianceAmount; self.variancePct = variancePct
+    }
+}
+
+/// Raw bundle produced by `CostingRepository.fetch`. No compute — that is
+/// `CostingCompute`'s job.
+public struct CostingBundle {
+    /// Latest variance snapshot (reused P0 record — most recent snapshot_at DESC).
+    public let latestVariance: AccountingVariance?
+    /// Latest dish-coverage snapshot (reused P0 record).
+    public let latestCoverage: DishCoverageSnapshot?
+    /// Aggregated sales lines for menu engineering + ABC (quantity_sold > 0 only).
+    public let salesLines: [CostingSalesLine]
+    /// Variance trend rows within the 28-day window, ordered period_end ASC.
+    public let varianceTrendRows: [CostingVarianceTrendRow]
+
+    public init(
+        latestVariance: AccountingVariance?,
+        latestCoverage: DishCoverageSnapshot?,
+        salesLines: [CostingSalesLine],
+        varianceTrendRows: [CostingVarianceTrendRow]
+    ) {
+        self.latestVariance = latestVariance
+        self.latestCoverage = latestCoverage
+        self.salesLines = salesLines
+        self.varianceTrendRows = varianceTrendRows
+    }
+}

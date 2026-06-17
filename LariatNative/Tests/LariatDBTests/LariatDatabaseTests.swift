@@ -8,7 +8,7 @@ final class LariatDatabaseTests: XCTestCase {
         defer { try? FileManager.default.removeItem(atPath: (path as NSString).deletingLastPathComponent) }
         let db = try LariatDatabase(path: path)
         let count = try db.pool.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM accounting_variance") }
-        XCTAssertEqual(count, 2)
+        XCTAssertEqual(count, 4) // 2 P0 snapshot rows + 2 T10 trend rows
     }
 
     func testRejectsWrites() throws {
