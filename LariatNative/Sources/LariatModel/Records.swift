@@ -118,6 +118,12 @@ public struct CmdCalibrationRow: FetchableRecord, Decodable {
     }
 }
 
+/// beo_events count + total guests (typed projection — avoids Double/Int64 cast ambiguity)
+public struct BeoEventsCount: FetchableRecord, Decodable {
+    public let c: Int
+    public let guests: Int
+}
+
 /// cleaning_schedule aggregation row
 public struct CmdCleaningCounts: FetchableRecord, Decodable {
     public let overdue: Int?

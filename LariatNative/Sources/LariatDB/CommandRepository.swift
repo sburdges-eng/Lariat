@@ -190,8 +190,8 @@ public struct CommandRepository {
                 sql: "SELECT COUNT(*) FROM preshift_notes WHERE location_id = ? AND shift_date = ?",
                 arguments: [locationId, today]) ?? 0
 
-            // 16. BEO events today
-            let eventsRow = try Row.fetchOne(db,
+            // 16. BEO events today — use typed projection to avoid Double/Int64 decode ambiguity
+            let eventsRow = try BeoEventsCount.fetchOne(db,
                 sql: """
                     SELECT COUNT(*) AS c, COALESCE(SUM(guest_count), 0) AS guests
                       FROM beo_events
@@ -199,8 +199,8 @@ public struct CommandRepository {
                        AND COALESCE(status,'') NOT IN ('cancelled','canceled')
                     """,
                 arguments: [locationId, today])
-            let eventsCount: Int = eventsRow?["c"] ?? 0
-            let eventsGuests: Int = eventsRow.map { Int($0["guests"] as Double? ?? 0.0) } ?? 0
+            let eventsCount: Int = eventsRow?.c ?? 0
+            let eventsGuests: Int = eventsRow?.guests ?? 0
 
             // 17. Reservations by status for today
             let reservationRows = try CmdReservationRow.fetchAll(db,

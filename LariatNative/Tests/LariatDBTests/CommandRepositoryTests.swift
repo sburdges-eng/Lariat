@@ -19,9 +19,9 @@ final class CommandRepositoryTests: XCTestCase {
         let today = todayISO()
         let bundle = try await repo.fetch(today: today)
 
-        // eighty_six fixture uses shift_date='2026-06-16' (hardcoded), not date('now').
-        // So eightySixCount will be 0 unless today happens to be exactly 2026-06-16.
-        XCTAssertGreaterThanOrEqual(bundle.eightySixCount, 0)
+        // eighty_six fixture uses shift_date=date('now') with resolved_at IS NULL.
+        // Lobster Bisque is unresolved → eightySixCount == 1; Mahi is resolved → excluded.
+        XCTAssertEqual(bundle.eightySixCount, 1)
 
         // shift_breaks: 2 rows seeded for date('now')
         XCTAssertEqual(bundle.shiftBreaks.count, 2)
@@ -49,8 +49,9 @@ final class CommandRepositoryTests: XCTestCase {
         XCTAssertEqual(bundle.eventsCount, 1)
         XCTAssertEqual(bundle.eventsGuests, 50)
 
-        // reservations: 6 distinct statuses for today (booked x2, seated, completed, no_show, cancelled, confirmed)
-        XCTAssertEqual(bundle.reservationRows.count, 6)
+        // reservations: 5 status rows for today (booked x2, seated, completed, no_show, cancelled)
+        // 'confirmed' is not seeded — summarize() silently drops unknown statuses.
+        XCTAssertEqual(bundle.reservationRows.count, 5)
 
         // prep_tasks: 5 rows for today (2 todo, 1 in_progress, 1 done, 1 skipped)
         XCTAssertEqual(bundle.prepTaskRows.count, 5)
@@ -157,8 +158,8 @@ final class CommandRepositoryTests: XCTestCase {
         let today = todayISO()
         let bundle = try await repo.fetch(today: today)
 
-        // 6 distinct statuses: booked (2), seated (1), completed (1), no_show (1), cancelled (1)
-        XCTAssertEqual(bundle.reservationRows.count, 6)
+        // 5 status rows: booked (c=2), seated (1), completed (1), no_show (1), cancelled (1)
+        XCTAssertEqual(bundle.reservationRows.count, 5)
         let bookedRow = bundle.reservationRows.first { $0.status == "booked" }
         XCTAssertEqual(bookedRow?.c, 2)
     }

@@ -66,16 +66,16 @@ func seedFixtureDatabase() throws -> String {
             //     item_name='MysteryX' quantity_sold=5   net_sales=75.0   period_label='2026-W24'
             //       (MysteryX has no dish_components mapping → triggers depletion exception)
             //   eighty_six:
-            //     shift_date='2026-06-16'  item='Lobster Bisque'  resolved_at=NULL  (unresolved → count=1)
-            //     shift_date='2026-06-16'  item='Mahi'            resolved_at='2026-06-16 14:00:00' (resolved → not counted)
+            //     shift_date=date('now')  item='Lobster Bisque'  resolved_at=NULL  (unresolved → count=1)
+            //     shift_date=date('now')  item='Mahi'            resolved_at=datetime('now','-2 hours') (resolved → not counted)
             //   staff_certifications:
             //     expires_on='2026-05-01'  active=1  (already expired → cert_expired=1)
             //     expires_on='2026-07-01'  active=1  (within 30 days of 2026-06-16 → cert_expiring_30d=1)
             //     expires_on='2027-01-01'  active=1  (far future → not counted)
             //   cleaning_schedule:
-            //     next_due='2026-06-15'  active=1  archived_at=NULL  (past → overdue=1)
-            //     next_due='2026-06-16'  active=1  archived_at=NULL  (today → due_today=1)
-            //     next_due='2026-06-20'  active=1  archived_at=NULL  (future → neither)
+            //     next_due=date('now','-1 day')  active=1  archived_at=NULL  (past → overdue=1)
+            //     next_due=date('now')           active=1  archived_at=NULL  (today → due_today=1)
+            //     next_due=date('now','+7 days') active=1  archived_at=NULL  (future → neither)
             //   vendor_prices_history:
             //     vendor='Sysco' sku='F001' ingredient='Chicken Breast' unit_price=3.50
             //       snapshot_at=datetime('now','-5 days')  (baseline; exact ISO string is runtime-determined)
@@ -172,7 +172,8 @@ func seedFixtureDatabase() throws -> String {
                   ('default', 'MysteryX',  5,  75.0, '2026-W24', '2026-06-16 08:00:00');
 
                 -- commandCenter.ts: 86'd items
-                -- Lobster Bisque is unresolved on 2026-06-16 → eighty_six count = 1
+                -- Lobster Bisque is unresolved today (date('now')) → eighty_six count = 1
+                -- Mahi is resolved today → not counted
                 CREATE TABLE eighty_six (
                   id          INTEGER PRIMARY KEY AUTOINCREMENT,
                   location_id TEXT NOT NULL DEFAULT 'default',
@@ -182,8 +183,8 @@ func seedFixtureDatabase() throws -> String {
 
                 INSERT INTO eighty_six (location_id, shift_date, item, resolved_at)
                 VALUES
-                  ('default', '2026-06-16', 'Lobster Bisque', NULL),
-                  ('default', '2026-06-16', 'Mahi',           '2026-06-16 14:00:00');
+                  ('default', date('now'), 'Lobster Bisque', NULL),
+                  ('default', date('now'), 'Mahi',           datetime('now', '-2 hours'));
 
                 -- commandCenter.ts: staff certifications
                 -- Row 1 expires 2026-05-01 → already expired as of 2026-06-16 (cert_expired=1)
@@ -205,9 +206,9 @@ func seedFixtureDatabase() throws -> String {
                   ('default', 'Charlie', 'ServSafe', '2027-01-01', 1);
 
                 -- commandCenter.ts: cleaning schedule
-                -- Row 1 next_due='2026-06-15' → past as of 2026-06-16 → overdue=1
-                -- Row 2 next_due='2026-06-16' → today → due_today=1
-                -- Row 3 next_due='2026-06-20' → future → neither
+                -- Row 1 next_due=date('now','-1 day') → yesterday → overdue=1
+                -- Row 2 next_due=date('now')          → today → due_today=1
+                -- Row 3 next_due=date('now','+7 days') → future → neither
                 CREATE TABLE cleaning_schedule (
                   id          INTEGER PRIMARY KEY AUTOINCREMENT,
                   location_id TEXT NOT NULL DEFAULT 'default',
@@ -219,9 +220,9 @@ func seedFixtureDatabase() throws -> String {
                 INSERT INTO cleaning_schedule
                   (location_id, task, next_due, active, archived_at)
                 VALUES
-                  ('default', 'Deep-clean fryer',   '2026-06-15', 1, NULL),
-                  ('default', 'Sanitize ice machine','2026-06-16', 1, NULL),
-                  ('default', 'Hood exhaust check',  '2026-06-20', 1, NULL);
+                  ('default', 'Deep-clean fryer',   date('now', '-1 day'), 1, NULL),
+                  ('default', 'Sanitize ice machine', date('now'),          1, NULL),
+                  ('default', 'Hood exhaust check',  date('now', '+7 days'), 1, NULL);
 
                 -- vendorPricesRepo.ts (listPriceShocks): vendor price history
                 -- Two snapshots for Sysco/F001; both permanently within the 7-day window via relative offsets.
@@ -341,7 +342,7 @@ func seedFixtureDatabase() throws -> String {
             //   thermometer_calibrations: 2 rows with runtime-relative calibrated_at
             //   preshift_notes: 2 rows for date('now')
             //   beo_events: 1 active (guest_count=50), 1 cancelled — both for date('now')
-            //   reservations: 6 rows for date('now') — 2 booked, 1 seated, 1 completed, 1 no_show, 1 cancelled
+            //   reservations: 5 status rows for date('now') — booked (c=2), seated, completed, no_show, cancelled
             //   prep_tasks: 5 rows for date('now') — 2 todo (priority 1 rush + priority 3), 1 in_progress, 1 done, 1 skipped
             //   inventory_updates: 2 waste rows for date('now'), 3 waste rows for date('now','-3 days'),
             //                       1 non-waste row for date('now') → wasteTodayCount=2, waste7dCount=5
@@ -516,9 +517,10 @@ func seedFixtureDatabase() throws -> String {
                   party_size     INTEGER,
                   status         TEXT);
 
-                -- 6 rows for date('now') with 6 distinct statuses:
-                --   booked (1), seated (1), completed (1), no_show (1), cancelled (1), confirmed (1)
-                -- Note: booked_count=1 for the grouped 'booked' row in assertions
+                -- 5 rows for date('now') with 5 known statuses (matches summarize() GROUP BY):
+                --   booked (c=2), seated (c=1), completed (c=1), no_show (c=1), cancelled (c=1)
+                -- summarize() only tracks booked/seated/completed/no_show/cancelled — 'confirmed'
+                -- would be silently dropped, so it is not seeded here.
                 INSERT INTO reservations (location_id, reservation_at, guest_name, party_size, status)
                 VALUES
                   ('default', date('now') || 'T18:00:00', 'Smith',   4, 'booked'),
@@ -526,8 +528,7 @@ func seedFixtureDatabase() throws -> String {
                   ('default', date('now') || 'T17:30:00', 'Garcia',  3, 'seated'),
                   ('default', date('now') || 'T12:00:00', 'Lee',     2, 'completed'),
                   ('default', date('now') || 'T13:00:00', 'Brown',   4, 'no_show'),
-                  ('default', date('now') || 'T20:00:00', 'Wilson',  6, 'cancelled'),
-                  ('default', date('now') || 'T21:00:00', 'Davis',   5, 'confirmed');
+                  ('default', date('now') || 'T20:00:00', 'Wilson',  6, 'cancelled');
 
                 -- commandCenter.ts: prep task list
                 CREATE TABLE prep_tasks (
