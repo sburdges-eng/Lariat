@@ -46,3 +46,20 @@ public struct ManagementRollupRepository {
         }
     }
 }
+
+extension ManagementRollupRepository {
+    /// Re-queries every `interval`. SwiftUI consumes this to refresh tiles, since the
+    /// web app writes the shared DB from another process (GRDB ValueObservation can't see that).
+    public func stream(every interval: Duration = .seconds(3)) -> AsyncStream<RollupSnapshot> {
+        AsyncStream { continuation in
+            let task = Task {
+                while !Task.isCancelled {
+                    if let snap = try? load() { continuation.yield(snap) }
+                    try? await Task.sleep(for: interval)
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+}
