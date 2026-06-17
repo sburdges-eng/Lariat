@@ -13,25 +13,31 @@ struct LariatApp: App {
         var id: String { rawValue }
     }
 
-    /// Single shared database connection opened once at app startup.
-    /// On failure every screen receives `nil` and renders its TileDegrade.
     private let sharedDatabase: LariatDatabase? = try? LariatDatabase()
+    private let sharedWriteDatabase: LariatWriteDatabase? = try? LariatWriteDatabase()
 
     var body: some Scene {
         WindowGroup {
-            if let db = sharedDatabase {
+            if let db = sharedDatabase, let writeDb = sharedWriteDatabase {
                 NavigationSplitView {
                     List(Section.allCases, selection: $selection) { section in
                         Text(section.rawValue).tag(section)
                     }
                     .navigationTitle("Lariat")
                 } detail: {
-                    switch selection {
-                    case .command:    CommandView(database: db)
-                    case .analytics:  AnalyticsView(database: db)
-                    case .costing:    CostingView(database: db)
-                    case .management: ManagementRollupView(database: db)
-                    case nil:         Text("Select a section")
+                    NavigationStack {
+                        switch selection {
+                        case .command:
+                            CommandView(database: db)
+                        case .analytics:
+                            AnalyticsView(database: db)
+                        case .costing:
+                            CostingView(database: db)
+                        case .management:
+                            ManagementRollupView(database: db, writeDatabase: writeDb)
+                        case nil:
+                            Text("Select a section")
+                        }
                     }
                 }
             } else {
