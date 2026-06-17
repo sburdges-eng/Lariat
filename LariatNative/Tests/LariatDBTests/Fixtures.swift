@@ -273,6 +273,54 @@ func seedFixtureDatabase() throws -> String {
                 -- ingest_runs has no location_id column; scoped at application layer
                 INSERT INTO ingest_runs (kind, started_at, finished_at, rows_in, rows_out, status)
                 VALUES ('costing', datetime('now', '-2 hours'), datetime('now', '-118 minutes'), 200, 195, 'ok');
+
+                -- vendorPricesRepo.ts (listPriceShocks): live vendor_prices table.
+                -- listPriceShocks unions vendor_prices_history with vendor_prices (live overlay).
+                -- Seeded empty so the UNION ALL in listPriceShocks does not fail; the two
+                -- vendor_prices_history rows (baseline + latest) are sufficient to produce 1 shock.
+                -- Known values: no live override → price shock comes entirely from history rows.
+                CREATE TABLE vendor_prices (
+                  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                  ingredient  TEXT NOT NULL,
+                  vendor      TEXT,
+                  sku         TEXT,
+                  pack_size   REAL,
+                  pack_unit   TEXT,
+                  pack_price  REAL,
+                  unit_price  REAL,
+                  category    TEXT,
+                  location_id TEXT DEFAULT 'default',
+                  imported_at TEXT DEFAULT (datetime('now')));
+
+                -- depletionExceptions.ts (listDepletionExceptions): dish_components table.
+                -- Burger and Tacos each have one vendor_item component so resolveDepletionsForSale
+                -- returns non-empty depletions and they are NOT counted as exceptions.
+                -- MysteryX has no row here → its resolver returns unresolved[0].reason='no_dish_components'
+                -- → depletion_exception_count = 1.
+                --
+                -- Known values added in T6:
+                --   Burger   → vendor_item 'Ground Beef'   qty_per_serving=0.25 unit='lb'
+                --   Tacos    → vendor_item 'Taco Shell'    qty_per_serving=2    unit='each'
+                --   MysteryX → (no row)
+                CREATE TABLE dish_components (
+                  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                  location_id      TEXT NOT NULL DEFAULT 'default',
+                  dish_name        TEXT NOT NULL,
+                  component_type   TEXT NOT NULL DEFAULT 'recipe'
+                                     CHECK(component_type IN ('recipe', 'vendor_item')),
+                  recipe_slug      TEXT,
+                  vendor_ingredient TEXT,
+                  qty_per_serving  REAL NOT NULL,
+                  unit             TEXT NOT NULL,
+                  notes            TEXT,
+                  created_at       TEXT DEFAULT (datetime('now')),
+                  updated_at       TEXT DEFAULT (datetime('now')));
+
+                INSERT INTO dish_components
+                  (location_id, dish_name, component_type, vendor_ingredient, qty_per_serving, unit)
+                VALUES
+                  ('default', 'Burger', 'vendor_item', 'Ground Beef',  0.25, 'lb'),
+                  ('default', 'Tacos',  'vendor_item', 'Taco Shell',   2.0,  'each');
                 """)
         }
         // writer deinits here, closing the pool; WAL mode persists in the file.
