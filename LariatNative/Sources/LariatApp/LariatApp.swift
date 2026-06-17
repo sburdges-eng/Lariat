@@ -75,7 +75,7 @@ struct LariatApp: App {
     case .cook(.eightySix), .cook(.stations), .cook(.kds):
       TileDegrade(title: "Coming soon", message: "This cook screen ships in a later phase.", systemImage: "clock")
     case .manager(.command):
-      CommandView(database: database)
+      CommandView(database: database, writeDatabase: sharedWriteDatabase)
     case .manager(.analytics):
       AnalyticsView(database: database)
     case .manager(.costing):

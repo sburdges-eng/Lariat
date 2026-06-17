@@ -17,4 +17,5 @@ public protocol PinGate {
 }
 
 // P1b: PinGate enforced via PinVerifier + PinSessionStore + ManagementWrite.
-// AuditedWrite (audit_events) and RuleGate remain stubs until P3 regulated writes.
+// P3: AuditEventWriter + AuditedWriteRunner — in-tx audit_events (lib/auditEvents.ts parity).
+// RuleGate remains stub until regulated HACCP writes land on native.

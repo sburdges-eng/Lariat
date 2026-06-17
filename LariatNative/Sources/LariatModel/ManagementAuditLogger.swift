@@ -38,6 +38,33 @@ public struct ManagementAuditLogger: Sendable {
         }
     }
 
+    public func logPerformanceReviewLogged(
+        reviewerName: String,
+        cookName: String,
+        cookUuid: String?,
+        reviewDate: String,
+        locationId: String
+    ) throws {
+        var changes: [String: Any] = ["cook": cookName, "date": reviewDate]
+        if let cookUuid, !cookUuid.isEmpty { changes["cook_uuid"] = cookUuid }
+        let entry: [String: Any] = [
+            "action": "performance_review_logged",
+            "user": reviewerName,
+            "changes": changes,
+            "location": locationId,
+            "timestamp": ISO8601DateFormatter().string(from: Date()),
+            "id": "audit_\(Int(Date().timeIntervalSince1970 * 1000))_\(UUID().uuidString.prefix(8))",
+        ]
+        let data = try JSONSerialization.data(withJSONObject: entry)
+        guard var line = String(data: data, encoding: .utf8) else {
+            throw NSError(domain: "ManagementAuditLogger", code: 1)
+        }
+        line.append("\n")
+        try Self.appendQueue.sync {
+            try appendLine(line)
+        }
+    }
+
     private func appendLine(_ line: String) throws {
         let url = URL(fileURLWithPath: auditPath)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)

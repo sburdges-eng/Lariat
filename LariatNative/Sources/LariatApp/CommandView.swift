@@ -104,7 +104,12 @@ import Observation
 
 struct CommandView: View {
     @State private var vm: CommandViewModel
-    init(database: LariatDatabase) { _vm = State(wrappedValue: CommandViewModel(database: database)) }
+    private let writeDatabase: LariatWriteDatabase?
+
+    init(database: LariatDatabase, writeDatabase: LariatWriteDatabase? = nil) {
+        _vm = State(wrappedValue: CommandViewModel(database: database))
+        self.writeDatabase = writeDatabase
+    }
 
     var body: some View {
         Group {
@@ -115,7 +120,7 @@ struct CommandView: View {
                     systemImage: "externaldrive.badge.xmark"
                 )
             } else if let s = vm.summary {
-                CommandContentView(summary: s, alerts: vm.alerts)
+                CommandContentView(summary: s, alerts: vm.alerts, writeDatabase: writeDatabase)
             } else {
                 ProgressView()
             }
@@ -131,6 +136,7 @@ struct CommandView: View {
 private struct CommandContentView: View {
     let summary: CommandSummary
     let alerts: [CommandAlert]
+    let writeDatabase: LariatWriteDatabase?
 
     var body: some View {
         ScrollView {
@@ -226,7 +232,22 @@ private struct CommandContentView: View {
 
     // 7. Labor — "Breaks owed + cert expiry"
     private var laborTile: some View {
-        CommandTile(title: "Labor", sub: "Breaks owed + cert expiry") {
+        Group {
+            if let writeDatabase {
+                NavigationLink {
+                    PerformanceReviewsView(writeDB: writeDatabase)
+                } label: {
+                    laborTileContent
+                }
+                .buttonStyle(.plain)
+            } else {
+                laborTileContent
+            }
+        }
+    }
+
+    private var laborTileContent: some View {
+        CommandTile(title: "Labor", sub: "Breaks owed + cert expiry · tap reviews to log") {
             TileLine(n: "\(summary.labor.openBreaks)", label: "open breaks")
             TileLine(n: "\(summary.labor.performanceReviewsToday)", label: "reviews today")
             TileLine(n: "\(summary.labor.certExpiring30d)", label: "certs expiring 30d")
