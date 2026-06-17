@@ -107,15 +107,36 @@ final class CostingRepositoryTests: XCTestCase {
     }
 
     func testVarianceTrendRowsExcludeOutsideWindow() async throws {
-        // The 28-day window is relative to MAX(period_end), so rows whose period_end
-        // falls > 28 days before the latest should be excluded.
-        // Fixture seeds both rows within the window; this test verifies rowsFound=2
-        // and no phantom rows appear.
-        let (repo, path) = try makeRepo()
+        // Seed a third accounting_variance row whose period_end is 40 days ago — well
+        // outside the 28-day window of MAX(period_end)=date('now'). The repository
+        // WHERE period_end >= date(MAX,'- 28 days') must exclude it, leaving exactly 2.
+        let path = try seedFixtureDatabase()
         defer { try? FileManager.default.removeItem(atPath: (path as NSString).deletingLastPathComponent) }
 
+        // Open a writer to insert the out-of-window row before reading.
+        let writer = try DatabasePool(path: path)
+        try await writer.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO accounting_variance
+                      (location_id, theoretical_cogs, actual_cogs, variance_amount, variance_pct,
+                       snapshot_at, period_start, period_end)
+                    VALUES (?, 800.0, 880.0, 80.0, 10.0,
+                            '2026-01-01 00:00:00',
+                            date('now', '-47 days'),
+                            date('now', '-40 days'))
+                    """,
+                arguments: ["default"]
+            )
+        }
+        // Close writer so DatabasePool can be re-opened as read-only.
+        _ = writer  // deinits here
+
+        let db = try LariatDatabase(path: path)
+        let repo = CostingRepository(database: db, locationId: "default")
         let bundle = try await repo.fetch()
-        XCTAssertLessThanOrEqual(bundle.varianceTrendRows.count, 2,
-            "Should not return more than the 2 seeded in-window rows")
+
+        XCTAssertEqual(bundle.varianceTrendRows.count, 2,
+            "The out-of-window row (period_end = now-40d) must be excluded; only 2 in-window rows expected")
     }
 }

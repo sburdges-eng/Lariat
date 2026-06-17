@@ -47,7 +47,8 @@ public enum ThresholdColor: String, Equatable {
 }
 
 public struct VarianceTrendPoint: Equatable {
-    public let periodStart: String
+    /// Optional — a partially-migrated production row may have period_start NULL.
+    public let periodStart: String?
     public let periodEnd: String
     public let variancePct: Double?
     public let varianceAmount: Double?
@@ -59,6 +60,9 @@ public struct VarianceTrend {
     public let pCurrent: Double?
     public let pAverage: Double?
     public let rowsFound: Int
+    /// Number of days in the rolling window used to select trend rows.
+    /// Mirrors the `windowDays` field on the web `VarianceTrend` interface (lib/varianceTrend.ts).
+    public let windowDays: Int
 }
 
 public enum AbcTier: String, Equatable {
@@ -93,6 +97,10 @@ public enum CostingCompute {
     // to derive cost_per_unit via multi-table JOIN (dish_components → recipe_costs).
     // The native port reads cost_per_unit as a pre-computed column on sales_lines,
     // avoiding the bridge complexity. All downstream quadrant math is identical.
+    //
+    // PARITY GAP (carry to T14): cost_per_unit is read from a staging column that
+    // production does not yet populate — items without it fall to quadrant 'unknown'.
+    // The full dish_components→recipe_costs rollup port is deferred to T14.
     //
     // Null/zero guards mirrored exactly:
     //   qty=0 → avg_price=0 (not excluded; repository SQL filters quantity_sold > 0)
@@ -188,7 +196,7 @@ public enum CostingCompute {
         windowDays: Int = 28
     ) -> VarianceTrend {
         guard !trendRows.isEmpty else {
-            return VarianceTrend(points: [], pCurrent: nil, pAverage: nil, rowsFound: 0)
+            return VarianceTrend(points: [], pCurrent: nil, pAverage: nil, rowsFound: 0, windowDays: windowDays)
         }
 
         let points: [VarianceTrendPoint] = trendRows.map { r in
@@ -212,7 +220,8 @@ public enum CostingCompute {
             points:    points,
             pCurrent:  pCurrent,
             pAverage:  pAverage,
-            rowsFound: trendRows.count
+            rowsFound: trendRows.count,
+            windowDays: windowDays
         )
     }
 
@@ -247,6 +256,10 @@ public enum CostingCompute {
         }
 
         let enriched: [Enriched] = salesLines.map { s in
+            // Web gates: linked = costPerUnit != nil && marginPct != nil.
+            // Swift gates only costPerUnit != nil — equivalent in practice because marginPct
+            // is derived from costPerUnit+avgPrice, and avgPrice > 0 is guaranteed by the
+            // repository's quantity_sold > 0 filter. No behavior change.
             let linked   = s.costPerUnit != nil
             let avgPrice = s.qty > 0 ? s.rev / s.qty : 0.0
             let cpu      = s.costPerUnit ?? 0.0

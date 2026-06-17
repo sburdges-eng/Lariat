@@ -64,6 +64,11 @@ public struct CostingRepository {
             //    Filtered quantity_sold > 0 to skip TOTAL/footer rows (mirrors
             //    cleanedSalesRows() in lib/dishCostBridge.ts which drops zero-qty rows).
             //    Ordered rev DESC to match the analytics top-item convention (stable order).
+            //
+            //    PARITY GAP (carry to T14): web computeMenuEngineering derives cost via
+            //    dishCostBridge (dish_components → recipe_costs); we read a cost_per_unit
+            //    column that production does not yet populate — rows fall to 'unknown' until
+            //    ingest provides it. Full cost-rollup port deferred.
             let salesLines = try CostingSalesLine.fetchAll(db,
                 sql: """
                     SELECT item_name,

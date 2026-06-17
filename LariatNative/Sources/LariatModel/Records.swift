@@ -300,8 +300,11 @@ public struct CostingSalesLine: FetchableRecord, Decodable {
 /// accounting_variance trend row — one period of the variance history.
 /// Mirrors: SELECT period_start, period_end, variance_amount, variance_pct
 ///          FROM accounting_variance WHERE period_end IS NOT NULL ...
+///
+/// `periodStart` is optional so a partially-migrated production row (period_end NOT NULL,
+/// period_start NULL) decodes gracefully instead of throwing.
 public struct CostingVarianceTrendRow: FetchableRecord, Decodable {
-    public let periodStart: String
+    public let periodStart: String?
     public let periodEnd: String
     public let varianceAmount: Double?
     public let variancePct: Double?
@@ -309,7 +312,7 @@ public struct CostingVarianceTrendRow: FetchableRecord, Decodable {
         case periodStart = "period_start"; case periodEnd = "period_end"
         case varianceAmount = "variance_amount"; case variancePct = "variance_pct"
     }
-    public init(periodStart: String, periodEnd: String, varianceAmount: Double?, variancePct: Double?) {
+    public init(periodStart: String?, periodEnd: String, varianceAmount: Double?, variancePct: Double?) {
         self.periodStart = periodStart; self.periodEnd = periodEnd
         self.varianceAmount = varianceAmount; self.variancePct = variancePct
     }

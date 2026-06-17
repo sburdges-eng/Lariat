@@ -225,6 +225,16 @@ final class CostingComputeTests: XCTestCase {
         XCTAssertEqual(trend.points.count, 0)
         XCTAssertNil(trend.pCurrent)
         XCTAssertNil(trend.pAverage)
+        XCTAssertEqual(trend.windowDays, 28, "Default windowDays must be 28")
+    }
+
+    func testVarianceTrendWindowDaysParity() {
+        // windowDays must be surfaced on VarianceTrend — mirrors web VarianceTrend interface.
+        let trend28 = CostingCompute.getVarianceTrend(trendRows: makeTrendRows())
+        XCTAssertEqual(trend28.windowDays, 28, "Default windowDays must be 28")
+
+        let trend7 = CostingCompute.getVarianceTrend(trendRows: makeTrendRows(), windowDays: 7)
+        XCTAssertEqual(trend7.windowDays, 7, "Custom windowDays=7 must be propagated")
     }
 
     func testVarianceTrendNilPct() {
@@ -304,52 +314,45 @@ final class CostingComputeTests: XCTestCase {
     }
 
     func testAbcBCutoffAt95() {
-        // Construct a scenario where Pareto naturally produces B tier:
-        // 3 linked items; first takes ~82% of score → A, next ~13% → B, last ~5% → C
-        // totalQty = 100+10+5 = 115
-        // Item1: avgPrice=10, cpu=0, contribution=10*100=1000, menuMix=100/115
-        //   scoreCents = round(1000*(100/115)*100) = round(86956.5) = 86957
-        // Item2: avgPrice=10, cpu=0, contribution=10*10=100, menuMix=10/115
-        //   scoreCents = round(100*(10/115)*100) = round(869.6) = 870
-        // Item3: avgPrice=10, cpu=0, contribution=10*5=50, menuMix=5/115
-        //   scoreCents = round(50*(5/115)*100) = round(217.4) = 217
-        // total = 86957 + 870 + 217 = 88044
-        // Item1: before=0/88044=0% → A
-        // Item2: before=86957/88044=98.76% → C (past 95)
-        // Item3: before=... → C
-        // Actually with 80/95 thresholds:
-        // Item1: 0% < 80% → A
-        // Item2: 86957/88044*100 = 98.76% → past 95% → C
-        // Item3: C
+        // Genuine A / B / C tier coverage.
         //
-        // Need a scenario where item2 falls between 80-95%.
-        // Item1 score=8000, Item2 score=2000, Item3 score=500
-        // totalScore=10500
-        // Item1: 0% < 80 → A; running=8000
-        // Item2: 8000/10500*100=76.19% < 80 → A; running=10000
-        // That doesn't work. Let me use raw contributions:
-        // Item1 contributes 79% of score → A
-        // Item2 contributes 12% → B (cumBefore after A: 79% < 95)
-        // Item3 contributes 9% → B
-        // Use: scoreCents: 7900, 1200, 900 → total=10000
-        // Item1: 0% < 80 → A; running=7900
-        // Item2: 79% < 95 → B; running=9100
-        // Item3: 91% < 95 → B; running=10000
-        // All B after A → no C tier reached.
-        // Use: 7900, 1200, 900 → item3 cumBefore=9100/10000=91% < 95 → B
-        // To get C: need one more at 96%+
-        // 7900+1200=9100; 9100/10000=91% → next item before at 91% < 95 → B
-        // 7900+1200+600=9700; 9700/10000=97% → next before at 97% → C
-        // So scores: [7900, 1200, 600, 300] total=10000
-        // Only via raw scoreCents injection; since compute derives scoreCents from qty/rev/cpu
-        // it's hard to hit exact thresholds. Just verify the boundary logic with a clear case.
+        // 4 linked items, all qty=1, cpu=0, totalQty=4:
+        //   scoreCents[i] = round(rev[i] * (1/4) * 100) = round(rev[i] * 25)
         //
-        // Simplest check: single item is tier A (boundary case — always A per web comment).
-        let lines = [CostingSalesLine(itemName: "Solo", qty: 10, rev: 100.0, costPerUnit: 2.0)]
+        //   Alpha: rev=32.8 -> score=820
+        //   Beta:  rev=4.0  -> score=100
+        //   Gamma: rev=2.0  -> score=50
+        //   Delta: rev=1.2  -> score=30
+        //   total                =1000
+        //
+        // Sorted descending: Alpha, Beta, Gamma, Delta
+        //   Alpha: cumBefore=0/1000=0%    -> <80  -> A
+        //   Beta:  cumBefore=820/1000=82% -> >=80 <95 -> B
+        //   Gamma: cumBefore=920/1000=92% -> >=80 <95 -> B
+        //   Delta: cumBefore=970/1000=97% -> >=95 -> C
+        let lines: [CostingSalesLine] = [
+            CostingSalesLine(itemName: "Alpha", qty: 1, rev: 32.8, costPerUnit: 0.0),
+            CostingSalesLine(itemName: "Beta",  qty: 1, rev:  4.0, costPerUnit: 0.0),
+            CostingSalesLine(itemName: "Gamma", qty: 1, rev:  2.0, costPerUnit: 0.0),
+            CostingSalesLine(itemName: "Delta", qty: 1, rev:  1.2, costPerUnit: 0.0),
+        ]
         let ranked = CostingCompute.rankByContribution(salesLines: lines)
-        XCTAssertEqual(ranked.first?.tier, .a, "Single biggest contributor always tier A")
-    }
 
+        let alpha = ranked.first { $0.itemName == "Alpha" }
+        let beta  = ranked.first { $0.itemName == "Beta"  }
+        let gamma = ranked.first { $0.itemName == "Gamma" }
+        let delta = ranked.first { $0.itemName == "Delta" }
+
+        XCTAssertEqual(alpha?.tier, .a, "Alpha (cumBefore=0%) must be tier A")
+        XCTAssertEqual(beta?.tier,  .b, "Beta  (cumBefore=82%) must be tier B")
+        XCTAssertEqual(gamma?.tier, .b, "Gamma (cumBefore=92%) must be tier B")
+        XCTAssertEqual(delta?.tier, .c, "Delta (cumBefore=97%) must be tier C")
+
+        // A-boundary: single-item scenario is always A (web guarantee)
+        let solo = [CostingSalesLine(itemName: "Solo", qty: 10, rev: 100.0, costPerUnit: 2.0)]
+        let soloRanked = CostingCompute.rankByContribution(salesLines: solo)
+        XCTAssertEqual(soloRanked.first?.tier, .a, "Single biggest contributor always tier A")
+    }
     func testAbcSortedByScoredDescending() {
         let ranked = CostingCompute.rankByContribution(salesLines: makeSalesLines())
         // Burger(25143) should come before Tacos(8929) in linked section
