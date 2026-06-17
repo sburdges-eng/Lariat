@@ -235,6 +235,9 @@ export interface IngredientMaster {
   canonical_name: string;
   category: string | null;
   preferred_vendor: string | null;
+  /** When 1, preferred_vendor is pinned for quality — compare UI blocks vendor switches. */
+  quality_locked: number;
+  quality_lock_reason: string | null;
   last_reviewed: string | null;
 }
 
@@ -1415,11 +1418,13 @@ export function initSchema(db: DB): void {
     -- _make_join_key). master_id is a slug derived from the recipe
     -- ingredient string (see IngredientMaster JSDoc for the v1 formula).
     CREATE TABLE IF NOT EXISTS ingredient_masters (
-      master_id        TEXT PRIMARY KEY,  -- slug: "ketchup_heinz_1gal"
-      canonical_name   TEXT NOT NULL,
-      category         TEXT,
-      preferred_vendor TEXT,
-      last_reviewed    TEXT
+      master_id           TEXT PRIMARY KEY,  -- slug: "ketchup_heinz_1gal"
+      canonical_name      TEXT NOT NULL,
+      category            TEXT,
+      preferred_vendor    TEXT,
+      quality_locked      INTEGER NOT NULL DEFAULT 0,
+      quality_lock_reason TEXT,
+      last_reviewed       TEXT
     );
 
     CREATE TABLE IF NOT EXISTS ingredient_densities (
@@ -3097,7 +3102,7 @@ function assertCriticalSchemas(db: DB): void {
     ],
     ingredient_masters: [
       'master_id', 'canonical_name', 'category',
-      'preferred_vendor', 'last_reviewed',
+      'preferred_vendor', 'quality_locked', 'quality_lock_reason', 'last_reviewed',
     ],
     // Phase 3 closed-loop receiving — guard the new closed-loop columns
     // alongside Bundle F so a partial deploy fails loudly at init time
@@ -3722,6 +3727,17 @@ function migrateLegacyColumns(db: DB): void {
     try {
       db.exec(`ALTER TABLE order_guide_items ADD COLUMN is_placeholder INTEGER DEFAULT 0`);
     } catch { /* ignore */ }
+  }
+
+  // Operator quality locks on ingredient_masters — preserved across re-ingest
+  // (same posture as preferred_vendor; ingest upsert omits these on conflict).
+  const imCols = t('ingredient_masters');
+  const imMigrations: [string, string][] = [
+    ['quality_locked', 'ALTER TABLE ingredient_masters ADD COLUMN quality_locked INTEGER NOT NULL DEFAULT 0'],
+    ['quality_lock_reason', 'ALTER TABLE ingredient_masters ADD COLUMN quality_lock_reason TEXT'],
+  ];
+  for (const [col, ddl] of imMigrations) {
+    if (imCols.length > 0 && !imCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }
   }
 
   // Bundle F — receiving_log gains package_ok (§3-202.15) and

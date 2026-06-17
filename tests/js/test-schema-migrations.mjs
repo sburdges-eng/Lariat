@@ -482,7 +482,7 @@ describe('T7 — ingredient_masters schema', () => {
     );
     const byName = new Map(info.map((c) => [c.name, c]));
     for (const name of ['master_id', 'canonical_name', 'category',
-                        'preferred_vendor', 'last_reviewed']) {
+                        'preferred_vendor', 'quality_locked', 'quality_lock_reason', 'last_reviewed']) {
       assert.ok(byName.has(name), `ingredient_masters.${name} missing`);
     }
     assert.strictEqual(byName.get('master_id').pk, 1, 'master_id must be PK');
@@ -493,6 +493,10 @@ describe('T7 — ingredient_masters schema', () => {
       'preferred_vendor must be nullable');
     assert.strictEqual(byName.get('last_reviewed').notnull, 0,
       'last_reviewed must be nullable');
+    assert.strictEqual(byName.get('quality_locked').notnull, 1,
+      'quality_locked must be NOT NULL');
+    assert.strictEqual(byName.get('quality_lock_reason').notnull, 0,
+      'quality_lock_reason must be nullable');
   });
 
   it('rejects duplicate master_id via PRIMARY KEY', () => {

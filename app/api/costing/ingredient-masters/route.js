@@ -15,6 +15,7 @@ import { withIdempotency } from '../../../../lib/idempotency';
 import {
   listMasters,
   updateMaster,
+  MasterUpdateRejectedError,
 } from '../../../../lib/ingredientMastersRepo';
 import { locationFromBody, locationFromRequest } from '../../../../lib/location';
 
@@ -32,6 +33,7 @@ function clampLimit(raw) {
 const MAX_NAME = 200;
 const MAX_CATEGORY = 80;
 const MAX_VENDOR = 80;
+const MAX_LOCK_REASON = 80;
 
 function clipOrNull(v, max) {
   if (v == null) return null;
@@ -114,6 +116,20 @@ async function patchHandler(req) {
     if (v === undefined) return Response.json({ error: 'preferred_vendor must be a string or null' }, { status: 422 });
     updates.preferred_vendor = v;
   }
+
+  if (Object.prototype.hasOwnProperty.call(rawUpdates, 'quality_locked')) {
+    const v = rawUpdates.quality_locked;
+    if (v !== true && v !== false && v !== 1 && v !== 0 && v !== '1' && v !== '0') {
+      return Response.json({ error: 'quality_locked must be a boolean' }, { status: 422 });
+    }
+    updates.quality_locked = v === true || v === 1 || v === '1';
+  }
+  if (Object.prototype.hasOwnProperty.call(rawUpdates, 'quality_lock_reason')) {
+    const v = clipOrNull(rawUpdates.quality_lock_reason, MAX_LOCK_REASON);
+    if (v === undefined) return Response.json({ error: 'quality_lock_reason must be a string or null' }, { status: 422 });
+    updates.quality_lock_reason = v;
+  }
+
   if (Object.prototype.hasOwnProperty.call(rawUpdates, 'last_reviewed')) {
     const v = rawUpdates.last_reviewed;
     if (v === null || v === 'now' || (typeof v === 'string' && v.trim())) {
@@ -148,6 +164,9 @@ async function patchHandler(req) {
       master: result.after,
     });
   } catch (err) {
+    if (err instanceof MasterUpdateRejectedError) {
+      return Response.json({ error: err.message }, { status: 422 });
+    }
     console.error('PATCH /api/costing/ingredient-masters failed:', err);
     return Response.json({ error: 'Failed to update ingredient master' }, { status: 500 });
   }
