@@ -53,10 +53,10 @@ against the web parity.
 
 ### Polling refresh
 
-`LariatDatabase` uses GRDB `ValueObservation` internally, but the cross-process writes
-from the web app are not always visible to observation on the same connection pool.
-Each screen therefore polls the repository on a 3-second timer to capture fresh data
-written by the web app.
+Each screen polls its repository on a 3-second timer. `LariatDatabase` opens a
+read-only `DatabasePool` but does not use GRDB `ValueObservation` — cross-process
+writes from the web app are not visible to same-pool observation, so polling is the
+correct approach here.
 
 ### Four manager screens
 
@@ -79,7 +79,7 @@ LariatNative/
       Records.swift                 — GRDB record types for every table
       InvariantContracts.swift      — AuditedWrite / RuleGate / PinGate stubs (P1b writes)
       LocationScope.swift           — location filter (LARIAT_LOCATION_ID env var)
-      SchemaVersion.swift           — schema-compatibility guard
+      SchemaVersion.swift           — read-only schema-version probe (tested primitive; not yet wired into DB-open path — enforcement is a follow-up)
       Compute/
         CommandCompute.swift        — command-center summarize + alertsFor
         AnalyticsCompute.swift      — analytics aggregation and YoY delta

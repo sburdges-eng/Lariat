@@ -17,11 +17,17 @@ import Observation
         streamTask?.cancel()
         let repo = ManagementRollupRepository(database: database)
         streamTask = Task { [weak self] in
-            for await s in repo.stream() {
-                await MainActor.run {
+            // Poll every 3 s — mirrors CommandViewModel/AnalyticsViewModel/CostingViewModel.
+            // ValueObservation can't see cross-process writes from the web app, so we poll.
+            while !Task.isCancelled {
+                do {
+                    let s = try await repo.load()
                     self?.snapshot = s
                     self?.errorText = nil
+                } catch {
+                    self?.errorText = "Fetch error: \(error.localizedDescription)"
                 }
+                try? await Task.sleep(for: .seconds(3))
             }
         }
     }
