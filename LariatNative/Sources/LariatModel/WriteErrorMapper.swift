@@ -24,6 +24,9 @@ public enum WriteErrorMapper {
         if let cal = error as? CalibrationWriteError {
             return cal.localizedDescription
         }
+        if let line = error as? LineCheckWriteError {
+            return line.localizedDescription
+        }
         let text = String(describing: error).lowercased()
         if text.contains("busy") || text.contains("locked") || text.contains("sqlite_busy") {
             return "Database busy — try again in a moment"
