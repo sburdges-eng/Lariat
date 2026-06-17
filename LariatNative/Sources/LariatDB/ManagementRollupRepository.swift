@@ -6,6 +6,7 @@ public struct AccountingVarianceView: Equatable {
     public let theoreticalCogs: Double
     public let actualCogs: Double
     public let variancePct: Double?
+    public let snapshotAt: String?
 }
 
 public struct DishCoverageView: Equatable {
@@ -234,7 +235,7 @@ public struct ManagementRollupRepository {
             }()
 
             return RollupSnapshot(
-                variance: v.map { AccountingVarianceView(theoreticalCogs: $0.theoreticalCogs, actualCogs: $0.actualCogs, variancePct: $0.variancePct) },
+                variance: v.map { AccountingVarianceView(theoreticalCogs: $0.theoreticalCogs, actualCogs: $0.actualCogs, variancePct: $0.variancePct, snapshotAt: $0.snapshotAt) },
                 coverage: c.map { DishCoverageView(coveragePct: $0.coveragePct, totalDishes: $0.totalDishes, coveredDishes: $0.coveredDishes) },
                 unacknowledgedPackSizeChanges: unack,
                 lastCostingIngest: ingestView,

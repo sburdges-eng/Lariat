@@ -43,11 +43,15 @@ struct ManagementRollupView: View {
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 220))], spacing: 16) {
                         // Tile 1 — Food cost vs. target (accounting variance)
+                        // DEFERRED (P1a): per-tile traffic-light COLOR signaling (web uses
+                        // varianceColor/ingestColor/etc.) is NOT implemented — tiles show
+                        // value/label only.
                         if let v = s.variance {
                             Tile(
                                 title: "Food cost vs. target",
                                 value: v.variancePct.map { String(format: "%.2f%%", $0) } ?? "—",
-                                sub: "theoretical \(formatDollars(v.theoreticalCogs)) vs actual \(formatDollars(v.actualCogs))"
+                                // Mirror web: append "· as of <snapshot_at>" when present.
+                                sub: varianceSubLine(v)
                             )
                         } else {
                             TileDegrade(
@@ -62,7 +66,10 @@ struct ManagementRollupView: View {
                             Tile(
                                 title: "Costing freshness",
                                 value: formatAge(ingest.ageMinutes),
-                                sub: ingest.lastStatus.map { "last status: \($0)" } ?? "never ingested"
+                                // "never ingested" only applies when no ingest record exists at all
+                                // (the TileDegrade path below). A present-but-statusless record
+                                // means status is unknown, not that it was never run.
+                                sub: ingest.lastStatus.map { "last status: \($0)" } ?? "status unknown"
                             )
                         } else {
                             TileDegrade(
@@ -99,12 +106,13 @@ struct ManagementRollupView: View {
                         )
 
                         // Tile 5 — Menu items costed (dish coverage)
+                        // DEFERRED (P1a): coverage sub-line lacks the web's "X unlinked ·
+                        // Y no-components" breakdown because DishCoverageView doesn't carry
+                        // those counts (model gap, deferred to a follow-up).
                         if let c = s.coverage {
                             Tile(
                                 title: "Menu items costed",
-                                value: (c.coveredDishes != nil && c.totalDishes != nil)
-                                    ? "\(c.coveredDishes!)/\(c.totalDishes!)"
-                                    : "—",
+                                value: coverageValue(c),
                                 sub: c.coveragePct.map { String(format: "%.1f%% costed", $0) }
                             )
                         } else {
@@ -135,6 +143,21 @@ struct ManagementRollupView: View {
 }
 
 // MARK: — Helpers
+
+/// Format covered/total dish counts using Optional chaining (idiomatic Swift over force-unwrap).
+private func coverageValue(_ c: DishCoverageView) -> String {
+    guard let covered = c.coveredDishes, let total = c.totalDishes else { return "—" }
+    return "\(covered)/\(total)"
+}
+
+/// Build the variance tile sub-line, mirroring the web's "· as of <snapshot_at>" suffix.
+private func varianceSubLine(_ v: AccountingVarianceView) -> String {
+    var line = "theoretical \(formatDollars(v.theoreticalCogs)) vs actual \(formatDollars(v.actualCogs))"
+    if let snapshot = v.snapshotAt {
+        line += " · as of \(snapshot.prefix(10))"
+    }
+    return line
+}
 
 /// Format minutes into a human-readable age string matching the web's formatAge().
 private func formatAge(_ ageMinutes: Int?) -> String {
