@@ -39,8 +39,9 @@ public struct RollupSnapshot: Equatable {
     public let lastCostingIngest: CostingIngestView?
     /// Price shocks over 7-day / 5% threshold; nil on query error.
     public let priceShocks: PriceShockSummary?
-    /// Count of unresolved depletion exceptions (limit 100). Mirror of
-    /// listDepletionExceptions(db, { location_id, limit:100 }).length.
+    /// Approximate depletion-exception count: counts dishes with no `dish_components` rows
+    /// (the `no_dish_components` reason only). Full `listDepletionExceptions` resolver parity
+    /// (recipe_missing_yield, cross_dim_unit_mismatch, invalid_qty) is deferred to Task 10.
     public let depletionExceptionCount: Int
 }
 
@@ -110,20 +111,6 @@ public struct ManagementRollupRepository {
                 let minPctMove: Double = 5.0
                 let limit = 100
                 // Collect all in-window rows ordered ascending (oldest first per group).
-                struct PriceRow: FetchableRecord {
-                    let vendor: String
-                    let sku: String
-                    let ingredient: String
-                    let snapshotAt: String
-                    let unitPrice: Double
-                    init(row: Row) {
-                        vendor = row["vendor"]
-                        sku = row["sku"]
-                        ingredient = row["ingredient"]
-                        snapshotAt = row["snapshot_at"]
-                        unitPrice = row["unit_price"]
-                    }
-                }
                 let rows = try Row.fetchAll(db,
                     sql: """
                         SELECT vendor, sku, ingredient, snapshot_at, unit_price
@@ -165,7 +152,7 @@ public struct ManagementRollupRepository {
                 for row in rows {
                     let vendor: String = row["vendor"]
                     let sku: String = row["sku"]
-                    let ingredient: String = row["ingredient"]
+                    let ingredient: String = row["ingredient"] as String? ?? ""
                     let unitPrice: Double = row["unit_price"]
                     let key = "\(vendor)|\(sku)|\(ingredient)"
                     if var g = groups[key] {
@@ -189,7 +176,7 @@ public struct ManagementRollupRepository {
                 for row in liveRows {
                     let vendor: String = row["vendor"]
                     let sku: String = row["sku"]
-                    let ingredient: String = row["ingredient"]
+                    let ingredient: String = row["ingredient"] as String? ?? ""
                     let unitPrice: Double = row["unit_price"]
                     let key = "\(vendor)|\(sku)|\(ingredient)"
                     if var g = groups[key] {
@@ -215,11 +202,11 @@ public struct ManagementRollupRepository {
                 return PriceShockSummary(total: total, up: up, down: down)
             }()
 
-            // Depletion exception count.
-            // Mirrors listDepletionExceptions(db, { location_id, limit:100 }).length
-            // in app/management/page.jsx. We replicate the resolver logic:
-            // scan unique dish names from sales_lines, check dish_components; those
-            // with NO matching component row are counted as exceptions.
+            // Depletion exception count (partial port — no_dish_components reason only).
+            // Full listDepletionExceptions resolver parity (recipe_missing_yield,
+            // cross_dim_unit_mismatch, invalid_qty) is deferred to Task 10.
+            // Scans unique dish names from sales_lines, checks dish_components; those
+            // with NO matching component row are counted (no_dish_components reason).
             let depletionExceptionCount: Int = try {
                 // Collect distinct non-empty item_names with quantity_sold > 0.
                 let names = try String.fetchAll(db,

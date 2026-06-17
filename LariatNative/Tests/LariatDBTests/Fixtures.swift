@@ -289,7 +289,7 @@ func seedFixtureDatabase() throws -> String {
                   pack_price  REAL,
                   unit_price  REAL,
                   category    TEXT,
-                  location_id TEXT DEFAULT 'default',
+                  location_id TEXT NOT NULL DEFAULT 'default',
                   imported_at TEXT DEFAULT (datetime('now')));
 
                 -- depletionExceptions.ts (listDepletionExceptions): dish_components table.

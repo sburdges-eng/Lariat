@@ -76,12 +76,12 @@ final class ManagementRollupRepositoryTests: XCTestCase {
         XCTAssertEqual(shocks.down, 0)
     }
 
-    /// Depletion-exception count.
+    /// Depletion-exception count (partial port — no_dish_components reason only).
     /// Fixture seeds sales_lines with Burger, Tacos, MysteryX.
     /// dish_components has entries for Burger and Tacos (so they resolve cleanly).
-    /// MysteryX has no dish_components → exactly 1 depletion exception.
-    /// Mirror of listDepletionExceptions(db, { location_id, limit:100 }).length
-    /// in app/management/page.jsx.
+    /// MysteryX has no dish_components → exactly 1 exception (no_dish_components reason).
+    /// Asserts the partial count only; full listDepletionExceptions resolver parity
+    /// (recipe_missing_yield, cross_dim_unit_mismatch, invalid_qty) is deferred to Task 10.
     func testDepletionExceptionCount() async throws {
         let path = try seedFixtureDatabase()
         defer { try? FileManager.default.removeItem(atPath: (path as NSString).deletingLastPathComponent) }
