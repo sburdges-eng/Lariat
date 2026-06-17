@@ -1,10 +1,11 @@
 import SwiftUI
 import LariatDB
 import LariatModel
+import Observation
 
-@MainActor final class ManagementRollupViewModel: ObservableObject {
-    @Published var snapshot: RollupSnapshot?
-    @Published var errorText: String?
+@Observable @MainActor final class ManagementRollupViewModel {
+    var snapshot: RollupSnapshot?
+    var errorText: String?
     private var streamTask: Task<Void, Never>?
 
     func start() {
@@ -28,19 +29,16 @@ import LariatModel
 }
 
 struct ManagementRollupView: View {
-    @StateObject private var vm = ManagementRollupViewModel()
+    @State private var vm = ManagementRollupViewModel()
 
     var body: some View {
         Group {
             if let err = vm.errorText {
-                VStack(spacing: 12) {
-                    Image(systemName: "externaldrive.badge.xmark")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
-                    Text("Database unavailable").font(.headline)
-                    Text(err).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                }
-                .padding()
+                TileDegrade(
+                    title: "Database unavailable",
+                    message: err,
+                    systemImage: "externaldrive.badge.xmark"
+                )
             } else if let s = vm.snapshot {
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 220))], spacing: 16) {
