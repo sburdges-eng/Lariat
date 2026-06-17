@@ -7,7 +7,7 @@ public func resolveDatabasePath(
     cwd: String = FileManager.default.currentDirectoryPath
 ) -> String {
     let dataDir: String
-    if let raw = env["LARIAT_DATA_DIR"], !raw.trimmingCharacters(in: .whitespaces).isEmpty {
+    if let raw = env["LARIAT_DATA_DIR"], !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
         dataDir = (raw as NSString).isAbsolutePath ? raw : (cwd as NSString).appendingPathComponent(raw)
     } else {
         dataDir = (cwd as NSString).appendingPathComponent("data")

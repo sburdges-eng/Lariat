@@ -18,4 +18,8 @@ final class DatabasePathsTests: XCTestCase {
         let p = resolveDatabasePath(env: ["LARIAT_DATA_DIR": "   "], cwd: "/work")
         XCTAssertEqual(p, "/work/data/lariat.db")
     }
+    func testNewlineOnlyEnvFallsBackToDefault() {
+        let p = resolveDatabasePath(env: ["LARIAT_DATA_DIR": "\n"], cwd: "/work")
+        XCTAssertEqual(p, "/work/data/lariat.db")
+    }
 }

@@ -29,8 +29,8 @@ public struct ManagementRollupRepository {
         self.locationId = locationId
     }
 
-    public func load() throws -> RollupSnapshot {
-        try database.pool.read { db in
+    public func load() async throws -> RollupSnapshot {
+        try await database.pool.read { db in
             let v = try AccountingVariance.fetchOne(db,
                 sql: "SELECT * FROM accounting_variance WHERE location_id = ? ORDER BY snapshot_at DESC, id DESC LIMIT 1",
                 arguments: [locationId])
@@ -54,7 +54,7 @@ extension ManagementRollupRepository {
         AsyncStream { continuation in
             let task = Task {
                 while !Task.isCancelled {
-                    if let snap = try? load() { continuation.yield(snap) }
+                    if let snap = try? await load() { continuation.yield(snap) }
                     try? await Task.sleep(for: interval)
                 }
                 continuation.finish()
