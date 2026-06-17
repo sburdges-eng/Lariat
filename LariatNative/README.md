@@ -1,4 +1,4 @@
-# LariatNative (P2b 86 board + P2a Cook + AuditedWrite foundation + P1b manager writes)
+# LariatNative (P3a temp log + P2b 86 + P2a Cook + AuditedWrite + P1b manager writes)
 
 macOS/iOS app reading the live `lariat.db` (shared with the web app) via GRDB.
 
@@ -9,7 +9,16 @@ and repositories for Command, Analytics, Costing, and Management rollup (6 tiles
 **AuditedWrite foundation** adds in-transaction `audit_events` writes (`AuditEventWriter`, `AuditedWriteRunner`) —
 parity with `lib/auditEvents.ts`. **P2b** ships the first **cook-tier** regulated write: 86 board add/resolve
 with `actor_source = native_cook` and Encodable row payloads on resolve.
-`RuleGate` remains stub until HACCP corrective-action UX (P3).
+**P3a** implements **`RuleGate`** on temp log (422 corrective-note contract) + `TempPinVerifier` for `haccp.back_date`.
+
+## Safety tier (P3a)
+
+Top-level **Safety** sidebar — food-safety hub and temp log board.
+
+- **Food Safety** hub — links to in-scope boards; P3b/c tiles stubbed.
+- **Temp log** — CCP tile grid, corrective-note expansion on out-of-range, audited `temp_log` writes.
+
+Date marks, calibrations, cleaning, and breaks ship in P3b–P3c.
 
 ## Cook tier (P2a + P2b)
 
@@ -53,7 +62,7 @@ web app's `lib/dataDir.ts`).
 
 ```bash
 swift test   # host-run Core tests (LariatDB + LariatModel); no simulator needed
-# 168 tests (P2b 86 + AuditedWrite + P2a Today + P1b pack-size write)
+# 190 tests (P3a RuleGate/temp log + P2b 86 + AuditedWrite + P2a Today + P1b pack-size write)
 ```
 
 ## Architecture

@@ -8,6 +8,7 @@ struct LariatApp: App {
 
   enum SidebarSelection: Hashable {
     case cook(CookDestination)
+    case safety(SafetyDestination)
     case manager(ManagerSection)
   }
 
@@ -39,6 +40,17 @@ struct LariatApp: App {
               ForEach(CookDestination.allCases) { dest in
                 if dest.enabled {
                   Text(dest.rawValue).tag(SidebarSelection.cook(dest))
+                } else {
+                  Text(dest.rawValue)
+                    .foregroundStyle(.tertiary)
+                    .badge("Soon")
+                }
+              }
+            }
+            Section("Safety") {
+              ForEach(SafetyDestination.allCases) { dest in
+                if dest.enabled {
+                  Text(dest.rawValue).tag(SidebarSelection.safety(dest))
                 } else {
                   Text(dest.rawValue)
                     .foregroundStyle(.tertiary)
@@ -87,6 +99,22 @@ struct LariatApp: App {
       }
     case .cook(.stations), .cook(.kds):
       TileDegrade(title: "Coming soon", message: "This cook screen ships in a later phase.", systemImage: "clock")
+    case .safety(.hub):
+      FoodSafetyHubView(onOpenTempLog: {
+        selection = .safety(.tempLog)
+      })
+    case .safety(.tempLog):
+      if let writeDB = sharedWriteDatabase {
+        TempLogView(readDB: database, writeDB: writeDB)
+      } else {
+        TileDegrade(
+          title: "Temp log unavailable",
+          message: "Could not open the write database.",
+          systemImage: "lock"
+        )
+      }
+    case .safety(.dateMarks), .safety(.calibrations), .safety(.cleaning), .safety(.breaks):
+      TileDegrade(title: "Coming soon", message: "This safety screen ships in P3b–P3c.", systemImage: "clock")
     case .manager(.command):
       CommandView(database: database, writeDatabase: sharedWriteDatabase)
     case .manager(.analytics):
