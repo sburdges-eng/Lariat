@@ -100,9 +100,11 @@ struct LariatApp: App {
     case .cook(.stations), .cook(.kds):
       TileDegrade(title: "Coming soon", message: "This cook screen ships in a later phase.", systemImage: "clock")
     case .safety(.hub):
-      FoodSafetyHubView(onOpenTempLog: {
-        selection = .safety(.tempLog)
-      })
+      FoodSafetyHubView(
+        onOpenTempLog: { selection = .safety(.tempLog) },
+        onOpenDateMarks: { selection = .safety(.dateMarks) },
+        onOpenCalibrations: { selection = .safety(.calibrations) }
+      )
     case .safety(.tempLog):
       if let writeDB = sharedWriteDatabase {
         TempLogView(readDB: database, writeDB: writeDB)
@@ -113,8 +115,28 @@ struct LariatApp: App {
           systemImage: "lock"
         )
       }
-    case .safety(.dateMarks), .safety(.calibrations), .safety(.cleaning), .safety(.breaks):
-      TileDegrade(title: "Coming soon", message: "This safety screen ships in P3b–P3c.", systemImage: "clock")
+    case .safety(.dateMarks):
+      if let writeDB = sharedWriteDatabase {
+        DateMarkView(readDB: database, writeDB: writeDB)
+      } else {
+        TileDegrade(
+          title: "Date marks unavailable",
+          message: "Could not open the write database.",
+          systemImage: "lock"
+        )
+      }
+    case .safety(.calibrations):
+      if let writeDB = sharedWriteDatabase {
+        CalibrationsView(readDB: database, writeDB: writeDB)
+      } else {
+        TileDegrade(
+          title: "Calibrations unavailable",
+          message: "Could not open the write database.",
+          systemImage: "lock"
+        )
+      }
+    case .safety(.cleaning), .safety(.breaks):
+      TileDegrade(title: "Coming soon", message: "This safety screen ships in P3c.", systemImage: "clock")
     case .manager(.command):
       CommandView(database: database, writeDatabase: sharedWriteDatabase)
     case .manager(.analytics):

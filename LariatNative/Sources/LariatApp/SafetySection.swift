@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Safety-tier sidebar destinations (P3a: temp log; rest stubbed until P3b–P3c).
+/// Safety-tier sidebar destinations (P3a: temp log; P3b: date marks + calibrations).
 enum SafetyDestination: String, Hashable, CaseIterable, Identifiable {
     case hub = "Food Safety"
     case tempLog = "Temp log"
@@ -13,8 +13,8 @@ enum SafetyDestination: String, Hashable, CaseIterable, Identifiable {
 
     var enabled: Bool {
         switch self {
-        case .hub, .tempLog: return true
-        case .dateMarks, .calibrations, .cleaning, .breaks: return false
+        case .hub, .tempLog, .dateMarks, .calibrations: return true
+        case .cleaning, .breaks: return false
         }
     }
 }
