@@ -30,6 +30,26 @@ final class AuditEventWriterTests: XCTestCase {
     }
   }
 
+  func testEncodePayloadPreservesNumericFields() throws {
+    let row = EightySixRow(
+      id: 9,
+      shiftDate: "2026-06-17",
+      stationId: "grill",
+      item: "salmon",
+      kind: "item",
+      reason: "out",
+      quantity: nil,
+      cookId: "alice",
+      resolvedAt: "2026-06-17 12:00:00",
+      resolvedBy: "alice",
+      createdAt: nil,
+      locationId: "default"
+    )
+    let json = AuditEventWriter.encodePayload(row)
+    XCTAssertTrue(json.contains("\"id\""))
+    XCTAssertTrue(json.contains("salmon"))
+  }
+
   func testPostInsideTransactionInsertsRow() throws {
     let path = try seedFixtureDatabase()
     defer { try? FileManager.default.removeItem(atPath: (path as NSString).deletingLastPathComponent) }

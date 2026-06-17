@@ -18,6 +18,7 @@ public struct AuditEventInput: Sendable {
     public let actorSource: String
     public let replacesId: Int64?
     public let payload: [String: String]?
+    public let payloadJSON: String?
     public let note: String?
     public let shiftDate: String?
     public let locationId: String?
@@ -30,6 +31,7 @@ public struct AuditEventInput: Sendable {
         actorSource: String,
         replacesId: Int64? = nil,
         payload: [String: String]? = nil,
+        payloadJSON: String? = nil,
         note: String? = nil,
         shiftDate: String? = nil,
         locationId: String? = nil
@@ -41,6 +43,7 @@ public struct AuditEventInput: Sendable {
         self.actorSource = actorSource
         self.replacesId = replacesId
         self.payload = payload
+        self.payloadJSON = payloadJSON
         self.note = note
         self.shiftDate = shiftDate
         self.locationId = locationId
@@ -50,6 +53,7 @@ public struct AuditEventInput: Sendable {
 /// Actor + shift metadata for regulated native writes (`actor_source = native_mac`).
 public struct RegulatedWriteContext: Sendable {
     public static let nativeMacActorSource = "native_mac"
+    public static let nativeCookActorSource = "native_cook"
 
     public let actorCookId: String?
     public let actorSource: String
@@ -69,6 +73,19 @@ public struct RegulatedWriteContext: Sendable {
             actorSource: nativeMacActorSource,
             locationId: pinUser?.locationId ?? "default",
             shiftDate: ShiftDate.todayISO()
+        )
+    }
+
+    public static func nativeCook(
+        cookId: String?,
+        locationId: String = LocationScope.resolve(),
+        shiftDate: String = ShiftDate.todayISO()
+    ) -> RegulatedWriteContext {
+        RegulatedWriteContext(
+            actorCookId: cookId,
+            actorSource: nativeCookActorSource,
+            locationId: locationId,
+            shiftDate: shiftDate
         )
     }
 }

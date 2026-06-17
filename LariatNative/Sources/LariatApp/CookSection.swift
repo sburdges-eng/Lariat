@@ -12,7 +12,8 @@ enum CookDestination: String, Hashable, CaseIterable, Identifiable {
     var enabled: Bool {
         switch self {
         case .today: return true
-        case .eightySix, .stations, .kds: return false
+        case .eightySix: return true
+        case .stations, .kds: return false
         }
     }
 

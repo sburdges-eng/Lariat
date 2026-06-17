@@ -46,9 +46,11 @@ import Observation
 struct TodayView: View {
     @State private var vm: TodayViewModel
     @State private var selectedStation: StationWithProgress?
+    var onOpenEightySix: () -> Void
 
-    init(database: LariatDatabase) {
+    init(database: LariatDatabase, onOpenEightySix: @escaping () -> Void = {}) {
         _vm = State(wrappedValue: TodayViewModel(database: database))
+        self.onOpenEightySix = onOpenEightySix
     }
 
     var body: some View {
@@ -76,7 +78,7 @@ struct TodayView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 heroSection(snap)
-                actionRow
+                actionRow(onOpenEightySix: onOpenEightySix)
                 stationSection(snap)
                 stockMovesSection(snap)
                 if !snap.openEightySixItems.isEmpty || !snap.cascadedRecipes.isEmpty {
@@ -111,11 +113,24 @@ struct TodayView: View {
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
     }
 
-    private var actionRow: some View {
+    private func actionRow(onOpenEightySix: @escaping () -> Void) -> some View {
         HStack(spacing: 12) {
             stubActionCard(eyebrow: "Next", title: "Send to line")
-            stubActionCard(eyebrow: "Watch", title: "86 right now")
+            Button(action: onOpenEightySix) {
+                actionCard(eyebrow: "Watch", title: "86 right now")
+            }
+            .buttonStyle(.plain)
         }
+    }
+
+    private func actionCard(eyebrow: String, title: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(eyebrow).font(.caption.weight(.heavy)).foregroundStyle(.secondary).textCase(.uppercase)
+            Text(title).font(.headline)
+        }
+        .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
+        .padding(16)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
     }
 
     private func stationSection(_ snap: TodayBoardSnapshot) -> some View {

@@ -41,7 +41,7 @@ public enum AuditEventWriter {
         input.entityId,
         input.action.rawValue,
         input.replacesId,
-        safePayloadJSON(input.payload),
+        payloadJSON(for: input),
         input.note,
       ]
     )
@@ -49,9 +49,26 @@ public enum AuditEventWriter {
   }
 
   /// Serialize payload defensively — audit row must not fail on exotic values.
+  static func payloadJSON(for input: AuditEventInput) -> String? {
+    if let raw = input.payloadJSON { return raw }
+    return safePayloadJSON(input.payload)
+  }
+
   static func safePayloadJSON(_ payload: [String: String]?) -> String? {
     guard let payload else { return nil }
     guard let data = try? JSONEncoder().encode(payload),
+          let json = String(data: data, encoding: .utf8)
+    else {
+      return "{\"_audit_serialization_error\":true}"
+    }
+    return json
+  }
+
+  /// Encode a structured row snapshot for resolve-route parity.
+  public static func encodePayload<T: Encodable>(_ value: T) -> String {
+    let encoder = JSONEncoder()
+    encoder.keyEncodingStrategy = .convertToSnakeCase
+    guard let data = try? encoder.encode(value),
           let json = String(data: data, encoding: .utf8)
     else {
       return "{\"_audit_serialization_error\":true}"
