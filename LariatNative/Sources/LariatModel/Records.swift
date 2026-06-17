@@ -37,6 +37,127 @@ public struct PackSizeChange: FetchableRecord, Decodable {
     public let acknowledged: Bool
 }
 
+// ── Analytics projection records (Task 9) ────────────────────────────────────
+// These mirror the SELECTs in app/analytics/page.jsx exactly.
+
+/// toast_sales_daily row (comparison_group = 1)
+public struct AnalyticsDailyRow: FetchableRecord, Decodable {
+    public let shiftDate: String
+    public let netSales: Double?
+    public let orders: Int?
+    public let guests: Int?
+    enum CodingKeys: String, CodingKey {
+        case shiftDate = "shift_date"; case netSales = "net_sales"; case orders; case guests
+    }
+    public init(shiftDate: String, netSales: Double?, orders: Int?, guests: Int?) {
+        self.shiftDate = shiftDate; self.netSales = netSales; self.orders = orders; self.guests = guests
+    }
+}
+
+/// toast_sales_dow row
+public struct AnalyticsDowRow: FetchableRecord, Decodable {
+    public let dayOfWeek: Int
+    public let netSales: Double?
+    public let orders: Int?
+    public let guests: Int?
+    enum CodingKeys: String, CodingKey {
+        case dayOfWeek = "day_of_week"; case netSales = "net_sales"; case orders; case guests
+    }
+    public init(dayOfWeek: Int, netSales: Double?, orders: Int?, guests: Int?) {
+        self.dayOfWeek = dayOfWeek; self.netSales = netSales; self.orders = orders; self.guests = guests
+    }
+}
+
+/// toast_sales_hour row
+public struct AnalyticsHourlyRow: FetchableRecord, Decodable {
+    public let hour24: Int
+    public let label: String?
+    public let netSales: Double?
+    public let orders: Int?
+    public let guests: Int?
+    enum CodingKeys: String, CodingKey {
+        case hour24 = "hour_24"; case label; case netSales = "net_sales"; case orders; case guests
+    }
+    public init(hour24: Int, label: String?, netSales: Double?, orders: Int?, guests: Int?) {
+        self.hour24 = hour24; self.label = label; self.netSales = netSales
+        self.orders = orders; self.guests = guests
+    }
+}
+
+/// spend_monthly row
+public struct AnalyticsSpendRow: FetchableRecord, Decodable {
+    public let month: String
+    public let shamrockTotalSpend: Double?
+    enum CodingKeys: String, CodingKey {
+        case month; case shamrockTotalSpend = "shamrock_total_spend"
+    }
+    public init(month: String, shamrockTotalSpend: Double?) {
+        self.month = month; self.shamrockTotalSpend = shamrockTotalSpend
+    }
+}
+
+/// sales_lines top-item aggregation row
+public struct AnalyticsTopItem: FetchableRecord, Decodable {
+    public let itemName: String
+    public let qty: Double?
+    public let rev: Double?
+    enum CodingKeys: String, CodingKey {
+        case itemName = "item_name"; case qty; case rev
+    }
+    public init(itemName: String, qty: Double?, rev: Double?) {
+        self.itemName = itemName; self.qty = qty; self.rev = rev
+    }
+}
+
+/// toast_sales_daily scalar — SUM(net_sales) for comparison_group = 2
+public struct AnalyticsPriorRev: FetchableRecord, Decodable {
+    public let rev: Double?
+}
+
+/// toast_sales_daily scalar — date_range from comparison_group = 1
+public struct AnalyticsDateRange: FetchableRecord, Decodable {
+    public let dateRange: String?
+    enum CodingKeys: String, CodingKey { case dateRange = "date_range" }
+}
+
+// ── Analytics input bundle (Task 9) ──────────────────────────────────────────
+
+/// Raw bundle produced by `AnalyticsRepository.fetch`. No aggregation — that is
+/// `AnalyticsCompute.summarize`'s job.
+public struct AnalyticsBundle {
+    public let daily: [AnalyticsDailyRow]
+    public let dowCurrent: [AnalyticsDowRow]
+    public let dowPrior: [AnalyticsDowRow]
+    public let hourlyCurrent: [AnalyticsHourlyRow]
+    public let hourlyPrior: [AnalyticsHourlyRow]
+    public let spend: [AnalyticsSpendRow]
+    public let top: [AnalyticsTopItem]
+    public let dailyPriorRev: Double        // SUM(net_sales) WHERE cg=2 (0 if nil)
+    public let dateRange: String?           // date_range from cg=1 LIMIT 1
+
+    public init(
+        daily: [AnalyticsDailyRow],
+        dowCurrent: [AnalyticsDowRow],
+        dowPrior: [AnalyticsDowRow],
+        hourlyCurrent: [AnalyticsHourlyRow],
+        hourlyPrior: [AnalyticsHourlyRow],
+        spend: [AnalyticsSpendRow],
+        top: [AnalyticsTopItem],
+        dailyPriorRev: Double,
+        dateRange: String?
+    ) {
+        self.daily = daily
+        self.dowCurrent = dowCurrent
+        self.dowPrior = dowPrior
+        self.hourlyCurrent = hourlyCurrent
+        self.hourlyPrior = hourlyPrior
+        self.spend = spend
+        self.top = top
+        self.dailyPriorRev = dailyPriorRev
+        self.dateRange = dateRange
+    }
+}
+
 // ── Command Center projection records (Task 7) ────────────────────────────────
 // These mirror the SELECTs in commandCenter.ts summarize().
 
