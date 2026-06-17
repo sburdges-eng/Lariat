@@ -14,7 +14,7 @@ enum CookDestination: String, Hashable, CaseIterable, Identifiable {
         case .today: return true
         case .eightySix: return true
         case .stations: return true
-        case .kds: return false
+        case .kds: return true
         }
     }
 

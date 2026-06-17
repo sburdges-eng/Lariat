@@ -65,6 +65,36 @@ public struct ManagementAuditLogger: Sendable {
         }
     }
 
+
+    public func logKdsTicketCreate(
+        ticketId: String,
+        locationId: String,
+        orderNumber: String,
+        destination: String?,
+        lineCount: Int,
+        cookId: String?
+    ) throws {
+        var entry: [String: Any] = [
+            "action": "kds_tickets.create",
+            "ticket_id": ticketId,
+            "location_id": locationId,
+            "order_number": orderNumber,
+            "line_count": lineCount,
+            "timestamp": ISO8601DateFormatter().string(from: Date()),
+            "id": "audit_\(Int(Date().timeIntervalSince1970 * 1000))_\(UUID().uuidString.prefix(8))",
+        ]
+        if let destination { entry["destination"] = destination }
+        if let cookId { entry["cook_id"] = cookId }
+        let data = try JSONSerialization.data(withJSONObject: entry)
+        guard var line = String(data: data, encoding: .utf8) else {
+            throw NSError(domain: "ManagementAuditLogger", code: 1)
+        }
+        line.append("\n")
+        try Self.appendQueue.sync {
+            try appendLine(line)
+        }
+    }
+
     private func appendLine(_ line: String) throws {
         let url = URL(fileURLWithPath: auditPath)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)

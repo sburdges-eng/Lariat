@@ -113,12 +113,22 @@ struct LariatApp: App {
         )
       }
     case .cook(.kds):
-      TileDegrade(title: "Coming soon", message: "This cook screen ships in a later phase.", systemImage: "clock")
+      if let writeDB = sharedWriteDatabase {
+        KdsPunchView(readDB: database, writeDB: writeDB)
+      } else {
+        TileDegrade(
+          title: "KDS unavailable",
+          message: "Could not open the write database.",
+          systemImage: "lock"
+        )
+      }
     case .safety(.hub):
       FoodSafetyHubView(
         onOpenTempLog: { selection = .safety(.tempLog) },
         onOpenDateMarks: { selection = .safety(.dateMarks) },
-        onOpenCalibrations: { selection = .safety(.calibrations) }
+        onOpenCalibrations: { selection = .safety(.calibrations) },
+        onOpenCleaning: { selection = .safety(.cleaning) },
+        onOpenBreaks: { selection = .safety(.breaks) }
       )
     case .safety(.tempLog):
       if let writeDB = sharedWriteDatabase {
@@ -150,8 +160,26 @@ struct LariatApp: App {
           systemImage: "lock"
         )
       }
-    case .safety(.cleaning), .safety(.breaks):
-      TileDegrade(title: "Coming soon", message: "This safety screen ships in P3c.", systemImage: "clock")
+    case .safety(.cleaning):
+      if let writeDB = sharedWriteDatabase {
+        CleaningView(readDB: database, writeDB: writeDB)
+      } else {
+        TileDegrade(
+          title: "Cleaning unavailable",
+          message: "Could not open the write database.",
+          systemImage: "lock"
+        )
+      }
+    case .safety(.breaks):
+      if let writeDB = sharedWriteDatabase {
+        BreakBoardView(readDB: database, writeDB: writeDB)
+      } else {
+        TileDegrade(
+          title: "Breaks unavailable",
+          message: "Could not open the write database.",
+          systemImage: "lock"
+        )
+      }
     case .manager(.command):
       CommandView(database: database, writeDatabase: sharedWriteDatabase)
     case .manager(.analytics):

@@ -4,6 +4,8 @@ struct FoodSafetyHubView: View {
     var onOpenTempLog: () -> Void
     var onOpenDateMarks: () -> Void
     var onOpenCalibrations: () -> Void
+    var onOpenCleaning: () -> Void
+    var onOpenBreaks: () -> Void
 
     var body: some View {
         List {
@@ -18,11 +20,13 @@ struct FoodSafetyHubView: View {
                     Label("Calibrations", systemImage: "gauge.with.dots.needle.33percent")
                 }
             }
-            Section("Coming soon") {
-                Label("Cleaning", systemImage: "sparkles")
-                    .foregroundStyle(.tertiary)
-                Label("Breaks", systemImage: "figure.walk")
-                    .foregroundStyle(.tertiary)
+            Section("Labor & cleaning") {
+                Button(action: onOpenCleaning) {
+                    Label("Cleaning", systemImage: "sparkles")
+                }
+                Button(action: onOpenBreaks) {
+                    Label("Breaks", systemImage: "figure.walk")
+                }
             }
         }
         .navigationTitle("Food Safety")
