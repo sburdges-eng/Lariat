@@ -424,20 +424,29 @@ func seedFixtureDatabase() throws -> String {
                   ('default', date('now'), datetime('now', '-30 minutes'), NULL, 0),
                   ('default', date('now'), datetime('now', '-2 hours'),    datetime('now', '-90 minutes'), 0);
 
-                -- commandCenter.ts: performance reviews
+                -- commandCenter.ts: performance reviews (web schema)
                 CREATE TABLE performance_reviews (
-                  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                  location_id TEXT NOT NULL DEFAULT 'default',
-                  staff_name  TEXT,
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  cook_name TEXT NOT NULL,
+                  cook_uuid TEXT,
                   review_date TEXT NOT NULL,
-                  score       REAL);
+                  punctuality_score INTEGER,
+                  technique_score INTEGER,
+                  speed_score INTEGER,
+                  notes TEXT,
+                  reviewer_name TEXT NOT NULL,
+                  location_id TEXT NOT NULL DEFAULT 'default',
+                  created_at TEXT NOT NULL DEFAULT (datetime('now')));
 
                 -- 2 for today, 1 for yesterday → total=3, today_count=2
-                INSERT INTO performance_reviews (location_id, staff_name, review_date, score)
+                INSERT INTO performance_reviews (
+                  location_id, cook_name, review_date,
+                  punctuality_score, technique_score, speed_score, reviewer_name
+                )
                 VALUES
-                  ('default', 'Alice', date('now'),         4.5),
-                  ('default', 'Bob',   date('now'),         3.8),
-                  ('default', 'Carol', date('now', '-1 day'), 4.0);
+                  ('default', 'Alice', date('now'), 5, 4, 5, 'Chef'),
+                  ('default', 'Bob',   date('now'), 4, 4, 4, 'Chef'),
+                  ('default', 'Carol', date('now', '-1 day'), 3, 3, 3, 'Chef');
 
                 -- commandCenter.ts: HACCP temperature log
                 CREATE TABLE temp_log (
