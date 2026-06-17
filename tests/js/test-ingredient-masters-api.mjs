@@ -233,3 +233,27 @@ describe('PATCH /api/costing/ingredient-masters — happy path', () => {
     }
   });
 });
+
+
+describe('PATCH /api/costing/ingredient-masters — quality lock', () => {
+  it('locks with preferred vendor in one request', async () => {
+    seedMaster('a', 'Chicken Breast');
+    const res = await PATCH(
+      patchReq({
+        master_id: 'a',
+        updates: { preferred_vendor: 'shamrock', quality_locked: true, quality_lock_reason: 'quality' },
+      }),
+    );
+    assert.equal(res.status, 200);
+    const row = db.prepare('SELECT preferred_vendor, quality_locked FROM ingredient_masters WHERE master_id = ?').get('a');
+    assert.equal(row.preferred_vendor, 'shamrock');
+    assert.equal(row.quality_locked, 1);
+  });
+
+  it('422 when changing vendor while locked', async () => {
+    seedMaster('a', 'Chicken Breast', { preferred_vendor: 'sysco' });
+    db.prepare(`UPDATE ingredient_masters SET quality_locked = 1 WHERE master_id = 'a'`).run();
+    const res = await PATCH(patchReq({ master_id: 'a', updates: { preferred_vendor: 'shamrock' } }));
+    assert.equal(res.status, 422);
+  });
+});

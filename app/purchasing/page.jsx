@@ -1,4 +1,5 @@
 // @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+import Link from 'next/link';
 import { getDb } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { formatDollars } from '../../lib/formatMoney';
@@ -20,6 +21,8 @@ export default function PurchasingPage() {
       <h1>Order guide</h1>
       <p className="subtitle">
         From the <strong>Order Guide</strong> sheet ({n} items). Pull fresh after the operations workbook is updated.
+        {' '}
+        <Link href="/purchasing/compare">Sysco vs Shamrock</Link>
       </p>
 
       {n === 0 && (

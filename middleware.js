@@ -29,6 +29,7 @@ const SENSITIVE_PREFIXES = [
   '/api/shows',
   '/api/specials/saved',
   '/api/host',
+  '/api/purchasing',
 ];
 
 /** Public carve-outs inside otherwise-PIN-gated prefixes. Order matters:
@@ -107,5 +108,6 @@ export const config = {
     '/api/specials/saved',
     '/api/specials/saved/:path*',
     '/api/host/:path*',
+    '/api/purchasing/:path*',
   ],
 };
