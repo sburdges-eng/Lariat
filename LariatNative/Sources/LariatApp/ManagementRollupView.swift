@@ -42,20 +42,84 @@ struct ManagementRollupView: View {
             } else if let s = vm.snapshot {
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 220))], spacing: 16) {
+                        // Tile 1 — Food cost vs. target (accounting variance)
+                        if let v = s.variance {
+                            Tile(
+                                title: "Food cost vs. target",
+                                value: v.variancePct.map { String(format: "%.2f%%", $0) } ?? "—",
+                                sub: "theoretical \(formatDollars(v.theoreticalCogs)) vs actual \(formatDollars(v.actualCogs))"
+                            )
+                        } else {
+                            TileDegrade(
+                                title: "Food cost vs. target",
+                                message: "no compute run yet",
+                                systemImage: "chart.bar.xaxis"
+                            )
+                        }
+
+                        // Tile 2 — Costing freshness (last ingest run)
+                        if let ingest = s.lastCostingIngest {
+                            Tile(
+                                title: "Costing freshness",
+                                value: formatAge(ingest.ageMinutes),
+                                sub: ingest.lastStatus.map { "last status: \($0)" } ?? "never ingested"
+                            )
+                        } else {
+                            TileDegrade(
+                                title: "Costing freshness",
+                                message: "never ingested",
+                                systemImage: "clock.badge.xmark"
+                            )
+                        }
+
+                        // Tile 3 — Price shocks (7-day / 5% threshold)
+                        if let shocks = s.priceShocks {
+                            Tile(
+                                title: "Price shocks",
+                                value: "\(shocks.total)",
+                                sub: shocks.total > 0
+                                    ? "\(shocks.up) up · \(shocks.down) down · 7 days"
+                                    : "no 5% moves in 7 days"
+                            )
+                        } else {
+                            TileDegrade(
+                                title: "Price shocks",
+                                message: "price moves unavailable",
+                                systemImage: "arrow.up.arrow.down"
+                            )
+                        }
+
+                        // Tile 4 — Depletion issues (always a count)
                         Tile(
-                            title: "COGS variance",
-                            value: s.variance.map { formatDollars($0.actualCogs - $0.theoreticalCogs) } ?? "—",
-                            sub: s.variance?.variancePct.map { String(format: "%.1f%%", $0) }
+                            title: "Depletion issues",
+                            value: "\(s.depletionExceptionCount)",
+                            sub: s.depletionExceptionCount > 0
+                                ? "\(s.depletionExceptionCount) dish\(s.depletionExceptionCount == 1 ? "" : "es") need mapping"
+                                : "sold dishes map cleanly"
                         )
+
+                        // Tile 5 — Menu items costed (dish coverage)
+                        if let c = s.coverage {
+                            Tile(
+                                title: "Menu items costed",
+                                value: (c.coveredDishes != nil && c.totalDishes != nil)
+                                    ? "\(c.coveredDishes!)/\(c.totalDishes!)"
+                                    : "—",
+                                sub: c.coveragePct.map { String(format: "%.1f%% costed", $0) }
+                            )
+                        } else {
+                            TileDegrade(
+                                title: "Menu items costed",
+                                message: "no sales dishes on file",
+                                systemImage: "fork.knife"
+                            )
+                        }
+
+                        // Tile 6 — Pack-size changes unack'd (always a count)
                         Tile(
-                            title: "Dish coverage",
-                            value: s.coverage?.coveragePct.map { String(format: "%.1f%%", $0) } ?? "—",
-                            sub: s.coverage.map { "\($0.coveredDishes ?? 0)/\($0.totalDishes ?? 0)" }
-                        )
-                        Tile(
-                            title: "Pack-size changes",
+                            title: "Pack-size changes unack'd",
                             value: "\(s.unacknowledgedPackSizeChanges)",
-                            sub: "unacknowledged"
+                            sub: "acknowledge in Pack-size changes"
                         )
                     }
                     .padding()
@@ -69,6 +133,18 @@ struct ManagementRollupView: View {
         .onDisappear { vm.stop() }
     }
 }
+
+// MARK: — Helpers
+
+/// Format minutes into a human-readable age string matching the web's formatAge().
+private func formatAge(_ ageMinutes: Int?) -> String {
+    guard let age = ageMinutes else { return "no runs on record" }
+    if age < 60 { return "\(age) min ago" }
+    if age < 1440 { return "\(age / 60) h ago" }
+    return "\(age / 1440) d ago"
+}
+
+// MARK: — Sub-views
 
 private struct Tile: View {
     let title: String
