@@ -1,0 +1,5 @@
+# SwiftPM build artifacts — never commit these
+.build/
+.swiftpm/
+*.xcodeproj/xcuserdata/
+DerivedData/
