@@ -10,76 +10,76 @@ import Observation
     var alerts: [CommandAlert] = []
     var errorText: String?
     private var streamTask: Task<Void, Never>?
+    private let database: LariatDatabase
+
+    init(database: LariatDatabase) {
+        self.database = database
+    }
 
     func start() {
         streamTask?.cancel()
-        do {
-            let db = try LariatDatabase()
-            let locationId = LocationScope.resolve()
-            let commandRepo = CommandRepository(database: db, locationId: locationId)
-            let rollupRepo = ManagementRollupRepository(database: db, locationId: locationId)
+        let locationId = LocationScope.resolve()
+        let commandRepo = CommandRepository(database: database, locationId: locationId)
+        let rollupRepo = ManagementRollupRepository(database: database, locationId: locationId)
 
-            streamTask = Task { [weak self] in
-                // Mirror ManagementRollupViewModel polling pattern:
-                // ValueObservation can't see cross-process writes, so we poll every 3 s.
-                while !Task.isCancelled {
-                    let today = Self.todayISO()
+        streamTask = Task { [weak self] in
+            // Mirror ManagementRollupViewModel polling pattern:
+            // ValueObservation can't see cross-process writes, so we poll every 3 s.
+            while !Task.isCancelled {
+                let today = Self.todayISO()
 
-                    // Fetch CommandBundle and price shocks concurrently.
-                    async let bundleResult = commandRepo.fetch(today: today)
-                    async let rollupResult = rollupRepo.load()
+                // Fetch CommandBundle and price shocks concurrently.
+                async let bundleResult = commandRepo.fetch(today: today)
+                async let rollupResult = rollupRepo.load()
 
-                    do {
-                        let bundle = try await bundleResult
+                do {
+                    let bundle = try await bundleResult
 
-                        // Thread the REAL price-shock summary into summarize() so the
-                        // Price-moves tile is not silently zero. Map PriceShockSummary →
-                        // CommandCompute.MoveSummary (total/up/down).
-                        let priceMoves: CommandCompute.MoveSummary
-                        if let shocks = try? await rollupResult {
-                            if let ps = shocks.priceShocks {
-                                priceMoves = CommandCompute.MoveSummary(
-                                    total: ps.total,
-                                    up: ps.up,
-                                    down: ps.down
-                                )
-                            } else {
-                                priceMoves = .zero
-                            }
+                    // Thread the REAL price-shock summary into summarize() so the
+                    // Price-moves tile is not silently zero. Map PriceShockSummary →
+                    // CommandCompute.MoveSummary (total/up/down).
+                    let priceMoves: CommandCompute.MoveSummary
+                    if let shocks = try? await rollupResult {
+                        if let ps = shocks.priceShocks {
+                            priceMoves = CommandCompute.MoveSummary(
+                                total: ps.total,
+                                up: ps.up,
+                                down: ps.down
+                            )
                         } else {
                             priceMoves = .zero
                         }
-
-                        // Margin moves: listMarginDeltas is NOT ported to Swift in P1a.
-                        // marginMoves stays at zero; the Margin-moves tile is rendered but
-                        // will show 0. Needs a Swift margin-delta source in a follow-up task.
-                        let marginMoves: CommandCompute.MoveSummary = .zero
-
-                        let s = CommandCompute.summarize(
-                            bundle: bundle,
-                            locationId: locationId,
-                            today: today,
-                            priceMoves: priceMoves,
-                            marginMoves: marginMoves
-                        )
-                        let a = CommandCompute.alertsFor(s)
-
-                        await MainActor.run {
-                            self?.summary = s
-                            self?.alerts = a
-                            self?.errorText = nil
-                        }
-                    } catch {
-                        await MainActor.run {
-                            self?.errorText = "Fetch error: \(error.localizedDescription)"
-                        }
+                    } else {
+                        priceMoves = .zero
                     }
 
-                    try? await Task.sleep(for: .seconds(3))
+                    // Margin moves: listMarginDeltas is NOT ported to Swift in P1a.
+                    // marginMoves stays at zero; the Margin-moves tile is rendered but
+                    // will show 0. Needs a Swift margin-delta source in a follow-up task.
+                    let marginMoves: CommandCompute.MoveSummary = .zero
+
+                    let s = CommandCompute.summarize(
+                        bundle: bundle,
+                        locationId: locationId,
+                        today: today,
+                        priceMoves: priceMoves,
+                        marginMoves: marginMoves
+                    )
+                    let a = CommandCompute.alertsFor(s)
+
+                    await MainActor.run {
+                        self?.summary = s
+                        self?.alerts = a
+                        self?.errorText = nil
+                    }
+                } catch {
+                    await MainActor.run {
+                        self?.errorText = "Fetch error: \(error.localizedDescription)"
+                    }
                 }
+
+                try? await Task.sleep(for: .seconds(3))
             }
-        } catch {
-            errorText = "Can't open lariat.db at \(resolveDatabasePath()): \(error.localizedDescription)"
         }
     }
 
@@ -103,7 +103,8 @@ import Observation
 // MARK: - Root view
 
 struct CommandView: View {
-    @State private var vm = CommandViewModel()
+    @State private var vm: CommandViewModel
+    init(database: LariatDatabase) { _vm = State(wrappedValue: CommandViewModel(database: database)) }
 
     var body: some View {
         Group {

@@ -17,38 +17,38 @@ import Observation
     var abcRows: [AbcRankedRow] = []
     var errorText: String?
     private var streamTask: Task<Void, Never>?
+    private let database: LariatDatabase
+
+    init(database: LariatDatabase) {
+        self.database = database
+    }
 
     func start() {
         streamTask?.cancel()
-        do {
-            let db = try LariatDatabase()
-            let repo = CostingRepository(database: db)
-            streamTask = Task { [weak self] in
-                // ValueObservation can't see cross-process writes; poll every 3 s
-                // (mirrors CommandViewModel / AnalyticsViewModel polling pattern).
-                while !Task.isCancelled {
-                    do {
-                        let b = try await repo.fetch()
-                        let me = CostingCompute.computeMenuEngineering(salesLines: b.salesLines)
-                        let trend = CostingCompute.getVarianceTrend(trendRows: b.varianceTrendRows)
-                        let abc = CostingCompute.rankByContribution(salesLines: b.salesLines)
-                        await MainActor.run {
-                            self?.bundle = b
-                            self?.menuEngineering = me
-                            self?.varianceTrend = trend
-                            self?.abcRows = abc
-                            self?.errorText = nil
-                        }
-                    } catch {
-                        await MainActor.run {
-                            self?.errorText = "Fetch error: \(error.localizedDescription)"
-                        }
+        let repo = CostingRepository(database: database)
+        streamTask = Task { [weak self] in
+            // ValueObservation can't see cross-process writes; poll every 3 s
+            // (mirrors CommandViewModel / AnalyticsViewModel polling pattern).
+            while !Task.isCancelled {
+                do {
+                    let b = try await repo.fetch()
+                    let me = CostingCompute.computeMenuEngineering(salesLines: b.salesLines)
+                    let trend = CostingCompute.getVarianceTrend(trendRows: b.varianceTrendRows)
+                    let abc = CostingCompute.rankByContribution(salesLines: b.salesLines)
+                    await MainActor.run {
+                        self?.bundle = b
+                        self?.menuEngineering = me
+                        self?.varianceTrend = trend
+                        self?.abcRows = abc
+                        self?.errorText = nil
                     }
-                    try? await Task.sleep(for: .seconds(3))
+                } catch {
+                    await MainActor.run {
+                        self?.errorText = "Fetch error: \(error.localizedDescription)"
+                    }
                 }
+                try? await Task.sleep(for: .seconds(3))
             }
-        } catch {
-            errorText = "Can't open lariat.db at \(resolveDatabasePath()): \(error.localizedDescription)"
         }
     }
 
@@ -58,7 +58,8 @@ import Observation
 // MARK: - Root view
 
 struct CostingView: View {
-    @State private var vm = CostingViewModel()
+    @State private var vm: CostingViewModel
+    init(database: LariatDatabase) { _vm = State(wrappedValue: CostingViewModel(database: database)) }
 
     var body: some View {
         Group {

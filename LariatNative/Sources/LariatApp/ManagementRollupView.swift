@@ -7,21 +7,22 @@ import Observation
     var snapshot: RollupSnapshot?
     var errorText: String?
     private var streamTask: Task<Void, Never>?
+    private let database: LariatDatabase
+
+    init(database: LariatDatabase) {
+        self.database = database
+    }
 
     func start() {
         streamTask?.cancel()
-        do {
-            let repo = ManagementRollupRepository(database: try LariatDatabase())
-            streamTask = Task { [weak self] in
-                for await s in repo.stream() {
-                    await MainActor.run {
-                        self?.snapshot = s
-                        self?.errorText = nil
-                    }
+        let repo = ManagementRollupRepository(database: database)
+        streamTask = Task { [weak self] in
+            for await s in repo.stream() {
+                await MainActor.run {
+                    self?.snapshot = s
+                    self?.errorText = nil
                 }
             }
-        } catch {
-            errorText = "Can't open lariat.db at \(resolveDatabasePath()): \(error.localizedDescription)"
         }
     }
 
@@ -29,7 +30,8 @@ import Observation
 }
 
 struct ManagementRollupView: View {
-    @State private var vm = ManagementRollupViewModel()
+    @State private var vm: ManagementRollupViewModel
+    init(database: LariatDatabase) { _vm = State(wrappedValue: ManagementRollupViewModel(database: database)) }
 
     var body: some View {
         Group {

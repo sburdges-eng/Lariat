@@ -11,34 +11,34 @@ import Observation
     var summary: AnalyticsSummary?
     var errorText: String?
     private var streamTask: Task<Void, Never>?
+    private let database: LariatDatabase
+
+    init(database: LariatDatabase) {
+        self.database = database
+    }
 
     func start() {
         streamTask?.cancel()
-        do {
-            let db = try LariatDatabase()
-            let repo = AnalyticsRepository(database: db)
-            streamTask = Task { [weak self] in
-                // ValueObservation can't see cross-process writes; poll every 3 s
-                // (mirrors CommandViewModel polling pattern).
-                while !Task.isCancelled {
-                    do {
-                        let b = try await repo.fetch()
-                        let s = AnalyticsCompute.summarize(bundle: b)
-                        await MainActor.run {
-                            self?.bundle = b
-                            self?.summary = s
-                            self?.errorText = nil
-                        }
-                    } catch {
-                        await MainActor.run {
-                            self?.errorText = "Fetch error: \(error.localizedDescription)"
-                        }
+        let repo = AnalyticsRepository(database: database)
+        streamTask = Task { [weak self] in
+            // ValueObservation can't see cross-process writes; poll every 3 s
+            // (mirrors CommandViewModel polling pattern).
+            while !Task.isCancelled {
+                do {
+                    let b = try await repo.fetch()
+                    let s = AnalyticsCompute.summarize(bundle: b)
+                    await MainActor.run {
+                        self?.bundle = b
+                        self?.summary = s
+                        self?.errorText = nil
                     }
-                    try? await Task.sleep(for: .seconds(3))
+                } catch {
+                    await MainActor.run {
+                        self?.errorText = "Fetch error: \(error.localizedDescription)"
+                    }
                 }
+                try? await Task.sleep(for: .seconds(3))
             }
-        } catch {
-            errorText = "Can't open lariat.db at \(resolveDatabasePath()): \(error.localizedDescription)"
         }
     }
 
@@ -48,7 +48,8 @@ import Observation
 // MARK: - Root view
 
 struct AnalyticsView: View {
-    @State private var vm = AnalyticsViewModel()
+    @State private var vm: AnalyticsViewModel
+    init(database: LariatDatabase) { _vm = State(wrappedValue: AnalyticsViewModel(database: database)) }
 
     var body: some View {
         Group {
