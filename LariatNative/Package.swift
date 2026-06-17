@@ -8,7 +8,12 @@ let package = Package(
         .package(url: "https://github.com/groue/GRDB.swift.git", from: "6.29.0")
     ],
     targets: [
-        .target(name: "LariatModel"),
+        .target(
+            name: "LariatModel",
+            dependencies: [
+                .product(name: "GRDB", package: "GRDB.swift")
+            ]
+        ),
         .target(
             name: "LariatDB",
             dependencies: [
@@ -20,7 +25,13 @@ let package = Package(
             name: "LariatApp",
             dependencies: ["LariatDB", "LariatModel"]
         ),
-        .testTarget(name: "LariatModelTests", dependencies: ["LariatModel"]),
+        .testTarget(
+            name: "LariatModelTests",
+            dependencies: [
+                "LariatModel",
+                .product(name: "GRDB", package: "GRDB.swift")
+            ]
+        ),
         .testTarget(
             name: "LariatDBTests",
             dependencies: [
