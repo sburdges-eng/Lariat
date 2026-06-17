@@ -113,12 +113,18 @@ public struct TodayBoardRepository {
                 )
             }
 
+            // Latest row per (station, item) — mirrors `lib/stationProgress.js` GROUP BY item + MAX(created_at).
             let entryRows = try Row.fetchAll(
                 db,
                 sql: """
                     SELECT station_id, item, status
                       FROM line_check_entries
-                     WHERE shift_date = ? AND location_id = ?
+                     WHERE id IN (
+                       SELECT MAX(id)
+                         FROM line_check_entries
+                        WHERE shift_date = ? AND location_id = ?
+                        GROUP BY station_id, item
+                     )
                     """,
                 arguments: [shiftDate, locationId]
             )

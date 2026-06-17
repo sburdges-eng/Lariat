@@ -78,7 +78,7 @@ public func todayISO(from date: Date = Date(), calendar: Calendar = {
 }
 
 
-private func resolveDataDirectory(
+public func resolveDataDirectory(
     env: [String: String] = ProcessInfo.processInfo.environment,
     cwd: String = FileManager.default.currentDirectoryPath
 ) -> String {

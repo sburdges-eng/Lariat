@@ -44,7 +44,7 @@ public enum StationProgressCompute {
         signedOff: Bool
     ) -> StationProgress? {
         guard !templateItems.isEmpty else { return nil }
-        let byItem = Dictionary(entries.map { ($0.item, $0) }, uniquingKeysWith: { first, _ in first })
+        let byItem = Dictionary(entries.map { ($0.item, $0) }, uniquingKeysWith: { _, last in last })
         var done = 0
         var flagged = 0
         for item in templateItems {

@@ -1,14 +1,12 @@
 import Foundation
+import LariatModel
 
 /// Mirrors `lib/dataDir.ts` — data root from `LARIAT_DATA_DIR` or `<cwd>/data`.
 public func resolveDataDirectory(
     env: [String: String] = ProcessInfo.processInfo.environment,
     cwd: String = FileManager.default.currentDirectoryPath
 ) -> String {
-    if let raw = env["LARIAT_DATA_DIR"], !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-        return (raw as NSString).isAbsolutePath ? raw : (cwd as NSString).appendingPathComponent(raw)
-    }
-    return (cwd as NSString).appendingPathComponent("data")
+    LariatModel.resolveDataDirectory(env: env, cwd: cwd)
 }
 
 /// Mirrors `lib/auditLog.mjs` default path; honors `LARIAT_AUDIT_PATH` override.

@@ -47,6 +47,32 @@ final class TodayBoardRepositoryTests: XCTestCase {
         XCTAssertFalse(snap.recentMoves.isEmpty)
         XCTAssertEqual(snap.recentMoves.first?.item, "Chicken")
     }
+    func testLineCheckUsesLatestRowPerItem() async throws {
+        let path = try seedFixtureDatabase()
+        defer { try? FileManager.default.removeItem(atPath: (path as NSString).deletingLastPathComponent) }
+        try appendTodayBoardFixture(path: path)
+        let pool = try DatabasePool(path: path)
+        let today = todayISO()
+        try await pool.write { db in
+            // Re-check: Mayo failed earlier in fixture; later pass should win.
+            try db.execute(
+                sql: """
+                    INSERT INTO line_check_entries (shift_date, station_id, item, status, location_id, created_at)
+                    VALUES (?, 'grill_saute', 'Mayo', 'pass', 'default', datetime('now', '+1 minute'));
+                    """,
+                arguments: [today]
+            )
+        }
+        let repo = TodayBoardRepository(
+            database: try LariatDatabase(path: path),
+            catalog: testCatalog(),
+            locationId: "default"
+        )
+        let snap = try await repo.load(shiftDate: today)
+        XCTAssertEqual(snap.activeStations.first?.progress?.flagged, 0)
+        XCTAssertEqual(snap.flaggedCount, 0)
+    }
+
 }
 
 func appendTodayBoardFixture(path: String) throws {

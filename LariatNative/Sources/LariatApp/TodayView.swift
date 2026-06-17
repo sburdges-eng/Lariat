@@ -18,7 +18,7 @@ import Observation
             self.catalogError = nil
         } catch {
             self.catalog = nil
-            self.catalogError = "Station data unavailable: \(error.localizedDescription)"
+            self.catalogError = "Could not load Today"
         }
     }
 
@@ -33,7 +33,7 @@ import Observation
                     self?.snapshot = snap
                     self?.fetchError = nil
                 } catch {
-                    self?.fetchError = "Fetch error: \(error.localizedDescription)"
+                    self?.fetchError = "Could not load Today"
                 }
                 try? await Task.sleep(for: .seconds(3))
             }
@@ -54,9 +54,9 @@ struct TodayView: View {
     var body: some View {
         Group {
             if let catalogErr = vm.catalogError {
-                TileDegrade(title: "Today unavailable", message: catalogErr, systemImage: "tray")
+                TileDegrade(title: "Could not load Today", message: catalogErr, systemImage: "tray")
             } else if let err = vm.fetchError, vm.snapshot == nil {
-                TileDegrade(title: "Today unavailable", message: err, systemImage: "externaldrive.badge.xmark")
+                TileDegrade(title: "Could not load Today", message: err, systemImage: "externaldrive.badge.xmark")
             } else if let snap = vm.snapshot {
                 todayContent(snap)
             } else {
