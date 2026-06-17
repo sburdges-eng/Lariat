@@ -155,9 +155,9 @@ private struct KpiHeaderRow: View {
                 }
             }
 
-            // Avg check — shown only when non-nil (web: `avgCheck != null && isFinite(avgCheck)`)
+            // Avg check — shown only when non-nil and finite (web: `avgCheck != null && isFinite(avgCheck)`)
             KpiCard(label: "Avg check") {
-                if let avg = summary.avgCheck {
+                if let avg = summary.avgCheck, avg.isFinite {
                     Text(formatDollars(avg, decimals: 2))
                         .font(.system(.title2, design: .rounded))
                         .bold()
@@ -272,8 +272,6 @@ private struct DailyTrendChart: View {
 
 // MARK: - Chart 2: Day-of-week comparison
 
-private let dowNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-
 private struct DowComparisonChart: View {
     let pairs: [AnalyticsSummary.DowPair]
 
@@ -334,7 +332,9 @@ private struct DowComparisonChart: View {
 private struct HourlyComparisonChart: View {
     let pairs: [AnalyticsSummary.HourlyPair]
 
-    // Mirror web: filter to hours with net_sales > 500
+    // Mirror web: only plot hours with net_sales > 500 (active hours).
+    // Card visibility uses the UNFILTERED pairs so a low-volume environment
+    // (all hours ≤ $500) still renders the near-flat curve rather than hiding the card.
     private var activePairs: [AnalyticsSummary.HourlyPair] {
         pairs.filter { ($0.current.netSales ?? 0) > 500 }
     }
@@ -342,7 +342,7 @@ private struct HourlyComparisonChart: View {
     var body: some View {
         ChartCard(
             title: "Hourly revenue curve",
-            isEmpty: activePairs.isEmpty,
+            isEmpty: pairs.isEmpty,
             emptyTitle: "No hourly data yet"
         ) {
             Chart {
@@ -579,10 +579,15 @@ private func formatCompact(_ value: Double) -> String {
     }
 }
 
-/// day_of_week integer → short name (1=Mon … 7=Sun, per toast_sales_dow schema)
+/// Maps an integer `day_of_week` to a short weekday name.
+///
+/// Assumes the SQLite `strftime('%w')` convention where 0 = Sunday, 1 = Monday … 6 = Saturday.
+/// The modulo guard handles any out-of-range values safely.
+///
+/// **Known verification item:** if production `toast_sales_dow.day_of_week` is stored with an
+/// ISO-style 1=Mon–7=Sun convention instead, the axis labels will be off-by-one and this
+/// mapping will need adjustment to match the ingest pipeline.
 private func dayName(_ dow: Int) -> String {
-    // day_of_week in sqlite strftime('%w') convention: 0=Sun, 1=Mon … 6=Sat
-    // but may also be stored 1-7 Mon-Sun depending on ingest; use modulo safety
     let names = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
     let idx = ((dow % 7) + 7) % 7
     return names[idx]
