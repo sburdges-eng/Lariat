@@ -85,12 +85,18 @@ import Observation
 
     func stop() { streamTask?.cancel() }
 
-    private static func todayISO() -> String {
+    // Web parity: lib/db.ts `todayISO()` uses `new Date().toISOString().slice(0,10)`,
+    // which is UTC. We match that by fixing the formatter's timezone to UTC.
+    private static let isoDateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         f.timeZone = TimeZone(identifier: "UTC")
         f.locale = Locale(identifier: "en_US_POSIX")
-        return f.string(from: Date())
+        return f
+    }()
+
+    private static func todayISO() -> String {
+        isoDateFormatter.string(from: Date())
     }
 }
 
@@ -198,10 +204,10 @@ private struct CommandContentView: View {
     }
 
     // 5. Margin moves — "Dish costs that moved 5%+ in 7 days"
-    // NOTE: listMarginDeltas is NOT ported to Swift in P1a. marginMoves is zero.
+    // NOTE (P1a): listMarginDeltas is NOT ported to Swift; marginMoves is always zero.
     // Needs a Swift margin-delta source in a follow-up task.
     private var marginMovesTile: some View {
-        CommandTile(title: "Margin moves", sub: "Dish costs that moved 5%+ in 7 days (P1a: zero — listMarginDeltas not ported)") {
+        CommandTile(title: "Margin moves", sub: "Dish costs that moved 5%+ in 7 days") {
             TileLine(n: "\(summary.marginMoves.up)", label: "up")
             TileLine(n: "\(summary.marginMoves.down)", label: "down")
             TileLine(n: "\(summary.marginMoves.total)", label: "total moves")
@@ -252,14 +258,26 @@ private struct AlertsSection: View {
 
             if !redAlerts.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
+                    Text("Critical")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.red)
                     ForEach(redAlerts, id: \.source) { alert in
                         AlertRow(alert: alert)
                     }
                 }
             }
 
+            if !redAlerts.isEmpty && !amberAlerts.isEmpty {
+                Divider()
+            }
+
             if !amberAlerts.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
+                    Text("Warnings")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.orange)
                     ForEach(amberAlerts, id: \.source) { alert in
                         AlertRow(alert: alert)
                     }
@@ -289,7 +307,7 @@ private struct AlertRow: View {
                 .frame(width: 8, height: 8)
             Text(alert.message)
                 .font(.caption)
-                .foregroundStyle(color)
+                .foregroundStyle(.primary)
         }
     }
 }
