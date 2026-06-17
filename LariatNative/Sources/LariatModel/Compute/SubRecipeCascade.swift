@@ -62,13 +62,15 @@ public enum SubRecipeCascadeCompute {
         return parents
     }
 
+    /// Mirrors `lib/subRecipeGraph.ts` `tokens()` — ASCII `[a-z0-9]` only; accents are separators.
+    private static let asciiAlphanumeric = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789")
+
     private static func tokens(_ s: String?) -> [String] {
         guard let s, !s.isEmpty else { return [] }
         return s
             .lowercased()
             .replacingOccurrences(of: "_", with: " ")
-            .split { !$0.isLetter && !$0.isNumber }
-            .map(String.init)
+            .components(separatedBy: asciiAlphanumeric.inverted)
             .filter { !$0.isEmpty }
     }
 

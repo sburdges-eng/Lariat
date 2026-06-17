@@ -54,6 +54,20 @@ final class StationProgressTests: XCTestCase {
         XCTAssertEqual(cascaded.first?.via, "Lobster Bisque")
     }
 
+
+    func testCascadeAsciiTokenizationOnAccentedNames() {
+        // Web splits "Sauté Special" → ["saut", "special"]; Unicode word chars would keep "sauté".
+        let recipes = [
+            RecipeCatalogEntry(slug: "saut_special", name: "Sauté Special", subRecipes: []),
+            RecipeCatalogEntry(slug: "plate", name: "Plate", subRecipes: ["saut_special"]),
+        ]
+        let cascaded = SubRecipeCascadeCompute.cascadedFromEightySix(
+            itemsEightySixed: ["saut special"],
+            recipes: recipes
+        )
+        XCTAssertEqual(cascaded.map(\.slug), ["plate"])
+    }
+
     func testStationLabelsMatchWebToneOrder() {
         XCTAssertEqual(StationProgressLabels.label(for: nil), "No line check")
         XCTAssertEqual(StationProgressLabels.label(for: StationProgress(total: 4, done: 2, flagged: 1, signedOff: false)), "1 flagged")
