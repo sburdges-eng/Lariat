@@ -15,7 +15,7 @@ import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 
-import { getDb, setDbPathForTest, initSchema } from '../../lib/db.ts';
+import { getDb, setDbPathForTest, initSchema, SCHEMA_VERSION } from '../../lib/db.ts';
 
 // Shared fresh in-memory DB for the whole suite. Closed in the final `after`.
 setDbPathForTest(':memory:');
@@ -1098,5 +1098,59 @@ describe('lari_conversation_turns schema', () => {
     const names = indexes.map((i) => i.name);
     assert.ok(names.includes('idx_lari_conversation_partition'), 'partition index missing');
     assert.ok(names.includes('idx_lari_conversation_expiry'), 'expiry index missing');
+  });
+});
+
+// ── Schema version marker (P1a spec §7) ────────────────────────────
+// The native macOS read-only app reads MAX(version) from schema_migrations
+// to detect schema drift and degrade gracefully. initSchema records the
+// current SCHEMA_VERSION; the marker must be present, correct, and stable
+// across re-init.
+
+describe('schema_migrations version marker — P1a §7', () => {
+  it('SCHEMA_VERSION is exported as a positive integer', () => {
+    assert.ok(
+      Number.isInteger(SCHEMA_VERSION) && SCHEMA_VERSION >= 1,
+      `SCHEMA_VERSION must be a positive integer, got ${String(SCHEMA_VERSION)}`,
+    );
+  });
+
+  it('schema_migrations exists with version as the primary key', () => {
+    const row = /** @type {{sql: string} | undefined} */ (
+      db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='schema_migrations'`).get()
+    );
+    assert.ok(row, 'schema_migrations table not found');
+    const info = /** @type {{name: string, pk: number}[]} */ (
+      db.prepare('PRAGMA table_info(schema_migrations)').all()
+    );
+    const version = info.find((c) => c.name === 'version');
+    assert.ok(version, 'version column missing');
+    assert.strictEqual(version.pk, 1, 'version must be the primary key');
+  });
+
+  it('records the current SCHEMA_VERSION as MAX(version)', () => {
+    const row = /** @type {{v: number | null}} */ (
+      db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get()
+    );
+    assert.strictEqual(row.v, SCHEMA_VERSION);
+  });
+
+  it('applied_at is populated and non-empty for the current version', () => {
+    const row = /** @type {{applied_at: string} | undefined} */ (
+      db.prepare('SELECT applied_at FROM schema_migrations WHERE version = ?').get(SCHEMA_VERSION)
+    );
+    assert.ok(row, 'no marker row for the current SCHEMA_VERSION');
+    assert.ok(
+      typeof row.applied_at === 'string' && row.applied_at.length > 0,
+      'applied_at default must populate',
+    );
+  });
+
+  it('re-running initSchema does not duplicate the marker row', () => {
+    initSchema(db);
+    const row = /** @type {{c: number}} */ (
+      db.prepare('SELECT COUNT(*) AS c FROM schema_migrations WHERE version = ?').get(SCHEMA_VERSION)
+    );
+    assert.strictEqual(row.c, 1, 'marker row duplicated on re-init');
   });
 });
