@@ -14,7 +14,7 @@ enum SafetyDestination: String, Hashable, CaseIterable, Identifiable {
     var enabled: Bool {
         switch self {
         case .hub, .tempLog, .dateMarks, .calibrations: return true
-        case .cleaning, .breaks: return false
+        case .cleaning, .breaks: return true
         }
     }
 }

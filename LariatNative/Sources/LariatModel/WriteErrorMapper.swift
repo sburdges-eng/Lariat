@@ -24,6 +24,15 @@ public enum WriteErrorMapper {
         if let cal = error as? CalibrationWriteError {
             return cal.localizedDescription
         }
+        if let kds = error as? KdsWriteError {
+            return kds.localizedDescription
+        }
+        if let cleaning = error as? CleaningWriteError {
+            return cleaning.localizedDescription
+        }
+        if let brk = error as? BreakWriteError {
+            return brk.localizedDescription
+        }
         if let line = error as? LineCheckWriteError {
             return line.localizedDescription
         }
