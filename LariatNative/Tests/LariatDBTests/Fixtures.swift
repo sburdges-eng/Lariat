@@ -322,6 +322,268 @@ func seedFixtureDatabase() throws -> String {
                   ('default', 'Burger', 'vendor_item', 'Ground Beef',  0.25, 'lb'),
                   ('default', 'Tacos',  'vendor_item', 'Taco Shell',   2.0,  'each');
                 """)
+
+            // ── Command Center tables (Task 7) ─────────────────────────────────
+            //
+            // All new tables use location_id='default' and runtime-relative dates
+            // (date('now'), datetime('now', ...)) for shift_date-based queries so
+            // tests work on any calendar day.
+            //
+            // Known fixture values referenced by CommandRepositoryTests:
+            //   inventory_par: 3 items; 2 with par_qty set; 1 below par
+            //   inventory_count_lines: Flour below par (on_hand=2 < par=5), Butter at par (on_hand=10 >= par=10)
+            //   inventory_counts: 1 open (closed_at IS NULL), 1 closed
+            //   shift_breaks: 2 rows for date('now') — 1 open break (ended_at NULL), 1 ended
+            //   performance_reviews: 2 for date('now'), 1 for date('now','-1 day') → total=3
+            //   temp_log: 2 rows for date('now') — 1 within range (38°F, 33–41), 1 out of range (55°F, 33–41)
+            //   date_marks: 2 active — 1 expired (discard_on=date('now','-1 day')), 1 due today;
+            //                1 discarded (should NOT appear in fetch)
+            //   thermometer_calibrations: 2 rows with runtime-relative calibrated_at
+            //   preshift_notes: 2 rows for date('now')
+            //   beo_events: 1 active (guest_count=50), 1 cancelled — both for date('now')
+            //   reservations: 6 rows for date('now') — 2 booked, 1 seated, 1 completed, 1 no_show, 1 cancelled
+            //   prep_tasks: 5 rows for date('now') — 2 todo (priority 1 rush + priority 3), 1 in_progress, 1 done, 1 skipped
+            //   inventory_updates: 2 waste rows for date('now'), 3 waste rows for date('now','-3 days'),
+            //                       1 non-waste row for date('now') → wasteTodayCount=2, waste7dCount=5
+            //   dining_tables: 4 tables — open (cap=4), seated (cap=6), dirty (cap=2), closed (cap=4)
+
+            try db.execute(sql: """
+                -- commandCenter.ts: inventory par levels
+                CREATE TABLE inventory_par (
+                  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                  location_id TEXT NOT NULL DEFAULT 'default',
+                  ingredient  TEXT NOT NULL,
+                  sku         TEXT,
+                  par_qty     REAL,
+                  unit        TEXT);
+
+                -- 3 items: Flour (par=5), Butter (par=10), Salt (par_qty NULL — no par set)
+                INSERT INTO inventory_par (location_id, ingredient, sku, par_qty, unit)
+                VALUES
+                  ('default', 'Flour',  'SKU-FLOUR',  5.0,  'lb'),
+                  ('default', 'Butter', 'SKU-BUTTER', 10.0, 'lb'),
+                  ('default', 'Salt',   'SKU-SALT',   NULL, 'lb');
+
+                -- commandCenter.ts: inventory count lines (latest on-hand quantities)
+                CREATE TABLE inventory_count_lines (
+                  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                  location_id TEXT NOT NULL DEFAULT 'default',
+                  ingredient  TEXT NOT NULL,
+                  sku         TEXT,
+                  on_hand_qty REAL,
+                  counted_at  TEXT NOT NULL);
+
+                -- Flour: on_hand=2 < par=5 → below par (counted today)
+                -- Butter: on_hand=10 >= par=10 → at par (counted today)
+                INSERT INTO inventory_count_lines (location_id, ingredient, sku, on_hand_qty, counted_at)
+                VALUES
+                  ('default', 'Flour',  'SKU-FLOUR',  2.0,  datetime('now')),
+                  ('default', 'Butter', 'SKU-BUTTER', 10.0, datetime('now'));
+
+                -- commandCenter.ts: inventory counts (open sessions)
+                CREATE TABLE inventory_counts (
+                  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                  location_id TEXT NOT NULL DEFAULT 'default',
+                  started_at  TEXT,
+                  closed_at   TEXT);
+
+                -- 1 open count (closed_at IS NULL), 1 closed count
+                INSERT INTO inventory_counts (location_id, started_at, closed_at)
+                VALUES
+                  ('default', datetime('now', '-1 hour'), NULL),
+                  ('default', datetime('now', '-2 days'), datetime('now', '-1 day'));
+
+                -- commandCenter.ts: shift break tracking
+                CREATE TABLE shift_breaks (
+                  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                  location_id TEXT NOT NULL DEFAULT 'default',
+                  shift_date  TEXT NOT NULL,
+                  started_at  TEXT,
+                  ended_at    TEXT,
+                  waived      INTEGER NOT NULL DEFAULT 0);
+
+                -- 2 rows for date('now'): 1 open break (ended_at NULL), 1 ended
+                INSERT INTO shift_breaks (location_id, shift_date, started_at, ended_at, waived)
+                VALUES
+                  ('default', date('now'), datetime('now', '-30 minutes'), NULL, 0),
+                  ('default', date('now'), datetime('now', '-2 hours'),    datetime('now', '-90 minutes'), 0);
+
+                -- commandCenter.ts: performance reviews
+                CREATE TABLE performance_reviews (
+                  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                  location_id TEXT NOT NULL DEFAULT 'default',
+                  staff_name  TEXT,
+                  review_date TEXT NOT NULL,
+                  score       REAL);
+
+                -- 2 for today, 1 for yesterday → total=3, today_count=2
+                INSERT INTO performance_reviews (location_id, staff_name, review_date, score)
+                VALUES
+                  ('default', 'Alice', date('now'),         4.5),
+                  ('default', 'Bob',   date('now'),         3.8),
+                  ('default', 'Carol', date('now', '-1 day'), 4.0);
+
+                -- commandCenter.ts: HACCP temperature log
+                CREATE TABLE temp_log (
+                  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                  location_id       TEXT NOT NULL DEFAULT 'default',
+                  shift_date        TEXT NOT NULL,
+                  point_id          TEXT,
+                  reading_f         REAL,
+                  required_min_f    REAL,
+                  required_max_f    REAL,
+                  corrective_action TEXT,
+                  created_at        TEXT DEFAULT (datetime('now')));
+
+                -- 2 rows for date('now'): 1 within range, 1 out of range
+                -- Row 1: reading_f=38, required_min_f=33, required_max_f=41 → within range
+                -- Row 2: reading_f=55, required_min_f=33, required_max_f=41 → out of range
+                INSERT INTO temp_log (location_id, shift_date, point_id, reading_f, required_min_f, required_max_f, corrective_action, created_at)
+                VALUES
+                  ('default', date('now'), 'WALK-IN-COOLER', 38.0, 33.0, 41.0, NULL,              datetime('now', '-3 hours')),
+                  ('default', date('now'), 'REACH-IN-COOLER', 55.0, 33.0, 41.0, 'Adjusted cooler', datetime('now', '-1 hour'));
+
+                -- commandCenter.ts: date marks / FIFO labels
+                CREATE TABLE date_marks (
+                  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                  location_id  TEXT NOT NULL DEFAULT 'default',
+                  item         TEXT,
+                  prepared_on  TEXT,
+                  discard_on   TEXT,
+                  discarded_at TEXT);
+
+                -- 2 active marks (discarded_at IS NULL): 1 expired, 1 due today
+                -- 1 discarded mark (should NOT appear in fetch)
+                INSERT INTO date_marks (location_id, item, prepared_on, discard_on, discarded_at)
+                VALUES
+                  ('default', 'Chicken Stock', date('now', '-4 days'), date('now', '-1 day'), NULL),
+                  ('default', 'Hollandaise',   date('now'),             date('now'),           NULL),
+                  ('default', 'Old Sauce',     date('now', '-7 days'), date('now', '-3 days'), datetime('now', '-2 days'));
+
+                -- commandCenter.ts: thermometer calibration log
+                CREATE TABLE thermometer_calibrations (
+                  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                  location_id      TEXT NOT NULL DEFAULT 'default',
+                  thermometer_id   TEXT,
+                  method           TEXT,
+                  before_reading_f REAL,
+                  passed           INTEGER NOT NULL DEFAULT 0,
+                  calibrated_at    TEXT DEFAULT (datetime('now')),
+                  frequency_days   INTEGER);
+
+                -- 2 rows with runtime-relative calibrated_at
+                INSERT INTO thermometer_calibrations (location_id, thermometer_id, method, before_reading_f, passed, calibrated_at, frequency_days)
+                VALUES
+                  ('default', 'THERM-001', 'ice_point', 32.2, 1, datetime('now', '-7 days'),  30),
+                  ('default', 'THERM-002', 'ice_point', 31.8, 1, datetime('now', '-14 days'), 30);
+
+                -- commandCenter.ts: pre-shift manager notes
+                CREATE TABLE preshift_notes (
+                  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                  location_id TEXT NOT NULL DEFAULT 'default',
+                  shift_date  TEXT NOT NULL,
+                  author      TEXT,
+                  body        TEXT,
+                  created_at  TEXT DEFAULT (datetime('now')));
+
+                -- 2 notes for date('now')
+                INSERT INTO preshift_notes (location_id, shift_date, author, body)
+                VALUES
+                  ('default', date('now'), 'Manager A', 'VIP table 12 tonight'),
+                  ('default', date('now'), 'Manager B', 'Health inspection tomorrow');
+
+                -- commandCenter.ts: BEO (Banquet Event Orders) for today
+                CREATE TABLE beo_events (
+                  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                  location_id TEXT NOT NULL DEFAULT 'default',
+                  event_date  TEXT NOT NULL,
+                  name        TEXT,
+                  guest_count INTEGER,
+                  status      TEXT);
+
+                -- 1 active event (guest_count=50), 1 cancelled event
+                INSERT INTO beo_events (location_id, event_date, name, guest_count, status)
+                VALUES
+                  ('default', date('now'), 'Wedding Reception', 50, 'confirmed'),
+                  ('default', date('now'), 'Corporate Lunch',   20, 'cancelled');
+
+                -- commandCenter.ts: dining reservations
+                CREATE TABLE reservations (
+                  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                  location_id    TEXT NOT NULL DEFAULT 'default',
+                  reservation_at TEXT NOT NULL,
+                  guest_name     TEXT,
+                  party_size     INTEGER,
+                  status         TEXT);
+
+                -- 6 rows for date('now') with 6 distinct statuses:
+                --   booked (1), seated (1), completed (1), no_show (1), cancelled (1), confirmed (1)
+                -- Note: booked_count=1 for the grouped 'booked' row in assertions
+                INSERT INTO reservations (location_id, reservation_at, guest_name, party_size, status)
+                VALUES
+                  ('default', date('now') || 'T18:00:00', 'Smith',   4, 'booked'),
+                  ('default', date('now') || 'T19:00:00', 'Jones',   2, 'booked'),
+                  ('default', date('now') || 'T17:30:00', 'Garcia',  3, 'seated'),
+                  ('default', date('now') || 'T12:00:00', 'Lee',     2, 'completed'),
+                  ('default', date('now') || 'T13:00:00', 'Brown',   4, 'no_show'),
+                  ('default', date('now') || 'T20:00:00', 'Wilson',  6, 'cancelled'),
+                  ('default', date('now') || 'T21:00:00', 'Davis',   5, 'confirmed');
+
+                -- commandCenter.ts: prep task list
+                CREATE TABLE prep_tasks (
+                  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                  location_id TEXT NOT NULL DEFAULT 'default',
+                  shift_date  TEXT NOT NULL,
+                  task        TEXT,
+                  status      TEXT NOT NULL DEFAULT 'todo',
+                  priority    INTEGER);
+
+                -- 5 rows for date('now'): 2 todo (priority 1 rush, priority 3), 1 in_progress (priority 2), 1 done, 1 skipped
+                INSERT INTO prep_tasks (location_id, shift_date, task, status, priority)
+                VALUES
+                  ('default', date('now'), 'Butcher chicken',    'todo',        1),
+                  ('default', date('now'), 'Peel potatoes',      'todo',        3),
+                  ('default', date('now'), 'Make demi-glace',    'in_progress', 2),
+                  ('default', date('now'), 'Slice bread',        'done',        2),
+                  ('default', date('now'), 'Prep amuse bouche',  'skipped',     1);
+
+                -- commandCenter.ts: inventory waste / usage log
+                CREATE TABLE inventory_updates (
+                  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                  location_id TEXT NOT NULL DEFAULT 'default',
+                  shift_date  TEXT NOT NULL,
+                  ingredient  TEXT,
+                  direction   TEXT NOT NULL,
+                  qty         REAL,
+                  unit        TEXT);
+
+                -- 2 waste rows for today, 3 waste rows from 3 days ago (within 7d window)
+                -- 1 non-waste row today (should NOT appear in waste counts)
+                INSERT INTO inventory_updates (location_id, shift_date, ingredient, direction, qty, unit)
+                VALUES
+                  ('default', date('now'),          'Chicken',  'waste',   1.5, 'lb'),
+                  ('default', date('now'),          'Beef',     'waste',   0.5, 'lb'),
+                  ('default', date('now', '-3 days'), 'Salmon', 'waste',   2.0, 'lb'),
+                  ('default', date('now', '-3 days'), 'Butter', 'waste',   0.25,'lb'),
+                  ('default', date('now', '-3 days'), 'Cream',  'waste',   1.0, 'lb'),
+                  ('default', date('now'),          'Chicken',  'received', 10.0,'lb');
+
+                -- commandCenter.ts: front-of-house table status
+                CREATE TABLE dining_tables (
+                  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                  location_id TEXT NOT NULL DEFAULT 'default',
+                  table_name  TEXT,
+                  status      TEXT NOT NULL DEFAULT 'open',
+                  capacity    INTEGER);
+
+                -- 4 tables: open (cap=4), seated (cap=6), dirty (cap=2), closed (cap=4)
+                INSERT INTO dining_tables (location_id, table_name, status, capacity)
+                VALUES
+                  ('default', 'Table 1', 'open',   4),
+                  ('default', 'Table 2', 'seated', 6),
+                  ('default', 'Table 3', 'dirty',  2),
+                  ('default', 'Table 4', 'closed', 4);
+                """)
         }
         // writer deinits here, closing the pool; WAL mode persists in the file.
     }
