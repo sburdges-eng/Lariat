@@ -35,6 +35,8 @@ export default [
       'next-env.d.ts',
       'dist/**',
       'build/**',
+      'LariatNative/.build/**',
+      '.venv-datapack/**',
       'coverage/**',
       'public/**',
       '.venv/**',

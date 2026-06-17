@@ -962,6 +962,18 @@ export interface AuditEvent {
 
 // ── Schema ─────────────────────────────────────────────────────────
 
+/**
+ * Monotonic schema-version marker, surfaced via the `schema_migrations`
+ * table by {@link initSchema}. The native macOS read-only app (P1a spec §7)
+ * reads `SELECT MAX(version) FROM schema_migrations` and degrades gracefully
+ * on absence/mismatch rather than crashing.
+ *
+ * BUMP THIS whenever initSchema's DDL changes (new table / column / index).
+ * `scripts/check-schema-version-bump.mjs` enforces the bump at commit time so
+ * the marker stays trustworthy.
+ */
+export const SCHEMA_VERSION = 1;
+
 export function initSchema(db: DB): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS line_check_entries (
@@ -2105,6 +2117,19 @@ export function initSchema(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_kds_ticket_lines_ticket
       ON kds_ticket_lines(ticket_id, sort_order, id);
   `);
+
+  // ── Schema version marker (P1a spec §7) ──────────────────────────
+  // A monotonic marker the native read-only app reads to detect schema
+  // drift. Additive + idempotent: the table is created if absent and the
+  // current SCHEMA_VERSION is recorded once. INSERT OR IGNORE keeps re-init
+  // a no-op and preserves the original applied_at timestamp.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version    INTEGER PRIMARY KEY,
+      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+  db.prepare('INSERT OR IGNORE INTO schema_migrations (version) VALUES (?)').run(SCHEMA_VERSION);
 
   // Audit H2 (2026-05-14): clear the PRAGMA table_info cache so
   // column-add ALTERs propagate without a process restart. Lives in

@@ -241,7 +241,7 @@
     "esbuild": "^0.25.10"
   },
   "simple-git-hooks": {
-    "pre-commit": "node scripts/check-session-branch.mjs && npx lint-staged && npm run typecheck"
+    "pre-commit": "node scripts/check-session-branch.mjs && node scripts/check-schema-version-bump.mjs && npx lint-staged && npm run typecheck"
   },
   "devDependencies": {
     "@electron/notarize": "^2",
