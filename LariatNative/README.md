@@ -1,13 +1,14 @@
-# LariatNative (P2a — Cook Today board + P1b manager writes)
+# LariatNative (P2a Cook + AuditedWrite foundation + P1b manager writes)
 
 macOS/iOS app reading the live `lariat.db` (shared with the web app) via GRDB.
 
-This is **P2a** on top of P1b/P1a — the manager READ tier plus the first PIN-gated write: four SwiftUI manager
-screens wired into a `NavigationSplitView` shell, a `LariatModel/Compute/` layer of
-GRDB-free parity ports of the web's command/analytics/costing logic, and repositories for
-Command, Analytics, Costing, and an extended Management rollup (6 tiles). The app is
-**read-only by default** (`LariatDatabase`); pack-size acknowledge uses a separate writable pool (`LariatWriteDatabase`). Never migrates; web app keeps writing.
+Manager tier: four SwiftUI screens in a `NavigationSplitView`, `LariatModel/Compute/` parity ports,
+and repositories for Command, Analytics, Costing, and Management rollup (6 tiles, traffic-light colors).
+**Read-only by default** (`LariatDatabase`); pack-size acknowledge uses `LariatWriteDatabase` (JSONL audit).
 
+**AuditedWrite foundation** adds in-transaction `audit_events` writes (`AuditEventWriter`, `AuditedWriteRunner`) —
+parity with `lib/auditEvents.ts` so regulated native writes (86 board, line checks) can ship in P2b+.
+`RuleGate` remains stub until HACCP corrective-action UX.
 
 ## Cook tier (P2a)
 
@@ -46,7 +47,7 @@ web app's `lib/dataDir.ts`).
 
 ```bash
 swift test   # host-run Core tests (LariatDB + LariatModel); no simulator needed
-# 140 tests (P2a Today board + P1b pack-size write path)
+# 150 tests (AuditedWrite foundation + P2a Today + P1b pack-size write)
 ```
 
 ## Architecture
@@ -94,9 +95,11 @@ LariatNative/
   Sources/
     LariatModel/
       Records.swift                 — GRDB record types for every table
-      InvariantContracts.swift      — AuditedWrite / RuleGate / PinGate stubs (P1b writes)
+      InvariantContracts.swift      — AuditedWrite / RuleGate / PinGate
+      AuditEvent.swift              — AuditEventInput, RegulatedWriteContext
+      ShiftDate.swift               — todayISO() parity with lib/db.ts
       LocationScope.swift           — location filter (LARIAT_LOCATION_ID env var)
-      SchemaVersion.swift           — read-only schema-version probe (tested primitive; not yet wired into DB-open path — enforcement is a follow-up)
+      SchemaVersion.swift           — read-only schema-version probe
       Compute/
         CommandCompute.swift        — command-center summarize + alertsFor
         AnalyticsCompute.swift      — analytics aggregation and YoY delta
@@ -106,6 +109,9 @@ LariatNative/
         TempLogCompute.swift        — temperature log breach counting
     LariatDB/
       LariatDatabase.swift          — read-only DatabasePool + polling stream
+      LariatWriteDatabase.swift     — writable pool (never migrates)
+      AuditEventWriter.swift        — in-tx audit_events insert (lib/auditEvents.ts)
+      AuditedWriteRunner.swift      — regulated write transaction helper
       DatabasePaths.swift           — path resolution (LARIAT_DATA_DIR env var)
       ManagementRollupRepository.swift
       CommandRepository.swift
@@ -124,22 +130,11 @@ LariatNative/
     LariatDBTests/                  — Repository tests (in-memory GRDB fixtures)
 ```
 
-## Known limitations (P1a)
+## Known limitations
 
-These are documented parity gaps relative to the web app; all are deferred to P1b or later:
-
-- **Depletion tile** counts only `no_dish_components` rows. The full depletion resolver
-  (which also accounts for mapped-but-zero-par dishes) is deferred.
-- **Menu-engineering cost** reads a `cost_per_unit` column that production may not
-  populate. The web uses a `dishCostBridge` rollup to derive unit costs from recipe
-  components; that join is not yet ported.
-- **Margin moves** show zero. `listMarginDeltas` (the web's margin-movement feed) is not
-  ported; `CommandSummary.marginMoves` defaults to 0.
-- **Costing variance section** shows the accounting COGS variance trend (theoretical vs.
-  actual from `accounting_variances`). The web's recipe-level `computeCostVariance` card
-  (which uses dish-level ingredient costs) is not ported.
-- **Per-tile color signaling** (traffic-light green/amber/red) is not implemented. Tiles
-  show value and label only; color thresholds are still deferred.
-- **Pack-size acknowledge (P1b)** — PIN-gated write to `pack_size_changes` + JSONL management audit. Management tile links to `PackChangesView`.
-- **Regulated `audit_events` / `RuleGate`** — still deferred (P3). `AuditedWrite` stub unused for pack ack (web parity).
-- **Per-tile color signaling** — still deferred.
+- **Depletion tile** counts only `no_dish_components` rows (full resolver deferred).
+- **Menu-engineering cost** — `dishCostBridge` not yet ported.
+- **Margin moves** — `listMarginDeltas` not ported.
+- **Costing variance section** — recipe-level `computeCostVariance` not ported.
+- **Pack-size acknowledge (P1b)** — JSONL management audit (not `audit_events`).
+- **Regulated writes (P2b+)** — use `AuditEventWriter` inside the same transaction as the source row.

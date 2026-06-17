@@ -33,6 +33,21 @@ func seedFixtureDatabase() throws -> String {
                 INSERT INTO pack_size_changes (vendor, sku, prev_pack, new_pack, prev_price, new_price, detected_at, acknowledged)
                   VALUES ('Sysco','A1','6x#10','4x#10',40,38,'2026-06-16',0),
                          ('Sysco','A2','1cs','1cs',20,21,'2026-06-16',1);
+                CREATE TABLE audit_events (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  shift_date TEXT NOT NULL,
+                  location_id TEXT DEFAULT 'default',
+                  actor_cook_id TEXT,
+                  actor_source TEXT NOT NULL,
+                  entity TEXT NOT NULL,
+                  entity_id INTEGER,
+                  action TEXT NOT NULL
+                    CHECK(action IN ('insert','update','delete','correction','view')),
+                  replaces_id INTEGER,
+                  payload_json TEXT,
+                  note TEXT,
+                  created_at TEXT DEFAULT (datetime('now'))
+                );
                 """)
 
             // ── P1a tables ─────────────────────────────────────────────────────
