@@ -39,9 +39,9 @@ import Observation
 
 struct ManagementRollupView: View {
     @State private var vm: ManagementRollupViewModel
-    private let writeDatabase: LariatWriteDatabase
+    private let writeDatabase: LariatWriteDatabase?
 
-    init(database: LariatDatabase, writeDatabase: LariatWriteDatabase) {
+    init(database: LariatDatabase, writeDatabase: LariatWriteDatabase?) {
         _vm = State(wrappedValue: ManagementRollupViewModel(database: database))
         self.writeDatabase = writeDatabase
     }
@@ -138,17 +138,25 @@ struct ManagementRollupView: View {
                             )
                         }
 
-                        // Tile 6 — Pack-size changes unack'd (navigate to triage)
-                        NavigationLink {
-                            PackChangesView(readDB: vm.readDatabase, writeDB: writeDatabase)
-                        } label: {
+                        // Tile 6 — Pack-size changes unack'd (navigate to triage when writes available)
+                        if let writeDatabase {
+                            NavigationLink {
+                                PackChangesView(readDB: vm.readDatabase, writeDB: writeDatabase)
+                            } label: {
+                                Tile(
+                                    title: "Pack-size changes unack'd",
+                                    value: "\(s.unacknowledgedPackSizeChanges)",
+                                    sub: "tap to review and give OK"
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        } else {
                             Tile(
                                 title: "Pack-size changes unack'd",
                                 value: "\(s.unacknowledgedPackSizeChanges)",
-                                sub: "tap to review and give OK"
+                                sub: "acks need write access — check data folder"
                             )
                         }
-                        .buttonStyle(.plain)
                     }
                     .padding()
                 }

@@ -13,12 +13,18 @@ struct LariatApp: App {
         var id: String { rawValue }
     }
 
-    private let sharedDatabase: LariatDatabase? = try? LariatDatabase()
-    private let sharedWriteDatabase: LariatWriteDatabase? = try? LariatWriteDatabase()
+    private let sharedDatabase: LariatDatabase?
+    private let sharedWriteDatabase: LariatWriteDatabase?
+
+    init() {
+        let path = resolveDatabasePath()
+        sharedDatabase = try? LariatDatabase(path: path)
+        sharedWriteDatabase = try? LariatWriteDatabase(path: path)
+    }
 
     var body: some Scene {
         WindowGroup {
-            if let db = sharedDatabase, let writeDb = sharedWriteDatabase {
+            if let db = sharedDatabase {
                 NavigationSplitView {
                     List(Section.allCases, selection: $selection) { section in
                         Text(section.rawValue).tag(section)
@@ -34,7 +40,7 @@ struct LariatApp: App {
                         case .costing:
                             CostingView(database: db)
                         case .management:
-                            ManagementRollupView(database: db, writeDatabase: writeDb)
+                            ManagementRollupView(database: db, writeDatabase: sharedWriteDatabase)
                         case nil:
                             Text("Select a section")
                         }

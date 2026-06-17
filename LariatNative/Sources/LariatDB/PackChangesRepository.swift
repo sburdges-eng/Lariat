@@ -61,9 +61,9 @@ public struct PackChangesRepository {
     private let database: LariatWriteDatabase
     private let auditLogger: ManagementAuditLogger
 
-    public init(database: LariatWriteDatabase, auditLogger: ManagementAuditLogger = ManagementAuditLogger()) {
+    public init(database: LariatWriteDatabase, auditLogger: ManagementAuditLogger? = nil) {
         self.database = database
-        self.auditLogger = auditLogger
+        self.auditLogger = auditLogger ?? ManagementAuditLogger(auditPath: resolveManagementAuditPath())
     }
 
     public func unacknowledgedCount() throws -> Int {

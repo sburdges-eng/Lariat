@@ -34,13 +34,13 @@ final class PackChangesRepositoryTests: XCTestCase {
         let audit = try String(contentsOfFile: auditPath, encoding: .utf8)
         XCTAssertEqual(audit.components(separatedBy: "\n").filter { !$0.isEmpty }.count, 1)
     }
-}
 
     func testAcknowledgeMissingRow() throws {
         let path = try seedFixtureDatabase()
         defer { try? FileManager.default.removeItem(atPath: (path as NSString).deletingLastPathComponent) }
         let db = try LariatWriteDatabase(path: path)
-        let repo = PackChangesRepository(database: db)
+        let repo = PackChangesRepository(database: db, auditLogger: ManagementAuditLogger(auditPath: NSTemporaryDirectory() + "x.jsonl"))
         let result = try repo.acknowledge(id: 99999, note: nil)
         XCTAssertFalse(result.found)
     }
+}

@@ -92,6 +92,7 @@ final class PackChangesViewModel {
         ackError = nil
         do {
             _ = try ManagementWrite().requireSession(pinStore.session)
+            try writeDB.pool.read { db in try pinStore.validateActiveUser(db: db) }
             let repo = PackChangesRepository(database: writeDB)
             let trimmed = note.map { String($0.prefix(500)) }
             let result = try repo.acknowledge(id: id, note: trimmed)

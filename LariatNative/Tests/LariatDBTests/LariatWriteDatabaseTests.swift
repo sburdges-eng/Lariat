@@ -19,3 +19,10 @@ final class LariatWriteDatabaseTests: XCTestCase {
         XCTAssertThrowsError(try read.pool.write { try $0.execute(sql: "INSERT INTO pack_size_changes (vendor,sku) VALUES ('x','y')") })
     }
 }
+
+    func testRejectsMissingDatabaseFile() {
+        let missing = (NSTemporaryDirectory() as NSString).appendingPathComponent("no-such-lariat-\(UUID().uuidString).db")
+        XCTAssertThrowsError(try LariatWriteDatabase(path: missing)) { error in
+            XCTAssertTrue(error is LariatWriteDatabaseError)
+        }
+    }

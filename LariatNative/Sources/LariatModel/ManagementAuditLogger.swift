@@ -1,21 +1,12 @@
 import Foundation
 
+/// Appends management-action JSONL lines. Path resolution lives in `LariatDB.DataDirectory`.
 public struct ManagementAuditLogger: Sendable {
     private let auditPath: String
+    private static let appendQueue = DispatchQueue(label: "lariat.management-audit.append")
 
-    public init(auditPath: String? = nil, env: [String: String] = ProcessInfo.processInfo.environment, cwd: String = FileManager.default.currentDirectoryPath) {
-        if let auditPath { self.auditPath = auditPath }
-        else if let override = env["LARIAT_AUDIT_PATH"], !override.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            self.auditPath = override
-        } else {
-            let dataDir: String
-            if let raw = env["LARIAT_DATA_DIR"], !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                dataDir = (raw as NSString).isAbsolutePath ? raw : (cwd as NSString).appendingPathComponent(raw)
-            } else {
-                dataDir = (cwd as NSString).appendingPathComponent("data")
-            }
-            self.auditPath = (dataDir as NSString).appendingPathComponent("audit/management-actions.jsonl")
-        }
+    public init(auditPath: String) {
+        self.auditPath = auditPath
     }
 
     public func logPackSizeAcknowledged(
@@ -42,15 +33,22 @@ public struct ManagementAuditLogger: Sendable {
             throw NSError(domain: "ManagementAuditLogger", code: 1)
         }
         line.append("\n")
+        try Self.appendQueue.sync {
+            try appendLine(line)
+        }
+    }
+
+    private func appendLine(_ line: String) throws {
         let url = URL(fileURLWithPath: auditPath)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        guard let data = line.data(using: .utf8) else { return }
         if FileManager.default.fileExists(atPath: auditPath) {
             let handle = try FileHandle(forWritingTo: url)
             defer { try? handle.close() }
             try handle.seekToEnd()
-            if let d = line.data(using: .utf8) { try handle.write(contentsOf: d) }
+            try handle.write(contentsOf: data)
         } else {
-            try line.write(to: url, atomically: true, encoding: .utf8)
+            try data.write(to: url, options: .atomic)
         }
     }
 }

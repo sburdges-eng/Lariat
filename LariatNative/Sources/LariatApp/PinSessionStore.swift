@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import LariatModel
 import Observation
 
@@ -20,6 +21,24 @@ public final class PinSessionStore {
     public func clear() {
         session = nil
         UserDefaults.standard.removeObject(forKey: defaultsKey)
+    }
+
+    /// Re-check DB-backed users on each write — session blob alone is not trusted.
+    public func validateActiveUser(db: Database) throws {
+        guard let session, session.isValid else {
+            throw ManagementWriteError.pinRequired
+        }
+        if session.user.id == 0 { return }
+        guard try db.tableExists("manager_pin_users") else { return }
+        let active: Int = try Int.fetchOne(
+            db,
+            sql: "SELECT is_active FROM manager_pin_users WHERE id = ?",
+            arguments: [session.user.id]
+        ) ?? 0
+        guard active == 1 else {
+            clear()
+            throw PinGateError.invalidPin
+        }
     }
 
     public var activeUser: ManagerPinUser? {
