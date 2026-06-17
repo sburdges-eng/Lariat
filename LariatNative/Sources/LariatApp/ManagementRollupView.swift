@@ -33,11 +33,18 @@ import Observation
     }
 
     func stop() { streamTask?.cancel() }
+
+    var readDatabase: LariatDatabase { database }
 }
 
 struct ManagementRollupView: View {
     @State private var vm: ManagementRollupViewModel
-    init(database: LariatDatabase) { _vm = State(wrappedValue: ManagementRollupViewModel(database: database)) }
+    private let writeDatabase: LariatWriteDatabase?
+
+    init(database: LariatDatabase, writeDatabase: LariatWriteDatabase?) {
+        _vm = State(wrappedValue: ManagementRollupViewModel(database: database))
+        self.writeDatabase = writeDatabase
+    }
 
     var body: some View {
         Group {
@@ -131,12 +138,25 @@ struct ManagementRollupView: View {
                             )
                         }
 
-                        // Tile 6 — Pack-size changes unack'd (always a count)
-                        Tile(
-                            title: "Pack-size changes unack'd",
-                            value: "\(s.unacknowledgedPackSizeChanges)",
-                            sub: "acknowledge in Pack-size changes"
-                        )
+                        // Tile 6 — Pack-size changes unack'd (navigate to triage when writes available)
+                        if let writeDatabase {
+                            NavigationLink {
+                                PackChangesView(readDB: vm.readDatabase, writeDB: writeDatabase)
+                            } label: {
+                                Tile(
+                                    title: "Pack-size changes unack'd",
+                                    value: "\(s.unacknowledgedPackSizeChanges)",
+                                    sub: "tap to review and give OK"
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            Tile(
+                                title: "Pack-size changes unack'd",
+                                value: "\(s.unacknowledgedPackSizeChanges)",
+                                sub: "acks need write access — check data folder"
+                            )
+                        }
                     }
                     .padding()
                 }

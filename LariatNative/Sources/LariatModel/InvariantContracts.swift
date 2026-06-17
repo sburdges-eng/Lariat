@@ -15,3 +15,6 @@ public protocol RuleGate {
 public protocol PinGate {
     func requirePin() throws
 }
+
+// P1b: PinGate enforced via PinVerifier + PinSessionStore + ManagementWrite.
+// AuditedWrite (audit_events) and RuleGate remain stubs until P3 regulated writes.

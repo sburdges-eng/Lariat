@@ -1,12 +1,12 @@
-# LariatNative (P1a — Manager READ tier)
+# LariatNative (P1b — Manager write tier: pack-size ack)
 
 macOS/iOS app reading the live `lariat.db` (shared with the web app) via GRDB.
 
-This is **P1a** of the native Swift rewrite — the manager READ tier: four SwiftUI manager
+This is **P1b** on top of P1a — the manager READ tier plus the first PIN-gated write: four SwiftUI manager
 screens wired into a `NavigationSplitView` shell, a `LariatModel/Compute/` layer of
 GRDB-free parity ports of the web's command/analytics/costing logic, and repositories for
 Command, Analytics, Costing, and an extended Management rollup (6 tiles). The app is
-**read-only** and never migrates the database; the web app keeps writing it.
+**read-only by default** (`LariatDatabase`); pack-size acknowledge uses a separate writable pool (`LariatWriteDatabase`). Never migrates; web app keeps writing.
 
 ## Deployment floor: macOS 14 / iOS 17
 
@@ -29,7 +29,7 @@ web app's `lib/dataDir.ts`).
 
 ```bash
 swift test   # host-run Core tests (LariatDB + LariatModel); no simulator needed
-# P1a: 116 tests, 0 failures
+# 129 tests (P1b pack-size write path)
 ```
 
 ## Architecture
@@ -122,6 +122,7 @@ These are documented parity gaps relative to the web app; all are deferred to P1
   actual from `accounting_variances`). The web's recipe-level `computeCostVariance` card
   (which uses dish-level ingredient costs) is not ported.
 - **Per-tile color signaling** (traffic-light green/amber/red) is not implemented. Tiles
-  show value and label only; color thresholds are deferred to P1b.
-- **All writes are deferred.** `AuditedWrite`, `PinGate`, and `RuleGate` are stubs.
-  No create/update/delete operations exist in P1a.
+  show value and label only; color thresholds are still deferred.
+- **Pack-size acknowledge (P1b)** — PIN-gated write to `pack_size_changes` + JSONL management audit. Management tile links to `PackChangesView`.
+- **Regulated `audit_events` / `RuleGate`** — still deferred (P3). `AuditedWrite` stub unused for pack ack (web parity).
+- **Per-tile color signaling** — still deferred.
