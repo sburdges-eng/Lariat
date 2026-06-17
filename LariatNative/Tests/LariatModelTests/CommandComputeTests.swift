@@ -299,4 +299,157 @@ final class CommandComputeTests: XCTestCase {
         XCTAssertEqual(none?.severity, .amber)
         XCTAssertEqual(none?.message, "No staff reviews logged today")
     }
+
+    // MARK: - Coverage hardening: TempLogCompute direct tests
+
+    func testTempLogCompute_redBreachCount_criticalOutOfRange() {
+        // walk_in_cooler registry: requiredMaxF=41. Reading 55°F with no corrective action →
+        // classifyReading returns .outOfRange → critical += 1 (not corrective).
+        // Red rule: critical > 0 → isRed = true → redBreachCount = 1.
+        // Web rule: classifyReadings bucket → status 'red' when critical > 0.
+        let rows = [
+            CmdTempLogRow(id: 1, pointId: "walk_in_cooler", readingF: 55.0,
+                          requiredMinF: nil, requiredMaxF: nil,
+                          correctiveAction: nil, createdAt: "2026-06-16 06:00:00"),
+        ]
+        XCTAssertEqual(TempLogCompute.redBreachCount(rows), 1)
+    }
+
+    func testTempLogCompute_redBreachCount_correctiveNullifies() {
+        // Same 55°F out-of-range reading but WITH a corrective action note →
+        // classifyReading returns .outOfRange AND normalizeCorrective != nil → corrective += 1.
+        // Red rule: critical == 0 && corrective > 0 → isRed = false → redBreachCount = 0.
+        // Web rule: corrective action present moves tile from red to non-red.
+        let rows = [
+            CmdTempLogRow(id: 1, pointId: "walk_in_cooler", readingF: 55.0,
+                          requiredMinF: nil, requiredMaxF: nil,
+                          correctiveAction: "Adjusted cooler dial",
+                          createdAt: "2026-06-16 06:00:00"),
+        ]
+        XCTAssertEqual(TempLogCompute.redBreachCount(rows), 0)
+    }
+
+    func testTempLogCompute_redBreachCount_unknownPointIdDropped() {
+        // 'WALK-IN-COOLER' is NOT in the registry (registry uses 'walk_in_cooler').
+        // Rows with unknown point_ids are silently dropped — they never enter a bucket.
+        // Result: no buckets evaluated → redBreachCount = 0 regardless of reading value.
+        // Web rule: classifyReadings only processes rows whose point_id is in TempPoints.
+        let rows = [
+            CmdTempLogRow(id: 1, pointId: "WALK-IN-COOLER", readingF: 55.0,
+                          requiredMinF: nil, requiredMaxF: nil,
+                          correctiveAction: nil, createdAt: "2026-06-16 06:00:00"),
+        ]
+        XCTAssertEqual(TempLogCompute.redBreachCount(rows), 0)
+    }
+
+    func testTempLogCompute_redBreachCount_inRangeOk() {
+        // 38°F with walk_in_cooler (max 41) → classifyReading returns .ok → ok += 1.
+        // Red rule: critical == 0, ok > 0 → isRed = false → redBreachCount = 0.
+        let rows = [
+            CmdTempLogRow(id: 1, pointId: "walk_in_cooler", readingF: 38.0,
+                          requiredMinF: nil, requiredMaxF: nil,
+                          correctiveAction: nil, createdAt: "2026-06-16 06:00:00"),
+        ]
+        XCTAssertEqual(TempLogCompute.redBreachCount(rows), 0)
+    }
+
+    func testTempLogCompute_redBreachCount_allInvalidNoOkOrCorrective() {
+        // All-invalid bucket with no ok and no corrective readings →
+        // isRed = (!bucket.isEmpty && ok==0 && corrective==0 && invalid>0).
+        // Uses a reading far outside ABSOLUTE_MAX_F (500°F) to force .invalid.
+        // Web rule: second red condition covers a broken probe where every reading is invalid.
+        let rows = [
+            CmdTempLogRow(id: 1, pointId: "walk_in_cooler", readingF: 999.0,
+                          requiredMinF: nil, requiredMaxF: nil,
+                          correctiveAction: nil, createdAt: "2026-06-16 06:00:00"),
+        ]
+        XCTAssertEqual(TempLogCompute.redBreachCount(rows), 1)
+    }
+
+    // MARK: - Coverage hardening: ProbeCompute direct tests
+
+    func testProbeCompute_classify_overdueProbe() {
+        // calibrated_at 2026-06-01 09:00 UTC, frequencyDays 14 → due 2026-06-15 09:00 UTC.
+        // now = 2026-06-16 00:00 UTC → daysRemaining = (2026-06-15T09:00Z - 2026-06-16T00:00Z) / 86400
+        //   = (1718441200 - 1718496000 ≈) -0.625 d < 0 → overdue.
+        // Web rule: passed && daysRemaining < 0 → probe is overdue.
+        let rows = [
+            CmdCalibrationRow(thermometerId: "T-OVER", method: "ice_point",
+                              beforeReadingF: 32.1, passed: 1,
+                              calibratedAt: "2026-06-01 09:00:00", frequencyDays: 14),
+        ]
+        let (overdue, failed, dueSoon) = ProbeCompute.classify(rows, today: "2026-06-16")
+        XCTAssertEqual(overdue, 1)  // past calibration window
+        XCTAssertEqual(failed, 0)
+        XCTAssertEqual(dueSoon, 0)
+    }
+
+    func testProbeCompute_classify_failedProbe() {
+        // passed == 0 → the probe is flagged as unreliable → failed += 1.
+        // No daysRemaining calculation needed — failed check comes first.
+        // Web rule: !passed → probe is failed regardless of calibration date.
+        let rows = [
+            CmdCalibrationRow(thermometerId: "T-FAIL", method: "ice_point",
+                              beforeReadingF: 40.0, passed: 0,
+                              calibratedAt: "2026-06-10 09:00:00", frequencyDays: 30),
+        ]
+        let (overdue, failed, dueSoon) = ProbeCompute.classify(rows, today: "2026-06-16")
+        XCTAssertEqual(overdue, 0)
+        XCTAssertEqual(failed, 1)   // unreliable probe
+        XCTAssertEqual(dueSoon, 0)
+    }
+
+    func testProbeCompute_classify_dueSoonProbe() {
+        // calibrated_at 2026-06-16 00:00:00 UTC, frequencyDays 7 → due 2026-06-23 00:00 UTC.
+        // now = 2026-06-16 00:00 UTC → daysRemaining = 7.0 → <= 7 → due_soon.
+        // Web rule: passed && 0 <= daysRemaining <= 7 → probe is due soon (amber).
+        let rows = [
+            CmdCalibrationRow(thermometerId: "T-SOON", method: "ice_point",
+                              beforeReadingF: 32.0, passed: 1,
+                              calibratedAt: "2026-06-16 00:00:00", frequencyDays: 7),
+        ]
+        let (overdue, failed, dueSoon) = ProbeCompute.classify(rows, today: "2026-06-16")
+        XCTAssertEqual(overdue, 0)
+        XCTAssertEqual(failed, 0)
+        XCTAssertEqual(dueSoon, 1)  // calibration due within 7 days
+    }
+
+    func testProbeCompute_classify_okProbe() {
+        // calibrated_at 2026-06-14 09:00:00 UTC, frequencyDays 14 → due 2026-06-28 09:00 UTC.
+        // now = 2026-06-16 00:00 UTC → daysRemaining ≈ 12.375 > 7 → ok, no count.
+        // Web rule: passed && daysRemaining > 7 → probe is fine, no alert produced.
+        let rows = [
+            CmdCalibrationRow(thermometerId: "T-OK", method: "ice_point",
+                              beforeReadingF: 32.0, passed: 1,
+                              calibratedAt: "2026-06-14 09:00:00", frequencyDays: 14),
+        ]
+        let (overdue, failed, dueSoon) = ProbeCompute.classify(rows, today: "2026-06-16")
+        XCTAssertEqual(overdue, 0)
+        XCTAssertEqual(failed, 0)
+        XCTAssertEqual(dueSoon, 0)  // probe is within its calibration window
+    }
+
+    func testProbeCompute_classify_multipleProbesMixed() {
+        // Three distinct thermometers: one overdue, one failed, one ok.
+        // Expected: overdue=1, failed=1, dueSoon=0.
+        // Web rule: each thermometer_id group is classified independently.
+        let rows = [
+            // overdue: due 2026-06-15 09:00 UTC < now
+            CmdCalibrationRow(thermometerId: "T-OVER", method: "ice_point",
+                              beforeReadingF: 32.1, passed: 1,
+                              calibratedAt: "2026-06-01 09:00:00", frequencyDays: 14),
+            // failed: passed == 0
+            CmdCalibrationRow(thermometerId: "T-FAIL", method: "ice_point",
+                              beforeReadingF: 40.0, passed: 0,
+                              calibratedAt: "2026-06-10 09:00:00", frequencyDays: 30),
+            // ok: due 2026-07-09 09:00 UTC, 23+ days out
+            CmdCalibrationRow(thermometerId: "T-OK", method: "ice_point",
+                              beforeReadingF: 32.0, passed: 1,
+                              calibratedAt: "2026-06-09 09:00:00", frequencyDays: 30),
+        ]
+        let (overdue, failed, dueSoon) = ProbeCompute.classify(rows, today: "2026-06-16")
+        XCTAssertEqual(overdue, 1)
+        XCTAssertEqual(failed, 1)
+        XCTAssertEqual(dueSoon, 0)
+    }
 }
