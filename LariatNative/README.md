@@ -1,4 +1,4 @@
-# LariatNative (P3a temp log + P2b 86 + P2a Cook + AuditedWrite + P1b manager writes)
+# LariatNative (P3b date marks + calibrations + P3a temp log + P2b 86 + P2a Cook)
 
 macOS/iOS app reading the live `lariat.db` (shared with the web app) via GRDB.
 
@@ -10,15 +10,17 @@ and repositories for Command, Analytics, Costing, and Management rollup (6 tiles
 parity with `lib/auditEvents.ts`. **P2b** ships the first **cook-tier** regulated write: 86 board add/resolve
 with `actor_source = native_cook` and Encodable row payloads on resolve.
 **P3a** implements **`RuleGate`** on temp log (422 corrective-note contract) + `TempPinVerifier` for `haccp.back_date`.
+**P3b** ships **date marks** (discard-on +6 days, audited create/discard) and **thermometer calibrations**
+(ice/boiling validation at 7800 ft; fail readings persist with audit note).
 
-## Safety tier (P3a)
+## Safety tier (P3a + P3b)
 
-Top-level **Safety** sidebar — food-safety hub and temp log board.
+Top-level **Safety** sidebar — food-safety hub, temp log, date marks, calibrations.
 
-- **Food Safety** hub — links to in-scope boards; P3b/c tiles stubbed.
+- **Food Safety** hub — links to in-scope boards; cleaning/breaks stubbed (P3c).
 - **Temp log** — CCP tile grid, corrective-note expansion on out-of-range, audited `temp_log` writes.
-
-Date marks, calibrations, cleaning, and breaks ship in P3b–P3c.
+- **Date marks** — active batches, expiring scan badges, discard with reason (409 on double discard).
+- **Calibrations** — probe ice/boiling check, pass/fail advisory, audited `thermometer_calibrations` writes.
 
 ## Cook tier (P2a + P2b)
 
@@ -62,7 +64,7 @@ web app's `lib/dataDir.ts`).
 
 ```bash
 swift test   # host-run Core tests (LariatDB + LariatModel); no simulator needed
-# 190 tests (P3a RuleGate/temp log + P2b 86 + AuditedWrite + P2a Today + P1b pack-size write)
+# 199 tests (P3b date marks/calibrations + P3a RuleGate/temp log + P2b 86 + AuditedWrite + P2a Today + P1b pack-size write)
 ```
 
 ## Architecture
@@ -80,7 +82,8 @@ against the web parity.
 | `CommandCompute` | `lib/commandCenter.ts` — summarize + alertsFor |
 | `AnalyticsCompute` | `lib/analytics.ts` — daily/hourly/DOW aggregation, YoY delta |
 | `CostingCompute` | `lib/costing.ts` — menu-engineering matrix + ABC ranking + variance trend |
-| `DateMarkCompute` | date-mark filtering helpers |
+| `DateMarkCompute` | `lib/dateMarks.ts` — discard-on, validation, expiring scan |
+| `CalibrationCompute` | `lib/calibrations.ts` — ice/boiling validation |
 | `ProbeCompute` | food-safety probe classification |
 | `TempLogCompute` | temperature log red-breach counting |
 
@@ -114,6 +117,8 @@ LariatNative/
       AuditEvent.swift              — AuditEventInput, RegulatedWriteContext, nativeCook()
       StaffCatalog.swift            — staff.json loader (lib/staffDisplay.ts parity)
       EightySixRecords.swift        — 86 row types + write errors
+      DateMarkRecords.swift         — date mark rows + discard reasons
+      CalibrationRecords.swift      — calibration rows + methods
       ShiftDate.swift               — todayISO() parity with lib/db.ts
       LocationScope.swift           — location filter (LARIAT_LOCATION_ID env var)
       SchemaVersion.swift           — read-only schema-version probe
@@ -121,7 +126,8 @@ LariatNative/
         CommandCompute.swift        — command-center summarize + alertsFor
         AnalyticsCompute.swift      — analytics aggregation and YoY delta
         CostingCompute.swift        — menu-engineering + ABC + variance trend
-        DateMarkCompute.swift       — date-mark helpers
+        DateMarkCompute.swift       — date marks (lib/dateMarks.ts)
+        CalibrationCompute.swift    — calibrations (lib/calibrations.ts)
         ProbeCompute.swift          — food-safety probe classification
         TempLogCompute.swift        — temperature log breach counting
     LariatDB/
@@ -130,6 +136,9 @@ LariatNative/
       AuditEventWriter.swift        — in-tx audit_events insert (lib/auditEvents.ts)
       AuditedWriteRunner.swift      — regulated write transaction helper
       EightySixRepository.swift     — 86 board read/add/resolve (audited)
+      TempLogRepository.swift       — temp log read/add (RuleGate)
+      DateMarkRepository.swift      — date marks read/create/discard (audited)
+      CalibrationRepository.swift   — calibrations read/post (audited)
       TodayBoardRepository.swift    — Today shift board fetch
       DatabasePaths.swift           — path resolution (LARIAT_DATA_DIR env var)
       ManagementRollupRepository.swift
@@ -143,6 +152,10 @@ LariatNative/
       EightySixViewModel.swift
       CookIdentityStore.swift       — persisted cook id
       CookIdentityPicker.swift      — staff.json picker + manual fallback
+      FoodSafetyHubView.swift       — Safety hub (P3a/b)
+      TempLogView.swift             — temp log board (P3a)
+      DateMarkView.swift            — date marks board (P3b)
+      CalibrationsView.swift        — calibrations board (P3b)
       ManagementRollupView.swift    — 6-tile management rollup
       CommandView.swift             — shift command screen
       AnalyticsView.swift           — Swift Charts analytics screen

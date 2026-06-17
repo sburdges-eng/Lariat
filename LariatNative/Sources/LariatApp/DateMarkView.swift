@@ -1,0 +1,106 @@
+import SwiftUI
+import LariatDB
+import LariatModel
+
+struct DateMarkView: View {
+    @State private var vm: DateMarkViewModel
+    @State private var item = ""
+    @State private var preparedOn = ShiftDate.todayISO()
+    @State private var batchRef = ""
+    @State private var discardTarget: DateMarkRow?
+    @State private var discardReason: DateMarkDiscardReason = .expired
+
+    init(readDB: LariatDatabase, writeDB: LariatWriteDatabase) {
+        _vm = State(wrappedValue: DateMarkViewModel(readDB: readDB, writeDB: writeDB))
+    }
+
+    var body: some View {
+        Group {
+            if let err = vm.fetchError, vm.snapshot == nil {
+                TileDegrade(title: "Could not load date marks", message: err, systemImage: "calendar.badge.exclamationmark")
+            } else if let snap = vm.snapshot {
+                content(snap)
+            } else {
+                ProgressView()
+            }
+        }
+        .navigationTitle("Date marks")
+        .onAppear { vm.start() }
+        .onDisappear { vm.stop() }
+        .sheet(isPresented: $vm.showCookPicker) {
+            CookIdentityPicker(
+                store: vm.cookStore,
+                staff: vm.staff,
+                staffUnavailable: vm.staffUnavailable
+            ) { vm.showCookPicker = false }
+        }
+        .confirmationDialog("Discard batch", isPresented: Binding(
+            get: { discardTarget != nil },
+            set: { if !$0 { discardTarget = nil } }
+        )) {
+            Picker("Reason", selection: $discardReason) {
+                ForEach(DateMarkDiscardReason.allCases) { reason in
+                    Text(reason.label).tag(reason)
+                }
+            }
+            Button("Discard", role: .destructive) {
+                if let row = discardTarget {
+                    Task { await vm.discard(id: row.id, reason: discardReason) }
+                }
+                discardTarget = nil
+            }
+            Button("Cancel", role: .cancel) { discardTarget = nil }
+        }
+    }
+
+    @ViewBuilder
+    private func content(_ snap: DateMarkBoardSnapshot) -> some View {
+        List {
+            Section("Active batches") {
+                if snap.active.isEmpty {
+                    Text("No active date marks").foregroundStyle(.secondary)
+                } else {
+                    ForEach(snap.active) { row in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(row.item).font(.headline)
+                                Text("Discard by \(row.discardOn)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            statusBadge(vm.status(for: row))
+                            Button("Discard") { discardTarget = row }
+                                .font(.caption)
+                        }
+                    }
+                }
+            }
+
+            Section("New mark") {
+                TextField("Item", text: $item)
+                TextField("Prepared on (YYYY-MM-DD)", text: $preparedOn)
+                TextField("Batch ref (optional)", text: $batchRef)
+                if let err = vm.actionError {
+                    Text(err).font(.caption).foregroundStyle(.red)
+                }
+                Button(vm.isSaving ? "Saving…" : "Save mark") {
+                    Task { await vm.create(item: item, preparedOn: preparedOn, batchRef: batchRef) }
+                }
+                .disabled(vm.isSaving || item.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func statusBadge(_ status: ExpiringBatchStatus?) -> some View {
+        switch status {
+        case .expired:
+            Text("Expired").font(.caption2).padding(4).background(Color.red.opacity(0.2)).clipShape(Capsule())
+        case .dueToday:
+            Text("Due today").font(.caption2).padding(4).background(Color.yellow.opacity(0.3)).clipShape(Capsule())
+        case .ok, .none:
+            EmptyView()
+        }
+    }
+}

@@ -18,6 +18,12 @@ public enum WriteErrorMapper {
         if let e86 = error as? EightySixWriteError {
             return e86.localizedDescription
         }
+        if let dm = error as? DateMarkWriteError {
+            return dm.localizedDescription
+        }
+        if let cal = error as? CalibrationWriteError {
+            return cal.localizedDescription
+        }
         let text = String(describing: error).lowercased()
         if text.contains("busy") || text.contains("locked") || text.contains("sqlite_busy") {
             return "Database busy — try again in a moment"
