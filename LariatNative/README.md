@@ -1,12 +1,29 @@
-# LariatNative (P1b — Manager write tier: pack-size ack)
+# LariatNative (P2a — Cook Today board + P1b manager writes)
 
 macOS/iOS app reading the live `lariat.db` (shared with the web app) via GRDB.
 
-This is **P1b** on top of P1a — the manager READ tier plus the first PIN-gated write: four SwiftUI manager
+This is **P2a** on top of P1b/P1a — the manager READ tier plus the first PIN-gated write: four SwiftUI manager
 screens wired into a `NavigationSplitView` shell, a `LariatModel/Compute/` layer of
 GRDB-free parity ports of the web's command/analytics/costing logic, and repositories for
 Command, Analytics, Costing, and an extended Management rollup (6 tiles). The app is
 **read-only by default** (`LariatDatabase`); pack-size acknowledge uses a separate writable pool (`LariatWriteDatabase`). Never migrates; web app keeps writing.
+
+
+## Cook tier (P2a)
+
+First **iPad-first** cook surface: **Today** shift board (`/v2/today` parity) in a **Cook** sidebar
+section. Read-only — station progress, open 86 list, stock moves, cascaded recipe impacts. 86 writes,
+station checklists, and KDS are stubbed ("Soon") until P2b–P2d.
+
+```bash
+# Point at the web app's data dir (needs data/cache/*.json + lariat.db)
+LARIAT_DATA_DIR=/absolute/path/to/lariat/data swift run LariatApp
+```
+
+| Cook screen | Status |
+|---|---|
+| `TodayView` | **P2a** — hero stats, station grid, stock moves, 86 chips |
+| 86 / Stations / KDS | Stubbed |
 
 ## Deployment floor: macOS 14 / iOS 17
 
@@ -29,7 +46,7 @@ web app's `lib/dataDir.ts`).
 
 ```bash
 swift test   # host-run Core tests (LariatDB + LariatModel); no simulator needed
-# 129 tests (P1b pack-size write path)
+# 140 tests (P2a Today board + P1b pack-size write path)
 ```
 
 ## Architecture
