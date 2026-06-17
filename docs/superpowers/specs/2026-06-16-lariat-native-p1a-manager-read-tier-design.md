@@ -48,6 +48,7 @@ Success is proven when:
 - Three new read-only screens: **Command**, **Analytics**, **Costing**.
 - The **three remaining rollup tiles** on the Management screen: costing-ingest
   freshness, depletion exceptions, price shocks.
+- **Management tile count:** web `/management` shows 11 tiles; P1a ships **six rollup tiles** only (P0's three plus the three above) — the other five web tiles are out of scope until a later phase.
 - **macOS 14 floor bump** + `@Observable` migration of the P0 view model +
   `ContentUnavailableView` for empty/error states.
 - The four **carryover items** deferred from P0 (§9).
