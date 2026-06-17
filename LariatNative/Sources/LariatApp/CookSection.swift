@@ -13,7 +13,8 @@ enum CookDestination: String, Hashable, CaseIterable, Identifiable {
         switch self {
         case .today: return true
         case .eightySix: return true
-        case .stations, .kds: return false
+        case .stations: return true
+        case .kds: return false
         }
     }
 

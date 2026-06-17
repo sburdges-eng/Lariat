@@ -45,11 +45,21 @@ import Observation
 
 struct TodayView: View {
     @State private var vm: TodayViewModel
-    @State private var selectedStation: StationWithProgress?
     var onOpenEightySix: () -> Void
+    private let readDB: LariatDatabase
+    private let writeDB: LariatWriteDatabase?
+    private let catalog: StationCatalog?
 
-    init(database: LariatDatabase, onOpenEightySix: @escaping () -> Void = {}) {
+    init(
+        database: LariatDatabase,
+        writeDB: LariatWriteDatabase? = nil,
+        catalog: StationCatalog? = nil,
+        onOpenEightySix: @escaping () -> Void = {}
+    ) {
         _vm = State(wrappedValue: TodayViewModel(database: database))
+        self.readDB = database
+        self.writeDB = writeDB
+        self.catalog = catalog
         self.onOpenEightySix = onOpenEightySix
     }
 
@@ -68,9 +78,6 @@ struct TodayView: View {
         .navigationTitle("Today")
         .task { vm.start() }
         .onDisappear { vm.stop() }
-        .sheet(item: $selectedStation) { row in
-            stationDetail(row)
-        }
     }
 
     @ViewBuilder
@@ -86,6 +93,16 @@ struct TodayView: View {
                 }
             }
             .padding()
+        }
+        .navigationDestination(for: String.self) { stationId in
+            if let writeDB, let catalog {
+                StationChecklistView(
+                    stationId: stationId,
+                    readDB: readDB,
+                    writeDB: writeDB,
+                    catalog: catalog
+                )
+            }
         }
     }
 
@@ -144,10 +161,14 @@ struct TodayView: View {
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 10)], spacing: 10) {
                 ForEach(snap.activeStations, id: \.station.id) { row in
-                    Button { selectedStation = row } label: {
+                    if let writeDB, let catalog {
+                        NavigationLink(value: row.station.id) {
+                            stationCard(row)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
                         stationCard(row)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
@@ -234,26 +255,6 @@ struct TodayView: View {
         .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
     }
 
-    private func stationDetail(_ row: StationWithProgress) -> some View {
-        NavigationStack {
-            List {
-                if let p = row.progress {
-                    LabeledContent("Done", value: "\(p.done) of \(p.total)")
-                    LabeledContent("Flagged", value: "\(p.flagged)")
-                    LabeledContent("Signed off", value: p.signedOff ? "Yes" : "No")
-                } else {
-                    Text("No line check for this station")
-                }
-            }
-            .navigationTitle(row.station.name)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { selectedStation = nil }
-                }
-            }
-        }
-        .presentationDetents([.medium])
-    }
 
     private func statCard(value: String, label: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {

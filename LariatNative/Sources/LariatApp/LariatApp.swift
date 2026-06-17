@@ -86,7 +86,12 @@ struct LariatApp: App {
   private func detailView(database: LariatDatabase) -> some View {
     switch selection {
     case .cook(.today):
-      TodayView(database: database, onOpenEightySix: { selection = .cook(.eightySix) })
+      TodayView(
+        database: database,
+        writeDB: sharedWriteDatabase,
+        catalog: stationCatalog,
+        onOpenEightySix: { selection = .cook(.eightySix) }
+      )
     case .cook(.eightySix):
       if let writeDB = sharedWriteDatabase, let catalog = stationCatalog {
         EightySixView(readDB: database, writeDB: writeDB, catalog: catalog)
@@ -97,7 +102,17 @@ struct LariatApp: App {
           systemImage: "lock"
         )
       }
-    case .cook(.stations), .cook(.kds):
+    case .cook(.stations):
+      if let writeDB = sharedWriteDatabase, let catalog = stationCatalog {
+        StationsListView(readDB: database, writeDB: writeDB, catalog: catalog)
+      } else {
+        TileDegrade(
+          title: "Stations unavailable",
+          message: "Could not open the write database or station catalog.",
+          systemImage: "lock"
+        )
+      }
+    case .cook(.kds):
       TileDegrade(title: "Coming soon", message: "This cook screen ships in a later phase.", systemImage: "clock")
     case .safety(.hub):
       FoodSafetyHubView(
