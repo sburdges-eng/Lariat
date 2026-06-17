@@ -103,7 +103,8 @@ public struct AnalyticsRepository {
             // 6. Prior-period total revenue (comparison_group = 2)
             //    JS: SELECT SUM(net_sales) as rev FROM toast_sales_daily
             //          WHERE location_id=? AND comparison_group=2
-            //    `dailyPrior?.rev || 0` → default to 0 when nil
+            //    Nil is preserved here; AnalyticsCompute applies the ?? 0.0 default
+            //    so the nil signal (no prior rows) is visible to bundle consumers.
             let priorRevRow = try AnalyticsPriorRev.fetchOne(db,
                 sql: """
                     SELECT SUM(net_sales) AS rev
@@ -111,7 +112,7 @@ public struct AnalyticsRepository {
                      WHERE location_id = ? AND comparison_group = 2
                     """,
                 arguments: [locationId])
-            let dailyPriorRev = priorRevRow?.rev ?? 0.0
+            let dailyPriorRev: Double? = priorRevRow?.rev
 
             // 7. Date range from current period (LIMIT 1)
             //    JS: SELECT date_range FROM toast_sales_daily

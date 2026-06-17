@@ -137,7 +137,8 @@ final class AnalyticsRepositoryTests: XCTestCase {
         let bundle = try await repo.fetch()
 
         // cg=2 has one row: net_sales=3800
-        XCTAssertEqual(bundle.dailyPriorRev, 3800.0, accuracy: 0.001)
+        // dailyPriorRev is now Double? — unwrap before accuracy comparison
+        XCTAssertEqual(bundle.dailyPriorRev ?? -1, 3800.0, accuracy: 0.001)
     }
 
     // ── dateRange ──────────────────────────────────────────────────────────

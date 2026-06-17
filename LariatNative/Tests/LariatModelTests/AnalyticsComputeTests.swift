@@ -89,6 +89,24 @@ final class AnalyticsComputeTests: XCTestCase {
         XCTAssertNil(kpis.yoyDelta, "yoyDelta must be nil when priorRev == 0")
     }
 
+    func testYoyDeltaNilWhenNegativePrior() {
+        // priorRev guard is `> 0`, so a negative prior must also yield nil.
+        var bundle = makeBundle()
+        bundle = AnalyticsBundle(
+            daily: bundle.daily,
+            dowCurrent: bundle.dowCurrent,
+            dowPrior: bundle.dowPrior,
+            hourlyCurrent: bundle.hourlyCurrent,
+            hourlyPrior: bundle.hourlyPrior,
+            spend: bundle.spend,
+            top: bundle.top,
+            dailyPriorRev: -1.0,   // negative prior: not > 0, must produce nil
+            dateRange: bundle.dateRange
+        )
+        let kpis = AnalyticsCompute.summarize(bundle: bundle)
+        XCTAssertNil(kpis.yoyDelta, "yoyDelta must be nil when priorRev <= 0")
+    }
+
     // ── avgCheck ───────────────────────────────────────────────────────────
 
     func testAvgCheck() {

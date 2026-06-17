@@ -85,15 +85,22 @@ public enum AnalyticsCompute {
 
         // ── yoyDelta ─────────────────────────────────────────────────────────
         // JS: priorRev > 0 ? ((dailyCurrentTotal - priorRev) / priorRev) * 100 : null
-        // `dailyPrior?.rev || 0` → dailyPriorRev is already 0-defaulted in the bundle
-        let priorRev = bundle.dailyPriorRev
+        // bundle.dailyPriorRev is now Optional; apply the 0-default here so that
+        // "no prior rows" (nil) and "prior == 0.0" both produce nil yoyDelta.
+        let priorRev = bundle.dailyPriorRev ?? 0.0
         let yoyDelta: Double? = priorRev > 0
             ? ((dailyCurrentTotal - priorRev) / priorRev) * 100.0
             : nil
 
         // ── avgCheck ─────────────────────────────────────────────────────────
         // JS: daily.length > 0 ? dailyCurrentTotal / Σorders : null
-        // If Σorders == 0 (JS would produce Infinity / NaN), guard produces nil.
+        //
+        // DELIBERATE DIVERGENCE from JS: when daily.length > 0 but Σorders == 0,
+        // JavaScript computes dailyCurrentTotal / 0 → Infinity, then the render
+        // layer suppresses it via `avgCheck != null && isFinite(avgCheck)`.
+        // Swift returns nil directly in that case — observationally identical
+        // (the UI shows no avg check in both paths) but strictly safer for
+        // Swift consumers who should not have to guard against Infinity.
         let totalOrders = bundle.daily.reduce(0) { $0 + ($1.orders ?? 0) }
         let avgCheck: Double? = (bundle.daily.count > 0 && totalOrders > 0)
             ? dailyCurrentTotal / Double(totalOrders)

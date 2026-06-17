@@ -132,7 +132,7 @@ public struct AnalyticsBundle {
     public let hourlyPrior: [AnalyticsHourlyRow]
     public let spend: [AnalyticsSpendRow]
     public let top: [AnalyticsTopItem]
-    public let dailyPriorRev: Double        // SUM(net_sales) WHERE cg=2 (0 if nil)
+    public let dailyPriorRev: Double?       // SUM(net_sales) WHERE cg=2; nil when no rows
     public let dateRange: String?           // date_range from cg=1 LIMIT 1
 
     public init(
@@ -143,7 +143,7 @@ public struct AnalyticsBundle {
         hourlyPrior: [AnalyticsHourlyRow],
         spend: [AnalyticsSpendRow],
         top: [AnalyticsTopItem],
-        dailyPriorRev: Double,
+        dailyPriorRev: Double?,
         dateRange: String?
     ) {
         self.daily = daily
