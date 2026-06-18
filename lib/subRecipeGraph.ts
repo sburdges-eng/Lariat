@@ -39,6 +39,15 @@ function itemMatchesRecipe(item: string, recipe: Recipe): boolean {
   if (itemToks.length === nameToks.length && subsetOf(itemToks, nameToks) && subsetOf(nameToks, itemToks)) return true;
   if (subsetOf(itemToks, nameToks)) return true;
   if (subsetOf(itemToks, slugToks)) return true;
+
+  if (recipe.ingredients) {
+    for (const ing of recipe.ingredients) {
+      if (!ing.item) continue;
+      const ingToks = tokens(ing.item);
+      if (subsetOf(itemToks, ingToks)) return true;
+    }
+  }
+
   return false;
 }
 
@@ -62,9 +71,9 @@ function buildParentIndex(recipes: Recipe[]): Map<string, Set<string>> {
  *  reports the first matching `via`. This is deliberate — the UI just
  *  needs to say "X is out" without implying a priority ordering.
  *
- *  Ingredient-level cascade (e.g. 86 "tomatoes" → all tomato-using recipes)
- *  is intentionally NOT handled here; the blast radius is a product
- *  decision that belongs in its own pass. */
+ *  Ingredient-level cascade (e.g. 86 "tomatoes" → recipes that list tomatoes)
+ *  is handled here: if the 86'd item matches an ingredient, parent recipes
+ *  surface on the cascade board when the match is not an exact recipe name. */
 export function cascadedFromEightySix(
   itemsEightySixed: string[],
   recipes: Recipe[],
@@ -97,9 +106,17 @@ export function cascadedFromEightySix(
         }
       }
 
-      // The root itself is already visibly 86'd through the regular board;
-      // skip it and only report transitive parents.
-      visited.delete(rootSlug);
+      // If the 86'd item was an exact match for the recipe's name or slug,
+      // the recipe is already visibly 86'd on the regular board, so we skip it.
+      // If it only matched because of an ingredient, the recipe should appear in the cascade.
+      const r = bySlug.get(rootSlug);
+      const isExactMatch = r && (
+        r.name.trim().toLowerCase() === item.trim().toLowerCase() ||
+        r.slug === item.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_')
+      );
+      if (isExactMatch) {
+        visited.delete(rootSlug);
+      }
 
       for (const slug of visited) {
         if (out.has(slug)) continue;

@@ -107,6 +107,7 @@
     "test:bundle-audit": "node --test tests/js/test-bundle-size-audit.mjs",
     "test:ipad-profile": "node --test tests/js/test-ipad-performance-profile.mjs",
     "test:kds-bump": "node --experimental-strip-types --test tests/js/test-kds-bump-route.mjs",
+    "test:sub-recipe-graph": "node --experimental-strip-types --test tests/js/test-sub-recipe-graph.mjs",
     "validate:db-query-registry": "python3 scripts/validate-db-query-registry.py",
     "test:performance-reviews-rules": "node --test tests/js/test-performance-reviews-rules.mjs",
     "test:performance-reviews-api": "node --test tests/js/test-performance-reviews-api.mjs",

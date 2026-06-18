@@ -50,6 +50,9 @@ jobs:
       - name: KDS bump protocol route test
         run: npm run test:kds-bump
 
+      - name: 86 sub-recipe cascade tests
+        run: npm run test:sub-recipe-graph
+
       - name: schema-migration idempotency
         run: npm run test:schema
 
