@@ -3,10 +3,14 @@ title: "feat: Vendor compare v2 — catalog mapping + order guide badges"
 date: 2026-06-17
 type: feat
 depth: standard
+status: shipped
+pr: 360
 origin: docs/brainstorms/2026-06-17-vendor-compare-v2-mapping-requirements.md
 ---
 
 # feat: Vendor compare v2 — catalog mapping + order guide badges
+
+**Status:** Shipped on `main` via [#360](https://github.com/sburdges-eng/Lariat/pull/360) (2026-06-17). Builds on v1 compare ([#358](https://github.com/sburdges-eng/Lariat/pull/358)).
 
 ## Summary
 

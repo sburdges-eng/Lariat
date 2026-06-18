@@ -81,6 +81,8 @@ URLS=(
   "/analytics"
   "/costing"
   "/purchasing"
+  "/purchasing/compare"
+  "/purchasing/link"
   "/menu-engineering"
   "/costing/depletion-exceptions"
   "/costing/pack-changes"
