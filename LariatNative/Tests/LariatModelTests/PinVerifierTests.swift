@@ -37,6 +37,14 @@ final class PinVerifierTests: XCTestCase {
         XCTAssertEqual(user.role, "owner")
     }
 
+    func testLariatPinOverrideDoesNotRequireManagerPinFormat() throws {
+        let dbQueue = try DatabaseQueue()
+        let user = try dbQueue.read { db in
+            try PinVerifier().verify(pin: "legacy-override", db: db, env: ["LARIAT_PIN": "legacy-override"])
+        }
+        XCTAssertEqual(user.role, "owner")
+    }
+
     func testWrongPinThrows() throws {
         let dbQueue = try DatabaseQueue()
         try dbQueue.write { db in

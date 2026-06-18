@@ -40,13 +40,13 @@ public struct PinVerifier {
     locationId: String = LocationScope.resolve(),
     env: [String: String] = ProcessInfo.processInfo.environment
   ) throws -> ManagerPinUser {
-    if let fmt = PinHash.validateFormat(pin) { throw PinGateError.format(fmt) }
-
     if let expected = env["LARIAT_PIN"], !expected.isEmpty {
       if constantTimeEqual(pin, expected) {
         return ManagerPinUser(id: 0, locationId: locationId, name: "Override", role: "owner")
       }
     }
+
+    if let fmt = PinHash.validateFormat(pin) { throw PinGateError.format(fmt) }
 
     let hash = PinHash.sha256Hex(pin)
     if let row = try Row.fetchOne(db, sql: """

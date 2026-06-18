@@ -29,7 +29,10 @@ public final class PinSessionStore {
             throw ManagementWriteError.pinRequired
         }
         if session.user.id == 0 { return }
-        guard try db.tableExists("manager_pin_users") else { return }
+        guard try db.tableExists("manager_pin_users") else {
+            clear()
+            throw PinGateError.invalidPin
+        }
         let active: Int = try Int.fetchOne(
             db,
             sql: "SELECT is_active FROM manager_pin_users WHERE id = ?",
