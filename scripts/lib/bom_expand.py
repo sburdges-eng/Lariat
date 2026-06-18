@@ -99,6 +99,86 @@ def aggregate_demand(
     return out
 
 
+def expand_recipe_demand(
+    manifest: dict[str, Manifest],
+    demands: Iterable[tuple[str, float, str]],
+) -> dict[tuple[str, str], float]:
+    """Aggregate per-recipe-node demand across top-level demands.
+
+    Returns {(slug, yield_unit): total_qty} for EVERY recipe and sub-recipe
+    node that must be produced to satisfy `demands`, summed. Leaf ingredients
+    are NOT included (that is `aggregate_demand`'s job). Duplicate top-level
+    slugs compound. Same error semantics as `expand_recipe`
+    (UnknownRecipeError / UnitMismatchError / RecipeCycleError / non-positive
+    yield ValueError)."""
+    out: dict[tuple[str, str], float] = {}
+    for slug, qty, unit in demands:
+        _accumulate_recipe_demand(manifest, slug, float(qty), unit, out, visited=[])
+    return out
+
+
+def _accumulate_recipe_demand(
+    manifest: dict[str, Manifest],
+    slug: str,
+    qty: float,
+    unit: str,
+    out: dict[tuple[str, str], float],
+    visited: list[str],
+) -> None:
+    if slug not in manifest:
+        raise UnknownRecipeError(f"recipe {slug!r} is not in the manifest")
+    if slug in visited:
+        path = visited[visited.index(slug):] + [slug]
+        raise RecipeCycleError(
+            f"sub-recipe cycle: {' -> '.join(path)}"
+        )
+    m = manifest[slug]
+    if unit != m.yield_unit:
+        raise UnitMismatchError(
+            f"recipe {slug!r} yields in {m.yield_unit!r} but demand asked for "
+            f"{qty!r} {unit!r}"
+        )
+    if m.yield_qty <= 0:
+        raise ValueError(
+            f"recipe {slug!r} has non-positive yield_qty {m.yield_qty}; "
+            f"cannot scale"
+        )
+
+    # Record this recipe node.
+    out[(slug, unit)] = out.get((slug, unit), 0.0) + qty
+
+    scale = qty / m.yield_qty
+
+    for row in m.bom:
+        ingredient = row["ingredient"]
+        row_qty = float(row["qty"])
+        row_unit = row["unit"]
+
+        sub_slug = (
+            _resolve_sub_slug(manifest, m, ingredient)
+            if (row.get("is_sub_recipe") or _could_be_sub(m, ingredient))
+            else None
+        )
+
+        if sub_slug is not None:
+            sub_m = manifest[sub_slug]
+            if row_unit != sub_m.yield_unit:
+                raise UnitMismatchError(
+                    f"recipe {slug!r} BOM references sub-recipe "
+                    f"{sub_slug!r} with unit {row_unit!r}, but "
+                    f"{sub_slug!r} yields in {sub_m.yield_unit!r}"
+                )
+            _accumulate_recipe_demand(
+                manifest,
+                sub_slug,
+                row_qty * scale,
+                sub_m.yield_unit,
+                out,
+                visited + [slug],
+            )
+        # Leaf rows: do nothing (leaves are not recipe nodes).
+
+
 def _expand_into(
     manifest: dict[str, Manifest],
     slug: str,
