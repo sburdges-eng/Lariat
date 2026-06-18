@@ -87,6 +87,15 @@ export default async function PrepPage({ searchParams }) {
 
   return (
     <>
+      <div style={{ textAlign: 'right', marginBottom: 8 }}>
+        <a
+          href={`/prep/par${loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : ''}`}
+          className="meta"
+          style={{ textDecoration: 'none' }}
+        >
+          Standing prep par →
+        </a>
+      </div>
       <PrepBoard
         tasks={tasks}
         stations={stations}

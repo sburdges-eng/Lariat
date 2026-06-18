@@ -513,6 +513,17 @@ export const NAV_ITEMS = [
     locAware: t,
     surface: { sidebar: f, palette: t, shelf: f },
   },
+  // prep-par added in Task 14 (standing prep-par editor, 2026-06-18).
+  {
+    id: 'prep-par',
+    href: '/prep/par',
+    name: 'Standing prep par',
+    sub: 'Recurring prep targets by station',
+    group: 'Service',
+    terms: 'prep par standing target station recurring',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
   {
     id: 'inventory-counts',
     href: '/inventory/counts',
