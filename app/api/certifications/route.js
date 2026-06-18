@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // Staff certifications (L3). CFPM, food-handler, TIPS, allergen.
 //
 // GET   /api/certifications            → list for a location (optional scope to one cook)
@@ -19,12 +19,18 @@ export const dynamic = 'force-dynamic';
 
 const CERT_TYPES = new Set(['cfpm', 'food_handler', 'tips', 'allergen', 'other']);
 
+/**
+ * @param {unknown} s
+ * @param {number} max
+ * @returns {string | null}
+ */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
+/** @param {Request} req */
 async function gate(req) {
   if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'pic.staff_certs'))) {
     return Response.json(
@@ -37,6 +43,7 @@ async function gate(req) {
 
 // ── GET ──────────────────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const url = new URL(req.url);
@@ -61,12 +68,14 @@ export async function GET(req) {
 
 // ── POST ─────────────────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function POST(req) {
   const blocked = await gate(req);
   if (blocked) return blocked;
   return withIdempotency(req, () => certificationsPostHandler(req));
 }
 
+/** @param {Request} req */
 async function certificationsPostHandler(req) {
   try {
     const body = await req.json();
@@ -142,12 +151,14 @@ async function certificationsPostHandler(req) {
 
 // ── PATCH ────────────────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function PATCH(req) {
   const blocked = await gate(req);
   if (blocked) return blocked;
   return withIdempotency(req, () => certificationsPatchHandler(req));
 }
 
+/** @param {Request} req */
 async function certificationsPatchHandler(req) {
   try {
     const body = await req.json();
@@ -156,13 +167,17 @@ async function certificationsPatchHandler(req) {
       return Response.json({ error: 'id required' }, { status: 400 });
     }
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM staff_certifications WHERE id=?').get(id);
+    const existing = /** @type {{ location_id: string } | undefined} */ (
+      db.prepare('SELECT * FROM staff_certifications WHERE id=?').get(id)
+    );
     if (!existing) {
       return Response.json({ error: 'unknown certification' }, { status: 404 });
     }
     // Patchable columns — nothing else.
     const cols = ['cert_label', 'issuer', 'cert_number', 'issued_on', 'expires_on', 'document_path'];
+    /** @type {string[]} */
     const sets = [];
+    /** @type {(string | number | null)[]} */
     const args = [];
     for (const c of cols) {
       if (c in body) {

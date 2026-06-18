@@ -61,7 +61,7 @@ This is the work to actually land this session's deliverables.
 | 0.1 | XS     | **Closed (stale, 2026-06-11):** no `.git/index.lock` present; the four-commit split from the 2026-05-16 handoff was long since superseded by merged PRs. |
 | 0.2 | XS     | **Closed (2026-06-11):** `npm run validate:db-query-registry` all OK + `test:db-query-tool` 22/22 green on macOS. |
 | 0.3 | XS     | Manual smoke: ask LaRi "any cooling cycles in progress?" cook-tier, then "what did we sell today?" manager-tier. Confirm audit_events has new `db_query` rows. *(Still open — needs a human at the keyboard with Ollama running.)* |
-| 0.4 | S      | Decide on the open question in the handoff doc: slim `GROUNDED_SYSTEM` for `/api/specials` or accept it sees rule #11 too. *(Still open — product decision.)* |
+| 0.4 | S      | **Closed (obsolete, 2026-06-13):** the premise no longer holds. `/api/specials` now sends `CREATIVE_SYSTEM` (not `GROUNDED_SYSTEM`) and no longer imports the grounded prompt, so the specials sandbox never sees the `db_query` rule #11. `CREATIVE_SYSTEM` contains no `db_query` content. No prompt-slimming refactor needed — the separation the handoff proposed already exists. |
 | 0.5 | S      | **Closed (2026-06-11):** full backend sweep 4,313/4,313 (all `tests/js/*.mjs` incl. schema/datapack/compute-engine), jest 136/136, e2e 15/15 — see PRs #318/#320. |
 
 ---

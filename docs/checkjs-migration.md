@@ -26,8 +26,11 @@ Per the issue's phased plan:
 - **P2 — COMPLETE (2026-06-12, PRs #324/#325):** the high-risk handlers are
   off the baseline: `eighty-six` (+`resolve`), `checks`, `signoff`,
   `inventory`, and `auth/pin` converted to `.ts`; `kitchen-assistant`
-  runs full `@ts-check` JSDoc with zero suppressions. Remaining auth
-  surface (`auth/temp-pin/*`) stays on the drain-as-touched posture.
+  runs full `@ts-check` JSDoc with zero suppressions. The remaining auth
+  surface — `auth/temp-pin/{issue,login,list,revoke}` — is now also off
+  the baseline (2026-06-13): all four migrated to `@ts-check` + JSDoc row
+  typedefs; typecheck clean, temp-pin route/rate-limit/scope/idempotency
+  suites 70/70.
 - **P3:** lint rule banning new `.js` route handlers under `app/api/` once
   the migration drains.
 
@@ -71,7 +74,7 @@ Migration priority, highest first:
 | `app/api/checks/route.js` | HIGH | Line-check entries (temps, glove change). |
 | `app/api/inventory/route.js` | HIGH | Inventory delta writes. |
 | `app/api/auth/pin/*.js` | HIGH | PIN gate / temp-PIN issuance. |
-| `app/api/breaks/route.js`, `certifications/*` | MEDIUM | Labor compliance. |
+| ~~`app/api/breaks/route.js`, `certifications/route.js`~~ | MEDIUM | **Done (2026-06-13):** both migrated to `@ts-check` + JSDoc row typedefs; typecheck clean, `test:breaks` 35/35, pin-gate coverage green. |
 | The rest of `app/api/**/route.js` | LOWER | Generally smaller surface or read-only. |
 | `app/__tests__/*.test.jsx` | LOWEST | Tests run against real DB anyway; weak typing tolerable. |
 

@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // GET /api/auth/temp-pin/list — list active temp PINs (manager only).
 //
 // Spec: docs/superpowers/specs/2026-05-04-beo-fire-times.md.
@@ -14,6 +14,17 @@ import { parseScopes } from '../../../../../lib/tempPin';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * @typedef {{
+ *   id: number;
+ *   label: string;
+ *   scopes_json: string;
+ *   issued_at: string;
+ *   expires_at: string;
+ * }} TempPinListRow
+ */
+
+/** @param {Request} req */
 export async function GET(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
@@ -21,7 +32,7 @@ export async function GET(req) {
   try {
     const location = locationFromRequest(req);
     const db = getDb();
-    const rows = db
+    const rows = /** @type {TempPinListRow[]} */ (db
       .prepare(
         // datetime() on both sides normalizes the ISO 'T'/'Z' form to SQLite's
         // canonical 'YYYY-MM-DD HH:MM:SS', so string > comparison is correct.
@@ -32,7 +43,7 @@ export async function GET(req) {
             AND datetime(expires_at) > datetime('now')
           ORDER BY issued_at DESC`,
       )
-      .all(location);
+      .all(location));
 
     const pins = rows.map((r) => ({
       id: r.id,

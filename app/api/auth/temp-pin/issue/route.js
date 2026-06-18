@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // POST /api/auth/temp-pin/issue — mint a scoped, time-boxed temp PIN.
 //
 // Spec: docs/superpowers/specs/2026-05-04-beo-fire-times.md.
@@ -36,12 +36,18 @@ export const dynamic = 'force-dynamic';
 const MAX_LABEL = 200;
 const MAX_COLLISION_RETRIES = 5;
 
+/**
+ * @param {unknown} s
+ * @param {number} max
+ * @returns {string | null}
+ */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
+/** @param {number} length */
 function generatePin(length) {
   // randomInt(min, max) is exclusive of max. We pad to ensure leading
   // zeros are preserved — '0042' is a valid PIN, not '42'.
@@ -49,6 +55,10 @@ function generatePin(length) {
   return String(randomInt(0, max)).padStart(length, '0');
 }
 
+/**
+ * @param {unknown} s
+ * @returns {boolean}
+ */
 function isCanonicalIso(s) {
   if (typeof s !== 'string') return false;
   const ms = Date.parse(s);
@@ -56,12 +66,14 @@ function isCanonicalIso(s) {
   return new Date(ms).toISOString() === s;
 }
 
+/** @param {Request} req */
 export async function POST(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
   return issueHandler(req);
 }
 
+/** @param {Request} req */
 async function issueHandler(req) {
   let body;
   try {
@@ -89,7 +101,7 @@ async function issueHandler(req) {
     return json({ error: 'scopes required (at least one)' }, { status: 422 });
   }
   for (const s of scopes) {
-    if (typeof s !== 'string' || !KNOWN_SCOPES.includes(s)) {
+    if (typeof s !== 'string' || !(/** @type {readonly string[]} */ (KNOWN_SCOPES)).includes(s)) {
       return json({ error: `unknown scope: ${s}` }, { status: 422 });
     }
   }

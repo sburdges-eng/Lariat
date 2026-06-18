@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // Meal / rest break tracking (L1 / CO COMPS #39).
 //
 // POST  /api/breaks    → start a break
@@ -11,8 +11,28 @@ import { evaluateShift } from '../../../lib/breaks';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
 
+/**
+ * @typedef {import('../../../lib/breaks').ShiftBreakRow} ShiftBreakRow
+ * @typedef {{ id: number }} IdRow
+ * @typedef {Record<string, unknown> & {
+ *   id: number;
+ *   location_id: string;
+ *   cook_id: string;
+ *   shift_date: string;
+ *   started_at: string;
+ *   ended_at: string | null;
+ *   duration_min: number | null;
+ *   waived: number;
+ * }} BreakRow
+ */
+
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {unknown} s
+ * @param {number} max
+ * @returns {string | null}
+ */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
@@ -21,10 +41,12 @@ const clip = (s, max) => {
 
 // ── POST /api/breaks ──────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function POST(req) {
   return withIdempotency(req, () => breaksPostHandler(req));
 }
 
+/** @param {Request} req */
 async function breaksPostHandler(req) {
   try {
     const body = await req.json();
@@ -63,11 +85,11 @@ async function breaksPostHandler(req) {
     // Reject overlapping OPEN breaks for the same cook — a cook cannot
     // be on two breaks at once, and leaving a prior break open is
     // usually a forgot-to-end bug the manager should resolve.
-    const open = db.prepare(`
+    const open = /** @type {IdRow | undefined} */ (db.prepare(`
       SELECT id FROM shift_breaks
        WHERE location_id=? AND cook_id=? AND ended_at IS NULL AND waived=0
        ORDER BY started_at DESC LIMIT 1
-    `).get(location_id, cook_id);
+    `).get(location_id, cook_id));
     if (open) {
       return Response.json(
         { error: 'cook has an open break', open_break_id: open.id },
@@ -89,8 +111,8 @@ async function breaksPostHandler(req) {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(shift_date, location_id, cook_id, kind, started_at, ended_at, duration_min, waived, waiver_ref, note);
 
-      const row = db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(info.lastInsertRowid);
-      
+      const row = /** @type {BreakRow | undefined} */ (db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(info.lastInsertRowid));
+
       postAuditEvent({
         entity: 'shift_breaks',
         entity_id: Number(info.lastInsertRowid),
@@ -116,10 +138,12 @@ async function breaksPostHandler(req) {
 
 // ── PATCH /api/breaks ─────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function PATCH(req) {
   return withIdempotency(req, () => breaksPatchHandler(req));
 }
 
+/** @param {Request} req */
 async function breaksPatchHandler(req) {
   try {
     const body = await req.json();
@@ -143,7 +167,7 @@ async function breaksPatchHandler(req) {
     // concurrent end-break requests from both passing the 409 guard and
     // overwriting duration_min with diverging values.
     const performUpdate = db.transaction(() => {
-      const existing = db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(id);
+      const existing = /** @type {BreakRow | undefined} */ (db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(id));
       if (!existing) return { status: 404, error: 'unknown break' };
 
       // Cross-location IDOR guard: a cook scoped to site-A must not
@@ -167,7 +191,7 @@ async function breaksPatchHandler(req) {
         UPDATE shift_breaks SET ended_at=?, duration_min=? WHERE id=?
       `).run(ended_at, duration_min, id);
 
-      const updated = db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(id);
+      const updated = /** @type {BreakRow | undefined} */ (db.prepare('SELECT * FROM shift_breaks WHERE id=?').get(id));
 
       postAuditEvent({
         entity: 'shift_breaks',
@@ -198,6 +222,7 @@ async function breaksPatchHandler(req) {
 
 // ── GET /api/breaks ───────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const url = new URL(req.url);
@@ -216,7 +241,7 @@ export async function GET(req) {
       args.push(cook_id);
     }
     q += ' ORDER BY started_at ASC';
-    const breaks = db.prepare(q).all(...args);
+    const breaks = /** @type {ShiftBreakRow[]} */ (db.prepare(q).all(...args));
 
     let evaluation = null;
     if (shift_started_at && shift_ended_at && cook_id) {

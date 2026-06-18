@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // POST /api/auth/temp-pin/login — exchange a temp PIN for a cookie.
 //
 // Spec: docs/superpowers/specs/2026-05-04-beo-fire-times.md.
@@ -36,6 +36,7 @@ const COOKIE_TTL_HOURS = 12; // Cookie's natural lifespan; row's expires_at is t
 /* Resets on process restart (acceptable for LAN-only deployment).    */
 /* Mirrors the limiter shape in app/api/auth/pin/route.ts verbatim.   */
 /* ------------------------------------------------------------------ */
+/** @type {Map<string, number[]>} */
 const attempts = new Map();          // ip → [timestamp, …]
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 60_000;
@@ -43,8 +44,10 @@ const WINDOW_MS = 60_000;
 // Indirection so tests can advance the clock without monkeypatching
 // global Date. Production code path is `Date.now()` exactly as in the
 // master-PIN route.
+/** @type {() => number} */
 let nowFn = () => Date.now();
 
+/** @param {string} ip */
 function isRateLimited(ip) {
   const now = nowFn();
   let list = attempts.get(ip) || [];
@@ -53,12 +56,14 @@ function isRateLimited(ip) {
   return list.length >= MAX_ATTEMPTS;
 }
 
+/** @param {string} ip */
 function recordFailedAttempt(ip) {
   const list = attempts.get(ip) || [];
   list.push(nowFn());
   attempts.set(ip, list);
 }
 
+/** @param {string} ip */
 function clearAttempts(ip) {
   attempts.delete(ip);
 }
@@ -67,6 +72,7 @@ function clearAttempts(ip) {
 // use the socket-level hint so a client can't spoof an IP to rotate past the limiter.
 const TRUST_PROXY = process.env.LARIAT_TRUST_PROXY === '1';
 
+/** @param {Request} req */
 function getIp(req) {
   if (TRUST_PROXY) {
     const xff = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
@@ -76,17 +82,19 @@ function getIp(req) {
   }
   // Next.js runtime exposes the remote address on the request in most adapters;
   // fall back to a constant bucket (LAN deployment) when unavailable.
-  return req.ip || '127.0.0.1';
+  return /** @type {{ ip?: string }} */ (req).ip || '127.0.0.1';
 }
 
 // Test-only hooks. Must NEVER be called in production code paths.
 export function _resetAttemptsForTest() {
   attempts.clear();
 }
+/** @param {() => number} fn */
 export function _setNowForTest(fn) {
   nowFn = typeof fn === 'function' ? fn : () => Date.now();
 }
 
+/** @param {Request} req */
 export async function POST(req) {
   const ip = getIp(req);
 
@@ -117,7 +125,7 @@ export async function POST(req) {
   // SELECT ... AND revoked_at IS NULL AND expires_at > now is the
   // single source of truth for "active". UNIQUE on pin_hash means at
   // most one row matches.
-  const row = db
+  const row = /** @type {{ id: number; location_id: string; scopes_json: string; expires_at: string } | undefined} */ (db
     .prepare(
       // datetime() wraps both sides — see /list/route.js for why string
       // compare across formats was wrong.
@@ -127,7 +135,7 @@ export async function POST(req) {
           AND revoked_at IS NULL
           AND datetime(expires_at) > datetime('now')`,
     )
-    .get(pinHash);
+    .get(pinHash));
 
   if (!row) {
     recordFailedAttempt(ip);
