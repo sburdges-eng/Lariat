@@ -177,7 +177,7 @@ class BuildCascadeUnit(unittest.TestCase):
         by_ing = {row["ingredient"]: row for row in result["order_guide"]}
         tomatoe_row = by_ing["roma tomatoes"]
         self.assertAlmostEqual(tomatoe_row["on_hand"], 1.0, places=5)
-        # total_needed = 4.0 lb; on_hand = 1.0 → to_order = 3.0
+        # total_needed = 2.0 lb (salsa scale=1 → 2 lb/batch); on_hand = 1.0 → to_order = 1.0
         self.assertAlmostEqual(tomatoe_row["to_order"], tomatoe_row["total_needed"] - 1.0, places=5)
 
     def test_prep_demands_sorted_by_display_name(self) -> None:
@@ -189,6 +189,37 @@ class BuildCascadeUnit(unittest.TestCase):
         )
         names = [row["display_name"].lower() for row in result["prep_demands"]]
         self.assertEqual(names, sorted(names))
+
+    def test_expansion_error_propagates_on_missing_sub_recipe(self) -> None:
+        """build_cascade must propagate an error when a recipe's BOM references
+        a sub-recipe slug that is absent from the manifest dict.
+
+        The missing-sub-recipe lookup inside bom_expand raises KeyError
+        (UnknownRecipeError is its subclass; both surface as KeyError here).
+        """
+        # 'broken_dip' BOM marks 'missing_sub' as a sub-recipe, but
+        # 'missing_sub' is NOT present in the manifest dict.
+        broken = Manifest(
+            slug="broken_dip",
+            display_name="Broken Dip",
+            yield_qty=1.0,
+            yield_unit="qt",
+            sub_recipe_slugs=["missing_sub"],
+            bom=[
+                {"ingredient": "missing_sub", "qty": 1.0, "unit": "qt", "is_sub_recipe": True},
+            ],
+        )
+        manifest_with_gap = {"broken_dip": broken}
+        beo_map_with_gap: dict[str, list[str]] = {"broken dip": ["broken_dip"]}
+
+        # KeyError is the base of UnknownRecipeError; the bare manifest[sub_slug]
+        # lookup inside _expand_into / _accumulate_recipe_demand raises KeyError.
+        with self.assertRaises(KeyError):
+            build_cascade(
+                manifest_with_gap,
+                beo_map_with_gap,
+                [{"item_name": "Broken Dip", "quantity": 1}],
+            )
 
 
 # ---------------------------------------------------------------------------

@@ -193,23 +193,31 @@ def main() -> int:
         _fail(f"failed to build manifest: {e}")
         return 2
 
-    beo_map, map_unresolved = load_beo_recipe_map(map_csv, manifest)
+    try:
+        beo_map, map_unresolved = load_beo_recipe_map(map_csv, manifest)
+    except Exception as e:
+        _fail(f"failed to load recipe map: {e}")
+        return 2
 
     # Parse optional inventory list → {(ingredient_lower, unit_lower): float}
-    inventory: dict[tuple[str, str], float] | None = None
-    raw_inventory = payload.get("inventory")
-    if isinstance(raw_inventory, list) and raw_inventory:
-        inventory = {}
-        for entry in raw_inventory:
-            if isinstance(entry, dict):
-                ing = str(entry.get("ingredient") or "").strip().lower()
-                unit = str(entry.get("unit") or "").strip().lower()
-                try:
-                    on_hand = float(entry.get("on_hand", 0))
-                except (TypeError, ValueError):
-                    on_hand = 0.0
-                if ing:
-                    inventory[(ing, unit)] = on_hand
+    try:
+        inventory: dict[tuple[str, str], float] | None = None
+        raw_inventory = payload.get("inventory")
+        if isinstance(raw_inventory, list) and raw_inventory:
+            inventory = {}
+            for entry in raw_inventory:
+                if isinstance(entry, dict):
+                    ing = str(entry.get("ingredient") or "").strip().lower()
+                    unit = str(entry.get("unit") or "").strip().lower()
+                    try:
+                        on_hand = float(entry.get("on_hand", 0))
+                    except (TypeError, ValueError):
+                        on_hand = 0.0
+                    if ing:
+                        inventory[(ing, unit)] = on_hand
+    except Exception as e:
+        _fail(f"failed to parse inventory: {e}")
+        return 2
 
     qty_in_yield_units = bool(payload.get("qty_in_yield_units", False))
 
