@@ -502,6 +502,17 @@ export const NAV_ITEMS = [
   // ── Inventory sub-boards (audit F1 fix, 2026-05-17) ────────────────
   // Counts / par / waste pages existed but only the /inventory hub
   // was registered. Added palette-only so ⌘K finds them.
+  // inventory-log added in Task 10 (counts-first default, 2026-06-18).
+  {
+    id: 'inventory-log',
+    href: '/inventory/log',
+    name: 'Inventory log',
+    sub: 'Free-text inventory update log',
+    group: 'Service',
+    terms: 'inventory log updates moves',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
   {
     id: 'inventory-counts',
     href: '/inventory/counts',
