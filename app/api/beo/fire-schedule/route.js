@@ -18,23 +18,52 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req) {
   const url = new URL(req.url);
-  const date = url.searchParams.get('date') || todayISO();
   const location = url.searchParams.get('location') || 'default';
+
+  const eventIdRaw = url.searchParams.get('event_id');
+  const eventIdNum = Number(eventIdRaw);
+  const useEventScope =
+    eventIdRaw !== null &&
+    Number.isInteger(eventIdNum) &&
+    eventIdNum > 0;
 
   try {
     const db = getDb();
 
-    const courses = db
-      .prepare(
-        `SELECT c.id, c.event_id, c.course_label, c.fire_at, c.station_id,
-                e.title AS event_title
-           FROM beo_courses c
-           JOIN beo_events e ON e.id = c.event_id
-          WHERE c.location_id = ?
-            AND e.event_date = ?
-          ORDER BY c.fire_at, c.id`,
-      )
-      .all(location, date);
+    let date;
+    let courses;
+
+    if (useEventScope) {
+      const eventId = eventIdNum;
+      courses = db
+        .prepare(
+          `SELECT c.id, c.event_id, c.course_label, c.fire_at, c.station_id,
+                  e.title AS event_title, e.event_date AS event_date
+             FROM beo_courses c
+             JOIN beo_events e ON e.id = c.event_id
+            WHERE c.location_id = ?
+              AND c.event_id = ?
+            ORDER BY c.fire_at, c.id`,
+        )
+        .all(location, eventId);
+      // Echo the event's own date; fall back to the query param or today.
+      date = (courses.length > 0 ? courses[0].event_date : null) ||
+        url.searchParams.get('date') ||
+        todayISO();
+    } else {
+      date = url.searchParams.get('date') || todayISO();
+      courses = db
+        .prepare(
+          `SELECT c.id, c.event_id, c.course_label, c.fire_at, c.station_id,
+                  e.title AS event_title
+             FROM beo_courses c
+             JOIN beo_events e ON e.id = c.event_id
+            WHERE c.location_id = ?
+              AND e.event_date = ?
+            ORDER BY c.fire_at, c.id`,
+        )
+        .all(location, date);
+    }
 
     // Pull every line bound to one of these courses in a single query.
     const courseIds = courses.map((c) => c.id);
