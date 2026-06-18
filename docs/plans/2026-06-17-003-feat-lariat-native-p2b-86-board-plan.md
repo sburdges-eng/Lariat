@@ -3,10 +3,25 @@ title: "feat: Lariat Native P2b — 86 board writes (first cook AuditedWrite)"
 date: 2026-06-17
 type: feat
 depth: standard
+status: shipped
+pr: 350
 origin: docs/superpowers/specs/2026-06-17-lariat-native-p2-cook-tier-design.md
+design: docs/superpowers/specs/2026-06-17-lariat-native-p2b-86-board-design.md
 ---
 
 # feat: Lariat Native P2b — 86 board writes (first cook AuditedWrite)
+
+**Status:** Shipped on `main` via [#350](https://github.com/sburdges-eng/Lariat/pull/350) (2026-06-17). P2c (#355) and P2d (#357) followed on the same cook-tier ladder.
+
+## Implementation status
+
+| Unit | Deliverable | Status |
+|------|-------------|--------|
+| U1 | `nativeCook`, Encodable audit payloads, `AuditEventWriter` | Done |
+| U2 | `StaffCatalog`, `CookIdentityStore`, staff picker | Done |
+| U3 | `EightySixRepository` + `EightySixRepositoryTests` | Done |
+| U4 | `EightySixView`, Cook nav, Today deep link | Done |
+| U5 | `LariatNative/README.md` cook-tier docs | Done |
 
 ## Summary
 
@@ -15,6 +30,30 @@ Ship the native **86 board** for cooks: list open items, add new 86 rows, resolv
 ## Problem Frame
 
 P2a delivers read-only Today (station grid, open 86 count, cascade display). Cooks still need a browser for `/v2/eighty-six` to mark items out or back. P1a Command reads `eighty_six` as thin projections; cooks need the **operational write loop** with regulated audit trail before station checklists (P2c) and KDS punch (P2d).
+
+
+## Planning questionnaire (Q1–Q5, Q7, Q9)
+
+Canonical answers live in `docs/superpowers/specs/2026-06-17-lariat-native-p2b-86-board-design.md`.
+Summary for implementers:
+
+| Q | Topic | Binding decision |
+|---|--------|------------------|
+| Q1 | Problem | First cook **write** after read-only Today; closes browser dependency for 86 |
+| Q2 | Scope | 86 add/resolve + cascade confirm only; no RuleGate, no idempotency table |
+| Q3 | Success | `swift test` + fixture parity with `test-eighty-six-api.mjs`; poll-visible cross-process |
+| Q4 | Approach | **U1 write foundation before UI** — `nativeCook`, payload encoding, `AuditedWriteRunner` |
+| Q5 | Identity | `lariat_cook` + staff picker; `actor_source=native_cook`; cascade read-only + manual confirm add |
+| Q7 | Tests | Seed Swift fixtures from same SQL shapes as JS API tests; repository tests before UI merge |
+| Q9 | Deferrals | See scope table below — `syncFeed`, HTTP idempotency, non-listed HACCP, KDS Core fold-in |
+
+### Write-foundation gate (before P3 UI)
+
+P2b lands `RegulatedWriteContext.nativeCook` and `payloadJSON` encoding. P3a **must** add before temp-log UI:
+
+- `RuleGateError` + `WriteErrorMapper.needsCorrectiveAction` branch
+- `TempLogCompute` pure port of `validateTempReading` / `classifyReading` + boundary tests
+- Then `TempLogRepository` + `TempLogView`
 
 ## Requirements
 
@@ -81,10 +120,20 @@ sequenceDiagram
 - Station line checks + signoff
 - KDS punch + `LariatKDSCore` fold-in
 
-### Deferred to P3+
+### Deferred to P3+ (Q9 — do not expand P2b PR)
 
-- `RuleGate` / corrective-action 422 UX
-- HACCP temp logs, date marks, labor breaks
+| Deferred item | Target phase |
+|---------------|--------------|
+| `RuleGate` / corrective-action 422 UX | P3a temp log (foundation types before UI) |
+| HACCP temp logs | P3a |
+| Date marks, calibrations | P3b |
+| Cleaning, labor breaks | P3c |
+| Cooling, receiving, sanitizer, sick-worker | P3d+ |
+| `syncFeed` writes | P6+ |
+| HTTP `withIdempotency` / `idempotency_keys` | P2d+ / when client replay required |
+| `LariatKDSCore` package fold-in (display grid) | P2d follow-up |
+| KDS `idempotency_keys` table | P2d follow-up |
+| Break COMPS shift-window UI | P3c follow-up (evaluation logic may ship first) |
 
 ### Outside identity
 
@@ -95,6 +144,8 @@ sequenceDiagram
 ### U1. Cook write context + audit payload encoding
 
 **Goal:** `RegulatedWriteContext.nativeCook(cookId:)` and audit payload encoding that accepts structured row snapshots.
+
+**Flow 1 entry (same PR or immediately after U1):** Enable Cook → 86 nav and Today deep link — otherwise P2a stubs leave cooks disconnected from the write loop (see design spec §Navigation wiring).
 
 **Requirements:** R8, R9, KTD4, KTD5
 
@@ -166,7 +217,7 @@ sequenceDiagram
 
 - `load(date:location:)` → open rows + cascaded chips via `SubRecipeCascade`.
 - `add(...)` → `AuditedWriteRunner.perform` → INSERT + audit `action=insert` with partial payload `{ item, kind, reason }`; `location_id` from `LocationScope.resolve()` only.
-- `resolve(id:context:)` → snapshot, location compare (404 semantics as thrown enum), 409 if already resolved, UPDATE + audit `note=resolved`.
+- `resolve(id:context:)` → **transaction port of `resolve/route.ts`:** snapshot by id; cross-location → `notFound` (404, no leak); `resolved_at` set → `alreadyResolved` (409); UPDATE + audit `note=resolved` with full-row `payloadJSON`.
 
 **Patterns:** `PerformanceReviewsRepository.create`, `app/api/eighty-six/resolve/route.ts`
 
@@ -180,6 +231,8 @@ sequenceDiagram
 - Integration: concurrent add from fixture does not corrupt cascade list.
 
 **Verification:** Parity with `tests/js/test-eighty-six-api.mjs` cases; `test-financial-acid.mjs` §86 atomicity.
+
+**Fixture rule (Q7):** Seed `Fixtures.swift` / test helpers from the same INSERT column sets as the JS API test file — parity is CI-enforced, not manual iPad smoke.
 
 ### U4. EightySixView + navigation wiring
 
@@ -224,7 +277,7 @@ sequenceDiagram
 
 **Test expectation:** none — documentation only.
 
-**Verification:** README accurate; Cook section table lists P2b shipped / P2c–P2d stubbed.
+**Verification:** README lists P2b shipped; P2c–P2d tracked in their own plans (#355, #357).
 
 ## Risks and Dependencies
 
@@ -246,7 +299,8 @@ sequenceDiagram
 
 ## References
 
-- Design: `docs/superpowers/specs/2026-06-17-lariat-native-p2-cook-tier-design.md` §5–6
+- Design (P2b): `docs/superpowers/specs/2026-06-17-lariat-native-p2b-86-board-design.md`
+- Umbrella: `docs/superpowers/specs/2026-06-17-lariat-native-p2-cook-tier-design.md` §5–6
 - Web: `app/api/eighty-six/route.ts`, `app/api/eighty-six/resolve/route.ts`, `app/eighty-six/EightySixBoard.jsx`
 - Patterns: `docs/PATTERNS.md` §3, `docs/HEALTH_SAFETY_LABOR_AUDIT.md` (atomicity)
 - Tests: `tests/js/test-eighty-six-api.mjs`, `tests/js/test-financial-acid.mjs`, `tests/js/test-v2-eighty-six.mjs`
