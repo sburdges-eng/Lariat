@@ -115,7 +115,7 @@ describe('BeoBoard tab scaffold', () => {
     expect(screen.getByTestId('beo-tabpanel-prep')).toHaveTextContent('Prep — coming soon');
   });
 
-  test('clicking Fire shows its placeholder and hides the sheet', async () => {
+  test('clicking Fire shows the EventFirePanel and hides the sheet', async () => {
     mockFetch();
     render(<BeoBoard />);
 
@@ -124,7 +124,8 @@ describe('BeoBoard tab scaffold', () => {
 
     expect(screen.getByTestId('beo-tabpanel-fire')).toBeInTheDocument();
     expect(screen.queryByTestId('beo-tabpanel-sheet')).not.toBeInTheDocument();
-    expect(screen.getByTestId('beo-tabpanel-fire')).toHaveTextContent('Fire — coming soon');
+    // T3: placeholder replaced by EventFirePanel — panel starts in loading state
+    expect(screen.getByTestId('event-fire-loading')).toBeInTheDocument();
   });
 
   test('clicking Sheet after another tab restores the worksheet', async () => {

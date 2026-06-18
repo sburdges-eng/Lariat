@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import PrepHistoryPanel from './PrepHistoryPanel';
 import CoursePanel from './_components/CoursePanel';
+// EventFirePanel is an untyped (.jsx) component; cast at the boundary like CoursePanel above.
+ 
+import EventFirePanel from './_components/EventFirePanel';
 import LariAmbient from '../_components/LariAmbient';
 import { formatDollars } from '../../lib/formatMoney';
 import type { CateringMenuItem } from '../../lib/data';
@@ -452,8 +455,11 @@ export default function BeoBoard({ initialMenu = [] }: BeoBoardProps) {
           )}
 
           {activeTab === 'fire' && (
-            <div data-testid="beo-tabpanel-fire" className="beo-tab-placeholder">
-              Fire — coming soon
+            <div data-testid="beo-tabpanel-fire">
+              <EventFirePanel
+                eventId={openEvent.id}
+                location={openEvent.location_id ?? 'default'}
+              />
             </div>
           )}
         </>
