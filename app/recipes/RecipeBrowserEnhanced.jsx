@@ -23,6 +23,7 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { useRole } from '../_components/RoleProvider';
 import { groupRecipesByCategory } from '../../lib/recipeCookbookGrouping';
+import { recipeMatchesScope } from '../../lib/recipeScope';
 
 function categoryLabel(c) {
   if (!c) return 'Uncategorized';
@@ -34,7 +35,17 @@ export default function RecipeBrowserEnhanced({ recipes }) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAllergen, setFilterAllergen] = useState('');
+  const [bookScope, setBookScope] = useState('book');
   const [signingOut, setSigningOut] = useState(false);
+
+  const bookCount = useMemo(
+    () => recipes.filter((r) => !r.is_catering).length,
+    [recipes],
+  );
+  const cateringCount = useMemo(
+    () => recipes.filter((r) => r.is_catering).length,
+    [recipes],
+  );
 
   const allAllergens = useMemo(() => {
     const seen = new Set();
@@ -45,15 +56,19 @@ export default function RecipeBrowserEnhanced({ recipes }) {
   const filtered = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     return recipes.filter((r) => {
+      const matchScope = recipeMatchesScope(
+        { category: r.category, menu_items: r.menu_items },
+        bookScope,
+      );
       const matchSearch =
         !q ||
         r.name.toLowerCase().includes(q) ||
         (r.ingredients_text && r.ingredients_text.includes(q));
       const matchAllergen =
         !filterAllergen || (r.allergens || []).includes(filterAllergen);
-      return matchSearch && matchAllergen;
+      return matchScope && matchSearch && matchAllergen;
     });
-  }, [recipes, searchTerm, filterAllergen]);
+  }, [recipes, searchTerm, filterAllergen, bookScope]);
 
   // Group by category, ordered by CATEGORY_ORDER then alpha for unknowns.
   // Pure logic lives in lib/recipeCookbookGrouping.ts so the unit test
@@ -82,7 +97,13 @@ export default function RecipeBrowserEnhanced({ recipes }) {
         <div className="cookbook-eyebrow">
           <span>Recipe Book</span>
           <span aria-hidden="true">·</span>
-          <span>{recipes.length} on file</span>
+          <span>
+            {bookScope === 'book'
+              ? `${bookCount} line recipes`
+              : bookScope === 'catering'
+                ? `${cateringCount} catering builds`
+                : `${recipes.length} on file`}
+          </span>
         </div>
         <h1 className="cookbook-title">
           The <em>Lariat</em> Cookbook
@@ -120,6 +141,32 @@ export default function RecipeBrowserEnhanced({ recipes }) {
 
       {/* ─── Controls ─────────────────────────────────────── */}
       <section className="cookbook-controls" aria-label="Search and filter">
+        <div className="cookbook-allergens" role="group" aria-label="Recipe scope">
+          <span className="cookbook-label">Show</span>
+          <div className="cookbook-chip-row">
+            <button
+              type="button"
+              className={`cookbook-chip ${bookScope === 'book' ? 'is-active' : ''}`}
+              onClick={() => setBookScope('book')}
+            >
+              Line book ({bookCount})
+            </button>
+            <button
+              type="button"
+              className={`cookbook-chip ${bookScope === 'catering' ? 'is-active' : ''}`}
+              onClick={() => setBookScope('catering')}
+            >
+              Catering ({cateringCount})
+            </button>
+            <button
+              type="button"
+              className={`cookbook-chip ${bookScope === 'all' ? 'is-active' : ''}`}
+              onClick={() => setBookScope('all')}
+            >
+              All ({recipes.length})
+            </button>
+          </div>
+        </div>
         <div className="cookbook-search">
           <label className="cookbook-label" htmlFor="cookbook-search-input">
             Search

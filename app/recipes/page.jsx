@@ -2,6 +2,7 @@
 import { getRecipes } from '../../lib/data';
 import { getDb } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
+import { isCateringRecipe } from '../../lib/recipeScope';
 import RecipeBrowserEnhanced from './RecipeBrowserEnhanced.jsx';
 
 export const dynamic = 'force-dynamic';
@@ -54,6 +55,8 @@ export default async function RecipesPage({ searchParams }) {
     name: r.name,
     category: (r.category || '').toString().trim().toLowerCase(),
     station: r.station || null,
+    menu_items: r.menu_items || [],
+    is_catering: isCateringRecipe(r),
     ingredient_count: (r.ingredients || []).length,
     allergens: r.allergens || [],
     ingredients_text: (r.ingredients || [])

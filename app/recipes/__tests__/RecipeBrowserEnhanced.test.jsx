@@ -137,8 +137,9 @@ describe('groupRecipesByCategory', () => {
     const knownEmitted = groups
       .map(([cat]) => cat)
       .filter((c) => CATEGORY_ORDER.includes(c));
-    // Expected: appetizer, entree, sauce, dressing — in CATEGORY_ORDER.
-    expect(knownEmitted).toEqual(['appetizer', 'entree', 'sauce', 'dressing']);
+    // Line-prep CATEGORY_ORDER: sauce, dressing, entree, appetizer
+    // (prep/mother-sauces before passed apps/plates — not catering order).
+    expect(knownEmitted).toEqual(['sauce', 'dressing', 'entree', 'appetizer']);
   });
 
   test('unknown categories sort alphabetically after known ones', () => {
@@ -147,12 +148,12 @@ describe('groupRecipesByCategory', () => {
       { slug: 'limeade', name: 'Limeade', category: 'beverage', ingredient_count: 3, allergens: [] },
     ]);
     const cats = groups.map(([cat]) => cat);
-    // Known come first (in CATEGORY_ORDER). Unknowns: 'beverage' then 'family_meal' alpha.
+    // Known come first (line-prep CATEGORY_ORDER). Unknowns: 'beverage' then 'family_meal' alpha.
     expect(cats).toEqual([
-      'appetizer',
-      'entree',
       'sauce',
       'dressing',
+      'entree',
+      'appetizer',
       'beverage',
       'family_meal',
     ]);
@@ -188,12 +189,12 @@ describe('RecipeBrowserEnhanced — rendered category section order', () => {
     render(<RecipeBrowserEnhanced recipes={RECIPES} />);
     const headers = screen.getAllByRole('heading', { level: 2 });
     const titles = headers.map((h) => h.textContent.toLowerCase());
-    // Expected: Appetizer, Entree, Sauce, Dressing, Family_meal (unknown last).
+    // Line-prep order: Sauce, Dressing, Entree, Appetizer, then Family_meal (unknown last).
     expect(titles).toEqual([
-      'appetizer',
-      'entree',
       'sauce',
       'dressing',
+      'entree',
+      'appetizer',
       'family_meal',
     ]);
   });

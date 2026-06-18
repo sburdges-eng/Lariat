@@ -17,15 +17,19 @@
  *      sort with the other unknowns.
  */
 
+// Line reading order: prep and mother sauces before passed apps / plates.
 export const CATEGORY_ORDER: readonly string[] = [
-  'appetizer',
-  'entree',
-  'side',
-  'sauce',
-  'dressing',
-  'seasoning',
   'prep',
+  'sauce',
+  'seasoning',
+  'dressing',
+  'side',
+  'entree',
+  'soup',
+  'appetizer',
   'dessert',
+  'buffet',
+  'dinner',
 ];
 
 export interface CookbookRecipe {
