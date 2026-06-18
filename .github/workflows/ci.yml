@@ -44,6 +44,9 @@ jobs:
       - name: HACCP rule tests
         run: npm run test:rules
 
+      - name: purchasing vendor compare + mapping tests
+        run: npm run test:purchasing-vendor
+
       - name: KDS bump protocol route test
         run: npm run test:kds-bump
 
