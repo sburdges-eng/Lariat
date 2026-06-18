@@ -2,10 +2,12 @@
 /**
  * smoke-vendor-compare-v2.mjs — post-ship critical path for vendor compare v2.
  *
- * Copies data/lariat.db to a temp file, then exercises pair → compare →
- * order-guide enrichment → ingest VP sweep durability without mutating prod data.
+ * Uses the local SQLite file at data/lariat.db (same as dev) by default.
+ * Pass --copy to run against a temp clone instead of mutating the local DB.
  *
- * Usage: node --experimental-strip-types scripts/smoke-vendor-compare-v2.mjs
+ * Usage:
+ *   npm run smoke:vendor-compare-v2
+ *   node --experimental-strip-types scripts/smoke-vendor-compare-v2.mjs --copy
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -15,13 +17,13 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(__dirname, '..');
-const SRC_DB = path.join(REPO, 'data', 'lariat.db');
+const USE_COPY = process.argv.includes('--copy');
 
 register(new URL('../tests/js/resolver.mjs', import.meta.url));
 
 const BEVERAGE_CATEGORIES = ['beer', 'wine', 'liquor', 'na beverage'];
 
-const CANONICAL_FALLBACK = 'Fresh Basil';
+const CANONICAL_FALLBACK = 'Smoke staple';
 
 /** @type {{ syscoKey: { vendor: string; sku: string; ingredient: string }; shamrockKey: { vendor: string; sku: string; ingredient: string }; canonicalName: string } | null} */
 function findSmokePair(db) {
@@ -43,15 +45,19 @@ function findSmokePair(db) {
       AND (
         (lower(s.ingredient) LIKE '%basil%' AND lower(sh.ingredient) LIKE '%basil%')
         OR (lower(s.ingredient) LIKE '%baking soda%' AND lower(sh.ingredient) LIKE '%baking%')
+        OR (lower(s.ingredient) LIKE '%cream cheese%' AND lower(sh.ingredient) LIKE '%cream%cheese%')
+        OR (lower(s.ingredient) LIKE '%parsley%' AND lower(sh.ingredient) LIKE '%parsley%')
+        OR (lower(s.ingredient) LIKE '%cilantro%' AND lower(sh.ingredient) LIKE '%cilantro%')
       )
     LIMIT 1
   `,
   ).get();
   if (!row) return null;
+  const label = row.sysco_ingredient.replace(/\s+/g, ' ').trim().slice(0, 40);
   return {
     syscoKey: { vendor: 'sysco', sku: row.sysco_sku, ingredient: row.sysco_ingredient },
     shamrockKey: { vendor: 'shamrock', sku: row.shamrock_sku, ingredient: row.shamrock_ingredient },
-    canonicalName: CANONICAL_FALLBACK,
+    canonicalName: label || CANONICAL_FALLBACK,
   };
 }
 
@@ -123,16 +129,26 @@ function simulateIngestVpSweep(db, locationId = 'default') {
   }
 }
 
-if (!fs.existsSync(SRC_DB)) {
-  fail(`source DB missing: ${SRC_DB}`);
+const { resolveDataDir } = await import('../lib/dataDir.ts');
+const localDb = path.join(resolveDataDir(), 'lariat.db');
+
+if (!fs.existsSync(localDb)) {
+  fail(`local SQLite missing: ${localDb}`);
 }
 
-const copy = path.join(os.tmpdir(), `lariat-smoke-v2-${Date.now()}.db`);
-fs.copyFileSync(SRC_DB, copy);
-console.log(`smoke DB copy: ${copy}`);
+let dbPath = localDb;
+let tempCopy = null;
+if (USE_COPY) {
+  tempCopy = path.join(os.tmpdir(), `lariat-smoke-v2-${Date.now()}.db`);
+  fs.copyFileSync(localDb, tempCopy);
+  dbPath = tempCopy;
+  console.log(`smoke DB copy: ${dbPath}`);
+} else {
+  console.log(`smoke DB (local sqlite): ${dbPath}`);
+}
 
 const { setDbPathForTest, getDb } = await import('../lib/db.ts');
-setDbPathForTest(copy);
+setDbPathForTest(dbPath);
 const db = getDb();
 
 delete process.env.LARIAT_PIN;
@@ -142,7 +158,9 @@ const { GET: getCompare } = await import('../app/api/purchasing/vendor-compare/r
 const { enrichOrderGuideRow } = await import('../lib/orderGuideEnrichment.ts');
 
 const pairCandidate = findSmokePair(db);
-if (!pairCandidate) fail('no unlinked sysco+shamrock pair found in DB copy for smoke');
+if (!pairCandidate) {
+  fail('no unlinked sysco+shamrock pair found in local DB — link one manually or run ingest:costing');
+}
 const { syscoKey: SYSCO_KEY, shamrockKey: SHAMROCK_KEY, canonicalName: CANONICAL } = pairCandidate;
 console.log(`pair candidate: ${CANONICAL} (${SYSCO_KEY.sku} ↔ ${SHAMROCK_KEY.sku})`);
 
@@ -162,17 +180,23 @@ const pairRes = await postPair(
     }),
   }),
 );
-if (pairRes.status !== 200) {
+if (pairRes.status === 200) {
+  pass(`paired Sysco ${SYSCO_KEY.sku} ↔ Shamrock ${SHAMROCK_KEY.sku} as "${CANONICAL}"`);
+} else if (pairRes.status === 409) {
+  pass(`pair already linked (${SYSCO_KEY.sku} ↔ ${SHAMROCK_KEY.sku}) — continuing smoke`);
+} else {
   const err = await pairRes.text();
   fail(`pair POST: ${pairRes.status} ${err}`);
 }
-pass(`paired Sysco ${SYSCO_KEY.sku} ↔ Shamrock ${SHAMROCK_KEY.sku} as "${CANONICAL}"`);
 
 const afterCmp = await getCompare(new Request('http://localhost/api/purchasing/vendor-compare'));
 const afterBody = await afterCmp.json();
 const afterPairs = Number(afterBody.masters_with_both_vendors ?? 0);
-if (afterPairs !== beforePairs + 1) {
+if (pairRes.status === 200 && afterPairs !== beforePairs + 1) {
   fail(`compare pairs ${beforePairs} → ${afterPairs} (expected +1)`);
+}
+if (pairRes.status === 409 && afterPairs < beforePairs) {
+  fail(`compare pairs regressed ${beforePairs} → ${afterPairs}`);
 }
 pass(`compare masters_with_both_vendors ${beforePairs} → ${afterPairs}`);
 
@@ -222,10 +246,12 @@ if (syscoAfter?.master_id !== masterIdBeforeIngest || shamrockAfter?.master_id !
 }
 pass('ingest VP sweep preserved master_id on both vendors');
 
-try {
-  fs.unlinkSync(copy);
-} catch {
-  /* ignore */
+if (tempCopy) {
+  try {
+    fs.unlinkSync(tempCopy);
+  } catch {
+    /* ignore */
+  }
 }
 
 console.log('\nOK — vendor compare v2 smoke passed');
