@@ -209,6 +209,7 @@
     "test:vendor-compare": "node --experimental-strip-types --test tests/js/test-vendor-compare.mjs tests/js/test-vendor-compare-api.mjs",
     "test:vendor-mapping": "node --experimental-strip-types --test tests/js/test-vendor-mapping.mjs tests/js/test-vendor-mapping-repo.mjs tests/js/test-vendor-mapping-api.mjs tests/js/test-vendor-mapping-ingest-durability.mjs tests/js/test-order-guide-enrichment.mjs",
     "test:purchasing-vendor": "npm run test:vendor-compare && npm run test:vendor-mapping && node --experimental-strip-types --test tests/js/test-ingredient-masters-ingest-lock.mjs",
+    "smoke:vendor-compare-v2": "node --experimental-strip-types scripts/smoke-vendor-compare-v2.mjs",
     "test:sync-feed": "node --experimental-strip-types --test tests/js/test-sync-feed.mjs",
     "test:peer-auth": "node --experimental-strip-types --test tests/js/test-peer-auth.mjs",
     "test:cloud-bridge-graceful-stop": "node --experimental-strip-types --test tests/js/test-cloud-bridge-graceful-stop.mjs",
