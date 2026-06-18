@@ -4,7 +4,9 @@ import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { formatDollars } from '../../../lib/formatMoney';
 import { listVendorCompareRows } from '../../../lib/vendorCompare.ts';
+import { listSingleVendorMasters, summarizeMappingCoverage } from '../../../lib/vendorMapping.ts';
 import CompareActions from './CompareActions.jsx';
+import AttachVendorActions from './AttachVendorActions.jsx';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,20 +26,25 @@ function reasonLabel(reason) {
 export default function VendorComparePage() {
   const db = getDb();
   const summary = listVendorCompareRows(db, { locationId: DEFAULT_LOCATION_ID });
+  const coverage = summarizeMappingCoverage(db, DEFAULT_LOCATION_ID);
+  const singleVendorMasters = listSingleVendorMasters(db, DEFAULT_LOCATION_ID);
 
   return (
     <div>
       <p className="subtitle" style={{ marginTop: 0 }}>
         <Link href="/purchasing">← Order guide</Link>
+        {' · '}
+        <Link href="/purchasing/link">Link vendors</Link>
       </p>
       <h1>Sysco vs Shamrock</h1>
       <p className="subtitle">
-        {summary.masters_with_both_vendors} staples mapped · {summary.masters_single_vendor_only} on one vendor only
+        {coverage.mapped_pairs} mapped · {coverage.single_vendor} on one vendor · {coverage.unlinked_sysco} Sysco
+        unlinked · {coverage.unlinked_shamrock} Shamrock unlinked
       </p>
 
       {summary.rows.length === 0 && (
         <div className="card" style={{ borderColor: 'var(--yellow)' }}>
-          No mapped pairs yet. Link ingredients in costing first.
+          No mapped pairs yet. <Link href="/purchasing/link">Link vendors</Link> to add your first staple.
         </div>
       )}
 
@@ -88,6 +95,38 @@ export default function VendorComparePage() {
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {singleVendorMasters.length > 0 && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <h2 style={{ marginTop: 0 }}>One vendor only</h2>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Has</th>
+                <th>Missing</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {singleVendorMasters.map((row) => (
+                <tr key={row.master_id}>
+                  <td>{row.canonical_name}</td>
+                  <td>{row.linked_vendor}</td>
+                  <td>{row.missing_vendor}</td>
+                  <td>
+                    <AttachVendorActions
+                      masterId={row.master_id}
+                      missingVendor={row.missing_vendor}
+                      canonicalName={row.canonical_name}
+                    />
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

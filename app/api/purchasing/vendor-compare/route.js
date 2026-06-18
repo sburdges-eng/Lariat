@@ -2,6 +2,7 @@
 import { getDb } from '../../../../lib/db';
 import { requirePin } from '../../../../lib/pin';
 import { listVendorCompareRows } from '../../../../lib/vendorCompare.ts';
+import { listSingleVendorMasters, summarizeMappingCoverage } from '../../../../lib/vendorMapping.ts';
 import { DEFAULT_LOCATION_ID } from '../../../../lib/location';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +22,9 @@ export async function GET(req) {
     const limit = clampLimit(url.searchParams.get('limit'));
     const db = getDb();
     const summary = listVendorCompareRows(db, { locationId: DEFAULT_LOCATION_ID, limit });
-    return Response.json(summary);
+    const coverage = summarizeMappingCoverage(db, DEFAULT_LOCATION_ID);
+    const single_vendor_masters = listSingleVendorMasters(db, DEFAULT_LOCATION_ID);
+    return Response.json({ ...summary, coverage, single_vendor_masters });
   } catch (err) {
     console.error('GET /api/purchasing/vendor-compare failed:', err);
     return Response.json({ error: 'Failed to load vendor compare' }, { status: 500 });
