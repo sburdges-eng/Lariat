@@ -106,6 +106,10 @@ export const NAV_ROUTE_EXCLUSIONS = [
     href: '/v2/analytics',
     reason: 'Cookie-gated side-by-side preview route; keep v2 manager pages out of v1 navigation until cutover.',
   },
+  {
+    href: '/prep/fire-schedule',
+    reason: 'Retired standalone page; now a server-side redirect to /beo where the Fire tab lives.',
+  },
 ];
 
 export const NAV_ITEMS = [
@@ -219,16 +223,6 @@ export const NAV_ITEMS = [
     shortcut: 'K',
     terms: 'prep board task tasks shift kitchen',
     locAware: t,
-    surface: { sidebar: t, palette: t, shelf: f },
-  },
-  {
-    id: 'fire-schedule',
-    href: '/prep/fire-schedule',
-    name: 'Fire schedule',
-    sub: "Tonight's banquet fires",
-    group: 'Service',
-    terms: 'fire schedule banquet course beo timing wall board',
-    locAware: f,
     surface: { sidebar: t, palette: t, shelf: f },
   },
   {
