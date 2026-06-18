@@ -17,10 +17,12 @@ function fmt(iso) {
   }
 }
 
-export default function CountsListPage({ searchParams }) {
+export default async function CountsListPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const db = getDb();
   const counts = db

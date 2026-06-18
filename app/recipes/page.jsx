@@ -6,10 +6,12 @@ import RecipeBrowserEnhanced from './RecipeBrowserEnhanced.jsx';
 
 export const dynamic = 'force-dynamic';
 
-export default function RecipesPage({ searchParams }) {
+export default async function RecipesPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
 
   // Pull first photo per recipe in a single query (avoids 73 client fetches).

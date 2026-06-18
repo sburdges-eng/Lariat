@@ -6,8 +6,8 @@ import HostStand from './HostStand';
 
 export const dynamic = 'force-dynamic';
 
-export default function HostPage({ searchParams }) {
-  const sp = searchParams ?? {};
+export default async function HostPage({ searchParams }) {
+  const sp = (await searchParams) || {};
   const loc =
     typeof sp.location === 'string' && sp.location.trim()
       ? sp.location.trim()

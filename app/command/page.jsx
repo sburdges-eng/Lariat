@@ -54,10 +54,12 @@ function fmtTime(t) {
   return `${h12}:${mm} ${ampm}`;
 }
 
-export default function CommandCenter({ searchParams }) {
+export default async function CommandCenter({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const today = todayISO();
   const s = summarize(loc, today);

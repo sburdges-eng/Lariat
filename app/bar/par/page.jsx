@@ -37,12 +37,14 @@ function fmtDate(iso) {
   }
 }
 
-export default function BarParPage({ searchParams }) {
+export default async function BarParPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const onlyLow = searchParams?.low === '1';
+  const onlyLow = sp?.low === '1';
   const db = getDb();
 
   // Parameterised category list: build the placeholder string from the

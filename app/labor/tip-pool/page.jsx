@@ -16,14 +16,16 @@ import TipPoolBoard from './TipPoolBoard.jsx';
 
 export const dynamic = 'force-dynamic';
 
-export default function TipPoolPage({ searchParams }) {
+export default async function TipPoolPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const date =
-    typeof searchParams?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date)
-      ? searchParams.date
+    typeof sp?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sp.date)
+      ? sp.date
       : todayISO();
 
   const db = getDb();

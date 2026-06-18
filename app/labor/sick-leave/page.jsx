@@ -14,10 +14,12 @@ import SickLeaveBoard from './SickLeaveBoard.jsx';
 
 export const dynamic = 'force-dynamic';
 
-export default function SickLeavePage({ searchParams }) {
+export default async function SickLeavePage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const year = new Date().getFullYear();
 

@@ -5,10 +5,12 @@ import type { Equipment, EquipmentPart, EquipmentMaintenanceSchedule } from '../
 
 export const dynamic = 'force-dynamic';
 
-export default function EquipmentPage({ searchParams }: { searchParams?: { location?: string } }) {
+export default async function EquipmentPage({ searchParams }: { searchParams?: { location?: string } }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
 
   const db = getDb();

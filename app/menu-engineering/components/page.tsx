@@ -14,14 +14,16 @@ interface VendorCandidate {
   vendor: string | null;
 }
 
-export default function ComponentEditorPage({
+export default async function ComponentEditorPage({
   searchParams,
 }: {
   searchParams?: { location?: string };
 }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
 
   const db = getDb();

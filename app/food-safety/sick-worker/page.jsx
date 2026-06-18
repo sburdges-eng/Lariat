@@ -16,9 +16,10 @@ import SickWorkerBoard from './SickWorkerBoard.jsx';
 export const dynamic = 'force-dynamic';
 
 export default async function SickWorkerPage({ searchParams }) {
+  const sp = (await searchParams) || {};
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
 
   // Verify the cookie via the same HMAC path middleware uses. The pre-

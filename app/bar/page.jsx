@@ -113,10 +113,12 @@ function computePourCost(costRow, recipe, menuRef) {
 }
 
 // ── page ───────────────────────────────────────────────────────────
-export default function BarPage({ searchParams }) {
+export default async function BarPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
 
   const recipes = getRecipes();
