@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import PrepHistoryPanel from './PrepHistoryPanel';
 import CoursePanel from './_components/CoursePanel';
-// EventFirePanel is an untyped (.jsx) component; cast at the boundary like CoursePanel above.
- 
+// EventFirePanel, EventOrderGuidePanel, EventPrepPanel are untyped (.jsx) components;
+// cast at the boundary like CoursePanel above.
 import EventFirePanel from './_components/EventFirePanel';
+import EventOrderGuidePanel from './_components/EventOrderGuidePanel';
+import EventPrepPanel from './_components/EventPrepPanel';
 import LariAmbient from '../_components/LariAmbient';
 import { formatDollars } from '../../lib/formatMoney';
 import type { CateringMenuItem } from '../../lib/data';
@@ -443,14 +445,20 @@ export default function BeoBoard({ initialMenu = [] }: BeoBoardProps) {
           )}
 
           {activeTab === 'order-guide' && (
-            <div data-testid="beo-tabpanel-order-guide" className="beo-tab-placeholder">
-              Order guide — coming soon
+            <div data-testid="beo-tabpanel-order-guide">
+              <EventOrderGuidePanel
+                eventId={openEvent.id}
+                location={openEvent.location_id ?? 'default'}
+              />
             </div>
           )}
 
           {activeTab === 'prep' && (
-            <div data-testid="beo-tabpanel-prep" className="beo-tab-placeholder">
-              Prep — coming soon
+            <div data-testid="beo-tabpanel-prep">
+              <EventPrepPanel
+                eventId={openEvent.id}
+                location={openEvent.location_id ?? 'default'}
+              />
             </div>
           )}
 

@@ -89,7 +89,7 @@ describe('BeoBoard tab scaffold', () => {
     expect(screen.getByTestId('beo-tab-order-guide')).not.toHaveAttribute('aria-current');
   });
 
-  test('clicking Order guide shows its placeholder and hides the sheet', async () => {
+  test('clicking Order guide shows the EventOrderGuidePanel and hides the sheet', async () => {
     mockFetch();
     render(<BeoBoard />);
 
@@ -99,11 +99,12 @@ describe('BeoBoard tab scaffold', () => {
     expect(screen.getByTestId('beo-tabpanel-order-guide')).toBeInTheDocument();
     expect(screen.queryByTestId('beo-tabpanel-sheet')).not.toBeInTheDocument();
 
-    // placeholder copy
-    expect(screen.getByTestId('beo-tabpanel-order-guide')).toHaveTextContent('Order guide — coming soon');
+    // T9: placeholder replaced by EventOrderGuidePanel — panel starts in loading state
+    // (mockFetch does not stub /api/beo/cascade, so it stays loading)
+    expect(screen.getByTestId('event-order-guide-loading')).toBeInTheDocument();
   });
 
-  test('clicking Prep shows its placeholder and hides the sheet', async () => {
+  test('clicking Prep shows the EventPrepPanel and hides the sheet', async () => {
     mockFetch();
     render(<BeoBoard />);
 
@@ -112,7 +113,8 @@ describe('BeoBoard tab scaffold', () => {
 
     expect(screen.getByTestId('beo-tabpanel-prep')).toBeInTheDocument();
     expect(screen.queryByTestId('beo-tabpanel-sheet')).not.toBeInTheDocument();
-    expect(screen.getByTestId('beo-tabpanel-prep')).toHaveTextContent('Prep — coming soon');
+    // T9: placeholder replaced by EventPrepPanel — panel starts in loading state
+    expect(screen.getByTestId('event-prep-loading')).toBeInTheDocument();
   });
 
   test('clicking Fire shows the EventFirePanel and hides the sheet', async () => {
