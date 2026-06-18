@@ -18,12 +18,14 @@ import ReservationsBoard from './ReservationsBoard.jsx';
 
 export const dynamic = 'force-dynamic';
 
-export default function ReservationsPage({ searchParams }) {
+export default async function ReservationsPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const view = searchParams?.view === 'upcoming' ? 'upcoming' : 'today';
+  const view = sp?.view === 'upcoming' ? 'upcoming' : 'today';
   const date = todayISO();
   const db = getDb();
 

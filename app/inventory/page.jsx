@@ -6,10 +6,12 @@ import InventoryNav from './_nav';
 
 export const dynamic = 'force-dynamic';
 
-export default function InventoryPage({ searchParams }) {
+export default async function InventoryPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const date = todayISO();
   const db = getDb();

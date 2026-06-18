@@ -57,13 +57,15 @@ function clampNum(s, dflt, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
-export default function MarginDeltasPage({ searchParams }) {
+export default async function MarginDeltasPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const days = clampInt(searchParams?.days, 7, 1, 90);
-  const minPct = clampNum(searchParams?.minPct, 5, 0, 1000);
+  const days = clampInt(sp?.days, 7, 1, 90);
+  const minPct = clampNum(sp?.minPct, 5, 0, 1000);
 
   const db = getDb();
   const deltas = listMarginDeltas(db, {

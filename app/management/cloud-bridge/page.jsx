@@ -25,8 +25,10 @@ import CloudBridgeBoard from './CloudBridgeBoard';
 
 export const dynamic = 'force-dynamic';
 
-export default function CloudBridgeTriagePage({ searchParams }) {
-  const locParam = searchParams?.location;
+export default async function CloudBridgeTriagePage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
+  const locParam = sp?.location;
   const location =
     typeof locParam === 'string' && locParam.trim()
       ? locParam.trim()

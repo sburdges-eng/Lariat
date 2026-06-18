@@ -13,10 +13,12 @@ import CoolingBoard from './CoolingBoard.jsx';
 
 export const dynamic = 'force-dynamic';
 
-export default function CoolingPage({ searchParams }) {
+export default async function CoolingPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const today = todayISO();
 

@@ -15,10 +15,12 @@ import WageNoticesBoard from './WageNoticesBoard.jsx';
 
 export const dynamic = 'force-dynamic';
 
-export default function WageNoticesPage({ searchParams }) {
+export default async function WageNoticesPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const today = new Date().toISOString().slice(0, 10);
 

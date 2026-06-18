@@ -56,8 +56,10 @@ function fmtDateTime(value) {
   });
 }
 
-export default function ReceivingMatchesPage({ searchParams }) {
-  const locParam = searchParams?.location;
+export default async function ReceivingMatchesPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
+  const locParam = sp?.location;
   const loc =
     typeof locParam === 'string' && locParam.trim()
       ? locParam.trim()

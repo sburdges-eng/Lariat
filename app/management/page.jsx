@@ -269,11 +269,13 @@ function locationHref(pathname, locationId) {
 // the inline scan only runs when no snapshot exists yet.
 const DISH_COVERAGE_CAP = 500;
 
-export default function ManagementRollupPage({ searchParams }) {
+export default async function ManagementRollupPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   // Server component — read location from the query string so the
   // dashboard scopes to the same site the rest of the UI is viewing.
   // Client-side useLocation() pushes ?location=… on every nav.
-  const locParam = searchParams?.location;
+  const locParam = sp?.location;
   const loc =
     typeof locParam === 'string' && locParam.trim()
       ? locParam.trim()

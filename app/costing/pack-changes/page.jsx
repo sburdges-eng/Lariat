@@ -50,15 +50,17 @@ function fmtDate(iso) {
   }
 }
 
-export default function PackChangesPage({ searchParams }) {
+export default async function PackChangesPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   const filterRaw =
-    typeof searchParams?.filter === 'string' ? searchParams.filter : 'open';
+    typeof sp?.filter === 'string' ? sp.filter : 'open';
   const filter = FILTER_OPTIONS.some((o) => o.value === filterRaw)
     ? filterRaw
     : 'open';
   const vendorFilter =
-    typeof searchParams?.vendor === 'string' && searchParams.vendor.trim()
-      ? searchParams.vendor.trim()
+    typeof sp?.vendor === 'string' && sp.vendor.trim()
+      ? sp.vendor.trim()
       : null;
 
   const db = getDb();

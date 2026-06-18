@@ -56,12 +56,14 @@ function EmptyState({ previousShow }) {
   );
 }
 
-export default function TonightLivePage({ searchParams }) {
-  const loc = (searchParams?.location && typeof searchParams.location === 'string')
-    ? searchParams.location
+export default async function TonightLivePage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
+  const loc = (sp?.location && typeof sp.location === 'string')
+    ? sp.location
     : DEFAULT_LOCATION_ID;
-  const date = (searchParams?.date && typeof searchParams.date === 'string')
-    ? searchParams.date
+  const date = (sp?.date && typeof sp.date === 'string')
+    ? sp.date
     : todayISO();
 
   const db = getDb();

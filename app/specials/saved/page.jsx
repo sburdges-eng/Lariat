@@ -19,10 +19,12 @@ function formatDate(ts) {
   return new Date(ts).toLocaleDateString();
 }
 
-export default function SavedSpecialsPage({ searchParams }) {
+export default async function SavedSpecialsPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
 

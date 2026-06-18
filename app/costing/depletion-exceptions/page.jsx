@@ -56,14 +56,16 @@ function reasonTone(reason) {
   return 'yellow';
 }
 
-export default function DepletionExceptionsPage({ searchParams }) {
+export default async function DepletionExceptionsPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const periodFilter =
-    typeof searchParams?.period === 'string' && searchParams.period.trim()
-      ? searchParams.period.trim()
+    typeof sp?.period === 'string' && sp.period.trim()
+      ? sp.period.trim()
       : null;
 
   const db = getDb();

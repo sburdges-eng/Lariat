@@ -24,10 +24,12 @@ const LINK_BADGE: Record<MenuEngineeringRow['link_state'], { label: string; colo
   unlinked:      { label: 'no recipe link',   color: 'var(--red)' },
 };
 
-export default function MenuEngineeringPage({ searchParams }: { searchParams?: { location?: string } }) {
+export default async function MenuEngineeringPage({ searchParams }: { searchParams?: { location?: string } }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
 

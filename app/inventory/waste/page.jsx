@@ -12,13 +12,15 @@ function startOfRange(days) {
   return d.toISOString().slice(0, 10);
 }
 
-export default function WastePage({ searchParams }) {
+export default async function WastePage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   const loc =
-    typeof searchParams?.location === 'string' && searchParams.location.trim()
-      ? searchParams.location.trim()
+    typeof sp?.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
   const days = (() => {
-    const n = Number(searchParams?.days);
+    const n = Number(sp?.days);
     return Number.isFinite(n) && n > 0 && n <= 90 ? Math.floor(n) : 7;
   })();
   const since = startOfRange(days - 1);

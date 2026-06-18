@@ -43,15 +43,17 @@ function fmtDate(iso) {
   }
 }
 
-export default function IngredientMastersPage({ searchParams }) {
+export default async function IngredientMastersPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+
   const filterRaw =
-    typeof searchParams?.filter === 'string' ? searchParams.filter : 'needs_review';
+    typeof sp?.filter === 'string' ? sp.filter : 'needs_review';
   const filter = FILTER_OPTIONS.some((o) => o.value === filterRaw)
     ? filterRaw
     : 'needs_review';
   const q =
-    typeof searchParams?.q === 'string' && searchParams.q.trim()
-      ? searchParams.q.trim()
+    typeof sp?.q === 'string' && sp.q.trim()
+      ? sp.q.trim()
       : null;
 
   const db = getDb();
