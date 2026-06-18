@@ -224,6 +224,26 @@ function _ingestCostingImpl(db, data, locationId, runId = null) {
     // costing ingest has no source feed for them. Food rows (category NULL
     // or any non-beverage category) get wiped as before.
     const bevPlaceholders = BEVERAGE_CATEGORIES.map(() => '?').join(',');
+    const vpColsForMaster = new Set(
+      db.prepare('PRAGMA table_info(vendor_prices)').all().map((c) => c.name),
+    );
+    const hasVpMasterCol = vpColsForMaster.has('master_id');
+    /** @type {Map<string, string>} vendor\x1fsku → master_id */
+    const operatorVpMasterByKey = new Map();
+    if (hasVpMasterCol) {
+      const masterSnapRows = db.prepare(
+        `SELECT vendor, sku, master_id FROM vendor_prices
+          WHERE location_id = ?
+            AND master_id IS NOT NULL AND TRIM(master_id) != ''
+            AND COALESCE(LOWER(category), '') NOT IN (${bevPlaceholders})`,
+      ).all(locationId, ...BEVERAGE_CATEGORIES);
+      for (const r of masterSnapRows) {
+        const vendor = String(r.vendor ?? '').trim().toLowerCase();
+        const sku = String(r.sku ?? '');
+        if (!vendor || !sku) continue;
+        operatorVpMasterByKey.set(`${vendor}\x1f${sku}`, String(r.master_id));
+      }
+    }
     db.prepare(`
       DELETE FROM vendor_prices
        WHERE location_id = ?
@@ -249,6 +269,11 @@ function _ingestCostingImpl(db, data, locationId, runId = null) {
       const k = String(r.recipe_ingredient) + KEY_SEP + String(r.vendor_ingredient ?? '');
       curatedMapStatuses.set(k, r.status);
     }
+
+    const operatorConfirmedMaps = db.prepare(
+      `SELECT recipe_ingredient, vendor_ingredient, status FROM ingredient_maps
+        WHERE location_id = ? AND status = 'confirmed'`,
+    ).all(locationId);
 
     del('DELETE FROM ingredient_maps WHERE location_id = ?');
     del('DELETE FROM order_guide_items WHERE location_id = ?');
@@ -345,6 +370,22 @@ function _ingestCostingImpl(db, data, locationId, runId = null) {
       summary.vendor_prices++;
     }
 
+    if (hasVpMasterCol && operatorVpMasterByKey.size > 0) {
+      const reapplyVpMaster = db.prepare(`
+        UPDATE vendor_prices
+           SET master_id = @master_id
+         WHERE location_id = @location_id
+           AND lower(trim(vendor)) = @vendor
+           AND sku = @sku
+      `);
+      for (const [key, masterId] of operatorVpMasterByKey) {
+        const sep = key.indexOf('\x1f');
+        const vendor = key.slice(0, sep);
+        const sku = key.slice(sep + 1);
+        reapplyVpMaster.run({ master_id: masterId, location_id: locationId, vendor, sku });
+      }
+    }
+
     const irc = db.prepare(`
       INSERT INTO recipe_costs (recipe_id, recipe_name, category, yield, yield_unit, batch_cost, cost_per_yield_unit, costed_lines, total_lines, interpretations, location_id)
       VALUES (@recipe_id, @recipe_name, @category, @yield, @yield_unit, @batch_cost, @cost_per_yield_unit, @costed_lines, @total_lines, @interpretations, @location_id)
@@ -415,6 +456,24 @@ function _ingestCostingImpl(db, data, locationId, runId = null) {
         recipe_ingredient: r.recipe_ingredient,
         vendor_ingredient: r.vendor_ingredient ?? '',
         status: curated ?? r.status ?? '',
+        location_id: locationId,
+      });
+      summary.ingredient_maps++;
+    }
+
+    const workbookMapKeys = new Set();
+    for (const r of data.ingredient_maps || []) {
+      workbookMapKeys.add(
+        String(r.recipe_ingredient) + KEY_SEP + String(r.vendor_ingredient ?? ''),
+      );
+    }
+    for (const r of operatorConfirmedMaps) {
+      const k = String(r.recipe_ingredient) + KEY_SEP + String(r.vendor_ingredient ?? '');
+      if (workbookMapKeys.has(k)) continue;
+      iim.run({
+        recipe_ingredient: r.recipe_ingredient,
+        vendor_ingredient: r.vendor_ingredient ?? '',
+        status: 'confirmed',
         location_id: locationId,
       });
       summary.ingredient_maps++;

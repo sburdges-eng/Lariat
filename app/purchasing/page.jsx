@@ -3,17 +3,19 @@ import Link from 'next/link';
 import { getDb } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { formatDollars } from '../../lib/formatMoney';
+import { enrichOrderGuideRows } from '../../lib/orderGuideEnrichment.ts';
 
 export const dynamic = 'force-dynamic';
 
 export default function PurchasingPage() {
   const loc = DEFAULT_LOCATION_ID;
   const db = getDb();
-  const rows = db
+  const rawRows = db
     .prepare(
       `SELECT ingredient, base_qty, unit, vendor, unit_price FROM order_guide_items WHERE location_id = ? ORDER BY vendor, ingredient LIMIT 200`
     )
     .all(loc);
+  const rows = enrichOrderGuideRows(db, rawRows, loc);
   const n = db.prepare(`SELECT COUNT(*) as c FROM order_guide_items WHERE location_id = ?`).get(loc).c;
 
   return (
@@ -23,6 +25,8 @@ export default function PurchasingPage() {
         From the <strong>Order Guide</strong> sheet ({n} items). Pull fresh after the operations workbook is updated.
         {' '}
         <Link href="/purchasing/compare">Sysco vs Shamrock</Link>
+        {' · '}
+        <Link href="/purchasing/link">Link vendors</Link>
       </p>
 
       {n === 0 && (
@@ -40,6 +44,7 @@ export default function PurchasingPage() {
               <th>Unit</th>
               <th>Vendor</th>
               <th>Unit $</th>
+              <th>Notes</th>
             </tr>
           </thead>
           <tbody>
@@ -50,6 +55,19 @@ export default function PurchasingPage() {
                 <td>{r.unit}</td>
                 <td>{r.vendor}</td>
                 <td>{formatDollars(r.unit_price)}</td>
+                <td>
+                  {r.enrichment?.preferred_vendor ? (
+                    <span title="Preferred vendor">Pref {r.enrichment.preferred_vendor}</span>
+                  ) : null}
+                  {r.enrichment?.quality_locked ? (
+                    <span title={r.enrichment.quality_lock_reason || 'quality'} style={{ marginLeft: 6 }}>Locked</span>
+                  ) : null}
+                  {r.enrichment?.vendor_mismatch ? (
+                    <span title="Guide vendor differs from preferred" style={{ marginLeft: 6, color: 'var(--amber, #8a5a00)' }}>
+                      Mismatch
+                    </span>
+                  ) : null}
+                </td>
               </tr>
             ))}
           </tbody>
