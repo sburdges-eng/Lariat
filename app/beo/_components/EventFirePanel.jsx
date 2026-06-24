@@ -21,13 +21,12 @@ function formatFireTime(fireAt) {
 }
 
 export default function EventFirePanel({ eventId, location = 'default' }) {
-  const [state, setState] = useState('loading'); // 'loading' | 'error' | 'empty' | 'loaded'
+  const [state, setState] = useState('idle'); // 'idle' | 'loading' | 'error' | 'empty' | 'loaded'
   const [stations, setStations] = useState([]);
 
   useEffect(() => {
     if (eventId == null) {
-      // Guard: no event selected, stay in loading without fetching
-      setState('loading');
+      setState('idle');
       return;
     }
 
@@ -61,6 +60,8 @@ export default function EventFirePanel({ eventId, location = 'default' }) {
       cancelled = true;
     };
   }, [eventId, location]);
+
+  if (state === 'idle') return null;
 
   if (state === 'loading') {
     return (

@@ -12,15 +12,14 @@ import { useEffect, useState } from 'react';
 import UnmappedCallout from './UnmappedCallout';
 
 export default function EventOrderGuidePanel({ eventId, location = 'default' }) {
-  const [state, setState] = useState('loading'); // 'loading' | 'error' | 'empty' | 'loaded'
+  const [state, setState] = useState('idle'); // 'idle' | 'loading' | 'error' | 'empty' | 'loaded'
   const [orderGuide, setOrderGuide] = useState([]);
   const [unmapped, setUnmapped] = useState([]);
   const [engineError, setEngineError] = useState(null);
 
   useEffect(() => {
     if (eventId == null) {
-      // Guard: no event selected, stay in loading without fetching
-      setState('loading');
+      setState('idle');
       return;
     }
 
@@ -58,6 +57,8 @@ export default function EventOrderGuidePanel({ eventId, location = 'default' }) 
       cancelled = true;
     };
   }, [eventId, location]);
+
+  if (state === 'idle') return null;
 
   if (state === 'loading') {
     return (
