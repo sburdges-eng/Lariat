@@ -106,6 +106,10 @@ export const NAV_ROUTE_EXCLUSIONS = [
     href: '/v2/analytics',
     reason: 'Cookie-gated side-by-side preview route; keep v2 manager pages out of v1 navigation until cutover.',
   },
+  {
+    href: '/prep/fire-schedule',
+    reason: 'Retired standalone page; now a server-side redirect to /beo where the Fire tab lives.',
+  },
 ];
 
 export const NAV_ITEMS = [
@@ -219,16 +223,6 @@ export const NAV_ITEMS = [
     shortcut: 'K',
     terms: 'prep board task tasks shift kitchen',
     locAware: t,
-    surface: { sidebar: t, palette: t, shelf: f },
-  },
-  {
-    id: 'fire-schedule',
-    href: '/prep/fire-schedule',
-    name: 'Fire schedule',
-    sub: "Tonight's banquet fires",
-    group: 'Service',
-    terms: 'fire schedule banquet course beo timing wall board',
-    locAware: f,
     surface: { sidebar: t, palette: t, shelf: f },
   },
   {
@@ -508,6 +502,28 @@ export const NAV_ITEMS = [
   // ── Inventory sub-boards (audit F1 fix, 2026-05-17) ────────────────
   // Counts / par / waste pages existed but only the /inventory hub
   // was registered. Added palette-only so ⌘K finds them.
+  // inventory-log added in Task 10 (counts-first default, 2026-06-18).
+  {
+    id: 'inventory-log',
+    href: '/inventory/log',
+    name: 'Inventory log',
+    sub: 'Free-text inventory update log',
+    group: 'Service',
+    terms: 'inventory log updates moves',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
+  // prep-par added in Task 14 (standing prep-par editor, 2026-06-18).
+  {
+    id: 'prep-par',
+    href: '/prep/par',
+    name: 'Standing prep par',
+    sub: 'Recurring prep targets by station',
+    group: 'Service',
+    terms: 'prep par standing target station recurring',
+    locAware: t,
+    surface: { sidebar: f, palette: t, shelf: f },
+  },
   {
     id: 'inventory-counts',
     href: '/inventory/counts',

@@ -1105,6 +1105,121 @@ describe('lari_conversation_turns schema', () => {
   });
 });
 
+// ── prep_par table (Task 12) ──────────────────────────────────────
+
+describe('prep_par table — Task 12', () => {
+  it('exists in sqlite_master', () => {
+    const row = /** @type {{name: string} | undefined} */ (
+      db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='prep_par'`).get()
+    );
+    assert.ok(row, 'prep_par table should exist after initSchema');
+  });
+
+  it('has all required columns with correct types and nullability', () => {
+    const info = /** @type {{name: string, type: string, notnull: number, dflt_value: unknown}[]} */ (
+      db.prepare('PRAGMA table_info(prep_par)').all()
+    );
+    const byName = new Map(info.map((c) => [c.name, c]));
+
+    // All columns must be present
+    for (const name of [
+      'id', 'location_id', 'station_id', 'recipe_slug', 'ingredient',
+      'target_qty', 'unit', 'sort_order', 'note', 'created_at', 'updated_at',
+    ]) {
+      assert.ok(byName.has(name), `prep_par.${name} missing`);
+    }
+
+    // id is PRIMARY KEY AUTOINCREMENT
+    assert.strictEqual(byName.get('id').pk, 1, 'id must be the primary key');
+    assert.strictEqual(byName.get('id').type.toUpperCase(), 'INTEGER');
+
+    // Discriminator columns must be NOT NULL (DEFAULT '' pattern)
+    assert.strictEqual(byName.get('location_id').notnull, 1, 'location_id must be NOT NULL');
+    assert.strictEqual(byName.get('station_id').notnull, 1, 'station_id must be NOT NULL');
+    assert.strictEqual(byName.get('recipe_slug').notnull, 1, 'recipe_slug must be NOT NULL');
+    assert.strictEqual(byName.get('ingredient').notnull, 1, 'ingredient must be NOT NULL');
+
+    // Nullable columns
+    assert.strictEqual(byName.get('target_qty').notnull, 0, 'target_qty must be nullable');
+    assert.strictEqual(byName.get('unit').notnull, 0, 'unit must be nullable');
+    assert.strictEqual(byName.get('note').notnull, 0, 'note must be nullable');
+
+    // Types
+    assert.strictEqual(byName.get('target_qty').type.toUpperCase(), 'REAL');
+    assert.strictEqual(byName.get('sort_order').type.toUpperCase(), 'INTEGER');
+  });
+
+  it('UNIQUE constraint and CHECK are present in the CREATE SQL', () => {
+    const row = /** @type {{sql: string} | undefined} */ (
+      db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='prep_par'`).get()
+    );
+    assert.ok(row, 'prep_par table not found');
+    assert.ok(
+      /UNIQUE\s*\(\s*location_id\s*,\s*station_id\s*,\s*recipe_slug\s*,\s*ingredient\s*\)/i.test(row.sql),
+      `expected UNIQUE(location_id, station_id, recipe_slug, ingredient) in CREATE SQL: ${row.sql}`,
+    );
+    assert.ok(
+      /CHECK\s*\(\s*recipe_slug\s*<>\s*''\s*OR\s*ingredient\s*<>\s*''\s*\)/i.test(row.sql),
+      `expected CHECK(recipe_slug <> '' OR ingredient <> '') in CREATE SQL: ${row.sql}`,
+    );
+  });
+
+  it('idx_prep_par_loc_station index exists', () => {
+    const rows = /** @type {{name: string}[]} */ (
+      db.prepare(`SELECT name FROM sqlite_master WHERE type='index'`).all()
+    );
+    const names = rows.map((r) => r.name);
+    assert.ok(
+      names.includes('idx_prep_par_loc_station'),
+      `idx_prep_par_loc_station missing from ${JSON.stringify(names)}`,
+    );
+  });
+
+  it('rejects duplicate (location_id, station_id, recipe_slug, ingredient) via UNIQUE', () => {
+    db.prepare(
+      `INSERT INTO prep_par (location_id, station_id, recipe_slug, ingredient)
+       VALUES ('loc1', 'cold', 'caesar_salad', '')`,
+    ).run();
+    assert.throws(
+      () =>
+        db.prepare(
+          `INSERT INTO prep_par (location_id, station_id, recipe_slug, ingredient)
+           VALUES ('loc1', 'cold', 'caesar_salad', '')`,
+        ).run(),
+      /UNIQUE/i,
+      'duplicate (location_id, station_id, recipe_slug, ingredient) must violate UNIQUE',
+    );
+  });
+
+  it('rejects a row with both recipe_slug and ingredient empty via CHECK', () => {
+    assert.throws(
+      () =>
+        db.prepare(
+          `INSERT INTO prep_par (location_id, station_id, recipe_slug, ingredient)
+           VALUES ('loc1', 'hot', '', '')`,
+        ).run(),
+      /CHECK/i,
+      "row with recipe_slug='' AND ingredient='' must violate CHECK",
+    );
+  });
+
+  it('accepts a well-formed row targeting a recipe', () => {
+    const res = db.prepare(
+      `INSERT INTO prep_par (location_id, station_id, recipe_slug, ingredient, target_qty, unit, sort_order, note)
+       VALUES ('default', 'cold', 'caesar_salad_v2', '', 3.0, 'qt', 1, 'pre-dinner service')`,
+    ).run();
+    assert.ok(res.lastInsertRowid > 0, 'insert must return a valid lastInsertRowid');
+  });
+
+  it('accepts a well-formed row targeting a raw ingredient', () => {
+    const res = db.prepare(
+      `INSERT INTO prep_par (location_id, station_id, recipe_slug, ingredient, target_qty, unit)
+       VALUES ('default', 'hot', '', 'diced tomatoes', 10.0, 'lb')`,
+    ).run();
+    assert.ok(res.lastInsertRowid > 0, 'insert must return a valid lastInsertRowid');
+  });
+});
+
 // ── Schema version marker (P1a spec §7) ────────────────────────────
 // The native macOS read-only app reads MAX(version) from schema_migrations
 // to detect schema drift and degrade gracefully. initSchema records the

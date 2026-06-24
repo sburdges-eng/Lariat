@@ -27,6 +27,7 @@ from scripts.lib.bom_expand import (  # noqa: E402
     aggregate_demand,
     build_manifest,
     expand_recipe,
+    expand_recipe_demand,
 )
 
 
@@ -176,6 +177,108 @@ class Errors(unittest.TestCase):
         self.assertIn("queso_mac_sauce", msg)
         self.assertIn("blackened_tomato_salsa", msg)
         self.assertIn("bag", msg)
+
+
+class ExpandRecipeDemand(unittest.TestCase):
+    """Tests for expand_recipe_demand — per-recipe-node aggregated demand."""
+
+    def setUp(self) -> None:
+        self.salsa = _mk(
+            "blackened_tomato_salsa",
+            "Blackened Tomato Salsa",
+            20,
+            "qt",
+            bom=[
+                ("roma tomatoes", 11339.8, "g", False),
+                ("cilantro", 2.0, "cup", False),
+            ],
+        )
+        self.queso = _mk(
+            "queso_mac_sauce",
+            "Queso / Mac Sauce",
+            22,
+            "qt",
+            sub_recipe_slugs=["blackened_tomato_salsa"],
+            bom=[
+                ("whole milk", 7570.82, "ml", False),
+                ("blackened_tomato_salsa", 2.0, "qt", True),
+            ],
+        )
+        self.manifest = {
+            "blackened_tomato_salsa": self.salsa,
+            "queso_mac_sauce": self.queso,
+        }
+
+    def test_leaf_only_recipe_returns_single_node(self) -> None:
+        """A recipe with no sub-recipes: result has exactly one entry — the
+        recipe itself — with the demanded qty. No leaf ingredients."""
+        out = expand_recipe_demand(
+            self.manifest,
+            [("blackened_tomato_salsa", 10, "qt")],
+        )
+        self.assertEqual(len(out), 1)
+        self.assertAlmostEqual(out[("blackened_tomato_salsa", "qt")], 10.0)
+
+    def test_parent_and_sub_recipe_both_recorded(self) -> None:
+        """A recipe with a sub-recipe: both parent and sub-recipe node appear,
+        with the sub-recipe scaled correctly."""
+        # queso batch = 22 qt; BOM has 2 qt salsa → scale = 22/22 = 1.0
+        out = expand_recipe_demand(
+            self.manifest,
+            [("queso_mac_sauce", 22, "qt")],
+        )
+        # Parent recorded at demanded qty
+        self.assertAlmostEqual(out[("queso_mac_sauce", "qt")], 22.0)
+        # Sub-recipe: 2 qt salsa per 22 qt batch × scale(1.0) = 2.0 qt
+        self.assertAlmostEqual(out[("blackened_tomato_salsa", "qt")], 2.0)
+        # Leaf ingredients must NOT appear
+        self.assertNotIn(("roma tomatoes", "g"), out)
+        self.assertNotIn(("whole milk", "ml"), out)
+
+    def test_sub_recipe_scaled_for_half_batch(self) -> None:
+        """11 qt queso is half a batch (22 qt yield). Sub-recipe salsa demand
+        should be half of 2 qt = 1 qt."""
+        out = expand_recipe_demand(
+            self.manifest,
+            [("queso_mac_sauce", 11, "qt")],
+        )
+        self.assertAlmostEqual(out[("queso_mac_sauce", "qt")], 11.0)
+        self.assertAlmostEqual(out[("blackened_tomato_salsa", "qt")], 1.0)
+
+    def test_two_demands_sharing_sub_recipe_compound(self) -> None:
+        """Two top-level demands both referencing salsa (one via queso, one
+        standalone) must sum the sub-recipe qty, not overwrite."""
+        demands = [
+            ("queso_mac_sauce", 22, "qt"),   # contributes 2 qt salsa
+            ("blackened_tomato_salsa", 4, "qt"),  # contributes 4 qt salsa
+        ]
+        out = expand_recipe_demand(self.manifest, demands)
+        # queso node at 22 qt
+        self.assertAlmostEqual(out[("queso_mac_sauce", "qt")], 22.0)
+        # salsa: 2 (from queso) + 4 (standalone) = 6 qt
+        self.assertAlmostEqual(out[("blackened_tomato_salsa", "qt")], 6.0)
+
+    def test_unknown_slug_raises(self) -> None:
+        with self.assertRaises(UnknownRecipeError):
+            expand_recipe_demand(self.manifest, [("no_such_recipe", 1, "qt")])
+
+    def test_unit_mismatch_raises(self) -> None:
+        with self.assertRaises(UnitMismatchError):
+            expand_recipe_demand(
+                self.manifest,
+                [("blackened_tomato_salsa", 1, "lb")],
+            )
+
+    def test_cycle_raises(self) -> None:
+        a = _mk("a", "A", 10, "qt",
+                sub_recipe_slugs=["b"],
+                bom=[("b", 1, "qt", True)])
+        b = _mk("b", "B", 10, "qt",
+                sub_recipe_slugs=["a"],
+                bom=[("a", 1, "qt", True)])
+        manifest = {"a": a, "b": b}
+        with self.assertRaises(RecipeCycleError):
+            expand_recipe_demand(manifest, [("a", 5, "qt")])
 
 
 class ManifestFromCsvs(unittest.TestCase):

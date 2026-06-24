@@ -975,7 +975,7 @@ export interface AuditEvent {
  * `scripts/check-schema-version-bump.mjs` enforces the bump at commit time so
  * the marker stays trustworthy.
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export function initSchema(db: DB): void {
   db.exec(`
@@ -1134,6 +1134,30 @@ export function initSchema(db: DB): void {
       ON prep_tasks(location_id, shift_date, status);
     CREATE INDEX IF NOT EXISTS idx_prep_tasks_station
       ON prep_tasks(location_id, shift_date, station_id);
+
+    -- Standing prep targets (par amounts per station/recipe or ingredient).
+    -- Separate from daily prep_tasks (which are shift-bound) and from
+    -- beo_prep_tasks (which are event-bound). station_id/recipe_slug/ingredient
+    -- are stored as '' (not NULL) so the UNIQUE constraint works cleanly —
+    -- SQLite treats NULLs as distinct, which would break the UNIQUE intent.
+    -- The CHECK ensures every row targets at least one of recipe or ingredient.
+    CREATE TABLE IF NOT EXISTS prep_par (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      station_id TEXT NOT NULL DEFAULT '',
+      recipe_slug TEXT NOT NULL DEFAULT '',
+      ingredient TEXT NOT NULL DEFAULT '',
+      target_qty REAL,
+      unit TEXT,
+      sort_order INTEGER DEFAULT 0,
+      note TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(location_id, station_id, recipe_slug, ingredient),
+      CHECK (recipe_slug <> '' OR ingredient <> '')
+    );
+    CREATE INDEX IF NOT EXISTS idx_prep_par_loc_station
+      ON prep_par(location_id, station_id, sort_order);
 
     -- Front-of-house reservations. Distinct from beo_events (catering /
     -- private events with formal contracts). A reservation is a regular-
@@ -3133,6 +3157,10 @@ function assertCriticalSchemas(db: DB): void {
       'schemaVersion', 'id', 'location_id', 'cook_id',
       'conversation_session_id', 'user_content', 'assistant_content',
       'manager_tier', 'created_at', 'expires_at',
+    ],
+    prep_par: [
+      'id', 'location_id', 'station_id', 'recipe_slug', 'ingredient',
+      'target_qty', 'unit', 'sort_order', 'note', 'created_at', 'updated_at',
     ],
   };
   for (const [table, required] of Object.entries(requirements)) {

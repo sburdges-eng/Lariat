@@ -125,3 +125,80 @@ describe('GET /api/beo/fire-schedule', () => {
     assert.notEqual(res.status, 401);
   });
 });
+
+describe('GET /api/beo/fire-schedule?event_id=N', () => {
+  it('returns only that event\'s courses/lines in the same shape', async () => {
+    const ev1 = seedEvent({ title: 'Target Event', date: '2026-06-01' });
+    const ev2 = seedEvent({ title: 'Other Event', date: '2026-06-01' });
+
+    const c1 = seedCourse({ event_id: ev1, label: 'Entree',
+      fire_at: '2026-06-01T19:00:00.000Z', station: 'grill' });
+    const c2 = seedCourse({ event_id: ev1, label: 'Dessert',
+      fire_at: '2026-06-01T20:30:00.000Z', station: 'sides' });
+    const c3 = seedCourse({ event_id: ev2, label: 'App',
+      fire_at: '2026-06-01T18:30:00.000Z', station: 'grill' });
+
+    seedLine({ event_id: ev1, course_id: c1, item: 'Salmon', qty: 50 });
+    seedLine({ event_id: ev1, course_id: c2, item: 'Tart', qty: 50 });
+    seedLine({ event_id: ev2, course_id: c3, item: 'Should Not Appear', qty: 10 });
+
+    const res = await route.GET(makeReq(`?event_id=${ev1}&location=default`));
+    assert.equal(res.status, 200);
+    const j = await res.json();
+
+    // Response shape matches the date path
+    assert.ok('date' in j, 'payload must have a date field');
+    assert.equal(typeof j.date, 'string');
+    assert.equal(j.location_id, 'default');
+    assert.ok(Array.isArray(j.stations), 'stations must be an array');
+
+    // Only ev1's courses are present
+    const allCourseLabels = j.stations.flatMap((s) => s.courses.map((c) => c.course_label));
+    assert.ok(allCourseLabels.includes('Entree'), 'should include ev1 Entree');
+    assert.ok(allCourseLabels.includes('Dessert'), 'should include ev1 Dessert');
+    assert.ok(!allCourseLabels.includes('App'), 'should NOT include ev2 App');
+
+    // Lines are attached
+    const grill = j.stations.find((s) => s.station_id === 'grill');
+    assert.ok(grill, 'grill station should exist');
+    assert.equal(grill.courses[0].lines[0].item_name, 'Salmon');
+
+    // event_date from the join is echoed back as the payload date
+    assert.equal(j.date, '2026-06-01');
+  });
+
+  it('returns empty stations for an event in a different location (no cross-location leak)', async () => {
+    const ev = seedEvent({ title: 'Austin Event', date: '2026-06-02', location: 'austin' });
+    seedCourse({ event_id: ev, label: 'Entree', fire_at: '2026-06-02T19:00:00.000Z',
+      station: 'grill', location: 'austin' });
+
+    // Request event_id with location=denver — should not see austin's courses
+    const res = await route.GET(makeReq(`?event_id=${ev}&location=denver`));
+    assert.equal(res.status, 200);
+    const j = await res.json();
+    assert.equal(j.location_id, 'denver');
+    assert.deepEqual(j.stations, []);
+  });
+
+  it('returns empty stations for a non-existent event_id', async () => {
+    const res = await route.GET(makeReq('?event_id=99999&location=default'));
+    assert.equal(res.status, 200);
+    const j = await res.json();
+    assert.deepEqual(j.stations, []);
+  });
+
+  it('falls through to the date path (does NOT 500) when event_id is non-integer', async () => {
+    const ev = seedEvent({ title: 'Fallthrough', date: '2026-06-03' });
+    seedCourse({ event_id: ev, label: 'Entree', fire_at: '2026-06-03T19:00:00.000Z', station: 'grill' });
+
+    // Malformed event_id should be ignored, falling through to the date path
+    const res = await route.GET(makeReq('?event_id=abc&date=2026-06-03'));
+    assert.equal(res.status, 200);
+    const j = await res.json();
+    // Should return date-path results, not crash
+    assert.equal(j.date, '2026-06-03');
+    assert.ok(Array.isArray(j.stations));
+    // The event seeded for 2026-06-03 should appear via the date path
+    assert.equal(j.stations[0].courses[0].course_label, 'Entree');
+  });
+});

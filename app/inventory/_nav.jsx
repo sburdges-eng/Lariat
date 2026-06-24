@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const TABS = [
-  { href: '/inventory', label: 'Log' },
   { href: '/inventory/counts', label: 'Counts' },
+  { href: '/inventory/log', label: 'Log' },
   { href: '/inventory/par', label: 'Par' },
   { href: '/inventory/waste', label: 'Waste' },
 ];
@@ -25,10 +25,7 @@ export default function InventoryNav() {
       }}
     >
       {TABS.map(t => {
-        const active =
-          t.href === '/inventory'
-            ? path === '/inventory'
-            : path === t.href || path.startsWith(t.href + '/');
+        const active = path === t.href || path.startsWith(t.href + '/');
         return (
           <Link
             key={t.href}

@@ -4,6 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import PrepHistoryPanel from './PrepHistoryPanel';
 import CoursePanel from './_components/CoursePanel';
+// EventFirePanel, EventOrderGuidePanel, EventPrepPanel are untyped (.jsx) components;
+// cast at the boundary like CoursePanel above.
+import EventFirePanel from './_components/EventFirePanel';
+import EventOrderGuidePanel from './_components/EventOrderGuidePanel';
+import EventPrepPanel from './_components/EventPrepPanel';
 import LariAmbient from '../_components/LariAmbient';
 import { formatDollars } from '../../lib/formatMoney';
 import type { CateringMenuItem } from '../../lib/data';
@@ -89,6 +94,7 @@ export default function BeoBoard({ initialMenu = [] }: BeoBoardProps) {
   // one source of truth. Refetched on event change and after CoursePanel
   // mutations call back through onCoursesChanged.
   const [courses, setCourses] = useState<Course[]>([]);
+  const [activeTab, setActiveTab] = useState<'sheet' | 'order-guide' | 'prep' | 'fire'>('sheet');
 
   // Add-party form state
   const [newTitle, setNewTitle] = useState('');
@@ -141,6 +147,12 @@ export default function BeoBoard({ initialMenu = [] }: BeoBoardProps) {
   useEffect(() => {
     setShareUrl('');
     setCopied(false);
+  }, [openEventId]);
+
+  // Reset to the Sheet tab whenever the open event changes so the operator
+  // is never stranded on an empty placeholder after switching parties.
+  useEffect(() => {
+    setActiveTab('sheet');
   }, [openEventId]);
 
   const shareEvent = async (id: number) => {
@@ -372,38 +384,93 @@ export default function BeoBoard({ initialMenu = [] }: BeoBoardProps) {
       )}
 
       {openEvent && (
-        <div className="beo-worksheet">
-          {/* ───── LEFT: prep sheet ───── */}
-          <div className="beo-invoice">
-            <EventHeader event={openEvent} onSave={(patch) => updateEvent(openEvent, patch)} />
-
-            <PrepSheetTable
-              items={lineItems}
-              onUpdate={updateLine}
-              onDelete={deleteLine}
-              event={openEvent}
-              onEventSave={(patch) => updateEvent(openEvent, patch)}
-              courses={courses}
-            />
+        <>
+          {/* ───── Tab bar ───── */}
+          <div className="beo-tabs">
+            {(
+              [
+                { key: 'sheet', label: 'Sheet' },
+                { key: 'order-guide', label: 'Order guide' },
+                { key: 'prep', label: 'Prep' },
+                { key: 'fire', label: 'Fire' },
+              ] as const
+            ).map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                data-testid={`beo-tab-${key}`}
+                aria-current={activeTab === key ? 'page' : undefined}
+                className={activeTab === key ? 'btn primary' : 'btn'}
+                onClick={() => setActiveTab(key)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
-          {/* ───── RIGHT: stacked menu picker + courses + past-prep reference ───── */}
-          <div className="beo-rail">
-            <MenuPanel menu={menu} onPick={(item) => addLine(openEvent.id, item)} />
-            {/* CoursePanel is an untyped (.jsx, @ts-nocheck) component whose
-                `lines` default infers as never[]; cast at the boundary. */}
-            <CoursePanel
-              event={openEvent}
-              lines={lineItems as never}
-              courses={courses}
-              onCoursesChanged={() => loadCourses(openEventId, openEvent?.location_id)}
-            />
-            <PrepHistoryPanel
-              itemNames={lineItems.map((l) => l.item_name)}
-              location={openEvent.location_id}
-            />
-          </div>
-        </div>
+          {/* ───── Tab panels ───── */}
+          {activeTab === 'sheet' && (
+            <div data-testid="beo-tabpanel-sheet" className="beo-worksheet">
+              {/* ───── LEFT: prep sheet ───── */}
+              <div className="beo-invoice">
+                <EventHeader event={openEvent} onSave={(patch) => updateEvent(openEvent, patch)} />
+
+                <PrepSheetTable
+                  items={lineItems}
+                  onUpdate={updateLine}
+                  onDelete={deleteLine}
+                  event={openEvent}
+                  onEventSave={(patch) => updateEvent(openEvent, patch)}
+                  courses={courses}
+                />
+              </div>
+
+              {/* ───── RIGHT: stacked menu picker + courses + past-prep reference ───── */}
+              <div className="beo-rail">
+                <MenuPanel menu={menu} onPick={(item) => addLine(openEvent.id, item)} />
+                {/* CoursePanel is an untyped (.jsx, @ts-nocheck) component whose
+                    `lines` default infers as never[]; cast at the boundary. */}
+                <CoursePanel
+                  event={openEvent}
+                  lines={lineItems as never}
+                  courses={courses}
+                  onCoursesChanged={() => loadCourses(openEventId, openEvent?.location_id)}
+                />
+                <PrepHistoryPanel
+                  itemNames={lineItems.map((l) => l.item_name)}
+                  location={openEvent.location_id}
+                />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'order-guide' && (
+            <div data-testid="beo-tabpanel-order-guide">
+              <EventOrderGuidePanel
+                eventId={openEvent.id}
+                location={openEvent.location_id ?? 'default'}
+              />
+            </div>
+          )}
+
+          {activeTab === 'prep' && (
+            <div data-testid="beo-tabpanel-prep">
+              <EventPrepPanel
+                eventId={openEvent.id}
+                location={openEvent.location_id ?? 'default'}
+              />
+            </div>
+          )}
+
+          {activeTab === 'fire' && (
+            <div data-testid="beo-tabpanel-fire">
+              <EventFirePanel
+                eventId={openEvent.id}
+                location={openEvent.location_id ?? 'default'}
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );
