@@ -85,13 +85,13 @@ export default function AddPrepParRow({ locationId = 'default' }) {
     <form onSubmit={submit} className="card" aria-busy={busy} style={{ marginBottom: 16 }}>
       <div className="form-row" style={{ flexWrap: 'wrap', gap: 12 }}>
         <div style={{ flex: '2 1 240px' }}>
-          <label className="label" htmlFor="ppar-recipe">Recipe slug</label>
+          <label className="label" htmlFor="ppar-recipe">Recipe</label>
           <input
             id="ppar-recipe"
             type="text"
             value={recipeSlug}
             onChange={(e) => setRecipeSlug(e.target.value)}
-            placeholder="e.g. beer_batter"
+            placeholder="e.g. Beer Batter"
             className="input form-field"
             autoComplete="off"
           />
@@ -163,7 +163,7 @@ export default function AddPrepParRow({ locationId = 'default' }) {
 
       {bothEmpty && (
         <p className="meta" style={{ marginTop: 8, color: 'var(--orange, #c0531c)' }}>
-          Fill in either Recipe slug or Ingredient.
+          Fill in Recipe or Ingredient.
         </p>
       )}
 
@@ -186,7 +186,7 @@ export default function AddPrepParRow({ locationId = 'default' }) {
           Cancel
         </button>
         <p className="meta" style={{ marginLeft: 'auto', alignSelf: 'center' }}>
-          Fill recipe slug OR ingredient — not both.
+          Fill Recipe or Ingredient — not both.
         </p>
       </div>
     </form>

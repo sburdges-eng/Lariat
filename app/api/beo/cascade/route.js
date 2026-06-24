@@ -55,7 +55,9 @@ export async function GET(req) {
 
     let result;
     try {
-      result = await cascadeFromLineItems(lineItems);
+      // BEO quantities are individual item counts for pricing (unit_cost × qty = total),
+      // not recipe batch counts — pass qtyInYieldUnits so the engine doesn't multiply by yield.
+      result = await cascadeFromLineItems(lineItems, { qtyInYieldUnits: true });
     } catch (err) {
       // CascadeError (engine/data condition) — return consistent shape with error banner info.
       return json(
