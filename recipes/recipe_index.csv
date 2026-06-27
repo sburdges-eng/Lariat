@@ -1,4 +1,4 @@
-recipe_id,recipe_name,category,yield,yield_unit,ingredient_count,sub_recipes,station,menu_items,notes
+recipe_id,recipe_name,category,yield,yield_unit,ingredient_count,sub_recipes,station,menu_items,notes,pack_size
 lariat_rub,Lariat Rub,seasoning,6,cup,8,,all,multiple,House signature rub — used in Nashville Hot Rub + Pig Wings + Green Chile + Bacon Jam
 buttermilk_brine,Buttermilk Brine,prep,12,qt,6,,fry,Nashville Hot Chicken,12 qt of brined chicken — 12-24hr soak
 queso_mac_sauce,Queso / Mac Sauce,sauce,22,qt,7,lariat_rub;green_chile;blackened_tomato_salsa,expo;saute,The Trio;Mtn Mac & Cheese;El Jefe add-on,Ice wand to cool — held hot in cambro

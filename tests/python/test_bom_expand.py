@@ -370,5 +370,61 @@ class RealDataMexiSlaw(unittest.TestCase):
         assert any(slug == "chipotle_aioli" for (slug, _unit) in nodes), nodes
 
 
+# ---------------------------------------------------------------------------
+# Pack-size / cross-dimension conversion tests (T3)
+# ---------------------------------------------------------------------------
+
+
+def test_pack_size_parsed_from_index() -> None:
+    """Real index loads without error; green_chile has no pack declared yet."""
+    m = build_manifest_from_normalized(REAL_INDEX, REAL_NORMALIZED)
+    assert m["green_chile"].pack_conversions == {}
+
+
+def _queso_with_child(pack: dict) -> dict:
+    child = Manifest(
+        slug="green_chile",
+        display_name="Green Chile",
+        yield_qty=3,
+        yield_unit="qt",
+        pack_conversions=pack,
+        bom=[{"ingredient": "chiles", "qty": 2, "unit": "lb",
+              "is_sub_recipe": False, "sub_slug": None}],
+    )
+    parent = Manifest(
+        slug="queso_test",
+        display_name="Queso Test",
+        yield_qty=1,
+        yield_unit="qt",
+        sub_recipe_slugs=["green_chile"],
+        bom=[{"ingredient": "green chile", "qty": 1, "unit": "bag",
+              "is_sub_recipe": True, "sub_slug": None}],
+    )
+    return {"green_chile": child, "queso_test": parent}
+
+
+def test_pack_size_resolves_cross_dimension_leaf_path() -> None:
+    """1 bag declared as 3 qt: expand_recipe resolves to 2 lb chiles."""
+    manifest = _queso_with_child({"bag": (3.0, "qt")})
+    leaves = expand_recipe(manifest, "queso_test", 1, "qt")
+    # 1 bag -> 3 qt of green_chile; green_chile scale = 3/3 = 1.0 -> 2 lb chiles
+    assert leaves.get(("chiles", "lb")) == 2.0
+
+
+def test_pack_size_resolves_cross_dimension_node_path() -> None:
+    """1 bag declared as 3 qt: expand_recipe_demand records 3 qt of green_chile."""
+    manifest = _queso_with_child({"bag": (3.0, "qt")})
+    nodes = expand_recipe_demand(manifest, [("queso_test", 1, "qt")])
+    assert nodes.get(("green_chile", "qt")) == 3.0
+
+
+def test_unconvertible_without_pack_names_pack_size() -> None:
+    """No pack declared: must raise UnitMismatchError mentioning pack_size."""
+    import pytest
+    manifest = _queso_with_child({})
+    with pytest.raises(UnitMismatchError, match="pack_size"):
+        expand_recipe(manifest, "queso_test", 1, "qt")
+
+
 if __name__ == "__main__":
     unittest.main()
