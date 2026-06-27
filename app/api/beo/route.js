@@ -372,7 +372,7 @@ async function beoPostHandler(req) {
       const id = Number(body.id);
       if (!Number.isInteger(id)) return Response.json({ error: 'id required' }, { status: 400 });
       db.transaction(() => {
-        db.prepare(`UPDATE beo_prep_tasks SET done = ? WHERE id = ?`).run(body.done ? 1 : 0, id);
+        db.prepare(`UPDATE beo_prep_tasks SET done = ? WHERE id = ? AND location_id = ?`).run(body.done ? 1 : 0, id, loc);
         postAuditEvent({
           entity: 'beo_prep_tasks', entity_id: id, action: 'update',
           actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
@@ -390,7 +390,7 @@ async function beoPostHandler(req) {
       // is ON for every connection (lib/db.ts::getDb), so the single
       // DELETE on beo_events sweeps both child tables atomically.
       db.transaction(() => {
-        db.prepare(`DELETE FROM beo_events WHERE id = ?`).run(id);
+        db.prepare(`DELETE FROM beo_events WHERE id = ? AND location_id = ?`).run(id, loc);
         postAuditEvent({
           entity: 'beo_events', entity_id: id, action: 'delete',
           actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
