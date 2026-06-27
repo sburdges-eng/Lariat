@@ -218,4 +218,38 @@ describe('EventPrepPanel', () => {
 
     expect(screen.getByText(/engine exploded on recipe lookup/)).toBeInTheDocument();
   });
+
+  // ── T6-fix regression: on_hand_unapplied / manifest_warnings prevent empty state ──
+
+  test('renders callout (not empty state) when only on_hand_unapplied is present', async () => {
+    mockFetchOk({
+      event_id: 7,
+      prep_demands: [],
+      unmapped: [],
+      on_hand_unapplied: [
+        { ingredient: 'sysco flour', unit: 'case', on_hand: 4, reason: 'no matching order-guide leaf (ingredient/unit)' },
+      ],
+      manifest_warnings: [],
+    });
+    render(<EventPrepPanel eventId={1} />);
+
+    expect(await screen.findByTestId('event-cascade-unmapped')).toBeInTheDocument();
+    expect(screen.queryByTestId('event-prep-empty')).toBeNull();
+  });
+
+  test('renders callout (not empty state) when only manifest_warnings is present', async () => {
+    mockFetchOk({
+      event_id: 7,
+      prep_demands: [],
+      unmapped: [],
+      on_hand_unapplied: [],
+      manifest_warnings: [
+        { recipe: 'beer_batter', warning: 'yield ratio out of range' },
+      ],
+    });
+    render(<EventPrepPanel eventId={1} />);
+
+    expect(await screen.findByTestId('event-cascade-unmapped')).toBeInTheDocument();
+    expect(screen.queryByTestId('event-prep-empty')).toBeNull();
+  });
 });

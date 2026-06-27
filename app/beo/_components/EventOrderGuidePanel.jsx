@@ -48,7 +48,13 @@ export default function EventOrderGuidePanel({ eventId, location = 'default' }) 
         setEngineError(err);
         setOnHandUnapplied(onHandUnapplied);
         setManifestWarnings(manifestWarnings);
-        if (rows.length === 0 && unmappedItems.length === 0 && !err) {
+        if (
+          rows.length === 0 &&
+          unmappedItems.length === 0 &&
+          !err &&
+          onHandUnapplied.length === 0 &&
+          manifestWarnings.length === 0
+        ) {
           setState('empty');
         } else {
           setOrderGuide(rows);
