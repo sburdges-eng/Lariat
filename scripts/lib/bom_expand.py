@@ -194,11 +194,14 @@ def _accumulate_recipe_demand(
         if sub_slug is not None:
             sub_m = manifest[sub_slug]
             if row_unit != sub_m.yield_unit:
-                raise UnitMismatchError(
-                    f"recipe {slug!r} BOM references sub-recipe "
-                    f"{sub_slug!r} with unit {row_unit!r}, but "
-                    f"{sub_slug!r} yields in {sub_m.yield_unit!r}"
-                )
+                converted = _convert(row_qty, row_unit, sub_m.yield_unit)
+                if converted is None:
+                    raise UnitMismatchError(
+                        f"recipe {slug!r} BOM references sub-recipe "
+                        f"{sub_slug!r} with unit {row_unit!r}, but "
+                        f"{sub_slug!r} yields in {sub_m.yield_unit!r}"
+                    )
+                row_qty, row_unit = converted, sub_m.yield_unit
             _accumulate_recipe_demand(
                 manifest,
                 sub_slug,

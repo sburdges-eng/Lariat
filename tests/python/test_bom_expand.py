@@ -362,6 +362,13 @@ class RealDataMexiSlaw(unittest.TestCase):
         )
         assert leaves, "mexi_slaw must expand without UnitMismatchError"
 
+    def test_mexi_slaw_recipe_demand_now_converts(self) -> None:
+        manifest = build_manifest_from_normalized(REAL_INDEX, REAL_NORMALIZED)
+        nodes = expand_recipe_demand(manifest, [("mexi_slaw",
+                  manifest["mexi_slaw"].yield_qty, manifest["mexi_slaw"].yield_unit)])
+        # chipotle_aioli is a sub-recipe node; it must appear (cup->qt converted), not raise
+        assert any(slug == "chipotle_aioli" for (slug, _unit) in nodes), nodes
+
 
 if __name__ == "__main__":
     unittest.main()
