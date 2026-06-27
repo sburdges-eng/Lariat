@@ -16,6 +16,8 @@ export default function EventPrepPanel({ eventId, location = 'default' }) {
   const [prepDemands, setPrepDemands] = useState([]);
   const [unmapped, setUnmapped] = useState([]);
   const [engineError, setEngineError] = useState(null);
+  const [onHandUnapplied, setOnHandUnapplied] = useState([]);
+  const [manifestWarnings, setManifestWarnings] = useState([]);
 
   useEffect(() => {
     if (eventId == null) {
@@ -40,8 +42,12 @@ export default function EventPrepPanel({ eventId, location = 'default' }) {
         const rows = Array.isArray(j.prep_demands) ? j.prep_demands : [];
         const unmappedItems = Array.isArray(j.unmapped) ? j.unmapped : [];
         const err = j.error || null;
+        const onHandUnapplied = Array.isArray(j.on_hand_unapplied) ? j.on_hand_unapplied : [];
+        const manifestWarnings = Array.isArray(j.manifest_warnings) ? j.manifest_warnings : [];
         setUnmapped(unmappedItems);
         setEngineError(err);
+        setOnHandUnapplied(onHandUnapplied);
+        setManifestWarnings(manifestWarnings);
         if (rows.length === 0 && unmappedItems.length === 0 && !err) {
           setState('empty');
         } else {
@@ -86,7 +92,8 @@ export default function EventPrepPanel({ eventId, location = 'default' }) {
 
   return (
     <div className="beo-prep-panel">
-      <UnmappedCallout unmapped={unmapped} error={engineError} />
+      <UnmappedCallout unmapped={unmapped} error={engineError}
+                       onHandUnapplied={onHandUnapplied} manifestWarnings={manifestWarnings} />
       <ul data-testid="event-prep-list" className="beo-prep-list">
         {prepDemands.map((row, i) => (
           <li key={`${row.recipe_slug}-${i}`} data-testid="event-prep-row" className="beo-prep-row">
