@@ -25,9 +25,13 @@ units. Silent coercion is forbidden — see AGENTS.md rule #4.
 from __future__ import annotations
 
 import csv
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
+
+# Matches an explicit sub-recipe pin in BOM notes, e.g. "(sub-recipe=qb_seasoning)"
+_PIN = re.compile(r"\(sub-recipe=([a-z0-9_]+)\)")
 
 
 # ---------------------------------------------------------------------------
@@ -215,11 +219,13 @@ def _accumulate_recipe_demand(
         row_qty = float(row["qty"])
         row_unit = row["unit"]
 
-        sub_slug = (
-            _resolve_sub_slug(manifest, m, ingredient)
-            if (row.get("is_sub_recipe") or _could_be_sub(m, ingredient))
-            else None
-        )
+        sub_slug = row.get("sub_slug")
+        if sub_slug is None and (row.get("is_sub_recipe") or _could_be_sub(m, ingredient)):
+            sub_slug = _resolve_sub_slug(manifest, m, ingredient)
+        if sub_slug is not None and sub_slug not in manifest:
+            raise UnknownRecipeError(
+                f"recipe {slug!r} pins sub-recipe {sub_slug!r} which is not in the manifest"
+            )
 
         if sub_slug is not None:
             sub_m = manifest[sub_slug]
@@ -269,11 +275,13 @@ def _expand_into(
         row_qty = float(row["qty"])
         row_unit = row["unit"]
 
-        sub_slug = (
-            _resolve_sub_slug(manifest, m, ingredient)
-            if (row.get("is_sub_recipe") or _could_be_sub(m, ingredient))
-            else None
-        )
+        sub_slug = row.get("sub_slug")
+        if sub_slug is None and (row.get("is_sub_recipe") or _could_be_sub(m, ingredient)):
+            sub_slug = _resolve_sub_slug(manifest, m, ingredient)
+        if sub_slug is not None and sub_slug not in manifest:
+            raise UnknownRecipeError(
+                f"recipe {slug!r} pins sub-recipe {sub_slug!r} which is not in the manifest"
+            )
 
         if sub_slug is not None:
             sub_m = manifest[sub_slug]
@@ -362,6 +370,32 @@ def _resolve_sub_slug(
     return best
 
 
+def find_manifest_warnings(manifest: dict[str, Manifest]) -> list[dict]:
+    """Surface declared sub_recipe_slugs that no BOM row references (pin or
+    name resolution) — these would silently never be produced. AGENTS.md #4."""
+    warnings: list[dict] = []
+    for slug, m in manifest.items():
+        referenced: set[str] = set()
+        for row in m.bom:
+            pin = row.get("sub_slug")
+            if pin:
+                referenced.add(pin)
+            elif row.get("is_sub_recipe") or _could_be_sub(m, row["ingredient"]):
+                r = _resolve_sub_slug(manifest, m, row["ingredient"])
+                if r:
+                    referenced.add(r)
+        for declared in m.sub_recipe_slugs:
+            if declared not in referenced:
+                warnings.append(
+                    {
+                        "recipe": slug,
+                        "sub_slug": declared,
+                        "issue": f"declares sub-recipe {declared!r} but no BOM row references it",
+                    }
+                )
+    return warnings
+
+
 # ---------------------------------------------------------------------------
 # Loaders
 # ---------------------------------------------------------------------------
@@ -394,12 +428,14 @@ def build_manifest(
             if slug not in manifest:
                 continue
             notes = (row.get("notes") or "").lower()
+            _m_pin = _PIN.search(notes)
             manifest[slug].bom.append(
                 {
                     "ingredient": (row.get("ingredient") or "").strip(),
                     "qty": _parse_float(row.get("qty")),
                     "unit": (row.get("unit") or "").strip(),
-                    "is_sub_recipe": "(sub-recipe)" in notes,
+                    "is_sub_recipe": ("(sub-recipe)" in notes) or bool(_m_pin),
+                    "sub_slug": (_m_pin.group(1) if _m_pin else None),
                 }
             )
 
@@ -428,12 +464,14 @@ def build_manifest_from_normalized(
         with slug_csv.open(newline="") as f:
             for row in csv.DictReader(f):
                 notes = (row.get("notes") or "").lower()
+                _m_pin = _PIN.search(notes)
                 m.bom.append(
                     {
                         "ingredient": (row.get("ingredient") or "").strip(),
                         "qty": _parse_float(row.get("qty")),
                         "unit": (row.get("unit") or "").strip(),
-                        "is_sub_recipe": "(sub-recipe)" in notes,
+                        "is_sub_recipe": ("(sub-recipe)" in notes) or bool(_m_pin),
+                        "sub_slug": (_m_pin.group(1) if _m_pin else None),
                     }
                 )
 

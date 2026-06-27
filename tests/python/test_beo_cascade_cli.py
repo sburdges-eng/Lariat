@@ -285,5 +285,24 @@ class BeoCascadeCLIIntegration(unittest.TestCase):
         self.assertIn("error", out)
 
 
+# ---------------------------------------------------------------------------
+# T4: manifest_warnings surfaced in build_cascade output
+# ---------------------------------------------------------------------------
+
+
+class ManifestWarningsInCascade(unittest.TestCase):
+    """build_cascade must include a 'manifest_warnings' key (a list)."""
+
+    def test_manifest_warnings_key_present(self) -> None:
+        """build_cascade output always has a manifest_warnings list."""
+        result = build_cascade(
+            _manifest(),
+            {"queso dip": ["queso_blanco"]},
+            [{"item_name": "Queso Dip", "quantity": 2}],
+        )
+        self.assertIn("manifest_warnings", result)
+        self.assertIsInstance(result["manifest_warnings"], list)
+
+
 if __name__ == "__main__":
     unittest.main()

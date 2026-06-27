@@ -22,7 +22,9 @@ Output (stdout, JSON):
         "prep_demands": [{"recipe_slug": "beer_batter", "display_name": "Beer Batter",
                           "qty": 4.0, "unit": "qt"}],
         "unmapped":     [{"menu_item": "Mystery Dish",
-                          "reason": "not in beo_recipe_map and no direct recipe match"}]
+                          "reason": "not in beo_recipe_map and no direct recipe match"}],
+        "manifest_warnings": [{"recipe": "beer_batter", "sub_slug": "beer_flour",
+                                "issue": "declares sub-recipe 'beer_flour' but no BOM row references it"}]
     }
 
 On failure: {"error": "..."} to stdout, exit non-zero.
@@ -46,6 +48,7 @@ from scripts.lib.bom_expand import (  # noqa: E402
     UnknownRecipeError,
     build_manifest_from_normalized,
     expand_recipe_demand,
+    find_manifest_warnings,
 )
 from scripts.lib.beo_pull import (  # noqa: E402
     InvoiceRow,
@@ -84,9 +87,10 @@ def build_cascade(
     Returns
     -------
     {
-        "order_guide":  list of order-line dicts,
-        "prep_demands": list of recipe-node dicts,
-        "unmapped":     list of unmapped-item dicts,
+        "order_guide":       list of order-line dicts,
+        "prep_demands":      list of recipe-node dicts,
+        "unmapped":          list of unmapped-item dicts,
+        "manifest_warnings": list of declared-but-unreferenced sub-recipe dicts,
     }
     """
     # Convert line_items → InvoiceRow list
@@ -135,7 +139,15 @@ def build_cascade(
     all_unmapped = list(map_warnings) + row_unmapped
     unmapped = [{"menu_item": u.menu_item, "reason": u.reason} for u in all_unmapped]
 
-    return {"order_guide": order_guide, "prep_demands": prep_demands, "unmapped": unmapped}
+    # Declared sub-recipes that no BOM row references
+    manifest_warnings = find_manifest_warnings(manifest)
+
+    return {
+        "order_guide": order_guide,
+        "prep_demands": prep_demands,
+        "unmapped": unmapped,
+        "manifest_warnings": manifest_warnings,
+    }
 
 
 # ---------------------------------------------------------------------------

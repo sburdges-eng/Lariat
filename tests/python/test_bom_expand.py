@@ -30,6 +30,7 @@ from scripts.lib.bom_expand import (  # noqa: E402
     build_manifest_from_normalized,
     expand_recipe,
     expand_recipe_demand,
+    find_manifest_warnings,
 )
 
 REAL_INDEX = ROOT / "recipes" / "recipe_index.csv"
@@ -424,6 +425,77 @@ def test_unconvertible_without_pack_names_pack_size() -> None:
     manifest = _queso_with_child({})
     with pytest.raises(UnitMismatchError, match="pack_size"):
         expand_recipe(manifest, "queso_test", 1, "qt")
+
+
+# ---------------------------------------------------------------------------
+# T4: explicit (sub-recipe=slug) pin + manifest_warnings
+# ---------------------------------------------------------------------------
+
+
+def test_explicit_pin_parsed_into_bom_row() -> None:
+    """birria.csv row 3 notes contain (sub-recipe=qb_seasoning); loader must
+    set sub_slug='qb_seasoning' on that BOM row."""
+    import pytest  # noqa: F401 — ensures pytest is available for the suite
+    manifest = build_manifest_from_normalized(REAL_INDEX, REAL_NORMALIZED)
+    row = next(r for r in manifest["birria"].bom if "seasoning" in r["ingredient"].lower())
+    assert row["sub_slug"] == "qb_seasoning"
+
+
+def test_birria_now_fails_loud_on_g_to_cup() -> None:
+    """After pinning birria seasoning → qb_seasoning (yield=cup), the
+    g→cup cross-dimension with no pack_size must raise UnitMismatchError
+    mentioning pack_size. This is the approved strict behavior."""
+    import pytest
+
+    manifest = build_manifest_from_normalized(REAL_INDEX, REAL_NORMALIZED)
+    with pytest.raises(UnitMismatchError, match="pack_size"):
+        expand_recipe(
+            manifest,
+            "birria",
+            manifest["birria"].yield_qty,
+            manifest["birria"].yield_unit,
+        )
+
+
+def test_unreferenced_declared_sub_is_warned() -> None:
+    """beer_batter declares sub_recipes=beer_flour but no BOM row references
+    beer_flour — must appear in find_manifest_warnings."""
+    manifest = build_manifest_from_normalized(REAL_INDEX, REAL_NORMALIZED)
+    warns = {(w["recipe"], w["sub_slug"]) for w in find_manifest_warnings(manifest)}
+    assert ("beer_batter", "beer_flour") in warns
+
+
+def test_pinned_sub_is_not_warned() -> None:
+    """birria pins qb_seasoning via (sub-recipe=qb_seasoning); the pin counts
+    as a reference, so (birria, qb_seasoning) must NOT appear in warnings."""
+    manifest = build_manifest_from_normalized(REAL_INDEX, REAL_NORMALIZED)
+    warns = {(w["recipe"], w["sub_slug"]) for w in find_manifest_warnings(manifest)}
+    assert ("birria", "qb_seasoning") not in warns
+
+
+def test_pin_to_unknown_slug_raises_unknown_recipe() -> None:
+    """A BOM row with sub_slug pointing to a slug absent from the manifest
+    must raise UnknownRecipeError at expand time, not silently drop."""
+    import pytest
+
+    parent = Manifest(
+        slug="p",
+        display_name="P",
+        yield_qty=1,
+        yield_unit="qt",
+        sub_recipe_slugs=["nope"],
+        bom=[
+            {
+                "ingredient": "x",
+                "qty": 1,
+                "unit": "qt",
+                "is_sub_recipe": True,
+                "sub_slug": "nope",
+            }
+        ],
+    )
+    with pytest.raises(UnknownRecipeError):
+        expand_recipe({"p": parent}, "p", 1, "qt")
 
 
 if __name__ == "__main__":
