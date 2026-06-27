@@ -24,11 +24,16 @@ from scripts.lib.bom_expand import (  # noqa: E402
     RecipeCycleError,
     UnitMismatchError,
     UnknownRecipeError,
+    _convert,
     aggregate_demand,
     build_manifest,
+    build_manifest_from_normalized,
     expand_recipe,
     expand_recipe_demand,
 )
+
+REAL_INDEX = ROOT / "recipes" / "recipe_index.csv"
+REAL_NORMALIZED = ROOT / "recipes" / "normalized"
 
 
 def _mk(
@@ -319,6 +324,43 @@ class ManifestFromCsvs(unittest.TestCase):
         self.assertIn("queso_mac_sauce", msg)
         self.assertIn("green_chile", msg)
         self.assertIn("bag", msg)
+
+
+class ConvertUnit(unittest.TestCase):
+    def test_convert_volume_exact(self) -> None:
+        assert _convert(2, "cup", "qt") == 0.5      # 4 cup = 1 qt
+        assert _convert(1, "gal", "qt") == 4.0
+
+    def test_convert_mass_exact(self) -> None:
+        assert _convert(1000, "g", "kg") == 1.0
+        assert _convert(16, "oz", "lb") == 1.0
+
+    def test_convert_same_unit_passthrough(self) -> None:
+        assert _convert(3, "qt", "qt") == 3.0
+
+    def test_convert_cross_dimension_is_none(self) -> None:
+        assert _convert(5, "g", "cup") is None       # mass↔volume not convertible
+        assert _convert(1, "bag", "qt") is None       # non-dimensional unit
+
+
+class RealDataMexiSlaw(unittest.TestCase):
+    """Real-data test: mexi_slaw sub-recipe boundary (cup→qt) must convert."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        if not REAL_INDEX.exists() or not REAL_NORMALIZED.exists():
+            raise unittest.SkipTest("Real recipe data not present")
+        cls.manifest = build_manifest_from_normalized(REAL_INDEX, REAL_NORMALIZED)
+
+    def test_mexi_slaw_sub_recipe_unit_now_converts(self) -> None:
+        manifest = self.manifest
+        leaves = expand_recipe(
+            manifest,
+            "mexi_slaw",
+            manifest["mexi_slaw"].yield_qty,
+            manifest["mexi_slaw"].yield_unit,
+        )
+        assert leaves, "mexi_slaw must expand without UnitMismatchError"
 
 
 if __name__ == "__main__":

@@ -65,6 +65,37 @@ class RecipeCycleError(ValueError):
 
 LeafKey = tuple[str, str]  # (ingredient_name, unit)
 
+# ---------------------------------------------------------------------------
+# Same-dimension unit conversion (volume base = qt, mass base = g)
+# ---------------------------------------------------------------------------
+
+_VOLUME = {
+    "tsp": 1 / 192,
+    "tbsp": 1 / 64,
+    "fl_oz": 1 / 32,
+    "cup": 1 / 4,
+    "pint": 1 / 2,
+    "qt": 1.0,
+    "gal": 4.0,
+}
+_MASS = {"g": 1.0, "kg": 1000.0, "oz": 28.349523125, "lb": 453.59237}
+
+
+def _u(unit: str) -> str:
+    return unit.strip().lower().replace(" ", "_")
+
+
+def _convert(qty: float, from_unit: str, to_unit: str) -> "float | None":
+    """Convert qty between same-dimension units (volume↔volume, mass↔mass).
+    Returns None when the units are cross-dimension or non-dimensional."""
+    f, t = _u(from_unit), _u(to_unit)
+    if f == t:
+        return float(qty)
+    for table in (_VOLUME, _MASS):
+        if f in table and t in table:
+            return float(qty) * table[f] / table[t]
+    return None
+
 
 def expand_recipe(
     manifest: dict[str, Manifest],
@@ -222,11 +253,14 @@ def _expand_into(
         if sub_slug is not None:
             sub_m = manifest[sub_slug]
             if row_unit != sub_m.yield_unit:
-                raise UnitMismatchError(
-                    f"recipe {slug!r} BOM references sub-recipe "
-                    f"{sub_slug!r} with unit {row_unit!r}, but "
-                    f"{sub_slug!r} yields in {sub_m.yield_unit!r}"
-                )
+                converted = _convert(row_qty, row_unit, sub_m.yield_unit)
+                if converted is None:
+                    raise UnitMismatchError(
+                        f"recipe {slug!r} BOM references sub-recipe "
+                        f"{sub_slug!r} with unit {row_unit!r}, but "
+                        f"{sub_slug!r} yields in {sub_m.yield_unit!r}"
+                    )
+                row_qty, row_unit = converted, sub_m.yield_unit
             _expand_into(
                 manifest,
                 sub_slug,
