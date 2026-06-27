@@ -91,6 +91,7 @@ def build_cascade(
         "prep_demands":      list of recipe-node dicts,
         "unmapped":          list of unmapped-item dicts,
         "manifest_warnings": list of declared-but-unreferenced sub-recipe dicts,
+        "on_hand_unapplied": list of inventory entries that matched no order-guide leaf,
     }
     """
     # Convert line_items → InvoiceRow list
@@ -142,11 +143,22 @@ def build_cascade(
     # Declared sub-recipes that no BOM row references
     manifest_warnings = find_manifest_warnings(manifest)
 
+    # Inventory entries that matched no order-guide leaf (strict ingredient/unit).
+    # These are surfaced so callers know what was NOT applied.
+    inv = inventory or {}
+    matched = {(ol.ingredient.strip().lower(), ol.unit.strip().lower()) for ol in order_lines}
+    on_hand_unapplied = [
+        {"ingredient": ing, "unit": unit, "on_hand": oh,
+         "reason": "no matching order-guide leaf (ingredient/unit)"}
+        for (ing, unit), oh in inv.items() if (ing, unit) not in matched
+    ]
+
     return {
         "order_guide": order_guide,
         "prep_demands": prep_demands,
         "unmapped": unmapped,
         "manifest_warnings": manifest_warnings,
+        "on_hand_unapplied": on_hand_unapplied,
     }
 
 

@@ -33,10 +33,25 @@ export interface UnmappedRow {
   reason: string;
 }
 
+export interface OnHandUnappliedRow {
+  ingredient: string;
+  unit: string;
+  on_hand: number;
+  reason: string;
+}
+
+export interface ManifestWarningRow {
+  recipe: string;
+  sub_slug?: string;
+  issue: string;
+}
+
 export interface CascadeResult {
   orderGuide: OrderGuideRow[];
   prepDemands: PrepDemandRow[];
   unmapped: UnmappedRow[];
+  onHandUnapplied: OnHandUnappliedRow[];
+  manifestWarnings: ManifestWarningRow[];
 }
 
 export interface CascadeOptions {
@@ -89,7 +104,7 @@ export async function cascadeFromLineItems(
 ): Promise<CascadeResult> {
   // Short-circuit: no work to do, no reason to pay spawn cost.
   if (lineItems.length === 0) {
-    return { orderGuide: [], prepDemands: [], unmapped: [] };
+    return { orderGuide: [], prepDemands: [], unmapped: [], onHandUnapplied: [], manifestWarnings: [] };
   }
 
   const root = opts?.root ?? resolveProjectRoot();
@@ -192,5 +207,22 @@ function parseCascadeResponse(raw: string): CascadeResult {
     reason: String(row.reason ?? ''),
   }));
 
-  return { orderGuide, prepDemands, unmapped };
+  const onHandUnapplied: OnHandUnappliedRow[] = Array.isArray(obj.on_hand_unapplied)
+    ? (obj.on_hand_unapplied as Array<Record<string, unknown>>).map((r) => ({
+        ingredient: String(r.ingredient ?? ''),
+        unit: String(r.unit ?? ''),
+        on_hand: Number(r.on_hand ?? 0),
+        reason: String(r.reason ?? ''),
+      }))
+    : [];
+
+  const manifestWarnings: ManifestWarningRow[] = Array.isArray(obj.manifest_warnings)
+    ? (obj.manifest_warnings as Array<Record<string, unknown>>).map((r) => ({
+        recipe: String(r.recipe ?? ''),
+        sub_slug: r.sub_slug == null ? undefined : String(r.sub_slug),
+        issue: String(r.issue ?? ''),
+      }))
+    : [];
+
+  return { orderGuide, prepDemands, unmapped, onHandUnapplied, manifestWarnings };
 }
