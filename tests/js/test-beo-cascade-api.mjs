@@ -19,7 +19,9 @@ after(() => db.setDbPathForTest(null));
 beforeEach(() => {
   conn.exec(
     `DELETE FROM beo_line_items;
-     DELETE FROM beo_events;`,
+     DELETE FROM beo_events;
+     DELETE FROM inventory_count_lines;
+     DELETE FROM inventory_counts;`,
   );
 });
 
@@ -42,6 +44,24 @@ function seedLine({ event_id, item_name, quantity = 1 }) {
       `INSERT INTO beo_line_items (event_id, item_name, quantity) VALUES (?, ?, ?)`,
     )
     .run(event_id, item_name, quantity);
+}
+
+function seedCount({ location = 'default', count_date = '2026-06-01' } = {}) {
+  const r = conn
+    .prepare(
+      `INSERT INTO inventory_counts (count_date, location_id) VALUES (?, ?)`,
+    )
+    .run(count_date, location);
+  return Number(r.lastInsertRowid);
+}
+
+function seedCountLine({ count_id, ingredient, unit = 'case', on_hand_qty = 0, location = 'default' }) {
+  conn
+    .prepare(
+      `INSERT INTO inventory_count_lines (count_id, ingredient, unit, on_hand_qty, location_id)
+       VALUES (?, ?, ?, ?, ?)`,
+    )
+    .run(count_id, ingredient, unit, on_hand_qty, location);
 }
 
 describe('GET /api/beo/cascade', () => {
@@ -156,5 +176,81 @@ describe('GET /api/beo/cascade', () => {
     assert.ok('order_guide' in j, 'must have order_guide');
     assert.ok('prep_demands' in j, 'must have prep_demands');
     assert.ok('unmapped' in j, 'must have unmapped');
+  });
+
+  // T5: on-hand inventory subtraction + on_hand_unapplied + manifest_warnings
+  it('subtracts on-hand from total_needed and surfaces unapplied count lines', async () => {
+    // "Churros" → recipe churros → single leaf: ingredient="churros (sysco)", unit="case"
+    const evId = seedEvent({ location: 'default' });
+    seedLine({ event_id: evId, item_name: 'Churros', quantity: 5 });
+
+    // Seed a latest inventory count for the same location
+    const countId = seedCount({ location: 'default', count_date: '2026-06-01' });
+
+    // A count line whose ingredient/unit exactly match the leaf (lowercased match)
+    const ON_HAND = 2;
+    seedCountLine({ count_id: countId, ingredient: 'churros (sysco)', unit: 'case', on_hand_qty: ON_HAND });
+
+    // A junk count line that will not match any leaf
+    seedCountLine({ count_id: countId, ingredient: 'definitely not real widget', unit: 'kg', on_hand_qty: 7 });
+
+    const res = await route.GET(makeReq(`?event_id=${evId}`));
+    assert.equal(res.status, 200);
+    const j = await res.json();
+
+    // order_guide should have the leaf with reduced to_order
+    const leafRow = j.order_guide.find(
+      (r) => r.ingredient === 'churros (sysco)' && r.unit === 'case',
+    );
+    assert.ok(leafRow, `expected churros (sysco)/case in order_guide; got ${JSON.stringify(j.order_guide)}`);
+    assert.equal(leafRow.total_needed, 5, 'total_needed must be 5 (1 per item × 5 qty, qty_in_yield_units)');
+    assert.equal(leafRow.on_hand, ON_HAND, `on_hand must be ${ON_HAND}`);
+    assert.equal(leafRow.to_order, 5 - ON_HAND, `to_order must be ${5 - ON_HAND}`);
+
+    // The junk count line must appear in on_hand_unapplied
+    assert.ok(Array.isArray(j.on_hand_unapplied), 'on_hand_unapplied must be an array');
+    const unappliedKeys = j.on_hand_unapplied.map((u) => `${u.ingredient}|${u.unit}`);
+    assert.ok(
+      unappliedKeys.includes('definitely not real widget|kg'),
+      `expected junk line in on_hand_unapplied; got ${JSON.stringify(j.on_hand_unapplied)}`,
+    );
+    // The matched leaf must NOT be in on_hand_unapplied
+    assert.ok(
+      !unappliedKeys.includes('churros (sysco)|case'),
+      'matched leaf must not appear in on_hand_unapplied',
+    );
+
+    // manifest_warnings must be present (array) — populated by beer_batter/beer_flour warning
+    assert.ok(Array.isArray(j.manifest_warnings), 'manifest_warnings must be an array');
+  });
+
+  it('surfaces empty-unit count lines as on_hand_unapplied, never passes them to engine', async () => {
+    // An inventory count line with NULL/empty unit must be in on_hand_unapplied,
+    // never fed to the unit-agnostic fallback.
+    const evId = seedEvent({ location: 'default' });
+    seedLine({ event_id: evId, item_name: 'Churros', quantity: 2 });
+
+    const countId = seedCount({ location: 'default', count_date: '2026-06-01' });
+    // Empty-unit line for the same ingredient name
+    seedCountLine({ count_id: countId, ingredient: 'churros (sysco)', unit: '', on_hand_qty: 10 });
+
+    const res = await route.GET(makeReq(`?event_id=${evId}`));
+    assert.equal(res.status, 200);
+    const j = await res.json();
+
+    // The empty-unit line must NOT subtract from to_order (full total_needed remains)
+    const leafRow = j.order_guide.find(
+      (r) => r.ingredient === 'churros (sysco)' && r.unit === 'case',
+    );
+    assert.ok(leafRow, 'churros (sysco)/case must be in order_guide');
+    assert.equal(leafRow.on_hand, 0, 'on_hand must be 0: empty-unit line must not have been applied');
+    assert.equal(leafRow.to_order, leafRow.total_needed, 'to_order must equal total_needed when empty-unit blocked');
+
+    // The empty-unit line must appear in on_hand_unapplied
+    assert.ok(Array.isArray(j.on_hand_unapplied), 'on_hand_unapplied must be array');
+    const unapplied = j.on_hand_unapplied.find(
+      (u) => u.ingredient === 'churros (sysco)' && u.unit === '',
+    );
+    assert.ok(unapplied, `expected empty-unit line in on_hand_unapplied; got ${JSON.stringify(j.on_hand_unapplied)}`);
   });
 });

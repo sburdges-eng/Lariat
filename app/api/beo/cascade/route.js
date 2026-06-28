@@ -53,11 +53,28 @@ export async function GET(req) {
 
     const lineItems = rows.map((r) => ({ item_name: r.item_name, quantity: r.quantity }));
 
+    // Latest count for this location; strict (ingredient,unit) match only.
+    const invRows = db.prepare(
+      `SELECT ingredient, unit, on_hand_qty AS on_hand
+         FROM inventory_count_lines
+        WHERE on_hand_qty IS NOT NULL
+          AND count_id = (SELECT id FROM inventory_counts
+                           WHERE location_id = ? ORDER BY count_date DESC, id DESC LIMIT 1)`,
+    ).all(location);
+    const inventory = [];
+    const noUnit = [];
+    for (const r of invRows) {
+      const unit = (r.unit ?? '').trim();
+      if (unit) inventory.push({ ingredient: r.ingredient, unit, on_hand: r.on_hand });
+      else noUnit.push({ ingredient: r.ingredient, unit: '', on_hand: r.on_hand,
+                         reason: 'count line has no unit — cannot strict-match' });
+    }
+
     let result;
     try {
       // BEO quantities are individual item counts for pricing (unit_cost × qty = total),
       // not recipe batch counts — pass qtyInYieldUnits so the engine doesn't multiply by yield.
-      result = await cascadeFromLineItems(lineItems, { qtyInYieldUnits: true });
+      result = await cascadeFromLineItems(lineItems, { qtyInYieldUnits: true, inventory });
     } catch (err) {
       // CascadeError (engine/data condition) — return consistent shape with error banner info.
       return json(
@@ -66,6 +83,8 @@ export async function GET(req) {
           order_guide: [],
           prep_demands: [],
           unmapped: [],
+          on_hand_unapplied: [],
+          manifest_warnings: [],
           error: String(err.message || err),
         },
         { status: 200 },
@@ -78,6 +97,8 @@ export async function GET(req) {
         order_guide: result.orderGuide,
         prep_demands: result.prepDemands,
         unmapped: result.unmapped,
+        on_hand_unapplied: [...result.onHandUnapplied, ...noUnit],
+        manifest_warnings: result.manifestWarnings,
       },
       { status: 200 },
     );

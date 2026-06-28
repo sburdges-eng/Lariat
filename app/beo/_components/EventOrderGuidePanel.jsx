@@ -16,6 +16,8 @@ export default function EventOrderGuidePanel({ eventId, location = 'default' }) 
   const [orderGuide, setOrderGuide] = useState([]);
   const [unmapped, setUnmapped] = useState([]);
   const [engineError, setEngineError] = useState(null);
+  const [onHandUnapplied, setOnHandUnapplied] = useState([]);
+  const [manifestWarnings, setManifestWarnings] = useState([]);
 
   useEffect(() => {
     if (eventId == null) {
@@ -40,9 +42,19 @@ export default function EventOrderGuidePanel({ eventId, location = 'default' }) 
         const rows = Array.isArray(j.order_guide) ? j.order_guide : [];
         const unmappedItems = Array.isArray(j.unmapped) ? j.unmapped : [];
         const err = j.error || null;
+        const onHandUnapplied = Array.isArray(j.on_hand_unapplied) ? j.on_hand_unapplied : [];
+        const manifestWarnings = Array.isArray(j.manifest_warnings) ? j.manifest_warnings : [];
         setUnmapped(unmappedItems);
         setEngineError(err);
-        if (rows.length === 0 && unmappedItems.length === 0 && !err) {
+        setOnHandUnapplied(onHandUnapplied);
+        setManifestWarnings(manifestWarnings);
+        if (
+          rows.length === 0 &&
+          unmappedItems.length === 0 &&
+          !err &&
+          onHandUnapplied.length === 0 &&
+          manifestWarnings.length === 0
+        ) {
           setState('empty');
         } else {
           setOrderGuide(rows);
@@ -86,7 +98,8 @@ export default function EventOrderGuidePanel({ eventId, location = 'default' }) 
 
   return (
     <div className="beo-order-guide-panel">
-      <UnmappedCallout unmapped={unmapped} error={engineError} />
+      <UnmappedCallout unmapped={unmapped} error={engineError}
+                       onHandUnapplied={onHandUnapplied} manifestWarnings={manifestWarnings} />
       <table data-testid="event-order-guide-table" className="beo-order-guide-table">
         <thead>
           <tr>

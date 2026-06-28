@@ -41,7 +41,10 @@ describe('beoCascade', () => {
     const start = Date.now();
     const result = await cascadeFromLineItems([]);
     const elapsed = Date.now() - start;
-    assert.deepEqual(result, { orderGuide: [], prepDemands: [], unmapped: [] });
+    assert.deepEqual(result, {
+      orderGuide: [], prepDemands: [], unmapped: [],
+      onHandUnapplied: [], manifestWarnings: [],
+    });
     // Short-circuit should be instantaneous (< 500 ms) — no spawn overhead
     assert.ok(elapsed < 500, `short-circuit took too long: ${elapsed}ms`);
   });

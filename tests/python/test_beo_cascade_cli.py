@@ -285,5 +285,89 @@ class BeoCascadeCLIIntegration(unittest.TestCase):
         self.assertIn("error", out)
 
 
+# ---------------------------------------------------------------------------
+# T4: manifest_warnings surfaced in build_cascade output
+# ---------------------------------------------------------------------------
+
+
+class ManifestWarningsInCascade(unittest.TestCase):
+    """build_cascade must include a 'manifest_warnings' key (a list)."""
+
+    def test_manifest_warnings_key_present(self) -> None:
+        """build_cascade output always has a manifest_warnings list."""
+        result = build_cascade(
+            _manifest(),
+            {"queso dip": ["queso_blanco"]},
+            [{"item_name": "Queso Dip", "quantity": 2}],
+        )
+        self.assertIn("manifest_warnings", result)
+        self.assertIsInstance(result["manifest_warnings"], list)
+
+
+# ---------------------------------------------------------------------------
+# T5: on_hand_unapplied surfaced in build_cascade output
+# ---------------------------------------------------------------------------
+
+
+class OnHandUnappliedInCascade(unittest.TestCase):
+    """build_cascade must surface inventory entries that matched no order-guide leaf."""
+
+    def test_on_hand_unapplied_lists_nonmatching_inventory(self) -> None:
+        """Unmatched inventory entries appear in on_hand_unapplied; matched ones do not."""
+        manifest = _manifest()
+        beo_map: dict[str, list[str]] = {"queso dip": ["queso_blanco"]}
+        # roma tomatoes lb IS a real leaf (via salsa_roja sub-recipe inside queso_blanco).
+        # nonsense widget ea will match nothing.
+        inv = {("roma tomatoes", "lb"): 3.0, ("nonsense widget", "ea"): 9.0}
+        out = build_cascade(
+            manifest,
+            beo_map,
+            [{"item_name": "Queso Dip", "quantity": 1}],
+            qty_in_yield_units=True,
+            inventory=inv,
+        )
+        # on_hand_unapplied key must be present
+        self.assertIn("on_hand_unapplied", out)
+        self.assertIsInstance(out["on_hand_unapplied"], list)
+
+        # The matching leaf shows on_hand applied in order_guide
+        flour = next(
+            (r for r in out["order_guide"] if r["ingredient"] == "roma tomatoes" and r["unit"] == "lb"),
+            None,
+        )
+        self.assertIsNotNone(flour, "roma tomatoes/lb must appear in order_guide")
+        self.assertAlmostEqual(flour["on_hand"], 3.0, places=5)
+
+        # The junk entry is surfaced, not silently dropped
+        keys = {(u["ingredient"], u["unit"]) for u in out["on_hand_unapplied"]}
+        self.assertIn(("nonsense widget", "ea"), keys)
+        # The matched entry is applied, NOT in unapplied
+        self.assertNotIn(("roma tomatoes", "lb"), keys)
+
+    def test_on_hand_unapplied_empty_when_all_match(self) -> None:
+        """on_hand_unapplied is empty when every inventory entry matches a leaf."""
+        manifest = _manifest()
+        beo_map: dict[str, list[str]] = {"queso dip": ["queso_blanco"]}
+        inv = {("roma tomatoes", "lb"): 1.0}
+        out = build_cascade(
+            manifest,
+            beo_map,
+            [{"item_name": "Queso Dip", "quantity": 1}],
+            qty_in_yield_units=True,
+            inventory=inv,
+        )
+        self.assertEqual(out["on_hand_unapplied"], [])
+
+    def test_on_hand_unapplied_present_when_no_inventory(self) -> None:
+        """on_hand_unapplied is an empty list even when no inventory is passed."""
+        out = build_cascade(
+            _manifest(),
+            {"queso dip": ["queso_blanco"]},
+            [{"item_name": "Queso Dip", "quantity": 2}],
+        )
+        self.assertIn("on_hand_unapplied", out)
+        self.assertEqual(out["on_hand_unapplied"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

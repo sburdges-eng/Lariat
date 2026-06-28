@@ -24,11 +24,17 @@ from scripts.lib.bom_expand import (  # noqa: E402
     RecipeCycleError,
     UnitMismatchError,
     UnknownRecipeError,
+    _convert,
     aggregate_demand,
     build_manifest,
+    build_manifest_from_normalized,
     expand_recipe,
     expand_recipe_demand,
+    find_manifest_warnings,
 )
+
+REAL_INDEX = ROOT / "recipes" / "recipe_index.csv"
+REAL_NORMALIZED = ROOT / "recipes" / "normalized"
 
 
 def _mk(
@@ -319,6 +325,177 @@ class ManifestFromCsvs(unittest.TestCase):
         self.assertIn("queso_mac_sauce", msg)
         self.assertIn("green_chile", msg)
         self.assertIn("bag", msg)
+
+
+class ConvertUnit(unittest.TestCase):
+    def test_convert_volume_exact(self) -> None:
+        assert _convert(2, "cup", "qt") == 0.5      # 4 cup = 1 qt
+        assert _convert(1, "gal", "qt") == 4.0
+
+    def test_convert_mass_exact(self) -> None:
+        assert _convert(1000, "g", "kg") == 1.0
+        assert _convert(16, "oz", "lb") == 1.0
+
+    def test_convert_same_unit_passthrough(self) -> None:
+        assert _convert(3, "qt", "qt") == 3.0
+
+    def test_convert_cross_dimension_is_none(self) -> None:
+        assert _convert(5, "g", "cup") is None       # mass↔volume not convertible
+        assert _convert(1, "bag", "qt") is None       # non-dimensional unit
+
+
+class RealDataMexiSlaw(unittest.TestCase):
+    """Real-data test: mexi_slaw sub-recipe boundary (cup→qt) must convert."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        if not REAL_INDEX.exists() or not REAL_NORMALIZED.exists():
+            raise unittest.SkipTest("Real recipe data not present")
+        cls.manifest = build_manifest_from_normalized(REAL_INDEX, REAL_NORMALIZED)
+
+    def test_mexi_slaw_sub_recipe_unit_now_converts(self) -> None:
+        manifest = self.manifest
+        leaves = expand_recipe(
+            manifest,
+            "mexi_slaw",
+            manifest["mexi_slaw"].yield_qty,
+            manifest["mexi_slaw"].yield_unit,
+        )
+        assert leaves, "mexi_slaw must expand without UnitMismatchError"
+
+    def test_mexi_slaw_recipe_demand_now_converts(self) -> None:
+        manifest = build_manifest_from_normalized(REAL_INDEX, REAL_NORMALIZED)
+        nodes = expand_recipe_demand(manifest, [("mexi_slaw",
+                  manifest["mexi_slaw"].yield_qty, manifest["mexi_slaw"].yield_unit)])
+        # chipotle_aioli is a sub-recipe node; it must appear (cup->qt converted), not raise
+        assert any(slug == "chipotle_aioli" for (slug, _unit) in nodes), nodes
+
+
+# ---------------------------------------------------------------------------
+# Pack-size / cross-dimension conversion tests (T3)
+# ---------------------------------------------------------------------------
+
+
+def test_pack_size_parsed_from_index() -> None:
+    """Real index loads without error; green_chile has no pack declared yet."""
+    m = build_manifest_from_normalized(REAL_INDEX, REAL_NORMALIZED)
+    assert m["green_chile"].pack_conversions == {}
+
+
+def _queso_with_child(pack: dict) -> dict:
+    child = Manifest(
+        slug="green_chile",
+        display_name="Green Chile",
+        yield_qty=3,
+        yield_unit="qt",
+        pack_conversions=pack,
+        bom=[{"ingredient": "chiles", "qty": 2, "unit": "lb",
+              "is_sub_recipe": False, "sub_slug": None}],
+    )
+    parent = Manifest(
+        slug="queso_test",
+        display_name="Queso Test",
+        yield_qty=1,
+        yield_unit="qt",
+        sub_recipe_slugs=["green_chile"],
+        bom=[{"ingredient": "green chile", "qty": 1, "unit": "bag",
+              "is_sub_recipe": True, "sub_slug": None}],
+    )
+    return {"green_chile": child, "queso_test": parent}
+
+
+def test_pack_size_resolves_cross_dimension_leaf_path() -> None:
+    """1 bag declared as 3 qt: expand_recipe resolves to 2 lb chiles."""
+    manifest = _queso_with_child({"bag": (3.0, "qt")})
+    leaves = expand_recipe(manifest, "queso_test", 1, "qt")
+    # 1 bag -> 3 qt of green_chile; green_chile scale = 3/3 = 1.0 -> 2 lb chiles
+    assert leaves.get(("chiles", "lb")) == 2.0
+
+
+def test_pack_size_resolves_cross_dimension_node_path() -> None:
+    """1 bag declared as 3 qt: expand_recipe_demand records 3 qt of green_chile."""
+    manifest = _queso_with_child({"bag": (3.0, "qt")})
+    nodes = expand_recipe_demand(manifest, [("queso_test", 1, "qt")])
+    assert nodes.get(("green_chile", "qt")) == 3.0
+
+
+def test_unconvertible_without_pack_names_pack_size() -> None:
+    """No pack declared: must raise UnitMismatchError mentioning pack_size."""
+    import pytest
+    manifest = _queso_with_child({})
+    with pytest.raises(UnitMismatchError, match="pack_size"):
+        expand_recipe(manifest, "queso_test", 1, "qt")
+
+
+# ---------------------------------------------------------------------------
+# T4: explicit (sub-recipe=slug) pin + manifest_warnings
+# ---------------------------------------------------------------------------
+
+
+def test_explicit_pin_parsed_into_bom_row() -> None:
+    """birria.csv row 3 notes contain (sub-recipe=qb_seasoning); loader must
+    set sub_slug='qb_seasoning' on that BOM row."""
+    import pytest  # noqa: F401 — ensures pytest is available for the suite
+    manifest = build_manifest_from_normalized(REAL_INDEX, REAL_NORMALIZED)
+    row = next(r for r in manifest["birria"].bom if "seasoning" in r["ingredient"].lower())
+    assert row["sub_slug"] == "qb_seasoning"
+
+
+def test_birria_now_fails_loud_on_g_to_cup() -> None:
+    """After pinning birria seasoning → qb_seasoning (yield=cup), the
+    g→cup cross-dimension with no pack_size must raise UnitMismatchError
+    mentioning pack_size. This is the approved strict behavior."""
+    import pytest
+
+    manifest = build_manifest_from_normalized(REAL_INDEX, REAL_NORMALIZED)
+    with pytest.raises(UnitMismatchError, match="pack_size"):
+        expand_recipe(
+            manifest,
+            "birria",
+            manifest["birria"].yield_qty,
+            manifest["birria"].yield_unit,
+        )
+
+
+def test_unreferenced_declared_sub_is_warned() -> None:
+    """beer_batter declares sub_recipes=beer_flour but no BOM row references
+    beer_flour — must appear in find_manifest_warnings."""
+    manifest = build_manifest_from_normalized(REAL_INDEX, REAL_NORMALIZED)
+    warns = {(w["recipe"], w["sub_slug"]) for w in find_manifest_warnings(manifest)}
+    assert ("beer_batter", "beer_flour") in warns
+
+
+def test_pinned_sub_is_not_warned() -> None:
+    """birria pins qb_seasoning via (sub-recipe=qb_seasoning); the pin counts
+    as a reference, so (birria, qb_seasoning) must NOT appear in warnings."""
+    manifest = build_manifest_from_normalized(REAL_INDEX, REAL_NORMALIZED)
+    warns = {(w["recipe"], w["sub_slug"]) for w in find_manifest_warnings(manifest)}
+    assert ("birria", "qb_seasoning") not in warns
+
+
+def test_pin_to_unknown_slug_raises_unknown_recipe() -> None:
+    """A BOM row with sub_slug pointing to a slug absent from the manifest
+    must raise UnknownRecipeError at expand time, not silently drop."""
+    import pytest
+
+    parent = Manifest(
+        slug="p",
+        display_name="P",
+        yield_qty=1,
+        yield_unit="qt",
+        sub_recipe_slugs=["nope"],
+        bom=[
+            {
+                "ingredient": "x",
+                "qty": 1,
+                "unit": "qt",
+                "is_sub_recipe": True,
+                "sub_slug": "nope",
+            }
+        ],
+    )
+    with pytest.raises(UnknownRecipeError):
+        expand_recipe({"p": parent}, "p", 1, "qt")
 
 
 if __name__ == "__main__":

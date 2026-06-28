@@ -25,9 +25,13 @@ units. Silent coercion is forbidden — see AGENTS.md rule #4.
 from __future__ import annotations
 
 import csv
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
+
+# Matches an explicit sub-recipe pin in BOM notes, e.g. "(sub-recipe=qb_seasoning)"
+_PIN = re.compile(r"\(sub-recipe=([a-z0-9_]+)\)")
 
 
 # ---------------------------------------------------------------------------
@@ -44,6 +48,8 @@ class Manifest:
     sub_recipe_slugs: list[str] = field(default_factory=list)
     bom: list[dict] = field(default_factory=list)
     allergens: list[str] = field(default_factory=list)
+    # keys = from-unit (lowercased), value = (factor: float, to_unit_lower: str)
+    pack_conversions: dict = field(default_factory=dict)
 
 
 class UnknownRecipeError(KeyError):
@@ -64,6 +70,65 @@ class RecipeCycleError(ValueError):
 
 
 LeafKey = tuple[str, str]  # (ingredient_name, unit)
+
+# ---------------------------------------------------------------------------
+# Same-dimension unit conversion (volume base = qt, mass base = g)
+# ---------------------------------------------------------------------------
+
+_VOLUME = {
+    "tsp": 1 / 192,
+    "tbsp": 1 / 64,
+    "fl_oz": 1 / 32,
+    "cup": 1 / 4,
+    "pint": 1 / 2,
+    "qt": 1.0,
+    "gal": 4.0,
+}
+_MASS = {"g": 1.0, "kg": 1000.0, "oz": 28.349523125, "lb": 453.59237}
+
+
+def _u(unit: str) -> str:
+    return unit.strip().lower().replace(" ", "_")
+
+
+def _convert(qty: float, from_unit: str, to_unit: str) -> "float | None":
+    """Convert qty between same-dimension units (volume↔volume, mass↔mass).
+    Returns None when the units are cross-dimension or non-dimensional."""
+    f, t = _u(from_unit), _u(to_unit)
+    if f == t:
+        return float(qty)
+    for table in (_VOLUME, _MASS):
+        if f in table and t in table:
+            return float(qty) * table[f] / table[t]
+    return None
+
+
+def _reconcile_sub_unit(
+    parent_slug: str,
+    sub_slug: str,
+    sub_m: "Manifest",
+    row_qty: float,
+    row_unit: str,
+) -> "tuple[float, str]":
+    """Return (qty, unit) for a sub-recipe BOM row expressed in the child's yield unit.
+
+    Same-dimension units convert exactly; otherwise the child's declared pack_size is
+    tried; otherwise fail loud naming the missing pack_size."""
+    if row_unit == sub_m.yield_unit:
+        return float(row_qty), row_unit
+    converted = _convert(row_qty, row_unit, sub_m.yield_unit)
+    if converted is None:
+        pc = sub_m.pack_conversions.get(_u(row_unit))
+        if pc and _u(pc[1]) == _u(sub_m.yield_unit):
+            converted = float(row_qty) * pc[0]
+    if converted is None:
+        raise UnitMismatchError(
+            f"recipe {parent_slug!r} BOM references sub-recipe {sub_slug!r} with unit "
+            f"{row_unit!r}, but {sub_slug!r} yields in {sub_m.yield_unit!r}; declare a "
+            f"pack_size (e.g. '{_u(row_unit)}:N:{_u(sub_m.yield_unit)}') on {sub_slug!r} "
+            f"in recipe_index.csv"
+        )
+    return converted, sub_m.yield_unit
 
 
 def expand_recipe(
@@ -154,20 +219,17 @@ def _accumulate_recipe_demand(
         row_qty = float(row["qty"])
         row_unit = row["unit"]
 
-        sub_slug = (
-            _resolve_sub_slug(manifest, m, ingredient)
-            if (row.get("is_sub_recipe") or _could_be_sub(m, ingredient))
-            else None
-        )
+        sub_slug = row.get("sub_slug")
+        if sub_slug is None and (row.get("is_sub_recipe") or _could_be_sub(m, ingredient)):
+            sub_slug = _resolve_sub_slug(manifest, m, ingredient)
+        if sub_slug is not None and sub_slug not in manifest:
+            raise UnknownRecipeError(
+                f"recipe {slug!r} pins sub-recipe {sub_slug!r} which is not in the manifest"
+            )
 
         if sub_slug is not None:
             sub_m = manifest[sub_slug]
-            if row_unit != sub_m.yield_unit:
-                raise UnitMismatchError(
-                    f"recipe {slug!r} BOM references sub-recipe "
-                    f"{sub_slug!r} with unit {row_unit!r}, but "
-                    f"{sub_slug!r} yields in {sub_m.yield_unit!r}"
-                )
+            row_qty, row_unit = _reconcile_sub_unit(slug, sub_slug, sub_m, row_qty, row_unit)
             _accumulate_recipe_demand(
                 manifest,
                 sub_slug,
@@ -213,20 +275,17 @@ def _expand_into(
         row_qty = float(row["qty"])
         row_unit = row["unit"]
 
-        sub_slug = (
-            _resolve_sub_slug(manifest, m, ingredient)
-            if (row.get("is_sub_recipe") or _could_be_sub(m, ingredient))
-            else None
-        )
+        sub_slug = row.get("sub_slug")
+        if sub_slug is None and (row.get("is_sub_recipe") or _could_be_sub(m, ingredient)):
+            sub_slug = _resolve_sub_slug(manifest, m, ingredient)
+        if sub_slug is not None and sub_slug not in manifest:
+            raise UnknownRecipeError(
+                f"recipe {slug!r} pins sub-recipe {sub_slug!r} which is not in the manifest"
+            )
 
         if sub_slug is not None:
             sub_m = manifest[sub_slug]
-            if row_unit != sub_m.yield_unit:
-                raise UnitMismatchError(
-                    f"recipe {slug!r} BOM references sub-recipe "
-                    f"{sub_slug!r} with unit {row_unit!r}, but "
-                    f"{sub_slug!r} yields in {sub_m.yield_unit!r}"
-                )
+            row_qty, row_unit = _reconcile_sub_unit(slug, sub_slug, sub_m, row_qty, row_unit)
             _expand_into(
                 manifest,
                 sub_slug,
@@ -311,6 +370,32 @@ def _resolve_sub_slug(
     return best
 
 
+def find_manifest_warnings(manifest: dict[str, Manifest]) -> list[dict]:
+    """Surface declared sub_recipe_slugs that no BOM row references (pin or
+    name resolution) — these would silently never be produced. AGENTS.md #4."""
+    warnings: list[dict] = []
+    for slug, m in manifest.items():
+        referenced: set[str] = set()
+        for row in m.bom:
+            pin = row.get("sub_slug")
+            if pin:
+                referenced.add(pin)
+            elif row.get("is_sub_recipe") or _could_be_sub(m, row["ingredient"]):
+                r = _resolve_sub_slug(manifest, m, row["ingredient"])
+                if r:
+                    referenced.add(r)
+        for declared in m.sub_recipe_slugs:
+            if declared not in referenced:
+                warnings.append(
+                    {
+                        "recipe": slug,
+                        "sub_slug": declared,
+                        "issue": f"declares sub-recipe {declared!r} but no BOM row references it",
+                    }
+                )
+    return warnings
+
+
 # ---------------------------------------------------------------------------
 # Loaders
 # ---------------------------------------------------------------------------
@@ -343,12 +428,14 @@ def build_manifest(
             if slug not in manifest:
                 continue
             notes = (row.get("notes") or "").lower()
+            _m_pin = _PIN.search(notes)
             manifest[slug].bom.append(
                 {
                     "ingredient": (row.get("ingredient") or "").strip(),
                     "qty": _parse_float(row.get("qty")),
                     "unit": (row.get("unit") or "").strip(),
-                    "is_sub_recipe": "(sub-recipe)" in notes,
+                    "is_sub_recipe": ("(sub-recipe)" in notes) or bool(_m_pin),
+                    "sub_slug": (_m_pin.group(1) if _m_pin else None),
                 }
             )
 
@@ -377,12 +464,14 @@ def build_manifest_from_normalized(
         with slug_csv.open(newline="") as f:
             for row in csv.DictReader(f):
                 notes = (row.get("notes") or "").lower()
+                _m_pin = _PIN.search(notes)
                 m.bom.append(
                     {
                         "ingredient": (row.get("ingredient") or "").strip(),
                         "qty": _parse_float(row.get("qty")),
                         "unit": (row.get("unit") or "").strip(),
-                        "is_sub_recipe": "(sub-recipe)" in notes,
+                        "is_sub_recipe": ("(sub-recipe)" in notes) or bool(_m_pin),
+                        "sub_slug": (_m_pin.group(1) if _m_pin else None),
                     }
                 )
 
@@ -401,11 +490,20 @@ def _load_recipe_index(recipe_index_csv: Path) -> dict[str, Manifest]:
                 for s in (row.get("sub_recipes") or "").split(";")
                 if s.strip()
             ]
+            pack_conversions: dict = {}
+            for spec in (row.get("pack_size") or "").split(";"):
+                parts = [p.strip().lower() for p in spec.split(":")]
+                if len(parts) == 3 and parts[0] and parts[2]:
+                    try:
+                        pack_conversions[parts[0]] = (float(parts[1]), parts[2])
+                    except ValueError:
+                        pass
             manifest[slug] = Manifest(
                 slug=slug,
                 display_name=(row.get("recipe_name") or slug).strip(),
                 yield_qty=_parse_float(row.get("yield")),
                 yield_unit=(row.get("yield_unit") or "").strip(),
                 sub_recipe_slugs=subs,
+                pack_conversions=pack_conversions,
             )
     return manifest
