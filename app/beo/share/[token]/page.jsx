@@ -44,16 +44,17 @@ const fmtFireAt = (iso) => {
   }
 };
 
-// Reusable inline-style fragments so the JSX below stays terse. Tokens
-// resolve from styles/tokens.css (PR #235) — when capacity for the token
-// vars isn't loaded (e.g. a rare context that imports this page bare),
-// the var() fallbacks keep the doc legible.
+// Reusable inline-style fragments so the JSX below stays terse. This page is
+// wrapped in `.paper` (see render), so it references ROLE tokens that flip to
+// the warm bone palette there: --accent (amber-brown #a85a16), --text /
+// --text-muted (ink on paper). Legacy aliases (--ink/--char/--ember-deep) are
+// avoided here because they do NOT flip inside .paper (T1 token system).
 const EYEBROW_STYLE = {
   fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
   fontSize: 10,
   letterSpacing: '0.28em',
   textTransform: 'uppercase',
-  color: 'var(--ember-deep, #9a3f1a)',
+  color: 'var(--accent, #a85a16)',
   fontWeight: 700,
 };
 const SECTION_HEAD_STYLE = {
@@ -61,7 +62,7 @@ const SECTION_HEAD_STYLE = {
   fontSize: 10,
   letterSpacing: '0.24em',
   textTransform: 'uppercase',
-  color: 'var(--char, #3a3530)',
+  color: 'var(--text-muted, #6f6555)',
   fontWeight: 700,
   marginBottom: 8,
 };
@@ -69,11 +70,13 @@ const SECTION_HEAD_STYLE = {
 function notFound() {
   return (
     <div
+      className="paper"
       style={{
+        minHeight: '100vh',
         padding: 40,
         fontFamily: 'var(--sans, "Inter Tight", system-ui, sans-serif)',
         textAlign: 'center',
-        color: 'var(--ink, #1d1a15)',
+        color: 'var(--text, #17140f)',
       }}
     >
       <h1
@@ -86,7 +89,7 @@ function notFound() {
       >
         This invitation isn’t available
       </h1>
-      <p style={{ color: 'var(--muted, #7b7268)', maxWidth: 480, margin: '0 auto', lineHeight: 1.5 }}>
+      <p style={{ color: 'var(--text-muted, #6f6555)', maxWidth: 480, margin: '0 auto', lineHeight: 1.5 }}>
         The link may have expired or been entered incorrectly. Please reach out to your event host
         for a fresh link.
       </p>
@@ -156,24 +159,35 @@ export default async function BeoSharePage({ params }) {
           .sidebar, .strip, .command, .cmdk-scrim, .skip-link, footer.command { display: none !important; }
           .main { padding: 0 !important; max-width: none !important; }
           .app { display: block !important; height: auto !important; }
-          body { background: var(--bone, #f3ece0) !important; }
+          /* Paint the viewport behind the .paper sheet so there's no dark gap
+             on overscroll / short content. The sheet itself is .paper below. */
+          body { background: #f1ead9 !important; }
           @media print { body { background: white !important; } }
         `,
       }} />
 
+      {/* Full-bleed .paper surface: flips the role tokens to the warm bone
+          palette (styles/tokens.css), so this whole guest-facing page reads as a
+          bright signed document on the dark app. */}
       <div
+        className="paper"
         style={{
-          maxWidth: 760,
-          margin: '0 auto',
-          padding: '48px 36px 80px',
+          minHeight: '100vh',
           fontFamily: 'var(--display)',
-          color: 'var(--ink, #1d1a15)',
+          color: 'var(--text)',
           lineHeight: 1.5,
         }}
       >
+        <div
+          style={{
+            maxWidth: 760,
+            margin: '0 auto',
+            padding: '48px 36px 80px',
+          }}
+        >
         <header
           style={{
-            borderBottom: '1px solid var(--ink, #1d1a15)',
+            borderBottom: '1px solid var(--text, #17140f)',
             paddingBottom: 22,
             marginBottom: 28,
           }}
@@ -186,7 +200,7 @@ export default async function BeoSharePage({ params }) {
               lineHeight: 1.02,
               letterSpacing: '-0.02em',
               fontWeight: 400,
-              color: 'var(--ink, #1d1a15)',
+              color: 'var(--text, #17140f)',
             }}
           >
             {event.title}
@@ -203,25 +217,25 @@ export default async function BeoSharePage({ params }) {
           >
             {event.event_date && (
               <>
-                <dt style={{ color: 'var(--muted, #7b7268)' }}>Date</dt>
+                <dt style={{ color: 'var(--text-muted, #6f6555)' }}>Date</dt>
                 <dd style={{ margin: 0 }}>{fmtDate(event.event_date)}</dd>
               </>
             )}
             {event.event_time && (
               <>
-                <dt style={{ color: 'var(--muted, #7b7268)' }}>Time</dt>
+                <dt style={{ color: 'var(--text-muted, #6f6555)' }}>Time</dt>
                 <dd style={{ margin: 0 }}>{fmtTime(event.event_time)}</dd>
               </>
             )}
             {event.contact_name && (
               <>
-                <dt style={{ color: 'var(--muted, #7b7268)' }}>Host</dt>
+                <dt style={{ color: 'var(--text-muted, #6f6555)' }}>Host</dt>
                 <dd style={{ margin: 0 }}>{event.contact_name}</dd>
               </>
             )}
             {event.guest_count != null && (
               <>
-                <dt style={{ color: 'var(--muted, #7b7268)' }}>Guests</dt>
+                <dt style={{ color: 'var(--text-muted, #6f6555)' }}>Guests</dt>
                 <dd style={{ margin: 0 }}>{event.guest_count}</dd>
               </>
             )}
@@ -262,7 +276,7 @@ export default async function BeoSharePage({ params }) {
                       style={{
                         padding: '8px 0',
                         width: 120,
-                        color: 'var(--muted, #7b7268)',
+                        color: 'var(--text-muted, #6f6555)',
                         fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
                         fontSize: 12,
                       }}
@@ -272,7 +286,7 @@ export default async function BeoSharePage({ params }) {
                     <td style={{ padding: '8px 0' }}>
                       <strong style={{ fontWeight: 600 }}>{c.course_label}</strong>
                       {c.notes ? (
-                        <span style={{ color: 'var(--muted, #7b7268)' }}> — {c.notes}</span>
+                        <span style={{ color: 'var(--text-muted, #6f6555)' }}> — {c.notes}</span>
                       ) : null}
                     </td>
                   </tr>
@@ -296,7 +310,7 @@ export default async function BeoSharePage({ params }) {
               <thead>
                 <tr
                   style={{
-                    borderBottom: '1px solid var(--ink, #1d1a15)',
+                    borderBottom: '1px solid var(--text, #17140f)',
                     textAlign: 'left',
                   }}
                 >
@@ -386,7 +400,7 @@ export default async function BeoSharePage({ params }) {
                     style={{
                       padding: '14px 8px 4px 0',
                       textAlign: 'right',
-                      color: 'var(--muted, #7b7268)',
+                      color: 'var(--text-muted, #6f6555)',
                     }}
                   >
                     Subtotal
@@ -409,7 +423,7 @@ export default async function BeoSharePage({ params }) {
                       style={{
                         padding: '4px 8px 4px 0',
                         textAlign: 'right',
-                        color: 'var(--muted, #7b7268)',
+                        color: 'var(--text-muted, #6f6555)',
                       }}
                     >
                       Service fee ({Number(event.service_fee_pct)}%)
@@ -433,7 +447,7 @@ export default async function BeoSharePage({ params }) {
                       style={{
                         padding: '4px 8px 4px 0',
                         textAlign: 'right',
-                        color: 'var(--muted, #7b7268)',
+                        color: 'var(--text-muted, #6f6555)',
                       }}
                     >
                       Tax ({(Number(event.tax_rate) * 100).toFixed(2)}%)
@@ -450,14 +464,14 @@ export default async function BeoSharePage({ params }) {
                     </td>
                   </tr>
                 ) : null}
-                <tr style={{ borderTop: '1px solid var(--ink, #1d1a15)' }}>
+                <tr style={{ borderTop: '1px solid var(--text, #17140f)' }}>
                   <td
                     colSpan={3}
                     style={{
                       padding: '10px 8px 4px 0',
                       textAlign: 'right',
                       fontWeight: 700,
-                      color: 'var(--ink, #1d1a15)',
+                      color: 'var(--text, #17140f)',
                     }}
                   >
                     Total
@@ -467,7 +481,7 @@ export default async function BeoSharePage({ params }) {
                       padding: '10px 8px 4px',
                       textAlign: 'right',
                       fontWeight: 700,
-                      color: 'var(--ember-deep, #9a3f1a)',
+                      color: 'var(--accent, #a85a16)',
                       fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
                       fontFeatureSettings: '"tnum"',
                     }}
@@ -483,7 +497,7 @@ export default async function BeoSharePage({ params }) {
         <section
           style={{
             marginTop: 40,
-            borderTop: '1px solid var(--ink, #1d1a15)',
+            borderTop: '1px solid var(--text, #17140f)',
             paddingTop: 28,
           }}
         >
@@ -491,7 +505,7 @@ export default async function BeoSharePage({ params }) {
           <p
             style={{
               fontSize: 14,
-              color: 'var(--char, #3a3530)',
+              color: 'var(--text-muted, #6f6555)',
               margin: '0 0 18px',
               fontFamily: 'var(--sans, "Inter Tight", system-ui, sans-serif)',
             }}
@@ -505,7 +519,7 @@ export default async function BeoSharePage({ params }) {
               style={{
                 marginTop: 28,
                 fontSize: 13,
-                color: 'var(--muted, #7b7268)',
+                color: 'var(--text-muted, #6f6555)',
                 fontFamily: 'var(--sans, "Inter Tight", system-ui, sans-serif)',
               }}
             >
@@ -516,7 +530,7 @@ export default async function BeoSharePage({ params }) {
                   fontSize: 10,
                   letterSpacing: '0.24em',
                   textTransform: 'uppercase',
-                  color: 'var(--char, #3a3530)',
+                  color: 'var(--text-muted, #6f6555)',
                   fontWeight: 700,
                 }}
               >
@@ -529,10 +543,10 @@ export default async function BeoSharePage({ params }) {
                     style={{
                       marginBottom: 4,
                       paddingLeft: 14,
-                      borderLeft: '2px solid var(--sage, #5d7a66)',
+                      borderLeft: '2px solid var(--ok, #3f5648)',
                     }}
                   >
-                    <strong style={{ color: 'var(--ink, #1d1a15)', fontWeight: 600 }}>{s.signed_name}</strong>{' '}
+                    <strong style={{ color: 'var(--text, #17140f)', fontWeight: 600 }}>{s.signed_name}</strong>{' '}
                     <span style={{ color: 'var(--muted-2, #9c9282)' }}>
                       — {new Date(s.signed_at).toLocaleString('en-US')}
                     </span>
@@ -542,6 +556,7 @@ export default async function BeoSharePage({ params }) {
             </div>
           )}
         </section>
+        </div>
       </div>
     </>
   );
