@@ -13,3 +13,12 @@ test('copies the url and shows confirmation', async () => {
   expect(writeText).toHaveBeenCalledWith('https://x/beo/share/abc');
   expect(await screen.findByText(/copied/i)).toBeInTheDocument();
 });
+
+test('resolves a relative url to an absolute url before copying', async () => {
+  const writeText = jest.fn().mockResolvedValue();
+  Object.assign(navigator, { clipboard: { writeText } });
+  render(<CopyLinkButton url="/beo/share/abc" />);
+  await userEvent.click(screen.getByRole('button', { name: /copy/i }));
+  // jsdom default origin is http://localhost
+  expect(writeText).toHaveBeenCalledWith('http://localhost/beo/share/abc');
+});

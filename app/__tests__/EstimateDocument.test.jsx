@@ -77,3 +77,35 @@ test('omits Signed-by list when signatures is empty', () => {
   const { container } = render(<EstimateDocument {...base} signatures={[]} register="client" />);
   expect(container.querySelector('.ed-signed-by')).toBeNull();
 });
+
+test('formats event_date as long locale date and event_time as 12-hour', () => {
+  const eventWithDateTime = { ...base.event, event_date: '2025-05-01', event_time: '20:00' };
+  render(<EstimateDocument {...base} event={eventWithDateTime} register="client" />);
+  expect(screen.getByText('Thursday, May 1, 2025')).toBeInTheDocument();
+  expect(screen.getByText('8:00 PM')).toBeInTheDocument();
+});
+
+test('formats course fire_at ISO-8601 as 12-hour time, not raw ISO', () => {
+  const courses = [
+    { id: 1, course_label: 'Dinner', fire_at: '2025-05-01T20:00:00Z', notes: null },
+  ];
+  const { container } = render(<EstimateDocument {...base} courses={courses} register="client" />);
+  // The raw ISO string must NOT appear in the schedule time cell
+  expect(container.querySelector('.ed-schedule-time').textContent).not.toBe('2025-05-01T20:00:00Z');
+  // The formatted time must appear (exact value depends on locale/TZ but must be non-empty)
+  expect(container.querySelector('.ed-schedule-time').textContent.trim()).not.toBe('');
+});
+
+test('renders Notes section when event.notes is present, omits it when absent', () => {
+  const eventWithNotes = { ...base.event, notes: 'Please arrange flowers on tables.' };
+  const { container: withNotes } = render(
+    <EstimateDocument {...base} event={eventWithNotes} register="client" />
+  );
+  expect(withNotes.querySelector('.ed-notes')).toBeTruthy();
+  expect(screen.getByText('Please arrange flowers on tables.')).toBeInTheDocument();
+
+  const { container: withoutNotes } = render(
+    <EstimateDocument {...base} event={base.event} register="client" />
+  );
+  expect(withoutNotes.querySelector('.ed-notes')).toBeNull();
+});

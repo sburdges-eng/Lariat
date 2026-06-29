@@ -2,6 +2,31 @@
 import '../../../styles/estimate.css';
 import { formatDollars } from '../../../lib/formatMoney';
 
+/** Format an ISO date string (YYYY-MM-DD) as a long locale date, e.g. "Thursday, May 1, 2025". */
+function formatEventDate(iso) {
+  if (!iso) return '';
+  return new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+}
+
+/** Format an HH:MM 24-hour time string as 12-hour AM/PM, e.g. "8:00 PM". */
+function formatEventTime(hhmm) {
+  if (!hhmm) return '';
+  const [h, m] = hhmm.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return hhmm;
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const hour = h % 12 || 12;
+  const min = String(m).padStart(2, '0');
+  return `${hour}:${min} ${suffix}`;
+}
+
+/** Format an ISO-8601 UTC datetime (fire_at) as a 12-hour time, e.g. "8:00 PM". */
+function formatFireAt(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 /**
  * EstimateDocument — pure presentational component.
  *
@@ -96,13 +121,13 @@ export default function EstimateDocument({
           {event_date && (
             <div className="ed-field">
               <span className="ed-lbl">Date</span>
-              <span className="ed-val">{event_date}</span>
+              <span className="ed-val">{formatEventDate(event_date)}</span>
             </div>
           )}
           {event_time && (
             <div className="ed-field">
               <span className="ed-lbl">Time</span>
-              <span className="ed-val">{event_time}</span>
+              <span className="ed-val">{formatEventTime(event_time)}</span>
             </div>
           )}
           {guest_count != null && (
@@ -139,7 +164,7 @@ export default function EstimateDocument({
             <div className="ed-section-band">{section.label}</div>
             <div className="ed-rows">
               {(section.items || []).map((item) => {
-                const lineTotal = item.unit_cost * item.quantity;
+                const lineTotal = Number(item.unit_cost || 0) * Number(item.quantity || 0);
                 return (
                   <div key={item.id} className="ed-row">
                     <div>
@@ -192,6 +217,14 @@ export default function EstimateDocument({
         <span className="ed-total-fig">{formatDollars(total)}</span>
       </div>
 
+      {/* ---- NOTES ---- */}
+      {event.notes && (
+        <section className="ed-notes" aria-label="Notes">
+          <div className="ed-notes-head">Notes</div>
+          <p className="ed-notes-body">{event.notes}</p>
+        </section>
+      )}
+
       {/* ---- SCHEDULE ---- */}
       {courses.length > 0 && (
         <section className="ed-schedule" aria-label="Event schedule">
@@ -200,7 +233,7 @@ export default function EstimateDocument({
             <tbody>
               {courses.map((c) => (
                 <tr key={c.id} className="ed-schedule-row">
-                  <td className="ed-schedule-time">{c.fire_at || ''}</td>
+                  <td className="ed-schedule-time">{formatFireAt(c.fire_at)}</td>
                   <td className="ed-schedule-label">
                     <strong>{c.course_label}</strong>
                     {c.notes ? <span className="ed-schedule-notes"> — {c.notes}</span> : null}
