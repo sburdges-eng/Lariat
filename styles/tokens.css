@@ -17,6 +17,8 @@
   --text:#ece3d0;        /* primary text (bone)        14.57:1 /bg */
   --text-muted:#b3a890;  /* secondary text (bone-2)               */
   --accent:#e0922b;      /* gaslight amber             6.82:1 /panel */
+  --on-accent:#1a1308;   /* dark charcoal text ON amber/accent buttons */
+  --allergen:#fca5a5;    /* light-red allergen label on dark surfaces  */
   --fire:#e05a3c;        /* oxblood signal (tuned ↑)   4.67:1 /panel */
   --ok:#7aa07f;          /* sage / success             5.87:1 /panel */
   --info:#6b90b4;        /* indigo / info (tuned ↑)    5.14:1 /panel */
