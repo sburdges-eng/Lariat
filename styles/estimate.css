@@ -325,9 +325,92 @@
   display: none;
 }
 
+/* ---- Schedule ---- */
+.estimate-doc .ed-schedule {
+  padding: 18px 38px 10px;
+}
+
+.estimate-doc .ed-schedule-head {
+  font-family: var(--sans, system-ui, sans-serif);
+  font-variant-caps: all-small-caps;
+  font-size: 13px;
+  letter-spacing: .1em;
+  color: var(--slate);
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+
+.estimate-doc .ed-schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  font-family: var(--sans, system-ui, sans-serif);
+}
+
+.estimate-doc .ed-schedule-row {
+  border-bottom: 1px solid var(--hairline);
+}
+
+.estimate-doc .ed-schedule-time {
+  padding: 8px 0;
+  width: 120px;
+  color: var(--slate);
+  font-family: var(--mono, monospace);
+  font-size: 12px;
+  vertical-align: top;
+}
+
+.estimate-doc .ed-schedule-label {
+  padding: 8px 0;
+  vertical-align: top;
+}
+
+.estimate-doc .ed-schedule-notes {
+  color: var(--slate);
+}
+
+/* ---- Signed-by list ---- */
+.estimate-doc .ed-signed-by {
+  margin: 18px 0 18px;
+  font-size: 13px;
+  color: var(--slate);
+  font-family: var(--sans, system-ui, sans-serif);
+}
+
+.estimate-doc .ed-signed-by-head {
+  font-family: var(--mono, monospace);
+  font-size: 10px;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  color: var(--ink);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.estimate-doc .ed-signed-by-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.estimate-doc .ed-signed-by-item {
+  margin-bottom: 4px;
+  padding-left: 14px;
+  border-left: 2px solid var(--brass);
+}
+
+.estimate-doc .ed-signed-name {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.estimate-doc .ed-signed-at {
+  color: var(--slate);
+}
+
 /* ---- Print ---- */
 @media print {
-  [data-print="false"] {
+  .estimate-doc [data-print="false"] {
     display: none !important;
   }
 

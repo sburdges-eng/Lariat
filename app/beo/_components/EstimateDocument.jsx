@@ -6,24 +6,24 @@ import { formatDollars } from '../../../lib/formatMoney';
  * EstimateDocument — pure presentational component.
  *
  * Props:
- *   event      — { id, title, guest_count, tax_rate, service_fee_pct }
+ *   event      — { id, title, contact_name, event_date, event_time, guest_count, tax_rate, service_fee_pct }
  *   sections   — groupLineItemsBySection() output: [{ label, items: [{ id, item_name, unit_cost, quantity }] }]
  *   totals     — computeEstimateTotals() output: { subtotal, serviceFee, tax, total }
- *   courses    — array (unused in layout, reserved for future course bands)
- *   signatures — array (reserved)
- *   register   — 'client' | 'operator'  (root class; CSS hides data-print="false" on client)
+ *   courses    — beo_courses rows: [{ id, course_label, fire_at, notes }]
+ *   signatures — beo_signatures rows: [{ id, signed_name, signed_at }]
+ *   register   — 'client' | 'operator'  (root class; CSS hides data-print="false" on client via .estimate-doc.client rule)
  *   signSlot   — optional ReactNode injected into the signature area
  */
 export default function EstimateDocument({
   event = {},
   sections = [],
   totals = {},
-  courses: _courses = [],
-  signatures: _signatures = [],
+  courses = [],
+  signatures = [],
   register = 'client',
   signSlot,
 }) {
-  const { title, guest_count, tax_rate, service_fee_pct } = event;
+  const { title, contact_name, event_date, event_time, guest_count, tax_rate, service_fee_pct } = event;
   const { subtotal, serviceFee, tax, total } = totals;
 
   return (
@@ -84,9 +84,27 @@ export default function EstimateDocument({
       <section className="ed-intake">
         <div>
           <h3>Prepared For</h3>
+          {contact_name && (
+            <div className="ed-field">
+              <span className="ed-lbl">Host</span>
+              <span className="ed-val">{contact_name}</span>
+            </div>
+          )}
         </div>
         <div>
           <h3>Event Details</h3>
+          {event_date && (
+            <div className="ed-field">
+              <span className="ed-lbl">Date</span>
+              <span className="ed-val">{event_date}</span>
+            </div>
+          )}
+          {event_time && (
+            <div className="ed-field">
+              <span className="ed-lbl">Time</span>
+              <span className="ed-val">{event_time}</span>
+            </div>
+          )}
           {guest_count != null && (
             <div className="ed-field">
               <span className="ed-lbl">Guaranteed count</span>
@@ -174,6 +192,26 @@ export default function EstimateDocument({
         <span className="ed-total-fig">{formatDollars(total)}</span>
       </div>
 
+      {/* ---- SCHEDULE ---- */}
+      {courses.length > 0 && (
+        <section className="ed-schedule" aria-label="Event schedule">
+          <div className="ed-schedule-head">Schedule</div>
+          <table className="ed-schedule-table">
+            <tbody>
+              {courses.map((c) => (
+                <tr key={c.id} className="ed-schedule-row">
+                  <td className="ed-schedule-time">{c.fire_at || ''}</td>
+                  <td className="ed-schedule-label">
+                    <strong>{c.course_label}</strong>
+                    {c.notes ? <span className="ed-schedule-notes"> — {c.notes}</span> : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
       {/* ---- FOOTER ---- */}
       <footer className="ed-footer">
         <p className="ed-terms">
@@ -195,6 +233,25 @@ export default function EstimateDocument({
               The Lariat representative
               <div className="ed-sig-line" />
             </div>
+          </div>
+        )}
+
+        {/* ---- SIGNED-BY LIST ---- */}
+        {signatures.length > 0 && (
+          <div className="ed-signed-by" aria-label="Signatures">
+            <div className="ed-signed-by-head">Signed</div>
+            <ul className="ed-signed-by-list">
+              {signatures.map((s) => (
+                <li key={s.id} className="ed-signed-by-item">
+                  <strong className="ed-signed-name">{s.signed_name}</strong>
+                  {s.signed_at && (
+                    <span className="ed-signed-at">
+                      {' '}— {new Date(s.signed_at).toLocaleString('en-US')}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
