@@ -630,66 +630,88 @@ textarea.input { resize: vertical; }
 .whitespace-pre-wrap { white-space: pre-wrap; }
 .text-ember-deep { color: var(--ember-deep); }
 
-/* ── Rush home (kitchen-optimized Today screen) ────────────── */
+/* ── Rush home (kitchen-optimized Today screen) ────────────────────────────
+   The flagship surface in the Service Ledger language: dark, lamp-lit char
+   panels (a faint amber bloom skims each top edge), ledger-ruled rows, Zilla-
+   Slab station names, tabular figures, and the two service states —
+   amber (--accent) = live / in progress, oxblood (--fire) = flagged / 86.
+   All colour resolves through the frozen role tokens; no legacy aliases. */
 
 .rush-home { padding-top: 8px; }
 
+/* The branding-iron seal beside a board section header (the wax stamp). */
+.rush-stamp-mark {
+  width: 0.78em; height: 0.78em; flex-shrink: 0;
+  color: var(--accent);
+  margin-right: 0.34em;
+  vertical-align: -0.04em;
+}
+.rush-section-head h2 { display: flex; align-items: baseline; gap: 0; }
+
+/* ── 86'd panel — a hard oxblood ledger entry under a thin fire-lamp bloom ── */
 .rush-86 {
   display: block;
-  background: rgba(239, 68, 68, 0.14);
-  border: 2px solid var(--red);
-  border-radius: 16px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--fire) 10%, transparent), transparent 4px),
+    color-mix(in srgb, var(--fire) 9%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--fire) 45%, var(--hair));
+  border-left: 3px solid var(--fire);
+  border-radius: 14px;
   padding: 20px 24px;
   margin-bottom: 24px;
   -webkit-tap-highlight-color: transparent;
 }
-.rush-86:active { transform: scale(0.98); }
 .rush-86-label {
-  font-size: 13px;
-  font-weight: 800;
-  text-transform: uppercase;
+  font-family: var(--display);
+  font-variant-caps: small-caps;
+  font-size: 14px;
+  font-weight: 600;
   letter-spacing: 0.1em;
-  color: var(--red);
+  color: var(--fire);
   margin-bottom: 10px;
 }
 .rush-86-items { display: flex; flex-wrap: wrap; gap: 8px; }
 .rush-86-chip {
-  background: var(--red);
-  color: white;
+  background: var(--fire);
+  color: var(--on-accent);
   padding: 8px 16px;
   border-radius: 999px;
   font-size: 16px;
   font-weight: 700;
 }
 
+/* ── "Might also be out" — a softer, dashed amber cascade ledger ── */
 .rush-86-maybe {
   display: block;
-  background: rgba(234, 179, 8, 0.12);
-  border: 2px dashed var(--yellow, #eab308);
-  border-radius: 16px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 4px),
+    color-mix(in srgb, var(--accent) 6%, var(--panel));
+  border: 1px dashed color-mix(in srgb, var(--accent) 55%, var(--hair));
+  border-radius: 14px;
   padding: 16px 20px;
   margin-bottom: 24px;
   -webkit-tap-highlight-color: transparent;
 }
-.rush-86-maybe:active { transform: scale(0.98); }
 .rush-86-maybe-label {
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
+  font-family: var(--display);
+  font-variant-caps: small-caps;
+  font-size: 13px;
+  font-weight: 600;
   letter-spacing: 0.1em;
-  color: var(--yellow, #b45309);
+  color: var(--accent);
   margin-bottom: 8px;
 }
 .rush-86-chip-maybe {
   background: transparent;
-  color: var(--yellow, #b45309);
-  border: 1px dashed var(--yellow, #b45309);
+  color: var(--accent);
+  border: 1px dashed color-mix(in srgb, var(--accent) 60%, var(--hair));
   padding: 6px 14px;
   border-radius: 999px;
   font-size: 15px;
   font-weight: 600;
 }
 
+/* ── The line — lamp-lit station tiles ── */
 .rush-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -702,9 +724,12 @@ textarea.input { resize: vertical; }
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 18px;
+  /* Warm char panel with a faint amber bloom skimming the top lip. */
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 40px),
+    var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: 16px;
   padding: 28px 16px;
   min-height: 140px;
   text-align: center;
@@ -712,11 +737,17 @@ textarea.input { resize: vertical; }
   transition: transform 0.1s, border-color 0.15s;
 }
 .rush-tile:hover { border-color: var(--accent); }
-.rush-tile:active { transform: scale(0.95); }
 .rush-dot { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; }
-.rush-tile-name { font-size: 20px; font-weight: 800; line-height: 1.2; }
-.rush-tile-status { font-size: 14px; font-weight: 600; }
+.rush-tile-name {
+  font-family: var(--display); font-weight: 500;
+  font-size: 22px; line-height: 1.1; letter-spacing: -0.01em;
+}
+.rush-tile-status {
+  font-size: 14px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
 
+/* ── Quick actions ── */
 .rush-quick-row {
   display: flex;
   gap: 12px;
@@ -736,40 +767,62 @@ textarea.input { resize: vertical; }
   min-height: 60px;
   text-align: center;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.1s;
+  transition: transform 0.1s, filter 0.12s;
 }
-.rush-action:active { transform: scale(0.95); }
+.rush-action:hover { filter: brightness(1.06); }
 .rush-action-muted {
   background: var(--panel-2);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--hair);
 }
+.rush-action-muted:hover { border-color: var(--accent); filter: none; }
 
+/* ── Inventory ledger — hairline-ruled rows with tabular figures ── */
 .rush-recent { margin-top: 4px; }
 .rush-recent-label {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  margin-bottom: 10px;
+  display: flex; align-items: center;
+  font-family: var(--display);
+  font-variant-caps: small-caps;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--hair);
 }
 .rush-recent-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background: var(--panel);
-  border-radius: 10px;
-  margin-bottom: 6px;
+  align-items: baseline;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--hair);
 }
-.rush-recent-item { font-weight: 700; font-size: 16px; }
+.rush-recent-row:last-child { border-bottom: 0; }
+.rush-recent-item { font-weight: 600; font-size: 16px; }
 .rush-recent-meta { color: var(--muted); font-size: 14px; }
+.rush-recent-delta { font-weight: 700; color: var(--text); }
+
+/* ── Amber gaslight focus ring on the board's interactive elements ── */
+.rush-86:focus-visible,
+.rush-tile:focus-visible,
+.rush-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Press feedback — only when the viewer has not asked for reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .rush-86:active { transform: scale(0.98); }
+  .rush-86-maybe:active { transform: scale(0.98); }
+  .rush-tile:active { transform: scale(0.95); }
+  .rush-action:active { transform: scale(0.95); }
+}
 
 @media (max-width: 900px) {
   .rush-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .rush-tile { padding: 20px 12px; min-height: 120px; }
-  .rush-tile-name { font-size: 18px; }
+  .rush-tile-name { font-size: 20px; }
   .rush-quick-row { flex-direction: column; gap: 10px; }
   .rush-action { min-height: 56px; font-size: 18px; }
 }

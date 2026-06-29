@@ -7,16 +7,17 @@ import { activeLineCheckStations, lineSummaryText } from '../lib/lineSummary';
 import { stationProgress } from '../lib/stationProgress';
 import { cascadedFromEightySix } from '../lib/subRecipeGraph';
 import PreshiftNotes from './_components/PreshiftNotes';
+import BrandStamp from './_components/BrandStamp';
 
 export const dynamic = 'force-dynamic';
 
 function rushColor(p) {
   if (!p) return 'var(--muted)';
-  if (p.flagged > 0) return 'var(--red)';
-  if (p.signedOff) return 'var(--green)';
-  if (p.done >= p.total) return 'var(--green)';
-  if (p.done > 0) return 'var(--yellow)';
-  return 'var(--red)';
+  if (p.flagged > 0) return 'var(--fire)';   // oxblood — flagged
+  if (p.signedOff) return 'var(--ok)';       // sage — signed off
+  if (p.done >= p.total) return 'var(--ok)'; // sage — ready
+  if (p.done > 0) return 'var(--accent)';    // gaslight amber — live / in progress
+  return 'var(--fire)';                      // oxblood — not started
 }
 
 function rushLabel(p) {
@@ -178,8 +179,11 @@ export default async function TodayPage({ searchParams }) {
         </Link>
       )}
 
-      <div className="section-head">
-        <h2>The line, <em>right now</em></h2>
+      <div className="section-head rush-section-head">
+        <h2>
+          <BrandStamp className="rush-stamp-mark" decorative />
+          The line, <em>right now</em>
+        </h2>
         <span className="eyebrow">{lineSummaryText(stationsWithProgress)}</span>
       </div>
 
@@ -216,13 +220,16 @@ export default async function TodayPage({ searchParams }) {
 
       {moved.length > 0 && (
         <div className="rush-recent">
-          <div className="rush-recent-label">Inventory today</div>
+          <div className="rush-recent-label">
+            <BrandStamp className="rush-stamp-mark" decorative />
+            Inventory today
+          </div>
           {moved.map((r) => (
             <div key={r.id} className="rush-recent-row">
               <span className="rush-recent-item">{r.item}</span>
               <span className="rush-recent-meta">
                 {r.direction}
-                {r.delta ? ` ${r.delta}` : ''}
+                {r.delta ? <span className="rush-recent-delta tnum"> {r.delta}</span> : null}
               </span>
             </div>
           ))}
