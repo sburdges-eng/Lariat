@@ -1,6 +1,7 @@
 // @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 'use client';
 import { useEffect, useMemo, useState } from 'react';
+import BrandStamp from './BrandStamp.jsx';
 
 /**
  * Service day phases — these define the horizontal timeline across the
@@ -72,12 +73,7 @@ export default function ServiceStrip() {
   return (
     <header className="strip" role="banner">
       <div className="mark">
-        <svg className="logo" viewBox="0 0 40 40" aria-hidden>
-          {/* Lariat loop — rope motif */}
-          <circle cx="20" cy="18" r="11" fill="none" stroke="currentColor" strokeWidth="2" />
-          <path d="M 20 29 Q 20 36 26 38" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          <circle cx="20" cy="18" r="2.2" fill="currentColor" />
-        </svg>
+        <BrandStamp className="logo" decorative />
         <div className="word">
           <b>The Lariat</b>
           <i>Kitchen Cockpit</i>

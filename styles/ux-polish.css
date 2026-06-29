@@ -247,7 +247,7 @@ time {
 .empty-state b {
   display: block;
   color: var(--ink, #1d1a15);
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--display);
   font-size: 20px;
   font-weight: 400;
   margin-bottom: 6px;
@@ -564,7 +564,7 @@ h1, h2, h3, .card, .empty-state, .cmdk-name {
 }
 
 .floorplan-svg .fp-zone-label {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--display);
   font-size: 17px;
   fill: var(--ink, #1d1a15);
   letter-spacing: 0.005em;

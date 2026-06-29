@@ -8,6 +8,11 @@
   --ink: #1A1814;
   --slate: #6B7280;
   --hairline: #C9CDD2;
+  /* Pin the heritage display face locally. The global --display flipped to
+     'Zilla Slab' in the Service Ledger token system; this document was designed
+     around its Georgia fallback, so freeze it here (mirrors the self-scoped
+     colors above) rather than adopt the industrial cockpit slab. */
+  --display: Georgia, 'Times New Roman', serif;
   background: var(--cream);
   color: var(--ink);
   font-family: var(--display, Georgia, serif);
@@ -318,6 +323,20 @@
 /* ---- Sign slot ---- */
 .estimate-doc .ed-sign-slot {
   margin: 0 38px 22px;
+  /* SignForm (the injected signSlot) uses the Service Ledger role-token
+     vocabulary (--panel/--text/--accent/...). Those tokens default to the DARK
+     cockpit palette at :root, which would render the signature box near-black on
+     this cream document. Supply them here at light, heritage-coherent values so
+     the form reads as part of the estimate. Scoped to .ed-sign-slot so nothing
+     else in the document is affected. */
+  --panel: #ffffff;            /* fillable input + confirmation surface */
+  --text: var(--ink);          /* #1A1814 primary text */
+  --text-muted: var(--slate);  /* #6B7280 labels / disabled text */
+  --hair: var(--hairline);     /* #C9CDD2 input + disabled borders */
+  --accent: var(--brass);      /* #A8772F checkbox + submit button */
+  --on-accent: #1a1308;        /* dark text on the brass button (≈4.6:1) */
+  --ok: #3f5648;               /* confirmation-panel accent */
+  --fire: #9a3520;             /* error text/border */
 }
 
 /* ---- Operator gating ---- */

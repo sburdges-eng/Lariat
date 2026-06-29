@@ -5,7 +5,7 @@
  * The Lariat Cookbook — main recipes browser.
  *
  * Design language follows the 2026-05-13 LaRiOS drop:
- *   - Instrument Serif display, Inter Tight body, JetBrains Mono metadata
+ *   - Zilla Slab display, Inter Tight body, JetBrains Mono metadata
  *   - Paper-stack background (--bone / --paper / --cream)
  *   - Ember accent on hover + active filter chip
  *   - Allergen pills, photo thumbnails, category sections
