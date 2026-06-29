@@ -1,71 +1,37 @@
 /* ==================================================================
- * THE LARIAT · Cockpit v2 — design foundation
- * Palette: warm bone/paper, ember accent, charcoal ink.
- * Old dark tokens are remapped to the new light palette; every
- * existing utility and page style keeps working, just re-tinted.
+ * THE LARIAT · Cockpit — design foundation (consumer of the token system)
+ * The design-token vocabulary lives ENTIRELY in styles/tokens.css
+ * (the single source of truth as of T1). This file no longer defines a
+ * :root token block; it only consumes role tokens (--bg/--panel/--text/
+ * --accent/…) and their legacy aliases (--ember/--rust/--green/…).
+ * tokens.css is imported first below so those tokens are defined before
+ * any rule here reads them.
  * ================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
-/* LaRiOS baseline tokens (2026-05-11 design drop). Loaded first so the
-   existing :root definitions below — which are the authoritative values
-   for currently-shipped UI — win on equal specificity. tokens.css adds
-   new tokens (--ember-glow, --paper-3, --indigo, --plum, --lari*) and
-   exposes the .k-dark / .k-night theme classes for future surfaces. */
+/* Token system + cookbook surfaces. tokens.css owns :root; nothing here
+   redefines those tokens, so tokens.css wins unconditionally. */
 @import url('./tokens.css');
 @import url('./cookbook.css');
-
-:root {
-  /* Warm palette */
-  --bone:        #f3ece0;
-  --paper:       #ece2cf;
-  --paper-2:     #e3d8c1;
-  --cream:       #f8f3e7;
-  --ink:         #1d1a15;
-  --ink-2:       #2b2723;
-  --char:        #3a3530;
-  --hair:        #c9bda5;
-  --ember:       #c85a2a;
-  --ember-deep:  #9a3f1a;
-  --brass:       #b8892f;
-  --sage:        #5d7a66;
-  --rust:        #8b2e1f;
-
-  /* Compat tokens — existing components read these; we remap to the new palette */
-  --bg:      var(--bone);
-  --panel:   var(--cream);
-  --panel-2: var(--paper);
-  --border:  var(--hair);
-  --text:    var(--ink);
-  --muted:   #7b7268;
-  --green:   var(--sage);
-  --yellow:  var(--brass);
-  --red:     var(--rust);
-  --blue:    #3a5a7a;
-  --accent:  var(--ember);
-
-  /* Motion */
-  --easing:      cubic-bezier(.2,.7,.2,1);
-  --easing-snap: cubic-bezier(.34,1.56,.64,1);
-}
 
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
-  background: var(--bone);
-  color: var(--ink);
+  background: var(--bg);
+  color: var(--text);
   font-family: 'Inter Tight', -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   font-feature-settings: "ss01", "cv11", "tnum";
   -webkit-font-smoothing: antialiased;
   font-size: 16px;
 }
-/* Subtle paper-grain — no glow, no glass */
+/* Subtle ambient grain over the page background. */
 body {
   background:
-    radial-gradient(circle at 20% 10%, rgba(200,90,42,.04), transparent 45%),
-    radial-gradient(circle at 80% 85%, rgba(90,70,40,.05), transparent 50%),
-    repeating-linear-gradient(0deg, rgba(29,26,21,.012) 0 1px, transparent 1px 3px),
-    var(--bone);
+    radial-gradient(circle at 20% 10%, rgba(224,146,43,.05), transparent 45%),
+    radial-gradient(circle at 80% 85%, rgba(90,70,40,.06), transparent 50%),
+    repeating-linear-gradient(0deg, rgba(0,0,0,.10) 0 1px, transparent 1px 3px),
+    var(--bg);
   min-height: 100vh;
 }
 a { color: inherit; text-decoration: none; }

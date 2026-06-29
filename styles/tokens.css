@@ -1,99 +1,143 @@
-/* LaRiOS — Brand tokens reset around the AI nervous system.
-   Warm bone paper + ember accent + ink + sage/brass.
-   New: signal colors for LaRi confidence + telemetry. */
+/* LaRiOS — Service Ledger token system. SINGLE SOURCE OF TRUTH.
+   This file owns every design token; styles/globals.css no longer defines a
+   :root token block (T1). Role tokens carry literal hex; every spec-palette
+   name and legacy name aliases onto a role token so un-swept surfaces keep
+   working. WCAG floors are enforced by tests/js/test-design-tokens-contrast.mjs
+   (text/bg ≥ 7:1, every accent on --panel ≥ 4.5:1) — that test reads the FIRST
+   literal-hex definition of each token, so this :root dark block MUST stay
+   above .paper and .k-night below. */
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 :root{
-  /* paper stack */
-  --bone:#f3ece0;
-  --paper:#ece2cf;
-  --paper-2:#e3d8c1;
-  --cream:#f8f3e7;
-  --paper-3:#d6c9ad;
+  /* ── ROLE TOKENS (primary, literal hex) — Service Ledger dark default ── */
+  --bg:#14130f;          /* app background — deepest char         */
+  --panel:#1d1b15;       /* card / surface                        */
+  --panel-2:#26231b;     /* raised surface                        */
+  --hair:#3a342a;        /* hairline / border                     */
+  --text:#ece3d0;        /* primary text (bone)        14.57:1 /bg */
+  --text-muted:#b3a890;  /* secondary text (bone-2)               */
+  --accent:#e0922b;      /* gaslight amber             6.82:1 /panel */
+  --fire:#e05a3c;        /* oxblood signal (tuned ↑)   4.67:1 /panel */
+  --ok:#7aa07f;          /* sage / success             5.87:1 /panel */
+  --info:#6b90b4;        /* indigo / info (tuned ↑)    5.14:1 /panel */
+  --metal:#c2912f;       /* brass / warn               6.05:1 /panel */
 
-  /* ink */
-  --ink:#1d1a15;
-  --ink-2:#2b2723;
-  --char:#3a3530;
-  --muted:#7b7268;
+  /* ── SPEC PALETTE NAMES → role tokens ── */
+  --char:var(--bg);
+  --bone:var(--text);
+  --bone-2:var(--text-muted);
+  --amber:var(--accent);
+  --sage:var(--ok);
+  --indigo:var(--info);
+  --brass:var(--metal);
+
+  /* ── LEGACY ALIASES (existing markup) → role tokens ── */
+  --ember:var(--accent);
+  --rust:var(--fire);
+  --red:var(--fire);
+  --green:var(--ok);
+  --yellow:var(--metal);
+  --blue:var(--info);
+  --ink:var(--text);
+  --border:var(--hair);
+  --muted:var(--text-muted);
+  --accent-legacy:var(--accent);
+
+  /* Legacy paper/ink surface names now resolve to dark surfaces so any
+     un-swept rule that reads them stays on the dark default. */
+  --cream:var(--panel);
+  --paper:var(--panel-2);
+  --paper-2:var(--panel-2);
+  --paper-3:var(--bg);
+
+  /* Derived ink/accent ramp (legacy components read these) */
+  --ink-2:#262320;
   --muted-2:#9c9282;
-  --hair:#c9bda5;
-  --hair-2:#d8cdb6;
-
-  /* accent */
-  --ember:#c85a2a;
-  --ember-deep:#9a3f1a;
-  --ember-glow:#e8784a;
-  --brass:#b8892f;
+  --hair-2:#2e2a24;
+  --ember-deep:#b8702a;
+  --ember-glow:#f0a85a;
   --brass-deep:#8a6520;
-  --sage:#5d7a66;
-  --sage-deep:#3f5648;
-  --rust:#8b2e1f;
-  --indigo:#3a5a7a;
+  --sage-deep:#5d7a66;
   --plum:#5b3a5a;
 
   /* LaRi signal */
-  --lari:#1d1a15;
-  --lari-glow:rgba(200,90,42,.10);
-  --lari-pulse:#c85a2a;
+  --lari:#1d1b15;
+  --lari-glow:rgba(224,146,43,.10);
+  --lari-pulse:#e0922b;
 
-  --bg:var(--bone);
-  --panel:var(--cream);
-  --panel-2:var(--paper);
-  --border:var(--hair);
-  --text:var(--ink);
-
+  /* ── SHAPE / MOTION / TYPE ── */
   --radius-sm:3px;
   --radius:6px;
   --radius-lg:12px;
-  --shadow-1:0 1px 2px rgba(29,26,21,.06);
-  --shadow-2:0 6px 24px rgba(29,26,21,.10);
-  --shadow-3:0 14px 48px rgba(29,26,21,.18);
+  --shadow-1:0 1px 2px rgba(0,0,0,.30);
+  --shadow-2:0 6px 24px rgba(0,0,0,.40);
+  --shadow-3:0 14px 48px rgba(0,0,0,.55);
   --easing:cubic-bezier(.2,.7,.2,1);
+  --easing-snap:cubic-bezier(.34,1.56,.64,1);
 
-  --serif:'Instrument Serif',Georgia,serif;
+  --display:'Instrument Serif',Georgia,serif;
+  --serif:var(--display);
   --sans:'Inter Tight',system-ui,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,monospace;
 }
 
-/* kitchen / dark surface — used on BOH KDS, wall mounts, expo */
+/* ── PAPER — opt-in light surface (wired into pages in T5) ──
+   Overrides the role tokens (and the aliases that point at them) on any
+   subtree carrying .paper, flipping it to the warm bone palette. */
+.paper{
+  --bg:#f1ead9;
+  --panel:#f8f3e7;
+  --panel-2:#e3d8c1;
+  --hair:#cabd9f;
+  --text:#17140f;
+  --text-muted:#6f6555;
+  /* accents stay on-brand but darken for light-surface contrast */
+  --accent:#a85a16;
+  --fire:#9a3520;
+  --ok:#3f5648;
+  --info:#3a5a7a;
+  --metal:#8a6520;
+  /* legacy surface names follow the light flip */
+  --ink-2:#2b2723;
+  --muted-2:#9c9282;
+  --hair-2:#d8cdb6;
+  background:var(--bg);
+  color:var(--text);
+}
+
+/* kitchen / dark surface — used on BOH KDS, wall mounts, expo.
+   Re-based on role tokens: aliases (--char/--ink/--cream/--paper/--border/
+   --muted) re-resolve through these via var() on this subtree. */
 .k-dark{
   --bg:#0e0d0b;
   --panel:#1a1815;
   --panel-2:#211e19;
-  --border:#2e2a24;
-  --text:#ece2cf;
-  --muted:#a89e8a;
-  --muted-2:#8a7e6a;
   --hair:#3a3530;
-  --hair-2:#2e2a24;
-  --cream:#1a1815;
-  --paper:#1a1815;
-  --paper-2:#211e19;
+  --text:#ece2cf;
+  --text-muted:#a89e8a;
+  /* deepest-surface legacy name (no role token) */
   --paper-3:#0a0a09;
-  --ink:#ece2cf;
-  --char:#cdc3ad;
-  background:#0e0d0b;
-  color:#ece2cf;
+  --muted-2:#8a7e6a;
+  --hair-2:#2e2a24;
+  background:var(--bg);
+  color:var(--text);
 }
 
-/* night / event mode — deep plum-black, for signage and stage */
+/* night / event mode — deep plum-black, for signage and stage.
+   Re-based on role tokens; warms the amber accent for stage legibility. */
 .k-night{
   --bg:#0c0a14;
   --panel:#15121f;
   --panel-2:#1d1828;
-  --border:#2a223a;
-  --text:#ece2cf;
-  --muted:#9c8fbf;
   --hair:#3a2f4f;
-  --cream:#15121f;
-  --paper:#15121f;
-  --paper-2:#1d1828;
-  --ink:#ece2cf;
-  --ember:#e8784a;
-  --ember-deep:#c85a2a;
-  background:#0c0a14;
-  color:#ece2cf;
+  --text:#ece2cf;
+  --text-muted:#9c8fbf;
+  --accent:#f0a85a;
+  --ember-deep:#e0922b;
+  --muted-2:#9c8fbf;
+  --hair-2:#2a223a;
+  background:var(--bg);
+  color:var(--text);
 }
 
 *{box-sizing:border-box}
