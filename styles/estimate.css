@@ -1,0 +1,423 @@
+/* styles/estimate.css — all rules scoped under .estimate-doc (no .paper regression) */
+
+.estimate-doc {
+  --nav: #1F2D3D;
+  --brass: #A8772F;
+  --brass-deep: #946826;
+  --cream: #F4F0E8;
+  --ink: #1A1814;
+  --slate: #6B7280;
+  --hairline: #C9CDD2;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--display, Georgia, serif);
+  line-height: 1.45;
+}
+
+/* ---- Masthead ---- */
+.estimate-doc .ed-masthead {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 20px;
+  align-items: start;
+  padding: 30px 38px 16px;
+}
+
+.estimate-doc .ed-wordmark {
+  align-self: center;
+}
+
+.estimate-doc .ed-wordmark svg {
+  display: block;
+  height: 96px;
+  width: auto;
+}
+
+.estimate-doc .ed-mh-right {
+  text-align: right;
+}
+
+.estimate-doc .ed-mh-title {
+  font-family: var(--display, Georgia, serif);
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1;
+  color: var(--nav);
+  text-transform: uppercase;
+  letter-spacing: .045em;
+  margin: 2px 0 0;
+}
+
+.estimate-doc .ed-mh-sub {
+  font-family: var(--display, Georgia, serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--brass);
+  margin-top: 6px;
+  letter-spacing: .01em;
+}
+
+.estimate-doc .ed-mh-meta {
+  margin-top: 12px;
+  font-family: var(--sans, system-ui, sans-serif);
+  font-size: 12px;
+  color: var(--slate);
+  line-height: 1.7;
+}
+
+.estimate-doc .ed-rule {
+  border: 0;
+  border-top: 1.5px solid var(--brass);
+  margin: 0 38px;
+}
+
+/* ---- Intake grid ---- */
+.estimate-doc .ed-intake {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 34px;
+  padding: 20px 38px 10px;
+}
+
+.estimate-doc .ed-intake h3 {
+  font-family: var(--sans, system-ui, sans-serif);
+  font-variant-caps: all-small-caps;
+  font-size: 13px;
+  letter-spacing: .1em;
+  color: var(--slate);
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+
+.estimate-doc .ed-field {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 7px;
+  font-size: 14px;
+}
+
+.estimate-doc .ed-field .ed-lbl {
+  color: var(--slate);
+  min-width: 104px;
+  font-size: 13px;
+}
+
+.estimate-doc .ed-field .ed-val {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* ---- Column header band (navy) ---- */
+.estimate-doc .ed-band-head {
+  display: grid;
+  grid-template-columns: 1fr 96px 132px;
+  align-items: center;
+  background: var(--nav);
+  color: #EFE9DC;
+  padding: 10px 18px;
+  margin: 0 18px;
+  font-family: var(--sans, system-ui, sans-serif);
+  font-variant-caps: all-small-caps;
+  letter-spacing: .13em;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.estimate-doc .ed-band-head .c-qty,
+.estimate-doc .ed-band-head .c-ext {
+  text-align: right;
+}
+
+/* ---- Section band (brass) ---- */
+.estimate-doc .ed-section-band {
+  background: var(--brass);
+  color: #fff;
+  font-family: var(--mono, monospace);
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  font-size: 11px;
+  padding: 6px 12px;
+  margin: 0 18px;
+}
+
+/* ---- Item rows ---- */
+.estimate-doc .ed-rows {
+  margin: 0 18px;
+  border-left: 1px solid var(--hairline);
+  border-right: 1px solid var(--hairline);
+}
+
+.estimate-doc .ed-row {
+  display: grid;
+  grid-template-columns: 1fr 96px 132px;
+  align-items: start;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--hairline);
+  background: #fff;
+  min-height: 46px;
+}
+
+.estimate-doc .ed-rows .ed-row:nth-child(even) {
+  background: #FBF9F4;
+}
+
+.estimate-doc .ed-row .ed-r-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1.25;
+}
+
+.estimate-doc .ed-num {
+  font-family: var(--mono, monospace);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.estimate-doc .ed-r-qty {
+  font-size: 13px;
+  text-align: right;
+  color: var(--ink);
+  padding-top: 2px;
+}
+
+.estimate-doc .ed-r-ext {
+  font-size: 13.5px;
+  text-align: right;
+  color: var(--ink);
+  font-weight: 450;
+  padding-top: 2px;
+}
+
+/* ---- Totals zone ---- */
+.estimate-doc .ed-totals-zone {
+  padding: 22px 38px 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.estimate-doc .ed-totals {
+  font-family: var(--mono, monospace);
+  font-variant-numeric: tabular-nums;
+  min-width: 360px;
+}
+
+.estimate-doc .ed-trow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 18px;
+  padding: 5px 0;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.estimate-doc .ed-trow .ed-tlab {
+  font-family: var(--sans, system-ui, sans-serif);
+  font-variant-numeric: normal;
+  color: var(--slate);
+  font-size: 13.5px;
+}
+
+.estimate-doc .ed-trow .ed-tval {
+  text-align: right;
+  font-weight: 500;
+}
+
+.estimate-doc .ed-trow.ed-sub {
+  border-top: 1px solid var(--hairline);
+  padding-top: 9px;
+}
+
+.estimate-doc .ed-divider {
+  border: none;
+  border-top: 1px solid var(--hairline);
+  margin: 6px 0 2px;
+}
+
+/* ---- Grand total band (navy) ---- */
+.estimate-doc .ed-total-band {
+  background: var(--nav);
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  font-weight: 700;
+  margin: 18px 38px 0;
+}
+
+.estimate-doc .ed-total-band .ed-total-label {
+  font-family: var(--display, Georgia, serif);
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: .07em;
+  color: #EFE9DC;
+}
+
+.estimate-doc .ed-total-band .ed-total-fig {
+  font-family: var(--mono, monospace);
+  font-variant-numeric: tabular-nums;
+  font-size: 28px;
+  font-weight: 600;
+  color: #fff;
+  text-align: right;
+}
+
+/* ---- Footer ---- */
+.estimate-doc .ed-footer {
+  padding: 22px 38px 34px;
+}
+
+.estimate-doc .ed-terms {
+  font-size: 12px;
+  color: var(--slate);
+  line-height: 1.6;
+  max-width: 760px;
+  margin: 0 auto 22px;
+  text-align: center;
+}
+
+.estimate-doc .ed-terms b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.estimate-doc .ed-sig-block {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  max-width: 720px;
+  margin: 0 auto 18px;
+  padding: 0 30px;
+}
+
+.estimate-doc .ed-sig {
+  font-size: 13px;
+  color: var(--slate);
+}
+
+.estimate-doc .ed-sig .ed-sig-line {
+  border-bottom: 1px solid var(--hairline);
+  height: 26px;
+  margin-top: 6px;
+}
+
+.estimate-doc .ed-thank-you {
+  text-align: center;
+  font-family: var(--display, Georgia, serif);
+  font-style: italic;
+  color: var(--brass);
+  font-size: 15px;
+  letter-spacing: .01em;
+}
+
+/* ---- Sign slot ---- */
+.estimate-doc .ed-sign-slot {
+  margin: 0 38px 22px;
+}
+
+/* ---- Operator gating ---- */
+.estimate-doc.client [data-print="false"] {
+  display: none;
+}
+
+/* ---- Schedule ---- */
+.estimate-doc .ed-schedule {
+  padding: 18px 38px 10px;
+}
+
+.estimate-doc .ed-schedule-head {
+  font-family: var(--sans, system-ui, sans-serif);
+  font-variant-caps: all-small-caps;
+  font-size: 13px;
+  letter-spacing: .1em;
+  color: var(--slate);
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+
+.estimate-doc .ed-schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  font-family: var(--sans, system-ui, sans-serif);
+}
+
+.estimate-doc .ed-schedule-row {
+  border-bottom: 1px solid var(--hairline);
+}
+
+.estimate-doc .ed-schedule-time {
+  padding: 8px 0;
+  width: 120px;
+  color: var(--slate);
+  font-family: var(--mono, monospace);
+  font-size: 12px;
+  vertical-align: top;
+}
+
+.estimate-doc .ed-schedule-label {
+  padding: 8px 0;
+  vertical-align: top;
+}
+
+.estimate-doc .ed-schedule-notes {
+  color: var(--slate);
+}
+
+/* ---- Signed-by list ---- */
+.estimate-doc .ed-signed-by {
+  margin: 18px 0 18px;
+  font-size: 13px;
+  color: var(--slate);
+  font-family: var(--sans, system-ui, sans-serif);
+}
+
+.estimate-doc .ed-signed-by-head {
+  font-family: var(--mono, monospace);
+  font-size: 10px;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  color: var(--ink);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.estimate-doc .ed-signed-by-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.estimate-doc .ed-signed-by-item {
+  margin-bottom: 4px;
+  padding-left: 14px;
+  border-left: 2px solid var(--brass);
+}
+
+.estimate-doc .ed-signed-name {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.estimate-doc .ed-signed-at {
+  color: var(--slate);
+}
+
+/* ---- Print ---- */
+@media print {
+  .estimate-doc [data-print="false"] {
+    display: none !important;
+  }
+
+  .estimate-doc .ed-section-band,
+  .estimate-doc .ed-total-band,
+  .estimate-doc .ed-band-head {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
