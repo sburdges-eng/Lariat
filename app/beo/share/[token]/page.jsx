@@ -332,7 +332,7 @@ export default async function BeoSharePage({ params }) {
                           <div
                             style={{
                               fontSize: 11,
-                              color: 'var(--muted-2, #9c9282)',
+                              color: 'var(--text-muted, #6f6555)',
                               marginTop: 3,
                               fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
                               letterSpacing: '0.06em',
@@ -344,7 +344,7 @@ export default async function BeoSharePage({ params }) {
                           <div
                             style={{
                               fontSize: 11,
-                              color: 'var(--muted-2, #9c9282)',
+                              color: 'var(--text-muted, #6f6555)',
                               marginTop: 3,
                               fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
                               letterSpacing: '0.06em',
@@ -547,7 +547,7 @@ export default async function BeoSharePage({ params }) {
                     }}
                   >
                     <strong style={{ color: 'var(--text, #17140f)', fontWeight: 600 }}>{s.signed_name}</strong>{' '}
-                    <span style={{ color: 'var(--muted-2, #9c9282)' }}>
+                    <span style={{ color: 'var(--text-muted, #6f6555)' }}>
                       — {new Date(s.signed_at).toLocaleString('en-US')}
                     </span>
                   </li>
