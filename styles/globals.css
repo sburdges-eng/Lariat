@@ -58,7 +58,11 @@ button { font-family: inherit; cursor: pointer; }
   display: grid;
   grid-template-columns: 260px 1fr 260px;
   align-items: stretch;
-  background: var(--cream);
+  /* Warm-char chrome with a faint amber bloom along the top edge — lamplight
+     catching the lip of the panel, not a glow. */
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 4px),
+    var(--panel);
   border-bottom: 1px solid var(--hair);
   position: relative;
 }
@@ -66,17 +70,18 @@ button { font-family: inherit; cursor: pointer; }
   display: flex; align-items: center; gap: 10px;
   padding: 0 20px; border-right: 1px solid var(--hair);
   user-select: none;
+  color: var(--accent);
 }
 .mark svg.logo { width: 28px; height: 28px; flex-shrink: 0; }
 .mark .word { line-height: 1; }
 .mark .word b {
   font-family: var(--display);
   font-weight: 400; font-size: 22px; letter-spacing: .01em;
-  display: block; color: var(--ink);
+  display: block; color: var(--text);
 }
 .mark .word i {
   font-style: normal; display: block; font-size: 9.5px;
-  letter-spacing: .28em; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .28em; color: var(--text-muted); text-transform: uppercase;
   margin-top: 2px;
 }
 .phases {
@@ -95,33 +100,33 @@ button { font-family: inherit; cursor: pointer; }
 }
 .phase:first-child { border-left: 0; }
 .phase .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--hair); flex-shrink: 0; transition: all .3s var(--easing-snap); }
-.phase .lbl { font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
-.phase .time { font-size: 10.5px; color: var(--muted); margin-left: auto; font-family: 'JetBrains Mono', monospace; }
-.phase.past .dot { background: var(--char); }
-.phase.past .lbl { color: var(--char); }
-.phase.now { background: linear-gradient(180deg, rgba(200,90,42,.08), transparent); }
-.phase.now .dot { background: var(--ember); transform: scale(1.6); box-shadow: 0 0 0 4px rgba(200,90,42,.18); }
-.phase.now .lbl { color: var(--ember-deep); }
-.phase.now .time { color: var(--ember-deep); font-weight: 700; }
+.phase .lbl { font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
+.phase .time { font-size: 10.5px; color: var(--text-muted); margin-left: auto; font-family: 'JetBrains Mono', monospace; }
+.phase.past .dot { background: var(--text-muted); }
+.phase.past .lbl { color: var(--text-muted); }
+.phase.now { background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent); }
+.phase.now .dot { background: var(--accent); transform: scale(1.6); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 24%, transparent); }
+.phase.now .lbl { color: var(--accent); }
+.phase.now .time { color: var(--accent); font-weight: 700; }
 .now-marker {
-  position: absolute; top: 0; bottom: 0; width: 1px; background: var(--ember);
+  position: absolute; top: 0; bottom: 0; width: 1px; background: var(--accent);
   pointer-events: none; transition: left .8s var(--easing);
 }
 .now-marker::before {
   content: ""; position: absolute; top: -1px; left: -5px; width: 11px; height: 11px;
-  background: var(--ember); transform: rotate(45deg);
-  box-shadow: 0 1px 0 rgba(29,26,21,.12);
+  background: var(--accent); transform: rotate(45deg);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--bg) 60%, transparent);
 }
 .status-chip {
   display: flex; align-items: center; justify-content: center; gap: 14px;
   padding: 0 20px; border-left: 1px solid var(--hair);
-  font-size: 11px; color: var(--muted); letter-spacing: .14em; text-transform: uppercase;
+  font-size: 11px; color: var(--text-muted); letter-spacing: .14em; text-transform: uppercase;
 }
-.status-chip .clock { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--ink); letter-spacing: 0; font-weight: 500; }
-.heat { display: inline-flex; align-items: center; gap: 6px; color: var(--ember-deep); font-weight: 700; }
+.status-chip .clock { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text); letter-spacing: 0; font-weight: 500; }
+.heat { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-weight: 700; }
 .heat::before {
   content: ""; width: 6px; height: 6px; border-radius: 50%;
-  background: var(--ember); animation: pulseDot 1.8s var(--easing) infinite;
+  background: var(--accent); animation: pulseDot 1.8s var(--easing) infinite;
 }
 @keyframes pulseDot {
   0%,100% { opacity: 1; transform: scale(1); }
@@ -131,7 +136,11 @@ button { font-family: inherit; cursor: pointer; }
 /* ------------------- THE LINE (left rail) ------------------- */
 .sidebar {
   grid-area: line;
-  background: linear-gradient(180deg, var(--cream) 0%, var(--paper) 100%);
+  /* Lamp-lit left rail: a faint amber bloom skims the top, settling into the
+     deep char panel — paper under a single hung lamp. */
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 56px),
+    linear-gradient(180deg, var(--panel) 0%, var(--bg) 100%);
   border-right: 1px solid var(--hair);
   padding: 18px 14px 14px;
   display: flex; flex-direction: column; gap: 4px;
@@ -140,15 +149,19 @@ button { font-family: inherit; cursor: pointer; }
 }
 .brand {
   padding: 2px 10px 14px;
-  display: flex; align-items: baseline; justify-content: space-between;
+  display: flex; align-items: baseline; gap: 8px;
   border-bottom: 1px dashed var(--hair);
   margin-bottom: 10px;
   font-family: var(--display);
-  font-weight: 400; font-size: 22px; letter-spacing: -0.01em; color: var(--ink);
+  font-weight: 400; font-size: 22px; letter-spacing: -0.01em; color: var(--text);
+}
+.brand .brand-mark {
+  width: 0.95em; height: 0.95em; flex-shrink: 0;
+  color: var(--accent); align-self: center;
 }
 .brand small {
-  display: inline; font-family: 'Inter Tight', sans-serif;
-  color: var(--muted); font-size: 9.5px; font-weight: 600;
+  display: inline; margin-left: auto; font-family: 'Inter Tight', sans-serif;
+  color: var(--text-muted); font-size: 9.5px; font-weight: 600;
   letter-spacing: .24em; text-transform: uppercase;
 }
 .nav { display: flex; flex-direction: column; gap: 2px; }
@@ -157,7 +170,7 @@ button { font-family: inherit; cursor: pointer; }
   padding: 0 12px 6px;
   font-size: 9.5px;
   letter-spacing: .24em;
-  color: var(--muted);
+  color: var(--text-muted);
   text-transform: uppercase;
   font-weight: 700;
   border-top: 1px dashed var(--hair);
@@ -169,26 +182,75 @@ button { font-family: inherit; cursor: pointer; }
   gap: 10px; align-items: center;
   padding: 10px 12px;
   border-radius: 4px;
-  font-weight: 600; font-size: 13.5px; color: var(--char);
+  font-weight: 600; font-size: 13.5px; color: var(--text-muted);
   border: 1px solid transparent;
   transition: background .16s var(--easing), border-color .16s, color .16s, transform .08s;
 }
-.nav a:hover { background: rgba(29,26,21,.04); color: var(--ink); }
+.nav a:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--text); }
 .nav a:active { transform: translateY(1px); }
 .nav a.active {
-  background: var(--ink); color: var(--cream); border-color: var(--ink);
+  background: var(--panel-2); color: var(--text); border-color: var(--accent);
 }
 .nav .nav-key {
   display: flex; align-items: center; justify-content: center;
   width: 22px; height: 22px; border-radius: 3px;
-  border: 1px solid var(--hair); background: var(--cream);
+  border: 1px solid var(--hair); background: var(--bg);
   font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 10.5px;
-  color: var(--char);
+  color: var(--text-muted);
 }
-.nav a.active .nav-key { background: var(--ember); border-color: var(--ember); color: var(--cream); }
+.nav a.active .nav-key { background: var(--accent); border-color: var(--accent); color: var(--bg); }
 .nav .nav-lbl .t { display: block; line-height: 1.1; letter-spacing: -0.005em; }
-.nav .nav-lbl .m { display: block; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); margin-top: 2px; font-weight: 500; }
-.nav a.active .nav-lbl .m { color: rgba(248,243,231,.6); }
+.nav .nav-lbl .m { display: block; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-muted); margin-top: 2px; font-weight: 500; }
+.nav a.active .nav-lbl .m { color: var(--text-muted); }
+
+/* ── Brand-stamp section header (.stamp) ──────────────────────────────────
+   A Zilla-Slab small-caps label stamped under a hairline rule, with the
+   Lariat glyph as the wax seal. Restrained — the mark whispers, the rule
+   draws the eye. Applied to .nav-section headers. */
+.nav .nav-section.stamp {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--display);
+  font-variant-caps: small-caps;
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: .12em;
+  text-transform: none;
+  color: var(--text-muted);
+  border-top: 1px solid var(--hair);
+}
+.nav .nav-section.stamp:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+.nav .nav-section.stamp .stamp-mark {
+  width: 1.05em; height: 1.05em; flex-shrink: 0;
+  color: var(--accent);
+}
+.nav .nav-section.stamp span { line-height: 1; }
+
+/* ── Chrome focus ring — a visible amber gaslight ring on keyboard focus ── */
+.strip a:focus-visible,
+.strip button:focus-visible,
+.sidebar a:focus-visible,
+.sidebar button:focus-visible,
+.sidebar select:focus-visible,
+.command a:focus-visible,
+.command button:focus-visible,
+.cmdk a:focus-visible,
+.cmdk button:focus-visible,
+.cmdk input:focus-visible,
+.cmdk-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Brand-stamp press — a small wax-seal stamp on the mark. Motion only when
+   the viewer has not asked for reduced motion. Kept minimal and not wired to
+   confirm actions (that is Phase 2). ── */
+@media (prefers-reduced-motion: no-preference) {
+  .mark:active .logo,
+  .brand:active .brand-mark {
+    transform: scale(0.92);
+    transition: transform .09s var(--easing-snap);
+  }
+}
 
 .nav .nav-disabled {
   padding: 10px 12px; color: var(--text-muted); font-size: 12px; cursor: not-allowed;
@@ -1085,11 +1147,11 @@ textarea.input { resize: vertical; }
 }
 .line-rope::before {
   content: ""; position: absolute; top: -4px; left: -3px;
-  width: 7px; height: 7px; border-radius: 50%; background: var(--ink);
+  width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
 }
 .line-rope::after {
   content: ""; position: absolute; bottom: -4px; left: -3px;
-  width: 7px; height: 7px; border-radius: 50%; background: var(--ink);
+  width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
 }
 
 /* ---- Canvas section headers ---- */
@@ -1152,29 +1214,33 @@ textarea.input { resize: vertical; }
   grid-area: command;
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 20px;
-  background: var(--ink); color: var(--cream);
-  border-top: 1px solid var(--ink);
+  /* Raised char bar with a faint amber bloom along its top lip. */
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 3px),
+    var(--panel-2);
+  color: var(--text);
+  border-top: 1px solid var(--hair);
   font-family: 'JetBrains Mono', monospace; font-size: 11px;
   user-select: none;
 }
 .command .left, .command .right { display: flex; align-items: center; gap: 18px; }
-.command .slot { display: inline-flex; align-items: center; gap: 6px; color: rgba(248,243,231,.78); }
+.command .slot { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); }
 .command kbd {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 20px; height: 20px; padding: 0 6px;
-  background: rgba(248,243,231,.1);
-  border: 1px solid rgba(248,243,231,.18);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  border: 1px solid var(--hair);
   border-radius: 3px;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10.5px; font-weight: 600; color: var(--cream);
+  font-size: 10.5px; font-weight: 600; color: var(--text);
   letter-spacing: 0;
 }
-.command .accent { color: var(--ember); }
+.command .accent { color: var(--accent); }
 
 /* ---- Command Palette (⌘K) ---- */
 .cmdk-scrim {
   position: fixed; inset: 0;
-  background: rgba(29,26,21,.42);
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
   backdrop-filter: blur(2px);
   display: flex; align-items: flex-start; justify-content: center;
   padding-top: 12vh;
@@ -1184,10 +1250,10 @@ textarea.input { resize: vertical; }
 @keyframes cmdkFade { from { opacity: 0; } to { opacity: 1; } }
 .cmdk {
   width: min(620px, 92vw);
-  background: var(--cream);
+  background: var(--panel);
   border: 1px solid var(--hair);
   border-radius: 6px;
-  box-shadow: 0 30px 80px rgba(29,26,21,.28), 0 2px 0 var(--ink);
+  box-shadow: 0 30px 80px color-mix(in srgb, var(--bg) 45%, transparent), 0 2px 0 var(--hair);
   overflow: hidden;
   animation: cmdkRise .22s var(--easing-snap);
 }
@@ -1199,60 +1265,60 @@ textarea.input { resize: vertical; }
   width: 100%; display: flex; align-items: center; gap: 12px;
   padding: 18px 22px;
   border-bottom: 1px solid var(--hair);
-  background: var(--cream);
+  background: var(--panel);
 }
 .cmdk-input .prompt {
   font-family: var(--display);
-  font-style: italic; font-size: 22px; color: var(--ember);
+  font-style: italic; font-size: 22px; color: var(--accent);
 }
 .cmdk-input input {
   flex: 1; border: 0; background: transparent; outline: none;
-  font-family: 'Inter Tight', sans-serif; font-size: 17px; color: var(--ink);
+  font-family: 'Inter Tight', sans-serif; font-size: 17px; color: var(--text);
   letter-spacing: -0.005em;
 }
 .cmdk-input input::placeholder { color: var(--text-muted); font-style: italic; font-family: var(--display); font-size: 18px; }
 .cmdk-input .hint {
   font-family: 'JetBrains Mono', monospace; font-size: 10px;
-  color: var(--muted); letter-spacing: .18em; text-transform: uppercase;
+  color: var(--text-muted); letter-spacing: .18em; text-transform: uppercase;
 }
 .cmdk-list { max-height: 50vh; overflow: auto; padding: 6px 0; }
 .cmdk-group {
   padding: 10px 22px 4px;
   font-size: 9.5px; letter-spacing: .24em; text-transform: uppercase;
-  color: var(--muted); font-weight: 700;
+  color: var(--text-muted); font-weight: 700;
 }
 .cmdk-row {
   display: grid; grid-template-columns: 26px 1fr auto;
   gap: 12px; align-items: center;
   padding: 10px 22px;
   cursor: pointer;
-  color: var(--char);
+  color: var(--text-muted);
   transition: background .12s var(--easing), color .12s;
 }
-.cmdk-row:hover, .cmdk-row.on { background: var(--ink); color: var(--cream); }
-.cmdk-row:hover .cmdk-sub, .cmdk-row.on .cmdk-sub { color: rgba(248,243,231,.65); }
+.cmdk-row:hover, .cmdk-row.on { background: var(--panel-2); color: var(--text); }
+.cmdk-row:hover .cmdk-sub, .cmdk-row.on .cmdk-sub { color: var(--text-muted); }
 .cmdk-row:hover .cmdk-key, .cmdk-row.on .cmdk-key {
-  background: rgba(248,243,231,.1); border-color: rgba(248,243,231,.22); color: var(--cream);
+  background: color-mix(in srgb, var(--text) 10%, transparent); border-color: var(--hair); color: var(--text);
 }
 .cmdk-row .cmdk-glyph {
   width: 22px; height: 22px; border-radius: 3px;
-  background: var(--paper); border: 1px solid var(--hair);
+  background: var(--bg); border: 1px solid var(--hair);
   display: flex; align-items: center; justify-content: center;
   font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 700;
-  color: var(--char);
+  color: var(--text-muted);
 }
-.cmdk-row.on .cmdk-glyph { background: var(--ember); border-color: var(--ember); color: var(--cream); }
+.cmdk-row.on .cmdk-glyph { background: var(--accent); border-color: var(--accent); color: var(--bg); }
 .cmdk-lbl { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cmdk-name { font-size: 14px; font-weight: 600; letter-spacing: -0.005em; }
-.cmdk-sub  { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); }
+.cmdk-sub  { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-muted); }
 .cmdk-key {
   font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
   padding: 3px 7px; border: 1px solid var(--hair); border-radius: 3px;
-  background: var(--cream); color: var(--char);
+  background: var(--bg); color: var(--text-muted);
 }
 .cmdk-empty {
   padding: 30px 22px; text-align: center;
-  font-family: var(--display); font-style: italic; color: var(--muted);
+  font-family: var(--display); font-style: italic; color: var(--text-muted);
 }
 
 /* ---- Editorial rush-home refresh ---- */

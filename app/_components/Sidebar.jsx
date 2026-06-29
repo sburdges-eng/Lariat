@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import PinLogout from './PinLogout.jsx';
 import OfflineIndicator from './OfflineIndicator.jsx';
 import InstallButton from './InstallButton.jsx';
+import BrandStamp from './BrandStamp.jsx';
 import {
   requiresManagerPinPath,
   SIDEBAR_ITEMS,
@@ -249,6 +250,7 @@ export default function Sidebar() {
       <div className="line-rope" aria-hidden />
 
       <div className="brand">
+        <BrandStamp className="brand-mark" decorative />
         <span>The Line</span>
         <small>Cockpit</small>
       </div>
@@ -256,18 +258,27 @@ export default function Sidebar() {
       <nav className="nav">
         {primary.map(navLink)}
 
-        <div className="nav-section">Stations</div>
+        <div className="nav-section stamp">
+          <BrandStamp className="stamp-mark" decorative />
+          <span>Stations</span>
+        </div>
         {lineCheckStations.slice(0, 6).map((s, i) => stationCell(s, i))}
         {stations.length === 0 && <div className="nav-disabled">Loading stations…</div>}
 
         {groupedSidebar.map((g) => (
           <div key={g.name}>
-            <div className="nav-section">{g.name}</div>
+            <div className="nav-section stamp">
+              <BrandStamp className="stamp-mark" decorative />
+              <span>{g.name}</span>
+            </div>
             {g.items.map(navLink)}
           </div>
         ))}
 
-        <div className="nav-section">Books</div>
+        <div className="nav-section stamp">
+          <BrandStamp className="stamp-mark" decorative />
+          <span>Books</span>
+        </div>
         <div className="shelf-grid">
           {SHELF_ITEMS.map((item) => {
             const managerOnly = item.managerOnly || requiresManagerPinPath(item.href);
@@ -285,7 +296,10 @@ export default function Sidebar() {
           })}
         </div>
 
-        <div className="nav-section">Location</div>
+        <div className="nav-section stamp">
+          <BrandStamp className="stamp-mark" decorative />
+          <span>Location</span>
+        </div>
         <div className="location-picker">
           <OfflineIndicator />
           <label htmlFor="lariat-loc">Room</label>
