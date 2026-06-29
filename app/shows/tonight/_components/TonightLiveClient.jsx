@@ -93,7 +93,7 @@ function AttendanceKPI({ attendance, capacityOverride, venueCapacity }) {
       <div
         className="kpi-value"
         style={{
-          fontFamily: "'Instrument Serif', serif",
+          fontFamily: "var(--display)",
           fontSize: 34,
           lineHeight: 1,
           letterSpacing: '-0.02em',
@@ -118,7 +118,7 @@ function KPI({ label, value, sub }) {
       <div className="kpi-label" style={{ fontSize: 9.5, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 700 }}>
         {label}
       </div>
-      <div className="kpi-value" style={{ fontFamily: "'Instrument Serif', serif", fontSize: 34, lineHeight: 1, letterSpacing: '-0.02em' }}>
+      <div className="kpi-value" style={{ fontFamily: "var(--display)", fontSize: 34, lineHeight: 1, letterSpacing: '-0.02em' }}>
         {value}
       </div>
       <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'JetBrains Mono, monospace' }}>{sub}</div>
@@ -229,7 +229,7 @@ export default function TonightLiveClient({ initialPayload, loc, date, showId })
           <div className="card-eyebrow" style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 700 }}>
             Run of show
           </div>
-          <h2 className="card-title" style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, fontWeight: 400, margin: '4px 0 14px' }}>
+          <h2 className="card-title" style={{ fontFamily: "var(--display)", fontSize: 22, fontWeight: 400, margin: '4px 0 14px' }}>
             {nextRoS ? `Next: ${nextRoS.label}` : 'Tonight’s timeline'}
           </h2>
           {runOfShow.length === 0 ? (
@@ -256,7 +256,7 @@ export default function TonightLiveClient({ initialPayload, loc, date, showId })
           <div className="card-eyebrow" style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 700 }}>
             Box office
           </div>
-          <h2 className="card-title" style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, fontWeight: 400, margin: '4px 0 14px' }}>
+          <h2 className="card-title" style={{ fontFamily: "var(--display)", fontSize: 22, fontWeight: 400, margin: '4px 0 14px' }}>
             Sources tonight
           </h2>
           {boxOffice.total_qty === 0 ? (

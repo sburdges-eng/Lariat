@@ -78,7 +78,7 @@ function notFound() {
     >
       <h1
         style={{
-          fontFamily: 'var(--serif, "Instrument Serif", Georgia, serif)',
+          fontFamily: 'var(--display)',
           fontWeight: 400,
           fontSize: 36,
           letterSpacing: '-0.01em',
@@ -166,7 +166,7 @@ export default async function BeoSharePage({ params }) {
           maxWidth: 760,
           margin: '0 auto',
           padding: '48px 36px 80px',
-          fontFamily: 'var(--serif, "Instrument Serif", Georgia, serif)',
+          fontFamily: 'var(--display)',
           color: 'var(--ink, #1d1a15)',
           lineHeight: 1.5,
         }}

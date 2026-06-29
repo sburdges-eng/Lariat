@@ -8,7 +8,7 @@
  * any rule here reads them.
  * ================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Zilla+Slab:ital,wght@0,500;0,700;1,500;1,700&family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 /* Token system + cookbook surfaces. tokens.css owns :root; nothing here
    redefines those tokens, so tokens.css wins unconditionally. */
@@ -36,7 +36,7 @@ body {
 }
 a { color: inherit; text-decoration: none; }
 button { font-family: inherit; cursor: pointer; }
-.serif { font-family: 'Instrument Serif', serif; font-weight: 400; letter-spacing: -0.01em; }
+.serif { font-family: var(--display); font-weight: 400; letter-spacing: -0.01em; }
 .mono  { font-family: 'JetBrains Mono', ui-monospace, monospace; letter-spacing: -0.01em; }
 
 /* ------------------- Cockpit shell grid ------------------- */
@@ -70,7 +70,7 @@ button { font-family: inherit; cursor: pointer; }
 .mark svg.logo { width: 28px; height: 28px; flex-shrink: 0; }
 .mark .word { line-height: 1; }
 .mark .word b {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--display);
   font-weight: 400; font-size: 22px; letter-spacing: .01em;
   display: block; color: var(--ink);
 }
@@ -143,7 +143,7 @@ button { font-family: inherit; cursor: pointer; }
   display: flex; align-items: baseline; justify-content: space-between;
   border-bottom: 1px dashed var(--hair);
   margin-bottom: 10px;
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--display);
   font-weight: 400; font-size: 22px; letter-spacing: -0.01em; color: var(--ink);
 }
 .brand small {
@@ -223,7 +223,7 @@ button { font-family: inherit; cursor: pointer; }
   border: 1px solid var(--hair); border-radius: 3px; font-size: 12.5px;
   font-family: 'Inter Tight', sans-serif;
 }
-.location-hint { margin: 6px 0 0; font-size: 10px; color: var(--muted); line-height: 1.4; font-style: italic; font-family: 'Instrument Serif', serif; }
+.location-hint { margin: 6px 0 0; font-size: 10px; color: var(--muted); line-height: 1.4; font-style: italic; font-family: var(--display); }
 
 .cook-picker {
   margin-top: auto;
@@ -253,13 +253,13 @@ button { font-family: inherit; cursor: pointer; }
 .main::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 10px; }
 
 h1 {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--display);
   font-weight: 400; font-size: 48px; line-height: .98;
   letter-spacing: -0.02em; color: var(--ink);
   margin: 0 0 6px;
 }
 h1 em { color: var(--ember); font-style: italic; }
-.subtitle { color: var(--muted); margin-bottom: 28px; font-size: 13.5px; font-family: 'Instrument Serif', serif; font-style: italic; }
+.subtitle { color: var(--muted); margin-bottom: 28px; font-size: 13.5px; font-family: var(--display); font-style: italic; }
 
 .assistant-answer {
   white-space: pre-wrap;
@@ -1099,7 +1099,7 @@ textarea.input { resize: vertical; }
   border-bottom: 1px solid var(--hair);
 }
 .section-head h2 {
-  font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 30px; letter-spacing: -0.015em;
+  font-family: var(--display); font-weight: 400; font-size: 30px; letter-spacing: -0.015em;
   margin: 0; color: var(--ink);
 }
 .section-head h2 em { font-style: italic; color: var(--ember); }
@@ -1124,13 +1124,13 @@ textarea.input { resize: vertical; }
 }
 .editorial-hero .date-bar .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ember); }
 .editorial-hero h1 {
-  font-family: 'Instrument Serif', serif; font-weight: 400;
+  font-family: var(--display); font-weight: 400;
   font-size: 58px; line-height: .95; letter-spacing: -0.02em; color: var(--ink);
   margin: 0 0 2px;
 }
 .editorial-hero h1 em { font-style: italic; color: var(--ember); }
 .editorial-hero .kicker {
-  font-family: 'Instrument Serif', serif; font-style: italic;
+  font-family: var(--display); font-style: italic;
   color: var(--muted); font-size: 18px; margin-top: 8px;
 }
 .editorial-hero .stat-stack {
@@ -1202,7 +1202,7 @@ textarea.input { resize: vertical; }
   background: var(--cream);
 }
 .cmdk-input .prompt {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--display);
   font-style: italic; font-size: 22px; color: var(--ember);
 }
 .cmdk-input input {
@@ -1210,7 +1210,7 @@ textarea.input { resize: vertical; }
   font-family: 'Inter Tight', sans-serif; font-size: 17px; color: var(--ink);
   letter-spacing: -0.005em;
 }
-.cmdk-input input::placeholder { color: #a7997e; font-style: italic; font-family: 'Instrument Serif', serif; font-size: 18px; }
+.cmdk-input input::placeholder { color: #a7997e; font-style: italic; font-family: var(--display); font-size: 18px; }
 .cmdk-input .hint {
   font-family: 'JetBrains Mono', monospace; font-size: 10px;
   color: var(--muted); letter-spacing: .18em; text-transform: uppercase;
@@ -1252,7 +1252,7 @@ textarea.input { resize: vertical; }
 }
 .cmdk-empty {
   padding: 30px 22px; text-align: center;
-  font-family: 'Instrument Serif', serif; font-style: italic; color: var(--muted);
+  font-family: var(--display); font-style: italic; color: var(--muted);
 }
 
 /* ---- Editorial rush-home refresh ---- */
@@ -1314,7 +1314,7 @@ textarea.input { resize: vertical; }
   box-shadow: 0 0 0 3px rgba(29,26,21,.04);
 }
 .rush-tile-name {
-  font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 24px;
+  font-family: var(--display); font-weight: 400; font-size: 24px;
   letter-spacing: -0.01em; color: var(--ink);
 }
 .rush-tile-status {
