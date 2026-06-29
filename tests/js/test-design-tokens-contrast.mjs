@@ -11,6 +11,12 @@ const css = readFileSync(new URL('../../styles/tokens.css', import.meta.url), 'u
 // precede .paper / .k-night in tokens.css or this would read the wrong surface.
 const tok = (n) => (css.match(new RegExp(`--${n}\\s*:\\s*(#[0-9a-fA-F]{6})`)) || [])[1];
 
+// Reads a literal-hex token from the .paper{} block specifically
+const tokPaper = (n) => {
+  const paperBlock = css.match(/\.paper\s*\{([^}]+)\}/s)?.[1] ?? '';
+  return (paperBlock.match(new RegExp(`--${n}\\s*:\\s*(#[0-9a-fA-F]{6})`)) || [])[1];
+};
+
 function L(hex) {
   const c = [1, 3, 5]
     .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
@@ -36,4 +42,20 @@ for (const a of ['accent', 'fire', 'ok', 'info', 'metal']) {
       ratio(tok(a), tok('panel')) >= 4.5,
       `${a}=${ratio(tok(a), tok('panel')).toFixed(2)}`,
     ));
+}
+
+// .paper surface: every accent must clear 4.5:1 against .paper --bg
+const paperBg = tokPaper('bg');
+for (const a of ['accent', 'fire', 'ok', 'info', 'metal']) {
+  test(`.paper ${a} on paper bg ≥ 4.5:1`, () => {
+    const hex = tokPaper(a);
+    assert.ok(
+      hex,
+      `tokPaper('${a}') returned undefined — check .paper block has --${a}:#rrggbb`,
+    );
+    assert.ok(
+      ratio(hex, paperBg) >= 4.5,
+      `.paper ${a}=${hex} on bg=${paperBg}: got ${ratio(hex, paperBg).toFixed(2)}`,
+    );
+  });
 }

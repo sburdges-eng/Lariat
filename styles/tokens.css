@@ -51,6 +51,7 @@
   --paper:var(--panel-2);
   --paper-2:var(--panel-2);
   --paper-3:var(--bg);
+  --card:var(--panel);
 
   /* Derived ink/accent ramp (legacy components read these) */
   --ink-2:#262320;
@@ -84,8 +85,10 @@
 }
 
 /* ── PAPER — opt-in light surface (wired into pages in T5) ──
-   Overrides the role tokens (and the aliases that point at them) on any
-   subtree carrying .paper, flipping it to the warm bone palette. */
+   Role tokens (--bg, --panel, --accent, etc.) flip on any subtree carrying
+   .paper. Legacy aliases declared only in :root (--cream, --ink, --ember, etc.)
+   do NOT re-resolve here — CSS custom-property inheritance fixes their value at
+   :root substitution time. Consumers must reference role tokens to get the flip. */
 .paper{
   --bg:#f1ead9;
   --panel:#f8f3e7;
@@ -94,11 +97,12 @@
   --text:#17140f;
   --text-muted:#6f6555;
   /* accents stay on-brand but darken for light-surface contrast */
-  --accent:#a85a16;
+  --accent:#9a4f12;
   --fire:#9a3520;
   --ok:#3f5648;
   --info:#3a5a7a;
-  --metal:#8a6520;
+  --metal:#7a5818;
+  --on-accent: var(--bg);
   /* legacy surface names follow the light flip */
   --ink-2:#2b2723;
   --muted-2:#9c9282;
@@ -108,8 +112,10 @@
 }
 
 /* kitchen / dark surface — used on BOH KDS, wall mounts, expo.
-   Re-based on role tokens: aliases (--char/--ink/--cream/--paper/--border/
-   --muted) re-resolve through these via var() on this subtree. */
+   Role tokens (--bg, --panel, --text, etc.) flip on this subtree.
+   Legacy aliases declared only in :root (--char/--ink/--cream/--paper/
+   --border/--muted) do NOT re-resolve here — they resolved at :root time.
+   Reference role tokens (not legacy aliases) to get surface-aware values. */
 .k-dark{
   --bg:#0e0d0b;
   --panel:#1a1815;
