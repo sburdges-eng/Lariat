@@ -10,11 +10,11 @@
 
 :root{
   /* ── ROLE TOKENS (primary, literal hex) — Service Ledger dark default ── */
-  --bg:#14130f;          /* app background — deepest char         */
+  --bg:#1a1711;          /* app background — warm char (lifted for calmer contrast) */
   --panel:#1d1b15;       /* card / surface                        */
   --panel-2:#26231b;     /* raised surface                        */
   --hair:#3a342a;        /* hairline / border                     */
-  --text:#ece3d0;        /* primary text (bone)        14.57:1 /bg */
+  --text:#d4cbb5;        /* primary text (bone, eased)  ~11:1 /bg */
   --text-muted:#b3a890;  /* secondary text (bone-2)               */
   --accent:#e0922b;      /* gaslight amber             6.82:1 /panel */
   --on-accent:#1a1308;   /* dark charcoal text ON amber/accent buttons */
