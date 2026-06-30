@@ -33,7 +33,7 @@ function EmptyState({ previousShow }) {
       <div className="page-eyebrow" style={{ color: 'var(--muted)' }}>
         Tonight · Live
       </div>
-      <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 42, fontWeight: 400, margin: '6px 0 14px' }}>
+      <h1 style={{ fontFamily: "var(--display)", fontSize: 42, fontWeight: 400, margin: '6px 0 14px' }}>
         No show on the calendar tonight.
       </h1>
       <p style={{ color: 'var(--muted)', maxWidth: 480, lineHeight: 1.5 }}>
@@ -166,7 +166,7 @@ export default async function TonightLivePage({ searchParams }) {
           </div>
           <h1
             style={{
-              fontFamily: "'Instrument Serif', serif",
+              fontFamily: "var(--display)",
               fontSize: 56,
               fontWeight: 400,
               margin: '8px 0 6px',

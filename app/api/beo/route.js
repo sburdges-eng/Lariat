@@ -117,13 +117,23 @@ async function beoPostHandler(req) {
       const gc = body.guest_count == null ? null : Number(body.guest_count);
       const taxRate = Number.isFinite(Number(body.tax_rate)) ? Number(body.tax_rate) : 0.0675;
       const serviceFeePct = Number.isFinite(Number(body.service_fee_pct)) ? Number(body.service_fee_pct) : 20;
+      // Increment 2: optional F&B minimum spend ($). Empty/absent -> NULL;
+      // negative is soft-rejected (the operator typed a bad value).
+      let minSpend = null;
+      if (body.min_spend != null && body.min_spend !== '') {
+        const n = Number(body.min_spend);
+        if (!Number.isFinite(n) || n < 0) {
+          return Response.json({ error: 'min_spend must be a non-negative number' }, { status: 400 });
+        }
+        minSpend = n;
+      }
       const id = db.transaction(() => {
         const info = db
           .prepare(
             `INSERT INTO beo_events
                (title, event_date, event_time, contact_name, guest_count,
-                notes, status, tax_rate, service_fee_pct, location_id)
-             VALUES (?,?,?,?,?,?,?,?,?,?)`
+                notes, status, tax_rate, service_fee_pct, min_spend, location_id)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?)`
           )
           .run(
             title,
@@ -135,6 +145,7 @@ async function beoPostHandler(req) {
             clip(body.status, 32) || 'planned',
             taxRate,
             serviceFeePct,
+            minSpend,
             loc,
           );
         const newId = Number(info.lastInsertRowid);
@@ -181,6 +192,24 @@ async function beoPostHandler(req) {
       const serviceFeePct = 'service_fee_pct' in body && Number.isFinite(Number(body.service_fee_pct))
         ? Number(body.service_fee_pct)
         : null;
+      // Increment 2: F&B minimum spend. Soft-reject negatives. Unlike the
+      // COALESCE columns above, min_spend is explicitly clearable — an empty
+      // value writes NULL — so it uses a provided-flag CASE: present -> set
+      // (number or NULL), omitted -> preserve.
+      const minSpendProvided = 'min_spend' in body ? 1 : 0;
+      let minSpendValue = null;
+      if (minSpendProvided) {
+        const raw = body.min_spend;
+        if (raw === null || raw === '' || raw === undefined) {
+          minSpendValue = null;
+        } else {
+          const n = Number(raw);
+          if (!Number.isFinite(n) || n < 0) {
+            return Response.json({ error: 'min_spend must be a non-negative number' }, { status: 400 });
+          }
+          minSpendValue = n;
+        }
+      }
       db.transaction(() => {
         db.prepare(
           `UPDATE beo_events SET
@@ -192,7 +221,8 @@ async function beoPostHandler(req) {
              notes           = COALESCE(?, notes),
              status          = COALESCE(?, status),
              tax_rate        = COALESCE(?, tax_rate),
-             service_fee_pct = COALESCE(?, service_fee_pct)
+             service_fee_pct = COALESCE(?, service_fee_pct),
+             min_spend       = CASE WHEN ? = 1 THEN ? ELSE min_spend END
            WHERE id = ? AND location_id = ?`,
         ).run(
           title,
@@ -204,6 +234,8 @@ async function beoPostHandler(req) {
           status,
           taxRate,
           serviceFeePct,
+          minSpendProvided,
+          minSpendValue,
           id,
           loc,
         );

@@ -7,31 +7,62 @@ import SignForm from './SignForm';
 
 export const dynamic = 'force-dynamic';
 
-function notFound() {
+// Hide cockpit chrome on this guest-facing route and paint the viewport the
+// heritage cream so the page reads as a standalone document, not an app screen.
+// Inline so it ships with the route output without touching globals.css. Shared
+// by both the success render and the notFound notice — otherwise an expired link
+// would render inside the dark cockpit shell (sidebar/strip/command visible).
+function GuestChrome() {
   return (
-    <div
-      style={{
-        padding: 40,
-        fontFamily: 'var(--sans, "Inter Tight", system-ui, sans-serif)',
-        textAlign: 'center',
-        color: 'var(--ink, #1d1a15)',
+    <style
+      dangerouslySetInnerHTML={{
+        __html: `
+          .sidebar, .strip, .command, .cmdk-scrim, .skip-link, footer.command,
+          .floorplan-trigger, .floorplan-scrim { display: none !important; }
+          .main { padding: 0 !important; max-width: none !important; }
+          .app { display: block !important; height: auto !important; }
+          body { background: #F4F0E8 !important; }
+          @media print { body { background: white !important; } }
+        `,
       }}
-    >
-      <h1
+    />
+  );
+}
+
+function notFound() {
+  // Colors are heritage-doc literals (--ink / --slate / --cream) rather than
+  // global tokens: the Service Ledger :root palette is dark, so var(--ink) would
+  // resolve to light bone and go invisible on the cream body GuestChrome sets.
+  return (
+    <>
+      <GuestChrome />
+      <div
         style={{
-          fontFamily: 'var(--serif, "Instrument Serif", Georgia, serif)',
-          fontWeight: 400,
-          fontSize: 36,
-          letterSpacing: '-0.01em',
+          minHeight: '100vh',
+          padding: 40,
+          fontFamily: 'var(--sans, "Inter Tight", system-ui, sans-serif)',
+          textAlign: 'center',
+          color: '#1A1814',
+          background: '#F4F0E8',
         }}
       >
-        This invitation isn&apos;t available
-      </h1>
-      <p style={{ color: 'var(--muted, #7b7268)', maxWidth: 480, margin: '0 auto', lineHeight: 1.5 }}>
-        The link may have expired or been entered incorrectly. Please reach out to your event host
-        for a fresh link.
-      </p>
-    </div>
+        <h1
+          style={{
+            fontFamily: 'Georgia, "Times New Roman", serif',
+            fontWeight: 400,
+            fontSize: 36,
+            letterSpacing: '-0.01em',
+            color: '#1A1814',
+          }}
+        >
+          This invitation isn&apos;t available
+        </h1>
+        <p style={{ color: '#6B7280', maxWidth: 480, margin: '0 auto', lineHeight: 1.5 }}>
+          The link may have expired or been entered incorrectly. Please reach out to your event host
+          for a fresh link.
+        </p>
+      </div>
+    </>
   );
 }
 
@@ -81,17 +112,7 @@ export default async function BeoSharePage({ params }) {
 
   return (
     <>
-      {/* Hide cockpit chrome on this guest-facing page. Inline so it ships
-          with the route output without touching globals.css. */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
-          .sidebar, .strip, .command, .cmdk-scrim, .skip-link, footer.command { display: none !important; }
-          .main { padding: 0 !important; max-width: none !important; }
-          .app { display: block !important; height: auto !important; }
-          body { background: #F4F0E8 !important; }
-          @media print { body { background: white !important; } }
-        `,
-      }} />
+      <GuestChrome />
 
       <EstimateDocument
         event={event}

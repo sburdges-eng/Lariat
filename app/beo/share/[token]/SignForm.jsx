@@ -46,12 +46,12 @@ export default function SignForm({ token }) {
       <div
         style={{
           padding: '18px 22px',
-          background: 'var(--cream, #f8f3e7)',
-          border: '1px solid var(--sage, #5d7a66)',
-          borderLeft: '4px solid var(--sage, #5d7a66)',
+          background: 'var(--panel, #f8f3e7)',
+          border: '1px solid var(--ok, #5d7a66)',
+          borderLeft: '4px solid var(--ok, #5d7a66)',
           borderRadius: 4,
           fontSize: 14,
-          color: 'var(--ink, #1d1a15)',
+          color: 'var(--text, #17140f)',
           fontFamily: SANS,
         }}
       >
@@ -68,7 +68,7 @@ export default function SignForm({ token }) {
       <label style={{ display: 'grid', gap: 5, fontSize: 13 }}>
         <span
           style={{
-            color: 'var(--char, #3a3530)',
+            color: 'var(--text-muted, #6f6555)',
             fontFamily: 'var(--mono, "JetBrains Mono", ui-monospace, monospace)',
             fontSize: 10,
             letterSpacing: '0.24em',
@@ -89,8 +89,8 @@ export default function SignForm({ token }) {
             padding: '10px 12px',
             fontSize: 16,
             fontFamily: SANS,
-            background: 'var(--cream, #f8f3e7)',
-            color: 'var(--ink, #1d1a15)',
+            background: 'var(--panel, #f8f3e7)',
+            color: 'var(--text, #17140f)',
             border: '1px solid var(--hair, #c9bda5)',
             borderRadius: 3,
             outline: 'none',
@@ -103,7 +103,7 @@ export default function SignForm({ token }) {
           gap: 10,
           alignItems: 'flex-start',
           fontSize: 13,
-          color: 'var(--ink, #1d1a15)',
+          color: 'var(--text, #17140f)',
           lineHeight: 1.45,
         }}
       >
@@ -111,7 +111,7 @@ export default function SignForm({ token }) {
           type="checkbox"
           checked={agreed}
           onChange={(e) => setAgreed(e.target.checked)}
-          style={{ marginTop: 3, accentColor: 'var(--ember-deep, #9a3f1a)' }}
+          style={{ marginTop: 3, accentColor: 'var(--accent, #c85a2a)' }}
         />
         <span>
           I confirm the event details above are correct and authorize this banquet event order.
@@ -120,10 +120,10 @@ export default function SignForm({ token }) {
       {err ? (
         <div
           style={{
-            color: 'var(--rust, #8b2e1f)',
+            color: 'var(--fire, #8b2e1f)',
             fontSize: 13,
             paddingLeft: 10,
-            borderLeft: '2px solid var(--rust, #8b2e1f)',
+            borderLeft: '2px solid var(--fire, #8b2e1f)',
           }}
         >
           {err}
@@ -140,9 +140,9 @@ export default function SignForm({ token }) {
           textTransform: 'uppercase',
           fontWeight: 700,
           fontFamily: SANS,
-          background: canSubmit ? 'var(--ember, #c85a2a)' : 'var(--hair, #c9bda5)',
-          color: canSubmit ? '#1a1308' : 'var(--muted-2, #9c9282)',
-          border: `1px solid ${canSubmit ? 'var(--ember, #c85a2a)' : 'var(--hair, #c9bda5)'}`,
+          background: canSubmit ? 'var(--accent, #c85a2a)' : 'var(--hair, #c9bda5)',
+          color: canSubmit ? 'var(--on-accent, #1a1308)' : 'var(--text-muted, #6f6555)',
+          border: `1px solid ${canSubmit ? 'var(--accent, #c85a2a)' : 'var(--hair, #c9bda5)'}`,
           borderRadius: 3,
           cursor: canSubmit ? 'pointer' : 'not-allowed',
           transition: 'background 0.15s, border-color 0.15s',
