@@ -270,7 +270,7 @@ button { font-family: inherit; cursor: pointer; }
   display: flex !important; flex-direction: column; justify-content: space-between;
   padding: 8px 10px !important; min-height: 54px;
   border: 1px solid var(--hair) !important; border-radius: 4px !important;
-  font-size: 11px; cursor: pointer; background: var(--panel); color: var(--char);
+  font-size: 11px; cursor: pointer; background: var(--panel); color: var(--text);
   transition: transform .14s var(--easing), border-color .14s var(--easing), background .14s;
   grid-template-columns: none !important; gap: 2px;
 }
@@ -1153,7 +1153,7 @@ textarea.input { resize: vertical; }
   gap: 10px; align-items: center;
   padding: 10px 10px;
   border-radius: 4px;
-  color: var(--char);
+  color: var(--text);
   border: 1px solid transparent;
   transition: background .16s var(--easing), border-color .16s, transform .08s;
   position: relative;
@@ -1175,7 +1175,7 @@ textarea.input { resize: vertical; }
 .station-ring.crit .fill { stroke: var(--rust); }
 .station-ring .glyph {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: var(--char);
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: var(--text);
 }
 .station-cell.active .station-ring .glyph { color: var(--panel); }
 .station-cell.active .station-ring .track { stroke: rgba(248,243,231,.22); }
@@ -1188,7 +1188,7 @@ textarea.input { resize: vertical; }
   border: 1px solid var(--hair); background: var(--panel);
   display: flex; align-items: center; justify-content: center;
   font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 10.5px;
-  color: var(--char);
+  color: var(--text-muted);
 }
 .station-cell.active .sc-key { background: var(--accent); border-color: var(--accent); color: var(--panel); }
 
@@ -1458,7 +1458,7 @@ textarea.input { resize: vertical; }
 .rush-action::before {
   content: ""; width: 6px; height: 6px; background: var(--accent); border-radius: 50%;
 }
-.rush-action-muted { border-color: var(--hair); color: var(--char); }
+.rush-action-muted { border-color: var(--hair); color: var(--text-muted); }
 .rush-action-muted:hover { border-color: var(--text); background: var(--text); color: var(--panel); }
 .rush-action-muted::before { background: var(--hair); }
 
@@ -2104,7 +2104,7 @@ textarea.input { resize: vertical; }
 
 .gs-row-reason {
   margin: 0;
-  color: var(--char);
+  color: var(--text);
   font-size: 1rem;
   line-height: 1.5;
 }
@@ -2299,7 +2299,7 @@ textarea.input { resize: vertical; }
   padding: 1rem;
   background: transparent;
   border: 1px solid var(--border);
-  color: var(--char);
+  color: var(--text);
   border-radius: 0.5rem;
   cursor: pointer;
   font-weight: 600;
@@ -2342,13 +2342,13 @@ textarea.input { resize: vertical; }
 .pr-title {
   font-size: 1.25rem;
   margin: 0;
-  color: var(--char);
+  color: var(--text);
   font-weight: 600;
 }
 .pr-give-btn {
   background: transparent;
-  color: var(--char);
-  border: 1px solid var(--char);
+  color: var(--text);
+  border: 1px solid var(--text);
   padding: 0.5rem 1.25rem;
   border-radius: 9999px;
   cursor: pointer;
@@ -2357,8 +2357,8 @@ textarea.input { resize: vertical; }
   transition: background 0.15s var(--easing), color 0.15s var(--easing);
 }
 .pr-give-btn:hover {
-  background: var(--char);
-  color: white;
+  background: var(--text);
+  color: var(--bg);
 }
 .pr-list { display: flex; flex-direction: column; gap: 1rem; }
 .pr-row {
@@ -2376,7 +2376,7 @@ textarea.input { resize: vertical; }
 .pr-row-date { font-size: 0.85rem; color: var(--text-muted); }
 .pr-scores { display: flex; gap: 1rem; margin-bottom: 0.5rem; }
 .pr-score { font-size: 0.9rem; font-weight: 500; }
-.pr-row-notes { font-size: 0.95rem; margin: 0.5rem 0; color: var(--char); }
+.pr-row-notes { font-size: 0.95rem; margin: 0.5rem 0; color: var(--text); }
 .pr-row-reviewer { font-size: 0.85rem; color: var(--text-muted); font-style: italic; }
 .pr-remove-btn {
   background: transparent;
