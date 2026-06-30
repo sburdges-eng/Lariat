@@ -120,7 +120,7 @@ Each task takes one namespace group, applies the **same per-namespace workflow**
 | 9 | shared primitives: `.btn`, `.card`, `.chip`, `.alert`, `.status`, `.section`, `.mark`, `.editorial`, `.recipe`, `.install` | `/`, `/install` |
 
 Per task (4–9):
-- [ ] **Step 1:** `grep -nE 'var\(--(ink|bone|muted|char|ember|cream|paper|paper-2)\)' styles/globals.css` filtered to the batch's selectors; capture before screenshot of the verify route.
+- [ ] **Step 1:** `grep -nE 'var\(--(ink|bone|bone-2|muted|char|ember|cream|paper|paper-2)\)' styles/globals.css` filtered to the batch's selectors; capture before screenshot of the verify route.
 - [ ] **Step 2:** apply MIGRATE replacements (retain the context-aware tokens); fix any misuse/inversion found.
 - [ ] **Step 3:** `node --test tests/js/test-design-tokens-contrast.mjs` — Expected: 11 pass.
 - [ ] **Step 4:** after screenshot; confirm no dark-default regression and correct render.

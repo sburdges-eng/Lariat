@@ -65,13 +65,15 @@ already matches the definition; misuse is corrected to the right role.
 
 ## Scope
 
-207 legacy color-alias **consumer** usages across three stylesheets:
+**196** legacy color-alias **consumer** usages — the 11 first counted in
+`estimate.css` proved to be false positives during execution (see the plan's Task 2),
+so the migration touches **two** stylesheets:
 
 | File | Consumer usages | Notes |
 |---|---:|---|
 | `styles/globals.css` | 157 | the bulk; ~30+ namespaces; **active concurrent edits** |
 | `styles/cookbook.css` | 39 | isolated; `.cookbook-*`; lede already fixed |
-| `styles/estimate.css` | 11 | isolated; `.ed-*` / `.estimate-*` |
+| `styles/estimate.css` | 0 (was 11) | **EXCLUDED** — `.estimate-doc`-local heritage tokens, not global aliases |
 
 `styles/tokens.css` (40 alias references) holds the alias **definitions** — not in
 scope (retired in the deferred capstone phase). `styles/ux-polish.css` has no color
