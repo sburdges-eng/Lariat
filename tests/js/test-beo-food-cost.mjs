@@ -127,6 +127,22 @@ describe('computeLineFoodCosts — blended', () => {
     assert.equal(blended.costedCount, 0);
     assert.equal(blended.unlinkedCount, 1);
   });
+
+  it('a recipe-linked line with unit_cost 0 does not inflate the floor; reported consistently', () => {
+    const linesWithZero = [
+      { id: 1, item_name: 'Bacon Platter', unit_cost: 5, quantity: 10 }, // costed, real sell
+      { id: 5, item_name: 'Bacon Platter', unit_cost: 0, quantity: 5 },  // recipe-linked but $0 sell (comped)
+    ];
+    const { perLine, blended } = foodCost.computeLineFoodCosts(linesWithZero, 'default', testDb);
+    // Blended must equal the real line alone: 0.5*10 / 5*10 = 0.10 — the $0 line
+    // must not add cost to the numerator while adding nothing to the denominator.
+    assert.ok(Math.abs(blended.pct - 0.1) < 0.001, `pct ${blended.pct}`);
+    assert.equal(blended.costedCount, 1);
+    assert.equal(blended.unlinkedCount, 1);
+    // Coherence: costedCount == number of lines whose chip shows a "food NN%" (food_cost_pct != null).
+    assert.equal(blended.costedCount, perLine.filter((p) => p.food_cost_pct != null).length);
+    assert.equal(perLine.find((p) => p.id === 5).food_cost_pct, null);
+  });
 });
 
 describe('computeLineFoodCosts — read-only', () => {

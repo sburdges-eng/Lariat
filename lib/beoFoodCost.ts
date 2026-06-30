@@ -58,7 +58,12 @@ export function computeLineFoodCosts(
 
     perLine.push({ id: li.id, cost, link_state: r.link_state, food_cost_pct });
 
-    if (cost != null) {
+    // A line counts toward the blended floor only if it has BOTH a cost and a
+    // real sell price (unit_cost > 0). Requiring unitCost > 0 keeps a $0-sell
+    // (comped/included) line from adding cost to the numerator while adding
+    // nothing to the denominator, and keeps costedCount in lockstep with the
+    // per-line chips: costedCount === lines whose food_cost_pct != null.
+    if (cost != null && unitCost > 0) {
       costedCount += 1;
       costedNum += cost * qty;
       costedDen += unitCost * qty;
