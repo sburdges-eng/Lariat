@@ -4,21 +4,9 @@ import LariatModel
 
 @main
 struct LariatApp: App {
-  @State private var selection: SidebarSelection = .cook(.today)
-
-  enum SidebarSelection: Hashable {
-    case cook(CookDestination)
-    case safety(SafetyDestination)
-    case manager(ManagerSection)
-  }
-
-  enum ManagerSection: String, Hashable, CaseIterable, Identifiable {
-    case command = "Command"
-    case analytics = "Analytics"
-    case costing = "Costing"
-    case management = "Management"
-    var id: String { rawValue }
-  }
+  /// Selection is the feature `id` (e.g. `"cook.today"`). The shell is generic:
+  /// it never references a specific feature — everything comes from `FeatureRegistry`.
+  @State private var selectedId: String? = FeatureRegistry.defaultId
 
   private let sharedDatabase: LariatDatabase?
   private let sharedWriteDatabase: LariatWriteDatabase?
@@ -34,40 +22,32 @@ struct LariatApp: App {
   var body: some Scene {
     WindowGroup {
       if let db = sharedDatabase {
+        let ctx = AppContext(
+          database: db,
+          writeDatabase: sharedWriteDatabase,
+          catalog: stationCatalog,
+          navigate: { selectedId = $0 }
+        )
         NavigationSplitView {
-          List(selection: $selection) {
-            Section("Cook") {
-              ForEach(CookDestination.allCases) { dest in
-                if dest.enabled {
-                  Text(dest.rawValue).tag(SidebarSelection.cook(dest))
-                } else {
-                  Text(dest.rawValue)
-                    .foregroundStyle(.tertiary)
-                    .badge("Soon")
+          List(selection: $selectedId) {
+            ForEach(FeatureTier.allCases, id: \.self) { tier in
+              Section(tier.rawValue) {
+                ForEach(FeatureRegistry.modules(for: tier)) { module in
+                  if module.enabled {
+                    Text(module.title).tag(Optional(module.id))
+                  } else {
+                    Text(module.title)
+                      .foregroundStyle(.tertiary)
+                      .badge("Soon")
+                  }
                 }
-              }
-            }
-            Section("Safety") {
-              ForEach(SafetyDestination.allCases) { dest in
-                if dest.enabled {
-                  Text(dest.rawValue).tag(SidebarSelection.safety(dest))
-                } else {
-                  Text(dest.rawValue)
-                    .foregroundStyle(.tertiary)
-                    .badge("Soon")
-                }
-              }
-            }
-            Section("Manager") {
-              ForEach(ManagerSection.allCases) { section in
-                Text(section.rawValue).tag(SidebarSelection.manager(section))
               }
             }
           }
           .navigationTitle("Lariat")
         } detail: {
           NavigationStack {
-            detailView(database: db)
+            detailView(context: ctx)
           }
         }
       } else {
@@ -82,123 +62,18 @@ struct LariatApp: App {
     }
   }
 
+  /// Resolve the selected feature generically from the registry. No per-feature
+  /// switch — a new feature is reachable the moment it is in `FeatureRegistry.all`.
   @ViewBuilder
-  private func detailView(database: LariatDatabase) -> some View {
-    switch selection {
-    case .cook(.today):
-      TodayView(
-        database: database,
-        writeDB: sharedWriteDatabase,
-        catalog: stationCatalog,
-        onOpenEightySix: { selection = .cook(.eightySix) }
+  private func detailView(context: AppContext) -> some View {
+    if let id = selectedId, let module = FeatureRegistry.module(id: id) {
+      module.makeView(context)
+    } else {
+      TileDegrade(
+        title: "Nothing selected",
+        message: "Pick a screen from the sidebar.",
+        systemImage: "sidebar.left"
       )
-    case .cook(.eightySix):
-      if let writeDB = sharedWriteDatabase, let catalog = stationCatalog {
-        EightySixView(readDB: database, writeDB: writeDB, catalog: catalog)
-      } else {
-        TileDegrade(
-          title: "86 unavailable",
-          message: "Could not open the write database or station catalog.",
-          systemImage: "lock"
-        )
-      }
-    case .cook(.stations):
-      if let writeDB = sharedWriteDatabase, let catalog = stationCatalog {
-        StationsListView(readDB: database, writeDB: writeDB, catalog: catalog)
-      } else {
-        TileDegrade(
-          title: "Stations unavailable",
-          message: "Could not open the write database or station catalog.",
-          systemImage: "lock"
-        )
-      }
-    case .cook(.kds):
-      if let writeDB = sharedWriteDatabase {
-        KdsPunchView(readDB: database, writeDB: writeDB)
-      } else {
-        TileDegrade(
-          title: "KDS unavailable",
-          message: "Could not open the write database.",
-          systemImage: "lock"
-        )
-      }
-    case .safety(.hub):
-      FoodSafetyHubView(
-        onOpenTempLog: { selection = .safety(.tempLog) },
-        onOpenCooling: { selection = .safety(.cooling) },
-        onOpenDateMarks: { selection = .safety(.dateMarks) },
-        onOpenCalibrations: { selection = .safety(.calibrations) },
-        onOpenCleaning: { selection = .safety(.cleaning) },
-        onOpenBreaks: { selection = .safety(.breaks) }
-      )
-    case .safety(.tempLog):
-      if let writeDB = sharedWriteDatabase {
-        TempLogView(readDB: database, writeDB: writeDB)
-      } else {
-        TileDegrade(
-          title: "Temp log unavailable",
-          message: "Could not open the write database.",
-          systemImage: "lock"
-        )
-      }
-    case .safety(.cooling):
-      if let writeDB = sharedWriteDatabase {
-        CoolingView(readDB: database, writeDB: writeDB)
-      } else {
-        TileDegrade(
-          title: "Cooling unavailable",
-          message: "Could not open the write database.",
-          systemImage: "lock"
-        )
-      }
-    case .safety(.dateMarks):
-      if let writeDB = sharedWriteDatabase {
-        DateMarkView(readDB: database, writeDB: writeDB)
-      } else {
-        TileDegrade(
-          title: "Date marks unavailable",
-          message: "Could not open the write database.",
-          systemImage: "lock"
-        )
-      }
-    case .safety(.calibrations):
-      if let writeDB = sharedWriteDatabase {
-        CalibrationsView(readDB: database, writeDB: writeDB)
-      } else {
-        TileDegrade(
-          title: "Calibrations unavailable",
-          message: "Could not open the write database.",
-          systemImage: "lock"
-        )
-      }
-    case .safety(.cleaning):
-      if let writeDB = sharedWriteDatabase {
-        CleaningView(readDB: database, writeDB: writeDB)
-      } else {
-        TileDegrade(
-          title: "Cleaning unavailable",
-          message: "Could not open the write database.",
-          systemImage: "lock"
-        )
-      }
-    case .safety(.breaks):
-      if let writeDB = sharedWriteDatabase {
-        BreakBoardView(readDB: database, writeDB: writeDB)
-      } else {
-        TileDegrade(
-          title: "Breaks unavailable",
-          message: "Could not open the write database.",
-          systemImage: "lock"
-        )
-      }
-    case .manager(.command):
-      CommandView(database: database, writeDatabase: sharedWriteDatabase)
-    case .manager(.analytics):
-      AnalyticsView(database: database)
-    case .manager(.costing):
-      CostingView(database: database)
-    case .manager(.management):
-      ManagementRollupView(database: database, writeDatabase: sharedWriteDatabase)
     }
   }
 }
