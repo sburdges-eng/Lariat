@@ -8,7 +8,7 @@
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "background_color": "#0b0d10",
-  "theme_color": "#c85a2a",
+  "theme_color": "#1a1711",
   "orientation": "any",
   "categories": ["food", "productivity", "business"],
   "launch_handler": { "client_mode": "navigate-existing" },
