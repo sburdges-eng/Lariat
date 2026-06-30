@@ -27,7 +27,11 @@ You port **exactly one** Lariat web feature area into `LariatNative` (Swift). Yo
 3. **Port in layered order, TDD at each layer.**
    - **`LariatModel`** — add Record types and any `Compute/` parity ports. Pure, no I/O. **Write value-parity tests first** (`Tests/LariatModelTests/`) using known inputs/outputs taken from the web rule module or its fixtures. Confirm red for the right reason, then green.
    - **`LariatDB`** — add the repository query/method. Reads default to `LariatDatabase` (read-only); regulated writes go through `LariatWriteDatabase`. **Write repository tests first** (`Tests/LariatDBTests/`) against an in-memory GRDB fixture DB — never a mock. Confirm red, then green.
-   - **`LariatApp`** — add the SwiftUI `View` + `@Observable` `ViewModel`, wired into the `NavigationSplitView` shell in the correct sidebar section. Match the iPad-first cook surfaces / Mac manager surfaces split already in the app.
+   - **`LariatApp`** — add the SwiftUI `View` + `@Observable` `ViewModel`, then register it via the **feature self-registration pattern** (do NOT edit any shell switch or enum — they were removed in A0):
+     1. add a `static let` `FeatureModule` (its `makeView` owns the view's DI + any `TileDegrade` fallback) in the right group file — `CookFeatures.swift` / `SafetyFeatures.swift` / `ManagerFeatures.swift` (or its own `XFeature.swift`);
+     2. add one `FeatureDescriptor` to `FeatureCatalog.all` (`LariatModel`, sidebar order, stable `id` like `safety.cooling`);
+     3. append one line to `FeatureRegistry.all`.
+     Inter-screen navigation uses `AppContext.navigate(id)`, never a bespoke closure. Match the iPad-first cook / Mac manager split. **`LariatApp.swift` and `FoodSafetyHubView.swift` must NOT change** — they are generic.
 
 4. **Honor the write discipline (parity with `lib/auditEvents.ts`).**
    - Every regulated write emits an `audit_events` row **in the same transaction** as the source INSERT — use `AuditedWriteRunner` / `AuditEventWriter`. Never a separate transaction.
