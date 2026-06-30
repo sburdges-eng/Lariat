@@ -78,20 +78,23 @@ Usage → target (all on the dark `/recipes` surface; `--ember-deep` retained):
 
 ---
 
-### Task 2: estimate.css — full re-tokenize (`.ed-*` / `.estimate-*`, the `.paper` document)
+### Task 2: estimate.css — RESOLVED: EXCLUDED from migration (no changes)
 
-**Files:**
-- Modify: `styles/estimate.css` (11 alias usages: `--cream` ×1, `--ink` ×9, plus a local `--text: var(--ink)` redefinition at :378)
-- Verify: contrast gate; routes `/beo/[id]/estimate` and `/beo/share/[token]` (the `.paper` light surface)
+**Finding (in-context read, 2026-06-30):** all 11 "alias usages" in `estimate.css`
+(`--cream` ×1, `--ink` ×9, `--text: var(--ink)` ×1) are **false positives**. The
+`.estimate-doc` block (`styles/estimate.css:3-20`) *defines its own local tokens* with
+explicit heritage hex — `--cream:#F4F0E8` (light), `--ink:#1A1814` (dark),
+`--display:Georgia` — and every usage is scoped under `.estimate-doc .ed-*`. These are
+the deliberate Phase-1 self-scoped overrides that keep the estimate/BEO-share document
+dark-ink-on-cream **regardless of the global theme** (the comment: "all rules scoped
+under .estimate-doc (no .paper regression)"). The `:378` `.ed-sign-slot` block is the
+intentional bridge supplying global role tokens at light heritage values for the
+injected SignForm.
 
-**Interfaces:** CSS only. This is the **highest-value** file — it renders *inside* `.paper`, where flat `--ink` keeps its `:root` (light bone) value and produces **light-on-light** on the paper. The `:378` `--text: var(--ink)` line is a deliberate Phase-1 scoped redefine; **read its enclosing selector before touching it** — it may already be the correct light-surface bridge and should likely be **retained** or simplified, not blindly swapped.
-
-- [ ] **Step 1 (baseline):** `node .claude/skills/run-lariat/driver.mjs --seed --out=$SCRATCH/t2-before /beo/share/<token>` (token printed by `--seed`).
-- [ ] **Step 2 (read in context):** open `styles/estimate.css`; for each `var(--ink)` usage confirm whether its selector renders inside `.paper`/`.estimate-doc`. Inside `.paper`, `color:var(--ink)` → `color:var(--text)` (re-resolves to the paper's dark ink). `background:var(--cream)` (:16) → `var(--panel)`.
-- [ ] **Step 3:** apply replacements. Leave `:378` unless reading shows it's redundant.
-- [ ] **Step 4 (contrast gate):** `node --test tests/js/test-design-tokens-contrast.mjs` — Expected: 11 pass.
-- [ ] **Step 5 (visual):** after screenshot of the share sheet; confirm the estimate document text is dark-on-cream and fully legible; no regression vs Phase-1 heritage render.
-- [ ] **Step 6 (commit):** `git add styles/estimate.css && git commit -m "style(estimate): re-tokenize .ed-* onto role tokens for .paper correctness"`
+**Conclusion:** `estimate.css` is NOT a legacy-alias consumer. Re-tokenizing it onto
+global role tokens would regress the heritage document (flip it to the dark cockpit
+palette / light-on-light). **No edits.** The migration's real scope is `cookbook.css`
+(done) + `globals.css` (157).
 
 ---
 
@@ -123,7 +126,7 @@ Per task (4–9):
 - [ ] **Step 4:** after screenshot; confirm no dark-default regression and correct render.
 - [ ] **Step 5:** `git add styles/globals.css && git commit -m "style(globals): re-tokenize <namespace> onto role tokens"`.
 
-After Task 9: `grep -cE 'var\(--(ink|bone|bone-2|muted|char|ember|cream|paper|paper-2)\)' styles/globals.css styles/cookbook.css styles/estimate.css` should be **0** (only the retained context-aware tokens remain). That zero is the completion proof for this phase.
+After Task 9: `grep -cE 'var\(--(ink|bone|bone-2|muted|char|ember|cream|paper|paper-2)\)' styles/globals.css styles/cookbook.css` should be **0** (only the retained context-aware tokens `--ember-deep`/`--muted-2`/`--paper-3` remain). That zero is the completion proof for this phase. **`estimate.css` is excluded** — its `--ink`/`--cream` are intentional `.estimate-doc`-local tokens (see Task 2).
 
 ## Self-Review
 
