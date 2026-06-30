@@ -29,6 +29,7 @@ interface BeoEvent {
   notes: string | null;
   tax_rate: number | null;
   service_fee_pct: number | null;
+  min_spend?: number | null;
   location_id?: string | null;
 }
 
@@ -262,6 +263,7 @@ export default function BeoBoard({ initialMenu = [] }: BeoBoardProps) {
       notes: ev.notes,
       tax_rate: ev.tax_rate,
       service_fee_pct: ev.service_fee_pct,
+      min_spend: ev.min_spend,
       ...patch,
     });
     if (ok) load();
@@ -489,6 +491,7 @@ function EventHeader({ event, onSave }: EventHeaderProps) {
   const [time, setTime] = useState(event.event_time || '');
   const [contact, setContact] = useState(event.contact_name || '');
   const [guests, setGuests] = useState(event.guest_count ?? '');
+  const [minSpend, setMinSpend] = useState(event.min_spend ?? '');
   const [notes, setNotes] = useState(event.notes || '');
 
   useEffect(() => {
@@ -497,9 +500,10 @@ function EventHeader({ event, onSave }: EventHeaderProps) {
     setTime(event.event_time || '');
     setContact(event.contact_name || '');
     setGuests(event.guest_count ?? '');
+    setMinSpend(event.min_spend ?? '');
     setNotes(event.notes || '');
   }, [event.id, event.title, event.event_date, event.event_time,
-      event.contact_name, event.guest_count, event.notes]);
+      event.contact_name, event.guest_count, event.min_spend, event.notes]);
 
   const commit = (patch: Patch) => onSave(patch);
 
@@ -554,6 +558,20 @@ function EventHeader({ event, onSave }: EventHeaderProps) {
               const n = guests === '' ? null : Number(guests);
               if ((event.guest_count ?? null) !== n) commit({ guest_count: n });
             }}
+          />
+        </label>
+        <label>
+          <span className="label">Min spend ($)</span>
+          <input
+            type="number"
+            className="input form-field"
+            value={minSpend}
+            onChange={(e) => setMinSpend(e.target.value)}
+            onBlur={() => {
+              const n = minSpend === '' ? null : Number(minSpend);
+              if ((event.min_spend ?? null) !== n) commit({ min_spend: n });
+            }}
+            placeholder="F&B minimum"
           />
         </label>
       </div>
