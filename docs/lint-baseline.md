@@ -5,9 +5,15 @@ Snapshot of `npm run lint` output the moment ESLint v9 was wired in.
 ## Posture
 
 **Soft launch.** Errors block CI and pre-commit; warnings are informational.
-Today: **0 errors, 299 warnings.** New code that ships warnings is fine —
+Today: **0 errors, 63 warnings.** New code that ships warnings is fine —
 the pre-commit hook (lint-staged) only blocks on errors. Warnings are
 tracked here as a backlog to drain in follow-up cleanup PRs.
+
+`no-console` is turned **off** for `scripts/**` and `training/**` (see
+`eslint.config.js`) — those are Node CLI entry points where `console.log`
+is the intended output mechanism, not a latent bug. That carve-out is what
+took the repo from 315 → 63 warnings; the 63 that remain are signal in
+actual runtime code under `app/` and `lib/`.
 
 ## How to use
 
@@ -32,16 +38,19 @@ or error. Use it as a "am I clean against the warning baseline" check before
 pushing. It is **not** part of the pre-commit gate (yet); the script exists
 so future CI can adopt it without changing the pre-commit ergonomics.
 
-## Baseline counts (one-time snapshot)
+## Current counts (last refreshed 2026-06-30)
+
+After the `scripts/**` + `training/**` `no-console` carve-out — **63 warnings, 0 errors**.
 
 | Rule | Count | Severity | Plan |
 |------|------:|----------|------|
-| `no-console` | 204 | warn | Triage: most are server-side debug logs that should be `console.warn` / `console.error`. Sweep in batches by area. |
-| `no-unused-vars` | 45 | warn | Mostly leftover destructured params; clean per file as they're touched. |
-| `@typescript-eslint/no-unused-vars` | 20 | warn | Same shape as above, TS variant. |
-| `@typescript-eslint/no-explicit-any` | 17 | warn | Some legitimate (DB row shapes), some lazy. Audit + narrow types where cheap. |
-| `react/no-unescaped-entities` | 7 | warn | JSX text with raw `'` / `"`. Cosmetic — entities render correctly either way. Demoted from error. |
-| `eslint-comments/no-unused-disable` | 5 | warn | Stale `// eslint-disable-next-line` directives. Easy sweep. |
+| `react/no-unescaped-entities` | 13 | warn | JSX text with raw `'` / `"`. Cosmetic — entities render correctly either way. Demoted from error. |
+| `@typescript-eslint/no-explicit-any` | 13 | warn | Some legitimate (DB row shapes), some lazy. Audit + narrow types where cheap. |
+| `no-console` | 11 | warn | Now scoped to real runtime code (`app/`, `lib/`, `.claude/`, `tests/`). These should be `console.warn`/`.error` or removed. |
+| `no-unused-vars` | 10 | warn | Mostly leftover destructured params; clean per file as they're touched. |
+| `@typescript-eslint/no-unused-vars` | 10 | warn | Same shape as above, TS variant. |
+| `@next/next/no-img-element` | 3 | warn | Raw `<img>` instead of `next/image`. Convert where the layout allows. |
+| (unused eslint-disable directive) | 2 | warn | Dead `// eslint-disable-next-line no-console` in `lib/pinCookie.ts` + `lib/tempPinCookie.ts`. Easy sweep. |
 | `react-hooks/exhaustive-deps` | 1 | warn | A real missing-dep case worth investigating; not currently blocking. |
 
 ## Errors fixed in this PR (the 12 → 0)
@@ -62,7 +71,7 @@ the standard `console`/`setTimeout` family — fixed by registering the
 
 ## What this PR does NOT do
 
-- Drain the 299 warnings (separate cleanup PRs)
+- Drain the remaining 63 warnings (separate cleanup PRs)
 - Wire CI (no `.github/workflows/` exists yet)
 - Add Prettier (separate scope)
 - Apply `eslint --fix` to the whole repo (T4 of the original plan was

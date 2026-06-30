@@ -192,6 +192,18 @@ export default [
     },
   },
 
+  // CLI tooling — scripts/ and training/ are Node entry points where
+  // console.log IS the output mechanism (ingest reports, dry-run tables,
+  // eval results). Flagging these as warnings was 96% of the no-console
+  // backlog and pure noise; turning the rule off here leaves the warning
+  // count meaningful for actual runtime code under app/ and lib/.
+  {
+    files: ['scripts/**/*.{js,mjs,ts}', 'training/**/*.{js,mjs,ts}'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+
   // CommonJS files — .cjs is CommonJS by definition, plus the classic
   // config files. require()/module/process are legitimate here.
   {
