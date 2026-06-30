@@ -298,6 +298,7 @@ export interface BeoEvent {
   status: string;
   tax_rate: number;                   // 0.0675 = 6.75%
   service_fee_pct: number;            // 20 = 20%
+  min_spend?: number | null;          // operator-set F&B minimum spend ($); null = none
   location_id: string;
   created_at: string;
 }
@@ -975,7 +976,7 @@ export interface AuditEvent {
  * `scripts/check-schema-version-bump.mjs` enforces the bump at commit time so
  * the marker stays trustworthy.
  */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export function initSchema(db: DB): void {
   db.exec(`
@@ -1626,6 +1627,7 @@ export function initSchema(db: DB): void {
       status TEXT DEFAULT 'planned',
       tax_rate REAL DEFAULT 0.0675,
       service_fee_pct REAL DEFAULT 20,
+      min_spend REAL,
       share_token TEXT,
       share_expires_at TEXT,
       share_revoked_at TEXT,
@@ -3637,6 +3639,8 @@ function migrateLegacyColumns(db: DB): void {
     ['contact_name',    'ALTER TABLE beo_events ADD COLUMN contact_name TEXT'],
     ['tax_rate',        'ALTER TABLE beo_events ADD COLUMN tax_rate REAL DEFAULT 0.0675'],
     ['service_fee_pct', 'ALTER TABLE beo_events ADD COLUMN service_fee_pct REAL DEFAULT 20'],
+    // Increment 2: operator-set F&B minimum spend ($). Nullable, no default.
+    ['min_spend',       'ALTER TABLE beo_events ADD COLUMN min_spend REAL'],
     // Client-share token lifecycle. NULL token until the operator generates one.
     // revoked_at closes a leaked URL; expires_at can sunset temporary links.
     // Uniqueness enforced by partial index below.

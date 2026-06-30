@@ -1065,6 +1065,89 @@ describe('beo_events share lifecycle schema', () => {
   });
 });
 
+// ── beo_events.min_spend (Increment 2) ─────────────────────────────
+describe('beo_events.min_spend — Increment 2 ALTER', () => {
+  it('min_spend column exists, is REAL and nullable', () => {
+    const info = /** @type {{name: string, type: string, notnull: number}[]} */ (
+      db.prepare('PRAGMA table_info(beo_events)').all()
+    );
+    const ms = info.find((c) => c.name === 'min_spend');
+    assert.ok(ms, 'beo_events.min_spend missing');
+    assert.strictEqual(ms.type.toUpperCase(), 'REAL');
+    assert.strictEqual(ms.notnull, 0, 'beo_events.min_spend must be nullable');
+  });
+
+  it('appears exactly once after re-init (idempotent)', () => {
+    initSchema(db);
+    const cols = columnsOf('beo_events');
+    assert.strictEqual(cols.filter((c) => c === 'min_spend').length, 1);
+  });
+
+  it('pre-Increment-2 beo_events without min_spend gets the column ALTERed in; rows preserved with NULL', () => {
+    const legacy = new Database(':memory:');
+    try {
+      // Full current beo_events shape MINUS min_spend (the pre-Increment-2 state).
+      legacy.exec(`
+        CREATE TABLE beo_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          event_date TEXT,
+          event_time TEXT,
+          contact_name TEXT,
+          guest_count INTEGER,
+          notes TEXT,
+          status TEXT DEFAULT 'planned',
+          tax_rate REAL DEFAULT 0.0675,
+          service_fee_pct REAL DEFAULT 20,
+          share_token TEXT,
+          share_expires_at TEXT,
+          share_revoked_at TEXT,
+          location_id TEXT DEFAULT 'default',
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+        INSERT INTO beo_events (title, location_id) VALUES ('Legacy Event', 'default');
+      `);
+      const pre = /** @type {{name: string}[]} */ (
+        legacy.prepare('PRAGMA table_info(beo_events)').all()
+      ).map((c) => c.name);
+      assert.ok(!pre.includes('min_spend'), 'pre-migration fixture must not have min_spend');
+
+      initSchema(legacy);
+
+      const post = /** @type {{name: string}[]} */ (
+        legacy.prepare('PRAGMA table_info(beo_events)').all()
+      ).map((c) => c.name);
+      assert.ok(post.includes('min_spend'), 'migration did not add beo_events.min_spend');
+
+      const row = /** @type {{title: string, min_spend: number | null}} */ (
+        legacy.prepare(`SELECT title, min_spend FROM beo_events WHERE title = 'Legacy Event'`).get()
+      );
+      assert.strictEqual(row.title, 'Legacy Event');
+      assert.strictEqual(row.min_spend, null, 'ALTER ADD COLUMN must land NULL on pre-existing rows');
+    } finally {
+      legacy.close();
+    }
+  });
+
+  it('accepts a numeric min_spend and round-trips null', () => {
+    const res = db.prepare(
+      `INSERT INTO beo_events (title, location_id, min_spend) VALUES ('Min Spend Event', 'default', ?)`,
+    ).run(2500);
+    const withVal = /** @type {{min_spend: number}} */ (
+      db.prepare('SELECT min_spend FROM beo_events WHERE id = ?').get(res.lastInsertRowid)
+    );
+    assert.strictEqual(withVal.min_spend, 2500);
+
+    const res2 = db.prepare(
+      `INSERT INTO beo_events (title, location_id, min_spend) VALUES ('No Min Event', 'default', ?)`,
+    ).run(null);
+    const withNull = /** @type {{min_spend: number | null}} */ (
+      db.prepare('SELECT min_spend FROM beo_events WHERE id = ?').get(res2.lastInsertRowid)
+    );
+    assert.strictEqual(withNull.min_spend, null);
+  });
+});
+
 describe('lari_conversation_turns schema', () => {
   it('exists with canonical columns in order', () => {
     const info = db.prepare('PRAGMA table_info(lari_conversation_turns)').all();
