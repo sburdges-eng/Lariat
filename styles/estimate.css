@@ -295,6 +295,12 @@
   color: var(--slate);
 }
 
+/* Underwater: food cost > 100% (negative margin). Keep the raw numbers, recolor
+   them with the heritage error red (matches .ed-sign-slot --fire). Operator-only. */
+.estimate-doc .ed-food-chip--under { color: #9a3520; }
+.estimate-doc .ed-trow.ed-food-blended--under .ed-tlab,
+.estimate-doc .ed-trow.ed-food-blended--under .ed-tval { color: #9a3520; }
+
 .estimate-doc .ed-min-meter {
   margin: 10px 38px 0;
   padding: 8px 14px;
