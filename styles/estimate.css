@@ -8,6 +8,7 @@
   --ink: #1A1814;
   --slate: #6B7280;
   --hairline: #C9CDD2;
+  --fire: #9a3520;   /* heritage error red — underwater margin + error states (also re-declared in .ed-sign-slot) */
   /* Pin the heritage display face locally. The global --display flipped to
      'Zilla Slab' in the Service Ledger token system; this document was designed
      around its Georgia fallback, so freeze it here (mirrors the self-scoped
@@ -296,10 +297,10 @@
 }
 
 /* Underwater: food cost > 100% (negative margin). Keep the raw numbers, recolor
-   them with the heritage error red (matches .ed-sign-slot --fire). Operator-only. */
-.estimate-doc .ed-food-chip--under { color: #9a3520; }
+   them with the heritage error red (--fire, scoped to .estimate-doc). Operator-only. */
+.estimate-doc .ed-food-chip--under { color: var(--fire); }
 .estimate-doc .ed-trow.ed-food-blended--under .ed-tlab,
-.estimate-doc .ed-trow.ed-food-blended--under .ed-tval { color: #9a3520; }
+.estimate-doc .ed-trow.ed-food-blended--under .ed-tval { color: var(--fire); }
 
 .estimate-doc .ed-min-meter {
   margin: 10px 38px 0;
