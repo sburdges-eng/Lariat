@@ -125,6 +125,7 @@ struct LariatApp: App {
     case .safety(.hub):
       FoodSafetyHubView(
         onOpenTempLog: { selection = .safety(.tempLog) },
+        onOpenCooling: { selection = .safety(.cooling) },
         onOpenDateMarks: { selection = .safety(.dateMarks) },
         onOpenCalibrations: { selection = .safety(.calibrations) },
         onOpenCleaning: { selection = .safety(.cleaning) },
@@ -136,6 +137,16 @@ struct LariatApp: App {
       } else {
         TileDegrade(
           title: "Temp log unavailable",
+          message: "Could not open the write database.",
+          systemImage: "lock"
+        )
+      }
+    case .safety(.cooling):
+      if let writeDB = sharedWriteDatabase {
+        CoolingView(readDB: database, writeDB: writeDB)
+      } else {
+        TileDegrade(
+          title: "Cooling unavailable",
           message: "Could not open the write database.",
           systemImage: "lock"
         )

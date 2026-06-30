@@ -4,6 +4,7 @@ import SwiftUI
 enum SafetyDestination: String, Hashable, CaseIterable, Identifiable {
     case hub = "Food Safety"
     case tempLog = "Temp log"
+    case cooling = "Cooling"
     case dateMarks = "Date marks"
     case calibrations = "Calibrations"
     case cleaning = "Cleaning"
@@ -13,7 +14,7 @@ enum SafetyDestination: String, Hashable, CaseIterable, Identifiable {
 
     var enabled: Bool {
         switch self {
-        case .hub, .tempLog, .dateMarks, .calibrations: return true
+        case .hub, .tempLog, .cooling, .dateMarks, .calibrations: return true
         case .cleaning, .breaks: return true
         }
     }
