@@ -564,6 +564,8 @@ function EventHeader({ event, onSave }: EventHeaderProps) {
           <span className="label">Min spend ($)</span>
           <input
             type="number"
+            min="0"
+            step="0.01"
             className="input form-field"
             value={minSpend}
             onChange={(e) => setMinSpend(e.target.value)}
