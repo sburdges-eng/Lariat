@@ -17,7 +17,8 @@ function GuestChrome() {
     <style
       dangerouslySetInnerHTML={{
         __html: `
-          .sidebar, .strip, .command, .cmdk-scrim, .skip-link, footer.command { display: none !important; }
+          .sidebar, .strip, .command, .cmdk-scrim, .skip-link, footer.command,
+          .floorplan-trigger, .floorplan-scrim { display: none !important; }
           .main { padding: 0 !important; max-width: none !important; }
           .app { display: block !important; height: auto !important; }
           body { background: #F4F0E8 !important; }

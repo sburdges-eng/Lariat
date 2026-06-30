@@ -27,6 +27,13 @@ describe('BEO share page — guest chrome + notFound legibility', () => {
     expect(PAGE).toMatch(/body\s*\{\s*background:\s*#F4F0E8/i);
   });
 
+  test('GuestChrome also hides the floorplan FAB + overlay (guest cannot surface it)', () => {
+    // The floorplan trigger is a position:fixed FAB outside the cockpit shell,
+    // and a guest could press "M" to open the .floorplan-scrim over the estimate.
+    expect(PAGE).toMatch(/\.floorplan-trigger/);
+    expect(PAGE).toMatch(/\.floorplan-scrim/);
+  });
+
   test('notFound text uses legible literals, not the dark-flippable global tokens', () => {
     // Under the Service Ledger :root palette var(--ink)/var(--muted) resolve to
     // light bone and would go invisible on the cream body GuestChrome sets, so
