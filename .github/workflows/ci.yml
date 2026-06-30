@@ -56,6 +56,9 @@ jobs:
       - name: schema-migration idempotency
         run: npm run test:schema
 
+      - name: BEO estimate + food-cost + min-spend tests
+        run: npm run test:beo
+
       - name: stamp build version (V.I.NN.NNN)
         run: npm run version:stamp
 

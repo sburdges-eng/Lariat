@@ -15,6 +15,8 @@
     "typecheck:scripts": "tsc -p tsconfig.scripts.json --noEmit",
     "test:i18n": "node --experimental-strip-types --test tests/js/test-i18n-catalog.mjs",
     "test:beo-estimate": "node --experimental-strip-types --test tests/js/test-beo-estimate.mjs",
+    "test:beo-food-cost": "node --experimental-strip-types --test tests/js/test-beo-food-cost.mjs",
+    "test:beo": "node --experimental-strip-types --test tests/js/test-beo-estimate.mjs tests/js/test-beo-food-cost.mjs tests/js/test-beo-update-event-partial-patch.mjs",
     "verify": "npm run typecheck && npm run test:unit && npm run test:rules && npm run test:i18n && npm run test:purchasing-vendor && npm run test:beo-estimate && npm run build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
