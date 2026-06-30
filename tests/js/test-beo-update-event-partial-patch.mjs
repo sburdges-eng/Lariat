@@ -113,3 +113,61 @@ describe("POST /api/beo action='update_event' — partial patch preserves omitte
     assert.strictEqual(after.service_fee_pct, before.service_fee_pct);
   });
 });
+
+describe('POST /api/beo — min_spend (Increment 2)', () => {
+  it('create (action=event) persists a numeric min_spend', async () => {
+    const res = await POST(postReq({ action: 'event', title: 'Gala Dinner', min_spend: 2500 }));
+    assert.strictEqual(res.status, 200);
+    const { id } = await res.json();
+    const row = testDb.prepare('SELECT min_spend FROM beo_events WHERE id = ?').get(id);
+    assert.strictEqual(row.min_spend, 2500);
+  });
+
+  it('create rejects a negative min_spend with 400', async () => {
+    const res = await POST(postReq({ action: 'event', title: 'Bad Min', min_spend: -5 }));
+    assert.strictEqual(res.status, 400);
+  });
+
+  it('create with no min_spend leaves it NULL', async () => {
+    const res = await POST(postReq({ action: 'event', title: 'No Min' }));
+    const { id } = await res.json();
+    const row = testDb.prepare('SELECT min_spend FROM beo_events WHERE id = ?').get(id);
+    assert.strictEqual(row.min_spend, null);
+  });
+
+  it('update patches only min_spend, preserving other columns', async () => {
+    const id = await seedEvent(POST);
+    const before = testDb.prepare('SELECT * FROM beo_events WHERE id = ?').get(id);
+    const res = await POST(postReq({ action: 'update_event', id, min_spend: 1800 }));
+    assert.strictEqual(res.status, 200);
+    const after = testDb.prepare('SELECT * FROM beo_events WHERE id = ?').get(id);
+    assert.strictEqual(after.min_spend, 1800);
+    assert.strictEqual(after.title, before.title);
+    assert.strictEqual(after.tax_rate, before.tax_rate);
+    assert.strictEqual(after.service_fee_pct, before.service_fee_pct);
+    assert.strictEqual(after.event_time, before.event_time);
+  });
+
+  it('update preserves min_spend when the patch omits it', async () => {
+    const id = await seedEvent(POST);
+    await POST(postReq({ action: 'update_event', id, min_spend: 1800 }));
+    await POST(postReq({ action: 'update_event', id, event_time: '6-9pm' }));
+    const row = testDb.prepare('SELECT min_spend, event_time FROM beo_events WHERE id = ?').get(id);
+    assert.strictEqual(row.min_spend, 1800);
+    assert.strictEqual(row.event_time, '6-9pm');
+  });
+
+  it('update clears min_spend when an empty value is sent', async () => {
+    const id = await seedEvent(POST);
+    await POST(postReq({ action: 'update_event', id, min_spend: 2000 }));
+    await POST(postReq({ action: 'update_event', id, min_spend: '' }));
+    const row = testDb.prepare('SELECT min_spend FROM beo_events WHERE id = ?').get(id);
+    assert.strictEqual(row.min_spend, null);
+  });
+
+  it('update rejects a negative min_spend with 400', async () => {
+    const id = await seedEvent(POST);
+    const res = await POST(postReq({ action: 'update_event', id, min_spend: -1 }));
+    assert.strictEqual(res.status, 400);
+  });
+});
