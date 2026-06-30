@@ -96,6 +96,83 @@ test('formats course fire_at ISO-8601 as 12-hour time, not raw ISO', () => {
   expect(container.querySelector('.ed-schedule-time').textContent.trim()).not.toBe('');
 });
 
+// ── Increment 2: operator food-cost overlay + F&B-minimum meter ──────────────
+const foodCosts = {
+  perLine: [{ id: 1, cost: 1.2, link_state: 'fully_linked', food_cost_pct: 0.3 }],
+  blended: { pct: 0.3, costedCount: 1, unlinkedCount: 0 },
+};
+
+test('operator: renders per-line food-cost chip, blended line, and min-spend meter', () => {
+  const { container } = render(
+    <EstimateDocument {...base} register="operator" foodCosts={foodCosts} minSpend={500} />,
+  );
+  const chip = container.querySelector('.ed-food-chip');
+  expect(chip).toBeTruthy();
+  expect(chip.textContent).toMatch(/food\s*30%/i);
+  expect(chip.getAttribute('data-print')).toBe('false');
+
+  const blended = container.querySelector('.ed-food-blended');
+  expect(blended).toBeTruthy();
+  expect(blended.textContent).toMatch(/30%/);
+  expect(blended.textContent).toMatch(/1 linked/);
+  expect(blended.getAttribute('data-print')).toBe('false');
+
+  // subtotal 240 < minSpend 500 -> under by $260.00
+  const meter = container.querySelector('.ed-min-meter');
+  expect(meter).toBeTruthy();
+  expect(meter.classList.contains('under')).toBe(true);
+  expect(meter.textContent).toMatch(/under by \$260\.00/);
+  expect(meter.getAttribute('data-print')).toBe('false');
+});
+
+test('client: food-cost chips, blended line, and meter are absent from the DOM (invariant 1)', () => {
+  const { container } = render(
+    <EstimateDocument {...base} register="client" foodCosts={foodCosts} minSpend={500} />,
+  );
+  expect(container.querySelector('.ed-food-chip')).toBeNull();
+  expect(container.querySelector('.ed-food-blended')).toBeNull();
+  expect(container.querySelector('.ed-min-meter')).toBeNull();
+});
+
+test('operator: unlinked line shows "not linked"; meter reads met/over when subtotal >= min', () => {
+  const fc = {
+    perLine: [{ id: 1, cost: null, link_state: 'unlinked', food_cost_pct: null }],
+    blended: { pct: null, costedCount: 0, unlinkedCount: 1 },
+  };
+  const { container } = render(
+    <EstimateDocument {...base} register="operator" foodCosts={fc} minSpend={100} />,
+  );
+  expect(container.querySelector('.ed-food-chip').textContent).toMatch(/not linked/i);
+  // subtotal 240 >= 100 -> met, over by $140.00
+  const meter = container.querySelector('.ed-min-meter');
+  expect(meter.classList.contains('met')).toBe(true);
+  expect(meter.textContent).toMatch(/over by \$140\.00/);
+});
+
+test('operator: meter omitted when minSpend null; food overlay omitted when foodCosts absent', () => {
+  const { container: noMeter } = render(
+    <EstimateDocument {...base} register="operator" foodCosts={foodCosts} minSpend={null} />,
+  );
+  expect(noMeter.querySelector('.ed-min-meter')).toBeNull();
+  expect(noMeter.querySelector('.ed-food-chip')).toBeTruthy();
+
+  const { container: noFood } = render(
+    <EstimateDocument {...base} register="operator" minSpend={500} />,
+  );
+  expect(noFood.querySelector('.ed-food-chip')).toBeNull();
+  expect(noFood.querySelector('.ed-food-blended')).toBeNull();
+  expect(noFood.querySelector('.ed-min-meter')).toBeTruthy();
+});
+
+test('totals (subtotal/total) are unchanged by the overlay (invariant 3)', () => {
+  const { container } = render(
+    <EstimateDocument {...base} register="operator" foodCosts={foodCosts} minSpend={500} />,
+  );
+  expect(screen.getByText('$307.56')).toBeInTheDocument(); // grand total (unique)
+  // subtotal cell specifically ($240.00 also appears as the single line's extended total)
+  expect(container.querySelector('.ed-sub .ed-tval').textContent).toBe('$240.00');
+});
+
 test('renders Notes section when event.notes is present, omits it when absent', () => {
   const eventWithNotes = { ...base.event, notes: 'Please arrange flowers on tables.' };
   const { container: withNotes } = render(

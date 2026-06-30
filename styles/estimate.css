@@ -272,6 +272,51 @@
   text-align: right;
 }
 
+/* ---- Operator food-cost overlay + F&B-minimum meter (Increment 2) ---- */
+/* All operator-only; gated by data-print="false" (+ conditional render) so they
+   never reach a client or a printed copy. */
+.estimate-doc .ed-food-chip {
+  margin-top: 3px;
+  font-family: var(--mono, monospace);
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--brass-deep, #946826);
+}
+
+.estimate-doc .ed-trow.ed-food-blended {
+  margin-top: 4px;
+}
+
+.estimate-doc .ed-trow.ed-food-blended .ed-tlab,
+.estimate-doc .ed-trow.ed-food-blended .ed-tval {
+  font-family: var(--mono, monospace);
+  font-size: 11px;
+  color: var(--slate);
+}
+
+.estimate-doc .ed-min-meter {
+  margin: 10px 38px 0;
+  padding: 8px 14px;
+  border-radius: 3px;
+  font-family: var(--sans, system-ui, sans-serif);
+  font-size: 12.5px;
+  font-weight: 600;
+  border-left: 3px solid var(--slate);
+}
+
+.estimate-doc .ed-min-meter.met {
+  background: #EEF3EE;
+  border-left-color: #3f5648;
+  color: #2f4438;
+}
+
+.estimate-doc .ed-min-meter.under {
+  background: #FBF0E9;
+  border-left-color: var(--brass, #A8772F);
+  color: var(--brass-deep, #946826);
+}
+
 /* ---- Footer ---- */
 .estimate-doc .ed-footer {
   padding: 22px 38px 34px;

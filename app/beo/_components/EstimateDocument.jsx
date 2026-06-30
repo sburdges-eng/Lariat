@@ -47,9 +47,20 @@ export default function EstimateDocument({
   signatures = [],
   register = 'client',
   signSlot,
+  foodCosts = null, // Increment 2: { perLine: LineFoodCost[], blended: BlendedFoodCost } | null
+  minSpend = null,  // Increment 2: operator-set F&B minimum spend ($) | null
 }) {
   const { title, contact_name, event_date, event_time, guest_count, tax_rate, service_fee_pct } = event;
   const { subtotal, serviceFee, tax, total } = totals;
+
+  // Increment 2 (operator-only overlay): per-line food-cost lookup + helpers.
+  // These nodes are conditionally rendered for register==='operator' AND marked
+  // data-print="false" so they never reach a client OR a printed copy.
+  const isOperator = register === 'operator';
+  const foodCostById = new Map((foodCosts?.perLine ?? []).map((p) => [p.id, p]));
+  const pctLabel = (p) => (p == null ? null : `${Math.round(p * 100)}%`);
+  const subtotalNum = Number(subtotal ?? 0);
+  const minMet = minSpend != null && subtotalNum >= Number(minSpend);
 
   return (
     <article className={`estimate-doc ${register}`}>
@@ -165,10 +176,18 @@ export default function EstimateDocument({
             <div className="ed-rows">
               {(section.items || []).map((item) => {
                 const lineTotal = Number(item.unit_cost || 0) * Number(item.quantity || 0);
+                const fc = isOperator && foodCosts ? foodCostById.get(item.id) : null;
                 return (
                   <div key={item.id} className="ed-row">
                     <div>
                       <div className="ed-r-name">{item.item_name}</div>
+                      {isOperator && foodCosts && (
+                        <div className="ed-food-chip" data-print="false">
+                          {fc && fc.food_cost_pct != null
+                            ? `food ${pctLabel(fc.food_cost_pct)}`
+                            : '— not linked'}
+                        </div>
+                      )}
                     </div>
                     <div className="ed-r-qty ed-num">{item.quantity}</div>
                     <div className="ed-r-ext ed-num">
@@ -208,6 +227,18 @@ export default function EstimateDocument({
             <span className="ed-tval">{formatDollars(tax)}</span>
           </div>
           <hr className="ed-divider" />
+          {/* Operator-only blended food-cost estimate (floor over linked lines). */}
+          {isOperator && foodCosts?.blended && (
+            <div className="ed-trow ed-food-blended" data-print="false">
+              <span className="ed-tlab">Food cost (est.)</span>
+              <span className="ed-tval">
+                {foodCosts.blended.pct != null
+                  ? `≥${pctLabel(foodCosts.blended.pct)} · margin ≤${100 - Math.round(foodCosts.blended.pct * 100)}%`
+                  : '—'}
+                {` · ${foodCosts.blended.costedCount} linked / ${foodCosts.blended.unlinkedCount} not linked`}
+              </span>
+            </div>
+          )}
         </div>
       </section>
 
@@ -216,6 +247,16 @@ export default function EstimateDocument({
         <span className="ed-total-label">Estimated Total</span>
         <span className="ed-total-fig">{formatDollars(total)}</span>
       </div>
+
+      {/* ---- F&B MINIMUM METER (operator only) ---- */}
+      {isOperator && minSpend != null && (
+        <div className={`ed-min-meter ${minMet ? 'met' : 'under'}`} data-print="false">
+          F&amp;B minimum {formatDollars(minSpend)} ·{' '}
+          {minMet
+            ? `minimum met — over by ${formatDollars(subtotalNum - Number(minSpend))}`
+            : `under by ${formatDollars(Number(minSpend) - subtotalNum)}`}
+        </div>
+      )}
 
       {/* ---- NOTES ---- */}
       {event.notes && (
