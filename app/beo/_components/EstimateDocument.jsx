@@ -182,7 +182,10 @@ export default function EstimateDocument({
                     <div>
                       <div className="ed-r-name">{item.item_name}</div>
                       {isOperator && foodCosts && (
-                        <div className="ed-food-chip" data-print="false">
+                        <div
+                          className={`ed-food-chip${fc && fc.food_cost_pct != null && fc.food_cost_pct > 1 ? ' ed-food-chip--under' : ''}`}
+                          data-print="false"
+                        >
                           {fc && fc.food_cost_pct != null
                             ? `food ${pctLabel(fc.food_cost_pct)}`
                             : '— not linked'}
@@ -229,7 +232,10 @@ export default function EstimateDocument({
           <hr className="ed-divider" />
           {/* Operator-only blended food-cost estimate (floor over linked lines). */}
           {isOperator && foodCosts?.blended && (
-            <div className="ed-trow ed-food-blended" data-print="false">
+            <div
+              className={`ed-trow ed-food-blended${foodCosts.blended.pct != null && foodCosts.blended.pct > 1 ? ' ed-food-blended--under' : ''}`}
+              data-print="false"
+            >
               <span className="ed-tlab">Food cost (est.)</span>
               <span className="ed-tval">
                 {foodCosts.blended.pct != null

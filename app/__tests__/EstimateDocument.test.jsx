@@ -173,6 +173,38 @@ test('totals (subtotal/total) are unchanged by the overlay (invariant 3)', () =>
   expect(container.querySelector('.ed-sub .ed-tval').textContent).toBe('$240.00');
 });
 
+test('operator: underwater line + blended margin get the --under warning class (raw numbers kept)', () => {
+  const fc = {
+    perLine: [
+      { id: 1, cost: 5.2, link_state: 'fully_linked', food_cost_pct: 1.3 },  // 130% -> -30% margin
+      { id: 2, cost: 1.1, link_state: 'fully_linked', food_cost_pct: 0.28 }, // healthy
+    ],
+    blended: { pct: 1.1, costedCount: 2, unlinkedCount: 0 }, // underwater blended
+  };
+  const sections = [
+    { label: 'Passed', items: [
+      { id: 1, item_name: 'Loss Leader', unit_cost: 4, quantity: 60 },
+      { id: 2, item_name: 'Healthy Item', unit_cost: 4, quantity: 60 },
+    ] },
+  ];
+  const { container } = render(
+    <EstimateDocument {...base} sections={sections} register="operator" foodCosts={fc} />,
+  );
+  const chips = [...container.querySelectorAll('.ed-food-chip')];
+  const underChip = chips.find((c) => /130%/.test(c.textContent));
+  const healthyChip = chips.find((c) => /28%/.test(c.textContent));
+  // raw numbers preserved
+  expect(underChip.textContent).toMatch(/food\s*130%/i);
+  expect(healthyChip.textContent).toMatch(/food\s*28%/i);
+  // only the underwater line carries the warning class
+  expect(underChip.classList.contains('ed-food-chip--under')).toBe(true);
+  expect(healthyChip.classList.contains('ed-food-chip--under')).toBe(false);
+  // blended underwater row is flagged; raw negative margin kept
+  const blended = container.querySelector('.ed-food-blended');
+  expect(blended.classList.contains('ed-food-blended--under')).toBe(true);
+  expect(blended.textContent).toMatch(/margin ≤-10%/);
+});
+
 test('renders Notes section when event.notes is present, omits it when absent', () => {
   const eventWithNotes = { ...base.event, notes: 'Please arrange flowers on tables.' };
   const { container: withNotes } = render(
