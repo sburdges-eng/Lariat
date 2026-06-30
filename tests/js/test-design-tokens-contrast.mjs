@@ -7,9 +7,12 @@ import { readFileSync } from 'node:fs';
 
 const css = readFileSync(new URL('../../styles/tokens.css', import.meta.url), 'utf8');
 
-// Reads the FIRST literal-hex definition of a token. The :root dark block must
-// precede .paper / .k-night in tokens.css or this would read the wrong surface.
-const tok = (n) => (css.match(new RegExp(`--${n}\\s*:\\s*(#[0-9a-fA-F]{6})`)) || [])[1];
+// Reads a literal-hex token from the :root{} block specifically (the dark
+// default surface), so the checks follow selector scope rather than file order
+// — reordering .paper / .k-night can no longer make this read the wrong surface
+// (mirrors tokPaper()).
+const rootBlock = css.match(/:root\s*\{([^}]+)\}/s)?.[1] ?? '';
+const tok = (n) => (rootBlock.match(new RegExp(`--${n}\\s*:\\s*(#[0-9a-fA-F]{6})`)) || [])[1];
 
 // Reads a literal-hex token from the .paper{} block specifically
 const tokPaper = (n) => {

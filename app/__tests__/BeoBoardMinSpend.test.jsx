@@ -21,4 +21,13 @@ describe('BeoBoard — min_spend editor wiring', () => {
   test('EventHeader commits min_spend from a numeric input', () => {
     expect(SRC).toMatch(/commit\(\{\s*min_spend/);
   });
+
+  test('min-spend input is constrained to non-negative (min="0")', () => {
+    // The API rejects a negative min_spend with a 400 (surfaced only as a generic
+    // "Didn't save"); the browser should block negatives up front. Capture the
+    // <input> tag up to value={minSpend} (attributes precede the JSX arrow
+    // handlers, whose `=>` would otherwise break a [^>] scan).
+    const head = SRC.match(/<input\b[^>]*value=\{minSpend\}/s)?.[0] ?? '';
+    expect(head).toMatch(/min="0"/);
+  });
 });
