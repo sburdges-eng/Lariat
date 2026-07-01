@@ -34,6 +34,7 @@ enum FeatureRegistry {
         .safetyHaccpPlan,
         // Labor
         .laborCerts,
+        .laborSickLeave,
         // Manager
         .managerCommand,
         .managerAnalytics,

@@ -59,6 +59,7 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "safety.haccpPlan", tier: .safety, title: "HACCP plan"),
         // Labor
         FeatureDescriptor(id: "labor.certs", tier: .labor, title: "Certifications"),
+        FeatureDescriptor(id: "labor.sickLeave", tier: .labor, title: "Sick time"),
         // Manager
         FeatureDescriptor(id: "manager.command", tier: .manager, title: "Command"),
         FeatureDescriptor(id: "manager.analytics", tier: .manager, title: "Analytics"),

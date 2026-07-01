@@ -15,4 +15,15 @@ extension FeatureModule {
             systemImage: "lock"
         ))
     }
+
+    static let laborSickLeave = FeatureModule(id: "labor.sickLeave") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(SickLeaveView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Sick time unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
 }
