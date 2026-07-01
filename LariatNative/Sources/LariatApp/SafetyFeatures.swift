@@ -29,6 +29,17 @@ extension FeatureModule {
         ))
     }
 
+    static let safetyReceiving = FeatureModule(id: "safety.receiving") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(ReceivingView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Receiving unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
+
     static let safetyDateMarks = FeatureModule(id: "safety.dateMarks") { ctx in
         if let writeDB = ctx.writeDatabase {
             return AnyView(DateMarkView(readDB: ctx.database, writeDB: writeDB))
