@@ -48,6 +48,14 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertEqual(plan?.enabled, true)
     }
 
+    func testMorningIsPresent() {
+        let morning = FeatureCatalog.descriptor(id: "cook.morning")
+        XCTAssertNotNil(morning, "cook.morning must be registered")
+        XCTAssertEqual(morning?.tier, .cook)
+        XCTAssertEqual(morning?.title, "Morning")
+        XCTAssertEqual(morning?.enabled, true)
+    }
+
     func testA1WaveBoardsAllRegistered() {
         for id in [
             "safety.sanitizer", "safety.tphc", "safety.pest", "safety.sds",

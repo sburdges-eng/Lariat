@@ -46,4 +46,12 @@ extension FeatureModule {
             systemImage: "lock"
         ))
     }
+
+    /// Morning digest — a PIN-gated, read-only aggregate. The digest reads via the
+    /// read DB; the write DB is passed only so the PIN gate (PinEntrySheet) can
+    /// unlock the surface, mirroring the web /morning manager-PIN gate. When the
+    /// write DB is unavailable, MorningView degrades to a locked state on its own.
+    static let cookMorning = FeatureModule(id: "cook.morning") { ctx in
+        AnyView(MorningView(database: ctx.database, writeDatabase: ctx.writeDatabase))
+    }
 }

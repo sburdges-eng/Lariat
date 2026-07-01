@@ -14,6 +14,7 @@ enum FeatureRegistry {
         .cookEightySix,
         .cookStations,
         .cookKds,
+        .cookMorning,
         // Safety
         .safetyHub,
         .safetyTempLog,
