@@ -72,4 +72,15 @@ extension FeatureModule {
             systemImage: "lock"
         ))
     }
+
+    static let safetySickWorker = FeatureModule(id: "safety.sickWorker") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(SickWorkerView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Sick worker board unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
 }

@@ -32,4 +32,11 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertEqual(cooling?.tier, .safety)
         XCTAssertEqual(cooling?.title, "Cooling")
     }
+
+    func testSickWorkerIsPresent() {
+        let sick = FeatureCatalog.descriptor(id: "safety.sickWorker")
+        XCTAssertNotNil(sick, "safety.sickWorker must be registered")
+        XCTAssertEqual(sick?.tier, .safety)
+        XCTAssertEqual(sick?.title, "Sick worker")
+    }
 }
