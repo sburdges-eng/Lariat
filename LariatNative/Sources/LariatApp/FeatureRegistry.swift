@@ -18,6 +18,7 @@ enum FeatureRegistry {
         .safetyHub,
         .safetyTempLog,
         .safetyCooling,
+        .safetySanitizer,
         .safetyDateMarks,
         .safetyCalibrations,
         .safetyCleaning,

@@ -29,6 +29,17 @@ extension FeatureModule {
         ))
     }
 
+    static let safetySanitizer = FeatureModule(id: "safety.sanitizer") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(SanitizerView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Sanitizer unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
+
     static let safetyDateMarks = FeatureModule(id: "safety.dateMarks") { ctx in
         if let writeDB = ctx.writeDatabase {
             return AnyView(DateMarkView(readDB: ctx.database, writeDB: writeDB))
