@@ -156,6 +156,8 @@ public enum LineCheckWriteError: Error, LocalizedError, Equatable {
     case cookRequired
     case stationNotFound
     case unnotedFails(items: [String])
+    case minorProhibited(citation: String, station: String)  // L5
+    case sickExcluded(citation: String)                      // L6
 
     public var errorDescription: String? {
         switch self {
@@ -163,6 +165,10 @@ public enum LineCheckWriteError: Error, LocalizedError, Equatable {
         case .cookRequired: return "Pick your name first"
         case .stationNotFound: return "Station not found"
         case .unnotedFails: return "Note the fix for failed items before signing off"
+        case .minorProhibited(let citation, _):
+            return "This station has equipment minors can't use — \(citation)"
+        case .sickExcluded(let citation):
+            return "This cook is on a reportable-illness exclusion and can't work the line — \(citation)"
         }
     }
 }
