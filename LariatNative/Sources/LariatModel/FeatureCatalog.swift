@@ -36,6 +36,11 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "cook.eightySix", tier: .cook, title: "86"),
         FeatureDescriptor(id: "cook.stations", tier: .cook, title: "Stations"),
         FeatureDescriptor(id: "cook.kds", tier: .cook, title: "KDS"),
+        FeatureDescriptor(id: "cook.prep", tier: .cook, title: "Prep"),
+        FeatureDescriptor(id: "cook.prepPar", tier: .cook, title: "Prep par"),
+        // PIN-gated on the web (/morning is a SENSITIVE_PREFIX); the surface
+        // enforces the PIN itself, so it stays enabled in the catalog.
+        FeatureDescriptor(id: "cook.morning", tier: .cook, title: "Morning"),
         // Safety
         FeatureDescriptor(id: "safety.hub", tier: .safety, title: "Food Safety"),
         FeatureDescriptor(id: "safety.tempLog", tier: .safety, title: "Temp log"),
