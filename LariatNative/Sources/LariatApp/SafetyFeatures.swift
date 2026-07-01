@@ -29,6 +29,17 @@ extension FeatureModule {
         ))
     }
 
+    static let safetyTphc = FeatureModule(id: "safety.tphc") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(TphcView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Time Control unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
+
     static let safetyDateMarks = FeatureModule(id: "safety.dateMarks") { ctx in
         if let writeDB = ctx.writeDatabase {
             return AnyView(DateMarkView(readDB: ctx.database, writeDB: writeDB))
