@@ -32,4 +32,30 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertEqual(cooling?.tier, .safety)
         XCTAssertEqual(cooling?.title, "Cooling")
     }
+
+    func testSickWorkerIsPresent() {
+        let sick = FeatureCatalog.descriptor(id: "safety.sickWorker")
+        XCTAssertNotNil(sick, "safety.sickWorker must be registered")
+        XCTAssertEqual(sick?.tier, .safety)
+        XCTAssertEqual(sick?.title, "Sick worker")
+    }
+
+    func testHaccpPlanIsPresent() {
+        let plan = FeatureCatalog.descriptor(id: "safety.haccpPlan")
+        XCTAssertNotNil(plan, "safety.haccpPlan must be registered")
+        XCTAssertEqual(plan?.tier, .safety)
+        XCTAssertEqual(plan?.title, "HACCP plan")
+        XCTAssertEqual(plan?.enabled, true)
+    }
+
+    func testA1WaveBoardsAllRegistered() {
+        for id in [
+            "safety.sanitizer", "safety.tphc", "safety.pest", "safety.sds",
+            "safety.sickWorker", "safety.receiving", "safety.haccpPlan",
+        ] {
+            let d = FeatureCatalog.descriptor(id: id)
+            XCTAssertNotNil(d, "\(id) must be registered")
+            XCTAssertEqual(d?.tier, .safety, "\(id) must be a safety feature")
+        }
+    }
 }

@@ -72,4 +72,75 @@ extension FeatureModule {
             systemImage: "lock"
         ))
     }
+
+    static let safetySanitizer = FeatureModule(id: "safety.sanitizer") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(SanitizerView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Sanitizer unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
+
+    static let safetyTphc = FeatureModule(id: "safety.tphc") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(TphcView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Time Control unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
+
+    static let safetyPest = FeatureModule(id: "safety.pest") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(PestView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Pest control unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
+
+    static let safetySds = FeatureModule(id: "safety.sds") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(SdsView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "SDS registry unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
+
+    static let safetySickWorker = FeatureModule(id: "safety.sickWorker") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(SickWorkerView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Sick worker board unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
+
+    static let safetyReceiving = FeatureModule(id: "safety.receiving") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(ReceivingView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Receiving unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
+
+    /// Inspector-ready HACCP plan — READ-ONLY aggregate (no write DB needed).
+    static let safetyHaccpPlan = FeatureModule(id: "safety.haccpPlan") { ctx in
+        AnyView(HaccpPlanView(database: ctx.database))
+    }
 }

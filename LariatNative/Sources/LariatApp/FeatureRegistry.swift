@@ -22,6 +22,13 @@ enum FeatureRegistry {
         .safetyCalibrations,
         .safetyCleaning,
         .safetyBreaks,
+        .safetySanitizer,
+        .safetyTphc,
+        .safetyPest,
+        .safetySds,
+        .safetySickWorker,
+        .safetyReceiving,
+        .safetyHaccpPlan,
         // Manager
         .managerCommand,
         .managerAnalytics,
