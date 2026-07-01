@@ -6,6 +6,7 @@ import Foundation
 public enum FeatureTier: String, CaseIterable, Hashable, Sendable {
     case cook = "Cook"
     case safety = "Safety"
+    case labor = "Labor"
     case manager = "Manager"
 }
 
@@ -56,6 +57,8 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "safety.sickWorker", tier: .safety, title: "Sick worker"),
         FeatureDescriptor(id: "safety.receiving", tier: .safety, title: "Receiving"),
         FeatureDescriptor(id: "safety.haccpPlan", tier: .safety, title: "HACCP plan"),
+        // Labor
+        FeatureDescriptor(id: "labor.certs", tier: .labor, title: "Certifications"),
         // Manager
         FeatureDescriptor(id: "manager.command", tier: .manager, title: "Command"),
         FeatureDescriptor(id: "manager.analytics", tier: .manager, title: "Analytics"),
