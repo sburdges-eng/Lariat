@@ -46,4 +46,15 @@ extension FeatureModule {
             systemImage: "lock"
         ))
     }
+
+    static let cookPrepPar = FeatureModule(id: "cook.prepPar") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(PrepParView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Prep par unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
 }
