@@ -72,4 +72,9 @@ extension FeatureModule {
             systemImage: "lock"
         ))
     }
+
+    /// Inspector-ready HACCP plan — READ-ONLY aggregate (no write DB needed).
+    static let safetyHaccpPlan = FeatureModule(id: "safety.haccpPlan") { ctx in
+        AnyView(HaccpPlanView(database: ctx.database))
+    }
 }

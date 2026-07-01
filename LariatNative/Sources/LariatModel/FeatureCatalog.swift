@@ -44,6 +44,7 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "safety.calibrations", tier: .safety, title: "Calibrations"),
         FeatureDescriptor(id: "safety.cleaning", tier: .safety, title: "Cleaning"),
         FeatureDescriptor(id: "safety.breaks", tier: .safety, title: "Breaks"),
+        FeatureDescriptor(id: "safety.haccpPlan", tier: .safety, title: "HACCP plan"),
         // Manager
         FeatureDescriptor(id: "manager.command", tier: .manager, title: "Command"),
         FeatureDescriptor(id: "manager.analytics", tier: .manager, title: "Analytics"),

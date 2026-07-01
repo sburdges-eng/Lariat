@@ -32,4 +32,12 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertEqual(cooling?.tier, .safety)
         XCTAssertEqual(cooling?.title, "Cooling")
     }
+
+    func testHaccpPlanIsPresent() {
+        let plan = FeatureCatalog.descriptor(id: "safety.haccpPlan")
+        XCTAssertNotNil(plan, "safety.haccpPlan must be registered")
+        XCTAssertEqual(plan?.tier, .safety)
+        XCTAssertEqual(plan?.title, "HACCP plan")
+        XCTAssertEqual(plan?.enabled, true)
+    }
 }
