@@ -223,6 +223,29 @@ final class KdsTicketRepositoryTests: XCTestCase {
         }
     }
 
+    /// Web `parseTicketId` REJECTS (400) an over-length id rather than truncating.
+    /// Pin reject-don't-coerce: a 201-char id throws even when its 200-char prefix
+    /// IS a real ticket — the prefix ticket must NOT be bumped by a truncated match.
+    func testOverLengthTicketIdRejectedNotTruncated() throws {
+        let (readDB, writeDB, auditPath, dbPath) = try makeRepos()
+        defer { cleanup(dbPath: dbPath, auditPath: auditPath) }
+        let prefix = String(repeating: "a", count: 200)   // a real ticket id (at the limit)
+        try seedTicket(writeDB, id: prefix)
+        let repo = KdsTicketRepository(readDB: readDB, writeDB: writeDB, auditLogger: ManagementAuditLogger(auditPath: auditPath))
+
+        // 201 chars whose 200-char prefix collides with the seeded ticket → must reject.
+        XCTAssertThrowsError(try repo.bump(ticketId: prefix + "b", input: KdsBumpInput(), context: .nativeCook(cookId: nil))) { err in
+            XCTAssertEqual(err as? KdsWriteError, .ticketIdRequired)
+        }
+        try writeDB.pool.read { db in
+            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM kds_ticket_states") ?? -1, 0,
+                           "over-length bump must not truncate-and-match the prefix ticket")
+        }
+        // Boundary: exactly 200 chars is accepted (matches web's `> 200` reject).
+        let ok = try repo.bump(ticketId: prefix, input: KdsBumpInput(), context: .nativeCook(cookId: nil))
+        XCTAssertEqual(ok.id, prefix)
+    }
+
     /// 422-equivalent: non-canonical ISO-8601 bumped_at → validationFailed, no write.
     func testNonCanonicalIsoRejected() throws {
         let (readDB, writeDB, auditPath, dbPath) = try makeRepos()

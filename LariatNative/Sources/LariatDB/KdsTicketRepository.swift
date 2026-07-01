@@ -155,7 +155,12 @@ public struct KdsTicketRepository: Sendable {
     /// `WHERE bumped_at IS NULL`). That reconciliation is a product decision.
     @discardableResult
     public func bump(ticketId rawTicketId: String, input: KdsBumpInput, context: RegulatedWriteContext) throws -> KdsBumpResult {
-        guard let ticketId = clip(rawTicketId, max: 200) else { throw KdsWriteError.ticketIdRequired }
+        // Web `parseTicketId` (route.js) REJECTS an over-length id (400) — it does
+        // not truncate. Mirror that: trim, then reject empty or > 200 chars rather
+        // than clip-truncating (which could otherwise look up a truncated id).
+        let trimmedId = rawTicketId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedId.isEmpty, trimmedId.count <= 200 else { throw KdsWriteError.ticketIdRequired }
+        let ticketId = trimmedId
 
         let validated: (bumpedAt: String?, station: String?, cookPin: String?)
         switch KdsBumpRules.validateBumpPayload(bumpedAt: input.bumpedAt, station: input.station, cookPin: input.cookPin) {

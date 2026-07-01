@@ -35,6 +35,22 @@ final class KdsBumpRulesTests: XCTestCase {
         XCTAssertFalse(KdsBumpRules.isIso8601Utc(nil))
     }
 
+    /// Regression guard for a Foundation footgun: `ISO8601DateFormatter`'s
+    /// fractional-second round-trip can floating-point-truncate on some versions
+    /// (a `.123` reformatting as `.122`), which would spuriously reject a canonical
+    /// `bumped_at` a real KDS client sends — web (V8 integer-ms) never does this.
+    /// Empirically clean for the legacy formatter today; this pins it so a future
+    /// Foundation change can't silently regress bump validation.
+    func testIsIso8601UtcMillisecondRoundTrip() {
+        let bases = ["2026-05-04T18:42:11", "2026-01-01T00:00:00", "2025-12-31T23:59:59"]
+        for base in bases {
+            for ms in 0..<1000 {
+                let s = "\(base).\(String(format: "%03d", ms))Z"
+                XCTAssertTrue(KdsBumpRules.isIso8601Utc(s), "canonical \(s) must round-trip")
+            }
+        }
+    }
+
     // ── hashPin (oracle §hashPin) ──────────────────────────────────────
     func testHashPin() {
         let h = KdsBumpRules.hashPin("1234")
