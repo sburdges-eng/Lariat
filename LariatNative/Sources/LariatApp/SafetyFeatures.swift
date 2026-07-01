@@ -72,4 +72,15 @@ extension FeatureModule {
             systemImage: "lock"
         ))
     }
+
+    static let safetyPest = FeatureModule(id: "safety.pest") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(PestView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Pest control unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
 }
