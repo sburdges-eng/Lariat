@@ -37,4 +37,15 @@ extension FeatureModule {
             systemImage: "lock"
         ))
     }
+
+    static let laborWageNotices = FeatureModule(id: "labor.wageNotices") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(WageNoticeView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Wage notices unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
 }

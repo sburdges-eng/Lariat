@@ -94,6 +94,11 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertNotNil(tips, "labor.tipPool must be registered")
         XCTAssertEqual(tips?.tier, .labor)
         XCTAssertEqual(tips?.title, "Tip pool")
+        // L4: wage-notices board registered under the same tier.
+        let wage = FeatureCatalog.descriptor(id: "labor.wageNotices")
+        XCTAssertNotNil(wage, "labor.wageNotices must be registered")
+        XCTAssertEqual(wage?.tier, .labor)
+        XCTAssertEqual(wage?.title, "Wage notices")
         // The tier must not be empty (guards testEveryTierHasAtLeastOneModule).
         XCTAssertFalse(FeatureCatalog.descriptors(for: .labor).isEmpty)
     }

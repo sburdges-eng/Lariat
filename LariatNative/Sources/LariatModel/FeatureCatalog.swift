@@ -61,6 +61,7 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "labor.certs", tier: .labor, title: "Certifications"),
         FeatureDescriptor(id: "labor.sickLeave", tier: .labor, title: "Sick time"),
         FeatureDescriptor(id: "labor.tipPool", tier: .labor, title: "Tip pool"),
+        FeatureDescriptor(id: "labor.wageNotices", tier: .labor, title: "Wage notices"),
         // Manager
         FeatureDescriptor(id: "manager.command", tier: .manager, title: "Command"),
         FeatureDescriptor(id: "manager.analytics", tier: .manager, title: "Analytics"),
