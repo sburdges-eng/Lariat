@@ -62,6 +62,17 @@ extension FeatureModule {
         ))
     }
 
+    static let safetySds = FeatureModule(id: "safety.sds") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(SdsView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "SDS registry unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
+
     static let safetyBreaks = FeatureModule(id: "safety.breaks") { ctx in
         if let writeDB = ctx.writeDatabase {
             return AnyView(BreakBoardView(readDB: ctx.database, writeDB: writeDB))
