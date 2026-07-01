@@ -29,7 +29,7 @@
 | T4 | sds | `app/food-safety/sds/SdsBoard.jsx` | `app/api/sds/route.ts` | `lib/sds.ts` | `test-sds-rules.mjs`, `test-sds-api.mjs` | `safety.sds` | safety-data-sheet registry |
 | T5 | sick-worker | `app/food-safety/sick-worker/SickWorkerBoard.jsx` | `app/api/sick-worker/route.js` | `lib/sickWorker.ts`, `lib/sickWorkerGate.ts` | `tests/js/test-sick-worker-rules.mjs` (run via `npm run test:sick-worker`) | `safety.sickWorker` | FDA Big-6 exclusion/restriction gate; port `sickWorkerGate` logic faithfully |
 | T6 | receiving | `app/food-safety/receiving/ReceivingBoard.jsx` | `app/api/receiving/route.js` **only** | `lib/receiving.ts` | `test-receiving-rules.mjs`, `test-receiving-api.mjs` | `safety.receiving` | **scope = the receiving temp-check board only.** `app/api/receiving/matches/**` is management tier (A5) — do NOT port here |
-| T7 | haccp-plan | `app/food-safety/haccp-plan/page.jsx` (no Board component) | `app/api/food-safety/haccp-plan/route.js` | `lib/haccpPlan.ts` | none | `safety.haccpPlan` | **Different shape** — likely a read-mostly plan-document view, not a regulated-write log. Agent must assess first (see T7). |
+| T7 | haccp-plan | `app/food-safety/haccp-plan/page.jsx` (no Board component) | `app/api/food-safety/haccp-plan/route.js` (**GET-only**) | `lib/haccpPlan.ts` (`buildHaccpPlan`) | none (pure aggregate) | `safety.haccpPlan` | **Confirmed read-only aggregate view** — no writes/audit/RuleGate. Ports `buildHaccpPlan` (CCPs + cooling summary + calibration records). |
 
 ---
 
@@ -43,11 +43,14 @@ Each is an independent `swift-port` dispatch following the proven cooling/temp-l
 - [ ] **Step 4: Verify (dispatcher)** — re-run `swift build` + `swift test` in the worktree; `git diff` shows only the board's `LariatNative/` files + the two registry appends; spot-check the ported thresholds/citations against the lib module.
 - [ ] **Step 5: Integrate serially** — merge `feat/native-<board>` into `feat/lariat-native-port`, resolving the `FeatureCatalog.all` / `FeatureRegistry.all` append conflicts (keep all entries). Re-run `swift build` + `swift test` on the integration branch. Commit the merge.
 
-### Task T7: haccp-plan (assess-first)
+### Task T7: haccp-plan (read-only aggregate view)
 
-- [ ] **Step 1: Assess** — dispatch a `swift-port` agent to first read `app/food-safety/haccp-plan/page.jsx`, `app/api/food-safety/haccp-plan/route.js`, and `lib/haccpPlan.ts` and report: is this a **read-only plan-document view** or does it have **regulated writes**?
-- [ ] **Step 2: Port to its actual shape** — if read-only, port a read-only `HaccpPlanView` + repository (no audited-write path, no RuleGate); if it has writes, follow the T1–T6 recipe. Register via A0 (`safety.haccpPlan`).
-- [ ] **Step 3: Verify + integrate** as in T1–T6 Steps 4–5. If the assessment shows it is purely static/derived with no native value yet, **defer it** and note that in the wave report rather than porting a stub.
+Confirmed by inspection: `app/api/food-safety/haccp-plan/route.js` is **GET-only** (no INSERT/UPDATE/`audit_events`), and `lib/haccpPlan.ts` exposes a pure `buildHaccpPlan(locationId, today): HaccpPlan` that assembles CCPs + a cooling summary + calibration records. So this is a read-only aggregate, **not** a regulated-write board — no `LariatWriteDatabase`, no audited write, no `RuleGate`.
+
+- [ ] **Step 1:** Port `buildHaccpPlan` as a pure `HaccpPlanCompute` in `LariatModel` (mirror the `HaccpPlan` / `HaccpPlanCcp` / `HaccpCoolingSummary` / `HaccpCalibrationSection` structs), with value-parity tests first (`Tests/LariatModelTests/`).
+- [ ] **Step 2:** Add a **read-only** `HaccpPlanRepository` (reads CCP/cooling/calibration rows via `LariatDatabase` only) + a document-style `HaccpPlanView`. Repository tests use in-memory GRDB fixtures.
+- [ ] **Step 3:** Register via A0 (`safety.haccpPlan`); verify + serial-integrate as in T1–T6 Steps 4–5.
+- Note: it aggregates cooling + calibration data native already reads, so it can run **in parallel** with T1–T6 (it reads DB tables regardless of the other ports' status).
 
 ### Final integration gate
 
