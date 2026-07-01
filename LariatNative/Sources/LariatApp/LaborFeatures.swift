@@ -26,4 +26,15 @@ extension FeatureModule {
             systemImage: "lock"
         ))
     }
+
+    static let laborTipPool = FeatureModule(id: "labor.tipPool") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(TipPoolView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Tip pool unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
 }

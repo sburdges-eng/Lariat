@@ -35,6 +35,7 @@ enum FeatureRegistry {
         // Labor
         .laborCerts,
         .laborSickLeave,
+        .laborTipPool,
         // Manager
         .managerCommand,
         .managerAnalytics,
