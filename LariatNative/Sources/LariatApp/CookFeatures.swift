@@ -46,4 +46,19 @@ extension FeatureModule {
             systemImage: "lock"
         ))
     }
+
+    static let cookPrep = FeatureModule(id: "cook.prep") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(PrepView(
+                readDB: ctx.database,
+                writeDB: writeDB,
+                stations: ctx.catalog?.stations ?? []
+            ))
+        }
+        return AnyView(TileDegrade(
+            title: "Prep unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
 }

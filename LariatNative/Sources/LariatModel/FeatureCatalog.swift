@@ -34,6 +34,7 @@ public enum FeatureCatalog {
         // Cook
         FeatureDescriptor(id: "cook.today", tier: .cook, title: "Today"),
         FeatureDescriptor(id: "cook.eightySix", tier: .cook, title: "86"),
+        FeatureDescriptor(id: "cook.prep", tier: .cook, title: "Prep"),
         FeatureDescriptor(id: "cook.stations", tier: .cook, title: "Stations"),
         FeatureDescriptor(id: "cook.kds", tier: .cook, title: "KDS"),
         // Safety

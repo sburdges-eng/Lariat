@@ -12,6 +12,7 @@ enum FeatureRegistry {
         // Cook
         .cookToday,
         .cookEightySix,
+        .cookPrep,
         .cookStations,
         .cookKds,
         // Safety
