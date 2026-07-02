@@ -14,19 +14,26 @@ conversion is *done*, plus the **holistic bar** — the product qualities that m
 app better than the web cockpit, not merely equal to it. Sessions picking up "finish the
 conversion" should drive toward §5 and pull work from §4.
 
-## 1. Scoreboard (as of 2026-07-02)
+## 1. Scoreboard (updated 2026-07-02 end-of-run — **Phases A + B COMPLETE**)
 
 | Measure | Web (source of truth) | Native (`origin/main`) |
 |---|---|---|
-| Page routes | 107 (incl. 9 `/v2/*` variants) | 29 registered features (+8 in flight: A4.1 PR #385, A4.2 branch) |
+| Page routes | 107 (incl. 9 `/v2/*` variants) | **~74 boards across 17 tiers** (cook, safety, labor, inventory, manager, costing, purchasing, foh, shows, house, beo + assistant) |
 | API route files | 195 across 71 groups | n/a (direct GRDB reads + audited writes) |
-| Feature areas | ~36 | ~19 covered or in flight |
-| Tests | ~142 `tests/js/test-*` suites | 900 (`swift test`, green) |
+| Feature areas | ~36 | **all operator-facing areas native or edge-logged** |
+| Tests | ~142 `tests/js/test-*` suites | **2,273** (`swift test`, 0 failures) |
 | Guest-facing surfaces | 2 (BEO share/sign, PWA install) | permanently edge (logged in `lariat-native-edge-blockers.md`) |
 
-**Remaining Phase A:** A4 (in flight: A4.1 inventory PR #385, A4.2 costing branch;
-A4.3 menu-engineering + A4.4 purchasing open) · A5 (management writes) · A6 (FOH + events
-+ shows, entirely greenfield). Per-wave plans and risks live in the A4–A6 handoff.
+**Phase A exit reached 2026-07-02** (PRs #384–#397): A0–A6 all merged, every wave
+adversarially verified where money/safety-critical (A5, A6.3, A6.4, Phase B — the
+skeptic panels caught 2 criticals + 12 majors that agent self-reports missed, all
+fixed with regression pins). **Phase B merged** (#399): the assistant runs natively
+against local Ollama with all 10 mutating LLM actions audited + undo-gated.
+Holistic bar: H1 tokens ✓ · H2 state grammar ✓ · H3 ⌘K palette + board search ✓ ·
+H4 menu commands ✓ · H5 shared poller (54 boards, backoff/pause/freshness/⌘R) ✓ ·
+H9 README refreshed ✓. Remaining: H6/H7/H8 (notifications+printing, a11y+iPad,
+signed .app + icon) — these need an .app-bundle/signing-identity decision from the
+owner and are the next polish wave; §2's shut-off test needs a real service day.
 
 ## 2. The endgame test (north-star, checkable)
 
@@ -88,14 +95,14 @@ leverage; H1–H2 started 2026-07-02 (this branch).
 
 ## 5. Definition of Done (the endgame checklist)
 
-- [ ] Every operator-facing web feature area is native **or** in the edge-blocker log — no third bucket.
-- [ ] All `deferred`/`not ported` markers in Swift sources resolved or explicitly accepted here.
-- [ ] §2 shut-off test passes for a full service day.
-- [ ] Phase B assistant at parity; Phase C inversion complete (native owns schema).
-- [ ] Holistic bar H1–H8 done (H9 continuous).
-- [ ] Web codebase reduced to the edge-blocker set (Phase D).
-- [ ] Consolidation executed with rails (Phase E) — duplicates gone, one canonical home.
-- [ ] `swift build && swift test` green throughout; every wave PR'd, never pushed to `main`.
+- [x] Every operator-facing web feature area is native **or** in the edge-blocker log — no third bucket. *(2026-07-02, #384–#397)*
+- [x] All `deferred`/`not ported` markers in Swift sources resolved or explicitly accepted here. *(dish-cost bridge landed #391; remaining deferrals documented per wave: semantic/BGE channels, db_query/code_search soft-responses, prep-median cosmetic, temp-PIN course relaxation)*
+- [ ] §2 shut-off test passes for a full service day. *(operational — needs a real service day; everything code-side is in place)*
+- [x] Phase B assistant at parity *(#399)*; — [ ] Phase C inversion complete *(sub-spec ready; gated on the shut-off test + 7-day reconciliation window)*.
+- [x] Holistic bar H1–H5 done; — [ ] H6/H7/H8 *(need an .app-bundle + signing-identity decision from the owner)*; H9 continuous.
+- [ ] Web codebase reduced to the edge-blocker set (Phase D — checklist ready, gated on C).
+- [ ] Consolidation executed with rails (Phase E — ☠ user-confirmed steps by design).
+- [x] `swift build && swift test` green throughout; every wave PR'd, never pushed to `main`. *(16 wave PRs, 2,273 tests)*
 
 ## 6. Open decisions (carried + new)
 
