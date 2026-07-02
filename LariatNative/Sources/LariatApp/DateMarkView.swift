@@ -9,6 +9,7 @@ struct DateMarkView: View {
     @State private var batchRef = ""
     @State private var discardTarget: DateMarkRow?
     @State private var discardReason: DateMarkDiscardReason = .expired
+    @State private var query = ""
 
     init(readDB: LariatDatabase, writeDB: LariatWriteDatabase) {
         _vm = State(wrappedValue: DateMarkViewModel(readDB: readDB, writeDB: writeDB))
@@ -21,7 +22,7 @@ struct DateMarkView: View {
             } else if let snap = vm.snapshot {
                 content(snap)
             } else {
-                ProgressView()
+                ProgressView("Loading date marks…")
             }
         }
         .navigationTitle("Date marks")
@@ -58,9 +59,11 @@ struct DateMarkView: View {
         List {
             Section("Active batches") {
                 if snap.active.isEmpty {
-                    Text("No active date marks").foregroundStyle(.secondary)
+                    EmptyState(message: "No active date marks", systemImage: "calendar.badge.checkmark")
+                } else if filteredActive.isEmpty {
+                    EmptyState(message: "No batches match “\(query)”", systemImage: "magnifyingglass")
                 } else {
-                    ForEach(snap.active) { row in
+                    ForEach(filteredActive) { row in
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(row.item).font(.headline)
@@ -90,15 +93,22 @@ struct DateMarkView: View {
                 .disabled(vm.isSaving || item.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
+        .searchable(text: $query, prompt: "Find a batch")
+    }
+
+    private var filteredActive: [DateMarkRow] {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return vm.snapshot?.active ?? [] }
+        return (vm.snapshot?.active ?? []).filter { $0.item.localizedCaseInsensitiveContains(q) }
     }
 
     @ViewBuilder
     private func statusBadge(_ status: ExpiringBatchStatus?) -> some View {
         switch status {
         case .expired:
-            Text("Expired").font(.caption2).padding(4).background(Color.red.opacity(0.2)).clipShape(Capsule())
+            Text("Expired").font(.caption2).padding(4).background(LariatTheme.bad.opacity(0.2)).clipShape(Capsule())
         case .dueToday:
-            Text("Due today").font(.caption2).padding(4).background(Color.yellow.opacity(0.3)).clipShape(Capsule())
+            Text("Due today").font(.caption2).padding(4).background(LariatTheme.warn.opacity(0.3)).clipShape(Capsule())
         case .ok, .none:
             EmptyView()
         }
