@@ -45,8 +45,10 @@ enum FeatureRegistry {
         // Manager
         .managerCommand,
         .managerAnalytics,
-        .managerCosting,
         .managerManagement,
+        // Costing
+        .costingOverview,
+        .costingPriceShocks,
     ]
 
     /// Stable default selection on launch.

@@ -1,0 +1,12 @@
+import SwiftUI
+
+/// Costing-tier feature modules.
+extension FeatureModule {
+    static let costingOverview = FeatureModule(id: "costing.overview") { ctx in
+        AnyView(CostingView(database: ctx.database))
+    }
+
+    static let costingPriceShocks = FeatureModule(id: "costing.priceShocks") { ctx in
+        AnyView(PriceShocksView(database: ctx.database))
+    }
+}

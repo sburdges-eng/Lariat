@@ -119,4 +119,36 @@ final class FeatureRegistryTests: XCTestCase {
         }
         XCTAssertFalse(FeatureCatalog.descriptors(for: .inventory).isEmpty)
     }
+
+    /// A4.2 Board 1: `.costing` tier relocation — `manager.costing` moves to
+    /// `costing.overview` under a new `.costing` tier.
+    func testCostingTierRelocation() {
+        XCTAssertTrue(FeatureTier.allCases.contains(.costing), "the .costing tier must exist")
+        XCTAssertEqual(FeatureTier.costing.rawValue, "Costing")
+        // Old manager.costing id is gone; overview relocated under .costing.
+        XCTAssertNil(
+            FeatureCatalog.descriptor(id: "manager.costing"),
+            "manager.costing must be relocated to costing.overview"
+        )
+        let overview = FeatureCatalog.descriptor(id: "costing.overview")
+        XCTAssertNotNil(overview, "costing.overview must be registered")
+        XCTAssertEqual(overview?.tier, .costing)
+        XCTAssertEqual(overview?.title, "Costing")
+        XCTAssertFalse(FeatureCatalog.descriptors(for: .costing).isEmpty)
+    }
+
+    /// A4.2 Board 1: the priceShocks board registers under `.costing`;
+    /// `costing.prices` is a drill-down (selection state), NOT a sidebar tile.
+    func testCostingPriceShocksRegistered() {
+        let d = FeatureCatalog.descriptor(id: "costing.priceShocks")
+        XCTAssertNotNil(d, "costing.priceShocks must be registered")
+        XCTAssertEqual(d?.tier, .costing)
+        XCTAssertEqual(d?.title, "Price shocks")
+        XCTAssertEqual(d?.enabled, true)
+        // costing.prices is a drill-down, NOT a catalog descriptor:
+        XCTAssertNil(
+            FeatureCatalog.descriptor(id: "costing.prices"),
+            "price history is reached from a shock row, not a sidebar tile"
+        )
+    }
 }
