@@ -302,4 +302,31 @@ final class FeatureRegistryTests: XCTestCase {
             "the .purchasing tier must hold exactly the three A4.4 boards"
         )
     }
+
+    /// A6.2 House wave: the `.house` tier exists and holds EXACTLY the four
+    /// venue-program boards — bar program + bar par (read-only), equipment
+    /// (open non-audited writes, web parity) and gold stars (PIN-gated
+    /// audited writes) — all enabled.
+    func testA62HouseBoardsRegistered() {
+        XCTAssertTrue(FeatureTier.allCases.contains(.house), "the .house tier must exist")
+        XCTAssertEqual(FeatureTier.house.rawValue, "House")
+        for (id, title) in [
+            ("house.bar", "Bar program"),
+            ("house.barPar", "Bar par"),
+            ("house.equipment", "Equipment"),
+            ("house.goldStars", "Gold stars"),
+        ] {
+            let d = FeatureCatalog.descriptor(id: id)
+            XCTAssertNotNil(d, "\(id) must be registered")
+            XCTAssertEqual(d?.tier, .house, "\(id) must be a house feature")
+            XCTAssertEqual(d?.title, title)
+            XCTAssertEqual(d?.enabled, true, "\(id) must be enabled")
+        }
+        let ids = Set(FeatureCatalog.descriptors(for: .house).map(\.id))
+        XCTAssertEqual(
+            ids,
+            ["house.bar", "house.barPar", "house.equipment", "house.goldStars"],
+            "the .house tier must hold exactly the four A6.2 boards"
+        )
+    }
 }

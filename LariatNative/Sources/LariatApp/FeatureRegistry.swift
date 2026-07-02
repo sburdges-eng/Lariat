@@ -63,6 +63,11 @@ enum FeatureRegistry {
         .purchasingOrderGuide,
         .purchasingCompare,
         .purchasingLink,
+        // House
+        .houseBar,
+        .houseBarPar,
+        .houseEquipment,
+        .houseGoldStars,
     ]
 
     /// Stable default selection on launch.
