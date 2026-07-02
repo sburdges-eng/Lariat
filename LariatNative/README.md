@@ -16,10 +16,15 @@ LARIAT_DATA_DIR=/absolute/path/to/lariat/data swift run LariatApp
 If `LARIAT_DATA_DIR` is unset, the app reads `<cwd>/data/lariat.db` (mirrors the web
 app's `lib/dataDir.ts`). Boards poll on a short timer — the read pool cannot observe
 cross-process writes from the web app, so polling is the correct refresh model here.
+All boards share one poller (`BoardPoller`, endgame H5): 3–5 s cadence per board,
+exponential backoff on read errors (capped at 30 s), paused while the app is
+inactive, with a freshness chip (bottom-trailing of the detail pane) showing the
+active board's last-refresh recency and a stale warning.
 
 ### Keyboard (macOS)
 
 - **⌘K** — command palette: fuzzy-jump to any registered board.
+- **⌘R** — refresh the active board now (also resets any error backoff).
 - **Boards menu** — "Jump to Board…" plus **⌘1…⌘n** to the first board of each tier.
 
 ## Test
