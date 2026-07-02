@@ -37,3 +37,17 @@ Append one entry per blocker:
   web app are inherently web-server capabilities.
 - **What the edge server must keep:** whichever read/remote surfaces are decided
   in scope at Phase D (TBD — narrow to the minimum actually used remotely).
+
+### Cross-host sync transport (peers / cloud-bridge / sync_feed) — 2026-07-02
+- **Web source:** `lib/peers.ts`, `lib/peerTrust.ts`, `lib/cloudBridge*.ts`,
+  `app/management/{peers,cloud-bridge}`.
+- **Why it can't be native:** the mDNS/HTTP peer transport, keypair trust, and
+  cloud-bridge push/queue/replay require an HTTP server surface that listens
+  for other hosts; the macOS/iPad app has no server surface. This is why the
+  A5 `resolveMatch` port deliberately omits the web route's `appendOp`
+  (`sync_feed`) call — the op log is the transport's input, and the transport
+  stays on the edge.
+- **What the edge server must keep:** the transport itself plus the
+  `/management/peers` and `/management/cloud-bridge` admin pages, until a
+  native read-only sync-status board lands (logged as a follow-up).
+- **Found by:** A5 management-writes wave.
