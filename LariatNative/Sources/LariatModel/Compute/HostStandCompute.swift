@@ -120,7 +120,7 @@ public enum HostStandCompute {
     /// `Date.parse` analog for the timestamp shapes this surface stores:
     /// ISO-8601 with/without fractional seconds; date-only strings parse as
     /// UTC midnight (JS parity).
-    static func parseIso(_ raw: String?) -> Date? {
+    public static func parseIso(_ raw: String?) -> Date? {
         guard let raw, !raw.isEmpty else { return nil }
         let isoFrac = ISO8601DateFormatter()
         isoFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
