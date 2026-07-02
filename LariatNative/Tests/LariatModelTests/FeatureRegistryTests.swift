@@ -102,4 +102,21 @@ final class FeatureRegistryTests: XCTestCase {
         // The tier must not be empty (guards testEveryTierHasAtLeastOneModule).
         XCTAssertFalse(FeatureCatalog.descriptors(for: .labor).isEmpty)
     }
+
+    func testInventoryTierBoardsRegistered() {
+        XCTAssertTrue(FeatureTier.allCases.contains(.inventory), "the .inventory tier must exist")
+        let par = FeatureCatalog.descriptor(id: "inventory.par")
+        XCTAssertNotNil(par, "inventory.par must be registered")
+        XCTAssertEqual(par?.tier, .inventory)
+        XCTAssertEqual(par?.title, "Par")
+        // Counts / Log / Waste boards registered under the same tier.
+        for (id, title) in [("inventory.counts", "Counts"), ("inventory.log", "Log"), ("inventory.waste", "Waste")] {
+            let d = FeatureCatalog.descriptor(id: id)
+            XCTAssertNotNil(d, "\(id) must be registered")
+            XCTAssertEqual(d?.tier, .inventory, "\(id) must be an inventory feature")
+            XCTAssertEqual(d?.title, title)
+            XCTAssertEqual(d?.enabled, true)
+        }
+        XCTAssertFalse(FeatureCatalog.descriptors(for: .inventory).isEmpty)
+    }
 }

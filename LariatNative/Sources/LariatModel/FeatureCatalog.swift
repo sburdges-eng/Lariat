@@ -7,6 +7,7 @@ public enum FeatureTier: String, CaseIterable, Hashable, Sendable {
     case cook = "Cook"
     case safety = "Safety"
     case labor = "Labor"
+    case inventory = "Inventory"
     case manager = "Manager"
 }
 
@@ -62,6 +63,11 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "labor.sickLeave", tier: .labor, title: "Sick time"),
         FeatureDescriptor(id: "labor.tipPool", tier: .labor, title: "Tip pool"),
         FeatureDescriptor(id: "labor.wageNotices", tier: .labor, title: "Wage notices"),
+        // Inventory
+        FeatureDescriptor(id: "inventory.par", tier: .inventory, title: "Par"),
+        FeatureDescriptor(id: "inventory.counts", tier: .inventory, title: "Counts"),
+        FeatureDescriptor(id: "inventory.log", tier: .inventory, title: "Log"),
+        FeatureDescriptor(id: "inventory.waste", tier: .inventory, title: "Waste"),
         // Manager
         FeatureDescriptor(id: "manager.command", tier: .manager, title: "Command"),
         FeatureDescriptor(id: "manager.analytics", tier: .manager, title: "Analytics"),

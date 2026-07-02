@@ -37,6 +37,11 @@ enum FeatureRegistry {
         .laborSickLeave,
         .laborTipPool,
         .laborWageNotices,
+        // Inventory
+        .inventoryPar,
+        .inventoryCounts,
+        .inventoryLog,
+        .inventoryWaste,
         // Manager
         .managerCommand,
         .managerAnalytics,
