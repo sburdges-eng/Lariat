@@ -52,6 +52,10 @@ enum FeatureRegistry {
         .costingVarianceAttribution,
         .costingDepletionExceptions,
         .costingIngredientMasters,
+        // Purchasing
+        .purchasingOrderGuide,
+        .purchasingCompare,
+        .purchasingLink,
     ]
 
     /// Stable default selection on launch.

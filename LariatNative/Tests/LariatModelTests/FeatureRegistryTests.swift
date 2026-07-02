@@ -217,4 +217,29 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertNil(FeatureCatalog.descriptor(id: "costing.prices"), "price history is a drill-down, not a tile")
         XCTAssertFalse(FeatureCatalog.descriptors(for: .manager).isEmpty, "Manager tier must stay non-empty after the relocation")
     }
+
+    /// A4.4 Purchasing wave: the `.purchasing` tier exists and holds EXACTLY
+    /// the three boards — the read-only order-guide hub plus the compare and
+    /// link boards (both carrying PIN-gated audited writes) — all enabled.
+    func testPurchasingTierBoardsRegistered() {
+        XCTAssertTrue(FeatureTier.allCases.contains(.purchasing), "the .purchasing tier must exist")
+        XCTAssertEqual(FeatureTier.purchasing.rawValue, "Purchasing")
+        for (id, title) in [
+            ("purchasing.orderGuide", "Order guide"),
+            ("purchasing.compare", "Vendor compare"),
+            ("purchasing.link", "Link vendors"),
+        ] {
+            let d = FeatureCatalog.descriptor(id: id)
+            XCTAssertNotNil(d, "\(id) must be registered")
+            XCTAssertEqual(d?.tier, .purchasing, "\(id) must be a purchasing feature")
+            XCTAssertEqual(d?.title, title)
+            XCTAssertEqual(d?.enabled, true, "\(id) must be enabled")
+        }
+        let ids = Set(FeatureCatalog.descriptors(for: .purchasing).map(\.id))
+        XCTAssertEqual(
+            ids,
+            ["purchasing.orderGuide", "purchasing.compare", "purchasing.link"],
+            "the .purchasing tier must hold exactly the three A4.4 boards"
+        )
+    }
 }
