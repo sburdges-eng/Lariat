@@ -68,6 +68,13 @@ enum FeatureRegistry {
         .fohHost,
         .fohReservations,
         .fohBooking,
+        // Shows
+        .showsTonight,
+        .showsBoxOffice,
+        .showsSettlement,
+        .showsSound,
+        .showsStage,
+        .showsArchive,
     ]
 
     /// Stable default selection on launch.

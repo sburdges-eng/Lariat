@@ -48,6 +48,24 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertEqual(plan?.enabled, true)
     }
 
+    func testShowsTierRegistered() {
+        // A6.4: the shows wave adds its own tier with exactly six boards,
+        // in sidebar order tonight → box office → settlement → sound →
+        // stage → archive.
+        XCTAssertTrue(FeatureTier.allCases.contains(.shows))
+        XCTAssertEqual(
+            FeatureCatalog.descriptors(for: .shows).map(\.id),
+            [
+                "shows.tonight", "shows.boxOffice", "shows.settlement",
+                "shows.sound", "shows.stage", "shows.archive",
+            ]
+        )
+        let settlement = FeatureCatalog.descriptor(id: "shows.settlement")
+        XCTAssertEqual(settlement?.tier, .shows)
+        XCTAssertEqual(settlement?.title, "Settlement")
+        XCTAssertEqual(settlement?.enabled, true)
+    }
+
     func testA1WaveBoardsAllRegistered() {
         for id in [
             "safety.sanitizer", "safety.tphc", "safety.pest", "safety.sds",
