@@ -7,11 +7,14 @@ import Foundation
 // All inputs are caller-supplied value types; no I/O is performed here.
 // VarianceAttributionRepository (LariatDB) runs the SELECTs and hands in the raw rows.
 //
-// Money is `Double` dollars (NOT cents) for this wave. The only rounding calls are
+// Money is `Double` dollars (NOT cents) for this wave. The rounding calls are
 // `Math.round(pct*10)/10` (price-move pct, 1dp) and `Math.round(x*100)/100`
 // (delta amount/pct, 2dp) — both mapped to jsRound = floor(x + 0.5), matching JS
 // Math.round exactly (including its round-toward-+infinity behavior on negative ties,
-// which differs from Swift's `.rounded()`).
+// which differs from Swift's `.rounded()`). The exception is `net_sales` in
+// unresolvedDepletions, which the web computes in SQL as `ROUND(SUM(net_sales), 2)`
+// — SQLite's round-half-AWAY-from-zero, not JS Math.round — so it uses
+// `roundAwayFromZero2` instead.
 
 public enum VarianceAttributionCompute {
 
@@ -25,6 +28,17 @@ public enum VarianceAttributionCompute {
     private static func jsRound(_ x: Double) -> Double { (x + 0.5).rounded(.down) }
     private static func round1(_ x: Double) -> Double { jsRound(x * 10) / 10 }
     private static func round2(_ x: Double) -> Double { jsRound(x * 100) / 100 }
+
+    /// SQLite `ROUND(x, 2)` = round-half-AWAY-from-zero (NOT JS Math.round's
+    /// round-toward-+infinity). Used only for `net_sales`, which is computed in SQL
+    /// as `ROUND(SUM(net_sales), 2)` (lib/varianceAttribution.ts:450) — everything else
+    /// in this file (delta amount/pct, price-move pct) is genuine JS `Math.round` and
+    /// must keep using `jsRound`/`round1`/`round2`. On negative half-ties the two modes
+    /// diverge, e.g. -60.005 → SQLite -60.01 vs jsRound -60.00.
+    private static func roundAwayFromZero2(_ x: Double) -> Double {
+        let s: Double = x < 0 ? -1 : 1
+        return (s * (Swift.abs(x) * 100 + 0.5).rounded(.down)) / 100
+    }
 
     // MARK: - Task 1: threshold color + window selection
 
@@ -228,13 +242,25 @@ public enum VarianceAttributionCompute {
             UnresolvedDepletionItem(
                 itemName: key.itemName, periodLabel: key.periodLabel,
                 qtySold: (qtyAnyNonNil[key] == true) ? qtySums[key] : nil,
-                netSales: (netAnyNonNil[key] == true) ? round2(netSums[key] ?? 0) : nil)
+                netSales: (netAnyNonNil[key] == true) ? roundAwayFromZero2(netSums[key] ?? 0) : nil)
         }
 
-        // ORDER BY net_sales DESC, item_name ASC (stable).
+        // ORDER BY net_sales DESC, item_name ASC (stable). SQLite sorts NULL as the
+        // smallest value, so in a DESC ordering NULL net_sales rows land strictly
+        // LAST — after every non-NULL value, including negative ones. Coalescing
+        // nil to 0 (as if it were a real value) would be wrong.
         items = items.enumerated().sorted { lhs, rhs in
-            let a = lhs.element.netSales ?? 0, b = rhs.element.netSales ?? 0
-            if a != b { return a > b }
+            let aVal = lhs.element.netSales, bVal = rhs.element.netSales
+            switch (aVal, bVal) {
+            case let (a?, b?):
+                if a != b { return a > b }
+            case (nil, .some):
+                return false   // lhs is NULL → sorts after non-NULL rhs
+            case (.some, nil):
+                return true    // rhs is NULL → lhs (non-NULL) sorts first
+            case (nil, nil):
+                break
+            }
             if lhs.element.itemName != rhs.element.itemName { return lhs.element.itemName < rhs.element.itemName }
             return lhs.offset < rhs.offset
         }.map(\.element)

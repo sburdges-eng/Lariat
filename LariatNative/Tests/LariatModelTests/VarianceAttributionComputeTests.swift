@@ -261,6 +261,55 @@ final class VarianceAttributionComputeTests: XCTestCase {
         XCTAssertEqual(r.items.count, 0)
     }
 
+    // Gap-fix: net_sales rounds with SQLite ROUND(x,2) (round-half-AWAY-from-zero),
+    // NOT JS Math.round (round-toward-+infinity) — lib/varianceAttribution.ts:450
+    // computes `ROUND(SUM(net_sales), 2)` in raw SQL. These two modes diverge on
+    // negative half-ties: summed net_sales -60.005 → SQLite -60.01, but the old
+    // jsRound-based `round2` would give -60.00. This pins the away-from-zero mode.
+    func testUnresolvedDepletionsNetSalesNegativeTieRoundsAwayFromZero() {
+        let sales = [
+            SalesLineRow(itemName: "Refund Combo", periodLabel: "2026-05-08", quantitySold: 1, netSales: -30.0025),
+            SalesLineRow(itemName: "Refund Combo", periodLabel: "2026-05-08", quantitySold: 1, netSales: -30.0025),
+        ]
+        let r = VarianceAttributionCompute.unresolvedDepletions(sales: sales, components: [],
+            from: "2026-05-01", to: "2026-05-15", dateLikeCount: 2, totalCount: 2)
+        XCTAssertEqual(r.items.count, 1)
+        // Sum = -60.005 exactly (as a Double literal sum of two -30.0025s).
+        XCTAssertEqual(r.items[0].netSales, -60.01)
+    }
+
+    // Companion positive-tie case: positive half-ties agree between SQLite ROUND
+    // and JS Math.round, so this must stay green regardless of which mode is used —
+    // guards against the fix flipping the sign convention.
+    func testUnresolvedDepletionsNetSalesPositiveTieRoundsAwayFromZero() {
+        let sales = [
+            SalesLineRow(itemName: "Bundle Combo", periodLabel: "2026-05-08", quantitySold: 1, netSales: 30.0025),
+            SalesLineRow(itemName: "Bundle Combo", periodLabel: "2026-05-08", quantitySold: 1, netSales: 30.0025),
+        ]
+        let r = VarianceAttributionCompute.unresolvedDepletions(sales: sales, components: [],
+            from: "2026-05-01", to: "2026-05-15", dateLikeCount: 1, totalCount: 1)
+        XCTAssertEqual(r.items.count, 1)
+        XCTAssertEqual(r.items[0].netSales, 60.01)
+    }
+
+    // Gap-fix: SQLite sorts NULL as smallest, so in `ORDER BY net_sales DESC` a NULL
+    // net_sales group must land strictly LAST — after every non-NULL group, including
+    // negative ones. Coalescing nil→0 (as the old comparator did) would wrongly place
+    // a NULL-net group ahead of a negative-net group.
+    func testUnresolvedDepletionsNullNetSalesSortsStrictlyLast() {
+        let sales = [
+            // NULL net_sales (quantity present, dollars never recorded).
+            SalesLineRow(itemName: "Comp Item", periodLabel: "2026-05-08", quantitySold: 3, netSales: nil),
+            // Negative net_sales (refund) — should still outrank the NULL group in DESC order.
+            SalesLineRow(itemName: "Refunded Item", periodLabel: "2026-05-09", quantitySold: 1, netSales: -10),
+            // Positive net_sales — should sort first.
+            SalesLineRow(itemName: "Normal Item", periodLabel: "2026-05-10", quantitySold: 2, netSales: 40),
+        ]
+        let r = VarianceAttributionCompute.unresolvedDepletions(sales: sales, components: [],
+            from: "2026-05-01", to: "2026-05-15", dateLikeCount: 3, totalCount: 3)
+        XCTAssertEqual(r.items.map(\.itemName), ["Normal Item", "Refunded Item", "Comp Item"])
+    }
+
     // Oracle: "falls back to all-time with honest note" — non-date-like labels.
     func testUnresolvedAllTimeFallbackNote() {
         let sales = [SalesLineRow(itemName: "Legacy Item", periodLabel: "Lunch FY26", quantitySold: 7, netSales: 70)]
