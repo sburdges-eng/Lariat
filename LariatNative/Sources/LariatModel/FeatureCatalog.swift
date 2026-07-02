@@ -77,6 +77,7 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "costing.overview", tier: .costing, title: "Costing"),
         FeatureDescriptor(id: "costing.priceShocks", tier: .costing, title: "Price shocks"),
         FeatureDescriptor(id: "costing.varianceAttribution", tier: .costing, title: "Variance attribution"),
+        FeatureDescriptor(id: "costing.depletionExceptions", tier: .costing, title: "Depletion exceptions"),
     ]
 
     /// Stable default selection on launch.

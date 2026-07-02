@@ -13,4 +13,8 @@ extension FeatureModule {
     static let costingVarianceAttribution = FeatureModule(id: "costing.varianceAttribution") { ctx in
         AnyView(VarianceAttributionView(database: ctx.database))
     }
+
+    static let costingDepletionExceptions = FeatureModule(id: "costing.depletionExceptions") { ctx in
+        AnyView(DepletionExceptionsView(database: ctx.database))
+    }
 }

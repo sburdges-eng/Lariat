@@ -163,4 +163,23 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertEqual(d?.enabled, true)
         XCTAssertFalse(FeatureCatalog.descriptors(for: .costing).isEmpty)
     }
+
+    /// A4.2 Board 3: depletion-exceptions board registers under `.costing`.
+    /// Pure read — the web route IS PIN-gated (requirePin in route.js), but
+    /// native manager/costing-tier reads are not per-view PIN-gated today
+    /// (matches the priceShocks/varianceAttribution precedent).
+    func testCostingTierBoardsRegistered() {
+        XCTAssertTrue(FeatureTier.allCases.contains(.costing), "the .costing tier must exist")
+        // A0 relocation: the old manager.costing aggregate now lives at costing.overview.
+        let overview = FeatureCatalog.descriptor(id: "costing.overview")
+        XCTAssertNotNil(overview, "costing.overview must be registered")
+        XCTAssertEqual(overview?.tier, .costing)
+        // This board:
+        let de = FeatureCatalog.descriptor(id: "costing.depletionExceptions")
+        XCTAssertNotNil(de, "costing.depletionExceptions must be registered")
+        XCTAssertEqual(de?.tier, .costing)
+        XCTAssertEqual(de?.title, "Depletion exceptions")
+        XCTAssertEqual(de?.enabled, true)
+        XCTAssertFalse(FeatureCatalog.descriptors(for: .costing).isEmpty)
+    }
 }

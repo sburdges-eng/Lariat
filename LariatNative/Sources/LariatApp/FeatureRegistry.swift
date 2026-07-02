@@ -50,6 +50,7 @@ enum FeatureRegistry {
         .costingOverview,
         .costingPriceShocks,
         .costingVarianceAttribution,
+        .costingDepletionExceptions,
     ]
 
     /// Stable default selection on launch.
