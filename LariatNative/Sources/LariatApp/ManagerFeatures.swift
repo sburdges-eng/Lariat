@@ -45,4 +45,16 @@ extension FeatureModule {
             systemImage: "lock"
         ))
     }
+
+    /// A5 — receiving-matches resolver (`/management/receiving-matches`).
+    static let managerReceivingMatches = FeatureModule(id: "manager.receivingMatches") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(ReceivingMatchesView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Receiving matches unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
 }

@@ -226,6 +226,7 @@ final class FeatureRegistryTests: XCTestCase {
             ("manager.auditLog", "Audit log"),
             ("manager.pins", "PINs"),
             ("manager.tempPins", "Temp PINs"),
+            ("manager.receivingMatches", "Receiving matches"),
         ] {
             let d = FeatureCatalog.descriptor(id: id)
             XCTAssertNotNil(d, "\(id) must be registered")
@@ -233,6 +234,14 @@ final class FeatureRegistryTests: XCTestCase {
             XCTAssertEqual(d?.title, title)
             XCTAssertEqual(d?.enabled, true, "\(id) must be enabled")
         }
+        // The manager tier holds exactly the three pre-A5 boards + the four
+        // A5 boards after this wave.
+        let ids = Set(FeatureCatalog.descriptors(for: .manager).map(\.id))
+        XCTAssertEqual(ids, [
+            "manager.command", "manager.analytics", "manager.management",
+            "manager.auditLog", "manager.pins", "manager.tempPins",
+            "manager.receivingMatches",
+        ])
     }
 
     /// A4.4 Purchasing wave: the `.purchasing` tier exists and holds EXACTLY
