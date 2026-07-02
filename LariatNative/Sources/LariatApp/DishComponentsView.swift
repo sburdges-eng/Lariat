@@ -43,7 +43,7 @@ import Observation
     var isLoading = true
     var query = ""
 
-    private var streamTask: Task<Void, Never>?
+    private let poller = BoardPoller()
     private let repo: DishComponentsRepository
     private let hubRepo: MenuEngineeringRepository
 
@@ -55,19 +55,16 @@ import Observation
     }
 
     func start() {
-        streamTask?.cancel()
-        streamTask = Task { [weak self] in
+        // 5 s poll — slower than read-only boards so mid-edit
+        // refreshes stay unobtrusive (form state is never touched).
+        poller.start(interval: .seconds(5)) { [weak self] in
             guard let self else { return }
-            while !Task.isCancelled {
-                await self.refresh()
-                // 5 s poll — slower than read-only boards so mid-edit
-                // refreshes stay unobtrusive (form state is never touched).
-                try? await Task.sleep(for: .seconds(5))
-            }
+            await self.refresh()
+            try BoardPoller.throwIfFailed(self.errorText)
         }
     }
 
-    func stop() { streamTask?.cancel() }
+    func stop() { poller.stop() }
 
     func refresh() async {
         do {

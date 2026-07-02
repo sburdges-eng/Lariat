@@ -19,7 +19,7 @@ final class SanitizerViewModel {
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase
     private let locationId: String
-    private var streamTask: Task<Void, Never>?
+    private let poller = BoardPoller()
 
     init(
         readDB: LariatDatabase,
@@ -35,16 +35,14 @@ final class SanitizerViewModel {
     }
 
     func start() {
-        streamTask?.cancel()
-        streamTask = Task { [weak self] in
-            while !Task.isCancelled {
-                await self?.refresh()
-                try? await Task.sleep(for: .seconds(5))
-            }
+        poller.start(interval: .seconds(5)) { [weak self] in
+            guard let self else { return }
+            await self.refresh()
+            try BoardPoller.throwIfFailed(self.fetchError)
         }
     }
 
-    func stop() { streamTask?.cancel() }
+    func stop() { poller.stop() }
 
     func refresh() async {
         let repo = SanitizerRepository(readDB: readDB, writeDB: writeDB)

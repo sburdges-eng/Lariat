@@ -22,7 +22,7 @@ import Observation
     var isLoading = true
     var query = ""
 
-    private var streamTask: Task<Void, Never>?
+    private let poller = BoardPoller()
     private let repo: MenuEngineeringRepository
     private let recipes: [BridgeRecipe]
 
@@ -33,17 +33,14 @@ import Observation
     }
 
     func start() {
-        streamTask?.cancel()
-        streamTask = Task { [weak self] in
+        poller.start(interval: .seconds(3)) { [weak self] in
             guard let self else { return }
-            while !Task.isCancelled {
-                await self.refresh()
-                try? await Task.sleep(for: .seconds(3))
-            }
+            await self.refresh()
+            try BoardPoller.throwIfFailed(self.errorText)
         }
     }
 
-    func stop() { streamTask?.cancel() }
+    func stop() { poller.stop() }
 
     private func refresh() async {
         do {

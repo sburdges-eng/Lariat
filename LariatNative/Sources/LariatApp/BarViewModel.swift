@@ -16,7 +16,7 @@ final class BarViewModel {
 
     private let readDB: LariatDatabase
     private let locationId: String
-    private var pollTask: Task<Void, Never>?
+    private let poller = BoardPoller()
 
     init(readDB: LariatDatabase, locationId: String = LocationScope.resolve()) {
         self.readDB = readDB
@@ -32,16 +32,14 @@ final class BarViewModel {
     }
 
     func start() {
-        pollTask?.cancel()
-        pollTask = Task { [weak self] in
-            while !Task.isCancelled {
-                await self?.refresh()
-                try? await Task.sleep(for: .seconds(5))
-            }
+        poller.start(interval: .seconds(5)) { [weak self] in
+            guard let self else { return }
+            await self.refresh()
+            try BoardPoller.throwIfFailed(self.fetchError)
         }
     }
 
-    func stop() { pollTask?.cancel() }
+    func stop() { poller.stop() }
 
     func refresh() async {
         let repo = BarRepository(readDB: readDB)

@@ -6,7 +6,7 @@ import Observation
 @Observable @MainActor final class ManagementRollupViewModel {
     var snapshot: RollupSnapshot?
     var errorText: String?
-    private var streamTask: Task<Void, Never>?
+    private let poller = BoardPoller()
     private let database: LariatDatabase
 
     init(database: LariatDatabase) {
@@ -14,25 +14,22 @@ import Observation
     }
 
     func start() {
-        streamTask?.cancel()
         let repo = ManagementRollupRepository(database: database)
-        streamTask = Task { [weak self] in
-            // Poll every 3 s — mirrors CommandViewModel/AnalyticsViewModel/CostingViewModel.
-            // ValueObservation can't see cross-process writes from the web app, so we poll.
-            while !Task.isCancelled {
-                do {
-                    let s = try await repo.load()
-                    self?.snapshot = s
-                    self?.errorText = nil
-                } catch {
-                    self?.errorText = "Fetch error: \(error.localizedDescription)"
-                }
-                try? await Task.sleep(for: .seconds(3))
+        // Poll every 3 s — mirrors CommandViewModel/AnalyticsViewModel/CostingViewModel.
+        // ValueObservation can't see cross-process writes from the web app, so we poll.
+        poller.start(interval: .seconds(3)) { [weak self] in
+            do {
+                let s = try await repo.load()
+                self?.snapshot = s
+                self?.errorText = nil
+            } catch {
+                self?.errorText = "Fetch error: \(error.localizedDescription)"
+                throw error
             }
         }
     }
 
-    func stop() { streamTask?.cancel() }
+    func stop() { poller.stop() }
 
     var readDatabase: LariatDatabase { database }
 }
