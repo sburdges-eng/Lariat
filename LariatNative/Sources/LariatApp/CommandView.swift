@@ -148,11 +148,10 @@ private struct CommandContentView: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal)
 
-                // ── 8 signal-group tiles ───────────────────────────────────────
-                // DEFERRED (P1a): per-tile traffic-light COLOR signaling is NOT
-                // implemented — tiles show value/label only. Color is deferred for
-                // P1a parity with Task 11. The alerts section below surfaces red/amber
-                // signals instead.
+                // ── Signal-group tiles ─────────────────────────────────────────
+                // Each tile carries a traffic-light dot derived from the Command
+                // alerts for its domain (red = critical, amber = warning, green =
+                // clear). The alerts section below lists the same signals in detail.
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 220))], spacing: 16) {
                     salesTile
                     eightySixTile
@@ -162,6 +161,8 @@ private struct CommandContentView: View {
                     prepBoardTile
                     laborTile
                     foodSafetyTile
+                    eventsTile
+                    reservationsTile
                 }
                 .padding(.horizontal)
 
@@ -177,9 +178,19 @@ private struct CommandContentView: View {
 
     // MARK: Signal-group tiles (web-aligned labels/values)
 
+    /// Traffic-light tone for a tile: red if any of its alert `sources` fired a
+    /// critical, amber for a warning, else green (clear). Tiles with no alert
+    /// source of their own pass `[]` and stay green.
+    private func tone(_ sources: [String]) -> CommandTileTone {
+        let relevant = alerts.filter { sources.contains($0.source) }
+        if relevant.contains(where: { $0.severity == .red }) { return .red }
+        if relevant.contains(where: { $0.severity == .amber }) { return .amber }
+        return .ok
+    }
+
     // 1. Sales — "Yesterday vs 7-day average"
     private var salesTile: some View {
-        CommandTile(title: "Sales", sub: "Yesterday vs 7-day average") {
+        CommandTile(title: "Sales", sub: "Yesterday vs 7-day average", tone: tone(["sales-down"])) {
             TileLine(n: formatDollars(summary.sales.yesterdayNet), label: "net sales yesterday")
             TileLine(n: "\(summary.sales.orders)", label: "orders")
             TileLine(n: formatDollars(summary.sales.avg7Net), label: "7-day avg")
@@ -188,14 +199,14 @@ private struct CommandContentView: View {
 
     // 2. 86 board — "Active items off the menu right now"
     private var eightySixTile: some View {
-        CommandTile(title: "86 board", sub: "Active items off the menu right now") {
+        CommandTile(title: "86 board", sub: "Active items off the menu right now", tone: tone(["eighty-six"])) {
             TileLine(n: "\(summary.eightySix)", label: "items 86'd")
         }
     }
 
     // 3. Inventory — "Latest count vs par"
     private var inventoryTile: some View {
-        CommandTile(title: "Inventory", sub: "Latest count vs par") {
+        CommandTile(title: "Inventory", sub: "Latest count vs par", tone: tone(["inventory-low-par", "inventory-open-counts"])) {
             TileLine(n: "\(summary.inventory.lowPar)", label: "below par")
             TileLine(n: "\(summary.inventory.parTotal)", label: "tracked items")
             TileLine(n: "\(summary.inventory.openCounts)", label: "open counts")
@@ -205,7 +216,7 @@ private struct CommandContentView: View {
     // 4. Price moves — "Vendor SKUs that moved 5%+ in 7 days"
     // priceMoves is threaded from ManagementRollupRepository.load() → PriceShockSummary.
     private var priceMovesTile: some View {
-        CommandTile(title: "Price moves", sub: "Vendor SKUs that moved 5%+ in 7 days") {
+        CommandTile(title: "Price moves", sub: "Vendor SKUs that moved 5%+ in 7 days", tone: tone(["price-moves"])) {
             TileLine(n: "\(summary.priceMoves.up)", label: "up")
             TileLine(n: "\(summary.priceMoves.down)", label: "down")
             TileLine(n: "\(summary.priceMoves.total)", label: "total moves")
@@ -216,7 +227,7 @@ private struct CommandContentView: View {
     // marginMoves is threaded from MarginDeltasRepository.summary() (port of
     // lib/marginDeltas.ts listMarginDeltas) → MoveSummary, same as priceMoves.
     private var marginMovesTile: some View {
-        CommandTile(title: "Margin moves", sub: "Dish costs that moved 5%+ in 7 days") {
+        CommandTile(title: "Margin moves", sub: "Dish costs that moved 5%+ in 7 days", tone: tone(["margin-moves"])) {
             TileLine(n: "\(summary.marginMoves.up)", label: "up")
             TileLine(n: "\(summary.marginMoves.down)", label: "down")
             TileLine(n: "\(summary.marginMoves.total)", label: "total moves")
@@ -225,7 +236,7 @@ private struct CommandContentView: View {
 
     // 6. Prep board — "Today's tasks across the line"
     private var prepBoardTile: some View {
-        CommandTile(title: "Prep board", sub: "Today's tasks across the line") {
+        CommandTile(title: "Prep board", sub: "Today's tasks across the line", tone: tone(["prep-rush"])) {
             TileLine(n: "\(summary.prep.todo)", label: "to do")
             TileLine(n: "\(summary.prep.inProgress)", label: "in progress")
             TileLine(n: "\(summary.prep.rush)", label: "high or rush")
@@ -249,7 +260,7 @@ private struct CommandContentView: View {
     }
 
     private var laborTileContent: some View {
-        CommandTile(title: "Labor", sub: "Breaks owed + cert expiry · tap reviews to log") {
+        CommandTile(title: "Labor", sub: "Breaks owed + cert expiry · tap reviews to log", tone: tone(["open-breaks", "cert-expiring-30d", "cert-expired", "performance-reviews-none"])) {
             TileLine(n: "\(summary.labor.openBreaks)", label: "open breaks")
             TileLine(n: "\(summary.labor.performanceReviewsToday)", label: "reviews today")
             TileLine(n: "\(summary.labor.certExpiring30d)", label: "certs expiring 30d")
@@ -259,10 +270,27 @@ private struct CommandContentView: View {
 
     // 8. Food safety — "Today's temp readings + active date marks"
     private var foodSafetyTile: some View {
-        CommandTile(title: "Food safety", sub: "Today's temp readings + active date marks") {
+        CommandTile(title: "Food safety", sub: "Today's temp readings + active date marks", tone: tone(["temp-breaches", "date-marks-expired", "date-marks-due-today", "cleaning-overdue", "cleaning-due-today", "probes-overdue", "probes-failed", "probes-due-soon"])) {
             TileLine(n: "\(summary.foodSafety.tempBreaches)", label: "temp out of range")
             TileLine(n: "\(summary.foodSafety.dateMarksExpired)", label: "expired marks")
             TileLine(n: "\(summary.foodSafety.cleaningOverdue)", label: "cleaning overdue")
+        }
+    }
+
+    // 9. Events — "Booked events today" (data already in CommandSummary)
+    private var eventsTile: some View {
+        CommandTile(title: "Events", sub: "Booked events today", tone: tone([])) {
+            TileLine(n: "\(summary.eventsToday)", label: "events")
+            TileLine(n: "\(summary.eventsGuests)", label: "covers")
+        }
+    }
+
+    // 10. Reservations — "Today's covers" (data already in CommandSummary)
+    private var reservationsTile: some View {
+        CommandTile(title: "Reservations", sub: "Today's covers", tone: tone(["reservations-to-seat", "reservation-no-shows"])) {
+            TileLine(n: "\(summary.reservations.booked)", label: "booked")
+            TileLine(n: "\(summary.reservations.seated)", label: "seated")
+            TileLine(n: "\(summary.reservations.noShow)", label: "no-shows")
         }
     }
 }
@@ -338,16 +366,39 @@ private struct AlertRow: View {
 
 // MARK: - Tile sub-views
 
+/// Per-tile traffic-light tone, derived from the Command alerts for that tile's
+/// domain: red (a critical alert), amber (a warning), ok (no alert = green),
+/// neutral (no dot — tiles with no alert domain of their own).
+private enum CommandTileTone {
+    case red, amber, ok, neutral
+    var color: Color? {
+        switch self {
+        case .red: return .red
+        case .amber: return .orange
+        case .ok: return .green
+        case .neutral: return nil
+        }
+    }
+}
+
 private struct CommandTile<Content: View>: View {
     let title: String
     let sub: String
+    var tone: CommandTileTone = .neutral
     @ViewBuilder let lines: () -> Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if let c = tone.color {
+                    Circle().fill(c).frame(width: 8, height: 8)
+                        .accessibilityLabel(toneLabel)
+                }
+            }
             lines()
             Text(sub)
                 .font(.caption2)
@@ -357,6 +408,15 @@ private struct CommandTile<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var toneLabel: String {
+        switch tone {
+        case .red: return "critical"
+        case .amber: return "warning"
+        case .ok: return "ok"
+        case .neutral: return ""
+        }
     }
 }
 
