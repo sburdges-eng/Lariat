@@ -119,4 +119,102 @@ final class FeatureRegistryTests: XCTestCase {
         }
         XCTAssertFalse(FeatureCatalog.descriptors(for: .inventory).isEmpty)
     }
+
+    /// A4.2 Board 1: `.costing` tier relocation — `manager.costing` moves to
+    /// `costing.overview` under a new `.costing` tier.
+    func testCostingTierRelocation() {
+        XCTAssertTrue(FeatureTier.allCases.contains(.costing), "the .costing tier must exist")
+        XCTAssertEqual(FeatureTier.costing.rawValue, "Costing")
+        // Old manager.costing id is gone; overview relocated under .costing.
+        XCTAssertNil(
+            FeatureCatalog.descriptor(id: "manager.costing"),
+            "manager.costing must be relocated to costing.overview"
+        )
+        let overview = FeatureCatalog.descriptor(id: "costing.overview")
+        XCTAssertNotNil(overview, "costing.overview must be registered")
+        XCTAssertEqual(overview?.tier, .costing)
+        XCTAssertEqual(overview?.title, "Costing")
+        XCTAssertFalse(FeatureCatalog.descriptors(for: .costing).isEmpty)
+    }
+
+    /// A4.2 Board 1: the priceShocks board registers under `.costing`;
+    /// `costing.prices` is a drill-down (selection state), NOT a sidebar tile.
+    func testCostingPriceShocksRegistered() {
+        let d = FeatureCatalog.descriptor(id: "costing.priceShocks")
+        XCTAssertNotNil(d, "costing.priceShocks must be registered")
+        XCTAssertEqual(d?.tier, .costing)
+        XCTAssertEqual(d?.title, "Price shocks")
+        XCTAssertEqual(d?.enabled, true)
+        // costing.prices is a drill-down, NOT a catalog descriptor:
+        XCTAssertNil(
+            FeatureCatalog.descriptor(id: "costing.prices"),
+            "price history is reached from a shock row, not a sidebar tile"
+        )
+    }
+
+    /// A4.2 Board 2: variance-attribution board registers under `.costing`, the same
+    /// tier Board 1 created. Pure read — no PIN sheet (matches the web route, which
+    /// has no in-route PIN either, only /costing middleware gating).
+    func testCostingVarianceAttributionRegistered() {
+        let d = FeatureCatalog.descriptor(id: "costing.varianceAttribution")
+        XCTAssertNotNil(d, "costing.varianceAttribution must be registered")
+        XCTAssertEqual(d?.tier, .costing)
+        XCTAssertEqual(d?.title, "Variance attribution")
+        XCTAssertEqual(d?.enabled, true)
+        XCTAssertFalse(FeatureCatalog.descriptors(for: .costing).isEmpty)
+    }
+
+    /// A4.2 Board 3: depletion-exceptions board registers under `.costing`.
+    /// Pure read — the web route IS PIN-gated (requirePin in route.js), but
+    /// native manager/costing-tier reads are not per-view PIN-gated today
+    /// (matches the priceShocks/varianceAttribution precedent).
+    func testCostingTierBoardsRegistered() {
+        XCTAssertTrue(FeatureTier.allCases.contains(.costing), "the .costing tier must exist")
+        // A0 relocation: the old manager.costing aggregate now lives at costing.overview.
+        let overview = FeatureCatalog.descriptor(id: "costing.overview")
+        XCTAssertNotNil(overview, "costing.overview must be registered")
+        XCTAssertEqual(overview?.tier, .costing)
+        // This board:
+        let de = FeatureCatalog.descriptor(id: "costing.depletionExceptions")
+        XCTAssertNotNil(de, "costing.depletionExceptions must be registered")
+        XCTAssertEqual(de?.tier, .costing)
+        XCTAssertEqual(de?.title, "Depletion exceptions")
+        XCTAssertEqual(de?.enabled, true)
+        XCTAssertFalse(FeatureCatalog.descriptors(for: .costing).isEmpty)
+    }
+
+    /// A4.2 Board 4 (LAST board): ingredient-masters registers under `.costing`.
+    /// This is the wave's ONE audited write (the other three costing boards are
+    /// pure reads). The `.costing` tier + relocation are already covered by
+    /// `testCostingTierRelocation` — this test only guards this board's own
+    /// descriptor + that the tier stays non-empty.
+    func testCostingIngredientMastersRegistered() {
+        let d = FeatureCatalog.descriptor(id: "costing.ingredientMasters")
+        XCTAssertNotNil(d, "costing.ingredientMasters must be registered")
+        XCTAssertEqual(d?.tier, .costing)
+        XCTAssertEqual(d?.title, "Ingredient masters")
+        XCTAssertEqual(d?.enabled, true)
+        XCTAssertFalse(FeatureCatalog.descriptors(for: .costing).isEmpty)
+    }
+
+    /// A4.2 wave consolidation (plan Task 19): the `.costing` tier holds EXACTLY
+    /// the five detail boards, all enabled; the old `manager.costing` is gone and
+    /// `costing.prices` is a drill-down (never a tile); Manager stays non-empty
+    /// after the relocation. (The FeatureModule/FeatureRegistry binding lives in
+    /// the app target, out of reach of LariatModelTests; `FeatureModule.init`'s
+    /// precondition guards it at app-build/render time.)
+    func testCostingTierIsComplete() {
+        let ids = Set(FeatureCatalog.descriptors(for: .costing).map(\.id))
+        XCTAssertEqual(ids, [
+            "costing.overview", "costing.priceShocks", "costing.varianceAttribution",
+            "costing.depletionExceptions", "costing.ingredientMasters",
+        ], "the .costing tier must hold exactly the five detail boards")
+        for id in ids {
+            XCTAssertEqual(FeatureCatalog.descriptor(id: id)?.tier, .costing, "\(id) must be a costing feature")
+            XCTAssertEqual(FeatureCatalog.descriptor(id: id)?.enabled, true, "\(id) must be enabled")
+        }
+        XCTAssertNil(FeatureCatalog.descriptor(id: "manager.costing"), "manager.costing must be relocated")
+        XCTAssertNil(FeatureCatalog.descriptor(id: "costing.prices"), "price history is a drill-down, not a tile")
+        XCTAssertFalse(FeatureCatalog.descriptors(for: .manager).isEmpty, "Manager tier must stay non-empty after the relocation")
+    }
 }

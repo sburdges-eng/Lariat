@@ -36,6 +36,9 @@ public enum WriteErrorMapper {
         if let line = error as? LineCheckWriteError {
             return line.localizedDescription
         }
+        if let im = error as? IngredientMasterWriteError {
+            return im.localizedDescription
+        }
         let text = String(describing: error).lowercased()
         if text.contains("busy") || text.contains("locked") || text.contains("sqlite_busy") {
             return "Database busy — try again in a moment"
