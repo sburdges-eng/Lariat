@@ -94,6 +94,17 @@ final class FeatureRegistryTests: XCTestCase {
         }
     }
 
+    /// Phase B: the LaRi kitchen assistant registers under the COOK tier
+    /// (web parity: /kitchen-assistant is open to the line; mutations
+    /// PIN-gate inside the surface — cook.morning precedent, no new tier).
+    func testPhaseBAssistantRegistered() {
+        let d = FeatureCatalog.descriptor(id: "cook.assistant")
+        XCTAssertNotNil(d, "cook.assistant must be registered")
+        XCTAssertEqual(d?.tier, .cook)
+        XCTAssertEqual(d?.title, "Assistant")
+        XCTAssertEqual(d?.enabled, true)
+    }
+
     func testMorningIsPresent() {
         let morning = FeatureCatalog.descriptor(id: "cook.morning")
         XCTAssertNotNil(morning, "cook.morning must be registered")
