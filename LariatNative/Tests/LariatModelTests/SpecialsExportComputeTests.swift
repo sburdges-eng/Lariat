@@ -69,6 +69,42 @@ final class SpecialsExportComputeTests: XCTestCase {
         XCTAssertEqual(CostBreakdownLine.parse("[]"), [])
     }
 
+    func testParseBreakdownCoercesStringTypedFieldsLikeJs() {
+        // cost_breakdown is client-supplied JSON: the web coerces string qtys
+        // (Number("2") promotes) and counts a string cost as matched
+        // (cost !== null). Strict NSNumber reads skipped both — skeptic major.
+        let lines = CostBreakdownLine.parse(
+            #"[{"item":"X","req_qty":"2","req_unit":"lb","match":"Y","cost":"5"}]"#
+        )
+        XCTAssertEqual(lines[0].reqQty, 2)               // Number("2")
+        XCTAssertEqual(lines[0].reqQtyString, "2")       // String("2")
+        XCTAssertTrue(lines[0].costPresent)              // "5" !== null
+        let rows = SpecialsExport.mapCostBreakdownToIngredientRows(lines)
+        XCTAssertEqual(rows[0].qty, "2")
+        XCTAssertEqual(rows[0].vendorMatch, "Y")
+        XCTAssertEqual(rows[0].note, "")                 // matched, not skipped
+
+        // Number(null) → 0 (invalid qty downstream); Number(undefined) → NaN.
+        let nullQty = CostBreakdownLine.parse(#"[{"req_qty":null},{}]"#)
+        XCTAssertEqual(nullQty[0].reqQty, 0)
+        XCTAssertNil(nullQty[1].reqQty)
+        // Unparseable string → NaN-equivalent nil; "" → 0.
+        let junk = CostBreakdownLine.parse(#"[{"req_qty":"abc"},{"req_qty":""}]"#)
+        XCTAssertNil(junk[0].reqQty)
+        XCTAssertEqual(junk[1].reqQty, 0)
+    }
+
+    func testPromotionCoercesStringQtyLikeWeb() {
+        // Web componentsFromBreakdown promotes {"req_qty":"4"} via Number().
+        let lines = CostBreakdownLine.parse(
+            #"[{"item":"X","req_qty":"4","req_unit":"lb","match":"Y","cost":"5"}]"#
+        )
+        let result = SpecialsPromotionCompute.componentsFromBreakdown(lines, servings: 4)
+        XCTAssertEqual(result.components.count, 1)
+        XCTAssertEqual(result.components[0].qtyPerServing, 1)
+        XCTAssertTrue(result.skipped.isEmpty)
+    }
+
     // MARK: selectSkippedRows
 
     func testSelectSkippedRows() {

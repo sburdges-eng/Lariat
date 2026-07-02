@@ -115,11 +115,15 @@ public struct CostBreakdownLine: Sendable, Equatable {
     public let reqUnit: String?
     public let match: String?
     public let cost: Double?
+    /// Web `cost !== null && cost !== undefined` — the export "matched" check
+    /// counts a cost of ANY JSON type (including a string like "1.23").
+    public let costPresent: Bool
     public let note: String?
 
     public init(
         item: String? = nil, reqQty: Double? = nil, reqQtyString: String? = nil,
-        reqUnit: String? = nil, match: String? = nil, cost: Double? = nil, note: String? = nil
+        reqUnit: String? = nil, match: String? = nil, cost: Double? = nil,
+        costPresent: Bool? = nil, note: String? = nil
     ) {
         self.item = item
         self.reqQty = reqQty
@@ -127,10 +131,14 @@ public struct CostBreakdownLine: Sendable, Equatable {
         self.reqUnit = reqUnit
         self.match = match
         self.cost = cost
+        self.costPresent = costPresent ?? (cost != nil)
         self.note = note
     }
 
     /// `parseBreakdown` — `[]` for nil / malformed / non-array JSON.
+    /// cost_breakdown is client-supplied JSON validated only for parseability,
+    /// so field TYPES are untrusted: the web coerces (`Number(line?.req_qty)`
+    /// promotes "2"; export emits `String(req_qty ?? '')`). Mirror exactly.
     public static func parse(_ raw: String?) -> [CostBreakdownLine] {
         guard let raw, let data = raw.data(using: .utf8),
               let parsed = try? JSONSerialization.jsonObject(with: data),
@@ -138,16 +146,48 @@ public struct CostBreakdownLine: Sendable, Equatable {
         else { return [] }
         return array.map { element in
             let dict = element as? [String: Any] ?? [:]
-            let qtyNumber = (dict["req_qty"] as? NSNumber).map { $0.doubleValue }
+            let costRaw = dict["cost"]
             return CostBreakdownLine(
                 item: dict["item"] as? String,
-                reqQty: qtyNumber,
-                reqQtyString: qtyNumber.map(JsValueFormat.numberString),
+                reqQty: jsNumber(dict["req_qty"]),
+                reqQtyString: jsDisplayString(dict["req_qty"]),
                 reqUnit: dict["req_unit"] as? String,
                 match: dict["match"] as? String,
-                cost: (dict["cost"] as? NSNumber).map { $0.doubleValue },
+                cost: (costRaw as? NSNumber).flatMap {
+                    CFGetTypeID($0) == CFBooleanGetTypeID() ? nil : $0.doubleValue
+                },
+                costPresent: costRaw != nil && !(costRaw is NSNull),
                 note: dict["note"] as? String
             )
+        }
+    }
+
+    /// JS `Number(value)` for the shapes JSONSerialization produces.
+    /// nil result stands in for NaN (`reqQty ?? .nan` at the consumer).
+    private static func jsNumber(_ value: Any?) -> Double? {
+        switch value {
+        case nil: return nil                       // Number(undefined) → NaN
+        case is NSNull: return 0                   // Number(null) → 0
+        case let n as NSNumber:
+            if CFGetTypeID(n) == CFBooleanGetTypeID() { return n.boolValue ? 1 : 0 }
+            return n.doubleValue
+        case let s as String:
+            let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+            if t.isEmpty { return 0 }              // Number("") → 0
+            return Double(t)                       // unparseable → nil (NaN)
+        default: return nil                        // arrays/objects → NaN
+        }
+    }
+
+    /// JS `String(value ?? '')` — the export CSV qty column.
+    private static func jsDisplayString(_ value: Any?) -> String? {
+        switch value {
+        case nil, is NSNull: return nil            // `?? ''` at the consumer
+        case let s as String: return s
+        case let n as NSNumber:
+            if CFGetTypeID(n) == CFBooleanGetTypeID() { return n.boolValue ? "true" : "false" }
+            return JsValueFormat.numberString(n.doubleValue)
+        default: return nil
         }
     }
 }

@@ -63,10 +63,11 @@ public enum SpecialsExport {
     // MARK: mapCostBreakdownToIngredientRows
 
     /// A line is "matched" iff `match` is a non-empty string AND `cost` is
-    /// non-null (web truthiness check).
+    /// present with ANY JSON type (web `cost !== null && cost !== undefined` —
+    /// a string cost like "1.23" still counts).
     public static func mapCostBreakdownToIngredientRows(_ breakdown: [CostBreakdownLine]) -> [IngredientRow] {
         breakdown.map { line in
-            let matched = (line.match?.isEmpty == false) && line.cost != nil
+            let matched = (line.match?.isEmpty == false) && line.costPresent
             return IngredientRow(
                 ingredient: line.item ?? "",
                 qty: line.reqQtyString ?? "",
