@@ -10,6 +10,7 @@ import LariatModel
 struct BeoBoardView: View {
     @State private var vm: BeoBoardViewModel
     @State private var confirmKill = false
+    @State private var showAddParty = false
 
     init(readDB: LariatDatabase, writeDB: LariatWriteDatabase) {
         _vm = State(wrappedValue: BeoBoardViewModel(readDB: readDB, writeDB: writeDB))
@@ -55,41 +56,70 @@ struct BeoBoardView: View {
     }
 
     private var eventSidebar: some View {
-        List(selection: $vm.selectedEventId) {
-            Section("Parties") {
-                if vm.filteredEvents.isEmpty {
-                    EmptyState(message: "No parties yet.", systemImage: "party.popper")
-                }
-                ForEach(vm.filteredEvents) { ev in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(ev.title).fontWeight(.medium)
-                        Text("\(ev.eventDate ?? "no date")\(ev.eventTime.map { " (\($0))" } ?? "")")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+        VStack(spacing: 0) {
+            List(selection: $vm.selectedEventId) {
+                Section("Parties") {
+                    if vm.filteredEvents.isEmpty {
+                        EmptyState(message: "No parties yet.", systemImage: "party.popper")
                     }
-                    .tag(ev.id)
+                    ForEach(vm.filteredEvents) { ev in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(ev.title).fontWeight(.medium)
+                            Text("\(ev.eventDate ?? "no date")\(ev.eventTime.map { " (\($0))" } ?? "")")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .tag(ev.id)
+                    }
                 }
             }
-            Section("New party") {
-                addPartyForm
+            .searchable(text: $vm.eventQuery, prompt: "Find a party")
+            Divider()
+            // Lives OUTSIDE the selection List: text fields inside a
+            // List(selection:) never receive keyboard focus on macOS —
+            // clicks are consumed by row selection.
+            Button {
+                showAddParty = true
+            } label: {
+                Label("New party", systemImage: "plus.circle.fill")
+                    .frame(maxWidth: .infinity)
             }
+            .controlSize(.large)
+            .padding(10)
         }
-        .searchable(text: $vm.eventQuery, prompt: "Find a party")
+        .sheet(isPresented: $showAddParty) { addPartySheet }
     }
 
-    private var addPartyForm: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            TextField("Party name (e.g. Bob Clauss)", text: $vm.newTitle)
-            TextField("Date (YYYY-MM-DD)", text: $vm.newDate)
-            TextField("Time (5-7pm)", text: $vm.newTime)
-            TextField("Contact", text: $vm.newContact)
-            TextField("Covers", text: $vm.newGuests)
-            TextField("Notes (allergies, setup requests)", text: $vm.newNotes)
-            Button("Add party") { vm.requestAddParty() }
-                .disabled(vm.isSaving)
+    private var addPartySheet: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("New party").font(.title2.bold())
+            VStack(alignment: .leading, spacing: 8) {
+                TextField("Party name (e.g. Bob Clauss)", text: $vm.newTitle)
+                TextField("Date (YYYY-MM-DD)", text: $vm.newDate)
+                TextField("Time (5-7pm)", text: $vm.newTime)
+                TextField("Contact", text: $vm.newContact)
+                TextField("Covers", text: $vm.newGuests)
+                TextField("Notes (allergies, setup requests)", text: $vm.newNotes)
+            }
+            .textFieldStyle(.roundedBorder)
+            HStack {
+                Spacer()
+                Button("Cancel") { showAddParty = false }
+                    .keyboardShortcut(.cancelAction)
+                Button("Add party") {
+                    // Dismiss first — the PIN sheet may need to present next,
+                    // and two sheets can't be up at once.
+                    showAddParty = false
+                    vm.requestAddParty()
+                }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .disabled(vm.isSaving
+                    || vm.newTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
         }
-        .textFieldStyle(.roundedBorder)
-        .font(.callout)
+        .padding(20)
+        .frame(minWidth: 380)
     }
 
     @ViewBuilder
