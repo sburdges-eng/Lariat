@@ -43,6 +43,10 @@ public struct ManagementAuditLogReader: Sendable {
 
     private func readContent() -> String? {
         guard FileManager.default.fileExists(atPath: auditPath) else { return nil }
-        return try? String(contentsOfFile: auditPath, encoding: .utf8)
+        guard let data = FileManager.default.contents(atPath: auditPath) else { return nil }
+        // Lossy decode (invalid bytes → U+FFFD) mirrors Node readFileSync('utf-8'):
+        // a torn multi-byte write corrupts only its own line (JSON parse skips it),
+        // never the whole file — strict decoding would blank the entire board.
+        return String(decoding: data, as: UTF8.self)
     }
 }

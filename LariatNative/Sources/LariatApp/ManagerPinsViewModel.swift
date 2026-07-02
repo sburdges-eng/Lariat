@@ -132,8 +132,9 @@ final class ManagerPinsViewModel {
 
     private func performAdd() {
         withSession { context in
+            // Web parity: app/management/pins addPin sends pin.trim()
             _ = try repo.create(
-                name: newName, pin: newPin,
+                name: newName, pin: newPin.trimmingCharacters(in: .whitespacesAndNewlines),
                 role: newRole, context: context
             )
             newName = ""

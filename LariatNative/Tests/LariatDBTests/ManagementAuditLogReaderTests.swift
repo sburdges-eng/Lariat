@@ -67,6 +67,22 @@ final class ManagementAuditLogReaderTests: XCTestCase {
         XCTAssertEqual(reader.byAction("recipe_edit").map(\.id), ["ok"])
     }
 
+    func testInvalidUtf8LineOnlyCorruptsItself() throws {
+        // Node readFileSync('utf-8') substitutes U+FFFD for invalid bytes, so a
+        // torn multi-byte write breaks only its own line's JSON.parse. Strict
+        // Swift decoding returned nil for the WHOLE file — blanking the board.
+        var data = Data(#"{"id":"a","action":"recipe_edit","timestamp":"2026-01-01T00:00:00.000Z"}"#.utf8)
+        data.append(0x0A)
+        data.append(contentsOf: [0x7B, 0x22, 0xC3]) // `{"` + dangling UTF-8 lead byte
+        data.append(0x0A)
+        data.append(Data(#"{"id":"b","action":"recipe_edit","timestamp":"2026-01-02T00:00:00.000Z"}"#.utf8))
+        data.append(0x0A)
+        try data.write(to: URL(fileURLWithPath: filePath))
+        let reader = ManagementAuditLogReader(auditPath: filePath)
+        XCTAssertEqual(reader.recent().map(\.id), ["b", "a"])
+        XCTAssertEqual(reader.byAction("recipe_edit").map(\.id), ["b", "a"])
+    }
+
     // ── path resolution parity (LARIAT_AUDIT_PATH override) ─────────────
 
     func testDefaultPathHonorsAuditPathOverride() {
