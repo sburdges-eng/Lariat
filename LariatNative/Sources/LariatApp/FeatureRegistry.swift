@@ -59,6 +59,13 @@ enum FeatureRegistry {
         .purchasingOrderGuide,
         .purchasingCompare,
         .purchasingLink,
+        // Shows
+        .showsTonight,
+        .showsBoxOffice,
+        .showsSettlement,
+        .showsSound,
+        .showsStage,
+        .showsArchive,
     ]
 
     /// Stable default selection on launch.

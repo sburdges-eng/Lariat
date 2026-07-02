@@ -11,6 +11,7 @@ public enum FeatureTier: String, CaseIterable, Hashable, Sendable {
     case manager = "Manager"
     case costing = "Costing"
     case purchasing = "Purchasing"
+    case shows = "Shows"
 }
 
 /// UI-free description of one registered screen: its stable id, tier, title, and
@@ -87,6 +88,14 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "purchasing.orderGuide", tier: .purchasing, title: "Order guide"),
         FeatureDescriptor(id: "purchasing.compare", tier: .purchasing, title: "Vendor compare"),
         FeatureDescriptor(id: "purchasing.link", tier: .purchasing, title: "Link vendors"),
+        // Shows (A6.4) — PIN-gated on the web (/shows SENSITIVE_PREFIXES);
+        // each surface enforces the PIN itself, so they stay enabled here.
+        FeatureDescriptor(id: "shows.tonight", tier: .shows, title: "Tonight"),
+        FeatureDescriptor(id: "shows.boxOffice", tier: .shows, title: "Box office"),
+        FeatureDescriptor(id: "shows.settlement", tier: .shows, title: "Settlement"),
+        FeatureDescriptor(id: "shows.sound", tier: .shows, title: "Sound"),
+        FeatureDescriptor(id: "shows.stage", tier: .shows, title: "Stage"),
+        FeatureDescriptor(id: "shows.archive", tier: .shows, title: "Archive"),
     ]
 
     /// Stable default selection on launch.
