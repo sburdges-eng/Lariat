@@ -14,6 +14,7 @@ public enum FeatureTier: String, CaseIterable, Hashable, Sendable {
     case foh = "Front of house"
     case shows = "Shows"
     case house = "House"
+    case beo = "BEO"
 }
 
 /// UI-free description of one registered screen: its stable id, tier, title, and
@@ -124,6 +125,14 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "house.barPar", tier: .house, title: "Bar par"),
         FeatureDescriptor(id: "house.equipment", tier: .house, title: "Equipment"),
         FeatureDescriptor(id: "house.goldStars", tier: .house, title: "Gold stars"),
+        // BEO (A6.5). /beo is PIN-gated on the web middleware (except the
+        // client share path, which is an edge blocker and never ported);
+        // natively the parties board gates its own writes, and the
+        // fire-schedule rollup is PUBLIC on web — so all three stay enabled
+        // (cook.morning precedent).
+        FeatureDescriptor(id: "beo.board", tier: .beo, title: "Parties"),
+        FeatureDescriptor(id: "beo.fireSchedule", tier: .beo, title: "Fire schedule"),
+        FeatureDescriptor(id: "beo.prepHistory", tier: .beo, title: "Past prep"),
     ]
 
     /// Stable default selection on launch.
