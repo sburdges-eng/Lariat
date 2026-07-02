@@ -48,6 +48,24 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertEqual(plan?.enabled, true)
     }
 
+    func testShowsTierRegistered() {
+        // A6.4: the shows wave adds its own tier with exactly six boards,
+        // in sidebar order tonight → box office → settlement → sound →
+        // stage → archive.
+        XCTAssertTrue(FeatureTier.allCases.contains(.shows))
+        XCTAssertEqual(
+            FeatureCatalog.descriptors(for: .shows).map(\.id),
+            [
+                "shows.tonight", "shows.boxOffice", "shows.settlement",
+                "shows.sound", "shows.stage", "shows.archive",
+            ]
+        )
+        let settlement = FeatureCatalog.descriptor(id: "shows.settlement")
+        XCTAssertEqual(settlement?.tier, .shows)
+        XCTAssertEqual(settlement?.title, "Settlement")
+        XCTAssertEqual(settlement?.enabled, true)
+    }
+
     func testA1WaveBoardsAllRegistered() {
         for id in [
             "safety.sanitizer", "safety.tphc", "safety.pest", "safety.sds",
@@ -56,6 +74,23 @@ final class FeatureRegistryTests: XCTestCase {
             let d = FeatureCatalog.descriptor(id: id)
             XCTAssertNotNil(d, "\(id) must be registered")
             XCTAssertEqual(d?.tier, .safety, "\(id) must be a safety feature")
+        }
+    }
+
+    /// A6.3 wave: specials (manager), allergen-lookup (safety),
+    /// datapack-search (cook).
+    func testA63BoardsRegistered() {
+        let expected: [(id: String, tier: FeatureTier, title: String)] = [
+            ("manager.specials", .manager, "Specials"),
+            ("safety.allergenLookup", .safety, "Allergens"),
+            ("cook.datapackSearch", .cook, "Reference"),
+        ]
+        for (id, tier, title) in expected {
+            let d = FeatureCatalog.descriptor(id: id)
+            XCTAssertNotNil(d, "\(id) must be registered")
+            XCTAssertEqual(d?.tier, tier)
+            XCTAssertEqual(d?.title, title)
+            XCTAssertEqual(d?.enabled, true)
         }
     }
 
@@ -269,12 +304,12 @@ final class FeatureRegistryTests: XCTestCase {
             XCTAssertEqual(d?.enabled, true, "\(id) must be enabled")
         }
         // The manager tier holds exactly the three pre-A5 boards + the four
-        // A5 boards after this wave.
+        // A5 boards + the A6.3 saved-specials board.
         let ids = Set(FeatureCatalog.descriptors(for: .manager).map(\.id))
         XCTAssertEqual(ids, [
             "manager.command", "manager.analytics", "manager.management",
             "manager.auditLog", "manager.pins", "manager.tempPins",
-            "manager.receivingMatches",
+            "manager.receivingMatches", "manager.specials",
         ])
     }
 
@@ -300,6 +335,33 @@ final class FeatureRegistryTests: XCTestCase {
             ids,
             ["purchasing.orderGuide", "purchasing.compare", "purchasing.link"],
             "the .purchasing tier must hold exactly the three A4.4 boards"
+        )
+    }
+
+    /// A6.2 House wave: the `.house` tier exists and holds EXACTLY the four
+    /// venue-program boards — bar program + bar par (read-only), equipment
+    /// (open non-audited writes, web parity) and gold stars (PIN-gated
+    /// audited writes) — all enabled.
+    func testA62HouseBoardsRegistered() {
+        XCTAssertTrue(FeatureTier.allCases.contains(.house), "the .house tier must exist")
+        XCTAssertEqual(FeatureTier.house.rawValue, "House")
+        for (id, title) in [
+            ("house.bar", "Bar program"),
+            ("house.barPar", "Bar par"),
+            ("house.equipment", "Equipment"),
+            ("house.goldStars", "Gold stars"),
+        ] {
+            let d = FeatureCatalog.descriptor(id: id)
+            XCTAssertNotNil(d, "\(id) must be registered")
+            XCTAssertEqual(d?.tier, .house, "\(id) must be a house feature")
+            XCTAssertEqual(d?.title, title)
+            XCTAssertEqual(d?.enabled, true, "\(id) must be enabled")
+        }
+        let ids = Set(FeatureCatalog.descriptors(for: .house).map(\.id))
+        XCTAssertEqual(
+            ids,
+            ["house.bar", "house.barPar", "house.equipment", "house.goldStars"],
+            "the .house tier must hold exactly the four A6.2 boards"
         )
     }
 

@@ -12,6 +12,8 @@ public enum FeatureTier: String, CaseIterable, Hashable, Sendable {
     case costing = "Costing"
     case purchasing = "Purchasing"
     case foh = "Front of house"
+    case shows = "Shows"
+    case house = "House"
     case beo = "BEO"
 }
 
@@ -47,6 +49,8 @@ public enum FeatureCatalog {
         // PIN-gated on the web (/morning is a SENSITIVE_PREFIX); the surface
         // enforces the PIN itself, so it stays enabled in the catalog.
         FeatureDescriptor(id: "cook.morning", tier: .cook, title: "Morning"),
+        // A6.3 — read-only data-pack reference search (/datapack-search).
+        FeatureDescriptor(id: "cook.datapackSearch", tier: .cook, title: "Reference"),
         // Safety
         FeatureDescriptor(id: "safety.hub", tier: .safety, title: "Food Safety"),
         FeatureDescriptor(id: "safety.tempLog", tier: .safety, title: "Temp log"),
@@ -62,6 +66,8 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "safety.sickWorker", tier: .safety, title: "Sick worker"),
         FeatureDescriptor(id: "safety.receiving", tier: .safety, title: "Receiving"),
         FeatureDescriptor(id: "safety.haccpPlan", tier: .safety, title: "HACCP plan"),
+        // A6.3 — product allergen lookup + attested house-recipe lists.
+        FeatureDescriptor(id: "safety.allergenLookup", tier: .safety, title: "Allergens"),
         // Labor
         FeatureDescriptor(id: "labor.certs", tier: .labor, title: "Certifications"),
         FeatureDescriptor(id: "labor.sickLeave", tier: .labor, title: "Sick time"),
@@ -81,6 +87,8 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "manager.pins", tier: .manager, title: "PINs"),
         FeatureDescriptor(id: "manager.tempPins", tier: .manager, title: "Temp PINs"),
         FeatureDescriptor(id: "manager.receivingMatches", tier: .manager, title: "Receiving matches"),
+        // A6.3 — PIN-gated saved-specials management (/specials/saved).
+        FeatureDescriptor(id: "manager.specials", tier: .manager, title: "Specials"),
         // Costing
         FeatureDescriptor(id: "costing.overview", tier: .costing, title: "Costing"),
         FeatureDescriptor(id: "costing.priceShocks", tier: .costing, title: "Price shocks"),
@@ -101,6 +109,22 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "foh.host", tier: .foh, title: "Host stand"),
         FeatureDescriptor(id: "foh.reservations", tier: .foh, title: "Reservations"),
         FeatureDescriptor(id: "foh.booking", tier: .foh, title: "Booking"),
+        // Shows (A6.4) — PIN-gated on the web (/shows SENSITIVE_PREFIXES);
+        // each surface enforces the PIN itself, so they stay enabled here.
+        FeatureDescriptor(id: "shows.tonight", tier: .shows, title: "Tonight"),
+        FeatureDescriptor(id: "shows.boxOffice", tier: .shows, title: "Box office"),
+        FeatureDescriptor(id: "shows.settlement", tier: .shows, title: "Settlement"),
+        FeatureDescriptor(id: "shows.sound", tier: .shows, title: "Sound"),
+        FeatureDescriptor(id: "shows.stage", tier: .shows, title: "Stage"),
+        FeatureDescriptor(id: "shows.archive", tier: .shows, title: "Archive"),
+        // House (A6.2) — venue-program boards. /bar and /equipment are open
+        // on the web (not in middleware SENSITIVE_PREFIXES); /gold-stars
+        // reads are open and its writes PIN-gate themselves in the surface,
+        // so all four stay enabled in the catalog.
+        FeatureDescriptor(id: "house.bar", tier: .house, title: "Bar program"),
+        FeatureDescriptor(id: "house.barPar", tier: .house, title: "Bar par"),
+        FeatureDescriptor(id: "house.equipment", tier: .house, title: "Equipment"),
+        FeatureDescriptor(id: "house.goldStars", tier: .house, title: "Gold stars"),
         // BEO (A6.5). /beo is PIN-gated on the web middleware (except the
         // client share path, which is an edge blocker and never ported);
         // natively the parties board gates its own writes, and the

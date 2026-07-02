@@ -100,7 +100,7 @@ final class BookingRepositoryTests: XCTestCase {
         let path: String
 
         init() async throws {
-            path = try seedShowsDatabase()
+            path = try seedBookingShowsDatabase()
             readDB = try LariatDatabase(path: path)
             writeDB = try LariatWriteDatabase(path: path)
             repo = BookingRepository(database: readDB, locationId: "default")
@@ -146,7 +146,7 @@ final class BookingRepositoryTests: XCTestCase {
 }
 
 /// Web schema (lib/db.ts) for shows.
-private func seedShowsDatabase() throws -> String {
+private func seedBookingShowsDatabase() throws -> String {
     let dir = NSTemporaryDirectory() + "lariat-booking-" + UUID().uuidString
     try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
     let path = (dir as NSString).appendingPathComponent("lariat.db")

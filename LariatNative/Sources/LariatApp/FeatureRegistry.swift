@@ -17,6 +17,7 @@ enum FeatureRegistry {
         .cookPrep,
         .cookPrepPar,
         .cookMorning,
+        .cookDatapackSearch,
         // Safety
         .safetyHub,
         .safetyTempLog,
@@ -32,6 +33,7 @@ enum FeatureRegistry {
         .safetySickWorker,
         .safetyReceiving,
         .safetyHaccpPlan,
+        .safetyAllergenLookup,
         // Labor
         .laborCerts,
         .laborSickLeave,
@@ -50,6 +52,7 @@ enum FeatureRegistry {
         .managerPins,
         .managerTempPins,
         .managerReceivingMatches,
+        .managerSpecials,
         // Costing
         .costingOverview,
         .costingPriceShocks,
@@ -68,6 +71,18 @@ enum FeatureRegistry {
         .fohHost,
         .fohReservations,
         .fohBooking,
+        // Shows
+        .showsTonight,
+        .showsBoxOffice,
+        .showsSettlement,
+        .showsSound,
+        .showsStage,
+        .showsArchive,
+        // House
+        .houseBar,
+        .houseBarPar,
+        .houseEquipment,
+        .houseGoldStars,
         // BEO
         .beoBoard,
         .beoFireSchedule,
