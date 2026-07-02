@@ -9,4 +9,8 @@ extension FeatureModule {
     static let costingPriceShocks = FeatureModule(id: "costing.priceShocks") { ctx in
         AnyView(PriceShocksView(database: ctx.database))
     }
+
+    static let costingVarianceAttribution = FeatureModule(id: "costing.varianceAttribution") { ctx in
+        AnyView(VarianceAttributionView(database: ctx.database))
+    }
 }

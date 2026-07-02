@@ -151,4 +151,16 @@ final class FeatureRegistryTests: XCTestCase {
             "price history is reached from a shock row, not a sidebar tile"
         )
     }
+
+    /// A4.2 Board 2: variance-attribution board registers under `.costing`, the same
+    /// tier Board 1 created. Pure read — no PIN sheet (matches the web route, which
+    /// has no in-route PIN either, only /costing middleware gating).
+    func testCostingVarianceAttributionRegistered() {
+        let d = FeatureCatalog.descriptor(id: "costing.varianceAttribution")
+        XCTAssertNotNil(d, "costing.varianceAttribution must be registered")
+        XCTAssertEqual(d?.tier, .costing)
+        XCTAssertEqual(d?.title, "Variance attribution")
+        XCTAssertEqual(d?.enabled, true)
+        XCTAssertFalse(FeatureCatalog.descriptors(for: .costing).isEmpty)
+    }
 }
