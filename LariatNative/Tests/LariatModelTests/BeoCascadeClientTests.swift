@@ -155,6 +155,25 @@ final class BeoCascadeClientTests: XCTestCase {
         XCTAssertEqual(BeoCascadeClient.resolveProjectRoot(env: [:], cwd: "/cwd"), "/cwd")
     }
 
+    func testResolveProjectRootWalksUpToScriptsMarker() {
+        // A native app launched from LariatNative/ sits one level below the
+        // repo root that owns scripts/ — the raw web `LARIAT_ROOT || cwd`
+        // fallback pointed the CLI at a nonexistent path.
+        let root = BeoCascadeClient.resolveProjectRoot(
+            env: [:], cwd: "/repo/LariatNative",
+            fileExists: { $0 == "/repo/scripts/beo_cascade_cli.py" }
+        )
+        XCTAssertEqual(root, "/repo")
+    }
+
+    func testResolveProjectRootFallsBackToDataDirParent() {
+        let root = BeoCascadeClient.resolveProjectRoot(
+            env: ["LARIAT_DATA_DIR": "/elsewhere/repo/data"], cwd: "/tmp/nowhere",
+            fileExists: { $0 == "/elsewhere/repo/scripts/beo_cascade_cli.py" }
+        )
+        XCTAssertEqual(root, "/elsewhere/repo")
+    }
+
     // ── helper ───────────────────────────────────────────────────────────
 
     private func assertCascadeError(

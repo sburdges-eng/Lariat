@@ -138,12 +138,29 @@ public struct BeoCascadeClient {
 
     // MARK: Pure pieces (unit-tested without spawning)
 
-    /// Resolve at call time, not init (web parity — `LARIAT_ROOT || cwd`).
+    /// Resolve at call time, not init. Web parity is `LARIAT_ROOT || cwd`, but
+    /// the web server's cwd IS the repo root — a native app launched from
+    /// LariatNative/ (or an .app bundle) is not, so fall back to walking up
+    /// from cwd until `scripts/beo_cascade_cli.py` appears, then to the parent
+    /// of LARIAT_DATA_DIR (which points at `<root>/data`).
     public static func resolveProjectRoot(
         env: [String: String] = ProcessInfo.processInfo.environment,
-        cwd: String = FileManager.default.currentDirectoryPath
+        cwd: String = FileManager.default.currentDirectoryPath,
+        fileExists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
     ) -> String {
         if let root = env["LARIAT_ROOT"], !root.isEmpty { return root }
+        let marker = "scripts/beo_cascade_cli.py"
+        var dir = cwd
+        for _ in 0..<8 {
+            if fileExists((dir as NSString).appendingPathComponent(marker)) { return dir }
+            let parent = (dir as NSString).deletingLastPathComponent
+            if parent == dir || parent.isEmpty { break }
+            dir = parent
+        }
+        if let data = env["LARIAT_DATA_DIR"], !data.isEmpty {
+            let parent = (data as NSString).deletingLastPathComponent
+            if fileExists((parent as NSString).appendingPathComponent(marker)) { return parent }
+        }
         return cwd
     }
 
