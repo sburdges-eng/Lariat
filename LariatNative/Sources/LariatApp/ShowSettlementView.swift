@@ -1,0 +1,400 @@
+import SwiftUI
+import LariatDB
+import LariatModel
+import Observation
+
+/// Settlement — native port of `app/shows/[id]/settlement` (page +
+/// `DealEditor.jsx` + GET settlement + PUT deal + the print view).
+/// MONEY-CRITICAL: everything renders from the Int-cents
+/// `SettlementSummary`; the deal editor converts dollars → cents via
+/// `Decimal` before the PUT-parity validation. The print COMPUTATION is
+/// rendered as a monospaced text preview (macOS print chrome = H6,
+/// deferred-cosmetic). PIN-gated whole-board; the deal write is regulated
+/// (audit_events insert/correction in-tx).
+struct ShowSettlementView: View {
+    @State private var gateModel: ShowsGateModel
+    @State private var picker: ShowPickerModel
+    @State private var vm: ShowSettlementViewModel
+
+    init(database: LariatDatabase, writeDatabase: LariatWriteDatabase?) {
+        let gate = ShowsGateModel(database: database, writeDatabase: writeDatabase)
+        _gateModel = State(wrappedValue: gate)
+        _picker = State(wrappedValue: ShowPickerModel(database: database))
+        _vm = State(wrappedValue: ShowSettlementViewModel(
+            readDB: database, writeDB: writeDatabase, gateModel: gate
+        ))
+    }
+
+    var body: some View {
+        ShowsGatedBoard(gateModel: gateModel, title: "Settlement") {
+            content
+                .task {
+                    await picker.load()
+                    vm.start(picker: picker)
+                }
+                .onDisappear { vm.stop() }
+                .sheet(isPresented: $vm.showDealEditor) { dealEditor }
+                .sheet(isPresented: $vm.showPrintPreview) { printPreview }
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let err = vm.fetchError, vm.summary == nil {
+            TileDegrade(title: "Could not load settlement", message: err, systemImage: "dollarsign.square")
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                List {
+                    Section { ShowPickerRow(model: picker) }
+                    if let s = vm.summary {
+                        ticketsSection(s)
+                        toastSection(s)
+                        dealSection(s)
+                        talentSection(s)
+                        netDoorSection(s)
+                    } else {
+                        Section { ProgressView("Computing settlement…") }
+                    }
+                }
+                HStack {
+                    if let err = vm.submitError {
+                        Text(err).font(.caption).foregroundStyle(LariatTheme.bad)
+                    }
+                    Spacer()
+                    Button("Print preview") { vm.showPrintPreview = true }
+                        .disabled(vm.summary == nil)
+                    Button("Edit deal") { vm.openDealEditor() }
+                        .disabled(picker.selectedShow == nil)
+                        .buttonStyle(.borderedProminent)
+                }
+                .padding()
+            }
+        }
+    }
+
+    // ── Sections (mirroring the web cards) ────────────────────────────
+
+    @ViewBuilder
+    private func ticketsSection(_ s: SettlementSummary) -> some View {
+        Section("Tickets") {
+            moneyRow("Gross", s.ticketing.grossCents)
+            moneyRow("Fees", s.ticketing.feesCents)
+            moneyRow("Net", s.ticketing.netCents, strong: true)
+            let sources = SettlementPrintCompute.ticketSourceRows(s)
+            if sources.isEmpty {
+                EmptyState(message: "No ticket lines yet.", systemImage: "ticket")
+            } else {
+                ForEach(Array(sources.enumerated()), id: \.offset) { _, src in
+                    HStack {
+                        Text(src.label).foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(src.qty) · \(SettlementPrintCompute.dollars(src.grossCents))")
+                            .monospacedDigit()
+                    }
+                    .font(.callout)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func toastSection(_ s: SettlementSummary) -> some View {
+        Section("Toast") {
+            moneyRow("Net sales", s.toast.totalCents)
+            plainRow("Orders", String(s.toast.ordersCount))
+            plainRow("Guests", String(s.toast.guestsCount))
+            if let warning = SettlementPrintCompute.toastWarning(s) {
+                Text(warning).font(.caption).foregroundStyle(LariatTheme.warn)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func dealSection(_ s: SettlementSummary) -> some View {
+        Section("Deal terms") {
+            moneyRow("Guarantee", s.deal.guaranteeCents)
+            plainRow("vs % after costs", SettlementPrintCompute.vsPctLabel(s.deal.vsPctAfterCosts))
+            moneyRow("Buyout", s.deal.buyoutCents)
+        }
+        Section("Costs off top") {
+            if s.deal.costsOffTop.isEmpty {
+                EmptyState(message: "No costs off top.", systemImage: "minus.circle")
+            } else {
+                ForEach(Array(s.deal.costsOffTop.enumerated()), id: \.offset) { _, cost in
+                    moneyRow(cost.label, cost.cents)
+                }
+                moneyRow("Total costs off top", s.costsOffTopCents, strong: true)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func talentSection(_ s: SettlementSummary) -> some View {
+        Section("Talent payout") {
+            moneyRow("Guarantee", s.talent.guaranteeCents)
+            moneyRow("vs bonus", s.talent.vsBonusCents)
+            moneyRow("Buyout", s.talent.buyoutCents)
+            moneyRow("Total", s.talent.totalCents, strong: true)
+        }
+    }
+
+    @ViewBuilder
+    private func netDoorSection(_ s: SettlementSummary) -> some View {
+        Section("Net to door") {
+            Text(SettlementPrintCompute.dollars(s.netDoorCents))
+                .font(.system(size: 34, weight: .bold)).monospacedDigit()
+                .foregroundStyle(s.netDoorCents < 0 ? LariatTheme.bad : .primary)
+            Text("tickets net − costs off top − talent payout")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    // ── Deal editor (PUT /deal parity) ────────────────────────────────
+
+    @ViewBuilder
+    private var dealEditor: some View {
+        NavigationStack {
+            Form {
+                TextField("Guarantee ($)", text: $vm.formGuarantee)
+                TextField("vs % after costs (0–100, blank = flat)", text: $vm.formVsPct)
+                TextField("Buyout ($)", text: $vm.formBuyout)
+                Section("Costs off top") {
+                    ForEach(vm.formCosts.indices, id: \.self) { i in
+                        HStack {
+                            TextField("Label", text: $vm.formCosts[i].label)
+                            TextField("$", text: $vm.formCosts[i].amount)
+                                .frame(width: 100)
+                            Button(role: .destructive) {
+                                vm.formCosts.remove(at: i)
+                            } label: { Image(systemName: "trash") }
+                        }
+                    }
+                    Button("Add cost") { vm.formCosts.append(.init()) }
+                }
+                if let err = vm.submitError {
+                    Text(err).font(.caption).foregroundStyle(LariatTheme.bad)
+                }
+            }
+            .navigationTitle("Deal terms")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { vm.showDealEditor = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { vm.saveDeal() }
+                }
+            }
+        }
+        .frame(minWidth: 420, minHeight: 420)
+    }
+
+    // ── Print preview (settlementPrint computation) ───────────────────
+
+    @ViewBuilder
+    private var printPreview: some View {
+        NavigationStack {
+            ScrollView {
+                if let s = vm.summary {
+                    Text(SettlementPrintCompute.renderText(s))
+                        .font(.system(.callout, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                }
+            }
+            .navigationTitle("Settlement sheet")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { vm.showPrintPreview = false }
+                }
+            }
+        }
+        .frame(minWidth: 520, minHeight: 560)
+    }
+
+    // ── row helpers ───────────────────────────────────────────────────
+
+    @ViewBuilder
+    private func moneyRow(_ label: String, _ cents: Int, strong: Bool = false) -> some View {
+        HStack {
+            Text(label).foregroundStyle(strong ? .primary : .secondary)
+            Spacer()
+            Text(SettlementPrintCompute.dollars(cents))
+                .monospacedDigit()
+                .fontWeight(strong ? .bold : .regular)
+        }
+        .font(.callout)
+    }
+
+    @ViewBuilder
+    private func plainRow(_ label: String, _ value: String) -> some View {
+        HStack {
+            Text(label).foregroundStyle(.secondary)
+            Spacer()
+            Text(value).monospacedDigit()
+        }
+        .font(.callout)
+    }
+}
+
+/// Settlement view model — polls the Int-cents summary every 5 s; the deal
+/// editor round-trips dollars ↔ cents via `Decimal` (half-away-from-zero,
+/// the web `Math.round(x*100)` analog).
+@Observable @MainActor
+final class ShowSettlementViewModel {
+    struct CostDraft: Identifiable {
+        let id = UUID()
+        var label = ""
+        var amount = ""
+    }
+
+    var summary: SettlementSummary?
+    var fetchError: String?
+    var submitError: String?
+    var showDealEditor = false
+    var showPrintPreview = false
+
+    var formGuarantee = ""
+    var formVsPct = ""
+    var formBuyout = ""
+    var formCosts: [CostDraft] = []
+
+    private let readDB: LariatDatabase
+    private let writeDB: LariatWriteDatabase?
+    private let gateModel: ShowsGateModel
+    private let locationId: String
+    private var pollTask: Task<Void, Never>?
+    private weak var picker: ShowPickerModel?
+
+    init(
+        readDB: LariatDatabase,
+        writeDB: LariatWriteDatabase?,
+        gateModel: ShowsGateModel,
+        locationId: String = LocationScope.resolve()
+    ) {
+        self.readDB = readDB
+        self.writeDB = writeDB
+        self.gateModel = gateModel
+        self.locationId = locationId
+    }
+
+    func start(picker: ShowPickerModel) {
+        self.picker = picker
+        pollTask?.cancel()
+        pollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                await self?.refresh()
+                try? await Task.sleep(for: .seconds(5))
+            }
+        }
+    }
+
+    func stop() { pollTask?.cancel() }
+
+    func refresh() async {
+        guard let showId = picker?.selectedShowId else {
+            summary = nil
+            return
+        }
+        let repo = ShowSettlementRepository(readDB: readDB, writeDB: writeDB, locationId: locationId)
+        do {
+            summary = try await repo.getSettlement(showId: showId)
+            fetchError = nil
+        } catch {
+            fetchError = "Could not load the settlement"
+        }
+    }
+
+    func openDealEditor() {
+        submitError = nil
+        let deal = summary?.deal ?? DealPointsCompute.emptyDeal()
+        formGuarantee = centsToDollarsText(deal.guaranteeCents)
+        formBuyout = centsToDollarsText(deal.buyoutCents)
+        formVsPct = deal.vsPctAfterCosts.map { trimTrailingZeros($0 * 100) } ?? ""
+        formCosts = deal.costsOffTop.map {
+            CostDraft(label: $0.label, amount: centsToDollarsText($0.cents))
+        }
+        showDealEditor = true
+    }
+
+    func saveDeal() {
+        submitError = nil
+        guard let showId = picker?.selectedShowId else {
+            submitError = "Pick a show first."
+            return
+        }
+        guard let guaranteeCents = dollarsToCents(formGuarantee.isEmpty ? "0" : formGuarantee) else {
+            submitError = "guaranteeCents: non-negative integer required"
+            return
+        }
+        guard let buyoutCents = dollarsToCents(formBuyout.isEmpty ? "0" : formBuyout) else {
+            submitError = "buyoutCents: non-negative integer required"
+            return
+        }
+        var vsPct: Double?
+        let pctText = formVsPct.trimmingCharacters(in: .whitespaces)
+        if !pctText.isEmpty {
+            guard let pct = Double(pctText) else {
+                submitError = "vsPctAfterCosts: null or 0-1"
+                return
+            }
+            vsPct = pct / 100
+        }
+        var costs: [DealCost] = []
+        for draft in formCosts {
+            let label = draft.label.trimmingCharacters(in: .whitespaces)
+            guard !label.isEmpty else { continue }
+            guard let cents = dollarsToCents(draft.amount.isEmpty ? "0" : draft.amount) else {
+                submitError = "costsOffTop: non-negative amount required"
+                return
+            }
+            costs.append(DealCost(label: label, cents: cents))
+        }
+        let deal = DealPoint(
+            guaranteeCents: guaranteeCents,
+            vsPctAfterCosts: vsPct,
+            costsOffTop: costs,
+            buyoutCents: buyoutCents
+        )
+        do {
+            let user = try gateModel.actorForWrite()
+            let repo = ShowSettlementRepository(readDB: readDB, writeDB: writeDB, locationId: locationId)
+            try repo.upsertDeal(
+                showId: showId,
+                deal: deal,
+                cookId: user.map { String($0.id) } ?? "unknown",
+                context: RegulatedWriteContext(
+                    actorCookId: user.map { String($0.id) },
+                    actorSource: RegulatedWriteContext.nativeMacActorSource,
+                    locationId: locationId,
+                    shiftDate: ShiftDate.todayISO()
+                )
+            )
+            showDealEditor = false
+            Task { await refresh() }
+        } catch {
+            submitError = WriteErrorMapper.message(for: error)
+        }
+    }
+
+    // ── money text helpers (Decimal, half-away-from-zero) ─────────────
+
+    func dollarsToCents(_ s: String) -> Int? {
+        let trimmed = s.trimmingCharacters(in: .whitespaces)
+        guard let dollars = Decimal(string: trimmed), dollars >= 0 else { return nil }
+        let handler = NSDecimalNumberHandler(
+            roundingMode: .plain, scale: 0,
+            raiseOnExactness: false, raiseOnOverflow: false,
+            raiseOnUnderflow: false, raiseOnDivideByZero: false
+        )
+        return NSDecimalNumber(decimal: dollars * 100).rounding(accordingToBehavior: handler).intValue
+    }
+
+    private func centsToDollarsText(_ cents: Int) -> String {
+        cents == 0 ? "" : String(format: "%d.%02d", cents / 100, abs(cents) % 100)
+    }
+
+    private func trimTrailingZeros(_ n: Double) -> String {
+        n == n.rounded() ? String(Int(n)) : String(n)
+    }
+}

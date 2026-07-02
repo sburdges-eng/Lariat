@@ -11,6 +11,9 @@ public enum FeatureTier: String, CaseIterable, Hashable, Sendable {
     case manager = "Manager"
     case costing = "Costing"
     case purchasing = "Purchasing"
+    case foh = "Front of house"
+    case shows = "Shows"
+    case house = "House"
 }
 
 /// UI-free description of one registered screen: its stable id, tier, title, and
@@ -98,6 +101,29 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "purchasing.orderGuide", tier: .purchasing, title: "Order guide"),
         FeatureDescriptor(id: "purchasing.compare", tier: .purchasing, title: "Vendor compare"),
         FeatureDescriptor(id: "purchasing.link", tier: .purchasing, title: "Link vendors"),
+        // Front of house (A6.1). /host + /booking are PIN-gated on the web
+        // middleware; natively the host board gates its own writes and
+        // booking is read-only, so all four stay enabled in the catalog.
+        FeatureDescriptor(id: "foh.floor", tier: .foh, title: "Floor"),
+        FeatureDescriptor(id: "foh.host", tier: .foh, title: "Host stand"),
+        FeatureDescriptor(id: "foh.reservations", tier: .foh, title: "Reservations"),
+        FeatureDescriptor(id: "foh.booking", tier: .foh, title: "Booking"),
+        // Shows (A6.4) — PIN-gated on the web (/shows SENSITIVE_PREFIXES);
+        // each surface enforces the PIN itself, so they stay enabled here.
+        FeatureDescriptor(id: "shows.tonight", tier: .shows, title: "Tonight"),
+        FeatureDescriptor(id: "shows.boxOffice", tier: .shows, title: "Box office"),
+        FeatureDescriptor(id: "shows.settlement", tier: .shows, title: "Settlement"),
+        FeatureDescriptor(id: "shows.sound", tier: .shows, title: "Sound"),
+        FeatureDescriptor(id: "shows.stage", tier: .shows, title: "Stage"),
+        FeatureDescriptor(id: "shows.archive", tier: .shows, title: "Archive"),
+        // House (A6.2) — venue-program boards. /bar and /equipment are open
+        // on the web (not in middleware SENSITIVE_PREFIXES); /gold-stars
+        // reads are open and its writes PIN-gate themselves in the surface,
+        // so all four stay enabled in the catalog.
+        FeatureDescriptor(id: "house.bar", tier: .house, title: "Bar program"),
+        FeatureDescriptor(id: "house.barPar", tier: .house, title: "Bar par"),
+        FeatureDescriptor(id: "house.equipment", tier: .house, title: "Equipment"),
+        FeatureDescriptor(id: "house.goldStars", tier: .house, title: "Gold stars"),
     ]
 
     /// Stable default selection on launch.

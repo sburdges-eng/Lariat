@@ -66,6 +66,23 @@ enum FeatureRegistry {
         .purchasingOrderGuide,
         .purchasingCompare,
         .purchasingLink,
+        // Front of house
+        .fohFloor,
+        .fohHost,
+        .fohReservations,
+        .fohBooking,
+        // Shows
+        .showsTonight,
+        .showsBoxOffice,
+        .showsSettlement,
+        .showsSound,
+        .showsStage,
+        .showsArchive,
+        // House
+        .houseBar,
+        .houseBarPar,
+        .houseEquipment,
+        .houseGoldStars,
     ]
 
     /// Stable default selection on launch.
