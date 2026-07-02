@@ -40,6 +40,8 @@ enum FeatureRegistry {
         // Inventory
         .inventoryPar,
         .inventoryCounts,
+        .inventoryLog,
+        .inventoryWaste,
         // Manager
         .managerCommand,
         .managerAnalytics,

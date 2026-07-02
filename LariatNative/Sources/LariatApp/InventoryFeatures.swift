@@ -26,4 +26,26 @@ extension FeatureModule {
             systemImage: "lock"
         ))
     }
+
+    static let inventoryLog = FeatureModule(id: "inventory.log") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(InventoryLogView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Log unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
+
+    static let inventoryWaste = FeatureModule(id: "inventory.waste") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(InventoryWasteView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Waste unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
 }
