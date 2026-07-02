@@ -11,6 +11,7 @@ public enum FeatureTier: String, CaseIterable, Hashable, Sendable {
     case manager = "Manager"
     case costing = "Costing"
     case purchasing = "Purchasing"
+    case foh = "Front of house"
 }
 
 /// UI-free description of one registered screen: its stable id, tier, title, and
@@ -92,6 +93,13 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "purchasing.orderGuide", tier: .purchasing, title: "Order guide"),
         FeatureDescriptor(id: "purchasing.compare", tier: .purchasing, title: "Vendor compare"),
         FeatureDescriptor(id: "purchasing.link", tier: .purchasing, title: "Link vendors"),
+        // Front of house (A6.1). /host + /booking are PIN-gated on the web
+        // middleware; natively the host board gates its own writes and
+        // booking is read-only, so all four stay enabled in the catalog.
+        FeatureDescriptor(id: "foh.floor", tier: .foh, title: "Floor"),
+        FeatureDescriptor(id: "foh.host", tier: .foh, title: "Host stand"),
+        FeatureDescriptor(id: "foh.reservations", tier: .foh, title: "Reservations"),
+        FeatureDescriptor(id: "foh.booking", tier: .foh, title: "Booking"),
     ]
 
     /// Stable default selection on launch.

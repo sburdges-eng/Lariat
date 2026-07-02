@@ -302,4 +302,33 @@ final class FeatureRegistryTests: XCTestCase {
             "the .purchasing tier must hold exactly the three A4.4 boards"
         )
     }
+
+    /// A6.1 FOH wave: the `.foh` tier exists and holds EXACTLY the four
+    /// boards — floor + reservations (cook-identity audited writes), the
+    /// host stand (PIN-gated writes, reads open), and the read-only booking
+    /// calendar — all enabled. /host + /booking are middleware-PIN-gated on
+    /// web; the native surfaces enforce their own write gates, so the
+    /// descriptors stay enabled (cook.morning precedent).
+    func testFohTierBoardsRegistered() {
+        XCTAssertTrue(FeatureTier.allCases.contains(.foh), "the .foh tier must exist")
+        XCTAssertEqual(FeatureTier.foh.rawValue, "Front of house")
+        for (id, title) in [
+            ("foh.floor", "Floor"),
+            ("foh.host", "Host stand"),
+            ("foh.reservations", "Reservations"),
+            ("foh.booking", "Booking"),
+        ] {
+            let d = FeatureCatalog.descriptor(id: id)
+            XCTAssertNotNil(d, "\(id) must be registered")
+            XCTAssertEqual(d?.tier, .foh, "\(id) must be a foh feature")
+            XCTAssertEqual(d?.title, title)
+            XCTAssertEqual(d?.enabled, true, "\(id) must be enabled")
+        }
+        let ids = Set(FeatureCatalog.descriptors(for: .foh).map(\.id))
+        XCTAssertEqual(
+            ids,
+            ["foh.floor", "foh.host", "foh.reservations", "foh.booking"],
+            "the .foh tier must hold exactly the four A6.1 boards"
+        )
+    }
 }
