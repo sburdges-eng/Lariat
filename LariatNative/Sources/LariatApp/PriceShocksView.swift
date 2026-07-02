@@ -75,7 +75,9 @@ import Observation
         selected = row
         seriesErrorText = nil
         do {
-            series = try await repo.series(options: PriceSeriesOptions(vendor: row.vendor, sku: row.sku))
+            // limit: 500 matches the web drill-down caller
+            // (app/costing/prices/[vendor]/[sku]/page.jsx:98).
+            series = try await repo.series(options: PriceSeriesOptions(vendor: row.vendor, sku: row.sku, limit: 500))
         } catch {
             series = nil
             seriesErrorText = "Fetch error: \(error.localizedDescription)"
@@ -321,7 +323,10 @@ private struct PriceHistoryContentView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(Array(series.points.reversed().enumerated()), id: \.offset) { _, point in
                         HStack {
-                            Text(fmtPrice(point.unitPrice))
+                            // A nil unit_price snapshot renders as a dash, not
+                            // "$0.0000" (drill-down display only). vendor_prices_history.unit_price
+                            // is nullable in the web-owned schema.
+                            Text(point.unitPrice == nil ? "—" : fmtPrice(point.unitPrice))
                                 .font(.body)
                                 .monospacedDigit()
                             Spacer()

@@ -85,14 +85,44 @@ final class PriceShockComputeTests: XCTestCase {
     }
 
     // Oracle: "surfaces a fresh-ingest price move that lives only in vendor_prices"
+    // (tests/js/test-price-shocks.mjs:270-283).
+    //
+    // Fixture models what the REPOSITORY passes, NOT a disjoint inputs/live
+    // split. The oracle's live row (imported today) is IN-WINDOW, so the
+    // repository's window-gated UNION (vendorPricesRepo.ts:474-481) selects it
+    // into `inputs` ALONGSIDE the history row — that in-window live row is what
+    // makes pointCount reach 2. `live` then carries the same row only to
+    // override the authoritative latest price/time (it must NOT bump the count;
+    // otherwise a lone in-window live row would double-count). Compare with
+    // `testStaleLiveNotCounted`, where the live row is OUT-OF-WINDOW and so is
+    // ABSENT from `inputs`.
     func testFreshIngestViaLive() {
         let rows = PriceShockCompute.compute(
-            inputs: [input("sysco", "TOM-1", "Tomatoes", 10, d3)],
+            inputs: [
+                input("sysco", "TOM-1", "Tomatoes", 10, d3),
+                input("sysco", "TOM-1", "Tomatoes", 12, d0), // in-window live row, present in the UNION
+            ],
             live: [PriceShockLive(vendor: "sysco", sku: "TOM-1", ingredient: "Tomatoes", category: nil, unitPrice: 12, importedAt: d0)],
             options: PriceShockOptions(windowDays: 30, minPctMove: 5))
         let hit = rows.first { $0.sku == "TOM-1" }
+        XCTAssertEqual(hit?.baselineUnitPrice ?? 0, 10, accuracy: 1e-9)
         XCTAssertEqual(hit?.latestUnitPrice ?? 0, 12, accuracy: 1e-9)
+        XCTAssertEqual(hit?.direction, .up)
         XCTAssertEqual(hit?.deltaPct ?? 0, 20, accuracy: 1e-6)
+    }
+
+    // Regression guard for the point-count parity defect (mirrors the new
+    // `PriceShockRepositoryTests.testStaleLiveNotCountedByOverlay`): a group
+    // whose ONLY live row is OUT-OF-WINDOW is absent from the UNION `inputs`,
+    // so it stays a single-point group. The overlay must NOT bump `pointCount`,
+    // otherwise this falsely surfaces a shock (web parity: point_count = 1 < 2
+    // -> skipped). With the pre-fix unconditional bump this returned 1 row.
+    func testStaleLiveNotCounted() {
+        let rows = PriceShockCompute.compute(
+            inputs: [input("sysco", "STALE-1", "Peppers", 10, d3)], // one in-window history row
+            live: [PriceShockLive(vendor: "sysco", sku: "STALE-1", ingredient: "Peppers", category: nil, unitPrice: 13, importedAt: "2026-05-22 00:00:00")], // ~40d old, out of window
+            options: PriceShockOptions(windowDays: 7, minPctMove: 5))
+        XCTAssertNil(rows.first { $0.sku == "STALE-1" })
     }
 
     // Oracle: options clamp — parity with vendorPricesRepo.ts:428-444 (the REPO/options

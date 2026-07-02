@@ -180,6 +180,33 @@ final class PriceShockRepositoryTests: XCTestCase {
         XCTAssertEqual(hit?.deltaPct ?? 0, 20, accuracy: 1e-6)
     }
 
+    /// Regression guard for the point-count parity defect (Board 1 review).
+    /// One in-window history row (unit_price 10, 3 days ago) + one live
+    /// `vendor_prices` row whose `imported_at` is STALE (40 days ago,
+    /// unit_price 13), windowDays 7. The window-gated UNION
+    /// (vendorPricesRepo.ts:474-481) EXCLUDES the stale live row, so the group
+    /// has a single point -> `point_count = 1 < 2` -> skipped (web parity).
+    /// The overlay may override the latest price but must NOT bump the count;
+    /// with the pre-fix unconditional `pointCount += 1` this falsely surfaced
+    /// a +30% shock (this test returned 1 row before the compute fix).
+    func testStaleLiveNotCountedByOverlay() async throws {
+        let (db, dir) = try makeDB { db in
+            try self.insertSnapshot(db, vendor: "sysco", sku: "STALE-1", ingredient: "Peppers", unitPrice: 10, daysAgo: 3)
+            // Live row with a stale imported_at (~40 days ago) — out of the 7d window.
+            try db.execute(sql: """
+                INSERT INTO vendor_prices
+                  (ingredient, vendor, sku, pack_size, pack_unit, pack_price, unit_price, category, location_id, imported_at)
+                VALUES ('Peppers', 'sysco', 'STALE-1', 1, 'lb', 13, 13, NULL, 'default', datetime('now', '-40 days'))
+                """)
+        }
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+
+        let repo = PriceShockRepository(database: db, locationId: "default")
+        let rows = try await repo.load(options: PriceShockOptions(windowDays: 7, minPctMove: 5))
+        XCTAssertNil(rows.first { $0.sku == "STALE-1" }, "stale out-of-window live row must not count toward pointCount")
+        XCTAssertEqual(rows.count, 0)
+    }
+
     /// Oracle: affectedDishes — priceShockImpact.js component_type='vendor_item' exact match,
     /// duplicate row -> distinct + sorted.
     func testImpactDishes() async throws {

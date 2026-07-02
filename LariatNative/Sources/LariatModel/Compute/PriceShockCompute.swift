@@ -56,25 +56,29 @@ public enum PriceShockCompute {
         // overridden; a live row with no baseline can't yield a % change and
         // is skipped (vendorPricesRepo.ts:551-571).
         //
-        // Point-count note: at the SQL layer, a live `vendor_prices` row whose
-        // `imported_at` falls inside the lookback window is ALSO selected by
-        // the UNION query (the second leg, `vendorPricesRepo.ts:474-481`), so
-        // it independently contributes to `point_count` there. This pure
-        // compute function receives `inputs` and `live` as two separate
-        // parameters (so it can be exercised without duplicating that SQL
-        // union), so the overlay step here increments `pointCount` itself to
-        // preserve the same observable outcome: a single history snapshot
-        // plus one live overlay is two observations, satisfying the
-        // `pointCount >= 2` gate as it does end-to-end on the web (see
-        // "surfaces a fresh-ingest price move that lives only in
-        // vendor_prices" in tests/js/test-price-shocks.mjs, where a lone
-        // history row + a live row DOES surface a shock).
+        // The overlay ONLY overrides the authoritative latest price/time — it
+        // must NOT touch `pointCount`. Faithful to the web: `point_count` is
+        // incremented solely in the UNION loop (vendorPricesRepo.ts:526); the
+        // separate overlay loop (vendorPricesRepo.ts:563-571) overrides the
+        // latest price/snapshot but never bumps the count.
+        //
+        // In the repository, `inputs` is the full UNION (history + IN-WINDOW
+        // live, whose live leg is window-gated by
+        // `COALESCE(imported_at, now) >= now - windowDays`,
+        // vendorPricesRepo.ts:478), while `live` is a separate WINDOW-LESS
+        // latest query. So an in-window live row is ALREADY counted via
+        // `inputs`; a bump here would double-count it and — worse — falsely
+        // surface a shock for a group whose ONLY live row is OUT-OF-WINDOW
+        // (that stale row appears in `live` but NOT in `inputs`, so it must
+        // stay a single-point group and be skipped by the `pointCount >= 2`
+        // gate). The fresh-ingest oracle ("surfaces a fresh-ingest price move
+        // that lives only in vendor_prices") passes because that in-window
+        // live row is part of the UNION `inputs` the repository builds.
         for r in live {
             let key = "\(r.vendor)|\(r.sku)|\(r.ingredient)"
             guard var g = groups[key] else { continue }
             g.latestUnitPrice = r.unitPrice
             g.latestAt = r.importedAt ?? g.latestAt
-            g.pointCount += 1
             if let c = r.category, g.category == nil { g.category = c }
             groups[key] = g
         }
