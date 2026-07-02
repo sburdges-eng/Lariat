@@ -59,6 +59,23 @@ final class FeatureRegistryTests: XCTestCase {
         }
     }
 
+    /// A6.3 wave: specials (manager), allergen-lookup (safety),
+    /// datapack-search (cook).
+    func testA63BoardsRegistered() {
+        let expected: [(id: String, tier: FeatureTier, title: String)] = [
+            ("manager.specials", .manager, "Specials"),
+            ("safety.allergenLookup", .safety, "Allergens"),
+            ("cook.datapackSearch", .cook, "Reference"),
+        ]
+        for (id, tier, title) in expected {
+            let d = FeatureCatalog.descriptor(id: id)
+            XCTAssertNotNil(d, "\(id) must be registered")
+            XCTAssertEqual(d?.tier, tier)
+            XCTAssertEqual(d?.title, title)
+            XCTAssertEqual(d?.enabled, true)
+        }
+    }
+
     func testMorningIsPresent() {
         let morning = FeatureCatalog.descriptor(id: "cook.morning")
         XCTAssertNotNil(morning, "cook.morning must be registered")
@@ -269,12 +286,12 @@ final class FeatureRegistryTests: XCTestCase {
             XCTAssertEqual(d?.enabled, true, "\(id) must be enabled")
         }
         // The manager tier holds exactly the three pre-A5 boards + the four
-        // A5 boards after this wave.
+        // A5 boards + the A6.3 saved-specials board.
         let ids = Set(FeatureCatalog.descriptors(for: .manager).map(\.id))
         XCTAssertEqual(ids, [
             "manager.command", "manager.analytics", "manager.management",
             "manager.auditLog", "manager.pins", "manager.tempPins",
-            "manager.receivingMatches",
+            "manager.receivingMatches", "manager.specials",
         ])
     }
 

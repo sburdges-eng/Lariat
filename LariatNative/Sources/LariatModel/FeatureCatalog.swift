@@ -45,6 +45,8 @@ public enum FeatureCatalog {
         // PIN-gated on the web (/morning is a SENSITIVE_PREFIX); the surface
         // enforces the PIN itself, so it stays enabled in the catalog.
         FeatureDescriptor(id: "cook.morning", tier: .cook, title: "Morning"),
+        // A6.3 — read-only data-pack reference search (/datapack-search).
+        FeatureDescriptor(id: "cook.datapackSearch", tier: .cook, title: "Reference"),
         // Safety
         FeatureDescriptor(id: "safety.hub", tier: .safety, title: "Food Safety"),
         FeatureDescriptor(id: "safety.tempLog", tier: .safety, title: "Temp log"),
@@ -60,6 +62,8 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "safety.sickWorker", tier: .safety, title: "Sick worker"),
         FeatureDescriptor(id: "safety.receiving", tier: .safety, title: "Receiving"),
         FeatureDescriptor(id: "safety.haccpPlan", tier: .safety, title: "HACCP plan"),
+        // A6.3 — product allergen lookup + attested house-recipe lists.
+        FeatureDescriptor(id: "safety.allergenLookup", tier: .safety, title: "Allergens"),
         // Labor
         FeatureDescriptor(id: "labor.certs", tier: .labor, title: "Certifications"),
         FeatureDescriptor(id: "labor.sickLeave", tier: .labor, title: "Sick time"),
@@ -79,6 +83,8 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "manager.pins", tier: .manager, title: "PINs"),
         FeatureDescriptor(id: "manager.tempPins", tier: .manager, title: "Temp PINs"),
         FeatureDescriptor(id: "manager.receivingMatches", tier: .manager, title: "Receiving matches"),
+        // A6.3 — PIN-gated saved-specials management (/specials/saved).
+        FeatureDescriptor(id: "manager.specials", tier: .manager, title: "Specials"),
         // Costing
         FeatureDescriptor(id: "costing.overview", tier: .costing, title: "Costing"),
         FeatureDescriptor(id: "costing.priceShocks", tier: .costing, title: "Price shocks"),
