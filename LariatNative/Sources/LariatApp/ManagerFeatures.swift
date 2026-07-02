@@ -13,4 +13,11 @@ extension FeatureModule {
     static let managerManagement = FeatureModule(id: "manager.management") { ctx in
         AnyView(ManagementRollupView(database: ctx.database, writeDatabase: ctx.writeDatabase))
     }
+
+    /// A5 — read-only JSONL audit-log viewer (`/management/audit-log`).
+    /// No DB dependency: the reader resolves the management-actions JSONL path
+    /// itself (LARIAT_AUDIT_PATH override, else `<dataDir>/audit/…`).
+    static let managerAuditLog = FeatureModule(id: "manager.auditLog") { _ in
+        AnyView(AuditLogView())
+    }
 }

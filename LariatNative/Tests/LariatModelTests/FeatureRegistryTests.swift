@@ -218,6 +218,21 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertFalse(FeatureCatalog.descriptors(for: .manager).isEmpty, "Manager tier must stay non-empty after the relocation")
     }
 
+    /// A5 management-writes wave: the four manager boards register under the
+    /// EXISTING `.manager` tier (no new tier). auditLog is read-only; pins /
+    /// tempPins / receivingMatches carry PIN-gated audited writes.
+    func testA5ManagementBoardsRegistered() {
+        for (id, title) in [
+            ("manager.auditLog", "Audit log"),
+        ] {
+            let d = FeatureCatalog.descriptor(id: id)
+            XCTAssertNotNil(d, "\(id) must be registered")
+            XCTAssertEqual(d?.tier, .manager, "\(id) must be a manager feature")
+            XCTAssertEqual(d?.title, title)
+            XCTAssertEqual(d?.enabled, true, "\(id) must be enabled")
+        }
+    }
+
     /// A4.4 Purchasing wave: the `.purchasing` tier exists and holds EXACTLY
     /// the three boards — the read-only order-guide hub plus the compare and
     /// link boards (both carrying PIN-gated audited writes) — all enabled.
