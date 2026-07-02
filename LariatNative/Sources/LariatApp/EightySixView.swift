@@ -151,8 +151,8 @@ struct EightySixView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(row.item).font(.headline)
-                            if let reason = row.reason, !reason.isEmpty {
-                                Text(reason).font(.caption).foregroundStyle(.secondary)
+                            if let meta = activeMeta(row) {
+                                Text(meta).font(.caption).foregroundStyle(.secondary)
                             }
                         }
                         Spacer()
@@ -178,8 +178,8 @@ struct EightySixView: View {
                 HStack {
                     Text(row.item)
                     Spacer()
-                    if let resolved = row.resolvedAt {
-                        Text(resolved).font(.caption).foregroundStyle(.secondary)
+                    if let meta = resolvedMeta(row) {
+                        Text(meta).font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 .padding(8)
@@ -192,5 +192,63 @@ struct EightySixView: View {
 
     private func openLabel(_ count: Int) -> String {
         count == 1 ? "1 item out" : "\(count) items out"
+    }
+
+    // ── Row meta (render the data already on EightySixRow) ─────────────
+
+    /// Active-row subtitle: reason · station · qty · cook · time-out.
+    private func activeMeta(_ row: EightySixRow) -> String? {
+        var parts: [String] = []
+        if let reason = row.reason, !reason.isEmpty { parts.append(reason) }
+        if let station = row.stationId, !station.isEmpty { parts.append(stationName(station)) }
+        if let qty = row.quantity, !qty.isEmpty { parts.append("qty \(qty)") }
+        if let cook = row.cookId, !cook.isEmpty { parts.append(cook) }
+        if let t = fmtTime(row.createdAt) { parts.append(t) }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    /// Resolved-row subtitle: reason · back-on time.
+    private func resolvedMeta(_ row: EightySixRow) -> String? {
+        var parts: [String] = []
+        if let reason = row.reason, !reason.isEmpty { parts.append(reason) }
+        if let t = fmtTime(row.resolvedAt) { parts.append("back \(t)") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    /// Station display name via the catalog (falls back to the raw id).
+    private func stationName(_ id: String) -> String {
+        vm.stations.first { $0.id == id }?.name ?? id
+    }
+
+    // SQLite datetime is stored UTC ("yyyy-MM-dd HH:mm:ss"); ISO-8601 also possible.
+    // Parse as UTC and render a short LOCAL time (mirrors the web fmtTime posture).
+    private static let sqliteUTC: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return f
+    }()
+    private static let shortLocalTime: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "h:mm a"     // local time zone (formatter default)
+        return f
+    }()
+
+    private func fmtTime(_ raw: String?) -> String? {
+        guard let raw, !raw.isEmpty else { return nil }
+        var date = Self.sqliteUTC.date(from: raw)
+        if date == nil {
+            let iso = ISO8601DateFormatter()
+            date = iso.date(from: raw)
+        }
+        if date == nil {
+            let isoFrac = ISO8601DateFormatter()
+            isoFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            date = isoFrac.date(from: raw)
+        }
+        guard let d = date else { return nil }
+        return Self.shortLocalTime.string(from: d)
     }
 }

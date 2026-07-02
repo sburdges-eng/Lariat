@@ -66,7 +66,8 @@ final class StationChecklistViewModel {
         par: String = "",
         have: String = "",
         need: String = "",
-        note: String = ""
+        note: String = "",
+        glove: Bool? = nil
     ) async {
         guard !isSaving else { return }
         guard ensureCookIdentity() else { return }
@@ -88,7 +89,8 @@ final class StationChecklistViewModel {
                     par: par.isEmpty ? nil : par,
                     have: have.isEmpty ? nil : have,
                     need: need.isEmpty ? nil : need,
-                    note: note.isEmpty ? nil : note
+                    note: note.isEmpty ? nil : note,
+                    gloveChangeAttested: glove
                 ),
                 context: context
             )
