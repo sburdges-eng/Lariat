@@ -40,6 +40,9 @@ struct LariatApp: App {
       CommandMenu("Boards") {
         Button("Jump to Board…") { showingPalette = true }
           .keyboardShortcut("k", modifiers: .command)
+        // Endgame H5: immediate re-poll of the active board (resets backoff too).
+        Button("Refresh Now") { BoardPollerHub.shared.active?.refreshNow() }
+          .keyboardShortcut("r", modifiers: .command)
         Divider()
         // ⌘1…⌘n jump to the first enabled board of each tier, in sidebar order.
         ForEach(Array(FeatureTier.allCases.prefix(9).enumerated()), id: \.element) { index, tier in
@@ -85,6 +88,11 @@ struct LariatApp: App {
       } detail: {
         NavigationStack {
           detailView(context: ctx)
+        }
+        // Endgame H5: data-freshness chip for the active board's poller.
+        .overlay(alignment: .bottomTrailing) {
+          PollFreshnessIndicator()
+            .padding(12)
         }
       }
     } else {
