@@ -59,6 +59,11 @@ enum FeatureRegistry {
         .purchasingOrderGuide,
         .purchasingCompare,
         .purchasingLink,
+        // Front of house
+        .fohFloor,
+        .fohHost,
+        .fohReservations,
+        .fohBooking,
     ]
 
     /// Stable default selection on launch.
