@@ -1,178 +1,94 @@
-# LariatNative (P3b date marks + calibrations + P3a temp log + P2b 86 + P2a Cook)
+# LariatNative
 
-macOS/iOS app reading the live `lariat.db` (shared with the web app) via GRDB.
+Native SwiftUI app (macOS 14 / iOS 17) for Lariat restaurant operations. It reads and
+writes the **live `lariat.db`** shared with the web app via GRDB — the web app still owns
+the schema (never migrate from Swift). The full-replacement program is tracked in
+`docs/superpowers/specs/2026-06-30-lariat-native-full-replacement-roadmap-design.md` and
+`docs/superpowers/specs/2026-07-02-lariat-native-endgame.md`.
 
-Manager tier: four SwiftUI screens in a `NavigationSplitView`, `LariatModel/Compute/` parity ports,
-and repositories for Command, Analytics, Costing, and Management rollup (6 tiles, traffic-light colors).
-**Read-only by default** (`LariatDatabase`); pack-size acknowledge uses `LariatWriteDatabase` (JSONL audit).
-
-**AuditedWrite foundation** adds in-transaction `audit_events` writes (`AuditEventWriter`, `AuditedWriteRunner`) —
-parity with `lib/auditEvents.ts`. **P2b** ships the first **cook-tier** regulated write: 86 board add/resolve
-with `actor_source = native_cook` and Encodable row payloads on resolve.
-**P3a** implements **`RuleGate`** on temp log (422 corrective-note contract) + `TempPinVerifier` for `haccp.back_date`.
-**P3b** ships **date marks** (discard-on +6 days, audited create/discard) and **thermometer calibrations**
-(ice/boiling validation at 7800 ft; fail readings persist with audit note).
-
-## Safety tier (P3a + P3b)
-
-Top-level **Safety** sidebar — food-safety hub, temp log, date marks, calibrations.
-
-- **Food Safety** hub — links to in-scope boards; cleaning/breaks stubbed (P3c).
-- **Temp log** — CCP tile grid, corrective-note expansion on out-of-range, audited `temp_log` writes.
-- **Date marks** — active batches, expiring scan badges, discard with reason (409 on double discard).
-- **Calibrations** — probe ice/boiling check, pass/fail advisory, audited `thermometer_calibrations` writes.
-
-## Cook tier (P2a + P2b)
-
-First **iPad-first** cook surface in a **Cook** sidebar section.
-
-- **Today** (`TodayView`) — shift board (`/v2/today` parity): station progress, open 86 list, stock moves, cascaded recipe impacts. Deep link to 86 board.
-- **86** (`EightySixView`) — **P2b** add/resolve with audited writes, staff picker (`data/cache/staff.json`), cascade confirm on resolve.
-- **Stations / KDS** — stubbed ("Soon") until P2c–P2d.
-
-Cook identity persists in `UserDefaults` (`lariat_cook`); optional on first write (web parity).
+## Run
 
 ```bash
-# Point at the web app's data dir (needs data/cache/*.json + lariat.db)
+# Point at the web app's data dir (needs lariat.db + data/cache/*.json)
 LARIAT_DATA_DIR=/absolute/path/to/lariat/data swift run LariatApp
 ```
 
-| Cook screen | Status |
-|---|---|
-| `TodayView` | **P2a** — hero stats, station grid, stock moves, 86 chips, "86 right now" link |
-| `EightySixView` | **P2b** — add item, resolve, cascade warning |
-| Stations / KDS | Stubbed (P2c–P2d) |
+If `LARIAT_DATA_DIR` is unset, the app reads `<cwd>/data/lariat.db` (mirrors the web
+app's `lib/dataDir.ts`). Boards poll on a short timer — the read pool cannot observe
+cross-process writes from the web app, so polling is the correct refresh model here.
 
-## Deployment floor: macOS 14 / iOS 17
+### Keyboard (macOS)
 
-The floor was raised from macOS 13 / iOS 16 to use:
-- `@Observable` (macro-based observation, Swift 5.9) — replaces `ObservableObject` / `@Published`
-- `ContentUnavailableView` — per-tile degrade placeholder (available macOS 14 / iOS 17)
-
-## Run against real data
-
-```bash
-LARIAT_DATA_DIR=/absolute/path/to/lariat/data swift run LariatApp
-# Reads <LARIAT_DATA_DIR>/lariat.db read-only. The web app keeps writing;
-# each screen polls every 3 seconds for fresh data.
-```
-
-If `LARIAT_DATA_DIR` is unset, the app reads `<cwd>/data/lariat.db` (mirrors the
-web app's `lib/dataDir.ts`).
+- **⌘K** — command palette: fuzzy-jump to any registered board.
+- **Boards menu** — "Jump to Board…" plus **⌘1…⌘n** to the first board of each tier.
 
 ## Test
 
 ```bash
-swift test   # host-run Core tests (LariatDB + LariatModel); no simulator needed
-# 199 tests (P3b date marks/calibrations + P3a RuleGate/temp log + P2b 86 + AuditedWrite + P2a Today + P1b pack-size write)
+swift test   # host-run, no simulator needed; in-memory GRDB fixtures, never the real DB
 ```
+
+1,093 tests as of 2026-07-02 (696 `LariatModelTests` + 397 `LariatDBTests`). The count
+grows every wave — trust the run, not this line.
 
 ## Architecture
 
-### Compute layer (`LariatModel/Compute/`)
+Three layers, strict direction (`LariatApp` → `LariatDB` → `LariatModel`):
 
-Pure Swift, GRDB-free modules that port the aggregation and derivation logic of the web's
-TypeScript service functions. Repositories (`LariatDB`) fetch raw rows from SQLite;
-compute modules (`LariatModel/Compute/`) derive values from those rows. The separation
-means compute logic is deterministic, easily tested without a database, and auditable
-against the web parity.
+| Target | Role |
+| --- | --- |
+| `LariatModel` | Pure, I/O-free: record types, rule/`Compute/` parity ports of the web `lib/` modules, `FeatureCatalog` |
+| `LariatDB` | Repositories over GRDB. Reads use `LariatDatabase` (read-only pool); regulated writes use `LariatWriteDatabase` |
+| `LariatApp` | SwiftUI shell + one View/ViewModel pair per board |
 
-| Compute module | Web source |
-|---|---|
-| `CommandCompute` | `lib/commandCenter.ts` — summarize + alertsFor |
-| `AnalyticsCompute` | `lib/analytics.ts` — daily/hourly/DOW aggregation, YoY delta |
-| `CostingCompute` | `lib/costing.ts` — menu-engineering matrix + ABC ranking + variance trend |
-| `DateMarkCompute` | `lib/dateMarks.ts` — discard-on, validation, expiring scan |
-| `CalibrationCompute` | `lib/calibrations.ts` — ice/boiling validation |
-| `ProbeCompute` | food-safety probe classification |
-| `TempLogCompute` | temperature log red-breach counting |
+### Feature self-registration (A0)
 
-### Polling refresh
+The shell is generic — `LariatApp.swift` never names a feature. Every screen registers
+itself in three small steps, with **`Sources/LariatModel/FeatureCatalog.swift` as the
+single source of truth** for which boards exist (ids, tiers, titles, sidebar order —
+don't enumerate them here, read that file):
 
-Each screen polls its repository on a 3-second timer. `LariatDatabase` opens a
-read-only `DatabasePool` but does not use GRDB `ValueObservation` — cross-process
-writes from the web app are not visible to same-pool observation, so polling is the
-correct approach here.
+1. a `FeatureModule` (`makeView` owns the board's DI + `TileDegrade` fallback) in its
+   tier group file (`CookFeatures.swift`, `SafetyFeatures.swift`, …);
+2. one `FeatureDescriptor` appended to `FeatureCatalog.all` (stable id like `safety.cooling`);
+3. one line appended to `FeatureRegistry.all`.
 
-### Four manager screens
+Sidebar sections, detail routing, the ⌘K palette, and the Boards menu all enumerate the
+registry dynamically, so a new board appears everywhere the moment it is registered.
+Inter-board navigation goes through `AppContext.navigate(id)` — never bespoke closures.
 
-| Screen | Section key | Content |
-|---|---|---|
-| `ManagementRollupView` | `management` | 6-tile rollup — food cost vs. target, costing freshness, price shocks, depletion issues, menu items costed, pack-size changes unack'd |
-| `CommandView` | `command` | Shift snapshot: sales, 86'd items, low-par, labor, reservations, food-safety (probes + temp logs), alerts |
-| `AnalyticsView` | `analytics` | Swift Charts — daily totals, trailing YoY, hourly and day-of-week distributions, top items |
-| `CostingView` | `costing` | Menu-engineering quadrant matrix, ABC ranking, accounting COGS variance trend |
+### Invariant contracts (write discipline)
 
-The shell (`LariatApp`) opens one shared `LariatDatabase` at startup and injects it into
-all four screens via initializer DI.
+`Sources/LariatModel/InvariantContracts.swift` — parity with the web routes' semantics:
+
+- **`AuditedWrite`** — every regulated write inserts its `audit_events` row **in the same
+  transaction** as the source row (`AuditEventWriter` / `AuditedWriteRunner`, parity with
+  `lib/auditEvents.ts`). Never a second transaction.
+- **`RuleGate`** — the HACCP 422 corrective-note contract: out-of-range writes are
+  rejected unless a corrective note accompanies them.
+- **`PinGate`** — manager-PIN gate for protected writes (`PinVerifier`, `TempPinVerifier`).
+
+Writes tag `actor_source` (`native_cook`, …) and carry `location_id` via `LocationScope`.
+Status-code semantics match the web routes (409 double-discard, 422 missing note, …).
 
 ## Layout
 
-```
+```text
 LariatNative/
   Sources/
-    LariatModel/
-      Records.swift                 — GRDB record types for every table
-      InvariantContracts.swift      — AuditedWrite / RuleGate / PinGate
-      AuditEvent.swift              — AuditEventInput, RegulatedWriteContext, nativeCook()
-      StaffCatalog.swift            — staff.json loader (lib/staffDisplay.ts parity)
-      EightySixRecords.swift        — 86 row types + write errors
-      DateMarkRecords.swift         — date mark rows + discard reasons
-      CalibrationRecords.swift      — calibration rows + methods
-      ShiftDate.swift               — todayISO() parity with lib/db.ts
-      LocationScope.swift           — location filter (LARIAT_LOCATION_ID env var)
-      SchemaVersion.swift           — read-only schema-version probe
-      Compute/
-        CommandCompute.swift        — command-center summarize + alertsFor
-        AnalyticsCompute.swift      — analytics aggregation and YoY delta
-        CostingCompute.swift        — menu-engineering + ABC + variance trend
-        DateMarkCompute.swift       — date marks (lib/dateMarks.ts)
-        CalibrationCompute.swift    — calibrations (lib/calibrations.ts)
-        ProbeCompute.swift          — food-safety probe classification
-        TempLogCompute.swift        — temperature log breach counting
-    LariatDB/
-      LariatDatabase.swift          — read-only DatabasePool + polling stream
-      LariatWriteDatabase.swift     — writable pool (never migrates)
-      AuditEventWriter.swift        — in-tx audit_events insert (lib/auditEvents.ts)
-      AuditedWriteRunner.swift      — regulated write transaction helper
-      EightySixRepository.swift     — 86 board read/add/resolve (audited)
-      TempLogRepository.swift       — temp log read/add (RuleGate)
-      DateMarkRepository.swift      — date marks read/create/discard (audited)
-      CalibrationRepository.swift   — calibrations read/post (audited)
-      TodayBoardRepository.swift    — Today shift board fetch
-      DatabasePaths.swift           — path resolution (LARIAT_DATA_DIR env var)
-      ManagementRollupRepository.swift
-      CommandRepository.swift
-      AnalyticsRepository.swift
-      CostingRepository.swift
-    LariatApp/
-      LariatApp.swift               — @main, NavigationSplitView shell, shared DB DI
-      TodayView.swift               — Cook shift board (P2a)
-      EightySixView.swift           — 86 board writes (P2b)
-      EightySixViewModel.swift
-      CookIdentityStore.swift       — persisted cook id
-      CookIdentityPicker.swift      — staff.json picker + manual fallback
-      FoodSafetyHubView.swift       — Safety hub (P3a/b)
-      TempLogView.swift             — temp log board (P3a)
-      DateMarkView.swift            — date marks board (P3b)
-      CalibrationsView.swift        — calibrations board (P3b)
-      ManagementRollupView.swift    — 6-tile management rollup
-      CommandView.swift             — shift command screen
-      AnalyticsView.swift           — Swift Charts analytics screen
-      CostingView.swift             — costing / menu-engineering screen
-      Money.swift                   — currency formatting helpers
-      TileDegrade.swift             — ContentUnavailableView per-tile fallback
+    LariatModel/    — records, Compute/ parity ports, FeatureCatalog, invariant contracts
+    LariatDB/       — LariatDatabase (RO) / LariatWriteDatabase, repositories, audit writers
+    LariatApp/      — @main shell (LariatApp.swift), CommandPalette, boards, tier group files
   Tests/
-    LariatModelTests/               — Compute + Records + Schema tests (no DB)
-    LariatDBTests/                  — Repository tests (in-memory GRDB fixtures)
+    LariatModelTests/   — compute/value-parity tests (no DB)
+    LariatDBTests/      — repository tests (in-memory GRDB fixtures)
 ```
 
-## Known limitations
+## Notes
 
-- **Depletion tile** counts only `no_dish_components` rows (full resolver deferred).
-- **Menu-engineering cost** — `dishCostBridge` not yet ported.
-- **Margin moves** — `listMarginDeltas` not ported.
-- **Costing variance section** — recipe-level `computeCostVariance` not ported.
-- **Pack-size acknowledge (P1b)** — JSONL management audit (not `audit_events`).
-- **Regulated cook writes (P2b)** — 86 add/resolve via `AuditEventWriter` + `native_cook` actor source.
-- **Line checks / KDS (P2c–P2d)** — not yet ported.
+- `LariatApp` is an executable target with no test target, so pure UI-layer logic there
+  (e.g. `PaletteRanker`) is kept trivial and documented for manual exercise; anything
+  substantial belongs in `LariatModel`/`LariatDB` where it is tested.
+- Deployment floor macOS 14 / iOS 17 for `@Observable`, `ContentUnavailableView`, and
+  `onKeyPress`.
+- Known gaps and deliberate deferrals live in the endgame spec's edge-blocker log, not here.

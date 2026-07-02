@@ -10,6 +10,7 @@ public enum FeatureTier: String, CaseIterable, Hashable, Sendable {
     case inventory = "Inventory"
     case manager = "Manager"
     case costing = "Costing"
+    case purchasing = "Purchasing"
 }
 
 /// UI-free description of one registered screen: its stable id, tier, title, and
@@ -82,6 +83,10 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "costing.menuEngineering", tier: .costing, title: "Menu performance"),
         FeatureDescriptor(id: "costing.marginDeltas", tier: .costing, title: "Margin moves"),
         FeatureDescriptor(id: "costing.components", tier: .costing, title: "Dish components"),
+        // Purchasing (A4.4)
+        FeatureDescriptor(id: "purchasing.orderGuide", tier: .purchasing, title: "Order guide"),
+        FeatureDescriptor(id: "purchasing.compare", tier: .purchasing, title: "Vendor compare"),
+        FeatureDescriptor(id: "purchasing.link", tier: .purchasing, title: "Link vendors"),
     ]
 
     /// Stable default selection on launch.

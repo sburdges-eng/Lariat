@@ -55,6 +55,10 @@ enum FeatureRegistry {
         .costingMenuEngineering,
         .costingMarginDeltas,
         .costingComponents,
+        // Purchasing
+        .purchasingOrderGuide,
+        .purchasingCompare,
+        .purchasingLink,
     ]
 
     /// Stable default selection on launch.
