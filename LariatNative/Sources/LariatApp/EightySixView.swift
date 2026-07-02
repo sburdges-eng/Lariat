@@ -8,6 +8,7 @@ struct EightySixView: View {
     @State private var stationId = ""
     @State private var reason: EightySixReasonCode = .out
     @State private var quantity = ""
+    @State private var query = ""
 
     init(readDB: LariatDatabase, writeDB: LariatWriteDatabase, catalog: StationCatalog) {
         _vm = State(
@@ -22,7 +23,7 @@ struct EightySixView: View {
             } else if let snap = vm.snapshot {
                 boardContent(snap)
             } else {
-                ProgressView()
+                ProgressView("Loading 86 board…")
             }
         }
         .navigationTitle("86")
@@ -51,13 +52,21 @@ struct EightySixView: View {
                 if !snap.cascaded.isEmpty {
                     cascadeSection(snap.cascaded)
                 }
-                activeSection(snap.active)
-                if !snap.resolved.isEmpty {
-                    resolvedSection(snap.resolved)
+                activeSection(filtered(snap.active), totalCount: snap.active.count)
+                let resolved = filtered(snap.resolved)
+                if !resolved.isEmpty {
+                    resolvedSection(resolved)
                 }
             }
             .padding()
         }
+        .searchable(text: $query, prompt: "Find an item")
+    }
+
+    private func filtered(_ rows: [EightySixRow]) -> [EightySixRow] {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return rows }
+        return rows.filter { $0.item.localizedCaseInsensitiveContains(q) }
     }
 
     private func header(_ snap: EightySixBoardSnapshot) -> some View {
@@ -141,11 +150,15 @@ struct EightySixView: View {
         .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
     }
 
-    private func activeSection(_ rows: [EightySixRow]) -> some View {
+    private func activeSection(_ rows: [EightySixRow], totalCount: Int) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Out now").font(.headline)
             if rows.isEmpty {
-                Text("Nothing out right now").foregroundStyle(.secondary)
+                if totalCount > 0 {
+                    EmptyState(message: "No items match “\(query)”", systemImage: "magnifyingglass")
+                } else {
+                    EmptyState(message: "Nothing out right now", systemImage: "checkmark.circle")
+                }
             } else {
                 ForEach(rows) { row in
                     HStack {

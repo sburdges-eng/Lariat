@@ -4,6 +4,7 @@ import LariatModel
 
 struct StationsListView: View {
     @State private var vm: StationsListViewModel
+    @State private var query = ""
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase
     private let catalog: StationCatalog
@@ -20,13 +21,19 @@ struct StationsListView: View {
             if let err = vm.fetchError, vm.rows.isEmpty {
                 TileDegrade(title: "Could not load stations", message: err, systemImage: "externaldrive.badge.xmark")
             } else if vm.rows.isEmpty {
-                ProgressView()
+                ProgressView("Loading stations…")
             } else {
-                List(vm.rows) { row in
-                    NavigationLink(value: row.station.id) {
-                        stationRow(row)
+                List {
+                    if filteredRows.isEmpty {
+                        EmptyState(message: "No stations match “\(query)”", systemImage: "magnifyingglass")
+                    }
+                    ForEach(filteredRows) { row in
+                        NavigationLink(value: row.station.id) {
+                            stationRow(row)
+                        }
                     }
                 }
+                .searchable(text: $query, prompt: "Find a station")
                 .navigationDestination(for: String.self) { stationId in
                     StationChecklistView(
                         stationId: stationId,
@@ -49,20 +56,17 @@ struct StationsListView: View {
                 Text(row.station.name).font(.headline)
                 Text(StationProgressLabels.label(for: row.progress))
                     .font(.subheadline)
-                    .foregroundStyle(toneColor(tone))
+                    .foregroundStyle(LariatTheme.color(for: tone))
             }
             Spacer()
-            Circle().fill(toneColor(tone)).frame(width: 10, height: 10)
+            Circle().fill(LariatTheme.color(for: tone)).frame(width: 10, height: 10)
         }
         .padding(.vertical, 4)
     }
 
-    private func toneColor(_ tone: StationProgressLabels.Tone) -> Color {
-        switch tone {
-        case .muted: return .secondary
-        case .red: return .red
-        case .green: return .green
-        case .amber: return Color(red: 0.89, green: 0.69, blue: 0.29)
-        }
+    private var filteredRows: [StationListRow] {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return vm.rows }
+        return vm.rows.filter { $0.station.name.localizedCaseInsensitiveContains(q) }
     }
 }

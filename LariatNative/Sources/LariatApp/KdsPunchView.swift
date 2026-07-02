@@ -23,7 +23,7 @@ struct KdsPunchView: View {
             } else if let snap = vm.snapshot {
                 content(snap)
             } else {
-                ProgressView()
+                ProgressView("Loading tickets…")
             }
         }
         .navigationTitle("KDS punch")
@@ -43,7 +43,7 @@ struct KdsPunchView: View {
         List {
             Section("Open tickets") {
                 if snap.tickets.isEmpty {
-                    Text("No open tickets").foregroundStyle(.secondary)
+                    EmptyState(message: "No open tickets", systemImage: "checkmark.rectangle.stack")
                 } else {
                     ForEach(snap.tickets) { ticket in
                         VStack(alignment: .leading, spacing: 4) {

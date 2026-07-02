@@ -72,7 +72,7 @@ struct TodayView: View {
             } else if let snap = vm.snapshot {
                 todayContent(snap)
             } else {
-                ProgressView()
+                ProgressView("Loading Today…")
             }
         }
         .navigationTitle("Today")
@@ -183,11 +183,11 @@ struct TodayView: View {
                 Text(row.station.name).font(.headline)
                 Text(StationProgressLabels.label(for: row.progress))
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(toneColor(tone))
+                    .foregroundStyle(LariatTheme.color(for: tone))
             }
             Spacer(minLength: 8)
             Circle()
-                .fill(toneColor(tone))
+                .fill(LariatTheme.color(for: tone))
                 .frame(width: 12, height: 12)
         }
         .frame(minHeight: 78)
@@ -204,9 +204,7 @@ struct TodayView: View {
                 Text("Latest").font(.caption).foregroundStyle(.secondary)
             }
             if snap.recentMoves.isEmpty {
-                Text("No stock moves yet")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                EmptyState(message: "No stock moves yet", systemImage: "shippingbox")
                     .padding(10)
                     .background(.background.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
             } else {
@@ -275,15 +273,6 @@ struct TodayView: View {
         .padding(16)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
         .opacity(0.7)
-    }
-
-    private func toneColor(_ tone: StationProgressLabels.Tone) -> Color {
-        switch tone {
-        case .muted: return .secondary
-        case .red: return .red
-        case .green: return .green
-        case .amber: return Color(red: 0.89, green: 0.69, blue: 0.29)
-        }
     }
 
     private func formatDateChip(_ iso: String) -> String {
