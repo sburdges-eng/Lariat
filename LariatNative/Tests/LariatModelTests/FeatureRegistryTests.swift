@@ -74,4 +74,32 @@ final class FeatureRegistryTests: XCTestCase {
             XCTAssertEqual(d?.tier, .cook, "\(id) must be a cook feature")
         }
     }
+
+    /// A3 Labor wave (L0 + L1): the `.labor` tier exists and the certs board is
+    /// registered under it. As the remaining boards (L2–L4) land they append here.
+    func testLaborTierBoardsRegistered() {
+        XCTAssertTrue(FeatureTier.allCases.contains(.labor), "the .labor tier must exist")
+        let certs = FeatureCatalog.descriptor(id: "labor.certs")
+        XCTAssertNotNil(certs, "labor.certs must be registered")
+        XCTAssertEqual(certs?.tier, .labor)
+        XCTAssertEqual(certs?.title, "Certifications")
+        XCTAssertEqual(certs?.enabled, true)
+        // L2: sick-leave board registered under the same tier.
+        let sick = FeatureCatalog.descriptor(id: "labor.sickLeave")
+        XCTAssertNotNil(sick, "labor.sickLeave must be registered")
+        XCTAssertEqual(sick?.tier, .labor)
+        XCTAssertEqual(sick?.title, "Sick time")
+        // L3: tip-pool board registered under the same tier.
+        let tips = FeatureCatalog.descriptor(id: "labor.tipPool")
+        XCTAssertNotNil(tips, "labor.tipPool must be registered")
+        XCTAssertEqual(tips?.tier, .labor)
+        XCTAssertEqual(tips?.title, "Tip pool")
+        // L4: wage-notices board registered under the same tier.
+        let wage = FeatureCatalog.descriptor(id: "labor.wageNotices")
+        XCTAssertNotNil(wage, "labor.wageNotices must be registered")
+        XCTAssertEqual(wage?.tier, .labor)
+        XCTAssertEqual(wage?.title, "Wage notices")
+        // The tier must not be empty (guards testEveryTierHasAtLeastOneModule).
+        XCTAssertFalse(FeatureCatalog.descriptors(for: .labor).isEmpty)
+    }
 }

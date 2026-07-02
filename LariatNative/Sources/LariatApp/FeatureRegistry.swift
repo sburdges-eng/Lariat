@@ -32,6 +32,11 @@ enum FeatureRegistry {
         .safetySickWorker,
         .safetyReceiving,
         .safetyHaccpPlan,
+        // Labor
+        .laborCerts,
+        .laborSickLeave,
+        .laborTipPool,
+        .laborWageNotices,
         // Manager
         .managerCommand,
         .managerAnalytics,
