@@ -11,6 +11,7 @@ public enum FeatureTier: String, CaseIterable, Hashable, Sendable {
     case manager = "Manager"
     case costing = "Costing"
     case purchasing = "Purchasing"
+    case foh = "Front of house"
     case shows = "Shows"
 }
 
@@ -75,6 +76,11 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "manager.command", tier: .manager, title: "Command"),
         FeatureDescriptor(id: "manager.analytics", tier: .manager, title: "Analytics"),
         FeatureDescriptor(id: "manager.management", tier: .manager, title: "Management"),
+        // Manager — A5 management-writes wave
+        FeatureDescriptor(id: "manager.auditLog", tier: .manager, title: "Audit log"),
+        FeatureDescriptor(id: "manager.pins", tier: .manager, title: "PINs"),
+        FeatureDescriptor(id: "manager.tempPins", tier: .manager, title: "Temp PINs"),
+        FeatureDescriptor(id: "manager.receivingMatches", tier: .manager, title: "Receiving matches"),
         // Costing
         FeatureDescriptor(id: "costing.overview", tier: .costing, title: "Costing"),
         FeatureDescriptor(id: "costing.priceShocks", tier: .costing, title: "Price shocks"),
@@ -88,6 +94,13 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "purchasing.orderGuide", tier: .purchasing, title: "Order guide"),
         FeatureDescriptor(id: "purchasing.compare", tier: .purchasing, title: "Vendor compare"),
         FeatureDescriptor(id: "purchasing.link", tier: .purchasing, title: "Link vendors"),
+        // Front of house (A6.1). /host + /booking are PIN-gated on the web
+        // middleware; natively the host board gates its own writes and
+        // booking is read-only, so all four stay enabled in the catalog.
+        FeatureDescriptor(id: "foh.floor", tier: .foh, title: "Floor"),
+        FeatureDescriptor(id: "foh.host", tier: .foh, title: "Host stand"),
+        FeatureDescriptor(id: "foh.reservations", tier: .foh, title: "Reservations"),
+        FeatureDescriptor(id: "foh.booking", tier: .foh, title: "Booking"),
         // Shows (A6.4) — PIN-gated on the web (/shows SENSITIVE_PREFIXES);
         // each surface enforces the PIN itself, so they stay enabled here.
         FeatureDescriptor(id: "shows.tonight", tier: .shows, title: "Tonight"),

@@ -3,8 +3,8 @@ import GRDB
 import LariatModel
 
 /// Repository for the receiving log — behavior parity with `app/api/receiving/route.js`
-/// (POST + GET only; the manager `matches/**` resolution is a separate tier and
-/// out of scope for this port). Reads via the read-only pool; regulated writes go
+/// (POST + GET) plus, since the A5 wave, the manager `matches/**` tier
+/// (`loadUnmatched` / `resolveMatch`). Reads via the read-only pool; regulated writes go
 /// through `AuditedWriteRunner` so the `receiving_log` INSERT, its `audit_events`
 /// row, and — when a delivery credits inventory (closed-loop receiving) — the
 /// `inventory_updates` INSERT + its audit row all commit (or roll back) in ONE
@@ -267,6 +267,240 @@ public struct ReceivingRepository: Sendable {
         }
     }
 
+    // ── manager matches tier (A5) — /api/receiving/matches/** ──────────
+    //
+    // The manager queue + resolution flow, ported in the A5 wave. The web
+    // route also appends `sync_feed` ops (`appendOp`) for the cross-host peer
+    // transport; that transport stays on the Next.js edge (see
+    // docs/superpowers/specs/lariat-native-edge-blockers.md) so the native
+    // resolution deliberately omits it.
+
+    /// Manager queue: accepted lines that captured qty/unit but could not be
+    /// tied to `ingredient_masters` at check-in. Mirrors the page query in
+    /// `app/management/receiving-matches/page.jsx` (`readQueue`, LIMIT 100).
+    public func loadUnmatched(locationId: String = LocationScope.resolve()) async throws -> [ReceivingRow] {
+        try await readDB.pool.read { db in
+            try ReceivingRow.fetchAll(
+                db,
+                sql: """
+                  SELECT r.* FROM receiving_log r
+                  WHERE r.location_id = ?
+                    AND r.status IN ('accepted', 'accepted_with_note')
+                    AND r.received_qty IS NOT NULL
+                    AND r.received_qty > 0
+                    AND r.received_unit IS NOT NULL
+                    AND TRIM(r.received_unit) <> ''
+                    AND COALESCE(r.match_status, 'not_attempted') IN ('unmatched', 'ambiguous')
+                  ORDER BY r.created_at DESC, r.id DESC
+                  LIMIT 100
+                  """,
+                arguments: [locationId]
+            )
+        }
+    }
+
+    /// Master picker options — mirrors the page's `readMasters`
+    /// (name-sorted, LIMIT 1000; not location-scoped, like the web query).
+    public func masterOptions() async throws -> [ReceivingMasterOption] {
+        try await readDB.pool.read { db in
+            try ReceivingMasterOption.fetchAll(
+                db,
+                sql: """
+                  SELECT master_id, canonical_name, category, preferred_vendor
+                    FROM ingredient_masters
+                   ORDER BY lower(canonical_name), master_id
+                   LIMIT 1000
+                  """
+            )
+        }
+    }
+
+    /// Resolve one unmatched receiving row to an ingredient master and
+    /// backfill the missing inventory credit — parity with
+    /// `PATCH /api/receiving/matches/[id]`. ONE transaction, all-or-nothing:
+    /// the `receiving_log` UPDATE, the closed-loop `inventory_updates` credit
+    /// (UPDATE the existing credit's master when one exists for this
+    /// `receiving_log_id`, else INSERT a fresh `direction='in'` row), and
+    /// BOTH `audit_events` rows.
+    @discardableResult
+    public func resolveMatch(
+        id: Int64,
+        masterId rawMasterId: String,
+        cookId rawCookId: String? = nil,
+        context: RegulatedWriteContext
+    ) throws -> ReceivingMatchResolution {
+        // 400s — shape checks before touching the DB (route L37-52).
+        guard id > 0 else {
+            throw ReceivingMatchError.validation("receiving id required")
+        }
+        guard let masterId = clip(rawMasterId, max: 200) else {
+            throw ReceivingMatchError.validation("master_id required")
+        }
+        let cookId = rawCookId.flatMap { clip($0, max: 64) }
+        let locationId = context.locationId
+
+        return try AuditedWriteRunner.perform(db: writeDB) { db in
+            // 404 — row must exist at this location (route L58-63).
+            guard let row = try ReceivingRow.fetchOne(
+                db,
+                sql: "SELECT * FROM receiving_log WHERE id = ? AND location_id = ?",
+                arguments: [id, locationId]
+            ) else {
+                throw ReceivingMatchError.notFound("receiving row not found")
+            }
+
+            // 404 — master must exist (route L65-69).
+            let masterExists = try Int.fetchOne(
+                db,
+                sql: "SELECT COUNT(*) FROM ingredient_masters WHERE master_id = ?",
+                arguments: [masterId]
+            ) ?? 0
+            guard masterExists > 0 else {
+                throw ReceivingMatchError.notFound("master not found")
+            }
+
+            let existingCredit = try InventoryUpdateRow.fetchOne(
+                db,
+                sql: "SELECT * FROM inventory_updates WHERE receiving_log_id = ?",
+                arguments: [id]
+            )
+
+            // 409s — status + stock-count gates (route L76-81).
+            guard row.status == "accepted" || row.status == "accepted_with_note" else {
+                throw ReceivingMatchError.conflict("rejected deliveries cannot add stock")
+            }
+            let unit = (row.receivedUnit ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard (row.receivedQty ?? 0) > 0, !unit.isEmpty, let item = row.item else {
+                throw ReceivingMatchError.conflict("delivery has no stock count to add")
+            }
+
+            // ── mutation 1: point the receiving row at the master ────────
+            try db.execute(
+                sql: """
+                  UPDATE receiving_log
+                     SET master_id = ?,
+                         match_status = 'matched',
+                         match_reason = 'manager_selected'
+                   WHERE id = ?
+                  """,
+                arguments: [masterId, id]
+            )
+            guard let after = try ReceivingRow.fetchOne(
+                db, sql: "SELECT * FROM receiving_log WHERE id = ?", arguments: [id]
+            ) else {
+                throw ReceivingMatchError.persistenceFailed
+            }
+
+            _ = try AuditEventWriter.post(db: db, input: AuditEventInput(
+                entity: "receiving_log",
+                entityId: id,
+                action: .correction,
+                actorCookId: cookId,
+                actorSource: context.actorSource,
+                payloadJSON: AuditEventWriter.encodePayload(MatchCorrectionPayload(
+                    before: MatchSnapshot(id: row.id, masterId: row.masterId, matchStatus: row.matchStatus, matchReason: row.matchReason),
+                    after: MatchSnapshot(id: after.id, masterId: after.masterId, matchStatus: after.matchStatus, matchReason: after.matchReason)
+                )),
+                note: "receiving_match:\(id)",
+                shiftDate: row.shiftDate,
+                locationId: locationId
+            ))
+
+            // ── mutation 2: closed-loop inventory credit ─────────────────
+            let invRow: InventoryUpdateRow
+            if let existingCredit {
+                try db.execute(
+                    sql: "UPDATE inventory_updates SET master_id = ? WHERE id = ?",
+                    arguments: [masterId, existingCredit.id]
+                )
+                guard let updated = try InventoryUpdateRow.fetchOne(
+                    db, sql: "SELECT * FROM inventory_updates WHERE id = ?", arguments: [existingCredit.id]
+                ) else {
+                    throw ReceivingMatchError.persistenceFailed
+                }
+                invRow = updated
+
+                _ = try AuditEventWriter.post(db: db, input: AuditEventInput(
+                    entity: "inventory_updates",
+                    entityId: existingCredit.id,
+                    action: .correction,
+                    actorCookId: cookId,
+                    actorSource: Self.matchResolutionActorSource,
+                    payloadJSON: AuditEventWriter.encodePayload(CreditCorrectionPayload(
+                        before: CreditSnapshot(id: existingCredit.id, masterId: existingCredit.masterId, receivingLogId: existingCredit.receivingLogId),
+                        after: CreditSnapshot(id: invRow.id, masterId: invRow.masterId, receivingLogId: invRow.receivingLogId)
+                    )),
+                    note: "receiving_match:\(id)",
+                    shiftDate: row.shiftDate,
+                    locationId: locationId
+                ))
+            } else {
+                let delta = "\(ReceivingRepository.numberText(row.receivedQty ?? 0)) \(unit)"
+                try db.execute(
+                    sql: """
+                      INSERT INTO inventory_updates
+                        (shift_date, location_id, item, master_id, delta, direction, note, cook_id, receiving_log_id)
+                      VALUES (?, ?, ?, ?, ?, 'in', ?, ?, ?)
+                      """,
+                    arguments: [
+                        row.shiftDate, locationId, item, masterId, delta,
+                        "manager matched receiving_log #\(id)", cookId, id,
+                    ]
+                )
+                let invId = db.lastInsertedRowID
+                guard let inserted = try InventoryUpdateRow.fetchOne(
+                    db, sql: "SELECT * FROM inventory_updates WHERE id = ?", arguments: [invId]
+                ) else {
+                    throw ReceivingMatchError.persistenceFailed
+                }
+                invRow = inserted
+
+                _ = try AuditEventWriter.post(db: db, input: AuditEventInput(
+                    entity: "inventory_updates",
+                    entityId: invId,
+                    action: .insert,
+                    actorCookId: cookId,
+                    actorSource: Self.matchResolutionActorSource,
+                    payloadJSON: AuditEventWriter.encodePayload(invRow),
+                    note: "receiving_match:\(id)",
+                    shiftDate: row.shiftDate,
+                    locationId: locationId
+                ))
+            }
+
+            return ReceivingMatchResolution(receiving: after, inventoryUpdate: invRow)
+        }
+    }
+
+    /// Web stamps the inventory-side audit rows of a manager resolution with
+    /// this exact `actor_source` (semantic origin, not a UI source).
+    static let matchResolutionActorSource = "receiving_match_resolution"
+
+    // Audit payload shapes mirror the web route's postAuditEvent payloads
+    // field-for-field (snake_case via `AuditEventWriter.encodePayload`).
+    private struct MatchSnapshot: Encodable {
+        let id: Int64
+        let masterId: String?
+        let matchStatus: String?
+        let matchReason: String?
+    }
+
+    private struct MatchCorrectionPayload: Encodable {
+        let before: MatchSnapshot
+        let after: MatchSnapshot
+    }
+
+    private struct CreditSnapshot: Encodable {
+        let id: Int64
+        let masterId: String?
+        let receivingLogId: Int64?
+    }
+
+    private struct CreditCorrectionPayload: Encodable {
+        let before: CreditSnapshot
+        let after: CreditSnapshot
+    }
+
     // ── inline master resolution (mirror of `resolveReceivingMaster`) ──
 
     /// Resolve a delivery line to at-most-one ingredient master via `vendor_prices`.
@@ -363,7 +597,8 @@ public struct ReceivingRepository: Sendable {
 
     /// Render a qty for the inventory `delta` string exactly as the JS route
     /// does: `${received_qty} ${received_unit}` — integral values have no `.0`.
-    static func numberText(_ v: Double) -> String {
+    /// (Public since A5: the receiving-matches board reuses it for its Qty column.)
+    public static func numberText(_ v: Double) -> String {
         if v == v.rounded() && abs(v) < 1e15 { return String(Int64(v)) }
         return String(format: "%g", v)
     }

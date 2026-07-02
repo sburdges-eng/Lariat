@@ -46,6 +46,10 @@ enum FeatureRegistry {
         .managerCommand,
         .managerAnalytics,
         .managerManagement,
+        .managerAuditLog,
+        .managerPins,
+        .managerTempPins,
+        .managerReceivingMatches,
         // Costing
         .costingOverview,
         .costingPriceShocks,
@@ -59,6 +63,11 @@ enum FeatureRegistry {
         .purchasingOrderGuide,
         .purchasingCompare,
         .purchasingLink,
+        // Front of house
+        .fohFloor,
+        .fohHost,
+        .fohReservations,
+        .fohBooking,
         // Shows
         .showsTonight,
         .showsBoxOffice,

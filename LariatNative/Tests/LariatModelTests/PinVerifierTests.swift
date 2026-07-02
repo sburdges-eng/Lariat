@@ -12,6 +12,14 @@ final class PinVerifierTests: XCTestCase {
         XCTAssertNotNil(PinHash.validateFormat("12"))
     }
 
+    func testFormatRejectsNonAsciiDigits() {
+        // Web parity: /^[0-9]+$/ — Arabic-Indic and fullwidth digits must be
+        // rejected or native would mint a credential the web stack refuses.
+        XCTAssertNotNil(PinHash.validateFormat("١٢٣٤"))
+        XCTAssertNotNil(PinHash.validateFormat("１２３４"))
+        XCTAssertNil(PinHash.validateFormat("1234"))
+    }
+
     func testVerifyManagerUser() throws {
         let dbQueue = try DatabaseQueue()
         try dbQueue.write { db in
