@@ -93,14 +93,14 @@ public enum CostingCompute {
     //
     // Port of computeMenuEngineering() in lib/menuEngineering.ts.
     //
-    // Simplification vs web: the web calls buildDishComponentMap + computeDishCost
-    // to derive cost_per_unit via multi-table JOIN (dish_components → recipe_costs).
-    // The native port reads cost_per_unit as a pre-computed column on sales_lines,
-    // avoiding the bridge complexity. All downstream quadrant math is identical.
-    //
-    // PARITY GAP (carry to T14): cost_per_unit is read from a staging column that
-    // production does not yet populate — items without it fall to quadrant 'unknown'.
-    // The full dish_components→recipe_costs rollup port is deferred to T14.
+    // cost_per_unit arrives on each CostingSalesLine from CostingRepository,
+    // which since A4.3 T1 derives it via the real dish-cost bridge
+    // (DishCostBridge: dish_components → recipe_costs / vendor_prices /
+    // order_guide_items) — the former CAST(NULL AS REAL) staging column is
+    // gone and the T10/T14 parity gap is RESOLVED. Items the bridge cannot
+    // cost still fall to quadrant 'unknown' (web-identical).
+    // The bridged variant with link_state + components + coverage lives in
+    // DishCostBridge.computeMenuEngineering (used by costing.menuEngineering).
     //
     // Null/zero guards mirrored exactly:
     //   qty=0 → avg_price=0 (not excluded; repository SQL filters quantity_sold > 0)

@@ -80,6 +80,9 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "costing.varianceAttribution", tier: .costing, title: "Variance attribution"),
         FeatureDescriptor(id: "costing.depletionExceptions", tier: .costing, title: "Depletion exceptions"),
         FeatureDescriptor(id: "costing.ingredientMasters", tier: .costing, title: "Ingredient masters"),
+        FeatureDescriptor(id: "costing.menuEngineering", tier: .costing, title: "Menu performance"),
+        FeatureDescriptor(id: "costing.marginDeltas", tier: .costing, title: "Margin moves"),
+        FeatureDescriptor(id: "costing.components", tier: .costing, title: "Dish components"),
         // Purchasing (A4.4)
         FeatureDescriptor(id: "purchasing.orderGuide", tier: .purchasing, title: "Order guide"),
         FeatureDescriptor(id: "purchasing.compare", tier: .purchasing, title: "Vendor compare"),
