@@ -216,6 +216,19 @@ public indirect enum AssistantJSONValue: Sendable, Equatable {
         return n
     }
 
+    /// JS template-literal rendering (`${x}`) — used verbatim in the route's
+    /// soft-reject messages (`delta "${payload.delta}" is not a number`).
+    public var jsTemplate: String {
+        switch self {
+        case .string(let s): return s
+        case .number(let n): return JsValueFormat.numberString(n)
+        case .bool(let b): return b ? "true" : "false"
+        case .null: return "null"
+        case .array(let a): return a.map(\.jsTemplate).joined(separator: ",")
+        case .object: return "[object Object]"
+        }
+    }
+
     public var stringValue: String? {
         guard case .string(let s) = self else { return nil }
         return s
