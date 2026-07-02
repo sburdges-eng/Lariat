@@ -75,6 +75,11 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "manager.command", tier: .manager, title: "Command"),
         FeatureDescriptor(id: "manager.analytics", tier: .manager, title: "Analytics"),
         FeatureDescriptor(id: "manager.management", tier: .manager, title: "Management"),
+        // Manager — A5 management-writes wave
+        FeatureDescriptor(id: "manager.auditLog", tier: .manager, title: "Audit log"),
+        FeatureDescriptor(id: "manager.pins", tier: .manager, title: "PINs"),
+        FeatureDescriptor(id: "manager.tempPins", tier: .manager, title: "Temp PINs"),
+        FeatureDescriptor(id: "manager.receivingMatches", tier: .manager, title: "Receiving matches"),
         // Costing
         FeatureDescriptor(id: "costing.overview", tier: .costing, title: "Costing"),
         FeatureDescriptor(id: "costing.priceShocks", tier: .costing, title: "Price shocks"),

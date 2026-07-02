@@ -46,6 +46,10 @@ enum FeatureRegistry {
         .managerCommand,
         .managerAnalytics,
         .managerManagement,
+        .managerAuditLog,
+        .managerPins,
+        .managerTempPins,
+        .managerReceivingMatches,
         // Costing
         .costingOverview,
         .costingPriceShocks,
