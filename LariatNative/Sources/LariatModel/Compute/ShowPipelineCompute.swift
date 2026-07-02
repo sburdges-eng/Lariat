@@ -30,7 +30,7 @@ public enum ShowPipelineCompute {
         // Numeric strings ("6.0", "0", "12") → count semantics for posts/door_tix.
         if let num = Double(raw), num.isFinite {
             if num <= 0 { return ShowStatusBadge(color: .neutral, label: "—") }
-            return ShowStatusBadge(color: .green, label: String(jsRound(num)))
+            return ShowStatusBadge(color: .green, label: jsRoundLabel(num))
         }
 
         // Anything else: green-with-detail. Approach 1: never red on novelty.
@@ -76,14 +76,19 @@ public enum ShowPipelineCompute {
             switch value {
             case let s as String:
                 out[key] = s
-            case let b as Bool:
-                out[key] = b ? "true" : "false"
             case let n as NSNumber:
-                let d = n.doubleValue
-                if d == d.rounded() && abs(d) < 1e15 {
-                    out[key] = String(Int64(d))
+                // NSNumber bridges bools too — CFBoolean check keeps `true` ≠ `1`.
+                // A `case as Bool` first would swallow JSON 0/1 and render
+                // "false"/"true" where the web renders "0"/"1" (count semantics).
+                if CFGetTypeID(n) == CFBooleanGetTypeID() {
+                    out[key] = n.boolValue ? "true" : "false"
                 } else {
-                    out[key] = "\(d)"
+                    let d = n.doubleValue
+                    if d == d.rounded() && abs(d) < 1e15 {
+                        out[key] = String(Int64(d))
+                    } else {
+                        out[key] = "\(d)"
+                    }
                 }
             case is NSNull:
                 out[key] = ""
@@ -98,9 +103,13 @@ public enum ShowPipelineCompute {
         statusColor(value).color == .green
     }
 
-    /// JS `Math.round` — half rounds toward +infinity.
-    private static func jsRound(_ n: Double) -> Int {
-        Int((n + 0.5).rounded(.down))
+    /// JS `String(Math.round(n))` without the Int64 trap: round half toward
+    /// +infinity in Double space; integral magnitudes < 1e15 render digit-exact.
+    /// (Values ≥ ~9.2e18 previously crashed on the Double→Int conversion.)
+    private static func jsRoundLabel(_ n: Double) -> String {
+        let r = (n + 0.5).rounded(.down)
+        if abs(r) < 1e15 { return String(Int64(r)) }
+        return "\(r)"
     }
 }
 

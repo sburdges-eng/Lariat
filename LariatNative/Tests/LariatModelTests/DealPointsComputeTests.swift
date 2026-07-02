@@ -82,6 +82,18 @@ final class DealPointsComputeTests: XCTestCase {
         assertInvalidShape([String: Any](), contains: "guarantee_usd")
     }
 
+    func testExplicitNullCostsOffTopThrows() {
+        // Web parity: JSON null ≠ absent key — parseDealTerms rejects null
+        // ("costs_off_top must be an array"); only a missing key means no costs.
+        assertInvalidShape(["guarantee_usd": 100, "costs_off_top": NSNull()],
+                           contains: "costs_off_top must be an array")
+    }
+
+    func testExplicitNullBuyoutThrows() {
+        assertInvalidShape(["guarantee_usd": 100, "buyout_usd": NSNull()],
+                           contains: "buyout_usd")
+    }
+
     func testNonNumericGuaranteeThrows() {
         assertInvalidShape(["guarantee_usd": "one thousand"], contains: "guarantee_usd")
     }

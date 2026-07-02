@@ -124,4 +124,29 @@ final class ShowPipelineComputeTests: XCTestCase {
         XCTAssertEqual(ShowPipelineCompute.parseStatusJson(nil), [:])
         XCTAssertEqual(ShowPipelineCompute.parseStatusJson("not json"), [:])
     }
+
+    func testParseStatusJsonKeepsNumericZeroAndOneAsCounts() {
+        // JSON 0/1 must render "0"/"1" (count semantics → neutral/green "1"),
+        // never "false"/"true": NSNumber bridges 0/1 to Bool unless the
+        // CFBoolean check runs first. A green "false" flipped isGreenish and
+        // inflated the pipeline stage (Hold classified as Confirmed).
+        let parsed = ShowPipelineCompute.parseStatusJson(
+            #"{"posts":0,"door_tix":1,"flag":true,"off":false,"z":0.0,"o":1.0}"#
+        )
+        XCTAssertEqual(parsed["posts"], "0")
+        XCTAssertEqual(parsed["door_tix"], "1")
+        XCTAssertEqual(parsed["flag"], "true")
+        XCTAssertEqual(parsed["off"], "false")
+        XCTAssertEqual(parsed["z"], "0")
+        XCTAssertEqual(parsed["o"], "1")
+        XCTAssertEqual(ShowPipelineCompute.statusColor(parsed["posts"]).color, .neutral)
+        XCTAssertEqual(ShowPipelineCompute.statusColor(parsed["door_tix"]).color, .green)
+        XCTAssertEqual(ShowPipelineCompute.statusColor(parsed["door_tix"]).label, "1")
+    }
+
+    func testStatusColorHugeNumericDoesNotTrap() {
+        // 1e19 > Int64.max — the label path used to crash on Double→Int.
+        let badge = ShowPipelineCompute.statusColor("1e19")
+        XCTAssertEqual(badge.color, .green)
+    }
 }

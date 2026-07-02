@@ -162,7 +162,7 @@ public enum ShowsTonightCompute {
         let sold = max(0, soldQty ?? 0)
         let cap: Int?
         if let c = capacity, c.isFinite, c > 0 {
-            cap = Int(c.rounded(.down))
+            cap = jsFloorClamped(c)
         } else {
             cap = nil
         }
@@ -200,13 +200,23 @@ public enum ShowsTonightCompute {
         if let fromStatus = status?["capacity"] {
             let overrideNum = fromStatus.jsNumber
             if overrideNum.isFinite && overrideNum > 0 {
-                return Int(overrideNum.rounded(.down))
+                return jsFloorClamped(overrideNum)
             }
         }
         if let vc = venueCapacity, vc.isFinite, vc > 0 {
-            return Int(vc.rounded(.down))
+            return jsFloorClamped(vc)
         }
         return nil
+    }
+
+    /// `Math.floor` for Int consumers without the Double→Int trap: ingest can
+    /// write arbitrary JSON numbers (web floors 1e19 gracefully; a raw `Int()`
+    /// conversion crashes ≥ 2^63). Clamps to Int bounds instead.
+    public static func jsFloorClamped(_ n: Double) -> Int {
+        let f = n.rounded(.down)
+        if f >= Double(Int.max) { return Int.max }
+        if f < Double(Int.min) { return Int.min }
+        return Int(f)
     }
 
     // ── status_json helpers ───────────────────────────────────────────

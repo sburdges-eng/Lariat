@@ -79,7 +79,9 @@ public enum DealPointsCompute {
         }
 
         var costsOffTop: [DealTermsCostItem]?
-        if let costsRaw = raw["costs_off_top"], !(costsRaw is NSNull) {
+        // Web parity: an explicit JSON null is REJECTED ("must be an array") —
+        // only an absent key means no costs. Don't conflate null with undefined.
+        if let costsRaw = raw["costs_off_top"] {
             guard let arr = costsRaw as? [Any] else {
                 throw SettlementError.invalidDealShape("InvalidDealShape: costs_off_top must be an array")
             }
@@ -96,7 +98,9 @@ public enum DealPointsCompute {
         }
 
         var buyoutUsd: Double?
-        if let buyoutRaw = raw["buyout_usd"], !(buyoutRaw is NSNull) {
+        // Web parity: explicit null throws ("must be a finite number"); only an
+        // absent key means no buyout. assertNumeric rejects NSNull for us.
+        if let buyoutRaw = raw["buyout_usd"] {
             let b = try assertNumeric(buyoutRaw, "buyout_usd")
             if b < 0 {
                 throw SettlementError.invalidDealShape("InvalidDealShape: buyout_usd must be >= 0")

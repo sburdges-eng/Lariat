@@ -233,7 +233,7 @@ public struct ShowsRepository {
             var capacityOverride: Int?
             if show != nil, let ov = showStatus["capacity"] {
                 let n = ov.jsNumber
-                if n.isFinite && n > 0 { capacityOverride = Int(n.rounded(.down)) }
+                if n.isFinite && n > 0 { capacityOverride = ShowsTonightCompute.jsFloorClamped(n) }
             }
 
             var stageSetup: StageSetupRow?

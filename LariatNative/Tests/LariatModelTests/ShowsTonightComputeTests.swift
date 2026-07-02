@@ -287,6 +287,14 @@ final class ShowsTonightComputeTests: XCTestCase {
         XCTAssertEqual(ShowsTonightCompute.pickEffectiveCapacity(["capacity": .number(180.7)], venueCapacity: 220), 180)
     }
 
+    func testHugeCapacityClampsInsteadOfTrapping() {
+        // Ingest writes arbitrary JSON — web floors 1e19 gracefully; a raw
+        // Double→Int conversion crashed ≥ 2^63. Clamp, never trap.
+        XCTAssertEqual(ShowsTonightCompute.jsFloorClamped(1e19), Int.max)
+        XCTAssertEqual(ShowsTonightCompute.pickEffectiveCapacity(["capacity": .number(1e19)], venueCapacity: nil), Int.max)
+        XCTAssertEqual(ShowsTonightCompute.computeAttendance(scannedQty: 5, soldQty: 5, capacity: 1e19).capacity, Int.max)
+    }
+
     func testEffectiveCapacityFallsThroughOnZeroNegativeNonNumeric() {
         XCTAssertEqual(ShowsTonightCompute.pickEffectiveCapacity(["capacity": .number(0)], venueCapacity: 220), 220)
         XCTAssertEqual(ShowsTonightCompute.pickEffectiveCapacity(["capacity": .number(-5)], venueCapacity: 220), 220)
