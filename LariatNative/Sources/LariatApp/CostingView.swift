@@ -25,7 +25,9 @@ import Observation
 
     func start() {
         streamTask?.cancel()
-        let repo = CostingRepository(database: database)
+        // recipes.json is the bridge's discovery layer (web getRecipes());
+        // loaded once per start — [] when the cache file is absent.
+        let repo = CostingRepository(database: database, recipes: DishBridgeRecipeLoader.load())
         streamTask = Task { [weak self] in
             // ValueObservation can't see cross-process writes; poll every 3 s
             // (mirrors CommandViewModel / AnalyticsViewModel polling pattern).
@@ -117,9 +119,9 @@ private struct CostingContentView: View {
                     .padding(.horizontal)
 
                 // ── Section 3: Menu engineering (quadrant breakdown) ──────────
-                // PARITY GAP (from T10): cost_per_unit is read from a staging column
-                // that production does not yet populate — rows may fall to 'unknown'
-                // until the dish_components→recipe_costs rollup is ported.
+                // cost_per_unit now comes from the real dish-cost bridge
+                // (A4.3 T1) — rows fall to 'unknown' only when the bridge has
+                // no data for them (web-identical).
                 MenuEngineeringSection(result: menuEngineering)
                     .padding(.horizontal)
 
@@ -244,9 +246,9 @@ private struct DishCoverageSection: View {
 private struct MenuEngineeringSection: View {
     let result: MenuEngineeringResult
 
-    // PARITY GAP (from T10): cost_per_unit is read from a staging column that production
-    // does not yet populate — items without it fall to quadrant 'unknown'. The full
-    // dish_components→recipe_costs rollup port is deferred.
+    // cost_per_unit is bridge-derived since A4.3 T1; every row is 'unknown'
+    // only when no dish_components are wired yet — the degrade below points
+    // the operator at the fix (same guidance as the web hub's Unknown copy).
     private var allUnknown: Bool {
         result.rows.isEmpty || result.rows.allSatisfy { $0.quadrant == .unknown }
     }
@@ -264,8 +266,8 @@ private struct MenuEngineeringSection: View {
             isEmpty: result.rows.isEmpty
         ) {
             if allUnknown {
-                // PARITY GAP: cost_per_unit not populated — all items fall to 'unknown'.
-                // The dish_components→recipe_costs rollup is deferred (T10 parity gap).
+                // No bridge data yet — all items fall to 'unknown' until
+                // dish_components rows exist (edit them on costing.components).
                 TileDegrade(
                     title: "Cost data unavailable",
                     message: "All items fall to unknown quadrant. Wire dish_components for cost_per_unit.",
