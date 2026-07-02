@@ -18,6 +18,7 @@ enum FeatureRegistry {
         .cookPrepPar,
         .cookMorning,
         .cookDatapackSearch,
+        .cookAssistant,
         // Safety
         .safetyHub,
         .safetyTempLog,

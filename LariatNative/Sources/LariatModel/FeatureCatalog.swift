@@ -51,6 +51,10 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "cook.morning", tier: .cook, title: "Morning"),
         // A6.3 — read-only data-pack reference search (/datapack-search).
         FeatureDescriptor(id: "cook.datapackSearch", tier: .cook, title: "Reference"),
+        // Phase B — LaRi kitchen assistant (/kitchen-assistant). Cook-tier by
+        // web design: questions are open to the line, mutating LLM actions
+        // PIN-gate inside the surface (see the Phase B plan doc).
+        FeatureDescriptor(id: "cook.assistant", tier: .cook, title: "Assistant"),
         // Safety
         FeatureDescriptor(id: "safety.hub", tier: .safety, title: "Food Safety"),
         FeatureDescriptor(id: "safety.tempLog", tier: .safety, title: "Temp log"),
