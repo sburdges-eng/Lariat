@@ -1,0 +1,18 @@
+import SwiftUI
+
+/// Inventory-tier feature modules (A4.1). Each `static let` pairs a catalog id
+/// with its view builder; metadata (tier/title/order) comes from `FeatureCatalog`.
+/// Reads are open; add/remove writes are audited but NOT PIN-gated (the
+/// /inventory area is unregulated relative to the safety/labor tiers).
+extension FeatureModule {
+    static let inventoryPar = FeatureModule(id: "inventory.par") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(InventoryParView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Par unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
+}
