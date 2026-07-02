@@ -39,6 +39,7 @@ enum FeatureRegistry {
         .laborWageNotices,
         // Inventory
         .inventoryPar,
+        .inventoryCounts,
         // Manager
         .managerCommand,
         .managerAnalytics,

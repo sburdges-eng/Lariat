@@ -109,6 +109,12 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertNotNil(par, "inventory.par must be registered")
         XCTAssertEqual(par?.tier, .inventory)
         XCTAssertEqual(par?.title, "Par")
+        // Counts board registered under the same tier.
+        let counts = FeatureCatalog.descriptor(id: "inventory.counts")
+        XCTAssertNotNil(counts, "inventory.counts must be registered")
+        XCTAssertEqual(counts?.tier, .inventory)
+        XCTAssertEqual(counts?.title, "Counts")
+        XCTAssertEqual(counts?.enabled, true)
         XCTAssertFalse(FeatureCatalog.descriptors(for: .inventory).isEmpty)
     }
 }

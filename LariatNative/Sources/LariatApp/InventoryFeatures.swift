@@ -15,4 +15,15 @@ extension FeatureModule {
             systemImage: "lock"
         ))
     }
+
+    static let inventoryCounts = FeatureModule(id: "inventory.counts") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(InventoryCountsView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Counts unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
 }
