@@ -224,6 +224,8 @@ final class FeatureRegistryTests: XCTestCase {
     func testA5ManagementBoardsRegistered() {
         for (id, title) in [
             ("manager.auditLog", "Audit log"),
+            ("manager.pins", "PINs"),
+            ("manager.tempPins", "Temp PINs"),
         ] {
             let d = FeatureCatalog.descriptor(id: id)
             XCTAssertNotNil(d, "\(id) must be registered")

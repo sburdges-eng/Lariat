@@ -20,4 +20,29 @@ extension FeatureModule {
     static let managerAuditLog = FeatureModule(id: "manager.auditLog") { _ in
         AnyView(AuditLogView())
     }
+
+    /// A5 — manager PIN users CRUD (`/management/pins`). Writes are the whole
+    /// point, so the board degrades to a lock tile without the write database.
+    static let managerPins = FeatureModule(id: "manager.pins") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(ManagerPinsView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Manager PINs unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
+
+    /// A5 — scoped temp-PIN issuance/revocation (`/management/temp-pins`).
+    static let managerTempPins = FeatureModule(id: "manager.tempPins") { ctx in
+        if let writeDB = ctx.writeDatabase {
+            return AnyView(TempPinsView(readDB: ctx.database, writeDB: writeDB))
+        }
+        return AnyView(TileDegrade(
+            title: "Temp PINs unavailable",
+            message: "Could not open the write database.",
+            systemImage: "lock"
+        ))
+    }
 }
