@@ -56,6 +56,9 @@ enum FeatureRegistry {
         .costingVarianceAttribution,
         .costingDepletionExceptions,
         .costingIngredientMasters,
+        .costingMenuEngineering,
+        .costingMarginDeltas,
+        .costingComponents,
         // Purchasing
         .purchasingOrderGuide,
         .purchasingCompare,

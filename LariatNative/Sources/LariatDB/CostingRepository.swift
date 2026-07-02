@@ -21,10 +21,21 @@ import LariatModel
 public struct CostingRepository {
     let database: LariatDatabase
     let locationId: String
+    /// Discovery layer for the dish-cost bridge (`recipes.menu_items[]`) —
+    /// loaded from `data/cache/recipes.json` by the caller (mirrors the web
+    /// threading `getRecipes()` into `buildDishComponentMap`). Defaults to []
+    /// so pre-bridge call sites keep working (declared-only links then come
+    /// solely from dish_components rows).
+    let recipes: [BridgeRecipe]
 
-    public init(database: LariatDatabase, locationId: String = LocationScope.resolve()) {
+    public init(
+        database: LariatDatabase,
+        locationId: String = LocationScope.resolve(),
+        recipes: [BridgeRecipe] = []
+    ) {
         self.database = database
         self.locationId = locationId
+        self.recipes = recipes
     }
 
     public func fetch() async throws -> CostingBundle {
@@ -60,19 +71,18 @@ public struct CostingRepository {
             //    Mirrors the SELECT in computeMenuEngineering() (lib/menuEngineering.ts):
             //      SELECT item_name, SUM(quantity_sold) AS qty, SUM(net_sales) AS rev
             //        FROM sales_lines WHERE location_id=? GROUP BY item_name
-            //    Filtered quantity_sold > 0 to skip TOTAL/footer rows (mirrors
-            //    cleanedSalesRows() in lib/dishCostBridge.ts which drops zero-qty rows).
+            //    Filtered quantity_sold > 0 to skip TOTAL/footer rows.
             //    Ordered rev DESC to match the analytics top-item convention (stable order).
             //
-            //    cost_per_unit is NULL here — production sales_lines has no such column.
-            //    Web computeMenuEngineering joins dish_components via dishCostBridge;
-            //    native rows fall to 'unknown' until that bridge is ported (P1b+).
-            let salesLines = try CostingSalesLine.fetchAll(db,
+            //    cost_per_unit comes from the dish-cost bridge (A4.3 T1) —
+            //    dish_components → recipe_costs / vendor_prices / order_guide_items,
+            //    exactly the web `computeDishCost` roll-up. This replaces the former
+            //    `CAST(NULL AS REAL)` staging column (T10/T14 parity gap: RESOLVED).
+            let aggregated = try Row.fetchAll(db,
                 sql: """
                     SELECT item_name,
                            SUM(quantity_sold)  AS qty,
-                           SUM(net_sales)      AS rev,
-                           CAST(NULL AS REAL)  AS cost_per_unit
+                           SUM(net_sales)      AS rev
                       FROM sales_lines
                      WHERE location_id = ?
                        AND quantity_sold > 0
@@ -80,6 +90,24 @@ public struct CostingRepository {
                      ORDER BY rev DESC
                     """,
                 arguments: [locationId])
+
+            let bridgeInputs = try Self.fetchBridgeInputs(db: db, locationId: locationId)
+            let map = DishCostBridge.buildDishComponentMap(
+                recipes: recipes,
+                recipeCosts: bridgeInputs.recipeCosts,
+                vendorPrices: bridgeInputs.vendorPrices,
+                orderGuideItems: bridgeInputs.orderGuideItems,
+                dishComponents: bridgeInputs.dishComponents)
+
+            let salesLines: [CostingSalesLine] = aggregated.map { r in
+                let itemName: String = r["item_name"]
+                let cost = DishCostBridge.computeDishCost(dishName: itemName, map: map).totalCost
+                return CostingSalesLine(
+                    itemName: itemName,
+                    qty: r["qty"] ?? 0,
+                    rev: r["rev"] ?? 0,
+                    costPerUnit: cost)
+            }
 
             // 4. Variance trend rows — 28-day window relative to MAX(period_end).
             //    Mirrors getVarianceTrend() in lib/varianceTrend.ts:
@@ -119,5 +147,114 @@ public struct CostingRepository {
                 varianceTrendRows:  varianceTrendRows
             )
         }
+    }
+
+    // ── Dish-cost bridge inputs (A4.3 T1) ─────────────────────────────────────
+
+    /// The four DB-side inputs `DishCostBridge.buildDishComponentMap` needs.
+    public struct DishBridgeInputs {
+        public let recipeCosts: [BridgeRecipeCost]
+        public let vendorPrices: [BridgeVendorPrice]
+        public let orderGuideItems: [BridgeVendorPrice]
+        public let dishComponents: [BridgeDishComponent]
+    }
+
+    /// Runs the SELECTs `lib/dishCostBridge.ts buildDishComponentMap` embeds:
+    ///   1. recipe_costs      — location-scoped, `recipe_id != 'TOTAL'` (L136-142)
+    ///   2. vendor_prices     — latest-imported_at join per ingredient (L158-171)
+    ///   3. order_guide_items — non-placeholder fallback rows (L179-191)
+    ///   4. dish_components   — all rows for the location (L242-247)
+    ///
+    /// A missing table is treated as an empty input (`db.tableExists` guard):
+    /// pre-bridge fixture DBs / partially-migrated production copies must not
+    /// break the whole costing fetch. ORDER BY id matches better-sqlite3's
+    /// rowid scan order, so index precedence (last-write-wins for
+    /// vendor_prices, first-write-wins for order_guide) is byte-parity.
+    /// Shared with `MenuEngineeringRepository` — do not duplicate this SQL.
+    static func fetchBridgeInputs(db: Database, locationId: String) throws -> DishBridgeInputs {
+        var recipeCosts: [BridgeRecipeCost] = []
+        if try db.tableExists("recipe_costs") {
+            recipeCosts = try Row.fetchAll(db,
+                sql: """
+                    SELECT recipe_id, recipe_name, cost_per_yield_unit, yield_unit
+                      FROM recipe_costs
+                     WHERE location_id = ? AND recipe_id != 'TOTAL'
+                     ORDER BY id
+                    """,
+                arguments: [locationId]
+            ).map { r in
+                BridgeRecipeCost(
+                    recipeId: r["recipe_id"],
+                    recipeName: r["recipe_name"],
+                    costPerYieldUnit: r["cost_per_yield_unit"],
+                    yieldUnit: r["yield_unit"])
+            }
+        }
+
+        var vendorPrices: [BridgeVendorPrice] = []
+        if try db.tableExists("vendor_prices") {
+            vendorPrices = try Row.fetchAll(db,
+                sql: """
+                    SELECT vp.ingredient, vp.unit_price, vp.pack_unit
+                      FROM vendor_prices vp
+                      JOIN (
+                        SELECT ingredient, MAX(imported_at) AS m
+                          FROM vendor_prices
+                         WHERE location_id = ?
+                         GROUP BY ingredient
+                      ) latest ON latest.ingredient = vp.ingredient AND latest.m = vp.imported_at
+                     WHERE vp.location_id = ?
+                     ORDER BY vp.id
+                    """,
+                arguments: [locationId, locationId]
+            ).map { r in
+                BridgeVendorPrice(ingredient: r["ingredient"], unitPrice: r["unit_price"], packUnit: r["pack_unit"])
+            }
+        }
+
+        var orderGuideItems: [BridgeVendorPrice] = []
+        if try db.tableExists("order_guide_items") {
+            // Skip is_placeholder=1 rows — recipe-derived placeholder costs
+            // must never leak into dish costing (web L179-191).
+            orderGuideItems = try Row.fetchAll(db,
+                sql: """
+                    SELECT ingredient, unit_price, unit AS pack_unit
+                      FROM order_guide_items
+                     WHERE location_id = ?
+                       AND COALESCE(is_placeholder, 0) = 0
+                     ORDER BY id
+                    """,
+                arguments: [locationId]
+            ).map { r in
+                BridgeVendorPrice(ingredient: r["ingredient"], unitPrice: r["unit_price"], packUnit: r["pack_unit"])
+            }
+        }
+
+        var dishComponents: [BridgeDishComponent] = []
+        if try db.tableExists("dish_components") {
+            dishComponents = try Row.fetchAll(db,
+                sql: """
+                    SELECT dish_name, component_type, recipe_slug, vendor_ingredient, qty_per_serving, unit
+                      FROM dish_components
+                     WHERE location_id = ?
+                     ORDER BY id
+                    """,
+                arguments: [locationId]
+            ).map { r in
+                BridgeDishComponent(
+                    dishName: r["dish_name"],
+                    componentType: r["component_type"],
+                    recipeSlug: r["recipe_slug"],
+                    vendorIngredient: r["vendor_ingredient"],
+                    qtyPerServing: r["qty_per_serving"],
+                    unit: r["unit"])
+            }
+        }
+
+        return DishBridgeInputs(
+            recipeCosts: recipeCosts,
+            vendorPrices: vendorPrices,
+            orderGuideItems: orderGuideItems,
+            dishComponents: dishComponents)
     }
 }

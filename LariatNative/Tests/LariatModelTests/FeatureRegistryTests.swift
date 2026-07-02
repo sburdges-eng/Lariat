@@ -197,18 +197,52 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertFalse(FeatureCatalog.descriptors(for: .costing).isEmpty)
     }
 
-    /// A4.2 wave consolidation (plan Task 19): the `.costing` tier holds EXACTLY
-    /// the five detail boards, all enabled; the old `manager.costing` is gone and
-    /// `costing.prices` is a drill-down (never a tile); Manager stays non-empty
-    /// after the relocation. (The FeatureModule/FeatureRegistry binding lives in
-    /// the app target, out of reach of LariatModelTests; `FeatureModule.init`'s
-    /// precondition guards it at app-build/render time.)
+    /// A4.3 Board (T2): margin-deltas registers under `.costing`. Pure read —
+    /// no PIN sheet (the web route sits behind /menu-engineering middleware
+    /// only, matching the priceShocks precedent).
+    func testCostingMarginDeltasRegistered() {
+        let d = FeatureCatalog.descriptor(id: "costing.marginDeltas")
+        XCTAssertNotNil(d, "costing.marginDeltas must be registered")
+        XCTAssertEqual(d?.tier, .costing)
+        XCTAssertEqual(d?.title, "Margin moves")
+        XCTAssertEqual(d?.enabled, true)
+    }
+
+    /// A4.3 Board (T3): the menu-engineering hub registers under `.costing`.
+    /// Pure read (the writes live on costing.components).
+    func testCostingMenuEngineeringRegistered() {
+        let d = FeatureCatalog.descriptor(id: "costing.menuEngineering")
+        XCTAssertNotNil(d, "costing.menuEngineering must be registered")
+        XCTAssertEqual(d?.tier, .costing)
+        XCTAssertEqual(d?.title, "Menu performance")
+        XCTAssertEqual(d?.enabled, true)
+    }
+
+    /// A4.3 Board (T4): the dish-components editor registers under `.costing`.
+    /// This is the wave's write surface — writes are transactional but post NO
+    /// audit_events (web-route parity; see DishComponentsRepositoryTests).
+    func testCostingComponentsRegistered() {
+        let d = FeatureCatalog.descriptor(id: "costing.components")
+        XCTAssertNotNil(d, "costing.components must be registered")
+        XCTAssertEqual(d?.tier, .costing)
+        XCTAssertEqual(d?.title, "Dish components")
+        XCTAssertEqual(d?.enabled, true)
+    }
+
+    /// A4.2 consolidation, extended by the A4.3 menu-engineering wave: the
+    /// `.costing` tier holds EXACTLY the listed boards, all enabled; the old
+    /// `manager.costing` is gone and `costing.prices` is a drill-down (never a
+    /// tile); Manager stays non-empty after the relocation. (The FeatureModule/
+    /// FeatureRegistry binding lives in the app target, out of reach of
+    /// LariatModelTests; `FeatureModule.init`'s precondition guards it at
+    /// app-build/render time.)
     func testCostingTierIsComplete() {
         let ids = Set(FeatureCatalog.descriptors(for: .costing).map(\.id))
         XCTAssertEqual(ids, [
             "costing.overview", "costing.priceShocks", "costing.varianceAttribution",
             "costing.depletionExceptions", "costing.ingredientMasters",
-        ], "the .costing tier must hold exactly the five detail boards")
+            "costing.menuEngineering", "costing.marginDeltas", "costing.components",
+        ], "the .costing tier must hold exactly the registered detail boards")
         for id in ids {
             XCTAssertEqual(FeatureCatalog.descriptor(id: id)?.tier, .costing, "\(id) must be a costing feature")
             XCTAssertEqual(FeatureCatalog.descriptor(id: id)?.enabled, true, "\(id) must be enabled")

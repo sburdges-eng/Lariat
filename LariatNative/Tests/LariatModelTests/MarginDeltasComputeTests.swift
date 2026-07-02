@@ -256,6 +256,87 @@ final class MarginDeltasComputeTests: XCTestCase {
                        "expected +60% from un-collided Sysco/Brioche Bun bucket, got \(r.deltaPct)")
     }
 
+    // ── location scoping (oracle case 7) ────────────────────────────────────
+
+    // Oracle: "scopes dish_components and snapshots by location_id".
+    // The compute itself is location-blind — the repository's WHERE clauses
+    // scope both reads (pinned in MarginDeltasRepositoryTests). The
+    // compute-level contract asserted here is twofold: (a) MarginDeltaOptions
+    // normalizes location_id exactly like the web option normalizer (trim,
+    // empty → 'default'), and (b) feeding each location's pre-scoped rows
+    // through the compute separately cannot cross-contaminate: kitchen-a
+    // (100 → 200, +100%) yields its row while kitchen-b (100 → 100.5, +0.5%,
+    // below the 5% gate) yields none.
+    func testLocationScopingIsolation() {
+        // (a) option normalization — lib/marginDeltas.ts L103-124 parity.
+        XCTAssertEqual(MarginDeltaOptions(locationId: "  kitchen-a  ").locationId, "kitchen-a")
+        XCTAssertEqual(MarginDeltaOptions(locationId: "   ").locationId, "default")
+        XCTAssertEqual(MarginDeltaOptions().locationId, "default")
+
+        // (b) per-location isolation through the compute.
+        let kitchenASnaps = [
+            snap("X", "v", "X", 100, d5),
+            snap("X", "v", "X", 200, d0),
+        ]
+        let kitchenBSnaps = [
+            snap("X", "v", "X", 100, d5),
+            snap("X", "v", "X", 100.5, d0),
+        ]
+        let comps = [vendorComp("Dish A", "X", 1)]
+
+        let a = MarginDeltasCompute.compute(
+            components: comps, snapshots: kitchenASnaps,
+            options: MarginDeltaOptions(locationId: "kitchen-a", windowDays: 7, minPctMove: 5))
+        let b = MarginDeltasCompute.compute(
+            components: comps, snapshots: kitchenBSnaps,
+            options: MarginDeltaOptions(locationId: "kitchen-b", windowDays: 7, minPctMove: 5))
+        XCTAssertEqual(a.count, 1)
+        XCTAssertEqual(a[0].deltaPct, 100, accuracy: 1e-6)
+        XCTAssertEqual(b.count, 0)
+    }
+
+    // ── windowDays clamping (oracle case 8) ─────────────────────────────────
+
+    // Oracle: "clamps windowDays to [1, 90]" — 0/negative/nil fall back to
+    // the default 7; out-of-range-high clamps to 90; in-range passes through.
+    // Snapshot-visibility boundary: a baseline 40 days old is only visible
+    // through a ≥40-day window — with the clamped default (7) the repository
+    // hands the compute a single snapshot per SKU (baselineAt == latestAt →
+    // skipped, 0 rows); with the 90-day clamp both snapshots arrive and the
+    // baseline_cost is 100 (oracle asserts huge[0].baseline_cost === 100).
+    func testWindowDaysClampingEdgeCases() {
+        // Clamp table — lib/marginDeltas.ts option normalization.
+        XCTAssertEqual(MarginDeltaOptions(windowDays: 0).windowDays, 7, "0 → default 7")
+        XCTAssertEqual(MarginDeltaOptions(windowDays: -3).windowDays, 7, "negative → default 7")
+        XCTAssertEqual(MarginDeltaOptions(windowDays: nil).windowDays, 7, "nil → default 7")
+        XCTAssertEqual(MarginDeltaOptions(windowDays: 9999).windowDays, 90, "9999 → clamp 90")
+        XCTAssertEqual(MarginDeltaOptions(windowDays: 91).windowDays, 90, "91 → clamp 90")
+        XCTAssertEqual(MarginDeltaOptions(windowDays: 90).windowDays, 90)
+        XCTAssertEqual(MarginDeltaOptions(windowDays: 1).windowDays, 1)
+
+        let d40 = "2026-05-22 00:00:00" // "40 days ago" relative to d0
+        let comps = [vendorComp("Dish A", "A", 1)]
+
+        // windowDays:0 → clamped 7 → the 40-day baseline is outside the
+        // window; only the d0 snapshot reaches the compute → no movement.
+        let zeroWindowVisible = [snap("A", "v", "A", 200, d0)]
+        let zero = MarginDeltasCompute.compute(
+            components: comps, snapshots: zeroWindowVisible,
+            options: MarginDeltaOptions(windowDays: 0, minPctMove: 5))
+        XCTAssertEqual(zero.count, 0)
+
+        // windowDays:9999 → clamped 90 → baseline visible → 1 row, baseline 100.
+        let hugeWindowVisible = [
+            snap("A", "v", "A", 100, d40),
+            snap("A", "v", "A", 200, d0),
+        ]
+        let huge = MarginDeltasCompute.compute(
+            components: comps, snapshots: hugeWindowVisible,
+            options: MarginDeltaOptions(windowDays: 9999, minPctMove: 5))
+        XCTAssertEqual(huge.count, 1)
+        XCTAssertEqual(huge[0].baselineCost, 100, accuracy: 1e-9)
+    }
+
     // ── top_contributors trimmed to 3 ───────────────────────────────────────
 
     // Oracle: "caps top_contributors at three entries even when the dish has more"
