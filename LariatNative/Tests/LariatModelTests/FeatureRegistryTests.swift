@@ -331,4 +331,33 @@ final class FeatureRegistryTests: XCTestCase {
             "the .foh tier must hold exactly the four A6.1 boards"
         )
     }
+
+    /// A6.5 BEO wave: the `.beo` tier exists and holds EXACTLY the three
+    /// boards — the parties board (PIN-gated audited writes), the PUBLIC
+    /// fire-schedule rollup, and the read-only past-prep reference — all
+    /// enabled. /beo is middleware-PIN-gated on web; natively the board
+    /// enforces its own write gates (cook.morning precedent). The share/sign
+    /// path is a confirmed edge blocker and must NEVER register here.
+    func testBeoTierBoardsRegistered() {
+        XCTAssertTrue(FeatureTier.allCases.contains(.beo), "the .beo tier must exist")
+        XCTAssertEqual(FeatureTier.beo.rawValue, "BEO")
+        for (id, title) in [
+            ("beo.board", "Parties"),
+            ("beo.fireSchedule", "Fire schedule"),
+            ("beo.prepHistory", "Past prep"),
+        ] {
+            let d = FeatureCatalog.descriptor(id: id)
+            XCTAssertNotNil(d, "\(id) must be registered")
+            XCTAssertEqual(d?.tier, .beo, "\(id) must be a beo feature")
+            XCTAssertEqual(d?.title, title)
+            XCTAssertEqual(d?.enabled, true, "\(id) must be enabled")
+        }
+        let ids = Set(FeatureCatalog.descriptors(for: .beo).map(\.id))
+        XCTAssertEqual(
+            ids,
+            ["beo.board", "beo.fireSchedule", "beo.prepHistory"],
+            "the .beo tier must hold exactly the three A6.5 boards"
+        )
+        XCTAssertNil(FeatureCatalog.descriptor(id: "beo.share"), "the client share path is an edge blocker, never a tile")
+    }
 }

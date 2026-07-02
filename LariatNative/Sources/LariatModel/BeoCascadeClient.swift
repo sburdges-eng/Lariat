@@ -257,24 +257,15 @@ public struct BeoCascadeClient {
             process.standardOutput = stdoutPipe
             process.standardError = stderrPipe
 
-            let lock = NSLock()
-            var finished = false
-            var timedOut = false
+            let state = TimeoutState()
 
             let timer = DispatchWorkItem {
-                lock.lock()
-                let alreadyDone = finished
-                if !alreadyDone { timedOut = true }
-                lock.unlock()
-                if !alreadyDone { process.terminate() }
+                if state.markTimedOutIfRunning() { process.terminate() }
             }
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: timer)
 
             process.terminationHandler = { proc in
-                lock.lock()
-                finished = true
-                let wasTimeout = timedOut
-                lock.unlock()
+                let wasTimeout = state.finish()
                 timer.cancel()
 
                 if wasTimeout {
@@ -324,5 +315,31 @@ public struct BeoCascadeClient {
             stdinPipe.fileHandleForWriting.write(payload)
             stdinPipe.fileHandleForWriting.closeFile()
         }
+    }
+}
+
+/// Lock-protected finished/timed-out pair for the process runner (the web
+/// wrapper's `clearTimeout` bookkeeping, made Sendable-safe).
+private final class TimeoutState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var finished = false
+    private var timedOut = false
+
+    /// Timer fired: mark timed-out unless the process already finished.
+    /// Returns true when the child should be killed.
+    func markTimedOutIfRunning() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if finished { return false }
+        timedOut = true
+        return true
+    }
+
+    /// Termination handler: mark finished; returns whether this was a timeout.
+    func finish() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        finished = true
+        return timedOut
     }
 }

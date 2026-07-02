@@ -68,6 +68,10 @@ enum FeatureRegistry {
         .fohHost,
         .fohReservations,
         .fohBooking,
+        // BEO
+        .beoBoard,
+        .beoFireSchedule,
+        .beoPrepHistory,
     ]
 
     /// Stable default selection on launch.

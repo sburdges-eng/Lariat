@@ -26,6 +26,34 @@ public enum BeoCourseRules {
         return f
     }()
 
+    /// Render a Date as the canonical `toISOString()` form `fire_at` requires.
+    public static func canonicalISO(from date: Date) -> String {
+        fractionalIso.string(from: date)
+    }
+
+    /// CoursePanel `combineToIso`: event_date "2026-05-04" + local wall-clock
+    /// "19:30" → canonical ISO-8601 UTC. Returns nil on malformed input.
+    public static func combineToIso(eventDate: String?, hhmm: String, timeZone: TimeZone = .current) -> String? {
+        guard let eventDate, !eventDate.isEmpty else { return nil }
+        guard hhmm.range(of: #"^\d{2}:\d{2}$"#, options: .regularExpression) != nil else { return nil }
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.timeZone = timeZone
+        df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        guard let date = df.date(from: "\(eventDate)T\(hhmm):00") else { return nil }
+        return canonicalISO(from: date)
+    }
+
+    /// CoursePanel `isoToLocalHHMM`: display a fire_at ISO as local "HH:MM".
+    public static func isoToLocalHHMM(_ iso: String?, timeZone: TimeZone = .current) -> String {
+        guard let iso, let date = BeoFireScheduleCompute.parseDate(iso) else { return "" }
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.timeZone = timeZone
+        df.dateFormat = "HH:mm"
+        return df.string(from: date)
+    }
+
     /// Same shape as KDS protocol §2: lowercased non-empty slug.
     public static func isStationSlug(_ s: String?) -> Bool {
         guard let s, !s.isEmpty else { return false }
