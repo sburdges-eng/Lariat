@@ -13,6 +13,7 @@ public enum FeatureTier: String, CaseIterable, Hashable, Sendable {
     case purchasing = "Purchasing"
     case foh = "Front of house"
     case shows = "Shows"
+    case house = "House"
 }
 
 /// UI-free description of one registered screen: its stable id, tier, title, and
@@ -109,6 +110,14 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "shows.sound", tier: .shows, title: "Sound"),
         FeatureDescriptor(id: "shows.stage", tier: .shows, title: "Stage"),
         FeatureDescriptor(id: "shows.archive", tier: .shows, title: "Archive"),
+        // House (A6.2) — venue-program boards. /bar and /equipment are open
+        // on the web (not in middleware SENSITIVE_PREFIXES); /gold-stars
+        // reads are open and its writes PIN-gate themselves in the surface,
+        // so all four stay enabled in the catalog.
+        FeatureDescriptor(id: "house.bar", tier: .house, title: "Bar program"),
+        FeatureDescriptor(id: "house.barPar", tier: .house, title: "Bar par"),
+        FeatureDescriptor(id: "house.equipment", tier: .house, title: "Equipment"),
+        FeatureDescriptor(id: "house.goldStars", tier: .house, title: "Gold stars"),
     ]
 
     /// Stable default selection on launch.

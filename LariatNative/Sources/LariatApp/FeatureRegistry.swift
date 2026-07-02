@@ -75,6 +75,11 @@ enum FeatureRegistry {
         .showsSound,
         .showsStage,
         .showsArchive,
+        // House
+        .houseBar,
+        .houseBarPar,
+        .houseEquipment,
+        .houseGoldStars,
     ]
 
     /// Stable default selection on launch.
