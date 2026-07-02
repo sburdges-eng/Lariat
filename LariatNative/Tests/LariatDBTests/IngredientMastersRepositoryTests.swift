@@ -168,6 +168,176 @@ final class IngredientMastersRepositoryTests: XCTestCase {
         XCTAssertEqual(row?.bomLineCount, 0)
     }
 
+    // ── updateMaster — the ONE audited write ────────────────────────────
+
+    private func macContext(locationId: String = "default") -> RegulatedWriteContext {
+        RegulatedWriteContext(
+            actorCookId: "cook-x",
+            actorSource: RegulatedWriteContext.nativeMacActorSource,
+            locationId: locationId,
+            shiftDate: "2026-07-02"
+        )
+    }
+
+    // repo L157-163: missing id → found=false, no audit, no write
+    func testNotFoundNoWrite() throws {
+        let (r, writeDB, p) = try makeRepos(); defer { cleanup(p) }
+        var u = IngredientMasterUpdates(); u.category = .set("sauce")
+        let res = try r.repo.updateMaster("missing", updates: u, context: macContext())
+        XCTAssertFalse(res.found)
+        XCTAssertFalse(res.changed)
+        try writeDB.pool.read { db in
+            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM audit_events") ?? -1, 0)
+        }
+    }
+
+    // repo L165-172: empty updates → changed=false, no audit
+    func testEmptyUpdatesNoAudit() throws {
+        let (r, writeDB, p) = try makeRepos(); defer { cleanup(p) }
+        try r.writeSeed { try self.seedMaster($0, "a", "A") }
+        let res = try r.repo.updateMaster("a", updates: IngredientMasterUpdates(), context: macContext())
+        XCTAssertTrue(res.found)
+        XCTAssertFalse(res.changed)
+        try writeDB.pool.read { db in
+            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM audit_events") ?? -1, 0)
+        }
+    }
+
+    // repo L174-188: writes only the named field, preserves others, ONE audit
+    // (action=correction), payload {master_id, updates}.
+    // DIVERGENCE from api test L191 ('manager_ui'): assert actor_source == 'native_mac'.
+    func testWritesNamedFieldAndOneAuditNativeMac() throws {
+        let (r, writeDB, p) = try makeRepos(); defer { cleanup(p) }
+        try r.writeSeed { try self.seedMaster($0, "a", "A", category: "sauce", vendor: "sysco") }
+        var u = IngredientMasterUpdates(); u.category = .set("condiment")
+        let res = try r.repo.updateMaster("a", updates: u, context: macContext())
+        XCTAssertTrue(res.changed)
+        XCTAssertEqual(res.after?.category, "condiment")
+        XCTAssertEqual(res.after?.preferredVendor, "sysco")   // unspecified preserved
+        try writeDB.pool.read { db in
+            let action = try String.fetchOne(db, sql: "SELECT action FROM audit_events WHERE entity='ingredient_masters'")
+            XCTAssertEqual(action, "correction")
+            let actorCookId = try String.fetchOne(db, sql: "SELECT actor_cook_id FROM audit_events LIMIT 1")
+            XCTAssertEqual(actorCookId, "cook-x")
+            let actorSource = try String.fetchOne(db, sql: "SELECT actor_source FROM audit_events LIMIT 1")
+            XCTAssertEqual(actorSource, "native_mac")
+            let entityId = try Int64.fetchOne(db, sql: "SELECT entity_id FROM audit_events LIMIT 1")
+            XCTAssertNil(entityId)   // master_id is TEXT → entity_id NULL (repo L281)
+            let payload = try String.fetchOne(db, sql: "SELECT payload_json FROM audit_events LIMIT 1")
+            XCTAssertTrue(payload?.contains("\"master_id\":\"a\"") ?? false, "payload: \(payload ?? "nil")")
+        }
+    }
+
+    // repo L190-199: last_reviewed:'now' → datetime('now') within 5s
+    func testLastReviewedNowStamps() throws {
+        let (r, _, p) = try makeRepos(); defer { cleanup(p) }
+        try r.writeSeed { try self.seedMaster($0, "a", "A") }
+        let before = Date()
+        var u = IngredientMasterUpdates(); u.lastReviewed = .set(.now)
+        _ = try r.repo.updateMaster("a", updates: u, context: macContext())
+        let stampStr = try r.repo.getMaster("a")?.lastReviewed
+        XCTAssertNotNil(stampStr)
+        let f = ISO8601DateFormatter()
+        let normalized = stampStr!.replacingOccurrences(of: " ", with: "T") + "Z"
+        let stamped = f.date(from: normalized)
+        XCTAssertNotNil(stamped)
+        if let stamped {
+            XCTAssertLessThan(abs(stamped.timeIntervalSince(before)), 5)
+        }
+    }
+
+    // repo L201-205: last_reviewed:null clears
+    func testLastReviewedClear() throws {
+        let (r, _, p) = try makeRepos(); defer { cleanup(p) }
+        try r.writeSeed { try self.seedMaster($0, "a", "A", lastReviewed: "2024-01-01T00:00:00Z") }
+        var u = IngredientMasterUpdates(); u.lastReviewed = .set(.clear)
+        _ = try r.repo.updateMaster("a", updates: u, context: macContext())
+        XCTAssertNil(try r.repo.getMaster("a")?.lastReviewed)
+    }
+
+    // repo L207-221: multi-field → all persisted + ONE audit row
+    func testMultiFieldOneAudit() throws {
+        let (r, writeDB, p) = try makeRepos(); defer { cleanup(p) }
+        try r.writeSeed { try self.seedMaster($0, "a", "A") }
+        var u = IngredientMasterUpdates()
+        u.canonicalName = .set("Better Name"); u.category = .set("sauce"); u.preferredVendor = .set("shamrock")
+        _ = try r.repo.updateMaster("a", updates: u, context: macContext())
+        let after = try r.repo.getMaster("a")
+        XCTAssertEqual(after?.canonicalName, "Better Name")
+        XCTAssertEqual(after?.category, "sauce")
+        XCTAssertEqual(after?.preferredVendor, "shamrock")
+        try writeDB.pool.read { db in
+            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM audit_events") ?? -1, 1)
+        }
+    }
+
+    // DIVERGENCE guard: rule failure throws BEFORE audit — nothing written
+    // (repo L234 order; api test L253-258 → 422).
+    func testRejectionThrowsBeforeAudit() throws {
+        let (r, writeDB, p) = try makeRepos(); defer { cleanup(p) }
+        try r.writeSeed { db in try self.seedMaster(db, "a", "Chicken Breast", vendor: "sysco", locked: 1) }
+        var u = IngredientMasterUpdates(); u.preferredVendor = .set("shamrock")
+        XCTAssertThrowsError(try r.repo.updateMaster("a", updates: u, context: macContext())) {
+            guard case IngredientMasterWriteError.rejected = $0 else { return XCTFail("wrong error: \($0)") }
+        }
+        try writeDB.pool.read { db in
+            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM audit_events") ?? -1, 0)  // no audit
+            let vendor = try String.fetchOne(db, sql: "SELECT preferred_vendor FROM ingredient_masters WHERE master_id='a'")
+            XCTAssertEqual(vendor, "sysco")  // unchanged
+        }
+    }
+
+    // lock with vendor in one request persists (api test L239-251)
+    func testLockWithVendorPersists() throws {
+        let (r, writeDB, p) = try makeRepos(); defer { cleanup(p) }
+        try r.writeSeed { try self.seedMaster($0, "a", "Chicken Breast") }
+        var u = IngredientMasterUpdates()
+        u.preferredVendor = .set("shamrock"); u.qualityLocked = .set(true); u.qualityLockReason = .set("quality")
+        _ = try r.repo.updateMaster("a", updates: u, context: macContext())
+        try writeDB.pool.read { db in
+            let vendor = try String.fetchOne(db, sql: "SELECT preferred_vendor FROM ingredient_masters WHERE master_id='a'")
+            XCTAssertEqual(vendor, "shamrock")
+            let locked = try Int.fetchOne(db, sql: "SELECT quality_locked FROM ingredient_masters WHERE master_id='a'")
+            XCTAssertEqual(locked, 1)
+        }
+    }
+
+    // Gap-fix: canonical_name empty-after-trim is rejected BEFORE any write
+    // (route.js L104-107 folded into the repo write path — see Task 1/3 notes).
+    func testCanonicalNameEmptyRejectedNoWrite() throws {
+        let (r, writeDB, p) = try makeRepos(); defer { cleanup(p) }
+        try r.writeSeed { try self.seedMaster($0, "a", "Original Name") }
+        var u = IngredientMasterUpdates(); u.canonicalName = .set("   ")
+        XCTAssertThrowsError(try r.repo.updateMaster("a", updates: u, context: macContext())) {
+            guard case IngredientMasterWriteError.rejected(let m) = $0 else { return XCTFail("wrong error: \($0)") }
+            XCTAssertEqual(m, "canonical_name cannot be empty")
+        }
+        try writeDB.pool.read { db in
+            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM audit_events") ?? -1, 0)
+            let name = try String.fetchOne(db, sql: "SELECT canonical_name FROM ingredient_masters WHERE master_id='a'")
+            XCTAssertEqual(name, "Original Name")
+        }
+    }
+
+    // Gap-fix: category/preferred_vendor/quality_lock_reason clip-to-null —
+    // whitespace-only value clears the column (route.js clipOrNull L38-44).
+    func testWhitespaceCategoryClipsToNull() throws {
+        let (r, _, p) = try makeRepos(); defer { cleanup(p) }
+        try r.writeSeed { try self.seedMaster($0, "a", "A", category: "sauce") }
+        var u = IngredientMasterUpdates(); u.category = .set("   ")
+        _ = try r.repo.updateMaster("a", updates: u, context: macContext())
+        XCTAssertNil(try r.repo.getMaster("a")?.category)
+    }
+
+    // Gap-fix: canonical_name clips to 200 chars.
+    func testCanonicalNameClipsTo200() throws {
+        let (r, _, p) = try makeRepos(); defer { cleanup(p) }
+        try r.writeSeed { try self.seedMaster($0, "a", "A") }
+        var u = IngredientMasterUpdates(); u.canonicalName = .set(String(repeating: "z", count: 250))
+        _ = try r.repo.updateMaster("a", updates: u, context: macContext())
+        XCTAssertEqual(try r.repo.getMaster("a")?.canonicalName.count, 200)
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────
 
     private struct Repos {

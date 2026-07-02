@@ -115,4 +115,167 @@ public struct IngredientMastersRepository {
             bomLineCount: r["bom_line_count"]
         )
     }
+
+    // ── PATCH — updateMaster (repo L222-292) — the ONE audited write ─────
+
+    /// Partial update + one `audit_events` row (`action='correction'`,
+    /// `actor_source='native_mac'`) in ONE transaction. `validateMasterUpdates`
+    /// throws BEFORE the transaction opens — a rejected update leaves neither
+    /// a row change nor an audit row. Empty `updates` -> `changed=false`, no
+    /// audit (repo L268-270). Missing `masterId` -> `found=false`, no write
+    /// (repo L229-232) — this is a return, not a throw, matching the web
+    /// `UpdateMasterResult` shape.
+    public func updateMaster(
+        _ masterId: String,
+        updates: IngredientMasterUpdates,
+        context: RegulatedWriteContext
+    ) throws -> UpdateMasterResult {
+        guard let writeDB else { throw IngredientMasterWriteError.persistenceFailed }
+
+        guard let before = try getMaster(masterId) else {
+            return UpdateMasterResult(found: false, changed: false, before: nil, after: nil)
+        }
+
+        // Rule-failure MUST throw before any write (audited-write ordering contract).
+        try IngredientMastersCompute.validateMasterUpdates(before: before, updates: updates)
+
+        // Field-shape parity with route.js L84-144, folded into the write path
+        // since native has no separate HTTP layer: canonical_name non-empty +
+        // clip 200; category/preferred_vendor/quality_lock_reason clip-to-null 80.
+        var canonicalNameValue: String?
+        if case .set(let v) = updates.canonicalName {
+            canonicalNameValue = try IngredientMastersCompute.validateCanonicalName(v, max: 200)
+        }
+
+        var sets: [String] = []
+        var args: [DatabaseValueConvertible?] = []
+        if let canonicalNameValue {
+            sets.append("canonical_name = ?")
+            args.append(canonicalNameValue)
+        }
+        if case .set(let v) = updates.category {
+            sets.append("category = ?")
+            args.append(IngredientMastersCompute.clipOrNull(v, max: 80))
+        }
+        if case .set(let v) = updates.preferredVendor {
+            sets.append("preferred_vendor = ?")
+            args.append(IngredientMastersCompute.clipOrNull(v, max: 80))
+        }
+        if case .set(let b) = updates.qualityLocked {
+            sets.append("quality_locked = ?")
+            args.append(b ? 1 : 0)
+        }
+        if case .set(let v) = updates.qualityLockReason {
+            sets.append("quality_lock_reason = ?")
+            args.append(IngredientMastersCompute.clipOrNull(v, max: 80))
+        }
+        if case .set(let lr) = updates.lastReviewed {
+            switch lr {
+            case .now:
+                sets.append("last_reviewed = datetime('now')")   // repo L261-262 — literal SQL, not bound
+            case .clear:
+                sets.append("last_reviewed = ?")
+                args.append(nil)
+            case .iso(let s):
+                sets.append("last_reviewed = ?")
+                args.append(s)
+            }
+        }
+
+        if sets.isEmpty {
+            return UpdateMasterResult(found: true, changed: false, before: before, after: before)
+        }
+
+        let locationId = context.locationId
+        try AuditedWriteRunner.perform(db: writeDB) { db in
+            var updateArgs = args
+            updateArgs.append(masterId)
+            try db.execute(
+                sql: "UPDATE ingredient_masters SET \(sets.joined(separator: ", ")) WHERE master_id = ?",
+                arguments: StatementArguments(updateArgs)
+            )
+            _ = try AuditEventWriter.post(
+                db: db,
+                input: AuditEventInput(
+                    entity: "ingredient_masters",
+                    entityId: nil,   // repo L281 — master_id is TEXT, not int; payload carries it
+                    action: .correction,
+                    actorCookId: context.actorCookId,
+                    actorSource: context.actorSource,
+                    payloadJSON: AuditEventWriter.encodePayload(
+                        IngredientMasterAuditPayload(masterId: masterId, updates: updates)
+                    ),
+                    shiftDate: context.shiftDate,
+                    locationId: locationId
+                )
+            )
+        }
+
+        let after = try getMaster(masterId)
+        return UpdateMasterResult(found: true, changed: true, before: before, after: after)
+    }
+}
+
+/// Mirrors `UpdateMasterResult` in `lib/ingredientMastersRepo.ts:172-177`.
+public struct UpdateMasterResult: Sendable, Equatable {
+    public let found: Bool
+    public let changed: Bool
+    public let before: IngredientMasterRow?
+    public let after: IngredientMasterRow?
+}
+
+/// Structured `{master_id, updates}` payload — parity with repo L285-286
+/// (`payload: { master_id: masterId, updates }`). Only fields PRESENT in the
+/// update are encoded (mirrors JS forwarding only own-property fields);
+/// `FieldChange.absent` fields are omitted entirely, not encoded as null.
+private struct IngredientMasterAuditPayload: Encodable {
+    let masterId: String
+    let updates: IngredientMasterUpdates
+
+    enum CodingKeys: String, CodingKey { case masterId = "master_id", updates }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(masterId, forKey: .masterId)
+        try container.encode(UpdatesPayload(updates), forKey: .updates)
+    }
+
+    /// Nested `updates` object — one key per PRESENT field, using snake_case
+    /// keys to match the web payload's field names exactly.
+    private struct UpdatesPayload: Encodable {
+        let updates: IngredientMasterUpdates
+        init(_ updates: IngredientMasterUpdates) { self.updates = updates }
+
+        enum CodingKeys: String, CodingKey {
+            case canonicalName = "canonical_name", category, preferredVendor = "preferred_vendor",
+                 qualityLocked = "quality_locked", qualityLockReason = "quality_lock_reason",
+                 lastReviewed = "last_reviewed"
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            if case .set(let v) = updates.canonicalName {
+                try container.encode(v, forKey: .canonicalName)
+            }
+            if case .set(let v) = updates.category {
+                try container.encode(v, forKey: .category)
+            }
+            if case .set(let v) = updates.preferredVendor {
+                try container.encode(v, forKey: .preferredVendor)
+            }
+            if case .set(let v) = updates.qualityLocked {
+                try container.encode(v, forKey: .qualityLocked)
+            }
+            if case .set(let v) = updates.qualityLockReason {
+                try container.encode(v, forKey: .qualityLockReason)
+            }
+            if case .set(let lr) = updates.lastReviewed {
+                switch lr {
+                case .now: try container.encode("now", forKey: .lastReviewed)
+                case .clear: try container.encodeNil(forKey: .lastReviewed)
+                case .iso(let s): try container.encode(s, forKey: .lastReviewed)
+                }
+            }
+        }
+    }
 }
