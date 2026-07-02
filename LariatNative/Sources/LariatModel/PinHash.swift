@@ -9,7 +9,9 @@ public enum PinHash {
     public static func validateFormat(_ pin: String) -> String? {
         if pin.count < minLength { return "PIN too short" }
         if pin.count > maxLength { return "PIN too long" }
-        if pin.unicodeScalars.contains(where: { !CharacterSet.decimalDigits.contains($0) }) {
+        // Web parity: /^[0-9]+$/ — ASCII digits only. CharacterSet.decimalDigits
+        // would admit Arabic-Indic/fullwidth digits the web rejects at create AND login.
+        if pin.unicodeScalars.contains(where: { $0 < "0" || $0 > "9" }) {
             return "PIN must be digits only"
         }
         return nil
