@@ -54,6 +54,7 @@ enum FeatureRegistry {
         .costingIngredientMasters,
         .costingMenuEngineering,
         .costingMarginDeltas,
+        .costingComponents,
     ]
 
     /// Stable default selection on launch.

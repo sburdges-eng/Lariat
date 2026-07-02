@@ -29,4 +29,8 @@ extension FeatureModule {
     static let costingMarginDeltas = FeatureModule(id: "costing.marginDeltas") { ctx in
         AnyView(MarginDeltasView(database: ctx.database))
     }
+
+    static let costingComponents = FeatureModule(id: "costing.components") { ctx in
+        AnyView(DishComponentsView(readDB: ctx.database, writeDB: ctx.writeDatabase))
+    }
 }

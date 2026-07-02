@@ -218,6 +218,17 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertEqual(d?.enabled, true)
     }
 
+    /// A4.3 Board (T4): the dish-components editor registers under `.costing`.
+    /// This is the wave's write surface — writes are transactional but post NO
+    /// audit_events (web-route parity; see DishComponentsRepositoryTests).
+    func testCostingComponentsRegistered() {
+        let d = FeatureCatalog.descriptor(id: "costing.components")
+        XCTAssertNotNil(d, "costing.components must be registered")
+        XCTAssertEqual(d?.tier, .costing)
+        XCTAssertEqual(d?.title, "Dish components")
+        XCTAssertEqual(d?.enabled, true)
+    }
+
     /// A4.2 consolidation, extended by the A4.3 menu-engineering wave: the
     /// `.costing` tier holds EXACTLY the listed boards, all enabled; the old
     /// `manager.costing` is gone and `costing.prices` is a drill-down (never a
@@ -230,7 +241,7 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertEqual(ids, [
             "costing.overview", "costing.priceShocks", "costing.varianceAttribution",
             "costing.depletionExceptions", "costing.ingredientMasters",
-            "costing.menuEngineering", "costing.marginDeltas",
+            "costing.menuEngineering", "costing.marginDeltas", "costing.components",
         ], "the .costing tier must hold exactly the registered detail boards")
         for id in ids {
             XCTAssertEqual(FeatureCatalog.descriptor(id: id)?.tier, .costing, "\(id) must be a costing feature")

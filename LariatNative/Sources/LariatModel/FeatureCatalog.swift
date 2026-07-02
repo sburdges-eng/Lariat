@@ -81,6 +81,7 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "costing.ingredientMasters", tier: .costing, title: "Ingredient masters"),
         FeatureDescriptor(id: "costing.menuEngineering", tier: .costing, title: "Menu performance"),
         FeatureDescriptor(id: "costing.marginDeltas", tier: .costing, title: "Margin moves"),
+        FeatureDescriptor(id: "costing.components", tier: .costing, title: "Dish components"),
     ]
 
     /// Stable default selection on launch.
