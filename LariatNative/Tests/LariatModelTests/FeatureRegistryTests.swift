@@ -196,4 +196,25 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertEqual(d?.enabled, true)
         XCTAssertFalse(FeatureCatalog.descriptors(for: .costing).isEmpty)
     }
+
+    /// A4.2 wave consolidation (plan Task 19): the `.costing` tier holds EXACTLY
+    /// the five detail boards, all enabled; the old `manager.costing` is gone and
+    /// `costing.prices` is a drill-down (never a tile); Manager stays non-empty
+    /// after the relocation. (The FeatureModule/FeatureRegistry binding lives in
+    /// the app target, out of reach of LariatModelTests; `FeatureModule.init`'s
+    /// precondition guards it at app-build/render time.)
+    func testCostingTierIsComplete() {
+        let ids = Set(FeatureCatalog.descriptors(for: .costing).map(\.id))
+        XCTAssertEqual(ids, [
+            "costing.overview", "costing.priceShocks", "costing.varianceAttribution",
+            "costing.depletionExceptions", "costing.ingredientMasters",
+        ], "the .costing tier must hold exactly the five detail boards")
+        for id in ids {
+            XCTAssertEqual(FeatureCatalog.descriptor(id: id)?.tier, .costing, "\(id) must be a costing feature")
+            XCTAssertEqual(FeatureCatalog.descriptor(id: id)?.enabled, true, "\(id) must be enabled")
+        }
+        XCTAssertNil(FeatureCatalog.descriptor(id: "manager.costing"), "manager.costing must be relocated")
+        XCTAssertNil(FeatureCatalog.descriptor(id: "costing.prices"), "price history is a drill-down, not a tile")
+        XCTAssertFalse(FeatureCatalog.descriptors(for: .manager).isEmpty, "Manager tier must stay non-empty after the relocation")
+    }
 }
