@@ -351,7 +351,9 @@ public enum CostingCompute {
 
 // MARK: - Private helpers
 
-private func colorFor(_ pct: Double?) -> ThresholdColor {
+// internal (not private) so VarianceAttributionCompute.thresholdColor(_:) can reuse it
+// without re-deriving the threshold buckets — see A4.2 Board 2 plan.
+func colorFor(_ pct: Double?) -> ThresholdColor {
     guard let pct else { return .green }
     let abs = Swift.abs(pct)
     if abs >= 5.0 { return .red }
