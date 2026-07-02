@@ -225,6 +225,10 @@ final class IngredientMastersRepositoryTests: XCTestCase {
             XCTAssertNil(entityId)   // master_id is TEXT → entity_id NULL (repo L281)
             let payload = try String.fetchOne(db, sql: "SELECT payload_json FROM audit_events LIMIT 1")
             XCTAssertTrue(payload?.contains("\"master_id\":\"a\"") ?? false, "payload: \(payload ?? "nil")")
+            // Lock the nested `updates` shape too (oracle L186-187:
+            // deepEqual(payload.updates, {category:'condiment'})) — guards the
+            // regulated write's payload encoder against a nested-shape regression.
+            XCTAssertTrue(payload?.contains("\"updates\":{\"category\":\"condiment\"}") ?? false, "nested updates payload: \(payload ?? "nil")")
         }
     }
 
