@@ -35,6 +35,22 @@ public enum ShowStatusValue: Sendable, Equatable {
         }
     }
 
+    /// Back to a `JSONSerialization`-encodable value (for re-serializing a
+    /// merged status_json — web `JSON.stringify(status)`).
+    public func toAny() -> Any {
+        switch self {
+        case .string(let s): return s
+        case .number(let n):
+            // Emit integral numbers without a decimal point (JSON parity).
+            if n == n.rounded() && abs(n) < 1e15 { return NSNumber(value: Int64(n)) }
+            return NSNumber(value: n)
+        case .bool(let b): return NSNumber(value: b)
+        case .object(let o): return o.mapValues { $0.toAny() }
+        case .array(let a): return a.map { $0.toAny() }
+        case .null: return NSNull()
+        }
+    }
+
     /// JS `String(value)` coercion (best effort for the shapes ingest writes).
     public var jsString: String {
         switch self {

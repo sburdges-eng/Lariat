@@ -131,6 +131,9 @@ public struct StageSetupRow: Sendable, Identifiable, Equatable {
     public let locationId: String
     public let roomConfig: String
     public let runOfShow: [RunOfShowEntry]
+    /// Raw `run_of_show_json` — the tonight page reads this directly with
+    /// its own `{time,label}` parser (web parity; the two readers differ).
+    public let runOfShowJson: String
     public let hospitalityRiderJson: String
     public let techRiderJson: String
     public let notes: String?
@@ -139,7 +142,8 @@ public struct StageSetupRow: Sendable, Identifiable, Equatable {
 
     public init(
         id: Int64, showId: Int64, locationId: String, roomConfig: String,
-        runOfShow: [RunOfShowEntry], hospitalityRiderJson: String,
+        runOfShow: [RunOfShowEntry], runOfShowJson: String = "[]",
+        hospitalityRiderJson: String,
         techRiderJson: String, notes: String?, createdAt: String, updatedAt: String
     ) {
         self.id = id
@@ -147,6 +151,7 @@ public struct StageSetupRow: Sendable, Identifiable, Equatable {
         self.locationId = locationId
         self.roomConfig = roomConfig
         self.runOfShow = runOfShow
+        self.runOfShowJson = runOfShowJson
         self.hospitalityRiderJson = hospitalityRiderJson
         self.techRiderJson = techRiderJson
         self.notes = notes
