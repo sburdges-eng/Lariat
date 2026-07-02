@@ -112,7 +112,10 @@ final class BeoFireScheduleComputeTests: XCTestCase {
     }
 
     func testYellowAtExactlyThe30MinuteThreshold() {
-        let now = Date()
+        // Whole-second `now`: the ISO formatter rounds fractional seconds, so a
+        // real-clock `Date()` can push the parsed-back fire time 1s past the
+        // threshold and flake this exact-boundary case to green.
+        let now = Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded(.down))
         let fire = Self.isoFormatter.string(
             from: now.addingTimeInterval(BeoFireScheduleCompute.yellowThresholdSeconds))
         XCTAssertEqual(BeoFireScheduleCompute.ageBucketFor(fire, now: now), .yellow)
