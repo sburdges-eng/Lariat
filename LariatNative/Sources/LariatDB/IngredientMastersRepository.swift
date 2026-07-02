@@ -68,9 +68,10 @@ public struct IngredientMastersRepository {
            LIMIT ?
         """
         args.append(capped)
+        let finalArgs = args
 
         return try await readDB.pool.read { db in
-            let rows = try Row.fetchAll(db, sql: sql, arguments: StatementArguments(args))
+            let rows = try Row.fetchAll(db, sql: sql, arguments: StatementArguments(finalArgs))
             return rows.map(Self.mapRow)
         }
     }

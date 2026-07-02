@@ -17,4 +17,8 @@ extension FeatureModule {
     static let costingDepletionExceptions = FeatureModule(id: "costing.depletionExceptions") { ctx in
         AnyView(DepletionExceptionsView(database: ctx.database))
     }
+
+    static let costingIngredientMasters = FeatureModule(id: "costing.ingredientMasters") { ctx in
+        AnyView(IngredientMastersView(readDB: ctx.database, writeDB: ctx.writeDatabase))
+    }
 }

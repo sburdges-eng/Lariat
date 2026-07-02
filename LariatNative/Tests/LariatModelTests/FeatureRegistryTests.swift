@@ -182,4 +182,18 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertEqual(de?.enabled, true)
         XCTAssertFalse(FeatureCatalog.descriptors(for: .costing).isEmpty)
     }
+
+    /// A4.2 Board 4 (LAST board): ingredient-masters registers under `.costing`.
+    /// This is the wave's ONE audited write (the other three costing boards are
+    /// pure reads). The `.costing` tier + relocation are already covered by
+    /// `testCostingTierRelocation` — this test only guards this board's own
+    /// descriptor + that the tier stays non-empty.
+    func testCostingIngredientMastersRegistered() {
+        let d = FeatureCatalog.descriptor(id: "costing.ingredientMasters")
+        XCTAssertNotNil(d, "costing.ingredientMasters must be registered")
+        XCTAssertEqual(d?.tier, .costing)
+        XCTAssertEqual(d?.title, "Ingredient masters")
+        XCTAssertEqual(d?.enabled, true)
+        XCTAssertFalse(FeatureCatalog.descriptors(for: .costing).isEmpty)
+    }
 }
