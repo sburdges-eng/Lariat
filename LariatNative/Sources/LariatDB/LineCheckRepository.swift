@@ -145,6 +145,48 @@ public struct LineCheckRepository: Sendable {
         guard let station, let cookId, !cookId.isEmpty else { throw LineCheckWriteError.cookRequired }
 
         return try AuditedWriteRunner.perform(db: writeDB) { db in
+            // Gate ordering (parity with app/api/signoff/route.ts): regulatory >
+            // operational > write. L5 (minor/HO equipment) fires before L6
+            // (sick-worker exclusion), both before the unnoted-fails 409 check.
+
+            // L5 — minor on prohibited station (CO YEOA + 29 CFR 570.50+). Read
+            // the cook's ACTIVE minor flag (effective_to IS NULL) scoped to this
+            // location; an assignment to hazardous equipment is a 422 block.
+            let minorFlag = try Int.fetchOne(
+                db,
+                sql: """
+                  SELECT 1 FROM staff_flags
+                   WHERE location_id = ? AND cook_id = ? AND flag = 'minor' AND effective_to IS NULL
+                   LIMIT 1
+                  """,
+                arguments: [context.locationId, cookId]
+            )
+            if minorFlag != nil, MinorRestrictions.isStationProhibitedForMinor(station) {
+                throw LineCheckWriteError.minorProhibited(
+                    citation: MinorRestrictions.citation,
+                    station: station
+                )
+            }
+
+            // L6 — sick-worker exclusion (FDA 2022 §2-201.12). Pull every OPEN
+            // report (return_at IS NULL) for this cook+location; the pure helper
+            // decides if any blocks (excluded|restricted). monitor/none never block.
+            let sickRows = try Row.fetchAll(
+                db,
+                sql: """
+                  SELECT action, return_at FROM sick_worker_reports
+                   WHERE location_id = ? AND cook_id = ? AND return_at IS NULL
+                  """,
+                arguments: [context.locationId, cookId]
+            ).map { row -> SickWorkerGateRow in
+                let action: String = row["action"] ?? ""
+                let returnAt: String? = row["return_at"]
+                return SickWorkerGateRow(action: action, returnAt: returnAt)
+            }
+            if SickWorkerCompute.cookHasActiveExclusion(sickRows) {
+                throw LineCheckWriteError.sickExcluded(citation: SickWorkerCompute.exclusionCitation)
+            }
+
             let unnoted = try Self.unnotedFails(
                 db: db,
                 shiftDate: context.shiftDate,

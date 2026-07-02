@@ -1,34 +1,55 @@
 import SwiftUI
 
+/// Generic safety hub: renders one button per safety-tier feature (except itself),
+/// driven by `FeatureRegistry`. A new safety screen appears here automatically once
+/// it is registered — no edits to this view.
 struct FoodSafetyHubView: View {
-    var onOpenTempLog: () -> Void
-    var onOpenDateMarks: () -> Void
-    var onOpenCalibrations: () -> Void
-    var onOpenCleaning: () -> Void
-    var onOpenBreaks: () -> Void
+    let context: AppContext
+
+    /// Per-feature SF Symbol, keyed by feature id. Falls back to a generic icon.
+    private static let icons: [String: String] = [
+        "safety.tempLog": "thermometer.medium",
+        "safety.cooling": "thermometer.snowflake",
+        "safety.dateMarks": "calendar",
+        "safety.calibrations": "gauge.with.dots.needle.33percent",
+        "safety.cleaning": "sparkles",
+        "safety.breaks": "figure.walk",
+    ]
+
+    /// Section assignment, keyed by feature id, preserving the original grouping.
+    private static let laborAndCleaning: Set<String> = ["safety.cleaning", "safety.breaks"]
+
+    private var todayModules: [FeatureModule] {
+        FeatureRegistry.modules(for: .safety).filter {
+            $0.id != "safety.hub" && !Self.laborAndCleaning.contains($0.id)
+        }
+    }
+
+    private var laborModules: [FeatureModule] {
+        FeatureRegistry.modules(for: .safety).filter { Self.laborAndCleaning.contains($0.id) }
+    }
 
     var body: some View {
         List {
             Section("Today") {
-                Button(action: onOpenTempLog) {
-                    Label("Temp log", systemImage: "thermometer.medium")
-                }
-                Button(action: onOpenDateMarks) {
-                    Label("Date marks", systemImage: "calendar")
-                }
-                Button(action: onOpenCalibrations) {
-                    Label("Calibrations", systemImage: "gauge.with.dots.needle.33percent")
+                ForEach(todayModules) { module in
+                    button(for: module)
                 }
             }
             Section("Labor & cleaning") {
-                Button(action: onOpenCleaning) {
-                    Label("Cleaning", systemImage: "sparkles")
-                }
-                Button(action: onOpenBreaks) {
-                    Label("Breaks", systemImage: "figure.walk")
+                ForEach(laborModules) { module in
+                    button(for: module)
                 }
             }
         }
         .navigationTitle("Food Safety")
+    }
+
+    private func button(for module: FeatureModule) -> some View {
+        Button {
+            context.navigate(module.id)
+        } label: {
+            Label(module.title, systemImage: Self.icons[module.id] ?? "square.grid.2x2")
+        }
     }
 }

@@ -35,6 +35,7 @@ backups/
 .hf_manual/
 .claude/*
 !.claude/settings.json
+!.claude/agents/
 worktrees/
 tsconfig.tsbuildinfo
 *.bak_*

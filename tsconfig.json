@@ -71,6 +71,8 @@
     "app/inventory/**",
     "public/**",
     "Lariat-worktrees/**",
+    "worktrees/**",
+    ".claude/**",
     "dist/**"
   ]
 }

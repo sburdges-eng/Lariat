@@ -12,6 +12,8 @@ public enum KdsWriteError: Error, LocalizedError, Equatable {
     case lineStationRequired(Int)
     case placedAtInvalid
     case validationFailed(String)
+    case ticketIdRequired
+    case bumpTicketNotFound
 
     public var errorDescription: String? {
         switch self {
@@ -22,6 +24,8 @@ public enum KdsWriteError: Error, LocalizedError, Equatable {
         case .lineStationRequired(let i): return "Line \(i + 1): station required"
         case .placedAtInvalid: return "Placed time must be a valid ISO timestamp"
         case .validationFailed(let msg): return msg
+        case .ticketIdRequired: return "Ticket id is required"
+        case .bumpTicketNotFound: return "Ticket not found"
         }
     }
 }
@@ -145,5 +149,30 @@ public struct KdsBoardSnapshot: Sendable {
     public init(locationId: String, tickets: [KdsOpenTicket]) {
         self.locationId = locationId
         self.tickets = tickets
+    }
+}
+
+/// Bump-back input — mirrors the optional `BumpPayload` fields in `lib/kds.ts`.
+/// Swift `nil` == web absent/null; the repository validates present values.
+public struct KdsBumpInput: Sendable {
+    public let bumpedAt: String?
+    public let station: String?
+    public let cookPin: String?
+
+    public init(bumpedAt: String? = nil, station: String? = nil, cookPin: String? = nil) {
+        self.bumpedAt = bumpedAt
+        self.station = station
+        self.cookPin = cookPin
+    }
+}
+
+/// Canonical bump response shape — parity with `BumpResponse` in `lib/kds.ts`.
+public struct KdsBumpResult: Sendable, Equatable {
+    public let id: String
+    public let bumpedAt: String
+
+    public init(id: String, bumpedAt: String) {
+        self.id = id
+        self.bumpedAt = bumpedAt
     }
 }

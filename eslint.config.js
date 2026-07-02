@@ -54,6 +54,7 @@ export default [
       '.gitnexus/**',             // generated index runner (gitignored)
       'line_setups/**',           // local scratch, excluded in tsconfig too
       'worktrees/**',
+      '.claude/**',               // agent worktrees (.claude/worktrees) are full repo copies; never lint them
     ],
   },
 

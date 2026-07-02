@@ -143,6 +143,100 @@ public struct KdsTicketRepository: Sendable {
         return ticket
     }
 
+    /// Bump-back — port of `app/api/kds/tickets/[id]/bump/route.js`.
+    ///
+    /// 404s an unknown ticket (scoped by location), upserts `kds_ticket_states`
+    /// with kept-latest semantics, and emits an `insert`/`correction` audit to
+    /// the `audit_events` table (mirrors web `postAuditEvent`) INSIDE the write
+    /// transaction, so an audit failure rolls back the upsert.
+    ///
+    /// Latent web behavior carried forward: this NEVER sets `kds_tickets.bumped_at`,
+    /// so a bumped ticket stays on the open board (see `loadOpen`'s
+    /// `WHERE bumped_at IS NULL`). That reconciliation is a product decision.
+    @discardableResult
+    public func bump(ticketId rawTicketId: String, input: KdsBumpInput, context: RegulatedWriteContext) throws -> KdsBumpResult {
+        // Web `parseTicketId` (route.js) REJECTS an over-length id (400) — it does
+        // not truncate. Mirror that: trim, then reject empty or > 200 chars rather
+        // than clip-truncating (which could otherwise look up a truncated id).
+        let trimmedId = rawTicketId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedId.isEmpty, trimmedId.count <= 200 else { throw KdsWriteError.ticketIdRequired }
+        let ticketId = trimmedId
+
+        let validated: (bumpedAt: String?, station: String?, cookPin: String?)
+        switch KdsBumpRules.validateBumpPayload(bumpedAt: input.bumpedAt, station: input.station, cookPin: input.cookPin) {
+        case .invalid(let reason): throw KdsWriteError.validationFailed(reason)
+        case .ok(let b, let s, let p): validated = (b, s, p)
+        }
+
+        let locationId = context.locationId
+        let bumpedAt = validated.bumpedAt ?? KdsBumpRules.nowIsoCanonical()
+        let station = validated.station
+        let pinHash = validated.cookPin.map { KdsBumpRules.hashPin($0) }
+
+        return try writeDB.write { db in
+            // 404 — ticket must be known to Lariat, scoped by location.
+            let known = try Int.fetchOne(
+                db,
+                sql: "SELECT 1 FROM kds_tickets WHERE id = ? AND location_id = ?",
+                arguments: [ticketId, locationId]
+            )
+            guard known != nil else { throw KdsWriteError.bumpTicketNotFound }
+
+            // Existing state → insert vs correction; capture prior bumped_at for the trail.
+            let priorBumpedAt = try String.fetchOne(
+                db,
+                sql: "SELECT bumped_at FROM kds_ticket_states WHERE ticket_id = ? AND location_id = ?",
+                arguments: [ticketId, locationId]
+            )
+            let action = KdsBumpRules.bumpActionForExisting(hasExisting: priorBumpedAt != nil)
+
+            // INSERT…ON CONFLICT kept-latest (created_at preserved on conflict).
+            try db.execute(
+                sql: """
+                  INSERT INTO kds_ticket_states
+                    (ticket_id, location_id, bumped_at, bumped_station, bumped_pin_hash)
+                  VALUES (?, ?, ?, ?, ?)
+                  ON CONFLICT (ticket_id, location_id) DO UPDATE SET
+                    bumped_at       = excluded.bumped_at,
+                    bumped_station  = excluded.bumped_station,
+                    bumped_pin_hash = excluded.bumped_pin_hash,
+                    updated_at      = datetime('now')
+                  """,
+                arguments: [ticketId, locationId, bumpedAt, station, pinHash]
+            )
+
+            // rowid is 0 on the pure-UPDATE path — resolve it for the audit entity id.
+            var entityRowid = db.lastInsertedRowID
+            if entityRowid == 0 {
+                entityRowid = try Int64.fetchOne(
+                    db,
+                    sql: "SELECT rowid FROM kds_ticket_states WHERE ticket_id = ? AND location_id = ?",
+                    arguments: [ticketId, locationId]
+                ) ?? 0
+            }
+
+            // DB audit (mirrors web postAuditEvent) — inside the tx; failure rolls back.
+            var payload: [String: String] = ["ticket_id": ticketId, "bumped_at": bumpedAt]
+            if let station { payload["station"] = station }
+            if let priorBumpedAt { payload["prior_bumped_at"] = priorBumpedAt }
+            _ = try AuditEventWriter.post(
+                db: db,
+                input: AuditEventInput(
+                    entity: "kds_ticket_state",
+                    entityId: entityRowid == 0 ? nil : entityRowid,
+                    action: action == .insert ? .insert : .correction,
+                    actorCookId: nil,
+                    actorSource: "kds_app",
+                    payload: payload,
+                    shiftDate: nil,
+                    locationId: locationId
+                )
+            )
+
+            return KdsBumpResult(id: ticketId, bumpedAt: bumpedAt)
+        }
+    }
+
     private struct ValidatedPunch: Sendable {
         let orderNumber: String
         let destination: String?

@@ -21,6 +21,7 @@ import Observation
         let locationId = LocationScope.resolve()
         let commandRepo = CommandRepository(database: database, locationId: locationId)
         let rollupRepo = ManagementRollupRepository(database: database, locationId: locationId)
+        let marginRepo = MarginDeltasRepository(database: database, locationId: locationId)
 
         streamTask = Task { [weak self] in
             // Mirror ManagementRollupViewModel polling pattern:
@@ -28,9 +29,10 @@ import Observation
             while !Task.isCancelled {
                 let today = Self.todayISO()
 
-                // Fetch CommandBundle and price shocks concurrently.
+                // Fetch CommandBundle, price shocks, and margin moves concurrently.
                 async let bundleResult = commandRepo.fetch(today: today)
                 async let rollupResult = rollupRepo.load()
+                async let marginResult = marginRepo.summary()   // 7 / 5 / 100 = Command window
 
                 do {
                     let bundle = try await bundleResult
@@ -53,10 +55,10 @@ import Observation
                         priceMoves = .zero
                     }
 
-                    // Margin moves: listMarginDeltas is NOT ported to Swift in P1a.
-                    // marginMoves stays at zero; the Margin-moves tile is rendered but
-                    // will show 0. Needs a Swift margin-delta source in a follow-up task.
-                    let marginMoves: CommandCompute.MoveSummary = .zero
+                    // Margin moves: real dish-cost deltas over the 7-day / 5% window
+                    // via MarginDeltasRepository (port of lib/marginDeltas.ts). Degrade
+                    // to zero on query error, mirroring the priceMoves posture above.
+                    let marginMoves: CommandCompute.MoveSummary = (try? await marginResult) ?? .zero
 
                     let s = CommandCompute.summarize(
                         bundle: bundle,
@@ -211,8 +213,8 @@ private struct CommandContentView: View {
     }
 
     // 5. Margin moves — "Dish costs that moved 5%+ in 7 days"
-    // NOTE (P1a): listMarginDeltas is NOT ported to Swift; marginMoves is always zero.
-    // Needs a Swift margin-delta source in a follow-up task.
+    // marginMoves is threaded from MarginDeltasRepository.summary() (port of
+    // lib/marginDeltas.ts listMarginDeltas) → MoveSummary, same as priceMoves.
     private var marginMovesTile: some View {
         CommandTile(title: "Margin moves", sub: "Dish costs that moved 5%+ in 7 days") {
             TileLine(n: "\(summary.marginMoves.up)", label: "up")
