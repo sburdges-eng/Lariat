@@ -16,7 +16,7 @@ import Observation
     var varianceTrend: VarianceTrend?
     var abcRows: [AbcRankedRow] = []
     var errorText: String?
-    private var streamTask: Task<Void, Never>?
+    private let poller = BoardPoller()
     private let database: LariatDatabase
 
     init(database: LariatDatabase) {
@@ -24,37 +24,30 @@ import Observation
     }
 
     func start() {
-        streamTask?.cancel()
         // recipes.json is the bridge's discovery layer (web getRecipes());
         // loaded once per start — [] when the cache file is absent.
         let repo = CostingRepository(database: database, recipes: DishBridgeRecipeLoader.load())
-        streamTask = Task { [weak self] in
-            // ValueObservation can't see cross-process writes; poll every 3 s
-            // (mirrors CommandViewModel / AnalyticsViewModel polling pattern).
-            while !Task.isCancelled {
-                do {
-                    let b = try await repo.fetch()
-                    let me = CostingCompute.computeMenuEngineering(salesLines: b.salesLines)
-                    let trend = CostingCompute.getVarianceTrend(trendRows: b.varianceTrendRows)
-                    let abc = CostingCompute.rankByContribution(salesLines: b.salesLines)
-                    await MainActor.run {
-                        self?.bundle = b
-                        self?.menuEngineering = me
-                        self?.varianceTrend = trend
-                        self?.abcRows = abc
-                        self?.errorText = nil
-                    }
-                } catch {
-                    await MainActor.run {
-                        self?.errorText = "Fetch error: \(error.localizedDescription)"
-                    }
-                }
-                try? await Task.sleep(for: .seconds(3))
+        // ValueObservation can't see cross-process writes; BoardPoller re-queries
+        // every 3 s (mirrors CommandViewModel / AnalyticsViewModel).
+        poller.start(interval: .seconds(3)) { [weak self] in
+            do {
+                let b = try await repo.fetch()
+                let me = CostingCompute.computeMenuEngineering(salesLines: b.salesLines)
+                let trend = CostingCompute.getVarianceTrend(trendRows: b.varianceTrendRows)
+                let abc = CostingCompute.rankByContribution(salesLines: b.salesLines)
+                self?.bundle = b
+                self?.menuEngineering = me
+                self?.varianceTrend = trend
+                self?.abcRows = abc
+                self?.errorText = nil
+            } catch {
+                self?.errorText = "Fetch error: \(error.localizedDescription)"
+                throw error
             }
         }
     }
 
-    func stop() { streamTask?.cancel() }
+    func stop() { poller.stop() }
 }
 
 // MARK: - Root view
