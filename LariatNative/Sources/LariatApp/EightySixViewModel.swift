@@ -29,7 +29,7 @@ final class EightySixViewModel {
     var isSaving = false
     var confirmCascade: CascadedRecipe?
     private var resolvingIds: Set<Int64> = []
-    private var streamTask: Task<Void, Never>?
+    private let poller = BoardPoller()
 
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase
@@ -58,16 +58,14 @@ final class EightySixViewModel {
     }
 
     func start() {
-        streamTask?.cancel()
-        streamTask = Task { [weak self] in
-            while !Task.isCancelled {
-                await self?.refresh()
-                try? await Task.sleep(for: .seconds(3))
-            }
+        poller.start(interval: .seconds(3)) { [weak self] in
+            guard let self else { return }
+            await self.refresh()
+            try BoardPoller.throwIfFailed(self.fetchError)
         }
     }
 
-    func stop() { streamTask?.cancel() }
+    func stop() { poller.stop() }
 
     func refresh() async {
         let repo = EightySixRepository(readDB: readDB, writeDB: writeDB, catalog: catalog)

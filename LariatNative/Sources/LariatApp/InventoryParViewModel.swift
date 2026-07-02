@@ -28,7 +28,7 @@ final class InventoryParViewModel {
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase
     private let locationId: String
-    private var pollTask: Task<Void, Never>?
+    private let poller = BoardPoller()
 
     init(readDB: LariatDatabase, writeDB: LariatWriteDatabase, locationId: String = LocationScope.resolve()) {
         self.readDB = readDB
@@ -48,16 +48,14 @@ final class InventoryParViewModel {
     var lowCount: Int { rows.filter(\.isLow).count }
 
     func start() {
-        pollTask?.cancel()
-        pollTask = Task { [weak self] in
-            while !Task.isCancelled {
-                await self?.refresh()
-                try? await Task.sleep(for: .seconds(5))
-            }
+        poller.start(interval: .seconds(5)) { [weak self] in
+            guard let self else { return }
+            await self.refresh()
+            try BoardPoller.throwIfFailed(self.fetchError)
         }
     }
 
-    func stop() { pollTask?.cancel() }
+    func stop() { poller.stop() }
 
     func refresh() async {
         let repo = InventoryParRepository(readDB: readDB, writeDB: writeDB)

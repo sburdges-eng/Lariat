@@ -10,7 +10,7 @@ import Observation
     var bundle: AnalyticsBundle?
     var summary: AnalyticsSummary?
     var errorText: String?
-    private var streamTask: Task<Void, Never>?
+    private let poller = BoardPoller()
     private let database: LariatDatabase
 
     init(database: LariatDatabase) {
@@ -18,31 +18,24 @@ import Observation
     }
 
     func start() {
-        streamTask?.cancel()
         let repo = AnalyticsRepository(database: database)
-        streamTask = Task { [weak self] in
-            // ValueObservation can't see cross-process writes; poll every 3 s
-            // (mirrors CommandViewModel polling pattern).
-            while !Task.isCancelled {
-                do {
-                    let b = try await repo.fetch()
-                    let s = AnalyticsCompute.summarize(bundle: b)
-                    await MainActor.run {
-                        self?.bundle = b
-                        self?.summary = s
-                        self?.errorText = nil
-                    }
-                } catch {
-                    await MainActor.run {
-                        self?.errorText = "Fetch error: \(error.localizedDescription)"
-                    }
-                }
-                try? await Task.sleep(for: .seconds(3))
+        // ValueObservation can't see cross-process writes; BoardPoller re-queries
+        // every 3 s (mirrors CommandViewModel polling pattern).
+        poller.start(interval: .seconds(3)) { [weak self] in
+            do {
+                let b = try await repo.fetch()
+                let s = AnalyticsCompute.summarize(bundle: b)
+                self?.bundle = b
+                self?.summary = s
+                self?.errorText = nil
+            } catch {
+                self?.errorText = "Fetch error: \(error.localizedDescription)"
+                throw error
             }
         }
     }
 
-    func stop() { streamTask?.cancel() }
+    func stop() { poller.stop() }
 }
 
 // MARK: - Root view

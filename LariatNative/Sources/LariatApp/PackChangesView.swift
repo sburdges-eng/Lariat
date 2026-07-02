@@ -27,7 +27,7 @@ final class PackChangesViewModel {
 
     private let writeDB: LariatWriteDatabase
     private let pinStore: PinSessionStore
-    private var pollTask: Task<Void, Never>?
+    private let poller = BoardPoller()
 
     init(writeDB: LariatWriteDatabase, pinStore: PinSessionStore) {
         self.writeDB = writeDB
@@ -37,16 +37,14 @@ final class PackChangesViewModel {
     var writeDatabase: LariatWriteDatabase { writeDB }
 
     func start() {
-        pollTask?.cancel()
-        pollTask = Task { [weak self] in
-            while !Task.isCancelled {
-                await self?.refresh()
-                try? await Task.sleep(for: .seconds(3))
-            }
+        poller.start(interval: .seconds(3)) { [weak self] in
+            guard let self else { return }
+            await self.refresh()
+            try BoardPoller.throwIfFailed(self.errorText)
         }
     }
 
-    func stop() { pollTask?.cancel() }
+    func stop() { poller.stop() }
 
     func refresh() async {
         let repo = PackChangesRepository(database: writeDB)

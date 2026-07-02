@@ -164,7 +164,7 @@ final class ShowStageViewModel {
     private let writeDB: LariatWriteDatabase?
     private let gateModel: ShowsGateModel
     private let locationId: String
-    private var pollTask: Task<Void, Never>?
+    private let poller = BoardPoller()
     private weak var picker: ShowPickerModel?
 
     init(
@@ -190,16 +190,15 @@ final class ShowStageViewModel {
 
     func start(picker: ShowPickerModel) {
         self.picker = picker
-        pollTask?.cancel()
-        pollTask = Task { [weak self] in
-            while !Task.isCancelled {
-                await self?.loadIfShowChanged()
-                try? await Task.sleep(for: .seconds(3))
-            }
+        // No backoff signal here: `loadIfShowChanged` early-returns when the
+        // show is unchanged and shares `submitError` with the save path, so a
+        // captured load error can't be told apart from a form error. Flat 3 s.
+        poller.start(interval: .seconds(3)) { [weak self] in
+            await self?.loadIfShowChanged()
         }
     }
 
-    func stop() { pollTask?.cancel() }
+    func stop() { poller.stop() }
 
     /// Reload the form ONLY when the selected show changes (not every poll
     /// tick) so in-progress edits survive — the web board is also

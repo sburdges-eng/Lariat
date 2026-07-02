@@ -9,7 +9,7 @@ import Observation
     var summary: CommandSummary?
     var alerts: [CommandAlert] = []
     var errorText: String?
-    private var streamTask: Task<Void, Never>?
+    private let poller = BoardPoller()
     private let database: LariatDatabase
 
     init(database: LariatDatabase) {
@@ -17,75 +17,67 @@ import Observation
     }
 
     func start() {
-        streamTask?.cancel()
         let locationId = LocationScope.resolve()
         let commandRepo = CommandRepository(database: database, locationId: locationId)
         let rollupRepo = ManagementRollupRepository(database: database, locationId: locationId)
         let marginRepo = MarginDeltasRepository(database: database, locationId: locationId)
 
-        streamTask = Task { [weak self] in
-            // Mirror ManagementRollupViewModel polling pattern:
-            // ValueObservation can't see cross-process writes, so we poll every 3 s.
-            while !Task.isCancelled {
-                let today = Self.todayISO()
+        // ValueObservation can't see cross-process writes, so BoardPoller
+        // re-queries every 3 s (mirrors ManagementRollupViewModel).
+        poller.start(interval: .seconds(3)) { [weak self] in
+            let today = Self.todayISO()
 
-                // Fetch CommandBundle, price shocks, and margin moves concurrently.
-                async let bundleResult = commandRepo.fetch(today: today)
-                async let rollupResult = rollupRepo.load()
-                async let marginResult = marginRepo.summary()   // 7 / 5 / 100 = Command window
+            // Fetch CommandBundle, price shocks, and margin moves concurrently.
+            async let bundleResult = commandRepo.fetch(today: today)
+            async let rollupResult = rollupRepo.load()
+            async let marginResult = marginRepo.summary()   // 7 / 5 / 100 = Command window
 
-                do {
-                    let bundle = try await bundleResult
+            do {
+                let bundle = try await bundleResult
 
-                    // Thread the REAL price-shock summary into summarize() so the
-                    // Price-moves tile is not silently zero. Map PriceShockSummary →
-                    // CommandCompute.MoveSummary (total/up/down).
-                    let priceMoves: CommandCompute.MoveSummary
-                    if let shocks = try? await rollupResult {
-                        if let ps = shocks.priceShocks {
-                            priceMoves = CommandCompute.MoveSummary(
-                                total: ps.total,
-                                up: ps.up,
-                                down: ps.down
-                            )
-                        } else {
-                            priceMoves = .zero
-                        }
+                // Thread the REAL price-shock summary into summarize() so the
+                // Price-moves tile is not silently zero. Map PriceShockSummary →
+                // CommandCompute.MoveSummary (total/up/down).
+                let priceMoves: CommandCompute.MoveSummary
+                if let shocks = try? await rollupResult {
+                    if let ps = shocks.priceShocks {
+                        priceMoves = CommandCompute.MoveSummary(
+                            total: ps.total,
+                            up: ps.up,
+                            down: ps.down
+                        )
                     } else {
                         priceMoves = .zero
                     }
-
-                    // Margin moves: real dish-cost deltas over the 7-day / 5% window
-                    // via MarginDeltasRepository (port of lib/marginDeltas.ts). Degrade
-                    // to zero on query error, mirroring the priceMoves posture above.
-                    let marginMoves: CommandCompute.MoveSummary = (try? await marginResult) ?? .zero
-
-                    let s = CommandCompute.summarize(
-                        bundle: bundle,
-                        locationId: locationId,
-                        today: today,
-                        priceMoves: priceMoves,
-                        marginMoves: marginMoves
-                    )
-                    let a = CommandCompute.alertsFor(s)
-
-                    await MainActor.run {
-                        self?.summary = s
-                        self?.alerts = a
-                        self?.errorText = nil
-                    }
-                } catch {
-                    await MainActor.run {
-                        self?.errorText = "Fetch error: \(error.localizedDescription)"
-                    }
+                } else {
+                    priceMoves = .zero
                 }
 
-                try? await Task.sleep(for: .seconds(3))
+                // Margin moves: real dish-cost deltas over the 7-day / 5% window
+                // via MarginDeltasRepository (port of lib/marginDeltas.ts). Degrade
+                // to zero on query error, mirroring the priceMoves posture above.
+                let marginMoves: CommandCompute.MoveSummary = (try? await marginResult) ?? .zero
+
+                let s = CommandCompute.summarize(
+                    bundle: bundle,
+                    locationId: locationId,
+                    today: today,
+                    priceMoves: priceMoves,
+                    marginMoves: marginMoves
+                )
+                let a = CommandCompute.alertsFor(s)
+
+                self?.summary = s
+                self?.alerts = a
+                self?.errorText = nil
+            } catch {
+                self?.errorText = "Fetch error: \(error.localizedDescription)"
+                throw error
             }
         }
     }
 
-    func stop() { streamTask?.cancel() }
+    func stop() { poller.stop() }
 
     // Web parity: lib/db.ts `todayISO()` uses `new Date().toISOString().slice(0,10)`,
     // which is UTC. We match that by fixing the formatter's timezone to UTC.

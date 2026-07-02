@@ -84,6 +84,10 @@ enum FeatureRegistry {
         .houseBarPar,
         .houseEquipment,
         .houseGoldStars,
+        // BEO
+        .beoBoard,
+        .beoFireSchedule,
+        .beoPrepHistory,
     ]
 
     /// Stable default selection on launch.
