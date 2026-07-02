@@ -104,16 +104,5 @@ public enum ShowPipelineCompute {
     }
 }
 
-public enum ShowStatusColor: String, Sendable, Equatable {
-    case green, amber, red, neutral
-}
-
-public struct ShowStatusBadge: Sendable, Equatable {
-    public let color: ShowStatusColor
-    public let label: String
-
-    public init(color: ShowStatusColor, label: String) {
-        self.color = color
-        self.label = label
-    }
-}
+// ShowStatusColor / ShowStatusBadge live in ShowStatusCompute.swift — the
+// canonical showStatus.ts port (A6.4). Booking's pipeline reuses them.
