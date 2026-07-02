@@ -30,7 +30,7 @@ import Observation
     let writeDatabase: LariatWriteDatabase?
     private let pinStore: PinSessionStore
     private let locationId: String
-    private var streamTask: Task<Void, Never>?
+    private let poller = BoardPoller()
 
     init(
         database: LariatDatabase,
@@ -50,7 +50,7 @@ import Observation
         if gate == .open { startStream() }
     }
 
-    func stop() { streamTask?.cancel() }
+    func stop() { poller.stop() }
 
     /// Resolve gate state: configured-PIN + no session → locked; else open.
     func evaluateGate() {
@@ -106,43 +106,36 @@ import Observation
     // MARK: - Digest stream
 
     private func startStream() {
-        streamTask?.cancel()
         let commandRepo = CommandRepository(database: database, locationId: locationId)
         let morningRepo = MorningRepository(database: database, locationId: locationId)
 
-        streamTask = Task { [weak self] in
-            // Poll like the command/rollup views: cross-process web writes are
-            // invisible to GRDB ValueObservation, so re-query every 3 s.
-            while !Task.isCancelled {
-                let today = ShiftDate.todayISO()
-                async let bundleResult = commandRepo.fetch(today: today)
-                async let morningResult = morningRepo.fetch(today: today)
-                do {
-                    let cmdBundle = try await bundleResult
-                    let mrnBundle = try await morningResult
+        // Poll like the command/rollup views: cross-process web writes are
+        // invisible to GRDB ValueObservation, so BoardPoller re-queries every 3 s.
+        poller.start(interval: .seconds(3)) { [weak self] in
+            let today = ShiftDate.todayISO()
+            async let bundleResult = commandRepo.fetch(today: today)
+            async let morningResult = morningRepo.fetch(today: today)
+            do {
+                let cmdBundle = try await bundleResult
+                let mrnBundle = try await morningResult
 
-                    // Thread the real price-shock counts into the command summary so
-                    // the alerts' "price-moves" line is not silently zero (parity with
-                    // commandCenter.summarize passing listPriceShocks counts).
-                    let priceMoves = Self.priceMoveSummary(mrnBundle.priceShocks)
-                    let summary = CommandCompute.summarize(
-                        bundle: cmdBundle, locationId: self?.locationId ?? "default",
-                        today: today, priceMoves: priceMoves, marginMoves: .zero)
+                // Thread the real price-shock counts into the command summary so
+                // the alerts' "price-moves" line is not silently zero (parity with
+                // commandCenter.summarize passing listPriceShocks counts).
+                let priceMoves = Self.priceMoveSummary(mrnBundle.priceShocks)
+                let summary = CommandCompute.summarize(
+                    bundle: cmdBundle, locationId: self?.locationId ?? "default",
+                    today: today, priceMoves: priceMoves, marginMoves: .zero)
 
-                    let d = MorningCompute.assemble(
-                        summary: summary, bundle: mrnBundle,
-                        locationId: self?.locationId ?? "default", today: today)
+                let d = MorningCompute.assemble(
+                    summary: summary, bundle: mrnBundle,
+                    locationId: self?.locationId ?? "default", today: today)
 
-                    await MainActor.run {
-                        self?.digest = d
-                        self?.errorText = nil
-                    }
-                } catch {
-                    await MainActor.run {
-                        self?.errorText = "Could not load morning digest: \(error.localizedDescription)"
-                    }
-                }
-                try? await Task.sleep(for: .seconds(3))
+                self?.digest = d
+                self?.errorText = nil
+            } catch {
+                self?.errorText = "Could not load morning digest: \(error.localizedDescription)"
+                throw error
             }
         }
     }

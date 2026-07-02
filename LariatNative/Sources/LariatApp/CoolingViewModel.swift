@@ -20,7 +20,7 @@ final class CoolingViewModel {
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase
     private let locationId: String
-    private var streamTask: Task<Void, Never>?
+    private let poller = BoardPoller()
 
     private static let isoFormatter: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
@@ -42,17 +42,15 @@ final class CoolingViewModel {
     }
 
     func start() {
-        streamTask?.cancel()
-        streamTask = Task { [weak self] in
-            while !Task.isCancelled {
-                await self?.refresh()
-                await MainActor.run { self?.nowMs = Date().timeIntervalSince1970 * 1000 }
-                try? await Task.sleep(for: .seconds(3))
-            }
+        poller.start(interval: .seconds(3)) { [weak self] in
+            guard let self else { return }
+            await self.refresh()
+            self.nowMs = Date().timeIntervalSince1970 * 1000
+            try BoardPoller.throwIfFailed(self.fetchError)
         }
     }
 
-    func stop() { streamTask?.cancel() }
+    func stop() { poller.stop() }
 
     func refresh() async {
         let repo = CoolingRepository(readDB: readDB, writeDB: writeDB)

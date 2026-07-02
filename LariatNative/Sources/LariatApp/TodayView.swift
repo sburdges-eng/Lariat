@@ -7,7 +7,7 @@ import Observation
     var snapshot: TodayBoardSnapshot?
     var catalogError: String?
     var fetchError: String?
-    private var streamTask: Task<Void, Never>?
+    private let poller = BoardPoller()
     private let database: LariatDatabase
     private let catalog: StationCatalog?
 
@@ -24,23 +24,20 @@ import Observation
 
     func start() {
         guard let catalog else { return }
-        streamTask?.cancel()
         let repo = TodayBoardRepository(database: database, catalog: catalog)
-        streamTask = Task { [weak self] in
-            while !Task.isCancelled {
-                do {
-                    let snap = try await repo.load()
-                    self?.snapshot = snap
-                    self?.fetchError = nil
-                } catch {
-                    self?.fetchError = "Could not load Today"
-                }
-                try? await Task.sleep(for: .seconds(3))
+        poller.start(interval: .seconds(3)) { [weak self] in
+            do {
+                let snap = try await repo.load()
+                self?.snapshot = snap
+                self?.fetchError = nil
+            } catch {
+                self?.fetchError = "Could not load Today"
+                throw error
             }
         }
     }
 
-    func stop() { streamTask?.cancel() }
+    func stop() { poller.stop() }
 }
 
 struct TodayView: View {
