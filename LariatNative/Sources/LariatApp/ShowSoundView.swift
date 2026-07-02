@@ -220,7 +220,7 @@ final class ShowSoundViewModel {
     private let writeDB: LariatWriteDatabase?
     private let gateModel: ShowsGateModel
     private let locationId: String
-    private var pollTask: Task<Void, Never>?
+    private let poller = BoardPoller()
     private weak var picker: ShowPickerModel?
 
     init(
@@ -241,16 +241,14 @@ final class ShowSoundViewModel {
 
     func start(picker: ShowPickerModel) {
         self.picker = picker
-        pollTask?.cancel()
-        pollTask = Task { [weak self] in
-            while !Task.isCancelled {
-                await self?.refresh()
-                try? await Task.sleep(for: .seconds(5))
-            }
+        poller.start(interval: .seconds(5)) { [weak self] in
+            guard let self else { return }
+            await self.refresh()
+            try BoardPoller.throwIfFailed(self.fetchError)
         }
     }
 
-    func stop() { pollTask?.cancel() }
+    func stop() { poller.stop() }
 
     func refresh() async {
         guard let showId = picker?.selectedShowId else {
