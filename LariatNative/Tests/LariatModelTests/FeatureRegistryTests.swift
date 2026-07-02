@@ -208,6 +208,16 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertEqual(d?.enabled, true)
     }
 
+    /// A4.3 Board (T3): the menu-engineering hub registers under `.costing`.
+    /// Pure read (the writes live on costing.components).
+    func testCostingMenuEngineeringRegistered() {
+        let d = FeatureCatalog.descriptor(id: "costing.menuEngineering")
+        XCTAssertNotNil(d, "costing.menuEngineering must be registered")
+        XCTAssertEqual(d?.tier, .costing)
+        XCTAssertEqual(d?.title, "Menu performance")
+        XCTAssertEqual(d?.enabled, true)
+    }
+
     /// A4.2 consolidation, extended by the A4.3 menu-engineering wave: the
     /// `.costing` tier holds EXACTLY the listed boards, all enabled; the old
     /// `manager.costing` is gone and `costing.prices` is a drill-down (never a
@@ -220,7 +230,7 @@ final class FeatureRegistryTests: XCTestCase {
         XCTAssertEqual(ids, [
             "costing.overview", "costing.priceShocks", "costing.varianceAttribution",
             "costing.depletionExceptions", "costing.ingredientMasters",
-            "costing.marginDeltas",
+            "costing.menuEngineering", "costing.marginDeltas",
         ], "the .costing tier must hold exactly the registered detail boards")
         for id in ids {
             XCTAssertEqual(FeatureCatalog.descriptor(id: id)?.tier, .costing, "\(id) must be a costing feature")

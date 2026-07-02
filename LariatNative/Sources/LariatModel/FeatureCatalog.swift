@@ -79,6 +79,7 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "costing.varianceAttribution", tier: .costing, title: "Variance attribution"),
         FeatureDescriptor(id: "costing.depletionExceptions", tier: .costing, title: "Depletion exceptions"),
         FeatureDescriptor(id: "costing.ingredientMasters", tier: .costing, title: "Ingredient masters"),
+        FeatureDescriptor(id: "costing.menuEngineering", tier: .costing, title: "Menu performance"),
         FeatureDescriptor(id: "costing.marginDeltas", tier: .costing, title: "Margin moves"),
     ]
 

@@ -22,6 +22,10 @@ extension FeatureModule {
         AnyView(IngredientMastersView(readDB: ctx.database, writeDB: ctx.writeDatabase))
     }
 
+    static let costingMenuEngineering = FeatureModule(id: "costing.menuEngineering") { ctx in
+        AnyView(MenuEngineeringView(database: ctx.database, navigate: ctx.navigate))
+    }
+
     static let costingMarginDeltas = FeatureModule(id: "costing.marginDeltas") { ctx in
         AnyView(MarginDeltasView(database: ctx.database))
     }
