@@ -147,10 +147,19 @@ public struct KitchenAssistantEngine {
             // reliable enough to gate analytical reads; route parity).
             let searchQuery = payload.clip("query", AssistantLimits.maxMessage) ?? message
             let rawLimit = payload.jsNumber("limit")
+            // JS Math.trunc + downstream clamp; a raw Int(Double) conversion
+            // traps on an LLM-supplied limit like 1e30 (uncatchable crash).
+            let safeLimit: Int = {
+                guard rawLimit.isFinite else { return 6 }
+                let t = rawLimit.rounded(.towardZero)
+                if t >= Double(Int.max) { return Int.max }
+                if t <= Double(Int.min) { return Int.min }
+                return Int(t)
+            }()
             let outcome = (try? semanticSearch.run(
                 locationId: locationId,
                 query: searchQuery,
-                limit: rawLimit.isFinite ? Int(rawLimit) : 6
+                limit: safeLimit
             )) ?? KitchenSemanticSearchCompute.SearchResult(query: searchQuery, hits: [])
             actionMsg = KitchenSemanticSearchCompute.formatForPrompt(outcome)
             actionExecuted = true

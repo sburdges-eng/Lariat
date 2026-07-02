@@ -463,6 +463,137 @@ final class AssistantActionRepositoryTests: XCTestCase {
         XCTAssertEqual(try count(writeDB, "beo_prep_tasks"), 0)
     }
 
+    // ── skeptic-panel regression pins (2026-07-02 adversarial review) ──
+
+    func testBeoAddPrepHugeEventIdSoftRejectsInsteadOfTrapping() async throws {
+        // 1e19 passes the integer dispatch guard (Number.isInteger parity) but
+        // exceeds Int64 — web binds the raw double, finds no row, soft-rejects;
+        // a trapping Int64(Double) conversion crashed the whole app.
+        let (repo, writeDB, path) = try makeRepo()
+        defer { cleanupAssistantDatabase(path) }
+        _ = try seedEvent(writeDB, location: LOC, title: "Wedding")
+
+        let out = try await repo.execute(
+            payload: payload("beo_add_prep", [
+                "event_id": .number(1e19),
+                "tasks": .array([.string("x")]),
+            ]),
+            hasPin: true, locationId: LOC
+        )
+        XCTAssertTrue(out.actionMsg.lowercased().contains("does not exist"))
+        XCTAssertEqual(try count(writeDB, "beo_prep_tasks"), 0)
+    }
+
+    func testBeoAddPrepNullRecipeElementFallsBackToModelTasks() async throws {
+        // Web: `r.recipe_slug` on a null element throws inside the try →
+        // unknown-error note → MODEL tasks; the calculator must never run.
+        let calc = StubRecipeCalculator()
+        calc.beoResult = .success([])
+        let (repo, writeDB, path) = try makeRepo(calculator: calc)
+        defer { cleanupAssistantDatabase(path) }
+        let eventA = try seedEvent(writeDB, location: LOC, title: "Wedding", guests: 50)
+
+        let out = try await repo.execute(
+            payload: payload("beo_add_prep", [
+                "event_id": .number(Double(eventA)),
+                "tasks": .array([.string("model task survives")]),
+                "recipes": .array([.null, .object(["recipe_slug": .string("focaccia")])]),
+            ]),
+            hasPin: true, locationId: LOC
+        )
+        XCTAssertEqual(calc.beoCalls.count, 0, "web throws before expandForBEO")
+        try inspect(writeDB) { db in
+            let tasks = try String.fetchAll(db, sql: "SELECT task FROM beo_prep_tasks ORDER BY id")
+            XCTAssertEqual(tasks, ["model task survives"])
+        }
+        XCTAssertTrue(out.actionMsg.contains("Calculator error (unknown)"))
+    }
+
+    func testBeoAddPrepNullPortionsPerGuestDefaultsToOne() async throws {
+        // Web `Number(r.portions_per_guest ?? 1)` — nullish → 1, never 0.
+        let calc = StubRecipeCalculator()
+        calc.beoResult = .success([])
+        let (repo, writeDB, path) = try makeRepo(calculator: calc)
+        defer { cleanupAssistantDatabase(path) }
+        let eventA = try seedEvent(writeDB, location: LOC, title: "Wedding", guests: 50)
+
+        _ = try await repo.execute(
+            payload: payload("beo_add_prep", [
+                "event_id": .number(Double(eventA)),
+                "tasks": .array([.string("fallback")]),
+                "recipes": .array([.object([
+                    "recipe_slug": .string("focaccia"),
+                    "portions_per_guest": .null,
+                ])]),
+            ]),
+            hasPin: true, locationId: LOC
+        )
+        XCTAssertEqual(calc.beoCalls.first?.recipes.first?.portionsPerGuest, 1)
+    }
+
+    func testBeoAddPrepNullTaskAbortsLikeWebConstraint() async throws {
+        // Web `clip(String(null ?? ''))` → null → `beo_prep_tasks.task` is
+        // TEXT NOT NULL (lib/db.ts) → SQLITE_CONSTRAINT → the whole action
+        // rolls back with a generic actionError. The pre-fix native rendered
+        // the literal string "null" and COMMITTED a row the web refuses.
+        let (repo, writeDB, path) = try makeRepo()
+        defer { cleanupAssistantDatabase(path) }
+        let eventA = try seedEvent(writeDB, location: LOC, title: "Wedding")
+
+        do {
+            _ = try await repo.execute(
+                payload: payload("beo_add_prep", [
+                    "event_id": .number(Double(eventA)),
+                    "tasks": .array([.null, .string("real task")]),
+                ]),
+                hasPin: true, locationId: LOC
+            )
+            XCTFail("null task must fail the NOT NULL constraint like the web")
+        } catch { /* expected — engine surfaces the generic actionError */ }
+        XCTAssertEqual(try count(writeDB, "beo_prep_tasks"), 0, "atomic rollback")
+        XCTAssertEqual(try count(writeDB, "audit_events"), 0)
+    }
+
+    func testGeneratePrepNullTaskElementAbortsWithZeroRows() async throws {
+        // Web `clip(t.item, …)` on a null element throws a TypeError that
+        // aborts the action before the transaction — zero rows, zero audits.
+        let (repo, writeDB, path) = try makeRepo()
+        defer { cleanupAssistantDatabase(path) }
+
+        do {
+            _ = try await repo.execute(
+                payload: payload("generate_prep", [
+                    "station": .string("grill"),
+                    "tasks": .array([.object(["item": .string("ok")]), .null]),
+                ]),
+                hasPin: true, locationId: LOC
+            )
+            XCTFail("null task element must abort like the web TypeError")
+        } catch { /* expected — surfaced as generic actionError by the engine */ }
+        XCTAssertEqual(try count(writeDB, "line_check_entries"), 0)
+        XCTAssertEqual(try count(writeDB, "audit_events"), 0)
+    }
+
+    func testUpdateInventoryWhitespaceUnitDropsTrailingSpace() async throws {
+        // Web re-checks truthiness after normalize — "" is falsy, so the
+        // stored delta is "5", never "5 " with a trailing space.
+        let (repo, writeDB, path) = try makeRepo()
+        defer { cleanupAssistantDatabase(path) }
+
+        _ = try await repo.execute(
+            payload: payload("update_inventory", [
+                "item": .string("flour"),
+                "delta": .number(5),
+                "unit": .string(" "),
+            ]),
+            hasPin: true, locationId: LOC
+        )
+        try inspect(writeDB) { db in
+            let delta = try String.fetchOne(db, sql: "SELECT delta FROM inventory_updates LIMIT 1")
+            XCTAssertEqual(delta, "5")
+        }
+    }
+
     func testBeoAddPrepHappyPathInsertsWithRequestingLocation() async throws {
         let (repo, writeDB, path) = try makeRepo()
         defer { cleanupAssistantDatabase(path) }

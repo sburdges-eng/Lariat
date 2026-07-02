@@ -170,9 +170,11 @@ public struct AssistantActionRepository {
                 "Inventory update blocked — delta \"\(payload["delta"]?.jsTemplate ?? "undefined")\" is not a number. Try again with just the count."
             )
         }
-        let rawUnit = payload.isTruthy("unit")
+        // Web double-checks truthiness AFTER normalize (`rawUnit ? … : …`), so a
+        // whitespace-only unit normalizing to "" must not leave a trailing space.
+        let rawUnit = (payload.isTruthy("unit")
             ? UnitConvert.normalizeUnit(payload["unit"]?.jsTemplate)
-            : nil
+            : nil).flatMap { $0.isEmpty ? nil : $0 }
         let deltaStr = rawUnit.map { "\(JsValueFormat.numberString(rawDelta)) \($0)" }
             ?? JsValueFormat.numberString(rawDelta)
         let itemClip = payload.clip("item", AssistantLimits.maxItem)
@@ -418,7 +420,13 @@ public struct AssistantActionRepository {
     private func beoAddPrep(
         _ payload: AssistantActionPayload, locationId: String, shiftDate: String
     ) async throws -> Outcome {
-        let eventIdNum = Int64(payload.jsNumber("event_id"))
+        // Int64(exactly:) — a hallucinated event_id like 1e19 passes the
+        // integer dispatch guard but must soft-reject (web binds the raw double
+        // into `WHERE id = ?` and finds no row), never trap the process.
+        let eventIdRaw = payload.jsNumber("event_id")
+        guard let eventIdNum = Int64(exactly: eventIdRaw) else {
+            return .handled("Add BEO Prep blocked — event \(JsValueFormat.numberString(eventIdRaw)) does not exist. Ask a manager to create the BEO first.")
+        }
 
         // Cross-location guard: the LLM is free to emit ANY event_id — before
         // touching beo_prep_tasks we MUST confirm the parent row exists AND
@@ -443,12 +451,23 @@ public struct AssistantActionRepository {
         var calcTasks: [String] = []
         let beoRecipes = payload["recipes"]?.arrayValue ?? []
         if !beoRecipes.isEmpty, let guests = beoEvent.guestCount, guests.isFinite, guests > 0 {
+            // Web: `r.recipe_slug` on a null array element throws inside the
+            // try (route.js:736) → unknown-error catch → model-task fallback.
+            // Silently filtering it would run the calculator on the remainder
+            // and write DIFFERENT rows than the web.
+            if beoRecipes.contains(.null) {
+                calcNotes.append("Calculator error (unknown): Cannot read properties of null (reading 'recipe_slug'). Falling back to model-provided tasks.")
+            } else {
             let specs: [(slug: String, portionsPerGuest: Double)] = beoRecipes.compactMap { r in
                 guard let obj = r.objectValue else { return ("", 1) as (String, Double) }
                 let slugValue = (obj["recipe_slug"]?.isTruthy == true ? obj["recipe_slug"] : nil)
                     ?? (obj["recipe"]?.isTruthy == true ? obj["recipe"] : nil)
                 let slug = slugValue?.jsTemplate ?? ""
-                let portions = obj["portions_per_guest"].map(\.jsNumber) ?? 1
+                // Web `Number(r.portions_per_guest ?? 1)` — nullish → 1, so an
+                // explicit JSON null must NOT become jsNumber(.null) == 0
+                // (that would expand zero-quantity prep lines).
+                let ppg = obj["portions_per_guest"]
+                let portions = (ppg == nil || ppg == .null) ? 1 : ppg!.jsNumber
                 return (slug, portions)
             }.filter { !$0.slug.isEmpty }
             if let calculator {
@@ -470,13 +489,16 @@ public struct AssistantActionRepository {
             } else {
                 calcNotes.append("Calculator error (calculator_unavailable): deterministic calculator is not configured on this device. Falling back to model-provided tasks.")
             }
+            }
         }
 
         let modelTasks = payload["tasks"]?.arrayValue ?? []
         let finalTasks: [String?] = calcTasks.isEmpty
             ? modelTasks.map { t in
                 // web: clip(typeof t === 'string' ? t : String(t ?? ''), MAX_NOTE)
-                let s = t.stringValue ?? t.jsTemplate
+                // — the nullish coalesce renders JSON null as '' (→ SQL NULL),
+                // NOT the template-literal "null".
+                let s = t.stringValue ?? (t == .null ? "" : t.jsTemplate)
                 return AssistantJSONValue.string(s).clip(AssistantLimits.maxNote)
             }
             : calcTasks.map { AssistantJSONValue.string($0).clip(AssistantLimits.maxNote) }
@@ -664,6 +686,12 @@ public struct AssistantActionRepository {
         _ payload: AssistantActionPayload, locationId: String, shiftDate: String
     ) async throws -> Outcome {
         let tasks = payload["tasks"]?.arrayValue ?? []
+        // Web: `clip(t.item, …)` on a null element throws a TypeError that
+        // aborts the whole action BEFORE the transaction (zero rows, generic
+        // actionError). Writing NULL-item rows instead would commit prep rows
+        // the web refuses to write.
+        struct NullTaskElementError: Error {}
+        if tasks.contains(.null) { throw NullTaskElementError() }
         let stationClip = payload.clip("station", 64)
         var calcReplacements = 0
         var calcFailures = 0
