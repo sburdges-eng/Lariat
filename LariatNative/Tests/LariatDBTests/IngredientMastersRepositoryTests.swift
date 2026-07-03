@@ -342,6 +342,29 @@ final class IngredientMastersRepositoryTests: XCTestCase {
         XCTAssertEqual(try r.repo.getMaster("a")?.canonicalName.count, 200)
     }
 
+    // Degrade parity (functional-audit F6): nil write DB throws the DISTINCT
+    // `.writeDatabaseUnavailable` error — NOT `.persistenceFailed` — so the
+    // UI can say the session is read-only instead of the misleading
+    // "Could not save ingredient master".
+    func testNilWriteDatabaseThrowsDistinctReadOnlyError() throws {
+        let (r, _, p) = try makeRepos(); defer { cleanup(p) }
+        try r.writeSeed { try self.seedMaster($0, "a", "A") }
+        let readOnlyRepo = IngredientMastersRepository(readDB: r.readDB, writeDB: nil)
+        var u = IngredientMasterUpdates(); u.lastReviewed = .set(.now)
+        XCTAssertThrowsError(try readOnlyRepo.updateMaster("a", updates: u, context: macContext())) {
+            XCTAssertEqual($0 as? IngredientMasterWriteError, .writeDatabaseUnavailable)
+            XCTAssertEqual(
+                WriteErrorMapper.message(for: $0),
+                "Write database unavailable — read-only"
+            )
+        }
+        // Nothing was written: no audit row, last_reviewed untouched.
+        try r.writeDB.pool.read { db in
+            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM audit_events") ?? -1, 0)
+            XCTAssertNil(try String.fetchOne(db, sql: "SELECT last_reviewed FROM ingredient_masters WHERE master_id='a'"))
+        }
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────
 
     private struct Repos {

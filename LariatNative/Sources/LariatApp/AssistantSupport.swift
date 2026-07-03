@@ -5,7 +5,10 @@ import FoundationNetworking
 #endif
 
 /// Live URLSession transport for the Ollama client (tests use stubs — this
-/// type is UI-layer wiring only).
+/// type is UI-layer wiring only). Every URLError maps to an
+/// `OllamaClientError` so the engine's 502 branch surfaces an actionable
+/// message (a refused connection must not fall through to the generic
+/// "Something went wrong…" catch-all).
 struct URLSessionOllamaTransport: OllamaTransport {
     func post(url: URL, body: Data, timeoutMs: Int) async throws -> (data: Data, statusCode: Int) {
         var request = URLRequest(url: url)
@@ -17,8 +20,8 @@ struct URLSessionOllamaTransport: OllamaTransport {
             let (data, response) = try await URLSession.shared.data(for: request)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             return (data, status)
-        } catch let e as URLError where e.code == .timedOut {
-            throw OllamaClientError.timedOut
+        } catch let e as URLError {
+            throw Self.map(e)
         }
     }
 
@@ -29,9 +32,15 @@ struct URLSessionOllamaTransport: OllamaTransport {
             let (data, response) = try await URLSession.shared.data(for: request)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             return (data, status)
-        } catch let e as URLError where e.code == .timedOut {
-            throw OllamaClientError.timedOut
+        } catch let e as URLError {
+            throw Self.map(e)
         }
+    }
+
+    private static func map(_ error: URLError) -> OllamaClientError {
+        error.code == .timedOut
+            ? .timedOut
+            : .network(error.localizedDescription)
     }
 }
 

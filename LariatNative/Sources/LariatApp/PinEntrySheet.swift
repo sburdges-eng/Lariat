@@ -9,6 +9,11 @@ struct PinEntrySheet: View {
 
     @State private var pin = ""
     @State private var errorText: String?
+    /// Programmatic focus: on macOS, sheets do not reliably focus their first
+    /// field, and the high-frequency flow here is "type 4 digits + Return" —
+    /// dropped keystrokes are silent (SecureField). Same pattern as
+    /// `CommandPaletteView.queryFocused`.
+    @FocusState private var pinFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -18,12 +23,14 @@ struct PinEntrySheet: View {
                 .foregroundStyle(.secondary)
             SecureField("PIN", text: $pin)
                 .textFieldStyle(.roundedBorder)
+                .focused($pinFocused)
                 .onSubmit { submit() }
             if let errorText {
                 Text(errorText).font(.caption).foregroundStyle(.red)
             }
             HStack {
                 Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
                 Spacer()
                 Button("OK") { submit() }
                     .keyboardShortcut(.defaultAction)
@@ -32,6 +39,7 @@ struct PinEntrySheet: View {
         }
         .padding(24)
         .frame(minWidth: 320)
+        .onAppear { pinFocused = true }
     }
 
     private func submit() {

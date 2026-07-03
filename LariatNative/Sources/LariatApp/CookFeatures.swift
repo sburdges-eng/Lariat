@@ -9,7 +9,8 @@ extension FeatureModule {
                 database: ctx.database,
                 writeDB: ctx.writeDatabase,
                 catalog: ctx.catalog,
-                onOpenEightySix: { ctx.navigate("cook.eightySix") }
+                onOpenEightySix: { ctx.navigate("cook.eightySix") },
+                onOpenKds: { ctx.navigate("cook.kds") }
             )
         )
     }

@@ -23,6 +23,10 @@ final class PerformanceReviewsViewModel {
     private let pinStore: PinSessionStore
     private let locationId: String
     private let poller = BoardPoller()
+    /// Pending write captured when a submit needs a PIN unlock first — resumed
+    /// by `pinVerified` regardless of sheet state, so dismissing the form sheet
+    /// can't silently drop the typed review (PR #401 pattern).
+    private var pendingAction: (() -> Void)?
 
     init(writeDB: LariatWriteDatabase, pinStore: PinSessionStore, locationId: String = LocationScope.resolve()) {
         self.writeDB = writeDB
@@ -57,7 +61,7 @@ final class PerformanceReviewsViewModel {
         do {
             let gateOn = try writeDB.pool.read { db in try PinVerifier().gateConfigured(db: db) }
             guard gateOn else {
-                submitError = "PIN not set up — add a manager PIN in web Settings"
+                submitError = "PIN not set up — add one on the Manager → PINs board"
                 return
             }
         } catch {
@@ -67,6 +71,7 @@ final class PerformanceReviewsViewModel {
         if pinStore.activeUser != nil {
             performSubmit()
         } else {
+            pendingAction = { [weak self] in self?.performSubmit() }
             showPinSheet = true
         }
     }
@@ -103,9 +108,9 @@ final class PerformanceReviewsViewModel {
 
     func pinVerified(_ user: ManagerPinUser) {
         pinStore.save(user: user)
-        if showForm {
-            performSubmit()
-        }
+        let action = pendingAction
+        pendingAction = nil
+        action?()
     }
 
     func classification(for row: PerformanceReviewRow) -> ReviewClassification {
@@ -182,6 +187,9 @@ struct PerformanceReviewsView: View {
                     TextField("Reviewer name", text: $vm.reviewerName)
                     TextField("Notes", text: $vm.notes, axis: .vertical)
                         .lineLimit(3...6)
+                    if let submitError = vm.submitError {
+                        Text(submitError).font(.caption).foregroundStyle(.red)
+                    }
                 }
                 .navigationTitle("Log review")
                 .toolbar {
@@ -189,7 +197,13 @@ struct PerformanceReviewsView: View {
                         Button("Cancel") { vm.showForm = false }
                     }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Save") { vm.requestSubmit() }
+                        Button("Save") {
+                            // Dismiss first — the PIN sheet may need to present
+                            // next, and two sheets can't be up at once (PR #401).
+                            // Fields stay populated until the submit succeeds.
+                            vm.showForm = false
+                            vm.requestSubmit()
+                        }
                     }
                 }
             }

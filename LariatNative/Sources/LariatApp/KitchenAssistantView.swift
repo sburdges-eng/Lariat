@@ -54,16 +54,22 @@ struct KitchenAssistantView: View {
     }
 
     private var reachabilityBadge: some View {
-        HStack(spacing: 5) {
-            Circle()
-                .fill(model.ollamaReachable == true ? LariatTheme.ok
-                      : model.ollamaReachable == false ? LariatTheme.bad : LariatTheme.muted)
-                .frame(width: 8, height: 8)
-            Text(model.ollamaReachable == true ? "Ollama online"
-                 : model.ollamaReachable == false ? "Ollama offline" : "Checking…")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        Button {
+            Task { await model.refreshReachability() }
+        } label: {
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(model.ollamaReachable == true ? LariatTheme.ok
+                          : model.ollamaReachable == false ? LariatTheme.bad : LariatTheme.muted)
+                    .frame(width: 8, height: 8)
+                Text(model.ollamaReachable == true ? "Ollama online"
+                     : model.ollamaReachable == false ? "Ollama offline" : "Checking…")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
+        .buttonStyle(.plain)
+        .help("Tap to re-check the Ollama server")
     }
 
     private var tierBadge: some View {

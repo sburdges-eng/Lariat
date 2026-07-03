@@ -58,7 +58,12 @@ import Observation
 
 struct DepletionExceptionsView: View {
     @State private var vm: DepletionExceptionsViewModel
-    init(database: LariatDatabase) { _vm = State(wrappedValue: DepletionExceptionsViewModel(database: database)) }
+    private let navigate: (String) -> Void
+
+    init(database: LariatDatabase, navigate: @escaping (String) -> Void = { _ in }) {
+        _vm = State(wrappedValue: DepletionExceptionsViewModel(database: database))
+        self.navigate = navigate
+    }
 
     var body: some View {
         Group {
@@ -71,7 +76,7 @@ struct DepletionExceptionsView: View {
             } else if vm.isLoading {
                 ProgressView()
             } else {
-                DepletionExceptionsContentView(exceptions: vm.exceptions)
+                DepletionExceptionsContentView(exceptions: vm.exceptions, navigate: navigate)
             }
         }
         .navigationTitle("Depletion exceptions")
@@ -84,6 +89,7 @@ struct DepletionExceptionsView: View {
 
 private struct DepletionExceptionsContentView: View {
     let exceptions: [DepletionException]
+    let navigate: (String) -> Void
 
     var body: some View {
         ScrollView {
@@ -104,7 +110,7 @@ private struct DepletionExceptionsContentView: View {
                 } else {
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(exceptions) { e in
-                            DepletionExceptionRow(item: e)
+                            DepletionExceptionRow(item: e, navigate: navigate)
                         }
                     }
                     .padding(.horizontal)
@@ -117,6 +123,7 @@ private struct DepletionExceptionsContentView: View {
 
 private struct DepletionExceptionRow: View {
     let item: DepletionException
+    let navigate: (String) -> Void
 
     private var tone: DepletionReasonTone { DepletionReasonLabels.tone(item.reason) }
     private var toneColor: Color {
@@ -134,10 +141,19 @@ private struct DepletionExceptionRow: View {
                 .frame(width: 3)
 
             VStack(alignment: .leading, spacing: 4) {
-                // Fix-it deep link to /menu-engineering/components?dish=... has no
-                // native counterpart yet — render plain text, not a navigable link
-                // (deferred; see report).
-                Text(item.dishName).font(.headline)
+                // Fix-it deep link (page.jsx L143-149): the dish name opens
+                // the dish-components editor (`costing.components`). The web
+                // link pre-fills ?dish=; native lands on the editor and the
+                // operator picks the dish from Suggestions (no route-payload
+                // channel yet — noted in the audit report).
+                Button {
+                    navigate("costing.components")
+                } label: {
+                    Text(item.dishName).font(.headline)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.blue)
+                .help("Fix in dish components — add this dish's per-serving ingredients")
 
                 HStack(spacing: 4) {
                     Text(DepletionReasonLabels.label(item.reason))

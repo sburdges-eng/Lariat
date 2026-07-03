@@ -57,9 +57,7 @@ struct BeoFireScheduleView: View {
 
     var body: some View {
         Group {
-            if let err = vm.fetchError {
-                TileDegrade(title: "Could not load fire schedule", message: err, systemImage: "flame")
-            } else if !vm.loaded {
+            if !vm.loaded {
                 ProgressView("Loading fire schedule…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -74,10 +72,19 @@ struct BeoFireScheduleView: View {
     private var content: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                // The DatePicker stays visible even when a fetch fails —
+                // it (and Retry) are the only ways to trigger a new fetch.
                 DatePicker("Service date", selection: $vm.date, displayedComponents: .date)
                     .frame(maxWidth: 260)
 
-                if let payload = vm.payload, !payload.stations.isEmpty {
+                if let err = vm.fetchError {
+                    VStack(spacing: 8) {
+                        TileDegrade(title: "Could not load fire schedule", message: err, systemImage: "flame")
+                        Button("Retry") { Task { await vm.refresh() } }
+                            .buttonStyle(.borderedProminent)
+                    }
+                    .frame(maxWidth: .infinity)
+                } else if let payload = vm.payload, !payload.stations.isEmpty {
                     ForEach(payload.stations) { station in
                         BeoFireStationSection(station: station, now: now)
                     }

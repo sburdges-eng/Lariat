@@ -126,6 +126,36 @@ final class BarRepositoryTests: XCTestCase {
         XCTAssertEqual(southRows.map(\.ingredient), ["RUM"])
     }
 
+    // ── /bar/par: uncategorized-vs-empty distinction ────────────────────
+
+    /// The bar-par empty state must distinguish "no par list at all" from
+    /// "par rows exist but none carry a beverage category" (Shamrock
+    /// imports land with NULL category): totalParCount ignores category
+    /// but keeps location scope.
+    func testTotalParCountIgnoresCategoryAndScopesLocation() async throws {
+        let (repo, writeDB, path) = try makeRepo()
+        defer { cleanup(path: path) }
+        try await writeDB.pool.write { db in
+            try db.execute(sql: """
+                INSERT INTO inventory_par (ingredient, sku, par_qty, category, location_id) VALUES
+                  ('TEQUILA BLANCO', '', 6, NULL, 'default'),
+                  ('FLOUR', '', 50, 'Dry Goods', 'default'),
+                  ('IPA KEG', '', 2, 'beer', 'default'),
+                  ('RUM', '', 4, NULL, 'south')
+                """)
+        }
+        let total = try await repo.totalParCount(locationId: "default")
+        XCTAssertEqual(total, 3, "counts NULL-category and non-beverage rows too")
+        // Bar-filtered view of the same data: only the beer row survives —
+        // total > filtered is exactly the 'uncategorized' empty-state case.
+        let barRows = try await repo.loadParRows(locationId: "default")
+        XCTAssertEqual(barRows.map(\.ingredient), ["IPA KEG"])
+        let south = try await repo.totalParCount(locationId: "south")
+        XCTAssertEqual(south, 1)
+        let empty = try await repo.totalParCount(locationId: "nowhere")
+        XCTAssertEqual(empty, 0)
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────
 
     private func makeRepo() throws -> (BarRepository, LariatWriteDatabase, String) {

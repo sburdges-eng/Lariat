@@ -99,22 +99,39 @@ import Observation
 struct CommandView: View {
     @State private var vm: CommandViewModel
     private let writeDatabase: LariatWriteDatabase?
+    private let navigate: (String) -> Void
 
-    init(database: LariatDatabase, writeDatabase: LariatWriteDatabase? = nil) {
+    init(
+        database: LariatDatabase,
+        writeDatabase: LariatWriteDatabase? = nil,
+        navigate: @escaping (String) -> Void = { _ in }
+    ) {
         _vm = State(wrappedValue: CommandViewModel(database: database))
         self.writeDatabase = writeDatabase
+        self.navigate = navigate
     }
 
     var body: some View {
         Group {
-            if let err = vm.errorText {
+            if let s = vm.summary {
+                // Keep stale data on a transient poll error (e.g. momentary
+                // SQLITE_BUSY from a concurrent web-app write) — a small banner
+                // beats blanking the whole board until the next good poll.
+                VStack(spacing: 0) {
+                    if let err = vm.errorText {
+                        StaleDataBanner(message: err)
+                    }
+                    CommandContentView(
+                        summary: s, alerts: vm.alerts,
+                        writeDatabase: writeDatabase, navigate: navigate
+                    )
+                }
+            } else if let err = vm.errorText {
                 TileDegrade(
                     title: "Database unavailable",
                     message: err,
                     systemImage: "externaldrive.badge.xmark"
                 )
-            } else if let s = vm.summary {
-                CommandContentView(summary: s, alerts: vm.alerts, writeDatabase: writeDatabase)
             } else {
                 ProgressView()
             }
@@ -125,12 +142,39 @@ struct CommandView: View {
     }
 }
 
+// MARK: - Stale-data banner (shared by Command / Analytics / Management rollup)
+
+/// Inline warning shown OVER already-loaded content when a poll cycle fails —
+/// the board keeps its last good snapshot instead of degrading to a full-screen
+/// error tile (the labor/inventory `if let err, rows.isEmpty` posture).
+struct StaleDataBanner: View {
+    let message: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Text("Refresh failed — showing last good data. \(message)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+            Spacer()
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 6)
+        .background(.orange.opacity(0.12))
+    }
+}
+
 // MARK: - Content (8 signal-group tiles + alerts)
 
 private struct CommandContentView: View {
     let summary: CommandSummary
     let alerts: [CommandAlert]
     let writeDatabase: LariatWriteDatabase?
+    /// Opens another feature by its stable catalog id (`AppContext.navigate`) —
+    /// every tile jumps to the board it summarizes, like the Labor tile.
+    let navigate: (String) -> Void
 
     var body: some View {
         ScrollView {
@@ -180,38 +224,53 @@ private struct CommandContentView: View {
         return .ok
     }
 
+    /// Tile → board jump via `AppContext.navigate`, matching the Labor tile's
+    /// tap affordance (plain button style keeps the tile chrome).
+    private func navTile<Content: View>(_ featureId: String, @ViewBuilder _ content: () -> Content) -> some View {
+        Button { navigate(featureId) } label: { content() }
+            .buttonStyle(.plain)
+    }
+
     // 1. Sales — "Yesterday vs 7-day average"
     private var salesTile: some View {
-        CommandTile(title: "Sales", sub: "Yesterday vs 7-day average", tone: tone(["sales-down"])) {
-            TileLine(n: formatDollars(summary.sales.yesterdayNet), label: "net sales yesterday")
-            TileLine(n: "\(summary.sales.orders)", label: "orders")
-            TileLine(n: formatDollars(summary.sales.avg7Net), label: "7-day avg")
+        navTile("manager.analytics") {
+            CommandTile(title: "Sales", sub: "Yesterday vs 7-day average", tone: tone(["sales-down"])) {
+                TileLine(n: formatDollars(summary.sales.yesterdayNet), label: "net sales yesterday")
+                TileLine(n: "\(summary.sales.orders)", label: "orders")
+                TileLine(n: formatDollars(summary.sales.avg7Net), label: "7-day avg")
+            }
         }
     }
 
     // 2. 86 board — "Active items off the menu right now"
     private var eightySixTile: some View {
-        CommandTile(title: "86 board", sub: "Active items off the menu right now", tone: tone(["eighty-six"])) {
-            TileLine(n: "\(summary.eightySix)", label: "items 86'd")
+        navTile("cook.eightySix") {
+            CommandTile(title: "86 board", sub: "Active items off the menu right now", tone: tone(["eighty-six"])) {
+                TileLine(n: "\(summary.eightySix)", label: "items 86'd")
+            }
         }
     }
 
     // 3. Inventory — "Latest count vs par"
     private var inventoryTile: some View {
-        CommandTile(title: "Inventory", sub: "Latest count vs par", tone: tone(["inventory-low-par", "inventory-open-counts"])) {
-            TileLine(n: "\(summary.inventory.lowPar)", label: "below par")
-            TileLine(n: "\(summary.inventory.parTotal)", label: "tracked items")
-            TileLine(n: "\(summary.inventory.openCounts)", label: "open counts")
+        navTile("inventory.par") {
+            CommandTile(title: "Inventory", sub: "Latest count vs par", tone: tone(["inventory-low-par", "inventory-open-counts"])) {
+                TileLine(n: "\(summary.inventory.lowPar)", label: "below par")
+                TileLine(n: "\(summary.inventory.parTotal)", label: "tracked items")
+                TileLine(n: "\(summary.inventory.openCounts)", label: "open counts")
+            }
         }
     }
 
     // 4. Price moves — "Vendor SKUs that moved 5%+ in 7 days"
     // priceMoves is threaded from ManagementRollupRepository.load() → PriceShockSummary.
     private var priceMovesTile: some View {
-        CommandTile(title: "Price moves", sub: "Vendor SKUs that moved 5%+ in 7 days", tone: tone(["price-moves"])) {
-            TileLine(n: "\(summary.priceMoves.up)", label: "up")
-            TileLine(n: "\(summary.priceMoves.down)", label: "down")
-            TileLine(n: "\(summary.priceMoves.total)", label: "total moves")
+        navTile("costing.priceShocks") {
+            CommandTile(title: "Price moves", sub: "Vendor SKUs that moved 5%+ in 7 days", tone: tone(["price-moves"])) {
+                TileLine(n: "\(summary.priceMoves.up)", label: "up")
+                TileLine(n: "\(summary.priceMoves.down)", label: "down")
+                TileLine(n: "\(summary.priceMoves.total)", label: "total moves")
+            }
         }
     }
 
@@ -219,19 +278,23 @@ private struct CommandContentView: View {
     // marginMoves is threaded from MarginDeltasRepository.summary() (port of
     // lib/marginDeltas.ts listMarginDeltas) → MoveSummary, same as priceMoves.
     private var marginMovesTile: some View {
-        CommandTile(title: "Margin moves", sub: "Dish costs that moved 5%+ in 7 days", tone: tone(["margin-moves"])) {
-            TileLine(n: "\(summary.marginMoves.up)", label: "up")
-            TileLine(n: "\(summary.marginMoves.down)", label: "down")
-            TileLine(n: "\(summary.marginMoves.total)", label: "total moves")
+        navTile("costing.marginDeltas") {
+            CommandTile(title: "Margin moves", sub: "Dish costs that moved 5%+ in 7 days", tone: tone(["margin-moves"])) {
+                TileLine(n: "\(summary.marginMoves.up)", label: "up")
+                TileLine(n: "\(summary.marginMoves.down)", label: "down")
+                TileLine(n: "\(summary.marginMoves.total)", label: "total moves")
+            }
         }
     }
 
     // 6. Prep board — "Today's tasks across the line"
     private var prepBoardTile: some View {
-        CommandTile(title: "Prep board", sub: "Today's tasks across the line", tone: tone(["prep-rush"])) {
-            TileLine(n: "\(summary.prep.todo)", label: "to do")
-            TileLine(n: "\(summary.prep.inProgress)", label: "in progress")
-            TileLine(n: "\(summary.prep.rush)", label: "high or rush")
+        navTile("cook.prep") {
+            CommandTile(title: "Prep board", sub: "Today's tasks across the line", tone: tone(["prep-rush"])) {
+                TileLine(n: "\(summary.prep.todo)", label: "to do")
+                TileLine(n: "\(summary.prep.inProgress)", label: "in progress")
+                TileLine(n: "\(summary.prep.rush)", label: "high or rush")
+            }
         }
     }
 
@@ -262,27 +325,33 @@ private struct CommandContentView: View {
 
     // 8. Food safety — "Today's temp readings + active date marks"
     private var foodSafetyTile: some View {
-        CommandTile(title: "Food safety", sub: "Today's temp readings + active date marks", tone: tone(["temp-breaches", "date-marks-expired", "date-marks-due-today", "cleaning-overdue", "cleaning-due-today", "probes-overdue", "probes-failed", "probes-due-soon"])) {
-            TileLine(n: "\(summary.foodSafety.tempBreaches)", label: "temp out of range")
-            TileLine(n: "\(summary.foodSafety.dateMarksExpired)", label: "expired marks")
-            TileLine(n: "\(summary.foodSafety.cleaningOverdue)", label: "cleaning overdue")
+        navTile("safety.hub") {
+            CommandTile(title: "Food safety", sub: "Today's temp readings + active date marks", tone: tone(["temp-breaches", "date-marks-expired", "date-marks-due-today", "cleaning-overdue", "cleaning-due-today", "probes-overdue", "probes-failed", "probes-due-soon"])) {
+                TileLine(n: "\(summary.foodSafety.tempBreaches)", label: "temp out of range")
+                TileLine(n: "\(summary.foodSafety.dateMarksExpired)", label: "expired marks")
+                TileLine(n: "\(summary.foodSafety.cleaningOverdue)", label: "cleaning overdue")
+            }
         }
     }
 
     // 9. Events — "Booked events today" (data already in CommandSummary)
     private var eventsTile: some View {
-        CommandTile(title: "Events", sub: "Booked events today", tone: tone([])) {
-            TileLine(n: "\(summary.eventsToday)", label: "events")
-            TileLine(n: "\(summary.eventsGuests)", label: "covers")
+        navTile("foh.booking") {
+            CommandTile(title: "Events", sub: "Booked events today", tone: tone([])) {
+                TileLine(n: "\(summary.eventsToday)", label: "events")
+                TileLine(n: "\(summary.eventsGuests)", label: "covers")
+            }
         }
     }
 
     // 10. Reservations — "Today's covers" (data already in CommandSummary)
     private var reservationsTile: some View {
-        CommandTile(title: "Reservations", sub: "Today's covers", tone: tone(["reservations-to-seat", "reservation-no-shows"])) {
-            TileLine(n: "\(summary.reservations.booked)", label: "booked")
-            TileLine(n: "\(summary.reservations.seated)", label: "seated")
-            TileLine(n: "\(summary.reservations.noShow)", label: "no-shows")
+        navTile("foh.reservations") {
+            CommandTile(title: "Reservations", sub: "Today's covers", tone: tone(["reservations-to-seat", "reservation-no-shows"])) {
+                TileLine(n: "\(summary.reservations.booked)", label: "booked")
+                TileLine(n: "\(summary.reservations.seated)", label: "seated")
+                TileLine(n: "\(summary.reservations.noShow)", label: "no-shows")
+            }
         }
     }
 }

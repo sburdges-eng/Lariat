@@ -8,7 +8,6 @@ struct DateMarkView: View {
     @State private var preparedOn = ShiftDate.todayISO()
     @State private var batchRef = ""
     @State private var discardTarget: DateMarkRow?
-    @State private var discardReason: DateMarkDiscardReason = .expired
     @State private var query = ""
 
     init(readDB: LariatDatabase, writeDB: LariatWriteDatabase) {
@@ -38,19 +37,21 @@ struct DateMarkView: View {
         .confirmationDialog("Discard batch", isPresented: Binding(
             get: { discardTarget != nil },
             set: { if !$0 { discardTarget = nil } }
-        )) {
-            Picker("Reason", selection: $discardReason) {
-                ForEach(DateMarkDiscardReason.allCases) { reason in
-                    Text(reason.label).tag(reason)
+        ), titleVisibility: .visible) {
+            // Confirmation dialogs render Buttons only (a Picker is silently
+            // dropped), so offer one destructive button per discard reason —
+            // same pattern as TphcView's per-reason discard buttons.
+            ForEach(DateMarkDiscardReason.allCases) { reason in
+                Button(reason.label, role: .destructive) {
+                    if let row = discardTarget {
+                        Task { await vm.discard(id: row.id, reason: reason) }
+                    }
+                    discardTarget = nil
                 }
-            }
-            Button("Discard", role: .destructive) {
-                if let row = discardTarget {
-                    Task { await vm.discard(id: row.id, reason: discardReason) }
-                }
-                discardTarget = nil
             }
             Button("Cancel", role: .cancel) { discardTarget = nil }
+        } message: {
+            Text("Why is this batch being discarded? The reason goes on the compliance record.")
         }
     }
 

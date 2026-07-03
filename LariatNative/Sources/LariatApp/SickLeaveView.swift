@@ -95,6 +95,10 @@ struct SickLeaveView: View {
                         Text(s.displayName).tag(s.id)
                     }
                 }
+                if vm.staffUnavailable {
+                    Text("No staff on file — run the staff sync to create data/cache/staff.json.")
+                        .font(.caption).foregroundStyle(.orange)
+                }
                 Picker("Action", selection: $vm.useMode) {
                     Text("Add hours").tag(false)
                     Text("Use hours").tag(true)
@@ -112,8 +116,14 @@ struct SickLeaveView: View {
                     Button("Cancel") { vm.showForm = false }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(vm.useMode ? "Use" : "Add") { vm.requestSubmit() }
-                        .disabled(vm.cookId.isEmpty || vm.hoursText.isEmpty)
+                    Button(vm.useMode ? "Use" : "Add") {
+                        // Dismiss first — the PIN sheet may need to present next,
+                        // and two sheets can't be up at once (PR #401). Fields
+                        // stay populated until the submit succeeds.
+                        vm.showForm = false
+                        vm.requestSubmit()
+                    }
+                    .disabled(vm.cookId.isEmpty || vm.hoursText.isEmpty)
                 }
             }
         }

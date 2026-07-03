@@ -96,12 +96,14 @@ public enum IngredientMasterWriteError: Error, LocalizedError, Sendable, Equatab
     case rejected(String)          // validateMasterUpdates rule failures (web 422 / MasterUpdateRejectedError)
     case notFound                  // symmetry only — see doc comment above
     case persistenceFailed
+    case writeDatabaseUnavailable  // native-only: LariatWriteDatabase failed to open — session is read-only
 
     public var errorDescription: String? {
         switch self {
         case .rejected(let message): return message
         case .notFound: return "Ingredient master not found"
         case .persistenceFailed: return "Could not save ingredient master"
+        case .writeDatabaseUnavailable: return "Write database unavailable — read-only"
         }
     }
 }

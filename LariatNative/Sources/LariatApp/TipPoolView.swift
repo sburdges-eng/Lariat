@@ -108,6 +108,10 @@ struct TipPoolView: View {
                     Text("— pick —").tag("")
                     ForEach(vm.staff) { s in Text(s.displayName).tag(s.id) }
                 }
+                if vm.staffUnavailable {
+                    Text("No staff on file — run the staff sync to create data/cache/staff.json.")
+                        .font(.caption).foregroundStyle(.orange)
+                }
                 Picker("Kind", selection: $vm.kind) {
                     Text("Tip pool").tag(TipKind.tip_pool)
                     Text("Service charge").tag(TipKind.service_charge)
@@ -127,8 +131,14 @@ struct TipPoolView: View {
                     Button("Cancel") { vm.showForm = false }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") { vm.requestSubmit() }
-                        .disabled(vm.cookId.isEmpty || vm.amountText.isEmpty)
+                    Button("Add") {
+                        // Dismiss first — the PIN sheet may need to present next,
+                        // and two sheets can't be up at once (PR #401). Fields
+                        // stay populated until the submit succeeds.
+                        vm.showForm = false
+                        vm.requestSubmit()
+                    }
+                    .disabled(vm.cookId.isEmpty || vm.amountText.isEmpty)
                 }
             }
         }

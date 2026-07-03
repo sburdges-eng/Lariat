@@ -130,15 +130,27 @@ public struct KdsOpenTicket: Sendable, Identifiable {
     public let placedAt: String
     public let destination: String?
     public let lines: [KdsOpenTicketLine]
+    /// Latest bump-back time from `kds_ticket_states` (nil = never bumped).
+    /// The ticket itself stays on the open board either way — web parity keeps
+    /// `kds_tickets.bumped_at` NULL; only the state row records the bump.
+    public let bumpedAt: String?
 
     public var identifier: String { id }
 
-    public init(id: String, orderNumber: String, placedAt: String, destination: String?, lines: [KdsOpenTicketLine]) {
+    public init(
+        id: String,
+        orderNumber: String,
+        placedAt: String,
+        destination: String?,
+        lines: [KdsOpenTicketLine],
+        bumpedAt: String? = nil
+    ) {
         self.id = id
         self.orderNumber = orderNumber
         self.placedAt = placedAt
         self.destination = destination
         self.lines = lines
+        self.bumpedAt = bumpedAt
     }
 }
 

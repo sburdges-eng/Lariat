@@ -50,6 +50,11 @@ struct SickWorkerView: View {
                 staffUnavailable: vm.staffUnavailable
             ) { vm.showCookPicker = false }
         }
+        .sheet(isPresented: $vm.showPinSheet) {
+            PinEntrySheet(database: vm.writeDatabase) { user in
+                vm.pinVerified(user)
+            }
+        }
     }
 
     @ViewBuilder
@@ -68,6 +73,11 @@ struct SickWorkerView: View {
                 Section {
                     Text("Filing and clearing reports requires the manager PIN.")
                         .font(.callout).foregroundStyle(.orange)
+                    Button {
+                        vm.requestUnlock()
+                    } label: {
+                        Label("Unlock with manager PIN", systemImage: "lock.open")
+                    }
                 }
             }
 

@@ -41,8 +41,10 @@ struct PrepParView: View {
             CookIdentityPicker(
                 store: vm.cookStore,
                 staff: vm.staff,
-                staffUnavailable: vm.staffUnavailable
-            ) { vm.showCookPicker = false }
+                staffUnavailable: vm.staffUnavailable,
+                onDismiss: { vm.showCookPicker = false },
+                onCancel: { vm.actionError = "Not saved — pick a cook to record the change." }
+            )
         }
         .confirmationDialog(
             "Remove \(deleteTarget?.label ?? "")?",
@@ -54,11 +56,33 @@ struct PrepParView: View {
         ) {
             Button("Remove", role: .destructive) {
                 if let row = deleteTarget {
-                    Task { await vm.delete(id: row.id) }
+                    Task { await submitDelete(id: row.id) }
                 }
                 deleteTarget = nil
             }
             Button("Cancel", role: .cancel) { deleteTarget = nil }
+        }
+    }
+
+    // ── Cook-gated submits (fields clear ONLY on a committed write; an
+    //    identity interrupt stashes the same submit for auto-retry) ──────
+
+    private func submitSave() async {
+        let ok = await vm.save(
+            recipe: recipe, ingredient: ingredient, station: station,
+            targetQty: targetQty, unit: unit, note: note
+        )
+        if ok {
+            resetForm()
+        } else if vm.showCookPicker {
+            vm.cookStore.stashPendingWrite { await submitSave() }
+        }
+    }
+
+    private func submitDelete(id: Int64) async {
+        let ok = await vm.delete(id: id)
+        if !ok, vm.showCookPicker {
+            vm.cookStore.stashPendingWrite { await submitDelete(id: id) }
         }
     }
 
@@ -115,13 +139,7 @@ struct PrepParView: View {
 
                 HStack {
                     Button(vm.isSaving ? "Saving…" : "Save") {
-                        Task {
-                            await vm.save(
-                                recipe: recipe, ingredient: ingredient, station: station,
-                                targetQty: targetQty, unit: unit, note: note
-                            )
-                            if vm.actionError == nil { resetForm() }
-                        }
+                        Task { await submitSave() }
                     }
                     .disabled(vm.isSaving || bothEmpty)
                     Button("Cancel", role: .cancel) { resetForm(); showAdd = false }

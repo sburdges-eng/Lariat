@@ -18,7 +18,10 @@ import Observation
             self.catalogError = nil
         } catch {
             self.catalog = nil
-            self.catalogError = "Could not load Today"
+            // Actionable degrade copy — point at the cache files the catalog
+            // reads (stations.json / line_checks.json / recipes.json).
+            let cacheDir = resolveCacheDirectory()
+            self.catalogError = "Station catalog missing — check \(cacheDir)/stations.json, line_checks.json, recipes.json (\(error.localizedDescription))"
         }
     }
 
@@ -43,6 +46,7 @@ import Observation
 struct TodayView: View {
     @State private var vm: TodayViewModel
     var onOpenEightySix: () -> Void
+    var onOpenKds: () -> Void
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase?
     private let catalog: StationCatalog?
@@ -51,13 +55,15 @@ struct TodayView: View {
         database: LariatDatabase,
         writeDB: LariatWriteDatabase? = nil,
         catalog: StationCatalog? = nil,
-        onOpenEightySix: @escaping () -> Void = {}
+        onOpenEightySix: @escaping () -> Void = {},
+        onOpenKds: @escaping () -> Void = {}
     ) {
         _vm = State(wrappedValue: TodayViewModel(database: database))
         self.readDB = database
         self.writeDB = writeDB
         self.catalog = catalog
         self.onOpenEightySix = onOpenEightySix
+        self.onOpenKds = onOpenKds
     }
 
     var body: some View {
@@ -129,7 +135,11 @@ struct TodayView: View {
 
     private func actionRow(onOpenEightySix: @escaping () -> Void) -> some View {
         HStack(spacing: 12) {
-            stubActionCard(eyebrow: "Next", title: "Send to line")
+            // Web parity: /v2/today links this card to /v2/kds/punch.
+            Button(action: onOpenKds) {
+                actionCard(eyebrow: "Next", title: "Send to line")
+            }
+            .buttonStyle(.plain)
             Button(action: onOpenEightySix) {
                 actionCard(eyebrow: "Watch", title: "86 right now")
             }
@@ -158,7 +168,7 @@ struct TodayView: View {
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 10)], spacing: 10) {
                 ForEach(snap.activeStations, id: \.station.id) { row in
-                    if let writeDB, let catalog {
+                    if writeDB != nil, catalog != nil {
                         NavigationLink(value: row.station.id) {
                             stationCard(row)
                         }
@@ -259,17 +269,6 @@ struct TodayView: View {
         .frame(maxWidth: .infinity, minHeight: 86, alignment: .leading)
         .padding(14)
         .background(.background.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
-    }
-
-    private func stubActionCard(eyebrow: String, title: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(eyebrow).font(.caption.weight(.heavy)).foregroundStyle(.secondary).textCase(.uppercase)
-            Text(title).font(.headline)
-        }
-        .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
-        .padding(16)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
-        .opacity(0.7)
     }
 
     private func formatDateChip(_ iso: String) -> String {

@@ -22,6 +22,9 @@ final class GoldStarsViewModel {
     private(set) var recognitions: [GoldStarRow] = []
     private(set) var leaderboard: [GoldStarLeaderboardRow] = []
     private(set) var roster: [String] = []
+    /// True when `staff.json` was missing/unreadable — the award sheet falls
+    /// back to manual name entry (CookIdentityPicker precedent).
+    private(set) var rosterUnavailable = false
     private(set) var loaded = false
     var fetchError: String?
     var errorMessage: String?
@@ -42,6 +45,9 @@ final class GoldStarsViewModel {
     private let locationId: String
     private let poller = BoardPoller()
     private var pendingAction: (() -> Void)?
+    /// Whether the queued PIN-gated action is an award (so a cancelled PIN
+    /// can re-open the award sheet without losing the typed reason).
+    private var pendingActionIsAward = false
 
     init(
         readDB: LariatDatabase,
@@ -54,7 +60,14 @@ final class GoldStarsViewModel {
         self.pinStore = pinStore ?? PinSessionStore.shared
         self.locationId = locationId
         // Web parity: roster from staff.json, active members, "First Last".
-        self.roster = (try? StaffCatalog.load())?.map(\.displayName) ?? []
+        // A missing/unreadable cache degrades to manual name entry in the
+        // award sheet instead of a permanently disabled picker.
+        do {
+            self.roster = try StaffCatalog.load().map(\.displayName)
+        } catch {
+            self.roster = []
+            self.rosterUnavailable = true
+        }
     }
 
     var writeDatabase: LariatWriteDatabase { writeDB }
@@ -111,11 +124,12 @@ final class GoldStarsViewModel {
     func requestAward() {
         errorMessage = nil
         // Board-level checks before the write (GoldStarBoard.tsx submit).
+        selectedCook = selectedCook.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !selectedCook.isEmpty, !reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             errorMessage = "Cook and reason needed"
             return
         }
-        gate { [weak self] in self?.performAward() }
+        gate(isAward: true) { [weak self] in self?.performAward() }
     }
 
     func requestRemove(_ record: GoldStarRow) {
@@ -127,14 +141,28 @@ final class GoldStarsViewModel {
         pinStore.save(user: user)
         let action = pendingAction
         pendingAction = nil
+        pendingActionIsAward = false
         action?()
     }
 
-    private func gate(_ action: @escaping () -> Void) {
+    /// PIN sheet dismissed without verifying (HostStand `pinCancelled`
+    /// precedent): drop the queued write. If it was an award, re-open the
+    /// award sheet — the form values still live on the VM, so the typed
+    /// reason isn't lost.
+    func pinCancelled() {
+        guard pendingAction != nil else { return }
+        let wasAward = pendingActionIsAward
+        pendingAction = nil
+        pendingActionIsAward = false
+        if wasAward { showAwardSheet = true }
+    }
+
+    private func gate(isAward: Bool = false, _ action: @escaping () -> Void) {
         if pinStore.activeUser != nil {
             action()
         } else {
             pendingAction = action
+            pendingActionIsAward = isAward
             showPinSheet = true
         }
     }

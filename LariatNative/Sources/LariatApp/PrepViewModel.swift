@@ -64,10 +64,13 @@ final class PrepViewModel {
 
     // MARK: - add (POST)
 
-    func add(task: String, stationId: String, qty: String, priority: PrepPriority, notes: String) async {
-        guard !isSaving else { return }
+    /// Returns true only when the task write committed (the view clears its
+    /// drafts on true, never on a silent early return).
+    @discardableResult
+    func add(task: String, stationId: String, qty: String, priority: PrepPriority, notes: String) async -> Bool {
+        guard !isSaving else { return false }
         let trimmed = task.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty else { return false }
 
         isSaving = true
         actionError = nil
@@ -89,43 +92,49 @@ final class PrepViewModel {
                 context: writeContext()
             )
             await refresh()
+            return true
         } catch {
             actionError = WriteErrorMapper.message(for: error)
+            return false
         }
     }
 
     // MARK: - lifecycle actions (PATCH)
 
-    func claim(_ id: Int64) async {
-        guard ensureCookIdentity() else { return }
-        await mutate(id) { repo, ctx in
+    @discardableResult
+    func claim(_ id: Int64) async -> Bool {
+        guard ensureCookIdentity() else { return false }
+        return await mutate(id) { repo, ctx in
             _ = try repo.patch(id: id, input: .claimBy(self.cookStore.cookId), context: ctx)
         }
     }
 
-    func releaseClaim(_ id: Int64) async {
+    @discardableResult
+    func releaseClaim(_ id: Int64) async -> Bool {
         await mutate(id) { repo, ctx in
             _ = try repo.patch(id: id, input: .releaseClaim(cookId: self.cookStore.cookId), context: ctx)
         }
     }
 
-    func setStatus(_ id: Int64, _ status: PrepStatus) async {
-        if status != .todo, !ensureCookIdentity() { return }
-        await mutate(id) { repo, ctx in
+    @discardableResult
+    func setStatus(_ id: Int64, _ status: PrepStatus) async -> Bool {
+        if status != .todo, !ensureCookIdentity() { return false }
+        return await mutate(id) { repo, ctx in
             _ = try repo.patch(id: id, input: .status(status.rawValue, cookId: self.cookStore.cookId), context: ctx)
         }
     }
 
     // MARK: - delete (DELETE)
 
-    func delete(_ id: Int64) async {
+    @discardableResult
+    func delete(_ id: Int64) async -> Bool {
         await mutate(id) { repo, ctx in
             try repo.delete(id: id, context: ctx)
         }
     }
 
-    private func mutate(_ id: Int64, _ work: (PrepRepository, RegulatedWriteContext) throws -> Void) async {
-        guard !busyIds.contains(id) else { return }
+    private func mutate(_ id: Int64, _ work: (PrepRepository, RegulatedWriteContext) throws -> Void) async -> Bool {
+        guard !busyIds.contains(id) else { return false }
         busyIds.insert(id)
         actionError = nil
         defer { busyIds.remove(id) }
@@ -134,8 +143,10 @@ final class PrepViewModel {
         do {
             try work(repo, writeContext())
             await refresh()
+            return true
         } catch {
             actionError = WriteErrorMapper.message(for: error)
+            return false
         }
     }
 

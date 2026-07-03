@@ -79,14 +79,18 @@ final class EightySixViewModel {
 
     func isResolving(_ id: Int64) -> Bool { resolvingIds.contains(id) }
 
+    /// Returns true only when the 86 row committed. An identity interrupt
+    /// (picker presented) returns false with actionError still nil — the view
+    /// must keep its typed fields and stash a retry.
+    @discardableResult
     func add(
         item: String,
         stationId: String,
         reason: EightySixReasonCode,
         quantity: String
-    ) async {
-        guard !isSaving else { return }
-        guard ensureCookIdentity() else { return }
+    ) async -> Bool {
+        guard !isSaving else { return false }
+        guard ensureCookIdentity() else { return false }
 
         isSaving = true
         actionError = nil
@@ -107,14 +111,17 @@ final class EightySixViewModel {
                 context: context
             )
             await refresh()
+            return true
         } catch {
             actionError = WriteErrorMapper.message(for: error)
+            return false
         }
     }
 
-    func resolve(id: Int64) async {
-        guard !resolvingIds.contains(id) else { return }
-        guard ensureCookIdentity() else { return }
+    @discardableResult
+    func resolve(id: Int64) async -> Bool {
+        guard !resolvingIds.contains(id) else { return false }
+        guard ensureCookIdentity() else { return false }
 
         resolvingIds.insert(id)
         actionError = nil
@@ -125,14 +132,17 @@ final class EightySixViewModel {
         do {
             _ = try repo.resolve(id: id, context: context)
             await refresh()
+            return true
         } catch {
             actionError = WriteErrorMapper.message(for: error)
+            return false
         }
     }
 
-    func confirmCascadeAdd(_ recipe: CascadedRecipe) async {
+    @discardableResult
+    func confirmCascadeAdd(_ recipe: CascadedRecipe) async -> Bool {
         confirmCascade = nil
-        await add(item: recipe.name, stationId: "", reason: .prepShort, quantity: "")
+        return await add(item: recipe.name, stationId: "", reason: .prepShort, quantity: "")
     }
 
     private func ensureCookIdentity() -> Bool {

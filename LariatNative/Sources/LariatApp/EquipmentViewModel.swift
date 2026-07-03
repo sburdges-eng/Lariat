@@ -220,6 +220,41 @@ final class EquipmentViewModel {
         }
     }
 
+    // ── manual link resolution (Details tab) ────────────────────────────
+    // The web renders manual_path as <a href="/{manual_path}"> served off
+    // the repo root; natively the same repo-relative path resolves to a
+    // local file opened via NSWorkspace.
+
+    /// An http(s) manual_path → URL for `Link` (web `<a target=_blank>`).
+    nonisolated static func manualWebURL(_ manual: String) -> URL? {
+        let trimmed = manual.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = trimmed.lowercased()
+        guard lower.hasPrefix("http://") || lower.hasPrefix("https://") else { return nil }
+        return URL(string: trimmed)
+    }
+
+    /// Resolve a repo-relative manual_path (web serves `/{path}` off
+    /// LARIAT_ROOT) to an existing file URL, or nil when the file is
+    /// missing. Leading '/' is treated as root-relative (web parity:
+    /// `manual_path.replace(/^\//, '')`) unless it already exists as an
+    /// absolute filesystem path.
+    nonisolated static func manualFileURL(
+        _ manual: String,
+        env: [String: String] = ProcessInfo.processInfo.environment,
+        cwd: String = FileManager.default.currentDirectoryPath,
+        fileExists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
+    ) -> URL? {
+        let trimmed = manual.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if trimmed.hasPrefix("/"), fileExists(trimmed) {
+            return URL(fileURLWithPath: trimmed)
+        }
+        let root = BeoCascadeClient.resolveProjectRoot(env: env, cwd: cwd, fileExists: fileExists)
+        let relative = trimmed.hasPrefix("/") ? String(trimmed.dropFirst()) : trimmed
+        let joined = (root as NSString).appendingPathComponent(relative)
+        return fileExists(joined) ? URL(fileURLWithPath: joined) : nil
+    }
+
     private func perform(_ body: () throws -> Void) {
         actionError = nil
         isSaving = true

@@ -321,13 +321,36 @@ final class KdsTicketRepositoryTests: XCTestCase {
         let before = try await repo.loadOpen()
         XCTAssertEqual(before.tickets.count, 1)
         let ticketId = before.tickets[0].id
+        XCTAssertNil(before.tickets[0].bumpedAt, "unbumped ticket must carry no bump state")
 
-        _ = try repo.bump(ticketId: ticketId, input: KdsBumpInput(station: "grill"), context: .nativeCook(cookId: "al"))
+        let result = try repo.bump(ticketId: ticketId, input: KdsBumpInput(station: "grill"), context: .nativeCook(cookId: "al"))
 
-        // Web parity: the bumped ticket STAYS on the open board.
+        // Web parity: the bumped ticket STAYS on the open board — but the
+        // board surfaces the state row's bumped_at so the UI can show it.
         let after = try await repo.loadOpen()
         XCTAssertEqual(after.tickets.count, 1)
         XCTAssertEqual(after.tickets[0].id, ticketId)
+        XCTAssertEqual(after.tickets[0].bumpedAt, result.bumpedAt)
+    }
+
+    /// Bump state is location-scoped: a same-id state row under another
+    /// location must not leak onto this location's open board.
+    func testLoadOpenBumpStateIsLocationScoped() async throws {
+        let (readDB, writeDB, auditPath, dbPath) = try makeRepos()
+        defer { cleanup(dbPath: dbPath, auditPath: auditPath) }
+        try seedTicket(writeDB, id: "tkt_scope", location: "default")
+        try writeDB.write { db in
+            try db.execute(
+                sql: """
+                  INSERT INTO kds_ticket_states (ticket_id, location_id, bumped_at)
+                  VALUES ('tkt_scope', 'loc_other', '2026-05-04T19:00:00.000Z')
+                  """
+            )
+        }
+        let repo = KdsTicketRepository(readDB: readDB, writeDB: writeDB, auditLogger: ManagementAuditLogger(auditPath: auditPath))
+        let snap = try await repo.loadOpen(locationId: "default")
+        XCTAssertEqual(snap.tickets.count, 1)
+        XCTAssertNil(snap.tickets[0].bumpedAt, "another location's bump state must not surface here")
     }
 
     private func seedTicket(_ writeDB: LariatWriteDatabase, id: String, location: String = "default") throws {

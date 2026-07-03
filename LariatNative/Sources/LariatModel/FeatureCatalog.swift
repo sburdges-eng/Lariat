@@ -116,6 +116,9 @@ public enum FeatureCatalog {
         // Shows (A6.4) — PIN-gated on the web (/shows SENSITIVE_PREFIXES);
         // each surface enforces the PIN itself, so they stay enabled here.
         FeatureDescriptor(id: "shows.tonight", tier: .shows, title: "Tonight"),
+        // /playbook — the show-marketing checklists (read-only; also a web
+        // SENSITIVE_PREFIX, PIN enforced inside the surface).
+        FeatureDescriptor(id: "shows.playbook", tier: .shows, title: "Playbook"),
         FeatureDescriptor(id: "shows.boxOffice", tier: .shows, title: "Box office"),
         FeatureDescriptor(id: "shows.settlement", tier: .shows, title: "Settlement"),
         FeatureDescriptor(id: "shows.sound", tier: .shows, title: "Sound"),

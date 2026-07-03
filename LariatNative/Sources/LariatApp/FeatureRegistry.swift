@@ -74,6 +74,7 @@ enum FeatureRegistry {
         .fohBooking,
         // Shows
         .showsTonight,
+        .showsPlaybook,
         .showsBoxOffice,
         .showsSettlement,
         .showsSound,

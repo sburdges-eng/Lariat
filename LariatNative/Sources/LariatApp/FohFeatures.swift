@@ -39,6 +39,6 @@ extension FeatureModule {
     }
 
     static let fohBooking = FeatureModule(id: "foh.booking") { ctx in
-        AnyView(BookingBoardView(database: ctx.database))
+        AnyView(BookingBoardView(database: ctx.database, navigate: ctx.navigate))
     }
 }

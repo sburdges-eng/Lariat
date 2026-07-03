@@ -269,9 +269,35 @@ final class ShowSoundViewModel {
     func createScene() {
         submitError = nil
         guard let showId = picker?.selectedShowId else { return }
+        // An unparseable SPL limit must keep the sheet open with an error —
+        // silently saving a scene WITHOUT a limit disarms the over-limit
+        // alarms while the engineer believes one is set.
+        var limit: Double?
+        let limitText = sceneSplLimit.trimmingCharacters(in: .whitespaces)
+        if !limitText.isEmpty {
+            guard let parsed = Double(limitText) else {
+                submitError = "SPL limit must be a number (30–160)"
+                return
+            }
+            limit = parsed
+        }
         do {
             _ = try gateModel.actorForWrite()
-            let limit = Double(sceneSplLimit.trimmingCharacters(in: .whitespaces))
+        } catch {
+            // actorForWrite presented the PIN sheet, which can't show over
+            // the scene-form sheet on macOS (PR #401). Dismiss the form,
+            // stash the save, replay after a verify — and report a cancelled
+            // PIN instead of silently dropping the scene.
+            showSceneForm = false
+            gateModel.stashPendingWrite(
+                retry: { [weak self] in self?.createScene() },
+                onCancel: { [weak self] in
+                    self?.submitError = "PIN required — scene not saved. Reopen “Save new scene” to try again."
+                }
+            )
+            return
+        }
+        do {
             let notes = sceneNotes.trimmingCharacters(in: .whitespacesAndNewlines)
             _ = try repo().createScene(.init(
                 showId: showId,
