@@ -29,7 +29,7 @@ struct BeoBoardView: View {
         }
         .navigationTitle("Parties & BEOs")
         .task { await vm.refresh() }
-        .sheet(isPresented: $vm.showPinSheet) {
+        .sheet(isPresented: $vm.showPinSheet, onDismiss: { vm.pinSheetDismissed() }) {
             PinEntrySheet(database: vm.writeDatabase) { user in
                 vm.pinVerified(user)
             }
@@ -149,7 +149,11 @@ struct BeoBoardView: View {
 
                 switch vm.tab {
                 case .sheet:
+                    // Rebuilt when a pending write is discarded (PIN sheet
+                    // cancelled) so CommitTextFields re-adopt the persisted
+                    // row values instead of keeping the unsaved text.
                     sheetTab(event)
+                        .id(vm.editorGeneration)
                 case .orderGuide:
                     BeoOrderGuidePanel(cascade: vm.cascade, loading: vm.cascadeLoading)
                 case .prep:
@@ -266,7 +270,14 @@ struct BeoBoardView: View {
             Text("Catering menu").font(.headline)
             TextField("Filter menu…", text: $vm.menuFilter)
                 .textFieldStyle(.roundedBorder)
-            if vm.filteredMenu.isEmpty {
+            if vm.menu.isEmpty {
+                // Missing/corrupt cache is NOT a filter mismatch — say what
+                // actually broke and how to fix it.
+                EmptyState(
+                    message: "Catering menu cache missing — run the menu ingest to rebuild data/cache/catering_menu.json.",
+                    systemImage: "exclamationmark.triangle"
+                )
+            } else if vm.filteredMenu.isEmpty {
                 EmptyState(message: "No matches.", systemImage: "magnifyingglass")
             }
             ForEach(vm.filteredMenu, id: \.category) { group in

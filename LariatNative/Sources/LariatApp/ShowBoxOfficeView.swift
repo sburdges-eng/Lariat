@@ -237,8 +237,42 @@ final class ShowBoxOfficeViewModel {
             submitError = "qty must be a positive integer"
             return
         }
+        // Money fields are cash custody: unparseable text ("$15", "12,50")
+        // must abort, never silently coerce to a nil price.
+        let facePrice: Double?
+        switch Self.parseMoneyField(formFacePrice) {
+        case .empty: facePrice = nil
+        case .value(let v): facePrice = v
+        case .invalid:
+            submitError = "face price must be a number (e.g. 15 or 15.50)"
+            return
+        }
+        let fees: Double?
+        switch Self.parseMoneyField(formFees) {
+        case .empty: fees = nil
+        case .value(let v): fees = v
+        case .invalid:
+            submitError = "fees must be a number (e.g. 2 or 2.50)"
+            return
+        }
+        let user: ManagerPinUser?
         do {
-            let user = try gateModel.actorForWrite()
+            user = try gateModel.actorForWrite()
+        } catch {
+            // actorForWrite presented the PIN sheet, which can't show over
+            // the add-line sheet on macOS (PR #401). Dismiss the form, stash
+            // the submit (fields survive in the VM), replay after a verify —
+            // and report a cancelled PIN instead of silently dropping it.
+            showForm = false
+            gateModel.stashPendingWrite(
+                retry: { [weak self] in self?.submitLine() },
+                onCancel: { [weak self] in
+                    self?.submitError = "PIN required — line not saved. Reopen “Add line” to try again."
+                }
+            )
+            return
+        }
+        do {
             let repo = BoxOfficeRepository(readDB: readDB, writeDB: writeDB, locationId: locationId)
             _ = try repo.createLine(
                 BoxOfficeCreateLineInput(
@@ -246,8 +280,8 @@ final class ShowBoxOfficeViewModel {
                     source: formSource,
                     ticketClass: emptyToNil(formTicketClass),
                     qty: qty,
-                    facePrice: parseDollars(formFacePrice),
-                    fees: parseDollars(formFees),
+                    facePrice: facePrice,
+                    fees: fees,
                     externalRef: emptyToNil(formExternalRef),
                     notes: emptyToNil(formNotes)
                 ),
@@ -269,8 +303,9 @@ final class ShowBoxOfficeViewModel {
             let repo = BoxOfficeRepository(readDB: readDB, writeDB: writeDB, locationId: locationId)
             let scanned = try repo.markScanned(showId: showId, lineId: line.id, context: writeContext(user))
             if scanned == nil {
-                // Web 404 semantics: already scanned / show mismatch.
-                submitError = "NotFound or already scanned"
+                // Web 404 semantics: already scanned / show mismatch —
+                // rendered in operator language, not API jargon.
+                submitError = "That line was already scanned in (or belongs to another show)."
             }
             Task { await refresh() }
         } catch {
@@ -294,10 +329,19 @@ final class ShowBoxOfficeViewModel {
         return t.isEmpty ? nil : t
     }
 
-    private func parseDollars(_ s: String) -> Double? {
+    /// Tri-state money parse: blank is a legitimate "no price", but non-empty
+    /// text that isn't a number is a validation error, never a silent nil.
+    enum MoneyField: Equatable {
+        case empty
+        case value(Double)
+        case invalid
+    }
+
+    static func parseMoneyField(_ s: String) -> MoneyField {
         let t = s.trimmingCharacters(in: .whitespaces)
-        guard !t.isEmpty else { return nil }
-        return Double(t)
+        if t.isEmpty { return .empty }
+        guard let v = Double(t) else { return .invalid }
+        return .value(v)
     }
 
     private func resetForm() {

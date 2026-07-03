@@ -49,21 +49,34 @@ final class FeatureRegistryTests: XCTestCase {
     }
 
     func testShowsTierRegistered() {
-        // A6.4: the shows wave adds its own tier with exactly six boards,
-        // in sidebar order tonight → box office → settlement → sound →
-        // stage → archive.
+        // A6.4 + the playbook backfill: the shows tier holds exactly seven
+        // boards, in sidebar order tonight → playbook → box office →
+        // settlement → sound → stage → archive.
         XCTAssertTrue(FeatureTier.allCases.contains(.shows))
         XCTAssertEqual(
             FeatureCatalog.descriptors(for: .shows).map(\.id),
             [
-                "shows.tonight", "shows.boxOffice", "shows.settlement",
-                "shows.sound", "shows.stage", "shows.archive",
+                "shows.tonight", "shows.playbook", "shows.boxOffice",
+                "shows.settlement", "shows.sound", "shows.stage",
+                "shows.archive",
             ]
         )
         let settlement = FeatureCatalog.descriptor(id: "shows.settlement")
         XCTAssertEqual(settlement?.tier, .shows)
         XCTAssertEqual(settlement?.title, "Settlement")
         XCTAssertEqual(settlement?.enabled, true)
+    }
+
+    /// /playbook backfill: the read-only show-marketing checklists register
+    /// under the shows tier, right after Tonight. PIN posture matches the
+    /// rest of the tier (web SENSITIVE_PREFIX, gate enforced in-surface),
+    /// so the descriptor stays enabled.
+    func testShowsPlaybookRegistered() {
+        let d = FeatureCatalog.descriptor(id: "shows.playbook")
+        XCTAssertNotNil(d, "shows.playbook must be registered")
+        XCTAssertEqual(d?.tier, .shows)
+        XCTAssertEqual(d?.title, "Playbook")
+        XCTAssertEqual(d?.enabled, true)
     }
 
     func testA1WaveBoardsAllRegistered() {

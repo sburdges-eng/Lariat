@@ -38,6 +38,16 @@ struct ShowStageView: View {
         VStack(alignment: .leading, spacing: 0) {
             List {
                 Section { ShowPickerRow(model: picker) }
+                if let loadError = vm.loadError {
+                    // Separate channel from submitError: a failed LOAD means
+                    // the form may not reflect this show — saving could
+                    // overwrite the real setup, so Save is disabled below.
+                    Section {
+                        Label(loadError, systemImage: "exclamationmark.triangle")
+                            .font(.callout)
+                            .foregroundStyle(LariatTheme.bad)
+                    }
+                }
                 roomSection
                 runOfShowSection
                 ridersSection
@@ -52,7 +62,8 @@ struct ShowStageView: View {
                 }
                 Spacer()
                 Button("Save stage setup") { vm.save() }
-                    .disabled(picker.selectedShow == nil || vm.roomConfig.isEmpty)
+                    .disabled(picker.selectedShow == nil || vm.roomConfig.isEmpty
+                              || vm.loadError != nil)
                     .buttonStyle(.borderedProminent)
                     .padding()
             }
@@ -86,12 +97,17 @@ struct ShowStageView: View {
             if vm.runOfShow.isEmpty {
                 EmptyState(message: "No run-of-show entries yet.", systemImage: "list.number")
             }
-            ForEach(vm.runOfShow.indices, id: \.self) { i in
+            // Identity-based ForEach + delete-by-id: index bindings with
+            // remove(at:) fatal-error when a later row's TextField holds
+            // focus while an earlier row is deleted (stale $vm.runOfShow[i]).
+            ForEach($vm.runOfShow) { $entry in
                 HStack {
-                    TextField("Time", text: $vm.runOfShow[i].t).frame(width: 90)
-                    TextField("What", text: $vm.runOfShow[i].what)
-                    TextField("Who", text: $vm.runOfShow[i].who)
-                    Button(role: .destructive) { vm.runOfShow.remove(at: i) } label: {
+                    TextField("Time", text: $entry.t).frame(width: 90)
+                    TextField("What", text: $entry.what)
+                    TextField("Who", text: $entry.who)
+                    Button(role: .destructive) {
+                        vm.runOfShow.removeAll { $0.id == entry.id }
+                    } label: {
                         Image(systemName: "trash")
                     }
                     .buttonStyle(.borderless)
@@ -99,7 +115,7 @@ struct ShowStageView: View {
                 .font(.callout)
             }
             Button("Add entry") {
-                vm.runOfShow.append(RunOfShowEntry(t: "", what: "", who: ""))
+                vm.runOfShow.append(ShowStageViewModel.RunEntryDraft())
             }
         }
     }
@@ -151,14 +167,39 @@ struct ShowStageView: View {
 /// Stage view model — loads the setup for the selected show; save UPSERTs.
 @Observable @MainActor
 final class ShowStageViewModel {
-    var roomConfig = ""
-    var runOfShow: [RunOfShowEntry] = []
-    var hospitalityJson = "{}"
-    var techJson = "{}"
-    var notes = ""
+    /// Identifiable editing wrapper around `RunOfShowEntry` (the Settlement
+    /// `CostDraft` pattern) so the view can bind rows by identity.
+    struct RunEntryDraft: Identifiable, Equatable {
+        let id = UUID()
+        var t = ""
+        var what = ""
+        var who = ""
+    }
+
+    var roomConfig = "" {
+        didSet { if oldValue != roomConfig { markDirty() } }
+    }
+    var runOfShow: [RunEntryDraft] = [] {
+        didSet { if oldValue != runOfShow { markDirty() } }
+    }
+    var hospitalityJson = "{}" {
+        didSet { if oldValue != hospitalityJson { markDirty() } }
+    }
+    var techJson = "{}" {
+        didSet { if oldValue != techJson { markDirty() } }
+    }
+    var notes = "" {
+        didSet { if oldValue != notes { markDirty() } }
+    }
     var dirty = false
     var submitError: String?
+    /// Load failures render in their own section (NOT `submitError`) and
+    /// disable Save — a stale form must not overwrite the show's real setup.
+    var loadError: String?
 
+    /// True while the form is being (re)populated from a fetch/save result,
+    /// so adoption doesn't count as an operator edit.
+    private var isAdopting = false
     private var loadedShowId: Int64?
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase?
@@ -182,19 +223,32 @@ final class ShowStageViewModel {
     var completeness: StageCompleteness {
         StageCompleteness.from(setup: StageSetupRow(
             id: 0, showId: loadedShowId ?? 0, locationId: locationId,
-            roomConfig: roomConfig, runOfShow: runOfShow,
+            roomConfig: roomConfig, runOfShow: runEntries,
             hospitalityRiderJson: hospitalityJson, techRiderJson: techJson,
             notes: notes.isEmpty ? nil : notes, createdAt: "", updatedAt: ""
         ))
     }
 
+    /// The drafts as persistence-shaped `{t, what, who}` entries.
+    private var runEntries: [RunOfShowEntry] {
+        runOfShow.map { RunOfShowEntry(t: $0.t, what: $0.what, who: $0.who) }
+    }
+
+    private static func drafts(from entries: [RunOfShowEntry]) -> [RunEntryDraft] {
+        entries.map { RunEntryDraft(t: $0.t, what: $0.what, who: $0.who) }
+    }
+
+    private func markDirty() {
+        if !isAdopting { dirty = true }
+    }
+
     func start(picker: ShowPickerModel) {
         self.picker = picker
-        // No backoff signal here: `loadIfShowChanged` early-returns when the
-        // show is unchanged and shares `submitError` with the save path, so a
-        // captured load error can't be told apart from a form error. Flat 3 s.
         poller.start(interval: .seconds(3)) { [weak self] in
-            await self?.loadIfShowChanged()
+            guard let self else { return }
+            await self.loadIfShowChanged()
+            // Load failures live in their own channel now — feed the backoff.
+            try BoardPoller.throwIfFailed(self.loadError)
         }
     }
 
@@ -205,14 +259,19 @@ final class ShowStageViewModel {
     /// client-state-first between saves.
     func loadIfShowChanged() async {
         guard let showId = picker?.selectedShowId, showId != loadedShowId else { return }
-        loadedShowId = showId
-        dirty = false
-        submitError = nil
         let repo = StageRepository(readDB: readDB, writeDB: writeDB, locationId: locationId)
         do {
-            if let setup = try await repo.getSetup(showId: showId) {
+            let setup = try await repo.getSetup(showId: showId)
+            // Commit loadedShowId only AFTER a successful fetch — a failed
+            // load must keep retrying on the next poll tick.
+            loadedShowId = showId
+            loadError = nil
+            submitError = nil
+            isAdopting = true
+            defer { isAdopting = false }
+            if let setup {
                 roomConfig = setup.roomConfig
-                runOfShow = setup.runOfShow
+                runOfShow = Self.drafts(from: setup.runOfShow)
                 hospitalityJson = setup.hospitalityRiderJson
                 techJson = setup.techRiderJson
                 notes = setup.notes ?? ""
@@ -223,13 +282,16 @@ final class ShowStageViewModel {
                 techJson = "{}"
                 notes = ""
             }
+            dirty = false
         } catch {
-            submitError = "Could not load the stage setup"
+            loadedShowId = nil   // poller retries on the next tick
+            loadError = "Could not load the stage setup — retrying. Saving is disabled so a stale form can't overwrite it."
         }
     }
 
     func save() {
         submitError = nil
+        guard loadError == nil else { return }
         guard let showId = picker?.selectedShowId else { return }
         do {
             let user = try gateModel.actorForWrite()
@@ -238,15 +300,17 @@ final class ShowStageViewModel {
             let result = try repo.upsertSetup(.init(
                 showId: showId,
                 roomConfig: roomConfig,
-                runOfShow: runOfShow.filter { !($0.t.isEmpty && $0.what.isEmpty && $0.who.isEmpty) },
+                runOfShow: runEntries.filter { !($0.t.isEmpty && $0.what.isEmpty && $0.who.isEmpty) },
                 hospitalityRiderJson: hospitalityJson,
                 techRiderJson: techJson,
                 notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
                 actorCookId: user.map { String($0.id) }
             ))
             // Re-adopt the persisted row (normalized riders etc.).
+            isAdopting = true
+            defer { isAdopting = false }
             roomConfig = result.setup.roomConfig
-            runOfShow = result.setup.runOfShow
+            runOfShow = Self.drafts(from: result.setup.runOfShow)
             hospitalityJson = result.setup.hospitalityRiderJson
             techJson = result.setup.techRiderJson
             notes = result.setup.notes ?? ""
