@@ -31,6 +31,11 @@ final class WageNoticeViewModel {
     var staff: [StaffMember] = []
     var staffUnavailable = false
 
+    /// Pending write — captured when a sign needs a PIN unlock first. Resumed
+    /// by `pinVerified` regardless of sheet state, so dismissing the sign sheet
+    /// can't silently drop the typed notice (PR #401 pattern).
+    private var pendingAction: (() -> Void)?
+
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase
     private let locationId: String
@@ -110,6 +115,7 @@ final class WageNoticeViewModel {
         if pinStore.activeUser != nil {
             performSubmit()
         } else {
+            pendingAction = { [weak self] in self?.performSubmit() }
             showPinSheet = true
         }
     }
@@ -142,7 +148,9 @@ final class WageNoticeViewModel {
 
     func pinVerified(_ user: ManagerPinUser) {
         pinStore.save(user: user)
-        if showForm { performSubmit() }
+        let action = pendingAction
+        pendingAction = nil
+        action?()
     }
 
     // ── helpers ─────────────────────────────────────────────────────────
@@ -151,7 +159,7 @@ final class WageNoticeViewModel {
         do {
             let gateOn = try writeDB.pool.read { db in try PinVerifier().gateConfigured(db: db) }
             guard gateOn else {
-                submitError = "PIN not set up — add a manager PIN in web Settings"
+                submitError = "PIN not set up — add one on the Manager → PINs board"
                 return false
             }
             return true

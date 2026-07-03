@@ -3,7 +3,11 @@ import SwiftUI
 /// Manager-tier feature modules.
 extension FeatureModule {
     static let managerCommand = FeatureModule(id: "manager.command") { ctx in
-        AnyView(CommandView(database: ctx.database, writeDatabase: ctx.writeDatabase))
+        AnyView(CommandView(
+            database: ctx.database,
+            writeDatabase: ctx.writeDatabase,
+            navigate: ctx.navigate
+        ))
     }
 
     static let managerAnalytics = FeatureModule(id: "manager.analytics") { ctx in
