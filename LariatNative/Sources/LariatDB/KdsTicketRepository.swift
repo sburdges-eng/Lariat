@@ -56,13 +56,32 @@ public struct KdsTicketRepository: Sendable {
                 ))
                 linesByTicket[line.ticketId] = arr
             }
+            // Bump-back state (kds_ticket_states) — the ticket stays on the
+            // open board after a bump (web parity: kds_tickets.bumped_at is
+            // never set), so surface the state row's bumped_at for display.
+            let stateRows = try Row.fetchAll(
+                db,
+                sql: """
+                  SELECT ticket_id, bumped_at
+                    FROM kds_ticket_states
+                   WHERE location_id = ? AND ticket_id IN (\(placeholders))
+                  """,
+                arguments: StatementArguments([locationId]) + StatementArguments(ids)
+            )
+            var bumpedByTicket: [String: String] = [:]
+            for row in stateRows {
+                if let tid: String = row["ticket_id"], let at: String = row["bumped_at"] {
+                    bumpedByTicket[tid] = at
+                }
+            }
             let open = tickets.map { t in
                 KdsOpenTicket(
                     id: t.id,
                     orderNumber: t.orderNumber,
                     placedAt: t.placedAt,
                     destination: t.destination,
-                    lines: linesByTicket[t.id] ?? []
+                    lines: linesByTicket[t.id] ?? [],
+                    bumpedAt: bumpedByTicket[t.id]
                 )
             }
             return KdsBoardSnapshot(locationId: locationId, tickets: open)

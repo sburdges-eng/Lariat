@@ -20,8 +20,13 @@ struct StationsListView: View {
         Group {
             if let err = vm.fetchError, vm.rows.isEmpty {
                 TileDegrade(title: "Could not load stations", message: err, systemImage: "externaldrive.badge.xmark")
-            } else if vm.rows.isEmpty {
+            } else if !vm.hasLoaded {
                 ProgressView("Loading stations…")
+            } else if vm.rows.isEmpty {
+                EmptyState(
+                    message: "No stations configured — check data/cache/stations.json",
+                    systemImage: "square.grid.2x2"
+                )
             } else {
                 List {
                     if filteredRows.isEmpty {

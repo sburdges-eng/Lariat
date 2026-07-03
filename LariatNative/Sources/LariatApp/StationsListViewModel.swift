@@ -7,6 +7,9 @@ import Observation
 final class StationsListViewModel {
     var rows: [StationListRow] = []
     var fetchError: String?
+    /// True after the first successful refresh — distinguishes "still loading"
+    /// from "loaded, and the catalog is legitimately empty".
+    private(set) var hasLoaded = false
     private let poller = BoardPoller()
 
     private let readDB: LariatDatabase
@@ -41,6 +44,7 @@ final class StationsListViewModel {
         do {
             rows = try await repo.loadStationList(locationId: locationId)
             fetchError = nil
+            hasLoaded = true
         } catch {
             fetchError = "Could not load stations"
         }

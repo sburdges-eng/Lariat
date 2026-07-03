@@ -58,6 +58,9 @@ final class StationChecklistViewModel {
         }
     }
 
+    /// Returns true only when the entry committed; an identity interrupt
+    /// (picker presented) returns false so the view can stash a retry.
+    @discardableResult
     func post(
         item: String,
         status: LineCheckStatus,
@@ -66,9 +69,9 @@ final class StationChecklistViewModel {
         need: String = "",
         note: String = "",
         glove: Bool? = nil
-    ) async {
-        guard !isSaving else { return }
-        guard ensureCookIdentity() else { return }
+    ) async -> Bool {
+        guard !isSaving else { return false }
+        guard ensureCookIdentity() else { return false }
 
         isSaving = true
         actionError = nil
@@ -93,14 +96,17 @@ final class StationChecklistViewModel {
                 context: context
             )
             await refresh()
+            return true
         } catch {
             actionError = WriteErrorMapper.message(for: error)
+            return false
         }
     }
 
-    func signoff() async {
-        guard !isSaving else { return }
-        guard ensureCookIdentity() else { return }
+    @discardableResult
+    func signoff() async -> Bool {
+        guard !isSaving else { return false }
+        guard ensureCookIdentity() else { return false }
 
         isSaving = true
         actionError = nil
@@ -111,8 +117,10 @@ final class StationChecklistViewModel {
         do {
             _ = try repo.signoff(stationId: stationId, context: context)
             await refresh()
+            return true
         } catch {
             actionError = WriteErrorMapper.message(for: error)
+            return false
         }
     }
 

@@ -38,10 +38,32 @@ struct StationChecklistView: View {
             CookIdentityPicker(
                 store: vm.cookStore,
                 staff: vm.staff,
-                staffUnavailable: vm.staffUnavailable
-            ) {
-                vm.showCookPicker = false
+                staffUnavailable: vm.staffUnavailable,
+                onDismiss: { vm.showCookPicker = false },
+                onCancel: { vm.actionError = "Not saved — pick a cook to record the check." }
+            )
+        }
+    }
+
+    // ── Cook-gated submits (an identity interrupt stashes the same submit
+    //    for auto-retry once a cook is picked; drafts stay put) ──────────
+
+    private func submitPost(
+        item: String, status: LineCheckStatus,
+        par: String, have: String, need: String, note: String, glove: Bool?
+    ) async {
+        let ok = await vm.post(item: item, status: status, par: par, have: have, need: need, note: note, glove: glove)
+        if !ok, vm.showCookPicker {
+            vm.cookStore.stashPendingWrite {
+                await submitPost(item: item, status: status, par: par, have: have, need: need, note: note, glove: glove)
             }
+        }
+    }
+
+    private func submitSignoff() async {
+        let ok = await vm.signoff()
+        if !ok, vm.showCookPicker {
+            vm.cookStore.stashPendingWrite { await submitSignoff() }
         }
     }
 
@@ -75,7 +97,7 @@ struct StationChecklistView: View {
             if snap.signoff == nil {
                 Section {
                     Button(vm.isSaving ? "Signing off…" : "Sign off station") {
-                        Task { await vm.signoff() }
+                        Task { await submitSignoff() }
                     }
                     .disabled(vm.isSaving)
                 }
@@ -131,7 +153,7 @@ struct StationChecklistView: View {
             // Checked ⇒ true, unchecked ⇒ nil (never false) — RTE attestation contract.
             let glove: Bool? = (gloveDrafts[item] ?? (state.gloveChangeAttested == true)) ? true : nil
             Task {
-                await vm.post(item: item, status: status, par: par, have: have, need: need, note: note, glove: glove)
+                await submitPost(item: item, status: status, par: par, have: have, need: need, note: note, glove: glove)
             }
         }
         .buttonStyle(.bordered)

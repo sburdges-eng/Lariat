@@ -33,10 +33,37 @@ struct EightySixView: View {
             CookIdentityPicker(
                 store: vm.cookStore,
                 staff: vm.staff,
-                staffUnavailable: vm.staffUnavailable
-            ) {
-                vm.showCookPicker = false
-            }
+                staffUnavailable: vm.staffUnavailable,
+                onDismiss: { vm.showCookPicker = false },
+                onCancel: { vm.actionError = "Not saved — pick a cook to record the 86." }
+            )
+        }
+    }
+
+    // ── Cook-gated submits (fields clear ONLY on a committed write; an
+    //    identity interrupt stashes the same submit for auto-retry) ──────
+
+    private func submitAdd() async {
+        let ok = await vm.add(item: item, stationId: stationId, reason: reason, quantity: quantity)
+        if ok {
+            item = ""
+            quantity = ""
+        } else if vm.showCookPicker {
+            vm.cookStore.stashPendingWrite { await submitAdd() }
+        }
+    }
+
+    private func submitResolve(id: Int64) async {
+        let ok = await vm.resolve(id: id)
+        if !ok, vm.showCookPicker {
+            vm.cookStore.stashPendingWrite { await submitResolve(id: id) }
+        }
+    }
+
+    private func submitCascadeConfirm(_ recipe: CascadedRecipe) async {
+        let ok = await vm.confirmCascadeAdd(recipe)
+        if !ok, vm.showCookPicker {
+            vm.cookStore.stashPendingWrite { await submitCascadeConfirm(recipe) }
         }
     }
 
@@ -99,13 +126,7 @@ struct EightySixView: View {
             TextField("Qty (optional)", text: $quantity)
                 .textFieldStyle(.roundedBorder)
             Button(vm.isSaving ? "Saving…" : "86 now") {
-                Task {
-                    await vm.add(item: item, stationId: stationId, reason: reason, quantity: quantity)
-                    if vm.actionError == nil {
-                        item = ""
-                        quantity = ""
-                    }
-                }
+                Task { await submitAdd() }
             }
             .buttonStyle(.borderedProminent)
             .disabled(vm.isSaving || item.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -124,7 +145,7 @@ struct EightySixView: View {
                         Text(recipe.name)
                         Spacer()
                         Button("Confirm") {
-                            Task { await vm.confirmCascadeAdd(recipe) }
+                            Task { await submitCascadeConfirm(recipe) }
                         }
                         .buttonStyle(.borderedProminent)
                         Button("Cancel") { vm.confirmCascade = nil }
@@ -170,7 +191,7 @@ struct EightySixView: View {
                         }
                         Spacer()
                         Button(vm.isResolving(row.id) ? "…" : "Back on menu") {
-                            Task { await vm.resolve(id: row.id) }
+                            Task { await submitResolve(id: row.id) }
                         }
                         .buttonStyle(.bordered)
                         .disabled(vm.isResolving(row.id))

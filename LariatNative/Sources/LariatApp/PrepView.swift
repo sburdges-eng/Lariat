@@ -12,6 +12,7 @@ struct PrepView: View {
     @State private var qty = ""
     @State private var priority: PrepPriority = .normal
     @State private var notes = ""
+    @State private var deleteTarget: PrepTaskRow?
 
     init(readDB: LariatDatabase, writeDB: LariatWriteDatabase, stations: [KitchenStation]) {
         _vm = State(wrappedValue: PrepViewModel(readDB: readDB, writeDB: writeDB, stations: stations))
@@ -34,10 +35,54 @@ struct PrepView: View {
             CookIdentityPicker(
                 store: vm.cookStore,
                 staff: vm.staff,
-                staffUnavailable: vm.staffUnavailable
-            ) {
-                vm.showCookPicker = false
+                staffUnavailable: vm.staffUnavailable,
+                onDismiss: { vm.showCookPicker = false },
+                onCancel: { vm.actionError = "Not saved — pick a cook to record the change." }
+            )
+        }
+        // Web parity: PrepBoard.jsx guards Drop behind window.confirm('Drop this task?').
+        .confirmationDialog(
+            "Drop \(deleteTarget?.task ?? "this task")?",
+            isPresented: Binding(
+                get: { deleteTarget != nil },
+                set: { if !$0 { deleteTarget = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Drop", role: .destructive) {
+                if let row = deleteTarget {
+                    Task { await vm.delete(row.id) }
+                }
+                deleteTarget = nil
             }
+            Button("Cancel", role: .cancel) { deleteTarget = nil }
+        }
+    }
+
+    // ── Cook-gated submits (drafts clear ONLY on a committed write; an
+    //    identity interrupt stashes the same submit for auto-retry) ──────
+
+    private func submitAdd() async {
+        let ok = await vm.add(task: task, stationId: stationId, qty: qty, priority: priority, notes: notes)
+        if ok {
+            task = ""
+            qty = ""
+            notes = ""
+            priority = .normal
+        }
+    }
+
+    private func submitClaim(_ id: Int64) async {
+        let ok = await vm.claim(id)
+        if !ok, vm.showCookPicker {
+            vm.cookStore.stashPendingWrite { await submitClaim(id) }
+        }
+    }
+
+    private func submitStatus(_ id: Int64, _ status: PrepStatus) async {
+        let ok = await vm.setStatus(id, status)
+        if !ok, vm.showCookPicker {
+            vm.cookStore.stashPendingWrite { await submitStatus(id, status) }
         }
     }
 
@@ -102,15 +147,7 @@ struct PrepView: View {
             TextField("Notes (optional)", text: $notes)
                 .textFieldStyle(.roundedBorder)
             Button(vm.isSaving ? "Saving…" : "Add") {
-                Task {
-                    await vm.add(task: task, stationId: stationId, qty: qty, priority: priority, notes: notes)
-                    if vm.actionError == nil {
-                        task = ""
-                        qty = ""
-                        notes = ""
-                        priority = .normal
-                    }
-                }
+                Task { await submitAdd() }
             }
             .buttonStyle(.borderedProminent)
             .disabled(vm.isSaving || task.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -187,13 +224,13 @@ struct PrepView: View {
         HStack(spacing: 8) {
             if row.statusValue == .todo && (row.assignedCookId?.isEmpty ?? true) {
                 Button(vm.cookId != nil ? "Claim" : "Set cook first") {
-                    Task { await vm.claim(row.id) }
+                    Task { await submitClaim(row.id) }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(busy)
             }
             if row.statusValue == .todo && !(row.assignedCookId?.isEmpty ?? true) {
-                Button("Start") { Task { await vm.setStatus(row.id, .inProgress) } }
+                Button("Start") { Task { await submitStatus(row.id, .inProgress) } }
                     .buttonStyle(.bordered)
                     .disabled(busy)
                 if isMine(row) {
@@ -203,15 +240,15 @@ struct PrepView: View {
                 }
             }
             if row.statusValue == .inProgress {
-                Button("Done") { Task { await vm.setStatus(row.id, .done) } }
+                Button("Done") { Task { await submitStatus(row.id, .done) } }
                     .buttonStyle(.borderedProminent)
                     .disabled(busy)
-                Button("Skip") { Task { await vm.setStatus(row.id, .skipped) } }
+                Button("Skip") { Task { await submitStatus(row.id, .skipped) } }
                     .buttonStyle(.bordered)
                     .disabled(busy)
             }
             Button(role: .destructive) {
-                Task { await vm.delete(row.id) }
+                deleteTarget = row
             } label: {
                 Image(systemName: "xmark")
             }

@@ -48,17 +48,18 @@ final class KitchenAssistantViewModel {
     /// One conversation session per screen visit (web: crypto.randomUUID()).
     private let conversationSessionId = UUID().uuidString.lowercased()
     private var nowTick: Task<Void, Never>?
+    private var reachabilityTick: Task<Void, Never>?
     private(set) var now = Date()
 
     init(
         readDB: LariatDatabase,
         writeDB: LariatWriteDatabase,
         pinStore: PinSessionStore? = nil,
-        cookIdentity: CookIdentityStore = .shared,
+        cookIdentity: CookIdentityStore? = nil,
         locationId: String = LocationScope.resolve()
     ) {
         self.pinStore = pinStore ?? PinSessionStore.shared
-        self.cookIdentity = cookIdentity
+        self.cookIdentity = cookIdentity ?? CookIdentityStore.shared
         self.locationId = locationId
         self.writeDatabase = writeDB
         let client = OllamaClient(transport: URLSessionOllamaTransport())
@@ -94,9 +95,21 @@ final class KitchenAssistantViewModel {
                 self?.now = Date()
             }
         }
+        // Keep the online/offline badge live while the screen is visible —
+        // a single onAppear ping goes stale the moment Ollama starts/stops.
+        reachabilityTick?.cancel()
+        reachabilityTick = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(15))
+                await self?.refreshReachability()
+            }
+        }
     }
 
-    func stop() { nowTick?.cancel() }
+    func stop() {
+        nowTick?.cancel()
+        reachabilityTick?.cancel()
+    }
 
     func refreshReachability() async {
         ollamaReachable = await ollama.ping()
@@ -150,12 +163,14 @@ final class KitchenAssistantViewModel {
                 self.turns.append(ChatTurn(
                     role: .assistant, text: e.message, actionError: true
                 ))
+                await self.refreshReachability()
             } catch {
                 self.turns.append(ChatTurn(
                     role: .assistant,
                     text: "Something went wrong talking to the assistant.",
                     actionError: true
                 ))
+                await self.refreshReachability()
             }
         }
     }

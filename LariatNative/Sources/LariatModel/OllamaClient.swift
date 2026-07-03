@@ -32,6 +32,10 @@ public enum OllamaClientError: Error, Equatable, LocalizedError {
     /// Transport-level timeout — the route maps this to
     /// "Inference timed out — try a shorter question or a smaller model."
     case timedOut
+    /// Transport-level network failure (connection refused, host down, …) —
+    /// surfaced as an actionable "is the server running?" message instead of
+    /// the generic catch-all. Associated value keeps the underlying detail.
+    case network(String)
     case invalidBaseUrl(String)
 
     public var errorDescription: String? {
@@ -42,6 +46,8 @@ public enum OllamaClientError: Error, Equatable, LocalizedError {
             return "Ollama returned no message content"
         case .timedOut:
             return "Inference timed out — try a shorter question or a smaller model."
+        case .network:
+            return "Ollama request failed — is the model server running? (ollama serve)"
         case .invalidBaseUrl(let url):
             return "Invalid Ollama base URL: \(url)"
         }
