@@ -31,6 +31,15 @@ final class ShowsGateModel {
     let pinStore: PinSessionStore
     private let locationId: String
 
+    // The BeoBoard gate/pendingAction pattern (PR #401): when a write from an
+    // OPEN FORM SHEET hits the PIN gate, the PIN sheet can't present over the
+    // form on macOS. The VM dismisses its form, stashes the submit here, and a
+    // successful verify replays it; a cancelled PIN sheet reports back through
+    // `onCancel` instead of silently dropping the write.
+    private var pendingAction: (() -> Void)?
+    private var pendingCancel: (() -> Void)?
+    private var verifiedWhileSheetUp = false
+
     init(
         database: LariatDatabase,
         writeDatabase: LariatWriteDatabase?,
@@ -78,6 +87,32 @@ final class ShowsGateModel {
     func pinVerified(_ user: ManagerPinUser) {
         pinStore.save(user: user)
         gate = .open
+        verifiedWhileSheetUp = true
+        pendingCancel = nil
+        let action = pendingAction
+        pendingAction = nil
+        action?()
+    }
+
+    /// Stash a write whose form sheet had to be dismissed for the PIN sheet.
+    /// `retry` replays the submit after a successful verify; `onCancel` runs
+    /// when the operator dismisses the PIN sheet without verifying.
+    func stashPendingWrite(retry: @escaping () -> Void, onCancel: @escaping () -> Void) {
+        pendingAction = retry
+        pendingCancel = onCancel
+    }
+
+    /// Hooked to the PIN sheet's `onDismiss`: dismissal without a verify
+    /// cancels any pending write and tells its owner — never a silent drop.
+    func pinSheetDismissed() {
+        if verifiedWhileSheetUp {
+            verifiedWhileSheetUp = false
+            return
+        }
+        pendingAction = nil
+        let cancel = pendingCancel
+        pendingCancel = nil
+        cancel?()
     }
 
     /// Actor for a write on an unlocked board. Gate off → nil actor (web
@@ -130,7 +165,7 @@ struct ShowsGatedBoard<Content: View>: View {
         .sheet(isPresented: Binding(
             get: { gateModel.showPinSheet },
             set: { gateModel.showPinSheet = $0 }
-        )) {
+        ), onDismiss: { gateModel.pinSheetDismissed() }) {
             if let writeDB = gateModel.writeDatabase {
                 PinEntrySheet(database: writeDB) { user in gateModel.pinVerified(user) }
             }
@@ -166,6 +201,9 @@ final class ShowPickerModel {
     var shows: [ShowRow] = []
     var selectedShowId: Int64?
     var loadError: String?
+    /// True after the first load attempt — lets boards tell "still loading"
+    /// apart from "the venue really has no shows".
+    private(set) var hasLoaded = false
 
     private let repo: ShowsRepository
 
@@ -195,6 +233,7 @@ final class ShowPickerModel {
         } catch {
             loadError = "Could not load the shows list"
         }
+        hasLoaded = true
     }
 }
 
@@ -203,14 +242,23 @@ struct ShowPickerRow: View {
     @Bindable var model: ShowPickerModel
 
     var body: some View {
-        Picker("Show", selection: $model.selectedShowId) {
-            if model.shows.isEmpty {
-                Text("No shows").tag(nil as Int64?)
+        VStack(alignment: .leading, spacing: 4) {
+            Picker("Show", selection: $model.selectedShowId) {
+                if model.shows.isEmpty {
+                    // A failed list load must not read as "venue has no shows".
+                    Text(model.loadError != nil ? "Couldn't load shows" : "No shows")
+                        .tag(nil as Int64?)
+                }
+                ForEach(model.shows) { show in
+                    Text("\(show.showDate) · \(show.bandName)").tag(show.id as Int64?)
+                }
             }
-            ForEach(model.shows) { show in
-                Text("\(show.showDate) · \(show.bandName)").tag(show.id as Int64?)
+            .pickerStyle(.menu)
+            if let loadError = model.loadError {
+                Text(loadError)
+                    .font(.caption)
+                    .foregroundStyle(LariatTheme.bad)
             }
         }
-        .pickerStyle(.menu)
     }
 }

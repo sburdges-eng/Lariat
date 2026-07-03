@@ -2,6 +2,9 @@ import SwiftUI
 import LariatDB
 import LariatModel
 import Observation
+#if canImport(AppKit)
+import AppKit
+#endif
 
 /// Settlement — native port of `app/shows/[id]/settlement` (page +
 /// `DealEditor.jsx` + GET settlement + PUT deal + the print view).
@@ -159,13 +162,17 @@ struct ShowSettlementView: View {
                 TextField("vs % after costs (0–100, blank = flat)", text: $vm.formVsPct)
                 TextField("Buyout ($)", text: $vm.formBuyout)
                 Section("Costs off top") {
-                    ForEach(vm.formCosts.indices, id: \.self) { i in
+                    // Identity-based ForEach + delete-by-id: index bindings
+                    // with remove(at:) fatal-error when SwiftUI re-resolves a
+                    // stale $vm.formCosts[i] past the new count (e.g. deleting
+                    // row 0 while a later row's field holds focus).
+                    ForEach($vm.formCosts) { $cost in
                         HStack {
-                            TextField("Label", text: $vm.formCosts[i].label)
-                            TextField("$", text: $vm.formCosts[i].amount)
+                            TextField("Label", text: $cost.label)
+                            TextField("$", text: $cost.amount)
                                 .frame(width: 100)
                             Button(role: .destructive) {
-                                vm.formCosts.remove(at: i)
+                                vm.formCosts.removeAll { $0.id == cost.id }
                             } label: { Image(systemName: "trash") }
                         }
                     }
@@ -204,6 +211,24 @@ struct ShowSettlementView: View {
             }
             .navigationTitle("Settlement sheet")
             .toolbar {
+                #if canImport(AppKit)
+                ToolbarItem {
+                    Button("Copy") {
+                        if let s = vm.summary {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(
+                                SettlementPrintCompute.renderText(s), forType: .string)
+                        }
+                    }
+                    .disabled(vm.summary == nil)
+                }
+                ToolbarItem {
+                    Button("Print") {
+                        if let s = vm.summary { Self.printSettlement(s) }
+                    }
+                    .disabled(vm.summary == nil)
+                }
+                #endif
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { vm.showPrintPreview = false }
                 }
@@ -211,6 +236,20 @@ struct ShowSettlementView: View {
         }
         .frame(minWidth: 520, minHeight: 560)
     }
+
+    #if canImport(AppKit)
+    /// Print the SAME monospaced settlement text the preview renders —
+    /// `SettlementPrintCompute.renderText` stays the single computation.
+    private static func printSettlement(_ s: SettlementSummary) {
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 486, height: 700))
+        textView.string = SettlementPrintCompute.renderText(s)
+        textView.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        let operation = NSPrintOperation(view: textView)
+        operation.showsPrintPanel = true
+        operation.showsProgressPanel = true
+        operation.run()
+    }
+    #endif
 
     // ── row helpers ───────────────────────────────────────────────────
 
@@ -354,8 +393,25 @@ final class ShowSettlementViewModel {
             costsOffTop: costs,
             buyoutCents: buyoutCents
         )
+        let user: ManagerPinUser?
         do {
-            let user = try gateModel.actorForWrite()
+            user = try gateModel.actorForWrite()
+        } catch {
+            // actorForWrite presented the PIN sheet, which can't show over
+            // the deal-editor sheet on macOS (PR #401). Dismiss the form,
+            // stash the save (form fields survive in the VM), replay after
+            // a successful verify — and report a cancelled PIN instead of
+            // silently dropping the deal.
+            showDealEditor = false
+            gateModel.stashPendingWrite(
+                retry: { [weak self] in self?.saveDeal() },
+                onCancel: { [weak self] in
+                    self?.submitError = "PIN required — deal not saved. Reopen “Edit deal” to try again."
+                }
+            )
+            return
+        }
+        do {
             let repo = ShowSettlementRepository(readDB: readDB, writeDB: writeDB, locationId: locationId)
             try repo.upsertDeal(
                 showId: showId,

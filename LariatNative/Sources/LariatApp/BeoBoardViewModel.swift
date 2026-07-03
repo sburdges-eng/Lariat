@@ -34,6 +34,10 @@ final class BeoBoardViewModel {
     var errorMessage: String?
     var isSaving = false
     var showPinSheet = false
+    /// Bumped when a pending write is discarded (PIN sheet cancelled) so the
+    /// sheet tab's `CommitTextField`s are rebuilt and re-adopt the persisted
+    /// row values instead of keeping the unsaved text.
+    private(set) var editorGeneration = 0
 
     var selectedEventId: Int64? {
         didSet { if oldValue != selectedEventId { onEventChanged() } }
@@ -63,6 +67,8 @@ final class BeoBoardViewModel {
     private let writeDB: LariatWriteDatabase
     private let locationId: String
     private var pendingAction: (() -> Void)?
+    /// Distinguishes verify-then-dismiss from a plain cancel in `onDismiss`.
+    private var pinVerifiedWhileSheetUp = false
 
     private let boardRepo: BeoBoardRepository
     private let coursesRepo: BeoCoursesRepository
@@ -307,8 +313,16 @@ final class BeoBoardViewModel {
             errorMessage = "Course needs a name"
             return
         }
+        // combineToIso returns nil BOTH for a bad time and a missing event
+        // date — tell the operator which one is actually blocking them.
+        let eventDate = (selectedEvent?.eventDate ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !eventDate.isEmpty else {
+            errorMessage = "Set the party's date first — fire times need a date"
+            return
+        }
         guard let fireAt = BeoCourseRules.combineToIso(
-            eventDate: selectedEvent?.eventDate, hhmm: newCourseTime
+            eventDate: eventDate, hhmm: Self.normalizeHHMM(newCourseTime)
         ) else {
             errorMessage = "Pick a fire time (HH:MM)"
             return
@@ -342,12 +356,40 @@ final class BeoBoardViewModel {
 
     func pinVerified(_ user: ManagerPinUser) {
         pinStore.save(user: user)
+        pinVerifiedWhileSheetUp = true
         let action = pendingAction
         pendingAction = nil
         action?()
     }
 
+    /// Hooked to the PIN sheet's `onDismiss`. Cancelling the sheet must not
+    /// silently discard the pending write while the field keeps showing the
+    /// unsaved value: report it, drop the action, and rebuild the editors so
+    /// they re-adopt the persisted row values.
+    func pinSheetDismissed() {
+        if pinVerifiedWhileSheetUp {
+            pinVerifiedWhileSheetUp = false
+            return
+        }
+        guard pendingAction != nil else { return }
+        pendingAction = nil
+        errorMessage = "PIN required — change not saved"
+        editorGeneration += 1
+        Task { await refresh() }
+    }
+
     // ── internals ────────────────────────────────────────────────────────
+
+    /// Accept the natural "5:30" by zero-padding to the "HH:MM" shape
+    /// `BeoCourseRules.combineToIso` requires. Anything else passes through
+    /// untouched (the rule module stays the validator).
+    static func normalizeHHMM(_ raw: String) -> String {
+        let t = raw.trimmingCharacters(in: .whitespaces)
+        if t.range(of: #"^\d:\d{2}$"#, options: .regularExpression) != nil {
+            return "0" + t
+        }
+        return t
+    }
 
     private func gate(_ action: @escaping () -> Void) {
         if pinStore.activeUser != nil {

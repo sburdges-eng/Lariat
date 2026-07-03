@@ -15,6 +15,16 @@ extension FeatureModule {
         AnyView(ShowsArchiveView(database: ctx.database, writeDatabase: ctx.writeDatabase))
     }
 
+    /// `/playbook` — read-only show-marketing checklists; the "Event ops"
+    /// strip navigates to the per-show boards via `ctx.navigate`.
+    static let showsPlaybook = FeatureModule(id: "shows.playbook") { ctx in
+        AnyView(ShowPlaybookView(
+            database: ctx.database,
+            writeDatabase: ctx.writeDatabase,
+            navigate: ctx.navigate
+        ))
+    }
+
     static let showsBoxOffice = FeatureModule(id: "shows.boxOffice") { ctx in
         AnyView(ShowBoxOfficeView(database: ctx.database, writeDatabase: ctx.writeDatabase))
     }
