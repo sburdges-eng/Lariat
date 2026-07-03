@@ -160,6 +160,15 @@ final class BeoBoardViewModel {
         return courses.first { $0.id == courseId }?.courseLabel
     }
 
+    /// Amount/portion description for a line, looked up from the catalog by
+    /// name — persistent guidance ("per pan · typically 1 pan") shown under
+    /// the item. `nil` when the item isn't in the menu or has no description.
+    func amountHint(for itemName: String) -> String? {
+        let key = CateringMenuCatalog.normalize(itemName)
+        let d = menu.first { CateringMenuCatalog.normalize($0.name) == key }?.amountDescription
+        return (d?.isEmpty == false) ? d : nil
+    }
+
     // ── loads ────────────────────────────────────────────────────────────
 
     func refresh() async {
@@ -286,13 +295,13 @@ final class BeoBoardViewModel {
     func requestAddLine(_ item: CateringMenuItem) {
         errorMessage = nil
         guard let eventId = selectedEventId else { return }
-        // Pricing + related prep-sheet fields come straight from the menu
-        // catalog (cost from catering_menu.json; prep/plating/order from the
-        // BEO prep-defaults sidecar) so a pick lands a fully-populated line —
-        // empty strings for items with no history leave those fields blank.
+        // Pricing + related fields come straight from the menu catalog: cost
+        // and the typical order quantity (so a passed app lands at ~50, not 1)
+        // from the invoice history, and prep/plating/order from the BEO prep
+        // log. Empty/absent history leaves those fields blank at qty 1.
         let input = BeoLineInput(
             eventId: eventId, itemName: item.name, category: item.category,
-            unitCost: item.cost, quantity: 1,
+            unitCost: item.cost, quantity: item.defaultQuantity,
             prepNotes: item.prepNotes.isEmpty ? nil : item.prepNotes,
             secondaryPrepNotes: item.secondaryPrepNotes.isEmpty ? nil : item.secondaryPrepNotes,
             orderItemsNotes: item.orderItemsNotes.isEmpty ? nil : item.orderItemsNotes)
