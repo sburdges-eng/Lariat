@@ -52,6 +52,13 @@ export const es: Messages = {
       allEyebrow: 'Todos',
       allLink: 'Todos los tableros',
     },
+    prep: {
+      eyebrow: 'Prep ya',
+      title: 'Trabaja la lista de prep',
+      copy: 'Toma tu prep, sácalo y mantén la línea surtida.',
+      watchEyebrow: 'Ver',
+      watchLink: 'Ver los 86',
+    },
   },
   checklist: {
     pickName: 'Primero elige tu nombre en la barra lateral.',

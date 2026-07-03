@@ -95,6 +95,10 @@ export const NAV_ROUTE_EXCLUSIONS = [
     reason: 'Cookie-gated side-by-side preview route; keep v2 cook pages out of v1 navigation until cutover.',
   },
   {
+    href: '/v2/prep',
+    reason: 'Cookie-gated side-by-side preview route; keep v2 cook pages out of v1 navigation until cutover.',
+  },
+  {
     href: '/v2/command',
     reason: 'Cookie-gated side-by-side preview route; keep v2 manager pages out of v1 navigation until cutover.',
   },

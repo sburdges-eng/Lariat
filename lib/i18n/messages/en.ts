@@ -51,6 +51,13 @@ export const en = {
       allEyebrow: 'All',
       allLink: 'All boards',
     },
+    prep: {
+      eyebrow: 'Prep now',
+      title: 'Work the prep list',
+      copy: 'Claim your prep, knock it out, and keep the line stocked.',
+      watchEyebrow: 'Watch',
+      watchLink: 'Watch 86',
+    },
   },
   checklist: {
     pickName: 'Pick your name in the sidebar first.',
