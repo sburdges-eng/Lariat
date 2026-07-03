@@ -6,19 +6,30 @@ import Observation
 /// Backs `purchasing.orderGuide` — the READ-ONLY purchasing hub, parity with
 /// `app/purchasing/page.jsx`: the order-guide table (LIMIT 200) enriched with
 /// preferred/lock/mismatch badges (`lib/orderGuideEnrichment.ts`). No writes.
+/// Polls every 3 s (`BoardPoller`, sibling costing-board precedent) so
+/// workbook ingests and web-side edits land without leaving the board.
 @Observable @MainActor
 final class PurchasingOrderGuideViewModel {
     var summary: OrderGuideSummary?
     var query = ""
     var fetchError: String?
 
-    private let database: LariatDatabase
-    private let locationId: String
+    private let poller = BoardPoller()
+    private let repo: PurchasingOrderGuideRepository
 
     init(database: LariatDatabase, locationId: String = LocationScope.resolve()) {
-        self.database = database
-        self.locationId = locationId
+        self.repo = PurchasingOrderGuideRepository(database: database, locationId: locationId)
     }
+
+    func start() {
+        poller.start(interval: .seconds(3)) { [weak self] in
+            guard let self else { return }
+            await self.refresh()
+            try BoardPoller.throwIfFailed(self.fetchError)
+        }
+    }
+
+    func stop() { poller.stop() }
 
     /// Client-side `.searchable` filter on ingredient/vendor (native nicety;
     /// the web page renders the full 200-row table).
@@ -34,7 +45,6 @@ final class PurchasingOrderGuideViewModel {
 
     func refresh() async {
         do {
-            let repo = PurchasingOrderGuideRepository(database: database, locationId: locationId)
             summary = try await repo.fetch()
             fetchError = nil
         } catch {

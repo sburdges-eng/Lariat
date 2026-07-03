@@ -129,6 +129,17 @@ final class VendorCompareViewModel {
             perform(action)
         } else {
             pendingAction = action
+            // PR #401 dismiss-before-PIN precedent (BeoBoardView addParty):
+            // the attach picker and the PIN prompt are sibling `.sheet`s on
+            // the same view, and two sheets can't be up at once — dismiss the
+            // picker first or the PIN prompt never presents. After the PIN
+            // verifies, `perform(.attach)` runs and `refresh()` reloads the
+            // singles list so the attached row visibly drops off.
+            if attachTarget != nil {
+                attachTarget = nil
+                attachQuery = ""
+                attachRows = []
+            }
             showPinSheet = true
         }
     }

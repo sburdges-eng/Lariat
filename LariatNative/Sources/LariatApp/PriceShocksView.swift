@@ -48,7 +48,10 @@ import Observation
 
     func stop() { poller.stop() }
 
-    private func refresh() async {
+    /// Internal (not private): the window/threshold pickers trigger an
+    /// immediate re-query on change so the board never shows a stale beat
+    /// while waiting for the next 3 s poll tick.
+    func refresh() async {
         do {
             let options = PriceShockOptions(windowDays: windowDays, minPctMove: minPctMove)
             let loadedRows = try await repo.load(options: options)
@@ -137,6 +140,12 @@ struct PriceShocksView: View {
 private struct PriceShocksContentView: View {
     @Bindable var vm: PriceShocksViewModel
 
+    /// page.jsx WINDOW_OPTIONS / MIN_PCT_OPTIONS (price-shocks L26-34).
+    private static let windowOptions: [(days: Int, label: String)] = [
+        (1, "24h"), (7, "7 days"), (14, "14 days"), (30, "30 days"), (90, "90 days"),
+    ]
+    private static let minPctOptions: [Double] = [5, 10, 25]
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -144,6 +153,30 @@ private struct PriceShocksContentView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal)
+
+                // Window / threshold pickers (MarginDeltasContentView pattern).
+                HStack(spacing: 12) {
+                    Picker("Window", selection: $vm.windowDays) {
+                        ForEach(Self.windowOptions, id: \.days) { opt in
+                            Text(opt.label).tag(opt.days)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 400)
+                    .onChange(of: vm.windowDays) { _, _ in Task { await vm.refresh() } }
+
+                    Picker("Threshold", selection: $vm.minPctMove) {
+                        ForEach(Self.minPctOptions, id: \.self) { pct in
+                            Text("\(Int(pct))%").tag(pct)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 200)
+                    .onChange(of: vm.minPctMove) { _, _ in Task { await vm.refresh() } }
+
+                    Spacer()
+                }
+                .padding(.horizontal)
 
                 if vm.rows.isEmpty {
                     TileDegrade(

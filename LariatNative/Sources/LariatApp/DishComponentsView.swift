@@ -43,12 +43,18 @@ import Observation
     var isLoading = true
     var query = ""
 
+    /// False when the write DB failed to open — the view swaps the builder
+    /// for a read-only banner and hides delete, instead of letting a full
+    /// multi-row dish build fail per-row at save time.
+    let canWrite: Bool
+
     private let poller = BoardPoller()
     private let repo: DishComponentsRepository
     private let hubRepo: MenuEngineeringRepository
 
     init(readDB: LariatDatabase, writeDB: LariatWriteDatabase?,
          locationId: String = LocationScope.resolve()) {
+        self.canWrite = writeDB != nil
         self.repo = DishComponentsRepository(readDB: readDB, writeDB: writeDB, locationId: locationId)
         self.hubRepo = MenuEngineeringRepository(database: readDB, locationId: locationId)
         self.recipes = DishBridgeRecipeLoader.load().sorted { $0.name < $1.name }
@@ -310,14 +316,38 @@ private struct DishComponentsContentView: View {
                         .padding(.horizontal)
                 }
 
-                builderCard
-                    .padding(.horizontal)
+                if vm.canWrite {
+                    builderCard
+                        .padding(.horizontal)
+                } else {
+                    readOnlyBanner
+                        .padding(.horizontal)
+                }
 
                 existingCard
                     .padding(.horizontal)
             }
             .padding(.vertical)
         }
+    }
+
+    /// Shown in place of the builder when the write DB failed to open —
+    /// mirrors the purchasing modules' lock-tile degrade, but keeps the
+    /// read-only components list below usable.
+    private var readOnlyBanner: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label("Write database unavailable — read-only", systemImage: "lock")
+                .font(.caption)
+                .bold()
+                .foregroundStyle(LariatTheme.warn)
+            Text("The dish builder and delete actions are disabled until the app can open the write database. The existing components below are still current.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(LariatTheme.warn, lineWidth: 1))
     }
 
     // ── Build a dish (ComponentEditor.jsx form) ─────────────────────────────
@@ -473,16 +503,25 @@ private struct DishComponentsContentView: View {
             } else {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(vm.visibleGroups, id: \.dish) { group in
-                        Button {
-                            vm.editDish(group.dish)
-                        } label: {
+                        // Read-only session: the builder is hidden, so the
+                        // dish name is a plain header instead of an edit link.
+                        if vm.canWrite {
+                            Button {
+                                vm.editDish(group.dish)
+                            } label: {
+                                Text(group.dish)
+                                    .font(.subheadline)
+                                    .bold()
+                            }
+                            .buttonStyle(.plain)
+                            .help("Load into builder to edit all components")
+                            .padding(.top, 8)
+                        } else {
                             Text(group.dish)
                                 .font(.subheadline)
                                 .bold()
+                                .padding(.top, 8)
                         }
-                        .buttonStyle(.plain)
-                        .help("Load into builder to edit all components")
-                        .padding(.top, 8)
 
                         ForEach(group.rows) { c in
                             HStack(spacing: 10) {
@@ -505,13 +544,15 @@ private struct DishComponentsContentView: View {
                                 Text(String((c.updatedAt ?? "").prefix(16)))
                                     .font(.caption2)
                                     .foregroundStyle(.tertiary)
-                                Button(role: .destructive) {
-                                    Task { await vm.delete(id: c.id) }
-                                } label: {
-                                    Image(systemName: "trash")
+                                if vm.canWrite {
+                                    Button(role: .destructive) {
+                                        Task { await vm.delete(id: c.id) }
+                                    } label: {
+                                        Image(systemName: "trash")
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Delete")
                                 }
-                                .buttonStyle(.plain)
-                                .help("Delete")
                             }
                             .padding(.vertical, 3)
                             Divider()

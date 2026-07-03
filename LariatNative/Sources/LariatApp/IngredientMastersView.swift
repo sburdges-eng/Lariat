@@ -35,6 +35,13 @@ struct IngredientMastersView: View {
         VStack(alignment: .leading, spacing: 0) {
             filterBar
 
+            if !vm.canWrite {
+                Label("Write database unavailable — read-only. \u{201c}Mark reviewed\u{201d} is disabled.", systemImage: "lock")
+                    .font(.caption)
+                    .foregroundStyle(LariatTheme.warn)
+                    .padding(.horizontal)
+            }
+
             if let actionError = vm.actionError {
                 Text(actionError)
                     .font(.caption)
@@ -109,7 +116,8 @@ struct IngredientMastersView: View {
                 Button("Mark reviewed") {
                     Task { await vm.markReviewed(masterId: row.masterId) }
                 }
-                .disabled(vm.isSaving)
+                .disabled(vm.isSaving || !vm.canWrite)
+                .help(vm.canWrite ? "Stamp last_reviewed = now" : "Write database unavailable — read-only")
             }
         }
     }

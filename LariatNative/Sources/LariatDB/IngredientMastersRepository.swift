@@ -131,7 +131,10 @@ public struct IngredientMastersRepository {
         updates: IngredientMasterUpdates,
         context: RegulatedWriteContext
     ) throws -> UpdateMasterResult {
-        guard let writeDB else { throw IngredientMasterWriteError.persistenceFailed }
+        // Distinct from persistenceFailed: a nil write DB means the whole
+        // session is read-only (LariatWriteDatabase never opened), and the UI
+        // message must say so instead of "Could not save ingredient master".
+        guard let writeDB else { throw IngredientMasterWriteError.writeDatabaseUnavailable }
 
         guard let before = try getMaster(masterId) else {
             return UpdateMasterResult(found: false, changed: false, before: nil, after: nil)

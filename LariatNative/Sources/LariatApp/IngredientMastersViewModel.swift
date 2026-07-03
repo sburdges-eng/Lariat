@@ -27,6 +27,11 @@ import Observation
     var actionError: String?
     var isSaving = false
 
+    /// False when the write DB failed to open — the view disables "Mark
+    /// reviewed" and shows a read-only banner instead of letting the click
+    /// fail after the fact.
+    let canWrite: Bool
+
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase?
     private let repo: IngredientMastersRepository
@@ -41,6 +46,7 @@ import Observation
     ) {
         self.readDB = readDB
         self.writeDB = writeDB
+        self.canWrite = writeDB != nil
         self.repo = IngredientMastersRepository(readDB: readDB, writeDB: writeDB)
         self.pinUser = pinUser
         self.locationId = locationId

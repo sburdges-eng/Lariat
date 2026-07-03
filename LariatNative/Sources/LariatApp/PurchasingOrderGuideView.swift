@@ -26,7 +26,8 @@ struct PurchasingOrderGuideView: View {
             }
         }
         .navigationTitle("Order guide")
-        .task { await vm.refresh() }
+        .task { vm.start() }
+        .onDisappear { vm.stop() }
         .searchable(text: $vm.query, prompt: "Find an ingredient or vendor")
     }
 
@@ -37,7 +38,7 @@ struct PurchasingOrderGuideView: View {
 
             if vm.summary?.totalCount == 0 {
                 EmptyState(
-                    message: "No order guide yet. Drop the operations workbook in place, then pull fresh.",
+                    message: "No order guide yet. Drop the operations workbook in place and run the ingest — this board picks it up automatically.",
                     systemImage: "tray"
                 )
                 .padding()
@@ -53,7 +54,7 @@ struct PurchasingOrderGuideView: View {
     @ViewBuilder
     private var headerBar: some View {
         HStack(spacing: 12) {
-            Text("From the Order Guide sheet (\(vm.summary?.totalCount ?? 0) items). Pull fresh after the operations workbook is updated.")
+            Text("From the Order Guide sheet (\(vm.summary?.totalCount ?? 0) items). Refreshes automatically after the operations workbook is updated.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()

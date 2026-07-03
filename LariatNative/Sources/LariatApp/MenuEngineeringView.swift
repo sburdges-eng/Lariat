@@ -8,15 +8,13 @@ import Observation
 /// Backs `costing.menuEngineering` — the menu-performance hub
 /// (`app/menu-engineering/page.tsx`): per-dish quadrant table fed by the
 /// REAL dish-cost bridge (A4.3 T1), coverage counters, unlinked-revenue
-/// call-out, and the plowhorse hazard banner. Polls every 3 s (sibling VM
-/// precedent).
-///
-/// Prep-median column: DEFERRED-COSMETIC — the web pulls it from
-/// `beo_prep_history` (`lib/beoPrepHistory.ts`), not yet ported; the native
-/// column renders "—" for every row (documented in the A4.3 plan).
+/// call-out, the plowhorse hazard banner, and the past-prep-median column
+/// (`beo_prep_history` via `BeoPrepHistoryRepository.prepMedians`, page.tsx
+/// L63-76). Polls every 3 s (sibling VM precedent).
 @Observable @MainActor final class MenuEngineeringViewModel {
     var result: BridgedMenuEngineeringResult?
     var coverageReport: DishCoverageReport?
+    var prepMedians: [String: BeoPrepMedian] = [:]
     var lastComputeRun: String?
     var errorText: String?
     var isLoading = true
@@ -24,10 +22,14 @@ import Observation
 
     private let poller = BoardPoller()
     private let repo: MenuEngineeringRepository
+    private let prepRepo: BeoPrepHistoryRepository
     private let recipes: [BridgeRecipe]
+    private let locationId: String
 
     init(database: LariatDatabase, locationId: String = LocationScope.resolve()) {
         self.repo = MenuEngineeringRepository(database: database, locationId: locationId)
+        self.prepRepo = BeoPrepHistoryRepository(database: database)
+        self.locationId = locationId
         // recipes.json discovery layer — [] when absent (web getRecipes parity).
         self.recipes = DishBridgeRecipeLoader.load()
     }
@@ -54,12 +56,28 @@ import Observation
             result = DishCostBridge.computeMenuEngineering(sales: bundle.sales, map: map)
             coverageReport = DishCostBridge.computeDishCoverage(sales: bundle.sales, map: map)
             lastComputeRun = bundle.lastComputeRun
+            // Past-prep medians (page.tsx L63-76): exact case-insensitive
+            // match on item_name — no fuzzy matching; this column has to be
+            // precise to work as a planning number. A median failure keeps
+            // the board alive with an empty map (web try/catch parity).
+            do {
+                let names = (result?.rows ?? []).map(\.itemName)
+                prepMedians = try await prepRepo.prepMedians(items: names, locationId: locationId)
+            } catch {
+                prepMedians = [:]
+            }
             errorText = nil
             isLoading = false
         } catch {
             errorText = "Fetch error: \(error.localizedDescription)"
             isLoading = false
         }
+    }
+
+    /// Prep-median lookup — key shape parity with page.tsx L204-210:
+    /// `trim()` THEN `toLowerCase()` (matches `keyedItems`' key derivation).
+    func prepMedian(for itemName: String) -> BeoPrepMedian? {
+        prepMedians[itemName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()]
     }
 
     /// Web sort (page.tsx L52-57): unlinked rows last, everything else by
@@ -214,7 +232,7 @@ private struct MenuEngineeringContentView: View {
                 } else {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(vm.visibleRows, id: \.itemName) { row in
-                            MenuEngineeringRowView(row: row)
+                            MenuEngineeringRowView(row: row, prepMedian: vm.prepMedian(for: row.itemName))
                             Divider()
                         }
                     }
@@ -308,7 +326,9 @@ private struct HazardBanner: View {
             Text("High-volume Plowhorses below 20% margin. Consider catalog alternatives for these heavy movers.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-            HStack(spacing: 12) {
+            // One hazard per line (web `.stack` wraps; a non-wrapping HStack
+            // truncated dish names once there were more than ~4 hazards).
+            VStack(alignment: .leading, spacing: 2) {
                 ForEach(hazards, id: \.itemName) { h in
                     Text("\(h.itemName) (\(h.marginPct.map { String(format: "%.1f", $0) } ?? "—")%)")
                         .font(.caption)
@@ -351,6 +371,7 @@ private struct MedianLegendCard: View {
 
 private struct MenuEngineeringRowView: View {
     let row: BridgedMenuEngineeringRow
+    let prepMedian: BeoPrepMedian?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -371,9 +392,7 @@ private struct MenuEngineeringRowView: View {
 
             HStack(spacing: 14) {
                 stat("Qty", String(format: "%.0f", row.qty))
-                // Prep median: DEFERRED-COSMETIC — beo_prep_history not yet
-                // ported; the web shows the per-item median prep qty here.
-                stat("Prep median", "—")
+                prepMedianStat(prepMedian)
                 stat("Net $", formatDollars(row.netSales, decimals: 2))
                 stat("Avg $", formatDollars(row.avgPrice, decimals: 2))
                 stat("Cost/u", row.costPerUnit.map { formatDollars($0, decimals: 2) } ?? "—")
@@ -396,6 +415,23 @@ private struct MenuEngineeringRowView: View {
         VStack(alignment: .leading, spacing: 1) {
             Text(label).font(.caption2).foregroundStyle(.tertiary)
             Text(value).font(.caption).monospacedDigit()
+        }
+    }
+
+    /// Prep-median cell (page.tsx L202-221): the median rounded to a whole
+    /// number plus a muted "(N)" sample count; "—" when no `beo_prep_history`
+    /// rows match this item name.
+    private func prepMedianStat(_ m: BeoPrepMedian?) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text("Prep median").font(.caption2).foregroundStyle(.tertiary)
+            if let m {
+                (Text(String(format: "%.0f", m.median)).monospacedDigit()
+                    + Text(" (\(m.samples))").foregroundStyle(.secondary))
+                    .font(.caption)
+                    .help("\(m.samples) event\(m.samples == 1 ? "" : "s") contributed")
+            } else {
+                Text("—").font(.caption).foregroundStyle(.secondary)
+            }
         }
     }
 
