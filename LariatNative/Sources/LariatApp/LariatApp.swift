@@ -36,6 +36,7 @@ struct LariatApp: App {
     case prep = "Prep"
     case inventory = "Inventory"
     case allergens = "Allergens"
+    case menuEngineering = "Menu Engineering"
     var id: String { rawValue }
   }
 
@@ -262,6 +263,8 @@ struct LariatApp: App {
       InventoryView(database: database)
     case .culinary(.allergens):
       AllergensView(database: database)
+    case .culinary(.menuEngineering):
+      MenuEngineeringView(database: database)
     case .operations(.labor):
       LaborView(database: database)
     case .operations(.floorPlan):
