@@ -1,0 +1,2640 @@
+{
+  "menu_items": {
+    "baked ziti": [
+      "baked_ziti"
+    ],
+    "banana cream pudding": [
+      "banana_cream_pudding"
+    ],
+    "barbacoa taco": [
+      "birria"
+    ],
+    "barbacoa taco buffet": [
+      "birria"
+    ],
+    "battered avocado taco buffet": [
+      "beer_batter",
+      "beer_flour",
+      "chipotle_aioli",
+      "mexi_slaw"
+    ],
+    "battered fish taco": [
+      "fish_brine",
+      "beer_batter",
+      "chipotle_aioli",
+      "mexi_slaw",
+      "pico_de_gallo"
+    ],
+    "braised chicken taco": [
+      "chicken_confit",
+      "aji_verde"
+    ],
+    "braised chicken taco buffet": [
+      "chicken_confit",
+      "aji_verde"
+    ],
+    "caprese skewers": [
+      "caprese_skewers"
+    ],
+    "carnitas taco": [
+      "birria"
+    ],
+    "carnitas tacos buffet": [
+      "birria"
+    ],
+    "chilled corn leek": [
+      "chilled_corn_leek"
+    ],
+    "chocolate cake": [
+      "chocolate_cake"
+    ],
+    "churros": [
+      "churros"
+    ],
+    "cob salad buffet": [
+      "roasted_pepitas"
+    ],
+    "corn dogs": [
+      "corn_dogs"
+    ],
+    "crab cake remoulade": [
+      "crab_cake_remoulade"
+    ],
+    "cupcakes": [
+      "cupcakes"
+    ],
+    "deviled eggs": [
+      "deviled_eggs"
+    ],
+    "fish taco buffet": [
+      "fish_brine",
+      "beer_batter",
+      "chipotle_aioli",
+      "mexi_slaw",
+      "pico_de_gallo"
+    ],
+    "french artisanal board": [
+      "artisanal_board"
+    ],
+    "gazpacho": [
+      "gazpacho"
+    ],
+    "green chile mac buffet": [
+      "queso_mac_sauce",
+      "green_chile"
+    ],
+    "italian artisanal board": [
+      "artisanal_board"
+    ],
+    "italian dinner": [
+      "italian_dinner"
+    ],
+    "low country boil": [
+      "low_country_boil"
+    ],
+    "mac balls": [
+      "mac_balls"
+    ],
+    "mexican dinner": [
+      "mexican_dinner"
+    ],
+    "mini rellenos": [
+      "mini_rellenos"
+    ],
+    "nashville slider": [
+      "buttermilk_brine",
+      "chicken_flour",
+      "beer_batter",
+      "nashville_hot_rub",
+      "nashville_oil",
+      "special_sauce",
+      "coleslaw"
+    ],
+    "philo bites": [
+      "philo_bites"
+    ],
+    "pig wings": [
+      "alabama_white_sauce",
+      "lariat_rub"
+    ],
+    "pork belly bao bun": [
+      "pork_belly_bao_bun"
+    ],
+    "prime rib dinner": [
+      "prime_rib"
+    ],
+    "prime rib sliders": [
+      "prime_rib"
+    ],
+    "roast chicken dinner": [
+      "chicken_confit",
+      "chicken_jus"
+    ],
+    "rope burger slider": [
+      "bacon_jam",
+      "rope_pickle",
+      "special_sauce",
+      "coleslaw"
+    ],
+    "spanish artisanal board": [
+      "artisanal_board"
+    ],
+    "tex mex egg rolls": [
+      "tex_mex_egg_rolls"
+    ],
+    "tiramisu": [
+      "tiramisu"
+    ],
+    "trio dips": [
+      "blackened_tomato_salsa",
+      "pico_de_gallo",
+      "queso_mac_sauce"
+    ]
+  },
+  "recipes": {
+    "aji_verde": {
+      "name": "Aji Verde",
+      "station": "saute;fry",
+      "category": "sauce",
+      "prep_timing": "day_before",
+      "yield_qty": 3.2,
+      "yield_unit": "qt",
+      "notes": "PDF p25 — blend in two stages; half cilantro each time",
+      "ingredients": [
+        {
+          "item": "cilantro",
+          "qty": 1200,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "lime juice",
+          "qty": 600,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "mayonnaise",
+          "qty": 600,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "garlic",
+          "qty": 200,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "salt",
+          "qty": 40,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "olive oil",
+          "qty": 150,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "jalapeno",
+          "qty": 500,
+          "unit": "g",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "alabama_white_sauce": {
+      "name": "Alabama White Sauce",
+      "station": "fry",
+      "category": "sauce",
+      "prep_timing": "day_before",
+      "yield_qty": 1.5,
+      "yield_unit": "gal",
+      "notes": "PDF p26 — mayo + ACV base; dissolve brown sugar in ACV if solidified",
+      "ingredients": [
+        {
+          "item": "mayonnaise",
+          "qty": 1,
+          "unit": "gal",
+          "recipe": null
+        },
+        {
+          "item": "horseradish",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "dijon mustard",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "apple cider vinegar",
+          "qty": 1,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "lemon juice",
+          "qty": 1,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "granulated garlic",
+          "qty": 2,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "brown sugar",
+          "qty": 3,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "cayenne",
+          "qty": 0.5,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "kosher salt",
+          "qty": 1,
+          "unit": "tsp",
+          "recipe": null
+        },
+        {
+          "item": "black pepper",
+          "qty": 1,
+          "unit": "tsp",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "artisanal_board": {
+      "name": "Artisanal Board",
+      "station": "garde",
+      "category": "appetizer",
+      "prep_timing": "day_of",
+      "yield_qty": 20,
+      "yield_unit": "portion",
+      "notes": "Vendor whole-buy composition — cheeses + cured meats + bread + fruit + olive",
+      "ingredients": [
+        {
+          "item": "assorted cheeses (vendor whole-buy)",
+          "qty": 2,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "assorted cured meats (vendor whole-buy)",
+          "qty": 1,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "crackers or baguette",
+          "qty": 1,
+          "unit": "loaf",
+          "recipe": null
+        },
+        {
+          "item": "fruit or preserve",
+          "qty": 1,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "olives or pickle",
+          "qty": 1,
+          "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "bacon_jam": {
+      "name": "Bacon Jam",
+      "station": "grill",
+      "category": "sauce",
+      "prep_timing": "day_before",
+      "yield_qty": 10,
+      "yield_unit": "qt",
+      "notes": "Render bacon crisp — reduce OJ to jammy",
+      "ingredients": [
+        {
+          "item": "bacon",
+          "qty": 15,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "yellow onions",
+          "qty": 10,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "orange juice",
+          "qty": 1,
+          "unit": "qt",
+          "recipe": null
+        },
+        {
+          "item": "brown sugar",
+          "qty": 4,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "lariat rub",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": "lariat_rub"
+        }
+      ],
+      "sub_recipes": [
+        "lariat_rub"
+      ]
+    },
+    "baked_ziti": {
+      "name": "Baked Ziti",
+      "station": "saute",
+      "category": "entree",
+      "prep_timing": "day_of",
+      "yield_qty": 1,
+      "yield_unit": "hotel pan",
+      "notes": "Standard no-bake layered ziti — 1 hotel pan ≈ 24 portions",
+      "ingredients": [
+        {
+          "item": "ziti noodles",
+          "qty": 2,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "marinara sauce",
+          "qty": 2,
+          "unit": "qt",
+          "recipe": "marinara_sauce"
+        },
+        {
+          "item": "tomato sauce",
+          "qty": 1,
+          "unit": "qt",
+          "recipe": null
+        },
+        {
+          "item": "ricotta cheese",
+          "qty": 2,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "mozzarella shredded",
+          "qty": 1.5,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "parmesan grated",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "basil fresh",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "thyme fresh",
+          "qty": 2,
+          "unit": "tsp",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": [
+        "marinara_sauce"
+      ]
+    },
+    "banana_cream_pudding": {
+      "name": "Banana Cream Pudding",
+      "station": "expo",
+      "category": "dessert",
+      "prep_timing": "day_of",
+      "yield_qty": 12,
+      "yield_unit": "portion",
+      "notes": "Shamrock/Sysco pudding base + bananas + vanilla wafers + whipped cream",
+      "ingredients": [
+        {
+          "item": "pudding vanilla base (shamrock/sysco)",
+          "qty": 1,
+          "unit": "can",
+          "recipe": null
+        },
+        {
+          "item": "bananas",
+          "qty": 6,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "vanilla wafers",
+          "qty": 1,
+          "unit": "box",
+          "recipe": null
+        },
+        {
+          "item": "whipped cream",
+          "qty": 1,
+          "unit": "qt",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "beer_batter": {
+      "name": "Beer Batter",
+      "station": "fry",
+      "category": "prep",
+      "prep_timing": "day_before",
+      "yield_qty": 600,
+      "yield_unit": "g",
+      "notes": "PDF p21 — wet portion only (guinness + vodka); combine with beer_flour dry mix at service",
+      "ingredients": [
+        {
+          "item": "guinness",
+          "qty": 550,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "vodka",
+          "qty": 50,
+          "unit": "g",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "beer_flour": {
+      "name": "Beer Flour",
+      "station": "fry",
+      "category": "prep",
+      "prep_timing": "day_before",
+      "yield_qty": 18,
+      "yield_unit": "cup",
+      "notes": "PDF p21 — dry mix combined with beer_batter wet portion at service",
+      "ingredients": [
+        {
+          "item": "ap flour",
+          "qty": 17,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "kosher salt",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "baking soda",
+          "qty": 0.333,
+          "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "birria": {
+      "name": "Birria",
+      "station": "grill",
+      "category": "entree",
+      "prep_timing": "overnight",
+      "yield_qty": 16,
+      "yield_unit": "qt",
+      "notes": "PDF p46 — beef cheeks; braise 8-12hr at 225F fatty side up; strain consomme through chinois; birria_seasoning = qb_seasoning sub-recipe",
+      "ingredients": [
+        {
+          "item": "beef cheeks",
+          "qty": 1,
+          "unit": "case",
+          "recipe": null
+        },
+        {
+          "item": "birria seasoning",
+          "qty": 150,
+          "unit": "g",
+          "recipe": "qb_seasoning"
+        },
+        {
+          "item": "guajillo peppers",
+          "qty": 80,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "white onion",
+          "qty": 4,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "garlic",
+          "qty": 200,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "water",
+          "qty": 12,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "chicken base",
+          "qty": 16,
+          "unit": "oz",
+          "recipe": null
+        },
+        {
+          "item": "achiote",
+          "qty": 200,
+          "unit": "g",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": [
+        "qb_seasoning"
+      ]
+    },
+    "blackened_tomato_salsa": {
+      "name": "Blackened Tomato Salsa",
+      "station": "grill",
+      "category": "sauce",
+      "prep_timing": "day_before",
+      "yield_qty": 22,
+      "yield_unit": "qt",
+      "notes": "PDF p8 — blacken tomatoes on char grill; halved onions + jalapenos in salamander; bur mix",
+      "ingredients": [
+        {
+          "item": "tomatoes",
+          "qty": 2,
+          "unit": "case",
+          "recipe": null
+        },
+        {
+          "item": "cilantro",
+          "qty": 8,
+          "unit": "bunch",
+          "recipe": null
+        },
+        {
+          "item": "jalapenos",
+          "qty": 2,
+          "unit": "qt",
+          "recipe": null
+        },
+        {
+          "item": "yellow onions",
+          "qty": 6,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "kosher salt",
+          "qty": 1,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "minced garlic",
+          "qty": 1.5,
+          "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "buttermilk_brine": {
+      "name": "Buttermilk Brine",
+      "station": "fry",
+      "category": "prep",
+      "prep_timing": "overnight",
+      "yield_qty": 12,
+      "yield_unit": "qt",
+      "notes": "12 qt of brined chicken — 12-24hr soak",
+      "ingredients": [
+        {
+          "item": "buttermilk",
+          "qty": 0.5,
+          "unit": "gal",
+          "recipe": null
+        },
+        {
+          "item": "franks hot sauce",
+          "qty": 500,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "garlic powder",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "onion powder",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "ground black pepper",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "kosher salt",
+          "qty": 0.125,
+          "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "caprese_skewers": {
+      "name": "Caprese Skewers",
+      "station": "garde",
+      "category": "appetizer",
+      "prep_timing": "day_of",
+      "yield_qty": 50,
+      "yield_unit": "ea",
+      "notes": "Ciliegine + cherry tomato + basil + prosciutto on 6in bamboo skewer",
+      "ingredients": [
+        {
+          "item": "mozzarella ciliegine",
+          "qty": 2,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "cherry tomatoes",
+          "qty": 2,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "basil fresh",
+          "qty": 1,
+          "unit": "bunch",
+          "recipe": null
+        },
+        {
+          "item": "prosciutto",
+          "qty": 1,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "bamboo skewers 6in",
+          "qty": 50,
+          "unit": "ea",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "chicken_confit": {
+      "name": "Chicken Confit",
+      "station": "fry;grill",
+      "category": "prep",
+      "prep_timing": "overnight",
+      "yield_qty": 1,
+      "yield_unit": "hotel pan",
+      "notes": "French legs — confit in EVOO 225F 3hr",
+      "ingredients": [
+        {
+          "item": "garlic cloves",
+          "qty": 8,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "rosemary sprigs",
+          "qty": 2,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "thyme sprigs",
+          "qty": 2,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "evoo",
+          "qty": "",
+          "unit": "",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "chicken_flour": {
+      "name": "Chicken Flour",
+      "station": "fry",
+      "category": "prep",
+      "prep_timing": "day_before",
+      "yield_qty": 22,
+      "yield_unit": "qt",
+      "notes": "Dry dredge before beer batter",
+      "ingredients": [
+        {
+          "item": "ap flour",
+          "qty": 18,
+          "unit": "kg",
+          "recipe": null
+        },
+        {
+          "item": "kosher salt",
+          "qty": 1.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "black pepper",
+          "qty": 2,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "paprika",
+          "qty": 1,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "onion powder",
+          "qty": 1.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "garlic powder",
+          "qty": 1.5,
+          "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "chicken_jus": {
+      "name": "Chicken Jus",
+      "station": "fry;grill",
+      "category": "sauce",
+      "prep_timing": "day_before",
+      "yield_qty": 5,
+      "yield_unit": "qt",
+      "notes": "Reduce by 1/3 approx 2 hours — strain through chinois",
+      "ingredients": [
+        {
+          "item": "celery",
+          "qty": 2.333,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "carrot",
+          "qty": 7,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "large onions",
+          "qty": 3,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "chicken wings",
+          "qty": 1,
+          "unit": "bag",
+          "recipe": null
+        },
+        {
+          "item": "clarified butter",
+          "qty": 0.667,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "water",
+          "qty": 8,
+          "unit": "qt",
+          "recipe": null
+        },
+        {
+          "item": "chicken stock",
+          "qty": 8,
+          "unit": "oz",
+          "recipe": null
+        },
+        {
+          "item": "dry white wine",
+          "qty": 4,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "sachet",
+          "qty": 20,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "garlic",
+          "qty": 0.667,
+          "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "chilled_corn_leek": {
+      "name": "Chilled Corn Leek",
+      "station": "saute",
+      "category": "soup",
+      "prep_timing": "day_of",
+      "yield_qty": 4,
+      "yield_unit": "qt",
+      "notes": "USDA Corn Soup base + vichyssoise template — needs chef review",
+      "ingredients": [
+        {
+          "item": "corn kernels",
+          "qty": 4,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "leeks",
+          "qty": 2,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "yellow onion",
+          "qty": 1,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "yukon gold potato",
+          "qty": 1.5,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "garlic",
+          "qty": 4,
+          "unit": "clove",
+          "recipe": null
+        },
+        {
+          "item": "unsalted butter",
+          "qty": 4,
+          "unit": "oz",
+          "recipe": null
+        },
+        {
+          "item": "chicken stock",
+          "qty": 3,
+          "unit": "qt",
+          "recipe": null
+        },
+        {
+          "item": "heavy cream",
+          "qty": 2,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "whole milk",
+          "qty": 1,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "bay leaf",
+          "qty": 2,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "fresh thyme",
+          "qty": 4,
+          "unit": "sprig",
+          "recipe": null
+        },
+        {
+          "item": "lemon juice",
+          "qty": 2,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "kosher salt",
+          "qty": 2,
+          "unit": "tsp",
+          "recipe": null
+        },
+        {
+          "item": "white pepper",
+          "qty": 1,
+          "unit": "tsp",
+          "recipe": null
+        },
+        {
+          "item": "chives",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "chipotle_aioli": {
+      "name": "Chipotle Aioli",
+      "station": "fry",
+      "category": "sauce",
+      "prep_timing": "day_before",
+      "yield_qty": 10,
+      "yield_unit": "qt",
+      "notes": "Adobo puree + lime",
+      "ingredients": [
+        {
+          "item": "mayonnaise",
+          "qty": 36,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "adobo puree",
+          "qty": 6,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "lime juice",
+          "qty": 3,
+          "unit": "tbsp",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "chocolate_cake": {
+      "name": "Chocolate Cake",
+      "station": "expo",
+      "category": "dessert",
+      "prep_timing": "day_of",
+      "yield_qty": 1,
+      "yield_unit": "ea",
+      "notes": "Whole-buy — Shamrock CAKE CHOC FUDGY WUDGY 14SLI / Sysco Fudgy Wudgy 14ct; thaw + slice",
+      "ingredients": [
+        {
+          "item": "chocolate cake whole (shamrock/sysco)",
+          "qty": 1,
+          "unit": "ea",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "churros": {
+      "name": "Churros",
+      "station": "fry",
+      "category": "dessert",
+      "prep_timing": "day_of",
+      "yield_qty": 1,
+      "yield_unit": "case",
+      "notes": "Whole-buy from Sysco (see purchase history for SKU + cost); fry from frozen",
+      "ingredients": [
+        {
+          "item": "churros (sysco)",
+          "qty": 1,
+          "unit": "case",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "coleslaw": {
+      "name": "Coleslaw",
+      "station": "salad",
+      "category": "prep",
+      "prep_timing": "day_before",
+      "yield_qty": 12,
+      "yield_unit": "qt",
+      "notes": "Pickle relish + horseradish dressing — Hillstone style",
+      "ingredients": [
+        {
+          "item": "mayonnaise",
+          "qty": 6,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "drained pickle relish",
+          "qty": 2.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "buttermilk",
+          "qty": 0.75,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "prepared horseradish",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "spicy brown mustard",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "apple cider vinegar",
+          "qty": 0.75,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "sugar",
+          "qty": 3,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "kosher salt",
+          "qty": "",
+          "unit": "",
+          "recipe": null
+        },
+        {
+          "item": "pepper",
+          "qty": "",
+          "unit": "",
+          "recipe": null
+        },
+        {
+          "item": "green cabbage",
+          "qty": 10,
+          "unit": "qt",
+          "recipe": null
+        },
+        {
+          "item": "scallion greens",
+          "qty": 3,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "scallion whites",
+          "qty": 3,
+          "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "corn_dogs": {
+      "name": "Corn Dogs",
+      "station": "fry",
+      "category": "appetizer",
+      "prep_timing": "day_of",
+      "yield_qty": 50,
+      "yield_unit": "ea",
+      "notes": "Corndog batter + honey mustard",
+      "ingredients": [
+        {
+          "item": "corndog batter",
+          "qty": 4,
+          "unit": "qt",
+          "recipe": "corndog_batter"
+        },
+        {
+          "item": "hot dogs",
+          "qty": 50,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "bamboo skewers 6in",
+          "qty": 50,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "honey mustard",
+          "qty": 1,
+          "unit": "qt",
+          "recipe": "honey_mustard"
+        }
+      ],
+      "sub_recipes": [
+        "corndog_batter",
+        "honey_mustard"
+      ]
+    },
+    "corndog_batter": {
+      "name": "Corndog Batter",
+      "station": "fry",
+      "category": "prep",
+      "prep_timing": "day_before",
+      "yield_qty": 8,
+      "yield_unit": "qt",
+      "notes": "Buttermilk to right consistency",
+      "ingredients": [
+        {
+          "item": "ap flour",
+          "qty": 17,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "cornmeal",
+          "qty": 12,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "sugar",
+          "qty": 4,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "salt",
+          "qty": 3,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "baking soda",
+          "qty": 0.333,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "pepper",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "buttermilk",
+          "qty": "",
+          "unit": "to consistency",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "crab_cake_remoulade": {
+      "name": "Crab Cake Remoulade",
+      "station": "fry",
+      "category": "appetizer",
+      "prep_timing": "day_before",
+      "yield_qty": 24,
+      "yield_unit": "ea",
+      "notes": "Whole-buy crab cakes + house or vendor remoulade",
+      "ingredients": [
+        {
+          "item": "crab cakes frozen (vendor whole-buy)",
+          "qty": 1,
+          "unit": "case",
+          "recipe": null
+        },
+        {
+          "item": "remoulade sauce",
+          "qty": 1,
+          "unit": "qt",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "cupcakes": {
+      "name": "Cupcakes",
+      "station": "expo",
+      "category": "dessert",
+      "prep_timing": "day_of",
+      "yield_qty": 1,
+      "yield_unit": "case",
+      "notes": "Vendor whole-buy — in scripts/beo_order_pull DEFAULT_WHOLE_BUY_EXACT",
+      "ingredients": [
+        {
+          "item": "cupcakes (vendor whole-buy)",
+          "qty": 1,
+          "unit": "case",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "deviled_eggs": {
+      "name": "Deviled Eggs",
+      "station": "garde",
+      "category": "appetizer",
+      "prep_timing": "day_of",
+      "yield_qty": 48,
+      "yield_unit": "ea",
+      "notes": "Sysco hardboiled eggs + house seasoning (mayo/mustard/paprika) — refine to house formula",
+      "ingredients": [
+        {
+          "item": "hardboiled eggs (sysco)",
+          "qty": 24,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "mayo",
+          "qty": 1,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "yellow mustard",
+          "qty": 2,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "paprika",
+          "qty": 1,
+          "unit": "tsp",
+          "recipe": null
+        },
+        {
+          "item": "salt",
+          "qty": 1,
+          "unit": "tsp",
+          "recipe": null
+        },
+        {
+          "item": "pepper",
+          "qty": 0.5,
+          "unit": "tsp",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "fish_brine": {
+      "name": "Fish Brine",
+      "station": "fry",
+      "category": "prep",
+      "prep_timing": "overnight",
+      "yield_qty": 4,
+      "yield_unit": "qt",
+      "notes": "7 minute marinade only",
+      "ingredients": [
+        {
+          "item": "salt",
+          "qty": 1.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "sugar",
+          "qty": 0.75,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "water",
+          "qty": 4,
+          "unit": "qt",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "gazpacho": {
+      "name": "Gazpacho",
+      "station": "saute",
+      "category": "soup",
+      "prep_timing": "day_of",
+      "yield_qty": 4,
+      "yield_unit": "qt",
+      "notes": "USDA MyPlate canonical — needs chef review for restaurant scale + seasoning",
+      "ingredients": [
+        {
+          "item": "roma tomatoes",
+          "qty": 6,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "cucumber",
+          "qty": 2,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "red bell pepper",
+          "qty": 1.5,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "yellow onion",
+          "qty": 1,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "garlic",
+          "qty": 6,
+          "unit": "clove",
+          "recipe": null
+        },
+        {
+          "item": "day-old bread",
+          "qty": 4,
+          "unit": "oz",
+          "recipe": null
+        },
+        {
+          "item": "red wine vinegar",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "extra-virgin olive oil",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "ground cumin",
+          "qty": 1,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "fresh cilantro",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "lemon juice",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "kosher salt",
+          "qty": 2,
+          "unit": "tsp",
+          "recipe": null
+        },
+        {
+          "item": "black pepper",
+          "qty": 1,
+          "unit": "tsp",
+          "recipe": null
+        },
+        {
+          "item": "water",
+          "qty": 1.5,
+          "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "green_chile": {
+      "name": "Green Chile",
+      "station": "expo",
+      "category": "entree",
+      "prep_timing": "day_before",
+      "yield_qty": 8,
+      "yield_unit": "qt",
+      "notes": "PDF p16 — braise 40-60 min until pork softens; add roux (bacon grease + flour) to finish",
+      "ingredients": [
+        {
+          "item": "pork butt",
+          "qty": 10,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "water",
+          "qty": 5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "tomatillos",
+          "qty": 2,
+          "unit": "#10 can",
+          "recipe": null
+        },
+        {
+          "item": "hatch chile with juice",
+          "qty": 2,
+          "unit": "bag",
+          "recipe": null
+        },
+        {
+          "item": "yellow onions",
+          "qty": 1.75,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "granulated garlic",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "dried oregano",
+          "qty": 0.333,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "cumin",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "chicken base",
+          "qty": 3,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "garlic puree",
+          "qty": 1,
+          "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "honey_mustard": {
+      "name": "Honey Mustard",
+      "station": "expo",
+      "category": "sauce",
+      "prep_timing": "day_before",
+      "yield_qty": 3,
+      "yield_unit": "cup",
+      "notes": "Honey + yellow mustard base",
+      "ingredients": [
+        {
+          "item": "honey",
+          "qty": 1,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "yellow mustard",
+          "qty": 1,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "mayonnaise",
+          "qty": 0.75,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "cayenne",
+          "qty": 1,
+          "unit": "tsp",
+          "recipe": null
+        },
+        {
+          "item": "cracked pepper",
+          "qty": 0.25,
+          "unit": "tsp",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "italian_dinner": {
+      "name": "Italian Dinner",
+      "station": "expo",
+      "category": "dinner",
+      "prep_timing": "day_of",
+      "yield_qty": 1,
+      "yield_unit": "menu",
+      "notes": "Wired to existing in-house sub-recipes — chef confirm cover counts + bread/salad",
+      "ingredients": [
+        {
+          "item": "baked ziti",
+          "qty": 1,
+          "unit": "hotel pan",
+          "recipe": "baked_ziti"
+        },
+        {
+          "item": "caprese skewers",
+          "qty": 50,
+          "unit": "ea",
+          "recipe": "caprese_skewers"
+        },
+        {
+          "item": "artisanal board",
+          "qty": 1,
+          "unit": "portion",
+          "recipe": "artisanal_board"
+        },
+        {
+          "item": "ciabatta loaf",
+          "qty": 4,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "salted butter",
+          "qty": 8,
+          "unit": "oz",
+          "recipe": null
+        },
+        {
+          "item": "mixed greens",
+          "qty": 2,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "parmesan reggiano",
+          "qty": 8,
+          "unit": "oz",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": [
+        "artisanal_board",
+        "baked_ziti",
+        "caprese_skewers"
+      ]
+    },
+    "lariat_rub": {
+      "name": "Lariat Rub",
+      "station": "all",
+      "category": "seasoning",
+      "prep_timing": "day_before",
+      "yield_qty": 6,
+      "yield_unit": "cup",
+      "notes": "House signature rub — used in Nashville Hot Rub + Pig Wings + Green Chile + Bacon Jam",
+      "ingredients": [
+        {
+          "item": "salt",
+          "qty": 1.75,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "paprika",
+          "qty": 18,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "garlic powder",
+          "qty": 0.75,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "onion powder",
+          "qty": 0.75,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "pepper",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "turbinado sugar",
+          "qty": 0.75,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "cayenne",
+          "qty": 4,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "cumin",
+          "qty": 4,
+          "unit": "tbsp",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "low_country_boil": {
+      "name": "Low Country Boil",
+      "station": "saute",
+      "category": "buffet",
+      "prep_timing": "day_before",
+      "yield_qty": 12,
+      "yield_unit": "portion",
+      "notes": "Shrimp + corn + red russet + Old Bay",
+      "ingredients": [
+        {
+          "item": "shrimp",
+          "qty": 5,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "corn on the cob",
+          "qty": 12,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "red russet potatoes",
+          "qty": 4,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "old bay seasoning",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "mac_balls": {
+      "name": "Mac Balls",
+      "station": "fry",
+      "category": "appetizer",
+      "prep_timing": "day_of",
+      "yield_qty": 60,
+      "yield_unit": "ea",
+      "notes": "Fried mac-and-cheese balls — ditalini + colby jack; dredge flour / egg / panko",
+      "ingredients": [
+        {
+          "item": "ditalini noodles",
+          "qty": 2,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "queso mac sauce",
+          "qty": 3,
+          "unit": "qt",
+          "recipe": "queso_mac_sauce"
+        },
+        {
+          "item": "colby jack shredded",
+          "qty": 1,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "ap flour",
+          "qty": 2,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "panko bread crumbs",
+          "qty": 4,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "eggs",
+          "qty": 6,
+          "unit": "ea",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": [
+        "queso_mac_sauce"
+      ]
+    },
+    "marinara_sauce": {
+      "name": "Marinara Sauce",
+      "station": "saute",
+      "category": "sauce",
+      "prep_timing": "day_before",
+      "yield_qty": 4,
+      "yield_unit": "qt",
+      "notes": "Simple basil + thyme + garlic tomato base; sub-recipe for baked_ziti",
+      "ingredients": [
+        {
+          "item": "tomato sauce",
+          "qty": 1,
+          "unit": "gal",
+          "recipe": null
+        },
+        {
+          "item": "basil fresh",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "thyme fresh",
+          "qty": 1,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "garlic cloves",
+          "qty": 8,
+          "unit": "ea",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "mexi_slaw": {
+      "name": "Mexi Slaw",
+      "station": "garde",
+      "category": "side",
+      "prep_timing": "day_before",
+      "yield_qty": 5,
+      "yield_unit": "lb",
+      "notes": "Red cabbage + chipotle aioli + lime",
+      "ingredients": [
+        {
+          "item": "red cabbage",
+          "qty": 5,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "chipotle aioli",
+          "qty": 2,
+          "unit": "cup",
+          "recipe": "chipotle_aioli"
+        },
+        {
+          "item": "lime juice",
+          "qty": 1,
+          "unit": "tbsp",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": [
+        "chipotle_aioli"
+      ]
+    },
+    "mexican_dinner": {
+      "name": "Mexican Dinner",
+      "station": "expo",
+      "category": "dinner",
+      "prep_timing": "day_of",
+      "yield_qty": 1,
+      "yield_unit": "menu",
+      "notes": "Wired to existing in-house sub-recipes plus USDA-default rice + beans — chef confirm tortilla counts",
+      "ingredients": [
+        {
+          "item": "birria",
+          "qty": 1,
+          "unit": "portion",
+          "recipe": "birria"
+        },
+        {
+          "item": "mexi slaw",
+          "qty": 1,
+          "unit": "portion",
+          "recipe": "mexi_slaw"
+        },
+        {
+          "item": "pico de gallo",
+          "qty": 1,
+          "unit": "portion",
+          "recipe": "pico_de_gallo"
+        },
+        {
+          "item": "tomatillo salsa",
+          "qty": 1,
+          "unit": "portion",
+          "recipe": "tomatillo_salsa"
+        },
+        {
+          "item": "mini rellenos",
+          "qty": 1,
+          "unit": "case",
+          "recipe": "mini_rellenos"
+        },
+        {
+          "item": "spanish rice",
+          "qty": 1,
+          "unit": "batch",
+          "recipe": "spanish_rice"
+        },
+        {
+          "item": "refried black beans",
+          "qty": 1,
+          "unit": "batch",
+          "recipe": "refried_black_beans"
+        },
+        {
+          "item": "flour tortillas",
+          "qty": 50,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "corn tortillas",
+          "qty": 50,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "lime wedges",
+          "qty": 2,
+          "unit": "lb",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": [
+        "birria",
+        "mexi_slaw",
+        "mini_rellenos",
+        "pico_de_gallo",
+        "refried_black_beans",
+        "spanish_rice",
+        "tomatillo_salsa"
+      ]
+    },
+    "mini_rellenos": {
+      "name": "Mini Rellenos",
+      "station": "fry",
+      "category": "appetizer",
+      "prep_timing": "day_of",
+      "yield_qty": 1,
+      "yield_unit": "case",
+      "notes": "Whole-buy from Sysco (see purchase history for SKU + cost); fry from frozen",
+      "ingredients": [
+        {
+          "item": "mini rellenos (sysco)",
+          "qty": 1,
+          "unit": "case",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "nashville_hot_rub": {
+      "name": "Nashville Hot Rub",
+      "station": "fry",
+      "category": "seasoning",
+      "prep_timing": "day_before",
+      "yield_qty": 2,
+      "yield_unit": "cup",
+      "notes": "Applied after frying",
+      "ingredients": [
+        {
+          "item": "lariat rub",
+          "qty": 1,
+          "unit": "cup",
+          "recipe": "lariat_rub"
+        },
+        {
+          "item": "cayenne",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "chili powder",
+          "qty": 10,
+          "unit": "tbsp",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": [
+        "lariat_rub"
+      ]
+    },
+    "nashville_oil": {
+      "name": "Nashville Oil",
+      "station": "fry",
+      "category": "sauce",
+      "prep_timing": "day_before",
+      "yield_qty": 2,
+      "yield_unit": "qt",
+      "notes": "REMOVE FROM HEAT before adding pickle juice",
+      "ingredients": [
+        {
+          "item": "bacon lard",
+          "qty": 900,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "cayenne",
+          "qty": 3.5,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "lariat rub",
+          "qty": 3.5,
+          "unit": "tbsp",
+          "recipe": "lariat_rub"
+        },
+        {
+          "item": "bread and butter pickle juice",
+          "qty": 5.25,
+          "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": [
+        "lariat_rub"
+      ]
+    },
+    "philo_bites": {
+      "name": "Philo Bites",
+      "station": "fry",
+      "category": "appetizer",
+      "prep_timing": "day_of",
+      "yield_qty": 1,
+      "yield_unit": "case",
+      "notes": "Whole-buy from Sysco (see purchase history for SKU + cost); fry from frozen",
+      "ingredients": [
+        {
+          "item": "philo bites (sysco)",
+          "qty": 1,
+          "unit": "case",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "pico_de_gallo": {
+      "name": "Pico De Gallo",
+      "station": "salad",
+      "category": "prep",
+      "prep_timing": "day_of",
+      "yield_qty": 4,
+      "yield_unit": "qt",
+      "notes": "Made fresh daily",
+      "ingredients": [
+        {
+          "item": "tomatoes",
+          "qty": 10,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "red onion",
+          "qty": 2,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "jalapeno",
+          "qty": 7,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "garlic",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "cilantro",
+          "qty": 1,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "lime juice",
+          "qty": 3,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "salt",
+          "qty": "",
+          "unit": "",
+          "recipe": null
+        },
+        {
+          "item": "pepper",
+          "qty": "",
+          "unit": "",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "pork_belly_bao_bun": {
+      "name": "Pork Belly Bao Bun",
+      "station": "saute",
+      "category": "appetizer",
+      "prep_timing": "day_of",
+      "yield_qty": 30,
+      "yield_unit": "ea",
+      "notes": "Braised pork belly + hoisin/sesame + Sysco bao buns",
+      "ingredients": [
+        {
+          "item": "pork belly",
+          "qty": 5,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "hoisin sauce",
+          "qty": 1,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "sesame oil",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "sesame seed",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "bao buns (sysco)",
+          "qty": 30,
+          "unit": "ea",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "prime_rib": {
+      "name": "Prime Rib",
+      "station": "grill",
+      "category": "entree",
+      "prep_timing": "day_of",
+      "yield_qty": 12,
+      "yield_unit": "portion",
+      "notes": "Whole-buy — in scripts/beo_order_pull DEFAULT_WHOLE_BUY_EXACT",
+      "ingredients": [
+        {
+          "item": "prime rib",
+          "qty": 1,
+          "unit": "ea",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "qb_seasoning": {
+      "name": "QB Seasoning",
+      "station": "all",
+      "category": "seasoning",
+      "prep_timing": "day_before",
+      "yield_qty": 6,
+      "yield_unit": "cup",
+      "notes": "Chili powder + cumin + cinnamon + black pepper + whole cloves",
+      "ingredients": [
+        {
+          "item": "chili powder",
+          "qty": 4,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "cumin",
+          "qty": 1,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "cinnamon",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "black pepper",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "whole cloves",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "queso_mac_sauce": {
+      "name": "Queso / Mac Sauce",
+      "station": "expo;saute",
+      "category": "sauce",
+      "prep_timing": "day_before",
+      "yield_qty": 22,
+      "yield_unit": "qt",
+      "notes": "Ice wand to cool — held hot in cambro",
+      "ingredients": [
+        {
+          "item": "heavy cream",
+          "qty": 3,
+          "unit": "qt",
+          "recipe": null
+        },
+        {
+          "item": "whole milk",
+          "qty": 2,
+          "unit": "gal",
+          "recipe": null
+        },
+        {
+          "item": "american cheese block",
+          "qty": 20,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "shredded cheddar",
+          "qty": 10,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "lariat rub",
+          "qty": 1.5,
+          "unit": "cup",
+          "recipe": "lariat_rub"
+        },
+        {
+          "item": "green chile",
+          "qty": 1,
+          "unit": "bag",
+          "recipe": "green_chile"
+        },
+        {
+          "item": "blackened salsa",
+          "qty": 2,
+          "unit": "qt",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": [
+        "green_chile",
+        "lariat_rub"
+      ]
+    },
+    "refried_black_beans": {
+      "name": "Refried Black Beans",
+      "station": "saute",
+      "category": "side",
+      "prep_timing": "day_of",
+      "yield_qty": 3,
+      "yield_unit": "qt",
+      "notes": "USDA MyPlate canonical (Refried Beans + Black Beans) — needs chef review",
+      "ingredients": [
+        {
+          "item": "canned black beans",
+          "qty": 8,
+          "unit": "can",
+          "recipe": null
+        },
+        {
+          "item": "yellow onion",
+          "qty": 1,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "garlic",
+          "qty": 6,
+          "unit": "clove",
+          "recipe": null
+        },
+        {
+          "item": "vegetable oil",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "ground cumin",
+          "qty": 2,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "dried oregano",
+          "qty": 1,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "kosher salt",
+          "qty": 1,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "black pepper",
+          "qty": 1,
+          "unit": "tsp",
+          "recipe": null
+        },
+        {
+          "item": "lime juice",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "roasted_pepitas": {
+      "name": "Roasted Pepitas",
+      "station": "salad",
+      "category": "prep",
+      "prep_timing": "day_before",
+      "yield_qty": 6,
+      "yield_unit": "qt",
+      "notes": "Roast 500F 30min on lined sheet pan",
+      "ingredients": [
+        {
+          "item": "pepitas",
+          "qty": 5,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "kosher salt",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "chili powder",
+          "qty": 1,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "cumin",
+          "qty": 0.5,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "oil",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "lime juice",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "rope_pickle": {
+      "name": "Rope Pickle",
+      "station": "grill",
+      "category": "prep",
+      "prep_timing": "day_before",
+      "yield_qty": 4,
+      "yield_unit": "qt",
+      "notes": "House-made pickles — heavy garlic",
+      "ingredients": [
+        {
+          "item": "water",
+          "qty": 2.5,
+          "unit": "qt",
+          "recipe": null
+        },
+        {
+          "item": "white vinegar",
+          "qty": 1,
+          "unit": "qt",
+          "recipe": null
+        },
+        {
+          "item": "salt",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "red pepper",
+          "qty": 20,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "garlic",
+          "qty": 1000,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "dill",
+          "qty": 30,
+          "unit": "g",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "spanish_rice": {
+      "name": "Spanish Rice",
+      "station": "saute",
+      "category": "side",
+      "prep_timing": "day_of",
+      "yield_qty": 3,
+      "yield_unit": "qt",
+      "notes": "USDA MyPlate canonical (Spanish Rice / Mexican Rice II) — needs chef review for restaurant scale + seasoning",
+      "ingredients": [
+        {
+          "item": "long-grain white rice",
+          "qty": 1.5,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "yellow onion",
+          "qty": 1,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "garlic",
+          "qty": 4,
+          "unit": "clove",
+          "recipe": null
+        },
+        {
+          "item": "vegetable oil",
+          "qty": 4,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "canned diced tomatoes",
+          "qty": 4,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "chicken stock",
+          "qty": 2,
+          "unit": "qt",
+          "recipe": null
+        },
+        {
+          "item": "ground cumin",
+          "qty": 2,
+          "unit": "tsp",
+          "recipe": null
+        },
+        {
+          "item": "kosher salt",
+          "qty": 1,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "black pepper",
+          "qty": 1,
+          "unit": "tsp",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "special_sauce": {
+      "name": "Special Sauce",
+      "station": "fry",
+      "category": "sauce",
+      "prep_timing": "day_before",
+      "yield_qty": 4,
+      "yield_unit": "qt",
+      "notes": "Whisk together",
+      "ingredients": [
+        {
+          "item": "mayonnaise",
+          "qty": 9,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "ketchup",
+          "qty": 1.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "mustard",
+          "qty": 1.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "onion powder",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "garlic powder",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "paprika",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "white sugar",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "apple cider vinegar",
+          "qty": 1,
+          "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "tex_mex_egg_rolls": {
+      "name": "Tex Mex Egg Rolls",
+      "station": "fry",
+      "category": "appetizer",
+      "prep_timing": "day_of",
+      "yield_qty": 50,
+      "yield_unit": "ea",
+      "notes": "Vendor whole-buy frozen + chipotle_aioli dip",
+      "ingredients": [
+        {
+          "item": "tex mex egg rolls (vendor whole-buy)",
+          "qty": 1,
+          "unit": "case",
+          "recipe": null
+        },
+        {
+          "item": "chipotle aioli",
+          "qty": 1,
+          "unit": "qt",
+          "recipe": "chipotle_aioli"
+        }
+      ],
+      "sub_recipes": [
+        "chipotle_aioli"
+      ]
+    },
+    "tiramisu": {
+      "name": "Tiramisu",
+      "station": "expo",
+      "category": "dessert",
+      "prep_timing": "day_of",
+      "yield_qty": 1,
+      "yield_unit": "ea",
+      "notes": "Vendor whole-buy — frozen; thaw + slice",
+      "ingredients": [
+        {
+          "item": "tiramisu whole (vendor whole-buy)",
+          "qty": 1,
+          "unit": "ea",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "tomatillo_salsa": {
+      "name": "Tomatillo Salsa",
+      "station": "expo",
+      "category": "sauce",
+      "prep_timing": "day_before",
+      "yield_qty": 8,
+      "yield_unit": "qt",
+      "notes": "Roast in salamander — blend with avocado",
+      "ingredients": [
+        {
+          "item": "large white onions",
+          "qty": 4,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "jalapenos",
+          "qty": 8,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "garlic cloves",
+          "qty": 20,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "whole tomatillos",
+          "qty": 3,
+          "unit": "#10 can",
+          "recipe": null
+        },
+        {
+          "item": "salt",
+          "qty": 3,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "pepper",
+          "qty": 3,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "cumin",
+          "qty": 2,
+          "unit": "tsp",
+          "recipe": null
+        },
+        {
+          "item": "lime juice",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "agave",
+          "qty": 1,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "green chile",
+          "qty": 0.333,
+          "unit": "cup",
+          "recipe": "green_chile"
+        },
+        {
+          "item": "avocado",
+          "qty": 8,
+          "unit": "ea",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": [
+        "green_chile"
+      ]
+    }
+  }
+}
