@@ -57,16 +57,19 @@ final class PrepParViewModel {
     }
 
     /// Add / update one standing target. Mirrors the web AddPrepParRow submit —
-    /// blocked when both recipe and ingredient are blank.
-    func save(recipe: String, ingredient: String, station: String, targetQty: String, unit: String, note: String) async {
-        guard !isSaving else { return }
+    /// blocked when both recipe and ingredient are blank. Returns true only
+    /// when the upsert committed; an identity interrupt returns false with
+    /// actionError still nil so the view keeps the typed fields and retries.
+    @discardableResult
+    func save(recipe: String, ingredient: String, station: String, targetQty: String, unit: String, note: String) async -> Bool {
+        guard !isSaving else { return false }
         let bothEmpty = recipe.trimmingCharacters(in: .whitespaces).isEmpty
             && ingredient.trimmingCharacters(in: .whitespaces).isEmpty
         if bothEmpty {
             actionError = "Fill in Recipe or Ingredient."
-            return
+            return false
         }
-        guard ensureCookIdentity() else { return }
+        guard ensureCookIdentity() else { return false }
         isSaving = true
         actionError = nil
         defer { isSaving = false }
@@ -87,14 +90,17 @@ final class PrepParViewModel {
                 context: context
             )
             await refresh()
+            return true
         } catch {
             actionError = WriteErrorMapper.message(for: error)
+            return false
         }
     }
 
-    func delete(id: Int64) async {
-        guard !isSaving else { return }
-        guard ensureCookIdentity() else { return }
+    @discardableResult
+    func delete(id: Int64) async -> Bool {
+        guard !isSaving else { return false }
+        guard ensureCookIdentity() else { return false }
         isSaving = true
         actionError = nil
         defer { isSaving = false }
@@ -104,8 +110,10 @@ final class PrepParViewModel {
         do {
             try repo.delete(id: id, context: context)
             await refresh()
+            return true
         } catch {
             actionError = WriteErrorMapper.message(for: error)
+            return false
         }
     }
 

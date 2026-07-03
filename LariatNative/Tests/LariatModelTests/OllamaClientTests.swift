@@ -157,6 +157,16 @@ final class OllamaClientTests: XCTestCase {
         )
     }
 
+    /// A refused/failed connection surfaces the actionable "is the server
+    /// running?" copy — never the generic catch-all. The engine's 502 branch
+    /// (catch OllamaClientError) relies on this description.
+    func testNetworkFailureSurfacesActionableMessage() {
+        XCTAssertEqual(
+            OllamaClientError.network("Could not connect to the server.").errorDescription,
+            "Ollama request failed — is the model server running? (ollama serve)"
+        )
+    }
+
     // ── ping parity ─────────────────────────────────────────────────
 
     func testPingReachable() async {
