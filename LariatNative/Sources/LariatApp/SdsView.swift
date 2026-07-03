@@ -109,14 +109,57 @@ struct SdsView: View {
                 if let storage = row.storageLocation {
                     Label(storage, systemImage: "archivebox")
                 }
-                if let sheet, let url = URL(string: sheet) {
-                    Link(destination: url) { Label("view", systemImage: "doc") }
+                if let sheet {
+                    sheetReference(sheet)
                 }
                 Text("reviewed \(fmtDate(row.lastReviewed))")
             }
             .font(.caption2)
             .foregroundStyle(.secondary)
         }
+    }
+
+    /// The "view" affordance for a registered sheet. http(s) values link directly;
+    /// local `pdf_path` values are resolved to a file URL and only rendered as a
+    /// link when the file actually exists — otherwise show the raw path as text
+    /// so the affordance isn't a lie.
+    @ViewBuilder
+    private func sheetReference(_ sheet: String) -> some View {
+        let lower = sheet.lowercased()
+        if lower.hasPrefix("http://") || lower.hasPrefix("https://"), let url = URL(string: sheet) {
+            Link(destination: url) { Label("view", systemImage: "doc") }
+        } else if let fileURL = Self.localSheetURL(sheet) {
+            Link(destination: fileURL) { Label("view", systemImage: "doc") }
+        } else {
+            Label(sheet, systemImage: "doc")
+        }
+    }
+
+    /// Resolve a non-http SDS reference to an openable file URL. Absolute paths
+    /// are taken as-is; relative (or web-root-style `/…`) paths are tried against
+    /// the Lariat data directory and `LARIAT_ROOT`. Returns nil when no file exists.
+    private static func localSheetURL(
+        _ path: String,
+        env: [String: String] = ProcessInfo.processInfo.environment,
+        fileManager: FileManager = .default
+    ) -> URL? {
+        let expanded = (path as NSString).expandingTildeInPath
+        if (expanded as NSString).isAbsolutePath, fileManager.fileExists(atPath: expanded) {
+            return URL(fileURLWithPath: expanded)
+        }
+        let relative = expanded.hasPrefix("/") ? String(expanded.dropFirst()) : expanded
+        guard !relative.isEmpty else { return nil }
+        var bases = [LariatDB.resolveDataDirectory(env: env)]
+        if let root = env["LARIAT_ROOT"], !root.trimmingCharacters(in: .whitespaces).isEmpty {
+            bases.append(root)
+        }
+        for base in bases {
+            let full = (base as NSString).appendingPathComponent(relative)
+            if fileManager.fileExists(atPath: full) {
+                return URL(fileURLWithPath: full)
+            }
+        }
+        return nil
     }
 
     /// Mirrors the web `fmtDate` — first 10 chars (YYYY-MM-DD) or an em dash.

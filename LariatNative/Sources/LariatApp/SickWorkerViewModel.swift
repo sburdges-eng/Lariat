@@ -15,6 +15,7 @@ final class SickWorkerViewModel {
     var actionError: String?
     var isSaving = false
     var showCookPicker = false
+    var showPinSheet = false
 
     // New-report form state (mirrors the JSX component state).
     var reportCookId = ""
@@ -66,6 +67,32 @@ final class SickWorkerViewModel {
     /// Whether filing/clearing is permitted — the web PIC gate. A valid manager
     /// PIN session unlocks the write surfaces.
     var pinOk: Bool { pinStore.activeUser != nil }
+
+    /// Write handle for `PinEntrySheet` (sibling pattern: SickLeaveViewModel).
+    var writeDatabase: LariatWriteDatabase { writeDB }
+
+    /// Open the PIN sheet — but first confirm a manager PIN is configured at all,
+    /// so the sheet isn't an unlockable dead end (SickLeaveViewModel precedent).
+    func requestUnlock() {
+        actionError = nil
+        do {
+            let gateOn = try writeDB.pool.read { db in try PinVerifier().gateConfigured(db: db) }
+            guard gateOn else {
+                actionError = "PIN not set up — add a manager PIN in web Settings"
+                return
+            }
+            showPinSheet = true
+        } catch {
+            actionError = WriteErrorMapper.message(for: error)
+        }
+    }
+
+    /// PIN sheet success: persist the session and re-fetch so the PIC surfaces
+    /// (new-report form, history, clear menu) appear immediately.
+    func pinVerified(_ user: ManagerPinUser) {
+        pinStore.save(user: user)
+        Task { await refresh() }
+    }
 
     /// FDA minimum action for the current symptom/diagnosis selection — mirrors
     /// the JSX `suggestedAction` useMemo. The PIC may raise but not lower it.
