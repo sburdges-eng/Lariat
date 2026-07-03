@@ -25,6 +25,33 @@ public struct RecipeCatalogEntry: Codable, Equatable, Sendable {
     }
 }
 
+/// Why a `StationCatalog.load()` failed, pinned to the specific cache file so the
+/// shell can tell the operator exactly what to regenerate (a bare `try?` used to
+/// swallow this and the 86/Stations boards blamed the write DB instead).
+public enum StationCatalogError: LocalizedError, Equatable {
+    /// The file could not be read (missing, permissions, etc.).
+    case unreadable(file: String, reason: String)
+    /// The file was read but is not valid JSON of the expected shape.
+    case undecodable(file: String, reason: String)
+
+    public var errorDescription: String? {
+        switch self {
+        case let .unreadable(file, reason):
+            return "Station catalog file \(file) could not be read: \(reason)"
+        case let .undecodable(file, reason):
+            return "Station catalog file \(file) is malformed: \(reason)"
+        }
+    }
+
+    /// The cache file at fault (e.g. `"recipes.json"`).
+    public var file: String {
+        switch self {
+        case let .unreadable(file, _), let .undecodable(file, _):
+            return file
+        }
+    }
+}
+
 /// Loads static station / line-check / recipe JSON from the web cache directory.
 public struct StationCatalog: Sendable {
     public let stations: [KitchenStation]
@@ -47,15 +74,17 @@ public struct StationCatalog: Sendable {
     }
 
     /// Mirrors `lib/data.ts` cache root: `<dataDir>/cache/*.json`.
+    /// Throws `StationCatalogError` naming the exact file that failed, so callers
+    /// can show an actionable message instead of a generic degrade tile.
     public static func load(
         env: [String: String] = ProcessInfo.processInfo.environment,
         cwd: String = FileManager.default.currentDirectoryPath
     ) throws -> StationCatalog {
         let cacheDir = resolveCacheDirectory(env: env, cwd: cwd)
         let decoder = JSONDecoder()
-        let stations: [KitchenStation] = try decodeJSONFile("stations.json", in: cacheDir, decoder: decoder)
-        let lineChecks: [String: [String]] = try decodeJSONFile("line_checks.json", in: cacheDir, decoder: decoder)
-        let recipes: [RecipeCatalogEntry] = try decodeJSONFile("recipes.json", in: cacheDir, decoder: decoder)
+        let stations: [KitchenStation] = try decodeCatalogFile("stations.json", in: cacheDir, decoder: decoder)
+        let lineChecks: [String: [String]] = try decodeCatalogFile("line_checks.json", in: cacheDir, decoder: decoder)
+        let recipes: [RecipeCatalogEntry] = try decodeCatalogFile("recipes.json", in: cacheDir, decoder: decoder)
         return StationCatalog(stations: stations, lineCheckTemplates: lineChecks, recipes: recipes)
     }
 }
@@ -88,12 +117,37 @@ public func resolveDataDirectory(
     return (cwd as NSString).appendingPathComponent("data")
 }
 
-private func decodeJSONFile<T: Decodable>(
+private func decodeCatalogFile<T: Decodable>(
     _ name: String,
     in directory: String,
     decoder: JSONDecoder
 ) throws -> T {
     let path = (directory as NSString).appendingPathComponent(name)
-    let data = try Data(contentsOf: URL(fileURLWithPath: path))
-    return try decoder.decode(T.self, from: data)
+    let data: Data
+    do {
+        data = try Data(contentsOf: URL(fileURLWithPath: path))
+    } catch {
+        throw StationCatalogError.unreadable(file: name, reason: error.localizedDescription)
+    }
+    do {
+        return try decoder.decode(T.self, from: data)
+    } catch let error as DecodingError {
+        throw StationCatalogError.undecodable(file: name, reason: decodingReason(error))
+    } catch {
+        throw StationCatalogError.undecodable(file: name, reason: error.localizedDescription)
+    }
+}
+
+/// The human-readable core of a `DecodingError` (its context `debugDescription`),
+/// without the noisy enum-case dump of `String(describing:)`.
+private func decodingReason(_ error: DecodingError) -> String {
+    switch error {
+    case let .dataCorrupted(context),
+         let .keyNotFound(_, context),
+         let .typeMismatch(_, context),
+         let .valueNotFound(_, context):
+        return context.debugDescription
+    @unknown default:
+        return String(describing: error)
+    }
 }

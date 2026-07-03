@@ -3,9 +3,10 @@ import SwiftUI
 /// Endgame H5: compact data-freshness chip for the shell (bottom-trailing of
 /// the detail pane). Reflects the active board's `BoardPoller` state:
 ///   - green dot + "Updated Ns ago" while polling is healthy,
-///   - amber warning once the last success is older than 3× the poll interval
-///     (two consecutive failed/backed-off cycles),
-///   - "Paused" while the app is inactive and polling is suspended.
+///   - amber warning once the last success is older than 3× the effective poll
+///     interval (two consecutive failed/backed-off cycles),
+///   - a moon glyph while the app is inactive and polling has degraded to the
+///     slower background cadence (data still flows — wall-mounted boards).
 /// Renders nothing when no poller is active (e.g. static screens).
 struct PollFreshnessIndicator: View {
     var body: some View {
@@ -20,15 +21,15 @@ struct PollFreshnessIndicator: View {
     @ViewBuilder
     private func chip(for poller: BoardPoller, now: Date) -> some View {
         HStack(spacing: 5) {
-            if poller.isPaused {
-                Image(systemName: "pause.circle.fill")
-                    .foregroundStyle(.secondary)
-                Text("Paused")
-            } else if let last = poller.lastSuccess {
+            if let last = poller.lastSuccess {
                 if poller.isStale {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(LariatTheme.warn)
                     Text("Stale · updated \(recency(from: last, to: now))")
+                } else if poller.isBackgrounded {
+                    Image(systemName: "moon.fill")
+                        .foregroundStyle(.secondary)
+                    Text("Updated \(recency(from: last, to: now))")
                 } else {
                     Circle()
                         .fill(LariatTheme.ok)
@@ -60,9 +61,10 @@ struct PollFreshnessIndicator: View {
     }
 
     private func accessibilityText(for poller: BoardPoller, now: Date) -> String {
-        if poller.isPaused { return "Data refresh paused" }
         guard let last = poller.lastSuccess else { return "Refreshing data" }
         let base = "Data updated \(recency(from: last, to: now))"
-        return poller.isStale ? "Warning, data is stale. \(base)" : base
+        if poller.isStale { return "Warning, data is stale. \(base)" }
+        if poller.isBackgrounded { return "\(base), refreshing at background cadence" }
+        return base
     }
 }
