@@ -154,7 +154,14 @@ export const AUDIT_COVERED_TABLES = {
   thermometer_calibrations: ['thermometer_calibrations'],
   tip_pool_distributions: ['tip_pool_distributions'],
   tphc_entries: ['tphc_entries'],
-  vendor_prices: ['vendor_prices'],
+  // vendor_prices is intentionally EXCLUDED: it is a bulk-import table. The
+  // price rows come from ingest scripts (scripts/ingest-costing.mjs,
+  // ingest_shamrock_price_list.py, lib/vendorPricesRepo.ts) with no per-row
+  // audit_events; only occasional master-id remaps audit (entity
+  // 'vendor_prices', lib/vendorMappingRepo.ts). Requiring every row to carry an
+  // audit row is therefore a permanent false FAIL — verified against live data
+  // (454 legitimately-unaudited import rows). Its remap audit trail still lives
+  // in audit_events, just not enforced by the per-row coverage join.
   wage_notices: ['wage_notices'],
 };
 
@@ -289,6 +296,17 @@ export function checkAuditCoverage(db, { since } = {}) {
     }
     const cols = tableColumns(db, table);
     const ts = firstPresent(cols, TIMESTAMP_COLUMNS);
+    // Windowed run (--since) but no timestamp column to scope by: the audit-
+    // coverage invariant is about rows written DURING the reconciliation window,
+    // and a table with no created/inserted/updated_at can't identify "new" rows.
+    // Checking all history here just re-surfaces pre-audit/bulk/config rows
+    // (order_guide_items, inventory_par, ingredient_maps…) as permanent FAILs.
+    // Skip with an INFO instead. A full-history audit (no --since) still checks.
+    if (since && !ts) {
+      rows.push(row('audit_coverage', table, 'INFO',
+        'no timestamp column — cannot scope to the --since window; skipped'));
+      continue;
+    }
     const placeholders = entities.map(() => '?').join(', ');
     const sinceClause = since && ts ? `AND substr(t.${ts}, 1, 10) >= ?` : '';
     const params = [...entities];

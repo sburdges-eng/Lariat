@@ -123,6 +123,12 @@ function buildFixtureDb(dbPath) {
       actor_source TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
+    -- audit-covered table with NO timestamp column (bulk/config shape, e.g.
+    -- order_guide_items) — cannot be scoped to a --since window.
+    CREATE TABLE order_guide_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ingredient TEXT NOT NULL
+    );
   `);
   return db;
 }
@@ -289,6 +295,23 @@ describe('checkAuditCoverage', () => {
     db.close();
     assert.equal(scoped.length, 1);
     assert.equal(scoped[0].result, 'PASS');
+  });
+
+  it('a no-timestamp covered table FAILs on full history but is INFO-skipped under --since', () => {
+    const { dbPath } = freshGreenDbPath('cov-notimestamp');
+    const db = openRw(dbPath);
+    // orphan row in a table with no timestamp column
+    db.prepare(`INSERT INTO order_guide_items (ingredient) VALUES ('flour')`).run();
+
+    const full = checkAuditCoverage(db, {});
+    const ogFull = full.find((r) => r.scope === 'order_guide_items');
+    assert.equal(ogFull.result, 'FAIL', 'full-history run flags the orphan');
+
+    const windowed = checkAuditCoverage(db, { since: D1 });
+    const ogWin = windowed.find((r) => r.scope === 'order_guide_items');
+    db.close();
+    assert.equal(ogWin.result, 'INFO', 'windowed run cannot scope it, skips');
+    assert.match(ogWin.detail, /no timestamp column/);
   });
 
   it('--since bounds which mutation rows are checked', () => {
