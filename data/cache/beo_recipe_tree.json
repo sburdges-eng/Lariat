@@ -163,43 +163,43 @@
       "ingredients": [
         {
           "item": "cilantro",
-          "qty": 1200,
+          "qty": 1200.0,
           "unit": "g",
           "recipe": null
         },
         {
           "item": "lime juice",
-          "qty": 600,
+          "qty": 600.0,
           "unit": "g",
           "recipe": null
         },
         {
           "item": "mayonnaise",
-          "qty": 600,
+          "qty": 600.0,
           "unit": "g",
           "recipe": null
         },
         {
           "item": "garlic",
-          "qty": 200,
+          "qty": 200.0,
           "unit": "g",
           "recipe": null
         },
         {
           "item": "salt",
-          "qty": 40,
+          "qty": 40.0,
           "unit": "g",
           "recipe": null
         },
         {
           "item": "olive oil",
-          "qty": 150,
+          "qty": 150.0,
           "unit": "g",
           "recipe": null
         },
         {
           "item": "jalapeno",
-          "qty": 500,
+          "qty": 500.0,
           "unit": "g",
           "recipe": null
         }
@@ -217,7 +217,7 @@
       "ingredients": [
         {
           "item": "mayonnaise",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "gal",
           "recipe": null
         },
@@ -235,25 +235,25 @@
         },
         {
           "item": "apple cider vinegar",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "lemon juice",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "granulated garlic",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "tbsp",
           "recipe": null
         },
         {
           "item": "brown sugar",
-          "qty": 3,
+          "qty": 3.0,
           "unit": "cup",
           "recipe": null
         },
@@ -265,13 +265,13 @@
         },
         {
           "item": "kosher salt",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "tsp",
           "recipe": null
         },
         {
           "item": "black pepper",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "tsp",
           "recipe": null
         }
@@ -289,31 +289,31 @@
       "ingredients": [
         {
           "item": "assorted cheeses (vendor whole-buy)",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "assorted cured meats (vendor whole-buy)",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "crackers or baguette",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "loaf",
           "recipe": null
         },
         {
           "item": "fruit or preserve",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "olives or pickle",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "cup",
           "recipe": null
         }
@@ -331,25 +331,25 @@
       "ingredients": [
         {
           "item": "bacon",
-          "qty": 15,
+          "qty": 15.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "yellow onions",
-          "qty": 10,
+          "qty": 10.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "orange juice",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "qt",
           "recipe": null
         },
         {
           "item": "brown sugar",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "lb",
           "recipe": null
         },
@@ -375,25 +375,25 @@
       "ingredients": [
         {
           "item": "ziti noodles",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "marinara sauce",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "qt",
           "recipe": "marinara_sauce"
         },
         {
           "item": "tomato sauce",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "qt",
           "recipe": null
         },
         {
           "item": "ricotta cheese",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "lb",
           "recipe": null
         },
@@ -417,7 +417,7 @@
         },
         {
           "item": "thyme fresh",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "tsp",
           "recipe": null
         }
@@ -437,25 +437,25 @@
       "ingredients": [
         {
           "item": "pudding vanilla base (shamrock/sysco)",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "can",
           "recipe": null
         },
         {
           "item": "bananas",
-          "qty": 6,
+          "qty": 6.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "vanilla wafers",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "box",
           "recipe": null
         },
         {
           "item": "whipped cream",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "qt",
           "recipe": null
         }
@@ -473,13 +473,13 @@
       "ingredients": [
         {
           "item": "guinness",
-          "qty": 550,
+          "qty": 550.0,
           "unit": "g",
           "recipe": null
         },
         {
           "item": "vodka",
-          "qty": 50,
+          "qty": 50.0,
           "unit": "g",
           "recipe": null
         }
@@ -497,7 +497,7 @@
       "ingredients": [
         {
           "item": "ap flour",
-          "qty": 17,
+          "qty": 17.0,
           "unit": "cup",
           "recipe": null
         },
@@ -527,49 +527,49 @@
       "ingredients": [
         {
           "item": "beef cheeks",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "case",
           "recipe": null
         },
         {
           "item": "birria seasoning",
-          "qty": 150,
+          "qty": 150.0,
           "unit": "g",
           "recipe": "qb_seasoning"
         },
         {
           "item": "guajillo peppers",
-          "qty": 80,
+          "qty": 80.0,
           "unit": "g",
           "recipe": null
         },
         {
           "item": "white onion",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "garlic",
-          "qty": 200,
+          "qty": 200.0,
           "unit": "g",
           "recipe": null
         },
         {
           "item": "water",
-          "qty": 12,
+          "qty": 12.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "chicken base",
-          "qty": 16,
+          "qty": 16.0,
           "unit": "oz",
           "recipe": null
         },
         {
           "item": "achiote",
-          "qty": 200,
+          "qty": 200.0,
           "unit": "g",
           "recipe": null
         }
@@ -589,31 +589,31 @@
       "ingredients": [
         {
           "item": "tomatoes",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "case",
           "recipe": null
         },
         {
           "item": "cilantro",
-          "qty": 8,
+          "qty": 8.0,
           "unit": "bunch",
           "recipe": null
         },
         {
           "item": "jalapenos",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "qt",
           "recipe": null
         },
         {
           "item": "yellow onions",
-          "qty": 6,
+          "qty": 6.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "kosher salt",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "cup",
           "recipe": null
         },
@@ -643,7 +643,7 @@
         },
         {
           "item": "franks hot sauce",
-          "qty": 500,
+          "qty": 500.0,
           "unit": "g",
           "recipe": null
         },
@@ -685,31 +685,31 @@
       "ingredients": [
         {
           "item": "mozzarella ciliegine",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "cherry tomatoes",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "basil fresh",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "bunch",
           "recipe": null
         },
         {
           "item": "prosciutto",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "bamboo skewers 6in",
-          "qty": 50,
+          "qty": 50.0,
           "unit": "ea",
           "recipe": null
         }
@@ -727,25 +727,25 @@
       "ingredients": [
         {
           "item": "garlic cloves",
-          "qty": 8,
+          "qty": 8.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "rosemary sprigs",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "thyme sprigs",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "evoo",
-          "qty": "",
+          "qty": 0.0,
           "unit": "",
           "recipe": null
         }
@@ -763,7 +763,7 @@
       "ingredients": [
         {
           "item": "ap flour",
-          "qty": 18,
+          "qty": 18.0,
           "unit": "kg",
           "recipe": null
         },
@@ -775,13 +775,13 @@
         },
         {
           "item": "black pepper",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "paprika",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "cup",
           "recipe": null
         },
@@ -817,19 +817,19 @@
         },
         {
           "item": "carrot",
-          "qty": 7,
+          "qty": 7.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "large onions",
-          "qty": 3,
+          "qty": 3.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "chicken wings",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "bag",
           "recipe": null
         },
@@ -841,25 +841,25 @@
         },
         {
           "item": "water",
-          "qty": 8,
+          "qty": 8.0,
           "unit": "qt",
           "recipe": null
         },
         {
           "item": "chicken stock",
-          "qty": 8,
+          "qty": 8.0,
           "unit": "oz",
           "recipe": null
         },
         {
           "item": "dry white wine",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "sachet",
-          "qty": 20,
+          "qty": 20.0,
           "unit": "g",
           "recipe": null
         },
@@ -883,19 +883,19 @@
       "ingredients": [
         {
           "item": "corn kernels",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "leeks",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "yellow onion",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "lb",
           "recipe": null
         },
@@ -907,61 +907,61 @@
         },
         {
           "item": "garlic",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "clove",
           "recipe": null
         },
         {
           "item": "unsalted butter",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "oz",
           "recipe": null
         },
         {
           "item": "chicken stock",
-          "qty": 3,
+          "qty": 3.0,
           "unit": "qt",
           "recipe": null
         },
         {
           "item": "heavy cream",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "whole milk",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "bay leaf",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "fresh thyme",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "sprig",
           "recipe": null
         },
         {
           "item": "lemon juice",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "tbsp",
           "recipe": null
         },
         {
           "item": "kosher salt",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "tsp",
           "recipe": null
         },
         {
           "item": "white pepper",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "tsp",
           "recipe": null
         },
@@ -985,19 +985,19 @@
       "ingredients": [
         {
           "item": "mayonnaise",
-          "qty": 36,
+          "qty": 36.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "adobo puree",
-          "qty": 6,
+          "qty": 6.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "lime juice",
-          "qty": 3,
+          "qty": 3.0,
           "unit": "tbsp",
           "recipe": null
         }
@@ -1015,7 +1015,7 @@
       "ingredients": [
         {
           "item": "chocolate cake whole (shamrock/sysco)",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "ea",
           "recipe": null
         }
@@ -1033,7 +1033,7 @@
       "ingredients": [
         {
           "item": "churros (sysco)",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "case",
           "recipe": null
         }
@@ -1051,7 +1051,7 @@
       "ingredients": [
         {
           "item": "mayonnaise",
-          "qty": 6,
+          "qty": 6.0,
           "unit": "cup",
           "recipe": null
         },
@@ -1087,37 +1087,37 @@
         },
         {
           "item": "sugar",
-          "qty": 3,
+          "qty": 3.0,
           "unit": "tbsp",
           "recipe": null
         },
         {
           "item": "kosher salt",
-          "qty": "",
+          "qty": 0.0,
           "unit": "",
           "recipe": null
         },
         {
           "item": "pepper",
-          "qty": "",
+          "qty": 0.0,
           "unit": "",
           "recipe": null
         },
         {
           "item": "green cabbage",
-          "qty": 10,
+          "qty": 10.0,
           "unit": "qt",
           "recipe": null
         },
         {
           "item": "scallion greens",
-          "qty": 3,
+          "qty": 3.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "scallion whites",
-          "qty": 3,
+          "qty": 3.0,
           "unit": "cup",
           "recipe": null
         }
@@ -1135,25 +1135,25 @@
       "ingredients": [
         {
           "item": "corndog batter",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "qt",
           "recipe": "corndog_batter"
         },
         {
           "item": "hot dogs",
-          "qty": 50,
+          "qty": 50.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "bamboo skewers 6in",
-          "qty": 50,
+          "qty": 50.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "honey mustard",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "qt",
           "recipe": "honey_mustard"
         }
@@ -1174,25 +1174,25 @@
       "ingredients": [
         {
           "item": "ap flour",
-          "qty": 17,
+          "qty": 17.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "cornmeal",
-          "qty": 12,
+          "qty": 12.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "sugar",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "salt",
-          "qty": 3,
+          "qty": 3.0,
           "unit": "cup",
           "recipe": null
         },
@@ -1210,7 +1210,7 @@
         },
         {
           "item": "buttermilk",
-          "qty": "",
+          "qty": 0.0,
           "unit": "to consistency",
           "recipe": null
         }
@@ -1228,13 +1228,13 @@
       "ingredients": [
         {
           "item": "crab cakes frozen (vendor whole-buy)",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "case",
           "recipe": null
         },
         {
           "item": "remoulade sauce",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "qt",
           "recipe": null
         }
@@ -1252,7 +1252,7 @@
       "ingredients": [
         {
           "item": "cupcakes (vendor whole-buy)",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "case",
           "recipe": null
         }
@@ -1270,31 +1270,31 @@
       "ingredients": [
         {
           "item": "hardboiled eggs (sysco)",
-          "qty": 24,
+          "qty": 24.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "mayo",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "yellow mustard",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "tbsp",
           "recipe": null
         },
         {
           "item": "paprika",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "tsp",
           "recipe": null
         },
         {
           "item": "salt",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "tsp",
           "recipe": null
         },
@@ -1330,7 +1330,7 @@
         },
         {
           "item": "water",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "qt",
           "recipe": null
         }
@@ -1348,13 +1348,13 @@
       "ingredients": [
         {
           "item": "roma tomatoes",
-          "qty": 6,
+          "qty": 6.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "cucumber",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "lb",
           "recipe": null
         },
@@ -1366,19 +1366,19 @@
         },
         {
           "item": "yellow onion",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "garlic",
-          "qty": 6,
+          "qty": 6.0,
           "unit": "clove",
           "recipe": null
         },
         {
           "item": "day-old bread",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "oz",
           "recipe": null
         },
@@ -1396,7 +1396,7 @@
         },
         {
           "item": "ground cumin",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "tbsp",
           "recipe": null
         },
@@ -1414,13 +1414,13 @@
         },
         {
           "item": "kosher salt",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "tsp",
           "recipe": null
         },
         {
           "item": "black pepper",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "tsp",
           "recipe": null
         },
@@ -1444,25 +1444,25 @@
       "ingredients": [
         {
           "item": "pork butt",
-          "qty": 10,
+          "qty": 10.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "water",
-          "qty": 5,
+          "qty": 5.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "tomatillos",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "#10 can",
           "recipe": null
         },
         {
           "item": "hatch chile with juice",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "bag",
           "recipe": null
         },
@@ -1492,13 +1492,13 @@
         },
         {
           "item": "chicken base",
-          "qty": 3,
+          "qty": 3.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "garlic puree",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "cup",
           "recipe": null
         }
@@ -1516,13 +1516,13 @@
       "ingredients": [
         {
           "item": "honey",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "yellow mustard",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "cup",
           "recipe": null
         },
@@ -1534,7 +1534,7 @@
         },
         {
           "item": "cayenne",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "tsp",
           "recipe": null
         },
@@ -1558,43 +1558,43 @@
       "ingredients": [
         {
           "item": "baked ziti",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "hotel pan",
           "recipe": "baked_ziti"
         },
         {
           "item": "caprese skewers",
-          "qty": 50,
+          "qty": 50.0,
           "unit": "ea",
           "recipe": "caprese_skewers"
         },
         {
           "item": "artisanal board",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "portion",
           "recipe": "artisanal_board"
         },
         {
           "item": "ciabatta loaf",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "salted butter",
-          "qty": 8,
+          "qty": 8.0,
           "unit": "oz",
           "recipe": null
         },
         {
           "item": "mixed greens",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "parmesan reggiano",
-          "qty": 8,
+          "qty": 8.0,
           "unit": "oz",
           "recipe": null
         }
@@ -1622,7 +1622,7 @@
         },
         {
           "item": "paprika",
-          "qty": 18,
+          "qty": 18.0,
           "unit": "tbsp",
           "recipe": null
         },
@@ -1652,13 +1652,13 @@
         },
         {
           "item": "cayenne",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "tbsp",
           "recipe": null
         },
         {
           "item": "cumin",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "tbsp",
           "recipe": null
         }
@@ -1676,19 +1676,19 @@
       "ingredients": [
         {
           "item": "shrimp",
-          "qty": 5,
+          "qty": 5.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "corn on the cob",
-          "qty": 12,
+          "qty": 12.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "red russet potatoes",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "lb",
           "recipe": null
         },
@@ -1712,37 +1712,37 @@
       "ingredients": [
         {
           "item": "ditalini noodles",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "queso mac sauce",
-          "qty": 3,
+          "qty": 3.0,
           "unit": "qt",
           "recipe": "queso_mac_sauce"
         },
         {
           "item": "colby jack shredded",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "ap flour",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "panko bread crumbs",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "eggs",
-          "qty": 6,
+          "qty": 6.0,
           "unit": "ea",
           "recipe": null
         }
@@ -1762,7 +1762,7 @@
       "ingredients": [
         {
           "item": "tomato sauce",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "gal",
           "recipe": null
         },
@@ -1774,13 +1774,13 @@
         },
         {
           "item": "thyme fresh",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "tbsp",
           "recipe": null
         },
         {
           "item": "garlic cloves",
-          "qty": 8,
+          "qty": 8.0,
           "unit": "ea",
           "recipe": null
         }
@@ -1798,19 +1798,19 @@
       "ingredients": [
         {
           "item": "red cabbage",
-          "qty": 5,
+          "qty": 5.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "chipotle aioli",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "cup",
           "recipe": "chipotle_aioli"
         },
         {
           "item": "lime juice",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "tbsp",
           "recipe": null
         }
@@ -1830,61 +1830,61 @@
       "ingredients": [
         {
           "item": "birria",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "portion",
           "recipe": "birria"
         },
         {
           "item": "mexi slaw",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "portion",
           "recipe": "mexi_slaw"
         },
         {
           "item": "pico de gallo",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "portion",
           "recipe": "pico_de_gallo"
         },
         {
           "item": "tomatillo salsa",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "portion",
           "recipe": "tomatillo_salsa"
         },
         {
           "item": "mini rellenos",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "case",
           "recipe": "mini_rellenos"
         },
         {
           "item": "spanish rice",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "batch",
           "recipe": "spanish_rice"
         },
         {
           "item": "refried black beans",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "batch",
           "recipe": "refried_black_beans"
         },
         {
           "item": "flour tortillas",
-          "qty": 50,
+          "qty": 50.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "corn tortillas",
-          "qty": 50,
+          "qty": 50.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "lime wedges",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "lb",
           "recipe": null
         }
@@ -1910,7 +1910,7 @@
       "ingredients": [
         {
           "item": "mini rellenos (sysco)",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "case",
           "recipe": null
         }
@@ -1928,7 +1928,7 @@
       "ingredients": [
         {
           "item": "lariat rub",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "cup",
           "recipe": "lariat_rub"
         },
@@ -1940,7 +1940,7 @@
         },
         {
           "item": "chili powder",
-          "qty": 10,
+          "qty": 10.0,
           "unit": "tbsp",
           "recipe": null
         }
@@ -1960,7 +1960,7 @@
       "ingredients": [
         {
           "item": "bacon lard",
-          "qty": 900,
+          "qty": 900.0,
           "unit": "g",
           "recipe": null
         },
@@ -1998,7 +1998,7 @@
       "ingredients": [
         {
           "item": "philo bites (sysco)",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "case",
           "recipe": null
         }
@@ -2016,19 +2016,19 @@
       "ingredients": [
         {
           "item": "tomatoes",
-          "qty": 10,
+          "qty": 10.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "red onion",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "jalapeno",
-          "qty": 7,
+          "qty": 7.0,
           "unit": "ea",
           "recipe": null
         },
@@ -2040,25 +2040,25 @@
         },
         {
           "item": "cilantro",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "lime juice",
-          "qty": 3,
+          "qty": 3.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "salt",
-          "qty": "",
+          "qty": 0.0,
           "unit": "",
           "recipe": null
         },
         {
           "item": "pepper",
-          "qty": "",
+          "qty": 0.0,
           "unit": "",
           "recipe": null
         }
@@ -2076,13 +2076,13 @@
       "ingredients": [
         {
           "item": "pork belly",
-          "qty": 5,
+          "qty": 5.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "hoisin sauce",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "cup",
           "recipe": null
         },
@@ -2100,7 +2100,7 @@
         },
         {
           "item": "bao buns (sysco)",
-          "qty": 30,
+          "qty": 30.0,
           "unit": "ea",
           "recipe": null
         }
@@ -2118,7 +2118,7 @@
       "ingredients": [
         {
           "item": "prime rib",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "ea",
           "recipe": null
         }
@@ -2136,13 +2136,13 @@
       "ingredients": [
         {
           "item": "chili powder",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "cumin",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "cup",
           "recipe": null
         },
@@ -2178,25 +2178,25 @@
       "ingredients": [
         {
           "item": "heavy cream",
-          "qty": 3,
+          "qty": 3.0,
           "unit": "qt",
           "recipe": null
         },
         {
           "item": "whole milk",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "gal",
           "recipe": null
         },
         {
           "item": "american cheese block",
-          "qty": 20,
+          "qty": 20.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "shredded cheddar",
-          "qty": 10,
+          "qty": 10.0,
           "unit": "lb",
           "recipe": null
         },
@@ -2208,13 +2208,13 @@
         },
         {
           "item": "green chile",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "bag",
           "recipe": "green_chile"
         },
         {
           "item": "blackened salsa",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "qt",
           "recipe": null
         }
@@ -2235,19 +2235,19 @@
       "ingredients": [
         {
           "item": "canned black beans",
-          "qty": 8,
+          "qty": 8.0,
           "unit": "can",
           "recipe": null
         },
         {
           "item": "yellow onion",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "garlic",
-          "qty": 6,
+          "qty": 6.0,
           "unit": "clove",
           "recipe": null
         },
@@ -2259,25 +2259,25 @@
         },
         {
           "item": "ground cumin",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "tbsp",
           "recipe": null
         },
         {
           "item": "dried oregano",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "tbsp",
           "recipe": null
         },
         {
           "item": "kosher salt",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "tbsp",
           "recipe": null
         },
         {
           "item": "black pepper",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "tsp",
           "recipe": null
         },
@@ -2301,7 +2301,7 @@
       "ingredients": [
         {
           "item": "pepitas",
-          "qty": 5,
+          "qty": 5.0,
           "unit": "lb",
           "recipe": null
         },
@@ -2313,7 +2313,7 @@
         },
         {
           "item": "chili powder",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "tbsp",
           "recipe": null
         },
@@ -2355,7 +2355,7 @@
         },
         {
           "item": "white vinegar",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "qt",
           "recipe": null
         },
@@ -2367,19 +2367,19 @@
         },
         {
           "item": "red pepper",
-          "qty": 20,
+          "qty": 20.0,
           "unit": "g",
           "recipe": null
         },
         {
           "item": "garlic",
-          "qty": 1000,
+          "qty": 1000.0,
           "unit": "g",
           "recipe": null
         },
         {
           "item": "dill",
-          "qty": 30,
+          "qty": 30.0,
           "unit": "g",
           "recipe": null
         }
@@ -2403,49 +2403,49 @@
         },
         {
           "item": "yellow onion",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "lb",
           "recipe": null
         },
         {
           "item": "garlic",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "clove",
           "recipe": null
         },
         {
           "item": "vegetable oil",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "tbsp",
           "recipe": null
         },
         {
           "item": "canned diced tomatoes",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "cup",
           "recipe": null
         },
         {
           "item": "chicken stock",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "qt",
           "recipe": null
         },
         {
           "item": "ground cumin",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "tsp",
           "recipe": null
         },
         {
           "item": "kosher salt",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "tbsp",
           "recipe": null
         },
         {
           "item": "black pepper",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "tsp",
           "recipe": null
         }
@@ -2463,7 +2463,7 @@
       "ingredients": [
         {
           "item": "mayonnaise",
-          "qty": 9,
+          "qty": 9.0,
           "unit": "cup",
           "recipe": null
         },
@@ -2505,7 +2505,7 @@
         },
         {
           "item": "apple cider vinegar",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "cup",
           "recipe": null
         }
@@ -2523,13 +2523,13 @@
       "ingredients": [
         {
           "item": "tex mex egg rolls (vendor whole-buy)",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "case",
           "recipe": null
         },
         {
           "item": "chipotle aioli",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "qt",
           "recipe": "chipotle_aioli"
         }
@@ -2549,7 +2549,7 @@
       "ingredients": [
         {
           "item": "tiramisu whole (vendor whole-buy)",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "ea",
           "recipe": null
         }
@@ -2567,43 +2567,43 @@
       "ingredients": [
         {
           "item": "large white onions",
-          "qty": 4,
+          "qty": 4.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "jalapenos",
-          "qty": 8,
+          "qty": 8.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "garlic cloves",
-          "qty": 20,
+          "qty": 20.0,
           "unit": "ea",
           "recipe": null
         },
         {
           "item": "whole tomatillos",
-          "qty": 3,
+          "qty": 3.0,
           "unit": "#10 can",
           "recipe": null
         },
         {
           "item": "salt",
-          "qty": 3,
+          "qty": 3.0,
           "unit": "tbsp",
           "recipe": null
         },
         {
           "item": "pepper",
-          "qty": 3,
+          "qty": 3.0,
           "unit": "tbsp",
           "recipe": null
         },
         {
           "item": "cumin",
-          "qty": 2,
+          "qty": 2.0,
           "unit": "tsp",
           "recipe": null
         },
@@ -2615,7 +2615,7 @@
         },
         {
           "item": "agave",
-          "qty": 1,
+          "qty": 1.0,
           "unit": "tbsp",
           "recipe": null
         },
@@ -2627,7 +2627,7 @@
         },
         {
           "item": "avocado",
-          "qty": 8,
+          "qty": 8.0,
           "unit": "ea",
           "recipe": null
         }

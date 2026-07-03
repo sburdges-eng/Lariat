@@ -80,6 +80,26 @@ public struct RecipeTreeCatalog: Sendable {
         let qty: Double
         let unit: String
         let recipe: String?
+
+        enum CodingKeys: String, CodingKey { case item, qty, unit, recipe }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            item = (try? c.decode(String.self, forKey: .item)) ?? ""
+            unit = (try? c.decode(String.self, forKey: .unit)) ?? ""
+            recipe = try? c.decodeIfPresent(String.self, forKey: .recipe)
+            // Source recipes leave some qtys blank ("" / null / "to taste").
+            // A single unquantified ingredient must never blank the whole tree
+            // (empty-state lie) — coerce anything non-numeric to 0.
+            if let d = try? c.decode(Double.self, forKey: .qty) {
+                qty = d
+            } else if let s = try? c.decode(String.self, forKey: .qty),
+                      let d = Double(s.trimmingCharacters(in: .whitespaces)) {
+                qty = d
+            } else {
+                qty = 0
+            }
+        }
     }
     struct RawRecipe: Codable {
         let name: String
