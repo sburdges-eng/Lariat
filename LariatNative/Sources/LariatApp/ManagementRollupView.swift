@@ -45,7 +45,10 @@ struct ManagementRollupView: View {
 
     var body: some View {
         Group {
-            if let err = vm.errorText {
+            // Full-screen degrade ONLY before the first successful load — after
+            // that a transient poll error (e.g. momentary SQLITE_BUSY) keeps the
+            // stale snapshot with an inline banner instead of blanking the board.
+            if let err = vm.errorText, vm.snapshot == nil {
                 TileDegrade(
                     title: "Database unavailable",
                     message: err,
@@ -53,6 +56,9 @@ struct ManagementRollupView: View {
                 )
             } else if let s = vm.snapshot {
                 ScrollView {
+                    if let err = vm.errorText {
+                        StaleDataBanner(message: err)
+                    }
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 220))], spacing: 16) {
                         // Tile 1 — Food cost vs. target (accounting variance)
                         // Per-tile traffic-light color mirrors the web rules via

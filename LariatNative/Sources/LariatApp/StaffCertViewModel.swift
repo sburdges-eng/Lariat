@@ -28,8 +28,10 @@ final class StaffCertViewModel {
     var issuedOn = ""
     var expiresOn = ""
 
-    /// Pending retire target — captured when a retire needs a PIN unlock first.
-    private var pendingRetireId: Int64?
+    /// Pending write — captured when a submit/retire needs a PIN unlock first.
+    /// Resumed by `pinVerified` regardless of sheet state, so dismissing the
+    /// form sheet can't silently drop the typed cert (PR #401 pattern).
+    private var pendingAction: (() -> Void)?
 
     let pinStore: PinSessionStore
     var staff: [StaffMember] = []
@@ -118,6 +120,7 @@ final class StaffCertViewModel {
         if pinStore.activeUser != nil {
             performSubmit()
         } else {
+            pendingAction = { [weak self] in self?.performSubmit() }
             showPinSheet = true
         }
     }
@@ -157,7 +160,7 @@ final class StaffCertViewModel {
         if pinStore.activeUser != nil {
             performRetire(id: id)
         } else {
-            pendingRetireId = id
+            pendingAction = { [weak self] in self?.performRetire(id: id) }
             showPinSheet = true
         }
     }
@@ -179,12 +182,9 @@ final class StaffCertViewModel {
     /// After the PIN sheet succeeds, resume whichever write triggered it.
     func pinVerified(_ user: ManagerPinUser) {
         pinStore.save(user: user)
-        if let id = pendingRetireId {
-            pendingRetireId = nil
-            performRetire(id: id)
-        } else if showForm {
-            performSubmit()
-        }
+        let action = pendingAction
+        pendingAction = nil
+        action?()
     }
 
     // ── helpers ─────────────────────────────────────────────────────────
@@ -193,7 +193,7 @@ final class StaffCertViewModel {
         do {
             let gateOn = try writeDB.pool.read { db in try PinVerifier().gateConfigured(db: db) }
             guard gateOn else {
-                submitError = "PIN not set up — add a manager PIN in web Settings"
+                submitError = "PIN not set up — add one on the Manager → PINs board"
                 return false
             }
             return true

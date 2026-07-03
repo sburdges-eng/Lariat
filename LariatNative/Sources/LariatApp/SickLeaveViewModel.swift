@@ -29,6 +29,11 @@ final class SickLeaveViewModel {
     var staff: [StaffMember] = []
     var staffUnavailable = false
 
+    /// Pending write — captured when a submit needs a PIN unlock first. Resumed
+    /// by `pinVerified` regardless of sheet state, so dismissing the form sheet
+    /// can't silently drop the typed entry (PR #401 pattern).
+    private var pendingAction: (() -> Void)?
+
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase
     private let locationId: String
@@ -95,6 +100,7 @@ final class SickLeaveViewModel {
         if pinStore.activeUser != nil {
             performSubmit()
         } else {
+            pendingAction = { [weak self] in self?.performSubmit() }
             showPinSheet = true
         }
     }
@@ -134,9 +140,9 @@ final class SickLeaveViewModel {
     /// Resume the pending write after the PIN sheet unlocks.
     func pinVerified(_ user: ManagerPinUser) {
         pinStore.save(user: user)
-        if showForm {
-            performSubmit()
-        }
+        let action = pendingAction
+        pendingAction = nil
+        action?()
     }
 
     // ── helpers ─────────────────────────────────────────────────────────
@@ -145,7 +151,7 @@ final class SickLeaveViewModel {
         do {
             let gateOn = try writeDB.pool.read { db in try PinVerifier().gateConfigured(db: db) }
             guard gateOn else {
-                submitError = "PIN not set up — add a manager PIN in web Settings"
+                submitError = "PIN not set up — add one on the Manager → PINs board"
                 return false
             }
             return true

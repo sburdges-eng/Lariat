@@ -98,6 +98,10 @@ struct WageNoticeView: View {
                     Text("— pick —").tag("")
                     ForEach(vm.staff) { s in Text(s.displayName).tag(s.id) }
                 }
+                if vm.staffUnavailable {
+                    Text("No staff on file — run the staff sync to create data/cache/staff.json.")
+                        .font(.caption).foregroundStyle(.orange)
+                }
                 Picker("Reason", selection: $vm.reason) {
                     ForEach(WageNoticeReason.allCases, id: \.self) { r in
                         Text(r.rawValue.replacingOccurrences(of: "_", with: " ")).tag(r)
@@ -123,8 +127,14 @@ struct WageNoticeView: View {
                     Button("Cancel") { vm.showForm = false }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Sign") { vm.requestSubmit() }
-                        .disabled(vm.cookId.isEmpty || vm.wageText.isEmpty)
+                    Button("Sign") {
+                        // Dismiss first — the PIN sheet may need to present next,
+                        // and two sheets can't be up at once (PR #401). Fields
+                        // stay populated until the sign succeeds.
+                        vm.showForm = false
+                        vm.requestSubmit()
+                    }
+                    .disabled(vm.cookId.isEmpty || vm.wageText.isEmpty)
                 }
             }
         }

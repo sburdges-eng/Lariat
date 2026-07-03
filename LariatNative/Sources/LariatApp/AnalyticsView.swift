@@ -46,14 +46,21 @@ struct AnalyticsView: View {
 
     var body: some View {
         Group {
-            if let err = vm.errorText {
+            if let summary = vm.summary, let bundle = vm.bundle {
+                // Keep stale data on a transient poll error (e.g. momentary
+                // SQLITE_BUSY) — inline banner instead of blanking the board.
+                VStack(spacing: 0) {
+                    if let err = vm.errorText {
+                        StaleDataBanner(message: err)
+                    }
+                    AnalyticsContentView(summary: summary, bundle: bundle)
+                }
+            } else if let err = vm.errorText {
                 TileDegrade(
                     title: "Database unavailable",
                     message: err,
                     systemImage: "externaldrive.badge.xmark"
                 )
-            } else if let summary = vm.summary, let bundle = vm.bundle {
-                AnalyticsContentView(summary: summary, bundle: bundle)
             } else {
                 ProgressView()
             }

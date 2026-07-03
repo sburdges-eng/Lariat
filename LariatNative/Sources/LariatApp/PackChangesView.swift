@@ -70,7 +70,7 @@ final class PackChangesViewModel {
                 try PinVerifier().gateConfigured(db: db)
             }
             guard gateOn else {
-                ackError = "PIN not set up — add a manager PIN in web Settings"
+                ackError = "PIN not set up — add one on the Manager → PINs board"
                 pendingAckId = nil
                 return
             }

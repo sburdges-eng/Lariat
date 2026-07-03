@@ -40,18 +40,28 @@ final class AuditLogViewModel {
             result = reader.recent(limit: limit)
         }
         logs = Array(result.prefix(limit))
+
+        // Picker options come from the UNFILTERED recent window — deriving them
+        // from the filtered `logs` collapsed each picker to its own selection,
+        // forcing a round trip through "All" to switch filters.
+        let window = (action.isEmpty && slug.isEmpty)
+            ? logs
+            : Array(reader.recent(limit: limit).prefix(limit))
+        var actions = Set(window.compactMap(\.action))
+        var slugs = Set(window.compactMap(\.slug))
+        // Keep the active selections listed even if a full-scan filter matched
+        // entries older than the recent window, so the Picker selection holds.
+        if !action.isEmpty { actions.insert(action) }
+        if !slug.isEmpty { slugs.insert(slug) }
+        uniqueActions = actions.sorted()
+        uniqueSlugs = slugs.sorted()
         loaded = true
     }
 
-    /// Filter-picker sources — distinct values from the loaded window, sorted
-    /// (mirrors the page's uniqueActions / uniqueSlugs derivation).
-    var uniqueActions: [String] {
-        Array(Set(logs.compactMap(\.action))).sorted()
-    }
-
-    var uniqueSlugs: [String] {
-        Array(Set(logs.compactMap(\.slug))).sorted()
-    }
+    /// Filter-picker sources — distinct values cached from the unfiltered
+    /// recent window on each refresh (see `refresh()`).
+    private(set) var uniqueActions: [String] = []
+    private(set) var uniqueSlugs: [String] = []
 
     /// Native addition: free-text narrowing across action/slug/user/raw line.
     var visibleLogs: [ManagementAuditEntry] {
