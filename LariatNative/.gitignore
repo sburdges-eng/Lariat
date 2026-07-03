@@ -3,3 +3,6 @@
 .swiftpm/
 *.xcodeproj/xcuserdata/
 DerivedData/
+
+# Packaged .app / .pkg output (Scripts/package-app.sh)
+build/
