@@ -518,6 +518,10 @@ export function runReconcile({
   since = null,
   snapshotPath,
   json = false,
+  // `today` is overridable only for deterministic testing / window simulation
+  // (scripts/phase-c-reconcile-simulate.mjs). Production nightly runs leave it
+  // at the real date so "today" (still being written) is correctly exempt.
+  today = todayISO(),
   write = (s) => process.stdout.write(s + '\n'),
 } = {}) {
   const Database = require('better-sqlite3');
@@ -536,7 +540,7 @@ export function runReconcile({
 
     results = results.concat(checkWriterAttribution(db));
     results = results.concat(checkAuditCoverage(db, { since }));
-    const money = checkMoneyChecksums(db, { priorSnapshot, since });
+    const money = checkMoneyChecksums(db, { priorSnapshot, since, today });
     results = results.concat(money.rows);
     results = results.concat(checkCanonicalActorSources(db));
 
@@ -595,13 +599,15 @@ if (invokedAsScript) {
     else if (a === '--audit-dir') opts.auditDir = args[++i];
     else if (a === '--since') opts.since = args[++i];
     else if (a === '--snapshot') opts.snapshotPath = args[++i];
+    else if (a === '--today') opts.today = args[++i];
     else if (a === '--json') opts.json = true;
     else if (a === '--help' || a === '-h') {
       process.stdout.write(
         'Usage: node scripts/phase-c-reconcile.mjs [--db path] [--audit-dir path]\n' +
-        '         [--since YYYY-MM-DD] [--snapshot path] [--json]\n' +
+        '         [--since YYYY-MM-DD] [--snapshot path] [--today YYYY-MM-DD] [--json]\n' +
         'Read-only §C4 reconciliation: writer attribution, audit coverage,\n' +
-        'money checksums vs prior snapshot, canonical actor_source set.\n'
+        'money checksums vs prior snapshot, canonical actor_source set.\n' +
+        '--today overrides the exempt "today" (testing / window simulation only).\n'
       );
       process.exit(0);
     } else {
@@ -609,9 +615,11 @@ if (invokedAsScript) {
       process.exit(2);
     }
   }
-  if (opts.since && !/^\d{4}-\d{2}-\d{2}$/.test(opts.since)) {
-    process.stderr.write(`phase-c-reconcile: --since must be YYYY-MM-DD, got ${opts.since}\n`);
-    process.exit(2);
+  for (const [flag, val] of [['--since', opts.since], ['--today', opts.today]]) {
+    if (val && !/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+      process.stderr.write(`phase-c-reconcile: ${flag} must be YYYY-MM-DD, got ${val}\n`);
+      process.exit(2);
+    }
   }
   if (!fs.existsSync(opts.dbPath)) {
     process.stderr.write(`phase-c-reconcile: DB not found: ${opts.dbPath}\n`);
