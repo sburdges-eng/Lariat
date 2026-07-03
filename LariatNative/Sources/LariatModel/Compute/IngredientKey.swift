@@ -64,6 +64,18 @@ public enum IngredientKey {
         return String(out)
     }
 
+    /// Byte-exact mirror of `lib/ingredientKey.ts::deriveMasterId` — stable slug
+    /// from a recipe-ingredient string (T7 master collapse; also the T10
+    /// sub-recipe fallback key in `computeCostVariance`).
+    ///
+    /// v1 formula: `normalizeIngredientKey(x).replace(/ /g, '_')`.
+    /// Returns nil when the input normalizes to empty (caller skips the row).
+    public static func deriveMasterId(_ recipeIngredient: String?) -> String? {
+        let norm = normalize(recipeIngredient ?? "")
+        if norm.isEmpty { return nil }
+        return norm.replacingOccurrences(of: " ", with: "_")
+    }
+
     /// ASCII `[a-z0-9]`. The input is already lower-cased, so only lower-case ASCII
     /// letters can reach here (upper-case was folded in step 1).
     private static func isAsciiAlnum(_ s: Unicode.Scalar) -> Bool {
