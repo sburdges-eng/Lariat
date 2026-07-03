@@ -16,10 +16,18 @@ public struct CateringMenuItem: Codable, Sendable, Equatable, Identifiable {
     public let secondaryPrepNotes: String
     /// Ordering/purchasing note → `beo_line_items.order_items_notes`.
     public let orderItemsNotes: String
+    /// How the item is sold + a typical order size, e.g. "per piece ·
+    /// typically 50 pieces" / "per pan · typically 1 pan". Empty when the
+    /// sidecar is absent.
+    public let amountDescription: String
+    /// Typical line quantity from invoice history — pre-fills the line so its
+    /// Amount is realistic (50 sliders, not 1). Defaults to 1.
+    public let defaultQuantity: Double
 
     public init(
         category: String, name: String, cost: Double,
-        prepNotes: String = "", secondaryPrepNotes: String = "", orderItemsNotes: String = ""
+        prepNotes: String = "", secondaryPrepNotes: String = "", orderItemsNotes: String = "",
+        amountDescription: String = "", defaultQuantity: Double = 1
     ) {
         self.category = category
         self.name = name
@@ -27,6 +35,8 @@ public struct CateringMenuItem: Codable, Sendable, Equatable, Identifiable {
         self.prepNotes = prepNotes
         self.secondaryPrepNotes = secondaryPrepNotes
         self.orderItemsNotes = orderItemsNotes
+        self.amountDescription = amountDescription
+        self.defaultQuantity = defaultQuantity
     }
 
     /// True when picking this item pre-fills at least one prep-sheet field.
@@ -34,8 +44,8 @@ public struct CateringMenuItem: Codable, Sendable, Equatable, Identifiable {
         !prepNotes.isEmpty || !secondaryPrepNotes.isEmpty || !orderItemsNotes.isEmpty
     }
 
-    /// Only the base menu fields round-trip through `catering_menu.json`; prep
-    /// fields are merged from the sidecar after load, so they default to "".
+    /// Only the base menu fields round-trip through `catering_menu.json`; the
+    /// rest are merged from the sidecar after load, so they take defaults.
     enum CodingKeys: String, CodingKey { case category, name, cost }
 
     public init(from decoder: Decoder) throws {
@@ -46,16 +56,27 @@ public struct CateringMenuItem: Codable, Sendable, Equatable, Identifiable {
         self.prepNotes = ""
         self.secondaryPrepNotes = ""
         self.orderItemsNotes = ""
+        self.amountDescription = ""
+        self.defaultQuantity = 1
     }
 }
 
-/// One prep-defaults row (`catering_prep_defaults.json`, produced by
+/// One line-defaults row (`catering_prep_defaults.json`, produced by
 /// `scripts/ingest_catering_prep_defaults.py`), keyed in the file by the
-/// normalized item name.
+/// normalized item name. Amount fields are optional so an older prep-only
+/// cache still decodes.
 struct CateringPrepDefault: Codable {
     let prep: String
     let plating: String
     let order: String
+    var amountDesc: String?
+    var typQty: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case prep, plating, order
+        case amountDesc = "amount_desc"
+        case typQty = "typ_qty"
+    }
 }
 
 /// Loads the catering menu from `data/cache/catering_menu.json` (the same
@@ -95,7 +116,9 @@ public enum CateringMenuCatalog {
             guard let d = defaults[normalize(item.name)] else { return item }
             return CateringMenuItem(
                 category: item.category, name: item.name, cost: item.cost,
-                prepNotes: d.prep, secondaryPrepNotes: d.plating, orderItemsNotes: d.order
+                prepNotes: d.prep, secondaryPrepNotes: d.plating, orderItemsNotes: d.order,
+                amountDescription: d.amountDesc ?? "",
+                defaultQuantity: (d.typQty.map { $0 > 0 ? $0 : 1 }) ?? 1
             )
         }
     }

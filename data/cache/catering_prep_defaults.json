@@ -1,122 +1,362 @@
 {
+  "baked ziti": {
+    "name": "Baked Ziti",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per pan",
+    "typ_qty": 1
+  },
   "banana cream pudding": {
     "name": "Banana Cream Pudding",
     "prep": "portioned to cups",
     "plating": "4oz cup",
-    "order": "Make mini versions with cookies day before"
+    "order": "Make mini versions with cookies day before",
+    "amount_desc": "per piece · typically 50 pieces",
+    "typ_qty": 50
+  },
+  "barbacoa taco": {
+    "name": "Barbacoa Taco",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per piece",
+    "typ_qty": 50
   },
   "barbacoa taco buffet": {
     "name": "Barbacoa Taco Buffet",
     "prep": "Overnight Fri",
     "plating": "full pan",
-    "order": "order extra beef cheeks?"
+    "order": "order extra beef cheeks?",
+    "amount_desc": "per pan · typically 2 pans",
+    "typ_qty": 2
   },
   "battered avocado taco buffet": {
     "name": "Battered Avocado Taco Buffet",
     "prep": "avo sliced/batter",
     "plating": "full pan/grate",
-    "order": "order extra avo"
+    "order": "order extra avo",
+    "amount_desc": "per pan · typically 3 pans",
+    "typ_qty": 3
+  },
+  "battered fish taco": {
+    "name": "Battered Fish Taco",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per piece",
+    "typ_qty": 50
   },
   "beef tenderloin crostini": {
     "name": "Beef tenderloin crostini",
     "prep": "",
     "plating": "4 inch plate",
-    "order": "jp will bring ingredients"
+    "order": "jp will bring ingredients",
+    "amount_desc": "per piece · typically 50 pieces",
+    "typ_qty": 50
+  },
+  "braised chicken taco": {
+    "name": "Braised Chicken Taco",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per piece",
+    "typ_qty": 50
   },
   "braised chicken taco buffet": {
     "name": "Braised Chicken Taco Buffet",
     "prep": "THAW THIGHS/COOK",
     "plating": "2\" HOTEL BUFFET",
-    "order": "order chicken thighs?"
+    "order": "order chicken thighs?",
+    "amount_desc": "per pan · typically 1 pan",
+    "typ_qty": 1
   },
   "breakfast burrito": {
     "name": "Breakfast Burrito",
     "prep": "",
     "plating": "",
-    "order": "Made sunday. Need smaller tortillas"
+    "order": "Made sunday. Need smaller tortillas",
+    "amount_desc": "",
+    "typ_qty": 1
   },
   "caprese skewers": {
     "name": "Caprese Skewers",
     "prep": "MISE",
     "plating": "tray",
-    "order": "order mozz balls/prosciutto"
+    "order": "order mozz balls/prosciutto",
+    "amount_desc": "per piece · typically 40 pieces",
+    "typ_qty": 40
+  },
+  "carnitas taco": {
+    "name": "Carnitas taco",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per piece",
+    "typ_qty": 50
   },
   "carnitas tacos buffet": {
     "name": "Carnitas Tacos Buffet",
     "prep": "braise meat thur",
     "plating": "Shallow full",
-    "order": "order extra pork butt?"
+    "order": "order extra pork butt?",
+    "amount_desc": "per pan · typically 3 pans",
+    "typ_qty": 3
+  },
+  "chilled corn leek": {
+    "name": "Chilled Corn Leek",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per piece",
+    "typ_qty": 50
+  },
+  "chocolate cake": {
+    "name": "Chocolate Cake",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per piece",
+    "typ_qty": 50
   },
   "churros": {
     "name": "Churros",
     "prep": "",
     "plating": "basket",
-    "order": ""
+    "order": "",
+    "amount_desc": "per piece · typically 80 pieces",
+    "typ_qty": 80
+  },
+  "cob salad buffet": {
+    "name": "Cob Salad Buffet",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per pan",
+    "typ_qty": 1
   },
   "corn dogs": {
     "name": "Corn Dogs",
     "prep": "portion sausage",
     "plating": "4 inch plate",
-    "order": "order jalapeno cheddar sausage"
+    "order": "order jalapeno cheddar sausage",
+    "amount_desc": "per piece · typically 80 pieces",
+    "typ_qty": 80
+  },
+  "crab cake remoulade": {
+    "name": "Crab Cake Remoulade",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per piece",
+    "typ_qty": 50
+  },
+  "cupcakes": {
+    "name": "Cupcakes",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per piece",
+    "typ_qty": 50
+  },
+  "deviled eggs": {
+    "name": "Deviled Eggs",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per piece",
+    "typ_qty": 50
   },
   "fish taco buffet": {
     "name": "Fish Taco Buffet",
     "prep": "Fish cut and brined",
     "plating": "full pan",
-    "order": ""
+    "order": "",
+    "amount_desc": "per pan · typically 2 pans",
+    "typ_qty": 2
+  },
+  "french artisanal board": {
+    "name": "French Artisanal Board",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per board · typically 2 boards",
+    "typ_qty": 2
+  },
+  "gazpacho": {
+    "name": "Gazpacho",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per piece",
+    "typ_qty": 50
   },
   "green chile mac buffet": {
     "name": "Green Chile Mac Buffet",
     "prep": "BOIL CAVATAPPI/TOAST PANKO/MISE",
     "plating": "2\" HOTEL BUFFET",
-    "order": "COVER W/ SHREDDED CHEDDAR & BREADCRUMB"
+    "order": "COVER W/ SHREDDED CHEDDAR & BREADCRUMB",
+    "amount_desc": "per pan · typically 1 pan",
+    "typ_qty": 1
+  },
+  "italian artisanal board": {
+    "name": "Italian Artisanal Board",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per board",
+    "typ_qty": 1
+  },
+  "italian dinner": {
+    "name": "Italian Dinner",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per plate",
+    "typ_qty": 50
+  },
+  "low country boil": {
+    "name": "Low Country Boil",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per pan",
+    "typ_qty": 1
   },
   "mac balls": {
     "name": "Mac Balls",
     "prep": "ditalini cooked fri",
     "plating": "4 inch plate",
-    "order": ""
+    "order": "",
+    "amount_desc": "per piece · typically 50 pieces",
+    "typ_qty": 50
+  },
+  "mexican dinner": {
+    "name": "Mexican Dinner",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per plate",
+    "typ_qty": 50
   },
   "mini rellenos": {
     "name": "Mini Rellenos",
     "prep": "",
     "plating": "4 inch plate",
-    "order": "order from sysco?"
+    "order": "order from sysco?",
+    "amount_desc": "",
+    "typ_qty": 1
   },
   "nashville slider": {
     "name": "Nashville Slider",
     "prep": "Chicken Brined",
     "plating": "4 inch plate",
-    "order": "order slider buns"
+    "order": "order slider buns",
+    "amount_desc": "per piece · typically 50 pieces",
+    "typ_qty": 50
+  },
+  "pig wings": {
+    "name": "Pig Wings",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per piece · typically 60 pieces",
+    "typ_qty": 60
+  },
+  "pork belly bao bun": {
+    "name": "Pork Belly bao bun",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per piece",
+    "typ_qty": 50
   },
   "prime rib carving station": {
     "name": "Prime Rib Carving Station",
     "prep": "SOUS VIDE",
     "plating": "",
-    "order": ""
+    "order": "",
+    "amount_desc": "",
+    "typ_qty": 1
+  },
+  "prime rib dinner": {
+    "name": "Prime Rib Dinner",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per plate",
+    "typ_qty": 50
+  },
+  "prime rib sliders": {
+    "name": "Prime Rib Sliders",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per piece",
+    "typ_qty": 50
+  },
+  "roast chicken dinner": {
+    "name": "Roast Chicken Dinner",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per plate",
+    "typ_qty": 50
   },
   "roasted root veg": {
     "name": "Roasted Root Veg",
     "prep": "THAW",
     "plating": "",
-    "order": ""
+    "order": "",
+    "amount_desc": "",
+    "typ_qty": 1
   },
   "rope burger slider": {
     "name": "Rope Burger slider",
     "prep": "Patty burgers",
     "plating": "4 inch plate",
-    "order": "order slider buns?"
+    "order": "order slider buns?",
+    "amount_desc": "per piece · typically 60 pieces",
+    "typ_qty": 60
   },
   "rope caesar salad buffet": {
     "name": "Rope Caesar Salad Buffet",
     "prep": "GRILL ONIONS/COOK CORNBREAD/etc.",
     "plating": "2\" HOTEL BUFFET",
-    "order": "order extra romaine?"
+    "order": "order extra romaine?",
+    "amount_desc": "",
+    "typ_qty": 1
+  },
+  "spanish artisanal board": {
+    "name": "Spanish Artisanal Board",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per board",
+    "typ_qty": 1
+  },
+  "tex mex egg rolls": {
+    "name": "Tex mex egg rolls",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per piece",
+    "typ_qty": 50
+  },
+  "tiramisu": {
+    "name": "Tiramisu",
+    "prep": "",
+    "plating": "",
+    "order": "",
+    "amount_desc": "per piece",
+    "typ_qty": 50
   },
   "trio dips": {
     "name": "Trio Dips",
     "prep": "QUESO/GREEN CHILLI/BLACK SALSA/CHIPS",
     "plating": "LONG RECTANGLE CERAMIC",
-    "order": "2X AMOUNT"
+    "order": "2X AMOUNT",
+    "amount_desc": "per pan · typically 8 pans",
+    "typ_qty": 8
   }
 }

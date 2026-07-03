@@ -203,6 +203,7 @@ struct BeoBoardView: View {
                     BeoLineRowEditor(
                         line: line,
                         courses: vm.courses,
+                        amountHint: vm.amountHint(for: line.itemName),
                         onPatch: { patch in vm.requestUpdateLine(id: line.id, patch: patch) },
                         onDelete: { vm.requestDeleteLine(id: line.id) }
                     )
@@ -299,8 +300,10 @@ struct BeoBoardView: View {
     }
 
     private func menuItemLabel(_ item: CateringMenuItem) -> String {
-        let price = formatDollars(item.cost, decimals: 2)
-        return item.hasPrepDefaults ? "\(item.name) — \(price)  · prep ready" : "\(item.name) — \(price)"
+        var parts = ["\(item.name) — \(formatDollars(item.cost, decimals: 2))"]
+        if !item.amountDescription.isEmpty { parts.append(item.amountDescription) }
+        if item.hasPrepDefaults { parts.append("prep ready") }
+        return parts.joined(separator: "  ·  ")
     }
 
     private var menuPanel: some View {
@@ -492,6 +495,7 @@ private struct BeoEventHeaderEditor: View {
 private struct BeoLineRowEditor: View {
     let line: BeoLineItemRow
     let courses: [BeoCourseRow]
+    var amountHint: String? = nil
     let onPatch: (BeoLinePatch) -> Void
     let onDelete: () -> Void
 
@@ -536,6 +540,11 @@ private struct BeoLineRowEditor: View {
                 }
             }
             .font(.caption)
+            if let amountHint {
+                Label(amountHint, systemImage: "number")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.vertical, 2)
     }

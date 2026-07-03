@@ -31,14 +31,15 @@ final class CateringMenuCatalogTests: XCTestCase {
         XCTAssertEqual(CateringMenuCatalog.normalize("Gazpacho"), "gazpacho")
     }
 
-    func testMergesPrepDefaultsByNormalizedName() throws {
+    func testMergesPrepAndAmountDefaultsByNormalizedName() throws {
         try write("catering_menu.json", """
         [{"category":"Buffet","name":"Braised Chicken Taco Buffet","cost":125.0},
          {"category":"Passed Apps","name":"Gazpacho","cost":5.0}]
         """)
         // Sidecar keyed by normalized name; note the trailing-space/case variety.
         try write("catering_prep_defaults.json", """
-        {"braised chicken taco buffet":{"prep":"THAW THIGHS/COOK","plating":"2\\" HOTEL BUFFET","order":"order chicken thighs?"}}
+        {"braised chicken taco buffet":{"prep":"THAW THIGHS/COOK","plating":"2\\" HOTEL BUFFET","order":"order chicken thighs?","amount_desc":"per pan · typically 1 pan","typ_qty":1},
+         "gazpacho":{"prep":"","plating":"","order":"","amount_desc":"per piece · typically 50 pieces","typ_qty":50}}
         """)
 
         let items = CateringMenuCatalog.load(cacheDir: cache)
@@ -48,13 +49,33 @@ final class CateringMenuCatalogTests: XCTestCase {
         XCTAssertEqual(chicken.prepNotes, "THAW THIGHS/COOK")
         XCTAssertEqual(chicken.secondaryPrepNotes, "2\" HOTEL BUFFET")
         XCTAssertEqual(chicken.orderItemsNotes, "order chicken thighs?")
+        XCTAssertEqual(chicken.amountDescription, "per pan · typically 1 pan")
+        XCTAssertEqual(chicken.defaultQuantity, 1)
         XCTAssertTrue(chicken.hasPrepDefaults)
 
-        // Item with no sidecar entry stays blank (graceful — manual entry).
+        // Amount-only item: no prep, but a description + typical quantity that
+        // pre-fills the line so 50 pieces land, not 1.
         let gazpacho = try XCTUnwrap(items.first { $0.name == "Gazpacho" })
         XCTAssertEqual(gazpacho.cost, 5.0)
         XCTAssertTrue(gazpacho.prepNotes.isEmpty)
         XCTAssertFalse(gazpacho.hasPrepDefaults)
+        XCTAssertEqual(gazpacho.amountDescription, "per piece · typically 50 pieces")
+        XCTAssertEqual(gazpacho.defaultQuantity, 50)
+    }
+
+    func testDefaultQuantityFallsBackToOneForOlderSidecar() throws {
+        try write("catering_menu.json", """
+        [{"category":"Buffet","name":"Trio Dips","cost":30.0}]
+        """)
+        // Older prep-only sidecar (no amount fields) still decodes; qty → 1.
+        try write("catering_prep_defaults.json", """
+        {"trio dips":{"prep":"Queso/chips","plating":"basket","order":""}}
+        """)
+        let items = CateringMenuCatalog.load(cacheDir: cache)
+        let dips = try XCTUnwrap(items.first)
+        XCTAssertEqual(dips.defaultQuantity, 1)
+        XCTAssertEqual(dips.amountDescription, "")
+        XCTAssertEqual(dips.secondaryPrepNotes, "basket")
     }
 
     func testMissingSidecarLeavesBaseMenuIntact() throws {
