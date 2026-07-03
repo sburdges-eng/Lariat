@@ -640,9 +640,58 @@ final class BeoBoardRepositoryTests: XCTestCase {
         }
         XCTAssertEqual(fk, 1, "PRAGMA foreign_keys must be ON")
     }
+
+    // ── location scoping on delete_event + prep_done ─────────────────────
+    // Web parity: both mutations carry `AND location_id = ?`
+    // (app/api/beo/route.js) so a caller scoped to one location cannot
+    // delete/toggle another location's rows by id.
+
+    func testDeleteEventDeletesWhenLocationMatches() throws {
+        let evA = try fixture.seedEvent(title: "Site A Party", location: "site-a")
+        try repo.deleteEvent(id: evA, locationId: "site-a", context: ctx)
+        XCTAssertNil(try fixture.row("SELECT * FROM beo_events WHERE id = ?", [evA]))
+    }
+
+    func testDeleteEventDoesNotDeleteForeignLocationEvent() throws {
+        let evB = try fixture.seedEvent(title: "Site B Party", location: "site-b")
+        try repo.deleteEvent(id: evB, locationId: "site-a", context: ctx)
+        let row = try XCTUnwrap(
+            fixture.row("SELECT title FROM beo_events WHERE id = ?", [evB]),
+            "a site-a-scoped delete must NOT remove a site-b event")
+        XCTAssertEqual(row["title"], "Site B Party")
+    }
+
+    func testSetPrepDoneTogglesWhenLocationMatches() throws {
+        let ev = try fixture.seedEvent(location: "site-a")
+        let taskId = try fixture.seed2PrepTask(eventId: ev, task: "Brine turkey", location: "site-a")
+        try repo.setPrepDone(id: taskId, done: true, locationId: "site-a", context: ctx)
+        let row = try XCTUnwrap(fixture.row("SELECT done FROM beo_prep_tasks WHERE id = ?", [taskId]))
+        XCTAssertEqual(row["done"], 1)
+    }
+
+    func testSetPrepDoneDoesNotTouchForeignLocationTask() throws {
+        let ev = try fixture.seedEvent(location: "site-b")
+        let taskId = try fixture.seed2PrepTask(eventId: ev, task: "Brine turkey", location: "site-b")
+        try repo.setPrepDone(id: taskId, done: true, locationId: "site-a", context: ctx)
+        let row = try XCTUnwrap(
+            fixture.row("SELECT done FROM beo_prep_tasks WHERE id = ?", [taskId]),
+            "foreign-location prep task must survive")
+        XCTAssertEqual(row["done"], 0, "a site-a-scoped toggle must NOT flip a site-b prep task")
+    }
 }
 
 private extension BeoFixture {
+    @discardableResult
+    func seed2PrepTask(eventId: Int64, task: String, done: Bool = false, location: String) throws -> Int64 {
+        try writeDB.pool.write { db in
+            try db.execute(
+                sql: "INSERT INTO beo_prep_tasks (event_id, task, done, location_id) VALUES (?, ?, ?, ?)",
+                arguments: [eventId, task, done ? 1 : 0, location]
+            )
+            return db.lastInsertedRowID
+        }
+    }
+
     @discardableResult
     func seed2LineItem(eventId: Int64, item: String, cost: Double, qty: Double) throws -> Int64 {
         try writeDB.pool.write { db in
