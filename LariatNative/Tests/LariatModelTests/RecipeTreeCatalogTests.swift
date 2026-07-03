@@ -105,6 +105,29 @@ final class RecipeTreeCatalogTests: XCTestCase {
         XCTAssertTrue(cat.tree(for: "anything").isEmpty)
     }
 
+    func testBlankOrStringQtyDoesNotBlankTheTree() throws {
+        // Source recipes leave some qtys blank (Pico's salt/pepper are ""); a
+        // single non-numeric qty must NOT fail the whole decode and hide every
+        // item's breakdown behind "cache missing" (the live #406 bug).
+        try writeTree("""
+        {"menu_items": {"pico item": ["pico"]},
+         "recipes": {"pico": {"name":"Pico","station":"salad","prep_timing":"day_of",
+           "ingredients":[
+             {"item":"tomatoes","qty":10,"unit":"cup","recipe":null},
+             {"item":"salt","qty":"","unit":"","recipe":null},
+             {"item":"pepper","qty":null,"unit":"","recipe":null},
+             {"item":"lime juice","qty":"3","unit":"cup","recipe":null}
+           ]}}}
+        """)
+        let cat = RecipeTreeCatalog.load(cacheDir: cache)
+        XCTAssertFalse(cat.isEmpty, "one blank qty must not blank the catalog")
+        let pico = try XCTUnwrap(cat.tree(for: "Pico item").first)
+        XCTAssertEqual(pico.leaves.map(\.item), ["tomatoes", "salt", "pepper", "lime juice"])
+        XCTAssertEqual(pico.leaves.first { $0.item == "salt" }?.qty, 0)       // "" → 0
+        XCTAssertEqual(pico.leaves.first { $0.item == "pepper" }?.qty, 0)     // null → 0
+        XCTAssertEqual(pico.leaves.first { $0.item == "lime juice" }?.qty, 3) // "3" → 3
+    }
+
     func testCyclicSubRecipeDoesNotRecurseForever() throws {
         // A → B → A must terminate (defensive; the ingest never emits cycles).
         try writeTree("""

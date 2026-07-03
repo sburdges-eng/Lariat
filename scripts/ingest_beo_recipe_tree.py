@@ -195,9 +195,16 @@ def build() -> dict:
                 link = None  # never self-nest
             if link:
                 subs.append(link)
+            # Source recipes leave some qtys blank ("" / "to taste"); always
+            # emit a number so the strict JSON consumer never chokes.
+            raw_qty = ing.get("qty", 0)
+            try:
+                qty = float(raw_qty)
+            except (TypeError, ValueError):
+                qty = 0.0
             ings.append({
                 "item": ing.get("item", ""),
-                "qty": ing.get("qty", 0),
+                "qty": qty,
                 "unit": ing.get("unit", ""),
                 "recipe": link,
             })
