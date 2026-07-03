@@ -140,13 +140,148 @@ public struct CostingRepository {
                 varianceTrendRows = []
             }
 
+            // 5. A4 recipe-level cost-variance card (computeCostVariance parity).
+            let recipeCostVariance = try Self.fetchRecipeCostVariance(db: db, locationId: locationId)
+
             return CostingBundle(
                 latestVariance:     latestVariance,
                 latestCoverage:     latestCoverage,
                 salesLines:         salesLines,
-                varianceTrendRows:  varianceTrendRows
+                varianceTrendRows:  varianceTrendRows,
+                recipeCostVariance: recipeCostVariance
             )
         }
+    }
+
+    // ── Recipe cost-variance inputs (A4 card) ─────────────────────────────────
+
+    /// Runs the SELECTs `computeCostVariance` (lib/costingBenchmarks.mjs L141)
+    /// embeds and feeds `CostVarianceCompute`:
+    ///   1. recipe_costs   — ALL rows for the location, unfiltered (the compute
+    ///                       applies the web main-query filter; the same rowset
+    ///                       also feeds the T10 sub-recipe map, exactly the two
+    ///                       reads the web function makes).
+    ///   2. bom_lines      — location-scoped (pack_price/pack_size omitted:
+    ///                       unused post-D6).
+    ///   3. vendor_prices  — location-scoped, ORDER BY imported_at DESC, id DESC
+    ///                       (the ordering both the per-key "latest" pick and
+    ///                       resolveMergedCost's latest-per-vendor mean rely on).
+    ///   4. ingredient_densities / ingredient_unit_weights / ingredient_masters
+    ///                       — global seed tables, read unscoped exactly as the
+    ///                       web function does (they carry no location_id).
+    ///
+    /// Missing tables → `.empty` card; a missing `master_id` column (pre-T7
+    /// fixture / partially-migrated DB) degrades to the normalized-key path
+    /// (`NULL AS master_id`), mirroring the web's graceful partial-backfill
+    /// behavior. ORDER BY id on reads 1-2 matches better-sqlite3's rowid scan
+    /// order (same precedent as `fetchBridgeInputs`).
+    static func fetchRecipeCostVariance(db: Database, locationId: String) throws -> RecipeCostVariance {
+        guard try db.tableExists("recipe_costs"),
+              try db.tableExists("bom_lines"),
+              try db.tableExists("vendor_prices") else { return .empty }
+
+        let recipeRows: [CostVarianceRecipeRow] = try Row.fetchAll(db,
+            sql: """
+                SELECT recipe_id, recipe_name, cost_per_yield_unit, yield, yield_unit, batch_cost
+                  FROM recipe_costs
+                 WHERE location_id = ?
+                 ORDER BY id
+                """,
+            arguments: [locationId]
+        ).map { r in
+            CostVarianceRecipeRow(
+                recipeId: r["recipe_id"],
+                recipeName: r["recipe_name"],
+                costPerYieldUnit: r["cost_per_yield_unit"],
+                yield: r["yield"],
+                yieldUnit: r["yield_unit"],
+                batchCost: r["batch_cost"])
+        }
+
+        let bomMasterSel = try db.columns(in: "bom_lines").contains { $0.name == "master_id" }
+            ? "master_id" : "NULL AS master_id"
+        let bomRows: [CostVarianceBomLine] = try Row.fetchAll(db,
+            sql: """
+                SELECT recipe_id, ingredient, \(bomMasterSel), qty, unit, yield_pct, loss_factor
+                  FROM bom_lines
+                 WHERE location_id = ?
+                 ORDER BY id
+                """,
+            arguments: [locationId]
+        ).map { r in
+            CostVarianceBomLine(
+                recipeId: r["recipe_id"],
+                ingredient: r["ingredient"],
+                masterId: r["master_id"],
+                qty: r["qty"],
+                unit: r["unit"],
+                yieldPct: r["yield_pct"],
+                lossFactor: r["loss_factor"])
+        }
+
+        let vpMasterSel = try db.columns(in: "vendor_prices").contains { $0.name == "master_id" }
+            ? "master_id" : "NULL AS master_id"
+        let vendorRows: [CostVarianceVendorPrice] = try Row.fetchAll(db,
+            sql: """
+                SELECT ingredient, \(vpMasterSel), vendor, pack_price, pack_size, pack_unit
+                  FROM vendor_prices
+                 WHERE location_id = ?
+                 ORDER BY imported_at DESC, id DESC
+                """,
+            arguments: [locationId]
+        ).map { r in
+            CostVarianceVendorPrice(
+                ingredient: r["ingredient"],
+                masterId: r["master_id"],
+                vendor: r["vendor"],
+                packPrice: r["pack_price"],
+                packSize: r["pack_size"],
+                packUnit: r["pack_unit"])
+        }
+
+        var densities: [CostVarianceDensityRow] = []
+        if try db.tableExists("ingredient_densities") {
+            densities = try Row.fetchAll(db,
+                sql: "SELECT ingredient_key, g_per_ml FROM ingredient_densities"
+            ).compactMap { r in
+                guard let key: String = r["ingredient_key"], let g: Double = r["g_per_ml"] else {
+                    return nil
+                }
+                return CostVarianceDensityRow(ingredientKey: key, gPerMl: g)
+            }
+        }
+
+        var unitWeights: [CostVarianceUnitWeightRow] = []
+        if try db.tableExists("ingredient_unit_weights") {
+            unitWeights = try Row.fetchAll(db,
+                sql: "SELECT ingredient_key, unit, g_per_unit FROM ingredient_unit_weights"
+            ).compactMap { r in
+                guard let key: String = r["ingredient_key"] else { return nil }
+                return CostVarianceUnitWeightRow(
+                    ingredientKey: key, unit: r["unit"], gPerUnit: r["g_per_unit"])
+            }
+        }
+
+        // Web reads ingredient_masters only when master-joined vendor rows exist;
+        // reading unconditionally is behavior-identical (the lookup is only
+        // consulted on master hits) and keeps the fetch single-pass.
+        var preferredVendorByMaster: [String: String] = [:]
+        if try db.tableExists("ingredient_masters") {
+            for r in try Row.fetchAll(db,
+                sql: "SELECT master_id, preferred_vendor FROM ingredient_masters") {
+                if let m: String = r["master_id"], let pv: String = r["preferred_vendor"] {
+                    preferredVendorByMaster[m] = pv
+                }
+            }
+        }
+
+        return CostVarianceCompute.computeCostVariance(
+            recipes: recipeRows,
+            bomLines: bomRows,
+            vendorPrices: vendorRows,
+            densities: densities,
+            unitWeights: unitWeights,
+            preferredVendorByMaster: preferredVendorByMaster)
     }
 
     // ── Dish-cost bridge inputs (A4.3 T1) ─────────────────────────────────────

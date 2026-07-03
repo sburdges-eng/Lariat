@@ -372,16 +372,23 @@ public struct CostingBundle {
     public let salesLines: [CostingSalesLine]
     /// Variance trend rows within the 28-day window, ordered period_end ASC.
     public let varianceTrendRows: [CostingVarianceTrendRow]
+    /// A4 recipe-level cost-variance card (`computeCostVariance` parity) —
+    /// computed by `CostVarianceCompute` from the repository's location-scoped
+    /// recipe_costs × bom_lines × vendor_prices read. `.empty` when the
+    /// costing tables are absent (legacy DB).
+    public let recipeCostVariance: RecipeCostVariance
 
     public init(
         latestVariance: AccountingVariance?,
         latestCoverage: DishCoverageSnapshot?,
         salesLines: [CostingSalesLine],
-        varianceTrendRows: [CostingVarianceTrendRow]
+        varianceTrendRows: [CostingVarianceTrendRow],
+        recipeCostVariance: RecipeCostVariance = .empty
     ) {
         self.latestVariance = latestVariance
         self.latestCoverage = latestCoverage
         self.salesLines = salesLines
         self.varianceTrendRows = varianceTrendRows
+        self.recipeCostVariance = recipeCostVariance
     }
 }
