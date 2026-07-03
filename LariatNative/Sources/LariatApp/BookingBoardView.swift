@@ -48,9 +48,11 @@ final class BookingBoardViewModel {
 struct BookingBoardView: View {
     @State private var vm: BookingBoardViewModel
     @State private var query = ""
+    private let navigate: (String) -> Void
 
-    init(database: LariatDatabase) {
+    init(database: LariatDatabase, navigate: @escaping (String) -> Void) {
         _vm = State(wrappedValue: BookingBoardViewModel(database: database))
+        self.navigate = navigate
     }
 
     var body: some View {
@@ -87,11 +89,23 @@ struct BookingBoardView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             if let next = snap.next {
-                // The web page links this strip into /shows/[id]/* —
-                // those surfaces are the shows wave; text-only here.
-                Text("Next show: \(next.bandName) · \(fmtDate(next.showDate))")
-                    .font(.subheadline.bold())
+                // The web page links this strip into /shows/[id]/* — the
+                // shows tier exists natively now, so route to the tonight
+                // board (same ctx.navigate wiring as BarView/BarParView).
+                Button {
+                    navigate("shows.tonight")
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("Next show: \(next.bandName) · \(fmtDate(next.showDate))")
+                            .font(.subheadline.bold())
+                        Image(systemName: "chevron.right")
+                            .font(.caption.bold())
+                    }
                     .foregroundStyle(LariatTheme.warn)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Next show: \(next.bandName). Open tonight's board.")
             }
         }
     }

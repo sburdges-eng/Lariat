@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import LariatDB
 import LariatModel
@@ -5,8 +6,8 @@ import LariatModel
 /// Native port of `/equipment` — gear, parts, schedules, manuals, and what
 /// it's costing. Expandable cards with Details / Parts / Schedule / Log
 /// tabs, matching `EquipmentBoard.tsx`. Open surface: no PIN; writes post
-/// no audit_events (web parity). The manual link renders as text (the web
-/// serves `/{manual_path}` over HTTP — an edge concern, not ported).
+/// no audit_events (web parity). The manual link opens the local file the
+/// web serves as `/{manual_path}` (http(s) values open in the browser).
 struct EquipmentView: View {
     @State private var vm: EquipmentViewModel
 
@@ -158,7 +159,7 @@ struct EquipmentView: View {
                 Text("Purchased: \(longDate(purchased))").font(.caption).foregroundStyle(.secondary)
             }
             if let manual = item.manualPath, !manual.isEmpty {
-                Text("Manual: \(manual)").font(.caption).foregroundStyle(.secondary)
+                manualRow(manual)
             }
             if let notes = item.notes, !notes.isEmpty {
                 Text(notes).font(.caption).padding(.top, 4)
@@ -170,6 +171,34 @@ struct EquipmentView: View {
                     .italic()
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    /// Web parity for `<a href="/{manual_path}" target=_blank>`: http(s)
+    /// values open in the browser; repo-relative paths open the local file
+    /// via NSWorkspace; a missing file shows a dimmed not-found hint
+    /// instead of a dead link.
+    @ViewBuilder
+    private func manualRow(_ manual: String) -> some View {
+        if let webURL = EquipmentViewModel.manualWebURL(manual) {
+            Link(destination: webURL) {
+                Label("Manual: \(manual)", systemImage: "book")
+            }
+            .font(.caption)
+        } else if let fileURL = EquipmentViewModel.manualFileURL(manual) {
+            Button {
+                NSWorkspace.shared.open(fileURL)
+            } label: {
+                Label("Manual: \(manual)", systemImage: "book")
+                    .foregroundStyle(.tint)
+            }
+            .buttonStyle(.plain)
+            .font(.caption)
+            .accessibilityLabel("Open the manual for this equipment")
+        } else {
+            Text("Manual: \(manual) — file not found")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
     }
 

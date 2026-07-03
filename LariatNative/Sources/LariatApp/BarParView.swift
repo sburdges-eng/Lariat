@@ -54,12 +54,7 @@ struct BarParView: View {
             }
             let groups = vm.grouped
             if groups.isEmpty {
-                Section {
-                    EmptyState(
-                        message: vm.showLowOnly ? "Nothing below par." : "No bar par list yet.",
-                        systemImage: "wineglass"
-                    )
-                }
+                Section { emptySection }
             } else {
                 ForEach(groups, id: \.category) { group in
                     Section(group.category) {
@@ -71,6 +66,30 @@ struct BarParView: View {
             }
         }
         .searchable(text: $vm.searchText, prompt: "Search bar items")
+    }
+
+    /// Honest empty states: "nothing low", "search missed", "par list
+    /// exists but nothing is categorized as a beverage yet" (Shamrock rows
+    /// import with NULL category — point at the inventory par board where
+    /// categories are set), and only then "no par list yet".
+    @ViewBuilder
+    private var emptySection: some View {
+        if vm.showLowOnly {
+            EmptyState(message: "Nothing below par.", systemImage: "wineglass")
+        } else if !vm.rows.isEmpty {
+            EmptyState(message: "No bar items match the search.", systemImage: "magnifyingglass")
+        } else if vm.totalParCount > 0 {
+            EmptyState(
+                message: "\(vm.totalParCount) par item\(vm.totalParCount == 1 ? " exists" : "s exist") "
+                    + "but none are categorized as beer, wine, or liquor — "
+                    + "set categories on the inventory par board.",
+                systemImage: "wineglass"
+            )
+            Button("Open the inventory par board") { navigate("inventory.par") }
+                .font(.caption)
+        } else {
+            EmptyState(message: "No bar par list yet.", systemImage: "wineglass")
+        }
     }
 
     @ViewBuilder

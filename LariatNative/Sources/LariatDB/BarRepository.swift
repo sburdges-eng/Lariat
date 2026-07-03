@@ -31,6 +31,23 @@ public struct BarRepository: Sendable {
         }
     }
 
+    /// Total par rows for the location regardless of category. Used by the
+    /// bar-par empty state to distinguish "no par list at all" from "par
+    /// rows exist but none are categorized as a beverage" (Shamrock imports
+    /// land with NULL category, so a populated par list can bar-filter to
+    /// zero rows).
+    public func totalParCount(
+        locationId: String = LocationScope.resolve()
+    ) async throws -> Int {
+        try await readDB.pool.read { db in
+            try Int.fetchOne(
+                db,
+                sql: "SELECT COUNT(*) FROM inventory_par WHERE location_id = ?",
+                arguments: [locationId]
+            ) ?? 0
+        }
+    }
+
     /// Bar-scoped par list — same latest-count LEFT JOIN as /inventory/par
     /// with the beverage-category WHERE clause (bar/par/page.jsx L57-84).
     /// Category list is parameterized, mirroring the web's placeholder build.
