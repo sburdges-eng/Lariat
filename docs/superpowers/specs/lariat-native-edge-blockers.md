@@ -51,3 +51,28 @@ Append one entry per blocker:
   `/management/peers` and `/management/cloud-bridge` admin pages, until a
   native read-only sync-status board lands (logged as a follow-up).
 - **Found by:** A5 management-writes wave.
+
+### Peers / cloud-bridge transport — RATIFIED decision (A5.4 option B) — 2026-07-03
+- **Web source:** `lib/peers.ts`, `lib/peerTrust.ts`, `lib/peerKeypair.ts`,
+  `lib/cloudBridge*.ts`; `app/api/peers/{route,sync-since}`,
+  `app/api/discover/route.js`,
+  `app/api/cloud-bridge/{status,dead-letters,dead-letters/[id]/{drop,requeue}}`;
+  `app/management/{peers,cloud-bridge}`.
+- **Why it can't be native:** the peer keypair/trust crypto, peer-to-peer
+  sync-since, mDNS discovery, cloud relay, and the dead-letter queue's
+  requeue/drop **writes** are network/crypto/HTTP-replay machinery with no
+  native UI value; re-implementing them in Swift is high-risk for zero
+  operator-facing gain (spec
+  `2026-07-03-lariat-native-a4-cost-variance-and-a54.md`, Part 2).
+- **What the edge server must keep:** the entire transport layer plus the
+  dead-letter triage actions (inspect payload / requeue / drop) on
+  `/management/cloud-bridge`, and the `/management/peers` admin page.
+- **What went native instead:** the READ-ONLY `manager.cloudBridge` status
+  board (`CloudBridgeStatusView` + `CloudBridgeStatusRepository`) — bridge
+  configured, queued depth, dead-letter count, and an explicit
+  "no sync data recorded" note (the web `bridge.status()` stub persists no
+  last-push/pull timestamp). This closes the follow-up in the 2026-07-02
+  entry above; NO other part of A5.4 is planned for native.
+- **Found by:** A5.4 decision record; **ratified by the user 2026-07-03**
+  (option B — edge transport + native read-only status view; option A,
+  edge-only with no native UI, was declined).

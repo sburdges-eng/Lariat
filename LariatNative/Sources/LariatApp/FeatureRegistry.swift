@@ -54,6 +54,7 @@ enum FeatureRegistry {
         .managerTempPins,
         .managerReceivingMatches,
         .managerSpecials,
+        .managerCloudBridge,
         // Costing
         .costingOverview,
         .costingPriceShocks,

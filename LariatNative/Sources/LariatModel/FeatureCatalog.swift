@@ -93,6 +93,10 @@ public enum FeatureCatalog {
         FeatureDescriptor(id: "manager.receivingMatches", tier: .manager, title: "Receiving matches"),
         // A6.3 — PIN-gated saved-specials management (/specials/saved).
         FeatureDescriptor(id: "manager.specials", tier: .manager, title: "Specials"),
+        // A5.4 option B (ratified 2026-07-03) — READ-ONLY cloud-bridge sync
+        // health (/management/cloud-bridge status strip). The transport +
+        // dead-letter requeue/drop stay on the Next.js edge (blocker log).
+        FeatureDescriptor(id: "manager.cloudBridge", tier: .manager, title: "Cloud bridge"),
         // Costing
         FeatureDescriptor(id: "costing.overview", tier: .costing, title: "Costing"),
         FeatureDescriptor(id: "costing.priceShocks", tier: .costing, title: "Price shocks"),
