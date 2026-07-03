@@ -190,10 +190,14 @@ struct BeoBoardView: View {
 
     private func prepSheet(_ event: BeoEventRow) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Prep sheet")
-                .font(.headline)
+            HStack {
+                Text("Prep sheet")
+                    .font(.headline)
+                Spacer()
+                addMenuItemDropdown
+            }
             if vm.lineItems.isEmpty {
-                EmptyState(message: "No items yet. Pick from the menu on the right →", systemImage: "fork.knife")
+                EmptyState(message: "No items yet. Add one from the menu dropdown ↗", systemImage: "fork.knife")
             } else {
                 ForEach(vm.lineItems) { line in
                     BeoLineRowEditor(
@@ -265,9 +269,45 @@ struct BeoBoardView: View {
         }
     }
 
+    /// Real dropdown menu: pick an item → a fully-populated line (price + prep
+    /// + plating + order notes) drops straight onto the prep sheet. Grouped by
+    /// category as nested submenus; disabled until a party is selected.
+    private var addMenuItemDropdown: some View {
+        Menu {
+            if vm.menu.isEmpty {
+                Text("Catering menu cache missing")
+            } else {
+                ForEach(vm.menuGroups, id: \.category) { group in
+                    Menu(group.category) {
+                        ForEach(group.items) { item in
+                            Button {
+                                vm.requestAddLine(item)
+                            } label: {
+                                // "＋  Nashville Slider — $6.00  ·  prep"
+                                Text(menuItemLabel(item))
+                            }
+                        }
+                    }
+                }
+            }
+        } label: {
+            Label("Add menu item", systemImage: "plus.circle.fill")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .disabled(vm.isSaving || vm.selectedEvent == nil)
+    }
+
+    private func menuItemLabel(_ item: CateringMenuItem) -> String {
+        let price = formatDollars(item.cost, decimals: 2)
+        return item.hasPrepDefaults ? "\(item.name) — \(price)  · prep ready" : "\(item.name) — \(price)"
+    }
+
     private var menuPanel: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Catering menu").font(.headline)
+            Text("Pick to add a line with price + prep pre-filled.")
+                .font(.caption).foregroundStyle(.secondary)
             TextField("Filter menu…", text: $vm.menuFilter)
                 .textFieldStyle(.roundedBorder)
             if vm.menu.isEmpty {

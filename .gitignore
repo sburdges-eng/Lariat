@@ -128,6 +128,10 @@ data/coverage-reports/
 
 # ── Ingest cache (regenerable from source) ────────────────────
 data/cache/*.json
+# …except the catering menu + its prep defaults, which the native BEO board
+# ships with (the app reads them at runtime and CI has no source CSVs).
+!data/cache/catering_menu.json
+!data/cache/catering_prep_defaults.json
 
 # ── Design archives (binary zips paired with extracted folders) ─
 design/*.zip

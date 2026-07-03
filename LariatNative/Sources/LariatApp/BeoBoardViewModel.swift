@@ -130,10 +130,22 @@ final class BeoBoardViewModel {
     }
 
     var filteredMenu: [(category: String, items: [CateringMenuItem])] {
-        let q = menuFilter.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        groupByCategory(menu, filter: menuFilter)
+    }
+
+    /// Full menu grouped by category, ignoring the rail filter — backs the
+    /// prep-sheet "Add menu item" dropdown.
+    var menuGroups: [(category: String, items: [CateringMenuItem])] {
+        groupByCategory(menu, filter: "")
+    }
+
+    private func groupByCategory(
+        _ items: [CateringMenuItem], filter: String
+    ) -> [(category: String, items: [CateringMenuItem])] {
+        let q = filter.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         var order: [String] = []
         var byCategory: [String: [CateringMenuItem]] = [:]
-        for item in menu {
+        for item in items {
             if !q.isEmpty,
                !item.name.lowercased().contains(q),
                !item.category.lowercased().contains(q) { continue }
@@ -274,9 +286,16 @@ final class BeoBoardViewModel {
     func requestAddLine(_ item: CateringMenuItem) {
         errorMessage = nil
         guard let eventId = selectedEventId else { return }
+        // Pricing + related prep-sheet fields come straight from the menu
+        // catalog (cost from catering_menu.json; prep/plating/order from the
+        // BEO prep-defaults sidecar) so a pick lands a fully-populated line —
+        // empty strings for items with no history leave those fields blank.
         let input = BeoLineInput(
             eventId: eventId, itemName: item.name, category: item.category,
-            unitCost: item.cost, quantity: 1)
+            unitCost: item.cost, quantity: 1,
+            prepNotes: item.prepNotes.isEmpty ? nil : item.prepNotes,
+            secondaryPrepNotes: item.secondaryPrepNotes.isEmpty ? nil : item.secondaryPrepNotes,
+            orderItemsNotes: item.orderItemsNotes.isEmpty ? nil : item.orderItemsNotes)
         gate { [weak self] in
             self?.withSession { context in
                 try self?.boardRepo.addLine(
