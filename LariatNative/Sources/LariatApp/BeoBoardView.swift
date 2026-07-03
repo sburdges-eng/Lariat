@@ -27,6 +27,13 @@ struct BeoBoardView: View {
                 content
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // The BEO is a printed worksheet: warm Lariat kraft paper, espresso
+        // ink, one terracotta accent — held steady across system appearance.
+        .background(LariatBrand.paper)
+        .environment(\.colorScheme, .light)
+        .tint(LariatBrand.terracotta)
+        .foregroundStyle(LariatBrand.ink)
         .navigationTitle("Parties & BEOs")
         .task { await vm.refresh() }
         .sheet(isPresented: $vm.showPinSheet, onDismiss: { vm.pinSheetDismissed() }) {
@@ -49,50 +56,97 @@ struct BeoBoardView: View {
     private var content: some View {
         HStack(spacing: 0) {
             eventSidebar
-                .frame(width: 250)
-            Divider()
+                .frame(width: 264)
+            Rectangle().fill(LariatBrand.line).frame(width: 1)
             detail
         }
     }
 
     private var eventSidebar: some View {
         VStack(spacing: 0) {
+            HStack {
+                Eyebrow("On the books")
+                Spacer()
+                Text("\(vm.filteredEvents.count)")
+                    .font(.system(.caption, design: .serif))
+                    .foregroundStyle(LariatBrand.inkSoft)
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 6)
+
+            // A selection List (no text fields in the rows, so the #401 focus
+            // trap doesn't apply) keeps ↑/↓ keyboard navigation while custom
+            // row content + a hidden background carry the worksheet look.
             List(selection: $vm.selectedEventId) {
-                Section("Parties") {
-                    if vm.filteredEvents.isEmpty {
-                        EmptyState(message: "No parties yet.", systemImage: "party.popper")
-                    }
-                    ForEach(vm.filteredEvents) { ev in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(ev.title).fontWeight(.medium)
-                            Text("\(ev.eventDate ?? "no date")\(ev.eventTime.map { " (\($0))" } ?? "")")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                if vm.filteredEvents.isEmpty {
+                    EmptyState(message: "No parties yet.", systemImage: "party.popper")
+                        .listRowBackground(Color.clear)
+                }
+                ForEach(vm.filteredEvents) { ev in
+                    partyRow(ev)
                         .tag(ev.id)
-                    }
+                        .listRowBackground(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(vm.selectedEventId == ev.id ? LariatBrand.rose.opacity(0.6) : .clear)
+                                .padding(.vertical, 1)
+                        )
+                        .listRowSeparator(.hidden)
                 }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             .searchable(text: $vm.eventQuery, prompt: "Find a party")
-            Divider()
-            // Lives OUTSIDE the selection List: text fields inside a
-            // List(selection:) never receive keyboard focus on macOS —
-            // clicks are consumed by row selection.
+
+            Divider().overlay(LariatBrand.line)
+            // Lives OUTSIDE any selection List: text fields inside a
+            // List(selection:) never receive keyboard focus on macOS.
             Button {
                 showAddParty = true
             } label: {
-                Label("New party", systemImage: "plus.circle.fill")
+                Label("New party", systemImage: "plus")
+                    .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .padding(10)
         }
+        .background(LariatBrand.panel)
         .sheet(isPresented: $showAddParty) { addPartySheet }
+    }
+
+    private func partyRow(_ ev: BeoEventRow) -> some View {
+        let selected = vm.selectedEventId == ev.id
+        return HStack(spacing: 10) {
+            Rectangle()
+                .fill(selected ? LariatBrand.terracotta : .clear)
+                .frame(width: 3)
+                .clipShape(Capsule())
+            VStack(alignment: .leading, spacing: 3) {
+                Text(ev.title)
+                    .font(.system(.callout, design: .serif).weight(selected ? .semibold : .regular))
+                    .foregroundStyle(LariatBrand.ink)
+                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(ev.eventDate ?? "no date")
+                    if let t = ev.eventTime { Text("· \(t)") }
+                    if let g = ev.guestCount { Text("· \(g) covers") }
+                }
+                .font(.caption)
+                .foregroundStyle(LariatBrand.inkSoft)
+                .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
     }
 
     private var addPartySheet: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("New party").font(.title2.bold())
+            Eyebrow("New booking")
+            SerifHeader("Start a party", size: .title2)
             VStack(alignment: .leading, spacing: 8) {
                 TextField("Party name (e.g. Bob Clauss)", text: $vm.newTitle)
                 TextField("Date (YYYY-MM-DD)", text: $vm.newDate)
@@ -120,6 +174,10 @@ struct BeoBoardView: View {
         }
         .padding(20)
         .frame(minWidth: 380)
+        .background(LariatBrand.paper)
+        .environment(\.colorScheme, .light)
+        .tint(LariatBrand.terracotta)
+        .foregroundStyle(LariatBrand.ink)
     }
 
     @ViewBuilder
@@ -142,8 +200,12 @@ struct BeoBoardView: View {
                     .pickerStyle(.segmented)
                     .frame(maxWidth: 420)
                     Spacer()
-                    Button("Kill party", role: .destructive) { confirmKill = true }
-                        .disabled(vm.isSaving)
+                    Button(role: .destructive) { confirmKill = true } label: {
+                        Label("Kill party", systemImage: "trash")
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(LariatBrand.bad)
+                    .disabled(vm.isSaving)
                 }
                 .padding([.horizontal, .top])
 
@@ -163,9 +225,17 @@ struct BeoBoardView: View {
                 }
             }
         } else {
-            EmptyState(message: "Pick or add a party to start building its BEO.", systemImage: "party.popper")
-                .padding()
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            VStack(spacing: 10) {
+                Image(systemName: "menucard")
+                    .font(.system(size: 44))
+                    .foregroundStyle(LariatBrand.terracotta.opacity(0.7))
+                Eyebrow("Banquet Event Order")
+                SerifHeader("Build a party's BEO", size: .title2)
+                Text("Pick a party on the left, or start a new one.")
+                    .font(.callout)
+                    .foregroundStyle(LariatBrand.inkSoft)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -174,100 +244,118 @@ struct BeoBoardView: View {
     private func sheetTab(_ event: BeoEventRow) -> some View {
         HStack(alignment: .top, spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 18) {
                     BeoEventHeaderEditor(event: event) { patch in
                         vm.requestUpdateEvent(patch)
                     }
                     prepSheet(event)
                 }
-                .padding()
+                .padding(20)
             }
-            Divider()
+            Rectangle().fill(LariatBrand.line).frame(width: 1)
             rail
-                .frame(width: 300)
+                .frame(width: 308)
         }
     }
 
     private func prepSheet(_ event: BeoEventRow) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Prep sheet")
-                    .font(.headline)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                SerifHeader("Prep sheet")
+                if !vm.lineItems.isEmpty {
+                    Text("\(vm.lineItems.count) items")
+                        .font(.caption).foregroundStyle(LariatBrand.inkSoft)
+                }
                 Spacer()
                 addMenuItemDropdown
             }
             if vm.lineItems.isEmpty {
                 EmptyState(message: "No items yet. Add one from the menu dropdown ↗", systemImage: "fork.knife")
+                    .padding(.vertical, 8)
             } else {
-                ForEach(vm.lineItems) { line in
-                    BeoLineRowEditor(
-                        line: line,
-                        courses: vm.courses,
-                        amountHint: vm.amountHint(for: line.itemName),
-                        onPatch: { patch in vm.requestUpdateLine(id: line.id, patch: patch) },
-                        onDelete: { vm.requestDeleteLine(id: line.id) }
-                    )
-                    Divider()
+                VStack(spacing: 0) {
+                    ForEach(Array(vm.lineItems.enumerated()), id: \.element.id) { idx, line in
+                        if idx > 0 {
+                            Rectangle().fill(LariatBrand.line).frame(height: 1)
+                        }
+                        BeoLineRowEditor(
+                            line: line,
+                            courses: vm.courses,
+                            amountHint: vm.amountHint(for: line.itemName),
+                            onPatch: { patch in vm.requestUpdateLine(id: line.id, patch: patch) },
+                            onDelete: { vm.requestDeleteLine(id: line.id) }
+                        )
+                        .padding(.vertical, 8)
+                    }
                 }
             }
             totalsFooter(event)
         }
+        .worksheetCard(16)
     }
 
     private func totalsFooter(_ event: BeoEventRow) -> some View {
         let totals = vm.totals
-        return VStack(alignment: .trailing, spacing: 4) {
-            HStack {
-                Spacer()
-                Text("Sub total").foregroundStyle(.secondary)
-                Text(formatDollars(totals.subtotal, decimals: 2)).monospacedDigit()
-            }
-            HStack {
-                Spacer()
-                Text("Tax").foregroundStyle(.secondary)
-                CommitTextField(
-                    value: event.taxRate.map { String($0) } ?? "",
-                    placeholder: "rate",
-                    width: 70
-                ) { raw in
+        return VStack(spacing: 6) {
+            invoiceRow("Subtotal", value: totals.subtotal)
+            HStack(spacing: 8) {
+                Text("Tax").foregroundStyle(LariatBrand.inkSoft)
+                CommitTextField(value: event.taxRate.map { String($0) } ?? "", placeholder: "rate", width: 56) { raw in
                     if let v = Double(raw) { vm.requestUpdateEvent(BeoEventPatch(taxRate: v)) }
                 }
-                Text("rate").font(.caption).foregroundStyle(.tertiary)
+                Text("rate").font(.caption2).foregroundStyle(LariatBrand.inkFaint)
+                Spacer()
                 Text(formatDollars(totals.tax, decimals: 2)).monospacedDigit()
             }
-            HStack {
-                Spacer()
-                Text("Service fee").foregroundStyle(.secondary)
-                CommitTextField(
-                    value: event.serviceFeePct.map { String($0) } ?? "",
-                    placeholder: "%",
-                    width: 60
-                ) { raw in
+            HStack(spacing: 8) {
+                Text("Service fee").foregroundStyle(LariatBrand.inkSoft)
+                CommitTextField(value: event.serviceFeePct.map { String($0) } ?? "", placeholder: "%", width: 48) { raw in
                     if let v = Double(raw) { vm.requestUpdateEvent(BeoEventPatch(serviceFeePct: v)) }
                 }
-                Text("%").font(.caption).foregroundStyle(.tertiary)
+                Text("%").font(.caption2).foregroundStyle(LariatBrand.inkFaint)
+                Spacer()
                 Text(formatDollars(totals.fee, decimals: 2)).monospacedDigit()
             }
+            Rectangle().fill(LariatBrand.line).frame(height: 1).padding(.vertical, 2)
             HStack {
+                Text("Total")
+                    .font(.system(.title3, design: .serif).weight(.semibold))
                 Spacer()
-                Text("Total").fontWeight(.bold)
-                Text(formatDollars(totals.total, decimals: 2)).fontWeight(.bold).monospacedDigit()
+                Text(formatDollars(totals.total, decimals: 2))
+                    .font(.system(.title3, design: .serif).weight(.bold))
+                    .monospacedDigit()
+                    .foregroundStyle(LariatBrand.clay)
             }
         }
         .font(.callout)
+        .padding(12)
+        .background(LariatBrand.sunk, in: RoundedRectangle(cornerRadius: 8))
+        .frame(maxWidth: 360, alignment: .trailing)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .padding(.top, 4)
+    }
+
+    private func invoiceRow(_ label: String, value: Double) -> some View {
+        HStack {
+            Text(label).foregroundStyle(LariatBrand.inkSoft)
+            Spacer()
+            Text(formatDollars(value, decimals: 2)).monospacedDigit()
+        }
     }
 
     // ── right rail: menu picker + courses + past prep ────────────────────
 
     private var rail: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                menuPanel
-                coursesPanel
-                pastPrepPanel
+            VStack(alignment: .leading, spacing: 14) {
+                menuPanel.worksheetCard()
+                coursesPanel.worksheetCard()
+                pastPrepPanel.worksheetCard()
             }
-            .padding()
+            .padding(14)
+            .frame(maxWidth: .infinity)
         }
+        .background(LariatBrand.sunk.opacity(0.5))
     }
 
     /// Real dropdown menu: pick an item → a fully-populated line (price + prep
@@ -308,9 +396,9 @@ struct BeoBoardView: View {
 
     private var menuPanel: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Catering menu").font(.headline)
+            SerifHeader("Catering menu")
             Text("Pick to add a line with price + prep pre-filled.")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(LariatBrand.inkSoft)
             TextField("Filter menu…", text: $vm.menuFilter)
                 .textFieldStyle(.roundedBorder)
             if vm.menu.isEmpty {
@@ -324,23 +412,40 @@ struct BeoBoardView: View {
                 EmptyState(message: "No matches.", systemImage: "magnifyingglass")
             }
             ForEach(vm.filteredMenu, id: \.category) { group in
-                DisclosureGroup(group.category) {
+                DisclosureGroup {
                     ForEach(group.items) { item in
                         Button {
                             vm.requestAddLine(item)
                         } label: {
-                            HStack {
-                                Text(item.name)
+                            HStack(spacing: 6) {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(item.name).foregroundStyle(LariatBrand.ink)
+                                    if !item.amountDescription.isEmpty {
+                                        Text(item.amountDescription)
+                                            .font(.caption2).foregroundStyle(LariatBrand.inkFaint)
+                                    }
+                                }
                                 Spacer()
+                                if item.hasPrepDefaults {
+                                    Text("prep")
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(LariatBrand.clay)
+                                }
                                 Text(formatDollars(item.cost, decimals: 2))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(LariatBrand.inkSoft)
                                     .monospacedDigit()
-                                Image(systemName: "plus.circle")
+                                Image(systemName: "plus.circle.fill")
+                                    .foregroundStyle(LariatBrand.terracotta)
                             }
                         }
                         .buttonStyle(.plain)
+                        .padding(.vertical, 2)
                         .disabled(vm.isSaving || vm.selectedEvent == nil)
                     }
+                } label: {
+                    Text(group.category)
+                        .font(.system(.subheadline, design: .serif).weight(.semibold))
+                        .foregroundStyle(LariatBrand.clay)
                 }
                 .font(.callout)
             }
@@ -349,10 +454,10 @@ struct BeoBoardView: View {
 
     private var coursesPanel: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Courses").font(.headline)
-            Text("fire times for this event")
+            SerifHeader("Courses")
+            Text("Fire times for this event.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LariatBrand.inkSoft)
             if vm.courses.isEmpty {
                 EmptyState(message: "No courses yet. Add one below.", systemImage: "timer")
             }
@@ -388,10 +493,10 @@ struct BeoBoardView: View {
 
     private var pastPrepPanel: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Past prep").font(.headline)
+            SerifHeader("Past prep")
             Text("Last few times we've prepped these items.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LariatBrand.inkSoft)
             if vm.lineItems.isEmpty {
                 EmptyState(message: "No items on this BEO yet.", systemImage: "clock.arrow.circlepath")
             } else if vm.pastPrep.isEmpty {
@@ -432,12 +537,25 @@ private struct BeoEventHeaderEditor: View {
     let event: BeoEventRow
     let onPatch: (BeoEventPatch) -> Void
 
+    /// Eyebrow above the party name — the worksheet's own header line.
+    private var docLine: String {
+        var parts = ["Banquet Event Order"]
+        if let d = event.eventDate, !d.isEmpty { parts.append(d) }
+        if let t = event.eventTime, !t.isEmpty { parts.append(t) }
+        if let g = event.guestCount { parts.append("\(g) covers") }
+        return parts.joined(separator: "  ·  ")
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            CommitTextField(value: event.title, placeholder: "Party name", font: .title3) { raw in
+            Eyebrow(docLine)
+            CommitTextField(value: event.title, placeholder: "Party name",
+                            font: .system(.title, design: .serif).weight(.semibold)) { raw in
                 let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !t.isEmpty, t != event.title { onPatch(BeoEventPatch(title: t)) }
             }
+            .foregroundStyle(LariatBrand.ink)
+            RopeRule().padding(.bottom, 4)
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
                 GridRow {
                     labeled("Date") {
@@ -484,7 +602,7 @@ private struct BeoEventHeaderEditor: View {
 
     private func labeled(_ label: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.caption).foregroundStyle(.secondary)
+            Eyebrow(label)
             content()
         }
     }
@@ -543,7 +661,7 @@ private struct BeoLineRowEditor: View {
             if let amountHint {
                 Label(amountHint, systemImage: "number")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LariatBrand.inkFaint)
             }
         }
         .padding(.vertical, 2)
@@ -778,5 +896,51 @@ struct CommitTextField: View {
                 // fresh row value unless the operator is mid-edit.
                 if !focused { text = newValue }
             }
+    }
+}
+
+// ── worksheet styling primitives (Lariat brand) ──────────────────────────
+
+/// Tracked, uppercase eyebrow — the small caption above a serif header.
+private struct Eyebrow: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+    var body: some View {
+        Text(text.uppercased())
+            .font(.system(.caption2, design: .default).weight(.semibold))
+            .tracking(1.6)
+            .foregroundStyle(LariatBrand.inkSoft)
+    }
+}
+
+/// Serif section heading — the menu/worksheet voice.
+private struct SerifHeader: View {
+    let text: String
+    var size: Font.TextStyle = .headline
+    init(_ text: String, size: Font.TextStyle = .headline) { self.text = text; self.size = size }
+    var body: some View {
+        Text(text)
+            .font(.system(size, design: .serif).weight(.semibold))
+            .foregroundStyle(LariatBrand.ink)
+    }
+}
+
+/// The terracotta "rope" rule — a double hairline that closes a worksheet head.
+private struct RopeRule: View {
+    var body: some View {
+        VStack(spacing: 2) {
+            Rectangle().fill(LariatBrand.terracotta).frame(height: 1.5)
+            Rectangle().fill(LariatBrand.terracotta.opacity(0.35)).frame(height: 1)
+        }
+    }
+}
+
+private extension View {
+    /// A lifted cream card with a warm hairline border.
+    func worksheetCard(_ pad: CGFloat = 14) -> some View {
+        self
+            .padding(pad)
+            .background(LariatBrand.panel, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(LariatBrand.line, lineWidth: 1))
     }
 }
