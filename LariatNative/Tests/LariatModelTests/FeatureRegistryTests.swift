@@ -328,13 +328,34 @@ final class FeatureRegistryTests: XCTestCase {
             XCTAssertEqual(d?.enabled, true, "\(id) must be enabled")
         }
         // The manager tier holds exactly the three pre-A5 boards + the four
-        // A5 boards + the A6.3 saved-specials board.
+        // A5 boards + the A6.3 saved-specials board + the A5.4 cloud-bridge
+        // status board.
         let ids = Set(FeatureCatalog.descriptors(for: .manager).map(\.id))
         XCTAssertEqual(ids, [
             "manager.command", "manager.analytics", "manager.management",
             "manager.auditLog", "manager.pins", "manager.tempPins",
             "manager.receivingMatches", "manager.specials",
+            "manager.cloudBridge",
         ])
+    }
+
+    /// A5.4 option B (ratified 2026-07-03): the READ-ONLY cloud-bridge status
+    /// board registers under `.manager`. Pure read — the web surface IS
+    /// PIN-gated (/management SENSITIVE_PREFIX + requirePin in the routes),
+    /// but native manager-tier pure reads are not per-view PIN-gated today
+    /// (manager.auditLog / costing.depletionExceptions precedent). The
+    /// transport (peer crypto, sync-since, discovery, requeue/drop writes)
+    /// stays on the edge and must NEVER register a native tile.
+    func testA54CloudBridgeStatusRegistered() {
+        let d = FeatureCatalog.descriptor(id: "manager.cloudBridge")
+        XCTAssertNotNil(d, "manager.cloudBridge must be registered")
+        XCTAssertEqual(d?.tier, .manager)
+        XCTAssertEqual(d?.title, "Cloud bridge")
+        XCTAssertEqual(d?.enabled, true)
+        XCTAssertNil(
+            FeatureCatalog.descriptor(id: "manager.peers"),
+            "the peer/transport admin surface is an edge blocker, never a tile"
+        )
     }
 
     /// A4.4 Purchasing wave: the `.purchasing` tier exists and holds EXACTLY
