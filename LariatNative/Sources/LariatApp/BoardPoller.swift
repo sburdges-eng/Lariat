@@ -21,38 +21,53 @@ enum BoardPollError: Error {
 /// loop this adds:
 ///   - exponential backoff on thrown errors (3 s → 6 s → 12 s → … capped at
 ///     30 s, reset on the next success),
-///   - pause while the app is inactive (`NSApplication.didResignActiveNotification`
-///     on macOS, `UIApplication.willResignActiveNotification` on iOS), with an
-///     immediate re-fire on re-activation,
-///   - published freshness state (`lastSuccess`, `isStale`, `isPaused`) that the
-///     shell's `PollFreshnessIndicator` renders for the active board.
+///   - a slower background cadence while the app is inactive
+///     (`NSApplication.didResignActiveNotification` on macOS,
+///     `UIApplication.willResignActiveNotification` on iOS) — a board left
+///     visible on a second display or wall-mounted Mac (KDS / 86 board) must
+///     keep updating while the operator works in another app, so polling never
+///     fully pauses; it degrades to 15 s and snaps back (with an immediate
+///     re-poll) on re-activation,
+///   - published freshness state (`lastSuccess`, `isStale`, `isBackgrounded`)
+///     that the shell's `PollFreshnessIndicator` renders for the active board.
 @Observable @MainActor
 final class BoardPoller {
     /// Established cross-process cadence (endgame §6.5).
     nonisolated static let defaultInterval: Duration = .seconds(3)
     /// Backoff ceiling: a broken read path retries every 30 s, not every 3 s.
     nonisolated static let backoffCap: Duration = .seconds(30)
-    /// While the app is inactive the loop skips polling and re-checks on this
-    /// cadence (resume latency; the become-active notification usually beats it).
-    private nonisolated static let inactiveRecheck: Duration = .milliseconds(500)
+    /// Cadence while the app is inactive: slow enough to stay cheap in the
+    /// background, fast enough that a visible-but-unfocused board (second
+    /// display / wall-mounted deployment) never looks frozen.
+    nonisolated static let backgroundInterval: Duration = .seconds(15)
 
     /// Wall-clock time of the last successful poll action. `nil` until the
     /// first success after `start()`.
     private(set) var lastSuccess: Date?
-    /// True while polling is suspended because the app is inactive.
-    private(set) var isPaused = false
+    /// True while the app is inactive and the loop is on the slower
+    /// `backgroundInterval` cadence (data still flows).
+    private(set) var isBackgrounded = false
     /// The interval passed to `start` (drives the staleness threshold).
     private(set) var interval: Duration = BoardPoller.defaultInterval
 
-    /// Stale = the last successful refresh is older than 3× the poll interval
-    /// (i.e. at least two consecutive cycles have failed or been delayed).
+    /// Stale = the last successful refresh is older than 3× the effective poll
+    /// interval (i.e. at least two consecutive cycles have failed or been
+    /// delayed). While backgrounded the threshold scales with the slower
+    /// cadence so the deliberate 15 s gap does not read as a failure.
     var isStale: Bool {
         guard let lastSuccess else { return false }
         return Date().timeIntervalSince(lastSuccess) > staleAfterSeconds
     }
 
-    /// Staleness threshold in seconds (3× interval), exposed for the indicator.
-    var staleAfterSeconds: TimeInterval { 3 * Self.seconds(of: interval) }
+    /// Staleness threshold in seconds (3× effective interval), exposed for the
+    /// indicator.
+    var staleAfterSeconds: TimeInterval { 3 * Self.seconds(of: effectiveInterval) }
+
+    /// The cadence the loop is currently honoring: the board's own interval in
+    /// the foreground, and never faster than `backgroundInterval` while inactive.
+    private var effectiveInterval: Duration {
+        appIsActive ? interval : max(interval, Self.backgroundInterval)
+    }
 
     @ObservationIgnored private var action: (@MainActor () async throws -> Void)?
     @ObservationIgnored private var loopTask: Task<Void, Never>?
@@ -88,7 +103,7 @@ final class BoardPoller {
         loopTask?.cancel()
         loopTask = nil
         action = nil
-        isPaused = false
+        isBackgrounded = false
         BoardPollerHub.shared.deactivate(self)
     }
 
@@ -114,28 +129,21 @@ final class BoardPoller {
     private func startLoop() {
         loopTask?.cancel()
         loopTask = Task { [weak self] in
-            var delay = self?.interval ?? BoardPoller.defaultInterval
+            var delay = self?.effectiveInterval ?? BoardPoller.defaultInterval
             while !Task.isCancelled {
                 guard let self, let action = self.action else { return }
-                guard self.appIsActive else {
-                    // Inactive: skip the query entirely; the become-active
-                    // notification restarts the loop for an immediate refresh.
-                    self.isPaused = true
-                    try? await Task.sleep(for: Self.inactiveRecheck)
-                    continue
-                }
-                self.isPaused = false
+                self.isBackgrounded = !self.appIsActive
                 do {
                     try await action()
                     self.lastSuccess = Date()
-                    delay = self.interval
+                    delay = self.effectiveInterval
                     try? await Task.sleep(for: delay)
                 } catch is CancellationError {
                     return
                 } catch {
                     // Exponential backoff: wait the current delay, then double
                     // it for the next failure (3 s → 6 s → 12 s → … cap 30 s).
-                    // The next success resets the delay to the base interval.
+                    // The next success resets the delay to the effective interval.
                     try? await Task.sleep(for: delay)
                     delay = min(delay * 2, Self.backoffCap)
                 }
@@ -158,7 +166,11 @@ final class BoardPoller {
             forName: resignName, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.appIsActive = false
+                guard let self else { return }
+                self.appIsActive = false
+                // The loop keeps running (background cadence); reflect the
+                // degraded state immediately rather than at the next wake.
+                if self.loopTask != nil { self.isBackgrounded = true }
             }
         })
         activationObservers.append(center.addObserver(
@@ -167,8 +179,10 @@ final class BoardPoller {
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.appIsActive = true
+                self.isBackgrounded = false
                 // Refresh immediately so the board is fresh the moment the
-                // operator comes back (also resets any error backoff).
+                // operator comes back (also resets any error backoff and the
+                // slower background cadence).
                 if self.loopTask != nil { self.startLoop() }
             }
         })
