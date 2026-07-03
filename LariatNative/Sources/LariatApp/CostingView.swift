@@ -6,10 +6,6 @@ import Observation
 
 // MARK: - ViewModel
 
-// P1a costing variance shows accounting COGS variance + 28-day trend;
-// the web page's recipe-level computeCostVariance card (max/mean/recipes>5%/top-5)
-// is not ported in P1a.
-
 @Observable @MainActor final class CostingViewModel {
     var bundle: CostingBundle?
     var menuEngineering: MenuEngineeringResult?
@@ -101,10 +97,14 @@ private struct CostingContentView: View {
                     .padding(.horizontal)
 
                 // ── Section 1: Variance (accounting COGS) ─────────────────────
-                // P1a costing variance shows accounting COGS variance + 28-day trend;
-                // the web page's recipe-level computeCostVariance card
-                // (max/mean/recipes>5%/top-5) is not ported in P1a.
                 VarianceSection(variance: bundle.latestVariance)
+                    .padding(.horizontal)
+
+                // ── Section 1b: Recipe cost variance (A4 card) ────────────────
+                // Parity port of the web computeCostVariance card:
+                // max % / mean % / # recipes ≥ 5% + top-5 offenders, with the
+                // 0.30 unmatched-ratio gate surfaced in the coverage note.
+                RecipeCostVarianceSection(variance: bundle.recipeCostVariance)
                     .padding(.horizontal)
 
                 // ── Section 2: Dish coverage (P0 reuse) ──────────────────────
@@ -188,6 +188,132 @@ private struct VarianceSection: View {
     /// Mirror web: red ≥ 5%, yellow 2–5%, green < 2%.
     private func variancePctColor(_ pct: Double?) -> Color {
         guard let pct else { return .primary }
+        let abs = Swift.abs(pct)
+        if abs >= 5.0 { return .red }
+        if abs >= 2.0 { return .yellow }
+        return .green
+    }
+}
+
+// MARK: - Section 1b: Recipe Cost Variance (A4 card)
+
+/// Recipe-level theoretical-vs-actual cost variance — parity with the web
+/// `computeCostVariance` card (lib/costingBenchmarks.mjs). Headline stats over
+/// eligible recipes, top-5 offenders, and a coverage note so a sparse card
+/// explains itself ("no empty-state lie" invariant): recipes are excluded when
+/// yield ≤ 0, theoretical cost ≤ 0, or > 30% of their BOM lines can't be
+/// priced against vendor_prices (the D6 unmatched-ratio gate).
+private struct RecipeCostVarianceSection: View {
+    let variance: RecipeCostVariance
+
+    /// Candidates dropped silently by the web loop (theoretical ≤ 0 or an
+    /// unpriceable BOM) — everything that is neither eligible nor gate-excluded.
+    private var unpriceableCount: Int {
+        max(0, variance.candidateCount - variance.eligibleCount - variance.excludedHighUnmatchedCount)
+    }
+
+    var body: some View {
+        SectionCard(
+            title: "Recipe cost variance",
+            emptyTitle: "No costed recipes yet",
+            emptyMessage: "Run the costing ingest to populate recipe_costs, bom_lines and vendor_prices.",
+            emptyIcon: "scalemass",
+            isEmpty: variance.candidateCount == 0
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                if variance.eligibleCount == 0 {
+                    // Candidates exist but none produced a variance — say why
+                    // instead of rendering a misleading all-zero stat row.
+                    TileDegrade(
+                        title: "No recipe is priceable yet",
+                        message: "\(variance.excludedHighUnmatchedCount) of \(variance.candidateCount) recipe(s) excluded — over 30% of their BOM lines have no matching vendor price. Improve ingredient mapping to unlock this card.",
+                        systemImage: "link.badge.plus"
+                    )
+                    .frame(height: 100)
+                } else {
+                    // Headline stats: max / mean / # over 5% (web aggregates).
+                    HStack(spacing: 20) {
+                        statColumn("max", variance.max, color: variancePctColor(variance.max))
+                        statColumn("mean", variance.mean, color: variancePctColor(variance.mean))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("over 5%")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Text("\(variance.over5pctCount) of \(variance.eligibleCount)")
+                                .font(.system(.body, design: .rounded))
+                                .bold()
+                                .monospacedDigit()
+                                .foregroundStyle(variance.over5pctCount > 0 ? Color.red : .primary)
+                        }
+                        Spacer()
+                    }
+
+                    // Top offenders (web rows sorted variance desc, top 5).
+                    if !variance.topOffenders.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Top \(variance.topOffenders.count) offenders")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                                .tracking(1)
+
+                            ForEach(Array(variance.topOffenders.enumerated()), id: \.offset) { idx, o in
+                                HStack(spacing: 6) {
+                                    Text("\(idx + 1)")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                        .frame(width: 16, alignment: .trailing)
+                                        .monospacedDigit()
+                                    Text(o.name)
+                                        .font(.caption)
+                                        .lineLimit(1)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    Text(String(format: "%.2f%%", o.variancePct))
+                                        .font(.caption)
+                                        .monospacedDigit()
+                                        .foregroundStyle(variancePctColor(o.variancePct))
+                                }
+                            }
+                        }
+                        .padding(.top, 4)
+                    }
+                }
+
+                // Coverage note — always rendered (eligible/total + exclusions).
+                Text(coverageNote)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private var coverageNote: String {
+        var parts = ["\(variance.eligibleCount) of \(variance.candidateCount) recipes eligible"]
+        if variance.excludedHighUnmatchedCount > 0 {
+            parts.append("\(variance.excludedHighUnmatchedCount) excluded (>30% BOM lines unmatched)")
+        }
+        if unpriceableCount > 0 {
+            parts.append("\(unpriceableCount) not priceable")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private func statColumn(_ label: String, _ pct: Double, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(String(format: "%.2f%%", pct))
+                .font(.system(.body, design: .rounded))
+                .bold()
+                .monospacedDigit()
+                .foregroundStyle(color)
+        }
+    }
+
+    /// Same thresholds as the accounting-variance tile (web colorFor):
+    /// red ≥ 5%, yellow 2–5%, green < 2%.
+    private func variancePctColor(_ pct: Double) -> Color {
         let abs = Swift.abs(pct)
         if abs >= 5.0 { return .red }
         if abs >= 2.0 { return .yellow }
