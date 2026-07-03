@@ -34,7 +34,7 @@ struct GoldStarsView: View {
             }
         }
         .sheet(isPresented: $vm.showAwardSheet) { awardSheet }
-        .sheet(isPresented: $vm.showPinSheet) {
+        .sheet(isPresented: $vm.showPinSheet, onDismiss: { vm.pinCancelled() }) {
             PinEntrySheet(database: vm.writeDatabase) { user in
                 vm.pinVerified(user)
             }
@@ -145,10 +145,25 @@ struct GoldStarsView: View {
                 if let e = vm.errorMessage {
                     Text(e).font(.caption).foregroundStyle(LariatTheme.bad)
                 }
-                Picker("Who", selection: $vm.selectedCook) {
-                    Text("Pick a cook…").tag("")
-                    ForEach(vm.roster, id: \.self) { name in
-                        Text(name).tag(name)
+                if vm.roster.isEmpty {
+                    // Manual-entry fallback (CookIdentityPicker precedent):
+                    // without it, an empty roster leaves 'Give it' disabled
+                    // forever with no explanation.
+                    Section("Who") {
+                        Text(vm.rosterUnavailable
+                            ? "Staff list not found — run the staff ingest, or type a name below."
+                            : "No active staff in the list — type a name below.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("Cook name", text: $vm.selectedCook)
+                            .autocorrectionDisabled()
+                    }
+                } else {
+                    Picker("Who", selection: $vm.selectedCook) {
+                        Text("Pick a cook…").tag("")
+                        ForEach(vm.roster, id: \.self) { name in
+                            Text(name).tag(name)
+                        }
                     }
                 }
                 Section("How big a deal") {
@@ -182,11 +197,19 @@ struct GoldStarsView: View {
                     Button("Go back") { vm.showAwardSheet = false }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(vm.isSaving ? "Saving…" : "Give it") { vm.requestAward() }
-                        .disabled(
-                            vm.isSaving || vm.selectedCook.isEmpty
-                                || vm.reason.trimmingCharacters(in: .whitespaces).isEmpty
-                        )
+                    Button(vm.isSaving ? "Saving…" : "Give it") {
+                        // Dismiss first — the PIN sheet may need to present
+                        // next, and two sheets can't be up at once (PR #401
+                        // BeoBoard precedent). Form values live on the VM,
+                        // so performAward still has them.
+                        vm.showAwardSheet = false
+                        vm.requestAward()
+                    }
+                    .disabled(
+                        vm.isSaving
+                            || vm.selectedCook.trimmingCharacters(in: .whitespaces).isEmpty
+                            || vm.reason.trimmingCharacters(in: .whitespaces).isEmpty
+                    )
                 }
             }
         }

@@ -10,6 +10,10 @@ import Observation
 @Observable @MainActor
 final class BarParViewModel {
     private(set) var rows: [BarParRow] = []
+    /// All par rows for the location regardless of category — lets the
+    /// empty state tell "no par list" apart from "nothing categorized as a
+    /// beverage yet" (Shamrock imports carry NULL category).
+    private(set) var totalParCount = 0
     private(set) var loaded = false
     var fetchError: String?
     var showLowOnly = false
@@ -57,6 +61,7 @@ final class BarParViewModel {
         let repo = BarRepository(readDB: readDB)
         do {
             rows = try await repo.loadParRows(locationId: locationId)
+            totalParCount = try await repo.totalParCount(locationId: locationId)
             fetchError = nil
         } catch {
             fetchError = "Could not load bar par"
