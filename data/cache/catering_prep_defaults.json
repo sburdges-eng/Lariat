@@ -1,0 +1,122 @@
+{
+  "banana cream pudding": {
+    "name": "Banana Cream Pudding",
+    "prep": "portioned to cups",
+    "plating": "4oz cup",
+    "order": "Make mini versions with cookies day before"
+  },
+  "barbacoa taco buffet": {
+    "name": "Barbacoa Taco Buffet",
+    "prep": "Overnight Fri",
+    "plating": "full pan",
+    "order": "order extra beef cheeks?"
+  },
+  "battered avocado taco buffet": {
+    "name": "Battered Avocado Taco Buffet",
+    "prep": "avo sliced/batter",
+    "plating": "full pan/grate",
+    "order": "order extra avo"
+  },
+  "beef tenderloin crostini": {
+    "name": "Beef tenderloin crostini",
+    "prep": "",
+    "plating": "4 inch plate",
+    "order": "jp will bring ingredients"
+  },
+  "braised chicken taco buffet": {
+    "name": "Braised Chicken Taco Buffet",
+    "prep": "THAW THIGHS/COOK",
+    "plating": "2\" HOTEL BUFFET",
+    "order": "order chicken thighs?"
+  },
+  "breakfast burrito": {
+    "name": "Breakfast Burrito",
+    "prep": "",
+    "plating": "",
+    "order": "Made sunday. Need smaller tortillas"
+  },
+  "caprese skewers": {
+    "name": "Caprese Skewers",
+    "prep": "MISE",
+    "plating": "tray",
+    "order": "order mozz balls/prosciutto"
+  },
+  "carnitas tacos buffet": {
+    "name": "Carnitas Tacos Buffet",
+    "prep": "braise meat thur",
+    "plating": "Shallow full",
+    "order": "order extra pork butt?"
+  },
+  "churros": {
+    "name": "Churros",
+    "prep": "",
+    "plating": "basket",
+    "order": ""
+  },
+  "corn dogs": {
+    "name": "Corn Dogs",
+    "prep": "portion sausage",
+    "plating": "4 inch plate",
+    "order": "order jalapeno cheddar sausage"
+  },
+  "fish taco buffet": {
+    "name": "Fish Taco Buffet",
+    "prep": "Fish cut and brined",
+    "plating": "full pan",
+    "order": ""
+  },
+  "green chile mac buffet": {
+    "name": "Green Chile Mac Buffet",
+    "prep": "BOIL CAVATAPPI/TOAST PANKO/MISE",
+    "plating": "2\" HOTEL BUFFET",
+    "order": "COVER W/ SHREDDED CHEDDAR & BREADCRUMB"
+  },
+  "mac balls": {
+    "name": "Mac Balls",
+    "prep": "ditalini cooked fri",
+    "plating": "4 inch plate",
+    "order": ""
+  },
+  "mini rellenos": {
+    "name": "Mini Rellenos",
+    "prep": "",
+    "plating": "4 inch plate",
+    "order": "order from sysco?"
+  },
+  "nashville slider": {
+    "name": "Nashville Slider",
+    "prep": "Chicken Brined",
+    "plating": "4 inch plate",
+    "order": "order slider buns"
+  },
+  "prime rib carving station": {
+    "name": "Prime Rib Carving Station",
+    "prep": "SOUS VIDE",
+    "plating": "",
+    "order": ""
+  },
+  "roasted root veg": {
+    "name": "Roasted Root Veg",
+    "prep": "THAW",
+    "plating": "",
+    "order": ""
+  },
+  "rope burger slider": {
+    "name": "Rope Burger slider",
+    "prep": "Patty burgers",
+    "plating": "4 inch plate",
+    "order": "order slider buns?"
+  },
+  "rope caesar salad buffet": {
+    "name": "Rope Caesar Salad Buffet",
+    "prep": "GRILL ONIONS/COOK CORNBREAD/etc.",
+    "plating": "2\" HOTEL BUFFET",
+    "order": "order extra romaine?"
+  },
+  "trio dips": {
+    "name": "Trio Dips",
+    "prep": "QUESO/GREEN CHILLI/BLACK SALSA/CHIPS",
+    "plating": "LONG RECTANGLE CERAMIC",
+    "order": "2X AMOUNT"
+  }
+}
