@@ -17,7 +17,6 @@ from typing import Iterable
 
 from scripts.lib.bom_expand import (
     Manifest,
-    UnknownRecipeError,
     aggregate_demand,
 )
 
@@ -188,6 +187,7 @@ def pull_orders(
     manifest: dict[str, Manifest],
     demand: list[tuple[str, float, str]],
     inventory: dict[tuple[str, str], float] | None = None,
+    warnings: list[str] | None = None,
 ) -> list[OrderLine]:
     """Aggregate demand across recipes (with sub-recipe cascade) and
     subtract on-hand inventory. Returns one OrderLine per leaf
@@ -197,7 +197,7 @@ def pull_orders(
     for precision. Callers that only have ingredient names can pass
     `(name_lower, "")` and we'll match regardless of unit as a fallback.
     """
-    totals = aggregate_demand(manifest, demand)
+    totals = aggregate_demand(manifest, demand, warnings=warnings)
     out: list[OrderLine] = []
     for (ing, unit), qty in totals.items():
         on_hand = _lookup_inventory(inventory, ing, unit) if inventory else 0.0
