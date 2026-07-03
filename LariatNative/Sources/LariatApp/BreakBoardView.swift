@@ -27,7 +27,7 @@ struct BreakBoardView: View {
                 store: vm.cookStore,
                 staff: vm.staff,
                 staffUnavailable: vm.staffUnavailable
-            ) { vm.showCookPicker = false }
+            ) { vm.cookPickerDone() }
         }
     }
 
@@ -47,48 +47,84 @@ struct BreakBoardView: View {
             }
 
             Section("Shift window (optional)") {
-                TextField("Shift start ISO", text: $vm.shiftStartedAt)
-                TextField("Shift end ISO", text: $vm.shiftEndedAt)
-                Button("Refresh eval") { Task { await vm.refresh() } }
+                Toggle("Evaluate COMPS for a shift window", isOn: $vm.useShiftWindow)
+                if vm.useShiftWindow {
+                    DatePicker("Shift start", selection: $vm.shiftStart, displayedComponents: [.date, .hourAndMinute])
+                    DatePicker("Shift end", selection: $vm.shiftEnd, displayedComponents: [.date, .hourAndMinute])
+                    if vm.shiftWindowInvalid {
+                        Text("Shift end must be after shift start.")
+                            .font(.callout).foregroundStyle(.red)
+                    }
+                    if let hint = vm.evalHint {
+                        Text(hint).font(.callout).foregroundStyle(.orange)
+                    }
+                    Button("Refresh eval") { Task { await vm.requestEvaluation() } }
+                        .disabled(vm.shiftWindowInvalid)
+                }
             }
 
-            Section("Today") {
+            Section(snap.cookId == nil ? "Today — all workers" : "Today") {
+                if snap.cookId == nil {
+                    HStack {
+                        Text("Showing everyone's breaks. Pick who you are to see just yours.")
+                            .font(.caption).foregroundStyle(.orange)
+                        Spacer()
+                        Button("Pick who I am") { vm.showCookPicker = true }
+                            .font(.caption)
+                    }
+                }
                 if snap.breaks.isEmpty {
                     Text("No breaks logged").foregroundStyle(.secondary)
                 } else {
                     ForEach(snap.breaks) { row in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(row.breakKind?.label ?? row.kind).font(.headline)
-                                Text(row.startedAt).font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if row.endedAt == nil {
-                                Button("End") {
-                                    Task { await vm.endBreak(id: row.id) }
-                                }
-                                .font(.caption)
-                            } else {
-                                Text("Done").font(.caption).foregroundStyle(.secondary)
-                            }
-                        }
+                        breakRow(row, scopedToCook: snap.cookId != nil)
                     }
                 }
             }
 
-            Section("Start break") {
-                if let err = vm.actionError {
-                    Text(err).font(.caption).foregroundStyle(.red)
-                }
-                Button(vm.isSaving ? "Starting…" : "Start rest (10 min)") {
-                    Task { await vm.startBreak(kind: .rest) }
-                }
-                .disabled(vm.isSaving)
-                Button(vm.isSaving ? "Starting…" : "Start meal (30 min)") {
-                    Task { await vm.startBreak(kind: .meal) }
-                }
-                .disabled(vm.isSaving)
+            startBreakSection
+        }
+    }
+
+    /// One break row. The End button only appears on the current cook's own
+    /// rows — in the unfiltered (no-identity) view you can see a coworker is on
+    /// break but cannot close their record.
+    @ViewBuilder
+    private func breakRow(_ row: ShiftBreakRow, scopedToCook: Bool) -> some View {
+        HStack {
+            VStack(alignment: .leading) {
+                Text(row.breakKind?.label ?? row.kind).font(.headline)
+                Text(scopedToCook ? row.startedAt : "\(vm.workerName(row.cookId)) · \(row.startedAt)")
+                    .font(.caption).foregroundStyle(.secondary)
             }
+            Spacer()
+            if row.endedAt != nil {
+                Text("Done").font(.caption).foregroundStyle(.secondary)
+            } else if row.cookId == vm.cookStore.cookId {
+                Button("End") {
+                    Task { await vm.endBreak(id: row.id) }
+                }
+                .font(.caption)
+            } else {
+                Text("On break").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var startBreakSection: some View {
+        Section("Start break") {
+            if let err = vm.actionError {
+                Text(err).font(.caption).foregroundStyle(.red)
+            }
+            Button(vm.isSaving ? "Starting…" : "Start rest (10 min)") {
+                Task { await vm.startBreak(kind: .rest) }
+            }
+            .disabled(vm.isSaving)
+            Button(vm.isSaving ? "Starting…" : "Start meal (30 min)") {
+                Task { await vm.startBreak(kind: .meal) }
+            }
+            .disabled(vm.isSaving)
         }
     }
 }

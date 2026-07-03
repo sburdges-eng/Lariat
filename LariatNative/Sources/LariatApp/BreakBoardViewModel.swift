@@ -15,8 +15,25 @@ final class BreakBoardViewModel {
     var staff: [StaffMember] = []
     var staffUnavailable = false
 
-    var shiftStartedAt = ""
-    var shiftEndedAt = ""
+    /// Optional COMPS shift window. Off by default; when on, the two dates are
+    /// serialized to ISO for `BreakCompute.evaluateShift` (no hand-typed ISO).
+    var useShiftWindow = false
+    var shiftStart: Date = Calendar.current.date(byAdding: .hour, value: -8, to: Date()) ?? Date()
+    var shiftEnd: Date = Date()
+
+    /// Visible hint when a COMPS evaluation was requested but can't run yet
+    /// (e.g. no cook identity) — so "Refresh eval" never reads as a dead button.
+    var evalHint: String?
+
+    /// True when the window is enabled but end ≤ start — surfaced in the UI
+    /// before the compute's own "Invalid shift timestamps" warning would fire.
+    var shiftWindowInvalid: Bool { useShiftWindow && shiftEnd <= shiftStart }
+
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
 
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase
@@ -37,6 +54,11 @@ final class BreakBoardViewModel {
     }
 
     func start() {
+        // The board is "my breaks": with no identity the load is unfiltered
+        // (everyone at the location), so ask who's here up front.
+        if cookStore.cookId == nil {
+            showCookPicker = true
+        }
         poller.start(interval: .seconds(3)) { [weak self] in
             guard let self else { return }
             await self.refresh()
@@ -49,8 +71,8 @@ final class BreakBoardViewModel {
     func refresh() async {
         let repo = BreakRepository(readDB: readDB, writeDB: writeDB)
         do {
-            let start = shiftStartedAt.isEmpty ? nil : shiftStartedAt
-            let end = shiftEndedAt.isEmpty ? nil : shiftEndedAt
+            let start = useShiftWindow ? Self.isoFormatter.string(from: shiftStart) : nil
+            let end = useShiftWindow ? Self.isoFormatter.string(from: shiftEnd) : nil
             snapshot = try await repo.load(
                 cookId: cookStore.cookId,
                 locationId: locationId,
@@ -58,9 +80,39 @@ final class BreakBoardViewModel {
                 shiftEndedAt: end
             )
             fetchError = nil
+            if cookStore.cookId != nil { evalHint = nil }
         } catch {
             fetchError = "Could not load breaks"
         }
+    }
+
+    /// "Refresh eval" tap: a COMPS evaluation needs a cook identity (the repo
+    /// only evaluates a single cook's breaks) — prompt for one instead of
+    /// silently doing nothing.
+    func requestEvaluation() async {
+        guard cookStore.cookId != nil else {
+            evalHint = "Pick who you are to evaluate breaks."
+            showCookPicker = true
+            return
+        }
+        evalHint = nil
+        await refresh()
+    }
+
+    /// Cook picker dismissed — refresh right away so the list re-scopes to the
+    /// picked identity (or stays clearly labeled all-workers on abort).
+    func cookPickerDone() {
+        showCookPicker = false
+        Task { await refresh() }
+    }
+
+    /// Display name for a row's cook id via the staff catalog.
+    func workerName(_ cookId: String) -> String {
+        if let s = staff.first(where: { $0.id == cookId }) {
+            let name = s.displayName
+            return name.isEmpty ? cookId : name
+        }
+        return cookId
     }
 
     func startBreak(kind: BreakKind) async {

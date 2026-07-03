@@ -14,6 +14,14 @@ struct FoodSafetyHubView: View {
         "safety.calibrations": "gauge.with.dots.needle.33percent",
         "safety.cleaning": "sparkles",
         "safety.breaks": "figure.walk",
+        "safety.sanitizer": "drop",
+        "safety.tphc": "timer",
+        "safety.pest": "ant",
+        "safety.sds": "doc.text.magnifyingglass",
+        "safety.sickWorker": "cross.case",
+        "safety.receiving": "shippingbox",
+        "safety.haccpPlan": "checklist",
+        "safety.allergenLookup": "allergens",
     ]
 
     /// Section assignment, keyed by feature id, preserving the original grouping.
