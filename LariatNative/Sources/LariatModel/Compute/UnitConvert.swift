@@ -1,10 +1,10 @@
 import Foundation
 
-/// Byte-exact port of the subset of `lib/unitConvert.mjs` that `computeRecipeRatio`
-/// needs: normalizeUnit + unitDimension + convertQty (identity, same-dim, cross-dim).
+/// Byte-exact port of `lib/unitConvert.mjs`: normalizeUnit + unitDimension +
+/// convertQty (identity, same-dim, cross-dim) plus — since the A4 cost-variance
+/// card — `bridgeCount` (T4.1 count-bridge) and `convertPackSizeToLineUnit`
+/// (T4 leaf-pricing pack→line-unit conversion, shared by `computeCostVariance`).
 /// Python (scripts/lib/units.py) is authoritative; JS mirrors it and we mirror JS.
-/// `bridgeCount` / `convertPackSizeToLineUnit` are intentionally NOT ported here
-/// (T4/T5 count-bridge territory, out of scope for the depletion-exception board).
 public enum UnitConvert {
     static let weightToG: [String: Double] = [
         "mg": 0.001, "g": 1.0, "gram": 1.0, "grams": 1.0, "kg": 1000.0,
@@ -81,5 +81,100 @@ public enum UnitConvert {
             return ml / tm
         }
         return nil
+    }
+
+    // MARK: bridgeCount (lib/unitConvert.mjs T4.1)
+    //
+    // Converts a quantity of a count unit (ea / bunch / can / …) into a weight
+    // or volume unit using a per-ingredient grams-per-unit lookup as the anchor.
+    // Returns nil on any failure path so the caller can fall back to `convertQty`
+    // or flag the row.
+    //
+    //   count → weight:  qty × g_per_unit = g  →  g / WEIGHT_TO_G[to]
+    //   count → volume:  qty × g_per_unit = g  →  (g / density) / VOLUME_TO_ML[to]
+    //   weight → count:  qty × WEIGHT_TO_G[from] = g  →  g / g_per_unit[to]
+    //   volume → count:  qty × VOLUME_TO_ML[from] × density = g  →  g / g_per_unit[to]
+    //   count → count:   different units bridged via grams.
+    //
+    // `fromCanon` / `toCanon` are assumed already normalized by `normalizeUnit`.
+    // `unitWeights` maps canonical count unit → grams-per-one, scoped to the
+    // specific ingredient; nil is treated as empty (web `Map | undefined`).
+    public static func bridgeCount(
+        _ qty: Double, from fromCanon: String, to toCanon: String,
+        density: Double?, unitWeights: [String: Double]?
+    ) -> Double? {
+        guard qty.isFinite, qty >= 0 else { return nil }
+        if fromCanon.isEmpty || toCanon.isEmpty { return nil }
+        if fromCanon == toCanon { return qty }
+
+        guard let fromDim = unitDimension(fromCanon), let toDim = unitDimension(toCanon) else {
+            return nil
+        }
+        if fromDim != "count" && toDim != "count" { return nil }   // nothing to bridge
+
+        func gramsFromCount(_ q: Double, _ canon: String) -> Double? {
+            guard let g = unitWeights?[canon], g > 0, g.isFinite else { return nil }
+            return q * g
+        }
+        func countFromGrams(_ g: Double, _ canon: String) -> Double? {
+            guard let w = unitWeights?[canon], w > 0, w.isFinite else { return nil }
+            return g / w
+        }
+
+        let grams: Double?
+        if fromDim == "count" {
+            grams = gramsFromCount(qty, fromCanon)
+        } else if fromDim == "weight" {
+            guard let f = weightToG[fromCanon], f > 0 else { return nil }
+            grams = qty * f
+        } else {
+            // volume → grams requires density.
+            guard let d = density, d.isFinite, d > 0 else { return nil }
+            guard let f = volumeToMl[fromCanon], f > 0 else { return nil }
+            grams = qty * f * d
+        }
+        guard let g = grams, g.isFinite, g >= 0 else { return nil }
+
+        if toDim == "count" { return countFromGrams(g, toCanon) }
+        if toDim == "weight" {
+            guard let t = weightToG[toCanon], t > 0 else { return nil }
+            return g / t
+        }
+        // volume
+        guard let d = density, d.isFinite, d > 0 else { return nil }
+        guard let t = volumeToMl[toCanon], t > 0 else { return nil }
+        return (g / d) / t
+    }
+
+    // MARK: convertPackSizeToLineUnit (lib/unitConvert.mjs T4)
+    //
+    // Leaf-pricing conversion shared by every path that prices a BOM line
+    // against a vendor_prices pack. Converts `packSize` (denominated in
+    // `packUnit`) into the BOM line's `lineUnit` so `qty × pack_price /
+    // pack_size` compares like with like.
+    //
+    // Semantics (mirrors the web function exactly):
+    //   - packUnit empty → identity fallback: treat pack_size as already being
+    //     in the line's unit (legacy T3 assumption).
+    //   - lineUnit empty while packUnit is known → cannot interpret the ratio:
+    //     (nil, flag: true).
+    //   - same canonical unit → identity.
+    //   - otherwise count-bridge first (convertQty never handles count), then
+    //     convertQty with density; failure → (nil, flag: true).
+    public static func convertPackSizeToLineUnit(
+        _ packSize: Double, packUnit: String?, lineUnit: String?,
+        density: Double?, unitWeights: [String: Double]?
+    ) -> (value: Double?, flag: Bool) {
+        let packCanon = normalizeUnit(packUnit)
+        let lineCanon = normalizeUnit(lineUnit)
+        if packCanon.isEmpty { return (packSize, false) }
+        if lineCanon.isEmpty { return (nil, true) }
+        if packCanon == lineCanon { return (packSize, false) }
+
+        let bridged = bridgeCount(packSize, from: packCanon, to: lineCanon,
+                                  density: density, unitWeights: unitWeights)
+        let converted = bridged ?? convertQty(packSize, from: packUnit, to: lineUnit, gPerMl: density)
+        guard let c = converted, c > 0, c.isFinite else { return (nil, true) }
+        return (c, false)
     }
 }
