@@ -50,7 +50,7 @@ final class CloudBridgeStatusRepositoryTests: XCTestCase {
         return (try LariatDatabase(path: path), dir)
     }
 
-    /// Insert one outbox row. `claimedAgo` non-nil → in-flight (claimed_at set).
+    /// Insert one outbox row. `claimed: true` → in-flight (claimed_at set).
     private func insertBatch(
         _ db: Database,
         table: String = "settlement_summaries",
