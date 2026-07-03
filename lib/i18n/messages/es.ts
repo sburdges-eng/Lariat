@@ -59,6 +59,13 @@ export const es: Messages = {
       watchEyebrow: 'Ver',
       watchLink: 'Ver los 86',
     },
+    bar: {
+      eyebrow: 'Costo por trago',
+      title: 'Lee los números de la barra',
+      copy: 'Mira qué tragos dan el margen y cuáles lo pierden.',
+      watchEyebrow: 'Prep',
+      watchLink: 'Trabaja la lista de prep',
+    },
   },
   checklist: {
     pickName: 'Primero elige tu nombre en la barra lateral.',

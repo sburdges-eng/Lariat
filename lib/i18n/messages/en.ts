@@ -58,6 +58,13 @@ export const en = {
       watchEyebrow: 'Watch',
       watchLink: 'Watch 86',
     },
+    bar: {
+      eyebrow: 'Pour cost',
+      title: 'Read the bar numbers',
+      copy: 'See which pours hit target and which are bleeding margin.',
+      watchEyebrow: 'Prep',
+      watchLink: 'Work the prep list',
+    },
   },
   checklist: {
     pickName: 'Pick your name in the sidebar first.',

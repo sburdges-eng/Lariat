@@ -60,7 +60,7 @@ export default function V2ShellPage() {
             }}
           >
             <div style={metricStyle}>
-              <span style={metricNumberStyle}>8</span>
+              <span style={metricNumberStyle}>9</span>
               <span style={metricLabelStyle}>Migration lanes</span>
             </div>
             <div style={metricStyle}>
@@ -114,6 +114,10 @@ export default function V2ShellPage() {
             <Link href="/v2/prep" style={routeStyle}>
               <span>Prep</span>
               <strong>Work the list</strong>
+            </Link>
+            <Link href="/v2/bar" style={routeStyle}>
+              <span>Bar</span>
+              <strong>Pour cost</strong>
             </Link>
             <Link href="/v2/command" style={routeStyle}>
               <span>Command</span>
