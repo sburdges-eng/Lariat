@@ -132,6 +132,7 @@ data/cache/*.json
 # ships with (the app reads them at runtime and CI has no source CSVs).
 !data/cache/catering_menu.json
 !data/cache/catering_prep_defaults.json
+!data/cache/beo_recipe_tree.json
 
 # ── Design archives (binary zips paired with extracted folders) ─
 design/*.zip

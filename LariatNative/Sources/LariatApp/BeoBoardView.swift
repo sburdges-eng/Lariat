@@ -216,6 +216,13 @@ struct BeoBoardView: View {
                     // row values instead of keeping the unsaved text.
                     sheetTab(event)
                         .id(vm.editorGeneration)
+                case .recipes:
+                    BeoRecipeTreePanel(
+                        items: vm.lineItems.map(\.itemName),
+                        breakdown: { vm.recipeBreakdown(for: $0) },
+                        timings: { vm.recipeTimings(for: $0) },
+                        available: vm.recipeTreeAvailable
+                    )
                 case .orderGuide:
                     BeoOrderGuidePanel(cascade: vm.cascade, loading: vm.cascadeLoading)
                 case .prep:
@@ -942,5 +949,141 @@ private extension View {
             .padding(pad)
             .background(LariatBrand.panel, in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(LariatBrand.line, lineWidth: 1))
+    }
+}
+
+// ── Recipe tab: the make-ahead prep breakdown per menu item ──────────────
+
+private extension PrepTiming {
+    var accent: Color {
+        switch self {
+        case .overnight: return LariatBrand.clay
+        case .dayBefore: return LariatBrand.terracotta
+        case .dayOf: return LariatBrand.ok
+        }
+    }
+}
+
+/// For every item on the BEO, its full in-house recipe tree — what to make and
+/// when. Expands sub-recipes down to purchased ingredients (Mexi Slaw →
+/// Chipotle Aioli → mayo + adobo), with an Overnight / Day-before / Day-of
+/// timing badge on each component.
+private struct BeoRecipeTreePanel: View {
+    let items: [String]
+    let breakdown: (String) -> [RecipeTreeNode]
+    let timings: (String) -> [PrepTiming]
+    let available: Bool
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                if !available {
+                    EmptyState(
+                        message: "Recipe tree cache missing — run scripts/ingest_beo_recipe_tree.py to rebuild data/cache/beo_recipe_tree.json.",
+                        systemImage: "exclamationmark.triangle"
+                    )
+                } else if items.isEmpty {
+                    EmptyState(message: "Add items on the Sheet tab to see their prep breakdown.", systemImage: "list.bullet.indent")
+                } else {
+                    ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                        itemCard(item)
+                    }
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private func itemCard(_ item: String) -> some View {
+        let nodes = breakdown(item)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                SerifHeader(item)
+                Spacer()
+                ForEach(timings(item), id: \.self) { t in
+                    timingChip(t)
+                }
+            }
+            if nodes.isEmpty {
+                Text("No in-house recipe breakdown on file — this item plates as-is.")
+                    .font(.caption)
+                    .foregroundStyle(LariatBrand.inkSoft)
+            } else {
+                ForEach(nodes) { node in
+                    RecipeNodeRow(node: node, depth: 0)
+                }
+            }
+        }
+        .worksheetCard(14)
+    }
+
+    private func timingChip(_ t: PrepTiming) -> some View {
+        Text(t.label)
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .foregroundStyle(t.accent)
+            .background(t.accent.opacity(0.14), in: Capsule())
+    }
+}
+
+/// One recipe in the tree: an "In-house" badge, its timing + station, purchased
+/// ingredients, and any nested sub-recipes. Recurses via DisclosureGroup so a
+/// cook can drill from Mexi Slaw into its Chipotle Aioli.
+private struct RecipeNodeRow: View {
+    let node: RecipeTreeNode
+    let depth: Int
+    @State private var expanded = true
+
+    private var hasDetail: Bool { !node.leaves.isEmpty || !node.children.isEmpty }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            DisclosureGroup(isExpanded: $expanded) {
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(node.leaves) { leaf in
+                        HStack(spacing: 6) {
+                            Circle().fill(LariatBrand.inkFaint).frame(width: 3, height: 3)
+                            Text(leaf.summary)
+                                .font(.caption)
+                                .foregroundStyle(LariatBrand.inkSoft)
+                        }
+                    }
+                    ForEach(node.children) { child in
+                        RecipeNodeRow(node: child, depth: depth + 1)
+                    }
+                }
+                .padding(.leading, 14)
+                .padding(.top, 2)
+            } label: {
+                header
+            }
+            .disclosureGroupStyle(.automatic)
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            Text(node.name)
+                .font(.system(.subheadline, design: .serif).weight(.semibold))
+                .foregroundStyle(LariatBrand.ink)
+            Text("in-house")
+                .font(.caption2.weight(.semibold))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1)
+                .foregroundStyle(LariatBrand.clay)
+                .overlay(Capsule().stroke(LariatBrand.clay.opacity(0.4), lineWidth: 1))
+            Text(node.timing.label)
+                .font(.caption2)
+                .foregroundStyle(node.timing.accent)
+            if !node.station.isEmpty {
+                Text("· \(node.station)")
+                    .font(.caption2)
+                    .foregroundStyle(LariatBrand.inkFaint)
+            }
+            Spacer(minLength: 0)
+        }
     }
 }

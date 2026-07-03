@@ -14,6 +14,7 @@ import Observation
 final class BeoBoardViewModel {
     enum Tab: String, CaseIterable, Identifiable {
         case sheet = "Sheet"
+        case recipes = "Recipe"
         case orderGuide = "Order guide"
         case prep = "Prep"
         case fire = "Fire"
@@ -29,6 +30,7 @@ final class BeoBoardViewModel {
     private(set) var fire: BeoFireScheduleCompute.FireSchedulePayload?
     private(set) var fireLoading = false
     private(set) var menu: [CateringMenuItem]
+    private let recipeTree = RecipeTreeCatalog.load()
 
     var fetchError: String?
     var errorMessage: String?
@@ -169,6 +171,19 @@ final class BeoBoardViewModel {
         return (d?.isEmpty == false) ? d : nil
     }
 
+    /// The make-ahead component tree for a BEO line item.
+    func recipeBreakdown(for itemName: String) -> [RecipeTreeNode] {
+        recipeTree.tree(for: itemName)
+    }
+
+    /// The distinct prep timings present in an item's tree (summary chips).
+    func recipeTimings(for itemName: String) -> [PrepTiming] {
+        recipeTree.timings(for: itemName)
+    }
+
+    /// Whether the recipe-tree cache loaded at all (missing = degrade message).
+    var recipeTreeAvailable: Bool { !recipeTree.isEmpty }
+
     // ── loads ────────────────────────────────────────────────────────────
 
     func refresh() async {
@@ -219,7 +234,9 @@ final class BeoBoardViewModel {
 
     func loadTabData() async {
         switch tab {
-        case .sheet:
+        case .sheet, .recipes:
+            // Recipe tree is built synchronously from the cached line items —
+            // no cascade/engine call needed.
             break
         case .orderGuide, .prep:
             await loadCascade()
