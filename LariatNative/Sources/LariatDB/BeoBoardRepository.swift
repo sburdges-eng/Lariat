@@ -392,10 +392,11 @@ public struct BeoBoardRepository {
         context: RegulatedWriteContext
     ) throws {
         try AuditedWriteRunner.perform(db: writeDB) { db in
-            // Web parity: no location scope on this UPDATE.
+            // Web parity (app/api/beo/route.js): scope the UPDATE by location_id
+            // so a caller cannot toggle another location's prep task by id.
             try db.execute(
-                sql: "UPDATE beo_prep_tasks SET done = ? WHERE id = ?",
-                arguments: [done ? 1 : 0, id]
+                sql: "UPDATE beo_prep_tasks SET done = ? WHERE id = ? AND location_id = ?",
+                arguments: [done ? 1 : 0, id, locationId]
             )
             _ = try AuditEventWriter.post(db: db, input: AuditEventInput(
                 entity: "beo_prep_tasks", entityId: id, action: .update,
@@ -418,7 +419,11 @@ public struct BeoBoardRepository {
         context: RegulatedWriteContext
     ) throws {
         try AuditedWriteRunner.perform(db: writeDB) { db in
-            try db.execute(sql: "DELETE FROM beo_events WHERE id = ?", arguments: [id])
+            // Web parity (app/api/beo/route.js): scope the DELETE by location_id
+            // so a caller cannot delete another location's event by id. The FK
+            // ON DELETE CASCADE still sweeps this event's child rows atomically.
+            try db.execute(sql: "DELETE FROM beo_events WHERE id = ? AND location_id = ?",
+                           arguments: [id, locationId])
             _ = try AuditEventWriter.post(db: db, input: AuditEventInput(
                 entity: "beo_events", entityId: id, action: .delete,
                 actorCookId: context.actorCookId, actorSource: context.actorSource,
