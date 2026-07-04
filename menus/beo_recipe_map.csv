@@ -5,23 +5,23 @@ Battered Fish Taco,Chipotle Aioli
 Battered Fish Taco,Mexi Slaw
 Battered Fish Taco,Pico de Gallo
 Baked Ziti,Baked Ziti
-Trio Dips,Blackened Tomato Salsa
-Trio Dips,Pico de Gallo
-Trio Dips,Queso / Mac Sauce
+Trio Dips,Blackened Tomato Salsa,0.5
+Trio Dips,Pico de Gallo,0.5
+Trio Dips,Queso / Mac Sauce,0.5
 Mac Balls,Mac Balls
 Mini Rellenos,Mini Rellenos
 Caprese Skewers,Caprese Skewers
-Churros,Churros
+Churros,Churros,0.01
 Philo Bites,Philo Bites
 Pig Wings,Alabama White Sauce
 Pig Wings,Lariat Rub
 Green Chile Mac Buffet,Queso / Mac Sauce,5.5
 Green Chile Mac Buffet,Green Chile,0
-Fish Taco Buffet,Fish Brine
-Fish Taco Buffet,Beer Batter
-Fish Taco Buffet,Chipotle Aioli
-Fish Taco Buffet,Mexi Slaw
-Fish Taco Buffet,Pico de Gallo
+Fish Taco Buffet,Fish Brine,1.0
+Fish Taco Buffet,Beer Batter,150
+Fish Taco Buffet,Chipotle Aioli,0.75
+Fish Taco Buffet,Mexi Slaw,2.0
+Fish Taco Buffet,Pico de Gallo,0.5
 Battered Avocado Taco Buffet,Beer Batter
 Battered Avocado Taco Buffet,Beer Flour
 Battered Avocado Taco Buffet,Chipotle Aioli
