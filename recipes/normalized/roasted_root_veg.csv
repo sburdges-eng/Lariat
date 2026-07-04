@@ -1,0 +1,2 @@
+ingredient,qty,unit,portions_per_batch,notes
+roasted root veg (sysco),1,case,~1 case,Sysco purchase-history item — costed from vendor_prices at ingest; heat and serve

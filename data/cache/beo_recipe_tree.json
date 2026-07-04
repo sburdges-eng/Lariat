@@ -130,6 +130,12 @@
       "chicken_confit",
       "chicken_jus"
     ],
+    "roasted chicken leg": [
+      "roasted_chicken_leg"
+    ],
+    "roasted root veg": [
+      "roasted_root_veg"
+    ],
     "rope burger slider": [
       "bacon_jam",
       "rope_pickle",
@@ -1505,6 +1511,60 @@
       ],
       "sub_recipes": []
     },
+    "green_salt": {
+      "name": "Green Salt",
+      "station": "prep",
+      "category": "seasoning",
+      "prep_timing": "day_before",
+      "yield_qty": 1300,
+      "yield_unit": "g",
+      "notes": "Blend with half the salt; dry under lamp; add remaining salt after dried",
+      "ingredients": [
+        {
+          "item": "parsley",
+          "qty": 20.0,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "picked thyme",
+          "qty": 10.0,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "picked tarragon",
+          "qty": 10.0,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "picked rosemary",
+          "qty": 10.0,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "lemon zest",
+          "qty": 3.0,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "garlic",
+          "qty": 50.0,
+          "unit": "g",
+          "recipe": null
+        },
+        {
+          "item": "salt",
+          "qty": 1200.0,
+          "unit": "g",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
     "honey_mustard": {
       "name": "Honey Mustard",
       "station": "expo",
@@ -2290,6 +2350,56 @@
       ],
       "sub_recipes": []
     },
+    "roasted_chicken_leg": {
+      "name": "Roasted Chicken Leg",
+      "station": "grill",
+      "category": "entree",
+      "prep_timing": "day_of",
+      "yield_qty": 1,
+      "yield_unit": "case",
+      "notes": "Green salt amount (50 g) and olive oil (1 cup) are estimates — confirm",
+      "ingredients": [
+        {
+          "item": "redbird chicken legs",
+          "qty": 1.0,
+          "unit": "case",
+          "recipe": null
+        },
+        {
+          "item": "green salt",
+          "qty": 50.0,
+          "unit": "g",
+          "recipe": "green_salt"
+        },
+        {
+          "item": "rosemary",
+          "qty": 1.0,
+          "unit": "sprig",
+          "recipe": null
+        },
+        {
+          "item": "thyme",
+          "qty": 1.0,
+          "unit": "sprig",
+          "recipe": null
+        },
+        {
+          "item": "garlic cloves",
+          "qty": 8.0,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "olive oil",
+          "qty": 1.0,
+          "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": [
+        "green_salt"
+      ]
+    },
     "roasted_pepitas": {
       "name": "Roasted Pepitas",
       "station": "salad",
@@ -2333,6 +2443,24 @@
           "item": "lime juice",
           "qty": 0.25,
           "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "roasted_root_veg": {
+      "name": "Roasted Root Veg",
+      "station": "saute",
+      "category": "side",
+      "prep_timing": "day_of",
+      "yield_qty": 1,
+      "yield_unit": "case",
+      "notes": "Sysco purchased product — heat and serve",
+      "ingredients": [
+        {
+          "item": "roasted root veg (sysco)",
+          "qty": 1.0,
+          "unit": "case",
           "recipe": null
         }
       ],
