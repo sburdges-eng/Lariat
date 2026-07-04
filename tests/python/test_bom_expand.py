@@ -28,6 +28,7 @@ from scripts.lib.bom_expand import (  # noqa: E402
     build_manifest,
     expand_recipe,
     expand_recipe_demand,
+    find_manifest_warnings,
 )
 
 
@@ -37,22 +38,32 @@ def _mk(
     yield_qty: float,
     yield_unit: str,
     sub_recipe_slugs: list[str] | None = None,
-    bom: list[tuple[str, float, str, bool]] | None = None,
+    bom: list[tuple] | None = None,
     allergens: list[str] | None = None,
+    pack_conversions: dict | None = None,
 ) -> Manifest:
     """Shorthand for building a Manifest from literals. Each BOM tuple is
-    (ingredient_or_sub_slug, qty, unit, is_sub_recipe)."""
+    (ingredient_or_sub_slug, qty, unit, is_sub_recipe[, sub_slug_pin])."""
+
+    def _row(r: tuple) -> dict:
+        ing, qty, unit, is_sub = r[0], r[1], r[2], r[3]
+        return {
+            "ingredient": ing,
+            "qty": qty,
+            "unit": unit,
+            "is_sub_recipe": is_sub,
+            "sub_slug": r[4] if len(r) > 4 else None,
+        }
+
     return Manifest(
         slug=slug,
         display_name=name,
         yield_qty=yield_qty,
         yield_unit=yield_unit,
         sub_recipe_slugs=list(sub_recipe_slugs or []),
-        bom=[
-            {"ingredient": ing, "qty": qty, "unit": unit, "is_sub_recipe": is_sub}
-            for (ing, qty, unit, is_sub) in (bom or [])
-        ],
+        bom=[_row(r) for r in (bom or [])],
         allergens=list(allergens or []),
+        pack_conversions=dict(pack_conversions or {}),
     )
 
 
@@ -393,6 +404,168 @@ class GracefulDegradation(unittest.TestCase):
     def test_no_sink_preserves_fail_loud(self) -> None:
         with self.assertRaises(UnitMismatchError):
             expand_recipe(self._manifest(), "queso_mac_sauce", qty=22, unit="qt")
+
+
+class PackSizeConversion(unittest.TestCase):
+    """A child recipe may declare a `pack_size` (`<unit>:<factor>:<yield_unit>`)
+    so a cross-dimension sub-recipe reference (e.g. parent refs child in 'bag',
+    child yields 'qt') resolves deterministically instead of failing loud."""
+
+    def test_pack_size_resolves_cross_dimension_boundary(self) -> None:
+        # green_chile yields 6 qt; declares 1 bag = 3 qt. Queso references it
+        # in 'bag' (a cross-dimension unit that never converts numerically).
+        gc = _mk(
+            "green_chile", "Green Chile", 6, "qt",
+            bom=[("pork", 12, "lb", False)],
+            pack_conversions={"bag": (3.0, "qt")},
+        )
+        queso = _mk(
+            "queso", "Queso", 22, "qt",
+            sub_recipe_slugs=["green_chile"],
+            bom=[("green_chile", 1, "bag", True)],
+        )
+        manifest = {"green_chile": gc, "queso": queso}
+        # 1 batch queso needs 1 bag = 3 qt green_chile = 0.5 batch (yields 6 qt)
+        # → pork 12 lb * 0.5 = 6 lb.
+        out = expand_recipe(manifest, "queso", qty=22, unit="qt")
+        self.assertAlmostEqual(out["pork", "lb"], 6.0, places=6)
+
+    def test_pack_size_recipe_node_path_also_resolves(self) -> None:
+        gc = _mk(
+            "green_chile", "Green Chile", 6, "qt",
+            bom=[("pork", 12, "lb", False)],
+            pack_conversions={"bag": (3.0, "qt")},
+        )
+        queso = _mk(
+            "queso", "Queso", 22, "qt",
+            sub_recipe_slugs=["green_chile"],
+            bom=[("green_chile", 1, "bag", True)],
+        )
+        manifest = {"green_chile": gc, "queso": queso}
+        nodes = expand_recipe_demand(manifest, [("queso", 22, "qt")])
+        # green_chile node recorded at 3 qt (1 bag).
+        self.assertAlmostEqual(nodes["green_chile", "qt"], 3.0, places=6)
+
+    def test_pack_size_parsed_from_index_csv(self) -> None:
+        import csv as _csv
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as d:
+            idx = Path(d) / "recipe_index.csv"
+            bom = Path(d) / "bom.csv"
+            with idx.open("w", newline="") as f:
+                w = _csv.writer(f)
+                w.writerow(
+                    ["recipe_id", "recipe_name", "yield", "yield_unit",
+                     "sub_recipes", "notes", "pack_size"]
+                )
+                w.writerow(["green_chile", "Green Chile", "6", "qt", "", "", "bag:3:qt"])
+            with bom.open("w", newline="") as f:
+                w = _csv.writer(f)
+                w.writerow(["recipe_id", "ingredient", "qty", "unit", "notes"])
+                w.writerow(["green_chile", "pork", "12", "lb", ""])
+            manifest = build_manifest(idx, bom)
+        self.assertEqual(manifest["green_chile"].pack_conversions, {"bag": (3.0, "qt")})
+
+    def test_unconvertible_without_pack_size_names_pack_size(self) -> None:
+        # No pack declared: the fail-loud message must name pack_size + a remedy.
+        gc = _mk("green_chile", "Green Chile", 6, "qt", bom=[("pork", 12, "lb", False)])
+        queso = _mk(
+            "queso_mac_sauce", "Queso", 22, "qt",
+            sub_recipe_slugs=["green_chile"],
+            bom=[("green_chile", 1, "bag", True)],
+        )
+        with self.assertRaises(UnitMismatchError) as cm:
+            expand_recipe({"green_chile": gc, "queso_mac_sauce": queso}, "queso_mac_sauce", 22, "qt")
+        msg = str(cm.exception)
+        self.assertIn("pack_size", msg)
+        self.assertIn("bag", msg)
+        self.assertIn("green_chile", msg)
+
+
+class ExplicitSubRecipePin(unittest.TestCase):
+    """A BOM row's notes may carry `(sub-recipe=<slug>)` to bind a child
+    deterministically when the ingredient name does not token-match the slug."""
+
+    def test_pin_binds_child_when_name_mismatches(self) -> None:
+        # 'birria seasoning' does NOT token-resolve to 'qb_seasoning'; the pin
+        # binds it anyway.
+        seasoning = _mk("qb_seasoning", "QB Seasoning", 4, "qt", bom=[("salt", 2, "qt", False)])
+        birria = _mk(
+            "birria", "Birria", 16, "qt",
+            sub_recipe_slugs=["qb_seasoning"],
+            bom=[("birria seasoning", 1, "qt", True, "qb_seasoning")],
+        )
+        out = expand_recipe({"qb_seasoning": seasoning, "birria": birria}, "birria", 16, "qt")
+        # 1 qt seasoning = 0.25 batch (yields 4 qt) → salt 2 * 0.25 = 0.5 qt.
+        self.assertAlmostEqual(out["salt", "qt"], 0.5, places=6)
+
+    def test_pin_parsed_from_notes_marker(self) -> None:
+        import csv as _csv
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as d:
+            idx = Path(d) / "recipe_index.csv"
+            bom = Path(d) / "bom.csv"
+            with idx.open("w", newline="") as f:
+                w = _csv.writer(f)
+                w.writerow(["recipe_id", "recipe_name", "yield", "yield_unit", "sub_recipes", "notes"])
+                w.writerow(["qb_seasoning", "QB Seasoning", "4", "qt", "", ""])
+                w.writerow(["birria", "Birria", "16", "qt", "qb_seasoning", ""])
+            with bom.open("w", newline="") as f:
+                w = _csv.writer(f)
+                w.writerow(["recipe_id", "ingredient", "qty", "unit", "notes"])
+                w.writerow(["qb_seasoning", "salt", "2", "qt", ""])
+                w.writerow(["birria", "birria seasoning", "1", "qt", "(sub-recipe=qb_seasoning)"])
+            manifest = build_manifest(idx, bom)
+        row = manifest["birria"].bom[0]
+        self.assertEqual(row["sub_slug"], "qb_seasoning")
+        self.assertTrue(row["is_sub_recipe"])
+
+    def test_pin_to_unknown_slug_raises(self) -> None:
+        birria = _mk(
+            "birria", "Birria", 16, "qt",
+            bom=[("birria seasoning", 1, "qt", True, "does_not_exist")],
+        )
+        with self.assertRaises(UnknownRecipeError):
+            expand_recipe({"birria": birria}, "birria", 16, "qt")
+
+
+class ManifestWarnings(unittest.TestCase):
+    """`find_manifest_warnings` surfaces a declared sub_recipe that no BOM row
+    references (pin or name) — an orphan declaration that would silently never
+    be produced."""
+
+    def test_unreferenced_declared_sub_is_warned(self) -> None:
+        # beer_batter DECLARES beer_flour as a sub but no BOM row references it.
+        flour = _mk("beer_flour", "Beer Flour", 4, "qt", bom=[("flour", 2, "qt", False)])
+        batter = _mk(
+            "beer_batter", "Beer Batter", 8, "qt",
+            sub_recipe_slugs=["beer_flour"],
+            bom=[("water", 3, "qt", False)],
+        )
+        warns = {(w["recipe"], w["sub_slug"]) for w in find_manifest_warnings({"beer_flour": flour, "beer_batter": batter})}
+        self.assertIn(("beer_batter", "beer_flour"), warns)
+
+    def test_referenced_sub_is_not_warned(self) -> None:
+        flour = _mk("beer_flour", "Beer Flour", 4, "qt", bom=[("flour", 2, "qt", False)])
+        batter = _mk(
+            "beer_batter", "Beer Batter", 8, "qt",
+            sub_recipe_slugs=["beer_flour"],
+            bom=[("beer_flour", 1, "qt", True)],
+        )
+        warns = {(w["recipe"], w["sub_slug"]) for w in find_manifest_warnings({"beer_flour": flour, "beer_batter": batter})}
+        self.assertNotIn(("beer_batter", "beer_flour"), warns)
+
+    def test_pinned_sub_is_not_warned(self) -> None:
+        seasoning = _mk("qb_seasoning", "QB Seasoning", 4, "qt", bom=[("salt", 2, "qt", False)])
+        birria = _mk(
+            "birria", "Birria", 16, "qt",
+            sub_recipe_slugs=["qb_seasoning"],
+            bom=[("birria seasoning", 1, "qt", True, "qb_seasoning")],
+        )
+        warns = {(w["recipe"], w["sub_slug"]) for w in find_manifest_warnings({"qb_seasoning": seasoning, "birria": birria})}
+        self.assertNotIn(("birria", "qb_seasoning"), warns)
 
 
 if __name__ == "__main__":
