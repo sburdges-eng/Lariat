@@ -69,6 +69,7 @@ def build_cascade(
     qty_in_yield_units: bool = False,
     inventory: dict[tuple[str, str], float] | None = None,
     map_warnings: Iterable[Unmapped] = (),
+    scales: dict[tuple[str, str], float] | None = None,
 ) -> dict:
     """Pure, testable cascade core.
 
@@ -101,6 +102,7 @@ def build_cascade(
         manifest,
         beo_map,
         qty_in_yield_units=qty_in_yield_units,
+        scales=scales,
     )
 
     # Shared sink: a single bad recipe (incompatible unit / unknown sub /
@@ -208,7 +210,7 @@ def main() -> int:
         return 2
 
     try:
-        beo_map, map_unresolved = load_beo_recipe_map(map_csv, manifest)
+        beo_map, map_unresolved, map_scales = load_beo_recipe_map(map_csv, manifest)
     except Exception as e:
         _fail(f"failed to load recipe map: {e}")
         return 2
@@ -243,6 +245,7 @@ def main() -> int:
             qty_in_yield_units=qty_in_yield_units,
             inventory=inventory,
             map_warnings=map_unresolved,
+            scales=map_scales,
         )
     except (UnknownRecipeError, UnitMismatchError, RecipeCycleError) as e:
         _fail(str(e))

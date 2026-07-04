@@ -75,15 +75,21 @@ def _norm_name(s: str | None) -> str:
 def load_beo_recipe_map(
     csv_path: Path,
     manifest: dict[str, Manifest],
-) -> tuple[dict[str, list[str]], list[Unmapped]]:
-    """Return (lookup, unresolved).
+) -> tuple[dict[str, list[str]], list[Unmapped], dict[tuple[str, str], float]]:
+    """Return (lookup, unresolved, scales).
 
-    The CSV has columns `beo_item, recipe_id`, where `recipe_id` in the
-    source file is actually a RECIPE DISPLAY NAME (e.g. "Queso / Mac
+    The CSV has columns `beo_item, recipe_id[, per_count]`, where `recipe_id`
+    in the source file is actually a RECIPE DISPLAY NAME (e.g. "Queso / Mac
     Sauce"), not a slug. We resolve to slugs by matching against
     `manifest[slug].display_name` case-insensitively. Any map entry that
     doesn't resolve is returned in `unresolved` — the caller decides
     whether to fail or warn.
+
+    The optional `per_count` column is a per-mapping scale factor: how many
+    of the recipe's YIELD UNITS one BEO line-item count produces (e.g. one
+    "pan" of Green Chile Mac = 5.5 qt of queso). It is returned in `scales`,
+    keyed by `(normalized_menu_item, slug)`. Rows without a `per_count`
+    fall back to the caller's default interpretation (unchanged behavior).
 
     Multiple rows per `beo_item` are permitted; all mapped recipes are
     attached to that menu item.
@@ -91,8 +97,9 @@ def load_beo_recipe_map(
     csv_path = Path(csv_path)
     lookup: dict[str, list[str]] = {}
     unresolved: list[Unmapped] = []
+    scales: dict[tuple[str, str], float] = {}
     if not csv_path.exists():
-        return lookup, [Unmapped("(whole map file)", f"not found: {csv_path}")]
+        return lookup, [Unmapped("(whole map file)", f"not found: {csv_path}")], scales
 
     display_to_slug: dict[str, str] = {}
     for slug, m in manifest.items():
@@ -113,9 +120,16 @@ def load_beo_recipe_map(
                     Unmapped(menu_item, f"map references {recipe_key!r}, no such recipe")
                 )
                 continue
-            lookup.setdefault(_norm_name(menu_item), []).append(slug)
+            name_key = _norm_name(menu_item)
+            lookup.setdefault(name_key, []).append(slug)
+            raw_pc = (row.get("per_count") or "").strip()
+            if raw_pc:
+                try:
+                    scales[(name_key, slug)] = float(raw_pc)
+                except ValueError:
+                    pass  # malformed → ignore, fall back to default scaling
 
-    return lookup, unresolved
+    return lookup, unresolved, scales
 
 
 # ---------------------------------------------------------------------------
@@ -129,12 +143,15 @@ def build_demand(
     beo_map: dict[str, list[str]],
     *,
     qty_in_yield_units: bool = False,
+    scales: dict[tuple[str, str], float] | None = None,
 ) -> tuple[list[tuple[str, float, str]], list[Unmapped]]:
     """Convert invoice rows to demand triples.
 
-    Default: invoice `qty` is "number of batches" at the recipe's natural
-    yield. `qty_in_yield_units=True` treats it as already expressed in
-    the recipe's yield unit (e.g. 4 qt of queso).
+    Scaling precedence, per (menu_item, recipe) mapping:
+      1. `scales[(name_key, slug)]` present  → qty * per_count in yield units
+         (the BEO count times an explicit per-mapping portion factor).
+      2. `qty_in_yield_units=True`           → qty as-is in yield units.
+      3. default                             → qty * yield_qty (batch counts).
 
     Unmapped menu items are reported; they do NOT raise.
     """
@@ -161,7 +178,11 @@ def build_demand(
             if m is None:
                 unmapped.append(Unmapped(row.menu_item, f"map points to unknown slug {slug!r}"))
                 continue
-            if qty_in_yield_units:
+            per_count = scales.get((name_key, slug)) if scales else None
+            if per_count is not None:
+                # Explicit per-mapping scale: BEO count → recipe yield units.
+                demand.append((slug, float(row.qty) * per_count, m.yield_unit))
+            elif qty_in_yield_units:
                 demand_unit = row.unit.strip() or m.yield_unit
                 demand.append((slug, float(row.qty), demand_unit))
             else:

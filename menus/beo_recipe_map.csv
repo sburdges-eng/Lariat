@@ -1,4 +1,4 @@
-beo_item,recipe_id
+beo_item,recipe_id,per_count
 Battered Fish Taco,Fish Brine
 Battered Fish Taco,Beer Batter
 Battered Fish Taco,Chipotle Aioli
@@ -15,8 +15,8 @@ Churros,Churros
 Philo Bites,Philo Bites
 Pig Wings,Alabama White Sauce
 Pig Wings,Lariat Rub
-Green Chile Mac Buffet,Queso / Mac Sauce
-Green Chile Mac Buffet,Green Chile
+Green Chile Mac Buffet,Queso / Mac Sauce,5.5
+Green Chile Mac Buffet,Green Chile,0
 Fish Taco Buffet,Fish Brine
 Fish Taco Buffet,Beer Batter
 Fish Taco Buffet,Chipotle Aioli
