@@ -4168,5 +4168,134 @@
       "milk",
       "wheat"
     ]
+  },
+  {
+    "name": "Green Salt",
+    "ingredients": [
+      {
+        "item": "parsley",
+        "qty": 20,
+        "unit": "g"
+      },
+      {
+        "item": "picked thyme",
+        "qty": 10,
+        "unit": "g"
+      },
+      {
+        "item": "picked tarragon",
+        "qty": 10,
+        "unit": "g"
+      },
+      {
+        "item": "picked rosemary",
+        "qty": 10,
+        "unit": "g"
+      },
+      {
+        "item": "lemon zest",
+        "qty": 3,
+        "unit": "ea"
+      },
+      {
+        "item": "garlic",
+        "qty": 50,
+        "unit": "g"
+      },
+      {
+        "item": "salt",
+        "qty": 1200,
+        "unit": "g"
+      }
+    ],
+    "procedure": "Blend herbs, lemon zest and garlic with half the salt; spread and dry under a heat lamp; fold in the remaining salt once dried.",
+    "slug": "green_salt",
+    "source": "chef",
+    "allergens": [],
+    "category": "seasoning",
+    "yield_qty": 1300,
+    "yield_unit": "g",
+    "station": "prep",
+    "menu_items": [
+      "Roasted Chicken Leg"
+    ],
+    "notes": "Blend with half the salt; dry under lamp; add remaining salt after dried",
+    "direct_allergens": [],
+    "sub_recipes": []
+  },
+  {
+    "name": "Roasted Chicken Leg",
+    "ingredients": [
+      {
+        "item": "redbird chicken legs",
+        "qty": 1,
+        "unit": "case"
+      },
+      {
+        "item": "green salt",
+        "qty": 50,
+        "unit": "g"
+      },
+      {
+        "item": "rosemary",
+        "qty": 1,
+        "unit": "sprig"
+      },
+      {
+        "item": "thyme",
+        "qty": 1,
+        "unit": "sprig"
+      },
+      {
+        "item": "garlic cloves",
+        "qty": 8,
+        "unit": "ea"
+      },
+      {
+        "item": "olive oil",
+        "qty": 1,
+        "unit": "cup"
+      }
+    ],
+    "procedure": "Season redbird legs with green salt; roast with rosemary, thyme, smashed garlic and olive oil.",
+    "slug": "roasted_chicken_leg",
+    "source": "chef",
+    "allergens": [],
+    "category": "entree",
+    "yield_qty": 1,
+    "yield_unit": "case",
+    "station": "grill",
+    "menu_items": [
+      "Roasted Chicken Leg"
+    ],
+    "notes": "Green salt amount (50 g) and olive oil (1 cup) are estimates — confirm",
+    "direct_allergens": [],
+    "sub_recipes": [
+      "green_salt"
+    ]
+  },
+  {
+    "name": "Roasted Root Veg",
+    "ingredients": [
+      {
+        "item": "roasted root veg (sysco)",
+        "qty": 1,
+        "unit": "case"
+      }
+    ],
+    "procedure": "Whole-buy from Sysco; heat and serve.",
+    "slug": "roasted_root_veg",
+    "source": "sysco",
+    "allergens": [],
+    "category": "side",
+    "yield_qty": 1,
+    "yield_unit": "case",
+    "station": "saute",
+    "menu_items": [
+      "Roasted Root Veg"
+    ],
+    "notes": "Sysco purchased product — heat and serve",
+    "direct_allergens": [],
+    "sub_recipes": []
   }
 ]
