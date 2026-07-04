@@ -190,13 +190,13 @@ class BuildCascadeUnit(unittest.TestCase):
         names = [row["display_name"].lower() for row in result["prep_demands"]]
         self.assertEqual(names, sorted(names))
 
-    def test_expansion_error_propagates_on_missing_sub_recipe(self) -> None:
-        """build_cascade must propagate an error when a recipe's BOM references
-        a sub-recipe slug that is absent from the manifest dict.
-
-        The missing-sub-recipe lookup inside bom_expand raises KeyError
-        (UnknownRecipeError is its subclass; both surface as KeyError here).
-        """
+    def test_missing_sub_recipe_degrades_to_warning(self) -> None:
+        """build_cascade runs in graceful (warnings-sink) mode: a BOM row that
+        references a sub-recipe absent from the manifest must degrade to a
+        warning (skip that branch, keep the rest of the event) instead of
+        aborting the whole cascade with a raw KeyError. Fail-loud is preserved
+        for the no-sink expand_* entry points (see test_bom_expand.py's
+        test_pin_to_unknown_slug_raises)."""
         # 'broken_dip' BOM marks 'missing_sub' as a sub-recipe, but
         # 'missing_sub' is NOT present in the manifest dict.
         broken = Manifest(
@@ -212,14 +212,16 @@ class BuildCascadeUnit(unittest.TestCase):
         manifest_with_gap = {"broken_dip": broken}
         beo_map_with_gap: dict[str, list[str]] = {"broken dip": ["broken_dip"]}
 
-        # KeyError is the base of UnknownRecipeError; the bare manifest[sub_slug]
-        # lookup inside _expand_into / _accumulate_recipe_demand raises KeyError.
-        with self.assertRaises(KeyError):
-            build_cascade(
-                manifest_with_gap,
-                beo_map_with_gap,
-                [{"item_name": "Broken Dip", "quantity": 1}],
-            )
+        result = build_cascade(
+            manifest_with_gap,
+            beo_map_with_gap,
+            [{"item_name": "Broken Dip", "quantity": 1}],
+        )
+        # Did not raise; surfaced the gap as a warning naming the missing sub.
+        self.assertTrue(
+            any("missing_sub" in w for w in result["warnings"]),
+            f"expected a warning naming missing_sub, got {result['warnings']}",
+        )
 
 
 # ---------------------------------------------------------------------------
