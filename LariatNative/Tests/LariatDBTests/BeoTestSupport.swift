@@ -127,6 +127,39 @@ func seedBeoDatabase() throws -> String {
               note TEXT,
               created_at TEXT DEFAULT (datetime('now'))
             );
+
+            -- inventory_counts / inventory_count_lines (lib/db.ts:1052/1064) —
+            -- the cascade repository subtracts the latest count's on-hand stock.
+            CREATE TABLE inventory_counts (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              count_date TEXT NOT NULL,
+              label TEXT,
+              opened_at TEXT DEFAULT (datetime('now')),
+              closed_at TEXT,
+              cook_id TEXT,
+              location_id TEXT NOT NULL DEFAULT 'default'
+            );
+            CREATE INDEX idx_inv_counts_loc_date
+              ON inventory_counts(location_id, count_date DESC);
+
+            CREATE TABLE inventory_count_lines (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              count_id INTEGER NOT NULL REFERENCES inventory_counts(id) ON DELETE CASCADE,
+              vendor TEXT,
+              ingredient TEXT NOT NULL,
+              sku TEXT NOT NULL DEFAULT '',
+              on_hand_qty REAL,
+              unit TEXT,
+              par_qty REAL,
+              par_unit TEXT,
+              note TEXT,
+              counted_by TEXT,
+              counted_at TEXT DEFAULT (datetime('now')),
+              location_id TEXT NOT NULL DEFAULT 'default',
+              UNIQUE(count_id, ingredient, sku)
+            );
+            CREATE INDEX idx_inv_count_lines_count
+              ON inventory_count_lines(count_id);
             """)
     }
     return path

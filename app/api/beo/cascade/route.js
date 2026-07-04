@@ -53,11 +53,30 @@ export async function GET(req) {
 
     const lineItems = rows.map((r) => ({ item_name: r.item_name, quantity: r.quantity }));
 
+    // Load the latest inventory count for this location so the engine can
+    // subtract on-hand stock (to_order = total_needed − on_hand). beo_line_items
+    // has no location_id, but the count tables do — scope the count to the
+    // event's already-verified location. A location with no count yields [].
+    const inventory = db
+      .prepare(
+        `SELECT ingredient, unit, on_hand_qty AS on_hand
+           FROM inventory_count_lines
+          WHERE on_hand_qty IS NOT NULL
+            AND count_id = (
+              SELECT id FROM inventory_counts
+               WHERE location_id = ?
+               ORDER BY count_date DESC, id DESC
+               LIMIT 1
+            )`,
+      )
+      .all(location)
+      .map((r) => ({ ingredient: r.ingredient, unit: r.unit || '', on_hand: r.on_hand }));
+
     let result;
     try {
       // BEO quantities are individual item counts for pricing (unit_cost × qty = total),
       // not recipe batch counts — pass qtyInYieldUnits so the engine doesn't multiply by yield.
-      result = await cascadeFromLineItems(lineItems, { qtyInYieldUnits: true });
+      result = await cascadeFromLineItems(lineItems, { qtyInYieldUnits: true, inventory });
     } catch (err) {
       // CascadeError (engine/data condition) — return consistent shape with error banner info.
       return json(
