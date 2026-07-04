@@ -4297,5 +4297,29 @@
     "notes": "Sysco purchased product — heat and serve",
     "direct_allergens": [],
     "sub_recipes": []
+  },
+  {
+    "name": "Breakfast Burrito",
+    "ingredients": [
+      {
+        "item": "breakfast burrito",
+        "qty": 1,
+        "unit": "each"
+      }
+    ],
+    "procedure": "Assembled Sunday AM (smaller tortillas); stubbed as order-by-each.",
+    "slug": "breakfast_burrito",
+    "source": "chef",
+    "allergens": [],
+    "category": "entree",
+    "yield_qty": 1,
+    "yield_unit": "each",
+    "station": "saute",
+    "menu_items": [
+      "Breakfast Burrito"
+    ],
+    "notes": "Made Sunday AM — stubbed order-by-each",
+    "direct_allergens": [],
+    "sub_recipes": []
   }
 ]
