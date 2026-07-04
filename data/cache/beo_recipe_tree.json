@@ -33,6 +33,12 @@
       "chicken_confit",
       "aji_verde"
     ],
+    "breakfast burrito": [
+      "breakfast_burrito"
+    ],
+    "bri and raspberry philo bites": [
+      "philo_bites"
+    ],
     "caprese skewers": [
       "caprese_skewers"
     ],
@@ -120,6 +126,9 @@
     "pork belly bao bun": [
       "pork_belly_bao_bun"
     ],
+    "prime rib carving station": [
+      "prime_rib"
+    ],
     "prime rib dinner": [
       "prime_rib"
     ],
@@ -141,6 +150,10 @@
       "rope_pickle",
       "special_sauce",
       "coleslaw"
+    ],
+    "rope caesar salad buffet": [
+      "santa_fe_caesar",
+      "roasted_pepitas"
     ],
     "spanish artisanal board": [
       "artisanal_board"
@@ -627,6 +640,24 @@
           "item": "minced garlic",
           "qty": 1.5,
           "unit": "cup",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "breakfast_burrito": {
+      "name": "Breakfast Burrito",
+      "station": "saute",
+      "category": "entree",
+      "prep_timing": "day_of",
+      "yield_qty": 1,
+      "yield_unit": "each",
+      "notes": "Made Sunday AM — stubbed order-by-each",
+      "ingredients": [
+        {
+          "item": "breakfast burrito",
+          "qty": 1.0,
+          "unit": "each",
           "recipe": null
         }
       ],
@@ -2509,6 +2540,66 @@
           "item": "dill",
           "qty": 30.0,
           "unit": "g",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
+    "santa_fe_caesar": {
+      "name": "Santa Fe Caesar Dressing",
+      "station": "salad",
+      "category": "dressing",
+      "prep_timing": "day_before",
+      "yield_qty": 2,
+      "yield_unit": "qt",
+      "notes": "Chipotle caesar — blend while incorporating EVOO",
+      "ingredients": [
+        {
+          "item": "anchovy",
+          "qty": 5.0,
+          "unit": "ea",
+          "recipe": null
+        },
+        {
+          "item": "capers",
+          "qty": 1.0,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "dijon mustard",
+          "qty": 0.75,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "lime juice",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "chipotle puree",
+          "qty": 0.75,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "mayonnaise",
+          "qty": 3.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "garlic",
+          "qty": 0.5,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "cilantro",
+          "qty": 1.0,
+          "unit": "cup",
           "recipe": null
         }
       ],
