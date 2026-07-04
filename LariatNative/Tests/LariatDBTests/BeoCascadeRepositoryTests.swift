@@ -216,4 +216,21 @@ final class BeoCascadeRepositoryTests: XCTestCase {
         let inv = try await captureInventory(eventId: evId, locationId: "default")
         XCTAssertTrue(inv.isEmpty, "another location's inventory must not be applied")
     }
+
+    /// Web parity: the cascade route surfaces manifest_warnings from the engine
+    /// (a declared sub-recipe no BOM row references) on the outcome.
+    func testManifestWarningsSurfaceInOutcome() async throws {
+        let evId = try fixture.seedEvent()
+        try fixture.seedLineItem(eventId: evId, item: "Battered Fish Taco", qty: 40)
+        let cli = """
+        {"order_guide": [], "prep_demands": [], "unmapped": [],
+         "manifest_warnings": [{"recipe": "beer_batter", "issue": "declares sub-recipe 'beer_flour' but no BOM row references it"}]}
+        """
+        let outcome = try await repo(cliOutput: cli).cascade(eventId: evId, locationId: "default")
+        XCTAssertEqual(outcome.manifestWarnings.map(\.recipe), ["beer_batter"])
+        XCTAssertEqual(
+            outcome.manifestWarnings.first?.issue,
+            "declares sub-recipe 'beer_flour' but no BOM row references it"
+        )
+    }
 }

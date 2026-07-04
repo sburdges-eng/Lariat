@@ -46,6 +46,7 @@ from scripts.lib.bom_expand import (  # noqa: E402
     UnknownRecipeError,
     build_manifest_from_normalized,
     expand_recipe_demand,
+    find_manifest_warnings,
 )
 from scripts.lib.beo_pull import (  # noqa: E402
     InvoiceRow,
@@ -59,6 +60,23 @@ from scripts.lib.beo_pull import (  # noqa: E402
 # ---------------------------------------------------------------------------
 # Testable core
 # ---------------------------------------------------------------------------
+
+
+def _reachable_slugs(
+    manifest: dict[str, Manifest], demand: list[tuple[str, float, str]]
+) -> set[str]:
+    """Every recipe slug reachable from this event's demand — the top-level
+    demand slugs plus their transitive declared sub-recipes. Used to scope
+    manifest warnings to recipes the event actually touches."""
+    seen: set[str] = set()
+    stack = [slug for (slug, _qty, _unit) in demand]
+    while stack:
+        slug = stack.pop()
+        if slug in seen or slug not in manifest:
+            continue
+        seen.add(slug)
+        stack.extend(manifest[slug].sub_recipe_slugs)
+    return seen
 
 
 def build_cascade(
@@ -146,11 +164,23 @@ def build_cascade(
     seen: set[str] = set()
     warnings = [w for w in cascade_warnings if not (w in seen or seen.add(w))]
 
+    # Manifest integrity, scoped to the recipes THIS event actually reaches:
+    # a declared sub-recipe that no BOM row references (an orphan that would
+    # silently never be produced). Non-fatal — surfaced, not raised. Scoping
+    # keeps an unrelated recipe's data gap from showing on every event.
+    reachable = _reachable_slugs(manifest, demand)
+    manifest_warnings = [
+        {"recipe": w["recipe"], "issue": w["issue"]}
+        for w in find_manifest_warnings(manifest)
+        if w["recipe"] in reachable
+    ]
+
     return {
         "order_guide": order_guide,
         "prep_demands": prep_demands,
         "unmapped": unmapped,
         "warnings": warnings,
+        "manifest_warnings": manifest_warnings,
     }
 
 

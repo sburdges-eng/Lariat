@@ -48,15 +48,32 @@ public struct CascadeUnmappedRow: Equatable, Sendable {
     }
 }
 
+public struct CascadeManifestWarningRow: Equatable, Sendable {
+    public let recipe: String
+    public let issue: String
+
+    public init(recipe: String, issue: String) {
+        self.recipe = recipe
+        self.issue = issue
+    }
+}
+
 public struct CascadeResult: Equatable, Sendable {
     public let orderGuide: [CascadeOrderGuideRow]
     public let prepDemands: [CascadePrepDemandRow]
     public let unmapped: [CascadeUnmappedRow]
+    public let manifestWarnings: [CascadeManifestWarningRow]
 
-    public init(orderGuide: [CascadeOrderGuideRow], prepDemands: [CascadePrepDemandRow], unmapped: [CascadeUnmappedRow]) {
+    public init(
+        orderGuide: [CascadeOrderGuideRow],
+        prepDemands: [CascadePrepDemandRow],
+        unmapped: [CascadeUnmappedRow],
+        manifestWarnings: [CascadeManifestWarningRow] = []
+    ) {
         self.orderGuide = orderGuide
         self.prepDemands = prepDemands
         self.unmapped = unmapped
+        self.manifestWarnings = manifestWarnings
     }
 }
 
@@ -236,6 +253,11 @@ public struct BeoCascadeClient {
             unmapped: unmapped.map { row in
                 let r = row as? [String: Any] ?? [:]
                 return CascadeUnmappedRow(menuItem: str(r["menu_item"]), reason: str(r["reason"]))
+            },
+            // Additive + optional: older CLIs omit manifest_warnings → [].
+            manifestWarnings: (obj["manifest_warnings"] as? [Any] ?? []).map { row in
+                let r = row as? [String: Any] ?? [:]
+                return CascadeManifestWarningRow(recipe: str(r["recipe"]), issue: str(r["issue"]))
             }
         )
     }

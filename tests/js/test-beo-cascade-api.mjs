@@ -181,6 +181,22 @@ describe('GET /api/beo/cascade', () => {
     assert.ok('order_guide' in j, 'must have order_guide');
     assert.ok('prep_demands' in j, 'must have prep_demands');
     assert.ok('unmapped' in j, 'must have unmapped');
+    assert.ok('manifest_warnings' in j, 'must have manifest_warnings');
+  });
+
+  it('surfaces manifest_warnings for recipes that declare an unreferenced sub-recipe', async () => {
+    const evId = seedEvent();
+    seedLine({ event_id: evId, item_name: 'Battered Fish Taco', quantity: 40 });
+    const res = await route.GET(makeReq(`?event_id=${evId}`));
+    const j = await res.json();
+    assert.ok(Array.isArray(j.manifest_warnings), 'manifest_warnings must be an array');
+    // Live data has 2 known orphan declarations (birria, beer_batter); each row
+    // carries a recipe + a human-readable issue.
+    assert.ok(j.manifest_warnings.length >= 1, 'expected >= 1 manifest warning on real data');
+    for (const w of j.manifest_warnings) {
+      assert.ok(typeof w.recipe === 'string' && w.recipe, 'warning has a recipe');
+      assert.ok(typeof w.issue === 'string' && w.issue, 'warning has an issue');
+    }
   });
 
   it('subtracts on-hand from the order guide (latest inventory count for the location)', async () => {

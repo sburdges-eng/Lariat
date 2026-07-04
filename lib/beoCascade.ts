@@ -33,10 +33,16 @@ export interface UnmappedRow {
   reason: string;
 }
 
+export interface ManifestWarningRow {
+  recipe: string;
+  issue: string;
+}
+
 export interface CascadeResult {
   orderGuide: OrderGuideRow[];
   prepDemands: PrepDemandRow[];
   unmapped: UnmappedRow[];
+  manifestWarnings: ManifestWarningRow[];
 }
 
 export interface CascadeOptions {
@@ -89,7 +95,7 @@ export async function cascadeFromLineItems(
 ): Promise<CascadeResult> {
   // Short-circuit: no work to do, no reason to pay spawn cost.
   if (lineItems.length === 0) {
-    return { orderGuide: [], prepDemands: [], unmapped: [] };
+    return { orderGuide: [], prepDemands: [], unmapped: [], manifestWarnings: [] };
   }
 
   const root = opts?.root ?? resolveProjectRoot();
@@ -192,5 +198,13 @@ function parseCascadeResponse(raw: string): CascadeResult {
     reason: String(row.reason ?? ''),
   }));
 
-  return { orderGuide, prepDemands, unmapped };
+  // Additive + optional: older CLIs omit manifest_warnings — default to [].
+  const manifestWarnings: ManifestWarningRow[] = Array.isArray(obj.manifest_warnings)
+    ? (obj.manifest_warnings as Array<Record<string, unknown>>).map((row) => ({
+        recipe: String(row.recipe ?? ''),
+        issue: String(row.issue ?? ''),
+      }))
+    : [];
+
+  return { orderGuide, prepDemands, unmapped, manifestWarnings };
 }
