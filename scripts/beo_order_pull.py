@@ -143,7 +143,7 @@ def main() -> int:
         return 1
 
     manifest = build_manifest(recipes_csv, bom_csv)
-    beo_map, map_unresolved = load_beo_recipe_map(map_csv, manifest)
+    beo_map, map_unresolved, map_scales = load_beo_recipe_map(map_csv, manifest)
 
     for u in map_unresolved:
         print(f"  WARN map entry skipped: {u.menu_item!r} — {u.reason}", file=sys.stderr)
@@ -171,6 +171,7 @@ def main() -> int:
         manifest,
         beo_map,
         qty_in_yield_units=args.qty_in_yield_units,
+        scales=map_scales,
     )
     for u in unmapped:
         print(f"  WARN invoice row skipped: {u.menu_item!r} — {u.reason}", file=sys.stderr)

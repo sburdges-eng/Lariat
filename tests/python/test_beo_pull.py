@@ -117,6 +117,39 @@ class BuildDemand(unittest.TestCase):
         slugs = {d[0] for d in demand}
         self.assertEqual(slugs, {"blackened_tomato_salsa", "queso_mac_sauce"})
 
+    def test_per_mapping_scale_factor_overrides_yield_units(self) -> None:
+        """A per_count factor converts a BEO count to yield units:
+        4 mac pans * 5.5 qt/pan = 22 qt (one queso batch)."""
+        beo_map = {"green chile mac buffet": ["queso_mac_sauce"]}
+        scales = {("green chile mac buffet", "queso_mac_sauce"): 5.5}
+        demand, unmapped = build_demand(
+            [InvoiceRow("Green Chile Mac Buffet", 4.0)],
+            _manifest(),
+            beo_map,
+            qty_in_yield_units=True,  # factor takes precedence over this
+            scales=scales,
+        )
+        self.assertEqual(unmapped, [])
+        self.assertEqual(demand, [("queso_mac_sauce", 22.0, "qt")])
+
+    def test_scale_factor_only_applies_to_its_mapping(self) -> None:
+        """A factor for one (item, slug) leaves other mappings on the
+        default interpretation."""
+        beo_map = {
+            "trio dips": ["blackened_tomato_salsa", "queso_mac_sauce"],
+        }
+        scales = {("trio dips", "queso_mac_sauce"): 2.0}
+        demand, _ = build_demand(
+            [InvoiceRow("Trio Dips", 3.0)],
+            _manifest(),
+            beo_map,
+            qty_in_yield_units=True,
+            scales=scales,
+        )
+        by_slug = {d[0]: d[1] for d in demand}
+        self.assertEqual(by_slug["queso_mac_sauce"], 6.0)         # 3 * 2.0 factor
+        self.assertEqual(by_slug["blackened_tomato_salsa"], 3.0)  # unscaled yield-units
+
     def test_direct_name_resolution_fallback(self) -> None:
         """If a menu item isn't in the map but EXACTLY matches a recipe
         display name, resolve it directly. Keeps the pipeline working
