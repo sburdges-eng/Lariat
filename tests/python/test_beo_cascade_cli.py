@@ -82,6 +82,68 @@ class BuildCascadeUnit(unittest.TestCase):
         # queso dip → queso_blanco recipe
         self.beo_map: dict[str, list[str]] = {"queso dip": ["queso_blanco"]}
 
+    def test_manifest_warnings_surfaces_orphan_declared_sub(self) -> None:
+        """A recipe that declares a sub_recipe no BOM row references must
+        appear in the result's manifest_warnings (not silently dropped)."""
+        orphan = Manifest(
+            slug="orphan_parent",
+            display_name="Orphan Parent",
+            yield_qty=4.0,
+            yield_unit="qt",
+            sub_recipe_slugs=["ghost_sub"],  # declared...
+            bom=[{"ingredient": "water", "qty": 1.0, "unit": "qt", "is_sub_recipe": False}],  # ...never referenced
+        )
+        ghost = Manifest(
+            slug="ghost_sub",
+            display_name="Ghost Sub",
+            yield_qty=2.0,
+            yield_unit="qt",
+            sub_recipe_slugs=[],
+            bom=[{"ingredient": "salt", "qty": 1.0, "unit": "qt", "is_sub_recipe": False}],
+        )
+        result = build_cascade(
+            {"orphan_parent": orphan, "ghost_sub": ghost},
+            {"orphan": ["orphan_parent"]},
+            [{"item_name": "Orphan", "quantity": 1}],
+        )
+        self.assertIn("manifest_warnings", result)
+        recipes = {w["recipe"] for w in result["manifest_warnings"]}
+        self.assertIn("orphan_parent", recipes)
+        self.assertTrue(all("issue" in w for w in result["manifest_warnings"]))
+
+    def test_manifest_warnings_scoped_to_event_recipes(self) -> None:
+        """An orphan declaration in a recipe THIS event doesn't reach must not
+        appear — no noise from an unrelated recipe's data gap."""
+        orphan = Manifest(
+            slug="orphan_parent", display_name="Orphan Parent",
+            yield_qty=4.0, yield_unit="qt", sub_recipe_slugs=["ghost_sub"],
+            bom=[{"ingredient": "water", "qty": 1.0, "unit": "qt", "is_sub_recipe": False}],
+        )
+        ghost = Manifest(
+            slug="ghost_sub", display_name="Ghost Sub", yield_qty=2.0, yield_unit="qt",
+            sub_recipe_slugs=[],
+            bom=[{"ingredient": "salt", "qty": 1.0, "unit": "qt", "is_sub_recipe": False}],
+        )
+        # Unrelated recipe with its OWN orphan — not in this event.
+        other = Manifest(
+            slug="other_dish", display_name="Other Dish", yield_qty=4.0, yield_unit="qt",
+            sub_recipe_slugs=["other_ghost"],
+            bom=[{"ingredient": "flour", "qty": 1.0, "unit": "qt", "is_sub_recipe": False}],
+        )
+        other_ghost = Manifest(
+            slug="other_ghost", display_name="Other Ghost", yield_qty=2.0, yield_unit="qt",
+            sub_recipe_slugs=[],
+            bom=[{"ingredient": "pepper", "qty": 1.0, "unit": "qt", "is_sub_recipe": False}],
+        )
+        result = build_cascade(
+            {"orphan_parent": orphan, "ghost_sub": ghost, "other_dish": other, "other_ghost": other_ghost},
+            {"orphan": ["orphan_parent"]},
+            [{"item_name": "Orphan", "quantity": 1}],
+        )
+        recipes = {w["recipe"] for w in result["manifest_warnings"]}
+        self.assertIn("orphan_parent", recipes)
+        self.assertNotIn("other_dish", recipes)
+
     def test_order_guide_contains_leaf_ingredients(self) -> None:
         """order_guide must contain the leaf ingredients from queso + salsa sub-recipe."""
         result = build_cascade(

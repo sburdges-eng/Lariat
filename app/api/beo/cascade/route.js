@@ -97,6 +97,7 @@ export async function GET(req) {
         order_guide: result.orderGuide,
         prep_demands: result.prepDemands,
         unmapped: result.unmapped,
+        manifest_warnings: result.manifestWarnings,
       },
       { status: 200 },
     );

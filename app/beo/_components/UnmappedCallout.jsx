@@ -7,14 +7,17 @@
 // swaps in as an alternative state.
 //
 // Props:
-//   unmapped  — array of { menu_item, reason } objects (may be empty)
-//   error     — optional engine error string (may be undefined/null)
+//   unmapped          — array of { menu_item, reason } objects (may be empty)
+//   error             — optional engine error string (may be undefined/null)
+//   manifestWarnings  — array of { recipe, issue } — a declared sub-recipe no
+//                       BOM row references (may under-order); event-scoped
 
-export default function UnmappedCallout({ unmapped = [], error }) {
+export default function UnmappedCallout({ unmapped = [], error, manifestWarnings = [] }) {
   const hasUnmapped = Array.isArray(unmapped) && unmapped.length > 0;
   const hasError = Boolean(error);
+  const hasManifestWarnings = Array.isArray(manifestWarnings) && manifestWarnings.length > 0;
 
-  if (!hasUnmapped && !hasError) return null;
+  if (!hasUnmapped && !hasError && !hasManifestWarnings) return null;
 
   return (
     <div data-testid="event-cascade-unmapped" className="beo-unmapped-callout">
@@ -22,6 +25,21 @@ export default function UnmappedCallout({ unmapped = [], error }) {
         <div className="beo-unmapped-error">
           <strong>Engine error:</strong> {error}
         </div>
+      )}
+      {hasManifestWarnings && (
+        <>
+          <div className="beo-unmapped-heading">
+            Recipe data gaps — a declared sub-recipe is never referenced (may under-order):
+          </div>
+          <ul className="beo-unmapped-list" data-testid="event-cascade-manifest-warnings">
+            {manifestWarnings.map((w, i) => (
+              <li key={`${w.recipe}-${i}`} className="beo-unmapped-item">
+                <strong>{w.recipe}</strong>
+                {w.issue ? <span className="beo-unmapped-reason"> — {w.issue}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </>
       )}
       {hasUnmapped && (
         <>

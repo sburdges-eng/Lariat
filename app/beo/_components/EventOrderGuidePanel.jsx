@@ -15,6 +15,7 @@ export default function EventOrderGuidePanel({ eventId, location = 'default' }) 
   const [state, setState] = useState('idle'); // 'idle' | 'loading' | 'error' | 'empty' | 'loaded'
   const [orderGuide, setOrderGuide] = useState([]);
   const [unmapped, setUnmapped] = useState([]);
+  const [manifestWarnings, setManifestWarnings] = useState([]);
   const [engineError, setEngineError] = useState(null);
 
   useEffect(() => {
@@ -39,10 +40,12 @@ export default function EventOrderGuidePanel({ eventId, location = 'default' }) 
         if (cancelled) return;
         const rows = Array.isArray(j.order_guide) ? j.order_guide : [];
         const unmappedItems = Array.isArray(j.unmapped) ? j.unmapped : [];
+        const warnings = Array.isArray(j.manifest_warnings) ? j.manifest_warnings : [];
         const err = j.error || null;
         setUnmapped(unmappedItems);
+        setManifestWarnings(warnings);
         setEngineError(err);
-        if (rows.length === 0 && unmappedItems.length === 0 && !err) {
+        if (rows.length === 0 && unmappedItems.length === 0 && warnings.length === 0 && !err) {
           setState('empty');
         } else {
           setOrderGuide(rows);
@@ -86,7 +89,7 @@ export default function EventOrderGuidePanel({ eventId, location = 'default' }) 
 
   return (
     <div className="beo-order-guide-panel">
-      <UnmappedCallout unmapped={unmapped} error={engineError} />
+      <UnmappedCallout unmapped={unmapped} error={engineError} manifestWarnings={manifestWarnings} />
       <table data-testid="event-order-guide-table" className="beo-order-guide-table">
         <thead>
           <tr>

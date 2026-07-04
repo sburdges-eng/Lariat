@@ -63,6 +63,18 @@ const CASCADE_WITH_ENGINE_ERROR = {
   error: 'engine exploded on recipe lookup',
 };
 
+const CASCADE_WITH_MANIFEST_WARNINGS = {
+  event_id: 7,
+  order_guide: [
+    { ingredient: 'flour', unit: 'lb', total_needed: 10.0, on_hand: 0, to_order: 10.0 },
+  ],
+  prep_demands: [],
+  unmapped: [],
+  manifest_warnings: [
+    { recipe: 'beer_batter', issue: "declares sub-recipe 'beer_flour' but no BOM row references it" },
+  ],
+};
+
 // ── tests ─────────────────────────────────────────────────────────
 
 describe('EventOrderGuidePanel', () => {
@@ -217,5 +229,36 @@ describe('EventOrderGuidePanel', () => {
     });
 
     expect(screen.getByText(/engine exploded on recipe lookup/)).toBeInTheDocument();
+  });
+
+  test('renders manifest warnings (declared-but-unreferenced sub-recipe) in the callout', async () => {
+    mockFetchOk(CASCADE_WITH_MANIFEST_WARNINGS);
+    render(<EventOrderGuidePanel eventId={7} location="default" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('event-cascade-manifest-warnings')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/beer_batter/)).toBeInTheDocument();
+    expect(screen.getByText(/no BOM row references it/)).toBeInTheDocument();
+  });
+
+  test('surfaces manifest warnings even when order_guide is empty (not swallowed by empty state)', async () => {
+    mockFetchOk({
+      event_id: 7,
+      order_guide: [],
+      prep_demands: [],
+      unmapped: [],
+      manifest_warnings: [
+        { recipe: 'beer_batter', issue: 'declares sub-recipe beer_flour but no BOM row references it' },
+      ],
+    });
+    render(<EventOrderGuidePanel eventId={7} location="default" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('event-cascade-manifest-warnings')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId('event-order-guide-empty')).not.toBeInTheDocument();
   });
 });

@@ -10,6 +10,7 @@ public struct BeoCascadeOutcome: Equatable, Sendable {
     public let orderGuide: [CascadeOrderGuideRow]
     public let prepDemands: [CascadePrepDemandRow]
     public let unmapped: [CascadeUnmappedRow]
+    public let manifestWarnings: [CascadeManifestWarningRow]
     public let engineError: String?
 
     public init(
@@ -17,12 +18,14 @@ public struct BeoCascadeOutcome: Equatable, Sendable {
         orderGuide: [CascadeOrderGuideRow],
         prepDemands: [CascadePrepDemandRow],
         unmapped: [CascadeUnmappedRow],
+        manifestWarnings: [CascadeManifestWarningRow] = [],
         engineError: String?
     ) {
         self.eventId = eventId
         self.orderGuide = orderGuide
         self.prepDemands = prepDemands
         self.unmapped = unmapped
+        self.manifestWarnings = manifestWarnings
         self.engineError = engineError
     }
 }
@@ -114,6 +117,7 @@ public struct BeoCascadeRepository {
                 orderGuide: result.orderGuide,
                 prepDemands: result.prepDemands,
                 unmapped: result.unmapped,
+                manifestWarnings: result.manifestWarnings,
                 engineError: nil
             )
         } catch let error as CascadeError {

@@ -43,6 +43,27 @@ final class BeoCascadeClientTests: XCTestCase {
         ])
     }
 
+    func testParsesManifestWarnings() async throws {
+        let raw = """
+        {"order_guide": [], "prep_demands": [], "unmapped": [],
+         "manifest_warnings": [{"recipe": "beer_batter", "issue": "declares sub-recipe 'beer_flour' but no BOM row references it"}]}
+        """
+        let r = try await client(raw).cascadeFromLineItems([.init(itemName: "x", quantity: 1)])
+        XCTAssertEqual(r.manifestWarnings, [
+            CascadeManifestWarningRow(
+                recipe: "beer_batter",
+                issue: "declares sub-recipe 'beer_flour' but no BOM row references it"
+            ),
+        ])
+    }
+
+    func testManifestWarningsDefaultEmptyWhenOmitted() async throws {
+        // Older CLI without manifest_warnings → [] (additive/optional field).
+        let raw = #"{"order_guide": [], "prep_demands": [], "unmapped": []}"#
+        let r = try await client(raw).cascadeFromLineItems([.init(itemName: "x", quantity: 1)])
+        XCTAssertTrue(r.manifestWarnings.isEmpty)
+    }
+
     func testBogusItemRoundTripsToUnmapped() async throws {
         // test-beo-cascade.mjs case 1, with the CLI's recorded response shape.
         let bogus = "__definitely_not_a_real_item__"
