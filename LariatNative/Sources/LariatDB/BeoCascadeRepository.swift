@@ -30,10 +30,12 @@ public struct BeoCascadeOutcome: Equatable, Sendable {
 /// Per-event cascade — parity with `GET /api/beo/cascade`
 /// (`app/api/beo/cascade/route.js`). Location scoping: beo_line_items has NO
 /// location_id column — the event's location_id is verified first, then its
-/// line items load unscoped.
+/// line items load unscoped. On-hand: the latest inventory count for the
+/// location is loaded and passed to the engine (to_order = total_needed −
+/// on_hand), scoped to the event's location.
 ///
-/// WATCH (plan doc): web PR #369 touches cascade conversions + on-hand
-/// wiring. Re-sync this repository + `BeoCascadeClient` if it merges.
+/// Deferred (not yet ported): the engine's `on_hand_unapplied[]` /
+/// `manifest_warnings[]` observability arrays are not surfaced here.
 public struct BeoCascadeRepository {
     private let database: LariatDatabase
     private let client: BeoCascadeClient
@@ -51,7 +53,7 @@ public struct BeoCascadeRepository {
             throw BeoWriteError.badRequest("event_id required")
         }
 
-        let lineItems: [CascadeLineItem] = try await database.pool.read { db in
+        let (lineItems, inventory): ([CascadeLineItem], [CascadeInventoryRow]) = try await database.pool.read { db in
             // Verify the event exists and belongs to the requested location.
             // Same message for missing and wrong-location events — no
             // cross-location leak.
@@ -67,14 +69,46 @@ public struct BeoCascadeRepository {
                 sql: "SELECT item_name, quantity FROM beo_line_items WHERE event_id = ?",
                 arguments: [eventId]
             )
-            return rows.map { CascadeLineItem(itemName: $0["item_name"], quantity: $0["quantity"]) }
+            let items = rows.map { CascadeLineItem(itemName: $0["item_name"], quantity: $0["quantity"]) }
+
+            // Load the latest inventory count for this location so the engine
+            // can subtract on-hand stock (to_order = total_needed − on_hand).
+            // beo_line_items has no location_id, but the count tables do —
+            // scope the count to the event's already-verified location.
+            let invRows = try Row.fetchAll(
+                db,
+                sql: """
+                    SELECT ingredient, unit, on_hand_qty
+                      FROM inventory_count_lines
+                     WHERE on_hand_qty IS NOT NULL
+                       AND count_id = (
+                         SELECT id FROM inventory_counts
+                          WHERE location_id = ?
+                          ORDER BY count_date DESC, id DESC
+                          LIMIT 1
+                       )
+                    """,
+                arguments: [locationId]
+            )
+            let inv = invRows.map {
+                CascadeInventoryRow(
+                    ingredient: $0["ingredient"],
+                    unit: $0["unit"] ?? "",
+                    onHand: $0["on_hand_qty"] ?? 0
+                )
+            }
+            return (items, inv)
         }
 
         do {
             // BEO quantities are individual item counts for pricing
             // (unit_cost × qty), not recipe batch counts — qtyInYieldUnits
             // stops the engine multiplying by yield (web parity).
-            let result = try await client.cascadeFromLineItems(lineItems, qtyInYieldUnits: true)
+            let result = try await client.cascadeFromLineItems(
+                lineItems,
+                qtyInYieldUnits: true,
+                inventory: inventory
+            )
             return BeoCascadeOutcome(
                 eventId: eventId,
                 orderGuide: result.orderGuide,

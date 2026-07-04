@@ -19,7 +19,9 @@ after(() => db.setDbPathForTest(null));
 beforeEach(() => {
   conn.exec(
     `DELETE FROM beo_line_items;
-     DELETE FROM beo_events;`,
+     DELETE FROM beo_events;
+     DELETE FROM inventory_count_lines;
+     DELETE FROM inventory_counts;`,
   );
 });
 
@@ -42,6 +44,29 @@ function seedLine({ event_id, item_name, quantity = 1 }) {
       `INSERT INTO beo_line_items (event_id, item_name, quantity) VALUES (?, ?, ?)`,
     )
     .run(event_id, item_name, quantity);
+}
+
+function seedInventoryCount({ location = 'default', count_date = '2026-06-01', label = null } = {}) {
+  const r = conn
+    .prepare(
+      `INSERT INTO inventory_counts (count_date, label, location_id) VALUES (?, ?, ?)`,
+    )
+    .run(count_date, label, location);
+  return Number(r.lastInsertRowid);
+}
+
+function seedInventoryLine({ count_id, ingredient, unit = '', on_hand_qty, location = 'default' }) {
+  conn
+    .prepare(
+      `INSERT INTO inventory_count_lines (count_id, ingredient, unit, on_hand_qty, location_id)
+       VALUES (?, ?, ?, ?, ?)`,
+    )
+    .run(count_id, ingredient, unit, on_hand_qty, location);
+}
+
+async function cascade(evId, qs = '') {
+  const res = await route.GET(makeReq(`?event_id=${evId}${qs}`));
+  return res.json();
 }
 
 describe('GET /api/beo/cascade', () => {
@@ -156,5 +181,58 @@ describe('GET /api/beo/cascade', () => {
     assert.ok('order_guide' in j, 'must have order_guide');
     assert.ok('prep_demands' in j, 'must have prep_demands');
     assert.ok('unmapped' in j, 'must have unmapped');
+  });
+
+  it('subtracts on-hand from the order guide (latest inventory count for the location)', async () => {
+    const evId = seedEvent({ location: 'default' });
+    seedLine({ event_id: evId, item_name: 'Battered Fish Taco', quantity: 40 });
+
+    // Baseline: no inventory counted -> every leaf orders its full need.
+    const before = await cascade(evId);
+    assert.ok(before.order_guide.length >= 1, 'expected the item to cascade to >= 1 leaf');
+    const leaf = before.order_guide[0];
+    assert.equal(leaf.on_hand, 0, 'baseline on_hand must be 0');
+    assert.equal(leaf.to_order, leaf.total_needed, 'baseline to_order must equal total_needed');
+
+    // Count some of that leaf on hand, then re-run.
+    const onHand = 2;
+    const countId = seedInventoryCount({ location: 'default' });
+    seedInventoryLine({ count_id: countId, ingredient: leaf.ingredient, unit: leaf.unit, on_hand_qty: onHand });
+
+    const after = await cascade(evId);
+    const leafAfter = after.order_guide.find(
+      (r) => r.ingredient === leaf.ingredient && r.unit === leaf.unit,
+    );
+    assert.ok(leafAfter, 'leaf still present after seeding inventory');
+    assert.equal(leafAfter.on_hand, onHand, 'on_hand must reflect the counted stock');
+    assert.equal(
+      leafAfter.to_order,
+      Math.max(0, leaf.total_needed - onHand),
+      'to_order must subtract on_hand',
+    );
+  });
+
+  it('applies only the latest count and does not apply another location\'s inventory', async () => {
+    const evId = seedEvent({ location: 'default' });
+    seedLine({ event_id: evId, item_name: 'Battered Fish Taco', quantity: 40 });
+
+    const before = await cascade(evId);
+    const leaf = before.order_guide[0];
+
+    // A stale earlier count for this location — must be superseded by the later one.
+    const staleCount = seedInventoryCount({ location: 'default', count_date: '2026-05-01' });
+    seedInventoryLine({ count_id: staleCount, ingredient: leaf.ingredient, unit: leaf.unit, on_hand_qty: 999 });
+    // The current count for this location has no line for the leaf.
+    seedInventoryCount({ location: 'default', count_date: '2026-06-01' });
+    // A different location holds stock of the same leaf — must not leak in.
+    const austinCount = seedInventoryCount({ location: 'austin', count_date: '2026-06-02' });
+    seedInventoryLine({ count_id: austinCount, ingredient: leaf.ingredient, unit: leaf.unit, on_hand_qty: 500, location: 'austin' });
+
+    const after = await cascade(evId);
+    const leafAfter = after.order_guide.find(
+      (r) => r.ingredient === leaf.ingredient && r.unit === leaf.unit,
+    );
+    assert.equal(leafAfter.on_hand, 0, 'stale + other-location stock must not apply');
+    assert.equal(leafAfter.to_order, leaf.total_needed, 'to_order must equal total_needed');
   });
 });

@@ -159,4 +159,61 @@ final class BeoCascadeRepositoryTests: XCTestCase {
         XCTAssertEqual(items.count, 1)
         XCTAssertEqual(items[0]["item_name"] as? String, "Battered Fish Taco")
     }
+
+    // ── on-hand inventory wiring (Track C) ───────────────────────────────
+
+    private func captureInventory(
+        eventId: Int64,
+        locationId: String
+    ) async throws -> [[String: Any]] {
+        var captured: [String: Any] = [:]
+        let r = BeoCascadeRepository(
+            database: fixture.readDB,
+            client: BeoCascadeClient(runner: { payload, _ in
+                captured = (try? JSONSerialization.jsonObject(with: payload) as? [String: Any]) ?? [:]
+                return Self.emptyCli
+            })
+        )
+        _ = try await r.cascade(eventId: eventId, locationId: locationId)
+        return (captured["inventory"] as? [[String: Any]]) ?? []
+    }
+
+    /// Web parity: `route.js` loads the latest inventory count for the location
+    /// and passes its non-null on-hand lines to the engine. Only the newest
+    /// count applies — an earlier one is superseded.
+    func testLoadsLatestInventoryCountForLocationAndPassesToClient() async throws {
+        let evId = try fixture.seedEvent(location: "default")
+        try fixture.seedLineItem(eventId: evId, item: "Battered Fish Taco", qty: 40)
+        try fixture.seed { db in
+            // Stale earlier count — must be superseded.
+            try db.execute(sql: "INSERT INTO inventory_counts (id, count_date, location_id) VALUES (1, '2026-05-01', 'default')")
+            try db.execute(sql: "INSERT INTO inventory_count_lines (count_id, ingredient, unit, on_hand_qty, location_id) VALUES (1, 'stale flour', 'lb', 99, 'default')")
+            // Current count — the one that should be loaded.
+            try db.execute(sql: "INSERT INTO inventory_counts (id, count_date, location_id) VALUES (2, '2026-06-01', 'default')")
+            try db.execute(sql: "INSERT INTO inventory_count_lines (count_id, ingredient, unit, on_hand_qty, location_id) VALUES (2, 'cilantro', 'cup', 4, 'default')")
+            // A NULL on-hand line in the current count must be filtered out.
+            try db.execute(sql: "INSERT INTO inventory_count_lines (count_id, ingredient, unit, on_hand_qty, location_id) VALUES (2, 'garlic', 'cup', NULL, 'default')")
+        }
+
+        let inv = try await captureInventory(eventId: evId, locationId: "default")
+        XCTAssertEqual(inv.count, 1, "only the latest count's non-null on-hand lines apply")
+        let first = try XCTUnwrap(inv.first)
+        XCTAssertEqual(first["ingredient"] as? String, "cilantro")
+        XCTAssertEqual(first["unit"] as? String, "cup")
+        XCTAssertEqual(first["on_hand"] as? Double, 4)
+    }
+
+    /// Location scoping: another location's count must not be applied to a
+    /// default-location event — even if it is the newest count overall.
+    func testDoesNotApplyAnotherLocationsInventory() async throws {
+        let evId = try fixture.seedEvent(location: "default")
+        try fixture.seedLineItem(eventId: evId, item: "Battered Fish Taco", qty: 40)
+        try fixture.seed { db in
+            try db.execute(sql: "INSERT INTO inventory_counts (id, count_date, location_id) VALUES (1, '2026-06-02', 'austin')")
+            try db.execute(sql: "INSERT INTO inventory_count_lines (count_id, ingredient, unit, on_hand_qty, location_id) VALUES (1, 'cilantro', 'cup', 500, 'austin')")
+        }
+
+        let inv = try await captureInventory(eventId: evId, locationId: "default")
+        XCTAssertTrue(inv.isEmpty, "another location's inventory must not be applied")
+    }
 }
