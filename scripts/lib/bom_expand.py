@@ -59,6 +59,47 @@ class RecipeCycleError(ValueError):
 
 
 # ---------------------------------------------------------------------------
+# Unit conversion
+# ---------------------------------------------------------------------------
+
+# Convert a demand between units WITHIN one dimension (volume or weight).
+# Cross-dimension (lb vs qt) or pack/count units (bag, case, ea) return None,
+# so the caller can fail loud or, given a warnings sink, degrade gracefully.
+_VOLUME_TO_QT = {
+    "tsp": 1 / 192, "teaspoon": 1 / 192,
+    "tbsp": 1 / 64, "tablespoon": 1 / 64,
+    "floz": 1 / 32, "fl oz": 1 / 32,
+    "cup": 1 / 4, "c": 1 / 4,
+    "pt": 1 / 2, "pint": 1 / 2,
+    "qt": 1.0, "quart": 1.0,
+    "gal": 4.0, "gallon": 4.0,
+    "ml": 0.00105668821, "l": 1.05668821, "liter": 1.05668821, "litre": 1.05668821,
+}
+_WEIGHT_TO_LB = {
+    "oz": 1 / 16, "ounce": 1 / 16,
+    "lb": 1.0, "lbs": 1.0, "pound": 1.0, "#": 1.0,
+    "g": 0.00220462262, "gram": 0.00220462262,
+    "kg": 2.20462262, "kilogram": 2.20462262,
+}
+_DIMENSIONS = (_VOLUME_TO_QT, _WEIGHT_TO_LB)
+
+
+def convert_qty(qty: float, from_unit: str, to_unit: str) -> float | None:
+    """Convert `qty` from `from_unit` to `to_unit` when both share a dimension
+    (all-volume or all-weight). Returns None when they don't — the caller
+    decides whether to raise UnitMismatchError or skip with a warning. A
+    case-insensitive exact-unit match returns `qty` unchanged."""
+    f = from_unit.strip().lower()
+    t = to_unit.strip().lower()
+    if f == t:
+        return qty
+    for table in _DIMENSIONS:
+        if f in table and t in table:
+            return qty * table[f] / table[t]
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Expansion
 # ---------------------------------------------------------------------------
 
@@ -71,30 +112,37 @@ def expand_recipe(
     slug: str,
     qty: float,
     unit: str,
+    warnings: list[str] | None = None,
 ) -> dict[LeafKey, float]:
     """Walk the recipe tree from `slug` and return leaf-ingredient totals
     for producing `qty` of the given `unit`.
 
-    Raises UnknownRecipeError / UnitMismatchError / RecipeCycleError.
+    Compatible units (same dimension) are converted. When `warnings` is None
+    (default), an unresolvable node raises UnknownRecipeError /
+    UnitMismatchError / RecipeCycleError. When `warnings` is a list, the
+    offending BOM row is skipped and a message is appended instead, so the
+    rest of the tree still expands (graceful degradation).
     """
     out: dict[LeafKey, float] = {}
-    _expand_into(manifest, slug, float(qty), unit, out, visited=[])
+    _expand_into(manifest, slug, float(qty), unit, out, visited=[], warnings=warnings)
     return out
 
 
 def aggregate_demand(
     manifest: dict[str, Manifest],
     demands: Iterable[tuple[str, float, str]],
+    warnings: list[str] | None = None,
 ) -> dict[LeafKey, float]:
     """Expand each top-level demand and SUM the leaves.
 
     `demands` is an iterable of (slug, qty, unit) triples. Duplicate slugs
-    are allowed; they compound. Any expansion error short-circuits the
-    whole aggregation (fail-loud).
+    are allowed; they compound. With `warnings` None, any expansion error
+    short-circuits the whole aggregation (fail-loud); with a warnings list,
+    offending BOM rows are skipped and recorded so the rest still sums.
     """
     out: dict[LeafKey, float] = {}
     for slug, qty, unit in demands:
-        for key, val in expand_recipe(manifest, slug, qty, unit).items():
+        for key, val in expand_recipe(manifest, slug, qty, unit, warnings=warnings).items():
             out[key] = out.get(key, 0.0) + val
     return out
 
@@ -102,6 +150,7 @@ def aggregate_demand(
 def expand_recipe_demand(
     manifest: dict[str, Manifest],
     demands: Iterable[tuple[str, float, str]],
+    warnings: list[str] | None = None,
 ) -> dict[tuple[str, str], float]:
     """Aggregate per-recipe-node demand across top-level demands.
 
@@ -113,7 +162,9 @@ def expand_recipe_demand(
     yield ValueError)."""
     out: dict[tuple[str, str], float] = {}
     for slug, qty, unit in demands:
-        _accumulate_recipe_demand(manifest, slug, float(qty), unit, out, visited=[])
+        _accumulate_recipe_demand(
+            manifest, slug, float(qty), unit, out, visited=[], warnings=warnings
+        )
     return out
 
 
@@ -124,25 +175,40 @@ def _accumulate_recipe_demand(
     unit: str,
     out: dict[tuple[str, str], float],
     visited: list[str],
+    warnings: list[str] | None = None,
 ) -> None:
     if slug not in manifest:
-        raise UnknownRecipeError(f"recipe {slug!r} is not in the manifest")
+        msg = f"recipe {slug!r} is not in the manifest"
+        if warnings is None:
+            raise UnknownRecipeError(msg)
+        warnings.append(msg)
+        return
     if slug in visited:
         path = visited[visited.index(slug):] + [slug]
-        raise RecipeCycleError(
-            f"sub-recipe cycle: {' -> '.join(path)}"
-        )
+        msg = f"sub-recipe cycle: {' -> '.join(path)}"
+        if warnings is None:
+            raise RecipeCycleError(msg)
+        warnings.append(msg)
+        return
     m = manifest[slug]
     if unit != m.yield_unit:
-        raise UnitMismatchError(
-            f"recipe {slug!r} yields in {m.yield_unit!r} but demand asked for "
-            f"{qty!r} {unit!r}"
-        )
+        converted = convert_qty(qty, unit, m.yield_unit)
+        if converted is None:
+            msg = (
+                f"recipe {slug!r} yields in {m.yield_unit!r} but demand asked for "
+                f"{qty!r} {unit!r}"
+            )
+            if warnings is None:
+                raise UnitMismatchError(msg)
+            warnings.append(msg)
+            return
+        qty, unit = converted, m.yield_unit
     if m.yield_qty <= 0:
-        raise ValueError(
-            f"recipe {slug!r} has non-positive yield_qty {m.yield_qty}; "
-            f"cannot scale"
-        )
+        msg = f"recipe {slug!r} has non-positive yield_qty {m.yield_qty}; cannot scale"
+        if warnings is None:
+            raise ValueError(msg)
+        warnings.append(msg)
+        return
 
     # Record this recipe node.
     out[(slug, unit)] = out.get((slug, unit), 0.0) + qty
@@ -162,19 +228,28 @@ def _accumulate_recipe_demand(
 
         if sub_slug is not None:
             sub_m = manifest[sub_slug]
+            demand_qty = row_qty * scale
             if row_unit != sub_m.yield_unit:
-                raise UnitMismatchError(
-                    f"recipe {slug!r} BOM references sub-recipe "
-                    f"{sub_slug!r} with unit {row_unit!r}, but "
-                    f"{sub_slug!r} yields in {sub_m.yield_unit!r}"
-                )
+                converted = convert_qty(demand_qty, row_unit, sub_m.yield_unit)
+                if converted is None:
+                    msg = (
+                        f"recipe {slug!r} BOM references sub-recipe "
+                        f"{sub_slug!r} with unit {row_unit!r}, but "
+                        f"{sub_slug!r} yields in {sub_m.yield_unit!r}"
+                    )
+                    if warnings is None:
+                        raise UnitMismatchError(msg)
+                    warnings.append(msg)
+                    continue
+                demand_qty = converted
             _accumulate_recipe_demand(
                 manifest,
                 sub_slug,
-                row_qty * scale,
+                demand_qty,
                 sub_m.yield_unit,
                 out,
                 visited + [slug],
+                warnings=warnings,
             )
         # Leaf rows: do nothing (leaves are not recipe nodes).
 
@@ -186,25 +261,40 @@ def _expand_into(
     unit: str,
     out: dict[LeafKey, float],
     visited: list[str],
+    warnings: list[str] | None = None,
 ) -> None:
     if slug not in manifest:
-        raise UnknownRecipeError(f"recipe {slug!r} is not in the manifest")
+        msg = f"recipe {slug!r} is not in the manifest"
+        if warnings is None:
+            raise UnknownRecipeError(msg)
+        warnings.append(msg)
+        return
     if slug in visited:
         path = visited[visited.index(slug):] + [slug]
-        raise RecipeCycleError(
-            f"sub-recipe cycle: {' -> '.join(path)}"
-        )
+        msg = f"sub-recipe cycle: {' -> '.join(path)}"
+        if warnings is None:
+            raise RecipeCycleError(msg)
+        warnings.append(msg)
+        return
     m = manifest[slug]
     if unit != m.yield_unit:
-        raise UnitMismatchError(
-            f"recipe {slug!r} yields in {m.yield_unit!r} but demand asked for "
-            f"{qty!r} {unit!r}"
-        )
+        converted = convert_qty(qty, unit, m.yield_unit)
+        if converted is None:
+            msg = (
+                f"recipe {slug!r} yields in {m.yield_unit!r} but demand asked for "
+                f"{qty!r} {unit!r}"
+            )
+            if warnings is None:
+                raise UnitMismatchError(msg)
+            warnings.append(msg)
+            return
+        qty, unit = converted, m.yield_unit
     if m.yield_qty <= 0:
-        raise ValueError(
-            f"recipe {slug!r} has non-positive yield_qty {m.yield_qty}; "
-            f"cannot scale"
-        )
+        msg = f"recipe {slug!r} has non-positive yield_qty {m.yield_qty}; cannot scale"
+        if warnings is None:
+            raise ValueError(msg)
+        warnings.append(msg)
+        return
 
     scale = qty / m.yield_qty
 
@@ -221,19 +311,28 @@ def _expand_into(
 
         if sub_slug is not None:
             sub_m = manifest[sub_slug]
+            demand_qty = row_qty * scale
             if row_unit != sub_m.yield_unit:
-                raise UnitMismatchError(
-                    f"recipe {slug!r} BOM references sub-recipe "
-                    f"{sub_slug!r} with unit {row_unit!r}, but "
-                    f"{sub_slug!r} yields in {sub_m.yield_unit!r}"
-                )
+                converted = convert_qty(demand_qty, row_unit, sub_m.yield_unit)
+                if converted is None:
+                    msg = (
+                        f"recipe {slug!r} BOM references sub-recipe "
+                        f"{sub_slug!r} with unit {row_unit!r}, but "
+                        f"{sub_slug!r} yields in {sub_m.yield_unit!r}"
+                    )
+                    if warnings is None:
+                        raise UnitMismatchError(msg)
+                    warnings.append(msg)
+                    continue
+                demand_qty = converted
             _expand_into(
                 manifest,
                 sub_slug,
-                row_qty * scale,
+                demand_qty,
                 sub_m.yield_unit,
                 out,
                 visited + [slug],
+                warnings=warnings,
             )
         else:
             key: LeafKey = (ingredient, row_unit)

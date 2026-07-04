@@ -321,5 +321,79 @@ class ManifestFromCsvs(unittest.TestCase):
         self.assertIn("bag", msg)
 
 
+class UnitConversion(unittest.TestCase):
+    """Compatible units (same dimension) convert instead of failing loud."""
+
+    def test_sub_recipe_compatible_unit_converts(self) -> None:
+        # Parent references a sub-recipe in cup; the sub yields in qt.
+        # 4 cup = 1 qt, so this must convert (not raise).
+        aioli = _mk("chipotle_aioli", "Chipotle Aioli", 4, "qt",
+                    bom=[("mayo", 3, "qt", False)])
+        slaw = _mk("mexi_slaw", "Mexi Slaw", 10, "qt",
+                   sub_recipe_slugs=["chipotle_aioli"],
+                   bom=[("chipotle_aioli", 4, "cup", True)])
+        manifest = {"chipotle_aioli": aioli, "mexi_slaw": slaw}
+        # 1 batch slaw (10 qt) uses 4 cup = 1 qt aioli = 0.25 aioli batch,
+        # so mayo = 3 qt * 0.25 = 0.75 qt.
+        out = expand_recipe(manifest, "mexi_slaw", qty=10, unit="qt")
+        self.assertAlmostEqual(out["mayo", "qt"], 0.75, places=6)
+
+    def test_top_level_compatible_unit_converts(self) -> None:
+        # Demand in gal for a recipe that yields in qt (1 gal = 4 qt).
+        soup = _mk("soup", "Soup", 8, "qt", bom=[("stock", 6, "qt", False)])
+        out = expand_recipe({"soup": soup}, "soup", qty=1, unit="gal")
+        # 1 gal = 4 qt = half a batch → stock 6 * 0.5 = 3 qt.
+        self.assertAlmostEqual(out["stock", "qt"], 3.0, places=6)
+
+    def test_incompatible_units_still_fail_loud(self) -> None:
+        # lb (weight) vs qt (volume) share no dimension → still raises.
+        soup = _mk("soup", "Soup", 8, "qt", bom=[("stock", 6, "qt", False)])
+        with self.assertRaises(UnitMismatchError):
+            expand_recipe({"soup": soup}, "soup", qty=1, unit="lb")
+
+
+class GracefulDegradation(unittest.TestCase):
+    """A warnings sink degrades a bad BOM row instead of aborting."""
+
+    def _manifest(self):
+        gc = _mk("green_chile", "Green Chile", 8, "qt",
+                 bom=[("pork", 10, "lb", False)])
+        queso = _mk("queso_mac_sauce", "Queso", 22, "qt",
+                    sub_recipe_slugs=["green_chile"],
+                    bom=[("heavy cream", 3, "qt", False),
+                         ("green_chile", 1, "bag", True)])
+        return {"green_chile": gc, "queso_mac_sauce": queso}
+
+    def test_incompatible_sub_row_skipped_rest_kept(self) -> None:
+        # 'bag' is incompatible with qt. With a sink, skip ONLY the
+        # green_chile row and still return the recipe's other leaves.
+        manifest = self._manifest()
+        warnings: list[str] = []
+        out = expand_recipe(manifest, "queso_mac_sauce", qty=22, unit="qt",
+                            warnings=warnings)
+        self.assertIn(("heavy cream", "qt"), out)   # sibling row kept
+        self.assertNotIn(("pork", "lb"), out)       # green_chile branch skipped
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("green_chile", warnings[0])
+
+    def test_aggregate_demand_skips_bad_recipe_keeps_others(self) -> None:
+        manifest = self._manifest()
+        manifest["churros"] = _mk("churros", "Churros", 100, "ea",
+                                  bom=[("flour", 5, "lb", False)])
+        warnings: list[str] = []
+        totals = aggregate_demand(
+            manifest,
+            [("queso_mac_sauce", 22, "qt"), ("churros", 100, "ea")],
+            warnings=warnings,
+        )
+        self.assertIn(("flour", "lb"), totals)        # clean recipe computed
+        self.assertIn(("heavy cream", "qt"), totals)  # queso's good rows kept
+        self.assertEqual(len(warnings), 1)
+
+    def test_no_sink_preserves_fail_loud(self) -> None:
+        with self.assertRaises(UnitMismatchError):
+            expand_recipe(self._manifest(), "queso_mac_sauce", qty=22, unit="qt")
+
+
 if __name__ == "__main__":
     unittest.main()

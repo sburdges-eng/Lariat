@@ -69,6 +69,7 @@ def build_cascade(
     qty_in_yield_units: bool = False,
     inventory: dict[tuple[str, str], float] | None = None,
     map_warnings: Iterable[Unmapped] = (),
+    scales: dict[tuple[str, str], float] | None = None,
 ) -> dict:
     """Pure, testable cascade core.
 
@@ -101,10 +102,15 @@ def build_cascade(
         manifest,
         beo_map,
         qty_in_yield_units=qty_in_yield_units,
+        scales=scales,
     )
 
+    # Shared sink: a single bad recipe (incompatible unit / unknown sub /
+    # cycle) degrades to a warning instead of aborting the whole cascade.
+    cascade_warnings: list[str] = []
+
     # Order guide (leaf ingredients)
-    order_lines = pull_orders(manifest, demand, inventory)
+    order_lines = pull_orders(manifest, demand, inventory, warnings=cascade_warnings)
     order_guide = [
         {
             "ingredient": ol.ingredient,
@@ -117,7 +123,7 @@ def build_cascade(
     ]
 
     # Prep board (per-recipe nodes — parents AND sub-recipes)
-    nodes = expand_recipe_demand(manifest, demand)
+    nodes = expand_recipe_demand(manifest, demand, warnings=cascade_warnings)
     prep_demands = sorted(
         [
             {
@@ -135,7 +141,17 @@ def build_cascade(
     all_unmapped = list(map_warnings) + row_unmapped
     unmapped = [{"menu_item": u.menu_item, "reason": u.reason} for u in all_unmapped]
 
-    return {"order_guide": order_guide, "prep_demands": prep_demands, "unmapped": unmapped}
+    # De-dupe cascade warnings (pull_orders + expand_recipe_demand hit the
+    # same bad recipes) while preserving first-seen order.
+    seen: set[str] = set()
+    warnings = [w for w in cascade_warnings if not (w in seen or seen.add(w))]
+
+    return {
+        "order_guide": order_guide,
+        "prep_demands": prep_demands,
+        "unmapped": unmapped,
+        "warnings": warnings,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -194,7 +210,7 @@ def main() -> int:
         return 2
 
     try:
-        beo_map, map_unresolved = load_beo_recipe_map(map_csv, manifest)
+        beo_map, map_unresolved, map_scales = load_beo_recipe_map(map_csv, manifest)
     except Exception as e:
         _fail(f"failed to load recipe map: {e}")
         return 2
@@ -229,6 +245,7 @@ def main() -> int:
             qty_in_yield_units=qty_in_yield_units,
             inventory=inventory,
             map_warnings=map_unresolved,
+            scales=map_scales,
         )
     except (UnknownRecipeError, UnitMismatchError, RecipeCycleError) as e:
         _fail(str(e))
