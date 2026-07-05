@@ -117,6 +117,7 @@ struct SdsView: View {
             .font(.caption2)
             .foregroundStyle(.secondary)
         }
+        .accessibilityElement(children: .combine)
     }
 
     /// The "view" affordance for a registered sheet. http(s) values link directly;
