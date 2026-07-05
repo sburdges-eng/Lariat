@@ -317,7 +317,7 @@ private struct CcpHeaderRow: View {
 
     private func cell(_ text: String, _ width: CGFloat?) -> some View {
         Group {
-            if let width { Text(text).frame(width: width, alignment: .leading) }
+            if let width { Text(text).frame(minWidth: width, alignment: .leading) }
             else { Text(text).frame(maxWidth: .infinity, alignment: .leading) }
         }
     }
