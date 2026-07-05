@@ -213,11 +213,11 @@ private struct HaccpPlanDocumentView: View {
                     ForEach(plan.calibrations.records) { r in
                         HStack(spacing: 12) {
                             Text(fmtTs(r.calibratedAt)).font(.caption).monospacedDigit()
-                                .frame(width: 130, alignment: .leading)
+                                .frame(minWidth: 130, alignment: .leading)
                             Text(r.thermometerId).font(.caption).fontWeight(.semibold)
-                                .frame(width: 90, alignment: .leading)
+                                .frame(minWidth: 90, alignment: .leading)
                             Text(r.method).font(.caption2).foregroundStyle(.secondary)
-                                .frame(width: 90, alignment: .leading)
+                                .frame(minWidth: 90, alignment: .leading)
                             Text(r.beforeReadingF.map { "\(fmtF($0))°F" } ?? "—").font(.caption).monospacedDigit()
                             Text(r.passed ? "Pass" : "Fail")
                                 .font(.caption2).bold()
@@ -242,11 +242,11 @@ private struct HaccpPlanDocumentView: View {
                     ForEach(plan.calibrations.probes) { p in
                         HStack(spacing: 12) {
                             Text(p.thermometerId).font(.caption).fontWeight(.semibold)
-                                .frame(width: 110, alignment: .leading)
+                                .frame(minWidth: 110, alignment: .leading)
                             Text(p.status.rawValue)
                                 .font(.caption2).bold()
                                 .foregroundStyle(probeColor(p.status))
-                                .frame(width: 90, alignment: .leading)
+                                .frame(minWidth: 90, alignment: .leading)
                             Text("Last: \(fmtTs(p.lastCalibratedAt))").font(.caption2).foregroundStyle(.secondary)
                             Spacer()
                             Text("Next due: \(fmtTs(p.nextDueAt))").font(.caption2).foregroundStyle(.secondary)
