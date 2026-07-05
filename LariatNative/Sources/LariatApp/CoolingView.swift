@@ -87,26 +87,36 @@ struct CoolingView: View {
         let stage = scan?.stage ?? (row.stage1At == nil ? 1 : 2)
         let stageCeiling = stage == 1 ? 70 : 41
 
+        // Outer wrapper keeps this a single List row: returning two sibling
+        // top-level views from this @ViewBuilder function (info block + action
+        // row) would compile, but List/ForEach explodes a TupleView row body
+        // into multiple separate rows (its own separator/insets each) instead
+        // of one row with two stacked halves. Wrapping preserves the original
+        // single-row layout while still scoping `.combine` to the read-only info.
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(row.item).font(.headline)
-                    Text(metaLine(row)).font(.caption).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(row.item).font(.headline)
+                        Text(metaLine(row)).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(clockText(scan?.minutesRemaining))
+                            .font(.title3.monospacedDigit())
+                            .foregroundStyle(tone(scan).color)
+                        Text("Stage \(stage) · \(tone(scan) == .red ? "OVER" : "to ≤\(stageCeiling)°F")")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
                 }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(clockText(scan?.minutesRemaining))
-                        .font(.title3.monospacedDigit())
-                        .foregroundStyle(tone(scan).color)
-                    Text("Stage \(stage) · \(tone(scan) == .red ? "OVER" : "to ≤\(stageCeiling)°F")")
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
-            }
 
-            if let s1 = row.stage1At, let s1r = row.stage1ReadingF {
-                Text("Stage 1 closed \(timeText(s1)) @ \(fmtTemp(s1r))°F")
-                    .font(.caption).foregroundStyle(.secondary)
+                if let s1 = row.stage1At, let s1r = row.stage1ReadingF {
+                    Text("Stage 1 closed \(timeText(s1)) @ \(fmtTemp(s1r))°F")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(row.item), stage \(stage), \(toneWord(tone(scan))), \(clockText(scan?.minutesRemaining))")
 
             HStack {
                 TextField("Current temp °F (target ≤ \(stageCeiling))",
@@ -120,9 +130,18 @@ struct CoolingView: View {
                     }
                 }
                 .disabled(vm.isSaving)
+                .accessibilityLabel("Log stage \(stage) reading for \(row.item)")
             }
         }
         .padding(.vertical, 2)
+    }
+
+    private func toneWord(_ t: Tone) -> String {
+        switch t {
+        case .green: return "on track"
+        case .amber: return "approaching limit"
+        case .red: return "over time limit"
+        }
     }
 
     @ViewBuilder
