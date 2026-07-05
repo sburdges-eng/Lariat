@@ -4,15 +4,17 @@ Use the same workspace and rules as Cursor and Gemini on this repo.
 
 ## Workspace (binding)
 
-Open **`~/Dev/workspaces/lariat.code-workspace`** — not `~/`, not `~/Dev/`, not the home folder.
+For final native app work, open **`~/Dev/workspaces/lariat-native.code-workspace`**.
+For general web/edge Lariat work, open **`~/Dev/workspaces/lariat.code-workspace`**.
+Never open `~/`, bare `~/Dev/`, or the home folder.
 
-That workspace includes Lariat plus shared `workspace-scaffold` docs, scripts, agents, hooks, and skills. See `~/Dev/DEV_OPS_RUNBOOK.md`.
+The native workspace includes the canonical Lariat repo, `LariatNative`, `Lariat-KDS`, and the Lariat data-source folder with watcher/search exclusions. See `~/Dev/DEV_OPS_RUNBOOK.md`.
 
 ## Agent entrypoints
 
 1. [AGENTS.md](AGENTS.md) — domain + MACP/worktrees
-2. [GEMINI.md](GEMINI.md) — Gemini/Antigravity handoff protocol when Claude or Codex consults you
-3. [../../workspace-scaffold/docs/TRIO_ORCHESTRATION.md](../../workspace-scaffold/docs/TRIO_ORCHESTRATION.md) — **Codex-first** trio policy
+2. [docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md](docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md) — native-final status, workspaces, and Claude model-tier routing
+3. [GEMINI.md](GEMINI.md) — Gemini/Antigravity handoff protocol when Claude or Codex consults you
 
 ## Your role in the trio
 

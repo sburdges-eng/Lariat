@@ -1,0 +1,44 @@
+---
+description: Lariat native finalization routing, model-tier use, and workspace guardrails
+alwaysApply: false
+---
+
+# Lariat Native Finalization
+
+Use this rule when the task mentions Lariat Native, final macOS app, SwiftUI Lariat app, Phase C/D/E, H6/H7/H8, notarization, Xcode, native cutover, schema inversion, or service-day shutoff.
+
+## Required Entry
+
+Read `docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md` before planning or editing.
+
+Open the focused workspace:
+
+- Cursor / Antigravity: `~/Dev/workspaces/lariat-native.code-workspace`
+- Xcode: `~/Dev/workspaces/lariat-native.xcworkspace`
+
+Do not open `~/` or bare `~/Dev`.
+
+## Scope
+
+- Canonical repo: `hospitality/Lariat/`
+- Native package: `hospitality/Lariat/LariatNative/`
+- Companion KDS repo: `Lariat-KDS/`
+- Real data source corpus: `lariat-data-sources/` (read/ingest/reference only)
+
+Top-level `Lariat/` is data artifacts, not the app repo.
+
+## Completion Rules
+
+- Do not re-port Phase A/B native waves. The current endgame doc records them complete.
+- Do not flip schema ownership until C1-C4 gates are satisfied.
+- Do not delete web write routes from unverified C1 ledger rows.
+- Do not delete or move Lariat data/source roots without explicit user approval.
+- H7a Phase 1 (13 `.safety`-tier files) is merged to `main`. H7a Phase 2 (~61 remaining files) has not started; create a fresh worktree/branch when picking it up rather than assuming one exists.
+
+## Verification
+
+- Native: `swift build && swift test` from `LariatNative/`
+- KDS: `swift test` from `Lariat-KDS/`
+- Web edge: relevant `npm run test:*`, `npm run typecheck`, `npm run build`
+- Packaging: `LariatNative/Scripts/package-app.sh --pkg` plus codesign/resource checks
+

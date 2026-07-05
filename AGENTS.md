@@ -2,6 +2,10 @@
 
 Restaurant F&B operations: recipes, costing, inventory, HACCP, POS. Culinary datasets belong to this project.
 
+## Native finalization guide
+
+For the final macOS-native Lariat app, read `docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md` before planning or editing. It records the current Lariat inventory in `~/Dev`, the completed native phases, the remaining Phase C/D/E gates, H7/H8 status, and Claude model-tier routing for Max/Fable, Opus, Sonnet, and Haiku agents.
+
 ## Dev-root boundary
 
 This file is project-local. `~/Dev` is only the workspace container; once a session is inside this repo, use this file plus `CLAUDE.md` and project docs as the active rules.
