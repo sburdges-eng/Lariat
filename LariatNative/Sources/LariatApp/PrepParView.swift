@@ -160,9 +160,11 @@ struct PrepParView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .combine)
             Spacer()
             Button("Remove") { deleteTarget = row }
                 .font(.caption)
+                .accessibilityLabel("Remove \(row.label)")
         }
     }
 
