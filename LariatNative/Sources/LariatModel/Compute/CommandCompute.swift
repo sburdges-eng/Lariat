@@ -124,6 +124,10 @@ public struct CommandSummary {
         public var probesOverdue: Int      // food_safety.probes_overdue
         public var probesFailed: Int       // food_safety.probes_failed
         public var probesDueSoon: Int      // food_safety.probes_due_soon
+        // Defaulted (not the summarize()-side default — this one) so the two
+        // pre-existing direct FoodSafety(...) literal fixtures (MorningComputeTests,
+        // MorningRepositoryTests) keep compiling unchanged.
+        public var coolingOverdue: Int = 0 // cooling batches in a breached compliance stage (H6a)
     }
     public struct Reservations {
         public var booked: Int       // reservations.booked
@@ -241,7 +245,8 @@ public enum CommandCompute {
         locationId: String,
         today: String,
         priceMoves: MoveSummary = .zero,
-        marginMoves: MoveSummary = .zero
+        marginMoves: MoveSummary = .zero,
+        coolingOverdueCount: Int = 0
     ) -> CommandSummary {
         let yesterday = yesterdayISO(today)
 
@@ -297,7 +302,8 @@ public enum CommandCompute {
             cleaningDueToday: cleaningDueToday,
             probesOverdue: probesOverdue,
             probesFailed: probesFailed,
-            probesDueSoon: probesDueSoon)
+            probesDueSoon: probesDueSoon,
+            coolingOverdue: coolingOverdueCount)
 
         // ── Reservations ─────────────────────────────────────────────
         var booked = 0, seated = 0, completed = 0, noShow = 0, cancelled = 0
@@ -430,6 +436,9 @@ public enum CommandCompute {
         push(CommandAlert(severity: .red, source: "eighty-six",
             message: "\(s.eightySix) item\(plural(s.eightySix)) 86’d",
             count: s.eightySix))
+        push(CommandAlert(severity: .red, source: "cooling-overdue",
+            message: "\(s.foodSafety.coolingOverdue) cooling batch\(s.foodSafety.coolingOverdue == 1 ? "" : "es") overdue",
+            count: s.foodSafety.coolingOverdue))
         if s.reservations.noShow >= redNoShowThreshold {
             out.append(CommandAlert(severity: .red, source: "reservation-no-shows",
                 message: "\(s.reservations.noShow) reservation no-show\(plural(s.reservations.noShow))",

@@ -300,6 +300,31 @@ final class CommandComputeTests: XCTestCase {
         XCTAssertEqual(none?.message, "No staff reviews logged today")
     }
 
+    // MARK: - alertsFor: cooling-overdue (H6a T1)
+
+    func testAlertsFor_coolingOverdueAbsentAtZero() {
+        // Default fixture summary has coolingOverdue == 0 → source absent entirely
+        // (the `push` helper's count > 0 gate).
+        let s = CommandCompute.summarize(bundle: fixtureBundle(), locationId: "default", today: today)
+        XCTAssertFalse(CommandCompute.alertsFor(s).contains { $0.source == "cooling-overdue" })
+    }
+
+    func testAlertsFor_coolingOverduePresentAndPlural() {
+        var s = CommandCompute.summarize(bundle: fixtureBundle(), locationId: "default", today: today)
+        s.foodSafety.coolingOverdue = 2
+        let alert = CommandCompute.alertsFor(s).first { $0.source == "cooling-overdue" }
+        XCTAssertEqual(alert?.severity, .red)
+        XCTAssertEqual(alert?.count, 2)
+        XCTAssertEqual(alert?.message, "2 cooling batches overdue")
+    }
+
+    func testAlertsFor_coolingOverdueSingular() {
+        var s = CommandCompute.summarize(bundle: fixtureBundle(), locationId: "default", today: today)
+        s.foodSafety.coolingOverdue = 1
+        let alert = CommandCompute.alertsFor(s).first { $0.source == "cooling-overdue" }
+        XCTAssertEqual(alert?.message, "1 cooling batch overdue")
+    }
+
     // MARK: - Coverage hardening: TempLogCompute direct tests
 
     func testTempLogCompute_redBreachCount_criticalOutOfRange() {
