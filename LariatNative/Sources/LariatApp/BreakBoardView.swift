@@ -97,6 +97,7 @@ struct BreakBoardView: View {
                 Text(scopedToCook ? row.startedAt : "\(vm.workerName(row.cookId)) · \(row.startedAt)")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .combine)
             Spacer()
             if row.endedAt != nil {
                 Text("Done").font(.caption).foregroundStyle(.secondary)
@@ -105,6 +106,7 @@ struct BreakBoardView: View {
                     Task { await vm.endBreak(id: row.id) }
                 }
                 .font(.caption)
+                .accessibilityLabel("End \(row.breakKind?.label ?? row.kind)")
             } else {
                 Text("On break").font(.caption).foregroundStyle(.secondary)
             }
