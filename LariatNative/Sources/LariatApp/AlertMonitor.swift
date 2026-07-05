@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UserNotifications
 import LariatDB
 import LariatModel
 
@@ -29,6 +30,9 @@ final class AlertMonitor {
     private let engine = AlertMonitorEngine(poster: SystemNotificationPoster())
     private var loopTask: Task<Void, Never>?
     private(set) var navigate: ((String) -> Void)?
+    // Retained here — UNUserNotificationCenter.delegate is `weak`, so the
+    // adapter would be deallocated immediately without this.
+    private var notificationDelegate: AlertNotificationDelegate?
 
     private init() {}
 
@@ -37,6 +41,11 @@ final class AlertMonitor {
     /// "switch boards, restart at a different interval" concept here).
     func start(db: LariatDatabase, writeDb: LariatWriteDatabase?, navigate: @escaping (String) -> Void) {
         self.navigate = navigate
+        if notificationDelegate == nil {
+            let delegate = AlertNotificationDelegate(navigate: navigate)
+            notificationDelegate = delegate
+            UNUserNotificationCenter.current().delegate = delegate
+        }
         guard loopTask == nil else { return }
         loopTask = Task { [weak self] in
             while !Task.isCancelled {
