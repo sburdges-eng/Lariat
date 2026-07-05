@@ -2172,8 +2172,8 @@
       },
       {
         "item": "green chile",
-        "qty": 1,
-        "unit": "bag"
+        "qty": 8,
+        "unit": "qt"
       },
       {
         "item": "blackened salsa",
@@ -3018,6 +3018,7 @@
     ],
     "procedure": [],
     "allergens": [
+      "eggs",
       "milk",
       "wheat"
     ],
@@ -3283,15 +3284,16 @@
     "procedure": [],
     "allergens": [],
     "source": "recipe_index",
-    "category": "entree",
-    "yield_qty": 12,
-    "yield_unit": "portion",
+    "category": "protein",
+    "yield_qty": 1,
+    "yield_unit": "ea",
     "station": "grill",
     "menu_items": [
       "Prime Rib Dinner",
-      "Prime Rib Sliders (BEO)"
+      "Prime Rib Sliders",
+      "Prime Rib Carving Station"
     ],
-    "notes": "Whole-buy — in scripts/beo_order_pull DEFAULT_WHOLE_BUY_EXACT",
+    "notes": "Whole-buy prime rib roast (~12 portions); sous vide + carve",
     "direct_allergens": []
   },
   {
@@ -4268,7 +4270,7 @@
     "menu_items": [
       "Roasted Chicken Leg"
     ],
-    "notes": "Green salt amount (50 g) and olive oil (1 cup) are estimates — confirm",
+    "notes": "Season redbird legs with green salt; roast w/ rosemary/thyme/garlic/olive oil",
     "direct_allergens": [],
     "sub_recipes": [
       "green_salt"
@@ -4292,9 +4294,9 @@
     "yield_unit": "case",
     "station": "saute",
     "menu_items": [
-      "Roasted Root Veg"
+      "Roasted Root Veg (BEO)"
     ],
-    "notes": "Sysco purchased product — heat and serve",
+    "notes": "Whole-buy from Sysco (see purchase history for SKU + cost); heat and serve",
     "direct_allergens": [],
     "sub_recipes": []
   },
@@ -4318,7 +4320,7 @@
     "menu_items": [
       "Breakfast Burrito"
     ],
-    "notes": "Made Sunday AM — stubbed order-by-each",
+    "notes": "Made Sunday AM (smaller tortillas) — stubbed order-by-each",
     "direct_allergens": [],
     "sub_recipes": []
   }

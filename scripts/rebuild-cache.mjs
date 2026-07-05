@@ -157,7 +157,14 @@ function escapeRegExp(s) {
 }
 
 function containsIngredientPhrase(ingredientName, allergenKey) {
-  const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegExp(allergenKey)}([^a-z0-9]|$)`);
+  // Tolerate a plain English plural of the key ("noodle" -> "noodles",
+  // "bun" -> "buns", "cheese" -> "cheeses") — real recipe ingredient names
+  // are almost always plural, and the dictionary keys are almost always
+  // singular. Without this, the trailing word-boundary below never matches
+  // because the ingredient's "s" is alphanumeric, silently dropping a real
+  // allergen to []. The boundary requirement itself is untouched, so the
+  // "reggiano must not match egg" guarantee still holds.
+  const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegExp(allergenKey)}(e?s)?([^a-z0-9]|$)`);
   return pattern.test(ingredientName);
 }
 
