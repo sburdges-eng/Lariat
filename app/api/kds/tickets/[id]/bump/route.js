@@ -102,7 +102,7 @@ async function bumpHandler(req, ctx) {
       // station, and pin hash. created_at is preserved on conflict so the
       // first-bump time is recoverable from the row even after re-bumps;
       // the audit trail carries each intermediate bumped_at.
-      const info = db
+      db
         .prepare(
           `INSERT INTO kds_ticket_states
              (ticket_id, location_id, bumped_at, bumped_station, bumped_pin_hash)
@@ -115,20 +115,19 @@ async function bumpHandler(req, ctx) {
         )
         .run(ticketId, location, bumpedAt, station, pinHash);
 
-      // SQLite returns lastInsertRowid = 0 on a pure UPDATE path. Resolve
-      // the actual rowid for the audit row — the audit reader needs the
-      // primary-key tuple, which is (ticket_id, location_id), but we also
-      // record the synthetic rowid for join-friendliness with audit_events.
-      let entityRowid = Number(info.lastInsertRowid);
-      if (entityRowid === 0) {
-        const r = db
-          .prepare(
-            `SELECT rowid FROM kds_ticket_states
-              WHERE ticket_id = ? AND location_id = ?`,
-          )
-          .get(ticketId, location);
-        entityRowid = r ? Number(r.rowid) : 0;
-      }
+      // Resolve the real rowid via SELECT rather than lastInsertRowid:
+      // better-sqlite3's lastInsertRowid is the connection-wide
+      // sqlite3_last_insert_rowid(), not scoped to the statement just run,
+      // so on the UPDATE branch of this upsert it silently returns
+      // whatever the connection's last successful INSERT happened to be
+      // (e.g. a prior audit_events row) — not this row's own rowid.
+      const stateRow = db
+        .prepare(
+          `SELECT rowid FROM kds_ticket_states
+            WHERE ticket_id = ? AND location_id = ?`,
+        )
+        .get(ticketId, location);
+      const entityRowid = stateRow ? Number(stateRow.rowid) : null;
 
       postAuditEvent({
         entity: 'kds_ticket_state',

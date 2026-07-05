@@ -253,6 +253,53 @@ describe('withIdempotency — 401 responses are not cached (auth is per-request)
   });
 });
 
+describe('withIdempotency — 5xx responses are not cached (transient failures must be retriable)', () => {
+  it('a 500 from the handler must NOT be cached; a retry with the same key re-runs the handler', async () => {
+    // Lariat-KDS protocol §3: "5xx — transient. KDS retries with backoff,
+    // same idempotency-key." Caching a 500 for 24h would permanently
+    // poison that key even after the transient condition clears.
+    const headers = { 'idempotency-key': KEY_A };
+    const body = JSON.stringify({ x: 1 });
+
+    let callCount = 0;
+    const handler = async () => {
+      callCount++;
+      // First call: simulate a transient failure -> 500. Second call:
+      // simulate the condition having cleared -> 200. Pure function of
+      // callCount (not of the request) — proves the wrapper actually
+      // re-ran the handler rather than replaying a cached 500.
+      return callCount === 1
+        ? Response.json({ error: 'db busy' }, { status: 500 })
+        : Response.json({ ok: true }, { status: 200 });
+    };
+
+    const r1 = await withIdempotency(makeReq({ body, headers }), handler);
+    assert.strictEqual(r1.status, 500);
+    const cacheCount = testDb
+      .prepare('SELECT COUNT(*) AS c FROM idempotency_keys')
+      .get().c;
+    assert.strictEqual(cacheCount, 0, '500 response must not produce a cache row');
+
+    const r2 = await withIdempotency(makeReq({ body, headers }), handler);
+    assert.strictEqual(callCount, 2, 'handler should have re-run on the second call');
+    assert.strictEqual(r2.status, 200, 'expected 200 once transient clears, not a cached 500');
+  });
+
+  it('502/503/504 are also not cached (any 5xx is transient)', async () => {
+    for (const status of [502, 503, 504]) {
+      testDb.exec(`DELETE FROM idempotency_keys`);
+      const headers = { 'idempotency-key': `key-5xx-${status}-aaaaaaa` };
+      const handler = async () => Response.json({ error: 'transient' }, { status });
+      await withIdempotency(makeReq({ body: JSON.stringify({ x: 1 }), headers }), handler);
+      const cacheCount = testDb
+        .prepare('SELECT COUNT(*) AS c FROM idempotency_keys')
+        .get().c;
+      assert.strictEqual(cacheCount, 0, `${status} response must not produce a cache row`);
+    }
+  });
+
+});
+
 describe('withIdempotency — handler errors are not cached', () => {
   it('a thrown handler does not write a cache row', async () => {
     const headers = { 'idempotency-key': KEY_A };

@@ -54,12 +54,14 @@ describe('isIso8601Utc', () => {
     assert.equal(isIso8601Utc(new Date().toISOString()), true);
   });
 
+  it('accepts bare-seconds form — protocol §3\'s own request example, and what ' +
+     'the Swift client\'s default ISO8601DateFormatter actually sends', () => {
+    assert.equal(isIso8601Utc('2026-05-04T18:42:11Z'), true);
+  });
+
   it('rejects non-canonical forms even if Date can parse them', () => {
-    // The Swift ISO8601 decoder is strict about canonical form; the v1
-    // tickets test (test-kds-tickets-route.mjs:57) round-trips through
-    // Date for the same reason. v2 must hold the same line.
+    // Wrong separator or a non-Z offset — not the wire contract's shape.
     assert.equal(isIso8601Utc('2026-05-04 18:42:11'), false);
-    assert.equal(isIso8601Utc('2026-05-04T18:42:11Z'), false); // missing .000
     assert.equal(isIso8601Utc('2026-05-04T18:42:11+00:00'), false);
   });
 

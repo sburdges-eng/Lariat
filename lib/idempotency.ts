@@ -16,8 +16,8 @@
 // duplicate writes), then one INSERT lost the PK conflict and the loser
 // silently swallowed it. Now the wrapper reserves the slot up-front by
 // inserting with status='pending'; the second concurrent caller loses
-// the INSERT race, reads the row, and returns 409 "in flight" instead
-// of running the handler.
+// the INSERT race, reads the row, and (same body) waits behind a 503
+// instead of running the handler again.
 //
 // Contract — five cases the wrapper distinguishes:
 //
@@ -25,24 +25,33 @@
 //      → handler runs unchanged; nothing cached.
 //
 //   2. Key present, no cache row (or row aged out via 24h TTL)
-//      → claim slot as 'pending', run handler, flip to 'complete'.
-//        Subsequent replays hit case 3.
+//      → claim slot as 'pending', run handler, flip to 'complete'
+//        (unless the response is 401/5xx — see below). Subsequent
+//        replays hit case 3.
 //
 //   3. Key present, cache row matches the (key + request_hash) AND
 //      status='complete'
 //      → handler does NOT run; cached response is returned verbatim.
 //
 //   3'. Key present, cache row exists, request_hash mismatches
+//       (regardless of pending/complete)
 //       → 409 with `idempotency-key reused for a different request`.
+//       This is the ONLY case that returns 409 — reserved for a genuine
+//       client bug (same key, different body), matching the Lariat-KDS
+//       protocol's definition.
 //
-//   4. Key present, cache row exists, status='pending'
-//      → 409 with `idempotency-key in flight`. The first request is
-//        still running; the SW (or human) is expected to retry. The
-//        pending row is reaped after 60s if the process crashed.
+//   4. Key present, cache row exists, status='pending', hash MATCHES
+//      → 503 with `idempotency-key in flight`. The first request (same
+//        body) is still running — this is a transient race, not a
+//        conflict, so any client that already retries 5xx with the
+//        same key (e.g. the KDS) will get the replay once the in-flight
+//        request completes. The pending row is reaped after 60s if the
+//        process crashed.
 //
-// On a handler throw or a 401 response the wrapper DELETEs the pending
-// row so the next attempt runs fresh (auth state is per-request, not
-// keyed on body).
+// On a handler throw, a 401, or a 5xx response the wrapper DELETEs the
+// pending row so the next attempt runs fresh: auth state (401) isn't a
+// function of the request body, and a 5xx is transient by definition —
+// caching either would wrongly poison the key.
 
 import { createHash } from 'node:crypto';
 import { getDb } from './db.ts';
@@ -172,10 +181,15 @@ function completeSlot(
  *
  * The handler must return a Response. If the handler throws, the
  * wrapper does NOT cache — the next attempt runs the handler fresh.
- * Non-2xx responses other than 401 ARE cached: a 422 on a malformed
+ * Non-2xx 4xx responses other than 401 ARE cached: a 422 on a malformed
  * request is the correct response on retry too, and re-running the
  * handler would just produce the same 422 again with extra audit
- * noise. 401 is the per-request auth carve-out — never cached.
+ * noise. 401 is the per-request auth carve-out — never cached (auth
+ * state isn't a function of the request body). 5xx is never cached
+ * either — a server-side failure is transient, not deterministic, so a
+ * retry with the same key must be able to succeed once the condition
+ * clears (see the Lariat-KDS protocol's "5xx — transient, retry with
+ * the same key" contract).
  */
 export async function withIdempotency(
   req: Request,
@@ -224,19 +238,10 @@ export async function withIdempotency(
       // attempt and the SELECT. Recurse once — the slot is now free.
       return withIdempotency(req, handler);
     }
-    if (cached.status === 'pending') {
-      // Concurrent identical request is still in flight. The whole
-      // point of #249: do NOT run the handler again. The SW (or the
-      // user) is expected to retry after the in-flight one resolves.
-      return Response.json(
-        {
-          error:
-            'idempotency-key in flight — first request is still being processed, retry shortly',
-        },
-        { status: 409 },
-      );
-    }
-    // status === 'complete'
+    // A hash mismatch is a genuine conflict (key reused with a different
+    // body) regardless of whether the other request is still pending or
+    // already complete — checked first so this is the ONLY path that
+    // returns 409, matching the protocol's "409 = different body" contract.
     if (cached.request_hash !== request_hash) {
       return Response.json(
         {
@@ -246,6 +251,20 @@ export async function withIdempotency(
         { status: 409 },
       );
     }
+    if (cached.status === 'pending') {
+      // Same request, still running (GH #249's race). Do NOT run the
+      // handler again. This is transient, not a conflict — 503 so a
+      // client that already retries 5xx with the same key (the KDS
+      // protocol's contract) gets the replay once it completes.
+      return Response.json(
+        {
+          error:
+            'idempotency-key in flight — first request is still being processed, retry shortly',
+        },
+        { status: 503 },
+      );
+    }
+    // status === 'complete', hash matches — replay verbatim.
     return new Response(cached.response_body, {
       status: cached.response_status,
       headers: { 'content-type': 'application/json' },
@@ -267,6 +286,16 @@ export async function withIdempotency(
   // Save without a PIN, authenticates, then re-taps Save with the same
   // key. Release the slot so the next attempt runs the handler.
   if (res.status === 401) {
+    releaseSlot(db, key);
+    return res;
+  }
+
+  // 5xx carve-out: a server-side failure is by definition transient, not a
+  // deterministic function of the request body — caching it would poison
+  // the key for 24h even after the condition clears. Release the slot so
+  // a retry with the same key (which every documented 5xx-retry client,
+  // e.g. the KDS, is expected to send) can actually succeed.
+  if (res.status >= 500) {
     releaseSlot(db, key);
     return res;
   }

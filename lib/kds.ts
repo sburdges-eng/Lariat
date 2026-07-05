@@ -22,13 +22,18 @@ export function isStationSlug(s: unknown): s is string {
   return typeof s === 'string' && s.length > 0 && s === s.toLowerCase();
 }
 
-/** Canonical ISO-8601 UTC: round-trips through Date.toISOString().
- *  Mirrors the round-trip check in tests/js/test-kds-tickets-route.mjs:57. */
+/** Canonical ISO-8601 UTC: `YYYY-MM-DDTHH:mm:ss[.fff]Z`. Accepts both
+ *  bare-seconds (protocol §3's own request example; the Swift client's
+ *  default ISO8601DateFormatter never emits fractional seconds) and
+ *  millisecond precision (Date.toISOString()'s own output, used for
+ *  GET /api/kds/tickets' placed_at). Rejects any other separator or
+ *  offset form (e.g. a space separator, or a non-Z offset). */
+const ISO_8601_UTC_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?Z$/;
+
 export function isIso8601Utc(s: unknown): s is string {
   if (typeof s !== 'string') return false;
-  const ms = Date.parse(s);
-  if (!Number.isFinite(ms)) return false;
-  return new Date(ms).toISOString() === s;
+  if (!ISO_8601_UTC_RE.test(s)) return false;
+  return Number.isFinite(Date.parse(s));
 }
 
 /** Stable per-PIN hash. SHA-256 is overkill for a 4-digit PIN but the cost

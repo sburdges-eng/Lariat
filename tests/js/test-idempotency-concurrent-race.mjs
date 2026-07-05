@@ -122,20 +122,23 @@ describe('withIdempotency — concurrent identical requests (#249)', () => {
     assert.equal(auditCount, 1, 'exactly one audit_events row should land');
 
     // One call should be the handler's 200; the other should either be
-    // 409 in-flight (handler1 still running when handler2 started) or
+    // 503 in-flight (handler1 still running when handler2 started) or
     // 200 cached (handler1 already complete). Both are valid outcomes.
+    // 503, not 409: a same-body race is transient, not a conflict — 409
+    // is reserved for a key reused with a DIFFERENT body (see
+    // lib/idempotency.ts's case 3'/case 4 split).
     const statuses = [r1.status, r2.status].sort();
     assert.ok(
       (statuses[0] === 200 && statuses[1] === 200) ||
-      (statuses[0] === 200 && statuses[1] === 409),
-      `expected [200, 200] (cached) or [200, 409] (in-flight); got ${JSON.stringify(statuses)}`,
+      (statuses[0] === 200 && statuses[1] === 503),
+      `expected [200, 200] (cached) or [200, 503] (in-flight); got ${JSON.stringify(statuses)}`,
     );
 
-    // The 409, when present, must carry the "in flight" error so the SW
+    // The 503, when present, must carry the "in flight" error so the SW
     // (or human) knows to retry — not the "key reused" 409 which would
     // signal a buggy client.
     for (const r of [r1, r2]) {
-      if (r.status === 409) {
+      if (r.status === 503) {
         const body = await r.clone().json();
         assert.match(body.error, /in flight/i);
       }
