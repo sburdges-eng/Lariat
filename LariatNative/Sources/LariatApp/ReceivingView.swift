@@ -104,6 +104,8 @@ struct ReceivingView: View {
             }
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(s.label), \(toneWord(tone(s.status))), \(s.total) today, \(statusLine(s))")
     }
 
     // ── entry form ──────────────────────────────────────────────────────
@@ -236,6 +238,14 @@ struct ReceivingView: View {
         case .yellow: return .amber
         case .red: return .red
         case .gray: return .green
+        }
+    }
+
+    private func toneWord(_ t: Tone) -> String {
+        switch t {
+        case .green: return "all clean"
+        case .amber: return "some with notes"
+        case .red: return "has rejects"
         }
     }
 
