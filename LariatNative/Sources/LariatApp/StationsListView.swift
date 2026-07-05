@@ -67,6 +67,8 @@ struct StationsListView: View {
             Circle().fill(LariatTheme.color(for: tone)).frame(width: 10, height: 10)
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(row.station.name), \(StationProgressLabels.label(for: row.progress))")
     }
 
     private var filteredRows: [StationListRow] {
