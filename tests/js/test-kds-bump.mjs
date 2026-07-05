@@ -66,15 +66,21 @@ describe('isStationSlug', () => {
 // ── isIso8601Utc ────────────────────────────────────────────────
 
 describe('isIso8601Utc', () => {
-  it('accepts a canonical ISO-8601 UTC string (round-trips through toISOString)', () => {
+  it('accepts a canonical ISO-8601 UTC string with milliseconds', () => {
     assert.equal(isIso8601Utc('2026-05-04T18:42:11.000Z'), true);
     assert.equal(isIso8601Utc(new Date().toISOString()), true);
   });
 
+  it('accepts bare-seconds ISO-8601 UTC — protocol §3\'s own example format; ' +
+     'the Swift client\'s default ISO8601DateFormatter never emits fractional seconds', () => {
+    assert.equal(isIso8601Utc('2026-05-04T18:42:11Z'), true);
+    assert.equal(isIso8601Utc('2026-05-04T18:42:11.5Z'), true); // any fractional precision
+  });
+
   it('rejects non-canonical but parseable timestamps', () => {
-    // No millis / no Z — Date.parse succeeds but does not round-trip.
+    // Space separator or a non-Z offset — Date.parse succeeds but neither
+    // is the wire contract's `T`...`Z` shape.
     assert.equal(isIso8601Utc('2026-05-04 18:42:11'), false);
-    assert.equal(isIso8601Utc('2026-05-04T18:42:11Z'), false); // missing .000
     assert.equal(isIso8601Utc('2026-05-04T18:42:11+00:00'), false); // offset form
   });
 

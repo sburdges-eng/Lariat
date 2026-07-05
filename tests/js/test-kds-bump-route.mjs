@@ -197,6 +197,21 @@ describe('POST /api/kds/tickets/:id/bump — happy path', () => {
     assert.equal(row.bumped_pin_hash, null);
   });
 
+  it('accepts the protocol\'s own bare-seconds bumped_at example (200, not 422)', async () => {
+    // Lariat-KDS/docs/lariat-kds-protocol.md §3's own request example is
+    // bare-seconds, and it's exactly what the Swift client's default
+    // ISO8601DateFormatter sends — this must not 422.
+    const bumpedAt = '2026-05-04T18:42:11Z';
+    seedTicket('tkt_bare_seconds');
+    const res = await POST(
+      bumpReq('tkt_bare_seconds', { body: { bumped_at: bumpedAt } }),
+      ctx('tkt_bare_seconds'),
+    );
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.bumped_at, bumpedAt);
+  });
+
   it('accepts an unknown station slug (forward compat per protocol §2)', async () => {
     seedTicket('tkt_expo');
     const res = await POST(
@@ -224,6 +239,41 @@ describe('POST /api/kds/tickets/:id/bump — re-bump', () => {
 
     assert.equal(countAudit('kds_ticket_state', 'insert'), 1);
     assert.equal(countAudit('kds_ticket_state', 'correction'), 1);
+  });
+
+  it('correction audit row has the correct entity_id (real kds_ticket_states rowid)', async () => {
+    // Re-bump an unrelated ticket a few times first so audit_events grows
+    // faster than kds_ticket_states (one audit row per bump; one state row
+    // per NEW ticket) — this decouples the two tables' rowid counters,
+    // which is what exposes the bug: better-sqlite3's lastInsertRowid is
+    // connection-wide (sqlite3_last_insert_rowid), not scoped to the
+    // statement just run, so an UPDATE-only re-bump can silently pick up
+    // whatever the connection's last successful INSERT was — a prior
+    // audit_events row, not this ticket's own kds_ticket_states rowid.
+    seedTicket('tkt_decoy');
+    await POST(bumpReq('tkt_decoy', { body: { bumped_at: '2026-05-04T17:00:00Z' } }), ctx('tkt_decoy'));
+    await POST(bumpReq('tkt_decoy', { body: { bumped_at: '2026-05-04T17:01:00Z' } }), ctx('tkt_decoy'));
+    await POST(bumpReq('tkt_decoy', { body: { bumped_at: '2026-05-04T17:02:00Z' } }), ctx('tkt_decoy'));
+
+    seedTicket('tkt_eid');
+    await POST(bumpReq('tkt_eid', { body: { bumped_at: '2026-05-04T18:00:00Z' } }), ctx('tkt_eid'));
+    await POST(bumpReq('tkt_eid', { body: { bumped_at: '2026-05-04T18:05:00Z' } }), ctx('tkt_eid'));
+
+    const realRowid = testDb
+      .prepare('SELECT rowid FROM kds_ticket_states WHERE ticket_id = ?')
+      .get('tkt_eid').rowid;
+    const auditRow = testDb
+      .prepare(
+        `SELECT entity_id FROM audit_events
+          WHERE entity = 'kds_ticket_state' AND action = 'correction'
+          ORDER BY id DESC LIMIT 1`,
+      )
+      .get();
+    assert.equal(
+      auditRow.entity_id,
+      realRowid,
+      'correction audit entity_id must match the real kds_ticket_states rowid',
+    );
   });
 
   it('audit payload on correction carries prior_bumped_at', async () => {
