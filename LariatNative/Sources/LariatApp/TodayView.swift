@@ -155,6 +155,8 @@ struct TodayView: View {
         .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
         .padding(16)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(eyebrow): \(title)")
     }
 
     private func stationSection(_ snap: TodayBoardSnapshot) -> some View {
@@ -201,6 +203,8 @@ struct TodayView: View {
         .padding(14)
         .background(.background.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(row.station.name), \(StationProgressLabels.label(for: row.progress))")
     }
 
     private func stockMovesSection(_ snap: TodayBoardSnapshot) -> some View {
@@ -225,6 +229,7 @@ struct TodayView: View {
                     }
                     .padding(10)
                     .background(.background.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+                    .accessibilityElement(children: .combine)
                 }
             }
         }
@@ -247,12 +252,14 @@ struct TodayView: View {
                         .padding(.horizontal, 10)
                         .padding(.vertical, 8)
                         .background(Color.red.opacity(0.2), in: Capsule())
+                        .accessibilityLabel("\(item), 86’d")
                 }
                 ForEach(snap.cascadedRecipes, id: \.slug) { recipe in
                     Text(recipe.name)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 8)
                         .background(Color.orange.opacity(0.18), in: Capsule())
+                        .accessibilityLabel("\(recipe.name), affected — via \(recipe.via)")
                 }
             }
         }
@@ -269,6 +276,8 @@ struct TodayView: View {
         .frame(maxWidth: .infinity, minHeight: 86, alignment: .leading)
         .padding(14)
         .background(.background.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(value) \(label)")
     }
 
     private func formatDateChip(_ iso: String) -> String {
