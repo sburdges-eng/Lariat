@@ -148,7 +148,9 @@ struct EightySixView: View {
                             Task { await submitCascadeConfirm(recipe) }
                         }
                         .buttonStyle(.borderedProminent)
+                        .accessibilityLabel("Confirm adding \(recipe.name)")
                         Button("Cancel") { vm.confirmCascade = nil }
+                            .accessibilityLabel("Cancel adding \(recipe.name)")
                     }
                 } else {
                     Button {
@@ -164,6 +166,8 @@ struct EightySixView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("\(recipe.name), via \(recipe.via)")
                 }
             }
         }
@@ -189,12 +193,14 @@ struct EightySixView: View {
                                 Text(meta).font(.caption).foregroundStyle(.secondary)
                             }
                         }
+                        .accessibilityElement(children: .combine)
                         Spacer()
                         Button(vm.isResolving(row.id) ? "…" : "Back on menu") {
                             Task { await submitResolve(id: row.id) }
                         }
                         .buttonStyle(.bordered)
                         .disabled(vm.isResolving(row.id))
+                        .accessibilityLabel("Put \(row.item) back on the menu")
                     }
                     .padding(10)
                     .background(.background.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
@@ -218,6 +224,7 @@ struct EightySixView: View {
                 }
                 .padding(8)
                 .background(.background.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
+                .accessibilityElement(children: .combine)
             }
         }
         .padding()
