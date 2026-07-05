@@ -59,5 +59,6 @@ struct FoodSafetyHubView: View {
         } label: {
             Label(module.title, systemImage: Self.icons[module.id] ?? "square.grid.2x2")
         }
+        .accessibilityHint("Opens the \(module.title) board")
     }
 }
