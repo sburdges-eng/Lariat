@@ -105,7 +105,7 @@ struct ReceivingView: View {
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(s.label), \(toneWord(tone(s.status))), \(s.total) today, \(statusLine(s))")
+        .accessibilityLabel("\(s.label), \(boundLabel(s)), \(toneWord(tone(s.status))), \(s.total) today, \(statusLine(s)), \(s.lastAt.map { "last received \(timeText($0))" } ?? "none received yet")")
     }
 
     // ── entry form ──────────────────────────────────────────────────────
