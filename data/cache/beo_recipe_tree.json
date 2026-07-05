@@ -652,7 +652,7 @@
       "prep_timing": "day_of",
       "yield_qty": 1,
       "yield_unit": "each",
-      "notes": "Made Sunday AM — stubbed order-by-each",
+      "notes": "Made Sunday AM (smaller tortillas) — stubbed order-by-each",
       "ingredients": [
         {
           "item": "breakfast burrito",
@@ -2201,11 +2201,11 @@
     "prime_rib": {
       "name": "Prime Rib",
       "station": "grill",
-      "category": "entree",
+      "category": "protein",
       "prep_timing": "day_of",
-      "yield_qty": 12,
-      "yield_unit": "portion",
-      "notes": "Whole-buy — in scripts/beo_order_pull DEFAULT_WHOLE_BUY_EXACT",
+      "yield_qty": 1,
+      "yield_unit": "ea",
+      "notes": "Whole-buy prime rib roast (~12 portions); sous vide + carve",
       "ingredients": [
         {
           "item": "prime rib",
@@ -2299,8 +2299,8 @@
         },
         {
           "item": "green chile",
-          "qty": 1.0,
-          "unit": "bag",
+          "qty": 8.0,
+          "unit": "qt",
           "recipe": "green_chile"
         },
         {
@@ -2388,7 +2388,7 @@
       "prep_timing": "day_of",
       "yield_qty": 1,
       "yield_unit": "case",
-      "notes": "Green salt amount (50 g) and olive oil (1 cup) are estimates — confirm",
+      "notes": "Season redbird legs with green salt; roast w/ rosemary/thyme/garlic/olive oil",
       "ingredients": [
         {
           "item": "redbird chicken legs",
@@ -2486,7 +2486,7 @@
       "prep_timing": "day_of",
       "yield_qty": 1,
       "yield_unit": "case",
-      "notes": "Sysco purchased product — heat and serve",
+      "notes": "Whole-buy from Sysco (see purchase history for SKU + cost); heat and serve",
       "ingredients": [
         {
           "item": "roasted root veg (sysco)",
