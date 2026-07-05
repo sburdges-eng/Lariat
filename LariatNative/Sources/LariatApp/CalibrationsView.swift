@@ -81,6 +81,7 @@ struct CalibrationsView: View {
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(row.passed == 1 ? .green : .red)
                         }
+                        .accessibilityElement(children: .combine)
                     }
                 }
             }

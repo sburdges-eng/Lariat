@@ -72,10 +72,13 @@ struct DateMarkView: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel("\(row.item), discard by \(row.discardOn)\(statusSuffix(vm.status(for: row)))")
                             Spacer()
                             statusBadge(vm.status(for: row))
                             Button("Discard") { discardTarget = row }
                                 .font(.caption)
+                                .accessibilityLabel("Discard \(row.item)")
                         }
                     }
                 }
@@ -101,6 +104,14 @@ struct DateMarkView: View {
         let q = query.trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else { return vm.snapshot?.active ?? [] }
         return (vm.snapshot?.active ?? []).filter { $0.item.localizedCaseInsensitiveContains(q) }
+    }
+
+    private func statusSuffix(_ status: ExpiringBatchStatus?) -> String {
+        switch status {
+        case .expired: return ", expired"
+        case .dueToday: return ", due today"
+        case .ok, .none: return ""
+        }
     }
 
     @ViewBuilder

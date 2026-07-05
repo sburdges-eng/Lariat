@@ -68,6 +68,7 @@ struct PestView: View {
                                 Text("Action: \(c)").font(.caption).foregroundStyle(.secondary)
                             }
                         }
+                        .accessibilityElement(children: .combine)
                     }
                 }
             }

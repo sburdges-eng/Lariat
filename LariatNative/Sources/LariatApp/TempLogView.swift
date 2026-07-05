@@ -109,6 +109,21 @@ struct TempLogView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .onTapGesture { pointId = tile.pointId }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "\(tile.label), \(statusWord(tile.status)), " +
+            (tile.lastReadingF.map { String(format: "%.1f degrees", $0) } ?? "not read")
+        )
+        .accessibilityHint("Selects this point to log a new reading")
+    }
+
+    private func statusWord(_ status: TempTileStatus) -> String {
+        switch status {
+        case .green: return "in range"
+        case .yellow: return "warning"
+        case .red: return "out of range"
+        case .gray: return "no data"
+        }
     }
 
     private var entryForm: some View {

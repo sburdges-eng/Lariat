@@ -91,18 +91,21 @@ struct SdsView: View {
     @ViewBuilder
     private func registryRow(_ row: SdsRow) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(row.productName).font(.headline)
-            HStack(spacing: 6) {
-                if let mfr = row.manufacturer { Text(mfr) }
-                if let hz = row.hazardClass {
-                    Text(hz)
-                        .font(.caption2)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(.quaternary, in: Capsule())
+            VStack(alignment: .leading, spacing: 4) {
+                Text(row.productName).font(.headline)
+                HStack(spacing: 6) {
+                    if let mfr = row.manufacturer { Text(mfr) }
+                    if let hz = row.hazardClass {
+                        Text(hz)
+                            .font(.caption2)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(.quaternary, in: Capsule())
+                    }
                 }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            .accessibilityElement(children: .combine)
 
             let sheet = row.pdfPath ?? row.url
             HStack(spacing: 12) {

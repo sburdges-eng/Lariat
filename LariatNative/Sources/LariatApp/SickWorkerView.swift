@@ -111,15 +111,18 @@ struct SickWorkerView: View {
     @ViewBuilder
     private func activeRow(_ row: SickWorkerRow) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(vm.workerName(row.cookId)).font(.headline)
-                Spacer()
-                Text(row.action.uppercased())
-                    .font(.caption2).padding(4)
-                    .background(tone(row.action).opacity(0.2)).clipShape(Capsule())
-                    .foregroundStyle(tone(row.action))
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(vm.workerName(row.cookId)).font(.headline)
+                    Spacer()
+                    Text(row.action.uppercased())
+                        .font(.caption2).padding(4)
+                        .background(tone(row.action).opacity(0.2)).clipShape(Capsule())
+                        .foregroundStyle(tone(row.action))
+                }
+                Text(metaLine(row)).font(.caption).foregroundStyle(.secondary)
             }
-            Text(metaLine(row)).font(.caption).foregroundStyle(.secondary)
+            .accessibilityElement(children: .combine)
 
             if vm.pinOk {
                 Menu {
@@ -133,6 +136,7 @@ struct SickWorkerView: View {
                         .font(.caption)
                 }
                 .disabled(vm.isSaving)
+                .accessibilityLabel("Clear \(vm.workerName(row.cookId)) to return")
             }
         }
         .padding(.vertical, 2)

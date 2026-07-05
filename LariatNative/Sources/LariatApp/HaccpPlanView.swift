@@ -146,7 +146,7 @@ private struct HaccpPlanDocumentView: View {
                     HStack(alignment: .top, spacing: 12) {
                         Text(m.name)
                             .font(.subheadline).fontWeight(.semibold)
-                            .frame(width: 180, alignment: .leading)
+                            .frame(minWidth: 180, alignment: .leading)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(m.citation)
                                 .font(.caption).foregroundStyle(.secondary)
@@ -156,6 +156,8 @@ private struct HaccpPlanDocumentView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .padding(.vertical, 6)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("\(m.name), \(m.citation), \(m.records) \(m.evidenceLabel)")
                     Divider()
                 }
             }
@@ -211,11 +213,11 @@ private struct HaccpPlanDocumentView: View {
                     ForEach(plan.calibrations.records) { r in
                         HStack(spacing: 12) {
                             Text(fmtTs(r.calibratedAt)).font(.caption).monospacedDigit()
-                                .frame(width: 130, alignment: .leading)
+                                .frame(minWidth: 130, alignment: .leading)
                             Text(r.thermometerId).font(.caption).fontWeight(.semibold)
-                                .frame(width: 90, alignment: .leading)
+                                .frame(minWidth: 90, alignment: .leading)
                             Text(r.method).font(.caption2).foregroundStyle(.secondary)
-                                .frame(width: 90, alignment: .leading)
+                                .frame(minWidth: 90, alignment: .leading)
                             Text(r.beforeReadingF.map { "\(fmtF($0))°F" } ?? "—").font(.caption).monospacedDigit()
                             Text(r.passed ? "Pass" : "Fail")
                                 .font(.caption2).bold()
@@ -225,6 +227,8 @@ private struct HaccpPlanDocumentView: View {
                             Text(r.cookId ?? "—").font(.caption2).foregroundStyle(.tertiary)
                         }
                         .padding(.vertical, 5)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("\(r.thermometerId), calibrated \(fmtTs(r.calibratedAt)), \(r.method), \(r.passed ? "pass" : "fail")")
                         Divider()
                     }
                 }
@@ -238,16 +242,18 @@ private struct HaccpPlanDocumentView: View {
                     ForEach(plan.calibrations.probes) { p in
                         HStack(spacing: 12) {
                             Text(p.thermometerId).font(.caption).fontWeight(.semibold)
-                                .frame(width: 110, alignment: .leading)
+                                .frame(minWidth: 110, alignment: .leading)
                             Text(p.status.rawValue)
                                 .font(.caption2).bold()
                                 .foregroundStyle(probeColor(p.status))
-                                .frame(width: 90, alignment: .leading)
+                                .frame(minWidth: 90, alignment: .leading)
                             Text("Last: \(fmtTs(p.lastCalibratedAt))").font(.caption2).foregroundStyle(.secondary)
                             Spacer()
                             Text("Next due: \(fmtTs(p.nextDueAt))").font(.caption2).foregroundStyle(.secondary)
                         }
                         .padding(.vertical, 5)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("\(p.thermometerId), \(p.status.rawValue), last calibrated \(fmtTs(p.lastCalibratedAt)), next due \(fmtTs(p.nextDueAt))")
                         Divider()
                     }
                 }
@@ -311,7 +317,7 @@ private struct CcpHeaderRow: View {
 
     private func cell(_ text: String, _ width: CGFloat?) -> some View {
         Group {
-            if let width { Text(text).frame(width: width, alignment: .leading) }
+            if let width { Text(text).frame(minWidth: width, alignment: .leading) }
             else { Text(text).frame(maxWidth: .infinity, alignment: .leading) }
         }
     }
@@ -322,14 +328,16 @@ private struct CcpRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            Text(ccp).font(.caption).monospacedDigit().frame(width: 70, alignment: .leading)
-            Text(point).font(.caption).frame(width: 130, alignment: .leading)
-            Text(limit).font(.caption).monospacedDigit().frame(width: 110, alignment: .leading)
+            Text(ccp).font(.caption).monospacedDigit().frame(minWidth: 70, alignment: .leading)
+            Text(point).font(.caption).frame(minWidth: 130, alignment: .leading)
+            Text(limit).font(.caption).monospacedDigit().frame(minWidth: 110, alignment: .leading)
             Text(citation).font(.caption2).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
-            Text(logs).font(.caption).monospacedDigit().frame(width: 90, alignment: .leading)
-            Text(corrective).font(.caption).monospacedDigit().frame(width: 90, alignment: .leading)
+            Text(logs).font(.caption).monospacedDigit().frame(minWidth: 90, alignment: .leading)
+            Text(corrective).font(.caption).monospacedDigit().frame(minWidth: 90, alignment: .leading)
         }
         .padding(.vertical, 5)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(ccp), \(point), critical limit \(limit), \(citation), \(logs) logs, \(corrective) corrective actions")
     }
 }
 
