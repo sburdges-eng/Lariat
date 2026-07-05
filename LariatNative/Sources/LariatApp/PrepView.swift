@@ -185,10 +185,20 @@ struct PrepView: View {
                 }
                 Spacer()
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(taskAccessibilityLabel(row))
             actionButtons(row, busy: busy)
         }
         .padding(10)
         .background(rowBackground(row.priorityLevel), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func taskAccessibilityLabel(_ row: PrepTaskRow) -> String {
+        var parts = [row.task]
+        if let qty = row.qty, !qty.isEmpty { parts.append(qty) }
+        if row.priorityLevel != .normal { parts.append(row.priorityLevel.label) }
+        parts.append(metaLine(row))
+        return parts.joined(separator: ", ")
     }
 
     @ViewBuilder
@@ -228,24 +238,29 @@ struct PrepView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(busy)
+                .accessibilityLabel(vm.cookId != nil ? "Claim \(row.task)" : "Set a cook before claiming \(row.task)")
             }
             if row.statusValue == .todo && !(row.assignedCookId?.isEmpty ?? true) {
                 Button("Start") { Task { await submitStatus(row.id, .inProgress) } }
                     .buttonStyle(.bordered)
                     .disabled(busy)
+                    .accessibilityLabel("Start \(row.task)")
                 if isMine(row) {
                     Button("Drop claim") { Task { await vm.releaseClaim(row.id) } }
                         .buttonStyle(.bordered)
                         .disabled(busy)
+                        .accessibilityLabel("Drop your claim on \(row.task)")
                 }
             }
             if row.statusValue == .inProgress {
                 Button("Done") { Task { await submitStatus(row.id, .done) } }
                     .buttonStyle(.borderedProminent)
                     .disabled(busy)
+                    .accessibilityLabel("Mark \(row.task) done")
                 Button("Skip") { Task { await submitStatus(row.id, .skipped) } }
                     .buttonStyle(.bordered)
                     .disabled(busy)
+                    .accessibilityLabel("Skip \(row.task)")
             }
             Button(role: .destructive) {
                 deleteTarget = row
@@ -274,10 +289,12 @@ struct PrepView: View {
                             .strikethrough(row.statusValue == .skipped)
                         Text(closedMeta(row)).font(.caption).foregroundStyle(.secondary)
                     }
+                    .accessibilityElement(children: .combine)
                     Spacer()
                     Button("Reopen") { Task { await vm.setStatus(row.id, .todo) } }
                         .buttonStyle(.bordered)
                         .disabled(vm.isBusy(row.id))
+                        .accessibilityLabel("Reopen \(row.task)")
                 }
                 .padding(8)
                 .background(.background.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
