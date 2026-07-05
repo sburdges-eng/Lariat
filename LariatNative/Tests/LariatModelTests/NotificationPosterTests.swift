@@ -28,4 +28,20 @@ final class NotificationPosterTests: XCTestCase {
         XCTAssertTrue(second)
         XCTAssertEqual(poster.ensureAuthorizedCallCount, 2)
     }
+
+    // MARK: - NotificationEnvironment (bundle-identity guard)
+
+    // UNUserNotificationCenter.current() throws an uncatchable
+    // NSInternalInconsistencyException when the running process has no real
+    // bundle identity (an unbundled `swift run` executable, e.g.) —
+    // discovered live via a manual launch smoke test after H6a merged.
+    // Bundle.main.bundleIdentifier is nil in exactly that case.
+
+    func testCanUseNotifications_withBundleIdentifier() {
+        XCTAssertTrue(NotificationEnvironment.canUseNotifications(bundleIdentifier: "com.lariat.native"))
+    }
+
+    func testCanUseNotifications_withoutBundleIdentifier() {
+        XCTAssertFalse(NotificationEnvironment.canUseNotifications(bundleIdentifier: nil))
+    }
 }

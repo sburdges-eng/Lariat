@@ -23,10 +23,27 @@ public protocol NotificationPoster: Sendable {
     func post(identifier: String, message: String) async
 }
 
+/// `UNUserNotificationCenter.current()` throws an uncatchable
+/// `NSInternalInconsistencyException` ("bundleProxyForCurrentProcess is nil")
+/// when the running process has no real bundle identity — an unbundled
+/// `swift run LariatApp` executable (this project's standard dev-loop launch
+/// command) is exactly that case; only a properly packaged `.app` (see H8,
+/// `Scripts/package-app.sh`) has one. `Bundle.main.bundleIdentifier` is `nil`
+/// in precisely the crashing case, so it's the cheapest reliable proxy check.
+/// Discovered live via a manual launch smoke test after H6a first merged.
+public enum NotificationEnvironment {
+    public static func canUseNotifications(bundleIdentifier: String?) -> Bool {
+        bundleIdentifier != nil
+    }
+}
+
 public struct SystemNotificationPoster: NotificationPoster {
     public init() {}
 
     public func ensureAuthorized() async -> Bool {
+        guard NotificationEnvironment.canUseNotifications(bundleIdentifier: Bundle.main.bundleIdentifier) else {
+            return false
+        }
         let center = UNUserNotificationCenter.current()
         let settings = await center.notificationSettings()
         switch settings.authorizationStatus {
@@ -42,6 +59,9 @@ public struct SystemNotificationPoster: NotificationPoster {
     }
 
     public func post(identifier: String, message: String) async {
+        guard NotificationEnvironment.canUseNotifications(bundleIdentifier: Bundle.main.bundleIdentifier) else {
+            return
+        }
         let content = UNMutableNotificationContent()
         content.title = message
         content.body = message

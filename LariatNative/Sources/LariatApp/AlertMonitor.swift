@@ -41,7 +41,8 @@ final class AlertMonitor {
     /// "switch boards, restart at a different interval" concept here).
     func start(db: LariatDatabase, writeDb: LariatWriteDatabase?, navigate: @escaping (String) -> Void) {
         self.navigate = navigate
-        if notificationDelegate == nil {
+        if notificationDelegate == nil,
+           NotificationEnvironment.canUseNotifications(bundleIdentifier: Bundle.main.bundleIdentifier) {
             let delegate = AlertNotificationDelegate(navigate: navigate)
             notificationDelegate = delegate
             UNUserNotificationCenter.current().delegate = delegate
