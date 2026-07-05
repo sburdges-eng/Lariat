@@ -200,6 +200,12 @@ struct LariatApp: App {
             .padding(12)
         }
       }
+      // H6a: local notifications for red signals — a poller independent of
+      // which board is on screen (see AlertMonitor.swift). Only started once
+      // (AlertMonitor guards double-start internally).
+      .task {
+        AlertMonitor.shared.start(db: db, writeDb: sharedWriteDatabase, navigate: { selectedId = $0 })
+      }
     } else {
       TileDegrade(
         title: "Database unavailable",
