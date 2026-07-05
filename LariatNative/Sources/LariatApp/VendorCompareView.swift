@@ -125,6 +125,7 @@ struct VendorCompareView: View {
             Text("\(formatDollars(price, decimals: 2))\(unit)")
                 .fontWeight(highlighted ? .semibold : .regular)
                 .foregroundStyle(highlighted ? LariatTheme.ok : Color.primary)
+                .accessibilityLabel("\(formatDollars(price, decimals: 2))\(unit)\(highlighted ? ", cheaper" : "")")
         } else {
             Text(Self.reasonLabel(offer?.reason))
                 .font(.caption)
@@ -147,10 +148,14 @@ struct VendorCompareView: View {
         HStack(spacing: 6) {
             if row.qualityLocked {
                 Button("Unlock") { vm.requestUnlock(masterId: row.masterId) }
+                    .accessibilityLabel("Unlock \(row.canonicalName)")
             } else {
                 Button("Use Sysco") { vm.requestSetPreferred(masterId: row.masterId, vendor: .sysco) }
+                    .accessibilityLabel("Use Sysco for \(row.canonicalName)")
                 Button("Use Shamrock") { vm.requestSetPreferred(masterId: row.masterId, vendor: .shamrock) }
+                    .accessibilityLabel("Use Shamrock for \(row.canonicalName)")
                 Button("Lock for quality") { vm.requestLock(masterId: row.masterId, currentPreferred: row.preferredVendor) }
+                    .accessibilityLabel("Lock \(row.canonicalName) for quality")
             }
         }
         .buttonStyle(.borderless)
@@ -168,10 +173,13 @@ struct VendorCompareView: View {
                 .padding(.horizontal)
             ForEach(vm.singles) { single in
                 HStack {
-                    Text(single.canonicalName)
-                    Text("has \(single.linkedVendor.rawValue)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        Text(single.canonicalName)
+                        Text("has \(single.linkedVendor.rawValue)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
                     Spacer()
                     Button("Attach \(single.missingVendor.rawValue)") {
                         vm.attachTarget = single
@@ -179,6 +187,7 @@ struct VendorCompareView: View {
                         Task { await vm.loadAttachCandidates() }
                     }
                     .disabled(vm.isSaving)
+                    .accessibilityLabel("Attach \(single.missingVendor.rawValue) for \(single.canonicalName)")
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 2)
@@ -215,6 +224,7 @@ struct VendorCompareView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityElement(children: .combine)
                 }
                 .frame(minHeight: 200)
             }
