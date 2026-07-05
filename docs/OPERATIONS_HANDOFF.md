@@ -30,9 +30,13 @@ Owner-driven per `docs/V2_CUTOVER_PLAN.md`:
   build, 22/22 codified e2e plus a real KDS ticket send and a station
   line-check persisted server-side; full record in
   `docs/audit/2026-06-11-v2-stage0-readiness-evidence.md`.
-- **Stage 1 (next)**: cook-tier pilot — name a rollback owner for the
-  shift window first (placeholder lives in the Stage-0 evidence note),
-  then set the `lariat_v2=1` cookie on the pilot devices.
+- **Stage 1 (ready to start)**: rollback owner named 2026-07-04 — Sean
+  Burdges (<sburdges@gmail.com>), see
+  `docs/audit/2026-06-11-v2-stage0-readiness-evidence.md` § Rollback
+  owner. The only remaining step is in-person, on each pilot device:
+  visit `/v2/enable` once (sets `lariat_v2=1`, lands on `/v2/today`) —
+  no devtools needed. To pull a device back to v1 mid-shift (a rollback
+  signal per the cutover plan), visit `/v2/disable`.
 - **Stage 2**: manager-tier pilot after a clean cook window.
 - **Stage 3**: default-on; start the 30-day clean-operation clock.
 - After 30 clean days: delete v1 routes in a separate reviewable change and
