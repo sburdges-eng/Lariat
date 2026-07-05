@@ -114,4 +114,13 @@ begin once a rollback owner is named.
 
 ## Rollback owner
 
-- _To be named per shift window at Stage-1 start (cutover plan requirement)._
+- **Named 2026-07-04: Sean Burdges (<sburdges@gmail.com>)** — standing rollback owner for the
+  Stage-1 cook-tier pilot, satisfying the cutover plan's entry requirement. Per-shift-window
+  reassignment remains available if a different owner should hold a specific shift; absent
+  that, this is the default.
+- This closes the last named blocker on Stage 1. The only remaining step is in-person, on
+  each pilot device: visit `GET /v2/enable` once — sets `lariat_v2=1` (Max-Age 1 year,
+  mirroring the locale cookie) and lands on `/v2/today`. No devtools needed (2026-07-04:
+  added `app/v2/enable/route.js` + `app/v2/disable/route.js`, replacing the earlier
+  devtools-only path). `/v2/disable` is the per-device rollback counterpart — visiting it
+  clears the cookie and returns to v1's `/`, which is rollback step 1 for a single device.

@@ -44,6 +44,46 @@ in `requirements-tools.txt`. `CHANGELOG.md` is written. The `v2.0.0` tag is pend
 operator go-ahead plus the environment-gated checks that can't run headless (Electron
 notarize, PWA offline smoke, `lari-qwen` fresh-Ollama check, SageMaker teardown).
 
+## 2026-07-04 BEO cascade completion + KDS protocol-conformance audit
+
+Two work-streams landed on `main` this session, neither previously reflected here:
+
+**BEO cascade chain** (#421–#424): menu-recipe coverage reached 100% on the 7-real-event
+stress test (#421); on-hand inventory now actually subtracts from the order guide (#422 —
+`GET /api/beo/cascade` previously always ordered the full amount regardless of stock on
+hand); the cascade engine gained recipe-side `pack_size` conversions, an explicit
+`(sub-recipe=slug)` pin, and `find_manifest_warnings()` for declared-but-unreferenced
+sub-recipes (#423); and those warnings are now surfaced end-to-end through the web UI and
+LariatNative (#424). The predecessor branch `feat/beo-scoping-cascade-onhand` (PR #369,
+270 commits stale) was **closed, not merged** — a capability audit found roughly half its
+logic had already shipped elsewhere (location-scope T1 via #409, same-dimension unit
+conversion already generalized into `convert_qty`); the rest was re-landed fresh in #423/#424
+rather than rebased, since `bom_expand.py` had structurally moved on.
+
+**KDS protocol-conformance audit** (PR #425, open as of this writing): this directly
+continues **Tier 1 row 1.3** ("Pin KDS protocol drift") above — 1.3 pinned the bump route's
+response *field names* against `Lariat-KDS/docs/lariat-kds-protocol.md`, but a deeper audit
+against the protocol's actual value formats and the Swift client's real parsing code found
+1.3's pinning had missed 4 real drift bugs, one a live production defect: **every bump
+carrying a `bumped_at` timestamp was silently 422'd**, because the server required
+millisecond-precision ISO-8601 while the protocol's own documented example (and the Swift
+client's default formatter) is bare-seconds. Also fixed: a re-bump's correction audit row
+recorded the wrong `entity_id` (stale `lastInsertRowid` on the UPDATE path of the upsert); a
+transient 5xx was cached under the idempotency key for 24h, permanently blocking retries; and
+a same-body in-flight race returned 409 (reserved for a different-body conflict) instead of a
+retriable 503. The last two touch the shared `withIdempotency` wrapper (19 HACCP-regulated
+callers) — impact-analyzed CRITICAL, confirmed safe before editing (none of those routes
+exercise the idempotency-key path in their own tests). **Not yet ported**: the identical
+stale-rowid bug also exists in `LariatNative/Sources/LariatDB/KdsTicketRepository.swift` —
+out of this audit's web-only scope.
+
+**Unrelated, noticed in passing**: `test-idempotency-coverage.mjs`'s regulated-route sweep
+currently fails on 2 violations (`purchasing/vendor-link/attach` + `pair`, from #360) — a
+*different* pair of routes than the 3 the tier-3 PR (#316) reported as pre-existing back on
+2026-06-11 (`manager-pins` + two `recipe-photos` routes, since fixed). The violated set
+rotates as new mutation routes ship without the wrapper; worth a sweep, not itself a roadmap
+item.
+
 ## How this was scoped
 
 I read every doc in `docs/`, the last 30 commits, the schema, the nav registry, the API routes, the audit document I produced this session, and the recent audit-cycle history (the M/L/H-numbered hardening sweeps). I excluded recommendations I couldn't ground in observed evidence. Effort estimates: **XS** = <1hr, **S** = half-day, **M** = 1–2 days, **L** = week, **XL** = sprint+.
@@ -128,8 +168,8 @@ The `docs/redesign/lari-ui-demo.html` is a prototype. A real migration needs:
 |-----|--------|------|
 | 2.9  | XS | **Closed:** Design tokens are extracted into `styles/tokens.css` and loaded before the current authoritative `styles/globals.css` definitions so shipped UI can opt in without visual regression; `tests/js/test-design-tokens.mjs` pins the token file, core paper/ember/sage/brass/rust tokens, `.k-dark`/`.k-night`, font import, and import order. |
 | 2.10 | L  | **Closed:** The first `/v2` shell is implemented as a cookie-gated side-by-side route tree. `/v2` reads the stable `lariat_v2=1` preview cookie, hides v1 cockpit chrome only inside the v2 subtree, keeps v1 as default, and lists the cook-tier migration anchors without replacing v1 routes. |
-| 2.11 | XL | **In progress (preview shipped 2026-06-10/11, PRs #314/#318/#320):** Cook-tier v2 routes exist behind the preview cookie — `/v2/today`, `/v2/kds/punch`, `/v2/eighty-six`, `/v2/stations/*` — with structure tests (`tests/js/test-v2-*.mjs`). Remaining: full-shift parity per `docs/V2_CUTOVER_PLAN.md` entry criterion 2 (cooks can run an entire shift in v2). |
-| 2.12 | XL | **In progress (preview shipped 2026-06-10/11, PRs #314/#318/#320):** Manager-tier v2 routes exist — `/v2/command`, `/v2/management`, `/v2/analytics` — wrapping the live v1 pages with awaited `searchParams` (Next 16). Remaining: full-shift parity per cutover entry criterion 2. |
+| 2.11 | XL | **Code complete; Stage 1 ready to start (as of 2026-07-04):** Cook-tier v2 routes exist behind the preview cookie — `/v2/today`, `/v2/kds/punch`, `/v2/eighty-six`, `/v2/stations/*` — with structure tests (`tests/js/test-v2-*.mjs`). Full-shift parity (`docs/V2_CUTOVER_PLAN.md` entry criterion 2) was declared satisfied 2026-06-12 (PRs #322/#331/#332) and Stage 0's internal shift smoke passed the same day (`docs/audit/2026-06-11-v2-stage0-readiness-evidence.md`). Rollback owner named 2026-07-04 (Sean Burdges) — the last blocker on Stage 1. `/v2/enable` + `/v2/disable` routes (2026-07-04) give each pilot device a one-tap bootstrap/rollback instead of devtools. Only remaining step is in-person, not code: visit `/v2/enable` on the pilot device(s). |
+| 2.12 | XL | **Code complete; waiting on Stage 1 (as of 2026-07-04):** Manager-tier v2 routes exist — `/v2/command`, `/v2/management`, `/v2/analytics` — wrapping the live v1 pages with awaited `searchParams` (Next 16). Same status as 2.11: full-shift parity satisfied 2026-06-12, rollback owner named 2026-07-04. Stage 2 (manager pilot) can't start until Stage 1 has a clean cook-tier pilot window first, per `docs/V2_CUTOVER_PLAN.md`. |
 | 2.13 | M  | **Closed:** The v1→v2 rollout + rollback plan now lives in `docs/V2_CUTOVER_PLAN.md`. It keeps `/v2` side-by-side during rollout, defines cutover entry gates and rollback triggers, and explicitly forbids deleting v1 routes until v2 has 30 clean production days. |
 
 ### 2C. Test coverage to production-ready
@@ -159,12 +199,12 @@ The `docs/redesign/lari-ui-demo.html` is a prototype. A real migration needs:
 | ID  | Effort | Item |
 |-----|--------|------|
 | 3.1 | XL | **Multi-venue rollout.** `location_id` exists everywhere but the multi-venue management UX (which venue am I, switch venues, consolidated rollup) hasn't been built. Cloud-bridge sync already supports the data plane. |
-| 3.2 | XL | **Implemented (2026-06-10, `feat/tier3-no-config-features`, pending review):** `/costing/variance-attribution` answers "the variance moved — what changed?" between two accounting_variance periods: in-window vendor price moves, dish-component composition edits, count corrections/closes (audit-backed), and unresolved sales depletions, with an honest directional caveat (sections are evidence, not a sum). `tests/js/test-variance-attribution.mjs` pins window selection, per-section evidence, and location scoping. |
-| 3.3 | L  | **Implemented (2026-06-10, `feat/tier3-no-config-features`, pending review):** append-only `allergen_attestations` with manager-PIN signoff via `POST /api/allergens/attestations` (idempotency-wrapped, audit_events row in-transaction). Status per recipe is `unattested` / `attested` / `stale` — staleness via a sha256 fingerprint of the full sub-recipe ingredient tree the allergen heuristic reads. Allergen-lookup shows status chips + an Attest form. `tests/js/test-allergen-attestations.mjs` pins it. Recipe-browser surfacing is a follow-up. |
-| 3.4 | XL | **Implemented (2026-06-10, `feat/tier3-no-config-features`, pending review):** in-app `/setup` first-run flow with live step detection: manager PIN (links `/login-pin?setup=1`), location seed (new `POST /api/locations`), first vendor prices + first recipes (detected; command blocks for the ingest scripts), Toast marked optional-requires-credentials (no OAuth shipped — needs API keys), and a "you're live" handoff to `/today` + `/install`. Desktop Electron wizard unchanged. `tests/js/test-setup-flow.mjs` pins detection + the locations POST. |
-| 3.5 | XL | **Implemented (2026-06-10, `feat/tier3-no-config-features`, pending review):** `/analytics/operators` manager dashboard (PIN-gated via existing `/analytics` prefix): audit-event volume by actor + trend, corrective actions by operator and subject, equipment failure frequency, gold stars by cook, and management-actions JSONL counts, over 7/30/90-day windows. `tests/js/test-operator-analytics.mjs` pins aggregation, window edges, and location scoping. |
-| 3.6 | XL | **Implemented (2026-06-10, `feat/tier3-no-config-features`, pending review):** "Promote to menu" on saved specials (`POST /api/specials/saved/[id]/promote`, PIN + idempotency + audit): materializes per-serving `dish_components` vendor_item rows from the special's cost_breakdown into a new `specials_promotions` linkage, so `computeMenuEngineering` picks the dish up with real cost the moment it sells — no menu-engineering code changes needed. Re-promote refreshes only promotion-owned rows. `tests/js/test-specials-promotion.mjs` pins cost flow-through end to end. |
-| 3.7 | L  | **Implemented (2026-06-10, `feat/tier3-no-config-features`, pending review):** `/food-safety/haccp-plan` inspector-ready printable plan built on demand from local data: CCP inventory with FDA citations, rule-module evidence counts, 30-day corrective-action log, calibration records + probe status board, signature block; browser print-to-PDF per the settlement pattern (no PDF library, no nightly job — on-demand needs no scheduling config). `tests/js/test-haccp-plan.mjs` pins it. |
+| 3.2 | XL | **Closed (merged 2026-06-11 via PR #316–#318; live on `main`, tests passing as of 2026-07-04):** `/costing/variance-attribution` answers "the variance moved — what changed?" between two accounting_variance periods: in-window vendor price moves, dish-component composition edits, count corrections/closes (audit-backed), and unresolved sales depletions, with an honest directional caveat (sections are evidence, not a sum). `tests/js/test-variance-attribution.mjs` pins window selection, per-section evidence, and location scoping. |
+| 3.3 | L  | **Closed (merged 2026-06-11 via PR #316–#318; live on `main`, tests passing as of 2026-07-04):** append-only `allergen_attestations` with manager-PIN signoff via `POST /api/allergens/attestations` (idempotency-wrapped, audit_events row in-transaction). Status per recipe is `unattested` / `attested` / `stale` — staleness via a sha256 fingerprint of the full sub-recipe ingredient tree the allergen heuristic reads. Allergen-lookup shows status chips + an Attest form. `tests/js/test-allergen-attestations.mjs` pins it. Recipe-browser surfacing is a follow-up. |
+| 3.4 | XL | **Closed (merged 2026-06-11 via PR #316–#318; live on `main`, tests passing as of 2026-07-04):** in-app `/setup` first-run flow with live step detection: manager PIN (links `/login-pin?setup=1`), location seed (new `POST /api/locations`), first vendor prices + first recipes (detected; command blocks for the ingest scripts), Toast marked optional-requires-credentials (no OAuth shipped — needs API keys), and a "you're live" handoff to `/today` + `/install`. Desktop Electron wizard unchanged. `tests/js/test-setup-flow.mjs` pins detection + the locations POST. |
+| 3.5 | XL | **Closed (merged 2026-06-11 via PR #316–#318; live on `main`, tests passing as of 2026-07-04):** `/analytics/operators` manager dashboard (PIN-gated via existing `/analytics` prefix): audit-event volume by actor + trend, corrective actions by operator and subject, equipment failure frequency, gold stars by cook, and management-actions JSONL counts, over 7/30/90-day windows. `tests/js/test-operator-analytics.mjs` pins aggregation, window edges, and location scoping. |
+| 3.6 | XL | **Closed (merged 2026-06-11 via PR #316–#318; live on `main`, tests passing as of 2026-07-04):** "Promote to menu" on saved specials (`POST /api/specials/saved/[id]/promote`, PIN + idempotency + audit): materializes per-serving `dish_components` vendor_item rows from the special's cost_breakdown into a new `specials_promotions` linkage, so `computeMenuEngineering` picks the dish up with real cost the moment it sells — no menu-engineering code changes needed. Re-promote refreshes only promotion-owned rows. `tests/js/test-specials-promotion.mjs` pins cost flow-through end to end. |
+| 3.7 | L  | **Closed (merged 2026-06-11 via PR #316–#318; live on `main`, tests passing as of 2026-07-04):** `/food-safety/haccp-plan` inspector-ready printable plan built on demand from local data: CCP inventory with FDA citations, rule-module evidence counts, 30-day corrective-action log, calibration records + probe status board, signature block; browser print-to-PDF per the settlement pattern (no PDF library, no nightly job — on-demand needs no scheduling config). `tests/js/test-haccp-plan.mjs` pins it. |
 | 3.8 | L  | **Closed (2026-06-12, PRs #327/#328/#329):** Cook-tier i18n shipped with Spanish first — hand-rolled `lib/i18n` catalog (next-intl deferred: zero new deps; the cook corpus needs only token interpolation + `_one`/`_other` plurals; key drift is typecheck-enforced via `Messages = typeof en`). Locale rides the `lariat_locale` cookie (v2-topbar EN/ES picker + the kitchen-assistant language picker dual-writes it, so LLM answers and chrome stay in step). Translated: `/v2/today`, the four cook hero shells, EightySixBoard, PunchTicketPage, StationChecklist — chrome only, DB data verbatim, 86 reason codes stay API values. Residuals: `app/v2/page.jsx` nav hub + manager tier stay English by design; **Spanish copy is machine-draft pending operator review** (`docs/OPERATIONS_HANDOFF.md` §5) — the picker stays v2-preview-gated until signed off. |
 
 ---
