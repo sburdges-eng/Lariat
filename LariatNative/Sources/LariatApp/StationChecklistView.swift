@@ -145,12 +145,10 @@ struct StationChecklistView: View {
         state: LineCheckItemState
     ) -> some View {
         Button(label) {
-            // Send whatever the row currently shows (draft, else the existing value).
             let note = noteDrafts[item] ?? state.note
             let par = parDrafts[item] ?? state.par
             let have = haveDrafts[item] ?? state.have
             let need = needDrafts[item] ?? state.need
-            // Checked ⇒ true, unchecked ⇒ nil (never false) — RTE attestation contract.
             let glove: Bool? = (gloveDrafts[item] ?? (state.gloveChangeAttested == true)) ? true : nil
             Task {
                 await submitPost(item: item, status: status, par: par, have: have, need: need, note: note, glove: glove)
@@ -159,6 +157,8 @@ struct StationChecklistView: View {
         .buttonStyle(.bordered)
         .tint(state.status == status ? .accentColor : .secondary)
         .disabled(vm.isSaving || vm.snapshot?.signoff != nil)
+        .accessibilityLabel("Mark \(item) \(label)")
+        .accessibilityAddTraits(state.status == status ? [.isSelected] : [])
     }
 
     private func binding(for item: String, existing: String) -> Binding<String> {
