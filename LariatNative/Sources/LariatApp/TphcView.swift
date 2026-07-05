@@ -106,15 +106,19 @@ struct TphcView: View {
         let t = tone(scan)
 
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top) {
-                Text(row.item).font(.headline)
-                Spacer()
-                Text(minutesText(scan?.minutesUntilCutoff))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(t.color)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .top) {
+                    Text(row.item).font(.headline)
+                    Spacer()
+                    Text(minutesText(scan?.minutesUntilCutoff))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(t.color)
+                }
+                Text(metaLine(row))
+                    .font(.caption).foregroundStyle(.secondary)
             }
-            Text(metaLine(row))
-                .font(.caption).foregroundStyle(.secondary)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(row.item), \(toneWord(t)), \(minutesText(scan?.minutesUntilCutoff))")
 
             HStack(spacing: 6) {
                 ForEach(vm.discardReasons, id: \.self) { reason in
@@ -124,6 +128,7 @@ struct TphcView: View {
                     .font(.caption)
                     .buttonStyle(.bordered)
                     .disabled(vm.isSaving)
+                    .accessibilityLabel("\(reasonLabel(reason)) — \(row.item)")
                 }
             }
         }
@@ -179,6 +184,14 @@ struct TphcView: View {
         case .expired: return .red
         case .warning: return .amber
         default: return .green
+        }
+    }
+
+    private func toneWord(_ t: Tone) -> String {
+        switch t {
+        case .green: return "on track"
+        case .amber: return "approaching cutoff"
+        case .red: return "past cutoff"
         }
     }
 
