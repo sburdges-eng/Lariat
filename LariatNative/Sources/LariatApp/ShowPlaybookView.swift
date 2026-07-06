@@ -100,6 +100,7 @@ struct ShowPlaybookView: View {
                 Text(show.bandName).font(.title2).bold()
                 Text(show.showDate).font(.callout).foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .combine)
         }
     }
 
@@ -124,6 +125,7 @@ struct ShowPlaybookView: View {
                         .monospacedDigit()
                 }
                 .font(.callout)
+                .accessibilityElement(children: .combine)
                 statusPillRow(
                     "Door price (door tix)",
                     ShowStatusCompute.statusColor(show.doorTix, "door_tix"),
@@ -190,6 +192,22 @@ struct ShowPlaybookView: View {
                 .help("\(column): \(rawValue ?? "—")")
         }
         .font(.callout)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(statusPillAccessibilityLabel(label, badge))
+    }
+
+    /// Verbalizes the one genuinely information-free color signal in this
+    /// board: `ShowStatusCompute.statusColor` always renders the `.neutral`
+    /// case with the literal label "—" — an em dash with no accompanying
+    /// word, unlike red/amber/green cases whose label is always the raw
+    /// spreadsheet token itself (already spoken). Only `.neutral` needs an
+    /// added word; the other three tokens are shown verbatim by design and
+    /// must NOT be reinterpreted.
+    private func statusPillAccessibilityLabel(_ label: String, _ badge: ShowStatusBadge) -> String {
+        if badge.color == .neutral {
+            return "\(label): not set"
+        }
+        return "\(label): \(badge.label)"
     }
 
     private func pillColor(_ color: ShowStatusColor) -> Color {
