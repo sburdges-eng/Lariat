@@ -87,6 +87,7 @@ struct ShowStageView: View {
                     Text("Cap \(config.capacity) · changeover \(config.changeoverStaff) staff / \(config.changeoverMinutes) min · \(config.bestFor)")
                         .font(.caption).foregroundStyle(.secondary)
                 }
+                .accessibilityElement(children: .combine)
             }
         }
     }
@@ -111,6 +112,7 @@ struct ShowStageView: View {
                         Image(systemName: "trash")
                     }
                     .buttonStyle(.borderless)
+                    .accessibilityLabel(runOfShowDeleteLabel(for: entry))
                 }
                 .font(.callout)
             }
@@ -120,17 +122,27 @@ struct ShowStageView: View {
         }
     }
 
+    /// Per-row delete label so VoiceOver can distinguish otherwise-identical
+    /// trash buttons — falls back to a generic label when the row is blank.
+    private func runOfShowDeleteLabel(for entry: ShowStageViewModel.RunEntryDraft) -> String {
+        if !entry.what.isEmpty { return "Remove run-of-show entry: \(entry.what)" }
+        if !entry.t.isEmpty { return "Remove run-of-show entry at \(entry.t)" }
+        return "Remove run-of-show entry"
+    }
+
     @ViewBuilder
     private var ridersSection: some View {
         Section("Hospitality rider (JSON)") {
             TextEditor(text: $vm.hospitalityJson)
                 .font(.system(.caption, design: .monospaced))
                 .frame(minHeight: 70)
+                .accessibilityLabel("Hospitality rider JSON")
         }
         Section("Tech rider (JSON)") {
             TextEditor(text: $vm.techJson)
                 .font(.system(.caption, design: .monospaced))
                 .frame(minHeight: 70)
+                .accessibilityLabel("Tech rider JSON")
         }
         Section("Notes") {
             TextField("Manager notes", text: $vm.notes, axis: .vertical)
@@ -161,6 +173,8 @@ struct ShowStageView: View {
                 .foregroundStyle(on ? LariatTheme.ok : LariatTheme.muted)
             Text(label).font(.caption)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(on ? "complete" : "incomplete")")
     }
 }
 
