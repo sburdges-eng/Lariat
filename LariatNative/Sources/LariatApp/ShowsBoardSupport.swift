@@ -179,11 +179,15 @@ private struct ShowsLockedView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: "lock.fill").font(.largeTitle).foregroundStyle(.secondary)
-            Text("\(title) requires a manager PIN")
-                .font(.headline)
-            Text("Shows surfaces are PIN-protected (parity with the web app).")
-                .font(.callout).foregroundStyle(.secondary)
+            VStack(spacing: 12) {
+                Image(systemName: "lock.fill").font(.largeTitle).foregroundStyle(.secondary)
+                Text("\(title) requires a manager PIN")
+                    .font(.headline)
+                Text("Shows surfaces are PIN-protected (parity with the web app).")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
+
             Button("Unlock") { onUnlock() }
                 .buttonStyle(.borderedProminent)
         }

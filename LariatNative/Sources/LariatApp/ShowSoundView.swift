@@ -56,9 +56,10 @@ struct ShowSoundView: View {
     private var splSection: some View {
         Section("SPL") {
             let summary = vm.splSummary
+            let latestStatus = SplTelemetryCompute.splThresholdStatus(summary.latest, limit: summary.limitDb)
             HStack {
                 kpi(summary.latest.map { db($0) } ?? "—", "latest",
-                    color: statusColor(SplTelemetryCompute.splThresholdStatus(summary.latest, limit: summary.limitDb)))
+                    color: statusColor(latestStatus), status: latestStatus)
                 kpi(summary.peak.map { db($0) } ?? "—", "peak")
                 kpi(summary.avgLastN.map { db($0) } ?? "—", "avg")
                 kpi("\(summary.overLimitCount)", "over limit",
@@ -130,19 +131,24 @@ struct ShowSoundView: View {
             } else {
                 ForEach(vm.scenes) { scene in
                     HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(scene.sceneName).font(.callout)
-                            Text("\(scene.plot.channels.count) ch · \(scene.plot.monitors.count) mon · \(scene.savedAt)")
-                                .font(.caption2).foregroundStyle(.secondary)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(scene.sceneName).font(.callout)
+                                Text("\(scene.plot.channels.count) ch · \(scene.plot.monitors.count) mon · \(scene.savedAt)")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if let limit = scene.splLimitDb {
+                                Text("limit \(db(limit))").font(.caption).foregroundStyle(.secondary)
+                            }
                         }
-                        Spacer()
-                        if let limit = scene.splLimitDb {
-                            Text("limit \(db(limit))").font(.caption).foregroundStyle(.secondary)
-                        }
+                        .accessibilityElement(children: .combine)
+
                         Button(role: .destructive) { vm.deleteScene(scene) } label: {
                             Image(systemName: "trash")
                         }
                         .buttonStyle(.borderless)
+                        .accessibilityLabel("Delete scene \(scene.sceneName)")
                     }
                 }
             }
@@ -181,12 +187,31 @@ struct ShowSoundView: View {
     // ── helpers ───────────────────────────────────────────────────────
 
     @ViewBuilder
-    private func kpi(_ value: String, _ label: String, color: Color = .primary) -> some View {
+    private func kpi(_ value: String, _ label: String, color: Color = .primary, status: SplStatus? = nil) -> some View {
         VStack(spacing: 2) {
             Text(value).font(.headline).monospacedDigit().foregroundStyle(color)
             Text(label).font(.caption2).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(kpiAccessibilityLabel(value: value, label: label, status: status))
+    }
+
+    /// Verbalizes the tile's value+label in "label: value" order (default
+    /// combine reads "value, label" backwards), plus the one status this
+    /// board's "latest" tile conveys by color alone: amber (90–100% of the
+    /// configured limit) and red (over limit) are genuinely ambiguous without
+    /// sight — green/unset already read unambiguously via the value itself
+    /// ("—" for unset; a plain dB number for green), and "over limit"'s own
+    /// count+label needs no extra word.
+    private func kpiAccessibilityLabel(value: String, label: String, status: SplStatus?) -> String {
+        var text = "\(label): \(value)"
+        switch status {
+        case .amber: text += ", near limit"
+        case .red: text += ", over limit"
+        case .green, .unset, .none: break
+        }
+        return text
     }
 
     private func statusColor(_ status: SplStatus) -> Color {

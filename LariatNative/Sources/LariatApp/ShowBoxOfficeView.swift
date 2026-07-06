@@ -59,6 +59,7 @@ struct ShowBoxOfficeView: View {
                                     .foregroundStyle(completeness.score >= 1 ? LariatTheme.ok : LariatTheme.warn)
                             }
                             .font(.callout)
+                            .accessibilityElement(children: .combine)
                         }
                     }
                     if let submitError = vm.submitError {
@@ -85,33 +86,54 @@ struct ShowBoxOfficeView: View {
     @ViewBuilder
     private func lineRow(_ line: BoxOfficeLineRow) -> some View {
         HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(SettlementPrintCompute.sourceLabel(line.source)).font(.callout)
-                    if let cls = line.ticketClass {
-                        Text(cls).font(.caption2).foregroundStyle(.secondary)
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(SettlementPrintCompute.sourceLabel(line.source)).font(.callout)
+                        if let cls = line.ticketClass {
+                            Text(cls).font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                    if let ref = line.externalRef {
+                        Text(ref).font(.caption2).foregroundStyle(.secondary)
                     }
                 }
-                if let ref = line.externalRef {
-                    Text(ref).font(.caption2).foregroundStyle(.secondary)
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(line.qty) × \(money(line.facePrice ?? 0))").monospacedDigit().font(.callout)
+                    if let fees = line.fees, fees != 0 {
+                        Text("+ \(money(fees)) fees").font(.caption2).foregroundStyle(.secondary)
+                    }
                 }
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("\(line.qty) × \(money(line.facePrice ?? 0))").monospacedDigit().font(.callout)
-                if let fees = line.fees, fees != 0 {
-                    Text("+ \(money(fees)) fees").font(.caption2).foregroundStyle(.secondary)
-                }
-            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(lineRowAccessibilityLabel(line))
+
             if line.scannedAt != nil {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(LariatTheme.ok)
                     .help("Scanned in")
+                    .accessibilityLabel("Scanned in")
             } else {
                 Button("Scan") { vm.markScanned(line) }
                     .buttonStyle(.bordered)
+                    .accessibilityLabel("Scan in \(SettlementPrintCompute.sourceLabel(line.source)) ticket line")
             }
         }
+    }
+
+    /// Verbalizes the line's source/class/ref + qty/price/fees fragments as one
+    /// VoiceOver stop; the scan-state icon/button stays a sibling outside this
+    /// combine scope so it remains independently reachable/interactive.
+    private func lineRowAccessibilityLabel(_ line: BoxOfficeLineRow) -> String {
+        var parts = [SettlementPrintCompute.sourceLabel(line.source)]
+        if let cls = line.ticketClass { parts.append(cls) }
+        if let ref = line.externalRef { parts.append(ref) }
+        parts.append("\(line.qty) at \(money(line.facePrice ?? 0)) each")
+        if let fees = line.fees, fees != 0 {
+            parts.append("plus \(money(fees)) fees")
+        }
+        return parts.joined(separator: ", ")
     }
 
     // ── Add-line form ─────────────────────────────────────────────────
@@ -156,6 +178,8 @@ struct ShowBoxOfficeView: View {
             Text(label).font(.caption2).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)")
     }
 
     private func money(_ dollars: Double) -> String {
