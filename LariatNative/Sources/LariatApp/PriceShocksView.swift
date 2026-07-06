@@ -252,7 +252,7 @@ private struct PriceShockRowView: View {
                 .bold()
                 .monospacedDigit()
                 .foregroundStyle(tone)
-                .frame(width: 72, alignment: .trailing)
+                .frame(minWidth: 72, alignment: .trailing)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(fmtPrice(row.baselineUnitPrice)) → \(fmtPrice(row.latestUnitPrice))")
@@ -266,6 +266,16 @@ private struct PriceShockRowView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(rowAccessibilityLabel)
+    }
+
+    /// Verbalizes ingredient/vendor/sku, delta%, before→after price, and the
+    /// "used in" text as one VoiceOver stop. No tone word: `tone` is a pure
+    /// function of `direction` and `fmtPct` already signs the value.
+    private var rowAccessibilityLabel: String {
+        "\(row.ingredient), \(row.vendor) \(row.sku), \(fmtPct(row.deltaPct)), "
+        + "\(fmtPrice(row.baselineUnitPrice)) to \(fmtPrice(row.latestUnitPrice)), \(usedInText)"
     }
 }
 
@@ -339,6 +349,7 @@ private struct PriceHistoryContentView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                .accessibilityElement(children: .combine)
 
                 Chart(Array(series.points.enumerated()), id: \.offset) { _, point in
                     if let price = point.unitPrice {
@@ -364,6 +375,7 @@ private struct PriceHistoryContentView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+                        .accessibilityElement(children: .combine)
                         Divider()
                     }
                 }
