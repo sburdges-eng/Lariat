@@ -65,6 +65,7 @@ struct InventoryLogView: View {
                 }
             }
         }
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder
