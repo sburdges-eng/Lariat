@@ -198,6 +198,7 @@ struct ReservationsBoardView: View {
                 }
                 Text(rowMeta(r)).font(.caption).foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .combine)
             Spacer()
             HStack(spacing: 8) {
                 if r.status == "booked" {
@@ -206,17 +207,21 @@ struct ReservationsBoardView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(busy)
+                    .accessibilityLabel(vm.cookStore.cookId != nil ? "Seat \(r.partyName)" : "Pick a cook, then seat \(r.partyName)")
                     Button("No-show") { Task { await vm.noShow(id: r.id) } }
                         .buttonStyle(.bordered)
                         .disabled(busy)
+                        .accessibilityLabel("Mark \(r.partyName) a no-show")
                     Button("Cancel") { Task { await vm.cancel(id: r.id) } }
                         .buttonStyle(.bordered)
                         .disabled(busy)
+                        .accessibilityLabel("Cancel reservation for \(r.partyName)")
                 }
                 if r.status == "seated" {
                     Button("Done") { Task { await vm.complete(id: r.id) } }
                         .buttonStyle(.borderedProminent)
                         .disabled(busy)
+                        .accessibilityLabel("Complete reservation for \(r.partyName)")
                 }
                 Button {
                     confirmDeleteRow = r

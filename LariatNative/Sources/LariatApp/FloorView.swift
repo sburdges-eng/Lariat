@@ -148,6 +148,7 @@ struct FloorView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Table \(table.id), \(statusLabel(table.status)), \(table.capacity) seats")
+        .accessibilityAddTraits(table.id == vm.selectedId ? [.isSelected] : [])
     }
 
     private func actionPanel(_ table: DiningTableRow) -> some View {
@@ -159,15 +160,18 @@ struct FloorView: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
             }
-            Text(table.name == table.id ? "ppl \(table.capacity)" : "\(table.name) · ppl \(table.capacity)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text(statusLabel(table.status))
-                .font(.caption.bold())
-                .padding(.horizontal, 10)
-                .padding(.vertical, 3)
-                .background(statusColor(table.status), in: Capsule())
-                .foregroundStyle(.white)
+            VStack(alignment: .leading, spacing: 12) {
+                Text(table.name == table.id ? "ppl \(table.capacity)" : "\(table.name) · ppl \(table.capacity)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(statusLabel(table.status))
+                    .font(.caption.bold())
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 3)
+                    .background(statusColor(table.status), in: Capsule())
+                    .foregroundStyle(.white)
+            }
+            .accessibilityElement(children: .combine)
 
             // Status verbs gated by the current status — the canonical
             // state machine (FloorCompute.actions).

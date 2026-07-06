@@ -137,32 +137,37 @@ struct HostStandView: View {
 
     private func waitingRow(_ p: WaitlistPartyRow) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(p.partyName).font(.headline)
-                if let phone = p.phone, !phone.isEmpty {
-                    Text(phone).font(.caption2).foregroundStyle(.secondary)
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(p.partyName).font(.headline)
+                    if let phone = p.phone, !phone.isEmpty {
+                        Text(phone).font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(p.partySize) ppl · joined \(fmtClock(p.joinedAt))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("waiting \(waitingMinutes(p)) min")
+                        .font(.caption.monospaced())
+                }
+                if let notes = p.notes, !notes.isEmpty {
+                    Text(notes)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: 200, alignment: .leading)
                 }
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("\(p.partySize) ppl · joined \(fmtClock(p.joinedAt))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("waiting \(waitingMinutes(p)) min")
-                    .font(.caption.monospaced())
-            }
-            if let notes = p.notes, !notes.isEmpty {
-                Text(notes)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: 200, alignment: .leading)
-            }
+            .accessibilityElement(children: .combine)
             Button("Seat") { vm.requestTransition(id: p.id, to: "seated") }
                 .buttonStyle(.borderedProminent)
                 .disabled(vm.isBusy)
+                .accessibilityLabel("Seat \(p.partyName)")
             Button("Left") { vm.requestTransition(id: p.id, to: "left") }
                 .buttonStyle(.bordered)
                 .disabled(vm.isBusy)
+                .accessibilityLabel("\(p.partyName) left the waitlist")
         }
         .padding(10)
         .background(.background.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
@@ -181,6 +186,7 @@ struct HostStandView: View {
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                 }
+                .accessibilityElement(children: .combine)
                 .padding(8)
                 .background(.background.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
             }
