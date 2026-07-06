@@ -81,6 +81,7 @@ struct SickLeaveView: View {
                 .font(.caption).foregroundStyle(.secondary)
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 
     // ── Add/Use form ────────────────────────────────────────────────────
