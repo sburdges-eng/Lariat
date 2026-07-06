@@ -466,6 +466,7 @@ private struct MenuEngineeringSection: View {
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
+                    .accessibilityElement(children: .combine)
 
                     // 2×2 quadrant grid
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -556,6 +557,7 @@ private struct QuadrantCell: View {
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -598,11 +600,13 @@ private struct VarianceTrendSection: View {
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
+                .accessibilityElement(children: .combine)
 
                 // Sparkline using Swift Charts (mirrors VarianceTrend.jsx SVG bars)
                 if !trend.points.isEmpty {
                     VarianceTrendSparkline(points: trend.points)
                         .frame(height: 60)
+                        .accessibilityLabel("COGS variance sparkline, last \(trend.windowDays) days")
                 }
 
                 Text("Green ≤ 2% · Yellow 2–5% · Red ≥ 5%")
@@ -709,11 +713,14 @@ private struct AbcSection: View {
                                 .tracking(1)
 
                             ForEach(Array(topA.enumerated()), id: \.offset) { idx, r in
+                                let marginPerUnit = r.qty > 0
+                                    ? formatDollars(r.contributionDollars / r.qty, decimals: 2)
+                                    : "—"
                                 HStack(spacing: 6) {
                                     Text("\(idx + 1)")
                                         .font(.caption2)
                                         .foregroundStyle(.tertiary)
-                                        .frame(width: 16, alignment: .trailing)
+                                        .frame(minWidth: 16, alignment: .trailing)
                                         .monospacedDigit()
 
                                     Text(r.itemName)
@@ -721,14 +728,14 @@ private struct AbcSection: View {
                                         .lineLimit(1)
                                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                                    let marginPerUnit = r.qty > 0
-                                        ? formatDollars(r.contributionDollars / r.qty, decimals: 2)
-                                        : "—"
                                     Text("\(marginPerUnit) margin/unit · \(Int(r.qty)) sold")
                                         .font(.caption2)
                                         .foregroundStyle(.tertiary)
                                         .monospacedDigit()
                                 }
+                                .accessibilityElement(children: .combine)
+                                .accessibilityLabel(abcTopRowAccessibilityLabel(
+                                    rank: idx + 1, name: r.itemName, marginPerUnit: marginPerUnit, qtySold: Int(r.qty)))
                             }
                         }
                         .padding(.top, 4)
@@ -736,6 +743,10 @@ private struct AbcSection: View {
                 }
             }
         }
+    }
+
+    private func abcTopRowAccessibilityLabel(rank: Int, name: String, marginPerUnit: String, qtySold: Int) -> String {
+        "rank \(rank), \(name), \(marginPerUnit) margin per unit, \(qtySold) sold"
     }
 }
 
@@ -755,6 +766,7 @@ private struct AbcTierRow: View {
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
         }
+        .accessibilityElement(children: .combine)
     }
 }
 
