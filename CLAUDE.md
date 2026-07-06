@@ -3,6 +3,16 @@
 Claude Code guidance for the Lariat restaurant F&B operations platform. See `AGENTS.md` for the
 shared multi-tool ruleset (worktrees, MACP, trio orchestration) and `docs/` for architecture.
 
+## Native Final App
+
+Before any final macOS-native Lariat work, read `docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md`.
+That guide is the current Claude routing contract for:
+
+- which Lariat paths in `~/Dev` are canonical vs legacy/data/reference;
+- what is already complete in `LariatNative`;
+- what remains before final cutover;
+- when to use Max/Fable, Opus, Sonnet, or Haiku as main agents or subagents.
+
 ## Git Workflow
 
 - Never push directly to `main`. Always create a `feat/` branch (or `fix/`/`chore/`/`wip/` per
