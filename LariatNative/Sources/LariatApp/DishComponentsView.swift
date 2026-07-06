@@ -348,6 +348,7 @@ private struct DishComponentsContentView: View {
         .padding(10)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(LariatTheme.warn, lineWidth: 1))
+        .accessibilityElement(children: .combine)
     }
 
     // ── Build a dish (ComponentEditor.jsx form) ─────────────────────────────
@@ -424,9 +425,11 @@ private struct DishComponentsContentView: View {
                         TextField("qty", text: $row.qty)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 70)
+                            .accessibilityLabel("Quantity for \(rowSubjectLabel(row))")
                         TextField("unit", text: $row.unit)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 70)
+                            .accessibilityLabel("Unit for \(rowSubjectLabel(row))")
                         Menu("Units") {
                             ForEach(Self.commonUnits, id: \.self) { u in
                                 Button(u) { row.unit = u }
@@ -443,6 +446,7 @@ private struct DishComponentsContentView: View {
                         }
                         .buttonStyle(.plain)
                         .help("Remove this component")
+                        .accessibilityLabel("Remove \(rowSubjectLabel(row))")
                     }
                     if let err = vm.rowErrors[row.id] {
                         Text(err)
@@ -477,6 +481,17 @@ private struct DishComponentsContentView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    /// Per-row accessible subject for the remove button and (optionally) the
+    /// qty/unit fields — falls back to "this component" when neither field is
+    /// filled yet, mirroring `cost.label.isEmpty ? "this cost" : cost.label`
+    /// from `ShowSettlementView`'s deal-editor cost row.
+    private func rowSubjectLabel(_ row: DishComponentsViewModel.RowDraft) -> String {
+        if !row.recipeSlug.isEmpty { return row.recipeSlug }
+        let vendor = row.vendorIngredient.trimmingCharacters(in: .whitespaces)
+        if !vendor.isEmpty { return vendor }
+        return "this component"
     }
 
     private func distributorLabel(_ d: DishComponentsRepository.DistributorCandidate) -> String {
@@ -525,25 +540,29 @@ private struct DishComponentsContentView: View {
 
                         ForEach(group.rows) { c in
                             HStack(spacing: 10) {
-                                Text(c.componentType == "vendor_item" ? "distributor" : "recipe")
-                                    .font(.caption2)
-                                    .bold()
-                                    .foregroundStyle(c.componentType == "vendor_item" ? .blue : LariatTheme.ok)
-                                    .frame(width: 70, alignment: .leading)
-                                Text(c.recipeSlug ?? c.vendorIngredient ?? "")
-                                    .font(.caption)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                Text("\(c.qtyPerServing.formatted()) \(c.unit)")
-                                    .font(.caption)
-                                    .monospacedDigit()
-                                Text(c.notes ?? "—")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .frame(maxWidth: 160, alignment: .leading)
-                                Text(String((c.updatedAt ?? "").prefix(16)))
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
+                                HStack(spacing: 10) {
+                                    Text(c.componentType == "vendor_item" ? "distributor" : "recipe")
+                                        .font(.caption2)
+                                        .bold()
+                                        .foregroundStyle(c.componentType == "vendor_item" ? .blue : LariatTheme.ok)
+                                        .frame(minWidth: 70, alignment: .leading)
+                                    Text(c.recipeSlug ?? c.vendorIngredient ?? "")
+                                        .font(.caption)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    Text("\(c.qtyPerServing.formatted()) \(c.unit)")
+                                        .font(.caption)
+                                        .monospacedDigit()
+                                    Text(c.notes ?? "—")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                        .frame(maxWidth: 160, alignment: .leading)
+                                    Text(String((c.updatedAt ?? "").prefix(16)))
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .accessibilityElement(children: .combine)
+
                                 if vm.canWrite {
                                     Button(role: .destructive) {
                                         Task { await vm.delete(id: c.id) }
@@ -552,6 +571,7 @@ private struct DishComponentsContentView: View {
                                     }
                                     .buttonStyle(.plain)
                                     .help("Delete")
+                                    .accessibilityLabel("Delete \(c.recipeSlug ?? c.vendorIngredient ?? "this component") from \(group.dish)")
                                 }
                             }
                             .padding(.vertical, 3)
