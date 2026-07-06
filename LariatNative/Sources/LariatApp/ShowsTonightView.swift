@@ -65,6 +65,7 @@ struct ShowsTonightView: View {
                     }
                     .font(.callout).foregroundStyle(.secondary)
                 }
+                .accessibilityElement(children: .combine)
             } else {
                 EmptyState(message: "No show tonight (\(snap.date)).", systemImage: "moon.zzz")
             }
@@ -75,6 +76,7 @@ struct ShowsTonightView: View {
                     Text("\(prev.bandName) · \(prev.showDate)")
                 }
                 .font(.caption)
+                .accessibilityElement(children: .combine)
             }
         }
     }
@@ -105,6 +107,7 @@ struct ShowsTonightView: View {
                         Text("capacity unset").font(.caption).foregroundStyle(.secondary)
                     }
                 }
+                .accessibilityElement(children: .combine)
             }
         }
     }
@@ -127,6 +130,7 @@ struct ShowsTonightView: View {
                             Text("\(bucket.qty) · \(money(bucket.revenue))").monospacedDigit()
                         }
                         .font(.callout)
+                        .accessibilityElement(children: .combine)
                     }
                 }
             }
@@ -240,6 +244,8 @@ struct ShowsTonightView: View {
             Text(label).font(.caption2).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)")
     }
 
     private func attendanceColor(_ status: AttendanceStatus) -> Color {
