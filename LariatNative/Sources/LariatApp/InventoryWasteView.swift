@@ -50,6 +50,7 @@ struct InventoryWasteView: View {
                                 Spacer()
                                 Text("\(b.hits)×").font(.callout.monospacedDigit()).foregroundStyle(.secondary)
                             }
+                            .accessibilityElement(children: .combine)
                         }
                     }
                 }
@@ -79,6 +80,7 @@ struct InventoryWasteView: View {
             Spacer()
             Text(row.delta ?? "—").font(.callout.monospacedDigit())
         }
+        .accessibilityElement(children: .combine)
     }
 
     private func recentMeta(_ row: InventoryUpdateRow) -> String {
