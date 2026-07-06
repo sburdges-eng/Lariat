@@ -69,15 +69,19 @@ struct StaffCertsView: View {
     @ViewBuilder
     private func certRow(_ row: StaffCertRow) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(vm.workerName(row.cookId)).font(.headline)
-                Spacer()
-                Text(expiryText(row))
-                    .font(.caption2).padding(4)
-                    .background(color(vm.tone(for: row)).opacity(0.18)).clipShape(Capsule())
-                    .foregroundStyle(color(vm.tone(for: row)))
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(vm.workerName(row.cookId)).font(.headline)
+                    Spacer()
+                    Text(expiryText(row))
+                        .font(.caption2).padding(4)
+                        .background(color(vm.tone(for: row)).opacity(0.18)).clipShape(Capsule())
+                        .foregroundStyle(color(vm.tone(for: row)))
+                }
+                Text(metaLine(row)).font(.caption).foregroundStyle(.secondary)
             }
-            Text(metaLine(row)).font(.caption).foregroundStyle(.secondary)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(certRowAccessibilityLabel(row))
 
             if row.active == 1 {
                 Button(role: .destructive) {
@@ -86,9 +90,24 @@ struct StaffCertsView: View {
                     Label("Retire", systemImage: "archivebox")
                         .font(.caption)
                 }
+                .accessibilityLabel("Retire the certification for \(vm.workerName(row.cookId))")
             }
         }
         .padding(.vertical, 2)
+    }
+
+    /// Verbalizes the row's header/meta text as one VoiceOver stop, plus the one
+    /// tone `metaLine`'s day-count doesn't already disambiguate: an active cert
+    /// with `days > 0` reads only "Nd left" whether that's inside the 30-day
+    /// citation-risk window (amber) or comfortably clear (green) — `metaLine`
+    /// already spells out "inactive" (muted) and "expired Nd ago" (red)
+    /// unambiguously, so only amber needs an extra word.
+    private func certRowAccessibilityLabel(_ row: StaffCertRow) -> String {
+        var parts = [vm.workerName(row.cookId), expiryText(row), metaLine(row)]
+        if vm.tone(for: row) == .amber {
+            parts.append("renewal due soon")
+        }
+        return parts.joined(separator: ", ")
     }
 
     // ── Add-cert form (mirrors the JSX add form) ───────────────────────
