@@ -95,6 +95,7 @@ struct ShowSettlementView: View {
                             .monospacedDigit()
                     }
                     .font(.callout)
+                    .accessibilityElement(children: .combine)
                 }
             }
         }
@@ -144,11 +145,14 @@ struct ShowSettlementView: View {
     @ViewBuilder
     private func netDoorSection(_ s: SettlementSummary) -> some View {
         Section("Net to door") {
-            Text(SettlementPrintCompute.dollars(s.netDoorCents))
-                .font(.system(size: 34, weight: .bold)).monospacedDigit()
-                .foregroundStyle(s.netDoorCents < 0 ? LariatTheme.bad : .primary)
-            Text("tickets net − costs off top − talent payout")
-                .font(.caption).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(SettlementPrintCompute.dollars(s.netDoorCents))
+                    .font(.system(size: 34, weight: .bold)).monospacedDigit()
+                    .foregroundStyle(s.netDoorCents < 0 ? LariatTheme.bad : .primary)
+                Text("tickets net − costs off top − talent payout")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
         }
     }
 
@@ -171,9 +175,11 @@ struct ShowSettlementView: View {
                             TextField("Label", text: $cost.label)
                             TextField("$", text: $cost.amount)
                                 .frame(width: 100)
+                                .accessibilityLabel("Amount in dollars for \(cost.label.isEmpty ? "this cost" : cost.label)")
                             Button(role: .destructive) {
                                 vm.formCosts.removeAll { $0.id == cost.id }
                             } label: { Image(systemName: "trash") }
+                            .accessibilityLabel("Delete cost \(cost.label.isEmpty ? "(unnamed)" : cost.label)")
                         }
                     }
                     Button("Add cost") { vm.formCosts.append(.init()) }
@@ -263,6 +269,7 @@ struct ShowSettlementView: View {
                 .fontWeight(strong ? .bold : .regular)
         }
         .font(.callout)
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder
@@ -273,6 +280,7 @@ struct ShowSettlementView: View {
             Text(value).monospacedDigit()
         }
         .font(.callout)
+        .accessibilityElement(children: .combine)
     }
 }
 
