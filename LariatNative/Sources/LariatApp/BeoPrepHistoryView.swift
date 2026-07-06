@@ -134,6 +134,7 @@ struct BeoPrepHistoryView: View {
                         }
                     }
                     .padding(.vertical, 2)
+                    .accessibilityElement(children: .combine)
                 }
             }
         }
@@ -164,5 +165,6 @@ struct BeoPrepHistoryView: View {
             }
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 }
