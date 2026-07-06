@@ -130,6 +130,7 @@ struct BookingBoardView: View {
                         i >= 4 ? AnyShapeStyle(LariatTheme.amber.opacity(0.18)) : AnyShapeStyle(.quaternary),
                         in: RoundedRectangle(cornerRadius: 10)
                     )
+                    .accessibilityElement(children: .combine)
                 }
             }
         }
@@ -166,10 +167,10 @@ struct BookingBoardView: View {
     private func showTable(_ rows: [BookingShowRow]) -> some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Date").frame(width: 110, alignment: .leading)
+                Text("Date").frame(minWidth: 110, alignment: .leading)
                 Text("Artist").frame(maxWidth: .infinity, alignment: .leading)
-                Text("Price").frame(width: 80, alignment: .trailing)
-                Text("Door").frame(width: 90, alignment: .leading)
+                Text("Price").frame(minWidth: 80, alignment: .trailing)
+                Text("Door").frame(minWidth: 90, alignment: .leading)
             }
             .font(.caption.bold())
             .foregroundStyle(.secondary)
@@ -179,16 +180,17 @@ struct BookingBoardView: View {
                 HStack {
                     Text(fmtDate(row.showDate))
                         .font(.caption.monospaced())
-                        .frame(width: 110, alignment: .leading)
+                        .frame(minWidth: 110, alignment: .leading)
                     Text(row.bandName)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Text(row.price.map { formatDollars($0, decimals: 2) } ?? "—")
                         .font(.caption.monospaced())
-                        .frame(width: 80, alignment: .trailing)
+                        .frame(minWidth: 80, alignment: .trailing)
                     Text(row.doorTix ?? "—")
                         .font(.caption)
-                        .frame(width: 90, alignment: .leading)
+                        .frame(minWidth: 90, alignment: .leading)
                 }
+                .accessibilityElement(children: .combine)
                 .padding(.vertical, 6)
                 Divider()
             }
