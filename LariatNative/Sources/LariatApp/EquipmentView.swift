@@ -68,6 +68,7 @@ struct EquipmentView: View {
                 cardHeader(item)
             }
             .buttonStyle(.plain)
+            .accessibilityAddTraits(vm.expandedId == item.id ? [.isSelected] : [])
 
             if vm.expandedId == item.id {
                 Divider()
@@ -220,6 +221,7 @@ struct EquipmentView: View {
                         Text(notes).font(.caption2).foregroundStyle(.secondary)
                     }
                 }
+                .accessibilityElement(children: .combine)
             }
             if vm.addPartFor == item.id {
                 addPartForm(item)
@@ -258,6 +260,7 @@ struct EquipmentView: View {
                         Text(notes).font(.caption2).foregroundStyle(.secondary)
                     }
                 }
+                .accessibilityElement(children: .combine)
             }
             if vm.addSchedFor == item.id {
                 addScheduleForm(item)
