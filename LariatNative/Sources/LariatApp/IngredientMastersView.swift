@@ -118,6 +118,7 @@ struct IngredientMastersView: View {
                 }
                 .disabled(vm.isSaving || !vm.canWrite)
                 .help(vm.canWrite ? "Stamp last_reviewed = now" : "Write database unavailable — read-only")
+                .accessibilityLabel("Mark \(row.canonicalName) reviewed")
             }
         }
     }
