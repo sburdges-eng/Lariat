@@ -86,6 +86,7 @@ struct BarView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder
@@ -119,6 +120,33 @@ struct BarView: View {
             }
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(pourRowAccessibilityLabel(row))
+    }
+
+    /// Verbalizes the pour-cost tone otherwise conveyed only by the trailing
+    /// percentage's color — same wording `distribution`'s badges already use.
+    private func pourRowAccessibilityLabel(_ row: BarPourCostRow) -> String {
+        var parts = [row.name]
+        if let category = row.category { parts.append(category) }
+        parts.append("Cost \(money(row.costPerPour)) per pour, Menu \(money(row.menuPrice))")
+        if let pct = row.pourCostPct {
+            parts.append(String(format: "%.1f%% pour cost, %@", pct, toneWord(row.tone)))
+        } else {
+            parts.append(row.grayReason ?? "unpriced")
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    /// No pre-existing `Tone`/word helper to reuse — `color(for:)` (elsewhere in
+    /// this file) only maps to `Color`, not words. New helper, same case order.
+    private func toneWord(_ tone: BarTone) -> String {
+        switch tone {
+        case .red: return "over"
+        case .yellow: return "watch"
+        case .green: return "on target"
+        case .gray: return "unpriced"
+        }
     }
 
     /// `formatDollars` parity — '—' when null.
