@@ -141,6 +141,7 @@ struct BeoBoardView: View {
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
     }
 
     private var addPartySheet: some View {
@@ -310,6 +311,7 @@ struct BeoBoardView: View {
                 CommitTextField(value: event.taxRate.map { String($0) } ?? "", placeholder: "rate", width: 56) { raw in
                     if let v = Double(raw) { vm.requestUpdateEvent(BeoEventPatch(taxRate: v)) }
                 }
+                .accessibilityLabel("Tax rate")
                 Text("rate").font(.caption2).foregroundStyle(LariatBrand.inkFaint)
                 Spacer()
                 Text(formatDollars(totals.tax, decimals: 2)).monospacedDigit()
@@ -319,6 +321,7 @@ struct BeoBoardView: View {
                 CommitTextField(value: event.serviceFeePct.map { String($0) } ?? "", placeholder: "%", width: 48) { raw in
                     if let v = Double(raw) { vm.requestUpdateEvent(BeoEventPatch(serviceFeePct: v)) }
                 }
+                .accessibilityLabel("Service fee percentage")
                 Text("%").font(.caption2).foregroundStyle(LariatBrand.inkFaint)
                 Spacer()
                 Text(formatDollars(totals.fee, decimals: 2)).monospacedDigit()
@@ -333,6 +336,7 @@ struct BeoBoardView: View {
                     .monospacedDigit()
                     .foregroundStyle(LariatBrand.clay)
             }
+            .accessibilityElement(children: .combine)
         }
         .font(.callout)
         .padding(12)
@@ -348,6 +352,7 @@ struct BeoBoardView: View {
             Spacer()
             Text(formatDollars(value, decimals: 2)).monospacedDigit()
         }
+        .accessibilityElement(children: .combine)
     }
 
     // ── right rail: menu picker + courses + past prep ────────────────────
@@ -448,6 +453,7 @@ struct BeoBoardView: View {
                         .buttonStyle(.plain)
                         .padding(.vertical, 2)
                         .disabled(vm.isSaving || vm.selectedEvent == nil)
+                        .accessibilityElement(children: .combine)
                     }
                 } label: {
                     Text(group.category)
@@ -470,11 +476,14 @@ struct BeoBoardView: View {
             }
             ForEach(vm.courses) { course in
                 HStack {
-                    Text(course.courseLabel).fontWeight(.medium)
-                    Spacer()
-                    Text(BeoCourseRules.isoToLocalHHMM(course.fireAt))
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
+                    HStack {
+                        Text(course.courseLabel).fontWeight(.medium)
+                        Spacer()
+                        Text(BeoCourseRules.isoToLocalHHMM(course.fireAt))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
                     Button(role: .destructive) {
                         vm.requestDeleteCourse(id: course.id)
                     } label: {
@@ -611,6 +620,7 @@ private struct BeoEventHeaderEditor: View {
         VStack(alignment: .leading, spacing: 2) {
             Eyebrow(label)
             content()
+                .accessibilityLabel(label)
         }
     }
 }
@@ -646,7 +656,7 @@ private struct BeoLineRowEditor: View {
                 }
                 Text(formatDollars(BeoWorksheetCompute.lineTotal(unitCost: line.unitCost, quantity: line.quantity), decimals: 2))
                     .monospacedDigit()
-                    .frame(width: 80, alignment: .trailing)
+                    .frame(minWidth: 80, alignment: .trailing)
                 Button(role: .destructive, action: onDelete) {
                     Image(systemName: "xmark.circle")
                 }
@@ -719,6 +729,7 @@ private struct BeoOrderGuidePanel: View {
                                     Text(row.unit)
                                     Text(row.toOrder.formatted()).monospacedDigit()
                                 }
+                                .accessibilityElement(children: .combine)
                             }
                         }
                         .font(.callout)
@@ -756,6 +767,7 @@ private struct BeoPrepDemandsPanel: View {
                                     .foregroundStyle(.secondary)
                             }
                             .font(.callout)
+                            .accessibilityElement(children: .combine)
                         }
                     }
                 } else {
@@ -838,6 +850,7 @@ struct BeoFireStationSection: View {
                             .monospacedDigit()
                             .foregroundStyle(color(for: bucket))
                             .fontWeight(.semibold)
+                            .accessibilityLabel("\(BeoCourseRules.isoToLocalHHMM(course.fireAt)), \(statusLabel(for: bucket))")
                     }
                     ForEach(course.lines) { line in
                         HStack(spacing: 6) {
@@ -861,6 +874,14 @@ struct BeoFireStationSection: View {
         case .green: return LariatTheme.ok
         case .yellow: return LariatTheme.warn
         case .red: return LariatTheme.bad
+        }
+    }
+
+    private func statusLabel(for bucket: BeoFireScheduleCompute.AgeBucket) -> String {
+        switch bucket {
+        case .green: return "on time"
+        case .yellow: return "due soon"
+        case .red: return "overdue"
         }
     }
 }
@@ -1006,6 +1027,7 @@ private struct BeoRecipeTreePanel: View {
                     timingChip(t)
                 }
             }
+            .accessibilityElement(children: .combine)
             if nodes.isEmpty {
                 Text("No in-house recipe breakdown on file — this item plates as-is.")
                     .font(.caption)
@@ -1085,5 +1107,6 @@ private struct RecipeNodeRow: View {
             }
             Spacer(minLength: 0)
         }
+        .accessibilityElement(children: .combine)
     }
 }
