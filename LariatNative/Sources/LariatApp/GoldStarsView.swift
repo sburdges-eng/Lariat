@@ -100,6 +100,7 @@ struct GoldStarsView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .combine)
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
                 Text(String(repeating: "★", count: max(record.stars, 1)))
@@ -108,6 +109,7 @@ struct GoldStarsView: View {
                     .buttonStyle(.borderless)
                     .font(.caption)
                     .disabled(vm.isSaving)
+                    .accessibilityLabel("Remove the gold star for \(record.cookName)")
             }
         }
         .padding(.vertical, 2)
@@ -124,13 +126,14 @@ struct GoldStarsView: View {
                         Text("#\(index + 1)")
                             .font(.caption.bold())
                             .foregroundStyle(index < 3 ? LariatTheme.amber : Color.secondary)
-                            .frame(width: 34, alignment: .leading)
+                            .frame(minWidth: 34, alignment: .leading)
                         Text(cook.cookName).font(.callout)
                         Spacer()
                         Text("\(cook.totalStars) ★")
                             .font(.callout.bold())
                             .foregroundStyle(LariatTheme.amber)
                     }
+                    .accessibilityElement(children: .combine)
                 }
             }
         }
@@ -176,10 +179,12 @@ struct GoldStarsView: View {
                                 Spacer()
                                 if vm.starCount == tier.rawValue {
                                     Image(systemName: "checkmark")
+                                        .accessibilityHidden(true)
                                 }
                             }
                         }
                         .buttonStyle(.plain)
+                        .accessibilityAddTraits(vm.starCount == tier.rawValue ? [.isSelected] : [])
                     }
                 }
                 Section("What they did") {
