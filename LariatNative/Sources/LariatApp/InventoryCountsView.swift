@@ -44,6 +44,7 @@ struct InventoryCountsView: View {
                         ForEach(vm.counts) { c in
                             Button { vm.openDetail(c.id) } label: { countRow(c) }
                                 .buttonStyle(.plain)
+                                .accessibilityElement(children: .combine)
                         }
                     }
                 }
@@ -65,6 +66,7 @@ struct InventoryCountsView: View {
             Spacer()
             statusBadge(open: c.isOpen)
             Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
         }
         .contentShape(Rectangle())
     }
@@ -139,6 +141,7 @@ struct InventoryCountsView: View {
                     Spacer()
                     statusBadge(open: d.head.isOpen)
                 }
+                .accessibilityElement(children: .combine)
                 if d.head.isOpen {
                     Button(role: .destructive) { vm.closeSelected() } label: { Label("Close count", systemImage: "lock") }
                 } else {
@@ -178,6 +181,7 @@ struct InventoryCountsView: View {
             Text(line.ingredient).font(.callout)
             Text(lineMeta(line)).font(.caption2).foregroundStyle(.secondary)
         }
+        .accessibilityElement(children: .combine)
     }
 
     private func lineMeta(_ line: InventoryCountLine) -> String {
