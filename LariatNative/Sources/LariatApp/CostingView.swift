@@ -181,6 +181,8 @@ private struct VarianceSection: View {
                             .foregroundStyle(.tertiary)
                     }
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(varianceAccessibilityLabel(v))
             }
         }
     }
@@ -192,6 +194,34 @@ private struct VarianceSection: View {
         if abs >= 5.0 { return .red }
         if abs >= 2.0 { return .yellow }
         return .green
+    }
+
+    /// Tone word for `variancePctColor`'s yellow/red buckets only — green/nil
+    /// already read unambiguously via the signed percentage itself. Mirrors
+    /// the pre-existing `variancePctColor` duplication with
+    /// `RecipeCostVarianceSection` (see Global Constraints) rather than
+    /// extracting a shared helper.
+    private func variancePctToneWord(_ pct: Double?) -> String? {
+        guard let pct else { return nil }
+        let abs = Swift.abs(pct)
+        if abs >= 5.0 { return "over threshold" }
+        if abs >= 2.0 { return "near threshold" }
+        return nil
+    }
+
+    private func varianceAccessibilityLabel(_ v: AccountingVariance) -> String {
+        var parts: [String] = []
+        let pctStr = v.variancePct.map { String(format: "%.2f%%", $0) } ?? "—"
+        var varianceStr = "\(pctStr) variance"
+        if let word = variancePctToneWord(v.variancePct) {
+            varianceStr += ", \(word)"
+        }
+        parts.append(varianceStr)
+        parts.append("\(formatDollars(v.varianceAmount ?? 0.0)) vs \(formatDollars(v.theoreticalCogs)) theoretical")
+        if let snap = v.snapshotAt {
+            parts.append("as of \(snap.prefix(10))")
+        }
+        return parts.joined(separator: ", ")
     }
 }
 
@@ -247,6 +277,8 @@ private struct RecipeCostVarianceSection: View {
                         }
                         Spacer()
                     }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(headlineAccessibilityLabel)
 
                     // Top offenders (web rows sorted variance desc, top 5).
                     if !variance.topOffenders.isEmpty {
@@ -262,7 +294,7 @@ private struct RecipeCostVarianceSection: View {
                                     Text("\(idx + 1)")
                                         .font(.caption2)
                                         .foregroundStyle(.tertiary)
-                                        .frame(width: 16, alignment: .trailing)
+                                        .frame(minWidth: 16, alignment: .trailing)
                                         .monospacedDigit()
                                     Text(o.name)
                                         .font(.caption)
@@ -273,6 +305,8 @@ private struct RecipeCostVarianceSection: View {
                                         .monospacedDigit()
                                         .foregroundStyle(variancePctColor(o.variancePct))
                                 }
+                                .accessibilityElement(children: .combine)
+                                .accessibilityLabel(offenderAccessibilityLabel(rank: idx + 1, name: o.name, pct: o.variancePct))
                             }
                         }
                         .padding(.top, 4)
@@ -319,6 +353,31 @@ private struct RecipeCostVarianceSection: View {
         if abs >= 2.0 { return .yellow }
         return .green
     }
+
+    /// Own copy of the tone-word helper — deliberately duplicated from
+    /// `VarianceSection`'s, mirroring the pre-existing `variancePctColor`
+    /// duplication rather than consolidating (see Global Constraints).
+    private func variancePctToneWord(_ pct: Double) -> String? {
+        let abs = Swift.abs(pct)
+        if abs >= 5.0 { return "over threshold" }
+        if abs >= 2.0 { return "near threshold" }
+        return nil
+    }
+
+    private var headlineAccessibilityLabel: String {
+        var maxStr = "max \(String(format: "%.2f%%", variance.max))"
+        if let word = variancePctToneWord(variance.max) { maxStr += ", \(word)" }
+        var meanStr = "mean \(String(format: "%.2f%%", variance.mean))"
+        if let word = variancePctToneWord(variance.mean) { meanStr += ", \(word)" }
+        let overCount = "over 5%: \(variance.over5pctCount) of \(variance.eligibleCount)"
+        return [maxStr, meanStr, overCount].joined(separator: ", ")
+    }
+
+    private func offenderAccessibilityLabel(rank: Int, name: String, pct: Double) -> String {
+        var text = "rank \(rank), \(name), \(String(format: "%.2f%%", pct)) variance"
+        if let word = variancePctToneWord(pct) { text += ", \(word)" }
+        return text
+    }
 }
 
 // MARK: - Section 2: Dish Coverage (P0 reuse)
@@ -355,6 +414,7 @@ private struct DishCoverageSection: View {
                             .foregroundStyle(.tertiary)
                     }
                 }
+                .accessibilityElement(children: .combine)
             }
         }
     }
