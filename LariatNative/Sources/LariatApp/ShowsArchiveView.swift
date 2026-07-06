@@ -46,7 +46,7 @@ struct ShowsArchiveView: View {
                         ForEach(vm.rows) { row in
                             HStack {
                                 Text(row.showDate).foregroundStyle(.secondary)
-                                    .frame(width: 100, alignment: .leading)
+                                    .frame(minWidth: 100, alignment: .leading)
                                 Text(row.bandName)
                                 Spacer()
                                 if let era = row.eraYear {
@@ -54,6 +54,7 @@ struct ShowsArchiveView: View {
                                 }
                             }
                             .font(.callout)
+                            .accessibilityElement(children: .combine)
                         }
                     }
                 }
