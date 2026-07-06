@@ -122,5 +122,6 @@ struct PurchasingOrderGuideView: View {
                     .help("Guide vendor differs from preferred")
             }
         }
+        .accessibilityElement(children: .combine)
     }
 }

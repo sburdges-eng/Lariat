@@ -69,6 +69,7 @@ struct VendorLinkView: View {
                     TextField("Chicken Breast", text: $vm.canonicalName)
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 420)
+                        .accessibilityLabel("Staple name")
                 }
 
                 Button(vm.isSaving ? "Saving…" : "Link both vendors") {
@@ -159,6 +160,9 @@ struct VendorLinkView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
                             }
                             .buttonStyle(.plain)
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel(row.ingredient + (row.packLabel.map { " · \($0)" } ?? ""))
+                            .accessibilityAddTraits(isSelected ? [.isSelected] : [])
                         }
                     }
                 }
