@@ -155,27 +155,31 @@ private struct DepletionExceptionRow: View {
                 .foregroundStyle(.blue)
                 .help("Fix in dish components — add this dish's per-serving ingredients")
 
-                HStack(spacing: 4) {
-                    Text(DepletionReasonLabels.label(item.reason))
-                        .font(.caption)
-                        .foregroundStyle(toneColor)
-                    if let detail = item.detail {
-                        Text("· \(detail)")
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 4) {
+                        Text(DepletionReasonLabels.label(item.reason))
                             .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .monospaced()
+                            .foregroundStyle(toneColor)
+                        if let detail = item.detail {
+                            Text("· \(detail)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .monospaced()
+                        }
+                    }
+
+                    Text(metaLine)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+
+                    if !item.samplePeriodLabels.isEmpty {
+                        Text("Periods: \(item.samplePeriodLabels.joined(separator: ", "))")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
                     }
                 }
-
-                Text(metaLine)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-
-                if !item.samplePeriodLabels.isEmpty {
-                    Text("Periods: \(item.samplePeriodLabels.joined(separator: ", "))")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(reasonAccessibilityLabel)
             }
 
             Spacer()
@@ -196,6 +200,30 @@ private struct DepletionExceptionRow: View {
             parts.append("last seen \(last)")
         }
         return parts.joined(separator: " · ")
+    }
+
+    /// Verbalizes the reason label, detail, `toneColor`'s severity grouping,
+    /// meta line, and sample periods as one VoiceOver stop. Medium-confidence
+    /// judgment call (see task note above): the reason label already names
+    /// the specific issue, but the severity *grouping* itself is otherwise
+    /// silent. Wording verified against `DepletionReasonLabels`'s own doc
+    /// comment, not invented. Fallback if judged too speculative: drop this
+    /// label, keep only the trailing `.combine`.
+    private var reasonAccessibilityLabel: String {
+        var parts = [DepletionReasonLabels.label(item.reason)]
+        if let detail = item.detail {
+            parts.append(detail)
+        }
+        switch tone {
+        case .red: parts.append("blocking this dish")
+        case .yellow: parts.append("recipe data gap")
+        case .blue: parts.append("needs density conversion data")
+        }
+        parts.append(metaLine)
+        if !item.samplePeriodLabels.isEmpty {
+            parts.append("Periods: \(item.samplePeriodLabels.joined(separator: ", "))")
+        }
+        return parts.joined(separator: ", ")
     }
 }
 
