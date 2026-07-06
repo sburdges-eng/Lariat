@@ -112,6 +112,7 @@ struct BarParView: View {
             }
         }
         .padding(.vertical, 1)
+        .accessibilityElement(children: .combine)
     }
 
     private func metaLine(_ row: BarParRow) -> String {
