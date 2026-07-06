@@ -78,6 +78,7 @@ struct WageNoticeView: View {
             Text(metaLine(row)).font(.caption).foregroundStyle(.secondary)
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 
     private func metaLine(_ row: WageNoticeRow) -> String {
