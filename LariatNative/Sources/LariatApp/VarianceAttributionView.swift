@@ -172,6 +172,7 @@ private struct HeaderCard: View {
                             .monospacedDigit()
                     }
                 }
+                .accessibilityElement(children: .combine)
             }
             Text(result.caveat)
                 .font(.caption2)
@@ -201,6 +202,16 @@ private struct PeriodBadge: View {
         }
     }
 
+    /// Tone word for `color`'s yellow/red buckets only — green already reads
+    /// unambiguously via the signed percentage itself.
+    private func toneWord(_ tc: ThresholdColor) -> String? {
+        switch tc {
+        case .green:  return nil
+        case .yellow: return "elevated variance"
+        case .red:    return "high variance"
+        }
+    }
+
     var body: some View {
         if let p = period {
             VStack(alignment: .leading, spacing: 2) {
@@ -214,9 +225,20 @@ private struct PeriodBadge: View {
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(accessibilityLabelText(p))
         } else {
             Text("\(title): —").font(.caption).foregroundStyle(.secondary)
         }
+    }
+
+    private func accessibilityLabelText(_ p: VarianceAttrPeriod) -> String {
+        var text = "\(title) (\(p.periodEnd)): \(fmtPct(p.variancePct))"
+        if let word = toneWord(p.thresholdColor) {
+            text += ", \(word)"
+        }
+        text += ", \(fmtMoney(p.varianceAmount))"
+        return text
     }
 }
 
@@ -236,6 +258,8 @@ private struct SectionCard<Content: View>: View {
                 Text(title).font(.headline)
                 Text("(\(count))").font(.caption).foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .combine)
+
             Text(sub)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -285,6 +309,7 @@ private struct PriceMovesTable: View {
                             .foregroundStyle(.tertiary)
                     }
                 }
+                .accessibilityElement(children: .combine)
                 Divider()
             }
         }
@@ -308,6 +333,7 @@ private struct CompositionChangesTable: View {
                         Text(c.changedAt).font(.caption2).foregroundStyle(.tertiary)
                     }
                 }
+                .accessibilityElement(children: .combine)
                 Divider()
             }
         }
@@ -336,6 +362,7 @@ private struct CountCorrectionsTable: View {
                     Spacer()
                     Text(row.at).font(.caption2).foregroundStyle(.tertiary)
                 }
+                .accessibilityElement(children: .combine)
                 Divider()
             }
         }
@@ -359,6 +386,7 @@ private struct UnresolvedDepletionsTable: View {
                         Text(fmtMoney(u.netSales)).font(.caption2).foregroundStyle(.secondary).monospacedDigit()
                     }
                 }
+                .accessibilityElement(children: .combine)
                 Divider()
             }
         }

@@ -219,6 +219,27 @@ private struct MarginDeltaRowView: View {
                 .frame(minWidth: 80, alignment: .trailing)
         }
         .padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(rowAccessibilityLabel)
+    }
+
+    /// Verbalizes dish name, baseline→latest price move (with dates), top
+    /// contributors, and delta% as one VoiceOver stop. No tone word: `tone`
+    /// is a pure function of `deltaPct`'s sign and `fmtPct` already signs the
+    /// value (same reasoning as `ShowSettlementView.netDoorSection`).
+    private var rowAccessibilityLabel: String {
+        var parts = [row.dishName]
+        parts.append(
+            "\(formatDollars(row.baselineCost, decimals: 4)) on \(marginDeltaDate(row.baselineAt))"
+            + " to \(formatDollars(row.latestCost, decimals: 4)) on \(marginDeltaDate(row.latestAt))")
+        if !row.topContributors.isEmpty {
+            let contributors = row.topContributors.map { c in
+                "\(c.vendor) \(c.sku) \(c.ingredient) \(fmtPct(c.contributionPct))"
+            }.joined(separator: ", ")
+            parts.append("top contributors: \(contributors)")
+        }
+        parts.append("\(fmtPct(row.deltaPct)) change")
+        return parts.joined(separator: ", ")
     }
 }
 
