@@ -69,13 +69,16 @@ struct InventoryParView: View {
                     .foregroundStyle(.red)
             }
         }
+        .accessibilityElement(children: .combine)
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) { vm.remove(row.par.id) } label: { Label("Remove", systemImage: "trash") }
+                .accessibilityLabel("Remove \(row.par.ingredient)")
         }
         // Mouse-reachable delete: on macOS swipe actions need a trackpad swipe,
         // so right-click must offer the same Remove.
         .contextMenu {
             Button(role: .destructive) { vm.remove(row.par.id) } label: { Label("Remove", systemImage: "trash") }
+                .accessibilityLabel("Remove \(row.par.ingredient)")
         }
     }
 
