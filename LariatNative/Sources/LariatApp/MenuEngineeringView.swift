@@ -200,6 +200,7 @@ private struct MenuEngineeringContentView: View {
                             .foregroundStyle(LariatTheme.amber)
                     }
                 }
+                .accessibilityElement(children: .combine)
                 .padding(.horizontal)
 
                 if let result = vm.result {
@@ -389,6 +390,7 @@ private struct MenuEngineeringRowView: View {
                     .bold()
                     .foregroundStyle(quadrantColor(row.quadrant))
             }
+            .accessibilityElement(children: .combine)
 
             HStack(spacing: 14) {
                 stat("Qty", String(format: "%.0f", row.qty))
@@ -416,6 +418,7 @@ private struct MenuEngineeringRowView: View {
             Text(label).font(.caption2).foregroundStyle(.tertiary)
             Text(value).font(.caption).monospacedDigit()
         }
+        .accessibilityElement(children: .combine)
     }
 
     /// Prep-median cell (page.tsx L202-221): the median rounded to a whole
@@ -433,9 +436,11 @@ private struct MenuEngineeringRowView: View {
                 Text("—").font(.caption).foregroundStyle(.secondary)
             }
         }
+        .accessibilityElement(children: .combine)
     }
 
-    /// Margin cell: red + bold below the 20% floor (page.tsx L225-227).
+    /// Margin cell: red + bold below the 20% floor (page.tsx L225-227) — the
+    /// one confirmed color-only signal in this row.
     private func marginStat(_ marginPct: Double?) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             Text("Margin %").font(.caption2).foregroundStyle(.tertiary)
@@ -449,6 +454,15 @@ private struct MenuEngineeringRowView: View {
                 Text("—").font(.caption)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(marginStatAccessibilityLabel(marginPct))
+    }
+
+    private func marginStatAccessibilityLabel(_ marginPct: Double?) -> String {
+        guard let m = marginPct else { return "Margin %: —" }
+        var text = "Margin %: \(String(format: "%.1f%%", m))"
+        if m < 20 { text += ", below the 20% floor" }
+        return text
     }
 
     /// One component sub-line (page.tsx L231-265): R/D tag, display name,
@@ -475,5 +489,6 @@ private struct MenuEngineeringRowView: View {
         }
         .font(.caption2)
         .foregroundStyle(.secondary)
+        .accessibilityElement(children: .combine)
     }
 }
