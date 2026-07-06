@@ -137,10 +137,18 @@ struct KitchenAssistantView: View {
         case .assistant:
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(turn.text)
-                        .textSelection(.enabled)
-                        .padding(10)
-                        .background(bubbleColor(turn), in: RoundedRectangle(cornerRadius: 10))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(turn.text)
+                            .textSelection(.enabled)
+                            .padding(10)
+                            .background(bubbleColor(turn), in: RoundedRectangle(cornerRadius: 10))
+                        if turn.latencyMs > 0 {
+                            Text("\(turn.model) · \(turn.latencyMs) ms")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
                     if model.undoAvailable(turn) {
                         Button {
                             model.undo(turnId: turn.id)
@@ -157,11 +165,6 @@ struct KitchenAssistantView: View {
                     }
                     if !turn.sources.isEmpty {
                         sourcesChips(turn.sources)
-                    }
-                    if turn.latencyMs > 0 {
-                        Text("\(turn.model) · \(turn.latencyMs) ms")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
                     }
                 }
                 Spacer(minLength: 60)
@@ -210,6 +213,7 @@ struct KitchenAssistantView: View {
                 Image(systemName: "paperplane.fill")
             }
             .disabled(model.input.trimmingCharacters(in: .whitespaces).isEmpty || model.isThinking)
+            .accessibilityLabel("Send message")
         }
         .padding(.horizontal)
         .padding(.vertical, 10)

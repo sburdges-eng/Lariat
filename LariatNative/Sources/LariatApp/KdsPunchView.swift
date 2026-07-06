@@ -92,6 +92,7 @@ struct KdsPunchView: View {
                             Spacer()
                             Button("Remove") { draftLines.remove(at: idx) }
                                 .font(.caption)
+                                .accessibilityLabel("Remove line \(line.itemName)")
                         }
                     }
                 }
@@ -122,6 +123,7 @@ struct KdsPunchView: View {
                         .font(.subheadline)
                 }
             }
+            .accessibilityElement(children: .combine)
             Spacer()
             if let bumpedAt = ticket.bumpedAt {
                 Label(bumpedLabel(bumpedAt), systemImage: "checkmark.circle.fill")
@@ -133,6 +135,7 @@ struct KdsPunchView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(vm.isBumping(ticket.id))
+                .accessibilityLabel("Bump order \(ticket.orderNumber)")
             }
         }
     }

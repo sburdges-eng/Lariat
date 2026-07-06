@@ -117,9 +117,17 @@ private struct MorningDigestView: View {
                             .frame(width: 7, height: 7)
                         Text(alert.message).font(.callout)
                     }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("\(severityWord(alert.severity)): \(alert.message)")
                 }
             }
         }
+    }
+
+    /// Verbalizes the severity dot's color for VoiceOver — the dot itself has no spoken
+    /// equivalent otherwise (red/orange is the only signal distinguishing critical from warning).
+    private func severityWord(_ severity: CommandAlert.Severity) -> String {
+        severity == .red ? "Critical" : "Warning"
     }
 
     // 86 board.

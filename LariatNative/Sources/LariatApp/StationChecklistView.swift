@@ -159,6 +159,8 @@ struct StationChecklistView: View {
         .buttonStyle(.bordered)
         .tint(state.status == status ? .accentColor : .secondary)
         .disabled(vm.isSaving || vm.snapshot?.signoff != nil)
+        .accessibilityLabel("Mark \(item) \(label)")
+        .accessibilityAddTraits(state.status == status ? [.isSelected] : [])
     }
 
     private func binding(for item: String, existing: String) -> Binding<String> {

@@ -125,6 +125,9 @@ struct DatapackSearchView: View {
                  + (food.brandOwner.map { " · \($0)" } ?? "")
                  + (food.sourceArchive.map { " · \($0)" } ?? ""))
                 .font(.caption2).foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+        Group {
             let top = DatapackSearchCompute.pickTopNutrients(nutrients)
             if top.isEmpty {
                 Text("No top-line nutrients reported.").font(.caption2).foregroundStyle(.secondary)
@@ -137,6 +140,7 @@ struct DatapackSearchView: View {
                             .monospacedDigit()
                     }
                     .font(.caption2)
+                    .accessibilityElement(children: .combine)
                 }
             }
         }
@@ -157,16 +161,20 @@ struct DatapackSearchView: View {
                 Text("Allergens: " + allergens.joined(separator: ", ")).font(.caption2)
             }
         }
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder
     private func fdaDetail(_ section: FdaSection) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(section.title ?? "(no title)").font(.caption.weight(.semibold))
-            Text((section.sectionId.map { "\($0) · " } ?? "")
-                 + (section.chapter.map { "Ch. \($0)" } ?? "")
-                 + (section.annex.map { "Annex \($0)" } ?? ""))
-                .font(.caption2).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(section.title ?? "(no title)").font(.caption.weight(.semibold))
+                Text((section.sectionId.map { "\($0) · " } ?? "")
+                     + (section.chapter.map { "Ch. \($0)" } ?? "")
+                     + (section.annex.map { "Annex \($0)" } ?? ""))
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
             ScrollView {
                 Text(section.body)
                     .font(.caption2)
@@ -179,15 +187,18 @@ struct DatapackSearchView: View {
     @ViewBuilder
     private func wikibooksDetail(_ page: WikibooksPage) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(page.title ?? "(no title)").font(.caption.weight(.semibold))
-            if let slug = page.slug {
-                Text(slug).font(.caption2).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(page.title ?? "(no title)").font(.caption.weight(.semibold))
+                if let slug = page.slug {
+                    Text(slug).font(.caption2).foregroundStyle(.secondary)
+                }
+                if let summary = page.plainTextSummary, !summary.isEmpty {
+                    Text(summary).font(.caption2)
+                } else {
+                    Text("No summary in index.").font(.caption2).foregroundStyle(.secondary)
+                }
             }
-            if let summary = page.plainTextSummary, !summary.isEmpty {
-                Text(summary).font(.caption2)
-            } else {
-                Text("No summary in index.").font(.caption2).foregroundStyle(.secondary)
-            }
+            .accessibilityElement(children: .combine)
             if let urlString = page.sourceUrl, let url = URL(string: urlString) {
                 Link(urlString, destination: url).font(.caption2)
             }
