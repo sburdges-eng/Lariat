@@ -147,10 +147,11 @@ struct ShowsTonightView: View {
                     ForEach(Array(snap.runOfShow.enumerated()), id: \.offset) { _, entry in
                         HStack {
                             Text(entry.time ?? "—").foregroundStyle(.secondary)
-                                .frame(width: 90, alignment: .leading)
+                                .frame(minWidth: 90, alignment: .leading)
                             Text(entry.label)
                         }
                         .font(.callout)
+                        .accessibilityElement(children: .combine)
                     }
                 }
             }
@@ -167,6 +168,7 @@ struct ShowsTonightView: View {
                     Text(snap.stageSetup.flatMap { StageRoomCatalog.config(for: $0.roomConfig)?.name }
                          ?? snap.stageSetup?.roomConfig ?? "—")
                 }
+                .accessibilityElement(children: .combine)
                 HStack {
                     Text("Latest scene").foregroundStyle(.secondary)
                     Spacer()
@@ -177,6 +179,7 @@ struct ShowsTonightView: View {
                         Text("—")
                     }
                 }
+                .accessibilityElement(children: .combine)
             }
             .font(.callout)
         }
@@ -214,6 +217,8 @@ struct ShowsTonightView: View {
                         Text(stage.rawValue).font(.caption2).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("\(stage.rawValue): \(vm.pipelineCounts[stage] ?? 0)")
                 }
             }
             if vm.upcoming.isEmpty {
@@ -222,7 +227,7 @@ struct ShowsTonightView: View {
                 ForEach(vm.upcoming) { show in
                     HStack {
                         Text(show.showDate).foregroundStyle(.secondary)
-                            .frame(width: 100, alignment: .leading)
+                            .frame(minWidth: 100, alignment: .leading)
                         Text(show.bandName)
                         Spacer()
                         Text(vm.stage(for: show).rawValue)
@@ -230,6 +235,7 @@ struct ShowsTonightView: View {
                             .background(Capsule().fill(Color.secondary.opacity(0.15)))
                     }
                     .font(.callout)
+                    .accessibilityElement(children: .combine)
                 }
             }
         }
