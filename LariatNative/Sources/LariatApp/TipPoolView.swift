@@ -62,6 +62,7 @@ struct TipPoolView: View {
                                 Spacer()
                                 Text(money(cents)).monospacedDigit()
                             }
+                            .accessibilityElement(children: .combine)
                         }
                     }
                 }
@@ -77,6 +78,7 @@ struct TipPoolView: View {
                             Spacer()
                             Text(money(row.amountCents)).monospacedDigit()
                         }
+                        .accessibilityElement(children: .combine)
                     }
                 }
             }
@@ -96,6 +98,8 @@ struct TipPoolView: View {
             Text(label).font(.caption2).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(money(cents))")
     }
 
     // ── Add-line form ────────────────────────────────────────────────────
