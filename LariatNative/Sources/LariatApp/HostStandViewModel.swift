@@ -21,6 +21,9 @@ final class HostStandViewModel {
     var actionError: String?
     var isBusy = false
     var showPinSheet = false
+    /// Read gate (C1 verify-41 T4): `/api/host` GET is middleware-gated on web
+    /// (401 without the PIN cookie). The View shows a locked panel when not `.open`.
+    var gate: RegulatedReadGateState = .open
 
     let pinStore: PinSessionStore
     let poller = BoardPoller()
@@ -61,7 +64,30 @@ final class HostStandViewModel {
 
     func stop() { poller.stop() }
 
+    /// Sync so the `pool.read` closure runs off the async path (strict actor
+    /// isolation rejects calling into it from an async closure).
+    private func evaluateReadGate() -> RegulatedReadGateState {
+        let gateOn = (try? writeDB.pool.read { db in
+            try PinVerifier().gateConfigured(db: db, locationId: self.locationId)
+        }) ?? PinVerifier().gateConfigured()
+        return RegulatedReadGate.evaluate(
+            gateConfigured: gateOn,
+            hasActiveUser: pinStore.activeUser != nil,
+            canUnlock: true
+        )
+    }
+
+    func requestUnlock() { showPinSheet = true }
+
     func refresh() async {
+        // Read gate (C1 verify-41 T4): web /api/host is PIN-gated on every method.
+        // Guest PII (party names, phones, notes) must not auto-poll without a PIN.
+        gate = evaluateReadGate()
+        guard gate == .open else {
+            snapshot = nil
+            fetchError = nil
+            return
+        }
         let repo = HostWaitlistRepository(readDB: readDB, writeDB: writeDB)
         do {
             snapshot = try await repo.load(locationId: locationId)
@@ -101,7 +127,9 @@ final class HostStandViewModel {
         pinStore.save(user: user)
         let pending = pendingAction
         pendingAction = nil
-        pending?()
+        // A pending write resumes; a bare read unlock just refreshes so the
+        // now-permitted waitlist loads.
+        if let pending { pending() } else { Task { await refresh() } }
     }
 
     func pinCancelled() {

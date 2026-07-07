@@ -21,12 +21,17 @@ struct HostStandView: View {
 
     var body: some View {
         Group {
-            if let err = vm.fetchError, vm.snapshot == nil {
-                TileDegrade(title: "Could not load the waitlist", message: err, systemImage: "externaldrive.badge.xmark")
-            } else if vm.snapshot != nil {
-                boardContent
-            } else {
-                ProgressView("Loading waitlist…")
+            switch vm.gate {
+            case .locked, .unavailable:
+                ReadGateLockedView(title: "Host stand", state: vm.gate) { vm.requestUnlock() }
+            case .open:
+                if let err = vm.fetchError, vm.snapshot == nil {
+                    TileDegrade(title: "Could not load the waitlist", message: err, systemImage: "externaldrive.badge.xmark")
+                } else if vm.snapshot != nil {
+                    boardContent
+                } else {
+                    ProgressView("Loading waitlist…")
+                }
             }
         }
         .navigationTitle("Host stand")
