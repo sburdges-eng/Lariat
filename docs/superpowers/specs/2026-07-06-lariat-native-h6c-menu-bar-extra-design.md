@@ -1,7 +1,9 @@
 # LariatNative H6c — menu-bar extra (live red/amber signal panel)
 
 Date: 2026-07-06
-Status: draft (awaiting review)
+Status: implemented — branch `feat/lariat-native-h6c-menu-bar-extra` (T1–T4 committed;
+`swift build` + `swift test` green: LariatModelTests 1414 / LariatDBTests 1008, 0 failures).
+Manual GUI smoke pending in a real GUI session (see plan T4 checklist). Multi-window split to H6d.
 Parent: `docs/superpowers/specs/2026-07-02-lariat-native-endgame.md` §4 (H6 Platform integration)
 Siblings: H6a `2026-07-04-lariat-native-h6a-alert-notifications-design.md` (shipped),
 H6b `2026-07-06-lariat-native-h6b-native-printing-design.md` (shipped)

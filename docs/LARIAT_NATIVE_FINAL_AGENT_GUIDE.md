@@ -52,7 +52,13 @@ What still blocks the final native version:
 - Phase E consolidation: relocate/absorb load-bearing paths first; delete only confirmed duplicates with explicit user approval.
 - H7 accessibility/iPad work. H7a Phase 1 (13 `.safety`-tier board views + VoiceOver/Dynamic-Type fixes) is merged to `main`. H7a Phase 2 (~61 remaining files across other tiers) has not started; no active H7 worktree currently exists.
 - H8 distribution completion: Developer ID identity, notarization profile, final `.app`/`.pkg` or `.dmg` decision, double-click data-dir behavior, and launch smoke in a real GUI session.
-- H6 remaining slices: native printing, menu-bar extra, multi-window, and any follow-up notification preferences only if explicitly requested.
+- H6 remaining slices: native printing (H6b, shipped to `main`) and menu-bar extra (H6c, done on
+  branch `feat/lariat-native-h6c-menu-bar-extra` — `.window`-style live red/amber signal panel over
+  H6a's AlertMonitor poll; awaiting GUI smoke + merge) are complete. **Multi-window (H6d) is the
+  last H6 slice and has not started** — it needs a deliberate rework of `BoardPollerHub.shared.active`
+  from a global "most-recently-started poller" singleton to per-window/scene-scoped active tracking,
+  so ⌘R and `PollFreshnessIndicator` target the right window. Follow-up notification preferences only
+  if explicitly requested.
 
 ## Model Tier Routing for Claude
 
