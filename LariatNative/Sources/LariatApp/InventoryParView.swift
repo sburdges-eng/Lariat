@@ -1,6 +1,9 @@
 import SwiftUI
 import LariatDB
 import LariatModel
+#if canImport(AppKit)
+import AppKit
+#endif
 
 /// Inventory PAR board — native port of `app/inventory/par/page.jsx`. Standing
 /// par levels per ingredient, grouped by category, each showing the latest
@@ -8,6 +11,7 @@ import LariatModel
 /// (no PIN — /inventory is unregulated).
 struct InventoryParView: View {
     @State private var vm: InventoryParViewModel
+    @State private var showPrintPreview = false
 
     init(readDB: LariatDatabase, writeDB: LariatWriteDatabase) {
         _vm = State(wrappedValue: InventoryParViewModel(readDB: readDB, writeDB: writeDB))
@@ -24,7 +28,13 @@ struct InventoryParView: View {
         .navigationTitle("Par")
         .task { vm.start() }
         .onDisappear { vm.stop() }
+        .toolbar {
+            ToolbarItem {
+                Button("Print preview") { showPrintPreview = true }
+            }
+        }
         .sheet(isPresented: $vm.showForm) { addForm }
+        .sheet(isPresented: $showPrintPreview) { printPreview }
     }
 
     @ViewBuilder
@@ -93,6 +103,80 @@ struct InventoryParView: View {
 
     private func qty(_ v: Double) -> String { v == v.rounded() ? String(Int(v)) : String(v) }
     private func unit(_ u: String?) -> String { (u?.isEmpty == false) ? " \(u!)" : "" }
+
+    // ── Print preview (ParPrintCompute.renderText — shared with BarParView) ──
+
+    /// Maps the currently visible (below-par-filtered) `vm.grouped` rows into
+    /// the board-agnostic `ParPrintCompute` inputs. `InventoryParWithOnHand`
+    /// tracks par and on-hand quantities in separate units (`par.parUnit` /
+    /// `onHandUnit`) that can legitimately differ; the shared renderer has a
+    /// single `unit` column, so this prefers the standing `par.parUnit`,
+    /// falling back to `onHandUnit` when the par row itself has none — same
+    /// rule as `BarParView.printGroups`.
+    private var printGroups: [ParPrintGroup] {
+        vm.grouped.map { group in
+            ParPrintGroup(
+                category: group.category,
+                rows: group.rows.map { row in
+                    ParPrintRow(
+                        name: row.par.ingredient,
+                        par: row.par.parQty,
+                        onHand: row.onHandQty,
+                        unit: row.par.parUnit ?? row.onHandUnit,
+                        belowPar: row.isLow
+                    )
+                }
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var printPreview: some View {
+        NavigationStack {
+            ScrollView {
+                Text(ParPrintCompute.renderText(title: "INVENTORY PAR", groups: printGroups))
+                    .font(.system(.callout, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+            }
+            .navigationTitle("Par sheet")
+            .toolbar {
+                #if canImport(AppKit)
+                ToolbarItem {
+                    Button("Copy") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(
+                            ParPrintCompute.renderText(title: "INVENTORY PAR", groups: printGroups),
+                            forType: .string)
+                    }
+                }
+                ToolbarItem {
+                    Button("Print") { Self.printInventoryPar(printGroups) }
+                }
+                #endif
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showPrintPreview = false }
+                }
+            }
+        }
+        .frame(minWidth: 520, minHeight: 560)
+    }
+
+    #if canImport(AppKit)
+    /// Print the SAME monospaced text the preview renders —
+    /// `ParPrintCompute.renderText` stays the single computation shared with
+    /// `BarParView`.
+    private static func printInventoryPar(_ groups: [ParPrintGroup]) {
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 486, height: 700))
+        textView.string = ParPrintCompute.renderText(title: "INVENTORY PAR", groups: groups)
+        textView.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        let operation = NSPrintOperation(view: textView)
+        operation.showsPrintPanel = true
+        operation.showsProgressPanel = true
+        operation.run()
+    }
+    #endif
 
     // ── Add-par form ─────────────────────────────────────────────────────
 
