@@ -58,6 +58,98 @@ final class BreakRepositoryTests: XCTestCase {
         }
     }
 
+    // C1 parity: web (app/api/breaks/route.js:88-96) runs the open-break 409
+    // guard for EVERY start, waived or not — a waived meal cannot be entered
+    // while a prior break is still open. Native previously skipped the guard for
+    // waived rows; this is the red→green driver for restoring parity.
+    func testWaivedMealWhileOpenBreakThrows409() throws {
+        let (readDB, writeDB, path) = try makeRepos()
+        defer { cleanup(path: path) }
+
+        let repo = BreakRepository(readDB: readDB, writeDB: writeDB)
+        let context = RegulatedWriteContext.nativeCook(cookId: "dana")
+        let open = try repo.start(input: BreakStartInput(kind: .rest, cookId: "dana"), context: context)
+
+        XCTAssertThrowsError(
+            try repo.start(
+                input: BreakStartInput(kind: .meal, cookId: "dana", waived: true, waiverRef: "signed-waiver-1"),
+                context: context
+            )
+        ) { error in
+            XCTAssertEqual(error as? BreakWriteError, .openBreakExists(open.id))
+        }
+        // The waived meal must NOT have leaked in past the guard.
+        try writeDB.pool.read { db in
+            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM shift_breaks WHERE waived = 1") ?? -1, 0)
+        }
+    }
+
+    // Coverage the C1 ledger flagged as missing: the waived-meal branch was
+    // entirely untested. These lock existing behavior (they pass as-is).
+    func testWaivedMealStoredAsSingleCompletedRow() throws {
+        let (readDB, writeDB, path) = try makeRepos()
+        defer { cleanup(path: path) }
+
+        let repo = BreakRepository(readDB: readDB, writeDB: writeDB)
+        let context = RegulatedWriteContext.nativeCook(cookId: "erin")
+        let row = try repo.start(
+            input: BreakStartInput(
+                kind: .meal, cookId: "erin",
+                startedAt: "2026-06-17T12:00:00.000Z",
+                waived: true, waiverRef: "signed-waiver-2"
+            ),
+            context: context
+        )
+        // Recorded as one completed row on entry: ended_at == started_at, 0 min, waived.
+        try writeDB.pool.read { db in
+            let r = try XCTUnwrap(try Row.fetchOne(
+                db, sql: "SELECT started_at, ended_at, duration_min, waived FROM shift_breaks WHERE id = ?",
+                arguments: [row.id]))
+            let started: String = r["started_at"]
+            let ended: String? = r["ended_at"]
+            let duration: Double? = r["duration_min"]
+            let waivedVal: Int = r["waived"]
+            XCTAssertEqual(ended, started)
+            XCTAssertEqual(duration ?? -1, 0.0, accuracy: 0.001)
+            XCTAssertEqual(waivedVal, 1)
+            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM shift_breaks") ?? -1, 1)
+        }
+    }
+
+    func testWaivedNonMealBreakThrows400() throws {
+        let (readDB, writeDB, path) = try makeRepos()
+        defer { cleanup(path: path) }
+
+        let repo = BreakRepository(readDB: readDB, writeDB: writeDB)
+        let context = RegulatedWriteContext.nativeCook(cookId: "finn")
+        // Only meal breaks can be waived under COMPS #39.
+        XCTAssertThrowsError(
+            try repo.start(input: BreakStartInput(kind: .rest, cookId: "finn", waived: true, waiverRef: "x"),
+                           context: context)
+        ) { error in
+            guard case .validationFailed = (error as? BreakWriteError) else {
+                return XCTFail("expected validationFailed, got \(error)")
+            }
+        }
+    }
+
+    func testWaivedMealWithoutWaiverRefThrows400() throws {
+        let (readDB, writeDB, path) = try makeRepos()
+        defer { cleanup(path: path) }
+
+        let repo = BreakRepository(readDB: readDB, writeDB: writeDB)
+        let context = RegulatedWriteContext.nativeCook(cookId: "gwen")
+        // A waived meal must reference a signed waiver document.
+        XCTAssertThrowsError(
+            try repo.start(input: BreakStartInput(kind: .meal, cookId: "gwen", waived: true),
+                           context: context)
+        ) { error in
+            guard case .validationFailed = (error as? BreakWriteError) else {
+                return XCTFail("expected validationFailed, got \(error)")
+            }
+        }
+    }
+
     private func makeRepos() throws -> (LariatDatabase, LariatWriteDatabase, String) {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("lariat-break-test-\(UUID().uuidString)", isDirectory: true)
