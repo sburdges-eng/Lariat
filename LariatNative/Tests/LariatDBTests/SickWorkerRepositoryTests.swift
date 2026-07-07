@@ -275,6 +275,59 @@ final class SickWorkerRepositoryTests: XCTestCase {
         XCTAssertEqual(snapA.active.first?.cookId, "alice")
     }
 
+    // ── GET load — PHI projection (C1 verify-41 T2) ────────────────────
+
+    /// The open active list is shown WITHOUT a manager PIN. Web parity: the
+    /// active GET uses a thin projection that excludes `symptoms` and
+    /// `diagnosed_illness` (PHI stays behind the PIN-gated history). Native was
+    /// `SELECT *` and leaked both to any non-PIN viewer.
+    func testActiveListExcludesSymptomsAndDiagnosisPHI() async throws {
+        let (readDB, writeDB, path) = try makeRepos()
+        defer { cleanup(path: path) }
+        let repo = SickWorkerRepository(readDB: readDB, writeDB: writeDB)
+        let filed = try repo.file(
+            input: SickReportFileInput(
+                cookId: "alice", reportedByPicId: "pic-bob",
+                symptoms: ["vomiting", "diarrhea"], diagnosedIllness: "norovirus",
+                action: "excluded", startedAt: tStart
+            ),
+            context: .nativeCook(cookId: "pic-bob")
+        )
+        // The write path itself still returns the full row (that caller is the
+        // audited writer, not the open board).
+        XCTAssertEqual(filed.symptoms, "vomiting,diarrhea")
+        XCTAssertEqual(filed.diagnosedIllness, "norovirus")
+
+        let snap = try await repo.load(locationId: "default")
+        let active = try XCTUnwrap(snap.active.first)
+        XCTAssertEqual(active.symptoms, "", "active list must not expose symptoms (PHI)")
+        XCTAssertNil(active.diagnosedIllness, "active list must not expose diagnosis (PHI)")
+        // Non-PHI identity fields still present for the board display.
+        XCTAssertEqual(active.cookId, "alice")
+        XCTAssertEqual(active.action, "excluded")
+        XCTAssertNil(active.returnAt)
+    }
+
+    /// The PIN-gated history path keeps the full PHI so a manager can review it.
+    func testHistoryRetainsPHIForPinGatedReview() async throws {
+        let (readDB, writeDB, path) = try makeRepos()
+        defer { cleanup(path: path) }
+        let repo = SickWorkerRepository(readDB: readDB, writeDB: writeDB)
+        let id = try repo.file(
+            input: SickReportFileInput(
+                cookId: "alice", symptoms: ["vomiting"], diagnosedIllness: "norovirus",
+                action: "excluded", startedAt: tStart
+            ),
+            context: .nativeCook(cookId: nil)
+        ).id
+        _ = try repo.clear(input: SickReportClearInput(id: id, clearanceSource: "medical_clearance"), context: .nativeCook(cookId: nil))
+
+        let snap = try await repo.load(locationId: "default", includeHistory: true)
+        let cleared = try XCTUnwrap(snap.history.first)
+        XCTAssertEqual(cleared.symptoms, "vomiting", "history (PIN-gated) must retain symptoms")
+        XCTAssertEqual(cleared.diagnosedIllness, "norovirus", "history (PIN-gated) must retain diagnosis")
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────
 
     private func makeRepos() throws -> (LariatDatabase, LariatWriteDatabase, String) {

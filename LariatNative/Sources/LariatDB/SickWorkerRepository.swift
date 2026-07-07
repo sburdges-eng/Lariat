@@ -32,10 +32,18 @@ public struct SickWorkerRepository: Sendable {
         includeHistory: Bool = true
     ) async throws -> SickWorkerBoardSnapshot {
         try await readDB.pool.read { db in
+            // PHI projection (C1 verify-41 T2): the open active board is shown
+            // without a manager PIN, so — matching the web thin projection — the
+            // `symptoms` and `diagnosed_illness` columns are replaced by SQL
+            // literals and never read off disk. Full PHI stays on the PIN-gated
+            // `history` path below (SELECT *).
             let active = try SickWorkerRow.fetchAll(
                 db,
                 sql: """
-                  SELECT * FROM sick_worker_reports
+                  SELECT id, shift_date, location_id, cook_id, reported_by_pic_id,
+                         '' AS symptoms, NULL AS diagnosed_illness,
+                         action, started_at, return_at, clearance_source, note, created_at
+                  FROM sick_worker_reports
                   WHERE location_id = ? AND return_at IS NULL
                   ORDER BY started_at DESC
                   """,
