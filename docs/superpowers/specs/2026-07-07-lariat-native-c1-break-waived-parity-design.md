@@ -1,7 +1,10 @@
 # LariatNative Phase C1 — Break waived-meal open-guard parity + ledger refresh
 
 Date: 2026-07-07
-Status: draft (awaiting review)
+Status: implemented — branch `feat/lariat-native-c1-break-waived-parity` (T1 committed;
+BreakRepository open-break guard now unconditional, TDD red→green + 3 backfill tests;
+`swift test` green: LariatModelTests 1420 / LariatDBTests 1012 (+4), 0 failures). C1 ledger
+refreshed: all 3 refuted rows resolved (BEO already-fixed, KitchenAssistant reclassified, Break fixed).
 Parent: `docs/superpowers/specs/2026-07-03-lariat-native-phase-c1-rule-ledger.md` (the C1 ledger)
 Endgame: `docs/superpowers/specs/2026-07-02-lariat-native-endgame.md` §Phase C (finish adversarial
 verification on ported-write rows; fix or reclassify refuted rows before any C5 route deletion).
