@@ -63,16 +63,19 @@ struct TempPinsView: View {
                 } else {
                     ForEach(vm.active) { pin in
                         HStack(alignment: .firstTextBaseline) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(pin.label).fontWeight(.medium)
-                                Text(pin.scopes.joined(separator: ", "))
-                                    .font(.system(.caption, design: .monospaced))
+                            HStack(alignment: .firstTextBaseline) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(pin.label).fontWeight(.medium)
+                                    Text(pin.scopes.joined(separator: ", "))
+                                        .font(.system(.caption, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text("expires \(pin.expiresAt)")
+                                    .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
-                            Spacer()
-                            Text("expires \(pin.expiresAt)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            .accessibilityElement(children: .combine)
                             Button("Revoke", role: .destructive) { vm.requestRevoke(pin) }
                                 .buttonStyle(.borderless)
                                 .disabled(vm.isSaving)
@@ -96,6 +99,7 @@ struct TempPinsView: View {
                 Text(issued.pin)
                     .font(.system(size: 34, weight: .bold, design: .monospaced))
                     .textSelection(.enabled)
+                    .accessibilityLabel("PIN " + issued.pin.map(String.init).joined(separator: " "))
                 Text("\(issued.label) · \(issued.scopes.joined(separator: ", ")) · expires \(issued.expiresAt)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
