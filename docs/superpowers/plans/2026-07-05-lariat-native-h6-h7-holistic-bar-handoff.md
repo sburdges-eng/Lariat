@@ -16,8 +16,9 @@
   (`spec-plan-tdd` skill). iPad (part of H7) is its own separate future wave — not one of
   the 4.
 - **Order chosen so far:** H6a (**MERGED**, PR #428 → main 22b1a1f) → H7a Phase 1
-  (**MERGED 2026-07-05**, PR #430 → main 052fa01) → next pick from {H7a Phase 2+, H6b,
-  H6c} is an open decision, ask the user.
+  (**MERGED 2026-07-05**, PR #430 → main 052fa01) → **H7a Phase 2 (all 10 tiers)
+  COMPLETE & MERGED 2026-07-06/07, PRs #432–#441 → main 38b654a** → next pick from
+  {H6b, H6c} is an open decision, ask the user.
 
 ## 1. Sub-project status
 
@@ -25,7 +26,7 @@
 |---|---|---|---|
 | **H6a** — local notifications for red signals | **MERGED — PR #428 → main 22b1a1f** | `feat/lariat-native-h6a-notifications` (worktree removed post-merge; remote branch still exists, unpruned) | spec: `docs/superpowers/specs/2026-07-04-lariat-native-h6a-alert-notifications-design.md`; plan: `docs/superpowers/plans/2026-07-04-lariat-native-h6a-alert-notifications.md` |
 | **H7a Phase 1** — VoiceOver labels, `.safety` tier (13 files) | **MERGED 2026-07-05 — PR #430 → main 052fa01** | `feat/lariat-native-h7a-accessibility` / `worktrees/native-h7a-accessibility` (worktree/branch still present as of this edit — safe to remove) | spec: `docs/superpowers/specs/2026-07-05-lariat-native-h7a-accessibility-safety-tier-design.md`; plan: `docs/superpowers/plans/2026-07-05-lariat-native-h7a-accessibility-safety-tier.md` |
-| **H7a Phase 2+** — remaining 13 tiers (~61 more zero-coverage view files) | Not started | — | Follows H7a Phase 1's exact same pattern (§2b) — read the lessons in §3 before starting, especially the whole-branch-review requirement |
+| **H7a Phase 2** — the other tiers (turned out to be **10 tiers**, not 13; ~70 view files) | **COMPLETE & MERGED 2026-07-06/07 — PRs #432–#441 → main 38b654a** (Cook #432, Purchasing #433, BEO #434, Inventory #435, FOH #436, House #437, Labor #438, Shows #439, Costing #440, Manager #441) | all `feat/lariat-native-h7a-phase2-*` (merged) | per-tier spec/plan under `docs/superpowers/{specs,plans}/2026-07-0[56]-*-h7a-phase2-*`; Manager (10th/final, money/PIN/audit) added the temp-PIN digit-spell fix + swept 2 audit-discovered unregistered write boards |
 | **H6b** — native printing (settlement/BEO/line sheets via `NSPrintOperation`) | Not started | — | — |
 | **H6c** — menu-bar extra + multi-window (KDS on 2nd display) | Not started | — | — |
 | **H7b** — iPad cook tier | Explicitly deferred, separate future wave (own spec/plan when picked up) | — | — |
@@ -159,9 +160,9 @@ still opens on double-tap post-fix, whenever someone has a real desktop session.
 
 ## 5. Immediate next action
 
-H6a and H7a Phase 1 are both merged. If nothing has changed since this was written: clean
-up the `feat/lariat-native-h7a-accessibility` worktree/branch (safe, already merged), then
-ask the user to pick the next item from §1's table — {H7a Phase 2+ (remaining 13 tiers,
-follow §2b's pattern and §3 item 4's whole-branch-review requirement), H6b native
-printing, H6c menu-bar extra + multi-window}. Do not assume which one; the order past H7a
-Phase 1 was left as an open decision.
+H6a, H7a Phase 1, and **all of H7a Phase 2 (10 tiers, #432–#441)** are merged — the
+accessibility sweep is done. If nothing has changed since this was written: ask the user to
+pick the next item from §1's table — {H6b native printing (settlement/BEO/line sheets via
+`NSPrintOperation`), H6c menu-bar extra + multi-window}. Do not assume which one; the order
+past H7a Phase 2 was left as an open decision. After H6b/H6c comes the Phase C flip, gated
+on the owner shut-off service-day test + ≥7-day reconcile window (see the endgame spec).
