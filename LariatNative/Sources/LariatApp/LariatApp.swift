@@ -142,6 +142,36 @@ struct LariatApp: App {
         }
       }
     }
+
+    #if os(macOS)
+    // H6c — menu-bar extra: a live red/amber signal panel that stays reachable
+    // when the main window is buried, reusing H6a AlertMonitor's existing poll
+    // (no second poller). `.window` style hosts the rich MenuBarPanelView. Purely
+    // additive — the WindowGroup, its sheet, and its ⌘K/⌘R/⌘1…⌘0 commands are
+    // untouched.
+    MenuBarExtra {
+      MenuBarPanelView(onOpenCommand: { openCommandBoard() })
+    } label: {
+      MenuBarStatusLabel()
+    }
+    .menuBarExtraStyle(.window)
+    #endif
+  }
+
+  /// H6c — bring the app + its main window forward and navigate to the Command
+  /// board (menu-bar "Open Command Board" / an alert-row tap). Routes through the
+  /// same `AlertNotificationRouting.commandFeatureId` the H6a notification tap
+  /// uses, and honours the `isModalUp` guard so it never swaps the detail view
+  /// out from under an open form — identical to the ⌘1…⌘0 tier-jump behaviour.
+  @MainActor private func openCommandBoard() {
+    guard !isModalUp else { return }
+    #if canImport(AppKit)
+    NSApp.activate()
+    // Pick the real board window, not the menu-bar panel (a status-bar panel
+    // cannot become the main window).
+    NSApp.windows.first(where: { $0.canBecomeMain })?.makeKeyAndOrderFront(nil)
+    #endif
+    selectedId = AlertNotificationRouting.commandFeatureId
   }
 
   /// ⌘1…⌘9 for the first nine tiers, ⌘0 for the tenth, none afterwards.
