@@ -11,11 +11,11 @@ extension FeatureModule {
     }
 
     static let costingVarianceAttribution = FeatureModule(id: "costing.varianceAttribution") { ctx in
-        AnyView(VarianceAttributionView(database: ctx.database))
+        AnyView(VarianceAttributionView(database: ctx.database, writeDB: ctx.writeDatabase))
     }
 
     static let costingDepletionExceptions = FeatureModule(id: "costing.depletionExceptions") { ctx in
-        AnyView(DepletionExceptionsView(database: ctx.database, navigate: ctx.navigate))
+        AnyView(DepletionExceptionsView(database: ctx.database, writeDB: ctx.writeDatabase, navigate: ctx.navigate))
     }
 
     static let costingIngredientMasters = FeatureModule(id: "costing.ingredientMasters") { ctx in
