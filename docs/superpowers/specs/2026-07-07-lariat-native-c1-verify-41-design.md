@@ -1,7 +1,7 @@
 ---
 title: "Phase C1 — verify pass on the 41 unverified ported-write rows"
 date: 2026-07-07
-status: draft — SPEC
+status: COMPLETE 2026-07-07 — all 41 verified; refutations fixed under TDD (T1–T12); ledger refreshed (T13)
 parent: docs/superpowers/specs/2026-07-03-lariat-native-phase-c1-rule-ledger.md
 branch: feat/lariat-native-c1-verify-41
 generator: hand-authored (spec-plan-tdd), executed via 7 parallel read-only refute agents
