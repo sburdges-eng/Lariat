@@ -1,6 +1,9 @@
 import SwiftUI
 import LariatDB
 import LariatModel
+#if canImport(AppKit)
+import AppKit
+#endif
 
 /// Native port of `/beo` (BeoBoard) — the parties & BEOs operator board.
 /// Prep-sheet layout: ITEM / PREP / SECONDARY PREP / ORDER ITEMS + course
@@ -11,6 +14,7 @@ struct BeoBoardView: View {
     @State private var vm: BeoBoardViewModel
     @State private var confirmKill = false
     @State private var showAddParty = false
+    @State private var showPrintPreview = false
 
     init(readDB: LariatDatabase, writeDB: LariatWriteDatabase) {
         _vm = State(wrappedValue: BeoBoardViewModel(readDB: readDB, writeDB: writeDB))
@@ -49,6 +53,7 @@ struct BeoBoardView: View {
             Button("Kill party", role: .destructive) { vm.requestKillParty() }
             Button("Keep it", role: .cancel) {}
         }
+        .sheet(isPresented: $showPrintPreview) { printPreview }
     }
 
     // ── layout ───────────────────────────────────────────────────────────
@@ -201,6 +206,7 @@ struct BeoBoardView: View {
                     .pickerStyle(.segmented)
                     .frame(maxWidth: 420)
                     Spacer()
+                    Button("Print preview") { showPrintPreview = true }
                     Button(role: .destructive) { confirmKill = true } label: {
                         Label("Kill party", systemImage: "trash")
                     }
@@ -545,6 +551,73 @@ struct BeoBoardView: View {
             }
         }
     }
+
+    // ── Print preview (BeoPrintCompute computation) ─────────────────────
+
+    /// Renders the SAME event/lines/courses/totals the sheet tab already
+    /// shows — `vm.totals` is the board's own `BeoWorksheetCompute.totals`
+    /// call, so the print sheet never recomputes money. Cascade/order-guide
+    /// data is intentionally excluded from the print path.
+    @ViewBuilder
+    private var printPreview: some View {
+        NavigationStack {
+            ScrollView {
+                if let event = vm.selectedEvent {
+                    Text(BeoPrintCompute.renderText(
+                        event: event, lines: vm.lineItems, courses: vm.courses, totals: vm.totals))
+                        .font(.system(.callout, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                }
+            }
+            .navigationTitle("BEO sheet")
+            .toolbar {
+                #if canImport(AppKit)
+                ToolbarItem {
+                    Button("Copy") {
+                        if let event = vm.selectedEvent {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(
+                                BeoPrintCompute.renderText(
+                                    event: event, lines: vm.lineItems, courses: vm.courses, totals: vm.totals),
+                                forType: .string)
+                        }
+                    }
+                    .disabled(vm.selectedEvent == nil)
+                }
+                ToolbarItem {
+                    Button("Print") {
+                        if let event = vm.selectedEvent {
+                            Self.printBeo(event: event, lines: vm.lineItems, courses: vm.courses, totals: vm.totals)
+                        }
+                    }
+                    .disabled(vm.selectedEvent == nil)
+                }
+                #endif
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showPrintPreview = false }
+                }
+            }
+        }
+        .frame(minWidth: 520, minHeight: 560)
+    }
+
+    #if canImport(AppKit)
+    /// Print the SAME monospaced BEO sheet text the preview renders —
+    /// `BeoPrintCompute.renderText` stays the single computation.
+    private static func printBeo(
+        event: BeoEventRow, lines: [BeoLineItemRow], courses: [BeoCourseRow], totals: BeoWorksheetCompute.Totals
+    ) {
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 486, height: 700))
+        textView.string = BeoPrintCompute.renderText(event: event, lines: lines, courses: courses, totals: totals)
+        textView.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        let operation = NSPrintOperation(view: textView)
+        operation.showsPrintPanel = true
+        operation.showsProgressPanel = true
+        operation.run()
+    }
+    #endif
 }
 
 // ── event header editor (title / date / time / contact / covers / min spend / notes) ──
