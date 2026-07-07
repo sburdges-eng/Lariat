@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "id": "manifest_warning_orphan_sub",
+  "source_test": "tests/python/test_bom_expand.py::ManifestWarnings::test_unreferenced_declared_sub_is_warned",
+  "manifest": {
+    "beer_flour": {
+      "slug": "beer_flour",
+      "display_name": "Beer Flour",
+      "yield_qty": 4,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [],
+      "bom": [
+        {
+          "ingredient": "flour",
+          "qty": 2,
+          "unit": "qt",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    },
+    "beer_batter": {
+      "slug": "beer_batter",
+      "display_name": "Beer Batter",
+      "yield_qty": 8,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [
+        "beer_flour"
+      ],
+      "bom": [
+        {
+          "ingredient": "water",
+          "qty": 3,
+          "unit": "qt",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    }
+  },
+  "input": {
+    "mode": "find_manifest_warnings"
+  },
+  "expect": {
+    "warnings": [
+      {
+        "recipe": "beer_batter",
+        "sub_slug": "beer_flour",
+        "issue": "declares sub-recipe 'beer_flour' but no BOM row references it"
+      }
+    ],
+    "warning_pairs": [
+      [
+        "beer_batter",
+        "beer_flour"
+      ]
+    ]
+  }
+}

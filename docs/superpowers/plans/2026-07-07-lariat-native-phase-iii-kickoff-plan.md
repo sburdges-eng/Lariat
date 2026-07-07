@@ -1,0 +1,489 @@
+---
+title: "Phase III kickoff — first steps (no-code prep + wave plan)"
+date: 2026-07-07
+status: draft — planning only; blocked until Phase C4/C5 + shutoff gates
+parent: docs/superpowers/specs/2026-07-07-lariat-native-phase-iii-language-consolidation-backlog.md
+related:
+  - docs/superpowers/specs/2026-07-07-bom-expand-swift-port-audit.md
+  - docs/superpowers/specs/2026-07-07-bom-expand-fixture-manifest.md
+  - docs/superpowers/specs/2026-07-07-phase-iii-decisions-d1-d2-d4.md
+  - docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md
+branch: (create on kickoff) feat/lariat-native-phase-iii-bom-inprocess
+---
+
+# Phase III kickoff plan — map everything before writing Swift
+
+**Purpose:** Executable checklist for opening Phase III (language consolidation).
+**Constraint:** Steps 0–5 are **documentation, measurement, and fixture design only**
+— no production Swift/TS changes until Step 6.
+
+**North star (P3-1):** Native kitchen assistant + BEO cascade run **without**
+`Process`/`spawn` to `python3`, on a Mac with no system Python.
+
+---
+
+## 0. Entry gates (do not start Phase III until ALL true)
+
+| # | Gate | Evidence |
+|---|------|----------|
+| G0 | Service-day shutoff test documented | Endgame doc updated with date + gaps |
+| G1 | Phase C1 ledger trustworthy for delete candidates | 41-row verify pass complete; B2+ batches triaged |
+| G2 | `swift test` green on `main` | CI / local log |
+| G3 | H8 packaging path chosen (`.pkg` vs `.dmg`, data dir) | `LariatNative/Scripts/PACKAGING.md` |
+| G4 | Owner approves Phase III scope (P3-1 only vs full backlog) | This plan signed off |
+
+**Optional early prep (before G0–G4):** Steps 1–5 below — read-only.
+
+### Gate snapshot (Step 0 — 2026-07-07)
+
+| # | Gate | Status | Evidence |
+|---|------|--------|----------|
+| G0 | Service-day shutoff test documented | **FAIL** | Endgame §2 north-star not run; no dated shutoff log in `2026-07-02-lariat-native-endgame.md` |
+| G1 | Phase C1 ledger trustworthy for delete candidates | **PASS** | `2026-07-03-lariat-native-phase-c1-rule-ledger.md` — 71/71 ported-write rows adversarially verified |
+| G2 | `swift test` green on `main` | **PASS** | Local 2026-07-07: 1021 tests, 0 failures (`LariatNative/`) |
+| G3 | H8 packaging path chosen (`.pkg` vs `.dmg`, data dir) | **FAIL** | `PACKAGING.md` — ad-hoc `.pkg` works; Developer ID, notarization, default data/recipe dir **open**; D1 proposed in decisions memo |
+| G4 | Owner approves Phase III scope (P3-1 only vs full backlog) | **PENDING** | This plan + `2026-07-07-phase-iii-decisions-d1-d2-d4.md` await sign-off |
+
+**H6/H7/H8 snapshot** (from `LARIAT_NATIVE_FINAL_AGENT_GUIDE.md`):
+
+| Track | Status | Notes |
+|-------|--------|-------|
+| H6 | **COMPLETE** | H6a–H6d merged (notifications, printing, menu bar, multi-window on branch) |
+| H7 | **PARTIAL** | H7a Phase 1 (13 safety boards) merged; Phase 2 (~61 files) not started |
+| H8 | **IN PROGRESS** | `package-app.sh --pkg` green; GUI launch smoke + notarization + **D1 recipe root** open |
+
+**Phase C beyond C1:** C4 (≥7 green service days + backup drill) and C5 cutover **not started**.
+Prep Steps 1–5 may proceed read-only; Wave A implementation waits on owner preference
+(G4) but not on G0/G3 if scoped to in-process compute + fixtures only.
+
+---
+
+## 1. Wave structure (three delivery waves)
+
+```
+Wave A — Parity core (no wiring)     ~24–32 h   BomExpandCompute + loader + tests
+Wave B — BEO cascade core            ~16–20 h   BeoPullCompute + BeoCascadeCompute + tests
+Wave C — Native integration + cache  ~12–20 h   Wire + delete spawns + H8 smoke
+```
+
+**Parallel track (P3-2, after Wave A unit tables reconciled):** UnitConvert
+consolidation — separate PR, do not block Wave A if BOM uses self-contained
+volume/weight tables copied verbatim from Python first.
+
+**Explicitly deferred:** Web spawn removal (`lib/recipeCalculator.ts`,
+`lib/beoCascade.ts`) until Phase D edge decision — native-only is the H8 blocker.
+
+---
+
+## 2. Architecture target (Layering)
+
+```
+LariatApp
+  KitchenAssistantViewModel ──► AssistantActionRepository
+                                    └── RecipeCalculating (protocol)
+                                          ├── PythonBomCalculator  ← DELETE in Wave C
+                                          └── NativeBomCalculator  ← NEW (Wave C)
+
+  BeoBoardViewModel ──► BeoCascadeRepository
+                          └── BeoCascadeClient
+                                ├── processRunner (spawn)  ← DELETE in Wave C
+                                └── in-process BeoCascadeCompute ← NEW
+
+LariatModel/Compute/
+  BomExpandCompute.swift      ← expand_recipe, aggregate_demand, expand_recipe_demand
+  BeoPullCompute.swift        ← build_demand, pull_orders, load_beo_recipe_map
+  BeoCascadeCompute.swift     ← build_cascade (pure)
+  RecipeManifestLoader.swift  ← build_manifest_from_normalized + cache
+  BomExpandTypes.swift        ← Manifest, errors, LeafKey equivalents
+
+LariatModel/
+  NativeBomCalculator.swift   ← RecipeCalculating impl
+  RecipeCalculating.swift     ← unchanged protocol
+  BeoCascadeClient.swift      ← keep Runner seam; default = in-process
+```
+
+**Rule:** Pure compute in `LariatModel/Compute/`. No GRDB in compute layer.
+Manifest reads filesystem only (recipe tree is not in SQLite).
+
+---
+
+## 3. Python → Swift symbol map (implementation checklist)
+
+### 3.1 `bom_expand.py`
+
+| Python | Swift (proposed) | Notes |
+|--------|------------------|-------|
+| `Manifest` dataclass | `RecipeManifest` struct | slug, displayName, yieldQty, yieldUnit, subRecipeSlugs, bom rows, packConversions |
+| `UnknownRecipeError` | `BomExpandError.unknownRecipe` | |
+| `UnitMismatchError` | `BomExpandError.unitMismatch` | |
+| `RecipeCycleError` | `BomExpandError.recipeCycle` | |
+| `convert_qty` | `BomExpandCompute.convertQty` | **Separate tables** from `UnitConvert` initially; reconcile in P3-2 |
+| `_reconcile_sub_unit_qty` | private helper | pack_size path |
+| `expand_recipe` | `BomExpandCompute.expandRecipe` | optional `warnings: inout [String]?` |
+| `aggregate_demand` | `BomExpandCompute.aggregateDemand` | |
+| `expand_recipe_demand` | `BomExpandCompute.expandRecipeDemand` | prep board nodes |
+| `_expand_into` / `_accumulate_recipe_demand` | private recursion | visited stack = `[String]` |
+| `_resolve_sub_slug` / `_could_be_sub` | `SubRecipeResolver` or private | token/subset/pin |
+| `build_manifest_from_normalized` | `RecipeManifestLoader.load` | |
+| `build_manifest` | `RecipeManifestLoader.loadFromBomCsv` | optional; tests use synthetic |
+| `find_manifest_warnings` | `BomExpandCompute.findManifestWarnings` | |
+
+### 3.2 `beo_pull.py`
+
+| Python | Swift (proposed) |
+|--------|------------------|
+| `InvoiceRow` | `BeoInvoiceRow` |
+| `Unmapped` | `BeoUnmappedRow` |
+| `OrderLine` | `CascadeOrderGuideRow` (exists) |
+| `normalize_client` | `BeoPullCompute.normalizeClient` |
+| `load_beo_recipe_map` | `BeoPullCompute.loadBeoRecipeMap` |
+| `build_demand` | `BeoPullCompute.buildDemand` |
+| `pull_orders` | `BeoPullCompute.pullOrders` |
+| `_direct_resolve` | private |
+
+### 3.3 `beo_cascade_cli.build_cascade`
+
+| Python | Swift (proposed) |
+|--------|------------------|
+| `build_cascade(...)` | `BeoCascadeCompute.buildCascade` |
+| `_reachable_slugs` | private |
+
+### 3.4 CLIs (keep as offline tools, not deleted)
+
+| File | After Phase III |
+|------|-----------------|
+| `scripts/bom_expand_cli.py` | Thin wrapper calling Python lib OR deprecated with note |
+| `scripts/beo_cascade_cli.py` | Same |
+| `scripts/beo_order_pull.py` | Unchanged (batch) |
+
+---
+
+## 4. Test oracle map (every test → Swift target)
+
+### 4.1 `tests/python/test_bom_expand.py` (30 tests)
+
+| Python class | Swift test class | Priority |
+|--------------|------------------|----------|
+| `ExpandLeafOnly` | `BomExpandComputeTests/testSingleLeafScalesLinearly` | P0 |
+| `ExpandWithSubRecipe` | `testQuesoPullsSalsaLeaves`, `testQuesoPlusStandaloneSalsaAggregates` | **P0 headline** |
+| `Errors` | `testUnknownRecipe`, `testCycle`, `testUnitMismatchTop`, `testSubRecipeUnitMismatch` | P0 |
+| `ExpandRecipeDemand` | 7 tests — prep node recording | P0 |
+| `ManifestFromCsvs` | `testManifestLoads` + **canary** `testQuesoGreenChileBagMismatch` | P1 (real CSV) |
+| `UnitConversion` | 3 tests cup/gal/lb | P0 |
+| `GracefulDegradation` | 3 tests warnings sink | P0 |
+| `PackSizeConversion` | 4 tests bag:factor:unit | P0 |
+| `ExplicitSubRecipePin` | 3 tests `(sub-recipe=slug)` | P0 |
+| `ManifestWarnings` | 3 tests orphan subs | P1 |
+
+### 4.2 `tests/python/test_beo_pull.py`
+
+| Area | Swift target |
+|------|--------------|
+| `NormalizeClient` | `BeoPullComputeTests` |
+| `BuildDemand` | unmapped reporting, per_count scales, qty_in_yield_units |
+| `PullOrders` | on_hand subtraction, sorting |
+
+### 4.3 `tests/python/test_beo_cascade_cli.py`
+
+| Area | Swift target |
+|------|--------------|
+| `BuildCascadeUnit` | `BeoCascadeComputeTests` |
+| `BuildCascadeIntegration` | optional subprocess → later replace with fixture |
+| manifest_warnings scoping | `_reachable_slugs` behavior |
+
+### 4.4 Existing native (keep, extend)
+
+| File | Action |
+|------|--------|
+| `BeoCascadeClientTests.swift` | Keep payload/parse/root tests; add no spawn when default runner in-process |
+| `BeoCascadeRepositoryTests.swift` | Switch default stub to in-process engine in Wave C |
+| `KitchenAssistantEngineTests` | Already uses `StubRecipeCalculator`; add integration test with `NativeBomCalculator` |
+| `AssistantActionRepositoryTests` | `scale_recipe` audit tests — rerun with native calc |
+
+### 4.5 JS integration (regression after Wave C)
+
+| File | When |
+|------|------|
+| `tests/js/test-recipe-calculator.mjs` | Still passes via Python until Phase D; optional cross-check script |
+| `tests/js/test-beo-cascade.mjs` | Same |
+
+---
+
+## 5. Golden fixture design (Step 1 deliverable — no Swift yet)
+
+**Directory (create at kickoff):** `LariatNative/Tests/Fixtures/BomExpand/`
+
+**Export method (one-time script or manual JSON — not part of app target):**
+`scripts/dev/export_bom_expand_fixtures.py` (allowed in Wave 0 prep; dev-only)
+
+### 5.1 Fixture file schema (versioned)
+
+```json
+{
+  "schema_version": 1,
+  "id": "queso_plus_standalone_salsa",
+  "source_test": "tests/python/test_bom_expand.py::ExpandWithSubRecipe::test_queso_plus_standalone_salsa_aggregates",
+  "manifest": { "... inline synthetic manifests ..." },
+  "input": {
+    "demands": [["queso_mac_sauce", 22, "qt"], ["blackened_tomato_salsa", 4, "qt"]],
+    "mode": "aggregate_demand"
+  },
+  "expect": {
+    "leaves": [["roma tomatoes", "g", 3401.94], ["cilantro", "cup", 0.6], ["whole milk", "ml", 7570.82]],
+    "tolerance_places": 6
+  }
+}
+```
+
+### 5.2 Minimum fixture set (15 files)
+
+| ID | Covers |
+|----|--------|
+| `single_leaf_scale` | ExpandLeafOnly |
+| `queso_embeds_salsa` | sub-recipe leaf rollup |
+| `queso_plus_standalone_salsa` | **headline aggregate** |
+| `cycle_a_b` | RecipeCycleError |
+| `unit_mismatch_top` | lb vs qt |
+| `unit_mismatch_sub_bag` | bag without pack_size |
+| `pack_size_bag_to_qt` | cross-dimension |
+| `graceful_skip_bad_sub` | warnings sink |
+| `explicit_sub_recipe_pin` | birria → qb_seasoning |
+| `expand_recipe_demand_half_batch` | prep nodes |
+| `expand_recipe_demand_compound_salsa` | prep node sum |
+| `manifest_warning_orphan_sub` | find_manifest_warnings |
+| `cup_to_qt_sub_reference` | UnitConversion |
+| `gal_demand_on_qt_recipe` | top-level convert |
+| `pork_chop_marinade_2x` | real slug integration (from JS test constants) |
+
+### 5.3 Real-CSV fixture (separate)
+
+| ID | Notes |
+|----|-------|
+| `canary_queso_green_chile_bag` | **Must expect error** until recipe_index pack_size fixed — document in fixture `"expect_error": "UnitMismatchError"` |
+
+---
+
+## 6. Unit conversion reconciliation (pre-implementation decision)
+
+**Problem:** `bom_expand.convert_qty` uses `_VOLUME_TO_QT` / `_WEIGHT_TO_LB` tables.
+`UnitConvert.swift` uses a broader set for costing/depletion.
+
+| Approach | Pros | Cons | Recommendation |
+|----------|------|------|----------------|
+| **A. Copy Python tables verbatim into BomExpandCompute** | Fastest parity | Two unit systems temporarily | **Wave A default** |
+| **B. Delegate to UnitConvert.swift** | Single system | Risk if tables differ | Wave A.1 after parity green |
+| **C. Generated constants from one JSON** | Long-term SSOT | Upfront tooling | P3-2 |
+
+**Prep task (no code):** Diff Python `_VOLUME_TO_QT` keys vs Swift `UnitConvert.normalizeUnit` —
+document mismatches in kickoff PR as `docs/superpowers/specs/2026-07-07-bom-unit-table-diff.md`.
+
+---
+
+## 7. Manifest loader + cache spec
+
+### 7.1 Inputs
+
+| Path | Format |
+|------|--------|
+| `{root}/recipes/recipe_index.csv` | columns: recipe_id, recipe_name, yield, yield_unit, sub_recipes (`;`), pack_size (`;` specs) |
+| `{root}/recipes/normalized/{slug}.csv` | ingredient, qty, unit, portions_per_batch, notes |
+| `{root}/menus/beo_recipe_map.csv` | beo_item, recipe_id (display name), per_count (optional) |
+
+### 7.2 Cache behavior (Wave C)
+
+| Key | Invalidation |
+|-----|--------------|
+| In-memory `[String: RecipeManifest]` | mtime of `recipe_index.csv` + max mtime of normalized/*.csv |
+| BEO map | mtime of beo_recipe_map.csv |
+
+**Prep task:** Baseline measurement script (read-only):
+`time python3 scripts/bom_expand_cli.py` × 10 cold/warm — record p50/p95.
+Repeat after Wave C on native.
+
+### 7.3 Root resolution (preserve parity)
+
+| Env | Web | Native (today) |
+|-----|-----|----------------|
+| `LARIAT_ROOT` | `recipeCalculator.ts` | `BeoCascadeClient.resolveProjectRoot` |
+| cwd walk | no | yes — find `scripts/beo_cascade_cli.py` |
+| Packaged app | TBD | **Decision D1:** bundle recipes under `Resources/recipes/` vs point at user data dir |
+
+**Decision D1 (required before Wave C):** Where do recipe CSVs live in the `.app`?
+Options: (a) inside app bundle, (b) alongside `lariat.db` in Application Support,
+(c) require `LARIAT_ROOT` in packaged settings.
+
+---
+
+## 8. Wire-up touch list (Wave C — file allowlist)
+
+### 8.1 Modify
+
+| File | Change |
+|------|--------|
+| `LariatNative/Sources/LariatApp/AssistantSupport.swift` | Remove `PythonBomCalculator` spawn; add `NativeBomCalculator` |
+| `LariatNative/Sources/LariatApp/KitchenAssistantViewModel.swift` | `#if` / inject native calculator |
+| `LariatNative/Sources/LariatModel/BeoCascadeClient.swift` | Default runner → in-process; keep injectable |
+| `LariatNative/Sources/LariatDB/AssistantActionRepository.swift` | No logic change if protocol stable |
+| `docs/superpowers/specs/2026-07-02-lariat-native-a6-5-beo-internal.md` | Close #369 watch note |
+
+### 8.2 Add
+
+| File |
+|------|
+| `LariatNative/Sources/LariatModel/Compute/BomExpandCompute.swift` |
+| `LariatNative/Sources/LariatModel/Compute/BomExpandTypes.swift` |
+| `LariatNative/Sources/LariatModel/Compute/BeoPullCompute.swift` |
+| `LariatNative/Sources/LariatModel/Compute/BeoCascadeCompute.swift` |
+| `LariatNative/Sources/LariatModel/Compute/RecipeManifestLoader.swift` |
+| `LariatNative/Sources/LariatModel/NativeBomCalculator.swift` |
+| `LariatNative/Tests/LariatModelTests/BomExpandComputeTests.swift` |
+| `LariatNative/Tests/LariatModelTests/BeoPullComputeTests.swift` |
+| `LariatNative/Tests/LariatModelTests/BeoCascadeComputeTests.swift` |
+| `LariatNative/Tests/Fixtures/BomExpand/*.json` |
+
+### 8.3 Do NOT modify (Wave A–C)
+
+| File | Reason |
+|------|--------|
+| `scripts/lib/bom_expand.py` | Oracle until Phase D |
+| `lib/recipeCalculator.ts` | Web edge — Phase D |
+| `lib/beoCascade.ts` | Web edge — Phase D |
+| `app/api/**` | No route deletion in Phase III |
+| `data/lariat.db` | No schema |
+
+---
+
+## 9. Error code / JSON wire parity
+
+### 9.1 Calculator (`RecipeCalculatorError.code`)
+
+| Code | Source |
+|------|--------|
+| `bad_multiplier` | Swift validation (pre-expand) |
+| `timeout` | **Remove** when in-process |
+| `spawn_failed` | **Remove** when in-process |
+| `cli_error` / `exit_N` | Map to `expand_failed` |
+| `bad_json` | N/A in-process |
+
+### 9.2 Cascade (`CascadeError.code`)
+
+Preserve literals from `BeoCascadeClient.swift` / `beoCascade.ts`:
+`timeout`, `spawn_failed`, `cli_error`, `bad_json`, `empty_line_items` (short-circuit).
+
+### 9.3 CLI exit codes (for offline Python only)
+
+| Exit | Meaning |
+|------|---------|
+| 2 | bad input |
+| 3 | unknown recipe |
+| 4 | unit mismatch |
+| 5 | cycle |
+| 6 | invalid recipe |
+
+---
+
+## 10. Verification gates (each wave)
+
+| Wave | Gate |
+|------|------|
+| A | All `BomExpandComputeTests` green; Python `test_bom_expand.py` still green; `swift build` |
+| B | + `BeoPullComputeTests`, `BeoCascadeComputeTests`; Python beo tests green |
+| C | Full `swift test`; BEO board manual smoke; assistant `scale_recipe` smoke; **no python3 in Process trace** |
+| C + H8 | Launch packaged `.app` on clean Mac without system Python |
+
+**GitNexus:** Run `impact` on `BeoCascadeClient`, `AssistantActionRepository` before Wave C edits.
+
+---
+
+## 11. First steps checklist (no production code)
+
+Execute in order; each step produces an artifact.
+
+### Step 0 — Confirm gates (30 min) ✅ 2026-07-07
+- [x] Read Phase C status + edge-blocker log (C1 complete; C4/C5/shutoff open)
+- [x] Record H8 packaging + H6/H7/H8 snapshot in §0 gate table
+- [ ] Open worktree (deferred until Wave A implementation): `scripts/worktree.sh new cursor feat/lariat-native-phase-iii-bom-inprocess`
+
+### Step 1 — Freeze oracle baseline (1 h) ✅ 2026-07-07
+- [x] Run `python3 -m unittest tests.python.test_bom_expand tests.python.test_beo_pull tests.python.test_beo_cascade_cli -v` → **54 run, 53 pass, 1 skip**
+- [x] Run `node --experimental-strip-types --test tests/js/test-recipe-calculator.mjs` → **5/5 pass**
+- [x] Run `cd LariatNative && swift test --filter BeoCascadeClientTests` → **16/16 pass**
+- [x] Saved: `docs/superpowers/specs/2026-07-07-phase-iii-prep-baseline.md`
+
+### Step 2 — Unit table diff doc (2 h) ✅ 2026-07-07
+- [x] Extract Python volume/weight tables from `bom_expand.py:77-92`
+- [x] Compare to `UnitConvert.swift` constants
+- [x] Write `docs/superpowers/specs/2026-07-07-bom-unit-table-diff.md` — **D3: copy verbatim for Wave A**
+
+### Step 3 — Golden fixture manifest (2 h) ✅ 2026-07-07
+- [x] List 15 fixture IDs (§5.2) + canary with source test pointers → `docs/superpowers/specs/2026-07-07-bom-expand-fixture-manifest.md`
+- [x] JSON schema (§5.1) documented in fixture manifest spec
+- [x] Export tooling: `scripts/dev/export_bom_expand_fixtures.py` → 16 files in `LariatNative/Tests/Fixtures/BomExpand/`
+
+### Step 4 — Decision log (1 h) ✅ proposed 2026-07-07 — owner sign-off pending
+- [x] **D1:** Proposed Application Support layout — `docs/superpowers/specs/2026-07-07-phase-iii-decisions-d1-d2-d4.md`
+- [x] **D2:** Native spawn delete Wave C; web spawn delete Phase D
+- [x] **D3:** Wave A unit strategy (copy verbatim) — `2026-07-07-bom-unit-table-diff.md`
+- [x] **D4:** Keep Python CLIs + lib; deprecation note after Wave C
+
+### Step 5 — Baseline perf (30 min) ✅ 2026-07-07
+- [x] BOM spawn p50 **43.4 ms**; cascade spawn p50 **40.1 ms**; in-process load+expand p50 **2.1 ms**
+- [x] Saved: `docs/superpowers/specs/2026-07-07-phase-iii-prep-baseline.md`
+
+### Step 6 — Implementation begins (Wave A)
+- [ ] Export fixtures to JSON
+- [ ] TDD `BomExpandCompute` against fixtures
+- [ ] Opus review before Wave B merge
+
+---
+
+## 12. Risk register
+
+| ID | Risk | Mitigation |
+|----|------|------------|
+| R1 | Float drift Python ↔ Swift | `tolerance_places: 6`; use same IEEE double |
+| R2 | Canary test weakened | Fixture expects error; Opus review |
+| R3 | Packaged app can't find recipes | Resolve D1 before Wave C |
+| R4 | Parallel Phase C edits BEO routes | MACP claim files; branch isolation |
+| R5 | `#369 watch` false comfort | Close only when spawn deleted + tests prove math |
+
+---
+
+## 13. Model tier routing
+
+| Activity | Tier |
+|----------|------|
+| Steps 0–5 (this plan) | Sonnet |
+| Wave A/B implementation | Sonnet + TDD |
+| Parity review Waves A–B | Opus |
+| Wave C wire-up + H8 smoke | Sonnet |
+| Delete web spawn (Phase D) | Opus/Max |
+
+---
+
+## 14. Success definition
+
+Phase III P3-1 is **done** when:
+
+1. Native assistant `scale_recipe` / `beo_add_prep` / `generate_prep` use in-process BOM math.
+2. Native BEO cascade tab uses in-process `build_cascade`.
+3. `swift test` green; Python oracle tests still green (library unchanged).
+4. Packaged app verified without system Python (H8 smoke).
+5. Spawn code removed from `AssistantSupport.swift` and default `BeoCascadeClient` runner.
+6. Audit docs + #369 watch updated.
+
+**Not required for P3-1 done:** Web TS spawn removal, `beo_order_pull.py` port, P3-2/P3-3.
+
+---
+
+## 15. Timeline summary
+
+| Phase | Calendar | Eng-hours |
+|-------|----------|-----------|
+| Prep (Steps 0–5) | 1–2 days | 6–8 |
+| Wave A | 4–6 days | 24–32 |
+| Wave B | 3–4 days | 16–20 |
+| Wave C | 2–3 days | 12–20 |
+| **Total** | **~2–3 weeks** | **58–80** |
+
+Prep can overlap Phase C tail **only** as read-only (Steps 1–5).

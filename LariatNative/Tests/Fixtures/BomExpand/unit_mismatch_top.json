@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "id": "unit_mismatch_top",
+  "source_test": "tests/python/test_bom_expand.py::Errors::test_unit_mismatch_top_level",
+  "manifest": {
+    "blackened_tomato_salsa": {
+      "slug": "blackened_tomato_salsa",
+      "display_name": "Blackened Tomato Salsa",
+      "yield_qty": 20,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [],
+      "bom": [
+        {
+          "ingredient": "roma tomatoes",
+          "qty": 11339.8,
+          "unit": "g",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    }
+  },
+  "input": {
+    "slug": "blackened_tomato_salsa",
+    "qty": 1,
+    "unit": "lb",
+    "mode": "expand_recipe"
+  },
+  "expect": {
+    "error": "UnitMismatchError"
+  }
+}

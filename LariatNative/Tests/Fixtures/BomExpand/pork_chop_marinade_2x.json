@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "id": "pork_chop_marinade_2x",
+  "source_test": "tests/js/test-recipe-calculator.mjs::scales a recipe to the exact leaf totals",
+  "manifest_source": {
+    "recipe_index": "recipes/recipe_index.csv",
+    "normalized_dir": "recipes/normalized",
+    "slug": "pork_chop_marinade"
+  },
+  "manifest": {
+    "pork_chop_marinade": {
+      "slug": "pork_chop_marinade",
+      "display_name": "Pork Chop Marinade",
+      "yield_qty": 1.0,
+      "yield_unit": "gal",
+      "sub_recipe_slugs": [],
+      "bom": [
+        {
+          "ingredient": "orange juice",
+          "qty": 2.0,
+          "unit": "cup",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "lime juice",
+          "qty": 2.0,
+          "unit": "cup",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "cumin",
+          "qty": 0.25,
+          "unit": "cup",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "adobo seasoning",
+          "qty": 0.25,
+          "unit": "cup",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "pepper",
+          "qty": 0.25,
+          "unit": "cup",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "chopped garlic",
+          "qty": 0.25,
+          "unit": "cup",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "garlic powder",
+          "qty": 0.25,
+          "unit": "cup",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "cilantro",
+          "qty": 1.0,
+          "unit": "bunch",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    }
+  },
+  "input": {
+    "slug": "pork_chop_marinade",
+    "qty": 2,
+    "unit": "gal",
+    "mode": "expand_recipe"
+  },
+  "expect": {
+    "leaves": [
+      [
+        "adobo seasoning",
+        "cup",
+        0.5
+      ],
+      [
+        "chopped garlic",
+        "cup",
+        0.5
+      ],
+      [
+        "cilantro",
+        "bunch",
+        2.0
+      ],
+      [
+        "cumin",
+        "cup",
+        0.5
+      ],
+      [
+        "garlic powder",
+        "cup",
+        0.5
+      ],
+      [
+        "lime juice",
+        "cup",
+        4.0
+      ],
+      [
+        "orange juice",
+        "cup",
+        4.0
+      ],
+      [
+        "pepper",
+        "cup",
+        0.5
+      ]
+    ],
+    "tolerance_places": 6
+  }
+}

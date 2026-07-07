@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "id": "queso_plus_standalone_salsa",
+  "source_test": "tests/python/test_bom_expand.py::ExpandWithSubRecipe::test_queso_plus_standalone_salsa_aggregates",
+  "manifest": {
+    "blackened_tomato_salsa": {
+      "slug": "blackened_tomato_salsa",
+      "display_name": "Blackened Tomato Salsa",
+      "yield_qty": 20,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [],
+      "bom": [
+        {
+          "ingredient": "roma tomatoes",
+          "qty": 11339.8,
+          "unit": "g",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "cilantro",
+          "qty": 2.0,
+          "unit": "cup",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    },
+    "queso_mac_sauce": {
+      "slug": "queso_mac_sauce",
+      "display_name": "Queso / Mac Sauce",
+      "yield_qty": 22,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [
+        "blackened_tomato_salsa"
+      ],
+      "bom": [
+        {
+          "ingredient": "whole milk",
+          "qty": 7570.82,
+          "unit": "ml",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "blackened_tomato_salsa",
+          "qty": 2.0,
+          "unit": "qt",
+          "is_sub_recipe": true,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    }
+  },
+  "input": {
+    "demands": [
+      [
+        "queso_mac_sauce",
+        22,
+        "qt"
+      ],
+      [
+        "blackened_tomato_salsa",
+        4,
+        "qt"
+      ]
+    ],
+    "mode": "aggregate_demand"
+  },
+  "expect": {
+    "leaves": [
+      [
+        "cilantro",
+        "cup",
+        0.6000000000000001
+      ],
+      [
+        "roma tomatoes",
+        "g",
+        3401.94
+      ],
+      [
+        "whole milk",
+        "ml",
+        7570.82
+      ]
+    ],
+    "tolerance_places": 6
+  }
+}

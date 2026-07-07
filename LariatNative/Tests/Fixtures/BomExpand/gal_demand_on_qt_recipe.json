@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "id": "gal_demand_on_qt_recipe",
+  "source_test": "tests/python/test_bom_expand.py::UnitConversion::test_top_level_compatible_unit_converts",
+  "manifest": {
+    "soup": {
+      "slug": "soup",
+      "display_name": "Soup",
+      "yield_qty": 8,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [],
+      "bom": [
+        {
+          "ingredient": "stock",
+          "qty": 6,
+          "unit": "qt",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    }
+  },
+  "input": {
+    "slug": "soup",
+    "qty": 1,
+    "unit": "gal",
+    "mode": "expand_recipe"
+  },
+  "expect": {
+    "leaves": [
+      [
+        "stock",
+        "qt",
+        3.0
+      ]
+    ],
+    "tolerance_places": 6
+  }
+}
