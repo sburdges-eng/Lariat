@@ -10,6 +10,9 @@ final class PerformanceReviewsViewModel {
     var submitError: String?
     var showPinSheet = false
     var showForm = false
+    /// Read gate (C1 verify-41 T3): the web GET requirePin's HR reviews. The
+    /// View shows a locked panel when this is not `.open`.
+    var gate: RegulatedReadGateState = .open
 
     var cookName = ""
     var reviewDate = ShiftDate.todayISO()
@@ -46,7 +49,28 @@ final class PerformanceReviewsViewModel {
 
     func stop() { poller.stop() }
 
+    /// Sync so the `pool.read` closure runs off the async path (strict actor
+    /// isolation rejects calling into it from an async closure).
+    private func evaluateReadGate() -> RegulatedReadGateState {
+        let gateOn = (try? writeDB.pool.read { db in
+            try PinVerifier().gateConfigured(db: db, locationId: self.locationId)
+        }) ?? PinVerifier().gateConfigured()
+        return RegulatedReadGate.evaluate(
+            gateConfigured: gateOn,
+            hasActiveUser: pinStore.activeUser != nil,
+            canUnlock: true
+        )
+    }
+
     func refresh() async {
+        // Read gate (C1 verify-41 T3): the web GET requirePin's these HR records
+        // ("manager PIN required even to read"). Do not fetch without a session.
+        gate = evaluateReadGate()
+        guard gate == .open else {
+            reviews = []
+            errorText = nil
+            return
+        }
         let repo = PerformanceReviewsRepository(database: writeDB)
         do {
             reviews = try repo.list(locationId: locationId)
@@ -55,6 +79,8 @@ final class PerformanceReviewsViewModel {
             errorText = WriteErrorMapper.message(for: error)
         }
     }
+
+    func requestUnlock() { showPinSheet = true }
 
     func requestSubmit() {
         submitError = nil
@@ -110,7 +136,9 @@ final class PerformanceReviewsViewModel {
         pinStore.save(user: user)
         let action = pendingAction
         pendingAction = nil
-        action?()
+        // A pending write resumes; a bare read unlock just refreshes so the now-
+        // permitted list loads.
+        if let action { action() } else { Task { await refresh() } }
     }
 
     func classification(for row: PerformanceReviewRow) -> ReviewClassification {
@@ -133,6 +161,10 @@ struct PerformanceReviewsView: View {
 
     var body: some View {
         Group {
+            switch vm.gate {
+            case .locked, .unavailable:
+                ReadGateLockedView(title: "Performance reviews", state: vm.gate) { vm.requestUnlock() }
+            case .open:
             if let err = vm.errorText {
                 TileDegrade(title: "Performance reviews", message: err, systemImage: "exclamationmark.triangle")
             } else {
@@ -172,6 +204,7 @@ struct PerformanceReviewsView: View {
                     }
                 }
                 .padding()
+            }
             }
         }
         .navigationTitle("Performance reviews")
