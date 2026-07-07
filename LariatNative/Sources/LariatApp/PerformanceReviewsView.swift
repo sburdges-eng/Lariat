@@ -163,6 +163,7 @@ struct PerformanceReviewsView: View {
                                     Text(notes).font(.caption2).foregroundStyle(.secondary)
                                 }
                             }
+                            .accessibilityElement(children: .combine)
                         }
                     }
 
