@@ -1,10 +1,15 @@
 import SwiftUI
 import LariatDB
 import LariatModel
+#if canImport(AppKit)
+import AppKit
+#endif
 
 /// Cook-tier standing prep par screen — native port of `app/prep/par`.
 /// Lists recurring prep targets grouped by station (empty → "General"), with an
 /// add/upsert form and a two-step confirm delete, matching the web components.
+/// Print/copy/preview reuses `PrepParPrintCompute.renderText` — same
+/// computation, monospaced text preview pattern as `ShowSettlementView`.
 struct PrepParView: View {
     @State private var vm: PrepParViewModel
     @State private var showAdd = false
@@ -15,6 +20,7 @@ struct PrepParView: View {
     @State private var unit = ""
     @State private var note = ""
     @State private var deleteTarget: PrepParRow?
+    @State private var showPrintPreview = false
 
     init(readDB: LariatDatabase, writeDB: LariatWriteDatabase) {
         _vm = State(wrappedValue: PrepParViewModel(readDB: readDB, writeDB: writeDB))
@@ -35,6 +41,12 @@ struct PrepParView: View {
             }
         }
         .navigationTitle("Standing prep par")
+        .toolbar {
+            ToolbarItem {
+                Button("Print preview") { showPrintPreview = true }
+                    .disabled(vm.snapshot == nil)
+            }
+        }
         .onAppear { vm.start() }
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showCookPicker) {
@@ -46,6 +58,7 @@ struct PrepParView: View {
                 onCancel: { vm.actionError = "Not saved — pick a cook to record the change." }
             )
         }
+        .sheet(isPresented: $showPrintPreview) { printPreview }
         .confirmationDialog(
             "Remove \(deleteTarget?.label ?? "")?",
             isPresented: Binding(
@@ -191,4 +204,60 @@ struct PrepParView: View {
     private func resetForm() {
         recipe = ""; ingredient = ""; station = ""; targetQty = ""; unit = ""; note = ""
     }
+
+    // ── Print preview (PrepParPrintCompute.renderText computation) ────
+
+    @ViewBuilder
+    private var printPreview: some View {
+        NavigationStack {
+            ScrollView {
+                if let snap = vm.snapshot {
+                    Text(PrepParPrintCompute.renderText(snap))
+                        .font(.system(.callout, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                }
+            }
+            .navigationTitle("Standing prep par sheet")
+            .toolbar {
+                #if canImport(AppKit)
+                ToolbarItem {
+                    Button("Copy") {
+                        if let snap = vm.snapshot {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(
+                                PrepParPrintCompute.renderText(snap), forType: .string)
+                        }
+                    }
+                    .disabled(vm.snapshot == nil)
+                }
+                ToolbarItem {
+                    Button("Print") {
+                        if let snap = vm.snapshot { Self.printPrepPar(snap) }
+                    }
+                    .disabled(vm.snapshot == nil)
+                }
+                #endif
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showPrintPreview = false }
+                }
+            }
+        }
+        .frame(minWidth: 520, minHeight: 560)
+    }
+
+    #if canImport(AppKit)
+    /// Print the SAME monospaced prep-par text the preview renders —
+    /// `PrepParPrintCompute.renderText` stays the single computation.
+    private static func printPrepPar(_ snapshot: PrepParBoardSnapshot) {
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 486, height: 700))
+        textView.string = PrepParPrintCompute.renderText(snapshot)
+        textView.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        let operation = NSPrintOperation(view: textView)
+        operation.showsPrintPanel = true
+        operation.showsProgressPanel = true
+        operation.run()
+    }
+    #endif
 }
