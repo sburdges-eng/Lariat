@@ -93,6 +93,7 @@ struct ReceivingMatchesView: View {
                     Text(created).font(.caption).foregroundStyle(.secondary)
                 }
             }
+            .accessibilityElement(children: .combine)
 
             HStack(spacing: 10) {
                 Picker("Master ingredient", selection: Binding(
