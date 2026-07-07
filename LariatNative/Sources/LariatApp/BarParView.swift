@@ -160,9 +160,8 @@ struct BarParView: View {
     /// Maps the currently visible (filter/search-applied) `vm.grouped` rows
     /// into the board-agnostic `ParPrintCompute` inputs. A `BarParRow` tracks
     /// its par and on-hand quantities in separate units (`parUnit` /
-    /// `onHandUnit`) that can legitimately differ; the shared renderer has a
-    /// single `unit` column, so this prefers the standing `parUnit`, falling
-    /// back to `onHandUnit` when the par row itself has none.
+    /// `onHandUnit`) that can legitimately differ, so both pass through to
+    /// the renderer independently rather than collapsing to one shared unit.
     private var printGroups: [ParPrintGroup] {
         vm.grouped.map { group in
             ParPrintGroup(
@@ -172,7 +171,8 @@ struct BarParView: View {
                         name: row.ingredient,
                         par: row.parQty,
                         onHand: row.onHandQty,
-                        unit: row.parUnit ?? row.onHandUnit,
+                        parUnit: row.parUnit,
+                        onHandUnit: row.onHandUnit,
                         belowPar: row.isLow
                     )
                 }

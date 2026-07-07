@@ -30,7 +30,15 @@ struct InventoryParView: View {
         .onDisappear { vm.stop() }
         .toolbar {
             ToolbarItem {
+                // `InventoryParViewModel` has no `loaded` latch like
+                // `BarParViewModel` (do not touch the ViewModel to add one —
+                // out of scope here), so this reconstructs the same intent
+                // from state already exposed to the view: disabled only
+                // during the pre-first-load window (no rows yet AND no
+                // fetch error yet). Once either arrives — success or
+                // failure — printing is allowed, matching `BarParView`'s gate.
                 Button("Print preview") { showPrintPreview = true }
+                    .disabled(vm.rows.isEmpty && vm.fetchError == nil)
             }
         }
         .sheet(isPresented: $vm.showForm) { addForm }
@@ -109,10 +117,9 @@ struct InventoryParView: View {
     /// Maps the currently visible (below-par-filtered) `vm.grouped` rows into
     /// the board-agnostic `ParPrintCompute` inputs. `InventoryParWithOnHand`
     /// tracks par and on-hand quantities in separate units (`par.parUnit` /
-    /// `onHandUnit`) that can legitimately differ; the shared renderer has a
-    /// single `unit` column, so this prefers the standing `par.parUnit`,
-    /// falling back to `onHandUnit` when the par row itself has none — same
-    /// rule as `BarParView.printGroups`.
+    /// `onHandUnit`) that can legitimately differ, so both pass through to
+    /// the renderer independently rather than collapsing to one shared unit
+    /// — same rule as `BarParView.printGroups`.
     private var printGroups: [ParPrintGroup] {
         vm.grouped.map { group in
             ParPrintGroup(
@@ -122,7 +129,8 @@ struct InventoryParView: View {
                         name: row.par.ingredient,
                         par: row.par.parQty,
                         onHand: row.onHandQty,
-                        unit: row.par.parUnit ?? row.onHandUnit,
+                        parUnit: row.par.parUnit,
+                        onHandUnit: row.onHandUnit,
                         belowPar: row.isLow
                     )
                 }

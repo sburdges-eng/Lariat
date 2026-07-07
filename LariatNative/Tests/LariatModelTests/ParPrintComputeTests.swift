@@ -8,7 +8,11 @@ import XCTest
 // contract: title header, category-group headers, per-row field coverage
 // (below-par marker), alignment across groups, empty state, and qty
 // formatting (no money on either board — par/on-hand are plain quantities).
-// The `barRow`/`inventoryRow` helpers below map a bar-par-shaped row and an
+// Par and on-hand are tracked in INDEPENDENT units (`parUnit`/`onHandUnit`)
+// — never collapsed to one shared "Unit" column, since a board's standing
+// par and its latest counted on-hand can legitimately be denominated
+// differently (par in "case", on-hand counted in "ea"). The `barRow`/
+// `inventoryRow` helpers below map a bar-par-shaped row and an
 // inventory-par-shaped row into the SAME `ParPrintRow`/`ParPrintGroup`
 // inputs — proving one renderer serves both boards.
 final class ParPrintComputeTests: XCTestCase {
@@ -19,13 +23,17 @@ final class ParPrintComputeTests: XCTestCase {
         ingredient: String = "Tito's Vodka",
         parQty: Double? = 12,
         onHandQty: Double? = 20,
-        unit: String? = "btl"
+        parUnit: String? = "btl",
+        onHandUnit: String? = "btl"
     ) -> ParPrintRow {
         let isLow: Bool = {
             guard let parQty, let onHandQty else { return false }
             return onHandQty < parQty
         }()
-        return ParPrintRow(name: ingredient, par: parQty, onHand: onHandQty, unit: unit, belowPar: isLow)
+        return ParPrintRow(
+            name: ingredient, par: parQty, onHand: onHandQty,
+            parUnit: parUnit, onHandUnit: onHandUnit, belowPar: isLow
+        )
     }
 
     /// Mirrors `InventoryParWithOnHand` → `ParPrintRow` (uses the real
@@ -34,10 +42,12 @@ final class ParPrintComputeTests: XCTestCase {
         ingredient: String = "Flour",
         parQty: Double? = 50,
         onHandQty: Double? = 10,
-        unit: String? = "lb"
+        parUnit: String? = "lb",
+        onHandUnit: String? = "lb"
     ) -> ParPrintRow {
         ParPrintRow(
-            name: ingredient, par: parQty, onHand: onHandQty, unit: unit,
+            name: ingredient, par: parQty, onHand: onHandQty,
+            parUnit: parUnit, onHandUnit: onHandUnit,
             belowPar: InventoryParCompute.isLowPar(parQty: parQty, onHand: onHandQty)
         )
     }
@@ -66,8 +76,8 @@ final class ParPrintComputeTests: XCTestCase {
         XCTAssertTrue(text.contains("Dry Goods"))
     }
 
-    func testRendersRowWithNameParOnHandAndUnit() {
-        let row = barRow(ingredient: "Tito's Vodka", parQty: 12, onHandQty: 20, unit: "btl")
+    func testRendersRowWithNameParOnHandAndUnits() {
+        let row = barRow(ingredient: "Tito's Vodka", parQty: 12, onHandQty: 20, parUnit: "btl", onHandUnit: "btl")
         let text = ParPrintCompute.renderText(
             title: "BAR PAR", groups: [ParPrintGroup(category: "Liquor", rows: [row])]
         )
@@ -77,9 +87,26 @@ final class ParPrintComputeTests: XCTestCase {
         XCTAssertTrue(text.contains("btl"))
     }
 
+    /// The exact case the old single-`unit` collapse would have mislabeled:
+    /// par denominated in "pack" (e.g. a case) but on-hand counted in loose
+    /// "ea". Both units must render — on their OWN quantity, not merged or
+    /// dropped in favor of one shared column.
+    func testParAndOnHandRenderTheirOwnDistinctUnits() {
+        let row = ParPrintRow(
+            name: "Napkins", par: 2, onHand: 40, parUnit: "pack", onHandUnit: "ea", belowPar: false
+        )
+        let text = ParPrintCompute.renderText(
+            title: "INVENTORY PAR", groups: [ParPrintGroup(category: "Dry Goods", rows: [row])]
+        )
+        let line = text.components(separatedBy: "\n").first { $0.contains("Napkins") }
+        XCTAssertNotNil(line)
+        XCTAssertTrue(line?.contains("pack") ?? false)
+        XCTAssertTrue(line?.contains("ea") ?? false)
+    }
+
     func testBelowParMarkerOnlyOnBelowParRows() {
-        let low = ParPrintRow(name: "Low Item", par: 10, onHand: 2, unit: "ea", belowPar: true)
-        let ok = ParPrintRow(name: "OK Item", par: 10, onHand: 15, unit: "ea", belowPar: false)
+        let low = ParPrintRow(name: "Low Item", par: 10, onHand: 2, parUnit: "ea", onHandUnit: "ea", belowPar: true)
+        let ok = ParPrintRow(name: "OK Item", par: 10, onHand: 15, parUnit: "ea", onHandUnit: "ea", belowPar: false)
         let text = ParPrintCompute.renderText(
             title: "BAR PAR", groups: [ParPrintGroup(category: "Liquor", rows: [low, ok])]
         )
@@ -92,10 +119,18 @@ final class ParPrintComputeTests: XCTestCase {
         XCTAssertFalse(okLine.contains("LOW"))
     }
 
-    func testRowsAreAlignedAcrossGroups() {
+    /// Alignment must hold at the COLUMN level (fixed-width padding), not
+    /// because two rows happen to have same-length "qty unit" text — this
+    /// deliberately varies both qty-digit-count and unit length across rows
+    /// so the shared "Status" column still starts at the same offset.
+    func testStatusColumnAlignsAcrossGroupsRegardlessOfContentLength() {
         let groups = [
-            ParPrintGroup(category: "Liquor", rows: [barRow(ingredient: "Tito's Vodka", unit: "btl")]),
-            ParPrintGroup(category: "Dry Goods", rows: [inventoryRow(ingredient: "Flour", unit: "lb")]),
+            ParPrintGroup(category: "Liquor", rows: [
+                ParPrintRow(name: "Tito's Vodka", par: 12, onHand: 20, parUnit: "btl", onHandUnit: "btl", belowPar: true),
+            ]),
+            ParPrintGroup(category: "Dry Goods", rows: [
+                ParPrintRow(name: "Flour", par: 5, onHand: 1000, parUnit: "pounds", onHandUnit: "lb", belowPar: true),
+            ]),
         ]
         let text = ParPrintCompute.renderText(title: "BAR PAR", groups: groups)
         let lines = text.components(separatedBy: "\n")
@@ -103,10 +138,8 @@ final class ParPrintComputeTests: XCTestCase {
               let flourLine = lines.first(where: { $0.contains("Flour") }) else {
             return XCTFail("expected one line per row")
         }
-        // Aligned columns: the unit column starts at the same offset on
-        // every row, even across different category groups.
-        XCTAssertEqual(vodkaLine.range(of: "btl")?.lowerBound.utf16Offset(in: vodkaLine),
-                        flourLine.range(of: "lb")?.lowerBound.utf16Offset(in: flourLine))
+        XCTAssertEqual(vodkaLine.range(of: "LOW")?.lowerBound.utf16Offset(in: vodkaLine),
+                        flourLine.range(of: "LOW")?.lowerBound.utf16Offset(in: flourLine))
     }
 
     func testEmptyStateWhenNoGroups() {
@@ -120,7 +153,7 @@ final class ParPrintComputeTests: XCTestCase {
     }
 
     func testNilParAndOnHandRenderAsEmDash() {
-        let row = ParPrintRow(name: "Untracked", par: nil, onHand: nil, unit: nil, belowPar: false)
+        let row = ParPrintRow(name: "Untracked", par: nil, onHand: nil, parUnit: nil, onHandUnit: nil, belowPar: false)
         let text = ParPrintCompute.renderText(
             title: "BAR PAR", groups: [ParPrintGroup(category: "Liquor", rows: [row])]
         )
@@ -131,7 +164,7 @@ final class ParPrintComputeTests: XCTestCase {
         // Fractional par/on-hand (2.5, 1.5) must render exactly, not
         // rounded/truncated to 2/3 or 1/2 — same distinction the T1 review
         // flagged for money, applied here to plain quantities.
-        let row = ParPrintRow(name: "Half Case", par: 2.5, onHand: 1.5, unit: "cs", belowPar: false)
+        let row = ParPrintRow(name: "Half Case", par: 2.5, onHand: 1.5, parUnit: "cs", onHandUnit: "cs", belowPar: false)
         let text = ParPrintCompute.renderText(
             title: "BAR PAR", groups: [ParPrintGroup(category: "Liquor", rows: [row])]
         )
@@ -140,7 +173,7 @@ final class ParPrintComputeTests: XCTestCase {
     }
 
     func testIntegerParTrimsTrailingZero() {
-        let row = ParPrintRow(name: "Whole Case", par: 12.0, onHand: 20.0, unit: "cs", belowPar: false)
+        let row = ParPrintRow(name: "Whole Case", par: 12.0, onHand: 20.0, parUnit: "cs", onHandUnit: "cs", belowPar: false)
         let text = ParPrintCompute.renderText(
             title: "BAR PAR", groups: [ParPrintGroup(category: "Liquor", rows: [row])]
         )
@@ -154,10 +187,10 @@ final class ParPrintComputeTests: XCTestCase {
         // `ParPrintCompute.renderText` call.
         let groups = [
             ParPrintGroup(category: "Liquor", rows: [
-                barRow(ingredient: "Tito's Vodka", parQty: 12, onHandQty: 20, unit: "btl"),
+                barRow(ingredient: "Tito's Vodka", parQty: 12, onHandQty: 20, parUnit: "btl", onHandUnit: "btl"),
             ]),
             ParPrintGroup(category: "Dry Goods", rows: [
-                inventoryRow(ingredient: "Flour", parQty: 50, onHandQty: 10, unit: "lb"),
+                inventoryRow(ingredient: "Flour", parQty: 50, onHandQty: 10, parUnit: "lb", onHandUnit: "lb"),
             ]),
         ]
         let text = ParPrintCompute.renderText(title: "PAR", groups: groups)

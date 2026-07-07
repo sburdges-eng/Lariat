@@ -12,12 +12,18 @@ import Foundation
 /// `title` parameter. Par/on-hand are plain quantities on both boards (no
 /// money on either) — qty formatting reuses
 /// `PurchasingOrderGuidePrintCompute.qtyText` rather than re-deriving the
-/// nil/integer-trim rule.
+/// nil/integer-trim rule. Par and on-hand are tracked in LEGITIMATELY
+/// INDEPENDENT units (a standing par of "2 case" counted on-hand as
+/// "14 ea") — same parity convention as the web boards
+/// (`app/inventory/par/page.jsx` / `app/bar/par/page.jsx` render
+/// `par {qty} {par_unit}` and `on hand {qty} {on_hand_unit}` separately), so
+/// each quantity column carries its own unit rather than sharing one across
+/// the row.
 public enum ParPrintCompute {
     /// The full print body: a title/count header, one column header +
     /// separator, then each category group's title (verbatim — the boards'
     /// own list views don't uppercase category headers either) followed by
-    /// its aligned rows (name / par / on-hand / unit / below-par marker),
+    /// its aligned rows (name / par+unit / on-hand+unit / below-par marker),
     /// or an empty-state line when there are no rows.
     public static func renderText(title: String, groups: [ParPrintGroup]) -> String {
         var out: [String] = []
@@ -46,15 +52,13 @@ public enum ParPrintCompute {
     // ── columns ───────────────────────────────────────────────────────
 
     static let nameWidth = 26
-    static let parWidth = 8
-    static let onHandWidth = 10
-    static let unitWidth = 8
+    static let parWidth = 14
+    static let onHandWidth = 16
 
     static var header: String {
         PrintText.pad("Item", nameWidth)
             + PrintText.pad("Par", parWidth)
             + PrintText.pad("On Hand", onHandWidth)
-            + PrintText.pad("Unit", unitWidth)
             + "Status"
     }
 
@@ -62,10 +66,19 @@ public enum ParPrintCompute {
     /// columns — same nil/integer-trim rule, no money on either board.
     static func rowLine(_ row: ParPrintRow) -> String {
         PrintText.pad(row.name, nameWidth)
-            + PrintText.pad(PurchasingOrderGuidePrintCompute.qtyText(row.par), parWidth)
-            + PrintText.pad(PurchasingOrderGuidePrintCompute.qtyText(row.onHand), onHandWidth)
-            + PrintText.pad(row.unit ?? "—", unitWidth)
+            + PrintText.pad(qtyUnitText(row.par, row.parUnit), parWidth)
+            + PrintText.pad(qtyUnitText(row.onHand, row.onHandUnit), onHandWidth)
             + (row.belowPar ? "LOW" : "")
+    }
+
+    /// Combines a quantity with ITS OWN unit — "12 btl", "20" (qty on file
+    /// but no unit recorded — the unit is simply omitted), "—" (no qty, the
+    /// same em-dash `qtyText` already uses for a missing quantity). Par and
+    /// on-hand never share a unit here — see the enum-level doc comment.
+    static func qtyUnitText(_ qty: Double?, _ unit: String?) -> String {
+        let qtyStr = PurchasingOrderGuidePrintCompute.qtyText(qty)
+        guard let unit, !unit.isEmpty else { return qtyStr }
+        return "\(qtyStr) \(unit)"
     }
 }
 
@@ -82,19 +95,26 @@ public struct ParPrintGroup: Sendable, Equatable {
 }
 
 /// One par-board row, board-agnostic — a `BarParRow` or
-/// `InventoryParWithOnHand` maps into this at the call site.
+/// `InventoryParWithOnHand` maps into this at the call site. `parUnit` and
+/// `onHandUnit` are tracked SEPARATELY (never collapsed to one shared
+/// `unit`) because a board's standing par and its latest counted on-hand
+/// are legitimately denominated differently (e.g. par in "case", on-hand
+/// counted in "ea") — mislabeling one as the other on a physical restocking
+/// sheet is exactly the bug this shape prevents.
 public struct ParPrintRow: Sendable, Equatable {
     public let name: String
     public let par: Double?
     public let onHand: Double?
-    public let unit: String?
+    public let parUnit: String?
+    public let onHandUnit: String?
     public let belowPar: Bool
 
-    public init(name: String, par: Double?, onHand: Double?, unit: String?, belowPar: Bool) {
+    public init(name: String, par: Double?, onHand: Double?, parUnit: String?, onHandUnit: String?, belowPar: Bool) {
         self.name = name
         self.par = par
         self.onHand = onHand
-        self.unit = unit
+        self.parUnit = parUnit
+        self.onHandUnit = onHandUnit
         self.belowPar = belowPar
     }
 }
