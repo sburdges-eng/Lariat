@@ -27,7 +27,7 @@ final class PackChangesViewModel {
 
     private let writeDB: LariatWriteDatabase
     private let pinStore: PinSessionStore
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
 
     init(writeDB: LariatWriteDatabase, pinStore: PinSessionStore) {
         self.writeDB = writeDB
@@ -175,6 +175,7 @@ struct PackChangesView: View {
         }
         .navigationTitle("Pack-size changes")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showPinSheet) {
             PinEntrySheet(database: vm.writeDatabase) { user in

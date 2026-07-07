@@ -27,6 +27,7 @@ struct GoldStarsView: View {
         }
         .navigationTitle("★ Gold Stars")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .toolbar {
             ToolbarItem {

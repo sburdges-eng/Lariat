@@ -12,7 +12,7 @@ import Observation
     var varianceTrend: VarianceTrend?
     var abcRows: [AbcRankedRow] = []
     var errorText: String?
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private let database: LariatDatabase
 
     init(database: LariatDatabase) {
@@ -75,6 +75,7 @@ struct CostingView: View {
         }
         .navigationTitle("Cost checks")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
     }
 }

@@ -10,7 +10,7 @@ import Observation
     var bundle: AnalyticsBundle?
     var summary: AnalyticsSummary?
     var errorText: String?
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private let database: LariatDatabase
 
     init(database: LariatDatabase) {
@@ -67,6 +67,7 @@ struct AnalyticsView: View {
         }
         .navigationTitle("Sales numbers")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
     }
 }

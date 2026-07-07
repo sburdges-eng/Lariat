@@ -22,7 +22,7 @@ import Observation
     var errorText: String?
     var isLoading = true
 
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private let database: LariatDatabase
     private let repo: DepletionExceptionsRepository
 
@@ -81,6 +81,7 @@ struct DepletionExceptionsView: View {
         }
         .navigationTitle("Depletion exceptions")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
     }
 }

@@ -28,6 +28,7 @@ struct ShowBoxOfficeView: View {
                     await picker.load()
                     vm.start(picker: picker)
                 }
+                .tracksActiveBoard(vm.poller)
                 .onDisappear { vm.stop() }
                 .sheet(isPresented: $vm.showForm) { addForm }
         }
@@ -209,7 +210,7 @@ final class ShowBoxOfficeViewModel {
     private let writeDB: LariatWriteDatabase?
     private let gateModel: ShowsGateModel
     private let locationId: String
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private weak var picker: ShowPickerModel?
 
     init(

@@ -25,6 +25,7 @@ struct StaffCertsView: View {
         }
         .navigationTitle("Certifications")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showForm) { addForm }
         .sheet(isPresented: $vm.showPinSheet) {

@@ -21,7 +21,7 @@ final class BarParViewModel {
 
     private let readDB: LariatDatabase
     private let locationId: String
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
 
     init(readDB: LariatDatabase, locationId: String = LocationScope.resolve()) {
         self.readDB = readDB

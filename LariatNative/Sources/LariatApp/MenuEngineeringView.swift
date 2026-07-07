@@ -20,7 +20,7 @@ import Observation
     var isLoading = true
     var query = ""
 
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private let repo: MenuEngineeringRepository
     private let prepRepo: BeoPrepHistoryRepository
     private let recipes: [BridgeRecipe]
@@ -136,6 +136,7 @@ struct MenuEngineeringView: View {
         .navigationTitle("Menu performance")
         .searchable(text: Binding(get: { vm.query }, set: { vm.query = $0 }), prompt: "Find a dish")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
     }
 }

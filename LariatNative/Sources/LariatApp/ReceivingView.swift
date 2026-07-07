@@ -32,6 +32,7 @@ struct ReceivingView: View {
         }
         .navigationTitle("Receiving")
         .onAppear { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showCookPicker) {
             CookIdentityPicker(

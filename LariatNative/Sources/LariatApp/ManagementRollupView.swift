@@ -6,7 +6,7 @@ import Observation
 @Observable @MainActor final class ManagementRollupViewModel {
     var snapshot: RollupSnapshot?
     var errorText: String?
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private let database: LariatDatabase
 
     init(database: LariatDatabase) {
@@ -177,6 +177,7 @@ struct ManagementRollupView: View {
         }
         .navigationTitle("Management")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
     }
 }

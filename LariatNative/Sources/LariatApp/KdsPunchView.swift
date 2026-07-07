@@ -28,6 +28,7 @@ struct KdsPunchView: View {
         }
         .navigationTitle("KDS punch")
         .onAppear { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showCookPicker) {
             CookIdentityPicker(

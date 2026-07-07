@@ -23,7 +23,7 @@ final class HostStandViewModel {
     var showPinSheet = false
 
     let pinStore: PinSessionStore
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private var pendingAction: (() -> Void)?
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase

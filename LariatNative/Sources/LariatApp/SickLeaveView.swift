@@ -25,6 +25,7 @@ struct SickLeaveView: View {
         }
         .navigationTitle("Sick time")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showForm) { entryForm }
         .sheet(isPresented: $vm.showPinSheet) {

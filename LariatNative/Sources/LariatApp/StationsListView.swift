@@ -51,6 +51,7 @@ struct StationsListView: View {
         }
         .navigationTitle("Stations")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
     }
 

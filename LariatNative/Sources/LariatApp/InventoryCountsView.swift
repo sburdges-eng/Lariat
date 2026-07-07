@@ -24,6 +24,7 @@ struct InventoryCountsView: View {
         }
         .navigationTitle("Counts")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showNewCount) { newCountForm }
         .sheet(isPresented: $vm.showDetail) { detailSheet }

@@ -30,7 +30,7 @@ import Observation
     let writeDatabase: LariatWriteDatabase?
     private let pinStore: PinSessionStore
     private let locationId: String
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
 
     init(
         database: LariatDatabase,

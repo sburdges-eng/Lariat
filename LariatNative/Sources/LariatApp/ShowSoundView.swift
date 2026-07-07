@@ -29,6 +29,7 @@ struct ShowSoundView: View {
                     await picker.load()
                     vm.start(picker: picker)
                 }
+                .tracksActiveBoard(vm.poller)
                 .onDisappear { vm.stop() }
                 .sheet(isPresented: $vm.showSceneForm) { sceneForm }
         }
@@ -245,7 +246,7 @@ final class ShowSoundViewModel {
     private let writeDB: LariatWriteDatabase?
     private let gateModel: ShowsGateModel
     private let locationId: String
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private weak var picker: ShowPickerModel?
 
     init(

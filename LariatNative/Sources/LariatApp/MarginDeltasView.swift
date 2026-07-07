@@ -22,7 +22,7 @@ import Observation
     var errorText: String?
     var isLoading = true
 
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private let repo: MarginDeltasRepository
     private let locationId: String
 
@@ -90,6 +90,7 @@ struct MarginDeltasView: View {
         }
         .navigationTitle("Margin moves")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
     }
 }

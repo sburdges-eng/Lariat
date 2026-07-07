@@ -22,7 +22,7 @@ final class PerformanceReviewsViewModel {
     private let writeDB: LariatWriteDatabase
     private let pinStore: PinSessionStore
     private let locationId: String
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     /// Pending write captured when a submit needs a PIN unlock first — resumed
     /// by `pinVerified` regardless of sheet state, so dismissing the form sheet
     /// can't silently drop the typed review (PR #401 pattern).
@@ -176,6 +176,7 @@ struct PerformanceReviewsView: View {
         }
         .navigationTitle("Performance reviews")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showForm) {
             NavigationStack {

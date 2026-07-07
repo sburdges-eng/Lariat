@@ -27,6 +27,7 @@ struct InventoryParView: View {
         }
         .navigationTitle("Par")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .toolbar {
             ToolbarItem {

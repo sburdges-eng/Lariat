@@ -20,6 +20,7 @@ struct ShowsArchiveView: View {
         ShowsGatedBoard(gateModel: gateModel, title: "Show archive") {
             content
                 .task { vm.start() }
+                .tracksActiveBoard(vm.poller)
                 .onDisappear { vm.stop() }
         }
     }
@@ -77,7 +78,7 @@ final class ShowsArchiveViewModel {
 
     private let database: LariatDatabase
     private let locationId: String
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
 
     init(database: LariatDatabase, locationId: String = LocationScope.resolve()) {
         self.database = database

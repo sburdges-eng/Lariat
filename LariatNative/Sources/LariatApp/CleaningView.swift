@@ -24,6 +24,7 @@ struct CleaningView: View {
         }
         .navigationTitle("Cleaning")
         .onAppear { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showCookPicker) {
             CookIdentityPicker(

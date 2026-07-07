@@ -28,7 +28,7 @@ final class InventoryParViewModel {
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase
     private let locationId: String
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
 
     init(readDB: LariatDatabase, writeDB: LariatWriteDatabase, locationId: String = LocationScope.resolve()) {
         self.readDB = readDB

@@ -86,25 +86,24 @@ final class BoardPoller {
     }
 
     /// Start (or restart) the poll loop. Fires `action` immediately, then every
-    /// `interval` while the app is active. Registers this poller as the active
-    /// board's poller for the shell freshness indicator and ⌘R.
+    /// `interval` while the app is active. H6d: the board publishes itself as its
+    /// window's active poller via the `.tracksActiveBoard` preference (per window),
+    /// so there is no global self-registration here anymore.
     func start(
         interval: Duration = BoardPoller.defaultInterval,
         action: @escaping @MainActor () async throws -> Void
     ) {
         self.interval = interval
         self.action = action
-        BoardPollerHub.shared.activate(self)
         startLoop()
     }
 
-    /// Stop polling and deregister from the hub.
+    /// Stop polling.
     func stop() {
         loopTask?.cancel()
         loopTask = nil
         action = nil
         isBackgrounded = false
-        BoardPollerHub.shared.deactivate(self)
     }
 
     /// Fire the poll action right now (⌘R). Restarting the loop both refreshes
@@ -194,23 +193,9 @@ final class BoardPoller {
             + TimeInterval(components.attoseconds) / 1e18
     }
 }
-
-/// Tracks the poller of the board currently on screen so generic shell chrome
-/// (freshness indicator, ⌘R "Refresh Now") can reach it without the shell
-/// knowing any feature — pollers self-register in `start()`/`stop()`, exactly
-/// like features self-register in `FeatureRegistry` (A0 pattern).
-@Observable @MainActor
-final class BoardPollerHub {
-    static let shared = BoardPollerHub()
-
-    /// The most recently started, still-running poller — i.e. the active board's.
-    private(set) var active: BoardPoller?
-
-    fileprivate func activate(_ poller: BoardPoller) {
-        active = poller
-    }
-
-    fileprivate func deactivate(_ poller: BoardPoller) {
-        if active === poller { active = nil }
-    }
-}
+// H6d: `BoardPollerHub` (the global "most-recently-started poller" singleton) was
+// deleted. It could only ever track one active poller app-wide, so with multiple
+// windows every window's freshness chip + ⌘R targeted the same board. Each board
+// now publishes its poller to *its* window via the `.tracksActiveBoard` preference
+// (see MultiWindowPlumbing / RootWindowView); commands read the key window's via
+// `@FocusedValue(\.activeBoardPoller)`.

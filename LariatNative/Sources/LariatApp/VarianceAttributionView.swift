@@ -18,7 +18,7 @@ import Observation
     var errorText: String?
     var isLoading = true
 
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private let database: LariatDatabase
     private let repo: VarianceAttributionRepository
 
@@ -72,6 +72,7 @@ struct VarianceAttributionView: View {
         }
         .navigationTitle("Variance attribution")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
     }
 }

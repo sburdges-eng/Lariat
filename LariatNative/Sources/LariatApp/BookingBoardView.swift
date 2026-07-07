@@ -12,7 +12,7 @@ import Observation
 final class BookingBoardViewModel {
     var snapshot: BookingBoardSnapshot?
     var fetchError: String?
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
 
     private let database: LariatDatabase
     private let locationId: String
@@ -67,6 +67,7 @@ struct BookingBoardView: View {
         }
         .navigationTitle("Booking")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
     }
 

@@ -22,7 +22,7 @@ final class ShowsTonightViewModel {
     private let writeDB: LariatWriteDatabase?
     private let gateModel: ShowsGateModel
     private let locationId: String
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
 
     init(
         readDB: LariatDatabase,

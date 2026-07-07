@@ -31,7 +31,7 @@ final class PestViewModel {
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase
     private let locationId: String
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
 
     /// FDA §6-501.111 — surfaced in the header, ported verbatim from the rule module.
     var citation: String { PestCompute.citation }
