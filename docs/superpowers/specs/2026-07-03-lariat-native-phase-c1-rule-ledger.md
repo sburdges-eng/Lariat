@@ -1,7 +1,7 @@
 ---
 title: "Phase C1 — web API route rule ledger (schema-inversion prep)"
 date: 2026-07-03
-status: draft — 130/130 classified; 27/71 ported-write claims adversarially verified
+status: draft — 130/130 classified; 27/71 ported-write claims adversarially verified; **all 3 refuted rows RESOLVED 2026-07-07** (re-verified vs main 397af37: BEO delete_event/prep_done were already fixed+tested in a later BEO wave, KitchenAssistant reclassified deferred/edge, Break waived-guard fixed on feat/lariat-native-c1-break-waived-parity)
 parent: docs/superpowers/specs/2026-07-02-lariat-native-phase-c-schema-inversion.md
 generator: workflow phase-c1-rule-ledger (13 classify agents + adversarial verify + critic)
 ---
@@ -26,7 +26,7 @@ after its row here is `ported` **and** its native owner covers every rule.
 | — of which write | 86 |
 | Ported **write** routes (C5 delete candidates) | 71 |
 | — adversarially verified (upheld) | 27 |
-| — verify **refuted** (needs rework before delete) | 3 |
+| — verify **refuted** → **all RESOLVED 2026-07-07** | 0 (was 3) |
 | — verify not run (spend-limit; classify-only) | 41 |
 | Low-confidence (human review) | 9 |
 
@@ -37,9 +37,30 @@ after its row here is `ported` **and** its native owner covers every rule.
 > **unverified** (classify-only). No route is safe to delete in C5 on an
 > unverified row — finish the verify pass first.
 
-## ⚠ Verify-refuted ported claims (block C5 until reworked)
+## ✅ Verify-refuted ported claims — ALL RESOLVED 2026-07-07
 
-| Route | Native owner | Gaps found |
+> **Re-verified against `main` 397af37 (2026-07-07).** The three rows below were
+> the 2026-07-03 verify snapshot; none still block C5:
+> - **`app/api/beo/route.js`** — RESOLVED (already fixed in a later BEO wave, not
+>   in this one). `deleteEvent` and `setPrepDone` both now carry `AND location_id = ?`
+>   (`BeoBoardRepository.swift` :425 / :398) with corrected comments, and cross-location
+>   regression tests exist (`testDeleteEventDoesNotDeleteForeignLocationEvent`,
+>   `testSetPrepDoneDoesNotTouchForeignLocationTask`). The 2026-07-03 line/column
+>   numbers below are stale.
+> - **`app/api/breaks/route.js`** — FIXED 2026-07-07 (`feat/lariat-native-c1-break-waived-parity`).
+>   The open-break 409 guard now runs unconditionally (waived meals included), matching
+>   web; the previously-untested waived branch got coverage (waived-while-open 409,
+>   single-completed-row shape, the two 400s).
+> - **`app/api/kitchen-assistant/route.js`** — RECLASSIFIED (no code change): `code_search`
+>   and `db_query` are correct **documented deferred stubs** (`KitchenAssistantEngine.swift`
+>   :15-16, :171-184); web env-gates both off by default, so no production audit/write rule
+>   is lost. The row was a *classification* error ("ported" → **deferred/edge**), not a
+>   ported-write defect. The route's ten mutating actions are ported + tested in
+>   `AssistantActionRepository`/`AssistantActionRepositoryTests` (43 tests).
+>
+> Detail rows retained below as the historical verify record.
+
+| Route | Native owner | Gaps found (2026-07-03 snapshot — see resolution note above) |
 |---|---|---|
 | `app/api/beo/route.js` | LariatNative/Sources/LariatDB/BeoBoardRepository.swift (load, createEvent, updateEvent, addLine, updateLine, deleteLine, addPrepTask, setPrepDone, deleteEvent — audit_events in the SAME transaction via AuditedWriteRunner per file header) | delete_event loses location scoping: web deletes with 'WHERE id = ? AND location_id = ?' (app/api/beo/route.js:425) but native deleteEvent runs 'DELETE FROM beo_events WHERE id = ?' with no location predicate (LariatNative/Sources/LariatDB/BeoBoardRepository.swift:421) — a caller scoped to location A can delete location B's event, and the FK cascades then wipe that event's beo_line_items and beo_prep_tasks; no test covers cross-location delete_event and no divergence is documented; prep_done loses location scoping: web updates with 'WHERE id = ? AND location_id = ?' (app/api/beo/route.js:407) but native setPrepDone runs 'UPDATE beo_prep_tasks SET done = ? WHERE id = ?' (LariatNative/Sources/LariatDB/BeoBoardRepository.swift:396-398) under a comment that misstates the web ('Web parity: no location scope on this UPDATE') — cross-location prep-task toggling is possible and the divergence is documented incorrectly as parity, not as deliberate; note: everything else verified faithful — event/update_event COALESCE + min_spend provided-flag CASE (create/patch/clear/negative-reject all tested), line/update_line/delete_line parent-event-subquery scoping (tested in both hijack directions), 422 malformed course_id before any write (tested with zero-audit assertion), FK ON DELETE CASCADE + PRAGMA foreign_keys=1 (tested), audit rows in the same transaction enforced by AuditEventWriter.post's isInsideTransaction guard |
 | `app/api/breaks/route.js` | LariatNative/Sources/LariatDB/BreakRepository.swift (start at :65, end at :144, load at :14) + LariatModel/Compute/BreakCompute.swift (COMPS #39 evaluateShift port incl. waived-meal handling) | Open-break 409 guard is skipped for waived entries: web runs the open-break check unconditionally before any insert — a waived-meal POST while the cook has an open break returns 409 (app/api/breaks/route.js:88-98 executes before the waived-row construction at :104) — but native only performs the check when waived == 0 (LariatNative/Sources/LariatDB/BreakRepository.swift:93-105), so a waived-meal row inserts successfully alongside an open break; undocumented and untested; Cited test does not cover the claimed waived-meal action: no test in BreakRepositoryTests.swift passes waived: true — the 'waived meal stored as single completed row (ended_at=started_at, duration_min 0)' rule (implemented at BreakRepository.swift:89-90), the 'only meal breaks can be waived under COMPS #39' 400 (:69-71), and the 'waived without waiver_ref' 400 (:72-74) are all implemented but have zero native test coverage; the file contains only testStartAndEndWithAudit, testOpenBreak409, testEndCrossLocationNotFound; Cited BreakComputeTests does not cover 'incl. waived-meal handling': LariatNative/Tests/LariatModelTests/BreakComputeTests.swift has only 3 tests (requiredRestBreaks, requiresMealBreak, evaluateShiftOwedRest) — no waived-meal, short-break, or open-break-warning case is exercised, so the waived branch of the evaluateShift port (BreakCompute.swift:84-97, 111-123 — itself a faithful line-for-line port of lib/breaks.ts) is unverified; note: end-break read+math+UPDATE atomicity, 400 ended_at<=started_at, GET location+shift_date+cook_id filtering with evaluateShift only when cook_id and both shift bounds present — all verified faithful |

@@ -90,18 +90,21 @@ public struct BreakRepository: Sendable {
         let durationMin: Double? = input.waived ? 0 : nil
 
         return try AuditedWriteRunner.perform(db: writeDB) { db in
-            if waived == 0 {
-                if let open = try Int64.fetchOne(
-                    db,
-                    sql: """
-                      SELECT id FROM shift_breaks
-                       WHERE location_id = ? AND cook_id = ? AND ended_at IS NULL AND waived = 0
-                       ORDER BY started_at DESC LIMIT 1
-                      """,
-                    arguments: [locationId, cookId]
-                ) {
-                    throw BreakWriteError.openBreakExists(open)
-                }
+            // Web parity (app/api/breaks/route.js:88-96): the open-break 409 guard
+            // runs for EVERY start, waived or not — you cannot open a new entry
+            // (even a waived meal) while a prior break is still open. The lookup
+            // finds an *open non-waived* break (a waived row is completed on entry
+            // with ended_at set), which is the correct notion of "still open".
+            if let open = try Int64.fetchOne(
+                db,
+                sql: """
+                  SELECT id FROM shift_breaks
+                   WHERE location_id = ? AND cook_id = ? AND ended_at IS NULL AND waived = 0
+                   ORDER BY started_at DESC LIMIT 1
+                  """,
+                arguments: [locationId, cookId]
+            ) {
+                throw BreakWriteError.openBreakExists(open)
             }
 
             try db.execute(
