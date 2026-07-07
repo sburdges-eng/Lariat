@@ -71,22 +71,25 @@ struct ManagerPinsView: View {
             editRow
         } else {
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(user.name).fontWeight(.medium)
-                    Text(user.role.capitalized)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(user.name).fontWeight(.medium)
+                        Text(user.role.capitalized)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text(user.active ? "Active" : "Off")
+                        .font(.caption.bold())
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(
+                            (user.active ? LariatTheme.ok : LariatTheme.muted).opacity(0.15),
+                            in: Capsule()
+                        )
+                        .foregroundStyle(user.active ? LariatTheme.ok : LariatTheme.muted)
                 }
-                Spacer()
-                Text(user.active ? "Active" : "Off")
-                    .font(.caption.bold())
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(
-                        (user.active ? LariatTheme.ok : LariatTheme.muted).opacity(0.15),
-                        in: Capsule()
-                    )
-                    .foregroundStyle(user.active ? LariatTheme.ok : LariatTheme.muted)
+                .accessibilityElement(children: .combine)
                 Button("Edit") { vm.beginEdit(user) }
                     .buttonStyle(.borderless)
                 if user.active {
