@@ -211,6 +211,7 @@ private struct KpiCard<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -471,7 +472,7 @@ private struct TopItemsView: View {
                             Text("\(idx + 1)")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
-                                .frame(width: 20, alignment: .trailing)
+                                .frame(minWidth: 20, alignment: .trailing)
                                 .monospacedDigit()
 
                             Text(item.itemName)
@@ -496,6 +497,8 @@ private struct TopItemsView: View {
                             }
                             .frame(width: 80, height: 10)
                         }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Rank \(idx + 1), \(item.itemName), \(formatDollars(item.rev ?? 0, decimals: 0))")
                     }
                 }
                 .padding()
