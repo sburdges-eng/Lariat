@@ -160,6 +160,7 @@ struct StaleDataBanner: View {
                 .lineLimit(2)
             Spacer()
         }
+        .accessibilityElement(children: .combine)
         .padding(.horizontal)
         .padding(.vertical, 6)
         .background(.orange.opacity(0.12))
@@ -418,6 +419,7 @@ private struct AlertRow: View {
             Circle()
                 .fill(color)
                 .frame(width: 8, height: 8)
+                .accessibilityHidden(true)
             Text(alert.message)
                 .font(.caption)
                 .foregroundStyle(.primary)

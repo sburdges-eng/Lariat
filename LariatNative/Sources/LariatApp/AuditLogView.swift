@@ -66,24 +66,27 @@ struct AuditLogView: View {
         List(vm.visibleLogs) { entry in
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text(entry.action ?? "—")
-                        .font(.caption.bold())
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(LariatTheme.amber.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text(entry.action ?? "—")
+                            .font(.caption.bold())
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(LariatTheme.amber.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
 
-                    Text(entry.slug ?? "—")
-                        .foregroundStyle(entry.slug == nil ? .secondary : .primary)
+                        Text(entry.slug ?? "—")
+                            .foregroundStyle(entry.slug == nil ? .secondary : .primary)
 
-                    if let user = entry.user {
-                        Text(user).foregroundStyle(.secondary)
+                        if let user = entry.user {
+                            Text(user).foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Text(vm.displayTimestamp(entry))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-
-                    Spacer()
-
-                    Text(vm.displayTimestamp(entry))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    .accessibilityElement(children: .combine)
 
                     if !entry.changes.isEmpty {
                         Button(vm.expandedId == entry.id ? "Hide" : "Show") {
