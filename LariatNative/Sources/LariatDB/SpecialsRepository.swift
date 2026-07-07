@@ -20,6 +20,10 @@ public enum SpecialsWriteError: Error, Equatable, Sendable, LocalizedError {
     case noSessionContent
     /// 400 on promote (`servings must be a positive finite number`).
     case invalidServings
+    /// 400 on promote: web relabels the shared validator's `name` error to
+    /// `menu_item_name` (route.js `.replace(/^name/, 'menu_item_name')`).
+    case menuItemNameRequired
+    case menuItemNameTooLong
 
     public var errorDescription: String? {
         switch self {
@@ -32,6 +36,8 @@ public enum SpecialsWriteError: Error, Equatable, Sendable, LocalizedError {
         case .noFieldsToUpdate: return "no fields to update"
         case .noSessionContent: return "no session content to save"
         case .invalidServings: return "servings must be a positive finite number"
+        case .menuItemNameRequired: return "menu_item_name required"
+        case .menuItemNameTooLong: return "menu_item_name max \(SpecialsValidators.nameMax) chars"
         }
     }
 }
@@ -335,7 +341,16 @@ public struct SpecialsRepository {
         // Route-layer input validation (400s) before anything touches the DB.
         var validatedName: String?
         if let rawMenuItemName {
-            validatedName = try SpecialsValidators.validateName(rawMenuItemName)
+            // Relabel the shared validator's `name` error to `menu_item_name`
+            // on this route only (web route.js `.replace(/^name/, ...)`); the
+            // shared SpecialsValidators keeps its `name` wording for create/patch.
+            do {
+                validatedName = try SpecialsValidators.validateName(rawMenuItemName)
+            } catch SpecialsValidationError.nameRequired {
+                throw SpecialsWriteError.menuItemNameRequired
+            } catch SpecialsValidationError.nameTooLong {
+                throw SpecialsWriteError.menuItemNameTooLong
+            }
         }
         if let rawServings, !(rawServings.isFinite && rawServings > 0) {
             throw SpecialsWriteError.invalidServings

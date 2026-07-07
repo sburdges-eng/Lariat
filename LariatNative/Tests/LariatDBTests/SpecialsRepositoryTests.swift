@@ -546,6 +546,28 @@ final class SpecialsRepositoryTests: XCTestCase {
         XCTAssertEqual(qty, 4)
     }
 
+    // C1 verify-41 T9: web relabels the shared validator's `name` error to
+    // `menu_item_name` on the promote route (route.js `.replace(/^name/, ...)`).
+    // Native surfaced the raw "name required"/"name max N chars"; the promote
+    // path must reproduce the menu_item_name wording (still 400 before any write).
+    func testPromoteRejectsBlankMenuItemNameWithMenuItemNameCopy() throws {
+        try seedDefaultVendors()
+        let id = try repo.create(costedDraft())
+        XCTAssertThrowsError(try repo.promote(id: id, menuItemName: "   ", servings: 1, context: context)) {
+            XCTAssertEqual($0 as? SpecialsWriteError, .menuItemNameRequired)
+            XCTAssertEqual(($0 as? SpecialsWriteError)?.errorDescription, "menu_item_name required")
+        }
+    }
+
+    func testPromoteRejectsOverlongMenuItemNameWithMenuItemNameCopy() throws {
+        try seedDefaultVendors()
+        let id = try repo.create(costedDraft())
+        XCTAssertThrowsError(try repo.promote(id: id, menuItemName: String(repeating: "x", count: 201), servings: 1, context: context)) {
+            XCTAssertEqual($0 as? SpecialsWriteError, .menuItemNameTooLong)
+            XCTAssertEqual(($0 as? SpecialsWriteError)?.errorDescription, "menu_item_name max 200 chars")
+        }
+    }
+
     func testPromoteAlignsToVendorPackUnitWithDensity() throws {
         try seedVendor("AP FLOUR", packUnit: "lb")
         try writeDB.write { db in
@@ -672,8 +694,11 @@ final class SpecialsRepositoryTests: XCTestCase {
         XCTAssertThrowsError(try repo.promote(id: id, servings: -2, context: context)) {
             XCTAssertEqual($0 as? SpecialsWriteError, .invalidServings)
         }
+        // C1 verify-41 T9: promote relabels the shared validator's `name` error
+        // to `menu_item_name` (web parity); this test previously pinned the
+        // pre-fix raw `.nameRequired`, encoding the defect.
         XCTAssertThrowsError(try repo.promote(id: id, menuItemName: "   ", context: context)) {
-            XCTAssertEqual($0 as? SpecialsValidationError, .nameRequired)
+            XCTAssertEqual($0 as? SpecialsWriteError, .menuItemNameRequired)
         }
     }
 
