@@ -24,6 +24,10 @@ final class PackChangesViewModel {
     var ackError: String?
     var pendingAckId: Int64?
     var showPinSheet = false
+    /// Read gate (C1 verify-41 T5): web `/api/costing` GET is PIN-gated
+    /// (middleware + in-route requirePin). The View shows a locked panel when
+    /// this is not `.open`.
+    var gate: RegulatedReadGateState = .open
 
     private let writeDB: LariatWriteDatabase
     private let pinStore: PinSessionStore
@@ -46,7 +50,29 @@ final class PackChangesViewModel {
 
     func stop() { poller.stop() }
 
+    /// Sync so the `pool.read` closure runs off the async path.
+    private func evaluateReadGate() -> RegulatedReadGateState {
+        let gateOn = (try? writeDB.pool.read { db in
+            try PinVerifier().gateConfigured(db: db)
+        }) ?? PinVerifier().gateConfigured()
+        return RegulatedReadGate.evaluate(
+            gateConfigured: gateOn,
+            hasActiveUser: pinStore.activeUser != nil,
+            canUnlock: true
+        )
+    }
+
+    func requestUnlock() { showPinSheet = true }
+
     func refresh() async {
+        // Read gate (C1 verify-41 T5): the web costing GET is PIN-gated.
+        gate = evaluateReadGate()
+        guard gate == .open else {
+            rows = []
+            unacknowledged = 0
+            errorText = nil
+            return
+        }
         let repo = PackChangesRepository(database: writeDB)
         do {
             let f: PackChangeFilter = switch filter {
@@ -111,6 +137,8 @@ final class PackChangesViewModel {
         pinStore.save(user: user)
         if let id = pendingAckId {
             performAck(id: id, note: nil)
+        } else {
+            Task { await refresh() }   // bare read unlock → load the now-permitted list
         }
     }
 }
@@ -125,6 +153,10 @@ struct PackChangesView: View {
 
     var body: some View {
         Group {
+            switch vm.gate {
+            case .locked, .unavailable:
+                ReadGateLockedView(title: "Pack-size changes", state: vm.gate) { vm.requestUnlock() }
+            case .open:
             if let err = vm.errorText {
                 TileDegrade(title: "Pack-size changes", message: err, systemImage: "exclamationmark.triangle")
             } else {
@@ -171,6 +203,7 @@ struct PackChangesView: View {
                     }
                 }
                 .padding()
+            }
             }
         }
         .navigationTitle("Pack-size changes")
