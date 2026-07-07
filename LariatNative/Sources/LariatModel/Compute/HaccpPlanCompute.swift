@@ -353,6 +353,23 @@ public enum HaccpPlanCompute {
         return out
     }
 
+    /// Port of `calibrationWarningFor` (lib/calibrations.ts): the per-write
+    /// advisory emitted when a CCP reading cites a probe. Returns nil for
+    /// `ok`/`due_soon` — due_soon is a board-level signal, not a per-write block.
+    public static func calibrationWarningFor(_ summary: HaccpProbeSummary?) -> String? {
+        guard let summary else { return nil }
+        switch summary.status {
+        case .unknown:
+            return "probe \"\(summary.thermometerId)\" has no calibration on record — log an ice-point or boiling-point calibration before using it for a CCP reading"
+        case .failed:
+            return "probe \"\(summary.thermometerId)\" failed its last calibration on \(summary.lastCalibratedAt ?? "?") — recalibrate before using it for a CCP reading"
+        case .overdue:
+            return "probe \"\(summary.thermometerId)\" is overdue for calibration (last: \(summary.lastCalibratedAt ?? "?"), due: \(summary.nextDueAt ?? "?")) — recalibrate"
+        case .ok, .dueSoon:
+            return nil
+        }
+    }
+
     // ── Timestamp parsing (mirror parseTs in lib/calibrations.ts) ──────────
 
     /// Parse a sqlite-style timestamp: 'YYYY-MM-DD HH:MM:SS', 'YYYY-MM-DD', or an
