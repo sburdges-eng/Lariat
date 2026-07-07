@@ -231,6 +231,11 @@ private struct Tile: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+        // Read dot-label + title + value + sub as a single VoiceOver stop.
+        // Tile has no interactive child, so combining here is safe even when
+        // a Tile sits inside a NavigationLink (the combine stays on the
+        // tile's own content, not on the NavigationLink itself).
+        .accessibilityElement(children: .combine)
     }
 
     static func indicatorColor(_ severity: ThresholdColor?) -> Color {
