@@ -1,7 +1,10 @@
 # LariatNative H6d — multi-window support (make ⌘N correct)
 
 Date: 2026-07-07
-Status: draft (awaiting review)
+Status: implemented — branch `feat/lariat-native-h6d-multi-window` (T1–T3 committed;
+`swift build` + `swift test` green: LariatModelTests 1420 / LariatDBTests 1008, 0 failures;
+`BoardPollerHub` deleted; 57/57 poller boards publish). Multi-window GUI smoke pending in a
+real desktop session. Closes the H6 platform-integration item.
 Parent: `docs/superpowers/specs/2026-07-02-lariat-native-endgame.md` §4 (H6 Platform integration)
 Siblings: H6a notifications (shipped), H6b printing (shipped), H6c menu-bar extra (shipped, PR #444)
 
