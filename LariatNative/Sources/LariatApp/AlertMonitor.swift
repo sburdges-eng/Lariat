@@ -34,6 +34,21 @@ final class AlertMonitor {
     // adapter would be deallocated immediately without this.
     private var notificationDelegate: AlertNotificationDelegate?
 
+    // H6c — captured at start() so refreshNow() can re-tick with the same
+    // handles. Nil until start() runs (e.g. DB unavailable) → refreshNow no-ops.
+    private var db: LariatDatabase?
+    private var writeDb: LariatWriteDatabase?
+
+    /// H6c — the full (red + amber) alert list from the last *successful* tick,
+    /// for the menu-bar extra's panel. A failed poll leaves this at its last-good
+    /// value (never cleared to []) so the panel doesn't blank on a transient read
+    /// error. Publishing this does not affect firing — the engine filters to red
+    /// internally (see AlertMonitorEngine.tick).
+    private(set) var currentAlerts: [CommandAlert] = []
+    /// H6c — timestamp of the last successful tick, for the panel's freshness
+    /// line. Nil until the first success.
+    private(set) var lastTickAt: Date?
+
     private init() {}
 
     /// Starts the loop once; a second call while already running is a no-op
@@ -41,6 +56,8 @@ final class AlertMonitor {
     /// "switch boards, restart at a different interval" concept here).
     func start(db: LariatDatabase, writeDb: LariatWriteDatabase?, navigate: @escaping (String) -> Void) {
         self.navigate = navigate
+        self.db = db
+        self.writeDb = writeDb
         if notificationDelegate == nil,
            NotificationEnvironment.canUseNotifications(bundleIdentifier: Bundle.main.bundleIdentifier) {
             let delegate = AlertNotificationDelegate(navigate: navigate)
@@ -48,17 +65,36 @@ final class AlertMonitor {
             UNUserNotificationCenter.current().delegate = delegate
         }
         guard loopTask == nil else { return }
+        startLoop()
+    }
+
+    /// H6c — force an immediate tick (menu-bar "Refresh Now"), resetting the 45s
+    /// cadence. Restarts the single loop rather than spawning a parallel tick, so
+    /// a manual refresh can never overlap the periodic one and double-fire against
+    /// the engine's peak state. A safe no-op if the monitor was never started.
+    func refreshNow() {
+        guard db != nil else { return }
+        startLoop()
+    }
+
+    func stop() {
+        loopTask?.cancel()
+        loopTask = nil
+    }
+
+    /// Cancel any running loop and start a fresh one that ticks immediately then
+    /// every `tickInterval`. Single owner of `loopTask`; both start() and
+    /// refreshNow() route through here.
+    private func startLoop() {
+        loopTask?.cancel()
+        guard let db else { return }
+        let writeDb = self.writeDb
         loopTask = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.tick(db: db, writeDb: writeDb)
                 try? await Task.sleep(for: Self.tickInterval)
             }
         }
-    }
-
-    func stop() {
-        loopTask?.cancel()
-        loopTask = nil
     }
 
     private func tick(db: LariatDatabase, writeDb: LariatWriteDatabase?) async {
@@ -91,6 +127,11 @@ final class AlertMonitor {
             )
             let alerts = CommandCompute.alertsFor(summary)
             await engine.tick(alerts: alerts)
+            // H6c — publish the full red+amber list for the menu-bar panel. After
+            // engine.tick (which only reads/filters red) so firing order is
+            // unchanged; on success only, so a failed poll keeps the last-good set.
+            currentAlerts = alerts
+            lastTickAt = Date()
         } catch {
             // Poll failure degrades silently — never crash, never itself post
             // a notification about its own failure.
