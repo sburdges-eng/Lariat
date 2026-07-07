@@ -16,6 +16,10 @@ final class SpecialsViewModel {
     var errorMessage: String?
     var isSaving = false
     var showPinSheet = false
+    /// Read gate (C1 verify-41 T6): web `/specials/saved` GET is
+    /// `hasPinOrTempPin('menu.specials_edit')`-gated. The View shows a locked
+    /// panel when this is not `.open`.
+    var gate: RegulatedReadGateState = .open
 
     /// Client-side list filter (native convention).
     var filter = ""
@@ -73,7 +77,29 @@ final class SpecialsViewModel {
         }
     }
 
+    /// Sync so the `pool.read` closure runs off the async path.
+    private func evaluateReadGate() -> RegulatedReadGateState {
+        let gateOn = (try? writeDB.pool.read { db in
+            try PinVerifier().gateConfigured(db: db, locationId: self.locationId)
+        }) ?? PinVerifier().gateConfigured()
+        return RegulatedReadGate.evaluate(
+            gateConfigured: gateOn,
+            hasActiveUser: pinStore.activeUser != nil,
+            canUnlock: true
+        )
+    }
+
+    func requestUnlock() { showPinSheet = true }
+
     func refresh() async {
+        // Read gate (C1 verify-41 T6): the web specials GET is PIN-gated.
+        gate = evaluateReadGate()
+        guard gate == .open else {
+            items = []
+            fetchError = nil
+            loaded = true
+            return
+        }
         do {
             items = try await repo.list(locationId: locationId)
             fetchError = nil
@@ -219,7 +245,8 @@ final class SpecialsViewModel {
         showPinSheet = false
         let pending = pendingAction
         pendingAction = nil
-        pending?()
+        // A pending write resumes; a bare read unlock just refreshes.
+        if let pending { pending() } else { Task { await refresh() } }
     }
 
     private func refreshAfterWrite() async {
