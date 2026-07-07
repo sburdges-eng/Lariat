@@ -151,10 +151,12 @@ struct PackChangesView: View {
                                     Text("\(row.prevPack ?? "—") → \(row.newPack ?? "—")")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
+                                        .accessibilityLabel("changed from \(row.prevPack ?? "—") to \(row.newPack ?? "—")")
                                     if let ing = row.ingredient {
                                         Text(ing).font(.caption2)
                                     }
                                 }
+                                .accessibilityElement(children: .combine)
                                 Spacer()
                                 if !row.acknowledged {
                                     Button("Give OK") { vm.requestAck(id: row.id) }
