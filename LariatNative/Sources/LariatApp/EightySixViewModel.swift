@@ -29,7 +29,7 @@ final class EightySixViewModel {
     var isSaving = false
     var confirmCascade: CascadedRecipe?
     private var resolvingIds: Set<Int64> = []
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
 
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase

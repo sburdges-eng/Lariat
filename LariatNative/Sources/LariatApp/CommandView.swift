@@ -9,7 +9,7 @@ import Observation
     var summary: CommandSummary?
     var alerts: [CommandAlert] = []
     var errorText: String?
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private let database: LariatDatabase
 
     init(database: LariatDatabase) {
@@ -138,6 +138,7 @@ struct CommandView: View {
         }
         .navigationTitle("Command center")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
     }
 }

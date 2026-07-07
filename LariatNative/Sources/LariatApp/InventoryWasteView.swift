@@ -22,6 +22,7 @@ struct InventoryWasteView: View {
         }
         .navigationTitle("Waste")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showForm) { form }
     }

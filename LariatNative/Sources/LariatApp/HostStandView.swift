@@ -31,6 +31,7 @@ struct HostStandView: View {
         }
         .navigationTitle("Host stand")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showPinSheet, onDismiss: { vm.pinCancelled() }) {
             PinEntrySheet(database: vm.writeDatabase) { user in

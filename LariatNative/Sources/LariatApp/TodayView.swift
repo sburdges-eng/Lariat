@@ -7,7 +7,7 @@ import Observation
     var snapshot: TodayBoardSnapshot?
     var catalogError: String?
     var fetchError: String?
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private let database: LariatDatabase
     private let catalog: StationCatalog?
 
@@ -80,6 +80,7 @@ struct TodayView: View {
         }
         .navigationTitle("Today")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
     }
 

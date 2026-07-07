@@ -28,6 +28,7 @@ struct EightySixView: View {
         }
         .navigationTitle("86")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showCookPicker) {
             CookIdentityPicker(

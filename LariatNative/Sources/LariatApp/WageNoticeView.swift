@@ -24,6 +24,7 @@ struct WageNoticeView: View {
         }
         .navigationTitle("Wage notices")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showForm) { signForm }
         .sheet(isPresented: $vm.showPinSheet) {

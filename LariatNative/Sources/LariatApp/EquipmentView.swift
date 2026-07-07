@@ -28,6 +28,7 @@ struct EquipmentView: View {
         }
         .navigationTitle("Equipment")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .toolbar {
             ToolbarItem {

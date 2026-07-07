@@ -13,7 +13,7 @@ final class StationChecklistViewModel {
     var staff: [StaffMember] = []
     var staffUnavailable = false
 
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase
     private let catalog: StationCatalog

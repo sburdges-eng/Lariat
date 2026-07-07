@@ -22,7 +22,7 @@ final class TempLogViewModel {
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase
     private let locationId: String
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private var pendingPost: TempLogPostInput?
 
     var points: [TempPoint] { TempLogCompute.points }

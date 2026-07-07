@@ -30,6 +30,7 @@ struct PrepView: View {
         }
         .navigationTitle("Prep")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showCookPicker) {
             CookIdentityPicker(

@@ -23,6 +23,7 @@ struct PestView: View {
         }
         .navigationTitle("Pest control")
         .onAppear { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showCookPicker) {
             CookIdentityPicker(

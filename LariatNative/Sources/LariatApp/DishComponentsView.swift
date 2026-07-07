@@ -48,7 +48,7 @@ import Observation
     /// multi-row dish build fail per-row at save time.
     let canWrite: Bool
 
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private let repo: DishComponentsRepository
     private let hubRepo: MenuEngineeringRepository
 
@@ -284,6 +284,7 @@ struct DishComponentsView: View {
         .navigationTitle("Dish components")
         .searchable(text: Binding(get: { vm.query }, set: { vm.query = $0 }), prompt: "Find a dish")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
     }
 }

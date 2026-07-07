@@ -10,7 +10,7 @@ final class StationsListViewModel {
     /// True after the first successful refresh — distinguishes "still loading"
     /// from "loaded, and the catalog is legitimately empty".
     private(set) var hasLoaded = false
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
 
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase

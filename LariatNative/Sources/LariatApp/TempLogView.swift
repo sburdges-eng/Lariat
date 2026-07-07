@@ -23,6 +23,7 @@ struct TempLogView: View {
         }
         .navigationTitle("Temp log")
         .onAppear { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showCookPicker) {
             CookIdentityPicker(

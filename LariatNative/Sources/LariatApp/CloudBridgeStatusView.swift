@@ -33,7 +33,7 @@ import Observation
     var errorText: String?
     var isLoading = true
 
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private let repo: CloudBridgeStatusRepository
 
     init(database: LariatDatabase) {
@@ -95,6 +95,7 @@ struct CloudBridgeStatusView: View {
         }
         .navigationTitle("Cloud bridge")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
     }
 

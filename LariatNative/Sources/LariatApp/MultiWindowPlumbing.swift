@@ -1,12 +1,17 @@
-#if os(macOS)
 import SwiftUI
-import AppKit
 import LariatModel
+#if canImport(AppKit)
+import AppKit
+#endif
 
 // H6d — per-window active-board publication + focus plumbing. None of this is
 // consumed until the shell integration (T3): boards publish their poller upward
 // via a preference, each window root reads its own (drives that window's chip),
 // and the app-level commands read the *key* window's values via focus.
+//
+// The preference/modifier are cross-platform (board views are), so `.tracksActiveBoard`
+// compiles everywhere and is a harmless no-op on non-macOS (no multi-window there).
+// Only `WindowAccessor` (AppKit) is platform-gated.
 
 /// Identity-boxed `BoardPoller?` so it can be a `PreferenceKey` value (which must
 /// be `Equatable`) without `BoardPoller` itself being `Equatable`.
@@ -31,7 +36,7 @@ struct ActiveBoardPollerKey: PreferenceKey {
 
 extension View {
     /// Publish this board's poller to its window root (drives that window's
-    /// freshness chip + ⌘R). Adopt next to the board's `.task { vm.start() }`.
+    /// freshness chip + ⌘R). Adopt next to the board's `.onDisappear { vm.stop() }`.
     func tracksActiveBoard(_ poller: BoardPoller) -> some View {
         preference(key: ActiveBoardPollerKey.self, value: ActiveBoardPoller(poller: poller))
     }
@@ -62,6 +67,7 @@ extension FocusedValues {
     }
 }
 
+#if canImport(AppKit)
 /// Reports the hosting `NSWindow` up to SwiftUI so `WindowRouter` can bring the
 /// *primary* window forward for app-level navigation (H6a tap / H6c menu-bar).
 struct WindowAccessor: NSViewRepresentable {

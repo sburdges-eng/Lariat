@@ -30,7 +30,7 @@ final class FloorViewModel {
     var staffUnavailable = false
     let cookStore: CookIdentityStore
 
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase
     private let locationId: String

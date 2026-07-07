@@ -20,7 +20,7 @@ final class CoolingViewModel {
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase
     private let locationId: String
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
 
     private static let isoFormatter: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()

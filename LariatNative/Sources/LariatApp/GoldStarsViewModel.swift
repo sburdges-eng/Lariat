@@ -43,7 +43,7 @@ final class GoldStarsViewModel {
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase
     private let locationId: String
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private var pendingAction: (() -> Void)?
     /// Whether the queued PIN-gated action is an award (so a cancelled PIN
     /// can re-open the award sheet without losing the typed reason).

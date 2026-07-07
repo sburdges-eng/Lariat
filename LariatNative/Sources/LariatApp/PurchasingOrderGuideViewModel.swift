@@ -14,7 +14,7 @@ final class PurchasingOrderGuideViewModel {
     var query = ""
     var fetchError: String?
 
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private let repo: PurchasingOrderGuideRepository
 
     init(database: LariatDatabase, locationId: String = LocationScope.resolve()) {

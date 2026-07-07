@@ -10,7 +10,7 @@ final class PrepViewModel {
     var actionError: String?
     var isSaving = false
     private var busyIds: Set<Int64> = []
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
 
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase

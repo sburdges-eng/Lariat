@@ -36,6 +36,7 @@ struct ShowPlaybookView: View {
                     await picker.load()
                     vm.start(picker: picker)
                 }
+                .tracksActiveBoard(vm.poller)
                 .onDisappear { vm.stop() }
         }
     }
@@ -259,7 +260,7 @@ final class ShowPlaybookViewModel {
         ("whbv", "WHBV"),
     ]
 
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private weak var picker: ShowPickerModel?
 
     func start(picker: ShowPickerModel) {

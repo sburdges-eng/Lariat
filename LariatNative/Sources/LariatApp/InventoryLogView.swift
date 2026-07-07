@@ -22,6 +22,7 @@ struct InventoryLogView: View {
         }
         .navigationTitle("Inventory log")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showForm) { form }
     }

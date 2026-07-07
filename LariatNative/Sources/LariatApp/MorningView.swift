@@ -31,6 +31,7 @@ struct MorningView: View {
         }
         .navigationTitle("Morning digest")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showPinSheet) {
             if let writeDB = vm.writeDatabase {

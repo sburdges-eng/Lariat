@@ -33,6 +33,7 @@ struct PurchasingOrderGuideView: View {
         }
         .navigationTitle("Order guide")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .searchable(text: $vm.query, prompt: "Find an ingredient or vendor")
         .sheet(isPresented: $showPrintPreview) { printPreview }

@@ -25,6 +25,7 @@ struct TipPoolView: View {
         }
         .navigationTitle("Tip pool")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showForm) { addForm }
         .sheet(isPresented: $vm.showPinSheet) {

@@ -23,6 +23,7 @@ struct ShowsTonightView: View {
         ShowsGatedBoard(gateModel: gateModel, title: "Tonight · Live") {
             content
                 .task { vm.start() }
+                .tracksActiveBoard(vm.poller)
                 .onDisappear { vm.stop() }
         }
     }

@@ -30,6 +30,7 @@ struct SdsView: View {
         }
         .navigationTitle("Safety data sheets")
         .onAppear { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(isPresented: $vm.showCookPicker) {
             CookIdentityPicker(

@@ -29,7 +29,7 @@ import Observation
     var series: PriceSeriesResult?
     var seriesErrorText: String?
 
-    private let poller = BoardPoller()
+    let poller = BoardPoller()
     private let database: LariatDatabase
     private let repo: PriceShockRepository
 
@@ -127,6 +127,7 @@ struct PriceShocksView: View {
         }
         .navigationTitle("Price shocks")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .sheet(item: Binding(
             get: { vm.selected },

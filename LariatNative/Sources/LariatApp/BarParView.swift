@@ -33,6 +33,7 @@ struct BarParView: View {
         }
         .navigationTitle("Bar par")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .toolbar {
             ToolbarItem {

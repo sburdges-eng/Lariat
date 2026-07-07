@@ -27,6 +27,7 @@ struct BarView: View {
         }
         .navigationTitle("Bar program")
         .task { vm.start() }
+        .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
         .toolbar {
             ToolbarItem {
