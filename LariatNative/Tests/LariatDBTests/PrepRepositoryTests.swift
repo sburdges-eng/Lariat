@@ -283,6 +283,53 @@ final class PrepRepositoryTests: XCTestCase {
         XCTAssertEqual(allTasks.map(\.task), ["bar task"])
     }
 
+    // MARK: - audit payload shape (C1 verify-41 T12)
+
+    /// The named rule "update audit carries {before, after}, delete carries the
+    /// before row" (web PATCH route `payload:{before,after}` / DELETE
+    /// `payload:before`) was implemented but no test read `payload_json`. Pin it.
+    func testPatchUpdateAuditCarriesBeforeAfterPayload() throws {
+        let (readDB, writeDB, path) = try makeRepos()
+        defer { cleanup(path: path) }
+        let repo = PrepRepository(readDB: readDB, writeDB: writeDB)
+        let ctx = RegulatedWriteContext.nativeCook(cookId: "ana", locationId: "default")
+        let id = try repo.create(input: PrepTaskCreateInput(task: "Make ranch", shiftDate: "2099-05-28"), context: .nativeCook(cookId: nil)).id
+        _ = try repo.patch(id: id, input: .claimBy("ana"), context: ctx)
+        _ = try repo.patch(id: id, input: .status("in_progress", cookId: "ana"), context: ctx)
+
+        try writeDB.pool.read { db in
+            let json = try String.fetchOne(db, sql: "SELECT payload_json FROM audit_events WHERE entity='prep_tasks' AND action='update' ORDER BY id DESC LIMIT 1")
+            let obj = try XCTUnwrap(Self.parse(json))
+            let before = try XCTUnwrap(obj["before"] as? [String: Any], "update payload must carry a before object")
+            let after = try XCTUnwrap(obj["after"] as? [String: Any], "update payload must carry an after object")
+            XCTAssertEqual(before["status"] as? String, "todo")
+            XCTAssertEqual(after["status"] as? String, "in_progress")
+        }
+    }
+
+    func testDeleteAuditCarriesBareBeforeRowPayload() throws {
+        let (readDB, writeDB, path) = try makeRepos()
+        defer { cleanup(path: path) }
+        let repo = PrepRepository(readDB: readDB, writeDB: writeDB)
+        let ctx = RegulatedWriteContext.nativeCook(cookId: "ana", locationId: "default")
+        let id = try repo.create(input: PrepTaskCreateInput(task: "Portion greens", shiftDate: "2099-05-28"), context: ctx).id
+        try repo.delete(id: id, context: ctx)
+
+        try writeDB.pool.read { db in
+            let json = try String.fetchOne(db, sql: "SELECT payload_json FROM audit_events WHERE entity='prep_tasks' AND action='delete' ORDER BY id DESC LIMIT 1")
+            let obj = try XCTUnwrap(Self.parse(json))
+            // The delete payload is the bare before-row, NOT a {before,after} wrapper.
+            XCTAssertNil(obj["before"], "delete payload must be the bare row, not before/after")
+            XCTAssertEqual(obj["task"] as? String, "Portion greens")
+            XCTAssertEqual((obj["id"] as? NSNumber)?.int64Value, id)
+        }
+    }
+
+    private static func parse(_ json: String?) -> [String: Any]? {
+        guard let json, let data = json.data(using: .utf8) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+
     // MARK: - helpers
 
     private func countAudit(_ db: Database, _ action: String) -> Int {
