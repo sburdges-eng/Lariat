@@ -8,9 +8,15 @@ import SwiftUI
 ///   - a moon glyph while the app is inactive and polling has degraded to the
 ///     slower background cadence (data still flows — wall-mounted boards).
 /// Renders nothing when no poller is active (e.g. static screens).
+///
+/// H6d: the active poller is passed in per-window (published up by the active
+/// board via `ActiveBoardPollerKey`), not read from a global hub — so each
+/// window's chip reflects *its own* board, even when it is not key/frontmost.
 struct PollFreshnessIndicator: View {
+    let poller: BoardPoller?
+
     var body: some View {
-        if let poller = BoardPollerHub.shared.active {
+        if let poller {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 chip(for: poller, now: context.date)
             }
