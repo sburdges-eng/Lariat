@@ -45,10 +45,10 @@ public enum PrepParPrintCompute {
     static let stationWidth = 14
 
     static var header: String {
-        pad("Item", labelWidth)
-            + pad("Qty", qtyWidth)
-            + pad("Unit", unitWidth)
-            + pad("Station", stationWidth)
+        PrintText.pad("Item", labelWidth)
+            + PrintText.pad("Qty", qtyWidth)
+            + PrintText.pad("Unit", unitWidth)
+            + PrintText.pad("Station", stationWidth)
             + "Note"
     }
 
@@ -56,14 +56,10 @@ public enum PrepParPrintCompute {
     /// same nil/integer-trim rule, no money on this board to re-derive.
     static func rowLine(_ row: PrepParRow) -> String {
         let station = row.stationId.isEmpty ? "General" : row.stationId
-        return pad(row.label, labelWidth)
-            + pad(PurchasingOrderGuidePrintCompute.qtyText(row.targetQty), qtyWidth)
-            + pad(row.unit ?? "—", unitWidth)
-            + pad(station, stationWidth)
+        return PrintText.pad(row.label, labelWidth)
+            + PrintText.pad(PurchasingOrderGuidePrintCompute.qtyText(row.targetQty), qtyWidth)
+            + PrintText.pad(row.unit ?? "—", unitWidth)
+            + PrintText.pad(station, stationWidth)
             + (row.note ?? "")
-    }
-
-    static func pad(_ s: String, _ width: Int) -> String {
-        s.count >= width ? s + " " : s + String(repeating: " ", count: width - s.count)
     }
 }

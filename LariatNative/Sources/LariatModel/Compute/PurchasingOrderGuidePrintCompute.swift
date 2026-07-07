@@ -58,22 +58,18 @@ public enum PurchasingOrderGuidePrintCompute {
     static let vendorWidth = 18
 
     static var header: String {
-        pad("Ingredient", ingredientWidth)
-            + pad("Qty", qtyWidth)
-            + pad("Unit", unitWidth)
-            + pad("Vendor", vendorWidth)
+        PrintText.pad("Ingredient", ingredientWidth)
+            + PrintText.pad("Qty", qtyWidth)
+            + PrintText.pad("Unit", unitWidth)
+            + PrintText.pad("Vendor", vendorWidth)
             + "Unit $"
     }
 
     static func row(_ item: OrderGuideItemRow) -> String {
-        pad(item.ingredient, ingredientWidth)
-            + pad(qtyText(item.baseQty), qtyWidth)
-            + pad(item.unit ?? "—", unitWidth)
-            + pad(item.vendor ?? "—", vendorWidth)
+        PrintText.pad(item.ingredient, ingredientWidth)
+            + PrintText.pad(qtyText(item.baseQty), qtyWidth)
+            + PrintText.pad(item.unit ?? "—", unitWidth)
+            + PrintText.pad(item.vendor ?? "—", vendorWidth)
             + priceText(item.unitPrice)
-    }
-
-    static func pad(_ s: String, _ width: Int) -> String {
-        s.count >= width ? s + " " : s + String(repeating: " ", count: width - s.count)
     }
 }
