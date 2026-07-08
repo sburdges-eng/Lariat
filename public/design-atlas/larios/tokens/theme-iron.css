@@ -1,0 +1,53 @@
+/* LaRiOS — IRON theme. Alternative dark mode (opt-in scope).
+   Replaces the warm "Service Ledger" char/bone default with WROUGHT IRON:
+   a neutral deep charcoal (no brown cast), machined-steel hairlines,
+   parchment text — and BURNISHED COPPER promoted to the primary accent,
+   tying the whole shell to the copper "books" (BEO / recipe book / paper).
+   Palette follows the original LariatOS hardened-tool brief.
+
+   Usage: add .iron to any subtree (usually the app root). Pair with
+   .iron-expo for wall mounts / KDS instead of .k-dark. */
+
+.iron {
+  --bg:#121314;          /* wrought iron — deep neutral charcoal (deepened) */
+  --panel:#1e1f21;       /* card / surface — lifted further off the canvas */
+  --panel-2:#27282b;     /* raised surface (aged slate) */
+  --hair:#3d4045;        /* machined-steel 1px line — brighter, crisper */
+  --text:#f2eee6;        /* parchment — lifted */
+  --text-muted:#a6a19a;  /* muted ash — lifted */
+  --accent:#d97736;      /* burnished copper — THE accent here */
+  --on-accent:#16100b;
+  --fire:#c2483a;        /* faded crimson — lifted for contrast */
+  --ok:#6b8a60;          /* muted sage — lifted */
+  --info:#8299ad;        /* steel blue */
+  --metal:#b3924a;       /* tarnished brass / warn */
+  --allergen:#e8a49c;
+
+  /* accent ramp re-based on copper */
+  --ember-deep:#b45a20;
+  --ember-glow:#e89a63;
+  --ink-2:#212224;
+  --muted-2:#84807a;
+  --hair-2:#2a2b2e;
+  --lari-glow:rgba(217,119,54,.10);
+  --lari-pulse:#d97736;
+
+  background:var(--bg);
+  color:var(--text);
+}
+
+/* IRON EXPO — deepest neutral surface for KDS, wall mounts, expo screens
+   (the iron-theme replacement for .k-dark). */
+.iron-expo {
+  --bg:#0b0c0d;
+  --panel:#17181a;
+  --panel-2:#1e1f22;
+  --hair:#35383c;
+  --text:#f4f1e9;
+  --text-muted:#96928b;
+  --paper-3:#0a0b0c;
+  --muted-2:#7c7871;
+  --hair-2:#26272a;
+  background:var(--bg);
+  color:var(--text);
+}

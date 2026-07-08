@@ -1,0 +1,20 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="Surfaces" subtitle="Warm-char elevation ramp — bg, panel, raised, hairline" -->
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;background:var(--bg);font-family:var(--sans);padding:18px;color:var(--text)}
+  .row{display:flex;gap:0;border:1px solid var(--hair);border-radius:var(--radius);overflow:hidden}
+  .sw{flex:1;padding:16px 14px;min-height:96px;display:flex;flex-direction:column;justify-content:flex-end;gap:3px;border-right:1px solid var(--hair)}
+  .sw:last-child{border-right:0}
+  .n{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text)}
+  .h{font-family:var(--mono);font-size:10px;color:var(--text-muted)}
+  .t{font-size:10px;color:var(--text-muted);letter-spacing:.04em}
+</style></head>
+<body>
+  <div class="row">
+    <div class="sw" style="background:var(--bg)"><span class="n">--bg</span><span class="h">#1a1711</span><span class="t">app canvas</span></div>
+    <div class="sw" style="background:var(--panel)"><span class="n">--panel</span><span class="h">#1d1b15</span><span class="t">card / surface</span></div>
+    <div class="sw" style="background:var(--panel-2)"><span class="n">--panel-2</span><span class="h">#26231b</span><span class="t">raised</span></div>
+    <div class="sw" style="background:var(--hair)"><span class="n">--hair</span><span class="h">#3a342a</span><span class="t">1px border</span></div>
+  </div>
+</body></html>

@@ -1,0 +1,22 @@
+<!-- @dsCard group="Spacing" viewport="700x150" name="Radius & elevation" subtitle="Sharp corners; shadows only for floating context" -->
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;background:var(--bg);font-family:var(--sans);padding:20px;color:var(--text);display:flex;gap:28px;align-items:flex-start}
+  .grp{display:flex;gap:14px}
+  .box{width:74px;height:74px;background:var(--panel-2);border:1px solid var(--hair);display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px}
+  .n{font-family:var(--mono);font-size:9px;color:var(--text-muted)}
+  .lbl{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-muted);font-weight:700;margin-bottom:10px;display:block}
+</style></head>
+<body>
+  <div><span class="lbl">Radius</span><div class="grp">
+    <div class="box" style="border-radius:var(--radius-sm)"><span class="n">sm · 3</span></div>
+    <div class="box" style="border-radius:var(--radius)"><span class="n">base · 6</span></div>
+    <div class="box" style="border-radius:var(--radius-lg)"><span class="n">lg · 12</span></div>
+  </div></div>
+  <div><span class="lbl">Elevation</span><div class="grp">
+    <div class="box" style="box-shadow:var(--shadow-1);border-color:transparent"><span class="n">1</span></div>
+    <div class="box" style="box-shadow:var(--shadow-2);border-color:transparent"><span class="n">2</span></div>
+    <div class="box" style="box-shadow:var(--shadow-3);border-color:transparent"><span class="n">3</span></div>
+  </div></div>
+</body></html>

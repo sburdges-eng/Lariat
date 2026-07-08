@@ -1,0 +1,9 @@
+/* LaRiOS — Webfonts.
+   The Lariat cockpit ships three Google-hosted families:
+   · Archivo       — the display voice: an engineered grotesque for headings,
+                     board titles, and small-caps section stamps. Utilitarian,
+                     not editorial — reads like a control panel, not a menu.
+   · Inter Tight   — the neutral UI sans for labels, body, nav, controls.
+   · JetBrains Mono — tabular figures: every count, price, temp, timer, grid.
+   These are loaded from Google Fonts (no self-hosted binaries in the repo). */
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');

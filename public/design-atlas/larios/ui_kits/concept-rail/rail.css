@@ -1,0 +1,127 @@
+/* Service Rail — concept redesign. A time-spine + attention-queue paradigm:
+   no divisions, no sidebar, no tabs. The service day is the nav; the queue is
+   the work; boards are transient sheets summoned in context or via ⌘K. */
+
+.rail-app {
+  display: grid;
+  grid-template-columns: 232px 1fr;
+  grid-template-rows: 46px 1fr;
+  grid-template-areas: "band band" "spine queue";
+  height: 800px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── Status band ── */
+.rl-band { grid-area: band; display: flex; align-items: center; gap: 20px; padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--hair); }
+.rl-band .mark { display: flex; align-items: center; gap: 8px; color: var(--accent); font-family: var(--display); font-weight: 700; font-size: 15px; white-space: nowrap; }
+.rl-band .mark svg { width: 18px; height: 18px; }
+.rl-band .mark span { color: var(--text); }
+.rl-stat { display: inline-flex; align-items: baseline; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--text-muted); }
+.rl-stat b { font-size: 13px; color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+.rl-stat.hot b { color: var(--fire); }
+.rl-band .clock { margin-left: auto; font-family: var(--mono); font-size: 13px; color: var(--text); }
+.rl-kbd { font-family: var(--mono); font-size: 10px; background: var(--bg); border: 1px solid var(--hair); border-radius: 3px; padding: 2px 6px; color: var(--text-muted); cursor: pointer; }
+.rl-kbd:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Time spine ── */
+.rl-spine { grid-area: spine; border-right: 1px solid var(--hair); padding: 18px 0 18px 18px; overflow: auto; position: relative; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 4%, transparent), transparent 80px), var(--panel); }
+.rl-spine::-webkit-scrollbar { width: 0; }
+.rl-spine .lbl { font-family: var(--mono); font-size: 9px; letter-spacing: .24em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 14px; }
+.rl-track { position: relative; padding-left: 14px; }
+.rl-track::before { content: ""; position: absolute; left: 3px; top: 4px; bottom: 4px; width: 1px; background: var(--hair); }
+.rl-t { position: relative; display: block; width: 100%; text-align: left; background: none; border: none; padding: 7px 10px 7px 8px; cursor: pointer; border-radius: 3px; }
+.rl-t::before { content: ""; position: absolute; left: -15px; top: 13px; width: 7px; height: 7px; border-radius: 50%; background: var(--hair); }
+.rl-t:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.rl-t .tt { font-family: var(--mono); font-size: 10.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.rl-t .tw { display: block; font-size: 12.5px; font-weight: 600; color: var(--text); margin-top: 1px; }
+.rl-t.past .tw { color: var(--text-muted); text-decoration: line-through; text-decoration-color: var(--hair); }
+.rl-t.past::before { background: var(--text-muted); }
+.rl-t.now::before { background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent); }
+.rl-t.now .tt, .rl-t.now .tw { color: var(--accent); }
+.rl-t.crit::before { background: var(--fire); }
+.rl-t.crit .tw { color: var(--fire); }
+.rl-now { position: relative; margin: 6px 0 6px -18px; height: 1px; background: var(--accent); }
+.rl-now::after { content: "NOW"; position: absolute; right: 8px; top: -7px; font-family: var(--mono); font-size: 8px; letter-spacing: .2em; color: var(--on-accent); background: var(--accent); padding: 1px 5px; border-radius: 2px; font-weight: 700; }
+
+/* ── Attention queue ── */
+.rl-queue { grid-area: queue; overflow: auto; padding: 22px 26px; }
+.rl-queue::-webkit-scrollbar { width: 8px; }
+.rl-queue::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 8px; }
+.rl-qhead { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+.rl-qhead h1 { font-family: var(--display); font-weight: 700; font-size: 21px; letter-spacing: -.01em; margin: 0; color: var(--text); }
+.rl-qhead .n { font-family: var(--mono); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; }
+.rl-card { display: flex; align-items: center; gap: 14px; background: var(--panel); border: 1px solid var(--hair); border-left-width: 3px; border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 8px; }
+.rl-card.crit { border-left-color: var(--fire); background: color-mix(in srgb, var(--fire) 5%, var(--panel)); }
+.rl-card.warn { border-left-color: var(--metal); }
+.rl-card.info { border-left-color: var(--accent); }
+.rl-card .body { flex: 1; min-width: 0; }
+.rl-card .t { font-size: 14px; font-weight: 700; color: var(--text); }
+.rl-card.crit .t { color: var(--fire); }
+.rl-card .s { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.rl-card .src { font-family: var(--mono); font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; white-space: nowrap; }
+.rl-card .acts { display: flex; gap: 8px; flex-shrink: 0; }
+.rl-quiet { margin-top: 18px; }
+.rl-quiet .qh { font-family: var(--mono); font-size: 9px; letter-spacing: .22em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; border-top: 1px dashed var(--hair); padding-top: 12px; margin-bottom: 8px; }
+.rl-quiet .qrow { display: flex; align-items: center; gap: 10px; padding: 5px 2px; font-size: 12.5px; color: var(--text-muted); }
+.rl-done { text-align: center; padding: 26px; border: 1px dashed var(--hair); border-radius: var(--radius); color: var(--text-muted); font-size: 13.5px; margin-bottom: 8px; }
+.rl-done b { display: block; font-family: var(--display); font-weight: 700; font-size: 19px; color: var(--ok); margin-bottom: 4px; }
+
+/* ── Sheet (transient board) ── */
+.rl-sheet { position: absolute; top: 46px; right: 0; bottom: 0; width: 470px; background: var(--panel); border-left: 1px solid var(--hair); box-shadow: var(--shadow-3); display: flex; flex-direction: column; animation: sheetIn .18s var(--easing); z-index: 20; }
+@keyframes sheetIn { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.rl-sheet .sh-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--hair); }
+.rl-sheet .sh-head .t { font-family: var(--display); font-weight: 700; font-size: 16px; color: var(--text); flex: 1; }
+.rl-sheet .sh-body { flex: 1; overflow: auto; padding: 16px; }
+.rl-sheet .sh-body::-webkit-scrollbar { width: 8px; }
+.rl-sheet .sh-body::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 8px; }
+.rl-x { background: none; border: 1px solid var(--hair); border-radius: 3px; color: var(--text-muted); font-size: 13px; width: 24px; height: 24px; cursor: pointer; line-height: 1; }
+.rl-x:hover { border-color: var(--fire); color: var(--fire); }
+
+/* ── Command palette ── */
+.rl-veil { position: absolute; inset: 0; background: rgba(0,0,0,.5); z-index: 30; display: flex; align-items: flex-start; justify-content: center; padding-top: 90px; }
+.rl-pal { width: 520px; background: var(--panel); border: 1px solid var(--hair); border-radius: var(--radius); box-shadow: var(--shadow-3); overflow: hidden; }
+.rl-pal input { width: 100%; padding: 14px 16px; background: var(--bg); border: none; border-bottom: 1px solid var(--hair); color: var(--text); font-size: 15px; font-family: var(--sans); outline: none; box-sizing: border-box; }
+.rl-pal .row { display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; font-size: 13.5px; color: var(--text); }
+.rl-pal .row:hover, .rl-pal .row.sel { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.rl-pal .row .k { font-family: var(--mono); font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; width: 52px; flex-shrink: 0; }
+.rl-pal .row .hint { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--text-muted); }
+
+/* ── Roles — clock-in lens switcher ── */
+.rl-role { display: inline-flex; border: 1px solid var(--hair); border-radius: 3px; overflow: hidden; margin-left: 10px; }
+.rl-role button { padding: 4px 10px; font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; background: none; border: none; color: var(--text-muted); cursor: pointer; }
+.rl-role button.on { background: var(--accent); color: var(--on-accent); }
+.rl-phase { display: inline-flex; gap: 0; border: 1px dashed var(--hair); border-radius: 3px; overflow: hidden; }
+.rl-phase button { padding: 3px 9px; font-family: var(--mono); font-size: 8.5px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; background: none; border: none; color: var(--text-muted); cursor: pointer; }
+.rl-phase button.on { background: var(--panel-2); color: var(--accent); }
+
+/* ── Procedure run (cook opening/closing) ── */
+.rl-run { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; padding: 12px 14px; border: 1px solid var(--hair); border-radius: var(--radius-sm); background: var(--panel); }
+.rl-run .rt { font-family: var(--display); font-weight: 700; font-size: 15px; color: var(--text); white-space: nowrap; }
+.rl-run .track { flex: 1; height: 6px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
+.rl-run .track i { display: block; height: 100%; background: var(--accent); border-radius: 99px; transition: width .3s var(--easing); }
+.rl-run .rn { font-family: var(--mono); font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rl-card.up { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
+.rl-card.up .t { color: var(--accent); }
+.rl-card .step { font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--text-muted); width: 22px; height: 22px; border: 1px solid var(--hair); border-radius: 3px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--bg); }
+.rl-card.up .step { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+/* ── Approvals (manager) ── */
+.rl-approve { border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--hair)); }
+.rl-approve .pin { font-family: var(--mono); font-size: 9px; letter-spacing: .14em; color: var(--accent); border: 1px dashed var(--accent); border-radius: 2px; padding: 2px 6px; font-weight: 700; }
+
+/* ── Sheet checklist rows ── */
+.rl-chk { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--hair); }
+.rl-chk .w { flex: 1; font-size: 13.5px; color: var(--text); }
+.rl-chk.done .w { color: var(--text-muted); text-decoration: line-through; }
+
+/* ── Settings sheet ── */
+.rl-set-h { font-family: var(--mono); font-size: 9px; letter-spacing: .22em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 16px 0 6px; border-top: 1px dashed var(--hair); padding-top: 12px; display: flex; align-items: center; gap: 8px; }
+.rl-set-h:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+.rl-set { display: flex; align-items: center; gap: 12px; padding: 9px 2px; border-bottom: 1px solid var(--hair); }
+.rl-set .k { flex: 1; font-size: 13px; color: var(--text); }
+.rl-set .k small { display: block; font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+.rl-set .v { font-family: var(--mono); font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
