@@ -6,8 +6,10 @@ import Observation
 /// Sick-worker board view model — parity with `SickWorkerBoard.jsx` +
 /// `/api/sick-worker`. Filing and clearing reports are PIC authority in the web
 /// app (route 403 without the manager PIN); here `pinOk` reflects the native
-/// `PinSessionStore` so the UI mirrors the web PIC gate. Regulated writes are
-/// tagged `native_cook` via `RegulatedWriteContext` and audited in-transaction.
+/// `PinSessionStore` so the UI mirrors the web PIC gate. Filing/clearing writes
+/// are tagged `native_cook`; attaching a doctor's-note document is a
+/// manager-PIN write tagged `native_mac` (spec §8). All are audited
+/// in-transaction.
 @Observable @MainActor
 final class SickWorkerViewModel {
     var snapshot: SickWorkerBoardSnapshot?
@@ -232,8 +234,10 @@ final class SickWorkerViewModel {
         guard !isSaving else { return }
         actionError = nil
         do {
-            let user = try ManagementWrite().requireSession(pinStore.session)
+            // Pre-panel gate: don't even open the picker without a manager session.
+            _ = try ManagementWrite().requireSession(pinStore.session)
             try writeDB.pool.read { db in try pinStore.validateActiveUser(db: db) }
+
             guard let picked = try SickNoteAttach.pickAndCopy(
                 reportId: reportId,
                 dataDir: Self.dataRoot()
@@ -242,6 +246,14 @@ final class SickWorkerViewModel {
             isSaving = true
             defer { isSaving = false }
             do {
+                // Re-gate at write time. The modal picker is an unbounded pause,
+                // and the manager PIN can expire (8h TTL) or be revoked (the web
+                // app flips `manager_pin_users.is_active` in the shared DB) while
+                // it sits open. The audited PHI row must be attributed to a
+                // still-valid session, so re-verify before the insert.
+                let user = try ManagementWrite().requireSession(pinStore.session)
+                try writeDB.pool.read { db in try pinStore.validateActiveUser(db: db) }
+
                 let repo = SickNoteRepository(readDB: readDB, writeDB: writeDB)
                 _ = try repo.attach(
                     input: SickNoteAttachInput(
@@ -259,20 +271,46 @@ final class SickWorkerViewModel {
             }
             Task { await refresh() }
         } catch {
-            actionError = WriteErrorMapper.message(for: error)
+            actionError = Self.attachErrorMessage(for: error)
         }
     }
 
+    /// Attach-failure copy that never surfaces the picked filename — it is
+    /// PHI-adjacent and this string renders on the board above the PIN gate.
+    /// Known typed errors keep their fixed copy; anything else (a Cocoa copy
+    /// failure whose message embeds the source filename) degrades to a generic
+    /// line.
+    private static func attachErrorMessage(for error: Error) -> String {
+        if error is SickNoteAttachError || error is SickNoteWriteError
+            || error is ManagementWriteError {
+            return WriteErrorMapper.message(for: error)
+        }
+        return "Couldn't attach the document — please try again."
+    }
+
     /// Openable URL for a stored document, or nil when the file is missing on
-    /// disk (the DB row can outlive a moved/deleted file — spec §5).
+    /// disk (the DB row can outlive a moved/deleted file — spec §5) or the
+    /// stored `file_path` escapes the uploads root (tampered/out-of-band row —
+    /// spec §9). A resolved directory or app bundle is also refused.
     nonisolated static func documentFileURL(
         _ doc: SickNoteDocumentRow,
         env: [String: String] = ProcessInfo.processInfo.environment,
         fileManager: FileManager = .default
     ) -> URL? {
-        let uploads = dataRoot(env: env).appendingPathComponent("uploads")
-        let url = uploads.appendingPathComponent(doc.filePath)
-        return fileManager.fileExists(atPath: url.path) ? url : nil
+        guard let safeRel = SickNoteDocumentCompute.safeUploadRelativePath(doc.filePath) else {
+            return nil
+        }
+        let uploads = dataRoot(env: env).appendingPathComponent("uploads").standardizedFileURL
+        let url = uploads.appendingPathComponent(safeRel).standardizedFileURL
+        // Belt-and-suspenders: the resolved path must sit under the uploads root.
+        guard url.path == uploads.path || url.path.hasPrefix(uploads.path + "/") else {
+            return nil
+        }
+        var isDir: ObjCBool = false
+        guard fileManager.fileExists(atPath: url.path, isDirectory: &isDir), !isDir.boolValue else {
+            return nil
+        }
+        return url
     }
 
     /// The Lariat data root (`LARIAT_DATA_DIR` or `<cwd>/data`) as a URL.

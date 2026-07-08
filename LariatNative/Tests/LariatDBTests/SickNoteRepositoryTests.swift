@@ -14,7 +14,7 @@ final class SickNoteRepositoryTests: XCTestCase {
         )
     }
 
-    func testAttachInsertsRowAndAuditEvent() throws {
+    func testAttachInsertsRowAndAuditEvent() async throws {
         let (readDB, writeDB, path) = try makeRepos()
         defer { cleanup(path: path) }
         let reportId = try seedReport(writeDB: writeDB)
@@ -35,9 +35,12 @@ final class SickNoteRepositoryTests: XCTestCase {
         XCTAssertEqual(doc.filePath, "sick-notes/\(reportId)/u.pdf")
         XCTAssertEqual(doc.uploadedBy, "mgr-1")
 
-        try writeDB.pool.read { db in
-            let rows = try SickNoteRepository.list(db: db, reportId: reportId, locationId: "default")
-            XCTAssertEqual(rows.count, 1)
+        // Read path: exercise the production documents() method the UI calls.
+        let byReport = try await repo.documents(reportIds: [reportId], locationId: "default")
+        XCTAssertEqual(byReport[reportId]?.count, 1)
+        XCTAssertEqual(byReport[reportId]?.first?.originalFilename, "note.pdf")
+
+        try await writeDB.pool.read { db in
             let audits = try Int.fetchOne(
                 db,
                 sql: "SELECT COUNT(*) FROM audit_events WHERE entity='sick_note_documents' AND action='insert' AND actor_source='native_mac'"
@@ -95,7 +98,7 @@ final class SickNoteRepositoryTests: XCTestCase {
         }
     }
 
-    func testListScopedByReportAndLocation() throws {
+    func testDocumentsScopedByReportAndLocation() async throws {
         let (readDB, writeDB, path) = try makeRepos()
         defer { cleanup(path: path) }
         let r1 = try seedReport(writeDB: writeDB, cookId: "alice")
@@ -113,12 +116,16 @@ final class SickNoteRepositoryTests: XCTestCase {
             context: macContext()
         )
 
-        try writeDB.pool.read { db in
-            XCTAssertEqual(try SickNoteRepository.list(db: db, reportId: r1, locationId: "default").count, 1)
-            XCTAssertEqual(try SickNoteRepository.list(db: db, reportId: r2, locationId: "default").first?.kindValue, .clearance)
-            // Location scoping (spec §8): a different location sees nothing.
-            XCTAssertEqual(try SickNoteRepository.list(db: db, reportId: r1, locationId: "other-site").count, 0)
-        }
+        // Production read path (grouped by report), incl. spec §8 location scoping.
+        let inDefault = try await repo.documents(reportIds: [r1, r2], locationId: "default")
+        XCTAssertEqual(inDefault[r1]?.count, 1)
+        XCTAssertEqual(inDefault[r2]?.first?.kindValue, .clearance)
+        // A different location sees nothing for the same report ids.
+        let inOther = try await repo.documents(reportIds: [r1, r2], locationId: "other-site")
+        XCTAssertTrue(inOther.isEmpty)
+        // Empty id list is a no-op, not a SQL error.
+        let none = try await repo.documents(reportIds: [], locationId: "default")
+        XCTAssertTrue(none.isEmpty)
     }
 
     func testCountsGroupsByReport() throws {

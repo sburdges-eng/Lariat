@@ -65,8 +65,10 @@ enum SickNoteAttachError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unsupportedType(let name):
-            return "\(name) isn't an allowed document type (PDF, JPEG, PNG, HEIC)."
+        // The picked filename is PHI-adjacent and this message can render on the
+        // shared board — describe the allowed types, never the file's name.
+        case .unsupportedType:
+            return "That file type isn't allowed — attach a PDF, JPEG, PNG, or HEIC."
         }
     }
 }

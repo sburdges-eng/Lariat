@@ -95,18 +95,6 @@ public struct SickNoteRepository: Sendable {
         }
     }
 
-    public static func list(db: Database, reportId: Int64, locationId: String) throws -> [SickNoteDocumentRow] {
-        try SickNoteDocumentRow.fetchAll(
-            db,
-            sql: """
-              SELECT * FROM sick_note_documents
-               WHERE report_id = ? AND location_id = ?
-               ORDER BY id
-              """,
-            arguments: [reportId, locationId]
-        )
-    }
-
     public static func counts(db: Database, reportIds: [Int64], locationId: String) throws -> [Int64: Int] {
         guard !reportIds.isEmpty else { return [:] }
         let marks = Array(repeating: "?", count: reportIds.count).joined(separator: ",")
