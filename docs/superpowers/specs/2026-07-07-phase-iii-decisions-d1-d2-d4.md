@@ -1,20 +1,24 @@
 ---
-title: "Phase III decisions — D1, D2, D4 (owner sign-off)"
+title: "Native 0.2 L1 decisions — D1, D2, D4 (owner sign-off)"
 date: 2026-07-07
 status: approved — owner sign-off 2026-07-07
-parent: docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-status.md
+canonical_id: native-0.2-l1
+deprecated_alias: phase-iii
+parent: docs/superpowers/plans/2026-07-07-native-0.2-l1-status.md
 related:
   - LariatNative/Scripts/PACKAGING.md
   - docs/desktop-wrapper-design.md
   - docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md
 ---
 
-# Phase III decision memo — D1, D2, D4
+# Native 0.2 L1 decision memo — D1, D2, D4
 
-**Scope:** Prep only. D3 (copy bom_expand unit tables verbatim for Wave A) is already
+> **Terminology:** [`docs/NATIVE_RELEASES_AND_TAXONOMY.md`](../../NATIVE_RELEASES_AND_TAXONOMY.md)
+
+**Scope:** Prep only. D3 (copy bom_expand unit tables verbatim for L1 Wave A) is already
 recorded in `docs/superpowers/specs/2026-07-07-bom-unit-table-diff.md`.
 
-**Owner action:** Signed 2026-07-07 — D1-B, D2, D4 approved as stated; G4 P3-1 scope approved.
+**Owner action:** Signed 2026-07-07 — D1-B, D2, D4 approved as stated; G4 Native 0.2 L1 scope approved.
 
 ---
 
@@ -22,14 +26,14 @@ recorded in `docs/superpowers/specs/2026-07-07-bom-unit-table-diff.md`.
 
 | Decision | Status | Date | Owner |
 |----------|--------|------|-------|
-| **G4** P3-1 scope (in-process BOM; web spawn deferred Phase D) | **Approved** | 2026-07-07 | sburdges |
+| **G4** Native 0.2 L1 scope (in-process BOM; web spawn deferred Milestone D) | **Approved** | 2026-07-07 | sburdges |
 | **D1-B** Application Support recipe + data layout | **Approved** | 2026-07-07 | sburdges |
-| **D2** Native spawn delete Wave C; web Phase D | **Approved** | 2026-07-07 | sburdges |
+| **D2** Native spawn delete L1 Wave C; web Milestone D | **Approved** | 2026-07-07 | sburdges |
 | **D4** Keep Python CLIs + lib | **Approved** | 2026-07-07 | sburdges |
 
 ---
 
-## D1 — Packaged recipe CSV location (required before Wave C)
+## D1 — Packaged recipe CSV location (required before L1 Wave C)
 
 ### Context
 
@@ -40,7 +44,7 @@ recorded in `docs/superpowers/specs/2026-07-07-bom-unit-table-diff.md`.
   `LARIAT_DATA_DIR`.
 - `PACKAGING.md` documents `LARIAT_DATA_DIR` for the DB; Finder launch has no cwd.
 - `desktop-wrapper-design.md` is the **Electron + Next.js hub** design — **not** the
-  H8 native Swift app path. Do not conflate: Phase III targets `LariatNative`
+  H8 native Swift app path. Do not conflate: **Native 0.2 L1** targets `LariatNative`
   (`package-app.sh`), not `desktop/`.
 
 ### Options
@@ -61,12 +65,12 @@ recorded in `docs/superpowers/specs/2026-07-07-bom-unit-table-diff.md`.
 3. **`LARIAT_DATA_DIR`** defaults to `{LARIAT_ROOT}/data` (extends existing `resolveDataDirectory`
    future work in `PACKAGING.md`).
 4. **First run:** if `recipes/recipe_index.csv` missing, seed from bundled **seed snapshot**
-   in `LariatNative_LariatDB.bundle` or a one-time copy step in Wave C (not full live sync).
+   in `LariatNative_LariatDB.bundle` or a one-time copy step in L1 Wave C (not full live sync).
 5. **Dev / CI:** unchanged — `LARIAT_ROOT=<repo>` + `LARIAT_DATA_DIR=<repo>/data`.
 
 **H8 constraints this satisfies:**
 
-- Wave C gate: packaged `.app` on clean Mac **without system Python** ✓
+- L1 Wave C gate: packaged `.app` on clean Mac **without system Python** ✓
 - Recipe updates without app rebuild: rsync/ingest into Application Support ✓
 - Parity with web layout (`recipes/`, `menus/`) ✓
 - `BeoCascadeClient.resolveProjectRoot` parent-of-data-dir fallback still works ✓
@@ -85,20 +89,20 @@ Option C alone (fails double-click smoke).
 
 ### Context
 
-- Phase III P3-1 removes spawns from **native** (`AssistantSupport.swift`,
+- Native 0.2 L1 removes spawns from **native** (`AssistantSupport.swift`,
   default `BeoCascadeClient` runner).
 - Web still spawns via `lib/recipeCalculator.ts` and `lib/beoCascade.ts` today.
-- Kickoff plan: web spawn removal is **Phase D**, not P3-1 done criteria.
+- Kickoff plan: web spawn removal is **Milestone D**, not Native 0.2 L1 done criteria.
 
 ### **Proposed D2**
 
 | Surface | When to delete spawn | Rationale |
 |---------|---------------------|-----------|
-| Native Swift (`PythonBomCalculator`, cascade `Process`) | **Wave C** (P3-1) | H8 blocker — no system Python on kitchen Mac |
+| Native Swift (`PythonBomCalculator`, cascade `Process`) | **L1 Wave C** (Native 0.2) | H8 blocker — no system Python on kitchen Mac |
 | Web TS (`recipeCalculator.ts`, `beoCascade.ts`) | **Phase D** after C5 cutover + shutoff test | Edge may still serve iPad/LAN until D; Python oracle stays for cross-check |
 | `scripts/bom_expand_cli.py` / `beo_cascade_cli.py` | **Keep** through Phase D | Offline/batch tools + JS integration oracle |
 
-**Not proposed:** Delete web spawns in Phase III — risks iPad hub regression before C4/C5.
+**Not proposed:** Delete web spawns in Native 0.2 L1 — risks iPad hub regression before C4/C5.
 
 ### Owner sign-off
 
@@ -113,7 +117,7 @@ Option C alone (fails double-click smoke).
 
 - `scripts/beo_order_pull.py` is a **batch** order-pull tool (not Node-spawned).
 - Shares `scripts/lib/bom_expand.py` + `beo_pull.py` with assistant/BEO cascade.
-- P3-1 does **not** port batch pull to Swift.
+- Native 0.2 L1 does **not** port batch pull to Swift.
 
 ### **Proposed D4**
 
@@ -123,9 +127,9 @@ Option C alone (fails double-click smoke).
 | `scripts/bom_expand_cli.py` | **Keep** as dev oracle + optional cross-check until Phase D |
 | `scripts/beo_cascade_cli.py` | **Keep** same |
 | `scripts/lib/bom_expand.py` | **Keep** as parity oracle until web spawn deleted (Phase D) |
-| Deprecation notice | Add header comment in CLIs after Wave C: “Native app uses in-process compute; CLI retained for batch/oracle.” |
+| Deprecation notice | Add header comment in CLIs after L1 Wave C: “Native app uses in-process compute; CLI retained for batch/oracle.” |
 
-**Not proposed:** Delete Python CLIs at P3-1 completion — breaks batch ops and JS oracle tests.
+**Not proposed:** Delete Python CLIs at Native 0.2 L1 completion — breaks batch ops and JS oracle tests.
 
 ### Owner sign-off
 
@@ -138,8 +142,8 @@ Option C alone (fails double-click smoke).
 
 | ID | Proposal | Blocks |
 |----|----------|--------|
-| D1 | Application Support tree; `LARIAT_ROOT` = support root when bundled | Wave C wire-up + H8 smoke — **layout spec:** `2026-07-07-d1-application-support-layout.md` |
-| D2 | Native spawn delete Wave C; web spawn delete Phase D | Wave C scope boundary |
+| D1 | Application Support tree; `LARIAT_ROOT` = support root when bundled | L1 Wave C wire-up + H8 smoke — **layout spec:** `2026-07-07-d1-application-support-layout.md` |
+| D2 | Native spawn delete L1 Wave C; web spawn delete Milestone D | L1 Wave C scope boundary |
 | D3 | Copy Python unit tables (Wave A) | *(done)* |
 | D4 | Keep Python CLIs + lib; deprecate note only | Nothing |
 
@@ -150,4 +154,4 @@ Option C alone (fails double-click smoke).
 - `LariatNative/Scripts/PACKAGING.md` — ad-hoc `.pkg`, `LARIAT_DATA_DIR`, notarization TBD
 - `docs/desktop-wrapper-design.md` — Electron hub (separate from native H8)
 - `LariatNative/Sources/LariatModel/BeoCascadeClient.swift` — `resolveProjectRoot`
-- `docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-kickoff-plan.md` §7.3
+- `docs/superpowers/plans/2026-07-07-native-0.2-l1-kickoff.md` §7.3

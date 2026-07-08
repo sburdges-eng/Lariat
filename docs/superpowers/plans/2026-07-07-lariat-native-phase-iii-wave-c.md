@@ -1,6 +1,7 @@
-# Phase III Wave C — Wire-up + spawn removal (implementation plan)
+# L1 Wave C — Wire-up + native spawn removal (Native 0.2)
 
-> **Prerequisites:** Wave A + B merged; D1-B approved (signed); Opus review on parity.
+> **Terminology:** [`docs/NATIVE_RELEASES_AND_TAXONOMY.md`](../../NATIVE_RELEASES_AND_TAXONOMY.md) — **L1 Wave C ≠ Milestone C** (schema C1–C5).
+> **Prerequisites:** L1 Wave A + B merged; D1-B approved (signed); Opus review on parity.
 
 **Goal:** Native assistant + BEO board use in-process compute; delete `python3` spawns;
 H8 smoke on packaged `.app` without system Python.
@@ -63,7 +64,7 @@ Spec: `specs/2026-07-07-d1-application-support-layout.md`
 
 ---
 
-## Wave C exit gates
+## L1 Wave C exit gates
 
 - [ ] Full `swift test` green
 - [ ] Python oracle tests unchanged + green
@@ -71,4 +72,4 @@ Spec: `specs/2026-07-07-d1-application-support-layout.md`
 - [ ] Packaged app smoke documented (date + machine)
 - [ ] STATUS + endgame docs updated
 
-**Not in Wave C:** Web TS spawn removal (Phase D), `beo_order_pull.py` port.
+**Not in L1 Wave C:** Web TS spawn removal (Milestone D), `beo_order_pull.py` port.

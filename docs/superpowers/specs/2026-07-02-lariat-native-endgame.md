@@ -63,6 +63,22 @@ are unblocked.
   relocated/absorbed **first**, then verified-backup → per-step confirmed deletion of the
   ~100 duplicates. Never blind.
 
+### Not the same as Native 0.2 L1
+
+The **Native 0.2 L1** program (in-process BOM, formerly "Phase III / P3-1") is a **product
+release track**, not an endgame milestone letter. Binding taxonomy:
+[`docs/NATIVE_RELEASES_AND_TAXONOMY.md`](../../NATIVE_RELEASES_AND_TAXONOMY.md).
+
+| Term | Meaning |
+|------|---------|
+| **Native 0.2 L1** | In-process BomExpand + BeoCascade; delete **native** Python spawns |
+| **L1 Wave C** | Wire-up inside Native 0.2 — **not** Milestone C (schema C1–C5) |
+| **Milestone C** | Schema inversion C1–C5 — blocks Native **1.0**, not 0.2 |
+| **Milestone D** | Web edge reduction + **web** spawn deletion |
+| **Milestone B done** | Assistant native path — not "Native 0.2 shipped" |
+
+Live L1 status: `docs/superpowers/plans/2026-07-07-native-0.2-l1-status.md`.
+
 ## 4. The holistic bar (beyond parity)
 
 Parity clones the web app; these make the native app the *better* daily driver. Ordered by

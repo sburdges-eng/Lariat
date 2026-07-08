@@ -1,17 +1,21 @@
 ---
-title: "Phase III — language consolidation backlog (post cutover)"
+title: "Native 0.2 L1 — language consolidation backlog (post cutover)"
 date: 2026-07-07
-status: draft — backlog; prep complete; Wave A after G4 sign-off
+status: draft — backlog; prep complete; L1 Wave A after G4 sign-off
+canonical_id: native-0.2-l1
+deprecated_alias: phase-iii
 parent: docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md
 related:
-  - docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-status.md
+  - docs/superpowers/plans/2026-07-07-native-0.2-l1-status.md
   - docs/superpowers/specs/2026-07-07-bom-expand-swift-port-audit.md
 ---
 
-# Phase III — Language consolidation backlog
+# Native 0.2 L1 — language consolidation backlog
 
-**When:** P3-1 Wave A may start after **G4 owner sign-off** (prep is done).
-Wave C wire-up requires **D1**; release requires **C4 shutoff** + H8 — see STATUS lane table.
+> **Terminology:** [`docs/NATIVE_RELEASES_AND_TAXONOMY.md`](../../NATIVE_RELEASES_AND_TAXONOMY.md)
+
+**When:** L1 Wave A may start after **G4 owner sign-off** (prep is done).
+L1 Wave C wire-up requires **D1**; release requires **C4 shutoff** + H8 — see STATUS lane table.
 
 **Goal:** Remove runtime dependencies and duplicate logic without weakening
 parity or audit semantics. This is **consolidation**, not language purity.
@@ -29,17 +33,17 @@ parity or audit semantics. This is **consolidation**, not language purity.
 
 | ID | Where | What improves | Target | Priority | Oracle |
 |----|-------|---------------|--------|----------|--------|
-| **P3-1** | `bom_expand.py` spawn chain | Packaging, tail latency, no system Python on hub Mac | Swift `LariatModel` | **P0** | `tests/python/test_bom_expand.py`, `test-recipe-calculator.mjs`, `test_beo_cascade_cli.py` |
-| **P3-2** | `lib/unitConvert.mjs` + `scripts/lib/units.py` + `UnitConvert.swift` | Correctness / drift | Swift SSOT; deprecate duplicates | **P1** | `test-sales-depletion.mjs`, `UnitConvertTests.swift`, fixture generators |
-| **P3-3** | `lib/computeEngine/*` (web-only writer) | Phase C architecture | Swift compute + GRDB repos | **P1** | `test-compute-status-route.mjs`, costing/depletion tests |
-| **P3-4** | `lib/datapackSearch.ts` semantic/hybrid | Native query packaging | CoreML/MLX in Swift (optional) | **P2** | `test-datapack-search.mjs`, `DatapackSearchComputeTests` |
-| **P3-5** | `scripts/ingest_*.py` (Shamrock/Toast/PDF) | Batch throughput | **Keep Python** | **Defer** | ingest scripts + cp1252/xlrd fixtures |
-| **P3-6** | `scripts/ingest-costing.mjs` → `ingest_costing.py` | Batch only | **Keep** unless profiling proves bottleneck | **Defer** | ingest-costing tests |
-| **P3-7** | Electron desktop wrapper (`docs/desktop-wrapper-design.md`) | Hub Mac supervisor | **Superseded by** `LariatNative` H8 `.pkg` | **Cancel** | — |
+| **L1-1** | `bom_expand.py` spawn chain | Packaging, tail latency, no system Python on hub Mac | Swift `LariatModel` | **P0** | `tests/python/test_bom_expand.py`, `test-recipe-calculator.mjs`, `test_beo_cascade_cli.py` |
+| **L1-2** | `lib/unitConvert.mjs` + `scripts/lib/units.py` + `UnitConvert.swift` | Correctness / drift | Swift SSOT; deprecate duplicates | **P1** | `test-sales-depletion.mjs`, `UnitConvertTests.swift`, fixture generators |
+| **L1-3** | `lib/computeEngine/*` (web-only writer) | Milestone C architecture | Swift compute + GRDB repos | **P1** | `test-compute-status-route.mjs`, costing/depletion tests |
+| **L1-4** | `lib/datapackSearch.ts` semantic/hybrid | Native query packaging | CoreML/MLX in Swift (optional) | **P2** | `test-datapack-search.mjs`, `DatapackSearchComputeTests` |
+| **L1-5** | `scripts/ingest_*.py` (Shamrock/Toast/PDF) | Batch throughput | **Keep Python** | **Defer** | ingest scripts + cp1252/xlrd fixtures |
+| **L1-6** | `scripts/ingest-costing.mjs` → `ingest_costing.py` | Batch only | **Keep** unless profiling proves bottleneck | **Defer** | ingest-costing tests |
+| **L1-7** | Electron desktop wrapper (`docs/desktop-wrapper-design.md`) | Hub Mac supervisor | **Superseded by** `LariatNative` H8 `.pkg` | **Cancel** | — |
 
 ---
 
-## P3-1 — BOM expand in-process (lead item)
+## L1-1 — BOM expand in-process (lead item)
 
 See full scoped audit:
 `docs/superpowers/specs/2026-07-07-bom-expand-swift-port-audit.md`
@@ -55,7 +59,7 @@ Summary:
 
 ---
 
-## P3-2 — Unit conversion single source of truth
+## L1-2 — Unit conversion single source of truth
 
 Frozen JS↔Python parity today (`docs/V2_FREEZE_PLAN.md`). Native already has
 `UnitConvert.swift` for depletion/costing subset.
@@ -68,7 +72,7 @@ Frozen JS↔Python parity today (`docs/V2_FREEZE_PLAN.md`). Native already has
 
 ---
 
-## P3-3 — Compute engine native writer
+## L1-3 — Compute engine native writer
 
 C1 ledger gap: `triggerComputeEngine` still web-only; native reads snapshots.
 
@@ -78,7 +82,7 @@ required for Phase D edge reduction.
 
 ---
 
-## P3-4 — Datapack semantic search (optional)
+## L1-4 — Datapack semantic search (optional)
 
 Lexical FTS already native. Semantic uses `transformers.js` + Python-built
 `vectors.npy`. Only worth Swift/CoreML if cooks use hybrid search daily.
@@ -97,10 +101,10 @@ Lexical FTS already native. Semantic uses `transformers.js` + Python-built
 
 ---
 
-## Acceptance gates (any Phase III item)
+## Acceptance gates (any Native 0.2 L1 item)
 
 1. Parity tests green against frozen web/Python oracle (no weakened assertions).
 2. `swift build && swift test` from `LariatNative/`.
 3. Spawn call sites removed or behind injectable stub only in tests.
-4. H8 packaging smoke: app runs without system `python3` on clean Mac (for P3-1).
+4. H8 packaging smoke: app runs without system `python3` on clean Mac (for L1-1).
 5. Opus review for any change touching money, BEO demand, or assistant actions.

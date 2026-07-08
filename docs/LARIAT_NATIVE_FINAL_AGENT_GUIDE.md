@@ -4,6 +4,14 @@ Purpose: give Claude, Cursor, Antigravity, and Xcode sessions one current map fo
 
 This document is project-local to `~/Dev/hospitality/Lariat`. Do not apply it from bare `~/Dev` except as routing metadata.
 
+## Taxonomy (2026-07) — read before L1 work
+
+**Binding:** [`docs/NATIVE_RELEASES_AND_TAXONOMY.md`](NATIVE_RELEASES_AND_TAXONOMY.md) defines product releases (Native 0.1 / 0.2 / 1.0), endgame milestones A–E, and the **Native 0.2 L1** program.
+
+- **Current program:** Native 0.2 L1 in-process BOM — **not** "Phase III" and **not** Milestone C.
+- **Live status:** [`docs/superpowers/plans/2026-07-07-native-0.2-l1-status.md`](superpowers/plans/2026-07-07-native-0.2-l1-status.md)
+- **L1 Wave C** (native spawn delete) ≠ **Milestone C** (schema C1–C5). **H7 Phase 2** ≠ Native 0.2.
+
 ## Container Inventory
 
 Use these paths as the current Lariat surfaces inside `~/Dev`:
@@ -30,7 +38,8 @@ Treat the newest native endgame doc as authoritative over older handoff docs:
 - `docs/superpowers/specs/2026-07-03-lariat-native-phase-c2-c3-activation.md`
 - `docs/superpowers/specs/lariat-native-edge-blockers.md`
 - `LariatNative/Scripts/PACKAGING.md`
-- `docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-status.md` (Phase III P3-1 live status)
+- `docs/NATIVE_RELEASES_AND_TAXONOMY.md` (binding release/milestone/L1 glossary)
+- `docs/superpowers/plans/2026-07-07-native-0.2-l1-status.md` (Native 0.2 L1 live status)
 
 What is already strong:
 

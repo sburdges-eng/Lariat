@@ -1,8 +1,8 @@
 ---
-title: "BOM expand vs UnitConvert — unit table diff (Phase III prep)"
+title: "BOM expand vs UnitConvert — unit table diff (Native 0.2 L1 prep)"
 date: 2026-07-07
 status: draft — decision recorded for Wave A
-parent: docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-kickoff-plan.md
+parent: docs/superpowers/plans/2026-07-07-native-0.2-l1-kickoff.md
 ---
 
 # Unit table diff: `bom_expand.convert_qty` vs `UnitConvert.swift`

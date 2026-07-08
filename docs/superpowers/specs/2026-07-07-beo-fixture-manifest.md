@@ -2,7 +2,7 @@
 title: "BeoPull + BeoCascade golden fixture manifest (Wave B oracle)"
 date: 2026-07-07
 status: exported
-parent: docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-status.md
+parent: docs/superpowers/plans/2026-07-07-native-0.2-l1-status.md
 export_script: scripts/dev/export_beo_fixtures.py
 output_dir: LariatNative/Tests/Fixtures/BeoCascade/
 ---

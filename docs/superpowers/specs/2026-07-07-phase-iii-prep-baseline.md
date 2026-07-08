@@ -1,14 +1,18 @@
 ---
-title: "Phase III prep baseline — oracle + spawn timing"
+title: "Native 0.2 L1 prep baseline — oracle + spawn timing"
 date: 2026-07-07
 status: recorded
-parent: docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-status.md
+canonical_id: native-0.2-l1
+deprecated_alias: phase-iii
+parent: docs/superpowers/plans/2026-07-07-native-0.2-l1-status.md
 machine: local dev (darwin), repo at ~/Dev/hospitality/Lariat
 ---
 
-# Phase III prep baseline (Steps 1 + 5)
+# Native 0.2 L1 prep baseline (Steps 1 + 5)
 
-Recorded before any Phase III implementation. Re-run after Wave C for comparison.
+> **Terminology:** [`docs/NATIVE_RELEASES_AND_TAXONOMY.md`](../../NATIVE_RELEASES_AND_TAXONOMY.md)
+
+Recorded before any L1 implementation. Re-run after L1 Wave C for comparison.
 
 ---
 
@@ -94,14 +98,14 @@ Same slug/multiplier as BOM CLI (`pork_chop_marinade`, 2×, unit `gal`):
 
 ## Interpretation
 
-| Observation | Implication for Phase III |
+| Observation | Implication for Native 0.2 L1 |
 |-------------|---------------------------|
 | Spawn p50 **~40–43 ms** vs in-process p50 **~2 ms** | **~20×** overhead is process startup + JSON CLI, not graph walk |
 | BEO cascade not slower than single expand | Cascade cost is dominated by same manifest load + spawn |
 | JS integration test ~64ms | User-visible assistant action includes full spawn path |
 | 5s / 15s timeouts | Far above p95 today — timeouts guard broken env, not normal latency |
 
-**Wave C target:** In-process + manifest cache → repeat calls **<5 ms** after warm load.
+**L1 Wave C target:** In-process + manifest cache → repeat calls **<5 ms** after warm load.
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "Scoped audit — bom_expand.py Swift port vs embedded Python"
 date: 2026-07-07
-status: draft — audit complete; implementation deferred to Phase III
+status: draft — audit complete; implementation deferred to Native 0.2 L1
 parent: docs/superpowers/specs/2026-07-07-lariat-native-phase-iii-language-consolidation-backlog.md
 generator: hand-authored (Cursor session audit)
 ---
@@ -203,7 +203,7 @@ CLI adds `warnings`, `manifest_warnings` — native parser already handles these
 | `NativeBomCalculator` | `LariatModel` — replaces spawn in assistant |
 | Update `BeoCascadeClient` | call in-process engine; keep `Runner` injectable for tests |
 
-### Out of scope (Phase III-1)
+### Out of scope (Native 0.2 L1)
 
 - Rewriting `scripts/beo_order_pull.py` CLI
 - Changing recipe file formats
@@ -278,7 +278,7 @@ Rust/Tauri/PyO3       ★★☆☆☆       ★★☆☆☆         ★☆☆☆
 
 ---
 
-## 10. Suggested implementation sequence (when Phase III opens)
+## 10. Suggested implementation sequence (when Native 0.2 L1 opens)
 
 1. **Fixtures first** — export 15–20 golden `(manifest, demand) → leaves/nodes` vectors from Python tests to JSON under `LariatNative/Tests/Fixtures/BomExpand/`.
 2. **`BomExpandCompute`** — TDD until Python suite parity green in Swift.

@@ -13,8 +13,9 @@ The native workspace includes the canonical Lariat repo, `LariatNative`, `Lariat
 ## Agent entrypoints
 
 1. [AGENTS.md](AGENTS.md) — domain + MACP/worktrees
-2. [docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md](docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md) — native-final status, workspaces, and Claude model-tier routing
-3. [GEMINI.md](GEMINI.md) — Gemini/Antigravity handoff protocol when Claude or Codex consults you
+2. [docs/NATIVE_RELEASES_AND_TAXONOMY.md](docs/NATIVE_RELEASES_AND_TAXONOMY.md) — binding release/milestone/L1 glossary (read before Native 0.2 work)
+3. [docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md](docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md) — native-final status, workspaces, and Claude model-tier routing
+4. [GEMINI.md](GEMINI.md) — Gemini/Antigravity handoff protocol when Claude or Codex consults you
 
 ## Your role in the trio
 

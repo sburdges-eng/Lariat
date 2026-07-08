@@ -1,6 +1,7 @@
-# Phase III Wave B — BeoPull + BeoCascadeCompute (implementation plan)
+# L1 Wave B — BeoPull + BeoCascadeCompute (Native 0.2)
 
-> **Prerequisite:** Wave A merged (BomExpandCompute + RecipeManifestLoader).
+> **Terminology:** [`docs/NATIVE_RELEASES_AND_TAXONOMY.md`](../../NATIVE_RELEASES_AND_TAXONOMY.md) — **L1 Wave B**, not Milestone B.
+> **Prerequisite:** L1 Wave A merged (BomExpandCompute + RecipeManifestLoader).
 > Read STATUS + `specs/2026-07-07-beo-fixture-manifest.md`.
 
 **Goal:** Port `scripts/lib/beo_pull.py` + `build_cascade` to Swift pure compute.
@@ -51,7 +52,7 @@
 
 **Gate:** `swift test --filter BeoCascadeComputeTests` + Python `test_beo_cascade_cli.py` unit tests green.
 
-**Opus review** before Wave C merge.
+**Opus review** before L1 Wave C merge.
 
 ---
 
@@ -67,6 +68,6 @@
 
 ## MUST NOT modify
 
-- `BeoCascadeClient.swift` default runner (Wave C)
-- `AssistantSupport.swift` (Wave C)
+- `BeoCascadeClient.swift` default runner (L1 Wave C)
+- `AssistantSupport.swift` (L1 Wave C)
 - Web routes / TS spawn paths

@@ -1,13 +1,17 @@
 ---
-title: "Phase III — error codes and JSON wire parity"
+title: "Native 0.2 L1 — error codes and JSON wire parity"
 date: 2026-07-07
 status: prep
+canonical_id: native-0.2-l1
+deprecated_alias: phase-iii
 parent: docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-wave-c.md
 ---
 
-# Wire parity — calculator + cascade
+# Wire parity — calculator + cascade (L1 Wave C)
 
-Reference for Wave C when removing spawn/JSON CLI layers.
+> **Terminology:** [`docs/NATIVE_RELEASES_AND_TAXONOMY.md`](../../NATIVE_RELEASES_AND_TAXONOMY.md)
+
+Reference for **L1 Wave C** when removing spawn/JSON CLI layers.
 
 ---
 

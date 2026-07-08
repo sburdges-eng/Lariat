@@ -1,6 +1,7 @@
-# Phase III Wave A — BomExpandCompute parity (implementation plan)
+# L1 Wave A — BomExpandCompute parity (Native 0.2)
 
-> **For agentic workers:** Read `2026-07-07-lariat-native-phase-iii-status.md` first.
+> **Terminology:** [`docs/NATIVE_RELEASES_AND_TAXONOMY.md`](../../NATIVE_RELEASES_AND_TAXONOMY.md) — **L1 Wave A**, not "Phase III."
+> **For agentic workers:** Read `2026-07-07-native-0.2-l1-status.md` first.
 > TDD against JSON fixtures in `LariatNative/Tests/Fixtures/BomExpand/`.
 > Opus review required before merging Wave B.
 
