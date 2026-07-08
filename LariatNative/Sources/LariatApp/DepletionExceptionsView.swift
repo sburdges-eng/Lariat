@@ -21,15 +21,24 @@ import Observation
     var totalSalesRows: Int = 0
     var errorText: String?
     var isLoading = true
+    /// Read gate (C1 verify-41 T7): the web `/api/costing` GET is PIN-gated
+    /// (middleware + in-route requirePin). The View shows a locked panel when
+    /// this is not `.open`.
+    var gate: RegulatedReadGateState = .open
+    var showPinSheet = false
 
     let poller = BoardPoller()
     private let database: LariatDatabase
+    private let writeDB: LariatWriteDatabase?
     private let repo: DepletionExceptionsRepository
 
-    init(database: LariatDatabase) {
+    init(database: LariatDatabase, writeDB: LariatWriteDatabase? = nil) {
         self.database = database
+        self.writeDB = writeDB
         self.repo = DepletionExceptionsRepository(database: database)
     }
+
+    var writeDatabase: LariatWriteDatabase? { writeDB }
 
     func start() {
         poller.start(interval: .seconds(3)) { [weak self] in
@@ -41,7 +50,35 @@ import Observation
 
     func stop() { poller.stop() }
 
+    /// Sync so the `pool.read` closure runs off the async path.
+    private func evaluateReadGate() -> RegulatedReadGateState {
+        let gateOn = (try? database.pool.read { db in
+            try PinVerifier().gateConfigured(db: db)
+        }) ?? PinVerifier().gateConfigured()
+        return RegulatedReadGate.evaluate(
+            gateConfigured: gateOn,
+            hasActiveUser: PinSessionStore.shared.activeUser != nil,
+            canUnlock: writeDB != nil
+        )
+    }
+
+    func requestUnlock() { if writeDB != nil { showPinSheet = true } }
+
+    func pinVerified(_ user: ManagerPinUser) {
+        PinSessionStore.shared.save(user: user)
+        showPinSheet = false
+        Task { await refresh() }
+    }
+
     private func refresh() async {
+        // Read gate (C1 verify-41 T7): the web costing GET is PIN-gated.
+        gate = evaluateReadGate()
+        guard gate == .open else {
+            exceptions = []
+            errorText = nil
+            isLoading = false
+            return
+        }
         do {
             let list = try await repo.list()
             self.exceptions = list
@@ -60,29 +97,39 @@ struct DepletionExceptionsView: View {
     @State private var vm: DepletionExceptionsViewModel
     private let navigate: (String) -> Void
 
-    init(database: LariatDatabase, navigate: @escaping (String) -> Void = { _ in }) {
-        _vm = State(wrappedValue: DepletionExceptionsViewModel(database: database))
+    init(database: LariatDatabase, writeDB: LariatWriteDatabase? = nil, navigate: @escaping (String) -> Void = { _ in }) {
+        _vm = State(wrappedValue: DepletionExceptionsViewModel(database: database, writeDB: writeDB))
         self.navigate = navigate
     }
 
     var body: some View {
         Group {
-            if let err = vm.errorText {
-                TileDegrade(
-                    title: "Database unavailable",
-                    message: err,
-                    systemImage: "externaldrive.badge.xmark"
-                )
-            } else if vm.isLoading {
-                ProgressView()
-            } else {
-                DepletionExceptionsContentView(exceptions: vm.exceptions, navigate: navigate)
+            switch vm.gate {
+            case .locked, .unavailable:
+                ReadGateLockedView(title: "Depletion exceptions", state: vm.gate) { vm.requestUnlock() }
+            case .open:
+                if let err = vm.errorText {
+                    TileDegrade(
+                        title: "Database unavailable",
+                        message: err,
+                        systemImage: "externaldrive.badge.xmark"
+                    )
+                } else if vm.isLoading {
+                    ProgressView()
+                } else {
+                    DepletionExceptionsContentView(exceptions: vm.exceptions, navigate: navigate)
+                }
             }
         }
         .navigationTitle("Depletion exceptions")
         .task { vm.start() }
         .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
+        .sheet(isPresented: $vm.showPinSheet) {
+            if let db = vm.writeDatabase {
+                PinEntrySheet(database: db) { user in vm.pinVerified(user) }
+            }
+        }
     }
 }
 

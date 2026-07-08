@@ -92,7 +92,13 @@ public struct TempLogRepository: Sendable {
             probeId: clip(input.probeId, max: 64)
         )
 
-        let calibrationWarning: String? = nil
+        // Bundle G (web route.js): evaluate the probe's calibration state
+        // outside the transaction and, if it warrants an advisory, stamp it into
+        // the audit note + return it to the cook. Non-blocking either way.
+        let calibrationWarning = computeCalibrationWarning(
+            probeId: draft.probeId,
+            locationId: draft.locationId
+        )
 
         let row = try AuditedWriteRunner.perform(db: writeDB) { db in
             try db.execute(
@@ -149,6 +155,43 @@ public struct TempLogRepository: Sendable {
         }
 
         return PostResult(row: row, classification: classification, calibrationWarning: calibrationWarning)
+    }
+
+    /// Web Bundle G port: classify the cited probe's calibration state and map
+    /// it to the per-write advisory. Tolerates lookup failure (missing table on
+    /// a fresh DB, etc.) by returning nil — matching the web try/catch that logs
+    /// and continues.
+    private func computeCalibrationWarning(probeId: String?, locationId: String) -> String? {
+        guard let probeId, !probeId.isEmpty else { return nil }
+        let calRows: [HaccpProbeCalibrationRow]? = try? writeDB.pool.read { db in
+            try HaccpProbeCalibrationRow.fetchAll(
+                db,
+                sql: """
+                  SELECT thermometer_id, method, before_reading_f, passed, calibrated_at, frequency_days
+                  FROM thermometer_calibrations
+                  WHERE location_id = ? AND thermometer_id = ?
+                  """,
+                arguments: [locationId, probeId]
+            )
+        }
+        guard let calRows else { return nil }
+        let summaries = HaccpPlanCompute.classifyProbes(calRows, nowISO: Self.currentInstantISO())
+        // Web passes `known_probe_ids:[probe_id]`, so a probe with no rows still
+        // yields an 'unknown' summary. Native classifyProbes omits empty probes,
+        // so synthesize the unknown case.
+        let summary = summaries.first(where: { $0.thermometerId == probeId })
+            ?? HaccpProbeSummary(
+                thermometerId: probeId, status: .unknown, lastCalibratedAt: nil,
+                lastMethod: nil, lastReadingF: nil, lastPassed: nil,
+                nextDueAt: nil, frequencyDays: 30, total: 0
+            )
+        return HaccpPlanCompute.calibrationWarningFor(summary)
+    }
+
+    private static func currentInstantISO() -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f.string(from: Date())
     }
 
     private func clip(_ value: String?, max: Int) -> String? {

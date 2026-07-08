@@ -20,14 +20,24 @@ struct IngredientMastersView: View {
 
     var body: some View {
         Group {
-            if let err = vm.fetchError, vm.rows.isEmpty {
-                TileDegrade(title: "Could not load ingredient masters", message: err, systemImage: "shippingbox")
-            } else {
-                content
+            switch vm.gate {
+            case .locked, .unavailable:
+                ReadGateLockedView(title: "Ingredient masters", state: vm.gate) { vm.requestUnlock() }
+            case .open:
+                if let err = vm.fetchError, vm.rows.isEmpty {
+                    TileDegrade(title: "Could not load ingredient masters", message: err, systemImage: "shippingbox")
+                } else {
+                    content
+                }
             }
         }
         .navigationTitle("Ingredient masters")
         .task { await vm.refresh() }
+        .sheet(isPresented: $vm.showPinSheet) {
+            if let db = vm.writeDatabase {
+                PinEntrySheet(database: db) { user in vm.pinVerified(user) }
+            }
+        }
     }
 
     @ViewBuilder

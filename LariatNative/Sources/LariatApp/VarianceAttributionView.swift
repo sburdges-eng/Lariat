@@ -17,15 +17,23 @@ import Observation
     var result: VarianceAttributionResult?
     var errorText: String?
     var isLoading = true
+    /// Read gate (C1 verify-41 T7): the web `/api/costing/*` GET is
+    /// middleware-PIN-gated. The View shows a locked panel when not `.open`.
+    var gate: RegulatedReadGateState = .open
+    var showPinSheet = false
 
     let poller = BoardPoller()
     private let database: LariatDatabase
+    private let writeDB: LariatWriteDatabase?
     private let repo: VarianceAttributionRepository
 
-    init(database: LariatDatabase) {
+    init(database: LariatDatabase, writeDB: LariatWriteDatabase? = nil) {
         self.database = database
+        self.writeDB = writeDB
         self.repo = VarianceAttributionRepository(database: database)
     }
+
+    var writeDatabase: LariatWriteDatabase? { writeDB }
 
     func start() {
         poller.start(interval: .seconds(3)) { [weak self] in
@@ -37,7 +45,35 @@ import Observation
 
     func stop() { poller.stop() }
 
+    /// Sync so the `pool.read` closure runs off the async path.
+    private func evaluateReadGate() -> RegulatedReadGateState {
+        let gateOn = (try? database.pool.read { db in
+            try PinVerifier().gateConfigured(db: db)
+        }) ?? PinVerifier().gateConfigured()
+        return RegulatedReadGate.evaluate(
+            gateConfigured: gateOn,
+            hasActiveUser: PinSessionStore.shared.activeUser != nil,
+            canUnlock: writeDB != nil
+        )
+    }
+
+    func requestUnlock() { if writeDB != nil { showPinSheet = true } }
+
+    func pinVerified(_ user: ManagerPinUser) {
+        PinSessionStore.shared.save(user: user)
+        showPinSheet = false
+        Task { await refresh() }
+    }
+
     private func refresh() async {
+        // Read gate (C1 verify-41 T7): the web costing GET is PIN-gated.
+        gate = evaluateReadGate()
+        guard gate == .open else {
+            result = nil
+            errorText = nil
+            isLoading = false
+            return
+        }
         do {
             let r = try await repo.load()
             self.result = r
@@ -54,26 +90,38 @@ import Observation
 
 struct VarianceAttributionView: View {
     @State private var vm: VarianceAttributionViewModel
-    init(database: LariatDatabase) { _vm = State(wrappedValue: VarianceAttributionViewModel(database: database)) }
+    init(database: LariatDatabase, writeDB: LariatWriteDatabase? = nil) {
+        _vm = State(wrappedValue: VarianceAttributionViewModel(database: database, writeDB: writeDB))
+    }
 
     var body: some View {
         Group {
-            if let err = vm.errorText {
-                TileDegrade(
-                    title: "Database unavailable",
-                    message: err,
-                    systemImage: "externaldrive.badge.xmark"
-                )
-            } else if let r = vm.result {
-                VarianceAttributionContentView(result: r)
-            } else {
-                ProgressView()
+            switch vm.gate {
+            case .locked, .unavailable:
+                ReadGateLockedView(title: "Variance attribution", state: vm.gate) { vm.requestUnlock() }
+            case .open:
+                if let err = vm.errorText {
+                    TileDegrade(
+                        title: "Database unavailable",
+                        message: err,
+                        systemImage: "externaldrive.badge.xmark"
+                    )
+                } else if let r = vm.result {
+                    VarianceAttributionContentView(result: r)
+                } else {
+                    ProgressView()
+                }
             }
         }
         .navigationTitle("Variance attribution")
         .task { vm.start() }
         .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
+        .sheet(isPresented: $vm.showPinSheet) {
+            if let db = vm.writeDatabase {
+                PinEntrySheet(database: db) { user in vm.pinVerified(user) }
+            }
+        }
     }
 }
 

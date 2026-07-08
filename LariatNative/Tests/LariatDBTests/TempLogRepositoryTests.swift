@@ -109,6 +109,77 @@ final class TempLogRepositoryTests: XCTestCase {
         }
     }
 
+    // ── Calibration warning (C1 verify-41 T8) ──────────────────────────
+
+    /// A CCP reading that cites a probe whose LAST calibration failed must carry
+    /// the advisory + stamp `calibration_warning:<probe>` in the audit note
+    /// (web route.js Bundle G). Native previously hardcoded the warning to nil.
+    func testReadingCitingFailedProbeStampsCalibrationWarning() throws {
+        let (readDB, writeDB, path) = try makeRepos()
+        defer { cleanup(path: path) }
+        try writeDB.pool.write { db in
+            try db.execute(
+                sql: "INSERT INTO thermometer_calibrations (location_id, thermometer_id, method, passed, calibrated_at, frequency_days) VALUES ('default','probe-7','ice_point',0,'2026-01-01 10:00:00',30)"
+            )
+        }
+        let repo = TempLogRepository(readDB: readDB, writeDB: writeDB)
+        let result = try repo.postReading(
+            input: TempLogPostInput(shiftDate: ShiftDate.todayISO(), pointId: "walk_in_cooler", readingF: 38, cookId: "alice", probeId: "probe-7"),
+            context: .nativeCook(cookId: "alice")
+        )
+        XCTAssertEqual(
+            result.calibrationWarning,
+            "probe \"probe-7\" failed its last calibration on 2026-01-01 10:00:00 — recalibrate before using it for a CCP reading"
+        )
+        try writeDB.pool.read { db in
+            let note = try String.fetchOne(db, sql: "SELECT note FROM audit_events WHERE entity='temp_log' LIMIT 1")
+            XCTAssertEqual(note, "calibration_warning:probe-7")
+        }
+    }
+
+    /// A probe with NO calibration on record → 'unknown' advisory (web passes
+    /// `known_probe_ids:[probe_id]`, so classifyProbes emits an unknown summary).
+    func testReadingCitingUncalibratedProbeStampsUnknownWarning() throws {
+        let (readDB, writeDB, path) = try makeRepos()
+        defer { cleanup(path: path) }
+        let repo = TempLogRepository(readDB: readDB, writeDB: writeDB)
+        let result = try repo.postReading(
+            input: TempLogPostInput(shiftDate: ShiftDate.todayISO(), pointId: "walk_in_cooler", readingF: 38, cookId: "alice", probeId: "probe-9"),
+            context: .nativeCook(cookId: "alice")
+        )
+        XCTAssertEqual(
+            result.calibrationWarning,
+            "probe \"probe-9\" has no calibration on record — log an ice-point or boiling-point calibration before using it for a CCP reading"
+        )
+        try writeDB.pool.read { db in
+            let note = try String.fetchOne(db, sql: "SELECT note FROM audit_events WHERE entity='temp_log' LIMIT 1")
+            XCTAssertEqual(note, "calibration_warning:probe-9")
+        }
+    }
+
+    /// A probe with a recent PASSING calibration → no advisory, no calibration
+    /// note (non-blocking either way).
+    func testReadingCitingRecentlyPassedProbeHasNoWarning() throws {
+        let (readDB, writeDB, path) = try makeRepos()
+        defer { cleanup(path: path) }
+        try writeDB.pool.write { db in
+            try db.execute(
+                sql: "INSERT INTO thermometer_calibrations (location_id, thermometer_id, method, passed, calibrated_at, frequency_days) VALUES ('default','probe-3','ice_point',1,?,30)",
+                arguments: [ShiftDate.todayISO()]
+            )
+        }
+        let repo = TempLogRepository(readDB: readDB, writeDB: writeDB)
+        let result = try repo.postReading(
+            input: TempLogPostInput(shiftDate: ShiftDate.todayISO(), pointId: "walk_in_cooler", readingF: 38, cookId: "alice", probeId: "probe-3"),
+            context: .nativeCook(cookId: "alice")
+        )
+        XCTAssertNil(result.calibrationWarning)
+        try writeDB.pool.read { db in
+            let note = try String.fetchOne(db, sql: "SELECT note FROM audit_events WHERE entity='temp_log' LIMIT 1")
+            XCTAssertNil(note)
+        }
+    }
+
     private func makeRepos() throws -> (LariatDatabase, LariatWriteDatabase, String) {
         let path = try seedTempLogDatabase()
         let readDB = try LariatDatabase(path: path)
@@ -157,6 +228,16 @@ private func seedTempLogDatabase() throws -> String {
               shift_date TEXT,
               location_id TEXT,
               created_at TEXT DEFAULT (datetime('now'))
+            );
+            CREATE TABLE thermometer_calibrations (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              location_id TEXT NOT NULL DEFAULT 'default',
+              thermometer_id TEXT NOT NULL,
+              method TEXT,
+              before_reading_f REAL,
+              passed INTEGER,
+              calibrated_at TEXT,
+              frequency_days INTEGER
             );
             """)
     }

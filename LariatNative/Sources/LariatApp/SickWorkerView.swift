@@ -121,7 +121,7 @@ struct SickWorkerView: View {
                         .background(tone(row.action).opacity(0.2)).clipShape(Capsule())
                         .foregroundStyle(tone(row.action))
                 }
-                Text(metaLine(row)).font(.caption).foregroundStyle(.secondary)
+                Text(metaLine(row, pinOk: vm.pinOk)).font(.caption).foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)
 
@@ -224,10 +224,14 @@ struct SickWorkerView: View {
         }
     }
 
-    private func metaLine(_ row: SickWorkerRow) -> String {
+    /// The active board is shown without a PIN, so the repository already blanks
+    /// `symptoms`/`diagnosed_illness` on the active projection (C1 verify-41 T2).
+    /// This `pinOk` guard is defense-in-depth: never render the PHI parts unless
+    /// a manager session is active, even if a full row reaches this call.
+    private func metaLine(_ row: SickWorkerRow, pinOk: Bool) -> String {
         var parts = ["\(row.action.uppercased()) · since \(timeText(row.startedAt))"]
-        if let dx = row.diagnosedIllness, !dx.isEmpty { parts.append(dx) }
-        if !row.symptoms.isEmpty { parts.append(row.symptoms.replacingOccurrences(of: ",", with: ", ")) }
+        if pinOk, let dx = row.diagnosedIllness, !dx.isEmpty { parts.append(dx) }
+        if pinOk, !row.symptoms.isEmpty { parts.append(row.symptoms.replacingOccurrences(of: ",", with: ", ")) }
         return parts.joined(separator: " · ")
     }
 

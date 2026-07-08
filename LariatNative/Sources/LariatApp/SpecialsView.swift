@@ -15,12 +15,17 @@ struct SpecialsView: View {
 
     var body: some View {
         Group {
-            if let err = vm.fetchError, !vm.loaded {
-                TileDegrade(title: "Could not load saved specials", message: err, systemImage: "fork.knife")
-            } else if vm.loaded {
-                content
-            } else {
-                ProgressView("Loading saved specials…")
+            switch vm.gate {
+            case .locked, .unavailable:
+                ReadGateLockedView(title: "Specials", state: vm.gate) { vm.requestUnlock() }
+            case .open:
+                if let err = vm.fetchError, !vm.loaded {
+                    TileDegrade(title: "Could not load saved specials", message: err, systemImage: "fork.knife")
+                } else if vm.loaded {
+                    content
+                } else {
+                    ProgressView("Loading saved specials…")
+                }
             }
         }
         .navigationTitle("Specials")
