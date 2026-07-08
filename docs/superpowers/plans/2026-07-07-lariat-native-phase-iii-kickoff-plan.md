@@ -1,7 +1,7 @@
 ---
 title: "Phase III kickoff — first steps (no-code prep + wave plan)"
 date: 2026-07-07
-status: draft — planning only; Wave A ready after G4 sign-off
+status: active — G4 + D1/D2/D4 signed 2026-07-07; Wave A unblocked
 parent: docs/superpowers/specs/2026-07-07-lariat-native-phase-iii-language-consolidation-backlog.md
 related:
   - docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-status.md
@@ -34,7 +34,7 @@ branch: feat/lariat-native-phase-iii-bom-inprocess
 | G1 | Phase C1 ledger trustworthy for delete candidates | 71/71 ported-write verified (2026-07-07) |
 | G2 | `swift test` green on `main` | CI / local log |
 | G3 | H8 packaging path chosen (`.pkg` vs `.dmg`, data dir) | `LariatNative/Scripts/PACKAGING.md` |
-| G4 | Owner approves Phase III scope (P3-1 only vs full backlog) | This plan signed off |
+| G4 | Owner approves Phase III scope (P3-1 only vs full backlog) | **PASS** — signed 2026-07-07 |
 
 **Optional early prep (before G0–G4):** Steps 1–5 below — read-only.
 
@@ -46,7 +46,7 @@ branch: feat/lariat-native-phase-iii-bom-inprocess
 | G1 | Phase C1 ledger trustworthy for delete candidates | **PASS** | `2026-07-03-lariat-native-phase-c1-rule-ledger.md` — 71/71 ported-write rows adversarially verified |
 | G2 | `swift test` green on `main` | **PASS** | Local 2026-07-07: 1021 tests, 0 failures (`LariatNative/`) |
 | G3 | H8 packaging path chosen (`.pkg` vs `.dmg`, data dir) | **FAIL** | `PACKAGING.md` — ad-hoc `.pkg` works; Developer ID, notarization, default data/recipe dir **open**; D1 proposed in decisions memo |
-| G4 | Owner approves Phase III scope (P3-1 only vs full backlog) | **PENDING** | This plan + `2026-07-07-phase-iii-decisions-d1-d2-d4.md` await sign-off |
+| G4 | Owner approves Phase III scope (P3-1 only vs full backlog) | **PASS** | Signed 2026-07-07 — decisions memo |
 
 **H6/H7/H8 snapshot** (from `LARIAT_NATIVE_FINAL_AGENT_GUIDE.md`):
 

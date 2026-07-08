@@ -19,13 +19,13 @@ execution steps live in the wave plans.
 
 | Lane | Blocks Wave A start? | Blocks Wave C wire-up? | Blocks release? |
 |------|----------------------|------------------------|-----------------|
-| G4 owner scope sign-off | **Yes** | — | — |
-| D1 recipe root (packaged) | No | **Yes** | **Yes** (H8) |
+| G4 owner scope sign-off | ~~**Yes**~~ **PASS** | — | — |
+| D1 recipe root (packaged) | No | ~~**Yes**~~ **Approved** (implement Wave C) | **Yes** (H8 impl) |
 | C4 shutoff + ≥7 green days | No | No | **Yes** |
 | C5 web route deletion | No | No | **Yes** |
 | H7 Phase 2 | No | No | Polish only |
 
-**Prep (Steps 0–5):** complete. **Wave A code:** not started.
+**Prep (Steps 0–5):** complete. **Wave A code:** **unblocked** — start A1.
 
 ---
 
@@ -36,8 +36,8 @@ execution steps live in the wave plans.
 | G0 | Service-day shutoff documented | **FAIL** | Run endgame §2 test; log date + gaps in endgame doc |
 | G1 | C1 ledger trustworthy | **PASS** | 71/71 ported-write verified (`2026-07-03-lariat-native-phase-c1-rule-ledger.md`) |
 | G2 | `swift test` green | **PASS** | 1021 tests, 0 failures (2026-07-07 local) |
-| G3 | H8 packaging path chosen | **FAIL** | `.pkg` works; Developer ID + notarization + D1 open |
-| G4 | Owner approves P3-1 scope | **PENDING** | Sign `2026-07-07-phase-iii-decisions-d1-d2-d4.md` |
+| G3 | H8 packaging path chosen | **PARTIAL** | D1-B approved; `.pkg` default; Developer ID + notarization + `.dmg` still open |
+| G4 | Owner approves P3-1 scope | **PASS** | Signed 2026-07-07 — `phase-iii-decisions-d1-d2-d4.md` |
 
 ---
 
@@ -57,7 +57,7 @@ execution steps live in the wave plans.
 |------|--------|------|-----------|
 | **A** — BomExpand parity | **Not started** | `2026-07-07-lariat-native-phase-iii-wave-a.md` | A1 types+convert → A2 expand → A3 loader |
 | **B** — BeoPull + Cascade | Blocked on A | kickoff §1 | — |
-| **C** — Wire + delete spawns | Blocked on B + D1 | kickoff §8 | — |
+| **C** — Wire + delete spawns | Blocked on B | kickoff §8 — D1 approved; implement resolver in Wave C |
 
 ---
 
@@ -65,10 +65,10 @@ execution steps live in the wave plans.
 
 | ID | Status | Doc |
 |----|--------|-----|
-| D1 Recipe root (Application Support) | **Proposed** | `specs/2026-07-07-phase-iii-decisions-d1-d2-d4.md` |
-| D2 Native spawn Wave C / web Phase D | **Proposed** | same |
+| D1 Recipe root (Application Support) | **Approved** 2026-07-07 | `specs/2026-07-07-phase-iii-decisions-d1-d2-d4.md` |
+| D2 Native spawn Wave C / web Phase D | **Approved** 2026-07-07 | same |
 | D3 Copy Python unit tables (Wave A) | **Approved** | `specs/2026-07-07-bom-unit-table-diff.md` |
-| D4 Keep Python CLIs | **Proposed** | decisions memo |
+| D4 Keep Python CLIs | **Approved** 2026-07-07 | decisions memo |
 
 ---
 

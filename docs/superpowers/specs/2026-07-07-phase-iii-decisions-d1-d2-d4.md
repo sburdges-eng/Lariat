@@ -1,7 +1,7 @@
 ---
 title: "Phase III decisions — D1, D2, D4 (owner sign-off)"
 date: 2026-07-07
-status: proposed — awaiting owner sign-off
+status: approved — owner sign-off 2026-07-07
 parent: docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-status.md
 related:
   - LariatNative/Scripts/PACKAGING.md
@@ -14,7 +14,18 @@ related:
 **Scope:** Prep only. D3 (copy bom_expand unit tables verbatim for Wave A) is already
 recorded in `docs/superpowers/specs/2026-07-07-bom-unit-table-diff.md`.
 
-**Owner action:** Reply with `approved` / edits per decision block before Wave C wiring.
+**Owner action:** Signed 2026-07-07 — D1-B, D2, D4 approved as stated; G4 P3-1 scope approved.
+
+---
+
+## Owner sign-off record
+
+| Decision | Status | Date | Owner |
+|----------|--------|------|-------|
+| **G4** P3-1 scope (in-process BOM; web spawn deferred Phase D) | **Approved** | 2026-07-07 | sburdges |
+| **D1-B** Application Support recipe + data layout | **Approved** | 2026-07-07 | sburdges |
+| **D2** Native spawn delete Wave C; web Phase D | **Approved** | 2026-07-07 | sburdges |
+| **D4** Keep Python CLIs + lib | **Approved** | 2026-07-07 | sburdges |
 
 ---
 
@@ -65,7 +76,7 @@ Option C alone (fails double-click smoke).
 
 ### Owner sign-off
 
-- [ ] **Approve D1-B** as stated
+- [x] **Approve D1-B** as stated — sburdges, 2026-07-07
 - [ ] **Revise:** _______________________________
 
 ---
@@ -91,7 +102,7 @@ Option C alone (fails double-click smoke).
 
 ### Owner sign-off
 
-- [ ] **Approve D2** as stated
+- [x] **Approve D2** as stated — sburdges, 2026-07-07
 - [ ] **Revise:** _______________________________
 
 ---
@@ -118,7 +129,7 @@ Option C alone (fails double-click smoke).
 
 ### Owner sign-off
 
-- [ ] **Approve D4** as stated
+- [x] **Approve D4** as stated — sburdges, 2026-07-07
 - [ ] **Revise:** _______________________________
 
 ---
