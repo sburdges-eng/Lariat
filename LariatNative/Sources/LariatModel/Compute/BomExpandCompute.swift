@@ -140,6 +140,27 @@ public enum BomExpandCompute {
         return out
     }
 
+    /// Graceful `aggregateDemand`: unresolvable rows append to `warnings` and
+    /// are skipped instead of throwing (the BEO cascade degradation path).
+    public static func aggregateDemand(
+        _ manifest: [String: RecipeManifest], demands: [(String, Double, String)],
+        warnings: inout [String]
+    ) -> [BomKey: Double] {
+        var out: [BomKey: Double] = [:]
+        var sink: [String]? = warnings
+        for (slug, qty, unit) in demands {
+            var leaves: [BomKey: Double] = [:]
+            do {
+                try expandInto(manifest, slug: slug, qty: qty, unit: unit, out: &leaves, visited: [], warnings: &sink)
+            } catch {}
+            for (key, val) in leaves {
+                out[key, default: 0.0] += val
+            }
+        }
+        warnings = sink ?? []
+        return out
+    }
+
     /// Aggregate per-recipe-NODE demand across top-level demands. Returns
     /// {(slug, yieldUnit): totalQty} for every recipe/sub-recipe that must be
     /// produced; leaf ingredients are excluded.
@@ -151,6 +172,23 @@ public enum BomExpandCompute {
         for (slug, qty, unit) in demands {
             try accumulateRecipeDemand(manifest, slug: slug, qty: qty, unit: unit, out: &out, visited: [], warnings: &warnings)
         }
+        return out
+    }
+
+    /// Graceful `expandRecipeDemand`: unresolvable rows append to `warnings`
+    /// and are skipped instead of throwing (the BEO cascade degradation path).
+    public static func expandRecipeDemand(
+        _ manifest: [String: RecipeManifest], demands: [(String, Double, String)],
+        warnings: inout [String]
+    ) -> [BomKey: Double] {
+        var out: [BomKey: Double] = [:]
+        var sink: [String]? = warnings
+        for (slug, qty, unit) in demands {
+            do {
+                try accumulateRecipeDemand(manifest, slug: slug, qty: qty, unit: unit, out: &out, visited: [], warnings: &sink)
+            } catch {}
+        }
+        warnings = sink ?? []
         return out
     }
 
