@@ -2,7 +2,7 @@
 title: "Phase III decisions — D1, D2, D4 (owner sign-off)"
 date: 2026-07-07
 status: proposed — awaiting owner sign-off
-parent: docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-kickoff-plan.md
+parent: docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-status.md
 related:
   - LariatNative/Scripts/PACKAGING.md
   - docs/desktop-wrapper-design.md

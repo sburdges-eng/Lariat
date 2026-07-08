@@ -1,17 +1,21 @@
 ---
 title: "Phase III kickoff — first steps (no-code prep + wave plan)"
 date: 2026-07-07
-status: draft — planning only; blocked until Phase C4/C5 + shutoff gates
+status: draft — planning only; Wave A ready after G4 sign-off
 parent: docs/superpowers/specs/2026-07-07-lariat-native-phase-iii-language-consolidation-backlog.md
 related:
+  - docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-status.md
   - docs/superpowers/specs/2026-07-07-bom-expand-swift-port-audit.md
   - docs/superpowers/specs/2026-07-07-bom-expand-fixture-manifest.md
   - docs/superpowers/specs/2026-07-07-phase-iii-decisions-d1-d2-d4.md
   - docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md
-branch: (create on kickoff) feat/lariat-native-phase-iii-bom-inprocess
+branch: feat/lariat-native-phase-iii-bom-inprocess
 ---
 
 # Phase III kickoff plan — map everything before writing Swift
+
+> **Agents:** read `2026-07-07-lariat-native-phase-iii-status.md` first (1 page).
+> Execute Wave A via `2026-07-07-lariat-native-phase-iii-wave-a.md`.
 
 **Purpose:** Executable checklist for opening Phase III (language consolidation).
 **Constraint:** Steps 0–5 are **documentation, measurement, and fixture design only**
@@ -27,7 +31,7 @@ branch: (create on kickoff) feat/lariat-native-phase-iii-bom-inprocess
 | # | Gate | Evidence |
 |---|------|----------|
 | G0 | Service-day shutoff test documented | Endgame doc updated with date + gaps |
-| G1 | Phase C1 ledger trustworthy for delete candidates | 41-row verify pass complete; B2+ batches triaged |
+| G1 | Phase C1 ledger trustworthy for delete candidates | 71/71 ported-write verified (2026-07-07) |
 | G2 | `swift test` green on `main` | CI / local log |
 | G3 | H8 packaging path chosen (`.pkg` vs `.dmg`, data dir) | `LariatNative/Scripts/PACKAGING.md` |
 | G4 | Owner approves Phase III scope (P3-1 only vs full backlog) | This plan signed off |

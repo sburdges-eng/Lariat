@@ -1,15 +1,17 @@
 ---
 title: "Phase III — language consolidation backlog (post cutover)"
 date: 2026-07-07
-status: draft — backlog only; do not start before Phase C4/C5 gates
+status: draft — backlog; prep complete; Wave A after G4 sign-off
 parent: docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md
-related: docs/superpowers/specs/2026-07-07-bom-expand-swift-port-audit.md
+related:
+  - docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-status.md
+  - docs/superpowers/specs/2026-07-07-bom-expand-swift-port-audit.md
 ---
 
 # Phase III — Language consolidation backlog
 
-**When:** After Phase C service-day shutoff, C5 write-route cutover waves, and H8
-packaging — not in parallel with C1 verify or schema-ownership flip.
+**When:** P3-1 Wave A may start after **G4 owner sign-off** (prep is done).
+Wave C wire-up requires **D1**; release requires **C4 shutoff** + H8 — see STATUS lane table.
 
 **Goal:** Remove runtime dependencies and duplicate logic without weakening
 parity or audit semantics. This is **consolidation**, not language purity.

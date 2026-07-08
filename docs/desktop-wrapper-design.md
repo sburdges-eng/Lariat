@@ -1,5 +1,9 @@
 # Lariat Desktop Wrapper — Design
 
+> **Note (2026-07-07):** Superseded for **H8 native** by `LariatNative/Scripts/PACKAGING.md`
+> and Phase III D1 (Application Support recipe root). This Electron+Next hub design remains
+> reference only if a separate LAN-supervisor wrapper is revived — not the P3-1 path.
+
 **Status:** Approved design, not yet implemented
 **Date:** 2026-05-10
 **Owner:** sburdges

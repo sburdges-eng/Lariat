@@ -2,7 +2,7 @@
 title: "Phase III prep baseline — oracle + spawn timing"
 date: 2026-07-07
 status: recorded
-parent: docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-kickoff-plan.md
+parent: docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-status.md
 machine: local dev (darwin), repo at ~/Dev/hospitality/Lariat
 ---
 

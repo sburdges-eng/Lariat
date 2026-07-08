@@ -30,6 +30,7 @@ Treat the newest native endgame doc as authoritative over older handoff docs:
 - `docs/superpowers/specs/2026-07-03-lariat-native-phase-c2-c3-activation.md`
 - `docs/superpowers/specs/lariat-native-edge-blockers.md`
 - `LariatNative/Scripts/PACKAGING.md`
+- `docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-status.md` (Phase III P3-1 live status)
 
 What is already strong:
 
@@ -45,7 +46,7 @@ What is already strong:
 What still blocks the final native version:
 
 - A full service-day shutoff test with the Next.js server disabled.
-- Phase C1 completion: finish adversarial verification on unverified ported-write rows, fix or reclassify refuted rows, and triage low-confidence rows before deleting any web write route.
+- Phase C1 ledger: **complete** (71/71 ported-write verified 2026-07-07). Remaining C work is C4 reconciliation and C5 cutover.
 - Phase C4 reconciliation: at least 7 consecutive green service days, backup and restore drill, audit/event integrity checks, and money/checksum checks.
 - Phase C5 write-route cutover, wave by wave, only after C1-C4 gates.
 - Phase D edge reduction: retain only `lariat-native-edge-blockers.md` surfaces.

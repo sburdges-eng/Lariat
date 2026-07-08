@@ -2,7 +2,7 @@
 title: "BomExpand golden fixture manifest (Phase III Wave A oracle)"
 date: 2026-07-07
 status: exported
-parent: docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-kickoff-plan.md
+parent: docs/superpowers/plans/2026-07-07-lariat-native-phase-iii-status.md
 export_script: scripts/dev/export_bom_expand_fixtures.py
 output_dir: LariatNative/Tests/Fixtures/BomExpand/
 ---
