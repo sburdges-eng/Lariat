@@ -210,3 +210,14 @@ training/*.gguf
 
 # Playwright run artifacts
 test-results/
+
+# ── SwiftPM build output ──────────────────────────────────────
+# Stray root .build (canonical package build is LariatNative/.build);
+# never commit compiled artifacts.
+.build/
+
+# ── LariatNative chat / AI upload bundles ─────────────────────
+# Throwaway export dirs + zips created when uploading LariatNative
+# source to a chat/Gemini session; regenerated on demand, never committed.
+/LariatNative-*.zip
+/LariatNative-*-upload/
