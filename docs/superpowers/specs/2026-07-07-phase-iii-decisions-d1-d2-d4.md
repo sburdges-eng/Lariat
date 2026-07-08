@@ -138,7 +138,7 @@ Option C alone (fails double-click smoke).
 
 | ID | Proposal | Blocks |
 |----|----------|--------|
-| D1 | Application Support tree; `LARIAT_ROOT` = support root when bundled | Wave C wire-up + H8 smoke |
+| D1 | Application Support tree; `LARIAT_ROOT` = support root when bundled | Wave C wire-up + H8 smoke — **layout spec:** `2026-07-07-d1-application-support-layout.md` |
 | D2 | Native spawn delete Wave C; web spawn delete Phase D | Wave C scope boundary |
 | D3 | Copy Python unit tables (Wave A) | *(done)* |
 | D4 | Keep Python CLIs + lib; deprecate note only | Nothing |

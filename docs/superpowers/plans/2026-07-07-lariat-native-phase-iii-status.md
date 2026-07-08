@@ -55,9 +55,24 @@ execution steps live in the wave plans.
 
 | Wave | Status | Plan | PR slices |
 |------|--------|------|-----------|
-| **A** — BomExpand parity | **Not started** | `2026-07-07-lariat-native-phase-iii-wave-a.md` | A1 types+convert → A2 expand → A3 loader |
-| **B** — BeoPull + Cascade | Blocked on A | kickoff §1 | — |
-| **C** — Wire + delete spawns | Blocked on B | kickoff §8 — D1 approved; implement resolver in Wave C |
+| **A** — BomExpand parity | **Not started** | `2026-07-07-lariat-native-phase-iii-wave-a.md` | A1 → A2 → A3 |
+| **B** — BeoPull + Cascade | Prep done | `2026-07-07-lariat-native-phase-iii-wave-b.md` | B1 → B2 |
+| **C** — Wire + delete spawns | Prep done | `2026-07-07-lariat-native-phase-iii-wave-c.md` | C1 → C2 → C3 |
+
+---
+
+## Prep track (extended — 2026-07-07)
+
+| Artifact | Status |
+|----------|--------|
+| BomExpand fixtures (16) | **Done** |
+| BeoCascade fixtures (15) | **Done** |
+| Wave A/B/C plans | **Done** |
+| Loader CSV spec | **Done** |
+| D1-B layout spec | **Done** |
+| Wire parity spec | **Done** |
+| G0 shutoff template | **Done** |
+| Wave A Swift code | Not started |
 
 ---
 
@@ -80,6 +95,7 @@ execution steps live in the wave plans.
 | JS `test-recipe-calculator.mjs` | 5/5 |
 | Swift `BeoCascadeClientTests` | 16/16 |
 | Fixtures `BomExpand/*.json` | 16 files |
+| Fixtures `BeoCascade/*.json` | 15 files |
 | Spawn p50 → in-process p50 | ~43 ms → ~2 ms |
 
 Refresh: `scripts/dev/phase_iii_status.sh`
@@ -94,6 +110,13 @@ Refresh: `scripts/dev/phase_iii_status.sh`
 | Wave A execution | `plans/2026-07-07-lariat-native-phase-iii-wave-a.md` |
 | Full architecture map | `plans/2026-07-07-lariat-native-phase-iii-kickoff-plan.md` |
 | Fixture catalog | `specs/2026-07-07-bom-expand-fixture-manifest.md` |
+| Beo fixtures | `specs/2026-07-07-beo-fixture-manifest.md` |
+| Loader CSV contract | `specs/2026-07-07-recipe-manifest-loader-spec.md` |
+| D1-B layout | `specs/2026-07-07-d1-application-support-layout.md` |
+| Wire parity (Wave C) | `specs/2026-07-07-phase-iii-wire-parity.md` |
+| G0 shutoff template | `templates/service-day-shutoff-log.md` |
+| Wave B plan | `plans/2026-07-07-lariat-native-phase-iii-wave-b.md` |
+| Wave C plan | `plans/2026-07-07-lariat-native-phase-iii-wave-c.md` |
 | Port scope audit | `specs/2026-07-07-bom-expand-swift-port-audit.md` |
 | P3-2+ backlog | `specs/2026-07-07-lariat-native-phase-iii-language-consolidation-backlog.md` |
 | Prep baseline | `specs/2026-07-07-phase-iii-prep-baseline.md` |

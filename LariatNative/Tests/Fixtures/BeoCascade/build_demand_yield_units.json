@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "id": "build_demand_yield_units",
+  "module": "beo_pull",
+  "source_test": "tests/python/test_beo_pull.py::BuildDemand::test_qty_in_yield_units_mode",
+  "manifest": {
+    "blackened_tomato_salsa": {
+      "slug": "blackened_tomato_salsa",
+      "display_name": "Blackened Tomato Salsa",
+      "yield_qty": 20,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [],
+      "bom": [
+        {
+          "ingredient": "roma tomatoes",
+          "qty": 11339.8,
+          "unit": "g",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "cilantro",
+          "qty": 2.0,
+          "unit": "cup",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    },
+    "queso_mac_sauce": {
+      "slug": "queso_mac_sauce",
+      "display_name": "Queso / Mac Sauce",
+      "yield_qty": 22,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [
+        "blackened_tomato_salsa"
+      ],
+      "bom": [
+        {
+          "ingredient": "whole milk",
+          "qty": 7570.82,
+          "unit": "ml",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "blackened_tomato_salsa",
+          "qty": 2.0,
+          "unit": "qt",
+          "is_sub_recipe": true,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    }
+  },
+  "beo_map": {
+    "baked ziti": [
+      "queso_mac_sauce"
+    ]
+  },
+  "input": {
+    "mode": "build_demand",
+    "invoice": [
+      [
+        "Baked Ziti",
+        4.0
+      ]
+    ],
+    "qty_in_yield_units": true
+  },
+  "expect": {
+    "demand": [
+      [
+        "queso_mac_sauce",
+        4.0,
+        "qt"
+      ]
+    ],
+    "unmapped": []
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "id": "pull_orders_inventory_subtract",
+  "module": "beo_pull",
+  "source_test": "tests/python/test_beo_pull.py::PullOrders::test_inventory_subtracts_to_order",
+  "manifest": {
+    "blackened_tomato_salsa": {
+      "slug": "blackened_tomato_salsa",
+      "display_name": "Blackened Tomato Salsa",
+      "yield_qty": 20,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [],
+      "bom": [
+        {
+          "ingredient": "roma tomatoes",
+          "qty": 11339.8,
+          "unit": "g",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "cilantro",
+          "qty": 2.0,
+          "unit": "cup",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    },
+    "queso_mac_sauce": {
+      "slug": "queso_mac_sauce",
+      "display_name": "Queso / Mac Sauce",
+      "yield_qty": 22,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [
+        "blackened_tomato_salsa"
+      ],
+      "bom": [
+        {
+          "ingredient": "whole milk",
+          "qty": 7570.82,
+          "unit": "ml",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "blackened_tomato_salsa",
+          "qty": 2.0,
+          "unit": "qt",
+          "is_sub_recipe": true,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    }
+  },
+  "beo_map": {
+    "side salsa": [
+      "blackened_tomato_salsa"
+    ]
+  },
+  "input": {
+    "mode": "pull_orders",
+    "invoice": [
+      [
+        "Side Salsa",
+        1.0
+      ]
+    ],
+    "inventory": [
+      [
+        "roma tomatoes",
+        "g",
+        500.0
+      ],
+      [
+        "cilantro",
+        "cup",
+        1000.0
+      ]
+    ]
+  },
+  "expect": {
+    "order_guide": [
+      {
+        "ingredient": "cilantro",
+        "unit": "cup",
+        "total_needed": 2.0,
+        "on_hand": 1000.0,
+        "to_order": 0.0
+      },
+      {
+        "ingredient": "roma tomatoes",
+        "unit": "g",
+        "total_needed": 11339.8,
+        "on_hand": 500.0,
+        "to_order": 10839.8
+      }
+    ],
+    "tolerance_places": 6
+  }
+}

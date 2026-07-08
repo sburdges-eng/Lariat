@@ -32,9 +32,10 @@ fi
 echo ""
 
 FIXTURE_DIR="$ROOT/LariatNative/Tests/Fixtures/BomExpand"
+BEO_DIR="$ROOT/LariatNative/Tests/Fixtures/BeoCascade"
 if [[ -d "$FIXTURE_DIR" ]]; then
   COUNT=$(find "$FIXTURE_DIR" -name '*.json' | wc -l | tr -d ' ')
-  echo "## Fixtures: $COUNT JSON files in BomExpand/"
+  echo "## Fixtures: $COUNT BomExpand + $(find "$BEO_DIR" -name '*.json' 2>/dev/null | wc -l | tr -d ' ') BeoCascade JSON"
 else
   echo "## Fixtures: BomExpand/ missing"
 fi
