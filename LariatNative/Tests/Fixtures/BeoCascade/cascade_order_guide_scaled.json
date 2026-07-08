@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "id": "cascade_order_guide_scaled",
+  "module": "beo_cascade",
+  "source_test": "tests/python/test_beo_cascade_cli.py::BuildCascadeUnit::test_order_guide_totals_are_scaled_correctly",
+  "manifest": {
+    "salsa_roja": {
+      "slug": "salsa_roja",
+      "display_name": "Salsa Roja",
+      "yield_qty": 4.0,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [],
+      "bom": [
+        {
+          "ingredient": "roma tomatoes",
+          "qty": 2.0,
+          "unit": "lb",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "jalape\u00f1o",
+          "qty": 0.5,
+          "unit": "lb",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    },
+    "queso_blanco": {
+      "slug": "queso_blanco",
+      "display_name": "Queso Blanco",
+      "yield_qty": 8.0,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [
+        "salsa_roja"
+      ],
+      "bom": [
+        {
+          "ingredient": "white american cheese",
+          "qty": 3.0,
+          "unit": "lb",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "salsa_roja",
+          "qty": 2.0,
+          "unit": "qt",
+          "is_sub_recipe": true,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    }
+  },
+  "beo_map": {
+    "queso dip": [
+      "queso_blanco"
+    ]
+  },
+  "input": {
+    "mode": "build_cascade",
+    "line_items": [
+      {
+        "item_name": "Queso Dip",
+        "quantity": 2
+      }
+    ]
+  },
+  "expect": {
+    "order_guide_by_ingredient": {
+      "jalape\u00f1o": {
+        "ingredient": "jalape\u00f1o",
+        "unit": "lb",
+        "total_needed": 0.5,
+        "on_hand": 0.0,
+        "to_order": 0.5
+      },
+      "roma tomatoes": {
+        "ingredient": "roma tomatoes",
+        "unit": "lb",
+        "total_needed": 2.0,
+        "on_hand": 0.0,
+        "to_order": 2.0
+      },
+      "white american cheese": {
+        "ingredient": "white american cheese",
+        "unit": "lb",
+        "total_needed": 6.0,
+        "on_hand": 0.0,
+        "to_order": 6.0
+      }
+    },
+    "roma_tomatoes_total": 2.0,
+    "white_cheese_total": 6.0,
+    "tolerance_places": 5
+  }
+}

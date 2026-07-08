@@ -6,6 +6,7 @@ shared multi-tool ruleset (worktrees, MACP, trio orchestration) and `docs/` for 
 ## Native Final App
 
 Before any final macOS-native Lariat work, read `docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md`.
+Before **Native 0.2 L1** work, read `docs/NATIVE_RELEASES_AND_TAXONOMY.md` (binding over chat memory).
 That guide is the current Claude routing contract for:
 
 - which Lariat paths in `~/Dev` are canonical vs legacy/data/reference;

@@ -1,15 +1,12 @@
 import Foundation
 
-// BEO cascade wrapper — port of `lib/beoCascade.ts`, the authoritative path
-// for converting BEO line items into an order guide + prep demands. Like the
-// web wrapper, this shells out to `scripts/beo_cascade_cli.py`; the Python
-// engine (`scripts/lib/bom_expand.py` + `beo_pull.py`) stays the single
-// source of truth for cascade numbers — deliberately NOT re-implemented in
-// Swift. See the A6.5 plan doc's #369 watch note.
-//
-// NOT in `Compute/` because the default runner performs process I/O
-// (DishBridgeRecipeLoader precedent). The runner is injectable so parity
-// tests never spawn Python.
+// BEO cascade wrapper — port of `lib/beoCascade.ts`. Native 0.2 L1 Wave C flips
+// the DEFAULT runner to IN-PROCESS: it computes via `BeoCascadeCompute` (the
+// Swift port of `build_cascade`) instead of spawning `scripts/beo_cascade_cli.py`.
+// The injectable `Runner` seam is retained so tests can supply canned JSON, and
+// `parseCascadeResponse` is unchanged (the in-process runner re-emits the CLI's
+// JSON shape). This resolves the A6.5 #369 watch note (cascade math is now
+// re-implemented + parity-tested in Swift, Waves B+C).
 
 // MARK: - Public types (OrderGuideRow / PrepDemandRow / UnmappedRow / CascadeResult)
 
@@ -126,7 +123,7 @@ public struct BeoCascadeClient {
 
     private let runner: Runner
 
-    public init(runner: @escaping Runner = BeoCascadeClient.processRunner) {
+    public init(runner: @escaping Runner = BeoCascadeClient.inProcessRunner) {
         self.runner = runner
     }
 
@@ -155,11 +152,11 @@ public struct BeoCascadeClient {
 
     // MARK: Pure pieces (unit-tested without spawning)
 
-    /// Resolve at call time, not init. Web parity is `LARIAT_ROOT || cwd`, but
-    /// the web server's cwd IS the repo root — a native app launched from
-    /// LariatNative/ (or an .app bundle) is not, so fall back to walking up
-    /// from cwd until `scripts/beo_cascade_cli.py` appears, then to the parent
-    /// of LARIAT_DATA_DIR (which points at `<root>/data`).
+    /// Resolve the root that owns `recipes/` (D1-B). Order: explicit
+    /// `LARIAT_ROOT`; then a dev cwd-walk for the `scripts/beo_cascade_cli.py`
+    /// marker; then the parent of `LARIAT_DATA_DIR`; then — for a packaged
+    /// `.app` with no dev `scripts/` — `~/Library/Application Support/Lariat`
+    /// when it actually holds recipes; else `cwd`.
     public static func resolveProjectRoot(
         env: [String: String] = ProcessInfo.processInfo.environment,
         cwd: String = FileManager.default.currentDirectoryPath,
@@ -178,7 +175,19 @@ public struct BeoCascadeClient {
             let parent = (data as NSString).deletingLastPathComponent
             if fileExists((parent as NSString).appendingPathComponent(marker)) { return parent }
         }
+        // D1-B packaged default: no dev `scripts/` marker in a `.app`, so fall
+        // back to the Application Support recipe root when it holds recipes.
+        if let appSupport = applicationSupportRoot(env: env),
+           fileExists((appSupport as NSString).appendingPathComponent("recipes/recipe_index.csv")) {
+            return appSupport
+        }
         return cwd
+    }
+
+    /// `~/Library/Application Support/Lariat` — the D1-B packaged `LARIAT_ROOT`.
+    static func applicationSupportRoot(env: [String: String]) -> String? {
+        guard let home = env["HOME"], !home.isEmpty else { return nil }
+        return (home as NSString).appendingPathComponent("Library/Application Support/Lariat")
     }
 
     /// CLI stdin contract: `{line_items, root, qty_in_yield_units[, inventory]}`.
@@ -274,111 +283,88 @@ public struct BeoCascadeClient {
         return 0
     }
 
-    // MARK: Default runner (process I/O — web `runCli` parity)
+    // MARK: Default runner (in-process — Native 0.2 L1 Wave C; no python spawn)
 
-    /// Spawns `$LARIAT_PYTHON || python3` on `<root>/scripts/beo_cascade_cli.py`,
-    /// writes the payload to stdin, and returns stdout. Timeout kills the
-    /// child (SIGKILL parity) and throws `CascadeError(timeout)`; a failed
-    /// launch throws `spawn_failed`; a non-zero exit prefers the CLI's
-    /// `{"error": ...}` stdout message with code `exit_N`.
-    public static let processRunner: Runner = { payload, timeout in
-        try await withCheckedThrowingContinuation { continuation in
-            let root = resolveProjectRoot()
-            let pythonBin = ProcessInfo.processInfo.environment["LARIAT_PYTHON"] ?? "python3"
-            let cliPath = (root as NSString).appendingPathComponent("scripts/beo_cascade_cli.py")
-
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = [pythonBin, cliPath]
-
-            let stdinPipe = Pipe(), stdoutPipe = Pipe(), stderrPipe = Pipe()
-            process.standardInput = stdinPipe
-            process.standardOutput = stdoutPipe
-            process.standardError = stderrPipe
-
-            let state = TimeoutState()
-
-            let timer = DispatchWorkItem {
-                if state.markTimedOutIfRunning() { process.terminate() }
-            }
-            DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: timer)
-
-            process.terminationHandler = { proc in
-                let wasTimeout = state.finish()
-                timer.cancel()
-
-                if wasTimeout {
-                    continuation.resume(throwing: CascadeError(
-                        message: "cascade timed out after \(Int(timeout * 1000))ms",
-                        code: "timeout"
-                    ))
-                    return
-                }
-
-                let stdout = String(
-                    data: stdoutPipe.fileHandleForReading.readDataToEndOfFile(),
-                    encoding: .utf8
-                ) ?? ""
-                let stderr = String(
-                    data: stderrPipe.fileHandleForReading.readDataToEndOfFile(),
-                    encoding: .utf8
-                ) ?? ""
-
-                if proc.terminationStatus == 0 {
-                    continuation.resume(returning: stdout)
-                } else {
-                    // CLI writes {"error": "..."} to stdout on failure.
-                    var message = stderr.isEmpty ? (stdout.isEmpty ? "exit \(proc.terminationStatus)" : stdout) : stderr
-                    if let parsed = try? JSONSerialization.jsonObject(with: Data(stdout.utf8)) as? [String: Any],
-                       let errorMessage = parsed["error"] as? String {
-                        message = errorMessage
-                    }
-                    continuation.resume(throwing: CascadeError(
-                        message: message,
-                        code: "exit_\(proc.terminationStatus)"
-                    ))
-                }
-            }
-
-            do {
-                try process.run()
-            } catch {
-                timer.cancel()
-                continuation.resume(throwing: CascadeError(
-                    message: "failed to spawn python: \(error.localizedDescription)",
-                    code: "spawn_failed"
-                ))
-                return
-            }
-
-            stdinPipe.fileHandleForWriting.write(payload)
-            stdinPipe.fileHandleForWriting.closeFile()
+    /// Default runner: computes the cascade IN-PROCESS via `BeoCascadeCompute`
+    /// (loading `recipes/` + `menus/beo_recipe_map.csv` from the payload's
+    /// `root`) and returns the same JSON shape the python CLI emitted, so
+    /// `parseCascadeResponse` and every injected-runner test are unchanged. A
+    /// missing/invalid data dir yields `{"error": ...}` → `CascadeError`
+    /// `cli_error`, mirroring the CLI's failure stdout. The injectable `Runner`
+    /// seam is retained for tests. Replaces the former python3 process spawn.
+    public static let inProcessRunner: Runner = { payload, _ in
+        do {
+            return try computeCascadeJSON(payload: payload)
+        } catch {
+            let obj: [String: Any] = ["error": (error as? CascadeError)?.message ?? error.localizedDescription]
+            let data = (try? JSONSerialization.data(withJSONObject: obj)) ?? Data(#"{"error":"cascade failed"}"#.utf8)
+            return String(data: data, encoding: .utf8) ?? #"{"error":"cascade failed"}"#
         }
     }
-}
 
-/// Lock-protected finished/timed-out pair for the process runner (the web
-/// wrapper's `clearTimeout` bookkeeping, made Sendable-safe).
-private final class TimeoutState: @unchecked Sendable {
-    private let lock = NSLock()
-    private var finished = false
-    private var timedOut = false
+    /// Decode the CLI payload, load the manifest + BEO map, run
+    /// `BeoCascadeCompute.buildCascade`, and re-emit the CLI JSON shape.
+    static func computeCascadeJSON(payload: Data) throws -> String {
+        let obj = (try? JSONSerialization.jsonObject(with: payload)) as? [String: Any] ?? [:]
+        let root = (obj["root"] as? String) ?? resolveProjectRoot()
+        let qtyInYieldUnits = (obj["qty_in_yield_units"] as? Bool) ?? false
+        let lineItems: [(String, Double)] = (obj["line_items"] as? [[String: Any]] ?? []).map {
+            (str($0["item_name"]), num($0["quantity"]))
+        }
+        var inventory: [BomKey: Double]?
+        if let rawInv = obj["inventory"] as? [[String: Any]], !rawInv.isEmpty {
+            var inv: [BomKey: Double] = [:]
+            for e in rawInv {
+                let ing = str(e["ingredient"]).trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                let unit = str(e["unit"]).trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                if !ing.isEmpty { inv[BomKey(ing, unit)] = num(e["on_hand"]) }
+            }
+            inventory = inv
+        }
 
-    /// Timer fired: mark timed-out unless the process already finished.
-    /// Returns true when the child should be killed.
-    func markTimedOutIfRunning() -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        if finished { return false }
-        timedOut = true
-        return true
-    }
+        let base = URL(fileURLWithPath: root)
+        let recipeIndex = base.appendingPathComponent("recipes/recipe_index.csv")
+        let normalizedDir = base.appendingPathComponent("recipes/normalized")
+        let beoMapCSV = base.appendingPathComponent("menus/beo_recipe_map.csv")
 
-    /// Termination handler: mark finished; returns whether this was a timeout.
-    func finish() -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        finished = true
-        return timedOut
+        // Same fail-fast file checks as beo_cascade_cli.py main().
+        let fm = FileManager.default
+        var isDir: ObjCBool = false
+        if !fm.fileExists(atPath: recipeIndex.path) {
+            throw CascadeError(message: "missing recipe_index.csv at \(recipeIndex.path)", code: "cli_error")
+        }
+        if !(fm.fileExists(atPath: normalizedDir.path, isDirectory: &isDir) && isDir.boolValue) {
+            throw CascadeError(message: "missing normalized dir at \(normalizedDir.path)", code: "cli_error")
+        }
+        if !fm.fileExists(atPath: beoMapCSV.path) {
+            throw CascadeError(message: "missing beo_recipe_map.csv at \(beoMapCSV.path)", code: "cli_error")
+        }
+
+        let manifest = try RecipeManifestCache.shared.manifest(recipeIndex: recipeIndex, normalizedDir: normalizedDir)
+        let (beoMap, mapUnresolved, scales) = RecipeManifestLoader.loadBeoRecipeMap(csv: beoMapCSV, manifest: manifest)
+        let result = BeoCascadeCompute.buildCascade(
+            manifest: manifest, beoMap: beoMap, lineItems: lineItems,
+            qtyInYieldUnits: qtyInYieldUnits, inventory: inventory,
+            mapWarnings: mapUnresolved, scales: scales
+        )
+
+        let out: [String: Any] = [
+            "order_guide": result.orderGuide.map {
+                ["ingredient": $0.ingredient, "unit": $0.unit, "total_needed": $0.totalNeeded,
+                 "on_hand": $0.onHand, "to_order": $0.toOrder] as [String: Any]
+            },
+            "prep_demands": result.prepDemands.map {
+                ["recipe_slug": $0.recipeSlug, "display_name": $0.displayName, "qty": $0.qty, "unit": $0.unit] as [String: Any]
+            },
+            "unmapped": result.unmapped.map {
+                ["menu_item": $0.menuItem, "reason": $0.reason] as [String: Any]
+            },
+            "warnings": result.warnings,
+            "manifest_warnings": result.manifestWarnings.map {
+                ["recipe": $0.recipe, "issue": $0.issue] as [String: Any]
+            },
+        ]
+        let data = try JSONSerialization.data(withJSONObject: out)
+        return String(data: data, encoding: .utf8) ?? "{}"
     }
 }

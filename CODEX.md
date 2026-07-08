@@ -8,7 +8,8 @@ Use [AGENTS.md](AGENTS.md) as the canonical entrypoint for domain rules.
 
 1. `node scripts/agent-session.mjs list` — check file claims.
 2. Append a kickoff to `.agent-sessions/handoff.md` (create dir/file if missing).
-3. For regulated or multi-file work: consult Gemini (risk/impact), then assign implementation to Claude — do not commit yourself.
+3. For **Native 0.2 L1** work: read `docs/NATIVE_RELEASES_AND_TAXONOMY.md` first (binding over chat memory).
+4. For regulated or multi-file work: consult Gemini (risk/impact), then assign implementation to Claude — do not commit yourself.
 
 ## Domain (never bend)
 

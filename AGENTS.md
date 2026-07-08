@@ -4,7 +4,7 @@ Restaurant F&B operations: recipes, costing, inventory, HACCP, POS. Culinary dat
 
 ## Native finalization guide
 
-For the final macOS-native Lariat app, read `docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md` before planning or editing. It records the current Lariat inventory in `~/Dev`, the completed native phases, the remaining Phase C/D/E gates, H7/H8 status, and Claude model-tier routing for Max/Fable, Opus, Sonnet, and Haiku agents.
+For the final macOS-native Lariat app, read `docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md` before planning or editing. Before any **Native 0.2 L1** (in-process BOM) work, read `docs/NATIVE_RELEASES_AND_TAXONOMY.md` — it disambiguates releases vs endgame milestones vs L1 waves. The guide records the current Lariat inventory in `~/Dev`, completed native milestones, remaining Milestone C/D/E gates, H7/H8 status, and Claude model-tier routing.
 
 ## Dev-root boundary
 

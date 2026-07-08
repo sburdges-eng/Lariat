@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "id": "cascade_missing_sub_warning",
+  "module": "beo_cascade",
+  "source_test": "tests/python/test_beo_cascade_cli.py::BuildCascadeUnit::test_missing_sub_recipe_degrades_to_warning",
+  "manifest": {
+    "broken_dip": {
+      "slug": "broken_dip",
+      "display_name": "Broken Dip",
+      "yield_qty": 1.0,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [
+        "missing_sub"
+      ],
+      "bom": [
+        {
+          "ingredient": "missing_sub",
+          "qty": 1.0,
+          "unit": "qt",
+          "is_sub_recipe": true,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    }
+  },
+  "beo_map": {
+    "broken dip": [
+      "broken_dip"
+    ]
+  },
+  "input": {
+    "mode": "build_cascade",
+    "line_items": [
+      {
+        "item_name": "Broken Dip",
+        "quantity": 1
+      }
+    ]
+  },
+  "expect": {
+    "warnings_contain": "missing_sub",
+    "warnings": [
+      "recipe 'broken_dip' pins sub-recipe 'missing_sub' which is not in the manifest"
+    ]
+  }
+}

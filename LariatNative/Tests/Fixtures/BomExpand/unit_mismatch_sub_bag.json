@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "id": "unit_mismatch_sub_bag",
+  "source_test": "tests/python/test_bom_expand.py::Errors::test_sub_recipe_unit_mismatch_fails_loud",
+  "manifest": {
+    "blackened_tomato_salsa": {
+      "slug": "blackened_tomato_salsa",
+      "display_name": "Blackened Tomato Salsa",
+      "yield_qty": 20,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [],
+      "bom": [
+        {
+          "ingredient": "roma tomatoes",
+          "qty": 100,
+          "unit": "g",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    },
+    "queso_mac_sauce": {
+      "slug": "queso_mac_sauce",
+      "display_name": "Queso",
+      "yield_qty": 22,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [
+        "blackened_tomato_salsa"
+      ],
+      "bom": [
+        {
+          "ingredient": "blackened_tomato_salsa",
+          "qty": 1,
+          "unit": "bag",
+          "is_sub_recipe": true,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    }
+  },
+  "input": {
+    "slug": "queso_mac_sauce",
+    "qty": 22,
+    "unit": "qt",
+    "mode": "expand_recipe"
+  },
+  "expect": {
+    "error": "UnitMismatchError",
+    "message_contains": [
+      "queso_mac_sauce",
+      "blackened_tomato_salsa",
+      "bag"
+    ]
+  }
+}

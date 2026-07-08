@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "id": "single_leaf_scale",
+  "source_test": "tests/python/test_bom_expand.py::ExpandLeafOnly::test_single_leaf_recipe_scales_linearly",
+  "manifest": {
+    "blackened_tomato_salsa": {
+      "slug": "blackened_tomato_salsa",
+      "display_name": "Blackened Tomato Salsa",
+      "yield_qty": 20,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [],
+      "bom": [
+        {
+          "ingredient": "roma tomatoes",
+          "qty": 11339.8,
+          "unit": "g",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "lime juice",
+          "qty": 118.294,
+          "unit": "ml",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    }
+  },
+  "input": {
+    "slug": "blackened_tomato_salsa",
+    "qty": 10,
+    "unit": "qt",
+    "mode": "expand_recipe"
+  },
+  "expect": {
+    "leaves": [
+      [
+        "lime juice",
+        "ml",
+        59.147
+      ],
+      [
+        "roma tomatoes",
+        "g",
+        5669.9
+      ]
+    ],
+    "tolerance_places": 6
+  }
+}

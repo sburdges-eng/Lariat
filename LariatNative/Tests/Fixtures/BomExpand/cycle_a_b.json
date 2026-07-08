@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "id": "cycle_a_b",
+  "source_test": "tests/python/test_bom_expand.py::Errors::test_cycle_detected",
+  "manifest": {
+    "a": {
+      "slug": "a",
+      "display_name": "A",
+      "yield_qty": 10,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [
+        "b"
+      ],
+      "bom": [
+        {
+          "ingredient": "b",
+          "qty": 1,
+          "unit": "qt",
+          "is_sub_recipe": true,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    },
+    "b": {
+      "slug": "b",
+      "display_name": "B",
+      "yield_qty": 10,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [
+        "a"
+      ],
+      "bom": [
+        {
+          "ingredient": "a",
+          "qty": 1,
+          "unit": "qt",
+          "is_sub_recipe": true,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    }
+  },
+  "input": {
+    "slug": "a",
+    "qty": 5,
+    "unit": "qt",
+    "mode": "expand_recipe"
+  },
+  "expect": {
+    "error": "RecipeCycleError",
+    "message_contains": [
+      "a",
+      "b"
+    ]
+  }
+}
