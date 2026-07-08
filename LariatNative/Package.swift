@@ -28,7 +28,8 @@ let package = Package(
         ),
         .executableTarget(
             name: "LariatApp",
-            dependencies: ["LariatDB", "LariatModel"]
+            dependencies: ["LariatDB", "LariatModel"],
+            exclude: ["UI/README.md"]
         ),
         .testTarget(
             name: "LariatModelTests",
