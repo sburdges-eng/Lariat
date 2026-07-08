@@ -66,7 +66,8 @@ final class KitchenAssistantViewModel {
         self.ollama = client
         self.modelName = client.config().model
         #if os(macOS)
-        let calculator: RecipeCalculating? = PythonBomCalculator()
+        // In-process BOM math (Native 0.2 L1 Wave C) — no python spawn.
+        let calculator: RecipeCalculating? = NativeBomCalculator()
         #else
         let calculator: RecipeCalculating? = nil
         #endif
