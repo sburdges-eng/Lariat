@@ -9,6 +9,15 @@ import Foundation
 
 public enum RecipeManifestLoader {
 
+    /// True when `root` actually holds a recipe index (D1-B first-run check).
+    /// The app can surface a first-run message / repo picker when this is false;
+    /// shipping a bundled seed snapshot or a wizard is deferred H8 polish.
+    public static func isSeeded(root: String) -> Bool {
+        FileManager.default.fileExists(
+            atPath: (root as NSString).appendingPathComponent("recipes/recipe_index.csv")
+        )
+    }
+
     // MARK: - Manifest
 
     /// Build the slug→Manifest map from `recipes/recipe_index.csv` plus the

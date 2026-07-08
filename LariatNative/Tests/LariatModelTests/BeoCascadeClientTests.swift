@@ -195,6 +195,16 @@ final class BeoCascadeClientTests: XCTestCase {
         XCTAssertEqual(root, "/elsewhere/repo")
     }
 
+    func testResolveProjectRootFallsBackToApplicationSupport() {
+        // Packaged .app (D1-B): no dev scripts/ marker — recipes live under
+        // ~/Library/Application Support/Lariat.
+        let root = BeoCascadeClient.resolveProjectRoot(
+            env: ["HOME": "/Users/chef"], cwd: "/",
+            fileExists: { $0 == "/Users/chef/Library/Application Support/Lariat/recipes/recipe_index.csv" }
+        )
+        XCTAssertEqual(root, "/Users/chef/Library/Application Support/Lariat")
+    }
+
     // ── in-process default runner (Wave C — no python spawn) ─────────────
 
     private var repoRoot: String {

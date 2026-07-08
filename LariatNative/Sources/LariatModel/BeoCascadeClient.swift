@@ -152,11 +152,11 @@ public struct BeoCascadeClient {
 
     // MARK: Pure pieces (unit-tested without spawning)
 
-    /// Resolve at call time, not init. Web parity is `LARIAT_ROOT || cwd`, but
-    /// the web server's cwd IS the repo root — a native app launched from
-    /// LariatNative/ (or an .app bundle) is not, so fall back to walking up
-    /// from cwd until `scripts/beo_cascade_cli.py` appears, then to the parent
-    /// of LARIAT_DATA_DIR (which points at `<root>/data`).
+    /// Resolve the root that owns `recipes/` (D1-B). Order: explicit
+    /// `LARIAT_ROOT`; then a dev cwd-walk for the `scripts/beo_cascade_cli.py`
+    /// marker; then the parent of `LARIAT_DATA_DIR`; then — for a packaged
+    /// `.app` with no dev `scripts/` — `~/Library/Application Support/Lariat`
+    /// when it actually holds recipes; else `cwd`.
     public static func resolveProjectRoot(
         env: [String: String] = ProcessInfo.processInfo.environment,
         cwd: String = FileManager.default.currentDirectoryPath,
@@ -175,7 +175,19 @@ public struct BeoCascadeClient {
             let parent = (data as NSString).deletingLastPathComponent
             if fileExists((parent as NSString).appendingPathComponent(marker)) { return parent }
         }
+        // D1-B packaged default: no dev `scripts/` marker in a `.app`, so fall
+        // back to the Application Support recipe root when it holds recipes.
+        if let appSupport = applicationSupportRoot(env: env),
+           fileExists((appSupport as NSString).appendingPathComponent("recipes/recipe_index.csv")) {
+            return appSupport
+        }
         return cwd
+    }
+
+    /// `~/Library/Application Support/Lariat` — the D1-B packaged `LARIAT_ROOT`.
+    static func applicationSupportRoot(env: [String: String]) -> String? {
+        guard let home = env["HOME"], !home.isEmpty else { return nil }
+        return (home as NSString).appendingPathComponent("Library/Application Support/Lariat")
     }
 
     /// CLI stdin contract: `{line_items, root, qty_in_yield_units[, inventory]}`.
@@ -328,7 +340,7 @@ public struct BeoCascadeClient {
             throw CascadeError(message: "missing beo_recipe_map.csv at \(beoMapCSV.path)", code: "cli_error")
         }
 
-        let manifest = try RecipeManifestLoader.loadManifest(recipeIndex: recipeIndex, normalizedDir: normalizedDir)
+        let manifest = try RecipeManifestCache.shared.manifest(recipeIndex: recipeIndex, normalizedDir: normalizedDir)
         let (beoMap, mapUnresolved, scales) = RecipeManifestLoader.loadBeoRecipeMap(csv: beoMapCSV, manifest: manifest)
         let result = BeoCascadeCompute.buildCascade(
             manifest: manifest, beoMap: beoMap, lineItems: lineItems,

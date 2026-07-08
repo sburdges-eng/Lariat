@@ -13,12 +13,13 @@ public struct NativeBomCalculator: RecipeCalculating {
 
     public init(root: String) { self.root = root }
 
-    /// Env/cwd parity with the former PythonBomCalculator: `LARIAT_ROOT || cwd`.
+    /// Resolve the recipe root via the shared D1-B resolver: env `LARIAT_ROOT`
+    /// → dev repo cwd-walk → packaged Application Support → cwd.
     public init(
         env: [String: String] = ProcessInfo.processInfo.environment,
         cwd: String = FileManager.default.currentDirectoryPath
     ) {
-        self.root = env["LARIAT_ROOT"] ?? cwd
+        self.root = BeoCascadeClient.resolveProjectRoot(env: env, cwd: cwd)
     }
 
     public func scaleRecipe(slug: String, multiplier: Double) async throws -> RecipeExpandResult {
@@ -43,7 +44,7 @@ public struct NativeBomCalculator: RecipeCalculating {
     private func loadManifest() throws -> [String: RecipeManifest] {
         let base = URL(fileURLWithPath: root)
         do {
-            return try RecipeManifestLoader.loadManifest(
+            return try RecipeManifestCache.shared.manifest(
                 recipeIndex: base.appendingPathComponent("recipes/recipe_index.csv"),
                 normalizedDir: base.appendingPathComponent("recipes/normalized")
             )

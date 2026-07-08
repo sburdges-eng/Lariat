@@ -59,6 +59,48 @@ A future refinement (Phase C/D) is to default the data dir to
 `~/Library/Application Support/Lariat/` and seed a fresh DB via the C2
 `SchemaMigrator` on first run, so a double-clicked app is self-sufficient.
 
+## D1-B recipe/data layout (Native 0.2 L1 Wave C)
+
+The native assistant `scale_recipe` and the BEO cascade now compute **in-process**
+(no `python3` spawn) — they read the recipe CSVs directly via `RecipeManifestLoader`.
+D1-B (`docs/superpowers/specs/2026-07-07-d1-application-support-layout.md`) fixes
+the packaged layout under `LARIAT_ROOT`:
+
+```
+~/Library/Application Support/Lariat/     ← LARIAT_ROOT (packaged default)
+├── data/lariat.db                        ← LARIAT_DATA_DIR default
+├── recipes/recipe_index.csv
+├── recipes/normalized/{slug}.csv
+└── menus/beo_recipe_map.csv
+```
+
+**Root resolution** (`BeoCascadeClient.resolveProjectRoot`, shared by
+`NativeBomCalculator`): `LARIAT_ROOT` env → dev cwd-walk for `scripts/` → parent
+of `LARIAT_DATA_DIR` → **`~/Library/Application Support/Lariat` when it holds
+`recipes/recipe_index.csv`** → `cwd`. The dev cwd-walk is unchanged.
+
+**Updates without rebuild:** operators `rsync` updated `recipes/` + `menus/` CSVs
+into the support root. `RecipeManifestCache` recomputes only when the
+`recipe_index.csv` mtime or the max `normalized/*.csv` mtime changes — no `.app`
+rebuild or restart needed.
+
+**First-run seed (deferred H8 polish):** `RecipeManifestLoader.isSeeded(root:)`
+reports whether the resolved root has a recipe index. Shipping a bundled seed
+snapshot or a repo/data-pack picker is left to H8; until then, populate
+`~/Library/Application Support/Lariat/recipes` (+ `menus`) before first use.
+
+### H8 packaged-`.app` smoke — OWNER-GATED / MANUAL
+
+Cannot be automated (needs a desktop login + Activity Monitor). Run on a clean
+Mac with **no** Lariat env vars:
+
+- [ ] Launch `build/Lariat.app` from Finder (double-click).
+- [ ] Kitchen assistant `scale_recipe` returns leaf rows (manifest resolved from
+      Application Support) — **and no `python3` appears in Activity Monitor**.
+- [ ] BEO cascade tab returns an order guide + prep demands — again **no `python3`**.
+- [ ] `cd LariatNative && swift test` green; Python oracle
+      (`python3 -m unittest tests.python.test_bom_expand tests.python.test_beo_pull tests.python.test_beo_cascade_cli`) green.
+
 ## Notarization — the remaining gate
 
 Ad-hoc / Apple Development signing runs locally but Gatekeeper quarantines it on
