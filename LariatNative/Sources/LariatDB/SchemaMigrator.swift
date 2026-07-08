@@ -64,7 +64,7 @@ public struct SchemaMigrator {
     /// Parity with `SCHEMA_VERSION` in `lib/db.ts` (the web's monotonic marker
     /// recorded in the `schema_migrations` table, replayed by the seed rows in
     /// `frozen_schema.sql`).
-    public static let webSchemaVersion = 3
+    public static let webSchemaVersion = 4
 
     public init() {}
 

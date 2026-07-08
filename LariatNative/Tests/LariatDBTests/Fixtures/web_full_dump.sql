@@ -755,6 +755,16 @@ CREATE TABLE sick_worker_reports (
       note TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
+CREATE TABLE sick_note_documents (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      report_id         INTEGER NOT NULL,
+      location_id       TEXT    NOT NULL,
+      file_path         TEXT    NOT NULL,
+      kind              TEXT    NOT NULL,
+      original_filename TEXT,
+      uploaded_by       TEXT,
+      uploaded_at       TEXT    NOT NULL
+    );
 CREATE TABLE staff_certifications (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       location_id TEXT DEFAULT 'default',
@@ -1667,5 +1677,5 @@ CREATE INDEX idx_kds_tickets_active
       WHERE bumped_at IS NULL;
 CREATE INDEX idx_kds_ticket_lines_ticket
       ON kds_ticket_lines(ticket_id, sort_order, id);
-INSERT INTO "locations" ("id", "name", "created_at", "capacity", "tax_rate", "service_fee_pct", "phone", "address") VALUES ('default', 'The Lariat', '2026-07-03 13:33:23', NULL, 0.0675, 20, NULL, NULL);
-INSERT INTO "schema_migrations" ("version", "applied_at") VALUES (3, '2026-07-03 13:33:23');
+INSERT INTO "locations" ("id", "name", "created_at", "capacity", "tax_rate", "service_fee_pct", "phone", "address") VALUES ('default', 'The Lariat', '2026-07-08 12:04:50', NULL, 0.0675, 20, NULL, NULL);
+INSERT INTO "schema_migrations" ("version", "applied_at") VALUES (4, '2026-07-08 12:04:50');
