@@ -300,9 +300,14 @@ final class SickWorkerViewModel {
         guard let safeRel = SickNoteDocumentCompute.safeUploadRelativePath(doc.filePath) else {
             return nil
         }
-        let uploads = dataRoot(env: env).appendingPathComponent("uploads").standardizedFileURL
-        let url = uploads.appendingPathComponent(safeRel).standardizedFileURL
-        // Belt-and-suspenders: the resolved path must sit under the uploads root.
+        // Resolve symlinks on BOTH paths (matching the recipe-photo `realpath`
+        // precedent): standardizedFileURL only strips ../. lexically, so without
+        // this a symlink planted under uploads/ could escape the root yet still
+        // satisfy the prefix test below. Resolving both keeps the comparison
+        // apples-to-apples (e.g. /tmp → /private/tmp on macOS).
+        let uploads = dataRoot(env: env).appendingPathComponent("uploads").resolvingSymlinksInPath().standardizedFileURL
+        let url = uploads.appendingPathComponent(safeRel).resolvingSymlinksInPath().standardizedFileURL
+        // The resolved real path must sit under the uploads root.
         guard url.path == uploads.path || url.path.hasPrefix(uploads.path + "/") else {
             return nil
         }
