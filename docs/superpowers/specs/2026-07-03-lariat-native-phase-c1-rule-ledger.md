@@ -79,14 +79,20 @@ Costing/menu-tier reads the web PIN-gates but native left open (self-documented
 
 ### Defer / ratify — NOT fixed here, need a decision before C5
 
-- **`sync_feed` on native regulated writes.** Web `checks`/`cooling`/`sanitizer`/
-  `temp-log` (HACCP) and `receiving`/`receiving-matches` write a `sync_feed`
-  `appendOp` in-transaction for cross-host replication; no native repo does.
-  **Ratified** as an edge-blocker for receiving + receiving-matches
-  (`lariat-native-edge-blockers.md`); **UNRATIFIED for the four HACCP routes** —
-  once C5 deletes a web write route, native-originated writes feed no sync_feed
-  at all. Needs a native sync-input mechanism or an explicit ratified blocker
-  entry before any of those routes is deleted.
+- **`sync_feed` on native regulated writes → the 4 HACCP routes are C5-DELETE-BLOCKED.**
+  Web `checks`/`cooling`/`sanitizer`/`temp-log` (HACCP) and
+  `receiving`/`receiving-matches` write a `sync_feed` `appendOp` in-transaction
+  for cross-host replication; no native repo does. **Ratified** as an edge-blocker
+  for receiving + receiving-matches (`lariat-native-edge-blockers.md`). For the
+  **four HACCP routes** the omission is **NOT** being ratified-away — once C5
+  deletes a web write route, native-originated writes feed no sync_feed at all,
+  so cross-device replication of food-safety data silently stops.
+  **OWNER DECISION 2026-07-07: keep these 4 routes BLOCKED from C5 deletion until
+  a native `sync_feed` producer exists** (port the in-tx `appendOp` into
+  LineCheck/Cooling/Sanitizer/TempLog repositories) **or** the deployment is
+  confirmed single-device-system-of-record and the block is then explicitly
+  lifted. Do not delete `checks`/`cooling`/`sanitizer`/`temp-log` in any C5 wave
+  until that gate clears.
 - **`reservations` guest PII** is an open read on **both** web and native (no PIN
   either side) — a web-side design choice, not a port regression. Owner note.
 - **Audit payload-shape divergences** (non-blocking): performance-reviews uses
@@ -292,6 +298,6 @@ Costing/menu-tier reads the web PIN-gates but native left open (self-documented
 
 1. ~~Finish the verify pass on the 41 unverified ported-write routes~~ **DONE 2026-07-07** (feat/lariat-native-c1-verify-41 — all 71 now `✓`; refutations fixed under TDD; see the Verify-41 wave section).
 2. ~~Rework the 3 refuted claims~~ **DONE** (resolved; V cells corrected to `✓`).
-3. **Ratify or fix the `sync_feed` gap on the 4 HACCP write routes** before any of them enters a C5 delete wave (see Verify-41 wave → Defer/ratify).
+3. **`checks`/`cooling`/`sanitizer`/`temp-log` are C5-DELETE-BLOCKED** (owner decision 2026-07-07): do NOT delete them in any C5 wave until a native `sync_feed` producer exists or the block is explicitly lifted after confirming single-device deployment (see Verify-41 wave → Defer/ratify).
 4. Triage the 9 low-confidence rows.
 5. Confirm every **edge-retained** row appears in `lariat-native-edge-blockers.md` (the whole surviving web surface).
