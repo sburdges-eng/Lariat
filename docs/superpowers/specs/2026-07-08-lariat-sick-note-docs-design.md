@@ -1,7 +1,9 @@
 # Sick-Leave Doctor's-Note Capture — Design
 
 **Date:** 2026-07-08
-**Status:** Draft for review
+**Status:** Implemented (2026-07-08, branch `feat/lariat-sick-note-capture` —
+schema v4 + native capture/view; see §10 for source-verified adaptations and
+deferred follow-ons)
 **Author:** Claude (Opus 4.8) with owner
 **Scope:** Let a manager/PIC attach a doctor's-note document (scan/photo) to a
 sick-worker record in the native app, and view it behind a PIN. Employee
@@ -140,3 +142,34 @@ and that split is stated honestly in commits/PR, exactly as every prior native w
   (fails with a clear message, no crash).
 - **Allowlist:** PDF + JPEG + PNG + HEIC (owner-approved). Anything else is rejected at the
   panel + re-checked by the pure validator (defense in depth).
+
+## 10. Implementation notes & deferred follow-ons (2026-07-08)
+
+Landed as planned with these source-verified adaptations:
+
+- Real native paths: the view lives at `LariatApp/UI/Boards/SickWorkerView.swift` with a
+  separate `UI/ViewModels/SickWorkerViewModel.swift`; the panel/copy helper landed at
+  `UI/Support/SickNoteAttach.swift`. Records follow the `CoolingRow` convention —
+  `SickNoteDocumentRow` in `LariatModel/SickNoteRecords.swift` + pure
+  `Compute/SickNoteDocumentCompute.swift`.
+- The schema-bump gate (`scripts/check-schema-version-bump.mjs`) required
+  `SCHEMA_VERSION` 3 → 4 (web) mirrored by `SchemaMigrator.webSchemaVersion` (native);
+  all four derived fixtures regenerated, `SchemaMigratorTests` green.
+- Reads are location-scoped end to end (§8): `list`/`counts` take `location_id`, and
+  `attach` requires the parent report to exist at the context's location (unknown or
+  cross-location report → `reportNotFound`; no orphan documents).
+- PIN posture in the VM: counts are fetched PIN-free (drives the locked "N on file"
+  row); full rows (filenames) are fetched only with an active manager-PIN session —
+  the `includeHistory: pinOk` pattern this board already used.
+- A failed DB insert removes the just-copied file so no orphan lands on disk.
+- Cleared (history) reports keep the attach/list affordances — return-to-work
+  clearance paperwork usually arrives after clearing.
+- `.gitignore` already covers `data/uploads/` (confirmed — no change needed).
+
+Deferred follow-ons (unchanged from §2, recorded for the roadmap):
+
+1. **Employee self-service entry** — needs an employee identity surface the app
+   doesn't have.
+2. **Retention/purge policy** — medical-record retention windows + secure deletion are
+   a compliance policy decision first, then code.
+3. **Web read-only view** of the documents list (web currently gains only the schema).
