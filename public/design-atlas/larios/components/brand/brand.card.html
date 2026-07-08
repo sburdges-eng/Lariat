@@ -1,0 +1,55 @@
+<!-- @dsCard group="Components" viewport="700x220" name="Brand — Stamp & Station Ring" subtitle="The lariat mark and line-station progress rings" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); padding: 24px; }
+  .wrap { display: flex; gap: 44px; align-items: center; flex-wrap: wrap; }
+  .col { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+  .lbl { font-family: var(--mono); font-size: 9px; letter-spacing: .24em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; }
+  .rings { display: flex; gap: 16px; align-items: center; }
+  .mark { color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel">
+const { BrandStamp, StationRing } = window.LariatLaRiOSDesignSystem_5761b2;
+function Demo() {
+  return (
+    <div className="wrap">
+      <div className="col">
+        <span className="lbl">Brand stamp</span>
+        <div style={{display:'flex',gap:20,alignItems:'center'}}>
+          <span className="mark" style={{fontSize:56}}><BrandStamp decorative /></span>
+          <span className="mark" style={{fontSize:28}}><BrandStamp decorative /></span>
+          <span style={{fontSize:18,color:'var(--text)'}}><BrandStamp decorative /></span>
+        </div>
+        <div style={{display:'flex',alignItems:'baseline',gap:8,fontFamily:'var(--display)',fontSize:24}}>
+          <span className="mark" style={{alignSelf:'center'}}><BrandStamp decorative /></span>
+          The Lariat
+        </div>
+      </div>
+      <div className="col">
+        <span className="lbl">Station rings</span>
+        <div className="rings">
+          <StationRing done={6} total={6} glyph={1} signedOff />
+          <StationRing done={4} total={6} glyph={2} />
+          <StationRing done={1} total={6} glyph={3} />
+          <StationRing flagged={2} total={6} glyph={4} />
+          <StationRing done={0} total={6} glyph={5} />
+        </div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>
+</body>
+</html>

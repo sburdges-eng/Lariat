@@ -1,0 +1,30 @@
+<!-- @dsCard group="Brand" viewport="700x210" name="Voice — kitchen language" subtitle="How LaRiOS talks: short, kitchen-native, direct" -->
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;background:var(--bg);font-family:var(--sans);padding:22px;color:var(--text)}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .col{border:1px solid var(--hair);border-radius:var(--radius);padding:14px 16px;background:var(--panel)}
+  .h{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;font-weight:700;margin-bottom:10px}
+  .say .h{color:var(--ok)}.dont .h{color:var(--fire)}
+  .line{font-size:14px;padding:4px 0;display:flex;gap:8px;align-items:baseline}
+  .line .m{font-family:var(--mono);font-size:12px;width:12px;flex-shrink:0}
+  .say .m{color:var(--ok)}.dont .m{color:var(--fire)}
+  .dont .line span:last-child{color:var(--text-muted);text-decoration:line-through;text-decoration-color:var(--hair)}
+</style></head>
+<body>
+  <div class="cols">
+    <div class="col say"><div class="h">Say this</div>
+      <div class="line"><span class="m">→</span><span>86 an item</span></div>
+      <div class="line"><span class="m">→</span><span>Running low</span></div>
+      <div class="line"><span class="m">→</span><span>Done · Save · Count</span></div>
+      <div class="line"><span class="m">→</span><span>Report a problem</span></div>
+    </div>
+    <div class="col dont"><div class="h">Not this</div>
+      <div class="line"><span class="m">×</span><span>Mark unavailable</span></div>
+      <div class="line"><span class="m">×</span><span>Low inventory</span></div>
+      <div class="line"><span class="m">×</span><span>Submit · Configure</span></div>
+      <div class="line"><span class="m">×</span><span>Report incident</span></div>
+    </div>
+  </div>
+</body></html>

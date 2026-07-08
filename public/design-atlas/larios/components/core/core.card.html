@@ -1,0 +1,67 @@
+<!-- @dsCard group="Components" viewport="700x340" name="Core — Buttons, Pills, KPIs" subtitle="Actions, status capsules, metrics, bars, avatars" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); padding: 20px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 18px; }
+  .lbl { font-family: var(--mono); font-size: 9px; letter-spacing: .24em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; width: 100%; margin-bottom: 2px; }
+  .grp { margin-bottom: 20px; }
+  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel">
+const { Button, Pill, Tag, StatusDot, Kpi, Bar, Avatar } = window.LariatLaRiOSDesignSystem_5761b2;
+function Demo() {
+  return (
+    <div>
+      <div className="grp">
+        <div className="row"><span className="lbl">Buttons</span>
+          <Button variant="primary">Save</Button>
+          <Button>Count</Button>
+          <Button variant="ghost">Go back</Button>
+          <Button variant="ink">Fire</Button>
+          <Button variant="danger">86 it</Button>
+          <Button variant="ok">Done</Button>
+          <Button disabled>Waiting</Button>
+        </div>
+      </div>
+      <div className="grp">
+        <div className="row"><span className="lbl">Status pills · tags · dots</span>
+          <Pill tone="ok" dot>Ready</Pill>
+          <Pill tone="warn" dot>Low</Pill>
+          <Pill tone="alert" dot>86'd</Pill>
+          <Pill tone="amber">Rush</Pill>
+          <Pill tone="lari">LaRi</Pill>
+          <Tag dot dotTone="amber">CCP-2</Tag>
+          <Tag>Sauté</Tag>
+          <StatusDot tone="ok" /><StatusDot tone="warn" /><StatusDot tone="alert" pulse />
+          <Avatar name="Rosa Mendez" /><Avatar initials="JT" tone="ink" />
+        </div>
+      </div>
+      <div className="grp">
+        <span className="lbl" style={{display:'block',marginBottom:8}}>Metrics · bars</span>
+        <div className="kpis">
+          <Kpi label="Food cost" value="28.4%" sub="▼ 1.2 vs par" trend="up" />
+          <Kpi label="86'd" value="3" sub="tonight" trend="warn" />
+          <Kpi label="Covers" value="212" sub="▲ 18" trend="up" />
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:14}}>
+          <Bar value={78} tone="ok" /><Bar value={44} tone="warn" /><Bar value={18} tone="alert" />
+        </div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>
+</body>
+</html>

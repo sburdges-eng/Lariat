@@ -1,0 +1,86 @@
+<!-- @dsCard group="Proposals" viewport="1280x800" name="Concept — Service Rail" subtitle="Role-aware redesign: cook procedure runs by daypart · manager heat queue + PIN approvals · office week spine" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The Lariat · Service Rail concept</title>
+<link rel="stylesheet" href="../../styles.css">
+<link rel="stylesheet" href="rail.css">
+<style>
+  html, body { margin: 0; background: #0a0b0c; }
+  #root { width: 1280px; margin: 0 auto; }
+  a { color: var(--accent); }
+  a:hover { color: var(--ember-glow); }
+
+  /* ── Tweaks — expressive modes ── */
+  /* Wall-mount: the whole surface reads from across the kitchen */
+  .tw-wall .rl-band { zoom: 1.12; }
+  .tw-wall .rl-spine { zoom: 1.18; }
+  .tw-wall .rl-queue { zoom: 1.34; }
+  .tw-wall .rl-sheet { zoom: 1.22; }
+
+  /* Calm voice: heat desaturated — severity by position only */
+  .tw-calm .rl-card { filter: saturate(.28); }
+  .tw-calm .rl-t.crit, .tw-calm .rl-now { filter: saturate(.35); }
+
+  /* Alarm voice: crit cards throb and shout */
+  .tw-alarm .rl-card.crit { background: color-mix(in srgb, var(--fire) 15%, var(--panel)); border-left-width: 5px; }
+  .tw-alarm .rl-card.crit .t { font-size: 16.5px; }
+  .tw-alarm .rl-card.warn { border-left-width: 4px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .tw-alarm .rl-card.crit { animation: twThrob 1.5s var(--easing) infinite; }
+  }
+  @keyframes twThrob {
+    50% { border-left-color: color-mix(in srgb, var(--fire) 35%, transparent); background: color-mix(in srgb, var(--fire) 8%, var(--panel)); }
+  }
+
+  /* One-thing mode: only the top card exists, and it's big */
+  .tw-focus .rl-queue > .rl-card ~ .rl-card,
+  .tw-focus .rl-quiet,
+  .tw-focus .rl-queue > div:not([class]) { display: none; }
+  .tw-focus .rl-queue > .rl-card { padding: 22px 24px; border-left-width: 5px; }
+  .tw-focus .rl-queue > .rl-card .t { font-size: 20px; }
+  .tw-focus .rl-queue > .rl-card .s { font-size: 14.5px; margin-top: 5px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="Rail.jsx"></script>
+<script type="text/babel" src="RailViews.jsx"></script>
+<script type="text/babel">
+const { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakToggle } = window;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "display": "Line",
+  "voice": "Standard",
+  "oneThing": false
+}/*EDITMODE-END*/;
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const cls = `tw-${t.display.toLowerCase()} tw-${t.voice.toLowerCase()} ${t.oneThing ? 'tw-focus' : ''}`;
+  return (
+    <React.Fragment>
+      <div className={cls}><window.RailApp2 /></div>
+      <TweaksPanel>
+        <TweakSection label="Where it lives" />
+        <TweakRadio label="Display" value={t.display} options={['Line', 'Wall']}
+          onChange={(v) => setTweak('display', v)} />
+        <TweakSection label="How it speaks" />
+        <TweakRadio label="Alert voice" value={t.voice} options={['Calm', 'Standard', 'Alarm']}
+          onChange={(v) => setTweak('voice', v)} />
+        <TweakToggle label="One thing at a time" value={t.oneThing}
+          onChange={(v) => setTweak('oneThing', v)} />
+      </TweaksPanel>
+    </React.Fragment>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

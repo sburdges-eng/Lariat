@@ -1,0 +1,47 @@
+<!-- @dsCard group="Components" viewport="700x360" name="Data — Table, Tabs, Card" subtitle="Dense grid, tab strip, matte panel" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); padding: 20px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel">
+const { DataTable, Tabs, Card, Pill } = window.LariatLaRiOSDesignSystem_5761b2;
+function Demo() {
+  const [tab, setTab] = React.useState('line');
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:16}}>
+      <Tabs tabs={[{value:'line',label:'Line'},{value:'prep',label:'Prep'},{value:'stock',label:'Stock'}]} value={tab} onChange={setTab} />
+      <Card title="Inventory par" right={<Pill tone="warn" dot>2 low</Pill>} padded={false}>
+        <DataTable
+          columns={[
+            {key:'item',label:'Item'},
+            {key:'station',label:'Station'},
+            {key:'par',label:'Par',align:'right'},
+            {key:'onHand',label:'On hand',align:'right'},
+            {key:'status',label:'Status',align:'right'},
+          ]}
+          rows={[
+            {id:1,item:'Ribeye 12oz',station:'Grill',par:40,onHand:12,status:<Pill tone="alert" dot>Low</Pill>},
+            {id:2,item:'House brine',station:'Prep',par:6,onHand:6,status:<Pill tone="ok" dot>OK</Pill>},
+            {id:3,item:'Pommes purée',station:'Sauté',par:24,onHand:9,status:<Pill tone="warn" dot>Watch</Pill>},
+            {id:4,item:'Demi-glace',station:'Sauce',par:8,onHand:8,status:<Pill tone="ok" dot>OK</Pill>},
+          ]}
+        />
+      </Card>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>
+</body>
+</html>

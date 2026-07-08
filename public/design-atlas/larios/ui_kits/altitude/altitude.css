@@ -1,0 +1,59 @@
+/* Altitude — Rail × Cockpit synthesis.
+   Four altitudes, one gesture: Esc always goes DOWN one level.
+     A0 LINE  — the rail: time spine + role queue (home, always underneath)
+     A1 SHEET — transient right panel for quick actions
+     A2 BOARD — a full cockpit-v2 board DOCKED over the queue (spine stays)
+     A3 ATLAS — the whole map: every division › section › board, documented
+   Reuses rail.css for A0/A1 and cockpit.css/v2.css for the docked boards. */
+
+/* ── A2: board dock ── */
+.alt-dock { position: absolute; top: 46px; left: 232px; right: 0; bottom: 0; display: flex; flex-direction: column; background: var(--bg); border-left: 1px solid var(--hair); z-index: 15; animation: dockIn .16s var(--easing); }
+@keyframes dockIn { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+.alt-return { display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--hair); flex-shrink: 0; }
+.alt-back { display: inline-flex; align-items: center; gap: 7px; background: none; border: 1px solid var(--hair); border-radius: 3px; padding: 5px 10px; color: var(--text); font-family: var(--sans); font-size: 11.5px; font-weight: 700; cursor: pointer; transition: border-color .14s, color .14s; }
+.alt-back:hover { border-color: var(--accent); color: var(--accent); }
+.alt-back .n { font-family: var(--mono); font-size: 10px; color: var(--fire); font-weight: 700; }
+.alt-crumb { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; }
+.alt-crumb .sep { opacity: .45; }
+.alt-crumb .here { color: var(--accent); }
+.alt-recent { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.alt-recent .lbl { font-family: var(--mono); font-size: 8.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; }
+.alt-rtab { background: var(--panel-2); border: 1px solid var(--hair); border-radius: 3px; padding: 4px 9px; font-family: var(--sans); font-size: 11px; font-weight: 600; color: var(--text-muted); cursor: pointer; }
+.alt-rtab:hover { color: var(--text); border-color: var(--accent); }
+.alt-rtab.on { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.alt-boardwrap { flex: 1; overflow: auto; padding: 24px 28px; }
+.alt-boardwrap::-webkit-scrollbar { width: 8px; }
+.alt-boardwrap::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 8px; }
+
+/* ── A1: sheet promote button ── */
+.alt-promote { display: inline-flex; align-items: center; gap: 6px; background: none; border: 1px solid var(--hair); border-radius: 3px; padding: 4px 9px; font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; color: var(--text-muted); cursor: pointer; }
+.alt-promote:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── A3: atlas ── */
+.alt-atlas { position: absolute; inset: 46px 0 0 0; background: var(--bg); z-index: 25; overflow: auto; animation: dockIn .16s var(--easing); }
+.alt-atlas::-webkit-scrollbar { width: 10px; }
+.alt-atlas::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 10px; }
+.alt-atlas-head { display: flex; align-items: baseline; gap: 16px; padding: 22px 30px 6px; }
+.alt-atlas-head h1 { font-family: var(--display); font-weight: 700; font-size: 24px; letter-spacing: -.01em; margin: 0; color: var(--text); }
+.alt-atlas-head .sub { font-family: var(--mono); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; }
+.alt-atlas-head input { margin-left: auto; width: 260px; padding: 8px 12px; background: var(--panel); border: 1px solid var(--hair); border-radius: 3px; color: var(--text); font-family: var(--sans); font-size: 13px; outline: none; }
+.alt-atlas-head input:focus { border-color: var(--accent); }
+.alt-divgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 16px 30px 30px; }
+.alt-div { border: 1px solid var(--hair); border-radius: var(--radius); background: var(--panel); overflow: hidden; }
+.alt-div-h { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--hair); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 5%, transparent), transparent); }
+.alt-div-h .g { font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--on-accent); background: var(--accent); border-radius: 3px; padding: 3px 6px; letter-spacing: .08em; }
+.alt-div-h .t { font-family: var(--display); font-weight: 700; font-size: 15px; color: var(--text); }
+.alt-div-h .c { margin-left: auto; font-family: var(--mono); font-size: 9px; color: var(--text-muted); }
+.alt-sec { padding: 10px 14px 12px; }
+.alt-sec + .alt-sec { border-top: 1px dashed var(--hair); }
+.alt-sec .sh { font-family: var(--mono); font-size: 8.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 7px; }
+.alt-entry { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; width: 100%; text-align: left; background: none; border: none; padding: 5px 6px; border-radius: 3px; cursor: pointer; }
+.alt-entry:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.alt-entry .n { font-size: 12.5px; font-weight: 700; color: var(--text); white-space: nowrap; }
+.alt-entry:hover .n { color: var(--accent); }
+.alt-entry .d { flex: 1; min-width: 0; font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alt-entry .w { font-family: var(--mono); font-size: 8px; letter-spacing: .1em; color: var(--info); border: 1px solid color-mix(in srgb, var(--info) 45%, transparent); border-radius: 2px; padding: 1px 4px; font-weight: 700; flex-shrink: 0; }
+.alt-entry .p { font-family: var(--mono); font-size: 8px; letter-spacing: .1em; color: var(--accent); border: 1px dashed var(--accent); border-radius: 2px; padding: 1px 4px; font-weight: 700; flex-shrink: 0; }
+
+/* band buttons */
+.alt-atlasbtn.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }

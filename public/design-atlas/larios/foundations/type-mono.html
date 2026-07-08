@@ -1,0 +1,18 @@
+<!-- @dsCard group="Type" viewport="700x180" name="Mono figures — JetBrains Mono" subtitle="Tabular lining for every count, price, temp, timer" -->
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;background:var(--bg);font-family:var(--sans);padding:22px;color:var(--text)}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .cell .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:30px;font-weight:500;letter-spacing:-.01em}
+  .cell .l{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-muted);margin-top:4px;font-weight:700}
+  .amber{color:var(--accent)}.fire{color:var(--fire)}.ok{color:var(--ok)}
+</style></head>
+<body>
+  <div class="grid">
+    <div class="cell"><div class="v">$248.50</div><div class="l">Settlement</div></div>
+    <div class="cell"><div class="v ok">38°F</div><div class="l">Walk-in</div></div>
+    <div class="cell"><div class="v amber">04:12</div><div class="l">Cool timer</div></div>
+    <div class="cell"><div class="v fire">86</div><div class="l">Ribeye out</div></div>
+  </div>
+</body></html>

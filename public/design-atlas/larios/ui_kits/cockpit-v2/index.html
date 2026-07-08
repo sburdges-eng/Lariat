@@ -1,0 +1,138 @@
+<!-- @dsCard group="Proposals" viewport="1280x800" name="Cockpit v2 — divisions & tabs" subtitle="Proposed IA: workspace rail, per-division boards, tab strip, ⧉ windows · Iron theme" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The Lariat · Cockpit v2 proposal</title>
+<link rel="stylesheet" href="../../styles.css">
+<link rel="stylesheet" href="../cockpit/cockpit.css">
+<link rel="stylesheet" href="v2.css">
+<style>
+  html, body { margin: 0; background: #0a0b0c; }
+  #root { width: 1280px; margin: 0 auto; }
+  a { color: var(--accent); }
+  a:hover { color: var(--ember-glow); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script src="../cockpit/data.js"></script>
+<script type="text/babel" src="../cockpit/Shell.jsx"></script>
+<script type="text/babel" src="../cockpit/Screens.jsx"></script>
+<script type="text/babel" src="Shell2.jsx"></script>
+<script type="text/babel" src="ScreensOps.jsx"></script>
+<script type="text/babel" src="ScreensOffice.jsx"></script>
+<script type="text/babel" src="ScreensHr.jsx"></script>
+<script type="text/babel" src="ScreensFront.jsx"></script>
+<script type="text/babel">
+const { useState } = React;
+
+function App() {
+  const S1 = window.Shell;      // v1: ServiceStrip
+  const S2 = window.Shell2;
+  const Sc = window.Screens;
+  const C = window.COCKPIT;
+
+  const [theme, setTheme] = useState('iron');
+  const [division, setDivision] = useState('service');
+  const [tabs, setTabs] = useState([{ id: 'today', name: 'Today', divGlyph: 'LN', pinned: true }]);
+  const [active, setActive] = useState('today');
+
+  function openBoard(b) {
+    const d = S2.DIVISIONS.find((x) => x.id === division);
+    if (!tabs.find((t) => t.id === b.id)) {
+      setTabs([...tabs, { id: b.id, name: b.name, divGlyph: d.glyph, stub: b.stub, win: b.win }]);
+    }
+    setActive(b.id);
+  }
+  function closeTab(id) {
+    const next = tabs.filter((t) => t.id !== id);
+    setTabs(next);
+    if (active === id) setActive(next[next.length - 1]?.id || 'today');
+  }
+
+  const tab = tabs.find((t) => t.id === active);
+  const S2c = window.Screens2;
+  const ROUTES = {
+    'eighty-six': () => <Sc.EightySixScreen />,
+    temps: () => <Sc.TempLogScreen />,
+    inventory: () => <Sc.InventoryScreen />,
+    recipes: () => <Sc.RecipesScreen />,
+    beo: () => <Sc.BeoScreen />,
+    prep: () => <S2c.PrepScreen />,
+    specials: () => <S2c.SpecialsScreen />,
+    kds: () => <S2c.KdsScreen />,
+    cooling: () => <S2c.CoolingScreen />,
+    cleaning: () => <S2c.CleaningScreen />,
+    sanitizer: () => <S2c.SanitizerScreen />,
+    orderguide: () => <S2c.OrderGuideScreen />,
+    receiving: () => <S2c.ReceivingScreen />,
+    costing: () => <S2c.CostingScreen />,
+    tippool: () => <S2c.TipPoolScreen />,
+    breaks: () => <S2c.BreaksScreen />,
+    sick: () => <S2c.SickLeaveScreen />,
+    wage: () => <S2c.WageNoticeScreen />,
+    reviews: () => <S2c.ReviewsScreen />,
+    certs: () => <S2c.CertsScreen />,
+    goldstars: () => <S2c.GoldStarsScreen />,
+    audit: () => <S2c.AuditScreen />,
+    host: () => <S2c.HostStandScreen />,
+    floor: () => <S2c.FloorScreen />,
+    resos: () => <S2c.ReservationsScreen />,
+    bar: () => <S2c.BarScreen />,
+    tonight: () => <S2c.TonightScreen />,
+    stage: () => <S2c.StageScreen />,
+    sound: () => <S2c.SoundScreen />,
+    boxoffice: () => <S2c.BoxOfficeScreen />,
+    settlement: () => <S2c.SettlementScreen />,
+  };
+  let screen;
+  if (!tab) screen = <Sc.TodayScreen go={() => {}} />;
+  else if (tab.stub) screen = <S2.StubScreen name={tab.name} win={tab.win} />;
+  else if (tab.id === 'today') screen = <Sc.TodayScreen go={(v) => {
+    // quick actions on Today deep-link into boards across divisions
+    const map = { 'eighty-six': ['service', '86 Board'], inventory: ['office', 'Stock & Par'], recipes: ['books', 'Recipe Book'], temps: ['safety', 'Temp Log'] };
+    if (v.startsWith('station:')) { setDivision('service'); openBoard({ id: v, name: v.slice(8, 9).toUpperCase() + v.slice(9) }); return; }
+    const m = map[v]; if (!m) return;
+    setDivision(m[0]);
+    const d = S2.DIVISIONS.find((x) => x.id === m[0]);
+    const b = d.sections.flatMap((s) => s.boards).find((x) => x.id === v);
+    if (b) {
+      if (!tabs.find((t) => t.id === b.id)) setTabs((p) => [...p, { id: b.id, name: b.name, divGlyph: d.glyph, stub: b.stub, win: b.win }]);
+      setActive(b.id);
+    }
+  }} />;
+  else if (tab.id.startsWith('station:')) screen = <Sc.StationScreen id={tab.id.slice(8)} />;
+  else if (ROUTES[tab.id]) screen = ROUTES[tab.id]();
+  else screen = <S2.StubScreen name={tab.name} />;
+
+  return (
+    <div className={`cockpit2 ${theme === 'iron' ? 'iron' : ''}`}>
+      <S1.ServiceStrip />
+      <S2.DivisionRail division={division} setDivision={setDivision} badge86={C.eightySix.length} />
+      <S2.DivisionSidebar division={division} activeTab={active} openBoard={openBoard} />
+      <S2.TabStrip tabs={tabs} active={active} setActive={setActive} closeTab={closeTab} />
+      <main className="ck-main">{screen}</main>
+      <footer className="ck-cmd">
+        <div className="grp">
+          <span className="ck-slot"><kbd className="ck-kbd">⌘</kbd><kbd className="ck-kbd">K</kbd> Jump</span>
+          <span className="ck-slot"><kbd className="ck-kbd">⌘</kbd><kbd className="ck-kbd">1</kbd>–<kbd className="ck-kbd">6</kbd> Divisions</span>
+          <span className="ck-slot"><kbd className="ck-kbd">8</kbd> <span className="accent">86</span></span>
+          <span className="ck-slot"><kbd className="ck-kbd">W</kbd> Close tab</span>
+        </div>
+        <div className="grp">
+          <S2.ThemeToggle theme={theme} setTheme={setTheme} />
+          <span className="ck-slot">The Lariat <span style={{ opacity: .4 }}>·</span> v2 proposal</span>
+        </div>
+      </footer>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

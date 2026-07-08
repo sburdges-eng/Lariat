@@ -1,0 +1,68 @@
+/* LaRiOS — Typography. Three voices:
+   · --display (Archivo)     — headings, board titles, section stamps. An
+                               engineered grotesque: utilitarian, never italic.
+   · --sans    (Inter Tight) — UI labels, body, controls, nav
+   · --mono    (JetBrains Mono) — ALL figures: counts, prices, temps, timers, grids
+   Body defaults to 16px Inter Tight with tabular figures on. */
+
+:root {
+  --display:'Archivo','Inter Tight',system-ui,sans-serif; /* @kind font */
+  --serif:var(--display); /* @kind font */
+  --sans:'Inter Tight',-apple-system,BlinkMacSystemFont,system-ui,sans-serif; /* @kind font */
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono',monospace; /* @kind font */
+
+  /* Type scale — display (serif) */
+  --title-xl:56px;   /* hero */
+  --title-lg:36px;
+  --title-md:24px;
+  --title-sm:18px;
+
+  /* UI / body sizes */
+  --text-body:14px;
+  --text-sm:13px;
+  --text-xs:11.5px;
+
+  /* Eyebrow / stamp — mono, wide-tracked, uppercase */
+  --eyebrow-size:9.5px;
+  --eyebrow-track:.28em;
+}
+
+html, body {
+  font-family:var(--sans);
+  color:var(--text);
+  font-size:16px;
+  font-feature-settings:"ss01","cv11","tnum";
+  -webkit-font-smoothing:antialiased;
+}
+
+.serif  { font-family:var(--display); font-weight:400; letter-spacing:-.01em; }
+.mono   { font-family:var(--mono); letter-spacing:-.01em; }
+.tnum   { font-family:var(--mono); font-feature-settings:"tnum"; font-variant-numeric:tabular-nums; }
+
+/* Eyebrow / kicker — the mono wide-tracked micro-label above headings. */
+.eyebrow {
+  font-family:var(--mono);
+  font-size:var(--eyebrow-size);
+  letter-spacing:var(--eyebrow-track);
+  text-transform:uppercase;
+  color:var(--text-muted);
+  font-weight:700;
+}
+
+/* Display headings — Archivo grotesque, tight leading, heavy. Emphasis is
+   amber color only, never italic. */
+.title-xl { font-family:var(--display); font-size:var(--title-xl); line-height:1; letter-spacing:-.02em; font-weight:700; }
+.title-lg { font-family:var(--display); font-size:var(--title-lg); line-height:1.02; letter-spacing:-.015em; font-weight:700; }
+.title-md { font-family:var(--display); font-size:var(--title-md); line-height:1.08; letter-spacing:-.01em; font-weight:600; }
+.title-sm { font-family:var(--display); font-size:var(--title-sm); line-height:1.15; font-weight:600; }
+.title-xl em, .title-lg em, .title-md em { font-style:normal; color:var(--accent); }
+
+/* Section stamp — Archivo small-caps under a hairline; the section label. */
+.stamp-label {
+  font-family:var(--display);
+  font-variant-caps:small-caps;
+  font-weight:500;
+  font-size:12px;
+  letter-spacing:.12em;
+  color:var(--text-muted);
+}
