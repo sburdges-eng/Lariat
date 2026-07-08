@@ -25,6 +25,12 @@ final class SickWorkerViewModel {
     var overrideAction: SickAction?
     var reportNote = ""
 
+    // Doctor's-note documents (design 2026-07-08-lariat-sick-note-docs).
+    // Counts are PIN-free (the locked row shows "N on file"); full rows —
+    // filenames are PHI-adjacent — are fetched only with an active PIN session.
+    var documentCounts: [Int64: Int] = [:]
+    var documents: [Int64: [SickNoteDocumentRow]] = [:]
+
     let cookStore: CookIdentityStore
     let pinStore: PinSessionStore
     var staff: [StaffMember] = []
@@ -121,6 +127,28 @@ final class SickWorkerViewModel {
         } catch {
             fetchError = "Could not load sick worker list"
         }
+        await refreshDocuments()
+    }
+
+    /// Refresh the per-report document counts (always) and rows (PIN only).
+    /// Document data is secondary to the board — on error keep the last-known
+    /// values rather than failing the whole snapshot.
+    private func refreshDocuments() async {
+        guard let snap = snapshot else {
+            documentCounts = [:]
+            documents = [:]
+            return
+        }
+        let ids = (snap.active + snap.history).map(\.id)
+        let repo = SickNoteRepository(readDB: readDB, writeDB: writeDB)
+        do {
+            documentCounts = try await repo.counts(reportIds: ids, locationId: locationId)
+            documents = pinOk
+                ? try await repo.documents(reportIds: ids, locationId: locationId)
+                : [:]
+        } catch {
+            // Keep previous values; the poller retries in a few seconds.
+        }
     }
 
     /// File a new sick report (PIC authority). Validation + the FDA-floor gate
@@ -193,6 +221,65 @@ final class SickWorkerViewModel {
         } catch {
             actionError = WriteErrorMapper.message(for: error)
         }
+    }
+
+    /// Attach a doctor's-note document to a report (manager-PIN authority,
+    /// StaffCertViewModel write pattern). Presents the open panel, copies the
+    /// file under `data/uploads/sick-notes/`, then records the audited row —
+    /// if the DB insert fails the copied file is removed so no orphan lands
+    /// on disk (spec §9 file-vs-row drift).
+    func attachDocument(reportId: Int64, kind: SickNoteKind) {
+        guard !isSaving else { return }
+        actionError = nil
+        do {
+            let user = try ManagementWrite().requireSession(pinStore.session)
+            try writeDB.pool.read { db in try pinStore.validateActiveUser(db: db) }
+            guard let picked = try SickNoteAttach.pickAndCopy(
+                reportId: reportId,
+                dataDir: Self.dataRoot()
+            ) else { return }   // operator cancelled the panel
+
+            isSaving = true
+            defer { isSaving = false }
+            do {
+                let repo = SickNoteRepository(readDB: readDB, writeDB: writeDB)
+                _ = try repo.attach(
+                    input: SickNoteAttachInput(
+                        reportId: reportId,
+                        filePath: picked.filePath,
+                        kind: kind,
+                        originalFilename: picked.originalFilename,
+                        uploadedAt: Self.isoFormatter.string(from: Date())
+                    ),
+                    context: .nativeMac(pinUser: user)
+                )
+            } catch {
+                try? FileManager.default.removeItem(at: picked.destination)
+                throw error
+            }
+            Task { await refresh() }
+        } catch {
+            actionError = WriteErrorMapper.message(for: error)
+        }
+    }
+
+    /// Openable URL for a stored document, or nil when the file is missing on
+    /// disk (the DB row can outlive a moved/deleted file — spec §5).
+    nonisolated static func documentFileURL(
+        _ doc: SickNoteDocumentRow,
+        env: [String: String] = ProcessInfo.processInfo.environment,
+        fileManager: FileManager = .default
+    ) -> URL? {
+        let uploads = dataRoot(env: env).appendingPathComponent("uploads")
+        let url = uploads.appendingPathComponent(doc.filePath)
+        return fileManager.fileExists(atPath: url.path) ? url : nil
+    }
+
+    /// The Lariat data root (`LARIAT_DATA_DIR` or `<cwd>/data`) as a URL.
+    nonisolated private static func dataRoot(
+        env: [String: String] = ProcessInfo.processInfo.environment
+    ) -> URL {
+        URL(fileURLWithPath: LariatDB.resolveDataDirectory(env: env), isDirectory: true)
     }
 
     /// Display name for a report's worker id via the staff catalog.

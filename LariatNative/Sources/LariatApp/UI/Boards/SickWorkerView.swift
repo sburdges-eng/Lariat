@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import LariatDB
 import LariatModel
@@ -139,8 +140,78 @@ struct SickWorkerView: View {
                 .disabled(vm.isSaving)
                 .accessibilityLabel("Clear \(vm.workerName(row.cookId)) to return")
             }
+
+            documentsBlock(reportId: row.id)
         }
         .padding(.vertical, 2)
+    }
+
+    // ── Doctor's-note documents (PIN-gated PHI, spec §5) ────────────────
+
+    /// Per-report document list + attach affordance. Without a PIN session
+    /// only the count is shown — never a filename or an open button.
+    @ViewBuilder
+    private func documentsBlock(reportId: Int64) -> some View {
+        let count = vm.documentCounts[reportId] ?? 0
+        if vm.pinOk {
+            ForEach(vm.documents[reportId] ?? []) { doc in
+                documentRow(doc)
+            }
+            Menu {
+                Button("Doctor's note…") {
+                    vm.attachDocument(reportId: reportId, kind: .note)
+                }
+                Button("Return-to-work clearance…") {
+                    vm.attachDocument(reportId: reportId, kind: .clearance)
+                }
+            } label: {
+                Label("Attach document…", systemImage: "paperclip")
+                    .font(.caption)
+            }
+            .disabled(vm.isSaving)
+            .accessibilityLabel("Attach a doctor's note or clearance document")
+        } else if count > 0 {
+            Label(
+                count == 1
+                    ? "1 document on file — unlock to view"
+                    : "\(count) documents on file — unlock to view",
+                systemImage: "paperclip"
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    /// One stored document: open in the OS viewer when the file exists, or a
+    /// dimmed not-found hint when the row outlived the file (EquipmentView
+    /// manual-row precedent).
+    @ViewBuilder
+    private func documentRow(_ doc: SickNoteDocumentRow) -> some View {
+        if let url = SickWorkerViewModel.documentFileURL(doc) {
+            Button {
+                NSWorkspace.shared.open(url)
+            } label: {
+                Label(documentLabel(doc), systemImage: documentIcon(doc))
+                    .font(.caption)
+                    .foregroundStyle(.tint)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open \(documentLabel(doc))")
+        } else {
+            Label("\(documentLabel(doc)) — file not found", systemImage: "doc.badge.ellipsis")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    private func documentLabel(_ doc: SickNoteDocumentRow) -> String {
+        let kind = doc.kindValue == .clearance ? "Clearance" : "Doctor's note"
+        let name = doc.originalFilename ?? (doc.filePath as NSString).lastPathComponent
+        return "\(kind): \(name)"
+    }
+
+    private func documentIcon(_ doc: SickNoteDocumentRow) -> String {
+        doc.kindValue == .clearance ? "checkmark.seal" : "doc.text"
     }
 
     // ── File a new report (PIN-gated) ──────────────────────────────────
@@ -209,6 +280,9 @@ struct SickWorkerView: View {
                     Text(vm.workerName(h.cookId)).font(.subheadline)
                     Text("\(h.action) · \(timeText(h.startedAt)) → \(timeText(h.returnAt)) · \(h.clearanceSource ?? "—")")
                         .font(.caption).foregroundStyle(.secondary)
+                    // Return-to-work paperwork usually lands AFTER clearing, so
+                    // cleared reports keep the attach/list affordances.
+                    documentsBlock(reportId: h.id)
                 }
             }
         }
