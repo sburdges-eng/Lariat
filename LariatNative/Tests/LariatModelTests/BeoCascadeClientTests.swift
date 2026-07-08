@@ -195,6 +195,62 @@ final class BeoCascadeClientTests: XCTestCase {
         XCTAssertEqual(root, "/elsewhere/repo")
     }
 
+    // ── in-process default runner (Wave C — no python spawn) ─────────────
+
+    private var repoRoot: String {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()   // Tests/LariatModelTests
+            .deletingLastPathComponent()   // Tests
+            .deletingLastPathComponent()   // LariatNative
+            .deletingLastPathComponent()   // repo root
+            .path
+    }
+
+    func testDefaultRunnerRunsInProcessAndReportsUnmapped() async throws {
+        // BeoCascadeClient() now defaults to the in-process runner: it loads the
+        // real recipes/ + beo_recipe_map.csv and never spawns python.
+        let r = try await BeoCascadeClient().cascadeFromLineItems(
+            [.init(itemName: "__no_such_beo_item__", quantity: 1)],
+            qtyInYieldUnits: true, root: repoRoot
+        )
+        XCTAssertTrue(r.orderGuide.isEmpty)
+        XCTAssertTrue(r.prepDemands.isEmpty)
+        XCTAssertEqual(r.unmapped.map(\.menuItem), ["__no_such_beo_item__"])
+    }
+
+    func testInProcessDefaultMatchesDirectBuildCascade() async throws {
+        let base = URL(fileURLWithPath: repoRoot)
+        let manifest = try RecipeManifestLoader.loadManifest(
+            recipeIndex: base.appendingPathComponent("recipes/recipe_index.csv"),
+            normalizedDir: base.appendingPathComponent("recipes/normalized")
+        )
+        let (beoMap, mapUnresolved, scales) = RecipeManifestLoader.loadBeoRecipeMap(
+            csv: base.appendingPathComponent("menus/beo_recipe_map.csv"), manifest: manifest
+        )
+        let expected = BeoCascadeCompute.buildCascade(
+            manifest: manifest, beoMap: beoMap, lineItems: [("Trio Dips", 2)],
+            qtyInYieldUnits: true, inventory: nil, mapWarnings: mapUnresolved, scales: scales
+        )
+        let actual = try await BeoCascadeClient().cascadeFromLineItems(
+            [.init(itemName: "Trio Dips", quantity: 2)], qtyInYieldUnits: true, root: repoRoot
+        )
+        XCTAssertEqual(actual.orderGuide.count, expected.orderGuide.count, "order_guide count")
+        for (a, e) in zip(actual.orderGuide, expected.orderGuide) {
+            XCTAssertEqual(a.ingredient, e.ingredient)
+            XCTAssertEqual(a.unit, e.unit)
+            XCTAssertEqual(a.totalNeeded, e.totalNeeded, accuracy: 1e-9)
+            XCTAssertEqual(a.toOrder, e.toOrder, accuracy: 1e-9)
+        }
+        XCTAssertEqual(actual.prepDemands.count, expected.prepDemands.count, "prep_demands count")
+        for (a, e) in zip(actual.prepDemands, expected.prepDemands) {
+            XCTAssertEqual(a.recipeSlug, e.recipeSlug)
+            XCTAssertEqual(a.displayName, e.displayName)
+            XCTAssertEqual(a.unit, e.unit)
+            XCTAssertEqual(a.qty, e.qty, accuracy: 1e-9)
+        }
+        XCTAssertEqual(actual.unmapped, expected.unmapped)
+    }
+
     // ── helper ───────────────────────────────────────────────────────────
 
     private func assertCascadeError(
