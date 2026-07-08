@@ -28,6 +28,32 @@ public enum SickNoteWriteError: Error, LocalizedError, Equatable {
     }
 }
 
+/// Input for attaching one doctor's-note document to a sick-worker report.
+/// `filePath` is the already-derived relative path (the App layer copies the
+/// picked file BEFORE recording it); `location_id`/`uploaded_by` come from the
+/// `RegulatedWriteContext` at write time.
+public struct SickNoteAttachInput: Sendable {
+    public let reportId: Int64
+    public let filePath: String
+    public let kind: SickNoteKind
+    public let originalFilename: String?
+    public let uploadedAt: String
+
+    public init(
+        reportId: Int64,
+        filePath: String,
+        kind: SickNoteKind,
+        originalFilename: String? = nil,
+        uploadedAt: String
+    ) {
+        self.reportId = reportId
+        self.filePath = filePath
+        self.kind = kind
+        self.originalFilename = originalFilename
+        self.uploadedAt = uploadedAt
+    }
+}
+
 /// Full `sick_note_documents` row for display + audit payload. `filePath` is
 /// relative to `data/uploads/` (`sick-notes/<report_id>/<uuid>.<ext>`);
 /// `originalFilename` is display-only (PHI-adjacent — PIN-gated in the UI).
