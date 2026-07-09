@@ -56,7 +56,9 @@ button { font-family: inherit; cursor: pointer; }
 .strip {
   grid-area: strip;
   display: grid;
-  grid-template-columns: 260px 1fr 260px;
+  /* middle track must be collapsible (minmax 0) or the phase labels force
+     horizontal page scroll at ~1024px */
+  grid-template-columns: 260px minmax(0, 1fr) 260px;
   align-items: stretch;
   /* Warm-char chrome with a faint amber bloom along the top edge — lamplight
      catching the lip of the panel, not a glow. */
@@ -86,6 +88,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .phases {
   display: flex; align-items: center; padding: 0 20px; position: relative;
+  min-width: 0; overflow: hidden;
 }
 .phases-track {
   flex: 1; display: grid; grid-template-columns: repeat(4, 1fr);
@@ -307,7 +310,9 @@ button { font-family: inherit; cursor: pointer; }
 /* ------------------- Canvas (main) ------------------- */
 .main {
   grid-area: canvas;
-  padding: 28px 36px 40px;
+  /* bottom padding clears the fixed floorplan trigger (bottom 66px + 40px
+     tall) so fully-scrolled content is never stuck underneath it */
+  padding: 28px 36px 120px;
   overflow: auto;
   max-width: none;
 }
@@ -580,16 +585,13 @@ textarea.input { resize: vertical; }
 .text-accent { color: var(--accent); }
 .font-bold { font-weight: 700; }
 
-/* iPad portrait */
+/* iPad portrait — content-density rules only. The cockpit shell (.app /
+   .sidebar) collapse lives in the single "Responsive collapse" block below;
+   keeping shell rules in one place stops the two blocks fighting over the
+   grid (the old duplicate here turned the sidebar into an overlapping
+   horizontal row). */
 @media (max-width: 900px) {
-  .app { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
-  .sidebar { order: 2; flex-direction: row; padding: 12px; gap: 8px; border-right: none; border-top: 1px solid var(--border); overflow-x: auto; }
-  .brand { display: none; }
-  .nav-section { display: none; }
-  .nav { flex-direction: row; gap: 4px; }
-  .nav a { font-size: 13px; padding: 10px 12px; }
-  .cook-picker { margin: 0; min-width: 160px; }
-  .main { padding: 18px; }
+  .main { padding: 18px 18px 120px; }
   h1 { font-size: 22px; }
   .check-row { grid-template-columns: 1fr; gap: 10px; padding: 14px; }
   .check-name { font-size: 18px; }
@@ -1492,7 +1494,16 @@ textarea.input { resize: vertical; }
   }
   .strip { grid-template-columns: 1fr auto; }
   .strip .phases { display: none; }
-  .sidebar { max-height: 50vh; overflow: auto; }
+  /* The Line becomes a capped, scrollable nav band under the strip — still a
+     column, so section stamps and station cells keep their wide-rail layout. */
+  .sidebar {
+    max-height: 40vh;
+    overflow-y: auto;
+    padding: 12px;
+    border-right: none;
+    border-bottom: 1px solid var(--hair);
+  }
+  .brand { display: none; }
   .command { font-size: 10px; }
   .editorial-hero { grid-template-columns: 1fr; gap: 14px; }
   .editorial-hero h1 { font-size: 40px; }
@@ -1505,9 +1516,11 @@ textarea.input { resize: vertical; }
 .beo-page { max-width: 1400px; }
 .beo-event-bar {
   display: flex; gap: 10px; align-items: center;
+  flex-wrap: wrap;
   margin-bottom: 16px;
 }
-.beo-event-bar .input { flex: 1 1 auto; max-width: 520px; }
+.beo-event-bar .input { flex: 1 1 260px; max-width: 520px; }
+.beo-event-bar .btn { white-space: nowrap; }
 .beo-add-party {
   background: var(--panel-2);
   border: 1px solid var(--border);
@@ -1534,7 +1547,9 @@ textarea.input { resize: vertical; }
   align-items: start;
 }
 @media (max-width: 1024px) {
-  .beo-worksheet { grid-template-columns: 1fr; }
+  /* minmax(0, …) so the 1100px-min prep-sheet table scrolls inside its
+     overflow-x wrapper instead of blowing the column out past the viewport */
+  .beo-worksheet { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* --- left: invoice --- */
