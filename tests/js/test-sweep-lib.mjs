@@ -21,16 +21,17 @@ test('run ids are unique and shell-safe', () => {
 });
 
 test('cost projection = hours * rate summed', () => {
-  const jobs = [{ estHours: 2, machineType: 'g2-standard-8' }, { estHours: 1, machineType: 'a2-highgpu-1g' }];
-  assert.equal(projectCost(jobs, config.rates), 2 * 1.0 + 1 * 4.25);
+  const jobs = [{ estHours: 2, machineType: 'a2-highgpu-1g' }, { estHours: 1, machineType: 'a2-highgpu-1g' }];
+  assert.equal(projectCost(jobs, config.rates), 3 * config.rates['a2-highgpu-1g']);
 });
 
 test('pruneToBudget drops tail jobs until projection fits', () => {
+  // 10h a2 spot jobs at $1.7/hr = $17 each
   const jobs = Array.from({ length: 9 }, (_, i) => ({ runId: `j${i}`, estHours: 10, machineType: 'a2-highgpu-1g' }));
   const kept = pruneToBudget(jobs, 100, 0, config.rates);
-  assert.equal(kept.length, 2); // 2 * 42.5 = 85 <= 100; 3 would be 127.5
+  assert.equal(kept.length, 5); // 5 * 17 = 85 <= 100; 6 would be 102
   const withSpent = pruneToBudget(jobs, 100, 60, config.rates);
-  assert.equal(withSpent.length, 0); // 60 + 42.5 > 100
+  assert.equal(withSpent.length, 2); // 60 + 2*17 = 94 <= 100; 3rd -> 111
 });
 
 test('jobYaml carries machine, accelerator, image, timeout, and the entry command', () => {

@@ -1,10 +1,11 @@
 {
   "project": "devvy-490312",
   "bucket": "lariat-train-us-central1",
-  "regions": ["us-central1", "us-east4", "us-west1", "europe-west4"],
+  "regions": ["us-central1", "europe-west4", "asia-southeast1"],
   "containerUri": "us-docker.pkg.dev/vertex-ai/training/pytorch-gpu.2-4.py310:latest",
   "budgetUsd": 200,
-  "rates": { "a2-highgpu-1g": 4.25, "g2-standard-8": 1.0, "g2-standard-12": 1.2 },
+  "strategy": "SPOT",
+  "rates": { "a2-highgpu-1g": 1.7 },
   "jobTimeoutHours": 8,
   "bootDiskGb": 200,
   "bases": [
@@ -21,10 +22,10 @@
     {
       "id": "Qwen/Qwen3-4B-Instruct-2507",
       "chatTemplate": "chatml",
-      "machineType": "g2-standard-8",
-      "acceleratorType": "NVIDIA_L4",
+      "machineType": "a2-highgpu-1g",
+      "acceleratorType": "NVIDIA_TESLA_A100",
       "acceleratorCount": 1,
-      "estHoursPerEpoch": 2.2,
+      "estHoursPerEpoch": 0.9,
       "gated": false,
       "tag": "q3-4b"
     },

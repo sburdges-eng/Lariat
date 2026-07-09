@@ -80,6 +80,8 @@ export function jobYaml(job, config, { hfToken = '' } = {}) {
         - "${cmd}"
 ${env}scheduling:
   timeout: ${Math.round((job.timeoutHours ?? config.jobTimeoutHours) * 3600)}s
+  strategy: ${config.strategy || 'ON_DEMAND'}
+  restartJobOnWorkerRestart: ${config.strategy === 'SPOT' ? 'true' : 'false'}
 `;
 }
 
