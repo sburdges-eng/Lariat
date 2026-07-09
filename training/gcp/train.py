@@ -113,17 +113,25 @@ def main():
     tok.save_pretrained('/tmp/merged')
     del base, merged
 
-    # GGUF: convert (pure python) + quantize (small CPU-only cmake build)
+    # GGUF: convert (pure python) + quantize. The prebuilt container has no
+    # cmake — pip provides cmake+ninja binaries. If the toolchain still fails,
+    # upload the f16 instead; the Mac quantizes locally (brew llama-quantize).
     sh('git clone --depth 1 https://github.com/ggml-org/llama.cpp /tmp/llama.cpp')
     sh('pip install -q -r /tmp/llama.cpp/requirements/requirements-convert_hf_to_gguf.txt')
     sh('python /tmp/llama.cpp/convert_hf_to_gguf.py /tmp/merged --outtype f16 --outfile /tmp/model-f16.gguf')
-    sh('cmake -S /tmp/llama.cpp -B /tmp/llama.cpp/build -DGGML_CUDA=OFF -DLLAMA_BUILD_TESTS=OFF '
-       '-DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=OFF')
-    sh('cmake --build /tmp/llama.cpp/build --target llama-quantize -j')
-    sh('/tmp/llama.cpp/build/bin/llama-quantize /tmp/model-f16.gguf /tmp/model-q4_k_m.gguf q4_k_m')
+    gguf_path, gguf_name = '/tmp/model-f16.gguf', 'model-f16.gguf'
+    try:
+        sh('pip install -q cmake ninja')
+        sh('cmake -S /tmp/llama.cpp -B /tmp/llama.cpp/build -G Ninja -DGGML_CUDA=OFF '
+           '-DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=OFF')
+        sh('cmake --build /tmp/llama.cpp/build --target llama-quantize -j')
+        sh('/tmp/llama.cpp/build/bin/llama-quantize /tmp/model-f16.gguf /tmp/model-q4_k_m.gguf q4_k_m')
+        gguf_path, gguf_name = '/tmp/model-q4_k_m.gguf', 'model-q4_k_m.gguf'
+    except subprocess.CalledProcessError as e:
+        print(f'quantize failed ({e}); uploading f16 fallback', flush=True)
 
     prefix = f'runs/{a.run_id}'
-    bkt.blob(f'{prefix}/model-q4_k_m.gguf').upload_from_filename('/tmp/model-q4_k_m.gguf', timeout=1800)
+    bkt.blob(f'{prefix}/{gguf_name}').upload_from_filename(gguf_path, timeout=3600)
     for root, _dirs, files in os.walk('/tmp/out/adapters'):
         for f in files:
             p = os.path.join(root, f)
@@ -133,6 +141,7 @@ def main():
         'run_id': a.run_id, 'base_model': a.base,
         'val_loss': val.get('eval_loss'),
         'train_runtime_s': round(time.time() - t0),
+        'gguf': gguf_name,
         'config': {'lora_r': a.lora_r, 'lr': a.lr, 'epochs': a.epochs,
                    'max_seq': a.max_seq, 'chat_template': a.chat_template},
     }

@@ -47,10 +47,11 @@ if (doDownload && done) {
   for (const m of metrics.slice(0, 4)) {
     const dir = join(HERE, 'artifacts', m.run_id);
     mkdirSync(dir, { recursive: true });
-    const dst = join(dir, 'model-q4_k_m.gguf');
+    const ggufName = m.gguf || 'model-q4_k_m.gguf';
+    const dst = join(dir, ggufName);
     if (!existsSync(dst)) {
-      console.log(`downloading ${m.run_id} (val_loss=${m.val_loss})…`);
-      gc(['storage', 'cp', `gs://${config.bucket}/runs/${m.run_id}/model-q4_k_m.gguf`, dst]);
+      console.log(`downloading ${m.run_id}/${ggufName} (val_loss=${m.val_loss})…`);
+      gc(['storage', 'cp', `gs://${config.bucket}/runs/${m.run_id}/${ggufName}`, dst]);
     }
   }
   console.log(`downloaded top ${Math.min(4, metrics.length)} candidates by val_loss`);

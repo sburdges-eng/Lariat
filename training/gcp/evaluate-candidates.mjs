@@ -16,8 +16,14 @@ const skipBaseline = process.argv.includes('--skip-baseline');
 const metrics = JSON.parse(readFileSync(join(HERE, 'artifacts', 'metrics-all.json'), 'utf8'));
 
 function makeModel(runId, baseModel) {
-  const gguf = join(HERE, 'artifacts', runId, 'model-q4_k_m.gguf');
-  if (!existsSync(gguf)) return null;
+  let gguf = join(HERE, 'artifacts', runId, 'model-q4_k_m.gguf');
+  if (!existsSync(gguf)) {
+    // f16 fallback from a job whose on-VM quantize failed — quantize locally
+    const f16 = join(HERE, 'artifacts', runId, 'model-f16.gguf');
+    if (!existsSync(f16)) return null;
+    console.log(`quantizing ${runId} f16 -> q4_K_M locally…`);
+    execSync(`llama-quantize ${JSON.stringify(f16)} ${JSON.stringify(gguf)} q4_k_m`, { stdio: 'inherit' });
+  }
   const tmpl = baseModel.startsWith('meta-llama') ? 'Modelfile.llama31-v2.tmpl' : 'Modelfile.qwen-v2.tmpl';
   const mf = readFileSync(join(HERE, tmpl), 'utf8').replace('{{GGUF_PATH}}', gguf);
   const mfPath = join(HERE, 'artifacts', runId, 'Modelfile');
