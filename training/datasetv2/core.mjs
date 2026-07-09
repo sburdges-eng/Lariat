@@ -28,13 +28,21 @@ export function shuffle(rng, arr) {
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Deterministic pseudonyms: sorted unique names -> "Client A", "Client B"…
-// Sorting makes the mapping independent of discovery order.
+// Sorting makes the mapping independent of discovery order. Each name is
+// scrubbed in BOTH display form ("Jane Smith") and slug form ("jane_smith") —
+// \b doesn't fire inside snake_case IDs, which leaked surnames in v1
+// (review finding).
 export function buildScrubber(clientNames) {
   const sorted = [...new Set(clientNames.filter(Boolean))].sort();
-  const rules = sorted.map((name, i) => ({
-    re: new RegExp(`\\b${esc(name)}\\b`, 'gi'),
-    to: `Client ${String.fromCharCode(65 + (i % 26))}${i >= 26 ? Math.floor(i / 26) : ''}`,
-  }));
+  const rules = [];
+  sorted.forEach((name, i) => {
+    const pseudo = `Client ${String.fromCharCode(65 + (i % 26))}${i >= 26 ? Math.floor(i / 26) : ''}`;
+    rules.push({ re: new RegExp(`\\b${esc(name)}\\b`, 'gi'), to: pseudo });
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (slug.length > 2) {
+      rules.push({ re: new RegExp(esc(slug), 'g'), to: pseudo.toLowerCase().replace(/\s+/g, '_') });
+    }
+  });
   return (s) => rules.reduce((acc, r) => acc.replace(r.re, r.to), s);
 }
 

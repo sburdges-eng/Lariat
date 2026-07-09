@@ -22,6 +22,9 @@ import os
 import subprocess
 import time
 
+# must be set before torch import — reduces fragmentation OOMs at 8k seq
+os.environ.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')
+
 CHATML = (
     "{% for message in messages %}{{ '<|im_start|>' + message['role'] + '\n' "
     "+ message['content'] + '<|im_end|>' + '\n' }}{% endfor %}"
@@ -84,6 +87,10 @@ def main():
     cfg = SFTConfig(
         output_dir='/tmp/out', num_train_epochs=a.epochs, learning_rate=a.lr,
         per_device_train_batch_size=1, gradient_accumulation_steps=8,
+        # eval OOMs are the failure mode here: fp32 logits at 8k seq x 151k
+        # vocab are ~5GB PER SAMPLE, so eval must run batch=1, bf16, and move
+        # logits off-GPU frequently (smoke-0 died exactly here at batch=8).
+        per_device_eval_batch_size=1, bf16_full_eval=True, eval_accumulation_steps=1,
         gradient_checkpointing=True, max_length=a.max_seq, packing=False,
         bf16=True, logging_steps=20, eval_strategy='epoch', save_strategy='no',
         lr_scheduler_type='cosine', warmup_ratio=0.03, optim='paged_adamw_8bit',

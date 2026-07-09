@@ -122,3 +122,46 @@ test('command rows carry the ACTION ENGINE DIRECTIVE; question rows the ANSWER F
     if (['grounded_qa', 'allergen', 'refusal'].includes(r.meta.slice)) assert.match(u, /ANSWER FORMAT:/);
   }
 });
+
+test('every cook message routes like its directive under the REAL classifier', () => {
+  for (const r of rows) {
+    const u = r.messages[1].content;
+    const hasActionDirective = /ACTION ENGINE DIRECTIVE:/.test(u);
+    assert.equal(r.isCmd, hasActionDirective,
+      `classifier/directive mismatch (${r.meta.slice}): "${r.cookMsg.slice(0, 80)}"`);
+  }
+});
+
+test('action_json rows carry manager-tier catalog + hasPin context (serve-time invariant)', () => {
+  for (const r of rows.filter((x) => x.meta.slice === 'action_json' && !x.meta.sub)) {
+    assert.match(r.messages[1].content, /\[manager\]/,
+      `action row missing manager catalog: "${r.cookMsg.slice(0, 60)}"`);
+  }
+});
+
+test('read-imperative db_query rows are cook-tier commands', () => {
+  const ri = rows.filter((x) => x.meta.sub === 'read_imperative');
+  for (const r of ri) {
+    assert.equal(r.isCmd, true);
+    assert.ok(!/\[manager\]/.test(r.messages[1].content), 'read-imperative rows must use the cook catalog');
+    assert.equal(r.extracted?.payload?.action, 'db_query');
+  }
+});
+
+test('eighty_six reason is never fabricated: payload.reason must be worded in the message', () => {
+  for (const r of rows.filter((x) => x.extracted?.payload?.action === 'eighty_six')) {
+    const reason = r.extracted.payload.reason;
+    if (!reason) continue;
+    const msg = r.cookMsg.toLowerCase();
+    const rl = reason.toLowerCase();
+    assert.ok(msg.includes(rl) || (rl === 'ran out' && /we ran out/.test(msg)),
+      `fabricated reason "${reason}" not in message: "${r.cookMsg}"`);
+  }
+});
+
+test('give_gold_star uses exact full roster names', () => {
+  for (const r of rows.filter((x) => x.extracted?.payload?.action === 'give_gold_star')) {
+    assert.match(r.extracted.payload.cook_name, /\s/,
+      `cook_name must be a full display name: ${r.extracted.payload.cook_name}`);
+  }
+});

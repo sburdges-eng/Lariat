@@ -29,6 +29,13 @@ if (!SNAP.includes('snapshot')) {
 const { GROUNDED_SYSTEM } = await import('../../lib/ollama.ts');
 const { buildGroundedContext } = await import('../../lib/kitchenAssistantContext.ts');
 const { renderQueryCatalog, listQueriesForTier } = await import('../../lib/dbQueryTool.ts');
+const { isImperativeCommand } = await import('../../lib/cookMessageClassifier.ts');
+
+// Re-export the REAL Q-vs-C classifier: the directive attached to every
+// training row must be derived from it exactly as route.js derives it —
+// review finding: 67% of v1 action rows paired the ACTION directive with
+// messages the classifier routes as questions, an impossible serve shape.
+export { isImperativeCommand };
 
 export const GROUNDED = GROUNDED_SYSTEM;
 export const LOCATION = 'default';
@@ -137,13 +144,24 @@ export function loadSources() {
   ).all(LOCATION);
   const beoEvents = db.prepare('SELECT * FROM beo_events').all();
   const eightySix = db.prepare('SELECT item, reason FROM eighty_six LIMIT 200').all();
-  // roster for give_gold_star targets — first names only (never full PII rows)
-  const staff = db.prepare('SELECT display_name FROM entities_employees WHERE active = 1 LIMIT 100').all()
-    .map((r) => ({ name: String(r.display_name || '').split(/\s+/)[0] }))
+  // roster for give_gold_star targets — FULL names from cache/staff.json,
+  // the SAME source the context builder's roster uses (lib/data.ts getStaff);
+  // route.js requires an exact roster match on cook_name and the context
+  // instructs "use exact full names" (review finding: first names trained an
+  // unmatchable shape; entities_employees is a different, smaller table)
+  const staff = JSON.parse(readFileSync(join(SNAP, 'cache', 'staff.json'), 'utf8'))
+    .filter((s) => s.active !== false)
+    .map((s) => ({ name: `${s.first || ''} ${s.last || ''}`.trim() }))
     .filter((r) => r.name.length > 1);
   const complianceRules = readFileSync(join(SNAP, 'normalized', 'compliance_rules.jsonl'), 'utf8')
     .trim().split('\n').map((l) => JSON.parse(l));
-  const clientNames = harvestClientNames(beoEvents);
+  // Names shared with the active staff roster must NOT be scrubbed: the
+  // serve-time roster is rendered unscrubbed, so scrubbing a shared surname
+  // corrupts the roster lines in every training row (review finding:
+  // 'Barbara Client F (ID: barbara_goode)' in 4415/4415 rows).
+  const staffTokens = new Set(staff.flatMap((s) => s.name.toLowerCase().split(/\s+/)).filter((t) => t.length > 1));
+  const clientNames = harvestClientNames(beoEvents)
+    .filter((n) => !n.toLowerCase().split(/\s+/).every((t) => staffTokens.has(t)));
   db.close();
   return {
     recipes, allergenMatrix, stations, orderGuideItems, beoEvents,

@@ -2,7 +2,7 @@
   "project": "devvy-490312",
   "bucket": "lariat-train-us-central1",
   "regions": ["us-central1", "europe-west4", "asia-southeast1"],
-  "containerUri": "us-docker.pkg.dev/vertex-ai/training/pytorch-gpu.2-4.py310:latest",
+  "containerUri": "us-docker.pkg.dev/vertex-ai/training/pytorch-gpu.2-4.py310@sha256:db53e742b58d126fae7ca6fdb62997d71acdb1e0d13df5e267fa633f9c2fc40f",
   "budgetUsd": 200,
   "strategy": "SPOT",
   "rates": { "a2-highgpu-1g": 1.7 },

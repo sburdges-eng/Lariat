@@ -2,11 +2,24 @@
 // shape: system = GROUNDED_SYSTEM, user = the route.js template (real
 // CONTEXT from buildGroundedContext + db_query catalog + directive),
 // assistant = fenced action JSON first (commands) or grounded kitchen-voice
-// prose (questions). Invariants enforced by tests/js/test-dataset-v2-slices.mjs.
+// prose (questions).
+//
+// Fidelity invariants (locked in by tests/js/test-dataset-v2-slices.mjs,
+// added after the pre-sweep review round):
+//   - the directive on every row is derived from the REAL
+//     lib/cookMessageClassifier.ts isImperativeCommand — exactly how
+//     route.js decides it; command templates lead with classifier verbs;
+//   - mutating-command rows use manager-tier context/catalog (production
+//     command prompts always run PIN-authorized past route.js’s pre-LLM
+//     gate); a small read-imperative sub-slice covers the one cook-tier
+//     ACTION-directive shape that really occurs;
+//   - optional payload fields (eighty_six.reason, haccp_receive.note) are
+//     coupled to what the cook message actually says — never fabricated;
+//   - give_gold_star cook_name is the exact full roster display name.
 import { pick } from './core.mjs';
 import {
   GROUNDED, realContext, buildRuntimeUserMessage,
-  ACTION_DIRECTIVE, ANSWER_FORMAT, querySpecs,
+  ACTION_DIRECTIVE, ANSWER_FORMAT, querySpecs, isImperativeCommand,
 } from './sources.mjs';
 
 const fence = (obj) => '```json\n' + JSON.stringify(obj) + '\n```';
@@ -20,48 +33,49 @@ async function ctx(message, hasPin = false) {
   return ctxCache.get(key);
 }
 
-async function commandRow(message, payload, confirmation, { tier = 'cook' } = {}) {
+// Directive is ALWAYS derived from the real classifier, like route.js.
+// mustBe lets a generator assert its intent; a mismatch returns null and the
+// caller retries with another template (guards against template drift).
+async function buildRow(message, assistant, slice, { tier = 'cook', mustBe = null, sub = null } = {}) {
+  const isCmd = isImperativeCommand(message);
+  if (mustBe === 'command' && !isCmd) return null;
+  if (mustBe === 'question' && isCmd) return null;
   const user = buildRuntimeUserMessage({
     contextText: await ctx(message, tier === 'manager'),
-    tier, message, directive: ACTION_DIRECTIVE,
+    tier, message, directive: isCmd ? ACTION_DIRECTIVE : ANSWER_FORMAT,
   });
   return {
     messages: [
       { role: 'system', content: GROUNDED },
       { role: 'user', content: user },
-      { role: 'assistant', content: `${fence(payload)}\n${confirmation}` },
+      { role: 'assistant', content: assistant },
     ],
-    meta: { slice: 'action_json' },
+    meta: { slice, ...(sub ? { sub } : {}) },
   };
 }
 
-async function questionRow(message, answer, slice, { tier = 'cook' } = {}) {
-  const user = buildRuntimeUserMessage({
-    contextText: await ctx(message, tier === 'manager'),
-    tier, message, directive: ANSWER_FORMAT,
-  });
-  return {
-    messages: [
-      { role: 'system', content: GROUNDED },
-      { role: 'user', content: user },
-      { role: 'assistant', content: answer },
-    ],
-    meta: { slice },
-  };
-}
+// Mutating commands serve with hasPin=true (route.js pre-LLM PIN gate), so
+// they train on manager-tier context + the manager db_query catalog.
+const commandRow = (message, payload, confirmation, opts = {}) =>
+  buildRow(message, `${fence(payload)}\n${confirmation}`, 'action_json',
+    { tier: 'manager', mustBe: 'command', ...opts });
+
+const questionRow = (message, answer, slice, opts = {}) =>
+  buildRow(message, answer, slice, { mustBe: 'question', ...opts });
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const displayName = (r) => r.name || r.slug;
 const firstStation = (r) => String(r.station || '').split(';')[0].trim();
 
-const MULTIPLIERS = [
-  { words: ['double', '2x', 'two batches of'], n: 2 },
-  { words: ['triple', '3x', 'three batches of'], n: 3 },
-  { words: ['quadruple', '4x', 'four batches of'], n: 4 },
-  { words: ['5x', 'five batches of'], n: 5 },
-  { words: ['half a batch of', '0.5x'], n: 0.5 },
-  { words: ['1.5x', 'a batch and a half of'], n: 1.5 },
-];
+// pushes a row if the template classified correctly; returns 1/0 so
+// generators can count what actually landed
+async function push(rows, rowPromise) {
+  const r = await rowPromise;
+  if (r) rows.push(r);
+  return r ? 1 : 0;
+}
+
+const MULTIPLIERS = [2, 3, 4, 5, 0.5, 1.5];
 
 const TEMP_POINTS = [
   { id: 'walk_in_cooler', label: 'walk-in', range: [34, 44] },
@@ -89,35 +103,43 @@ async function genActionJson(sources, rng, target) {
   const stationNames = stations.map((s) => s.name);
   const w = (frac) => Math.max(1, Math.round(target * frac));
 
-  // eighty_six (13%)
+  // eighty_six (13%) — reason is coupled to the message template
   for (let i = 0; i < w(0.13); i++) {
     const item = pick(rng, [...recipes.map(displayName), ...orderGuideItems.map((o) => o.ingredient)]);
-    const reason = pick(rng, [null, 'ran out', 'quality issue', 'vendor shorted us', 'prep didn’t hold']);
-    const msg = pick(rng, [
-      `86 the ${item}`, `86 ${item}`, `take ${item} off the menu`, `kill the ${item} for tonight`,
-      `we’re out of ${item}, 86 it`, `pull ${item}`, `mark ${item} out of stock`, `86 ${item} — ${reason || 'ran out'}`,
+    const r = pick(rng, ['ran out', 'quality issue', 'vendor shorted us', 'prep didn’t hold']);
+    const t = pick(rng, [
+      { msg: `86 the ${item}`, reason: null },
+      { msg: `86 ${item}`, reason: null },
+      { msg: `eighty-six the ${item}`, reason: null },
+      { msg: `mark ${item} out of stock`, reason: null },
+      { msg: `86 ${item} — ${r}`, reason: r },
+      { msg: `log an 86 on ${item}, ${r}`, reason: r },
+      { msg: `86 ${item}, we ran out`, reason: 'ran out' },
+      { msg: `mark ${item} 86 for tonight`, reason: null },
     ]);
     const payload = { action: 'eighty_six', item: cap(item) };
-    if (reason && rng() > 0.4) payload.reason = cap(reason);
-    rows.push(await commandRow(msg, payload, pick(rng, CONFIRM_86).replace('%s', cap(item))));
+    if (t.reason) payload.reason = cap(t.reason);
+    await push(rows, commandRow(t.msg, payload, pick(rng, CONFIRM_86).replace('%s', cap(item))));
   }
 
-  // update_inventory (13%)
+  // update_inventory (13%) — direction coupled to the template wording
   for (let i = 0; i < w(0.13); i++) {
     const og = pick(rng, orderGuideItems);
     const delta = pick(rng, [1, 2, 3, 4, 5, 6, 8, 10, 12]);
     const unit = og.unit || 'each';
-    const dir = pick(rng, ['in', 'out', 'waste']);
-    const verb = dir === 'in' ? pick(rng, ['just came in', 'received', 'add', 'got a delivery of'])
-      : dir === 'waste' ? pick(rng, ['wasted', 'dumped', 'had to toss', 'burned through'])
-        : pick(rng, ['used', 'pulled', 'take out', 'burned']);
-    const msg = pick(rng, [
-      `${verb} ${delta} ${unit} of ${og.ingredient}`,
-      `inventory: ${verb} ${delta} ${unit} ${og.ingredient}`,
-      `${cap(verb)} ${delta} ${unit} ${og.ingredient}, log it`,
+    const ing = og.ingredient;
+    const t = pick(rng, [
+      { msg: `log ${delta} ${unit} of ${ing} received`, dir: 'in' },
+      { msg: `add ${delta} ${unit} of ${ing} to inventory`, dir: 'in' },
+      { msg: `record a delivery: ${delta} ${unit} ${ing}`, dir: 'in' },
+      { msg: `log ${delta} ${unit} ${ing} used on the line`, dir: 'out' },
+      { msg: `adjust ${ing} down ${delta} ${unit}, used through service`, dir: 'out' },
+      { msg: `update inventory: ${ing} out ${delta} ${unit}`, dir: 'out' },
+      { msg: `log waste: ${delta} ${unit} ${ing}`, dir: 'waste' },
+      { msg: `record ${delta} ${unit} of ${ing} wasted, had to toss it`, dir: 'waste' },
     ]);
-    rows.push(await commandRow(msg,
-      { action: 'update_inventory', item: cap(og.ingredient), delta, unit, direction: dir },
+    await push(rows, commandRow(t.msg,
+      { action: 'update_inventory', item: cap(ing), delta, unit, direction: t.dir },
       pick(rng, CONFIRM_GENERIC)));
   }
 
@@ -128,22 +150,24 @@ async function genActionJson(sources, rng, target) {
       const tp = pick(rng, TEMP_POINTS);
       const reading = Math.round(tp.range[0] + rng() * (tp.range[1] - tp.range[0]));
       const msg = pick(rng, [
-        `line check: ${tp.label} is at ${reading}`,
-        `${tp.label} reading ${reading} degrees`,
         `log a line check, ${tp.label} at ${reading}F on ${st}`,
-        `temp check ${tp.label}: ${reading}`,
+        `record ${tp.label} at ${reading} degrees`,
+        `log temp check ${tp.label}: ${reading}`,
+        `note ${tp.label} reading ${reading}F`,
       ]);
-      rows.push(await commandRow(msg,
+      await push(rows, commandRow(msg,
         { action: 'line_check', station: st, item: cap(tp.label), reading_f: reading, temp_point_id: tp.id },
         pick(rng, ['Logged — server will grade it against the FDA limits.', 'Reading logged.', 'On the log.'])));
     } else {
       const item = pick(rng, ['sanitizer bucket', 'glove boxes stocked', 'cutting boards clean', 'date labels', 'hand sink stocked']);
       const status = pick(rng, ['pass', 'fail', 'na']);
+      const statusWord = status === 'pass' ? 'good' : status === 'fail' ? 'failed' : 'not applicable';
       const msg = pick(rng, [
-        `line check ${st}: ${item} ${status === 'pass' ? 'good' : status === 'fail' ? 'failed' : 'not applicable'}`,
+        `log line check ${st}: ${item} ${statusWord}`,
         `mark ${item} as ${status} on ${st}`,
+        `record ${item} ${statusWord} for the ${st} line check`,
       ]);
-      rows.push(await commandRow(msg,
+      await push(rows, commandRow(msg,
         { action: 'line_check', station: st, item: cap(item), reading_f: null, temp_point_id: null, status },
         pick(rng, CONFIRM_GENERIC)));
     }
@@ -155,12 +179,12 @@ async function genActionJson(sources, rng, target) {
     const issue = pick(rng, ['not holding temp', 'making a grinding noise', 'leaking water', 'pilot won’t stay lit',
       'error code on the display', 'door gasket torn', 'won’t drain', 'tripping the breaker']);
     const msg = pick(rng, [
-      `${eq} is ${issue}, log a maintenance ticket`,
-      `maintenance: ${eq} ${issue}`,
-      `flag ${eq} for repair — ${issue}`,
-      `put in a work order for ${eq}, it’s ${issue}`,
+      `log a maintenance ticket — ${eq} is ${issue}`,
+      `add a work order for ${eq}, it’s ${issue}`,
+      `note maintenance: ${eq} ${issue}`,
+      `record a repair ticket for ${eq} — ${issue}`,
     ]);
-    rows.push(await commandRow(msg,
+    await push(rows, commandRow(msg,
       { action: 'maintenance', equipment: cap(eq), issue: cap(issue) },
       pick(rng, ['Ticket logged for maintenance.', 'Work order in.', 'Flagged it.'])));
   }
@@ -169,17 +193,17 @@ async function genActionJson(sources, rng, target) {
   for (let i = 0; i < w(0.17); i++) {
     const r = pick(rng, rWithYield.length ? rWithYield : recipes);
     const name = displayName(r);
-    const m = pick(rng, MULTIPLIERS);
+    const n = pick(rng, MULTIPLIERS);
     const msg = pick(rng, [
-      `scale ${name} to ${m.n}x`,
-      `${pick(rng, m.words)} the ${name}`,
-      `I need ${m.n} batches of ${name}`,
-      `scale up ${name} ${m.n} times for tonight`,
-      `bump ${name} to ${m.n}x the recipe`,
-      `we’re going to need ${pick(rng, m.words)} ${name} for service`,
+      `scale ${name} to ${n}x`,
+      `scale up ${name} ${n} times`,
+      `scale ${name} for ${n} batches`,
+      `scale the ${name} recipe by ${n}`,
+      `prep ${n} batches of ${name}`,
+      `scale ${name} — we need ${n}x for service`,
     ]);
-    rows.push(await commandRow(msg,
-      { action: 'scale_recipe', recipe: r.slug || name, multiplier: m.n },
+    await push(rows, commandRow(msg,
+      { action: 'scale_recipe', recipe: r.slug || name, multiplier: n },
       pick(rng, ['Calculator output below — server ran the math.', 'Scaled sheet coming up.', 'On it — scaled quantities render below.'])));
   }
 
@@ -188,14 +212,16 @@ async function genActionJson(sources, rng, target) {
     const og = pick(rng, orderGuideItems);
     const qty = pick(rng, [1, 2, 3, 4, 5, 6, 10, 12]);
     const unit = og.unit || 'case';
+    const ing = og.ingredient;
     const msg = pick(rng, [
-      `add ${qty} ${unit} of ${og.ingredient} to the order guide`,
-      `order ${qty} ${unit} ${og.ingredient}`,
-      `put ${og.ingredient} on the order, ${qty} ${unit}`,
-      `bump the ${og.ingredient} order to ${qty} ${unit}`,
+      `add ${qty} ${unit} of ${ing} to the order guide`,
+      `order ${qty} ${unit} ${ing}`,
+      `reorder ${ing}, ${qty} ${unit}`,
+      `update order guide: ${ing} ${qty} ${unit}`,
+      `set ${ing} to ${qty} ${unit} on the order`,
     ]);
-    rows.push(await commandRow(msg,
-      { action: 'update_order_guide', item: cap(og.ingredient), qty, unit },
+    await push(rows, commandRow(msg,
+      { action: 'update_order_guide', item: cap(ing), qty, unit },
       pick(rng, ['Order guide updated.', 'On the guide.', 'Updated the order.'])));
   }
 
@@ -208,10 +234,10 @@ async function genActionJson(sources, rng, target) {
       'garnish picked and packed', 'chafers staged with fuel']);
     const msg = pick(rng, [
       `add prep for event ${ev.id}: ${task}, plus ${displayName(r)} at ${ppg} portions per guest`,
-      `BEO ${ev.id} prep — ${task}; run ${displayName(r)} ${ppg} per head`,
+      `add BEO ${ev.id} prep — ${task}; run ${displayName(r)} ${ppg} per head`,
       `set up prep tasks on event ${ev.id}: ${task} and ${displayName(r)} at ${ppg}/guest`,
     ]);
-    rows.push(await commandRow(msg,
+    await push(rows, commandRow(msg,
       {
         action: 'beo_add_prep', event_id: ev.id, tasks: [cap(task)],
         recipes: [{ recipe_slug: r.slug || displayName(r), portions_per_guest: ppg }],
@@ -219,7 +245,7 @@ async function genActionJson(sources, rng, target) {
       pick(rng, ['Prep added — the calculator scales it by the BEO guest count.', 'On the BEO prep list.', 'Added; server handles the math.'])));
   }
 
-  // give_gold_star (4%)
+  // give_gold_star (4%) — exact full roster names (route.js exact-match)
   for (let i = 0; i < w(0.04) && staff.length; i++) {
     const cook = pick(rng, staff).name;
     const stars = pick(rng, [1, 2, 3]);
@@ -227,15 +253,15 @@ async function genActionJson(sources, rng, target) {
       'covered a double with zero misses', 'trained the new hire all week', 'kept the line spotless through service']);
     const msg = pick(rng, [
       `give ${cook} ${stars} gold star${stars > 1 ? 's' : ''} — ${reason}`,
-      `gold star for ${cook}, ${reason}`,
-      `${cook} deserves ${stars} star${stars > 1 ? 's' : ''}: ${reason}`,
+      `give a gold star to ${cook}, ${reason}`,
+      `give ${cook} ${stars} star${stars > 1 ? 's' : ''}: ${reason}`,
     ]);
-    rows.push(await commandRow(msg,
+    await push(rows, commandRow(msg,
       { action: 'give_gold_star', cook_name: cook, reason: cap(reason), stars },
       pick(rng, [`Star logged for ${cook}.`, 'Nice — logged it.', 'Recognition posted.'])));
   }
 
-  // haccp_receive (9%) — server validates temps (no pass/fail from model)
+  // haccp_receive (9%) — note coupled to the packaging wording in the message
   const RECV = [
     { cat: 'refrigerated', items: ['chicken thighs', 'heavy cream', 'ground beef'], range: [33, 50] },
     { cat: 'frozen', items: ['fries', 'shrimp', 'ice cream base'], range: [-10, 20] },
@@ -250,12 +276,14 @@ async function genActionJson(sources, rng, target) {
     const reading = g.cat === 'dry_goods' && rng() < 0.5 ? null
       : Math.round(g.range[0] + rng() * (g.range[1] - g.range[0]));
     const pkgOk = rng() > 0.15;
+    const tempPart = reading != null ? pick(rng, [`, probe says ${reading}F`, ` at ${reading} degrees`, ` at ${reading}`]) : '';
+    const pkgPart = pkgOk ? pick(rng, [', packaging intact', ', box looks good']) : pick(rng, [', packaging damaged', ' — torn bags, hold it']);
     const msg = pick(rng, [
-      `receiving: ${item} came in${reading != null ? ` at ${reading} degrees` : ''}${pkgOk ? '' : ', packaging looks damaged'}`,
-      `log the ${item} delivery${reading != null ? `, probe says ${reading}F` : ''}${pkgOk ? '' : ' — box was crushed'}`,
-      `check in ${item}${reading != null ? ` at ${reading}` : ''}${pkgOk ? ', packaging fine' : ', torn bags'}`,
+      `log the ${item} delivery${tempPart}${pkgPart}`,
+      `receive ${item}${tempPart}${pkgPart}`,
+      `record receiving: ${item}${tempPart}${pkgPart}`,
     ]);
-    rows.push(await commandRow(msg,
+    await push(rows, commandRow(msg,
       {
         action: 'haccp_receive', item: cap(item), category: g.cat, reading_f: reading,
         package_ok: pkgOk, note: pkgOk ? 'Packaging intact' : 'Packaging damaged — hold for manager',
@@ -269,12 +297,12 @@ async function genActionJson(sources, rng, target) {
     const r1 = pick(rng, recipes); const r2 = pick(rng, recipes);
     const m1 = pick(rng, [1, 1.5, 2]); const m2 = pick(rng, [1, 2, 3]);
     const msg = pick(rng, [
-      `build a prep list for ${st}`,
-      `generate prep for ${st} for tomorrow`,
-      `what should ${st} prep tonight? make it a list`,
-      `set up the ${st} prep sheet`,
+      `generate prep for ${st}`,
+      `generate a prep list for ${st} for tomorrow`,
+      `prep list for ${st}, build it out`,
+      `generate dynamic prep for ${st} tonight`,
     ]);
-    rows.push(await commandRow(msg,
+    await push(rows, commandRow(msg,
       {
         action: 'generate_prep', station: st,
         tasks: [
@@ -342,7 +370,6 @@ function questionFor(spec, params, sources, rng) {
       .replace('{item}', params[Object.keys(params).find((k) => /item|ingredient|name/.test(k))] || pick(rng, sources.orderGuideItems).ingredient)
       .replace('{equip}', pick(rng, EQUIPMENT));
   }
-  // manager-tier / unmapped: derive from the registry description
   const desc = spec.description.replace(/\.$/, '').toLowerCase();
   return pick(rng, [
     `can you pull ${desc}?`,
@@ -358,7 +385,7 @@ async function genDbQuery(sources, rng, target) {
   const cookNames = new Set(cook.map((q) => q.name));
   const managerOnly = querySpecs('manager').filter((q) => !cookNames.has(q.name));
   const all = [...cook.map((q) => ({ q, tier: 'cook' })), ...managerOnly.map((q) => ({ q, tier: 'manager' }))];
-  const per = Math.max(1, Math.floor(target / (all.length + 3)));
+  const per = Math.max(1, Math.floor(target / (all.length + 6)));
 
   for (const { q, tier } of all) {
     for (let i = 0; i < per; i++) {
@@ -366,13 +393,36 @@ async function genDbQuery(sources, rng, target) {
       const msg = questionFor(q, params, sources, rng);
       const payload = { action: 'db_query', query: q.name, params };
       const framing = pick(rng, ['Here’s what I found:', '', 'Pulling that now:']);
-      rows.push(await questionRow(msg, `${fence(payload)}${framing ? '\n' + framing : ''}`, 'db_query', { tier }));
+      // db_query executes on both routing paths — attach whatever directive
+      // the classifier gives this phrasing (buildRow decides), no mustBe.
+      await push(rows, buildRow(msg, `${fence(payload)}${framing ? '\n' + framing : ''}`, 'db_query', { tier }));
     }
+  }
+
+  // read-like imperatives: the ONE cook-tier + ACTION-directive shape that
+  // reaches the model in production ("update me on…", "generate a … report" —
+  // command leads that miss the PIN pre-gate); correct answer is a read action
+  const READ_IMPERATIVES = [
+    { msg: 'update me on sales for last week', q: 'sales_by_period', params: { days: 7 }, tier: 'cook' },
+    { msg: 'generate a cooling report for today', q: 'cooling_in_progress', params: {}, tier: 'cook' },
+    { msg: 'update me on what came in receiving', q: 'recent_receiving', params: { hours: 24 }, tier: 'cook' },
+    { msg: 'generate a temp log summary for the walk-in', q: 'recent_temp_log', params: { hours: 24, point_id: 'walk_in_cooler' }, tier: 'cook' },
+    { msg: 'update me on open prep', q: 'open_prep_tasks', params: {}, tier: 'cook' },
+    { msg: 'generate a cert expiration report', q: 'staff_certifications_expiring', params: {}, tier: 'cook' },
+  ];
+  const readImpCount = Math.max(6, Math.floor(target * 0.1));
+  const validNames = new Set(querySpecs('manager').map((q) => q.name));
+  for (let i = 0; i < readImpCount; i++) {
+    const t = READ_IMPERATIVES[i % READ_IMPERATIVES.length];
+    if (!validNames.has(t.q)) continue;
+    await push(rows, buildRow(t.msg,
+      `${fence({ action: 'db_query', query: t.q, params: t.params })}\nHere’s what I found:`,
+      'db_query', { tier: t.tier, mustBe: 'command', sub: 'read_imperative' }));
   }
 
   // semantic_search (~10% of the slice)
   const fuzzy = [
-    'that wedding appetizer with the cherry glaze — find it',
+    'find that wedding appetizer with the cherry glaze',
     'find the braise we ran for the rodeo weekend',
     'which recipe had the pickled mustard seeds?',
     'search the audit log for anything about the walk-in door',
@@ -381,8 +431,8 @@ async function genDbQuery(sources, rng, target) {
   ];
   for (let i = 0; i < Math.max(3, Math.floor(target * 0.1)); i++) {
     const msg = pick(rng, fuzzy);
-    rows.push(await questionRow(msg,
-      `${fence({ action: 'semantic_search', query: msg.replace(/ — find it$/, '').replace(/^find /, ''), limit: 6 })}`,
+    await push(rows, buildRow(msg,
+      `${fence({ action: 'semantic_search', query: msg.replace(/^(find|search) /, ''), limit: 6 })}`,
       'db_query'));
   }
   return rows;
@@ -398,51 +448,59 @@ async function genGroundedQa(sources, rng, target) {
   const per = Math.max(1, Math.ceil(target / recipes.length / 4));
   for (const r of recipes) {
     const name = displayName(r);
+    // each kind is a fresh-phrasing generator — picking INSIDE the per-loop
+    // keeps every emitted row unique (v1 repeated one picked phrasing `per`
+    // times, which all collapsed in dedupe)
     const kinds = [];
 
     if (r.ingredients?.length) {
-      kinds.push([
-        pick(rng, [`what’s in the ${name}?`, `ingredients for ${name}?`, `what goes into ${name}?`]),
+      kinds.push(() => [
+        pick(rng, [`what’s in the ${name}?`, `ingredients for ${name}?`, `what goes into ${name}?`, `run down the ${name} build for me`, `refresh me on what’s in ${name}`]),
         `${name} (from CONTEXT):\n` + r.ingredients.slice(0, 10).map((i) => `- ${ingLine(i)}`).join('\n')
         + (r.ingredients.length > 10 ? `\n- …plus ${r.ingredients.length - 10} more — full list in Recipe Hub` : ''),
       ]);
     }
     if (r.yield_qty) {
-      kinds.push([
-        pick(rng, [`how much does a batch of ${name} make?`, `what’s the yield on ${name}?`]),
+      kinds.push(() => [
+        pick(rng, [`how much does a batch of ${name} make?`, `what’s the yield on ${name}?`, `how far does one batch of ${name} go?`]),
         `- Batch yield: ${r.yield_qty} ${r.yield_unit || ''}`.trim() + `\n- Scale with the calculator if you need a different batch — say "scale ${name}".`,
       ]);
     }
     if (r.station) {
-      kinds.push([
-        pick(rng, [`what station runs ${name}?`, `who makes the ${name}?`]),
+      kinds.push(() => [
+        pick(rng, [`what station runs ${name}?`, `who makes the ${name}?`, `where does ${name} get made?`]),
         `- ${name} is assigned to: ${r.station.split(';').join(', ')}`,
       ]);
     }
     if (r.procedure?.length) {
-      kinds.push([
-        pick(rng, [`how do I make ${name}?`, `walk me through the ${name} procedure`, `steps for ${name}?`]),
+      kinds.push(() => [
+        pick(rng, [`how do I make ${name}?`, `walk me through the ${name} procedure`, `steps for ${name}?`, `talk me through ${name} real quick`]),
         `${name} — from the recipe card:\n` + r.procedure.slice(0, 5).map((s) => `- ${String(s).replace(/^\d+\.\s*/, '')}`).join('\n')
         + (r.procedure.length > 5 ? '\n- Full card in Recipe Hub.' : ''),
       ]);
     }
     if (r.sub_recipes?.length) {
-      kinds.push([
-        pick(rng, [`what sub-recipes build the ${name}?`, `what do I need prepped before ${name}?`]),
+      kinds.push(() => [
+        pick(rng, [`what sub-recipes build the ${name}?`, `what do I need prepped before ${name}?`, `what components go into ${name}?`]),
         `Build list for ${name}:\n` + r.sub_recipes.map((s) => `- ${s}`).join('\n'),
       ]);
     }
     if (r.menu_items?.length) {
-      const mi = pick(rng, r.menu_items);
-      kinds.push([
-        pick(rng, [`walk me through the ${mi}`, `what recipes make up the ${mi}?`]),
-        `${mi} resolves to:\n- ${name}${firstStation(r) ? ` (${firstStation(r)})` : ''}`
-        + (r.sub_recipes?.length ? '\n' + r.sub_recipes.map((s) => `- ${s}`).join('\n') : '')
-        + (r.allergens?.length ? `\n- Allergen tags on file: ${r.allergens.join(', ')} — heuristic, confirm with a manager for guests.` : ''),
-      ]);
+      kinds.push(() => {
+        const mi = pick(rng, r.menu_items);
+        return [
+          pick(rng, [`walk me through the ${mi}`, `what recipes make up the ${mi}?`, `new guy is on the ${mi} — what’s in it?`]),
+          `${mi} resolves to:\n- ${name}${firstStation(r) ? ` (${firstStation(r)})` : ''}`
+          + (r.sub_recipes?.length ? '\n' + r.sub_recipes.map((s) => `- ${s}`).join('\n') : '')
+          + (r.allergens?.length ? `\n- Allergen tags on file: ${r.allergens.join(', ')} — heuristic, confirm with a manager for guests.` : ''),
+        ];
+      });
     }
-    for (const [q, aRaw] of kinds.slice(0, per * 4)) {
-      for (let i = 0; i < per; i++) rows.push(await questionRow(q, aRaw, 'grounded_qa'));
+    for (const kind of kinds) {
+      for (let i = 0; i < per; i++) {
+        const [q, aRaw] = kind();
+        await push(rows, questionRow(q, aRaw, 'grounded_qa'));
+      }
       if (rows.length >= target) return rows.slice(0, target);
     }
   }
@@ -479,7 +537,7 @@ async function genAllergen(sources, rng, target) {
         `- Cross-contact is always possible on a shared line — never promise an allergen-clean plate.`,
         `- Escalate to a manager for the final call before it fires.`,
       ].join('\n');
-      rows.push(await questionRow(q, a, 'allergen'));
+      await push(rows, questionRow(q, a, 'allergen'));
     } else {
       const allergen = pick(rng, Object.keys(BIG9_LABELS));
       const label = BIG9_LABELS[allergen];
@@ -492,7 +550,7 @@ async function genAllergen(sources, rng, target) {
         `- Cross-contact is always possible in a shared kitchen.`,
         `- Get a manager to confirm with the guest before firing it.`,
       ].join('\n');
-      rows.push(await questionRow(q, a, 'allergen'));
+      await push(rows, questionRow(q, a, 'allergen'));
     }
   }
   return rows;
@@ -502,36 +560,49 @@ async function genAllergen(sources, rng, target) {
 
 async function genHaccp(sources, rng, target) {
   const rows = [];
+  // food/item pools widen the unique template space (dedupe exposed a
+  // 37-unique-row ceiling in v1) — the ANSWERS stay fixed FDA facts
+  const POULTRY = ['chicken', 'the turkey legs', 'wings', 'the whole birds', 'duck breast', 'the fried chicken'];
+  const GROUND = ['the burgers', 'meatballs', 'the chorizo patties', 'the smash patties', 'ground pork for the dumplings'];
+  const FISH = ['the salmon', 'trout', 'halibut', 'the catch special', 'shrimp skewers'];
+  const HOTHOLD = ['the steam table', 'the soup well', 'the hot box', 'the carving station'];
+  const COOLING = ['brisket', 'soup', 'the beans', 'the braise', 'stock', 'queso'];
+  const REHEAT = ['the beans', 'gravy', 'soup', 'queso', 'the chili'];
+  const TPHC_ITEMS = ['the aioli', 'butter at the pass', 'cut tomatoes', 'the garlic oil', 'shucked oysters on display'];
   const CASES = [
-    () => [pick(rng, ['what temp does chicken need to hit?', 'internal temp for poultry?', 'is 155 ok for the turkey legs?']),
+    () => [pick(rng, [`what temp does ${pick(rng, POULTRY)} need to hit?`, `internal temp for ${pick(rng, POULTRY)}?`, `is 155 ok for ${pick(rng, POULTRY)}?`, `probe target for ${pick(rng, POULTRY)}?`]),
       '- Poultry: **165°F held for 15 seconds** — no exceptions.\n- If it reads under, keep cooking and re-probe the thickest part.'],
-    () => [pick(rng, ['what temp for the burgers?', 'ground beef internal temp?']),
+    () => [pick(rng, [`what temp for ${pick(rng, GROUND)}?`, `internal temp on ${pick(rng, GROUND)}?`, `what do ${pick(rng, GROUND)} need to read?`]),
       '- Ground beef/pork: **155°F for 15 seconds**.\n- Whole-muscle rules don’t apply once it’s ground.'],
-    () => [pick(rng, ['fish temp check — what do we need?', 'what should the salmon hit inside?']),
+    () => [pick(rng, [`what does ${pick(rng, FISH)} need to hit inside?`, `what should ${pick(rng, FISH)} read in the middle?`, `temp target for ${pick(rng, FISH)}?`]),
       '- Fish/seafood: **145°F for 15 seconds**.'],
-    () => [pick(rng, ['what’s the minimum for hot holding?', 'steam table temp requirement?']),
+    () => [pick(rng, [`what’s the minimum for ${pick(rng, HOTHOLD)}?`, `${pick(rng, HOTHOLD)} temp requirement?`, `how hot does ${pick(rng, HOTHOLD)} have to stay?`]),
       '- Hot holding: **140°F or above at all times**.\n- Below that, reheat to 165°F within 2 hours or toss per the plan.'],
     () => {
-      const t = pick(rng, [85, 90, 95, 100]);
-      const h = pick(rng, [2.5, 3, 4]);
+      const t = pick(rng, [80, 85, 90, 95, 100]);
+      const h = pick(rng, [2.5, 3, 3.5, 4]);
+      const item = pick(rng, COOLING);
       return [pick(rng, [
-        `the brisket has been cooling on the counter ${h} hours and it’s at ${t}F — good to wrap?`,
-        `soup’s at ${t} after ${h} hours of cooling, can I walk it in?`,
+        `the ${item} has been cooling on the counter ${h} hours and it’s at ${t}F — good to wrap?`,
+        `${item}’s at ${t} after ${h} hours of cooling, can I walk it in?`,
+        `${item} reads ${t}F, been out ${h} hours — wrap it or toss it?`,
       ]),
       `- **Not compliant.** FDA cooling rule (§3-501.14): 135→70°F within 2 hours, then 70→41°F within 4 more (6 hr max).\n- At ${t}°F after ${h} hours it missed the window — don’t wrap it.\n- Corrective action: ice bath or blast chiller now, log the corrective action, and flag a manager.`];
     },
-    () => [pick(rng, ['reheat temp for the beans going back on the line?', 'what do leftovers need to hit before hot holding?']),
+    () => [pick(rng, [`reheat temp for ${pick(rng, REHEAT)} going back on the line?`, `what does ${pick(rng, REHEAT)} need to hit before hot holding?`, `bringing ${pick(rng, REHEAT)} back up — target temp?`]),
       '- Reheat for hot holding: **165°F within 2 hours**.'],
-    () => [pick(rng, ['what should the walk-in be running at?', 'max temp for the reach-in?']),
+    () => [pick(rng, ['what should the walk-in be running at?', 'max temp for the reach-in?', 'what temp should the dessert cooler hold?', 'freezer spec — what are we allowed?']),
       '- Walk-in / reach-in refrigeration: **41°F or below**.\n- Freezer: **0°F or below**.\n- If it’s over, log it, move product, and flag maintenance.'],
-    () => [pick(rng, ['cold delivery limit for receiving?', 'what’s the max temp to accept refrigerated product?']),
+    () => [pick(rng, ['cold delivery limit for receiving?', 'what’s the max temp to accept refrigerated product?', 'driver just showed up — what temp do we accept cold goods at?']),
       '- Receiving (cold items): **41°F or below** — reject or flag anything warmer.'],
-    () => [pick(rng, ['how long can the aioli sit out on time control?', 'TPHC window for items off temp?']),
-      '- Time-as-a-Public-Health-Control: **4-hour window** from when it leaves temperature control, then discard.\n- Mark the start time and log it — say "log TPHC" and I’ll set it up.'],
+    () => [pick(rng, [`how long can ${pick(rng, TPHC_ITEMS)} sit out on time control?`, `TPHC window for ${pick(rng, TPHC_ITEMS)}?`, `clock rules for ${pick(rng, TPHC_ITEMS)} off temp?`]),
+      '- Time-as-a-Public-Health-Control: **4-hour window** from when it leaves temperature control, then discard.\n- Mark the start time so the clock is auditable.'],
   ];
-  for (let i = 0; rows.length < target; i++) {
-    const [q, a] = CASES[i % CASES.length]();
-    rows.push(await questionRow(q, a, 'haccp'));
+  let i = 0;
+  let guard = 0;
+  while (rows.length < target && guard++ < target * 4) {
+    const [q, a] = CASES[i++ % CASES.length]();
+    await push(rows, questionRow(q, a, 'haccp'));
   }
   return rows;
 }
@@ -573,9 +644,11 @@ async function genRefusal(sources, rng, target) {
       `- Future availability isn’t in today’s Cockpit data — I won’t invent a date.\n- Purchasing or the manager placing the order will know; the order guide shows what’s on the current order.`];
     },
   ];
-  for (let i = 0; rows.length < target; i++) {
-    const [q, a] = CASES[i % CASES.length]();
-    rows.push(await questionRow(q, a, 'refusal'));
+  let i = 0;
+  let guard = 0;
+  while (rows.length < target && guard++ < target * 4) {
+    const [q, a] = CASES[i++ % CASES.length]();
+    await push(rows, questionRow(q, a, 'refusal'));
   }
   return rows;
 }

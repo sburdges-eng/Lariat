@@ -28,7 +28,6 @@ function makeModel(runId, baseModel) {
 }
 
 function runEval(model) {
-  // exit 1 = gate fail (still writes the results file); capture regardless
   try {
     execFileSync(process.execPath,
       ['--experimental-strip-types', '--no-warnings', 'training/eval/run-eval.mjs'],
@@ -37,14 +36,22 @@ function runEval(model) {
         env: { ...process.env, LARIAT_OLLAMA_MODEL: model, EVAL_REQUIRE_OLLAMA: '1', EVAL_OLLAMA_ONLY: '1' },
       });
   } catch (e) {
-    if (e.status === 2) throw new Error(`eval could not run for ${model} (Ollama unreachable?)`);
+    // exit 1 = gate fail; run-eval still wrote the results file, so continue.
+    // Anything else (exit 2, signal kill -> status null, internal fatal) means
+    // NO fresh results file exists — swallowing it would silently attribute
+    // the previous candidate's file to this one (review finding).
+    if (e.status === 1) return;
+    const hint = e.status === 2 ? ' (Ollama unreachable or eval could not start?)' : '';
+    throw new Error(`eval aborted for ${model}: status=${e.status} signal=${e.signal}${hint}`);
   }
 }
 
 function latestResult() {
-  const f = readdirSync(RESULTS_DIR).filter((x) => x.endsWith('.json'))
+  const files = readdirSync(RESULTS_DIR).filter((x) => x.endsWith('.json'))
     .map((x) => ({ x, t: statSync(join(RESULTS_DIR, x)).mtimeMs }))
-    .sort((a, b) => a.t - b.t).at(-1);
+    .sort((a, b) => a.t - b.t);
+  if (!files.length) throw new Error(`no eval results in ${RESULTS_DIR} — did run-eval crash before writing?`);
+  const f = files.at(-1);
   const j = JSON.parse(readFileSync(join(RESULTS_DIR, f.x), 'utf8'));
   return { ollama: j.ollama_totals, model: j.ollama_model, file: f.x };
 }
@@ -72,10 +79,17 @@ for (const m of metrics.slice(0, 4)) {
   if (!model) { console.error(`no GGUF for ${m.run_id}, skipping`); continue; }
   console.log(`\n=== evaluating ${model} ===`);
   const probeMs = timedProbe(model); // also warms the model
-  runEval(model);
-  const t = latestResult();
-  if (t.model !== model) console.error(`WARNING: latest result file is for ${t.model}, expected ${model}`);
-  rows.push({ runId: m.run_id, base: m.base_model, valLoss: m.val_loss, probeMs, ...t.ollama, baseline: false });
+  try {
+    runEval(model);
+    const t = latestResult();
+    if (t.model !== model) {
+      throw new Error(`results file is for ${t.model}, expected ${model} — stale result, not attributing`);
+    }
+    rows.push({ runId: m.run_id, base: m.base_model, valLoss: m.val_loss, probeMs, ...t.ollama, baseline: false });
+  } catch (e) {
+    console.error(`  SKIPPING ${m.run_id}: ${e.message}`);
+    rows.push({ runId: m.run_id, base: m.base_model, valLoss: m.val_loss, probeMs, error: String(e.message), score: null, baseline: false });
+  }
 }
 
 if (!skipBaseline) {
@@ -83,6 +97,9 @@ if (!skipBaseline) {
   const probeMs = timedProbe('lari-the-kitchen-assistant');
   runEval('lari-the-kitchen-assistant');
   const bt = latestResult();
+  if (bt.model !== 'lari-the-kitchen-assistant') {
+    throw new Error(`baseline results file is for ${bt.model} — stale result`);
+  }
   rows.push({ runId: 'deployed-baseline', base: 'lari-the-kitchen-assistant (deepseek-r1:14b)', valLoss: null, probeMs, ...bt.ollama, baseline: true });
 }
 

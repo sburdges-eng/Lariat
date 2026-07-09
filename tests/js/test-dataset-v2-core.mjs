@@ -26,6 +26,11 @@ test('scrubber pseudonymizes client names, whole word, case-insensitive', () => 
   assert.equal(scrub('Acmecorp stays'), 'Acmecorp stays');
 });
 
+test('scrubber also scrubs snake_case slug forms (ID leaks)', () => {
+  const scrub = buildScrubber(['Jane Smith']);
+  assert.equal(scrub('Jane Smith (ID: jane_smith)'), 'Client A (ID: client_a)');
+});
+
 test('scrubber is deterministic across input order', () => {
   const a = buildScrubber(['Zed LLC', 'Acme Corp']);
   const b = buildScrubber(['Acme Corp', 'Zed LLC']);
