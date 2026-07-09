@@ -1,0 +1,54 @@
+{
+  "project": "devvy-490312",
+  "bucket": "lariat-train-us-central1",
+  "regions": ["us-central1", "us-east4", "us-west1", "europe-west4"],
+  "containerUri": "us-docker.pkg.dev/vertex-ai/training/pytorch-gpu.2-4.py310:latest",
+  "budgetUsd": 200,
+  "rates": { "a2-highgpu-1g": 4.25, "g2-standard-8": 1.0, "g2-standard-12": 1.2 },
+  "jobTimeoutHours": 8,
+  "bootDiskGb": 200,
+  "bases": [
+    {
+      "id": "Qwen/Qwen3-8B",
+      "chatTemplate": "chatml",
+      "machineType": "a2-highgpu-1g",
+      "acceleratorType": "NVIDIA_TESLA_A100",
+      "acceleratorCount": 1,
+      "estHoursPerEpoch": 1.6,
+      "gated": false,
+      "tag": "q3-8b"
+    },
+    {
+      "id": "Qwen/Qwen3-4B-Instruct-2507",
+      "chatTemplate": "chatml",
+      "machineType": "g2-standard-8",
+      "acceleratorType": "NVIDIA_L4",
+      "acceleratorCount": 1,
+      "estHoursPerEpoch": 2.2,
+      "gated": false,
+      "tag": "q3-4b"
+    },
+    {
+      "id": "meta-llama/Llama-3.1-8B-Instruct",
+      "chatTemplate": "llama3",
+      "machineType": "a2-highgpu-1g",
+      "acceleratorType": "NVIDIA_TESLA_A100",
+      "acceleratorCount": 1,
+      "estHoursPerEpoch": 1.6,
+      "gated": true,
+      "tag": "ll31-8b"
+    }
+  ],
+  "grid": [
+    { "loraR": 16, "lr": 0.0002, "epochs": 3 },
+    { "loraR": 32, "lr": 0.0001, "epochs": 3 },
+    { "loraR": 32, "lr": 0.0002, "epochs": 2 }
+  ],
+  "maxSeq": 8192,
+  "smoke": {
+    "base": "Qwen/Qwen3-4B-Instruct-2507",
+    "subset": 200,
+    "epochs": 1,
+    "estHours": 0.9
+  }
+}

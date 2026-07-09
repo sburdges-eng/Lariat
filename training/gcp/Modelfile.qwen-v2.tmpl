@@ -1,0 +1,16 @@
+FROM {{GGUF_PATH}}
+TEMPLATE """{{- if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{- range .Messages }}<|im_start|>{{ .Role }}
+{{ .Content }}<|im_end|>
+{{ end }}<|im_start|>assistant
+"""
+PARAMETER stop <|im_end|>
+PARAMETER temperature 0.2
+PARAMETER top_p 0.85
+PARAMETER num_predict 512
+PARAMETER num_ctx 16384
+
+# Plain chatml — byte-identical to the template train.py fine-tuned against.
+# No SYSTEM block on purpose: the single source of truth for the system
+# prompt is lib/ollama.ts (GROUNDED_SYSTEM / CREATIVE_SYSTEM).

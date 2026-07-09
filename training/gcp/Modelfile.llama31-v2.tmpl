@@ -1,0 +1,17 @@
+FROM {{GGUF_PATH}}
+TEMPLATE """{{- if .System }}<|start_header_id|>system<|end_header_id|>
+
+{{ .System }}<|eot_id|>{{ end }}{{- range .Messages }}<|start_header_id|>{{ .Role }}<|end_header_id|>
+
+{{ .Content }}<|eot_id|>{{ end }}<|start_header_id|>assistant<|end_header_id|>
+
+"""
+PARAMETER stop <|eot_id|>
+PARAMETER temperature 0.2
+PARAMETER top_p 0.85
+PARAMETER num_predict 512
+PARAMETER num_ctx 16384
+
+# Llama 3.1 chat format (BOS is added by the runtime — do not include it).
+# No SYSTEM block on purpose: the single source of truth for the system
+# prompt is lib/ollama.ts (GROUNDED_SYSTEM / CREATIVE_SYSTEM).
