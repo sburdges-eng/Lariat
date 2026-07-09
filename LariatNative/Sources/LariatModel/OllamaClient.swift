@@ -5,7 +5,13 @@ import Foundation
 /// Env contract is identical to the web (same defaults, same clamps):
 ///   LARIAT_OLLAMA_URL          default http://127.0.0.1:11434
 ///   LARIAT_OLLAMA_MODEL        default `lari-the-kitchen-assistant`
-///                              (do NOT change — the qwen variant fails the assistant eval)
+///                              Since 2026-07 this Ollama name is the KA v2
+///                              fine-tune (training/gcp/README.md); rebuilding
+///                              the same name is the supported upgrade path —
+///                              the GUI app reads this compiled default, not
+///                              .env.local. Do not point at unevaluated
+///                              variants; gate any flip with
+///                              `EVAL_REQUIRE_OLLAMA=1 npm run eval:assistant-prompt`.
 ///   LARIAT_OLLAMA_TIMEOUT_MS   clamp [5000, 120000], default 45000
 ///   LARIAT_ASSISTANT_TEMPERATURE / _MAX_TOKENS / _NUM_CTX fallbacks
 ///

@@ -4,6 +4,26 @@ All notable changes to Lariat are recorded here. The project ships on a
 freeze-and-tag cadence; see `docs/V2_FREEZE_PLAN.md` for the v2 scope line and
 `docs/V2_CUTOVER_PLAN.md` for the rollout plan.
 
+## [Unreleased]
+
+### Kitchen Assistant v2 local model (feat/lariat-ka-v2-local-model)
+
+- `lari-the-kitchen-assistant` rebuilt from a KA v2 fine-tune (Vertex AI QLoRA
+  on a runtime-shaped dataset generated from production prompt builders) —
+  same Ollama model name, so web + native flip with zero code change; DeepSeek
+  backup retained as `lari-ka-deepseek-backup`.
+- `training/datasetv2/`: dataset generator importing the live GROUNDED_SYSTEM,
+  `buildGroundedContext`, db_query catalog, and route.js directives; directive
+  routing derived from the real `isImperativeCommand`; PII scrub (client
+  pseudonyms incl. snake_case IDs, staff-roster-safe); dedupe + grouped
+  train/val split; eval-scenario contamination filter; 24 invariant tests.
+- `training/gcp/`: autonomous Vertex AI sweep pipeline (A100 Spot, budget-
+  pruned launcher, monitor with cost accounting, candidate evaluator +
+  leaderboard, $200 Cloud Billing budget).
+- `training/eval/run-eval.mjs`: `EVAL_REQUIRE_OLLAMA=1` makes the deployed-
+  model (ollama) leg gate the exit code; `EVAL_OLLAMA_ONLY=1` fast candidate
+  mode; tested tally extracted to `training/eval/tally.mjs`.
+
 ## [2.0.0] — 2026-06-16
 
 First tagged freeze of the Lariat restaurant F&B operations platform —
