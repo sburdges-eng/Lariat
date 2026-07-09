@@ -234,7 +234,11 @@
     "desktop:dev": "tsc -p desktop && vite build --config desktop/firstRunWizard/vite.config.ts && electron desktop/dist/desktop/main.js",
     "desktop:build": "npm run version:stamp && next build --webpack && tsc -p desktop && vite build --config desktop/firstRunWizard/vite.config.ts",
     "desktop:dist": "node scripts/package-desktop.mjs",
-    "desktop:dist:dry": "node scripts/package-desktop.mjs --dry-run"
+    "desktop:dist:dry": "node scripts/package-desktop.mjs --dry-run",
+    "test:eval-tally": "node --test tests/js/test-eval-tally.mjs",
+    "test:dataset-v2": "node --test tests/js/test-dataset-v2-core.mjs tests/js/test-dataset-v2-slices.mjs",
+    "test:sweep-lib": "node --test tests/js/test-sweep-lib.mjs",
+    "training:generate-v2": "LARIAT_DATA_DIR=training/gcp/snapshot node --experimental-strip-types --no-warnings training/datasetv2/generate.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

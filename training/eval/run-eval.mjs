@@ -22,6 +22,9 @@
 //   LARIAT_OLLAMA_URL     Ollama base (default http://127.0.0.1:11434)
 //   LARIAT_OLLAMA_MODEL   Ollama model (default lari-the-kitchen-assistant)
 //   EVAL_SCENARIOS        path override (default training/eval/scenarios.json)
+//   EVAL_REQUIRE_OLLAMA=1 gate on the ollama (deployed-model) leg; exit 2 if
+//                         Ollama is unreachable instead of silently skipping
+//   EVAL_OLLAMA_ONLY=1    skip the hermes candidate leg (grader still hermes)
 
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
@@ -29,6 +32,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
 import { GROUNDED_SYSTEM } from '../../lib/ollama.ts';
+import { tallyVerdicts } from './tally.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..', '..');
@@ -43,6 +47,16 @@ const HERMES_MODEL_OVERRIDE = process.env.HERMES_MODEL || '';
 const HERMES_PROVIDER_OVERRIDE = process.env.HERMES_PROVIDER || '';
 const OLLAMA_URL = (process.env.LARIAT_OLLAMA_URL || 'http://127.0.0.1:11434').replace(/\/$/, '');
 const OLLAMA_MODEL = process.env.LARIAT_OLLAMA_MODEL || 'lari-the-kitchen-assistant';
+// EVAL_REQUIRE_OLLAMA=1 — the deployed-model (ollama) leg becomes the gate:
+// unreachable Ollama exits 2 instead of silently skipping, and the exit code
+// tallies ollama verdicts instead of the claude leg. Added for KA v2 so a
+// candidate flip can't hide behind the prompt-only claude baseline again
+// (lari-qwen's 1/10 ollama leg hid behind `totals: PASS=10`).
+// EVAL_OLLAMA_ONLY=1 — skip the hermes candidate leg (grading still uses
+// hermes); halves wall-clock when comparing many local candidates whose
+// claude leg would be identical anyway.
+const REQUIRE_OLLAMA = process.env.EVAL_REQUIRE_OLLAMA === '1';
+const OLLAMA_ONLY = process.env.EVAL_OLLAMA_ONLY === '1';
 // 180s gives multi-criterion safety graders (e.g. T03 allergen — 4 must_pass
 // items) headroom over the 90s ceiling that was firing as
 // `grader exit=null: (empty)` from spawnSync's SIGTERM. If hermes truly hangs
@@ -195,6 +209,10 @@ async function main() {
     process.exit(2);
   }
   const useOllama = await ollamaReachable();
+  if (REQUIRE_OLLAMA && !useOllama) {
+    console.error(`EVAL_REQUIRE_OLLAMA=1 but Ollama is unreachable at ${OLLAMA_URL}`);
+    process.exit(2);
+  }
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
   mkdirSync(RESULTS_DIR, { recursive: true });
 
@@ -208,30 +226,30 @@ async function main() {
   console.log('');
 
   const results = [];
-  let totalPass = 0;
-  let totalFail = 0;
-  let totalPartial = 0;
-  let totalError = 0;
 
   for (const sc of scenarios) {
     process.stdout.write(`[${sc.id}] ${sc.name.padEnd(54)} ... `);
     const entry = { id: sc.id, name: sc.name, category: sc.category, runners: {} };
 
-    // --- claude leg (always) ---
-    const claudeT0 = Date.now();
-    const claudeResp = runHermesAsAssistant(sc);
-    const claudeMs = Date.now() - claudeT0;
-    if (!claudeResp.ok) {
-      entry.runners.claude = { ok: false, error: claudeResp.error, ms: claudeMs };
+    // --- claude leg (always, unless EVAL_OLLAMA_ONLY) ---
+    if (OLLAMA_ONLY) {
+      entry.runners.claude = { ok: false, error: 'skipped (EVAL_OLLAMA_ONLY)' };
     } else {
-      const grade = gradeResponse(sc, claudeResp.content);
-      entry.runners.claude = {
-        ok: true,
-        ms: claudeMs,
-        response: claudeResp.content,
-        verdict: grade.verdict,
-        grader_detail: grade.detail,
-      };
+      const claudeT0 = Date.now();
+      const claudeResp = runHermesAsAssistant(sc);
+      const claudeMs = Date.now() - claudeT0;
+      if (!claudeResp.ok) {
+        entry.runners.claude = { ok: false, error: claudeResp.error, ms: claudeMs };
+      } else {
+        const grade = gradeResponse(sc, claudeResp.content);
+        entry.runners.claude = {
+          ok: true,
+          ms: claudeMs,
+          response: claudeResp.content,
+          verdict: grade.verdict,
+          grader_detail: grade.detail,
+        };
+      }
     }
 
     // --- ollama leg (optional) ---
@@ -253,13 +271,7 @@ async function main() {
       }
     }
 
-    // tally on claude verdict (the always-on path)
     const v = entry.runners.claude.verdict || (entry.runners.claude.ok ? 'UNKNOWN' : 'ERROR');
-    if (v === 'PASS') { totalPass++; }
-    else if (v === 'FAIL') { totalFail++; }
-    else if (v === 'PARTIAL') { totalPartial++; }
-    else { totalError++; }
-
     const tag = v === 'PASS' ? 'PASS  '
               : v === 'PARTIAL' ? 'PARTIAL'
               : v === 'FAIL' ? 'FAIL  '
@@ -273,32 +285,47 @@ async function main() {
     results.push(entry);
   }
 
+  const claudeTally = tallyVerdicts(results, 'claude');
+  const ollamaTally = useOllama ? tallyVerdicts(results, 'ollama') : null;
+
   const summary = {
     timestamp: new Date().toISOString(),
     hermes_model: HERMES_MODEL_OVERRIDE || '(configured default)',
     hermes_provider: HERMES_PROVIDER_OVERRIDE || '(configured default)',
     ollama_used: useOllama,
     ollama_model: useOllama ? OLLAMA_MODEL : null,
+    ollama_only: OLLAMA_ONLY,
     totals: {
       scenarios: scenarios.length,
-      pass: totalPass,
-      partial: totalPartial,
-      fail: totalFail,
-      error: totalError,
+      pass: claudeTally.pass,
+      partial: claudeTally.partial,
+      fail: claudeTally.fail,
+      error: claudeTally.error,
     },
+    ollama_totals: ollamaTally,
     results,
   };
   const outPath = join(RESULTS_DIR, `${ts}.json`);
   writeFileSync(outPath, JSON.stringify(summary, null, 2));
 
   console.log('');
-  console.log(`totals: PASS=${totalPass}  PARTIAL=${totalPartial}  FAIL=${totalFail}  ERR=${totalError}`);
+  console.log(`totals: PASS=${claudeTally.pass}  PARTIAL=${claudeTally.partial}  FAIL=${claudeTally.fail}  ERR=${claudeTally.error}`);
+  if (ollamaTally) {
+    console.log(`ollama-leg: PASS=${ollamaTally.pass}  PARTIAL=${ollamaTally.partial}  FAIL=${ollamaTally.fail}  ERR=${ollamaTally.error}  score=${ollamaTally.score}`);
+  }
   console.log(`saved:  ${outPath}`);
 
-  // Exit code: nonzero on any non-PASS so this can gate CI. The frozen
-  // baseline is 10/10 PASS — PARTIAL is a regression on a baseline that
-  // already passes every behavior, not a tolerated grey zone.
-  if (totalFail > 0 || totalError > 0 || totalPartial > 0) process.exit(1);
+  if (REQUIRE_OLLAMA) {
+    // Gate on the deployed-model leg. Any FAIL or ERROR fails the gate;
+    // PARTIAL is tolerated (the historical deployed baseline is 8-9/10, so a
+    // 10/10 requirement would block every flip; PARTIALs surface in the log).
+    if (!ollamaTally || ollamaTally.fail > 0 || ollamaTally.error > 0) process.exit(1);
+  } else if (!OLLAMA_ONLY) {
+    // Original behavior: nonzero on any non-PASS so this can gate CI. The
+    // frozen claude-leg baseline is 10/10 PASS — PARTIAL is a regression on a
+    // baseline that already passes every behavior, not a tolerated grey zone.
+    if (claudeTally.fail > 0 || claudeTally.error > 0 || claudeTally.partial > 0) process.exit(1);
+  }
 }
 
 main().catch((e) => {
