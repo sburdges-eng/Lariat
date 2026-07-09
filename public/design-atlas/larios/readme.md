@@ -183,6 +183,9 @@ carried by:
 - **Two raster brand assets** live in `assets/`: `logo-wordmark.jpg` (the
   "THE LARIAT 1885" wordmark) and `app-icon.png` (a knife crossing a lariat
   loop). Use these as-is; **do not** redraw or approximate the wordmark.
+  `public/icon.png` (app root, favicon source) ships `logo-wordmark.jpg`
+  as-is; `public/icon-192.png` / `icon-512.png` / `icon-maskable-512.png`
+  ship `app-icon.png`.
 
 **If you need line icons** for a new surface, add a geometric, monoline set
 (1.5px stroke, squared terminals — Lucide/Radix/Phosphor-outline are the closest
