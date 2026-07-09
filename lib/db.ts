@@ -976,7 +976,7 @@ export interface AuditEvent {
  * `scripts/check-schema-version-bump.mjs` enforces the bump at commit time so
  * the marker stays trustworthy.
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export function initSchema(db: DB): void {
   db.exec(`
@@ -2642,6 +2642,21 @@ function initFoodSafetyLaborSchema(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_sickworker_active
       ON sick_worker_reports(location_id, cook_id)
       WHERE return_at IS NULL;
+
+    -- Doctor's-note documents attached to a sick-worker report (medical PHI).
+    -- file_path is relative to data/uploads/ (sick-notes/<report_id>/<uuid>.<ext>);
+    -- original_filename is display-only. Capture/view is native-driven; the web
+    -- app only declares the schema (design 2026-07-08-lariat-sick-note-docs).
+    CREATE TABLE IF NOT EXISTS sick_note_documents (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      report_id         INTEGER NOT NULL,
+      location_id       TEXT    NOT NULL,
+      file_path         TEXT    NOT NULL,
+      kind              TEXT    NOT NULL,
+      original_filename TEXT,
+      uploaded_by       TEXT,
+      uploaded_at       TEXT    NOT NULL
+    );
 
     -- L3: per-employee certifications (defined BEFORE shift_pic because
     -- shift_pic.cfpm_cert_id references it).

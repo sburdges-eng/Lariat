@@ -6,8 +6,10 @@ import Observation
 /// Sick-worker board view model — parity with `SickWorkerBoard.jsx` +
 /// `/api/sick-worker`. Filing and clearing reports are PIC authority in the web
 /// app (route 403 without the manager PIN); here `pinOk` reflects the native
-/// `PinSessionStore` so the UI mirrors the web PIC gate. Regulated writes are
-/// tagged `native_cook` via `RegulatedWriteContext` and audited in-transaction.
+/// `PinSessionStore` so the UI mirrors the web PIC gate. Filing/clearing writes
+/// are tagged `native_cook`; attaching a doctor's-note document is a
+/// manager-PIN write tagged `native_mac` (spec §8). All are audited
+/// in-transaction.
 @Observable @MainActor
 final class SickWorkerViewModel {
     var snapshot: SickWorkerBoardSnapshot?
@@ -24,6 +26,12 @@ final class SickWorkerViewModel {
     var selectedDiagnosis: SickDiagnosis?
     var overrideAction: SickAction?
     var reportNote = ""
+
+    // Doctor's-note documents (design 2026-07-08-lariat-sick-note-docs).
+    // Counts are PIN-free (the locked row shows "N on file"); full rows —
+    // filenames are PHI-adjacent — are fetched only with an active PIN session.
+    var documentCounts: [Int64: Int] = [:]
+    var documents: [Int64: [SickNoteDocumentRow]] = [:]
 
     let cookStore: CookIdentityStore
     let pinStore: PinSessionStore
@@ -121,6 +129,28 @@ final class SickWorkerViewModel {
         } catch {
             fetchError = "Could not load sick worker list"
         }
+        await refreshDocuments()
+    }
+
+    /// Refresh the per-report document counts (always) and rows (PIN only).
+    /// Document data is secondary to the board — on error keep the last-known
+    /// values rather than failing the whole snapshot.
+    private func refreshDocuments() async {
+        guard let snap = snapshot else {
+            documentCounts = [:]
+            documents = [:]
+            return
+        }
+        let ids = (snap.active + snap.history).map(\.id)
+        let repo = SickNoteRepository(readDB: readDB, writeDB: writeDB)
+        do {
+            documentCounts = try await repo.counts(reportIds: ids, locationId: locationId)
+            documents = pinOk
+                ? try await repo.documents(reportIds: ids, locationId: locationId)
+                : [:]
+        } catch {
+            // Keep previous values; the poller retries in a few seconds.
+        }
     }
 
     /// File a new sick report (PIC authority). Validation + the FDA-floor gate
@@ -193,6 +223,106 @@ final class SickWorkerViewModel {
         } catch {
             actionError = WriteErrorMapper.message(for: error)
         }
+    }
+
+    /// Attach a doctor's-note document to a report (manager-PIN authority,
+    /// StaffCertViewModel write pattern). Presents the open panel, copies the
+    /// file under `data/uploads/sick-notes/`, then records the audited row —
+    /// if the DB insert fails the copied file is removed so no orphan lands
+    /// on disk (spec §9 file-vs-row drift).
+    func attachDocument(reportId: Int64, kind: SickNoteKind) {
+        guard !isSaving else { return }
+        actionError = nil
+        do {
+            // Pre-panel gate: don't even open the picker without a manager session.
+            _ = try ManagementWrite().requireSession(pinStore.session)
+            try writeDB.pool.read { db in try pinStore.validateActiveUser(db: db) }
+
+            guard let picked = try SickNoteAttach.pickAndCopy(
+                reportId: reportId,
+                dataDir: Self.dataRoot()
+            ) else { return }   // operator cancelled the panel
+
+            isSaving = true
+            defer { isSaving = false }
+            do {
+                // Re-gate at write time. The modal picker is an unbounded pause,
+                // and the manager PIN can expire (8h TTL) or be revoked (the web
+                // app flips `manager_pin_users.is_active` in the shared DB) while
+                // it sits open. The audited PHI row must be attributed to a
+                // still-valid session, so re-verify before the insert.
+                let user = try ManagementWrite().requireSession(pinStore.session)
+                try writeDB.pool.read { db in try pinStore.validateActiveUser(db: db) }
+
+                let repo = SickNoteRepository(readDB: readDB, writeDB: writeDB)
+                _ = try repo.attach(
+                    input: SickNoteAttachInput(
+                        reportId: reportId,
+                        filePath: picked.filePath,
+                        kind: kind,
+                        originalFilename: picked.originalFilename,
+                        uploadedAt: Self.isoFormatter.string(from: Date())
+                    ),
+                    context: .nativeMac(pinUser: user)
+                )
+            } catch {
+                try? FileManager.default.removeItem(at: picked.destination)
+                throw error
+            }
+            Task { await refresh() }
+        } catch {
+            actionError = Self.attachErrorMessage(for: error)
+        }
+    }
+
+    /// Attach-failure copy that never surfaces the picked filename — it is
+    /// PHI-adjacent and this string renders on the board above the PIN gate.
+    /// Known typed errors keep their fixed copy; anything else (a Cocoa copy
+    /// failure whose message embeds the source filename) degrades to a generic
+    /// line.
+    private static func attachErrorMessage(for error: Error) -> String {
+        if error is SickNoteAttachError || error is SickNoteWriteError
+            || error is ManagementWriteError {
+            return WriteErrorMapper.message(for: error)
+        }
+        return "Couldn't attach the document — please try again."
+    }
+
+    /// Openable URL for a stored document, or nil when the file is missing on
+    /// disk (the DB row can outlive a moved/deleted file — spec §5) or the
+    /// stored `file_path` escapes the uploads root (tampered/out-of-band row —
+    /// spec §9). A resolved directory or app bundle is also refused.
+    nonisolated static func documentFileURL(
+        _ doc: SickNoteDocumentRow,
+        env: [String: String] = ProcessInfo.processInfo.environment,
+        fileManager: FileManager = .default
+    ) -> URL? {
+        guard let safeRel = SickNoteDocumentCompute.safeUploadRelativePath(doc.filePath) else {
+            return nil
+        }
+        // Resolve symlinks on BOTH paths (matching the recipe-photo `realpath`
+        // precedent): standardizedFileURL only strips ../. lexically, so without
+        // this a symlink planted under uploads/ could escape the root yet still
+        // satisfy the prefix test below. Resolving both keeps the comparison
+        // apples-to-apples (e.g. /tmp → /private/tmp on macOS).
+        let uploads = dataRoot(env: env).appendingPathComponent("uploads").resolvingSymlinksInPath().standardizedFileURL
+        let url = uploads.appendingPathComponent(safeRel).resolvingSymlinksInPath().standardizedFileURL
+        // The resolved real path must sit under the uploads root.
+        guard url.path == uploads.path || url.path.hasPrefix(uploads.path + "/") else {
+            return nil
+        }
+        var isDir: ObjCBool = false
+        guard fileManager.fileExists(atPath: url.path, isDirectory: &isDir), !isDir.boolValue else {
+            return nil
+        }
+        return url
+    }
+
+    /// The Lariat data root (`LARIAT_DATA_DIR` or `<cwd>/data`) as a URL.
+    nonisolated private static func dataRoot(
+        env: [String: String] = ProcessInfo.processInfo.environment
+    ) -> URL {
+        URL(fileURLWithPath: LariatDB.resolveDataDirectory(env: env), isDirectory: true)
     }
 
     /// Display name for a report's worker id via the staff catalog.
