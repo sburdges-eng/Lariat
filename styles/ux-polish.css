@@ -159,13 +159,10 @@ button:focus-visible,
   textarea {
     font-size: 16px;
   }
-  /* Horizontal-scroll sidebar: momentum + snap */
+  /* Vertical-scroll sidebar band: momentum scrolling */
   .sidebar {
     -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity;
   }
-  .sidebar > * { scroll-snap-align: start; }
-  .sidebar .line-rope { display: none; }
 }
 
 /* --- 7. Print-friendly fallback ---------------------------------- */
@@ -287,10 +284,10 @@ time {
   .sidebar::after {
     content: "";
     position: absolute;
-    right: 0; top: 0; bottom: 0;
-    width: 20px;
+    left: 0; right: 0; bottom: 0;
+    height: 20px;
     pointer-events: none;
-    background: linear-gradient(90deg, transparent, var(--paper, #ece2cf) 80%);
+    background: linear-gradient(180deg, transparent, var(--paper, #ece2cf) 80%);
   }
 }
 
