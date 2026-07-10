@@ -29,7 +29,9 @@ final class ManagerPinRepositoryTests: XCTestCase {
             )!
             let hash: String = row["pin_hash"]
             XCTAssertNotEqual(hash, "1357", "raw PIN must never be stored")
-            XCTAssertEqual(hash, PinHash.sha256Hex("1357"), "hash must match the shared PinHash")
+            XCTAssertNotEqual(hash, PinHash.sha256Hex("1357"), "must not be unsalted SHA-256")
+            XCTAssertFalse(PinHash.isLegacyHash(hash), "must be the salted PBKDF2 format")
+            XCTAssertTrue(PinHash.verify("1357", hash), "stored hash verifies against the PIN")
             XCTAssertEqual(row["is_active"] as Int, 1)
 
             // Audit row in the SAME transaction; payload carries no PIN material.
@@ -235,5 +237,32 @@ final class ManagerPinRepositoryTests: XCTestCase {
         try writeDB.pool.read { db in
             XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM manager_pin_users"), 0, "source row must roll back with the audit")
         }
+    }
+
+    // ── duplicate active PIN codes (parity with lib/managerPins.ts) ──────
+
+    func testDuplicateActivePinCodeRejected() throws {
+        let (readDB, writeDB, path) = try makePinRepos(); defer { cleanupPinFixture(path) }
+        let repo = ManagerPinRepository(readDB: readDB, writeDB: writeDB)
+        _ = try repo.create(name: "First", pin: "1212", role: "manager", context: ctx)
+
+        // A second ACTIVE manager can't reuse the code — scan-verify catches it
+        // now that salted hashes defeat the DB UNIQUE index. Login stays unambiguous.
+        XCTAssertThrowsError(try repo.create(name: "Second", pin: "1212", role: "manager", context: ctx)) { error in
+            guard case ManagerPinWriteError.validation(let msg) = error else {
+                return XCTFail("expected a validation error")
+            }
+            XCTAssertTrue(msg.lowercased().contains("in use"), "\(msg) should say the PIN is in use")
+        }
+
+        // Update onto another active manager's code is rejected too.
+        let second = try repo.create(name: "Second", pin: "3434", role: "manager", context: ctx)
+        XCTAssertThrowsError(try repo.update(id: second.id, pin: "1212", context: ctx))
+
+        // But a disabled user's code is free to reuse for a new active user.
+        let third = try repo.create(name: "Third", pin: "5656", role: "manager", context: ctx)
+        _ = try repo.disable(id: third.id, context: ctx)
+        let fourth = try repo.create(name: "Fourth", pin: "5656", role: "manager", context: ctx)
+        XCTAssertGreaterThan(fourth.id, 0)
     }
 }

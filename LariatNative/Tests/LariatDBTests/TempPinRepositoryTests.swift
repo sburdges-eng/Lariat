@@ -36,7 +36,8 @@ final class TempPinRepositoryTests: XCTestCase {
             let row = try Row.fetchOne(db, sql: "SELECT pin_hash, label FROM temp_pins WHERE id = ?", arguments: [result.id])!
             let hash: String = row["pin_hash"]
             XCTAssertNotEqual(hash, result.pin, "pin_hash should not equal raw pin")
-            XCTAssertEqual(hash, PinHash.sha256Hex(result.pin))
+            XCTAssertFalse(PinHash.isLegacyHash(hash), "must be the salted PBKDF2 format, not SHA-256")
+            XCTAssertTrue(PinHash.verify(result.pin, hash), "stored hash verifies against the issued PIN")
             XCTAssertEqual(row["label"] as String, "Sous chef Marco")
 
             let audit = try Row.fetchOne(
@@ -124,8 +125,9 @@ final class TempPinRepositoryTests: XCTestCase {
         )
         XCTAssertEqual(result.pin, "0042", "'0042' is a valid PIN, not '42'")
         try writeDB.pool.read { db in
-            let hash = try String.fetchOne(db, sql: "SELECT pin_hash FROM temp_pins WHERE id = ?", arguments: [result.id])
-            XCTAssertEqual(hash, PinHash.sha256Hex("0042"))
+            let hash = try String.fetchOne(db, sql: "SELECT pin_hash FROM temp_pins WHERE id = ?", arguments: [result.id])!
+            XCTAssertFalse(PinHash.isLegacyHash(hash), "must be the salted PBKDF2 format")
+            XCTAssertTrue(PinHash.verify("0042", hash), "leading-zero PIN verifies against its stored hash")
         }
     }
 

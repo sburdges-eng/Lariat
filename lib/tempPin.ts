@@ -28,8 +28,11 @@ export type KnownScope = (typeof KNOWN_SCOPES)[number];
 
 const KNOWN_SCOPE_SET = new Set<string>(KNOWN_SCOPES);
 
-/** SHA-256(pin) as 64-char hex. Determinism + cheap; the raw PIN is never
- *  stored anywhere — only this hash makes it into temp_pins.pin_hash. */
+/** LEGACY unsalted SHA-256(pin). Retained only so tests can seed a temp_pins
+ *  row in the pre-2026-07-10 on-disk format; verifyPin still accepts it, which
+ *  is how in-flight temp PINs survive the migration. Production issuance and
+ *  login now use salted PBKDF2 via lib/pinHash (audit 2026-07-10 P0-3) — do
+ *  NOT use this for new credential storage. */
 export function hashPin(pin: string): string {
   return createHash('sha256').update(pin).digest('hex');
 }

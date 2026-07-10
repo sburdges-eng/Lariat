@@ -1,6 +1,7 @@
 import { getDb } from './db.ts';
 import { DEFAULT_LOCATION_ID } from './location.ts';
-import { hashPin, validatePinFormat } from './tempPin.ts';
+import { validatePinFormat } from './tempPin.ts';
+import { hashPinSecure, verifyPin, isLegacyHash } from './pinHash.ts';
 
 export const MANAGER_PIN_ROLES = ['manager', 'owner'] as const;
 export type ManagerPinRole = (typeof MANAGER_PIN_ROLES)[number];
@@ -46,11 +47,31 @@ function normalizeRole(role: unknown): ManagerPinRole {
   throw new Error('role must be manager or owner');
 }
 
-function hashManagerPin(pin: unknown): string {
-  const value = typeof pin === 'string' ? pin : '';
-  const fmt = validatePinFormat(value);
-  if (!fmt.ok) throw new Error(fmt.error);
-  return hashPin(value);
+/** Active rows for a location, carrying pin_hash for scan-verify. Salted
+ *  hashes can't be matched by SQL equality, so login and the duplicate-code
+ *  guard both scan these and call verifyPin. Restaurant scale (a handful of
+ *  active managers) makes the linear scan trivially cheap. */
+function activeRowsWithHash(location: string): (ManagerPinRow & { pin_hash: string })[] {
+  return getDb()
+    .prepare(
+      `SELECT id, location_id, name, role, is_active, created_at, updated_at, disabled_at, pin_hash
+         FROM manager_pin_users
+        WHERE location_id = ?
+          AND is_active = 1`,
+    )
+    .all(location) as (ManagerPinRow & { pin_hash: string })[];
+}
+
+/** Keep login unambiguous: reject a PIN already held by another ACTIVE manager
+ *  in this location. The DB UNIQUE(location_id, pin_hash) index can no longer
+ *  enforce this (every salted hash is distinct), so we enforce it in code. */
+function assertPinCodeFree(location: string, pin: string, exceptId: number | null = null): void {
+  for (const row of activeRowsWithHash(location)) {
+    if (exceptId !== null && row.id === exceptId) continue;
+    if (verifyPin(pin, row.pin_hash)) {
+      throw new Error('PIN already in use by an active manager');
+    }
+  }
 }
 
 function publicUser(row: ManagerPinRow): ManagerPinUser {
@@ -117,23 +138,26 @@ export function findActiveManagerByPin(
   locationId = DEFAULT_LOCATION_ID,
 ): ManagerPinUser | null {
   const location = normalizeLocation(locationId);
-  let pinHash: string;
-  try {
-    pinHash = hashManagerPin(pin);
-  } catch {
-    return null;
+  const value = typeof pin === 'string' ? pin : '';
+  if (!validatePinFormat(value).ok) return null;
+
+  // Scan-verify: salted hashes can't be looked up by equality. On a match
+  // against a legacy unsalted SHA-256 row, transparently rehash with PBKDF2 so
+  // the weak hash is retired the first time the manager logs in.
+  for (const row of activeRowsWithHash(location)) {
+    if (!verifyPin(value, row.pin_hash)) continue;
+    if (isLegacyHash(row.pin_hash)) {
+      getDb()
+        .prepare(
+          `UPDATE manager_pin_users
+              SET pin_hash = ?, updated_at = datetime('now')
+            WHERE id = ? AND location_id = ?`,
+        )
+        .run(hashPinSecure(value), row.id, location);
+    }
+    return publicUser(row);
   }
-  const row = getDb()
-    .prepare(
-      `SELECT id, location_id, name, role, is_active, created_at, updated_at, disabled_at
-         FROM manager_pin_users
-        WHERE location_id = ?
-          AND pin_hash = ?
-          AND is_active = 1
-        LIMIT 1`,
-    )
-    .get(location, pinHash) as ManagerPinRow | undefined;
-  return row ? publicUser(row) : null;
+  return null;
 }
 
 export function createManagerPinUser({
@@ -150,7 +174,11 @@ export function createManagerPinUser({
   const location = normalizeLocation(locationId);
   const cleanName = normalizeName(name);
   const cleanRole = normalizeRole(role);
-  const pinHash = hashManagerPin(pin);
+  const pinValue = typeof pin === 'string' ? pin : '';
+  const fmt = validatePinFormat(pinValue);
+  if (!fmt.ok) throw new Error(fmt.error);
+  assertPinCodeFree(location, pinValue);
+  const pinHash = hashPinSecure(pinValue);
   const info = getDb()
     .prepare(
       `INSERT INTO manager_pin_users (location_id, name, pin_hash, role)
@@ -190,7 +218,14 @@ export function updateManagerPinUser({
 
   const cleanName = name === undefined ? existing.name : normalizeName(name);
   const cleanRole = role === undefined ? existing.role : normalizeRole(role);
-  const pinHash = pin === undefined ? null : hashManagerPin(pin);
+  let pinHash: string | null = null;
+  if (pin !== undefined) {
+    const pinValue = typeof pin === 'string' ? pin : '';
+    const fmt = validatePinFormat(pinValue);
+    if (!fmt.ok) throw new Error(fmt.error);
+    assertPinCodeFree(location, pinValue, userId);
+    pinHash = hashPinSecure(pinValue);
+  }
   const nextActive = isActive === undefined ? existing.is_active === 1 : Boolean(isActive);
 
   if (pinHash) {

@@ -13,6 +13,7 @@ import {
   validateBumpPayload,
   bumpActionForExisting,
 } from '../../lib/kds.ts';
+import { verifyPin } from '../../lib/pinHash.ts';
 
 // ── isStationSlug ──────────────────────────────────────────────────
 
@@ -76,18 +77,20 @@ describe('isIso8601Utc', () => {
 // ── hashPin ────────────────────────────────────────────────────────
 
 describe('hashPin', () => {
-  it('returns 64-char hex (SHA-256)', () => {
+  it('returns a salted PBKDF2 string, not unsalted SHA-256 (audit 2026-07-10 P0-3)', () => {
     const h = hashPin('1234');
-    assert.equal(h.length, 64);
-    assert.match(h, /^[0-9a-f]{64}$/);
+    assert.match(h, /^p1\$/);
+    assert.equal(verifyPin('1234', h), true);
   });
 
-  it('is deterministic — same PIN yields same hash', () => {
-    assert.equal(hashPin('1234'), hashPin('1234'));
+  it('salts — same PIN yields different hashes', () => {
+    assert.notEqual(hashPin('1234'), hashPin('1234'));
   });
 
-  it('distinguishes different PINs', () => {
-    assert.notEqual(hashPin('1234'), hashPin('1235'));
+  it('distinguishes different PINs on verify', () => {
+    const h = hashPin('1234');
+    assert.equal(verifyPin('1234', h), true);
+    assert.equal(verifyPin('1235', h), false);
   });
 
   it('does not echo the raw PIN in its output', () => {

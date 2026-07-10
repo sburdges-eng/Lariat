@@ -97,10 +97,12 @@ final class KdsTicketRepositoryTests: XCTestCase {
             XCTAssertEqual(at, bumpedAt)
             let station = try String.fetchOne(db, sql: "SELECT bumped_station FROM kds_ticket_states WHERE ticket_id='tkt_abc'")
             XCTAssertEqual(station, "grill")
-            // PIN hashed, never raw — fixed vector matches Node createHash('sha256').update('1234').digest('hex')
-            let hash = try String.fetchOne(db, sql: "SELECT bumped_pin_hash FROM kds_ticket_states WHERE ticket_id='tkt_abc'")
+            // PIN hashed with salted PBKDF2 (audit 2026-07-10 P0-3), never raw
+            // or unsalted SHA-256; the stored value verifies against the PIN.
+            let hash = try String.fetchOne(db, sql: "SELECT bumped_pin_hash FROM kds_ticket_states WHERE ticket_id='tkt_abc'")!
             XCTAssertNotEqual(hash, "1234")
-            XCTAssertEqual(hash, "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4")
+            XCTAssertFalse(PinHash.isLegacyHash(hash))
+            XCTAssertTrue(PinHash.verify("1234", hash))
             // one insert audit for the state entity
             let auditCnt = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM audit_events WHERE entity='kds_ticket_state' AND action='insert'") ?? 0
             XCTAssertEqual(auditCnt, 1)

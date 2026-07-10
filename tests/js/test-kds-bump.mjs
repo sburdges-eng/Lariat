@@ -20,6 +20,7 @@ import {
   validateBumpPayload,
   bumpActionForExisting,
 } from '../../lib/kds.ts';
+import { verifyPin } from '../../lib/pinHash.ts';
 
 // ── KNOWN_STATIONS ──────────────────────────────────────────────
 
@@ -100,19 +101,16 @@ describe('isIso8601Utc', () => {
 // ── hashPin ─────────────────────────────────────────────────────
 
 describe('hashPin', () => {
-  it('is deterministic: same input → same output', () => {
-    assert.equal(hashPin('1234'), hashPin('1234'));
+  it('salts: same input → different outputs (audit 2026-07-10 P0-3)', () => {
+    assert.notEqual(hashPin('1234'), hashPin('1234'));
   });
 
-  it('different inputs → different outputs', () => {
-    assert.notEqual(hashPin('1234'), hashPin('1235'));
-  });
-
-  it('matches a SHA-256 hex digest (raw PIN never stored)', () => {
-    const expected = createHash('sha256').update('1234').digest('hex');
-    assert.equal(hashPin('1234'), expected);
-    assert.equal(hashPin('1234').length, 64); // hex of 32 bytes
-    assert.notEqual(hashPin('1234'), '1234');
+  it('never stores the raw PIN or an unsalted SHA-256 digest', () => {
+    const out = hashPin('1234');
+    assert.notEqual(out, '1234');
+    assert.notEqual(out, createHash('sha256').update('1234').digest('hex'));
+    assert.equal(verifyPin('1234', out), true);
+    assert.equal(verifyPin('1235', out), false);
   });
 });
 

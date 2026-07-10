@@ -28,8 +28,9 @@ public struct TempPinRepository {
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase
 
-    /// Web `MAX_COLLISION_RETRIES` — attempts to find a PIN whose hash does
-    /// not collide with the UNIQUE `pin_hash` column.
+    /// Web `MAX_COLLISION_RETRIES` — attempts to find a PIN whose code is not
+    /// already held by an active row (scan-verify; salted hashes can't be
+    /// deduped by the DB UNIQUE index).
     public static let maxCollisionRetries = 5
 
     static let maxLabelLength = 200
@@ -85,9 +86,26 @@ public struct TempPinRepository {
         for attempt in 0..<Self.maxCollisionRetries {
             let pin = pinGenerator(length)
             if PinHash.validateFormat(pin) != nil { continue }
-            let pinHash = PinHash.sha256Hex(pin)
+            var collided = false
             do {
                 let id = try AuditedWriteRunner.perform(db: writeDB) { db -> Int64 in
+                    // Salted PBKDF2 hashes are all distinct, so the DB
+                    // UNIQUE(pin_hash) index can't detect a duplicate PIN *code*;
+                    // scan active rows and verify before minting (audit
+                    // 2026-07-10 P0-3, parity with lib/tempPin issue route).
+                    let actives = try Row.fetchAll(db, sql: """
+                      SELECT pin_hash FROM temp_pins
+                       WHERE revoked_at IS NULL
+                         AND datetime(expires_at) > datetime('now')
+                      """)
+                    for row in actives {
+                        let stored: String = row["pin_hash"]
+                        if PinHash.verify(pin, stored) {
+                            collided = true
+                            throw TempPinWriteError.exhausted // abort txn; retry outside
+                        }
+                    }
+                    let pinHash = PinHash.hashPinSecure(pin)
                     try db.execute(
                         sql: """
                           INSERT INTO temp_pins (location_id, pin_hash, label, scopes_json, expires_at)
@@ -114,11 +132,10 @@ public struct TempPinRepository {
                     id: id, pin: pin, label: cleanLabel, scopes: scopes, expiresAt: expiresAt
                 )
             } catch {
-                let text = String(describing: error).uppercased()
-                if text.contains("UNIQUE") && attempt < Self.maxCollisionRetries - 1 {
-                    continue // pick a new PIN and retry
-                }
-                if text.contains("UNIQUE") {
+                // Application-detected code collision OR the UNIQUE backstop
+                // (astronomically-unlikely salted-hash collision) → retry.
+                if collided || String(describing: error).uppercased().contains("UNIQUE") {
+                    if attempt < Self.maxCollisionRetries - 1 { continue }
                     throw TempPinWriteError.exhausted
                 }
                 throw error

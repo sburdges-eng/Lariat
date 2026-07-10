@@ -31,19 +31,21 @@ public struct TempPinVerifier {
         if let fmt = PinHash.validateFormat(pin) {
             throw PinGateError.format(fmt)
         }
-        let hash = PinHash.sha256Hex(pin)
         guard try db.tableExists("temp_pins") else { return false }
+        // Scan-verify: salted PBKDF2 hashes can't be matched by SQL equality
+        // (audit 2026-07-10 P0-3). PinHash.verify accepts the legacy SHA-256
+        // too, so temp PINs issued before the migration still work.
         let rows = try Row.fetchAll(
             db,
             sql: """
-              SELECT scopes_json FROM temp_pins
-               WHERE pin_hash = ?
-                 AND revoked_at IS NULL
+              SELECT scopes_json, pin_hash FROM temp_pins
+               WHERE revoked_at IS NULL
                  AND datetime(expires_at) > datetime('now')
-              """,
-            arguments: [hash]
+              """
         )
         for row in rows {
+            let stored: String = row["pin_hash"]
+            guard PinHash.verify(pin, stored) else { continue }
             let scopes = Self.parseScopes(row["scopes_json"])
             if Self.hasScope(scopes, scope) { return true }
         }
