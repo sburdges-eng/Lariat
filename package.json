@@ -75,7 +75,7 @@
     "seed:beo_prep_history": "python3 scripts/ingest_beo_prep_history.py",
     "seed:all": "npm run seed:densities && npm run seed:yields && npm run seed:unit_weights && npm run seed:catch_weights",
     "training:generate": "node training/generate-qa.mjs",
-    "backup": "node scripts/backup.mjs",
+    "backup": "node --experimental-strip-types scripts/backup.mjs",
     "propose:bom-vendor-matches": "node --experimental-strip-types scripts/propose-bom-vendor-matches.mjs",
     "propose:plan-restaurant-grind": "node --experimental-strip-types scripts/propose-plan-restaurant-grind.mjs",
     "propose:plan-action-items": "node --experimental-strip-types scripts/propose-plan-action-items.mjs",
