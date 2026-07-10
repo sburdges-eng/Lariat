@@ -19,5 +19,7 @@ final class SickNoteMediaKeyTests: XCTestCase {
         // bad hex key_id and wrong-length key both reject
         XCTAssertNil(SickNoteMediaKey.parse(Data(#"{"v":1,"key_id":"zz","key":"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=","created_at":"x"}"#.utf8)))
         XCTAssertNil(SickNoteMediaKey.parse(Data(#"{"v":1,"key_id":"404142434445464748494a4b4c4d4e4f","key":"AAA=","created_at":"x"}"#.utf8)))
+        // +-prefixed pairs are non-hex and must reject: UInt8(_:radix:) accepts a leading '+'
+        XCTAssertNil(SickNoteMediaKey.parse(Data(#"{"v":1,"key_id":"+0+1+2+3+4+5+6+7+8+9+a+b+c+d+e+f","key":"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=","created_at":"x"}"#.utf8)))
     }
 }

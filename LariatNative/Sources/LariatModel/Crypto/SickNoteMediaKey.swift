@@ -48,6 +48,9 @@ public struct SickNoteMediaKey: Codable, Equatable, Sendable {
 
     static func hexFromData(_ d: Data) -> String { d.map { String(format: "%02x", $0) }.joined() }
     static func dataFromHex(_ s: String) -> Data? {
+        // Reject any non-ASCII-hex character: UInt8(_:radix:) otherwise accepts a leading '+'/'-',
+        // and Character.isHexDigit alone accepts some non-ASCII digit forms.
+        guard s.allSatisfy({ $0.isASCII && $0.isHexDigit }) else { return nil }
         let chars = Array(s)
         guard chars.count % 2 == 0 else { return nil }
         var out = Data(capacity: chars.count / 2)
