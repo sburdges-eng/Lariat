@@ -30,29 +30,33 @@ struct PollFreshnessIndicator: View {
             if let last = poller.lastSuccess {
                 if poller.isStale {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(LariatTheme.warn)
+                        .foregroundStyle(LaRiOS.Colors.metal)
                     Text("Stale · updated \(recency(from: last, to: now))")
                 } else if poller.isBackgrounded {
                     Image(systemName: "moon.fill")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LaRiOS.Colors.textMuted)
                     Text("Updated \(recency(from: last, to: now))")
                 } else {
                     Circle()
-                        .fill(LariatTheme.ok)
+                        .fill(LaRiOS.Colors.ok)
                         .frame(width: 6, height: 6)
                     Text("Updated \(recency(from: last, to: now))")
                 }
             } else {
                 Image(systemName: "arrow.triangle.2.circlepath")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LaRiOS.Colors.textMuted)
                 Text("Refreshing…")
             }
         }
-        .font(.caption2.weight(.semibold))
-        .foregroundStyle(.secondary)
+        .font(LaRiOS.Typography.xsmall)
+        .foregroundStyle(LaRiOS.Colors.textMuted)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(.ultraThinMaterial, in: Capsule())
+        .background(LaRiOS.Colors.panelRaised, in: RoundedRectangle(cornerRadius: LaRiOS.Radius.small))
+        .overlay {
+            RoundedRectangle(cornerRadius: LaRiOS.Radius.small)
+                .stroke(LaRiOS.Colors.hairline, lineWidth: 1)
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText(for: poller, now: now))
     }

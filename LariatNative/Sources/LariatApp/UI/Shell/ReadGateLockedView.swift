@@ -12,20 +12,31 @@ struct ReadGateLockedView: View {
     let onUnlock: () -> Void
 
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "lock.fill").font(.largeTitle).foregroundStyle(.secondary)
-            Text("\(title) requires a manager PIN").font(.headline)
+        VStack(spacing: LaRiOS.Spacing.six) {
+            Image(systemName: "lock.fill")
+                .font(LaRiOS.Typography.titleMedium)
+                .foregroundStyle(LaRiOS.Colors.accent)
+            Text("\(title) needs manager PIN")
+                .font(LaRiOS.Typography.titleSmall)
+                .foregroundStyle(LaRiOS.Colors.text)
             switch state {
             case .unavailable(let reason):
-                Text(reason).font(.callout).foregroundStyle(.secondary)
+                Text(reason)
+                    .font(LaRiOS.Typography.small)
+                    .foregroundStyle(LaRiOS.Colors.textMuted)
             case .locked, .open:
-                Text("This board is PIN-protected (parity with the web app).")
-                    .font(.callout).foregroundStyle(.secondary)
-                Button("Unlock") { onUnlock() }.buttonStyle(.borderedProminent)
+                Text("Manager-only board.")
+                    .font(LaRiOS.Typography.small)
+                    .foregroundStyle(LaRiOS.Colors.textMuted)
+                Button("Unlock") { onUnlock() }
+                    .buttonStyle(.larios(.primary))
             }
         }
+        .padding(LaRiOS.Spacing.twelve)
+        .frame(maxWidth: 420)
+        .lariosPanel(fill: LaRiOS.Colors.panelRaised)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
+        .background(LaRiOS.Colors.background)
         .accessibilityElement(children: .combine)
     }
 }

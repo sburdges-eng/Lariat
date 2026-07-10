@@ -21,7 +21,7 @@ struct FloorView: View {
             } else if vm.loaded {
                 boardContent
             } else {
-                ProgressView("Loading floor…")
+                LaRiOSLoadingView(message: "Loading floor")
             }
         }
         .navigationTitle("Floor")
@@ -45,10 +45,10 @@ struct FloorView: View {
                 header
                 legend
                 if let err = vm.fetchError {
-                    Text(err).font(.subheadline).foregroundStyle(LariatTheme.bad)
+                    LaRiOSInlineBanner(message: err, tone: .bad)
                 }
                 if let err = vm.actionError {
-                    Text(err).font(.subheadline).foregroundStyle(LariatTheme.bad)
+                    LaRiOSInlineBanner(message: err, tone: .bad)
                 }
                 if vm.tables.isEmpty {
                     emptyFloor
@@ -62,19 +62,24 @@ struct FloorView: View {
                     }
                 }
             }
-            .padding()
+            .frame(maxWidth: 1180, alignment: .leading)
+            .padding(LaRiOS.Spacing.twelve)
         }
+        .scrollContentBackground(.hidden)
+        .background(LaRiOS.Colors.background)
         .searchable(text: $query, prompt: "Find a table")
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Floor").font(.largeTitle.bold())
-            let c = vm.counts
-            Text("\(c.total) table\(c.total == 1 ? "" : "s") · \(c.seated) seated · \(c.open) open · \(c.dirty) dirty")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        let c = vm.counts
+        return LaRiOSBoardHeader(
+            eyebrow: "Front",
+            title: "Floor",
+            subtitle: "\(c.total) table\(c.total == 1 ? "" : "s") · \(c.seated) seated · \(c.open) open · \(c.dirty) dirty"
+        ) {
+            LaRiOSChip(text: "\(c.open) open", tone: c.open > 0 ? .ok : .neutral)
         }
+        .lariosPanel(padding: LaRiOS.Spacing.eight, fill: LaRiOS.Colors.panelRaised)
     }
 
     private var legend: some View {
@@ -84,7 +89,11 @@ struct FloorView: View {
             legendItem("Dirty", statusColor("dirty"))
             legendItem("Closed", statusColor("closed"))
         }
-        .font(.caption)
+        .font(LaRiOS.Typography.xsmall)
+        .foregroundStyle(LaRiOS.Colors.textMuted)
+        .padding(.horizontal, LaRiOS.Spacing.six)
+        .padding(.vertical, LaRiOS.Spacing.four)
+        .background(LaRiOS.Colors.panel, in: RoundedRectangle(cornerRadius: LaRiOS.Radius.base))
     }
 
     private func legendItem(_ label: String, _ color: Color) -> some View {
@@ -99,18 +108,17 @@ struct FloorView: View {
     private var emptyFloor: some View {
         VStack(alignment: .leading, spacing: 12) {
             EmptyState(message: "No tables on this floor yet.", systemImage: "tablecells")
-            Text("Drop in a small starter set (T1–T6, two-tops) so you can play with the colors. You can rename and rearrange later.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Text("Add starter tables, then rename them later.")
+                .font(LaRiOS.Typography.small)
+                .foregroundStyle(LaRiOS.Colors.textMuted)
             Button(vm.isBusy ? "Adding…" : "Add a few tables to get started") {
                 Task { await vm.addStarterTables() }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.larios(.primary))
             .disabled(vm.isBusy)
             .frame(minHeight: 44)
         }
-        .padding()
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+        .lariosPanel(fill: LaRiOS.Colors.panel)
     }
 
     private var filteredTables: [DiningTableRow] {
@@ -135,16 +143,20 @@ struct FloorView: View {
             vm.selectedId = table.id == vm.selectedId ? nil : table.id
         } label: {
             VStack(spacing: 4) {
-                Text(table.id).font(.headline.bold())
-                Text("ppl \(table.capacity)").font(.caption)
-                Text(statusLabel(table.status)).font(.caption2)
+                Text(table.id)
+                    .font(LaRiOS.Typography.titleSmall)
+                    .lineLimit(1)
+                Text("ppl \(table.capacity)")
+                    .font(LaRiOS.Typography.xsmall)
+                Text(statusLabel(table.status).uppercased())
+                    .font(LaRiOS.Typography.eyebrow)
             }
             .foregroundStyle(.white)
-            .frame(maxWidth: .infinity, minHeight: 84)
-            .background(statusColor(table.status), in: RoundedRectangle(cornerRadius: 8))
+            .frame(maxWidth: .infinity, minHeight: 92)
+            .background(statusColor(table.status), in: RoundedRectangle(cornerRadius: LaRiOS.Radius.base))
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(table.id == vm.selectedId ? Color.primary : .clear, lineWidth: 2)
+                RoundedRectangle(cornerRadius: LaRiOS.Radius.base)
+                    .stroke(table.id == vm.selectedId ? LaRiOS.Colors.text : LaRiOS.Colors.hairline.opacity(0.45), lineWidth: table.id == vm.selectedId ? 2 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -155,18 +167,20 @@ struct FloorView: View {
     private func actionPanel(_ table: DiningTableRow) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(table.id).font(.title3.bold())
+                Text(table.id)
+                    .font(LaRiOS.Typography.titleSmall)
+                    .foregroundStyle(LaRiOS.Colors.text)
                 Spacer()
                 Button("Close panel") { vm.selectedId = nil }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LaRiOS.Colors.textMuted)
             }
             VStack(alignment: .leading, spacing: 12) {
                 Text(table.name == table.id ? "ppl \(table.capacity)" : "\(table.name) · ppl \(table.capacity)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(LaRiOS.Typography.xsmall)
+                    .foregroundStyle(LaRiOS.Colors.textMuted)
                 Text(statusLabel(table.status))
-                    .font(.caption.bold())
+                    .font(LaRiOS.Typography.xsmall)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 3)
                     .background(statusColor(table.status), in: Capsule())
@@ -181,8 +195,7 @@ struct FloorView: View {
                     Button(action.label) {
                         Task { await vm.changeStatus(id: table.id, to: action.target) }
                     }
-                    .buttonStyle(.bordered)
-                    .tint(action.isPrimary ? .accentColor : nil)
+                    .buttonStyle(.larios(action.isPrimary ? .primary : .secondary))
                     .disabled(vm.isBusy)
                     .frame(maxWidth: .infinity, minHeight: 36)
                 }
@@ -194,19 +207,20 @@ struct FloorView: View {
 
             if let notes = table.notes, !notes.isEmpty {
                 Divider()
-                Text(notes).font(.caption).foregroundStyle(.secondary)
+                Text(notes)
+                    .font(LaRiOS.Typography.xsmall)
+                    .foregroundStyle(LaRiOS.Colors.textMuted)
             }
         }
-        .padding()
-        .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
+        .lariosPanel(fill: LaRiOS.Colors.panel)
     }
 
     private func seatReservationSection(_ table: DiningTableRow) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Seat a reservation").font(.subheadline.bold())
+            LaRiOSSectionHeader(title: "Seat a reservation", tone: .accent)
             if vm.cookStore.cookId == nil {
                 Text("Pick a cook to seat reservations.")
-                    .font(.caption)
+                    .font(LaRiOS.Typography.xsmall)
                     .foregroundStyle(LariatTheme.bad)
             }
             ForEach(vm.reservations) { r in
@@ -216,12 +230,12 @@ struct FloorView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(r.partyName).font(.caption.bold())
                         Text("\(r.partySize) ppl · \(ReservationsCompute.formatRowTime(r.reservationAt))")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .font(LaRiOS.Typography.xsmall)
+                            .foregroundStyle(LaRiOS.Colors.textMuted)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.larios(.secondary))
                 .disabled(vm.isBusy)
             }
         }

@@ -73,22 +73,22 @@ struct BookingBoardView: View {
 
     private func boardContent(_ snap: BookingBoardSnapshot) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: LaRiOS.Spacing.eight) {
                 header(snap)
                 pipelineSection(snap.pipelineCounts)
                 calendarSection(snap.upcoming)
             }
-            .padding()
+            .padding(LaRiOS.Spacing.eight)
         }
         .searchable(text: $query, prompt: "Find an artist")
     }
 
     private func header(_ snap: BookingBoardSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("The calendar").font(.largeTitle.bold())
-            Text("Five weeks ahead — the booking pipeline runs live below.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        LaRiOSBoardHeader(
+            eyebrow: "FOH",
+            title: "The calendar",
+            subtitle: "Five weeks ahead. Booking pipeline runs live below."
+        ) {
             if let next = snap.next {
                 // The web page links this strip into /shows/[id]/* — the
                 // shows tier exists natively now, so route to the tonight
@@ -98,38 +98,27 @@ struct BookingBoardView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text("Next show: \(next.bandName) · \(fmtDate(next.showDate))")
-                            .font(.subheadline.bold())
                         Image(systemName: "chevron.right")
-                            .font(.caption.bold())
+                            .font(LaRiOS.Typography.xsmall)
                     }
-                    .foregroundStyle(LariatTheme.warn)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.larios(.ghost))
                 .accessibilityLabel("Next show: \(next.bandName). Open tonight's board.")
             }
         }
     }
 
     private func pipelineSection(_ counts: [String: Int]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Booking pipeline").font(.headline)
-            Text("live count by stage").font(.caption).foregroundStyle(.secondary)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 8)], spacing: 8) {
+        VStack(alignment: .leading, spacing: LaRiOS.Spacing.five) {
+            LaRiOSSectionHeader(title: "Booking pipeline", subtitle: "Live count by stage")
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: LaRiOS.Spacing.four)], spacing: LaRiOS.Spacing.four) {
                 ForEach(Array(ShowPipelineCompute.knownStages.enumerated()), id: \.element) { i, stage in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("STAGE \(i + 1)")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Text("\(counts[stage] ?? 0)")
-                            .font(.system(size: 30, weight: .semibold, design: .serif))
-                        Text(stage).font(.subheadline.bold())
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(
-                        i >= 4 ? AnyShapeStyle(LariatTheme.amber.opacity(0.18)) : AnyShapeStyle(.quaternary),
-                        in: RoundedRectangle(cornerRadius: 10)
+                    LaRiOSMetricCard(
+                        title: stage,
+                        value: "\(counts[stage] ?? 0)",
+                        tone: i >= 4 ? .warn : .neutral,
+                        titlePrefix: "Stage \(i + 1)"
                     )
                     .accessibilityElement(children: .combine)
                 }
@@ -138,9 +127,8 @@ struct BookingBoardView: View {
     }
 
     private func calendarSection(_ rows: [BookingShowRow]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Five weeks ahead").font(.headline)
-            Text("\(rows.count) confirmed shows").font(.caption).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: LaRiOS.Spacing.five) {
+            LaRiOSSectionHeader(title: "Five weeks ahead", subtitle: "\(rows.count) confirmed shows")
             let filtered = filteredRows(rows)
             if filtered.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
@@ -150,19 +138,18 @@ struct BookingBoardView: View {
                     )
                     if rows.isEmpty {
                         Text("Pull fresh after Lauren updates the booking sheet.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(LaRiOS.Typography.xsmall)
+                            .foregroundStyle(LaRiOS.Colors.textMuted)
                     }
                 }
             } else {
                 showTable(filtered)
             }
             Text("Cap / Sold / Sell-thru — ticketing data not yet wired (DICE integration deferred).")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .font(LaRiOS.Typography.xsmall)
+                .foregroundStyle(LaRiOS.Colors.textMuted)
         }
-        .padding()
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+        .lariosPanel()
     }
 
     private func showTable(_ rows: [BookingShowRow]) -> some View {
@@ -173,27 +160,33 @@ struct BookingBoardView: View {
                 Text("Price").frame(minWidth: 80, alignment: .trailing)
                 Text("Door").frame(minWidth: 90, alignment: .leading)
             }
-            .font(.caption.bold())
-            .foregroundStyle(.secondary)
+            .font(LaRiOS.Typography.smallStrong)
+            .foregroundStyle(LaRiOS.Colors.textMuted)
             .padding(.vertical, 6)
-            Divider()
+            Rectangle()
+                .fill(LaRiOS.Colors.hairline)
+                .frame(height: 1)
             ForEach(rows) { row in
                 HStack {
                     Text(fmtDate(row.showDate))
-                        .font(.caption.monospaced())
+                        .font(LaRiOS.Typography.numberSmall)
+                        .foregroundStyle(LaRiOS.Colors.textMuted)
                         .frame(minWidth: 110, alignment: .leading)
                     Text(row.bandName)
+                        .font(LaRiOS.Typography.smallStrong)
+                        .foregroundStyle(LaRiOS.Colors.text)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Text(row.price.map { formatDollars($0, decimals: 2) } ?? "—")
-                        .font(.caption.monospaced())
+                        .font(LaRiOS.Typography.numberSmall)
+                        .foregroundStyle(LaRiOS.Colors.text)
                         .frame(minWidth: 80, alignment: .trailing)
                     Text(row.doorTix ?? "—")
-                        .font(.caption)
+                        .font(LaRiOS.Typography.small)
+                        .foregroundStyle(LaRiOS.Colors.textMuted)
                         .frame(minWidth: 90, alignment: .leading)
                 }
                 .accessibilityElement(children: .combine)
-                .padding(.vertical, 6)
-                Divider()
+                .lariosLedgerRow()
             }
         }
     }
