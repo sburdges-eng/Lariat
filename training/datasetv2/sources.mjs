@@ -18,12 +18,20 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..', '..');
 
-if (!process.env.LARIAT_DATA_DIR) {
-  throw new Error('dataset v2 must run with LARIAT_DATA_DIR pointing at training/gcp/snapshot');
-}
-const SNAP = resolve(process.env.LARIAT_DATA_DIR);
-if (!SNAP.includes('snapshot')) {
-  throw new Error(`refusing to run against non-snapshot data dir: ${SNAP}`);
+// LARIAT_DATA_DIR (a snapshot dir) is required ONLY for the DB-backed helpers
+// (loadSources / realContext). The prompt-shape exports — GROUNDED_SYSTEM, the
+// route.js directives, buildRuntimeUserMessage — need no DB, so the eval harness
+// can import them without a snapshot. The check is enforced lazily in the two
+// functions that touch the DB.
+function requireSnapshot() {
+  if (!process.env.LARIAT_DATA_DIR) {
+    throw new Error('dataset v2 DB helpers require LARIAT_DATA_DIR pointing at training/gcp/snapshot');
+  }
+  const dir = resolve(process.env.LARIAT_DATA_DIR);
+  if (!dir.includes('snapshot')) {
+    throw new Error(`refusing to run against non-snapshot data dir: ${dir}`);
+  }
+  return dir;
 }
 
 const { GROUNDED_SYSTEM } = await import('../../lib/ollama.ts');
@@ -41,6 +49,7 @@ export const GROUNDED = GROUNDED_SYSTEM;
 export const LOCATION = 'default';
 
 export async function realContext(message, { hasPin = false } = {}) {
+  requireSnapshot();
   const { contextText } = await buildGroundedContext(LOCATION, message, { hasPin });
   return contextText;
 }
@@ -135,6 +144,7 @@ function harvestClientNames(beoEvents) {
 }
 
 export function loadSources() {
+  const SNAP = requireSnapshot();
   const db = new Database(join(SNAP, 'lariat.db'), { readonly: true });
   const recipes = JSON.parse(readFileSync(join(SNAP, 'cache', 'recipes.json'), 'utf8'));
   const allergenMatrix = JSON.parse(readFileSync(join(SNAP, 'cache', 'allergen_matrix.json'), 'utf8'));

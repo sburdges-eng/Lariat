@@ -33,6 +33,11 @@ import { dirname, join, resolve } from 'node:path';
 
 import { GROUNDED_SYSTEM } from '../../lib/ollama.ts';
 import { tallyVerdicts } from './tally.mjs';
+// The per-turn directive is what makes a COMMAND scenario exercise the
+// action-JSON path — the KA v2 eval omitted it, so it never tested the command
+// path where the UI JSON-leak lived. These import DB-free from the dataset
+// sources (they are extracted from route.js, not built from the snapshot).
+import { ACTION_DIRECTIVE, ANSWER_FORMAT } from '../datasetv2/sources.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..', '..');
@@ -84,7 +89,11 @@ function invokeHermes(prompt) {
 }
 
 function buildUserMessage(scenario) {
-  return `CONTEXT (authoritative):\n${scenario.context}\n\nQuestion:\n${scenario.user}`;
+  // Append the SAME per-turn directive route.js appends, keyed on the scenario
+  // mode, so command scenarios actually carry the ACTION ENGINE DIRECTIVE
+  // (byte-matched to serving) and the ollama leg exercises the command path.
+  const directive = scenario.mode === 'command' ? ACTION_DIRECTIVE : ANSWER_FORMAT;
+  return `CONTEXT (authoritative):\n${scenario.context}\n\nQuestion:\n${scenario.user}${directive}`;
 }
 
 // Hermes -z is single-prompt; merge system+user with a hard fence so the
@@ -229,7 +238,11 @@ async function main() {
 
   for (const sc of scenarios) {
     process.stdout.write(`[${sc.id}] ${sc.name.padEnd(54)} ... `);
-    const entry = { id: sc.id, name: sc.name, category: sc.category, runners: {} };
+    const entry = {
+      id: sc.id, name: sc.name, category: sc.category,
+      mode: sc.mode || 'question', intent: sc.intent, requireTemp: sc.requireTemp,
+      expectAction: sc.expectAction, runners: {},
+    };
 
     // --- claude leg (always, unless EVAL_OLLAMA_ONLY) ---
     if (OLLAMA_ONLY) {

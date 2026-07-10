@@ -238,7 +238,8 @@
     "test:eval-tally": "node --test tests/js/test-eval-tally.mjs",
     "test:dataset-v2": "node --test tests/js/test-dataset-v2-core.mjs tests/js/test-dataset-v2-slices.mjs",
     "test:sweep-lib": "node --test tests/js/test-sweep-lib.mjs",
-    "training:generate-v2": "LARIAT_DATA_DIR=training/gcp/snapshot node --experimental-strip-types --no-warnings training/datasetv2/generate.mjs"
+    "training:generate-v2": "LARIAT_DATA_DIR=training/gcp/snapshot node --experimental-strip-types --no-warnings training/datasetv2/generate.mjs",
+    "test:format-lint": "node --test tests/js/test-format-lint.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
