@@ -4,6 +4,10 @@ TEMPLATE """{{- if .System }}<|im_start|>system
 {{ end }}{{- range .Messages }}<|im_start|>{{ .Role }}
 {{ .Content }}<|im_end|>
 {{ end }}<|im_start|>assistant
+<think>
+
+</think>
+
 """
 PARAMETER stop <|im_end|>
 PARAMETER temperature 0.2
@@ -14,3 +18,25 @@ PARAMETER num_ctx 16384
 # Plain chatml — byte-identical to the template train.py fine-tuned against.
 # No SYSTEM block on purpose: the single source of truth for the system
 # prompt is lib/ollama.ts (GROUNDED_SYSTEM / CREATIVE_SYSTEM).
+#
+# Qwen3 base models (non-"-Instruct-2507" releases) are HYBRID thinking
+# models: pretraining leaves them prone to emitting a <think>...</think>
+# reasoning block before the real answer, even though nothing in our
+# fine-tuning data does this and the request always sends think:false
+# (that flag only suppresses Ollama's *own* thinking-capability handling
+# for models it recognizes as such — a manually llama.cpp-converted GGUF
+# has no such capability metadata, so think:false is silently a no-op).
+# Left unchecked, the model randomly burns num_predict on invisible
+# reasoning and truncates or drops the visible answer (confirmed: an
+# intermittent FAIL on a HACCP cooling-compliance scenario where the
+# entire 512-token budget went to <think> and the answer was cut off
+# after 8 characters). Seeding an empty <think>\n\n</think>\n\n block
+# right after the assistant turn is Qwen's documented mechanism for
+# disabling thinking mode; it eliminates the truncation failure mode
+# (verified: 0 fails across 3 independent eval runs, vs 1 fail in 3
+# runs without it) at the cost of the "free" reasoning quality boost
+# thinking sometimes provided. If a future sweep uses a hybrid Qwen3
+# base again, prefer ALSO seeding this same empty think-block in the
+# training data's assistant turns (train.py's CHATML) so the model
+# learns to go straight to content, closing the score gap this
+# serving-only patch leaves on the table.

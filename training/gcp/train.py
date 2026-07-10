@@ -11,10 +11,19 @@ Pipeline per job:
   gs://<bucket>/runs/<run_id>/.
 
 Chat template policy: for Qwen bases we OVERRIDE the tokenizer template with
-plain chatml (no <think> scaffolding) — the identical template ships in the
-Ollama Modelfile (Modelfile.qwen-v2.tmpl), so train and serve formats match
-byte-for-byte and `think:false` requests are trivially satisfied. Llama 3.1
-keeps its native template (mirrored by Modelfile.llama31-v2.tmpl).
+plain chatml — the identical template ships in the Ollama Modelfile
+(Modelfile.qwen-v2.tmpl), so train and serve formats match byte-for-byte.
+The generation prompt seeds an EMPTY <think></think> block (Qwen's documented
+mechanism for disabling its native hybrid thinking mode on non-"-Instruct-2507"
+bases): without it the model intermittently burns num_predict on invisible
+reasoning and truncates the real answer (`think:false` in the Ollama request
+does NOT suppress this — that flag only affects models Ollama recognizes as
+having a "thinking" capability, which a manually llama.cpp-converted GGUF
+does not carry). Seeding the SAME empty block in training assistant turns
+(not just at serve time) lets the model learn to go straight to content
+instead of paying a train/serve template mismatch tax. Llama 3.1 keeps its
+native template (mirrored by Modelfile.llama31-v2.tmpl) and has no hybrid-
+thinking default, so it needs no such seeding.
 """
 import argparse
 import json
@@ -28,7 +37,7 @@ os.environ.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')
 CHATML = (
     "{% for message in messages %}{{ '<|im_start|>' + message['role'] + '\n' "
     "+ message['content'] + '<|im_end|>' + '\n' }}{% endfor %}"
-    "{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"
+    "{% if add_generation_prompt %}{{ '<|im_start|>assistant\n<think>\n\n</think>\n\n' }}{% endif %}"
 )
 
 

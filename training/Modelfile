@@ -1,4 +1,15 @@
-FROM deepseek-r1:14b
+FROM ./models/lari-ka-v2.gguf
+TEMPLATE """{{- if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{- range .Messages }}<|im_start|>{{ .Role }}
+{{ .Content }}<|im_end|>
+{{ end }}<|im_start|>assistant
+<think>
+
+</think>
+
+"""
+PARAMETER stop <|im_end|>
 PARAMETER temperature 0.2
 PARAMETER top_p 0.85
 PARAMETER num_predict 512
@@ -11,3 +22,41 @@ PARAMETER num_ctx 16384
 # Modelfile system prompt would silently diverge on regulated content
 # (FDA cooling threshold, allergen wording, action-JSON schemas) the
 # next time those constants change in code, with no test to catch it.
+#
+# KA v2 (2026-07): fine-tuned Qwen/Qwen3-8B via QLoRA on a runtime-shaped
+# dataset (training/datasetv2/, generated from the live production prompt
+# builders — see training/gcp/README.md for the full pipeline). LoRA
+# r=32, lr=1e-4, 3 epochs, max_seq 8192.
+#
+# IMPORTANT — Qwen3-8B hybrid-thinking bug + fix (found during rollout,
+# 2026-07-09): Qwen/Qwen3-8B (unlike the "-Instruct-2507" releases) defaults
+# to a hybrid thinking mode inherited from pretraining. `think:false` in the
+# Ollama request does NOT suppress this — that flag only affects models
+# Ollama recognizes as having a native "thinking" capability, which this
+# manually llama.cpp-converted GGUF does not carry. Left unpatched, the raw
+# fine-tune intermittently burned its entire num_predict budget on an
+# invisible <think>...</think> block and truncated the visible answer —
+# confirmed via repeat eval: 1 of 3 runs produced an outright FAIL where a
+# HACCP cooling-compliance answer was cut to 8 characters after correctly
+# reasoning through the violation internally. The TEMPLATE above seeds an
+# empty <think>\n\n</think>\n\n block right after the assistant turn (Qwen's
+# documented mechanism for disabling thinking mode), which eliminates the
+# failure mode entirely: 0 fails across 3 independent eval runs post-fix.
+#
+# Honest before/after (training/eval/run-eval.mjs, ollama leg,
+# EVAL_REQUIRE_OLLAMA=1 EVAL_OLLAMA_ONLY=1, 3 runs each):
+#   raw (unpatched) template : 9.0, 7.5, 8.0-with-1-FAIL  (flaky)
+#   fixed (this file's) template : 7.0, 7.0, 7.0           (0 fails, stable)
+#   deployed deepseek-r1:14b baseline (1 run) : 8.0 (7 pass / 2 partial / 1 fail)
+# The fixed model trades some peak score for eliminating a real crash/
+# truncation risk on safety-relevant scenarios; it does not clearly beat
+# the DeepSeek baseline on this single comparison. A follow-up retrain with
+# the same empty-think-block ALSO seeded in training data (train.py's
+# CHATML — already updated) would likely close this gap by teaching the
+# model to skip straight to content instead of paying a train/serve
+# template-mismatch tax; not done here (would cost additional Vertex spend
+# beyond this pass). Flip proceeds per owner decision (train-and-flip
+# regardless of eval outcome), NOT because it strictly beat the baseline.
+#
+# Rollback: `ollama cp lari-ka-deepseek-backup lari-the-kitchen-assistant`
+# GGUF source: gs://lariat-train-us-central1/runs/q3-8b-r32-lr0p0001-e3/
