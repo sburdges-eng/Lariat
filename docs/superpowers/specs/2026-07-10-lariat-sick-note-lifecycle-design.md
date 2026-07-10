@@ -86,8 +86,13 @@ Binary layout (48 bytes overhead):
 | 32 | n+16 | AES-256-GCM ciphertext ‖ 16-byte tag |
 
 - **AAD = the UTF-8 bytes of the row's `file_path`** (e.g.
-  `sick-notes/12/3F2A….pdf.enc`). A ciphertext moved, renamed, or swapped between rows fails
+  `sick-notes/12/3F2A….pdf`). A ciphertext moved, renamed, or swapped between rows fails
   authentication. Rows' `file_path` is immutable today; any future move implies re-encrypt.
+- **The on-disk name keeps its original extension** (no `.enc` suffix). Encryption state is
+  determined solely by the `LSN1` magic via `isEncrypted(_:)`, never by the filename. This
+  keeps `SickNoteDocumentCompute.storedPath` / `safeUploadRelativePath` / `file_path` rows /
+  the `documentLabel` fallback untouched, and lets the migration sweep (§8) overwrite bytes in
+  place with no DB write.
 - **Cipher choice:** CryptoKit `AES.GCM` on native (CommonCrypto has no GCM mode);
   byte-identical in Node via `crypto.createCipheriv('aes-256-gcm')` + `setAAD` — the same
   dep-free-on-both-runtimes discipline as the PR #456 PBKDF2 contract. No third-party deps.
@@ -135,10 +140,9 @@ Binary layout (48 bytes overhead):
    HEIC ISO-BMFF `ftyp` @4 with brand @8 ∈ {`heic`,`heix`,`hevc`,`hevx`,`mif1`,`msf1`}.
    Mismatch (e.g. an `.exe` renamed `.pdf`) → reject with kitchen-native copy
    (per `docs/UI_COPY_RULES.md`; never "validation failed").
-3. `SickNoteDocumentCompute.storedPath` now emits
-   `sick-notes/<report_id>/<uuid>.<ext>.enc`; a new pure `plaintextExtension(fromStoredPath:)`
-   recovers `<ext>` for the temp file (§ view); the `documentLabel` fallback strips `.enc`.
-   `safeUploadRelativePath` containment is unchanged (same relative shape).
+3. `storedPath` is unchanged — the ciphertext is written at the same
+   `sick-notes/<report_id>/<uuid>.<ext>` path the plaintext copy would have used. No `.enc`
+   suffix, no new compute helper; `safeUploadRelativePath` containment is unchanged.
 4. Seal with `SickNoteCrypto` (AAD = the relative path), atomic `Data.write(options: .atomic)`,
    then narrow to 0600. The existing invariants survive verbatim: PIN re-check after the
    modal panel, and a failed DB insert removes the just-written (now ciphertext) file.
@@ -154,9 +158,10 @@ Binary layout (48 bytes overhead):
   uses `pinOk`, not the `RegulatedReadGate` helper; this design does not silently change that).
 - Read stored file → if `LSN1`: decrypt, write plaintext to
   `FileManager.temporaryDirectory/LariatSickNotes/<uuid>.<ext>` (directory 0700, file 0600;
-  `$TMPDIR` is per-user and not Spotlight-indexed), `NSWorkspace.open` the temp file.
-  If **not** `LSN1` (legacy plaintext, pre-sweep grace): open the stored file directly —
-  today's behavior — and let the launch sweep (§8) fix it.
+  `$TMPDIR` is per-user and not Spotlight-indexed; the `<ext>` is recovered from the stored
+  path's existing extension), `NSWorkspace.open` the temp file. If **not** `LSN1` (legacy
+  plaintext, pre-sweep grace): open the stored file directly — today's behavior — and let the
+  launch sweep (§8) fix it.
 - **Temp lifecycle** behind a pure, tested `SickNoteTempStore` seam (path derivation +
   staleness policy); thin App glue sweeps the temp directory on app launch, on app
   terminate, and before each new open. Residual risk stated in §12.
@@ -165,21 +170,28 @@ Binary layout (48 bytes overhead):
 
 On app launch (async, off the main actor), walk `<dataDir>/uploads/sick-notes/**`:
 
-- **Plaintext file with a matching row:** seal to sibling `<name>.enc` (atomic), then one
-  per-file transaction: `UPDATE sick_note_documents SET file_path = <new>` + audited
-  `update` event (metadata-only payload); after commit, unlink the plaintext original.
-  A crash between commit and unlink leaves a plaintext file with no row → caught below.
-- **Any file with no matching row** (crash-window artifacts, manual copies): counted and
-  surfaced in the overdue/orphan report (§9). **Never auto-deleted** — removal goes through
-  the same one-click purge affordance.
-- Idempotent (magic sniff is a 4-byte read; `.enc` files with rows are skipped), cheap, and
-  expected to be a no-op given the zero corpus.
+- **Any plaintext file** (fails the `LSN1` magic sniff): seal it (AAD = its relative path) to a
+  sibling `<name>.tmp`, then atomically rename over the original path. The DB row is
+  **unchanged** — `file_path` already points at that path — so there is **no DB write, no audit
+  event, and no file-vs-row drift window**: a crash before the rename leaves a harmless `.tmp`
+  orphan (swept next launch) with the original plaintext intact; a crash after leaves the fully
+  encrypted file.
+- **Any file with no matching DB row** (crash-window artifacts, manual copies): counted and
+  surfaced in the orphan report (§9). **Never auto-deleted** — removal goes through the same
+  one-click purge affordance.
+- Idempotent (the magic sniff is a 4-byte read; already-encrypted files are skipped), cheap,
+  and expected to be a no-op given the zero corpus. Filesystem-only — needs the media key and
+  `SickNoteCrypto`, but touches neither the DB nor `audit_events`.
 
 ## 9. Retention and purge
 
 - **Policy core:** pure `SickNoteRetention` — `windowDays = 730`, `isOverdue(uploadedAt:now:)`,
   and `retentionCitation` ("2 years after upload — HFWA-adjacent; matches the sick-worker
-  report window in HEALTH_SAFETY_LABOR_AUDIT §5; owner-ratified 2026-07-10").
+  report window in HEALTH_SAFETY_LABOR_AUDIT §5; owner-ratified 2026-07-10"). **`isOverdue`
+  fails OPEN:** an unparseable `uploaded_at` returns `false` (not overdue) — the opposite
+  polarity of the auth precedent, so a malformed timestamp can never cause real PHI to be
+  flagged for deletion. Parse via `AuditLogCompute.parseTimestamp` (handles the native
+  fractional-second ISO-8601 the attach writes), not the yyyy-MM-dd-only date helpers.
 - **Native surface (the actor):** the sick-worker board shows an overdue-document count
   (counts are PIN-free — the existing "N on file" posture). Behind `pinOk`, an overdue list
   (plus orphan files, as detected by the §8 launch sweep) with per-document and purge-all
@@ -206,9 +218,10 @@ On app launch (async, off the main actor), walk `<dataDir>/uploads/sick-notes/**
   file exists (backup content unchanged; `tests/js/test-backup.mjs` gains the assertion).
 - `scripts/sick-note-retention.mjs` (new, report-only) + `data/scheduled-jobs.json` entry +
   `examples/lariat.crontab` block + a Node test.
-- **No schema change** — deliberate. Retention keys off the existing `uploaded_at`; the
-  encrypted suffix lives in `file_path` row values. `SCHEMA_VERSION` stays 4; the
-  `check-schema-version-bump.mjs` gate must NOT fire on this PR. (The v5 column set —
+- **No schema change** — deliberate. Retention keys off the existing `uploaded_at`; encryption
+  is invisible to the schema (ciphertext in place, same `file_path`, no new column).
+  `SCHEMA_VERSION` stays 4; the `check-schema-version-bump.mjs` gate must NOT fire on this PR
+  (it only inspects staged `lib/db.ts` DDL, which we never touch). (The v5 column set —
   `size_bytes`/`sha256`/`mime`/`deleted_at` — was considered and rejected as anticipatory;
   it remains available additively later.)
 - **No Node crypto implementation** — zero web call sites today. The format contract (§5) +
@@ -261,10 +274,9 @@ Residual risks (accepted, stated):
 | `SickNoteContentValidator` | LariatModel | 25 MB cap + magic-number/ext agreement | unit |
 | `SickNoteRetention` | LariatModel | 730-day window math + citation | unit |
 | `SickNoteTempStore` | LariatModel | temp path derivation + staleness policy | unit |
-| `SickNoteDocumentCompute` (edit) | LariatModel | `storedPath` `.enc` + `plaintextExtension` | unit (existing suite) |
 | `SickNoteKeyStore` | LariatDB | key-file IO: lazy create, load, 0600, atomic | DBTests |
 | `SickNoteRepository` (edit) | LariatDB | attach payload change; `purge` audited tx; overdue/orphan queries | DBTests |
-| `SickNoteMigrator` | LariatDB | encrypt-in-place sweep, per-file tx, idempotency | DBTests |
+| `SickNoteMigrator` | LariatDB | filesystem-only encrypt-in-place sweep (atomic rename, no DB write), idempotency | DBTests |
 | Attach/view/temp/Keychain glue | LariatApp | panel, encrypt-write call, decrypt-open, sweeps, SecItem mirror | build-verified |
 | `scripts/sick-note-retention.mjs` | web | report-only nightly job | Node test |
 | `scripts/backup.mjs` (edit) | web | manifest key fingerprint | `test-backup.mjs` |
