@@ -23,7 +23,7 @@ struct EightySixView: View {
             } else if let snap = vm.snapshot {
                 boardContent(snap)
             } else {
-                ProgressView("Loading 86 board…")
+                LaRiOSLoadingView(message: "Loading 86")
             }
         }
         .navigationTitle("86")
@@ -75,7 +75,7 @@ struct EightySixView: View {
                 header(snap)
                 addForm
                 if let err = vm.actionError {
-                    Text(err).font(.subheadline).foregroundStyle(.red)
+                    LaRiOSInlineBanner(message: err, tone: .bad)
                 }
                 if !snap.cascaded.isEmpty {
                     cascadeSection(snap.cascaded)
@@ -86,8 +86,11 @@ struct EightySixView: View {
                     resolvedSection(resolved)
                 }
             }
-            .padding()
+            .frame(maxWidth: 1180, alignment: .leading)
+            .padding(LaRiOS.Spacing.twelve)
         }
+        .scrollContentBackground(.hidden)
+        .background(LaRiOS.Colors.background)
         .searchable(text: $query, prompt: "Find an item")
     }
 
@@ -98,59 +101,66 @@ struct EightySixView: View {
     }
 
     private func header(_ snap: EightySixBoardSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("86 board")
-                .font(.largeTitle.bold())
-            Text(openLabel(snap.active.count))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        LaRiOSBoardHeader(
+            eyebrow: "Line",
+            title: "86 board",
+            subtitle: openLabel(snap.active.count)
+        ) {
+            LaRiOSChip(text: snap.active.isEmpty ? "All on" : "Needs callout", tone: snap.active.isEmpty ? .ok : .bad)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .lariosPanel(padding: LaRiOS.Spacing.eight, fill: LaRiOS.Colors.panelRaised)
     }
 
     private var addForm: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Mark out").font(.headline)
+            LaRiOSSectionHeader(title: "Mark out", subtitle: "Keep the menu honest.", tone: .bad)
             TextField("Item", text: $item)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(.plain)
+                .lariosInputChrome()
             Picker("Station", selection: $stationId) {
                 Text("Any station").tag("")
                 ForEach(vm.stations, id: \.id) { station in
                     Text(station.name).tag(station.id)
                 }
             }
+            .tint(LaRiOS.Colors.accent)
             Picker("Reason", selection: $reason) {
                 ForEach(EightySixReasonCode.allCases) { code in
                     Text(code.label).tag(code)
                 }
             }
+            .tint(LaRiOS.Colors.accent)
             TextField("Qty (optional)", text: $quantity)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(.plain)
+                .lariosInputChrome()
             Button(vm.isSaving ? "Saving…" : "86 now") {
                 Task { await submitAdd() }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.larios(.primary))
             .disabled(vm.isSaving || item.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .frame(minHeight: 44)
         }
-        .padding()
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+        .lariosPanel(fill: LaRiOS.Colors.panel)
     }
 
     private func cascadeSection(_ cascaded: [CascadedRecipe]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Also hits the menu").font(.headline)
+            LaRiOSSectionHeader(title: "Also hits the menu", tone: .warn)
             ForEach(cascaded, id: \.slug) { recipe in
                 if vm.confirmCascade?.slug == recipe.slug {
                     HStack {
                         Text(recipe.name)
+                            .font(LaRiOS.Typography.bodyStrong)
+                            .foregroundStyle(LaRiOS.Colors.text)
                         Spacer()
                         Button("Confirm") {
                             Task { await submitCascadeConfirm(recipe) }
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.larios(.primary))
                         .accessibilityLabel("Confirm adding \(recipe.name)")
                         Button("Cancel") { vm.confirmCascade = nil }
+                            .buttonStyle(.larios(.ghost))
                             .accessibilityLabel("Cancel adding \(recipe.name)")
                     }
                 } else {
@@ -159,11 +169,16 @@ struct EightySixView: View {
                     } label: {
                         HStack {
                             VStack(alignment: .leading) {
-                                Text(recipe.name).font(.headline)
-                                Text("via \(recipe.via)").font(.caption).foregroundStyle(.secondary)
+                                Text(recipe.name)
+                                    .font(LaRiOS.Typography.bodyStrong)
+                                    .foregroundStyle(LaRiOS.Colors.text)
+                                Text("via \(recipe.via)")
+                                    .font(LaRiOS.Typography.xsmall)
+                                    .foregroundStyle(LaRiOS.Colors.textMuted)
                             }
                             Spacer()
                             Image(systemName: "plus.circle")
+                                .foregroundStyle(LaRiOS.Colors.accent)
                         }
                     }
                     .buttonStyle(.plain)
@@ -172,13 +187,12 @@ struct EightySixView: View {
                 }
             }
         }
-        .padding()
-        .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+        .lariosPanel(fill: LaRiOS.Colors.metal.opacity(0.10), stroke: LaRiOS.Colors.metal.opacity(0.45))
     }
 
     private func activeSection(_ rows: [EightySixRow], totalCount: Int) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Out now").font(.headline)
+            LaRiOSSectionHeader(title: "Out now", subtitle: totalCount == 0 ? "Clear" : "\(totalCount) open", tone: totalCount == 0 ? .ok : .bad)
             if rows.isEmpty {
                 if totalCount > 0 {
                     EmptyState(message: "No items match “\(query)”", systemImage: "magnifyingglass")
@@ -189,9 +203,13 @@ struct EightySixView: View {
                 ForEach(rows) { row in
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(row.item).font(.headline)
+                            Text(row.item)
+                                .font(LaRiOS.Typography.bodyStrong)
+                                .foregroundStyle(LaRiOS.Colors.text)
                             if let meta = activeMeta(row) {
-                                Text(meta).font(.caption).foregroundStyle(.secondary)
+                                Text(meta)
+                                    .font(LaRiOS.Typography.xsmall)
+                                    .foregroundStyle(LaRiOS.Colors.textMuted)
                             }
                         }
                         .accessibilityElement(children: .combine)
@@ -199,37 +217,43 @@ struct EightySixView: View {
                         Button(vm.isResolving(row.id) ? "…" : "Back on menu") {
                             Task { await submitResolve(id: row.id) }
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.larios(.secondary))
                         .disabled(vm.isResolving(row.id))
                         .accessibilityLabel("Put \(row.item) back on the menu")
                     }
-                    .padding(10)
-                    .background(.background.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+                    .padding(LaRiOS.Spacing.five)
+                    .background(LaRiOS.Colors.panelRaised, in: RoundedRectangle(cornerRadius: LaRiOS.Radius.base))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: LaRiOS.Radius.base)
+                            .stroke(LaRiOS.Colors.hairline, lineWidth: 1)
+                    }
                 }
             }
         }
-        .padding()
-        .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
+        .lariosPanel(fill: LaRiOS.Colors.panel)
     }
 
     private func resolvedSection(_ rows: [EightySixRow]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Resolved today (\(rows.count))").font(.headline)
+            LaRiOSSectionHeader(title: "Back on today", subtitle: "\(rows.count) done", tone: .ok)
             ForEach(rows) { row in
                 HStack {
                     Text(row.item)
+                        .font(LaRiOS.Typography.bodyStrong)
+                        .foregroundStyle(LaRiOS.Colors.text)
                     Spacer()
                     if let meta = resolvedMeta(row) {
-                        Text(meta).font(.caption).foregroundStyle(.secondary)
+                        Text(meta)
+                            .font(LaRiOS.Typography.xsmall)
+                            .foregroundStyle(LaRiOS.Colors.textMuted)
                     }
                 }
-                .padding(8)
-                .background(.background.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
+                .padding(LaRiOS.Spacing.five)
+                .background(LaRiOS.Colors.panelRaised.opacity(0.72), in: RoundedRectangle(cornerRadius: LaRiOS.Radius.base))
                 .accessibilityElement(children: .combine)
             }
         }
-        .padding()
-        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
+        .lariosPanel(fill: LaRiOS.Colors.panel)
     }
 
     private func openLabel(_ count: Int) -> String {

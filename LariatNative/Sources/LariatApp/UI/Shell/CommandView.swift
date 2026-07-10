@@ -133,10 +133,11 @@ struct CommandView: View {
                     systemImage: "externaldrive.badge.xmark"
                 )
             } else {
-                ProgressView()
+                LaRiOSLoadingView(message: "Loading command")
             }
         }
-        .navigationTitle("Command center")
+        .background(LaRiOS.Colors.background)
+        .navigationTitle("Command")
         .task { vm.start() }
         .tracksActiveBoard(vm.poller)
         .onDisappear { vm.stop() }
@@ -152,19 +153,12 @@ struct StaleDataBanner: View {
     let message: String
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
-            Text("Refresh failed — showing last good data. \(message)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-            Spacer()
-        }
-        .accessibilityElement(children: .combine)
-        .padding(.horizontal)
-        .padding(.vertical, 6)
-        .background(.orange.opacity(0.12))
+        LaRiOSInlineBanner(
+            message: "Refresh missed. Showing last good numbers. \(message)",
+            tone: .warn
+        )
+        .padding(.horizontal, LaRiOS.Spacing.twelve)
+        .padding(.top, LaRiOS.Spacing.eight)
     }
 }
 
@@ -181,10 +175,14 @@ private struct CommandContentView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                Text("Where the kitchen stands right now.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal)
+                LaRiOSBoardHeader(
+                    eyebrow: "Manager",
+                    title: "Kitchen now",
+                    subtitle: "Sales, 86, stock, prep, labor, and food safety."
+                ) {
+                    LaRiOSChip(text: alerts.isEmpty ? "Clear" : "\(alerts.count) watch", tone: alerts.isEmpty ? .ok : .warn)
+                }
+                .lariosPanel(padding: LaRiOS.Spacing.eight, fill: LaRiOS.Colors.panelRaised)
 
                 // ── Signal-group tiles ─────────────────────────────────────────
                 // Each tile carries a traffic-light dot derived from the Command
@@ -207,11 +205,13 @@ private struct CommandContentView: View {
                 // ── Alerts section ─────────────────────────────────────────────
                 if !alerts.isEmpty {
                     AlertsSection(alerts: alerts)
-                        .padding(.horizontal)
                 }
             }
-            .padding(.vertical)
+            .frame(maxWidth: 1180, alignment: .leading)
+            .padding(LaRiOS.Spacing.twelve)
         }
+        .scrollContentBackground(.hidden)
+        .background(LaRiOS.Colors.background)
     }
 
     // MARK: Signal-group tiles (web-aligned labels/values)
@@ -368,15 +368,13 @@ private struct AlertsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Alerts")
-                .font(.headline)
+            LaRiOSSectionHeader(title: "Alerts", tone: .bad)
 
             if !redAlerts.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Critical")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.red)
+                        .font(LaRiOS.Typography.eyebrow)
+                        .foregroundStyle(LaRiOS.Colors.fire)
                     ForEach(redAlerts, id: \.source) { alert in
                         AlertRow(alert: alert)
                     }
@@ -389,10 +387,9 @@ private struct AlertsSection: View {
 
             if !amberAlerts.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Warnings")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.orange)
+                    Text("Watch")
+                        .font(LaRiOS.Typography.eyebrow)
+                        .foregroundStyle(LaRiOS.Colors.metal)
                     ForEach(amberAlerts, id: \.source) { alert in
                         AlertRow(alert: alert)
                     }
@@ -400,8 +397,7 @@ private struct AlertsSection: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+        .lariosPanel(fill: LaRiOS.Colors.panel)
     }
 }
 
@@ -410,8 +406,8 @@ private struct AlertRow: View {
 
     private var color: Color {
         switch alert.severity {
-        case .red: return .red
-        case .amber: return .orange
+        case .red: return LaRiOS.Colors.fire
+        case .amber: return LaRiOS.Colors.metal
         }
     }
 
@@ -422,8 +418,8 @@ private struct AlertRow: View {
                 .frame(width: 8, height: 8)
                 .accessibilityHidden(true)
             Text(alert.message)
-                .font(.caption)
-                .foregroundStyle(.primary)
+                .font(LaRiOS.Typography.small)
+                .foregroundStyle(LaRiOS.Colors.text)
         }
     }
 }
@@ -437,9 +433,9 @@ private enum CommandTileTone {
     case red, amber, ok, neutral
     var color: Color? {
         switch self {
-        case .red: return .red
-        case .amber: return .orange
-        case .ok: return .green
+        case .red: return LaRiOS.Colors.fire
+        case .amber: return LaRiOS.Colors.metal
+        case .ok: return LaRiOS.Colors.ok
         case .neutral: return nil
         }
     }
@@ -455,8 +451,8 @@ private struct CommandTile<Content: View>: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(LaRiOS.Typography.smallStrong)
+                    .foregroundStyle(LaRiOS.Colors.textMuted)
                 Spacer()
                 if let c = tone.color {
                     Circle().fill(c).frame(width: 8, height: 8)
@@ -465,13 +461,17 @@ private struct CommandTile<Content: View>: View {
             }
             lines()
             Text(sub)
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .font(LaRiOS.Typography.xsmall)
+                .foregroundStyle(LaRiOS.Colors.textMuted)
                 .lineLimit(2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+        .padding(LaRiOS.Spacing.six)
+        .background(LaRiOS.Colors.panelRaised, in: RoundedRectangle(cornerRadius: LaRiOS.Radius.base))
+        .overlay {
+            RoundedRectangle(cornerRadius: LaRiOS.Radius.base)
+                .stroke(tone.color?.opacity(0.58) ?? LaRiOS.Colors.hairline, lineWidth: 1)
+        }
     }
 
     private var toneLabel: String {
@@ -491,12 +491,12 @@ private struct TileLine: View {
     var body: some View {
         HStack(spacing: 6) {
             Text(n)
-                .font(.system(.title3, design: .rounded))
-                .bold()
+                .font(LaRiOS.Typography.number)
+                .foregroundStyle(LaRiOS.Colors.text)
                 .monospacedDigit()
             Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(LaRiOS.Typography.xsmall)
+                .foregroundStyle(LaRiOS.Colors.textMuted)
         }
     }
 }

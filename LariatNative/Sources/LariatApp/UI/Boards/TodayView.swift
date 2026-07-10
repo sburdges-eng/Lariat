@@ -75,7 +75,7 @@ struct TodayView: View {
             } else if let snap = vm.snapshot {
                 todayContent(snap)
             } else {
-                ProgressView("Loading Today…")
+                LaRiOSLoadingView(message: "Loading line")
             }
         }
         .navigationTitle("Today")
@@ -96,8 +96,11 @@ struct TodayView: View {
                     eightySixSection(snap)
                 }
             }
-            .padding()
+            .frame(maxWidth: 1180, alignment: .leading)
+            .padding(LaRiOS.Spacing.twelve)
         }
+        .scrollContentBackground(.hidden)
+        .background(LaRiOS.Colors.background)
         .navigationDestination(for: String.self) { stationId in
             if let writeDB, let catalog {
                 StationChecklistView(
@@ -112,26 +115,21 @@ struct TodayView: View {
 
     private func heroSection(_ snap: TodayBoardSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Today · \(formatDateChip(snap.shiftDate))")
-                    .font(.caption.weight(.heavy))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                Text("Line now")
-                    .font(.largeTitle.bold())
-                Text("See what is ready, what is out, and where to jump next.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            LaRiOSBoardHeader(
+                eyebrow: "Today \(formatDateChip(snap.shiftDate))",
+                title: "Line now",
+                subtitle: "Ready, out, and next up."
+            ) {
+                LaRiOSChip(text: "Local DB", tone: .ok)
             }
             HStack(spacing: 10) {
-                statCard(value: "\(snap.readyCount)", label: "Ready")
-                statCard(value: "\(snap.flaggedCount)", label: "Flagged")
-                statCard(value: "\(snap.openEightySixItems.count)", label: "86 now")
+                statCard(value: "\(snap.readyCount)", label: "Ready", tone: .ok)
+                statCard(value: "\(snap.flaggedCount)", label: "Flagged", tone: snap.flaggedCount > 0 ? .warn : .neutral)
+                statCard(value: "\(snap.openEightySixItems.count)", label: "86 now", tone: snap.openEightySixItems.isEmpty ? .neutral : .bad)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+        .lariosPanel(padding: LaRiOS.Spacing.eight, fill: LaRiOS.Colors.panelRaised)
     }
 
     private func actionRow(onOpenEightySix: @escaping () -> Void) -> some View {
@@ -150,12 +148,20 @@ struct TodayView: View {
 
     private func actionCard(eyebrow: String, title: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(eyebrow).font(.caption.weight(.heavy)).foregroundStyle(.secondary).textCase(.uppercase)
-            Text(title).font(.headline)
+            Text(eyebrow.uppercased())
+                .font(LaRiOS.Typography.eyebrow)
+                .foregroundStyle(LaRiOS.Colors.textMuted)
+            Text(title)
+                .font(LaRiOS.Typography.titleSmall)
+                .foregroundStyle(LaRiOS.Colors.text)
         }
         .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
-        .padding(16)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
+        .padding(LaRiOS.Spacing.six)
+        .background(LaRiOS.Colors.panelRaised, in: RoundedRectangle(cornerRadius: LaRiOS.Radius.base))
+        .overlay {
+            RoundedRectangle(cornerRadius: LaRiOS.Radius.base)
+                .stroke(LaRiOS.Colors.hairline, lineWidth: 1)
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(eyebrow): \(title)")
     }
@@ -163,11 +169,8 @@ struct TodayView: View {
     private func stationSection(_ snap: TodayBoardSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Open line").font(.title3.bold())
+                LaRiOSSectionHeader(title: "Open line", subtitle: stationCountLabel(snap.activeStations.count), tone: .accent)
                 Spacer()
-                Text(stationCountLabel(snap.activeStations.count))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 10)], spacing: 10) {
                 ForEach(snap.activeStations, id: \.station.id) { row in
@@ -182,17 +185,18 @@ struct TodayView: View {
                 }
             }
         }
-        .padding()
-        .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
+        .lariosPanel(fill: LaRiOS.Colors.panel)
     }
 
     private func stationCard(_ row: StationWithProgress) -> some View {
         let tone = StationProgressLabels.tone(for: row.progress)
         return HStack {
             VStack(alignment: .leading, spacing: 6) {
-                Text(row.station.name).font(.headline)
+                Text(row.station.name)
+                    .font(LaRiOS.Typography.bodyStrong)
+                    .foregroundStyle(LaRiOS.Colors.text)
                 Text(StationProgressLabels.label(for: row.progress))
-                    .font(.subheadline.weight(.bold))
+                    .font(LaRiOS.Typography.smallStrong)
                     .foregroundStyle(LariatTheme.color(for: tone))
             }
             Spacer(minLength: 8)
@@ -201,8 +205,12 @@ struct TodayView: View {
                 .frame(width: 12, height: 12)
         }
         .frame(minHeight: 78)
-        .padding(14)
-        .background(.background.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
+        .padding(LaRiOS.Spacing.six)
+        .background(LaRiOS.Colors.panelRaised, in: RoundedRectangle(cornerRadius: LaRiOS.Radius.base))
+        .overlay {
+            RoundedRectangle(cornerRadius: LaRiOS.Radius.base)
+                .stroke(LaRiOS.Colors.hairline, lineWidth: 1)
+        }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(row.station.name), \(StationProgressLabels.label(for: row.progress))")
@@ -211,72 +219,57 @@ struct TodayView: View {
     private func stockMovesSection(_ snap: TodayBoardSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Stock moves").font(.title3.bold())
+                LaRiOSSectionHeader(title: "Stock moves", subtitle: "Latest", tone: .info)
                 Spacer()
-                Text("Latest").font(.caption).foregroundStyle(.secondary)
             }
             if snap.recentMoves.isEmpty {
                 EmptyState(message: "No stock moves yet", systemImage: "shippingbox")
                     .padding(10)
-                    .background(.background.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+                    .background(LaRiOS.Colors.panelRaised, in: RoundedRectangle(cornerRadius: LaRiOS.Radius.base))
             } else {
                 ForEach(Array(snap.recentMoves.enumerated()), id: \.offset) { _, move in
                     HStack {
-                        Text(move.item).font(.headline)
+                        Text(move.item)
+                            .font(LaRiOS.Typography.bodyStrong)
+                            .foregroundStyle(LaRiOS.Colors.text)
                         Spacer()
                         Text(stockMoveDetail(move))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(LaRiOS.Typography.xsmall)
+                            .foregroundStyle(LaRiOS.Colors.textMuted)
                     }
-                    .padding(10)
-                    .background(.background.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+                    .padding(LaRiOS.Spacing.five)
+                    .background(LaRiOS.Colors.panelRaised, in: RoundedRectangle(cornerRadius: LaRiOS.Radius.base))
                     .accessibilityElement(children: .combine)
                 }
             }
         }
-        .padding()
-        .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
+        .lariosPanel(fill: LaRiOS.Colors.panel)
     }
 
     private func eightySixSection(_ snap: TodayBoardSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("86 right now").font(.title3.bold())
+                LaRiOSSectionHeader(title: "86 right now", subtitle: openCountLabel(snap.openEightySixItems.count), tone: .bad)
                 Spacer()
-                Text(openCountLabel(snap.openEightySixItems.count))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             FlowLayout(spacing: 8) {
                 ForEach(Array(snap.openEightySixItems.enumerated()), id: \.offset) { _, item in
-                    Text(item)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .background(Color.red.opacity(0.2), in: Capsule())
+                    LaRiOSChip(text: item, tone: .bad)
                         .accessibilityLabel("\(item), 86’d")
                 }
                 ForEach(snap.cascadedRecipes, id: \.slug) { recipe in
-                    Text(recipe.name)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .background(Color.orange.opacity(0.18), in: Capsule())
+                    LaRiOSChip(text: recipe.name, tone: .warn)
                         .accessibilityLabel("\(recipe.name), affected — via \(recipe.via)")
                 }
             }
         }
-        .padding()
-        .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
+        .lariosPanel(fill: LaRiOS.Colors.panel)
     }
 
 
-    private func statCard(value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(value).font(.title.bold())
-            Text(label).font(.caption).foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, minHeight: 86, alignment: .leading)
-        .padding(14)
-        .background(.background.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
+    private func statCard(value: String, label: String, tone: LaRiOSTone) -> some View {
+        LaRiOSMetricCard(title: label, value: value, tone: tone)
+            .frame(minHeight: 92)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(value) \(label)")
     }
