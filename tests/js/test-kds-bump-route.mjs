@@ -19,6 +19,8 @@ import { fileURLToPath } from 'node:url';
 
 register(new URL('./resolver.mjs', import.meta.url));
 
+const { verifyPin } = await import('../../lib/pinHash.ts');
+
 const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-kds-bump-'));
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -154,9 +156,11 @@ describe('POST /api/kds/tickets/:id/bump — happy path', () => {
     const row = readState('tkt_abc');
     assert.equal(row.bumped_at, bumpedAt);
     assert.equal(row.bumped_station, 'grill');
-    // PIN is hashed, never stored raw
+    // PIN is hashed with salted PBKDF2, never stored raw or as unsalted SHA-256
+    // (audit 2026-07-10 P0-3). The stored value verifies against the PIN.
     assert.notEqual(row.bumped_pin_hash, '1234');
-    assert.equal(row.bumped_pin_hash, createHash('sha256').update('1234').digest('hex'));
+    assert.notEqual(row.bumped_pin_hash, createHash('sha256').update('1234').digest('hex'));
+    assert.equal(verifyPin('1234', row.bumped_pin_hash), true);
 
     assert.equal(countAudit('kds_ticket_state', 'insert'), 1);
   });

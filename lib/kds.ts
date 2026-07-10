@@ -10,7 +10,7 @@
 // as the binding contract and do not change field names without updating
 // the protocol doc first (Lariat-KDS/CLAUDE.md hard rule).
 
-import { createHash } from 'node:crypto';
+import { hashPinSecure } from './pinHash.ts';
 
 /** Known station slugs from protocol §2. Unknown values are accepted —
  *  KDS renders them with the default chip — so this list is informational. */
@@ -36,11 +36,12 @@ export function isIso8601Utc(s: unknown): s is string {
   return Number.isFinite(Date.parse(s));
 }
 
-/** Stable per-PIN hash. SHA-256 is overkill for a 4-digit PIN but the cost
- *  is negligible and the determinism keeps integration testing simple. The
- *  raw PIN is never stored — only this hash makes it to kds_ticket_states. */
+/** Salted PBKDF2 hash of the cook PIN (audit 2026-07-10 P0-3). bumped_pin_hash
+ *  is write-only attribution — nothing reads or groups by it — so per-bump
+ *  salting is safe and keeps a copied DB from yielding the raw cook PINs. The
+ *  raw PIN is never stored; only this hash makes it to kds_ticket_states. */
 export function hashPin(pin: string): string {
-  return createHash('sha256').update(pin).digest('hex');
+  return hashPinSecure(pin);
 }
 
 export interface BumpPayload {

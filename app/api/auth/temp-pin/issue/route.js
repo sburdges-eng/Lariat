@@ -23,13 +23,13 @@ import { requirePin } from '../../../../../lib/pin';
 import { postAuditEvent } from '../../../../../lib/auditEvents';
 import { locationFromBody } from '../../../../../lib/location';
 import {
-  hashPin,
   validatePinFormat,
   serializeScopes,
   KNOWN_SCOPES,
   PIN_MIN_LEN,
   PIN_MAX_LEN,
 } from '../../../../../lib/tempPin';
+import { hashPinSecure, verifyPin } from '../../../../../lib/pinHash';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +46,25 @@ const clip = (s, max) => {
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
+
+/**
+ * True if `pin` is already the code of an ACTIVE (non-revoked, unexpired) temp
+ * PIN in any location. Scan-verify replaces the old DB UNIQUE(pin_hash) check,
+ * which salted hashes defeat. Active temp PIN count is small (they expire in
+ * hours), so the linear scan is cheap.
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} pin
+ */
+function activeCodeInUse(db, pin) {
+  const rows = /** @type {{ pin_hash: string }[]} */ (db
+    .prepare(
+      `SELECT pin_hash FROM temp_pins
+        WHERE revoked_at IS NULL
+          AND datetime(expires_at) > datetime('now')`,
+    )
+    .all());
+  return rows.some((r) => verifyPin(pin, r.pin_hash));
+}
 
 /** @param {number} length */
 function generatePin(length) {
@@ -119,13 +138,17 @@ async function issueHandler(req) {
 
   // Generate a PIN that doesn't collide with an existing active row.
   // 4-digit PIN, ~50 active = collision odds 0.5% — retry handles it.
+  // Salted PBKDF2 hashes are all distinct, so the DB UNIQUE(pin_hash) index
+  // can no longer detect a duplicate PIN *code*; scan active rows and verify
+  // instead, to keep login unambiguous (audit 2026-07-10 P0-3).
   let pin = '';
   let id = 0;
   for (let attempt = 0; attempt < MAX_COLLISION_RETRIES; attempt++) {
     pin = generatePin(pinLength);
     const fmt = validatePinFormat(pin);
     if (!fmt.ok) continue;
-    const pinHash = hashPin(pin);
+    if (activeCodeInUse(db, pin)) continue;
+    const pinHash = hashPinSecure(pin);
     try {
       const result = db.transaction(() => {
         const info = db
@@ -149,7 +172,9 @@ async function issueHandler(req) {
       id = result;
       break;
     } catch (err) {
-      // UNIQUE constraint on pin_hash — pick a new PIN and retry.
+      // Backstop only: the scan above already rejects duplicate codes; this
+      // catches an astronomically-unlikely salted-hash collision on the
+      // still-present UNIQUE(pin_hash) index — pick a new PIN and retry.
       if (String(err).includes('UNIQUE') && attempt < MAX_COLLISION_RETRIES - 1) {
         continue;
       }

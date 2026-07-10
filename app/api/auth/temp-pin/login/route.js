@@ -24,7 +24,8 @@
 import { json } from '../../../../../lib/routeHelpers';
 import { getDb } from '../../../../../lib/db';
 import { postAuditEvent } from '../../../../../lib/auditEvents';
-import { hashPin, validatePinFormat, parseScopes } from '../../../../../lib/tempPin';
+import { validatePinFormat, parseScopes } from '../../../../../lib/tempPin';
+import { verifyPin } from '../../../../../lib/pinHash';
 import { signTempPinCookieValue, TEMP_PIN_COOKIE_NAME } from '../../../../../lib/tempPinCookie';
 
 export const dynamic = 'force-dynamic';
@@ -119,23 +120,23 @@ export async function POST(req) {
     return json({ error: fmt.error }, { status: 422 });
   }
 
-  const pinHash = hashPin(body.pin);
   const db = getDb();
 
-  // SELECT ... AND revoked_at IS NULL AND expires_at > now is the
-  // single source of truth for "active". UNIQUE on pin_hash means at
-  // most one row matches.
-  const row = /** @type {{ id: number; location_id: string; scopes_json: string; expires_at: string } | undefined} */ (db
+  // Salted PBKDF2 hashes can't be looked up by SQL equality, so scan the
+  // active rows and verify each (audit 2026-07-10 P0-3). Issuance guarantees
+  // at most one active row matches a given code, so the first hit is the row.
+  // verifyPin also accepts the legacy unsalted SHA-256 so any temp PIN issued
+  // before this change keeps working until it expires. datetime() wraps both
+  // sides — see /list/route.js for why string compare across formats was wrong.
+  const rows = /** @type {{ id: number; location_id: string; scopes_json: string; expires_at: string; pin_hash: string }[]} */ (db
     .prepare(
-      // datetime() wraps both sides — see /list/route.js for why string
-      // compare across formats was wrong.
-      `SELECT id, location_id, scopes_json, expires_at
+      `SELECT id, location_id, scopes_json, expires_at, pin_hash
          FROM temp_pins
-        WHERE pin_hash = ?
-          AND revoked_at IS NULL
+        WHERE revoked_at IS NULL
           AND datetime(expires_at) > datetime('now')`,
     )
-    .get(pinHash));
+    .all());
+  const row = rows.find((r) => verifyPin(body.pin, r.pin_hash)) ?? null;
 
   if (!row) {
     recordFailedAttempt(ip);
