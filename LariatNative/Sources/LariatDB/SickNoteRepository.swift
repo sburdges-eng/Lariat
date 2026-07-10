@@ -16,6 +16,20 @@ public struct SickNoteRepository: Sendable {
         self.writeDB = writeDB
     }
 
+    /// Metadata-only audit payload for an attach write. Deliberately excludes
+    /// `original_filename`: it is quasi-PHI that replicates to peer boxes via
+    /// Family-1 `audit_events` sync, beyond a purge's reach (spec §7.5). The
+    /// DB row itself still keeps `original_filename` — only the audit payload
+    /// is stripped.
+    private struct SickNoteAuditPayload: Encodable {
+        let reportId: Int64
+        let locationId: String
+        let filePath: String
+        let kind: String
+        let uploadedBy: String?
+        let uploadedAt: String
+    }
+
     /// Record one attached document. The parent report must exist at the
     /// context's location (spec §8 location scoping; also prevents orphan
     /// rows). Insert + audit event commit in one transaction.
@@ -49,8 +63,11 @@ public struct SickNoteRepository: Sendable {
             ) else {
                 throw SickNoteWriteError.persistenceFailed
             }
-            // Payload is the document row — file metadata only, never
-            // symptoms/diagnosis (spec §8 PHI guard).
+            // Payload is file metadata only — never symptoms/diagnosis (spec §8
+            // PHI guard) and never original_filename (spec §7.5: quasi-PHI
+            // that replicates to peer boxes via Family-1 audit_events sync,
+            // beyond a purge's reach). The DB row (`row`, returned below)
+            // still carries original_filename; only the audit payload omits it.
             _ = try AuditEventWriter.post(
                 db: db,
                 input: AuditEventInput(
@@ -59,7 +76,14 @@ public struct SickNoteRepository: Sendable {
                     action: .insert,
                     actorCookId: context.actorCookId,
                     actorSource: context.actorSource,
-                    payloadJSON: AuditEventWriter.encodePayload(row),
+                    payloadJSON: AuditEventWriter.encodePayload(SickNoteAuditPayload(
+                        reportId: row.reportId,
+                        locationId: row.locationId,
+                        filePath: row.filePath,
+                        kind: row.kind,
+                        uploadedBy: row.uploadedBy,
+                        uploadedAt: row.uploadedAt
+                    )),
                     shiftDate: context.shiftDate,
                     locationId: context.locationId
                 )

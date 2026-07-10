@@ -54,6 +54,12 @@ final class SickNoteRepositoryTests: XCTestCase {
             // (JSONEncoder escapes "/" so match on field name + filename.)
             XCTAssertTrue(payload.contains("file_path"))
             XCTAssertTrue(payload.contains("u.pdf"))
+            // original_filename is quasi-PHI that replicates to peer boxes via
+            // Family-1 audit_events sync, beyond a purge's reach (spec §7.5) —
+            // it must never enter the audit payload (the DB row still keeps it,
+            // asserted above via byReport[reportId]?.first?.originalFilename).
+            XCTAssertFalse(payload.contains("note.pdf"), "original_filename must NOT enter the audit payload")
+            XCTAssertFalse(payload.contains("original_filename"))
         }
     }
 
