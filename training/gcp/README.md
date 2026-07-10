@@ -45,26 +45,46 @@ EVAL_REQUIRE_OLLAMA=1 npm run eval:assistant-prompt            # post-flip gate
 
 **Rollback:** `ollama cp lari-ka-deepseek-backup lari-the-kitchen-assistant`
 
-## Serving tuning for a 16GB M4 (semi-in-use)
+## Serving tuning for a 16GB M4 (semi-in-use) — WS-6
 
-Set these in the environment that starts `ollama serve` (e.g. `launchctl setenv` or the shell profile):
+Set these in the environment that starts `ollama serve` (e.g. `launchctl setenv`
+or the shell profile) — the config pack that stops swap and cuts latency without
+any model change:
 
 ```bash
-OLLAMA_FLASH_ATTENTION=1     # required for KV-cache quantization
-OLLAMA_KV_CACHE_TYPE=q8_0    # halves KV memory at num_ctx 16384
-OLLAMA_KEEP_ALIVE=30m        # keep the model warm through service
+OLLAMA_FLASH_ATTENTION=1     # required before KV-cache quantization takes effect
+OLLAMA_KV_CACHE_TYPE=q8_0    # halves KV memory (negligible quality hit)
+OLLAMA_KEEP_ALIVE=30m        # keep the model + prefix cache warm through service
 ```
 
-Working set: ~2.5–5GB GGUF (4B/8B q4_K_M) + ~0.7GB quantized KV — versus
-~9GB for the previous DeepSeek-R1 14B setup.
+The v3 serving Modelfile also drops `num_ctx` 16384 → **8192** (the assistant
+prompt is ~5–6k tokens; 8192 leaves room for the 512-token output while halving
+KV memory). Working set on the **4B** v3 model: ~2.5GB GGUF + ~0.4GB q8_0 KV —
+roughly a third of the DeepSeek-R1-14B footprint (~9GB), and it decodes ~2×
+faster, which is expected to bring the command path from ~23s (8B) to ~12–15s,
+comfortably under the 45s `LARIAT_OLLAMA_TIMEOUT_MS`.
+
+**Deferred optimization (measure first):** the biggest *additional* latency win
+is reordering the runtime prompt so a byte-identical static prefix (system +
+catalogs + directive) leads and the dynamic CONTEXT trails, which would let
+Ollama's prefix KV cache skip re-prefilling it every turn. It is **not applied
+in v3** because it couples the serving prompt to the training-data prompt shape
+(both `route.js` `userContent` and `datasetv2/sources.mjs`
+`buildRuntimeUserMessage` would have to move together to keep train==serve) — and
+the 4B's raw ~2× speedup is expected to make it unnecessary. If the WS-4 latency
+gate shows command p95 still near the timeout after the flip, do the reorder in
+BOTH places and regenerate the dataset.
 
 ## Design notes
 
-- **Chat template**: Qwen candidates are trained AND served with the same
-  plain-chatml template (`train.py` overrides the tokenizer template;
-  `Modelfile.qwen-v2.tmpl` mirrors it) — no `<think>` scaffolding, so the
-  clients' `think:false` is trivially satisfied. Llama 3.1 uses its native
-  template mirrored in `Modelfile.llama31-v2.tmpl`.
+- **Chat template**: v3 bases are non-thinking-ONLY instruct models
+  (`Qwen3-4B-Instruct-2507`) with no `<think>` capability, so train and serve
+  templates are byte-identical with zero think scaffolding — the KA v2
+  hybrid-thinking truncation bug and train/serve mismatch are gone at the root.
+  `train.py`'s templates additionally carry `{% generation %}` loss markers
+  (training-only, emit no text) so `assistant_only_loss` computes loss on the
+  ~200-token output, not the ~6k-token prompt. Llama 3.1 uses the mirrored
+  `Modelfile.llama31-v2.tmpl` / `LLAMA3` template.
 - **Quota reality (2026-07)**: this project's only nonzero Vertex GPU quota is
   `CustomModelTrainingPreemptibleA100GPUsPerProjectPerRegion = 8` in
   us-central1 / europe-west4 / asia-southeast1 — hence `strategy: SPOT` on
