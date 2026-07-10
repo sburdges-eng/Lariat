@@ -158,6 +158,128 @@ final class SickNoteRepositoryTests: XCTestCase {
         }
     }
 
+    func testPurgeDeletesRowWritesAuditReturnsPath() throws {
+        let (readDB, writeDB, path) = try makeRepos()
+        defer { cleanup(path: path) }
+        let reportId = try seedReport(writeDB: writeDB)
+
+        let repo = SickNoteRepository(readDB: readDB, writeDB: writeDB)
+        // originalFilename is deliberately a different string from filePath's
+        // basename so the assertions below can't accidentally pass just
+        // because filePath (which IS legitimate payload metadata) happens to
+        // share text with original_filename (which must NEVER be in the payload).
+        let doc = try repo.attach(
+            input: SickNoteAttachInput(
+                reportId: reportId,
+                filePath: "sick-notes/\(reportId)/a.pdf",
+                kind: .note,
+                originalFilename: "Jane-Doe-doctors-note.pdf",
+                uploadedAt: "2020-01-01T00:00:00.000Z"
+            ),
+            context: macContext()
+        )
+
+        let purgedPath = try repo.purge(documentId: doc.id, context: macContext())
+        XCTAssertEqual(purgedPath, "sick-notes/\(reportId)/a.pdf")
+
+        try writeDB.pool.read { db in
+            XCTAssertEqual(
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM sick_note_documents WHERE id = ?", arguments: [doc.id]),
+                0
+            )
+            let action = try String.fetchOne(
+                db, sql: "SELECT action FROM audit_events WHERE entity='sick_note_documents' ORDER BY id DESC LIMIT 1"
+            )
+            XCTAssertEqual(action, "delete")
+            let payload = try String.fetchOne(
+                db, sql: "SELECT payload_json FROM audit_events WHERE entity='sick_note_documents' ORDER BY id DESC LIMIT 1"
+            ) ?? ""
+            XCTAssertFalse(payload.contains("Jane-Doe"), "purge payload carries no original filename")
+            XCTAssertFalse(payload.contains("original_filename"))
+            XCTAssertFalse(payload.contains("symptom"))
+        }
+
+        // Purging a non-existent id returns nil and writes no audit event.
+        let auditCountBefore = try writeDB.pool.read { db in
+            try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM audit_events") ?? -1
+        }
+        XCTAssertNil(try repo.purge(documentId: 99_999, context: macContext()))
+        try writeDB.pool.read { db in
+            let auditCountAfter = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM audit_events") ?? -1
+            XCTAssertEqual(auditCountAfter, auditCountBefore, "no-op purge must not write an audit event")
+        }
+
+        // Purging an existing id from the wrong location also returns nil (no cross-location delete).
+        let reportId2 = try seedReport(writeDB: writeDB)
+        let doc2 = try repo.attach(
+            input: SickNoteAttachInput(
+                reportId: reportId2, filePath: "sick-notes/\(reportId2)/b.pdf", kind: .note,
+                originalFilename: nil, uploadedAt: "2020-01-01T00:00:00.000Z"
+            ),
+            context: macContext()
+        )
+        XCTAssertNil(try repo.purge(documentId: doc2.id, context: macContext(locationId: "other-site")))
+        try writeDB.pool.read { db in
+            XCTAssertEqual(
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM sick_note_documents WHERE id = ?", arguments: [doc2.id]),
+                1,
+                "cross-location purge must not delete the row"
+            )
+        }
+    }
+
+    func testOverdueAndOrphanQueries() throws {
+        let (readDB, writeDB, path) = try makeRepos()
+        defer { cleanup(path: path) }
+        let reportId = try seedReport(writeDB: writeDB)
+
+        let repo = SickNoteRepository(readDB: readDB, writeDB: writeDB)
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        func iso(_ daysAgo: Double) -> String {
+            let f = ISO8601DateFormatter()
+            f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            return f.string(from: now.addingTimeInterval(-daysAgo * 86_400))
+        }
+
+        _ = try repo.attach(
+            input: SickNoteAttachInput(
+                reportId: reportId, filePath: "sick-notes/\(reportId)/old.pdf", kind: .note,
+                originalFilename: nil, uploadedAt: iso(800)
+            ),
+            context: macContext()
+        )
+        _ = try repo.attach(
+            input: SickNoteAttachInput(
+                reportId: reportId, filePath: "sick-notes/\(reportId)/new.pdf", kind: .note,
+                originalFilename: nil, uploadedAt: iso(5)
+            ),
+            context: macContext()
+        )
+
+        let overdue = try repo.overdueDocuments(locationId: "default", now: now)
+        XCTAssertEqual(overdue.map(\.filePath), ["sick-notes/\(reportId)/old.pdf"])
+
+        // orphan: a document whose report_id has no parent report
+        _ = try repo.attach(
+            input: SickNoteAttachInput(
+                reportId: reportId, filePath: "sick-notes/\(reportId)/keep.pdf", kind: .note,
+                originalFilename: nil, uploadedAt: iso(5)
+            ),
+            context: macContext()
+        )
+        try writeDB.pool.write { db in
+            try db.execute(
+                sql: """
+                  INSERT INTO sick_note_documents (report_id, location_id, file_path, kind, uploaded_at)
+                  VALUES (4242,'default','sick-notes/4242/x.pdf','note',?)
+                  """,
+                arguments: [iso(5)]
+            )
+        }
+        let orphans = try repo.orphanDocuments(locationId: "default")
+        XCTAssertEqual(orphans.map(\.filePath), ["sick-notes/4242/x.pdf"])
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────
 
     /// Insert a parent sick-worker report row; returns its id.

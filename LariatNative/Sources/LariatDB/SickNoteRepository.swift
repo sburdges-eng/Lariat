@@ -119,6 +119,86 @@ public struct SickNoteRepository: Sendable {
         }
     }
 
+    /// Metadata-only audit payload for a purge (retention-driven delete).
+    /// Deliberately excludes `original_filename` (spec §7.5, same rationale as
+    /// `SickNoteAuditPayload` above) and never touches symptoms/diagnosis —
+    /// this is document metadata only.
+    private struct SickNotePurgePayload: Encodable {
+        let documentId: Int64
+        let reportId: Int64
+        let locationId: String
+        let filePath: String
+        let uploadedAt: String
+    }
+
+    /// Delete one document row + audit event in one transaction (the first
+    /// deleter of this data — audit P0-6 retention purge). Returns the row's
+    /// `file_path` so the caller unlinks the on-disk ciphertext AFTER commit;
+    /// filesystem side-effects deliberately stay out of the DB transaction.
+    /// Returns `nil` if no row matches at the context's location — a no-op
+    /// that writes no audit event (nothing happened, nothing to record).
+    @discardableResult
+    public func purge(documentId: Int64, context: RegulatedWriteContext) throws -> String? {
+        try AuditedWriteRunner.perform(db: writeDB) { db in
+            guard let row = try SickNoteDocumentRow.fetchOne(
+                db,
+                sql: "SELECT * FROM sick_note_documents WHERE id = ? AND location_id = ?",
+                arguments: [documentId, context.locationId]
+            ) else { return nil }
+
+            try db.execute(sql: "DELETE FROM sick_note_documents WHERE id = ?", arguments: [documentId])
+            _ = try AuditEventWriter.post(
+                db: db,
+                input: AuditEventInput(
+                    entity: "sick_note_documents",
+                    entityId: row.id,
+                    action: .delete,
+                    actorCookId: context.actorCookId,
+                    actorSource: context.actorSource,
+                    payloadJSON: AuditEventWriter.encodePayload(SickNotePurgePayload(
+                        documentId: row.id,
+                        reportId: row.reportId,
+                        locationId: row.locationId,
+                        filePath: row.filePath,
+                        uploadedAt: row.uploadedAt
+                    )),
+                    note: "retention purge",
+                    shiftDate: context.shiftDate,
+                    locationId: row.locationId
+                )
+            )
+            return row.filePath
+        }
+    }
+
+    /// Documents past the retention window, filtered in Swift via
+    /// `SickNoteRetention.isOverdue` so the fail-open policy lives in one
+    /// tested place (a malformed `uploaded_at` never counts as overdue).
+    public func overdueDocuments(locationId: String, now: Date) throws -> [SickNoteDocumentRow] {
+        let rows = try writeDB.pool.read { db in
+            try SickNoteDocumentRow.fetchAll(
+                db,
+                sql: "SELECT * FROM sick_note_documents WHERE location_id = ? ORDER BY uploaded_at",
+                arguments: [locationId]
+            )
+        }
+        return rows.filter { SickNoteRetention.isOverdue(uploadedAt: $0.uploadedAt, now: now) }
+    }
+
+    /// Document rows whose parent `sick_worker_reports` row no longer exists.
+    /// There is no FK on `report_id`, so orphans are possible (e.g. a report
+    /// deleted out from under its attachments) and must still be purgeable.
+    public func orphanDocuments(locationId: String) throws -> [SickNoteDocumentRow] {
+        try writeDB.pool.read { db in
+            try SickNoteDocumentRow.fetchAll(db, sql: """
+                SELECT d.* FROM sick_note_documents d
+                LEFT JOIN sick_worker_reports r ON d.report_id = r.id
+                WHERE d.location_id = ? AND r.id IS NULL
+                ORDER BY d.uploaded_at
+                """, arguments: [locationId])
+        }
+    }
+
     public static func counts(db: Database, reportIds: [Int64], locationId: String) throws -> [Int64: Int] {
         guard !reportIds.isEmpty else { return [:] }
         let marks = Array(repeating: "?", count: reportIds.count).joined(separator: ",")
