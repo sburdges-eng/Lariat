@@ -53,14 +53,13 @@ final class KdsBumpRulesTests: XCTestCase {
 
     // ── hashPin (oracle §hashPin) ──────────────────────────────────────
     func testHashPin() {
+        // Salted PBKDF2 now (audit 2026-07-10 P0-3): non-deterministic, verifies.
         let h = KdsBumpRules.hashPin("1234")
-        XCTAssertEqual(h.count, 64)
-        XCTAssertNotNil(h.range(of: "^[0-9a-f]{64}$", options: .regularExpression))
-        XCTAssertEqual(h, KdsBumpRules.hashPin("1234"))          // deterministic
-        XCTAssertNotEqual(h, KdsBumpRules.hashPin("1235"))       // distinguishes PINs
-        XCTAssertFalse(h.contains("1234"))                       // never echoes raw PIN
-        // fixed vector: byte-identical to Node createHash('sha256').update('1234').digest('hex')
-        XCTAssertEqual(h, "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4")
+        XCTAssertTrue(h.hasPrefix("p1$"))
+        XCTAssertNotEqual(h, KdsBumpRules.hashPin("1234"))        // salted → distinct each call
+        XCTAssertFalse(h.contains("1234"))                        // never echoes raw PIN
+        XCTAssertTrue(PinHash.verify("1234", h))                  // verifies against the PIN
+        XCTAssertFalse(PinHash.verify("1235", h))                 // distinguishes PINs
     }
 
     // ── validateBumpPayload (oracle §validateBumpPayload) ──────────────

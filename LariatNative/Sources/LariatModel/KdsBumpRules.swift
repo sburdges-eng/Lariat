@@ -40,10 +40,12 @@ public enum KdsBumpRules {
         return f.string(from: d) == s
     }
 
-    /// SHA-256(pin) lowercase hex — byte-identical to Node
-    /// `createHash('sha256').update(pin).digest('hex')`. Raw PIN never stored.
+    /// Salted PBKDF2 hash of the cook PIN (audit 2026-07-10 P0-3), matching
+    /// `lib/kds.ts`. bumped_pin_hash is write-only attribution — nothing reads
+    /// or groups by it — so per-bump salting is safe and keeps a copied DB from
+    /// yielding the raw cook PINs. Raw PIN never stored.
     public static func hashPin(_ pin: String) -> String {
-        SHA256.hash(data: Data(pin.utf8)).map { String(format: "%02x", $0) }.joined()
+        PinHash.hashPinSecure(pin)
     }
 
     /// First bump → `.insert`; a re-bump (state row already exists) → `.correction`.

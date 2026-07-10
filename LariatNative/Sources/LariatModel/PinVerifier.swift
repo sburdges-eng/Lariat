@@ -48,18 +48,24 @@ public struct PinVerifier {
 
     if let fmt = PinHash.validateFormat(pin) { throw PinGateError.format(fmt) }
 
-    let hash = PinHash.sha256Hex(pin)
-    if let row = try Row.fetchOne(db, sql: """
-      SELECT id, location_id, name, role FROM manager_pin_users
-       WHERE location_id = ? AND pin_hash = ? AND is_active = 1
-       LIMIT 1
-    """, arguments: [locationId, hash]) {
-      return ManagerPinUser(
-        id: row["id"],
-        locationId: row["location_id"],
-        name: row["name"],
-        role: row["role"]
-      )
+    // Scan-verify: salted PBKDF2 hashes can't be looked up by SQL equality
+    // (audit 2026-07-10 P0-3). PinHash.verify also accepts the legacy unsalted
+    // SHA-256 so rows written before the migration still authenticate. Row
+    // migration (rehash-on-auth) is owned by the web login path.
+    let rows = try Row.fetchAll(db, sql: """
+      SELECT id, location_id, name, role, pin_hash FROM manager_pin_users
+       WHERE location_id = ? AND is_active = 1
+    """, arguments: [locationId])
+    for row in rows {
+      let stored: String = row["pin_hash"]
+      if PinHash.verify(pin, stored) {
+        return ManagerPinUser(
+          id: row["id"],
+          locationId: row["location_id"],
+          name: row["name"],
+          role: row["role"]
+        )
+      }
     }
 
   if try gateConfigured(db: db, locationId: locationId, env: env) {

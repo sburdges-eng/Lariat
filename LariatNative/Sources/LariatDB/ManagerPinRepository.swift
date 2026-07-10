@@ -67,9 +67,11 @@ public struct ManagerPinRepository {
     ) throws -> ManagerPinRecord {
         let cleanName = try Self.normalizeName(name)
         let cleanRole = try Self.normalizeRole(role)
-        let pinHash = try Self.hashManagerPin(pin)
+        if let fmt = PinHash.validateFormat(pin) { throw ManagerPinWriteError.validation(fmt) }
 
         return try AuditedWriteRunner.perform(db: writeDB) { db in
+            try Self.assertPinCodeFree(db, pin: pin, locationId: context.locationId, exceptId: nil)
+            let pinHash = PinHash.hashPinSecure(pin)
             try db.execute(
                 sql: """
                   INSERT INTO manager_pin_users (location_id, name, pin_hash, role)
@@ -101,7 +103,9 @@ public struct ManagerPinRepository {
         guard id > 0 else { throw ManagerPinWriteError.validation("id required") }
         let cleanName = try name.map(Self.normalizeName)
         let cleanRole = try role.map { try Self.normalizeRole($0) }
-        let pinHash = try pin.map(Self.hashManagerPin)
+        if let pin, let fmt = PinHash.validateFormat(pin) {
+            throw ManagerPinWriteError.validation(fmt)
+        }
 
         return try AuditedWriteRunner.perform(db: writeDB) { db in
             guard let existing = try? Self.fetch(db, id: id, locationId: context.locationId) else {
@@ -110,6 +114,12 @@ public struct ManagerPinRepository {
             let nextName = cleanName ?? existing.name
             let nextRole = cleanRole ?? existing.role
             let nextActive = isActive ?? existing.active
+
+            var pinHash: String?
+            if let pin {
+                try Self.assertPinCodeFree(db, pin: pin, locationId: context.locationId, exceptId: id)
+                pinHash = PinHash.hashPinSecure(pin)
+            }
 
             if let pinHash {
                 try db.execute(
@@ -173,12 +183,24 @@ public struct ManagerPinRepository {
         return value
     }
 
-    /// Format-check then hash — the raw PIN never survives this call.
-    static func hashManagerPin(_ pin: String) throws -> String {
-        if let formatError = PinHash.validateFormat(pin) {
-            throw ManagerPinWriteError.validation(formatError)
+    /// Reject a PIN already held by another ACTIVE manager in this location so
+    /// login stays unambiguous — the DB UNIQUE(location_id, pin_hash) index can
+    /// no longer enforce it once every salted hash is distinct (parity with
+    /// lib/managerPins.ts assertPinCodeFree). Runs inside the write transaction.
+    static func assertPinCodeFree(_ db: Database, pin: String, locationId: String, exceptId: Int64?) throws {
+        let rows = try Row.fetchAll(
+            db,
+            sql: "SELECT id, pin_hash FROM manager_pin_users WHERE location_id = ? AND is_active = 1",
+            arguments: [locationId]
+        )
+        for row in rows {
+            let rowId: Int64 = row["id"]
+            if let exceptId, rowId == exceptId { continue }
+            let stored: String = row["pin_hash"]
+            if PinHash.verify(pin, stored) {
+                throw ManagerPinWriteError.validation("PIN already in use by an active manager")
+            }
         }
-        return PinHash.sha256Hex(pin)
     }
 
     // ── internals ───────────────────────────────────────────────────────
