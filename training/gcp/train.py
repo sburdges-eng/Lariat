@@ -34,10 +34,39 @@ import time
 # must be set before torch import — reduces fragmentation OOMs at 8k seq
 os.environ.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')
 
-CHATML = (
-    "{% for message in messages %}{{ '<|im_start|>' + message['role'] + '\n' "
-    "+ message['content'] + '<|im_end|>' + '\n' }}{% endfor %}"
-    "{% if add_generation_prompt %}{{ '<|im_start|>assistant\n<think>\n\n</think>\n\n' }}{% endif %}"
+# Chat templates carry {% generation %}…{% endgeneration %} markers around the
+# ASSISTANT content (incl. its stop token) so SFTConfig(assistant_only_loss=True)
+# computes loss ONLY on the ~150-250 output tokens — not the ~5-6k-token fixed
+# prompt. Without this, >95% of gradient went to reconstructing the prompt
+# (KA v2's flat ~0.005 val_loss + under-trained JSON discipline). TRL's auto-mask
+# does NOT fire on an overridden template string, so the markers are manual and
+# the mask is VERIFIED on one batch before training (see main()).
+#
+# No <think> scaffolding: the v3 bases are non-thinking instruct models
+# (Qwen3-*-Instruct-2507 / Llama-3.1-Instruct), so train and serve templates are
+# byte-identical with zero think machinery — the KA v2 hybrid-thinking bug and
+# the train/serve mismatch are gone at the root.
+
+CHATML = (  # Qwen3 non-thinking; mirrors training/gcp/Modelfile.qwen-v2.tmpl
+    "{% for message in messages %}"
+    "{% if message['role'] == 'assistant' %}"
+    "{{ '<|im_start|>assistant\n' }}{% generation %}{{ message['content'] }}{{ '<|im_end|>\n' }}{% endgeneration %}"
+    "{% else %}"
+    "{{ '<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>\n' }}"
+    "{% endif %}"
+    "{% endfor %}"
+    "{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"
+)
+
+LLAMA3 = (  # Llama-3.1 format; mirrors training/gcp/Modelfile.llama31-v2.tmpl
+    "{% for message in messages %}"
+    "{% if message['role'] == 'assistant' %}"
+    "{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% generation %}{{ message['content'] }}{{ '<|eot_id|>' }}{% endgeneration %}"
+    "{% else %}"
+    "{{ '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n' + message['content'] + '<|eot_id|>' }}"
+    "{% endif %}"
+    "{% endfor %}"
+    "{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% endif %}"
 )
 
 
@@ -80,8 +109,9 @@ def main():
     print(f"rows: train={len(ds['train'])} val={len(ds['val'])}", flush=True)
 
     tok = AutoTokenizer.from_pretrained(a.base, trust_remote_code=True)
-    if a.chat_template == 'chatml':
-        tok.chat_template = CHATML  # plain chatml — matches Modelfile.qwen-v2.tmpl
+    # Override with our generation-masked template for BOTH families so train and
+    # serve are byte-identical and assistant_only_loss has markers to key on.
+    tok.chat_template = CHATML if a.chat_template == 'chatml' else LLAMA3
     bnb = BitsAndBytesConfig(
         load_in_4bit=True, bnb_4bit_quant_type='nf4',
         bnb_4bit_use_double_quant=True, bnb_4bit_compute_dtype=torch.bfloat16)
@@ -96,19 +126,43 @@ def main():
     cfg = SFTConfig(
         output_dir='/tmp/out', num_train_epochs=a.epochs, learning_rate=a.lr,
         per_device_train_batch_size=1, gradient_accumulation_steps=8,
-        # eval OOMs are the failure mode here: fp32 logits at 8k seq x 151k
-        # vocab are ~5GB PER SAMPLE, so eval must run batch=1, bf16, and move
-        # logits off-GPU frequently (smoke-0 died exactly here at batch=8).
+        # Loss on the assistant output ONLY (see the template comment). This also
+        # keeps eval cheap — logits are computed on the short output region, so
+        # the fp32-logits OOM that forced batch=1 in KA v2 is far less acute.
+        assistant_only_loss=True,
         per_device_eval_batch_size=1, bf16_full_eval=True, eval_accumulation_steps=1,
         gradient_checkpointing=True, max_length=a.max_seq, packing=False,
         bf16=True, logging_steps=20, eval_strategy='epoch', save_strategy='no',
         lr_scheduler_type='cosine', warmup_ratio=0.03, optim='paged_adamw_8bit',
         report_to=[])
+
+    # VERIFY the assistant-only mask actually fires before spending GPU-hours.
+    # TRL's auto-patch does NOT trigger on an overridden template string, so a
+    # missing/misplaced {% generation %} marker would silently mask NOTHING
+    # (back to full-sequence loss) or EVERYTHING (zero loss). Assert the mask
+    # covers a small but non-trivial slice of one real example.
+    _ex = ds['train'][0]['messages']
+    _enc = tok.apply_chat_template(_ex, tokenize=True, return_assistant_tokens_mask=True,
+                                   return_dict=True)
+    _mask = _enc['assistant_masks']
+    _n_asst = sum(_mask)
+    _n_tot = len(_mask)
+    _frac = _n_asst / max(1, _n_tot)
+    print(f"assistant-mask check: {_n_asst}/{_n_tot} tokens ({_frac:.1%}) contribute to loss", flush=True)
+    if _n_asst == 0:
+        raise SystemExit("FATAL: assistant mask is empty — {% generation %} markers not applied; loss would cover nothing")
+    if _frac > 0.5:
+        raise SystemExit(f"FATAL: assistant mask covers {_frac:.0%} of the sequence — markers likely wrap the prompt too")
+
     trainer = SFTTrainer(
         model=model, args=cfg, train_dataset=ds['train'],
         eval_dataset=ds['val'], processing_class=tok, peft_config=peft_cfg)
     trainer.train()
     val = trainer.evaluate()
+    # val_loss is now assistant-only (a real signal), but still DEMOTED to a
+    # sanity floor — never a selector. The behavioral eval decides the winner.
+    if val.get('eval_loss') is not None and val['eval_loss'] < 0.05:
+        print(f"WARN: eval_loss {val['eval_loss']:.4f} < 0.05 — suspiciously low, check for memorization", flush=True)
     trainer.save_model('/tmp/out/adapters')
     print(f"val: {val}", flush=True)
 
@@ -148,11 +202,13 @@ def main():
             bkt.blob(f'{prefix}/adapters/{rel}').upload_from_filename(p, timeout=600)
     metrics = {
         'run_id': a.run_id, 'base_model': a.base,
-        'val_loss': val.get('eval_loss'),
+        'val_loss': val.get('eval_loss'),  # assistant-only; sanity floor, NOT a selector
+        'assistant_mask_frac': round(_frac, 4),
         'train_runtime_s': round(time.time() - t0),
         'gguf': gguf_name,
         'config': {'lora_r': a.lora_r, 'lr': a.lr, 'epochs': a.epochs,
-                   'max_seq': a.max_seq, 'chat_template': a.chat_template},
+                   'max_seq': a.max_seq, 'chat_template': a.chat_template,
+                   'assistant_only_loss': True},
     }
     bkt.blob(f'{prefix}/metrics.json').upload_from_string(json.dumps(metrics, indent=2))
     print('DONE', json.dumps(metrics), flush=True)

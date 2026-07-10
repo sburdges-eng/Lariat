@@ -4,39 +4,23 @@ TEMPLATE """{{- if .System }}<|im_start|>system
 {{ end }}{{- range .Messages }}<|im_start|>{{ .Role }}
 {{ .Content }}<|im_end|>
 {{ end }}<|im_start|>assistant
-<think>
-
-</think>
-
 """
 PARAMETER stop <|im_end|>
 PARAMETER temperature 0.2
 PARAMETER top_p 0.85
 PARAMETER num_predict 512
-PARAMETER num_ctx 16384
+PARAMETER num_ctx 8192
 
-# Plain chatml — byte-identical to the template train.py fine-tuned against.
-# No SYSTEM block on purpose: the single source of truth for the system
-# prompt is lib/ollama.ts (GROUNDED_SYSTEM / CREATIVE_SYSTEM).
+# Plain chatml — byte-identical to the template train.py fine-tuned against
+# (training/gcp/train.py CHATML, minus the training-only {% generation %} loss
+# markers which emit no text). No <think> scaffolding: KA v3 bases are
+# non-thinking-only instruct models (Qwen3-*-Instruct-2507), which have no
+# thinking capability at all — so the KA v2 hybrid-thinking truncation bug and
+# the train/serve mismatch are gone at the ROOT, not patched. Do not add a
+# <think> block here; it would re-introduce the exact mismatch v3 removed.
 #
-# Qwen3 base models (non-"-Instruct-2507" releases) are HYBRID thinking
-# models: pretraining leaves them prone to emitting a <think>...</think>
-# reasoning block before the real answer, even though nothing in our
-# fine-tuning data does this and the request always sends think:false
-# (that flag only suppresses Ollama's *own* thinking-capability handling
-# for models it recognizes as such — a manually llama.cpp-converted GGUF
-# has no such capability metadata, so think:false is silently a no-op).
-# Left unchecked, the model randomly burns num_predict on invisible
-# reasoning and truncates or drops the visible answer (confirmed: an
-# intermittent FAIL on a HACCP cooling-compliance scenario where the
-# entire 512-token budget went to <think> and the answer was cut off
-# after 8 characters). Seeding an empty <think>\n\n</think>\n\n block
-# right after the assistant turn is Qwen's documented mechanism for
-# disabling thinking mode; it eliminates the truncation failure mode
-# (verified: 0 fails across 3 independent eval runs, vs 1 fail in 3
-# runs without it) at the cost of the "free" reasoning quality boost
-# thinking sometimes provided. If a future sweep uses a hybrid Qwen3
-# base again, prefer ALSO seeding this same empty think-block in the
-# training data's assistant turns (train.py's CHATML) so the model
-# learns to go straight to content, closing the score gap this
-# serving-only patch leaves on the table.
+# No SYSTEM block on purpose: the single source of truth for the system prompt
+# is lib/ollama.ts (GROUNDED_SYSTEM / CREATIVE_SYSTEM), passed per-chat.
+#
+# num_ctx 8192: the assistant prompt is ~5-6k tokens; 8192 leaves headroom for
+# the 512-token output while halving KV-cache memory vs 16384 on a 16GB M4.

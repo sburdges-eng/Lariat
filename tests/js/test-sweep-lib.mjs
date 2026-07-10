@@ -6,11 +6,13 @@ import { expandMatrix, projectCost, pruneToBudget, jobYaml, gcloudArgs, entryCom
 const config = JSON.parse(readFileSync('training/gcp/sweep-config.json', 'utf8'));
 
 test('matrix expands bases x grid, skips gated bases without HF_TOKEN', () => {
+  const gated = config.bases.filter((b) => b.gated).length;
+  const ungated = config.bases.length - gated;
   const jobs = expandMatrix(config, { hfToken: '' });
-  assert.equal(jobs.length, 2 * config.grid.length);
+  assert.equal(jobs.length, ungated * config.grid.length);
   assert.ok(jobs.every((j) => !j.base.startsWith('meta-llama')));
   const withTok = expandMatrix(config, { hfToken: 'hf_x' });
-  assert.equal(withTok.length, 3 * config.grid.length);
+  assert.equal(withTok.length, config.bases.length * config.grid.length);
 });
 
 test('run ids are unique and shell-safe', () => {
