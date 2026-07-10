@@ -24,14 +24,56 @@ const scenarios = JSON.parse(readFileSync(join(REPO, 'training', 'eval', 'scenar
 const scenShingles = new Set();
 for (const sc of scenarios) for (const sh of shingles(`${sc.user} ${sc.context}`)) scenShingles.add(sh);
 
+// Count top-level balanced JSON objects carrying a string `action` field.
+// A target with >1 is exactly the double-emission that leaked in the KA v2
+// rollout — no training row may reinforce it (WS-5 hard filter).
+function countActionObjects(text) {
+  let n = 0, i = 0;
+  while (i < text.length) {
+    if (text[i] !== '{') { i++; continue; }
+    let depth = 0, inStr = false, esc = false, end = -1;
+    for (let j = i; j < text.length; j++) {
+      const ch = text[j];
+      if (esc) { esc = false; continue; }
+      if (ch === '\\') { esc = true; continue; }
+      if (ch === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (ch === '{') depth++;
+      else if (ch === '}') { depth--; if (depth === 0) { end = j; break; } }
+    }
+    if (end < 0) break;
+    try {
+      const v = JSON.parse(text.slice(i, end + 1));
+      if (v && typeof v === 'object' && typeof v.action === 'string') n++;
+    } catch { /* prose braces — ignore */ }
+    i = end + 1;
+  }
+  return n;
+}
+
+const BANNED_ALLERGEN = /\b(is safe|safe to serve|free of|does not contain|doesn't contain|does n't contain)\b/i;
+
 console.error('generating slices (real contexts — takes a few minutes)…');
 let rows = await generateAll(sources, rng, {});
-const dropped = { contaminated: 0, invalidAction: 0, duplicates: 0 };
+const dropped = {
+  contaminated: 0, invalidAction: 0, duplicates: 0,
+  secondAction: 0, thinkLeak: 0, unsafeAllergen: 0,
+};
 rows = rows.filter((r) => {
   if (contaminated(r, scenShingles)) { dropped.contaminated++; return false; }
+  const target = r.messages[2].content;
+  // WS-5: never train a <think> leak into any target (train==serve is now clean).
+  if (/<\/?think>/i.test(target)) { dropped.thinkLeak++; return false; }
   if (['action_json', 'db_query'].includes(r.meta.slice)) {
-    const { payload } = extractAction(r.messages[2].content);
+    const { payload } = extractAction(target);
     if (!payload || typeof payload.action !== 'string') { dropped.invalidAction++; return false; }
+    // WS-5: never train the double-emission that leaked in v2.
+    if (countActionObjects(target) > 1) { dropped.secondAction++; return false; }
+  }
+  // WS-5: the allergen slice must never claim a dish is "safe"/"free of" —
+  // scoped to allergen so legitimate HACCP "safe minimum temperature" prose is kept.
+  if (r.meta.slice === 'allergen' && BANNED_ALLERGEN.test(target)) {
+    dropped.unsafeAllergen++; return false;
   }
   return true;
 });
