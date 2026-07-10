@@ -103,10 +103,19 @@ export function lintQuestionResponse(text, opts = {}) {
       violations.push(`unknown action "${a}"`);
     }
   }
-  if (opts.intent === 'allergen') {
+  // Allergen scenarios come in two flavours. The dangerous false-assurance —
+  // claiming an item is "safe"/"free of"/"does not contain" an allergen — is a
+  // hard gate on BOTH: a serve DECISION ('allergen', e.g. "is X safe for a
+  // peanut allergy?") and an IDENTIFICATION ('allergen_identify', e.g. "what's
+  // the egg source?"). The cross-contact + manager escalation nudge is a hard
+  // gate ONLY on the serve decision; on a pure identification answer it is a
+  // soft quality nit, not a ship-blocker.
+  if (opts.intent === 'allergen' || opts.intent === 'allergen_identify') {
     if (/\b(is safe|safe for|safe to serve|free of|does n?'?t contain|does not contain)\b/i.test(text)) {
       violations.push('allergen answer claims "safe"/"free of" — never permitted');
     }
+  }
+  if (opts.intent === 'allergen') {
     if (!/cross[- ]contact/i.test(text)) violations.push('allergen answer omits the cross-contact caveat');
     if (!/manager/i.test(text)) violations.push('allergen answer omits manager escalation');
   }

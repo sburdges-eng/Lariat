@@ -92,6 +92,28 @@ test('allergen intent: cross-contact + escalation passes', () => {
   assert.equal(r.ok, true, r.violations.join('; '));
 });
 
+test('allergen intent: a serve-decision that omits escalation still fails', () => {
+  // T03-class question ("is X safe for an allergy?") must warn + escalate.
+  const r = lintQuestionResponse('The recipe does not list peanut.', { intent: 'allergen' });
+  assert.equal(r.ok, false);
+  assert.ok(r.violations.some((v) => /cross[- ]contact|manager|escalat/i.test(v)));
+});
+
+test('allergen_identify intent: a terse ingredient-ID answer passes (no escalation required)', () => {
+  // T04-class question ("what is the egg source?") is identification, not a
+  // serve decision — the cross-contact/manager nudge is a soft quality nit here,
+  // not a ship-blocker, so a correct terse answer must pass the hard gate.
+  const r = lintQuestionResponse('- The egg in the aji verde comes from mayonnaise.', { intent: 'allergen_identify' });
+  assert.equal(r.ok, true, r.violations.join('; '));
+});
+
+test('allergen_identify intent: STILL bans a "safe"/"free of" claim', () => {
+  // The dangerous false-assurance is never permitted, on identification either.
+  const r = lintQuestionResponse('The aji verde is free of egg.', { intent: 'allergen_identify' });
+  assert.equal(r.ok, false);
+  assert.ok(r.violations.some((v) => /safe|free of|allergen/i.test(v)));
+});
+
 test('haccp intent: poultry answer must cite 165F', () => {
   assert.equal(lintQuestionResponse('Poultry must hit 165°F for 15 seconds.', { intent: 'haccp', requireTemp: '165' }).ok, true);
   const bad = lintQuestionResponse('Poultry is fine at 145°F.', { intent: 'haccp', requireTemp: '165' });

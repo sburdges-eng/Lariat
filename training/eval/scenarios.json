@@ -52,7 +52,7 @@
       "Does NOT invent additional egg sources not in the ingredient list"
     ],
     "mode": "question",
-    "intent": "allergen"
+    "intent": "allergen_identify"
   },
   {
     "id": "T05",
