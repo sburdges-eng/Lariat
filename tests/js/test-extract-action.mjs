@@ -18,7 +18,7 @@ import { register } from 'node:module';
 
 register(new URL('./resolver.mjs', import.meta.url));
 
-const { extractAction, stripFences } = await import('../../lib/extractAction');
+const { extractAction, stripFences, sanitizeRenderedAnswer } = await import('../../lib/extractAction');
 
 describe('extractAction — shared LLM action-JSON parser', () => {
   it('returns null payload when content has no JSON object', () => {
@@ -84,6 +84,86 @@ describe('extractAction — shared LLM action-JSON parser', () => {
     const content = '{"action":"x","note":"a\\"b}"}';
     const result = extractAction(content);
     assert.deepEqual(result.payload, { action: 'x', note: 'a"b}' });
+  });
+
+  // ── KA v3: no raw JSON may survive into `stripped` (the cook-facing text) ──
+  // The v2 flip leaked because the model emitted the action JSON TWICE and the
+  // parser stripped only the first; the second block's braces rendered raw in
+  // the answer panel. `stripped` must never contain a residual action object
+  // or fence, regardless of how many the model emitted.
+
+  it('strips a DOUBLE-emitted action block — the exact v2 leak', () => {
+    const content =
+      '```json\n{"action":"scale_recipe","recipe":"bacon_jam","multiplier":3}\n```\n' +
+      'Scaled bacon jam ×3.\n' +
+      '```json\n{"action":"scale_recipe","recipe":"bacon_jam","multiplier":3}\n```';
+    const result = extractAction(content);
+    // first action-bearing object is the payload
+    assert.deepEqual(result.payload, {
+      action: 'scale_recipe', recipe: 'bacon_jam', multiplier: 3,
+    });
+    // NOTHING JSON-shaped survives into the cook-facing text
+    assert.ok(!/```/.test(result.stripped), `fence leaked: ${result.stripped}`);
+    assert.ok(!/\{\s*"action"/.test(result.stripped), `2nd action object leaked: ${result.stripped}`);
+    assert.equal(result.stripped, 'Scaled bacon jam ×3.');
+  });
+
+  it('strips a trailing unfenced second object too', () => {
+    const content =
+      '{"action":"eighty_six","item":"salmon"}\nMarked 86.\n{"action":"eighty_six","item":"salmon"}';
+    const result = extractAction(content);
+    assert.deepEqual(result.payload, { action: 'eighty_six', item: 'salmon' });
+    assert.ok(!/\{\s*"action"/.test(result.stripped), `2nd object leaked: ${result.stripped}`);
+    assert.equal(result.stripped, 'Marked 86.');
+  });
+
+  it('strips a non-action stray object that follows the payload', () => {
+    const content =
+      '{"action":"eighty_six","item":"salmon"}\nDone.\n{"debug":{"tokens":5}}';
+    const result = extractAction(content);
+    assert.deepEqual(result.payload, { action: 'eighty_six', item: 'salmon' });
+    assert.ok(!/\{\s*"debug"/.test(result.stripped), `stray object leaked: ${result.stripped}`);
+    assert.equal(result.stripped, 'Done.');
+  });
+
+  it('keeps the FIRST action-bearing object as payload even if a non-action object precedes it', () => {
+    const content =
+      '{"note":"preamble"}\n{"action":"eighty_six","item":"salmon"}\nMarked 86.';
+    const result = extractAction(content);
+    assert.deepEqual(result.payload, { action: 'eighty_six', item: 'salmon' });
+    assert.ok(!/\{/.test(result.stripped), `object leaked: ${result.stripped}`);
+    assert.equal(result.stripped, 'Marked 86.');
+  });
+
+  it('preserves prose punctuation/braces that are NOT JSON objects', () => {
+    const content =
+      '{"action":"eighty_six","item":"salmon"}\nUse a 1/2 pan (not a full).';
+    const result = extractAction(content);
+    assert.equal(result.stripped, 'Use a 1/2 pan (not a full).');
+  });
+});
+
+describe('sanitizeRenderedAnswer — final UI guard', () => {
+  it('leaves clean prose untouched', () => {
+    assert.equal(sanitizeRenderedAnswer('Nothing is 86 today.'), 'Nothing is 86 today.');
+  });
+
+  it('removes a residual raw action block that survived into the answer (the v2 UI leak)', () => {
+    const leaked =
+      '⚡ ACTION EXECUTED: Scaled bacon jam ×3.\n\n```json\n{"action":"scale_recipe","recipe":"bacon_jam","multiplier":3}\n```';
+    const clean = sanitizeRenderedAnswer(leaked);
+    assert.ok(!/```/.test(clean), `fence leaked: ${clean}`);
+    assert.ok(!/\{\s*"action"/.test(clean), `action object leaked: ${clean}`);
+    assert.equal(clean, '⚡ ACTION EXECUTED: Scaled bacon jam ×3.');
+  });
+
+  it('preserves a rendered db_query table (pipes/braces that are not action JSON)', () => {
+    const table = 'Here is what I found:\n| item | qty |\n|---|---|\n| chicken | 5 |';
+    assert.equal(sanitizeRenderedAnswer(table), table);
+  });
+
+  it('is a no-op on empty input', () => {
+    assert.equal(sanitizeRenderedAnswer(''), '');
   });
 });
 

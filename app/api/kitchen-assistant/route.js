@@ -23,7 +23,7 @@ import {
   isImperativeCommand,
   requiresPinBeforeLlm,
 } from '../../../lib/cookMessageClassifier';
-import { extractAction } from '../../../lib/extractAction';
+import { extractAction, sanitizeRenderedAnswer } from '../../../lib/extractAction';
 import {
   runDbQuery,
   renderQueryCatalog,
@@ -977,6 +977,12 @@ In this kitchen "86" is also a noun meaning "out-of-stock". Treat questions like
     if (actionExecuted) {
       finalAnswer = `⚡ ACTION EXECUTED: ${actionMsg}\n\n${finalAnswer}`;
     }
+
+    // Final guard: never let a raw action-JSON block or fence reach the cook.
+    // extractAction already strips these, but a model that double-emits (KA v3
+    // rollout hit exactly this) or any future code path could reintroduce one —
+    // this sanitize is model- and path-independent defense-in-depth.
+    finalAnswer = sanitizeRenderedAnswer(finalAnswer);
 
     try {
       storeConversationTurn(conversationDb, {

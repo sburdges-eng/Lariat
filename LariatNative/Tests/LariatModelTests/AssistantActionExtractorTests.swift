@@ -66,6 +66,41 @@ final class AssistantActionExtractorTests: XCTestCase {
         XCTAssertEqual(r.payload?["note"], .string("a\"b}"))
     }
 
+    // ── KA v3 parity: strip EVERY JSON object; never leak a 2nd block ──
+
+    func testStripsDoubleEmittedActionBlock() {
+        let content = "```json\n{\"action\":\"scale_recipe\",\"recipe\":\"bacon_jam\",\"multiplier\":3}\n```\n"
+            + "Scaled bacon jam x3.\n"
+            + "```json\n{\"action\":\"scale_recipe\",\"recipe\":\"bacon_jam\",\"multiplier\":3}\n```"
+        let r = AssistantActionExtractor.extractAction(content)
+        XCTAssertEqual(r.payload?.action, "scale_recipe")
+        XCTAssertFalse(r.stripped.contains("```"))
+        XCTAssertFalse(r.stripped.contains("\"action\""))
+        XCTAssertEqual(r.stripped, "Scaled bacon jam x3.")
+    }
+
+    func testStripsTrailingUnfencedSecondObject() {
+        let content = "{\"action\":\"eighty_six\",\"item\":\"salmon\"}\nMarked 86.\n{\"action\":\"eighty_six\",\"item\":\"salmon\"}"
+        let r = AssistantActionExtractor.extractAction(content)
+        XCTAssertEqual(r.payload?.action, "eighty_six")
+        XCTAssertFalse(r.stripped.contains("\"action\""))
+        XCTAssertEqual(r.stripped, "Marked 86.")
+    }
+
+    func testKeepsFirstActionObjectWhenNonActionPrecedes() {
+        let content = "{\"note\":\"preamble\"}\n{\"action\":\"eighty_six\",\"item\":\"salmon\"}\nMarked 86."
+        let r = AssistantActionExtractor.extractAction(content)
+        XCTAssertEqual(r.payload?.action, "eighty_six")
+        XCTAssertFalse(r.stripped.contains("{"))
+        XCTAssertEqual(r.stripped, "Marked 86.")
+    }
+
+    func testPreservesProseBracesThatAreNotJSON() {
+        let content = "{\"action\":\"eighty_six\",\"item\":\"salmon\"}\nUse a 1/2 pan (not a full)."
+        let r = AssistantActionExtractor.extractAction(content)
+        XCTAssertEqual(r.stripped, "Use a 1/2 pan (not a full).")
+    }
+
     // ── stripFences ──────────────────────────────────────────────────
 
     func testStripFencesRemovesJsonFences() {

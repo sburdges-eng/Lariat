@@ -2,9 +2,13 @@ import Foundation
 
 /// Port of `lib/extractAction.ts` — the shared LLM action-JSON parser.
 ///
-/// Finds the first balanced JSON object in `content` (string-aware, escape-aware
-/// brace scan), parses it, requires a string `action` field, and returns the
-/// content with the JSON block removed + code fences stripped.
+/// Scans EVERY balanced top-level JSON object in `content` (string-aware,
+/// escape-aware brace scan), keeps the first that parses and has a string
+/// `action` field as the payload, and returns the content with ALL parsed
+/// objects removed + code fences stripped. Stripping every object (not just
+/// the payload) is a safety guarantee: a model that double-emits the action
+/// JSON must never leak a raw `{"action":…}` block into the cook-facing
+/// answer (KA v3 rollout found a fine-tune that double-emitted scale_recipe).
 public enum AssistantActionExtractor {
     public struct Result: Sendable, Equatable {
         public let payload: AssistantActionPayload?
@@ -31,47 +35,63 @@ public enum AssistantActionExtractor {
     /// `extractAction(content)` parity.
     public static func extractAction(_ content: String) -> Result {
         let chars = Array(content)
-        guard let braceStart = chars.firstIndex(of: "{") else {
-            return Result(payload: nil, stripped: stripFences(content))
-        }
 
-        var depth = 0
-        var inStr = false
-        var esc = false
-        var end = -1
-        var i = braceStart
+        // Collect every balanced top-level {…} span (start...end inclusive, parsed dict).
+        struct Span { let start: Int; let end: Int; let dict: [String: Any] }
+        var spans: [Span] = []
+        var i = 0
         while i < chars.count {
-            let ch = chars[i]
-            if esc { esc = false; i += 1; continue }
-            if ch == "\\" { esc = true; i += 1; continue }
-            if ch == "\"" { inStr.toggle(); i += 1; continue }
-            if inStr { i += 1; continue }
-            if ch == "{" { depth += 1 }
-            else if ch == "}" {
-                depth -= 1
-                if depth == 0 { end = i; break }
+            if chars[i] != "{" { i += 1; continue }
+            let start = i
+            var depth = 0
+            var inStr = false
+            var esc = false
+            var end = -1
+            var j = start
+            while j < chars.count {
+                let ch = chars[j]
+                if esc { esc = false; j += 1; continue }
+                if ch == "\\" { esc = true; j += 1; continue }
+                if ch == "\"" { inStr.toggle(); j += 1; continue }
+                if inStr { j += 1; continue }
+                if ch == "{" { depth += 1 }
+                else if ch == "}" {
+                    depth -= 1
+                    if depth == 0 { end = j; break }
+                }
+                j += 1
             }
-            i += 1
-        }
-        if end < 0 { return Result(payload: nil, stripped: stripFences(content)) }
-
-        let jsonText = String(chars[braceStart...end])
-        guard let data = jsonText.data(using: .utf8),
-              let parsed = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]),
-              let dict = parsed as? [String: Any],
-              let action = dict["action"] as? String
-        else {
-            return Result(payload: nil, stripped: stripFences(content))
+            if end < 0 { break } // unbalanced tail — leave the rest untouched
+            let jsonText = String(chars[start...end])
+            if let data = jsonText.data(using: .utf8),
+               let parsed = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]),
+               let dict = parsed as? [String: Any] {
+                spans.append(Span(start: start, end: end, dict: dict))
+            }
+            // objects that fail JSON parse (e.g. prose braces) are NOT recorded → kept in prose
+            i = end + 1
         }
 
+        // First action-bearing object is the payload.
+        let payloadSpan = spans.first { $0.dict["action"] is String }
+
+        // Remove EVERY parsed object from the prose (back-to-front to keep indices valid).
+        var kept = chars
+        for s in spans.sorted(by: { $0.start > $1.start }) {
+            kept.removeSubrange(s.start...s.end)
+        }
+        let stripped = stripFences(String(kept))
+
+        guard let span = payloadSpan, let action = span.dict["action"] as? String else {
+            return Result(payload: nil, stripped: stripped)
+        }
         var fields: [String: AssistantJSONValue] = [:]
-        for (k, v) in dict where k != "action" {
+        for (k, v) in span.dict where k != "action" {
             fields[k] = AssistantJSONValue.from(any: v)
         }
-        let remainder = String(chars[..<braceStart]) + String(chars[(end + 1)...])
         return Result(
             payload: AssistantActionPayload(action: action, fields: fields),
-            stripped: stripFences(remainder)
+            stripped: stripped
         )
     }
 }
