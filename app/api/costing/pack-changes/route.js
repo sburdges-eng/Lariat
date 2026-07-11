@@ -1,4 +1,3 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 /**
  * /api/costing/pack-changes — list + acknowledge T6 pack-size changes.
  *
@@ -7,7 +6,11 @@
  *       writes a management-action audit row via lib/auditLog.mjs.
  *
  * PIN-gated via the /api/costing matcher in middleware.js.
+ *
+ * Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+ * only, no behavior change.
  */
+// @ts-check
 
 import { getDb } from '../../../../lib/db';
 import { requirePin } from '../../../../lib/pin';
@@ -24,6 +27,7 @@ export const dynamic = 'force-dynamic';
 
 const VALID_FILTERS = new Set(['open', 'acknowledged', 'all']);
 
+/** @param {string | null | undefined} raw @returns {number} */
 function clampLimit(raw) {
   if (raw == null || raw === '') return 200;
   const n = Number(raw);
@@ -31,13 +35,16 @@ function clampLimit(raw) {
   return Math.max(1, Math.min(1000, Math.floor(n)));
 }
 
+/** @param {Request} req */
 export async function GET(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
   try {
     const url = new URL(req.url);
     const filterRaw = url.searchParams.get('filter') ?? 'open';
-    const filter = VALID_FILTERS.has(filterRaw) ? filterRaw : 'open';
+    // Runtime-validated against VALID_FILTERS; assert the repo's union.
+    const filter = /** @type {'open' | 'acknowledged' | 'all'} */ (
+      VALID_FILTERS.has(filterRaw) ? filterRaw : 'open');
     const vendor = url.searchParams.get('vendor');
     const limit = clampLimit(url.searchParams.get('limit'));
 
@@ -65,12 +72,14 @@ export async function GET(req) {
   }
 }
 
+/** @param {Request} req */
 export async function POST(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
   return withIdempotency(req, () => packChangesPostHandler(req));
 }
 
+/** @param {Request} req */
 async function packChangesPostHandler(req) {
   let body;
   try {
