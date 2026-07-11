@@ -163,8 +163,9 @@ Binary layout (48 bytes overhead):
   plaintext, pre-sweep grace): open the stored file directly — today's behavior — and let the
   launch sweep (§8) fix it.
 - **Temp lifecycle** behind a pure, tested `SickNoteTempStore` seam (path derivation +
-  staleness policy); thin App glue sweeps the temp directory on app launch, on app
-  terminate, and before each new open. Residual risk stated in §12.
+  staleness policy); thin App glue sweeps the temp directory on app launch and before
+  each new open. A quit-time sweep is a noted follow-up, not shipped. Residual risk
+  stated in §12.
 
 ## 8. Migration sweep (encrypt-in-place) + orphan detection
 
@@ -255,9 +256,10 @@ Invariants (unchanged or strengthened):
 Residual risks (accepted, stated):
 
 - Plaintext exists in `$TMPDIR/LariatSickNotes/` while a document is open in the OS viewer;
-  swept on launch/quit/next-open; per-user 0700, not Spotlight-indexed; FileVault covers
-  disk theft. (In-app rendering was considered and rejected to preserve the ratified
-  "OS viewer owns rendering" decision.)
+  swept on launch and before each open (a quit-time sweep is a noted follow-up, not
+  shipped); per-user 0700, not Spotlight-indexed; FileVault covers disk theft. (In-app
+  rendering was considered and rejected to preserve the ratified "OS viewer owns
+  rendering" decision.)
 - Row metadata (`original_filename`, `uploaded_by`, timestamps) remains plaintext in the
   unencrypted SQLite DB — P0-3 residual, out of scope here.
 - Backup `manifest.json`/`SHA256SUMS` reveal report-id-bearing paths, sizes, and document

@@ -43,4 +43,14 @@ describe('sick-note retention report', () => {
     assert.equal(r.overdueCount, 0);
     fs.rmSync(dir, { recursive: true, force: true });
   });
+
+  it('returns zero on a wholly-missing DB file, without throwing (fresh-install cron)', () => {
+    const dir = tmpDir();
+    const dbPath = path.join(dir, 'does-not-exist.db');
+    assert.doesNotThrow(() => {
+      const r = runRetentionReport({ dbPath, dataDir: dir });
+      assert.equal(r.overdueCount, 0);
+    });
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
 });

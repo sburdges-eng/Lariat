@@ -45,13 +45,14 @@ When a PR touches a protected contract:
 
 ## 3. Protected Contract Map
 
-The current protected surfaces cluster into five groups:
+The current protected surfaces cluster into six groups:
 
 1. deterministic ops ledger
 2. management read models
 3. sync replay and checkpoints
 4. peer trust and topology boundaries
 5. cloud bridge durability and recovery
+6. sick-note PHI file custody (encryption, key escrow, retention/purge)
 
 Each group is described below.
 
@@ -360,7 +361,7 @@ Doctor's-note attachments carry PHI-adjacent content. The files themselves are c
 - Sick-note files on disk are `LSN1` ciphertext (AES-256-GCM), with AAD bound to the row's `file_path`; a ciphertext moved, renamed, or swapped between rows fails authentication.
 - The media key (`<dataDir>/keys/sick-note-media.json`, 0600) lives outside `uploads/`; it must never enter `scripts/backup.mjs` output or git. Rotation is explicitly unsupported in v1 — losing the key permanently loses every document (mitigated by the Keychain mirror; see the backup key-escrow note in `docs/OPERATIONS.md`).
 - Attach and purge are PIN-gated, audited writes (`actor_source = native_mac`) with the audit row committed in the same transaction as the data change.
-- Attach and purge audit payloads are metadata-only — `report_id`, `location_id`, `file_path` (UUID-based, non-identifying), `kind`, actor, timestamp — and never carry `original_filename`, symptoms, or diagnosis.
+- Attach and purge audit payloads are metadata-only and differ in shape: attach carries `report_id`, `location_id`, `file_path` (UUID-based, non-identifying), `kind`, `uploaded_by`, `uploaded_at`; purge carries `document_id`, `report_id`, `location_id`, `file_path`, `uploaded_at` (no `kind`, no `uploaded_by`). Neither ever carries `original_filename`, symptoms, or diagnosis.
 - Document removal (purge) requires manager PIN confirmation behind the existing `pinOk` gate; the overdue-document count may surface PIN-free, but the underlying list and the Remove action stay behind PIN.
 - The nightly `scripts/sick-note-retention.mjs` job is report-only. It must never delete a row or a file.
 

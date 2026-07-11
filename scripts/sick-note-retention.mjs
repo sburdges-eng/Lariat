@@ -15,12 +15,23 @@ export function cutoffISO(now = new Date(), days = RETENTION_DAYS) {
 
 export function runRetentionReport({ now = new Date(), dbPath, dataDir } = {}) {
   const dir = dataDir ?? resolveDataDir();
-  const db = new Database(dbPath ?? path.join(dir, 'lariat.db'), { readonly: true });
+  const resolvedDbPath = dbPath ?? path.join(dir, 'lariat.db');
+  // A wholly-missing DB file (fresh install, cron running before first boot) must
+  // report zero rather than throw SQLITE_CANTOPEN — this job is report-only and
+  // is expected to run unattended on a cron rail.
+  if (!fs.existsSync(resolvedDbPath)) {
+    return { cutoff: cutoffISO(now), retentionDays: RETENTION_DAYS, overdueCount: 0, overdue: [] };
+  }
+  const db = new Database(resolvedDbPath, { readonly: true });
   try {
     const cutoff = cutoffISO(now);
     const hasTable = db.prepare(
       `SELECT 1 FROM sqlite_master WHERE type='table' AND name='sick_note_documents'`).get();
     if (!hasTable) return { cutoff, retentionDays: RETENTION_DAYS, overdueCount: 0, overdue: [] };
+    // Report-only job: a malformed uploaded_at string-compares against the ISO
+    // cutoff and can land on either side, surfacing bad rows for a human to
+    // inspect. This intentionally differs from the native repo's fail-open
+    // polarity (SickNoteRetention.isOverdue) — no behavior change here.
     const rows = db.prepare(
       `SELECT id, report_id, location_id, file_path, uploaded_at
          FROM sick_note_documents WHERE uploaded_at <= ? ORDER BY uploaded_at`).all(cutoff);
