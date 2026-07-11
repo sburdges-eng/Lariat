@@ -11,7 +11,7 @@ import { cookies } from 'next/headers';
 import { getDb, todayISO } from '../../../lib/db';
 import { getStaff } from '../../../lib/data';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
-import { verifyPinCookieValue } from '../../../lib/pinCookie';
+import { pinCookieValueAuthorized } from '../../../lib/pin';
 import CertBoard from './CertBoard.jsx';
 
 export const dynamic = 'force-dynamic';
@@ -24,15 +24,13 @@ export default async function CertsPage({ searchParams }) {
       : DEFAULT_LOCATION_ID;
   const today = todayISO();
 
-  // Verify via the HMAC path that middleware uses. Pre-2026-05-08 the
-  // raw `=== '1'` compare was always false with LARIAT_PIN_SECRET set
-  // (the cookie value is `v1.<base64>`), so the PIC-only renew form
-  // never appeared for authenticated managers.
+  // Authorize via the DB-checked path (audit P0-1) so a disabled
+  // manager's cookie doesn't outlive the disable. (Historical: the
+  // pre-2026-05-08 raw `=== '1'` compare was always false with
+  // LARIAT_PIN_SECRET set, hiding the PIC-only renew form from
+  // authenticated managers.)
   const jar = cookies();
-  const pinOk = await verifyPinCookieValue(
-    jar.get('lariat_pin_ok')?.value,
-    process.env.LARIAT_PIN_SECRET,
-  );
+  const pinOk = await pinCookieValueAuthorized(jar.get('lariat_pin_ok')?.value);
 
   const db = getDb();
   const rows = db

@@ -122,6 +122,58 @@ describe('hasValidPinCookie (Request shape)', () => {
   });
 });
 
+// ── v2 identity format (audit P0-1) ─────────────────────────────────────────
+// `v2.<sub>.<mac>` where sub is the manager_pin_users.id that logged in
+// (0 = env LARIAT_PIN override). The version prefix is inside the signed
+// payload; v1 signed values are hard-cut (one re-login, 8h ceiling).
+
+const { pinCookieSubject, pinCookieSubjectFromRequest } =
+  await import('../../lib/pinCookie.ts');
+const nodeCrypto = await import('node:crypto');
+
+describe('v2 identity cookie (P0-1)', () => {
+  it('signs v2.<sub>.<mac> and roundtrips', async () => {
+    const v = await signPinCookieValue(SECRET, 42);
+    assert.ok(v.startsWith('v2.42.'), v);
+    assert.strictEqual(await verifyPinCookieValue(v, SECRET), true);
+    assert.strictEqual(await pinCookieSubject(v, SECRET), 42);
+  });
+
+  it('defaults to sub 0 (override login)', async () => {
+    const v = await signPinCookieValue(SECRET);
+    assert.ok(v.startsWith('v2.0.'), v);
+    assert.strictEqual(await pinCookieSubject(v, SECRET), 0);
+  });
+
+  it('rejects a tampered sub', async () => {
+    const v = await signPinCookieValue(SECRET, 42);
+    const forged = v.replace('v2.42.', 'v2.43.');
+    assert.strictEqual(await verifyPinCookieValue(forged, SECRET), false);
+    assert.strictEqual(await pinCookieSubject(forged, SECRET), null);
+  });
+
+  it('no longer accepts the v1 signed format (hard cut)', async () => {
+    const mac = nodeCrypto
+      .createHmac('sha256', SECRET)
+      .update('1')
+      .digest('base64url');
+    assert.strictEqual(await verifyPinCookieValue(`v1.${mac}`, SECRET), false);
+    assert.strictEqual(await pinCookieSubject(`v1.${mac}`, SECRET), null);
+  });
+
+  it('legacy unsigned "1" maps to sub 0 outside production', async () => {
+    assert.strictEqual(await pinCookieSubject('1', undefined), 0);
+  });
+
+  it('extracts the subject from a request cookie header', async () => {
+    const v = await signPinCookieValue(SECRET, 7);
+    const req = new Request('http://local/', {
+      headers: { cookie: `lariat_pin_ok=${v}` },
+    });
+    assert.strictEqual(await pinCookieSubjectFromRequest(req, SECRET), 7);
+  });
+});
+
 // ── production fail-closed (audit P0-4) ─────────────────────────────────────
 // The legacy unsigned fallback is a dev/partial-deploy convenience only.
 // In NODE_ENV=production a missing LARIAT_PIN_SECRET must fail closed:

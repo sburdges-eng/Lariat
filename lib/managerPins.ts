@@ -133,6 +133,28 @@ export function managerPinGateConfigured(locationId = DEFAULT_LOCATION_ID): bool
   }
 }
 
+/**
+ * Non-throwing row lookup for the v2 PIN-cookie gate (audit P0-1).
+ * Returns the user regardless of is_active — the caller decides what an
+ * inactive row means (lib/pin.ts rejects it; a future admin surface may
+ * want to render it).
+ */
+export function findManagerPinUserById(
+  id: number,
+  locationId = DEFAULT_LOCATION_ID,
+): ManagerPinUser | null {
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const row = getDb()
+    .prepare(
+      `SELECT id, location_id, name, role, is_active, created_at, updated_at, disabled_at
+         FROM manager_pin_users
+        WHERE id = ?
+          AND location_id = ?`,
+    )
+    .get(id, normalizeLocation(locationId)) as ManagerPinRow | undefined;
+  return row ? publicUser(row) : null;
+}
+
 export function findActiveManagerByPin(
   pin: string,
   locationId = DEFAULT_LOCATION_ID,
