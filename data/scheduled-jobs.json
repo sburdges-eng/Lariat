@@ -48,13 +48,19 @@
       "command": ["npm", "run", "backup"],
       "cron": "0 1 * * *",
       "timeout_sec": 60,
-      "description": "Snapshot data/lariat.db{,-wal,-shm} into backups/."
+      "description": "One verified online snapshot of the live data dir (db + uploads), with an audit copy, SHA256 checksums, and a PRAGMA integrity_check before reporting success."
     },
     "weekly-settlement-digest": {
       "command": ["npm", "run", "digest:settlement"],
       "cron": "0 8 * * 1",
       "timeout_sec": 120,
       "description": "Render the prior Mon→Sun week of show settlements into one HTML doc at data/exports/YYYY-Www_settlement.html. Operator opens it in a browser and uses Save-as-PDF for distribution."
+    },
+    "sick-note-retention": {
+      "command": ["node", "--experimental-strip-types", "scripts/sick-note-retention.mjs"],
+      "cron": "30 1 * * *",
+      "timeout_sec": 120,
+      "description": "Report sick-note documents past the 2-year retention window (report-only; never deletes)."
     }
   }
 }
