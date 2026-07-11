@@ -147,10 +147,24 @@ export async function POST(req: Request) {
   // manager identity (audit P0-1) — lib/pin.ts re-checks the row's
   // is_active on every gated request, so disabling a manager revokes
   // their session; sub 0 = env-override login. See lib/pinCookie.
-  const signed = await signPinCookieValue(
-    process.env.LARIAT_PIN_SECRET,
-    managerUser ? managerUser.id : 0,
-  );
+  let signed: string;
+  try {
+    signed = await signPinCookieValue(
+      process.env.LARIAT_PIN_SECRET,
+      managerUser ? managerUser.id : 0,
+    );
+  } catch (err) {
+    // Reached in production when a PIN is configured but
+    // LARIAT_PIN_SECRET is not — signing fails closed (audit P0-4).
+    // Surface the misconfiguration instead of an unhandled 500 the
+    // login form would render as "Wrong PIN" (mirrors the temp-PIN
+    // issuer's handling).
+    console.error('sign pin cookie failed:', err);
+    return Response.json(
+      { error: 'PIN sign-in is not fully configured: LARIAT_PIN_SECRET is required in production.' },
+      { status: 500 },
+    );
+  }
   const res = Response.json(
     managerUser
       ? { ok: true, source: 'manager_user', user: { id: managerUser.id, name: managerUser.name, role: managerUser.role } }
