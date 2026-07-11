@@ -1,4 +1,3 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // POST /api/beo/courses — create a new course on a BEO event.
 //
 // Spec: docs/superpowers/specs/2026-05-04-beo-fire-times.md.
@@ -6,6 +5,9 @@
 // temp PIN can also drive this surface (per spec §C). Audit row in
 // the same transaction as the insert (docs/PATTERNS.md §3).
 
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { json } from '../../../../lib/routeHelpers';
 import { getDb } from '../../../../lib/db';
 import { hasPinOrTempPin, pinRequiredForPic } from '../../../../lib/pin';
@@ -18,6 +20,7 @@ export const dynamic = 'force-dynamic';
 
 const SCOPE = 'beo.fire_at_edit';
 
+/** @param {Request} req */
 async function requireAuth(req) {
   if (pinRequiredForPic() && !(await hasPinOrTempPin(req, SCOPE))) {
     return json({ error: 'PIN required' }, { status: 401 });
@@ -29,6 +32,7 @@ async function requireAuth(req) {
 // Same gate as POST: managers (master PIN) or temp-PIN with the
 // 'beo.fire_at_edit' scope. The fire-schedule rollup (T7) is separate
 // and PUBLIC; this list endpoint is the editor side and stays gated.
+/** @param {Request} req */
 export async function GET(req) {
   const fail = await requireAuth(req);
   if (fail) return fail;
@@ -54,12 +58,14 @@ export async function GET(req) {
   return json({ courses }, { status: 200 });
 }
 
+/** @param {Request} req */
 export async function POST(req) {
   const fail = await requireAuth(req);
   if (fail) return fail;
   return withIdempotency(req, () => createHandler(req));
 }
 
+/** @param {Request} req */
 async function createHandler(req) {
   let body;
   try {
@@ -91,9 +97,9 @@ async function createHandler(req) {
 
   let resolvedSortOrder = sortOrderIn;
   if (resolvedSortOrder === null) {
-    const row = db
+    const row = /** @type {{ m: number | null } | undefined} */ (db
       .prepare(`SELECT MAX(sort_order) AS m FROM beo_courses WHERE event_id = ?`)
-      .get(eventId);
+      .get(eventId));
     resolvedSortOrder = nextSortOrder(row?.m ?? null);
   }
 
