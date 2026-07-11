@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
@@ -6,18 +8,21 @@ import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/** @param {unknown} s @param {number} max @returns {string | null} */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
+/** @param {unknown} v @returns {number | null} */
 const num = (v) => {
   if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const url = new URL(req.url);
@@ -45,10 +50,12 @@ export async function GET(req) {
   }
 }
 
+/** @param {Request} req */
 export async function POST(req) {
   return withIdempotency(req, () => prepParPostHandler(req));
 }
 
+/** @param {Request} req */
 async function prepParPostHandler(req) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -67,12 +74,12 @@ async function prepParPostHandler(req) {
     const db = getDb();
 
     const result = db.transaction(() => {
-      const existing = db
+      const existing = /** @type {{ id: number } | undefined} */ (db
         .prepare(
           `SELECT id FROM prep_par
             WHERE location_id = ? AND station_id = ? AND recipe_slug = ? AND ingredient = ?`,
         )
-        .get(loc, station_id, recipe_slug, ingredient);
+        .get(loc, station_id, recipe_slug, ingredient));
       let id;
       if (existing) {
         id = existing.id;
@@ -107,10 +114,12 @@ async function prepParPostHandler(req) {
   }
 }
 
+/** @param {Request} req */
 export async function DELETE(req) {
   return withIdempotency(req, () => prepParDeleteHandler(req));
 }
 
+/** @param {Request} req */
 async function prepParDeleteHandler(req) {
   try {
     const url = new URL(req.url);
@@ -124,9 +133,9 @@ async function prepParDeleteHandler(req) {
     const db = getDb();
 
     const result = db.transaction(() => {
-      const row = db
+      const row = /** @type {{ id: number, recipe_slug: string | null, ingredient: string | null } | undefined} */ (db
         .prepare(`SELECT id, recipe_slug, ingredient FROM prep_par WHERE id = ? AND location_id = ?`)
-        .get(id, loc);
+        .get(id, loc));
       if (!row) return { ok: false, status: 404, err: 'not found' };
       db.prepare(`DELETE FROM prep_par WHERE id = ?`).run(id);
       postAuditEvent({
