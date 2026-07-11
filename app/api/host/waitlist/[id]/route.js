@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../../../lib/db';
 import { requirePin } from '../../../../../lib/pin';
 import { withIdempotency } from '../../../../../lib/idempotency';
@@ -13,20 +15,32 @@ export const dynamic = 'force-dynamic';
 // PIN-gated, idempotent, file-stream audit per the operational-data
 // pattern (no DB audit_events row).
 
+/** @typedef {{ params: Promise<{ id?: string }> | { id?: string } }} RouteCtx */
+/** @typedef {import('../../../../../lib/hostStand').WaitlistStatus} WaitlistStatus */
+
 const ALLOWED_NEXT = new Set(['seated', 'left']);
 
+/** @param {unknown} raw @returns {number | null} */
 function parsePartyId(raw) {
   const n = Number(raw);
   if (!Number.isInteger(n) || n <= 0) return null;
   return n;
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function PATCH(req, ctx) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
   return withIdempotency(req, () => patchHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function patchHandler(req, { params }) {
 
   params = await params;
@@ -55,11 +69,12 @@ async function patchHandler(req, { params }) {
   try {
     const db = getDb();
     const result = db.transaction(() => {
-      const row = db
+      const row = /** @type {{ id: number, status: WaitlistStatus, location_id: string } | undefined} */ (db
         .prepare(`SELECT id, status, location_id FROM waitlist_parties WHERE id = ?`)
-        .get(id);
+        .get(id));
       if (!row) return { code: 'NotFound' };
-      if (!isValidStatusTransition(row.status, next)) {
+      // `next` is runtime-validated against ALLOWED_NEXT (⊂ WaitlistStatus).
+      if (!isValidStatusTransition(row.status, /** @type {WaitlistStatus} */ (next))) {
         return { code: 'BadTransition', from: row.status, to: next };
       }
       const stamp = new Date().toISOString();
