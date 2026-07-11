@@ -264,3 +264,126 @@ describe('lib/pin requirePinOrScope — shared helper', () => {
     }
   });
 });
+
+// ── revocation-aware manager identity (audit P0-1) ───────────────────────────
+// v2 cookies embed the manager_pin_users.id; the gate re-checks is_active on
+// EVERY request (same invariant as temp_pins above: the cookie alone never
+// bypasses the DB). sub=0 (env-override login) keeps status-quo authority.
+
+const managerPins = await import('../../lib/managerPins.ts');
+const { pinActor, pinCookieValueAuthorized } = await import('../../lib/pin.ts');
+
+describe('lib/pin revocation-aware identity (P0-1)', () => {
+  let prevPin, prevSecret;
+  const before = () => {
+    prevPin = process.env.LARIAT_PIN;
+    prevSecret = process.env.LARIAT_PIN_SECRET;
+    process.env.LARIAT_PIN = '9999';
+    process.env.LARIAT_PIN_SECRET = SECRET;
+  };
+  const restore = () => {
+    if (prevPin === undefined) delete process.env.LARIAT_PIN;
+    else process.env.LARIAT_PIN = prevPin;
+    if (prevSecret === undefined) delete process.env.LARIAT_PIN_SECRET;
+    else process.env.LARIAT_PIN_SECRET = prevSecret;
+  };
+
+  beforeEach(() => {
+    const conn2 = dbMod.getDb();
+    conn2.exec('DELETE FROM manager_pin_users;');
+  });
+
+  async function managerCookie(id) {
+    const value = await signPinCookieValue(SECRET, id);
+    return `lariat_pin_ok=${value}`;
+  }
+
+  it('allows an ACTIVE manager cookie through requirePin', async () => {
+    before();
+    try {
+      const u = managerPins.createManagerPinUser({
+        name: 'Ana', pin: '2468', role: 'manager', locationId: 'default',
+      });
+      const r = await requirePin(makeRequest({ cookie: await managerCookie(u.id) }));
+      assert.strictEqual(r, null);
+    } finally { restore(); }
+  });
+
+  it('REJECTS the same cookie after the manager row is disabled', async () => {
+    before();
+    try {
+      const u = managerPins.createManagerPinUser({
+        name: 'Ana', pin: '2468', role: 'manager', locationId: 'default',
+      });
+      const cookie = await managerCookie(u.id);
+      assert.strictEqual(await requirePin(makeRequest({ cookie })), null, 'sanity: valid while active');
+      dbMod.getDb()
+        .prepare(`UPDATE manager_pin_users SET is_active = 0, disabled_at = datetime('now') WHERE id = ?`)
+        .run(u.id);
+      const r = await requirePin(makeRequest({ cookie }));
+      assert.ok(r instanceof Response, 'expected 401 after disable');
+      assert.strictEqual(r.status, 401);
+    } finally { restore(); }
+  });
+
+  it('rejects a cookie whose sub has no row', async () => {
+    before();
+    try {
+      const r = await requirePin(makeRequest({ cookie: await managerCookie(999) }));
+      assert.ok(r instanceof Response);
+      assert.strictEqual(r.status, 401);
+    } finally { restore(); }
+  });
+
+  it('keeps override (sub 0) authority', async () => {
+    before();
+    try {
+      const r = await requirePin(makeRequest({ cookie: await managerCookie(0) }));
+      assert.strictEqual(r, null);
+    } finally { restore(); }
+  });
+
+  it('pinActor: manager cookie → {source, id, name, role}; override → {source}; none → null', async () => {
+    before();
+    try {
+      const u = managerPins.createManagerPinUser({
+        name: 'Ana', pin: '2468', role: 'manager', locationId: 'default',
+      });
+      const actor = await pinActor(makeRequest({ cookie: await managerCookie(u.id) }));
+      assert.deepStrictEqual(actor, { source: 'manager', id: u.id, name: 'Ana', role: 'manager' });
+      const override = await pinActor(makeRequest({ cookie: await managerCookie(0) }));
+      assert.deepStrictEqual(override, { source: 'override' });
+      assert.strictEqual(await pinActor(makeRequest({})), null);
+    } finally { restore(); }
+  });
+
+  it('pinCookieValueAuthorized (server-component page gate) enforces the same revocation', async () => {
+    before();
+    try {
+      const u = managerPins.createManagerPinUser({
+        name: 'Ana', pin: '2468', role: 'manager', locationId: 'default',
+      });
+      const value = await signPinCookieValue(SECRET, u.id);
+      assert.strictEqual(await pinCookieValueAuthorized(value), true);
+      dbMod.getDb()
+        .prepare(`UPDATE manager_pin_users SET is_active = 0, disabled_at = datetime('now') WHERE id = ?`)
+        .run(u.id);
+      assert.strictEqual(await pinCookieValueAuthorized(value), false);
+      assert.strictEqual(await pinCookieValueAuthorized(undefined), false);
+    } finally { restore(); }
+  });
+
+  it('pinActor is null for a DISABLED manager', async () => {
+    before();
+    try {
+      const u = managerPins.createManagerPinUser({
+        name: 'Ana', pin: '2468', role: 'manager', locationId: 'default',
+      });
+      const cookie = await managerCookie(u.id);
+      dbMod.getDb()
+        .prepare(`UPDATE manager_pin_users SET is_active = 0, disabled_at = datetime('now') WHERE id = ?`)
+        .run(u.id);
+      assert.strictEqual(await pinActor(makeRequest({ cookie })), null);
+    } finally { restore(); }
+  });
+});

@@ -10,7 +10,7 @@ import { cookies } from 'next/headers';
 import { getDb } from '../../../lib/db';
 import { getStaff } from '../../../lib/data';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
-import { verifyPinCookieValue } from '../../../lib/pinCookie';
+import { pinCookieValueAuthorized } from '../../../lib/pin';
 import SickWorkerBoard from './SickWorkerBoard.jsx';
 
 export const dynamic = 'force-dynamic';
@@ -22,16 +22,13 @@ export default async function SickWorkerPage({ searchParams }) {
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
 
-  // Verify the cookie via the same HMAC path middleware uses. The pre-
-  // 2026-05-08 raw `=== '1'` compare was always false when
-  // LARIAT_PIN_SECRET was set (the cookie value is `v1.<base64>`),
-  // so the PIC history block + form never rendered for authenticated
-  // managers. UI bug only — POST gates are separate.
+  // Authorize via the DB-checked path (audit P0-1): this page renders
+  // PHI server-side, so a disabled manager's cookie must not outlive the
+  // disable. (Historical: the pre-2026-05-08 raw `=== '1'` compare was
+  // always false with LARIAT_PIN_SECRET set, hiding the PIC history
+  // block + form from authenticated managers. POST gates are separate.)
   const jar = cookies();
-  const pinOk = await verifyPinCookieValue(
-    jar.get('lariat_pin_ok')?.value,
-    process.env.LARIAT_PIN_SECRET,
-  );
+  const pinOk = await pinCookieValueAuthorized(jar.get('lariat_pin_ok')?.value);
 
   const db = getDb();
   const active = db

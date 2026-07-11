@@ -11,16 +11,73 @@
 // forged by hand is rejected. Legacy unsigned cookies are accepted
 // only when LARIAT_PIN_SECRET is unset (deployment-safe fallback).
 
-import { hasValidPinCookie } from './pinCookie.ts';
+import { pinCookieSubject, pinCookieSubjectFromRequest } from './pinCookie.ts';
 import { readTempPinId } from './tempPinCookie.ts';
 import { getDb } from './db.ts';
 import { parseScopes, hasScope } from './tempPin.ts';
-import { managerPinGateConfigured } from './managerPins.ts';
+import { managerPinGateConfigured, findManagerPinUserById } from './managerPins.ts';
 import { locationIdFromEnv } from './location.ts';
 
-/** True when the PIC has entered the PIN in this browser session. */
+/**
+ * True when the PIC has entered the PIN in this browser session.
+ *
+ * Identity-aware (audit P0-1): v2 cookies embed the manager_pin_users.id
+ * (`sub`). For sub > 0 the row must still be is_active on EVERY gated
+ * request — same invariant as the temp-PIN gate below ("the cookie alone
+ * NEVER bypasses the DB check"), so disabling a manager revokes their
+ * session immediately at the API layer. sub 0 (env LARIAT_PIN override
+ * login, or the non-production legacy unsigned cookie) keeps status-quo
+ * authority — that credential is env config, not a revocable row.
+ */
 export async function hasPinCookie(req: Request): Promise<boolean> {
-  return hasValidPinCookie(req);
+  return subjectAuthorized(await pinCookieSubjectFromRequest(req));
+}
+
+/**
+ * Same DB-checked authorization for a raw cookie VALUE — for server
+ * components that read `cookies()` from next/headers instead of holding
+ * a Request (e.g. the sick-worker and certs pages, which render
+ * regulated data server-side and must not outlive a manager disable).
+ */
+export async function pinCookieValueAuthorized(
+  value: string | undefined | null,
+): Promise<boolean> {
+  return subjectAuthorized(
+    await pinCookieSubject(value, process.env.LARIAT_PIN_SECRET),
+  );
+}
+
+function subjectAuthorized(sub: number | null): boolean {
+  if (sub === null) return false;
+  if (sub === 0) return true;
+  const user = findManagerPinUserById(sub, locationIdFromEnv());
+  return !!user && user.is_active;
+}
+
+/**
+ * Identity behind a valid PIN cookie, for audit_events attribution
+ * (audit P0-1). Returns:
+ *   { source: 'override' }                     — env LARIAT_PIN login (or
+ *                                                non-prod legacy cookie)
+ *   { source: 'manager', id, name, role }      — active manager_pin_users row
+ *   null                                       — no/invalid cookie, or the
+ *                                                manager row is disabled
+ * Routes adopt this incrementally where they currently write
+ * actor-less audit events.
+ */
+export async function pinActor(
+  req: Request,
+): Promise<
+  | { source: 'override' }
+  | { source: 'manager'; id: number; name: string; role: string }
+  | null
+> {
+  const sub = await pinCookieSubjectFromRequest(req);
+  if (sub === null) return null;
+  if (sub === 0) return { source: 'override' };
+  const user = findManagerPinUserById(sub, locationIdFromEnv());
+  if (!user || !user.is_active) return null;
+  return { source: 'manager', id: user.id, name: user.name, role: user.role };
 }
 
 /**

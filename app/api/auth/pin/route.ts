@@ -143,8 +143,14 @@ export async function POST(req: Request) {
 
   clearAttempts(ip);
   // Session cookie: 8-hour expiry (covers a double shift). The value is
-  // HMAC-signed with LARIAT_PIN_SECRET (A2 hardening); see lib/pinCookie.
-  const signed = await signPinCookieValue(process.env.LARIAT_PIN_SECRET);
+  // HMAC-signed with LARIAT_PIN_SECRET (A2 hardening) and carries the
+  // manager identity (audit P0-1) — lib/pin.ts re-checks the row's
+  // is_active on every gated request, so disabling a manager revokes
+  // their session; sub 0 = env-override login. See lib/pinCookie.
+  const signed = await signPinCookieValue(
+    process.env.LARIAT_PIN_SECRET,
+    managerUser ? managerUser.id : 0,
+  );
   const res = Response.json(
     managerUser
       ? { ok: true, source: 'manager_user', user: { id: managerUser.id, name: managerUser.name, role: managerUser.role } }
