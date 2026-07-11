@@ -1,4 +1,3 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // PATCH /api/beo/courses/:id  — edit a course (label, fire_at, notes, sort_order).
 // DELETE /api/beo/courses/:id — drop a course; child line_items.course_id → NULL via FK.
 //
@@ -6,6 +5,9 @@
 // Same gate as POST /api/beo/courses (master PIN OR temp PIN with
 // 'beo.fire_at_edit' scope). Audit row in same tx.
 
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { json } from '../../../../../lib/routeHelpers';
 import { getDb } from '../../../../../lib/db';
 import { hasPinOrTempPin, pinRequiredForPic } from '../../../../../lib/pin';
@@ -16,21 +18,26 @@ import { isIso8601Utc, isStationSlug } from '../../../../../lib/beoCourses';
 
 export const dynamic = 'force-dynamic';
 
+/** @typedef {{ params: Promise<{ id?: string }> | { id?: string } }} RouteCtx */
+
 const SCOPE = 'beo.fire_at_edit';
 const MAX_LABEL = 80;
 const MAX_NOTES = 2000;
 
+/** @param {unknown} s @param {number} max @returns {string | null} */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
+/** @param {{ id?: unknown } | null | undefined} params */
 function parseId(params) {
   const id = Number(params?.id);
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+/** @param {Request} req */
 async function requireAuth(req) {
   if (pinRequiredForPic() && !(await hasPinOrTempPin(req, SCOPE))) {
     return json({ error: 'PIN required' }, { status: 401 });
@@ -38,24 +45,37 @@ async function requireAuth(req) {
   return null;
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function PATCH(req, ctx) {
   const fail = await requireAuth(req);
   if (fail) return fail;
   return withIdempotency(req, () => patchHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function DELETE(req, ctx) {
   const fail = await requireAuth(req);
   if (fail) return fail;
   return withIdempotency(req, () => deleteHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function patchHandler(req, { params }) {
 
   params = await params;
   const id = parseId(params);
   if (!id) return json({ error: 'bad id' }, { status: 400 });
 
+  /** @type {Record<string, unknown>} */
   let body = {};
   try {
     body = await req.json();
@@ -65,6 +85,7 @@ async function patchHandler(req, { params }) {
 
   // Each field is optional; absence = "don't touch". An empty-string
   // course_label is rejected (would make the row unreadable to cooks).
+  /** @type {string | undefined} */
   let labelToSet = undefined;
   if ('course_label' in body) {
     const v = clip(body.course_label, MAX_LABEL);
@@ -72,21 +93,25 @@ async function patchHandler(req, { params }) {
     labelToSet = v;
   }
 
+  /** @type {string | undefined} */
   let fireAtToSet = undefined;
   if ('fire_at' in body) {
     if (!isIso8601Utc(body.fire_at)) {
       return json({ error: 'fire_at must be canonical ISO-8601 UTC' }, { status: 422 });
     }
-    fireAtToSet = body.fire_at;
+    // Validated as canonical ISO-8601 by the guard above.
+    fireAtToSet = /** @type {string} */ (body.fire_at);
   }
 
   // notes: absent = no change; null/empty string = clear; non-empty = set.
+  /** @type {{ touch: boolean, val: string | null }} */
   let notesPatch = { touch: false, val: null };
   if ('notes' in body) {
     notesPatch.touch = true;
     notesPatch.val = body.notes == null ? null : clip(body.notes, MAX_NOTES);
   }
 
+  /** @type {number | undefined} */
   let sortToSet = undefined;
   if ('sort_order' in body && body.sort_order != null) {
     const n = Number(body.sort_order);
@@ -97,13 +122,15 @@ async function patchHandler(req, { params }) {
   }
 
   // station_id: absent = no change; null/empty = clear; non-empty slug = set.
+  /** @type {{ touch: boolean, val: string | null }} */
   let stationPatch = { touch: false, val: null };
   if ('station_id' in body) {
     stationPatch.touch = true;
     if (body.station_id == null || body.station_id === '') {
       stationPatch.val = null;
     } else if (isStationSlug(body.station_id)) {
-      stationPatch.val = body.station_id;
+      // Validated as a station slug by the guard above.
+      stationPatch.val = /** @type {string} */ (body.station_id);
     } else {
       return json({ error: 'station_id must be a non-empty lowercased slug' }, { status: 422 });
     }
@@ -161,6 +188,10 @@ async function patchHandler(req, { params }) {
   return json(row, { status: 200 });
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function deleteHandler(req, { params }) {
 
   params = await params;
