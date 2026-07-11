@@ -3,6 +3,26 @@ import assert from 'node:assert/strict';
 import {
   lintCommandResponse, lintQuestionResponse, KNOWN_ACTIONS,
 } from '../../training/eval/format-lint.mjs';
+import { loadRegistryQueryNames } from '../../training/eval/registry-names.mjs';
+
+// ── registry-name loader (feeds validQueryNames into the command gate) ───────
+
+test('loadRegistryQueryNames: parses real query names, not param names', () => {
+  const names = loadRegistryQueryNames();
+  assert.ok(names.length >= 20, `suspiciously few names: ${names.length}`);
+  assert.ok(names.includes('recent_temp_log'), 'missing a cook-tier query');
+  assert.ok(names.includes('audit_log_recent'), 'missing a manager-tier query');
+  assert.ok(!names.includes('hours'), 'param name leaked into query names');
+  assert.ok(!names.includes('point_id'), 'param name leaked into query names');
+});
+
+test('loadRegistryQueryNames: gates a made-up db_query name end-to-end', () => {
+  const r = lintCommandResponse(
+    '```json\n{"action":"db_query","query":"made_up_query"}\n```\nChecking.',
+    { validQueryNames: loadRegistryQueryNames() });
+  assert.equal(r.ok, false);
+  assert.ok(r.violations.some((v) => /invalid query name/.test(v)), r.violations.join('; '));
+});
 
 // ── command-path linter (deterministic pre-gate — no LLM) ────────────────────
 

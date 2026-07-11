@@ -44,9 +44,12 @@ export function stripFences(s: string): string {
  * escape-aware (skips characters following `\`). Used by both the Kitchen
  * Assistant and the Specials sandbox.
  */
-export function extractAction(content: string): ExtractActionResult {
-  // Collect every balanced top-level {…} span (start, end-exclusive, parsed).
-  const spans: Array<{ start: number; end: number; value: unknown }> = [];
+interface JsonSpan { start: number; end: number; value: unknown }
+
+// Collect every balanced top-level {…} span (start, end-exclusive, parsed).
+// String-aware (skips `{`/`}` inside `"…"` literals) and escape-aware.
+function scanTopLevelJsonObjects(content: string): JsonSpan[] {
+  const spans: JsonSpan[] = [];
   let i = 0;
   while (i < content.length) {
     if (content[i] !== '{') { i++; continue; }
@@ -68,19 +71,28 @@ export function extractAction(content: string): ExtractActionResult {
     if (value !== undefined) spans.push({ start, end: end + 1, value });
     i = end + 1;
   }
+  return spans;
+}
 
-  const isObj = (v: unknown): v is { [k: string]: unknown } =>
-    !!v && typeof v === 'object' && !Array.isArray(v);
-  const actionSpans = spans.filter((s) => isObj(s.value) && typeof (s.value as { action?: unknown }).action === 'string');
-  const payloadSpan = actionSpans[0] ?? null;
+const isActionSpan = (s: JsonSpan): boolean =>
+  !!s.value && typeof s.value === 'object' && !Array.isArray(s.value) &&
+  typeof (s.value as { action?: unknown }).action === 'string';
+
+function removeSpans(content: string, spans: JsonSpan[]): string {
+  let out = content;
+  for (const s of [...spans].sort((a, b) => b.start - a.start)) {
+    out = out.slice(0, s.start) + out.slice(s.end);
+  }
+  return out;
+}
+
+export function extractAction(content: string): ExtractActionResult {
+  const spans = scanTopLevelJsonObjects(content);
+  const payloadSpan = spans.find(isActionSpan) ?? null;
 
   // Remove EVERY successfully-parsed top-level object from the prose. Prose
   // braces that failed JSON.parse were never recorded as spans, so they stay.
-  let stripped = content;
-  for (const s of [...spans].sort((a, b) => b.start - a.start)) {
-    stripped = stripped.slice(0, s.start) + stripped.slice(s.end);
-  }
-  stripped = stripFences(stripped);
+  const stripped = stripFences(removeSpans(content, spans));
 
   if (!payloadSpan) return { payload: null, stripped };
   return {
@@ -101,11 +113,12 @@ export function extractAction(content: string): ExtractActionResult {
  */
 export function sanitizeRenderedAnswer(text: string): string {
   if (!text) return text;
-  // extractAction removes EVERY parsed top-level JSON object + all fences in one
-  // pass. An empty result means the text was ENTIRELY JSON/fences — returning ''
-  // (blank) is the safe outcome; never fall back to the raw text (that would be
-  // the very leak this guards against). The route always prepends prose (the
-  // "⚡ ACTION EXECUTED" line or a grounded answer), so blank does not occur in
-  // practice — this only ever trims a stray residual block.
-  return extractAction(text).stripped;
+  // Unlike extractAction (mid-pipeline, strips EVERY parsed object), this runs
+  // on the fully-assembled answer, which may legitimately embed non-action JSON
+  // — e.g. a payload_json cell in a rendered db_query table. Remove only the
+  // spans that parse AND carry a string `action` field (the leak shape), plus
+  // fences. An empty result means the text was ENTIRELY action JSON/fences —
+  // returning '' (blank) is the safe outcome; never fall back to the raw text.
+  const spans = scanTopLevelJsonObjects(text).filter(isActionSpan);
+  return stripFences(removeSpans(text, spans));
 }

@@ -162,6 +162,20 @@ describe('sanitizeRenderedAnswer — final UI guard', () => {
     assert.equal(sanitizeRenderedAnswer(table), table);
   });
 
+  it('preserves non-action JSON in the answer (db_query payload_json cell)', () => {
+    const answer =
+      'Recent audit events:\n| when | payload |\n|---|---|\n| 09:14 | {"qty": 3, "unit": "case"} |';
+    assert.equal(sanitizeRenderedAnswer(answer), answer);
+  });
+
+  it('strips only the action block when the answer also carries non-action JSON', () => {
+    const mixed =
+      'Scaled it.\n{"action":"scale_recipe","recipe":"bacon_jam","multiplier":3}\nRaw row: {"qty": 3}';
+    const clean = sanitizeRenderedAnswer(mixed);
+    assert.ok(!/"action"/.test(clean), `action object leaked: ${clean}`);
+    assert.ok(clean.includes('{"qty": 3}'), `non-action JSON was stripped: ${clean}`);
+  });
+
   it('is a no-op on empty input', () => {
     assert.equal(sanitizeRenderedAnswer(''), '');
   });

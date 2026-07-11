@@ -19,6 +19,11 @@ import { readFileSync, writeFileSync, readdirSync, existsSync, statSync } from '
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { lintCommandResponse, lintQuestionResponse } from '../eval/format-lint.mjs';
+import { loadRegistryQueryNames } from '../eval/registry-names.mjs';
+
+// Without this list the command gate can't catch a model inventing a db_query
+// name — the exact drift the deterministic pre-gate exists to hard-block.
+const VALID_QUERY_NAMES = loadRegistryQueryNames();
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..', '..');
@@ -77,7 +82,7 @@ function lintRun(j) {
     if (!r || !r.ok || typeof r.response !== 'string') continue;
     if (e.mode === 'command') {
       if (typeof r.ms === 'number') commandMs.push(r.ms);
-      const res = lintCommandResponse(r.response);
+      const res = lintCommandResponse(r.response, { validQueryNames: VALID_QUERY_NAMES });
       if (!res.ok) violations.push({ id: e.id, vs: res.violations });
     } else {
       const res = lintQuestionResponse(r.response, { intent: e.intent, requireTemp: e.requireTemp });
