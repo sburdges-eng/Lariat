@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getRecentAuditLog, getAuditLogByAction, getAuditLogForRecipe } from '../../../../lib/auditLog.mjs';
 import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
 
@@ -16,6 +18,7 @@ export const dynamic = 'force-dynamic';
 // helper from lib/pin.ts so legacy and signed cookies are both
 // validated through the same path as middleware.js.
 
+/** @param {Request} req */
 async function requirePin(req) {
   if (pinRequiredForPic() && !(await hasPinCookie(req))) {
     return Response.json(
@@ -26,6 +29,7 @@ async function requirePin(req) {
   return null;
 }
 
+/** @param {Request} request */
 export async function GET(request) {
   const pinFail = await requirePin(request);
   if (pinFail) return pinFail;
