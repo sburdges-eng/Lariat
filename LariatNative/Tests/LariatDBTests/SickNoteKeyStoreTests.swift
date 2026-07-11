@@ -35,4 +35,27 @@ final class SickNoteKeyStoreTests: XCTestCase {
             XCTAssertEqual($0 as? SickNoteKeyError, .malformedKeyFile)
         }
     }
+
+    func testWriteIfAbsentWritesWhenMissingButNoOpsWhenPresent() throws {
+        let dir = tempDir(); defer { try? FileManager.default.removeItem(at: dir) }
+        let store = SickNoteKeyStore()
+        let path = store.keyPath(dataDir: dir).path
+
+        // No key file yet: writeIfAbsent must write it, and it must parse back equal.
+        let recovered = SickNoteMediaKey.generate(now: Date())
+        XCTAssertFalse(FileManager.default.fileExists(atPath: path))
+        try store.writeIfAbsent(recovered, dataDir: dir)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: path))
+        let written = SickNoteMediaKey.parse(try Data(contentsOf: URL(fileURLWithPath: path)))
+        XCTAssertEqual(written, recovered)
+
+        // A key file already exists (seed a DIFFERENT key): writeIfAbsent must be a no-op,
+        // i.e. must NOT overwrite the existing key with the new one.
+        let other = SickNoteMediaKey.generate(now: Date())
+        XCTAssertNotEqual(other, recovered, "sanity: the two generated keys must differ")
+        try store.writeIfAbsent(other, dataDir: dir)
+        let stillOnDisk = SickNoteMediaKey.parse(try Data(contentsOf: URL(fileURLWithPath: path)))
+        XCTAssertEqual(stillOnDisk, recovered, "writeIfAbsent must not overwrite an existing key file")
+        XCTAssertNotEqual(stillOnDisk, other)
+    }
 }
