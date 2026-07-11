@@ -215,7 +215,8 @@ All pure-function tests, no DB. Migration smoke test added to `test-schema-migra
 | Artifact | Min retention | Where |
 |---|---|---|
 | Temp logs, cooling, sanitizer, receiving | 90 days (FDA); 1 year (CO local best practice) | `data/lariat.db` + daily xlsx exports |
-| Sick worker reports | 2 years (HFWA records adjacent) + until resolution | DB + encrypted export |
+| Sick worker reports | 2 years (HFWA records adjacent) + until resolution | DB (not encrypted) + CSV export (not encrypted) |
+| Doctor's-note documents (attached PDF/image) | 2 years from upload (HFWA-adjacent); flagged then PIN-confirmed one-click removal (P0-6) | Encrypted at rest (`LSN1`/AES-256-GCM, `uploads/sick-notes/`); not exported |
 | Cert records | Duration of employment + 3 years | DB |
 | Break records | 3 years (C.R.S. §8-4-103(4.5)) | DB + monthly payroll export |
 | Tip pool records | 3 years (FLSA) | DB + monthly payroll export |

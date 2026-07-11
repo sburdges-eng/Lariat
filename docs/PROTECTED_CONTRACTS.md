@@ -339,7 +339,40 @@ The cloud bridge is a durable outbox plus recovery system for corp-bound snapsho
 
 ---
 
-## 12. Test Topology That Must Stay Attached
+## 12. Sick-Note PHI File Contracts
+
+Doctor's-note attachments carry PHI-adjacent content. The files themselves are ciphertext at rest, not merely access-controlled — encryption is the P0-6 audit-fix answer to a plaintext-on-disk gap.
+
+### Key files
+
+- `LariatNative/Sources/LariatModel/Crypto/SickNoteCrypto.swift`
+- `LariatNative/Sources/LariatModel/Crypto/SickNoteMediaKey.swift`
+- `LariatNative/Sources/LariatDB/SickNoteKeyStore.swift`
+- `LariatNative/Sources/LariatDB/SickNoteRepository.swift`
+- `LariatNative/Sources/LariatDB/SickNoteMigrator.swift`
+- `LariatNative/Sources/LariatApp/UI/Support/SickNoteAttach.swift`
+- `LariatNative/Sources/LariatApp/UI/Support/SickNoteKeychain.swift`
+- `scripts/backup.mjs` (manifest key fingerprint only — never the key)
+- `scripts/sick-note-retention.mjs`
+
+### Core invariants
+
+- Sick-note files on disk are `LSN1` ciphertext (AES-256-GCM), with AAD bound to the row's `file_path`; a ciphertext moved, renamed, or swapped between rows fails authentication.
+- The media key (`<dataDir>/keys/sick-note-media.json`, 0600) lives outside `uploads/`; it must never enter `scripts/backup.mjs` output or git. Rotation is explicitly unsupported in v1 — losing the key permanently loses every document (mitigated by the Keychain mirror; see the backup key-escrow note in `docs/OPERATIONS.md`).
+- Attach and purge are PIN-gated, audited writes (`actor_source = native_mac`) with the audit row committed in the same transaction as the data change.
+- Attach and purge audit payloads are metadata-only — `report_id`, `location_id`, `file_path` (UUID-based, non-identifying), `kind`, actor, timestamp — and never carry `original_filename`, symptoms, or diagnosis.
+- Document removal (purge) requires manager PIN confirmation behind the existing `pinOk` gate; the overdue-document count may surface PIN-free, but the underlying list and the Remove action stay behind PIN.
+- The nightly `scripts/sick-note-retention.mjs` job is report-only. It must never delete a row or a file.
+
+### Reviewer prompts
+
+- Does the change preserve the `LSN1` magic + AAD binding, or open a path where plaintext can reach `uploads/sick-notes/`?
+- Does any change let the media key file, or its raw bytes, reach a backup, an export, or git?
+- Does the attach or purge audit payload gain back `original_filename` or other PHI content?
+
+---
+
+## 13. Test Topology That Must Stay Attached
 
 These tests are not incidental. They are contract tests for the most dangerous surfaces.
 
@@ -385,7 +418,7 @@ At minimum, keep the receiving and depletion tests attached to their contracts:
 
 ---
 
-## 13. Refactor-Safe vs Refactor-Dangerous Changes
+## 14. Refactor-Safe vs Refactor-Dangerous Changes
 
 ### Usually refactor-safe
 
@@ -409,7 +442,7 @@ At minimum, keep the receiving and depletion tests attached to their contracts:
 
 ---
 
-## 14. Required Verification by Contract Family
+## 15. Required Verification by Contract Family
 
 Run the targeted suite for the surface you touched.
 
@@ -461,7 +494,7 @@ Broad suite passes do not replace these targeted checks.
 
 ---
 
-## 15. Known Current Weaknesses
+## 16. Known Current Weaknesses
 
 These are existing reasons to review protected surfaces conservatively:
 
@@ -473,7 +506,7 @@ These are existing reasons to review protected surfaces conservatively:
 
 ---
 
-## 16. Future Hardening Candidates
+## 17. Future Hardening Candidates
 
 - Migrate sync-sensitive routes from `@ts-nocheck` JS to typed TS or strict JSDoc-checked modules.
 - Elevate management rollup queries into a dedicated typed read-model layer.
@@ -483,7 +516,7 @@ These are existing reasons to review protected surfaces conservatively:
 
 ---
 
-## 17. Closing Rule
+## 18. Closing Rule
 
 When in doubt: skip, isolate, or fail loud.
 
