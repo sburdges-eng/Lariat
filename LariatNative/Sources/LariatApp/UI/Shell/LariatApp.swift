@@ -22,10 +22,17 @@ final class LariatAppDelegate: NSObject, NSApplicationDelegate {
     // never delay or crash launch.
     Task.detached(priority: .utility) {
       let dataDir = URL(fileURLWithPath: LariatDB.resolveDataDirectory())
+      // First call: heal a missing key FILE from an existing Keychain mirror,
+      // before loadOrCreate below would otherwise generate a brand-new key.
       SickNoteKeychain.healAndMirror(dataDir: dataDir)
       if let key = try? SickNoteKeyStore().loadOrCreate(dataDir: dataDir) {
         _ = try? SickNoteMigrator().encryptLegacyFiles(dataDir: dataDir, key: key)
       }
+      // Second call: mirror a freshly-created key (from loadOrCreate above) into
+      // the Keychain immediately — idempotent, so this is a no-op once already
+      // mirrored. Without it, a first-run key isn't recoverable until the next
+      // launch happens to run this task again.
+      SickNoteKeychain.healAndMirror(dataDir: dataDir)
       let now = Date()
       let tmpDir = SickNoteTempStore.directory()
       if let items = try? FileManager.default.contentsOfDirectory(

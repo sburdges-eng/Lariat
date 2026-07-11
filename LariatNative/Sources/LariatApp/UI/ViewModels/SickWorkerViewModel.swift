@@ -162,6 +162,9 @@ final class SickWorkerViewModel {
     /// then deletes the on-disk ciphertext only AFTER the DB purge commits:
     /// filesystem side-effects deliberately stay out of the transaction.
     func removeDocument(_ doc: SickNoteDocumentRow) {
+        guard !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
         do {
             let user = try ManagementWrite().requireSession(pinStore.session)
             try writeDB.pool.read { db in try pinStore.validateActiveUser(db: db) }
@@ -405,6 +408,16 @@ final class SickWorkerViewModel {
             at: tmpDir, withIntermediateDirectories: true,
             attributes: [.posixPermissions: 0o700]
         )
+        // Sweep stale decrypted temps on each open, not only at app launch — a
+        // long-lived session that opens many documents shouldn't accumulate
+        // plaintext copies between launches. Defensive/best-effort (`try?`).
+        if let items = try? FileManager.default.contentsOfDirectory(at: tmpDir, includingPropertiesForKeys: [.contentModificationDateKey]) {
+            let now = Date()
+            for item in items {
+                let mod = (try? item.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+                if SickNoteTempStore.isStale(modifiedAt: mod, now: now) { try? FileManager.default.removeItem(at: item) }
+            }
+        }
         let tmp = SickNoteTempStore.fileURL(uuid: UUID().uuidString, ext: ext)
         try plaintext.write(to: tmp, options: .atomic)
         try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tmp.path)

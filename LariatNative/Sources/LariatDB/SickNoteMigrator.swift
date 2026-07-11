@@ -34,7 +34,11 @@ public struct SickNoteMigrator {
             guard let data = try? Data(contentsOf: fileURL) else { result.failed += 1; continue }
             if SickNoteCrypto.isEncrypted(data) { result.alreadyEncrypted += 1; continue }
             let full = fileURL.standardizedFileURL.path
-            let rel = full.hasPrefix(base) ? String(full.dropFirst(base.count)) : fileURL.lastPathComponent
+            // A prefix-check failure here must never fall back to a guessed AAD (the
+            // filename alone) — sealing with the wrong AAD would permanently brick the
+            // file's decryptability. Skip it and count it failed instead (audit hardening).
+            guard full.hasPrefix(base) else { result.failed += 1; continue }
+            let rel = String(full.dropFirst(base.count))
             do {
                 let sealed = try SickNoteCrypto.seal(data, key: symKey, keyId: keyId, filePath: rel)
                 let tmp = fileURL.deletingLastPathComponent().appendingPathComponent(".\(UUID().uuidString).tmp")
