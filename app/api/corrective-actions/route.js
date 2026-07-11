@@ -1,4 +1,3 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Corrective-action read view — F13 (FDA 2022 §8-405.11).
 //
 // GET /api/corrective-actions?date=YYYY-MM-DD&location=…&station_id=…
@@ -19,6 +18,9 @@
 // GET is idempotent by definition; we don't wrap with withIdempotency
 // (that wrapper is for writes).
 
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb, todayISO } from '../../../lib/db';
 import { locationFromRequest } from '../../../lib/location';
 import { mergeCorrectiveActions } from '../../../lib/correctiveActions';
@@ -27,6 +29,7 @@ export const dynamic = 'force-dynamic';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const url = new URL(req.url);
@@ -42,7 +45,7 @@ export async function GET(req) {
     // rows aren't station-bound — surfacing them under a station filter
     // would give a misleading "this station has corrections" answer).
     // When absent, return both sources for the day.
-    const tempLogRows = station_id
+    const tempLogRows = /** @type {import('../../../lib/correctiveActions').TempLogCorrectiveRow[]} */ (station_id
       ? []
       : db.prepare(`
           SELECT id, shift_date, point_id, corrective_action, cook_id, created_at
@@ -52,7 +55,7 @@ export async function GET(req) {
              AND corrective_action IS NOT NULL
              AND TRIM(corrective_action) != ''
            ORDER BY created_at DESC
-        `).all(date, location_id);
+        `).all(date, location_id));
 
     let lineCheckSql = `
       SELECT id, shift_date, station_id, item, note, cook_id, created_at
@@ -69,7 +72,8 @@ export async function GET(req) {
       lineCheckParams.push(station_id);
     }
     lineCheckSql += ' ORDER BY created_at DESC';
-    const lineCheckRows = db.prepare(lineCheckSql).all(...lineCheckParams);
+    const lineCheckRows = /** @type {import('../../../lib/correctiveActions').LineCheckCorrectiveRow[]} */ (
+      db.prepare(lineCheckSql).all(...lineCheckParams));
 
     const entries = mergeCorrectiveActions(tempLogRows, lineCheckRows);
 

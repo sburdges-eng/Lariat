@@ -1,10 +1,12 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // 7-day date marks (F2 / FDA §3-501.17).
 //
 // POST  /api/date-marks            → create a new date mark
 // PATCH /api/date-marks            → mark batch as discarded
 // GET   /api/date-marks            → active date marks + expiring scan
 
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import {
@@ -17,6 +19,13 @@ import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * A full date_marks row (SELECT *) — the snapshot fields the lib types
+ * plus the columns this route reads directly.
+ * @typedef {import('../../../lib/dateMarks').DateMarkRowSnapshot & { location_id: string }} DateMarkRow
+ */
+
+/** @param {unknown} s @param {number} max @returns {string | null} */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
@@ -25,10 +34,12 @@ const clip = (s, max) => {
 
 // ── POST /api/date-marks ──────────────────────────────────────────
 
+/** @param {Request} req */
 export async function POST(req) {
   return withIdempotency(req, () => dateMarksPostHandler(req));
 }
 
+/** @param {Request} req */
 async function dateMarksPostHandler(req) {
   try {
     const body = await req.json();
@@ -90,10 +101,12 @@ async function dateMarksPostHandler(req) {
 
 // ── PATCH /api/date-marks ─────────────────────────────────────────
 
+/** @param {Request} req */
 export async function PATCH(req) {
   return withIdempotency(req, () => dateMarksPatchHandler(req));
 }
 
+/** @param {Request} req */
 async function dateMarksPatchHandler(req) {
   try {
     const body = await req.json();
@@ -120,7 +133,8 @@ async function dateMarksPatchHandler(req) {
     // Pre-check + UPDATE + audit must be atomic so two concurrent discards
     // can't both pass the 409 guard and double-write.
     const performUpdate = db.transaction(() => {
-      const existing = db.prepare('SELECT * FROM date_marks WHERE id=?').get(id);
+      const existing = /** @type {DateMarkRow | undefined} */ (
+        db.prepare('SELECT * FROM date_marks WHERE id=?').get(id));
       if (!existing) return { status: 404, error: 'unknown date mark' };
       if (existing.discarded_at) {
         return { status: 409, error: 'already discarded', entry: existing };
@@ -164,6 +178,7 @@ async function dateMarksPatchHandler(req) {
 
 // ── GET /api/date-marks ───────────────────────────────────────────
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const url = new URL(req.url);
@@ -171,11 +186,11 @@ export async function GET(req) {
     const today = url.searchParams.get('today') || todayISO();
 
     const db = getDb();
-    const active = db.prepare(`
+    const active = /** @type {DateMarkRow[]} */ (db.prepare(`
       SELECT * FROM date_marks
        WHERE location_id=? AND discarded_at IS NULL
        ORDER BY discard_on ASC, id ASC
-    `).all(location_id);
+    `).all(location_id));
 
     const scan = scanExpiringBatches(active, today);
     return Response.json({ location_id, today, active, scan });
