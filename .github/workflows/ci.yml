@@ -53,6 +53,9 @@ jobs:
       - name: backup integrity + restore drill test
         run: npm run test:backup
 
+      - name: Sick-note retention report test
+        run: npm run test:sick-note-retention
+
       - name: 86 sub-recipe cascade tests
         run: npm run test:sub-recipe-graph
 

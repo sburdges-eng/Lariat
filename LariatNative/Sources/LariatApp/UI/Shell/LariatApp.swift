@@ -13,6 +13,51 @@ final class LariatAppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.regular)
     NSApp.activate()
+
+    // Launch sweeps (audit P0-6): heal/mirror the sick-note media key into
+    // Keychain, encrypt any legacy plaintext files, and clear stale decrypted
+    // temp copies. Filesystem-only — the migrator never touches the DB
+    // schema, so this is safe to run pre-Phase-C-flip. Off the main actor
+    // (Task.detached) and caught so a failure here can never delay or crash
+    // launch — but a failed sweep leaves plaintext PHI on disk (and in the
+    // next backup), so it must be loud on stderr, never silent.
+    Task.detached(priority: .utility) {
+      func warn(_ msg: String) {
+        FileHandle.standardError.write(Data("[sick-note-sweep] \(msg)\n".utf8))
+      }
+      let dataDir = URL(fileURLWithPath: LariatDB.resolveDataDirectory())
+      // First call: heal a missing key FILE from an existing Keychain mirror,
+      // before loadOrCreate below would otherwise generate a brand-new key.
+      SickNoteKeychain.healAndMirror(dataDir: dataDir)
+      do {
+        let key = try SickNoteKeyStore().loadOrCreate(dataDir: dataDir)
+        let sweep = try SickNoteMigrator().encryptLegacyFiles(dataDir: dataDir, key: key)
+        if sweep.failed > 0 {
+          warn("\(sweep.failed) legacy sick-note file(s) could not be encrypted and remain "
+               + "plaintext; backups will include them until the sweep succeeds")
+        }
+      } catch {
+        warn("legacy encryption sweep did not run (\(error)); any plaintext sick-note "
+             + "uploads remain unencrypted and will be swept again next launch")
+      }
+      // Second call: mirror a freshly-created key (from loadOrCreate above) into
+      // the Keychain immediately — idempotent, so this is a no-op once already
+      // mirrored. Without it, a first-run key isn't recoverable until the next
+      // launch happens to run this task again.
+      SickNoteKeychain.healAndMirror(dataDir: dataDir)
+      let now = Date()
+      let tmpDir = SickNoteTempStore.directory()
+      if let items = try? FileManager.default.contentsOfDirectory(
+        at: tmpDir, includingPropertiesForKeys: [.contentModificationDateKey]
+      ) {
+        for item in items {
+          let mod = (try? item.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+          if SickNoteTempStore.isStale(modifiedAt: mod, now: now) {
+            try? FileManager.default.removeItem(at: item)
+          }
+        }
+      }
+    }
   }
 }
 

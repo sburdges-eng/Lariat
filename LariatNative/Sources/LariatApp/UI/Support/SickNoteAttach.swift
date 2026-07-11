@@ -3,6 +3,7 @@ import AppKit
 import Foundation
 import UniformTypeIdentifiers
 import LariatModel
+import LariatDB
 
 /// `NSOpenPanel` + copy step for doctor's-note attachments (design
 /// 2026-07-08-lariat-sick-note-docs §4). The panel restricts pickable types to
@@ -42,13 +43,32 @@ enum SickNoteAttach {
             throw SickNoteAttachError.unsupportedType(name)
         }
         let ext = (name as NSString).pathExtension
+
+        // Size gate BEFORE reading the whole file into memory.
+        if let size = try FileManager.default.attributesOfItem(atPath: src.path)[.size] as? Int,
+           !SickNoteContentValidator.withinSizeLimit(size) {
+            throw SickNoteAttachError.tooLarge
+        }
+        let plaintext = try Data(contentsOf: src)
+        guard SickNoteContentValidator.matches(bytes: plaintext, ext: ext) else {
+            throw SickNoteAttachError.contentMismatch
+        }
+
         let rel = SickNoteDocumentCompute.storedPath(reportId: reportId, uuid: UUID().uuidString, ext: ext)
         let dest = dataDir.appendingPathComponent("uploads").appendingPathComponent(rel)
         try FileManager.default.createDirectory(
             at: dest.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        try FileManager.default.copyItem(at: src, to: dest)
+
+        let mediaKey = try SickNoteKeyStore().loadOrCreate(dataDir: dataDir)
+        guard let keyId = mediaKey.keyIdData, let symKey = mediaKey.symmetricKey else {
+            throw SickNoteAttachError.encryptionUnavailable
+        }
+        let sealed = try SickNoteCrypto.seal(plaintext, key: symKey, keyId: keyId, filePath: rel)
+        try sealed.write(to: dest, options: .atomic)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: dest.path)
+
         return Picked(filePath: rel, originalFilename: name, destination: dest)
     }
 
@@ -62,13 +82,23 @@ enum SickNoteAttach {
 
 enum SickNoteAttachError: LocalizedError {
     case unsupportedType(String)
+    case tooLarge
+    case contentMismatch
+    case encryptionUnavailable
 
     var errorDescription: String? {
         switch self {
-        // The picked filename is PHI-adjacent and this message can render on the
-        // shared board — describe the allowed types, never the file's name.
+        // The picked filename is PHI-adjacent and these messages can render on the
+        // shared board — describe the problem in kitchen-native terms, never the
+        // file's name (docs/UI_COPY_RULES.md: no "validation failed"/"authenticate").
         case .unsupportedType:
             return "That file type isn't allowed — attach a PDF, JPEG, PNG, or HEIC."
+        case .tooLarge:
+            return "That file is too big to attach."
+        case .contentMismatch:
+            return "That file doesn't look like a real photo or PDF."
+        case .encryptionUnavailable:
+            return "Couldn't lock the file safely — please try again."
         }
     }
 }

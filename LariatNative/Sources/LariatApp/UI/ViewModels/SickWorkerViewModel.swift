@@ -33,6 +33,12 @@ final class SickWorkerViewModel {
     var documentCounts: [Int64: Int] = [:]
     var documents: [Int64: [SickNoteDocumentRow]] = [:]
 
+    /// Overdue + orphan doctor's-note documents — "late paperwork" a manager
+    /// can clear from the board (audit P0-6 launch-purge UI). Like `documents`,
+    /// this is PIN-gated (filenames are PHI-adjacent): empty until a manager
+    /// session is active.
+    var lateDocuments: [SickNoteDocumentRow] = []
+
     let cookStore: CookIdentityStore
     let pinStore: PinSessionStore
     var staff: [StaffMember] = []
@@ -130,6 +136,49 @@ final class SickWorkerViewModel {
             fetchError = "Could not load sick worker list"
         }
         await refreshDocuments()
+        await refreshLateDocuments()
+    }
+
+    /// Refresh the "late paperwork" list — overdue + orphan documents behind
+    /// the manager PIN (audit P0-6 §13). De-duped by id, orphans first: a
+    /// document can be both past retention and parentless after its report
+    /// was deleted. PIN-free like the rest of the board's write surfaces, the
+    /// list itself is only ever fetched with an active session.
+    func refreshLateDocuments(now: Date = Date()) async {
+        guard pinOk, let loc = pinStore.activeUser?.locationId else {
+            lateDocuments = []
+            return
+        }
+        let repo = SickNoteRepository(readDB: readDB, writeDB: writeDB)
+        let overdue = (try? repo.overdueDocuments(locationId: loc, now: now)) ?? []
+        let orphan = (try? repo.orphanDocuments(locationId: loc)) ?? []
+        var seen = Set<Int64>()
+        lateDocuments = (orphan + overdue).filter { seen.insert($0.id).inserted }
+    }
+
+    /// Remove one piece of late paperwork (destructive, audited). Re-gates the
+    /// PIN — the list can sit open a while and the session can expire (8h TTL)
+    /// or be revoked while it does (`attachDocument` re-gate precedent) —
+    /// then deletes the on-disk ciphertext only AFTER the DB purge commits:
+    /// filesystem side-effects deliberately stay out of the transaction.
+    func removeDocument(_ doc: SickNoteDocumentRow) {
+        guard !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            let user = try ManagementWrite().requireSession(pinStore.session)
+            try writeDB.pool.read { db in try pinStore.validateActiveUser(db: db) }
+            let repo = SickNoteRepository(readDB: readDB, writeDB: writeDB)
+            let ctx = RegulatedWriteContext.nativeMac(pinUser: user)
+            if let rel = try repo.purge(documentId: doc.id, context: ctx),
+               let safe = SickNoteDocumentCompute.safeUploadRelativePath(rel) {
+                let onDisk = Self.dataRoot().appendingPathComponent("uploads").appendingPathComponent(safe)
+                try? FileManager.default.removeItem(at: onDisk)   // best-effort, AFTER commit
+            }
+            Task { await refreshLateDocuments(); await refreshDocuments() }
+        } catch {
+            actionError = WriteErrorMapper.message(for: error)
+        }
     }
 
     /// Refresh the per-report document counts (always) and rows (PIN only).
@@ -288,6 +337,10 @@ final class SickWorkerViewModel {
         return "Couldn't attach the document — please try again."
     }
 
+    /// The data root for the View's Open-button call into `decryptedOpenURL`
+    /// (`dataRoot()` itself stays private — this is the narrow accessor).
+    var dataRootURL: URL { Self.dataRoot() }
+
     /// Openable URL for a stored document, or nil when the file is missing on
     /// disk (the DB row can outlive a moved/deleted file — spec §5) or the
     /// stored `file_path` escapes the uploads root (tampered/out-of-band row —
@@ -323,6 +376,52 @@ final class SickWorkerViewModel {
         env: [String: String] = ProcessInfo.processInfo.environment
     ) -> URL {
         URL(fileURLWithPath: LariatDB.resolveDataDirectory(env: env), isDirectory: true)
+    }
+
+    /// Resolve a stored document to an openable URL for the OS viewer,
+    /// decrypting an LSN1-sealed file to a private temp copy first (audit
+    /// P0-6 §7/§12). A file that predates encryption opens directly — the
+    /// legacy-plaintext grace path; the launch migrator encrypts it later in
+    /// the background. Returns nil when `documentFileURL` refuses the row
+    /// (missing/out-of-bounds file — see its doc comment) or the media key is
+    /// malformed; throws on a genuine I/O or decrypt failure (wrong key,
+    /// tampered ciphertext) so the caller's `try?` degrades to a no-op rather
+    /// than opening bad data.
+    nonisolated static func decryptedOpenURL(
+        _ doc: SickNoteDocumentRow,
+        dataDir: URL,
+        env: [String: String] = ProcessInfo.processInfo.environment
+    ) throws -> URL? {
+        guard let onDisk = documentFileURL(doc, env: env) else { return nil } // containment-checked
+        let data = try Data(contentsOf: onDisk)
+        if !SickNoteCrypto.isEncrypted(data) { return onDisk }                 // legacy plaintext grace
+
+        let mediaKey = try SickNoteKeyStore().loadOrCreate(dataDir: dataDir)
+        guard let keyId = mediaKey.keyIdData, let symKey = mediaKey.symmetricKey else { return nil }
+
+        // AAD = the stored relative file_path — identical to what attach sealed with.
+        let plaintext = try SickNoteCrypto.open(data, key: symKey, keyId: keyId, filePath: doc.filePath)
+        let ext = (doc.filePath as NSString).pathExtension
+
+        let tmpDir = SickNoteTempStore.directory()
+        try FileManager.default.createDirectory(
+            at: tmpDir, withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
+        // Sweep stale decrypted temps on each open, not only at app launch — a
+        // long-lived session that opens many documents shouldn't accumulate
+        // plaintext copies between launches. Defensive/best-effort (`try?`).
+        if let items = try? FileManager.default.contentsOfDirectory(at: tmpDir, includingPropertiesForKeys: [.contentModificationDateKey]) {
+            let now = Date()
+            for item in items {
+                let mod = (try? item.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+                if SickNoteTempStore.isStale(modifiedAt: mod, now: now) { try? FileManager.default.removeItem(at: item) }
+            }
+        }
+        let tmp = SickNoteTempStore.fileURL(uuid: UUID().uuidString, ext: ext)
+        try plaintext.write(to: tmp, options: .atomic)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tmp.path)
+        return tmp
     }
 
     /// Display name for a report's worker id via the staff catalog.

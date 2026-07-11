@@ -92,6 +92,33 @@ struct SickWorkerView: View {
             if vm.pinOk && !snap.history.isEmpty {
                 historySection(snap)
             }
+
+            if vm.pinOk && !vm.lateDocuments.isEmpty {
+                lateDocumentsSection()
+            }
+        }
+    }
+
+    // ── Old paperwork you can clear (late doctor's-note documents) ─────
+
+    /// Overdue + orphan documents a manager can clear (audit P0-6 launch-purge
+    /// UI). Reuses `documentLabel` — the same display string already used
+    /// elsewhere on the board — and never renders anything beyond it.
+    @ViewBuilder
+    private func lateDocumentsSection() -> some View {
+        Section("Old paperwork you can clear") {
+            ForEach(vm.lateDocuments) { doc in
+                HStack {
+                    Text(documentLabel(doc)).font(.caption)
+                    Spacer()
+                    Button("Remove", role: .destructive) {
+                        vm.removeDocument(doc)
+                    }
+                    .font(.caption)
+                    .disabled(vm.isSaving)
+                    .accessibilityLabel("Remove \(documentLabel(doc))")
+                }
+            }
         }
     }
 
@@ -187,9 +214,14 @@ struct SickWorkerView: View {
     /// manual-row precedent).
     @ViewBuilder
     private func documentRow(_ doc: SickNoteDocumentRow) -> some View {
-        if let url = SickWorkerViewModel.documentFileURL(doc) {
+        if SickWorkerViewModel.documentFileURL(doc) != nil {
             Button {
-                NSWorkspace.shared.open(url)
+                // Decrypt the LSN1-sealed file to a private temp copy first, then
+                // hand that to the OS viewer (audit P0-6 §7); a legacy plaintext
+                // file opens directly via the grace path inside decryptedOpenURL.
+                if let openURL = try? SickWorkerViewModel.decryptedOpenURL(doc, dataDir: vm.dataRootURL) {
+                    NSWorkspace.shared.open(openURL)
+                }
             } label: {
                 Label(documentLabel(doc), systemImage: documentIcon(doc))
                     .font(.caption)
