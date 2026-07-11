@@ -1,4 +1,3 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 /**
  * /api/costing/ingredient-masters
  *
@@ -7,7 +6,11 @@
  *                              update one master + post one audit row
  *
  * PIN-gated via middleware.js + a defensive re-check at the route.
+ *
+ * Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+ * only, no behavior change.
  */
+// @ts-check
 
 import { getDb } from '../../../../lib/db';
 import { requirePin } from '../../../../lib/pin';
@@ -23,6 +26,7 @@ export const dynamic = 'force-dynamic';
 
 const VALID_FILTERS = new Set(['all', 'needs_review', 'reviewed']);
 
+/** @param {string | null | undefined} raw @returns {number} */
 function clampLimit(raw) {
   if (raw == null || raw === '') return 200;
   const n = Number(raw);
@@ -35,6 +39,7 @@ const MAX_CATEGORY = 80;
 const MAX_VENDOR = 80;
 const MAX_LOCK_REASON = 80;
 
+/** @param {unknown} v @param {number} max @returns {string | null | undefined} */
 function clipOrNull(v, max) {
   if (v == null) return null;
   if (typeof v !== 'string') return undefined; // signal validation failure
@@ -43,6 +48,7 @@ function clipOrNull(v, max) {
   return t.slice(0, max);
 }
 
+/** @param {Request} req */
 export async function GET(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
@@ -50,7 +56,9 @@ export async function GET(req) {
     const url = new URL(req.url);
     const q = url.searchParams.get('q');
     const filterRaw = url.searchParams.get('filter') ?? 'all';
-    const filter = VALID_FILTERS.has(filterRaw) ? filterRaw : 'all';
+    // Runtime-validated against VALID_FILTERS; assert the repo's union.
+    const filter = /** @type {'all' | 'needs_review' | 'reviewed'} */ (
+      VALID_FILTERS.has(filterRaw) ? filterRaw : 'all');
     const limit = clampLimit(url.searchParams.get('limit'));
 
     const db = getDb();
@@ -67,12 +75,14 @@ export async function GET(req) {
   }
 }
 
+/** @param {Request} req */
 export async function PATCH(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
   return withIdempotency(req, () => patchHandler(req));
 }
 
+/** @param {Request} req */
 async function patchHandler(req) {
   let body;
   try {
