@@ -14,11 +14,11 @@ Project-local path: `hospitality/Lariat/docs/NATIVE_RELEASES_AND_TAXONOMY.md`.
 
 These are what ships to operators — not internal milestone letters.
 
-| Release | Scope | Status (2026-07-07) |
+| Release | Scope | Status (2026-07-10) |
 |---------|-------|---------------------|
 | **Web v2.0.x** | Next.js ops app on `main` | Live / evolving |
 | **Native 0.1.x** | macOS parity + Python spawn (assistant/BEO via `python3`) | Effectively done (endgame Milestones A–B) |
-| **Native 0.2.x** | **L1 in-process BOM** — BomExpand + BeoCascade in Swift, native spawn removal | **Current program** — prep complete; L1 Wave A not started |
+| **Native 0.2.x** | **L1 in-process BOM** — BomExpand + BeoCascade in Swift, native spawn removal | **Code-complete on `main` (PR #448)** — automated verify-0.2 green 2026-07-10; owner GUI smoke pending |
 | **Native 1.0.x** | Service-day shutoff, schema ownership flip (C4/C5), thin web edge | Blocked on G0, C4, C5, H8 |
 
 Packaging version strings follow `LariatNative/Scripts/PACKAGING.md` (e.g. `0.2.0` for L1 work).
