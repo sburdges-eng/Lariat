@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../../lib/db';
 import { locationFromBody } from '../../../../lib/location';
 import { postAuditEvent } from '../../../../lib/auditEvents';
@@ -8,12 +10,26 @@ export const dynamic = 'force-dynamic';
 
 const STATUSES = ['open', 'seated', 'dirty', 'closed'];
 
+/**
+ * Next 15 route context: `params` may be a promise (async dynamic APIs).
+ * @typedef {{ params: Promise<{ id?: string }> | { id?: string } }} RouteCtx
+ */
+
+/**
+ * The dining_tables columns this handler compares against (SELECT *).
+ * @typedef {{ status: string, name: string | null, capacity: number | null,
+ *             x: number | null, y: number | null, w: number | null,
+ *             h: number | null, notes: string | null }} DiningTableRow
+ */
+
+/** @param {unknown} s @param {number} max @returns {string | null} */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
+/** @param {{ id?: unknown } | null | undefined} params */
 function parseId(params) {
   const raw = params?.id;
   if (typeof raw !== 'string') return null;
@@ -28,11 +44,17 @@ function parseId(params) {
  * Field edits:      name, capacity, x, y, w, h, notes (any subset)
  *
  * 400 if no fields would change. 404 if not at this location.
+ * @param {Request} req
+ * @param {RouteCtx} ctx
  */
 export async function PATCH(req, ctx) {
   return withIdempotency(req, () => diningTablePatchHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function diningTablePatchHandler(req, { params }) {
 
   params = await params;
@@ -56,11 +78,11 @@ async function diningTablePatchHandler(req, { params }) {
     const db = getDb();
 
     const result = db.transaction(() => {
-      const row = db
+      const row = /** @type {DiningTableRow | undefined} */ (db
         .prepare(
           `SELECT * FROM dining_tables WHERE id = ? AND location_id = ?`,
         )
-        .get(id, loc);
+        .get(id, loc));
       if (!row) return { ok: false, status: 404, err: 'not found' };
 
       const sets = [];
@@ -160,10 +182,18 @@ async function diningTablePatchHandler(req, { params }) {
   }
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function DELETE(req, ctx) {
   return withIdempotency(req, () => diningTableDeleteHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function diningTableDeleteHandler(req, { params }) {
 
   params = await params;
