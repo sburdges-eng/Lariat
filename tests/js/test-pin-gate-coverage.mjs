@@ -109,6 +109,12 @@ const ALLOWLIST = new Set([
   // ── Prep / kitchen workflow (line-cook authority) ──────────────────
   'prep-tasks',
   'prep-tasks/[id]',
+  // Prep par targets — same posture as inventory/par below: set on the
+  // line during prep planning, no financial impact until the costing
+  // path (PIN-gated) consumes it. Native parity: PrepParViewModel
+  // writes ungated as actor_source=native_cook. Flip to requirePin only
+  // by operator direction (and gate native to match — see gold-stars).
+  'prep-par',
   'preshift-notes',
   'kds/tickets',
   'kds/tickets/[id]/bump',
