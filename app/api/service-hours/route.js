@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../lib/db';
 import {
   DEFAULT_LOCATION_ID,
@@ -9,12 +11,16 @@ import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/** @typedef {ReturnType<typeof getDb>} Db */
+
+/** @param {unknown} s @param {number} max @returns {string | null} */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
+/** @param {unknown} v @returns {number | null} NaN = invalid, null = absent */
 function toDayOfWeek(v) {
   if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
@@ -24,6 +30,7 @@ function toDayOfWeek(v) {
   return n;
 }
 
+/** @param {Db} db @param {string} locationId @param {boolean} includeArchived */
 function selectRows(db, locationId, includeArchived) {
   const base = `SELECT id, location_id, day_of_week, opens_at, closes_at,
                        service_label, notes, active, created_at, archived_at
@@ -34,6 +41,7 @@ function selectRows(db, locationId, includeArchived) {
   return db.prepare(base + filter + order).all(locationId);
 }
 
+/** @param {Db} db @param {number | bigint} id */
 function selectOne(db, id) {
   return db
     .prepare(
@@ -45,6 +53,7 @@ function selectOne(db, id) {
     .get(id);
 }
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const url = new URL(req.url);
@@ -59,10 +68,12 @@ export async function GET(req) {
   }
 }
 
+/** @param {Request} req */
 export async function POST(req) {
   return withIdempotency(req, () => serviceHoursPostHandler(req));
 }
 
+/** @param {Request} req */
 async function serviceHoursPostHandler(req) {
   try {
     const body = await req.json();
@@ -104,7 +115,8 @@ async function serviceHoursPostHandler(req) {
       const row = selectOne(db, info.lastInsertRowid);
       return Response.json({ ok: true, row });
     } catch (err) {
-      if (String(err?.message || '').includes('UNIQUE')) {
+      const e = /** @type {{ message?: unknown } | null} */ (err);
+      if (String(e?.message || '').includes('UNIQUE')) {
         return Response.json(
           { error: 'A row for that day and service already exists' },
           { status: 409 },
@@ -118,10 +130,12 @@ async function serviceHoursPostHandler(req) {
   }
 }
 
+/** @param {Request} req */
 export async function PATCH(req) {
   return withIdempotency(req, () => serviceHoursPatchHandler(req));
 }
 
+/** @param {Request} req */
 async function serviceHoursPatchHandler(req) {
   try {
     const body = await req.json();
@@ -136,8 +150,11 @@ async function serviceHoursPatchHandler(req) {
       return Response.json({ error: 'service hour not found' }, { status: 404 });
     }
 
+    /** @type {string[]} */
     const sets = [];
+    /** @type {unknown[]} */
     const vals = [];
+    /** @param {string} col @param {unknown} val */
     const push = (col, val) => {
       sets.push(`${col} = ?`);
       vals.push(val);
@@ -184,7 +201,8 @@ async function serviceHoursPatchHandler(req) {
     try {
       db.prepare(`UPDATE service_hours SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
     } catch (err) {
-      if (String(err?.message || '').includes('UNIQUE')) {
+      const e = /** @type {{ message?: unknown } | null} */ (err);
+      if (String(e?.message || '').includes('UNIQUE')) {
         return Response.json(
           { error: 'A row for that day and service already exists' },
           { status: 409 },
@@ -200,10 +218,12 @@ async function serviceHoursPatchHandler(req) {
   }
 }
 
+/** @param {Request} req */
 export async function DELETE(req) {
   return withIdempotency(req, () => serviceHoursDeleteHandler(req));
 }
 
+/** @param {Request} req */
 async function serviceHoursDeleteHandler(req) {
   try {
     const body = await req.json();
