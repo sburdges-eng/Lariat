@@ -13,6 +13,32 @@ final class LariatAppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.regular)
     NSApp.activate()
+
+    // Launch sweeps (audit P0-6): heal/mirror the sick-note media key into
+    // Keychain, encrypt any legacy plaintext files, and clear stale decrypted
+    // temp copies. Filesystem-only — the migrator never touches the DB
+    // schema, so this is safe to run pre-Phase-C-flip. Off the main actor
+    // (Task.detached) and entirely best-effort (`try?`) so a failure here can
+    // never delay or crash launch.
+    Task.detached(priority: .utility) {
+      let dataDir = URL(fileURLWithPath: LariatDB.resolveDataDirectory())
+      SickNoteKeychain.healAndMirror(dataDir: dataDir)
+      if let key = try? SickNoteKeyStore().loadOrCreate(dataDir: dataDir) {
+        _ = try? SickNoteMigrator().encryptLegacyFiles(dataDir: dataDir, key: key)
+      }
+      let now = Date()
+      let tmpDir = SickNoteTempStore.directory()
+      if let items = try? FileManager.default.contentsOfDirectory(
+        at: tmpDir, includingPropertiesForKeys: [.contentModificationDateKey]
+      ) {
+        for item in items {
+          let mod = (try? item.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+          if SickNoteTempStore.isStale(modifiedAt: mod, now: now) {
+            try? FileManager.default.removeItem(at: item)
+          }
+        }
+      }
+    }
   }
 }
 

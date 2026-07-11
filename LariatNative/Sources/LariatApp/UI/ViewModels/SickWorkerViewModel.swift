@@ -33,6 +33,12 @@ final class SickWorkerViewModel {
     var documentCounts: [Int64: Int] = [:]
     var documents: [Int64: [SickNoteDocumentRow]] = [:]
 
+    /// Overdue + orphan doctor's-note documents — "late paperwork" a manager
+    /// can clear from the board (audit P0-6 launch-purge UI). Like `documents`,
+    /// this is PIN-gated (filenames are PHI-adjacent): empty until a manager
+    /// session is active.
+    var lateDocuments: [SickNoteDocumentRow] = []
+
     let cookStore: CookIdentityStore
     let pinStore: PinSessionStore
     var staff: [StaffMember] = []
@@ -130,6 +136,46 @@ final class SickWorkerViewModel {
             fetchError = "Could not load sick worker list"
         }
         await refreshDocuments()
+        await refreshLateDocuments()
+    }
+
+    /// Refresh the "late paperwork" list — overdue + orphan documents behind
+    /// the manager PIN (audit P0-6 §13). De-duped by id, orphans first: a
+    /// document can be both past retention and parentless after its report
+    /// was deleted. PIN-free like the rest of the board's write surfaces, the
+    /// list itself is only ever fetched with an active session.
+    func refreshLateDocuments(now: Date = Date()) async {
+        guard pinOk, let loc = pinStore.activeUser?.locationId else {
+            lateDocuments = []
+            return
+        }
+        let repo = SickNoteRepository(readDB: readDB, writeDB: writeDB)
+        let overdue = (try? repo.overdueDocuments(locationId: loc, now: now)) ?? []
+        let orphan = (try? repo.orphanDocuments(locationId: loc)) ?? []
+        var seen = Set<Int64>()
+        lateDocuments = (orphan + overdue).filter { seen.insert($0.id).inserted }
+    }
+
+    /// Remove one piece of late paperwork (destructive, audited). Re-gates the
+    /// PIN — the list can sit open a while and the session can expire (8h TTL)
+    /// or be revoked while it does (`attachDocument` re-gate precedent) —
+    /// then deletes the on-disk ciphertext only AFTER the DB purge commits:
+    /// filesystem side-effects deliberately stay out of the transaction.
+    func removeDocument(_ doc: SickNoteDocumentRow) {
+        do {
+            let user = try ManagementWrite().requireSession(pinStore.session)
+            try writeDB.pool.read { db in try pinStore.validateActiveUser(db: db) }
+            let repo = SickNoteRepository(readDB: readDB, writeDB: writeDB)
+            let ctx = RegulatedWriteContext.nativeMac(pinUser: user)
+            if let rel = try repo.purge(documentId: doc.id, context: ctx),
+               let safe = SickNoteDocumentCompute.safeUploadRelativePath(rel) {
+                let onDisk = Self.dataRoot().appendingPathComponent("uploads").appendingPathComponent(safe)
+                try? FileManager.default.removeItem(at: onDisk)   // best-effort, AFTER commit
+            }
+            Task { await refreshLateDocuments(); await refreshDocuments() }
+        } catch {
+            actionError = WriteErrorMapper.message(for: error)
+        }
     }
 
     /// Refresh the per-report document counts (always) and rows (PIN only).
