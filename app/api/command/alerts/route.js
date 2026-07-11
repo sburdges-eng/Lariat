@@ -1,10 +1,13 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { todayISO } from '../../../../lib/db';
 import { locationFromRequest } from '../../../../lib/location';
 import { summarize, alertsFor } from '../../../../lib/commandCenter';
 
 export const dynamic = 'force-dynamic';
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const url = new URL(req.url);
