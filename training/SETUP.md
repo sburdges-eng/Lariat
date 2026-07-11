@@ -2,6 +2,25 @@
 
 Mac training guide for the Lariat kitchen assistant model.
 
+> **v2 (current, 2026-07):** `lari-the-kitchen-assistant` is now the KA v2
+> fine-tune — a Vertex AI QLoRA model trained on a runtime-shaped dataset and
+> shipped as a local GGUF. Build/rebuild it with:
+>
+> ```bash
+> ollama create lari-the-kitchen-assistant -f training/Modelfile
+> ```
+>
+> The GGUF ships outside git (see `training/gcp/README.md` for the GCS
+> artifact path, the full training pipeline, and the M4 serving tuning —
+> `OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0`). Keep
+> `LARIAT_ASSISTANT_NUM_CTX=16384` — the assistant prompt overflows 4096 and
+> truncation causes fabrication.
+>
+> **Rollback to DeepSeek:** `ollama cp lari-ka-deepseek-backup
+> lari-the-kitchen-assistant` (or follow the DeepSeek steps below with the
+> pre-v2 Modelfile from git history). The sections below describe that
+> original DeepSeek setup and remain the rollback path.
+
 ## Prerequisites
 
 - macOS with Apple Silicon (tested on M4, 16 GB unified memory)

@@ -1,0 +1,26 @@
+FROM {{GGUF_PATH}}
+TEMPLATE """{{- if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{- range .Messages }}<|im_start|>{{ .Role }}
+{{ .Content }}<|im_end|>
+{{ end }}<|im_start|>assistant
+"""
+PARAMETER stop <|im_end|>
+PARAMETER temperature 0.2
+PARAMETER top_p 0.85
+PARAMETER num_predict 512
+PARAMETER num_ctx 8192
+
+# Plain chatml — byte-identical to the template train.py fine-tuned against
+# (training/gcp/train.py CHATML, minus the training-only {% generation %} loss
+# markers which emit no text). No <think> scaffolding: KA v3 bases are
+# non-thinking-only instruct models (Qwen3-*-Instruct-2507), which have no
+# thinking capability at all — so the KA v2 hybrid-thinking truncation bug and
+# the train/serve mismatch are gone at the ROOT, not patched. Do not add a
+# <think> block here; it would re-introduce the exact mismatch v3 removed.
+#
+# No SYSTEM block on purpose: the single source of truth for the system prompt
+# is lib/ollama.ts (GROUNDED_SYSTEM / CREATIVE_SYSTEM), passed per-chat.
+#
+# num_ctx 8192: the assistant prompt is ~5-6k tokens; 8192 leaves headroom for
+# the 512-token output while halving KV-cache memory vs 16384 on a 16GB M4.

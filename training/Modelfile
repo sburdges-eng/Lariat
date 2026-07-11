@@ -1,8 +1,15 @@
-FROM deepseek-r1:14b
+FROM ./models/lari-ka-v2.gguf
+TEMPLATE """{{- if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{- range .Messages }}<|im_start|>{{ .Role }}
+{{ .Content }}<|im_end|>
+{{ end }}<|im_start|>assistant
+"""
+PARAMETER stop <|im_end|>
 PARAMETER temperature 0.2
 PARAMETER top_p 0.85
 PARAMETER num_predict 512
-PARAMETER num_ctx 16384
+PARAMETER num_ctx 8192
 
 # No SYSTEM block here on purpose. The single source of truth for the
 # system prompt is `lib/ollama.ts` — `GROUNDED_SYSTEM` for the kitchen
@@ -11,3 +18,46 @@ PARAMETER num_ctx 16384
 # Modelfile system prompt would silently diverge on regulated content
 # (FDA cooling threshold, allergen wording, action-JSON schemas) the
 # next time those constants change in code, with no test to catch it.
+#
+# KA v3 (2026-07-10): fine-tuned Qwen/Qwen3-4B-Instruct-2507 via QLoRA on a
+# runtime-shaped dataset (training/datasetv2/, generated from the live
+# production prompt builders — see training/gcp/README.md). LoRA r=32,
+# lr=2e-4, 2 epochs, max_seq 8192, assistant-only loss (mask_frac 0.93%).
+#
+# WHY 4B-INSTRUCT-2507 (the two v2 root causes, fixed at the root):
+#   1. NON-THINKING BASE. v2 used Qwen/Qwen3-8B, a hybrid-thinking model that
+#      intermittently burned its whole num_predict budget on an invisible
+#      <think> block and truncated safety answers. `think:false` is a NO-OP on
+#      a manually llama.cpp-converted GGUF. The "-Instruct-2507" line has NO
+#      thinking capability at all, so this template is byte-identical to the
+#      one train.py fine-tuned against (CHATML, minus the training-only
+#      {% generation %} loss markers) — no <think> scaffolding, no train/serve
+#      mismatch. DO NOT add a <think> block here; it re-introduces the bug.
+#   2. ASSISTANT-ONLY LOSS. v2 computed loss over the full ~6k-token prompt;
+#      v3 masks to the ~200-token assistant output (train.py assistant_only_loss
+#      + {% generation %} markers), so the model learns the ACTION-JSON / grounded
+#      answer shape, not the prompt. This is what killed the v2 UI JSON-leak at
+#      the data level (WS-3 also added a structural strip in extractAction.ts).
+#
+# AUTHORITATIVE GATE (training/gcp/evaluate-candidates.mjs, 3 samples, ollama
+# leg, format-lint pre-gate + margin-over-noise):
+#   candidate q3-4b-r32-lr0p0002-e2 : mean 10.83 (10.5/10.5/11.5), formatPass=TRUE
+#   deployed deepseek-r1:14b baseline: mean  8.33 ( 7.5/9.0/8.5 ),  formatPass=FALSE
+#   margin +2.5 (>= 1.0 flip bar); min-candidate (10.5) > max-baseline (9.0)+1.0.
+#   The candidate also cleared the deterministic format gate the baseline FAILS
+#   (DeepSeek: no 165°F on T05, a prose-number leak on T09, invalid
+#   `cooling_in_progress` action on T13). Verified clean of the v2 JSON double-
+#   emission across all command scenarios x3 samples (0 leaks). Faster too
+#   (cmdP95 ~4.8s vs the DeepSeek-R1-14B path). This flip DOES beat the baseline.
+#
+# KNOWN FOLLOW-UP (tracked, not a regression): on the allergen IDENTIFICATION
+# question (T04 "what's the egg source?") the model answers correctly/terse but
+# omits the cross-contact + manager nudge. The deployed DeepSeek baseline shares
+# this exact gap, so the flip introduces no new risk; the format gate treats it
+# as a soft nit on `allergen_identify` intent (the dangerous "safe"/"free of"
+# claim stays a hard gate on ALL allergen scenarios, and the model never makes
+# one). Close it in a later pass by teaching the dataset to append the nudge on
+# allergen-identification too, then retrain.
+#
+# Rollback: `ollama cp lari-ka-deepseek-backup lari-the-kitchen-assistant`
+# GGUF source: gs://lariat-train-us-central1/runs/q3-4b-r32-lr0p0002-e2/

@@ -221,3 +221,10 @@ test-results/
 # source to a chat/Gemini session; regenerated on demand, never committed.
 /LariatNative-*.zip
 /LariatNative-*-upload/
+
+# ── KA v2 training pipeline (derived data / model artifacts — never commit) ──
+training/datasetv2/out/
+training/gcp/artifacts/
+training/gcp/snapshot/
+training/gcp/*.log
+training/models/

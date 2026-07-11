@@ -1,0 +1,47 @@
+{
+  "project": "devvy-490312",
+  "bucket": "lariat-train-us-central1",
+  "regions": ["us-central1", "europe-west4", "asia-southeast1"],
+  "containerUri": "us-docker.pkg.dev/vertex-ai/training/pytorch-gpu.2-4.py310@sha256:db53e742b58d126fae7ca6fdb62997d71acdb1e0d13df5e267fa633f9c2fc40f",
+  "budgetUsd": 200,
+  "strategy": "SPOT",
+  "rates": { "a2-highgpu-1g": 1.7 },
+  "jobTimeoutHours": 8,
+  "bootDiskGb": 200,
+  "bases": [
+    {
+      "_comment": "PRIMARY. Non-thinking-only instruct (no <think> capability) — eliminates the KA v2 hybrid-thinking bug at the root; train==serve template. 4B q4 ~2.5GB, fastest on a 16GB M4.",
+      "id": "Qwen/Qwen3-4B-Instruct-2507",
+      "chatTemplate": "chatml",
+      "machineType": "a2-highgpu-1g",
+      "acceleratorType": "NVIDIA_TESLA_A100",
+      "acceleratorCount": 1,
+      "estHoursPerEpoch": 0.9,
+      "gated": false,
+      "tag": "q3-4b"
+    },
+    {
+      "_comment": "8B capacity-insurance arm (pure instruct, no thinking mode). Gated — skipped automatically if HF_TOKEN is absent.",
+      "id": "meta-llama/Llama-3.1-8B-Instruct",
+      "chatTemplate": "llama3",
+      "machineType": "a2-highgpu-1g",
+      "acceleratorType": "NVIDIA_TESLA_A100",
+      "acceleratorCount": 1,
+      "estHoursPerEpoch": 1.6,
+      "gated": true,
+      "tag": "ll31-8b"
+    }
+  ],
+  "grid": [
+    { "loraR": 16, "lr": 0.0002, "epochs": 3 },
+    { "loraR": 32, "lr": 0.0001, "epochs": 3 },
+    { "loraR": 32, "lr": 0.0002, "epochs": 2 }
+  ],
+  "maxSeq": 8192,
+  "smoke": {
+    "base": "Qwen/Qwen3-4B-Instruct-2507",
+    "subset": 200,
+    "epochs": 1,
+    "estHours": 0.9
+  }
+}

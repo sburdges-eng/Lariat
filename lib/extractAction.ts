@@ -26,39 +26,99 @@ export function stripFences(s: string): string {
 }
 
 /**
- * Find the first balanced JSON object in `content` and return:
- *   - `payload`: the parsed object (must have `action: string`), or null
- *     if no valid action JSON is present.
- *   - `stripped`: `content` with the JSON block removed and code fences
- *     stripped, ready to be presented to the user as prose.
+ * Scan ALL balanced top-level JSON objects in `content` and return:
+ *   - `payload`: the FIRST object that parses and has `action: string`, or
+ *     null if none is present.
+ *   - `stripped`: `content` with EVERY balanced top-level object removed and
+ *     code fences stripped — ready to present to the user as prose.
  *
- * The brace scanner is string-aware (skips `{`/`}` inside `"…"` literals)
- * and escape-aware (skips characters following `\`). Used by both the
- * Kitchen Assistant and the Specials sandbox.
+ * Stripping every object (not just the payload) is a hard safety guarantee:
+ * a model that emits the action JSON more than once (KA v3 rollout found a
+ * fine-tune that double-emitted `scale_recipe`) must never leak a raw
+ * `{"action":…}` block into the cook-facing answer. The first action-bearing
+ * object stays the payload so handler semantics are unchanged; any additional
+ * objects — duplicate actions, debug blobs, stray braces the model produced —
+ * are removed from the prose regardless.
+ *
+ * The brace scanner is string-aware (skips `{`/`}` inside `"…"` literals) and
+ * escape-aware (skips characters following `\`). Used by both the Kitchen
+ * Assistant and the Specials sandbox.
  */
+interface JsonSpan { start: number; end: number; value: unknown }
+
+// Collect every balanced top-level {…} span (start, end-exclusive, parsed).
+// String-aware (skips `{`/`}` inside `"…"` literals) and escape-aware.
+function scanTopLevelJsonObjects(content: string): JsonSpan[] {
+  const spans: JsonSpan[] = [];
+  let i = 0;
+  while (i < content.length) {
+    if (content[i] !== '{') { i++; continue; }
+    const start = i;
+    let depth = 0, inStr = false, esc = false, end = -1;
+    for (let j = start; j < content.length; j++) {
+      const ch = content[j];
+      if (esc) { esc = false; continue; }
+      if (ch === '\\') { esc = true; continue; }
+      if (ch === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (ch === '{') depth++;
+      else if (ch === '}') { depth--; if (depth === 0) { end = j; break; } }
+    }
+    if (end < 0) break; // unbalanced tail — leave the rest untouched
+    let value: unknown = null;
+    try { value = JSON.parse(content.slice(start, end + 1)); }
+    catch { value = undefined; } // not JSON (e.g. prose braces) — keep it in prose
+    if (value !== undefined) spans.push({ start, end: end + 1, value });
+    i = end + 1;
+  }
+  return spans;
+}
+
+const isActionSpan = (s: JsonSpan): boolean =>
+  !!s.value && typeof s.value === 'object' && !Array.isArray(s.value) &&
+  typeof (s.value as { action?: unknown }).action === 'string';
+
+function removeSpans(content: string, spans: JsonSpan[]): string {
+  let out = content;
+  for (const s of [...spans].sort((a, b) => b.start - a.start)) {
+    out = out.slice(0, s.start) + out.slice(s.end);
+  }
+  return out;
+}
+
 export function extractAction(content: string): ExtractActionResult {
-  const braceStart = content.indexOf('{');
-  if (braceStart < 0) return { payload: null, stripped: stripFences(content) };
+  const spans = scanTopLevelJsonObjects(content);
+  const payloadSpan = spans.find(isActionSpan) ?? null;
 
-  let depth = 0, inStr = false, esc = false, end = -1;
-  for (let i = braceStart; i < content.length; i++) {
-    const ch = content[i];
-    if (esc) { esc = false; continue; }
-    if (ch === '\\') { esc = true; continue; }
-    if (ch === '"') { inStr = !inStr; continue; }
-    if (inStr) continue;
-    if (ch === '{') depth++;
-    else if (ch === '}') { depth--; if (depth === 0) { end = i; break; } }
-  }
-  if (end < 0) return { payload: null, stripped: stripFences(content) };
+  // Remove EVERY successfully-parsed top-level object from the prose. Prose
+  // braces that failed JSON.parse were never recorded as spans, so they stay.
+  const stripped = stripFences(removeSpans(content, spans));
 
-  let payload: unknown = null;
-  try { payload = JSON.parse(content.slice(braceStart, end + 1)); }
-  catch { return { payload: null, stripped: stripFences(content) }; }
+  if (!payloadSpan) return { payload: null, stripped };
+  return {
+    payload: payloadSpan.value as { action: string; [k: string]: unknown },
+    stripped,
+  };
+}
 
-  if (!payload || typeof payload !== 'object' || typeof (payload as { action?: unknown }).action !== 'string') {
-    return { payload: null, stripped: stripFences(content) };
-  }
-  const stripped = stripFences(content.slice(0, braceStart) + content.slice(end + 1));
-  return { payload: payload as { action: string; [k: string]: unknown }, stripped };
+/**
+ * Final belt-and-suspenders guard applied to the assistant answer JUST before
+ * it is rendered to the cook. Removes any ```json/``` fence and any balanced
+ * top-level JSON object that parses AND carries a string `action` field — i.e.
+ * exactly the shape that leaked in the KA v3 rollout when a fine-tune emitted
+ * the action JSON twice. It deliberately does NOT touch arbitrary prose braces
+ * or non-action JSON (rendered db_query tables, prose), so it is safe to run on
+ * the fully-assembled answer. Independent of which model or code path built the
+ * text, so a raw action block can never reach the UI.
+ */
+export function sanitizeRenderedAnswer(text: string): string {
+  if (!text) return text;
+  // Unlike extractAction (mid-pipeline, strips EVERY parsed object), this runs
+  // on the fully-assembled answer, which may legitimately embed non-action JSON
+  // — e.g. a payload_json cell in a rendered db_query table. Remove only the
+  // spans that parse AND carry a string `action` field (the leak shape), plus
+  // fences. An empty result means the text was ENTIRELY action JSON/fences —
+  // returning '' (blank) is the safe outcome; never fall back to the raw text.
+  const spans = scanTopLevelJsonObjects(text).filter(isActionSpan);
+  return stripFences(removeSpans(text, spans));
 }
