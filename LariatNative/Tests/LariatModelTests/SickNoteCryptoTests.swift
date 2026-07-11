@@ -40,4 +40,16 @@ final class SickNoteCryptoTests: XCTestCase {
         }
         XCTAssertFalse(SickNoteCrypto.isEncrypted(Data("%PDF-".utf8)))
     }
+
+    func testTamperedCiphertextFailsAuthentication() throws {
+        let key = SymmetricKey(data: keyData)
+        let blob = try SickNoteCrypto.seal(plain, key: key, keyId: keyId, filePath: path, nonceOverride: nonce)
+        var tampered = blob
+        // Flip one byte inside the ciphertext/tag region (not the header) so
+        // GCM authentication — not header parsing — is what fails.
+        tampered[tampered.count - 20] ^= 0xFF
+        XCTAssertThrowsError(try SickNoteCrypto.open(tampered, key: key, keyId: keyId, filePath: path)) {
+            XCTAssertEqual($0 as? SickNoteCrypto.CryptoError, .authenticationFailed)
+        }
+    }
 }

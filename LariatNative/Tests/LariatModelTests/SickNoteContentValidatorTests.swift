@@ -13,6 +13,7 @@ final class SickNoteContentValidatorTests: XCTestCase {
         XCTAssertEqual(SickNoteContentValidator.sniff(png), .png)
         XCTAssertEqual(SickNoteContentValidator.sniff(heic), .heic)
         XCTAssertNil(SickNoteContentValidator.sniff(Data([0x4D,0x5A,0x90,0x00]))) // MZ (exe)
+        XCTAssertNil(SickNoteContentValidator.sniff(Data())) // zero-length
     }
 
     func testMatchesRequiresExtensionAgreement() {
@@ -25,6 +26,7 @@ final class SickNoteContentValidatorTests: XCTestCase {
 
     func testSizeLimit() {
         XCTAssertTrue(SickNoteContentValidator.withinSizeLimit(1_000))
+        XCTAssertTrue(SickNoteContentValidator.withinSizeLimit(25 * 1024 * 1024)) // exact boundary passes
         XCTAssertFalse(SickNoteContentValidator.withinSizeLimit(25 * 1024 * 1024 + 1))
     }
 }

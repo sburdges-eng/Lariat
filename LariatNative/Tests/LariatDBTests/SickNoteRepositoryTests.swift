@@ -255,9 +255,20 @@ final class SickNoteRepositoryTests: XCTestCase {
             ),
             context: macContext()
         )
+        // Fail-open at the repo boundary (mirrors SickNoteRetention.isOverdue's
+        // documented polarity): a junk/unparseable uploaded_at must never be
+        // treated as overdue and surfaced for one-click deletion.
+        _ = try repo.attach(
+            input: SickNoteAttachInput(
+                reportId: reportId, filePath: "sick-notes/\(reportId)/junk-ts.pdf", kind: .note,
+                originalFilename: nil, uploadedAt: "not-a-date"
+            ),
+            context: macContext()
+        )
 
         let overdue = try repo.overdueDocuments(locationId: "default", now: now)
         XCTAssertEqual(overdue.map(\.filePath), ["sick-notes/\(reportId)/old.pdf"])
+        XCTAssertFalse(overdue.map(\.filePath).contains("sick-notes/\(reportId)/junk-ts.pdf"))
 
         // orphan: a document whose report_id has no parent report
         _ = try repo.attach(
