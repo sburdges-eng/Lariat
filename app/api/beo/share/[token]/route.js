@@ -1,8 +1,21 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../../../lib/db';
 import { isValidShareTokenShape } from '../../../../../lib/beoShare';
 
 export const dynamic = 'force-dynamic';
+
+/** @typedef {{ params: Promise<{ token?: string }> | { token?: string } }} RouteCtx */
+/**
+ * The public-doc columns this route reads off beo_events (location_id is
+ * stripped before the response).
+ * @typedef {{ id: number, title: string, event_date: string | null,
+ *             event_time: string | null, contact_name: string | null,
+ *             guest_count: number | null, notes: string | null,
+ *             tax_rate: number | null, service_fee_pct: number | null,
+ *             location_id: string }} PublicEventRow
+ */
 
 // PUBLIC route. Guests with the share token can read the BEO doc.
 // The response is deliberately sanitized: line-item PREP fields and
@@ -13,6 +26,10 @@ export const dynamic = 'force-dynamic';
 // Middleware (middleware.js PUBLIC_CARVEOUTS) exempts /api/beo/share/*
 // from the PIN gate. The token itself is the access boundary.
 
+/**
+ * @param {Request} _req
+ * @param {RouteCtx} ctx
+ */
 export async function GET(_req, ctx) {
   const params = await ctx?.params;
   const token = params?.token;
@@ -21,7 +38,7 @@ export async function GET(_req, ctx) {
   }
 
   const db = getDb();
-  const event = db
+  const event = /** @type {PublicEventRow | undefined} */ (db
     .prepare(
       `SELECT id, title, event_date, event_time, contact_name, guest_count,
               notes, tax_rate, service_fee_pct, location_id
@@ -30,7 +47,7 @@ export async function GET(_req, ctx) {
           AND share_revoked_at IS NULL
           AND (share_expires_at IS NULL OR datetime(share_expires_at) > datetime('now'))`,
     )
-    .get(token);
+    .get(token));
   if (!event) return Response.json({ error: 'not found' }, { status: 404 });
 
   const lineItems = db

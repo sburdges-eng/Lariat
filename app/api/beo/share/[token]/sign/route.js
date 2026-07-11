@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../../../../lib/db';
 import { postAuditEvent } from '../../../../../../lib/auditEvents';
 import { withIdempotency } from '../../../../../../lib/idempotency';
@@ -11,6 +13,8 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+/** @typedef {{ params: Promise<{ token?: string }> | { token?: string } }} RouteCtx */
+
 // PUBLIC route. The guest with the share URL signs the BEO doc.
 // Recording is append-only (mirrors audit_events) — multiple signers
 // (e.g. event planner + venue contact) all leave separate rows.
@@ -18,10 +22,18 @@ export const dynamic = 'force-dynamic';
 // Audit event runs inside the same db.transaction as the INSERT so a
 // signature row can never exist without a matching audit_events row.
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function POST(req, ctx) {
   return withIdempotency(req, () => handler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function handler(req, ctx) {
   const params = await ctx?.params;
   const token = params?.token;
@@ -42,7 +54,7 @@ async function handler(req, ctx) {
   }
 
   const db = getDb();
-  const event = db
+  const event = /** @type {{ id: number, location_id: string } | undefined} */ (db
     .prepare(
       `SELECT id, location_id
          FROM beo_events
@@ -50,7 +62,7 @@ async function handler(req, ctx) {
           AND share_revoked_at IS NULL
           AND (share_expires_at IS NULL OR datetime(share_expires_at) > datetime('now'))`,
     )
-    .get(token);
+    .get(token));
   if (!event) return Response.json({ error: 'not found' }, { status: 404 });
 
   const ipAddr = extractClientIp(req);
