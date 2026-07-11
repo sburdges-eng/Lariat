@@ -1,4 +1,3 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // GET /api/beo/fire-schedule?date=YYYY-MM-DD&location=<slug>
 //
 // Per spec §B (T7). PUBLIC endpoint — line cooks read this on a wall
@@ -10,12 +9,21 @@
 // event_date matches the query). Joins beo_courses → beo_line_items
 // (only lines with course_id set) and groups by beo_courses.station_id.
 
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { json } from '../../../../lib/routeHelpers';
 import { getDb, todayISO } from '../../../../lib/db';
 import { resolveSchedule } from '../../../../lib/beoFireSchedule';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * The event-scoped query also echoes the event's own date.
+ * @typedef {import('../../../../lib/beoFireSchedule').CourseRow & { event_date?: string | null }} FsCourseRow
+ */
+
+/** @param {Request} req */
 export async function GET(req) {
   const url = new URL(req.url);
   const location = url.searchParams.get('location') || 'default';
@@ -31,11 +39,12 @@ export async function GET(req) {
     const db = getDb();
 
     let date;
+    /** @type {FsCourseRow[]} */
     let courses;
 
     if (useEventScope) {
       const eventId = eventIdNum;
-      courses = db
+      courses = /** @type {FsCourseRow[]} */ (db
         .prepare(
           `SELECT c.id, c.event_id, c.course_label, c.fire_at, c.station_id,
                   e.title AS event_title, e.event_date AS event_date
@@ -45,14 +54,14 @@ export async function GET(req) {
               AND c.event_id = ?
             ORDER BY c.fire_at, c.id`,
         )
-        .all(location, eventId);
+        .all(location, eventId));
       // Echo the event's own date; fall back to the query param or today.
-      date = (courses.length > 0 ? courses[0].event_date : null) ||
+      date = (courses.length > 0 ? courses[0]?.event_date : null) ||
         url.searchParams.get('date') ||
         todayISO();
     } else {
       date = url.searchParams.get('date') || todayISO();
-      courses = db
+      courses = /** @type {FsCourseRow[]} */ (db
         .prepare(
           `SELECT c.id, c.event_id, c.course_label, c.fire_at, c.station_id,
                   e.title AS event_title
@@ -62,21 +71,22 @@ export async function GET(req) {
               AND e.event_date = ?
             ORDER BY c.fire_at, c.id`,
         )
-        .all(location, date);
+        .all(location, date));
     }
 
     // Pull every line bound to one of these courses in a single query.
     const courseIds = courses.map((c) => c.id);
+    /** @type {import('../../../../lib/beoFireSchedule').LineRow[]} */
     let lines = [];
     if (courseIds.length > 0) {
       const placeholders = courseIds.map(() => '?').join(',');
-      lines = db
+      lines = /** @type {import('../../../../lib/beoFireSchedule').LineRow[]} */ (db
         .prepare(
           `SELECT id, event_id, course_id, item_name, quantity, prep_notes, order_items_notes
              FROM beo_line_items
             WHERE course_id IN (${placeholders})`,
         )
-        .all(...courseIds);
+        .all(...courseIds));
     }
 
     const payload = resolveSchedule(date, location, courses, lines);

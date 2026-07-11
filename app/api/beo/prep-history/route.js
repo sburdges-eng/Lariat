@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../../lib/db';
 import { locationFromRequest } from '../../../../lib/location';
 import { requirePinOrScope } from '../../../../lib/pin';
@@ -13,6 +15,7 @@ const MAX_ITEMS_PER_REQUEST = 50;
 
 const SCOPE = 'menu.prep_history';
 
+/** @param {Request} req */
 export async function GET(req) {
   const pinFail = await requirePinOrScope(req, SCOPE);
   if (pinFail) return pinFail;
