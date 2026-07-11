@@ -1,10 +1,13 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { requirePin } from '../../../lib/pin';
 
 export const dynamic = 'force-dynamic';
 
+/** @param {Request} req */
 export async function GET(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
@@ -13,9 +16,9 @@ export async function GET(req) {
     const loc = u.searchParams.get('location') || DEFAULT_LOCATION_ID;
     const db = getDb();
 
-    const salesTotal = db
+    const salesTotal = /** @type {{ rev: number | null, qty: number | null } | undefined} */ (db
       .prepare(`SELECT SUM(net_sales) as rev, SUM(quantity_sold) as qty FROM sales_lines WHERE location_id = ?`)
-      .get(loc);
+      .get(loc));
     const topItems = db
       .prepare(
         `SELECT item_name, SUM(quantity_sold) as qty, SUM(net_sales) as rev FROM sales_lines WHERE location_id = ? GROUP BY item_name ORDER BY rev DESC LIMIT 15`

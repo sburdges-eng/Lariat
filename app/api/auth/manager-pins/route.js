@@ -1,5 +1,8 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts.
 // Manager PIN users: editable local manager credentials beside LARIAT_PIN.
+//
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
+// @ts-check
 
 import { json } from '../../../../lib/routeHelpers';
 import { getDb } from '../../../../lib/db';
@@ -16,6 +19,7 @@ import { withIdempotency } from '../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/** @param {Request} req */
 export async function GET(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
@@ -29,11 +33,13 @@ export async function GET(req) {
   }
 }
 
+/** @param {Request} req */
 export async function POST(req) {
   // Replaying a queued POST would create a duplicate PIN user + audit row.
   return withIdempotency(req, () => managerPinsPostHandler(req));
 }
 
+/** @param {Request} req */
 async function managerPinsPostHandler(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
@@ -63,11 +69,13 @@ async function managerPinsPostHandler(req) {
   }
 }
 
+/** @param {Request} req */
 export async function PATCH(req) {
   // Replay dedupe keeps the audit trail to one row per real edit.
   return withIdempotency(req, () => managerPinsPatchHandler(req));
 }
 
+/** @param {Request} req */
 async function managerPinsPatchHandler(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
@@ -99,11 +107,13 @@ async function managerPinsPatchHandler(req) {
   }
 }
 
+/** @param {Request} req */
 export async function DELETE(req) {
   // Replay dedupe keeps the audit trail to one row per real disable.
   return withIdempotency(req, () => managerPinsDeleteHandler(req));
 }
 
+/** @param {Request} req */
 async function managerPinsDeleteHandler(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
@@ -128,6 +138,11 @@ async function managerPinsDeleteHandler(req) {
   }
 }
 
+/**
+ * @param {'insert' | 'update'} action
+ * @param {import('../../../../lib/managerPins.ts').ManagerPinUser} user
+ * @param {string} location
+ */
 function audit(action, user, location) {
   postAuditEvent({
     entity: 'manager_pin_user',
