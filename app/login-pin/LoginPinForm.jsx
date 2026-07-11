@@ -38,7 +38,17 @@ export default function LoginPinForm() {
     });
     setLoading(false);
     if (!res.ok) {
-      setErr('Wrong PIN');
+      // 401 = wrong PIN, keep the terse message (no server detail on
+      // auth failures). Anything else carries an actionable server
+      // message — 429 rate limit, 503 setup required, 500 missing
+      // LARIAT_PIN_SECRET (fails closed in prod) — that collapsing to
+      // "Wrong PIN" would hide.
+      let message = 'Wrong PIN';
+      if (res.status !== 401) {
+        const body = await res.json().catch(() => null);
+        if (body && typeof body.error === 'string' && body.error) message = body.error;
+      }
+      setErr(message);
       return;
     }
     router.push(safeNext);
