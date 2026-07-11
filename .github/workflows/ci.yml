@@ -56,6 +56,9 @@ jobs:
       - name: Sick-note retention report test
         run: npm run test:sick-note-retention
 
+      - name: PIN-gate coverage (mutation-route drift detector)
+        run: npm run test:pin-gates
+
       - name: 86 sub-recipe cascade tests
         run: npm run test:sub-recipe-graph
 
