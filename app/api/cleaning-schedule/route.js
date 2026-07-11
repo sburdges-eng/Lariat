@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../lib/db';
 import {
   DEFAULT_LOCATION_ID,
@@ -9,12 +11,16 @@ import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/** @typedef {ReturnType<typeof getDb>} Db */
+
+/** @param {unknown} s @param {number} max @returns {string | null} */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
+/** @param {Db} db @param {string} locationId @param {boolean} includeArchived */
 function selectRows(db, locationId, includeArchived) {
   const base = `SELECT id, location_id, area, task, frequency, last_done,
                        next_due, notes, active, created_at, archived_at
@@ -25,6 +31,7 @@ function selectRows(db, locationId, includeArchived) {
   return db.prepare(base + filter + order).all(locationId);
 }
 
+/** @param {Db} db @param {number | bigint} id */
 function selectOne(db, id) {
   return db
     .prepare(
@@ -36,6 +43,7 @@ function selectOne(db, id) {
     .get(id);
 }
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const url = new URL(req.url);
@@ -50,10 +58,12 @@ export async function GET(req) {
   }
 }
 
+/** @param {Request} req */
 export async function POST(req) {
   return withIdempotency(req, () => cleaningSchedulePostHandler(req));
 }
 
+/** @param {Request} req */
 async function cleaningSchedulePostHandler(req) {
   try {
     const body = await req.json();
@@ -103,10 +113,12 @@ async function cleaningSchedulePostHandler(req) {
   }
 }
 
+/** @param {Request} req */
 export async function PATCH(req) {
   return withIdempotency(req, () => cleaningSchedulePatchHandler(req));
 }
 
+/** @param {Request} req */
 async function cleaningSchedulePatchHandler(req) {
   try {
     const body = await req.json();
@@ -121,8 +133,11 @@ async function cleaningSchedulePatchHandler(req) {
       return Response.json({ error: 'cleaning schedule row not found' }, { status: 404 });
     }
 
+    /** @type {string[]} */
     const sets = [];
+    /** @type {unknown[]} */
     const vals = [];
+    /** @param {string} col @param {unknown} val */
     const push = (col, val) => {
       sets.push(`${col} = ?`);
       vals.push(val);
@@ -182,10 +197,12 @@ async function cleaningSchedulePatchHandler(req) {
   }
 }
 
+/** @param {Request} req */
 export async function DELETE(req) {
   return withIdempotency(req, () => cleaningScheduleDeleteHandler(req));
 }
 
+/** @param {Request} req */
 async function cleaningScheduleDeleteHandler(req) {
   try {
     const body = await req.json();
