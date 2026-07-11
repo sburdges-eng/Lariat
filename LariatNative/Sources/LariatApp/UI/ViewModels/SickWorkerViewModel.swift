@@ -288,6 +288,10 @@ final class SickWorkerViewModel {
         return "Couldn't attach the document — please try again."
     }
 
+    /// The data root for the View's Open-button call into `decryptedOpenURL`
+    /// (`dataRoot()` itself stays private — this is the narrow accessor).
+    var dataRootURL: URL { Self.dataRoot() }
+
     /// Openable URL for a stored document, or nil when the file is missing on
     /// disk (the DB row can outlive a moved/deleted file — spec §5) or the
     /// stored `file_path` escapes the uploads root (tampered/out-of-band row —
@@ -323,6 +327,42 @@ final class SickWorkerViewModel {
         env: [String: String] = ProcessInfo.processInfo.environment
     ) -> URL {
         URL(fileURLWithPath: LariatDB.resolveDataDirectory(env: env), isDirectory: true)
+    }
+
+    /// Resolve a stored document to an openable URL for the OS viewer,
+    /// decrypting an LSN1-sealed file to a private temp copy first (audit
+    /// P0-6 §7/§12). A file that predates encryption opens directly — the
+    /// legacy-plaintext grace path; the launch migrator encrypts it later in
+    /// the background. Returns nil when `documentFileURL` refuses the row
+    /// (missing/out-of-bounds file — see its doc comment) or the media key is
+    /// malformed; throws on a genuine I/O or decrypt failure (wrong key,
+    /// tampered ciphertext) so the caller's `try?` degrades to a no-op rather
+    /// than opening bad data.
+    nonisolated static func decryptedOpenURL(
+        _ doc: SickNoteDocumentRow,
+        dataDir: URL,
+        env: [String: String] = ProcessInfo.processInfo.environment
+    ) throws -> URL? {
+        guard let onDisk = documentFileURL(doc, env: env) else { return nil } // containment-checked
+        let data = try Data(contentsOf: onDisk)
+        if !SickNoteCrypto.isEncrypted(data) { return onDisk }                 // legacy plaintext grace
+
+        let mediaKey = try SickNoteKeyStore().loadOrCreate(dataDir: dataDir)
+        guard let keyId = mediaKey.keyIdData, let symKey = mediaKey.symmetricKey else { return nil }
+
+        // AAD = the stored relative file_path — identical to what attach sealed with.
+        let plaintext = try SickNoteCrypto.open(data, key: symKey, keyId: keyId, filePath: doc.filePath)
+        let ext = (doc.filePath as NSString).pathExtension
+
+        let tmpDir = SickNoteTempStore.directory()
+        try FileManager.default.createDirectory(
+            at: tmpDir, withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
+        let tmp = SickNoteTempStore.fileURL(uuid: UUID().uuidString, ext: ext)
+        try plaintext.write(to: tmp, options: .atomic)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tmp.path)
+        return tmp
     }
 
     /// Display name for a report's worker id via the staff catalog.

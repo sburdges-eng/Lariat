@@ -187,9 +187,14 @@ struct SickWorkerView: View {
     /// manual-row precedent).
     @ViewBuilder
     private func documentRow(_ doc: SickNoteDocumentRow) -> some View {
-        if let url = SickWorkerViewModel.documentFileURL(doc) {
+        if SickWorkerViewModel.documentFileURL(doc) != nil {
             Button {
-                NSWorkspace.shared.open(url)
+                // Decrypt the LSN1-sealed file to a private temp copy first, then
+                // hand that to the OS viewer (audit P0-6 §7); a legacy plaintext
+                // file opens directly via the grace path inside decryptedOpenURL.
+                if let openURL = try? SickWorkerViewModel.decryptedOpenURL(doc, dataDir: vm.dataRootURL) {
+                    NSWorkspace.shared.open(openURL)
+                }
             } label: {
                 Label(documentLabel(doc), systemImage: documentIcon(doc))
                     .font(.caption)
