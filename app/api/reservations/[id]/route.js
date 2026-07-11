@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../../lib/db';
 import { locationFromBody } from '../../../../lib/location';
 import { postAuditEvent } from '../../../../lib/auditEvents';
@@ -6,6 +8,19 @@ import { withIdempotency } from '../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Next 15 route context: `params` may be a promise (async dynamic APIs).
+ * @typedef {{ params: Promise<{ id?: string }> | { id?: string } }} RouteCtx
+ */
+
+/**
+ * The reservations columns this handler compares against (SELECT *).
+ * @typedef {{ status: string, party_name: string | null, party_size: number | null,
+ *             reservation_at: string | null, table_id: string | null,
+ *             phone: string | null, email: string | null, notes: string | null }} ReservationRow
+ */
+
+/** @param {unknown} s @param {number} max @returns {string | null} */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
@@ -14,6 +29,7 @@ const clip = (s, max) => {
 
 const VERBS = ['seat', 'complete', 'cancel', 'no_show'];
 
+/** @param {{ id?: unknown } | null | undefined} params */
 function parseId(params) {
   const id = Number(params?.id);
   return Number.isInteger(id) && id > 0 ? id : null;
@@ -41,11 +57,17 @@ function parseId(params) {
  *                not touch any table
  *   - no_show  → no table touch
  * A stale table_id (no matching dining_tables row) is skipped silently.
+ * @param {Request} req
+ * @param {RouteCtx} ctx
  */
 export async function PATCH(req, ctx) {
   return withIdempotency(req, () => reservationPatchHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function reservationPatchHandler(req, { params }) {
 
   params = await params;
@@ -65,12 +87,14 @@ async function reservationPatchHandler(req, { params }) {
     const db = getDb();
 
     const result = db.transaction(() => {
-      const row = db
+      const row = /** @type {ReservationRow | undefined} */ (db
         .prepare(`SELECT * FROM reservations WHERE id = ? AND location_id = ?`)
-        .get(id, loc);
+        .get(id, loc));
       if (!row) return { ok: false, status: 404, err: 'not found' };
 
+      /** @type {string[]} */
       const sets = [];
+      /** @type {unknown[]} */
       const args = [];
       let nextStatus = row.status;
 
@@ -187,14 +211,19 @@ async function reservationPatchHandler(req, { params }) {
       //   no_show  → no table touch (never seated)
       // If the linked table_id points at no row (stale reference), skip
       // silently — the reservation update still stands.
+      /**
+       * @param {string | null} tableId
+       * @param {string} toStatus
+       * @param {string} triggeredBy
+       */
       const touchTable = (tableId, toStatus, triggeredBy) => {
         if (!tableId) return;
-        const tRow = db
+        const tRow = /** @type {{ id: string, status: string } | undefined} */ (db
           .prepare(
             `SELECT id, status FROM dining_tables
               WHERE id = ? AND location_id = ?`,
           )
-          .get(tableId, loc);
+          .get(tableId, loc));
         if (!tRow) return; // stale table_id — skip silently
         db.prepare(
           `UPDATE dining_tables
@@ -243,10 +272,18 @@ async function reservationPatchHandler(req, { params }) {
   }
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function DELETE(req, ctx) {
   return withIdempotency(req, () => reservationDeleteHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function reservationDeleteHandler(req, { params }) {
 
   params = await params;

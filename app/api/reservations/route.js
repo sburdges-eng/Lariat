@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
@@ -6,6 +8,7 @@ import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/** @param {unknown} s @param {number} max @returns {string | null} */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
@@ -23,6 +26,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  *   - status: filters to one status
  *   - from / to: 'YYYY-MM-DD' inclusive range, only used if date is absent
  *   - location / location_id: site scope
+ * @param {Request} req
  */
 export async function GET(req) {
   try {
@@ -71,10 +75,12 @@ export async function GET(req) {
   }
 }
 
+/** @param {Request} req */
 export async function POST(req) {
   return withIdempotency(req, () => reservationsPostHandler(req));
 }
 
+/** @param {Request} req */
 async function reservationsPostHandler(req) {
   try {
     const body = await req.json().catch(() => ({}));
