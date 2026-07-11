@@ -1,7 +1,9 @@
 # Sick-Note Document Lifecycle — Encryption at Rest, Content Validation, Retention (P0-6)
 
 **Date:** 2026-07-10
-**Status:** Designed (owner-ratified decisions §2; implementation pending)
+**Status:** Implemented (2026-07-10, PR #459 — `feat/lariat-sick-note-lifecycle`; owner
+decisions §2 fully ratified 2026-07-11: Keychain mirror is device-only, production corpus
+confirmed zero)
 **Author:** Claude (Fable 5) with owner
 **Audit item:** External audit 2026-07-10, finding P0-6 (verified severity P2): native sick-note
 documents (medical PHI) are stored plaintext on disk with extension-only validation and no
@@ -30,8 +32,9 @@ via `FileManager.copyItem` (`LariatApp/UI/Support/SickNoteAttach.swift`) and ope
 
 **Corpus status at design time: zero.** No `uploads/sick-notes/` directory, no
 `sick_note_documents` table in the live DB, no sick-note files in any backup on this machine.
-Encryption lands before the first real document exists. (One owner confirmation outstanding:
-that the restaurant Mac also holds none — the migration sweep in §8 covers it either way.)
+Encryption lands before the first real document exists. (Owner confirmed 2026-07-11: the
+restaurant Mac also holds none — the corpus is zero everywhere, and the §8 sweep is a
+belt-and-suspenders no-op.)
 
 ## 2. Owner-ratified decisions (2026-07-10)
 
@@ -43,7 +46,9 @@ that the restaurant Mac also holds none — the migration sweep in §8 covers it
    medical paperwork; the owner keeps a legal-hold escape hatch.
 3. **Key recovery: key file + macOS Keychain mirror.** The key file under the data dir is the
    source of truth (readable by both runtimes, automatically excluded from backups); native
-   mirrors it into the Keychain for recovery.
+   mirrors it into the Keychain for recovery. **Ratified 2026-07-11: the mirror is
+   device-only** (`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` — never syncs to
+   iCloud); recovery onto a new Mac is the manual password-manager copy of the key file.
 
 ## 3. Non-goals
 
