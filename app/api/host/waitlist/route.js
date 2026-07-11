@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../../lib/location';
 import { requirePin } from '../../../../lib/pin';
@@ -16,6 +18,7 @@ export const dynamic = 'force-dynamic';
 //        file-stream audit row (operational data, not regulated cash
 //        custody / HACCP).
 
+/** @param {Request} req */
 export async function GET(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
@@ -26,7 +29,7 @@ export async function GET(req) {
     const db = getDb();
     const todayPrefix = new Date().toISOString().slice(0, 10);
 
-    const parties = db
+    const parties = /** @type {import('../../../../lib/hostStand').WaitlistPartyRow[]} */ (db
       .prepare(
         `SELECT id, location_id, party_name, party_size, joined_at, status,
                 seated_at, left_at, phone, notes
@@ -37,7 +40,7 @@ export async function GET(req) {
                  OR (status = 'left'   AND substr(left_at,   1, 10) = ?))
           ORDER BY joined_at`,
       )
-      .all(loc, todayPrefix, todayPrefix);
+      .all(loc, todayPrefix, todayPrefix));
 
     const nowIso = new Date().toISOString();
     const summary = summarizeWaitlist(parties, nowIso);
@@ -49,12 +52,14 @@ export async function GET(req) {
   }
 }
 
+/** @param {Request} req */
 export async function POST(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
   return withIdempotency(req, () => waitlistPostHandler(req));
 }
 
+/** @param {Request} req */
 async function waitlistPostHandler(req) {
   let body;
   try {
