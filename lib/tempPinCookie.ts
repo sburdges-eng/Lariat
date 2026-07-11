@@ -14,6 +14,10 @@
 // Deployment-safety posture matches lib/pinCookie.ts: if LARIAT_PIN_SECRET
 // is unset we degrade to an unsigned `id` cookie with a one-time warning
 // — the iPad keeps working, but operator is told to set the secret.
+// In production the degrade is disabled entirely: sign throws and verify
+// rejects (fail closed — audit P0-4, via unsignedPinCookieAllowed).
+
+import { unsignedPinCookieAllowed } from './pinCookie.ts';
 
 export const SIGNED_TEMP_PIN_PREFIX = 'v1.';
 export const TEMP_PIN_COOKIE_NAME = 'lariat_temp_pin_ok';
@@ -67,6 +71,12 @@ export async function signTempPinCookieValue(
     throw new Error('temp pin id must be a positive integer');
   }
   if (!secret) {
+    if (!unsignedPinCookieAllowed()) {
+      throw new Error(
+        'LARIAT_PIN_SECRET is required in production — refusing an unsigned ' +
+          'temp-PIN cookie. Set it to a random 32-byte value (`openssl rand -hex 32`).',
+      );
+    }
     warnLegacyOnce();
     return String(id);
   }
@@ -109,8 +119,10 @@ export async function verifyTempPinCookieValue(
     return diff === 0 ? id : null;
   }
 
-  // Legacy unsigned path: only when no secret is configured.
+  // Legacy unsigned path: only when no secret is configured, and never
+  // in production (fail closed — audit P0-4).
   if (secret) return null;
+  if (!unsignedPinCookieAllowed()) return null;
   const id = Number(value);
   return Number.isInteger(id) && id > 0 ? id : null;
 }

@@ -70,14 +70,34 @@ async function hmacSign(secret: string, payload: string): Promise<Uint8Array> {
 }
 
 /**
+ * Legacy unsigned cookies are a dev/partial-deploy convenience only. In
+ * production (NODE_ENV=production) a missing LARIAT_PIN_SECRET fails
+ * closed (audit P0-4): a bare forgeable cookie must never be an auth
+ * ticket on a real deployment. The Electron wrapper already fails closed
+ * (desktop/settings.ts); this closes the manual `next start` self-host
+ * path. Shared by lib/tempPinCookie.ts so both cookies keep one posture.
+ */
+export function unsignedPinCookieAllowed(): boolean {
+  return process.env.NODE_ENV !== 'production';
+}
+
+const SECRET_REQUIRED_MSG =
+  'LARIAT_PIN_SECRET is required in production — refusing an unsigned PIN ' +
+  'cookie. Set it to a random 32-byte value (`openssl rand -hex 32`) and ' +
+  'have every browser re-enter the PIN.';
+
+/**
  * Sign the PIN cookie value. Returns a string suitable for
  * `Set-Cookie: lariat_pin_ok=<value>`.
  *
  * If secret is missing we return `"1"` (legacy format) and log a
- * one-time warning so a partial deploy doesn't lock the iPad.
+ * one-time warning so a partial deploy doesn't lock the iPad — outside
+ * production only; in production this throws instead (see
+ * unsignedPinCookieAllowed).
  */
 export async function signPinCookieValue(secret: string | undefined): Promise<string> {
   if (!secret) {
+    if (!unsignedPinCookieAllowed()) throw new Error(SECRET_REQUIRED_MSG);
     warnLegacyOnce();
     return COOKIE_PAYLOAD;
   }
@@ -119,10 +139,12 @@ export async function verifyPinCookieValue(
     return diff === 0;
   }
 
-  // Legacy unsigned path: only accept bare "1", and only when no
-  // secret is configured. With a secret set, every request must use
-  // the signed path — that's the whole point.
+  // Legacy unsigned path: only accept bare "1", only when no secret is
+  // configured, and never in production (fail closed — audit P0-4).
+  // With a secret set, every request must use the signed path — that's
+  // the whole point.
   if (secret) return false;
+  if (!unsignedPinCookieAllowed()) return false;
   return value === COOKIE_PAYLOAD;
 }
 

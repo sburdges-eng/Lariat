@@ -121,3 +121,57 @@ describe('hasValidPinCookie (Request shape)', () => {
     assert.strictEqual(await hasValidPinCookie(req, SECRET), true);
   });
 });
+
+// ── production fail-closed (audit P0-4) ─────────────────────────────────────
+// The legacy unsigned fallback is a dev/partial-deploy convenience only.
+// In NODE_ENV=production a missing LARIAT_PIN_SECRET must fail closed:
+// a bare forgeable cookie is never an auth ticket on a real deployment.
+
+const { signTempPinCookieValue, verifyTempPinCookieValue } =
+  await import('../../lib/tempPinCookie.ts');
+
+async function inProduction(run) {
+  const prev = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  try {
+    return await run();
+  } finally {
+    if (prev === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = prev;
+  }
+}
+
+describe('production fail-closed without LARIAT_PIN_SECRET (P0-4)', () => {
+  it('verify rejects legacy "1" in production', async () => {
+    await inProduction(async () => {
+      assert.strictEqual(await verifyPinCookieValue('1', undefined), false);
+    });
+  });
+
+  it('sign refuses to issue an unsigned cookie in production', async () => {
+    await inProduction(async () => {
+      await assert.rejects(() => signPinCookieValue(undefined), /LARIAT_PIN_SECRET/);
+    });
+  });
+
+  it('temp-pin verify rejects a legacy bare id in production', async () => {
+    await inProduction(async () => {
+      assert.strictEqual(await verifyTempPinCookieValue('42', undefined), null);
+    });
+  });
+
+  it('temp-pin sign refuses an unsigned cookie in production', async () => {
+    await inProduction(async () => {
+      await assert.rejects(() => signTempPinCookieValue(42, undefined), /LARIAT_PIN_SECRET/);
+    });
+  });
+
+  it('signed path still works in production with the secret set', async () => {
+    await inProduction(async () => {
+      const v = await signPinCookieValue(SECRET);
+      assert.strictEqual(await verifyPinCookieValue(v, SECRET), true);
+      const t = await signTempPinCookieValue(7, SECRET);
+      assert.strictEqual(await verifyTempPinCookieValue(t, SECRET), 7);
+    });
+  });
+});
