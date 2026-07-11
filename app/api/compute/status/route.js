@@ -1,9 +1,12 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../../lib/db';
 import { triggerComputeEngine } from '../../../../lib/computeEngine/index';
 import { requirePin } from '../../../../lib/pin';
 import { withIdempotency } from '../../../../lib/idempotency';
 
+/** @param {Request} request */
 export async function GET(request) {
   const pinFail = await requirePin(request);
   if (pinFail) return pinFail;
@@ -39,16 +42,19 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error('Compute Status Error:', error);
-    return Response.json({ status: 'error', message: error.message }, { status: 500 });
+    const e = /** @type {{ message?: unknown } | null} */ (error);
+    return Response.json({ status: 'error', message: e?.message }, { status: 500 });
   }
 }
 
+/** @param {Request} request */
 export async function POST(request) {
   const pinFail = await requirePin(request);
   if (pinFail) return pinFail;
   return withIdempotency(request, () => computeStatusPostHandler(request));
 }
 
+/** @param {Request} request */
 async function computeStatusPostHandler(request) {
   const { searchParams } = new URL(request.url);
   const locationId = searchParams.get('location') || 'default';
@@ -61,6 +67,7 @@ async function computeStatusPostHandler(request) {
   // Only `period_start` / `period_end` are honored; any other body
   // field is ignored. Malformed JSON falls back silently to URL params
   // so curl/scripts that mis-format a body still get the URL behavior.
+  /** @type {Record<string, unknown>} */
   let body = {};
   if (request.headers.get('content-length')) {
     try {
