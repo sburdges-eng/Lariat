@@ -39,7 +39,8 @@ describe('LoginPinForm error surfacing', () => {
     await waitFor(() => expect(screen.getByText('Wrong PIN')).toBeInTheDocument());
   });
 
-  test('500 misconfiguration shows the server message, not "Wrong PIN"', async () => {
+  test('500 misconfiguration shows plain owner copy — never raw server text (UI copy rules)', async () => {
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockPinResponse({
       status: 500,
       body: { error: 'PIN sign-in is not fully configured: LARIAT_PIN_SECRET is required in production.' },
@@ -47,9 +48,16 @@ describe('LoginPinForm error surfacing', () => {
     render(<LoginPinForm />);
     await submitPin();
     await waitFor(() =>
-      expect(screen.getByText(/LARIAT_PIN_SECRET is required/)).toBeInTheDocument(),
+      expect(screen.getByText(/Ask the owner to check setup/)).toBeInTheDocument(),
     );
+    // No dev jargon on a cook-facing screen; no "Wrong PIN" either.
+    expect(screen.queryByText(/LARIAT_PIN_SECRET/)).not.toBeInTheDocument();
     expect(screen.queryByText('Wrong PIN')).not.toBeInTheDocument();
+    // The raw detail still reaches ops via the console.
+    expect(errSpy).toHaveBeenCalledWith(
+      'PIN sign-in failed:', 500, expect.stringContaining('LARIAT_PIN_SECRET'),
+    );
+    errSpy.mockRestore();
   });
 
   test('429 rate limit shows the wait message', async () => {
@@ -64,7 +72,7 @@ describe('LoginPinForm error surfacing', () => {
     );
   });
 
-  test('non-401 with an unreadable body still falls back to "Wrong PIN"', async () => {
+  test('non-401 with an unreadable body still shows the owner copy', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
       status: 500,
@@ -72,6 +80,8 @@ describe('LoginPinForm error surfacing', () => {
     });
     render(<LoginPinForm />);
     await submitPin();
-    await waitFor(() => expect(screen.getByText('Wrong PIN')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/Ask the owner to check setup/)).toBeInTheDocument(),
+    );
   });
 });
