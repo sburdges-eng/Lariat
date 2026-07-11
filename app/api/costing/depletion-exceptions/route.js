@@ -1,4 +1,3 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 /**
  * GET /api/costing/depletion-exceptions
  *
@@ -13,7 +12,11 @@
  *   ?location=<id>         — defaults to DEFAULT_LOCATION_ID ('default')
  *   ?period=<period_label> — optional filter, e.g. '2026-W17'
  *   ?limit=<n>             — optional, capped at 1000 (default 200)
+ *
+ * Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+ * only, no behavior change.
  */
+// @ts-check
 
 import { getDb } from '../../../../lib/db';
 import { locationFromRequest } from '../../../../lib/location';
@@ -22,6 +25,7 @@ import { listDepletionExceptions } from '../../../../lib/depletionExceptions';
 
 export const dynamic = 'force-dynamic';
 
+/** @param {string | null | undefined} raw @returns {number} */
 function clampLimit(raw) {
   if (raw == null || raw === '') return 200;
   const n = Number(raw);
@@ -29,6 +33,7 @@ function clampLimit(raw) {
   return Math.max(1, Math.min(1000, Math.floor(n)));
 }
 
+/** @param {Request} req */
 export async function GET(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
