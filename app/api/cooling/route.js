@@ -1,4 +1,3 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // Two-stage cooling log (F1 / CCP-8).
 //
 // POST  /api/cooling        → open a cooling batch
@@ -9,6 +8,9 @@
 // route is just DB I/O + shape validation. We POST an audit_events row
 // for every insert/update so the trail survives a later correction.
 
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import {
@@ -23,12 +25,16 @@ import { localIdentityFields } from '../../../lib/localIdentity';
 
 export const dynamic = 'force-dynamic';
 
+/** @typedef {import('../../../lib/db').CoolingLogEntry} CoolingRow */
+
+/** @param {unknown} s @param {number} max @returns {string | null} */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
+/** @param {CoolingRow} row */
 function coolingUpdatePayload(row) {
   return {
     id: row.id,
@@ -52,10 +58,12 @@ function coolingUpdatePayload(row) {
 
 // ── POST /api/cooling ─────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function POST(req) {
   return withIdempotency(req, () => coolingPostHandler(req));
 }
 
+/** @param {Request} req */
 async function coolingPostHandler(req) {
   try {
     const body = await req.json();
@@ -85,7 +93,8 @@ async function coolingPostHandler(req) {
         VALUES (?, ?, ?, ?, ?, ?, 'in_progress', ?)
       `).run(shift_date, location_id, item, station_id, started_at, start_reading_f, cook_id);
 
-      const row = db.prepare('SELECT * FROM cooling_log WHERE id=?').get(info.lastInsertRowid);
+      const row = /** @type {CoolingRow} */ (
+        db.prepare('SELECT * FROM cooling_log WHERE id=?').get(info.lastInsertRowid));
       postAuditEvent({
         entity: 'cooling_log',
         entity_id: Number(info.lastInsertRowid),
@@ -132,10 +141,12 @@ async function coolingPostHandler(req) {
 
 // ── PATCH /api/cooling ────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function PATCH(req) {
   return withIdempotency(req, () => coolingPatchHandler(req));
 }
 
+/** @param {Request} req */
 async function coolingPatchHandler(req) {
   try {
     const body = await req.json();
@@ -168,7 +179,8 @@ async function coolingPatchHandler(req) {
     const callerLocation = locationFromRequest(req);
 
     const performUpdate = db.transaction(() => {
-      const existing = db.prepare('SELECT * FROM cooling_log WHERE id=?').get(id);
+      const existing = /** @type {CoolingRow | undefined} */ (
+        db.prepare('SELECT * FROM cooling_log WHERE id=?').get(id));
       if (!existing) return { status: 404, error: 'unknown cooling batch' };
 
       // Cross-location IDOR guard: a cook scoped to site-A must not be
@@ -215,7 +227,8 @@ async function coolingPatchHandler(req) {
 
       db.prepare(sql).run(...args);
 
-      const updated = db.prepare('SELECT * FROM cooling_log WHERE id=?').get(id);
+      const updated = /** @type {CoolingRow} */ (
+        db.prepare('SELECT * FROM cooling_log WHERE id=?').get(id));
       postAuditEvent({
         entity: 'cooling_log',
         entity_id: id,
@@ -250,15 +263,19 @@ async function coolingPatchHandler(req) {
       return Response.json(body, { status });
     }
 
+    // status === 200 always carries decision (ok:true branch) + updated;
+    // the transaction's inferred union can't express that, so assert it.
+    const ok = /** @type {{ updated: CoolingRow, decision: Extract<import('../../../lib/cooling').StageDecision, { ok: true }> }} */ (result);
+
     return Response.json({
       ok: true,
       decision: {
-        stage: result.decision.stage,
-        status: result.decision.status,
-        breach_reason: result.decision.breach_reason,
-        minutes_elapsed: result.decision.minutes_elapsed,
+        stage: ok.decision.stage,
+        status: ok.decision.status,
+        breach_reason: ok.decision.breach_reason,
+        minutes_elapsed: ok.decision.minutes_elapsed,
       },
-      entry: result.updated,
+      entry: ok.updated,
     });
   } catch (err) {
     console.error('PATCH /api/cooling failed:', err);
@@ -268,6 +285,7 @@ async function coolingPatchHandler(req) {
 
 // ── GET /api/cooling ──────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const url = new URL(req.url);
@@ -276,21 +294,22 @@ export async function GET(req) {
     const includeClosed = url.searchParams.get('all') === '1';
 
     const db = getDb();
-    const openRows = db.prepare(`
+    const openRows = /** @type {CoolingRow[]} */ (db.prepare(`
       SELECT * FROM cooling_log
        WHERE location_id=? AND status='in_progress'
        ORDER BY started_at ASC
-    `).all(location_id);
+    `).all(location_id));
 
     const scan = scanOpenBatches(openRows, Date.now());
 
+    /** @type {CoolingRow[]} */
     let closed = [];
     if (includeClosed) {
-      closed = db.prepare(`
+      closed = /** @type {CoolingRow[]} */ (db.prepare(`
         SELECT * FROM cooling_log
          WHERE location_id=? AND shift_date=? AND status != 'in_progress'
          ORDER BY id DESC
-      `).all(location_id, date);
+      `).all(location_id, date));
     }
 
     return Response.json({
