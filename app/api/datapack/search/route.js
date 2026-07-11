@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import {
   fts,
   semantic,
@@ -23,6 +25,7 @@ const ALLOWED_BUCKETS = new Set([
   'ingredients',
 ]);
 
+/** @param {unknown} s @returns {string | null} */
 const clipQuery = (s) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
@@ -32,12 +35,14 @@ const clipQuery = (s) => {
   return t.slice(0, 240);
 };
 
+/** @param {string | null | undefined} raw @returns {number} */
 const parseLimit = (raw) => {
   const n = Number.parseInt(raw ?? '20', 10);
   if (!Number.isFinite(n) || n < 1) return 20;
   return Math.min(n, 100);
 };
 
+/** @param {Request} req */
 export async function GET(req) {
   if (!available()) {
     return Response.json(
@@ -125,10 +130,11 @@ export async function GET(req) {
         // failure on first download) bubble up — surface as 502 so the
         // caller knows it's an upstream problem, not their input.
         console.error('semantic() failed:', err);
+        const e = /** @type {{ message?: unknown } | null} */ (err);
         return Response.json(
           {
             error: 'semantic encode failed',
-            detail: String(err?.message ?? err),
+            detail: String(e?.message ?? err),
           },
           { status: 502 }
         );
@@ -153,17 +159,22 @@ export async function GET(req) {
       const limit = parseLimit(url.searchParams.get('limit'));
       let hits;
       try {
-        hits = await hybrid(q, { bucket, limit });
+        // Runtime-validated against ALLOWED_BUCKETS above; assert the union.
+        hits = await hybrid(q, {
+          bucket: /** @type {import('../../../../lib/datapackSearch').HybridBucket} */ (bucket),
+          limit,
+        });
       } catch (err) {
         // Mirrors op=semantic: a model-load failure is upstream, not a
         // caller bug. The hybrid implementation also catches FTS
         // syntax errors implicitly via escapeFtsPhrase, so a 502 here
         // means the embedding side broke.
         console.error('hybrid() failed:', err);
+        const e = /** @type {{ message?: unknown } | null} */ (err);
         return Response.json(
           {
             error: 'hybrid encode failed',
-            detail: String(err?.message ?? err),
+            detail: String(e?.message ?? err),
           },
           { status: 502 }
         );
@@ -215,12 +226,17 @@ export async function GET(req) {
 
     let hits;
     try {
-      hits = fts(ftsQuery, { source: sourceParam, limit });
+      // Runtime-validated against ALLOWED_SOURCES above; assert the union.
+      hits = fts(ftsQuery, {
+        source: /** @type {import('../../../../lib/datapackSearch').FtsSource} */ (sourceParam),
+        limit,
+      });
     } catch (err) {
       // FTS5 returns a SQLite error for bad MATCH syntax — surface
       // that as a 400 so the client can fix its query.
+      const e = /** @type {{ message?: unknown } | null} */ (err);
       return Response.json(
-        { error: 'fts query failed', detail: String(err?.message ?? err) },
+        { error: 'fts query failed', detail: String(e?.message ?? err) },
         { status: 400 }
       );
     }
