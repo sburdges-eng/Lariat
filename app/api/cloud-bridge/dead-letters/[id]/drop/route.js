@@ -1,4 +1,3 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 /**
  * POST /api/cloud-bridge/dead-letters/[id]/drop
  *
@@ -18,7 +17,13 @@
  * surfaces are NOT on the allow-list and never reach this code path.
  *
  * Response: 200 on delete; 404 if the id is unknown or already alive.
+ *
+ * Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+ * only, no behavior change.
  */
+// @ts-check
+
+/** @typedef {{ params: Promise<{ id?: string }> | { id?: string } }} RouteCtx */
 
 import { requirePin } from '../../../../../../lib/pin';
 import { dropDeadLetter } from '../../../../../../lib/cloudBridgeQueue';
@@ -28,10 +33,18 @@ import { withIdempotency } from '../../../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function POST(req, ctx) {
   return withIdempotency(req, () => dropDeadLetterPostHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function dropDeadLetterPostHandler(req, { params }) {
 
   params = await params;

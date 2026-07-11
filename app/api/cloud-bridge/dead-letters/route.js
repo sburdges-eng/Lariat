@@ -1,4 +1,3 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 /**
  * GET /api/cloud-bridge/dead-letters
  *
@@ -10,7 +9,11 @@
  * Query: ?location=<id> scopes to one site (defaults to the current
  * location). Returns full payload (rows JSON-parsed) so the UI can
  * render the inspect modal without a second round-trip.
+ *
+ * Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+ * only, no behavior change.
  */
+// @ts-check
 
 import { requirePin } from '../../../../lib/pin';
 import { listDeadLetters, deadLetterDepth, depth } from '../../../../lib/cloudBridgeQueue';
@@ -19,6 +22,7 @@ import { locationFromRequest } from '../../../../lib/location';
 
 export const dynamic = 'force-dynamic';
 
+/** @param {Request} req */
 export async function GET(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
