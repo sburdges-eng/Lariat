@@ -38,17 +38,20 @@ export default function LoginPinForm() {
     });
     setLoading(false);
     if (!res.ok) {
-      // 401 = wrong PIN, keep the terse message (no server detail on
-      // auth failures). Anything else carries an actionable server
-      // message — 429 rate limit, 503 setup required, 500 missing
-      // LARIAT_PIN_SECRET (fails closed in prod) — that collapsing to
-      // "Wrong PIN" would hide.
-      let message = 'Wrong PIN';
+      // Map status → plain copy (docs/UI_COPY_RULES.md: no dev jargon
+      // on cook-facing screens; the 500 body names LARIAT_PIN_SECRET).
+      // Raw server detail goes to the console for ops, never the form.
       if (res.status !== 401) {
         const body = await res.json().catch(() => null);
-        if (body && typeof body.error === 'string' && body.error) message = body.error;
+        if (body && typeof body.error === 'string' && body.error) {
+          console.error('PIN sign-in failed:', res.status, body.error);
+        }
       }
-      setErr(message);
+      setErr(
+        res.status === 401 ? 'Wrong PIN'
+          : res.status === 429 ? 'Too many attempts. Wait a minute and try again.'
+            : 'PIN sign-in is not working. Ask the owner to check setup.',
+      );
       return;
     }
     router.push(safeNext);
