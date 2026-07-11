@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { hasPinCookie, hasPinOrTempPin, pinRequiredForPic, requirePin } from '../../../lib/pin';
@@ -20,6 +22,7 @@ export const dynamic = 'force-dynamic';
 const COURSE_ONLY_ALLOWED_KEYS = new Set([
   'action', 'id', 'course_id', 'location', 'location_id', 'cook_id',
 ]);
+/** @param {Record<string, unknown> | null | undefined} body */
 function isCourseIdOnlyPatch(body) {
   if (!body || body.action !== 'update_line') return false;
   if (!('course_id' in body)) return false;
@@ -29,6 +32,10 @@ function isCourseIdOnlyPatch(body) {
   return true;
 }
 
+/**
+ * @param {Request} req
+ * @param {Record<string, unknown> | null | undefined} body
+ */
 async function checkPostGate(req, body) {
   if (!pinRequiredForPic()) return null;
   const ok = isCourseIdOnlyPatch(body)
@@ -42,6 +49,7 @@ const MAX_TITLE = 200;
 const MAX_TASK = 500;
 const MAX_NOTES = 2000;
 
+/** @param {unknown} s @param {number} max @returns {string | null} */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
@@ -53,6 +61,7 @@ const clip = (s, max) => {
 // connection) because each rebound test DB is a different instance and
 // the old one is GC'd along with its cached statements.
 const _getStatementCache = new WeakMap();
+/** @param {ReturnType<typeof getDb>} db */
 function _getBeoStatements(db) {
   let stmts = _getStatementCache.get(db);
   if (!stmts) {
@@ -80,6 +89,7 @@ function _getBeoStatements(db) {
   return stmts;
 }
 
+/** @param {Request} req */
 export async function GET(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
@@ -99,10 +109,12 @@ export async function GET(req) {
   }
 }
 
+/** @param {Request} req */
 export async function POST(req) {
   return withIdempotency(req, () => beoPostHandler(req));
 }
 
+/** @param {Request} req */
 async function beoPostHandler(req) {
   try {
     const body = await req.json();
@@ -295,6 +307,7 @@ async function beoPostHandler(req) {
       const cost = Number.isFinite(Number(body.unit_cost)) ? Number(body.unit_cost) : null;
       const qty = Number.isFinite(Number(body.quantity)) ? Number(body.quantity) : null;
       // Prep-sheet text fields: '' means "clear", undefined means "don't touch".
+      /** @param {string} key @param {number} max */
       const textPatch = (key, max) => {
         if (!(key in body)) return { sql: null, val: null };
         const v = clip(body[key], max);
@@ -313,7 +326,8 @@ async function beoPostHandler(req) {
       try {
         coursePatch = parseCourseIdPatch(body);
       } catch (err) {
-        return Response.json({ error: String(err.message || err) }, { status: 422 });
+        const e = /** @type {{ message?: unknown } | null} */ (err);
+        return Response.json({ error: String(e?.message || err) }, { status: 422 });
       }
       const courseTouch = coursePatch.kind !== 'absent' ? 1 : 0;
       const courseVal = coursePatch.kind === 'set' ? coursePatch.course_id : null;
