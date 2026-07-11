@@ -18,6 +18,11 @@ final class SickNoteKeyStoreTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: path))
         let mode = (try FileManager.default.attributesOfItem(atPath: path)[.posixPermissions] as? NSNumber)?.intValue
         XCTAssertEqual(mode, 0o600)
+        let keysDir = (path as NSString).deletingLastPathComponent
+        let dirMode = (try FileManager.default.attributesOfItem(atPath: keysDir)[.posixPermissions] as? NSNumber)?.intValue
+        XCTAssertEqual(dirMode, 0o700, "keys/ dir must be owner-only")
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: keysDir), ["sick-note-media.json"],
+                       "no temp residue may remain next to the key")
         let k2 = try store.loadOrCreate(dataDir: dir)
         XCTAssertEqual(k1, k2, "second call must NOT regenerate the key")
         // key file sits OUTSIDE uploads/

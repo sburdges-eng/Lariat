@@ -35,11 +35,26 @@ public struct SickNoteKeyStore {
     }
 
     private func write(_ key: SickNoteMediaKey, to path: URL) throws {
-        try FileManager.default.createDirectory(at: path.deletingLastPathComponent(),
-                                                withIntermediateDirectories: true)
+        let dir = path.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true,
+                                                attributes: [.posixPermissions: 0o700])
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(key).write(to: path, options: .atomic) // temp+rename
-        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path.path)
+        let data = try encoder.encode(key)
+        // 0600 from birth: `.atomic` would create the temp file at umask width
+        // (0644) and a post-write chmod is a readable-key window. Create the temp
+        // sibling with the final permissions, then rename into place. moveItem
+        // fails if the key already exists — never clobber a live key.
+        let tmp = dir.appendingPathComponent(".\(UUID().uuidString).tmp")
+        guard FileManager.default.createFile(atPath: tmp.path, contents: data,
+                                             attributes: [.posixPermissions: 0o600]) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        do {
+            try FileManager.default.moveItem(at: tmp, to: path)
+        } catch {
+            try? FileManager.default.removeItem(at: tmp)
+            throw error
+        }
     }
 }
