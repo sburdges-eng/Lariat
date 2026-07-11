@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
 
 const { runBackup, runVerify, resolveBackupTargets } = await import('../../scripts/backup.mjs');
@@ -36,6 +37,17 @@ function seedDataDir(dir) {
   fs.writeFileSync(path.join(dir, 'uploads', 'recipes', 'birria', 'a.jpg'), 'JPEGDATA');
   fs.mkdirSync(path.join(dir, 'uploads', 'sick-notes', '7'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'uploads', 'sick-notes', '7', 'note.pdf'), 'PDFDATA');
+  // Out-of-backup media key (outside uploads/) — only its fingerprint is recorded.
+  fs.mkdirSync(path.join(dir, 'keys'), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, 'keys', 'sick-note-media.json'),
+    JSON.stringify({
+      v: 1,
+      key_id: '404142434445464748494a4b4c4d4e4f',
+      key: Buffer.alloc(32, 7).toString('base64'),
+      created_at: '2026-07-10T00:00:00.000Z',
+    }),
+  );
 }
 
 before(() => {
@@ -83,6 +95,15 @@ describe('runBackup', () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(dest, 'manifest.json'), 'utf8'));
     assert.equal(manifest.source_data_dir, path.resolve(dataDir));
     assert.ok(manifest.includes_uploads, 'manifest records uploads were included');
+
+    // Sick-note media key fingerprint (P0-6): the key file itself is NOT
+    // copied into the backup (it lives outside uploads/), only its
+    // fingerprint is recorded so a restore can detect a key mismatch.
+    assert.match(manifest.sick_note_key_fingerprint, /^[0-9a-f]{16}$/);
+    assert.equal(
+      manifest.sick_note_key_fingerprint,
+      crypto.createHash('sha256').update(Buffer.alloc(32, 7)).digest('hex').slice(0, 16),
+    );
   });
 
   it('fails loudly instead of reporting success when the DB is missing', async () => {

@@ -121,6 +121,26 @@ export async function runBackup({ dbPath, dataDir, backupRoot, stamp } = {}) {
   const sums = files.map((rel) => `${sha256File(path.join(dest, rel))}  ${rel}`).join('\n') + '\n';
   fs.writeFileSync(path.join(dest, 'SHA256SUMS'), sums);
 
+  // 4b. Sick-note media key fingerprint (P0-6). The key file lives outside
+  // uploads/ and is never copied into the backup — only its fingerprint is
+  // recorded, so a restore can detect a key mismatch. Best-effort: any
+  // failure to read/parse the key just leaves the fingerprint null.
+  let sickNoteKeyFingerprint = null;
+  try {
+    const keyFile = path.join(dataDir, 'keys', 'sick-note-media.json');
+    if (fs.existsSync(keyFile)) {
+      const parsed = JSON.parse(fs.readFileSync(keyFile, 'utf8'));
+      if (parsed && typeof parsed.key === 'string') {
+        const raw = Buffer.from(parsed.key, 'base64');
+        if (raw.length === 32) {
+          sickNoteKeyFingerprint = crypto.createHash('sha256').update(raw).digest('hex').slice(0, 16);
+        }
+      }
+    }
+  } catch {
+    /* leave null — provenance metadata only */
+  }
+
   // 5. Manifest.
   const manifest = {
     created_utc: ts,
@@ -129,6 +149,7 @@ export async function runBackup({ dbPath, dataDir, backupRoot, stamp } = {}) {
     integrity_check: integrity,
     includes_uploads: includesUploads,
     includes_audit: includesAudit,
+    sick_note_key_fingerprint: sickNoteKeyFingerprint,
     files: files.map((rel) => ({ path: rel, bytes: fs.statSync(path.join(dest, rel)).size })),
   };
   fs.writeFileSync(path.join(dest, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
