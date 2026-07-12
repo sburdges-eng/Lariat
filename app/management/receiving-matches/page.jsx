@@ -1,6 +1,7 @@
-// @ts-nocheck - server page matching the existing management dashboard style.
+// @ts-check
 // /management/receiving-matches - manager queue for accepted receiving rows
 // that could not be resolved to one ingredient master during cook entry.
+// PIN-gated by middleware.js (/management is in SENSITIVE_PREFIXES).
 
 import Link from 'next/link';
 
@@ -9,10 +10,42 @@ import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 
 import ReceivingMatchResolver from './ReceivingMatchResolver';
 
+/** @typedef {import('../../../lib/db').IngredientMaster} IngredientMaster */
+
+/**
+ * A narrow slice of a receiving_log row — mirrors the exact SELECT list
+ * below one-for-one. lib/db.ts's `ReceivingEntry` interface doesn't
+ * include `vendor_sku`, `match_status`, or `match_reason` (all read
+ * here), so this stays local rather than reusing that wider type.
+ * @typedef {{
+ *   id: number,
+ *   shift_date: string,
+ *   vendor: string,
+ *   invoice_ref: string | null,
+ *   category: string,
+ *   item: string | null,
+ *   vendor_sku: string | null,
+ *   received_qty: number | null,
+ *   received_unit: string | null,
+ *   match_status: string,
+ *   match_reason: string | null,
+ *   created_at: string,
+ * }} ReceivingMatchRow
+ */
+
+/**
+ * @typedef {Pick<IngredientMaster, 'master_id' | 'canonical_name' | 'category' | 'preferred_vendor'>} IngredientMasterOption
+ */
+
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} locationId
+ * @returns {ReceivingMatchRow[]}
+ */
 function readQueue(db, locationId) {
-  return db.prepare(
+  return /** @type {ReceivingMatchRow[]} */ (db.prepare(
     `SELECT r.id, r.shift_date, r.vendor, r.invoice_ref, r.category, r.item,
             r.vendor_sku, r.received_qty, r.received_unit, r.match_status,
             r.match_reason, r.created_at
@@ -26,23 +59,35 @@ function readQueue(db, locationId) {
         AND r.match_status IN ('unmatched', 'ambiguous')
       ORDER BY r.created_at DESC, r.id DESC
       LIMIT 100`,
-  ).all(locationId);
+  ).all(locationId));
 }
 
+/**
+ * @param {import('better-sqlite3').Database} db
+ * @returns {IngredientMasterOption[]}
+ */
 function readMasters(db) {
-  return db.prepare(
+  return /** @type {IngredientMasterOption[]} */ (db.prepare(
     `SELECT master_id, canonical_name, category, preferred_vendor
        FROM ingredient_masters
       ORDER BY lower(canonical_name), master_id
       LIMIT 1000`,
-  ).all();
+  ).all());
 }
 
+/**
+ * @param {ReceivingMatchRow} row
+ * @returns {string}
+ */
 function fmtQty(row) {
   if (row.received_qty == null || !row.received_unit) return '-';
   return `${row.received_qty} ${row.received_unit}`;
 }
 
+/**
+ * @param {string | null | undefined} value
+ * @returns {string}
+ */
 function fmtDateTime(value) {
   if (!value) return '-';
   const iso = value.includes('T') ? value : value.replace(' ', 'T') + 'Z';
@@ -56,6 +101,9 @@ function fmtDateTime(value) {
   });
 }
 
+/**
+ * @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props
+ */
 export default async function ReceivingMatchesPage({ searchParams }) {
   const sp = (await searchParams) || {};
 

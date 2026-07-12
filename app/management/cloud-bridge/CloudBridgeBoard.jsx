@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 // CloudBridgeBoard — manager view of cloud-bridge queue health and
@@ -20,6 +20,25 @@ import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+/** @typedef {import('../../../lib/cloudBridgeQueue.ts').DeadLetterBatch} DeadLetterBatch */
+
+/**
+ * Desktop bridge-config affordance. Populated by desktop/preload.ts's
+ * `window.lariat` bridge; only present when running inside the Electron
+ * shell (see desktop/settings.ts for the canonical Settings shape — kept
+ * minimal here rather than importing that file, which sits outside the
+ * app/ TS program per tsconfig.json's `desktop/**` exclude).
+ * @typedef {Object} LariatDesktopSettings
+ * @property {string} [cloudBridgeUrl]
+ * @property {string} [cloudBridgeSecret]
+ */
+/**
+ * @typedef {Object} LariatDesktopApi
+ * @property {() => Promise<LariatDesktopSettings | null>} getSettings
+ * @property {(settings: LariatDesktopSettings) => Promise<void>} setSettings
+ */
+
+/** @param {string | null | undefined} value */
 function formatTime(value) {
   if (!value) return '—';
   // SQLite datetime('now') is "YYYY-MM-DD HH:MM:SS" without a 'Z'.
@@ -30,6 +49,7 @@ function formatTime(value) {
   return d.toLocaleString();
 }
 
+/** @param {string | null | undefined} text */
 function previewError(text) {
   if (!text) return '—';
   if (text.length <= 80) return text;
@@ -40,11 +60,13 @@ function previewError(text) {
 // are kitchen-meaningful when translated; an unknown table falls back to
 // underscore-stripped passthrough so a future-allowed table still reads
 // reasonably without a code change here.
+/** @type {Record<string, string>} */
 const BATCH_LABELS = {
   settlement_summaries: 'Settlement totals',
   beo_events: 'Event prep',
   spend_monthly: 'Monthly spend',
 };
+/** @param {string | null | undefined} table */
 function batchLabel(table) {
   if (!table) return 'Batch';
   return BATCH_LABELS[table] ?? String(table).replaceAll('_', ' ');
@@ -53,6 +75,21 @@ function batchLabel(table) {
 // Recursively replace underscores in object keys so the inspect view
 // reads as plain English ("shift date") instead of dev-shaped column
 // names ("shift_date"). Arrays/primitives passed through.
+/**
+ * Read the desktop-shell bridge, if present. A plain function (not a
+ * memoized value) so every call reflects the live global — same
+ * semantics as the pre-migration direct `window.lariat` reads.
+ * @returns {LariatDesktopApi | undefined}
+ */
+function getLariatApi() {
+  if (typeof window === 'undefined') return undefined;
+  return /** @type {Window & { lariat?: LariatDesktopApi }} */ (window).lariat;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {unknown}
+ */
 function displayPayload(value) {
   if (Array.isArray(value)) return value.map(displayPayload);
   if (!value || typeof value !== 'object') return value;
@@ -64,6 +101,15 @@ function displayPayload(value) {
   );
 }
 
+/**
+ * @param {Object} props
+ * @param {boolean} props.configured
+ * @param {string} props.location
+ * @param {number} props.initialQueuedDepth
+ * @param {number} props.initialDeadLetterTotal
+ * @param {DeadLetterBatch[]} props.initialDeadLetters
+ * @param {string | null} props.initialError
+ */
 export default function CloudBridgeBoard({
   configured,
   location,
@@ -80,9 +126,13 @@ export default function CloudBridgeBoard({
   const [deadLetters, setDeadLetters] = useState(initialDeadLetters ?? []);
   const [refreshing, setRefreshing] = useState(false);
   const [err, setErr] = useState(initialError || '');
-  const [expandedId, setExpandedId] = useState(null);
-  const [confirmDropId, setConfirmDropId] = useState(null);
-  const [busyId, setBusyId] = useState(null);
+  const [expandedId, setExpandedId] = useState(
+    /** @type {number | null} */ (null),
+  );
+  const [confirmDropId, setConfirmDropId] = useState(
+    /** @type {number | null} */ (null),
+  );
+  const [busyId, setBusyId] = useState(/** @type {number | null} */ (null));
   const [flash, setFlash] = useState('');
 
   // Configuration state
@@ -91,8 +141,9 @@ export default function CloudBridgeBoard({
   const [savingConfig, setSavingConfig] = useState(false);
 
   useEffect(() => {
-    if (window.lariat) {
-      window.lariat.getSettings().then((s) => {
+    const api = getLariatApi();
+    if (api) {
+      api.getSettings().then((s) => {
         if (s) {
           setConfigUrl(s.cloudBridgeUrl || '');
           setConfigSecret(s.cloudBridgeSecret || '');
@@ -102,12 +153,13 @@ export default function CloudBridgeBoard({
   }, []);
 
   const saveConfig = async () => {
-    if (!window.lariat) return;
+    const api = getLariatApi();
+    if (!api) return;
     setSavingConfig(true);
     setErr('');
     try {
-      const s = await window.lariat.getSettings();
-      await window.lariat.setSettings({
+      const s = await api.getSettings();
+      await api.setSettings({
         ...s,
         cloudBridgeUrl: configUrl.trim(),
         cloudBridgeSecret: configSecret.trim(),
@@ -154,6 +206,10 @@ export default function CloudBridgeBoard({
     return () => clearInterval(id);
   }, [refresh]);
 
+  /**
+   * @param {number} id
+   * @param {'requeue' | 'drop'} action
+   */
   const postAction = async (id, action) => {
     setBusyId(id);
     setErr('');
@@ -205,7 +261,7 @@ export default function CloudBridgeBoard({
       </p>
 
       {/* Configuration Form (Desktop only) */}
-      {typeof window !== 'undefined' && window.lariat && (
+      {typeof window !== 'undefined' && getLariatApi() && (
         <div className="card" style={{ padding: 16, marginBottom: 24 }}>
           <h2 style={{ fontSize: 16, marginBottom: 12 }}>Bridge Configuration</h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>

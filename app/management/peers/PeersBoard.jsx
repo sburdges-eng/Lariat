@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 // PeersBoard — read-only client view of LAN tablets (Lariat instances).
@@ -20,7 +20,23 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-/** Stable identity for a peer — matches `lib/hubFailover.ts::peerKey`. */
+/** @typedef {import('../../../lib/mdnsDiscovery.ts').DiscoveredInstance} DiscoveredInstance */
+
+/**
+ * Response shape a caller with a valid PIN cookie gets from GET /api/peers
+ * (see `app/api/peers/route.js::buildPeersResponse`). This board is only
+ * reachable via the PIN-gated `/management/peers` page, so the browser's
+ * same-origin fetch always carries the cookie and this is the branch it
+ * lands in — the redacted `{ peers: RedactedPeer[], hub: null, redacted:
+ * true }` shape (unauth callers) is not modeled here.
+ * @typedef {{ peers: DiscoveredInstance[], hub: DiscoveredInstance | null }} PeersResponse
+ */
+
+/**
+ * Stable identity for a peer — matches `lib/hubFailover.ts::peerKey`.
+ * @param {DiscoveredInstance | null | undefined} p
+ * @returns {string}
+ */
 function peerKey(p) {
   const host = p?.host || '';
   const startedAt = p?.txt?.started_at || '';
@@ -30,11 +46,20 @@ function peerKey(p) {
   return `name-${p?.name || ''}`;
 }
 
+/**
+ * @param {DiscoveredInstance} peer
+ * @param {DiscoveredInstance | null} hub
+ * @returns {boolean}
+ */
 function isHub(peer, hub) {
   if (!hub || !peer) return false;
   return peer.host === hub.host && peer.txt?.started_at === hub.txt?.started_at;
 }
 
+/**
+ * @param {string | undefined} iso
+ * @returns {string}
+ */
 function formatStarted(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -42,12 +67,24 @@ function formatStarted(iso) {
   return d.toLocaleString();
 }
 
+/**
+ * @param {{
+ *   initialPeers: DiscoveredInstance[],
+ *   initialHub: DiscoveredInstance | null,
+ * }} props
+ */
 export default function PeersBoard({ initialPeers, initialHub }) {
-  const [peers, setPeers] = useState(initialPeers ?? []);
-  const [hub, setHub] = useState(initialHub ?? null);
+  const [peers, setPeers] = useState(
+    /** @type {DiscoveredInstance[]} */ (initialPeers ?? [])
+  );
+  const [hub, setHub] = useState(
+    /** @type {DiscoveredInstance | null} */ (initialHub ?? null)
+  );
   const [refreshing, setRefreshing] = useState(false);
   const [err, setErr] = useState('');
-  const [claimTarget, setClaimTarget] = useState(null);
+  const [claimTarget, setClaimTarget] = useState(
+    /** @type {DiscoveredInstance | null} */ (null)
+  );
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -58,6 +95,7 @@ export default function PeersBoard({ initialPeers, initialHub }) {
         setErr('Couldn’t reach the network — try again');
         return;
       }
+      /** @type {PeersResponse} */
       const data = await res.json();
       setPeers(Array.isArray(data?.peers) ? data.peers : []);
       setHub(data?.hub ?? null);

@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // /management/cloud-bridge — dead-letter triage for the cloud bridge.
 //
 // PIN gate: `/management/*` is in middleware.js SENSITIVE_PREFIXES, so
@@ -23,8 +23,13 @@ import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 
 import CloudBridgeBoard from './CloudBridgeBoard';
 
+/** @typedef {import('../../../lib/cloudBridgeQueue.ts').DeadLetterBatch} DeadLetterBatch */
+
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {{ searchParams: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props
+ */
 export default async function CloudBridgeTriagePage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -39,7 +44,9 @@ export default async function CloudBridgeTriagePage({ searchParams }) {
   // can still render the "configured" state and an empty list.
   let initialQueuedDepth = 0;
   let initialDeadLetterTotal = 0;
+  /** @type {DeadLetterBatch[]} */
   let initialDeadLetters = [];
+  /** @type {string | null} */
   let initialError = null;
   try {
     initialQueuedDepth = depth();
