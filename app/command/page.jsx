@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // GM Command Center — one screen with the "what do I need to know
 // before service?" signals. Tile data comes from
 // lib/commandCenter.summarize() so the page and /api/command/summary
@@ -14,12 +14,29 @@ import { formatDollars } from '../../lib/formatMoney';
 
 export const dynamic = 'force-dynamic';
 
+/** @typedef {{ red: boolean, amber: boolean }} TileStatus */
+
+/**
+ * @param {TileStatus} s
+ * @returns {'red' | 'amber' | 'green'}
+ */
 function tone(s) {
   if (s.red) return 'red';
   if (s.amber) return 'amber';
   return 'green';
 }
 
+/** @typedef {{ n: number | string, label: string, tone?: 'red' | 'amber' | null }} TileLine */
+
+/**
+ * @param {{
+ *   href: string,
+ *   title: string,
+ *   sub: string,
+ *   status: TileStatus,
+ *   lines: TileLine[],
+ * }} props
+ */
 function Tile({ href, title, sub, status, lines }) {
   const t = tone(status);
   return (
@@ -42,6 +59,10 @@ function Tile({ href, title, sub, status, lines }) {
   );
 }
 
+/**
+ * @param {string | null | undefined} t
+ * @returns {string}
+ */
 function fmtTime(t) {
   if (!t) return '';
   // beo_events.event_time is HH:MM (24h) text; render as 12h.
@@ -54,6 +75,41 @@ function fmtTime(t) {
   return `${h12}:${mm} ${ampm}`;
 }
 
+/**
+ * @typedef {{
+ *   id: number,
+ *   service_label: string | null,
+ *   body: string,
+ *   author_cook_id: string | null,
+ *   updated_at: string,
+ * }} PreshiftNoteRow
+ */
+
+/**
+ * @typedef {{
+ *   id: number,
+ *   title: string,
+ *   event_time: string | null,
+ *   guest_count: number | null,
+ *   status: string,
+ * }} EventRow
+ */
+
+/**
+ * @typedef {{
+ *   id: number,
+ *   cook_name: string,
+ *   review_date: string,
+ *   punctuality_score: number,
+ *   technique_score: number,
+ *   speed_score: number,
+ *   reviewer_name: string,
+ * }} ReviewRow
+ */
+
+/**
+ * @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props
+ */
 export default async function CommandCenter({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -68,32 +124,38 @@ export default async function CommandCenter({ searchParams }) {
   // Bottom-section payloads. summarize() only counts these — the lists
   // need full rows.
   const db = getDb();
-  const preshift = db
-    .prepare(
-      `SELECT id, service_label, body, author_cook_id, updated_at
-         FROM preshift_notes
-        WHERE location_id = ? AND shift_date = ?
-        ORDER BY id DESC`,
-    )
-    .all(loc, today);
-  const events = db
-    .prepare(
-      `SELECT id, title, event_time, guest_count, status
-         FROM beo_events
-        WHERE location_id = ? AND event_date = ?
-          AND COALESCE(status,'') NOT IN ('cancelled','canceled')
-        ORDER BY COALESCE(event_time,'00:00') ASC`,
-    )
-    .all(loc, today);
+  const preshift = /** @type {PreshiftNoteRow[]} */ (
+    db
+      .prepare(
+        `SELECT id, service_label, body, author_cook_id, updated_at
+           FROM preshift_notes
+          WHERE location_id = ? AND shift_date = ?
+          ORDER BY id DESC`,
+      )
+      .all(loc, today)
+  );
+  const events = /** @type {EventRow[]} */ (
+    db
+      .prepare(
+        `SELECT id, title, event_time, guest_count, status
+           FROM beo_events
+          WHERE location_id = ? AND event_date = ?
+            AND COALESCE(status,'') NOT IN ('cancelled','canceled')
+          ORDER BY COALESCE(event_time,'00:00') ASC`,
+      )
+      .all(loc, today)
+  );
 
-  const reviews = db
-    .prepare(
-      `SELECT id, cook_name, review_date, punctuality_score, technique_score, speed_score, reviewer_name
-         FROM performance_reviews
-        WHERE location_id = ? AND review_date = ?
-        ORDER BY id DESC`,
-    )
-    .all(loc, today);
+  const reviews = /** @type {ReviewRow[]} */ (
+    db
+      .prepare(
+        `SELECT id, cook_name, review_date, punctuality_score, technique_score, speed_score, reviewer_name
+           FROM performance_reviews
+          WHERE location_id = ? AND review_date = ?
+          ORDER BY id DESC`,
+      )
+      .all(loc, today)
+  );
 
   const salesAmber = s.sales.avg7_net > 0 && s.sales.delta_pct < -0.15;
 

@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 // Punch a ticket for the line.
@@ -17,6 +17,17 @@ import { useT } from '../../_components/I18nProvider.jsx';
 import { clientFetch } from '../../../lib/clientFetch';
 
 const KNOWN_STATIONS = ['grill', 'sides', 'bar'];
+
+/**
+ * @typedef {{
+ *   item_name: string,
+ *   quantity: number | string,
+ *   station: string,
+ *   modifiers: string,
+ * }} DraftLine
+ */
+
+/** @returns {DraftLine} */
 const BLANK_LINE = () => ({ item_name: '', quantity: 1, station: 'grill', modifiers: '' });
 
 export default function PunchTicketPage() {
@@ -24,21 +35,27 @@ export default function PunchTicketPage() {
   const { locationId } = useLocation();
   const [orderNumber, setOrderNumber] = useState('');
   const [destination, setDestination] = useState('');
-  const [lines, setLines] = useState(() => [BLANK_LINE()]);
+  const [lines, setLines] = useState(/** @returns {DraftLine[]} */ () => [BLANK_LINE()]);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-  const [ok, setOk] = useState(null);
+  const [error, setError] = useState(/** @type {string | null} */ (null));
+  const [ok, setOk] = useState(/** @type {string | null} */ (null));
 
+  /**
+   * @param {number} idx
+   * @param {Partial<DraftLine>} patch
+   */
   function updateLine(idx, patch) {
     setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
   }
   function addLine() {
     setLines((prev) => [...prev, BLANK_LINE()]);
   }
+  /** @param {number} idx */
   function removeLine(idx) {
     setLines((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev));
   }
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   async function send(e) {
     e.preventDefault();
     setError(null);
@@ -243,5 +260,6 @@ const inputStyle = {
   background: 'var(--input-bg, white)',
   color: 'var(--input-fg, #111)',
 };
+/** @type {React.CSSProperties} */
 const fieldStyle = { display: 'flex', flexDirection: 'column', gap: 4 };
 const labelStyle = { fontSize: 12, fontWeight: 600, color: 'var(--muted, #555)' };
