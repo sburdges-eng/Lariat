@@ -1,10 +1,14 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 // Interactive board for date marks. One form to create, one tap to
 // discard. Sorted by urgency so the expired stuff is always at the top.
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+
+/** @typedef {import('../../../lib/dateMarks.ts').ExpiringBatch} ExpiringBatch */
+/** @typedef {import('./page.jsx').DateMarkRow} DateMarkRow */
+/** @typedef {import('./page.jsx').DiscardedMark} DiscardedMark */
 
 const DISCARD_REASONS = [
   { id: 'expired', label: 'Past 7-day window' },
@@ -13,12 +17,22 @@ const DISCARD_REASONS = [
   { id: 'contamination', label: 'Contamination / cross-contact' },
 ];
 
+/** @param {string} iso */
 function fmtDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+/**
+ * @param {{
+ *   active: DateMarkRow[],
+ *   scan: Record<number, ExpiringBatch>,
+ *   recent: DiscardedMark[],
+ *   today: string,
+ *   locationId: string,
+ * }} props
+ */
 export default function DateMarkBoard({ active, scan, recent, today, locationId }) {
   const router = useRouter();
   const [cookId, setCookId] = useState('');
@@ -42,6 +56,7 @@ export default function DateMarkBoard({ active, scan, recent, today, locationId 
     });
   }, [active, scan]);
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const createMark = async (e) => {
     e.preventDefault();
     if (!item.trim() || !preparedOn) return;
@@ -74,6 +89,10 @@ export default function DateMarkBoard({ active, scan, recent, today, locationId 
     }
   };
 
+  /**
+   * @param {number} id
+   * @param {string} reason
+   */
   const discard = async (id, reason) => {
     if (!reason) return;
     setErr('');
@@ -166,7 +185,13 @@ export default function DateMarkBoard({ active, scan, recent, today, locationId 
         )}
         <ul className="datemark-list" aria-label="Active date marks" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {sorted.map((m) => {
-            const s = scan[m.id] || { status: 'ok' };
+            const s = scan[m.id] || {
+              id: m.id,
+              item: m.item,
+              discard_on: m.discard_on,
+              days_until_discard: 0,
+              status: /** @type {const} */ ('ok'),
+            };
             const tone =
               s.status === 'expired' ? 'red' : s.status === 'due_today' ? 'amber' : 'green';
             const selectId = `dm-discard-${m.id}`;
@@ -186,9 +211,9 @@ export default function DateMarkBoard({ active, scan, recent, today, locationId 
                   </div>
                 </div>
                 <div className="datemark-status">
-                  {s.status === 'expired' && `Expired · ${Math.abs(s.days_remaining)}d past`}
+                  {s.status === 'expired' && `Expired · ${Math.abs(s.days_until_discard)}d past`}
                   {s.status === 'due_today' && 'Use or toss today'}
-                  {s.status === 'ok' && `${s.days_remaining}d left`}
+                  {s.status === 'ok' && `${s.days_until_discard}d left`}
                 </div>
                 <div className="datemark-actions">
                   <label htmlFor={selectId} className="sr-only">

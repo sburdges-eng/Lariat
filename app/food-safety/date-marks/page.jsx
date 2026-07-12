@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // Date-marks subpage — active batches + expiring scan.
 //
 // Walk-in-facing board. Reads today's active date marks, then sorts:
@@ -10,8 +10,28 @@ import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { scanExpiringBatches } from '../../../lib/dateMarks';
 import DateMarkBoard from './DateMarkBoard.jsx';
 
+/**
+ * @typedef {{
+ *   id: number,
+ *   location_id: string,
+ *   item: string,
+ *   batch_ref: string | null,
+ *   prepared_on: string,
+ *   discard_on: string,
+ *   discarded_at: string | null,
+ *   discarded_by_cook_id: string | null,
+ *   discard_reason: string | null,
+ *   cook_id: string | null,
+ *   created_at: string,
+ * }} DateMarkRow
+ */
+/** @typedef {DateMarkRow & { discarded_at: string, discard_reason: string }} DiscardedMark */
+
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props
+ */
 export default async function DateMarksPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -22,21 +42,27 @@ export default async function DateMarksPage({ searchParams }) {
   const today = todayISO();
 
   const db = getDb();
-  const active = db
-    .prepare(
-      `SELECT * FROM date_marks WHERE location_id=? AND discarded_at IS NULL
+  const active = /** @type {DateMarkRow[]} */ (
+    db
+      .prepare(
+        `SELECT * FROM date_marks WHERE location_id=? AND discarded_at IS NULL
         ORDER BY discard_on ASC, id ASC`,
-    )
-    .all(loc);
+      )
+      .all(loc)
+  );
   const scan = scanExpiringBatches(active, today);
   const scanById = Object.fromEntries(scan.map((s) => [s.id, s]));
 
-  const recentDiscards = db
-    .prepare(
-      `SELECT * FROM date_marks WHERE location_id=? AND discarded_at IS NOT NULL
+  // WHERE discarded_at IS NOT NULL guarantees discarded_at/discard_reason
+  // are always populated for these rows.
+  const recentDiscards = /** @type {DiscardedMark[]} */ (
+    db
+      .prepare(
+        `SELECT * FROM date_marks WHERE location_id=? AND discarded_at IS NOT NULL
         ORDER BY discarded_at DESC LIMIT 20`,
-    )
-    .all(loc);
+      )
+      .all(loc)
+  );
 
   return (
     <DateMarkBoard
