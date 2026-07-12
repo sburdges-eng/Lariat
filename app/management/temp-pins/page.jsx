@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { KNOWN_SCOPES } from '../../../lib/tempPin';
+import { KNOWN_SCOPES } from '../../../lib/tempPinScopes';
 
 // Temp-PIN management UI (T10).
 //
@@ -15,11 +15,14 @@ import { KNOWN_SCOPES } from '../../../lib/tempPin';
 // Issuance shows the new PIN ONCE and never re-displays it. If the
 // cook loses the PIN, revoke and reissue.
 //
-// The scope checkbox list below is imported from lib/tempPin's
-// KNOWN_SCOPES (the same canonical list the issue route validates
-// against) rather than hand-duplicated here — a local copy previously
-// drifted to a single stale entry ('beo.fire_at_edit') while the real
-// list grew to 9 scopes across several PRs, which meant a manager
+// The scope checkbox list below is imported from lib/tempPinScopes'
+// KNOWN_SCOPES (the same canonical list lib/tempPin.ts re-exports and
+// the issue route validates against — split into its own crypto-free
+// module so this client component doesn't pull node:crypto into the
+// browser bundle) rather than hand-duplicated here — a local copy
+// previously drifted to a single stale entry ('beo.fire_at_edit')
+// while the real list grew to 9 scopes across several PRs, which meant
+// a manager
 // could never issue a temp PIN for any of the newer gated surfaces
 // (box office, sound/stage config, HACCP back-dating, prep-history,
 // specials editing, sick-worker/cert delegation) through this UI.
