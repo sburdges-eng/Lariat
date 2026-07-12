@@ -14,6 +14,7 @@
 import {
   buildIngredientMapIndex,
   buildVendorPriceIndex,
+  isNoCostUtilityIngredient,
   resolveVendorEnrichment,
 } from './sync-normalized-to-bom.mjs';
 
@@ -50,6 +51,7 @@ export function enrichUnmappedBomLines(db, opts = {}) {
     still_unmapped: 0,
     tier_1: 0,
     tier_2: 0,
+    no_cost_utility: 0,
   };
 
   const upd = db.prepare(`
@@ -67,6 +69,14 @@ export function enrichUnmappedBomLines(db, opts = {}) {
   const run = dryRun ? () => {} : (fn) => fn();
 
   for (const row of rows) {
+    if (isNoCostUtilityIngredient(row.ingredient)) {
+      summary.no_cost_utility++;
+      if (!dryRun) {
+        upd.run(null, null, null, null, 'no_cost_utility', null, null, row.id);
+      }
+      continue;
+    }
+
     const enrichment = resolveVendorEnrichment(vpIndex, imIndex, row.ingredient);
     if (!enrichment.mapped) {
       summary.still_unmapped++;

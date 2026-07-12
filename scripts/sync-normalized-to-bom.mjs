@@ -128,7 +128,7 @@ function looksLikeSubRecipe(notes) {
 
 const NO_COST_UTILITY_KEYS = new Set(['water']);
 
-function isNoCostUtilityIngredient(name) {
+export function isNoCostUtilityIngredient(name) {
   return NO_COST_UTILITY_KEYS.has(normalizeIngredientKey(name ?? ''));
 }
 

@@ -55,4 +55,17 @@ describe('enrichUnmappedBomLines', () => {
     const row = db.prepare('SELECT vendor FROM bom_lines WHERE recipe_id=?').get('peach_cobbler');
     assert.equal(row.vendor, null);
   });
+
+  it('classifies legacy water rows as no-cost utility', () => {
+    db.prepare(`
+      INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, map_status, location_id)
+      VALUES ('green_chilli', 'water', 5, 'cup', 'UNMAPPED', 'default')
+    `).run();
+
+    const summary = enrichUnmappedBomLines(db, { locationId: 'default' });
+    assert.equal(summary.no_cost_utility, 1);
+
+    const row = db.prepare('SELECT map_status, vendor FROM bom_lines WHERE recipe_id=?').get('green_chilli');
+    assert.deepEqual(row, { map_status: 'no_cost_utility', vendor: null });
+  });
 });
