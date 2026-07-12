@@ -1,10 +1,36 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 import { useState, useCallback } from 'react';
 import { humanize } from '../../../../lib/userError';
 
+/**
+ * @typedef {import('../../../../lib/stageRepo').StageSetup} StageSetup
+ * @typedef {import('../../../../lib/stageRepo').StageCompleteness} StageCompleteness
+ */
+
+/**
+ * @typedef {{
+ *   roomConfig?: string,
+ *   runOfShow?: string,
+ *   hospitality?: string,
+ *   tech?: string,
+ * }} CommitOverride
+ */
+
+/**
+ * @typedef {{
+ *   status: 'idle' | 'saving' | 'saved' | 'error',
+ *   error: string | null,
+ * }} SaveState
+ */
+
 const EMPTY_RIDER = '{}';
 
+/**
+ * @param {unknown} v
+ * @param {string} fallback
+ * @returns {string}
+ */
 function fmtJsonField(v, fallback) {
   if (!v) return fallback;
   try {
@@ -14,6 +40,12 @@ function fmtJsonField(v, fallback) {
   }
 }
 
+/**
+ * @template T
+ * @param {string} s
+ * @param {T} fallback
+ * @returns {T | null}
+ */
 function parseJson(s, fallback) {
   if (!s.trim()) return fallback;
   try {
@@ -23,6 +55,15 @@ function parseJson(s, fallback) {
   }
 }
 
+/**
+ * @param {{
+ *   showId: number,
+ *   locationId: string,
+ *   initialSetup: StageSetup | null,
+ *   completeness: StageCompleteness,
+ *   roomConfigs: typeof import('../../../../lib/stageRepo').KNOWN_ROOM_CONFIGS,
+ * }} props
+ */
 export default function StageBoard({
   showId,
   locationId,
@@ -30,7 +71,9 @@ export default function StageBoard({
   completeness,
   roomConfigs,
 }) {
-  const [roomConfig, setRoomConfig] = useState(initialSetup?.room_config ?? '');
+  const [roomConfig, setRoomConfig] = useState(
+    /** @type {string} */ (initialSetup?.room_config ?? ''),
+  );
   const [runOfShowText, setRunOfShowText] = useState(
     fmtJsonField(initialSetup?.run_of_show, '[]'),
   );
@@ -42,9 +85,12 @@ export default function StageBoard({
   );
   const [notes, setNotes] = useState(initialSetup?.notes ?? '');
   const [score, setScore] = useState(completeness?.score ?? 0);
-  const [saveState, setSaveState] = useState({ status: 'idle', error: null });
+  const [saveState, setSaveState] = useState(
+    /** @type {SaveState} */ ({ status: 'idle', error: null }),
+  );
 
   const commit = useCallback(
+    /** @param {CommitOverride} [override] */
     async (override = {}) => {
       if (!roomConfig) {
         setSaveState({ status: 'error', error: 'Pick a room first' });
