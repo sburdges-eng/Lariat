@@ -54,6 +54,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { normalizeIngredientKey } from '../lib/ingredientKey.ts';
+import { effectivePackPrice } from '../lib/unitConvert.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -178,7 +179,7 @@ function refreshRecipeFields(db, recipe) {
 function buildVendorPriceIndex(db, locationId) {
   const rows = db
     .prepare(
-      `SELECT ingredient, vendor, pack_price, pack_size,
+      `SELECT ingredient, vendor, pack_price, pack_size, unit_price,
               yield_pct, master_id, id
          FROM vendor_prices
         WHERE location_id = ?
@@ -198,16 +199,15 @@ function buildVendorPriceIndex(db, locationId) {
   return byKey;
 }
 
-// Build a normalized recipe_ingredient → vendor_ingredient map. Only
-// `status='mapped'` rows are honoured — the workbook-confirmed bridge
-// is the only confidence signal we trust here.
+// Build a normalized recipe_ingredient → vendor_ingredient map. Operator-
+// curated `confirmed` rows and workbook `mapped` rows are both honoured.
 function buildIngredientMapIndex(db, locationId) {
   const rows = db
     .prepare(
       `SELECT recipe_ingredient, vendor_ingredient
          FROM ingredient_maps
         WHERE location_id = ?
-          AND status = 'mapped'
+          AND status IN ('mapped', 'confirmed')
           AND vendor_ingredient IS NOT NULL
           AND vendor_ingredient != ''`,
     )
@@ -267,7 +267,7 @@ function resolveVendorEnrichment(vpIndex, imIndex, ingredientName) {
           mapped: true,
           tier: 1,
           vendor: hit.vendor ?? null,
-          pack_price: hit.pack_price ?? null,
+          pack_price: effectivePackPrice(hit),
           pack_size: hit.pack_size ?? null,
           vendor_ingredient: hit.ingredient ?? null,
           yield_pct: hit.yield_pct ?? null,
@@ -284,7 +284,7 @@ function resolveVendorEnrichment(vpIndex, imIndex, ingredientName) {
       mapped: true,
       tier: 2,
       vendor: direct.vendor ?? null,
-      pack_price: direct.pack_price ?? null,
+      pack_price: effectivePackPrice(direct),
       pack_size: direct.pack_size ?? null,
       vendor_ingredient: direct.ingredient ?? null,
       yield_pct: direct.yield_pct ?? null,

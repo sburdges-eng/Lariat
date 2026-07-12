@@ -117,6 +117,7 @@ _SYNONYMS: dict[str, str] = {
     "fl_oz": "floz",
     "fl oz": "floz",
     "cups": "cup",
+    "c": "cup",  # bom_expand / recipe shorthand
     "pint": "pt",
     "pints": "pt",
     "quart": "qt",
@@ -136,6 +137,7 @@ _SYNONYMS: dict[str, str] = {
     "cans": "can",
     "#10 can": "can",
     "#10_can": "can",
+    "#": "lb",  # bom_expand weight shorthand
     "jars": "jar",
     "bunches": "bunch",
     "boxes": "box",

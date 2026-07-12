@@ -472,6 +472,16 @@ describe('T7 — resolveMergedCost', () => {
     ], null), null);
   });
 
+  it('accepts unit_price-derived pack when pack_price is null', () => {
+    const merged = resolveMergedCost([
+      { vendor: 'shamrock', pack_price: null, unit_price: 0.916944, pack_size: 36 },
+    ], null);
+    assert.ok(merged);
+    assert.ok(Math.abs(merged.pack_price - 0.916944) < 1e-9);
+    assert.strictEqual(merged.pack_size, 1);
+    assert.strictEqual(merged.source, 'mean');
+  });
+
   it('preferred_vendor wins when it has a matching row', () => {
     const merged = resolveMergedCost([
       { vendor: 'sysco',    pack_price: 12, pack_size: 1 },

@@ -162,11 +162,33 @@ function pickTargetUnit(offers: VendorPriceRow[]): string | null {
   return null;
 }
 
-function latestPricesByVendor(
+/** One SELECT for the whole densities table — avoids per-row N+1 in listVendorCompareRows. */
+function loadDensityByKey(db: DB): Map<string, number> {
+  const out = new Map<string, number>();
+  const rows = db
+    .prepare(`SELECT ingredient_key, g_per_ml FROM ingredient_densities`)
+    .all() as Array<{ ingredient_key: string; g_per_ml: number }>;
+  for (const r of rows) {
+    if (r.ingredient_key && Number.isFinite(r.g_per_ml) && r.g_per_ml > 0) {
+      out.set(r.ingredient_key, r.g_per_ml);
+    }
+  }
+  return out;
+}
+
+/**
+ * Latest Sysco/Shamrock price per master for one location, in a single query.
+ * Rows are ordered newest-first per (master, vendor); we keep the first of each.
+ */
+function latestPricesByMasters(
   db: DB,
-  masterId: string,
+  masterIds: string[],
   locationId: string,
-): Map<CompareVendor, VendorPriceRow> {
+): Map<string, Map<CompareVendor, VendorPriceRow>> {
+  const byMaster = new Map<string, Map<CompareVendor, VendorPriceRow>>();
+  if (masterIds.length === 0) return byMaster;
+
+  const placeholders = masterIds.map(() => '?').join(',');
   const rows = db
     .prepare(
       `
@@ -174,20 +196,27 @@ function latestPricesByVendor(
              reconciled_unit_price, master_id
         FROM vendor_prices
        WHERE location_id = ?
-         AND master_id = ?
+         AND master_id IN (${placeholders})
          AND lower(trim(vendor)) IN ('sysco', 'shamrock')
-       ORDER BY lower(trim(vendor)), imported_at DESC, id DESC
+       ORDER BY master_id, lower(trim(vendor)), imported_at DESC, id DESC
     `,
     )
-    .all(locationId, masterId) as VendorPriceRow[];
+    .all(locationId, ...masterIds) as VendorPriceRow[];
 
-  const out = new Map<CompareVendor, VendorPriceRow>();
   for (const row of rows) {
+    const mid = row.master_id;
+    if (!mid) continue;
     const v = normVendor(row.vendor);
-    if (!isCompareVendor(v) || out.has(v)) continue;
-    out.set(v, row);
+    if (!isCompareVendor(v)) continue;
+    let byVendor = byMaster.get(mid);
+    if (!byVendor) {
+      byVendor = new Map();
+      byMaster.set(mid, byVendor);
+    }
+    if (byVendor.has(v)) continue; // already have newest for this vendor
+    byVendor.set(v, row);
   }
-  return out;
+  return byMaster;
 }
 
 function buildOffer(
@@ -269,8 +298,16 @@ export function listVendorCompareRows(
   const rows: VendorCompareRow[] = [];
   let singleVendorOnly = 0;
 
+  // Batch: 1 densities SELECT + 1 vendor_prices SELECT for the page (was 1+N+N).
+  const densityByKey = loadDensityByKey(db);
+  const pricesByMaster = latestPricesByMasters(
+    db,
+    masters.map((m) => m.master_id),
+    locationId,
+  );
+
   for (const m of masters) {
-    const byVendor = latestPricesByVendor(db, m.master_id, locationId);
+    const byVendor = pricesByMaster.get(m.master_id) ?? new Map();
     if (!byVendor.has('sysco') || !byVendor.has('shamrock')) {
       if (byVendor.size > 0) singleVendorOnly++;
       continue;
@@ -281,12 +318,7 @@ export function listVendorCompareRows(
     const targetUnit = pickTargetUnit([syscoRow, shamrockRow]);
 
     const key = normalizeIngredientKey(syscoRow.ingredient || shamrockRow.ingredient || '');
-    const densityRow = key
-      ? (db
-          .prepare(`SELECT g_per_ml FROM ingredient_densities WHERE ingredient_key = ?`)
-          .get(key) as { g_per_ml: number } | undefined)
-      : undefined;
-    const density = densityRow?.g_per_ml ?? null;
+    const density = key ? (densityByKey.get(key) ?? null) : null;
 
     const sysco = buildOffer('sysco', syscoRow, targetUnit, density);
     const shamrock = buildOffer('shamrock', shamrockRow, targetUnit, density);
