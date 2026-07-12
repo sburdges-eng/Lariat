@@ -1,19 +1,30 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 'use client';
 
 import { useState, useTransition } from 'react';
 import { humanize } from '../../../../../lib/userError';
 
+/** @typedef {import('../../../../../lib/dealPoints.ts').DealPoint} DealPoint */
+/** @typedef {{ label: string; dollars: string }} CostRow */
+
+/** @param {number | null | undefined} cents @returns {string} */
 function dollarsFromCents(cents) {
   return ((Number(cents) || 0) / 100).toFixed(2);
 }
 
+/** @param {string | number} value @returns {number} */
 function toCents(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
   return Math.round(n * 100);
 }
 
+/**
+ * @param {DealPoint} deal
+ * @returns {CostRow[]}
+ */
 function costRowsFromDeal(deal) {
   const rows = Array.isArray(deal?.costsOffTop) ? deal.costsOffTop : [];
   if (rows.length === 0) return [{ label: '', dollars: '' }];
@@ -23,6 +34,10 @@ function costRowsFromDeal(deal) {
   }));
 }
 
+/**
+ * @param {CostRow[]} rows
+ * @returns {{ label: string; cents: number }[]}
+ */
 function cleanCosts(rows) {
   return rows
     .map((row) => ({
@@ -32,6 +47,13 @@ function cleanCosts(rows) {
     .filter((row) => row.label || row.cents > 0);
 }
 
+/**
+ * @param {{
+ *   showId: number,
+ *   locationId: string,
+ *   initialDeal: DealPoint,
+ * }} props
+ */
 export default function DealEditor({ showId, locationId, initialDeal }) {
   const [open, setOpen] = useState(false);
   const [guarantee, setGuarantee] = useState(
@@ -44,9 +66,13 @@ export default function DealEditor({ showId, locationId, initialDeal }) {
   );
   const [buyout, setBuyout] = useState(dollarsFromCents(initialDeal.buyoutCents));
   const [costs, setCosts] = useState(() => costRowsFromDeal(initialDeal));
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(/** @type {string | null} */ (null));
   const [pending, startTransition] = useTransition();
 
+  /**
+   * @param {number} index
+   * @param {Partial<CostRow>} patch
+   */
   const updateCost = (index, patch) => {
     setCosts((rows) =>
       rows.map((row, i) => (i === index ? { ...row, ...patch } : row)),
@@ -57,6 +83,7 @@ export default function DealEditor({ showId, locationId, initialDeal }) {
     setCosts((rows) => [...rows, { label: '', dollars: '' }]);
   };
 
+  /** @param {number} index */
   const removeCost = (index) => {
     setCosts((rows) => rows.filter((_, i) => i !== index));
   };
@@ -202,6 +229,9 @@ export default function DealEditor({ showId, locationId, initialDeal }) {
   );
 }
 
+/**
+ * @param {{ label: string; value: string; onChange: (value: string) => void }} props
+ */
 function MoneyInput({ label, value, onChange }) {
   return (
     <label>
