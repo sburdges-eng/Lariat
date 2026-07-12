@@ -97,14 +97,7 @@ export default function EventOrderGuidePanel({ eventId, location = 'default' }) 
 
   return (
     <div className="beo-order-guide-panel">
-      {/* UnmappedCallout is an untyped (.jsx, @ts-nocheck) component whose
-          array-prop defaults infer as never[]; cast at the boundary (same
-          idiom as CoursePanel in BeoBoard.tsx). */}
-      <UnmappedCallout
-        unmapped={/** @type {never} */ (unmapped)}
-        error={engineError}
-        manifestWarnings={/** @type {never} */ (manifestWarnings)}
-      />
+      <UnmappedCallout unmapped={unmapped} error={engineError} manifestWarnings={manifestWarnings} />
       <table data-testid="event-order-guide-table" className="beo-order-guide-table">
         <thead>
           <tr>

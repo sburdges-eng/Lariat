@@ -4,8 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import PrepHistoryPanel from './PrepHistoryPanel';
 import CoursePanel from './_components/CoursePanel';
-// EventFirePanel, EventOrderGuidePanel, EventPrepPanel are untyped (.jsx) components;
-// cast at the boundary like CoursePanel above.
 import EventFirePanel from './_components/EventFirePanel';
 import EventOrderGuidePanel from './_components/EventOrderGuidePanel';
 import EventPrepPanel from './_components/EventPrepPanel';
@@ -434,11 +432,9 @@ export default function BeoBoard({ initialMenu = [] }: BeoBoardProps) {
               {/* ───── RIGHT: stacked menu picker + courses + past-prep reference ───── */}
               <div className="beo-rail">
                 <MenuPanel menu={menu} onPick={(item) => addLine(openEvent.id, item)} />
-                {/* CoursePanel is an untyped (.jsx, @ts-nocheck) component whose
-                    `lines` default infers as never[]; cast at the boundary. */}
                 <CoursePanel
                   event={openEvent}
-                  lines={lineItems as never}
+                  lines={lineItems}
                   courses={courses}
                   onCoursesChanged={() => loadCourses(openEventId, openEvent?.location_id)}
                 />
