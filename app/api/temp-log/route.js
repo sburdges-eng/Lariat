@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import {
@@ -17,6 +19,7 @@ import { localIdentityFields } from '../../../lib/localIdentity';
 
 export const dynamic = 'force-dynamic';
 
+/** @param {unknown} s @param {number} max @returns {string | null} */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
@@ -31,6 +34,7 @@ const clip = (s, max) => {
 // the same way middleware.js disables gating — that matches the
 // single-site LAN default where PIN is opt-in.
 
+/** @param {string | null} shift_date */
 function pinRequiredForDate(shift_date) {
   if (!process.env.LARIAT_PIN) return false;
   return shift_date !== todayISO();
@@ -38,10 +42,12 @@ function pinRequiredForDate(shift_date) {
 
 // ── POST /api/temp-log ─────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function POST(req) {
   return withIdempotency(req, () => tempLogHandler(req));
 }
 
+/** @param {Request} req */
 async function tempLogHandler(req) {
   try {
     const body = await req.json();
@@ -129,13 +135,13 @@ async function tempLogHandler(req) {
     let calibration_warning = null;
     if (probe_id) {
       try {
-        const calRows = db
+        const calRows = /** @type {import('../../../lib/calibrations').CalibrationRow[]} */ (db
           .prepare(
             `SELECT thermometer_id, method, before_reading_f, passed, calibrated_at, frequency_days
                FROM thermometer_calibrations
               WHERE location_id = ? AND thermometer_id = ?`
           )
-          .all(row.location_id, probe_id);
+          .all(row.location_id, probe_id));
         const [summary] = classifyProbes(calRows, {
           now: new Date(),
           known_probe_ids: [probe_id],
@@ -216,7 +222,7 @@ async function tempLogHandler(req) {
       classification,
       calibration_warning,
       entry: {
-        ...inserted,
+        .../** @type {Record<string, unknown>} */ (inserted),
         point_label: point.label,
       },
     });
@@ -228,6 +234,7 @@ async function tempLogHandler(req) {
 
 // ── GET /api/temp-log ─────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const url = new URL(req.url);
@@ -243,7 +250,8 @@ export async function GET(req) {
       args.push(point_id);
     }
     q += ' ORDER BY created_at DESC, id DESC';
-    const rows = db.prepare(q).all(...args);
+    const rows = /** @type {({ point_id: string, reading_f: number } & Record<string, unknown>)[]} */ (
+      db.prepare(q).all(...args));
 
     const entries = rows.map((r) => {
       // Join back to the live registry so the UI gets a human label without
