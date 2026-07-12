@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 /**
@@ -14,8 +14,10 @@
  * passes it down as `photo_id`. The card renders the raw image via
  * `/api/recipes/[slug]/photos/[id]/raw`. No per-card fetch fan-out.
  *
- * Role + sign-out flow is preserved verbatim from the prior browser —
- * only the visual treatment changed.
+ * Role + sign-out are wired against the real `/api/auth/pin` contract
+ * (see `handleSignOut` below) — a prior version of this file called a
+ * `/api/auth/management-pin/logout` path that was never a real route
+ * (checkjs migration bugfix, see this file's commit message).
  */
 
 import Link from 'next/link';
@@ -25,18 +27,47 @@ import { useRole } from '../_components/RoleProvider';
 import { groupRecipesByCategory } from '../../lib/recipeCookbookGrouping';
 import { recipeMatchesScope } from '../../lib/recipeScope';
 
+/** @typedef {import('./page.jsx').RecipeCardData} RecipeCardData */
+
+// Duplicated rather than imported from lib/location.ts — same convention
+// as app/labor/breaks/BreakBoard.jsx and
+// app/specials/saved/[id]/SpecialDetailClient.jsx's `locQ` (a client
+// component shouldn't pull in the env-reading server module just for a
+// string constant).
+const DEFAULT_LOCATION_ID = 'default';
+
+/** @param {string | null | undefined} c */
 function categoryLabel(c) {
   if (!c) return 'Uncategorized';
   return c.charAt(0).toUpperCase() + c.slice(1);
 }
 
-export default function RecipeBrowserEnhanced({ recipes }) {
+/**
+ * @param {{ recipes: RecipeCardData[], locationId?: string }} props
+ */
+export default function RecipeBrowserEnhanced({ recipes, locationId }) {
   const { canEditRecipes } = useRole();
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAllergen, setFilterAllergen] = useState('');
-  const [bookScope, setBookScope] = useState('book');
+  const [bookScope, setBookScope] = useState(/** @type {'book' | 'catering' | 'all'} */ ('book'));
   const [signingOut, setSigningOut] = useState(false);
+
+  // Non-default locations must be threaded onto every link/fetch that
+  // leaves this component as `?location=` — the recipe-detail page
+  // (app/recipes/[slug]/page.jsx) resolves its own `loc` purely from the
+  // URL query, and the photo `/raw` route resolves its location the same
+  // way (lib/location.ts locationFromRequest). Bug found here: this card
+  // grid was built before that convention landed elsewhere in app/recipes
+  // and never picked it up, so following a card link or loading a photo
+  // thumbnail from a non-default-location `/recipes?location=X` view
+  // silently fell back to the default location's data (wrong prep
+  // history on the detail page) or 404'd (thumbnail lookup scoped to the
+  // wrong location_id). Same bug class as BreakBoard's `locQ` fix.
+  const locQ =
+    locationId && locationId !== DEFAULT_LOCATION_ID
+      ? `?location=${encodeURIComponent(locationId)}`
+      : '';
 
   const bookCount = useMemo(
     () => recipes.filter((r) => !r.is_catering).length,
@@ -78,7 +109,15 @@ export default function RecipeBrowserEnhanced({ recipes }) {
   const handleSignOut = async () => {
     setSigningOut(true);
     try {
-      await fetch('/api/auth/management-pin/logout', { method: 'POST' });
+      // Real endpoint is DELETE /api/auth/pin (see app/_components/PinLogout.jsx
+      // and app/api/auth/pin/route.ts). This previously POSTed to
+      // /api/auth/management-pin/logout, a path that has never existed
+      // anywhere in app/api — see this file's history and commit message
+      // for the bug writeup. fetch() doesn't reject on a 404 response, so
+      // the catch block never ran: the button silently 404'd, the
+      // lariat_pin_ok cookie was never cleared, and the page navigated
+      // back to /recipes still fully authenticated as management.
+      await fetch('/api/auth/pin', { method: 'DELETE' });
       router.push('/recipes');
       router.refresh();
     } catch (e) {
@@ -87,8 +126,9 @@ export default function RecipeBrowserEnhanced({ recipes }) {
     }
   };
 
+  /** @param {string} slug */
   const recipeLink = (slug) =>
-    canEditRecipes ? `/recipes/${slug}/edit` : `/recipes/${slug}`;
+    canEditRecipes ? `/recipes/${slug}/edit${locQ}` : `/recipes/${slug}${locQ}`;
 
   return (
     <div className="cookbook">
@@ -176,7 +216,7 @@ export default function RecipeBrowserEnhanced({ recipes }) {
             type="text"
             placeholder="Recipe name or ingredient…"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={/** @param {React.ChangeEvent<HTMLInputElement>} e */ (e) => setSearchTerm(e.target.value)}
             autoComplete="off"
           />
         </div>
@@ -233,7 +273,7 @@ export default function RecipeBrowserEnhanced({ recipes }) {
                   >
                     {recipe.photo_id ? (
                       <img
-                        src={`/api/recipes/${recipe.slug}/photos/${recipe.photo_id}/raw`}
+                        src={`/api/recipes/${recipe.slug}/photos/${recipe.photo_id}/raw${locQ}`}
                         alt=""
                         loading="lazy"
                       />
