@@ -59,6 +59,9 @@ jobs:
       - name: PIN-gate coverage (mutation-route drift detector)
         run: npm run test:pin-gates
 
+      - name: checkjs api baseline (ts-nocheck drift detector)
+        run: npm run test:checkjs-api
+
       - name: 86 sub-recipe cascade tests
         run: npm run test:sub-recipe-graph
 
