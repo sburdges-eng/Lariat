@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // Daily prep board. Server-rendered list of today's prep_tasks grouped
 // by station, with claim/done actions on the client side.
 //
@@ -13,8 +13,51 @@ import { getStations } from '../../lib/data';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import PrepBoard from './PrepBoard';
 
+/**
+ * Full row shape read from `prep_tasks` (see CREATE TABLE in lib/db.ts).
+ * Matches the local row shape read by the sibling API routes
+ * (app/api/prep-tasks/route.js, app/api/prep-tasks/[id]/route.js) —
+ * same table, same column list minus `location_id` (scoped in the WHERE,
+ * not selected here).
+ * @typedef {{
+ *   id: number,
+ *   shift_date: string,
+ *   station_id: string | null,
+ *   task: string,
+ *   qty: string | null,
+ *   recipe_slug: string | null,
+ *   notes: string | null,
+ *   priority: number,
+ *   assigned_cook_id: string | null,
+ *   status: 'todo' | 'in_progress' | 'done' | 'skipped',
+ *   started_at: string | null,
+ *   done_at: string | null,
+ *   done_by: string | null,
+ *   source: string | null,
+ *   source_ref: string | null,
+ *   sort_order: number,
+ *   created_at: string | null,
+ *   updated_at: string | null,
+ * }} PrepTaskRow
+ */
+
+/**
+ * Row shape for the "below par" suggestion query — `inventory_par`
+ * joined against the latest `inventory_count_lines` per ingredient.
+ * @typedef {{
+ *   ingredient: string,
+ *   par_qty: number,
+ *   par_unit: string | null,
+ *   on_hand_qty: number,
+ *   on_hand_unit: string | null,
+ * }} LowParRow
+ */
+
+/** @typedef {Record<string, string | string[] | undefined>} PageSearchParams */
+
 export const dynamic = 'force-dynamic';
 
+/** @param {{ searchParams: Promise<PageSearchParams> | PageSearchParams }} props */
 export default async function PrepPage({ searchParams }) {
   // Next 16 app router: searchParams is a Promise. A synchronous read returns
   // undefined, so /prep?location=bar fell through to DEFAULT_LOCATION_ID —
@@ -28,23 +71,26 @@ export default async function PrepPage({ searchParams }) {
   const date = todayISO();
   const db = getDb();
 
-  const tasks = db
-    .prepare(
-      `SELECT id, shift_date, station_id, task, qty, recipe_slug, notes,
+  const tasks = /** @type {PrepTaskRow[]} */ (
+    db
+      .prepare(
+        `SELECT id, shift_date, station_id, task, qty, recipe_slug, notes,
               priority, assigned_cook_id, status, started_at, done_at,
               done_by, source, source_ref, sort_order, created_at, updated_at
          FROM prep_tasks
         WHERE shift_date = ? AND location_id = ?
         ORDER BY priority DESC, sort_order ASC, id ASC`,
-    )
-    .all(date, loc);
+      )
+      .all(date, loc)
+  );
 
   // Suggested prep: ingredients on the par list with a latest count below
   // par, ranked by deficit (par - on_hand). Caps at 8 — line cooks don't
   // need a wall of suggestions, just the top few.
-  const lowPar = db
-    .prepare(
-      `SELECT p.ingredient, p.par_qty, p.par_unit,
+  const lowPar = /** @type {LowParRow[]} */ (
+    db
+      .prepare(
+        `SELECT p.ingredient, p.par_qty, p.par_unit,
               latest.on_hand_qty, latest.unit AS on_hand_unit
          FROM inventory_par p
          JOIN (
@@ -67,8 +113,9 @@ export default async function PrepPage({ searchParams }) {
           AND latest.on_hand_qty < p.par_qty
         ORDER BY (p.par_qty - latest.on_hand_qty) DESC
         LIMIT 8`,
-    )
-    .all(loc, loc);
+      )
+      .all(loc, loc)
+  );
 
   // Don't suggest items that already have an open prep task today.
   const openTaskIngredients = new Set(
