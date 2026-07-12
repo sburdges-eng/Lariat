@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 /**
@@ -38,8 +38,20 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 
-const RoleContext = createContext(null);
+/** @typedef {'staff' | 'management'} Role */
 
+/**
+ * @typedef {{
+ *   role: Role,
+ *   canEditRecipes: boolean,
+ *   canViewFinancials: boolean,
+ *   isLoading: boolean,
+ * }} RoleContextValue
+ */
+
+const RoleContext = createContext(/** @type {RoleContextValue | null} */ (null));
+
+/** @returns {boolean} */
 function readPinCookie() {
   if (typeof document === 'undefined') return false;
   // Cheap parse — no dependency on `cookie` pkg. In prod the cookie is
@@ -56,6 +68,7 @@ function readPinCookie() {
   return v.length > 0 && v !== 'deleted';
 }
 
+/** @returns {Promise<boolean>} */
 async function probePinStatus() {
   if (typeof fetch === 'undefined') return false;
   try {
@@ -76,8 +89,11 @@ async function probePinStatus() {
   }
 }
 
+/**
+ * @param {{ children: import('react').ReactNode }} props
+ */
 export function RoleProvider({ children }) {
-  const [role, setRole] = useState('staff');
+  const [role, setRole] = useState(/** @type {Role} */ ('staff'));
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -127,6 +143,8 @@ export function RoleProvider({ children }) {
  * forgot to mount the provider), we degrade gracefully by reading the cookie
  * directly — same observable behavior, one render late, and `isLoading` stays
  * false so page-level gates don't hang.
+ *
+ * @returns {RoleContextValue}
  */
 export function useRole() {
   const ctx = useContext(RoleContext);
