@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 import Link from 'next/link';
 import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
@@ -8,14 +8,18 @@ import { listSingleVendorMasters, summarizeMappingCoverage } from '../../../lib/
 import CompareActions from './CompareActions.jsx';
 import AttachVendorActions from './AttachVendorActions.jsx';
 
+/** @typedef {import('../../../lib/vendorCompare.ts').VendorOfferSnapshot} VendorOfferSnapshot */
+
 export const dynamic = 'force-dynamic';
 
+/** @param {VendorOfferSnapshot | null | undefined} offer */
 function fmtPrice(offer) {
   if (!offer || offer.status !== 'ok' || offer.normalized_price == null) return '—';
   const unit = offer.normalized_unit ? `/${offer.normalized_unit}` : '';
   return `${formatDollars(offer.normalized_price)}${unit}`;
 }
 
+/** @param {string | null | undefined} reason */
 function reasonLabel(reason) {
   if (reason === 'unit_mismatch') return 'different pack';
   if (reason === 'need_density') return 'need weight bridge';
