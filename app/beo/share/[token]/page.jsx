@@ -104,12 +104,22 @@ export default async function BeoSharePage({ params }) {
   if (!isValidShareTokenShape(token)) return notFound();
 
   const db = getDb();
+  // Same revocation/expiry guard as GET /api/beo/share/[token] and POST
+  // .../sign — this SSR page bypasses the PIN gate entirely (see
+  // middleware.js PUBLIC_CARVEOUTS), so it must independently enforce
+  // the same "is this link still live" check the JSON API already does.
+  // Dormant today (no production path sets share_revoked_at/
+  // share_expires_at non-null yet) but a real information-exposure gap
+  // once a "revoke share link" action ships. Found during the GH #250
+  // checkjs migration, cross-verified by two independent reviewers.
   const event = /** @type {ShareEventRow | undefined} */ (db
     .prepare(
       `SELECT id, title, event_date, event_time, contact_name, guest_count,
               notes, tax_rate, service_fee_pct
          FROM beo_events
-        WHERE share_token = ?`,
+        WHERE share_token = ?
+          AND share_revoked_at IS NULL
+          AND (share_expires_at IS NULL OR datetime(share_expires_at) > datetime('now'))`,
     )
     .get(token));
   if (!event) return notFound();
