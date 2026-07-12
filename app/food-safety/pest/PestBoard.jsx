@@ -1,8 +1,10 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+
+/** @typedef {import('./page.jsx').PestControlRow} PestControlRow */
 
 const ENTRY_TYPES = [
   { id: 'service_visit', label: 'Service visit' },
@@ -26,11 +28,18 @@ const SEVERITIES = [
   { id: 'high', label: 'High' },
 ];
 
+/** @param {string | null} iso */
 function fmtDate(iso) {
   if (!iso) return '—';
   return iso.slice(0, 10);
 }
 
+/**
+ * @param {{
+ *   rows: PestControlRow[],
+ *   locationId: string,
+ * }} props
+ */
 export default function PestBoard({ rows, locationId }) {
   const router = useRouter();
   const [cookId, setCookId] = useState('');
@@ -50,6 +59,7 @@ export default function PestBoard({ rows, locationId }) {
     setCookId(window.localStorage.getItem('lariat_cook') || '');
   }, []);
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submit = async (e) => {
     e.preventDefault();
     if (sightingNeedsPest && !pest) {
