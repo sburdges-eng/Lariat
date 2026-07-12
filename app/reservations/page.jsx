@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // FOH reservations book. Server-rendered list of today's (or upcoming)
 // reservations from the reservations table; the client board handles
 // add/seat/complete/cancel/no_show/delete.
@@ -16,8 +16,36 @@ import { getDb, todayISO } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import ReservationsBoard from './ReservationsBoard.jsx';
 
+/**
+ * Full row shape read from `reservations` (see CREATE TABLE in lib/db.ts).
+ * Matches the column list selected by both queries below and by the
+ * sibling API routes (app/api/reservations/route.js GET,
+ * app/api/reservations/[id]/route.js PATCH's `SELECT *`).
+ * @typedef {{
+ *   id: number,
+ *   party_name: string,
+ *   party_size: number,
+ *   reservation_at: string,
+ *   status: 'booked' | 'seated' | 'completed' | 'cancelled' | 'no_show',
+ *   table_id: string | null,
+ *   phone: string | null,
+ *   email: string | null,
+ *   notes: string | null,
+ *   source: string | null,
+ *   source_ref: string | null,
+ *   seated_at: string | null,
+ *   completed_at: string | null,
+ *   cook_id: string | null,
+ *   created_at: string | null,
+ *   updated_at: string | null,
+ * }} ReservationRow
+ */
+
+/** @typedef {Record<string, string | string[] | undefined>} PageSearchParams */
+
 export const dynamic = 'force-dynamic';
 
+/** @param {{ searchParams: Promise<PageSearchParams> | PageSearchParams }} props */
 export default async function ReservationsPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -29,11 +57,13 @@ export default async function ReservationsPage({ searchParams }) {
   const date = todayISO();
   const db = getDb();
 
+  /** @type {ReservationRow[]} */
   let rows;
   if (view === 'upcoming') {
-    rows = db
-      .prepare(
-        `SELECT id, party_name, party_size, reservation_at, status, table_id,
+    rows = /** @type {ReservationRow[]} */ (
+      db
+        .prepare(
+          `SELECT id, party_name, party_size, reservation_at, status, table_id,
                 phone, email, notes, source, source_ref,
                 seated_at, completed_at, cook_id, created_at, updated_at
            FROM reservations
@@ -42,20 +72,23 @@ export default async function ReservationsPage({ searchParams }) {
             AND status NOT IN ('cancelled','completed','no_show')
           ORDER BY reservation_at ASC, id ASC
           LIMIT 100`,
-      )
-      .all(loc, date);
+        )
+        .all(loc, date)
+    );
   } else {
-    rows = db
-      .prepare(
-        `SELECT id, party_name, party_size, reservation_at, status, table_id,
+    rows = /** @type {ReservationRow[]} */ (
+      db
+        .prepare(
+          `SELECT id, party_name, party_size, reservation_at, status, table_id,
                 phone, email, notes, source, source_ref,
                 seated_at, completed_at, cook_id, created_at, updated_at
            FROM reservations
           WHERE location_id = ?
             AND reservation_at LIKE ?
           ORDER BY reservation_at ASC, id ASC`,
-      )
-      .all(loc, `${date}%`);
+        )
+        .all(loc, `${date}%`)
+    );
   }
 
   return (
