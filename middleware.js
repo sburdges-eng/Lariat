@@ -1,6 +1,8 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 import { NextResponse } from 'next/server';
 import { verifyPinCookieValue } from './lib/pinCookie';
+
+/** @typedef {import('next/server').NextRequest} NextRequest */
 
 /** Paths that show financial / sensitive v2 data when PIN is configured */
 const SENSITIVE_PREFIXES = [
@@ -42,11 +44,18 @@ const PUBLIC_CARVEOUTS = [
   '/api/beo/share/',
 ];
 
+/**
+ * @param {string} pathname
+ * @returns {boolean}
+ */
 function isSensitive(pathname) {
   if (PUBLIC_CARVEOUTS.some((p) => pathname.startsWith(p))) return false;
   return SENSITIVE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
+/**
+ * @param {NextRequest} request
+ */
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
   if (pathname === '/login-pin') return NextResponse.next();
