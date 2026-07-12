@@ -13,12 +13,10 @@ import { withIdempotency } from '../../../lib/idempotency';
 import { extractAction } from '../../../lib/extractAction';
 import { hasPinCookie } from '../../../lib/pin';
 import { formatDollars } from '../../../lib/formatMoney';
+import { MAX_MESSAGE, AI_DOWN_COPY } from '../../../lib/specialsShared';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
-
-const MAX_MESSAGE = 2000;
-const AI_DOWN_COPY = "AI is down. Can't connect to Ollama on the office Mac. Ask a manager to start it.";
 
 /** @param {{ name?: unknown, message?: unknown } | null | undefined} e */
 function specialsModelErrorCopy(e) {
