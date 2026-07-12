@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -15,11 +15,61 @@ import {
 } from './navRegistry.js';
 import { useLocation } from './useLocation.js';
 
+/**
+ * Shape of the nav-registry items this component reads. navRegistry.js is
+ * still @ts-nocheck (GH #250), so its exports come through untyped; this
+ * local typedef pins down the fields Sidebar actually touches against the
+ * real registry shape (see navRegistry.js's own shape comment).
+ * @typedef {{
+ *   id: string,
+ *   href: string,
+ *   name: string,
+ *   sub?: string,
+ *   group: string,
+ *   shortcut?: string,
+ *   locAware?: boolean,
+ *   managerOnly?: boolean,
+ *   shelf?: { b?: string, sub?: string },
+ * }} NavItem
+ */
+
+/**
+ * Shape of a row from GET /api/stations (see app/api/stations/route.js).
+ * @typedef {{
+ *   id: string,
+ *   name: string,
+ *   line: string | null,
+ *   prog: { total: number, done: number, flagged: number, signedOff: boolean } | null,
+ * }} StationRow
+ */
+
+/**
+ * Shape of a row from GET /api/staff, after cleanStaffForPicker()
+ * (lib/staffDisplay.ts) tacks on displayName.
+ * @typedef {{
+ *   id: string,
+ *   first?: string,
+ *   last?: string,
+ *   displayName: string,
+ * }} StaffRow
+ */
+
+/**
+ * Shape of a row from GET /api/locations.
+ * @typedef {{ id: string, name: string }} LocationRow
+ */
+
 /* ── Kitchen topology: the physical line order ──
    Cells 1-6 are stations (filled from /api/stations, but we keep a
    stable slot order so keyboard shortcuts don't shift around).
    Cell 8 is the always-present 86 board. */
 
+/**
+ * @param {{
+ *   prog: StationRow['prog'],
+ *   glyph: string,
+ * }} props
+ */
 function StationRing({ prog, glyph }) {
   const r = 14;
   const c = 2 * Math.PI * r;
@@ -53,27 +103,32 @@ function StationRing({ prog, glyph }) {
 }
 
 // Group sidebar items by their `group` field, preserving first-seen order.
+/** @param {NavItem[]} items */
 function groupItems(items) {
+  /** @type {string[]} */
   const order = [];
+  /** @type {Map<string, NavItem[]>} */
   const byGroup = new Map();
   for (const item of items) {
     if (!byGroup.has(item.group)) {
       order.push(item.group);
       byGroup.set(item.group, []);
     }
-    byGroup.get(item.group).push(item);
+    /** @type {NavItem[]} */ (byGroup.get(item.group)).push(item);
   }
-  return order.map((g) => ({ name: g, items: byGroup.get(g) }));
+  return order.map((g) => ({ name: g, items: /** @type {NavItem[]} */ (byGroup.get(g)) }));
 }
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { locationId, locQuery, setLocation } = useLocation();
-  const [staff, setStaff] = useState([]);
+  const [staff, setStaff] = useState(/** @type {StaffRow[]} */ ([]));
   const [cookId, setCookId] = useState('');
-  const [locations, setLocations] = useState([{ id: 'default', name: 'The Lariat' }]);
-  const [stations, setStations] = useState([]);
+  const [locations, setLocations] = useState(
+    /** @type {LocationRow[]} */ ([{ id: 'default', name: 'The Lariat' }]),
+  );
+  const [stations, setStations] = useState(/** @type {StationRow[]} */ ([]));
 
   // Staff picker hydrates once.
   useEffect(() => {
@@ -112,6 +167,7 @@ export default function Sidebar() {
     return () => clearInterval(t);
   }, [locQuery, pathname]);
 
+  /** @param {React.ChangeEvent<HTMLSelectElement>} e */
   const onCookChange = (e) => {
     const next = e.target.value;
     setCookId(next);
@@ -122,6 +178,7 @@ export default function Sidebar() {
     }
   };
 
+  /** @param {React.ChangeEvent<HTMLSelectElement>} e */
   const onLocationChange = (e) => {
     const next = e.target.value;
     setLocation(next);
@@ -147,11 +204,13 @@ export default function Sidebar() {
 
   // Keyboard shortcuts: numbered keys jump to active line checks, 8 → 86 board, 0 → Today.
   useEffect(() => {
+    /** @param {KeyboardEvent} e */
     const handler = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const tag = (e.target && e.target.tagName) || '';
+      const target = /** @type {HTMLElement | null} */ (e.target);
+      const tag = (target && target.tagName) || '';
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if (e.target && e.target.isContentEditable) return;
+      if (target && target.isContentEditable) return;
       const k = e.key;
       if (k === '0') {
         router.push(withLocation('/', locQuery));
@@ -169,6 +228,7 @@ export default function Sidebar() {
 
   // Render a single primary-nav link, registry-driven.
   const navLink = useCallback(
+    /** @param {NavItem} item */
     (item) => {
       const href = item.locAware ? withLocation(item.href, locQuery) : item.href;
       const active =
@@ -200,6 +260,10 @@ export default function Sidebar() {
   );
 
   // Station cell (1 of the rings).
+  /**
+   * @param {StationRow} s
+   * @param {number} idx
+   */
   const stationCell = (s, idx) => {
     const href = withLocation(`/stations/${s.id}`, locQuery);
     const active = pathname.startsWith(`/stations/${s.id}`);
