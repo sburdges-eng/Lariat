@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // Cert expiry dashboard — CFPM, food-handler, alcohol-service.
 //
 // Colorado (6 CCR 1010-2 §2-102) requires a Certified Food Protection
@@ -14,8 +14,15 @@ import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { pinCookieValueAuthorized } from '../../../lib/pin';
 import CertBoard from './CertBoard.jsx';
 
+/**
+ * `SELECT *` from `staff_certifications` — every column, so the full
+ * table-row interface applies as-is.
+ * @typedef {import('../../../lib/db.ts').StaffCertification} StaffCertificationRow
+ */
+
 export const dynamic = 'force-dynamic';
 
+/** @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props */
 export default async function CertsPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const loc =
@@ -33,12 +40,14 @@ export default async function CertsPage({ searchParams }) {
   const pinOk = await pinCookieValueAuthorized(jar.get('lariat_pin_ok')?.value);
 
   const db = getDb();
-  const rows = db
-    .prepare(
-      `SELECT * FROM staff_certifications WHERE location_id=?
+  const rows = /** @type {StaffCertificationRow[]} */ (
+    db
+      .prepare(
+        `SELECT * FROM staff_certifications WHERE location_id=?
         ORDER BY expires_on IS NULL, expires_on ASC, id ASC`,
-    )
-    .all(loc);
+      )
+      .all(loc)
+  );
 
   const staff = getStaff().filter((s) => s.active !== false);
 
