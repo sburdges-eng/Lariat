@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 // Cert expiry board. List all tracked certs sorted by urgency, with an
 // add-cert form visible to PIN-authed managers.
@@ -6,6 +6,18 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+
+/** @typedef {import('./page.jsx').StaffCertificationRow} StaffCertificationRow */
+/** @typedef {import('../../../lib/data.ts').StaffMember} StaffMember */
+
+/**
+ * `StaffCertificationRow` plus the derived tone/day fields the board
+ * computes for display — never sent to the API.
+ * @typedef {StaffCertificationRow & {
+ *   days: number | null,
+ *   tone: 'green' | 'amber' | 'red' | 'muted',
+ * }} CertWithStatus
+ */
 
 const CERT_TYPES = [
   { id: 'cfpm', label: 'CFPM (Certified Food Protection Manager)' },
@@ -15,6 +27,11 @@ const CERT_TYPES = [
   { id: 'other', label: 'Other' },
 ];
 
+/**
+ * @param {string} today
+ * @param {string | null} expires
+ * @returns {number | null}
+ */
 function daysBetween(today, expires) {
   if (!expires) return null;
   const a = new Date(today + 'T00:00:00').getTime();
@@ -22,12 +39,22 @@ function daysBetween(today, expires) {
   return Math.floor((b - a) / 86400000);
 }
 
+/** @param {string | null} iso */
 function fmtDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+/**
+ * @param {{
+ *   rows: StaffCertificationRow[],
+ *   staff: StaffMember[],
+ *   today: string,
+ *   locationId: string,
+ *   pinOk: boolean,
+ * }} props
+ */
 export default function CertBoard({ rows, staff, today, locationId, pinOk }) {
   const router = useRouter();
   const [cookId, setCookId] = useState('');
@@ -43,15 +70,17 @@ export default function CertBoard({ rows, staff, today, locationId, pinOk }) {
   const withStatus = useMemo(() => {
     return rows.map((r) => {
       const days = daysBetween(today, r.expires_on);
+      /** @type {CertWithStatus['tone']} */
       let tone = 'green';
       if (r.active === 0) tone = 'muted';
       else if (days === null) tone = 'muted';
       else if (days < 0) tone = 'red';
       else if (days <= 30) tone = 'amber';
-      return { ...r, days, tone };
+      return /** @type {CertWithStatus} */ ({ ...r, days, tone });
     });
   }, [rows, today]);
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const save = async (e) => {
     e.preventDefault();
     if (!cookId) {
@@ -98,6 +127,7 @@ export default function CertBoard({ rows, staff, today, locationId, pinOk }) {
     }
   };
 
+  /** @param {number} id */
   const deactivate = async (id) => {
     if (!confirm('Mark this certification inactive? Use this when the worker leaves, or the cert is replaced.')) return;
     try {
