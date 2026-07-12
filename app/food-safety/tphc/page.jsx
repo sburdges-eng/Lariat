@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // TPHC subpage — active time-as-public-health-control batches (§3-501.19).
 //
 // Reads active rows (discarded_at IS NULL), runs the scan for
@@ -13,8 +13,35 @@ import {
 } from '../../../lib/tphc';
 import TphcBoard from './TphcBoard.jsx';
 
+/**
+ * Row shape of tphc_entries per the lib/db.ts CREATE TABLE (NOT NULL
+ * columns → plain type, nullable columns → | null).
+ * @typedef {{
+ *   id: number,
+ *   shift_date: string,
+ *   location_id: string | null,
+ *   station_id: string | null,
+ *   item: string,
+ *   batch_ref: string | null,
+ *   started_at: string,
+ *   cutoff_at: string,
+ *   discarded_at: string | null,
+ *   discard_reason: string | null,
+ *   cook_id: string | null,
+ *   created_at: string | null,
+ * }} TphcEntryRow
+ */
+/**
+ * WHERE discarded_at IS NOT NULL guarantees discarded_at/discard_reason
+ * are always populated for these rows.
+ * @typedef {TphcEntryRow & { discarded_at: string, discard_reason: string }} TphcDiscardedRow
+ */
+
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props
+ */
 export default async function TphcPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -25,21 +52,25 @@ export default async function TphcPage({ searchParams }) {
   const now = new Date().toISOString();
 
   const db = getDb();
-  const active = db
-    .prepare(
-      `SELECT * FROM tphc_entries WHERE location_id=? AND discarded_at IS NULL
+  const active = /** @type {TphcEntryRow[]} */ (
+    db
+      .prepare(
+        `SELECT * FROM tphc_entries WHERE location_id=? AND discarded_at IS NULL
         ORDER BY cutoff_at ASC, id ASC`,
-    )
-    .all(loc);
+      )
+      .all(loc)
+  );
   const scan = scanActiveTphc(active, now);
   const scanById = Object.fromEntries(scan.map((s) => [s.id, s]));
 
-  const recent = db
-    .prepare(
-      `SELECT * FROM tphc_entries WHERE location_id=? AND discarded_at IS NOT NULL
+  const recent = /** @type {TphcDiscardedRow[]} */ (
+    db
+      .prepare(
+        `SELECT * FROM tphc_entries WHERE location_id=? AND discarded_at IS NOT NULL
         ORDER BY discarded_at DESC LIMIT 20`,
-    )
-    .all(loc);
+      )
+      .all(loc)
+  );
 
   return (
     <TphcBoard

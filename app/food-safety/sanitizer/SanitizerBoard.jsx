@@ -1,9 +1,23 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 // Sanitizer ppm entry + latest-per-point board.
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+
+/** @typedef {import('./page.jsx').SanitizerRow} SanitizerRow */
+/** @typedef {import('./page.jsx').KnownPoint} KnownPoint */
+
+/**
+ * Shape of the 4xx/5xx JSON body the POST /api/sanitizer route returns
+ * on failure (see app/api/sanitizer/route.ts) — only the fields this
+ * board actually reads. Parsed defensively since a network failure or
+ * non-JSON body falls back to `{}`.
+ * @typedef {{
+ *   error?: string,
+ *   needs_corrective_action?: boolean,
+ * }} SanitizerErrorBody
+ */
 
 const CHEMISTRIES = [
   { id: 'chlorine', label: 'Chlorine' },
@@ -12,11 +26,20 @@ const CHEMISTRIES = [
   { id: 'other', label: 'Other' },
 ];
 
+/** @param {string} iso */
 function fmtTime(iso) {
   if (!iso) return '—';
   return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
+/**
+ * @param {{
+ *   latest: SanitizerRow[],
+ *   knownPoints: readonly KnownPoint[],
+ *   locationId: string,
+ *   date: string,
+ * }} props
+ */
 export default function SanitizerBoard({ latest, knownPoints, locationId, date }) {
   const router = useRouter();
   const [cookId, setCookId] = useState('');
@@ -40,6 +63,7 @@ export default function SanitizerBoard({ latest, knownPoints, locationId, date }
     return knownPoints.filter((p) => !seen.has(p.label.toLowerCase()));
   }, [knownPoints, latest]);
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submit = async (e) => {
     e.preventDefault();
     if (!pointLabel.trim() || !ppm) return;
@@ -61,7 +85,7 @@ export default function SanitizerBoard({ latest, knownPoints, locationId, date }
         }),
       });
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
+        const j = /** @type {SanitizerErrorBody} */ (await res.json().catch(() => ({})));
         if (j.needs_corrective_action) {
           setNeedsNote(true);
           setErr(`${j.error} — add a corrective action.`);
@@ -83,6 +107,7 @@ export default function SanitizerBoard({ latest, knownPoints, locationId, date }
     }
   };
 
+  /** @param {KnownPoint} p */
   const prefillPoint = (p) => {
     setPointLabel(p.label);
     setChemistry(p.chemistry);

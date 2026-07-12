@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 // Receiving board — category tiles + quick entry form.
 //
@@ -17,6 +17,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { clientFetch } from '@/lib/clientFetch';
 
+/** @typedef {import('../../../lib/receiving').ReceivingCategory} ReceivingCategory */
+/** @typedef {import('../../../lib/receiving').ReceivingCategoryRule} ReceivingCategoryRule */
+/** @typedef {import('../../../lib/receiving').CategorySummary} CategorySummary */
+/** @typedef {import('./page.jsx').ReceivingLogRow} ReceivingLogRow */
+
+/** @param {string} iso */
 function fmtTime(iso) {
   if (!iso) return '—';
   const hasTz = /[zZ]|[+-]\d\d:?\d\d$/.test(iso);
@@ -25,11 +31,18 @@ function fmtTime(iso) {
   return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
+/** @param {number | null | undefined} f */
 function fmtTemp(f) {
   if (f === null || f === undefined || !Number.isFinite(f)) return '—';
   return `${(Math.round(f * 10) / 10).toFixed(1)}°F`;
 }
 
+/**
+ * Shared shape between `ReceivingCategoryRule` (the static rule table)
+ * and `CategorySummary` (the per-category tile) — both carry these
+ * three fields, and this helper only ever reads these three.
+ * @param {{ requires_reading: boolean, required_min_f: number | null, required_max_f: number | null }} r
+ */
 function boundLabel(r) {
   if (!r.requires_reading) return 'no temp';
   if (r.required_min_f !== null && r.required_max_f !== null) {
@@ -42,6 +55,16 @@ function boundLabel(r) {
 
 // Mirror of lib/receiving.validateReceivingReading for live UI hints.
 // Keep behaviorally identical; the server is still the source of truth.
+/**
+ * @param {{
+ *   rule: ReceivingCategoryRule | null,
+ *   reading_f: number | null,
+ *   package_ok: boolean,
+ *   expiration_date: string | null,
+ *   received_at: string,
+ * }} args
+ * @returns {'ok' | 'rejected' | 'accept_with_note' | null}
+ */
 function liveDecision({ rule, reading_f, package_ok, expiration_date, received_at }) {
   if (!rule) return 'ok';
   if (package_ok === false) return 'rejected';
@@ -60,6 +83,23 @@ function liveDecision({ rule, reading_f, package_ok, expiration_date, received_a
   return 'ok';
 }
 
+/**
+ * `rules` is keyed as `Record<string, ...>` rather than the tighter
+ * `Record<ReceivingCategory, ...>` that `RECEIVING_RULES` carries in
+ * lib/receiving.ts: the board looks rules up by a plain `string`
+ * category (the `<select>`'s live value, and each entry row's raw DB
+ * `category` column), so a wider key type matches how this component
+ * actually indexes it — the existing `?.` / `|| null` guards already
+ * assumed lookups could miss.
+ * @param {{
+ *   initialEntries: ReceivingLogRow[],
+ *   initialSummary: CategorySummary[],
+ *   categories: ReceivingCategory[],
+ *   rules: Record<string, ReceivingCategoryRule>,
+ *   locationId: string,
+ *   date: string,
+ * }} props
+ */
 export default function ReceivingBoard({
   initialEntries,
   initialSummary,
@@ -74,7 +114,9 @@ export default function ReceivingBoard({
 
   const [vendor, setVendor] = useState('');
   const [invoice, setInvoice] = useState('');
-  const [category, setCategory] = useState(categories[0] || 'refrigerated');
+  const [category, setCategory] = useState(
+    /** @type {string} */ (categories[0] || 'refrigerated'),
+  );
   const [item, setItem] = useState('');
   const [vendorSku, setVendorSku] = useState('');
   const [reading, setReading] = useState('');
@@ -126,6 +168,7 @@ export default function ReceivingBoard({
     }
   };
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submit = async (e) => {
     e.preventDefault();
     if (!vendor.trim() || !category) return;

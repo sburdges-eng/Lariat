@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // Cooling log subpage — open batches + new batch button.
 //
 // The core UX is "a cooling stopwatch per batch" — once a cook drops a
@@ -11,8 +11,13 @@ import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { scanOpenBatches } from '../../../lib/cooling';
 import CoolingBoard from './CoolingBoard.jsx';
 
+/** @typedef {import('../../../lib/db').CoolingLogEntry} CoolingRow */
+
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props
+ */
 export default async function CoolingPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -23,20 +28,24 @@ export default async function CoolingPage({ searchParams }) {
   const today = todayISO();
 
   const db = getDb();
-  const open = db
-    .prepare(
-      `SELECT * FROM cooling_log WHERE location_id=? AND status='in_progress' ORDER BY started_at ASC`,
-    )
-    .all(loc);
+  const open = /** @type {CoolingRow[]} */ (
+    db
+      .prepare(
+        `SELECT * FROM cooling_log WHERE location_id=? AND status='in_progress' ORDER BY started_at ASC`,
+      )
+      .all(loc)
+  );
   const scan = scanOpenBatches(open, Date.now());
   const scanById = Object.fromEntries(scan.map((s) => [s.id, s]));
 
-  const closed = db
-    .prepare(
-      `SELECT * FROM cooling_log WHERE location_id=? AND shift_date=? AND status != 'in_progress'
-        ORDER BY id DESC LIMIT 30`,
-    )
-    .all(loc, today);
+  const closed = /** @type {CoolingRow[]} */ (
+    db
+      .prepare(
+        `SELECT * FROM cooling_log WHERE location_id=? AND shift_date=? AND status != 'in_progress'
+          ORDER BY id DESC LIMIT 30`,
+      )
+      .all(loc, today)
+  );
 
   return (
     <CoolingBoard

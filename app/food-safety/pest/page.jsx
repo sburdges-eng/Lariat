@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // Pest-control board — recent service visits / sightings / trap checks,
 // plus a strip-form to log a new entry. Backed by /api/pest.
 //
@@ -10,8 +10,13 @@ import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import PestBoard from './PestBoard.jsx';
 
+/** @typedef {import('../../../lib/db.ts').PestControlEntry} PestControlRow */
+
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props
+ */
 export default async function PestPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -21,14 +26,16 @@ export default async function PestPage({ searchParams }) {
       : DEFAULT_LOCATION_ID;
 
   const db = getDb();
-  const rows = db
-    .prepare(
-      `SELECT * FROM pest_control_log
-        WHERE location_id=?
-        ORDER BY created_at DESC
-        LIMIT 100`,
-    )
-    .all(loc);
+  const rows = /** @type {PestControlRow[]} */ (
+    db
+      .prepare(
+        `SELECT * FROM pest_control_log
+          WHERE location_id=?
+          ORDER BY created_at DESC
+          LIMIT 100`,
+      )
+      .all(loc)
+  );
 
   return <PestBoard rows={rows} locationId={loc} />;
 }

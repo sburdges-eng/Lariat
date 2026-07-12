@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 // Temp-log board — grid of CCP tiles + quick entry.
 //
@@ -15,6 +15,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { clientFetch } from '@/lib/clientFetch';
 
+/** @typedef {import('./page.jsx').TempLogRow} TempLogRow */
+/** @typedef {import('../../../lib/tempLog.ts').TempPoint} TempPoint */
+/** @typedef {import('../../../lib/tempLog.ts').PointSummary} PointSummary */
+/**
+ * `entries` state holds either the initial server-rendered raw DB rows
+ * (no `point_label` — page.jsx does a bare `SELECT *`) or rows from a
+ * `refetch()` against GET /api/temp-log, which joins in `point_label`
+ * (see app/api/temp-log/route.js). Optional field, not a redefinition
+ * of the DB row shape.
+ * @typedef {TempLogRow & { point_label?: string | null }} DisplayEntry
+ */
+
+/** @param {string | null | undefined} iso */
 function fmtTime(iso) {
   if (!iso) return '—';
   // sqlite stores `datetime('now')` as 'YYYY-MM-DD HH:MM:SS' in UTC,
@@ -28,6 +41,7 @@ function fmtTime(iso) {
   return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
+/** @param {number | null | undefined} f */
 function fmtTemp(f) {
   if (f === null || f === undefined || !Number.isFinite(f)) return '—';
   // One decimal is the probe's honest resolution; zero decimals looks
@@ -35,6 +49,7 @@ function fmtTemp(f) {
   return `${(Math.round(f * 10) / 10).toFixed(1)}°F`;
 }
 
+/** @param {{ required_min_f: number | null, required_max_f: number | null }} p */
 function boundLabel(p) {
   if (p.required_min_f !== null && p.required_max_f !== null) {
     return `${p.required_min_f}–${p.required_max_f}°F`;
@@ -44,6 +59,15 @@ function boundLabel(p) {
   return '';
 }
 
+/**
+ * @param {{
+ *   initialEntries: TempLogRow[],
+ *   initialSummary: PointSummary[],
+ *   points: readonly TempPoint[],
+ *   locationId: string,
+ *   date: string,
+ * }} props
+ */
 export default function TempLogBoard({
   initialEntries,
   initialSummary,
@@ -52,7 +76,7 @@ export default function TempLogBoard({
   date,
 }) {
   const [summary, setSummary] = useState(initialSummary);
-  const [entries, setEntries] = useState(initialEntries);
+  const [entries, setEntries] = useState(/** @type {DisplayEntry[]} */ (initialEntries));
   const [cookId, setCookId] = useState('');
 
   const [pointId, setPointId] = useState(points[0]?.id || '');
@@ -92,6 +116,7 @@ export default function TempLogBoard({
     }
   };
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submit = async (e) => {
     e.preventDefault();
     if (!pointId) return;
