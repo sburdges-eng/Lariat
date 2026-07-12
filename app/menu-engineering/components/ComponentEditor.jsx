@@ -1,14 +1,53 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { formatDollars } from '../../../lib/formatMoney';
+
+/** @typedef {import('../../../lib/db.ts').DishComponent} DishComponent */
+
+/**
+ * Recipe candidate for the "Sub-recipe" component type — mirrors the shape
+ * ComponentEditorPage derives from getRecipes() (slug/name plus the
+ * recipe's declared menu_items, defaulted to [] there).
+ * @typedef {{ slug: string, name: string, menu_items: string[] }} RecipeOption
+ */
+
+/**
+ * Distributor/vendor item candidate for the "Distributor" component type.
+ * Mirrors the local (non-exported) `VendorCandidate` interface in
+ * ./page.tsx — kept in sync by hand since that interface isn't exported
+ * for reuse.
+ * @typedef {{
+ *   ingredient: string,
+ *   unit_price: number | null,
+ *   pack_unit: string | null,
+ *   source: 'vendor_prices' | 'order_guide',
+ *   vendor: string | null,
+ * }} VendorCandidate
+ */
+
+/**
+ * One row in the "Build a dish" form. `qty` stays a string while being
+ * edited (raw input value); only coerced to a number on save.
+ * @typedef {{
+ *   localId: string,
+ *   componentType: 'recipe' | 'vendor_item',
+ *   recipeSlug: string,
+ *   vendorIngredient: string,
+ *   qty: string,
+ *   unit: string,
+ *   notes: string,
+ * }} ComponentRow
+ */
 
 const COMMON_UNITS = ['oz', 'g', 'lb', 'tsp', 'tbsp', 'cup', 'fl oz', 'qt', 'gal', 'each'];
 
 let rowCounter = 0;
 const nextRowId = () => `row-${++rowCounter}`;
+
+/** @returns {ComponentRow} */
 const emptyRow = () => ({
   localId: nextRowId(),
   componentType: 'recipe',          // 'recipe' | 'vendor_item'
@@ -19,16 +58,79 @@ const emptyRow = () => ({
   notes: '',
 });
 
+/** @param {ComponentRow} r */
 const dupKey = (r) =>
   r.componentType === 'recipe'
     ? `recipe:${r.recipeSlug}`
     : `vendor:${(r.vendorIngredient || '').toLowerCase().trim()}`;
 
+/** @param {DishComponent} c */
 const componentKey = (c) =>
   c.component_type === 'recipe'
     ? `${c.dish_name}::recipe::${c.recipe_slug}`
     : `${c.dish_name}::vendor::${(c.vendor_ingredient || '').toLowerCase().trim()}`;
 
+/**
+ * Loose case/punctuation-insensitive dish-name match key — shared by the
+ * "existing components for this dish name" live-match and the `?dish=`
+ * deep-link resolver below (both need the same forgiving comparison,
+ * since dish_components.dish_name is canonical-normalized on save but
+ * neither the user's typed input nor a fix-it link's dish name is).
+ * @param {string} s
+ */
+const normDishKey = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/**
+ * @param {DishComponent} c
+ * @returns {ComponentRow}
+ */
+const rowFromComponent = (c) => ({
+  localId: nextRowId(),
+  componentType: c.component_type,
+  recipeSlug: c.recipe_slug || '',
+  vendorIngredient: c.vendor_ingredient || '',
+  qty: String(c.qty_per_serving),
+  unit: c.unit,
+  notes: c.notes || '',
+});
+
+/**
+ * Resolve the `?dish=` deep-link query param against already-loaded
+ * dish_components rows for this location, so the builder pre-selects that
+ * dish on mount. /costing/depletion-exceptions builds a "fix-it" link to
+ * `/menu-engineering/components?dish=<dish_name>&location=<loc>` expecting
+ * this — before this fix the param was read nowhere and the link was a
+ * silent no-op (the dish was still findable via the datalist, just not
+ * pre-selected). Loose match (normDishKey) since the link's dish name is
+ * the raw Toast sales_lines display string, not the canonical
+ * normalizeDishName() form dish_components stores.
+ *
+ * @param {string | null} dishParam
+ * @param {DishComponent[]} components
+ * @returns {{ dishName: string, rows: ComponentRow[] }}
+ */
+function resolveDishParam(dishParam, components) {
+  const raw = (dishParam || '').trim();
+  if (!raw) return { dishName: '', rows: [emptyRow()] };
+  const norm = normDishKey(raw);
+  const matches = components.filter((c) => normDishKey(c.dish_name) === norm);
+  if (matches.length === 0) return { dishName: raw, rows: [emptyRow()] };
+  return {
+    dishName: /** @type {DishComponent} */ (matches[0]).dish_name,
+    rows: matches.map(rowFromComponent),
+  };
+}
+
+/**
+ * @param {{
+ *   locationId: string,
+ *   initialComponents: DishComponent[],
+ *   recipes: RecipeOption[],
+ *   distributorItems?: VendorCandidate[],
+ *   unlinkedDishes?: string[],
+ *   declaredOnlyDishes?: string[],
+ * }} props
+ */
 export default function ComponentEditor({
   locationId,
   initialComponents,
@@ -38,25 +140,31 @@ export default function ComponentEditor({
   declaredOnlyDishes,
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [components, setComponents] = useState(initialComponents || []);
-  const [dishName, setDishName] = useState('');
-  const [rows, setRows] = useState([emptyRow()]);
+  const [dishName, setDishName] = useState(
+    () => resolveDishParam(searchParams.get('dish'), initialComponents || []).dishName,
+  );
+  const [rows, setRows] = useState(
+    () => resolveDishParam(searchParams.get('dish'), initialComponents || []).rows,
+  );
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
-  const [rowErrs, setRowErrs] = useState({});
+  const [rowErrs, setRowErrs] = useState(/** @type {Record<string, string>} */ ({}));
   const inFlightRef = useRef(false);
 
   const grouped = useMemo(() => {
+    /** @type {Map<string, DishComponent[]>} */
     const map = new Map();
     for (const c of components) {
       if (!map.has(c.dish_name)) map.set(c.dish_name, []);
-      map.get(c.dish_name).push(c);
+      /** @type {DishComponent[]} */ (map.get(c.dish_name)).push(c);
     }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [components]);
 
   const candidateDishes = useMemo(() => {
-    const set = new Set();
+    const set = /** @type {Set<string>} */ (new Set());
     for (const d of unlinkedDishes || []) set.add(d);
     for (const d of declaredOnlyDishes || []) set.add(d);
     for (const c of components) set.add(c.dish_name);
@@ -67,29 +175,22 @@ export default function ComponentEditor({
 
   const existingForDish = useMemo(() => {
     if (!dishName.trim()) return [];
-    const norm = dishName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-    return components.filter(
-      (c) => c.dish_name.toLowerCase().replace(/[^a-z0-9]/g, '') === norm,
-    );
+    const norm = normDishKey(dishName.trim());
+    return components.filter((c) => normDishKey(c.dish_name) === norm);
   }, [components, dishName]);
 
+  /**
+   * @param {string} localId
+   * @param {Partial<ComponentRow>} patch
+   */
   const updateRow = (localId, patch) =>
     setRows((curr) => curr.map((r) => (r.localId === localId ? { ...r, ...patch } : r)));
 
   const addRow = () => setRows((curr) => [...curr, emptyRow()]);
 
+  /** @param {string} localId */
   const removeRow = (localId) =>
     setRows((curr) => (curr.length === 1 ? [emptyRow()] : curr.filter((r) => r.localId !== localId)));
-
-  const rowFromComponent = (c) => ({
-    localId: nextRowId(),
-    componentType: c.component_type,
-    recipeSlug: c.recipe_slug || '',
-    vendorIngredient: c.vendor_ingredient || '',
-    qty: String(c.qty_per_serving),
-    unit: c.unit,
-    notes: c.notes || '',
-  });
 
   const loadExistingIntoRows = () => {
     if (existingForDish.length === 0) return;
@@ -98,6 +199,10 @@ export default function ComponentEditor({
     setRowErrs({});
   };
 
+  /**
+   * @param {ComponentRow} r
+   * @returns {string | null}
+   */
   const validateRow = (r) => {
     if (r.componentType === 'recipe') {
       if (!r.recipeSlug) return 'Choose a recipe.';
@@ -111,6 +216,7 @@ export default function ComponentEditor({
     return null;
   };
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const saveAll = async (e) => {
     e?.preventDefault?.();
     if (inFlightRef.current) return;
@@ -121,8 +227,8 @@ export default function ComponentEditor({
       setErr('Dish name required.');
       return;
     }
-    const seen = new Set();
-    const errs = {};
+    const seen = /** @type {Set<string>} */ (new Set());
+    const errs = /** @type {Record<string, string>} */ ({});
     rows.forEach((r) => {
       const k = dupKey(r);
       const isFilled =
@@ -144,8 +250,8 @@ export default function ComponentEditor({
 
     inFlightRef.current = true;
     setSaving(true);
-    const saved = [];
-    const rowFails = {};
+    const saved = /** @type {DishComponent[]} */ ([]);
+    const rowFails = /** @type {Record<string, string>} */ ({});
     try {
       for (const r of rows) {
         const payload =
@@ -174,11 +280,11 @@ export default function ComponentEditor({
           body: JSON.stringify(payload),
         });
         if (!res.ok) {
-          const j = await res.json().catch(() => ({}));
+          const j = /** @type {{ error?: string }} */ (await res.json().catch(() => ({})));
           rowFails[r.localId] = j?.error || `HTTP ${res.status}`;
           continue;
         }
-        const j = await res.json();
+        const j = /** @type {{ component: DishComponent }} */ (await res.json());
         saved.push(j.component);
       }
     } catch {
@@ -190,7 +296,9 @@ export default function ComponentEditor({
 
     if (saved.length) {
       setComponents((curr) => {
-        const byKey = new Map(curr.map((c) => [componentKey(c), c]));
+        /** @type {Map<string, DishComponent>} */
+        const byKey = new Map();
+        for (const c of curr) byKey.set(componentKey(c), c);
         for (const s of saved) byKey.set(componentKey(s), s);
         return [...byKey.values()];
       });
@@ -205,6 +313,7 @@ export default function ComponentEditor({
     }
   };
 
+  /** @param {number} id */
   const remove = async (id) => {
     if (!window.confirm('Delete this component?')) return;
     try {
@@ -214,7 +323,7 @@ export default function ComponentEditor({
         body: JSON.stringify({ id }),
       });
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
+        const j = /** @type {{ error?: string }} */ (await res.json().catch(() => ({})));
         setErr(j?.error || `Delete failed (HTTP ${res.status})`);
         return;
       }
@@ -225,6 +334,7 @@ export default function ComponentEditor({
     }
   };
 
+  /** @param {string} dish */
   const editDish = (dish) => {
     setDishName(dish);
     const rowsForDish = components.filter((c) => c.dish_name === dish).map(rowFromComponent);
@@ -288,7 +398,7 @@ export default function ComponentEditor({
                         value={r.componentType}
                         onChange={(e) =>
                           updateRow(r.localId, {
-                            componentType: e.target.value,
+                            componentType: /** @type {'recipe' | 'vendor_item'} */ (e.target.value),
                             recipeSlug: '',
                             vendorIngredient: '',
                           })
