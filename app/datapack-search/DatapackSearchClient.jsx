@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -54,13 +54,38 @@ const NUTRIENT_PRIORITY = [
   'Sugars, total',
 ];
 
+/** @typedef {import('../../lib/datapackSearch').UsdaFood} UsdaFood */
+/** @typedef {import('../../lib/datapackSearch').UsdaNutrient} UsdaNutrient */
+/** @typedef {import('../../lib/datapackSearch').OffProduct} OffProduct */
+/** @typedef {import('../../lib/datapackSearch').FdaSection} FdaSection */
+/** @typedef {import('../../lib/datapackSearch').WikibooksPage} WikibooksPage */
+
+/**
+ * A rendered search result row — the shared shape the FTS path returns
+ * directly and the semantic/hybrid path normalizes into (see
+ * normalizeSemanticHit below).
+ * @typedef {{
+ *   score: number,
+ *   source: string,
+ *   id: number | string,
+ *   title: string | null,
+ *   subtitle: string | null,
+ *   extra: string | null,
+ * }} Hit
+ */
+
 // ── Helpers ──────────────────────────────────────────────────────
 
+/**
+ * @param {unknown} nutrients
+ * @returns {UsdaNutrient[]}
+ */
 function pickTopNutrients(nutrients) {
   if (!Array.isArray(nutrients)) return [];
-  const out = [];
+  const list = /** @type {UsdaNutrient[]} */ (nutrients);
+  const out = /** @type {UsdaNutrient[]} */ ([]);
   for (const wanted of NUTRIENT_PRIORITY) {
-    const found = nutrients.find(
+    const found = list.find(
       (n) =>
         n.nutrient_name &&
         n.nutrient_name.toLowerCase().startsWith(wanted.toLowerCase())
@@ -70,6 +95,10 @@ function pickTopNutrients(nutrients) {
   return out;
 }
 
+/**
+ * @param {unknown} raw
+ * @returns {string[]}
+ */
 function parseAllergenTags(raw) {
   if (!raw || typeof raw !== 'string') return [];
   try {
@@ -83,6 +112,10 @@ function parseAllergenTags(raw) {
   return [];
 }
 
+/**
+ * @param {Hit} hit
+ * @returns {string}
+ */
 function hitKey(hit) {
   return `${hit.source}:${hit.id}`;
 }
@@ -96,50 +129,58 @@ function hitKey(hit) {
 // source naming and drill-in routing. We keep the cosine similarity
 // untouched — it's positive ([-1, 1]); the formatter below
 // distinguishes positive (semantic) from negative (BM25) scores.
+/**
+ * @param {Record<string, unknown>} meta
+ * @returns {Hit}
+ */
 function normalizeSemanticHit(meta) {
   const score = typeof meta.score === 'number' ? meta.score : 0;
   if (meta.source === 'usda') {
     return {
       score,
       source: 'usda',
-      id: meta.fdc_id ?? '',
-      title: meta.description ?? null,
-      subtitle: meta.food_category ?? null,
-      extra: meta.source_archive ?? null,
+      id: /** @type {number | string} */ (meta.fdc_id ?? ''),
+      title: /** @type {string | null} */ (meta.description ?? null),
+      subtitle: /** @type {string | null} */ (meta.food_category ?? null),
+      extra: /** @type {string | null} */ (meta.source_archive ?? null),
     };
   }
   if (meta.source === 'wikibooks') {
     return {
       score,
       source: 'wikibooks',
-      id: meta.page_id ?? '',
-      title: meta.title ?? null,
-      subtitle: meta.slug ?? null,
-      extra: meta.source_url ?? null,
+      id: /** @type {number | string} */ (meta.page_id ?? ''),
+      title: /** @type {string | null} */ (meta.title ?? null),
+      subtitle: /** @type {string | null} */ (meta.slug ?? null),
+      extra: /** @type {string | null} */ (meta.source_url ?? null),
     };
   }
   if (meta.source === 'fda_food_code') {
     return {
       score,
       source: 'fda',
-      id: meta.rowid ?? '',
-      title: meta.title ?? null,
-      subtitle: meta.section_id ?? '',
-      extra: meta.chapter ?? meta.annex ?? null,
+      id: /** @type {number | string} */ (meta.rowid ?? ''),
+      title: /** @type {string | null} */ (meta.title ?? null),
+      subtitle: /** @type {string} */ (meta.section_id ?? ''),
+      extra: /** @type {string | null} */ (meta.chapter ?? meta.annex ?? null),
     };
   }
   // Unknown source — fall through with whatever scalar fields we can
   // surface so the row at least renders.
   return {
     score,
-    source: meta.source ?? 'unknown',
-    id: meta.rowid ?? meta.id ?? '',
-    title: meta.title ?? meta.description ?? null,
+    source: /** @type {string} */ (meta.source ?? 'unknown'),
+    id: /** @type {number | string} */ (meta.rowid ?? meta.id ?? ''),
+    title: /** @type {string | null} */ (meta.title ?? meta.description ?? null),
     subtitle: null,
     extra: null,
   };
 }
 
+/**
+ * @param {Hit} hit
+ * @returns {string | null}
+ */
 function lookupUrlFor(hit) {
   const params = new URLSearchParams();
   if (hit.source === 'usda') {
@@ -162,10 +203,12 @@ function lookupUrlFor(hit) {
 
 // ── Drill-in panels ──────────────────────────────────────────────
 
+/** @param {{ data: unknown }} props */
 function UsdaDetail({ data }) {
-  const food = data?.food;
+  const d = /** @type {{ food?: UsdaFood, nutrients?: UsdaNutrient[] } | null | undefined} */ (data);
+  const food = d?.food;
   if (!food) return <div style={{ color: 'var(--muted)' }}>No food row.</div>;
-  const top = pickTopNutrients(data?.nutrients ?? []);
+  const top = pickTopNutrients(d?.nutrients ?? []);
   return (
     <div>
       <div style={{ fontWeight: 600, marginBottom: 6 }}>
@@ -202,8 +245,10 @@ function UsdaDetail({ data }) {
   );
 }
 
+/** @param {{ data: unknown }} props */
 function OffDetail({ data }) {
-  const product = data?.product;
+  const d = /** @type {{ product?: OffProduct } | null | undefined} */ (data);
+  const product = d?.product;
   if (!product) return <div style={{ color: 'var(--muted)' }}>No product row.</div>;
   const allergens = parseAllergenTags(product.allergens_tags_json);
   return (
@@ -253,8 +298,10 @@ function OffDetail({ data }) {
   );
 }
 
+/** @param {{ data: unknown }} props */
 function FdaDetail({ data }) {
-  const section = data?.section;
+  const d = /** @type {{ section?: FdaSection } | null | undefined} */ (data);
+  const section = d?.section;
   if (!section) return <div style={{ color: 'var(--muted)' }}>No section.</div>;
   return (
     <div>
@@ -287,8 +334,10 @@ function FdaDetail({ data }) {
   );
 }
 
+/** @param {{ data: unknown }} props */
 function WikibooksDetail({ data }) {
-  const page = data?.page;
+  const d = /** @type {{ page?: WikibooksPage } | null | undefined} */ (data);
+  const page = d?.page;
   if (!page) return <div style={{ color: 'var(--muted)' }}>No page.</div>;
   return (
     <div>
@@ -321,6 +370,9 @@ function WikibooksDetail({ data }) {
   );
 }
 
+/**
+ * @param {{ source: string, state: import('./detailsState').DetailEntry }} props
+ */
 function DetailPanel({ source, state }) {
   if (state.status === 'loading') {
     return <div style={{ color: 'var(--muted)' }}>Loading…</div>;
@@ -340,6 +392,18 @@ function DetailPanel({ source, state }) {
   return null;
 }
 
+/**
+ * Search response state. `kind` discriminates the union; the payload
+ * shape depends on the kind.
+ * @typedef {
+ *   | { kind: 'idle' }
+ *   | { kind: 'loading' }
+ *   | { kind: 'unavailable' }
+ *   | { kind: 'error', message: string, status?: number }
+ *   | { kind: 'ok', hits: Hit[], query: string, mode: string, source: string | null, bucket: string | null }
+ * } SearchResponse
+ */
+
 // ── Main component ──────────────────────────────────────────────
 
 export default function DatapackSearchClient() {
@@ -349,14 +413,14 @@ export default function DatapackSearchClient() {
   const [bucket, setBucket] = useState('recipes');
   // Search response state. `kind` discriminates the union; `data`
   // shape depends on the kind.
-  const [response, setResponse] = useState({ kind: 'idle' });
+  const [response, setResponse] = useState(/** @type {SearchResponse} */ ({ kind: 'idle' }));
   // Per-row drill-in state, keyed by `${source}:${id}`.
-  const [details, setDetails] = useState({});
+  const [details, setDetails] = useState(/** @type {import('./detailsState').DetailsMap} */ ({}));
   // AbortController for the in-flight search. Fast typing (submit
   // "egg", then submit "eggplant" before "egg" resolves) used to let
   // the slower "egg" response overwrite the "eggplant" results — we
   // now abort the previous request before issuing a new one.
-  const searchAbortRef = useRef(null);
+  const searchAbortRef = useRef(/** @type {AbortController | null} */ (null));
 
   useEffect(() => {
     let alive = true;
@@ -384,7 +448,13 @@ export default function DatapackSearchClient() {
     };
   }, []);
 
-  const runSearch = useCallback(async (q, modeArg, srcOrBucket) => {
+  const runSearch = useCallback(
+    /**
+     * @param {string} q
+     * @param {string} modeArg
+     * @param {string} srcOrBucket
+     */
+    async (q, modeArg, srcOrBucket) => {
     if (response.kind === 'unavailable') return;
     const trimmed = q.trim();
     if (!trimmed) {
@@ -418,10 +488,11 @@ export default function DatapackSearchClient() {
         signal: ctrl.signal,
       });
     } catch (err) {
-      if (err?.name === 'AbortError') return; // superseded by a newer search
+      const e = /** @type {{ name?: unknown, message?: unknown } | null} */ (err);
+      if (e?.name === 'AbortError') return; // superseded by a newer search
       setResponse({
         kind: 'error',
-        message: `Network error: ${err?.message ?? String(err)}`,
+        message: `Network error: ${e?.message ?? String(err)}`,
       });
       return;
     } finally {
@@ -466,12 +537,14 @@ export default function DatapackSearchClient() {
     // normalizer when only the semantic side scored a row.
     const isBucketed = modeArg === 'semantic' || modeArg === 'hybrid';
     const hits = isBucketed
-      ? body.hits.map((h) =>
-          // FTS envelope already has the right shape (typeof title is
-          // present even when null; .source / .id are required).
-          typeof h.source === 'string' && 'id' in h && 'title' in h
-            ? h
-            : normalizeSemanticHit(h)
+      ? body.hits.map(
+          /** @param {Record<string, unknown>} h */
+          (h) =>
+            // FTS envelope already has the right shape (typeof title is
+            // present even when null; .source / .id are required).
+            typeof h.source === 'string' && 'id' in h && 'title' in h
+              ? h
+              : normalizeSemanticHit(h)
         )
       : body.hits;
     setResponse({
@@ -484,18 +557,26 @@ export default function DatapackSearchClient() {
     });
   }, [response.kind]);
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const onSubmit = (e) => {
     e.preventDefault();
-    runSearch(query, mode, mode === 'semantic' ? bucket : source);
+    // Both 'semantic' and 'hybrid' search a per-bucket embedding index and
+    // must send `bucket`; only 'lexical' targets the FTS `source` selector.
+    // (Bug: this used to read `mode === 'semantic' ? bucket : source`, which
+    // sent the hidden/stale `source` state — defaulting to 'all', not a
+    // valid bucket — for every Hybrid search, so Hybrid always 400'd.)
+    runSearch(query, mode, mode === 'lexical' ? source : bucket);
   };
 
   const grouped = useMemo(() => {
     if (response.kind !== 'ok') return null;
-    const buckets = new Map();
+    const buckets = /** @type {Map<string, Hit[]>} */ (new Map());
     for (const s of GROUP_ORDER) buckets.set(s, []);
     for (const hit of response.hits) {
       if (!buckets.has(hit.source)) buckets.set(hit.source, []);
-      buckets.get(hit.source).push(hit);
+      // `.get()` is guaranteed non-null here — we just `.set()` it above
+      // if missing.
+      /** @type {Hit[]} */ (buckets.get(hit.source)).push(hit);
     }
     return [...buckets.entries()]
       .filter(([, hits]) => hits.length > 0)
@@ -514,7 +595,9 @@ export default function DatapackSearchClient() {
   // updater returns `prev` unchanged. We mirror that by tracking
   // `shouldFetch` inside the updater and only awaiting the network
   // when the synchronous flip set the row to `loading` here.
-  const toggleDetail = useCallback(async (hit) => {
+  const toggleDetail = useCallback(
+    /** @param {Hit} hit */
+    async (hit) => {
     const key = hitKey(hit);
     const url = lookupUrlFor(hit);
     if (!url) return;
@@ -531,11 +614,12 @@ export default function DatapackSearchClient() {
     try {
       res = await fetch(url);
     } catch (err) {
+      const e = /** @type {{ message?: unknown } | null} */ (err);
       setDetails((prev) => ({
         ...prev,
         [key]: {
           status: 'error',
-          error: `Network error: ${err?.message ?? String(err)}`,
+          error: `Network error: ${e?.message ?? String(err)}`,
         },
       }));
       return;
@@ -856,7 +940,7 @@ export default function DatapackSearchClient() {
                           </span>
                         </div>
                       </button>
-                      {open && (
+                      {open && detail && (
                         <div
                           style={{
                             marginTop: 12,
