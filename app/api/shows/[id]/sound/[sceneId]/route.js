@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 /**
  * /api/shows/[id]/sound/[sceneId] — Phase 2 sound scene edit / delete.
  *
@@ -25,6 +27,10 @@ import { withIdempotency } from '../../../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {unknown} raw
+ * @returns {number | null}
+ */
 function parsePositiveInt(raw) {
   const n = Number(raw);
   if (!Number.isInteger(n) || n <= 0) return null;
@@ -33,12 +39,22 @@ function parsePositiveInt(raw) {
 
 const SCOPE = 'event.sound_config';
 
+/** @typedef {{ params: Promise<{ id?: string, sceneId?: string }> | { id?: string, sceneId?: string } }} RouteCtx */
+
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function PATCH(req, ctx) {
   const pinFail = await requirePinOrScope(req, SCOPE);
   if (pinFail) return pinFail;
   return withIdempotency(req, () => scenePatchHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function scenePatchHandler(req, { params }) {
 
   params = await params;
@@ -86,12 +102,20 @@ async function scenePatchHandler(req, { params }) {
   }
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function DELETE(req, ctx) {
   const pinFail = await requirePinOrScope(req, SCOPE);
   if (pinFail) return pinFail;
   return withIdempotency(req, () => sceneDeleteHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function sceneDeleteHandler(req, { params }) {
 
   params = await params;

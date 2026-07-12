@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../../../../lib/db';
 import { locationFromBody } from '../../../../../../lib/location';
 import { postAuditEvent } from '../../../../../../lib/auditEvents';
@@ -8,21 +10,36 @@ import { normalizeIngredientKey } from '../../../../../../lib/ingredientKey';
 
 export const dynamic = 'force-dynamic';
 
+/** @typedef {{ params: Promise<{ id?: string }> | { id?: string } }} RouteCtx */
+
+/** @param {{ id?: string } | null | undefined} params */
 function parseId(params) {
   const id = Number(params?.id);
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+/**
+ * @param {unknown} v
+ * @returns {number | null}
+ */
 function asNum(v) {
   if (v == null || v === '') return null;
   const n = typeof v === 'number' ? v : Number(v);
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function POST(req, ctx) {
   return withIdempotency(req, () => inventoryCountLinesPostHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function inventoryCountLinesPostHandler(req, { params }) {
 
   params = await params;
@@ -59,16 +76,20 @@ async function inventoryCountLinesPostHandler(req, { params }) {
     const db = getDb();
 
     const result = db.transaction(() => {
-      const head = db
-        .prepare(`SELECT id, closed_at FROM inventory_counts WHERE id = ? AND location_id = ?`)
-        .get(countId, loc);
+      const head = /** @type {{ id: number, closed_at: string | null } | undefined} */ (
+        db
+          .prepare(`SELECT id, closed_at FROM inventory_counts WHERE id = ? AND location_id = ?`)
+          .get(countId, loc)
+      );
       if (!head) return { ok: false, status: 404, err: 'count not found' };
       if (head.closed_at) return { ok: false, status: 409, err: 'count is closed' };
 
       // RETURNING gives the real row id even on the ON CONFLICT branch —
       // better-sqlite3's lastInsertRowid advances regardless of whether
       // the conflict suppressed the insert, so it is unreliable here.
-      const row = db
+      // Cast: this upsert always affects exactly one row (insert or
+      // conflict-update), so RETURNING id always yields a row here.
+      const row = /** @type {{ id: number }} */ (db
         .prepare(
           `INSERT INTO inventory_count_lines
              (count_id, vendor, ingredient, sku, on_hand_qty, unit, par_qty, par_unit,
@@ -86,7 +107,7 @@ async function inventoryCountLinesPostHandler(req, { params }) {
            RETURNING id`,
         )
         .get(countId, vendor, ingredient, sku, onHand, unit, parQty, parUnit,
-             note, cookId, loc);
+             note, cookId, loc));
       const lineId = Number(row.id);
       // Audit verb is 'update' because the audit_events CHECK constraint
       // doesn't include 'upsert' — both the insert and conflict-update

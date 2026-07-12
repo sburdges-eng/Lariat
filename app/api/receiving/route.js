@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 // Receiving log (F3 / FDA §3-202.11, §3-202.15, §3-101.11).
 //
 // POST /api/receiving   → record one delivery line; 422 if the rule
@@ -32,17 +34,28 @@ import { localIdentityFields } from '../../../lib/localIdentity';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {unknown} s
+ * @param {number} max
+ * @returns {string | null}
+ */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
+/** @param {unknown} s @returns {string} */
 const normalizeMatchText = (s) => {
   if (typeof s !== 'string') return '';
   return s.trim().replace(/\s+/g, ' ').toLowerCase();
 };
 
+/**
+ * @param {string[]} masterIds
+ * @param {string} matchedReason
+ * @param {string} ambiguousReason
+ */
 function matchFromMasterIds(masterIds, matchedReason, ambiguousReason) {
   const unique = [...new Set(masterIds.filter(Boolean))];
   if (unique.length === 1) {
@@ -62,6 +75,10 @@ function matchFromMasterIds(masterIds, matchedReason, ambiguousReason) {
   return null;
 }
 
+/**
+ * @param {ReturnType<typeof getDb>} db
+ * @param {{ location_id: string, vendor: string, vendor_sku: string | null, item: string | null }} line
+ */
 function resolveReceivingMaster(db, { location_id, vendor, vendor_sku, item }) {
   const vendorKey = normalizeMatchText(vendor);
   const skuKey = normalizeMatchText(vendor_sku);
@@ -72,7 +89,8 @@ function resolveReceivingMaster(db, { location_id, vendor, vendor_sku, item }) {
   }
 
   if (skuKey) {
-    const skuRows = db
+    // master_id IS NOT NULL / != '' in the WHERE clause → plain string.
+    const skuRows = /** @type {{ master_id: string }[]} */ (db
       .prepare(
         `SELECT master_id
            FROM vendor_prices
@@ -82,7 +100,7 @@ function resolveReceivingMaster(db, { location_id, vendor, vendor_sku, item }) {
             AND master_id IS NOT NULL
             AND master_id != ''`,
       )
-      .all(location_id, vendorKey, skuKey);
+      .all(location_id, vendorKey, skuKey));
     const skuMatch = matchFromMasterIds(
       skuRows.map((r) => r.master_id),
       'exact_vendor_sku',
@@ -92,7 +110,8 @@ function resolveReceivingMaster(db, { location_id, vendor, vendor_sku, item }) {
   }
 
   if (itemKey) {
-    const itemRows = db
+    // ingredient is NOT NULL in vendor_prices; master_id filtered non-null/non-empty.
+    const itemRows = /** @type {{ ingredient: string, master_id: string }[]} */ (db
       .prepare(
         `SELECT ingredient, master_id
            FROM vendor_prices
@@ -101,7 +120,7 @@ function resolveReceivingMaster(db, { location_id, vendor, vendor_sku, item }) {
             AND master_id IS NOT NULL
             AND master_id != ''`,
       )
-      .all(location_id, vendorKey);
+      .all(location_id, vendorKey));
     const itemMatch = matchFromMasterIds(
       itemRows
         .filter((r) => normalizeMatchText(r.ingredient) === itemKey)
@@ -121,10 +140,12 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 // ── POST /api/receiving ──────────────────────────────────────────
 
+/** @param {Request} req */
 export async function POST(req) {
   return withIdempotency(req, () => receivingHandler(req));
 }
 
+/** @param {Request} req */
 async function receivingHandler(req) {
   try {
     const body = await req.json();
@@ -447,9 +468,11 @@ async function receivingHandler(req) {
             Number(info.lastInsertRowid),
           );
 
-        const invRow = db
+        // Row just inserted above in the same transaction; nullability per
+        // the inventory_updates schema in lib/db.ts (item NOT NULL, rest nullable).
+        const invRow = /** @type {{ item: string, master_id: string | null, delta: string | null, direction: string | null, note: string | null, cook_id: string | null, receiving_log_id: number | null } & Record<string, unknown>} */ (db
           .prepare('SELECT * FROM inventory_updates WHERE id = ?')
-          .get(invInfo.lastInsertRowid);
+          .get(invInfo.lastInsertRowid));
 
         postAuditEvent({
           entity: 'inventory_updates',
@@ -531,6 +554,14 @@ async function receivingHandler(req) {
 
 // ── GET /api/receiving ───────────────────────────────────────────
 
+/**
+ * A receiving_log row from SELECT *. The status CHECK constraint in
+ * lib/db.ts guarantees the ReceivingRow literal union; extra columns
+ * pass through untyped.
+ * @typedef {import('../../../lib/receiving').ReceivingRow & Record<string, unknown>} ReceivingLogRow
+ */
+
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const url = new URL(req.url);
@@ -538,13 +569,13 @@ export async function GET(req) {
     const location_id = locationFromRequest(req) || DEFAULT_LOCATION_ID;
 
     const db = getDb();
-    const rows = db
+    const rows = /** @type {ReceivingLogRow[]} */ (db
       .prepare(
         `SELECT * FROM receiving_log
            WHERE location_id = ? AND shift_date = ?
            ORDER BY created_at DESC, id DESC`,
       )
-      .all(location_id, date);
+      .all(location_id, date));
 
     // Per-category roll-up for the board tiles.
     const wantSummary = url.searchParams.get('summary') !== '0';
@@ -554,6 +585,7 @@ export async function GET(req) {
 
     // Group by vendor → list of lines, so the UI can render one card
     // per delivery without an extra client-side pass.
+    /** @type {Map<string, ReceivingLogRow[]>} */
     const byVendor = new Map();
     for (const r of rows) {
       const v = r.vendor || '—';

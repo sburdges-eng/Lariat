@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 // PIN-gated settlement read for a single show. Uses Response.json
 // rather than next/server's NextResponse so the route is loadable
 // from the Node test runner — same pattern as /api/beo/route.js
@@ -9,6 +11,12 @@ import { locationFromRequest } from '../../../../../lib/location';
 import { getSettlement } from '../../../../../lib/settlementRepo';
 import { json } from '../../../../../lib/routeHelpers';
 
+/** @typedef {{ params: Promise<{ id?: string }> | { id?: string } }} RouteCtx */
+
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function GET(req, { params }) {
 
   params = await params;
@@ -22,7 +30,7 @@ export async function GET(req, { params }) {
     const summary = getSettlement(showId, locationId);
     return json(summary, { status: 200 });
   } catch (e) {
-    if (/not found/.test(String(e?.message)))
+    if (/not found/.test(String(/** @type {{ message?: unknown } | null} */ (e)?.message)))
       return json({ error: 'show not found' }, { status: 404 });
     throw e;
   }

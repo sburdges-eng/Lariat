@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 // Tip pool ledger (L4 / COMPS #39 §3.3, §3.4 + 29 CFR 531.52).
 //
 // POST /api/tip-pool   → log a tip / service-charge / direct-tip line
@@ -24,12 +26,18 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {unknown} s
+ * @param {number} max
+ * @returns {string | null}
+ */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
+/** @param {Request} req */
 async function gate(req) {
   if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'pic.tip_pool'))) {
     return Response.json(
@@ -42,12 +50,14 @@ async function gate(req) {
 
 // ── POST ─────────────────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function POST(req) {
   const blocked = await gate(req);
   if (blocked) return blocked;
   return withIdempotency(req, () => tipPoolPostHandler(req));
 }
 
+/** @param {Request} req */
 async function tipPoolPostHandler(req) {
   try {
     const body = await req.json();
@@ -69,9 +79,14 @@ async function tipPoolPostHandler(req) {
       );
     }
 
-    const shape = validateDistributionShape({
-      shift_date, pool_ref, cook_id, role, kind, amount_cents: rawAmount,
-    });
+    // clip() yields string | null while DistributionShape's optional fields
+    // are string | undefined; the validator rejects null and undefined
+    // identically (falsy checks), so this cast is safe.
+    const shape = validateDistributionShape(
+      /** @type {import('../../../lib/tipPool').DistributionShape} */ ({
+        shift_date, pool_ref, cook_id, role, kind, amount_cents: rawAmount,
+      }),
+    );
     if (!shape.ok) {
       return Response.json({ error: shape.reason }, { status: 400 });
     }
@@ -82,11 +97,13 @@ async function tipPoolPostHandler(req) {
     // legally, but a `tip_pool` line for a manager is invalid.
     if (kind === 'tip_pool') {
       const db0 = getDb();
-      const flags = db0.prepare(`
+      // staff_flags: cook_id/flag are NOT NULL, effective_to is nullable
+      // (see lib/db.ts CREATE TABLE) — matches the lib's StaffFlag shape.
+      const flags = /** @type {import('../../../lib/tipPool').StaffFlag[]} */ (db0.prepare(`
         SELECT cook_id, flag, effective_to
           FROM staff_flags
          WHERE location_id=? AND cook_id=? AND effective_to IS NULL
-      `).all(location_id, cook_id);
+      `).all(location_id, cook_id));
       if (!isPoolEligible(flags, role)) {
         return Response.json(
           {
@@ -132,6 +149,7 @@ async function tipPoolPostHandler(req) {
 
 // ── GET ──────────────────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const url = new URL(req.url);
@@ -157,7 +175,12 @@ export async function GET(req) {
     }
     sql += ' ORDER BY shift_date ASC, id ASC';
 
-    const rows = db.prepare(sql).all(...args);
+    // tip_pool_distributions: shift_date/pool_ref/cook_id/kind/amount_cents
+    // are NOT NULL with kind CHECK-constrained to the TipKind union (see
+    // lib/db.ts CREATE TABLE) — matches the lib's TipDistributionRow shape.
+    const rows = /** @type {import('../../../lib/tipPool').TipDistributionRow[]} */ (
+      db.prepare(sql).all(...args)
+    );
     const summary = summarizePool(rows);
 
     return Response.json({

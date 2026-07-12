@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../../../lib/location';
 import { postAuditEvent } from '../../../../../lib/auditEvents';
@@ -7,11 +9,18 @@ import { clip } from '../../../../../lib/clip';
 
 export const dynamic = 'force-dynamic';
 
+/** @typedef {{ params: Promise<{ id?: string }> | { id?: string } }} RouteCtx */
+
+/** @param {{ id?: string } | null | undefined} params */
 function parseId(params) {
   const id = Number(params?.id);
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function GET(req, { params }) {
 
   params = await params;
@@ -38,10 +47,18 @@ export async function GET(req, { params }) {
   return Response.json({ count: head, lines });
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function PATCH(req, ctx) {
   return withIdempotency(req, () => inventoryCountPatchHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function inventoryCountPatchHandler(req, { params }) {
 
   params = await params;
@@ -56,9 +73,11 @@ async function inventoryCountPatchHandler(req, { params }) {
     const db = getDb();
 
     const result = db.transaction(() => {
-      const row = db
-        .prepare(`SELECT id, closed_at FROM inventory_counts WHERE id = ? AND location_id = ?`)
-        .get(id, loc);
+      const row = /** @type {{ id: number, closed_at: string | null } | undefined} */ (
+        db
+          .prepare(`SELECT id, closed_at FROM inventory_counts WHERE id = ? AND location_id = ?`)
+          .get(id, loc)
+      );
       if (!row) return { ok: false, status: 404, err: 'not found' };
       if (close) {
         if (row.closed_at) return { ok: false, status: 409, err: 'already closed' };

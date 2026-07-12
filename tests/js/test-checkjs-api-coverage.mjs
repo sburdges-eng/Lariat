@@ -26,55 +26,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const API_ROOT = path.join(REPO_ROOT, 'app/api');
 
-// Files still pinned as of 2026-07-11 (the drain's remaining tail).
-const BASELINE = new Set([
-  'app/api/inventory/counts/[id]/lines/route.js',
-  'app/api/inventory/counts/[id]/route.js',
-  'app/api/inventory/counts/route.js',
-  'app/api/kds/tickets/[id]/bump/route.js',
-  'app/api/kds/tickets/route.js',
-  'app/api/lari/predictions/route.js',
-  'app/api/menu-engineering/margin-deltas/route.js',
-  'app/api/menu-engineering/route.js',
-  'app/api/morning/route.js',
-  'app/api/purchasing/vendor-catalog/route.js',
-  'app/api/purchasing/vendor-compare/route.js',
-  'app/api/purchasing/vendor-link/attach/route.js',
-  'app/api/purchasing/vendor-link/pair/route.js',
-  'app/api/receiving/matches/[id]/route.js',
-  'app/api/receiving/matches/route.js',
-  'app/api/receiving/route.js',
-  'app/api/recipes/[slug]/photos/[id]/raw/route.js',
-  'app/api/recipes/[slug]/photos/[id]/route.js',
-  'app/api/recipes/[slug]/photos/route.js',
-  'app/api/recipes/[slug]/route.js',
-  'app/api/recipes/route.js',
-  'app/api/shows/[id]/box-office/[lineId]/route.js',
-  'app/api/shows/[id]/box-office/route.js',
-  'app/api/shows/[id]/capacity/route.js',
-  'app/api/shows/[id]/deal/route.js',
-  'app/api/shows/[id]/settlement/pdf/route.js',
-  'app/api/shows/[id]/settlement/route.js',
-  'app/api/shows/[id]/sound/[sceneId]/route.js',
-  'app/api/shows/[id]/sound/route.js',
-  'app/api/shows/[id]/sound/spl/route.js',
-  'app/api/shows/[id]/stage/route.js',
-  'app/api/shows/route.js',
-  'app/api/shows/tonight/route.js',
-  'app/api/sick-leave/route.js',
-  'app/api/sick-worker/route.js',
-  'app/api/specials/route.js',
-  'app/api/specials/saved/[id]/export/route.js',
-  'app/api/specials/saved/[id]/route.js',
-  'app/api/specials/saved/route.js',
-  'app/api/stations/route.js',
-  'app/api/tip-pool/route.js',
-  'app/api/tphc/route.js',
-  'app/api/unmapped/route.js',
-  'app/api/vendor-prices/history/route.js',
-  'app/api/vendor-prices/shocks/route.js',
-  'app/api/wage-notices/route.js',
-]);
+// 2026-07-12: the app/api drain is COMPLETE (GH #250 final wave) — the
+// baseline is empty and this test now IS the P3 rule for the API
+// surface: any `@ts-nocheck` directive under app/api fails CI. Fix the
+// types instead (docs/checkjs-migration.md "How to migrate one file").
+const BASELINE = new Set([]);
 
 // Whitespace-tolerant: TypeScript honors the directive with leading
 // indentation and extra spaces after `//` (e.g. `   //   @ts-nocheck`).

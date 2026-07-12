@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 // Recipe management endpoint — GET reads the canonical document,
 // PUT persists a management edit.
 //
@@ -28,6 +30,14 @@ import { postAuditEvent } from '../../../../lib/auditEvents';
 import { hasPinCookie, pinRequiredForPic } from '../../../../lib/pin';
 import { upsertRecipeEntity, writeRecipeDoc, readRecipeDoc } from '../../../../lib/recipes';
 
+/**
+ * Next 15 route context: `params` may be a promise (async dynamic APIs).
+ * `slug` is non-optional — Next always supplies the matched dynamic
+ * segment, and it flows into `readRecipeDoc(slug: string)` /
+ * `Recipe.slug: string` with no runtime guard.
+ * @typedef {{ params: Promise<{ slug: string }> | { slug: string } }} RouteCtx
+ */
+
 // GET — fetch a recipe by slug.
 //
 // Reads from data/cache/recipes.json (the canonical document store).
@@ -35,6 +45,10 @@ import { upsertRecipeEntity, writeRecipeDoc, readRecipeDoc } from '../../../../l
 // when the slug isn't in the cache (the JSON cache may not have been
 // rebuilt yet — discovery, not error). No PIN gate on reads; sensitive
 // surfaces are gated upstream by middleware.js for management routes.
+/**
+ * @param {Request} _request
+ * @param {RouteCtx} ctx
+ */
 export async function GET(_request, { params }) {
   params = await params;
   const { slug } = params;
@@ -48,10 +62,18 @@ export async function GET(_request, { params }) {
 }
 
 // PUT — update a recipe (management only).
+/**
+ * @param {Request} request
+ * @param {RouteCtx} ctx
+ */
 export async function PUT(request, ctx) {
   return withIdempotency(request, () => recipeSlugPutHandler(request, ctx));
 }
 
+/**
+ * @param {Request} request
+ * @param {RouteCtx} ctx
+ */
 async function recipeSlugPutHandler(request, { params }) {
 
   params = await params;
@@ -80,8 +102,9 @@ async function recipeSlugPutHandler(request, { params }) {
   try {
     body = await request.json();
   } catch (error) {
+    const e = /** @type {{ message?: unknown } | null} */ (error);
     return Response.json(
-      { error: `Failed to update recipe: ${error.message}` },
+      { error: `Failed to update recipe: ${e?.message}` },
       { status: 500 }
     );
   }
@@ -110,6 +133,9 @@ async function recipeSlugPutHandler(request, { params }) {
   // additional fields a caller might pass through (yield_qty,
   // yield_unit, station, source) so a future caller doesn't lose
   // metadata. recipes.json itself is the authoritative shape.
+  // Typed as the lib Recipe document plus the array-shaped `procedures`
+  // field this route also persists (recipes.json mixes both shapes).
+  /** @type {import('../../../../lib/data').Recipe & { procedures: unknown[] }} */
   const recipeDoc = {
     slug,
     name: String(name).trim(),
@@ -193,8 +219,9 @@ async function recipeSlugPutHandler(request, { params }) {
     });
     entityResult = performWrite();
   } catch (error) {
+    const e = /** @type {{ message?: unknown } | null} */ (error);
     return Response.json(
-      { error: `Failed to update recipe: ${error.message}` },
+      { error: `Failed to update recipe: ${e?.message}` },
       { status: 500 }
     );
   }
@@ -205,9 +232,10 @@ async function recipeSlugPutHandler(request, { params }) {
   try {
     writeRecipeDoc(recipeDoc);
   } catch (error) {
+    const e = /** @type {{ message?: unknown } | null} */ (error);
     return Response.json(
       {
-        error: `Failed to update recipe: ${error.message}`,
+        error: `Failed to update recipe: ${e?.message}`,
         partial: { entity_uuid: entityResult.uuid },
       },
       { status: 500 }
