@@ -28,6 +28,8 @@ function fmtTime(iso) {
 }
 
 /**
+ * `scan` stays in the props contract because page.jsx passes it, but the
+ * board doesn't read it — countdowns are rebuilt client-side from `open`.
  * @param {{
  *   open: CoolingRow[],
  *   scan: Record<number, OpenBatchScan>,
@@ -36,7 +38,7 @@ function fmtTime(iso) {
  *   locationId: string,
  * }} props
  */
-export default function CoolingBoard({ open, scan, closed, date, locationId }) {
+export default function CoolingBoard({ open, closed, date, locationId }) {
   const router = useRouter();
   const [cookId, setCookId] = useState('');
   const [item, setItem] = useState('');
@@ -64,10 +66,8 @@ export default function CoolingBoard({ open, scan, closed, date, locationId }) {
 
   const openLive = useMemo(() => {
     // Rebuild scan-like data from current time so countdowns don't stall
-    // between server renders. For batches already past stage-2 close,
-    // we keep the server scan's classification.
+    // between server renders.
     return open.map((b) => {
-      const serverScan = scan[b.id] || null;
       const startedMs = Date.parse(b.started_at);
       const elapsed = (nowTs - startedMs) / 60000;
       const stage1Elapsed = b.stage1_at ? (Date.parse(b.stage1_at) - startedMs) / 60000 : null;
@@ -76,12 +76,11 @@ export default function CoolingBoard({ open, scan, closed, date, locationId }) {
       const stage2Remaining = stage1Elapsed !== null ? 240 - (elapsed - stage1Elapsed) : null;
       return {
         ...b,
-        serverScan,
         stage: inStage1 ? 1 : 2,
         remaining: inStage1 ? stage1Remaining : stage2Remaining,
       };
     });
-  }, [open, scan, nowTs]);
+  }, [open, nowTs]);
 
   /** @param {React.FormEvent<HTMLFormElement>} e */
   const startBatch = async (e) => {
