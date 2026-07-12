@@ -1,16 +1,80 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
-/* Lariat service worker — GET /api/* cache + BackgroundSync-like queue for POST/DELETE /api/* */
+// @ts-check
+/* Lariat service worker — GET /api/* cache + BackgroundSync-like queue for POST/DELETE /api/*.
+ *
+ * Runs in ServiceWorkerGlobalScope (not a Window). The repo tsconfig loads only the `dom`
+ * lib and excludes `public/**` (as does eslint.config.js), so this file is not part of the
+ * type-checked program and the ambient ServiceWorker* / Fetch* / Extendable* types are absent.
+ * To keep the file self-checking under `// @ts-check` — should it ever be included, or checked
+ * standalone — the SW-scope types it actually uses are declared as minimal local typedefs
+ * below, rather than pulling in the `webworker` lib (which collides with `dom`).
+ * Migrated off the pre-#250 @ts-nocheck baseline. See GH #250 / docs/checkjs-migration.md.
+ */
+
+/**
+ * A controlled/uncontrolled window client this SW can message.
+ * @typedef {Object} SWClient
+ * @property {(message: unknown) => void} postMessage
+ */
+/**
+ * The `clients` registry on the SW global scope.
+ * @typedef {Object} SWClients
+ * @property {(options?: { includeUncontrolled?: boolean, type?: string }) => Promise<SWClient[]>} matchAll
+ * @property {() => Promise<void>} claim
+ */
+/**
+ * Base lifecycle event exposing `waitUntil`.
+ * @typedef {Object} ExtendableEvent
+ * @property {(promise: Promise<unknown>) => void} waitUntil
+ */
+/**
+ * `fetch` event.
+ * @typedef {ExtendableEvent & { request: Request, respondWith: (response: Response | Promise<Response>) => void }} FetchEvent
+ */
+/**
+ * `message` event delivered to the SW. `data` is untyped by the platform (matches lib.webworker).
+ * @typedef {ExtendableEvent & { data: any, source: SWClient | null }} ExtendableMessageEvent
+ */
+/**
+ * Minimal view of the ServiceWorkerGlobalScope members this file touches.
+ * @typedef {Object} ServiceWorkerScope
+ * @property {SWClients} clients
+ * @property {() => Promise<void>} skipWaiting
+ * @property {(type: string, listener: (event: any) => void) => void} addEventListener
+ */
+
+/**
+ * A mutation as enqueued (no key yet — IndexedDB assigns the autoIncrement `id`).
+ * @typedef {Object} NewQueueEntry
+ * @property {string} url
+ * @property {string} method
+ * @property {Record<string, string>} headers
+ * @property {string} body
+ * @property {number} queuedAt
+ */
+/**
+ * A stored mutation read back from the queue (always carries its assigned key).
+ * @typedef {NewQueueEntry & { id: IDBValidKey }} QueueEntry
+ */
+/**
+ * Messages this SW broadcasts to clients.
+ * @typedef {{ type: 'mutationQueued', id: IDBValidKey, size: number }
+ *   | { type: 'mutationReplayed', replayed: number, failed: number, size: number }} OutgoingMessage
+ */
+
+/** The SW global scope, typed. `self` is `Window`-typed by the `dom` lib, so route SW-only members through this. */
+const sw = /** @type {ServiceWorkerScope} */ (/** @type {unknown} */ (self));
 
 const CACHE_NAME = 'lariat-api-v1';
 const DB_NAME = 'lariat-sw';
 const DB_VERSION = 1;
 const STORE_NAME = 'mutation-queue';
 
-self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+sw.addEventListener('install', () => sw.skipWaiting());
+sw.addEventListener('activate', /** @param {ExtendableEvent} e */ (e) => e.waitUntil(sw.clients.claim()));
 
 /* ---------- IndexedDB helpers ---------- */
 
+/** @returns {Promise<IDBDatabase>} */
 function openDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -22,10 +86,19 @@ function openDB() {
   });
 }
 
+/**
+ * @param {IDBDatabase} db
+ * @param {IDBTransactionMode} mode
+ * @returns {IDBObjectStore}
+ */
 function tx(db, mode) {
   return db.transaction(STORE_NAME, mode).objectStore(STORE_NAME);
 }
 
+/**
+ * @param {NewQueueEntry} entry
+ * @returns {Promise<IDBValidKey>}
+ */
 async function enqueue(entry) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -35,15 +108,20 @@ async function enqueue(entry) {
   });
 }
 
+/** @returns {Promise<QueueEntry[]>} */
 async function peekAll() {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const req = tx(db, 'readonly').getAll();
-    req.onsuccess = () => resolve(req.result || []);
+    req.onsuccess = () => resolve(/** @type {QueueEntry[]} */ (req.result || []));
     req.onerror = () => reject(req.error);
   });
 }
 
+/**
+ * @param {IDBValidKey} id
+ * @returns {Promise<void>}
+ */
 async function remove(id) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -53,18 +131,23 @@ async function remove(id) {
   });
 }
 
+/** @returns {Promise<number>} */
 async function queueSize() {
   return (await peekAll()).length;
 }
 
+/**
+ * @param {OutgoingMessage} msg
+ * @returns {Promise<void>}
+ */
 async function broadcast(msg) {
-  const clients = await self.clients.matchAll({ includeUncontrolled: true });
+  const clients = await sw.clients.matchAll({ includeUncontrolled: true });
   for (const c of clients) c.postMessage(msg);
 }
 
 /* ---------- Fetch handler ---------- */
 
-self.addEventListener('fetch', (event) => {
+sw.addEventListener('fetch', /** @param {FetchEvent} event */ (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
@@ -94,6 +177,10 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
+/**
+ * @param {Request} request
+ * @returns {Promise<Response>}
+ */
 async function handleMutation(request) {
   // Capture body + headers BEFORE the network attempt. `fetch(request)`
   // consumes the request body stream; if we wait until the catch branch
@@ -106,6 +193,7 @@ async function handleMutation(request) {
   // would resend them. Cookies are browser-managed, not captured here.
   let bodyText = '';
   try { bodyText = await request.clone().text(); } catch {}
+  /** @type {Record<string, string>} */
   const headers = {};
   request.headers.forEach((v, k) => { headers[k] = v; });
   try {
@@ -130,6 +218,7 @@ async function handleMutation(request) {
 
 /* ---------- Replay queue on signal ---------- */
 
+/** @returns {Promise<void>} */
 async function replay() {
   const entries = await peekAll();
   let replayed = 0;
@@ -159,7 +248,7 @@ async function replay() {
   await broadcast({ type: 'mutationReplayed', replayed, failed, size: await queueSize() });
 }
 
-self.addEventListener('message', (event) => {
+sw.addEventListener('message', /** @param {ExtendableMessageEvent} event */ (event) => {
   if (event.data && event.data.type === 'replayQueue') {
     event.waitUntil(replay());
   } else if (event.data && event.data.type === 'queueSize') {
