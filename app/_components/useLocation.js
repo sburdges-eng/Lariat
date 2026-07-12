@@ -108,15 +108,3 @@ export function useLocation() {
     isDefault: locationId === DEFAULT_LOCATION,
   };
 }
-
-/**
- * Apply locQuery to an href, leaving explicit query strings alone.
- * @param {string} href
- * @param {string} locQuery
- * @returns {string}
- */
-export function applyLocationQuery(href, locQuery) {
-  if (!href || !locQuery) return href;
-  if (href.includes('?')) return href;
-  return `${href}${locQuery}`;
-}
