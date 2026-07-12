@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // Jest config for React component tests under app/__tests__/**.
 //
 // Uses next/jest to pick up:
@@ -9,7 +9,11 @@
 // Server-side integration tests (tests/js/**) use node --test and are NOT
 // run under jest. Jest's testMatch is scoped to app/__tests__/** only.
 
-const nextJest = require('next/jest.js');
+// next/jest's `.default` is identical to its module.exports (dual CJS/ESM
+// export: module.exports === module.exports.default), so `.default` is a
+// zero-behavior-change reference that also satisfies checkJs (the bare
+// module namespace has no call signatures).
+const nextJest = require('next/jest.js').default;
 
 const createJestConfig = nextJest({
   dir: './',

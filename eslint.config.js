@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // ESLint v9 flat-config root for Lariat.
 //
 // Posture: SOFT-LAUNCH. Most stylistic rules are 'warn' so an iPad-cook-shipping
@@ -23,9 +23,17 @@ import tseslint from 'typescript-eslint';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import nextPlugin from '@next/eslint-plugin-next';
+// @ts-expect-error — eslint-plugin-eslint-comments ships no type declarations
+// and no @types package exists; under checkJs this bare import is an
+// unavoidable implicit-any. Runtime behavior is unaffected.
 import eslintCommentsPlugin from 'eslint-plugin-eslint-comments';
 import globals from 'globals';
 
+// NOTE: not annotated `import('eslint').Linter.Config[]` — several
+// plugin-provided config objects (e.g. @next/eslint-plugin-next's shared
+// configs) use legacy string rule-severities that don't structurally satisfy
+// the strict flat `Linter.Config` type, so the honest annotation here is the
+// inferred array type rather than a forced/incorrect one.
 export default [
   // Globally ignored paths — generated, vendored, or off-tree.
   {
