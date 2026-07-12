@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -11,6 +11,40 @@ import {
   parseAllergenTags,
 } from './allergenLookupHelpers.js';
 
+/** @typedef {import('../../lib/datapackSearch').FtsHit} FtsHit */
+/** @typedef {import('../../lib/datapackSearch').OffProduct} OffProduct */
+
+/**
+ * Normalised shape the card renderer consumes — built from either the
+ * direct-GTIN op=off_product response or the per-row chip fan-out.
+ * @typedef {Object} ProductCardData
+ * @property {string} productName
+ * @property {string} brand
+ * @property {string} brandOwner
+ * @property {string} code
+ * @property {string[]} allergens
+ * @property {string[]} traces
+ * @property {string} ingredientsText
+ */
+
+/**
+ * A search-list row: starts as a `loading: true` placeholder built from
+ * the FTS hit, then gets replaced in place once its chip fetch resolves.
+ * @typedef {ProductCardData & { key: string, loading: boolean, error?: boolean }} ListCardData
+ */
+
+/** @typedef {{ kind: 'idle' }} LookupIdle */
+/** @typedef {{ kind: 'loading' }} LookupLoading */
+/** @typedef {{ kind: 'unavailable' }} LookupUnavailable */
+/** @typedef {{ kind: 'error', message: string, status?: number }} LookupError */
+/** @typedef {{ kind: 'ok-empty' }} LookupOkEmpty */
+/** @typedef {{ kind: 'ok-direct', card: ProductCardData }} LookupOkDirect */
+/** @typedef {{ kind: 'ok-list', cards: ListCardData[] }} LookupOkList */
+/**
+ * Discriminated-union response state. Renderers below switch on `.kind`.
+ * @typedef {LookupIdle | LookupLoading | LookupUnavailable | LookupError | LookupOkEmpty | LookupOkDirect | LookupOkList} LookupResponse
+ */
+
 const DATAPACK_UNAVAILABLE_COPY = 'Reference data is not installed on this Mac. Ask a manager to finish setup.';
 
 // ── Chip renderers ──────────────────────────────────────────────
@@ -20,6 +54,7 @@ const DATAPACK_UNAVAILABLE_COPY = 'Reference data is not installed on this Mac. 
 // muted (amber) because they're a softer signal ("may contain"
 // cross-contact, not declared ingredient).
 
+/** @param {{ tag: string }} props */
 function AllergenChip({ tag }) {
   const label = cleanAllergenTag(tag);
   if (!label) return null;
@@ -42,6 +77,7 @@ function AllergenChip({ tag }) {
   );
 }
 
+/** @param {{ tag: string }} props */
 function TraceChip({ tag }) {
   const label = cleanAllergenTag(tag);
   if (!label) return null;
@@ -105,6 +141,9 @@ function UnknownChip() {
   );
 }
 
+/**
+ * @param {{ allergens: string[], traces: string[], loading: boolean, error?: boolean }} props
+ */
 function ChipRow({ allergens, traces, loading, error }) {
   if (loading) {
     return (
@@ -153,6 +192,9 @@ function ChipRow({ allergens, traces, loading, error }) {
 // single result. `state` is the per-row chip-resolution state —
 // 'loading' until the second op=off_product fetch returns.
 
+/**
+ * @param {ProductCardData & { loading: boolean, error?: boolean }} props
+ */
 function ProductCard({
   productName,
   brand,
@@ -256,12 +298,19 @@ function ProductCard({
 // renderer expects. AbortSignal is plumbed through so a superseded
 // search cancels the fan-out it triggered.
 
+/**
+ * @param {string} code
+ * @param {AbortSignal} signal
+ * @returns {Promise<OffProduct | null>}
+ */
 async function fetchOffProduct(code, signal) {
   const url = offProductUrl(code);
   if (!url) return null;
   const res = await fetch(url, { signal });
   if (!res.ok) {
-    const err = new Error(`HTTP ${res.status}`);
+    const err = /** @type {Error & { status?: number }} */ (
+      new Error(`HTTP ${res.status}`)
+    );
     err.status = res.status;
     throw err;
   }
@@ -269,6 +318,10 @@ async function fetchOffProduct(code, signal) {
   return body?.product ?? null;
 }
 
+/**
+ * @param {OffProduct | null} product
+ * @returns {ProductCardData | null}
+ */
 function productToCard(product) {
   if (!product) return null;
   return {
@@ -287,8 +340,10 @@ function productToCard(product) {
 export default function AllergenLookupClient() {
   const [query, setQuery] = useState('');
   // Discriminated-union response state. Renderers below switch on .kind.
-  const [response, setResponse] = useState({ kind: 'idle' });
-  const abortRef = useRef(null);
+  const [response, setResponse] = useState(
+    /** @type {LookupResponse} */ ({ kind: 'idle' })
+  );
+  const abortRef = useRef(/** @type {AbortController | null} */ (null));
 
   useEffect(() => {
     let alive = true;
@@ -316,134 +371,148 @@ export default function AllergenLookupClient() {
     };
   }, []);
 
-  const runLookup = useCallback(async (rawQuery) => {
-    if (response.kind === 'unavailable') return;
-    const trimmed = rawQuery.trim();
-    if (!trimmed) {
+  const runLookup = useCallback(
+    /** @param {string} rawQuery */
+    async (rawQuery) => {
+      if (response.kind === 'unavailable') return;
+      const trimmed = rawQuery.trim();
+      if (!trimmed) {
+        if (abortRef.current) abortRef.current.abort();
+        abortRef.current = null;
+        setResponse({ kind: 'idle' });
+        return;
+      }
+
       if (abortRef.current) abortRef.current.abort();
-      abortRef.current = null;
-      setResponse({ kind: 'idle' });
-      return;
-    }
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
 
-    if (abortRef.current) abortRef.current.abort();
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
+      setResponse({ kind: 'loading' });
 
-    setResponse({ kind: 'loading' });
+      const url = buildLookupUrl(trimmed);
+      if (!url) {
+        setResponse({ kind: 'idle' });
+        return;
+      }
 
-    const url = buildLookupUrl(trimmed);
-    if (!url) {
-      setResponse({ kind: 'idle' });
-      return;
-    }
+      let res;
+      try {
+        res = await fetch(url, { signal: ctrl.signal });
+      } catch (err) {
+        const errObj = /** @type {{ name?: unknown, message?: unknown } | null} */ (
+          err && typeof err === 'object' ? err : null
+        );
+        if (errObj?.name === 'AbortError') return;
+        setResponse({
+          kind: 'error',
+          message: `Network error: ${errObj?.message ?? String(err)}`,
+        });
+        return;
+      }
 
-    let res;
-    try {
-      res = await fetch(url, { signal: ctrl.signal });
-    } catch (err) {
-      if (err?.name === 'AbortError') return;
-      setResponse({
-        kind: 'error',
-        message: `Network error: ${err?.message ?? String(err)}`,
-      });
-      return;
-    }
+      if (res.status === 503) {
+        setResponse({ kind: 'unavailable' });
+        return;
+      }
 
-    if (res.status === 503) {
-      setResponse({ kind: 'unavailable' });
-      return;
-    }
+      let body = null;
+      try {
+        body = await res.json();
+      } catch {
+        /* fall through */
+      }
 
-    let body = null;
-    try {
-      body = await res.json();
-    } catch {
-      /* fall through */
-    }
+      if (!res.ok) {
+        const msg =
+          (body && typeof body.error === 'string' && body.error) ||
+          `HTTP ${res.status}`;
+        setResponse({ kind: 'error', message: msg, status: res.status });
+        return;
+      }
 
-    if (!res.ok) {
-      const msg =
-        (body && typeof body.error === 'string' && body.error) ||
-        `HTTP ${res.status}`;
-      setResponse({ kind: 'error', message: msg, status: res.status });
-      return;
-    }
+      // ── Direct GTIN path ──
+      // The barcode lookup returns {ok, product} — render as a single
+      // card immediately. No fan-out needed; chips already in hand.
+      if (isGtinQuery(trimmed)) {
+        const card = productToCard(body?.product);
+        if (!card) {
+          setResponse({ kind: 'ok-empty' });
+          return;
+        }
+        setResponse({ kind: 'ok-direct', card });
+        return;
+      }
 
-    // ── Direct GTIN path ──
-    // The barcode lookup returns {ok, product} — render as a single
-    // card immediately. No fan-out needed; chips already in hand.
-    if (isGtinQuery(trimmed)) {
-      const card = productToCard(body?.product);
-      if (!card) {
+      // ── FTS path ──
+      // body.hits is the FtsHit envelope; chips aren't in there. Render
+      // the rows immediately with `loading: true` placeholders, then
+      // fan out per-product fetches and replace each row as it lands.
+      const hits = /** @type {FtsHit[]} */ (
+        Array.isArray(body?.hits) ? body.hits : []
+      );
+      if (hits.length === 0) {
         setResponse({ kind: 'ok-empty' });
         return;
       }
-      setResponse({ kind: 'ok-direct', card });
-      return;
-    }
 
-    // ── FTS path ──
-    // body.hits is the FtsHit envelope; chips aren't in there. Render
-    // the rows immediately with `loading: true` placeholders, then
-    // fan out per-product fetches and replace each row as it lands.
-    const hits = Array.isArray(body?.hits) ? body.hits : [];
-    if (hits.length === 0) {
-      setResponse({ kind: 'ok-empty' });
-      return;
-    }
+      const initialCards = hits.map((h) => ({
+        key: String(h.id),
+        code: String(h.id),
+        loading: true,
+        productName: h.title ?? '',
+        brand: h.subtitle ?? '',
+        brandOwner: h.extra ?? '',
+        allergens: /** @type {string[]} */ ([]),
+        traces: /** @type {string[]} */ ([]),
+        ingredientsText: '',
+      }));
+      setResponse({ kind: 'ok-list', cards: initialCards });
 
-    const initialCards = hits.map((h) => ({
-      key: String(h.id),
-      code: String(h.id),
-      loading: true,
-      productName: h.title ?? '',
-      brand: h.subtitle ?? '',
-      brandOwner: h.extra ?? '',
-      allergens: [],
-      traces: [],
-      ingredientsText: '',
-    }));
-    setResponse({ kind: 'ok-list', cards: initialCards });
+      // Fan out. We keep using the same AbortController so a fresh
+      // search cancels in-flight chip fetches too. Promise.allSettled
+      // keeps a single failure from poisoning the whole list.
+      const results = await Promise.allSettled(
+        hits.map((h) => fetchOffProduct(String(h.id), ctrl.signal))
+      );
+      if (ctrl.signal.aborted) return;
 
-    // Fan out. We keep using the same AbortController so a fresh
-    // search cancels in-flight chip fetches too. Promise.allSettled
-    // keeps a single failure from poisoning the whole list.
-    const results = await Promise.allSettled(
-      hits.map((h) => fetchOffProduct(String(h.id), ctrl.signal))
-    );
-    if (ctrl.signal.aborted) return;
-
-    setResponse((prev) => {
-      if (prev.kind !== 'ok-list') return prev;
-      const next = prev.cards.map((card, i) => {
-        const r = results[i];
-        if (r.status === 'fulfilled' && r.value) {
-          const enriched = productToCard(r.value);
-          return {
-            ...card,
-            loading: false,
-            error: undefined,
-            productName: enriched.productName || card.productName,
-            brand: enriched.brand || card.brand,
-            brandOwner: enriched.brandOwner || card.brandOwner,
-            allergens: enriched.allergens,
-            traces: enriched.traces,
-            ingredientsText: enriched.ingredientsText,
-          };
-        }
-        // Failed lookup — drop the spinner and flag the card as
-        // error. We must NOT collapse to "no allergens flagged":
-        // on a kitchen line that would read as an authoritative
-        // safe-answer for what is in fact a fetch failure. The
-        // UnknownChip renders a clearly-distinct "lookup failed"
-        // signal so the cook knows to retry rather than serve.
-        return { ...card, loading: false, error: true };
+      setResponse((prev) => {
+        if (prev.kind !== 'ok-list') return prev;
+        const next = prev.cards.map((card, i) => {
+          const r = /** @type {PromiseSettledResult<OffProduct | null>} */ (
+            results[i]
+          );
+          if (r.status === 'fulfilled' && r.value) {
+            const enriched = /** @type {ProductCardData} */ (
+              productToCard(r.value)
+            );
+            return {
+              ...card,
+              loading: false,
+              error: undefined,
+              productName: enriched.productName || card.productName,
+              brand: enriched.brand || card.brand,
+              brandOwner: enriched.brandOwner || card.brandOwner,
+              allergens: enriched.allergens,
+              traces: enriched.traces,
+              ingredientsText: enriched.ingredientsText,
+            };
+          }
+          // Failed lookup — drop the spinner and flag the card as
+          // error. We must NOT collapse to "no allergens flagged":
+          // on a kitchen line that would read as an authoritative
+          // safe-answer for what is in fact a fetch failure. The
+          // UnknownChip renders a clearly-distinct "lookup failed"
+          // signal so the cook knows to retry rather than serve.
+          return { ...card, loading: false, error: true };
+        });
+        return { kind: 'ok-list', cards: next };
       });
-      return { kind: 'ok-list', cards: next };
-    });
-  }, [response.kind]);
+    },
+    [response.kind]
+  );
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const onSubmit = (e) => {
     e.preventDefault();
     runLookup(query);
@@ -479,7 +548,9 @@ export default function AllergenLookupClient() {
             id="allergen-q"
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={/** @param {React.ChangeEvent<HTMLInputElement>} e */ (e) =>
+              setQuery(e.target.value)
+            }
             placeholder="nutella, kraft, 3017620422003…"
             inputMode="search"
             autoComplete="off"

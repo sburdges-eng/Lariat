@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -27,6 +27,7 @@ export default function LoginPinForm() {
     );
   }
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const onSubmit = async (e) => {
     e.preventDefault();
     setErr('');

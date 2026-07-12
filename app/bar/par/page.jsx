@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // /bar/par — bar-only filtered par list.
 //
 // Read-only mirror of /inventory/par scoped to beverage categories.
@@ -22,10 +22,32 @@ import Link from 'next/link';
 import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 
+/**
+ * Row shape produced by the SELECT below — a inventory_par row left-joined
+ * against its latest inventory_count_lines entry (see CREATE TABLE for both
+ * in lib/db.ts). Same query shape as app/inventory/par/page.jsx.
+ * @typedef {{
+ *   id: number,
+ *   vendor: string | null,
+ *   ingredient: string,
+ *   sku: string,
+ *   par_qty: number | null,
+ *   par_unit: string | null,
+ *   pack_size: string | null,
+ *   pack_unit: string | null,
+ *   category: string | null,
+ *   on_hand_qty: number | null,
+ *   on_hand_unit: string | null,
+ *   counted_at: string | null,
+ *   counted_by: string | null,
+ * }} BarParRow
+ */
+
 export const dynamic = 'force-dynamic';
 
 const BAR_CATEGORIES = ['beer', 'wine', 'liquor', 'spirit', 'cocktail', 'bar', 'beverage'];
 
+/** @param {string | null | undefined} iso */
 function fmtDate(iso) {
   if (!iso) return '';
   try {
@@ -37,6 +59,11 @@ function fmtDate(iso) {
   }
 }
 
+/**
+ * @param {{
+ *   searchParams: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>,
+ * }} props
+ */
 export default async function BarParPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -54,34 +81,36 @@ export default async function BarParPage({ searchParams }) {
   const catPlaceholders = BAR_CATEGORIES.map(() => '?').join(',');
   const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
 
-  const rows = db
-    .prepare(
-      `SELECT p.id, p.vendor, p.ingredient, p.sku, p.par_qty, p.par_unit,
-              p.pack_size, p.pack_unit, p.category,
-              latest.on_hand_qty, latest.unit AS on_hand_unit,
-              latest.counted_at, latest.counted_by
-         FROM inventory_par p
-         LEFT JOIN (
-           SELECT l1.ingredient, l1.sku, l1.on_hand_qty, l1.unit,
-                  l1.counted_at, l1.counted_by
-             FROM inventory_count_lines l1
-            WHERE l1.location_id = ?
-              AND l1.counted_at = (
-                SELECT MAX(l2.counted_at)
-                  FROM inventory_count_lines l2
-                 WHERE l2.location_id = l1.location_id
-                   AND l2.ingredient = l1.ingredient
-                   AND COALESCE(l2.sku,'') = COALESCE(l1.sku,'')
-              )
-         ) AS latest
-           ON latest.ingredient = p.ingredient
-          AND COALESCE(latest.sku,'') = COALESCE(p.sku,'')
-        WHERE p.location_id = ?
-          AND p.category IS NOT NULL
-          AND lower(p.category) IN (${catPlaceholders})
-        ORDER BY p.category, p.ingredient`,
-    )
-    .all(loc, loc, ...BAR_CATEGORIES);
+  const rows = /** @type {BarParRow[]} */ (
+    db
+      .prepare(
+        `SELECT p.id, p.vendor, p.ingredient, p.sku, p.par_qty, p.par_unit,
+                p.pack_size, p.pack_unit, p.category,
+                latest.on_hand_qty, latest.unit AS on_hand_unit,
+                latest.counted_at, latest.counted_by
+           FROM inventory_par p
+           LEFT JOIN (
+             SELECT l1.ingredient, l1.sku, l1.on_hand_qty, l1.unit,
+                    l1.counted_at, l1.counted_by
+               FROM inventory_count_lines l1
+              WHERE l1.location_id = ?
+                AND l1.counted_at = (
+                  SELECT MAX(l2.counted_at)
+                    FROM inventory_count_lines l2
+                   WHERE l2.location_id = l1.location_id
+                     AND l2.ingredient = l1.ingredient
+                     AND COALESCE(l2.sku,'') = COALESCE(l1.sku,'')
+                )
+           ) AS latest
+             ON latest.ingredient = p.ingredient
+            AND COALESCE(latest.sku,'') = COALESCE(p.sku,'')
+          WHERE p.location_id = ?
+            AND p.category IS NOT NULL
+            AND lower(p.category) IN (${catPlaceholders})
+          ORDER BY p.category, p.ingredient`,
+      )
+      .all(loc, loc, ...BAR_CATEGORIES)
+  );
 
   const lowRows = rows.filter(
     (r) =>
@@ -92,11 +121,16 @@ export default async function BarParPage({ searchParams }) {
 
   const display = onlyLow ? lowRows : rows;
 
+  /** @type {Map<string, BarParRow[]>} */
   const groups = new Map();
   for (const r of display) {
     const cat = r.category || 'Other';
-    if (!groups.has(cat)) groups.set(cat, []);
-    groups.get(cat).push(r);
+    const bucket = groups.get(cat);
+    if (bucket) {
+      bucket.push(r);
+    } else {
+      groups.set(cat, [r]);
+    }
   }
   const groupList = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 

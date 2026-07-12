@@ -1,8 +1,38 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 'use client';
 
 import { useEffect, useState } from 'react';
 
+/** @typedef {import('../../../lib/db.ts').CleaningScheduleItem} CleaningScheduleItem */
+
+/**
+ * @typedef {{
+ *   area: string,
+ *   task: string,
+ *   frequency: string,
+ *   last_done: string,
+ *   next_due: string,
+ *   notes: string,
+ * }} CleaningScheduleDraft
+ */
+
+/**
+ * Partial patch sent on PATCH /api/cleaning-schedule. Mirrors the
+ * `'field' in body` branches the route handler accepts.
+ * @typedef {{
+ *   area?: string,
+ *   task?: string,
+ *   frequency?: string,
+ *   last_done?: string | null,
+ *   next_due?: string | null,
+ *   notes?: string | null,
+ *   active?: number,
+ * }} CleaningScheduleRowPatch
+ */
+
+/** @returns {CleaningScheduleDraft} */
 const emptyDraft = () => ({
   area: '',
   task: '',
@@ -12,6 +42,12 @@ const emptyDraft = () => ({
   notes: '',
 });
 
+/**
+ * @param {{
+ *   location: { id: string, name: string },
+ *   initialRows: CleaningScheduleItem[] | undefined,
+ * }} props
+ */
 export default function CleaningScheduleEditor({ location, initialRows }) {
   const [rows, setRows] = useState(initialRows || []);
   const [showArchived, setShowArchived] = useState(false);
@@ -21,6 +57,7 @@ export default function CleaningScheduleEditor({ location, initialRows }) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState(emptyDraft());
 
+  /** @param {boolean} withArchived */
   const loadRows = async (withArchived) => {
     setLoading(true);
     setErr('');
@@ -37,7 +74,7 @@ export default function CleaningScheduleEditor({ location, initialRows }) {
       const j = await res.json();
       setRows(j.rows || []);
     } catch (e) {
-      setErr(e.message || 'Load failed');
+      setErr((e instanceof Error && e.message) || 'Load failed');
     } finally {
       setLoading(false);
     }
@@ -92,6 +129,10 @@ export default function CleaningScheduleEditor({ location, initialRows }) {
     }
   };
 
+  /**
+   * @param {number} id
+   * @param {CleaningScheduleRowPatch} patch
+   */
   const saveRow = async (id, patch) => {
     setErr('');
     setMsg('');
@@ -113,6 +154,7 @@ export default function CleaningScheduleEditor({ location, initialRows }) {
     }
   };
 
+  /** @param {number} id */
   const archiveRow = async (id) => {
     if (!window.confirm('Archive this cleaning schedule row? It will be hidden from the live list.')) {
       return;
@@ -137,6 +179,7 @@ export default function CleaningScheduleEditor({ location, initialRows }) {
     }
   };
 
+  /** @param {number} id */
   const unarchiveRow = async (id) => {
     await saveRow(id, { active: 1 });
   };
@@ -277,6 +320,14 @@ export default function CleaningScheduleEditor({ location, initialRows }) {
   );
 }
 
+/**
+ * @param {{
+ *   row: CleaningScheduleItem,
+ *   onSave: (id: number, patch: CleaningScheduleRowPatch) => Promise<void>,
+ *   onArchive: (id: number) => Promise<void>,
+ *   onUnarchive: (id: number) => Promise<void>,
+ * }} props
+ */
 function EditableRow({ row, onSave, onArchive, onUnarchive }) {
   const [area, setArea] = useState(row.area || '');
   const [task, setTask] = useState(row.task || '');

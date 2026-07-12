@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 import { Suspense } from 'react';
 import '../styles/globals.css';
 import Sidebar from './_components/Sidebar.jsx';
@@ -28,6 +28,7 @@ export const viewport = {
   themeColor: '#c85a2a',
 };
 
+/** @param {{ children: import('react').ReactNode }} props */
 export default function RootLayout({ children }) {
   return (
     <html lang="en">

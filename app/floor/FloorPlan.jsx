@@ -1,11 +1,16 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+/** @typedef {import('./page.jsx').DiningTableRow} DiningTableRow */
+/** @typedef {import('./page.jsx').ReservationRow} ReservationRow */
+/** @typedef {'open' | 'seated' | 'dirty' | 'closed'} DiningTableStatus */
+
 // Status → fill color for table rectangles. Mirrors the canonical
 // state machine from /api/dining-tables: open → seated → dirty → open.
 // 'closed' takes a table out of rotation (kept gray).
+/** @type {Record<DiningTableStatus, string>} */
 const STATUS_FILL = {
   open: 'var(--green, #16a34a)',
   seated: 'var(--red, #ef4444)',
@@ -13,6 +18,7 @@ const STATUS_FILL = {
   closed: 'var(--muted, #888)',
 };
 
+/** @type {Record<DiningTableStatus, string>} */
 const STATUS_LABEL = {
   open: 'Open',
   seated: 'Seated',
@@ -32,6 +38,7 @@ const MIN_H = 400;
 // button — six 2-tops on a 2-row grid. Matches the API's default
 // capacity (2). Kept tiny so a brand-new install can get a working
 // floor in one click; the manager can rename/resize later.
+/** @type {{ id: string, name: string, capacity: number, x: number, y: number, w: number, h: number }[]} */
 const STARTER_TABLES = [
   { id: 'T1', name: 'T1', capacity: 2, x: 0, y: 0, w: 1, h: 1 },
   { id: 'T2', name: 'T2', capacity: 2, x: 2, y: 0, w: 1, h: 1 },
@@ -41,6 +48,14 @@ const STARTER_TABLES = [
   { id: 'T6', name: 'T6', capacity: 2, x: 4, y: 2, w: 1, h: 1 },
 ];
 
+/**
+ * @param {{
+ *   tables: DiningTableRow[],
+ *   reservations: ReservationRow[],
+ *   locationId: string,
+ *   today: string,
+ * }} props
+ */
 export default function FloorPlan({ tables, reservations, locationId, today: _today }) {
   const router = useRouter();
   const [cookId, setCookId] = useState('');
@@ -48,9 +63,9 @@ export default function FloorPlan({ tables, reservations, locationId, today: _to
   // are disabled, even on other tables. Single-shared-flight is
   // simpler than per-button refs and matches the EightySixBoard
   // pattern of "one in-flight write at a time".
-  const [busyId, setBusyId] = useState(null);
+  const [busyId, setBusyId] = useState(/** @type {string | null} */ (null));
   const [err, setErr] = useState('');
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState(/** @type {string | null} */ (null));
 
   useEffect(() => {
     setCookId(window.localStorage.getItem('lariat_cook') || '');
@@ -85,6 +100,11 @@ export default function FloorPlan({ tables, reservations, locationId, today: _to
     };
   }, [tables]);
 
+  /**
+   * @param {string} id
+   * @param {Record<string, unknown>} body
+   * @returns {Promise<boolean>}
+   */
   const patchTable = async (id, body) => {
     setBusyId(id);
     setErr('');
@@ -113,6 +133,11 @@ export default function FloorPlan({ tables, reservations, locationId, today: _to
     return true;
   };
 
+  /**
+   * @param {number} resId
+   * @param {string} tableId
+   * @returns {Promise<void>}
+   */
   const seatReservation = async (resId, tableId) => {
     // Two-PATCH "seat a reservation" flow:
     //   1) PATCH /api/reservations/:id { seat: true, table_id }
@@ -172,6 +197,7 @@ export default function FloorPlan({ tables, reservations, locationId, today: _to
     router.refresh();
   };
 
+  /** @returns {Promise<void>} */
   const addStarterTables = async () => {
     setBusyId('__starter__');
     setErr('');
@@ -204,6 +230,11 @@ export default function FloorPlan({ tables, reservations, locationId, today: _to
     router.refresh();
   };
 
+  /**
+   * @param {string} id
+   * @param {DiningTableStatus} status
+   * @returns {Promise<void>}
+   */
   const onChangeStatus = async (id, status) => {
     const ok = await patchTable(id, { status });
     if (ok) router.refresh();
@@ -279,6 +310,11 @@ export default function FloorPlan({ tables, reservations, locationId, today: _to
   );
 }
 
+/**
+ * @param {DiningTableRow[]} tables
+ * @param {DiningTableStatus} status
+ * @returns {number}
+ */
 function countByStatus(tables, status) {
   let n = 0;
   for (const t of tables) if (t.status === status) n += 1;
@@ -288,6 +324,7 @@ function countByStatus(tables, status) {
 function Legend() {
   // Visual key for the four table colors. Rendered as a short
   // horizontal strip so it stays out of the way on narrow tablets.
+  /** @type {{ status: DiningTableStatus, label: string }[]} */
   const items = [
     { status: 'open', label: 'Open' },
     { status: 'seated', label: 'Seated' },
@@ -330,6 +367,7 @@ function Legend() {
   );
 }
 
+/** @param {{ onAdd: () => void, busy: boolean }} props */
 function EmptyState({ onAdd, busy }) {
   return (
     <div className="empty card" role="status" aria-live="polite" style={{ padding: 24 }}>
@@ -352,6 +390,7 @@ function EmptyState({ onAdd, busy }) {
   );
 }
 
+/** @param {{ t: DiningTableRow, selected: boolean, onClick: () => void }} props */
 function TableShape({ t, selected, onClick }) {
   // Each table is a <g> wrapping the rect + labels so the entire
   // square is one click target (not just the rect edge). The group
@@ -366,12 +405,15 @@ function TableShape({ t, selected, onClick }) {
   return (
     <g
       onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onClick();
+      onKeyDown={
+        /** @param {React.KeyboardEvent<SVGGElement>} e */
+        (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick();
+          }
         }
-      }}
+      }
       tabIndex={0}
       role="button"
       aria-label={`Table ${t.id}, ${STATUS_LABEL[t.status] || t.status}, ${t.capacity} seats`}
@@ -423,6 +465,17 @@ function TableShape({ t, selected, onClick }) {
   );
 }
 
+/**
+ * @param {{
+ *   table: DiningTableRow,
+ *   reservations: ReservationRow[],
+ *   busyId: string | null,
+ *   cookId: string,
+ *   onClose: () => void,
+ *   onChangeStatus: (id: string, status: DiningTableStatus) => Promise<void>,
+ *   onSeatReservation: (resId: number, tableId: string) => Promise<void>,
+ * }} props
+ */
 function ActionPanel({
   table,
   reservations,
@@ -592,6 +645,7 @@ function ActionPanel({
 // "YYYY-MM-DD HH:MM" → "7:00 PM" (12h). Mirrors the formatter in
 // ReservationsBoard.jsx so the same row reads identically on both
 // pages.
+/** @param {string | null | undefined} at */
 function formatRowTime(at) {
   if (!at) return '';
   const m = /(\d{2}):(\d{2})$/.exec(at);

@@ -1,9 +1,12 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
-import React from 'react';
 
+/** @typedef {import('../../lib/showStatus.ts').PipelineStage} PipelineStage */
+
+/** @type {PipelineStage[]} */
 const STAGES = ['Inquiry', 'Hold', 'Offer Out', 'Confirmed', 'On Sale', 'Settled'];
 
+/** @param {{ counts: Record<PipelineStage, number> | null | undefined }} props */
 export default function BookingPipeline({ counts }) {
   return (
     <div
