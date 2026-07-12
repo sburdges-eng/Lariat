@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // /costing/prices/[vendor]/[sku] — single-SKU price history.
 //
 // Renders the full snapshot timeline as an SVG sparkline + table. The
@@ -16,12 +16,25 @@ import { DEFAULT_LOCATION_ID } from '../../../../../lib/location';
 import { listPriceSeries } from '../../../../../lib/vendorPricesRepo';
 import { formatDollars } from '../../../../../lib/formatMoney';
 
+/** @typedef {import('../../../../../lib/vendorPricesRepo.ts').PriceSeriesRow} PriceSeriesRow */
+
+/**
+ * Next 15 route context: `params`/`searchParams` may be promises (async
+ * dynamic APIs). Same shape as app/recipes/[slug]/page.jsx's PageProps.
+ * @typedef {{
+ *   params: Promise<{ vendor?: string, sku?: string }> | { vendor?: string, sku?: string },
+ *   searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>,
+ * }} PageProps
+ */
+
 export const dynamic = 'force-dynamic';
 
+/** @param {number | string | null | undefined} n */
 function fmtPrice(n) {
   return formatDollars(n, { decimals: 4 });
 }
 
+/** @param {string | null | undefined} iso */
 function fmtDate(iso) {
   if (!iso) return '';
   try {
@@ -33,6 +46,14 @@ function fmtDate(iso) {
   }
 }
 
+/**
+ * @param {{
+ *   series: PriceSeriesRow[] | null | undefined,
+ *   width?: number,
+ *   height?: number,
+ *   padding?: number,
+ * }} props
+ */
 function Sparkline({ series, width = 600, height = 140, padding = 16 }) {
   if (!series || series.length < 2) return null;
   const ys = series.map((p) => Number(p.unit_price));
@@ -41,17 +62,19 @@ function Sparkline({ series, width = 600, height = 140, padding = 16 }) {
   const span = maxY - minY || 1;
   const innerW = width - padding * 2;
   const innerH = height - padding * 2;
-  const points = series.map((_, i) => {
+  const points = series.map((p, i) => {
     const x = padding + (i / (series.length - 1)) * innerW;
-    const y = padding + innerH - ((ys[i] - minY) / span) * innerH;
-    return [x, y];
+    const y = padding + innerH - ((Number(p.unit_price) - minY) / span) * innerH;
+    return /** @type {[number, number]} */ ([x, y]);
   });
   const path = points
     .map(([x, y], i) => `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`)
     .join(' ');
-  const last = points[points.length - 1];
-  const first = points[0];
-  const direction = ys[ys.length - 1] >= ys[0] ? 'up' : 'down';
+  const last = /** @type {[number, number]} */ (points[points.length - 1]);
+  const first = /** @type {[number, number]} */ (points[0]);
+  const firstY = /** @type {number} */ (ys[0]);
+  const lastY = /** @type {number} */ (ys[ys.length - 1]);
+  const direction = lastY >= firstY ? 'up' : 'down';
   const stroke = direction === 'up' ? 'var(--red, #ef4444)' : 'var(--green, #16a34a)';
 
   return (
@@ -84,6 +107,7 @@ function Sparkline({ series, width = 600, height = 140, padding = 16 }) {
   );
 }
 
+/** @param {PageProps} props */
 export default async function SkuHistoryPage({ params, searchParams }) {
   const p = (await params) || {};
   const sp = (await searchParams) || {};
@@ -100,30 +124,57 @@ export default async function SkuHistoryPage({ params, searchParams }) {
   // Pull current vendor_prices row for the page subhead (ingredient name,
   // current pack info). If the SKU has been deleted from vendor_prices
   // but history persists, we still want the page to render.
-  const current = db
-    .prepare(
-      `SELECT ingredient, category, pack_size, pack_unit, pack_price, unit_price
-         FROM vendor_prices
-        WHERE location_id = ? AND vendor = ? AND sku = ?
-        ORDER BY id DESC LIMIT 1`,
-    )
-    .get(loc, vendor, sku);
+  const current = /** @type {{
+    ingredient: string,
+    category: string | null,
+    pack_size: number | null,
+    pack_unit: string | null,
+    pack_price: number | null,
+    unit_price: number | null,
+  } | undefined} */ (
+    db
+      .prepare(
+        `SELECT ingredient, category, pack_size, pack_unit, pack_price, unit_price
+           FROM vendor_prices
+          WHERE location_id = ? AND vendor = ? AND sku = ?
+          ORDER BY id DESC LIMIT 1`,
+      )
+      .get(loc, vendor, sku)
+  );
   // Fall back to the most recent ingredient name from the history table
   // when the row no longer exists in vendor_prices (e.g. SKU dropped).
-  const histIngredient = db
-    .prepare(
-      `SELECT ingredient FROM vendor_prices_history
-        WHERE location_id = ? AND vendor = ? AND sku = ?
-        ORDER BY snapshot_at DESC, id DESC LIMIT 1`,
-    )
-    .get(loc, vendor, sku)?.ingredient;
+  const histRow = /** @type {{ ingredient: string } | undefined} */ (
+    db
+      .prepare(
+        `SELECT ingredient FROM vendor_prices_history
+          WHERE location_id = ? AND vendor = ? AND sku = ?
+          ORDER BY snapshot_at DESC, id DESC LIMIT 1`,
+      )
+      .get(loc, vendor, sku)
+  );
+  const histIngredient = histRow?.ingredient;
   const ingredient = current?.ingredient || histIngredient || sku;
 
   const first = series[0];
   const last = series[series.length - 1];
+  // `current` (the live vendor_prices row) is the authoritative current
+  // price. vendor_prices_history's newest row is always one ingest
+  // behind it: both scripts/ingest-costing.mjs and
+  // vendorPricesRepo.upsertVendorPrice snapshot the OLD price into
+  // history BEFORE writing the NEW price into vendor_prices, so a price
+  // move lives only in the live table until the *next* ingest snapshots
+  // it. listPriceShocks() (same file as listPriceSeries) already
+  // overlays the live price for exactly this reason ("Without this
+  // overlay a fresh price move is invisible (or one ingest behind)") —
+  // apply the same precedence here instead of reading the stale tail of
+  // `series`. Fall back to the last history point only when the SKU has
+  // been dropped from vendor_prices (current is undefined), matching
+  // the ingredient/pack_unit fallback above.
+  const firstUnitPrice = first?.unit_price ?? 0;
+  const currentUnitPrice = current?.unit_price ?? last?.unit_price ?? 0;
   const delta =
-    series.length >= 2 && first?.unit_price > 0
-      ? ((last.unit_price - first.unit_price) / first.unit_price) * 100
+    series.length >= 2 && firstUnitPrice > 0
+      ? ((currentUnitPrice - firstUnitPrice) / firstUnitPrice) * 100
       : null;
 
   const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
@@ -147,7 +198,7 @@ export default async function SkuHistoryPage({ params, searchParams }) {
             <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 16 }}>
               <div>
                 <div className="kpi-label">Current</div>
-                <div className="kpi-value">{fmtPrice(last?.unit_price)}</div>
+                <div className="kpi-value">{fmtPrice(current?.unit_price ?? last?.unit_price)}</div>
                 <div style={{ fontSize: 12, opacity: 0.75 }}>
                   per {current?.pack_unit || last?.pack_unit || 'unit'}
                 </div>
