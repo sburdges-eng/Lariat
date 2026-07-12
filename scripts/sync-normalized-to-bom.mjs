@@ -126,6 +126,12 @@ function looksLikeSubRecipe(notes) {
   return /\bsub[\s_-]?recipe\b/.test(n) || /\bvia\s+[a-z0-9_]+\.csv\b/.test(n);
 }
 
+const NO_COST_UTILITY_KEYS = new Set(['water']);
+
+function isNoCostUtilityIngredient(name) {
+  return NO_COST_UTILITY_KEYS.has(normalizeIngredientKey(name ?? ''));
+}
+
 function refreshRecipeFields(db, recipe) {
   db.prepare(
     `UPDATE entities_recipes
@@ -424,10 +430,16 @@ export function syncNormalizedRecipes(db, opts) {
           // Counters track them separately (not as unmapped).
           let enrichment = { mapped: false };
           if (subRecipe == null) {
-            enrichment = resolveVendorEnrichment(vpIndex, imIndex, name);
+            if (isNoCostUtilityIngredient(name)) {
+              enrichment = { mapped: false, map_status: 'no_cost_utility' };
+            } else {
+              enrichment = resolveVendorEnrichment(vpIndex, imIndex, name);
+            }
             if (enrichment.mapped) {
               summary.vendor_columns_populated++;
               if (enrichment.tier === 2) summary.vendor_columns_auto_mapped++;
+            } else if (enrichment.map_status === 'no_cost_utility') {
+              // House utility ingredients intentionally have no vendor columns.
             } else {
               summary.vendor_columns_unmapped++;
             }
@@ -440,10 +452,12 @@ export function syncNormalizedRecipes(db, opts) {
           // distinguish them by status to surface fuzzy matches for confirmation.
           const mapStatus = subRecipe != null
             ? null
-            : (!enrichment.mapped
+            : (enrichment.map_status === 'no_cost_utility'
+                ? 'no_cost_utility'
+                : (!enrichment.mapped
                 ? 'UNMAPPED'
                 : (enrichment.map_status
-                    ?? (enrichment.tier === 2 ? 'auto_mapped' : 'mapped')));
+                    ?? (enrichment.tier === 2 ? 'auto_mapped' : 'mapped'))));
 
           if (!dryRun) {
             insBomLine.run(

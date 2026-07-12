@@ -516,6 +516,19 @@ describe('syncNormalizedRecipes — vendor-column enrichment', () => {
     assert.equal(row.vendor, 'sysco');
   });
 
+  it('marks house water as no-cost utility instead of UNMAPPED', () => {
+    const indexRows = [indexRow()];
+    const csvByRecipeId = new Map([
+      ['gazpacho', [ingRow({ ingredient: 'water', qty: '1.5', unit: 'cup' })]],
+    ]);
+    const summary = call({ indexRows, csvByRecipeId });
+
+    assert.equal(summary.vendor_columns_populated, 0);
+    assert.equal(summary.vendor_columns_unmapped, 0);
+    const row = db.prepare(`SELECT map_status, vendor, pack_price FROM bom_lines WHERE ingredient='water'`).get();
+    assert.deepEqual(row, { map_status: 'no_cost_utility', vendor: null, pack_price: null });
+  });
+
   it('leaves vendor cols NULL when ingredient resolves to multiple distinct vendors', () => {
     // Same key → two vendors. Ambiguous from name alone; must not silently
     // pick one or it'd bias variance math.
