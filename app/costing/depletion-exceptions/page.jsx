@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // /costing/depletion-exceptions — operator triage queue for Toast sales
 // lines that can't auto-deplete inventory.
 //
@@ -22,18 +22,24 @@ import {
   REASON_LABELS,
 } from '../../../lib/depletionExceptions';
 
+/** @typedef {import('../../../lib/depletionExceptions.ts').DepletionException} DepletionException */
+/** @typedef {Record<string, string | string[] | undefined>} PageSearchParams */
+
 export const dynamic = 'force-dynamic';
 
+/** @param {number | string | null | undefined} n */
 function fmtCurrency(n) {
   return formatDollars(n);
 }
 
+/** @param {number | string | null | undefined} n */
 function fmtQty(n) {
   if (n == null || !Number.isFinite(Number(n))) return '—';
   const v = Number(n);
   return Number.isInteger(v) ? String(v) : v.toFixed(2);
 }
 
+/** @param {string | null | undefined} iso */
 function fmtDate(iso) {
   if (!iso) return '';
   try {
@@ -46,6 +52,10 @@ function fmtDate(iso) {
   }
 }
 
+/**
+ * @param {DepletionException['reason']} reason
+ * @returns {'red' | 'blue' | 'yellow'}
+ */
 function reasonTone(reason) {
   // Tone matches the operator's likely effort to fix:
   //  red = blocking the dish entirely (no_dish_components, invalid_qty)
@@ -56,6 +66,7 @@ function reasonTone(reason) {
   return 'yellow';
 }
 
+/** @param {{ searchParams: Promise<PageSearchParams> | PageSearchParams }} props */
 export default async function DepletionExceptionsPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -75,10 +86,13 @@ export default async function DepletionExceptionsPage({ searchParams }) {
     limit: 200,
   });
 
-  const totalSalesRows = db
-    .prepare(`SELECT COUNT(*) AS c FROM sales_lines WHERE location_id = ?`)
-    .get(loc).c;
+  const totalSalesRows = /** @type {{ c: number }} */ (
+    db
+      .prepare(`SELECT COUNT(*) AS c FROM sales_lines WHERE location_id = ?`)
+      .get(loc)
+  ).c;
 
+  /** @param {{ period?: string }} [extra] */
   const locQ = (extra = {}) => {
     const params = new URLSearchParams();
     if (loc !== DEFAULT_LOCATION_ID) params.set('location', loc);

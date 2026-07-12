@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useState } from 'react';
@@ -7,10 +7,12 @@ import { useState } from 'react';
  * Tiny client island — PATCHes ingredient-masters with last_reviewed:'now'.
  * After a successful ack, location.reload() refreshes the server-rendered
  * list. Failure surfaces inline; the row stays clickable for retry.
+ *
+ * @param {{ masterId: string, cookId?: string | null }} props
  */
 export default function MarkReviewedButton({ masterId, cookId = null }) {
-  const [state, setState] = useState('idle'); // 'idle' | 'pending' | 'error'
-  const [errorMsg, setErrorMsg] = useState(null);
+  const [state, setState] = useState(/** @type {'idle' | 'pending' | 'error'} */ ('idle'));
+  const [errorMsg, setErrorMsg] = useState(/** @type {string | null} */ (null));
 
   async function onClick() {
     setState('pending');
@@ -33,7 +35,7 @@ export default function MarkReviewedButton({ masterId, cookId = null }) {
       // last_reviewed and re-sorts.
       window.location.reload();
     } catch (err) {
-      setErrorMsg(err.message || String(err));
+      setErrorMsg(err instanceof Error ? err.message || String(err) : String(err));
       setState('error');
     }
   }

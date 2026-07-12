@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // /costing/ingredient-masters — operator review surface for the
 // ingredient_masters table.
 //
@@ -22,14 +22,19 @@ import { getDb } from '../../../lib/db';
 import { listMasters } from '../../../lib/ingredientMastersRepo';
 import MarkReviewedButton from './MarkReviewedButton.jsx';
 
+/** @typedef {import('../../../lib/ingredientMastersRepo.ts').ListMastersOpts['filter']} MasterFilter */
+/** @typedef {Record<string, string | string[] | undefined>} PageSearchParams */
+
 export const dynamic = 'force-dynamic';
 
+/** @type {{ value: NonNullable<MasterFilter>, label: string }[]} */
 const FILTER_OPTIONS = [
   { value: 'needs_review', label: 'Needs review' },
   { value: 'reviewed', label: 'Reviewed' },
   { value: 'all', label: 'All' },
 ];
 
+/** @param {string | null | undefined} iso */
 function fmtDate(iso) {
   if (!iso) return '—';
   try {
@@ -43,13 +48,14 @@ function fmtDate(iso) {
   }
 }
 
+/** @param {{ searchParams: Promise<PageSearchParams> }} props */
 export default async function IngredientMastersPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
   const filterRaw =
     typeof sp?.filter === 'string' ? sp.filter : 'needs_review';
   const filter = FILTER_OPTIONS.some((o) => o.value === filterRaw)
-    ? filterRaw
+    ? /** @type {NonNullable<MasterFilter>} */ (filterRaw)
     : 'needs_review';
   const q =
     typeof sp?.q === 'string' && sp.q.trim()
