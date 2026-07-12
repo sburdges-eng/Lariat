@@ -1,9 +1,12 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import KitchenAssistantClient from './KitchenAssistantClient.jsx';
 
+/** @typedef {Record<string, string | string[] | undefined>} PageSearchParams */
+
 export const dynamic = 'force-dynamic';
 
+/** @param {{ searchParams: Promise<PageSearchParams> }} props */
 export default async function KitchenAssistantPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
