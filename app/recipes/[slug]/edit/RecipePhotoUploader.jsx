@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 'use client';
 
 /**
@@ -16,9 +18,28 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+/**
+ * A recipe_photos row as returned by GET /api/recipes/:slug/photos
+ * (see app/api/recipes/[slug]/photos/route.js's SELECT column list).
+ * @typedef {{
+ *   id: number,
+ *   original_name: string,
+ *   mime: string,
+ *   size_bytes: number,
+ *   caption: string | null,
+ *   uploaded_by_cook_id: string | null,
+ *   uploaded_at: string,
+ *   is_hero: number,
+ * }} Photo
+ */
+
 const ACCEPT =
   'image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif';
 
+/**
+ * @param {number} n
+ * @returns {string}
+ */
 function bytes(n) {
   if (!Number.isFinite(n)) return '';
   if (n < 1024) return `${n} B`;
@@ -32,6 +53,12 @@ function bytes(n) {
  * Normalizes whitespace-only input to null so the wire payload
  * matches what the server stores. Suppresses the PATCH when the
  * caption is unchanged on blur (no audit noise from open-then-close).
+ *
+ * @param {{
+ *   value: string | null,
+ *   onSave: (next: string | null) => void,
+ *   fallback: string,
+ * }} props
  */
 function EditableCaption({ value, onSave, fallback }) {
   const [editing, setEditing] = useState(false);
@@ -92,9 +119,12 @@ function EditableCaption({ value, onSave, fallback }) {
   );
 }
 
+/**
+ * @param {{ slug: string }} props
+ */
 export default function RecipePhotoUploader({ slug }) {
-  const inputRef = useRef(null);
-  const [photos, setPhotos] = useState([]);
+  const inputRef = useRef(/** @type {HTMLInputElement | null} */ (null));
+  const [photos, setPhotos] = useState(/** @type {Photo[]} */ ([]));
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -103,7 +133,7 @@ export default function RecipePhotoUploader({ slug }) {
   const refresh = useCallback(async () => {
     try {
       const res = await fetch(`/api/recipes/${slug}/photos`, { cache: 'no-store' });
-      const json = await res.json();
+      const json = /** @type {{ photos?: Photo[] }} */ (await res.json());
       setPhotos(json.photos || []);
     } catch (e) {
       setError(String(e));
@@ -114,88 +144,114 @@ export default function RecipePhotoUploader({ slug }) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const handleFiles = useCallback(async (files) => {
-    if (!files || files.length === 0) return;
-    setError('');
-    setUploading(true);
-    try {
-      for (const file of files) {
-        const form = new FormData();
-        form.append('file', file);
-        const res = await fetch(`/api/recipes/${slug}/photos`, {
-          method: 'POST',
-          body: form,
+  const handleFiles = useCallback(
+    /** @param {FileList | null} files */
+    async (files) => {
+      if (!files || files.length === 0) return;
+      setError('');
+      setUploading(true);
+      try {
+        for (const file of files) {
+          const form = new FormData();
+          form.append('file', file);
+          const res = await fetch(`/api/recipes/${slug}/photos`, {
+            method: 'POST',
+            body: form,
+          });
+          if (!res.ok) {
+            const j = await res.json().catch(() => ({}));
+            throw new Error(j.error || `upload failed (HTTP ${res.status})`);
+          }
+        }
+        await refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setUploading(false);
+        if (inputRef.current) inputRef.current.value = '';
+      }
+    },
+    [slug, refresh],
+  );
+
+  const onDrop = useCallback(
+    /** @param {React.DragEvent<HTMLDivElement>} e */
+    (e) => {
+      e.preventDefault();
+      setDragOver(false);
+      handleFiles(e.dataTransfer.files);
+    },
+    [handleFiles],
+  );
+
+  const onDelete = useCallback(
+    /** @param {number} id */
+    async (id) => {
+      if (!confirm('Delete this photo? The file stays on disk for audit.')) return;
+      setError('');
+      try {
+        const res = await fetch(`/api/recipes/${slug}/photos/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error || `delete failed (HTTP ${res.status})`);
+        }
+        await refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [slug, refresh],
+  );
+
+  const onToggleHero = useCallback(
+    /**
+     * @param {number} id
+     * @param {boolean} currentIsHero
+     */
+    async (id, currentIsHero) => {
+      setError('');
+      try {
+        const res = await fetch(`/api/recipes/${slug}/photos/${id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ is_hero: !currentIsHero }),
         });
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
-          throw new Error(j.error || `upload failed (HTTP ${res.status})`);
+          throw new Error(j.error || `pin failed (HTTP ${res.status})`);
         }
+        await refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
       }
-      await refresh();
-    } catch (e) {
-      setError(String(e.message || e));
-    } finally {
-      setUploading(false);
-      if (inputRef.current) inputRef.current.value = '';
-    }
-  }, [slug, refresh]);
+    },
+    [slug, refresh],
+  );
 
-  const onDrop = useCallback((e) => {
-    e.preventDefault();
-    setDragOver(false);
-    handleFiles(e.dataTransfer.files);
-  }, [handleFiles]);
-
-  const onDelete = useCallback(async (id) => {
-    if (!confirm('Delete this photo? The file stays on disk for audit.')) return;
-    setError('');
-    try {
-      const res = await fetch(`/api/recipes/${slug}/photos/${id}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || `delete failed (HTTP ${res.status})`);
+  const onSaveCaption = useCallback(
+    /**
+     * @param {number} id
+     * @param {string | null} caption
+     */
+    async (id, caption) => {
+      setError('');
+      try {
+        const res = await fetch(`/api/recipes/${slug}/photos/${id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ caption }),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error || `caption save failed (HTTP ${res.status})`);
+        }
+        await refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
       }
-      await refresh();
-    } catch (e) {
-      setError(String(e.message || e));
-    }
-  }, [slug, refresh]);
-
-  const onToggleHero = useCallback(async (id, currentIsHero) => {
-    setError('');
-    try {
-      const res = await fetch(`/api/recipes/${slug}/photos/${id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ is_hero: !currentIsHero }),
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || `pin failed (HTTP ${res.status})`);
-      }
-      await refresh();
-    } catch (e) {
-      setError(String(e.message || e));
-    }
-  }, [slug, refresh]);
-
-  const onSaveCaption = useCallback(async (id, caption) => {
-    setError('');
-    try {
-      const res = await fetch(`/api/recipes/${slug}/photos/${id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ caption }),
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || `caption save failed (HTTP ${res.status})`);
-      }
-      await refresh();
-    } catch (e) {
-      setError(String(e.message || e));
-    }
-  }, [slug, refresh]);
+    },
+    [slug, refresh],
+  );
 
   return (
     <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid var(--border)' }}>
