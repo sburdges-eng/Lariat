@@ -1,15 +1,171 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
 
 import { formatFdaCitation, formatUsdaCitation } from './citationHelpers';
+import { useLocation } from '../_components/useLocation';
 
-const LOC_KEY = 'lariat_location';
+/** @typedef {import('../../lib/kitchenAssistantContext.ts').ContextSource} ContextSource */
+/** @typedef {import('../../lib/kitchenAssistantUndo.ts').KitchenAssistantUndoMeta} KitchenAssistantUndoMeta */
+/** @typedef {import('../../lib/datapackSearch.ts').FdaSection} FdaSection */
+/** @typedef {import('../../lib/datapackSearch.ts').UsdaFood} UsdaFood */
+/** @typedef {import('../../lib/datapackSearch.ts').UsdaNutrient} UsdaNutrient */
+
+// ── /api/kitchen-assistant contract ─────────────────────────────────
+
+/**
+ * @typedef {{
+ *   answer?: string;
+ *   error?: string;
+ *   model?: string;
+ *   location_id?: string;
+ *   sources?: ContextSource[];
+ *   latencyMs?: number;
+ *   disclaimer?: string;
+ *   undo?: KitchenAssistantUndoMeta | null;
+ * }} KitchenAssistantResponse
+ */
+
+/**
+ * @typedef {{
+ *   latencyMs?: number;
+ *   model?: string;
+ *   sources?: ContextSource[];
+ *   disclaimer?: string;
+ * }} AnswerMeta
+ */
+
+// ── Undo card state (slice 2.7) ──────────────────────────────────────
+
+/**
+ * @typedef {{
+ *   status: 'ready' | 'pending';
+ *   label: string;
+ *   auditEventId: number;
+ *   expiresAtMs: number;
+ *   locationId: string;
+ *   message: string;
+ * }} UndoLiveState
+ */
+/** @typedef {{ status: 'done' | 'error'; label: string; message: string }} UndoSettledState */
+/** @typedef {UndoLiveState | UndoSettledState | null} UndoState */
+
+// ── /api/datapack/search hit + follow-up shapes ──────────────────────
+//
+// A hybrid hit rides along as either the FTS envelope (source, id,
+// title, subtitle, extra) or the semantic envelope (per-source metadata
+// fields verbatim: rowid/section_id/chapter/annex for FDA, fdc_id for
+// USDA) — see lib/datapackSearch.ts `HybridHit`. We read defensively
+// across both shapes, so every field here is optional.
+
+/** @typedef {import('./citationHelpers.js').DataPackHit} DatapackHit */
+
+/** @typedef {{ section?: FdaSection }} FdaSectionFollowUp */
+/** @typedef {{ food?: UsdaFood; nutrients?: UsdaNutrient[] }} UsdaFoodFollowUp */
+
+// ── Citation display shapes (mirror citationHelpers.js's return values) ──
+
+/**
+ * @typedef {{
+ *   title: string;
+ *   sectionId: string;
+ *   chapter: string;
+ *   annex: string;
+ *   rowid: number | null;
+ *   excerpt: string;
+ * }} FdaCitation
+ */
+
+/**
+ * @typedef {{
+ *   nutrient_id?: number;
+ *   nutrient_name?: string | null;
+ *   amount?: number | null;
+ *   unit_name?: string | null;
+ *   displayName: string;
+ *   displayUnit: string;
+ * }} UsdaNutrientDisplay
+ */
+
+/**
+ * @typedef {{
+ *   description: string;
+ *   foodCategory: string;
+ *   fdcId: number | null;
+ *   brandOwner: string;
+ *   nutrients: UsdaNutrientDisplay[];
+ * }} UsdaCitation
+ */
+
+/** @typedef {{ status: 'unavailable' } | { status: 'error'; message: string } | { status: 'ok'; citations: FdaCitation[] }} FdaCitationResult */
+/** @typedef {{ status: 'unavailable' } | { status: 'error'; message: string } | { status: 'ok'; citations: UsdaCitation[] }} UsdaCitationResult */
+
+// ── Badge drill-in state, keyed by badge type ────────────────────────
+
+/**
+ * @typedef {
+ *   | { status: 'loading' }
+ *   | { status: 'ok'; citations: (FdaCitation | UsdaCitation)[]; collapsed: boolean }
+ *   | { status: 'unavailable'; collapsed: boolean }
+ *   | { status: 'error'; message: string; collapsed: boolean }
+ * } BadgeEntry
+ */
+
+// ── Local-Whisper capture handle ─────────────────────────────────────
+
+/**
+ * @typedef {{
+ *   stream: MediaStream;
+ *   ctx: AudioContext;
+ *   source: MediaStreamAudioSourceNode;
+ *   processor: ScriptProcessorNode;
+ *   chunks: Float32Array[];
+ *   sampleRate: number;
+ * }} WhisperCapture
+ */
+
+// ── Web Speech API (not in lib.dom.d.ts — declared locally) ──────────
+
+/** @typedef {{ transcript: string }} SpeechRecognitionAlternative */
+/** @typedef {{ 0: SpeechRecognitionAlternative }} SpeechRecognitionResult */
+/** @typedef {{ results: { 0: SpeechRecognitionResult } }} SpeechRecognitionResultEvent */
+/** @typedef {{ error?: string }} SpeechRecognitionErrorEvent */
+
+/**
+ * @typedef {{
+ *   continuous: boolean;
+ *   interimResults: boolean;
+ *   start: () => void;
+ *   stop: () => void;
+ *   abort: () => void;
+ *   onstart: (() => void) | null;
+ *   onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+ *   onend: (() => void) | null;
+ *   onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
+ * }} SpeechRecognitionInstance
+ */
+/** @typedef {new () => SpeechRecognitionInstance} SpeechRecognitionCtor */
+/**
+ * @typedef {Window & typeof globalThis & {
+ *   SpeechRecognition?: SpeechRecognitionCtor;
+ *   webkitSpeechRecognition?: SpeechRecognitionCtor;
+ *   webkitAudioContext?: typeof AudioContext;
+ * }} SpeechCapableWindow
+ */
+
 const LANG_KEY = 'lariat_language';
 const COOK_KEY = 'lariat_cook';
 const CONVERSATION_SESSION_KEY = 'lariat_conversation_session_id';
 const VOICE_INPUT_ERROR = 'Voice input stopped. Check the mic and try again.';
+
+/** @param {unknown} err @returns {string} */
+function stringifyError(err) {
+  const withMessage = /** @type {{ message?: unknown } | null} */ (
+    err && typeof err === 'object' ? err : null
+  );
+  return String((withMessage && withMessage.message) || err);
+}
 
 function fallbackUuidV4() {
   const bytes = new Uint8Array(16);
@@ -20,12 +176,13 @@ function fallbackUuidV4() {
       bytes[i] = Math.floor(Math.random() * 256);
     }
   }
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  bytes[6] = (/** @type {number} */ (bytes[6]) & 0x0f) | 0x40;
+  bytes[8] = (/** @type {number} */ (bytes[8]) & 0x3f) | 0x80;
   const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+/** @returns {string} */
 function getOrCreateConversationSessionId() {
   if (typeof window === 'undefined') return '';
   const existing = window.localStorage.getItem(CONVERSATION_SESSION_KEY);
@@ -46,6 +203,7 @@ const DATAPACK_BADGE_TYPES = new Set(['fda_food_code', 'usda_ingredients']);
 // Badge cache key — meta is rebuilt per submit, so type alone scopes
 // the cache to the lifetime of one assistant answer. (We reset
 // citations on every fresh submit anyway.)
+/** @param {string} type @returns {string} */
 function badgeCacheKey(type) {
   return type;
 }
@@ -55,6 +213,11 @@ function badgeCacheKey(type) {
 // `limit` hits; follow-up failures are absorbed (we still surface the
 // hit with an empty body / no nutrients) so a single 500 doesn't
 // poison the whole drill-in.
+/**
+ * @param {string} question
+ * @param {AbortSignal} signal
+ * @returns {Promise<FdaCitationResult>}
+ */
 async function resolveFdaCitations(question, signal) {
   const params = new URLSearchParams({
     op: 'hybrid',
@@ -66,6 +229,7 @@ async function resolveFdaCitations(question, signal) {
     signal,
   });
   if (res.status === 503) return { status: 'unavailable' };
+  /** @type {{ hits?: unknown; error?: unknown } | null} */
   let body = null;
   try {
     body = await res.json();
@@ -80,7 +244,8 @@ async function resolveFdaCitations(question, signal) {
   }
   // Hybrid hits are heterogeneous (FTS envelope vs semantic envelope).
   // We accept both — formatFdaCitation collapses the shape.
-  const hits = body.hits.filter(
+  const rawHits = /** @type {DatapackHit[]} */ (body.hits);
+  const hits = rawHits.filter(
     (h) =>
       h && (h.source === 'fda' || h.source === 'fda_food_code' || h.rowid != null || h.id != null)
   );
@@ -90,27 +255,32 @@ async function resolveFdaCitations(question, signal) {
     hits.map((h) => {
       const rowid = h.rowid ?? h.id;
       if (rowid === null || rowid === undefined) {
-        return Promise.resolve(null);
+        return Promise.resolve(/** @type {FdaSectionFollowUp | null} */ (null));
       }
       const url = `/api/datapack/search?op=fda_section&rowid=${encodeURIComponent(
         String(rowid)
       )}`;
       return fetch(url, { signal }).then((r) =>
-        r.ok ? r.json() : null
+        r.ok ? /** @type {Promise<FdaSectionFollowUp | null>} */ (r.json()) : null
       );
     })
   );
   const citations = hits.map((h, i) => {
-    const settled = followUps[i];
+    const settled = /** @type {PromiseSettledResult<FdaSectionFollowUp | null>} */ (followUps[i]);
     const sectionRow =
       settled.status === 'fulfilled' && settled.value && settled.value.section
         ? settled.value.section
         : null;
-    return formatFdaCitation(h, sectionRow);
+    return /** @type {FdaCitation} */ (formatFdaCitation(h, sectionRow));
   });
   return { status: 'ok', citations };
 }
 
+/**
+ * @param {string} question
+ * @param {AbortSignal} signal
+ * @returns {Promise<UsdaCitationResult>}
+ */
 async function resolveUsdaCitations(question, signal) {
   const params = new URLSearchParams({
     op: 'hybrid',
@@ -122,6 +292,7 @@ async function resolveUsdaCitations(question, signal) {
     signal,
   });
   if (res.status === 503) return { status: 'unavailable' };
+  /** @type {{ hits?: unknown; error?: unknown } | null} */
   let body = null;
   try {
     body = await res.json();
@@ -134,38 +305,44 @@ async function resolveUsdaCitations(question, signal) {
       `HTTP ${res.status}`;
     return { status: 'error', message: msg };
   }
-  const hits = body.hits.filter(
+  const rawHits = /** @type {DatapackHit[]} */ (body.hits);
+  const hits = rawHits.filter(
     (h) => h && (h.source === 'usda' || h.fdc_id != null || h.id != null)
   );
   const followUps = await Promise.allSettled(
     hits.map((h) => {
       const fdcId = h.fdc_id ?? h.id;
       if (fdcId === null || fdcId === undefined) {
-        return Promise.resolve(null);
+        return Promise.resolve(/** @type {UsdaFoodFollowUp | null} */ (null));
       }
       const url = `/api/datapack/search?op=usda_food&fdc_id=${encodeURIComponent(
         String(fdcId)
       )}`;
-      return fetch(url, { signal }).then((r) => (r.ok ? r.json() : null));
+      return fetch(url, { signal }).then((r) => (r.ok ? /** @type {Promise<UsdaFoodFollowUp | null>} */ (r.json()) : null));
     })
   );
   const citations = hits.map((h, i) => {
-    const settled = followUps[i];
+    const settled = /** @type {PromiseSettledResult<UsdaFoodFollowUp | null>} */ (followUps[i]);
     const payload =
       settled.status === 'fulfilled' && settled.value ? settled.value : null;
     const foodRow = payload && payload.food ? payload.food : null;
     const nutrients = payload && payload.nutrients ? payload.nutrients : null;
-    return formatUsdaCitation(h, foodRow, nutrients);
+    return /** @type {UsdaCitation} */ (formatUsdaCitation(h, foodRow, nutrients));
   });
   return { status: 'ok', citations };
 }
 
+/** @param {unknown} value @returns {number | null} */
 function parseUndoExpiryMs(value) {
   if (typeof value !== 'string') return null;
   const ms = Date.parse(value);
   return Number.isFinite(ms) ? ms : null;
 }
 
+/**
+ * @param {KitchenAssistantResponse} data
+ * @returns {UndoState}
+ */
 function buildUndoStateFromResponse(data) {
   const undo = data?.undo;
   if (!undo || typeof undo !== 'object') return null;
@@ -199,6 +376,7 @@ const WHISPER_RATE = 16000;
 
 // Composer picker labels → Whisper language hints (server auto-detects
 // when the label is unknown).
+/** @type {Record<string, string>} */
 const WHISPER_LANGUAGE_HINTS = {
   English: 'en',
   Spanish: 'es',
@@ -207,6 +385,11 @@ const WHISPER_LANGUAGE_HINTS = {
   'Kenyan Swahili': 'sw',
 };
 
+/**
+ * @param {Float32Array[]} chunks
+ * @param {number} fromRate
+ * @returns {Float32Array}
+ */
 function downsampleToWhisperRate(chunks, fromRate) {
   let total = 0;
   for (const c of chunks) total += c.length;
@@ -223,14 +406,19 @@ function downsampleToWhisperRate(chunks, fromRate) {
   for (let i = 0; i < outLen; i += 1) {
     // Nearest-sample decimation — fine for speech into whisper-tiny;
     // a windowed-sinc resampler is not worth the battery on an iPad.
-    out[i] = joined[Math.floor(i * ratio)];
+    out[i] = /** @type {number} */ (joined[Math.floor(i * ratio)]);
   }
   return out;
 }
 
+/**
+ * @param {Float32Array} pcm
+ * @returns {ArrayBuffer}
+ */
 function encodeWavPcm16(pcm) {
   const buf = new ArrayBuffer(44 + pcm.length * 2);
   const view = new DataView(buf);
+  /** @param {number} off @param {string} s */
   const writeTag = (off, s) => {
     for (let i = 0; i < s.length; i += 1) view.setUint8(off + i, s.charCodeAt(i));
   };
@@ -248,18 +436,19 @@ function encodeWavPcm16(pcm) {
   writeTag(36, 'data');
   view.setUint32(40, pcm.length * 2, true);
   for (let i = 0; i < pcm.length; i += 1) {
-    const s = Math.max(-1, Math.min(1, pcm[i]));
+    const s = Math.max(-1, Math.min(1, /** @type {number} */ (pcm[i])));
     view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
   }
   return buf;
 }
 
-export default function KitchenAssistantClient({ locQuery: _locQuery }) {
-  const [ollamaOk, setOllamaOk] = useState(null);
+export default function KitchenAssistantClient() {
+  const { locationId } = useLocation();
+  const [ollamaOk, setOllamaOk] = useState(/** @type {boolean | null} */ (null));
   const [model, setModel] = useState('');
   const [message, setMessage] = useState('');
   const [answer, setAnswer] = useState('');
-  const [meta, setMeta] = useState(null);
+  const [meta, setMeta] = useState(/** @type {AnswerMeta | null} */ (null));
   // Question that produced the current `answer` / `meta` — captured at
   // submit time so badge clicks have a stable `q` even after the user
   // edits the textarea for their next question.
@@ -269,34 +458,35 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
   const [language, setLanguage] = useState('English');
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
-  const [SpeechRec, setSpeechRec] = useState(null);
-  const recognitionRef = useRef(null);
+  const [SpeechRec, setSpeechRec] = useState(/** @type {SpeechRecognitionCtor | null} */ (null));
+  const recognitionRef = useRef(/** @type {SpeechRecognitionInstance | null} */ (null));
   // Local-Whisper capture (see module helpers above). whisperEnabled is
   // the /api/transcribe probe result; probe failure leaves it false so
   // the Web Speech path is the default everywhere Whisper isn't set up.
   const [whisperEnabled, setWhisperEnabled] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
-  const captureRef = useRef(null);
+  const captureRef = useRef(/** @type {WhisperCapture | null} */ (null));
   // Per-badge drill-in state, keyed by badge type. Shape:
   //   { status: 'loading' | 'ok' | 'error' | 'unavailable' | 'closed',
   //     citations?: [...], message?: string }
   // 'closed' is only ever the result of an explicit collapse — we keep
   // the cached payload on the entry so a second click re-opens without
   // a re-fetch (acceptance criteria #4).
-  const [badgeState, setBadgeState] = useState({});
+  const [badgeState, setBadgeState] = useState(/** @type {Record<string, BadgeEntry>} */ ({}));
   // AbortController for the in-flight badge fan-out, scoped per badge
   // so a click on the FDA badge doesn't cancel an in-flight USDA fetch
   // and vice versa.
-  const badgeAbortRef = useRef({});
-  const [undoState, setUndoState] = useState(null);
+  const badgeAbortRef = useRef(/** @type {Record<string, AbortController>} */ ({}));
+  const [undoState, setUndoState] = useState(/** @type {UndoState} */ (null));
   const [undoNowMs, setUndoNowMs] = useState(() => Date.now());
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedLang = window.localStorage.getItem(LANG_KEY);
       if (savedLang) setLanguage(savedLang);
-      
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      const w = /** @type {SpeechCapableWindow} */ (window);
+      const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
       if (SR) {
         setSpeechSupported(true);
         setSpeechRec(() => SR);
@@ -304,17 +494,17 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
     }
 
     fetch('/api/kitchen-assistant?ping=1')
-      .then((r) => r.json())
+      .then((r) => /** @type {Promise<{ model?: string; ollamaReachable?: boolean }>} */ (r.json()))
       .then((d) => {
         setModel(d.model || '');
-        setOllamaOk(d.ollamaReachable);
+        setOllamaOk(d.ollamaReachable ?? null);
       })
       .catch(() => {
         setOllamaOk(false);
       });
 
     fetch('/api/transcribe')
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => (r.ok ? /** @type {Promise<{ enabled?: boolean }>} */ (r.json()) : null))
       .then((d) => setWhisperEnabled(Boolean(d?.enabled)))
       .catch(() => {});
   }, []);
@@ -377,7 +567,7 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
       body: encodeWavPcm16(pcm),
     })
       .then(async (r) => {
-        const d = await r.json().catch(() => null);
+        const d = /** @type {{ transcript?: unknown } | null} */ (await r.json().catch(() => null));
         if (!r.ok || typeof d?.transcript !== 'string') throw new Error('transcribe failed');
         const t = d.transcript.trim();
         if (t) setMessage((prev) => (prev + ' ' + t).trim());
@@ -398,12 +588,15 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
         stream.getTracks().forEach((t) => t.stop());
         return;
       }
-      const Ctx = window.AudioContext || window.webkitAudioContext;
+      const w = /** @type {SpeechCapableWindow} */ (window);
+      const Ctx = w.AudioContext || w.webkitAudioContext;
+      if (!Ctx) throw new Error('AudioContext unavailable');
       const ctx = new Ctx();
       const source = ctx.createMediaStreamSource(stream);
       // ScriptProcessor over AudioWorklet: deprecated but the only path
       // that works on every iPad Safari this kitchen runs.
       const processor = ctx.createScriptProcessor(4096, 1, 1);
+      /** @type {Float32Array[]} */
       const chunks = [];
       processor.onaudioprocess = (evt) => {
         chunks.push(new Float32Array(evt.inputBuffer.getChannelData(0)));
@@ -420,6 +613,7 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
     }
   };
 
+  /** @param {{ preventDefault?: () => void } | undefined} [e] */
   const stopListening = (e) => {
     e?.preventDefault?.();
     if (captureRef.current) {
@@ -430,6 +624,7 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
     recognitionRef.current.stop();
   };
 
+  /** @param {{ preventDefault?: () => void } | undefined} [e] */
   const startListening = (e) => {
     e?.preventDefault?.();
     if (loading || transcribing || recognitionRef.current || captureRef.current) return;
@@ -472,6 +667,7 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
     }
   };
 
+  /** @param {React.MouseEvent<HTMLButtonElement>} e */
   const ignoreVoiceClick = (e) => {
     e.preventDefault();
   };
@@ -492,6 +688,7 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
     };
   }, []);
 
+  /** @param {React.KeyboardEvent<HTMLButtonElement>} e */
   const voiceKeyDown = (e) => {
     if (e.key === 'Escape') {
       stopListening(e);
@@ -501,11 +698,13 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
     startListening(e);
   };
 
+  /** @param {React.KeyboardEvent<HTMLButtonElement>} e */
   const voiceKeyUp = (e) => {
     if (e.key !== ' ' && e.key !== 'Enter') return;
     stopListening(e);
   };
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submit = async (e) => {
     e.preventDefault();
     setErr('');
@@ -523,21 +722,21 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
     setAskedQuestion(q);
     setLoading(true);
     try {
-      const loc = typeof window !== 'undefined' ? window.localStorage.getItem(LOC_KEY) : '';
       const cookId = typeof window !== 'undefined' ? window.localStorage.getItem(COOK_KEY) : '';
+      /** @type {{ message: string; language: string; conversation_session_id: string; cook_id?: string; location_id?: string }} */
       const body = {
         message: q,
         language,
         conversation_session_id: getOrCreateConversationSessionId(),
       };
       if (cookId) body.cook_id = cookId;
-      if (loc && loc !== 'default') body.location_id = loc;
+      if (locationId && locationId !== 'default') body.location_id = locationId;
       const res = await fetch('/api/kitchen-assistant', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const data = await res.json().catch(() => ({}));
+      const data = /** @type {KitchenAssistantResponse} */ (await res.json().catch(() => ({})));
       if (!res.ok) {
         setErr(data.error || "Couldn't get an answer. Try again.");
         return;
@@ -552,7 +751,7 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
       setUndoNowMs(Date.now());
       setUndoState(buildUndoStateFromResponse(data));
     } catch (ce) {
-      setErr(String(ce.message || ce));
+      setErr(stringifyError(ce));
     } finally {
       setLoading(false);
     }
@@ -567,6 +766,7 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
     setUndoState({ ...undoState, status: 'pending' });
     try {
       const cookId = typeof window !== 'undefined' ? window.localStorage.getItem(COOK_KEY) : '';
+      /** @type {{ undo_audit_id: number; location_id?: string; cook_id?: string }} */
       const body = { undo_audit_id: auditEventId };
       if (locationId && locationId !== 'default') body.location_id = locationId;
       if (cookId) body.cook_id = cookId;
@@ -575,7 +775,7 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const data = await res.json().catch(() => ({}));
+      const data = /** @type {{ error?: string; message?: string }} */ (await res.json().catch(() => ({})));
       if (!res.ok) {
         setUndoState({
           status: 'error',
@@ -593,7 +793,7 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
       setUndoState({
         status: 'error',
         label,
-        message: String(ue?.message || ue),
+        message: stringifyError(ue),
       });
     }
   };
@@ -612,6 +812,7 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
     };
   }, []);
 
+  /** @param {string} type */
   const toggleBadge = async (type) => {
     if (!DATAPACK_BADGE_TYPES.has(type)) return;
     const key = badgeCacheKey(type);
@@ -673,13 +874,13 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
       }
       setBadgeState((prev) => ({ ...prev, [key]: { ...result, collapsed: false } }));
     } catch (e) {
-      if (e?.name === 'AbortError') return;
+      if (/** @type {{ name?: unknown } | null} */ (e && typeof e === 'object' ? e : null)?.name === 'AbortError') return;
       if (badgeAbortRef.current[key] === ctrl) {
         delete badgeAbortRef.current[key];
       }
       setBadgeState((prev) => ({
         ...prev,
-        [key]: { status: 'error', message: String(e?.message || e), collapsed: false },
+        [key]: { status: 'error', message: stringifyError(e), collapsed: false },
       }));
     }
   };
@@ -892,6 +1093,9 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
 // in priority order — FDA shows section_id + chapter/annex + body
 // excerpt; USDA shows description + food_category + nutrient line.
 
+/**
+ * @param {{ type: string; state: BadgeEntry | undefined }} props
+ */
 function CitationDrillIn({ type, state }) {
   if (!state) return null;
   if (state.status === 'loading') {
@@ -927,23 +1131,28 @@ function CitationDrillIn({ type, state }) {
     );
   }
   if (type === 'fda_food_code') {
+    const citations = /** @type {FdaCitation[]} */ (state.citations);
     return (
       <div className="ka-citation-wrap">
-        {state.citations.map((c, i) => (
+        {citations.map((c, i) => (
           <FdaCitationRow key={`${c.rowid ?? i}`} citation={c} />
         ))}
       </div>
     );
   }
+  const citations = /** @type {UsdaCitation[]} */ (state.citations);
   return (
     <div className="ka-citation-wrap">
-      {state.citations.map((c, i) => (
+      {citations.map((c, i) => (
         <UsdaCitationRow key={`${c.fdcId ?? i}`} citation={c} />
       ))}
     </div>
   );
 }
 
+/**
+ * @param {{ citation: FdaCitation }} props
+ */
 function FdaCitationRow({ citation }) {
   const { title, sectionId, chapter, annex, excerpt } = citation;
   return (
@@ -967,6 +1176,9 @@ function FdaCitationRow({ citation }) {
   );
 }
 
+/**
+ * @param {{ citation: UsdaCitation }} props
+ */
 function UsdaCitationRow({ citation }) {
   const { description, foodCategory, fdcId, brandOwner, nutrients } = citation;
   return (

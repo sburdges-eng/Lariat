@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // Pure helpers for the data-pack citation drill-in inside
 // KitchenAssistantClient.jsx. Extracted into their own module so the
 // nutrient picking, unit formatting, and citation rendering can be
@@ -14,6 +14,99 @@
 // user is reading, this file should track it; the duplication is a
 // known trade-off, not an oversight.
 
+// ── JSDoc shapes ──────────────────────────────────────────────────
+//
+// A "hit" is one row from GET /api/datapack/search?op=hybrid — heterogeneous
+// by design (mirrors `HybridHit` in lib/datapackSearch.ts, which is itself
+// `{ score, bucket, [k: string]: unknown }`): it carries either the FTS
+// envelope's fields (source, id, title, subtitle, extra) or the semantic
+// envelope's per-bucket metadata fields (fdc_id, section_id, chapter,
+// annex, food_category, description, ...) verbatim from metadata.jsonl.
+// Every field below is optional for that reason — see formatFdaCitation /
+// formatUsdaCitation for exactly which combinations each caller reads.
+/**
+ * @typedef {{
+ *   source?: string,
+ *   id?: number | string,
+ *   rowid?: number | string,
+ *   title?: string,
+ *   subtitle?: string,
+ *   extra?: string,
+ *   section_id?: string,
+ *   chapter?: string,
+ *   annex?: string,
+ *   fdc_id?: number | string,
+ *   food_category?: string,
+ *   description?: string,
+ * }} DataPackHit
+ */
+
+/**
+ * FDA Food Code section row — the `data.section` payload from
+ * GET /api/datapack/search?op=fda_section (mirrors `FdaSection` in
+ * lib/datapackSearch.ts).
+ * @typedef {{
+ *   rowid?: number,
+ *   section_id?: string | null,
+ *   title?: string | null,
+ *   chapter?: string | null,
+ *   annex?: string | null,
+ *   body?: string,
+ * }} FdaSectionRow
+ */
+
+/**
+ * A USDA food row — the `data.food` payload from
+ * GET /api/datapack/search?op=usda_food (mirrors `UsdaFood` in
+ * lib/datapackSearch.ts).
+ * @typedef {{
+ *   fdc_id?: number,
+ *   description?: string | null,
+ *   food_category?: string | null,
+ *   brand_owner?: string | null,
+ * }} UsdaFoodRow
+ */
+
+/**
+ * A single USDA nutrient row (mirrors `UsdaNutrient` in
+ * lib/datapackSearch.ts).
+ * @typedef {{
+ *   nutrient_id?: number,
+ *   nutrient_name?: string | null,
+ *   amount?: number | null,
+ *   unit_name?: string | null,
+ * }} UsdaNutrientRow
+ */
+
+/**
+ * A citation object the chat UI renders directly for an FDA Food Code hit.
+ * @typedef {{
+ *   title: string,
+ *   sectionId: string,
+ *   chapter: string,
+ *   annex: string,
+ *   rowid: number | null,
+ *   excerpt: string,
+ * }} FdaCitation
+ */
+
+/**
+ * A priority nutrient, annotated with the short display name + the
+ * lowercased display unit so the UI doesn't have to redo the lookup.
+ * @typedef {UsdaNutrientRow & { displayName: string, displayUnit: string }} PriorityNutrient
+ */
+
+/**
+ * A citation object the chat UI renders directly for a USDA ingredient hit.
+ * @typedef {{
+ *   description: string,
+ *   foodCategory: string,
+ *   fdcId: number | null,
+ *   brandOwner: string,
+ *   nutrients: PriorityNutrient[],
+ * }} UsdaCitation
+ */
+
 // ── Citation excerpt sizing ──────────────────────────────────────
 //
 // FDA Food Code section bodies range from a few hundred chars (most
@@ -28,6 +121,9 @@ export const FDA_BODY_EXCERPT_CHARS = 400;
  * Trim a body to FDA_BODY_EXCERPT_CHARS, appending a single ellipsis
  * when truncated. Returns '' for null/undefined/empty input rather
  * than 'null' or 'undefined'.
+ * @param {unknown} raw
+ * @param {number} [max]
+ * @returns {string}
  */
 export function excerptBody(raw, max = FDA_BODY_EXCERPT_CHARS) {
   if (raw === null || raw === undefined) return '';
@@ -60,8 +156,12 @@ export function excerptBody(raw, max = FDA_BODY_EXCERPT_CHARS) {
  * under data.section.body. Pass null if the follow-up failed or hasn't
  * landed yet — the excerpt will be empty and the UI shows a graceful
  * "no body" hint.
+ * @param {DataPackHit | null | undefined} hit
+ * @param {FdaSectionRow | null | undefined} sectionRow
+ * @returns {FdaCitation}
  */
 export function formatFdaCitation(hit, sectionRow) {
+  /** @param {unknown} v @returns {string} */
   const safe = (v) => (typeof v === 'string' ? v : v == null ? '' : String(v));
   const title = safe(
     (sectionRow && sectionRow.title) ?? (hit && hit.title) ?? ''
@@ -118,6 +218,7 @@ export const NUTRIENT_PRIORITY = [
 // Short, line-cook-friendly labels — same map kitchenAssistantContext
 // uses when rendering inline. Anything not in the map renders as the
 // canonical USDA name.
+/** @type {Record<string, string>} */
 export const PRIORITY_DISPLAY = {
   'Total lipid (fat)': 'Fat',
   'Sodium, Na': 'Sodium',
@@ -129,6 +230,8 @@ export const PRIORITY_DISPLAY = {
  * abbreviations) into the conventional human-readable casing the LLM
  * context block uses. Empty / null / undefined → ''. Unknown values
  * pass through unchanged so we don't accidentally drop a unit.
+ * @param {string | null | undefined} unitName
+ * @returns {string}
  */
 export function formatUnit(unitName) {
   if (!unitName || typeof unitName !== 'string') return '';
@@ -155,9 +258,12 @@ export function formatUnit(unitName) {
  *
  * Returns [] for missing / non-array input. Skips entries without a
  * usable amount (null/undefined).
+ * @param {UsdaNutrientRow[] | null | undefined} nutrients
+ * @returns {PriorityNutrient[]}
  */
 export function pickPriorityNutrients(nutrients) {
   if (!Array.isArray(nutrients) || nutrients.length === 0) return [];
+  /** @type {PriorityNutrient[]} */
   const out = [];
   for (const wanted of NUTRIENT_PRIORITY) {
     const found = nutrients.find(
@@ -186,8 +292,13 @@ export function pickPriorityNutrients(nutrients) {
  * Where `nutrients` is the priority-picked, short-name + lowercased-
  * unit array from pickPriorityNutrients(). Pass null nutrients if the
  * follow-up fetch failed; the UI shows a "no nutrients" hint.
+ * @param {DataPackHit | null | undefined} hit
+ * @param {UsdaFoodRow | null | undefined} foodRow
+ * @param {UsdaNutrientRow[] | null | undefined} nutrients
+ * @returns {UsdaCitation}
  */
 export function formatUsdaCitation(hit, foodRow, nutrients) {
+  /** @param {unknown} v @returns {string} */
   const safe = (v) => (typeof v === 'string' ? v : v == null ? '' : String(v));
   const description = safe(
     (foodRow && foodRow.description) ??

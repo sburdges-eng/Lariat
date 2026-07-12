@@ -1,18 +1,13 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
-import { DEFAULT_LOCATION_ID } from '../../lib/location';
+// @ts-check
 import KitchenAssistantClient from './KitchenAssistantClient.jsx';
 
+// KitchenAssistantClient resolves the current location itself via the
+// shared useLocation() hook (localStorage + ?location= query-string
+// override, same as Sidebar/CommandPalette/Floorplan) — this page has
+// no server-side location logic left to compute.
 export const dynamic = 'force-dynamic';
 
-export default async function KitchenAssistantPage({ searchParams }) {
-  const sp = (await searchParams) || {};
-
-  const loc =
-    typeof sp?.location === 'string' && sp.location.trim()
-      ? sp.location.trim()
-      : DEFAULT_LOCATION_ID;
-  const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
-
+export default function KitchenAssistantPage() {
   return (
     <div>
       <h1>Kitchen assistant</h1>
@@ -20,7 +15,7 @@ export default async function KitchenAssistantPage({ searchParams }) {
         Local AI with <strong>grounded context</strong>: today&apos;s active 86s, recent inventory log, line-check progress, sign-offs, and recipe snippets that match your question.
         Low temperature and strict prompts reduce invention; allergen tags from the recipe book are <strong>not</strong> legal dietary advice.
       </p>
-      <KitchenAssistantClient locQuery={locQ} />
+      <KitchenAssistantClient />
     </div>
   );
 }
