@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 // Interactive board for TPHC batches. Start a batch (hot=4h, cold=6h),
 // tap to discard with reason. Sorted by urgency: expired first,
@@ -6,6 +6,12 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+
+/** @typedef {import('../../../lib/tphc.ts').TphcKind} TphcKind */
+/** @typedef {import('../../../lib/tphc.ts').TphcDiscardReason} TphcDiscardReason */
+/** @typedef {import('../../../lib/tphc.ts').TphcBatchStatus} TphcBatchStatus */
+/** @typedef {import('./page.jsx').TphcEntryRow} TphcEntryRow */
+/** @typedef {import('./page.jsx').TphcDiscardedRow} TphcDiscardedRow */
 
 const REASON_LABELS = {
   reached_cutoff: 'Hit 4h/6h cutoff — tossed',
@@ -19,12 +25,14 @@ const KIND_LABELS = {
   cold_time_only: 'Cold (6h)',
 };
 
+/** @param {string | null} iso */
 function fmtTime(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
   return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
+/** @param {number | null | undefined} m */
 function fmtMinutes(m) {
   if (m == null) return '—';
   if (m < 0) return `${-m}m past cutoff`;
@@ -34,12 +42,24 @@ function fmtMinutes(m) {
   return rem ? `${h}h ${rem}m left` : `${h}h left`;
 }
 
+/** @param {TphcBatchStatus['status'] | undefined} status */
 function statusColor(status) {
   if (status === 'expired') return 'var(--danger, #c85a2a)';
   if (status === 'warning') return 'var(--warn, #d9a441)';
   return 'var(--ok, #3a8a3a)';
 }
 
+/**
+ * @param {{
+ *   active: TphcEntryRow[],
+ *   scan: Record<number, TphcBatchStatus>,
+ *   recent: TphcDiscardedRow[],
+ *   now: string,
+ *   locationId: string,
+ *   kinds: readonly TphcKind[],
+ *   discardReasons: readonly TphcDiscardReason[],
+ * }} props
+ */
 export default function TphcBoard({
   active,
   scan,
@@ -52,7 +72,9 @@ export default function TphcBoard({
   const router = useRouter();
   const [cookId, setCookId] = useState('');
   const [item, setItem] = useState('');
-  const [kind, setKind] = useState(kinds[0] || 'hot_time_only');
+  const [kind, setKind] = useState(
+    /** @type {TphcKind} */ (kinds[0] || 'hot_time_only'),
+  );
   const [station, setStation] = useState('');
   const [batchRef, setBatchRef] = useState('');
   const [saving, setSaving] = useState(false);
@@ -72,6 +94,7 @@ export default function TphcBoard({
     });
   }, [active, scan]);
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const startBatch = async (e) => {
     e.preventDefault();
     if (!item.trim()) return;
@@ -107,6 +130,10 @@ export default function TphcBoard({
     }
   };
 
+  /**
+   * @param {number} id
+   * @param {TphcDiscardReason} reason
+   */
   const discard = async (id, reason) => {
     if (!reason) return;
     setErr('');
@@ -147,7 +174,10 @@ export default function TphcBoard({
           </label>
           <label style={{ flex: '1 1 120px' }}>
             <div style={{ fontSize: 12 }}>Hot or cold</div>
-            <select value={kind} onChange={(e) => setKind(e.target.value)}>
+            <select
+              value={kind}
+              onChange={(e) => setKind(/** @type {TphcKind} */ (e.target.value))}
+            >
               {kinds.map((k) => (
                 <option key={k} value={k}>
                   {KIND_LABELS[k] || k}
@@ -236,7 +266,9 @@ export default function TphcBoard({
           <ul style={{ display: 'grid', gap: 4, padding: 0, listStyle: 'none', fontSize: 13 }}>
             {recent.map((r) => (
               <li key={r.id} style={{ color: 'var(--muted)' }}>
-                {r.item} — {REASON_LABELS[r.discard_reason] || r.discard_reason}
+                {r.item} —{' '}
+                {REASON_LABELS[/** @type {TphcDiscardReason} */ (r.discard_reason)] ||
+                  r.discard_reason}
                 {' '}
                 at {fmtTime(r.discarded_at)}
               </li>
