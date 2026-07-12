@@ -139,12 +139,8 @@ export async function POST(req, { params }) {
       cookId,
     );
 
-  // Pre-existing two-arg call: lib/auditLog.mjs logAuditAction takes ONE
-  // entry object, so the details object here is dropped at runtime. Typed
-  // as-called (widened via cast), NOT fixed — no behavior change (GH #250).
-  await /** @type {(...args: unknown[]) => unknown} */ (
-    /** @type {unknown} */ (logAuditAction)
-  )('recipe_photo_upload', {
+  logAuditAction({
+    action: 'recipe_photo_upload',
     recipe_slug: slug,
     location_id: location,
     photo_id: insert.lastInsertRowid,
