@@ -1,4 +1,6 @@
-// @ts-nocheck - pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts.
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../../lib/db';
 import { locationFromBodyOrRequest } from '../../../../lib/location';
 import { postAuditEvent } from '../../../../lib/auditEvents';
@@ -6,30 +8,47 @@ import { withIdempotency } from '../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/** @typedef {{ params?: Promise<{ id?: unknown }> | { id?: unknown } }} RouteCtx */
+/**
+ * The prep_tasks row shape this handler reads (full SELECT; only
+ * shift_date is accessed by name).
+ * @typedef {{ shift_date: string } & Record<string, unknown>} PrepTaskRow
+ */
+
 const STATUSES = new Set(['todo', 'in_progress', 'done', 'skipped']);
 
+/** @param {unknown} v @param {number} max @returns {string | null} */
 const clip = (v, max) => {
   if (typeof v !== 'string') return null;
   const t = v.trim();
   return t ? t.slice(0, max) : null;
 };
 
+/** @param {unknown} v @param {number} [fallback] @returns {number} */
 const cleanInt = (v, fallback = 0) => {
   if (v === null || v === undefined || v === '') return fallback;
   const n = Number(v);
   return Number.isFinite(n) ? Math.trunc(n) : fallback;
 };
 
+/** @param {unknown} v */
 const cleanPriority = (v) => Math.max(0, Math.min(2, cleanInt(v, 0)));
 
+/** @param {RouteCtx | null | undefined} ctx */
 async function readId(ctx) {
   const params = await Promise.resolve(ctx?.params || {});
   const id = Number(params.id);
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+/**
+ * @param {ReturnType<typeof getDb>} db
+ * @param {number} id
+ * @param {string} loc
+ * @returns {PrepTaskRow | undefined}
+ */
 function readTask(db, id, loc) {
-  return db
+  return /** @type {PrepTaskRow | undefined} */ (db
     .prepare(
       `SELECT id, shift_date, station_id, task, qty, recipe_slug, notes,
               priority, assigned_cook_id, status, started_at, done_at, done_by,
@@ -37,22 +56,37 @@ function readTask(db, id, loc) {
          FROM prep_tasks
         WHERE id = ? AND location_id = ?`,
     )
-    .get(id, loc);
+    .get(id, loc));
 }
 
+/**
+ * @param {string[]} updates
+ * @param {unknown[]} values
+ * @param {string} column
+ * @param {unknown} value
+ */
 function addSet(updates, values, column, value) {
   updates.push(`${column} = ?`);
   values.push(value);
 }
 
+/** @param {object} body @param {string} key */
 function hasOwn(body, key) {
   return Object.prototype.hasOwnProperty.call(body, key);
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function PATCH(req, ctx) {
   return withIdempotency(req, () => prepTaskPatchHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function prepTaskPatchHandler(req, ctx) {
   try {
     const id = await readId(ctx);
@@ -61,7 +95,9 @@ async function prepTaskPatchHandler(req, ctx) {
     const body = await req.json().catch(() => ({}));
     const loc = locationFromBodyOrRequest(body, req);
     const cookId = clip(body.cook_id, 64) || clip(body.assigned_cook_id, 64);
+    /** @type {string[]} */
     const updates = [];
+    /** @type {unknown[]} */
     const values = [];
 
     if (body.claim === true && body.release === true) {
@@ -127,7 +163,8 @@ async function prepTaskPatchHandler(req, ctx) {
           WHERE id = ? AND location_id = ?`,
       ).run(...values, id, loc);
 
-      const after = readTask(db, id, loc);
+      // The row was verified to exist above and the UPDATE can't delete it.
+      const after = /** @type {PrepTaskRow} */ (readTask(db, id, loc));
       postAuditEvent({
         entity: 'prep_tasks',
         entity_id: id,
@@ -151,10 +188,18 @@ async function prepTaskPatchHandler(req, ctx) {
   }
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function DELETE(req, ctx) {
   return withIdempotency(req, () => prepTaskDeleteHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function prepTaskDeleteHandler(req, ctx) {
   try {
     const id = await readId(ctx);

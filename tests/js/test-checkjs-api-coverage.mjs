@@ -37,8 +37,6 @@ const BASELINE = new Set([
   'app/api/menu-engineering/margin-deltas/route.js',
   'app/api/menu-engineering/route.js',
   'app/api/morning/route.js',
-  'app/api/prep-tasks/[id]/route.js',
-  'app/api/prep-tasks/route.js',
   'app/api/purchasing/vendor-catalog/route.js',
   'app/api/purchasing/vendor-compare/route.js',
   'app/api/purchasing/vendor-link/attach/route.js',
