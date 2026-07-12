@@ -4,6 +4,7 @@
 import { getDb } from '../../../../../lib/db';
 import { requirePin } from '../../../../../lib/pin';
 import { DEFAULT_LOCATION_ID } from '../../../../../lib/location';
+import { withIdempotency } from '../../../../../lib/idempotency';
 import { pairCatalogRows, VendorMappingRejectedError } from '../../../../../lib/vendorMappingRepo.ts';
 
 export const dynamic = 'force-dynamic';
@@ -12,6 +13,12 @@ export const dynamic = 'force-dynamic';
 export async function POST(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
+  // Replaying a queued POST would double-write the vendor pairing.
+  return withIdempotency(req, () => pairPostHandler(req));
+}
+
+/** @param {Request} req */
+async function pairPostHandler(req) {
   try {
     const body = await req.json();
     const db = getDb();
