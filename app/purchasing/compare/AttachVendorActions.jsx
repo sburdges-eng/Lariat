@@ -1,15 +1,25 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
 import { clientFetch } from '@/lib/clientFetch';
 
+/** @typedef {import('../../../lib/vendorCompare.ts').CompareVendor} CompareVendor */
+/** @typedef {import('../../../lib/vendorMapping.ts').CatalogRow} CatalogRow */
+
+/**
+ * @param {{
+ *   masterId: string,
+ *   missingVendor: CompareVendor,
+ *   canonicalName: string,
+ * }} props
+ */
 export default function AttachVendorActions({ masterId, missingVendor, canonicalName }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
-  const [rows, setRows] = useState([]);
-  const [state, setState] = useState('idle');
-  const [error, setError] = useState(null);
+  const [rows, setRows] = useState(/** @type {CatalogRow[]} */ ([]));
+  const [state, setState] = useState(/** @type {'idle' | 'pending' | 'error'} */ ('idle'));
+  const [error, setError] = useState(/** @type {string | null} */ (null));
 
   const load = useCallback(async () => {
     if (!open) return;
@@ -28,6 +38,7 @@ export default function AttachVendorActions({ masterId, missingVendor, canonical
     return () => clearTimeout(t);
   }, [load]);
 
+  /** @param {CatalogRow} row */
   async function attach(row) {
     setState('pending');
     setError(null);
@@ -47,7 +58,7 @@ export default function AttachVendorActions({ masterId, missingVendor, canonical
       if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
       window.location.reload();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(err instanceof Error ? err.message || String(err) : String(err));
       setState('error');
     }
   }
@@ -64,7 +75,7 @@ export default function AttachVendorActions({ masterId, missingVendor, canonical
             type="search"
             placeholder="Search catalog"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={/** @param {React.ChangeEvent<HTMLInputElement>} e */ (e) => setQ(e.target.value)}
             style={{ width: '100%', marginBottom: 8 }}
           />
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: 160, overflowY: 'auto' }}>

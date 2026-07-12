@@ -1,9 +1,19 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
 import { clientFetch } from '@/lib/clientFetch';
 
+/** @typedef {import('../../../lib/vendorMapping.ts').CatalogRow} CatalogRow */
+/** @typedef {import('../../../lib/vendorMapping.ts').MappingCoverageSummary} MappingCoverageSummary */
+/** @typedef {import('../../../lib/vendorCompare.ts').CompareVendor} CompareVendor */
+/** @typedef {{ rows?: CatalogRow[], error?: string }} CatalogResponse */
+
+/**
+ * @param {CompareVendor} vendor
+ * @param {string} q
+ * @returns {Promise<CatalogResponse>}
+ */
 async function fetchCatalog(vendor, q) {
   const params = new URLSearchParams({ vendor, unlinkedOnly: '1' });
   if (q) params.set('q', q);
@@ -13,10 +23,18 @@ async function fetchCatalog(vendor, q) {
   return body;
 }
 
+/**
+ * @param {{
+ *   label: string,
+ *   vendor: CompareVendor,
+ *   value: CatalogRow | null,
+ *   onPick: (row: CatalogRow) => void,
+ * }} props
+ */
 function CatalogPicker({ label, vendor, value, onPick }) {
   const [q, setQ] = useState('');
-  const [rows, setRows] = useState([]);
-  const [error, setError] = useState(null);
+  const [rows, setRows] = useState(/** @type {CatalogRow[]} */ ([]));
+  const [error, setError] = useState(/** @type {string | null} */ (null));
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
@@ -26,7 +44,7 @@ function CatalogPicker({ label, vendor, value, onPick }) {
       const body = await fetchCatalog(vendor, q);
       setRows(body.rows || []);
     } catch (err) {
-      setError(err.message || String(err));
+      setError(err instanceof Error ? err.message || String(err) : String(err));
     } finally {
       setLoading(false);
     }
@@ -74,16 +92,24 @@ function CatalogPicker({ label, vendor, value, onPick }) {
   );
 }
 
+/**
+ * @param {{ coverage?: MappingCoverageSummary | null }} props
+ */
 export default function LinkPairForm({ coverage }) {
-  const [sysco, setSysco] = useState(null);
-  const [shamrock, setShamrock] = useState(null);
+  const [sysco, setSysco] = useState(/** @type {CatalogRow | null} */ (null));
+  const [shamrock, setShamrock] = useState(/** @type {CatalogRow | null} */ (null));
   const [canonicalName, setCanonicalName] = useState('');
-  const [state, setState] = useState('idle');
-  const [error, setError] = useState(null);
-  const [masterId, setMasterId] = useState(null);
+  const [state, setState] = useState(/** @type {'idle' | 'pending' | 'error' | 'done'} */ ('idle'));
+  const [error, setError] = useState(/** @type {string | null} */ (null));
+  const [masterId, setMasterId] = useState(/** @type {string | null} */ (null));
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   async function submit(e) {
     e.preventDefault();
+    // Mirrors canSubmit below — the submit button is disabled unless all
+    // three are set, but a defensive guard keeps this safe under strict
+    // null checks (and against a stray Enter-key submit).
+    if (!sysco || !shamrock || !canonicalName.trim()) return;
     setState('pending');
     setError(null);
     setMasterId(null);
@@ -105,7 +131,7 @@ export default function LinkPairForm({ coverage }) {
       setMasterId(body.master_id);
       setState('done');
     } catch (err) {
-      setError(err.message || String(err));
+      setError(err instanceof Error ? err.message || String(err) : String(err));
       setState('error');
     }
   }
