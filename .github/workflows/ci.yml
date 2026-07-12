@@ -62,6 +62,9 @@ jobs:
       - name: checkjs api baseline (ts-nocheck drift detector)
         run: npm run test:checkjs-api
 
+      - name: idempotency coverage (mutation-route drift detector)
+        run: npm run test:idempotency
+
       - name: 86 sub-recipe cascade tests
         run: npm run test:sub-recipe-graph
 
