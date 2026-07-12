@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // Temp-log subpage — the full-CCP grid + a quick-entry form.
 //
 // Every kitchen CCP that's a single-reading check (receiving, cold-hold
@@ -16,8 +16,18 @@ import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { TempPoints, classifyReadings } from '../../../lib/tempLog';
 import TempLogBoard from './TempLogBoard.jsx';
 
+/**
+ * A raw `temp_log` row. `SELECT *` returns every column, so this is
+ * the full-row shape (matches `lib/db.ts`'s `TempLogEntry`, which is
+ * already the honest full-row type — reused rather than redefined).
+ * @typedef {import('../../../lib/db.ts').TempLogEntry} TempLogRow
+ */
+
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props
+ */
 export default async function TempLogPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -28,13 +38,15 @@ export default async function TempLogPage({ searchParams }) {
   const today = todayISO();
 
   const db = getDb();
-  const rows = db
-    .prepare(
-      `SELECT * FROM temp_log
+  const rows = /** @type {TempLogRow[]} */ (
+    db
+      .prepare(
+        `SELECT * FROM temp_log
          WHERE location_id = ? AND shift_date = ?
          ORDER BY created_at DESC, id DESC`,
-    )
-    .all(loc, today);
+      )
+      .all(loc, today)
+  );
 
   const summary = classifyReadings(rows, { expectAllPoints: true });
 
