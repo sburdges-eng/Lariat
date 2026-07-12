@@ -1,8 +1,9 @@
 // @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
 // TempPinsPage jsdom test (T10) — load, issue, revoke flows.
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import TempPinsPage from '../management/temp-pins/page';
+import { KNOWN_SCOPES } from '../../lib/tempPin';
 
 function mockSequence(responses) {
   global.fetch = jest.fn().mockImplementation(() => {
@@ -32,6 +33,24 @@ describe('TempPinsPage', () => {
     await waitFor(() => {
       expect(screen.getByText(/none active/i)).toBeInTheDocument();
     });
+  });
+
+  test('issue form renders a checkbox for every canonical scope, not a stale local copy', async () => {
+    // Regression: the issue form used to hardcode its own single-entry
+    // scope list instead of importing lib/tempPin's KNOWN_SCOPES (the
+    // same list the issue route validates against). That list has since
+    // grown to 9 scopes across several PRs, and the hardcoded copy never
+    // followed — so a manager could never issue a temp PIN scoped to
+    // anything but 'beo.fire_at_edit' through this UI.
+    mockSequence([{ body: { pins: [] } }]);
+    render(<TempPinsPage />);
+    await waitFor(() => screen.getByText(/none active/i));
+
+    expect(KNOWN_SCOPES.length).toBeGreaterThan(1);
+    const group = screen.getByRole('group', { name: /scopes/i });
+    for (const scope of KNOWN_SCOPES) {
+      expect(within(group).getByText(scope)).toBeInTheDocument();
+    }
   });
 
   test('renders the active list with label, scopes, expires_at', async () => {
