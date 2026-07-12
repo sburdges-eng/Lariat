@@ -1,8 +1,11 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+/**
+ * @param {{ locationId?: string }} props
+ */
 export default function AddPrepParRow({ locationId = 'default' }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -32,6 +35,7 @@ export default function AddPrepParRow({ locationId = 'default' }) {
 
   const bothEmpty = !recipeSlug.trim() && !ingredient.trim();
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submit = async (e) => {
     e.preventDefault();
     if (bothEmpty) return;
