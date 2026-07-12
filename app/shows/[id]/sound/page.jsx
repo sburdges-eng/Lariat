@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 import { getDb } from '../../../../lib/db';
 import { listSoundScenesForShow, soundCompleteness } from '../../../../lib/soundRepo';
 import TabStrip from '../_components/TabStrip';
@@ -7,6 +7,14 @@ import SoundBoard from './SoundBoard';
 export const dynamic = 'force-dynamic';
 const DEFAULT_LOCATION_ID = 'default';
 
+/**
+ * @typedef {{
+ *   params: Promise<{ id?: string }> | { id?: string },
+ *   searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>,
+ * }} SoundPageProps
+ */
+
+/** @param {SoundPageProps} props */
 export default async function SoundPage({ params, searchParams }) {
   const p = (await params) || {};
   const id = Number(p.id);

@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 import Link from 'next/link';
 
 const TABS = [
@@ -8,6 +8,7 @@ const TABS = [
   { k: 'settlement', l: 'Settlement', sub: 'Payout + net door' },
 ];
 
+/** @param {{ showId: number, locationId: string, active?: string }} props */
 export default function TabStrip({ showId, locationId, active }) {
   const locQuery = locationId && locationId !== 'default' ? `?location=${locationId}` : '';
   return (

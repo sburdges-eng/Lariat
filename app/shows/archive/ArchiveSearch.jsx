@@ -1,7 +1,10 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
+/** @typedef {import('../../../lib/showsRepo.ts').ArchiveRow} ArchiveRow */
+
+/** @param {{ initialRows: ArchiveRow[], eras: number[] }} props */
 export default function ArchiveSearch({ initialRows, eras }) {
   const [q, setQ] = useState('');
   const [era, setEra] = useState('');

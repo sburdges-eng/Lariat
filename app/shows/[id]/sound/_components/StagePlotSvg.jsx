@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 // Top-down render of a sound_scenes.plot blob. Channels carry an optional
@@ -7,6 +7,37 @@
 // front). Monitors render as small wedges along the downstage edge.
 //
 // Pure SVG, no deps. Matches the inline-SVG style of app/floor/FloorPlan.
+//
+// `plot` is hand-edited JSON typed by the sound engineer in a <textarea>
+// (see SoundBoard.jsx's parsePlot), so it is only *loosely* shaped like
+// lib/soundRepo.ts's SoundPlot/ChannelEntry/MonitorMix — every field here
+// is optional and defensively read.
+
+/**
+ * @typedef {{
+ *   id?: string,
+ *   label?: string,
+ *   source_type?: 'mic' | 'di' | 'submix',
+ *   position?: { x?: number, y?: number },
+ *   notes?: string,
+ * }} PlotChannel
+ */
+
+/**
+ * @typedef {{
+ *   id?: string,
+ *   type?: 'wedge' | 'iem',
+ *   channels?: string[],
+ *   notes?: string,
+ * }} PlotMonitor
+ */
+
+/**
+ * @typedef {{
+ *   channels?: PlotChannel[],
+ *   monitors?: PlotMonitor[],
+ * }} StagePlot
+ */
 
 const STAGE_W = 600;
 const STAGE_H = 360;
@@ -18,24 +49,32 @@ const STAGE_RIGHT = STAGE_W - STAGE_MARGIN;
 const STAGE_INNER_W = STAGE_RIGHT - STAGE_LEFT;
 const STAGE_INNER_H = STAGE_BOTTOM - STAGE_TOP;
 
+/** @type {Record<'mic' | 'di' | 'submix', string>} */
 const SOURCE_COLORS = {
   mic: 'var(--green, var(--sage, #5d7a66))',
   di: 'var(--yellow, var(--ember, #c85a2a))',
   submix: 'var(--accent, #7b6c5d)',
 };
 
+/** @param {number} n */
 function clamp01(n) {
   if (!Number.isFinite(n)) return null;
   return Math.max(0, Math.min(100, n)) / 100;
 }
 
+/** @typedef {{ channel: PlotChannel, x: number, y: number }} PlacedChannel */
+
 // Compute (x, y) for a channel. Explicit position wins. Otherwise lay
 // out the unplaced channels in two rows: mics across the back, DIs +
 // submixes across the front.
+/**
+ * @param {PlotChannel[]} channels
+ * @returns {PlacedChannel[]}
+ */
 function layoutChannels(channels) {
-  const placed = [];
-  const unplacedBack = [];
-  const unplacedFront = [];
+  const placed = /** @type {PlacedChannel[]} */ ([]);
+  const unplacedBack = /** @type {PlotChannel[]} */ ([]);
+  const unplacedFront = /** @type {PlotChannel[]} */ ([]);
   for (const c of channels) {
     if (c?.position && typeof c.position === 'object') {
       const x = clamp01(Number(c.position.x));
@@ -75,9 +114,12 @@ function layoutChannels(channels) {
   return placed;
 }
 
+/**
+ * @param {{ x: number, y: number, channel: PlotChannel }} props
+ */
 function Marker({ x, y, channel }) {
   const t = channel?.source_type;
-  const color = SOURCE_COLORS[t] || 'var(--muted)';
+  const color = (t && SOURCE_COLORS[t]) || 'var(--muted)';
   const label = channel?.label || channel?.id || '';
   const id = String(channel?.id ?? '');
   // Shape: mic = circle, di = square, submix = diamond.
@@ -134,6 +176,9 @@ function Marker({ x, y, channel }) {
   );
 }
 
+/**
+ * @param {{ plot: StagePlot | null | undefined }} props
+ */
 export default function StagePlotSvg({ plot }) {
   const channels = Array.isArray(plot?.channels) ? plot.channels : [];
   const monitors = Array.isArray(plot?.monitors) ? plot.monitors : [];

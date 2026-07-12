@@ -1,13 +1,19 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getSettlement } from '../../../../lib/settlementRepo.ts';
 import { formatMoney } from '../../../../lib/formatMoney';
 import TabStrip from '../_components/TabStrip';
 import DealEditor from './_components/DealEditor';
 
+/** @typedef {import('../../../../lib/settlementRepo.ts').SettlementSummary} SettlementSummary */
+/** @typedef {import('../../../../lib/settlementRepo.ts').TicketSource} TicketSource */
+
 export const dynamic = 'force-dynamic';
 
 const DEFAULT_LOCATION_ID = 'default';
 
+/** @type {Record<TicketSource, string>} */
 const SOURCE_LABELS = {
   dice: 'DICE',
   walkup: 'Walk-up',
@@ -16,17 +22,31 @@ const SOURCE_LABELS = {
   guestlist: 'Guest list',
 };
 
+/**
+ * @param {Record<string, string | string[] | undefined> | undefined} searchParams
+ * @returns {string}
+ */
 function locationFromSearch(searchParams) {
   const raw = searchParams?.location;
   return typeof raw === 'string' && raw.trim() ? raw.trim() : DEFAULT_LOCATION_ID;
 }
 
+/**
+ * Next 15 route context: `params`/`searchParams` may be promises.
+ * @typedef {{
+ *   params: Promise<{ id?: string }> | { id?: string },
+ *   searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>,
+ * }} PageProps
+ */
+
+/** @param {PageProps} props */
 export default async function SettlementPage({ params, searchParams }) {
   const p = (await params) || {};
   const sp = (await searchParams) || {};
   const showId = Number(p.id);
   const locationId = locationFromSearch(sp);
 
+  /** @type {SettlementSummary} */
   let summary;
   try {
     summary = getSettlement(showId, locationId);
@@ -42,9 +62,9 @@ export default async function SettlementPage({ params, searchParams }) {
     );
   }
 
-  const sourceRows = Object.entries(summary.ticketing.bySource).filter(
-    ([, value]) => value.qty > 0,
-  );
+  const sourceRows = /** @type {[TicketSource, { qty: number; grossCents: number }][]} */ (
+    Object.entries(summary.ticketing.bySource)
+  ).filter(([, value]) => value.qty > 0);
 
   const pdfHref = `/api/shows/${showId}/settlement/pdf${
     locationId && locationId !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(locationId)}` : ''
@@ -161,6 +181,7 @@ export default async function SettlementPage({ params, searchParams }) {
   );
 }
 
+/** @param {{ label: string; value: number | null | undefined; strong?: boolean }} props */
 function MoneyRow({ label, value, strong = false }) {
   return (
     <div
@@ -177,6 +198,7 @@ function MoneyRow({ label, value, strong = false }) {
   );
 }
 
+/** @param {{ label: string; value: number }} props */
 function NumberRow({ label, value }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
