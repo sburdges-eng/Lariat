@@ -68,8 +68,6 @@ const BASELINE = new Set([
   'app/api/specials/saved/[id]/route.js',
   'app/api/specials/saved/route.js',
   'app/api/stations/route.js',
-  'app/api/temp-log/route.js',
-  'app/api/thermometer-calibrations/route.js',
   'app/api/tip-pool/route.js',
   'app/api/tphc/route.js',
   'app/api/unmapped/route.js',
