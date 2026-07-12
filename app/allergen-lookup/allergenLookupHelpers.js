@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // Pure helpers for the /allergen-lookup page. Extracted into their own
 // module so they can be unit-tested under `node --test` without
 // spinning up React or Next.js.
@@ -17,7 +17,11 @@
 // the inclusive 8–14 range to cover ITF-14 + UPC-A + EAN-13 + EAN-8 +
 // any pad-style shenanigans the scanner might emit.
 
-/** Strip whitespace + hyphens from a query, then return the residue. */
+/**
+ * Strip whitespace + hyphens from a query, then return the residue.
+ * @param {unknown} raw
+ * @returns {string}
+ */
 export function stripGtinNoise(raw) {
   if (typeof raw !== 'string') return '';
   return raw.replace(/[\s-]/g, '');
@@ -26,6 +30,8 @@ export function stripGtinNoise(raw) {
 /**
  * True iff the query looks like a barcode: all digits, 8–14 long
  * after stripping whitespace and hyphens.
+ * @param {unknown} raw
+ * @returns {boolean}
  */
 export function isGtinQuery(raw) {
   const stripped = stripGtinNoise(raw);
@@ -41,7 +47,11 @@ export function isGtinQuery(raw) {
 // spaces, and lower-cases the result so chip rendering is consistent.
 // Empty / non-string entries are filtered out.
 
-/** Parse the raw `allergens_tags_json` / `traces_tags_json` column. */
+/**
+ * Parse the raw `allergens_tags_json` / `traces_tags_json` column.
+ * @param {unknown} raw
+ * @returns {string[]}
+ */
 export function parseAllergenTags(raw) {
   if (!raw || typeof raw !== 'string') return [];
   try {
@@ -62,6 +72,8 @@ export function parseAllergenTags(raw) {
  *   "  en:eggs  "         → "eggs"
  *
  * Leaves the casing lower; the chip's CSS handles visual emphasis.
+ * @param {unknown} tag
+ * @returns {string}
  */
 export function cleanAllergenTag(tag) {
   if (typeof tag !== 'string') return '';
@@ -84,6 +96,9 @@ export function cleanAllergenTag(tag) {
 /**
  * Build the /api/datapack/search URL for a user query. Returns null
  * if the query is blank after trimming.
+ * @param {unknown} query
+ * @param {{ limit?: number }} [opts]
+ * @returns {string | null}
  */
 export function buildLookupUrl(query, { limit = 20 } = {}) {
   if (typeof query !== 'string') return null;
@@ -102,7 +117,11 @@ export function buildLookupUrl(query, { limit = 20 } = {}) {
   return `/api/datapack/search?${params.toString()}`;
 }
 
-/** URL for the per-product drill-in (chip resolution). */
+/**
+ * URL for the per-product drill-in (chip resolution).
+ * @param {unknown} code
+ * @returns {string | null}
+ */
 export function offProductUrl(code) {
   if (code === null || code === undefined) return null;
   const params = new URLSearchParams();
