@@ -80,7 +80,12 @@ const BASELINE = new Set([
   'app/api/wage-notices/route.js',
 ]);
 
-const DIRECTIVE = /^\/\/ @ts-nocheck\b/m;
+// Whitespace-tolerant: TypeScript honors the directive with leading
+// indentation and extra spaces after `//` (e.g. `   //   @ts-nocheck`).
+// Requires @ts-nocheck immediately after the comment opener so the
+// mid-sentence mentions in drained files' migration comments (`…the
+// pre-#250 @ts-nocheck baseline…`) never match.
+const DIRECTIVE = /^\s*\/\/\s*@ts-nocheck\b/m;
 
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
