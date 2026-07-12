@@ -105,9 +105,7 @@ async function boxOfficePostHandler(req, { params }) {
       location_id: loc,
       // Cast: createBoxOfficeLine's VALID_SOURCES guard rejects invalid values at runtime (throws → 400 below).
       source: /** @type {import('../../../../../lib/boxOfficeRepo').BoxOfficeSource} */ (body?.source),
-      // Cast: pre-existing behavior — any non-nullish JSON value passes through
-      // to the sqlite bind unchecked (no string guard, unlike external_ref/notes).
-      ticket_class: /** @type {string | null} */ (body?.ticket_class ?? null),
+      ticket_class: typeof body?.ticket_class === 'string' ? body.ticket_class : null,
       qty: Number(body?.qty),
       face_price: body?.face_price != null ? Number(body.face_price) : null,
       fees: body?.fees != null ? Number(body.fees) : null,

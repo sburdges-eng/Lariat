@@ -1011,4 +1011,39 @@ describe('POST /api/receiving — closed-loop inventory crediting', () => {
     // INSERT did not leak through.
     assert.strictEqual(countInventoryUpdates(), 1);
   });
+
+  it('Next promise-params: PATCH resolves id when params is a Promise', async () => {
+    // Next 15+/16 passes params as a Promise. Without await, params?.id is
+    // undefined and the handler 400s — typed around in the #490 wave.
+    seedIngredientMaster('promise_tomato_case', 'Promise Tomato Case');
+
+    const res = await POST(postReq({
+      vendor: 'Local Farms',
+      category: 'produce',
+      item: 'promise tomato case',
+      package_ok: true,
+      received_qty: 1,
+      received_unit: 'case',
+      cook_id: 'maria',
+    }));
+    assert.strictEqual(res.status, 200);
+    const recvRow = testDb.prepare('SELECT * FROM receiving_log').get();
+    assert.strictEqual(recvRow.match_status, 'unmatched');
+
+    const patchRes = await PATCH_MATCH(
+      patchMatchReq(recvRow.id, {
+        master_id: 'promise_tomato_case',
+        cook_id: 'manager-alex',
+      }),
+      { params: Promise.resolve({ id: String(recvRow.id) }) },
+    );
+    assert.strictEqual(
+      patchRes.status,
+      200,
+      `promise params must resolve (got ${patchRes.status})`,
+    );
+    const patchBody = await patchRes.json();
+    assert.strictEqual(patchBody.ok, true);
+    assert.strictEqual(patchBody.receiving.master_id, 'promise_tomato_case');
+  });
 });
