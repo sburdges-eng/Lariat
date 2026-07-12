@@ -266,6 +266,83 @@ describe('PUT /api/recipes/[slug] — DB persistence', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────
+// PUT — category persistence (regression: PUT used to hardcode
+// category: null into the entities_recipes upsert AND drop it from
+// the recipes.json doc, so management edits could never set — and
+// always wiped — a recipe's category)
+// ─────────────────────────────────────────────────────────────────
+
+describe('PUT /api/recipes/[slug] — category persistence', () => {
+  it('persists body.category to entities_recipes and the recipe doc', async () => {
+    const res = await PUT(
+      putReq({ ...VALID_BODY, category: 'dressing' }),
+      { params: { slug: SLUG } },
+    );
+    assert.strictEqual(res.status, 200);
+
+    const row = testDb
+      .prepare('SELECT category FROM entities_recipes WHERE slug = ?')
+      .get(SLUG);
+    assert.strictEqual(row.category, 'dressing');
+
+    // Doc store carries it too — GET round-trips.
+    const getRes = await GET(getReq(), { params: { slug: SLUG } });
+    const getBody = await getRes.json();
+    assert.strictEqual(getBody.recipe.category, 'dressing');
+  });
+
+  it('preserves an existing category when the caller round-trips it (the RecipeEditForm contract)', async () => {
+    await PUT(putReq({ ...VALID_BODY, category: 'dressing' }), { params: { slug: SLUG } });
+
+    // Simulate the edit form: GET the doc, echo category back in the PUT.
+    const getRes = await GET(getReq(), { params: { slug: SLUG } });
+    const loaded = (await getRes.json()).recipe;
+    const second = await PUT(
+      putReq({ ...VALID_BODY, name: 'House Ranch Dressing v2', category: loaded.category }),
+      { params: { slug: SLUG } },
+    );
+    assert.strictEqual(second.status, 200);
+
+    const row = testDb
+      .prepare('SELECT category, display_name FROM entities_recipes WHERE slug = ?')
+      .get(SLUG);
+    assert.strictEqual(row.category, 'dressing', 'category survives the second save');
+    assert.strictEqual(row.display_name, 'House Ranch Dressing v2');
+  });
+
+  it('omitted category = null (same semantic as yield_qty/station/source)', async () => {
+    await PUT(putReq({ ...VALID_BODY, category: 'dressing' }), { params: { slug: SLUG } });
+    // A PUT that omits category clears it — preservation is the
+    // CALLER's job via GET→echo pass-through, matching how the route
+    // treats its other preservable fields post-#511.
+    const res = await PUT(putReq(VALID_BODY), { params: { slug: SLUG } });
+    assert.strictEqual(res.status, 200);
+    const row = testDb
+      .prepare('SELECT category FROM entities_recipes WHERE slug = ?')
+      .get(SLUG);
+    assert.strictEqual(row.category, null);
+  });
+
+  it('trims, length-caps at 64, and nulls non-string/blank categories', async () => {
+    await PUT(putReq({ ...VALID_BODY, category: '  entree  ' }), { params: { slug: SLUG } });
+    let row = testDb.prepare('SELECT category FROM entities_recipes WHERE slug = ?').get(SLUG);
+    assert.strictEqual(row.category, 'entree', 'trimmed');
+
+    await PUT(putReq({ ...VALID_BODY, category: 'x'.repeat(200) }), { params: { slug: SLUG } });
+    row = testDb.prepare('SELECT category FROM entities_recipes WHERE slug = ?').get(SLUG);
+    assert.strictEqual(row.category, 'x'.repeat(64), 'clipped to 64');
+
+    await PUT(putReq({ ...VALID_BODY, category: 42 }), { params: { slug: SLUG } });
+    row = testDb.prepare('SELECT category FROM entities_recipes WHERE slug = ?').get(SLUG);
+    assert.strictEqual(row.category, null, 'non-string coerced to null');
+
+    await PUT(putReq({ ...VALID_BODY, category: '   ' }), { params: { slug: SLUG } });
+    row = testDb.prepare('SELECT category FROM entities_recipes WHERE slug = ?').get(SLUG);
+    assert.strictEqual(row.category, null, 'blank coerced to null');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────
 // GET — round-trip through the cache file
 // ─────────────────────────────────────────────────────────────────
 
