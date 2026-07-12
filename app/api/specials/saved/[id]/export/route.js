@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../../../../lib/db';
 import { logAuditAction } from '../../../../../../lib/auditLog.mjs';
 import { locationFromRequest } from '../../../../../../lib/location';
@@ -19,6 +21,12 @@ export const dynamic = 'force-dynamic';
 
 const CATEGORY_MAX = 64;
 
+/** @typedef {{ params: Promise<{ id?: string }> | { id?: string } }} RouteCtx */
+
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function POST(req, { params }) {
 
   params = await params;
@@ -70,7 +78,12 @@ export async function POST(req, { params }) {
   const locationId = locationFromRequest(req);
   const db = getDb();
 
-  const row = db.prepare('SELECT * FROM specials WHERE id = ? AND location_id = ?').get(id, locationId);
+  // `SELECT *` row — only the fields this route reads are typed. Nullability
+  // mirrors lib/db.ts CREATE TABLE specials: name/ai_answer NOT NULL;
+  // cost_breakdown and archived_at nullable.
+  const row = /** @type {({ name: string, ai_answer: string, cost_breakdown: string | null, archived_at: number | null } & Record<string, unknown>) | undefined} */ (
+    db.prepare('SELECT * FROM specials WHERE id = ? AND location_id = ?').get(id, locationId)
+  );
   if (!row) return Response.json({ error: 'not found' }, { status: 404 });
   if (row.archived_at !== null) return Response.json({ error: 'special is archived' }, { status: 410 });
 
@@ -83,7 +96,7 @@ export async function POST(req, { params }) {
       return Response.json({ error: 'slug already exists', slug: slugRes.value }, { status: 409 });
     }
   } catch (e) {
-    if (!/no such table/i.test(String(e?.message))) throw e;
+    if (!/no such table/i.test(String(/** @type {{ message?: unknown } | null} */ (e)?.message))) throw e;
     /* entities_recipes not present (test DB) — skip the collision check */
   }
 

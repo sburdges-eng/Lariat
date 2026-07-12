@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 // POST /api/kds/tickets/:id/bump — KDS bump-back (protocol v2).
 //
 // Spec: ~/Dev/Lariat-KDS/docs/lariat-kds-protocol.md §3.
@@ -34,6 +36,12 @@ export const dynamic = 'force-dynamic';
 
 const MAX_TICKET_ID_LEN = 200;
 
+/** @typedef {{ params: Promise<{ id?: string }> | { id?: string } }} RouteCtx */
+
+/**
+ * @param {{ id?: string } | undefined} params
+ * @returns {string | null}
+ */
 function parseTicketId(params) {
   const raw = params?.id;
   if (typeof raw !== 'string') return null;
@@ -42,10 +50,18 @@ function parseTicketId(params) {
   return t;
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function POST(req, ctx) {
   return withIdempotency(req, () => bumpHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function bumpHandler(req, ctx) {
   const params = await ctx?.params;
   const ticketId = parseTicketId(params);
@@ -54,6 +70,7 @@ async function bumpHandler(req, ctx) {
   }
 
   // Body is optional per protocol §3 — fully empty body is a valid bump.
+  /** @type {Record<string, unknown> | null} */
   let body = null;
   const ct = req.headers.get('content-type') || '';
   if (ct.includes('application/json')) {
@@ -83,17 +100,20 @@ async function bumpHandler(req, ctx) {
     return Response.json({ error: 'ticket not found' }, { status: 404 });
   }
 
+  /** @type {import('../../../../../../lib/kds').BumpAuditAction} */
   let auditAction = 'insert';
+  /** @type {string | null} */
   let priorBumpedAt = null;
 
   try {
     db.transaction(() => {
-      const existing = db
+      // Nullability per lib/db.ts kds_ticket_states: bumped_at is NOT NULL.
+      const existing = /** @type {{ bumped_at: string } | undefined} */ (db
         .prepare(
           `SELECT bumped_at FROM kds_ticket_states
             WHERE ticket_id = ? AND location_id = ?`,
         )
-        .get(ticketId, location);
+        .get(ticketId, location));
 
       auditAction = bumpActionForExisting(existing);
       priorBumpedAt = existing ? existing.bumped_at : null;
@@ -121,12 +141,12 @@ async function bumpHandler(req, ctx) {
       // so on the UPDATE branch of this upsert it silently returns
       // whatever the connection's last successful INSERT happened to be
       // (e.g. a prior audit_events row) — not this row's own rowid.
-      const stateRow = db
+      const stateRow = /** @type {{ rowid: number | bigint } | undefined} */ (db
         .prepare(
           `SELECT rowid FROM kds_ticket_states
             WHERE ticket_id = ? AND location_id = ?`,
         )
-        .get(ticketId, location);
+        .get(ticketId, location));
       const entityRowid = stateRow ? Number(stateRow.rowid) : null;
 
       postAuditEvent({

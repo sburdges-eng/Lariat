@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 /**
  * /api/shows/[id]/box-office/[lineId] — Phase 2 box-office line ops.
  *
@@ -20,6 +22,12 @@ import { withIdempotency } from '../../../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/** @typedef {{ params: Promise<{ id?: string, lineId?: string }> | { id?: string, lineId?: string } }} RouteCtx */
+
+/**
+ * @param {unknown} raw
+ * @returns {number | null}
+ */
 function parsePositiveInt(raw) {
   const n = Number(raw);
   if (!Number.isInteger(n) || n <= 0) return null;
@@ -28,12 +36,20 @@ function parsePositiveInt(raw) {
 
 const SCOPE = 'event.box_office';
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function PATCH(req, ctx) {
   const pinFail = await requirePinOrScope(req, SCOPE);
   if (pinFail) return pinFail;
   return withIdempotency(req, () => boxOfficeLinePatchHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function boxOfficeLinePatchHandler(req, { params }) {
 
   params = await params;
@@ -43,6 +59,7 @@ async function boxOfficeLinePatchHandler(req, { params }) {
     return Response.json({ error: 'Invalid show or line id' }, { status: 400 });
   }
 
+  /** @type {Record<string, unknown>} */
   let body;
   try {
     body = await req.json();

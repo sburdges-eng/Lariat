@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 /**
  * Recipe photo collection endpoint.
  *
@@ -28,6 +30,15 @@ import {
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+/**
+ * Next 15 route context: `params` may be a promise (async dynamic APIs).
+ * @typedef {{ params: Promise<{ slug?: string }> | { slug?: string } }} RouteCtx
+ */
+
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function GET(req, { params }) {
 
   params = await params;
@@ -48,6 +59,10 @@ export async function GET(req, { params }) {
   return Response.json({ photos: rows });
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function POST(req, { params }) {
 
   params = await params;
@@ -96,7 +111,14 @@ export async function POST(req, { params }) {
     );
   }
 
-  const stored = await storePhoto(slug, buffer, mime, file.name || 'photo');
+  // Next guarantees the [slug] segment exists on a matched route — the
+  // optional-key RouteCtx typing is the only reason it's `| undefined`.
+  const stored = await storePhoto(
+    /** @type {string} */ (slug),
+    buffer,
+    mime,
+    file.name || 'photo',
+  );
 
   const db = getDb();
   const insert = db
@@ -117,7 +139,12 @@ export async function POST(req, { params }) {
       cookId,
     );
 
-  await logAuditAction('recipe_photo_upload', {
+  // Pre-existing two-arg call: lib/auditLog.mjs logAuditAction takes ONE
+  // entry object, so the details object here is dropped at runtime. Typed
+  // as-called (widened via cast), NOT fixed — no behavior change (GH #250).
+  await /** @type {(...args: unknown[]) => unknown} */ (
+    /** @type {unknown} */ (logAuditAction)
+  )('recipe_photo_upload', {
     recipe_slug: slug,
     location_id: location,
     photo_id: insert.lastInsertRowid,

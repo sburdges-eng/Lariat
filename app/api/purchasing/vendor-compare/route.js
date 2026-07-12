@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../../lib/db';
 import { requirePin } from '../../../../lib/pin';
 import { listVendorCompareRows } from '../../../../lib/vendorCompare.ts';
@@ -7,6 +9,10 @@ import { DEFAULT_LOCATION_ID } from '../../../../lib/location';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {string | null} raw
+ * @returns {number}
+ */
 function clampLimit(raw) {
   if (raw == null || raw === '') return 200;
   const n = Number(raw);
@@ -14,6 +20,7 @@ function clampLimit(raw) {
   return Math.max(1, Math.min(1000, Math.floor(n)));
 }
 
+/** @param {Request} req */
 export async function GET(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;

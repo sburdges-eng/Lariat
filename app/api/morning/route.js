@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { todayISO } from '../../../lib/db';
 import { locationFromRequest } from '../../../lib/location';
 import { buildMorningDigest } from '../../../lib/morningDigest';
@@ -6,6 +8,7 @@ import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/** @param {Request} req */
 function resolveDigestRequest(req) {
   const url = new URL(req.url);
   const dateParam = url.searchParams.get('date');
@@ -17,6 +20,7 @@ function resolveDigestRequest(req) {
   return buildMorningDigest(loc, today);
 }
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const digest = resolveDigestRequest(req);
@@ -27,11 +31,13 @@ export async function GET(req) {
   }
 }
 
+/** @param {Request} req */
 export async function POST(req) {
   // Replaying a queued POST would double-post the digest to Slack.
   return withIdempotency(req, () => morningPostHandler(req));
 }
 
+/** @param {Request} req */
 async function morningPostHandler(req) {
   try {
     const webhookUrl = process.env.LARIAT_MORNING_SLACK_WEBHOOK_URL;

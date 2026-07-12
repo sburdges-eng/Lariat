@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb, todayISO } from '../../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../../lib/location';
 import { requirePin } from '../../../../lib/pin';
@@ -34,6 +36,7 @@ export const dynamic = 'force-dynamic';
 
 const SUPPORTED_SURFACES = new Set(['beo', 'sound', 'host']);
 
+/** @param {Request} req */
 export async function GET(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
@@ -58,17 +61,19 @@ export async function GET(req) {
 
     if (surface === 'host') {
       const todayPrefix = today;
-      const parties = db
-        .prepare(
-          `SELECT id, location_id, party_name, party_size, joined_at, status,
+      const parties = /** @type {import('../../../../lib/hostStand').WaitlistPartyRow[]} */ (
+        db
+          .prepare(
+            `SELECT id, location_id, party_name, party_size, joined_at, status,
                   seated_at, left_at, phone, notes
              FROM waitlist_parties
             WHERE location_id = ?
               AND (status = 'waiting'
                    OR (status = 'seated' AND substr(seated_at, 1, 10) = ?)
                    OR (status = 'left'   AND substr(left_at,   1, 10) = ?))`,
-        )
-        .all(loc, todayPrefix, todayPrefix);
+          )
+          .all(loc, todayPrefix, todayPrefix)
+      );
       const nowIso = new Date().toISOString();
       const summary = summarizeWaitlist(parties, nowIso);
       const predictions = buildHostPredictions({ summary, today });
@@ -89,9 +94,12 @@ export async function GET(req) {
           { status: 400 },
         );
       }
-      const show = db
-        .prepare(`SELECT id, band_name FROM shows WHERE id = ? AND location_id = ?`)
-        .get(showId, loc);
+      // shows.id / band_name are NOT NULL in lib/db.ts.
+      const show = /** @type {{ id: number, band_name: string } | undefined} */ (
+        db
+          .prepare(`SELECT id, band_name FROM shows WHERE id = ? AND location_id = ?`)
+          .get(showId, loc)
+      );
       if (!show) {
         return Response.json({
           surface,
@@ -122,35 +130,41 @@ export async function GET(req) {
     }
 
     if (surface === 'beo') {
-      const events = db
-        .prepare(
-          `SELECT id, title, event_date, event_time, contact_name, guest_count, notes
+      const events = /** @type {import('../../../../lib/lariPredictions').BeoEventRow[]} */ (
+        db
+          .prepare(
+            `SELECT id, title, event_date, event_time, contact_name, guest_count, notes
              FROM beo_events
             WHERE location_id = ?
               AND (event_date IS NULL OR event_date >= ?)
             ORDER BY event_date, id`,
-        )
-        .all(loc, today);
+          )
+          .all(loc, today)
+      );
 
-      const lineItems = events.length
-        ? db
-            .prepare(
-              `SELECT id, event_id, item_name, quantity
+      const lineItems = /** @type {import('../../../../lib/lariPredictions').BeoLineItemRow[]} */ (
+        events.length
+          ? db
+              .prepare(
+                `SELECT id, event_id, item_name, quantity
                  FROM beo_line_items
                 WHERE event_id IN (SELECT id FROM beo_events WHERE location_id = ?)`,
-            )
-            .all(loc)
-        : [];
+              )
+              .all(loc)
+          : []
+      );
 
-      const prepTasks = events.length
-        ? db
-            .prepare(
-              `SELECT id, event_id, task, due_date, done
+      const prepTasks = /** @type {import('../../../../lib/lariPredictions').BeoPrepTaskRow[]} */ (
+        events.length
+          ? db
+              .prepare(
+                `SELECT id, event_id, task, due_date, done
                  FROM beo_prep_tasks
                 WHERE location_id = ?`,
-            )
-            .all(loc)
-        : [];
+              )
+              .all(loc)
+          : []
+      );
 
       const predictions = buildBeoPredictions({ events, lineItems, prepTasks, today });
 

@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 // Wage notices (L7 / C.R.S. §8-4-103 + COMPS §3.3).
 //
 // POST /api/wage-notices   → register a new wage notice (PIN-gated)
@@ -20,12 +22,20 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+/** @typedef {import('../../../lib/db').WageNotice} NoticeRow */
+
+/**
+ * @param {unknown} s
+ * @param {number} max
+ * @returns {string | null}
+ */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
+/** @param {Request} req */
 async function gate(req) {
   if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'pic.wage_notices'))) {
     return Response.json(
@@ -38,12 +48,14 @@ async function gate(req) {
 
 // ── POST ─────────────────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function POST(req) {
   const blocked = await gate(req);
   if (blocked) return blocked;
   return withIdempotency(req, () => wageNoticesPostHandler(req));
 }
 
+/** @param {Request} req */
 async function wageNoticesPostHandler(req) {
   try {
     const body = await req.json();
@@ -119,6 +131,7 @@ async function wageNoticesPostHandler(req) {
 
 // ── GET ──────────────────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const url = new URL(req.url);
@@ -130,11 +143,11 @@ export async function GET(req) {
 
     if (cook_id) {
       // Full history for one cook, latest first.
-      const rows = db.prepare(`
+      const rows = /** @type {NoticeRow[]} */ (db.prepare(`
         SELECT * FROM wage_notices
          WHERE location_id=? AND cook_id=?
          ORDER BY signed_on DESC, id DESC
-      `).all(location_id, cook_id);
+      `).all(location_id, cook_id));
       const latest = rows[0] || null;
       const freshness = latest ? summarizeFreshness([latest], today)[0] : {
         cook_id,
@@ -158,7 +171,7 @@ export async function GET(req) {
     }
 
     // Latest notice per cook for the location.
-    const rows = db.prepare(`
+    const rows = /** @type {NoticeRow[]} */ (db.prepare(`
       SELECT w.*
         FROM wage_notices w
         JOIN (
@@ -169,10 +182,11 @@ export async function GET(req) {
         ) m ON m.cook_id = w.cook_id AND m.latest = w.signed_on
        WHERE w.location_id=?
        ORDER BY w.cook_id ASC, w.id DESC
-    `).all(location_id, location_id);
+    `).all(location_id, location_id));
 
     // Dedupe to one row per cook (in case of same-day duplicates,
     // pick the highest id).
+    /** @type {Map<string, NoticeRow>} */
     const byCook = new Map();
     for (const r of rows) {
       const prev = byCook.get(r.cook_id);

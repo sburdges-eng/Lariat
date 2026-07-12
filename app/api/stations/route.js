@@ -1,10 +1,13 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getStations, getLineCheckTemplate } from '../../../lib/data';
 import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 
 export const dynamic = 'force-dynamic';
 
+/** @param {Request} req */
 export async function GET(req) {
   const url = new URL(req.url);
   const loc = url.searchParams.get('location')?.trim() || DEFAULT_LOCATION_ID;
@@ -24,7 +27,7 @@ export async function GET(req) {
         // insert. GROUP BY item with a bare `status` column paired to
         // MAX(created_at) is undefined behavior per SQL spec and returned
         // an arbitrary status on re-logged items.
-        const rows = db.prepare(`
+        const rows = /** @type {{ item: string, status: string, ts: string | null }[]} */ (db.prepare(`
           SELECT lce.item, lce.status, lce.created_at AS ts
             FROM line_check_entries lce
            WHERE lce.shift_date = ?
@@ -37,7 +40,7 @@ export async function GET(req) {
                   AND station_id = lce.station_id
                   AND location_id = lce.location_id
              )
-        `).all(date, s.id, loc);
+        `).all(date, s.id, loc));
         const byItem = new Map(rows.map((r) => [r.item, r]));
         let done = 0, flagged = 0;
         for (const item of items) {

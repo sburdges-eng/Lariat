@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 // Paid sick leave (HFWA / L2). Tracks per-cook per-year accrual, use,
 // carryover, and cap. Manager PIN gates writes — accrual + use are
 // payroll-sensitive and only PIC may post.
@@ -23,14 +25,22 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+/** @typedef {import('../../../lib/db').PaidSickLeaveBalance} BalanceRow */
+
 const KIND_VALUES = new Set(['accrual', 'use']);
 
+/**
+ * @param {unknown} s
+ * @param {number} max
+ * @returns {string | null}
+ */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
+/** @param {Request} req */
 async function gate(req) {
   if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'pic.sick_leave'))) {
     return Response.json(
@@ -43,12 +53,14 @@ async function gate(req) {
 
 // ── POST ─────────────────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function POST(req) {
   const blocked = await gate(req);
   if (blocked) return blocked;
   return withIdempotency(req, () => sickLeavePostHandler(req));
 }
 
+/** @param {Request} req */
 async function sickLeavePostHandler(req) {
   try {
     const body = await req.json();
@@ -106,11 +118,12 @@ async function sickLeavePostHandler(req) {
       // re-SELECT, then run the rule, then UPDATE. Keeping the rule
       // pure means it sees the row state, computes a delta, and the
       // route persists.
-      let row = db.prepare(`
+      let row = /** @type {BalanceRow | undefined} */ (db.prepare(`
         SELECT * FROM paid_sick_leave_balances
          WHERE location_id=? AND cook_id=? AND accrual_year=?
-      `).get(location_id, cook_id, accrual_year);
+      `).get(location_id, cook_id, accrual_year));
 
+      /** @type {'insert' | 'update'} */
       let action = 'update';
       let entityId;
 
@@ -121,7 +134,7 @@ async function sickLeavePostHandler(req) {
           VALUES (?, ?, ?, 0, 0, ?, 0)
         `).run(location_id, cook_id, accrual_year, HFWA_ANNUAL_CAP_HOURS);
         entityId = Number(info.lastInsertRowid);
-        row = db.prepare('SELECT * FROM paid_sick_leave_balances WHERE id=?').get(entityId);
+        row = /** @type {BalanceRow} */ (db.prepare('SELECT * FROM paid_sick_leave_balances WHERE id=?').get(entityId));
         action = 'insert';
       } else {
         entityId = row.id;
@@ -178,7 +191,7 @@ async function sickLeavePostHandler(req) {
         `).run(newUsed, entityId);
       }
 
-      updated = db.prepare('SELECT * FROM paid_sick_leave_balances WHERE id=?').get(entityId);
+      updated = /** @type {BalanceRow} */ (db.prepare('SELECT * FROM paid_sick_leave_balances WHERE id=?').get(entityId));
 
       postAuditEvent({
         entity: 'paid_sick_leave_balances',
@@ -208,6 +221,7 @@ async function sickLeavePostHandler(req) {
 
 // ── GET ──────────────────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const url = new URL(req.url);
@@ -222,10 +236,10 @@ export async function GET(req) {
       if (!Number.isInteger(accrual_year)) {
         return Response.json({ error: 'year must be a 4-digit integer' }, { status: 400 });
       }
-      const row = db.prepare(`
+      const row = /** @type {BalanceRow | undefined} */ (db.prepare(`
         SELECT * FROM paid_sick_leave_balances
          WHERE location_id=? AND cook_id=? AND accrual_year=?
-      `).get(location_id, cook_id, accrual_year);
+      `).get(location_id, cook_id, accrual_year));
 
       const balance = row ? summarizeBalance(row) : {
         cook_id,
@@ -254,11 +268,11 @@ export async function GET(req) {
 
     // No cook_id → list all balances for the location, current year by default
     const accrual_year = yearParam ? Number(yearParam) : new Date().getFullYear();
-    const rows = db.prepare(`
+    const rows = /** @type {BalanceRow[]} */ (db.prepare(`
       SELECT * FROM paid_sick_leave_balances
        WHERE location_id=? AND accrual_year=?
        ORDER BY cook_id ASC
-    `).all(location_id, accrual_year);
+    `).all(location_id, accrual_year));
 
     return Response.json({
       location_id,

@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../../../lib/db';
 import { logAuditAction } from '../../../../../lib/auditLog.mjs';
 import { locationFromRequest } from '../../../../../lib/location';
@@ -13,17 +15,41 @@ import { withIdempotency } from '../../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/** @typedef {{ params: Promise<{ id?: string }> | { id?: string } }} RouteCtx */
+
+/**
+ * `SELECT *` row from the specials table. Only the field this route reads
+ * directly is typed; archived_at is nullable per lib/db.ts CREATE TABLE.
+ * @typedef {{ archived_at: number | null } & Record<string, unknown>} SpecialsRow
+ */
+
+/**
+ * @param {ReturnType<typeof getDb>} db
+ * @param {string | undefined} id
+ * @param {string} locationId
+ * @returns {SpecialsRow | undefined}
+ */
 function loadRow(db, id, locationId) {
-  return db.prepare(`
+  return /** @type {SpecialsRow | undefined} */ (db.prepare(`
     SELECT * FROM specials
     WHERE id = ? AND location_id = ? AND archived_at IS NULL
-  `).get(id, locationId);
+  `).get(id, locationId));
 }
 
+/**
+ * @param {ReturnType<typeof getDb>} db
+ * @param {string | undefined} id
+ * @param {string} locationId
+ * @returns {SpecialsRow | undefined}
+ */
 function loadAnyRow(db, id, locationId) {
-  return db.prepare('SELECT * FROM specials WHERE id = ? AND location_id = ?').get(id, locationId);
+  return /** @type {SpecialsRow | undefined} */ (db.prepare('SELECT * FROM specials WHERE id = ? AND location_id = ?').get(id, locationId));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function GET(req, { params }) {
 
   params = await params;
@@ -39,10 +65,18 @@ export async function GET(req, { params }) {
   return Response.json(row, { status: 200 });
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function PATCH(req, ctx) {
   return withIdempotency(req, () => specialsSavedPatchHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function specialsSavedPatchHandler(req, { params }) {
 
   params = await params;
@@ -114,6 +148,10 @@ async function specialsSavedPatchHandler(req, { params }) {
   return Response.json({ ok: true }, { status: 200 });
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function DELETE(req, ctx) {
   if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'menu.specials_edit'))) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
@@ -121,6 +159,10 @@ export async function DELETE(req, ctx) {
   return withIdempotency(req, () => specialsSavedDeleteHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function specialsSavedDeleteHandler(req, { params }) {
 
   params = await params;

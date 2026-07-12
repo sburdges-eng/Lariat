@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 // Time as Public Health Control (F11 / FDA §3-501.19).
 //
 // POST  /api/tphc   → start a TPHC batch (computes cutoff_at server-side)
@@ -24,18 +26,44 @@ import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {unknown} s
+ * @param {number} max
+ * @returns {string | null}
+ */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
+/**
+ * Row shape of tphc_entries per the lib/db.ts CREATE TABLE (NOT NULL
+ * columns → plain type, nullable columns → | null).
+ * @typedef {{
+ *   id: number,
+ *   shift_date: string,
+ *   location_id: string | null,
+ *   station_id: string | null,
+ *   item: string,
+ *   batch_ref: string | null,
+ *   started_at: string,
+ *   cutoff_at: string,
+ *   discarded_at: string | null,
+ *   discard_reason: string | null,
+ *   cook_id: string | null,
+ *   created_at: string | null,
+ * }} TphcEntryRow
+ */
+
 // ── POST /api/tphc ────────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function POST(req) {
   return withIdempotency(req, () => tphcPostHandler(req));
 }
 
+/** @param {Request} req */
 async function tphcPostHandler(req) {
   try {
     const body = await req.json();
@@ -56,7 +84,9 @@ async function tphcPostHandler(req) {
     const cook_id = clip(body.cook_id, 64);
     const location_id = locationFromBody(body);
     const shift_date = clip(body.shift_date, 10) || todayISO();
-    const cutoff_at = computeCutoffAt(started_at, kind);
+    // validateTphcCreate confirmed started_at is a non-empty ISO string,
+    // so clip() cannot have returned null here.
+    const cutoff_at = computeCutoffAt(/** @type {string} */ (started_at), kind);
 
     const db = getDb();
 
@@ -69,8 +99,11 @@ async function tphcPostHandler(req) {
       `).run(shift_date, location_id, station_id, item, batch_ref,
              started_at, cutoff_at, cook_id);
 
-      const row = db.prepare('SELECT * FROM tphc_entries WHERE id=?')
-        .get(info.lastInsertRowid);
+      // Just inserted in this same transaction, so the row exists.
+      const row = /** @type {TphcEntryRow} */ (
+        db.prepare('SELECT * FROM tphc_entries WHERE id=?')
+          .get(info.lastInsertRowid)
+      );
 
       postAuditEvent({
         entity: 'tphc_entries',
@@ -97,10 +130,12 @@ async function tphcPostHandler(req) {
 
 // ── PATCH /api/tphc ───────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function PATCH(req) {
   return withIdempotency(req, () => tphcPatchHandler(req));
 }
 
+/** @param {Request} req */
 async function tphcPatchHandler(req) {
   try {
     const body = await req.json();
@@ -130,7 +165,9 @@ async function tphcPatchHandler(req) {
     // `discarded_at IS NULL` against the same stale snapshot and double-
     // stamp the row. Returning a tagged shape mirrors the cooling PATCH.
     const performUpdate = db.transaction(() => {
-      const existing = db.prepare('SELECT * FROM tphc_entries WHERE id=?').get(id);
+      const existing = /** @type {TphcEntryRow | undefined} */ (
+        db.prepare('SELECT * FROM tphc_entries WHERE id=?').get(id)
+      );
       if (!existing) return { status: 404, error: 'unknown tphc entry' };
 
       // Cross-location IDOR guard: a cook scoped to site-A must not be
@@ -182,6 +219,7 @@ async function tphcPatchHandler(req) {
 
 // ── GET /api/tphc ─────────────────────────────────────────────────
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const url = new URL(req.url);
@@ -189,11 +227,13 @@ export async function GET(req) {
     const now = url.searchParams.get('now') || new Date().toISOString();
 
     const db = getDb();
-    const active = db.prepare(`
+    // TphcEntryRow structurally satisfies the lib's TphcRowSnapshot, so
+    // these rows feed scanActiveTphc directly.
+    const active = /** @type {TphcEntryRow[]} */ (db.prepare(`
       SELECT * FROM tphc_entries
        WHERE location_id=? AND discarded_at IS NULL
        ORDER BY cutoff_at ASC, id ASC
-    `).all(location_id);
+    `).all(location_id));
 
     const scan = scanActiveTphc(active, now);
     return Response.json({
