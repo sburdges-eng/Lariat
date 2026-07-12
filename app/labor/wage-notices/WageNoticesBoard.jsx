@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 // Wage notices — per-cook tile with last signed date + days since,
 // "needs new" badge if >365 days, and a "Sign new notice" form.
@@ -9,12 +9,45 @@
 import { useMemo, useState } from 'react';
 import { formatMoney } from '../../../lib/formatMoney';
 
+/** @typedef {import('../../../lib/db').WageNotice} WageNotice */
+/** @typedef {import('../../../lib/wageNotices').NoticeFreshness} NoticeFreshness */
+/** @typedef {import('../../../lib/wageNotices').WageNoticeReason} WageNoticeReason */
+/** @typedef {import('../../../lib/wageNotices').WageNoticePayBasis} WageNoticePayBasis */
+
+/**
+ * @param {string} s
+ * @returns {number | null}
+ */
 function dollarsToCents(s) {
   const n = Number(s);
   if (!Number.isFinite(n)) return null;
   return Math.round(n * 100);
 }
 
+/**
+ * Reproduce `String(e?.message || e)` for an `unknown` catch binding
+ * without an `any` cast — same output for Error/TypeError instances,
+ * plain-object throws with a truthy `.message`, and everything else.
+ * @param {unknown} e
+ * @returns {string}
+ */
+function errorMessage(e) {
+  if (e && typeof e === 'object' && 'message' in e && e.message) {
+    return String(e.message);
+  }
+  return String(e);
+}
+
+/**
+ * @param {{
+ *   initialLatestPerCook: WageNotice[],
+ *   initialFreshness: NoticeFreshness[],
+ *   reasons: WageNoticeReason[],
+ *   payBases: WageNoticePayBasis[],
+ *   locationId: string,
+ *   today: string,
+ * }} props
+ */
 export default function WageNoticesBoard({
   initialLatestPerCook,
   initialFreshness,
@@ -39,6 +72,7 @@ export default function WageNoticesBoard({
   const [info, setInfo] = useState('');
 
   const freshnessByCook = useMemo(() => {
+    /** @type {Map<string, NoticeFreshness>} */
     const m = new Map();
     for (const f of freshness) m.set(f.cook_id, f);
     return m;
@@ -57,6 +91,7 @@ export default function WageNoticesBoard({
     }
   };
 
+  /** @param {React.FormEvent<HTMLFormElement>} ev */
   async function submit(ev) {
     ev.preventDefault();
     setErr('');
@@ -70,6 +105,7 @@ export default function WageNoticesBoard({
       setErr('Pay rate must be a positive dollar value.');
       return;
     }
+    /** @type {number | null} */
     let tip = null;
     if (payBasis === 'tipped' && tipCreditDollars.trim()) {
       tip = dollarsToCents(tipCreditDollars);
@@ -109,7 +145,7 @@ export default function WageNoticesBoard({
       setDocPath('');
       await refetch();
     } catch (e) {
-      setErr(String(e?.message || e));
+      setErr(errorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -124,6 +160,7 @@ export default function WageNoticesBoard({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           {latest.map((row) => {
+            /** @type {Partial<NoticeFreshness>} */
             const f = freshnessByCook.get(row.cook_id) || {};
             const stale = f.needs_new;
             return (
