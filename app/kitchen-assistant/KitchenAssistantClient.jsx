@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { formatFdaCitation, formatUsdaCitation } from './citationHelpers';
+import { useLocation } from '../_components/useLocation';
 
 /** @typedef {import('../../lib/kitchenAssistantContext.ts').ContextSource} ContextSource */
 /** @typedef {import('../../lib/kitchenAssistantUndo.ts').KitchenAssistantUndoMeta} KitchenAssistantUndoMeta */
@@ -166,7 +167,6 @@ import { formatFdaCitation, formatUsdaCitation } from './citationHelpers';
  * }} SpeechCapableWindow
  */
 
-const LOC_KEY = 'lariat_location';
 const LANG_KEY = 'lariat_language';
 const COOK_KEY = 'lariat_cook';
 const CONVERSATION_SESSION_KEY = 'lariat_conversation_session_id';
@@ -455,10 +455,8 @@ function encodeWavPcm16(pcm) {
   return buf;
 }
 
-/**
- * @param {{ locQuery?: string }} props
- */
-export default function KitchenAssistantClient({ locQuery: _locQuery }) {
+export default function KitchenAssistantClient() {
+  const { locationId } = useLocation();
   const [ollamaOk, setOllamaOk] = useState(/** @type {boolean | null} */ (null));
   const [model, setModel] = useState('');
   const [message, setMessage] = useState('');
@@ -737,7 +735,6 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
     setAskedQuestion(q);
     setLoading(true);
     try {
-      const loc = typeof window !== 'undefined' ? window.localStorage.getItem(LOC_KEY) : '';
       const cookId = typeof window !== 'undefined' ? window.localStorage.getItem(COOK_KEY) : '';
       /** @type {{ message: string; language: string; conversation_session_id: string; cook_id?: string; location_id?: string }} */
       const body = {
@@ -746,7 +743,7 @@ export default function KitchenAssistantClient({ locQuery: _locQuery }) {
         conversation_session_id: getOrCreateConversationSessionId(),
       };
       if (cookId) body.cook_id = cookId;
-      if (loc && loc !== 'default') body.location_id = loc;
+      if (locationId && locationId !== 'default') body.location_id = locationId;
       const res = await fetch('/api/kitchen-assistant', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
