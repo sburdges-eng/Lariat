@@ -1,14 +1,28 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useT, useLocale } from '../_components/I18nProvider.jsx';
+
+/** @typedef {import('../../lib/db.ts').EightySix} EightySix */
+/** @typedef {import('../../lib/data.ts').Station} Station */
+/** @typedef {import('../../lib/subRecipeGraph.ts').CascadedRecipe} CascadedRecipe */
 
 // Reason CODES are the API contract (POST /api/eighty-six payloads and
 // DB rows keep these values verbatim); only their display labels go
 // through the i18n catalog (eightySix.reasons.*).
 const REASONS = ['out','spoiled','dropped','no_make','burned','prep_short','other'];
 
+/**
+ * @param {{
+ *   active: EightySix[],
+ *   resolved: EightySix[],
+ *   cascaded?: CascadedRecipe[],
+ *   stations: Station[],
+ *   date: string,
+ *   locationId?: string,
+ * }} props
+ */
 export default function EightySixBoard({ active, resolved, cascaded = [], stations, date, locationId = 'default' }) {
   const router = useRouter();
   const tt = useT();
@@ -22,15 +36,16 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
   const [err, setErr] = useState('');
   // Per-row in-flight guard so a double-tap on the greasy tablet screen
   // can't fire two POSTs to /api/eighty-six/resolve for the same row.
-  const resolvingRef = useRef(new Set());
+  const resolvingRef = useRef(/** @type {Set<number>} */ (new Set()));
   // Same guard for the add form — `saving` disables the button only after
   // the re-render, so a fast double-tap can still fire two POSTs without this.
   const addingRef = useRef(false);
   // Cascade row awaiting inline confirmation (replaces window.confirm).
-  const [confirmSlug, setConfirmSlug] = useState(null);
+  const [confirmSlug, setConfirmSlug] = useState(/** @type {string | null} */ (null));
 
   useEffect(() => { setCookId(window.localStorage.getItem('lariat_cook') || ''); }, []);
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const add = async (e) => {
     e.preventDefault();
     if (!item.trim()) return;
@@ -65,12 +80,21 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
     router.refresh();
   };
 
+  /** @param {number} id */
   const resolve = async (id) => {
     if (resolvingRef.current.has(id)) return;
     resolvingRef.current.add(id);
     setErr('');
     try {
-      const res = await fetch('/api/eighty-six/resolve', {
+      // BUG (fixed here): /api/eighty-six/resolve's cross-location IDOR
+      // guard reads the caller's location from the `?location=` query
+      // param ONLY (lib/location.ts locationFromRequest) — it deliberately
+      // ignores body.location_id (see the route's own comments). Without
+      // the query param this fetch always resolved to callerLocation ===
+      // DEFAULT_LOCATION_ID ('default'), so at any non-default location
+      // the row-location comparison never matched and every resolve
+      // silently 404'd — the item could never be marked back in stock.
+      const res = await fetch(`/api/eighty-six/resolve?location=${encodeURIComponent(locationId)}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ id, cook_id: cookId, location_id: locationId }),
@@ -88,6 +112,7 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
     router.refresh();
   };
 
+  /** @param {CascadedRecipe} c */
   const confirmCascade = async (c) => {
     setConfirmSlug(null);
     setErr('');
@@ -320,6 +345,10 @@ export default function EightySixBoard({ active, resolved, cascaded = [], statio
   );
 }
 
+/**
+ * @param {string | null | undefined} iso
+ * @param {import('../../lib/i18n/index.ts').Locale} [locale]
+ */
 function fmtTime(iso, locale = 'en') {
   if (!iso) return '';
   try {
