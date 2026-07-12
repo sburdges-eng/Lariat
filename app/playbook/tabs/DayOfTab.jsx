@@ -1,8 +1,10 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
-import React from 'react';
 import StatusPill from '../StatusPill';
 
+/** @typedef {import('../../../lib/showsRepo.ts').ShowRow} ShowRow */
+
+/** @type {Array<{ key: string, label: string }>} */
 const FIELDS = [
   { key: 'dice_email', label: 'DICE email (tix, DOS)' },
   { key: 'assets', label: 'Assets ready' },
@@ -10,6 +12,7 @@ const FIELDS = [
   { key: 'whbv', label: 'WHBV' },
 ];
 
+/** @param {{ show: ShowRow | null | undefined }} props */
 export default function DayOfTab({ show }) {
   const s = show?.status ?? {};
   return (
