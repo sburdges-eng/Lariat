@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import Link from 'next/link';
 import { getDb, todayISO } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
@@ -14,6 +16,40 @@ import TonightLiveClient from './_components/TonightLiveClient';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Row shapes for this page's direct SQL reads. Nullability mirrors the
+ * CREATE TABLE statements in lib/db.ts (selected columns only — each
+ * query here selects a different column subset than the sibling
+ * /api/shows/tonight route, so these are defined locally rather than
+ * reused from there).
+ * @typedef {{ id: number, room_config: string, run_of_show_json: string, hospitality_rider_json: string, tech_rider_json: string, notes: string | null, updated_at: string }} StageSetupRow
+ * @typedef {{ id: number, scene_name: string, spl_limit_db: number | null, saved_at: string }} SoundSceneRow
+ * @typedef {{ id: number, band_name: string, show_date: string }} PreviousShowRow
+ */
+
+/**
+ * Shape of this page's initial payload, built in the same shape as
+ * GET /api/shows/tonight so the client wrapper can re-poll and swap in
+ * fresh data without a schema mismatch.
+ * @typedef {{
+ *   location_id: string,
+ *   date: string,
+ *   show: import('../../../lib/showsTonight').ShowRow,
+ *   show_status: Record<string, unknown>,
+ *   stage_setup: StageSetupRow | null,
+ *   latest_sound_scene: SoundSceneRow | null,
+ *   box_office_summary: import('../../../lib/showsTonight').BoxOfficeSummary,
+ *   attendance: import('../../../lib/showsTonight').Attendance,
+ *   venue_capacity: number | null,
+ *   effective_capacity: number | null,
+ *   capacity_override: number | null,
+ *   run_of_show: import('../../../lib/showsTonight').RunOfShowEntry[],
+ *   previous_show: PreviousShowRow | null,
+ *   server_time: string,
+ * }} TonightPayload
+ */
+
+/** @param {string | null | undefined} iso */
 const fmtDate = (iso) => {
   if (!iso) return '';
   try {
@@ -27,6 +63,7 @@ const fmtDate = (iso) => {
   }
 };
 
+/** @param {{ previousShow: PreviousShowRow | null }} props */
 function EmptyState({ previousShow }) {
   return (
     <div style={{ padding: '40px 0', maxWidth: 600 }}>
@@ -56,6 +93,7 @@ function EmptyState({ previousShow }) {
   );
 }
 
+/** @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props */
 export default async function TonightLivePage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -68,27 +106,31 @@ export default async function TonightLivePage({ searchParams }) {
 
   const db = getDb();
 
-  const show = db
-    .prepare(
-      `SELECT id, location_id, band_name, show_date, price, door_tix, status_json
-         FROM shows
-        WHERE location_id = ? AND show_date = ?
-        LIMIT 1`,
-    )
-    .get(loc, date);
+  const show = /** @type {import('../../../lib/showsTonight').ShowRow | undefined} */ (
+    db
+      .prepare(
+        `SELECT id, location_id, band_name, show_date, price, door_tix, status_json
+           FROM shows
+          WHERE location_id = ? AND show_date = ?
+          LIMIT 1`,
+      )
+      .get(loc, date)
+  );
 
-  const previousShow = db
-    .prepare(
-      `SELECT id, band_name, show_date
-         FROM shows
-        WHERE location_id = ? AND show_date < ?
-        ORDER BY show_date DESC
-        LIMIT 1`,
-    )
-    .get(loc, date);
+  const previousShow = /** @type {PreviousShowRow | undefined} */ (
+    db
+      .prepare(
+        `SELECT id, band_name, show_date
+           FROM shows
+          WHERE location_id = ? AND show_date < ?
+          ORDER BY show_date DESC
+          LIMIT 1`,
+      )
+      .get(loc, date)
+  );
 
   if (!show) {
-    return <EmptyState previousShow={previousShow} />;
+    return <EmptyState previousShow={previousShow || null} />;
   }
 
   const status = parseStatusJson(show.status_json);
@@ -97,40 +139,47 @@ export default async function TonightLivePage({ searchParams }) {
   const set2Time = pickShowTime(status, 'set2');
   const curfewTime = pickShowTime(status, 'curfew');
 
-  const stageSetup = db
-    .prepare(
-      `SELECT id, room_config, run_of_show_json, hospitality_rider_json, tech_rider_json, notes, updated_at
-         FROM stage_setups
-        WHERE show_id = ? AND location_id = ?`,
-    )
-    .get(show.id, loc);
+  const stageSetup = /** @type {StageSetupRow | undefined} */ (
+    db
+      .prepare(
+        `SELECT id, room_config, run_of_show_json, hospitality_rider_json, tech_rider_json, notes, updated_at
+           FROM stage_setups
+          WHERE show_id = ? AND location_id = ?`,
+      )
+      .get(show.id, loc)
+  );
 
-  const latestScene = db
-    .prepare(
-      `SELECT id, scene_name, spl_limit_db, saved_at
-         FROM sound_scenes
-        WHERE show_id = ? AND location_id = ?
-        ORDER BY datetime(saved_at) DESC, id DESC
-        LIMIT 1`,
-    )
-    .get(show.id, loc);
+  const latestScene = /** @type {SoundSceneRow | undefined} */ (
+    db
+      .prepare(
+        `SELECT id, scene_name, spl_limit_db, saved_at
+           FROM sound_scenes
+          WHERE show_id = ? AND location_id = ?
+          ORDER BY datetime(saved_at) DESC, id DESC
+          LIMIT 1`,
+      )
+      .get(show.id, loc)
+  );
 
-  const boxLines = db
-    .prepare(
-      `SELECT id, show_id, location_id, source, ticket_class, qty,
-              face_price, fees, external_ref, scanned_at, notes
-         FROM box_office_lines
-        WHERE show_id = ? AND location_id = ?`,
-    )
-    .all(show.id, loc);
+  const boxLines = /** @type {import('../../../lib/showsTonight').BoxOfficeLine[]} */ (
+    db
+      .prepare(
+        `SELECT id, show_id, location_id, source, ticket_class, qty,
+                face_price, fees, external_ref, scanned_at, notes
+           FROM box_office_lines
+          WHERE show_id = ? AND location_id = ?`,
+      )
+      .all(show.id, loc)
+  );
   const boxOffice = summarizeBoxOffice(boxLines);
   const runOfShow = stageSetup ? parseRunOfShow(stageSetup.run_of_show_json) : [];
 
   // Per-venue capacity (operator-set; nullable). Per-show override on
   // status_json.capacity beats it — see pickEffectiveCapacity.
-  const venueCapacity = db
-    .prepare(`SELECT capacity FROM locations WHERE id = ?`)
-    .get(loc)?.capacity ?? null;
+  const venueCapacityRow = /** @type {{ capacity: number | null } | undefined} */ (
+    db.prepare(`SELECT capacity FROM locations WHERE id = ?`).get(loc)
+  );
+  const venueCapacity = venueCapacityRow?.capacity ?? null;
   const effectiveCapacity = pickEffectiveCapacity(status, venueCapacity);
   const capacityOverride = Number.isFinite(Number(status?.capacity)) && Number(status.capacity) > 0
     ? Math.floor(Number(status.capacity))
@@ -140,6 +189,7 @@ export default async function TonightLivePage({ searchParams }) {
   // Build the initial payload in the same shape as GET /api/shows/tonight so
   // the client wrapper can re-poll and swap in fresh data without a different
   // schema. The header (band + set times) stays server-rendered for TTFB.
+  /** @type {TonightPayload} */
   const initialPayload = {
     location_id: loc,
     date,

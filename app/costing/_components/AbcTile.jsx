@@ -1,11 +1,23 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 import { rankByContribution } from '../../../lib/abcRanking';
 import { formatDollars } from '../../../lib/formatMoney';
 
+/** @typedef {import('../../../lib/abcRanking.ts').AbcInputRow} AbcInputRow */
+/** @typedef {import('../../../lib/abcRanking.ts').AbcRankedRow} AbcRankedRow */
+/** @typedef {import('../../../lib/abcRanking.ts').AbcTier} AbcTier */
+
+/**
+ * @param {AbcRankedRow[]} rows
+ * @param {AbcTier} tier
+ */
 function tierCount(rows, tier) {
   return rows.filter((r) => r.tier === tier).length;
 }
 
+/**
+ * @param {AbcRankedRow[]} rows
+ * @param {AbcTier} tier
+ */
 function tierShare(rows, tier) {
   const total = rows.reduce((s, r) => s + r.scoreCents, 0);
   if (total === 0) return 0;
@@ -15,6 +27,7 @@ function tierShare(rows, tier) {
   return (tierTotal / total) * 100;
 }
 
+/** @param {{ menuRows: AbcInputRow[] }} props */
 export default function AbcTile({ menuRows }) {
   const ranked = rankByContribution(menuRows);
   const topA = ranked.filter((r) => r.tier === 'A').slice(0, 5);
@@ -57,6 +70,9 @@ export default function AbcTile({ menuRows }) {
   );
 }
 
+/**
+ * @param {{ tier: AbcTier, rows: AbcRankedRow[], label?: string }} props
+ */
 function TierRow({ tier, rows, label }) {
   const count = tierCount(rows, tier);
   const share = tierShare(rows, tier);

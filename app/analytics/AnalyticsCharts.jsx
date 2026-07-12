@@ -1,7 +1,13 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 import { useState } from 'react';
 import { formatCompactDollars, formatDollars } from '../../lib/formatMoney';
+
+/** @typedef {import('./page.jsx').DailyRow} DailyRow */
+/** @typedef {import('./page.jsx').DowRow} DowRow */
+/** @typedef {import('./page.jsx').HourRow} HourRow */
+/** @typedef {import('./page.jsx').SpendRow} SpendRow */
+/** @typedef {import('./page.jsx').TopItemRow} TopItemRow */
 
 /* ── palette (mirrors CSS custom props for SVG) ──────────────────── */
 const C = {
@@ -13,18 +19,22 @@ const C = {
 };
 
 /* ── formatters ──────────────────────────────────────────────────── */
+/** @param {string | null | undefined} iso */
 function fmtDate(iso) {
   if (!iso) return '';
   const [, m, d] = iso.split('-');
+  if (!m || !d) return '';
   const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${mo[+m - 1]} ${+d}`;
 }
+/** @param {number | null | undefined} n */
 function fmtNum(n) {
   if (n == null) return '—';
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
 /* ── tooltip shell ───────────────────────────────────────────────── */
+/** @param {{ children: import('react').ReactNode, style?: import('react').CSSProperties }} props */
 function Tip({ children, style }) {
   return (
     <div style={{
@@ -40,6 +50,7 @@ function Tip({ children, style }) {
 }
 
 /* ── section label ───────────────────────────────────────────────── */
+/** @param {{ children: import('react').ReactNode }} props */
 function SectionLabel({ children }) {
   return (
     <div style={{
@@ -54,8 +65,9 @@ function SectionLabel({ children }) {
 /* ================================================================
    DAILY REVENUE — area chart (last N active days)
    ================================================================ */
+/** @param {{ data: DailyRow[] }} props */
 function DailyArea({ data }) {
-  const [hov, setHov] = useState(null);
+  const [hov, setHov] = useState(/** @type {number | null} */ (null));
   if (!data.length) return null;
 
   const W = 800, H = 200;
@@ -64,7 +76,9 @@ function DailyArea({ data }) {
 
   const max = Math.max(...data.map(d => d.net_sales || 0));
   const yMax = Math.ceil(max / 2000) * 2000 || 2000;
+  /** @param {number} i */
   const sx = i => p.l + (i / Math.max(data.length - 1, 1)) * cw;
+  /** @param {number | null | undefined} v */
   const sy = v => p.t + ch - ((v || 0) / yMax) * ch;
 
   const pts = data.map((d, i) => `${sx(i).toFixed(1)},${sy(d.net_sales).toFixed(1)}`);
@@ -73,7 +87,7 @@ function DailyArea({ data }) {
 
   const yTicks = Array.from({ length: 5 }, (_, i) => (yMax / 4) * i);
   const xStep = Math.max(1, Math.floor(data.length / 6));
-  const xIdxs = [];
+  const xIdxs = /** @type {number[]} */ ([]);
   for (let i = 0; i < data.length; i += xStep) xIdxs.push(i);
   if (xIdxs[xIdxs.length - 1] !== data.length - 1) xIdxs.push(data.length - 1);
 
@@ -106,24 +120,24 @@ function DailyArea({ data }) {
         {xIdxs.map(i => (
           <text key={i} x={sx(i)} y={H - 6} textAnchor="middle"
                 fill={C.muted} fontSize="9" fontFamily="'JetBrains Mono',monospace">
-            {fmtDate(data[i].shift_date)}
+            {fmtDate(data[i]?.shift_date)}
           </text>
         ))}
         {data.map((_, i) => (
           <rect key={i} x={sx(i) - bw / 2} y={p.t} width={bw} height={ch}
                 fill="transparent" onMouseEnter={() => setHov(i)} onMouseLeave={() => setHov(null)} />
         ))}
-        {hov != null && (
+        {hov != null && hd && (
           <>
             <line x1={sx(hov)} x2={sx(hov)} y1={p.t} y2={p.t + ch}
                   stroke={C.ember} strokeWidth="1" strokeDasharray="4,3" />
-            <circle cx={sx(hov)} cy={sy(data[hov].net_sales)} r="4"
+            <circle cx={sx(hov)} cy={sy(hd.net_sales)} r="4"
                     fill={C.ember} stroke={C.cream} strokeWidth="2" />
           </>
         )}
       </svg>
       {hd && (
-        <Tip style={{ left: `${(hov / Math.max(data.length - 1, 1)) * 100}%`, top: 28, transform: 'translateX(-50%)' }}>
+        <Tip style={{ left: `${(/** @type {number} */ (hov) / Math.max(data.length - 1, 1)) * 100}%`, top: 28, transform: 'translateX(-50%)' }}>
           <div style={{ fontWeight: 700, marginBottom: 2 }}>{fmtDate(hd.shift_date)}</div>
           <div>{formatDollars(hd.net_sales)}</div>
           <div style={{ color: C.hair, fontSize: 10 }}>{fmtNum(hd.orders)} orders · {fmtNum(hd.guests)} guests</div>
@@ -136,12 +150,18 @@ function DailyArea({ data }) {
 /* ================================================================
    DAY OF WEEK — grouped bars (current vs prior)
    ================================================================ */
+/** @param {{ current: DowRow[], prior: DowRow[] }} props */
 function DowBars({ current, prior }) {
-  const [hov, setHov] = useState(null);
+  const [hov, setHov] = useState(/** @type {number | null} */ (null));
   if (!current.length) return null;
 
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const byDay = (arr) => { const m = {}; arr.forEach(r => { m[r.day_of_week] = r; }); return m; };
+  /** @param {DowRow[]} arr */
+  const byDay = (arr) => {
+    const m = /** @type {Record<string, DowRow>} */ ({});
+    arr.forEach(r => { m[r.day_of_week] = r; });
+    return m;
+  };
   const cm = byDay(current), pm = byDay(prior);
 
   const W = 400, H = 220;
@@ -151,6 +171,7 @@ function DowBars({ current, prior }) {
   const allVals = days.flatMap(d => [cm[d]?.net_sales || 0, pm[d]?.net_sales || 0]);
   const max = Math.max(...allVals);
   const yMax = Math.ceil(max / 200000) * 200000 || 200000;
+  /** @param {number | null | undefined} v */
   const sy = v => p.t + ch - ((v || 0) / yMax) * ch;
 
   const gw = cw / days.length;
@@ -201,6 +222,7 @@ function DowBars({ current, prior }) {
       </div>
       {hov != null && (() => {
         const d = days[hov];
+        if (!d) return null;
         const cv = cm[d]?.net_sales || 0, pv = pm[d]?.net_sales || 0;
         const chg = pv > 0 ? ((cv - pv) / pv * 100) : null;
         return (
@@ -222,14 +244,20 @@ function DowBars({ current, prior }) {
 /* ================================================================
    HOURLY — dual line chart (current vs prior year)
    ================================================================ */
+/** @param {{ current: HourRow[], prior: HourRow[] }} props */
 function HourlyLines({ current, prior }) {
-  const [hov, setHov] = useState(null);
+  const [hov, setHov] = useState(/** @type {number | null} */ (null));
   if (!current.length) return null;
 
   // Only show hours with meaningful data (filter very low hours)
-  const active = current.filter(h => h.net_sales > 500);
+  const active = current.filter(h => (h.net_sales || 0) > 500);
   const hours = active.map(h => h.hour_24);
-  const byHour = (arr) => { const m = {}; arr.forEach(r => { m[r.hour_24] = r; }); return m; };
+  /** @param {HourRow[]} arr */
+  const byHour = (arr) => {
+    const m = /** @type {Record<number, HourRow>} */ ({});
+    arr.forEach(r => { m[r.hour_24] = r; });
+    return m;
+  };
   const cm = byHour(current), pm = byHour(prior);
 
   const W = 400, H = 220;
@@ -240,15 +268,19 @@ function HourlyLines({ current, prior }) {
   const max = Math.max(...allVals);
   const yMax = Math.ceil(max / 100000) * 100000 || 100000;
 
+  /** @param {number} i */
   const sx = i => p.l + (i / Math.max(hours.length - 1, 1)) * cw;
+  /** @param {number | null | undefined} v */
   const sy = v => p.t + ch - ((v || 0) / yMax) * ch;
 
+  /** @param {Record<number, HourRow>} map */
   const mkLine = (map) => hours.map((h, i) => `${sx(i).toFixed(1)},${sy(map[h]?.net_sales || 0).toFixed(1)}`);
   const cPts = mkLine(cm), pPts = mkLine(pm);
   const cLine = `M${cPts.join('L')}`;
   const pLine = `M${pPts.join('L')}`;
   const cArea = `M${sx(0)},${sy(0)} L${cPts.join('L')} L${sx(hours.length - 1)},${sy(0)} Z`;
 
+  /** @param {number} h */
   const fmtHour = h => {
     if (h === 0) return '12a';
     if (h < 12) return `${h}a`;
@@ -299,14 +331,18 @@ function HourlyLines({ current, prior }) {
                   fill="transparent" onMouseEnter={() => setHov(i)} onMouseLeave={() => setHov(null)} />
           );
         })}
-        {hov != null && (
-          <>
-            <circle cx={sx(hov)} cy={sy(cm[hours[hov]]?.net_sales || 0)} r="4"
-                    fill={C.ember} stroke={C.cream} strokeWidth="2" />
-            <circle cx={sx(hov)} cy={sy(pm[hours[hov]]?.net_sales || 0)} r="3.5"
-                    fill={C.hair} stroke={C.cream} strokeWidth="1.5" />
-          </>
-        )}
+        {hov != null && (() => {
+          const hh = hours[hov];
+          if (hh == null) return null;
+          return (
+            <>
+              <circle cx={sx(hov)} cy={sy(cm[hh]?.net_sales || 0)} r="4"
+                      fill={C.ember} stroke={C.cream} strokeWidth="2" />
+              <circle cx={sx(hov)} cy={sy(pm[hh]?.net_sales || 0)} r="3.5"
+                      fill={C.hair} stroke={C.cream} strokeWidth="1.5" />
+            </>
+          );
+        })()}
       </svg>
       <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 10, color: C.muted }}>
         <span><span style={{ display: 'inline-block', width: 14, height: 2, background: C.ember, marginRight: 4, verticalAlign: 1 }} />Current</span>
@@ -314,6 +350,7 @@ function HourlyLines({ current, prior }) {
       </div>
       {hov != null && (() => {
         const h = hours[hov];
+        if (h == null) return null;
         const cv = cm[h]?.net_sales || 0, pv = pm[h]?.net_sales || 0;
         return (
           <Tip style={{ left: `${(hov / Math.max(hours.length - 1, 1)) * 100}%`, top: 0, transform: 'translateX(-50%)' }}>
@@ -329,8 +366,9 @@ function HourlyLines({ current, prior }) {
 /* ================================================================
    SPEND — simple bars
    ================================================================ */
+/** @param {{ data: SpendRow[] }} props */
 function SpendBars({ data }) {
-  const [hov, setHov] = useState(null);
+  const [hov, setHov] = useState(/** @type {number | null} */ (null));
   if (!data.length) return null;
 
   const W = 400, H = 180;
@@ -339,8 +377,11 @@ function SpendBars({ data }) {
 
   const max = Math.max(...data.map(d => d.shamrock_total_spend || 0));
   const yMax = Math.ceil(max / 1000) * 1000 || 1000;
+  /** @param {number | null | undefined} v */
   const sy = v => p.t + ch - ((v || 0) / yMax) * ch;
   const bw = (cw / data.length) * 0.6;
+
+  const hd = hov != null ? data[hov] : null;
 
   return (
     <div className="card" style={{ position: 'relative', overflow: 'visible' }}>
@@ -374,10 +415,10 @@ function SpendBars({ data }) {
           );
         })}
       </svg>
-      {hov != null && (
+      {hov != null && hd && (
         <Tip style={{ left: `${((hov + 0.5) / data.length) * 100}%`, top: 0, transform: 'translateX(-50%)' }}>
-          <div style={{ fontWeight: 700 }}>{data[hov].month}</div>
-          <div>{formatDollars(data[hov].shamrock_total_spend)}</div>
+          <div style={{ fontWeight: 700 }}>{hd.month}</div>
+          <div>{formatDollars(hd.shamrock_total_spend)}</div>
         </Tip>
       )}
     </div>
@@ -387,6 +428,7 @@ function SpendBars({ data }) {
 /* ================================================================
    TOP ITEMS — table
    ================================================================ */
+/** @param {{ items: TopItemRow[] }} props */
 function TopItems({ items }) {
   if (!items.length) return (
     <div className="card">
@@ -446,6 +488,17 @@ function TopItems({ items }) {
 /* ================================================================
    MAIN EXPORT
    ================================================================ */
+/**
+ * @param {{
+ *   daily: DailyRow[],
+ *   dowCurrent: DowRow[],
+ *   dowPrior: DowRow[],
+ *   hourlyCurrent: HourRow[],
+ *   hourlyPrior: HourRow[],
+ *   spend: SpendRow[],
+ *   top: TopItemRow[],
+ * }} props
+ */
 export default function AnalyticsCharts({
   daily, dowCurrent, dowPrior, hourlyCurrent, hourlyPrior, spend, top,
 }) {

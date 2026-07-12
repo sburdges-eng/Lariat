@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 // Temp-log board — grid of CCP tiles + quick entry.
 //
@@ -14,7 +14,21 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { clientFetch } from '@/lib/clientFetch';
+import { classifyReading } from '../../../lib/tempLog';
 
+/** @typedef {import('./page.jsx').TempLogRow} TempLogRow */
+/** @typedef {import('../../../lib/tempLog.ts').TempPoint} TempPoint */
+/** @typedef {import('../../../lib/tempLog.ts').PointSummary} PointSummary */
+/**
+ * `entries` state holds either the initial server-rendered raw DB rows
+ * (no `point_label` — page.jsx does a bare `SELECT *`) or rows from a
+ * `refetch()` against GET /api/temp-log, which joins in `point_label`
+ * (see app/api/temp-log/route.js). Optional field, not a redefinition
+ * of the DB row shape.
+ * @typedef {TempLogRow & { point_label?: string | null }} DisplayEntry
+ */
+
+/** @param {string | null | undefined} iso */
 function fmtTime(iso) {
   if (!iso) return '—';
   // sqlite stores `datetime('now')` as 'YYYY-MM-DD HH:MM:SS' in UTC,
@@ -28,6 +42,7 @@ function fmtTime(iso) {
   return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
+/** @param {number | null | undefined} f */
 function fmtTemp(f) {
   if (f === null || f === undefined || !Number.isFinite(f)) return '—';
   // One decimal is the probe's honest resolution; zero decimals looks
@@ -35,6 +50,7 @@ function fmtTemp(f) {
   return `${(Math.round(f * 10) / 10).toFixed(1)}°F`;
 }
 
+/** @param {{ required_min_f: number | null, required_max_f: number | null }} p */
 function boundLabel(p) {
   if (p.required_min_f !== null && p.required_max_f !== null) {
     return `${p.required_min_f}–${p.required_max_f}°F`;
@@ -44,6 +60,15 @@ function boundLabel(p) {
   return '';
 }
 
+/**
+ * @param {{
+ *   initialEntries: TempLogRow[],
+ *   initialSummary: PointSummary[],
+ *   points: readonly TempPoint[],
+ *   locationId: string,
+ *   date: string,
+ * }} props
+ */
 export default function TempLogBoard({
   initialEntries,
   initialSummary,
@@ -52,7 +77,7 @@ export default function TempLogBoard({
   date,
 }) {
   const [summary, setSummary] = useState(initialSummary);
-  const [entries, setEntries] = useState(initialEntries);
+  const [entries, setEntries] = useState(/** @type {DisplayEntry[]} */ (initialEntries));
   const [cookId, setCookId] = useState('');
 
   const [pointId, setPointId] = useState(points[0]?.id || '');
@@ -92,6 +117,7 @@ export default function TempLogBoard({
     }
   };
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submit = async (e) => {
     e.preventDefault();
     if (!pointId) return;
@@ -286,11 +312,30 @@ export default function TempLogBoard({
           <div className="tl-entries">
             {entries.map((e) => {
               const p = points.find((x) => x.id === e.point_id);
-              const inRange =
-                (e.required_min_f === null || e.required_min_f === undefined || e.reading_f >= e.required_min_f) &&
-                (e.required_max_f === null || e.required_max_f === undefined || e.reading_f <= e.required_max_f);
+              // Classify through the same shared classifier the tile grid's
+              // summary uses (classifyReadings → classifyReading), so both
+              // surfaces agree — including readings outside the absolute
+              // sanity range [-100°F, 500°F], which are "invalid" (bad
+              // probe / wrong units), not a red compliance miss. Limits come
+              // from the row's snapshotted required_min_f/max_f — the same
+              // audit-faithful values the entry displays.
+              const cls = classifyReading(
+                {
+                  id: e.point_id,
+                  label: e.point_label || p?.label || e.point_id,
+                  ccp_id: p?.ccp_id ?? '',
+                  citation: p?.citation ?? '',
+                  required_min_f: e.required_min_f ?? null,
+                  required_max_f: e.required_max_f ?? null,
+                },
+                e.reading_f,
+              );
               const note = (e.corrective_action || '').trim();
-              const tone = inRange ? 'green' : note ? 'yellow' : 'red';
+              const invalid = cls === 'invalid';
+              // Invalid mirrors the tile treatment (red — the CCP reading is
+              // unverified) but is flagged as invalid below, instead of
+              // masquerading as a critical/corrective range miss.
+              const tone = cls === 'ok' ? 'green' : !invalid && note ? 'yellow' : 'red';
               return (
                 <div key={e.id} className={`tl-entry tl-tone-${tone}`}>
                   <div className="tl-entry-main">
@@ -300,6 +345,7 @@ export default function TempLogBoard({
                   <div className="tl-entry-meta">
                     {fmtTime(e.created_at)}
                     {e.cook_id ? ` · ${e.cook_id}` : ''}
+                    {invalid ? ' · invalid reading — check the probe' : ''}
                     {note ? ` · note: ${note}` : ''}
                   </div>
                 </div>

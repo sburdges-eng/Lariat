@@ -1,4 +1,7 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
+//
 // Thermometer calibration log (F9 / FDA §4-502.11).
 //
 // POST /api/thermometer-calibrations → record one calibration reading.
@@ -39,6 +42,7 @@ import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/** @param {unknown} s @param {number} max @returns {string | null} */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
@@ -47,10 +51,12 @@ const clip = (s, max) => {
 
 // ── POST /api/thermometer-calibrations ────────────────────────────
 
+/** @param {Request} req */
 export async function POST(req) {
   return withIdempotency(req, () => calibrationsPostHandler(req));
 }
 
+/** @param {Request} req */
 async function calibrationsPostHandler(req) {
   try {
     const body = await req.json();
@@ -222,6 +228,7 @@ async function calibrationsPostHandler(req) {
 
 // ── GET /api/thermometer-calibrations ─────────────────────────────
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const url = new URL(req.url);
@@ -237,7 +244,8 @@ export async function GET(req) {
       args.push(probe_id);
     }
     q += ' ORDER BY calibrated_at DESC, id DESC';
-    const rows = db.prepare(q).all(...args);
+    const rows = /** @type {import('../../../lib/calibrations').CalibrationRow[]} */ (
+      db.prepare(q).all(...args));
 
     const summary = classifyProbes(rows, {
       now: new Date(),

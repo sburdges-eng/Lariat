@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 /**
  * useLocation() — shared client hook for the selected kitchen location.
@@ -19,6 +19,15 @@ export const LOC_KEY = 'lariat_location';
 export const LOC_EVENT = 'lariat:location-change';
 export const DEFAULT_LOCATION = 'default';
 
+/**
+ * @typedef {Object} LocationState
+ * @property {string} locationId
+ * @property {string} locQuery
+ * @property {(id: string) => void} setLocation
+ * @property {boolean} isDefault
+ */
+
+/** @returns {string} */
 function safeRead() {
   if (typeof window === 'undefined') return DEFAULT_LOCATION;
   try {
@@ -28,6 +37,7 @@ function safeRead() {
   }
 }
 
+/** @param {string} id */
 function safeWrite(id) {
   if (typeof window === 'undefined') return;
   try {
@@ -37,10 +47,15 @@ function safeWrite(id) {
   }
 }
 
+/**
+ * @param {string} id
+ * @returns {string}
+ */
 function qsFor(id) {
   return !id || id === DEFAULT_LOCATION ? '' : `?location=${encodeURIComponent(id)}`;
 }
 
+/** @returns {LocationState} */
 export function useLocation() {
   // We deliberately seed with DEFAULT_LOCATION on the server so the first
   // render is identical on server + client; the real value lands in effect.
@@ -50,11 +65,14 @@ export function useLocation() {
   // Hydrate from localStorage after mount, and keep in sync across tabs.
   useEffect(() => {
     setLocationId(safeRead());
+    /** @param {StorageEvent} e */
     const onStorage = (e) => {
       if (e.key === LOC_KEY) setLocationId(e.newValue || DEFAULT_LOCATION);
     };
+    /** @param {Event} e */
     const onEvent = (e) => {
-      setLocationId(e?.detail || DEFAULT_LOCATION);
+      const detail = /** @type {CustomEvent<string>} */ (e).detail;
+      setLocationId(detail || DEFAULT_LOCATION);
     };
     window.addEventListener('storage', onStorage);
     window.addEventListener(LOC_EVENT, onEvent);
@@ -74,7 +92,7 @@ export function useLocation() {
     }
   }, [params]);
 
-  const setLocation = useCallback((id) => {
+  const setLocation = useCallback(/** @param {string} id */ (id) => {
     const next = id && id.trim() ? id.trim() : DEFAULT_LOCATION;
     safeWrite(next);
     setLocationId(next);
@@ -89,11 +107,4 @@ export function useLocation() {
     setLocation,
     isDefault: locationId === DEFAULT_LOCATION,
   };
-}
-
-/** Apply locQuery to an href, leaving explicit query strings alone. */
-export function applyLocationQuery(href, locQuery) {
-  if (!href || !locQuery) return href;
-  if (href.includes('?')) return href;
-  return `${href}${locQuery}`;
 }

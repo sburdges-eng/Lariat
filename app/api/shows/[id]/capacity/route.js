@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 /**
  * POST /api/shows/[id]/capacity — set or clear the per-show capacity
  * override stored on `shows.status_json.capacity`.
@@ -24,18 +26,32 @@ export const dynamic = 'force-dynamic';
 const SCOPE = 'event.show_capacity';
 const MAX_CAPACITY = 5000;
 
+/** @typedef {{ params: Promise<{ id?: string }> | { id?: string } }} RouteCtx */
+
+/**
+ * @param {unknown} raw
+ * @returns {number | null}
+ */
 function parseShowId(raw) {
   const n = Number(raw);
   if (!Number.isInteger(n) || n <= 0) return null;
   return n;
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function POST(req, ctx) {
   const pinFail = await requirePinOrScope(req, SCOPE);
   if (pinFail) return pinFail;
   return withIdempotency(req, () => capacityPostHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function capacityPostHandler(req, { params }) {
 
   params = await params;
@@ -44,6 +60,7 @@ async function capacityPostHandler(req, { params }) {
     return Response.json({ error: 'Invalid show id' }, { status: 400 });
   }
 
+  /** @type {Record<string, unknown>} */
   let body;
   try {
     body = await req.json();
@@ -76,10 +93,14 @@ async function capacityPostHandler(req, { params }) {
   try {
     const db = getDb();
     const tx = db.transaction(() => {
-      const row = db
-        .prepare(`SELECT status_json FROM shows WHERE id = ? AND location_id = ?`)
-        .get(showId, loc);
+      // shows.status_json is TEXT NOT NULL DEFAULT '{}' (lib/db.ts), so plain string.
+      const row = /** @type {{ status_json: string } | undefined} */ (
+        db
+          .prepare(`SELECT status_json FROM shows WHERE id = ? AND location_id = ?`)
+          .get(showId, loc)
+      );
       if (!row) throw new Error('NotFound');
+      /** @type {{ capacity?: number }} */
       let status = {};
       try {
         const parsed = row.status_json ? JSON.parse(row.status_json) : {};

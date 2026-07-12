@@ -1,7 +1,8 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useEffect, useState } from 'react';
+import { KNOWN_SCOPES } from '../../../lib/tempPinScopes';
 
 // Temp-PIN management UI (T10).
 //
@@ -13,9 +14,41 @@ import { useEffect, useState } from 'react';
 //
 // Issuance shows the new PIN ONCE and never re-displays it. If the
 // cook loses the PIN, revoke and reissue.
+//
+// The scope checkbox list below is imported from lib/tempPinScopes'
+// KNOWN_SCOPES (the same canonical list lib/tempPin.ts re-exports and
+// the issue route validates against — split into its own crypto-free
+// module so this client component doesn't pull node:crypto into the
+// browser bundle) rather than hand-duplicated here — a local copy
+// previously drifted to a single stale entry ('beo.fire_at_edit')
+// while the real list grew to 9 scopes across several PRs, which meant
+// a manager
+// could never issue a temp PIN for any of the newer gated surfaces
+// (box office, sound/stage config, HACCP back-dating, prep-history,
+// specials editing, sick-worker/cert delegation) through this UI.
 
-const KNOWN_SCOPES = ['beo.fire_at_edit'];
+/**
+ * @typedef {Object} ActiveTempPin
+ * @property {number} id
+ * @property {string} label
+ * @property {string[]} scopes
+ * @property {string} issued_at
+ * @property {string} expires_at
+ */
 
+/**
+ * @typedef {Object} IssuedTempPin
+ * @property {number} id
+ * @property {string} pin
+ * @property {string} label
+ * @property {string} expires_at
+ * @property {string[]} scopes
+ */
+
+/**
+ * @param {string} localValue
+ * @returns {string | null}
+ */
 function localToIso(localValue) {
   // <input type="datetime-local"> gives "YYYY-MM-DDTHH:MM" (no timezone).
   // Treat as local, convert to UTC ISO.
@@ -25,6 +58,7 @@ function localToIso(localValue) {
   return d.toISOString();
 }
 
+/** @returns {string} */
 function defaultExpires() {
   // Default = end of current local day.
   const d = new Date();
@@ -38,15 +72,15 @@ function defaultExpires() {
 }
 
 export default function TempPinsPage() {
-  const [active, setActive] = useState([]);
+  const [active, setActive] = useState(/** @type {ActiveTempPin[]} */ ([]));
   const [loaded, setLoaded] = useState(false);
   const [err, setErr] = useState('');
-  const [issued, setIssued] = useState(null); // { id, pin, label, expires_at, scopes }
+  const [issued, setIssued] = useState(/** @type {IssuedTempPin | null} */ (null));
 
   // Add-form state
   const [label, setLabel] = useState('');
   const [expires, setExpires] = useState(defaultExpires());
-  const [scopes, setScopes] = useState(['beo.fire_at_edit']);
+  const [scopes, setScopes] = useState(/** @type {string[]} */ (['beo.fire_at_edit']));
 
   const load = async () => {
     setErr('');
@@ -57,7 +91,7 @@ export default function TempPinsPage() {
         setLoaded(true);
         return;
       }
-      const j = await res.json();
+      const j = /** @type {{ pins?: ActiveTempPin[] }} */ (await res.json());
       setActive(Array.isArray(j.pins) ? j.pins : []);
       setLoaded(true);
     } catch {
@@ -92,7 +126,7 @@ export default function TempPinsPage() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ label: label.trim(), expires_at: expiresIso, scopes }),
       });
-      const j = await res.json();
+      const j = /** @type {IssuedTempPin & { error?: string }} */ (await res.json());
       if (!res.ok) {
         setErr(j?.error || 'Didn’t save — try again');
         return;
@@ -105,6 +139,7 @@ export default function TempPinsPage() {
     }
   };
 
+  /** @param {number} id */
   const revoke = async (id) => {
     setErr('');
     if (!confirm('Stop this PIN from working?')) return;
@@ -124,6 +159,7 @@ export default function TempPinsPage() {
     }
   };
 
+  /** @param {string} s */
   const toggleScope = (s) =>
     setScopes((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
 
@@ -153,13 +189,13 @@ export default function TempPinsPage() {
           type="text"
           placeholder="Who's it for? (e.g. Sous chef Marco)"
           value={label}
-          onChange={(e) => setLabel(e.target.value)}
+          onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ e) => setLabel(e.target.value)}
           aria-label="PIN label"
         />
         <input
           type="datetime-local"
           value={expires}
-          onChange={(e) => setExpires(e.target.value)}
+          onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ e) => setExpires(e.target.value)}
           aria-label="Stops working"
         />
         <div className="tp-scopes" role="group" aria-label="Scopes">

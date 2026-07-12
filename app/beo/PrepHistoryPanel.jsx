@@ -1,7 +1,9 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+
+/** @typedef {import('../../lib/beoPrepHistory').PrepHistoryMatch} PrepHistoryMatch */
 
 /**
  * Right-rail panel that surfaces past prep records (from beo_prep_history)
@@ -11,6 +13,11 @@ import { useEffect, useMemo, useState } from 'react';
  * Fetches `/api/beo/prep-history?item=…&item=…` on items-change. Empty state
  * is rendered (not hidden) so the cook knows the panel exists when nothing
  * has been prepped before.
+ *
+ * @param {{
+ *   itemNames?: string[],
+ *   location?: string | null,
+ * }} props
  */
 export default function PrepHistoryPanel({ itemNames, location }) {
   const dedupedItems = useMemo(() => {
@@ -29,7 +36,7 @@ export default function PrepHistoryPanel({ itemNames, location }) {
 
   const itemsKey = dedupedItems.join('||');
 
-  const [matches, setMatches] = useState([]);
+  const [matches, setMatches] = useState(/** @type {PrepHistoryMatch[]} */ ([]));
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
 

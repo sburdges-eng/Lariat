@@ -1,8 +1,10 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
-import React from 'react';
 import StatusPill from '../StatusPill';
 
+/** @typedef {import('../../../lib/showsRepo.ts').ShowRow} ShowRow */
+
+/** @param {{ show: ShowRow | null | undefined }} props */
 export default function NewsTab({ show }) {
   const s = show?.status ?? {};
   return (

@@ -34,6 +34,17 @@ Per the issue's phased plan:
 - **P3:** lint rule banning new `.js` route handlers under `app/api/` once
   the migration drains.
 
+## Drift guard (P3 LIVE for app/api — 2026-07-12)
+
+**The `app/api` surface is fully drained** (final wave, 46 files). The
+guard `tests/js/test-checkjs-api-coverage.mjs` (wired into `npm run
+verify` and CI as `test:checkjs-api`) now runs with an EMPTY baseline —
+any `@ts-nocheck` directive under `app/api` fails CI. Fix the types
+instead (see below). Remaining pinned files live outside `app/api`
+(components/pages/scripts/tests); count them with
+`git grep -lE '^// @ts-nocheck' -- <path>` (a substring grep overcounts
+because drained files mention "@ts-nocheck" in their migration comments).
+
 ## How to migrate one file
 
 1. Delete the `// @ts-nocheck` header.

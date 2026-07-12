@@ -1,14 +1,20 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
-import React from 'react';
 import Link from 'next/link';
 import { formatDollars } from '../../lib/formatMoney';
 
+/** @typedef {import('../../lib/showsRepo.ts').ShowRow} ShowRow */
+
+/**
+ * @param {string} iso
+ * @returns {string}
+ */
 const fmtDate = (iso) => {
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 };
 
+/** @param {{ rows: ShowRow[] | null | undefined }} props */
 export default function BookingCalendar({ rows }) {
   if (!rows || rows.length === 0) {
     return (

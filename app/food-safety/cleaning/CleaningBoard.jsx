@@ -1,8 +1,10 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+
+/** @typedef {import('./page.jsx').CleaningLogRow} CleaningLogRow */
 
 const COMMON_AREAS = [
   'Line',
@@ -15,6 +17,7 @@ const COMMON_AREAS = [
   'Floor',
 ];
 
+/** @param {string} iso */
 function fmtTime(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -23,6 +26,14 @@ function fmtTime(iso) {
     : d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
+/**
+ * @param {{
+ *   rows: CleaningLogRow[],
+ *   locationId: string,
+ *   date: string,
+ *   citation: string,
+ * }} props
+ */
 export default function CleaningBoard({ rows, locationId, date, citation }) {
   const router = useRouter();
   const [cookId, setCookId] = useState('');
@@ -36,6 +47,7 @@ export default function CleaningBoard({ rows, locationId, date, citation }) {
     setCookId(window.localStorage.getItem('lariat_cook') || '');
   }, []);
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submit = async (e) => {
     e.preventDefault();
     if (!task.trim()) return;

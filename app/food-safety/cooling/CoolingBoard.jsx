@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 // Interactive board for the cooling subpage. Kitchen-tough: one button
 // to start a batch, one button per stage to log a reading, red countdown
@@ -7,6 +7,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 
+/** @typedef {import('../../../lib/cooling').OpenBatchScan} OpenBatchScan */
+/** @typedef {import('./page.jsx').CoolingRow} CoolingRow */
+
+/** @param {number | null | undefined} mins */
 function fmtClock(mins) {
   if (mins === null || mins === undefined || !Number.isFinite(mins)) return '—';
   const sign = mins < 0 ? '-' : '';
@@ -16,13 +20,25 @@ function fmtClock(mins) {
   return `${sign}${h}:${mm}`;
 }
 
+/** @param {string | null | undefined} iso */
 function fmtTime(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
   return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-export default function CoolingBoard({ open, scan, closed, date, locationId }) {
+/**
+ * `scan` stays in the props contract because page.jsx passes it, but the
+ * board doesn't read it — countdowns are rebuilt client-side from `open`.
+ * @param {{
+ *   open: CoolingRow[],
+ *   scan: Record<number, OpenBatchScan>,
+ *   closed: CoolingRow[],
+ *   date: string,
+ *   locationId: string,
+ * }} props
+ */
+export default function CoolingBoard({ open, closed, date, locationId }) {
   const router = useRouter();
   const [cookId, setCookId] = useState('');
   const [item, setItem] = useState('');
@@ -32,9 +48,9 @@ export default function CoolingBoard({ open, scan, closed, date, locationId }) {
   const [err, setErr] = useState('');
   // Reading panel state is keyed by batch id so two cooks can log two
   // batches at once without their inputs colliding.
-  const [reading, setReading] = useState({});
-  const [note, setNote] = useState({});
-  const [saving, setSaving] = useState({});
+  const [reading, setReading] = useState(/** @type {Record<number, string>} */ ({}));
+  const [note, setNote] = useState(/** @type {Record<number, string>} */ ({}));
+  const [saving, setSaving] = useState(/** @type {Record<number, boolean>} */ ({}));
   const [nowTs, setNowTs] = useState(Date.now());
 
   useEffect(() => {
@@ -50,10 +66,8 @@ export default function CoolingBoard({ open, scan, closed, date, locationId }) {
 
   const openLive = useMemo(() => {
     // Rebuild scan-like data from current time so countdowns don't stall
-    // between server renders. For batches already past stage-2 close,
-    // we keep the server scan's classification.
+    // between server renders.
     return open.map((b) => {
-      const serverScan = scan[b.id] || null;
       const startedMs = Date.parse(b.started_at);
       const elapsed = (nowTs - startedMs) / 60000;
       const stage1Elapsed = b.stage1_at ? (Date.parse(b.stage1_at) - startedMs) / 60000 : null;
@@ -62,13 +76,13 @@ export default function CoolingBoard({ open, scan, closed, date, locationId }) {
       const stage2Remaining = stage1Elapsed !== null ? 240 - (elapsed - stage1Elapsed) : null;
       return {
         ...b,
-        serverScan,
         stage: inStage1 ? 1 : 2,
         remaining: inStage1 ? stage1Remaining : stage2Remaining,
       };
     });
-  }, [open, scan, nowTs]);
+  }, [open, nowTs]);
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const startBatch = async (e) => {
     e.preventDefault();
     if (!item.trim()) return;
@@ -104,6 +118,7 @@ export default function CoolingBoard({ open, scan, closed, date, locationId }) {
     }
   };
 
+  /** @param {number} id */
   const logReading = async (id) => {
     const val = Number(reading[id]);
     if (!Number.isFinite(val)) {
@@ -315,7 +330,7 @@ export default function CoolingBoard({ open, scan, closed, date, locationId }) {
                 <div className="cooling-closed-meta">
                   <time dateTime={c.started_at}>{fmtTime(c.started_at)}</time>
                   {' → '}
-                  <time dateTime={c.stage2_at || c.stage1_at}>{fmtTime(c.stage2_at || c.stage1_at)}</time>
+                  <time dateTime={(c.stage2_at || c.stage1_at) ?? undefined}>{fmtTime(c.stage2_at || c.stage1_at)}</time>
                   {c.stage2_reading_f != null && ` · closed @ ${c.stage2_reading_f}°F`}
                 </div>
                 <div className="cooling-closed-status">

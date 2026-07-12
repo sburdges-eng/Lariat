@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // Wage notices board (L7 / C.R.S. §8-4-103).
 // Server-renders the latest notice per cook for this location and
 // the freshness summary. Client board posts the "Sign new notice"
@@ -13,8 +13,13 @@ import {
 } from '../../../lib/wageNotices';
 import WageNoticesBoard from './WageNoticesBoard.jsx';
 
+/** @typedef {import('../../../lib/db').WageNotice} WageNotice */
+
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props
+ */
 export default async function WageNoticesPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -25,22 +30,25 @@ export default async function WageNoticesPage({ searchParams }) {
   const today = new Date().toISOString().slice(0, 10);
 
   const db = getDb();
-  const rows = db
-    .prepare(
-      `SELECT w.*
-         FROM wage_notices w
-         JOIN (
-           SELECT cook_id, MAX(signed_on) AS latest
-             FROM wage_notices
-            WHERE location_id = ?
-            GROUP BY cook_id
-         ) m ON m.cook_id = w.cook_id AND m.latest = w.signed_on
-        WHERE w.location_id = ?
-        ORDER BY w.cook_id ASC, w.id DESC`,
-    )
-    .all(loc, loc);
+  const rows = /** @type {WageNotice[]} */ (
+    db
+      .prepare(
+        `SELECT w.*
+           FROM wage_notices w
+           JOIN (
+             SELECT cook_id, MAX(signed_on) AS latest
+               FROM wage_notices
+              WHERE location_id = ?
+              GROUP BY cook_id
+           ) m ON m.cook_id = w.cook_id AND m.latest = w.signed_on
+          WHERE w.location_id = ?
+          ORDER BY w.cook_id ASC, w.id DESC`,
+      )
+      .all(loc, loc)
+  );
 
   // Dedupe to one row per cook (highest id on a same-day tie).
+  /** @type {Map<string, WageNotice>} */
   const byCook = new Map();
   for (const r of rows) {
     const prev = byCook.get(r.cook_id);

@@ -1,11 +1,20 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { formatDollars } from '../../../../lib/formatMoney';
 
+/** @typedef {import('../page.jsx').TonightPayload} TonightPayload */
+/** @typedef {import('../../../../lib/showsTonight').Attendance} Attendance */
+/** @typedef {import('../../../../lib/showsTonight').AttendanceStatus} AttendanceStatus */
+/** @typedef {import('../../../../lib/showsTonight').BoxOfficeLine} BoxOfficeLine */
+/** @typedef {import('../../../../lib/showsTonight').RunOfShowEntry} RunOfShowEntry */
+
 const POLL_MS = 30_000;
 
+/** @type {Record<string, string>} */
 const SOURCE_LABELS = {
   dice: 'DICE',
   walkup: 'Walk-up',
@@ -14,6 +23,7 @@ const SOURCE_LABELS = {
   guestlist: 'Guest list',
 };
 
+/** @type {Record<AttendanceStatus, string>} */
 const ATTENDANCE_COLOR = {
   unset: 'var(--muted)',
   under: 'var(--muted)',
@@ -22,6 +32,7 @@ const ATTENDANCE_COLOR = {
   over: 'var(--red, #8b2e1f)',
 };
 
+/** @type {Record<AttendanceStatus, string>} */
 const ATTENDANCE_LABEL = {
   unset: 'Tickets sold',
   under: 'Attendance',
@@ -30,6 +41,7 @@ const ATTENDANCE_LABEL = {
   over: 'Attendance · over',
 };
 
+/** @param {string | null | undefined} iso */
 function formatTimestamp(iso) {
   if (!iso) return '';
   try {
@@ -39,6 +51,7 @@ function formatTimestamp(iso) {
   }
 }
 
+/** @param {string | null | undefined} s */
 function parseClockMinutes(s) {
   if (typeof s !== 'string') return null;
   const m = /^(\d{1,2}):(\d{2})\s*(am|pm)?$/i.exec(s.trim());
@@ -51,6 +64,11 @@ function parseClockMinutes(s) {
   return h * 60 + min;
 }
 
+/**
+ * @param {RunOfShowEntry[] | null | undefined} entries
+ * @param {Date} [now]
+ * @returns {RunOfShowEntry | null}
+ */
 function nextRunOfShowEntry(entries, now = new Date()) {
   if (!entries || entries.length === 0) return null;
   const nowMins = now.getHours() * 60 + now.getMinutes();
@@ -58,11 +76,25 @@ function nextRunOfShowEntry(entries, now = new Date()) {
     const mins = parseClockMinutes(e?.time);
     if (mins != null && mins >= nowMins) return e;
   }
-  return entries[entries.length - 1];
+  return entries[entries.length - 1] ?? null;
 }
 
+/**
+ * @param {{
+ *   attendance: Attendance | null,
+ *   capacityOverride: number | null,
+ *   venueCapacity: number | null,
+ * }} props
+ */
 function AttendanceKPI({ attendance, capacityOverride, venueCapacity }) {
-  const a = attendance ?? { scanned_qty: 0, sold_qty: 0, capacity: null, scanned_pct: null, status: 'unset' };
+  const a = attendance ?? {
+    scanned_qty: 0,
+    sold_qty: 0,
+    capacity: null,
+    scanned_pct: null,
+    sold_pct: null,
+    status: /** @type {AttendanceStatus} */ ('unset'),
+  };
   const color = ATTENDANCE_COLOR[a.status] || ATTENDANCE_COLOR.unset;
   const label = ATTENDANCE_LABEL[a.status] || ATTENDANCE_LABEL.unset;
   const value = a.capacity ? `${a.scanned_qty} / ${a.capacity}` : (a.sold_qty || 0);
@@ -112,6 +144,7 @@ function AttendanceKPI({ attendance, capacityOverride, venueCapacity }) {
   );
 }
 
+/** @param {{ label: string, value: string | number, sub: string }} props */
 function KPI({ label, value, sub }) {
   return (
     <div className="card" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -126,6 +159,14 @@ function KPI({ label, value, sub }) {
   );
 }
 
+/**
+ * @param {{
+ *   initialPayload: TonightPayload,
+ *   loc: string,
+ *   date: string,
+ *   showId: number,
+ * }} props
+ */
 export default function TonightLiveClient({ initialPayload, loc, date, showId }) {
   const [payload, setPayload] = useState(initialPayload);
   const [updatedAt, setUpdatedAt] = useState(() => new Date());
@@ -139,7 +180,7 @@ export default function TonightLiveClient({ initialPayload, loc, date, showId })
       const url = `/api/shows/tonight?location=${encodeURIComponent(loc)}&date=${encodeURIComponent(date)}`;
       const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) return;
-      const data = await res.json();
+      const data = /** @type {TonightPayload} */ (await res.json());
       setPayload(data);
       setUpdatedAt(new Date());
     } catch {
@@ -179,10 +220,11 @@ export default function TonightLiveClient({ initialPayload, loc, date, showId })
   const attendance = payload?.attendance ?? null;
   const boxOffice = payload?.box_office_summary ?? {
     total_qty: 0,
+    total_face_value: 0,
     total_revenue: 0,
     total_fees: 0,
     scanned_qty: 0,
-    by_source: {},
+    by_source: /** @type {import('../../../../lib/showsTonight').BoxOfficeSummary['by_source']} */ ({}),
   };
   const runOfShow = Array.isArray(payload?.run_of_show) ? payload.run_of_show : [];
   const latestScene = payload?.latest_sound_scene ?? null;

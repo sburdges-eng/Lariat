@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 // EventFirePanel — per-event fire schedule read-only view (T3).
@@ -10,7 +10,14 @@
 import { useEffect, useState } from 'react';
 import { ageBucketFor } from '../../../lib/beoFireSchedule';
 
-/** Format an ISO fire_at string to a local clock time string (e.g. "7:30 PM"). */
+/** @typedef {import('../../../lib/beoFireSchedule').StationBucket} StationBucket */
+/** @typedef {'idle' | 'loading' | 'error' | 'empty' | 'loaded'} FirePanelState */
+
+/**
+ * Format an ISO fire_at string to a local clock time string (e.g. "7:30 PM").
+ * @param {string | null | undefined} fireAt
+ * @returns {string}
+ */
 function formatFireTime(fireAt) {
   if (!fireAt) return '';
   try {
@@ -20,9 +27,12 @@ function formatFireTime(fireAt) {
   }
 }
 
+/**
+ * @param {{ eventId?: number | null, location?: string }} props
+ */
 export default function EventFirePanel({ eventId, location = 'default' }) {
-  const [state, setState] = useState('idle'); // 'idle' | 'loading' | 'error' | 'empty' | 'loaded'
-  const [stations, setStations] = useState([]);
+  const [state, setState] = useState(/** @type {FirePanelState} */ ('idle'));
+  const [stations, setStations] = useState(/** @type {StationBucket[]} */ ([]));
 
   useEffect(() => {
     if (eventId == null) {
@@ -74,7 +84,7 @@ export default function EventFirePanel({ eventId, location = 'default' }) {
   if (state === 'error') {
     return (
       <div data-testid="event-fire-error" className="beo-fire-error">
-        Couldn't load fire schedule — tap to retry.
+        Couldn&apos;t load fire schedule — tap to retry.
       </div>
     );
   }

@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 // Calibrations board — per-probe tiles + quick-entry form.
 //
@@ -15,9 +15,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+/** @typedef {import('./page.jsx').ThermometerCalibrationRow} ThermometerCalibrationRow */
+/** @typedef {import('../../../lib/calibrations.ts').ProbeSummary} ProbeSummary */
+/** @typedef {import('../../../lib/calibrations.ts').ProbeStatus} ProbeStatus */
+/** @typedef {import('../../../lib/calibrations.ts').CalibrationMethod} CalibrationMethod */
+
 const FDA_CITATION = 'FDA §4-502.11 — temp measuring device accurate within ±2°F';
 const BOIL_FT_PER_F = 550;
 
+/** @param {string | null | undefined} iso */
 function fmtTime(iso) {
   if (!iso) return '—';
   const hasTz = /[zZ]|[+-]\d\d:?\d\d$/.test(iso);
@@ -31,6 +37,7 @@ function fmtTime(iso) {
   });
 }
 
+/** @param {string | null | undefined} iso */
 function fmtDate(iso) {
   if (!iso) return '—';
   const hasTz = /[zZ]|[+-]\d\d:?\d\d$/.test(iso);
@@ -39,27 +46,36 @@ function fmtDate(iso) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+/** @param {number | null | undefined} f */
 function fmtTemp(f) {
   if (f === null || f === undefined || !Number.isFinite(f)) return '—';
   return `${(Math.round(f * 10) / 10).toFixed(1)}°F`;
 }
 
+/** @param {number} elev */
 function boilingAt(elev) {
   if (!Number.isFinite(elev) || elev <= 0) return 212;
   return 212 - elev / BOIL_FT_PER_F;
 }
 
+/**
+ * @param {string} method
+ * @param {number} elev
+ * @returns {number | null}
+ */
 function expectedFor(method, elev) {
   if (method === 'ice_point') return 32;
   if (method === 'boiling_point') return boilingAt(elev);
   return null;
 }
 
+/** @type {Record<string, string>} */
 const METHOD_LABELS = {
   ice_point: 'Ice-point (32°F slurry)',
   boiling_point: 'Boiling-point (altitude-adjusted)',
 };
 
+/** @param {ProbeStatus} status */
 function statusLabel(status) {
   switch (status) {
     case 'ok':
@@ -77,6 +93,7 @@ function statusLabel(status) {
   }
 }
 
+/** @param {ProbeStatus} status */
 function statusTone(status) {
   if (status === 'failed' || status === 'overdue') return 'red';
   if (status === 'due_soon') return 'yellow';
@@ -84,6 +101,17 @@ function statusTone(status) {
   return 'green';
 }
 
+/**
+ * @param {{
+ *   initialEntries: ThermometerCalibrationRow[],
+ *   initialSummary: ProbeSummary[],
+ *   methods: CalibrationMethod[],
+ *   locationId: string,
+ *   defaultElevationFt: number,
+ *   toleranceF: number,
+ *   defaultFrequencyDays: number,
+ * }} props
+ */
 export default function CalibrationsBoard({
   initialEntries,
   initialSummary,
@@ -98,7 +126,7 @@ export default function CalibrationsBoard({
   const [cookId, setCookId] = useState('');
 
   const [probeId, setProbeId] = useState('');
-  const [method, setMethod] = useState(methods[0] || 'ice_point');
+  const [method, setMethod] = useState(/** @type {string} */ (methods[0] || 'ice_point'));
   const [reading, setReading] = useState('');
   const [elevationFt, setElevationFt] = useState(String(defaultElevationFt));
   const [note, setNote] = useState('');
@@ -151,6 +179,7 @@ export default function CalibrationsBoard({
     }
   };
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submit = async (e) => {
     e.preventDefault();
     if (!probeId.trim()) {

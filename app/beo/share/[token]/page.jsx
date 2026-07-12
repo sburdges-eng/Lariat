@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../../lib/db';
 import { isValidShareTokenShape } from '../../../../lib/beoShare';
 import { computeEstimateTotals, groupLineItemsBySection } from '../../../../lib/beoEstimate';
@@ -6,6 +8,35 @@ import EstimateDocument from '../../_components/EstimateDocument';
 import SignForm from './SignForm';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * Next 15 route context: `params` may be a promise.
+ * @typedef {{ params: Promise<{ token?: string }> | { token?: string } }} PageProps
+ */
+
+/**
+ * The public-doc columns this page reads off beo_events for the guest
+ * render. Mirrors what GET /api/beo/share/[token] returns (minus
+ * location_id, which that route strips before responding and this page
+ * never selects).
+ * @typedef {{ id: number, title: string, event_date: string | null,
+ *             event_time: string | null, contact_name: string | null,
+ *             guest_count: number | null, notes: string | null,
+ *             tax_rate: number | null, service_fee_pct: number | null }} ShareEventRow
+ */
+
+/**
+ * @typedef {{ id: number, sort_order: number | null, item_name: string,
+ *             category: string | null, unit_cost: number | null,
+ *             quantity: number | null, course_id: number | null }} ShareLineItemRow
+ */
+
+/**
+ * @typedef {{ id: number, course_label: string, fire_at: string | null,
+ *             notes: string | null, sort_order: number | null }} ShareCourseRow
+ */
+
+/** @typedef {{ id: number, signed_name: string, signed_at: string }} ShareSignatureRow */
 
 // Hide cockpit chrome on this guest-facing route and paint the viewport the
 // heritage cream so the page reads as a standalone document, not an app screen.
@@ -66,46 +97,57 @@ function notFound() {
   );
 }
 
+/** @param {PageProps} props */
 export default async function BeoSharePage({ params }) {
   const p = (await params) || {};
   const token = p.token;
   if (!isValidShareTokenShape(token)) return notFound();
 
   const db = getDb();
-  const event = db
+  // Same revocation/expiry guard as GET /api/beo/share/[token] and POST
+  // .../sign — this SSR page bypasses the PIN gate entirely (see
+  // middleware.js PUBLIC_CARVEOUTS), so it must independently enforce
+  // the same "is this link still live" check the JSON API already does.
+  // Dormant today (no production path sets share_revoked_at/
+  // share_expires_at non-null yet) but a real information-exposure gap
+  // once a "revoke share link" action ships. Found during the GH #250
+  // checkjs migration, cross-verified by two independent reviewers.
+  const event = /** @type {ShareEventRow | undefined} */ (db
     .prepare(
       `SELECT id, title, event_date, event_time, contact_name, guest_count,
               notes, tax_rate, service_fee_pct
          FROM beo_events
-        WHERE share_token = ?`,
+        WHERE share_token = ?
+          AND share_revoked_at IS NULL
+          AND (share_expires_at IS NULL OR datetime(share_expires_at) > datetime('now'))`,
     )
-    .get(token);
+    .get(token));
   if (!event) return notFound();
 
-  const lineItems = db
+  const lineItems = /** @type {ShareLineItemRow[]} */ (db
     .prepare(
       `SELECT id, sort_order, item_name, category, unit_cost, quantity, course_id
          FROM beo_line_items
         WHERE event_id = ?
         ORDER BY sort_order, id`,
     )
-    .all(event.id);
+    .all(event.id));
 
-  const courses = db
+  const courses = /** @type {ShareCourseRow[]} */ (db
     .prepare(
       `SELECT id, course_label, fire_at, notes, sort_order
          FROM beo_courses
         WHERE event_id = ?
         ORDER BY sort_order, id`,
     )
-    .all(event.id);
+    .all(event.id));
 
-  const signatures = db
+  const signatures = /** @type {ShareSignatureRow[]} */ (db
     .prepare(
       `SELECT id, signed_name, signed_at FROM beo_signatures
         WHERE event_id = ? ORDER BY signed_at DESC, id DESC`,
     )
-    .all(event.id);
+    .all(event.id));
 
   const totals = computeEstimateTotals(event, lineItems);
   const sections = groupLineItemsBySection(lineItems, courses);

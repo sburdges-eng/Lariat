@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useState } from 'react';
@@ -12,10 +12,12 @@ import { useRouter } from 'next/navigation';
  * server-rendered list on success. Optional note collected via prompt
  * is forwarded into the audit payload — kept lo-fi on purpose: a richer
  * note collector belongs on a dedicated edit screen, not the queue row.
+ *
+ * @param {{ id: number }} props
  */
 export default function AckButton({ id }) {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(/** @type {string | null} */ (null));
   const router = useRouter();
 
   async function handleAck() {

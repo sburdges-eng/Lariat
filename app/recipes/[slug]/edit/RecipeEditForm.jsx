@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,31 +6,89 @@ import { useRouter } from 'next/navigation';
 import { humanize } from '../../../../lib/userError';
 import RecipePhotoUploader from './RecipePhotoUploader.jsx';
 
+/** Lib Recipe plus `category` — real recipes.json docs carry it and the
+ * PUT route persists it, but lib/data.ts's Recipe interface doesn't
+ * declare it yet (follow-up). */
+/** @typedef {import('../../../../lib/data').Recipe & { category?: string | null }} Recipe */
+
+/**
+ * GET /api/recipes/:slug response shape (app/api/recipes/[slug]/route.js).
+ * @typedef {{
+ *   success: boolean,
+ *   slug: string,
+ *   recipe: Recipe | null,
+ *   message: string,
+ * }} RecipeDetailResponse
+ */
+
+/** One editable ingredient row. `qty` mirrors `Recipe.ingredients[].qty`
+ * (kept as a string here since it's a controlled-input value). */
+/** @typedef {{ item: string, qty: string, unit: string }} IngredientRow */
+
+/** Recipe metadata this form doesn't expose an editable field for, but
+ * must round-trip on save — PUT /api/recipes/:slug defaults each of
+ * these to null/'recipes_api' when the body omits them (see that
+ * route's recipeDoc construction), so silently dropping them here would
+ * wipe yield/station/source on every save. */
+/**
+ * @typedef {{
+ *   yield_qty: Recipe['yield_qty'],
+ *   yield_unit: Recipe['yield_unit'],
+ *   station: Recipe['station'],
+ *   source: Recipe['source'],
+ *   category: Recipe['category'] | null,
+ * }} PassthroughMeta
+ */
+
+/**
+ * @param {{ slug: string }} props
+ */
 export default function RecipeEditForm({ slug }) {
   const router = useRouter();
   const [name, setName] = useState('');
   const [procedures, setProcedures] = useState('');
   const [allergens, setAllergens] = useState('');
-  const [ingredients, setIngredients] = useState([]);
+  const [ingredients, setIngredients] = useState(/** @type {IngredientRow[]} */ ([]));
+  const [meta, setMeta] = useState(
+    /** @type {PassthroughMeta} */ ({ yield_qty: null, yield_unit: null, station: null, source: null, category: null }),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // Load recipe data on mount via API (not fs — this is a client component)
+  // Load recipe data on mount via API (not fs — this is a client component).
+  //
+  // Fetches the single-recipe detail endpoint (`recipe: <full doc>`), not
+  // the list endpoint (`/api/recipes`, which only projects a slim summary
+  // — no `procedure`/`ingredients` at all). Loading from the list endpoint
+  // meant this form always started blank regardless of the recipe's real
+  // content, and saving would silently wipe procedures/ingredients.
   useEffect(() => {
-    fetch('/api/recipes')
+    fetch(`/api/recipes/${slug}`)
       .then(r => r.json())
-      .then(recipes => {
-        const recipe = (recipes || []).find(r => r.slug === slug);
+      .then((/** @type {RecipeDetailResponse} */ data) => {
+        const recipe = data.recipe;
         if (recipe) {
           setName(recipe.name || '');
-          setProcedures((recipe.procedures || []).join('\n'));
+          // Recipe.procedure (singular) is the real document field —
+          // stored as an array of steps in practice, though the type
+          // also allows a plain string.
+          const proc = recipe.procedure;
+          setProcedures(Array.isArray(proc) ? proc.join('\n') : typeof proc === 'string' ? proc : '');
           setAllergens((recipe.allergens || []).join(', '));
           setIngredients((recipe.ingredients || []).map(i => ({
             item: i.item || '',
-            quantity: i.quantity || '',
+            // Ingredient.qty (not .quantity) is the real field name.
+            qty: i.qty == null ? '' : String(i.qty),
             unit: i.unit || ''
           })));
+          setMeta({
+            yield_qty: recipe.yield_qty ?? null,
+            yield_unit: recipe.yield_unit ?? null,
+            station: recipe.station ?? null,
+            source: recipe.source ?? null,
+            category: recipe.category ?? null,
+          });
         }
         setLoading(false);
       })
@@ -38,19 +96,28 @@ export default function RecipeEditForm({ slug }) {
   }, [slug]);
 
   const handleAddIngredient = () => {
-    setIngredients([...ingredients, { item: '', quantity: '', unit: '' }]);
+    setIngredients([...ingredients, { item: '', qty: '', unit: '' }]);
   };
 
+  /** @param {number} index */
   const handleRemoveIngredient = (index) => {
     setIngredients(ingredients.filter((_, i) => i !== index));
   };
 
+  /**
+   * @param {number} index
+   * @param {keyof IngredientRow} field
+   * @param {string} value
+   */
   const handleIngredientChange = (index, field, value) => {
     const updated = [...ingredients];
-    updated[index][field] = value;
+    const row = updated[index];
+    if (!row) return;
+    updated[index] = { ...row, [field]: value };
     setIngredients(updated);
   };
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -69,6 +136,14 @@ export default function RecipeEditForm({ slug }) {
           procedures: procedures.split('\n').filter(p => p.trim()),
           allergens: allergens.split(',').map(a => a.trim()).filter(Boolean),
           ingredients: ingredients.filter(ing => ing.item.trim()),
+          // Pass through metadata this form has no field for — PUT
+          // defaults each of these to null/'recipes_api' when absent,
+          // which would otherwise clobber it on every save.
+          yield_qty: meta.yield_qty,
+          yield_unit: meta.yield_unit,
+          station: meta.station,
+          source: meta.source,
+          category: meta.category,
         }),
       });
 
@@ -217,8 +292,8 @@ export default function RecipeEditForm({ slug }) {
             />
             <input
               type="text"
-              value={ing.quantity}
-              onChange={(e) => handleIngredientChange(idx, 'quantity', e.target.value)}
+              value={ing.qty}
+              onChange={(e) => handleIngredientChange(idx, 'qty', e.target.value)}
               placeholder="Qty"
               style={{
                 padding: '8px 10px',

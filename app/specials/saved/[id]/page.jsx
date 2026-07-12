@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getDb } from '../../../../lib/db';
@@ -8,8 +10,50 @@ import SpecialDetailClient from './SpecialDetailClient';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * One cost_breakdown line, as produced by the specials sandbox costing
+ * (lib/computeEngine/sandboxCosting.ts) and mirroring the unexported
+ * `CostBreakdownLine` shape in lib/specialsPromotion.ts.
+ * @typedef {{ item?: string, req_qty?: number, req_unit?: string, match?: string | null, cost?: number | null, note?: string }} CostBreakdownLine
+ */
+
+/**
+ * `SELECT *` row from the specials table. Nullability mirrors the
+ * CREATE TABLE statement in lib/db.ts.
+ * @typedef {{
+ *   id: string,
+ *   location_id: string,
+ *   name: string,
+ *   pantry_text: string,
+ *   prompt_text: string,
+ *   ai_answer: string,
+ *   ai_model: string,
+ *   cost_breakdown: string | null,
+ *   cost_total: number | null,
+ *   scratch_notes: string,
+ *   sources: string | null,
+ *   last_exported_at: number | null,
+ *   created_at: number,
+ *   updated_at: number,
+ *   archived_at: number | null,
+ * }} SpecialRow
+ */
+
+/**
+ * @typedef {{
+ *   params: Promise<{ id?: string }> | { id?: string },
+ *   searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>,
+ * }} SavedSpecialDetailPageProps
+ */
+
+/** @param {SavedSpecialDetailPageProps} props */
 export default async function SavedSpecialDetail({ params, searchParams }) {
-  const { id } = await params;
+  // Next guarantees the [id] segment exists on a matched dynamic route —
+  // the optional-key typing (matching the Next 15 typegen for async
+  // params) is the only reason it's `| undefined`. Same convention as
+  // app/recipes/[slug]/page.jsx.
+  const p = await params;
+  const id = /** @type {string} */ (p.id);
   const sp = (await searchParams) || {};
   const loc =
     typeof sp.location === 'string' && sp.location.trim()
@@ -18,9 +62,12 @@ export default async function SavedSpecialDetail({ params, searchParams }) {
   const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
 
   const db = getDb();
-  const row = db.prepare('SELECT * FROM specials WHERE id = ? AND location_id = ?').get(id, loc);
+  const row = /** @type {SpecialRow | undefined} */ (
+    db.prepare('SELECT * FROM specials WHERE id = ? AND location_id = ?').get(id, loc)
+  );
   if (!row) notFound();
 
+  /** @type {CostBreakdownLine[]} */
   let costBreakdown = [];
   if (row.cost_breakdown) {
     try {
@@ -28,6 +75,7 @@ export default async function SavedSpecialDetail({ params, searchParams }) {
       if (Array.isArray(parsed)) costBreakdown = parsed;
     } catch { /* keep [] */ }
   }
+  /** @type {unknown[]} */
   let sources = [];
   if (row.sources) {
     try {

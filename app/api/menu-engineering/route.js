@@ -1,10 +1,13 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { computeMenuEngineering } from '../../../lib/menuEngineering';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { requirePin } from '../../../lib/pin';
 
 export const dynamic = 'force-dynamic';
 
+/** @param {Request} req */
 export async function GET(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
@@ -13,8 +16,9 @@ export async function GET(req) {
   try {
     const data = computeMenuEngineering(loc);
     return Response.json({ location_id: loc, ...data });
-  } catch (e) {
-    console.error(e);
-    return Response.json({ error: String(e.message) }, { status: 500 });
+  } catch (err) {
+    console.error(err);
+    const e = /** @type {{ message?: unknown } | null} */ (err);
+    return Response.json({ error: String(e?.message) }, { status: 500 });
   }
 }

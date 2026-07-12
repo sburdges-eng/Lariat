@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 // EventPrepPanel — per-event prep demands read-only view (T9).
@@ -11,11 +11,18 @@
 import { useEffect, useState } from 'react';
 import UnmappedCallout from './UnmappedCallout';
 
+/** @typedef {import('../../../lib/beoCascade').PrepDemandRow} PrepDemandRow */
+/** @typedef {import('../../../lib/beoCascade').UnmappedRow} UnmappedRow */
+/** @typedef {'idle' | 'loading' | 'error' | 'empty' | 'loaded'} PrepPanelState */
+
+/**
+ * @param {{ eventId?: number | null, location?: string }} props
+ */
 export default function EventPrepPanel({ eventId, location = 'default' }) {
-  const [state, setState] = useState('idle'); // 'idle' | 'loading' | 'error' | 'empty' | 'loaded'
-  const [prepDemands, setPrepDemands] = useState([]);
-  const [unmapped, setUnmapped] = useState([]);
-  const [engineError, setEngineError] = useState(null);
+  const [state, setState] = useState(/** @type {PrepPanelState} */ ('idle'));
+  const [prepDemands, setPrepDemands] = useState(/** @type {PrepDemandRow[]} */ ([]));
+  const [unmapped, setUnmapped] = useState(/** @type {UnmappedRow[]} */ ([]));
+  const [engineError, setEngineError] = useState(/** @type {string | null} */ (null));
 
   useEffect(() => {
     if (eventId == null) {

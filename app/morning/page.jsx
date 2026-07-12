@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 import Link from 'next/link';
 import { todayISO } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
@@ -7,6 +7,10 @@ import { buildMorningDigestQuery } from '../../lib/morningDigestLinks';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {number | string | null | undefined} n
+ * @returns {string}
+ */
 function fmtPct(n) {
   if (n == null || !Number.isFinite(Number(n))) return '—';
   const value = Number(n);
@@ -14,6 +18,10 @@ function fmtPct(n) {
   return `${sign}${value.toFixed(1)}%`;
 }
 
+/**
+ * @param {string | null | undefined} t
+ * @returns {string}
+ */
 function fmtEventTime(t) {
   if (!t) return '';
   const m = /^(\d{1,2}):(\d{2})/.exec(t);
@@ -25,6 +33,14 @@ function fmtEventTime(t) {
   return `${h12}:${mm} ${ampm}`;
 }
 
+/**
+ * @param {{
+ *   title: string,
+ *   sub: string,
+ *   href?: string,
+ *   children: import('react').ReactNode,
+ * }} props
+ */
 function Section({ title, sub, href, children }) {
   return (
     <section className="card" style={{ marginBottom: 16 }}>
@@ -40,6 +56,9 @@ function Section({ title, sub, href, children }) {
   );
 }
 
+/**
+ * @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props
+ */
 export default async function MorningPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const loc = typeof sp.location === 'string' && sp.location.trim() ? sp.location.trim() : DEFAULT_LOCATION_ID;

@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 // Sick leave board — per-cook balances under HFWA (L2).
 // Server-renders the current year's balances for this location and
 // hands them to the client board for the manager to log accrual or
@@ -12,8 +14,15 @@ import {
 } from '../../../lib/sickLeave';
 import SickLeaveBoard from './SickLeaveBoard.jsx';
 
+/**
+ * `SELECT *` from `paid_sick_leave_balances` — every column, so the
+ * full table-row interface applies as-is.
+ * @typedef {import('../../../lib/db.ts').PaidSickLeaveBalance} PaidSickLeaveBalanceRow
+ */
+
 export const dynamic = 'force-dynamic';
 
+/** @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props */
 export default async function SickLeavePage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -24,13 +33,15 @@ export default async function SickLeavePage({ searchParams }) {
   const year = new Date().getFullYear();
 
   const db = getDb();
-  const rows = db
-    .prepare(
-      `SELECT * FROM paid_sick_leave_balances
-         WHERE location_id = ? AND accrual_year = ?
-         ORDER BY cook_id ASC`,
-    )
-    .all(loc, year);
+  const rows = /** @type {PaidSickLeaveBalanceRow[]} */ (
+    db
+      .prepare(
+        `SELECT * FROM paid_sick_leave_balances
+           WHERE location_id = ? AND accrual_year = ?
+           ORDER BY cook_id ASC`,
+      )
+      .all(loc, year)
+  );
 
   const balances = rows.map(summarizeBalance);
 

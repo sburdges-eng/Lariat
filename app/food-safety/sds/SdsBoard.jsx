@@ -1,28 +1,31 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { GHS_HAZARD_CLASSES } from '../../../lib/sds';
 
-const HAZARD_CLASSES = [
-  '',
-  'flammable',
-  'corrosive',
-  'oxidizer',
-  'toxic',
-  'irritant',
-  'environmental',
-  'compressed_gas',
-  'explosive',
-  'health_hazard',
-  'other',
-];
+/** @typedef {import('./page.jsx').SdsRow} SdsRow */
 
+// Built from lib/sds.ts's GHS_HAZARD_CLASSES (the same enum
+// validateSds() enforces on POST /api/sds) plus a leading blank
+// "no selection" option, so the dropdown can never offer a value the
+// backend will reject.
+const HAZARD_CLASSES = ['', ...GHS_HAZARD_CLASSES];
+
+/** @param {string | null} s */
 function fmtDate(s) {
   if (!s) return '—';
   return s.slice(0, 10);
 }
 
+/**
+ * @param {{
+ *   rows: SdsRow[],
+ *   locationId: string,
+ *   citation: string,
+ * }} props
+ */
 export default function SdsBoard({ rows, locationId, citation }) {
   const router = useRouter();
   const [cookId, setCookId] = useState('');
@@ -52,6 +55,7 @@ export default function SdsBoard({ rows, locationId, citation }) {
     );
   }, [rows, filter]);
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submit = async (e) => {
     e.preventDefault();
     if (!productName.trim()) return;
@@ -134,24 +138,27 @@ export default function SdsBoard({ rows, locationId, citation }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.product_name}</td>
-                  <td>{r.manufacturer || '—'}</td>
-                  <td>{r.hazard_class || '—'}</td>
-                  <td>{r.storage_location || '—'}</td>
-                  <td>
-                    {r.pdf_path || r.url ? (
-                      <a href={r.pdf_path || r.url} target="_blank" rel="noopener noreferrer">
-                        view
-                      </a>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                  <td>{fmtDate(r.last_reviewed)}</td>
-                </tr>
-              ))}
+              {filtered.map((r) => {
+                const link = r.pdf_path || r.url;
+                return (
+                  <tr key={r.id}>
+                    <td>{r.product_name}</td>
+                    <td>{r.manufacturer || '—'}</td>
+                    <td>{r.hazard_class || '—'}</td>
+                    <td>{r.storage_location || '—'}</td>
+                    <td>
+                      {link ? (
+                        <a href={link} target="_blank" rel="noopener noreferrer">
+                          view
+                        </a>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td>{fmtDate(r.last_reviewed)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

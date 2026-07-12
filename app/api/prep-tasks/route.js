@@ -1,4 +1,6 @@
-// @ts-nocheck - pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts.
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb, todayISO } from '../../../lib/db';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
@@ -6,20 +8,24 @@ import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/** @param {unknown} v @param {number} max @returns {string | null} */
 const clip = (v, max) => {
   if (typeof v !== 'string') return null;
   const t = v.trim();
   return t ? t.slice(0, max) : null;
 };
 
+/** @param {unknown} v @param {number} [fallback] @returns {number} */
 const cleanInt = (v, fallback = 0) => {
   if (v === null || v === undefined || v === '') return fallback;
   const n = Number(v);
   return Number.isFinite(n) ? Math.trunc(n) : fallback;
 };
 
+/** @param {unknown} v */
 const cleanPriority = (v) => Math.max(0, Math.min(2, cleanInt(v, 0)));
 
+/** @param {ReturnType<typeof getDb>} db @param {number | bigint} id */
 function readTask(db, id) {
   return db
     .prepare(
@@ -32,6 +38,7 @@ function readTask(db, id) {
     .get(id);
 }
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const url = new URL(req.url);
@@ -67,10 +74,12 @@ export async function GET(req) {
   }
 }
 
+/** @param {Request} req */
 export async function POST(req) {
   return withIdempotency(req, () => prepTaskPostHandler(req));
 }
 
+/** @param {Request} req */
 async function prepTaskPostHandler(req) {
   try {
     const body = await req.json().catch(() => ({}));

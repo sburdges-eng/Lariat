@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // Breaks subpage — start/end meal & rest breaks, COMPS #39 evaluator.
 //
 // Two roles: cooks start and end their own breaks here (writes); the
@@ -11,8 +11,31 @@ import { getStaff } from '../../../lib/data';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import BreakBoard from './BreakBoard.jsx';
 
+/**
+ * Full row shape for `shift_breaks` (see CREATE TABLE in lib/db.ts).
+ * Matches the local `BreakRow` type in app/api/breaks/route.js — same
+ * table, same `SELECT *`.
+ * @typedef {{
+ *   id: number,
+ *   shift_date: string,
+ *   location_id: string,
+ *   cook_id: string,
+ *   kind: 'meal' | 'rest',
+ *   started_at: string,
+ *   ended_at: string | null,
+ *   duration_min: number | null,
+ *   waived: number,
+ *   waiver_ref: string | null,
+ *   note: string | null,
+ *   created_at: string | null,
+ * }} BreakRow
+ */
+
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props
+ */
 export default async function BreaksPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -23,11 +46,13 @@ export default async function BreaksPage({ searchParams }) {
   const today = todayISO();
 
   const db = getDb();
-  const rows = db
-    .prepare(
-      `SELECT * FROM shift_breaks WHERE location_id=? AND shift_date=? ORDER BY started_at ASC`,
-    )
-    .all(loc, today);
+  const rows = /** @type {BreakRow[]} */ (
+    db
+      .prepare(
+        `SELECT * FROM shift_breaks WHERE location_id=? AND shift_date=? ORDER BY started_at ASC`,
+      )
+      .all(loc, today)
+  );
 
   const staff = getStaff().filter((s) => s.active !== false);
 

@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 /**
@@ -8,10 +8,11 @@
  *
  * NOTE: `lariat_pin_ok` is set HttpOnly by /api/auth/pin, so `document.cookie`
  * CANNOT see it. The client therefore learns its own role by pinging the
- * server. We use HEAD /api/auth/pin-status (a thin GET that just echoes
- * whether the cookie is present) — same-origin, fast, cache-busted. If that
- * endpoint isn't wired yet we fall back to a probe of /api/auth/pin + a
- * 200/401 heuristic on any sensitive route.
+ * server (see `probePinStatus` below): GET /api/auth/pin reports whether the
+ * PIN gate is enabled at all (`pin_enabled: false` means everyone renders as
+ * "management"); if the gate is enabled, we probe GET /api/audit/log?limit=1
+ * (a known PIN-gated endpoint) and treat a non-403 response as authenticated.
+ * Both requests are same-origin and cache-busted (`cache: 'no-store'`).
  *
  * Server-side (`/api/audit/log`, `/api/recipes/[slug]` PUT, etc.) is the real
  * gate: it inspects the cookie via `next/headers`. This provider is purely
@@ -38,8 +39,20 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 
-const RoleContext = createContext(null);
+/** @typedef {'staff' | 'management'} Role */
 
+/**
+ * @typedef {{
+ *   role: Role,
+ *   canEditRecipes: boolean,
+ *   canViewFinancials: boolean,
+ *   isLoading: boolean,
+ * }} RoleContextValue
+ */
+
+const RoleContext = createContext(/** @type {RoleContextValue | null} */ (null));
+
+/** @returns {boolean} */
 function readPinCookie() {
   if (typeof document === 'undefined') return false;
   // Cheap parse — no dependency on `cookie` pkg. In prod the cookie is
@@ -56,6 +69,7 @@ function readPinCookie() {
   return v.length > 0 && v !== 'deleted';
 }
 
+/** @returns {Promise<boolean>} */
 async function probePinStatus() {
   if (typeof fetch === 'undefined') return false;
   try {
@@ -76,8 +90,11 @@ async function probePinStatus() {
   }
 }
 
+/**
+ * @param {{ children: import('react').ReactNode }} props
+ */
 export function RoleProvider({ children }) {
-  const [role, setRole] = useState('staff');
+  const [role, setRole] = useState(/** @type {Role} */ ('staff'));
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -127,6 +144,8 @@ export function RoleProvider({ children }) {
  * forgot to mount the provider), we degrade gracefully by reading the cookie
  * directly — same observable behavior, one render late, and `isLoading` stays
  * false so page-level gates don't hang.
+ *
+ * @returns {RoleContextValue}
  */
 export function useRole() {
   const ctx = useContext(RoleContext);

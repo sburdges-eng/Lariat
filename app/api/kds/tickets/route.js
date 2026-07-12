@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 // Lariat <-> KDS tickets endpoint (v1).
 //
 // Spec: ~/Dev/Lariat-KDS/docs/lariat-kds-protocol.md §2.
@@ -42,6 +44,20 @@ const MAX_ITEM_NAME = 200;
 const MAX_STATION = 32;
 const MAX_MODIFIERS = 500;
 
+/**
+ * Wire-shaped ticket line (protocol §2): `modifiers` is absent, not null.
+ * @typedef {{ id: string, item_name: string, quantity: number, station: string, modifiers?: string }} WireLine
+ */
+/**
+ * Wire-shaped ticket (protocol §2): `destination` is absent, not null.
+ * @typedef {{ id: string, order_number: string, placed_at: string, destination?: string, lines: WireLine[] }} WireTicket
+ */
+
+/**
+ * @param {unknown} s
+ * @param {number} max
+ * @returns {string | null}
+ */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
@@ -50,19 +66,21 @@ const clip = (s, max) => {
 
 // ── GET /api/kds/tickets ──────────────────────────────────────────
 
+/** @param {Request} req */
 export async function GET(req) {
   try {
     const locationId = locationFromRequest(req) || DEFAULT_LOCATION_ID;
     const db = getDb();
 
-    const tickets = db
+    // Nullability per lib/db.ts kds_tickets: only `destination` is nullable.
+    const tickets = /** @type {{ id: string, order_number: string, placed_at: string, destination: string | null }[]} */ (db
       .prepare(
         `SELECT id, order_number, placed_at, destination
            FROM kds_tickets
           WHERE location_id = ? AND bumped_at IS NULL
           ORDER BY placed_at ASC, id ASC`,
       )
-      .all(locationId);
+      .all(locationId));
 
     if (tickets.length === 0) {
       return json({ tickets: [] }, { status: 200 });
@@ -73,18 +91,21 @@ export async function GET(req) {
     // optional fields (destination/modifiers) absent rather than null.
     const ids = tickets.map((t) => t.id);
     const placeholders = ids.map(() => '?').join(',');
-    const lines = db
+    // Nullability per lib/db.ts kds_ticket_lines: only `modifiers` is nullable.
+    const lines = /** @type {{ id: string, ticket_id: string, item_name: string, quantity: number, station: string, modifiers: string | null, sort_order: number }[]} */ (db
       .prepare(
         `SELECT id, ticket_id, item_name, quantity, station, modifiers, sort_order
            FROM kds_ticket_lines
           WHERE ticket_id IN (${placeholders})
           ORDER BY ticket_id, sort_order, id`,
       )
-      .all(...ids);
+      .all(...ids));
 
+    /** @type {Map<string, WireLine[]>} */
     const linesByTicket = new Map();
     for (const l of lines) {
       const arr = linesByTicket.get(l.ticket_id) ?? [];
+      /** @type {WireLine} */
       const obj = {
         id: l.id,
         item_name: l.item_name,
@@ -99,6 +120,7 @@ export async function GET(req) {
     }
 
     const out = tickets.map((t) => {
+      /** @type {WireTicket} */
       const obj = {
         id: t.id,
         order_number: t.order_number,
@@ -120,10 +142,12 @@ export async function GET(req) {
 
 // ── POST /api/kds/tickets ─────────────────────────────────────────
 
+/** @param {Request} req */
 export async function POST(req) {
   return withIdempotency(req, () => kdsTicketsPostHandler(req));
 }
 
+/** @param {Request} req */
 async function kdsTicketsPostHandler(req) {
   try {
     const body = await req.json();
@@ -139,6 +163,7 @@ async function kdsTicketsPostHandler(req) {
     }
 
     // Pre-validate every line shape so we fail fast before opening the tx.
+    /** @type {{ itemName: string, quantity: number, station: string, modifiers: string | null }[]} */
     const validatedLines = [];
     for (let i = 0; i < body.lines.length; i++) {
       const raw = body.lines[i];
@@ -196,11 +221,14 @@ async function kdsTicketsPostHandler(req) {
            (id, ticket_id, sort_order, item_name, quantity, station, modifiers)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
       );
+      /** @type {WireLine[]} */
       const linesOut = [];
       for (let i = 0; i < validatedLines.length; i++) {
-        const v = validatedLines[i];
+        // noUncheckedIndexedAccess: i < length, so the element exists.
+        const v = /** @type {(typeof validatedLines)[number]} */ (validatedLines[i]);
         const lineId = uuidv7();
         insertLine.run(lineId, ticketId, i, v.itemName, v.quantity, v.station, v.modifiers);
+        /** @type {WireLine} */
         const lineObj = {
           id: lineId,
           item_name: v.itemName,
@@ -226,6 +254,7 @@ async function kdsTicketsPostHandler(req) {
 
     const linesOut = performWrite();
 
+    /** @type {WireTicket} */
     const ticketOut = {
       id: ticketId,
       order_number: orderNumber,

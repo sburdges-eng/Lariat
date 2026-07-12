@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../../../lib/db';
 import { uuidv7 } from '../../../../lib/uuid';
 import { logAuditAction } from '../../../../lib/auditLog.mjs';
@@ -18,12 +20,17 @@ export const dynamic = 'force-dynamic';
 
 const SNIPPET_MAX = 120;
 
+/**
+ * @param {unknown} s
+ * @returns {string}
+ */
 function snippet(s) {
   if (typeof s !== 'string') return '';
   const t = s.replace(/\s+/g, ' ').trim();
   return t.length <= SNIPPET_MAX ? t : t.slice(0, SNIPPET_MAX);
 }
 
+/** @param {Request} req */
 export async function POST(req) {
   if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'menu.specials_edit'))) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
@@ -31,6 +38,7 @@ export async function POST(req) {
   return withIdempotency(req, () => specialsSavedPostHandler(req));
 }
 
+/** @param {Request} req */
 async function specialsSavedPostHandler(req) {
   let body;
   try {
@@ -116,6 +124,7 @@ async function specialsSavedPostHandler(req) {
   return Response.json({ id }, { status: 200 });
 }
 
+/** @param {Request} req */
 export async function GET(req) {
   if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'menu.specials_edit'))) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
@@ -125,12 +134,14 @@ export async function GET(req) {
   const location = url.searchParams.get('location') || 'default';
 
   const db = getDb();
-  const rows = db.prepare(`
+  // Nullability mirrors lib/db.ts CREATE TABLE specials: id/name/ai_answer/
+  // created_at are NOT NULL; cost_total and last_exported_at are nullable.
+  const rows = /** @type {Array<{ id: string, name: string, ai_answer: string, cost_total: number | null, last_exported_at: number | null, created_at: number }>} */ (db.prepare(`
     SELECT id, name, ai_answer, cost_total, last_exported_at, created_at
     FROM specials
     WHERE location_id = ? AND archived_at IS NULL
     ORDER BY created_at DESC
-  `).all(location);
+  `).all(location));
 
   const items = rows.map((r) => ({
     id: r.id,

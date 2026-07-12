@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 /**
  * /api/shows/[id]/box-office — Phase 2 event-ops, ticket lines (SCAFFOLD).
  *
@@ -25,6 +27,12 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+/** @typedef {{ params: Promise<{ id?: string }> | { id?: string } }} RouteCtx */
+
+/**
+ * @param {unknown} rawId
+ * @returns {number | null}
+ */
 function parseShowId(rawId) {
   const n = Number(rawId);
   if (!Number.isInteger(n) || n <= 0) return null;
@@ -33,6 +41,10 @@ function parseShowId(rawId) {
 
 const SCOPE = 'event.box_office';
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function GET(req, { params }) {
 
   params = await params;
@@ -58,6 +70,10 @@ export async function GET(req, { params }) {
   }
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function POST(req, { params }) {
 
   params = await params;
@@ -66,10 +82,15 @@ export async function POST(req, { params }) {
   return withIdempotency(req, () => boxOfficePostHandler(req, { params }));
 }
 
+/**
+ * @param {Request} req
+ * @param {{ params: { id?: string } }} ctx — params already awaited by POST
+ */
 async function boxOfficePostHandler(req, { params }) {
   const showId = parseShowId(params?.id);
   if (showId == null) return Response.json({ error: 'Invalid show id' }, { status: 400 });
 
+  /** @type {Record<string, unknown>} */
   let body;
   try {
     body = await req.json();
@@ -82,8 +103,9 @@ async function boxOfficePostHandler(req, { params }) {
     const line = createBoxOfficeLine(db, {
       show_id: showId,
       location_id: loc,
-      source: body?.source,
-      ticket_class: body?.ticket_class ?? null,
+      // Cast: createBoxOfficeLine's VALID_SOURCES guard rejects invalid values at runtime (throws → 400 below).
+      source: /** @type {import('../../../../../lib/boxOfficeRepo').BoxOfficeSource} */ (body?.source),
+      ticket_class: typeof body?.ticket_class === 'string' ? body.ticket_class : null,
       qty: Number(body?.qty),
       face_price: body?.face_price != null ? Number(body.face_price) : null,
       fees: body?.fees != null ? Number(body.fees) : null,

@@ -1,12 +1,22 @@
-// @ts-nocheck - follows neighboring management client islands.
+// @ts-check
 'use client';
 
 import { useMemo, useState } from 'react';
 import { clientFetch } from '@/lib/clientFetch';
 
+/** @typedef {import('./page.jsx').ReceivingMatchRow} ReceivingMatchRow */
+/** @typedef {import('./page.jsx').IngredientMasterOption} IngredientMasterOption */
+
+/**
+ * @param {{
+ *   row: ReceivingMatchRow,
+ *   masters: IngredientMasterOption[],
+ *   locationId: string,
+ * }} props
+ */
 export default function ReceivingMatchResolver({ row, masters, locationId }) {
   const [masterId, setMasterId] = useState('');
-  const [state, setState] = useState('idle');
+  const [state, setState] = useState(/** @type {'idle' | 'pending' | 'error'} */ ('idle'));
   const [errorMsg, setErrorMsg] = useState('');
 
   const selected = useMemo(
@@ -42,7 +52,7 @@ export default function ReceivingMatchResolver({ row, masters, locationId }) {
       window.location.reload();
     } catch (err) {
       setState('error');
-      setErrorMsg(err.message || String(err));
+      setErrorMsg(err instanceof Error ? err.message : String(err));
     }
   }
 

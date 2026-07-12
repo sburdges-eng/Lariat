@@ -1,7 +1,22 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 'use client';
 
 import { useMemo } from 'react';
+
+/**
+ * Row shape prefetched server-side by page.jsx — a subset of
+ * lib/beoPrepHistory.ts's `RecipePrepHistoryRow` (`client`/`type`/
+ * `source`/`imported_at` are dropped before the props cross to the
+ * client bundle so catering customer names stay PIN-gated).
+ * @typedef {Pick<
+ *   import('../../../lib/beoPrepHistory.ts').RecipePrepHistoryRow,
+ *   'item' | 'event_date' | 'amount_qty' | 'prep_day' | 'pre_prep_notes' | 'plating_notes'
+ * >} PrepHistoryRow
+ */
+
+/** @typedef {{ item: string, rows: PrepHistoryRow[] }} GroupedHistory */
 
 /**
  * Past catering-event prep history for the recipe being viewed.
@@ -10,9 +25,11 @@ import { useMemo } from 'react';
  * exposing them through a public API. The server-side helper handles
  * the recipe-name → BEO-item fuzzy match (substring, both directions)
  * so abbreviated/casing variants in the BEO sheet still surface here.
+ * @param {{ recipeName: string, history: PrepHistoryRow[] }} props
  */
 export default function PreviouslyPlatedAs({ recipeName, history }) {
   const grouped = useMemo(() => {
+    /** @type {Map<string, GroupedHistory>} */
     const byItem = new Map();
     for (const row of history || []) {
       const key = row.item || '';

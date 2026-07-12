@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 // Tip pool — daily totals, per-cook breakdown, makeup-pay flag.
 //
@@ -8,9 +8,25 @@
 import { useMemo, useState } from 'react';
 import { formatMoney } from '../../../lib/formatMoney';
 
+/** @typedef {import('./page.jsx').TipPoolRow} TipPoolRow */
+/** @typedef {import('../../../lib/tipPool').PoolSummary} PoolSummary */
+
+/**
+ * @param {{
+ *   initialRows: TipPoolRow[],
+ *   initialSummary: PoolSummary,
+ *   locationId: string,
+ *   date: string,
+ *   comps: { std_min_wage_cents: number, tipped_min_wage_cents: number, tip_credit_cents: number },
+ * }} props
+ */
 export default function TipPoolBoard({ initialRows, initialSummary, locationId, date, comps }) {
-  const [rows, setRows] = useState(initialRows || []);
-  const [summary, setSummary] = useState(initialSummary || { total_cents: 0, by_cook: {}, by_kind: { tip_pool: 0, service_charge: 0, direct_tip: 0 } });
+  const [rows, setRows] = useState(/** @type {TipPoolRow[]} */ (initialRows || []));
+  const [summary, setSummary] = useState(
+    /** @type {PoolSummary} */ (
+      initialSummary || { total_cents: 0, by_cook: {}, by_kind: { tip_pool: 0, service_charge: 0, direct_tip: 0 } }
+    ),
+  );
 
   // Form state
   const [cookId, setCookId] = useState('');
@@ -42,6 +58,10 @@ export default function TipPoolBoard({ initialRows, initialSummary, locationId, 
     }
   };
 
+  /**
+   * @param {string} s
+   * @returns {number | null}
+   */
   function dollarsToCents(s) {
     const n = Number(s);
     if (!Number.isFinite(n)) return null;
@@ -49,6 +69,7 @@ export default function TipPoolBoard({ initialRows, initialSummary, locationId, 
     return Math.round(n * 100);
   }
 
+  /** @param {React.FormEvent<HTMLFormElement>} ev */
   async function submit(ev) {
     ev.preventDefault();
     setErr('');
@@ -96,7 +117,7 @@ export default function TipPoolBoard({ initialRows, initialSummary, locationId, 
       setNote('');
       await refetch();
     } catch (e) {
-      setErr(String(e?.message || e));
+      setErr(e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }

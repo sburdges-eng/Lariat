@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 'use client';
 // Sick leave — per-cook tile with hours available, cap, and quick
 // "Add hours" / "Use hours" buttons. Manager-PIN-gated by the API.
@@ -8,17 +10,41 @@
 
 import { useState } from 'react';
 
+/** @typedef {import('../../../lib/sickLeave.ts').BalanceSummary} BalanceSummary */
+
+/** @param {number | null | undefined} h */
 function fmtHours(h) {
   if (h === null || h === undefined || !Number.isFinite(h)) return '—';
   const r = Math.round(h * 10) / 10;
   return `${r}h`;
 }
 
+/**
+ * Stringify a caught `unknown` value the same way `e?.message || e`
+ * would for a plain object/Error, without relying on `any`.
+ * @param {unknown} e
+ */
+function errText(e) {
+  const msg =
+    e && typeof e === 'object' && 'message' in e
+      ? /** @type {{ message?: unknown }} */ (e).message
+      : undefined;
+  return String(msg || e);
+}
+
+/**
+ * @param {{
+ *   initialBalances: BalanceSummary[],
+ *   locationId: string,
+ *   year: number,
+ *   capHours: number,
+ * }} props
+ */
 export default function SickLeaveBoard({ initialBalances, locationId, year, capHours }) {
   const [balances, setBalances] = useState(initialBalances || []);
   const [cookId, setCookId] = useState('');
   const [hours, setHours] = useState('');
-  const [mode, setMode] = useState('add'); // 'add' | 'use'
+  const [mode, setMode] = useState(/** @type {'add' | 'use'} */ ('add'));
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -29,13 +55,14 @@ export default function SickLeaveBoard({ initialBalances, locationId, year, capH
       const q = locationId && locationId !== 'default' ? `&location=${encodeURIComponent(locationId)}` : '';
       const res = await fetch(`/api/sick-leave?year=${year}${q}`);
       if (!res.ok) return;
-      const body = await res.json();
+      const body = /** @type {{ balances?: BalanceSummary[] }} */ (await res.json());
       if (Array.isArray(body.balances)) setBalances(body.balances);
     } catch {
       /* ignore */
     }
   };
 
+  /** @param {React.FormEvent<HTMLFormElement>} ev */
   async function submit(ev) {
     ev.preventDefault();
     setErr('');
@@ -67,7 +94,7 @@ export default function SickLeaveBoard({ initialBalances, locationId, year, capH
         setErr('Need manager PIN.');
         return;
       }
-      const body = await res.json();
+      const body = /** @type {{ error?: string, hours_applied?: number }} */ (await res.json());
       if (!res.ok) {
         setErr(body.error || 'Save failed.');
         return;
@@ -77,7 +104,7 @@ export default function SickLeaveBoard({ initialBalances, locationId, year, capH
       setNote('');
       await refetch();
     } catch (e) {
-      setErr(String(e?.message || e));
+      setErr(errText(e));
     } finally {
       setSaving(false);
     }

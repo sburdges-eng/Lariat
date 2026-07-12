@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // Food-safety hub — one glance at every HACCP surface.
 //
 // This is the "is the kitchen compliant right now?" page. Each tile is
@@ -18,46 +18,70 @@ import { scanActiveTphc } from '../../lib/tphc';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * @typedef {{ id: number, cook_id: string, action: string }} SickWorkerRow
+ */
+/**
+ * @typedef {{ id: number, point_label: string, status: string }} SanitizerRow
+ */
+/**
+ * @typedef {{ category: string, status: string, created_at: string }} ReceivingRow
+ */
+
+/**
+ * @param {string} loc
+ * @param {string} today
+ */
 function summarize(loc, today) {
   const db = getDb();
 
-  const openCooling = db
-    .prepare(
-      `SELECT * FROM cooling_log WHERE location_id=? AND status='in_progress' ORDER BY started_at ASC`,
-    )
-    .all(loc);
+  const openCooling = /** @type {import('../../lib/db').CoolingLogEntry[]} */ (
+    db
+      .prepare(
+        `SELECT * FROM cooling_log WHERE location_id=? AND status='in_progress' ORDER BY started_at ASC`,
+      )
+      .all(loc)
+  );
   const coolingScan = scanOpenBatches(openCooling, Date.now());
 
-  const dateMarks = db
-    .prepare(
-      `SELECT * FROM date_marks WHERE location_id=? AND discarded_at IS NULL ORDER BY discard_on ASC`,
-    )
-    .all(loc);
+  const dateMarks = /** @type {import('../../lib/db').DateMark[]} */ (
+    db
+      .prepare(
+        `SELECT * FROM date_marks WHERE location_id=? AND discarded_at IS NULL ORDER BY discard_on ASC`,
+      )
+      .all(loc)
+  );
   const dateScan = scanExpiringBatches(dateMarks, today);
 
-  const sickActive = db
-    .prepare(
-      `SELECT id, cook_id, action FROM sick_worker_reports WHERE location_id=? AND return_at IS NULL`,
-    )
-    .all(loc);
+  const sickActive = /** @type {SickWorkerRow[]} */ (
+    db
+      .prepare(
+        `SELECT id, cook_id, action FROM sick_worker_reports WHERE location_id=? AND return_at IS NULL`,
+      )
+      .all(loc)
+  );
 
-  const sanitizerToday = db
-    .prepare(
-      `SELECT id, point_label, status FROM sanitizer_checks WHERE location_id=? AND shift_date=? ORDER BY created_at DESC`,
-    )
-    .all(loc, today);
+  const sanitizerToday = /** @type {SanitizerRow[]} */ (
+    db
+      .prepare(
+        `SELECT id, point_label, status FROM sanitizer_checks WHERE location_id=? AND shift_date=? ORDER BY created_at DESC`,
+      )
+      .all(loc, today)
+  );
 
-  const latestByPoint = new Map();
+  const latestByPoint = /** @type {Map<string, SanitizerRow>} */ (new Map());
   for (const r of sanitizerToday) {
     if (!latestByPoint.has(r.point_label)) latestByPoint.set(r.point_label, r);
   }
   const sanitizerOut = Array.from(latestByPoint.values()).filter((r) => r.status !== 'ok');
 
-  const tempLogRows = db
-    .prepare(
-      `SELECT * FROM temp_log WHERE location_id=? AND shift_date=? ORDER BY created_at DESC`,
-    )
-    .all(loc, today);
+  const tempLogRows = /** @type {import('../../lib/db').TempLogEntry[]} */ (
+    db
+      .prepare(
+        `SELECT * FROM temp_log WHERE location_id=? AND shift_date=? ORDER BY created_at DESC`,
+      )
+      .all(loc, today)
+  );
   const tempLogSummary = classifyReadings(tempLogRows, { expectAllPoints: true });
   const tempLogStats = tempLogSummary.reduce(
     (acc, s) => {
@@ -72,13 +96,15 @@ function summarize(loc, today) {
     { green: 0, yellow: 0, red: 0, gray: 0, corrective: 0, critical: 0 },
   );
 
-  const receivingRows = db
-    .prepare(
-      `SELECT category, status, created_at FROM receiving_log
-         WHERE location_id=? AND shift_date=?
-         ORDER BY created_at DESC`,
-    )
-    .all(loc, today);
+  const receivingRows = /** @type {ReceivingRow[]} */ (
+    db
+      .prepare(
+        `SELECT category, status, created_at FROM receiving_log
+           WHERE location_id=? AND shift_date=?
+           ORDER BY created_at DESC`,
+      )
+      .all(loc, today)
+  );
   const receivingStats = receivingRows.reduce(
     (acc, r) => {
       if (r.status === 'accepted') acc.accepted += 1;
@@ -92,13 +118,15 @@ function summarize(loc, today) {
   // spans ALL historical rows (not just today) because the question
   // "is this probe in calibration?" depends on a possibly-weeks-old
   // last-passing row, not the current shift.
-  const calibrationRows = db
-    .prepare(
-      `SELECT thermometer_id, method, before_reading_f, passed, calibrated_at, frequency_days
-         FROM thermometer_calibrations
-         WHERE location_id = ?`,
-    )
-    .all(loc);
+  const calibrationRows = /** @type {import('../../lib/calibrations').CalibrationRow[]} */ (
+    db
+      .prepare(
+        `SELECT thermometer_id, method, before_reading_f, passed, calibrated_at, frequency_days
+           FROM thermometer_calibrations
+           WHERE location_id = ?`,
+      )
+      .all(loc)
+  );
   const calibrationSummary = classifyProbes(calibrationRows, {
     now: new Date(),
     frequency_days: DEFAULT_FREQUENCY_DAYS,
@@ -115,14 +143,16 @@ function summarize(loc, today) {
     { ok: 0, dueSoon: 0, overdue: 0, failed: 0, unknown: 0 },
   );
 
-  const tphcActive = db
-    .prepare(
-      `SELECT id, item, station_id, started_at, cutoff_at, discarded_at
-         FROM tphc_entries
-         WHERE location_id=? AND discarded_at IS NULL
-         ORDER BY cutoff_at ASC`,
-    )
-    .all(loc);
+  const tphcActive = /** @type {import('../../lib/tphc').TphcRowSnapshot[]} */ (
+    db
+      .prepare(
+        `SELECT id, item, station_id, started_at, cutoff_at, discarded_at
+           FROM tphc_entries
+           WHERE location_id=? AND discarded_at IS NULL
+           ORDER BY cutoff_at ASC`,
+      )
+      .all(loc)
+  );
   const tphcScan = scanActiveTphc(tphcActive, new Date().toISOString());
   const tphcStats = tphcScan.reduce(
     (acc, s) => {
@@ -134,9 +164,15 @@ function summarize(loc, today) {
     { ok: 0, warning: 0, expired: 0 },
   );
 
-  const cleaningRows = db.prepare(`SELECT * FROM cleaning_log WHERE location_id=? AND shift_date=?`).all(loc, today);
-  const pestRows = db.prepare(`SELECT * FROM pest_control_log WHERE location_id=? ORDER BY created_at DESC LIMIT 30`).all(loc);
-  const sdsRows = db.prepare(`SELECT * FROM sds_registry WHERE location_id=? AND active=1`).all(loc);
+  const cleaningRows = /** @type {import('../../lib/db').CleaningLogEntry[]} */ (
+    db.prepare(`SELECT * FROM cleaning_log WHERE location_id=? AND shift_date=?`).all(loc, today)
+  );
+  const pestRows = /** @type {import('../../lib/db').PestControlEntry[]} */ (
+    db.prepare(`SELECT * FROM pest_control_log WHERE location_id=? ORDER BY created_at DESC LIMIT 30`).all(loc)
+  );
+  const sdsRows = /** @type {import('../../lib/db').SdsEntry[]} */ (
+    db.prepare(`SELECT * FROM sds_registry WHERE location_id=? AND active=1`).all(loc)
+  );
 
   return {
     cooling: {
@@ -194,6 +230,12 @@ function summarize(loc, today) {
   };
 }
 
+/** @typedef {{ red: boolean, amber: boolean }} TileStatus */
+
+/**
+ * @param {TileStatus} s
+ * @returns {'red' | 'amber' | 'green'}
+ */
 function tone(s) {
   // Red > amber > green. Order matters — first match wins.
   if (s.red) return 'red';
@@ -201,6 +243,17 @@ function tone(s) {
   return 'green';
 }
 
+/** @typedef {{ n: number | string, label: string, tone?: 'red' | 'amber' | null }} TileLine */
+
+/**
+ * @param {{
+ *   href: string,
+ *   title: string,
+ *   sub: string,
+ *   status: TileStatus,
+ *   lines: TileLine[],
+ * }} props
+ */
 function Tile({ href, title, sub, status, lines }) {
   const t = tone(status);
   return (
@@ -223,6 +276,9 @@ function Tile({ href, title, sub, status, lines }) {
   );
 }
 
+/**
+ * @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props
+ */
 export default async function FoodSafetyHub({ searchParams }) {
   const sp = (await searchParams) || {};
 

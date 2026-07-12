@@ -1,11 +1,15 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { sparklinePath, summarizeSpl, splThresholdStatus } from '../../../../../lib/splTelemetry';
 
+/** @typedef {import('../../../../../lib/splTelemetry').SplReading} SplReading */
+/** @typedef {import('../../../../../lib/splTelemetry').SplStatus} SplStatus */
+
 const POLL_MS = 10_000;
 
 // SPL band → CSS var (mirrors the AttendanceKPI mapping on /shows/tonight).
+/** @type {Record<SplStatus, string>} */
 const STATUS_COLOR = {
   green: 'var(--green, var(--sage, #5d7a66))',
   amber: 'var(--yellow, var(--ember, #c85a2a))',
@@ -13,10 +17,22 @@ const STATUS_COLOR = {
   unset: 'var(--muted)',
 };
 
+/**
+ * @typedef {{ status: 'idle' | 'saving' | 'saved' | 'error', error: string | null }} PostState
+ */
+
+/**
+ * @param {{
+ *   showId: number | string,
+ *   locationId: string,
+ *   sceneId: number | null,
+ *   sceneSplLimit: number | null,
+ * }} props
+ */
 export default function SparklineSpl({ showId, locationId, sceneId, sceneSplLimit }) {
-  const [readings, setReadings] = useState([]);
+  const [readings, setReadings] = useState(/** @type {SplReading[]} */ ([]));
   const [logValue, setLogValue] = useState('');
-  const [postState, setPostState] = useState({ status: 'idle', error: null });
+  const [postState, setPostState] = useState(/** @type {PostState} */ ({ status: 'idle', error: null }));
   const inFlightRef = useRef(false);
 
   const load = useCallback(async () => {
@@ -81,7 +97,8 @@ export default function SparklineSpl({ showId, locationId, sceneId, sceneSplLimi
       setLogValue('');
       setPostState({ status: 'saved', error: null });
     } catch (err) {
-      setPostState({ status: 'error', error: err?.message || 'Failed to log SPL' });
+      const msg = err instanceof Error ? err.message : '';
+      setPostState({ status: 'error', error: msg || 'Failed to log SPL' });
     }
   };
 

@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // Thermometer-calibrations subpage — one tile per known probe plus a
 // quick-entry form for ice-point / boiling-point verifications.
 //
@@ -18,8 +18,32 @@ import {
 } from '../../../lib/calibrations';
 import CalibrationsBoard from './CalibrationsBoard.jsx';
 
+/**
+ * Full row shape for `thermometer_calibrations` (see CREATE TABLE in
+ * lib/db.ts). `SELECT *` returns every column here, which is wider
+ * than the `CalibrationRow` aggregation-input type in lib/calibrations.ts
+ * (that type only requires the subset `classifyProbes` reads).
+ * @typedef {{
+ *   id: number,
+ *   location_id: string | null,
+ *   thermometer_id: string,
+ *   method: 'ice_point' | 'boiling_point' | 'reference_probe',
+ *   before_reading_f: number | null,
+ *   after_reading_f: number | null,
+ *   passed: number,
+ *   action_taken: string | null,
+ *   cook_id: string | null,
+ *   calibrated_at: string,
+ *   frequency_days: number | null,
+ *   created_at: string | null,
+ * }} ThermometerCalibrationRow
+ */
+
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props
+ */
 export default async function CalibrationsPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -32,13 +56,15 @@ export default async function CalibrationsPage({ searchParams }) {
   // Load every calibration row for the location — aggregator needs
   // the last row per probe regardless of shift date. Ordered so the
   // `entries` list in the UI feels freshest-first.
-  const rows = db
-    .prepare(
-      `SELECT * FROM thermometer_calibrations
-         WHERE location_id = ?
-         ORDER BY calibrated_at DESC, id DESC`,
-    )
-    .all(loc);
+  const rows = /** @type {ThermometerCalibrationRow[]} */ (
+    db
+      .prepare(
+        `SELECT * FROM thermometer_calibrations
+           WHERE location_id = ?
+           ORDER BY calibrated_at DESC, id DESC`,
+      )
+      .all(loc)
+  );
 
   const summary = classifyProbes(rows, {
     now: new Date(),

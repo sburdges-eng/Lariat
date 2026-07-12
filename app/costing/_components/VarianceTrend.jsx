@@ -1,15 +1,20 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+/** @typedef {import('../../../lib/varianceTrend.ts').VarianceTrend} VarianceTrend */
+/** @typedef {import('../../../lib/varianceTrend.ts').VarianceTrendPoint} VarianceTrendPoint */
+
 const COLOR = {
   green: 'var(--green, #2a8f3f)',
   yellow: 'var(--yellow, #b88300)',
   red: 'var(--red, #c00)',
 };
 
+/** @param {number | null | undefined} n */
 function pct(n) {
   if (n === null || n === undefined) return '—';
   return `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`;
 }
 
+/** @param {{ trend: VarianceTrend }} props */
 export default function VarianceTrend({ trend }) {
   const { points, pCurrent, pAverage, windowDays, rowsFound } = trend;
 
@@ -63,12 +68,13 @@ export default function VarianceTrend({ trend }) {
         })}
       </svg>
       <p className="row-meta" style={{ marginTop: 10, fontSize: 12 }}>
-        Green ≤ 2% · Yellow 2–5% · Red ≥ 5%
+        Green &lt; 2% · Yellow 2–5% · Red ≥ 5%
       </p>
     </section>
   );
 }
 
+/** @param {{ label: string, value: string }} props */
 function Stat({ label, value }) {
   return (
     <div>

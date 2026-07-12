@@ -1,13 +1,29 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts.
+// @ts-check
 'use client';
 
 import { useEffect, useState } from 'react';
 
-const ROLES = [
+/** @typedef {import('../../../lib/managerPins.ts').ManagerPinUser} ManagerPinUser */
+/** @typedef {import('../../../lib/managerPins.ts').ManagerPinRole} ManagerPinRole */
+
+/**
+ * @typedef {Object} EditState
+ * @property {number} id
+ * @property {string} name
+ * @property {ManagerPinRole} role
+ * @property {string} pin
+ * @property {boolean} is_active
+ */
+
+const ROLES = /** @type {{value: ManagerPinRole, label: string}[]} */ ([
   { value: 'manager', label: 'Manager' },
   { value: 'owner', label: 'Owner' },
-];
+]);
 
+/**
+ * @param {ManagerPinUser} user
+ * @returns {EditState}
+ */
 function blankEdit(user) {
   return {
     id: user.id,
@@ -18,19 +34,23 @@ function blankEdit(user) {
   };
 }
 
+/**
+ * @param {ManagerPinUser} user
+ * @returns {string}
+ */
 function statusText(user) {
   return user.is_active ? 'Active' : 'Off';
 }
 
 export default function ManagerPinsPage() {
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState(/** @type {ManagerPinUser[]} */ ([]));
   const [loaded, setLoaded] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
-  const [role, setRole] = useState('manager');
-  const [editing, setEditing] = useState(null);
+  const [role, setRole] = useState(/** @type {ManagerPinRole} */ ('manager'));
+  const [editing, setEditing] = useState(/** @type {EditState | null} */ (null));
 
   const load = async () => {
     setErr('');
@@ -100,12 +120,12 @@ export default function ManagerPinsPage() {
       return;
     }
 
-    const payload = {
+    const payload = /** @type {{id: number, name: string, role: ManagerPinRole, is_active: boolean, pin?: string}} */ ({
       id: editing.id,
       name: cleanName,
       role: editing.role,
       is_active: Boolean(editing.is_active),
-    };
+    });
     if (cleanPin) payload.pin = cleanPin;
 
     setBusy(true);
@@ -129,6 +149,7 @@ export default function ManagerPinsPage() {
     }
   };
 
+  /** @param {ManagerPinUser} user */
   const turnOff = async (user) => {
     setErr('');
     if (!window.confirm(`Turn off ${user.name}'s PIN?`)) return;
@@ -172,7 +193,7 @@ export default function ManagerPinsPage() {
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={/** @param {React.ChangeEvent<HTMLInputElement>} e */ (e) => setName(e.target.value)}
               aria-label="Name"
               placeholder="Lunch lead"
             />
@@ -183,14 +204,20 @@ export default function ManagerPinsPage() {
               type="password"
               inputMode="numeric"
               value={pin}
-              onChange={(e) => setPin(e.target.value)}
+              onChange={/** @param {React.ChangeEvent<HTMLInputElement>} e */ (e) => setPin(e.target.value)}
               aria-label="PIN"
               placeholder="4 digits"
             />
           </label>
           <label>
             <span>Role</span>
-            <select value={role} onChange={(e) => setRole(e.target.value)} aria-label="Role">
+            <select
+              value={role}
+              onChange={/** @param {React.ChangeEvent<HTMLSelectElement>} e */ (e) =>
+                setRole(/** @type {ManagerPinRole} */ (e.target.value))
+              }
+              aria-label="Role"
+            >
               {ROLES.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
               ))}
@@ -210,14 +237,16 @@ export default function ManagerPinsPage() {
             const isEditing = editing?.id === user.id;
             return (
               <li key={user.id} className={user.is_active ? 'mp-row' : 'mp-row off'}>
-                {isEditing ? (
+                {isEditing && editing ? (
                   <div className="mp-edit">
                     <label>
                       <span>Name</span>
                       <input
                         type="text"
                         value={editing.name}
-                        onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                        onChange={/** @param {React.ChangeEvent<HTMLInputElement>} e */ (e) =>
+                          setEditing({ ...editing, name: e.target.value })
+                        }
                         aria-label="Edit name"
                       />
                     </label>
@@ -227,7 +256,9 @@ export default function ManagerPinsPage() {
                         type="password"
                         inputMode="numeric"
                         value={editing.pin}
-                        onChange={(e) => setEditing({ ...editing, pin: e.target.value })}
+                        onChange={/** @param {React.ChangeEvent<HTMLInputElement>} e */ (e) =>
+                          setEditing({ ...editing, pin: e.target.value })
+                        }
                         aria-label="New PIN"
                         placeholder="leave blank"
                       />
@@ -236,7 +267,9 @@ export default function ManagerPinsPage() {
                       <span>Role</span>
                       <select
                         value={editing.role}
-                        onChange={(e) => setEditing({ ...editing, role: e.target.value })}
+                        onChange={/** @param {React.ChangeEvent<HTMLSelectElement>} e */ (e) =>
+                          setEditing({ ...editing, role: /** @type {ManagerPinRole} */ (e.target.value) })
+                        }
                         aria-label="Edit role"
                       >
                         {ROLES.map((r) => (
@@ -248,7 +281,9 @@ export default function ManagerPinsPage() {
                       <input
                         type="checkbox"
                         checked={editing.is_active}
-                        onChange={(e) => setEditing({ ...editing, is_active: e.target.checked })}
+                        onChange={/** @param {React.ChangeEvent<HTMLInputElement>} e */ (e) =>
+                          setEditing({ ...editing, is_active: e.target.checked })
+                        }
                       />
                       Active
                     </label>

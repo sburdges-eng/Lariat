@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 'use client';
 
 import { useState } from 'react';
@@ -6,6 +8,7 @@ import { useRouter } from 'next/navigation';
 
 const SANS = 'var(--sans, "Inter Tight", system-ui, sans-serif)';
 
+/** @param {{ token: string }} props */
 export default function SignForm({ token }) {
   const router = useRouter();
   const [name, setName] = useState('');
@@ -16,6 +19,7 @@ export default function SignForm({ token }) {
 
   const canSubmit = name.trim().length > 0 && agreed && !busy;
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submit = async (e) => {
     e.preventDefault();
     if (!canSubmit) return;

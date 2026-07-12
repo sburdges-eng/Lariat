@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // /bar — pour-cost dashboard for cocktail-style recipes.
 //
 // Manager-facing analytics: "which cocktails are nailing pour-cost target,
@@ -29,12 +29,53 @@ import { getDb } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { formatDollars } from '../../lib/formatMoney';
 
+/** @typedef {import('../../lib/data').Recipe} Recipe */
+
+/**
+ * recipes.json documents always carry `category` (see data/cache/recipes.json),
+ * and this page also tolerates a forward-spec object shape for `menu_items`
+ * ({name,price,size_oz}) alongside the current string[] shape — neither is
+ * declared on the shared `Recipe` interface in lib/data.ts (a lib/ typing
+ * gap, out of scope for this file). Extend locally rather than widen the
+ * shared type, same pattern as app/recipes/page.jsx's RecipeDoc.
+ * @typedef {{ name?: string | null, price?: number | null, size_oz?: number | null }} BarMenuItemObj
+ * @typedef {string | BarMenuItemObj} BarMenuItem
+ * @typedef {Omit<Recipe, 'menu_items'> & { category?: string | null, menu_items?: BarMenuItem[] }} BarRecipe
+ */
+
+/**
+ * Subset of recipe_costs columns this page actually selects. Reuses the
+ * canonical row shape from lib/db.ts rather than re-authoring it.
+ * @typedef {Pick<import('../../lib/db').RecipeCost, 'recipe_id' | 'cost_per_yield_unit' | 'batch_cost' | 'yield' | 'yield_unit'>} CostRow
+ */
+
+/** @typedef {{ name: string | null, price: number, size_oz: number | null }} MenuRef */
+
+/** @typedef {'red' | 'yellow' | 'green' | 'gray'} Tone */
+
+/**
+ * @typedef {{
+ *   slug: string,
+ *   name: string,
+ *   category: string | null,
+ *   cost_per_pour: number | null,
+ *   menu_price: number | null,
+ *   pour_cost_pct: number | null,
+ *   gray_reason: string | null,
+ *   tone: Tone,
+ * }} BarRow
+ */
+
 export const dynamic = 'force-dynamic';
 
 // ── thresholds ─────────────────────────────────────────────────────
 const POUR_COST_GREEN_MAX = 18; // ≤ 18% green
 const POUR_COST_YELLOW_MAX = 22; // 18–22% yellow, > 22% red
 
+/**
+ * @param {number | null | undefined} pct
+ * @returns {Tone}
+ */
 function toneFor(pct) {
   if (pct == null || !Number.isFinite(pct)) return 'gray';
   if (pct > POUR_COST_YELLOW_MAX) return 'red';
@@ -42,6 +83,7 @@ function toneFor(pct) {
   return 'green';
 }
 
+/** @type {Record<Tone, string>} */
 const TONE_COLOR = {
   red: 'var(--red)',
   yellow: 'var(--yellow)',
@@ -49,6 +91,7 @@ const TONE_COLOR = {
   gray: 'var(--muted)',
 };
 
+/** @type {Record<Tone, number>} */
 const TONE_RANK = { red: 0, yellow: 1, green: 2, gray: 3 };
 
 // ── bar-recipe filter ──────────────────────────────────────────────
@@ -57,6 +100,10 @@ const TONE_RANK = { red: 0, yellow: 1, green: 2, gray: 3 };
 // hide a cocktail.
 const BAR_CATEGORY_RE = /cocktail|drink|beverage|spirit|liquor/i;
 
+/**
+ * @param {BarRecipe} r
+ * @returns {boolean}
+ */
 function isBarRecipe(r) {
   if (r?.category && BAR_CATEGORY_RE.test(r.category)) return true;
   if (typeof r?.slug === 'string' && (r.slug.startsWith('cocktail_') || r.slug.startsWith('drink_'))) {
@@ -75,6 +122,10 @@ function isBarRecipe(r) {
 // ── menu-price extraction ──────────────────────────────────────────
 // Take the FIRST menu_item with a numeric price as the pour reference.
 // String entries (current shape) carry no price → returns null.
+/**
+ * @param {BarRecipe} r
+ * @returns {MenuRef | null}
+ */
 function firstMenuPrice(r) {
   if (!Array.isArray(r?.menu_items)) return null;
   for (const mi of r.menu_items) {
@@ -86,6 +137,12 @@ function firstMenuPrice(r) {
 }
 
 // ── per-pour cost derivation ───────────────────────────────────────
+/**
+ * @param {CostRow | null} costRow
+ * @param {BarRecipe} recipe
+ * @param {MenuRef | null} menuRef
+ * @returns {number | null}
+ */
 function computePourCost(costRow, recipe, menuRef) {
   if (!costRow) return null;
   const cpu = Number(costRow.cost_per_yield_unit);
@@ -113,6 +170,11 @@ function computePourCost(costRow, recipe, menuRef) {
 }
 
 // ── page ───────────────────────────────────────────────────────────
+/**
+ * @param {{
+ *   searchParams: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>,
+ * }} props
+ */
 export default async function BarPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -121,22 +183,25 @@ export default async function BarPage({ searchParams }) {
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
 
-  const recipes = getRecipes();
+  const recipes = /** @type {BarRecipe[]} */ (getRecipes());
   const barRecipes = recipes.filter(isBarRecipe);
 
   // Pull all cost rows for this location in one query, build a map.
   const db = getDb();
-  const costRows = db
-    .prepare(
-      `SELECT recipe_id, cost_per_yield_unit, batch_cost, yield, yield_unit
-         FROM recipe_costs
-        WHERE location_id = ?`,
-    )
-    .all(loc);
+  const costRows = /** @type {CostRow[]} */ (
+    db
+      .prepare(
+        `SELECT recipe_id, cost_per_yield_unit, batch_cost, yield, yield_unit
+           FROM recipe_costs
+          WHERE location_id = ?`,
+      )
+      .all(loc)
+  );
+  /** @type {Map<string, CostRow>} */
   const costByRecipe = new Map();
   for (const row of costRows) costByRecipe.set(row.recipe_id, row);
 
-  const rows = barRecipes.map((r) => {
+  const rows = /** @type {BarRow[]} */ (barRecipes.map((r) => {
     const costRow = costByRecipe.get(r.slug) || null;
     const menuRef = firstMenuPrice(r);
     const cost_per_pour = computePourCost(costRow, r, menuRef);
@@ -165,7 +230,7 @@ export default async function BarPage({ searchParams }) {
       gray_reason,
       tone: toneFor(pour_cost_pct),
     };
-  });
+  }));
 
   // Sort: red > yellow > green > gray, then pour_cost_pct desc within each.
   rows.sort((a, b) => {

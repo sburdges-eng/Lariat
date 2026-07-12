@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -9,14 +9,48 @@ import { useLocation } from './useLocation.js';
    Navigates the app router; carries the currently-selected location
    through the href query string. Keyboard driven. */
 
+/**
+ * @typedef {Object} StationProgress
+ * @property {number} total
+ * @property {number} done
+ * @property {number} flagged
+ * @property {boolean} signedOff
+ */
+
+/**
+ * @typedef {Object} Station
+ * @property {number|string} id
+ * @property {string} name
+ * @property {string|null} line
+ * @property {StationProgress|null} prog
+ */
+
+/**
+ * A palette-routable entry — either a live "Line" entry synthesized from
+ * `Station` data, or a static entry from navRegistry.js's PALETTE_ITEMS.
+ * Only the fields this component actually reads are required here; the
+ * real PALETTE_ITEMS shape (navRegistry.js) carries more (surface, shelf,
+ * etc) that this file doesn't need.
+ * @typedef {Object} PaletteCommand
+ * @property {string} [id]
+ * @property {string} group
+ * @property {string} name
+ * @property {string} [sub]
+ * @property {string} href
+ * @property {string} [shortcut]
+ * @property {string} [terms]
+ * @property {boolean} [locAware]
+ * @property {boolean} [managerOnly]
+ */
+
 export default function CommandPalette() {
   const router = useRouter();
   const { locQuery } = useLocation();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const [cursor, setCursor] = useState(0);
-  const [stations, setStations] = useState([]);
-  const inputRef = useRef(null);
+  const [stations, setStations] = useState(/** @type {Station[]} */ ([]));
+  const inputRef = useRef(/** @type {HTMLInputElement | null} */ (null));
 
   // Reset cached stations when location changes so the palette doesn't show
   // the old location's list after a tenant switch. (Ported from #24 onto
@@ -36,13 +70,15 @@ export default function CommandPalette() {
 
   // Keybindings: open with ⌘K / Ctrl+K / "/" (outside inputs), close with Esc.
   useEffect(() => {
+    /** @param {KeyboardEvent} e */
     const onKey = (e) => {
+      const target = /** @type {HTMLElement | null} */ (e.target);
       const inField =
-        e.target &&
-        (e.target.tagName === 'INPUT' ||
-          e.target.tagName === 'TEXTAREA' ||
-          e.target.tagName === 'SELECT' ||
-          e.target.isContentEditable);
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
 
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         // ⌘K / Ctrl+K should not toggle the palette mid-field-edit — that
@@ -113,6 +149,7 @@ export default function CommandPalette() {
   }, [filtered.length, cursor]);
 
   const go = useCallback(
+    /** @param {PaletteCommand | undefined} cmd */
     (cmd) => {
       if (!cmd) return;
       const href = cmd.locAware ? withLocation(cmd.href, locQuery) : cmd.href;
@@ -123,6 +160,7 @@ export default function CommandPalette() {
   );
 
   // Arrow keys on the input element.
+  /** @param {React.KeyboardEvent<HTMLInputElement>} e */
   const onInputKey = (e) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -139,14 +177,16 @@ export default function CommandPalette() {
   if (!open) return null;
 
   // Group rows by cmd.group, preserving first-seen order.
-  const groups = [];
-  const groupIndex = new Map();
+  /** @typedef {{ name: string, rows: { cmd: PaletteCommand, idx: number }[] }} PaletteGroup */
+  const groups = /** @type {PaletteGroup[]} */ ([]);
+  const groupIndex = /** @type {Map<string, number>} */ (new Map());
   filtered.forEach((cmd, idx) => {
     if (!groupIndex.has(cmd.group)) {
       groupIndex.set(cmd.group, groups.length);
       groups.push({ name: cmd.group, rows: [] });
     }
-    groups[groupIndex.get(cmd.group)].rows.push({ cmd, idx });
+    const g = /** @type {PaletteGroup} */ (groups[/** @type {number} */ (groupIndex.get(cmd.group))]);
+    g.rows.push({ cmd, idx });
   });
 
   return (

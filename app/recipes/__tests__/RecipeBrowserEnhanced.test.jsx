@@ -16,8 +16,9 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import RecipeBrowserEnhanced from '../RecipeBrowserEnhanced';
+import { useRole } from '../../_components/RoleProvider';
 import {
   groupRecipesByCategory,
   CATEGORY_ORDER,
@@ -31,9 +32,11 @@ jest.mock('next/navigation', () => ({
 
 // Bypass the management-PIN gate so the staff-view code path renders.
 // useRole's behavior is exercised in app/__tests__/RoleProvider.test.jsx
-// — here we only care that the cookbook renders without it.
+// — here we only care that the cookbook renders without it. `jest.fn()`
+// (rather than a fixed object) so individual tests can override the
+// return value to exercise the management-mode UI (sign-out button).
 jest.mock('../../_components/RoleProvider', () => ({
-  useRole: () => ({ canEditRecipes: false, canViewFinancials: false, isLoading: false, role: 'staff' }),
+  useRole: jest.fn(() => ({ canEditRecipes: false, canViewFinancials: false, isLoading: false, role: 'staff' })),
 }));
 
 const RECIPES = [
@@ -197,5 +200,90 @@ describe('RecipeBrowserEnhanced — rendered category section order', () => {
       'appetizer',
       'family_meal',
     ]);
+  });
+});
+
+// ── Bug fix: sign-out hit a route that never existed ────────────────
+//
+// Prior version called `fetch('/api/auth/management-pin/logout', { method:
+// 'POST' })`. No such route exists anywhere in app/api (grep confirms —
+// the real session-clearing endpoint is `DELETE /api/auth/pin`, used by
+// app/_components/PinLogout.jsx and defined in app/api/auth/pin/route.ts).
+// fetch() does not reject on a 404 response, so the try/catch never
+// caught it: the button appeared to work (redirected to /recipes) while
+// silently leaving the `lariat_pin_ok` cookie — and management access —
+// fully intact.
+describe('RecipeBrowserEnhanced — sign-out endpoint', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ok: true }) }),
+    );
+    /** @type {jest.Mock} */ (useRole).mockReturnValue({
+      canEditRecipes: true,
+      canViewFinancials: true,
+      isLoading: false,
+      role: 'management',
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    // clearAllMocks() wipes call history but NOT the mockReturnValue set
+    // above — restore the module's staff-mode default so later describe
+    // blocks aren't left seeing a stale management-mode role.
+    /** @type {jest.Mock} */ (useRole).mockReturnValue({
+      canEditRecipes: false,
+      canViewFinancials: false,
+      isLoading: false,
+      role: 'staff',
+    });
+  });
+
+  test('Sign out calls DELETE /api/auth/pin — the real session-clearing route', async () => {
+    render(<RecipeBrowserEnhanced recipes={RECIPES} />);
+    fireEvent.click(screen.getByRole('button', { name: /sign out/i }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(global.fetch).toHaveBeenCalledWith('/api/auth/pin', { method: 'DELETE' });
+  });
+});
+
+// ── Bug fix: card links + photo thumbnails dropped `?location=` ─────
+//
+// The recipe-detail page (app/recipes/[slug]/page.jsx) and the photo
+// `/raw` route both resolve their own location purely from the request's
+// `?location=` query. This card grid never threaded the resolved
+// location back onto its outgoing links/fetches, so browsing
+// `/recipes?location=uptown` and clicking a card (or loading a
+// thumbnail) silently reverted to the default location's data.
+describe('RecipeBrowserEnhanced — location-scoped links', () => {
+  const RECIPE_WITH_PHOTO = [
+    {
+      slug: 'house_ranch',
+      name: 'House Ranch Dressing',
+      category: 'dressing',
+      ingredient_count: 7,
+      allergens: ['Dairy'],
+      photo_id: 42,
+    },
+  ];
+
+  test('card link and photo src carry ?location= for a non-default location', () => {
+    const { container } = render(
+      <RecipeBrowserEnhanced recipes={RECIPE_WITH_PHOTO} locationId="uptown" />,
+    );
+    const link = screen.getByRole('link', { name: /house ranch dressing/i });
+    expect(link.getAttribute('href')).toBe('/recipes/house_ranch?location=uptown');
+    // alt="" gives the <img> an implicit "presentation" role, so it isn't
+    // reachable via getByRole('img') — query the DOM directly instead.
+    const img = container.querySelector('img');
+    expect(img?.getAttribute('src')).toBe(
+      '/api/recipes/house_ranch/photos/42/raw?location=uptown',
+    );
+  });
+
+  test('card link omits the query for the default location', () => {
+    render(<RecipeBrowserEnhanced recipes={RECIPE_WITH_PHOTO} locationId="default" />);
+    const link = screen.getByRole('link', { name: /house ranch dressing/i });
+    expect(link.getAttribute('href')).toBe('/recipes/house_ranch');
   });
 });

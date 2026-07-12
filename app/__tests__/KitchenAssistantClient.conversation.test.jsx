@@ -3,6 +3,16 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
+
+// KitchenAssistantClient now resolves its location via the shared
+// useLocation() hook, which calls next/navigation's useSearchParams().
+// No ?location= override needed for these tests — they exercise the
+// default-location path, matching the pre-fix behavior these tests
+// were written against.
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(''),
+}));
+
 import KitchenAssistantClient from '../kitchen-assistant/KitchenAssistantClient';
 
 const SESSION = '11111111-1111-4111-8111-111111111111';
@@ -60,7 +70,7 @@ afterEach(() => {
 });
 
 async function ask(question = 'what is 86?') {
-  render(<KitchenAssistantClient locQuery="" />);
+  render(<KitchenAssistantClient />);
   fireEvent.change(screen.getByLabelText(/Ask a question/i), { target: { value: question } });
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: /Ask kitchen assistant/i }));
@@ -125,7 +135,7 @@ function undoAnswerResponse(expiresInMs = 30000) {
 }
 
 async function askForUndo(question = '86 the salmon') {
-  render(<KitchenAssistantClient locQuery="" />);
+  render(<KitchenAssistantClient />);
   // Flush the mount-time ping fetch before submitting.
   await act(async () => {});
   fireEvent.change(screen.getByLabelText(/Ask a question/i), { target: { value: question } });
@@ -256,7 +266,7 @@ test('undo card shows terse error copy when the undo is rejected', async () => {
 });
 
 test('starts voice input while held and stops when released', async () => {
-  render(<KitchenAssistantClient locQuery="" />);
+  render(<KitchenAssistantClient />);
 
   const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
   fireEvent.pointerDown(voiceButton);
@@ -272,7 +282,7 @@ test('starts voice input while held and stops when released', async () => {
 });
 
 test('starts voice input on keyboard press and stops on key release', async () => {
-  render(<KitchenAssistantClient locQuery="" />);
+  render(<KitchenAssistantClient />);
 
   const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
   fireEvent.keyDown(voiceButton, { key: ' ', code: 'Space' });
@@ -288,7 +298,7 @@ test('starts voice input on keyboard press and stops on key release', async () =
 });
 
 test('stops voice input when the hold-to-talk button loses focus', async () => {
-  render(<KitchenAssistantClient locQuery="" />);
+  render(<KitchenAssistantClient />);
 
   const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
   fireEvent.keyDown(voiceButton, { key: 'Enter', code: 'Enter' });
@@ -303,7 +313,7 @@ test('stops voice input when the hold-to-talk button loses focus', async () => {
 });
 
 test('stops voice input when the page is hidden mid-hold', async () => {
-  render(<KitchenAssistantClient locQuery="" />);
+  render(<KitchenAssistantClient />);
 
   const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
   fireEvent.pointerDown(voiceButton);
@@ -327,7 +337,7 @@ test('stops voice input when the page is hidden mid-hold', async () => {
 });
 
 test('stops voice input when the window loses focus mid-hold', async () => {
-  render(<KitchenAssistantClient locQuery="" />);
+  render(<KitchenAssistantClient />);
 
   const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
   fireEvent.pointerDown(voiceButton);
@@ -342,7 +352,7 @@ test('stops voice input when the window loses focus mid-hold', async () => {
 });
 
 test('stops voice input when Escape is pressed during hold-to-talk', async () => {
-  render(<KitchenAssistantClient locQuery="" />);
+  render(<KitchenAssistantClient />);
 
   const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
   fireEvent.keyDown(voiceButton, { key: 'Enter', code: 'Enter' });
@@ -357,7 +367,7 @@ test('stops voice input when Escape is pressed during hold-to-talk', async () =>
 });
 
 test('stops voice input before submitting a question', async () => {
-  render(<KitchenAssistantClient locQuery="" />);
+  render(<KitchenAssistantClient />);
 
   const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
   fireEvent.pointerDown(voiceButton);
@@ -398,7 +408,7 @@ test('does not start hold-to-talk while waiting for an answer', async () => {
       });
     }));
 
-  render(<KitchenAssistantClient locQuery="" />);
+  render(<KitchenAssistantClient />);
   fireEvent.change(screen.getByLabelText(/Ask a question/i), { target: { value: 'what is 86?' } });
 
   await act(async () => {
@@ -421,7 +431,7 @@ test('does not start hold-to-talk while waiting for an answer', async () => {
 
 test('shows a cook-readable mic warning after a speech-recognition error', async () => {
   const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-  render(<KitchenAssistantClient locQuery="" />);
+  render(<KitchenAssistantClient />);
 
   const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
   fireEvent.pointerDown(voiceButton);
@@ -439,7 +449,7 @@ test('shows a cook-readable mic warning after a speech-recognition error', async
 
 test('clears the mic warning once the cook switches back to typing', async () => {
   jest.spyOn(console, 'error').mockImplementation(() => {});
-  render(<KitchenAssistantClient locQuery="" />);
+  render(<KitchenAssistantClient />);
 
   const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
   fireEvent.pointerDown(voiceButton);
@@ -460,7 +470,7 @@ test('clears the mic warning once the cook switches back to typing', async () =>
 
 test('recovers from a speech-recognition error so hold-to-talk can start again', async () => {
   const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-  render(<KitchenAssistantClient locQuery="" />);
+  render(<KitchenAssistantClient />);
 
   const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
   fireEvent.pointerDown(voiceButton);
@@ -499,7 +509,7 @@ test('recovers from a speech-recognition start fault so hold-to-talk can start a
     }
   }
   window.SpeechRecognition = StartFaultSpeechRecognition;
-  render(<KitchenAssistantClient locQuery="" />);
+  render(<KitchenAssistantClient />);
 
   const voiceButton = await screen.findByRole('button', { name: /start voice input/i });
   fireEvent.pointerDown(voiceButton);

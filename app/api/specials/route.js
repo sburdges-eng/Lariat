@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { buildGroundedContext } from '../../../lib/kitchenAssistantContext';
 import {
   getOllamaConfig,
@@ -11,13 +13,12 @@ import { withIdempotency } from '../../../lib/idempotency';
 import { extractAction } from '../../../lib/extractAction';
 import { hasPinCookie } from '../../../lib/pin';
 import { formatDollars } from '../../../lib/formatMoney';
+import { MAX_MESSAGE, AI_DOWN_COPY } from '../../../lib/specialsShared';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
-const MAX_MESSAGE = 2000;
-const AI_DOWN_COPY = "AI is down. Can't connect to Ollama on the office Mac. Ask a manager to start it.";
-
+/** @param {{ name?: unknown, message?: unknown } | null | undefined} e */
 function specialsModelErrorCopy(e) {
   if (e?.name === 'AbortError') {
     return 'Inference timed out — try a shorter question or a smaller model.';
@@ -29,7 +30,10 @@ function specialsModelErrorCopy(e) {
   return raw || "Couldn't generate. Try again.";
 }
 
-/** GET — Ollama reachability + safe config for UI (no secrets). */
+/**
+ * GET — Ollama reachability + safe config for UI (no secrets).
+ * @param {Request} req
+ */
 export async function GET(req) {
   const u = new URL(req.url);
   const ping = u.searchParams.get('ping') === '1';
@@ -49,11 +53,14 @@ export async function GET(req) {
   }
 }
 
+/** @param {Request} req */
 export async function POST(req) {
   return withIdempotency(req, () => specialsPostHandler(req));
 }
 
+/** @param {Request} req */
 async function specialsPostHandler(req) {
+  /** @type {Record<string, unknown>} */
   let body = {};
   try {
     body = await req.json();
@@ -141,7 +148,7 @@ async function specialsPostHandler(req) {
         finalAnswer += costMarkdown;
       } catch (err) {
         console.error("Sandbox costing error:", err);
-        finalAnswer += `\n\n> [!WARNING]\n> Could not compute deterministic cost: ${err.message}`;
+        finalAnswer += `\n\n> [!WARNING]\n> Could not compute deterministic cost: ${/** @type {{ message?: unknown }} */ (err).message}`;
       }
     }
 
@@ -158,7 +165,7 @@ async function specialsPostHandler(req) {
         'Answers use only the context snapshot above. Allergen tags are not legal allergen advice. Verify critical items on the floor and with a manager.',
     });
   } catch (e) {
-    const msg = specialsModelErrorCopy(e);
+    const msg = specialsModelErrorCopy(/** @type {{ name?: unknown, message?: unknown } | null} */ (e));
     console.error(e);
     return Response.json({ error: msg }, { status: 502 });
   }

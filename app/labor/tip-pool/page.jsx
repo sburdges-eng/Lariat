@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // Tip pool board (L4 / COMPS #39 §3.3, §3.4).
 // Server-renders the day's distributions and pool summary, hands off
 // to the client board. Default view is today; URL query takes a
@@ -14,8 +14,15 @@ import {
 } from '../../../lib/tipPool';
 import TipPoolBoard from './TipPoolBoard.jsx';
 
+/**
+ * `SELECT *` from `tip_pool_distributions` — every column, so the full
+ * table-row interface applies as-is.
+ * @typedef {import('../../../lib/db').TipPoolDistribution} TipPoolRow
+ */
+
 export const dynamic = 'force-dynamic';
 
+/** @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props */
 export default async function TipPoolPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -29,13 +36,15 @@ export default async function TipPoolPage({ searchParams }) {
       : todayISO();
 
   const db = getDb();
-  const rows = db
-    .prepare(
-      `SELECT * FROM tip_pool_distributions
-         WHERE location_id = ? AND shift_date = ?
-         ORDER BY id ASC`,
-    )
-    .all(loc, date);
+  const rows = /** @type {TipPoolRow[]} */ (
+    db
+      .prepare(
+        `SELECT * FROM tip_pool_distributions
+           WHERE location_id = ? AND shift_date = ?
+           ORDER BY id ASC`,
+      )
+      .all(loc, date)
+  );
 
   const summary = summarizePool(rows);
 

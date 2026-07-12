@@ -1,4 +1,6 @@
-// @ts-nocheck - pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 /**
  * PATCH /api/receiving/matches/[id]
  *
@@ -16,24 +18,41 @@ import { localIdentityFields } from '../../../../../lib/localIdentity';
 
 export const dynamic = 'force-dynamic';
 
+/** @typedef {{ params: Promise<{ id?: string }> | { id?: string } }} RouteCtx */
+
+/**
+ * @param {unknown} v
+ * @param {number} max
+ * @returns {string | null}
+ */
 function clip(v, max) {
   if (typeof v !== 'string') return null;
   const t = v.trim();
   return t ? t.slice(0, max) : null;
 }
 
+/** @param {unknown} raw @returns {number | null} */
 function parseId(raw) {
   const n = Number(raw);
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function PATCH(req, ctx) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
   return withIdempotency(req, () => patchHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function patchHandler(req, { params }) {
+  params = await params;
   const id = parseId(params?.id);
   if (!id) {
     return Response.json({ error: 'receiving id required' }, { status: 400 });
@@ -55,9 +74,11 @@ async function patchHandler(req, { params }) {
 
   try {
     const db = getDb();
-    const row = db
+    // Nullability per the receiving_log schema in lib/db.ts (id PK,
+    // shift_date/status NOT NULL; the rest of the accessed columns nullable).
+    const row = /** @type {({ id: number, shift_date: string, status: string, item: string | null, master_id: string | null, match_status: string | null, match_reason: string | null, received_qty: number | null, received_unit: string | null } & Record<string, unknown>) | undefined} */ (db
       .prepare('SELECT * FROM receiving_log WHERE id = ? AND location_id = ?')
-      .get(id, location_id);
+      .get(id, location_id));
     if (!row) {
       return Response.json({ error: 'receiving row not found' }, { status: 404 });
     }
@@ -69,9 +90,9 @@ async function patchHandler(req, { params }) {
       return Response.json({ error: 'master not found', master_id: masterId }, { status: 404 });
     }
 
-    const existingCredit = db
+    const existingCredit = /** @type {({ id: number, master_id: string | null, receiving_log_id: number | null } & Record<string, unknown>) | undefined} */ (db
       .prepare('SELECT * FROM inventory_updates WHERE receiving_log_id = ?')
-      .get(id);
+      .get(id));
 
     if (!['accepted', 'accepted_with_note'].includes(row.status)) {
       return Response.json({ error: 'rejected deliveries cannot add stock' }, { status: 409 });
@@ -91,7 +112,11 @@ async function patchHandler(req, { params }) {
         )
         .run(masterId, id);
 
-      const after = db.prepare('SELECT * FROM receiving_log WHERE id = ?').get(id);
+      // Same row re-read right after the UPDATE in this transaction — it
+      // exists (fetched above), so the cast omits undefined.
+      const after = /** @type {{ id: number, master_id: string | null, match_status: string | null, match_reason: string | null } & Record<string, unknown>} */ (
+        db.prepare('SELECT * FROM receiving_log WHERE id = ?').get(id)
+      );
 
       postAuditEvent({
         entity: 'receiving_log',
@@ -136,9 +161,10 @@ async function patchHandler(req, { params }) {
         db
           .prepare(`UPDATE inventory_updates SET master_id = ? WHERE id = ?`)
           .run(masterId, existingCredit.id);
-        invRow = db
+        // Row just updated above in the same transaction — exists.
+        invRow = /** @type {{ id: number, master_id: string | null, receiving_log_id: number | null } & Record<string, unknown>} */ (db
           .prepare('SELECT * FROM inventory_updates WHERE id = ?')
-          .get(existingCredit.id);
+          .get(existingCredit.id));
 
         postAuditEvent({
           entity: 'inventory_updates',
@@ -193,9 +219,10 @@ async function patchHandler(req, { params }) {
             cookId,
             id,
           );
-        invRow = db
+        // Row just inserted above in the same transaction — exists.
+        invRow = /** @type {{ id: number, master_id: string | null, receiving_log_id: number | null } & Record<string, unknown>} */ (db
           .prepare('SELECT * FROM inventory_updates WHERE id = ?')
-          .get(invInfo.lastInsertRowid);
+          .get(invInfo.lastInsertRowid));
 
         postAuditEvent({
           entity: 'inventory_updates',

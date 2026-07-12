@@ -1,8 +1,10 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
-import React from 'react';
 import Link from 'next/link';
 
+/** @typedef {import('../../lib/showsRepo.ts').ShowRow} ShowRow */
+
+/** @type {Array<{ k: 'ads' | 'tickets' | 'news' | 'dayof', l: string }>} */
 const TABS = [
   { k: 'ads', l: 'Ad checklist' },
   { k: 'tickets', l: 'Tickets' },
@@ -10,6 +12,7 @@ const TABS = [
   { k: 'dayof', l: 'Day of event' },
 ];
 
+/** @param {{ show: ShowRow | null | undefined, activeTab: string }} props */
 export default function PlaybookHeader({ show, activeTab }) {
   if (!show) return null;
   return (

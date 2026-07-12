@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 /**
  * /api/shows/[id]/sound — Phase 2 event-ops, sound scenes (SCAFFOLD).
  *
@@ -23,6 +25,10 @@ import { withIdempotency } from '../../../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * @param {unknown} rawId
+ * @returns {number | null}
+ */
 function parseShowId(rawId) {
   const n = Number(rawId);
   if (!Number.isInteger(n) || n <= 0) return null;
@@ -31,6 +37,12 @@ function parseShowId(rawId) {
 
 const SCOPE = 'event.sound_config';
 
+/** @typedef {{ params: Promise<{ id?: string }> | { id?: string } }} RouteCtx */
+
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function GET(req, { params }) {
 
   params = await params;
@@ -54,12 +66,20 @@ export async function GET(req, { params }) {
   }
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function POST(req, ctx) {
   const pinFail = await requirePinOrScope(req, SCOPE);
   if (pinFail) return pinFail;
   return withIdempotency(req, () => soundPostHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function soundPostHandler(req, { params }) {
 
   params = await params;

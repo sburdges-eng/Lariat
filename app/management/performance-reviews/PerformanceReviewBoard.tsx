@@ -1,6 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { classifyReview } from '../../../lib/performanceReviews';
+import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 
 const SCORE_LABELS = ['Poor', 'Fair', 'Good', 'Great', 'Top Notch'];
 
@@ -28,7 +29,23 @@ export interface CookDisplay {
   name: string;
 }
 
-export default function PerformanceReviewBoard() {
+export default function PerformanceReviewBoard({
+  locationId = DEFAULT_LOCATION_ID,
+}: {
+  locationId?: string;
+}) {
+  // Non-default locations must be threaded onto every
+  // /api/performance-reviews request as `?location=` — the API's
+  // GET/DELETE handlers resolve location scope from the URL query
+  // (locationFromRequest) and the POST handler from the body
+  // (locationFromBody). Same `locQ` convention as
+  // app/labor/breaks/BreakBoard.jsx. /api/staff stays bare: the
+  // roster is deliberately location-less.
+  const locQ =
+    locationId && locationId !== DEFAULT_LOCATION_ID
+      ? `?location=${encodeURIComponent(locationId)}`
+      : '';
+
   const [roster, setRoster] = useState<CookDisplay[]>([]);
   const [reviews, setReviews] = useState<PerformanceReviewRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,7 +66,7 @@ export default function PerformanceReviewBoard() {
   useEffect(() => {
     Promise.all([
       fetch('/api/staff').then(r => r.json() as Promise<RosterItem[]>),
-      fetch('/api/performance-reviews').then(r => r.json() as Promise<PerformanceReviewRecord[]>),
+      fetch(`/api/performance-reviews${locQ}`).then(r => r.json() as Promise<PerformanceReviewRecord[]>),
     ])
       .then(([staff, records]) => {
         setRoster(
@@ -61,7 +78,7 @@ export default function PerformanceReviewBoard() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [locQ]);
 
   const openModal = () => {
     setSelectedCook(null);
@@ -80,10 +97,11 @@ export default function PerformanceReviewBoard() {
     setSaving(true);
     setSubmitError(null);
     try {
-      const res = await fetch('/api/performance-reviews', {
+      const res = await fetch(`/api/performance-reviews${locQ}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
+          location_id: locationId,
           cook_name: selectedCook.name,
           cook_uuid: selectedCook.id,
           review_date: reviewDate,
@@ -123,7 +141,7 @@ export default function PerformanceReviewBoard() {
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this review?')) return;
     try {
-      const res = await fetch(`/api/performance-reviews/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/performance-reviews/${id}${locQ}`, { method: 'DELETE' });
       if (res.ok) {
         setReviews(prev => prev.filter(r => r.id !== id));
       }

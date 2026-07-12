@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // T9 dashboard — three benchmark tiles on a single page:
 //   B1 variance (max_variance_pct, colored + top-5 table)
 //   B2 unmapped queue (unmapped_pct, colored + first-10 table)
@@ -25,8 +25,12 @@ import { getVarianceTrend } from '../../lib/varianceTrend';
 import AbcTile from './_components/AbcTile';
 import VarianceTrend from './_components/VarianceTrend';
 
+/** @typedef {import('../../lib/dishCostBridge.ts').DishCoverageReport} DishCoverageReport */
+/** @typedef {import('../../lib/abcRanking.ts').AbcInputRow} AbcInputRow */
+
 export const dynamic = 'force-dynamic';
 
+/** @param {number | null | undefined} maxPct */
 function varianceColor(maxPct) {
   if (maxPct == null) return 'var(--green)';
   if (maxPct >= 5) return 'var(--red)';
@@ -34,6 +38,7 @@ function varianceColor(maxPct) {
   return 'var(--green)';
 }
 
+/** @param {number | null | undefined} pct */
 function unmappedColor(pct) {
   if (pct == null) return 'var(--green)';
   if (pct >= 3) return 'var(--red)';
@@ -41,6 +46,10 @@ function unmappedColor(pct) {
   return 'var(--green)';
 }
 
+/**
+ * @param {number | null | undefined} ageMin
+ * @param {string | null | undefined} status
+ */
 function ingestColor(ageMin, status) {
   if (ageMin == null || status == null || status === 'failed') return 'var(--red)';
   if (ageMin >= 1440) return 'var(--red)';
@@ -50,6 +59,7 @@ function ingestColor(ageMin, status) {
 
 // dish-coverage tile color: red if more dishes are unlinked than linked,
 // yellow if any are unlinked at all, green when fully wired.
+/** @param {DishCoverageReport | null | undefined} c */
 function coverageColor(c) {
   if (!c || c.total_sales_dishes === 0) return 'var(--muted)';
   if (c.unlinked > c.fully_linked) return 'var(--red)';
@@ -57,6 +67,7 @@ function coverageColor(c) {
   return 'var(--green)';
 }
 
+/** @param {number | null | undefined} ageMin */
 function formatAge(ageMin) {
   if (ageMin == null) return 'no runs on record';
   if (ageMin < 60) return `${ageMin} min ago`;
@@ -75,6 +86,7 @@ export default function CostingPage() {
   const topVariance = variance.rows.slice(0, 5);
   const firstUnmapped = unmapped.rows.slice(0, 10);
 
+  /** @type {AbcInputRow[]} */
   let menuRows = [];
   try {
     const me = computeMenuEngineering(loc);

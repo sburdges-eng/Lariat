@@ -1,11 +1,18 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import LariAmbient from '../_components/LariAmbient';
 
+/** @typedef {import('../../lib/hostStand').WaitlistPartyRow} WaitlistPartyRow */
+/** @typedef {import('../../lib/hostStand').WaitlistSummary} WaitlistSummary */
+/** @typedef {import('../../lib/hostStand').WaitlistStatus} WaitlistStatus */
+
 const POLL_MS = 30_000;
 
+/** @param {string | null} iso */
 function fmtMinutes(iso) {
   if (!iso) return '—';
   const ms = Date.now() - Date.parse(iso);
@@ -13,6 +20,7 @@ function fmtMinutes(iso) {
   return `${Math.max(0, Math.floor(ms / 60_000))} min`;
 }
 
+/** @param {string | null} iso */
 function fmtClock(iso) {
   if (!iso) return '';
   try {
@@ -22,6 +30,13 @@ function fmtClock(iso) {
   }
 }
 
+/**
+ * @param {{
+ *   initialParties: WaitlistPartyRow[],
+ *   initialSummary: WaitlistSummary | null,
+ *   locationId: string,
+ * }} props
+ */
 export default function HostStand({ initialParties, initialSummary, locationId }) {
   const [parties, setParties] = useState(initialParties || []);
   const [summary, setSummary] = useState(initialSummary || null);
@@ -38,7 +53,9 @@ export default function HostStand({ initialParties, initialSummary, locationId }
       const u = new URLSearchParams({ location: locationId });
       const res = await fetch(`/api/host/waitlist?${u.toString()}`, { cache: 'no-store' });
       if (!res.ok) return;
-      const j = await res.json();
+      const j = /** @type {{ parties?: WaitlistPartyRow[], summary?: WaitlistSummary }} */ (
+        await res.json()
+      );
       if (Array.isArray(j.parties)) setParties(j.parties);
       if (j.summary) setSummary(j.summary);
     } catch {
@@ -51,6 +68,7 @@ export default function HostStand({ initialParties, initialSummary, locationId }
     return () => clearInterval(id);
   }, [refresh]);
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const addParty = async (e) => {
     e.preventDefault();
     if (!partyName.trim() || !partySize) return;
@@ -85,6 +103,10 @@ export default function HostStand({ initialParties, initialSummary, locationId }
     }
   };
 
+  /**
+   * @param {number} id
+   * @param {'seated' | 'left'} next
+   */
   const transitionParty = async (id, next) => {
     setBusy(true);
     setErr('');

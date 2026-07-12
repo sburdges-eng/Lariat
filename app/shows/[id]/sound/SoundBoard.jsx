@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { humanize } from '../../../../lib/userError';
@@ -6,19 +6,28 @@ import SparklineSpl from './_components/SparklineSpl';
 import StagePlotSvg from './_components/StagePlotSvg';
 import LariAmbient from '../../../_components/LariAmbient';
 
+/** @typedef {import('../../../../lib/soundRepo.ts').SoundScene} SoundScene */
+/** @typedef {import('../../../../lib/soundRepo.ts').SoundCompleteness} SoundCompleteness */
+/** @typedef {import('../../../../lib/soundRepo.ts').SoundPlot} SoundPlot */
+
+/** @typedef {{ status: 'idle' | 'saving' | 'saved' | 'error', error: string | null, savedAt: Date | null }} SaveState */
+
 const AUTOSAVE_INTERVAL_MS = 30_000;
 
 // djb2 — cheap content hash so identical autosave ticks are skipped.
+/** @param {string} s */
 function hash(s) {
   let h = 5381;
   for (let i = 0; i < s.length; i += 1) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
   return h;
 }
 
+/** @returns {SoundPlot} */
 function emptyPlot() {
   return { channels: [], monitors: [] };
 }
 
+/** @param {SoundPlot | null | undefined} plot */
 function plotToText(plot) {
   try {
     return JSON.stringify(plot ?? emptyPlot(), null, 2);
@@ -27,6 +36,10 @@ function plotToText(plot) {
   }
 }
 
+/**
+ * @param {string} text
+ * @returns {SoundPlot | null}
+ */
 function parsePlot(text) {
   try {
     const parsed = JSON.parse(text);
@@ -40,6 +53,14 @@ function parsePlot(text) {
   }
 }
 
+/**
+ * @param {{
+ *   showId: number,
+ *   locationId: string,
+ *   initialScenes: SoundScene[],
+ *   completeness: SoundCompleteness,
+ * }} props
+ */
 export default function SoundBoard({ showId, locationId, initialScenes, completeness }) {
   const [scenes, setScenes] = useState(initialScenes ?? []);
   const [score, setScore] = useState(completeness?.score ?? 0);
@@ -52,10 +73,12 @@ export default function SoundBoard({ showId, locationId, initialScenes, complete
     latest?.spl_limit_db != null ? String(latest.spl_limit_db) : '',
   );
   const [notes, setNotes] = useState(latest?.notes ?? '');
-  const [saveState, setSaveState] = useState({ status: 'idle', error: null, savedAt: null });
+  const [saveState, setSaveState] = useState(
+    /** @type {SaveState} */ ({ status: 'idle', error: null, savedAt: null }),
+  );
 
-  const lastHashRef = useRef(null);
-  const inFlightRef = useRef(null); // promise of current save
+  const lastHashRef = useRef(/** @type {number | null} */ (null));
+  const inFlightRef = useRef(/** @type {Promise<void> | null} */ (null)); // promise of current save
 
   // Live-parse plotText so the StagePlotSvg preview updates as the
   // engineer edits the textarea. Falls back to the empty plot when
@@ -182,6 +205,7 @@ export default function SoundBoard({ showId, locationId, initialScenes, complete
     setSaveState({ status: 'idle', error: null, savedAt: null });
   };
 
+  /** @param {number} id */
   const switchScene = (id) => {
     const target = scenes.find((s) => s.id === id);
     if (!target) return;

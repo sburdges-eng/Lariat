@@ -1,11 +1,15 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { DEFAULT_LOCATION_ID } from '../../lib/location';
+
+/** @typedef {import('./page.jsx').ReservationRow} ReservationRow */
 
 // Status → tone (CSS color var) for the pill on each row. The check
 // constraint in the schema only allows these five values.
+/** @type {Record<ReservationRow['status'], string>} */
 const STATUS_TONE = {
   booked: 'var(--orange, #c0531c)',
   seated: 'var(--green)',
@@ -14,6 +18,7 @@ const STATUS_TONE = {
   no_show: 'var(--red)',
 };
 
+/** @type {Record<ReservationRow['status'], string>} */
 const STATUS_LABEL = {
   booked: 'Booked',
   seated: 'Seated',
@@ -22,27 +27,47 @@ const STATUS_LABEL = {
   no_show: 'No show',
 };
 
+/**
+ * @param {{
+ *   rows: ReservationRow[],
+ *   date: string,
+ *   view: 'today' | 'upcoming',
+ *   locationId: string,
+ * }} props
+ */
 export default function ReservationsBoard({ rows, date, view, locationId }) {
   const router = useRouter();
   const [cookId, setCookId] = useState('');
-  const [busyId, setBusyId] = useState(null);
+  const [busyId, setBusyId] = useState(/** @type {number | null} */ (null));
   const [err, setErr] = useState('');
 
   useEffect(() => {
     setCookId(window.localStorage.getItem('lariat_cook') || '');
   }, []);
 
+  // Non-default locations must be threaded onto same-page nav links —
+  // the server component resolves `loc` from `searchParams.location`
+  // only (see app/reservations/page.jsx), so a tab link that drops the
+  // query param silently falls back to DEFAULT_LOCATION_ID and shows a
+  // different location's book. Same convention as
+  // app/labor/breaks/BreakBoard.jsx's `locQ`.
+  const locQ =
+    locationId && locationId !== DEFAULT_LOCATION_ID
+      ? `&location=${encodeURIComponent(locationId)}`
+      : '';
+
   // Group rows by hour bucket. Hour comes from the last 5 chars of the
   // reservation_at (always 'YYYY-MM-DD HH:MM' per schema). Rows missing
   // a parseable time still render — they just go in an "Unscheduled" bin.
   const grouped = useMemo(() => {
+    /** @type {Map<string, ReservationRow[]>} */
     const buckets = new Map();
     for (const r of rows) {
       const at = r.reservation_at || '';
       const m = /(\d{2}):(\d{2})$/.exec(at);
       const key = m ? `${m[1]}:00` : '';
       if (!buckets.has(key)) buckets.set(key, []);
-      buckets.get(key).push(r);
+      /** @type {ReservationRow[]} */ (buckets.get(key)).push(r);
     }
     const keys = [...buckets.keys()].sort((a, b) => {
       if (a === '' && b !== '') return 1;
@@ -53,6 +78,7 @@ export default function ReservationsBoard({ rows, date, view, locationId }) {
   }, [rows]);
 
   const counts = useMemo(() => {
+    /** @type {Record<ReservationRow['status'], number>} */
     const c = { booked: 0, seated: 0, completed: 0, cancelled: 0, no_show: 0 };
     let people = 0;
     for (const r of rows) {
@@ -64,6 +90,10 @@ export default function ReservationsBoard({ rows, date, view, locationId }) {
     return { ...c, people };
   }, [rows]);
 
+  /**
+   * @param {number} id
+   * @param {Record<string, unknown>} body
+   */
   const patch = async (id, body) => {
     setBusyId(id);
     setErr('');
@@ -91,6 +121,10 @@ export default function ReservationsBoard({ rows, date, view, locationId }) {
     }
   };
 
+  /**
+   * @param {number} id
+   * @param {string} partyName
+   */
   const removeRow = async (id, partyName) => {
     if (!window.confirm(`Delete reservation for ${partyName}?`)) return;
     setBusyId(id);
@@ -133,10 +167,10 @@ export default function ReservationsBoard({ rows, date, view, locationId }) {
         aria-label="Reservations view"
         style={{ display: 'flex', gap: 8, marginBottom: 16 }}
       >
-        <ViewTab href="/reservations?view=today" active={view === 'today'}>
+        <ViewTab href={`/reservations?view=today${locQ}`} active={view === 'today'}>
           Today
         </ViewTab>
-        <ViewTab href="/reservations?view=upcoming" active={view === 'upcoming'}>
+        <ViewTab href={`/reservations?view=upcoming${locQ}`} active={view === 'upcoming'}>
           Upcoming
         </ViewTab>
       </div>
@@ -168,11 +202,11 @@ export default function ReservationsBoard({ rows, date, view, locationId }) {
           <section key={hourKey || 'unscheduled'} style={{ marginBottom: 24 }}>
             <h2 style={{ fontSize: 16, margin: '12px 0 8px', opacity: 0.85 }}>
               {hourKey ? formatHourHeader(hourKey) : 'Unscheduled'} ·{' '}
-              {grouped.buckets.get(hourKey).length}
+              {/** @type {ReservationRow[]} */ (grouped.buckets.get(hourKey)).length}
             </h2>
             <ul className="checklist" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-              {grouped.buckets.get(hourKey).map((r) => (
-                <ReservationRow
+              {/** @type {ReservationRow[]} */ (grouped.buckets.get(hourKey)).map((r) => (
+                <ReservationRowItem
                   key={r.id}
                   r={r}
                   busy={busyId === r.id}
@@ -192,6 +226,13 @@ export default function ReservationsBoard({ rows, date, view, locationId }) {
   );
 }
 
+/**
+ * @param {{
+ *   href: string,
+ *   active: boolean,
+ *   children: import('react').ReactNode,
+ * }} props
+ */
 function ViewTab({ href, active, children }) {
   return (
     <Link
@@ -206,7 +247,19 @@ function ViewTab({ href, active, children }) {
   );
 }
 
-function ReservationRow({ r, busy, cookId, onSeat, onComplete, onCancel, onNoShow, onDelete }) {
+/**
+ * @param {{
+ *   r: ReservationRow,
+ *   busy: boolean,
+ *   cookId: string,
+ *   onSeat: () => void,
+ *   onComplete: () => void,
+ *   onCancel: () => void,
+ *   onNoShow: () => void,
+ *   onDelete: () => void,
+ * }} props
+ */
+function ReservationRowItem({ r, busy, cookId, onSeat, onComplete, onCancel, onNoShow, onDelete }) {
   const tone = STATUS_TONE[r.status] || '#666';
   const label = STATUS_LABEL[r.status] || r.status;
   const time = formatRowTime(r.reservation_at);
@@ -305,6 +358,14 @@ function ReservationRow({ r, busy, cookId, onSeat, onComplete, onCancel, onNoSho
   );
 }
 
+/**
+ * @param {{
+ *   date: string,
+ *   cookId: string,
+ *   locationId: string,
+ *   onSaved: () => void,
+ * }} props
+ */
 function AddReservationForm({ date, cookId, locationId, onSaved }) {
   const [partyName, setPartyName] = useState('');
   const [partySize, setPartySize] = useState('2');
@@ -315,6 +376,7 @@ function AddReservationForm({ date, cookId, locationId, onSaved }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submit = async (e) => {
     e.preventDefault();
     if (busy) return;
@@ -385,7 +447,7 @@ function AddReservationForm({ date, cookId, locationId, onSaved }) {
           name="res-name"
           type="text"
           value={partyName}
-          onChange={(e) => setPartyName(e.target.value)}
+          onChange={/** @param {React.ChangeEvent<HTMLInputElement>} e */ (e) => setPartyName(e.target.value)}
           placeholder="e.g. Smith"
           className="input form-field"
           autoComplete="off"
@@ -401,7 +463,7 @@ function AddReservationForm({ date, cookId, locationId, onSaved }) {
           min={1}
           max={50}
           value={partySize}
-          onChange={(e) => setPartySize(e.target.value)}
+          onChange={/** @param {React.ChangeEvent<HTMLInputElement>} e */ (e) => setPartySize(e.target.value)}
           className="input form-field"
           inputMode="numeric"
           aria-required="true"
@@ -414,7 +476,7 @@ function AddReservationForm({ date, cookId, locationId, onSaved }) {
           name="res-time"
           type="text"
           value={time}
-          onChange={(e) => setTime(e.target.value)}
+          onChange={/** @param {React.ChangeEvent<HTMLInputElement>} e */ (e) => setTime(e.target.value)}
           placeholder="7:00 PM"
           className="input form-field"
           autoComplete="off"
@@ -428,7 +490,7 @@ function AddReservationForm({ date, cookId, locationId, onSaved }) {
           name="res-table"
           type="text"
           value={tableId}
-          onChange={(e) => setTableId(e.target.value)}
+          onChange={/** @param {React.ChangeEvent<HTMLInputElement>} e */ (e) => setTableId(e.target.value)}
           placeholder="opt."
           className="input form-field"
           autoComplete="off"
@@ -441,7 +503,7 @@ function AddReservationForm({ date, cookId, locationId, onSaved }) {
           name="res-phone"
           type="text"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={/** @param {React.ChangeEvent<HTMLInputElement>} e */ (e) => setPhone(e.target.value)}
           placeholder="opt."
           className="input form-field"
           autoComplete="off"
@@ -455,7 +517,7 @@ function AddReservationForm({ date, cookId, locationId, onSaved }) {
           name="res-notes"
           type="text"
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          onChange={/** @param {React.ChangeEvent<HTMLInputElement>} e */ (e) => setNotes(e.target.value)}
           placeholder="opt."
           className="input form-field"
           maxLength={1000}
@@ -479,6 +541,7 @@ function AddReservationForm({ date, cookId, locationId, onSaved }) {
 }
 
 // Render the bucket header in 12h format from "HH:00" (24h key).
+/** @param {string} hh00 */
 function formatHourHeader(hh00) {
   const m = /^(\d{2}):(\d{2})$/.exec(hh00);
   if (!m) return hh00;
@@ -489,6 +552,7 @@ function formatHourHeader(hh00) {
 }
 
 // Render a row's time portion in 12h. Input is "YYYY-MM-DD HH:MM".
+/** @param {string | null} at */
 function formatRowTime(at) {
   if (!at) return '';
   const m = /(\d{2}):(\d{2})$/.exec(at);
@@ -523,6 +587,8 @@ function formatRowTime(at) {
  *   parseTimeTo24h("12:00 AM") === "00:00"
  *   parseTimeTo24h("12:30 PM") === "12:30"
  *   parseTimeTo24h("garbage")  === null
+ * @param {unknown} input
+ * @returns {string | null}
  */
 function parseTimeTo24h(input) {
   if (typeof input !== 'string') return null;

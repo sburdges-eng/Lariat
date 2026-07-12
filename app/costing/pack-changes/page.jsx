@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // /costing/pack-changes — operator triage queue for vendor pack-size flips.
 //
 // During scripts/ingest-costing.mjs (T6), any vendor SKU whose pack_size
@@ -18,18 +18,24 @@ import { listPackChanges, unacknowledgedCount } from '../../../lib/packChangesRe
 import { formatDollars } from '../../../lib/formatMoney';
 import AckButton from './AckButton.jsx';
 
+/** @typedef {import('../../../lib/packChangesRepo.ts').PackChangeWithIngredient} PackChangeWithIngredient */
+/** @typedef {Record<string, string | string[] | undefined>} PageSearchParams */
+
 export const dynamic = 'force-dynamic';
 
+/** @type {Array<{ value: 'open' | 'acknowledged' | 'all', label: string }>} */
 const FILTER_OPTIONS = [
   { value: 'open', label: 'Open' },
   { value: 'acknowledged', label: 'Acknowledged' },
   { value: 'all', label: 'All' },
 ];
 
+/** @param {number | string | null | undefined} n */
 function fmtPrice(n) {
   return formatDollars(n);
 }
 
+/** @param {number | string | null | undefined} p */
 function fmtPct(p) {
   if (p == null || !Number.isFinite(Number(p))) return '—';
   const v = Number(p) * 100;
@@ -37,6 +43,7 @@ function fmtPct(p) {
   return `${sign}${v.toFixed(1)}%`;
 }
 
+/** @param {string | null | undefined} iso */
 function fmtDate(iso) {
   if (!iso) return '';
   try {
@@ -50,13 +57,14 @@ function fmtDate(iso) {
   }
 }
 
+/** @param {{ searchParams: Promise<PageSearchParams> }} props */
 export default async function PackChangesPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
   const filterRaw =
     typeof sp?.filter === 'string' ? sp.filter : 'open';
   const filter = FILTER_OPTIONS.some((o) => o.value === filterRaw)
-    ? filterRaw
+    ? /** @type {'open' | 'acknowledged' | 'all'} */ (filterRaw)
     : 'open';
   const vendorFilter =
     typeof sp?.vendor === 'string' && sp.vendor.trim()

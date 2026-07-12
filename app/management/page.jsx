@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // /management — GM rollup dashboard.
 //
 // Read-only tiles composed from already-shipped helpers. No new
@@ -24,10 +24,29 @@ import { formatDollars } from '../../lib/formatMoney';
 
 import RollupTile from './_components/RollupTile';
 
+/** @typedef {import('better-sqlite3').Database} DB */
+/** @typedef {Record<string, string | string[] | undefined>} PageSearchParams */
+
+/**
+ * The two possible shapes `coverage` can hold below: the cheap persisted
+ * snapshot (preferred) or a fresh inline scan (fallback, pre-first-compute
+ * run). `HydratedCoverageSnapshot` has no `partial` field — the snapshot
+ * writer folds "partially linked" dishes into `covered_dishes` and never
+ * persists the split (see lib/dishCoverageSnapshots.ts's
+ * `readLatestDishCoverageSnapshot` doc comment) — so `partial` is typed
+ * optional here rather than assumed present. That's a real accuracy gap
+ * (a dish that's only partially costed can render this tile green once a
+ * snapshot exists), but the fix belongs in lib/dishCoverageSnapshots.ts,
+ * not here.
+ * @typedef {import('../../lib/dishCoverageSnapshots.ts').HydratedCoverageSnapshot} HydratedCoverageSnapshot
+ * @typedef {import('../../lib/dishCostBridge.ts').DishCoverageReport} DishCoverageReport
+ */
+
 export const dynamic = 'force-dynamic';
 
 // ── Color rules (matches /costing where overlapping; documented in PR body) ──
 
+/** @param {number | null | undefined} pct */
 function varianceColor(pct) {
   if (pct == null) return 'var(--muted)';
   if (pct >= 5) return 'var(--red)';
@@ -35,6 +54,10 @@ function varianceColor(pct) {
   return 'var(--green)';
 }
 
+/**
+ * @param {number | null | undefined} ageMin
+ * @param {string | null | undefined} status
+ */
 function ingestColor(ageMin, status) {
   if (ageMin == null || status == null || status === 'failed') return 'var(--red)';
   if (ageMin >= 1440) return 'var(--red)';
@@ -42,13 +65,23 @@ function ingestColor(ageMin, status) {
   return 'var(--green)';
 }
 
+/**
+ * @param {{
+ *   total_sales_dishes: number,
+ *   fully_linked: number,
+ *   unlinked: number,
+ *   declared_only: number,
+ *   partial?: number,
+ * } | null} c
+ */
 function coverageColor(c) {
   if (!c || c.total_sales_dishes === 0) return 'var(--muted)';
   if (c.unlinked > c.fully_linked) return 'var(--red)';
-  if (c.unlinked > 0 || c.declared_only > 0 || c.partial > 0) return 'var(--yellow)';
+  if (c.unlinked > 0 || c.declared_only > 0 || (c.partial ?? 0) > 0) return 'var(--yellow)';
   return 'var(--green)';
 }
 
+/** @param {number | null | undefined} unverified */
 function complianceColor(unverified) {
   if (unverified == null) return 'var(--muted)';
   if (unverified > 20) return 'var(--red)';
@@ -56,36 +89,42 @@ function complianceColor(unverified) {
   return 'var(--green)';
 }
 
+/** @param {number | null | undefined} n */
 function packChangeColor(n) {
   if (n == null) return 'var(--muted)';
   if (n > 0) return 'var(--yellow)';
   return 'var(--green)';
 }
 
+/** @param {number | null | undefined} n */
 function cleaningColor(n) {
   if (n == null) return 'var(--muted)';
   if (n === 0) return 'var(--yellow)';
   return 'var(--green)';
 }
 
+/** @param {number | null | undefined} n */
 function reviewColor(n) {
   if (n == null) return 'var(--muted)';
   if (n === 0) return 'var(--yellow)';
   return 'var(--green)';
 }
 
+/** @param {number | null | undefined} n */
 function receivingMatchColor(n) {
   if (n == null) return 'var(--muted)';
   if (n > 0) return 'var(--yellow)';
   return 'var(--green)';
 }
 
+/** @param {number | null | undefined} n */
 function warningCountColor(n) {
   if (n == null) return 'var(--muted)';
   if (n > 0) return 'var(--yellow)';
   return 'var(--green)';
 }
 
+/** @param {{ expired: number, expiringSoon: number, total: number } | null} c */
 function certWarningColor(c) {
   if (!c) return 'var(--muted)';
   if (c.expired > 0) return 'var(--red)';
@@ -93,6 +132,7 @@ function certWarningColor(c) {
   return 'var(--green)';
 }
 
+/** @param {number | null | undefined} ageMin */
 function formatAge(ageMin) {
   if (ageMin == null) return 'no runs on record';
   if (ageMin < 60) return `${ageMin} min ago`;
@@ -104,6 +144,8 @@ function formatAge(ageMin) {
  * Format `snapshot_at` (SQLite `datetime('now')` → "YYYY-MM-DD HH:MM:SS",
  * UTC, no zone) for the variance tile sub-line. Returns null on bad input
  * so the tile renders cleanly without a trailing " · as of —".
+ * @param {unknown} value
+ * @returns {string | null}
  */
 function formatSnapshotAt(value) {
   if (typeof value !== 'string' || !value) return null;
@@ -111,7 +153,7 @@ function formatSnapshotAt(value) {
   const iso = value.includes('T') ? value : value.replace(' ', 'T') + 'Z';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  const pad = (n) => String(n).padStart(2, '0');
+  const pad = (/** @type {number} */ n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
@@ -122,12 +164,16 @@ function formatSnapshotAt(value) {
  * vendor SKUs are global per ingest), so the location parameter is
  * accepted for symmetry but not bound. Guarded for legacy DBs that
  * predate the table.
+ * @param {DB} db
+ * @returns {number | null}
  */
 function readPackSizeChangesUnacked(db) {
   try {
-    const row = db
-      .prepare('SELECT COUNT(*) AS c FROM pack_size_changes WHERE acknowledged = 0')
-      .get();
+    const row = /** @type {{ c: number } | undefined} */ (
+      db
+        .prepare('SELECT COUNT(*) AS c FROM pack_size_changes WHERE acknowledged = 0')
+        .get()
+    );
     return row?.c ?? 0;
   } catch {
     return null;
@@ -136,7 +182,10 @@ function readPackSizeChangesUnacked(db) {
 
 // ── Per-tile readers (each isolates failure so one bad signal can't blank the page) ──
 
-/** Count `verification.status === 'unverified'` rows in the curated rules JSONL. */
+/**
+ * Count `verification.status === 'unverified'` rows in the curated rules JSONL.
+ * @returns {{ unverified: number | null, total: number | null, missing: boolean }}
+ */
 function readComplianceUnverified() {
   const file = path.join(process.cwd(), 'data', 'normalized', 'compliance_rules.jsonl');
   try {
@@ -158,52 +207,78 @@ function readComplianceUnverified() {
   }
 }
 
-/** Today's cleaning_log row count for the current location. Inline read — not new business logic. */
+/**
+ * Today's cleaning_log row count for the current location. Inline read — not new business logic.
+ * @param {DB} db
+ * @param {string} locationId
+ * @returns {{ count: number | null, today: string | null }}
+ */
 function readCleaningToday(db, locationId) {
   try {
     const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    const row = db.prepare(
-      `SELECT COUNT(*) AS c FROM cleaning_log WHERE location_id = ? AND shift_date = ?`,
-    ).get(locationId, today);
+    const row = /** @type {{ c: number } | undefined} */ (
+      db.prepare(
+        `SELECT COUNT(*) AS c FROM cleaning_log WHERE location_id = ? AND shift_date = ?`,
+      ).get(locationId, today)
+    );
     return { count: row?.c ?? 0, today };
   } catch {
     return { count: null, today: null };
   }
 }
 
-/** Total performance reviews on file for the current location. */
+/**
+ * Total performance reviews on file for the current location.
+ * @param {DB} db
+ * @param {string} locationId
+ * @returns {number | null}
+ */
 function readPerformanceReviewsCount(db, locationId) {
   try {
-    const row = db.prepare(
-      `SELECT COUNT(*) AS c FROM performance_reviews WHERE location_id = ?`,
-    ).get(locationId);
+    const row = /** @type {{ c: number } | undefined} */ (
+      db.prepare(
+        `SELECT COUNT(*) AS c FROM performance_reviews WHERE location_id = ?`,
+      ).get(locationId)
+    );
     return row?.c ?? 0;
   } catch {
     return null;
   }
 }
 
-/** Accepted receiving rows with quantity that still need a master ingredient. */
+/**
+ * Accepted receiving rows with quantity that still need a master ingredient.
+ * @param {DB} db
+ * @param {string} locationId
+ * @returns {number | null}
+ */
 function readReceivingMatchesCount(db, locationId) {
   try {
-    const row = db.prepare(
-      `SELECT COUNT(*) AS c
-         FROM receiving_log r
-        WHERE r.location_id = ?
-          AND r.status IN ('accepted', 'accepted_with_note')
-          AND r.received_qty IS NOT NULL
-          AND r.received_qty > 0
-          AND r.received_unit IS NOT NULL
-          AND TRIM(r.received_unit) <> ''
-          AND r.match_status IN ('unmatched', 'ambiguous')`,
-    ).get(locationId);
+    const row = /** @type {{ c: number } | undefined} */ (
+      db.prepare(
+        `SELECT COUNT(*) AS c
+           FROM receiving_log r
+          WHERE r.location_id = ?
+            AND r.status IN ('accepted', 'accepted_with_note')
+            AND r.received_qty IS NOT NULL
+            AND r.received_qty > 0
+            AND r.received_unit IS NOT NULL
+            AND TRIM(r.received_unit) <> ''
+            AND r.match_status IN ('unmatched', 'ambiguous')`,
+      ).get(locationId)
+    );
     return row?.c ?? 0;
   } catch {
     return null;
   }
 }
 
-/** Vendor SKUs with a 5%+ move in the same 7-day window as /costing/price-shocks. */
+/**
+ * Vendor SKUs with a 5%+ move in the same 7-day window as /costing/price-shocks.
+ * @param {DB} db
+ * @param {string} locationId
+ * @returns {{ total: number, up: number, down: number }}
+ */
 function readPriceShockSummary(db, locationId) {
   const shocks = listPriceShocks(db, {
     location_id: locationId,
@@ -218,7 +293,12 @@ function readPriceShockSummary(db, locationId) {
   };
 }
 
-/** Current unresolved depletion exception count for the current location. */
+/**
+ * Current unresolved depletion exception count for the current location.
+ * @param {DB} db
+ * @param {string} locationId
+ * @returns {number}
+ */
 function readDepletionIssuesCount(db, locationId) {
   return listDepletionExceptions(db, {
     location_id: locationId,
@@ -226,16 +306,23 @@ function readDepletionIssuesCount(db, locationId) {
   }).length;
 }
 
-/** Active certs that are expired or expiring within 30 days. */
+/**
+ * Active certs that are expired or expiring within 30 days.
+ * @param {DB} db
+ * @param {string} locationId
+ * @returns {{ expired: number, expiringSoon: number, total: number }}
+ */
 function readCertWarnings(db, locationId) {
   const today = todayISO();
-  const rows = db.prepare(
-    `SELECT expires_on
-       FROM staff_certifications
-      WHERE location_id = ?
-        AND active = 1
-        AND expires_on IS NOT NULL`,
-  ).all(locationId);
+  const rows = /** @type {{ expires_on: string }[]} */ (
+    db.prepare(
+      `SELECT expires_on
+         FROM staff_certifications
+        WHERE location_id = ?
+          AND active = 1
+          AND expires_on IS NOT NULL`,
+    ).all(locationId)
+  );
 
   const todayMs = new Date(today + 'T00:00:00Z').getTime();
   let expired = 0;
@@ -250,10 +337,21 @@ function readCertWarnings(db, locationId) {
   return { expired, expiringSoon, total: expired + expiringSoon };
 }
 
+/**
+ * @template T
+ * @param {() => T} fn
+ * @param {T} fallback
+ * @returns {T}
+ */
 function safeGet(fn, fallback) {
   try { return fn(); } catch { return fallback; }
 }
 
+/**
+ * @param {string} pathname
+ * @param {string} locationId
+ * @returns {string}
+ */
 function locationHref(pathname, locationId) {
   if (locationId === DEFAULT_LOCATION_ID) return pathname;
   return `${pathname}?location=${encodeURIComponent(locationId)}`;
@@ -269,6 +367,7 @@ function locationHref(pathname, locationId) {
 // the inline scan only runs when no snapshot exists yet.
 const DISH_COVERAGE_CAP = 500;
 
+/** @param {{ searchParams: Promise<PageSearchParams> }} props */
 export default async function ManagementRollupPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -291,9 +390,14 @@ export default async function ManagementRollupPage({ searchParams }) {
   // exceeds the cap, skip the full coverage scan so the page stays
   // responsive on large fleets.
   const dishCount = safeGet(
-    () => db.prepare(
-      `SELECT COUNT(DISTINCT item_name) AS c FROM sales_lines WHERE location_id = ?`,
-    ).get(loc)?.c ?? 0,
+    () => {
+      const row = /** @type {{ c: number } | undefined} */ (
+        db.prepare(
+          `SELECT COUNT(DISTINCT item_name) AS c FROM sales_lines WHERE location_id = ?`,
+        ).get(loc)
+      );
+      return row?.c ?? 0;
+    },
     0,
   );
   // Prefer the cheap compute-engine snapshot; fall back to an inline scan
@@ -312,7 +416,13 @@ export default async function ManagementRollupPage({ searchParams }) {
   const priceShocks = safeGet(() => readPriceShockSummary(db, loc), null);
   const depletionIssues = safeGet(() => readDepletionIssuesCount(db, loc), null);
   const certWarnings = safeGet(() => readCertWarnings(db, loc), null);
-  const locHref = (pathname) => locationHref(pathname, loc);
+  /**
+   * @param {string} pathname
+   * @param {string} [_locationId] - Some call sites also pass `loc` explicitly
+   *   at the call site for readability; already closed over via `loc` above,
+   *   so it's accepted-and-ignored here rather than causing an arity mismatch.
+   */
+  const locHref = (pathname, _locationId) => locationHref(pathname, loc);
 
   const varianceSnapshot = formatSnapshotAt(variance?.snapshot_at);
 
@@ -414,7 +524,7 @@ export default async function ManagementRollupPage({ searchParams }) {
                 : 'no sales dishes on file'
           }
           note={coverageCapped ? 'open menu performance for full report' : null}
-          href="/menu-engineering"
+          href={locHref('/menu-engineering')}
         />
 
         {/* Tile 7 — Unverified rules (curated rules JSONL) */}
@@ -428,7 +538,7 @@ export default async function ManagementRollupPage({ searchParams }) {
               : `of ${compliance.total} curated rules`
           }
           note={compliance.missing ? 'rules file not present on this checkout' : null}
-          href="/food-safety"
+          href={locHref('/food-safety')}
         />
 
         {/* Tile 8 — Pack-size unack'd */}
@@ -446,7 +556,7 @@ export default async function ManagementRollupPage({ searchParams }) {
           value={cleaning.count == null ? '—' : cleaning.count}
           color={cleaningColor(cleaning.count)}
           sub={cleaning.today ? `for ${cleaning.today}` : 'cleaning_log unavailable'}
-          href="/food-safety"
+          href={locHref('/food-safety')}
         />
 
         {/* Tile 10 — Staff Reviews */}
@@ -475,7 +585,7 @@ export default async function ManagementRollupPage({ searchParams }) {
           <li><Link href={locHref('/management/receiving-matches', loc)}>Receiving matches</Link> — set masters for unmatched lines</li>
           <li><Link href="/management/pins">Manager PINs</Link> — add and edit manager PINs</li>
           <li><Link href="/management/audit-log">Audit log</Link> — management actions outside regulated tables</li>
-          <li><Link href="/management/cloud-bridge">Cloud bridge</Link> — stuck snapshots heading to corp</li>
+          <li><Link href={locHref('/management/cloud-bridge')}>Cloud bridge</Link> — stuck snapshots heading to corp</li>
           {/* Static design reference. Plain <a> because the target is
               served straight out of public/, not a Next route. The internal
               "LaRiOS" label from the design drop stays in design-atlas/

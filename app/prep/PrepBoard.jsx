@@ -1,11 +1,18 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+/** @typedef {import('./page.jsx').PrepTaskRow} PrepTaskRow */
+/** @typedef {import('./page.jsx').LowParRow} LowParRow */
+/** @typedef {import('../../lib/data.ts').Station} Station */
+
+/** @type {Record<number, string>} */
 const PRIORITY_LABEL = { 0: 'normal', 1: 'high', 2: 'rush' };
+/** @type {Record<number, 'amber' | 'red' | null>} */
 const PRIORITY_TONE = { 0: null, 1: 'amber', 2: 'red' };
 
+/** @param {string | null | undefined} iso */
 function fmtTime(iso) {
   if (!iso) return '';
   try {
@@ -17,22 +24,34 @@ function fmtTime(iso) {
   }
 }
 
+/**
+ * @param {{
+ *   tasks: PrepTaskRow[],
+ *   stations: Station[],
+ *   suggested: LowParRow[],
+ *   date: string,
+ *   locationId: string,
+ * }} props
+ */
 export default function PrepBoard({ tasks, stations, suggested, date, locationId }) {
   const router = useRouter();
   const [cookId, setCookId] = useState('');
-  const [busyId, setBusyId] = useState(null);
+  const [busyId, setBusyId] = useState(/** @type {number | null} */ (null));
   const [err, setErr] = useState('');
 
   useEffect(() => {
     setCookId(window.localStorage.getItem('lariat_cook') || '');
   }, []);
 
+  /** @param {string | null} id */
   const stationName = (id) =>
     stations.find((s) => s.id === id)?.name || id || 'Any station';
 
   const grouped = useMemo(() => {
     // Open tasks grouped by station; done/skipped go to a separate bin.
+    /** @type {Map<string, PrepTaskRow[]>} */
     const open = new Map();
+    /** @type {PrepTaskRow[]} */
     const closed = [];
     for (const t of tasks) {
       if (t.status === 'done' || t.status === 'skipped') {
@@ -41,7 +60,7 @@ export default function PrepBoard({ tasks, stations, suggested, date, locationId
       }
       const k = t.station_id || '';
       if (!open.has(k)) open.set(k, []);
-      open.get(k).push(t);
+      /** @type {PrepTaskRow[]} */ (open.get(k)).push(t);
     }
     // Order: stations in their natural order, then "Any station" last.
     const stationKeys = [...open.keys()];
@@ -56,11 +75,16 @@ export default function PrepBoard({ tasks, stations, suggested, date, locationId
   }, [tasks, stations]);
 
   const counts = useMemo(() => {
+    /** @type {{ todo: number, in_progress: number, done: number, skipped: number }} */
     const c = { todo: 0, in_progress: 0, done: 0, skipped: 0 };
     for (const t of tasks) c[t.status] = (c[t.status] || 0) + 1;
     return c;
   }, [tasks]);
 
+  /**
+   * @param {number} id
+   * @param {Record<string, unknown>} body
+   */
   const patch = async (id, body) => {
     setBusyId(id);
     setErr('');
@@ -84,6 +108,7 @@ export default function PrepBoard({ tasks, stations, suggested, date, locationId
     }
   };
 
+  /** @param {number} id */
   const removeTask = async (id) => {
     if (!window.confirm('Drop this task?')) return;
     setBusyId(id);
@@ -145,10 +170,10 @@ export default function PrepBoard({ tasks, stations, suggested, date, locationId
       {grouped.stationKeys.map((sid) => (
         <section key={sid || 'any'} style={{ marginBottom: 24 }}>
           <h2 style={{ fontSize: 16, margin: '12px 0 8px', opacity: 0.85 }}>
-            {stationName(sid)} · {grouped.open.get(sid).length}
+            {stationName(sid)} · {/** @type {PrepTaskRow[]} */ (grouped.open.get(sid)).length}
           </h2>
           <ul className="checklist" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-            {grouped.open.get(sid).map((t) => (
+            {/** @type {PrepTaskRow[]} */ (grouped.open.get(sid)).map((t) => (
               <TaskRow
                 key={t.id}
                 t={t}
@@ -177,6 +202,19 @@ export default function PrepBoard({ tasks, stations, suggested, date, locationId
   );
 }
 
+/**
+ * @param {{
+ *   t: PrepTaskRow,
+ *   busy: boolean,
+ *   cookId: string,
+ *   onClaim: () => void,
+ *   onRelease: () => void,
+ *   onStart: () => void,
+ *   onDone: () => void,
+ *   onSkip: () => void,
+ *   onDelete: () => void,
+ * }} props
+ */
 function TaskRow({ t, busy, cookId, onClaim, onRelease, onStart, onDone, onSkip, onDelete }) {
   const tone = PRIORITY_TONE[t.priority] || null;
   const mine = t.assigned_cook_id && cookId && t.assigned_cook_id === cookId;
@@ -252,6 +290,13 @@ function TaskRow({ t, busy, cookId, onClaim, onRelease, onStart, onDone, onSkip,
   );
 }
 
+/**
+ * @param {{
+ *   rows: PrepTaskRow[],
+ *   stationName: (id: string | null) => string,
+ *   onReopen: (id: number) => void,
+ * }} props
+ */
 function ClosedSection({ rows, stationName, onReopen }) {
   return (
     <section style={{ marginTop: 32, opacity: 0.85 }}>
@@ -282,11 +327,21 @@ function ClosedSection({ rows, stationName, onReopen }) {
   );
 }
 
+/**
+ * @param {{
+ *   rows: LowParRow[],
+ *   stations: Station[],
+ *   cookId: string,
+ *   date: string,
+ *   locationId: string,
+ * }} props
+ */
 function Suggested({ rows, stations: _stations, cookId, date, locationId }) {
   const router = useRouter();
-  const [busyKey, setBusyKey] = useState(null);
+  const [busyKey, setBusyKey] = useState(/** @type {string | null} */ (null));
   const [err, setErr] = useState('');
 
+  /** @param {LowParRow} row */
   const addAsTask = async (row) => {
     const ingredient = row.ingredient;
     setBusyKey(ingredient);
@@ -365,6 +420,14 @@ function Suggested({ rows, stations: _stations, cookId, date, locationId }) {
   );
 }
 
+/**
+ * @param {{
+ *   stations: Station[],
+ *   cookId: string,
+ *   date: string,
+ *   locationId: string,
+ * }} props
+ */
 function AddTaskForm({ stations, cookId, date, locationId }) {
   const router = useRouter();
   const [task, setTask] = useState('');
@@ -375,6 +438,7 @@ function AddTaskForm({ stations, cookId, date, locationId }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submit = async (e) => {
     e.preventDefault();
     if (!task.trim()) return;

@@ -1,8 +1,14 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useState } from 'react';
 
+/** @typedef {import('../../../lib/ingredientMastersRepo.ts').MasterUpdates} MasterUpdates */
+
+/**
+ * @param {string} masterId
+ * @param {MasterUpdates} updates
+ */
 async function patchMaster(masterId, updates) {
   const res = await fetch('/api/costing/ingredient-masters', {
     method: 'PATCH',
@@ -13,10 +19,18 @@ async function patchMaster(masterId, updates) {
   if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
 }
 
+/**
+ * @param {{
+ *   masterId: string,
+ *   preferredVendor: string | null,
+ *   qualityLocked: boolean,
+ * }} props
+ */
 export default function CompareActions({ masterId, preferredVendor, qualityLocked }) {
-  const [state, setState] = useState('idle');
-  const [errorMsg, setErrorMsg] = useState(null);
+  const [state, setState] = useState(/** @type {'idle' | 'pending' | 'error'} */ ('idle'));
+  const [errorMsg, setErrorMsg] = useState(/** @type {string | null} */ (null));
 
+  /** @param {MasterUpdates} updates */
   async function run(updates) {
     setState('pending');
     setErrorMsg(null);
@@ -24,7 +38,7 @@ export default function CompareActions({ masterId, preferredVendor, qualityLocke
       await patchMaster(masterId, updates);
       window.location.reload();
     } catch (err) {
-      setErrorMsg(err.message || String(err));
+      setErrorMsg(err instanceof Error ? err.message || String(err) : String(err));
       setState('error');
     }
   }

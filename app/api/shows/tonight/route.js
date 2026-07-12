@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb, todayISO } from '../../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../../lib/location';
 import { requirePin } from '../../../../lib/pin';
@@ -22,6 +24,15 @@ export const dynamic = 'force-dynamic';
 // premise so server-local = venue-local; the location-aware tz refit
 // is deferred to V2.
 
+/**
+ * Row shapes for this route's direct SQL reads. Nullability mirrors the
+ * CREATE TABLE statements in lib/db.ts (selected columns only).
+ * @typedef {{ id: number, show_id: number, room_config: string, run_of_show_json: string, hospitality_rider_json: string, tech_rider_json: string, notes: string | null, updated_at: string }} StageSetupRow
+ * @typedef {{ id: number, scene_name: string, spl_limit_db: number | null, notes: string | null, saved_at: string }} SoundSceneRow
+ * @typedef {{ id: number, band_name: string, show_date: string, price: number | null }} PreviousShowRow
+ */
+
+/** @param {Request} req */
 export async function GET(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;
@@ -33,16 +44,17 @@ export async function GET(req) {
 
     const db = getDb();
 
-    const show = db
+    // Selected columns match ShowRow in lib/showsTonight.ts exactly.
+    const show = /** @type {import('../../../../lib/showsTonight').ShowRow | undefined} */ (db
       .prepare(
         `SELECT id, location_id, band_name, show_date, price, door_tix, status_json
            FROM shows
           WHERE location_id = ? AND show_date = ?
           LIMIT 1`,
       )
-      .get(loc, date);
+      .get(loc, date));
 
-    const previous_show = db
+    const previous_show = /** @type {PreviousShowRow | undefined} */ (db
       .prepare(
         `SELECT id, band_name, show_date, price
            FROM shows
@@ -50,20 +62,25 @@ export async function GET(req) {
           ORDER BY show_date DESC
           LIMIT 1`,
       )
-      .get(loc, date);
+      .get(loc, date));
 
     // Venue capacity lives on locations.capacity (per-venue config,
     // operator-set). NULL → the attendance tile renders without a
     // percent / status color; everything else still works.
-    const locationRow = db
+    // locations.capacity is a nullable INTEGER added via ALTER TABLE
+    // (see lib/db.ts migrations).
+    const locationRow = /** @type {{ capacity: number | null } | undefined} */ (db
       .prepare(`SELECT capacity FROM locations WHERE id = ?`)
-      .get(loc);
+      .get(loc));
     const venue_capacity = locationRow?.capacity ?? null;
 
+    /** @type {StageSetupRow | null} */
     let stage_setup = null;
+    /** @type {SoundSceneRow | null} */
     let latest_sound_scene = null;
     let box_office_summary = null;
     let attendance = null;
+    /** @type {import('../../../../lib/showsTonight').RunOfShowEntry[]} */
     let run_of_show = [];
 
     const show_status = show ? parseStatusJson(show.status_json) : {};
@@ -74,16 +91,16 @@ export async function GET(req) {
       : null;
 
     if (show) {
-      stage_setup = db
+      stage_setup = /** @type {StageSetupRow | undefined} */ (db
         .prepare(
           `SELECT id, show_id, room_config, run_of_show_json, hospitality_rider_json,
                   tech_rider_json, notes, updated_at
              FROM stage_setups
             WHERE show_id = ? AND location_id = ?`,
         )
-        .get(show.id, loc) || null;
+        .get(show.id, loc)) || null;
 
-      latest_sound_scene = db
+      latest_sound_scene = /** @type {SoundSceneRow | undefined} */ (db
         .prepare(
           `SELECT id, scene_name, spl_limit_db, notes, saved_at
              FROM sound_scenes
@@ -91,16 +108,18 @@ export async function GET(req) {
             ORDER BY datetime(saved_at) DESC, id DESC
             LIMIT 1`,
         )
-        .get(show.id, loc) || null;
+        .get(show.id, loc)) || null;
 
-      const boxLines = db
+      // Selected columns match BoxOfficeLine in lib/showsTonight.ts; the
+      // source union is enforced by the table's CHECK constraint.
+      const boxLines = /** @type {import('../../../../lib/showsTonight').BoxOfficeLine[]} */ (db
         .prepare(
           `SELECT id, show_id, location_id, source, ticket_class, qty,
                   face_price, fees, external_ref, scanned_at, notes
              FROM box_office_lines
             WHERE show_id = ? AND location_id = ?`,
         )
-        .all(show.id, loc);
+        .all(show.id, loc));
       box_office_summary = summarizeBoxOffice(boxLines);
       attendance = computeAttendance(
         box_office_summary.scanned_qty,

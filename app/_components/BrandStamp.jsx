@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 //
 // BrandStamp — the Lariat signature mark.
 //
@@ -11,6 +11,14 @@
 //
 // Pure presentational SVG — no hooks, so no 'use client' needed.
 
+/**
+ * @param {{
+ *   label?: string,
+ *   decorative?: boolean,
+ *   size?: string | number,
+ *   className?: string,
+ * } & import('react').SVGProps<SVGSVGElement>} props
+ */
 export default function BrandStamp({
   label = 'Lariat',
   decorative = false,
@@ -21,8 +29,8 @@ export default function BrandStamp({
   // a11y: visible standalone mark gets role="img" + label; when it sits beside
   // the wordmark text it is decorative (aria-hidden, no name).
   const a11y = decorative
-    ? { 'aria-hidden': 'true' }
-    : { role: 'img', 'aria-label': label };
+    ? /** @type {const} */ ({ 'aria-hidden': 'true' })
+    : { role: /** @type {const} */ ('img'), 'aria-label': label };
 
   const dim = size != null ? size : '1em';
 

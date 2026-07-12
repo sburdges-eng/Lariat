@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 // /menu-engineering/margin-deltas — manager-facing view of dishes whose
 // per-serving cost moved in the lookback window. Companion to
 // /costing/price-shocks: that page surfaces vendor SKU moves; this one
@@ -16,6 +16,9 @@ import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { listMarginDeltas } from '../../../lib/marginDeltas';
 import { formatDollars } from '../../../lib/formatMoney';
 
+/** @typedef {import('../../../lib/marginDeltas.ts').MarginDeltaRow} MarginDeltaRow */
+/** @typedef {Record<string, string | string[] | undefined>} PageSearchParams */
+
 export const dynamic = 'force-dynamic';
 
 const WINDOW_OPTIONS = [
@@ -27,6 +30,7 @@ const WINDOW_OPTIONS = [
 
 const MIN_PCT_OPTIONS = [2, 5, 10, 25];
 
+/** @param {number | string | null | undefined} n */
 function fmtPct(n) {
   if (n == null || !Number.isFinite(Number(n))) return '—';
   const v = Number(n);
@@ -34,6 +38,7 @@ function fmtPct(n) {
   return `${sign}${v.toFixed(1)}%`;
 }
 
+/** @param {string | null | undefined} iso */
 function fmtDate(iso) {
   if (!iso) return '';
   try {
@@ -45,18 +50,31 @@ function fmtDate(iso) {
   }
 }
 
+/**
+ * @param {unknown} s
+ * @param {number} dflt
+ * @param {number} min
+ * @param {number} max
+ */
 function clampInt(s, dflt, min, max) {
   const n = Number(s);
   if (!Number.isFinite(n)) return dflt;
   return Math.max(min, Math.min(max, Math.floor(n)));
 }
 
+/**
+ * @param {unknown} s
+ * @param {number} dflt
+ * @param {number} min
+ * @param {number} max
+ */
 function clampNum(s, dflt, min, max) {
   const n = Number(s);
   if (!Number.isFinite(n)) return dflt;
   return Math.max(min, Math.min(max, n));
 }
 
+/** @param {{ searchParams: Promise<PageSearchParams> | PageSearchParams }} props */
 export default async function MarginDeltasPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -77,13 +95,14 @@ export default async function MarginDeltasPage({ searchParams }) {
 
   // Decide which zero-state to show: missing snapshots, missing dish wiring,
   // or just nothing above the threshold.
-  const totalHistory = db
+  const totalHistory = /** @type {{ c: number }} */ (db
     .prepare(`SELECT COUNT(*) AS c FROM vendor_prices_history WHERE location_id = ?`)
-    .get(loc).c;
-  const totalComponents = db
+    .get(loc)).c;
+  const totalComponents = /** @type {{ c: number }} */ (db
     .prepare(`SELECT COUNT(*) AS c FROM dish_components WHERE location_id = ?`)
-    .get(loc).c;
+    .get(loc)).c;
 
+  /** @param {{ days?: number, minPct?: number }} [extra] */
   const locQ = (extra = {}) => {
     const params = new URLSearchParams();
     if (loc !== DEFAULT_LOCATION_ID) params.set('location', loc);

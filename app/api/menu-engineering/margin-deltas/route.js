@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 /**
  * GET /api/menu-engineering/margin-deltas
  *
@@ -34,6 +36,13 @@ export const dynamic = 'force-dynamic';
 // Number(null) === 0 (finite!), Number('') === 0, so we must short-
 // circuit on the raw string before coercing — otherwise an absent param
 // gets clamped to `min` instead of falling back to `dflt`.
+/**
+ * @param {string | null} v
+ * @param {number} dflt
+ * @param {number} min
+ * @param {number} max
+ * @returns {number}
+ */
 function asInt(v, dflt, min, max) {
   if (v == null || v === '') return dflt;
   const n = Number(v);
@@ -41,6 +50,13 @@ function asInt(v, dflt, min, max) {
   return Math.max(min, Math.min(max, Math.floor(n)));
 }
 
+/**
+ * @param {string | null} v
+ * @param {number} dflt
+ * @param {number} min
+ * @param {number} max
+ * @returns {number}
+ */
 function asNum(v, dflt, min, max) {
   if (v == null || v === '') return dflt;
   const n = Number(v);
@@ -48,6 +64,7 @@ function asNum(v, dflt, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
+/** @param {Request} req */
 export async function GET(req) {
   const pinFail = await requirePin(req);
   if (pinFail) return pinFail;

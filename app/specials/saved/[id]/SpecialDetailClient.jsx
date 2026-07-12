@@ -1,15 +1,84 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatDollars } from '../../../../lib/formatMoney';
 
+/** @typedef {import('../../../../lib/specialsExport').RecipeRow} RecipeRow */
+/** @typedef {import('../../../../lib/specialsExport').IngredientRow} IngredientRow */
+
+/**
+ * One cost_breakdown line, as produced by the specials sandbox costing and
+ * mirroring the unexported `CostBreakdownLine` shape in
+ * lib/specialsPromotion.ts. Matches the typedef of the same name in the
+ * sibling server component (app/specials/saved/[id]/page.jsx).
+ * @typedef {{ item?: string, req_qty?: number, req_unit?: string, match?: string | null, cost?: number | null, note?: string }} CostBreakdownLine
+ */
+
+/**
+ * Special record as prepared by app/specials/saved/[id]/page.jsx from the
+ * `specials` table row. Nullability mirrors lib/db.ts CREATE TABLE specials.
+ * @typedef {{
+ *   id: string,
+ *   name: string,
+ *   pantry_text: string,
+ *   prompt_text: string,
+ *   ai_answer: string,
+ *   ai_model: string,
+ *   cost_breakdown: CostBreakdownLine[],
+ *   cost_total: number | null,
+ *   scratch_notes: string,
+ *   sources: unknown[],
+ *   last_exported_at: number | null,
+ *   created_at: number,
+ *   updated_at: number,
+ * }} SpecialDetail
+ */
+
+/**
+ * Promotion summary passed down from the server page — a subset of
+ * lib/specialsPromotion.ts's `PromotionRecord` (special_id / location_id /
+ * components_json are intentionally not forwarded to the client).
+ * @typedef {{
+ *   menu_item_name: string,
+ *   servings: number,
+ *   promoted_at: number,
+ *   updated_at: number,
+ * }} PromotionSummary
+ */
+
+/**
+ * Mirrors the unexported `SkippedComponent` shape in
+ * lib/specialsPromotion.ts, as returned by POST .../promote.
+ * @typedef {{ item: string, reason: 'unmatched' | 'invalid_qty' | 'unit_conflict' }} SkippedComponent
+ */
+
+/**
+ * Response shape of POST /api/specials/saved/[id]/export.
+ * @typedef {{
+ *   recipe_row: RecipeRow,
+ *   ingredient_rows: IngredientRow[],
+ *   skipped: IngredientRow[],
+ *   csv: string,
+ * }} ExportResult
+ */
+
+/**
+ * @param {number | null | undefined} ts
+ * @returns {string}
+ */
 function formatDateTime(ts) {
   if (!ts) return '';
   return new Date(ts).toLocaleString();
 }
 
+/**
+ * @param {string | null | undefined} name
+ * @returns {string}
+ */
 function slugifyName(name) {
   return (name || '')
     .toLowerCase()
@@ -20,6 +89,13 @@ function slugifyName(name) {
 
 const DEFAULT_LOCATION_ID = 'default';
 
+/**
+ * @param {{
+ *   special: SpecialDetail,
+ *   locationId: string,
+ *   promotion: PromotionSummary | null,
+ * }} props
+ */
 export default function SpecialDetailClient({ special, locationId, promotion }) {
   const router = useRouter();
   const locQ = locationId && locationId !== DEFAULT_LOCATION_ID
@@ -39,7 +115,7 @@ export default function SpecialDetailClient({ special, locationId, promotion }) 
   const [exportProcedure, setExportProcedure] = useState('');
   const [exporting, setExporting] = useState(false);
   const [exportErr, setExportErr] = useState('');
-  const [exportResult, setExportResult] = useState(null);
+  const [exportResult, setExportResult] = useState(/** @type {ExportResult | null} */ (null));
 
   const [promo, setPromo] = useState(promotion || null);
   const [showPromote, setShowPromote] = useState(false);
@@ -49,7 +125,7 @@ export default function SpecialDetailClient({ special, locationId, promotion }) 
   );
   const [promoting, setPromoting] = useState(false);
   const [promoteErr, setPromoteErr] = useState('');
-  const [promoteSkipped, setPromoteSkipped] = useState([]);
+  const [promoteSkipped, setPromoteSkipped] = useState(/** @type {SkippedComponent[]} */ ([]));
 
   const saveMeta = async () => {
     setMetaErr('');
@@ -63,7 +139,8 @@ export default function SpecialDetailClient({ special, locationId, promotion }) 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) setMetaErr(data.error || 'Save failed.');
     } catch (e) {
-      setMetaErr(String(e.message || e));
+      const err = /** @type {{ message?: unknown }} */ (e);
+      setMetaErr(String(err.message || err));
     } finally {
       setSavingMeta(false);
     }
@@ -75,6 +152,7 @@ export default function SpecialDetailClient({ special, locationId, promotion }) 
     if (res.ok) router.push(`/specials/saved${locQ}`);
   };
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submitExport = async (e) => {
     e.preventDefault();
     setExportErr('');
@@ -99,12 +177,14 @@ export default function SpecialDetailClient({ special, locationId, promotion }) 
       }
       setExportResult(data);
     } catch (e) {
-      setExportErr(String(e.message || e));
+      const err = /** @type {{ message?: unknown }} */ (e);
+      setExportErr(String(err.message || err));
     } finally {
       setExporting(false);
     }
   };
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submitPromote = async (e) => {
     e.preventDefault();
     setPromoteErr('');
@@ -128,12 +208,14 @@ export default function SpecialDetailClient({ special, locationId, promotion }) 
       setPromoteSkipped(data.skipped || []);
       setShowPromote(false);
     } catch (e) {
-      setPromoteErr(String(e.message || e));
+      const err = /** @type {{ message?: unknown }} */ (e);
+      setPromoteErr(String(err.message || err));
     } finally {
       setPromoting(false);
     }
   };
 
+  /** @param {string} csv */
   const downloadCsv = (csv) => {
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);

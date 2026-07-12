@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 /**
  * Recipe photo item endpoint — soft-delete and metadata edits.
  *
@@ -24,12 +26,25 @@ import { withIdempotency } from '../../../../../../lib/idempotency';
 
 export const runtime = 'nodejs';
 
+/**
+ * Next 15 route context: `params` may be a promise (async dynamic APIs).
+ * @typedef {{ params: Promise<{ slug?: string, id?: string }> | { slug?: string, id?: string } }} RouteCtx
+ */
+
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function DELETE(req, ctx) {
   // The UPDATE itself is replay-safe (deleted_at IS NULL guard) but the
   // audit row is not — dedupe keeps one audit entry per real delete.
   return withIdempotency(req, () => photoDeleteHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function photoDeleteHandler(req, { params }) {
 
   params = await params;
@@ -51,7 +66,8 @@ async function photoDeleteHandler(req, { params }) {
   if (result.changes === 0) {
     return Response.json({ error: 'photo not found' }, { status: 404 });
   }
-  await logAuditAction('recipe_photo_delete', {
+  logAuditAction({
+    action: 'recipe_photo_delete',
     recipe_slug: slug,
     location_id: location,
     photo_id: id,
@@ -59,12 +75,20 @@ async function photoDeleteHandler(req, { params }) {
   return Response.json({ ok: true, id });
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 export async function PATCH(req, ctx) {
   // Hero/caption writes are absolute-value (replay-safe) but the audit
   // rows are not — dedupe keeps one audit entry per real edit.
   return withIdempotency(req, () => photoPatchHandler(req, ctx));
 }
 
+/**
+ * @param {Request} req
+ * @param {RouteCtx} ctx
+ */
 async function photoPatchHandler(req, { params }) {
 
   params = await params;
@@ -93,6 +117,7 @@ async function photoPatchHandler(req, { params }) {
   // Validate caption type up front: string | null. Whitespace-only
   // strings normalize to null (matches the POST handler's behaviour
   // for FormData caption fields).
+  /** @type {string | null | undefined} */
   let nextCaption;
   if (hasCaption) {
     const raw = body.caption;
@@ -160,7 +185,8 @@ async function photoPatchHandler(req, { params }) {
   tx();
 
   if (hasHero) {
-    await logAuditAction('recipe_photo_set_hero', {
+    logAuditAction({
+      action: 'recipe_photo_set_hero',
       recipe_slug: slug,
       location_id: location,
       photo_id: id,
@@ -168,7 +194,8 @@ async function photoPatchHandler(req, { params }) {
     });
   }
   if (hasCaption) {
-    await logAuditAction('recipe_photo_set_caption', {
+    logAuditAction({
+      action: 'recipe_photo_set_caption',
       recipe_slug: slug,
       location_id: location,
       photo_id: id,

@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 // Employee health reports (F5 / FDA §2-201.11).
 //
 // POST  /api/sick-worker           → file a sick report (PIC authority)
@@ -27,12 +29,20 @@ import { withIdempotency } from '../../../lib/idempotency';
 
 export const dynamic = 'force-dynamic';
 
+/** @typedef {import('../../../lib/db').SickWorkerReport} SickReportRow */
+
+/**
+ * @param {unknown} s
+ * @param {number} max
+ * @returns {string | null}
+ */
 const clip = (s, max) => {
   if (typeof s !== 'string') return null;
   const t = s.trim();
   return t ? t.slice(0, max) : null;
 };
 
+/** @param {Request} req */
 async function gate(req) {
   if (pinRequiredForPic() && !(await hasPinOrTempPin(req, 'pic.sick_worker'))) {
     return Response.json(
@@ -45,12 +55,14 @@ async function gate(req) {
 
 // ── POST /api/sick-worker ────────────────────────────────────────
 
+/** @param {Request} req */
 export async function POST(req) {
   const blocked = await gate(req);
   if (blocked) return blocked;
   return withIdempotency(req, () => sickWorkerPostHandler(req));
 }
 
+/** @param {Request} req */
 async function sickWorkerPostHandler(req) {
   try {
     const body = await req.json();
@@ -121,12 +133,14 @@ async function sickWorkerPostHandler(req) {
 
 // ── PATCH /api/sick-worker ───────────────────────────────────────
 
+/** @param {Request} req */
 export async function PATCH(req) {
   const blocked = await gate(req);
   if (blocked) return blocked;
   return withIdempotency(req, () => sickWorkerPatchHandler(req));
 }
 
+/** @param {Request} req */
 async function sickWorkerPatchHandler(req) {
   try {
     const body = await req.json();
@@ -149,7 +163,7 @@ async function sickWorkerPatchHandler(req) {
     // The pre-check + UPDATE must be in the same transaction so that two
     // concurrent clearances can't both pass the 409 guard and double-write.
     const performUpdate = db.transaction(() => {
-      const existing = db.prepare('SELECT * FROM sick_worker_reports WHERE id=?').get(id);
+      const existing = /** @type {SickReportRow | undefined} */ (db.prepare('SELECT * FROM sick_worker_reports WHERE id=?').get(id));
       if (!existing) return { status: 404, error: 'unknown sick report' };
       if (existing.return_at) return { status: 409, error: 'already cleared', entry: existing };
 
@@ -191,6 +205,7 @@ async function sickWorkerPatchHandler(req) {
 
 // ── GET /api/sick-worker ─────────────────────────────────────────
 
+/** @param {Request} req */
 export async function GET(req) {
   // GET is a READ of who's currently excluded — we let the line know
   // (so the cook picker can grey out excluded cooks). The list is thin
@@ -209,6 +224,7 @@ export async function GET(req) {
        ORDER BY started_at DESC
     `).all(location_id);
 
+    /** @type {unknown[]} */
     let history = [];
     if (include_history && (await hasPinCookie(req))) {
       // Full rows only for PIN-authenticated callers.
