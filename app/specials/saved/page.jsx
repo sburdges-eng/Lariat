@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import Link from 'next/link';
 import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
@@ -8,17 +10,48 @@ export const dynamic = 'force-dynamic';
 
 const SNIPPET_MAX = 120;
 
+/**
+ * @param {unknown} s
+ * @returns {string}
+ */
 function snippet(s) {
   if (typeof s !== 'string') return '';
   const t = s.replace(/\s+/g, ' ').trim();
   return t.length <= SNIPPET_MAX ? t : t.slice(0, SNIPPET_MAX) + '…';
 }
 
+/**
+ * @param {number | null | undefined} ts
+ * @returns {string}
+ */
 function formatDate(ts) {
   if (!ts) return '';
   return new Date(ts).toLocaleDateString();
 }
 
+/**
+ * Row shape for the saved-specials list query. Nullability mirrors the
+ * `specials` / `specials_promotions` CREATE TABLE statements in lib/db.ts
+ * (selected-column subset only).
+ * @typedef {{
+ *   id: string,
+ *   name: string,
+ *   ai_answer: string,
+ *   cost_total: number | null,
+ *   last_exported_at: number | null,
+ *   created_at: number,
+ *   promoted_menu_item: string | null,
+ *   promoted_at: number | null,
+ * }} SavedSpecialListRow
+ */
+
+/**
+ * @typedef {{
+ *   searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>,
+ * }} SavedSpecialsPageProps
+ */
+
+/** @param {SavedSpecialsPageProps} props */
 export default async function SavedSpecialsPage({ searchParams }) {
   const sp = (await searchParams) || {};
 
@@ -29,9 +62,10 @@ export default async function SavedSpecialsPage({ searchParams }) {
   const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
 
   const db = getDb();
+  /** @type {SavedSpecialListRow[]} */
   let rows = [];
   try {
-    rows = db.prepare(`
+    rows = /** @type {SavedSpecialListRow[]} */ (db.prepare(`
       SELECT s.id, s.name, s.ai_answer, s.cost_total, s.last_exported_at, s.created_at,
              p.menu_item_name AS promoted_menu_item, p.promoted_at
       FROM specials s
@@ -39,7 +73,7 @@ export default async function SavedSpecialsPage({ searchParams }) {
         ON p.special_id = s.id AND p.location_id = s.location_id
       WHERE s.location_id = ? AND s.archived_at IS NULL
       ORDER BY s.created_at DESC
-    `).all(loc);
+    `).all(loc));
   } catch (e) {
     console.error('saved-specials list query failed:', e);
   }
