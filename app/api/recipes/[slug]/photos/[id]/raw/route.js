@@ -57,6 +57,10 @@ export async function GET(req, { params }) {
       'Content-Type': row.mime,
       'Content-Length': String(file.size),
       'Cache-Control': 'private, max-age=300',
+      // Stored mime is validated at upload, but never let a browser
+      // second-guess it into something scriptable (2026-07-10 audit,
+      // #459 adjacent finding).
+      'X-Content-Type-Options': 'nosniff',
     },
   });
 }

@@ -329,6 +329,11 @@ describe('GET /api/recipes/[slug]/photos/[id]/raw', () => {
     const before = await rawGET(rawReq(id), ctxItem(id));
     assert.equal(before.status, 200);
     assert.equal(before.headers.get('content-type'), 'image/png');
+    assert.equal(
+      before.headers.get('x-content-type-options'),
+      'nosniff',
+      'raw GET must forbid mime sniffing',
+    );
 
     await itemDELETE(deleteReq(id), ctxItem(id));
 
