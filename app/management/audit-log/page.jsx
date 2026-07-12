@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 // Management audit log — manager-only review of out-of-table actions.
@@ -22,14 +22,29 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { humanize } from '../../../lib/userError';
 
+/**
+ * One line from `data/audit/management-actions.jsonl`, as written by
+ * `logAuditAction()` (lib/auditLog.mjs) and returned by
+ * `GET /api/audit/log`. `id` is the field `logAuditAction` actually
+ * stamps on every entry (`generateAuditId()`) — there is no `audit_id`
+ * field anywhere in the writer or the route response.
+ * @typedef {{
+ *   id: string,
+ *   action: string,
+ *   slug?: string | null,
+ *   timestamp: string,
+ *   changes?: Record<string, unknown>,
+ * }} AuditLogEntry
+ */
+
 export default function AuditLogPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [logs, setLogs] = useState([]);
-  const [error, setError] = useState(null);
+  const [logs, setLogs] = useState(/** @type {AuditLogEntry[]} */ ([]));
+  const [error, setError] = useState(/** @type {string | null} */ (null));
   const [filterAction, setFilterAction] = useState('');
   const [filterSlug, setFilterSlug] = useState('');
-  const [expandedId, setExpandedId] = useState(null);
+  const [expandedId, setExpandedId] = useState(/** @type {string | null} */ (null));
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchAuditLog = async () => {
@@ -56,7 +71,7 @@ export default function AuditLogPage() {
         throw new Error(`Failed to fetch audit log: ${response.statusText}`);
       }
 
-      const data = await response.json();
+      const data = /** @type {{ logs?: AuditLogEntry[] }} */ (await response.json());
       setLogs(data.logs || []);
       setError(null);
     } catch (err) {
@@ -79,9 +94,14 @@ export default function AuditLogPage() {
   ).sort();
 
   const uniqueSlugs = Array.from(
-    new Set(logs.map(log => log.slug).filter(Boolean))
+    new Set(
+      logs
+        .map(log => log.slug)
+        .filter(/** @returns {slug is string} */ (slug) => Boolean(slug))
+    )
   ).sort();
 
+  /** @param {string} id */
   const handleToggleExpand = (id) => {
     setExpandedId(expandedId === id ? null : id);
   };
@@ -229,9 +249,9 @@ export default function AuditLogPage() {
               </thead>
               <tbody>
                 {logs.map((log) => {
-                  const isExpanded = expandedId === log.audit_id;
+                  const isExpanded = expandedId === log.id;
                   return (
-                    <tbody key={log.audit_id}>
+                    <tbody key={log.id}>
                       <tr
                         style={{
                           background: isExpanded ? 'rgba(200, 90, 42, 0.05)' : 'inherit',
@@ -270,7 +290,7 @@ export default function AuditLogPage() {
                         <td style={{ textAlign: 'center' }}>
                           {log.changes && Object.keys(log.changes).length > 0 && (
                             <button
-                              onClick={() => handleToggleExpand(log.audit_id)}
+                              onClick={() => handleToggleExpand(log.id)}
                               style={{
                                 background: 'none',
                                 border: 'none',
