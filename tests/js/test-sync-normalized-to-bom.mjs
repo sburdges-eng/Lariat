@@ -44,6 +44,7 @@ function seedVendorPrice(overrides = {}) {
     pack_price: 24.0,
     pack_size: 25,
     pack_unit: 'lb',
+    unit_price: null,
     yield_pct: 0.95,
     master_id: null,
     location_id: 'default',
@@ -51,13 +52,13 @@ function seedVendorPrice(overrides = {}) {
   };
   db.prepare(`
     INSERT INTO vendor_prices (
-      ingredient, vendor, pack_price, pack_size, pack_unit,
+      ingredient, vendor, pack_price, pack_size, pack_unit, unit_price,
       yield_pct, master_id, location_id, imported_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
   `).run(
     row.ingredient, row.vendor, row.pack_price, row.pack_size, row.pack_unit,
-    row.yield_pct, row.master_id, row.location_id,
+    row.unit_price, row.yield_pct, row.master_id, row.location_id,
   );
 }
 
@@ -390,6 +391,51 @@ describe('syncNormalizedRecipes — vendor-column enrichment', () => {
     });
   });
 
+  it('uses ingredient_maps confirmed rows as tier-1 bridge (not only mapped)', () => {
+    seedIngredientMap('kosher salt', 'SALT, SEA WHT GRANULE 3LB KOSHER', { status: 'confirmed' });
+    seedVendorPrice({
+      ingredient: 'SALT, SEA WHT GRANULE 3LB KOSHER', vendor: 'shamrock',
+      pack_price: 33.01, pack_size: 36,
+    });
+
+    const indexRows = [indexRow()];
+    const csvByRecipeId = new Map([
+      ['gazpacho', [ingRow({ ingredient: 'kosher salt', qty: '2', unit: 'tbsp' })]],
+    ]);
+    const summary = call({ indexRows, csvByRecipeId });
+
+    assert.equal(summary.vendor_columns_populated, 1);
+    const row = db.prepare(`
+      SELECT vendor, pack_price, pack_size, map_status
+        FROM bom_lines WHERE recipe_id='gazpacho'
+    `).get();
+    assert.deepEqual(row, {
+      vendor: 'shamrock', pack_price: 33.01, pack_size: 36, map_status: 'mapped',
+    });
+  });
+
+  it('derives pack_price from unit_price × pack_size when vendor row has no pack_price', () => {
+    seedVendorPrice({
+      ingredient: 'Roma Tomatoes', vendor: 'sysco',
+      pack_price: null, unit_price: 0.98, pack_size: 25,
+    });
+
+    const indexRows = [indexRow()];
+    const csvByRecipeId = new Map([
+      ['gazpacho', [ingRow({ ingredient: 'roma tomatoes', qty: '6', unit: 'lb' })]],
+    ]);
+    const summary = call({ indexRows, csvByRecipeId });
+
+    assert.equal(summary.vendor_columns_populated, 1);
+    const row = db.prepare(`
+      SELECT pack_price, pack_size, map_status
+        FROM bom_lines WHERE recipe_id='gazpacho'
+    `).get();
+    assert.equal(row.pack_price, 0.98 * 25);
+    assert.equal(row.pack_size, 25);
+    assert.equal(row.map_status, 'auto_mapped');
+  });
+
   it('uses ingredient_maps as a bridge when recipe-side name does not match vendor_prices directly', () => {
     // Workbook-confirmed bridge: "kosher salt" → "SALT, SEA WHT GRANULE 3LB KOSHER".
     seedIngredientMap('kosher salt', 'SALT, SEA WHT GRANULE 3LB KOSHER');
@@ -450,6 +496,37 @@ describe('syncNormalizedRecipes — vendor-column enrichment', () => {
     );
     assert.equal(byIng['kosher salt'], 'mapped', 'tier-1 bridge must be mapped');
     assert.equal(byIng['roma tomatoes'], 'auto_mapped', 'tier-2 direct match must be auto_mapped');
+  });
+
+  it('preserves cost_proxy ingredient_maps status on tier-1 bridge rows', () => {
+    seedIngredientMap('honey', 'Honey Pure Light Amber', { status: 'cost_proxy_sweetener' });
+    seedVendorPrice({
+      ingredient: 'Honey Pure Light Amber', vendor: 'sysco',
+      pack_price: 45, pack_size: 1, unit_price: 45,
+    });
+
+    const indexRows = [indexRow()];
+    const csvByRecipeId = new Map([
+      ['gazpacho', [ingRow({ ingredient: 'honey', qty: '0.5', unit: 'cup' })]],
+    ]);
+    call({ indexRows, csvByRecipeId });
+
+    const row = db.prepare(`SELECT map_status, vendor FROM bom_lines WHERE ingredient='honey'`).get();
+    assert.equal(row.map_status, 'cost_proxy_sweetener');
+    assert.equal(row.vendor, 'sysco');
+  });
+
+  it('marks house water as no-cost utility instead of UNMAPPED', () => {
+    const indexRows = [indexRow()];
+    const csvByRecipeId = new Map([
+      ['gazpacho', [ingRow({ ingredient: 'water', qty: '1.5', unit: 'cup' })]],
+    ]);
+    const summary = call({ indexRows, csvByRecipeId });
+
+    assert.equal(summary.vendor_columns_populated, 0);
+    assert.equal(summary.vendor_columns_unmapped, 0);
+    const row = db.prepare(`SELECT map_status, vendor, pack_price FROM bom_lines WHERE ingredient='water'`).get();
+    assert.deepEqual(row, { map_status: 'no_cost_utility', vendor: null, pack_price: null });
   });
 
   it('leaves vendor cols NULL when ingredient resolves to multiple distinct vendors', () => {

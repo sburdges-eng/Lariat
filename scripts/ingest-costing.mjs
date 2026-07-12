@@ -9,6 +9,7 @@ import { normalizeIngredientKey, deriveMasterId } from '../lib/ingredientKey.ts'
 import {
   convertPackSizeToLineUnit,
   normalizeUnit,
+  effectivePackPrice,
 } from '../lib/unitConvert.mjs';
 import { rollupRecipeCosts } from '../lib/computeEngine/rollupRecipeCosts.ts';
 
@@ -638,8 +639,10 @@ export function runCostingPostPass(db, locationId = 'default') {
   // first row wins per key — keeps "latest priced pack" semantics consistent.
   const vpPackUnitByRaw = new Map();
   const vpPackUnitByNormKey = new Map();
+  const vpPackPriceByRaw = new Map();
+  const vpPackPriceByNormKey = new Map();
   for (const row of db.prepare(
-    `SELECT ingredient, pack_unit
+    `SELECT ingredient, pack_unit, pack_price, unit_price, pack_size
        FROM vendor_prices
       WHERE location_id = ?
       ORDER BY imported_at DESC, id DESC`,
@@ -649,6 +652,8 @@ export function runCostingPostPass(db, locationId = 'default') {
     const key = normalizeIngredientKey(raw);
     if (!key) continue;
     if (!vpPackUnitByNormKey.has(key)) vpPackUnitByNormKey.set(key, row.pack_unit);
+    if (raw && !vpPackPriceByRaw.has(raw)) vpPackPriceByRaw.set(raw, row);
+    if (!vpPackPriceByNormKey.has(key)) vpPackPriceByNormKey.set(key, row);
   }
   const resolvePackUnit = (bomIngredient, vendorIngredient) => {
     // 1. raw vendor string match on bom_lines.vendor_ingredient.
@@ -664,6 +669,22 @@ export function runCostingPostPass(db, locationId = 'default') {
     const bKey = normalizeIngredientKey(bomIngredient ?? '');
     if (bKey && vpPackUnitByNormKey.has(bKey)) return vpPackUnitByNormKey.get(bKey);
     return undefined;
+  };
+  const resolveLinePackPrice = (bomIngredient, vendorIngredient, bomPackPrice, bomPackSize) => {
+    const fromBom = effectivePackPrice({ pack_price: bomPackPrice, pack_size: bomPackSize });
+    if (fromBom != null) return fromBom;
+    let vpRow;
+    if (vendorIngredient && vpPackPriceByRaw.has(vendorIngredient)) {
+      vpRow = vpPackPriceByRaw.get(vendorIngredient);
+    } else {
+      const vKey = normalizeIngredientKey(vendorIngredient ?? '');
+      if (vKey && vpPackPriceByNormKey.has(vKey)) vpRow = vpPackPriceByNormKey.get(vKey);
+      else {
+        const bKey = normalizeIngredientKey(bomIngredient ?? '');
+        if (bKey && vpPackPriceByNormKey.has(bKey)) vpRow = vpPackPriceByNormKey.get(bKey);
+      }
+    }
+    return vpRow ? effectivePackPrice(vpRow) : null;
   };
 
   const bomForDelta = db.prepare(`
@@ -695,11 +716,12 @@ export function runCostingPostPass(db, locationId = 'default') {
       id, recipe_id, ingredient, vendor_ingredient, unit, qty, pack_price, pack_size,
       yield_pct, loss_factor, map_status,
     } = line;
+    const effPackPrice = resolveLinePackPrice(ingredient, vendor_ingredient, pack_price, pack_size);
     // Guard: zero/null qty, pack_price, or pack_size contributes 0 delta.
     if (
-      qty == null || pack_price == null || pack_size == null ||
-      !(qty > 0) || !(pack_price > 0) || !(pack_size > 0) ||
-      !Number.isFinite(qty) || !Number.isFinite(pack_price) || !Number.isFinite(pack_size)
+      qty == null || pack_size == null || effPackPrice == null ||
+      !(qty > 0) || !(effPackPrice > 0) || !(pack_size > 0) ||
+      !Number.isFinite(qty) || !Number.isFinite(effPackPrice) || !Number.isFinite(pack_size)
     ) {
       guardSkipped++;
       continue;
@@ -711,7 +733,7 @@ export function runCostingPostPass(db, locationId = 'default') {
     // Excel revision, the INFO log downstream catches it.
     perRecipeRawSum.set(
       recipe_id,
-      (perRecipeRawSum.get(recipe_id) ?? 0) + (qty * pack_price / pack_size),
+      (perRecipeRawSum.get(recipe_id) ?? 0) + (qty * effPackPrice / pack_size),
     );
     const adj = adjustment(yield_pct, loss_factor);
     if (adj === null) {
@@ -745,7 +767,7 @@ export function runCostingPostPass(db, locationId = 'default') {
     }
 
     // delta = qty × pack_price / pack_size_in_bom_unit × (adj - 1)
-    const delta = (qty * pack_price / packSizeInBomUnit) * (adj - 1);
+    const delta = (qty * effPackPrice / packSizeInBomUnit) * (adj - 1);
     if (delta === 0) continue;
     perRecipeDelta.set(recipe_id, (perRecipeDelta.get(recipe_id) ?? 0) + delta);
   }

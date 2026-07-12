@@ -175,6 +175,20 @@
     "to_unit": "tbsp"
   },
   {
+    "expected": 1.0,
+    "from_unit": "c",
+    "g_per_ml": null,
+    "qty": 4.0,
+    "to_unit": "qt"
+  },
+  {
+    "expected": 16.000000014109585,
+    "from_unit": "#",
+    "g_per_ml": null,
+    "qty": 1.0,
+    "to_unit": "oz"
+  },
+  {
     "expected": 0.29208915582067657,
     "from_unit": "cup",
     "g_per_ml": 0.56,

@@ -18,10 +18,33 @@ public struct RecipeCatalogEntry: Codable, Equatable, Sendable {
     public let slug: String
     public let name: String
     public let subRecipes: [String]?
+    /// Optional ingredient lines from `recipes.json` — used for ingredient-level 86 cascade.
+    public let ingredients: [RecipeIngredientRef]?
+
+    public init(
+        slug: String,
+        name: String,
+        subRecipes: [String]?,
+        ingredients: [RecipeIngredientRef]? = nil
+    ) {
+        self.slug = slug
+        self.name = name
+        self.subRecipes = subRecipes
+        self.ingredients = ingredients
+    }
 
     enum CodingKeys: String, CodingKey {
-        case slug, name
+        case slug, name, ingredients
         case subRecipes = "sub_recipes"
+    }
+}
+
+/// Minimal ingredient shape for cascade matching (`item` only; qty/unit unused).
+public struct RecipeIngredientRef: Codable, Equatable, Sendable {
+    public let item: String?
+
+    public init(item: String?) {
+        self.item = item
     }
 }
 

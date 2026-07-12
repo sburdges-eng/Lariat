@@ -54,6 +54,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { normalizeIngredientKey } from '../lib/ingredientKey.ts';
+import { effectivePackPrice } from '../lib/unitConvert.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -125,6 +126,12 @@ function looksLikeSubRecipe(notes) {
   return /\bsub[\s_-]?recipe\b/.test(n) || /\bvia\s+[a-z0-9_]+\.csv\b/.test(n);
 }
 
+const NO_COST_UTILITY_KEYS = new Set(['water']);
+
+export function isNoCostUtilityIngredient(name) {
+  return NO_COST_UTILITY_KEYS.has(normalizeIngredientKey(name ?? ''));
+}
+
 function refreshRecipeFields(db, recipe) {
   db.prepare(
     `UPDATE entities_recipes
@@ -175,10 +182,10 @@ function refreshRecipeFields(db, recipe) {
 // unmapped — picking one would silently bias variance math. The
 // preferred-vendor / mean resolution (T7) is master_id-keyed and stays
 // authoritative when master_id is populated.
-function buildVendorPriceIndex(db, locationId) {
+export function buildVendorPriceIndex(db, locationId) {
   const rows = db
     .prepare(
-      `SELECT ingredient, vendor, pack_price, pack_size,
+      `SELECT ingredient, vendor, pack_price, pack_size, unit_price,
               yield_pct, master_id, id
          FROM vendor_prices
         WHERE location_id = ?
@@ -198,16 +205,15 @@ function buildVendorPriceIndex(db, locationId) {
   return byKey;
 }
 
-// Build a normalized recipe_ingredient → vendor_ingredient map. Only
-// `status='mapped'` rows are honoured — the workbook-confirmed bridge
-// is the only confidence signal we trust here.
-function buildIngredientMapIndex(db, locationId) {
+// Build a normalized recipe_ingredient → bridge map. Any row with a
+// vendor_ingredient is eligible — confirmed/mapped, cost_proxy_*,
+// plan_* placeholders all carry intentional vendor targets.
+export function buildIngredientMapIndex(db, locationId) {
   const rows = db
     .prepare(
-      `SELECT recipe_ingredient, vendor_ingredient
+      `SELECT recipe_ingredient, vendor_ingredient, status
          FROM ingredient_maps
         WHERE location_id = ?
-          AND status = 'mapped'
           AND vendor_ingredient IS NOT NULL
           AND vendor_ingredient != ''`,
     )
@@ -216,12 +222,19 @@ function buildIngredientMapIndex(db, locationId) {
   for (const r of rows) {
     const key = normalizeIngredientKey(r.recipe_ingredient ?? '');
     if (!key) continue;
-    // First mapping wins on duplicate keys; ingredient_maps is expected
-    // to be deduped by ingest_costing's upsert, but defensive guard
-    // doesn't hurt.
-    if (!byRecipeKey.has(key)) byRecipeKey.set(key, r.vendor_ingredient);
+    if (!byRecipeKey.has(key)) {
+      byRecipeKey.set(key, {
+        vendor_ingredient: r.vendor_ingredient,
+        status: r.status ?? 'mapped',
+      });
+    }
   }
   return byRecipeKey;
+}
+
+function mapStatusFromBridge(bridgeStatus) {
+  if (bridgeStatus === 'mapped' || bridgeStatus === 'confirmed') return 'mapped';
+  return bridgeStatus;
 }
 
 function pickSingleVendorRow(entry) {
@@ -252,22 +265,25 @@ function pickSingleVendorRow(entry) {
 // that landed via the fuzzy fallback and may need confirmation. Keeping
 // this distinction honest avoids the HACCP "never silently auto-correct"
 // trap.
-function resolveVendorEnrichment(vpIndex, imIndex, ingredientName) {
+export function resolveVendorEnrichment(vpIndex, imIndex, ingredientName) {
   const key = normalizeIngredientKey(ingredientName ?? '');
   if (!key) return { mapped: false };
 
   // Tier 1: recipe-side bridge via ingredient_maps.
-  const vendorIngredient = imIndex.get(key);
-  if (vendorIngredient) {
+  const bridge = imIndex.get(key);
+  if (bridge) {
+    const vendorIngredient = bridge.vendor_ingredient ?? bridge;
     const vendorKey = normalizeIngredientKey(vendorIngredient);
     if (vendorKey) {
       const hit = pickSingleVendorRow(vpIndex.get(vendorKey));
       if (hit) {
+        const bridgeStatus = typeof bridge === 'object' ? bridge.status : 'mapped';
         return {
           mapped: true,
           tier: 1,
+          map_status: mapStatusFromBridge(bridgeStatus),
           vendor: hit.vendor ?? null,
-          pack_price: hit.pack_price ?? null,
+          pack_price: effectivePackPrice(hit),
           pack_size: hit.pack_size ?? null,
           vendor_ingredient: hit.ingredient ?? null,
           yield_pct: hit.yield_pct ?? null,
@@ -284,7 +300,7 @@ function resolveVendorEnrichment(vpIndex, imIndex, ingredientName) {
       mapped: true,
       tier: 2,
       vendor: direct.vendor ?? null,
-      pack_price: direct.pack_price ?? null,
+      pack_price: effectivePackPrice(direct),
       pack_size: direct.pack_size ?? null,
       vendor_ingredient: direct.ingredient ?? null,
       yield_pct: direct.yield_pct ?? null,
@@ -414,10 +430,16 @@ export function syncNormalizedRecipes(db, opts) {
           // Counters track them separately (not as unmapped).
           let enrichment = { mapped: false };
           if (subRecipe == null) {
-            enrichment = resolveVendorEnrichment(vpIndex, imIndex, name);
+            if (isNoCostUtilityIngredient(name)) {
+              enrichment = { mapped: false, map_status: 'no_cost_utility' };
+            } else {
+              enrichment = resolveVendorEnrichment(vpIndex, imIndex, name);
+            }
             if (enrichment.mapped) {
               summary.vendor_columns_populated++;
               if (enrichment.tier === 2) summary.vendor_columns_auto_mapped++;
+            } else if (enrichment.map_status === 'no_cost_utility') {
+              // House utility ingredients intentionally have no vendor columns.
             } else {
               summary.vendor_columns_unmapped++;
             }
@@ -430,9 +452,12 @@ export function syncNormalizedRecipes(db, opts) {
           // distinguish them by status to surface fuzzy matches for confirmation.
           const mapStatus = subRecipe != null
             ? null
-            : (!enrichment.mapped
+            : (enrichment.map_status === 'no_cost_utility'
+                ? 'no_cost_utility'
+                : (!enrichment.mapped
                 ? 'UNMAPPED'
-                : (enrichment.tier === 2 ? 'auto_mapped' : 'mapped'));
+                : (enrichment.map_status
+                    ?? (enrichment.tier === 2 ? 'auto_mapped' : 'mapped'))));
 
           if (!dryRun) {
             insBomLine.run(

@@ -31,3 +31,31 @@ cornbread mixture,box,907.18,seed,2 lb box approx; verify against Sysco Mix Corn
 avocado,ct,200,seed,medium Hass avocado; approx
 avocado,ea,200,seed,alias of ct avocado weight
 large white onions,ea,340,seed,alias of white onions jumbo weight
+garlic,clove,3,seed,single peeled clove; alias of ea
+garlic cloves,clove,3,seed,alias of garlic clove
+eggs,ea,50,seed,large whole egg; approx
+egg,ea,50,seed,alias of eggs ea
+yellow mustard,cs,3100,seed,105 oz jug per case; approx; verify in-house
+mustard,cs,3100,seed,alias of yellow mustard case weight
+dijon mustard,ea,3400,seed,~1 gal jug; approx; verify in-house
+buttermilk,cs,15600,seed,4 gal case approx; verify in-house
+apple cider vinegar,cs,3785,seed,1 gal jug case; approx
+white vinegar,cs,3785,seed,1 gal jug case; approx
+red wine vinegar,cs,3785,seed,1 gal jug case; approx
+tabasco,cs,1700,seed,32 oz bottle case; approx
+prepared horseradish,cs,1360,seed,32 oz jar case; approx
+cream cheese,ea,1360,seed,3 lb loaf; verify in-house
+dill,cs,200,seed,fresh herb case approx; verify in-house
+thyme,cs,100,seed,fresh herb case approx; verify in-house
+tarragon,cs,100,seed,fresh herb case approx; verify in-house
+parsley,ea,100,seed,bunch weight; approx
+rosemary,sprig,2,seed,single sprig; alias of rosemary sprigs ea
+thyme,sprig,1,seed,single sprig; alias of thyme sprigs ea
+nutmeg,cs,450,seed,spice case approx; verify in-house
+red pepper,cs,450,seed,crushed pepper bulk case; approx
+drained pickle relish,ea,1360,seed,gallon jar approx; verify in-house
+tomatoes,case,2268,seed,5 lb case net; vendor pack_size lb miscoded as count bridge
+tomatoes,cs,2268,seed,alias; case normalizes to cs
+tomatillos,cs,793.79,seed,#10 can case net wt; alias of can row
+whole tomatillos,cs,793.79,seed,alias of tomatillos cs
+bread and butter pickle juice,cs,1814.37,seed,approx 4 lb case/jar; verify in-house

@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { convertQty, normalizeUnit, unitDimension } from '../../lib/unitConvert.mjs';
+import { convertQty, normalizeUnit, unitDimension, effectivePackPrice } from '../../lib/unitConvert.mjs';
 
 const fixturePath = path.join(
   path.dirname(new URL(import.meta.url).pathname),
@@ -68,6 +68,8 @@ describe('unitConvert — sanity on helpers', () => {
     assert.strictEqual(normalizeUnit('LB'), 'lb');
     assert.strictEqual(normalizeUnit(' pound '), 'lb');
     assert.strictEqual(normalizeUnit('Cups'), 'cup');
+    assert.strictEqual(normalizeUnit('c'), 'cup');
+    assert.strictEqual(normalizeUnit('#'), 'lb');
     assert.strictEqual(normalizeUnit('fluid ounce'), 'floz');
     assert.strictEqual(normalizeUnit(''), '');
     assert.strictEqual(normalizeUnit(null), '');
@@ -79,5 +81,28 @@ describe('unitConvert — sanity on helpers', () => {
     assert.strictEqual(unitDimension('cup'), 'volume');
     assert.strictEqual(unitDimension('ea'), 'count');
     assert.strictEqual(unitDimension('blorp'), null);
+  });
+});
+
+describe('effectivePackPrice', () => {
+  it('prefers explicit pack_price when set', () => {
+    assert.strictEqual(effectivePackPrice({ pack_price: 33.01, unit_price: 0.9, pack_size: 36 }), 33.01);
+  });
+
+  it('derives pack_price from unit_price × pack_size when pack_price is null', () => {
+    assert.strictEqual(
+      effectivePackPrice({ pack_price: null, unit_price: 0.916944, pack_size: 36 }),
+      0.916944 * 36,
+    );
+  });
+
+  it('returns null when neither path yields a positive finite price', () => {
+    assert.strictEqual(effectivePackPrice({ pack_price: null, unit_price: null, pack_size: 36 }), null);
+    assert.strictEqual(effectivePackPrice({ pack_price: 0, unit_price: null, pack_size: 36 }), null);
+    assert.strictEqual(effectivePackPrice(null), null);
+  });
+
+  it('falls through zero pack_price to unit_price × pack_size', () => {
+    assert.strictEqual(effectivePackPrice({ pack_price: 0, unit_price: 1, pack_size: 1 }), 1);
   });
 });

@@ -31,11 +31,11 @@ public enum UnitConvert {
         "millilitre": "ml", "milliliter": "ml", "milliliters": "ml",
         "teaspoon": "tsp", "teaspoons": "tsp", "tablespoon": "tbsp", "tablespoons": "tbsp",
         "fluid_ounce": "floz", "fluid ounce": "floz", "fl_oz": "floz", "fl oz": "floz",
-        "cups": "cup", "pint": "pt", "pints": "pt", "quart": "qt", "quarts": "qt",
+        "cups": "cup", "c": "cup", "pint": "pt", "pints": "pt", "quart": "qt", "quarts": "qt",
         "gallon": "gal", "gallons": "gal", "each": "ea", "pcs": "pc", "count": "ct",
         "pack": "pk", "packs": "pk", "case": "cs", "cases": "cs", "bags": "bag",
         "bottles": "bottle", "btl": "bottle", "cans": "can", "#10 can": "can",
-        "#10_can": "can", "jars": "jar", "bunches": "bunch", "boxes": "box",
+        "#10_can": "can", "#": "lb", "jars": "jar", "bunches": "bunch", "boxes": "box",
         "slices": "slice", "sprigs": "sprig", "cloves": "clove", "dozen": "doz", "dozens": "doz",
     ]
 

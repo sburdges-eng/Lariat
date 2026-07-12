@@ -26,28 +26,46 @@ function subsetOf(a: string[], b: string[]): boolean {
   return a.every((t) => bSet.has(t));
 }
 
-/** Does the 86'd `item` text refer to the given `recipe`?
- *  Matches exact slug, name equality, or token-subset against name/slug. */
-function itemMatchesRecipe(item: string, recipe: Recipe): boolean {
+/** Precomputed match keys for one recipe — built once per cascade call. */
+interface RecipeMatchIndex {
+  recipe: Recipe;
+  nameToks: string[];
+  slugToks: string[];
+  ingredientToks: string[][];
+}
+
+function buildMatchIndex(recipes: Recipe[]): RecipeMatchIndex[] {
+  return recipes.map((recipe) => ({
+    recipe,
+    nameToks: tokens(recipe.name),
+    slugToks: tokens(recipe.slug),
+    ingredientToks: (recipe.ingredients || [])
+      .map((ing) => tokens(ing.item))
+      .filter((t) => t.length > 0),
+  }));
+}
+
+/** Does the 86'd `item` text refer to the given indexed recipe?
+ *  Matches exact slug, name equality, or token-subset against name/slug/ingredients. */
+function itemMatchesIndexed(item: string, idx: RecipeMatchIndex): boolean {
   const slugForm = item.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
-  if (slugForm === recipe.slug) return true;
+  if (slugForm === idx.recipe.slug) return true;
 
   const itemToks = tokens(item);
   if (!itemToks.length) return false;
-  const nameToks = tokens(recipe.name);
-  const slugToks = tokens(recipe.slug);
-  if (itemToks.length === nameToks.length && subsetOf(itemToks, nameToks) && subsetOf(nameToks, itemToks)) return true;
-  if (subsetOf(itemToks, nameToks)) return true;
-  if (subsetOf(itemToks, slugToks)) return true;
-
-  if (recipe.ingredients) {
-    for (const ing of recipe.ingredients) {
-      if (!ing.item) continue;
-      const ingToks = tokens(ing.item);
-      if (subsetOf(itemToks, ingToks)) return true;
-    }
+  if (
+    itemToks.length === idx.nameToks.length &&
+    subsetOf(itemToks, idx.nameToks) &&
+    subsetOf(idx.nameToks, itemToks)
+  ) {
+    return true;
   }
+  if (subsetOf(itemToks, idx.nameToks)) return true;
+  if (subsetOf(itemToks, idx.slugToks)) return true;
 
+  for (const ingToks of idx.ingredientToks) {
+    if (subsetOf(itemToks, ingToks)) return true;
+  }
   return false;
 }
 
@@ -81,22 +99,28 @@ export function cascadedFromEightySix(
   if (!itemsEightySixed.length || !recipes.length) return [];
   const parents = buildParentIndex(recipes);
   const bySlug = new Map(recipes.map((r) => [r.slug, r]));
+  const matchIndex = buildMatchIndex(recipes);
   const out = new Map<string, CascadedRecipe>();
 
   for (const item of itemsEightySixed) {
     if (!item) continue;
 
     const rootSlugs: string[] = [];
-    for (const r of recipes) {
-      if (itemMatchesRecipe(item, r)) rootSlugs.push(r.slug);
+    for (const idx of matchIndex) {
+      if (itemMatchesIndexed(item, idx)) rootSlugs.push(idx.recipe.slug);
     }
     if (!rootSlugs.length) continue;
 
+    const itemTrim = item.trim().toLowerCase();
+    const itemSlugForm = itemTrim.replace(/[^a-z0-9]+/g, '_');
+
     for (const rootSlug of rootSlugs) {
+      // Index-based BFS — avoid Array.shift() O(n) cost on deep DAGs.
       const queue: string[] = [rootSlug];
+      let head = 0;
       const visited = new Set<string>([rootSlug]);
-      while (queue.length) {
-        const cur = queue.shift()!;
+      while (head < queue.length) {
+        const cur = queue[head++]!;
         const curParents = parents.get(cur);
         if (!curParents) continue;
         for (const p of curParents) {
@@ -111,8 +135,8 @@ export function cascadedFromEightySix(
       // If it only matched because of an ingredient, the recipe should appear in the cascade.
       const r = bySlug.get(rootSlug);
       const isExactMatch = r && (
-        r.name.trim().toLowerCase() === item.trim().toLowerCase() ||
-        r.slug === item.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_')
+        r.name.trim().toLowerCase() === itemTrim ||
+        r.slug === itemSlugForm
       );
       if (isExactMatch) {
         visited.delete(rootSlug);
@@ -120,9 +144,9 @@ export function cascadedFromEightySix(
 
       for (const slug of visited) {
         if (out.has(slug)) continue;
-        const r = bySlug.get(slug);
-        if (!r) continue;
-        out.set(slug, { slug, name: r.name, via: item, root_slug: rootSlug });
+        const recipe = bySlug.get(slug);
+        if (!recipe) continue;
+        out.set(slug, { slug, name: recipe.name, via: item, root_slug: rootSlug });
       }
     }
   }

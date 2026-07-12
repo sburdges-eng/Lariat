@@ -8,6 +8,8 @@ final class UnitConvertTests: XCTestCase {
         XCTAssertEqual(UnitConvert.normalizeUnit("fl oz"), "floz")
         XCTAssertEqual(UnitConvert.normalizeUnit(nil), "")
         XCTAssertEqual(UnitConvert.normalizeUnit("cups"), "cup")
+        XCTAssertEqual(UnitConvert.normalizeUnit("c"), "cup")
+        XCTAssertEqual(UnitConvert.normalizeUnit("#"), "lb")
     }
     func testUnitDimension() {
         XCTAssertEqual(UnitConvert.unitDimension("oz"), "weight")

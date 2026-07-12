@@ -17,6 +17,7 @@ public struct CascadedRecipe: Equatable, Sendable {
 
 public enum SubRecipeCascadeCompute {
     /// Port of `cascadedFromEightySix(itemsEightySixed, recipes)`.
+    /// Includes ingredient-level matches (parity with `lib/subRecipeGraph.ts`).
     public static func cascadedFromEightySix(
         itemsEightySixed: [String],
         recipes: [RecipeCatalogEntry]
@@ -24,24 +25,42 @@ public enum SubRecipeCascadeCompute {
         guard !itemsEightySixed.isEmpty, !recipes.isEmpty else { return [] }
         let parents = buildParentIndex(recipes: recipes)
         let bySlug = Dictionary(uniqueKeysWithValues: recipes.map { ($0.slug, $0) })
+        let matchIndex = recipes.map { RecipeMatchIndex(recipe: $0) }
         var out: [String: CascadedRecipe] = [:]
 
         for item in itemsEightySixed where !item.isEmpty {
-            let rootSlugs = recipes.filter { itemMatchesRecipe(item: item, recipe: $0) }.map(\.slug)
+            let rootSlugs = matchIndex.compactMap { itemMatches($0, item: item) ? $0.recipe.slug : nil }
             guard !rootSlugs.isEmpty else { continue }
+
+            let itemTrim = item.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let itemSlugForm = itemTrim.replacingOccurrences(
+                of: "[^a-z0-9]+", with: "_", options: .regularExpression
+            )
 
             for rootSlug in rootSlugs {
                 var queue = [rootSlug]
+                var head = 0
                 var visited: Set<String> = [rootSlug]
-                while !queue.isEmpty {
-                    let cur = queue.removeFirst()
+                while head < queue.count {
+                    let cur = queue[head]
+                    head += 1
                     guard let curParents = parents[cur] else { continue }
                     for parent in curParents where !visited.contains(parent) {
                         visited.insert(parent)
                         queue.append(parent)
                     }
                 }
-                visited.remove(rootSlug)
+
+                // Exact name/slug match → root already on the 86 board; drop it.
+                // Ingredient-only match → keep the root on the cascade board.
+                if let r = bySlug[rootSlug] {
+                    let isExactMatch =
+                        r.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == itemTrim
+                        || r.slug == itemSlugForm
+                    if isExactMatch {
+                        visited.remove(rootSlug)
+                    }
+                }
 
                 for slug in visited {
                     guard out[slug] == nil, let recipe = bySlug[slug] else { continue }
@@ -80,21 +99,40 @@ public enum SubRecipeCascadeCompute {
         return a.allSatisfy { bSet.contains($0) }
     }
 
-    private static func itemMatchesRecipe(item: String, recipe: RecipeCatalogEntry) -> Bool {
+    private struct RecipeMatchIndex {
+        let recipe: RecipeCatalogEntry
+        let nameToks: [String]
+        let slugToks: [String]
+        let ingredientToks: [[String]]
+
+        init(recipe: RecipeCatalogEntry) {
+            self.recipe = recipe
+            nameToks = SubRecipeCascadeCompute.tokens(recipe.name)
+            slugToks = SubRecipeCascadeCompute.tokens(recipe.slug)
+            ingredientToks = (recipe.ingredients ?? [])
+                .compactMap { ing -> [String]? in
+                    let t = SubRecipeCascadeCompute.tokens(ing.item)
+                    return t.isEmpty ? nil : t
+                }
+        }
+    }
+
+    private static func itemMatches(_ idx: RecipeMatchIndex, item: String) -> Bool {
         let slugForm = item.trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
             .replacingOccurrences(of: "[^a-z0-9]+", with: "_", options: .regularExpression)
-        if slugForm == recipe.slug { return true }
+        if slugForm == idx.recipe.slug { return true }
 
         let itemToks = tokens(item)
         guard !itemToks.isEmpty else { return false }
-        let nameToks = tokens(recipe.name)
-        let slugToks = tokens(recipe.slug)
-        if itemToks.count == nameToks.count,
-           subsetOf(itemToks, nameToks),
-           subsetOf(nameToks, itemToks) { return true }
-        if subsetOf(itemToks, nameToks) { return true }
-        if subsetOf(itemToks, slugToks) { return true }
+        if itemToks.count == idx.nameToks.count,
+           subsetOf(itemToks, idx.nameToks),
+           subsetOf(idx.nameToks, itemToks) { return true }
+        if subsetOf(itemToks, idx.nameToks) { return true }
+        if subsetOf(itemToks, idx.slugToks) { return true }
+        for ingToks in idx.ingredientToks {
+            if subsetOf(itemToks, ingToks) { return true }
+        }
         return false
     }
 }

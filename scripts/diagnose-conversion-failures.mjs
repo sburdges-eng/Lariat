@@ -9,7 +9,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import { normalizeIngredientKey } from '../lib/ingredientKey.ts';
-import { convertQty, normalizeUnit, unitDimension } from '../lib/unitConvert.mjs';
+import { convertQty, normalizeUnit, unitDimension, effectivePackPrice } from '../lib/unitConvert.mjs';
 import { bridgeCount } from './ingest-costing.mjs';
 
 const DB_PATH = process.env.LARIAT_DB || path.join(process.cwd(), 'data', 'lariat.db');
@@ -36,14 +36,21 @@ for (const r of db.prepare('SELECT ingredient_key, unit, g_per_unit FROM ingredi
 
 const vpPackUnitByRaw = new Map();
 const vpPackUnitByNormKey = new Map();
+const vpPackPriceByRaw = new Map();
+const vpPackPriceByNormKey = new Map();
 for (const row of db.prepare(
-  `SELECT ingredient, pack_unit FROM vendor_prices
+  `SELECT ingredient, pack_unit, pack_price, unit_price, pack_size
+     FROM vendor_prices
     WHERE location_id = ? ORDER BY imported_at DESC, id DESC`,
 ).all(LOCATION)) {
   const raw = row.ingredient ?? '';
   if (raw && !vpPackUnitByRaw.has(raw)) vpPackUnitByRaw.set(raw, row.pack_unit);
   const key = normalizeIngredientKey(raw);
-  if (key && !vpPackUnitByNormKey.has(key)) vpPackUnitByNormKey.set(key, row.pack_unit);
+  if (key) {
+    if (!vpPackUnitByNormKey.has(key)) vpPackUnitByNormKey.set(key, row.pack_unit);
+    if (!vpPackPriceByNormKey.has(key)) vpPackPriceByNormKey.set(key, row);
+  }
+  if (raw && !vpPackPriceByRaw.has(raw)) vpPackPriceByRaw.set(raw, row);
 }
 const resolvePackUnit = (bomIngredient, vendorIngredient) => {
   if (vendorIngredient && vpPackUnitByRaw.has(vendorIngredient)) return vpPackUnitByRaw.get(vendorIngredient);
@@ -52,6 +59,22 @@ const resolvePackUnit = (bomIngredient, vendorIngredient) => {
   const bKey = normalizeIngredientKey(bomIngredient ?? '');
   if (bKey && vpPackUnitByNormKey.has(bKey)) return vpPackUnitByNormKey.get(bKey);
   return undefined;
+};
+const resolveLinePackPrice = (bomIngredient, vendorIngredient, bomPackPrice, bomPackSize) => {
+  const fromBom = effectivePackPrice({ pack_price: bomPackPrice, pack_size: bomPackSize });
+  if (fromBom != null) return fromBom;
+  let vpRow;
+  if (vendorIngredient && vpPackPriceByRaw.has(vendorIngredient)) {
+    vpRow = vpPackPriceByRaw.get(vendorIngredient);
+  } else {
+    const vKey = normalizeIngredientKey(vendorIngredient ?? '');
+    if (vKey && vpPackPriceByNormKey.has(vKey)) vpRow = vpPackPriceByNormKey.get(vKey);
+    else {
+      const bKey = normalizeIngredientKey(bomIngredient ?? '');
+      if (bKey && vpPackPriceByNormKey.has(bKey)) vpRow = vpPackPriceByNormKey.get(bKey);
+    }
+  }
+  return vpRow ? effectivePackPrice(vpRow) : null;
 };
 
 const bom = db.prepare(`
@@ -81,9 +104,10 @@ for (const line of bom) {
   const {
     id, ingredient, vendor_ingredient, unit, qty, pack_price, pack_size, map_status,
   } = line;
-  if (qty == null || pack_price == null || pack_size == null ||
-      !(qty > 0) || !(pack_price > 0) || !(pack_size > 0) ||
-      !Number.isFinite(qty) || !Number.isFinite(pack_price) || !Number.isFinite(pack_size)) {
+  const effPackPrice = resolveLinePackPrice(ingredient, vendor_ingredient, pack_price, pack_size);
+  if (qty == null || pack_size == null || effPackPrice == null ||
+      !(qty > 0) || !(effPackPrice > 0) || !(pack_size > 0) ||
+      !Number.isFinite(qty) || !Number.isFinite(effPackPrice) || !Number.isFinite(pack_size)) {
     buckets.skip_guard_null_or_zero.push(line);
     continue;
   }

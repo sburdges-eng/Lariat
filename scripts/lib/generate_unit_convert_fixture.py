@@ -123,6 +123,8 @@ CASES: list[tuple[float, object, object, object]] = [
     (1.0, "l", "ml", None),                  # 1000
     (1.0, "fl oz", "ml", None),              # 29.5735296
     (1.0, "floz", "tbsp", None),             # 2 approx
+    (4.0, "c", "qt", None),                  # bom_expand shorthand c → cup → qt
+    (1.0, "#", "oz", None),                  # bom_expand shorthand # → lb → oz
     # ── volume → weight via density ──────────────────────────────────
     # diced onion 0.56 g/ml — 1 cup → ml → g → lb
     (1.0, "cup", "lb", 0.56),
