@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -12,9 +12,49 @@ import { useEffect, useState } from 'react';
 //
 // UI copy follows docs/UI_COPY_RULES.md — kitchen verbs only.
 
+/**
+ * The subset of a BEO event (beo_events row) this panel needs.
+ * @typedef {{
+ *   id: number,
+ *   event_date?: string | null,
+ *   location_id?: string | null,
+ * }} CoursePanelEvent
+ */
+
+/**
+ * The subset of a BEO line item (beo_line_items row) this panel needs
+ * for the bind-lines picker.
+ * @typedef {{
+ *   id: number,
+ *   item_name: string,
+ *   quantity: number,
+ *   course_id?: number | null,
+ * }} CoursePanelLine
+ */
+
+/**
+ * A beo_courses row, as returned by GET/POST /api/beo/courses.
+ * @typedef {{
+ *   id: number,
+ *   event_id?: number,
+ *   location_id?: string,
+ *   course_label: string,
+ *   fire_at: string,
+ *   notes?: string | null,
+ *   sort_order?: number,
+ *   created_at?: string,
+ *   updated_at?: string,
+ * }} Course
+ */
+
 const HHMM_RE = /^(\d{2}):(\d{2})$/;
 
-/** Convert "19:30" + an event_date "2026-05-04" to canonical ISO-8601 UTC. */
+/**
+ * Convert "19:30" + an event_date "2026-05-04" to canonical ISO-8601 UTC.
+ * @param {string} eventDate
+ * @param {string} hhmm
+ * @returns {string | null}
+ */
 function combineToIso(eventDate, hhmm) {
   if (!eventDate || !HHMM_RE.test(hhmm)) return null;
   // Build a Date in local time, then take its UTC ISO. Operators enter
@@ -24,7 +64,11 @@ function combineToIso(eventDate, hhmm) {
   return d.toISOString();
 }
 
-/** Show a fire_at ISO as local "HH:MM" for display. */
+/**
+ * Show a fire_at ISO as local "HH:MM" for display.
+ * @param {string | null | undefined} iso
+ * @returns {string}
+ */
 function isoToLocalHHMM(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -34,14 +78,23 @@ function isoToLocalHHMM(iso) {
   return `${h}:${m}`;
 }
 
+/**
+ * @param {{
+ *   event: CoursePanelEvent | null | undefined,
+ *   lines?: CoursePanelLine[],
+ *   courses?: Course[],
+ *   onCoursesChanged?: () => void,
+ * }} props
+ */
 export default function CoursePanel({ event, lines = [], courses: externalCourses, onCoursesChanged }) {
   // T11 made BeoBoard the source of truth for courses. When `externalCourses`
   // is supplied we render from it and call `onCoursesChanged` after mutations
   // so the parent refetches. When it's not, we fall back to self-fetching
   // (preserves the standalone-component behavior used by tests).
   const externallyManaged = Array.isArray(externalCourses);
-  const [internalCourses, setInternalCourses] = useState([]);
-  const courses = externallyManaged ? externalCourses : internalCourses;
+  const [internalCourses, setInternalCourses] = useState(/** @type {Course[]} */ ([]));
+  const courses = externallyManaged ? /** @type {Course[]} */ (externalCourses) : internalCourses;
+  /** @type {(updater: Course[] | ((prev: Course[]) => Course[])) => void} */
   const setCourses = externallyManaged
     ? () => { onCoursesChanged?.(); }
     : setInternalCourses;
@@ -53,7 +106,7 @@ export default function CoursePanel({ event, lines = [], courses: externalCourse
   const [newTime, setNewTime] = useState('');
 
   // Bind-lines state, keyed by course id → Set of line ids selected
-  const [openBinder, setOpenBinder] = useState(null);
+  const [openBinder, setOpenBinder] = useState(/** @type {number | null} */ (null));
 
   const eventId = event?.id ?? null;
   const eventDate = event?.event_date ?? '';
@@ -129,6 +182,7 @@ export default function CoursePanel({ event, lines = [], courses: externalCourse
     }
   };
 
+  /** @param {number} id */
   const deleteCourse = async (id) => {
     setErr('');
     try {
@@ -147,6 +201,10 @@ export default function CoursePanel({ event, lines = [], courses: externalCourse
     }
   };
 
+  /**
+   * @param {number} lineId
+   * @param {number | null} courseId
+   */
   const bindLine = async (lineId, courseId) => {
     setErr('');
     try {

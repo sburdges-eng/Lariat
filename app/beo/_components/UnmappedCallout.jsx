@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 // UnmappedCallout — shared warning band for both EventOrderGuidePanel and
@@ -12,6 +12,16 @@
 //   manifestWarnings  — array of { recipe, issue } — a declared sub-recipe no
 //                       BOM row references (may under-order); event-scoped
 
+/** @typedef {import('../../../lib/beoCascade').UnmappedRow} UnmappedRow */
+/** @typedef {import('../../../lib/beoCascade').ManifestWarningRow} ManifestWarningRow */
+
+/**
+ * @param {{
+ *   unmapped?: UnmappedRow[],
+ *   error?: string | null,
+ *   manifestWarnings?: ManifestWarningRow[],
+ * }} props
+ */
 export default function UnmappedCallout({ unmapped = [], error, manifestWarnings = [] }) {
   const hasUnmapped = Array.isArray(unmapped) && unmapped.length > 0;
   const hasError = Boolean(error);

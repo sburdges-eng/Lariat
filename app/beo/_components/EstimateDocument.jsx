@@ -1,8 +1,58 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 import '../../../styles/estimate.css';
 import { formatDollars } from '../../../lib/formatMoney';
 
-/** Format an ISO date string (YYYY-MM-DD) as a long locale date, e.g. "Thursday, May 1, 2025". */
+/** @typedef {import('../../../lib/beoEstimate.ts').EstimateLineItem} EstimateLineItem */
+/** @typedef {import('../../../lib/beoEstimate.ts').EstimateTotals} EstimateTotals */
+/** @typedef {import('../../../lib/beoFoodCost.ts').LineFoodCost} LineFoodCost */
+/** @typedef {import('../../../lib/beoFoodCost.ts').BlendedFoodCost} BlendedFoodCost */
+
+/** @typedef {{ label: string, items: EstimateLineItem[] }} EstimateSection */
+
+/**
+ * Event fields this presentational component reads. Kept permissive
+ * (all optional) rather than importing lib/db.ts's BeoEvent: callers
+ * select different column subsets (the operator page's SELECT also
+ * carries share_token/location_id/min_spend, which BeoEvent doesn't
+ * declare; the public share page selects a narrower subset still), and
+ * the defensive `event = {}` default must satisfy this shape.
+ * @typedef {{
+ *   title?: string | null,
+ *   contact_name?: string | null,
+ *   event_date?: string | null,
+ *   event_time?: string | null,
+ *   guest_count?: number | null,
+ *   tax_rate?: number | null,
+ *   service_fee_pct?: number | null,
+ *   notes?: string | null,
+ * }} EstimateDocEvent
+ */
+
+/** @typedef {{ id: number, course_label: string, fire_at: string | null, notes?: string | null }} EstimateCourse */
+
+/** @typedef {{ id: number, signed_name: string, signed_at: string | null }} EstimateSignature */
+
+/** @typedef {{ perLine: LineFoodCost[], blended: BlendedFoodCost }} EstimateFoodCosts */
+
+/**
+ * @typedef {{
+ *   event?: EstimateDocEvent,
+ *   sections?: EstimateSection[],
+ *   totals?: Partial<EstimateTotals>,
+ *   courses?: EstimateCourse[],
+ *   signatures?: EstimateSignature[],
+ *   register?: 'client' | 'operator',
+ *   signSlot?: import('react').ReactNode,
+ *   foodCosts?: EstimateFoodCosts | null,
+ *   minSpend?: number | null,
+ * }} EstimateDocumentProps
+ */
+
+/**
+ * Format an ISO date string (YYYY-MM-DD) as a long locale date, e.g. "Thursday, May 1, 2025".
+ * @param {string | null | undefined} iso
+ * @returns {string}
+ */
 function formatEventDate(iso) {
   if (!iso) return '';
   return new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', {
@@ -10,18 +60,29 @@ function formatEventDate(iso) {
   });
 }
 
-/** Format an HH:MM 24-hour time string as 12-hour AM/PM, e.g. "8:00 PM". */
+/**
+ * Format an HH:MM 24-hour time string as 12-hour AM/PM, e.g. "8:00 PM".
+ * @param {string | null | undefined} hhmm
+ * @returns {string}
+ */
 function formatEventTime(hhmm) {
   if (!hhmm) return '';
   const [h, m] = hhmm.split(':').map(Number);
-  if (isNaN(h) || isNaN(m)) return hhmm;
+  // Explicit null checks (equivalent to the old bare isNaN(undefined) === true
+  // coercion for a short/malformed hhmm) so tsc can narrow h/m to `number`
+  // below under noUncheckedIndexedAccess — no behavior change.
+  if (h == null || isNaN(h) || m == null || isNaN(m)) return hhmm;
   const suffix = h >= 12 ? 'PM' : 'AM';
   const hour = h % 12 || 12;
   const min = String(m).padStart(2, '0');
   return `${hour}:${min} ${suffix}`;
 }
 
-/** Format an ISO-8601 UTC datetime (fire_at) as a 12-hour time, e.g. "8:00 PM". */
+/**
+ * Format an ISO-8601 UTC datetime (fire_at) as a 12-hour time, e.g. "8:00 PM".
+ * @param {string | null | undefined} iso
+ * @returns {string}
+ */
 function formatFireAt(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
@@ -30,14 +91,10 @@ function formatFireAt(iso) {
 /**
  * EstimateDocument — pure presentational component.
  *
- * Props:
- *   event      — { id, title, contact_name, event_date, event_time, guest_count, tax_rate, service_fee_pct }
- *   sections   — groupLineItemsBySection() output: [{ label, items: [{ id, item_name, unit_cost, quantity }] }]
- *   totals     — computeEstimateTotals() output: { subtotal, serviceFee, tax, total }
- *   courses    — beo_courses rows: [{ id, course_label, fire_at, notes }]
- *   signatures — beo_signatures rows: [{ id, signed_name, signed_at }]
- *   register   — 'client' | 'operator'  (root class; CSS hides data-print="false" on client via .estimate-doc.client rule)
- *   signSlot   — optional ReactNode injected into the signature area
+ * register — 'client' | 'operator' (root class; CSS hides data-print="false" on client via .estimate-doc.client rule)
+ * signSlot — optional ReactNode injected into the signature area
+ *
+ * @param {EstimateDocumentProps} props
  */
 export default function EstimateDocument({
   event = {},
@@ -58,6 +115,7 @@ export default function EstimateDocument({
   // data-print="false" so they never reach a client OR a printed copy.
   const isOperator = register === 'operator';
   const foodCostById = new Map((foodCosts?.perLine ?? []).map((p) => [p.id, p]));
+  /** @param {number | null} p */
   const pctLabel = (p) => (p == null ? null : `${Math.round(p * 100)}%`);
   const subtotalNum = Number(subtotal ?? 0);
   const minMet = minSpend != null && subtotalNum >= Number(minSpend);

@@ -1,6 +1,10 @@
-// @ts-nocheck - pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 import { useState } from 'react';
+
+/**
+ * @param {{ url?: string | null }} props
+ */
 export default function CopyLinkButton({ url }) {
   const [done, setDone] = useState(false);
   if (!url) return null;

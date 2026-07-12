@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 // EventOrderGuidePanel — per-event order guide read-only view (T9).
@@ -11,12 +11,20 @@
 import { useEffect, useState } from 'react';
 import UnmappedCallout from './UnmappedCallout';
 
+/** @typedef {import('../../../lib/beoCascade').OrderGuideRow} OrderGuideRow */
+/** @typedef {import('../../../lib/beoCascade').UnmappedRow} UnmappedRow */
+/** @typedef {import('../../../lib/beoCascade').ManifestWarningRow} ManifestWarningRow */
+/** @typedef {'idle' | 'loading' | 'error' | 'empty' | 'loaded'} OrderGuidePanelState */
+
+/**
+ * @param {{ eventId?: number | null, location?: string }} props
+ */
 export default function EventOrderGuidePanel({ eventId, location = 'default' }) {
-  const [state, setState] = useState('idle'); // 'idle' | 'loading' | 'error' | 'empty' | 'loaded'
-  const [orderGuide, setOrderGuide] = useState([]);
-  const [unmapped, setUnmapped] = useState([]);
-  const [manifestWarnings, setManifestWarnings] = useState([]);
-  const [engineError, setEngineError] = useState(null);
+  const [state, setState] = useState(/** @type {OrderGuidePanelState} */ ('idle'));
+  const [orderGuide, setOrderGuide] = useState(/** @type {OrderGuideRow[]} */ ([]));
+  const [unmapped, setUnmapped] = useState(/** @type {UnmappedRow[]} */ ([]));
+  const [manifestWarnings, setManifestWarnings] = useState(/** @type {ManifestWarningRow[]} */ ([]));
+  const [engineError, setEngineError] = useState(/** @type {string | null} */ (null));
 
   useEffect(() => {
     if (eventId == null) {
@@ -89,7 +97,14 @@ export default function EventOrderGuidePanel({ eventId, location = 'default' }) 
 
   return (
     <div className="beo-order-guide-panel">
-      <UnmappedCallout unmapped={unmapped} error={engineError} manifestWarnings={manifestWarnings} />
+      {/* UnmappedCallout is an untyped (.jsx, @ts-nocheck) component whose
+          array-prop defaults infer as never[]; cast at the boundary (same
+          idiom as CoursePanel in BeoBoard.tsx). */}
+      <UnmappedCallout
+        unmapped={/** @type {never} */ (unmapped)}
+        error={engineError}
+        manifestWarnings={/** @type {never} */ (manifestWarnings)}
+      />
       <table data-testid="event-order-guide-table" className="beo-order-guide-table">
         <thead>
           <tr>
