@@ -1,7 +1,34 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 'use client';
 
 import { useEffect, useState } from 'react';
+
+/** @typedef {import('../../../lib/db.ts').ServiceHoursRow} ServiceHoursRow */
+
+/**
+ * @typedef {{
+ *   day_of_week: string,
+ *   service_label: string,
+ *   opens_at: string,
+ *   closes_at: string,
+ *   notes: string,
+ * }} ServiceHoursDraft
+ */
+
+/**
+ * Partial patch sent on PATCH /api/service-hours. Mirrors the
+ * `'field' in body` branches the route handler accepts.
+ * @typedef {{
+ *   day_of_week?: number,
+ *   service_label?: string | null,
+ *   opens_at?: string | null,
+ *   closes_at?: string | null,
+ *   notes?: string | null,
+ *   active?: number,
+ * }} ServiceHoursRowPatch
+ */
 
 const DAY_NAMES = [
   'Sunday',
@@ -13,6 +40,7 @@ const DAY_NAMES = [
   'Saturday',
 ];
 
+/** @returns {ServiceHoursDraft} */
 const emptyDraft = () => ({
   day_of_week: '0',
   service_label: '',
@@ -21,6 +49,12 @@ const emptyDraft = () => ({
   notes: '',
 });
 
+/**
+ * @param {{
+ *   location: { id: string, name: string },
+ *   initialRows: ServiceHoursRow[] | undefined,
+ * }} props
+ */
 export default function ServiceHoursEditor({ location, initialRows }) {
   const [rows, setRows] = useState(initialRows || []);
   const [showArchived, setShowArchived] = useState(false);
@@ -30,6 +64,7 @@ export default function ServiceHoursEditor({ location, initialRows }) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState(emptyDraft());
 
+  /** @param {boolean} withArchived */
   const loadRows = async (withArchived) => {
     setLoading(true);
     setErr('');
@@ -46,7 +81,7 @@ export default function ServiceHoursEditor({ location, initialRows }) {
       const j = await res.json();
       setRows(j.rows || []);
     } catch (e) {
-      setErr(e.message || 'Load failed');
+      setErr((e instanceof Error && e.message) || 'Load failed');
     } finally {
       setLoading(false);
     }
@@ -93,6 +128,10 @@ export default function ServiceHoursEditor({ location, initialRows }) {
     }
   };
 
+  /**
+   * @param {number} id
+   * @param {ServiceHoursRowPatch} patch
+   */
   const saveRow = async (id, patch) => {
     setErr('');
     setMsg('');
@@ -114,6 +153,7 @@ export default function ServiceHoursEditor({ location, initialRows }) {
     }
   };
 
+  /** @param {number} id */
   const archiveRow = async (id) => {
     if (!window.confirm('Archive this service hour row? It will be hidden from the live list.')) {
       return;
@@ -138,6 +178,7 @@ export default function ServiceHoursEditor({ location, initialRows }) {
     }
   };
 
+  /** @param {number} id */
   const unarchiveRow = async (id) => {
     await saveRow(id, { active: 1 });
   };
@@ -271,6 +312,14 @@ export default function ServiceHoursEditor({ location, initialRows }) {
   );
 }
 
+/**
+ * @param {{
+ *   row: ServiceHoursRow,
+ *   onSave: (id: number, patch: ServiceHoursRowPatch) => Promise<void>,
+ *   onArchive: (id: number) => Promise<void>,
+ *   onUnarchive: (id: number) => Promise<void>,
+ * }} props
+ */
 function EditableRow({ row, onSave, onArchive, onUnarchive }) {
   const [dow, setDow] = useState(String(row.day_of_week));
   const [label, setLabel] = useState(row.service_label || '');
