@@ -1,8 +1,8 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
-import React from 'react';
 import { statusColor } from '../../lib/showStatus';
 
+/** @param {{ value: unknown, column: string }} props */
 export default function StatusPill({ value, column }) {
   const { color, label } = statusColor(value, column);
   return (

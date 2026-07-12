@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 import { getDb } from '../../lib/db';
 import { getShowById, nextUpcoming } from '../../lib/showsRepo';
 import PlaybookHeader from './PlaybookHeader';
@@ -7,14 +7,24 @@ import TicketsTab from './tabs/TicketsTab';
 import NewsTab from './tabs/NewsTab';
 import DayOfTab from './tabs/DayOfTab';
 
+/** @typedef {Record<string, string | string[] | undefined>} PageSearchParams */
+
 export const dynamic = 'force-dynamic';
 
+/** @type {Record<string, import('react').ComponentType<{ show: import('../../lib/showsRepo.ts').ShowRow }>>} */
 const TABS = { ads: AdsTab, tickets: TicketsTab, news: NewsTab, dayof: DayOfTab };
 
-export default function PlaybookPage({ searchParams }) {
-  const sp = searchParams ?? {};
-  const requestedId = Number(sp.show);
-  const tab = TABS[sp.tab] ? sp.tab : 'ads';
+/** @param {{ searchParams: Promise<PageSearchParams> }} props */
+export default async function PlaybookPage({ searchParams }) {
+  // Next 16 app router: searchParams is a Promise. Reading it synchronously
+  // (pre-fix) meant `sp` was the Promise itself — `sp.show` / `sp.tab` were
+  // always undefined, so the tab-switcher and "switch show" links in
+  // PlaybookHeader silently did nothing: the page always fell back to the
+  // Ads tab for whatever nextUpcoming() picked, regardless of the URL.
+  const sp = (await searchParams) || {};
+  const requestedId = typeof sp.show === 'string' ? Number(sp.show) : NaN;
+  const requestedTab = typeof sp.tab === 'string' ? sp.tab : '';
+  const tab = Object.prototype.hasOwnProperty.call(TABS, requestedTab) ? requestedTab : 'ads';
 
   const db = getDb();
   const today = new Date().toISOString().slice(0, 10);
@@ -38,7 +48,10 @@ export default function PlaybookPage({ searchParams }) {
     );
   }
 
-  const TabComp = TABS[tab];
+  // TABS[tab] is always defined here (tab is validated against
+  // Object.hasOwnProperty(TABS, ...) above); the `?? AdsTab` fallback only
+  // exists to satisfy noUncheckedIndexedAccess.
+  const TabComp = TABS[tab] ?? AdsTab;
   return (
     <div className="page">
       <PlaybookHeader show={show} activeTab={tab} />
