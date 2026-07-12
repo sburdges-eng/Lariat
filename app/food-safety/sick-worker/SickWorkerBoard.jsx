@@ -1,10 +1,14 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 // PIC-only form + shared read view of who is excluded right now.
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+
+/** @typedef {import('./page.jsx').ActiveSickRow} ActiveSickRow */
+/** @typedef {import('./page.jsx').SickWorkerRow} SickWorkerRow */
+/** @typedef {import('../../../lib/data.ts').StaffMember} StaffMember */
 
 const SYMPTOMS = [
   { id: 'vomiting', label: 'Vomiting' },
@@ -31,17 +35,27 @@ const CLEARANCE_SOURCES = [
   { id: 'other', label: 'Other (add note)' },
 ];
 
+/** @param {string | null} iso */
 function fmtTime(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
   return d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
+/**
+ * @param {{
+ *   active: ActiveSickRow[],
+ *   history: SickWorkerRow[],
+ *   staff: StaffMember[],
+ *   pinOk: boolean,
+ *   locationId: string,
+ * }} props
+ */
 export default function SickWorkerBoard({ active, history, staff, pinOk, locationId }) {
   const router = useRouter();
   const [cookId, setCookId] = useState('');
   const [picId, setPicId] = useState('');
-  const [symptoms, setSymptoms] = useState({});
+  const [symptoms, setSymptoms] = useState(/** @type {Record<string, boolean>} */ ({}));
   const [diagnosis, setDiagnosis] = useState('');
   const [action, setAction] = useState('');
   const [note, setNote] = useState('');
@@ -64,6 +78,7 @@ export default function SickWorkerBoard({ active, history, staff, pinOk, locatio
     return 'none';
   }, [symptoms, diagnosis]);
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const fileReport = async (e) => {
     e.preventDefault();
     if (!pinOk) {
@@ -114,6 +129,10 @@ export default function SickWorkerBoard({ active, history, staff, pinOk, locatio
     }
   };
 
+  /**
+   * @param {number} id
+   * @param {string} source
+   */
   const clear = async (id, source) => {
     if (!source) return;
     setErr('');
