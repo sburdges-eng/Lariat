@@ -1,11 +1,29 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 import { getDb } from '../../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import AddPrepParRow from './AddPrepParRow';
 import DeletePrepParRow from './DeletePrepParRow';
 
+/**
+ * Row shape for `prep_par` (see CREATE TABLE in lib/db.ts). Matches the
+ * SELECT list below and the local row shape read by
+ * app/api/prep-par/route.js's GET — same table, same columns.
+ * @typedef {{
+ *   id: number,
+ *   station_id: string,
+ *   recipe_slug: string,
+ *   ingredient: string,
+ *   target_qty: number | null,
+ *   unit: string | null,
+ *   sort_order: number | null,
+ *   note: string | null,
+ *   updated_at: string | null,
+ * }} PrepParRow
+ */
+
 export const dynamic = 'force-dynamic';
 
+/** @param {string | null | undefined} iso */
 function fmtDate(iso) {
   if (!iso) return '';
   try {
@@ -17,6 +35,9 @@ function fmtDate(iso) {
   }
 }
 
+/**
+ * @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props
+ */
 export default async function PrepParPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const loc =
@@ -25,21 +46,27 @@ export default async function PrepParPage({ searchParams }) {
       : DEFAULT_LOCATION_ID;
 
   const db = getDb();
-  const rows = db
-    .prepare(
-      `SELECT id, station_id, recipe_slug, ingredient, target_qty, unit, sort_order, note, updated_at
-         FROM prep_par
-        WHERE location_id = ?
-        ORDER BY station_id, sort_order, recipe_slug, ingredient`,
-    )
-    .all(loc);
+  const rows = /** @type {PrepParRow[]} */ (
+    db
+      .prepare(
+        `SELECT id, station_id, recipe_slug, ingredient, target_qty, unit, sort_order, note, updated_at
+           FROM prep_par
+          WHERE location_id = ?
+          ORDER BY station_id, sort_order, recipe_slug, ingredient`,
+      )
+      .all(loc)
+  );
 
   // Group by station_id; empty string → "General"
-  const groups = new Map();
+  const groups = /** @type {Map<string, PrepParRow[]>} */ (new Map());
   for (const r of rows) {
     const key = r.station_id || '';
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(r);
+    const bucket = groups.get(key);
+    if (bucket) {
+      bucket.push(r);
+    } else {
+      groups.set(key, [r]);
+    }
   }
   const groupList = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 

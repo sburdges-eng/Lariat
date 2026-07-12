@@ -1,8 +1,11 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+/**
+ * @param {{ id: number, label: string, locationId?: string }} props
+ */
 export default function DeletePrepParRow({ id, label, locationId = 'default' }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
