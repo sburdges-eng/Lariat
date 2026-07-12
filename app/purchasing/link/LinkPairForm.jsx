@@ -2,6 +2,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { clientFetch } from '@/lib/clientFetch';
 
 async function fetchCatalog(vendor, q) {
   const params = new URLSearchParams({ vendor, unlinkedOnly: '1' });
@@ -87,7 +88,9 @@ export default function LinkPairForm({ coverage }) {
     setError(null);
     setMasterId(null);
     try {
-      const res = await fetch('/api/purchasing/vendor-link/pair', {
+      // idempotent: a service-worker replay of an already-processed
+      // pair must hit the server's idempotency cache, not re-write.
+      const res = await clientFetch('/api/purchasing/vendor-link/pair', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -95,6 +98,7 @@ export default function LinkPairForm({ coverage }) {
           shamrockKey: { vendor: 'shamrock', sku: shamrock.sku, ingredient: shamrock.ingredient },
           canonicalName,
         }),
+        idempotent: true,
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);

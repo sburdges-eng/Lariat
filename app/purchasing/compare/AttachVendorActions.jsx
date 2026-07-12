@@ -2,6 +2,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { clientFetch } from '@/lib/clientFetch';
 
 export default function AttachVendorActions({ masterId, missingVendor, canonicalName }) {
   const [open, setOpen] = useState(false);
@@ -31,13 +32,16 @@ export default function AttachVendorActions({ masterId, missingVendor, canonical
     setState('pending');
     setError(null);
     try {
-      const res = await fetch('/api/purchasing/vendor-link/attach', {
+      // idempotent: a service-worker replay of an already-processed
+      // attach must hit the server's idempotency cache, not re-write.
+      const res = await clientFetch('/api/purchasing/vendor-link/attach', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           masterId,
           catalogKey: { vendor: missingVendor, sku: row.sku, ingredient: row.ingredient },
         }),
+        idempotent: true,
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
