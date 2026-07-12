@@ -1,22 +1,28 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 import Link from 'next/link';
 import { getDb } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { formatDollars } from '../../lib/formatMoney';
 import { enrichOrderGuideRows } from '../../lib/orderGuideEnrichment.ts';
 
+/** @typedef {import('../../lib/orderGuideEnrichment.ts').OrderGuideRow} OrderGuideRow */
+
 export const dynamic = 'force-dynamic';
 
 export default function PurchasingPage() {
   const loc = DEFAULT_LOCATION_ID;
   const db = getDb();
-  const rawRows = db
-    .prepare(
-      `SELECT ingredient, base_qty, unit, vendor, unit_price FROM order_guide_items WHERE location_id = ? ORDER BY vendor, ingredient LIMIT 200`
-    )
-    .all(loc);
+  const rawRows = /** @type {OrderGuideRow[]} */ (
+    db
+      .prepare(
+        `SELECT ingredient, base_qty, unit, vendor, unit_price FROM order_guide_items WHERE location_id = ? ORDER BY vendor, ingredient LIMIT 200`
+      )
+      .all(loc)
+  );
   const rows = enrichOrderGuideRows(db, rawRows, loc);
-  const n = db.prepare(`SELECT COUNT(*) as c FROM order_guide_items WHERE location_id = ?`).get(loc).c;
+  const n = /** @type {{ c: number }} */ (
+    db.prepare(`SELECT COUNT(*) as c FROM order_guide_items WHERE location_id = ?`).get(loc)
+  ).c;
 
   return (
     <div>
