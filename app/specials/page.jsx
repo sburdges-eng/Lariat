@@ -6,8 +6,7 @@ import { useEffect, useState, useMemo } from 'react';
 /** @typedef {import('../../lib/computeEngine/sandboxCosting.ts').SandboxCostLine} SandboxCostLine */
 /** @typedef {import('../../lib/kitchenAssistantContext.ts').ContextSource} ContextSource */
 
-const MAX_MESSAGE = 2000;
-const AI_DOWN_COPY = "AI is down. Can't connect to Ollama on the office Mac. Ask a manager to start it.";
+import { MAX_MESSAGE, AI_DOWN_COPY } from '../../lib/specialsShared';
 
 /**
  * @param {number} status
