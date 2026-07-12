@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 // Break tracker. "Start meal", "start rest", "end break" — one row per
 // cook, stacked. Open breaks glow so a forgotten-to-end break is loud.
@@ -6,16 +6,31 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+/** @typedef {import('./page.jsx').BreakRow} BreakRow */
+/** @typedef {import('../../../lib/data.ts').StaffMember} StaffMember */
+
+const DEFAULT_LOCATION_ID = 'default';
+
+/** @param {string | null | undefined} iso */
 function fmtTime(iso) {
   if (!iso) return '—';
   return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
+/** @param {string | null | undefined} iso */
 function minutes(iso) {
   if (!iso) return 0;
   return (Date.now() - Date.parse(iso)) / 60000;
 }
 
+/**
+ * @param {{
+ *   rows: BreakRow[],
+ *   staff: StaffMember[],
+ *   date: string,
+ *   locationId: string,
+ * }} props
+ */
 export default function BreakBoard({ rows, staff, date, locationId }) {
   const router = useRouter();
   const [cookId, setCookId] = useState('');
@@ -23,6 +38,16 @@ export default function BreakBoard({ rows, staff, date, locationId }) {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [, setNowTs] = useState(Date.now());
+
+  // Non-default locations must be threaded onto mutation requests as
+  // `?location=` — the API's PATCH handler (end-break) resolves the
+  // caller's location scope from the URL query only, as a
+  // cross-location IDOR guard. Same convention as
+  // app/specials/saved/[id]/SpecialDetailClient.jsx's `locQ`.
+  const locQ =
+    locationId && locationId !== DEFAULT_LOCATION_ID
+      ? `?location=${encodeURIComponent(locationId)}`
+      : '';
 
   useEffect(() => {
     setCookId(window.localStorage.getItem('lariat_cook') || '');
@@ -33,14 +58,16 @@ export default function BreakBoard({ rows, staff, date, locationId }) {
   }, []);
 
   const byCook = useMemo(() => {
+    /** @type {Map<string, BreakRow[]>} */
     const m = new Map();
     for (const r of rows) {
       if (!m.has(r.cook_id)) m.set(r.cook_id, []);
-      m.get(r.cook_id).push(r);
+      /** @type {BreakRow[]} */ (m.get(r.cook_id)).push(r);
     }
     return m;
   }, [rows]);
 
+  /** @param {'meal' | 'rest'} kind */
   const start = async (kind) => {
     if (!cookId) {
       setErr('Pick yourself in the sidebar first.');
@@ -112,11 +139,12 @@ export default function BreakBoard({ rows, staff, date, locationId }) {
     }
   };
 
+  /** @param {number} id */
   const endBreak = async (id) => {
     setSaving(true);
     setErr('');
     try {
-      const res = await fetch('/api/breaks', {
+      const res = await fetch(`/api/breaks${locQ}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
