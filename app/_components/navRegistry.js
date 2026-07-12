@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 /**
  * Single source of truth for Lariat navigation.
  *
@@ -11,7 +11,7 @@
  * between the rail, the palette, and the spatial map. If you add a page,
  * add it here — do NOT add it to Sidebar or CommandPalette directly.
  *
- * Each item shape:
+ * Each item shape is formalized below as the NavItemBase/NavItem typedefs:
  *   id        — stable string key
  *   href      — route pathname (query is appended by helpers below)
  *   name      — palette title + sidebar label
@@ -22,6 +22,49 @@
  *   locAware  — true if route should carry ?location= (default true)
  *   surface   — where this item appears: { sidebar: bool, palette: bool, shelf: bool }
  *   shelf     — only present when surface.shelf is true: { b, sub }
+ *
+ * Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+ * only, no behavior change.
+ */
+
+/**
+ * @typedef {Object} NavItemSurface
+ * @property {boolean} sidebar - shows in the Sidebar primary/section nav
+ * @property {boolean} palette - shows in the ⌘K command palette
+ * @property {boolean} shelf   - shows as a book-shelf tile
+ */
+
+/**
+ * @typedef {Object} NavItemShelf
+ * @property {string} b   - shelf tile's short "book spine" label
+ * @property {string} sub - shelf tile's short subtitle
+ */
+
+/**
+ * Shape of a nav entry as authored in the NAV_ITEMS literal, before
+ * withManagerPinMarker() stamps on the derived `managerOnly` flag.
+ * @typedef {Object} NavItemBase
+ * @property {string} id           - stable string key
+ * @property {string} href         - route pathname (query appended by helpers below)
+ * @property {string} name         - palette title + sidebar label
+ * @property {string} sub          - palette subtitle (short blurb)
+ * @property {string} group        - palette group + sidebar section
+ * @property {string} [shortcut]   - single-key accelerator (optional)
+ * @property {string} [terms]      - extra search-match tokens (optional)
+ * @property {boolean} locAware    - true if route should carry ?location=
+ * @property {NavItemSurface} surface
+ * @property {NavItemShelf} [shelf] - only present when surface.shelf is true
+ */
+
+/**
+ * A fully-built nav entry, as exported via NAV_ITEMS/SIDEBAR_ITEMS/etc.
+ * @typedef {NavItemBase & { managerOnly: boolean }} NavItem
+ */
+
+/**
+ * @typedef {Object} NavRouteExclusion
+ * @property {string} href
+ * @property {string} reason
  */
 
 const t = true,
@@ -47,13 +90,23 @@ const MANAGER_PIN_PREFIXES = [
 
 const MANAGER_PIN_PUBLIC_CARVEOUTS = ['/beo/share/'];
 
+/**
+ * @param {unknown} pathname
+ * @returns {boolean}
+ */
 export function requiresManagerPinPath(pathname) {
   if (!pathname || typeof pathname !== 'string') return false;
-  const path = pathname.split(/[?#]/, 1)[0];
+  // split(..., 1) on a string always yields a non-empty array; the `?? ''`
+  // only satisfies noUncheckedIndexedAccess, it never changes at runtime.
+  const path = pathname.split(/[?#]/, 1)[0] ?? '';
   if (MANAGER_PIN_PUBLIC_CARVEOUTS.some((p) => path.startsWith(p))) return false;
   return MANAGER_PIN_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
 }
 
+/**
+ * @param {NavItemBase} item
+ * @returns {NavItem}
+ */
 function withManagerPinMarker(item) {
   return { ...item, managerOnly: requiresManagerPinPath(item.href) };
 }
@@ -61,7 +114,7 @@ function withManagerPinMarker(item) {
 // Routes that are intentionally absent from the sidebar and command palette.
 // Keep this list beside NAV_ITEMS so orphan-page audits have a code-level
 // answer for setup/auth surfaces that are reached by redirects or handoff links.
-export const NAV_ROUTE_EXCLUSIONS = [
+export const NAV_ROUTE_EXCLUSIONS = /** @type {NavRouteExclusion[]} */ ([
   {
     href: '/install',
     reason: 'Device setup handoff, reached from onboarding links rather than daily manager navigation.',
@@ -110,9 +163,9 @@ export const NAV_ROUTE_EXCLUSIONS = [
     href: '/prep/fire-schedule',
     reason: 'Retired standalone page; now a server-side redirect to /beo where the Fire tab lives.',
   },
-];
+]);
 
-export const NAV_ITEMS = [
+export const NAV_ITEMS = /** @type {NavItemBase[]} */ ([
   {
     id: 'today',
     href: '/',
@@ -962,7 +1015,7 @@ export const NAV_ITEMS = [
     locAware: t,
     surface: { sidebar: f, palette: t, shelf: f },
   },
-].map(withManagerPinMarker);
+]).map(withManagerPinMarker);
 
 // ── Selectors ─────────────────────────────────────────────────────────
 
@@ -976,13 +1029,21 @@ export const SHELF_ITEMS = NAV_ITEMS.filter((n) => n.surface.shelf);
 export const PALETTE_ITEMS = NAV_ITEMS.filter((n) => n.surface.palette);
 
 /** Quick index by id for O(1) lookup. */
-export const NAV_BY_ID = Object.fromEntries(NAV_ITEMS.map((n) => [n.id, n]));
+export const NAV_BY_ID = /** @type {Record<string, NavItem>} */ (
+  Object.fromEntries(NAV_ITEMS.map((n) => /** @type {[string, NavItem]} */ ([n.id, n])))
+);
 
-/** Find by route pathname (prefix match — handy for active-state detection). */
+/**
+ * Find by route pathname (prefix match — handy for active-state detection).
+ * @param {string | null | undefined} pathname
+ * @returns {NavItem | null}
+ */
 export function itemForPath(pathname) {
   if (!pathname) return null;
   // Prefer exact match; fall back to longest-prefix match.
+  /** @type {NavItem | null} */
   let exact = null;
+  /** @type {NavItem | null} */
   let best = null;
   let bestLen = -1;
   for (const n of NAV_ITEMS) {
@@ -995,7 +1056,12 @@ export function itemForPath(pathname) {
   return exact || best;
 }
 
-/** Build an href that preserves the selected location as a query string. */
+/**
+ * Build an href that preserves the selected location as a query string.
+ * @param {string} href
+ * @param {string | null | undefined} locQuery
+ * @returns {string}
+ */
 export function withLocation(href, locQuery) {
   if (!locQuery) return href;
   if (href.includes('?')) return href;
