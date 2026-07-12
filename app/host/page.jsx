@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// only, no behavior change.
 import { getDb } from '../../lib/db';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { summarizeWaitlist } from '../../lib/hostStand';
@@ -6,6 +8,9 @@ import HostStand from './HostStand';
 
 export const dynamic = 'force-dynamic';
 
+/** @typedef {{ searchParams?: Promise<Record<string, string | string[] | undefined>> }} HostPageProps */
+
+/** @param {HostPageProps} props */
 export default async function HostPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const loc =
@@ -16,7 +21,7 @@ export default async function HostPage({ searchParams }) {
   const db = getDb();
   const todayPrefix = new Date().toISOString().slice(0, 10);
 
-  const parties = db
+  const parties = /** @type {import('../../lib/hostStand').WaitlistPartyRow[]} */ (db
     .prepare(
       `SELECT id, location_id, party_name, party_size, joined_at, status,
               seated_at, left_at, phone, notes
@@ -27,7 +32,7 @@ export default async function HostPage({ searchParams }) {
                OR (status = 'left'   AND substr(left_at,   1, 10) = ?))
         ORDER BY joined_at`,
     )
-    .all(loc, todayPrefix, todayPrefix);
+    .all(loc, todayPrefix, todayPrefix));
 
   const summary = summarizeWaitlist(parties, new Date().toISOString());
 
