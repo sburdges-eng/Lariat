@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 import { useEffect, useState } from 'react';
 
@@ -19,8 +19,9 @@ export default function OfflineIndicator() {
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
 
+    /** @param {MessageEvent} e */
     const onMsg = (e) => {
-      const d = e.data;
+      const d = /** @type {{ type?: string, size?: number } | undefined} */ (e.data);
       if (!d) return;
       if (d.type === 'mutationQueued' || d.type === 'mutationReplayed' || d.type === 'queueSizeResult') {
         if (typeof d.size === 'number') setQueued(d.size);

@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
@@ -20,9 +20,20 @@ import LariOrb from './LariOrb';
 // `dense` for tight chrome (KDS / tablets) — narrows the row + drops
 // the trailing "Ask LaRi" button label down to icon-only future PR.
 
+/** @typedef {import('../../lib/lariPredictions').LariPrediction} LariPrediction */
+
 const POLL_MS = 60_000;
 const DEFAULT_SLOTS = 3;
 
+/**
+ * @param {{
+ *   surface: string,
+ *   location?: string | null,
+ *   params?: Record<string, string | number | null | undefined>,
+ *   dense?: boolean,
+ *   slots?: number,
+ * }} props
+ */
 export default function LariAmbient({
   surface,
   location,
@@ -30,7 +41,7 @@ export default function LariAmbient({
   dense = false,
   slots = DEFAULT_SLOTS,
 }) {
-  const [predictions, setPredictions] = useState([]);
+  const [predictions, setPredictions] = useState(/** @type {LariPrediction[]} */ ([]));
   const [hadFirstResponse, setHadFirstResponse] = useState(false);
 
   // Stable serialization of extraParams so identical-shaped objects
@@ -64,7 +75,7 @@ export default function LariAmbient({
         setHadFirstResponse(true);
         return;
       }
-      const j = await res.json();
+      const j = /** @type {{ predictions?: LariPrediction[] }} */ (await res.json());
       const next = Array.isArray(j.predictions) ? j.predictions : [];
       setPredictions(next);
       setHadFirstResponse(true);
@@ -117,6 +128,9 @@ export default function LariAmbient({
   );
 }
 
+/**
+ * @param {{ prediction: LariPrediction, muted: boolean }} props
+ */
 function PredictionSlot({ prediction, muted }) {
   const sev = prediction?.severity || 'ok';
   return (

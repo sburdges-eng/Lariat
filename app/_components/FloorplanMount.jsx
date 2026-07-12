@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 /**
@@ -20,12 +20,14 @@ export default function FloorplanMount() {
   const close = useCallback(() => setOpen(false), []);
 
   useEffect(() => {
+    /** @param {KeyboardEvent} e */
     const onKey = (e) => {
       // Ignore modifier-laden shortcuts that belong to the browser/OS.
       if (e.altKey) return;
-      const tag = (e.target && e.target.tagName) || '';
+      const target = /** @type {HTMLElement | null} */ (e.target);
+      const tag = (target && target.tagName) || '';
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if (e.target && e.target.isContentEditable) return;
+      if (target && target.isContentEditable) return;
 
       // Ctrl/Cmd+M or a bare "M" outside inputs toggles the floorplan.
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'm') {

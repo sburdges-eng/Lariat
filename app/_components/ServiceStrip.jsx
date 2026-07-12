@@ -1,11 +1,17 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import BrandStamp from './BrandStamp.jsx';
 
 /**
+ * @typedef {{ key: string, label: string, start: number, end: number }} Phase
+ * @typedef {Phase & { state: 'past' | 'now' | 'future' }} PhaseWithState
+ */
+
+/**
  * Service day phases — these define the horizontal timeline across the
  * top of the cockpit. The "now" marker slides through in real time.
+ * @type {Phase[]}
  */
 const PHASES = [
   { key: 'prep',  label: 'Prep',  start: 8,  end: 11 },
@@ -14,6 +20,7 @@ const PHASES = [
   { key: 'close', label: 'Close', start: 22, end: 24 },
 ];
 
+/** @param {Date} d */
 function fmtTime(d) {
   const h = d.getHours();
   const m = d.getMinutes();
@@ -22,6 +29,7 @@ function fmtTime(d) {
   const h12 = ((h + 11) % 12) + 1;
   return `${h12}:${mm}${suffix}`;
 }
+/** @param {number} h */
 function fmtPhaseTime(h) {
   const hh = ((h + 11) % 12) + 1;
   const s = (h % 24) >= 12 ? 'p' : 'a';
@@ -29,7 +37,7 @@ function fmtPhaseTime(h) {
 }
 
 export default function ServiceStrip() {
-  const [now, setNow] = useState(null);
+  const [now, setNow] = useState(/** @type {Date | null} */ (null));
 
   useEffect(() => {
     const tick = () => setNow(new Date());
@@ -39,9 +47,12 @@ export default function ServiceStrip() {
   }, []);
 
   const phaseState = useMemo(() => {
-    if (!now) return PHASES.map((p) => ({ ...p, state: 'future' }));
+    if (!now) {
+      return PHASES.map((p) => /** @type {PhaseWithState} */ ({ ...p, state: 'future' }));
+    }
     const h = now.getHours() + now.getMinutes() / 60;
     return PHASES.map((p) => {
+      /** @type {PhaseWithState['state']} */
       let state = 'future';
       if (h >= p.end) state = 'past';
       else if (h >= p.start) state = 'now';
@@ -53,8 +64,8 @@ export default function ServiceStrip() {
   const markerLeft = useMemo(() => {
     if (!now) return '0%';
     const h = now.getHours() + now.getMinutes() / 60;
-    const dayStart = PHASES[0].start;
-    const dayEnd = PHASES[PHASES.length - 1].end;
+    const dayStart = /** @type {Phase} */ (PHASES[0]).start;
+    const dayEnd = /** @type {Phase} */ (PHASES[PHASES.length - 1]).end;
     const clamped = Math.max(dayStart, Math.min(dayEnd, h));
     const pct = (clamped - dayStart) / (dayEnd - dayStart);
     return `${pct * 100}%`;
@@ -63,6 +74,7 @@ export default function ServiceStrip() {
   // Day name + date for the status chip
   const dateLine = useMemo(() => {
     if (!now) return 'Today';
+    /** @type {Intl.DateTimeFormatOptions} */
     const opts = { weekday: 'short', month: 'short', day: 'numeric' };
     return now.toLocaleDateString(undefined, opts);
   }, [now]);
@@ -73,7 +85,7 @@ export default function ServiceStrip() {
   return (
     <header className="strip" role="banner">
       <div className="mark">
-        <BrandStamp className="logo" decorative />
+        <BrandStamp className="logo" decorative size={undefined} />
         <div className="word">
           <b>The Lariat</b>
           <i>Kitchen Cockpit</i>
