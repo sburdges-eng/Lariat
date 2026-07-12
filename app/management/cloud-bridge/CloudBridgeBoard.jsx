@@ -119,6 +119,9 @@ export default function CloudBridgeBoard({
   initialError,
 }) {
   const router = useRouter();
+  const [bridgeConfigured, setBridgeConfigured] = useState(
+    Boolean(configured),
+  );
   const [queuedDepth, setQueuedDepth] = useState(initialQueuedDepth ?? 0);
   const [deadLetterTotal, setDeadLetterTotal] = useState(
     initialDeadLetterTotal ?? 0,
@@ -189,6 +192,12 @@ export default function CloudBridgeBoard({
         return;
       }
       const data = await res.json();
+      // The route recomputes isCloudBridgeConfigured() per request; track
+      // it so the "Bridge" tile reflects reality, not just the SSR prop.
+      // Fall back gracefully (keep last-known) if the field is absent.
+      if (typeof data.configured === 'boolean') {
+        setBridgeConfigured(data.configured);
+      }
       setQueuedDepth(data.queued_depth ?? 0);
       setDeadLetterTotal(data.dead_letter_depth_total ?? 0);
       setDeadLetters(Array.isArray(data.dead_letters) ? data.dead_letters : []);
@@ -325,13 +334,13 @@ export default function CloudBridgeBoard({
             style={{
               fontSize: 16,
               fontWeight: 600,
-              color: configured ? 'var(--green)' : 'var(--muted)',
+              color: bridgeConfigured ? 'var(--green)' : 'var(--muted)',
             }}
           >
-            {configured ? 'Set up' : 'Not set up'}
+            {bridgeConfigured ? 'Set up' : 'Not set up'}
           </div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-            {configured
+            {bridgeConfigured
               ? 'URL + secret on file'
               : 'No URL or secret — drainer is idle'}
           </div>

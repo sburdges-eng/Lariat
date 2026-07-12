@@ -129,13 +129,27 @@ async function recipeSlugPutHandler(request, { params }) {
 
   const location_id = locationFromBody(body);
 
+  // Category — short taxonomy label ("entree", "dressing", "prep", …).
+  // Validated like the app's other free-text clips: string → trim →
+  // length-cap, anything else → null. Semantic matches the route's other
+  // preservable fields (yield_qty/station/source): OMITTED = NULL, and
+  // callers that don't expose an editable field (RecipeEditForm) must
+  // round-trip the value from GET so a save doesn't wipe it — the same
+  // pass-through contract PR #511 established for yield/station/source.
+  const category =
+    typeof body.category === 'string'
+      ? body.category.trim().slice(0, 64) || null
+      : null;
+
   // Build the recipe document we're persisting. Preserves any
   // additional fields a caller might pass through (yield_qty,
   // yield_unit, station, source) so a future caller doesn't lose
   // metadata. recipes.json itself is the authoritative shape.
   // Typed as the lib Recipe document plus the array-shaped `procedures`
-  // field this route also persists (recipes.json mixes both shapes).
-  /** @type {import('../../../../lib/data').Recipe & { procedures: unknown[] }} */
+  // field this route also persists (recipes.json mixes both shapes) and
+  // `category` (real recipes.json entries carry it, but lib/data.ts's
+  // Recipe interface doesn't declare it yet — follow-up).
+  /** @type {import('../../../../lib/data').Recipe & { procedures: unknown[], category?: string }} */
   const recipeDoc = {
     slug,
     name: String(name).trim(),
@@ -147,6 +161,10 @@ async function recipeSlugPutHandler(request, { params }) {
     yield_unit: body.yield_unit ?? null,
     station: body.station ?? null,
     source: body.source ?? 'recipes_api',
+    // Persisted to BOTH stores: recipes.json (here) and the
+    // entities_recipes upsert below. Omitting it from recipeDoc would
+    // silently strip category from the JSON document on every save.
+    category: category ?? undefined,
   };
 
   // Derive a single-string `procedure` field too — recipes.json mixes
@@ -192,7 +210,7 @@ async function recipeSlugPutHandler(request, { params }) {
               ? Number(recipeDoc.yield_qty)
               : null,
         yield_unit: recipeDoc.yield_unit,
-        category: null,
+        category,
         location_id,
       });
 

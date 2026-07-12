@@ -6,7 +6,10 @@ import { useRouter } from 'next/navigation';
 import { humanize } from '../../../../lib/userError';
 import RecipePhotoUploader from './RecipePhotoUploader.jsx';
 
-/** @typedef {import('../../../../lib/data').Recipe} Recipe */
+/** Lib Recipe plus `category` — real recipes.json docs carry it and the
+ * PUT route persists it, but lib/data.ts's Recipe interface doesn't
+ * declare it yet (follow-up). */
+/** @typedef {import('../../../../lib/data').Recipe & { category?: string | null }} Recipe */
 
 /**
  * GET /api/recipes/:slug response shape (app/api/recipes/[slug]/route.js).
@@ -33,6 +36,7 @@ import RecipePhotoUploader from './RecipePhotoUploader.jsx';
  *   yield_unit: Recipe['yield_unit'],
  *   station: Recipe['station'],
  *   source: Recipe['source'],
+ *   category: Recipe['category'] | null,
  * }} PassthroughMeta
  */
 
@@ -46,7 +50,7 @@ export default function RecipeEditForm({ slug }) {
   const [allergens, setAllergens] = useState('');
   const [ingredients, setIngredients] = useState(/** @type {IngredientRow[]} */ ([]));
   const [meta, setMeta] = useState(
-    /** @type {PassthroughMeta} */ ({ yield_qty: null, yield_unit: null, station: null, source: null }),
+    /** @type {PassthroughMeta} */ ({ yield_qty: null, yield_unit: null, station: null, source: null, category: null }),
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -83,6 +87,7 @@ export default function RecipeEditForm({ slug }) {
             yield_unit: recipe.yield_unit ?? null,
             station: recipe.station ?? null,
             source: recipe.source ?? null,
+            category: recipe.category ?? null,
           });
         }
         setLoading(false);
@@ -138,6 +143,7 @@ export default function RecipeEditForm({ slug }) {
           yield_unit: meta.yield_unit,
           station: meta.station,
           source: meta.source,
+          category: meta.category,
         }),
       });
 
