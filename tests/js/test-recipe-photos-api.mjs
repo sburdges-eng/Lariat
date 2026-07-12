@@ -352,3 +352,58 @@ describe('GET /api/recipes/[slug]/photos/[id]/raw', () => {
     assert.equal(res.status, 410);
   });
 });
+
+// ── Audit trail: photo actions must carry action + details ───────
+// Regression for the two-arg logAuditAction bug (found in the GH #250
+// final wave): logAuditAction('recipe_photo_upload', {details}) spread
+// the ACTION STRING into per-character keys and dropped the details
+// object entirely, so these audit JSONL entries had no action field.
+
+describe('recipe photo audit entries (logAuditAction contract)', () => {
+  const auditFile = path.join(TMP_DIR, 'photo-audit-test.jsonl');
+  let prevAudit;
+  const arm = () => {
+    prevAudit = process.env.LARIAT_AUDIT_PATH;
+    process.env.LARIAT_AUDIT_PATH = auditFile;
+    try { fs.rmSync(auditFile); } catch { /* fresh file per test */ }
+  };
+  const disarm = () => {
+    if (prevAudit === undefined) delete process.env.LARIAT_AUDIT_PATH;
+    else process.env.LARIAT_AUDIT_PATH = prevAudit;
+  };
+  const lastEntry = () =>
+    JSON.parse(fs.readFileSync(auditFile, 'utf8').trim().split('\n').at(-1));
+
+  it('upload writes an entry with action + photo details', async () => {
+    arm();
+    try {
+      const res = await collectionPOST(
+        postReq({ form: makeForm({ file: pngFixture(), mime: 'image/png', cookId: 'cook-9' }) }),
+        ctxSlug,
+      );
+      assert.equal(res.status, 201);
+      const entry = lastEntry();
+      assert.equal(entry.action, 'recipe_photo_upload');
+      assert.equal(entry.recipe_slug, SLUG);
+      assert.ok(entry.photo_id != null, 'photo_id must be recorded');
+      assert.equal(entry['0'], undefined, 'no per-character spread keys');
+    } finally { disarm(); }
+  });
+
+  it('delete writes an entry with action + photo_id', async () => {
+    arm();
+    try {
+      const post = await collectionPOST(
+        postReq({ form: makeForm({ file: pngFixture(), mime: 'image/png' }) }),
+        ctxSlug,
+      );
+      const { id } = await post.json();
+      await itemDELETE(deleteReq(id), ctxItem(id));
+      const entry = lastEntry();
+      assert.equal(entry.action, 'recipe_photo_delete');
+      // The route records the path-param id (string) — compare normalized.
+      assert.equal(String(entry.photo_id), String(id));
+      assert.equal(entry['0'], undefined, 'no per-character spread keys');
+    } finally { disarm(); }
+  });
+});

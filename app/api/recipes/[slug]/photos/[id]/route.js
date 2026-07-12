@@ -66,12 +66,8 @@ async function photoDeleteHandler(req, { params }) {
   if (result.changes === 0) {
     return Response.json({ error: 'photo not found' }, { status: 404 });
   }
-  // Pre-existing two-arg call: lib/auditLog.mjs logAuditAction takes ONE
-  // entry object, so the details object here is dropped at runtime. Typed
-  // as-called (widened via cast), NOT fixed — no behavior change (GH #250).
-  await /** @type {(...args: unknown[]) => unknown} */ (
-    /** @type {unknown} */ (logAuditAction)
-  )('recipe_photo_delete', {
+  logAuditAction({
+    action: 'recipe_photo_delete',
     recipe_slug: slug,
     location_id: location,
     photo_id: id,
@@ -189,12 +185,8 @@ async function photoPatchHandler(req, { params }) {
   tx();
 
   if (hasHero) {
-    // Pre-existing two-arg call: lib/auditLog.mjs logAuditAction takes ONE
-    // entry object, so the details object here is dropped at runtime. Typed
-    // as-called (widened via cast), NOT fixed — no behavior change (GH #250).
-    await /** @type {(...args: unknown[]) => unknown} */ (
-      /** @type {unknown} */ (logAuditAction)
-    )('recipe_photo_set_hero', {
+    logAuditAction({
+      action: 'recipe_photo_set_hero',
       recipe_slug: slug,
       location_id: location,
       photo_id: id,
@@ -202,10 +194,8 @@ async function photoPatchHandler(req, { params }) {
     });
   }
   if (hasCaption) {
-    // Same pre-existing two-arg call shape as above — typed as-called.
-    await /** @type {(...args: unknown[]) => unknown} */ (
-      /** @type {unknown} */ (logAuditAction)
-    )('recipe_photo_set_caption', {
+    logAuditAction({
+      action: 'recipe_photo_set_caption',
       recipe_slug: slug,
       location_id: location,
       photo_id: id,
