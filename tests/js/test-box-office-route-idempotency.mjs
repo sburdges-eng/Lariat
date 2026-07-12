@@ -164,4 +164,16 @@ describe('POST /api/shows/[id]/box-office — idempotency replay', () => {
     await route.POST(postReq(1, WALKUP_LINE), { params: { id: '1' } });
     assert.strictEqual(countRows('box_office_lines'), 2);
   });
+
+  it('non-string ticket_class is coerced to null (not bound as a number)', async () => {
+    const r = await route.POST(
+      postReq(1, { ...WALKUP_LINE, ticket_class: 42 }),
+      { params: { id: '1' } },
+    );
+    assert.strictEqual(r.status, 201);
+    const body = await r.json();
+    assert.strictEqual(body.line.ticket_class, null);
+    const row = testDb.prepare('SELECT ticket_class FROM box_office_lines').get();
+    assert.strictEqual(row.ticket_class, null);
+  });
 });

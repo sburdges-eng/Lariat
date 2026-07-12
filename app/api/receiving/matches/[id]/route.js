@@ -18,9 +18,7 @@ import { localIdentityFields } from '../../../../../lib/localIdentity';
 
 export const dynamic = 'force-dynamic';
 
-// NOTE: this handler reads `params?.id` synchronously (no await), so the
-// faithful type is the plain-object shape — not the Next 15 Promise union.
-/** @typedef {{ params: { id?: string } }} RouteCtx */
+/** @typedef {{ params: Promise<{ id?: string }> | { id?: string } }} RouteCtx */
 
 /**
  * @param {unknown} v
@@ -54,6 +52,7 @@ export async function PATCH(req, ctx) {
  * @param {RouteCtx} ctx
  */
 async function patchHandler(req, { params }) {
+  params = await params;
   const id = parseId(params?.id);
   if (!id) {
     return Response.json({ error: 'receiving id required' }, { status: 400 });
