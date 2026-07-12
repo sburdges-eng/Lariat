@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 import Link from 'next/link';
 import { getStations, getRecipes } from '../lib/data';
 import { getDb, todayISO, getPreshiftNote, todayServiceLabel } from '../lib/db';
@@ -9,8 +9,11 @@ import { cascadedFromEightySix } from '../lib/subRecipeGraph';
 import PreshiftNotes from './_components/PreshiftNotes';
 import BrandStamp from './_components/BrandStamp';
 
+/** @typedef {ReturnType<typeof stationProgress>} StationProgress */
+
 export const dynamic = 'force-dynamic';
 
+/** @param {StationProgress} p */
 function rushColor(p) {
   if (!p) return 'var(--muted)';
   if (p.flagged > 0) return 'var(--fire)';   // oxblood — flagged
@@ -20,6 +23,7 @@ function rushColor(p) {
   return 'var(--fire)';                      // oxblood — not started
 }
 
+/** @param {StationProgress} p */
 function rushLabel(p) {
   if (!p) return 'No line check';
   if (p.signedOff) return 'Signed off';
@@ -30,6 +34,7 @@ function rushLabel(p) {
 }
 
 /* ── Editorial kicker logic: a hand-picked phrase for each service phase ── */
+/** @param {number} hours */
 function kickerFor(hours) {
   if (hours < 10) return 'Sharpen knives. Proof the sauté. Today starts now.';
   if (hours < 11) return 'Mise en place. The door opens soon.';
@@ -44,6 +49,7 @@ function kickerFor(hours) {
 // the same value regardless of timezone. Previously we called `new Date()`
 // in the render pass, producing a hydration mismatch across a TZ boundary
 // (most visible at midnight rollover).
+/** @param {string} iso */
 function dayName(iso) {
   const [y, m, d] = iso.split('-').map(Number);
   if (!y || !m || !d) return '';
@@ -51,6 +57,7 @@ function dayName(iso) {
     .toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
 }
 
+/** @param {string} iso */
 function formatDateChip(iso) {
   const [y, m, d] = iso.split('-').map(Number);
   if (!y || !m || !d) return iso;
@@ -58,6 +65,7 @@ function formatDateChip(iso) {
     .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
 
+/** @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props */
 export default async function TodayPage({ searchParams }) {
   // Next 16 app router passes searchParams as a Promise. Reading
   // `searchParams.location` synchronously falls back to the default kitchen and
@@ -77,11 +85,13 @@ export default async function TodayPage({ searchParams }) {
   const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
 
   const db = getDb();
-  const out = db
-    .prepare(
-      `SELECT id, item FROM eighty_six WHERE shift_date=? AND resolved_at IS NULL AND location_id=? ORDER BY id DESC`
-    )
-    .all(date, loc);
+  const out = /** @type {{ id: number, item: string }[]} */ (
+    db
+      .prepare(
+        `SELECT id, item FROM eighty_six WHERE shift_date=? AND resolved_at IS NULL AND location_id=? ORDER BY id DESC`
+      )
+      .all(date, loc)
+  );
 
   const outNames = new Set(out.map((e) => String(e.item || '').trim().toLowerCase()));
   const maybeOut = cascadedFromEightySix(
@@ -89,11 +99,13 @@ export default async function TodayPage({ searchParams }) {
     getRecipes(),
   ).filter((c) => !outNames.has(String(c.name).trim().toLowerCase()));
 
-  const moved = db
-    .prepare(
-      `SELECT id, item, direction, delta FROM inventory_updates WHERE shift_date=? AND location_id=? ORDER BY id DESC LIMIT 4`
-    )
-    .all(date, loc);
+  const moved = /** @type {{ id: number, item: string, direction: string | null, delta: string | null }[]} */ (
+    db
+      .prepare(
+        `SELECT id, item, direction, delta FROM inventory_updates WHERE shift_date=? AND location_id=? ORDER BY id DESC LIMIT 4`
+      )
+      .all(date, loc)
+  );
 
   // Editorial stats
   const ready = lineCheckStationsWithProgress.filter(
