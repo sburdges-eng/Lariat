@@ -1,17 +1,22 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 import { useState, useTransition } from 'react';
 import { humanize } from '../../../../lib/userError';
 import { formatDollars } from '../../../../lib/formatMoney';
 import { clientFetch } from '@/lib/clientFetch';
 
-const SOURCES = [
+/** @typedef {import('../../../../lib/boxOfficeRepo').BoxOfficeLine} BoxOfficeLine */
+/** @typedef {import('../../../../lib/boxOfficeRepo').BoxOfficeSource} BoxOfficeSource */
+/** @typedef {import('../../../../lib/boxOfficeRepo').BoxOfficeSummary} BoxOfficeSummary */
+/** @typedef {import('../../../../lib/boxOfficeRepo').BoxOfficeCompleteness} BoxOfficeCompleteness */
+
+const SOURCES = /** @type {{ k: BoxOfficeSource, l: string }[]} */ ([
   { k: 'walkup', l: 'Walk-up' },
   { k: 'dice', l: 'DICE' },
   { k: 'comp', l: 'Comp' },
   { k: 'will_call', l: 'Will call' },
   { k: 'guestlist', l: 'Guest list' },
-];
+]);
 
 const initialForm = {
   source: 'walkup',
@@ -23,6 +28,15 @@ const initialForm = {
   notes: '',
 };
 
+/**
+ * @param {{
+ *   showId: number,
+ *   locationId: string,
+ *   initialLines: BoxOfficeLine[],
+ *   summary: BoxOfficeSummary,
+ *   completeness: BoxOfficeCompleteness,
+ * }} props
+ */
 export default function BoxOfficeBoard({
   showId,
   locationId,
@@ -34,7 +48,7 @@ export default function BoxOfficeBoard({
   const [totals, setTotals] = useState(summary);
   const [score, setScore] = useState(completeness?.score ?? 0);
   const [form, setForm] = useState(initialForm);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(/** @type {string | null} */ (null));
   const [busy, startTransition] = useTransition();
 
   const refresh = async () => {
@@ -47,6 +61,7 @@ export default function BoxOfficeBoard({
     setScore(data.completeness?.score ?? 0);
   };
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submit = (e) => {
     e.preventDefault();
     setError(null);
@@ -88,6 +103,7 @@ export default function BoxOfficeBoard({
     });
   };
 
+  /** @param {number} lineId */
   const scan = (lineId) => {
     startTransition(async () => {
       try {

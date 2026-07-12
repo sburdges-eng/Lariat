@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 import { getDb } from '../../../../lib/db';
 import {
   listLinesForShow,
@@ -11,6 +11,14 @@ import BoxOfficeBoard from './BoxOfficeBoard';
 export const dynamic = 'force-dynamic';
 const DEFAULT_LOCATION_ID = 'default';
 
+/**
+ * @typedef {{
+ *   params: Promise<{ id?: string }> | { id?: string },
+ *   searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>,
+ * }} BoxOfficePageProps
+ */
+
+/** @param {BoxOfficePageProps} props */
 export default async function BoxOfficePage({ params, searchParams }) {
   const p = (await params) || {};
   const id = Number(p.id);
