@@ -14,6 +14,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { clientFetch } from '@/lib/clientFetch';
+import { classifyReading } from '../../../lib/tempLog';
 
 /** @typedef {import('./page.jsx').TempLogRow} TempLogRow */
 /** @typedef {import('../../../lib/tempLog.ts').TempPoint} TempPoint */
@@ -311,11 +312,30 @@ export default function TempLogBoard({
           <div className="tl-entries">
             {entries.map((e) => {
               const p = points.find((x) => x.id === e.point_id);
-              const inRange =
-                (e.required_min_f === null || e.required_min_f === undefined || e.reading_f >= e.required_min_f) &&
-                (e.required_max_f === null || e.required_max_f === undefined || e.reading_f <= e.required_max_f);
+              // Classify through the same shared classifier the tile grid's
+              // summary uses (classifyReadings → classifyReading), so both
+              // surfaces agree — including readings outside the absolute
+              // sanity range [-100°F, 500°F], which are "invalid" (bad
+              // probe / wrong units), not a red compliance miss. Limits come
+              // from the row's snapshotted required_min_f/max_f — the same
+              // audit-faithful values the entry displays.
+              const cls = classifyReading(
+                {
+                  id: e.point_id,
+                  label: e.point_label || p?.label || e.point_id,
+                  ccp_id: p?.ccp_id ?? '',
+                  citation: p?.citation ?? '',
+                  required_min_f: e.required_min_f ?? null,
+                  required_max_f: e.required_max_f ?? null,
+                },
+                e.reading_f,
+              );
               const note = (e.corrective_action || '').trim();
-              const tone = inRange ? 'green' : note ? 'yellow' : 'red';
+              const invalid = cls === 'invalid';
+              // Invalid mirrors the tile treatment (red — the CCP reading is
+              // unverified) but is flagged as invalid below, instead of
+              // masquerading as a critical/corrective range miss.
+              const tone = cls === 'ok' ? 'green' : !invalid && note ? 'yellow' : 'red';
               return (
                 <div key={e.id} className={`tl-entry tl-tone-${tone}`}>
                   <div className="tl-entry-main">
@@ -325,6 +345,7 @@ export default function TempLogBoard({
                   <div className="tl-entry-meta">
                     {fmtTime(e.created_at)}
                     {e.cook_id ? ` · ${e.cook_id}` : ''}
+                    {invalid ? ' · invalid reading — check the probe' : ''}
                     {note ? ` · note: ${note}` : ''}
                   </div>
                 </div>
