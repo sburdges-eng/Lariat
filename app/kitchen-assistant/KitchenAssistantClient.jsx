@@ -59,20 +59,7 @@ import { useLocation } from '../_components/useLocation';
 // USDA) — see lib/datapackSearch.ts `HybridHit`. We read defensively
 // across both shapes, so every field here is optional.
 
-/**
- * @typedef {{
- *   source?: string;
- *   rowid?: number;
- *   id?: number | string;
- *   fdc_id?: number;
- *   title?: string | null;
- *   subtitle?: string | null;
- *   extra?: string | null;
- *   chapter?: string | null;
- *   annex?: string | null;
- *   section_id?: string | null;
- * }} DatapackHit
- */
+/** @typedef {import('./citationHelpers.js').DataPackHit} DatapackHit */
 
 /** @typedef {{ section?: FdaSection }} FdaSectionFollowUp */
 /** @typedef {{ food?: UsdaFood; nutrients?: UsdaNutrient[] }} UsdaFoodFollowUp */
