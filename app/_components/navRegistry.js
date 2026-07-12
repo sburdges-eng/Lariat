@@ -619,9 +619,21 @@ export const NAV_ITEMS = /** @type {NavItemBase[]} */ ([
   },
 
   // ── Admin (audit F1 fix, 2026-05-17) ───────────────────────────────
-  // Cleaning schedule + service hours — manager-config surfaces that
-  // were unreachable from the palette. PIN-gated by middleware via the
-  // /admin/* prefix.
+  // Cleaning schedule + service hours — surfaces that were unreachable
+  // from the palette. NOT PIN-gated: neither middleware.js's
+  // SENSITIVE_PREFIXES/matcher nor the underlying API routes
+  // (app/api/cleaning-schedule, app/api/service-hours) require a PIN —
+  // both are intentionally allowlisted in
+  // tests/js/test-pin-gate-coverage.mjs as line-cook/host-stand
+  // authority (cleaning-schedule: "line cooks add/edit recurring
+  // tasks"; service-hours: "host/server surface, no regulatory
+  // weight"). This comment previously claimed PIN-gating that was
+  // never implemented — corrected 2026-07-12 after the GH #250
+  // migration surfaced the mismatch. If manager-only gating is ever
+  // actually wanted for these two pages specifically, it needs a
+  // deliberate decision (add both to middleware.js's
+  // SENSITIVE_PREFIXES/matcher and remove them from the
+  // pin-gate-coverage allowlist) — not assumed from this comment.
   {
     id: 'admin-cleaning-schedule',
     href: '/admin/cleaning-schedule',
