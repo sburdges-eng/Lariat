@@ -1,11 +1,19 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
 
+/** @typedef {import('../../lib/computeEngine/sandboxCosting.ts').SandboxCostLine} SandboxCostLine */
+/** @typedef {import('../../lib/kitchenAssistantContext.ts').ContextSource} ContextSource */
+
 const MAX_MESSAGE = 2000;
 const AI_DOWN_COPY = "AI is down. Can't connect to Ollama on the office Mac. Ask a manager to start it.";
 
+/**
+ * @param {number} status
+ * @param {unknown} error
+ * @returns {string}
+ */
 function specialsErrorCopy(status, error) {
   const raw = String(error || '');
   if (status === 502 || /fetch failed|failed to fetch|ECONNREFUSED|Ollama/i.test(raw)) {
@@ -15,7 +23,7 @@ function specialsErrorCopy(status, error) {
 }
 
 export default function SpecialsPage() {
-  const [ollamaOk, setOllamaOk] = useState(null);
+  const [ollamaOk, setOllamaOk] = useState(/** @type {boolean | null} */ (null));
   const [pantry, setPantry] = useState('');
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,9 +31,9 @@ export default function SpecialsPage() {
   const [answer, setAnswer] = useState('');
   const [model, setModel] = useState('');
   const [recipeScratch, setRecipeScratch] = useState('');
-  const [costBreakdown, setCostBreakdown] = useState(null);
-  const [costTotal, setCostTotal] = useState(null);
-  const [sources, setSources] = useState(null);
+  const [costBreakdown, setCostBreakdown] = useState(/** @type {SandboxCostLine[] | null} */ (null));
+  const [costTotal, setCostTotal] = useState(/** @type {number | null} */ (null));
+  const [sources, setSources] = useState(/** @type {ContextSource[] | null} */ (null));
 
   const [showSaveForm, setShowSaveForm] = useState(false);
   const [saveName, setSaveName] = useState('');
@@ -54,6 +62,7 @@ export default function SpecialsPage() {
       : prompt.trim();
   }, [pantry, prompt]);
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submit = async (e) => {
     e.preventDefault();
     setErr('');
@@ -89,12 +98,13 @@ export default function SpecialsPage() {
       setCostTotal(data.cost_total ?? null);
       setSources(data.sources ?? null);
     } catch (ce) {
-      setErr(specialsErrorCopy(0, ce?.message || ce));
+      setErr(specialsErrorCopy(0, /** @type {{ message?: unknown }} */ (ce)?.message || ce));
     } finally {
       setLoading(false);
     }
   };
 
+  /** @param {React.FormEvent<HTMLFormElement>} e */
   const submitSave = async (e) => {
     e.preventDefault();
     setSaveErr('');
@@ -127,7 +137,7 @@ export default function SpecialsPage() {
       setShowSaveForm(false);
       setSaveName('');
     } catch (ce) {
-      setSaveErr(String(ce.message || ce));
+      setSaveErr(String(/** @type {{ message?: unknown }} */ (ce).message || ce));
     } finally {
       setSaving(false);
     }
