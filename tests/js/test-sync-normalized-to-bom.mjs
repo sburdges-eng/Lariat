@@ -498,6 +498,24 @@ describe('syncNormalizedRecipes — vendor-column enrichment', () => {
     assert.equal(byIng['roma tomatoes'], 'auto_mapped', 'tier-2 direct match must be auto_mapped');
   });
 
+  it('preserves cost_proxy ingredient_maps status on tier-1 bridge rows', () => {
+    seedIngredientMap('honey', 'Honey Pure Light Amber', { status: 'cost_proxy_sweetener' });
+    seedVendorPrice({
+      ingredient: 'Honey Pure Light Amber', vendor: 'sysco',
+      pack_price: 45, pack_size: 1, unit_price: 45,
+    });
+
+    const indexRows = [indexRow()];
+    const csvByRecipeId = new Map([
+      ['gazpacho', [ingRow({ ingredient: 'honey', qty: '0.5', unit: 'cup' })]],
+    ]);
+    call({ indexRows, csvByRecipeId });
+
+    const row = db.prepare(`SELECT map_status, vendor FROM bom_lines WHERE ingredient='honey'`).get();
+    assert.equal(row.map_status, 'cost_proxy_sweetener');
+    assert.equal(row.vendor, 'sysco');
+  });
+
   it('leaves vendor cols NULL when ingredient resolves to multiple distinct vendors', () => {
     // Same key → two vendors. Ambiguous from name alone; must not silently
     // pick one or it'd bias variance math.

@@ -95,6 +95,9 @@ garlic cloves,0.56,seed,whole peeled cloves loose pack; approx; verify in-house
 furikake seasoning,0.35,seed,dry seaweed-sesame blend; approx; verify in-house
 coarse salt,0.54,seed,Maldon flakes; approx; verify in-house
 jalapeno,0.41,seed,fresh sliced; alias of sliced jalapenos density
+jalapenos,0.41,seed,alias of jalapeno; fresh pepper default
+chicken base,1.15,seed,commercial soup base paste; approx; verify in-house
+chicken stock,1.00,seed,reconstituted broth from base; approx; verify in-house
 red onion,0.56,seed,diced; same class as diced onion
 diced red onion,0.56,seed,alias of diced onion density
 diced white onions,0.56,seed,alias of diced onion density

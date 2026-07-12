@@ -176,7 +176,7 @@ function refreshRecipeFields(db, recipe) {
 // unmapped — picking one would silently bias variance math. The
 // preferred-vendor / mean resolution (T7) is master_id-keyed and stays
 // authoritative when master_id is populated.
-function buildVendorPriceIndex(db, locationId) {
+export function buildVendorPriceIndex(db, locationId) {
   const rows = db
     .prepare(
       `SELECT ingredient, vendor, pack_price, pack_size, unit_price,
@@ -199,15 +199,15 @@ function buildVendorPriceIndex(db, locationId) {
   return byKey;
 }
 
-// Build a normalized recipe_ingredient → vendor_ingredient map. Operator-
-// curated `confirmed` rows and workbook `mapped` rows are both honoured.
-function buildIngredientMapIndex(db, locationId) {
+// Build a normalized recipe_ingredient → bridge map. Any row with a
+// vendor_ingredient is eligible — confirmed/mapped, cost_proxy_*,
+// plan_* placeholders all carry intentional vendor targets.
+export function buildIngredientMapIndex(db, locationId) {
   const rows = db
     .prepare(
-      `SELECT recipe_ingredient, vendor_ingredient
+      `SELECT recipe_ingredient, vendor_ingredient, status
          FROM ingredient_maps
         WHERE location_id = ?
-          AND status IN ('mapped', 'confirmed')
           AND vendor_ingredient IS NOT NULL
           AND vendor_ingredient != ''`,
     )
@@ -216,12 +216,19 @@ function buildIngredientMapIndex(db, locationId) {
   for (const r of rows) {
     const key = normalizeIngredientKey(r.recipe_ingredient ?? '');
     if (!key) continue;
-    // First mapping wins on duplicate keys; ingredient_maps is expected
-    // to be deduped by ingest_costing's upsert, but defensive guard
-    // doesn't hurt.
-    if (!byRecipeKey.has(key)) byRecipeKey.set(key, r.vendor_ingredient);
+    if (!byRecipeKey.has(key)) {
+      byRecipeKey.set(key, {
+        vendor_ingredient: r.vendor_ingredient,
+        status: r.status ?? 'mapped',
+      });
+    }
   }
   return byRecipeKey;
+}
+
+function mapStatusFromBridge(bridgeStatus) {
+  if (bridgeStatus === 'mapped' || bridgeStatus === 'confirmed') return 'mapped';
+  return bridgeStatus;
 }
 
 function pickSingleVendorRow(entry) {
@@ -252,20 +259,23 @@ function pickSingleVendorRow(entry) {
 // that landed via the fuzzy fallback and may need confirmation. Keeping
 // this distinction honest avoids the HACCP "never silently auto-correct"
 // trap.
-function resolveVendorEnrichment(vpIndex, imIndex, ingredientName) {
+export function resolveVendorEnrichment(vpIndex, imIndex, ingredientName) {
   const key = normalizeIngredientKey(ingredientName ?? '');
   if (!key) return { mapped: false };
 
   // Tier 1: recipe-side bridge via ingredient_maps.
-  const vendorIngredient = imIndex.get(key);
-  if (vendorIngredient) {
+  const bridge = imIndex.get(key);
+  if (bridge) {
+    const vendorIngredient = bridge.vendor_ingredient ?? bridge;
     const vendorKey = normalizeIngredientKey(vendorIngredient);
     if (vendorKey) {
       const hit = pickSingleVendorRow(vpIndex.get(vendorKey));
       if (hit) {
+        const bridgeStatus = typeof bridge === 'object' ? bridge.status : 'mapped';
         return {
           mapped: true,
           tier: 1,
+          map_status: mapStatusFromBridge(bridgeStatus),
           vendor: hit.vendor ?? null,
           pack_price: effectivePackPrice(hit),
           pack_size: hit.pack_size ?? null,
@@ -432,7 +442,8 @@ export function syncNormalizedRecipes(db, opts) {
             ? null
             : (!enrichment.mapped
                 ? 'UNMAPPED'
-                : (enrichment.tier === 2 ? 'auto_mapped' : 'mapped'));
+                : (enrichment.map_status
+                    ?? (enrichment.tier === 2 ? 'auto_mapped' : 'mapped')));
 
           if (!dryRun) {
             insBomLine.run(
