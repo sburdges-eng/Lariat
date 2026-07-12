@@ -1,4 +1,6 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
+// Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
+// plus one real bug fix — see the `locQ` comment below.
 'use client';
 
 /**
@@ -9,19 +11,50 @@
 
 import { useEffect, useState } from 'react';
 
-export default function RecipePhotoStrip({ slug }) {
-  const [photos, setPhotos] = useState([]);
+const DEFAULT_LOCATION_ID = 'default';
+
+/**
+ * Response row shape from GET /api/recipes/[slug]/photos — the columns
+ * selected in app/api/recipes/[slug]/photos/route.js's SELECT.
+ * @typedef {{
+ *   id: number,
+ *   original_name: string,
+ *   mime: string,
+ *   size_bytes: number,
+ *   caption: string | null,
+ *   uploaded_by_cook_id: string | null,
+ *   uploaded_at: string,
+ *   is_hero: number,
+ * }} RecipePhoto
+ */
+
+/** @param {{ slug: string, loc?: string }} props */
+export default function RecipePhotoStrip({ slug, loc }) {
+  const [photos, setPhotos] = useState(/** @type {RecipePhoto[]} */ ([]));
   const [loaded, setLoaded] = useState(false);
+
+  // Non-default locations must be threaded onto both the list fetch and
+  // the raw-image URLs below as `?location=` — every handler in
+  // app/api/recipes/[slug]/photos/**/route.js resolves its location
+  // scope from `locationFromRequest(req)` (the URL query only, per
+  // lib/location.ts). Same convention as app/labor/breaks/BreakBoard.jsx's
+  // `locQ`. Without it, this strip silently reads (and links to) the
+  // DEFAULT_LOCATION_ID's photos regardless of which location the
+  // recipe page itself is scoped to — on a non-default-location
+  // install the strip either shows the wrong site's photos or shows
+  // none, and the raw-image links 404 (location_id won't match the
+  // photo row).
+  const locQ = loc && loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/recipes/${slug}/photos`, { cache: 'no-store' })
+    fetch(`/api/recipes/${slug}/photos${locQ}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((j) => { if (!cancelled) setPhotos(j.photos || []); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoaded(true); });
     return () => { cancelled = true; };
-  }, [slug]);
+  }, [slug, locQ]);
 
   if (!loaded) return null;
   if (photos.length === 0) return null;
@@ -40,7 +73,7 @@ export default function RecipePhotoStrip({ slug }) {
       {photos.map((p) => (
         <a
           key={p.id}
-          href={`/api/recipes/${slug}/photos/${p.id}/raw`}
+          href={`/api/recipes/${slug}/photos/${p.id}/raw${locQ}`}
           target="_blank"
           rel="noreferrer"
           title={p.caption || p.original_name}
@@ -56,7 +89,7 @@ export default function RecipePhotoStrip({ slug }) {
           }}
         >
           <img
-            src={`/api/recipes/${slug}/photos/${p.id}/raw`}
+            src={`/api/recipes/${slug}/photos/${p.id}/raw${locQ}`}
             alt={p.caption || p.original_name}
             loading="lazy"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
