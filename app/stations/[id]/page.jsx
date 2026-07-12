@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getStation, getLineCheckTemplate, getSetups } from '../../../lib/data';
@@ -8,10 +8,64 @@ import StationChecklist from './StationChecklist';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * lib/data.ts's `Station` interface doesn't declare `color`, even though
+ * every row in data/cache/stations.json carries one and this page (plus
+ * the sibling app/stations/page.jsx) renders it as the station's status
+ * dot. Widened locally rather than editing lib/data.ts, which is out of
+ * this migration's file scope.
+ * @typedef {import('../../../lib/data.ts').Station & { color?: string }} StationWithColor
+ */
+
+/**
+ * Subset of `line_check_entries` (see CREATE TABLE in lib/db.ts) selected
+ * by the query below. `glove_change_attested` is included — see the fix
+ * note further down for why dropping it silently broke the F15 (FDA
+ * §3-301.11) attestation checkbox's persistence.
+ * @typedef {{
+ *   id: number,
+ *   item: string,
+ *   status: 'pass' | 'fail' | 'na',
+ *   par: string | null,
+ *   have: string | null,
+ *   need: string | null,
+ *   note: string | null,
+ *   cook_id: string | null,
+ *   glove_change_attested: 0 | 1 | null,
+ *   created_at: string,
+ * }} LineCheckRow
+ */
+
+/**
+ * Shape StationChecklist actually consumes per item (its `StationCheckItem`
+ * minus `status` narrowed to what the DB CHECK constraint allows).
+ * @typedef {{
+ *   status: 'pass' | 'fail' | 'na' | null,
+ *   par: string,
+ *   have: string,
+ *   need: string,
+ *   note: string,
+ *   glove_change_attested: boolean | null,
+ * }} ExistingCheckRow
+ */
+
+/**
+ * @typedef {{ cook_id: string, created_at: string }} SignoffRow
+ */
+
+/**
+ * @typedef {{
+ *   params: Promise<{ id?: string }> | { id?: string },
+ *   searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>,
+ * }} StationPageProps
+ */
+
+/** @param {StationPageProps} props */
 export default async function StationPage({ params, searchParams }) {
-  const { id } = await params;
+  const p = await params;
+  const id = /** @type {string} */ (p.id);
   const sp = (await searchParams) || {};
-  const station = getStation(id);
+  const station = /** @type {StationWithColor | null} */ (getStation(id));
   if (!station) notFound();
 
   const loc =
@@ -21,22 +75,46 @@ export default async function StationPage({ params, searchParams }) {
   const date = todayISO();
   const items = station.line_check_key ? getLineCheckTemplate(station.line_check_key) : [];
   const setups = getSetups();
-  const setupSteps = station.setup_key ? (setups[station.setup_key] || []) : [];
+  const setupSteps = /** @type {string[]} */ (station.setup_key ? (setups[station.setup_key] || []) : []);
 
   const db = getDb();
-  const existing = db.prepare(`
-    SELECT id, item, status, par, have, need, note, cook_id, created_at
+  // BUG FIX (F15 / FDA §3-301.11 glove-change attestation): this SELECT
+  // used to omit `glove_change_attested`, so every reload/router.refresh()
+  // rebuilt `byItem` without it. StationChecklist's tri-state check
+  // (`typeof ex.glove_change_attested === 'boolean'`) then always failed
+  // on the resulting `undefined`, resetting the checkbox to unchecked even
+  // though the DB still had `1` from an earlier attest. The write path
+  // (POST /api/checks) was never broken — only the read-back was. Column
+  // is now selected and translated from SQLite's `0 | 1 | null` into the
+  // `boolean | null` shape StationCheckItem actually declares.
+  const existing = /** @type {LineCheckRow[]} */ (
+    db.prepare(`
+    SELECT id, item, status, par, have, need, note, cook_id, glove_change_attested, created_at
     FROM line_check_entries
     WHERE shift_date=? AND station_id=? AND location_id=?
     ORDER BY id ASC
-  `).all(date, station.id, loc);
+  `).all(date, station.id, loc)
+  );
   // collapse to last entry per item
+  /** @type {Record<string, ExistingCheckRow>} */
   const byItem = {};
-  for (const row of existing) byItem[row.item] = row;
+  for (const row of existing) {
+    byItem[row.item] = {
+      status: row.status,
+      par: row.par ?? '',
+      have: row.have ?? '',
+      need: row.need ?? '',
+      note: row.note ?? '',
+      glove_change_attested:
+        row.glove_change_attested === 1 ? true : row.glove_change_attested === 0 ? false : null,
+    };
+  }
 
-  const signoff = db.prepare(
-    'SELECT cook_id, created_at FROM station_signoffs WHERE shift_date=? AND station_id=? AND location_id=? ORDER BY id DESC LIMIT 1'
-  ).get(date, station.id, loc);
+  const signoff = /** @type {SignoffRow | undefined} */ (
+    db.prepare(
+      'SELECT cook_id, created_at FROM station_signoffs WHERE shift_date=? AND station_id=? AND location_id=? ORDER BY id DESC LIMIT 1'
+    ).get(date, station.id, loc)
+  );
 
   return (
     <div>
