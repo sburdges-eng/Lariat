@@ -29,7 +29,7 @@ export default async function CertsPage({ searchParams }) {
   // pre-2026-05-08 raw `=== '1'` compare was always false with
   // LARIAT_PIN_SECRET set, hiding the PIC-only renew form from
   // authenticated managers.)
-  const jar = cookies();
+  const jar = await cookies();
   const pinOk = await pinCookieValueAuthorized(jar.get('lariat_pin_ok')?.value);
 
   const db = getDb();
