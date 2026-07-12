@@ -1,7 +1,10 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 import Link from 'next/link';
 import StatusPill from '../../../playbook/StatusPill';
 
+/** @typedef {import('../../../../lib/showsRepo.ts').ShowRow} ShowRow */
+
+/** @param {{ show: ShowRow, locationId: string }} props */
 export default function ShowHeader({ show, locationId }) {
   const locQuery = locationId && locationId !== 'default' ? `?location=${locationId}` : '';
   const statusEntries =
