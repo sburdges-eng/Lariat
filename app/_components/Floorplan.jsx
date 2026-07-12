@@ -1,4 +1,4 @@
-// @ts-nocheck — pre-#250 baseline. Remove once this file is migrated to JSDoc typedefs or .ts. See GH #250 / docs/checkjs-migration.md
+// @ts-check
 'use client';
 
 /**
@@ -25,6 +25,54 @@ import { useLocation } from './useLocation.js';
 const VB_W = 960;
 const VB_H = 640;
 
+/** @typedef {{ x: number, y: number }} Point */
+
+/**
+ * Line-check progress summary for a station, as returned by GET
+ * /api/stations (see app/api/stations/route.js).
+ * @typedef {{ total: number, done: number, flagged: number, signedOff: boolean }} LineCheckProgress
+ */
+
+/**
+ * Station shape returned by GET /api/stations.
+ * @typedef {{ id: string, name: string, line: string | null, prog: LineCheckProgress | null }} StationStatus
+ */
+
+/**
+ * Fields shared by every zone, regardless of kind.
+ * @typedef {{
+ *   name: string,
+ *   points: string,
+ *   label: Point,
+ *   badge?: Point,
+ *   wide?: boolean,
+ * }} ZoneBase
+ */
+
+/**
+ * A hot-line zone bound by index into the API-ordered stations[] array.
+ * @typedef {ZoneBase & { kind: 'station', stationIdx: number }} StationZoneDef
+ */
+
+/**
+ * A fixed utility zone that links to a named navRegistry route.
+ * @typedef {ZoneBase & { kind: 'nav', navId: string, accent: string }} NavZoneDef
+ */
+
+/** @typedef {StationZoneDef | NavZoneDef} ZoneDef */
+
+/**
+ * A zone after live station/nav data has been merged in for rendering.
+ * @typedef {ZoneDef & {
+ *   key: string,
+ *   href: string | null,
+ *   tone: string,
+ *   sub: string,
+ *   shortcut: string,
+ *   disabled: boolean,
+ * }} ResolvedZone
+ */
+
 /**
  * Zone definitions. Each zone is either:
  *   - a station (binds by `stationIdx` to the API-ordered stations[], so
@@ -33,6 +81,7 @@ const VB_H = 640;
  *
  * Coordinates are the polygon's points ("x,y x,y …") and a label anchor.
  * They're drawn once; live status recolors them.
+ * @type {ZoneDef[]}
  */
 const ZONES = [
   // ── Hot line, left-to-right along the bottom wall ────────────────────
@@ -147,7 +196,11 @@ const ZONES = [
   },
 ];
 
-/** Map a line-check progress summary onto a color token. */
+/**
+ * Map a line-check progress summary onto a color token.
+ * @param {LineCheckProgress | null | undefined} prog
+ * @returns {string}
+ */
 function toneFor(prog) {
   if (!prog) return 'muted';
   if (prog.flagged > 0) return 'rust';
@@ -157,6 +210,10 @@ function toneFor(prog) {
   return 'rust';
 }
 
+/**
+ * @param {LineCheckProgress | null | undefined} prog
+ * @returns {string}
+ */
 function statusLine(prog) {
   if (!prog) return 'No line check';
   if (prog.signedOff) return 'Signed off';
@@ -166,7 +223,11 @@ function statusLine(prog) {
   return 'Not checked';
 }
 
-/** Produce the "lighting wash" polygon that tracks the current service phase. */
+/**
+ * Produce the "lighting wash" polygon that tracks the current service phase.
+ * @param {number} hours
+ * @returns {number}
+ */
 function washPoly(hours) {
   // A soft ember gradient that sweeps from left (prep) to right (close)
   // across the kitchen. Returns an x-offset (0..1) for the gradient.
@@ -174,6 +235,7 @@ function washPoly(hours) {
   return (clamped - 8) / 16; // 0 at 8am, 1 at midnight.
 }
 
+/** @returns {number} */
 function useHours() {
   const [hours, setHours] = useState(() => {
     const d = new Date();
@@ -189,11 +251,14 @@ function useHours() {
   return hours;
 }
 
+/**
+ * @param {{ open: boolean, onClose?: () => void }} props
+ */
 export default function Floorplan({ open, onClose }) {
   const router = useRouter();
   const { locQuery } = useLocation();
-  const [stations, setStations] = useState([]);
-  const [hover, setHover] = useState(null);
+  const [stations, setStations] = useState(/** @type {StationStatus[]} */ ([]));
+  const [hover, setHover] = useState(/** @type {string | null} */ (null));
   const hours = useHours();
 
   // Pull stations when the overlay mounts — lightweight, no polling here
@@ -209,6 +274,7 @@ export default function Floorplan({ open, onClose }) {
   // Close on Escape (the opener handles "M").
   useEffect(() => {
     if (!open) return;
+    /** @param {KeyboardEvent} e */
     const onKey = (e) => {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -256,7 +322,13 @@ export default function Floorplan({ open, onClose }) {
 
   return (
     <div className="floorplan-scrim" onClick={onClose} role="dialog" aria-modal="true" aria-label="Kitchen floorplan navigator">
-      <div className="floorplan" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="floorplan"
+        onClick={
+          /** @param {React.MouseEvent<HTMLDivElement>} e */
+          (e) => e.stopPropagation()
+        }
+      >
         <div className="floorplan-head">
           <div className="fp-title">
             <span className="fp-eyebrow">Floor</span>
@@ -330,13 +402,16 @@ export default function Floorplan({ open, onClose }) {
                 tabIndex={z.href ? 0 : -1}
                 role={z.href ? 'link' : undefined}
                 aria-label={z.href ? `${z.name} — ${z.sub}` : z.name}
-                onKeyDown={(e) => {
-                  if ((e.key === 'Enter' || e.key === ' ') && z.href) {
-                    e.preventDefault();
-                    router.push(z.href);
-                    onClose?.();
+                onKeyDown={
+                  /** @param {React.KeyboardEvent<SVGGElement>} e */
+                  (e) => {
+                    if ((e.key === 'Enter' || e.key === ' ') && z.href) {
+                      e.preventDefault();
+                      router.push(z.href);
+                      onClose?.();
+                    }
                   }
-                }}
+                }
               >
                 <polygon points={z.points} fill={baseFill} stroke="var(--ink)" strokeWidth="1.2" />
                 <polygon points={z.points} fill="url(#hatch)" opacity="0.6" pointerEvents="none" />
