@@ -33,7 +33,12 @@ import { useCallback, useEffect, useState } from 'react';
  */
 
 /**
- * Stable identity for a peer — matches `lib/hubFailover.ts::peerKey`.
+ * Stable identity for a peer — semantically consistent with
+ * `lib/hubFailover.ts::peerKey` (same identity fields, same precedence:
+ * host+started_at, then host, then started_at, then name), but NOT
+ * byte-identical: that one formats as `hs:host|startedAt`, this one as
+ * `host-startedAt`. Only used locally as a React key — never compare
+ * across the two.
  * @param {DiscoveredInstance | null | undefined} p
  * @returns {string}
  */

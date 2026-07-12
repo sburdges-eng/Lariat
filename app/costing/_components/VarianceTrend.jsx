@@ -68,7 +68,7 @@ export default function VarianceTrend({ trend }) {
         })}
       </svg>
       <p className="row-meta" style={{ marginTop: 10, fontSize: 12 }}>
-        Green ≤ 2% · Yellow 2–5% · Red ≥ 5%
+        Green &lt; 2% · Yellow 2–5% · Red ≥ 5%
       </p>
     </section>
   );

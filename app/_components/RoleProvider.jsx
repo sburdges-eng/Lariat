@@ -8,10 +8,11 @@
  *
  * NOTE: `lariat_pin_ok` is set HttpOnly by /api/auth/pin, so `document.cookie`
  * CANNOT see it. The client therefore learns its own role by pinging the
- * server. We use HEAD /api/auth/pin-status (a thin GET that just echoes
- * whether the cookie is present) — same-origin, fast, cache-busted. If that
- * endpoint isn't wired yet we fall back to a probe of /api/auth/pin + a
- * 200/401 heuristic on any sensitive route.
+ * server (see `probePinStatus` below): GET /api/auth/pin reports whether the
+ * PIN gate is enabled at all (`pin_enabled: false` means everyone renders as
+ * "management"); if the gate is enabled, we probe GET /api/audit/log?limit=1
+ * (a known PIN-gated endpoint) and treat a non-403 response as authenticated.
+ * Both requests are same-origin and cache-busted (`cache: 'no-store'`).
  *
  * Server-side (`/api/audit/log`, `/api/recipes/[slug]` PUT, etc.) is the real
  * gate: it inspects the cookie via `next/headers`. This provider is purely
