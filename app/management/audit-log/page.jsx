@@ -17,7 +17,7 @@
 // fired, breaking the page entirely. The middleware + the API's signed
 // PIN-cookie check are the real gates.
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { humanize } from '../../../lib/userError';
@@ -251,7 +251,7 @@ export default function AuditLogPage() {
                 {logs.map((log) => {
                   const isExpanded = expandedId === log.id;
                   return (
-                    <tbody key={log.id}>
+                    <Fragment key={log.id}>
                       <tr
                         style={{
                           background: isExpanded ? 'rgba(200, 90, 42, 0.05)' : 'inherit',
@@ -324,7 +324,7 @@ export default function AuditLogPage() {
                           </td>
                         </tr>
                       )}
-                    </tbody>
+                    </Fragment>
                   );
                 })}
               </tbody>

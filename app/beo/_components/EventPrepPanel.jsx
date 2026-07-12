@@ -93,10 +93,7 @@ export default function EventPrepPanel({ eventId, location = 'default' }) {
 
   return (
     <div className="beo-prep-panel">
-      {/* UnmappedCallout is an untyped (.jsx, @ts-nocheck) component whose
-          array-prop defaults infer as never[]; cast at the boundary (same
-          idiom as CoursePanel in BeoBoard.tsx). */}
-      <UnmappedCallout unmapped={/** @type {never} */ (unmapped)} error={engineError} />
+      <UnmappedCallout unmapped={unmapped} error={engineError} />
       <ul data-testid="event-prep-list" className="beo-prep-list">
         {prepDemands.map((row, i) => (
           <li key={`${row.recipe_slug}-${i}`} data-testid="event-prep-row" className="beo-prep-row">

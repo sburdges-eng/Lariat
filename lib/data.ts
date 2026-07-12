@@ -59,7 +59,13 @@ export interface Recipe {
   yield_qty?: number | string | null;
   yield_unit?: string | null;
   ingredients: Ingredient[];
-  procedure?: string | null;
+  /**
+   * Mixed shape in data/cache/recipes.json: most recipes (73/77) store a
+   * string[] of steps; a few legacy docs store a single prose string.
+   */
+  procedure?: string | string[] | null;
+  /** Recipe category (e.g. "sauces", "mains"); present on every cached recipe doc. */
+  category?: string | null;
   /** Full allergen set: direct inference + union over sub-recipe tree. Use for UI. */
   allergens?: string[];
   /** Allergens inferred only from this recipe's own ingredients (pre-rollup). */

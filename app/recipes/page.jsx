@@ -5,16 +5,6 @@ import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { isCateringRecipe } from '../../lib/recipeScope';
 import RecipeBrowserEnhanced from './RecipeBrowserEnhanced.jsx';
 
-/** @typedef {import('../../lib/data').Recipe} Recipe */
-
-/**
- * recipes.json documents always carry `category` (see data/cache/recipes.json
- * and menus/beo_recipe_map.csv), but the shared `Recipe` interface in
- * lib/data.ts doesn't declare it yet — that's a lib/ typing gap, out of
- * scope for this file. Extend locally rather than widen the shared type.
- * @typedef {Recipe & { category?: string | null }} RecipeDoc
- */
-
 /**
  * Per-card shape handed to the client browser. Distinct name from
  * lib/recipeCookbookGrouping.ts's `CookbookRecipe` (which this satisfies
@@ -88,7 +78,7 @@ export default async function RecipesPage({ searchParams }) {
     // recipe_photos may not exist on a fresh DB; render without thumbnails.
   }
 
-  const rawRecipes = /** @type {RecipeDoc[]} */ (getRecipes());
+  const rawRecipes = getRecipes();
 
   const all = /** @type {RecipeCardData[]} */ (rawRecipes.map((r) => ({
     slug: r.slug,

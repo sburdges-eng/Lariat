@@ -526,6 +526,11 @@ export interface DateMark {
  * recorded in-line (status + note) rather than a separate "rejection"
  * table — the audit question is always "did we accept this shipment,
  * at what temp, and why."
+ *
+ * This interface mirrors the FULL receiving_log schema column-for-column
+ * (CREATE TABLE + all ALTER TABLE migrations). Keep it in sync when the
+ * DDL changes — a SELECT * consumer casting to ReceivingEntry must not
+ * silently lose columns.
  */
 export interface ReceivingEntry {
   id: number;
@@ -535,6 +540,19 @@ export interface ReceivingEntry {
   invoice_ref: string | null;
   category: string;                // 'refrigerated' | 'frozen' | 'dry' | 'produce' | 'shellfish' | ...
   item: string | null;             // optional line-level item
+  /** Vendor's SKU / item code for master matching. NULL when not captured. */
+  vendor_sku: string | null;
+  /** Resolved ingredient master id when match_status = 'matched'; NULL otherwise. */
+  master_id: string | null;
+  /**
+   * Master-match outcome. Known values: 'not_attempted' (column default)
+   * | 'matched' | 'unmatched' | 'ambiguous'. No CHECK constraint, so typed
+   * as string; NULL possible on rows written outside the matcher (readers
+   * COALESCE to 'not_attempted').
+   */
+  match_status: string | null;
+  /** Why the match landed where it did (e.g. 'missing_vendor'). NULL when not attempted. */
+  match_reason: string | null;
   reading_f: number | null;        // temp at receiving (NULL for dry)
   required_max_f: number | null;   // snapshot of the limit at receiving
   /**
@@ -557,6 +575,14 @@ export interface ReceivingEntry {
   rejection_reason: string | null;
   shellstock_tag_ref: string | null;  // §3-203.12 shellstock 90-day retention ref
   cook_id: string | null;
+  /**
+   * Cross-host sync replay provenance (see addSyncSourceCols). Populated
+   * only by lib/syncApply.ts when replaying a row from another host;
+   * local route writes leave all three NULL.
+   */
+  sync_source_host: string | null;
+  sync_source_started_at: string | null;
+  sync_source_pk: string | null;
   created_at: string;
   /**
    * Phase 3 closed-loop receiving — quantity actually received in the
