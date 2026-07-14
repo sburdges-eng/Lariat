@@ -41,8 +41,10 @@ test('Hybrid mode search sends the selected bucket, not the hidden lexical sourc
     expect(global.fetch).toHaveBeenCalledWith('/api/datapack/search?op=stats'),
   );
 
+  // Cook-facing labels per docs/UI_COPY_RULES.md: the mode selector reads
+  // "Search by" (not "Mode"), and the bucket selector reads "Look in".
   fireEvent.change(screen.getByLabelText(/^search$/i), { target: { value: 'eggs' } });
-  fireEvent.change(screen.getByLabelText(/^mode$/i), { target: { value: 'hybrid' } });
+  fireEvent.change(screen.getByLabelText(/^search by$/i), { target: { value: 'hybrid' } });
   fireEvent.click(screen.getByRole('button', { name: /^search$/i }));
 
   await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));

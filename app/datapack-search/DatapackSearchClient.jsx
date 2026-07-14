@@ -29,17 +29,20 @@ const GROUP_ORDER = ['usda', 'off', 'wikibooks', 'fda'];
 // single-source. Bucket → default source for new-results UX
 // (recipes/techniques live entirely in wikibooks; ingredients in usda;
 // safety mixes fda + wikibooks).
+// Cook-facing labels (docs/UI_COPY_RULES.md): short, plain words — the
+// engine names (BM25/BGE/RRF) and the word "bucket" stay internal. The
+// result-group headers still show the full source names.
 const BUCKET_OPTIONS = [
-  { value: 'recipes', label: 'Recipes (Wikibooks)' },
-  { value: 'techniques', label: 'Techniques (Wikibooks)' },
-  { value: 'safety', label: 'Safety (FDA + Wikibooks)' },
-  { value: 'ingredients', label: 'Ingredients (USDA)' },
+  { value: 'recipes', label: 'Recipes' },
+  { value: 'techniques', label: 'Techniques' },
+  { value: 'safety', label: 'Safety rules' },
+  { value: 'ingredients', label: 'Ingredients' },
 ];
 
 const MODE_OPTIONS = [
-  { value: 'lexical', label: 'Lexical (BM25)' },
-  { value: 'semantic', label: 'Semantic (BGE)' },
-  { value: 'hybrid', label: 'Hybrid (RRF)' },
+  { value: 'lexical', label: 'Exact words' },
+  { value: 'semantic', label: 'Similar meaning' },
+  { value: 'hybrid', label: 'Both' },
 ];
 
 const DATAPACK_UNAVAILABLE_COPY = 'Reference data is not installed on this Mac. Ask a manager to finish setup.';
@@ -112,8 +115,8 @@ function hitKey(hit) {
 //
 // `source: 'fda_food_code'` collapses to `'fda'` to match the FTS
 // source naming and drill-in routing. We keep the cosine similarity
-// untouched — it's positive ([-1, 1]); the formatter below
-// distinguishes positive (semantic) from negative (BM25) scores.
+// untouched — it's used for ordering only (the raw score is no longer
+// rendered on cook-facing rows; see docs/UI_COPY_RULES.md).
 /**
  * @param {Record<string, unknown>} meta
  * @returns {Hit}
@@ -729,7 +732,7 @@ export default function DatapackSearchClient() {
               fontWeight: 500,
             }}
           >
-            Mode
+            Search by
           </label>
           <select
             id="datapack-mode"
@@ -800,7 +803,7 @@ export default function DatapackSearchClient() {
                 fontWeight: 500,
               }}
             >
-              Bucket
+              Look in
             </label>
             <select
               id="datapack-bucket"
@@ -847,7 +850,7 @@ export default function DatapackSearchClient() {
       {/* States */}
       {response.kind === 'idle' && (
         <div style={{ color: 'var(--muted)', fontSize: 13 }}>
-          Enter a query to search the data pack.
+          Type what you want to look up.
         </div>
       )}
 
@@ -886,7 +889,7 @@ export default function DatapackSearchClient() {
       )}
 
       {response.kind === 'ok' && response.hits.length === 0 && (
-        <div style={{ color: 'var(--muted)', fontSize: 13 }}>No hits.</div>
+        <div style={{ color: 'var(--muted)', fontSize: 13 }}>No matches.</div>
       )}
 
       {response.kind === 'ok' && grouped && grouped.length > 0 && (
@@ -956,23 +959,20 @@ export default function DatapackSearchClient() {
                             {hit.subtitle}
                           </div>
                         ) : null}
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: 'var(--muted)',
-                            display: 'flex',
-                            gap: 8,
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          {hit.extra ? <span>{hit.extra}</span> : null}
-                          <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                            score {hit.score.toFixed(2)}
-                          </span>
-                          <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                            id {hit.id}
-                          </span>
-                        </div>
+                        {/* No raw "score"/"id" here (docs/UI_COPY_RULES.md —
+                            no dev-style fields on cook-facing rows). The
+                            drill-in panels show the real identifiers (fdc_id,
+                            product code, section number). */}
+                        {hit.extra ? (
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: 'var(--muted)',
+                            }}
+                          >
+                            {hit.extra}
+                          </div>
+                        ) : null}
                       </button>
                       {open && detail && (
                         <div

@@ -213,8 +213,10 @@ Branch `fix/datapack-search-allergen-display`, **stacked on**
 | High #1 | **Fixed.** `OffDetail` now renders an explicit allergen state — chips / "Declares no allergens" / "⚠ not listed — check label" — so absent/malformed data never reads as safe, and a new **May contain (traces)** row surfaces `traces_tags_json`. Decision logic extracted to a pure, tested `offAllergenView`. |
 | Contract #2 | **Fixed** (fix vehicle). The duplicate `parseAllergenTags` is deleted; the panel reuses the canonical `parseAllergenTagsResult` / `cleanAllergenTag`. |
 | Coverage #6 | **Partly addressed.** New `tests/js/test-datapack-off-allergen-view.mjs` (8 cases) covers the OFF allergen/trace render decision; the rest of the client stays jest-only. |
-| Contract #3 | **Deferred.** UI-copy jargon (Mode BM25/BGE/RRF, "Bucket", raw id/score, "No hits") not yet reworded. |
-| Low #4 / #5 | **Deferred.** `source_url` href scheme-check and `score.toFixed` guard not yet added. |
+| Contract #3 | **Fixed.** Cook-plain copy per `docs/UI_COPY_RULES.md`: "Mode" → "Search by" (Exact words / Similar meaning / Both), "Bucket" → "Look in" (Recipes / Techniques / Safety rules / Ingredients), raw per-row "score"/"id" removed (drill-in panels keep the real identifiers), "No hits." → "No matches.", "Enter a query…" → "Type what you want to look up." Jest label test updated first (RED→GREEN). |
+| Low #5 | **Resolved by removal.** Deleting the row-level score display removes the `hit.score.toFixed(2)` code path entirely. |
+| Low #4 | **Deferred.** `source_url` href scheme-check not yet added. |
 
-**Verification:** 74 focused tests pass (off-allergen-view 8, datapack 18,
-lookup-helpers 48), `tsc --noEmit` clean, scoped ESLint clean, `next build` OK.
+**Verification:** 74 focused node tests pass (off-allergen-view 8, datapack 18,
+lookup-helpers 48) + jest datapack UI tests 3/3, `tsc --noEmit` clean, scoped
+ESLint clean, `next build` OK.
