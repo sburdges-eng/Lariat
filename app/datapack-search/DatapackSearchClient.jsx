@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { nextDetails } from './detailsState';
+import { offAllergenView } from './offAllergenView.js';
+import { cleanAllergenTag } from '../allergen-lookup/allergenLookupHelpers.js';
 
 // Friendly source labels — order is the same display order used to
 // group hits below the form. 'all' is the default.
@@ -93,23 +95,6 @@ function pickTopNutrients(nutrients) {
     if (found) out.push(found);
   }
   return out;
-}
-
-/**
- * @param {unknown} raw
- * @returns {string[]}
- */
-function parseAllergenTags(raw) {
-  if (!raw || typeof raw !== 'string') return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      return parsed.filter((s) => typeof s === 'string' && s.length > 0);
-    }
-  } catch {
-    /* fall through */
-  }
-  return [];
 }
 
 /**
@@ -245,12 +230,63 @@ function UsdaDetail({ data }) {
   );
 }
 
+const ALLERGEN_CHIP_STYLE = {
+  padding: '2px 8px',
+  background: 'var(--panel-2)',
+  border: '1px solid var(--border)',
+  borderRadius: 12,
+  fontSize: 11,
+  color: 'var(--text)',
+  textTransform: /** @type {const} */ ('capitalize'),
+};
+
+const TRACE_CHIP_STYLE = {
+  padding: '2px 8px',
+  background: 'transparent',
+  border: '1px dashed var(--border)',
+  borderRadius: 12,
+  fontSize: 11,
+  color: 'var(--muted)',
+  textTransform: /** @type {const} */ ('capitalize'),
+};
+
+/**
+ * Allergen chip row for the OFF panel. ALWAYS renders an explicit state so a
+ * product with no allergen data ('unknown') never looks like one that
+ * declares none ('none') — a kitchen-line false-negative otherwise.
+ * @param {{ state: import('./offAllergenView').AllergenChipState, tags: string[] }} props
+ */
+function AllergenTagRow({ state, tags }) {
+  if (state === 'has') {
+    return (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {tags.map((a) => (
+          <span key={a} style={ALLERGEN_CHIP_STYLE}>
+            {cleanAllergenTag(a)}
+          </span>
+        ))}
+      </div>
+    );
+  }
+  if (state === 'none') {
+    return (
+      <div style={{ fontSize: 12, color: 'var(--muted)' }}>Declares no allergens.</div>
+    );
+  }
+  // 'unknown' — data absent/malformed. Do NOT read as safe.
+  return (
+    <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
+      ⚠ not listed — check label
+    </div>
+  );
+}
+
 /** @param {{ data: unknown }} props */
 function OffDetail({ data }) {
   const d = /** @type {{ product?: OffProduct } | null | undefined} */ (data);
   const product = d?.product;
   if (!product) return <div style={{ color: 'var(--muted)' }}>No product row.</div>;
-  const allergens = parseAllergenTags(product.allergens_tags_json);
+  const { allergens, traces } = offAllergenView(product);
   return (
     <div>
       <div style={{ fontWeight: 600, marginBottom: 6 }}>
@@ -270,25 +306,23 @@ function OffDetail({ data }) {
           </div>
         </div>
       ) : null}
-      {allergens.length > 0 ? (
+
+      <div style={{ marginBottom: traces.tags.length > 0 ? 12 : 0 }}>
+        <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>
+          Allergens
+        </div>
+        <AllergenTagRow state={allergens.state} tags={allergens.tags} />
+      </div>
+
+      {traces.tags.length > 0 ? (
         <div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>
-            Allergens
+            May contain (traces)
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {allergens.map((a) => (
-              <span
-                key={a}
-                style={{
-                  padding: '2px 8px',
-                  background: 'var(--panel-2)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 12,
-                  fontSize: 11,
-                  color: 'var(--text)',
-                }}
-              >
-                {a}
+            {traces.tags.map((t) => (
+              <span key={t} style={TRACE_CHIP_STYLE}>
+                trace · {cleanAllergenTag(t)}
               </span>
             ))}
           </div>

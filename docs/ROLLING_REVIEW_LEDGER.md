@@ -109,3 +109,112 @@ LariatModel/Compute/AllergenAttestationCompute.swift` still computes the **old**
 key (last, matching web key order) or web and native will disagree on attested vs
 stale for the same row. No live rows exist today (0 in `data/lariat.db`), so there
 is no data-migration impact, but this must land before native re-attestation ships.
+
+---
+
+## Web · Data pack search
+
+- **Reviewed at commit:** `16d0f5040770708d85739d541a213cd73fb50054`
+- **Review date:** 2026-07-14
+- **Freeze result:** 🔴 **BLOCKED pending remediation**
+
+**Scope completed**
+
+- `app/datapack-search/page.jsx`, `app/datapack-search/DatapackSearchClient.jsx`,
+  `app/datapack-search/detailsState.ts`
+- the four datapack node test files (`test-datapack-search`,
+  `test-datapack-search-route`, `test-datapack-search-toggle-detail`,
+  `test-datapack-semantic`)
+- the non-allergen source paths (USDA / Wikibooks / FDA) and the
+  semantic/hybrid ops as they surface through `app/datapack-search`
+
+**Explicitly excluded**
+
+- `app/api/datapack/search/route.js` and `lib/datapackSearch.ts` allergen/OFF
+  path — already reviewed in the allergen-lookup entry above (not re-reviewed
+  here beyond how this page consumes it)
+- native Swift datapack UI; the ML index build (`scripts/`)
+
+Read-only reference-lookup surface: no PIN gate, no writes, no audit — so
+severity turns on **food-safety display accuracy**, not data integrity.
+
+### Findings
+
+**High**
+
+1. The OFF drill-in panel (`OffDetail`) understates allergen data two ways:
+   (a) `traces_tags_json` ("may contain" cross-contact) is **never rendered** —
+   the string `traces` appears nowhere in the client; (b) a null / missing /
+   malformed allergen field collapses to an **absent** Allergens section,
+   indistinguishable from a product that declares none. On a tool whose stated
+   purpose is allergen lookup, both are food-safety false-negatives. This is the
+   allergen-lookup **High #3** gap, unported here — and worse, since traces are
+   dropped entirely and there is no "unknown / not listed" signal.
+
+**Contract**
+
+2. Duplicated `parseAllergenTags`: the private copy in
+   `DatapackSearchClient.jsx` has already diverged from the canonical
+   `app/allergen-lookup/allergenLookupHelpers.js` (which now carries the
+   known-vs-unknown distinction `parseAllergenTagsResult`). A fix in one will
+   not reach the other.
+3. UI copy violates `docs/UI_COPY_RULES.md` — developer/ML jargon in
+   user-facing controls: the Mode options "Lexical (BM25) / Semantic (BGE) /
+   Hybrid (RRF)", the "Bucket" selector and its labels, the per-row raw "id"
+   and "score", and "No hits."
+
+**Low / hardening**
+
+4. `page.source_url` (Wikibooks) is rendered as an `<a href>` with no
+   URL-scheme check; a `javascript:` / `data:` value in the datapack would
+   execute on click. Curated local reference data → low exploitability, but
+   validate the scheme before rendering.
+5. Passed-through FTS hit fields are trusted at render: `hit.score.toFixed(2)`
+   throws if a hybrid pass-through hit's `score` is non-numeric, and `hit.id`
+   is rendered raw. Server-controlled → low.
+
+**Test coverage**
+
+6. The 964-line client's render logic (the OFF allergen/trace panel,
+   `normalizeSemanticHit`, source grouping) has **no node-test coverage** —
+   only `detailsState` and two `app/__tests__` jest tests exist. The
+   food-safety-relevant display branches are effectively untested at the node
+   level.
+
+### Verification
+
+- 18 focused node tests pass (toggle-detail 10, search 3, route 1, semantic 4).
+- Scoped ESLint clean; no absolute paths in the surface; no tracked
+  `__pycache__`.
+- `tsc --noEmit` clean (these files are unchanged vs `main`).
+
+### Diagnostic evidence
+
+- Code-level, unambiguous: `OffDetail` references only `allergens_tags_json`
+  (never `traces_tags_json`) and renders the Allergens block under
+  `allergens.length > 0 ? … : null`, so both an empty declared list and an
+  absent/malformed field render as no allergen section at all. A live probe was
+  not run (the reference data pack may not be installed on this Mac).
+
+### Re-review rule
+
+Treat this entry as complete only for the recorded commit. Re-review this
+section after any scoped change or after the required fixes land.
+
+### Remediation (in progress)
+
+Branch `fix/datapack-search-allergen-display`, **stacked on**
+`fix/allergen-attestation-hardening` (PR #539) — it reuses that branch's
+`parseAllergenTagsResult` helper and the ledger file, neither of which is on
+`main` yet. The findings above remain the record **at `16d0f50`**.
+
+| Finding | Status |
+| --- | --- |
+| High #1 | **Fixed.** `OffDetail` now renders an explicit allergen state — chips / "Declares no allergens" / "⚠ not listed — check label" — so absent/malformed data never reads as safe, and a new **May contain (traces)** row surfaces `traces_tags_json`. Decision logic extracted to a pure, tested `offAllergenView`. |
+| Contract #2 | **Fixed** (fix vehicle). The duplicate `parseAllergenTags` is deleted; the panel reuses the canonical `parseAllergenTagsResult` / `cleanAllergenTag`. |
+| Coverage #6 | **Partly addressed.** New `tests/js/test-datapack-off-allergen-view.mjs` (8 cases) covers the OFF allergen/trace render decision; the rest of the client stays jest-only. |
+| Contract #3 | **Deferred.** UI-copy jargon (Mode BM25/BGE/RRF, "Bucket", raw id/score, "No hits") not yet reworded. |
+| Low #4 / #5 | **Deferred.** `source_url` href scheme-check and `score.toFixed` guard not yet added. |
+
+**Verification:** 74 focused tests pass (off-allergen-view 8, datapack 18,
+lookup-helpers 48), `tsc --noEmit` clean, scoped ESLint clean, `next build` OK.
