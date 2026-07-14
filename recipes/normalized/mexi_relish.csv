@@ -1,4 +1,4 @@
 ingredient,qty,unit,portions_per_batch,notes
 red cabbage,5,lb,1,1 bag
-chipotle aioli,2,cup,1,sub-recipe
+chipotle aioli,2,cup,1,(sub-recipe=chipotle_aioli)
 lime juice,1,tbsp,1,

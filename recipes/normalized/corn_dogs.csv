@@ -1,5 +1,5 @@
 ingredient,qty,unit,portions_per_batch,notes
-corndog batter,4,qt,~50 dogs,(sub-recipe)
+corndog batter,4,qt,~50 dogs,(sub-recipe=corndog_batter)
 hot dogs,50,ea,~50 dogs,standard 4:1 beef/pork dogs; skewer before battering
 bamboo skewers 6in,50,ea,~50 dogs,
-honey mustard,1,qt,~50 dogs,(sub-recipe)
+honey mustard,1,qt,~50 dogs,(sub-recipe=honey_mustard)

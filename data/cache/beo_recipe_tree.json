@@ -1,5 +1,21 @@
 {
   "menu_items": {
+    "baja fish taco": [
+      "fish_brine",
+      "beer_batter",
+      "chipotle_aioli",
+      "mexi_slaw",
+      "pico_de_gallo",
+      "aji_verde"
+    ],
+    "baja fish tacos": [
+      "fish_brine",
+      "beer_batter",
+      "chipotle_aioli",
+      "mexi_slaw",
+      "pico_de_gallo",
+      "aji_verde"
+    ],
     "baked ziti": [
       "baked_ziti"
     ],
@@ -87,7 +103,7 @@
     ],
     "green chile mac buffet": [
       "queso_mac_sauce",
-      "green_chile"
+      "green_chilli"
     ],
     "italian artisanal board": [
       "artisanal_board"
@@ -115,6 +131,9 @@
       "nashville_oil",
       "special_sauce",
       "coleslaw"
+    ],
+    "peach cobbler": [
+      "peach_cobbler"
     ],
     "philo bites": [
       "philo_bites"
@@ -652,7 +671,7 @@
       "prep_timing": "day_of",
       "yield_qty": 1,
       "yield_unit": "each",
-      "notes": "Made Sunday AM — stubbed order-by-each",
+      "notes": "Made Sunday AM (smaller tortillas) — stubbed order-by-each",
       "ingredients": [
         {
           "item": "breakfast burrito",
@@ -782,8 +801,8 @@
         },
         {
           "item": "evoo",
-          "qty": 0.0,
-          "unit": "",
+          "qty": 2.0,
+          "unit": "gal",
           "recipe": null
         }
       ],
@@ -1130,14 +1149,14 @@
         },
         {
           "item": "kosher salt",
-          "qty": 0.0,
-          "unit": "",
+          "qty": 2.0,
+          "unit": "tbsp",
           "recipe": null
         },
         {
           "item": "pepper",
-          "qty": 0.0,
-          "unit": "",
+          "qty": 1.0,
+          "unit": "tsp",
           "recipe": null
         },
         {
@@ -1247,8 +1266,8 @@
         },
         {
           "item": "buttermilk",
-          "qty": 0.0,
-          "unit": "to consistency",
+          "qty": 8.0,
+          "unit": "qt",
           "recipe": null
         }
       ],
@@ -1470,14 +1489,14 @@
       ],
       "sub_recipes": []
     },
-    "green_chile": {
-      "name": "Green Chile",
+    "green_chilli": {
+      "name": "Green Chilli",
       "station": "expo",
       "category": "entree",
       "prep_timing": "day_before",
       "yield_qty": 8,
       "yield_unit": "qt",
-      "notes": "PDF p16 — braise 40-60 min until pork softens; add roux (bacon grease + flour) to finish",
+      "notes": "PDF p16 — house pork-butt stew (NOT vendor green chile). Braise 40-60 min until pork softens; add roux (bacon grease + flour) to finish",
       "ingredients": [
         {
           "item": "pork butt",
@@ -1703,7 +1722,7 @@
       "prep_timing": "day_before",
       "yield_qty": 6,
       "yield_unit": "cup",
-      "notes": "House signature rub — used in Nashville Hot Rub + Pig Wings + Green Chile + Bacon Jam",
+      "notes": "House signature rub — used in Nashville Hot Rub + Pig Wings + Green Chilli + Bacon Jam",
       "ingredients": [
         {
           "item": "salt",
@@ -2078,6 +2097,114 @@
         "lariat_rub"
       ]
     },
+    "peach_cobbler": {
+      "name": "Peach Cobbler with Cheater Granola Crunch",
+      "station": "expo",
+      "category": "dessert",
+      "prep_timing": "day_of",
+      "yield_qty": 60,
+      "yield_unit": "portion",
+      "notes": "60 × 4 oz portions — 2 full-size 2-in hotel pans (30 each). Bake filling covered 25-30 min 350F conv/375F conv; top with granola crunch; bake uncovered 12-16 min. Rest 20 min. #8 scoop. For buffet crunch: bake topping separately 325F 8-12 min and sprinkle at service.",
+      "ingredients": [
+        {
+          "item": "sliced peaches drained/thawed",
+          "qty": 10.0,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "granulated sugar",
+          "qty": 14.0,
+          "unit": "oz",
+          "recipe": null
+        },
+        {
+          "item": "brown sugar",
+          "qty": 8.0,
+          "unit": "oz",
+          "recipe": null
+        },
+        {
+          "item": "cornstarch",
+          "qty": 4.5,
+          "unit": "oz",
+          "recipe": null
+        },
+        {
+          "item": "lemon juice",
+          "qty": 0.75,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "vanilla extract",
+          "qty": 0.25,
+          "unit": "cup",
+          "recipe": null
+        },
+        {
+          "item": "ground cinnamon",
+          "qty": 1.5,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "ground nutmeg",
+          "qty": 1.0,
+          "unit": "tsp",
+          "recipe": null
+        },
+        {
+          "item": "kosher salt",
+          "qty": 2.0,
+          "unit": "tsp",
+          "recipe": null
+        },
+        {
+          "item": "butter diced or melted",
+          "qty": 6.0,
+          "unit": "oz",
+          "recipe": null
+        },
+        {
+          "item": "prepared granola",
+          "qty": 2.5,
+          "unit": "lb",
+          "recipe": null
+        },
+        {
+          "item": "yellow cake mix",
+          "qty": 12.0,
+          "unit": "oz",
+          "recipe": null
+        },
+        {
+          "item": "brown sugar",
+          "qty": 6.0,
+          "unit": "oz",
+          "recipe": null
+        },
+        {
+          "item": "butter melted",
+          "qty": 16.0,
+          "unit": "oz",
+          "recipe": null
+        },
+        {
+          "item": "ground cinnamon",
+          "qty": 1.0,
+          "unit": "tbsp",
+          "recipe": null
+        },
+        {
+          "item": "kosher salt",
+          "qty": 1.0,
+          "unit": "tsp",
+          "recipe": null
+        }
+      ],
+      "sub_recipes": []
+    },
     "philo_bites": {
       "name": "Philo Bites",
       "station": "fry",
@@ -2143,14 +2270,14 @@
         },
         {
           "item": "salt",
-          "qty": 0.0,
-          "unit": "",
+          "qty": 2.0,
+          "unit": "tbsp",
           "recipe": null
         },
         {
           "item": "pepper",
-          "qty": 0.0,
-          "unit": "",
+          "qty": 1.0,
+          "unit": "tbsp",
           "recipe": null
         }
       ],
@@ -2201,11 +2328,11 @@
     "prime_rib": {
       "name": "Prime Rib",
       "station": "grill",
-      "category": "entree",
+      "category": "protein",
       "prep_timing": "day_of",
-      "yield_qty": 12,
-      "yield_unit": "portion",
-      "notes": "Whole-buy — in scripts/beo_order_pull DEFAULT_WHOLE_BUY_EXACT",
+      "yield_qty": 1,
+      "yield_unit": "ea",
+      "notes": "Whole-buy prime rib roast (~12 portions); sous vide + carve",
       "ingredients": [
         {
           "item": "prime rib",
@@ -2265,7 +2392,7 @@
       "prep_timing": "day_before",
       "yield_qty": 22,
       "yield_unit": "qt",
-      "notes": "Ice wand to cool — held hot in cambro",
+      "notes": "Ice wand to cool — held hot in cambro. Uses vendor green chile (Sysco/Shamrock leaf) — NEVER house green_chilli sub-recipe",
       "ingredients": [
         {
           "item": "heavy cream",
@@ -2299,9 +2426,9 @@
         },
         {
           "item": "green chile",
-          "qty": 1.0,
-          "unit": "bag",
-          "recipe": "green_chile"
+          "qty": 8.0,
+          "unit": "qt",
+          "recipe": null
         },
         {
           "item": "blackened salsa",
@@ -2311,7 +2438,6 @@
         }
       ],
       "sub_recipes": [
-        "green_chile",
         "lariat_rub"
       ]
     },
@@ -2388,7 +2514,7 @@
       "prep_timing": "day_of",
       "yield_qty": 1,
       "yield_unit": "case",
-      "notes": "Green salt amount (50 g) and olive oil (1 cup) are estimates — confirm",
+      "notes": "Season redbird legs with green salt; roast w/ rosemary/thyme/garlic/olive oil",
       "ingredients": [
         {
           "item": "redbird chicken legs",
@@ -2486,7 +2612,7 @@
       "prep_timing": "day_of",
       "yield_qty": 1,
       "yield_unit": "case",
-      "notes": "Sysco purchased product — heat and serve",
+      "notes": "Whole-buy from Sysco (see purchase history for SKU + cost); heat and serve",
       "ingredients": [
         {
           "item": "roasted root veg (sysco)",
@@ -2842,7 +2968,7 @@
           "item": "green chile",
           "qty": 0.333,
           "unit": "cup",
-          "recipe": "green_chile"
+          "recipe": null
         },
         {
           "item": "avocado",
@@ -2851,9 +2977,7 @@
           "recipe": null
         }
       ],
-      "sub_recipes": [
-        "green_chile"
-      ]
+      "sub_recipes": []
     }
   }
 }

@@ -1,11 +1,11 @@
 ingredient,qty,unit,portions_per_batch,notes
-birria,1,portion,1 menu,sub-recipe — main entree. SOURCE: in-house
-mexi slaw,1,portion,1 menu,sub-recipe — slaw side. SOURCE: in-house
-pico de gallo,1,portion,1 menu,sub-recipe — table salsa. SOURCE: in-house
-tomatillo salsa,1,portion,1 menu,sub-recipe — green salsa. SOURCE: in-house
-mini rellenos,1,case,1 menu,sub-recipe — vendor whole-buy passed app. SOURCE: in-house
-spanish rice,1,batch,1 menu,sub-recipe (3 qt batch). SOURCE: usda_myplate via spanish_rice.csv. chef_approved 2026-04-28 sburdges
-refried black beans,1,batch,1 menu,sub-recipe (3 qt batch). SOURCE: usda_myplate via refried_black_beans.csv. chef_approved 2026-04-28 sburdges
+birria,1,portion,1 menu,(sub-recipe=birria) — main entree. SOURCE: in-house
+mexi slaw,1,portion,1 menu,(sub-recipe=mexi_slaw) — slaw side. SOURCE: in-house
+pico de gallo,1,portion,1 menu,(sub-recipe=pico_de_gallo) — table salsa. SOURCE: in-house
+tomatillo salsa,1,portion,1 menu,(sub-recipe=tomatillo_salsa) — green salsa. SOURCE: in-house
+mini rellenos,1,case,1 menu,(sub-recipe=mini_rellenos) — vendor whole-buy passed app. SOURCE: in-house
+spanish rice,1,batch,1 menu,(sub-recipe=spanish_rice) — 3 qt batch. SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
+refried black beans,1,batch,1 menu,(sub-recipe=refried_black_beans) — 3 qt batch. SOURCE: usda_myplate. chef_approved 2026-04-28 sburdges
 flour tortillas,50,ea,1 menu,8-in; warmed; for birria service. confirm vendor + count per cover. chef_approved 2026-04-28 sburdges
 corn tortillas,50,ea,1 menu,6-in; warmed. confirm vendor + count per cover. chef_approved 2026-04-28 sburdges
 lime wedges,2,lb,1 menu,for service. chef_approved 2026-04-28 sburdges

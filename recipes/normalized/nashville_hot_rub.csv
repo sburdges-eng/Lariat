@@ -1,4 +1,4 @@
 ingredient,qty,unit,portions_per_batch,notes
-lariat rub,1,cup,~2 cups,(sub-recipe)
+lariat rub,1,cup,~2 cups,(sub-recipe=lariat_rub)
 cayenne,0.25,cup,~2 cups,
 chili powder,10,tbsp,~2 cups,

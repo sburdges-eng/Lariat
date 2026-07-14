@@ -359,6 +359,29 @@ function buildRecipes() {
           }
         }
       }
+
+      // Drop cache orphans that are no longer in recipe_index and have no
+      // normalized CSV. Without this, a rename (green_chile → green_chilli)
+      // leaves a ghost slug whose display name still steals ingredient links
+      // in ingest_beo_recipe_tree ("green chile" → green_chile).
+      const indexSlugs = new Set();
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const obj = {};
+        header.forEach((h, idx) => { obj[h.trim()] = (row[idx] || '').trim(); });
+        const slug = slugify(obj.recipe_id || obj.recipe_name || '');
+        if (slug) indexSlugs.add(slug);
+      }
+      let pruned = 0;
+      for (const slug of [...bySlug.keys()]) {
+        if (indexSlugs.has(slug)) continue;
+        const hasCsv = !!tryRead(`recipes/normalized/${slug}.csv`);
+        if (!hasCsv) {
+          bySlug.delete(slug);
+          pruned++;
+        }
+      }
+      if (pruned) console.log(`    Pruned ${pruned} orphan cache recipe(s) not in recipe_index`);
     }
   }
 

@@ -91,7 +91,10 @@ cracked pepper,0.52,seed,coarse black pepper; approx; same class as ground
 smoked paprika,0.46,seed,alias of paprika bulk density
 granulated garlic,0.80,seed,dry granulated; bulk density; approx; verify in-house
 garlic,0.66,seed,peeled/minced default; alias of minced garlic density
+garlic puree,0.66,seed,in-house minced/peeled garlic; alias of minced garlic
+chopped garlic,0.66,seed,in-house minced peeled garlic; alias of minced garlic
 garlic cloves,0.56,seed,whole peeled cloves loose pack; approx; verify in-house
+franks hot sauce,1.05,seed,wing sauce; approx; maps to SAUCE BFLO WING gal pack
 furikake seasoning,0.35,seed,dry seaweed-sesame blend; approx; verify in-house
 coarse salt,0.54,seed,Maldon flakes; approx; verify in-house
 jalapeno,0.41,seed,fresh sliced; alias of sliced jalapenos density
