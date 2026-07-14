@@ -215,8 +215,12 @@ Branch `fix/datapack-search-allergen-display`, **stacked on**
 | Coverage #6 | **Partly addressed.** New `tests/js/test-datapack-off-allergen-view.mjs` (8 cases) covers the OFF allergen/trace render decision; the rest of the client stays jest-only. |
 | Contract #3 | **Fixed.** Cook-plain copy per `docs/UI_COPY_RULES.md`: "Mode" → "Search by" (Exact words / Similar meaning / Both), "Bucket" → "Look in" (Recipes / Techniques / Safety rules / Ingredients), raw per-row "score"/"id" removed (drill-in panels keep the real identifiers), "No hits." → "No matches.", "Enter a query…" → "Type what you want to look up." Jest label test updated first (RED→GREEN). |
 | Low #5 | **Resolved by removal.** Deleting the row-level score display removes the `hit.score.toFixed(2)` code path entirely. |
-| Low #4 | **Deferred.** `source_url` href scheme-check not yet added. |
+| Low #4 | **Fixed.** New `safeHttpUrl` guard (http/https only) on the Wikibooks `source_url` href; non-web schemes (`javascript:`, `data:`, `file:`), relative, and malformed values skip the link instead of reaching the browser. |
+| Coverage #6 | **Addressed.** `normalizeSemanticHit` / `lookupUrlFor` / `hitKey` / `groupHits` extracted to a pure `hitModel.js` with node tests (13 cases) alongside `offAllergenView` (8) — all flagged render-critical logic now node-covered. |
 
-**Verification:** 74 focused node tests pass (off-allergen-view 8, datapack 18,
-lookup-helpers 48) + jest datapack UI tests 3/3, `tsc --noEmit` clean, scoped
-ESLint clean, `next build` OK.
+All findings in this entry now have fixes on the branch; the entry flips out of
+BLOCKED on re-review at the fix commit after merge.
+
+**Verification:** 87 focused node tests pass (hit-model 13, off-allergen-view 8,
+datapack 18, lookup-helpers 48) + jest datapack UI tests 3/3, `tsc --noEmit`
+clean, scoped ESLint clean, `next build` OK.

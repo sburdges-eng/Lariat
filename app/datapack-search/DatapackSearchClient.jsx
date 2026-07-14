@@ -5,6 +5,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { nextDetails } from './detailsState';
 import { offAllergenView } from './offAllergenView.js';
+import {
+  groupHits,
+  hitKey,
+  lookupUrlFor,
+  normalizeSemanticHit,
+  safeHttpUrl,
+} from './hitModel.js';
 import { cleanAllergenTag } from '../allergen-lookup/allergenLookupHelpers.js';
 
 // Friendly source labels — order is the same display order used to
@@ -20,9 +27,6 @@ const SOURCE_OPTIONS = [
 const SOURCE_LABEL = Object.fromEntries(
   SOURCE_OPTIONS.map((s) => [s.value, s.label])
 );
-
-// Display order when grouping hits — matches the dropdown.
-const GROUP_ORDER = ['usda', 'off', 'wikibooks', 'fda'];
 
 // Semantic mode is keyed off embedding buckets, not source tables. The
 // safety bucket has both fda and wikibooks members; the others are
@@ -100,94 +104,9 @@ function pickTopNutrients(nutrients) {
   return out;
 }
 
-/**
- * @param {Hit} hit
- * @returns {string}
- */
-function hitKey(hit) {
-  return `${hit.source}:${hit.id}`;
-}
-
-// Normalize one semantic-result row (shape comes from the per-bucket
-// metadata.jsonl) into the same {score, source, id, title, subtitle,
-// extra} shape the FTS path uses, so the rest of the renderer
-// (grouping, drill-in, lookupUrlFor) doesn't need a second code path.
-//
-// `source: 'fda_food_code'` collapses to `'fda'` to match the FTS
-// source naming and drill-in routing. We keep the cosine similarity
-// untouched — it's used for ordering only (the raw score is no longer
-// rendered on cook-facing rows; see docs/UI_COPY_RULES.md).
-/**
- * @param {Record<string, unknown>} meta
- * @returns {Hit}
- */
-function normalizeSemanticHit(meta) {
-  const score = typeof meta.score === 'number' ? meta.score : 0;
-  if (meta.source === 'usda') {
-    return {
-      score,
-      source: 'usda',
-      id: /** @type {number | string} */ (meta.fdc_id ?? ''),
-      title: /** @type {string | null} */ (meta.description ?? null),
-      subtitle: /** @type {string | null} */ (meta.food_category ?? null),
-      extra: /** @type {string | null} */ (meta.source_archive ?? null),
-    };
-  }
-  if (meta.source === 'wikibooks') {
-    return {
-      score,
-      source: 'wikibooks',
-      id: /** @type {number | string} */ (meta.page_id ?? ''),
-      title: /** @type {string | null} */ (meta.title ?? null),
-      subtitle: /** @type {string | null} */ (meta.slug ?? null),
-      extra: /** @type {string | null} */ (meta.source_url ?? null),
-    };
-  }
-  if (meta.source === 'fda_food_code') {
-    return {
-      score,
-      source: 'fda',
-      id: /** @type {number | string} */ (meta.rowid ?? ''),
-      title: /** @type {string | null} */ (meta.title ?? null),
-      subtitle: /** @type {string} */ (meta.section_id ?? ''),
-      extra: /** @type {string | null} */ (meta.chapter ?? meta.annex ?? null),
-    };
-  }
-  // Unknown source — fall through with whatever scalar fields we can
-  // surface so the row at least renders.
-  return {
-    score,
-    source: /** @type {string} */ (meta.source ?? 'unknown'),
-    id: /** @type {number | string} */ (meta.rowid ?? meta.id ?? ''),
-    title: /** @type {string | null} */ (meta.title ?? meta.description ?? null),
-    subtitle: null,
-    extra: null,
-  };
-}
-
-/**
- * @param {Hit} hit
- * @returns {string | null}
- */
-function lookupUrlFor(hit) {
-  const params = new URLSearchParams();
-  if (hit.source === 'usda') {
-    params.set('op', 'usda_food');
-    params.set('fdc_id', String(hit.id));
-  } else if (hit.source === 'off') {
-    params.set('op', 'off_product');
-    params.set('code', String(hit.id));
-  } else if (hit.source === 'wikibooks') {
-    params.set('op', 'wikibooks_page');
-    params.set('page_id', String(hit.id));
-  } else if (hit.source === 'fda') {
-    params.set('op', 'fda_section');
-    params.set('rowid', String(hit.id));
-  } else {
-    return null;
-  }
-  return `/api/datapack/search?${params.toString()}`;
-}
+// hitKey / normalizeSemanticHit / lookupUrlFor / groupHits / safeHttpUrl
+// live in ./hitModel.js (pure, node-tested — see
+// tests/js/test-datapack-hit-model.mjs).
 
 // ── Drill-in panels ──────────────────────────────────────────────
 
@@ -376,6 +295,9 @@ function WikibooksDetail({ data }) {
   const d = /** @type {{ page?: WikibooksPage } | null | undefined} */ (data);
   const page = d?.page;
   if (!page) return <div style={{ color: 'var(--muted)' }}>No page.</div>;
+  // Scheme-guard the datapack-supplied URL (Low #4): only http/https render
+  // as a link; anything else is skipped rather than handed to the browser.
+  const sourceUrl = safeHttpUrl(page.source_url);
   return (
     <div>
       <div style={{ fontWeight: 600, marginBottom: 6 }}>
@@ -393,14 +315,14 @@ function WikibooksDetail({ data }) {
           No summary in index.
         </div>
       )}
-      {page.source_url ? (
+      {sourceUrl ? (
         <a
-          href={page.source_url}
+          href={sourceUrl}
           target="_blank"
           rel="noopener noreferrer"
           style={{ fontSize: 12, color: 'var(--accent)' }}
         >
-          {page.source_url}
+          {sourceUrl}
         </a>
       ) : null}
     </div>
@@ -605,20 +527,13 @@ export default function DatapackSearchClient() {
     runSearch(query, mode, mode === 'lexical' ? source : bucket);
   };
 
-  const grouped = useMemo(() => {
-    if (response.kind !== 'ok') return null;
-    const buckets = /** @type {Map<string, Hit[]>} */ (new Map());
-    for (const s of GROUP_ORDER) buckets.set(s, []);
-    for (const hit of response.hits) {
-      if (!buckets.has(hit.source)) buckets.set(hit.source, []);
-      // `.get()` is guaranteed non-null here — we just `.set()` it above
-      // if missing.
-      /** @type {Hit[]} */ (buckets.get(hit.source)).push(hit);
-    }
-    return [...buckets.entries()]
-      .filter(([, hits]) => hits.length > 0)
-      .map(([s, hits]) => ({ source: s, hits }));
-  }, [response]);
+  const grouped = useMemo(
+    () =>
+      response.kind === 'ok'
+        ? /** @type {{ source: string, hits: Hit[] }[]} */ (groupHits(response.hits))
+        : null,
+    [response],
+  );
 
   // toggleDetail closes over no React state. The click is dispatched
   // through `setDetails((prev) => …)` so the state machine reads the
