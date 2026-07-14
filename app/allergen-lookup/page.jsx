@@ -10,8 +10,8 @@ export default function AllergenLookupPage() {
     <div>
       <h1>Allergen lookup</h1>
       <p className="subtitle">
-        Quick "does this product contain X?" check across the Open Food Facts
-        catalog. Type a product name, brand, or scan a GTIN barcode.
+        Quick check for whether a product contains an allergen, across the Open
+        Food Facts catalog. Type a product name, brand, or scan a barcode.
       </p>
       <AllergenLookupClient />
       <RecipeAttestations />

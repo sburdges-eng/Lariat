@@ -8,7 +8,7 @@ import {
   cleanAllergenTag,
   isGtinQuery,
   offProductUrl,
-  parseAllergenTags,
+  parseAllergenTagsResult,
 } from './allergenLookupHelpers.js';
 
 /** @typedef {import('../../lib/datapackSearch').FtsHit} FtsHit */
@@ -23,6 +23,7 @@ import {
  * @property {string} brandOwner
  * @property {string} code
  * @property {string[]} allergens
+ * @property {boolean} allergensKnown
  * @property {string[]} traces
  * @property {string} ingredientsText
  */
@@ -141,10 +142,34 @@ function UnknownChip() {
   );
 }
 
+// A successful fetch whose product simply carries NO allergen data in Open
+// Food Facts (null / missing / malformed field). Distinct from BOTH
+// NoAllergenChip ("declares none") and UnknownChip ("fetch failed — retry"):
+// retrying won't help, so it tells the cook to check the physical label
+// instead of reading a blank as safe. (High #3.)
+function NotListedChip() {
+  return (
+    <span
+      aria-label="No allergen data listed for this product — check the label"
+      style={{
+        padding: '2px 8px',
+        background: 'transparent',
+        border: '1px dashed var(--muted)',
+        borderRadius: 12,
+        fontSize: 11,
+        color: 'var(--muted)',
+        fontWeight: 600,
+      }}
+    >
+      ⚠ not listed — check label
+    </span>
+  );
+}
+
 /**
- * @param {{ allergens: string[], traces: string[], loading: boolean, error?: boolean }} props
+ * @param {{ allergens: string[], allergensKnown: boolean, traces: string[], loading: boolean, error?: boolean }} props
  */
-function ChipRow({ allergens, traces, loading, error }) {
+function ChipRow({ allergens, allergensKnown, traces, loading, error }) {
   if (loading) {
     return (
       <div
@@ -168,11 +193,10 @@ function ChipRow({ allergens, traces, loading, error }) {
       </div>
     );
   }
+  const hasChips = allergens.length > 0 || traces.length > 0;
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-      {allergens.length === 0 && traces.length === 0 ? (
-        <NoAllergenChip />
-      ) : (
+      {hasChips ? (
         <>
           {allergens.map((a) => (
             <AllergenChip key={`a:${a}`} tag={a} />
@@ -181,6 +205,12 @@ function ChipRow({ allergens, traces, loading, error }) {
             <TraceChip key={`t:${t}`} tag={t} />
           ))}
         </>
+      ) : allergensKnown ? (
+        // Product declares an empty allergen list — a real "no allergens".
+        <NoAllergenChip />
+      ) : (
+        // No allergen data at all — do NOT claim safe.
+        <NotListedChip />
       )}
     </div>
   );
@@ -201,6 +231,7 @@ function ProductCard({
   brandOwner,
   code,
   allergens,
+  allergensKnown,
   traces,
   ingredientsText,
   loading,
@@ -232,6 +263,7 @@ function ProductCard({
       <div style={{ marginTop: 8, marginBottom: 8 }}>
         <ChipRow
           allergens={allergens}
+          allergensKnown={allergensKnown}
           traces={traces}
           loading={loading}
           error={error}
@@ -324,13 +356,18 @@ async function fetchOffProduct(code, signal) {
  */
 function productToCard(product) {
   if (!product) return null;
+  const allergensResult = parseAllergenTagsResult(product.allergens_tags_json);
+  const tracesResult = parseAllergenTagsResult(product.traces_tags_json);
   return {
     productName: product.product_name ?? '',
     brand: product.brands ?? '',
     brandOwner: product.brand_owner ?? '',
     code: product.code ?? '',
-    allergens: parseAllergenTags(product.allergens_tags_json),
-    traces: parseAllergenTags(product.traces_tags_json),
+    allergens: allergensResult.tags,
+    // Whether OFF actually carried an allergen field — drives the "not
+    // listed" vs "no allergens" distinction on the card (High #3).
+    allergensKnown: allergensResult.known,
+    traces: tracesResult.tags,
     ingredientsText: product.ingredients_text ?? '',
   };
 }
@@ -463,6 +500,7 @@ export default function AllergenLookupClient() {
         brand: h.subtitle ?? '',
         brandOwner: h.extra ?? '',
         allergens: /** @type {string[]} */ ([]),
+        allergensKnown: false,
         traces: /** @type {string[]} */ ([]),
         ingredientsText: '',
       }));
@@ -494,6 +532,7 @@ export default function AllergenLookupClient() {
               brand: enriched.brand || card.brand,
               brandOwner: enriched.brandOwner || card.brandOwner,
               allergens: enriched.allergens,
+              allergensKnown: enriched.allergensKnown,
               traces: enriched.traces,
               ingredientsText: enriched.ingredientsText,
             };

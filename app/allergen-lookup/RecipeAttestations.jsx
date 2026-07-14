@@ -7,9 +7,9 @@
 // section answers the house-recipe version AND shows whether the answer
 // carries manager signoff: every recipe's allergen list renders with a
 // status chip —
-//   - Verified <date> by <who>  (manager attested, recipe unchanged)
-//   - Heuristic — unverified    (inferred from ingredient names only)
-//   - Stale — recipe changed    (attested, but composition edited since)
+//   - Verified <date> by <who>       (manager attested, recipe unchanged)
+//   - From ingredients — not verified (guessed from ingredient names only)
+//   - Stale — recipe changed          (attested, but composition edited since)
 //
 // The "Attest" affordance POSTs the current allergen list with a note.
 // The endpoint is manager-PIN-gated server-side; a 401 here surfaces a
@@ -81,7 +81,7 @@ function StatusChip({ recipe }) {
   }
   return (
     <span
-      aria-label="Allergen list is heuristic — not manager-verified"
+      aria-label="Allergen list guessed from ingredients, not manager-verified"
       style={{
         ...base,
         background: 'transparent',
@@ -89,7 +89,7 @@ function StatusChip({ recipe }) {
         color: 'var(--muted)',
       }}
     >
-      heuristic — unverified
+      from ingredients — not verified
     </span>
   );
 }
@@ -203,8 +203,8 @@ export default function RecipeAttestations() {
     <div style={{ marginTop: 40 }}>
       <h2 style={{ fontSize: 18, marginBottom: 4 }}>House recipe allergens</h2>
       <p className="subtitle" style={{ marginBottom: 16 }}>
-        Allergen lists below are inferred from ingredients unless a manager
-        has attested them. Stale means the recipe changed after signoff.
+        Allergen lists below are guessed from ingredients until a manager
+        checks them. Stale means the recipe changed after the last check.
       </p>
 
       {loadError && (

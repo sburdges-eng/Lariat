@@ -53,13 +53,37 @@ export function isGtinQuery(raw) {
  * @returns {string[]}
  */
 export function parseAllergenTags(raw) {
-  if (!raw || typeof raw !== 'string') return [];
+  return parseAllergenTagsResult(raw).tags;
+}
+
+/**
+ * Same parse as {@link parseAllergenTags}, but keeps the crucial food-safety
+ * distinction the plain `[]` return throws away (High #3):
+ *
+ *   - `known: true`  — the OFF field was a valid array (possibly empty). An
+ *                      empty array means "this product declares no allergens".
+ *   - `known: false` — the field was absent / null / not a string / malformed
+ *                      JSON / not an array. We simply DON'T KNOW; the caller
+ *                      must not render this as an authoritative "no allergens".
+ *
+ * A missing allergen record and a confirmed-empty one look identical once
+ * collapsed to `[]`, which on a kitchen line reads a "we have no data" product
+ * as safe. Callers switch on `known` to render a distinct "not listed" chip.
+ *
+ * @param {unknown} raw
+ * @returns {{ known: boolean, tags: string[] }}
+ */
+export function parseAllergenTagsResult(raw) {
+  if (!raw || typeof raw !== 'string') return { known: false, tags: [] };
   try {
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((s) => typeof s === 'string' && s.length > 0);
+    if (!Array.isArray(parsed)) return { known: false, tags: [] };
+    return {
+      known: true,
+      tags: parsed.filter((s) => typeof s === 'string' && s.length > 0),
+    };
   } catch {
-    return [];
+    return { known: false, tags: [] };
   }
 }
 

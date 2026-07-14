@@ -68,10 +68,22 @@ export interface RecipeAttestationStatus {
 // The heuristic (scripts/rebuild-cache.mjs) reads ingredient item names
 // on the recipe AND on every transitive sub-recipe. So the fingerprint
 // covers the whole tree: for each reachable node (cycle-safe, sorted by
-// slug) we take its normalized ingredient items + sub-recipe links and
-// hash the canonical JSON. Any edit the heuristic would react to —
-// ingredient added/renamed/removed, sub-recipe linked/unlinked, anywhere
-// in the tree — changes the hash and stales the attestation.
+// slug) we take its normalized ingredient items, sub-recipe links, AND
+// its derived allergen output, then hash the canonical JSON. Any edit the
+// heuristic would react to — ingredient added/renamed/removed, sub-recipe
+// linked/unlinked — changes the hash. Including the derived `allergens`
+// output ALSO stales the attestation when the heuristic/data version
+// changes the answer without touching ingredient names (a keyword-map
+// update, an allergen_matrix.csv override): the manager attested a
+// specific allergen list, so the fingerprint must move when that list
+// could have moved. (Critical #2.)
+//
+// PARITY (SAFETY-CRITICAL): LariatNative's
+// Sources/LariatModel/Compute/AllergenAttestationCompute.swift reproduces
+// this exact canonical shape and key order — {slug, ingredients,
+// sub_recipes, allergens}, JSON.stringify semantics, sha256. Any change
+// here MUST be mirrored there or web and native disagree on attested vs
+// stale for the same shared-DB row.
 
 function normalizedItems(recipe: Recipe): string[] {
   return (recipe.ingredients || [])
@@ -111,6 +123,9 @@ export function computeRecipeFingerprint(
       slug: s,
       ingredients: node ? normalizedItems(node) : [],
       sub_recipes: node ? [...(node.sub_recipes || [])].sort() : [],
+      // Derived allergen output — see the PARITY note above. Keep this key
+      // LAST so the canonical JSON stays append-compatible across nodes.
+      allergens: node ? normalizeAllergens(node.allergens ?? []) : [],
     };
   });
 
@@ -180,8 +195,19 @@ export function getAttestationStatuses(
   recipes: Recipe[] = getRecipes(),
 ): RecipeAttestationStatus[] {
   const bySlug = new Map<string, Recipe>(recipes.map((r) => [r.slug, r]));
-  const targetSlugs = slugs === null ? recipes.map((r) => r.slug) : slugs;
-  const latest = latestRows(locationId, slugs === null ? null : targetSlugs);
+  const latest = latestRows(locationId, slugs);
+  let targetSlugs: string[];
+  if (slugs === null) {
+    // Every cached recipe PLUS any slug that still carries an attestation
+    // even though its recipe is gone (Contract #2): an attestation may
+    // outlive its recipe and must stay visible as 'stale', never silently
+    // dropped from the list just because the slug left the cache.
+    const union = new Set<string>(recipes.map((r) => r.slug));
+    for (const slug of latest.keys()) union.add(slug);
+    targetSlugs = [...union];
+  } else {
+    targetSlugs = slugs;
+  }
 
   return targetSlugs.map((slug) => {
     const recipe = bySlug.get(slug);
@@ -217,16 +243,26 @@ export function getAttestationStatus(
 export interface RecordAttestationInput {
   recipe_slug: string;
   location_id?: string;
-  /** Attested allergen list. Defaults to the current heuristic set. */
-  allergens?: string[];
-  /** Manager identifier (name or manager-pin user). Required. */
+  /**
+   * Manager identifier surfaced on the row. Required. For a signed-in
+   * manager account this is the account name (see resolveAttestor); the
+   * client can never substitute an arbitrary allergen list — the server
+   * always stores its own freshly-computed heuristic set (Critical #1).
+   */
   attested_by: string;
   note?: string | null;
   /** Audit actor_source; defaults to 'manager_ui'. */
   actor_source?: string;
+  /**
+   * Audit actor_cook_id — the authenticated identity behind the signoff
+   * (manager account id as a string, or the typed name for the env-PIN
+   * override). Defaults to `attested_by` when omitted (High #2).
+   */
+  actor_id?: string | null;
 }
 
-function normalizeAllergens(list: string[]): string[] {
+/** Normalize an allergen list: trim, lower-case, cap length, de-dupe, sort. */
+export function normalizeAllergens(list: string[]): string[] {
   const out = new Set<string>();
   for (const raw of list) {
     if (typeof raw !== 'string') continue;
@@ -237,9 +273,63 @@ function normalizeAllergens(list: string[]): string[] {
 }
 
 /**
+ * The current normalized heuristic allergen set for a recipe, or null when
+ * the slug isn't in the cache. This is the single source of truth the POST
+ * route compares a client submission against (Critical #1) and the exact
+ * list recordAttestation stores.
+ */
+export function heuristicAllergensFor(
+  slug: string,
+  recipes: Recipe[] = getRecipes(),
+): string[] | null {
+  const recipe = recipes.find((r) => r.slug === slug);
+  if (!recipe) return null;
+  return normalizeAllergens(recipe.allergens ?? []);
+}
+
+/** The authenticated identity behind a valid PIN cookie (lib/pin pinActor). */
+export type PinActor =
+  | { source: 'override' }
+  | { source: 'manager'; id: number; name: string; role: string }
+  | null;
+
+export interface ResolvedAttestor {
+  attested_by: string;
+  actor_id: string | null;
+  actor_source: string;
+}
+
+/**
+ * Resolve the signoff identity for an attestation (High #2). When a specific
+ * manager account is signed in, the identity is FORCED from that account —
+ * the typed name is ignored, so a signoff can't be attributed to a fabricated
+ * or someone else's name. The env-PIN override login (and the LAN-trust
+ * no-PIN mode) has no account identity, so it keeps the typed name.
+ */
+export function resolveAttestor(
+  actor: PinActor,
+  typedName: unknown,
+): ResolvedAttestor {
+  if (actor && actor.source === 'manager') {
+    return {
+      attested_by: actor.name.trim().slice(0, 100),
+      actor_id: String(actor.id),
+      actor_source: 'manager_pin',
+    };
+  }
+  const name = typeof typedName === 'string' ? typedName.trim().slice(0, 100) : '';
+  return { attested_by: name, actor_id: name || null, actor_source: 'manager_ui' };
+}
+
+/**
  * Record one attestation (append-only) plus its audit_events row in a
  * single transaction. Returns null when the recipe isn't in the cache —
  * you can't attest a recipe the heuristic can't see.
+ *
+ * The stored allergen list is ALWAYS the server's freshly-computed
+ * heuristic set for this recipe — never a caller-supplied list. An
+ * attestation records "a manager verified THIS (the heuristic) list", so
+ * it can never silently understate the allergens (Critical #1).
  */
 export function recordAttestation(
   input: RecordAttestationInput,
@@ -250,10 +340,9 @@ export function recordAttestation(
   if (fingerprint === null) return null;
 
   const recipe = recipes.find((r) => r.slug === input.recipe_slug);
-  const allergens = normalizeAllergens(
-    input.allergens ?? recipe?.allergens ?? [],
-  );
+  const allergens = normalizeAllergens(recipe?.allergens ?? []);
   const attested_by = input.attested_by.trim().slice(0, 100);
+  const actor_cook_id = input.actor_id ?? attested_by;
   const note =
     typeof input.note === 'string' ? input.note.trim().slice(0, 500) || null : null;
 
@@ -287,7 +376,7 @@ export function recordAttestation(
       entity: 'allergen_attestation',
       entity_id: row.id,
       action: 'insert',
-      actor_cook_id: attested_by,
+      actor_cook_id,
       actor_source: input.actor_source ?? 'manager_ui',
       payload: row,
       note,

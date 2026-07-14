@@ -15,6 +15,7 @@ import {
   isGtinQuery,
   offProductUrl,
   parseAllergenTags,
+  parseAllergenTagsResult,
   stripGtinNoise,
 } from '../../app/allergen-lookup/allergenLookupHelpers.js';
 
@@ -171,6 +172,45 @@ describe('parseAllergenTags', () => {
     assert.deepEqual(
       parseAllergenTags('["en:peanuts","",null,42,"en:milk"]'),
       ['en:peanuts', 'en:milk']
+    );
+  });
+});
+
+// ── parseAllergenTagsResult ─────────────────────────────────────
+//
+// High #3: a product whose OFF allergen field is missing/null/malformed
+// must be distinguishable from one that genuinely declares no allergens
+// (a valid empty array). Collapsing both to [] lets a "we don't know"
+// render as an authoritative "no allergens" on the kitchen line.
+
+describe('parseAllergenTagsResult', () => {
+  it('reports known:true for a valid array, even when empty', () => {
+    assert.deepEqual(parseAllergenTagsResult('[]'), { known: true, tags: [] });
+    assert.deepEqual(parseAllergenTagsResult('["en:milk"]'), {
+      known: true,
+      tags: ['en:milk'],
+    });
+  });
+
+  it('reports known:false for null / undefined / empty / non-string', () => {
+    assert.deepEqual(parseAllergenTagsResult(null), { known: false, tags: [] });
+    assert.deepEqual(parseAllergenTagsResult(undefined), { known: false, tags: [] });
+    assert.deepEqual(parseAllergenTagsResult(''), { known: false, tags: [] });
+    assert.deepEqual(parseAllergenTagsResult(42), { known: false, tags: [] });
+  });
+
+  it('reports known:false for malformed JSON or a non-array', () => {
+    assert.deepEqual(parseAllergenTagsResult('not json'), { known: false, tags: [] });
+    assert.deepEqual(parseAllergenTagsResult('{"not":"array"}'), {
+      known: false,
+      tags: [],
+    });
+  });
+
+  it('stays known:true while filtering empty / non-string entries', () => {
+    assert.deepEqual(
+      parseAllergenTagsResult('["en:peanuts","",null,42,"en:milk"]'),
+      { known: true, tags: ['en:peanuts', 'en:milk'] },
     );
   });
 });
