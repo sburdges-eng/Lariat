@@ -71,6 +71,13 @@ INGREDIENT_ALIAS = {
     "birria seasoning": "qb_seasoning",
 }
 
+# Purchased leaves that must NEVER resolve to a recipe slug — even if a ghost
+# cache entry or near-homophone (chile vs chilli) would otherwise match.
+# Binding: docs/recipe-chile-chilli.md
+LEAF_NEVER_LINK = {
+    "green chile",  # Sysco/Shamrock vendor diced chile — not house green_chilli
+}
+
 
 # ── prep timing ──────────────────────────────────────────────────────────
 # When each in-house component is made, relative to the event.
@@ -79,7 +86,7 @@ OVERNIGHT = {"birria", "fish_brine", "buttermilk_brine", "chicken_confit"}
 DAY_BEFORE_WORDS = (
     "sauce", "aioli", "salsa", "rub", "dressing", "brine", "batter", "flour",
     "seasoning", "slaw", "relish", "jam", "pickle", "oil", "jus", "confit",
-    "queso", "green chile", "succotash", "remoulade", "chile", "vinaigrette",
+    "queso", "green chilli", "succotash", "remoulade", "chile", "vinaigrette",
     "butter", "marinade", "pepitas",
 )
 
@@ -143,6 +150,8 @@ def build() -> dict:
 
     def resolve_slug(name: str) -> str | None:
         n = norm(name)
+        if n in LEAF_NEVER_LINK:
+            return None
         if n in INGREDIENT_ALIAS and INGREDIENT_ALIAS[n] in by_slug:
             return INGREDIENT_ALIAS[n]
         if n in by_name:

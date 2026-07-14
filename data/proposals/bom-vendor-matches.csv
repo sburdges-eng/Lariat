@@ -1,21 +1,1247 @@
 bom_line_id,ingredient,qty,unit,candidate_rank,candidate_source,candidate_name,vendor,pack_unit,unit_price,confidence,notes
-18,lariat rub,0.5,cup,1,recipe,lariat_rub,,,,high,"[matched_house_recipe] bom ingredient ""lariat rub"" matches existing recipe slug ""lariat_rub"""
-28,baking soda,0.333,cup,1,vendor_prices,Baking Soda,sysco,lb,1.395417,high,"[matched] exact match on ""Baking Soda"""
-28,baking soda,0.333,cup,2,order_guide,baking soda,sysco,cup,0.0030763696596647,medium,"[matched] exact match on ""baking soda""; demoted from high (order_guide: placeholder-price risk)"
-28,baking soda,0.333,cup,3,order_guide,baking powder,sysco,tbsp,0.0030763696596647,low,"[matched] whole-word match on token ""baking""; WARNING: baking soda ≠ baking powder; NOT a real substitute"
-31,achiote paste,1,cup,1,vendor_prices,Achiote Paste,sysco,lb,5.985,high,"[matched] exact match on ""Achiote Paste"""
-31,achiote paste,1,cup,2,vendor_prices,"PASTE, ACHIOTE",shamrock,lb,6.481999999999999,medium,"[matched] whole-word match on all tokens: [achiote, paste]"
-31,achiote paste,1,cup,3,order_guide,achiote paste,sysco,cup,0.0131946771547999,medium,"[matched] exact match on ""achiote paste""; demoted from high (order_guide: placeholder-price risk)"
-41,water,12,cup,1,none,,,,,none,[house] house tap — no vendor mapping
-92,water,8,qt,1,none,,,,,none,[house] house tap — no vendor mapping
-131,baking soda,0.333,cup,1,vendor_prices,Baking Soda,sysco,lb,1.395417,high,"[matched] exact match on ""Baking Soda"""
-131,baking soda,0.333,cup,2,order_guide,baking soda,sysco,cup,0.0030763696596647,medium,"[matched] exact match on ""baking soda""; demoted from high (order_guide: placeholder-price risk)"
-131,baking soda,0.333,cup,3,order_guide,baking powder,sysco,tbsp,0.0030763696596647,low,"[matched] whole-word match on token ""baking""; WARNING: baking soda ≠ baking powder; NOT a real substitute"
-139,water,4,qt,1,none,,,,,none,[house] house tap — no vendor mapping
-152,lariat rub,1.5,cup,1,recipe,lariat_rub,,,,high,"[matched_house_recipe] bom ingredient ""lariat rub"" matches existing recipe slug ""lariat_rub"""
-156,water,16,qt,1,none,,,,,none,[house] house tap — no vendor mapping
-192,lariat rub,1,cup,1,recipe,lariat_rub,,,,high,"[matched_house_recipe] bom ingredient ""lariat rub"" matches existing recipe slug ""lariat_rub"""
-196,lariat rub,3.5,tbsp,1,recipe,lariat_rub,,,,high,"[matched_house_recipe] bom ingredient ""lariat rub"" matches existing recipe slug ""lariat_rub"""
-203,water,2.5,qt,1,none,,,,,none,[house] house tap — no vendor mapping
-235,lariat rub,1.5,cup,1,recipe,lariat_rub,,,,high,"[matched_house_recipe] bom ingredient ""lariat rub"" matches existing recipe slug ""lariat_rub"""
-248,water,2.5,qt,1,none,,,,,none,[house] house tap — no vendor mapping
+6998,lariat rub,1.5,cup,1,recipe,lariat_rub,,,,high,"[matched_house_recipe] bom ingredient ""lariat rub"" matches existing recipe slug ""lariat_rub"""
+7002,water,16,qt,1,none,,,,,none,[house] house tap — no vendor mapping
+7149,salt,1.75,cup,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,[matched] whole-word match on all tokens: [salt]
+7149,salt,1.75,cup,2,vendor_prices,"SPICE, CELERY SALT",shamrock,cs,9.45,medium,[matched] whole-word match on all tokens: [salt]
+7149,salt,1.75,cup,3,vendor_prices,"SALT, SEA FLAKE MALDON",shamrock,lb,12.763636,medium,[matched] whole-word match on all tokens: [salt]
+7150,paprika,18,tbsp,1,vendor_prices,"SPICE, PAPRIKA SPANISH BULK",shamrock,lb,10.664,medium,[matched] whole-word match on all tokens: [paprika]
+7151,garlic powder,0.75,cup,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,low,"[matched] whole-word match on token ""garlic"""
+7151,garlic powder,0.75,cup,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,low,"[matched] whole-word match on token ""garlic"""
+7151,garlic powder,0.75,cup,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,low,"[matched] whole-word match on token ""garlic"""
+7151,garlic powder,0.75,cup,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,low,"[matched] whole-word match on token ""garlic"""
+7151,garlic powder,0.75,cup,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,low,"[matched] whole-word match on token ""garlic"""
+7152,onion powder,0.75,cup,1,vendor_prices,"ONION, YLW JMBO #2 BAG",shamrock,lb,0.32420000000000004,low,"[matched] whole-word match on token ""onion"""
+7152,onion powder,0.75,cup,2,vendor_prices,"ONION, WHT WHL JMBO 50LB REFRIG FRSH",shamrock,lb,0.6156,low,"[matched] whole-word match on token ""onion"""
+7152,onion powder,0.75,cup,3,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] substring match on token ""onion"""
+7152,onion powder,0.75,cup,4,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""onion"""
+7152,onion powder,0.75,cup,5,vendor_prices,"ONION, RED JMBO",shamrock,lb,1.304,low,"[matched] whole-word match on token ""onion"""
+7154,turbinado sugar,0.75,cup,1,vendor_prices,"SUGAR, TURBINADO RAW BULK",shamrock,lb,2.809583,medium,"[matched] whole-word match on all tokens: [turbinado, sugar]"
+7155,cayenne,4,tbsp,1,vendor_prices,"SPICE, PEPPER CAYENNE BULK",shamrock,lb,10.438,medium,[matched] whole-word match on all tokens: [cayenne]
+7156,cumin,4,tbsp,1,vendor_prices,"SPICE, CUMIN SEED GRND BULK",shamrock,lb,11.452,medium,[matched] whole-word match on all tokens: [cumin]
+7157,buttermilk,0.5,gal,1,vendor_prices,Buttermilk Whole Qt,sysco,qt,1.365654,medium,[matched] whole-word match on all tokens: [buttermilk]
+7157,buttermilk,0.5,gal,2,vendor_prices,"BUTTERMILK, 1% LF",shamrock,cs,20.89,medium,[matched] whole-word match on all tokens: [buttermilk]
+7159,garlic powder,0.25,cup,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,low,"[matched] whole-word match on token ""garlic"""
+7159,garlic powder,0.25,cup,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,low,"[matched] whole-word match on token ""garlic"""
+7159,garlic powder,0.25,cup,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,low,"[matched] whole-word match on token ""garlic"""
+7159,garlic powder,0.25,cup,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,low,"[matched] whole-word match on token ""garlic"""
+7159,garlic powder,0.25,cup,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,low,"[matched] whole-word match on token ""garlic"""
+7160,onion powder,0.25,cup,1,vendor_prices,"ONION, YLW JMBO #2 BAG",shamrock,lb,0.32420000000000004,low,"[matched] whole-word match on token ""onion"""
+7160,onion powder,0.25,cup,2,vendor_prices,"ONION, WHT WHL JMBO 50LB REFRIG FRSH",shamrock,lb,0.6156,low,"[matched] whole-word match on token ""onion"""
+7160,onion powder,0.25,cup,3,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] substring match on token ""onion"""
+7160,onion powder,0.25,cup,4,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""onion"""
+7160,onion powder,0.25,cup,5,vendor_prices,"ONION, RED JMBO",shamrock,lb,1.304,low,"[matched] whole-word match on token ""onion"""
+7161,ground black pepper,0.5,cup,1,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,medium,"[matched] whole-word match on all tokens: [ground, black, pepper]"
+7162,kosher salt,0.125,cup,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,"[matched] whole-word match on all tokens: [kosher, salt]"
+7163,heavy cream,3,qt,1,vendor_prices,Cream Heavy 40% Extended Shelf Life Stabilized,sysco,oz,2.140918,medium,"[matched] whole-word match on all tokens: [heavy, cream]"
+7164,whole milk,2,gal,1,vendor_prices,Milk Whole Gallon,sysco,gal,0.590988,medium,"[matched] whole-word match on all tokens: [whole, milk]"
+7164,whole milk,2,gal,2,vendor_prices,Cheese Ricotta Con Latte - Whole Milk - 75% Tub,sysco,lb,3.299,medium,"[matched] whole-word match on all tokens: [whole, milk]"
+7165,american cheese block,20,lb,1,vendor_prices,Cheese Cotija Random Cut,sysco,lb,0.486886,low,"[matched] whole-word match on token ""cheese"""
+7165,american cheese block,20,lb,2,vendor_prices,"CHEESE, CHDR JACK SHRD FCY WI",shamrock,lb,2.723,low,"[matched] whole-word match on token ""cheese"""
+7165,american cheese block,20,lb,3,vendor_prices,Cheese Cheddar Jack Fancy Shredded,sysco,lb,2.7615,low,"[matched] whole-word match on token ""cheese"""
+7165,american cheese block,20,lb,4,vendor_prices,"CHEESE, PROV LOAF REFRIG",shamrock,lb,2.79,low,"[matched] whole-word match on token ""cheese"""
+7165,american cheese block,20,lb,5,vendor_prices,Cheese Ricotta Unwhipped Part Skim,sysco,lb,2.795,low,"[matched] whole-word match on token ""cheese"""
+7166,shredded cheddar,10,lb,1,vendor_prices,Cheese Cheddar Jack Fancy Shredded,sysco,lb,2.7615,medium,"[matched] whole-word match on all tokens: [shredded, cheddar]"
+7168,green chile,8,qt,1,vendor_prices,Chile Green Hatch Diced Mild,sysco,lb,2.158,medium,"[matched] whole-word match on all tokens: [green, chile]"
+7169,blackened salsa,2,qt,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7170,tomatoes,2,case,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7171,cilantro,8,bunch,1,vendor_prices,Cilantro Bunch Iceless,sysco,ct,2.80625,medium,[matched] whole-word match on all tokens: [cilantro]
+7171,cilantro,8,bunch,2,vendor_prices,"HERB, CILANTRO BUNCH ICELESS",shamrock,cs,20.43,medium,[matched] whole-word match on all tokens: [cilantro]
+7172,jalapenos,2,qt,1,vendor_prices,Pepper Jalapeno Fresh,sysco,lb,3.195,medium,[matched] whole-word match on all tokens: [jalapeno]
+7173,yellow onions,6,ea,1,vendor_prices,"ONION, YLW JMBO #2 BAG",shamrock,lb,0.32420000000000004,low,"[matched] whole-word match on token ""onion"""
+7173,yellow onions,6,ea,2,vendor_prices,"ONION, WHT WHL JMBO 50LB REFRIG FRSH",shamrock,lb,0.6156,low,"[matched] whole-word match on token ""onion"""
+7173,yellow onions,6,ea,3,vendor_prices,Corn Meal Yellow,sysco,lb,0.678,low,"[matched] whole-word match on token ""yellow"""
+7173,yellow onions,6,ea,4,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] substring match on token ""onion"""
+7173,yellow onions,6,ea,5,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""onion"""
+7174,kosher salt,1,cup,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,"[matched] whole-word match on all tokens: [kosher, salt]"
+7175,minced garlic,1.5,cup,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,low,"[matched] whole-word match on token ""garlic"""
+7175,minced garlic,1.5,cup,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,low,"[matched] whole-word match on token ""garlic"""
+7175,minced garlic,1.5,cup,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,low,"[matched] whole-word match on token ""garlic"""
+7175,minced garlic,1.5,cup,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,low,"[matched] whole-word match on token ""garlic"""
+7175,minced garlic,1.5,cup,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,low,"[matched] whole-word match on token ""garlic"""
+7176,ap flour,18,kg,1,vendor_prices,"FLOUR, AP 50LB BAG",shamrock,lb,0.3708,medium,[matched] whole-word match on all tokens: [flour]
+7176,ap flour,18,kg,2,vendor_prices,Flour All Purpose Hotel & Restaurant Bleached,sysco,lb,0.4098,medium,[matched] whole-word match on all tokens: [flour]
+7176,ap flour,18,kg,3,vendor_prices,"TORTILLA, FLOUR 6""",shamrock,cs,16.9,medium,[matched] whole-word match on all tokens: [flour]
+7176,ap flour,18,kg,4,vendor_prices,"TORTILLA, FLOUR 6"" PRSSD",shamrock,cs,26.67,medium,[matched] whole-word match on all tokens: [flour]
+7176,ap flour,18,kg,5,vendor_prices,"TORTILLA, FLOUR 14""",shamrock,cs,44.46,medium,[matched] whole-word match on all tokens: [flour]
+7177,kosher salt,1.5,cup,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,"[matched] whole-word match on all tokens: [kosher, salt]"
+7178,black pepper,2,cup,1,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,medium,"[matched] whole-word match on all tokens: [black, pepper]"
+7179,paprika,1,cup,1,vendor_prices,"SPICE, PAPRIKA SPANISH BULK",shamrock,lb,10.664,medium,[matched] whole-word match on all tokens: [paprika]
+7180,onion powder,1.5,cup,1,vendor_prices,"ONION, YLW JMBO #2 BAG",shamrock,lb,0.32420000000000004,low,"[matched] whole-word match on token ""onion"""
+7180,onion powder,1.5,cup,2,vendor_prices,"ONION, WHT WHL JMBO 50LB REFRIG FRSH",shamrock,lb,0.6156,low,"[matched] whole-word match on token ""onion"""
+7180,onion powder,1.5,cup,3,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] substring match on token ""onion"""
+7180,onion powder,1.5,cup,4,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""onion"""
+7180,onion powder,1.5,cup,5,vendor_prices,"ONION, RED JMBO",shamrock,lb,1.304,low,"[matched] whole-word match on token ""onion"""
+7181,garlic powder,1.5,cup,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,low,"[matched] whole-word match on token ""garlic"""
+7181,garlic powder,1.5,cup,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,low,"[matched] whole-word match on token ""garlic"""
+7181,garlic powder,1.5,cup,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,low,"[matched] whole-word match on token ""garlic"""
+7181,garlic powder,1.5,cup,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,low,"[matched] whole-word match on token ""garlic"""
+7181,garlic powder,1.5,cup,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,low,"[matched] whole-word match on token ""garlic"""
+7183,cayenne,0.25,cup,1,vendor_prices,"SPICE, PEPPER CAYENNE BULK",shamrock,lb,10.438,medium,[matched] whole-word match on all tokens: [cayenne]
+7184,chili powder,10,tbsp,1,vendor_prices,"SPICE, CHILI PWDR DRK BULK",shamrock,lb,8.961818,low,"[matched] whole-word match on token ""chili"""
+7184,chili powder,10,tbsp,2,vendor_prices,"SAUCE, CHILI SWEET",shamrock,cs,41.64,low,"[matched] whole-word match on token ""chili"""
+7185,bacon lard,900,g,1,vendor_prices,"LARD, PORK SOLID DEODORIZED 50LB",shamrock,lb,1.232,low,"[matched] whole-word match on token ""lard"""
+7185,bacon lard,900,g,2,vendor_prices,Bacon Layflat Hickory Smoked #2,sysco,lb,3.148,low,"[matched] whole-word match on token ""bacon"""
+7185,bacon lard,900,g,3,vendor_prices,"BACON, LAY FLAT 14-18 SLI SMKD HKRY",shamrock,lb,3.5386666666666664,low,"[matched] whole-word match on token ""bacon"""
+7185,bacon lard,900,g,4,vendor_prices,"BACON, SGL HKRY SMKD 18-22 SLI F2F",shamrock,lb,3.726,low,"[matched] whole-word match on token ""bacon"""
+7185,bacon lard,900,g,5,vendor_prices,"BACON, LAY FLAT 18-22 SLI SMKD P12NC",shamrock,lb,4.399333,low,"[matched] whole-word match on token ""bacon"""
+7186,cayenne,3.5,tbsp,1,vendor_prices,"SPICE, PEPPER CAYENNE BULK",shamrock,lb,10.438,medium,[matched] whole-word match on all tokens: [cayenne]
+7188,bread and butter pickle juice,5.25,cup,1,vendor_prices,"JUICE, TOMATO 100% CAN 46Z FCY",shamrock,oz,0.06106884057971015,low,"[matched] whole-word match on token ""juice"""
+7188,bread and butter pickle juice,5.25,cup,2,vendor_prices,"JUICE, CRANBRY COCKTL 27% W-VIT C 48Z",shamrock,floz,0.09734375,low,"[matched] whole-word match on token ""juice"""
+7188,bread and butter pickle juice,5.25,cup,3,vendor_prices,"JUICE, ORNG 100% PREM NO PULP",shamrock,oz,0.10416015625,low,"[matched] whole-word match on token ""juice"""
+7188,bread and butter pickle juice,5.25,cup,4,vendor_prices,"JUICE, PINEAPPLE 100% UNSWT 6Z DOLE",shamrock,oz,0.130625,low,"[matched] whole-word match on token ""juice"""
+7188,bread and butter pickle juice,5.25,cup,5,vendor_prices,"MIX, CORNBREAD GF",shamrock,oz,0.32908333333333334,low,"[matched] substring match on token ""bread"""
+7189,cilantro,1200,g,1,vendor_prices,Cilantro Bunch Iceless,sysco,ct,2.80625,medium,[matched] whole-word match on all tokens: [cilantro]
+7189,cilantro,1200,g,2,vendor_prices,"HERB, CILANTRO BUNCH ICELESS",shamrock,cs,20.43,medium,[matched] whole-word match on all tokens: [cilantro]
+7190,lime juice,600,g,1,vendor_prices,Juice Lime Pasteurized Ultra Premium,sysco,qt,2.55,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7190,lime juice,600,g,2,vendor_prices,"JUICE, LIME FRSH SQZ",shamrock,gal,12.7975,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7191,mayonnaise,600,g,1,vendor_prices,"MAYONNAISE, HVY DTY TUB",shamrock,lb,1.506,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7191,mayonnaise,600,g,2,vendor_prices,Mayonnaise Heavy Duty Pail,sysco,lb,2.033929,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7191,mayonnaise,600,g,3,vendor_prices,Mayonnaise Japanese 64 Ounces,sysco,oz,6.285,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7191,mayonnaise,600,g,4,vendor_prices,"MAYONNAISE, KEWPIE",shamrock,cs,86.99,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7192,garlic,200,g,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,[matched] whole-word match on all tokens: [garlic]
+7192,garlic,200,g,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,medium,[matched] whole-word match on all tokens: [garlic]
+7192,garlic,200,g,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,[matched] whole-word match on all tokens: [garlic]
+7192,garlic,200,g,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,medium,[matched] whole-word match on all tokens: [garlic]
+7192,garlic,200,g,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,medium,[matched] whole-word match on all tokens: [garlic]
+7193,salt,40,g,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,[matched] whole-word match on all tokens: [salt]
+7193,salt,40,g,2,vendor_prices,"SPICE, CELERY SALT",shamrock,cs,9.45,medium,[matched] whole-word match on all tokens: [salt]
+7193,salt,40,g,3,vendor_prices,"SALT, SEA FLAKE MALDON",shamrock,lb,12.763636,medium,[matched] whole-word match on all tokens: [salt]
+7194,olive oil,150,g,1,vendor_prices,Oil Olive Pomace Tin,sysco,gal,3.731356,medium,"[matched] whole-word match on all tokens: [olive, oil]"
+7195,jalapeno,500,g,1,vendor_prices,Pepper Jalapeno Fresh,sysco,lb,3.195,medium,[matched] whole-word match on all tokens: [jalapeno]
+7196,bacon,15,lb,1,vendor_prices,Bacon Layflat Hickory Smoked #2,sysco,lb,3.148,medium,[matched] whole-word match on all tokens: [bacon]
+7196,bacon,15,lb,2,vendor_prices,"BACON, LAY FLAT 14-18 SLI SMKD HKRY",shamrock,lb,3.5386666666666664,medium,[matched] whole-word match on all tokens: [bacon]
+7196,bacon,15,lb,3,vendor_prices,"BACON, SGL HKRY SMKD 18-22 SLI F2F",shamrock,lb,3.726,medium,[matched] whole-word match on all tokens: [bacon]
+7196,bacon,15,lb,4,vendor_prices,"BACON, LAY FLAT 18-22 SLI SMKD P12NC",shamrock,lb,4.399333,medium,[matched] whole-word match on all tokens: [bacon]
+7196,bacon,15,lb,5,vendor_prices,"BACON, .25"" HNY CRD SUPER WESTERN P12NC",shamrock,lb,4.472667,medium,[matched] whole-word match on all tokens: [bacon]
+7197,yellow onions,10,ea,1,vendor_prices,"ONION, YLW JMBO #2 BAG",shamrock,lb,0.32420000000000004,low,"[matched] whole-word match on token ""onion"""
+7197,yellow onions,10,ea,2,vendor_prices,"ONION, WHT WHL JMBO 50LB REFRIG FRSH",shamrock,lb,0.6156,low,"[matched] whole-word match on token ""onion"""
+7197,yellow onions,10,ea,3,vendor_prices,Corn Meal Yellow,sysco,lb,0.678,low,"[matched] whole-word match on token ""yellow"""
+7197,yellow onions,10,ea,4,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] substring match on token ""onion"""
+7197,yellow onions,10,ea,5,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""onion"""
+7198,orange juice,1,qt,1,vendor_prices,Juice Orange Pasteurized Ultra Premium,sysco,gal,1.666189,medium,"[matched] whole-word match on all tokens: [orange, juice]"
+7199,brown sugar,4,lb,1,vendor_prices,Sugar Brown Light Cane,sysco,lb,1.541667,medium,"[matched] whole-word match on all tokens: [brown, sugar]"
+7201,mayonnaise,9,cup,1,vendor_prices,"MAYONNAISE, HVY DTY TUB",shamrock,lb,1.506,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7201,mayonnaise,9,cup,2,vendor_prices,Mayonnaise Heavy Duty Pail,sysco,lb,2.033929,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7201,mayonnaise,9,cup,3,vendor_prices,Mayonnaise Japanese 64 Ounces,sysco,oz,6.285,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7201,mayonnaise,9,cup,4,vendor_prices,"MAYONNAISE, KEWPIE",shamrock,cs,86.99,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7202,ketchup,1.5,cup,1,vendor_prices,"KETCHUP, 33% FCY",shamrock,cn,0.7390000000000001,medium,[matched] whole-word match on all tokens: [ketchup]
+7202,ketchup,1.5,cup,2,vendor_prices,Ketchup Squeeze Bottle,sysco,oz,1.582917,medium,[matched] whole-word match on all tokens: [ketchup]
+7202,ketchup,1.5,cup,3,vendor_prices,"KETCHUP, 33% FCY BTL SQZ RED UPSDWN",shamrock,cs,28.51,medium,[matched] whole-word match on all tokens: [ketchup]
+7202,ketchup,1.5,cup,4,vendor_prices,"KETCHUP, 33% FCY VOL PK",shamrock,cs,29.27,medium,[matched] whole-word match on all tokens: [ketchup]
+7203,mustard,1.5,cup,1,vendor_prices,"MUSTARD, CLASC SQZ BTL RIGHT SIDE UP",shamrock,oz,0.19726562499999997,medium,[matched] whole-word match on all tokens: [mustard]
+7203,mustard,1.5,cup,2,vendor_prices,"SPICE, MUSTARD SEED GRND",shamrock,oz,0.6071428571428571,medium,[matched] whole-word match on all tokens: [mustard]
+7203,mustard,1.5,cup,3,vendor_prices,"MUSTARD, YLW CLASSIC 105Z JAR",shamrock,cs,23.34,medium,[matched] whole-word match on all tokens: [mustard]
+7203,mustard,1.5,cup,4,vendor_prices,"MUSTARD, WG",shamrock,ea,26.96,medium,[matched] whole-word match on all tokens: [mustard]
+7203,mustard,1.5,cup,5,vendor_prices,"MUSTARD, DIJON ORIG SMOOTH",shamrock,ea,31.39,medium,[matched] whole-word match on all tokens: [mustard]
+7204,onion powder,0.5,cup,1,vendor_prices,"ONION, YLW JMBO #2 BAG",shamrock,lb,0.32420000000000004,low,"[matched] whole-word match on token ""onion"""
+7204,onion powder,0.5,cup,2,vendor_prices,"ONION, WHT WHL JMBO 50LB REFRIG FRSH",shamrock,lb,0.6156,low,"[matched] whole-word match on token ""onion"""
+7204,onion powder,0.5,cup,3,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] substring match on token ""onion"""
+7204,onion powder,0.5,cup,4,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""onion"""
+7204,onion powder,0.5,cup,5,vendor_prices,"ONION, RED JMBO",shamrock,lb,1.304,low,"[matched] whole-word match on token ""onion"""
+7205,garlic powder,0.5,cup,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,low,"[matched] whole-word match on token ""garlic"""
+7205,garlic powder,0.5,cup,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,low,"[matched] whole-word match on token ""garlic"""
+7205,garlic powder,0.5,cup,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,low,"[matched] whole-word match on token ""garlic"""
+7205,garlic powder,0.5,cup,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,low,"[matched] whole-word match on token ""garlic"""
+7205,garlic powder,0.5,cup,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,low,"[matched] whole-word match on token ""garlic"""
+7206,paprika,0.5,cup,1,vendor_prices,"SPICE, PAPRIKA SPANISH BULK",shamrock,lb,10.664,medium,[matched] whole-word match on all tokens: [paprika]
+7207,white sugar,0.5,cup,1,vendor_prices,"TORTILLA, CORN 6"" WHITE",shamrock,pk,0.05751851851851852,low,"[matched] whole-word match on token ""white"""
+7207,white sugar,0.5,cup,2,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] whole-word match on token ""white"""
+7207,white sugar,0.5,cup,3,vendor_prices,Sugar Granulated Extra Fine Cane,sysco,lb,0.7998,low,"[matched] whole-word match on token ""sugar"""
+7207,white sugar,0.5,cup,4,vendor_prices,"SUGAR, WHT CANE GRANLTD X FINE BAG",shamrock,lb,0.8506,low,"[matched] whole-word match on token ""sugar"""
+7207,white sugar,0.5,cup,5,vendor_prices,Sugar Brown Light Cane,sysco,lb,1.541667,low,"[matched] whole-word match on token ""sugar"""
+7208,apple cider vinegar,1,cup,1,vendor_prices,"VINEGAR, APPLE CIDER",shamrock,cs,43.18,medium,"[matched] whole-word match on all tokens: [apple, cider, vinegar]"
+7209,salt,1.25,cup,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,[matched] whole-word match on all tokens: [salt]
+7209,salt,1.25,cup,2,vendor_prices,"SPICE, CELERY SALT",shamrock,cs,9.45,medium,[matched] whole-word match on all tokens: [salt]
+7209,salt,1.25,cup,3,vendor_prices,"SALT, SEA FLAKE MALDON",shamrock,lb,12.763636,medium,[matched] whole-word match on all tokens: [salt]
+7210,sugar,0.75,cup,1,vendor_prices,Sugar Granulated Extra Fine Cane,sysco,lb,0.7998,medium,[matched] whole-word match on all tokens: [sugar]
+7210,sugar,0.75,cup,2,vendor_prices,"SUGAR, WHT CANE GRANLTD X FINE BAG",shamrock,lb,0.8506,medium,[matched] whole-word match on all tokens: [sugar]
+7210,sugar,0.75,cup,3,vendor_prices,Sugar Brown Light Cane,sysco,lb,1.541667,medium,[matched] whole-word match on all tokens: [sugar]
+7210,sugar,0.75,cup,4,vendor_prices,"SUGAR, PWDRED CANE 10X",shamrock,lb,1.710312,medium,[matched] whole-word match on all tokens: [sugar]
+7210,sugar,0.75,cup,5,vendor_prices,"SUGAR, TURBINADO RAW BULK",shamrock,lb,2.809583,medium,[matched] whole-word match on all tokens: [sugar]
+7211,water,4,qt,1,none,,,,,none,[house] house tap — no vendor mapping
+7212,cornbread mixture,2,box,1,vendor_prices,"MIX, CORNBREAD GF",shamrock,oz,0.32908333333333334,low,"[matched] whole-word match on token ""cornbread"""
+7212,cornbread mixture,2,box,2,vendor_prices,"CORNBREAD MIX, HMSTYL",shamrock,lb,2.068,low,"[matched] whole-word match on token ""cornbread"""
+7212,cornbread mixture,2,box,3,vendor_prices,Mix Cornbread Homestyle Complete,sysco,lb,2.931667,low,"[matched] whole-word match on token ""cornbread"""
+7213,butter,1.15,lb,1,vendor_prices,"BUTTER, SOLID UNSLTD EURO STYL AA",shamrock,lb,3.429444,medium,[matched] whole-word match on all tokens: [butter]
+7213,butter,1.15,lb,2,vendor_prices,"BUTTER, SOLID UNSLTD AA",shamrock,lb,3.4956666666666667,medium,[matched] whole-word match on all tokens: [butter]
+7213,butter,1.15,lb,3,vendor_prices,Butter Solid Unsalted 83% Minimum Butterfat European,sysco,lb,3.923889,medium,[matched] whole-word match on all tokens: [butter]
+7213,butter,1.15,lb,4,vendor_prices,"BUTTER, CLARIFIED TUB",shamrock,lb,4.9345,medium,[matched] whole-word match on all tokens: [butter]
+7213,butter,1.15,lb,5,vendor_prices,"BUTTER, EURO SLTD CULTURED 1LB ROLL",shamrock,lb,8.099166666666667,medium,[matched] whole-word match on all tokens: [butter]
+7214,buttermilk,14.75,cup,1,vendor_prices,Buttermilk Whole Qt,sysco,qt,1.365654,medium,[matched] whole-word match on all tokens: [buttermilk]
+7214,buttermilk,14.75,cup,2,vendor_prices,"BUTTERMILK, 1% LF",shamrock,cs,20.89,medium,[matched] whole-word match on all tokens: [buttermilk]
+7215,cheddar cheese,3.5,cup,1,vendor_prices,Cheese Cheddar Jack Fancy Shredded,sysco,lb,2.7615,medium,"[matched] whole-word match on all tokens: [cheddar, cheese]"
+7215,cheddar cheese,3.5,cup,2,vendor_prices,Cheese Cheddar Sharp Slice White,sysco,lb,4.895,medium,"[matched] whole-word match on all tokens: [cheddar, cheese]"
+7216,jalapeno,3.5,cup,1,vendor_prices,Pepper Jalapeno Fresh,sysco,lb,3.195,medium,[matched] whole-word match on all tokens: [jalapeno]
+7217,pork butt,10,lb,1,vendor_prices,Pork Butt Boneless 1/4 6-9 Pounds Each Fresh,sysco,lb,0.028586,medium,"[matched] whole-word match on all tokens: [pork, butt]"
+7217,pork butt,10,lb,2,vendor_prices,"PORK, BUTT BNLS ALWAYS TNDR F2F",shamrock,pc,1.59,medium,"[matched] whole-word match on all tokens: [pork, butt]"
+7217,pork butt,10,lb,3,vendor_prices,"PORK, BUTT BI CVP REFRIG P12NC",shamrock,lb,1.74,medium,"[matched] whole-word match on all tokens: [pork, butt]"
+7217,pork butt,10,lb,4,vendor_prices,"PORK, BUTT BNLS 8LB AVG",shamrock,lb,1.9,medium,"[matched] whole-word match on all tokens: [pork, butt]"
+7217,pork butt,10,lb,5,vendor_prices,"PORK, BUTT BONELESS",shamrock,lb,2.16,medium,"[matched] whole-word match on all tokens: [pork, butt]"
+7218,water,5,cup,1,none,,,,,none,[house] house tap — no vendor mapping
+7219,tomatillos,2,#10 can,1,vendor_prices,"TOMATILLO, WHL",shamrock,cn,0.7713333333333333,medium,[matched] whole-word match on all tokens: [tomatillo]
+7219,tomatillos,2,#10 can,2,vendor_prices,Tomatillo Crushed,sysco,can,0.91,medium,[matched] whole-word match on all tokens: [tomatillo]
+7219,tomatillos,2,#10 can,3,vendor_prices,"TOMATILLO, IMP CAN WHOLE",shamrock,cs,34.25,medium,[matched] whole-word match on all tokens: [tomatillo]
+7219,tomatillos,2,#10 can,4,vendor_prices,"TOMATILLO, IMP CAN CRUSHED",shamrock,cs,39.19,medium,[matched] whole-word match on all tokens: [tomatillo]
+7219,tomatillos,2,#10 can,5,vendor_prices,"TOMATILLO, CRUSHED",shamrock,cs,51.13,medium,[matched] whole-word match on all tokens: [tomatillo]
+7221,yellow onions,1.75,lb,1,vendor_prices,"ONION, YLW JMBO #2 BAG",shamrock,lb,0.32420000000000004,low,"[matched] whole-word match on token ""onion"""
+7221,yellow onions,1.75,lb,2,vendor_prices,"ONION, WHT WHL JMBO 50LB REFRIG FRSH",shamrock,lb,0.6156,low,"[matched] whole-word match on token ""onion"""
+7221,yellow onions,1.75,lb,3,vendor_prices,Corn Meal Yellow,sysco,lb,0.678,low,"[matched] whole-word match on token ""yellow"""
+7221,yellow onions,1.75,lb,4,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] substring match on token ""onion"""
+7221,yellow onions,1.75,lb,5,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""onion"""
+7222,granulated garlic,0.5,cup,1,vendor_prices,Sugar Granulated Extra Fine Cane,sysco,lb,0.7998,low,"[matched] whole-word match on token ""granulated"""
+7222,granulated garlic,0.5,cup,2,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,low,"[matched] whole-word match on token ""garlic"""
+7222,granulated garlic,0.5,cup,3,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,low,"[matched] whole-word match on token ""garlic"""
+7222,granulated garlic,0.5,cup,4,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,low,"[matched] whole-word match on token ""garlic"""
+7222,granulated garlic,0.5,cup,5,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,low,"[matched] whole-word match on token ""garlic"""
+7223,dried oregano,0.333,cup,1,vendor_prices,"PEPPER, CHILE GUAJILLO STEMLESS DRIED",shamrock,lb,4.8556,low,"[matched] whole-word match on token ""dried"""
+7223,dried oregano,0.333,cup,2,vendor_prices,"PEPPER, CHILE GUAJILLO DRIED",shamrock,lb,6.874,low,"[matched] whole-word match on token ""dried"""
+7223,dried oregano,0.333,cup,3,vendor_prices,Pepper Chiles Guajillo Dried,sysco,lb,11.39,low,"[matched] whole-word match on token ""dried"""
+7223,dried oregano,0.333,cup,4,vendor_prices,"PEPPER, CHILE ARBOL DRIED",shamrock,lb,11.95,low,"[matched] whole-word match on token ""dried"""
+7223,dried oregano,0.333,cup,5,vendor_prices,Pepper Ancho Dried,sysco,lb,12.998,low,"[matched] whole-word match on token ""dried"""
+7224,cumin,0.5,cup,1,vendor_prices,"SPICE, CUMIN SEED GRND BULK",shamrock,lb,11.452,medium,[matched] whole-word match on all tokens: [cumin]
+7225,chicken base,3,cup,1,vendor_prices,Soup Base Chicken Real,sysco,lb,7.546667,medium,"[matched] whole-word match on all tokens: [chicken, base]"
+7227,pepitas,5,lb,1,vendor_prices,"SEED, PUMPKIN SHLD PEPITAS RAW BULK",shamrock,lb,6.64,low,"[matched] substring match on token ""pepita"""
+7227,pepitas,5,lb,2,vendor_prices,"PUMPKIN SEEDS, PEPITAS SHELLED RAW",shamrock,lb,8.209999999999999,low,"[matched] substring match on token ""pepita"""
+7227,pepitas,5,lb,3,vendor_prices,Pumpkin Seed Pepitas Raw,sysco,lb,12.898,low,"[matched] substring match on token ""pepita"""
+7228,kosher salt,0.25,cup,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,"[matched] whole-word match on all tokens: [kosher, salt]"
+7229,chili powder,1,tbsp,1,vendor_prices,"SPICE, CHILI PWDR DRK BULK",shamrock,lb,8.961818,low,"[matched] whole-word match on token ""chili"""
+7229,chili powder,1,tbsp,2,vendor_prices,"SAUCE, CHILI SWEET",shamrock,cs,41.64,low,"[matched] whole-word match on token ""chili"""
+7230,cumin,0.5,tbsp,1,vendor_prices,"SPICE, CUMIN SEED GRND BULK",shamrock,lb,11.452,medium,[matched] whole-word match on all tokens: [cumin]
+7231,oil,0.25,cup,1,vendor_prices,"OIL, CANOLA CLR FRY ZTF",shamrock,lb,1.086,medium,[matched] whole-word match on all tokens: [oil]
+7231,oil,0.25,cup,2,vendor_prices,Oil Olive Pomace Tin,sysco,gal,3.731356,medium,[matched] whole-word match on all tokens: [oil]
+7231,oil,0.25,cup,3,vendor_prices,"ANCHOVY, FLT IN OLV OIL 13Z CAN",shamrock,ea,14.26,medium,[matched] whole-word match on all tokens: [oil]
+7231,oil,0.25,cup,4,vendor_prices,"OIL, OLV POMACE ITALY 1GAL TIN",shamrock,ea,31.27,medium,[matched] whole-word match on all tokens: [oil]
+7231,oil,0.25,cup,5,vendor_prices,"PEPPER, CALABRIAN CRSH STMLS IN OIL",shamrock,cs,97.71,medium,[matched] whole-word match on all tokens: [oil]
+7232,lime juice,0.25,cup,1,vendor_prices,Juice Lime Pasteurized Ultra Premium,sysco,qt,2.55,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7232,lime juice,0.25,cup,2,vendor_prices,"JUICE, LIME FRSH SQZ",shamrock,gal,12.7975,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7233,anchovy,5,ea,1,vendor_prices,"ANCHOVY, FLT IN OLV OIL 13Z CAN",shamrock,ea,14.26,medium,[matched] whole-word match on all tokens: [anchovy]
+7234,capers,1,tbsp,1,vendor_prices,"CAPER, NONPAREIL 32Z JAR",shamrock,cs,59.31,medium,[matched] whole-word match on all tokens: [caper]
+7235,dijon mustard,0.75,cup,1,vendor_prices,"MUSTARD, DIJON ORIG SMOOTH",shamrock,ea,31.39,medium,"[matched] whole-word match on all tokens: [dijon, mustard]"
+7236,lime juice,0.25,cup,1,vendor_prices,Juice Lime Pasteurized Ultra Premium,sysco,qt,2.55,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7236,lime juice,0.25,cup,2,vendor_prices,"JUICE, LIME FRSH SQZ",shamrock,gal,12.7975,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7237,chipotle puree,0.75,cup,1,vendor_prices,"SPICE, CHILE PWDR CHIPOTLE 18Z",shamrock,oz,0.7566666666666666,low,"[matched] whole-word match on token ""chipotle"""
+7237,chipotle puree,0.75,cup,2,vendor_prices,Pepper Chipotle Adobo Sauce,sysco,oz,5.647619,low,"[matched] whole-word match on token ""chipotle"""
+7237,chipotle puree,0.75,cup,3,vendor_prices,"PEPPER, CHIPOTLE WHL IN ADOBO SCE",shamrock,cs,22.42,low,"[matched] whole-word match on token ""chipotle"""
+7237,chipotle puree,0.75,cup,4,vendor_prices,"PEPPER, CHIPOTLE IN ADOBO SCE",shamrock,cs,85.07,low,"[matched] whole-word match on token ""chipotle"""
+7238,mayonnaise,3.5,cup,1,vendor_prices,"MAYONNAISE, HVY DTY TUB",shamrock,lb,1.506,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7238,mayonnaise,3.5,cup,2,vendor_prices,Mayonnaise Heavy Duty Pail,sysco,lb,2.033929,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7238,mayonnaise,3.5,cup,3,vendor_prices,Mayonnaise Japanese 64 Ounces,sysco,oz,6.285,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7238,mayonnaise,3.5,cup,4,vendor_prices,"MAYONNAISE, KEWPIE",shamrock,cs,86.99,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7239,garlic,0.5,cup,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,[matched] whole-word match on all tokens: [garlic]
+7239,garlic,0.5,cup,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,medium,[matched] whole-word match on all tokens: [garlic]
+7239,garlic,0.5,cup,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,[matched] whole-word match on all tokens: [garlic]
+7239,garlic,0.5,cup,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,medium,[matched] whole-word match on all tokens: [garlic]
+7239,garlic,0.5,cup,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,medium,[matched] whole-word match on all tokens: [garlic]
+7240,cilantro,1,cup,1,vendor_prices,Cilantro Bunch Iceless,sysco,ct,2.80625,medium,[matched] whole-word match on all tokens: [cilantro]
+7240,cilantro,1,cup,2,vendor_prices,"HERB, CILANTRO BUNCH ICELESS",shamrock,cs,20.43,medium,[matched] whole-word match on all tokens: [cilantro]
+7241,mayonnaise,9,cup,1,vendor_prices,"MAYONNAISE, HVY DTY TUB",shamrock,lb,1.506,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7241,mayonnaise,9,cup,2,vendor_prices,Mayonnaise Heavy Duty Pail,sysco,lb,2.033929,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7241,mayonnaise,9,cup,3,vendor_prices,Mayonnaise Japanese 64 Ounces,sysco,oz,6.285,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7241,mayonnaise,9,cup,4,vendor_prices,"MAYONNAISE, KEWPIE",shamrock,cs,86.99,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7242,bread and butter pickles,600,g,1,vendor_prices,"MIX, CORNBREAD GF",shamrock,oz,0.32908333333333334,low,"[matched] substring match on token ""bread"""
+7242,bread and butter pickles,600,g,2,vendor_prices,Buttermilk Whole Qt,sysco,qt,1.365654,low,"[matched] substring match on token ""butter"""
+7242,bread and butter pickles,600,g,3,vendor_prices,"CORNBREAD MIX, HMSTYL",shamrock,lb,2.068,low,"[matched] substring match on token ""bread"""
+7242,bread and butter pickles,600,g,4,vendor_prices,Mix Cornbread Homestyle Complete,sysco,lb,2.931667,low,"[matched] substring match on token ""bread"""
+7242,bread and butter pickles,600,g,5,vendor_prices,"BUTTER, SOLID UNSLTD EURO STYL AA",shamrock,lb,3.429444,low,"[matched] whole-word match on token ""butter"""
+7243,shallot,6.5,cup,1,vendor_prices,"SHALLOT, WHL PLD REFRIG FRSH",shamrock,ea,19.89,medium,[matched] whole-word match on all tokens: [shallot]
+7244,capers,1.75,cup,1,vendor_prices,"CAPER, NONPAREIL 32Z JAR",shamrock,cs,59.31,medium,[matched] whole-word match on all tokens: [caper]
+7245,dill,40,g,1,vendor_prices,"HERB, DILL BABY",shamrock,cs,8.18,medium,[matched] whole-word match on all tokens: [dill]
+7245,dill,40,g,2,vendor_prices,"HERB, FRSH DILL BABY",shamrock,lb,12.06,medium,[matched] whole-word match on all tokens: [dill]
+7245,dill,40,g,3,vendor_prices,"RELISH, DILL",shamrock,ea,15.8,medium,[matched] whole-word match on all tokens: [dill]
+7245,dill,40,g,4,vendor_prices,"PICKLE, DILL CHIP .31"" 5GAL PAIL",shamrock,cs,49.13,medium,[matched] whole-word match on all tokens: [dill]
+7247,dijon mustard,0.75,cup,1,vendor_prices,"MUSTARD, DIJON ORIG SMOOTH",shamrock,ea,31.39,medium,"[matched] whole-word match on all tokens: [dijon, mustard]"
+7248,black pepper,4,tbsp,1,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,medium,"[matched] whole-word match on all tokens: [black, pepper]"
+7249,salt,2,tbsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,[matched] whole-word match on all tokens: [salt]
+7249,salt,2,tbsp,2,vendor_prices,"SPICE, CELERY SALT",shamrock,cs,9.45,medium,[matched] whole-word match on all tokens: [salt]
+7249,salt,2,tbsp,3,vendor_prices,"SALT, SEA FLAKE MALDON",shamrock,lb,12.763636,medium,[matched] whole-word match on all tokens: [salt]
+7250,tabasco,1,cup,1,vendor_prices,"SAUCE, HOT TABASCO",shamrock,oz,0.6335,medium,[matched] whole-word match on all tokens: [tabasco]
+7251,sugar,1,cup,1,vendor_prices,Sugar Granulated Extra Fine Cane,sysco,lb,0.7998,medium,[matched] whole-word match on all tokens: [sugar]
+7251,sugar,1,cup,2,vendor_prices,"SUGAR, WHT CANE GRANLTD X FINE BAG",shamrock,lb,0.8506,medium,[matched] whole-word match on all tokens: [sugar]
+7251,sugar,1,cup,3,vendor_prices,Sugar Brown Light Cane,sysco,lb,1.541667,medium,[matched] whole-word match on all tokens: [sugar]
+7251,sugar,1,cup,4,vendor_prices,"SUGAR, PWDRED CANE 10X",shamrock,lb,1.710312,medium,[matched] whole-word match on all tokens: [sugar]
+7251,sugar,1,cup,5,vendor_prices,"SUGAR, TURBINADO RAW BULK",shamrock,lb,2.809583,medium,[matched] whole-word match on all tokens: [sugar]
+7252,guinness,550,g,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7253,vodka,50,g,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7254,ap flour,17,cup,1,vendor_prices,"FLOUR, AP 50LB BAG",shamrock,lb,0.3708,medium,[matched] whole-word match on all tokens: [flour]
+7254,ap flour,17,cup,2,vendor_prices,Flour All Purpose Hotel & Restaurant Bleached,sysco,lb,0.4098,medium,[matched] whole-word match on all tokens: [flour]
+7254,ap flour,17,cup,3,vendor_prices,"TORTILLA, FLOUR 6""",shamrock,cs,16.9,medium,[matched] whole-word match on all tokens: [flour]
+7254,ap flour,17,cup,4,vendor_prices,"TORTILLA, FLOUR 6"" PRSSD",shamrock,cs,26.67,medium,[matched] whole-word match on all tokens: [flour]
+7254,ap flour,17,cup,5,vendor_prices,"TORTILLA, FLOUR 14""",shamrock,cs,44.46,medium,[matched] whole-word match on all tokens: [flour]
+7255,kosher salt,0.5,cup,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,"[matched] whole-word match on all tokens: [kosher, salt]"
+7257,ap flour,17,cup,1,vendor_prices,"FLOUR, AP 50LB BAG",shamrock,lb,0.3708,medium,[matched] whole-word match on all tokens: [flour]
+7257,ap flour,17,cup,2,vendor_prices,Flour All Purpose Hotel & Restaurant Bleached,sysco,lb,0.4098,medium,[matched] whole-word match on all tokens: [flour]
+7257,ap flour,17,cup,3,vendor_prices,"TORTILLA, FLOUR 6""",shamrock,cs,16.9,medium,[matched] whole-word match on all tokens: [flour]
+7257,ap flour,17,cup,4,vendor_prices,"TORTILLA, FLOUR 6"" PRSSD",shamrock,cs,26.67,medium,[matched] whole-word match on all tokens: [flour]
+7257,ap flour,17,cup,5,vendor_prices,"TORTILLA, FLOUR 14""",shamrock,cs,44.46,medium,[matched] whole-word match on all tokens: [flour]
+7258,cornmeal,12,cup,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7259,sugar,4,cup,1,vendor_prices,Sugar Granulated Extra Fine Cane,sysco,lb,0.7998,medium,[matched] whole-word match on all tokens: [sugar]
+7259,sugar,4,cup,2,vendor_prices,"SUGAR, WHT CANE GRANLTD X FINE BAG",shamrock,lb,0.8506,medium,[matched] whole-word match on all tokens: [sugar]
+7259,sugar,4,cup,3,vendor_prices,Sugar Brown Light Cane,sysco,lb,1.541667,medium,[matched] whole-word match on all tokens: [sugar]
+7259,sugar,4,cup,4,vendor_prices,"SUGAR, PWDRED CANE 10X",shamrock,lb,1.710312,medium,[matched] whole-word match on all tokens: [sugar]
+7259,sugar,4,cup,5,vendor_prices,"SUGAR, TURBINADO RAW BULK",shamrock,lb,2.809583,medium,[matched] whole-word match on all tokens: [sugar]
+7260,salt,3,cup,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,[matched] whole-word match on all tokens: [salt]
+7260,salt,3,cup,2,vendor_prices,"SPICE, CELERY SALT",shamrock,cs,9.45,medium,[matched] whole-word match on all tokens: [salt]
+7260,salt,3,cup,3,vendor_prices,"SALT, SEA FLAKE MALDON",shamrock,lb,12.763636,medium,[matched] whole-word match on all tokens: [salt]
+7263,buttermilk,8,qt,1,vendor_prices,Buttermilk Whole Qt,sysco,qt,1.365654,medium,[matched] whole-word match on all tokens: [buttermilk]
+7263,buttermilk,8,qt,2,vendor_prices,"BUTTERMILK, 1% LF",shamrock,cs,20.89,medium,[matched] whole-word match on all tokens: [buttermilk]
+7264,mayonnaise,36,cup,1,vendor_prices,"MAYONNAISE, HVY DTY TUB",shamrock,lb,1.506,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7264,mayonnaise,36,cup,2,vendor_prices,Mayonnaise Heavy Duty Pail,sysco,lb,2.033929,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7264,mayonnaise,36,cup,3,vendor_prices,Mayonnaise Japanese 64 Ounces,sysco,oz,6.285,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7264,mayonnaise,36,cup,4,vendor_prices,"MAYONNAISE, KEWPIE",shamrock,cs,86.99,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7265,adobo puree,6,cup,1,vendor_prices,Pepper Chipotle Adobo Sauce,sysco,oz,5.647619,low,"[matched] whole-word match on token ""adobo"""
+7265,adobo puree,6,cup,2,vendor_prices,"PEPPER, CHIPOTLE WHL IN ADOBO SCE",shamrock,cs,22.42,low,"[matched] whole-word match on token ""adobo"""
+7265,adobo puree,6,cup,3,vendor_prices,"SAUCE, ADOBO",shamrock,cs,37.75,low,"[matched] whole-word match on token ""adobo"""
+7265,adobo puree,6,cup,4,vendor_prices,"PEPPER, CHIPOTLE IN ADOBO SCE",shamrock,cs,85.07,low,"[matched] whole-word match on token ""adobo"""
+7266,lime juice,3,tbsp,1,vendor_prices,Juice Lime Pasteurized Ultra Premium,sysco,qt,2.55,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7266,lime juice,3,tbsp,2,vendor_prices,"JUICE, LIME FRSH SQZ",shamrock,gal,12.7975,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7267,mayonnaise,1,gal,1,vendor_prices,"MAYONNAISE, HVY DTY TUB",shamrock,lb,1.506,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7267,mayonnaise,1,gal,2,vendor_prices,Mayonnaise Heavy Duty Pail,sysco,lb,2.033929,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7267,mayonnaise,1,gal,3,vendor_prices,Mayonnaise Japanese 64 Ounces,sysco,oz,6.285,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7267,mayonnaise,1,gal,4,vendor_prices,"MAYONNAISE, KEWPIE",shamrock,cs,86.99,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7268,horseradish,0.5,cup,1,vendor_prices,"HORSERADISH, X HOT 1GAL JAR REFRIG",shamrock,ea,24.15,medium,[matched] whole-word match on all tokens: [horseradish]
+7268,horseradish,0.5,cup,2,vendor_prices,"HORSERADISH, PREPARED XHOT",shamrock,cs,41.42,medium,[matched] whole-word match on all tokens: [horseradish]
+7269,dijon mustard,0.5,cup,1,vendor_prices,"MUSTARD, DIJON ORIG SMOOTH",shamrock,ea,31.39,medium,"[matched] whole-word match on all tokens: [dijon, mustard]"
+7270,apple cider vinegar,1,cup,1,vendor_prices,"VINEGAR, APPLE CIDER",shamrock,cs,43.18,medium,"[matched] whole-word match on all tokens: [apple, cider, vinegar]"
+7272,granulated garlic,2,tbsp,1,vendor_prices,Sugar Granulated Extra Fine Cane,sysco,lb,0.7998,low,"[matched] whole-word match on token ""granulated"""
+7272,granulated garlic,2,tbsp,2,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,low,"[matched] whole-word match on token ""garlic"""
+7272,granulated garlic,2,tbsp,3,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,low,"[matched] whole-word match on token ""garlic"""
+7272,granulated garlic,2,tbsp,4,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,low,"[matched] whole-word match on token ""garlic"""
+7272,granulated garlic,2,tbsp,5,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,low,"[matched] whole-word match on token ""garlic"""
+7273,brown sugar,3,cup,1,vendor_prices,Sugar Brown Light Cane,sysco,lb,1.541667,medium,"[matched] whole-word match on all tokens: [brown, sugar]"
+7274,cayenne,0.5,tbsp,1,vendor_prices,"SPICE, PEPPER CAYENNE BULK",shamrock,lb,10.438,medium,[matched] whole-word match on all tokens: [cayenne]
+7275,kosher salt,1,tsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,"[matched] whole-word match on all tokens: [kosher, salt]"
+7276,black pepper,1,tsp,1,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,medium,"[matched] whole-word match on all tokens: [black, pepper]"
+7277,cream cheese,0.5,cup,1,vendor_prices,Cheese Cotija Random Cut,sysco,lb,0.486886,low,"[matched] whole-word match on token ""cheese"""
+7277,cream cheese,0.5,cup,2,vendor_prices,"SOUR CREAM, NATURAL 5LB",shamrock,lb,1.332,low,"[matched] whole-word match on token ""cream"""
+7277,cream cheese,0.5,cup,3,vendor_prices,"SOUR CREAM, CREMA MEXICANA 5LB",shamrock,lb,1.476,low,"[matched] whole-word match on token ""cream"""
+7277,cream cheese,0.5,cup,4,vendor_prices,Cream Heavy 40% Extended Shelf Life Stabilized,sysco,oz,2.140918,low,"[matched] whole-word match on token ""cream"""
+7277,cream cheese,0.5,cup,5,vendor_prices,"CHEESE, CHDR JACK SHRD FCY WI",shamrock,lb,2.723,low,"[matched] whole-word match on token ""cheese"""
+7278,shredded double gloucester or cheddar,0.5,cup,1,vendor_prices,Carrots Matchstick Shredded,sysco,lb,1.494,low,"[matched] whole-word match on token ""shredded"""
+7278,shredded double gloucester or cheddar,0.5,cup,2,vendor_prices,Cheese Cheddar Jack Fancy Shredded,sysco,lb,2.7615,low,"[matched] whole-word match on token ""shredded"""
+7278,shredded double gloucester or cheddar,0.5,cup,3,vendor_prices,Cheese Cheddar Sharp Slice White,sysco,lb,4.895,low,"[matched] whole-word match on token ""cheddar"""
+7279,heavy cream,2,tbsp,1,vendor_prices,Cream Heavy 40% Extended Shelf Life Stabilized,sysco,oz,2.140918,medium,"[matched] whole-word match on all tokens: [heavy, cream]"
+7280,coarse salt,0.25,tsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,low,"[matched] whole-word match on token ""salt"""
+7280,coarse salt,0.25,tsp,2,vendor_prices,Butter Solid Unsalted 83% Minimum Butterfat European,sysco,lb,3.923889,low,"[matched] substring match on token ""salt"""
+7280,coarse salt,0.25,tsp,3,vendor_prices,"SPICE, CELERY SALT",shamrock,cs,9.45,low,"[matched] whole-word match on token ""salt"""
+7280,coarse salt,0.25,tsp,4,vendor_prices,"SALT, SEA FLAKE MALDON",shamrock,lb,12.763636,low,"[matched] whole-word match on token ""salt"""
+7281,mayonnaise,0.5,cup,1,vendor_prices,"MAYONNAISE, HVY DTY TUB",shamrock,lb,1.506,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7281,mayonnaise,0.5,cup,2,vendor_prices,Mayonnaise Heavy Duty Pail,sysco,lb,2.033929,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7281,mayonnaise,0.5,cup,3,vendor_prices,Mayonnaise Japanese 64 Ounces,sysco,oz,6.285,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7281,mayonnaise,0.5,cup,4,vendor_prices,"MAYONNAISE, KEWPIE",shamrock,cs,86.99,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7282,garlic,0.75,tsp,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,[matched] whole-word match on all tokens: [garlic]
+7282,garlic,0.75,tsp,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,medium,[matched] whole-word match on all tokens: [garlic]
+7282,garlic,0.75,tsp,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,[matched] whole-word match on all tokens: [garlic]
+7282,garlic,0.75,tsp,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,medium,[matched] whole-word match on all tokens: [garlic]
+7282,garlic,0.75,tsp,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,medium,[matched] whole-word match on all tokens: [garlic]
+7283,coarse salt,0.25,tsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,low,"[matched] whole-word match on token ""salt"""
+7283,coarse salt,0.25,tsp,2,vendor_prices,Butter Solid Unsalted 83% Minimum Butterfat European,sysco,lb,3.923889,low,"[matched] substring match on token ""salt"""
+7283,coarse salt,0.25,tsp,3,vendor_prices,"SPICE, CELERY SALT",shamrock,cs,9.45,low,"[matched] whole-word match on token ""salt"""
+7283,coarse salt,0.25,tsp,4,vendor_prices,"SALT, SEA FLAKE MALDON",shamrock,lb,12.763636,low,"[matched] whole-word match on token ""salt"""
+7284,artisan bread slices,8,ea,1,vendor_prices,"MIX, CORNBREAD GF",shamrock,oz,0.32908333333333334,low,"[matched] substring match on token ""bread"""
+7284,artisan bread slices,8,ea,2,vendor_prices,"CABBAGE, DEW DROP ARTISAN",shamrock,pk,1.2308333333333332,low,"[matched] whole-word match on token ""artisan"""
+7284,artisan bread slices,8,ea,3,vendor_prices,"CORNBREAD MIX, HMSTYL",shamrock,lb,2.068,low,"[matched] substring match on token ""bread"""
+7284,artisan bread slices,8,ea,4,vendor_prices,Mix Cornbread Homestyle Complete,sysco,lb,2.931667,low,"[matched] substring match on token ""bread"""
+7284,artisan bread slices,8,ea,5,vendor_prices,Cheese Cheddar Sharp Slice White,sysco,lb,4.895,low,"[matched] whole-word match on token ""slice"""
+7285,cheddar cheese slices,8,ea,1,vendor_prices,Cheese Cheddar Sharp Slice White,sysco,lb,4.895,medium,"[matched] whole-word match on all tokens: [cheddar, cheese, slice]"
+7286,provolone slices,8,ea,1,vendor_prices,Cheese Cheddar Sharp Slice White,sysco,lb,4.895,low,"[matched] whole-word match on token ""slice"""
+7286,provolone slices,8,ea,2,vendor_prices,"Dessert Bar Variety 9"" X 12"" Unsliced",sysco,oz,8.896154,low,"[matched] substring match on token ""slice"""
+7286,provolone slices,8,ea,3,vendor_prices,Ham Prosciutto Sliced All Natural,sysco,oz,19.158333,low,"[matched] substring match on token ""slice"""
+7287,mae ploy sweet chili sauce,1,bottle,1,vendor_prices,"HOT SAUCE, GRN CHOLULA 5Z",shamrock,oz,0.5021666666666667,low,"[matched] whole-word match on token ""sauce"""
+7287,mae ploy sweet chili sauce,1,bottle,2,vendor_prices,"SAUCE BASE, DEMI GLACE CONCENTRATE",shamrock,oz,0.515686274509804,low,"[matched] whole-word match on token ""sauce"""
+7287,mae ploy sweet chili sauce,1,bottle,3,vendor_prices,"SAUCE, HOT CHOLULA ORIG",shamrock,oz,0.5216666666666667,low,"[matched] whole-word match on token ""sauce"""
+7287,mae ploy sweet chili sauce,1,bottle,4,vendor_prices,"SAUCE, HOT TABASCO",shamrock,oz,0.6335,low,"[matched] whole-word match on token ""sauce"""
+7287,mae ploy sweet chili sauce,1,bottle,5,vendor_prices,Sauce Marinara Premium Midwest,sysco,ct,1.081198,low,"[matched] whole-word match on token ""sauce"""
+7288,soy sauce,0.25,cup,1,vendor_prices,"CRAYON, SOYBEAN 4CT BLUE GRN RED YL",shamrock,pk,0.06272,low,"[matched] substring match on token ""soy"""
+7288,soy sauce,0.25,cup,2,vendor_prices,"HOT SAUCE, GRN CHOLULA 5Z",shamrock,oz,0.5021666666666667,low,"[matched] whole-word match on token ""sauce"""
+7288,soy sauce,0.25,cup,3,vendor_prices,"SAUCE BASE, DEMI GLACE CONCENTRATE",shamrock,oz,0.515686274509804,low,"[matched] whole-word match on token ""sauce"""
+7288,soy sauce,0.25,cup,4,vendor_prices,"SAUCE, HOT CHOLULA ORIG",shamrock,oz,0.5216666666666667,low,"[matched] whole-word match on token ""sauce"""
+7288,soy sauce,0.25,cup,5,vendor_prices,"SAUCE, HOT TABASCO",shamrock,oz,0.6335,low,"[matched] whole-word match on token ""sauce"""
+7289,honey,0.25,cup,1,vendor_prices,"HONEY, LT AMBER GRD A 5LB JUG",shamrock,lb,3.5596666666666668,medium,[matched] whole-word match on all tokens: [honey]
+7290,furikake seasoning,0.25,cup,1,vendor_prices,"SEASONING, OLD BAY",shamrock,ea,19.17,low,"[matched] whole-word match on token ""seasoning"""
+7291,sriracha,0.25,cup,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7292,tomatoes,10,cup,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7293,red onion,2,cup,1,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,medium,"[matched] whole-word match on all tokens: [red, onion]"
+7293,red onion,2,cup,2,vendor_prices,"ONION, RED JMBO",shamrock,lb,1.304,medium,"[matched] whole-word match on all tokens: [red, onion]"
+7294,jalapeno,7,ea,1,vendor_prices,Pepper Jalapeno Fresh,sysco,lb,3.195,medium,[matched] whole-word match on all tokens: [jalapeno]
+7295,garlic,0.5,cup,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,[matched] whole-word match on all tokens: [garlic]
+7295,garlic,0.5,cup,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,medium,[matched] whole-word match on all tokens: [garlic]
+7295,garlic,0.5,cup,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,[matched] whole-word match on all tokens: [garlic]
+7295,garlic,0.5,cup,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,medium,[matched] whole-word match on all tokens: [garlic]
+7295,garlic,0.5,cup,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,medium,[matched] whole-word match on all tokens: [garlic]
+7296,cilantro,1,cup,1,vendor_prices,Cilantro Bunch Iceless,sysco,ct,2.80625,medium,[matched] whole-word match on all tokens: [cilantro]
+7296,cilantro,1,cup,2,vendor_prices,"HERB, CILANTRO BUNCH ICELESS",shamrock,cs,20.43,medium,[matched] whole-word match on all tokens: [cilantro]
+7297,lime juice,3,cup,1,vendor_prices,Juice Lime Pasteurized Ultra Premium,sysco,qt,2.55,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7297,lime juice,3,cup,2,vendor_prices,"JUICE, LIME FRSH SQZ",shamrock,gal,12.7975,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7298,salt,2,tbsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,[matched] whole-word match on all tokens: [salt]
+7298,salt,2,tbsp,2,vendor_prices,"SPICE, CELERY SALT",shamrock,cs,9.45,medium,[matched] whole-word match on all tokens: [salt]
+7298,salt,2,tbsp,3,vendor_prices,"SALT, SEA FLAKE MALDON",shamrock,lb,12.763636,medium,[matched] whole-word match on all tokens: [salt]
+7300,celery,2.333,cup,1,vendor_prices,"CELERY, JMBO",shamrock,lb,0.783,medium,[matched] whole-word match on all tokens: [celery]
+7300,celery,2.333,cup,2,vendor_prices,"CELERY, MED MINI 6PK",shamrock,pk,3.5483333333333333,medium,[matched] whole-word match on all tokens: [celery]
+7300,celery,2.333,cup,3,vendor_prices,"SPICE, CELERY SALT",shamrock,cs,9.45,medium,[matched] whole-word match on all tokens: [celery]
+7300,celery,2.333,cup,4,vendor_prices,"SPICE, CELERY SEED WHOLE",shamrock,cs,10.12,medium,[matched] whole-word match on all tokens: [celery]
+7300,celery,2.333,cup,5,vendor_prices,"CELERY, STICK 4X.25X1.25",shamrock,ea,12.35,medium,[matched] whole-word match on all tokens: [celery]
+7301,carrot,7,cup,1,vendor_prices,"CARROT, JMBO #1 BAG PREM",shamrock,lb,1.0776,medium,[matched] whole-word match on all tokens: [carrot]
+7301,carrot,7,cup,2,vendor_prices,"CARROT, STICK 4X3/8"" BAG",shamrock,lb,2.129,medium,[matched] whole-word match on all tokens: [carrot]
+7302,large onions,3,ea,1,vendor_prices,"ONION, YLW JMBO #2 BAG",shamrock,lb,0.32420000000000004,low,"[matched] whole-word match on token ""onion"""
+7302,large onions,3,ea,2,vendor_prices,"ONION, WHT WHL JMBO 50LB REFRIG FRSH",shamrock,lb,0.6156,low,"[matched] whole-word match on token ""onion"""
+7302,large onions,3,ea,3,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] substring match on token ""onion"""
+7302,large onions,3,ea,4,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""onion"""
+7302,large onions,3,ea,5,vendor_prices,"ONION, RED JMBO",shamrock,lb,1.304,low,"[matched] whole-word match on token ""onion"""
+7303,chicken wings,1,bag,1,vendor_prices,"CHICKEN, WING 1&2 O-RSTD 5-8 CT FC",shamrock,lb,4.664,medium,"[matched] whole-word match on all tokens: [chicken, wing]"
+7303,chicken wings,1,bag,2,vendor_prices,"CHICKEN, WING MED 1&2 FC IF",shamrock,lb,4.794,medium,"[matched] whole-word match on all tokens: [chicken, wing]"
+7303,chicken wings,1,bag,3,vendor_prices,"CHICKEN, WING BI CKD MAGNUM STEAMED",shamrock,lb,4.847,medium,"[matched] whole-word match on all tokens: [chicken, wing]"
+7304,clarified butter,0.667,cup,1,vendor_prices,"BUTTER, CLARIFIED TUB",shamrock,lb,4.9345,medium,"[matched] whole-word match on all tokens: [clarified, butter]"
+7305,water,8,qt,1,none,,,,,none,[house] house tap — no vendor mapping
+7306,chicken stock,8,oz,1,vendor_prices,Chicken Breast Cutlet 5 Ounce,sysco,lb,0.278516,low,"[matched] whole-word match on token ""chicken"""
+7306,chicken stock,8,oz,2,vendor_prices,"CHICKEN, WOG 3-3.25LB HALAL",shamrock,lb,1.87,low,"[matched] whole-word match on token ""chicken"""
+7306,chicken stock,8,oz,3,vendor_prices,Chicken Thigh Boneless Skinless Controlled Vac,sysco,lb,2.16825,low,"[matched] whole-word match on token ""chicken"""
+7306,chicken stock,8,oz,4,vendor_prices,"CHICKEN, WOG 3-3.5LB FRYER 12HD",shamrock,lb,2.26,low,"[matched] whole-word match on token ""chicken"""
+7306,chicken stock,8,oz,5,vendor_prices,"CHICKEN, DRUMSTICK FRNCHD ABF",shamrock,lb,3.2,low,"[matched] whole-word match on token ""chicken"""
+7307,dry white wine,4,cup,1,vendor_prices,"TORTILLA, CORN 6"" WHITE",shamrock,pk,0.05751851851851852,low,"[matched] whole-word match on token ""white"""
+7307,dry white wine,4,cup,2,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] whole-word match on token ""white"""
+7307,dry white wine,4,cup,3,vendor_prices,"MIX, PANCAKE & WAFFLE BTRMLK WESTERN DRY",shamrock,lb,1.4216666666666666,low,"[matched] whole-word match on token ""dry"""
+7307,dry white wine,4,cup,4,vendor_prices,Tortilla Corn White 4.5 Inch,sysco,ct,1.752191,low,"[matched] whole-word match on token ""white"""
+7307,dry white wine,4,cup,5,vendor_prices,Corn White Fresh,sysco,ct,3.225129,low,"[matched] whole-word match on token ""white"""
+7308,sachet,20,g,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7309,garlic,0.667,cup,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,[matched] whole-word match on all tokens: [garlic]
+7309,garlic,0.667,cup,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,medium,[matched] whole-word match on all tokens: [garlic]
+7309,garlic,0.667,cup,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,[matched] whole-word match on all tokens: [garlic]
+7309,garlic,0.667,cup,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,medium,[matched] whole-word match on all tokens: [garlic]
+7309,garlic,0.667,cup,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,medium,[matched] whole-word match on all tokens: [garlic]
+7310,large white onions,4,ea,1,vendor_prices,"TORTILLA, CORN 6"" WHITE",shamrock,pk,0.05751851851851852,low,"[matched] whole-word match on token ""white"""
+7310,large white onions,4,ea,2,vendor_prices,"ONION, YLW JMBO #2 BAG",shamrock,lb,0.32420000000000004,low,"[matched] whole-word match on token ""onion"""
+7310,large white onions,4,ea,3,vendor_prices,"ONION, WHT WHL JMBO 50LB REFRIG FRSH",shamrock,lb,0.6156,low,"[matched] whole-word match on token ""onion"""
+7310,large white onions,4,ea,4,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] whole-word match on token ""white"""
+7310,large white onions,4,ea,5,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""onion"""
+7311,jalapenos,8,ea,1,vendor_prices,Pepper Jalapeno Fresh,sysco,lb,3.195,medium,[matched] whole-word match on all tokens: [jalapeno]
+7312,garlic cloves,20,ea,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,"[matched] whole-word match on all tokens: [garlic, clove]"
+7312,garlic cloves,20,ea,2,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,"[matched] whole-word match on all tokens: [garlic, clove]"
+7313,whole tomatillos,3,#10 can,1,vendor_prices,"TOMATILLO, IMP CAN WHOLE",shamrock,cs,34.25,medium,"[matched] whole-word match on all tokens: [whole, tomatillo]"
+7314,salt,3,tbsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,[matched] whole-word match on all tokens: [salt]
+7314,salt,3,tbsp,2,vendor_prices,"SPICE, CELERY SALT",shamrock,cs,9.45,medium,[matched] whole-word match on all tokens: [salt]
+7314,salt,3,tbsp,3,vendor_prices,"SALT, SEA FLAKE MALDON",shamrock,lb,12.763636,medium,[matched] whole-word match on all tokens: [salt]
+7316,cumin,2,tsp,1,vendor_prices,"SPICE, CUMIN SEED GRND BULK",shamrock,lb,11.452,medium,[matched] whole-word match on all tokens: [cumin]
+7317,lime juice,0.5,cup,1,vendor_prices,Juice Lime Pasteurized Ultra Premium,sysco,qt,2.55,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7317,lime juice,0.5,cup,2,vendor_prices,"JUICE, LIME FRSH SQZ",shamrock,gal,12.7975,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7318,agave,1,tbsp,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7319,green chile,0.333,cup,1,vendor_prices,Chile Green Hatch Diced Mild,sysco,lb,2.158,medium,"[matched] whole-word match on all tokens: [green, chile]"
+7320,avocado,8,ea,1,vendor_prices,Avocado Hass Fresh,sysco,ct,1.53,medium,[matched] whole-word match on all tokens: [avocado]
+7320,avocado,8,ea,2,vendor_prices,"AVOCADO, BREAKER #1 40-48CT 2LYR",shamrock,lb,2.276,medium,[matched] whole-word match on all tokens: [avocado]
+7320,avocado,8,ea,3,vendor_prices,"AVOCADO, BREAKER #1 20-24CT 1LYR",shamrock,lb,3.383,medium,[matched] whole-word match on all tokens: [avocado]
+7321,mayonnaise,6,cup,1,vendor_prices,"MAYONNAISE, HVY DTY TUB",shamrock,lb,1.506,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7321,mayonnaise,6,cup,2,vendor_prices,Mayonnaise Heavy Duty Pail,sysco,lb,2.033929,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7321,mayonnaise,6,cup,3,vendor_prices,Mayonnaise Japanese 64 Ounces,sysco,oz,6.285,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7321,mayonnaise,6,cup,4,vendor_prices,"MAYONNAISE, KEWPIE",shamrock,cs,86.99,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7322,drained pickle relish,2.25,cup,1,vendor_prices,"RELISH, DILL",shamrock,ea,15.8,low,"[matched] whole-word match on token ""relish"""
+7322,drained pickle relish,2.25,cup,2,vendor_prices,"RELISH, PICKLE SWT FANCY",shamrock,ea,18.42,low,"[matched] whole-word match on token ""pickle"""
+7322,drained pickle relish,2.25,cup,3,vendor_prices,"PICKLE, SWT CC .31"" REFRIG 2GAL",shamrock,cs,23.88,low,"[matched] whole-word match on token ""pickle"""
+7322,drained pickle relish,2.25,cup,4,vendor_prices,"PICKLE, DILL CHIP .31"" 5GAL PAIL",shamrock,cs,49.13,low,"[matched] whole-word match on token ""pickle"""
+7322,drained pickle relish,2.25,cup,5,vendor_prices,"PICKLE, CHIP BREAD & BTR",shamrock,cs,63.31,low,"[matched] whole-word match on token ""pickle"""
+7323,buttermilk,0.75,cup,1,vendor_prices,Buttermilk Whole Qt,sysco,qt,1.365654,medium,[matched] whole-word match on all tokens: [buttermilk]
+7323,buttermilk,0.75,cup,2,vendor_prices,"BUTTERMILK, 1% LF",shamrock,cs,20.89,medium,[matched] whole-word match on all tokens: [buttermilk]
+7324,prepared horseradish,0.25,cup,1,vendor_prices,"HORSERADISH, PREPARED XHOT",shamrock,cs,41.42,medium,"[matched] whole-word match on all tokens: [prepared, horseradish]"
+7325,spicy brown mustard,0.25,cup,1,vendor_prices,"MUSTARD, CLASC SQZ BTL RIGHT SIDE UP",shamrock,oz,0.19726562499999997,low,"[matched] whole-word match on token ""mustard"""
+7325,spicy brown mustard,0.25,cup,2,vendor_prices,"SPICE, MUSTARD SEED GRND",shamrock,oz,0.6071428571428571,low,"[matched] whole-word match on token ""mustard"""
+7325,spicy brown mustard,0.25,cup,3,vendor_prices,Sugar Brown Light Cane,sysco,lb,1.541667,low,"[matched] whole-word match on token ""brown"""
+7325,spicy brown mustard,0.25,cup,4,vendor_prices,"HASHBROWN, DICED SIGNATURE",shamrock,lb,1.912,low,"[matched] substring match on token ""brown"""
+7325,spicy brown mustard,0.25,cup,5,vendor_prices,"MUSTARD, YLW CLASSIC 105Z JAR",shamrock,cs,23.34,low,"[matched] whole-word match on token ""mustard"""
+7326,apple cider vinegar,0.75,cup,1,vendor_prices,"VINEGAR, APPLE CIDER",shamrock,cs,43.18,medium,"[matched] whole-word match on all tokens: [apple, cider, vinegar]"
+7327,sugar,3,tbsp,1,vendor_prices,Sugar Granulated Extra Fine Cane,sysco,lb,0.7998,medium,[matched] whole-word match on all tokens: [sugar]
+7327,sugar,3,tbsp,2,vendor_prices,"SUGAR, WHT CANE GRANLTD X FINE BAG",shamrock,lb,0.8506,medium,[matched] whole-word match on all tokens: [sugar]
+7327,sugar,3,tbsp,3,vendor_prices,Sugar Brown Light Cane,sysco,lb,1.541667,medium,[matched] whole-word match on all tokens: [sugar]
+7327,sugar,3,tbsp,4,vendor_prices,"SUGAR, PWDRED CANE 10X",shamrock,lb,1.710312,medium,[matched] whole-word match on all tokens: [sugar]
+7327,sugar,3,tbsp,5,vendor_prices,"SUGAR, TURBINADO RAW BULK",shamrock,lb,2.809583,medium,[matched] whole-word match on all tokens: [sugar]
+7328,kosher salt,2,tbsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,"[matched] whole-word match on all tokens: [kosher, salt]"
+7330,green cabbage,10,qt,1,vendor_prices,"CUP, COLD PLS 16Z CLR GREEN STRIPE",shamrock,pk,0.21234,low,"[matched] whole-word match on token ""green"""
+7330,green cabbage,10,qt,2,vendor_prices,"CABBAGE, COLESLAW SHRED",shamrock,lb,1.0195,low,"[matched] whole-word match on token ""cabbage"""
+7330,green cabbage,10,qt,3,vendor_prices,"CABBAGE, RED SHRD",shamrock,lb,1.1245,low,"[matched] whole-word match on token ""cabbage"""
+7330,green cabbage,10,qt,4,vendor_prices,"CABBAGE, DEW DROP ARTISAN",shamrock,pk,1.2308333333333332,low,"[matched] whole-word match on token ""cabbage"""
+7330,green cabbage,10,qt,5,vendor_prices,Lettuce Greens Leaf Fresh,sysco,ct,1.314046,low,"[matched] substring match on token ""green"""
+7331,scallion greens,3,cup,1,vendor_prices,"CUP, COLD PLS 16Z CLR GREEN STRIPE",shamrock,pk,0.21234,low,"[matched] whole-word match on token ""green"""
+7331,scallion greens,3,cup,2,vendor_prices,Lettuce Greens Leaf Fresh,sysco,ct,1.314046,low,"[matched] substring match on token ""green"""
+7331,scallion greens,3,cup,3,vendor_prices,Chile Green Hatch Diced Mild,sysco,lb,2.158,low,"[matched] whole-word match on token ""green"""
+7332,scallion whites,3,cup,1,vendor_prices,"TORTILLA, CORN 6"" WHITE",shamrock,pk,0.05751851851851852,low,"[matched] whole-word match on token ""white"""
+7332,scallion whites,3,cup,2,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] whole-word match on token ""white"""
+7332,scallion whites,3,cup,3,vendor_prices,Tortilla Corn White 4.5 Inch,sysco,ct,1.752191,low,"[matched] whole-word match on token ""white"""
+7332,scallion whites,3,cup,4,vendor_prices,Corn White Fresh,sysco,ct,3.225129,low,"[matched] whole-word match on token ""white"""
+7332,scallion whites,3,cup,5,vendor_prices,Cheese American Loaf Special Melting White,sysco,lb,3.389667,low,"[matched] whole-word match on token ""white"""
+7333,butter,3,lb,1,vendor_prices,"BUTTER, SOLID UNSLTD EURO STYL AA",shamrock,lb,3.429444,medium,[matched] whole-word match on all tokens: [butter]
+7333,butter,3,lb,2,vendor_prices,"BUTTER, SOLID UNSLTD AA",shamrock,lb,3.4956666666666667,medium,[matched] whole-word match on all tokens: [butter]
+7333,butter,3,lb,3,vendor_prices,Butter Solid Unsalted 83% Minimum Butterfat European,sysco,lb,3.923889,medium,[matched] whole-word match on all tokens: [butter]
+7333,butter,3,lb,4,vendor_prices,"BUTTER, CLARIFIED TUB",shamrock,lb,4.9345,medium,[matched] whole-word match on all tokens: [butter]
+7333,butter,3,lb,5,vendor_prices,"BUTTER, EURO SLTD CULTURED 1LB ROLL",shamrock,lb,8.099166666666667,medium,[matched] whole-word match on all tokens: [butter]
+7334,parsley,100,g,1,vendor_prices,"HERB, PARSLEY W&T",shamrock,ea,8.03,medium,[matched] whole-word match on all tokens: [parsley]
+7334,parsley,100,g,2,vendor_prices,"HERB, FRSH PARSLEY ITAL FLAT",shamrock,lb,11.56,medium,[matched] whole-word match on all tokens: [parsley]
+7335,thyme,100,g,1,vendor_prices,"HERB, THYME",shamrock,cs,6.76,medium,[matched] whole-word match on all tokens: [thyme]
+7335,thyme,100,g,2,vendor_prices,"HERB, THYME 1LB",shamrock,lb,12.24,medium,[matched] whole-word match on all tokens: [thyme]
+7336,rosemary,100,g,1,vendor_prices,"HERB, ROSEMARY 1LB",shamrock,lb,11.67,medium,[matched] whole-word match on all tokens: [rosemary]
+7336,rosemary,100,g,2,vendor_prices,"HERB, FRSH ROSEMARY 4Z LINER REFRIG FRSH",shamrock,lb,24.48,medium,[matched] whole-word match on all tokens: [rosemary]
+7337,tarragon,100,g,1,vendor_prices,"HERB, FRSH TARRAGON 4Z REFRIG FRSH",shamrock,cs,8.13,medium,[matched] whole-word match on all tokens: [tarragon]
+7338,honey,1,lb,1,vendor_prices,"HONEY, LT AMBER GRD A 5LB JUG",shamrock,lb,3.5596666666666668,medium,[matched] whole-word match on all tokens: [honey]
+7339,butter,3,lb,1,vendor_prices,"BUTTER, SOLID UNSLTD EURO STYL AA",shamrock,lb,3.429444,medium,[matched] whole-word match on all tokens: [butter]
+7339,butter,3,lb,2,vendor_prices,"BUTTER, SOLID UNSLTD AA",shamrock,lb,3.4956666666666667,medium,[matched] whole-word match on all tokens: [butter]
+7339,butter,3,lb,3,vendor_prices,Butter Solid Unsalted 83% Minimum Butterfat European,sysco,lb,3.923889,medium,[matched] whole-word match on all tokens: [butter]
+7339,butter,3,lb,4,vendor_prices,"BUTTER, CLARIFIED TUB",shamrock,lb,4.9345,medium,[matched] whole-word match on all tokens: [butter]
+7339,butter,3,lb,5,vendor_prices,"BUTTER, EURO SLTD CULTURED 1LB ROLL",shamrock,lb,8.099166666666667,medium,[matched] whole-word match on all tokens: [butter]
+7340,red cabbage,5,lb,1,vendor_prices,"CABBAGE, RED SHRD",shamrock,lb,1.1245,medium,"[matched] whole-word match on all tokens: [red, cabbage]"
+7342,lime juice,1,tbsp,1,vendor_prices,Juice Lime Pasteurized Ultra Premium,sysco,qt,2.55,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7342,lime juice,1,tbsp,2,vendor_prices,"JUICE, LIME FRSH SQZ",shamrock,gal,12.7975,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7343,parsley,100,g,1,vendor_prices,"HERB, PARSLEY W&T",shamrock,ea,8.03,medium,[matched] whole-word match on all tokens: [parsley]
+7343,parsley,100,g,2,vendor_prices,"HERB, FRSH PARSLEY ITAL FLAT",shamrock,lb,11.56,medium,[matched] whole-word match on all tokens: [parsley]
+7344,thyme,100,g,1,vendor_prices,"HERB, THYME",shamrock,cs,6.76,medium,[matched] whole-word match on all tokens: [thyme]
+7344,thyme,100,g,2,vendor_prices,"HERB, THYME 1LB",shamrock,lb,12.24,medium,[matched] whole-word match on all tokens: [thyme]
+7345,rosemary,100,g,1,vendor_prices,"HERB, ROSEMARY 1LB",shamrock,lb,11.67,medium,[matched] whole-word match on all tokens: [rosemary]
+7345,rosemary,100,g,2,vendor_prices,"HERB, FRSH ROSEMARY 4Z LINER REFRIG FRSH",shamrock,lb,24.48,medium,[matched] whole-word match on all tokens: [rosemary]
+7346,calabrian chile,100,g,1,vendor_prices,"SPICE, CHILE PWDR CHIPOTLE 18Z",shamrock,oz,0.7566666666666666,low,"[matched] whole-word match on token ""chile"""
+7346,calabrian chile,100,g,2,vendor_prices,"CHILE, HATCH MILD GRN DICED 1/2"" RSTD",shamrock,lb,1.416,low,"[matched] whole-word match on token ""chile"""
+7346,calabrian chile,100,g,3,vendor_prices,"PEPPER, CHILE HATCH 1/2"" GRN MILD DICED",shamrock,lb,1.436,low,"[matched] whole-word match on token ""chile"""
+7346,calabrian chile,100,g,4,vendor_prices,Chile Green Hatch Diced Mild,sysco,lb,2.158,low,"[matched] whole-word match on token ""chile"""
+7346,calabrian chile,100,g,5,vendor_prices,"PEPPER, CHILE GUAJILLO STEMLESS DRIED",shamrock,lb,4.8556,low,"[matched] whole-word match on token ""chile"""
+7347,evoo,300,g,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7349,garlic cloves,8,ea,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,"[matched] whole-word match on all tokens: [garlic, clove]"
+7349,garlic cloves,8,ea,2,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,"[matched] whole-word match on all tokens: [garlic, clove]"
+7350,parsley,3,cup,1,vendor_prices,"HERB, PARSLEY W&T",shamrock,ea,8.03,medium,[matched] whole-word match on all tokens: [parsley]
+7350,parsley,3,cup,2,vendor_prices,"HERB, FRSH PARSLEY ITAL FLAT",shamrock,lb,11.56,medium,[matched] whole-word match on all tokens: [parsley]
+7351,cilantro,3,cup,1,vendor_prices,Cilantro Bunch Iceless,sysco,ct,2.80625,medium,[matched] whole-word match on all tokens: [cilantro]
+7351,cilantro,3,cup,2,vendor_prices,"HERB, CILANTRO BUNCH ICELESS",shamrock,cs,20.43,medium,[matched] whole-word match on all tokens: [cilantro]
+7352,buttermilk,1,qt,1,vendor_prices,Buttermilk Whole Qt,sysco,qt,1.365654,medium,[matched] whole-word match on all tokens: [buttermilk]
+7352,buttermilk,1,qt,2,vendor_prices,"BUTTERMILK, 1% LF",shamrock,cs,20.89,medium,[matched] whole-word match on all tokens: [buttermilk]
+7353,mayonnaise,1,qt,1,vendor_prices,"MAYONNAISE, HVY DTY TUB",shamrock,lb,1.506,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7353,mayonnaise,1,qt,2,vendor_prices,Mayonnaise Heavy Duty Pail,sysco,lb,2.033929,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7353,mayonnaise,1,qt,3,vendor_prices,Mayonnaise Japanese 64 Ounces,sysco,oz,6.285,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7353,mayonnaise,1,qt,4,vendor_prices,"MAYONNAISE, KEWPIE",shamrock,cs,86.99,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7354,sour cream,1,qt,1,vendor_prices,"SOUR CREAM, NATURAL 5LB",shamrock,lb,1.332,medium,"[matched] whole-word match on all tokens: [sour, cream]"
+7354,sour cream,1,qt,2,vendor_prices,"SOUR CREAM, CREMA MEXICANA 5LB",shamrock,lb,1.476,medium,"[matched] whole-word match on all tokens: [sour, cream]"
+7355,lemons,8,ea,1,vendor_prices,"LEMON, CHO 140CT",shamrock,pk,0.2998571428571428,medium,[matched] whole-word match on all tokens: [lemon]
+7355,lemons,8,ea,2,vendor_prices,"LEMON, FANCY 140CT",shamrock,ea,0.35464285714285715,medium,[matched] whole-word match on all tokens: [lemon]
+7355,lemons,8,ea,3,vendor_prices,"JUICE, LEMON FRSH SQZ",shamrock,gal,12.3525,medium,[matched] whole-word match on all tokens: [lemon]
+7355,lemons,8,ea,4,vendor_prices,Juice Lemon Pasteurized Ultra Premium,sysco,gal,16.796667,medium,[matched] whole-word match on all tokens: [lemon]
+7356,olive oil,4,tbsp,1,vendor_prices,Oil Olive Pomace Tin,sysco,gal,3.731356,medium,"[matched] whole-word match on all tokens: [olive, oil]"
+7357,bleu cheese crumbles,2,cup,1,vendor_prices,Cheese Cotija Random Cut,sysco,lb,0.486886,low,"[matched] whole-word match on token ""cheese"""
+7357,bleu cheese crumbles,2,cup,2,vendor_prices,"CHEESE, CHDR JACK SHRD FCY WI",shamrock,lb,2.723,low,"[matched] whole-word match on token ""cheese"""
+7357,bleu cheese crumbles,2,cup,3,vendor_prices,Cheese Cheddar Jack Fancy Shredded,sysco,lb,2.7615,low,"[matched] whole-word match on token ""cheese"""
+7357,bleu cheese crumbles,2,cup,4,vendor_prices,"CHEESE, PROV LOAF REFRIG",shamrock,lb,2.79,low,"[matched] whole-word match on token ""cheese"""
+7357,bleu cheese crumbles,2,cup,5,vendor_prices,Cheese Ricotta Unwhipped Part Skim,sysco,lb,2.795,low,"[matched] whole-word match on token ""cheese"""
+7358,salt,1,tbsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,[matched] whole-word match on all tokens: [salt]
+7358,salt,1,tbsp,2,vendor_prices,"SPICE, CELERY SALT",shamrock,cs,9.45,medium,[matched] whole-word match on all tokens: [salt]
+7358,salt,1,tbsp,3,vendor_prices,"SALT, SEA FLAKE MALDON",shamrock,lb,12.763636,medium,[matched] whole-word match on all tokens: [salt]
+7360,garlic,2,tsp,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,[matched] whole-word match on all tokens: [garlic]
+7360,garlic,2,tsp,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,medium,[matched] whole-word match on all tokens: [garlic]
+7360,garlic,2,tsp,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,[matched] whole-word match on all tokens: [garlic]
+7360,garlic,2,tsp,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,medium,[matched] whole-word match on all tokens: [garlic]
+7360,garlic,2,tsp,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,medium,[matched] whole-word match on all tokens: [garlic]
+7361,lemons,4,ea,1,vendor_prices,"LEMON, CHO 140CT",shamrock,pk,0.2998571428571428,medium,[matched] whole-word match on all tokens: [lemon]
+7361,lemons,4,ea,2,vendor_prices,"LEMON, FANCY 140CT",shamrock,ea,0.35464285714285715,medium,[matched] whole-word match on all tokens: [lemon]
+7361,lemons,4,ea,3,vendor_prices,"JUICE, LEMON FRSH SQZ",shamrock,gal,12.3525,medium,[matched] whole-word match on all tokens: [lemon]
+7361,lemons,4,ea,4,vendor_prices,Juice Lemon Pasteurized Ultra Premium,sysco,gal,16.796667,medium,[matched] whole-word match on all tokens: [lemon]
+7363,evoo,2,cup,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7364,canola oil,2,cup,1,vendor_prices,"OIL, CANOLA CLR FRY ZTF",shamrock,lb,1.086,medium,"[matched] whole-word match on all tokens: [canola, oil]"
+7365,honey,1,cup,1,vendor_prices,"HONEY, LT AMBER GRD A 5LB JUG",shamrock,lb,3.5596666666666668,medium,[matched] whole-word match on all tokens: [honey]
+7366,dijon mustard,3,tbsp,1,vendor_prices,"MUSTARD, DIJON ORIG SMOOTH",shamrock,ea,31.39,medium,"[matched] whole-word match on all tokens: [dijon, mustard]"
+7367,dry thyme,2,tsp,1,vendor_prices,"MIX, PANCAKE & WAFFLE BTRMLK WESTERN DRY",shamrock,lb,1.4216666666666666,low,"[matched] whole-word match on token ""dry"""
+7367,dry thyme,2,tsp,2,vendor_prices,"HERB, THYME",shamrock,cs,6.76,low,"[matched] whole-word match on token ""thyme"""
+7367,dry thyme,2,tsp,3,vendor_prices,"HERB, THYME 1LB",shamrock,lb,12.24,low,"[matched] whole-word match on token ""thyme"""
+7367,dry thyme,2,tsp,4,vendor_prices,"WRAP, FOOD PAPR DRY WAX 12X12 WHT GREASE",shamrock,cs,136.93,low,"[matched] whole-word match on token ""dry"""
+7369,kosher salt,4,tsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,"[matched] whole-word match on all tokens: [kosher, salt]"
+7370,sweet corn kernels,2,qt,1,vendor_prices,"TORTILLA, CORN 6"" WHITE",shamrock,pk,0.05751851851851852,low,"[matched] whole-word match on token ""corn"""
+7370,sweet corn kernels,2,qt,2,vendor_prices,"TORTILLA, CORN 6"" YLW",shamrock,pk,0.058041666666666665,low,"[matched] whole-word match on token ""corn"""
+7370,sweet corn kernels,2,qt,3,vendor_prices,"MIX, CORNBREAD GF",shamrock,oz,0.32908333333333334,low,"[matched] substring match on token ""corn"""
+7370,sweet corn kernels,2,qt,4,vendor_prices,Corn Meal Yellow,sysco,lb,0.678,low,"[matched] whole-word match on token ""corn"""
+7370,sweet corn kernels,2,qt,5,vendor_prices,"CHIP, TORTILLA CORN YLW RAW 4 CUT",shamrock,lb,0.884375,low,"[matched] whole-word match on token ""corn"""
+7371,cooked black beans,1,qt,1,vendor_prices,"CRAYON, SOYBEAN 4CT BLUE GRN RED YL",shamrock,pk,0.06272,low,"[matched] substring match on token ""bean"""
+7371,cooked black beans,1,qt,2,vendor_prices,"BEAN, PINTO PREWASHED",shamrock,lb,0.7268000000000001,low,"[matched] whole-word match on token ""bean"""
+7371,cooked black beans,1,qt,3,vendor_prices,"BEAN, BLK FCY CAN SHLF STABLE UNSEASN",shamrock,cn,0.7975,low,"[matched] whole-word match on token ""bean"""
+7371,cooked black beans,1,qt,4,vendor_prices,Bean Black,sysco,ct,0.977697,low,"[matched] whole-word match on token ""black"""
+7371,cooked black beans,1,qt,5,vendor_prices,"EGG, COOKED PLD WHL CAGE FREE P12CE",shamrock,lb,4.442,low,"[matched] whole-word match on token ""cooked"""
+7372,diced red onion,0.5,cup,1,vendor_prices,"CRAYON, SOYBEAN 4CT BLUE GRN RED YL",shamrock,pk,0.06272,low,"[matched] whole-word match on token ""red"""
+7372,diced red onion,0.5,cup,2,vendor_prices,"ONION, YLW JMBO #2 BAG",shamrock,lb,0.32420000000000004,low,"[matched] whole-word match on token ""onion"""
+7372,diced red onion,0.5,cup,3,vendor_prices,Potato Red B Size Carton,sysco,lb,0.5384,low,"[matched] whole-word match on token ""red"""
+7372,diced red onion,0.5,cup,4,vendor_prices,"ONION, WHT WHL JMBO 50LB REFRIG FRSH",shamrock,lb,0.6156,low,"[matched] whole-word match on token ""onion"""
+7372,diced red onion,0.5,cup,5,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] substring match on token ""onion"""
+7373,diced bell pepper,1,cup,1,vendor_prices,"PEPPER, BELL RED DICED SWT",shamrock,cs,64.75,medium,"[matched] whole-word match on all tokens: [diced, bell, pepper]"
+7374,jalapenos,4,ea,1,vendor_prices,Pepper Jalapeno Fresh,sysco,lb,3.195,medium,[matched] whole-word match on all tokens: [jalapeno]
+7375,cilantro,1,bunch,1,vendor_prices,Cilantro Bunch Iceless,sysco,ct,2.80625,medium,[matched] whole-word match on all tokens: [cilantro]
+7375,cilantro,1,bunch,2,vendor_prices,"HERB, CILANTRO BUNCH ICELESS",shamrock,cs,20.43,medium,[matched] whole-word match on all tokens: [cilantro]
+7376,minced garlic,2,tbsp,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,low,"[matched] whole-word match on token ""garlic"""
+7376,minced garlic,2,tbsp,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,low,"[matched] whole-word match on token ""garlic"""
+7376,minced garlic,2,tbsp,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,low,"[matched] whole-word match on token ""garlic"""
+7376,minced garlic,2,tbsp,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,low,"[matched] whole-word match on token ""garlic"""
+7376,minced garlic,2,tbsp,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,low,"[matched] whole-word match on token ""garlic"""
+7377,lime juice,0.5,cup,1,vendor_prices,Juice Lime Pasteurized Ultra Premium,sysco,qt,2.55,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7377,lime juice,0.5,cup,2,vendor_prices,"JUICE, LIME FRSH SQZ",shamrock,gal,12.7975,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7378,red wine vinegar,2,tbsp,1,vendor_prices,"VINEGAR, WINE RED 5% JUG",shamrock,cs,45.57,medium,"[matched] whole-word match on all tokens: [red, wine, vinegar]"
+7379,red chili flakes,0.5,tbsp,1,vendor_prices,"CRAYON, SOYBEAN 4CT BLUE GRN RED YL",shamrock,pk,0.06272,low,"[matched] whole-word match on token ""red"""
+7379,red chili flakes,0.5,tbsp,2,vendor_prices,Potato Red B Size Carton,sysco,lb,0.5384,low,"[matched] whole-word match on token ""red"""
+7379,red chili flakes,0.5,tbsp,3,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""red"""
+7379,red chili flakes,0.5,tbsp,4,vendor_prices,"CABBAGE, COLESLAW SHRED",shamrock,lb,1.0195,low,"[matched] substring match on token ""red"""
+7379,red chili flakes,0.5,tbsp,5,vendor_prices,"CABBAGE, RED SHRD",shamrock,lb,1.1245,low,"[matched] whole-word match on token ""red"""
+7380,cumin,1,tbsp,1,vendor_prices,"SPICE, CUMIN SEED GRND BULK",shamrock,lb,11.452,medium,[matched] whole-word match on all tokens: [cumin]
+7381,kosher salt,1,tbsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,"[matched] whole-word match on all tokens: [kosher, salt]"
+7382,olive oil,2,tbsp,1,vendor_prices,Oil Olive Pomace Tin,sysco,gal,3.731356,medium,"[matched] whole-word match on all tokens: [olive, oil]"
+7383,orange juice,2,cup,1,vendor_prices,Juice Orange Pasteurized Ultra Premium,sysco,gal,1.666189,medium,"[matched] whole-word match on all tokens: [orange, juice]"
+7384,lime juice,2,cup,1,vendor_prices,Juice Lime Pasteurized Ultra Premium,sysco,qt,2.55,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7384,lime juice,2,cup,2,vendor_prices,"JUICE, LIME FRSH SQZ",shamrock,gal,12.7975,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7385,cumin,0.25,cup,1,vendor_prices,"SPICE, CUMIN SEED GRND BULK",shamrock,lb,11.452,medium,[matched] whole-word match on all tokens: [cumin]
+7386,adobo seasoning,0.25,cup,1,vendor_prices,Pepper Chipotle Adobo Sauce,sysco,oz,5.647619,low,"[matched] whole-word match on token ""adobo"""
+7386,adobo seasoning,0.25,cup,2,vendor_prices,"SEASONING, OLD BAY",shamrock,ea,19.17,low,"[matched] whole-word match on token ""seasoning"""
+7386,adobo seasoning,0.25,cup,3,vendor_prices,"PEPPER, CHIPOTLE WHL IN ADOBO SCE",shamrock,cs,22.42,low,"[matched] whole-word match on token ""adobo"""
+7386,adobo seasoning,0.25,cup,4,vendor_prices,"SAUCE, ADOBO",shamrock,cs,37.75,low,"[matched] whole-word match on token ""adobo"""
+7386,adobo seasoning,0.25,cup,5,vendor_prices,"PEPPER, CHIPOTLE IN ADOBO SCE",shamrock,cs,85.07,low,"[matched] whole-word match on token ""adobo"""
+7389,garlic powder,0.25,cup,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,low,"[matched] whole-word match on token ""garlic"""
+7389,garlic powder,0.25,cup,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,low,"[matched] whole-word match on token ""garlic"""
+7389,garlic powder,0.25,cup,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,low,"[matched] whole-word match on token ""garlic"""
+7389,garlic powder,0.25,cup,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,low,"[matched] whole-word match on token ""garlic"""
+7389,garlic powder,0.25,cup,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,low,"[matched] whole-word match on token ""garlic"""
+7390,cilantro,1,bunch,1,vendor_prices,Cilantro Bunch Iceless,sysco,ct,2.80625,medium,[matched] whole-word match on all tokens: [cilantro]
+7390,cilantro,1,bunch,2,vendor_prices,"HERB, CILANTRO BUNCH ICELESS",shamrock,cs,20.43,medium,[matched] whole-word match on all tokens: [cilantro]
+7391,honey,1,cup,1,vendor_prices,"HONEY, LT AMBER GRD A 5LB JUG",shamrock,lb,3.5596666666666668,medium,[matched] whole-word match on all tokens: [honey]
+7392,yellow mustard,1,cup,1,vendor_prices,"MUSTARD, CLASC SQZ BTL RIGHT SIDE UP",shamrock,oz,0.19726562499999997,low,"[matched] whole-word match on token ""mustard"""
+7392,yellow mustard,1,cup,2,vendor_prices,"SPICE, MUSTARD SEED GRND",shamrock,oz,0.6071428571428571,low,"[matched] whole-word match on token ""mustard"""
+7392,yellow mustard,1,cup,3,vendor_prices,Corn Meal Yellow,sysco,lb,0.678,low,"[matched] whole-word match on token ""yellow"""
+7392,yellow mustard,1,cup,4,vendor_prices,Chip Tortilla Yellow 4 Inches Cut,sysco,lb,1.211475,low,"[matched] whole-word match on token ""yellow"""
+7392,yellow mustard,1,cup,5,vendor_prices,Corn Yellow Roasted Blend,sysco,lb,3.459333,low,"[matched] whole-word match on token ""yellow"""
+7393,mayonnaise,0.75,cup,1,vendor_prices,"MAYONNAISE, HVY DTY TUB",shamrock,lb,1.506,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7393,mayonnaise,0.75,cup,2,vendor_prices,Mayonnaise Heavy Duty Pail,sysco,lb,2.033929,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7393,mayonnaise,0.75,cup,3,vendor_prices,Mayonnaise Japanese 64 Ounces,sysco,oz,6.285,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7393,mayonnaise,0.75,cup,4,vendor_prices,"MAYONNAISE, KEWPIE",shamrock,cs,86.99,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7394,cayenne,1,tsp,1,vendor_prices,"SPICE, PEPPER CAYENNE BULK",shamrock,lb,10.438,medium,[matched] whole-word match on all tokens: [cayenne]
+7395,cracked pepper,0.25,tsp,1,vendor_prices,"SPICE, PEPPER BLK CRACKED BULK",shamrock,lb,15.392,medium,"[matched] whole-word match on all tokens: [cracked, pepper]"
+7396,water,2.5,qt,1,none,,,,,none,[house] house tap — no vendor mapping
+7397,white vinegar,1,qt,1,vendor_prices,"TORTILLA, CORN 6"" WHITE",shamrock,pk,0.05751851851851852,low,"[matched] whole-word match on token ""white"""
+7397,white vinegar,1,qt,2,vendor_prices,"VINEGAR, MALT",shamrock,oz,0.24395833333333336,low,"[matched] whole-word match on token ""vinegar"""
+7397,white vinegar,1,qt,3,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] whole-word match on token ""white"""
+7397,white vinegar,1,qt,4,vendor_prices,Tortilla Corn White 4.5 Inch,sysco,ct,1.752191,low,"[matched] whole-word match on token ""white"""
+7397,white vinegar,1,qt,5,vendor_prices,Corn White Fresh,sysco,ct,3.225129,low,"[matched] whole-word match on token ""white"""
+7398,salt,0.25,cup,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,[matched] whole-word match on all tokens: [salt]
+7398,salt,0.25,cup,2,vendor_prices,"SPICE, CELERY SALT",shamrock,cs,9.45,medium,[matched] whole-word match on all tokens: [salt]
+7398,salt,0.25,cup,3,vendor_prices,"SALT, SEA FLAKE MALDON",shamrock,lb,12.763636,medium,[matched] whole-word match on all tokens: [salt]
+7399,red pepper,20,g,1,vendor_prices,Pepper Red Diced Fancy,sysco,ct,3.684332,medium,"[matched] whole-word match on all tokens: [red, pepper]"
+7399,red pepper,20,g,2,vendor_prices,"PEPPER, RED WHL FIRE RSTD IMP",shamrock,cs,37.81,medium,"[matched] whole-word match on all tokens: [red, pepper]"
+7399,red pepper,20,g,3,vendor_prices,"SPICE, PEPPER RED CRSH BULK",shamrock,cs,42.47,medium,"[matched] whole-word match on all tokens: [red, pepper]"
+7399,red pepper,20,g,4,vendor_prices,"PEPPER, BELL RED DICED SWT",shamrock,cs,64.75,medium,"[matched] whole-word match on all tokens: [red, pepper]"
+7400,garlic,1000,g,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,[matched] whole-word match on all tokens: [garlic]
+7400,garlic,1000,g,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,medium,[matched] whole-word match on all tokens: [garlic]
+7400,garlic,1000,g,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,[matched] whole-word match on all tokens: [garlic]
+7400,garlic,1000,g,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,medium,[matched] whole-word match on all tokens: [garlic]
+7400,garlic,1000,g,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,medium,[matched] whole-word match on all tokens: [garlic]
+7401,dill,30,g,1,vendor_prices,"HERB, DILL BABY",shamrock,cs,8.18,medium,[matched] whole-word match on all tokens: [dill]
+7401,dill,30,g,2,vendor_prices,"HERB, FRSH DILL BABY",shamrock,lb,12.06,medium,[matched] whole-word match on all tokens: [dill]
+7401,dill,30,g,3,vendor_prices,"RELISH, DILL",shamrock,ea,15.8,medium,[matched] whole-word match on all tokens: [dill]
+7401,dill,30,g,4,vendor_prices,"PICKLE, DILL CHIP .31"" 5GAL PAIL",shamrock,cs,49.13,medium,[matched] whole-word match on all tokens: [dill]
+7402,chili powder,4,cup,1,vendor_prices,"SPICE, CHILI PWDR DRK BULK",shamrock,lb,8.961818,low,"[matched] whole-word match on token ""chili"""
+7402,chili powder,4,cup,2,vendor_prices,"SAUCE, CHILI SWEET",shamrock,cs,41.64,low,"[matched] whole-word match on token ""chili"""
+7403,cumin,1,cup,1,vendor_prices,"SPICE, CUMIN SEED GRND BULK",shamrock,lb,11.452,medium,[matched] whole-word match on all tokens: [cumin]
+7404,cinnamon,0.25,cup,1,vendor_prices,"CINNAMON, GRND",shamrock,oz,0.7125,medium,[matched] whole-word match on all tokens: [cinnamon]
+7405,black pepper,0.25,cup,1,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,medium,"[matched] whole-word match on all tokens: [black, pepper]"
+7406,whole cloves,0.25,cup,1,vendor_prices,Milk Whole Gallon,sysco,gal,0.590988,low,"[matched] whole-word match on token ""whole"""
+7406,whole cloves,0.25,cup,2,vendor_prices,Buttermilk Whole Qt,sysco,qt,1.365654,low,"[matched] whole-word match on token ""whole"""
+7406,whole cloves,0.25,cup,3,vendor_prices,Cheese Ricotta Con Latte - Whole Milk - 75% Tub,sysco,lb,3.299,low,"[matched] whole-word match on token ""whole"""
+7406,whole cloves,0.25,cup,4,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,low,"[matched] whole-word match on token ""clove"""
+7406,whole cloves,0.25,cup,5,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,low,"[matched] whole-word match on token ""clove"""
+7407,garlic cloves,8,ea,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,"[matched] whole-word match on all tokens: [garlic, clove]"
+7407,garlic cloves,8,ea,2,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,"[matched] whole-word match on all tokens: [garlic, clove]"
+7408,rosemary sprigs,2,ea,1,vendor_prices,"HERB, ROSEMARY 1LB",shamrock,lb,11.67,low,"[matched] whole-word match on token ""rosemary"""
+7408,rosemary sprigs,2,ea,2,vendor_prices,"HERB, FRSH ROSEMARY 4Z LINER REFRIG FRSH",shamrock,lb,24.48,low,"[matched] whole-word match on token ""rosemary"""
+7409,thyme sprigs,2,ea,1,vendor_prices,"HERB, THYME",shamrock,cs,6.76,low,"[matched] whole-word match on token ""thyme"""
+7409,thyme sprigs,2,ea,2,vendor_prices,"HERB, THYME 1LB",shamrock,lb,12.24,low,"[matched] whole-word match on token ""thyme"""
+7410,evoo,2,gal,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7411,beef cheeks,1,case,1,vendor_prices,Beef Cheek Meat,sysco,ea,0.164813,medium,"[matched] whole-word match on all tokens: [beef, cheek]"
+7411,beef cheeks,1,case,2,vendor_prices,"BEEF, CHEEK MEAT REFRIG",shamrock,lb,4.25,medium,"[matched] whole-word match on all tokens: [beef, cheek]"
+7412,birria seasoning,150,g,1,vendor_prices,"SEASONING, OLD BAY",shamrock,ea,19.17,low,"[matched] whole-word match on token ""seasoning"""
+7413,guajillo peppers,80,g,1,vendor_prices,"PEPPER, CHILE GUAJILLO STEMLESS DRIED",shamrock,lb,4.8556,medium,"[matched] whole-word match on all tokens: [guajillo, pepper]"
+7413,guajillo peppers,80,g,2,vendor_prices,"PEPPER, CHILE GUAJILLO DRIED",shamrock,lb,6.874,medium,"[matched] whole-word match on all tokens: [guajillo, pepper]"
+7413,guajillo peppers,80,g,3,vendor_prices,Pepper Chiles Guajillo Dried,sysco,lb,11.39,medium,"[matched] whole-word match on all tokens: [guajillo, pepper]"
+7414,white onion,4,ea,1,vendor_prices,"TORTILLA, CORN 6"" WHITE",shamrock,pk,0.05751851851851852,low,"[matched] whole-word match on token ""white"""
+7414,white onion,4,ea,2,vendor_prices,"ONION, YLW JMBO #2 BAG",shamrock,lb,0.32420000000000004,low,"[matched] whole-word match on token ""onion"""
+7414,white onion,4,ea,3,vendor_prices,"ONION, WHT WHL JMBO 50LB REFRIG FRSH",shamrock,lb,0.6156,low,"[matched] whole-word match on token ""onion"""
+7414,white onion,4,ea,4,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] whole-word match on token ""white"""
+7414,white onion,4,ea,5,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""onion"""
+7415,garlic,200,g,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,[matched] whole-word match on all tokens: [garlic]
+7415,garlic,200,g,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,medium,[matched] whole-word match on all tokens: [garlic]
+7415,garlic,200,g,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,[matched] whole-word match on all tokens: [garlic]
+7415,garlic,200,g,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,medium,[matched] whole-word match on all tokens: [garlic]
+7415,garlic,200,g,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,medium,[matched] whole-word match on all tokens: [garlic]
+7416,water,12,cup,1,none,,,,,none,[house] house tap — no vendor mapping
+7417,chicken base,16,oz,1,vendor_prices,Soup Base Chicken Real,sysco,lb,7.546667,medium,"[matched] whole-word match on all tokens: [chicken, base]"
+7418,achiote,200,g,1,vendor_prices,Achiote Paste,sysco,lb,5.985,medium,[matched] whole-word match on all tokens: [achiote]
+7418,achiote,200,g,2,vendor_prices,"PASTE, ACHIOTE",shamrock,lb,6.482,medium,[matched] whole-word match on all tokens: [achiote]
+7419,water,2.5,qt,1,none,,,,,none,[house] house tap — no vendor mapping
+7420,vinegar,1,qt,1,vendor_prices,"VINEGAR, MALT",shamrock,oz,0.24395833333333336,medium,[matched] whole-word match on all tokens: [vinegar]
+7420,vinegar,1,qt,2,vendor_prices,"VINEGAR, WHT 5% DISTILLED BTL",shamrock,cs,27.05,medium,[matched] whole-word match on all tokens: [vinegar]
+7420,vinegar,1,qt,3,vendor_prices,"VINEGAR, APPLE CIDER",shamrock,cs,43.18,medium,[matched] whole-word match on all tokens: [vinegar]
+7420,vinegar,1,qt,4,vendor_prices,"VINEGAR, WINE RED 5% JUG",shamrock,cs,45.57,medium,[matched] whole-word match on all tokens: [vinegar]
+7421,salt,0.25,cup,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,[matched] whole-word match on all tokens: [salt]
+7421,salt,0.25,cup,2,vendor_prices,"SPICE, CELERY SALT",shamrock,cs,9.45,medium,[matched] whole-word match on all tokens: [salt]
+7421,salt,0.25,cup,3,vendor_prices,"SALT, SEA FLAKE MALDON",shamrock,lb,12.763636,medium,[matched] whole-word match on all tokens: [salt]
+7422,sugar,1,cup,1,vendor_prices,Sugar Granulated Extra Fine Cane,sysco,lb,0.7998,medium,[matched] whole-word match on all tokens: [sugar]
+7422,sugar,1,cup,2,vendor_prices,"SUGAR, WHT CANE GRANLTD X FINE BAG",shamrock,lb,0.8506,medium,[matched] whole-word match on all tokens: [sugar]
+7422,sugar,1,cup,3,vendor_prices,Sugar Brown Light Cane,sysco,lb,1.541667,medium,[matched] whole-word match on all tokens: [sugar]
+7422,sugar,1,cup,4,vendor_prices,"SUGAR, PWDRED CANE 10X",shamrock,lb,1.710312,medium,[matched] whole-word match on all tokens: [sugar]
+7422,sugar,1,cup,5,vendor_prices,"SUGAR, TURBINADO RAW BULK",shamrock,lb,2.809583,medium,[matched] whole-word match on all tokens: [sugar]
+7423,red pepper,20,g,1,vendor_prices,Pepper Red Diced Fancy,sysco,ct,3.684332,medium,"[matched] whole-word match on all tokens: [red, pepper]"
+7423,red pepper,20,g,2,vendor_prices,"PEPPER, RED WHL FIRE RSTD IMP",shamrock,cs,37.81,medium,"[matched] whole-word match on all tokens: [red, pepper]"
+7423,red pepper,20,g,3,vendor_prices,"SPICE, PEPPER RED CRSH BULK",shamrock,cs,42.47,medium,"[matched] whole-word match on all tokens: [red, pepper]"
+7423,red pepper,20,g,4,vendor_prices,"PEPPER, BELL RED DICED SWT",shamrock,cs,64.75,medium,"[matched] whole-word match on all tokens: [red, pepper]"
+7424,garlic,100,g,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,[matched] whole-word match on all tokens: [garlic]
+7424,garlic,100,g,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,medium,[matched] whole-word match on all tokens: [garlic]
+7424,garlic,100,g,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,[matched] whole-word match on all tokens: [garlic]
+7424,garlic,100,g,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,medium,[matched] whole-word match on all tokens: [garlic]
+7424,garlic,100,g,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,medium,[matched] whole-word match on all tokens: [garlic]
+7425,dill,30,g,1,vendor_prices,"HERB, DILL BABY",shamrock,cs,8.18,medium,[matched] whole-word match on all tokens: [dill]
+7425,dill,30,g,2,vendor_prices,"HERB, FRSH DILL BABY",shamrock,lb,12.06,medium,[matched] whole-word match on all tokens: [dill]
+7425,dill,30,g,3,vendor_prices,"RELISH, DILL",shamrock,ea,15.8,medium,[matched] whole-word match on all tokens: [dill]
+7425,dill,30,g,4,vendor_prices,"PICKLE, DILL CHIP .31"" 5GAL PAIL",shamrock,cs,49.13,medium,[matched] whole-word match on all tokens: [dill]
+7426,eggs,1000,g,1,vendor_prices,"EGG, LIQ WHL CAGE FREE CRTN",shamrock,lb,2.531,medium,[matched] whole-word match on all tokens: [egg]
+7426,eggs,1000,g,2,vendor_prices,"EGG, LIQ SCRAMBLE CAGE FREE P12CE",shamrock,lb,2.895,medium,[matched] whole-word match on all tokens: [egg]
+7426,eggs,1000,g,3,vendor_prices,"EGG, COOKED PLD WHL CAGE FREE P12CE",shamrock,lb,4.442,medium,[matched] whole-word match on all tokens: [egg]
+7426,eggs,1000,g,4,vendor_prices,"EGG, HARD COOKED PLD WHL CAGE FREE",shamrock,cs,16.55,medium,[matched] whole-word match on all tokens: [egg]
+7426,eggs,1000,g,5,vendor_prices,"EGG, FRSH MED AA WHT LOOSE P12CE",shamrock,cs,20.2,medium,[matched] whole-word match on all tokens: [egg]
+7427,milk,1000,g,1,vendor_prices,Milk Whole Gallon,sysco,gal,0.590988,medium,[matched] whole-word match on all tokens: [milk]
+7427,milk,1000,g,2,vendor_prices,Milk Condensed Sweetened,sysco,oz,2.569048,medium,[matched] whole-word match on all tokens: [milk]
+7427,milk,1000,g,3,vendor_prices,Cheese Ricotta Con Latte - Whole Milk - 75% Tub,sysco,lb,3.299,medium,[matched] whole-word match on all tokens: [milk]
+7427,milk,1000,g,4,vendor_prices,"MILK, WHL 1GAL PLS",shamrock,gal,5.6,medium,[matched] whole-word match on all tokens: [milk]
+7427,milk,1000,g,5,vendor_prices,"MILK, WHT WHL 1GAL JUG REFRIG",shamrock,cs,17.53,medium,[matched] whole-word match on all tokens: [milk]
+7428,cinnamon,0.5,tsp,1,vendor_prices,"CINNAMON, GRND",shamrock,oz,0.7125,medium,[matched] whole-word match on all tokens: [cinnamon]
+7429,vanilla,1,tsp,1,vendor_prices,Pudding Vanilla Ready To Use,sysco,ct,1.927381,medium,[matched] whole-word match on all tokens: [vanilla]
+7429,vanilla,1,tsp,2,vendor_prices,"EXTRACT, VANILLA PURE",shamrock,oz,2.11375,medium,[matched] whole-word match on all tokens: [vanilla]
+7429,vanilla,1,tsp,3,vendor_prices,"COOKIE, WAFER VANILLA BULK",shamrock,lb,3.99,medium,[matched] whole-word match on all tokens: [vanilla]
+7429,vanilla,1,tsp,4,vendor_prices,"ICE CREAM, VANILLA 1GAL PAIL FZN",shamrock,cs,16.12,medium,[matched] whole-word match on all tokens: [vanilla]
+7429,vanilla,1,tsp,5,vendor_prices,"ICE CREAM, VANILLA 3GAL TUB",shamrock,cs,34.31,medium,[matched] whole-word match on all tokens: [vanilla]
+7430,sugar,1,tbsp,1,vendor_prices,Sugar Granulated Extra Fine Cane,sysco,lb,0.7998,medium,[matched] whole-word match on all tokens: [sugar]
+7430,sugar,1,tbsp,2,vendor_prices,"SUGAR, WHT CANE GRANLTD X FINE BAG",shamrock,lb,0.8506,medium,[matched] whole-word match on all tokens: [sugar]
+7430,sugar,1,tbsp,3,vendor_prices,Sugar Brown Light Cane,sysco,lb,1.541667,medium,[matched] whole-word match on all tokens: [sugar]
+7430,sugar,1,tbsp,4,vendor_prices,"SUGAR, PWDRED CANE 10X",shamrock,lb,1.710312,medium,[matched] whole-word match on all tokens: [sugar]
+7430,sugar,1,tbsp,5,vendor_prices,"SUGAR, TURBINADO RAW BULK",shamrock,lb,2.809583,medium,[matched] whole-word match on all tokens: [sugar]
+7431,nutmeg,0.25,tsp,1,vendor_prices,"SPICE, NUTMEG GRND",shamrock,cs,19.25,medium,[matched] whole-word match on all tokens: [nutmeg]
+7432,crushed tomatoes,10,can,1,vendor_prices,Tomatillo Crushed,sysco,can,0.91,low,"[matched] whole-word match on token ""crushed"""
+7432,crushed tomatoes,10,can,2,vendor_prices,"TOMATILLO, IMP CAN CRUSHED",shamrock,cs,39.19,low,"[matched] whole-word match on token ""crushed"""
+7432,crushed tomatoes,10,can,3,vendor_prices,"TOMATILLO, CRUSHED",shamrock,cs,51.13,low,"[matched] whole-word match on token ""crushed"""
+7433,unsalted butter,8,tbsp,1,vendor_prices,Butter Solid Unsalted 83% Minimum Butterfat European,sysco,lb,3.923889,medium,"[matched] whole-word match on all tokens: [unsalted, butter]"
+7434,yellow onion,3,ea,1,vendor_prices,"ONION, YLW JMBO #2 BAG",shamrock,lb,0.32420000000000004,low,"[matched] whole-word match on token ""onion"""
+7434,yellow onion,3,ea,2,vendor_prices,"ONION, WHT WHL JMBO 50LB REFRIG FRSH",shamrock,lb,0.6156,low,"[matched] whole-word match on token ""onion"""
+7434,yellow onion,3,ea,3,vendor_prices,Corn Meal Yellow,sysco,lb,0.678,low,"[matched] whole-word match on token ""yellow"""
+7434,yellow onion,3,ea,4,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] substring match on token ""onion"""
+7434,yellow onion,3,ea,5,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""onion"""
+7435,garlic,6,clove,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,[matched] whole-word match on all tokens: [garlic]
+7435,garlic,6,clove,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,medium,[matched] whole-word match on all tokens: [garlic]
+7435,garlic,6,clove,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,[matched] whole-word match on all tokens: [garlic]
+7435,garlic,6,clove,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,medium,[matched] whole-word match on all tokens: [garlic]
+7435,garlic,6,clove,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,medium,[matched] whole-word match on all tokens: [garlic]
+7436,dry white wine,2,cup,1,vendor_prices,"TORTILLA, CORN 6"" WHITE",shamrock,pk,0.05751851851851852,low,"[matched] whole-word match on token ""white"""
+7436,dry white wine,2,cup,2,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] whole-word match on token ""white"""
+7436,dry white wine,2,cup,3,vendor_prices,"MIX, PANCAKE & WAFFLE BTRMLK WESTERN DRY",shamrock,lb,1.4216666666666666,low,"[matched] whole-word match on token ""dry"""
+7436,dry white wine,2,cup,4,vendor_prices,Tortilla Corn White 4.5 Inch,sysco,ct,1.752191,low,"[matched] whole-word match on token ""white"""
+7436,dry white wine,2,cup,5,vendor_prices,Corn White Fresh,sysco,ct,3.225129,low,"[matched] whole-word match on token ""white"""
+7437,chicken stock,2,qt,1,vendor_prices,Chicken Breast Cutlet 5 Ounce,sysco,lb,0.278516,low,"[matched] whole-word match on token ""chicken"""
+7437,chicken stock,2,qt,2,vendor_prices,"CHICKEN, WOG 3-3.25LB HALAL",shamrock,lb,1.87,low,"[matched] whole-word match on token ""chicken"""
+7437,chicken stock,2,qt,3,vendor_prices,Chicken Thigh Boneless Skinless Controlled Vac,sysco,lb,2.16825,low,"[matched] whole-word match on token ""chicken"""
+7437,chicken stock,2,qt,4,vendor_prices,"CHICKEN, WOG 3-3.5LB FRYER 12HD",shamrock,lb,2.26,low,"[matched] whole-word match on token ""chicken"""
+7437,chicken stock,2,qt,5,vendor_prices,"CHICKEN, DRUMSTICK FRNCHD ABF",shamrock,lb,3.2,low,"[matched] whole-word match on token ""chicken"""
+7438,heavy cream,4,cup,1,vendor_prices,Cream Heavy 40% Extended Shelf Life Stabilized,sysco,oz,2.140918,medium,"[matched] whole-word match on all tokens: [heavy, cream]"
+7439,fresh thyme,7,sprig,1,vendor_prices,Pork Butt Boneless 1/4 6-9 Pounds Each Fresh,sysco,lb,0.028586,low,"[matched] whole-word match on token ""fresh"""
+7439,fresh thyme,7,sprig,2,vendor_prices,Oranges Fancy Fresh,sysco,ct,1.176,low,"[matched] whole-word match on token ""fresh"""
+7439,fresh thyme,7,sprig,3,vendor_prices,Lettuce Greens Leaf Fresh,sysco,ct,1.314046,low,"[matched] whole-word match on token ""fresh"""
+7439,fresh thyme,7,sprig,4,vendor_prices,Avocado Hass Fresh,sysco,ct,1.53,low,"[matched] whole-word match on token ""fresh"""
+7439,fresh thyme,7,sprig,5,vendor_prices,Melon Watermelon Seedless Fresh,sysco,ct,1.556857,low,"[matched] whole-word match on token ""fresh"""
+7440,kosher salt,2,tsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,"[matched] whole-word match on all tokens: [kosher, salt]"
+7441,black pepper,1,tsp,1,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,medium,"[matched] whole-word match on all tokens: [black, pepper]"
+7442,unsalted butter,2,tbsp,1,vendor_prices,Butter Solid Unsalted 83% Minimum Butterfat European,sysco,lb,3.923889,medium,"[matched] whole-word match on all tokens: [unsalted, butter]"
+7443,ap flour,2,tbsp,1,vendor_prices,"FLOUR, AP 50LB BAG",shamrock,lb,0.3708,medium,[matched] whole-word match on all tokens: [flour]
+7443,ap flour,2,tbsp,2,vendor_prices,Flour All Purpose Hotel & Restaurant Bleached,sysco,lb,0.4098,medium,[matched] whole-word match on all tokens: [flour]
+7443,ap flour,2,tbsp,3,vendor_prices,"TORTILLA, FLOUR 6""",shamrock,cs,16.9,medium,[matched] whole-word match on all tokens: [flour]
+7443,ap flour,2,tbsp,4,vendor_prices,"TORTILLA, FLOUR 6"" PRSSD",shamrock,cs,26.67,medium,[matched] whole-word match on all tokens: [flour]
+7443,ap flour,2,tbsp,5,vendor_prices,"TORTILLA, FLOUR 14""",shamrock,cs,44.46,medium,[matched] whole-word match on all tokens: [flour]
+7444,modelo especial,1,cup,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7445,whole milk,1,cup,1,vendor_prices,Milk Whole Gallon,sysco,gal,0.590988,medium,"[matched] whole-word match on all tokens: [whole, milk]"
+7445,whole milk,1,cup,2,vendor_prices,Cheese Ricotta Con Latte - Whole Milk - 75% Tub,sysco,lb,3.299,medium,"[matched] whole-word match on all tokens: [whole, milk]"
+7446,sharp cheddar,8,oz,1,vendor_prices,Cheese Cheddar Sharp Slice White,sysco,lb,4.895,medium,"[matched] whole-word match on all tokens: [sharp, cheddar]"
+7447,pepper jack,4,oz,1,vendor_prices,"CHEESE, PEPPER JACK SLI .75Z",shamrock,lb,4.436,medium,"[matched] whole-word match on all tokens: [pepper, jack]"
+7448,cream cheese,2,oz,1,vendor_prices,Cheese Cotija Random Cut,sysco,lb,0.486886,low,"[matched] whole-word match on token ""cheese"""
+7448,cream cheese,2,oz,2,vendor_prices,"SOUR CREAM, NATURAL 5LB",shamrock,lb,1.332,low,"[matched] whole-word match on token ""cream"""
+7448,cream cheese,2,oz,3,vendor_prices,"SOUR CREAM, CREMA MEXICANA 5LB",shamrock,lb,1.476,low,"[matched] whole-word match on token ""cream"""
+7448,cream cheese,2,oz,4,vendor_prices,Cream Heavy 40% Extended Shelf Life Stabilized,sysco,oz,2.140918,low,"[matched] whole-word match on token ""cream"""
+7448,cream cheese,2,oz,5,vendor_prices,"CHEESE, CHDR JACK SHRD FCY WI",shamrock,lb,2.723,low,"[matched] whole-word match on token ""cheese"""
+7450,chipotle in adobo,1,ea,1,vendor_prices,Pepper Chipotle Adobo Sauce,sysco,oz,5.647619,medium,"[matched] whole-word match on all tokens: [chipotle, adobo]"
+7450,chipotle in adobo,1,ea,2,vendor_prices,"PEPPER, CHIPOTLE WHL IN ADOBO SCE",shamrock,cs,22.42,medium,"[matched] whole-word match on all tokens: [chipotle, adobo]"
+7450,chipotle in adobo,1,ea,3,vendor_prices,"PEPPER, CHIPOTLE IN ADOBO SCE",shamrock,cs,85.07,medium,"[matched] whole-word match on all tokens: [chipotle, adobo]"
+7451,smoked paprika,1,tsp,1,vendor_prices,Bacon Layflat Hickory Smoked #2,sysco,lb,3.148,low,"[matched] whole-word match on token ""smoked"""
+7451,smoked paprika,1,tsp,2,vendor_prices,"SPICE, PAPRIKA SPANISH BULK",shamrock,lb,10.664,low,"[matched] whole-word match on token ""paprika"""
+7452,ground cumin,0.5,tsp,1,vendor_prices,"SPICE, CUMIN SEED GRND BULK",shamrock,lb,11.452,low,"[matched] whole-word match on token ""cumin"""
+7452,ground cumin,0.5,tsp,2,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,low,"[matched] whole-word match on token ""ground"""
+7453,garlic powder,0.5,tsp,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,low,"[matched] whole-word match on token ""garlic"""
+7453,garlic powder,0.5,tsp,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,low,"[matched] whole-word match on token ""garlic"""
+7453,garlic powder,0.5,tsp,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,low,"[matched] whole-word match on token ""garlic"""
+7453,garlic powder,0.5,tsp,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,low,"[matched] whole-word match on token ""garlic"""
+7453,garlic powder,0.5,tsp,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,low,"[matched] whole-word match on token ""garlic"""
+7454,onion powder,0.25,tsp,1,vendor_prices,"ONION, YLW JMBO #2 BAG",shamrock,lb,0.32420000000000004,low,"[matched] whole-word match on token ""onion"""
+7454,onion powder,0.25,tsp,2,vendor_prices,"ONION, WHT WHL JMBO 50LB REFRIG FRSH",shamrock,lb,0.6156,low,"[matched] whole-word match on token ""onion"""
+7454,onion powder,0.25,tsp,3,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] substring match on token ""onion"""
+7454,onion powder,0.25,tsp,4,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""onion"""
+7454,onion powder,0.25,tsp,5,vendor_prices,"ONION, RED JMBO",shamrock,lb,1.304,low,"[matched] whole-word match on token ""onion"""
+7455,salt,0.5,tsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,[matched] whole-word match on all tokens: [salt]
+7455,salt,0.5,tsp,2,vendor_prices,"SPICE, CELERY SALT",shamrock,cs,9.45,medium,[matched] whole-word match on all tokens: [salt]
+7455,salt,0.5,tsp,3,vendor_prices,"SALT, SEA FLAKE MALDON",shamrock,lb,12.763636,medium,[matched] whole-word match on all tokens: [salt]
+7456,red cabbage,5,lb,1,vendor_prices,"CABBAGE, RED SHRD",shamrock,lb,1.1245,medium,"[matched] whole-word match on all tokens: [red, cabbage]"
+7458,lime juice,1,tbsp,1,vendor_prices,Juice Lime Pasteurized Ultra Premium,sysco,qt,2.55,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7458,lime juice,1,tbsp,2,vendor_prices,"JUICE, LIME FRSH SQZ",shamrock,gal,12.7975,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7459,miso,0.5,cup,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7460,honey,2,cup,1,vendor_prices,"HONEY, LT AMBER GRD A 5LB JUG",shamrock,lb,3.5596666666666668,medium,[matched] whole-word match on all tokens: [honey]
+7461,water,0.5,cup,1,none,,,,,none,[house] house tap — no vendor mapping
+7462,tomato sauce,1,gal,1,vendor_prices,"JUICE, TOMATO 100% CAN 46Z FCY",shamrock,oz,0.06106884057971015,low,"[matched] whole-word match on token ""tomato"""
+7462,tomato sauce,1,gal,2,vendor_prices,"HOT SAUCE, GRN CHOLULA 5Z",shamrock,oz,0.5021666666666667,low,"[matched] whole-word match on token ""sauce"""
+7462,tomato sauce,1,gal,3,vendor_prices,"SAUCE BASE, DEMI GLACE CONCENTRATE",shamrock,oz,0.515686274509804,low,"[matched] whole-word match on token ""sauce"""
+7462,tomato sauce,1,gal,4,vendor_prices,"SAUCE, HOT CHOLULA ORIG",shamrock,oz,0.5216666666666667,low,"[matched] whole-word match on token ""sauce"""
+7462,tomato sauce,1,gal,5,vendor_prices,"TOMATO, WHL PLD IN JCE CHO CA CAN",shamrock,cn,0.5966666666666666,low,"[matched] whole-word match on token ""tomato"""
+7463,basil fresh,0.5,cup,1,vendor_prices,Basil Fresh Herb,sysco,lb,13.99,medium,"[matched] whole-word match on all tokens: [basil, fresh]"
+7464,thyme fresh,1,tbsp,1,vendor_prices,Pork Butt Boneless 1/4 6-9 Pounds Each Fresh,sysco,lb,0.028586,low,"[matched] whole-word match on token ""fresh"""
+7464,thyme fresh,1,tbsp,2,vendor_prices,Oranges Fancy Fresh,sysco,ct,1.176,low,"[matched] whole-word match on token ""fresh"""
+7464,thyme fresh,1,tbsp,3,vendor_prices,Lettuce Greens Leaf Fresh,sysco,ct,1.314046,low,"[matched] whole-word match on token ""fresh"""
+7464,thyme fresh,1,tbsp,4,vendor_prices,Avocado Hass Fresh,sysco,ct,1.53,low,"[matched] whole-word match on token ""fresh"""
+7464,thyme fresh,1,tbsp,5,vendor_prices,Melon Watermelon Seedless Fresh,sysco,ct,1.556857,low,"[matched] whole-word match on token ""fresh"""
+7465,garlic cloves,8,ea,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,"[matched] whole-word match on all tokens: [garlic, clove]"
+7465,garlic cloves,8,ea,2,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,"[matched] whole-word match on all tokens: [garlic, clove]"
+7466,ziti noodles,2,lb,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7468,tomato sauce,1,qt,1,vendor_prices,"JUICE, TOMATO 100% CAN 46Z FCY",shamrock,oz,0.06106884057971015,low,"[matched] whole-word match on token ""tomato"""
+7468,tomato sauce,1,qt,2,vendor_prices,"HOT SAUCE, GRN CHOLULA 5Z",shamrock,oz,0.5021666666666667,low,"[matched] whole-word match on token ""sauce"""
+7468,tomato sauce,1,qt,3,vendor_prices,"SAUCE BASE, DEMI GLACE CONCENTRATE",shamrock,oz,0.515686274509804,low,"[matched] whole-word match on token ""sauce"""
+7468,tomato sauce,1,qt,4,vendor_prices,"SAUCE, HOT CHOLULA ORIG",shamrock,oz,0.5216666666666667,low,"[matched] whole-word match on token ""sauce"""
+7468,tomato sauce,1,qt,5,vendor_prices,"TOMATO, WHL PLD IN JCE CHO CA CAN",shamrock,cn,0.5966666666666666,low,"[matched] whole-word match on token ""tomato"""
+7469,ricotta cheese,2,lb,1,vendor_prices,Cheese Ricotta Unwhipped Part Skim,sysco,lb,2.795,medium,"[matched] whole-word match on all tokens: [ricotta, cheese]"
+7469,ricotta cheese,2,lb,2,vendor_prices,Cheese Ricotta Con Latte - Whole Milk - 75% Tub,sysco,lb,3.299,medium,"[matched] whole-word match on all tokens: [ricotta, cheese]"
+7470,mozzarella shredded,1.5,lb,1,vendor_prices,Carrots Matchstick Shredded,sysco,lb,1.494,low,"[matched] whole-word match on token ""shredded"""
+7470,mozzarella shredded,1.5,lb,2,vendor_prices,Cheese Cheddar Jack Fancy Shredded,sysco,lb,2.7615,low,"[matched] whole-word match on token ""shredded"""
+7470,mozzarella shredded,1.5,lb,3,vendor_prices,Cheese Mozzarella Ciliegene Fresh,sysco,lb,5.998333,low,"[matched] whole-word match on token ""mozzarella"""
+7471,parmesan grated,0.5,cup,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7472,basil fresh,0.25,cup,1,vendor_prices,Basil Fresh Herb,sysco,lb,13.99,medium,"[matched] whole-word match on all tokens: [basil, fresh]"
+7473,thyme fresh,2,tsp,1,vendor_prices,Pork Butt Boneless 1/4 6-9 Pounds Each Fresh,sysco,lb,0.028586,low,"[matched] whole-word match on token ""fresh"""
+7473,thyme fresh,2,tsp,2,vendor_prices,Oranges Fancy Fresh,sysco,ct,1.176,low,"[matched] whole-word match on token ""fresh"""
+7473,thyme fresh,2,tsp,3,vendor_prices,Lettuce Greens Leaf Fresh,sysco,ct,1.314046,low,"[matched] whole-word match on token ""fresh"""
+7473,thyme fresh,2,tsp,4,vendor_prices,Avocado Hass Fresh,sysco,ct,1.53,low,"[matched] whole-word match on token ""fresh"""
+7473,thyme fresh,2,tsp,5,vendor_prices,Melon Watermelon Seedless Fresh,sysco,ct,1.556857,low,"[matched] whole-word match on token ""fresh"""
+7474,ditalini noodles,2,lb,1,vendor_prices,Pasta Ditalini/salad Macaroni,sysco,lb,1.6825,low,"[matched] whole-word match on token ""ditalini"""
+7474,ditalini noodles,2,lb,2,vendor_prices,"PASTA, DITALINI",shamrock,lb,1.835,low,"[matched] whole-word match on token ""ditalini"""
+7476,colby jack shredded,1,lb,1,vendor_prices,Carrots Matchstick Shredded,sysco,lb,1.494,low,"[matched] whole-word match on token ""shredded"""
+7476,colby jack shredded,1,lb,2,vendor_prices,"CHEESE, CHDR JACK SHRD FCY WI",shamrock,lb,2.723,low,"[matched] whole-word match on token ""jack"""
+7476,colby jack shredded,1,lb,3,vendor_prices,Cheese Cheddar Jack Fancy Shredded,sysco,lb,2.7615,low,"[matched] whole-word match on token ""jack"""
+7476,colby jack shredded,1,lb,4,vendor_prices,"CHEESE, BLND CHDR JACK MILD SHRD FCY",shamrock,lb,2.9285,low,"[matched] whole-word match on token ""jack"""
+7476,colby jack shredded,1,lb,5,vendor_prices,"CHEESE, PEPR JACK SLI .75Z REFRIG",shamrock,lb,4.126,low,"[matched] whole-word match on token ""jack"""
+7477,ap flour,2,cup,1,vendor_prices,"FLOUR, AP 50LB BAG",shamrock,lb,0.3708,medium,[matched] whole-word match on all tokens: [flour]
+7477,ap flour,2,cup,2,vendor_prices,Flour All Purpose Hotel & Restaurant Bleached,sysco,lb,0.4098,medium,[matched] whole-word match on all tokens: [flour]
+7477,ap flour,2,cup,3,vendor_prices,"TORTILLA, FLOUR 6""",shamrock,cs,16.9,medium,[matched] whole-word match on all tokens: [flour]
+7477,ap flour,2,cup,4,vendor_prices,"TORTILLA, FLOUR 6"" PRSSD",shamrock,cs,26.67,medium,[matched] whole-word match on all tokens: [flour]
+7477,ap flour,2,cup,5,vendor_prices,"TORTILLA, FLOUR 14""",shamrock,cs,44.46,medium,[matched] whole-word match on all tokens: [flour]
+7478,panko bread crumbs,4,cup,1,vendor_prices,"MIX, CORNBREAD GF",shamrock,oz,0.32908333333333334,low,"[matched] substring match on token ""bread"""
+7478,panko bread crumbs,4,cup,2,vendor_prices,"CORNBREAD MIX, HMSTYL",shamrock,lb,2.068,low,"[matched] substring match on token ""bread"""
+7478,panko bread crumbs,4,cup,3,vendor_prices,Mix Cornbread Homestyle Complete,sysco,lb,2.931667,low,"[matched] substring match on token ""bread"""
+7478,panko bread crumbs,4,cup,4,vendor_prices,Cheese Blue Crumbles,sysco,lb,3.613,low,"[matched] substring match on token ""crumb"""
+7478,panko bread crumbs,4,cup,5,vendor_prices,"BREAD, SOURDOUGH REUBEN THICK SLI",shamrock,cs,35.52,low,"[matched] whole-word match on token ""bread"""
+7479,eggs,6,ea,1,vendor_prices,"EGG, LIQ WHL CAGE FREE CRTN",shamrock,lb,2.531,medium,[matched] whole-word match on all tokens: [egg]
+7479,eggs,6,ea,2,vendor_prices,"EGG, LIQ SCRAMBLE CAGE FREE P12CE",shamrock,lb,2.895,medium,[matched] whole-word match on all tokens: [egg]
+7479,eggs,6,ea,3,vendor_prices,"EGG, COOKED PLD WHL CAGE FREE P12CE",shamrock,lb,4.442,medium,[matched] whole-word match on all tokens: [egg]
+7479,eggs,6,ea,4,vendor_prices,"EGG, HARD COOKED PLD WHL CAGE FREE",shamrock,cs,16.55,medium,[matched] whole-word match on all tokens: [egg]
+7479,eggs,6,ea,5,vendor_prices,"EGG, FRSH MED AA WHT LOOSE P12CE",shamrock,cs,20.2,medium,[matched] whole-word match on all tokens: [egg]
+7480,mozzarella ciliegine,2,lb,1,vendor_prices,"CHEESE, MOZZ CILIEGINE IN WTR",shamrock,lb,4.99,low,"[matched] whole-word match on token ""ciliegine"""
+7480,mozzarella ciliegine,2,lb,2,vendor_prices,Cheese Mozzarella Ciliegene Fresh,sysco,lb,5.998333,low,"[matched] whole-word match on token ""mozzarella"""
+7481,cherry tomatoes,2,lb,1,vendor_prices,Tomato Cherry Heirloom Mix,sysco,pt,6.992857,low,"[matched] whole-word match on token ""cherry"""
+7482,basil fresh,1,bunch,1,vendor_prices,Basil Fresh Herb,sysco,lb,13.99,medium,"[matched] whole-word match on all tokens: [basil, fresh]"
+7483,prosciutto,1,lb,1,vendor_prices,Ham Prosciutto Sliced All Natural,sysco,oz,19.158333,medium,[matched] whole-word match on all tokens: [prosciutto]
+7484,bamboo skewers 6in,50,ea,1,vendor_prices,"Skewer Bamboo 6"" Inch",sysco,ct,6.000785,low,"[matched] whole-word match on token ""bamboo"""
+7484,bamboo skewers 6in,50,ea,2,vendor_prices,"SKEWER, BAMBOO 6"" NATRL",shamrock,cs,8.27,low,"[matched] whole-word match on token ""bamboo"""
+7485,pudding vanilla base (shamrock/sysco),1,can,1,vendor_prices,"SAUCE BASE, DEMI GLACE CONCENTRATE",shamrock,oz,0.515686274509804,low,"[matched] whole-word match on token ""base"""
+7485,pudding vanilla base (shamrock/sysco),1,can,2,vendor_prices,Pudding Vanilla Ready To Use,sysco,ct,1.927381,low,"[matched] whole-word match on token ""pudding"""
+7485,pudding vanilla base (shamrock/sysco),1,can,3,vendor_prices,"EXTRACT, VANILLA PURE",shamrock,oz,2.11375,low,"[matched] whole-word match on token ""vanilla"""
+7485,pudding vanilla base (shamrock/sysco),1,can,4,vendor_prices,"COOKIE, WAFER VANILLA BULK",shamrock,lb,3.99,low,"[matched] whole-word match on token ""vanilla"""
+7485,pudding vanilla base (shamrock/sysco),1,can,5,vendor_prices,Soup Base Chicken Real,sysco,lb,7.546667,low,"[matched] whole-word match on token ""base"""
+7486,bananas,6,ea,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7487,vanilla wafers,1,box,1,vendor_prices,"COOKIE, WAFER VANILLA BULK",shamrock,lb,3.99,medium,"[matched] whole-word match on all tokens: [vanilla, wafer]"
+7488,whipped cream,1,qt,1,vendor_prices,"SOUR CREAM, NATURAL 5LB",shamrock,lb,1.332,low,"[matched] whole-word match on token ""cream"""
+7488,whipped cream,1,qt,2,vendor_prices,"SOUR CREAM, CREMA MEXICANA 5LB",shamrock,lb,1.476,low,"[matched] whole-word match on token ""cream"""
+7488,whipped cream,1,qt,3,vendor_prices,Cream Heavy 40% Extended Shelf Life Stabilized,sysco,oz,2.140918,low,"[matched] whole-word match on token ""cream"""
+7488,whipped cream,1,qt,4,vendor_prices,Cheese Ricotta Unwhipped Part Skim,sysco,lb,2.795,low,"[matched] substring match on token ""whipped"""
+7488,whipped cream,1,qt,5,vendor_prices,"ICE CREAM, VANILLA 1GAL PAIL FZN",shamrock,cs,16.12,low,"[matched] whole-word match on token ""cream"""
+7489,crab cakes frozen (vendor whole-buy),1,case,1,vendor_prices,Milk Whole Gallon,sysco,gal,0.590988,low,"[matched] whole-word match on token ""whole"""
+7489,crab cakes frozen (vendor whole-buy),1,case,2,vendor_prices,Buttermilk Whole Qt,sysco,qt,1.365654,low,"[matched] whole-word match on token ""whole"""
+7489,crab cakes frozen (vendor whole-buy),1,case,3,vendor_prices,"MIX, PANCAKE & WAFFLE BTRMLK WESTERN DRY",shamrock,lb,1.4216666666666666,low,"[matched] substring match on token ""cake"""
+7489,crab cakes frozen (vendor whole-buy),1,case,4,vendor_prices,Cheese Ricotta Con Latte - Whole Milk - 75% Tub,sysco,lb,3.299,low,"[matched] whole-word match on token ""whole"""
+7489,crab cakes frozen (vendor whole-buy),1,case,5,vendor_prices,Cheesecake Plain Classic 14 Count,sysco,"""",9.755122,low,"[matched] substring match on token ""cake"""
+7490,remoulade sauce,1,qt,1,vendor_prices,"HOT SAUCE, GRN CHOLULA 5Z",shamrock,oz,0.5021666666666667,low,"[matched] whole-word match on token ""sauce"""
+7490,remoulade sauce,1,qt,2,vendor_prices,"SAUCE BASE, DEMI GLACE CONCENTRATE",shamrock,oz,0.515686274509804,low,"[matched] whole-word match on token ""sauce"""
+7490,remoulade sauce,1,qt,3,vendor_prices,"SAUCE, HOT CHOLULA ORIG",shamrock,oz,0.5216666666666667,low,"[matched] whole-word match on token ""sauce"""
+7490,remoulade sauce,1,qt,4,vendor_prices,"SAUCE, HOT TABASCO",shamrock,oz,0.6335,low,"[matched] whole-word match on token ""sauce"""
+7490,remoulade sauce,1,qt,5,vendor_prices,Sauce Marinara Premium Midwest,sysco,ct,1.081198,low,"[matched] whole-word match on token ""sauce"""
+7491,tex mex egg rolls (vendor whole-buy),1,case,1,vendor_prices,Milk Whole Gallon,sysco,gal,0.590988,low,"[matched] whole-word match on token ""whole"""
+7491,tex mex egg rolls (vendor whole-buy),1,case,2,vendor_prices,Buttermilk Whole Qt,sysco,qt,1.365654,low,"[matched] whole-word match on token ""whole"""
+7491,tex mex egg rolls (vendor whole-buy),1,case,3,vendor_prices,"SOUR CREAM, CREMA MEXICANA 5LB",shamrock,lb,1.476,low,"[matched] substring match on token ""mex"""
+7491,tex mex egg rolls (vendor whole-buy),1,case,4,vendor_prices,Chicken Thigh Boneless Skinless Controlled Vac,sysco,lb,2.16825,low,"[matched] substring match on token ""roll"""
+7491,tex mex egg rolls (vendor whole-buy),1,case,5,vendor_prices,"EGG, LIQ WHL CAGE FREE CRTN",shamrock,lb,2.531,low,"[matched] whole-word match on token ""egg"""
+7494,hot dogs,50,ea,1,vendor_prices,Flour All Purpose Hotel & Restaurant Bleached,sysco,lb,0.4098,low,"[matched] substring match on token ""hot"""
+7494,hot dogs,50,ea,2,vendor_prices,"HOT SAUCE, GRN CHOLULA 5Z",shamrock,oz,0.5021666666666667,low,"[matched] whole-word match on token ""hot"""
+7494,hot dogs,50,ea,3,vendor_prices,"SAUCE, HOT CHOLULA ORIG",shamrock,oz,0.5216666666666667,low,"[matched] whole-word match on token ""hot"""
+7494,hot dogs,50,ea,4,vendor_prices,"SAUCE, HOT TABASCO",shamrock,oz,0.6335,low,"[matched] whole-word match on token ""hot"""
+7494,hot dogs,50,ea,5,vendor_prices,"PEPPER, JALP GRN HOT CUT 3/8""",shamrock,lb,1.6132,low,"[matched] whole-word match on token ""hot"""
+7495,bamboo skewers 6in,50,ea,1,vendor_prices,"Skewer Bamboo 6"" Inch",sysco,ct,6.000785,low,"[matched] whole-word match on token ""bamboo"""
+7495,bamboo skewers 6in,50,ea,2,vendor_prices,"SKEWER, BAMBOO 6"" NATRL",shamrock,cs,8.27,low,"[matched] whole-word match on token ""bamboo"""
+7497,assorted cheeses (vendor whole-buy),2,lb,1,vendor_prices,Cheese Cotija Random Cut,sysco,lb,0.486886,low,"[matched] whole-word match on token ""cheese"""
+7497,assorted cheeses (vendor whole-buy),2,lb,2,vendor_prices,Milk Whole Gallon,sysco,gal,0.590988,low,"[matched] whole-word match on token ""whole"""
+7497,assorted cheeses (vendor whole-buy),2,lb,3,vendor_prices,Buttermilk Whole Qt,sysco,qt,1.365654,low,"[matched] whole-word match on token ""whole"""
+7497,assorted cheeses (vendor whole-buy),2,lb,4,vendor_prices,"CHEESE, CHDR JACK SHRD FCY WI",shamrock,lb,2.723,low,"[matched] whole-word match on token ""cheese"""
+7497,assorted cheeses (vendor whole-buy),2,lb,5,vendor_prices,Cheese Cheddar Jack Fancy Shredded,sysco,lb,2.7615,low,"[matched] whole-word match on token ""cheese"""
+7498,assorted cured meats (vendor whole-buy),1,lb,1,vendor_prices,Beef Cheek Meat,sysco,ea,0.164813,low,"[matched] whole-word match on token ""meat"""
+7498,assorted cured meats (vendor whole-buy),1,lb,2,vendor_prices,Milk Whole Gallon,sysco,gal,0.590988,low,"[matched] whole-word match on token ""whole"""
+7498,assorted cured meats (vendor whole-buy),1,lb,3,vendor_prices,Buttermilk Whole Qt,sysco,qt,1.365654,low,"[matched] whole-word match on token ""whole"""
+7498,assorted cured meats (vendor whole-buy),1,lb,4,vendor_prices,Cheese Ricotta Con Latte - Whole Milk - 75% Tub,sysco,lb,3.299,low,"[matched] whole-word match on token ""whole"""
+7498,assorted cured meats (vendor whole-buy),1,lb,5,vendor_prices,"BEEF, CHEEK MEAT REFRIG",shamrock,lb,4.25,low,"[matched] whole-word match on token ""meat"""
+7499,crackers or baguette,1,loaf,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7500,fruit or preserve,1,cup,1,vendor_prices,"SODA, GRAPEFRUIT CAFF FREE 12.5Z GLS BTL",shamrock,floz,0.0829,low,"[matched] substring match on token ""fruit"""
+7500,fruit or preserve,1,cup,2,vendor_prices,"JUICE, GRAPEFRUIT PINK FRESH",shamrock,gal,12.596666666666666,low,"[matched] substring match on token ""fruit"""
+7500,fruit or preserve,1,cup,3,vendor_prices,"JUICE, GRAPEFRUIT RED 100% COLD PRSD",shamrock,cs,66.74,low,"[matched] substring match on token ""fruit"""
+7501,olives or pickle,1,cup,1,vendor_prices,Oil Olive Pomace Tin,sysco,gal,3.731356,low,"[matched] whole-word match on token ""olive"""
+7501,olives or pickle,1,cup,2,vendor_prices,"RELISH, PICKLE SWT FANCY",shamrock,ea,18.42,low,"[matched] whole-word match on token ""pickle"""
+7501,olives or pickle,1,cup,3,vendor_prices,"PICKLE, SWT CC .31"" REFRIG 2GAL",shamrock,cs,23.88,low,"[matched] whole-word match on token ""pickle"""
+7501,olives or pickle,1,cup,4,vendor_prices,"PICKLE, DILL CHIP .31"" 5GAL PAIL",shamrock,cs,49.13,low,"[matched] whole-word match on token ""pickle"""
+7501,olives or pickle,1,cup,5,vendor_prices,"PICKLE, CHIP BREAD & BTR",shamrock,cs,63.31,low,"[matched] whole-word match on token ""pickle"""
+7502,hardboiled eggs (sysco),24,ea,1,vendor_prices,"EGG, LIQ WHL CAGE FREE CRTN",shamrock,lb,2.531,low,"[matched] whole-word match on token ""egg"""
+7502,hardboiled eggs (sysco),24,ea,2,vendor_prices,"EGG, LIQ SCRAMBLE CAGE FREE P12CE",shamrock,lb,2.895,low,"[matched] whole-word match on token ""egg"""
+7502,hardboiled eggs (sysco),24,ea,3,vendor_prices,Eggroll Skin 6.5 Inches X 6.5 Inches,sysco,lb,4.0825,low,"[matched] substring match on token ""egg"""
+7502,hardboiled eggs (sysco),24,ea,4,vendor_prices,"EGG, COOKED PLD WHL CAGE FREE P12CE",shamrock,lb,4.442,low,"[matched] whole-word match on token ""egg"""
+7502,hardboiled eggs (sysco),24,ea,5,vendor_prices,Appetizer Eggroll Santa Fe Chicken,sysco,lb,7.776667,low,"[matched] substring match on token ""egg"""
+7503,mayo,1,cup,1,vendor_prices,"MAYONNAISE, HVY DTY TUB",shamrock,lb,1.506,low,"[matched] substring match on token ""mayo"""
+7503,mayo,1,cup,2,vendor_prices,Mayonnaise Heavy Duty Pail,sysco,lb,2.033929,low,"[matched] substring match on token ""mayo"""
+7503,mayo,1,cup,3,vendor_prices,Mayonnaise Japanese 64 Ounces,sysco,oz,6.285,low,"[matched] substring match on token ""mayo"""
+7503,mayo,1,cup,4,vendor_prices,"MAYONNAISE, KEWPIE",shamrock,cs,86.99,low,"[matched] substring match on token ""mayo"""
+7504,yellow mustard,2,tbsp,1,vendor_prices,"MUSTARD, CLASC SQZ BTL RIGHT SIDE UP",shamrock,oz,0.19726562499999997,low,"[matched] whole-word match on token ""mustard"""
+7504,yellow mustard,2,tbsp,2,vendor_prices,"SPICE, MUSTARD SEED GRND",shamrock,oz,0.6071428571428571,low,"[matched] whole-word match on token ""mustard"""
+7504,yellow mustard,2,tbsp,3,vendor_prices,Corn Meal Yellow,sysco,lb,0.678,low,"[matched] whole-word match on token ""yellow"""
+7504,yellow mustard,2,tbsp,4,vendor_prices,Chip Tortilla Yellow 4 Inches Cut,sysco,lb,1.211475,low,"[matched] whole-word match on token ""yellow"""
+7504,yellow mustard,2,tbsp,5,vendor_prices,Corn Yellow Roasted Blend,sysco,lb,3.459333,low,"[matched] whole-word match on token ""yellow"""
+7505,paprika,1,tsp,1,vendor_prices,"SPICE, PAPRIKA SPANISH BULK",shamrock,lb,10.664,medium,[matched] whole-word match on all tokens: [paprika]
+7506,salt,1,tsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,[matched] whole-word match on all tokens: [salt]
+7506,salt,1,tsp,2,vendor_prices,"SPICE, CELERY SALT",shamrock,cs,9.45,medium,[matched] whole-word match on all tokens: [salt]
+7506,salt,1,tsp,3,vendor_prices,"SALT, SEA FLAKE MALDON",shamrock,lb,12.763636,medium,[matched] whole-word match on all tokens: [salt]
+7508,pork belly,5,lb,1,vendor_prices,Pork Belly Skin On,sysco,pce,0.139729,medium,"[matched] whole-word match on all tokens: [pork, belly]"
+7509,hoisin sauce,1,cup,1,vendor_prices,"HOT SAUCE, GRN CHOLULA 5Z",shamrock,oz,0.5021666666666667,low,"[matched] whole-word match on token ""sauce"""
+7509,hoisin sauce,1,cup,2,vendor_prices,"SAUCE BASE, DEMI GLACE CONCENTRATE",shamrock,oz,0.515686274509804,low,"[matched] whole-word match on token ""sauce"""
+7509,hoisin sauce,1,cup,3,vendor_prices,"SAUCE, HOT CHOLULA ORIG",shamrock,oz,0.5216666666666667,low,"[matched] whole-word match on token ""sauce"""
+7509,hoisin sauce,1,cup,4,vendor_prices,"SAUCE, HOT TABASCO",shamrock,oz,0.6335,low,"[matched] whole-word match on token ""sauce"""
+7509,hoisin sauce,1,cup,5,vendor_prices,Sauce Marinara Premium Midwest,sysco,ct,1.081198,low,"[matched] whole-word match on token ""sauce"""
+7510,sesame oil,0.25,cup,1,vendor_prices,"OIL, CANOLA CLR FRY ZTF",shamrock,lb,1.086,low,"[matched] whole-word match on token ""oil"""
+7510,sesame oil,0.25,cup,2,vendor_prices,Oil Olive Pomace Tin,sysco,gal,3.731356,low,"[matched] whole-word match on token ""oil"""
+7510,sesame oil,0.25,cup,3,vendor_prices,"ANCHOVY, FLT IN OLV OIL 13Z CAN",shamrock,ea,14.26,low,"[matched] whole-word match on token ""oil"""
+7510,sesame oil,0.25,cup,4,vendor_prices,"OIL, OLV POMACE ITALY 1GAL TIN",shamrock,ea,31.27,low,"[matched] whole-word match on token ""oil"""
+7510,sesame oil,0.25,cup,5,vendor_prices,"FOIL, ALUM FOIL 18""X500' RL LOW GAUGE CU",shamrock,cs,39.88,low,"[matched] substring match on token ""oil"""
+7511,sesame seed,0.25,cup,1,vendor_prices,"SPICE, MUSTARD SEED GRND",shamrock,oz,0.6071428571428571,low,"[matched] whole-word match on token ""seed"""
+7511,sesame seed,0.25,cup,2,vendor_prices,Melon Watermelon Seedless Fresh,sysco,ct,1.556857,low,"[matched] substring match on token ""seed"""
+7511,sesame seed,0.25,cup,3,vendor_prices,Cucumber English Medium Seedless 12 Count,sysco,ct,1.724167,low,"[matched] substring match on token ""seed"""
+7511,sesame seed,0.25,cup,4,vendor_prices,"SEED, PUMPKIN SHLD PEPITAS RAW BULK",shamrock,lb,6.64,low,"[matched] whole-word match on token ""seed"""
+7511,sesame seed,0.25,cup,5,vendor_prices,"PUMPKIN SEEDS, PEPITAS SHELLED RAW",shamrock,lb,8.209999999999999,low,"[matched] substring match on token ""seed"""
+7512,bao buns (sysco),30,ea,1,vendor_prices,Cilantro Bunch Iceless,sysco,ct,2.80625,low,"[matched] substring match on token ""bun"""
+7512,bao buns (sysco),30,ea,2,vendor_prices,Bun Brioche Bistro Slider,sysco,ct,4.964052,low,"[matched] whole-word match on token ""bun"""
+7512,bao buns (sysco),30,ea,3,vendor_prices,"HERB, CILANTRO BUNCH ICELESS",shamrock,cs,20.43,low,"[matched] substring match on token ""bun"""
+7512,bao buns (sysco),30,ea,4,vendor_prices,"BUN, HAMBURGER RND 4"" SLI GF BKD IW FZN",shamrock,cs,43.19,low,"[matched] whole-word match on token ""bun"""
+7512,bao buns (sysco),30,ea,5,vendor_prices,"BUN, BRIOCHE SLI 4.5""",shamrock,cs,51.46,low,"[matched] whole-word match on token ""bun"""
+7513,shrimp,5,lb,1,vendor_prices,Shrimp White Easy Peel 16/20 Count Asia,sysco,lb,6.554,medium,[matched] whole-word match on all tokens: [shrimp]
+7514,corn on the cob,12,ea,1,vendor_prices,"TORTILLA, CORN 6"" WHITE",shamrock,pk,0.05751851851851852,low,"[matched] whole-word match on token ""corn"""
+7514,corn on the cob,12,ea,2,vendor_prices,"TORTILLA, CORN 6"" YLW",shamrock,pk,0.058041666666666665,low,"[matched] whole-word match on token ""corn"""
+7514,corn on the cob,12,ea,3,vendor_prices,"MIX, CORNBREAD GF",shamrock,oz,0.32908333333333334,low,"[matched] substring match on token ""corn"""
+7514,corn on the cob,12,ea,4,vendor_prices,Corn Meal Yellow,sysco,lb,0.678,low,"[matched] whole-word match on token ""corn"""
+7514,corn on the cob,12,ea,5,vendor_prices,"CHIP, TORTILLA CORN YLW RAW 4 CUT",shamrock,lb,0.884375,low,"[matched] whole-word match on token ""corn"""
+7515,red russet potatoes,4,lb,1,vendor_prices,"CRAYON, SOYBEAN 4CT BLUE GRN RED YL",shamrock,pk,0.06272,low,"[matched] whole-word match on token ""red"""
+7515,red russet potatoes,4,lb,2,vendor_prices,"POTATO, RUSSET 100CT",shamrock,lb,0.3234,low,"[matched] whole-word match on token ""russet"""
+7515,red russet potatoes,4,lb,3,vendor_prices,Potato Red B Size Carton,sysco,lb,0.5384,low,"[matched] whole-word match on token ""red"""
+7515,red russet potatoes,4,lb,4,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""red"""
+7515,red russet potatoes,4,lb,5,vendor_prices,"CABBAGE, COLESLAW SHRED",shamrock,lb,1.0195,low,"[matched] substring match on token ""red"""
+7516,old bay seasoning,0.5,cup,1,vendor_prices,"SEASONING, OLD BAY",shamrock,ea,19.17,medium,"[matched] whole-word match on all tokens: [old, bay, seasoning]"
+7517,roma tomatoes,6,lb,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7518,cucumber,2,lb,1,vendor_prices,"CUCUMBER, 24CT",shamrock,pk,0.61875,medium,[matched] whole-word match on all tokens: [cucumber]
+7518,cucumber,2,lb,2,vendor_prices,Cucumber English Medium Seedless 12 Count,sysco,ct,1.724167,medium,[matched] whole-word match on all tokens: [cucumber]
+7518,cucumber,2,lb,3,vendor_prices,"CUCUMBER, ENGLISH WHL SK ON #2 IW",shamrock,lb,2.2065,medium,[matched] whole-word match on all tokens: [cucumber]
+7518,cucumber,2,lb,4,vendor_prices,"CUCUMBER, ENGLISH 3CT MINI PK",shamrock,lb,9.26,medium,[matched] whole-word match on all tokens: [cucumber]
+7518,cucumber,2,lb,5,vendor_prices,"CUCUMBER, ENGLISH SK ON 12CT",shamrock,cs,21.33,medium,[matched] whole-word match on all tokens: [cucumber]
+7519,red bell pepper,1.5,lb,1,vendor_prices,"PEPPER, BELL RED DICED SWT",shamrock,cs,64.75,medium,"[matched] whole-word match on all tokens: [red, bell, pepper]"
+7520,yellow onion,1,lb,1,vendor_prices,"ONION, YLW JMBO #2 BAG",shamrock,lb,0.32420000000000004,low,"[matched] whole-word match on token ""onion"""
+7520,yellow onion,1,lb,2,vendor_prices,"ONION, WHT WHL JMBO 50LB REFRIG FRSH",shamrock,lb,0.6156,low,"[matched] whole-word match on token ""onion"""
+7520,yellow onion,1,lb,3,vendor_prices,Corn Meal Yellow,sysco,lb,0.678,low,"[matched] whole-word match on token ""yellow"""
+7520,yellow onion,1,lb,4,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] substring match on token ""onion"""
+7520,yellow onion,1,lb,5,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""onion"""
+7521,garlic,6,clove,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,[matched] whole-word match on all tokens: [garlic]
+7521,garlic,6,clove,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,medium,[matched] whole-word match on all tokens: [garlic]
+7521,garlic,6,clove,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,[matched] whole-word match on all tokens: [garlic]
+7521,garlic,6,clove,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,medium,[matched] whole-word match on all tokens: [garlic]
+7521,garlic,6,clove,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,medium,[matched] whole-word match on all tokens: [garlic]
+7522,day-old bread,4,oz,1,vendor_prices,"TOWEL, PAPR MULTIFOLD WHT",shamrock,pk,0.01105,low,"[matched] substring match on token ""old"""
+7522,day-old bread,4,oz,2,vendor_prices,"CUP, COLD RPET PLS 12Z SQUAT CLR",shamrock,pk,0.12716,low,"[matched] substring match on token ""old"""
+7522,day-old bread,4,oz,3,vendor_prices,"CUP, COLD PLS 16Z CLR GREEN STRIPE",shamrock,pk,0.21234,low,"[matched] substring match on token ""old"""
+7522,day-old bread,4,oz,4,vendor_prices,"MIX, CORNBREAD GF",shamrock,oz,0.32908333333333334,low,"[matched] substring match on token ""bread"""
+7522,day-old bread,4,oz,5,vendor_prices,"CORNBREAD MIX, HMSTYL",shamrock,lb,2.068,low,"[matched] substring match on token ""bread"""
+7523,red wine vinegar,0.5,cup,1,vendor_prices,"VINEGAR, WINE RED 5% JUG",shamrock,cs,45.57,medium,"[matched] whole-word match on all tokens: [red, wine, vinegar]"
+7524,extra-virgin olive oil,0.5,cup,1,vendor_prices,Sugar Granulated Extra Fine Cane,sysco,lb,0.7998,low,"[matched] whole-word match on token ""extra"""
+7524,extra-virgin olive oil,0.5,cup,2,vendor_prices,"OIL, CANOLA CLR FRY ZTF",shamrock,lb,1.086,low,"[matched] whole-word match on token ""oil"""
+7524,extra-virgin olive oil,0.5,cup,3,vendor_prices,"EXTRACT, VANILLA PURE",shamrock,oz,2.11375,low,"[matched] substring match on token ""extra"""
+7524,extra-virgin olive oil,0.5,cup,4,vendor_prices,Oil Olive Pomace Tin,sysco,gal,3.731356,low,"[matched] whole-word match on token ""olive"""
+7524,extra-virgin olive oil,0.5,cup,5,vendor_prices,"ANCHOVY, FLT IN OLV OIL 13Z CAN",shamrock,ea,14.26,low,"[matched] whole-word match on token ""oil"""
+7525,ground cumin,1,tbsp,1,vendor_prices,"SPICE, CUMIN SEED GRND BULK",shamrock,lb,11.452,low,"[matched] whole-word match on token ""cumin"""
+7525,ground cumin,1,tbsp,2,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,low,"[matched] whole-word match on token ""ground"""
+7526,fresh cilantro,0.5,cup,1,vendor_prices,Pork Butt Boneless 1/4 6-9 Pounds Each Fresh,sysco,lb,0.028586,low,"[matched] whole-word match on token ""fresh"""
+7526,fresh cilantro,0.5,cup,2,vendor_prices,Oranges Fancy Fresh,sysco,ct,1.176,low,"[matched] whole-word match on token ""fresh"""
+7526,fresh cilantro,0.5,cup,3,vendor_prices,Lettuce Greens Leaf Fresh,sysco,ct,1.314046,low,"[matched] whole-word match on token ""fresh"""
+7526,fresh cilantro,0.5,cup,4,vendor_prices,Avocado Hass Fresh,sysco,ct,1.53,low,"[matched] whole-word match on token ""fresh"""
+7526,fresh cilantro,0.5,cup,5,vendor_prices,Melon Watermelon Seedless Fresh,sysco,ct,1.556857,low,"[matched] whole-word match on token ""fresh"""
+7528,kosher salt,2,tsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,"[matched] whole-word match on all tokens: [kosher, salt]"
+7529,black pepper,1,tsp,1,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,medium,"[matched] whole-word match on all tokens: [black, pepper]"
+7530,water,1.5,cup,1,none,,,,,none,[house] house tap — no vendor mapping
+7531,corn kernels,4,lb,1,vendor_prices,"CORN, YLW WHL KERNEL RSTD BAG FZN",shamrock,lb,2.4255,medium,"[matched] whole-word match on all tokens: [corn, kernel]"
+7532,leeks,2,lb,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7533,yellow onion,1,lb,1,vendor_prices,"ONION, YLW JMBO #2 BAG",shamrock,lb,0.32420000000000004,low,"[matched] whole-word match on token ""onion"""
+7533,yellow onion,1,lb,2,vendor_prices,"ONION, WHT WHL JMBO 50LB REFRIG FRSH",shamrock,lb,0.6156,low,"[matched] whole-word match on token ""onion"""
+7533,yellow onion,1,lb,3,vendor_prices,Corn Meal Yellow,sysco,lb,0.678,low,"[matched] whole-word match on token ""yellow"""
+7533,yellow onion,1,lb,4,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] substring match on token ""onion"""
+7533,yellow onion,1,lb,5,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""onion"""
+7534,yukon gold potato,1.5,lb,1,vendor_prices,"POTATO, RUSSET 100CT",shamrock,lb,0.3234,low,"[matched] whole-word match on token ""potato"""
+7534,yukon gold potato,1.5,lb,2,vendor_prices,Potato Red B Size Carton,sysco,lb,0.5384,low,"[matched] whole-word match on token ""potato"""
+7534,yukon gold potato,1.5,lb,3,vendor_prices,"POTATO, GLD SZ A PREM",shamrock,lb,0.539,low,"[matched] whole-word match on token ""potato"""
+7534,yukon gold potato,1.5,lb,4,vendor_prices,"POTATO, CUBE SK ON PARFRIED BAG FZN",shamrock,lb,1.7438888888888888,low,"[matched] whole-word match on token ""potato"""
+7534,yukon gold potato,1.5,lb,5,vendor_prices,"POTATO, REDSKIN TRI-CUT DICED O-RSTD",shamrock,lb,2.102667,low,"[matched] whole-word match on token ""potato"""
+7535,garlic,4,clove,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,[matched] whole-word match on all tokens: [garlic]
+7535,garlic,4,clove,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,medium,[matched] whole-word match on all tokens: [garlic]
+7535,garlic,4,clove,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,[matched] whole-word match on all tokens: [garlic]
+7535,garlic,4,clove,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,medium,[matched] whole-word match on all tokens: [garlic]
+7535,garlic,4,clove,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,medium,[matched] whole-word match on all tokens: [garlic]
+7536,unsalted butter,4,oz,1,vendor_prices,Butter Solid Unsalted 83% Minimum Butterfat European,sysco,lb,3.923889,medium,"[matched] whole-word match on all tokens: [unsalted, butter]"
+7537,chicken stock,3,qt,1,vendor_prices,Chicken Breast Cutlet 5 Ounce,sysco,lb,0.278516,low,"[matched] whole-word match on token ""chicken"""
+7537,chicken stock,3,qt,2,vendor_prices,"CHICKEN, WOG 3-3.25LB HALAL",shamrock,lb,1.87,low,"[matched] whole-word match on token ""chicken"""
+7537,chicken stock,3,qt,3,vendor_prices,Chicken Thigh Boneless Skinless Controlled Vac,sysco,lb,2.16825,low,"[matched] whole-word match on token ""chicken"""
+7537,chicken stock,3,qt,4,vendor_prices,"CHICKEN, WOG 3-3.5LB FRYER 12HD",shamrock,lb,2.26,low,"[matched] whole-word match on token ""chicken"""
+7537,chicken stock,3,qt,5,vendor_prices,"CHICKEN, DRUMSTICK FRNCHD ABF",shamrock,lb,3.2,low,"[matched] whole-word match on token ""chicken"""
+7538,heavy cream,2,cup,1,vendor_prices,Cream Heavy 40% Extended Shelf Life Stabilized,sysco,oz,2.140918,medium,"[matched] whole-word match on all tokens: [heavy, cream]"
+7539,whole milk,1,cup,1,vendor_prices,Milk Whole Gallon,sysco,gal,0.590988,medium,"[matched] whole-word match on all tokens: [whole, milk]"
+7539,whole milk,1,cup,2,vendor_prices,Cheese Ricotta Con Latte - Whole Milk - 75% Tub,sysco,lb,3.299,medium,"[matched] whole-word match on all tokens: [whole, milk]"
+7540,bay leaf,2,ea,1,vendor_prices,Lettuce Greens Leaf Fresh,sysco,ct,1.314046,low,"[matched] whole-word match on token ""leaf"""
+7540,bay leaf,2,ea,2,vendor_prices,"LETTUCE, GRN LEAF FLT",shamrock,lb,2.565,low,"[matched] whole-word match on token ""leaf"""
+7540,bay leaf,2,ea,3,vendor_prices,"SEASONING, OLD BAY",shamrock,ea,19.17,low,"[matched] whole-word match on token ""bay"""
+7540,bay leaf,2,ea,4,vendor_prices,"SPICE, OREGANO LEAF WHL BULK",shamrock,lb,19.926667,low,"[matched] whole-word match on token ""leaf"""
+7540,bay leaf,2,ea,5,vendor_prices,"SPICE, BASIL LEAF WHL BULK",shamrock,cs,25.77,low,"[matched] whole-word match on token ""leaf"""
+7541,fresh thyme,4,sprig,1,vendor_prices,Pork Butt Boneless 1/4 6-9 Pounds Each Fresh,sysco,lb,0.028586,low,"[matched] whole-word match on token ""fresh"""
+7541,fresh thyme,4,sprig,2,vendor_prices,Oranges Fancy Fresh,sysco,ct,1.176,low,"[matched] whole-word match on token ""fresh"""
+7541,fresh thyme,4,sprig,3,vendor_prices,Lettuce Greens Leaf Fresh,sysco,ct,1.314046,low,"[matched] whole-word match on token ""fresh"""
+7541,fresh thyme,4,sprig,4,vendor_prices,Avocado Hass Fresh,sysco,ct,1.53,low,"[matched] whole-word match on token ""fresh"""
+7541,fresh thyme,4,sprig,5,vendor_prices,Melon Watermelon Seedless Fresh,sysco,ct,1.556857,low,"[matched] whole-word match on token ""fresh"""
+7543,kosher salt,2,tsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,"[matched] whole-word match on all tokens: [kosher, salt]"
+7544,white pepper,1,tsp,1,vendor_prices,"TORTILLA, CORN 6"" WHITE",shamrock,pk,0.05751851851851852,low,"[matched] whole-word match on token ""white"""
+7544,white pepper,1,tsp,2,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] whole-word match on token ""white"""
+7544,white pepper,1,tsp,3,vendor_prices,"PEPPER, CHILE HATCH 1/2"" GRN MILD DICED",shamrock,lb,1.436,low,"[matched] whole-word match on token ""pepper"""
+7544,white pepper,1,tsp,4,vendor_prices,"PEPPER, JALP WHL REFRIG FRSH",shamrock,lb,1.608,low,"[matched] whole-word match on token ""pepper"""
+7544,white pepper,1,tsp,5,vendor_prices,"PEPPER, JALP GRN HOT CUT 3/8""",shamrock,lb,1.6132,low,"[matched] whole-word match on token ""pepper"""
+7545,chives,0.25,cup,1,vendor_prices,"HERB, CHIVES",shamrock,lb,16.35,low,"[matched] substring match on token ""chive"""
+7549,ciabatta loaf,4,ea,1,vendor_prices,"CHEESE, PROV LOAF REFRIG",shamrock,lb,2.79,low,"[matched] whole-word match on token ""loaf"""
+7549,ciabatta loaf,4,ea,2,vendor_prices,Cheese American Loaf Special Melting White,sysco,lb,3.389667,low,"[matched] whole-word match on token ""loaf"""
+7549,ciabatta loaf,4,ea,3,vendor_prices,"CHEESE, CRM LOAF RBST FREE 3LB",shamrock,ea,13.61,low,"[matched] whole-word match on token ""loaf"""
+7550,salted butter,8,oz,1,vendor_prices,Buttermilk Whole Qt,sysco,qt,1.365654,low,"[matched] substring match on token ""butter"""
+7550,salted butter,8,oz,2,vendor_prices,"BUTTER, SOLID UNSLTD EURO STYL AA",shamrock,lb,3.429444,low,"[matched] whole-word match on token ""butter"""
+7550,salted butter,8,oz,3,vendor_prices,"BUTTER, SOLID UNSLTD AA",shamrock,lb,3.4956666666666667,low,"[matched] whole-word match on token ""butter"""
+7550,salted butter,8,oz,4,vendor_prices,Butter Solid Unsalted 83% Minimum Butterfat European,sysco,lb,3.923889,low,"[matched] whole-word match on token ""butter"""
+7550,salted butter,8,oz,5,vendor_prices,"BUTTER, CLARIFIED TUB",shamrock,lb,4.9345,low,"[matched] whole-word match on token ""butter"""
+7551,mixed greens,2,lb,1,vendor_prices,"CUP, COLD PLS 16Z CLR GREEN STRIPE",shamrock,pk,0.21234,low,"[matched] whole-word match on token ""green"""
+7551,mixed greens,2,lb,2,vendor_prices,Lettuce Greens Leaf Fresh,sysco,ct,1.314046,low,"[matched] substring match on token ""green"""
+7551,mixed greens,2,lb,3,vendor_prices,Chile Green Hatch Diced Mild,sysco,lb,2.158,low,"[matched] whole-word match on token ""green"""
+7552,parmesan reggiano,8,oz,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7560,flour tortillas,50,ea,1,vendor_prices,"TORTILLA, FLOUR 6""",shamrock,cs,16.9,medium,"[matched] whole-word match on all tokens: [flour, tortilla]"
+7560,flour tortillas,50,ea,2,vendor_prices,"TORTILLA, FLOUR 6"" PRSSD",shamrock,cs,26.67,medium,"[matched] whole-word match on all tokens: [flour, tortilla]"
+7560,flour tortillas,50,ea,3,vendor_prices,"TORTILLA, FLOUR 14""",shamrock,cs,44.46,medium,"[matched] whole-word match on all tokens: [flour, tortilla]"
+7561,corn tortillas,50,ea,1,vendor_prices,"TORTILLA, CORN 6"" WHITE",shamrock,pk,0.05751851851851852,medium,"[matched] whole-word match on all tokens: [corn, tortilla]"
+7561,corn tortillas,50,ea,2,vendor_prices,"TORTILLA, CORN 6"" YLW",shamrock,pk,0.058041666666666665,medium,"[matched] whole-word match on all tokens: [corn, tortilla]"
+7561,corn tortillas,50,ea,3,vendor_prices,"CHIP, TORTILLA CORN YLW RAW 4 CUT",shamrock,lb,0.884375,medium,"[matched] whole-word match on all tokens: [corn, tortilla]"
+7561,corn tortillas,50,ea,4,vendor_prices,Tortilla Corn White 4.5 Inch,sysco,ct,1.752191,medium,"[matched] whole-word match on all tokens: [corn, tortilla]"
+7561,corn tortillas,50,ea,5,vendor_prices,"TORTILLA, CORN WHT 4.5"" CKD BAG",shamrock,cs,21.04,medium,"[matched] whole-word match on all tokens: [corn, tortilla]"
+7562,lime wedges,2,lb,1,vendor_prices,"LIME, 150CT",shamrock,lb,1.2962500000000001,low,"[matched] whole-word match on token ""lime"""
+7562,lime wedges,2,lb,2,vendor_prices,"LIME, PREM 200CT",shamrock,lb,2.1237500000000002,low,"[matched] whole-word match on token ""lime"""
+7562,lime wedges,2,lb,3,vendor_prices,Juice Lime Pasteurized Ultra Premium,sysco,qt,2.55,low,"[matched] whole-word match on token ""lime"""
+7562,lime wedges,2,lb,4,vendor_prices,"JUICE, LIME FRSH SQZ",shamrock,gal,12.7975,low,"[matched] whole-word match on token ""lime"""
+7563,long-grain white rice,1.5,lb,1,vendor_prices,"TORTILLA, CORN 6"" WHITE",shamrock,pk,0.05751851851851852,low,"[matched] whole-word match on token ""white"""
+7563,long-grain white rice,1.5,lb,2,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] whole-word match on token ""white"""
+7563,long-grain white rice,1.5,lb,3,vendor_prices,Tortilla Corn White 4.5 Inch,sysco,ct,1.752191,low,"[matched] whole-word match on token ""white"""
+7563,long-grain white rice,1.5,lb,4,vendor_prices,Corn White Fresh,sysco,ct,3.225129,low,"[matched] whole-word match on token ""white"""
+7563,long-grain white rice,1.5,lb,5,vendor_prices,Cheese American Loaf Special Melting White,sysco,lb,3.389667,low,"[matched] whole-word match on token ""white"""
+7564,yellow onion,1,lb,1,vendor_prices,"ONION, YLW JMBO #2 BAG",shamrock,lb,0.32420000000000004,low,"[matched] whole-word match on token ""onion"""
+7564,yellow onion,1,lb,2,vendor_prices,"ONION, WHT WHL JMBO 50LB REFRIG FRSH",shamrock,lb,0.6156,low,"[matched] whole-word match on token ""onion"""
+7564,yellow onion,1,lb,3,vendor_prices,Corn Meal Yellow,sysco,lb,0.678,low,"[matched] whole-word match on token ""yellow"""
+7564,yellow onion,1,lb,4,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] substring match on token ""onion"""
+7564,yellow onion,1,lb,5,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""onion"""
+7565,garlic,4,clove,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,[matched] whole-word match on all tokens: [garlic]
+7565,garlic,4,clove,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,medium,[matched] whole-word match on all tokens: [garlic]
+7565,garlic,4,clove,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,[matched] whole-word match on all tokens: [garlic]
+7565,garlic,4,clove,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,medium,[matched] whole-word match on all tokens: [garlic]
+7565,garlic,4,clove,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,medium,[matched] whole-word match on all tokens: [garlic]
+7566,vegetable oil,4,tbsp,1,vendor_prices,"OIL, CANOLA CLR FRY ZTF",shamrock,lb,1.086,low,"[matched] whole-word match on token ""oil"""
+7566,vegetable oil,4,tbsp,2,vendor_prices,"VEGETABLE BLEND, CHUCKWAGON IQF",shamrock,lb,1.7725,low,"[matched] whole-word match on token ""vegetable"""
+7566,vegetable oil,4,tbsp,3,vendor_prices,"VEGETABLE BLEND, CHATEAU IQF",shamrock,lb,2.297083,low,"[matched] whole-word match on token ""vegetable"""
+7566,vegetable oil,4,tbsp,4,vendor_prices,"VEGETABLE BLEND, POTATO REDSKIN PEPR & O",shamrock,lb,2.391333,low,"[matched] whole-word match on token ""vegetable"""
+7566,vegetable oil,4,tbsp,5,vendor_prices,Oil Olive Pomace Tin,sysco,gal,3.731356,low,"[matched] whole-word match on token ""oil"""
+7567,canned diced tomatoes,4,cup,1,vendor_prices,"TOMATO, DICED FIRE RSTD IN JCE",shamrock,cn,0.9216666666666666,low,"[matched] whole-word match on token ""diced"""
+7567,canned diced tomatoes,4,cup,2,vendor_prices,"CHILE, HATCH MILD GRN DICED 1/2"" RSTD",shamrock,lb,1.416,low,"[matched] whole-word match on token ""diced"""
+7567,canned diced tomatoes,4,cup,3,vendor_prices,"PEPPER, CHILE HATCH 1/2"" GRN MILD DICED",shamrock,lb,1.436,low,"[matched] whole-word match on token ""diced"""
+7567,canned diced tomatoes,4,cup,4,vendor_prices,"HASHBROWN, DICED SIGNATURE",shamrock,lb,1.912,low,"[matched] whole-word match on token ""diced"""
+7567,canned diced tomatoes,4,cup,5,vendor_prices,"POTATO, REDSKIN TRI-CUT DICED O-RSTD",shamrock,lb,2.102667,low,"[matched] whole-word match on token ""diced"""
+7568,chicken stock,2,qt,1,vendor_prices,Chicken Breast Cutlet 5 Ounce,sysco,lb,0.278516,low,"[matched] whole-word match on token ""chicken"""
+7568,chicken stock,2,qt,2,vendor_prices,"CHICKEN, WOG 3-3.25LB HALAL",shamrock,lb,1.87,low,"[matched] whole-word match on token ""chicken"""
+7568,chicken stock,2,qt,3,vendor_prices,Chicken Thigh Boneless Skinless Controlled Vac,sysco,lb,2.16825,low,"[matched] whole-word match on token ""chicken"""
+7568,chicken stock,2,qt,4,vendor_prices,"CHICKEN, WOG 3-3.5LB FRYER 12HD",shamrock,lb,2.26,low,"[matched] whole-word match on token ""chicken"""
+7568,chicken stock,2,qt,5,vendor_prices,"CHICKEN, DRUMSTICK FRNCHD ABF",shamrock,lb,3.2,low,"[matched] whole-word match on token ""chicken"""
+7569,ground cumin,2,tsp,1,vendor_prices,"SPICE, CUMIN SEED GRND BULK",shamrock,lb,11.452,low,"[matched] whole-word match on token ""cumin"""
+7569,ground cumin,2,tsp,2,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,low,"[matched] whole-word match on token ""ground"""
+7570,kosher salt,1,tbsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,"[matched] whole-word match on all tokens: [kosher, salt]"
+7571,black pepper,1,tsp,1,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,medium,"[matched] whole-word match on all tokens: [black, pepper]"
+7572,canned black beans,8,can,1,vendor_prices,"CRAYON, SOYBEAN 4CT BLUE GRN RED YL",shamrock,pk,0.06272,low,"[matched] substring match on token ""bean"""
+7572,canned black beans,8,can,2,vendor_prices,"BEAN, PINTO PREWASHED",shamrock,lb,0.7268000000000001,low,"[matched] whole-word match on token ""bean"""
+7572,canned black beans,8,can,3,vendor_prices,"BEAN, BLK FCY CAN SHLF STABLE UNSEASN",shamrock,cn,0.7975,low,"[matched] whole-word match on token ""bean"""
+7572,canned black beans,8,can,4,vendor_prices,Bean Black,sysco,ct,0.977697,low,"[matched] whole-word match on token ""black"""
+7572,canned black beans,8,can,5,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,low,"[matched] whole-word match on token ""black"""
+7573,yellow onion,1,lb,1,vendor_prices,"ONION, YLW JMBO #2 BAG",shamrock,lb,0.32420000000000004,low,"[matched] whole-word match on token ""onion"""
+7573,yellow onion,1,lb,2,vendor_prices,"ONION, WHT WHL JMBO 50LB REFRIG FRSH",shamrock,lb,0.6156,low,"[matched] whole-word match on token ""onion"""
+7573,yellow onion,1,lb,3,vendor_prices,Corn Meal Yellow,sysco,lb,0.678,low,"[matched] whole-word match on token ""yellow"""
+7573,yellow onion,1,lb,4,vendor_prices,Onions White Jumbo Bag,sysco,lb,0.679,low,"[matched] substring match on token ""onion"""
+7573,yellow onion,1,lb,5,vendor_prices,Onion Red Jumbo Sack,sysco,lb,0.9558,low,"[matched] whole-word match on token ""onion"""
+7574,garlic,6,clove,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,[matched] whole-word match on all tokens: [garlic]
+7574,garlic,6,clove,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,medium,[matched] whole-word match on all tokens: [garlic]
+7574,garlic,6,clove,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,[matched] whole-word match on all tokens: [garlic]
+7574,garlic,6,clove,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,medium,[matched] whole-word match on all tokens: [garlic]
+7574,garlic,6,clove,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,medium,[matched] whole-word match on all tokens: [garlic]
+7575,vegetable oil,0.5,cup,1,vendor_prices,"OIL, CANOLA CLR FRY ZTF",shamrock,lb,1.086,low,"[matched] whole-word match on token ""oil"""
+7575,vegetable oil,0.5,cup,2,vendor_prices,"VEGETABLE BLEND, CHUCKWAGON IQF",shamrock,lb,1.7725,low,"[matched] whole-word match on token ""vegetable"""
+7575,vegetable oil,0.5,cup,3,vendor_prices,"VEGETABLE BLEND, CHATEAU IQF",shamrock,lb,2.297083,low,"[matched] whole-word match on token ""vegetable"""
+7575,vegetable oil,0.5,cup,4,vendor_prices,"VEGETABLE BLEND, POTATO REDSKIN PEPR & O",shamrock,lb,2.391333,low,"[matched] whole-word match on token ""vegetable"""
+7575,vegetable oil,0.5,cup,5,vendor_prices,Oil Olive Pomace Tin,sysco,gal,3.731356,low,"[matched] whole-word match on token ""oil"""
+7576,ground cumin,2,tbsp,1,vendor_prices,"SPICE, CUMIN SEED GRND BULK",shamrock,lb,11.452,low,"[matched] whole-word match on token ""cumin"""
+7576,ground cumin,2,tbsp,2,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,low,"[matched] whole-word match on token ""ground"""
+7577,dried oregano,1,tbsp,1,vendor_prices,"PEPPER, CHILE GUAJILLO STEMLESS DRIED",shamrock,lb,4.8556,low,"[matched] whole-word match on token ""dried"""
+7577,dried oregano,1,tbsp,2,vendor_prices,"PEPPER, CHILE GUAJILLO DRIED",shamrock,lb,6.874,low,"[matched] whole-word match on token ""dried"""
+7577,dried oregano,1,tbsp,3,vendor_prices,Pepper Chiles Guajillo Dried,sysco,lb,11.39,low,"[matched] whole-word match on token ""dried"""
+7577,dried oregano,1,tbsp,4,vendor_prices,"PEPPER, CHILE ARBOL DRIED",shamrock,lb,11.95,low,"[matched] whole-word match on token ""dried"""
+7577,dried oregano,1,tbsp,5,vendor_prices,Pepper Ancho Dried,sysco,lb,12.998,low,"[matched] whole-word match on token ""dried"""
+7578,kosher salt,1,tbsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,"[matched] whole-word match on all tokens: [kosher, salt]"
+7579,black pepper,1,tsp,1,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,medium,"[matched] whole-word match on all tokens: [black, pepper]"
+7580,lime juice,0.25,cup,1,vendor_prices,Juice Lime Pasteurized Ultra Premium,sysco,qt,2.55,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7580,lime juice,0.25,cup,2,vendor_prices,"JUICE, LIME FRSH SQZ",shamrock,gal,12.7975,medium,"[matched] whole-word match on all tokens: [lime, juice]"
+7581,beef tenderloin,3,lb,1,vendor_prices,Beef Cheek Meat,sysco,ea,0.164813,low,"[matched] whole-word match on token ""beef"""
+7581,beef tenderloin,3,lb,2,vendor_prices,"BEEF, CHEEK MEAT REFRIG",shamrock,lb,4.25,low,"[matched] whole-word match on token ""beef"""
+7581,beef tenderloin,3,lb,3,vendor_prices,"BEEF, BRISKET 120 REF GCA",shamrock,pc,4.88,low,"[matched] whole-word match on token ""beef"""
+7581,beef tenderloin,3,lb,4,vendor_prices,"BEEF, GRND PTY 7Z 80/20 CHK BRISKET F2F",shamrock,cs,64.82,low,"[matched] whole-word match on token ""beef"""
+7581,beef tenderloin,3,lb,5,vendor_prices,"BEEF, GRND PTY 7Z 80/20 CHK BRISKET RND",shamrock,cs,87.81,low,"[matched] whole-word match on token ""beef"""
+7582,baguette,4,ea,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7583,extra-virgin olive oil,0.5,cup,1,vendor_prices,Sugar Granulated Extra Fine Cane,sysco,lb,0.7998,low,"[matched] whole-word match on token ""extra"""
+7583,extra-virgin olive oil,0.5,cup,2,vendor_prices,"OIL, CANOLA CLR FRY ZTF",shamrock,lb,1.086,low,"[matched] whole-word match on token ""oil"""
+7583,extra-virgin olive oil,0.5,cup,3,vendor_prices,"EXTRACT, VANILLA PURE",shamrock,oz,2.11375,low,"[matched] substring match on token ""extra"""
+7583,extra-virgin olive oil,0.5,cup,4,vendor_prices,Oil Olive Pomace Tin,sysco,gal,3.731356,low,"[matched] whole-word match on token ""olive"""
+7583,extra-virgin olive oil,0.5,cup,5,vendor_prices,"ANCHOVY, FLT IN OLV OIL 13Z CAN",shamrock,ea,14.26,low,"[matched] whole-word match on token ""oil"""
+7584,garlic,4,clove,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,[matched] whole-word match on all tokens: [garlic]
+7584,garlic,4,clove,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,medium,[matched] whole-word match on all tokens: [garlic]
+7584,garlic,4,clove,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,[matched] whole-word match on all tokens: [garlic]
+7584,garlic,4,clove,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,medium,[matched] whole-word match on all tokens: [garlic]
+7584,garlic,4,clove,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,medium,[matched] whole-word match on all tokens: [garlic]
+7585,kosher salt,1,tbsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,"[matched] whole-word match on all tokens: [kosher, salt]"
+7586,black pepper,1,tsp,1,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,medium,"[matched] whole-word match on all tokens: [black, pepper]"
+7587,sour cream,1,cup,1,vendor_prices,"SOUR CREAM, NATURAL 5LB",shamrock,lb,1.332,medium,"[matched] whole-word match on all tokens: [sour, cream]"
+7587,sour cream,1,cup,2,vendor_prices,"SOUR CREAM, CREMA MEXICANA 5LB",shamrock,lb,1.476,medium,"[matched] whole-word match on all tokens: [sour, cream]"
+7588,mayonnaise,0.5,cup,1,vendor_prices,"MAYONNAISE, HVY DTY TUB",shamrock,lb,1.506,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7588,mayonnaise,0.5,cup,2,vendor_prices,Mayonnaise Heavy Duty Pail,sysco,lb,2.033929,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7588,mayonnaise,0.5,cup,3,vendor_prices,Mayonnaise Japanese 64 Ounces,sysco,oz,6.285,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7588,mayonnaise,0.5,cup,4,vendor_prices,"MAYONNAISE, KEWPIE",shamrock,cs,86.99,medium,[matched] whole-word match on all tokens: [mayonnaise]
+7589,prepared horseradish,0.25,cup,1,vendor_prices,"HORSERADISH, PREPARED XHOT",shamrock,cs,41.42,medium,"[matched] whole-word match on all tokens: [prepared, horseradish]"
+7590,dijon mustard,1,tbsp,1,vendor_prices,"MUSTARD, DIJON ORIG SMOOTH",shamrock,ea,31.39,medium,"[matched] whole-word match on all tokens: [dijon, mustard]"
+7591,fresh chives,0.25,cup,1,vendor_prices,Pork Butt Boneless 1/4 6-9 Pounds Each Fresh,sysco,lb,0.028586,low,"[matched] whole-word match on token ""fresh"""
+7591,fresh chives,0.25,cup,2,vendor_prices,Oranges Fancy Fresh,sysco,ct,1.176,low,"[matched] whole-word match on token ""fresh"""
+7591,fresh chives,0.25,cup,3,vendor_prices,Lettuce Greens Leaf Fresh,sysco,ct,1.314046,low,"[matched] whole-word match on token ""fresh"""
+7591,fresh chives,0.25,cup,4,vendor_prices,Avocado Hass Fresh,sysco,ct,1.53,low,"[matched] whole-word match on token ""fresh"""
+7591,fresh chives,0.25,cup,5,vendor_prices,Melon Watermelon Seedless Fresh,sysco,ct,1.556857,low,"[matched] whole-word match on token ""fresh"""
+7592,arugula,0.5,lb,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7593,capers,2,tbsp,1,vendor_prices,"CAPER, NONPAREIL 32Z JAR",shamrock,cs,59.31,medium,[matched] whole-word match on all tokens: [caper]
+7594,parmesan reggiano,2,oz,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7595,cherry tomatoes,6,lb,1,vendor_prices,Tomato Cherry Heirloom Mix,sysco,pt,6.992857,low,"[matched] whole-word match on token ""cherry"""
+7596,fresh thyme,1,sprig,1,vendor_prices,Pork Butt Boneless 1/4 6-9 Pounds Each Fresh,sysco,lb,0.028586,low,"[matched] whole-word match on token ""fresh"""
+7596,fresh thyme,1,sprig,2,vendor_prices,Oranges Fancy Fresh,sysco,ct,1.176,low,"[matched] whole-word match on token ""fresh"""
+7596,fresh thyme,1,sprig,3,vendor_prices,Lettuce Greens Leaf Fresh,sysco,ct,1.314046,low,"[matched] whole-word match on token ""fresh"""
+7596,fresh thyme,1,sprig,4,vendor_prices,Avocado Hass Fresh,sysco,ct,1.53,low,"[matched] whole-word match on token ""fresh"""
+7596,fresh thyme,1,sprig,5,vendor_prices,Melon Watermelon Seedless Fresh,sysco,ct,1.556857,low,"[matched] whole-word match on token ""fresh"""
+7597,garlic,100,g,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,[matched] whole-word match on all tokens: [garlic]
+7597,garlic,100,g,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,medium,[matched] whole-word match on all tokens: [garlic]
+7597,garlic,100,g,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,[matched] whole-word match on all tokens: [garlic]
+7597,garlic,100,g,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,medium,[matched] whole-word match on all tokens: [garlic]
+7597,garlic,100,g,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,medium,[matched] whole-word match on all tokens: [garlic]
+7598,extra-virgin olive oil,1,qt,1,vendor_prices,Sugar Granulated Extra Fine Cane,sysco,lb,0.7998,low,"[matched] whole-word match on token ""extra"""
+7598,extra-virgin olive oil,1,qt,2,vendor_prices,"OIL, CANOLA CLR FRY ZTF",shamrock,lb,1.086,low,"[matched] whole-word match on token ""oil"""
+7598,extra-virgin olive oil,1,qt,3,vendor_prices,"EXTRACT, VANILLA PURE",shamrock,oz,2.11375,low,"[matched] substring match on token ""extra"""
+7598,extra-virgin olive oil,1,qt,4,vendor_prices,Oil Olive Pomace Tin,sysco,gal,3.731356,low,"[matched] whole-word match on token ""olive"""
+7598,extra-virgin olive oil,1,qt,5,vendor_prices,"ANCHOVY, FLT IN OLV OIL 13Z CAN",shamrock,ea,14.26,low,"[matched] whole-word match on token ""oil"""
+7599,parsley,20,g,1,vendor_prices,"HERB, PARSLEY W&T",shamrock,ea,8.03,medium,[matched] whole-word match on all tokens: [parsley]
+7599,parsley,20,g,2,vendor_prices,"HERB, FRSH PARSLEY ITAL FLAT",shamrock,lb,11.56,medium,[matched] whole-word match on all tokens: [parsley]
+7600,picked thyme,10,g,1,vendor_prices,"HERB, THYME",shamrock,cs,6.76,low,"[matched] whole-word match on token ""thyme"""
+7600,picked thyme,10,g,2,vendor_prices,"HERB, THYME 1LB",shamrock,lb,12.24,low,"[matched] whole-word match on token ""thyme"""
+7601,picked tarragon,10,g,1,vendor_prices,"HERB, FRSH TARRAGON 4Z REFRIG FRSH",shamrock,cs,8.13,low,"[matched] whole-word match on token ""tarragon"""
+7602,picked rosemary,10,g,1,vendor_prices,"HERB, ROSEMARY 1LB",shamrock,lb,11.67,low,"[matched] whole-word match on token ""rosemary"""
+7602,picked rosemary,10,g,2,vendor_prices,"HERB, FRSH ROSEMARY 4Z LINER REFRIG FRSH",shamrock,lb,24.48,low,"[matched] whole-word match on token ""rosemary"""
+7603,lemon zest,3,ea,1,vendor_prices,"LEMON, CHO 140CT",shamrock,pk,0.2998571428571428,low,"[matched] whole-word match on token ""lemon"""
+7603,lemon zest,3,ea,2,vendor_prices,"LEMON, FANCY 140CT",shamrock,ea,0.35464285714285715,low,"[matched] whole-word match on token ""lemon"""
+7603,lemon zest,3,ea,3,vendor_prices,"HERB, LEMONGRASS",shamrock,lb,6.786,low,"[matched] substring match on token ""lemon"""
+7603,lemon zest,3,ea,4,vendor_prices,"JUICE, LEMON FRSH SQZ",shamrock,gal,12.3525,low,"[matched] whole-word match on token ""lemon"""
+7603,lemon zest,3,ea,5,vendor_prices,Juice Lemon Pasteurized Ultra Premium,sysco,gal,16.796667,low,"[matched] whole-word match on token ""lemon"""
+7604,garlic,50,g,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,[matched] whole-word match on all tokens: [garlic]
+7604,garlic,50,g,2,vendor_prices,Garlic Peeled Fresh,sysco,lb,4.5475,medium,[matched] whole-word match on all tokens: [garlic]
+7604,garlic,50,g,3,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,[matched] whole-word match on all tokens: [garlic]
+7604,garlic,50,g,4,vendor_prices,"SPICE, GARLIC PWDR BULK",shamrock,lb,9.051667,medium,[matched] whole-word match on all tokens: [garlic]
+7604,garlic,50,g,5,vendor_prices,"SPICE, GARLIC GRANLTD BULK",shamrock,lb,9.313103,medium,[matched] whole-word match on all tokens: [garlic]
+7605,salt,1200,g,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,[matched] whole-word match on all tokens: [salt]
+7605,salt,1200,g,2,vendor_prices,"SPICE, CELERY SALT",shamrock,cs,9.45,medium,[matched] whole-word match on all tokens: [salt]
+7605,salt,1200,g,3,vendor_prices,"SALT, SEA FLAKE MALDON",shamrock,lb,12.763636,medium,[matched] whole-word match on all tokens: [salt]
+7606,redbird chicken legs,1,case,1,vendor_prices,Chicken Breast Cutlet 5 Ounce,sysco,lb,0.278516,low,"[matched] whole-word match on token ""chicken"""
+7606,redbird chicken legs,1,case,2,vendor_prices,"CHICKEN, WOG 3-3.25LB HALAL",shamrock,lb,1.87,low,"[matched] whole-word match on token ""chicken"""
+7606,redbird chicken legs,1,case,3,vendor_prices,Chicken Thigh Boneless Skinless Controlled Vac,sysco,lb,2.16825,low,"[matched] whole-word match on token ""chicken"""
+7606,redbird chicken legs,1,case,4,vendor_prices,"CHICKEN, WOG 3-3.5LB FRYER 12HD",shamrock,lb,2.26,low,"[matched] whole-word match on token ""chicken"""
+7606,redbird chicken legs,1,case,5,vendor_prices,"CHICKEN, DRUMSTICK FRNCHD ABF",shamrock,lb,3.2,low,"[matched] whole-word match on token ""chicken"""
+7608,rosemary,1,sprig,1,vendor_prices,"HERB, ROSEMARY 1LB",shamrock,lb,11.67,medium,[matched] whole-word match on all tokens: [rosemary]
+7608,rosemary,1,sprig,2,vendor_prices,"HERB, FRSH ROSEMARY 4Z LINER REFRIG FRSH",shamrock,lb,24.48,medium,[matched] whole-word match on all tokens: [rosemary]
+7609,thyme,1,sprig,1,vendor_prices,"HERB, THYME",shamrock,cs,6.76,medium,[matched] whole-word match on all tokens: [thyme]
+7609,thyme,1,sprig,2,vendor_prices,"HERB, THYME 1LB",shamrock,lb,12.24,medium,[matched] whole-word match on all tokens: [thyme]
+7610,garlic cloves,8,ea,1,vendor_prices,"GARLIC, CLOVE PLD",shamrock,lb,4.488,medium,"[matched] whole-word match on all tokens: [garlic, clove]"
+7610,garlic cloves,8,ea,2,vendor_prices,"GARLIC, CLOVE PLD BAG REFRIG FRSH",shamrock,lb,5.326,medium,"[matched] whole-word match on all tokens: [garlic, clove]"
+7611,olive oil,1,cup,1,vendor_prices,Oil Olive Pomace Tin,sysco,gal,3.731356,medium,"[matched] whole-word match on all tokens: [olive, oil]"
+7612,roasted root veg (sysco),1,case,1,vendor_prices,"SODA, ROOT BEER GLS BTL",shamrock,oz,0.08013888888888888,low,"[matched] whole-word match on token ""root"""
+7612,roasted root veg (sysco),1,case,2,vendor_prices,"SODA, ROOT BEER 12Z IBC",shamrock,oz,0.09371527777777777,low,"[matched] whole-word match on token ""root"""
+7612,roasted root veg (sysco),1,case,3,vendor_prices,"VEGETABLE BLEND, CHUCKWAGON IQF",shamrock,lb,1.7725,low,"[matched] substring match on token ""veg"""
+7612,roasted root veg (sysco),1,case,4,vendor_prices,"VEGETABLE BLEND, CHATEAU IQF",shamrock,lb,2.297083,low,"[matched] substring match on token ""veg"""
+7612,roasted root veg (sysco),1,case,5,vendor_prices,"VEGETABLE BLEND, POTATO REDSKIN PEPR & O",shamrock,lb,2.391333,low,"[matched] substring match on token ""veg"""
+7613,breakfast burrito,1,each,1,recipe,breakfast_burrito,,,,high,"[matched_house_recipe] bom ingredient ""breakfast burrito"" matches existing recipe slug ""breakfast_burrito"""
+7614,sliced peaches drained/thawed,10,lb,1,vendor_prices,"Dessert Bar Variety 9"" X 12"" Unsliced",sysco,oz,8.896154,low,"[matched] substring match on token ""sliced"""
+7614,sliced peaches drained/thawed,10,lb,2,vendor_prices,Ham Prosciutto Sliced All Natural,sysco,oz,19.158333,low,"[matched] whole-word match on token ""sliced"""
+7616,brown sugar,8,oz,1,vendor_prices,Sugar Brown Light Cane,sysco,lb,1.541667,medium,"[matched] whole-word match on all tokens: [brown, sugar]"
+7617,cornstarch,4.5,oz,1,none,,,,,none,[manual] no candidate ≥ low confidence found — manual review required
+7619,vanilla extract,0.25,cup,1,vendor_prices,"EXTRACT, VANILLA PURE",shamrock,oz,2.11375,medium,"[matched] whole-word match on all tokens: [vanilla, extract]"
+7619,vanilla extract,0.25,cup,2,vendor_prices,Extract Vanilla Pure,sysco,oz,37.821608,medium,"[matched] whole-word match on all tokens: [vanilla, extract]"
+7619,vanilla extract,0.25,cup,3,vendor_prices,"EXTRACT, VANILLA PURE LIQ 32Z BTL",shamrock,cs,59.88,medium,"[matched] whole-word match on all tokens: [vanilla, extract]"
+7620,ground cinnamon,1.5,tbsp,1,vendor_prices,"CINNAMON, GRND",shamrock,oz,0.7125,low,"[matched] whole-word match on token ""cinnamon"""
+7620,ground cinnamon,1.5,tbsp,2,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,low,"[matched] whole-word match on token ""ground"""
+7621,ground nutmeg,1,tsp,1,vendor_prices,"SPICE, NUTMEG GRND",shamrock,cs,19.25,low,"[matched] whole-word match on token ""nutmeg"""
+7621,ground nutmeg,1,tsp,2,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,low,"[matched] whole-word match on token ""ground"""
+7622,kosher salt,2,tsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,"[matched] whole-word match on all tokens: [kosher, salt]"
+7623,butter diced or melted,6,oz,1,vendor_prices,"TOMATO, DICED FIRE RSTD IN JCE",shamrock,cn,0.9216666666666666,low,"[matched] whole-word match on token ""diced"""
+7623,butter diced or melted,6,oz,2,vendor_prices,Buttermilk Whole Qt,sysco,qt,1.365654,low,"[matched] substring match on token ""butter"""
+7623,butter diced or melted,6,oz,3,vendor_prices,"CHILE, HATCH MILD GRN DICED 1/2"" RSTD",shamrock,lb,1.416,low,"[matched] whole-word match on token ""diced"""
+7623,butter diced or melted,6,oz,4,vendor_prices,"PEPPER, CHILE HATCH 1/2"" GRN MILD DICED",shamrock,lb,1.436,low,"[matched] whole-word match on token ""diced"""
+7623,butter diced or melted,6,oz,5,vendor_prices,"HASHBROWN, DICED SIGNATURE",shamrock,lb,1.912,low,"[matched] whole-word match on token ""diced"""
+7624,prepared granola,2.5,lb,1,vendor_prices,"HORSERADISH, PREPARED XHOT",shamrock,cs,41.42,low,"[matched] whole-word match on token ""prepared"""
+7625,yellow cake mix,12,oz,1,vendor_prices,"MIX, CORNBREAD GF",shamrock,oz,0.32908333333333334,low,"[matched] whole-word match on token ""mix"""
+7625,yellow cake mix,12,oz,2,vendor_prices,"DRESSING MIX, RANCH STYL",shamrock,oz,0.5887152777777777,low,"[matched] whole-word match on token ""mix"""
+7625,yellow cake mix,12,oz,3,vendor_prices,Corn Meal Yellow,sysco,lb,0.678,low,"[matched] whole-word match on token ""yellow"""
+7625,yellow cake mix,12,oz,4,vendor_prices,Chip Tortilla Yellow 4 Inches Cut,sysco,lb,1.211475,low,"[matched] whole-word match on token ""yellow"""
+7625,yellow cake mix,12,oz,5,vendor_prices,"MIX, PANCAKE & WAFFLE BTRMLK WESTERN DRY",shamrock,lb,1.4216666666666666,low,"[matched] whole-word match on token ""mix"""
+7626,brown sugar,6,oz,1,vendor_prices,Sugar Brown Light Cane,sysco,lb,1.541667,medium,"[matched] whole-word match on all tokens: [brown, sugar]"
+7627,butter melted,16,oz,1,vendor_prices,Buttermilk Whole Qt,sysco,qt,1.365654,low,"[matched] substring match on token ""butter"""
+7627,butter melted,16,oz,2,vendor_prices,"BUTTER, SOLID UNSLTD EURO STYL AA",shamrock,lb,3.429444,low,"[matched] whole-word match on token ""butter"""
+7627,butter melted,16,oz,3,vendor_prices,"BUTTER, SOLID UNSLTD AA",shamrock,lb,3.4956666666666667,low,"[matched] whole-word match on token ""butter"""
+7627,butter melted,16,oz,4,vendor_prices,Butter Solid Unsalted 83% Minimum Butterfat European,sysco,lb,3.923889,low,"[matched] whole-word match on token ""butter"""
+7627,butter melted,16,oz,5,vendor_prices,"BUTTER, CLARIFIED TUB",shamrock,lb,4.9345,low,"[matched] whole-word match on token ""butter"""
+7628,ground cinnamon,1,tbsp,1,vendor_prices,"CINNAMON, GRND",shamrock,oz,0.7125,low,"[matched] whole-word match on token ""cinnamon"""
+7628,ground cinnamon,1,tbsp,2,vendor_prices,Spice Pepper Black Shaker Ground,sysco,lb,19.918,low,"[matched] whole-word match on token ""ground"""
+7629,kosher salt,1,tsp,1,vendor_prices,"SALT, SEA WHT GRANULE 3LB KOSHER",shamrock,lb,0.916944,medium,"[matched] whole-word match on all tokens: [kosher, salt]"
+7636,flour tortilla,3,ea,1,vendor_prices,"TORTILLA, FLOUR 6""",shamrock,cs,16.9,medium,"[matched] whole-word match on all tokens: [flour, tortilla]"
+7636,flour tortilla,3,ea,2,vendor_prices,"TORTILLA, FLOUR 6"" PRSSD",shamrock,cs,26.67,medium,"[matched] whole-word match on all tokens: [flour, tortilla]"
+7636,flour tortilla,3,ea,3,vendor_prices,"TORTILLA, FLOUR 14""",shamrock,cs,44.46,medium,"[matched] whole-word match on all tokens: [flour, tortilla]"
+7637,catfish fillet,6,oz,1,vendor_prices,Pangasius Fillet Iqf 7-9 Ounce,sysco,lb,2.992667,low,"[matched] whole-word match on token ""fillet"""

@@ -1,6 +1,6 @@
 ingredient,qty,unit,portions_per_batch,notes
 ziti noodles,2,lb,~1 hotel pan,dry — boil al dente
-marinara sauce,2,qt,~1 hotel pan,(sub-recipe)
+marinara sauce,2,qt,~1 hotel pan,(sub-recipe=marinara_sauce)
 tomato sauce,1,qt,~1 hotel pan,canned — layer base
 ricotta cheese,2,lb,~1 hotel pan,whole milk
 mozzarella shredded,1.5,lb,~1 hotel pan,low-moisture

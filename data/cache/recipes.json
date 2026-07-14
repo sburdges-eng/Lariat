@@ -559,8 +559,8 @@
       },
       {
         "item": "evoo",
-        "qty": "",
-        "unit": ""
+        "qty": 2,
+        "unit": "gal"
       }
     ],
     "procedure": [
@@ -863,13 +863,13 @@
       },
       {
         "item": "salt",
-        "qty": "",
-        "unit": ""
+        "qty": 1,
+        "unit": "tbsp"
       },
       {
         "item": "pepper",
-        "qty": "",
-        "unit": ""
+        "qty": 0.5,
+        "unit": "tsp"
       }
     ],
     "procedure": [
@@ -936,13 +936,13 @@
       },
       {
         "item": "kosher salt",
-        "qty": "",
-        "unit": ""
+        "qty": 2,
+        "unit": "tbsp"
       },
       {
         "item": "pepper",
-        "qty": "",
-        "unit": ""
+        "qty": 1,
+        "unit": "tsp"
       },
       {
         "item": "green cabbage",
@@ -1081,8 +1081,8 @@
       },
       {
         "item": "buttermilk",
-        "qty": "",
-        "unit": "to consistency"
+        "qty": 8,
+        "unit": "qt"
       }
     ],
     "procedure": [
@@ -1204,92 +1204,6 @@
     "notes": "Eggs + milk + cinnamon + vanilla + nutmeg",
     "direct_allergens": [
       "eggs",
-      "milk",
-      "wheat"
-    ]
-  },
-  {
-    "name": "Green Chile",
-    "ingredients": [
-      {
-        "item": "pork butt",
-        "qty": 10,
-        "unit": "lb"
-      },
-      {
-        "item": "water",
-        "qty": 5,
-        "unit": "cup"
-      },
-      {
-        "item": "tomatillos",
-        "qty": 2,
-        "unit": "#10 can"
-      },
-      {
-        "item": "hatch chile with juice",
-        "qty": 2,
-        "unit": "bag"
-      },
-      {
-        "item": "yellow onions",
-        "qty": 1.75,
-        "unit": "lb"
-      },
-      {
-        "item": "granulated garlic",
-        "qty": 0.5,
-        "unit": "cup"
-      },
-      {
-        "item": "dried oregano",
-        "qty": 0.333,
-        "unit": "cup"
-      },
-      {
-        "item": "cumin",
-        "qty": 0.5,
-        "unit": "cup"
-      },
-      {
-        "item": "chicken base",
-        "qty": 3,
-        "unit": "cup"
-      },
-      {
-        "item": "garlic puree",
-        "qty": 1,
-        "unit": "cup"
-      }
-    ],
-    "procedure": [
-      "1. Create roux with bacon grease & flour.",
-      "2. Cook pork in oil until water is gone.",
-      "3. Add onions, cook 10 min.",
-      "4. Add garlic puree, cook 5 min.",
-      "5. Add spices and chicken base, cook 10 min.",
-      "6. Add tomatillo and chilis, mix well.",
-      "7. Add water, cook 40-60 min until pork softens.",
-      "8. Add roux, cook 20 more minutes."
-    ],
-    "slug": "green_chile",
-    "source": "excel",
-    "allergens": [
-      "milk",
-      "wheat"
-    ],
-    "category": "entree",
-    "yield_qty": 8,
-    "yield_unit": "qt",
-    "station": "expo",
-    "sub_recipes": [
-      "lariat_rub"
-    ],
-    "menu_items": [
-      "Green Chile (cup/bowl)"
-    ],
-    "notes": "PDF p16 — braise 40-60 min until pork softens; add roux (bacon grease + flour) to finish",
-    "direct_allergens": [
       "milk",
       "wheat"
     ]
@@ -1486,7 +1400,7 @@
     "menu_items": [
       "multiple"
     ],
-    "notes": "House signature rub — used in Nashville Hot Rub + Pig Wings + Green Chile + Bacon Jam",
+    "notes": "House signature rub — used in Nashville Hot Rub + Pig Wings + Green Chilli + Bacon Jam",
     "direct_allergens": [
       "milk"
     ],
@@ -1998,13 +1912,13 @@
       },
       {
         "item": "salt",
-        "qty": "",
-        "unit": ""
+        "qty": 2,
+        "unit": "tbsp"
       },
       {
         "item": "pepper",
-        "qty": "",
-        "unit": ""
+        "qty": 1,
+        "unit": "tbsp"
       }
     ],
     "procedure": [
@@ -2199,7 +2113,6 @@
     "station": "expo;saute",
     "sub_recipes": [
       "lariat_rub",
-      "green_chile",
       "blackened_tomato_salsa"
     ],
     "menu_items": [
@@ -2207,7 +2120,7 @@
       "Mtn Mac & Cheese",
       "El Jefe add-on"
     ],
-    "notes": "Ice wand to cool — held hot in cambro",
+    "notes": "Ice wand to cool — held hot in cambro. Uses vendor green chile (Sysco/Shamrock leaf) — NEVER house green_chilli sub-recipe",
     "direct_allergens": [
       "milk",
       "wheat"
@@ -2750,7 +2663,7 @@
     "station": "expo",
     "menu_items": [
       "catering",
-      "Green Chile ingredient"
+      "may use vendor green chile"
     ],
     "notes": "Roast in salamander — blend with avocado",
     "direct_allergens": [
@@ -4323,5 +4236,257 @@
     "notes": "Made Sunday AM (smaller tortillas) — stubbed order-by-each",
     "direct_allergens": [],
     "sub_recipes": []
+  },
+  {
+    "name": "Peach Cobbler with Cheater Granola Crunch",
+    "slug": "peach_cobbler",
+    "ingredients": [
+      {
+        "item": "sliced peaches drained/thawed",
+        "qty": 10,
+        "unit": "lb"
+      },
+      {
+        "item": "granulated sugar",
+        "qty": 14,
+        "unit": "oz"
+      },
+      {
+        "item": "brown sugar",
+        "qty": 8,
+        "unit": "oz"
+      },
+      {
+        "item": "cornstarch",
+        "qty": 4.5,
+        "unit": "oz"
+      },
+      {
+        "item": "lemon juice",
+        "qty": 0.75,
+        "unit": "cup"
+      },
+      {
+        "item": "vanilla extract",
+        "qty": 0.25,
+        "unit": "cup"
+      },
+      {
+        "item": "ground cinnamon",
+        "qty": 1.5,
+        "unit": "tbsp"
+      },
+      {
+        "item": "ground nutmeg",
+        "qty": 1,
+        "unit": "tsp"
+      },
+      {
+        "item": "kosher salt",
+        "qty": 2,
+        "unit": "tsp"
+      },
+      {
+        "item": "butter diced or melted",
+        "qty": 6,
+        "unit": "oz"
+      },
+      {
+        "item": "prepared granola",
+        "qty": 2.5,
+        "unit": "lb"
+      },
+      {
+        "item": "yellow cake mix",
+        "qty": 12,
+        "unit": "oz"
+      },
+      {
+        "item": "brown sugar",
+        "qty": 6,
+        "unit": "oz"
+      },
+      {
+        "item": "butter melted",
+        "qty": 16,
+        "unit": "oz"
+      },
+      {
+        "item": "ground cinnamon",
+        "qty": 1,
+        "unit": "tbsp"
+      },
+      {
+        "item": "kosher salt",
+        "qty": 1,
+        "unit": "tsp"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "milk"
+    ],
+    "source": "recipe_index",
+    "category": "dessert",
+    "yield_qty": 60,
+    "yield_unit": "portion",
+    "station": "expo",
+    "menu_items": [
+      "Peach Cobbler (BEO)"
+    ],
+    "notes": "60 × 4 oz portions — 2 full-size 2-in hotel pans (30 each). Bake filling covered 25-30 min 350F conv/375F conv; top with granola crunch; bake uncovered 12-16 min. Rest 20 min. #8 scoop. For buffet crunch: bake topping separately 325F 8-12 min and sprinkle at service.",
+    "direct_allergens": [
+      "milk"
+    ]
+  },
+  {
+    "name": "Baja Fish Tacos",
+    "slug": "baja_fish_tacos",
+    "ingredients": [
+      {
+        "item": "fish brine",
+        "qty": 0.25,
+        "unit": "qt"
+      },
+      {
+        "item": "beer batter",
+        "qty": 75,
+        "unit": "g"
+      },
+      {
+        "item": "chipotle aioli",
+        "qty": 0.1,
+        "unit": "qt"
+      },
+      {
+        "item": "mexi slaw",
+        "qty": 0.25,
+        "unit": "lb"
+      },
+      {
+        "item": "pico de gallo",
+        "qty": 0.125,
+        "unit": "qt"
+      },
+      {
+        "item": "aji verde",
+        "qty": 0.05,
+        "unit": "qt"
+      },
+      {
+        "item": "flour tortilla",
+        "qty": 3,
+        "unit": "ea"
+      },
+      {
+        "item": "catfish fillet",
+        "qty": 6,
+        "unit": "oz"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "eggs",
+      "fish",
+      "milk",
+      "soybeans",
+      "wheat"
+    ],
+    "source": "recipe_index",
+    "category": "entree",
+    "yield_qty": 1,
+    "yield_unit": "ea",
+    "station": "fry;saute",
+    "sub_recipes": [
+      "fish_brine",
+      "beer_batter",
+      "chipotle_aioli",
+      "mexi_slaw",
+      "pico_de_gallo",
+      "aji_verde"
+    ],
+    "menu_items": [
+      "Baja Fish Tacos"
+    ],
+    "notes": "Plate BOM — winter menu MI-M07: battered/grilled catfish + aji + chipotle aioli + pico + mexi slaw",
+    "direct_allergens": [
+      "eggs",
+      "fish",
+      "milk",
+      "soybeans",
+      "wheat"
+    ]
+  },
+  {
+    "name": "Green Chilli",
+    "slug": "green_chilli",
+    "ingredients": [
+      {
+        "item": "pork butt",
+        "qty": 10,
+        "unit": "lb"
+      },
+      {
+        "item": "water",
+        "qty": 5,
+        "unit": "cup"
+      },
+      {
+        "item": "tomatillos",
+        "qty": 2,
+        "unit": "#10 can"
+      },
+      {
+        "item": "hatch chile with juice",
+        "qty": 2,
+        "unit": "bag"
+      },
+      {
+        "item": "yellow onions",
+        "qty": 1.75,
+        "unit": "lb"
+      },
+      {
+        "item": "granulated garlic",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "dried oregano",
+        "qty": 0.333,
+        "unit": "cup"
+      },
+      {
+        "item": "cumin",
+        "qty": 0.5,
+        "unit": "cup"
+      },
+      {
+        "item": "chicken base",
+        "qty": 3,
+        "unit": "cup"
+      },
+      {
+        "item": "garlic puree",
+        "qty": 1,
+        "unit": "cup"
+      }
+    ],
+    "procedure": [],
+    "allergens": [
+      "wheat"
+    ],
+    "source": "recipe_index",
+    "category": "entree",
+    "yield_qty": 8,
+    "yield_unit": "qt",
+    "station": "expo",
+    "menu_items": [
+      "Green Chilli (cup/bowl)"
+    ],
+    "notes": "PDF p16 — house pork-butt stew (NOT vendor green chile). Braise 40-60 min until pork softens; add roux (bacon grease + flour) to finish",
+    "direct_allergens": [
+      "wheat"
+    ]
   }
 ]

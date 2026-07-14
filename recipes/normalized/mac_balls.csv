@@ -1,6 +1,6 @@
 ingredient,qty,unit,portions_per_batch,notes
 ditalini noodles,2,lb,~60 balls,dry
-queso mac sauce,3,qt,~60 balls,(sub-recipe)
+queso mac sauce,3,qt,~60 balls,(sub-recipe=queso_mac_sauce)
 colby jack shredded,1,lb,~60 balls,
 ap flour,2,cup,~60 balls,dredge
 panko bread crumbs,4,cup,~60 balls,coating

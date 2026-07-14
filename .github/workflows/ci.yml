@@ -74,6 +74,9 @@ jobs:
       - name: BEO estimate + food-cost + min-spend tests
         run: npm run test:beo
 
+      - name: recipe BOM audit (index ↔ normalized ↔ expand)
+        run: npm run test:recipe-bom-audit
+
       - name: stamp build version (V.I.NN.NNN)
         run: npm run version:stamp
 
