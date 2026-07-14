@@ -102,13 +102,16 @@ commit is what flips this section out of BLOCKED.
 **Verification:** 82 focused tests pass (allergen-attestations 27, lookup-helpers 48,
 rebuild-cache 7), `tsc --noEmit` clean, scoped ESLint clean, pin-gate coverage 3/0.
 
-**⚠ Required native-parity follow-up (out of this branch's scope):** the Critical #2
-fingerprint change alters the shared-DB canonical shape. `LariatNative/Sources/
-LariatModel/Compute/AllergenAttestationCompute.swift` still computes the **old**
-`{slug, ingredients, sub_recipes}` fingerprint — it must add the `allergens` node
-key (last, matching web key order) or web and native will disagree on attested vs
-stale for the same row. No live rows exist today (0 in `data/lariat.db`), so there
-is no data-migration impact, but this must land before native re-attestation ships.
+**⚠ Required native-parity follow-up:** the Critical #2 fingerprint change alters
+the shared-DB canonical shape, and native must mirror it (issue #540). **Fix
+landed on branch `fix/native-allergen-fingerprint-parity`** (stacked after the
+datapack branch): `AllergenAttestationCompute.computeRecipeFingerprint` now
+appends the normalized derived-`allergens` key (last, matching web key order);
+all node-generated oracle hashes regenerated from the NEW web implementation,
+plus a new allergens-only-change staleness test mirroring the web's. Full
+`swift build && swift test` green. No live rows exist (0 in `data/lariat.db`),
+so no data-migration impact. Merge order: this chain lands together (or native
+before any native re-attestation ships).
 
 ---
 
