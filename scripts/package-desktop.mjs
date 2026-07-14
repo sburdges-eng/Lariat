@@ -165,11 +165,16 @@ if (dryRun) {
 function run(cmd, cmdArgs, extraEnv = {}) {
   const packageHome = path.join(repoRoot, 'dist', '.package-home');
   fs.mkdirSync(packageHome, { recursive: true });
+  const baseEnv = { ...process.env };
+  // The packaged app sets this only for its forked Next server. If it leaks
+  // into packaging, Electron itself runs as Node and native deps target the
+  // wrong ABI.
+  delete baseEnv.ELECTRON_RUN_AS_NODE;
   const result = spawnSync(cmd, cmdArgs, {
     cwd: repoRoot,
     stdio: 'inherit',
     env: {
-      ...process.env,
+      ...baseEnv,
       ELECTRON_BUILDER_DISABLE_UPDATE_CHECK: 'true',
       HOME: packageHome,
       NEXT_TELEMETRY_DISABLED: '1',
@@ -194,11 +199,13 @@ function restoreHostNativeDeps() {
   console.log('Restoring host Node native dependencies...');
   const packageHome = path.join(repoRoot, 'dist', '.package-home');
   fs.mkdirSync(packageHome, { recursive: true });
+  const baseEnv = { ...process.env };
+  delete baseEnv.ELECTRON_RUN_AS_NODE;
   const result = spawnSync('npm', ['rebuild', 'better-sqlite3'], {
     cwd: repoRoot,
     stdio: 'inherit',
     env: {
-      ...process.env,
+      ...baseEnv,
       HOME: packageHome,
       NEXT_TELEMETRY_DISABLED: '1',
       USERPROFILE: packageHome,
