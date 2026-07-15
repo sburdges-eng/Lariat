@@ -86,6 +86,32 @@ jobs:
       - name: recipe BOM audit (index ↔ normalized ↔ expand)
         run: npm run test:recipe-bom-audit
 
+      # Previously-ungated node:test suites (jest test:unit only sweeps
+      # app/__tests__/**). Each of the 90 suites was verified green from a
+      # clean empty-DB checkout in an isolated worktree before wiring; all
+      # use in-memory/tmp DBs (no data/lariat.db). Grouped by domain so a
+      # red build points at the affected area.
+      - name: regression — infra/tooling suites
+        run: npm run test:regression-infra
+
+      - name: regression — food-safety + compliance suites
+        run: npm run test:regression-foodsafety
+
+      - name: regression — assistant + datapack suites
+        run: npm run test:regression-assistant
+
+      - name: regression — ops API suites
+        run: npm run test:regression-ops
+
+      - name: regression — costing/inventory data suites
+        run: npm run test:regression-costing
+
+      - name: regression — recipe/menu suites
+        run: npm run test:regression-recipe
+
+      - name: regression — BEO/events/shows suites
+        run: npm run test:regression-events
+
       - name: install python test deps
         run: bash scripts/install-python-deps.sh
 
