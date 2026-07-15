@@ -23,7 +23,9 @@ Findings severities: **Critical** (must fix), **High** (should fix), **Contract*
 
 - **Reviewed at commit:** `16d0f5040770708d85739d541a213cd73fb50054`
 - **Review date:** 2026-07-14
-- **Freeze result:** 🔴 **BLOCKED pending remediation**
+- **Freeze result:** 🟢 **FROZEN** — cleared on re-review at `13b1b36` (2026-07-15)
+  after all findings landed (PR #539). Original review at `16d0f50`:
+  🔴 BLOCKED pending remediation (record preserved below).
 
 **Scope completed**
 
@@ -102,6 +104,10 @@ commit is what flips this section out of BLOCKED.
 **Verification:** 82 focused tests pass (allergen-attestations 27, lookup-helpers 48,
 rebuild-cache 7), `tsc --noEmit` clean, scoped ESLint clean, pin-gate coverage 3/0.
 
+**Re-review 2026-07-15 (`13b1b36`, PR #539 merged):** re-verified on merged `main` —
+allergen-attestations 27/0, lookup-helpers 48/0, `tsc` clean, scoped ESLint clean.
+Section → 🟢 FROZEN.
+
 **⚠ Required native-parity follow-up:** the Critical #2 fingerprint change alters
 the shared-DB canonical shape, and native must mirror it (issue #540). **Fix
 landed on branch `fix/native-allergen-fingerprint-parity`** (stacked after the
@@ -119,7 +125,9 @@ before any native re-attestation ships).
 
 - **Reviewed at commit:** `16d0f5040770708d85739d541a213cd73fb50054`
 - **Review date:** 2026-07-14
-- **Freeze result:** 🔴 **BLOCKED pending remediation**
+- **Freeze result:** 🟢 **FROZEN** — cleared on re-review at `13b1b36` (2026-07-15)
+  after all findings landed (PRs #541, #542). Original review at `16d0f50`:
+  🔴 BLOCKED pending remediation (record preserved below).
 
 **Scope completed**
 
@@ -221,9 +229,13 @@ Branch `fix/datapack-search-allergen-display`, **stacked on**
 | Low #4 | **Fixed.** New `safeHttpUrl` guard (http/https only) on the Wikibooks `source_url` href; non-web schemes (`javascript:`, `data:`, `file:`), relative, and malformed values skip the link instead of reaching the browser. |
 | Coverage #6 | **Addressed.** `normalizeSemanticHit` / `lookupUrlFor` / `hitKey` / `groupHits` extracted to a pure `hitModel.js` with node tests (13 cases) alongside `offAllergenView` (8) — all flagged render-critical logic now node-covered. |
 
-All findings in this entry now have fixes on the branch; the entry flips out of
-BLOCKED on re-review at the fix commit after merge.
+All findings in this entry now have fixes on `main` (PRs #541, #542).
 
 **Verification:** 87 focused node tests pass (hit-model 13, off-allergen-view 8,
 datapack 18, lookup-helpers 48) + jest datapack UI tests 3/3, `tsc --noEmit`
 clean, scoped ESLint clean, `next build` OK.
+
+**Re-review 2026-07-15 (`13b1b36`, PRs #541 + #542 merged):** re-verified on merged
+`main` — off-allergen-view 8/0, hit-model 13/0, datapack node 18/0, lookup-helpers
+48/0, jest datapack UI 3/3, `tsc` clean, scoped ESLint clean. Native fingerprint
+parity closed (#540). Section → 🟢 FROZEN.
