@@ -1,0 +1,46 @@
+# LariatNative (Swift / GRDB) test gate. Before this workflow, no CI ran the
+# swift test suites — Swift↔JS parity rested entirely on local runs, so a
+# native regression could land silently (2026-07-12 costing-audit finding).
+#
+# Path-filtered to LariatNative (plus this file): macOS runners are slower
+# than ubuntu, so the gate only spends them when the native app changes.
+# Test suites use tmpdir fixture DBs only — the live data/lariat.db is
+# gitignored and never touched.
+
+name: native-ci
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'LariatNative/**'
+      - '.github/workflows/native-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'LariatNative/**'
+      - '.github/workflows/native-ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  swift-test:
+    name: swift build + test
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: LariatNative/.build
+          key: spm-${{ runner.os }}-${{ hashFiles('LariatNative/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: swift test (LariatModel + LariatDB + LariatApp)
+        run: swift test
+        working-directory: LariatNative
