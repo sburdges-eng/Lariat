@@ -3,9 +3,21 @@
 //
 // Run: node --experimental-strip-types --test tests/js/test-sync-scheduler-lifecycle.mjs
 
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+// Redirect the resolved data dir into a scratch dir BEFORE importing
+// syncSchedulerLifecycle: its module graph resolves getDb() against the
+// default DB_PATH at import (= resolveDataDir()/lariat.db, captured when
+// lib/db.ts loads), which would otherwise create + initSchema the real repo
+// data/lariat.db.
+const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-sync-sched-'));
+const SAVED_DATA_DIR = process.env.LARIAT_DATA_DIR;
+process.env.LARIAT_DATA_DIR = TMP_DIR;
 
 const {
   bootSyncScheduler,
@@ -14,6 +26,12 @@ const {
   discoveredToPeers,
   _resetSyncSchedulerLifecycleForTests,
 } = await import('../../lib/syncSchedulerLifecycle.ts');
+
+after(() => {
+  if (SAVED_DATA_DIR === undefined) delete process.env.LARIAT_DATA_DIR;
+  else process.env.LARIAT_DATA_DIR = SAVED_DATA_DIR;
+  try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
+});
 
 beforeEach(() => {
   _resetSyncSchedulerLifecycleForTests();
