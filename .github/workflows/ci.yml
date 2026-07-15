@@ -74,8 +74,20 @@ jobs:
       - name: BEO estimate + food-cost + min-spend tests
         run: npm run test:beo
 
+      - name: costing engine + unit-conversion tests
+        run: npm run test:costing
+
       - name: recipe BOM audit (index ↔ normalized ↔ expand)
         run: npm run test:recipe-bom-audit
+
+      - name: install python test deps
+        run: bash scripts/install-python-deps.sh
+
+      # tests/python (ingest parsers, BOM expand, cascade CLI, normalizers,
+      # datapack index builders). The live-DB seed-coverage check self-skips
+      # here — data/lariat.db is gitignored and absent in CI.
+      - name: python test suite
+        run: npm run test:python
 
       - name: stamp build version (V.I.NN.NNN)
         run: npm run version:stamp

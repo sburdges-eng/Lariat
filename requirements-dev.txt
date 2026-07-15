@@ -3,3 +3,8 @@ openpyxl>=3.1
 xlrd>=2.0
 pandas>=3.0
 pytest>=8.0
+# Imported unconditionally by tests/python via scripts/ (Sysco invoice-PDF
+# ingest and Data Pack Wikibooks normalizer) — pytest collection fails
+# without them.
+lxml>=5.0
+pdfplumber>=0.11
