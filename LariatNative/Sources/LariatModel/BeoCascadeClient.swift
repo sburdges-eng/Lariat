@@ -60,17 +60,24 @@ public struct CascadeResult: Equatable, Sendable {
     public let prepDemands: [CascadePrepDemandRow]
     public let unmapped: [CascadeUnmappedRow]
     public let manifestWarnings: [CascadeManifestWarningRow]
+    /// Graceful-degradation notices (bad unit / unknown sub-recipe / cycle) — a
+    /// recipe dropped from the order guide + prep board instead of aborting.
+    /// Mirrors the web `CascadeResult.warnings` string[]; dropping it silently
+    /// under-orders. May be empty.
+    public let warnings: [String]
 
     public init(
         orderGuide: [CascadeOrderGuideRow],
         prepDemands: [CascadePrepDemandRow],
         unmapped: [CascadeUnmappedRow],
-        manifestWarnings: [CascadeManifestWarningRow] = []
+        manifestWarnings: [CascadeManifestWarningRow] = [],
+        warnings: [String] = []
     ) {
         self.orderGuide = orderGuide
         self.prepDemands = prepDemands
         self.unmapped = unmapped
         self.manifestWarnings = manifestWarnings
+        self.warnings = warnings
     }
 }
 
@@ -267,7 +274,10 @@ public struct BeoCascadeClient {
             manifestWarnings: (obj["manifest_warnings"] as? [Any] ?? []).map { row in
                 let r = row as? [String: Any] ?? [:]
                 return CascadeManifestWarningRow(recipe: str(r["recipe"]), issue: str(r["issue"]))
-            }
+            },
+            // Additive + optional: older CLIs omit warnings → []. Coerce each to
+            // a string (the engine emits plain messages), mirroring web `.map(String)`.
+            warnings: (obj["warnings"] as? [Any] ?? []).map { str($0) }
         )
     }
 
