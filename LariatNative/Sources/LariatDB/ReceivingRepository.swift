@@ -174,16 +174,20 @@ public struct ReceivingRepository: Sendable {
             // Closed-loop crediting is attempted only when ALL of: status is
             // accepted/accepted_with_note, qty is present + positive, unit is a
             // non-empty string, and item is present.
-            let shouldAttemptInventoryCredit =
-                (dbStatus == .accepted || dbStatus == .acceptedWithNote) &&
-                (receivedQty ?? 0) > 0 &&
-                (receivedUnit?.isEmpty == false) &&
-                (item?.isEmpty == false)
+            // Kept as typed sub-expressions: the combined `&&` chain exceeds
+            // the type-check budget of the Swift 6.1/6.2 solvers on the
+            // native-ci macOS runners.
+            let creditableStatus: Bool = dbStatus == .accepted || dbStatus == .acceptedWithNote
+            let hasPositiveQty: Bool = (receivedQty ?? 0) > 0
+            let hasUnit: Bool = receivedUnit?.isEmpty == false
+            let hasItem: Bool = item?.isEmpty == false
+            let shouldAttemptInventoryCredit: Bool =
+                creditableStatus && hasPositiveQty && hasUnit && hasItem
 
             let match: ReceivingMasterMatch = shouldAttemptInventoryCredit
                 ? try resolveReceivingMaster(db, locationId: locationId, vendor: vendor, vendorSku: vendorSku, item: item)
                 : .notAttempted
-            let shouldCredit = shouldAttemptInventoryCredit
+            let shouldCredit: Bool = shouldAttemptInventoryCredit
                 && match.status == "matched"
                 && (match.masterId?.isEmpty == false)
 
