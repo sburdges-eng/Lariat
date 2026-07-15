@@ -65,6 +65,12 @@ jobs:
       - name: idempotency coverage (mutation-route drift detector)
         run: npm run test:idempotency
 
+      # Security/correctness suites (node:test) that jest's app/__tests__
+      # testMatch never swept and no workflow named — so they ran in no gate.
+      # DB-safe (in-memory/tmp only), verified green before wiring.
+      - name: security + sync/replication regression suites
+        run: npm run test:regression-core
+
       - name: 86 sub-recipe cascade tests
         run: npm run test:sub-recipe-graph
 
@@ -85,9 +91,13 @@ jobs:
 
       # tests/python (ingest parsers, BOM expand, cascade CLI, normalizers,
       # datapack index builders). The live-DB seed-coverage check self-skips
-      # here — data/lariat.db is gitignored and absent in CI.
+      # when data/lariat.db is absent (gitignored) but FAILS on an empty one
+      # by design. An earlier node:test suite can leave a stray schema-only
+      # data/lariat.db, so remove it first to restore the clean/absent state.
       - name: python test suite
-        run: npm run test:python
+        run: |
+          rm -f data/lariat.db data/lariat.db-wal data/lariat.db-shm
+          npm run test:python
 
       - name: stamp build version (V.I.NN.NNN)
         run: npm run version:stamp
