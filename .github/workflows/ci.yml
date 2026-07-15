@@ -125,6 +125,12 @@ jobs:
           rm -f data/lariat.db data/lariat.db-wal data/lariat.db-shm
           npm run test:python
 
+      # Shows suites (node:test) build/parse an XLSX fixture via the venv
+      # python (build_shows_fixture.py / ingest_shows_xlsx.py), so they run
+      # after install-python-deps. Hermetic — own tmp SQLite, no data/lariat.db.
+      - name: regression — shows (XLSX via python venv)
+        run: npm run test:regression-shows
+
       - name: stamp build version (V.I.NN.NNN)
         run: npm run version:stamp
 
