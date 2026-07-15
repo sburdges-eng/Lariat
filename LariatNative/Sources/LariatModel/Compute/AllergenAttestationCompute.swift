@@ -5,9 +5,12 @@ import Foundation
 /// MUST match the web byte-for-byte, because attestations recorded on either
 /// client are checked by the other. The hash input is the exact
 /// `JSON.stringify` of the canonical composition array (key order
-/// slug/ingredients/sub_recipes, no whitespace, JS string escaping, UTF-16
-/// code-unit sort) — pinned against node-generated oracle hashes in
-/// `AllergenAttestationComputeTests`.
+/// slug/ingredients/sub_recipes/allergens, no whitespace, JS string escaping,
+/// UTF-16 code-unit sort) — pinned against node-generated oracle hashes in
+/// `AllergenAttestationComputeTests`. The trailing `allergens` key is each
+/// node's DERIVED allergen output (normalized), added by web PR #539
+/// (Critical #2) so a heuristic/data-version change that alters the answer
+/// stales the attestation even when ingredient names are unchanged.
 public enum AllergenAttestationCompute {
     // ── Fingerprint ─────────────────────────────────────────────────────
 
@@ -51,9 +54,14 @@ public enum AllergenAttestationCompute {
             let node = bySlug[s]
             let items = node.map(normalizedItems) ?? []
             let subs = node.map { JsValueFormat.jsSorted($0.subRecipes) } ?? []
+            // Derived allergen output, normalized — mirrors the web's
+            // `normalizeAllergens(node.allergens ?? [])`; [] for dangling
+            // nodes. Keep this key LAST (web object-literal key order).
+            let allergens = node.map { normalizeAllergens($0.allergens) } ?? []
             json += "{\"slug\":\(JsValueFormat.jsonString(s)),"
                 + "\"ingredients\":\(JsValueFormat.jsonStringArray(items)),"
-                + "\"sub_recipes\":\(JsValueFormat.jsonStringArray(subs))}"
+                + "\"sub_recipes\":\(JsValueFormat.jsonStringArray(subs)),"
+                + "\"allergens\":\(JsValueFormat.jsonStringArray(allergens))}"
         }
         json += "]"
 

@@ -20,17 +20,23 @@ final class AllergenAttestationComputeTests: XCTestCase {
         subRecipes: ["salsa"])
 
     // ── Fingerprint oracle hashes (node-generated) ──────────────────────
+    //
+    // Regenerated 2026-07-14 after the web fingerprint folded each node's
+    // DERIVED allergen output into the canonical shape (PR #539 Critical #2:
+    // {slug, ingredients, sub_recipes, allergens} — allergens LAST), so a
+    // heuristic/data-version change that alters the answer stales the
+    // attestation even when ingredient names are unchanged.
 
     func testFingerprintMatchesWebForQuesoTree() {
         XCTAssertEqual(
             AllergenAttestationCompute.computeRecipeFingerprint(slug: "queso", recipes: [queso, salsa]),
-            "2c7effd28593aff32b16a2612a8891d90f3e50c8856445cd104ee2c49c10a86c")
+            "b14b38c0db0c18bee7ac7e700a46ae9649910cef362cb416ba770b49c129db40")
     }
 
     func testFingerprintMatchesWebForSalsa() {
         XCTAssertEqual(
             AllergenAttestationCompute.computeRecipeFingerprint(slug: "salsa", recipes: [queso, salsa]),
-            "4741b94d19fb474bf5f92de1eb6f14050906fcefdba937e756671d9a66b191d5")
+            "131c17a48b2794b1fbfb01f74e31e6d0e2905aa83d794130cef3f13f14f8c058")
     }
 
     func testFingerprintChangesWhenOwnIngredientsChange() {
@@ -40,7 +46,7 @@ final class AllergenAttestationComputeTests: XCTestCase {
             allergens: queso.allergens, subRecipes: queso.subRecipes)
         XCTAssertEqual(
             AllergenAttestationCompute.computeRecipeFingerprint(slug: "queso", recipes: [quesoWithFlour, salsa]),
-            "cd7b2fba9fef8bbdfa961cbc98f58b5b9f3a609924def65ac0444bfe171d1300")
+            "38273938072b09d1484d32e41c46ed8ac6ddea9ea547a38b46a0c82e6fd65e55")
     }
 
     func testFingerprintChangesWhenSubRecipeChanges() {
@@ -50,7 +56,25 @@ final class AllergenAttestationComputeTests: XCTestCase {
             allergens: salsa.allergens)
         XCTAssertEqual(
             AllergenAttestationCompute.computeRecipeFingerprint(slug: "queso", recipes: [queso, salsaWithPeanut]),
-            "185ca130af6b000ce59ff97f87635641cd570e2ef370a013d57178f5f6766bd7")
+            "f5cf77a8b935dfdff938e0fbbc0cdfdf3a15ff69c890e9123738b431a8861c4c")
+    }
+
+    func testFingerprintChangesWhenOnlyDerivedAllergensChange() {
+        // The heuristic/data version can change a recipe's allergen OUTPUT
+        // without touching ingredient item names (keyword-map update,
+        // allergen_matrix override). The fingerprint must move so the
+        // manager's signoff stales — mirrors the web test of the same name.
+        let quesoSesame = AllergenRecipe(
+            slug: "queso", name: "Queso",
+            ingredients: queso.ingredients,
+            allergens: ["fish", "milk", "wheat", "sesame"],
+            subRecipes: queso.subRecipes)
+        XCTAssertEqual(
+            AllergenAttestationCompute.computeRecipeFingerprint(slug: "queso", recipes: [quesoSesame, salsa]),
+            "735c7800f0909853bffd709f85e9bcb18047d611c73a6df5a2573b05f7d9a7b6")
+        XCTAssertNotEqual(
+            AllergenAttestationCompute.computeRecipeFingerprint(slug: "queso", recipes: [quesoSesame, salsa]),
+            AllergenAttestationCompute.computeRecipeFingerprint(slug: "queso", recipes: [queso, salsa]))
     }
 
     func testFingerprintNilForUnknownRecipe() {
@@ -66,7 +90,7 @@ final class AllergenAttestationComputeTests: XCTestCase {
             subRecipes: ["ghost"])
         XCTAssertEqual(
             AllergenAttestationCompute.computeRecipeFingerprint(slug: "dangle", recipes: [dangle]),
-            "87ec99709c971907114b04be983431dd9d99d361372fd06dc4e0955d5bcb39d3")
+            "0c07c44d16758bcb270069323f3cfcef883756b153348a0e5eb73376186ecfda")
     }
 
     func testFingerprintIsCycleSafe() {
@@ -74,7 +98,7 @@ final class AllergenAttestationComputeTests: XCTestCase {
         let b = AllergenRecipe(slug: "b", name: "B", ingredients: [.init(item: "Y")], subRecipes: ["a"])
         XCTAssertEqual(
             AllergenAttestationCompute.computeRecipeFingerprint(slug: "a", recipes: [a, b]),
-            "02927624001c52503c86a6cd23484f519ce17842a411f9a21abc8536849b7db9")
+            "20a667bbdedfef4709a5824471d3a4b0f7db6d4b79ac7baf03c8f2c3b1026136")
     }
 
     func testFingerprintJsonEscapingAndUnicodeMatchWeb() {
@@ -85,7 +109,7 @@ final class AllergenAttestationComputeTests: XCTestCase {
             ingredients: [.init(item: "Jalapeño \"hot\""), .init(item: "Crème\nfraîche")])
         XCTAssertEqual(
             AllergenAttestationCompute.computeRecipeFingerprint(slug: "uni", recipes: [u]),
-            "6c3feadefb6638e79bff6cfa9d44f2abe996b76241640fe057f863e91ae27e93")
+            "f5868e32f1208e9d4fee8a95cb795d83a902d3279c03f8fb555b059da79c55aa")
     }
 
     // ── normalizeAllergens ──────────────────────────────────────────────

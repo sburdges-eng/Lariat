@@ -259,8 +259,10 @@ final class AllergenAttestationRepositoryTests: XCTestCase {
         let row = try repo.record(
             .init(recipeSlug: "queso", attestedBy: "Dana"),
             recipes: baseline, locationId: "default", context: context)
+        // Oracle regenerated 2026-07-14: web fingerprint now folds the derived
+        // allergen output into the canonical shape (PR #539 Critical #2).
         XCTAssertEqual(row.recipeFingerprint,
-                       "2c7effd28593aff32b16a2612a8891d90f3e50c8856445cd104ee2c49c10a86c")
+                       "b14b38c0db0c18bee7ac7e700a46ae9649910cef362cb416ba770b49c129db40")
     }
 
     /// Native has NO idempotency replay layer — two identical records are two
