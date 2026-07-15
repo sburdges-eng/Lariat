@@ -31,7 +31,10 @@ concurrency:
 jobs:
   swift-test:
     name: swift build + test
-    runs-on: macos-15
+    # macos-26 (Xcode 26 / Swift 6.2+): the macos-15 Swift 6.1 solver fails
+    # type-checking ReceivingRepository.swift:173 ("unable to type-check this
+    # expression in reasonable time"); newer toolchains match local dev.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
