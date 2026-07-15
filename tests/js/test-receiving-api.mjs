@@ -19,6 +19,15 @@ register(new URL('./resolver.mjs', import.meta.url));
 const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-receiving-api-'));
 const TMP_DB = path.join(TMP_DIR, 'lariat-test.db');
 
+// Redirect the resolved data dir into the scratch dir BEFORE lib/db.ts loads
+// (it captures DB_PATH = resolveDataDir()/lariat.db at import). A receiving
+// route's import graph opens the *default* DB_PATH once via getDb() before the
+// test's setDbPathForTest override is set; without this redirect that stray
+// open would create + initSchema the real repo data/lariat.db. With it, the
+// stray open lands in the temp dir and is cleaned up with it.
+const ORIGINAL_DATA_DIR = process.env.LARIAT_DATA_DIR;
+process.env.LARIAT_DATA_DIR = TMP_DIR;
+
 const ORIGINAL_PIN = process.env.LARIAT_PIN;
 const ORIGINAL_PIN_SECRET = process.env.LARIAT_PIN_SECRET;
 delete process.env.LARIAT_PIN;
@@ -39,6 +48,8 @@ const { PATCH: PATCH_MATCH } = matchByIdRoute;
 
 after(() => {
   db.setDbPathForTest(null);
+  if (ORIGINAL_DATA_DIR === undefined) delete process.env.LARIAT_DATA_DIR;
+  else process.env.LARIAT_DATA_DIR = ORIGINAL_DATA_DIR;
   if (ORIGINAL_PIN === undefined) delete process.env.LARIAT_PIN;
   else process.env.LARIAT_PIN = ORIGINAL_PIN;
   if (ORIGINAL_PIN_SECRET === undefined) delete process.env.LARIAT_PIN_SECRET;
