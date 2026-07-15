@@ -75,6 +75,18 @@ const CASCADE_WITH_MANIFEST_WARNINGS = {
   ],
 };
 
+const CASCADE_WITH_WARNINGS = {
+  event_id: 7,
+  order_guide: [
+    { ingredient: 'flour', unit: 'lb', total_needed: 10.0, on_hand: 0, to_order: 10.0 },
+  ],
+  prep_demands: [],
+  unmapped: [],
+  // Graceful-degradation channel: a recipe was skipped (bad unit / unknown sub /
+  // cycle), so the order guide may be short — must be shown, never dropped.
+  warnings: ["recipe 'birria' yields in 'qt' but demand asked for 5.0 'lb'"],
+};
+
 // ── tests ─────────────────────────────────────────────────────────
 
 describe('EventOrderGuidePanel', () => {
@@ -257,6 +269,34 @@ describe('EventOrderGuidePanel', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('event-cascade-manifest-warnings')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId('event-order-guide-empty')).not.toBeInTheDocument();
+  });
+
+  test('renders graceful-degradation warnings (skipped recipe) in the callout', async () => {
+    mockFetchOk(CASCADE_WITH_WARNINGS);
+    render(<EventOrderGuidePanel eventId={7} location="default" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('event-cascade-warnings')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/birria/)).toBeInTheDocument();
+  });
+
+  test('surfaces degradation warnings even when order_guide is empty (not swallowed by empty state)', async () => {
+    mockFetchOk({
+      event_id: 7,
+      order_guide: [],
+      prep_demands: [],
+      unmapped: [],
+      warnings: ["recipe 'birria' yields in 'qt' but demand asked for 5.0 'lb'"],
+    });
+    render(<EventOrderGuidePanel eventId={7} location="default" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('event-cascade-warnings')).toBeInTheDocument();
     });
 
     expect(screen.queryByTestId('event-order-guide-empty')).not.toBeInTheDocument();

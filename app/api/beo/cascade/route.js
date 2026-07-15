@@ -16,6 +16,10 @@ import { cascadeFromLineItems } from '../../../../lib/beoCascade';
 
 export const dynamic = 'force-dynamic';
 
+// Envelope version — success AND engine-error paths carry the same shape so the
+// UI never reads `undefined` for a channel it renders. Bump on shape changes.
+const SCHEMA_VERSION = 'beo_cascade_v1';
+
 /** @param {Request} req */
 export async function GET(req) {
   const url = new URL(req.url);
@@ -81,14 +85,19 @@ export async function GET(req) {
       // not recipe batch counts — pass qtyInYieldUnits so the engine doesn't multiply by yield.
       result = await cascadeFromLineItems(lineItems, { qtyInYieldUnits: true, inventory });
     } catch (err) {
-      // CascadeError (engine/data condition) — return consistent shape with error banner info.
+      // CascadeError (engine/data condition) — return the SAME envelope shape as
+      // the success path (empty arrays + error banner), so the UI's
+      // manifest_warnings / warnings reads never see `undefined`.
       const e = /** @type {{ message?: unknown } | null} */ (err);
       return json(
         {
+          schemaVersion: SCHEMA_VERSION,
           event_id: eventId,
           order_guide: [],
           prep_demands: [],
           unmapped: [],
+          manifest_warnings: [],
+          warnings: [],
           error: String(e?.message || err),
         },
         { status: 200 },
@@ -97,11 +106,13 @@ export async function GET(req) {
 
     return json(
       {
+        schemaVersion: SCHEMA_VERSION,
         event_id: eventId,
         order_guide: result.orderGuide,
         prep_demands: result.prepDemands,
         unmapped: result.unmapped,
         manifest_warnings: result.manifestWarnings,
+        warnings: result.warnings,
       },
       { status: 200 },
     );

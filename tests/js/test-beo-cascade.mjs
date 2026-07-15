@@ -9,8 +9,13 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { CascadeError, cascadeFromLineItems } from '../../lib/beoCascade.ts';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const FAKE_CLI_ROOT = path.join(__dirname, 'fixtures', 'fake-cascade-root');
 
 describe('beoCascade', () => {
   it('round-trips a bogus item to unmapped', async () => {
@@ -41,8 +46,32 @@ describe('beoCascade', () => {
     const start = Date.now();
     const result = await cascadeFromLineItems([]);
     const elapsed = Date.now() - start;
-    assert.deepEqual(result, { orderGuide: [], prepDemands: [], unmapped: [], manifestWarnings: [] });
+    assert.deepEqual(result, {
+      orderGuide: [],
+      prepDemands: [],
+      unmapped: [],
+      manifestWarnings: [],
+      warnings: [],
+    });
     // Short-circuit should be instantaneous (< 500 ms) — no spawn overhead
     assert.ok(elapsed < 500, `short-circuit took too long: ${elapsed}ms`);
+  });
+
+  it('parses the warnings (graceful-degradation) channel from the CLI', async () => {
+    // A recipe with a bad unit / unknown sub / cycle degrades to a warning
+    // instead of aborting — the engine drops it from the order guide/prep and
+    // records why in `warnings`. That channel must survive the TS boundary or
+    // the order guide silently under-orders with no user signal.
+    const prevRoot = process.env.LARIAT_ROOT;
+    process.env.LARIAT_ROOT = FAKE_CLI_ROOT; // relocates cliPath → the stub CLI
+    try {
+      const result = await cascadeFromLineItems([{ item_name: 'anything', quantity: 1 }]);
+      assert.deepEqual(result.warnings, [
+        "recipe 'beer_batter' yields in 'qt' but demand asked for 5.0 'lb'",
+      ]);
+    } finally {
+      if (prevRoot === undefined) delete process.env.LARIAT_ROOT;
+      else process.env.LARIAT_ROOT = prevRoot;
+    }
   });
 });

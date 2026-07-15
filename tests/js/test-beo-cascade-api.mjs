@@ -182,6 +182,35 @@ describe('GET /api/beo/cascade', () => {
     assert.ok('prep_demands' in j, 'must have prep_demands');
     assert.ok('unmapped' in j, 'must have unmapped');
     assert.ok('manifest_warnings' in j, 'must have manifest_warnings');
+    assert.ok('warnings' in j, 'must have warnings (graceful-degradation channel)');
+    assert.equal(j.schemaVersion, 'beo_cascade_v1', 'envelope must carry schemaVersion');
+  });
+
+  it('error path returns the same envelope shape (warnings + manifest_warnings + schemaVersion)', async () => {
+    // Force a CascadeError by pointing the engine root at a path with no CLI,
+    // then assert the catch path still returns the full envelope — not a
+    // truncated one that drops manifest_warnings/warnings and 500s the UI reads.
+    const evId = seedEvent();
+    seedLine({ event_id: evId, item_name: 'Battered Fish Taco', quantity: 40 });
+    const prevRoot = process.env.LARIAT_ROOT;
+    process.env.LARIAT_ROOT = '/nonexistent-cascade-root-xyz-9999';
+    try {
+      const res = await route.GET(makeReq(`?event_id=${evId}`));
+      assert.equal(res.status, 200, 'engine/data conditions return 200 with an error banner');
+      const j = await res.json();
+      assert.ok(j.error, 'error banner must be present');
+      assert.deepEqual(j.order_guide, [], 'order_guide empty on error');
+      assert.deepEqual(j.prep_demands, [], 'prep_demands empty on error');
+      assert.deepEqual(j.unmapped, [], 'unmapped empty on error');
+      assert.ok('manifest_warnings' in j, 'error envelope must still carry manifest_warnings');
+      assert.deepEqual(j.manifest_warnings, [], 'manifest_warnings empty on error');
+      assert.ok('warnings' in j, 'error envelope must still carry warnings');
+      assert.deepEqual(j.warnings, [], 'warnings empty on error');
+      assert.equal(j.schemaVersion, 'beo_cascade_v1', 'error envelope must carry schemaVersion');
+    } finally {
+      if (prevRoot === undefined) delete process.env.LARIAT_ROOT;
+      else process.env.LARIAT_ROOT = prevRoot;
+    }
   });
 
   it('surfaces manifest_warnings for recipes that declare an unreferenced sub-recipe', async () => {
