@@ -4,6 +4,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { nextDetails } from './detailsState';
+import { offAllergenView } from './offAllergenView.js';
+import {
+  groupHits,
+  hitKey,
+  lookupUrlFor,
+  normalizeSemanticHit,
+  safeHttpUrl,
+} from './hitModel.js';
+import { cleanAllergenTag } from '../allergen-lookup/allergenLookupHelpers.js';
 
 // Friendly source labels — order is the same display order used to
 // group hits below the form. 'all' is the default.
@@ -19,25 +28,25 @@ const SOURCE_LABEL = Object.fromEntries(
   SOURCE_OPTIONS.map((s) => [s.value, s.label])
 );
 
-// Display order when grouping hits — matches the dropdown.
-const GROUP_ORDER = ['usda', 'off', 'wikibooks', 'fda'];
-
 // Semantic mode is keyed off embedding buckets, not source tables. The
 // safety bucket has both fda and wikibooks members; the others are
 // single-source. Bucket → default source for new-results UX
 // (recipes/techniques live entirely in wikibooks; ingredients in usda;
 // safety mixes fda + wikibooks).
+// Cook-facing labels (docs/UI_COPY_RULES.md): short, plain words — the
+// engine names (BM25/BGE/RRF) and the word "bucket" stay internal. The
+// result-group headers still show the full source names.
 const BUCKET_OPTIONS = [
-  { value: 'recipes', label: 'Recipes (Wikibooks)' },
-  { value: 'techniques', label: 'Techniques (Wikibooks)' },
-  { value: 'safety', label: 'Safety (FDA + Wikibooks)' },
-  { value: 'ingredients', label: 'Ingredients (USDA)' },
+  { value: 'recipes', label: 'Recipes' },
+  { value: 'techniques', label: 'Techniques' },
+  { value: 'safety', label: 'Safety rules' },
+  { value: 'ingredients', label: 'Ingredients' },
 ];
 
 const MODE_OPTIONS = [
-  { value: 'lexical', label: 'Lexical (BM25)' },
-  { value: 'semantic', label: 'Semantic (BGE)' },
-  { value: 'hybrid', label: 'Hybrid (RRF)' },
+  { value: 'lexical', label: 'Exact words' },
+  { value: 'semantic', label: 'Similar meaning' },
+  { value: 'hybrid', label: 'Both' },
 ];
 
 const DATAPACK_UNAVAILABLE_COPY = 'Reference data is not installed on this Mac. Ask a manager to finish setup.';
@@ -95,111 +104,9 @@ function pickTopNutrients(nutrients) {
   return out;
 }
 
-/**
- * @param {unknown} raw
- * @returns {string[]}
- */
-function parseAllergenTags(raw) {
-  if (!raw || typeof raw !== 'string') return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      return parsed.filter((s) => typeof s === 'string' && s.length > 0);
-    }
-  } catch {
-    /* fall through */
-  }
-  return [];
-}
-
-/**
- * @param {Hit} hit
- * @returns {string}
- */
-function hitKey(hit) {
-  return `${hit.source}:${hit.id}`;
-}
-
-// Normalize one semantic-result row (shape comes from the per-bucket
-// metadata.jsonl) into the same {score, source, id, title, subtitle,
-// extra} shape the FTS path uses, so the rest of the renderer
-// (grouping, drill-in, lookupUrlFor) doesn't need a second code path.
-//
-// `source: 'fda_food_code'` collapses to `'fda'` to match the FTS
-// source naming and drill-in routing. We keep the cosine similarity
-// untouched — it's positive ([-1, 1]); the formatter below
-// distinguishes positive (semantic) from negative (BM25) scores.
-/**
- * @param {Record<string, unknown>} meta
- * @returns {Hit}
- */
-function normalizeSemanticHit(meta) {
-  const score = typeof meta.score === 'number' ? meta.score : 0;
-  if (meta.source === 'usda') {
-    return {
-      score,
-      source: 'usda',
-      id: /** @type {number | string} */ (meta.fdc_id ?? ''),
-      title: /** @type {string | null} */ (meta.description ?? null),
-      subtitle: /** @type {string | null} */ (meta.food_category ?? null),
-      extra: /** @type {string | null} */ (meta.source_archive ?? null),
-    };
-  }
-  if (meta.source === 'wikibooks') {
-    return {
-      score,
-      source: 'wikibooks',
-      id: /** @type {number | string} */ (meta.page_id ?? ''),
-      title: /** @type {string | null} */ (meta.title ?? null),
-      subtitle: /** @type {string | null} */ (meta.slug ?? null),
-      extra: /** @type {string | null} */ (meta.source_url ?? null),
-    };
-  }
-  if (meta.source === 'fda_food_code') {
-    return {
-      score,
-      source: 'fda',
-      id: /** @type {number | string} */ (meta.rowid ?? ''),
-      title: /** @type {string | null} */ (meta.title ?? null),
-      subtitle: /** @type {string} */ (meta.section_id ?? ''),
-      extra: /** @type {string | null} */ (meta.chapter ?? meta.annex ?? null),
-    };
-  }
-  // Unknown source — fall through with whatever scalar fields we can
-  // surface so the row at least renders.
-  return {
-    score,
-    source: /** @type {string} */ (meta.source ?? 'unknown'),
-    id: /** @type {number | string} */ (meta.rowid ?? meta.id ?? ''),
-    title: /** @type {string | null} */ (meta.title ?? meta.description ?? null),
-    subtitle: null,
-    extra: null,
-  };
-}
-
-/**
- * @param {Hit} hit
- * @returns {string | null}
- */
-function lookupUrlFor(hit) {
-  const params = new URLSearchParams();
-  if (hit.source === 'usda') {
-    params.set('op', 'usda_food');
-    params.set('fdc_id', String(hit.id));
-  } else if (hit.source === 'off') {
-    params.set('op', 'off_product');
-    params.set('code', String(hit.id));
-  } else if (hit.source === 'wikibooks') {
-    params.set('op', 'wikibooks_page');
-    params.set('page_id', String(hit.id));
-  } else if (hit.source === 'fda') {
-    params.set('op', 'fda_section');
-    params.set('rowid', String(hit.id));
-  } else {
-    return null;
-  }
-  return `/api/datapack/search?${params.toString()}`;
-}
+// hitKey / normalizeSemanticHit / lookupUrlFor / groupHits / safeHttpUrl
+// live in ./hitModel.js (pure, node-tested — see
+// tests/js/test-datapack-hit-model.mjs).
 
 // ── Drill-in panels ──────────────────────────────────────────────
 
@@ -245,12 +152,63 @@ function UsdaDetail({ data }) {
   );
 }
 
+const ALLERGEN_CHIP_STYLE = {
+  padding: '2px 8px',
+  background: 'var(--panel-2)',
+  border: '1px solid var(--border)',
+  borderRadius: 12,
+  fontSize: 11,
+  color: 'var(--text)',
+  textTransform: /** @type {const} */ ('capitalize'),
+};
+
+const TRACE_CHIP_STYLE = {
+  padding: '2px 8px',
+  background: 'transparent',
+  border: '1px dashed var(--border)',
+  borderRadius: 12,
+  fontSize: 11,
+  color: 'var(--muted)',
+  textTransform: /** @type {const} */ ('capitalize'),
+};
+
+/**
+ * Allergen chip row for the OFF panel. ALWAYS renders an explicit state so a
+ * product with no allergen data ('unknown') never looks like one that
+ * declares none ('none') — a kitchen-line false-negative otherwise.
+ * @param {{ state: import('./offAllergenView').AllergenChipState, tags: string[] }} props
+ */
+function AllergenTagRow({ state, tags }) {
+  if (state === 'has') {
+    return (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {tags.map((a) => (
+          <span key={a} style={ALLERGEN_CHIP_STYLE}>
+            {cleanAllergenTag(a)}
+          </span>
+        ))}
+      </div>
+    );
+  }
+  if (state === 'none') {
+    return (
+      <div style={{ fontSize: 12, color: 'var(--muted)' }}>Declares no allergens.</div>
+    );
+  }
+  // 'unknown' — data absent/malformed. Do NOT read as safe.
+  return (
+    <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
+      ⚠ not listed — check label
+    </div>
+  );
+}
+
 /** @param {{ data: unknown }} props */
 function OffDetail({ data }) {
   const d = /** @type {{ product?: OffProduct } | null | undefined} */ (data);
   const product = d?.product;
   if (!product) return <div style={{ color: 'var(--muted)' }}>No product row.</div>;
-  const allergens = parseAllergenTags(product.allergens_tags_json);
+  const { allergens, traces } = offAllergenView(product);
   return (
     <div>
       <div style={{ fontWeight: 600, marginBottom: 6 }}>
@@ -270,25 +228,23 @@ function OffDetail({ data }) {
           </div>
         </div>
       ) : null}
-      {allergens.length > 0 ? (
+
+      <div style={{ marginBottom: traces.tags.length > 0 ? 12 : 0 }}>
+        <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>
+          Allergens
+        </div>
+        <AllergenTagRow state={allergens.state} tags={allergens.tags} />
+      </div>
+
+      {traces.tags.length > 0 ? (
         <div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>
-            Allergens
+            May contain (traces)
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {allergens.map((a) => (
-              <span
-                key={a}
-                style={{
-                  padding: '2px 8px',
-                  background: 'var(--panel-2)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 12,
-                  fontSize: 11,
-                  color: 'var(--text)',
-                }}
-              >
-                {a}
+            {traces.tags.map((t) => (
+              <span key={t} style={TRACE_CHIP_STYLE}>
+                trace · {cleanAllergenTag(t)}
               </span>
             ))}
           </div>
@@ -339,6 +295,9 @@ function WikibooksDetail({ data }) {
   const d = /** @type {{ page?: WikibooksPage } | null | undefined} */ (data);
   const page = d?.page;
   if (!page) return <div style={{ color: 'var(--muted)' }}>No page.</div>;
+  // Scheme-guard the datapack-supplied URL (Low #4): only http/https render
+  // as a link; anything else is skipped rather than handed to the browser.
+  const sourceUrl = safeHttpUrl(page.source_url);
   return (
     <div>
       <div style={{ fontWeight: 600, marginBottom: 6 }}>
@@ -356,14 +315,14 @@ function WikibooksDetail({ data }) {
           No summary in index.
         </div>
       )}
-      {page.source_url ? (
+      {sourceUrl ? (
         <a
-          href={page.source_url}
+          href={sourceUrl}
           target="_blank"
           rel="noopener noreferrer"
           style={{ fontSize: 12, color: 'var(--accent)' }}
         >
-          {page.source_url}
+          {sourceUrl}
         </a>
       ) : null}
     </div>
@@ -568,20 +527,13 @@ export default function DatapackSearchClient() {
     runSearch(query, mode, mode === 'lexical' ? source : bucket);
   };
 
-  const grouped = useMemo(() => {
-    if (response.kind !== 'ok') return null;
-    const buckets = /** @type {Map<string, Hit[]>} */ (new Map());
-    for (const s of GROUP_ORDER) buckets.set(s, []);
-    for (const hit of response.hits) {
-      if (!buckets.has(hit.source)) buckets.set(hit.source, []);
-      // `.get()` is guaranteed non-null here — we just `.set()` it above
-      // if missing.
-      /** @type {Hit[]} */ (buckets.get(hit.source)).push(hit);
-    }
-    return [...buckets.entries()]
-      .filter(([, hits]) => hits.length > 0)
-      .map(([s, hits]) => ({ source: s, hits }));
-  }, [response]);
+  const grouped = useMemo(
+    () =>
+      response.kind === 'ok'
+        ? /** @type {{ source: string, hits: Hit[] }[]} */ (groupHits(response.hits))
+        : null,
+    [response],
+  );
 
   // toggleDetail closes over no React state. The click is dispatched
   // through `setDetails((prev) => …)` so the state machine reads the
@@ -695,7 +647,7 @@ export default function DatapackSearchClient() {
               fontWeight: 500,
             }}
           >
-            Mode
+            Search by
           </label>
           <select
             id="datapack-mode"
@@ -766,7 +718,7 @@ export default function DatapackSearchClient() {
                 fontWeight: 500,
               }}
             >
-              Bucket
+              Look in
             </label>
             <select
               id="datapack-bucket"
@@ -813,7 +765,7 @@ export default function DatapackSearchClient() {
       {/* States */}
       {response.kind === 'idle' && (
         <div style={{ color: 'var(--muted)', fontSize: 13 }}>
-          Enter a query to search the data pack.
+          Type what you want to look up.
         </div>
       )}
 
@@ -852,7 +804,7 @@ export default function DatapackSearchClient() {
       )}
 
       {response.kind === 'ok' && response.hits.length === 0 && (
-        <div style={{ color: 'var(--muted)', fontSize: 13 }}>No hits.</div>
+        <div style={{ color: 'var(--muted)', fontSize: 13 }}>No matches.</div>
       )}
 
       {response.kind === 'ok' && grouped && grouped.length > 0 && (
@@ -922,23 +874,20 @@ export default function DatapackSearchClient() {
                             {hit.subtitle}
                           </div>
                         ) : null}
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: 'var(--muted)',
-                            display: 'flex',
-                            gap: 8,
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          {hit.extra ? <span>{hit.extra}</span> : null}
-                          <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                            score {hit.score.toFixed(2)}
-                          </span>
-                          <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                            id {hit.id}
-                          </span>
-                        </div>
+                        {/* No raw "score"/"id" here (docs/UI_COPY_RULES.md —
+                            no dev-style fields on cook-facing rows). The
+                            drill-in panels show the real identifiers (fdc_id,
+                            product code, section number). */}
+                        {hit.extra ? (
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: 'var(--muted)',
+                            }}
+                          >
+                            {hit.extra}
+                          </div>
+                        ) : null}
                       </button>
                       {open && detail && (
                         <div
