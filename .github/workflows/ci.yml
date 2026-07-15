@@ -65,6 +65,12 @@ jobs:
       - name: idempotency coverage (mutation-route drift detector)
         run: npm run test:idempotency
 
+      # Security/correctness suites (node:test) that jest's app/__tests__
+      # testMatch never swept and no workflow named — so they ran in no gate.
+      # DB-safe (in-memory/tmp only), verified green before wiring.
+      - name: security + sync/replication regression suites
+        run: npm run test:regression-core
+
       - name: 86 sub-recipe cascade tests
         run: npm run test:sub-recipe-graph
 
