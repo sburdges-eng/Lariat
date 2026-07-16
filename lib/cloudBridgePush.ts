@@ -19,6 +19,7 @@
 
 import crypto from 'node:crypto';
 import type { OutboxBatch } from './cloudBridgeQueue.ts';
+import { canonicalize, TABLE_WIRE_VERSION } from './cloudBridgeCanonical.ts';
 
 /**
  * Result of a single push attempt — drainer maps to outbox actions:
@@ -76,12 +77,12 @@ function joinUrl(base: string, path: string): string {
  * drainer's branching is exhaustive.
  *
  * Request shape (§5.3):
- *   POST {url}/v1/snapshot
+ *   POST {url}/v2/snapshot
  *   Idempotency-Key: <batch.id>
  *   X-Lariat-Location: <batch.locationId>
  *   X-Lariat-Signature: HMAC-SHA256(secret, body || idempotency-key)
  *   Content-Type: application/json
- *   { table, location_id, batch_id, rows }
+ *   { schema_version, table, location_id, batch_id, rows } (canonical — lib/cloudBridgeCanonical.ts)
  *
  * Response mapping (§5.4):
  *   2xx → { ok: true }
@@ -94,7 +95,18 @@ export async function pushBatch(
   opts: PushOpts,
 ): Promise<PushResult> {
   const idempotencyKey = String(batch.id);
-  const body = JSON.stringify({
+  const schemaVersion = TABLE_WIRE_VERSION[batch.table];
+  if (schemaVersion === undefined) {
+    // Coverage-gated (test-cloud-bridge-envelope-coverage.mjs) so unreachable in
+    // practice; fail loud rather than sign an unversioned body.
+    return {
+      ok: false,
+      permanent: true,
+      reason: `cloud bridge: no wire version for table '${batch.table}'`,
+    };
+  }
+  const body = canonicalize({
+    schema_version: schemaVersion,
     table: batch.table,
     location_id: batch.locationId,
     batch_id: batch.id,
@@ -108,7 +120,7 @@ export async function pushBatch(
 
   let res: Response;
   try {
-    res = await fetch(joinUrl(opts.url, '/v1/snapshot'), {
+    res = await fetch(joinUrl(opts.url, '/v2/snapshot'), {
       method: 'POST',
       signal: controller.signal,
       headers: {

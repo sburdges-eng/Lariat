@@ -2,7 +2,7 @@
   "schema_version": 1,
   "table": "spend_monthly",
   "source_test": "tests/js/test-cloud-bridge-envelope-golden.mjs",
-  "note": "Golden cloud-bridge /v1/snapshot envelope (§5) — the exact bytes lib/cloudBridgePush.ts::pushBatch emits for this table. FROZEN: the source_test asserts the producer still matches. Regenerate only on an intentional wire-contract change via scripts/gen-cloud-bridge-golden-envelopes.mjs and review the diff.",
+  "note": "Golden cloud-bridge /v2/snapshot envelope (§5) — the exact bytes lib/cloudBridgePush.ts::pushBatch emits for this table. FROZEN: the source_test asserts the producer still matches. Regenerate only on an intentional wire-contract change via scripts/gen-cloud-bridge-golden-envelopes.mjs and review the diff.",
   "test_secret": "test-secret-please-ignore",
   "input": {
     "batch_id": 5120,
@@ -16,14 +16,14 @@
   },
   "expected": {
     "method": "POST",
-    "path": "/v1/snapshot",
-    "url": "https://bridge.example/v1/snapshot",
+    "path": "/v2/snapshot",
+    "url": "https://bridge.example/v2/snapshot",
     "headers": {
       "content-type": "application/json",
       "idempotency-key": "5120",
       "x-lariat-location": "default",
-      "x-lariat-signature": "c3ae7d031cd6a910afb0b020dd889d908cbd453baeafc40ea870b6ef32e641b7"
+      "x-lariat-signature": "abde2cb244436ddded1d7ed227e852a20cd8cd98d19e975bb85ec2bb078939f7"
     },
-    "body": "{\"table\":\"spend_monthly\",\"location_id\":\"default\",\"batch_id\":5120,\"rows\":[{\"month\":\"2026-05\",\"spend_cents\":480000}]}"
+    "body": "{\"batch_id\":5120,\"location_id\":\"default\",\"rows\":[{\"month\":\"2026-05\",\"spend_cents\":480000}],\"schema_version\":1,\"table\":\"spend_monthly\"}"
   }
 }

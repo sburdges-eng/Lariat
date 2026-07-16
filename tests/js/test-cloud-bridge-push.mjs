@@ -72,7 +72,7 @@ async function withMockFetch(handler, fn) {
 }
 
 describe('pushBatch — happy path (202)', () => {
-  it('returns { ok: true } and posts to /v1/snapshot', async () => {
+  it('returns { ok: true } and posts to /v2/snapshot', async () => {
     await withMockFetch(
       () => new Response(JSON.stringify({ batch_id: 4271 }), {
         status: 202,
@@ -86,7 +86,7 @@ describe('pushBatch — happy path (202)', () => {
         assert.deepStrictEqual(result, { ok: true });
         assert.equal(requests.length, 1);
         assert.equal(requests[0].method, 'POST');
-        assert.equal(requests[0].url, 'https://bridge.example/v1/snapshot');
+        assert.equal(requests[0].url, 'https://bridge.example/v2/snapshot');
       },
     );
   });
@@ -235,6 +235,7 @@ describe('pushBatch — wire contract (§5)', () => {
         assert.ok(Array.isArray(parsed.rows));
         assert.equal(parsed.rows.length, 1);
         assert.equal(parsed.rows[0].totals_cents, 12345);
+        assert.equal(parsed.schema_version, 1);
       },
     );
   });
