@@ -11,6 +11,11 @@ public struct BeoCascadeOutcome: Equatable, Sendable {
     public let prepDemands: [CascadePrepDemandRow]
     public let unmapped: [CascadeUnmappedRow]
     public let manifestWarnings: [CascadeManifestWarningRow]
+    /// Graceful-degradation notices from the engine (bad unit / unknown
+    /// sub-recipe / cycle) — a recipe dropped from the order guide + prep board
+    /// instead of aborting. Mirrors `CascadeResult.warnings`; dropping it
+    /// silently under-orders and under-preps. May be empty.
+    public let warnings: [String]
     public let engineError: String?
 
     public init(
@@ -19,6 +24,7 @@ public struct BeoCascadeOutcome: Equatable, Sendable {
         prepDemands: [CascadePrepDemandRow],
         unmapped: [CascadeUnmappedRow],
         manifestWarnings: [CascadeManifestWarningRow] = [],
+        warnings: [String] = [],
         engineError: String?
     ) {
         self.eventId = eventId
@@ -26,6 +32,7 @@ public struct BeoCascadeOutcome: Equatable, Sendable {
         self.prepDemands = prepDemands
         self.unmapped = unmapped
         self.manifestWarnings = manifestWarnings
+        self.warnings = warnings
         self.engineError = engineError
     }
 }
@@ -118,6 +125,7 @@ public struct BeoCascadeRepository {
                 prepDemands: result.prepDemands,
                 unmapped: result.unmapped,
                 manifestWarnings: result.manifestWarnings,
+                warnings: result.warnings,
                 engineError: nil
             )
         } catch let error as CascadeError {

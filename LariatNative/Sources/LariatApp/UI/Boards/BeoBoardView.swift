@@ -784,8 +784,12 @@ private struct BeoOrderGuidePanel: View {
                 if loading {
                     ProgressView("Running the cascade…")
                 } else if let cascade {
-                    BeoUnmappedCallout(unmapped: cascade.unmapped, engineError: cascade.engineError)
-                    if cascade.orderGuide.isEmpty, cascade.unmapped.isEmpty, cascade.engineError == nil {
+                    BeoUnmappedCallout(
+                        unmapped: cascade.unmapped,
+                        warnings: cascade.warnings,
+                        engineError: cascade.engineError
+                    )
+                    if cascade.orderGuide.isEmpty, cascade.unmapped.isEmpty, cascade.warnings.isEmpty, cascade.engineError == nil {
                         EmptyState(message: "No order guide items for this event yet.", systemImage: "cart")
                     } else {
                         Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 4) {
@@ -827,8 +831,12 @@ private struct BeoPrepDemandsPanel: View {
                 if loading {
                     ProgressView("Running the cascade…")
                 } else if let cascade {
-                    BeoUnmappedCallout(unmapped: cascade.unmapped, engineError: cascade.engineError)
-                    if cascade.prepDemands.isEmpty, cascade.unmapped.isEmpty, cascade.engineError == nil {
+                    BeoUnmappedCallout(
+                        unmapped: cascade.unmapped,
+                        warnings: cascade.warnings,
+                        engineError: cascade.engineError
+                    )
+                    if cascade.prepDemands.isEmpty, cascade.unmapped.isEmpty, cascade.warnings.isEmpty, cascade.engineError == nil {
                         EmptyState(message: "No prep demands for this event yet.", systemImage: "list.clipboard")
                     } else {
                         ForEach(Array(cascade.prepDemands.enumerated()), id: \.offset) { _, row in
@@ -853,18 +861,27 @@ private struct BeoPrepDemandsPanel: View {
     }
 }
 
-/// UnmappedCallout parity: unmapped items and engine errors are surfaced,
-/// never silently dropped.
+/// UnmappedCallout parity: engine errors, graceful-degradation warnings, and
+/// unmapped items are surfaced, never silently dropped.
 private struct BeoUnmappedCallout: View {
     let unmapped: [CascadeUnmappedRow]
+    let warnings: [String]
     let engineError: String?
 
     var body: some View {
-        if engineError != nil || !unmapped.isEmpty {
+        if engineError != nil || !warnings.isEmpty || !unmapped.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 if let engineError {
                     Label(engineError, systemImage: "exclamationmark.triangle")
                         .foregroundStyle(LariatTheme.bad)
+                }
+                if !warnings.isEmpty {
+                    Text("Some recipes were skipped — order and prep may be short:")
+                        .fontWeight(.semibold)
+                    ForEach(Array(warnings.enumerated()), id: \.offset) { _, warning in
+                        Label(warning, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(LariatTheme.warn)
+                    }
                 }
                 ForEach(Array(unmapped.enumerated()), id: \.offset) { _, row in
                     Label("\(row.menuItem) — \(row.reason)", systemImage: "questionmark.circle")
@@ -874,6 +891,7 @@ private struct BeoUnmappedCallout: View {
             .font(.caption)
             .padding(8)
             .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
+            .accessibilityIdentifier("event-cascade-warnings")
         }
     }
 }
