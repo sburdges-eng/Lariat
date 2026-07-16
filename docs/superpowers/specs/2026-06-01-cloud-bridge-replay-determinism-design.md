@@ -114,3 +114,10 @@ None for this scope. The helper models the already-decided local proof of the ba
 - **Freeze-readiness impact:** positive; roadmap 1.13 gets a deterministic proof without changing frozen runtime surfaces.
 - **Determinism impact:** positive; replay output is canonicalized and does not depend on network, time, random IDs, or external services.
 - **Security impact:** neutral to positive; allow-list and location-scoped dedup checks are pinned in test coverage.
+
+## 2026-07-16: envelope moved to `/v2` canonical
+
+The push envelope moved to `/v2/snapshot` with CanonicalJSON + per-table `schema_version`; replay
+determinism is unaffected (the outbox row shape is unchanged), and the byte contract is now pinned
+by the golden-envelope fixtures. See
+`docs/superpowers/plans/2026-07-16-cloud-bridge-v2-canonical-envelope.md`.
