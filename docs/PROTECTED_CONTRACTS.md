@@ -299,12 +299,18 @@ The cloud bridge is a durable outbox plus recovery system for corp-bound snapsho
 
 - `lib/cloudBridgeQueue.ts`
 - `lib/cloudBridgeDrainer.ts`
+- `lib/cloudBridgePush.ts`
+- `lib/cloudBridgeCanonical.ts`
 - `app/api/cloud-bridge/dead-letters/route.js`
 - `app/api/cloud-bridge/dead-letters/[id]/requeue/route.js`
 - `app/api/cloud-bridge/dead-letters/[id]/drop/route.js`
 - `tests/js/test-cloud-bridge-drainer.mjs`
 - `tests/js/test-cloud-bridge-dead-letters-api.mjs`
 - `tests/js/test-cloud-bridge-queue-race-safety.mjs`
+- `tests/js/test-cloud-bridge-push.mjs`
+- `tests/js/test-cloud-bridge-canonical.mjs`
+- `tests/js/test-cloud-bridge-envelope-golden.mjs`
+- `tests/js/test-cloud-bridge-envelope-coverage.mjs`
 
 ### 11.1 Queue semantics
 
@@ -337,6 +343,30 @@ The cloud bridge is a durable outbox plus recovery system for corp-bound snapsho
 - Dead-letter mutation routes must remain PIN-gated and location-safe.
 - Management actions on dead letters must emit audit entries.
 - Corrupt dead-letter payloads must remain inspectable enough to triage and drop.
+
+### 11.4 Envelope wire contract
+
+The signed `/v2/snapshot` body is the protected surface that lets a second
+producer (the Swift native encoder) be byte-identical.
+
+#### Invariants
+
+- The signed body is CanonicalJSON (`lib/cloudBridgeCanonical.ts`) of
+  `{ schema_version, table, location_id, batch_id, rows }`: keys sorted
+  recursively, no whitespace, forward slash NOT escaped, integer numbers only.
+- The signature is `HMAC-SHA256(secret, body ‖ String(batch_id))`, lowercase
+  hex, no separator. This construction is frozen unless explicitly versioned.
+- `schema_version` is the per-table wire version (`TABLE_WIRE_VERSION`),
+  independent of the DB `SCHEMA_VERSION`; bump it only when a table's pushed row
+  shape changes. A receiver must verify the HMAC before trusting it
+  (parse-before-verify).
+- The canonical rule is single-sourced with the Swift twin
+  (`LariatModel/CloudBridge/CanonicalJSON.swift`) and pinned byte-for-byte by the
+  golden fixtures on both stacks. Regenerate the fixtures only via
+  `scripts/gen-cloud-bridge-golden-envelopes.mjs` and review the diff as a
+  contract change.
+- A non-integer / non-finite row value must fail loud, never silently produce a
+  divergent MAC.
 
 ---
 
@@ -406,6 +436,11 @@ These tests are not incidental. They are contract tests for the most dangerous s
 - `tests/js/test-cloud-bridge-dead-letters-api.mjs`
 - `tests/js/test-cloud-bridge-queue-race-safety.mjs`
 - Protect queue lifecycle, DLQ recovery, claim races, graceful shutdown, and dead-letter mutation guards.
+- `tests/js/test-cloud-bridge-push.mjs`
+- `tests/js/test-cloud-bridge-canonical.mjs`
+- `tests/js/test-cloud-bridge-envelope-golden.mjs`
+- `tests/js/test-cloud-bridge-envelope-coverage.mjs`
+- Protect the signed `/v2` envelope bytes, canonical serialization, per-table wire version, and cross-stack byte-parity.
 
 ### Deterministic ops ledger
 
@@ -477,7 +512,11 @@ node --experimental-strip-types --test \
 node --experimental-strip-types --test \
   tests/js/test-cloud-bridge-drainer.mjs \
   tests/js/test-cloud-bridge-dead-letters-api.mjs \
-  tests/js/test-cloud-bridge-queue-race-safety.mjs
+  tests/js/test-cloud-bridge-queue-race-safety.mjs \
+  tests/js/test-cloud-bridge-push.mjs \
+  tests/js/test-cloud-bridge-canonical.mjs \
+  tests/js/test-cloud-bridge-envelope-golden.mjs \
+  tests/js/test-cloud-bridge-envelope-coverage.mjs
 ```
 
 ### Receiving, inventory, depletion, or compliance changes
