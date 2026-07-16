@@ -1,23 +1,35 @@
 import XCTest
 @testable import LariatModel
 
-/// Phase C3 — pins the canonical `actor_source` taxonomy. The exact set is
-/// mirrored by `scripts/phase-c-reconcile.mjs :: CANONICAL_ACTOR_SOURCES`
-/// (the C4 checker); if this list changes, that constant must change too.
+/// Phase C3 — pins the canonical `actor_source` taxonomy to the shared,
+/// language-neutral fixture `tests/fixtures/actor_source_canonical.json`, the
+/// single source of truth. The web reconciler constant
+/// (`scripts/phase-c-reconcile.mjs :: CANONICAL_ACTOR_SOURCES`, the C4 checker)
+/// is pinned to the same fixture by `tests/js/test-actor-source-parity.mjs`, so
+/// the native enum and the web set cannot drift apart without the fixture — and
+/// therefore both gates — changing in lockstep. To add a value: update the
+/// fixture, this enum, and the web constant together.
 final class ActorSourceTests: XCTestCase {
 
-    /// The frozen canonical set (17 web surfaces + 2 native writers = 19).
-    private let expected: Set<String> = [
-        "api", "beo_client_share", "box_office", "cook_ui", "dice_ingest",
-        "kds_app", "kds_login", "kitchen_assistant", "kitchen_assistant_undo",
-        "management_ui", "manager_pin", "manager_ui", "pic_ui", "prism_backfill",
-        "receiving_closed_loop", "receiving_match_resolution", "sales_depletion",
-        "native_cook", "native_mac",
-    ]
+    private struct CanonicalFixture: Decodable { let values: [String] }
 
-    func testCanonicalSetMatchesTheFrozenList() {
-        XCTAssertEqual(ActorSource.canonicalRawValues, expected)
-        XCTAssertEqual(ActorSource.allCases.count, expected.count)
+    /// Load the shared cross-language SSOT (17 web surfaces + 2 native = 19).
+    private func loadCanonicalSet() throws -> Set<String> {
+        // <root>/LariatNative/Tests/LariatModelTests/<thisfile> → up 4 → <root>
+        var url = URL(fileURLWithPath: #filePath)
+        for _ in 0..<4 { url.deleteLastPathComponent() }
+        url.appendPathComponent("tests/fixtures/actor_source_canonical.json")
+        let data = try Data(contentsOf: url)
+        return Set(try JSONDecoder().decode(CanonicalFixture.self, from: data).values)
+    }
+
+    func testCanonicalSetMatchesSharedFixture() throws {
+        let fixture = try loadCanonicalSet()
+        XCTAssertEqual(
+            ActorSource.canonicalRawValues, fixture,
+            "ActorSource enum drifted from tests/fixtures/actor_source_canonical.json"
+        )
+        XCTAssertEqual(ActorSource.allCases.count, fixture.count)
     }
 
     func testNativeWriterLiteralsAreMembers() {

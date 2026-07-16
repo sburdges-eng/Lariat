@@ -196,14 +196,12 @@ function failures(rows) {
 // ── Canonical actor_source set ──────────────────────────────────────
 
 describe('CANONICAL_ACTOR_SOURCES', () => {
-  it('contains the web surface values, script backfill, and native writers', () => {
-    const expected = [
-      'api', 'beo_client_share', 'box_office', 'cook_ui', 'dice_ingest',
-      'kds_app', 'kds_login', 'kitchen_assistant', 'kitchen_assistant_undo',
-      'management_ui', 'manager_pin', 'manager_ui', 'native_cook',
-      'native_mac', 'pic_ui', 'prism_backfill', 'receiving_closed_loop',
-      'receiving_match_resolution', 'sales_depletion',
-    ];
+  it('equals the shared actor_source fixture (SSOT)', () => {
+    // Single source of truth shared with the native enum; the cross-language
+    // gate lives in tests/js/test-actor-source-parity.mjs + ActorSourceTests.swift.
+    const expected = JSON.parse(
+      fs.readFileSync(path.join(ROOT, 'tests', 'fixtures', 'actor_source_canonical.json'), 'utf8'),
+    ).values;
     for (const v of expected) {
       assert.ok(CANONICAL_ACTOR_SOURCES.has(v), `missing canonical value: ${v}`);
     }
