@@ -1,7 +1,7 @@
 import Foundation
 
 /// Mirrors `AuditEvent['action']` in `lib/db.ts`.
-public enum AuditEventAction: String, Sendable, Codable {
+public enum AuditEventAction: String, Sendable, Codable, CaseIterable {
     case insert
     case update
     case delete

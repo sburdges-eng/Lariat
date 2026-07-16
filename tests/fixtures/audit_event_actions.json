@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "description": "Single source of truth for the audit_events.action verb set. The web schema pins it via CHECK(action IN (...)) in lib/db.ts::initSchema; tests/js/test-audit-action-parity.mjs introspects that live CHECK and asserts it equals this set. The native enum AuditEventAction (LariatNative/Sources/LariatModel/AuditEvent.swift) is pinned to the same set by AuditEventActionTests.swift. Both stacks write audit_events, so a native verb outside the CHECK is a runtime constraint failure on the shared DB. To add a verb: update the DDL CHECK, this file, and the native enum together.",
+  "values": [
+    "insert",
+    "update",
+    "delete",
+    "correction",
+    "view"
+  ]
+}
