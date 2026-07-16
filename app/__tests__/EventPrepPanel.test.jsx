@@ -63,6 +63,30 @@ const CASCADE_WITH_ENGINE_ERROR = {
   error: 'engine exploded on recipe lookup',
 };
 
+const CASCADE_WITH_MANIFEST_WARNINGS = {
+  event_id: 7,
+  order_guide: [],
+  prep_demands: [
+    { recipe_slug: 'beer_batter', display_name: 'Beer Batter', qty: 4.0, unit: 'qt' },
+  ],
+  unmapped: [],
+  manifest_warnings: [
+    { recipe: 'beer_batter', issue: "declares sub-recipe 'beer_flour' but no BOM row references it" },
+  ],
+};
+
+const CASCADE_WITH_WARNINGS = {
+  event_id: 7,
+  order_guide: [],
+  prep_demands: [
+    { recipe_slug: 'beer_batter', display_name: 'Beer Batter', qty: 4.0, unit: 'qt' },
+  ],
+  unmapped: [],
+  // A skipped recipe means the prep board is short too — must be shown here,
+  // not just on the order-guide panel.
+  warnings: ["recipe 'birria' yields in 'qt' but demand asked for 5.0 'lb'"],
+};
+
 // ── tests ─────────────────────────────────────────────────────────
 
 describe('EventPrepPanel', () => {
@@ -217,5 +241,28 @@ describe('EventPrepPanel', () => {
     });
 
     expect(screen.getByText(/engine exploded on recipe lookup/)).toBeInTheDocument();
+  });
+
+  test('surfaces manifest warnings (declared-but-unreferenced sub-recipe) — prep is short too', async () => {
+    mockFetchOk(CASCADE_WITH_MANIFEST_WARNINGS);
+    render(<EventPrepPanel eventId={7} location="default" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('event-cascade-manifest-warnings')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/beer_batter/)).toBeInTheDocument();
+    expect(screen.getByText(/no BOM row references it/)).toBeInTheDocument();
+  });
+
+  test('renders graceful-degradation warnings (skipped recipe) in the callout', async () => {
+    mockFetchOk(CASCADE_WITH_WARNINGS);
+    render(<EventPrepPanel eventId={7} location="default" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('event-cascade-warnings')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/birria/)).toBeInTheDocument();
   });
 });

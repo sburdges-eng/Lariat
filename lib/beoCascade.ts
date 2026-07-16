@@ -43,6 +43,14 @@ export interface CascadeResult {
   prepDemands: PrepDemandRow[];
   unmapped: UnmappedRow[];
   manifestWarnings: ManifestWarningRow[];
+  /**
+   * Graceful-degradation notices: a single bad recipe (incompatible unit /
+   * unknown sub-recipe / cycle) is degraded to a warning instead of aborting
+   * the whole cascade — the engine drops it from the order guide + prep board
+   * and records why here. Dropping this channel silently under-orders, so it
+   * must be surfaced (mirrors the CLI's `warnings` list; may be empty).
+   */
+  warnings: string[];
 }
 
 export interface CascadeOptions {
@@ -95,7 +103,7 @@ export async function cascadeFromLineItems(
 ): Promise<CascadeResult> {
   // Short-circuit: no work to do, no reason to pay spawn cost.
   if (lineItems.length === 0) {
-    return { orderGuide: [], prepDemands: [], unmapped: [], manifestWarnings: [] };
+    return { orderGuide: [], prepDemands: [], unmapped: [], manifestWarnings: [], warnings: [] };
   }
 
   const root = opts?.root ?? resolveProjectRoot();
@@ -206,5 +214,12 @@ function parseCascadeResponse(raw: string): CascadeResult {
       }))
     : [];
 
-  return { orderGuide, prepDemands, unmapped, manifestWarnings };
+  // Graceful-degradation notices — a flat string[] from the CLI. Additive +
+  // optional: older CLIs omit `warnings` — default to []. Coerce each to a
+  // string defensively (the engine emits plain messages).
+  const warnings: string[] = Array.isArray(obj.warnings)
+    ? (obj.warnings as unknown[]).map((w) => String(w))
+    : [];
+
+  return { orderGuide, prepDemands, unmapped, manifestWarnings, warnings };
 }

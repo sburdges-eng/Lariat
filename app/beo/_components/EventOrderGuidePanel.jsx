@@ -24,6 +24,7 @@ export default function EventOrderGuidePanel({ eventId, location = 'default' }) 
   const [orderGuide, setOrderGuide] = useState(/** @type {OrderGuideRow[]} */ ([]));
   const [unmapped, setUnmapped] = useState(/** @type {UnmappedRow[]} */ ([]));
   const [manifestWarnings, setManifestWarnings] = useState(/** @type {ManifestWarningRow[]} */ ([]));
+  const [warnings, setWarnings] = useState(/** @type {string[]} */ ([]));
   const [engineError, setEngineError] = useState(/** @type {string | null} */ (null));
 
   useEffect(() => {
@@ -48,12 +49,20 @@ export default function EventOrderGuidePanel({ eventId, location = 'default' }) 
         if (cancelled) return;
         const rows = Array.isArray(j.order_guide) ? j.order_guide : [];
         const unmappedItems = Array.isArray(j.unmapped) ? j.unmapped : [];
-        const warnings = Array.isArray(j.manifest_warnings) ? j.manifest_warnings : [];
+        const manifest = Array.isArray(j.manifest_warnings) ? j.manifest_warnings : [];
+        const degrade = Array.isArray(j.warnings) ? j.warnings : [];
         const err = j.error || null;
         setUnmapped(unmappedItems);
-        setManifestWarnings(warnings);
+        setManifestWarnings(manifest);
+        setWarnings(degrade);
         setEngineError(err);
-        if (rows.length === 0 && unmappedItems.length === 0 && warnings.length === 0 && !err) {
+        if (
+          rows.length === 0 &&
+          unmappedItems.length === 0 &&
+          manifest.length === 0 &&
+          degrade.length === 0 &&
+          !err
+        ) {
           setState('empty');
         } else {
           setOrderGuide(rows);
@@ -97,7 +106,7 @@ export default function EventOrderGuidePanel({ eventId, location = 'default' }) 
 
   return (
     <div className="beo-order-guide-panel">
-      <UnmappedCallout unmapped={unmapped} error={engineError} manifestWarnings={manifestWarnings} />
+      <UnmappedCallout unmapped={unmapped} error={engineError} manifestWarnings={manifestWarnings} warnings={warnings} />
       <table data-testid="event-order-guide-table" className="beo-order-guide-table">
         <thead>
           <tr>

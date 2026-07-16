@@ -13,6 +13,7 @@ import UnmappedCallout from './UnmappedCallout';
 
 /** @typedef {import('../../../lib/beoCascade').PrepDemandRow} PrepDemandRow */
 /** @typedef {import('../../../lib/beoCascade').UnmappedRow} UnmappedRow */
+/** @typedef {import('../../../lib/beoCascade').ManifestWarningRow} ManifestWarningRow */
 /** @typedef {'idle' | 'loading' | 'error' | 'empty' | 'loaded'} PrepPanelState */
 
 /**
@@ -22,6 +23,8 @@ export default function EventPrepPanel({ eventId, location = 'default' }) {
   const [state, setState] = useState(/** @type {PrepPanelState} */ ('idle'));
   const [prepDemands, setPrepDemands] = useState(/** @type {PrepDemandRow[]} */ ([]));
   const [unmapped, setUnmapped] = useState(/** @type {UnmappedRow[]} */ ([]));
+  const [manifestWarnings, setManifestWarnings] = useState(/** @type {ManifestWarningRow[]} */ ([]));
+  const [warnings, setWarnings] = useState(/** @type {string[]} */ ([]));
   const [engineError, setEngineError] = useState(/** @type {string | null} */ (null));
 
   useEffect(() => {
@@ -46,10 +49,20 @@ export default function EventPrepPanel({ eventId, location = 'default' }) {
         if (cancelled) return;
         const rows = Array.isArray(j.prep_demands) ? j.prep_demands : [];
         const unmappedItems = Array.isArray(j.unmapped) ? j.unmapped : [];
+        const manifest = Array.isArray(j.manifest_warnings) ? j.manifest_warnings : [];
+        const degrade = Array.isArray(j.warnings) ? j.warnings : [];
         const err = j.error || null;
         setUnmapped(unmappedItems);
+        setManifestWarnings(manifest);
+        setWarnings(degrade);
         setEngineError(err);
-        if (rows.length === 0 && unmappedItems.length === 0 && !err) {
+        if (
+          rows.length === 0 &&
+          unmappedItems.length === 0 &&
+          manifest.length === 0 &&
+          degrade.length === 0 &&
+          !err
+        ) {
           setState('empty');
         } else {
           setPrepDemands(rows);
@@ -93,7 +106,7 @@ export default function EventPrepPanel({ eventId, location = 'default' }) {
 
   return (
     <div className="beo-prep-panel">
-      <UnmappedCallout unmapped={unmapped} error={engineError} />
+      <UnmappedCallout unmapped={unmapped} error={engineError} manifestWarnings={manifestWarnings} warnings={warnings} />
       <ul data-testid="event-prep-list" className="beo-prep-list">
         {prepDemands.map((row, i) => (
           <li key={`${row.recipe_slug}-${i}`} data-testid="event-prep-row" className="beo-prep-row">

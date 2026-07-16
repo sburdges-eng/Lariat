@@ -239,3 +239,98 @@ clean, scoped ESLint clean, `next build` OK.
 `main` — off-allergen-view 8/0, hit-model 13/0, datapack node 18/0, lookup-helpers
 48/0, jest datapack UI 3/3, `tsc` clean, scoped ESLint clean. Native fingerprint
 parity closed (#540). Section → 🟢 FROZEN.
+
+---
+
+## Costing · BEO cascade + event order guide
+
+- **Reviewed at commit:** `218710c40fa38a3af6c2a9b1f9c37a0e2f6f9b1c` (`main` HEAD)
+- **Review date:** 2026-07-15
+- **Freeze result:** 🔴 **BLOCKED pending remediation** (record preserved below);
+  remediation on `fix/beo-cascade-warnings-passthrough` (web-only per scope).
+
+**Scope completed**
+
+- `lib/beoCascade.ts` (TS wrapper over the Python cascade engine)
+- `app/api/beo/cascade/route.js` (the GET boundary)
+- `app/beo/_components/EventOrderGuidePanel.jsx`,
+  `app/beo/_components/EventPrepPanel.jsx`,
+  `app/beo/_components/UnmappedCallout.jsx` (the two cascade consumers)
+- `scripts/beo_cascade_cli.py` + `scripts/lib/bom_expand.py` (warning producers)
+- oracles: `test-beo-cascade.mjs`, `test-beo-cascade-api.mjs`,
+  `test_beo_cascade_cli.py`, and the two panel jest tests
+
+**Explicitly excluded**
+
+- native Swift cascade (`LariatNative/.../BeoCascadeClient.swift`) — mirrors
+  finding High #1 identically; tracked as a required native-parity follow-up
+- the `/costing/*` manager pages (separate future ledger section)
+- the 2 known orphan-data fixes (birria→qb_seasoning, beer_batter→beer_flour) —
+  a data correction, not a code defect
+
+Read-only reference/planning surface (no PIN gate, no writes), but it drives
+**purchasing**, so severity turns on order-guide/prep completeness.
+
+### Findings
+
+**High**
+
+1. The Python engine emits **two** warning channels — `manifest_warnings`
+   (orphan sub-recipe, surfaced since #424) **and** `warnings`, a
+   graceful-degradation list: a recipe with an incompatible unit / unknown
+   sub-recipe / cycle is dropped from the order guide **and** prep board instead
+   of aborting, with the reason recorded. `warnings` is produced and tested at
+   the Python level (`test_beo_cascade_cli.py`) but `parseCascadeResponse` in
+   `lib/beoCascade.ts` never reads `obj.warnings` and `CascadeResult` has no
+   field for it — so the route never returns it and neither UI panel shows it.
+   **A BEO with a bad recipe silently under-orders / under-preps with no
+   signal.** (This is the "cascade warnings dropped at the TS boundary" gap from
+   the 2026-07-12 costing audit — distinct from, and unfixed by, the #424
+   `manifest_warnings` work.)
+2. `EventPrepPanel` passes only `unmapped` + `error` to `UnmappedCallout` — it
+   drops `manifest_warnings` entirely (and had no `warnings` path). #424's
+   orphan-warning fix reached the order-guide panel but not the prep panel, even
+   though the same recipe gaps under-prep.
+
+**Contract**
+
+3. The route's engine-error catch path returned `{order_guide, prep_demands,
+   unmapped, error}` — omitting `manifest_warnings` (and, post-fix, `warnings`).
+   Envelope shape differed between success and error paths; the UI's
+   `j.manifest_warnings` read saw `undefined` on the CLI-error path.
+4. No `schemaVersion` on the cascade envelope (same gap the allergen + datapack
+   entries flagged and fixed).
+
+### Diagnostic evidence
+
+- Code-level, unambiguous: `beo_cascade_cli.py::build_cascade` returns
+  `"warnings"` as a top-level key; `beoCascade.ts::parseCascadeResponse` reads
+  `order_guide` / `prep_demands` / `unmapped` / `manifest_warnings` only. A
+  fake-CLI probe (`tests/js/fixtures/fake-cascade-root`) emitting a `warnings`
+  entry returned `result.warnings === undefined` before the fix.
+
+### Re-review rule
+
+Complete only for the recorded commit. Re-review after any scoped change or
+after the required fixes land.
+
+### Remediation
+
+Branch `fix/beo-cascade-warnings-passthrough` (web-only).
+
+| Finding | Fix |
+| --- | --- |
+| High #1 | `CascadeResult` gains `warnings: string[]`; `parseCascadeResponse` reads/coerces `obj.warnings` (additive, defaults `[]` for older CLIs); the route returns `warnings` on both paths; `UnmappedCallout` renders a new **"Some recipes were skipped — order and prep may be short:"** band (testid `event-cascade-warnings`); both panels read `j.warnings` and count it toward not-empty. |
+| High #2 | `EventPrepPanel` now threads `manifest_warnings` **and** `warnings` into `UnmappedCallout` and its empty-state guard, matching the order-guide panel. |
+| Contract #3 | The engine-error catch path returns the full envelope (`manifest_warnings: []`, `warnings: []`) so UI reads never see `undefined`. |
+| Contract #4 | Both success and error envelopes carry `schemaVersion: 'beo_cascade_v1'`. |
+
+**Verification:** node `test-beo-cascade` + `test-beo-cascade-api` 19/0 (incl. a
+fake-CLI parse test + an error-path envelope test), jest panels 54/0, python
+`test_beo_cascade_cli` 14/0, `tsc` clean, scoped ESLint clean, `next build` OK.
+
+**⚠ Required native-parity follow-up:** `BeoCascadeClient.swift` re-emits
+`warnings` into its raw JSON but its `parseCascadeResponse` drops it identically
+— native must add `warnings` to `CascadeResult` + the parse to stay at web
+parity (stacked follow-up, same pattern as the allergen fingerprint #540). The
+section flips to 🟢 FROZEN on a fresh review at the merge commit.
