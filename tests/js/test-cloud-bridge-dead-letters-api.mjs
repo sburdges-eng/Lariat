@@ -67,7 +67,7 @@ beforeEach(() => {
   if (fs.existsSync(TMP_AUDIT)) fs.unlinkSync(TMP_AUDIT);
 });
 
-const TABLE = 'settlement_summaries';
+const TABLE = 'beo_events';
 
 function deadLetterBatch(rows, opts = {}) {
   const id = enqueue(opts.table ?? TABLE, rows, {

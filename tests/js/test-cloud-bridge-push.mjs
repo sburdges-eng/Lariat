@@ -39,7 +39,7 @@ const SECRET = 'test-secret-please-ignore';
 function makeBatch(overrides = {}) {
   return {
     id: 4271,
-    table: 'settlement_summaries',
+    table: 'beo_events',
     locationId: 'default',
     rows: [{ totals_cents: 12345, settled_at: '2026-05-06T23:59:00Z' }],
     attempts: 1,
@@ -229,7 +229,7 @@ describe('pushBatch — wire contract (§5)', () => {
         await pushBatch(makeBatch(), { url: 'https://bridge.example', secret: SECRET });
         const req = requests.at(-1);
         const parsed = JSON.parse(req.body);
-        assert.equal(parsed.table, 'settlement_summaries');
+        assert.equal(parsed.table, 'beo_events');
         assert.equal(parsed.location_id, 'default');
         assert.equal(parsed.batch_id, 4271);
         assert.ok(Array.isArray(parsed.rows));

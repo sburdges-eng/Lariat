@@ -51,7 +51,10 @@ export const CLOUD_BRIDGE_TABLE_DENIED = 'cloud bridge: table not on allow-list'
  * eventually owns this list, this Set should re-derive from it.
  */
 export const ALLOWED_TABLES: ReadonlySet<string> = new Set([
-  'settlement_summaries', // end-of-night totals; coarse, no PII
+  // 'settlement_summaries' dropped 2026-07-16: settlements are computed at read
+  // time (there is no such table — see lib/syncApply.ts, which already dropped
+  // it), and with a single venue there is no corp/HQ consolidation to push to.
+  // Re-add here (and materialize the table) if multi-venue push is ever needed.
   'beo_events',           // banquet/event ops; already shared with sales/corp
   'spend_monthly',        // monthly aggregate; no PII
 ]);
