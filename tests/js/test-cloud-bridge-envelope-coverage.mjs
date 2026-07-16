@@ -19,6 +19,7 @@ import path from 'node:path';
 register(new URL('./resolver.mjs', import.meta.url));
 
 const { ALLOWED_TABLES } = await import('../../lib/cloudBridgeQueue.ts');
+const { TABLE_WIRE_VERSION } = await import('../../lib/cloudBridgeCanonical.ts');
 
 const FIX_DIR = path.join(
   path.dirname(new URL(import.meta.url).pathname),
@@ -56,6 +57,19 @@ describe('cloud-bridge golden-envelope coverage', () => {
     for (const t of fixtureTables) {
       const fx = JSON.parse(fs.readFileSync(path.join(FIX_DIR, `golden-envelope.${t}.json`), 'utf8'));
       assert.equal(fx.table, t, `golden-envelope.${t}.json declares table='${fx.table}', expected '${t}'`);
+    }
+  });
+
+  it('every pushable table has a wire version', () => {
+    const missing = [...allowed].filter((t) => TABLE_WIRE_VERSION[t] === undefined);
+    assert.deepEqual(missing, [], `pushable tables missing a TABLE_WIRE_VERSION: ${missing.join(', ')}`);
+  });
+
+  it('each fixture body carries the table wire version', () => {
+    for (const t of fixtureTables) {
+      const fx = JSON.parse(fs.readFileSync(path.join(FIX_DIR, `golden-envelope.${t}.json`), 'utf8'));
+      const parsed = JSON.parse(fx.expected.body);
+      assert.equal(parsed.schema_version, TABLE_WIRE_VERSION[t], `golden-envelope.${t}.json body schema_version`);
     }
   });
 });
