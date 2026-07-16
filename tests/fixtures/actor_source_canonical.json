@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "description": "Single source of truth for the audit_events actor_source taxonomy (Phase C3). The native enum LariatNative/Sources/LariatModel/ActorSource.swift and the web reconciler constant scripts/phase-c-reconcile.mjs::CANONICAL_ACTOR_SOURCES must both equal this set exactly. Enforced by tests/js/test-actor-source-parity.mjs (web) and LariatNative/Tests/LariatModelTests/ActorSourceTests.swift (native). Historical rows are never rewritten; this governs new writes. To add a value: update this file + both code sites together.",
+  "values": [
+    "api",
+    "beo_client_share",
+    "box_office",
+    "cook_ui",
+    "dice_ingest",
+    "kds_app",
+    "kds_login",
+    "kitchen_assistant",
+    "kitchen_assistant_undo",
+    "management_ui",
+    "manager_pin",
+    "manager_ui",
+    "native_cook",
+    "native_mac",
+    "pic_ui",
+    "prism_backfill",
+    "receiving_closed_loop",
+    "receiving_match_resolution",
+    "sales_depletion"
+  ]
+}
