@@ -64,6 +64,27 @@ final class BeoCascadeClientTests: XCTestCase {
         XCTAssertTrue(r.manifestWarnings.isEmpty)
     }
 
+    func testParsesWarnings() async throws {
+        // Graceful-degradation channel: a recipe with a bad unit / unknown sub /
+        // cycle is dropped from the order guide + prep and recorded here. Must
+        // survive the parse or the guide silently under-orders (web parity).
+        let raw = """
+        {"order_guide": [], "prep_demands": [], "unmapped": [],
+         "warnings": ["recipe 'beer_batter' yields in 'qt' but demand asked for 5.0 'lb'"]}
+        """
+        let r = try await client(raw).cascadeFromLineItems([.init(itemName: "x", quantity: 1)])
+        XCTAssertEqual(r.warnings, [
+            "recipe 'beer_batter' yields in 'qt' but demand asked for 5.0 'lb'",
+        ])
+    }
+
+    func testWarningsDefaultEmptyWhenOmitted() async throws {
+        // Older CLI without warnings → [] (additive/optional field).
+        let raw = #"{"order_guide": [], "prep_demands": [], "unmapped": []}"#
+        let r = try await client(raw).cascadeFromLineItems([.init(itemName: "x", quantity: 1)])
+        XCTAssertTrue(r.warnings.isEmpty)
+    }
+
     func testBogusItemRoundTripsToUnmapped() async throws {
         // test-beo-cascade.mjs case 1, with the CLI's recorded response shape.
         let bogus = "__definitely_not_a_real_item__"

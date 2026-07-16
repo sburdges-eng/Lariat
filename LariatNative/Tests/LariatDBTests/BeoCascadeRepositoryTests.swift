@@ -233,4 +233,20 @@ final class BeoCascadeRepositoryTests: XCTestCase {
             "declares sub-recipe 'beer_flour' but no BOM row references it"
         )
     }
+
+    /// Web parity: the cascade route surfaces the engine's graceful-degradation
+    /// `warnings` channel (a recipe skipped for a bad unit / unknown sub / cycle)
+    /// on the outcome. Dropping it silently under-orders and under-preps.
+    func testWarningsSurfaceInOutcome() async throws {
+        let evId = try fixture.seedEvent()
+        try fixture.seedLineItem(eventId: evId, item: "Battered Fish Taco", qty: 40)
+        let cli = """
+        {"order_guide": [], "prep_demands": [], "unmapped": [],
+         "warnings": ["recipe 'beer_batter' yields in 'qt' but demand asked for 5.0 'lb'"]}
+        """
+        let outcome = try await repo(cliOutput: cli).cascade(eventId: evId, locationId: "default")
+        XCTAssertEqual(outcome.warnings, [
+            "recipe 'beer_batter' yields in 'qt' but demand asked for 5.0 'lb'",
+        ])
+    }
 }
