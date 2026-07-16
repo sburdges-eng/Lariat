@@ -1,24 +1,19 @@
 // Cloud Bridge — interface + stub-or-real factory for WAN sync.
 //
-// This module owns the public CloudBridge surface. push/pull historically
-// threw a sentinel error; as of the Item-7 wire-in, pushSnapshot delegates
-// to lib/cloudBridgePush.ts::pushBatch when the bridge is configured
-// (LARIAT_CLOUD_BRIDGE_URL + LARIAT_CLOUD_BRIDGE_SECRET). When not
-// configured, the sentinel still throws — that's how callers that haven't
-// migrated to the queue-based path detect "bridge is dormant on this
-// host."
+// This module owns the public CloudBridge surface: pullSnapshot (still a
+// future direction — v1 is push-only per the wire contract) plus status and
+// config probes used by GET /api/cloud-bridge/status.
 //
-// The production push path is the queue (lib/cloudBridgeQueue.ts) drained
-// by Item 8's drainer loop. pushSnapshot here is a thin direct-push
-// affordance: it synthesizes an OutboxBatch with a Date.now() id and
-// calls pushBatch. Server-side dedup on (location_id, batch_id) per §5.5
-// of docs/cloud-bridge-backend-decision.md keeps the contract honest.
+// The push path is the queue: lib/cloudBridgeQueue.ts::enqueue writes to the
+// cloud_bridge_outbox table and Item 8's drainer loop drains it via
+// lib/cloudBridgePush.ts::pushBatch, using the outbox row id (monotonic per
+// location) as the batch_id. There is intentionally NO direct-push method
+// here: the retired pushSnapshot affordance minted a non-monotonic Date.now()
+// batch_id that could collide under server-side dedup on (location_id,
+// batch_id) per §5.5. Use the queue.
 //
 // See docs/cloud-bridge-design.md (scope) and
 // docs/cloud-bridge-backend-decision.md (wire contract).
-
-import { pushBatch } from './cloudBridgePush.ts';
-import type { OutboxBatch } from './cloudBridgeQueue.ts';
 
 /**
  * Sentinel thrown when the bridge is unconfigured (env vars absent).
@@ -30,20 +25,6 @@ import type { OutboxBatch } from './cloudBridgeQueue.ts';
 export const CLOUD_BRIDGE_NOT_IMPLEMENTED = 'cloud bridge: not implemented yet';
 
 export interface CloudBridge {
-  /**
-   * Push a batch of rows for `table` up to the cloud peer. Per-table
-   * opt-in: see the design doc for the allow/deny list. Returns the
-   * count the peer accepted vs. rejected (e.g., schema drift, dup).
-   *
-   * Direct-push only. Production code uses the queue+drainer path —
-   * cloudBridgeQueue.enqueue() then the Item-8 drainer.
-   */
-  pushSnapshot(
-    _table: string,
-    _rows: unknown[],
-    _opts: { locationId: string },
-  ): Promise<{ accepted: number; rejected: number }>;
-
   /**
    * Pull rows for `table` modified at or after `since` (RFC 3339
    * timestamp). Used by sibling-venue read-only snapshots and corp
@@ -87,50 +68,6 @@ class CloudBridgeImpl implements CloudBridge {
   constructor(opts: CloudBridgeOptions = {}) {
     this.secret = opts.secret ?? process.env.LARIAT_CLOUD_BRIDGE_SECRET;
     this.baseUrl = opts.baseUrl ?? process.env.LARIAT_CLOUD_BRIDGE_URL;
-  }
-
-  async pushSnapshot(
-    table: string,
-    rows: unknown[],
-    opts: { locationId: string },
-  ): Promise<{ accepted: number; rejected: number }> {
-    if (!this.secret || !this.baseUrl) {
-      throw new Error(CLOUD_BRIDGE_NOT_IMPLEMENTED);
-    }
-    if (!Array.isArray(rows) || rows.length === 0) {
-      // Server would 4xx anyway per §5.3 ("empty rows → 4xx"); short-circuit.
-      return { accepted: 0, rejected: 0 };
-    }
-
-    // Synthesize an OutboxBatch shape for the pushBatch wire contract.
-    // The id doubles as the Idempotency-Key + body batch_id; Date.now()
-    // is monotonic-enough for direct-push (the production drain path
-    // uses real outbox row ids).
-    const batch: OutboxBatch = {
-      id: Date.now(),
-      table,
-      locationId: opts.locationId,
-      rows,
-      attempts: 0,
-      enqueuedAt: new Date().toISOString(),
-    };
-
-    const result = await pushBatch(batch, {
-      url: this.baseUrl,
-      secret: this.secret,
-    });
-
-    if (result.ok) {
-      return { accepted: rows.length, rejected: 0 };
-    }
-    if (result.permanent) {
-      // Permanent rejects (bad signature, table not allow-listed,
-      // malformed body) — surface as rejected; caller doesn't retry.
-      return { accepted: 0, rejected: rows.length };
-    }
-    // Transient — caller's retry policy decides. Throwing matches the
-    // pre-Item-7 sentinel-on-failure contract.
-    throw new Error(result.reason ?? 'cloud bridge: transient push failure');
   }
 
   async pullSnapshot(
