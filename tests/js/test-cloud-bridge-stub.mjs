@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Tests for the cloud-bridge surface (lib/cloudBridge.ts).
 //
-// Post-Item-7: pushSnapshot delegates to lib/cloudBridgePush.ts when
-// configured (LARIAT_CLOUD_BRIDGE_URL + LARIAT_CLOUD_BRIDGE_SECRET) and
-// throws the CLOUD_BRIDGE_NOT_IMPLEMENTED sentinel when not configured.
-// pullSnapshot still throws the sentinel unconditionally — pull is v2.
+// The push direction is the queue (cloudBridgeQueue.enqueue + the Item-8
+// drainer); the direct-push pushSnapshot affordance was retired. pullSnapshot
+// still throws the CLOUD_BRIDGE_NOT_IMPLEMENTED sentinel unconditionally —
+// pull is v2.
 //
 // These tests pin the unconfigured behavior + interface shape. The HTTP
 // client (configured path) is exercised by tests/js/test-cloud-bridge-push.mjs
@@ -42,19 +42,10 @@ const { GET } = route;
 // ─────────────────────────────────────────────────────────────────
 
 describe('createCloudBridge — stub shape', () => {
-  it('returns an object with push / pull / status methods', () => {
+  it('returns an object with pull / status methods (push is the queue path)', () => {
     const bridge = createCloudBridge();
-    assert.equal(typeof bridge.pushSnapshot, 'function');
     assert.equal(typeof bridge.pullSnapshot, 'function');
     assert.equal(typeof bridge.status, 'function');
-  });
-
-  it('pushSnapshot throws the not-implemented sentinel', async () => {
-    const bridge = createCloudBridge();
-    await assert.rejects(
-      () => bridge.pushSnapshot('beo_events', [], { locationId: 'default' }),
-      (err) => err instanceof Error && err.message === CLOUD_BRIDGE_NOT_IMPLEMENTED,
-    );
   });
 
   it('pullSnapshot throws the not-implemented sentinel', async () => {

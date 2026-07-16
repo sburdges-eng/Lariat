@@ -152,7 +152,7 @@ Server-side dedup on `(location_id, batch_id)`, retention ≥7 days; a duplicate
 These surfaced while grounding the contract and are worth a follow-up regardless of the hardening work:
 
 1. ~~**`settlement_summaries` is push-allow-listed but has no table.**~~ **RESOLVED 2026-07-16 — dropped from `ALLOWED_TABLES`** (owner decision: settlements are computed at read-time so there is no such table, and with a single venue there is no HQ consolidation to push to; `syncApply.ts:85-87` had already dropped it from the sync applier for the same reason). **[verified]**
-2. **Two producer paths disagree on `batch_id` semantics.** The queue/drainer path uses the monotonic outbox rowid (matches §5.2). The legacy direct-push path (`cloudBridge.ts:92-134`) synthesizes `id: Date.now()` — an epoch-ms timestamp, **not** monotonic-per-location. Two direct-push (`pushSnapshot`) calls inside the same ms, or clock skew, could collide or reorder `batch_id`; the drainer/queue path is unaffected. **[verified]**
+2. ~~**Two producer paths disagree on `batch_id` semantics.**~~ **RESOLVED 2026-07-16 — direct-push path retired.** The queue/drainer path (monotonic outbox rowid, §5.2) is now the *only* push path; the legacy `cloudBridge.ts::pushSnapshot` direct-push affordance — which minted a non-monotonic `id: Date.now()` batch_id that could collide under `(location_id, batch_id)` dedup — was removed (it had zero production callers). **[verified]**
 3. **Doc/emit case mismatch** on header names (A.2) — cosmetic today (HTTP case-insensitivity), a footgun for a byte-exact verifier.
 
 ---
@@ -286,5 +286,5 @@ Both enforcement lanes already exist. Envelope + coverage TS suites → `test:re
 **Open questions for the owner:**
 1. **Version granularity** — B.5 recommends a **per-table** wire-contract version (not the global DB `SCHEMA_VERSION`). Confirm, and decide where the version map lives: a code constant next to `ALLOWED_TABLES`, or an operator-bumpable config row? (B.5)
 2. ~~**`settlement_summaries`** — remove from `ALLOWED_TABLES`, or restore/define the table?~~ **RESOLVED — dropped** (single venue, computed at read time). (A.10 #1)
-3. **Direct-push path** — is `cloudBridge.ts::pushSnapshot` (the `Date.now()` `batch_id` path) still a live surface, or can it be retired in favor of the queue path so `batch_id` semantics are single? (A.10 #2)
+3. ~~**Direct-push path** — is `cloudBridge.ts::pushSnapshot` still a live surface, or can it be retired?~~ **RESOLVED — retired** (zero production callers; the queue is now the single push path). (A.10 #2)
 4. **Canonicalization** — adopt sorted-key canonical JSON, or freeze the explicit field order + a documented escaping rule? Either unblocks a byte-identical second producer. (B.5)
