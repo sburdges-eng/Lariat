@@ -72,7 +72,7 @@ describe('drainer.tick — empty queue', () => {
 
 describe('drainer.tick — happy path (ok:true → ack)', () => {
   it('ack-drops the batch from the outbox', async () => {
-    queue.enqueue('settlement_summaries', [{ totals_cents: 100 }], { locationId: 'default' });
+    queue.enqueue('beo_events', [{ totals_cents: 100 }], { locationId: 'default' });
     assert.equal(queue.depth(), 1);
 
     let receivedBatch;
@@ -85,7 +85,7 @@ describe('drainer.tick — happy path (ok:true → ack)', () => {
     assert.equal(result.claimed, 1);
     assert.equal(result.outcome, 'ack');
     assert.equal(queue.depth(), 0, 'row should be removed from queue');
-    assert.equal(receivedBatch.table, 'settlement_summaries');
+    assert.equal(receivedBatch.table, 'beo_events');
     assert.equal(receivedBatch.locationId, 'default');
   });
 });
@@ -106,7 +106,7 @@ describe('drainer.tick — permanent reject (4xx → ack)', () => {
 
 describe('drainer.tick — transient failure (5xx → nack-retry)', () => {
   it('nack-retries on permanent:false (queue depth recovers, attempts increments)', async () => {
-    queue.enqueue('settlement_summaries', [{ totals_cents: 50 }], { locationId: 'default' });
+    queue.enqueue('beo_events', [{ totals_cents: 50 }], { locationId: 'default' });
     const d = makeDrainer(async () => ({
       ok: false, permanent: false, status: 503, reason: 'upstream-down',
     }));
@@ -124,7 +124,7 @@ describe('drainer.tick — transient failure (5xx → nack-retry)', () => {
   });
 
   it('dead-letters after DEFAULT_MAX_ATTEMPTS (5) consecutive transient failures', async () => {
-    queue.enqueue('settlement_summaries', [{ totals_cents: 25 }], { locationId: 'default' });
+    queue.enqueue('beo_events', [{ totals_cents: 25 }], { locationId: 'default' });
     const d = makeDrainer(async () => ({
       ok: false, permanent: false, reason: 'still down',
     }));
@@ -150,7 +150,7 @@ describe('drainer.tick — sweepStaleClaims runs each tick', () => {
            (table_name, location_id, rows_json, attempts, claimed_at)
          VALUES (?, ?, ?, 1, datetime('now', '-600 seconds'))`,
       )
-      .run('settlement_summaries', 'default', JSON.stringify([{ x: 1 }]));
+      .run('beo_events', 'default', JSON.stringify([{ x: 1 }]));
 
     assert.equal(queue.depth(), 0, 'stale-claimed rows are invisible to claim()');
 
@@ -175,7 +175,7 @@ describe('drainer — start/stop lifecycle', () => {
       tickMs: 30,
     });
 
-    queue.enqueue('settlement_summaries', [{ a: 1 }], { locationId: 'default' });
+    queue.enqueue('beo_events', [{ a: 1 }], { locationId: 'default' });
 
     d.start();
     d.start();
@@ -208,7 +208,7 @@ describe('drainer — start/stop lifecycle', () => {
 
 describe('drainer.tick — pushBatch throws unexpectedly', () => {
   it('treats unexpected throws as transient (nack-retry, no crash)', async () => {
-    queue.enqueue('settlement_summaries', [{ a: 1 }], { locationId: 'default' });
+    queue.enqueue('beo_events', [{ a: 1 }], { locationId: 'default' });
 
     const d = makeDrainer(async () => {
       throw new Error('boom');

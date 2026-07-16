@@ -48,7 +48,7 @@ beforeEach(() => {
 });
 
 const LOC = 'default';
-const TABLE = 'settlement_summaries';
+const TABLE = 'beo_events';
 
 // ─── Source-grep helper ──────────────────────────────────────────
 

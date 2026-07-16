@@ -52,7 +52,7 @@ describe('createCloudBridge — stub shape', () => {
   it('pushSnapshot throws the not-implemented sentinel', async () => {
     const bridge = createCloudBridge();
     await assert.rejects(
-      () => bridge.pushSnapshot('settlement_summaries', [], { locationId: 'default' }),
+      () => bridge.pushSnapshot('beo_events', [], { locationId: 'default' }),
       (err) => err instanceof Error && err.message === CLOUD_BRIDGE_NOT_IMPLEMENTED,
     );
   });
@@ -61,7 +61,7 @@ describe('createCloudBridge — stub shape', () => {
     const bridge = createCloudBridge();
     await assert.rejects(
       () =>
-        bridge.pullSnapshot('settlement_summaries', {
+        bridge.pullSnapshot('beo_events', {
           locationId: 'default',
           since: '2026-01-01T00:00:00Z',
         }),

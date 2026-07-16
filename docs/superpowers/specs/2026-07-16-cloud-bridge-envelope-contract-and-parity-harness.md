@@ -99,7 +99,7 @@ The MAC covers `body-bytes ‖ idempotencyKey-bytes` (two sequential `.update()`
 Allow-list is **deny-by-default** and enforced at **enqueue**, not in the push client:
 
 ```
-ALLOWED_TABLES = { settlement_summaries, beo_events, spend_monthly }   // cloudBridgeQueue.ts:53-57
+ALLOWED_TABLES = { beo_events, spend_monthly }   // cloudBridgeQueue.ts:53-57 (settlement_summaries dropped 2026-07-16)
 enqueue(): if (!ALLOWED_TABLES.has(table)) throw CLOUD_BRIDGE_TABLE_DENIED  // :98
 ```
 
@@ -151,7 +151,7 @@ Server-side dedup on `(location_id, batch_id)`, retention ≥7 days; a duplicate
 
 These surfaced while grounding the contract and are worth a follow-up regardless of the hardening work:
 
-1. **`settlement_summaries` is push-allow-listed but has no table.** It is in `ALLOWED_TABLES` yet `initSchema` defines no `settlement_summaries` table — settlements are computed at read-time (`syncApply.ts:85-87` "removed — settlements are computed at read … not persisted"). One of three pushable tables maps to a schema that doesn't exist. **[verified]**
+1. ~~**`settlement_summaries` is push-allow-listed but has no table.**~~ **RESOLVED 2026-07-16 — dropped from `ALLOWED_TABLES`** (owner decision: settlements are computed at read-time so there is no such table, and with a single venue there is no HQ consolidation to push to; `syncApply.ts:85-87` had already dropped it from the sync applier for the same reason). **[verified]**
 2. **Two producer paths disagree on `batch_id` semantics.** The queue/drainer path uses the monotonic outbox rowid (matches §5.2). The legacy direct-push path (`cloudBridge.ts:92-134`) synthesizes `id: Date.now()` — an epoch-ms timestamp, **not** monotonic-per-location. Two direct-push (`pushSnapshot`) calls inside the same ms, or clock skew, could collide or reorder `batch_id`; the drainer/queue path is unaffected. **[verified]**
 3. **Doc/emit case mismatch** on header names (A.2) — cosmetic today (HTTP case-insensitivity), a footgun for a byte-exact verifier.
 
@@ -235,7 +235,7 @@ A web-side envelope **oracle already exists**: `tests/js/test-cloud-bridge-push.
 
 1. **Extract** a golden fixture per pushable table: `tests/fixtures/cloud-bridge/golden-envelope.<table>.json` = `{ schema_version, headers:{idempotency-key, x-lariat-location, x-lariat-signature}, body:{…}, canonical_body_string, hmac_hex }`, each with a `source_test` back-link to `test-cloud-bridge-push.mjs`.
 2. **Freeze the web side to the file**: `test-cloud-bridge-push.mjs` asserts its produced envelope **===** the golden file (byte-exact body string + recomputed HMAC) — turning today's self-recompute into a pinned artifact.
-3. **Coverage gate**: `tests/js/test-cloud-bridge-envelope-coverage.mjs`, a clone of `test-pin-gate-coverage.mjs`, walks `ALLOWED_TABLES` and **fails** if any pushable table lacks a golden fixture — plus the "no stale fixture for a removed table" and "ALLOWED_TABLES parses to >0" sub-tests. (This gate immediately flags the `settlement_summaries` A.10 inconsistency.)
+3. **Coverage gate**: `tests/js/test-cloud-bridge-envelope-coverage.mjs`, a clone of `test-pin-gate-coverage.mjs`, walks `ALLOWED_TABLES` and **fails** if any pushable table lacks a golden fixture — plus the "no stale fixture for a removed table" and "ALLOWED_TABLES parses to >0" sub-tests. (This is the gate that would have caught the `settlement_summaries` A.10 inconsistency — already resolved by dropping it, 2026-07-16.)
 4. **Land B.5** — the explicit canonical serialization + per-table `schema_version`, via the §14 protected-surface route (B.3). Re-extract the golden fixtures against the canonical rule so `canonical_body_string` is defined by a *rule*, not "whatever V8 emits".
 5. **Add the Swift encoder + parity test** *(depends on step 4)*: a `CloudBridgeEnvelope` encoder in `LariatModel` + an XCTest that loads the *same* golden file (`BeoFixtureLoader` `#filePath` pattern), re-encodes from identical inputs, and asserts the canonical body string **and** HMAC are identical. This is where single-sourced envelope framing (B.6) becomes machine-checked — and it is only reliable *after* step 4.
 6. **Register**: add the new TS suites to `test:regression-core` (or a new `test:regression-cloudbridge` lane) in `package.json` + `ci.yml`, **and to PROTECTED_CONTRACTS §13/§15**; the Swift test rides `native-ci.yml` automatically. **No new workflow needed.**
@@ -271,7 +271,7 @@ Both enforcement lanes already exist. Envelope + coverage TS suites → `test:re
 ### C.6 Suggested sequencing
 
 1. **C.4 #1** (actor_source equality gate) — cheapest, highest-value, catches an already-live drift risk.
-2. **C.3 steps 1–3** — extract golden fixture + web freeze + coverage gate (surfaces the `settlement_summaries` bug). Buildable now; no contract change.
+2. **C.3 steps 1–3** — extract golden fixture + web freeze + coverage gate. Buildable now; no contract change. (The `settlement_summaries` inconsistency this would have surfaced is already resolved — dropped 2026-07-16.)
 3. **B.5 (= C.3 step 4)** — land per-table `schema_version` + canonical serialization via the §14 protected route; re-extract fixtures.
 4. **C.3 step 5** — the Swift encoder byte-parity pin (only reliable after step 3).
 5. **C.4 #3, #4, #2** — wire UnitConvert to the shared fixture; UUIDv7 parity + crypto tail; audit_events row shape.
@@ -285,6 +285,6 @@ Both enforcement lanes already exist. Envelope + coverage TS suites → `test:re
 
 **Open questions for the owner:**
 1. **Version granularity** — B.5 recommends a **per-table** wire-contract version (not the global DB `SCHEMA_VERSION`). Confirm, and decide where the version map lives: a code constant next to `ALLOWED_TABLES`, or an operator-bumpable config row? (B.5)
-2. **`settlement_summaries`** — remove from `ALLOWED_TABLES`, or restore/define the table? It currently maps to nothing. (A.10 #1)
+2. ~~**`settlement_summaries`** — remove from `ALLOWED_TABLES`, or restore/define the table?~~ **RESOLVED — dropped** (single venue, computed at read time). (A.10 #1)
 3. **Direct-push path** — is `cloudBridge.ts::pushSnapshot` (the `Date.now()` `batch_id` path) still a live surface, or can it be retired in favor of the queue path so `batch_id` semantics are single? (A.10 #2)
 4. **Canonicalization** — adopt sorted-key canonical JSON, or freeze the explicit field order + a documented escaping rule? Either unblocks a byte-identical second producer. (B.5)

@@ -60,7 +60,7 @@ beforeEach(() => {
 });
 
 const LOC = 'default';
-const TABLE = 'settlement_summaries';
+const TABLE = 'beo_events';
 
 describe('depth() — empty', () => {
   it('returns 0 on a fresh queue', () => {
@@ -119,9 +119,10 @@ describe('enqueue() — happy path', () => {
 describe('enqueue() — table allow-list', () => {
   it('exposes an explicit allow-list', () => {
     assert.ok(ALLOWED_TABLES instanceof Set, 'ALLOWED_TABLES should be a Set');
-    assert.ok(ALLOWED_TABLES.has('settlement_summaries'));
     assert.ok(ALLOWED_TABLES.has('beo_events'));
     assert.ok(ALLOWED_TABLES.has('spend_monthly'));
+    // Dropped 2026-07-16 — computed at read (no table), single venue:
+    assert.equal(ALLOWED_TABLES.has('settlement_summaries'), false);
     // PII / never-sync tables from the design doc:
     assert.equal(ALLOWED_TABLES.has('sales_lines'), false);
     assert.equal(ALLOWED_TABLES.has('sales_depletion_runs'), false);

@@ -286,7 +286,7 @@ keyed on `(X-Lariat-Location, Idempotency-Key)`.
 
 ```json
 {
-  "table": "settlement_summaries",
+  "table": "beo_events",
   "location_id": "default",
   "batch_id": 4271,
   "rows": [
@@ -295,9 +295,10 @@ keyed on `(X-Lariat-Location, Idempotency-Key)`.
 }
 ```
 
-- `table` MUST be one of `settlement_summaries`, `beo_events`,
-  `spend_monthly` — server rejects anything else as a permanent 4xx
-  (defense-in-depth; the venue queue already enforces this).
+- `table` MUST be one of `beo_events`, `spend_monthly` — server rejects
+  anything else as a permanent 4xx (defense-in-depth; the venue queue already
+  enforces this). `settlement_summaries` was dropped 2026-07-16 (computed at
+  read time, no such table; single venue, no HQ consolidation to push).
 - `location_id` MUST match `X-Lariat-Location`.
 - `batch_id` is the outbox row id. Equals the `Idempotency-Key`
   header — duplicating in the body simplifies signed-body
@@ -348,7 +349,7 @@ venue queue has long since acked.
   Idempotency-Key: 4271
   X-Lariat-Location: default
   X-Lariat-Signature: <ed25519 sig>
-  { "table": "settlement_summaries",
+  { "table": "beo_events",
     "location_id": "default",
     "batch_id": 4271,
     "rows": [ { ... } ] }
@@ -402,7 +403,7 @@ The cloud peer logs per batch — never row payloads, only metadata:
 {
   "batch_id": 4271,
   "location_id": "default",
-  "table": "settlement_summaries",
+  "table": "beo_events",
   "n_rows": 14,
   "duration_ms": 87,
   "status": "accepted" | "rejected" | "dedup",
