@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "description": "Cross-language parity oracle for the DETERMINISTIC portion of a UUIDv7 (RFC 9562 §5.7): the 48-bit big-endian millisecond timestamp (first 12 hex chars) plus the version nibble ('7') and variant nibble (in {8,9,a,b}). The random tail is intentionally NOT pinned (it differs per call, and native currently uses a non-crypto tail — see the SecRandom follow-up). lib/uuid.ts::uuidv7(nowMs) and LariatModel/UuidV7.generate(nowMs:) both embed ms identically; tests/js/test-uuidv7-parity.mjs and UuidV7Tests.swift assert each generator's output against these rows so the shared-DB PK / sync_feed op_id format cannot drift between stacks. ts_hex = ms as a zero-padded 12-char lowercase big-endian hex string.",
+  "cases": [
+    { "ms": 0, "ts_hex": "000000000000" },
+    { "ms": 1, "ts_hex": "000000000001" },
+    { "ms": 1000, "ts_hex": "0000000003e8" },
+    { "ms": 1737039600000, "ts_hex": "01946fa0d980" },
+    { "ms": 281474976710655, "ts_hex": "ffffffffffff" }
+  ]
+}
