@@ -59,6 +59,11 @@ export const ALLOWED_TABLES: ReadonlySet<string> = new Set([
   'spend_monthly',        // monthly aggregate; no PII
 ]);
 
+// The per-table wire-contract version for these tables lives in the DB-free
+// module lib/cloudBridgeCanonical.ts (TABLE_WIRE_VERSION), so the push client can
+// import it without pulling in db.ts. Every ALLOWED_TABLES entry must have one
+// (enforced by tests/js/test-cloud-bridge-envelope-coverage.mjs).
+
 /**
  * Max claim attempts before a batch is moved to dead-letter and stops
  * being re-yielded. Five matches the lib/idempotency.ts retry budget

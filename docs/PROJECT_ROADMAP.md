@@ -137,6 +137,7 @@ The audit F1 route list is now covered: labor, inventory, admin, and menu-engine
 | 1.11 | M | **Closed:** 7shifts rate-limit handling now lives in `scripts/sevenshifts_api/client.mjs`; HTTP 429 retries honor `Retry-After` with bounded fallback backoff, pinned by fake-fetch coverage in `tests/js/test-sevenshifts.mjs`. |
 | 1.12 | L | **Closed:** `Lariat-KDS` PR #2 merged at `84adff3` (head `c694206`), adding the Core `BumpResponse` parser and protocol-doc sentinel tests for `id` + `bumped_at`; `swift test` is 27/27. |
 | 1.13 | M | **Closed:** Cloud-bridge replay determinism is pinned by `tests/js/test-cloud-bridge-replay-determinism.mjs`, which captures outbox batches, replays them into a fresh local projection, replays the same capture again, and asserts canonical state-equivalence plus location-scoped dedup. |
+| 1.13a | S | **Closed (2026-07-16):** The venue→cloud push envelope is now `/v2` canonical + per-table `schema_version`, single-sourced across web/native with byte-parity fixtures (C.3 of the 2026-07-16 parity-harness spec). |
 | 1.14 | S | **Closed:** idempotency-key TTL is the lazy `sweepExpired()` path in `lib/idempotency.ts`, covered by `tests/js/test-idempotency-wrapper.mjs` case 5. |
 
 ---

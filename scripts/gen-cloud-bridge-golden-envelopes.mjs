@@ -96,7 +96,7 @@ for (const table of ALLOWED_TABLES) {
     table,
     source_test: 'tests/js/test-cloud-bridge-envelope-golden.mjs',
     note:
-      'Golden cloud-bridge /v1/snapshot envelope (§5) — the exact bytes '
+      'Golden cloud-bridge /v2/snapshot envelope (§5) — the exact bytes '
       + 'lib/cloudBridgePush.ts::pushBatch emits for this table. FROZEN: the '
       + 'source_test asserts the producer still matches. Regenerate only on an '
       + 'intentional wire-contract change via '
@@ -105,7 +105,7 @@ for (const table of ALLOWED_TABLES) {
     input: { batch_id: inp.batch_id, location_id: inp.location_id, rows: inp.rows },
     expected: {
       method: req.method,
-      path: '/v1/snapshot',
+      path: '/v2/snapshot',
       url: req.url,
       headers: {
         'content-type': req.headers['content-type'],

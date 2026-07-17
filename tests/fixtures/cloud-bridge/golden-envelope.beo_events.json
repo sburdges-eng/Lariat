@@ -2,7 +2,7 @@
   "schema_version": 1,
   "table": "beo_events",
   "source_test": "tests/js/test-cloud-bridge-envelope-golden.mjs",
-  "note": "Golden cloud-bridge /v1/snapshot envelope (§5) — the exact bytes lib/cloudBridgePush.ts::pushBatch emits for this table. FROZEN: the source_test asserts the producer still matches. Regenerate only on an intentional wire-contract change via scripts/gen-cloud-bridge-golden-envelopes.mjs and review the diff.",
+  "note": "Golden cloud-bridge /v2/snapshot envelope (§5) — the exact bytes lib/cloudBridgePush.ts::pushBatch emits for this table. FROZEN: the source_test asserts the producer still matches. Regenerate only on an intentional wire-contract change via scripts/gen-cloud-bridge-golden-envelopes.mjs and review the diff.",
   "test_secret": "test-secret-please-ignore",
   "input": {
     "batch_id": 4271,
@@ -17,14 +17,14 @@
   },
   "expected": {
     "method": "POST",
-    "path": "/v1/snapshot",
-    "url": "https://bridge.example/v1/snapshot",
+    "path": "/v2/snapshot",
+    "url": "https://bridge.example/v2/snapshot",
     "headers": {
       "content-type": "application/json",
       "idempotency-key": "4271",
       "x-lariat-location": "default",
-      "x-lariat-signature": "a4c9e7f75975bbf8ae1045341273ecc0cda71ccba9e60b6703d6a7f4c879a75b"
+      "x-lariat-signature": "75c285b6115b6bc96a3ad0137507a508f6a15e206bec4bb1f88fa00816337fad"
     },
-    "body": "{\"table\":\"beo_events\",\"location_id\":\"default\",\"batch_id\":4271,\"rows\":[{\"event_id\":42,\"totals_cents\":1250000,\"settled_at\":\"2026-05-06T23:59:00Z\"}]}"
+    "body": "{\"batch_id\":4271,\"location_id\":\"default\",\"rows\":[{\"event_id\":42,\"settled_at\":\"2026-05-06T23:59:00Z\",\"totals_cents\":1250000}],\"schema_version\":1,\"table\":\"beo_events\"}"
   }
 }
