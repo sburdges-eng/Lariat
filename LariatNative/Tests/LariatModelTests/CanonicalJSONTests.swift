@@ -21,4 +21,9 @@ final class CanonicalJSONTests: XCTestCase {
     func testEscapesControlCharactersAndQuotes() throws {
         XCTAssertEqual(try CanonicalJSON.encode(.string("a\"\n")), #""a\"\n""#)
     }
+    func testThrowsOnIntegerLikeObjectKey() {
+        // JS reorders numeric-string keys numerically; the TS twin throws, so must this.
+        let v: JSONValue = .object(["10": .int(1), "9": .int(2)])
+        XCTAssertThrowsError(try CanonicalJSON.encode(v))
+    }
 }

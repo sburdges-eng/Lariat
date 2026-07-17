@@ -16,6 +16,10 @@ public enum JSONValue: Equatable {
 public enum CanonicalJSONError: Error, Equatable {
     /// A non-integer / non-finite number reached the codec.
     case unsupportedNumber
+    /// An integer-like object key (e.g. "10"). JS engines reorder these
+    /// numerically, diverging from a lexicographic sort — rejected fail-loud to
+    /// stay a faithful twin of lib/cloudBridgeCanonical.ts's guard.
+    case integerLikeKey(String)
 }
 
 extension JSONValue: Decodable {
@@ -37,8 +41,14 @@ public enum CanonicalJSON {
     public static func encode(_ value: JSONValue) throws -> String {
         switch value {
         case .object(let dict):
-            let parts = try dict.keys.sorted().map { key in
-                "\(encodeString(key)):\(try encode(dict[key]!))"
+            let parts = try dict.keys.sorted().map { key -> String in
+                // Integer-like keys are reordered numerically by JS engines,
+                // diverging from this lexicographic sort — reject fail-loud to
+                // stay a faithful twin of lib/cloudBridgeCanonical.ts.
+                if key.range(of: "^(0|[1-9][0-9]*)$", options: .regularExpression) != nil {
+                    throw CanonicalJSONError.integerLikeKey(key)
+                }
+                return "\(encodeString(key)):\(try encode(dict[key]!))"
             }
             return "{\(parts.joined(separator: ","))}"
         case .array(let items):
