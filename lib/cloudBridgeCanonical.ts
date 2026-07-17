@@ -32,7 +32,7 @@ export const CLOUD_BRIDGE_CANONICAL_UNSUPPORTED = 'cloud bridge: value not canon
  * any migration): a per-table version tells a future receiver which table
  * drifted and does not couple the wire contract to internal storage evolution.
  * A receiver selects its decode/validate path from this only AFTER verifying the
- * HMAC (parse-before-verify). Every ALLOWED_TABLES entry must have one —
+ * HMAC (verify-before-parse). Every ALLOWED_TABLES entry must have one —
  * enforced by tests/js/test-cloud-bridge-envelope-coverage.mjs.
  */
 export const TABLE_WIRE_VERSION: Readonly<Record<string, number>> = {

@@ -150,7 +150,7 @@ export const CLOUD_BRIDGE_CANONICAL_UNSUPPORTED = 'cloud bridge: value not canon
  * any migration): a per-table version tells a future receiver which table
  * drifted and does not couple the wire contract to internal storage evolution.
  * A receiver selects its decode/validate path from this only AFTER verifying the
- * HMAC (parse-before-verify). Every ALLOWED_TABLES entry must have one —
+ * HMAC (verify-before-parse). Every ALLOWED_TABLES entry must have one —
  * enforced by tests/js/test-cloud-bridge-envelope-coverage.mjs.
  */
 export const TABLE_WIRE_VERSION: Readonly<Record<string, number>> = {
@@ -413,7 +413,7 @@ producer (the Swift native encoder) be byte-identical.
 - `schema_version` is the per-table wire version (`TABLE_WIRE_VERSION`),
   independent of the DB `SCHEMA_VERSION`; bump it only when a table's pushed row
   shape changes. A receiver must verify the HMAC before trusting it
-  (parse-before-verify).
+  (verify-before-parse).
 - The canonical rule is single-sourced with the Swift twin
   (`LariatModel/CloudBridge/CanonicalJSON.swift`) and pinned byte-for-byte by the
   golden fixtures on both stacks. Regenerate the fixtures only via

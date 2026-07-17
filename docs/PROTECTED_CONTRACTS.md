@@ -359,7 +359,7 @@ producer (the Swift native encoder) be byte-identical.
 - `schema_version` is the per-table wire version (`TABLE_WIRE_VERSION`),
   independent of the DB `SCHEMA_VERSION`; bump it only when a table's pushed row
   shape changes. A receiver must verify the HMAC before trusting it
-  (parse-before-verify).
+  (verify-before-parse).
 - The canonical rule is single-sourced with the Swift twin
   (`LariatModel/CloudBridge/CanonicalJSON.swift`) and pinned byte-for-byte by the
   golden fixtures on both stacks. Regenerate the fixtures only via
