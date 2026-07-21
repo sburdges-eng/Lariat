@@ -18,6 +18,7 @@ final class BeoBoardViewModel {
         case orderGuide = "Order guide"
         case prep = "Prep"
         case fire = "Fire"
+        case allergens = "Allergens"
         var id: String { rawValue }
     }
 
@@ -29,6 +30,12 @@ final class BeoBoardViewModel {
     private(set) var cascadeLoading = false
     private(set) var fire: BeoFireScheduleCompute.FireSchedulePayload?
     private(set) var fireLoading = false
+    /// Read-only per-event allergen picture (Allergens tab). No write path
+    /// lives here — attesting a recipe's allergen list stays on
+    /// `AllergenLookupView`; this panel only joins the event's line items
+    /// against the already-recorded `allergen_attestations` data.
+    private(set) var allergenSummary: [BeoAllergenSummaryRow] = []
+    private(set) var allergenSummaryLoading = false
     private(set) var menu: [CateringMenuItem]
     private let recipeTree = RecipeTreeCatalog.load()
 
@@ -77,13 +84,16 @@ final class BeoBoardViewModel {
     private let cascadeRepo: BeoCascadeRepository
     private let fireRepo: BeoFireScheduleRepository
     private let prepHistoryRepo: BeoPrepHistoryRepository
+    private let allergenRepo: AllergenAttestationRepository
+    private let loadAllergenRecipes: () -> [AllergenRecipe]
 
     init(
         readDB: LariatDatabase,
         writeDB: LariatWriteDatabase,
         pinStore: PinSessionStore? = nil,
         locationId: String = LocationScope.resolve(),
-        menu: [CateringMenuItem]? = nil
+        menu: [CateringMenuItem]? = nil,
+        loadAllergenRecipes: @escaping () -> [AllergenRecipe] = { AllergenRecipeLoader.load() }
     ) {
         self.readDB = readDB
         self.writeDB = writeDB
@@ -95,6 +105,10 @@ final class BeoBoardViewModel {
         self.cascadeRepo = BeoCascadeRepository(database: readDB)
         self.fireRepo = BeoFireScheduleRepository(database: readDB)
         self.prepHistoryRepo = BeoPrepHistoryRepository(database: readDB)
+        // Read-only: no write database threaded through — this repository's
+        // `record(...)` write path stays exclusive to AllergenLookupView.
+        self.allergenRepo = AllergenAttestationRepository(readDB: readDB)
+        self.loadAllergenRecipes = loadAllergenRecipes
     }
 
     var writeDatabase: LariatWriteDatabase { writeDB }
@@ -206,6 +220,7 @@ final class BeoBoardViewModel {
         tab = .sheet
         cascade = nil
         fire = nil
+        allergenSummary = []
         Task {
             await loadCourses()
             await loadPastPrep()
@@ -242,6 +257,8 @@ final class BeoBoardViewModel {
             await loadCascade()
         case .fire:
             await loadFire()
+        case .allergens:
+            await loadAllergenSummary()
         }
     }
 
@@ -257,6 +274,23 @@ final class BeoBoardViewModel {
         fireLoading = true
         defer { fireLoading = false }
         fire = try? await fireRepo.schedule(eventId: selectedEventId, locationId: locationId)
+    }
+
+    private func loadAllergenSummary() async {
+        guard let eventId = selectedEventId else {
+            allergenSummary = []
+            return
+        }
+        allergenSummaryLoading = true
+        defer { allergenSummaryLoading = false }
+        let names = lineItems.map(\.itemName)
+        let recipes = loadAllergenRecipes()
+        let statuses = (try? await allergenRepo.statuses(locationId: locationId, recipes: recipes)) ?? []
+        // The event may have changed while the (async) status read was in
+        // flight — don't clobber a newer selection with a stale answer.
+        guard selectedEventId == eventId else { return }
+        allergenSummary = BeoAllergenSummaryCompute.summarize(
+            lineItemNames: names, recipes: recipes, statuses: statuses)
     }
 
     // ── PIN-gated write requests ─────────────────────────────────────────
@@ -454,9 +488,11 @@ final class BeoBoardViewModel {
             try body(RegulatedWriteContext.nativeMac(pinUser: user))
             Task {
                 await refresh()
-                // Cascade/fire panels are event-derived — refetch on next open.
+                // Cascade/fire/allergen panels are event-derived — refetch on
+                // next open (a line-item edit can change the allergen picture).
                 cascade = nil
                 fire = nil
+                allergenSummary = []
                 await loadTabData()
             }
         } catch {
