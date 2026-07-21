@@ -236,6 +236,8 @@ struct BeoBoardView: View {
                     BeoPrepDemandsPanel(cascade: vm.cascade, loading: vm.cascadeLoading)
                 case .fire:
                     BeoEventFirePanel(fire: vm.fire, loading: vm.fireLoading)
+                case .allergens:
+                    BeoAllergenSummaryPanel(rows: vm.allergenSummary, loading: vm.allergenSummaryLoading)
                 }
             }
         } else {
