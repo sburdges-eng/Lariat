@@ -30,6 +30,11 @@ import { formatDollars } from '../../../lib/formatMoney';
 
 /** @typedef {{ id: number, course_label: string, fire_at: string | null, notes?: string | null }} EstimateCourse */
 
+/** One `beo_event_charges` row (AV/production or a fee). Deliberately no
+ * `cost` field here — house cost never reaches this presentational
+ * component; the guest share page's query doesn't select it at all. */
+/** @typedef {{ id: number, item_name: string, charge?: number | null }} EstimateChargeRow */
+
 /** @typedef {{ id: number, signed_name: string, signed_at: string | null }} EstimateSignature */
 
 /** @typedef {{ perLine: LineFoodCost[], blended: BlendedFoodCost }} EstimateFoodCosts */
@@ -39,6 +44,7 @@ import { formatDollars } from '../../../lib/formatMoney';
  *   event?: EstimateDocEvent,
  *   sections?: EstimateSection[],
  *   totals?: Partial<EstimateTotals>,
+ *   charges?: EstimateChargeRow[],
  *   courses?: EstimateCourse[],
  *   signatures?: EstimateSignature[],
  *   register?: 'client' | 'operator',
@@ -100,6 +106,7 @@ export default function EstimateDocument({
   event = {},
   sections = [],
   totals = {},
+  charges = [],
   courses = [],
   signatures = [],
   register = 'client',
@@ -108,7 +115,7 @@ export default function EstimateDocument({
   minSpend = null,  // Increment 2: operator-set F&B minimum spend ($) | null
 }) {
   const { title, contact_name, event_date, event_time, guest_count, tax_rate, service_fee_pct } = event;
-  const { subtotal, serviceFee, tax, total } = totals;
+  const { subtotal, fbSubtotal, barRevenue, serviceFee, tax, total } = totals;
 
   // Increment 2 (operator-only overlay): per-line food-cost lookup + helpers.
   // These nodes are conditionally rendered for register==='operator' AND marked
@@ -117,8 +124,13 @@ export default function EstimateDocument({
   const foodCostById = new Map((foodCosts?.perLine ?? []).map((p) => [p.id, p]));
   /** @param {number | null} p */
   const pctLabel = (p) => (p == null ? null : `${Math.round(p * 100)}%`);
-  const subtotalNum = Number(subtotal ?? 0);
-  const minMet = minSpend != null && subtotalNum >= Number(minSpend);
+  // F&B minimum reads against food+bar only (fbSubtotal) -- AV/fees are
+  // billed separately and don't count toward that commitment (event-model
+  // wave, owner call 2026-07-21). Falls back to subtotal for any caller that
+  // hasn't been updated to pass the richer EstimateTotals shape yet.
+  const fbSubtotalNum = Number(fbSubtotal ?? subtotal ?? 0);
+  const minMet = minSpend != null && fbSubtotalNum >= Number(minSpend);
+  const barRevenueNum = Number(barRevenue ?? 0);
 
   return (
     <article className={`estimate-doc ${register}`}>
@@ -262,6 +274,39 @@ export default function EstimateDocument({
         ))}
       </section>
 
+      {/* ---- ADDITIONAL CHARGES (AV/production, fees, bar) ---- */}
+      {/* Separate from the food LEDGER above: charges come from
+          beo_event_charges + the computed bar revenue, not beo_line_items,
+          and are kept visually distinct so an itemized food menu doesn't
+          get conflated with billed-separately extras. Only rendered when
+          there's something to show, so an event with no AV/fees/bar plan
+          looks exactly like it did before this section existed. */}
+      {(charges.length > 0 || barRevenueNum > 0) && (
+        <section aria-label="Additional charges" style={{ paddingTop: 14 }}>
+          <div className="ed-band-head">
+            <span>Additional Charges</span>
+            <span className="c-qty" />
+            <span className="c-ext">Amount</span>
+          </div>
+          <div className="ed-rows">
+            {charges.map((c) => (
+              <div key={c.id} className="ed-row">
+                <div className="ed-r-name">{c.item_name}</div>
+                <div className="ed-r-qty ed-num" />
+                <div className="ed-r-ext ed-num">{formatDollars(Number(c.charge || 0))}</div>
+              </div>
+            ))}
+            {barRevenueNum > 0 && (
+              <div className="ed-row">
+                <div className="ed-r-name">Bar</div>
+                <div className="ed-r-qty ed-num" />
+                <div className="ed-r-ext ed-num">{formatDollars(barRevenueNum)}</div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* ---- TOTALS ---- */}
       <section className="ed-totals-zone" aria-label="Estimate totals">
         <div className="ed-totals">
@@ -317,8 +362,8 @@ export default function EstimateDocument({
         <div className={`ed-min-meter ${minMet ? 'met' : 'under'}`} data-print="false">
           F&amp;B minimum {formatDollars(minSpend)} ·{' '}
           {minMet
-            ? `minimum met — over by ${formatDollars(subtotalNum - Number(minSpend))}`
-            : `under by ${formatDollars(Number(minSpend) - subtotalNum)}`}
+            ? `minimum met — over by ${formatDollars(fbSubtotalNum - Number(minSpend))}`
+            : `under by ${formatDollars(Number(minSpend) - fbSubtotalNum)}`}
         </div>
       )}
 
