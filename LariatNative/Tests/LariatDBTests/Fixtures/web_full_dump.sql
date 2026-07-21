@@ -458,6 +458,12 @@ CREATE TABLE beo_events (
       tax_rate REAL DEFAULT 0.0675,
       service_fee_pct REAL DEFAULT 20,
       min_spend REAL,
+      space TEXT,
+      service_style TEXT,
+      service_hours REAL,
+      bar_mode TEXT,
+      bar_amount REAL,
+      bar_notes TEXT,
       share_token TEXT,
       share_expires_at TEXT,
       share_revoked_at TEXT,
@@ -483,6 +489,26 @@ CREATE TABLE beo_prep_tasks (
       done INTEGER DEFAULT 0,
       sort_order INTEGER DEFAULT 0,
       location_id TEXT DEFAULT 'default',
+      FOREIGN KEY (event_id) REFERENCES beo_events(id) ON DELETE CASCADE
+    );
+CREATE TABLE beo_event_charges (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      item_name TEXT NOT NULL,
+      charge REAL NOT NULL DEFAULT 0,
+      cost REAL NOT NULL DEFAULT 0,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (event_id) REFERENCES beo_events(id) ON DELETE CASCADE
+    );
+CREATE TABLE beo_run_of_show (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id INTEGER NOT NULL,
+      show_time TEXT,
+      note TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (event_id) REFERENCES beo_events(id) ON DELETE CASCADE
     );
 CREATE TABLE beo_prep_history (
@@ -1477,6 +1503,8 @@ CREATE INDEX idx_dish_components_dish
 CREATE INDEX idx_spend_month ON spend_monthly(month, location_id);
 CREATE INDEX idx_beo_line_ev ON beo_line_items(event_id);
 CREATE INDEX idx_beo_prep_ev ON beo_prep_tasks(event_id);
+CREATE INDEX idx_beo_charges_ev ON beo_event_charges(event_id);
+CREATE INDEX idx_beo_soe_ev ON beo_run_of_show(event_id);
 CREATE INDEX idx_beo_prep_hist_loc_date
       ON beo_prep_history(location_id, event_date);
 CREATE INDEX idx_beo_prep_hist_loc_item
@@ -1677,5 +1705,5 @@ CREATE INDEX idx_kds_tickets_active
       WHERE bumped_at IS NULL;
 CREATE INDEX idx_kds_ticket_lines_ticket
       ON kds_ticket_lines(ticket_id, sort_order, id);
-INSERT INTO "locations" ("id", "name", "created_at", "capacity", "tax_rate", "service_fee_pct", "phone", "address") VALUES ('default', 'The Lariat', '2026-07-08 12:04:50', NULL, 0.0675, 20, NULL, NULL);
-INSERT INTO "schema_migrations" ("version", "applied_at") VALUES (4, '2026-07-08 12:04:50');
+INSERT INTO "locations" ("id", "name", "created_at", "capacity", "tax_rate", "service_fee_pct", "phone", "address") VALUES ('default', 'The Lariat', '2026-07-21 08:56:23', NULL, 0.0675, 20, NULL, NULL);
+INSERT INTO "schema_migrations" ("version", "applied_at") VALUES (5, '2026-07-21 08:56:23');

@@ -62,7 +62,8 @@ export async function createTempBeoDb(label) {
  */
 export function clearBeoTables(testDb) {
   testDb.exec(
-    'DELETE FROM beo_line_items; DELETE FROM beo_prep_tasks; DELETE FROM beo_events;',
+    'DELETE FROM beo_event_charges; DELETE FROM beo_run_of_show; '
+    + 'DELETE FROM beo_line_items; DELETE FROM beo_prep_tasks; DELETE FROM beo_events;',
   );
 }
 

@@ -1002,7 +1002,7 @@ export interface AuditEvent {
  * `scripts/check-schema-version-bump.mjs` enforces the bump at commit time so
  * the marker stays trustworthy.
  */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export function initSchema(db: DB): void {
   db.exec(`
@@ -1654,6 +1654,12 @@ export function initSchema(db: DB): void {
       tax_rate REAL DEFAULT 0.0675,
       service_fee_pct REAL DEFAULT 20,
       min_spend REAL,
+      space TEXT,
+      service_style TEXT,
+      service_hours REAL,
+      bar_mode TEXT,
+      bar_amount REAL,
+      bar_notes TEXT,
       share_token TEXT,
       share_expires_at TEXT,
       share_revoked_at TEXT,
@@ -1685,6 +1691,38 @@ export function initSchema(db: DB): void {
       FOREIGN KEY (event_id) REFERENCES beo_events(id) ON DELETE CASCADE
     );
     CREATE INDEX IF NOT EXISTS idx_beo_prep_ev ON beo_prep_tasks(event_id);
+
+    -- Event-model wave (2026-07-21 spec): AV/production charges and additional
+    -- fees, one table with a kind discriminator -- both share an identical
+    -- {item, charge, cost} shape. The charge-vs-cost split is the point:
+    -- charge bills the client, cost is the house's spend (margin math later).
+    -- No location_id -- scoped through the parent event (beo_line_items
+    -- precedent; routes verify the event's location).
+    CREATE TABLE IF NOT EXISTS beo_event_charges (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      item_name TEXT NOT NULL,
+      charge REAL NOT NULL DEFAULT 0,
+      cost REAL NOT NULL DEFAULT 0,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (event_id) REFERENCES beo_events(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_beo_charges_ev ON beo_event_charges(event_id);
+
+    -- Event-model wave: run of show (Studio 5's soe[] {t, what}). show_time is
+    -- an operator-typed clock string, not parsed/validated as a timestamp.
+    CREATE TABLE IF NOT EXISTS beo_run_of_show (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id INTEGER NOT NULL,
+      show_time TEXT,
+      note TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (event_id) REFERENCES beo_events(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_beo_soe_ev ON beo_run_of_show(event_id);
 
     -- Historical BEO prep records ingested from past events (catering invoice
     -- 'Kitchen Sheet' tabs and the master workbook's hand-curated 'BEO Prep'
@@ -3688,6 +3726,16 @@ function migrateLegacyColumns(db: DB): void {
     ['share_token',      'ALTER TABLE beo_events ADD COLUMN share_token TEXT'],
     ['share_expires_at', 'ALTER TABLE beo_events ADD COLUMN share_expires_at TEXT'],
     ['share_revoked_at', 'ALTER TABLE beo_events ADD COLUMN share_revoked_at TEXT'],
+    // Event-model wave (2026-07-21 spec): Studio 5's first-class planning
+    // fields. All nullable, no defaults -- absent means "not planned yet"
+    // (min_spend precedent). Enum values (service_style: passed|buffet|plated,
+    // bar_mode: fill|fixed) are route-validated, not CHECK-constrained.
+    ['space',         'ALTER TABLE beo_events ADD COLUMN space TEXT'],
+    ['service_style', 'ALTER TABLE beo_events ADD COLUMN service_style TEXT'],
+    ['service_hours', 'ALTER TABLE beo_events ADD COLUMN service_hours REAL'],
+    ['bar_mode',      'ALTER TABLE beo_events ADD COLUMN bar_mode TEXT'],
+    ['bar_amount',    'ALTER TABLE beo_events ADD COLUMN bar_amount REAL'],
+    ['bar_notes',     'ALTER TABLE beo_events ADD COLUMN bar_notes TEXT'],
   ];
   for (const [col, ddl] of beoMigrations) {
     if (!beoCols.includes(col)) try { db.exec(ddl); } catch { /* ignore */ }

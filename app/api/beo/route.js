@@ -56,6 +56,70 @@ const clip = (s, max) => {
   return t ? t.slice(0, max) : null;
 };
 
+// Event-model wave (docs/superpowers/specs/2026-07-21-beo-event-model-design.md):
+// enum values are route-validated — house style keeps CHECK constraints out of
+// the DDL (status/category precedent).
+const SERVICE_STYLES = new Set(['passed', 'buffet', 'plated']);
+const BAR_MODES = new Set(['fill', 'fixed']);
+const CHARGE_KINDS = new Set(['av', 'fee']);
+
+/** @param {unknown} v */
+const isBlank = (v) => v === null || v === undefined || v === '';
+
+/**
+ * Resolve the six event-model planning fields (space, service_style,
+ * service_hours, bar_mode, bar_amount, bar_notes) from a request body.
+ * Shared by `event` (create) and `update_event` (partial patch). Per field:
+ * `provided` mirrors `'key' in body` so update_event's provided-flag CASE
+ * can distinguish "set/clear" from "preserve"; `value` is the validated
+ * write value — null/'' clears (min_spend precedent). Returns `{ error }`
+ * instead on a bad enum or numeric value so callers 400 before touching
+ * the transaction.
+ * @param {Record<string, any>} body
+ * @returns {{ error: string, fields?: undefined } | { error?: undefined, fields: {
+ *   space: { provided: number, value: string | null },
+ *   serviceStyle: { provided: number, value: string | null },
+ *   serviceHours: { provided: number, value: number | null },
+ *   barMode: { provided: number, value: string | null },
+ *   barAmount: { provided: number, value: number | null },
+ *   barNotes: { provided: number, value: string | null },
+ * } }}
+ */
+function resolveEventModelFields(body) {
+  const space = { provided: 'space' in body ? 1 : 0, value: clip(body.space, 120) };
+  const barNotes = { provided: 'bar_notes' in body ? 1 : 0, value: clip(body.bar_notes, 500) };
+
+  const serviceStyle = { provided: 'service_style' in body ? 1 : 0, value: /** @type {string | null} */ (null) };
+  if (serviceStyle.provided && !isBlank(body.service_style)) {
+    const v = String(body.service_style).trim();
+    if (!SERVICE_STYLES.has(v)) return { error: "service_style must be 'passed', 'buffet', or 'plated'" };
+    serviceStyle.value = v;
+  }
+
+  const barMode = { provided: 'bar_mode' in body ? 1 : 0, value: /** @type {string | null} */ (null) };
+  if (barMode.provided && !isBlank(body.bar_mode)) {
+    const v = String(body.bar_mode).trim();
+    if (!BAR_MODES.has(v)) return { error: "bar_mode must be 'fill' or 'fixed'" };
+    barMode.value = v;
+  }
+
+  const serviceHours = { provided: 'service_hours' in body ? 1 : 0, value: /** @type {number | null} */ (null) };
+  if (serviceHours.provided && !isBlank(body.service_hours)) {
+    const n = Number(body.service_hours);
+    if (!Number.isFinite(n) || n <= 0) return { error: 'service_hours must be a positive number' };
+    serviceHours.value = n;
+  }
+
+  const barAmount = { provided: 'bar_amount' in body ? 1 : 0, value: /** @type {number | null} */ (null) };
+  if (barAmount.provided && !isBlank(body.bar_amount)) {
+    const n = Number(body.bar_amount);
+    if (!Number.isFinite(n) || n < 0) return { error: 'bar_amount must be a non-negative number' };
+    barAmount.value = n;
+  }
+
+  return { fields: { space, serviceStyle, serviceHours, barMode, barAmount, barNotes } };
+}
+
 // Prepared-statement cache for the GET handler, keyed by db instance.
 // WeakMap survives `setDbPathForTest()` (which closes + nulls the cached
 // connection) because each rebound test DB is a different instance and
@@ -83,6 +147,18 @@ function _getBeoStatements(db) {
           WHERE event_id IN (SELECT id FROM beo_events WHERE location_id = ?)
           ORDER BY event_id, sort_order, id`,
       ),
+      // Event-model wave: same correlated-subquery location scoping as
+      // lineItems (neither child table carries location_id of its own).
+      charges: db.prepare(
+        `SELECT * FROM beo_event_charges
+          WHERE event_id IN (SELECT id FROM beo_events WHERE location_id = ?)
+          ORDER BY event_id, sort_order, id`,
+      ),
+      runOfShow: db.prepare(
+        `SELECT * FROM beo_run_of_show
+          WHERE event_id IN (SELECT id FROM beo_events WHERE location_id = ?)
+          ORDER BY event_id, sort_order, id`,
+      ),
     };
     _getStatementCache.set(db, stmts);
   }
@@ -102,7 +178,12 @@ export async function GET(req) {
     const events = stmts.events.all(loc);
     const tasks = stmts.tasks.all(loc);
     const lineItems = stmts.lineItems.all(loc);
-    return Response.json({ location_id: loc, events, prep_tasks: tasks, line_items: lineItems });
+    const charges = stmts.charges.all(loc);
+    const runOfShow = stmts.runOfShow.all(loc);
+    return Response.json({
+      location_id: loc, events, prep_tasks: tasks, line_items: lineItems,
+      charges, run_of_show: runOfShow,
+    });
   } catch (err) {
     console.error('GET /api/beo failed:', err);
     return Response.json({ error: 'Failed to load BEO' }, { status: 500 });
@@ -139,13 +220,19 @@ async function beoPostHandler(req) {
         }
         minSpend = n;
       }
+      // Event-model wave: six planning fields (validated; absent → NULL).
+      const em = resolveEventModelFields(body);
+      if (em.error !== undefined) return Response.json({ error: em.error }, { status: 400 });
+      const emf = em.fields;
       const id = db.transaction(() => {
         const info = db
           .prepare(
             `INSERT INTO beo_events
                (title, event_date, event_time, contact_name, guest_count,
-                notes, status, tax_rate, service_fee_pct, min_spend, location_id)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+                notes, status, tax_rate, service_fee_pct, min_spend,
+                space, service_style, service_hours, bar_mode, bar_amount, bar_notes,
+                location_id)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
           )
           .run(
             title,
@@ -158,6 +245,12 @@ async function beoPostHandler(req) {
             taxRate,
             serviceFeePct,
             minSpend,
+            emf.space.value,
+            emf.serviceStyle.value,
+            emf.serviceHours.value,
+            emf.barMode.value,
+            emf.barAmount.value,
+            emf.barNotes.value,
             loc,
           );
         const newId = Number(info.lastInsertRowid);
@@ -222,6 +315,13 @@ async function beoPostHandler(req) {
           minSpendValue = n;
         }
       }
+      // Event-model wave: partial-patch the six planning fields with the
+      // same provided-flag CASE pattern as min_spend — present sets
+      // (including explicit NULL/'' to clear), omitted preserves. Bad
+      // enum/numeric values 400 here, before the transaction.
+      const em = resolveEventModelFields(body);
+      if (em.error !== undefined) return Response.json({ error: em.error }, { status: 400 });
+      const emf = em.fields;
       db.transaction(() => {
         db.prepare(
           `UPDATE beo_events SET
@@ -234,7 +334,13 @@ async function beoPostHandler(req) {
              status          = COALESCE(?, status),
              tax_rate        = COALESCE(?, tax_rate),
              service_fee_pct = COALESCE(?, service_fee_pct),
-             min_spend       = CASE WHEN ? = 1 THEN ? ELSE min_spend END
+             min_spend       = CASE WHEN ? = 1 THEN ? ELSE min_spend END,
+             space           = CASE WHEN ? = 1 THEN ? ELSE space END,
+             service_style   = CASE WHEN ? = 1 THEN ? ELSE service_style END,
+             service_hours   = CASE WHEN ? = 1 THEN ? ELSE service_hours END,
+             bar_mode        = CASE WHEN ? = 1 THEN ? ELSE bar_mode END,
+             bar_amount      = CASE WHEN ? = 1 THEN ? ELSE bar_amount END,
+             bar_notes       = CASE WHEN ? = 1 THEN ? ELSE bar_notes END
            WHERE id = ? AND location_id = ?`,
         ).run(
           title,
@@ -248,6 +354,12 @@ async function beoPostHandler(req) {
           serviceFeePct,
           minSpendProvided,
           minSpendValue,
+          emf.space.provided, emf.space.value,
+          emf.serviceStyle.provided, emf.serviceStyle.value,
+          emf.serviceHours.provided, emf.serviceHours.value,
+          emf.barMode.provided, emf.barMode.value,
+          emf.barAmount.provided, emf.barAmount.value,
+          emf.barNotes.provided, emf.barNotes.value,
           id,
           loc,
         );
@@ -268,6 +380,15 @@ async function beoPostHandler(req) {
       }
       const cost = Number.isFinite(Number(body.unit_cost)) ? Number(body.unit_cost) : 0;
       const qty = Number.isFinite(Number(body.quantity)) ? Number(body.quantity) : 1;
+      // Parent-event location guard (event-model wave follow-up): update_line
+      // and delete_line were scoped via the parent event (Bundle-H T4), but
+      // the insert wasn't — a request scoped to location A could attach a
+      // line to location B's event. Same up-front 404 as the charge/soe
+      // inserts.
+      const parentEvent = db
+        .prepare(`SELECT id FROM beo_events WHERE id = ? AND location_id = ?`)
+        .get(event_id, loc);
+      if (!parentEvent) return Response.json({ error: 'event not found' }, { status: 404 });
       const newId = db.transaction(() => {
         const info = db
           .prepare(
@@ -391,6 +512,182 @@ async function beoPostHandler(req) {
       return Response.json({ ok: true });
     }
 
+    // ── Event-model wave: AV/production + additional-fee charges ──────
+    // (docs/superpowers/specs/2026-07-21-beo-event-model-design.md — the
+    // charge-vs-cost split is deliberate: charge bills the client, cost is
+    // the house's spend, and folding these into beo_line_items would lose it.)
+
+    if (body.action === 'charge') {
+      const event_id = Number(body.event_id);
+      const item_name = clip(body.item_name, MAX_TITLE);
+      if (!Number.isInteger(event_id) || !item_name) {
+        return Response.json({ error: 'event_id and item_name required' }, { status: 400 });
+      }
+      const kind = typeof body.kind === 'string' ? body.kind.trim() : '';
+      if (!CHARGE_KINDS.has(kind)) {
+        return Response.json({ error: "kind must be 'av' or 'fee'" }, { status: 400 });
+      }
+      const charge = Number.isFinite(Number(body.charge)) ? Number(body.charge) : 0;
+      const cost = Number.isFinite(Number(body.cost)) ? Number(body.cost) : 0;
+      if (charge < 0 || cost < 0) {
+        return Response.json({ error: 'charge and cost must be non-negative' }, { status: 400 });
+      }
+      // Inserts verify the parent event's location up front — a request
+      // scoped to location A cannot attach rows to location B's event.
+      const parent = db
+        .prepare(`SELECT id FROM beo_events WHERE id = ? AND location_id = ?`)
+        .get(event_id, loc);
+      if (!parent) return Response.json({ error: 'event not found' }, { status: 404 });
+      const newId = db.transaction(() => {
+        const info = db
+          .prepare(
+            `INSERT INTO beo_event_charges (event_id, kind, item_name, charge, cost, sort_order)
+             VALUES (?,?,?,?,?,?)`,
+          )
+          .run(event_id, kind, item_name, charge, cost, Number(body.sort_order) || 0);
+        const id = Number(info.lastInsertRowid);
+        postAuditEvent({
+          entity: 'beo_event_charges', entity_id: id, action: 'insert',
+          actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
+          location_id: loc, payload: { event_id, kind, item_name, charge, cost },
+        });
+        return id;
+      })();
+      return Response.json({ ok: true, id: newId });
+    }
+
+    if (body.action === 'update_charge') {
+      const id = Number(body.id);
+      if (!Number.isInteger(id)) return Response.json({ error: 'id required' }, { status: 400 });
+      const item_name = clip(body.item_name, MAX_TITLE);
+      // charge/cost patch only on a valid number; negatives 400 before the
+      // transaction. kind is immutable (delete + re-add to reclassify).
+      let charge = null;
+      if ('charge' in body && !isBlank(body.charge)) {
+        const n = Number(body.charge);
+        if (!Number.isFinite(n) || n < 0) {
+          return Response.json({ error: 'charge must be a non-negative number' }, { status: 400 });
+        }
+        charge = n;
+      }
+      let cost = null;
+      if ('cost' in body && !isBlank(body.cost)) {
+        const n = Number(body.cost);
+        if (!Number.isFinite(n) || n < 0) {
+          return Response.json({ error: 'cost must be a non-negative number' }, { status: 400 });
+        }
+        cost = n;
+      }
+      db.transaction(() => {
+        // Scoped through the parent event's location (update_line precedent).
+        db.prepare(
+          `UPDATE beo_event_charges SET
+             item_name = COALESCE(?, item_name),
+             charge    = COALESCE(?, charge),
+             cost      = COALESCE(?, cost)
+           WHERE id = ?
+             AND event_id IN (SELECT id FROM beo_events WHERE location_id = ?)`,
+        ).run(item_name, charge, cost, id, loc);
+        postAuditEvent({
+          entity: 'beo_event_charges', entity_id: id, action: 'update',
+          actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
+          location_id: loc, payload: { item_name, charge, cost },
+        });
+      })();
+      return Response.json({ ok: true });
+    }
+
+    if (body.action === 'delete_charge') {
+      const id = Number(body.id);
+      if (!Number.isInteger(id)) return Response.json({ error: 'id required' }, { status: 400 });
+      db.transaction(() => {
+        db.prepare(
+          `DELETE FROM beo_event_charges
+             WHERE id = ?
+               AND event_id IN (SELECT id FROM beo_events WHERE location_id = ?)`,
+        ).run(id, loc);
+        postAuditEvent({
+          entity: 'beo_event_charges', entity_id: id, action: 'delete',
+          actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
+          location_id: loc,
+        });
+      })();
+      return Response.json({ ok: true });
+    }
+
+    // ── Event-model wave: run of show ─────────────────────────────────
+
+    if (body.action === 'soe') {
+      const event_id = Number(body.event_id);
+      const note = clip(body.note, MAX_TASK);
+      if (!Number.isInteger(event_id) || !note) {
+        return Response.json({ error: 'event_id and note required' }, { status: 400 });
+      }
+      const parent = db
+        .prepare(`SELECT id FROM beo_events WHERE id = ? AND location_id = ?`)
+        .get(event_id, loc);
+      if (!parent) return Response.json({ error: 'event not found' }, { status: 404 });
+      const newId = db.transaction(() => {
+        const info = db
+          .prepare(
+            `INSERT INTO beo_run_of_show (event_id, show_time, note, sort_order)
+             VALUES (?,?,?,?)`,
+          )
+          .run(event_id, clip(body.show_time, 32), note, Number(body.sort_order) || 0);
+        const id = Number(info.lastInsertRowid);
+        postAuditEvent({
+          entity: 'beo_run_of_show', entity_id: id, action: 'insert',
+          actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
+          location_id: loc, payload: { event_id, note },
+        });
+        return id;
+      })();
+      return Response.json({ ok: true, id: newId });
+    }
+
+    if (body.action === 'update_soe') {
+      const id = Number(body.id);
+      if (!Number.isInteger(id)) return Response.json({ error: 'id required' }, { status: 400 });
+      const note = clip(body.note, MAX_TASK);
+      // show_time is clearable (provided-flag CASE); note is COALESCE-only —
+      // a run-of-show row without a note is meaningless, so blank preserves.
+      const showTouch = 'show_time' in body ? 1 : 0;
+      const showVal = clip(body.show_time, 32);
+      db.transaction(() => {
+        db.prepare(
+          `UPDATE beo_run_of_show SET
+             note      = COALESCE(?, note),
+             show_time = CASE WHEN ? = 1 THEN ? ELSE show_time END
+           WHERE id = ?
+             AND event_id IN (SELECT id FROM beo_events WHERE location_id = ?)`,
+        ).run(note, showTouch, showVal, id, loc);
+        postAuditEvent({
+          entity: 'beo_run_of_show', entity_id: id, action: 'update',
+          actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
+          location_id: loc, payload: { note },
+        });
+      })();
+      return Response.json({ ok: true });
+    }
+
+    if (body.action === 'delete_soe') {
+      const id = Number(body.id);
+      if (!Number.isInteger(id)) return Response.json({ error: 'id required' }, { status: 400 });
+      db.transaction(() => {
+        db.prepare(
+          `DELETE FROM beo_run_of_show
+             WHERE id = ?
+               AND event_id IN (SELECT id FROM beo_events WHERE location_id = ?)`,
+        ).run(id, loc);
+        postAuditEvent({
+          entity: 'beo_run_of_show', entity_id: id, action: 'delete',
+          actor_cook_id: clip(body.cook_id, 64), actor_source: 'api',
+          location_id: loc,
+        });
+      })();
+      return Response.json({ ok: true });
+    }
+
     if (body.action === 'prep') {
       const event_id = Number(body.event_id);
       const task = clip(body.task, MAX_TASK);
@@ -431,10 +728,11 @@ async function beoPostHandler(req) {
     if (body.action === 'delete_event') {
       const id = Number(body.id);
       if (!Number.isInteger(id)) return Response.json({ error: 'id required' }, { status: 400 });
-      // Both beo_line_items.event_id and beo_prep_tasks.event_id declare
-      // ON DELETE CASCADE against beo_events(id), and PRAGMA foreign_keys
-      // is ON for every connection (lib/db.ts::getDb), so the single
-      // DELETE on beo_events sweeps both child tables atomically.
+      // Every BEO child table (beo_line_items, beo_prep_tasks,
+      // beo_event_charges, beo_run_of_show) declares ON DELETE CASCADE
+      // against beo_events(id), and PRAGMA foreign_keys is ON for every
+      // connection (lib/db.ts::getDb), so the single DELETE on beo_events
+      // sweeps the children atomically.
       db.transaction(() => {
         db.prepare(`DELETE FROM beo_events WHERE id = ? AND location_id = ?`).run(id, loc);
         postAuditEvent({

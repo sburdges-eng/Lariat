@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Lariat — BEO Studio</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Big+Shoulders:opsz,wght@10..72,500;10..72,700;10..72,800&family=Libre+Franklin:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+:root{
+  --paper:#F4EFE3; --card:#FFFDF7; --ink:#241F19; --mut:#6D6355; --rule:#D8CFBC;
+  --red:#8A2B1D; --blue:#3E5A6B; --ok:#4C6B45; --amber:#B07C24; --amber-bg:#F6EBD2;
+  --disp:'Big Shoulders','Arial Narrow',sans-serif; --body:'Libre Franklin','Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono','Consolas',monospace;
+}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+button{font:inherit;cursor:pointer}
+input,select,textarea{font:inherit;color:var(--ink)}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+
+.brand{background:var(--ink);color:var(--paper);padding:14px 20px 10px;border-bottom:5px solid var(--red)}
+.brand .rope{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.brand h1{font-family:var(--disp);font-weight:800;font-size:30px;letter-spacing:.14em;text-transform:uppercase}
+.brand .sub{font-family:var(--disp);font-weight:500;letter-spacing:.3em;font-size:12px;text-transform:uppercase;color:#CDB79A}
+.toolbar{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.tbtn{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;background:transparent;color:var(--paper);
+  border:1.5px solid #CDB79A;padding:6px 12px;border-radius:3px}
+.tbtn:hover{background:var(--red);border-color:var(--red)}
+.evline{margin-top:8px;display:flex;gap:6px 22px;flex-wrap:wrap;font-size:13.5px}
+.evline .m{font-family:var(--mono);font-size:12.5px;color:#E8DFC9}
+
+.rail{display:flex;gap:8px;align-items:flex-end;padding:14px 20px 0;border-bottom:2px solid var(--ink);
+  background:var(--paper);position:sticky;top:0;z-index:5;overflow-x:auto}
+.stub{position:relative;font-family:var(--disp);font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:15px;
+  background:var(--card);border:2px solid var(--ink);border-bottom:none;padding:9px 18px 11px 28px;border-radius:6px 6px 0 0;color:var(--mut);white-space:nowrap}
+.stub::before{content:"";position:absolute;left:11px;top:50%;width:8px;height:8px;border-radius:50%;
+  transform:translateY(-50%);background:var(--paper);box-shadow:inset 0 0 0 1.5px var(--ink)}
+.stub[aria-selected="true"]{color:var(--ink);background:var(--paper);padding-bottom:13px;margin-bottom:-2px}
+.stub[aria-selected="true"]::after{content:"";position:absolute;left:0;right:0;bottom:-2px;height:3px;background:var(--paper)}
+.stub .who{display:block;font-family:var(--body);font-weight:500;font-size:10px;letter-spacing:.05em;text-transform:none;color:var(--mut)}
+
+main{max-width:1220px;margin:0 auto;padding:20px}
+.view{display:none}.view.on{display:block}
+.grid{display:grid;grid-template-columns:1.35fr 1fr;gap:18px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+@media(max-width:940px){.grid{grid-template-columns:1fr}.brand h1{font-size:24px}}
+.card{background:var(--card);border:1.5px solid var(--ink);border-radius:4px;padding:15px 17px;margin-bottom:18px;box-shadow:3px 3px 0 rgba(36,31,25,.14)}
+.card h2{font-family:var(--disp);font-weight:800;font-size:18px;letter-spacing:.1em;text-transform:uppercase;
+  border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:12px;display:flex;align-items:baseline;gap:10px}
+.card h2 .tag{font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.12em;color:var(--card);background:var(--blue);padding:2px 8px;border-radius:2px;transform:translateY(-2px)}
+.small{font-size:12.5px;color:var(--mut)} .mono{font-family:var(--mono)}
+
+/* forms */
+.f{display:grid;gap:4px;margin-bottom:10px}
+.f label{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
+.f input,.f select,.f textarea{background:#FFFEF9;border:1.5px solid var(--ink);border-radius:3px;padding:7px 9px;font-size:14px}
+.f input.mono, .qty, .price, .money{font-family:var(--mono)}
+.frow{display:grid;gap:10px}.frow.c2{grid-template-columns:1fr 1fr}.frow.c3{grid-template-columns:1fr 1fr 1fr}
+.frow.c4{grid-template-columns:1.4fr .6fr .8fr .8fr}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{font-family:var(--disp);font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:11.5px;text-align:left;border-bottom:2px solid var(--ink);padding:6px 6px 5px}
+td{padding:5px 6px;border-bottom:1px solid var(--rule);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+td.n,th.n{text-align:right;font-family:var(--mono);font-size:13px;white-space:nowrap}
+.totrow td{border-top:2px solid var(--ink);border-bottom:none;font-weight:700}
+td input{width:100%;background:#FFFEF9;border:1.2px solid var(--rule);border-radius:2px;padding:5px 7px;font-size:13.5px}
+td input.qty,td input.price{text-align:right;font-family:var(--mono)}
+td input:focus{border-color:var(--ink)}
+.x{background:none;border:none;color:var(--red);font-weight:700;font-size:15px;padding:2px 6px}
+.addbtn{font-family:var(--mono);font-size:12px;letter-spacing:.06em;background:var(--ink);color:var(--paper);border:none;border-radius:3px;padding:7px 14px;margin-top:8px}
+.addbtn:hover{background:var(--red)}
+.badge{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;padding:1.5px 7px;border-radius:2px;border:1.2px solid currentColor;margin:1px 3px 1px 0;white-space:nowrap}
+.b-need{color:#fff;background:var(--red);border-color:var(--red)} .b-ok{color:var(--ok)} .b-warn{color:var(--amber)} .b-bar{color:var(--blue)}
+
+/* summary strip on EVENT tab */
+.strip{position:sticky;bottom:0;background:var(--ink);color:var(--paper);border-top:4px solid var(--red);
+  display:flex;gap:8px 26px;flex-wrap:wrap;align-items:center;padding:10px 20px;font-family:var(--mono);font-size:13px;z-index:4}
+.strip b{font-family:var(--disp);font-weight:800;font-size:20px;letter-spacing:.04em}
+.strip .ok{color:#9DC08B}.strip .warn{color:#E5B567}
+
+/* host/kitchen/mgmt visual pieces (shared with dashboard) */
+.soe{list-style:none}.soe li{display:grid;grid-template-columns:86px 1fr;gap:12px;padding:8px 0;border-bottom:1px dashed var(--rule)}
+.soe li:last-child{border-bottom:none}.soe time{font-family:var(--mono);font-weight:600;font-size:13.5px;color:var(--red)}
+.meter{height:16px;border:1.5px solid var(--ink);border-radius:2px;background:repeating-linear-gradient(45deg,#EDE6D4 0 6px,#E4DCC7 6px 12px);position:relative;margin:8px 0 4px}
+.meter .fill{position:absolute;inset:0;width:0%;background:var(--ok)} .meter.under .fill{background:var(--amber)}
+.meter .pin{position:absolute;top:-5px;bottom:-5px;width:2.5px;background:var(--ink)}
+.chit{background:#FFFEF9;border:1.5px solid var(--ink);border-radius:3px;position:relative;font-family:var(--mono);padding:14px 16px 16px;box-shadow:3px 3px 0 rgba(36,31,25,.14)}
+.chit::before{content:"";position:absolute;top:-7px;left:8px;right:8px;height:12px;background:radial-gradient(circle at 6px 0px, transparent 5.5px, #FFFEF9 6px);background-size:16px 12px;background-repeat:repeat-x}
+.chit h3{font-family:var(--mono);font-weight:600;font-size:13px;letter-spacing:.16em;text-align:center;border-bottom:1.5px dashed var(--ink);padding-bottom:8px;margin-bottom:8px}
+.chit .row{display:grid;grid-template-columns:74px 66px 1fr;gap:10px;padding:6px 0;border-bottom:1px dotted var(--rule);font-size:13px}
+.chit .row:last-child{border-bottom:none}
+.chit .t{font-weight:600;color:var(--red)} .chit .st{font-size:10.5px;background:var(--ink);color:var(--paper);border-radius:2px;padding:1px 5px;text-align:center;height:fit-content}
+.chit .it{color:var(--mut);font-size:12px}
+.day{border:1.5px solid var(--ink);border-left:6px solid var(--blue);border-radius:3px;background:var(--card);margin-bottom:12px;padding:10px 14px}
+.day h3{font-family:var(--disp);font-weight:800;font-size:16px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.day label{display:flex;gap:10px;align-items:flex-start;padding:5px 0;border-bottom:1px dashed var(--rule);font-size:13.5px}
+.day label:last-child{border-bottom:none}
+.day input{width:16px;height:16px;margin-top:2px;accent-color:var(--red)}
+.day label.done{color:var(--mut);text-decoration:line-through}
+.day .it{font-weight:600} .day.today{border-left-color:var(--red)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--card);border:1.5px solid var(--ink);border-radius:4px;padding:12px 14px;box-shadow:3px 3px 0 rgba(36,31,25,.14)}
+.kpi .v{font-family:var(--disp);font-weight:800;font-size:27px}
+.kpi .l{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin-top:2px}
+.kpi.hero{background:var(--ink);color:var(--paper)} .kpi.hero .l{color:#CDB79A} .kpi.flag .v{color:var(--amber)}
+.wf .wrow{display:grid;grid-template-columns:170px 1fr 100px;gap:10px;align-items:center;padding:5px 0}
+.wf .bar{height:15px;border:1.2px solid var(--ink);border-radius:2px;background:var(--card);overflow:hidden}
+.wf .bar i{display:block;height:100%}
+.wf .amt{font-family:var(--mono);font-size:12.5px;text-align:right}
+.gauge{height:14px;border:1.5px solid var(--ink);border-radius:2px;background:#EDE6D4;position:relative;margin:6px 0 2px}
+.gauge .fill{position:absolute;inset:0;width:0%;background:var(--ok)} .gauge .pin{position:absolute;top:-5px;bottom:-5px;width:2.5px;background:var(--ink)}
+.flagcard{background:var(--amber-bg);border:1.5px solid var(--amber);border-radius:3px;padding:8px 12px;margin-bottom:8px;font-size:13.5px}
+.disc{font-size:11.5px;color:var(--mut);border-top:1px dashed var(--rule);margin-top:10px;padding-top:8px;font-style:italic}
+.footer{margin:8px 0 60px;text-align:center;font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--mut)}
+
+/* library */
+.libgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.libcard{background:var(--card);border:1.5px solid var(--ink);border-radius:4px;padding:14px 16px;box-shadow:3px 3px 0 rgba(36,31,25,.14);position:relative}
+.libcard.active{border-color:var(--red);box-shadow:3px 3px 0 var(--red)}
+.libtop{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.libbadge{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;padding:2px 7px;border-radius:2px;text-transform:uppercase;white-space:nowrap}
+.libbadge.b-urgent{background:var(--red);color:#fff}
+.libbadge.b-soon{background:transparent;color:var(--mut);border:1px solid var(--rule)}
+.libbadge.b-past{background:transparent;color:var(--mut);border:1px solid var(--rule)}
+.libcard h3{font-family:var(--disp);font-weight:800;font-size:19px;letter-spacing:.02em;margin-bottom:2px}
+.libcard .d{font-family:var(--mono);font-size:12px;color:var(--mut);margin-bottom:8px}
+.libcard .stat{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;border-top:1px dashed var(--rule)}
+.libcard .btns{display:flex;gap:6px;margin-top:10px}
+.libcard button{flex:1;font-family:var(--mono);font-size:11px;letter-spacing:.05em;padding:6px 8px;border-radius:3px;border:1.5px solid var(--ink);background:var(--paper)}
+.libcard button.open{background:var(--ink);color:var(--paper)}
+.libcard button.danger{color:var(--red);border-color:var(--red)}
+.libnew{border:2px dashed var(--rule);border-radius:4px;display:flex;align-items:center;justify-content:center;min-height:150px;
+  font-family:var(--disp);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);background:transparent}
+.libnew:hover{border-color:var(--ink);color:var(--ink)}
+
+/* season */
+.sday{border:1px solid var(--rule);border-radius:4px;padding:8px 10px;margin-bottom:8px}
+.sday.today{border-color:var(--red);border-width:1.5px}
+.sday.overdue{background:var(--needbg,#FFF6DE)}
+.sdayhead{font-family:var(--disp);font-weight:800;letter-spacing:.03em;margin-bottom:4px}
+.prow{padding:2px 0;font-size:13px}
+.prow .pcl{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);margin-right:4px}
+.badge.b-warn{background:var(--amber);color:#fff}
+
+@media print{
+  body{background:#fff;font-size:12px}
+  .rail,.toolbar,.strip,.addbtn,.x{display:none!important}
+  .brand{background:#fff;color:#000;border-bottom:3px solid #000;padding:0 0 8px}
+  .brand .sub{color:#000} .evline .m{color:#000}
+  main{padding:8px 0;max-width:none}
+  .card,.kpi,.chit,.day{box-shadow:none;break-inside:avoid}
+  .kpi.hero{background:#fff;color:#000}
+  .view{display:none} .view.on{display:block}
+  td input{border:none;padding:0;background:none}
+}
+</style>
+</head>
+<body>
+<header class="brand">
+  <div class="rope">
+    <h1>The Lariat</h1><span class="sub">BEO Studio</span>
+    <div class="toolbar">
+      <button class="tbtn" id="btnLibrary">LIBRARY</button>
+      <button class="tbtn" id="btnNew">NEW EVENT</button>
+      <button class="tbtn" id="btnImport">IMPORT</button>
+      <button class="tbtn" id="btnExport">EXPORT</button>
+      <button class="tbtn" onclick="window.print()">PRINT VIEW</button>
+      <input type="file" id="fileImport" accept="application/json" hidden>
+    </div>
+  </div>
+  <div class="evline" id="evline"></div>
+</header>
+
+<nav class="rail" role="tablist" aria-label="Views">
+  <button class="stub" role="tab" id="tab-library" aria-selected="false" data-v="library">Library<span class="who">all events</span></button>
+  <button class="stub" role="tab" id="tab-season" aria-selected="false" data-v="season">Season<span class="who">one kitchen</span></button>
+  <button class="stub" role="tab" id="tab-event" aria-selected="true" data-v="event">Event<span class="who">build &amp; edit</span></button>
+  <button class="stub" role="tab" id="tab-host" aria-selected="false" data-v="host">Host<span class="who">banquet host / floor</span></button>
+  <button class="stub" role="tab" id="tab-kitchen" aria-selected="false" data-v="kitchen">Kitchen<span class="who">head chef / BOH</span></button>
+  <button class="stub" role="tab" id="tab-mgmt" aria-selected="false" data-v="mgmt">Management<span class="who">money &amp; margin</span></button>
+  <button class="stub" role="tab" id="tab-settings" aria-selected="false" data-v="settings">Settings<span class="who">rates · menu · rules</span></button>
+</nav>
+
+<main>
+  <section class="view" id="view-library" role="tabpanel"></section>
+  <section class="view" id="view-season" role="tabpanel"></section>
+  <section class="view on" id="view-event" role="tabpanel"></section>
+  <section class="view" id="view-host" role="tabpanel"></section>
+  <section class="view" id="view-kitchen" role="tabpanel"></section>
+  <section class="view" id="view-mgmt" role="tabpanel"></section>
+  <section class="view" id="view-settings" role="tabpanel"></section>
+</main>
+<div class="strip" id="strip"></div>
+<div class="footer">THE LARIAT · 206 E MAIN ST, BUENA VISTA CO · BEO STUDIO — EVERYTHING DRAFT UNTIL VERIFIED</div>
+<datalist id="menuItems"></datalist>
+<script>
+const DATA = {"prices": {"colorado mini chile rellenos": 6, "smoked trout roe deviled eggs": 5, "caprese skewers": 4, "fried green chile mac and cheese": 5, "smoked elk sausage corn dog bites": 5, "grilled palisade peach and prosciutto skewers": 6, "pig wings": 5, "roasted corn gazpacho": 6, "colorado pork green chile empanadas": 6, "nashville hot chicken sliders": 6, "pork belly bao bun": 7, "rope burger sliders": 7, "prime rib sliders with horseradish": 10, "crab cake remoulade": 12, "elk tenderloin crostini": 12, "smoked trout crostini": 9, "brie and raspberry phylo bites": 4, "churros": 4, "banana cream pudding": 5, "chocolate mousse cake": 10, "smores skewers": 5, "palisade peach cobbler": 6, "mini rellenos": 6, "chile rellenos": 6, "mac balls": 5, "deviled eggs": 5, "corn dogs": 5, "nashville slider": 6, "rope burger slider": 7, "prime rib sliders": 10, "beef tenderloin crostini": 12, "chips and trio of dips": 30, "trio dips": 30, "chips and dips": 30, "rope caesar salad buffet": 200, "rope caesar": 200, "rope caesar salad": 200, "classic cobb salad buffet": 200, "cob salad buffet": 200, "cobb salad buffet": 200, "green chile mac buffet": 200, "green chile mac": 200, "green chile mac and cheese": 200, "carnitas tacos buffet": 350, "carnitas buffet": 350, "carnitas taco buffet": 350, "battered avocado taco buffet": 300, "avocado taco buffet": 300, "braised chicken taco buffet": 350, "chicken taco buffet": 350, "barbacoa buffet": 400, "barbacoa taco buffet": 400, "fish taco buffet": 350, "battered fish taco buffet": 350, "grilled fish taco buffet": 350, "roasted chicken leg": 350, "roasted root vegetable": 250, "roasted root veg": 250, "wild mushroom campanelle": 350, "mexican dinner": 80, "roast chicken dinner": 80, "roasted chicken dinner": 80, "italian dinner": 80, "prime rib dinner": 95}, "buyfire": {"santa fe chicken eggrolls": {"method": "deep fry from frozen", "note": "Casa Solana, frozen", "lead": 15}, "brie raspberry phyllo": {"method": "bake from frozen", "note": "Sysco Premium, frozen", "lead": 20}, "mac and cheese bites": {"method": "deep fry from frozen", "note": "Sysco Premium, frozen", "lead": 12}, "franks in puff pastry": {"method": "bake from frozen", "note": "pigs-in-blanket, Sysco Premium, frozen", "lead": 18}, "lobster bisque": {"method": "heat to service temp", "note": "Campbell Reserve \u2014 heat only, no prep", "lead": 30}, "cupcakes": {"method": "thaw & plate", "note": "dessert \u2014 thaw, no cooking", "lead": 0}, "dessert bars": {"method": "thaw, slice & plate", "note": "dessert \u2014 thaw, no cooking", "lead": 0}, "tiramisu": {"method": "thaw & plate", "note": "dessert \u2014 thaw, no cooking", "lead": 0}, "cheesecake": {"method": "thaw & plate", "note": "dessert \u2014 thaw, no cooking", "lead": 0}}, "matrix": {"avocado taco buffet": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "banana cream pudding": {"contains": "milk, wheat", "status": "menu (events 2026) \u2014 CONFIRM: egg in pudding"}, "barbacoa buffet": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "barbacoa taco buffet": {"contains": "milk", "status": "confirmed (Sean)"}, "battered avocado taco buffet": {"contains": "wheat, egg", "status": "recipe book \u2014 CONFIRM: gluten/barley from Guinness batter \u2014 celiac advisory"}, "battered fish taco": {"contains": "fish, wheat, egg", "status": "recipe book \u2014 CONFIRM: gluten/barley from Guinness batter \u2014 celiac advisory"}, "battered fish taco buffet": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "beef tenderloin crostini": {"contains": "wheat, milk", "status": "confirmed (Sean)"}, "braised chicken taco buffet": {"contains": "milk", "status": "confirmed (Sean)"}, "brie and raspberry phylo bites": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "brie raspberry phyllo": {"contains": "wheat, milk", "status": "purchased frozen \u2014 confirm label \u2014 CONFIRM: manufacturer label"}, "caprese skewers": {"contains": "milk", "status": "confirmed (Sean)"}, "caprese toast": {"contains": "milk, wheat", "status": "confirmed (Sean)"}, "carnitas buffet": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "carnitas taco buffet": {"contains": "milk", "status": "confirmed (Sean)"}, "cheesecake": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "chicken taco buffet": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "chile rellenos": {"contains": "milk, wheat, egg, soy", "status": "menu (events 2026) \u2014 handmade"}, "chips and dips": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "chips and trio of dips": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "chocolate mousse cake": {"contains": "milk, wheat, egg, tree nut", "status": "menu (events 2026)"}, "churros": {"contains": "wheat, egg, milk", "status": "confirmed (Sean)"}, "classic cobb salad buffet": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "cob salad buffet": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "cobb salad buffet": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "colorado mini chile rellenos": {"contains": "milk, wheat, egg, soy", "status": "menu (events 2026) \u2014 handmade"}, "colorado pork green chile empanadas": {"contains": "wheat, milk, soy", "status": "menu (events 2026)"}, "corn bread": {"contains": "milk, wheat", "status": "recipe book"}, "corn dogs": {"contains": "wheat, milk", "status": "menu (events 2026) \u2014 CONFIRM: honey mustard on side"}, "crab cake remoulade": {"contains": "shellfish, wheat, egg", "status": "menu (events 2026)"}, "cupcakes": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "dessert bars": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "deviled eggs": {"contains": "egg, fish", "status": "menu (events 2026)"}, "elk tenderloin crostini": {"contains": "wheat, milk", "status": "menu (events 2026)"}, "fish taco buffet": {"contains": "fish, wheat, egg", "status": "recipe book \u2014 CONFIRM: gluten/barley from Guinness batter \u2014 celiac advisory"}, "franks in puff pastry": {"contains": "wheat, milk", "status": "purchased frozen \u2014 confirm label \u2014 CONFIRM: manufacturer label (soy in frank?)"}, "fried green chile mac and cheese": {"contains": "milk, wheat, egg", "status": "recipe book"}, "green chile mac": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "green chile mac buffet": {"contains": "milk, wheat, egg", "status": "recipe book"}, "grilled fish taco buffet": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "grilled palisade peach and prosciutto skewers": {"contains": "none declared", "status": "menu (events 2026)"}, "italian dinner": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "lobster bisque": {"contains": "shellfish, milk", "status": "purchased \u2014 confirm label \u2014 CONFIRM: manufacturer label (wheat roux?)"}, "mac and cheese bites": {"contains": "wheat, milk", "status": "purchased frozen \u2014 confirm label \u2014 CONFIRM: manufacturer label (egg?)"}, "mac balls": {"contains": "milk, wheat, egg", "status": "recipe book"}, "mexican dinner": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "mini rellenos": {"contains": "milk, wheat, egg, soy", "status": "menu (events 2026) \u2014 handmade"}, "nashville hot chicken sliders": {"contains": "milk, wheat, egg", "status": "recipe book"}, "nashville slider": {"contains": "milk, wheat, egg", "status": "recipe book"}, "palisade peach cobbler": {"contains": "wheat", "status": "menu (events 2026) \u2014 CONFIRM: milk (butter in crumble)"}, "pig wings": {"contains": "wheat, egg", "status": "menu (events 2026)"}, "pork belly bao bun": {"contains": "soy, egg, wheat", "status": "menu (events 2026)"}, "prime rib carving station": {"contains": "wheat, milk", "status": "confirmed (Sean)"}, "prime rib dinner": {"contains": "wheat, milk", "status": "confirmed (Sean)"}, "prime rib sliders": {"contains": "wheat, milk", "status": "confirmed (Sean)"}, "prime rib sliders with horseradish": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "roast chicken dinner": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "roasted chicken dinner": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "roasted chicken leg": {"contains": "none declared", "status": "confirmed (Sean)"}, "roasted corn gazpacho": {"contains": "milk", "status": "menu (events 2026)"}, "roasted root veg": {"contains": "milk", "status": "confirmed (Sean)"}, "roasted root vegetable": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "rope burger slider": {"contains": "egg, milk, wheat", "status": "recipe book"}, "rope caesar": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "rope caesar salad": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "rope caesar salad buffet": {"contains": "fish, egg, wheat, milk", "status": "recipe book"}, "santa fe chicken eggrolls": {"contains": "wheat", "status": "purchased frozen \u2014 confirm label \u2014 CONFIRM: manufacturer label (milk/soy?)"}, "smoked elk sausage corn dog bites": {"contains": "wheat, milk", "status": "menu (events 2026) \u2014 CONFIRM: honey mustard on side"}, "smoked trout crostini": {"contains": "fish, milk, wheat", "status": "menu (events 2026)"}, "smoked trout roe deviled eggs": {"contains": "egg, fish", "status": "menu (events 2026)"}, "smores skewers": {"contains": "wheat, milk", "status": "menu (events 2026) \u2014 CONFIRM: soy (chocolate/marshmallow)"}, "tiramisu": {"contains": "", "status": "NEED \u2014 no recipe on file"}, "trio dips": {"contains": "milk, wheat, soy", "status": "recipe book \u2014 CONFIRM: chips \u2014 shared-fryer cross-contact advisory"}, "wild mushroom campanelle": {"contains": "", "status": "NEED \u2014 no recipe on file"}}, "purchase": {"avocado taco buffet": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "banana cream pudding": [{"product": "banana pudding base", "detail": "off-guide staple", "note": ""}, {"product": "vanilla wafers", "detail": "off-guide staple", "note": ""}, {"product": "Cream Heavy 40% Extended Shelf Life Stabilized", "detail": "WHOLESOME FARMS CLASSIC \u00b7 12x32OZ", "note": ""}], "barbacoa buffet": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "barbacoa taco buffet": [{"product": "Beef Cheek Meat", "detail": "PACKER \u00b7 1x30 LB", "note": ""}, {"product": "Pepper Chiles Guajillo Dried", "detail": "PACKER \u00b7 1x5 LB", "note": ""}, {"product": "Pepper Chile De Arbol Destemmed", "detail": "PACKER \u00b7 1x25#", "note": ""}, {"product": "Pepper Ancho Dried", "detail": "PACKER \u00b7 1x5#", "note": ""}, {"product": "Achiote Paste", "detail": "EL YUCATECO (SAUCES) \u00b7 1x10 LB", "note": ""}, {"product": "Tortilla Corn White 4.5 Inch", "detail": "MISSION FOODS \u00b7 6x50 CT", "note": ""}, {"product": "Cheese Cotija Random Cut", "detail": "QUESO CAMPESINO (DAIRY) \u00b7 12x1#AVG", "note": ""}, {"product": "Onions White Jumbo Bag", "detail": "IMPERIAL FRESH \u00b7 1x50LB", "note": ""}, {"product": "Garlic Peeled Fresh", "detail": "IMPERIAL FRESH \u00b7 4x5LB", "note": ""}], "battered avocado taco buffet": [{"product": "Avocado Hass Fresh", "detail": "PROPACK \u00b7 1x24 CT", "note": ""}, {"product": "Flour All Purpose Hotel & Restaurant Bleached", "detail": "SYSCO CLASSIC \u00b7 1x50LB", "note": ""}, {"product": "Tortilla Corn White 4.5 Inch", "detail": "MISSION FOODS \u00b7 6x50 CT", "note": ""}, {"product": "Mayonnaise Heavy Duty Pail", "detail": "SYSCO RELIANCE \u00b7 1x28LB", "note": ""}, {"product": "Cilantro Bunch Iceless", "detail": "IMPERIAL FRESH \u00b7 1x30 CT", "note": ""}, {"product": "Juice Lime Pasteurized Ultra Premium", "detail": "SYSCO NATURAL \u00b7 6x1QT", "note": ""}, {"product": "Guinness (bar / beer batter)", "detail": "off-guide staple", "note": ""}], "battered fish taco": [{"product": "Pangasius Fillet Iqf 7-9 Ounce", "detail": "PORTICO IMPERIAL \u00b7 1x15 LB", "note": ""}, {"product": "Flour All Purpose Hotel & Restaurant Bleached", "detail": "SYSCO CLASSIC \u00b7 1x50LB", "note": ""}, {"product": "Tortilla Corn White 4.5 Inch", "detail": "MISSION FOODS \u00b7 6x50 CT", "note": ""}, {"product": "Cheese Cotija Random Cut", "detail": "QUESO CAMPESINO (DAIRY) \u00b7 12x1#AVG", "note": ""}, {"product": "Mayonnaise Heavy Duty Pail", "detail": "SYSCO RELIANCE \u00b7 1x28LB", "note": ""}, {"product": "Cilantro Bunch Iceless", "detail": "IMPERIAL FRESH \u00b7 1x30 CT", "note": ""}, {"product": "Juice Lime Pasteurized Ultra Premium", "detail": "SYSCO NATURAL \u00b7 6x1QT", "note": ""}, {"product": "Guinness (bar / beer batter)", "detail": "off-guide staple", "note": ""}], "battered fish taco buffet": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "beef tenderloin crostini": [{"product": "Beef Ribeye Lip-on Choice Namp 112a Net", "detail": "2 x 14 LB", "note": ""}, {"product": "Horseradish White Prepared", "detail": "6 x 32 OZ", "note": ""}, {"product": "Cream Heavy 40% Extended Shelf Life Stabilized", "detail": "WHOLESOME FARMS CLASSIC \u00b7 12x32OZ", "note": ""}, {"product": "baguette (bakery)", "detail": "off-guide staple", "note": ""}], "braised chicken taco buffet": [{"product": "Chicken Thigh Boneless Skinless Controlled Vac", "detail": "SYSCO CLASSIC \u00b7 4x10 LB", "note": ""}, {"product": "Tortilla Corn White 4.5 Inch", "detail": "MISSION FOODS \u00b7 6x50 CT", "note": ""}, {"product": "Cheese Cotija Random Cut", "detail": "QUESO CAMPESINO (DAIRY) \u00b7 12x1#AVG", "note": ""}, {"product": "Onions White Jumbo Bag", "detail": "IMPERIAL FRESH \u00b7 1x50LB", "note": ""}, {"product": "Garlic Peeled Fresh", "detail": "IMPERIAL FRESH \u00b7 4x5LB", "note": ""}], "brie and raspberry phylo bites": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "brie raspberry phyllo": [{"product": "Appetizer Brie With Raspberries In Phyllo", "detail": "BUY & FIRE \u2014 bake from frozen", "note": "Sysco Premium, frozen"}], "caprese skewers": [{"product": "Cheese Mozzarella Ciliegene Fresh", "detail": "ARREZZIO IMPERIAL \u00b7 2x3LB", "note": ""}, {"product": "Tomato Cherry Heirloom Mix", "detail": "PACKER \u00b7 12x.5 PTS", "note": ""}, {"product": "Basil Fresh Herb", "detail": "IMPERIAL FRESH \u00b7 1x1 LB", "note": ""}, {"product": "Skewer Bamboo 6\" Inch", "detail": "HANDGARD \u00b7 10x1000CT", "note": ""}, {"product": "Glaze Balsamic Vinegar Of Modena", "detail": "6 x 12.9OZ", "note": ""}], "caprese toast": [{"product": "Cheese Mozzarella Ciliegene Fresh", "detail": "ARREZZIO IMPERIAL \u00b7 2x3LB", "note": ""}, {"product": "Tomato Cherry Heirloom Mix", "detail": "PACKER \u00b7 12x.5 PTS", "note": ""}, {"product": "Basil Fresh Herb", "detail": "IMPERIAL FRESH \u00b7 1x1 LB", "note": ""}, {"product": "Glaze Balsamic Vinegar Of Modena", "detail": "6 x 12.9OZ", "note": ""}, {"product": "baguette/ciabatta (bakery)", "detail": "off-guide staple", "note": ""}], "carnitas buffet": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "carnitas taco buffet": [{"product": "Pork Butt Boneless 1/4 6-9 Pounds Each Fresh", "detail": "BUTCHERS BLOCK \u00b7 8x6-9#AV", "note": ""}, {"product": "Juice Orange Pasteurized Ultra Premium", "detail": "SYSCO NATURAL \u00b7 4x1GAL", "note": ""}, {"product": "Tortilla Corn White 4.5 Inch", "detail": "MISSION FOODS \u00b7 6x50 CT", "note": ""}, {"product": "Cheese Cotija Random Cut", "detail": "QUESO CAMPESINO (DAIRY) \u00b7 12x1#AVG", "note": ""}, {"product": "Onions White Jumbo Bag", "detail": "IMPERIAL FRESH \u00b7 1x50LB", "note": ""}], "carnitas tacos buffet": [{"product": "Pork Butt Boneless 1/4 6-9 Pounds Each Fresh", "detail": "BUTCHERS BLOCK \u00b7 8x6-9#AV", "note": ""}, {"product": "Juice Orange Pasteurized Ultra Premium", "detail": "SYSCO NATURAL \u00b7 4x1GAL", "note": ""}, {"product": "Tortilla Corn White 4.5 Inch", "detail": "MISSION FOODS \u00b7 6x50 CT", "note": ""}, {"product": "Cheese Cotija Random Cut", "detail": "QUESO CAMPESINO (DAIRY) \u00b7 12x1#AVG", "note": ""}, {"product": "Onions White Jumbo Bag", "detail": "IMPERIAL FRESH \u00b7 1x50LB", "note": ""}], "cheesecake": [{"product": "Cheesecake Plain Classic 14 Count", "detail": "BUY & FIRE \u2014 thaw & plate", "note": "dessert \u2014 thaw, no cooking"}], "chicken taco buffet": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "chile rellenos": [{"product": "poblano peppers (produce)", "detail": "off-guide staple", "note": ""}, {"product": "Cheese Cheddar Jack Fancy Shredded", "detail": "CASA SOLANA IMPERIAL \u00b7 4x5LB", "note": ""}, {"product": "Flour All Purpose Hotel & Restaurant Bleached", "detail": "SYSCO CLASSIC \u00b7 1x50LB", "note": ""}, {"product": "Egg Liquid Whole Citric Acid Cage Free", "detail": "15 x 2 LB", "note": ""}, {"product": "Pork Butt Boneless 1/4 6-9 Pounds Each Fresh", "detail": "BUTCHERS BLOCK \u00b7 8x6-9#AV", "note": ""}, {"product": "Tomatillo Crushed", "detail": "DEL SOL (CANNED) \u00b7 6x#10", "note": ""}, {"product": "Chile Green Hatch Diced Mild", "detail": "YOUNG GUNS PRODUCE \u00b7 5x5LB", "note": ""}, {"product": "Soup Base Chicken Real", "detail": "SYSCO IMPERIAL \u00b7 6x1LB", "note": ""}], "chips and dips": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "chips and trio of dips": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "chocolate mousse cake": [{"product": "chocolate mousse cake (purchased, contains hazelnut)", "detail": "off-guide staple", "note": ""}], "churros": [{"product": "Flour All Purpose Hotel & Restaurant Bleached", "detail": "SYSCO CLASSIC \u00b7 1x50LB", "note": ""}, {"product": "Sugar Granulated Extra Fine Cane", "detail": "SYSCO CLASSIC \u00b7 1x50LB", "note": ""}, {"product": "Spice Cinnamon Stick", "detail": "6 x 8OZ", "note": ""}, {"product": "Butter Solid Unsalted 83% Minimum Butterfat European", "detail": "WHOLESOME FARMS IMPERIAL \u00b7 36x1 LB", "note": ""}, {"product": "Milk Whole Gallon", "detail": "WHOLESOME FARMS CLASSIC \u00b7 4x1 GAL", "note": ""}, {"product": "Egg Liquid Whole Citric Acid Cage Free", "detail": "15 x 2 LB", "note": ""}, {"product": "Milk Condensed Sweetened", "detail": "CASA SOLANA CLASSIC \u00b7 24x14 OZ", "note": ""}], "classic cobb salad buffet": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "cob salad buffet": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "cobb salad buffet": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "colorado mini chile rellenos": [{"product": "poblano peppers (produce)", "detail": "off-guide staple", "note": ""}, {"product": "Cheese Cheddar Jack Fancy Shredded", "detail": "CASA SOLANA IMPERIAL \u00b7 4x5LB", "note": ""}, {"product": "Flour All Purpose Hotel & Restaurant Bleached", "detail": "SYSCO CLASSIC \u00b7 1x50LB", "note": ""}, {"product": "Egg Liquid Whole Citric Acid Cage Free", "detail": "15 x 2 LB", "note": ""}, {"product": "Pork Butt Boneless 1/4 6-9 Pounds Each Fresh", "detail": "BUTCHERS BLOCK \u00b7 8x6-9#AV", "note": ""}, {"product": "Tomatillo Crushed", "detail": "DEL SOL (CANNED) \u00b7 6x#10", "note": ""}, {"product": "Chile Green Hatch Diced Mild", "detail": "YOUNG GUNS PRODUCE \u00b7 5x5LB", "note": ""}, {"product": "Soup Base Chicken Real", "detail": "SYSCO IMPERIAL \u00b7 6x1LB", "note": ""}], "colorado pork green chile empanadas": [{"product": "Pork Butt Boneless 1/4 6-9 Pounds Each Fresh", "detail": "BUTCHERS BLOCK \u00b7 8x6-9#AV", "note": ""}, {"product": "Tomatillo Crushed", "detail": "DEL SOL (CANNED) \u00b7 6x#10", "note": ""}, {"product": "Chile Green Hatch Diced Mild", "detail": "YOUNG GUNS PRODUCE \u00b7 5x5LB", "note": ""}, {"product": "Soup Base Chicken Real", "detail": "SYSCO IMPERIAL \u00b7 6x1LB", "note": ""}, {"product": "Flour All Purpose Hotel & Restaurant Bleached", "detail": "SYSCO CLASSIC \u00b7 1x50LB", "note": ""}, {"product": "Cheese Cheddar Jack Fancy Shredded", "detail": "CASA SOLANA IMPERIAL \u00b7 4x5LB", "note": ""}, {"product": "empanada dough discs", "detail": "off-guide staple", "note": ""}], "corn bread": [{"product": "Mix Cornbread Homestyle Complete", "detail": "KRUSTEAZ \u00b7 6x5 LB", "note": ""}, {"product": "Butter Solid Unsalted 83% Minimum Butterfat European", "detail": "WHOLESOME FARMS IMPERIAL \u00b7 36x1 LB", "note": ""}, {"product": "Buttermilk Whole Qt", "detail": "MEADOW GOLD \u00b7 12x1 QT", "note": ""}, {"product": "Cheese Cheddar Jack Fancy Shredded", "detail": "CASA SOLANA IMPERIAL \u00b7 4x5LB", "note": ""}, {"product": "Pepper Jalapeno Fresh", "detail": "IMPERIAL FRESH \u00b7 1x10 LB", "note": ""}], "corn dogs": [{"product": "smoked elk sausage jalape\u00f1o cheddar (butcher/other vendor)", "detail": "off-guide staple", "note": ""}, {"product": "Flour All Purpose Hotel & Restaurant Bleached", "detail": "SYSCO CLASSIC \u00b7 1x50LB", "note": ""}, {"product": "Corn Meal Yellow", "detail": "PIONEER FLOUR MILLS \u00b7 1x25 LB", "note": ""}, {"product": "Sugar Granulated Extra Fine Cane", "detail": "SYSCO CLASSIC \u00b7 1x50LB", "note": ""}, {"product": "Buttermilk Whole Qt", "detail": "MEADOW GOLD \u00b7 12x1 QT", "note": ""}, {"product": "Baking Soda", "detail": "SYSCO CLASSIC \u00b7 24x1 LB", "note": ""}, {"product": "honey mustard", "detail": "off-guide staple", "note": ""}], "crab cake remoulade": [{"product": "Crab Cake Mini Claw", "detail": "PHILLIP FOODS \u00b7 100x.75 OZ", "note": ""}, {"product": "Mayonnaise Heavy Duty Pail", "detail": "SYSCO RELIANCE \u00b7 1x28LB", "note": ""}, {"product": "Mustard Dijon With White Wine In Tin", "detail": "4 x 9 LB", "note": ""}], "cupcakes": [{"product": "Cupcake Assorted", "detail": "BUY & FIRE \u2014 thaw & plate", "note": "dessert \u2014 thaw, no cooking"}], "dessert bars": [{"product": "Dessert Bar Variety 9\" X 12\" Unsliced", "detail": "BUY & FIRE \u2014 thaw, slice & plate", "note": "dessert \u2014 thaw, no cooking"}], "deviled eggs": [{"product": "Egg Shell Large White Loose 144", "detail": "1 x 15 DOZ", "note": ""}, {"product": "Mayonnaise Heavy Duty Pail", "detail": "SYSCO RELIANCE \u00b7 1x28LB", "note": ""}, {"product": "Mustard Dijon With White Wine In Tin", "detail": "4 x 9 LB", "note": ""}], "elk tenderloin crostini": [{"product": "elk tenderloin (game vendor)", "detail": "off-guide staple", "note": ""}, {"product": "whipped goat cheese", "detail": "off-guide staple", "note": ""}, {"product": "baguette (bakery)", "detail": "off-guide staple", "note": ""}, {"product": "arugula", "detail": "off-guide staple", "note": ""}, {"product": "onion jam", "detail": "off-guide staple", "note": ""}], "fish taco buffet": [{"product": "Pangasius Fillet Iqf 7-9 Ounce", "detail": "PORTICO IMPERIAL \u00b7 1x15 LB", "note": ""}, {"product": "Flour All Purpose Hotel & Restaurant Bleached", "detail": "SYSCO CLASSIC \u00b7 1x50LB", "note": ""}, {"product": "Tortilla Corn White 4.5 Inch", "detail": "MISSION FOODS \u00b7 6x50 CT", "note": ""}, {"product": "Cheese Cotija Random Cut", "detail": "QUESO CAMPESINO (DAIRY) \u00b7 12x1#AVG", "note": ""}, {"product": "Mayonnaise Heavy Duty Pail", "detail": "SYSCO RELIANCE \u00b7 1x28LB", "note": ""}, {"product": "Cilantro Bunch Iceless", "detail": "IMPERIAL FRESH \u00b7 1x30 CT", "note": ""}, {"product": "Juice Lime Pasteurized Ultra Premium", "detail": "SYSCO NATURAL \u00b7 6x1QT", "note": ""}, {"product": "Carrots Matchstick Shredded", "detail": "IMPERIAL FRESH \u00b7 4x5LB", "note": ""}, {"product": "Guinness (bar / beer batter)", "detail": "off-guide staple", "note": ""}], "franks in puff pastry": [{"product": "Appetizer Frank In Puff Pastry", "detail": "BUY & FIRE \u2014 bake from frozen", "note": "pigs-in-blanket, Sysco Premium, frozen"}], "fried green chile mac and cheese": [{"product": "Pasta Cavatappi 100% Durum Wheat Semolina", "detail": "PASTA LABELLA \u00b7 2x10 LB", "note": ""}, {"product": "Cheese American Loaf Special Melting White", "detail": "CASA SOLANA IMPERIAL \u00b7 6x5 LB", "note": ""}, {"product": "Cheese Cheddar Jack Fancy Shredded", "detail": "CASA SOLANA IMPERIAL \u00b7 4x5LB", "note": ""}, {"product": "Cream Heavy 40% Extended Shelf Life Stabilized", "detail": "WHOLESOME FARMS CLASSIC \u00b7 12x32OZ", "note": ""}, {"product": "Milk Whole Gallon", "detail": "WHOLESOME FARMS CLASSIC \u00b7 4x1 GAL", "note": ""}, {"product": "Chile Green Hatch Diced Mild", "detail": "YOUNG GUNS PRODUCE \u00b7 5x5LB", "note": ""}, {"product": "Flour All Purpose Hotel & Restaurant Bleached", "detail": "SYSCO CLASSIC \u00b7 1x50LB", "note": ""}, {"product": "Bread Crumbs Japanese Toasted Panko", "detail": "1 x 25 LB", "note": ""}, {"product": "Egg Liquid Whole Citric Acid Cage Free", "detail": "15 x 2 LB", "note": ""}], "green chile mac": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "green chile mac and cheese": [{"product": "Pasta Cavatappi 100% Durum Wheat Semolina", "detail": "PASTA LABELLA \u00b7 2x10 LB", "note": ""}, {"product": "Cheese American Loaf Special Melting White", "detail": "CASA SOLANA IMPERIAL \u00b7 6x5 LB", "note": ""}, {"product": "Cheese Cheddar Jack Fancy Shredded", "detail": "CASA SOLANA IMPERIAL \u00b7 4x5LB", "note": ""}, {"product": "Cream Heavy 40% Extended Shelf Life Stabilized", "detail": "WHOLESOME FARMS CLASSIC \u00b7 12x32OZ", "note": ""}, {"product": "Milk Whole Gallon", "detail": "WHOLESOME FARMS CLASSIC \u00b7 4x1 GAL", "note": ""}, {"product": "Chile Green Hatch Diced Mild", "detail": "YOUNG GUNS PRODUCE \u00b7 5x5LB", "note": ""}, {"product": "Flour All Purpose Hotel & Restaurant Bleached", "detail": "SYSCO CLASSIC \u00b7 1x50LB", "note": ""}, {"product": "Bread Crumbs Japanese Toasted Panko", "detail": "1 x 25 LB", "note": ""}, {"product": "Egg Liquid Whole Citric Acid Cage Free", "detail": "15 x 2 LB", "note": ""}], "green chile mac buffet": [{"product": "Pasta Cavatappi 100% Durum Wheat Semolina", "detail": "PASTA LABELLA \u00b7 2x10 LB", "note": ""}, {"product": "Cheese American Loaf Special Melting White", "detail": "CASA SOLANA IMPERIAL \u00b7 6x5 LB", "note": ""}, {"product": "Cheese Cheddar Jack Fancy Shredded", "detail": "CASA SOLANA IMPERIAL \u00b7 4x5LB", "note": ""}, {"product": "Cream Heavy 40% Extended Shelf Life Stabilized", "detail": "WHOLESOME FARMS CLASSIC \u00b7 12x32OZ", "note": ""}, {"product": "Milk Whole Gallon", "detail": "WHOLESOME FARMS CLASSIC \u00b7 4x1 GAL", "note": ""}, {"product": "Chile Green Hatch Diced Mild", "detail": "YOUNG GUNS PRODUCE \u00b7 5x5LB", "note": ""}, {"product": "Bread Crumbs Japanese Toasted Panko", "detail": "1 x 25 LB", "note": ""}], "grilled fish taco buffet": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "grilled palisade peach and prosciutto skewers": [{"product": "Ham Prosciutto Sliced All Natural", "detail": "CITTERIO \u00b7 6x16 OZ", "note": ""}, {"product": "Glaze Balsamic Vinegar Of Modena", "detail": "6 x 12.9OZ", "note": ""}, {"product": "Skewer Bamboo 6\" Inch", "detail": "HANDGARD \u00b7 10x1000CT", "note": ""}, {"product": "Palisade peaches (seasonal produce)", "detail": "off-guide staple", "note": ""}], "italian dinner": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "lobster bisque": [{"product": "Soup Lobster Bisque With Sherry", "detail": "BUY & FIRE \u2014 heat to service temp", "note": "Campbell Reserve \u2014 heat only, no prep"}], "mac and cheese bites": [{"product": "Appetizer Bite Mac & Four Cheese", "detail": "BUY & FIRE \u2014 deep fry from frozen", "note": "Sysco Premium, frozen"}], "mac balls": [{"product": "Pasta Cavatappi 100% Durum Wheat Semolina", "detail": "PASTA LABELLA \u00b7 2x10 LB", "note": ""}, {"product": "Cheese American Loaf Special Melting White", "detail": "CASA SOLANA IMPERIAL \u00b7 6x5 LB", "note": ""}, {"product": "Cheese Cheddar Jack Fancy Shredded", "detail": "CASA SOLANA IMPERIAL \u00b7 4x5LB", "note": ""}, {"product": "Cream Heavy 40% Extended Shelf Life Stabilized", "detail": "WHOLESOME FARMS CLASSIC \u00b7 12x32OZ", "note": ""}, {"product": "Milk Whole Gallon", "detail": "WHOLESOME FARMS CLASSIC \u00b7 4x1 GAL", "note": ""}, {"product": "Chile Green Hatch Diced Mild", "detail": "YOUNG GUNS PRODUCE \u00b7 5x5LB", "note": ""}, {"product": "Flour All Purpose Hotel & Restaurant Bleached", "detail": "SYSCO CLASSIC \u00b7 1x50LB", "note": ""}, {"product": "Bread Crumbs Japanese Toasted Panko", "detail": "1 x 25 LB", "note": ""}, {"product": "Egg Liquid Whole Citric Acid Cage Free", "detail": "15 x 2 LB", "note": ""}], "mexican dinner": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "mini rellenos": [{"product": "poblano peppers (produce)", "detail": "off-guide staple", "note": ""}, {"product": "Cheese Cheddar Jack Fancy Shredded", "detail": "CASA SOLANA IMPERIAL \u00b7 4x5LB", "note": ""}, {"product": "Flour All Purpose Hotel & Restaurant Bleached", "detail": "SYSCO CLASSIC \u00b7 1x50LB", "note": ""}, {"product": "Egg Liquid Whole Citric Acid Cage Free", "detail": "15 x 2 LB", "note": ""}, {"product": "Pork Butt Boneless 1/4 6-9 Pounds Each Fresh", "detail": "BUTCHERS BLOCK \u00b7 8x6-9#AV", "note": ""}, {"product": "Tomatillo Crushed", "detail": "DEL SOL (CANNED) \u00b7 6x#10", "note": ""}, {"product": "Chile Green Hatch Diced Mild", "detail": "YOUNG GUNS PRODUCE \u00b7 5x5LB", "note": ""}, {"product": "Soup Base Chicken Real", "detail": "SYSCO IMPERIAL \u00b7 6x1LB", "note": ""}], "nashville hot chicken sliders": [{"product": "Chicken Breast Cutlet 5 Ounce", "detail": "RED BIRD INC (POULTRY) \u00b7 4x5 LB", "note": ""}, {"product": "Buttermilk Whole Qt", "detail": "MEADOW GOLD \u00b7 12x1 QT", "note": ""}, {"product": "Flour All Purpose Hotel & Restaurant Bleached", "detail": "SYSCO CLASSIC \u00b7 1x50LB", "note": ""}, {"product": "Bun Brioche Bistro Slider", "detail": "ALPHA \u00b7 8x24 CT", "note": ""}, {"product": "Mayonnaise Heavy Duty Pail", "detail": "SYSCO RELIANCE \u00b7 1x28LB", "note": ""}, {"product": "Ketchup Squeeze Bottle", "detail": "HOUSE RECIPE IMPERIAL \u00b7 16x24OZ", "note": ""}, {"product": "Mustard Dijon With White Wine In Tin", "detail": "4 x 9 LB", "note": ""}, {"product": "Pickle Chip Bread Butter Refrigerated 500-650 Count", "detail": "1 x 2 GAL", "note": ""}], "nashville slider": [{"product": "Chicken Breast Cutlet 5 Ounce", "detail": "RED BIRD INC (POULTRY) \u00b7 4x5 LB", "note": ""}, {"product": "Buttermilk Whole Qt", "detail": "MEADOW GOLD \u00b7 12x1 QT", "note": ""}, {"product": "Flour All Purpose Hotel & Restaurant Bleached", "detail": "SYSCO CLASSIC \u00b7 1x50LB", "note": ""}, {"product": "Bun Brioche Bistro Slider", "detail": "ALPHA \u00b7 8x24 CT", "note": ""}, {"product": "Mayonnaise Heavy Duty Pail", "detail": "SYSCO RELIANCE \u00b7 1x28LB", "note": ""}, {"product": "Ketchup Squeeze Bottle", "detail": "HOUSE RECIPE IMPERIAL \u00b7 16x24OZ", "note": ""}, {"product": "Mustard Dijon With White Wine In Tin", "detail": "4 x 9 LB", "note": ""}, {"product": "Pickle Chip Bread Butter Refrigerated 500-650 Count", "detail": "1 x 2 GAL", "note": ""}], "palisade peach cobbler": [{"product": "Palisade peaches (seasonal)", "detail": "off-guide staple", "note": ""}, {"product": "oat crumble (flour, oats, brown sugar)", "detail": "off-guide staple", "note": ""}, {"product": "Butter Solid Unsalted 83% Minimum Butterfat European", "detail": "WHOLESOME FARMS IMPERIAL \u00b7 36x1 LB", "note": ""}], "pig wings": [{"product": "Pork Ham Shank Pig Wing 4 Ounce", "detail": "SYSCO CLASSIC \u00b7 2x4.5LB", "note": ""}, {"product": "Sauce Wing Buffalo", "detail": "SWEET BABY RAY'S \u00b7 4x1 GAL", "note": ""}], "pork belly bao bun": [{"product": "Pork Belly Skin On", "detail": "BUTCHERS BLOCK \u00b7 2x1PCE", "note": ""}, {"product": "Mayonnaise Japanese 64 Ounces", "detail": "KEWPIE  ORIENTAL PRODUCT \u00b7 4x64 OZ", "note": ""}, {"product": "Carrots Matchstick Shredded", "detail": "IMPERIAL FRESH \u00b7 4x5LB", "note": ""}, {"product": "gochujang", "detail": "off-guide staple", "note": ""}, {"product": "steamed bao buns", "detail": "off-guide staple", "note": ""}], "prime rib carving station": [{"product": "Beef Ribeye Lip-on Choice Namp 112a Net", "detail": "2 x 14 LB", "note": ""}, {"product": "Soup Base Au Jus Paste 15 Oz", "detail": "SYSCO IMPERIAL \u00b7 6x15 OZ", "note": ""}, {"product": "Horseradish White Prepared", "detail": "6 x 32 OZ", "note": ""}, {"product": "Cream Heavy 40% Extended Shelf Life Stabilized", "detail": "WHOLESOME FARMS CLASSIC \u00b7 12x32OZ", "note": ""}], "prime rib dinner": [{"product": "Beef Ribeye Lip-on Choice Namp 112a Net", "detail": "2 x 14 LB", "note": ""}, {"product": "Soup Base Au Jus Paste 15 Oz", "detail": "SYSCO IMPERIAL \u00b7 6x15 OZ", "note": ""}, {"product": "Horseradish White Prepared", "detail": "6 x 32 OZ", "note": ""}, {"product": "Cream Heavy 40% Extended Shelf Life Stabilized", "detail": "WHOLESOME FARMS CLASSIC \u00b7 12x32OZ", "note": ""}], "prime rib sliders": [{"product": "Beef Ribeye Lip-on Choice Namp 112a Net", "detail": "2 x 14 LB", "note": ""}, {"product": "Soup Base Au Jus Paste 15 Oz", "detail": "SYSCO IMPERIAL \u00b7 6x15 OZ", "note": ""}, {"product": "Horseradish White Prepared", "detail": "6 x 32 OZ", "note": ""}, {"product": "Cream Heavy 40% Extended Shelf Life Stabilized", "detail": "WHOLESOME FARMS CLASSIC \u00b7 12x32OZ", "note": ""}, {"product": "Bun Brioche Bistro Slider", "detail": "ALPHA \u00b7 8x24 CT", "note": ""}], "prime rib sliders with horseradish": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "roast chicken dinner": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "roasted chicken dinner": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "roasted chicken leg": [{"product": "Chicken Thigh Boneless Skinless Controlled Vac", "detail": "SYSCO CLASSIC \u00b7 4x10 LB", "note": ""}, {"product": "Oil Olive Pomace Tin", "detail": "ARREZZIO CLASSIC \u00b7 3x1GAL", "note": ""}, {"product": "Garlic Peeled Fresh", "detail": "IMPERIAL FRESH \u00b7 4x5LB", "note": ""}], "roasted corn gazpacho": [{"product": "Corn White Fresh", "detail": "PACKER \u00b7 1x48CT", "note": ""}, {"product": "Chile Green Hatch Diced Mild", "detail": "YOUNG GUNS PRODUCE \u00b7 5x5LB", "note": ""}, {"product": "Cheese Cotija Random Cut", "detail": "QUESO CAMPESINO (DAIRY) \u00b7 12x1#AVG", "note": ""}, {"product": "Cilantro Bunch Iceless", "detail": "IMPERIAL FRESH \u00b7 1x30 CT", "note": ""}, {"product": "Juice Lime Pasteurized Ultra Premium", "detail": "SYSCO NATURAL \u00b7 6x1QT", "note": ""}], "roasted root veg": [{"product": "Potato Red B Size Carton", "detail": "IMPERIAL FRESH \u00b7 1x50 LB", "note": ""}, {"product": "Carrots Matchstick Shredded", "detail": "IMPERIAL FRESH \u00b7 4x5LB", "note": ""}, {"product": "Butter Solid Unsalted 83% Minimum Butterfat European", "detail": "WHOLESOME FARMS IMPERIAL \u00b7 36x1 LB", "note": ""}], "roasted root vegetable": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "rope burger slider": [{"product": "Bun Brioche Bistro Slider", "detail": "ALPHA \u00b7 8x24 CT", "note": ""}, {"product": "Cheese American Loaf Special Melting White", "detail": "CASA SOLANA IMPERIAL \u00b7 6x5 LB", "note": ""}, {"product": "Mayonnaise Heavy Duty Pail", "detail": "SYSCO RELIANCE \u00b7 1x28LB", "note": ""}, {"product": "bacon jam (housemade \u2014 see recipe book)", "detail": "off-guide staple", "note": ""}, {"product": "rope pickles (housemade \u2014 see recipe book)", "detail": "off-guide staple", "note": ""}, {"product": "Beef Ground Patty Special Blend", "detail": "SYSCO \u00b7 30x7OZ", "note": ""}], "rope burger sliders": [{"product": "Bun Brioche Bistro Slider", "detail": "ALPHA \u00b7 8x24 CT", "note": ""}, {"product": "Cheese American Loaf Special Melting White", "detail": "CASA SOLANA IMPERIAL \u00b7 6x5 LB", "note": ""}, {"product": "Mayonnaise Heavy Duty Pail", "detail": "SYSCO RELIANCE \u00b7 1x28LB", "note": ""}, {"product": "bacon jam (housemade \u2014 see recipe book)", "detail": "off-guide staple", "note": ""}, {"product": "rope pickles (housemade \u2014 see recipe book)", "detail": "off-guide staple", "note": ""}, {"product": "Beef Ground Patty Special Blend", "detail": "SYSCO \u00b7 30x7OZ", "note": ""}], "rope caesar": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "rope caesar salad": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "rope caesar salad buffet": [{"product": "Lettuce Greens Leaf Fresh", "detail": "SYSCO/FRESHPOINT NATURAL \u00b7 4x6 CT", "note": ""}, {"product": "Cheese Cotija Random Cut", "detail": "QUESO CAMPESINO (DAIRY) \u00b7 12x1#AVG", "note": ""}, {"product": "Anchovy Fillet Easy Open Tin In Olive Oil", "detail": "12 x 13 OZ", "note": ""}, {"product": "Mayonnaise Heavy Duty Pail", "detail": "SYSCO RELIANCE \u00b7 1x28LB", "note": ""}, {"product": "Mustard Dijon With White Wine In Tin", "detail": "4 x 9 LB", "note": ""}, {"product": "Juice Lime Pasteurized Ultra Premium", "detail": "SYSCO NATURAL \u00b7 6x1QT", "note": ""}, {"product": "Mix Cornbread Homestyle Complete", "detail": "KRUSTEAZ \u00b7 6x5 LB", "note": ""}, {"product": "Oil Olive Pomace Tin", "detail": "ARREZZIO CLASSIC \u00b7 3x1GAL", "note": ""}], "santa fe chicken eggrolls": [{"product": "Appetizer Eggroll Santa Fe Chicken", "detail": "BUY & FIRE \u2014 deep fry from frozen", "note": "Casa Solana, frozen"}], "smoked elk sausage corn dog bites": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "smoked trout crostini": [{"product": "Cream Heavy 40% Extended Shelf Life Stabilized", "detail": "WHOLESOME FARMS CLASSIC \u00b7 12x32OZ", "note": ""}, {"product": "smoked trout", "detail": "off-guide staple", "note": ""}, {"product": "baguette (bakery)", "detail": "off-guide staple", "note": ""}, {"product": "fresh dill", "detail": "off-guide staple", "note": ""}], "smoked trout roe deviled eggs": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}], "smores skewers": [{"product": "graham crackers", "detail": "off-guide staple", "note": ""}, {"product": "marshmallows", "detail": "off-guide staple", "note": ""}, {"product": "chocolate", "detail": "off-guide staple", "note": ""}, {"product": "Skewer Bamboo 6\" Inch", "detail": "HANDGARD \u00b7 10x1000CT", "note": ""}], "tiramisu": [{"product": "Dessert Tiramisu Tray", "detail": "BUY & FIRE \u2014 thaw & plate", "note": "dessert \u2014 thaw, no cooking"}], "trio dips": [{"product": "Cheese American Loaf Special Melting White", "detail": "CASA SOLANA IMPERIAL \u00b7 6x5 LB", "note": ""}, {"product": "Cheese Cheddar Jack Fancy Shredded", "detail": "CASA SOLANA IMPERIAL \u00b7 4x5LB", "note": ""}, {"product": "Cream Heavy 40% Extended Shelf Life Stabilized", "detail": "WHOLESOME FARMS CLASSIC \u00b7 12x32OZ", "note": ""}, {"product": "Milk Whole Gallon", "detail": "WHOLESOME FARMS CLASSIC \u00b7 4x1 GAL", "note": ""}, {"product": "Chile Green Hatch Diced Mild", "detail": "YOUNG GUNS PRODUCE \u00b7 5x5LB", "note": ""}, {"product": "Pork Butt Boneless 1/4 6-9 Pounds Each Fresh", "detail": "BUTCHERS BLOCK \u00b7 8x6-9#AV", "note": ""}, {"product": "Tomatillo Crushed", "detail": "DEL SOL (CANNED) \u00b7 6x#10", "note": ""}, {"product": "Onions White Jumbo Bag", "detail": "IMPERIAL FRESH \u00b7 1x50LB", "note": ""}, {"product": "Garlic Peeled Fresh", "detail": "IMPERIAL FRESH \u00b7 4x5LB", "note": ""}, {"product": "Soup Base Chicken Real", "detail": "SYSCO IMPERIAL \u00b7 6x1LB", "note": ""}, {"product": "Flour All Purpose Hotel & Restaurant Bleached", "detail": "SYSCO CLASSIC \u00b7 1x50LB", "note": ""}, {"product": "Tomato 2 Layer 5x6 Fresh", "detail": "IMPERIAL FRESH \u00b7 1x60 CT", "note": ""}, {"product": "Pepper Jalapeno Fresh", "detail": "IMPERIAL FRESH \u00b7 1x10 LB", "note": ""}, {"product": "Cilantro Bunch Iceless", "detail": "IMPERIAL FRESH \u00b7 1x30 CT", "note": ""}, {"product": "Chip Tortilla Yellow 4 Inches Cut", "detail": "LA BANDERITA \u00b7 1x30 LB", "note": ""}], "wild mushroom campanelle": [{"product": "\u2014 no BOM on file \u2014", "detail": "", "note": ""}]}, "prep_leads": [{"rx": "carnitas|barbacoa|pork butt|pork shoulder|short rib|brisket|pulled pork", "tasks": [["pull from freezer to thaw", 3], ["braise low & slow, cool & store", 2], ["reheat & portion", 0]]}, {"rx": "braised chicken|chicken thigh|roast(ed)? chicken|chicken leg|braised", "tasks": [["thaw", 2], ["braise / roast, cool", 1], ["reheat & portion", 0]]}, {"rx": "rellen", "tasks": [["roast, peel & seed chiles", 2], ["make filling & stuff chiles", 1], ["batter & fry", 0]]}, {"rx": "mac.*cheese|green chile mac|mac ball|cavatappi|campanelle", "tasks": [["make cheese sauce", 2], ["cook pasta & assemble pans", 1], ["bake & brown (salamander)", 0]]}, {"rx": "nashville|fried chicken|hot chicken", "tasks": [["brine chicken", 2], ["dredge & fry", 0]]}, {"rx": "caesar|aioli|aji ?verde|chimichurri|\\bverde\\b|dressing|vinaigrette|remoulade|chipotle", "tasks": [["make sauce / dressing & store", 2]]}, {"rx": "green chile\\b|salsa|queso|pico|guac", "tasks": [["make salsa / queso & store", 1]]}, {"rx": "salad|cobb|slaw|succotash|greens|elote|caprese", "tasks": [["wash & cut components", 1], ["toss / dress", 0]]}, {"rx": "cotija|cheddar|shred|crumble", "tasks": [["shred / crumble cheese", 1]]}, {"rx": "cevich|tartare|crudo|oyster|\\braw\\b", "tasks": [["cut & cure fresh", 0]]}, {"rx": "skewer|deviled egg|crudite|antipasto|\\bboard\\b|bao", "tasks": [["assemble & chill", 1]]}, {"rx": "batter|avocado taco|fish taco|corn ?dog|tempura|fritter|empanada|phyllo|phylo", "tasks": [["prep batter / filling & dredge", 1], ["fry", 0]]}, {"rx": "churro", "tasks": [["make dough", 1], ["fry & sugar", 0]]}, {"rx": "cake|cupcake|tiramisu|cobbler|mousse|brownie|cookie|dessert|\\btart\\b", "tasks": [["bake / assemble dessert", 1]]}, {"rx": "gazpacho|soup|bisque|leek|chilled corn", "tasks": [["make soup, cool & store", 1]]}, {"rx": "pickle|\\bbrine\\b|ferment", "tasks": [["pickle / brine", 2]]}], "default_prep": [["prep & mise en place", 1]], "tech_leads": [{"rx": "prime rib|roast|whole|\\bleg\\b", "min": 180, "action": "into oven / rotisserie", "station": "Oven"}, {"rx": "sous vide|carving|tenderloin", "min": 90, "action": "pull bath, sear + rest", "station": "Grille"}, {"rx": "bake|\\bmac\\b|ziti|gratin|buffet", "min": 75, "action": "pan into oven, then hold", "station": "Oven"}, {"rx": "braise|barbacoa|carnitas|chicken taco", "min": 60, "action": "pull from walk-in, reheat to temp", "station": "Grille"}, {"rx": "batter|fried|churro|corn dog|avocado|rellen|mac ball", "min": 40, "action": "fry to order", "station": "Fry"}, {"rx": "grill|slider|burger|fish taco", "min": 30, "action": "fire the grill / char", "station": "Grille"}, {"rx": "skewer|\\bdip\\b|crostini|deviled|board|caprese|toast", "min": 45, "action": "plate & stage cold", "station": "Garde"}], "staff_cfg": {"ratios": {"server_per_guest": {"passed": 60, "buffet": 70, "plated": 25}, "bartender_per_guest": 75, "cook_per_guest": {"passed": 45, "buffet": 45, "plated": 30}, "dish_per_guest": 90, "servers_min": 1, "cooks_min": 2, "dish_min_headcount": 60}, "hours": {"setup": 2, "breakdown": 1, "default_service": 4, "event_prep_base_hours": 20, "boh_prep_per_scratch_item": 1.5}, "wages": {"Server": 70, "Bartender": 70, "Line cook": 20, "Dish/steward": 20}, "benchmark": {"house_labor_pct": 0.245, "sales_per_labor_hour": 49.9, "blended_rate_per_hour": 15.66, "source": "Lariat_Equal_Pay_Workbook_2 'Labor 12mo': net sales $1,093,748; labor $267,997; 21,921 labor hrs; 24.5% labor; SPLH $49.90; blended $15.66/hr excl. $0-costed salaried GM/KM hours.", "note": "Blended house labor % over the trailing 12 months. Event FOH at $70/hr is gratuity-inclusive, so events read higher \u2014 compare event labor against the service fee + gratuity, not this number alone."}}, "money_cfg": {"tax": 0.0815, "fee": 0.2, "food_cogs": 0.32, "bar_cogs": 0.25}, "bar_cfg": {"_meta": {"source": "Industry-standard event beverage planning rates \u2014 NOT yet calibrated to Lariat actuals.", "status": "ASSUMPTION \u2014 verify against Toast bar sales on the next 3-4 events, then tune.", "convention": "drinks_per_guest_hour: first hour is heavier (arrival rush), later hours taper."}, "consumption": {"first_hour_drinks_per_guest": 2.0, "later_hour_drinks_per_guest": 1.0, "drinker_rate": 0.75, "_note": "drinker_rate = share of headcount who drink. 0.75 is a planning default; weddings run higher, corporate/family lower."}, "mix": {"beer": {"share": 0.4, "unit": "bottle/can/draft pour", "pour_cost_pct": 0.25}, "wine": {"share": 0.25, "unit": "5 oz pour", "pour_cost_pct": 0.28}, "spirits": {"share": 0.3, "unit": "1.5 oz pour", "pour_cost_pct": 0.2}, "na": {"share": 0.05, "unit": "soda/NA", "pour_cost_pct": 0.1}}, "yields": {"wine_pours_per_750ml": 5, "spirit_pours_per_750ml": 17, "spirit_pours_per_1L": 22, "beer_per_case": 24}, "packages": {"open bar basic": {"per_guest_hour": null, "note": "Quoted flat on the invoice \u2014 no per-guest rate on file."}}}, "closed_weekdays": [0, 1], "default_events": [{"event": {"client_name": "Sandra Dewek", "event_date": "2026-07-22", "weekday": "Wednesday", "headcount": 30, "start_time": "5:30 PM", "space": "", "minimum_spend": 1000, "service_style": "buffet", "service_hours": 3}, "line_items": [{"item": "Cob Salad Buffet", "amount": 2, "cost": 200, "notes": "ONION ALLERGY \u2014 no onion in or near this dish"}, {"item": "Green Chile Mac Buffet", "amount": 1, "cost": 200}, {"item": "Roasted Chicken Leg", "amount": 2, "cost": 350}, {"item": "Roasted Root Veg", "amount": 2, "cost": 250, "notes": "swap onion out of the root mix for the allergy"}, {"item": "Wild Mushroom Campanelle", "amount": 2, "cost": 350}, {"item": "Chocolate Cake", "amount": 30, "cost": 10}], "bar": {"mode": "fixed", "amount": 1200, "notes": "Open Bar Basic \u2014 quoted flat on the original invoice."}}, {"event": {"client_name": "Sammy Grelecki", "event_date": "2026-09-05", "headcount": 150, "start_time": "6:00 PM", "service_hours": 3, "space": "Full Restaurant Buyout"}, "line_items": [], "bar": {"mode": "fixed", "amount": "", "notes": "Pulled from calendar \u2014 bar tab & minimum not yet set."}}, {"event": {"client_name": "Cathy Hurrel", "event_date": "2026-09-18"}, "line_items": [], "bar": {"mode": "fixed", "amount": "", "notes": "Pulled from calendar (marked H1 \u2014 appears to be a tentative hold). No time/headcount/menu on the calendar yet."}}, {"event": {"client_name": "Jen Hippisley", "event_date": "2026-09-24", "headcount": 130, "start_time": "5:00 PM", "service_hours": 3}, "line_items": [], "bar": {"mode": "fixed", "amount": "", "notes": "Pulled from calendar \u2014 bar tab & minimum not yet set."}}, {"event": {"client_name": "Crystal Romero", "event_date": "2026-10-02", "headcount": 60, "start_time": "6:00 PM", "service_hours": 3, "space": "Full Restaurant Buyout"}, "line_items": [], "bar": {"mode": "fixed", "amount": "", "notes": "Pulled from calendar \u2014 bar tab & minimum not yet set."}}, {"event": {"client_name": "Kelsey Haynes", "event_date": "2026-10-23", "start_time": "5:30 PM", "service_hours": 3, "space": "Full Restaurant Buyout"}, "line_items": [], "bar": {"mode": "fixed", "amount": "", "notes": "Pulled from calendar \u2014 headcount, bar tab & minimum not yet set."}}, {"event": {"client_name": "Ashley Cooper", "event_date": "2026-10-24", "headcount": 100, "start_time": "7:00 PM", "service_hours": 2, "space": "Full Restaurant Buyout"}, "line_items": [], "bar": {"mode": "fixed", "amount": "", "notes": "Pulled from calendar \u2014 bar tab & minimum not yet set."}}, {"event": {"client_name": "Sean & Wendy Howell", "event_date": "2026-07-17", "weekday": "Friday", "headcount": 140, "start_time": "6:30 PM", "service_time": "7:00 PM", "space": "Full Restaurant Buyout", "minimum_spend": 8000, "service_style": "buffet", "service_hours": 3}, "line_items": [{"item": "Rope Burger Sliders", "amount": 60, "cost": 7}, {"item": "Caprese Skewers", "amount": 60, "cost": 4}, {"item": "Mini Rellenos", "amount": 60, "cost": 6}, {"item": "Rope Caesar Salad Buffet", "amount": 2, "cost": 200}, {"item": "Carnitas Tacos Buffet", "amount": 2, "cost": 350}, {"item": "Braised Chicken Taco Buffet", "amount": 2, "cost": 350}, {"item": "Trio Dips", "amount": 6, "cost": 30}, {"item": "Green Chile Mac Buffet", "amount": 2, "cost": 125}, {"item": "Churros", "amount": 60, "cost": 4}, {"item": "Battered Avocado Taco Buffet", "amount": 2, "cost": 350}], "bar": {"mode": "fixed", "amount": 3810, "notes": "Bar tab $3,810 (basic open bar)"}, "series_of_events": [{"time": "6:30 PM", "what": "Guests arrive / bar opens / passed apps begin"}, {"time": "7:00 PM", "what": "Buffet opens"}, {"time": "8:30 PM", "what": "Buffet clears / dessert (churros)"}, {"time": "9:30 PM", "what": "Event ends"}], "additional_fees": [{"item": "Deltaz tickets (100 \u00d7 $10)", "charge": 1000, "notes": "Band tickets \u2014 confirm if passthrough to band or house revenue"}]}], "disclosure": ["The 20% service charge on this invoice is a mandatory service charge, not a gratuity or tip.", "CONFIRM WORDING W/ COUNSEL: state how it is distributed (retained by the house for event staffing/operating costs, and/or a portion paid to service staff) as HB25-1090 requires.", "Any voluntary gratuity is separate, entirely at the guest's discretion, and goes to the service staff."]};
+/*ENGINE-START*/
+const norm = s => String(s||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+function matchKey(name, keys){
+  const n = norm(name); if(!n) return null;
+  let best=null, bestLen=0;
+  for(const k of keys){ if(norm(k)===n) return k; }
+  for(const k of keys){ const nk=norm(k);
+    if(nk.includes(n)||n.includes(nk)){ if(nk.length>bestLen){best=k;bestLen=nk.length;} } }
+  if(best) return best;
+  const nt=new Set(n.split(" ")); let bs=0;
+  for(const k of keys){ const kt=new Set(norm(k).split(" "));
+    let inter=0; nt.forEach(t=>{if(kt.has(t))inter++;});
+    const sc=inter/Math.max(nt.size,kt.size);
+    if(sc>=0.6&&sc>bs){bs=sc;best=k;} }
+  return best;
+}
+const WD=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+function parseDate(s){ const m=/^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(String(s||"")); return m? new Date(+m[1],+m[2]-1,+m[3]) : null; }
+function toISOLocal(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function weekdayName(s){ const d=parseDate(s); return d? WD[d.getDay()] : ""; }
+function inferStyle(lines){ const t=lines.map(l=>norm(l.item)).join(" ");
+  if(/plated|dinner/.test(t)) return "plated"; if(/buffet/.test(t)) return "buffet"; return "passed"; }
+function parseClock(s){ const m=/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i.exec(String(s||"")); if(!m) return null;
+  let h=+m[1]%12; if(/pm/i.test(m[3])) h+=12; return h*60+(+(m[2]||0)); }
+function fmtClock(min){ min=((min%1440)+1440)%1440; let h=Math.floor(min/60), mm=min%60;
+  const ap=h>=12?"PM":"AM"; h=h%12||12; return h+":"+String(mm).padStart(2,"0")+" "+ap; }
+
+function computeInvoice(S,cfg){
+  let foodRev=0; const lines=[];
+  for(const l of S.lines){ if(!l.item) continue;
+    const price=+l.price||0, qty=+l.qty||0, tot=price*qty;
+    foodRev+=tot; lines.push({item:l.item, price:price, qty:qty, total:tot, unpriced:price<=0}); }
+  const avC=S.av.reduce((a,e)=>a+(+e.charge||0),0), feeC=S.fees.reduce((a,e)=>a+(+e.charge||0),0);
+  const nonbar=foodRev+avC+feeC, min=+S.ev.minimum||0;
+  const barRev = S.bar.mode==="fill" ? Math.max(0,min-nonbar) : (+S.bar.amount||0);
+  const subtotal=nonbar+barRev, tax=subtotal*cfg.money.tax, fee=subtotal*cfg.money.fee;
+  return {lines, foodRev, avC, feeC, barRev, subtotal, tax, fee, total:subtotal+tax+fee,
+          minimum:min||null, over: min? subtotal-min : null};
+}
+function computeStaff(S,cfg,inv){
+  const H=+S.ev.headcount||0; if(!H) return null;
+  const r=cfg.staff.ratios,h=cfg.staff.hours,w=cfg.staff.wages;
+  const style=S.ev.style||inferStyle(S.lines);
+  const cd=(n,d)=>Math.max(1,Math.ceil(n/(d||1)));
+  const spg=(r.server_per_guest&&r.server_per_guest[style])||60, cpg=(r.cook_per_guest&&r.cook_per_guest[style])||45;
+  const counts=[["Server",Math.max(r.servers_min||1,cd(H,spg)),"FOH"],
+    ["Bartender",cd(H,r.bartender_per_guest||75),"FOH"],
+    ["Line cook",Math.max(r.cooks_min||2,cd(H,cpg)),"BOH"],
+    ["Dish/steward",H>=(r.dish_min_headcount||60)?1:0,"BOH"]];
+  const service=+S.ev.hours||h.default_service||4, day=service+(h.setup||2)+(h.breakdown||1);
+  const bfKeys=Object.keys(DATA.buyfire);
+  const scratch=S.lines.filter(l=>l.item && !matchKey(l.item,bfKeys)).length;
+  const prep=(+h.event_prep_base_hours||0)+scratch*(+h.boh_prep_per_scratch_item||0);
+  let roles=[],ts=0,th=0,tc=0,boh=0,foh=0,bohH=0,fohH=0;
+  for(const [role,count,zone] of counts){ if(count<=0) continue;
+    const hrs=day*count, wage=+w[role]||0, cost=hrs*wage;
+    ts+=count; th+=hrs; tc+=cost;
+    if(zone==="BOH"){boh+=cost;bohH+=hrs;} else {foh+=cost;fohH+=hrs;}
+    roles.push({role,zone,count,hours_each:day,total_hours:hrs,wage,cost}); }
+  const cookW=+w["Line cook"]||20, prepC=prep*cookW;
+  th+=prep; tc+=prepC; boh+=prepC; bohH+=prep;
+  const rev = (+S.ev.minimum||0) || inv.subtotal || 0;
+  return {style,headcount:H,roles,total_staff:ts,total_hours:th,labor_cost:tc,
+    boh_cost:boh,foh_cost:foh,boh_hours:bohH,foh_hours:fohH,
+    prep_hours:prep,prep_cost:prepC,prep_base:+h.event_prep_base_hours||0,prep_scratch:scratch,prep_per_item:+h.boh_prep_per_scratch_item||0,
+    ratio:ts?H/ts:null, lhpc:H?th/H:null, boh_lhpc:H?bohH/H:null, labor_per_cover:H?tc/H:null,
+    est_revenue:rev||null, boh_labor_pct:rev?boh/rev:null,
+    service_fee_est:rev?rev*cfg.money.fee:null, benchmark:cfg.staff.benchmark||{}};
+}
+function computeMargin(S,cfg,inv,staff){
+  if(inv.subtotal<=0) return null;
+  const collected=inv.subtotal+inv.fee;
+  const foodC=inv.foodRev*cfg.money.food_cogs, barC=inv.barRev*cfg.money.bar_cogs;
+  const labor=staff?staff.labor_cost:0;
+  const other=S.av.reduce((a,e)=>a+(+e.cost||0),0)+S.fees.reduce((a,e)=>a+(+e.cost||0),0);
+  const margin=collected-foodC-barC-labor-other;
+  return {collected,food_cogs:foodC,bar_cogs:barC,labor,other_cost:other,
+    fc:cfg.money.food_cogs,bc:cfg.money.bar_cogs,feePct:cfg.money.fee,
+    subtotal:inv.subtotal,fee:inv.fee,margin,margin_pct:collected?margin/collected:null};
+}
+function computeCountdown(S){
+  const ev=parseDate(S.ev.date); if(!ev) return null;
+  const jsClosed=(DATA.closed_weekdays||[]).map(p=>(p+1)%7);
+  const bfKeys=Object.keys(DATA.buyfire), buckets={};
+  for(const l of S.lines){ if(!l.item) continue;
+    if(matchKey(l.item,bfKeys)) continue;
+    let leads=null;
+    for(const p of DATA.prep_leads){ if(new RegExp(p.rx,"i").test(l.item)){leads=p.tasks;break;} }
+    if(!leads) leads=DATA.default_prep;
+    for(const [task,days] of leads){ if(days<1) continue;
+      const d=new Date(ev); d.setDate(d.getDate()-days);
+      while(jsClosed.includes(d.getDay())) d.setDate(d.getDate()-1);
+      const k=toISOLocal(d);
+      (buckets[k]=buckets[k]||{d,tasks:[]}).tasks.push({item:l.item,task}); } }
+  const days=Object.values(buckets).sort((a,b)=>a.d-b.d);
+  return days.length? days.map(x=>({label:WD[x.d.getDay()].slice(0,3)+" "+String(x.d.getMonth()+1).padStart(2,"0")+"/"+String(x.d.getDate()).padStart(2,"0"), date:toISOLocal(x.d), tasks:x.tasks})) : null;
+}
+function computeBarPlan(S){
+  const b=DATA.bar_cfg||{}; if(!b.consumption) return null;
+  const heads=+S.ev.headcount||0;
+  const hrs=+S.ev.hours || (DATA.staff_cfg.hours||{}).default_service || 4;
+  if(!heads||!hrs) return null;
+  const c=b.consumption, rate=+c.drinker_rate||0.75;
+  const drinkers=heads*rate;
+  const drinks=drinkers*((+c.first_hour_drinks_per_guest||2)+(+c.later_hour_drinks_per_guest||1)*Math.max(0,hrs-1));
+  const y=b.yields||{}, rows=[];
+  for(const [name,m] of Object.entries(b.mix||{})){
+    const n=drinks*(+m.share||0); if(n<=0) continue;
+    let order="";
+    if(name==="beer") order=Math.ceil(n/(+y.beer_per_case||24))+" case(s)";
+    else if(name==="wine") order=Math.ceil(n/(+y.wine_pours_per_750ml||5))+" btl 750ml";
+    else if(name==="spirits") order=Math.ceil(n/(+y.spirit_pours_per_750ml||17))+" btl 750ml";
+    rows.push({category:name,drinks:n,unit:m.unit||"",order:order});
+  }
+  return {drinkers:drinkers,hours:hrs,total:drinks,perGuest:heads?drinks/heads:null,rows:rows};
+}
+function computeFire(S){
+  const base=parseClock(S.ev.service); if(base==null) return null;
+  const bfKeys=Object.keys(DATA.buyfire), steps=[];
+  for(const l of S.lines){ if(!l.item) continue;
+    const bk=matchKey(l.item,bfKeys);
+    if(bk){ const e=DATA.buyfire[bk];
+      const st=/fry/i.test(e.method)?"Fryer":(/bake|oven/i.test(e.method)?"Oven":"Line");
+      steps.push([base-(+e.lead||15),st,e.method||"fire from frozen",l.item]); continue; }
+    let hit=null;
+    for(const t of DATA.tech_leads){ if(new RegExp(t.rx,"i").test(l.item)){hit=t;break;} }
+    if(hit) steps.push([base-hit.min,hit.station,hit.action,l.item]);
+    else steps.push([base-20,"Line","stage, sauce & garnish",l.item]); }
+  steps.push([base,"All","food to guests / buffet live","—"]);
+  steps.sort((a,b)=>a[0]-b[0]);
+  return steps.map(s=>({time:fmtClock(s[0]),station:s[1],action:s[2],item:s[3]}));
+}
+function computeMatrix(S){
+  const keys=Object.keys(DATA.matrix);
+  return S.lines.filter(l=>l.item).map(l=>{
+    const k=matchKey(l.item,keys);
+    return k? {item:l.item, contains:DATA.matrix[k].contains, status:DATA.matrix[k].status}
+            : {item:l.item, contains:"", status:"NEED — no recipe on file"}; });
+}
+function computePurchase(S){
+  const keys=Object.keys(DATA.purchase), out=[];
+  for(const l of S.lines){ if(!l.item) continue;
+    const k=matchKey(l.item,keys);
+    if(k) DATA.purchase[k].forEach(r=>out.push({item:l.item,...r}));
+    else out.push({item:l.item,product:"—",detail:"",note:"no BOM on file"}); }
+  return out;
+}
+function computeActuals(S,margin,staff,inv){
+  const a=S.actuals||{}; const num=k=>{const v=a[k]; if(v===""||v==null) return null; const n=+v; return isFinite(n)?n:null;};
+  const keys=["food_sales","bar_sales","food_cost","bar_cost","foh_hours","boh_hours","labor_cost"];
+  if(!keys.some(k=>num(k)!=null)) return null;
+  const m=margin||{}, s=staff||{}, rows=[], learn=[];
+  const row=(label,fc,ac,money)=>{ if(fc==null&&ac==null) return;
+    rows.push({label,forecast:fc,actual:ac,delta:(fc!=null&&ac!=null)?ac-fc:null,money:money!==false}); };
+  const fs=num("food_sales"), bs=num("bar_sales"), fcC=num("food_cost"), bcC=num("bar_cost");
+  const ah=num("foh_hours"), bh=num("boh_hours"), al=num("labor_cost");
+  const iv=inv||{};
+  row("Food revenue",iv.foodRev,fs); row("Bar revenue",iv.barRev,bs);
+  row("Food COGS",m.food_cogs,fcC); row("Bar COGS",m.bar_cogs,bcC);
+  row("FOH hours",s.foh_hours,ah,false); row("BOH hours",s.boh_hours,bh,false);
+  row("Labor $",s.labor_cost,al);
+  if(fs&&fcC!=null){ const real=fcC/fs;
+    learn.push("Real food cost "+(real*100).toFixed(1)+"% vs the "+((m.fc||0)*100).toFixed(0)+"% assumption — "+
+      (real<(m.fc||0)?"model runs high (conservative).":"model runs low, margin is optimistic.")); }
+  if(bs&&bcC!=null){ learn.push("Real bar cost "+((bcC/bs)*100).toFixed(1)+"% vs the "+((m.bc||0)*100).toFixed(0)+"% assumption."); }
+  if(bh!=null&&s.boh_hours){ learn.push("BOH hours actual "+bh+" vs planned "+Math.round(s.boh_hours)+" — "+
+      (bh<s.boh_hours?"prep model over-plans.":"prep model under-plans.")); }
+  if(ah!=null&&s.foh_hours){ learn.push("FOH hours actual "+ah+" vs planned "+Math.round(s.foh_hours)+" — tune guests-per-server if it repeats."); }
+  const heads=+S.ev.headcount||0;
+  if(heads&&(ah!=null||bh!=null)){ learn.push("Actual labor hours per cover: "+(((ah||0)+(bh||0))/heads).toFixed(2)+
+      (s.lhpc?" (planned "+s.lhpc.toFixed(2)+").":".")); }
+  let am=null;
+  if(fs!=null||bs!=null){ const rev=(fs||0)+(bs||0), fee=rev*(cfgFee()), cost=(fcC||0)+(bcC||0)+(al!=null?al:(s.labor_cost||0));
+    am={collected:rev+fee, margin:rev+fee-cost, margin_pct:(rev+fee)?(rev+fee-cost)/(rev+fee):null};
+    row("EVENT MARGIN $",m.margin,am.margin); }
+  return {rows,learnings:learn,actual_margin:am,notes:a.notes||""};
+}
+function cfgFee(){ try{ return +S.cfg.money.fee||0.20; }catch(e){ return 0.20; } }
+function computeAll(S,cfg){
+  const inv=computeInvoice(S,cfg);
+  const staff=computeStaff(S,cfg,inv);
+  const margin=computeMargin(S,cfg,inv,staff);
+  const flags=[];
+  inv.lines.forEach(l=>{ if(l.unpriced) flags.push("Unpriced line: "+l.item); });
+  computeMatrix(S).forEach(m=>{ if(/^need/i.test(m.status)) flags.push("Allergen data missing: "+m.item); });
+  S.fees.concat(S.av).forEach(e=>{ if(e.notes) flags.push((e.item||"Fee")+": "+e.notes); });
+  if(S.bar.mode==="fill" && !(+S.ev.minimum)) flags.push("Bar is set to fill-to-minimum but no minimum spend is set.");
+  if(margin && margin.margin_pct!=null && margin.margin_pct<0.40) flags.push("Event margin under 40% — check the minimum, the menu mix, or the labor plan.");
+  if(staff && staff.service_fee_est!=null && staff.foh_cost>staff.service_fee_est) flags.push("FOH comp exceeds the 20% service fee — tips fill the gap.");
+  return {inv,staff,margin,flags,countdown:computeCountdown(S),fire:computeFire(S),
+          matrix:computeMatrix(S),purchase:computePurchase(S),actuals:computeActuals(S,margin,staff,inv)};
+}
+/*ENGINE-END*/
+
+/* ---------------- state: multi-event workspace ---------------- */
+const OLDKEY="lariatBeoStudio.v1", KEY="lariatBeoStudio.v2";
+function blankEvent(){ return {ev:{client:"",date:"",headcount:"",start:"",service:"",space:"",minimum:"",style:"",hours:""},
+  lines:[], bar:{mode:"fill",amount:"",notes:""}, av:[], fees:[], soe:[], checks:{}, actuals:{}, savedAt:0}; }
+function blankState(){ return Object.assign(blankEvent(),
+  {cfg:{money:JSON.parse(JSON.stringify(DATA.money_cfg)), staff:JSON.parse(JSON.stringify(DATA.staff_cfg))},
+   prices:JSON.parse(JSON.stringify(DATA.prices))}); }
+function eventFromSpec(sp){ if(!sp) return null; const S=blankEvent(); const e=sp.event||{};
+  S.ev={client:e.client_name||"",date:e.event_date||"",headcount:e.headcount||"",start:e.start_time||"",
+    service:e.service_time||"",space:e.space||"",minimum:e.minimum_spend||"",style:e.service_style||"",hours:e.service_hours||""};
+  S.lines=(sp.line_items||[]).map(l=>({item:l.item||"",qty:l.amount||"",price:l.cost||"",auto:false}));
+  const b=sp.bar||{}; S.bar={mode:b.mode==="fill_minimum"?"fill":"fixed",amount:b.amount||"",notes:b.notes||""};
+  S.av=(sp.av||[]).map(e=>({item:e.item||"",charge:e.charge||"",cost:e.cost||"",notes:e.notes||""}));
+  S.fees=(sp.additional_fees||[]).map(e=>({item:e.item||"",charge:e.charge||"",cost:e.cost||"",notes:e.notes||""}));
+  S.soe=(sp.series_of_events||[]).map(x=>({time:x.time||"",what:x.what||""}));
+  return S; }
+function newId(){ return "e"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+const EVENT_KEYS=["ev","lines","bar","av","fees","soe","checks","actuals","savedAt"];
+function eventPart(state){ const o={}; EVENT_KEYS.forEach(k=>o[k]=state[k]); return o; }
+
+function loadWorkspace(){
+  try{
+    const raw=localStorage.getItem(KEY);
+    if(raw) return JSON.parse(raw);
+    const old=localStorage.getItem(OLDKEY);           // migrate a single-event v1 save
+    if(old){ const o=JSON.parse(old);
+      const id=newId(); const ev=Object.assign(blankEvent(), eventPart(o), {savedAt:Date.now()});
+      return {activeId:id, events:{[id]:ev},
+        cfg:o.cfg||blankState().cfg, prices:o.prices||blankState().prices}; }
+  }catch(e){}
+  return null;
+}
+function saveWorkspace(){
+  try{
+    WS.events[WS.activeId]=Object.assign(eventPart(S),{savedAt:Date.now()});
+    WS.cfg=S.cfg; WS.prices=S.prices;
+    localStorage.setItem(KEY, JSON.stringify(WS));
+  }catch(e){}
+}
+function store(){ saveWorkspace(); }
+function makeS(){ return Object.assign({}, WS.events[WS.activeId], {cfg:WS.cfg, prices:WS.prices}); }
+
+let WS = loadWorkspace();
+if(!WS){
+  const seeds=(DATA.default_events&&DATA.default_events.length)? DATA.default_events : [];
+  const events={}; let firstId=null;
+  seeds.forEach((sp,i)=>{ const ev=eventFromSpec(sp); if(!ev) return;
+    const id=newId()+"_"+i; events[id]=Object.assign(ev,{savedAt:Date.now()-i});
+    if(!firstId) firstId=id; });
+  if(!firstId){ firstId=newId(); events[firstId]=blankEvent(); }
+  WS = {activeId:firstId, events,
+        cfg:blankState().cfg, prices:blankState().prices};
+}
+if(!WS.events[WS.activeId]) WS.activeId = Object.keys(WS.events)[0] || (()=>{const id=newId(); WS.events[id]=blankEvent(); return id;})();
+let S = makeS();
+
+function openEvent(id){ if(!WS.events[id]) return; store(); WS.activeId=id; S=makeS(); saveWorkspace(); show("event"); }
+function newEvent(){ store(); const id=newId(); WS.events[id]=blankEvent(); WS.activeId=id; S=makeS(); saveWorkspace(); show("event"); }
+function duplicateEvent(id){ store(); const src=WS.events[id]; if(!src) return;
+  const copy=JSON.parse(JSON.stringify(src)); copy.ev.client=(copy.ev.client||"Untitled")+" (copy)"; copy.savedAt=Date.now();
+  const nid=newId(); WS.events[nid]=copy; WS.activeId=nid; S=makeS(); saveWorkspace(); show("event"); }
+function deleteEvent(id){ if(!confirm("Delete this event? This can't be undone.")) return;
+  delete WS.events[id];
+  if(Object.keys(WS.events).length===0){ const nid=newId(); WS.events[nid]=blankEvent(); WS.activeId=nid; }
+  else if(WS.activeId===id){ WS.activeId=Object.keys(WS.events).sort((a,b)=>WS.events[b].savedAt-WS.events[a].savedAt)[0]; }
+  S=makeS(); saveWorkspace(); show(activeView==="library"?"library":"event"); }
+function findMatchingEvent(ev){
+  const target=norm(ev&&ev.client||"")+"|"+((ev&&ev.date)||"");
+  if(target==="|") return null;
+  for(const id of Object.keys(WS.events)){
+    const e=WS.events[id].ev;
+    if(norm(e.client||"")+"|"+(e.date||"")===target) return id;
+  }
+  return null;
+}
+function importAsNewEvent(spec){
+  const ev=Object.assign(blankEvent(), eventPart(spec), {savedAt:Date.now()});
+  const matchId=findMatchingEvent(spec.ev||{});
+  if(matchId){
+    const nm=(spec.ev&&spec.ev.client)||"this client", dt=(spec.ev&&spec.ev.date)||"that date";
+    const overwrite=confirm('An event for "'+nm+'" on '+dt+' already exists in your library.\n\n'+
+      'OK — overwrite it with this import.\nCancel — import as a new, separate event.');
+    if(overwrite){ store(); WS.events[matchId]=ev; WS.activeId=matchId; S=makeS(); saveWorkspace(); return; }
+  }
+  store(); const id=newId(); WS.events[id]=ev; WS.activeId=id; S=makeS(); saveWorkspace();
+}
+
+
+/* ---------------- helpers ---------------- */
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const $$m=v=>v==null?"—":"$"+Number(v).toLocaleString(undefined,{maximumFractionDigits:0});
+const $c=v=>v==null?"—":"$"+Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct=(v,d=1)=>v==null?"—":(100*v).toFixed(d)+"%";
+function daysUntil(dateStr){ const d=parseDate(dateStr); if(!d) return null;
+  const today=new Date(); today.setHours(0,0,0,0); return Math.round((d-today)/86400000); }
+const el=id=>document.getElementById(id);
+let activeView="event";
+
+function renderEvline(){
+  const e=S.ev, R=computeAll(S,S.cfg);
+  el("evline").innerHTML=[e.client?"<b>"+esc(e.client)+"</b>":"<b>New event</b>",
+    e.date?'<span class="m">'+esc(weekdayName(e.date))+" "+esc(e.date)+"</span>":"",
+    e.start?'<span class="m">'+esc(e.start)+(e.service?" · service "+esc(e.service):"")+"</span>":"",
+    e.headcount?"<b>"+esc(e.headcount)+" covers</b>":"", esc(e.space||""),
+    R.staff?esc(R.staff.style)+" service":""].filter(Boolean).join("<span style='opacity:.4'>·</span>");
+}
+function renderStrip(){
+  const R=computeAll(S,S.cfg), i=R.inv, m=R.margin;
+  const minPart = i.minimum? (i.over>=0? '<span class="ok">MIN OK +'+$$m(i.over)+'</span>':'<span class="warn">UNDER MIN '+$$m(-i.over)+'</span>') : '<span class="warn">NO MINIMUM SET</span>';
+  el("strip").innerHTML =
+    '<span>SUBTOTAL <b>'+$$m(i.subtotal)+'</b></span>'+
+    '<span>TOTAL W/ TAX+FEE <b>'+$$m(i.total)+'</b></span>'+ '<span>'+minPart+'</span>'+
+    (m? '<span>MARGIN <b class="'+(m.margin_pct<0.4?'warn':'ok')+'">'+$$m(m.margin)+' · '+pct(m.margin_pct)+'</b></span>':'')+
+    (R.staff? '<span>STAFF <b>'+R.staff.total_staff+'</b> · '+R.staff.lhpc.toFixed(2)+' LBHR/COVER</span>':'');
+}
+
+/* ---------------- EVENT tab ---------------- */
+function rowsHtml(arr,cols){ return arr.map((e,i)=>"<tr>"+cols.map(c=>
+  '<td'+(c.n?' class="n"':'')+'><input class="'+(c.cls||"")+'" data-a="'+c.k+'" data-i="'+i+'" value="'+esc(e[c.k]??"")+'" '+(c.ph?'placeholder="'+c.ph+'"':'')+(c.list?' list="menuItems"':'')+'></td>').join("")+
+  '<td><button class="x" data-del="'+i+'">✕</button></td></tr>').join(""); }
+
+function renderEvent(){
+  const e=S.ev;
+  el("view-event").innerHTML=`
+  <div class="grid">
+    <div>
+      <div class="card"><h2>Event Details <span class="tag">HEADER</span></h2>
+        <div class="frow c2">
+          <div class="f"><label>Client</label><input data-e="client" value="${esc(e.client)}"></div>
+          <div class="f"><label>Space</label><input data-e="space" value="${esc(e.space)}" placeholder="Full Restaurant Buyout"></div>
+        </div>
+        <div class="frow c3">
+          <div class="f"><label>Date</label><input data-e="date" type="date" value="${esc(e.date)}"></div>
+          <div class="f"><label>Guests arrive</label><input data-e="start" class="mono" value="${esc(e.start)}" placeholder="6:30 PM"></div>
+          <div class="f"><label>Food service</label><input data-e="service" class="mono" value="${esc(e.service)}" placeholder="7:00 PM"></div>
+        </div>
+        <div class="frow c3">
+          <div class="f"><label>Covers</label><input data-e="headcount" class="mono" type="number" value="${esc(e.headcount)}"></div>
+          <div class="f"><label>Minimum spend $</label><input data-e="minimum" class="mono" type="number" value="${esc(e.minimum)}"></div>
+          <div class="f"><label>Service hours</label><input data-e="hours" class="mono" type="number" step="0.5" value="${esc(e.hours)}" placeholder="4"></div>
+        </div>
+        <div class="frow c2">
+          <div class="f"><label>Service style</label><select data-e="style">
+            <option value="">auto from menu</option>
+            ${["passed","buffet","plated"].map(s=>'<option '+(e.style===s?"selected":"")+' value="'+s+'">'+s+"</option>").join("")}
+          </select></div>
+        </div>
+      </div>
+      <div class="card"><h2>The Order <span class="tag">FOOD</span></h2>
+        <table><thead><tr><th>Item</th><th class="n">Price $</th><th class="n">Qty</th><th class="n">Total</th><th></th></tr></thead>
+        <tbody id="orderRows"></tbody></table>
+        <button class="addbtn" id="addLine">+ ADD LINE</button>
+        <div class="small" style="margin-top:8px">Pick from the menu list or type anything — known items auto-price from Settings › Menu Prices. Unpriced lines flag on Management.</div>
+      </div>
+      <div class="card"><h2>Run of Show <span class="tag">TIMELINE</span></h2>
+        <table><thead><tr><th style="width:110px">Time</th><th>What</th><th></th></tr></thead><tbody id="soeRows"></tbody></table>
+        <button class="addbtn" id="addSoe">+ ADD MOMENT</button>
+      </div>
+    </div>
+    <div>
+      <div class="card"><h2>Bar <span class="tag">BEVERAGE</span></h2>
+        <div class="f"><label>Mode</label><select id="barMode">
+          <option value="fill" ${S.bar.mode==="fill"?"selected":""}>Fill to the event minimum</option>
+          <option value="fixed" ${S.bar.mode==="fixed"?"selected":""}>Fixed bar tab</option></select></div>
+        <div class="f"><label>Bar amount $ ${S.bar.mode==="fill"?"(computed)":""}</label>
+          <input id="barAmt" class="mono" type="number" value="${esc(S.bar.mode==="fill"? "" : S.bar.amount)}" ${S.bar.mode==="fill"?"disabled placeholder='auto'":""}></div>
+        <div class="f"><label>Notes</label><input id="barNotes" value="${esc(S.bar.notes)}"></div>
+        <div class="small" id="barCalc"></div>
+      </div>
+      <div class="card"><h2>A/V &amp; Production <span class="tag">CHARGE + COST</span></h2>
+        <table><thead><tr><th>Item</th><th class="n">Charge $</th><th class="n">Cost $</th><th></th></tr></thead><tbody id="avRows"></tbody></table>
+        <button class="addbtn" id="addAv">+ ADD A/V</button>
+      </div>
+      <div class="card"><h2>Additional Fees <span class="tag">CHARGE + COST</span></h2>
+        <table><thead><tr><th>Item</th><th class="n">Charge $</th><th class="n">Cost $</th><th></th></tr></thead><tbody id="feeRows"></tbody></table>
+        <button class="addbtn" id="addFee">+ ADD FEE</button>
+        <div class="small" style="margin-top:8px">A charge bills the client; a cost hits the margin. Note field: add via export/JSON if needed.</div>
+      </div>
+    </div>
+  </div>`;
+  paintRows();
+  el("view-event").querySelectorAll("[data-e]").forEach(inp=>inp.addEventListener("input",()=>{
+    S.ev[inp.dataset.e]=inp.value;
+    if(inp.dataset.e==="date") S.ev.weekday=weekdayName(inp.value);
+    lite();
+    if(inp.dataset.e==="style"||inp.dataset.e==="minimum") paintRows();
+  }));
+  el("barMode").addEventListener("change",ev=>{S.bar.mode=ev.target.value; renderEvent(); lite();});
+  el("barAmt").addEventListener("input",ev=>{S.bar.amount=ev.target.value; lite();});
+  el("barNotes").addEventListener("input",ev=>{S.bar.notes=ev.target.value; store();});
+  el("addLine").onclick=()=>{S.lines.push({item:"",qty:"",price:"",auto:true}); renderEvent(); lite();};
+  el("addSoe").onclick=()=>{S.soe.push({time:"",what:""}); renderEvent();};
+  el("addAv").onclick=()=>{S.av.push({item:"",charge:"",cost:""}); renderEvent(); lite();};
+  el("addFee").onclick=()=>{S.fees.push({item:"",charge:"",cost:""}); renderEvent(); lite();};
+}
+function paintRows(){
+  el("orderRows").innerHTML=S.lines.map((l,i)=>{
+    const tot=(+l.price||0)*(+l.qty||0);
+    return '<tr><td><input list="menuItems" data-l="item" data-i="'+i+'" value="'+esc(l.item)+'"></td>'+
+      '<td class="n"><input class="price" data-l="price" data-i="'+i+'" type="number" step="0.5" value="'+esc(l.price)+'"></td>'+
+      '<td class="n"><input class="qty" data-l="qty" data-i="'+i+'" type="number" value="'+esc(l.qty)+'"></td>'+
+      '<td class="n" id="lt'+i+'">'+$$m(tot)+'</td><td><button class="x" data-del-line="'+i+'">✕</button></td></tr>';}).join("");
+  el("soeRows").innerHTML=rowsHtml(S.soe,[{k:"time",cls:"mono",ph:"6:30 PM"},{k:"what",ph:"Buffet opens"}]);
+  el("avRows").innerHTML=rowsHtml(S.av,[{k:"item",ph:"Sound system + tech"},{k:"charge",cls:"price",n:1},{k:"cost",cls:"price",n:1}]);
+  el("feeRows").innerHTML=rowsHtml(S.fees,[{k:"item",ph:"Cleaning fee"},{k:"charge",cls:"price",n:1},{k:"cost",cls:"price",n:1}]);
+  el("view-event").querySelectorAll("[data-l]").forEach(inp=>inp.addEventListener("input",()=>{
+    const i=+inp.dataset.i, k=inp.dataset.l, L=S.lines[i]; L[k]=inp.value;
+    if(k==="item"){ const mk=matchKey(L.item,Object.keys(S.prices));
+      if(mk && (L.auto!==false || !L.price)){ L.price=S.prices[mk]; L.auto=true;
+        const pi=el("view-event").querySelector('[data-l="price"][data-i="'+i+'"]'); if(pi) pi.value=L.price; } }
+    if(k==="price") L.auto=false;
+    const t=el("lt"+i); if(t) t.textContent=$$m((+L.price||0)*(+L.qty||0));
+    lite(); }));
+  el("view-event").querySelectorAll("[data-del-line]").forEach(b=>b.onclick=()=>{S.lines.splice(+b.dataset.delLine,1); renderEvent(); lite();});
+  el("view-event").querySelectorAll("[data-a]").forEach(inp=>inp.addEventListener("input",()=>{
+    const i=+inp.dataset.i, k=inp.dataset.a;
+    const arr = inp.closest("#soeRows")?S.soe : inp.closest("#avRows")?S.av : S.fees;
+    arr[i][k]=inp.value; lite(); }));
+  el("view-event").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+    const tb=b.closest("tbody").id, i=+b.dataset.del;
+    (tb==="soeRows"?S.soe:tb==="avRows"?S.av:S.fees).splice(i,1); renderEvent(); lite();});
+  const R=computeAll(S,S.cfg);
+  el("barCalc").textContent = S.bar.mode==="fill" ? ("Computed bar: "+$$m(R.inv.barRev)+" (minimum − food − charges)") : "";
+}
+function lite(){ renderEvline(); renderStrip(); const bc=el("barCalc");
+  if(bc){const R=computeAll(S,S.cfg); bc.textContent=S.bar.mode==="fill"?("Computed bar: "+$$m(R.inv.barRev)+" (minimum − food − charges)"):"";} store(); }
+
+/* ---------------- HOST ---------------- */
+function renderHost(){
+  const R=computeAll(S,S.cfg), i=R.inv, s=R.staff||{roles:[]};
+  const soe=S.soe.filter(x=>x.time||x.what).map(x=>"<li><time>"+esc(x.time)+"</time><div>"+esc(x.what)+"</div></li>").join("")||"<li><div class='small'>No run of show yet — add it on the Event tab.</div></li>";
+  const rows=i.lines.map(l=>"<tr><td>"+esc(l.item)+"</td><td class='n'>"+(l.unpriced?"<span class='badge b-need'>NEED</span>":$c(l.price))+"</td><td class='n'>"+esc(l.qty)+"</td><td class='n'>"+$$m(l.total)+"</td></tr>").join("")+
+    (i.barRev?"<tr><td class='b-bar'>Bar"+(S.bar.notes?" <span class='small'>— "+esc(S.bar.notes)+"</span>":"")+"</td><td class='n'>"+$$m(i.barRev)+"</td><td class='n'>1</td><td class='n'>"+$$m(i.barRev)+"</td></tr>":"")+
+    S.av.concat(S.fees).filter(e=>+e.charge).map(e=>"<tr><td>"+esc(e.item)+"</td><td class='n'>"+$$m(e.charge)+"</td><td class='n'>1</td><td class='n'>"+$$m(e.charge)+"</td></tr>").join("");
+  const fill=i.minimum?Math.min(100,100*i.subtotal/i.minimum):0;
+  const foh=(s.roles||[]).filter(r=>r.zone==="FOH").map(r=>"<tr><td>"+r.role+"</td><td class='n'>"+r.count+"</td><td class='n'>"+r.hours_each+"h</td><td class='n'>"+$$m(r.cost)+"</td></tr>").join("");
+  const hot=R.matrix.filter(m=>/shellfish|fish|peanut|tree nut/i.test(m.contains||"")).map(m=>"<div class='small'><b>"+esc(m.item)+"</b>: "+esc(m.contains)+"</div>").join("")||"<div class='small'>No high-risk items flagged.</div>";
+  el("view-host").innerHTML=`<div class="grid"><div>
+    <div class="card"><h2>Run of Show <span class="tag">FLOOR</span></h2><ul class="soe">${soe}</ul></div>
+    <div class="card"><h2>The Money at the Door <span class="tag">BILLING</span></h2>
+      <table><thead><tr><th>Item</th><th class="n">Price</th><th class="n">Qty</th><th class="n">Total</th></tr></thead><tbody>${rows}
+      <tr class="totrow"><td>Sub total</td><td></td><td></td><td class="n">${$$m(i.subtotal)}</td></tr>
+      <tr><td>Taxes (${pct(S.cfg.money.tax,2)})</td><td></td><td></td><td class="n">${$c(i.tax)}</td></tr>
+      <tr><td>Service fee (${pct(S.cfg.money.fee,0)})</td><td></td><td></td><td class="n">${$$m(i.fee)}</td></tr>
+      <tr class="totrow"><td>TOTAL</td><td></td><td></td><td class="n">${$c(i.total)}</td></tr></tbody></table>
+      ${i.minimum?`<div class="small" style="margin-top:10px">Minimum ${$$m(i.minimum)} — <b>${i.over>=0?"over by "+$$m(i.over):"UNDER by "+$$m(-i.over)}</b></div>
+      <div class="meter ${i.over<0?"under":""}"><div class="fill" style="width:${fill}%"></div><div class="pin" style="left:100%"></div></div>`:""}
+      <div class="disc">${DATA.disclosure.map(esc).join("<br>")}</div></div>
+  </div><div>
+    <div class="card"><h2>Bar Plan <span class="tag">BAR</span></h2>
+      <div style="font-family:var(--disp);font-weight:800;font-size:30px">${$$m(i.barRev)}</div>
+      <div class="small">${esc(S.bar.notes||(S.bar.mode==="fill"?"Fills to the event minimum after food & charges":""))}</div>
+      ${(()=>{const bp=computeBarPlan(S); if(!bp) return "";
+        return `<table style="margin-top:10px"><thead><tr><th>Pour</th><th class="n">Drinks</th><th class="n">Pull</th></tr></thead><tbody>`+
+          bp.rows.map(x=>`<tr><td>${esc(x.category)}<div class="small">${esc(x.unit)}</div></td><td class="n">${Math.round(x.drinks)}</td><td class="n">${esc(x.order)}</td></tr>`).join("")+
+          `<tr class="totrow"><td>TOTAL — ${bp.drinkers.toFixed(0)} drinkers × ${bp.hours}h</td><td class="n">${Math.round(bp.total)}</td><td class="n">${bp.perGuest?bp.perGuest.toFixed(1)+"/guest":""}</td></tr></tbody></table>
+          <div class="small" style="margin-top:6px">Consumption estimate — <b>not yet calibrated</b> to Lariat actuals. Log real bar sales after the event to tune.</div>`;})()}</div>
+    <div class="card"><h2>FOH Crew <span class="tag">STAFF</span></h2>
+      <table><thead><tr><th>Role</th><th class="n">#</th><th class="n">Hrs</th><th class="n">Comp</th></tr></thead><tbody>${foh||"<tr><td class='small'>Set covers on the Event tab.</td></tr>"}</tbody></table>
+      <div class="small" style="margin-top:8px">$${S.cfg.staff.wages.Server||70}/hr FOH is gratuity-inclusive — funded by the service fee + tips.${s.ratio?" 1 staff per "+Math.round(s.ratio)+" guests overall.":""}</div></div>
+    <div class="card"><h2>Allergies &amp; Dietary <span class="tag">SAFETY</span></h2>${hot}
+      <div class="small" style="margin-top:6px">Full matrix on the Kitchen view. Confirm guest allergies with the client 72h out.</div></div>
+  </div></div>`;
+}
+
+/* ---------------- KITCHEN ---------------- */
+function renderKitchen(){
+  const R=computeAll(S,S.cfg), e=S.ev;
+  const days=(R.countdown||[]).map(d=>'<div class="day"><h3>'+esc(d.label)+"</h3>"+
+    d.tasks.map(t=>{const ck=d.label+"|"+t.item+"|"+t.task, on=!!S.checks[ck];
+      return '<label class="'+(on?"done":"")+'"><input type="checkbox" data-ck="'+esc(ck)+'" '+(on?"checked":"")+'><span><span class="it">'+esc(t.item)+"</span> — "+esc(t.task)+"</span></label>";}).join("")+"</div>").join("")
+    ||"<div class='small'>Add an event date and menu lines to generate the countdown.</div>";
+  const fire=(R.fire||[]).map(f=>'<div class="row"><span class="t">'+esc(f.time)+'</span><span class="st">'+esc(f.station)+'</span><span>'+esc(f.action)+'<div class="it">'+esc(f.item)+"</div></span></div>").join("");
+  const mx=R.matrix.map(m=>{const need=/^need/i.test(m.status||"");
+    const b=(m.contains||"").split(",").map(a=>a.trim()).filter(Boolean).map(a=>'<span class="badge '+(/shellfish|peanut|tree nut|fish/i.test(a)?"b-need":"b-warn")+'">'+esc(a)+"</span>").join("")||"<span class='small'>—</span>";
+    return "<tr><td>"+esc(m.item)+"</td><td>"+b+"</td><td>"+(need?'<span class="badge b-need">NEED RECIPE</span>':'<span class="badge b-ok">'+esc(m.status)+"</span>")+"</td></tr>";}).join("");
+  const pl=R.purchase.map(p=>"<tr><td>"+esc(p.item)+"</td><td>"+esc(p.product)+"</td><td class='mono' style='font-size:12px'>"+esc(p.detail)+"</td><td class='small'>"+esc(p.note)+"</td></tr>").join("");
+  el("view-kitchen").innerHTML=`<div class="grid"><div>
+    <div class="card"><h2>Prep Countdown <span class="tag">${esc(e.headcount||"—")} COVERS${R.staff?" · "+esc(R.staff.style).toUpperCase():""}</span></h2>
+      <div class="small" style="margin-bottom:10px">Backward from ${esc(weekdayName(e.date)||"—")} ${esc(e.date||"")}. Kitchen dark Mon/Tue — long leads roll to Sunday.</div>
+      ${days}
+      <div class="day today"><h3>Event Day</h3><div class="small" style="padding:4px 0">→ run the FIRE SCHEDULE chit. Service ${esc(e.service||"—")}.</div></div></div>
+    <div class="card"><h2>Allergen Matrix <span class="tag">BIG 9</span></h2>
+      <table><thead><tr><th>Item</th><th>Contains</th><th>Source</th></tr></thead><tbody>${mx||""}</tbody></table>
+      <div class="small" style="margin-top:8px">“Contains” only from declared recipes — NEED means get the recipe before promising anything.</div></div>
+  </div><div>
+    <div class="chit" style="margin-bottom:18px"><h3>★ FIRE SCHEDULE · SERVICE ${esc(e.service||"—")} ★</h3>${fire||"<div class='small'>Set a food-service time on the Event tab.</div>"}</div>
+    <div class="card"><h2>To Purchase <span class="tag">SYSCO/SHAMROCK</span></h2>
+      <table><thead><tr><th>Menu item</th><th>Product</th><th>Pack</th><th>Note</th></tr></thead><tbody>${pl||""}</tbody></table></div>
+  </div></div>`;
+  el("view-kitchen").querySelectorAll("[data-ck]").forEach(cb=>cb.addEventListener("change",()=>{
+    S.checks[cb.dataset.ck]=cb.checked; cb.closest("label").classList.toggle("done",cb.checked); store();}));
+}
+
+/* ---------------- MANAGEMENT ---------------- */
+function renderMgmt(){
+  const R=computeAll(S,S.cfg), m=R.margin, s=R.staff, bm=(s&&s.benchmark)||{};
+  if(!m){ el("view-mgmt").innerHTML="<div class='card'><h2>Management</h2><div class='small'>Build the order on the Event tab to see the money.</div></div>"; return; }
+  const low=m.margin_pct!=null&&m.margin_pct<0.40;
+  const rows=(s?s.roles:[]).map(r=>"<tr><td>"+r.role+" <span class='small'>("+r.zone+")</span></td><td class='n'>"+r.count+"</td><td class='n'>"+r.total_hours+"h</td><td class='n'>"+$$m(r.cost)+"</td></tr>").join("")+
+    (s&&s.prep_hours?"<tr><td>BOH prep — "+s.prep_base+"h base + "+s.prep_scratch+"×"+s.prep_per_item+"h</td><td></td><td class='n'>"+s.prep_hours.toFixed(1)+"h</td><td class='n'>"+$$m(s.prep_cost)+"</td></tr>":"");
+  const wf=[["Collected (subtotal + fee)",m.collected,"var(--ink)"],
+    ["– Food COGS ("+pct(m.fc,0)+")",-m.food_cogs,"var(--red)"],
+    ["– Bar COGS ("+pct(m.bc,0)+")",-m.bar_cogs,"var(--red)"],
+    ["– Labor (FOH $"+(S.cfg.staff.wages.Server||70)+" + BOH $"+(S.cfg.staff.wages["Line cook"]||20)+")",-m.labor,"var(--blue)"]]
+    .concat(m.other_cost?[["– A/V + additional costs",-m.other_cost,"var(--amber)"]]:[])
+    .concat([["EVENT MARGIN",m.margin,low?"var(--amber)":"var(--ok)"]]);
+  const wfr=wf.map(([lab,val,col])=>{const w=m.collected?Math.min(100,100*Math.abs(val)/m.collected):0;
+    return '<div class="wrow"><div class="lab">'+lab+'</div><div class="bar"><i style="width:'+w+'%;background:'+col+'"></i></div><div class="amt">'+$$m(val)+"</div></div>";}).join("");
+  const bench=bm.house_labor_pct||0.245, bohPct=s?s.boh_labor_pct:null;
+  const fohShort=s&&s.service_fee_est!=null&&s.foh_cost>s.service_fee_est;
+  const flags=R.flags.map(f=>'<div class="flagcard">⚑ '+esc(f)+"</div>").join("")||"<div class='small'>No open flags.</div>";
+  el("view-mgmt").innerHTML=`
+  <div class="kpis">
+    <div class="kpi hero"><div class="v">${$$m(m.margin)}</div><div class="l">Event margin</div></div>
+    <div class="kpi ${low?"flag":""}"><div class="v">${pct(m.margin_pct)}</div><div class="l">Margin %${low?" · UNDER 40%":""}</div></div>
+    <div class="kpi"><div class="v">${$$m(m.collected)}</div><div class="l">Collected (excl. tax)</div></div>
+    <div class="kpi"><div class="v">${$$m(m.labor)}</div><div class="l">Labor (2-rate)</div></div>
+    <div class="kpi"><div class="v">${s&&s.lhpc?s.lhpc.toFixed(2):"—"}</div><div class="l">Labor hrs / cover</div></div>
+    <div class="kpi"><div class="v">${$$m(s?s.labor_per_cover:null)}</div><div class="l">Labor $ / cover</div></div>
+  </div>
+  <div class="grid"><div>
+    <div class="card"><h2>Where the Money Goes <span class="tag">PRIME COST</span></h2><div class="wf">${wfr}</div>
+      <div class="small" style="margin-top:10px">COGS are planning assumptions (Settings): food ${pct(m.fc,0)} / bar ${pct(m.bc,0)}. Labor is the two-rate estimate.</div></div>
+    <div class="card"><h2>Open Flags <span class="tag">FIX BEFORE FINAL</span></h2>${flags}</div>
+  </div><div>
+    <div class="card"><h2>Labor Detail <span class="tag">FOH $${S.cfg.staff.wages.Server||70} · BOH $${S.cfg.staff.wages["Line cook"]||20}</span></h2>
+      <table><thead><tr><th>Role</th><th class="n">#</th><th class="n">Hrs</th><th class="n">$</th></tr></thead><tbody>${rows}
+      <tr class="totrow"><td>TOTAL — ${s?s.total_staff:0} staff${s&&s.ratio?", 1:"+Math.round(s.ratio):""}</td><td></td><td class="n">${s?Math.round(s.total_hours):0}h</td><td class="n">${$$m(s?s.labor_cost:0)}</td></tr></tbody></table>
+      ${s?`<div style="margin-top:14px"><b>Kitchen (BOH) labor</b> — ${$$m(s.boh_cost)} = ${pct(bohPct,0)} of F&amp;B <span class="small">(house benchmark ${pct(bench,1)})</span>
+        <div class="gauge"><div class="fill" style="width:${Math.min(100,100*(bohPct||0)/0.5)}%"></div><div class="pin" style="left:${100*bench/0.5}%"></div></div>
+        <div class="small mono">0% ── benchmark pin at ${pct(bench,1)} ── 50%</div></div>
+      <div style="margin-top:14px"><b>Event FOH comp</b> — ${$$m(s.foh_cost)} vs the ~${$$m(s.service_fee_est)} fee:
+        <span class="badge ${fohShort?"b-need":"b-ok"}">${fohShort?"SHORT — tips fill the gap":"COVERED"}</span></div>`:""}
+      <div class="disc">House 12-mo: ${pct(bm.house_labor_pct||null,1)} labor · $${bm.sales_per_labor_hour||"—"} sales/labor-hr · $${bm.blended_rate_per_hour||"—"} blended/hr.</div></div>
+    ${renderActualsCard(R)}
+  </div></div>`;
+  wireActuals();
+}
+
+/* ---- after-the-event actuals ---- */
+const ACT_FIELDS=[["food_sales","Food sales","$"],["bar_sales","Bar sales","$"],
+  ["food_cost","Food cost (invoices)","$"],["bar_cost","Bar cost","$"],
+  ["foh_hours","FOH hours worked","h"],["boh_hours","BOH hours worked","h"],
+  ["labor_cost","Labor $ (if known)","$"]];
+function renderActualsCard(R){
+  const a=S.actuals||{}, act=R.actuals;
+  const inputs=ACT_FIELDS.map(([k,label,u])=>
+    `<tr><td>${label}</td><td class="n"><input class="act" data-ak="${k}" type="number" step="any" placeholder="${u}" value="${a[k]==null?"":esc(String(a[k]))}"></td></tr>`).join("");
+  let cmp="";
+  if(act){
+    cmp=`<table style="margin-top:14px"><thead><tr><th>Line</th><th class="n">Forecast</th><th class="n">Actual</th><th class="n">Delta</th></tr></thead><tbody>`+
+      act.rows.map(r=>{
+        const f=r.money?$$m(r.forecast):(r.forecast==null?"—":Math.round(r.forecast));
+        const ac=r.money?$$m(r.actual):(r.actual==null?"—":r.actual);
+        const d=r.delta==null?"":(r.money?$$m(r.delta):r.delta.toFixed(1));
+        const col=r.delta==null?"":(r.delta<0?"var(--red)":"var(--ok)");
+        return `<tr><td>${esc(r.label)}</td><td class="n">${f}</td><td class="n">${ac}</td><td class="n" style="color:${col}">${d>""&&r.delta>0?"+":""}${d}</td></tr>`;
+      }).join("")+
+      (act.actual_margin&&act.actual_margin.margin_pct!=null?
+        `<tr class="totrow"><td>ACTUAL MARGIN</td><td class="n">${pct((R.margin||{}).margin_pct)}</td><td class="n">${pct(act.actual_margin.margin_pct)}</td><td></td></tr>`:"")+
+      `</tbody></table>`+
+      (act.learnings.length?`<div style="margin-top:10px">`+act.learnings.map(l=>`<div class="flagcard" style="border-left-color:var(--blue)">→ ${esc(l)}</div>`).join("")+`</div>`:"");
+  }
+  return `<div class="card"><h2>After the Event <span class="tag">ACTUALS</span></h2>
+    <div class="small">Log what really happened. Every number here is how the forecast stops being a guess — the assumptions (32% food, 20h prep, staffing ratios) only get corrected by real events.</div>
+    <table style="margin-top:10px"><tbody>${inputs}</tbody></table>
+    <div style="margin-top:8px"><textarea id="actNotes" rows="2" placeholder="What went differently? (ran out of X, needed an extra server, etc.)">${esc(a.notes||"")}</textarea></div>
+    ${cmp||'<div class="small" style="margin-top:10px">Fill any field above to see forecast vs actual.</div>'}</div>`;
+}
+function wireActuals(){
+  const box=el("view-mgmt"); if(!box) return;
+  box.querySelectorAll("[data-ak]").forEach(inp=>inp.addEventListener("change",()=>{
+    S.actuals=S.actuals||{}; const v=inp.value.trim();
+    if(v==="") delete S.actuals[inp.dataset.ak]; else S.actuals[inp.dataset.ak]=+v;
+    store(); renderMgmt();
+  }));
+  const n=el("actNotes");
+  if(n) n.addEventListener("change",()=>{ S.actuals=S.actuals||{}; S.actuals.notes=n.value; store(); });
+}
+
+/* ---------------- SETTINGS ---------------- */
+function renderSettings(){
+  const M=S.cfg.money, W=S.cfg.staff.wages, H=S.cfg.staff.hours, Rt=S.cfg.staff.ratios;
+  const num=(id,lab,val,step)=>'<div class="f"><label>'+lab+'</label><input class="mono" id="'+id+'" type="number" step="'+(step||1)+'" value="'+val+'"></div>';
+  el("view-settings").innerHTML=`
+  <div class="grid3">
+    <div class="card"><h2>Money Rules <span class="tag">%</span></h2>
+      ${num("cfgTax","Sales tax %",(M.tax*100).toFixed(2),0.01)}
+      ${num("cfgFee","Service fee %",(M.fee*100).toFixed(0),1)}
+      ${num("cfgFC","Food COGS %",(M.food_cogs*100).toFixed(0),1)}
+      ${num("cfgBC","Bar COGS %",(M.bar_cogs*100).toFixed(0),1)}
+    </div>
+    <div class="card"><h2>Labor Rates <span class="tag">$/HR</span></h2>
+      ${num("wFOH","FOH — server & bartender",W.Server||70,1)}
+      ${num("wBOH","BOH — cook & dish",W["Line cook"]||20,1)}
+      <div class="small">FOH rate is gratuity-inclusive. Two rates drive every labor number.</div>
+    </div>
+    <div class="card"><h2>Hours <span class="tag">SHIFT SHAPE</span></h2>
+      ${num("hSetup","Setup hours",H.setup??2,0.5)} ${num("hBreak","Breakdown hours",H.breakdown??1,0.5)}
+      ${num("hSvc","Default service hours",H.default_service??4,0.5)}
+      ${num("hBase","BOH prep base hours",H.event_prep_base_hours??20,1)}
+      ${num("hPer","Prep hrs per scratch item",H.boh_prep_per_scratch_item??1.5,0.5)}
+    </div>
+    <div class="card"><h2>Staffing Ratios <span class="tag">GUESTS PER…</span></h2>
+      ${num("rSrvB","Server — buffet",(Rt.server_per_guest||{}).buffet??70)} ${num("rSrvP","Server — passed",(Rt.server_per_guest||{}).passed??60)} ${num("rSrvL","Server — plated",(Rt.server_per_guest||{}).plated??25)}
+      ${num("rBar","Bartender",Rt.bartender_per_guest??75)}
+      ${num("rCkB","Cook — buffet",(Rt.cook_per_guest||{}).buffet??45)} ${num("rCkP","Cook — passed",(Rt.cook_per_guest||{}).passed??45)} ${num("rCkL","Cook — plated",(Rt.cook_per_guest||{}).plated??30)}
+      ${num("rDish","Dish from N covers",Rt.dish_min_headcount??60)}
+    </div>
+    <div class="card" style="grid-column:1/-1"><h2>Menu Prices <span class="tag">${Object.keys(S.prices).length} ITEMS</span></h2>
+      <div class="f"><input id="priceFilter" placeholder="filter items…"></div>
+      <div style="max-height:340px;overflow:auto"><table><thead><tr><th>Item</th><th class="n">Price $</th><th></th></tr></thead><tbody id="priceRows"></tbody></table></div>
+      <div class="frow c3" style="margin-top:10px">
+        <input id="npItem" placeholder="new item name"><input id="npPrice" class="mono" type="number" placeholder="price">
+        <button class="addbtn" id="npAdd" style="margin:0">+ ADD ITEM</button></div>
+      <div class="small" style="margin-top:8px">Prices feed auto-pricing on the Event tab and the margin math. <button class="x" id="cfgReset" style="color:var(--red)">Reset all settings &amp; prices to Lariat defaults</button></div>
+    </div>
+  </div>`;
+  const bind=(id,fn)=>el(id).addEventListener("input",ev=>{fn(+ev.target.value||0); lite();});
+  bind("cfgTax",v=>M.tax=v/100); bind("cfgFee",v=>M.fee=v/100); bind("cfgFC",v=>M.food_cogs=v/100); bind("cfgBC",v=>M.bar_cogs=v/100);
+  bind("wFOH",v=>{W.Server=v;W.Bartender=v;}); bind("wBOH",v=>{W["Line cook"]=v;W["Dish/steward"]=v;});
+  bind("hSetup",v=>H.setup=v); bind("hBreak",v=>H.breakdown=v); bind("hSvc",v=>H.default_service=v);
+  bind("hBase",v=>H.event_prep_base_hours=v); bind("hPer",v=>H.boh_prep_per_scratch_item=v);
+  Rt.server_per_guest=Rt.server_per_guest||{}; Rt.cook_per_guest=Rt.cook_per_guest||{};
+  bind("rSrvB",v=>Rt.server_per_guest.buffet=v); bind("rSrvP",v=>Rt.server_per_guest.passed=v); bind("rSrvL",v=>Rt.server_per_guest.plated=v);
+  bind("rBar",v=>Rt.bartender_per_guest=v);
+  bind("rCkB",v=>Rt.cook_per_guest.buffet=v); bind("rCkP",v=>Rt.cook_per_guest.passed=v); bind("rCkL",v=>Rt.cook_per_guest.plated=v);
+  bind("rDish",v=>Rt.dish_min_headcount=v);
+  function paintPrices(f){ const q=norm(f||"");
+    el("priceRows").innerHTML=Object.keys(S.prices).sort().filter(k=>!q||norm(k).includes(q)).map(k=>
+      '<tr><td>'+esc(k)+'</td><td class="n"><input class="price" data-pk="'+esc(k)+'" type="number" step="0.5" value="'+S.prices[k]+'"></td>'+
+      '<td><button class="x" data-pdel="'+esc(k)+'">✕</button></td></tr>').join("");
+    el("priceRows").querySelectorAll("[data-pk]").forEach(inp=>inp.addEventListener("input",()=>{S.prices[inp.dataset.pk]=+inp.value||0; store();}));
+    el("priceRows").querySelectorAll("[data-pdel]").forEach(b=>b.onclick=()=>{delete S.prices[b.dataset.pdel]; paintPrices(el("priceFilter").value); buildDatalist(); store();});
+  }
+  paintPrices("");
+  el("priceFilter").addEventListener("input",ev=>paintPrices(ev.target.value));
+  el("npAdd").onclick=()=>{const k=norm(el("npItem").value); if(!k) return;
+    S.prices[k]=+el("npPrice").value||0; el("npItem").value=""; el("npPrice").value="";
+    paintPrices(el("priceFilter").value); buildDatalist(); store();};
+  el("cfgReset").onclick=()=>{ if(!confirm("Reset all rates, ratios, and menu prices to the built-in Lariat defaults?")) return;
+    S.cfg=blankState().cfg; S.prices=JSON.parse(JSON.stringify(DATA.prices)); renderSettings(); lite(); };
+}
+
+/* ---------------- SEASON (cross-event) ---------------- */
+function seasonData(){
+  const ids=Object.keys(WS.events).filter(id=>(WS.events[id].ev||{}).date)
+    .sort((a,b)=>String(WS.events[a].ev.date).localeCompare(String(WS.events[b].ev.date)));
+  const evRows=[], dayMap={}, prodMap={};
+  let booked=0, marginSum=0, collectedSum=0, covers=0, under=0, unbuilt=0;
+  ids.forEach(id=>{
+    const st=WS.events[id];
+    const flat=Object.assign({},st,{cfg:WS.cfg,prices:WS.prices});
+    const R=computeAll(flat,WS.cfg);
+    booked+=R.inv.subtotal||0; covers+=(+st.ev.headcount||0);
+    if(!(st.lines||[]).length) unbuilt++;
+    if(R.margin){ marginSum+=R.margin.margin||0; collectedSum+=R.margin.collected||0;
+      if(R.margin.margin_pct!=null && R.margin.margin_pct<0.40 && (st.lines||[]).length) under++; }
+    evRows.push({id,st,R});
+    (R.countdown||[]).forEach(day=>{
+      const rec=dayMap[day.date]=dayMap[day.date]||{label:day.label,date:day.date,rows:[]};
+      day.tasks.forEach(t=>{ const key=day.label+"|"+t.item+"|"+t.task;
+        rec.rows.push({id,client:st.ev.client||"Untitled",item:t.item,task:t.task,key,
+                       done:!!((st.checks||{})[key])}); });
+    });
+    (R.purchase||[]).forEach(p=>{ if(!p.product||p.product==="—") return;
+      (prodMap[p.product]=prodMap[p.product]||{clients:new Set(),detail:p.detail||""})
+        .clients.add(st.ev.client||"Untitled"); });
+  });
+  return {evRows,dayMap,prodMap,kpi:{booked,marginSum,collectedSum,covers,under,unbuilt,n:ids.length}};
+}
+function buildSeasonICS(dayMap){
+  const stamp=new Date().toISOString().replace(/[-:]/g,"").split(".")[0]+"Z";
+  const escape=t=>String(t).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\n/g,"\\n");
+  const lines=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//The Lariat//BEO Studio//EN"];
+  Object.keys(dayMap).sort().forEach(date=>{
+    const byClient={};
+    dayMap[date].rows.forEach(r=>{ (byClient[r.client]=byClient[r.client]||[]).push(r.item+": "+r.task); });
+    for(const [client,tasks] of Object.entries(byClient)){
+      const d=date.replace(/-/g,"");
+      lines.push("BEGIN:VEVENT",
+        "UID:"+d+"-"+client.replace(/[^a-z0-9]/gi,"")+"@lariat-beo",
+        "DTSTAMP:"+stamp,
+        "DTSTART;VALUE=DATE:"+d,
+        "SUMMARY:"+escape("PREP — "+client),
+        "DESCRIPTION:"+escape(tasks.join("\n")),
+        "END:VEVENT");
+    }
+  });
+  lines.push("END:VCALENDAR");
+  return lines.join("\r\n");
+}
+function renderSeason(){
+  const {evRows,dayMap,prodMap,kpi}=seasonData();
+  if(!kpi.n){ el("view-season").innerHTML="<div class='card'><h2>Season</h2><div class='small'>No dated events in the library yet.</div></div>"; return; }
+  const todayISO=toISOLocal(new Date());
+  const wPct=kpi.collectedSum? kpi.marginSum/kpi.collectedSum : null;
+
+  const evTable=evRows.map(({id,st,R})=>{
+    const built=(st.lines||[]).length>0;
+    const mp=R.margin?R.margin.margin_pct:null;
+    return `<tr><td>${esc(st.ev.date||"")}</td><td><a href="#" data-sopen="${id}">${esc(st.ev.client||"Untitled")}</a></td>
+      <td class="n">${esc(st.ev.headcount||"—")}</td>
+      <td class="n">${built?$$m(R.inv.subtotal):"<span class='small'>no menu yet</span>"}</td>
+      <td class="n" style="${mp!=null&&mp<0.40?"color:var(--amber)":""}">${built&&mp!=null?pct(mp):"—"}</td></tr>`;
+  }).join("");
+
+  const dayKeys=Object.keys(dayMap).sort();
+  const prep=dayKeys.map(date=>{
+    const rec=dayMap[date];
+    const clients=[...new Set(rec.rows.map(r=>r.client))];
+    const overdue=date<todayISO&&rec.rows.some(r=>!r.done);
+    const isToday=date===todayISO;
+    const rows=rec.rows.map(r=>
+      `<div class="prow"><label><input type="checkbox" data-sid="${r.id}" data-skey="${esc(r.key)}" ${r.done?"checked":""}>
+       <span class="pcl">${esc(r.client)}</span> ${esc(r.item)} — ${esc(r.task)}</label></div>`).join("");
+    return `<div class="sday ${overdue?"overdue":""} ${isToday?"today":""}">
+      <div class="sdayhead">${esc(rec.label)}${isToday?' <span class="badge b-need">TODAY</span>':""}${overdue?' <span class="badge b-need">OVERDUE</span>':""}
+        ${clients.length>1?` <span class="badge b-warn">⚑ ${clients.length} EVENTS — check cooler/oven space</span>`:""}</div>${rows}</div>`;
+  }).join("");
+
+  const shared=Object.entries(prodMap).filter(([,v])=>v.clients.size>1)
+    .sort((a,b)=>b[1].clients.size-a[1].clients.size);
+  const sharedRows=shared.slice(0,14).map(([prod,v])=>
+    `<tr><td>${esc(prod)}<div class="small">${esc(v.detail)}</div></td><td class="n">${v.clients.size}</td><td>${esc([...v.clients].join(", "))}</td></tr>`).join("");
+
+  el("view-season").innerHTML=`
+  <div class="kpis">
+    <div class="kpi hero"><div class="v">${$$m(kpi.booked)}</div><div class="l">Booked (subtotals)</div></div>
+    <div class="kpi"><div class="v">${$$m(kpi.marginSum)}</div><div class="l">Est. margin $</div></div>
+    <div class="kpi ${kpi.under?"flag":""}"><div class="v">${wPct!=null?pct(wPct):"—"}</div><div class="l">Blended margin%${kpi.under?" · "+kpi.under+" under 40%":""}</div></div>
+    <div class="kpi"><div class="v">${kpi.n}</div><div class="l">Events · ${kpi.covers} covers</div></div>
+  </div>
+  ${kpi.unbuilt?`<div class="flagcard">⚑ ${kpi.unbuilt} event(s) have no menu yet — booked $ and margin only count what's built.</div>`:""}
+  <div class="grid"><div>
+    <div class="card"><h2>The Season <span class="tag">${kpi.n} EVENTS</span></h2>
+      <table><thead><tr><th>Date</th><th>Client</th><th class="n">Covers</th><th class="n">Subtotal</th><th class="n">Margin</th></tr></thead><tbody>${evTable}</tbody></table></div>
+    <div class="card"><h2>Order Once <span class="tag">SHARED PRODUCT</span></h2>
+      ${shared.length?`<table><thead><tr><th>Product</th><th class="n">Events</th><th>Used by</th></tr></thead><tbody>${sharedRows}</tbody></table>
+      <div class="small" style="margin-top:8px">Products multiple events need — consolidate into single case orders instead of split buys.</div>`
+      :'<div class="small">No product overlaps between built events yet.</div>'}</div>
+  </div><div>
+    <div class="card"><h2>Merged Prep Calendar <span class="tag">ALL EVENTS</span></h2>
+      <div class="small" style="margin-bottom:8px">Every event's countdown on one calendar. Checking a box here checks it on that event's Kitchen view too.</div>
+      ${prep||'<div class="small">No prep scheduled — build menus on the Event tab.</div>'}
+      ${dayKeys.length?`<button class="tbtn" id="icsBtn" style="margin-top:10px">⤓ EXPORT PREP DAYS (.ics)</button>
+      <div class="small" style="margin-top:6px">Drops into Google Calendar — one all-day "PREP — client" entry per prep day.</div>`:""}</div>
+  </div></div>`;
+
+  el("view-season").querySelectorAll("[data-sopen]").forEach(a=>a.onclick=e=>{e.preventDefault(); openEvent(a.dataset.sopen);});
+  el("view-season").querySelectorAll("[data-sid]").forEach(cb=>cb.addEventListener("change",()=>{
+    const ev=WS.events[cb.dataset.sid]; if(!ev) return;
+    ev.checks=ev.checks||{};
+    if(cb.checked) ev.checks[cb.dataset.skey]=true; else delete ev.checks[cb.dataset.skey];
+    if(cb.dataset.sid===WS.activeId) S.checks=ev.checks;
+    saveWorkspace(); renderSeason();
+  }));
+  const ib=el("icsBtn");
+  if(ib) ib.onclick=()=>{ const ics=buildSeasonICS(dayMap);
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([ics],{type:"text/calendar"}));
+    a.download="lariat-prep-days.ics"; a.click(); URL.revokeObjectURL(a.href); };
+}
+
+/* ---------------- LIBRARY ---------------- */
+function renderLibrary(){
+  const ids=Object.keys(WS.events).sort((a,b)=>(WS.events[b].savedAt||0)-(WS.events[a].savedAt||0));
+  const cards=ids.map(id=>{
+    const st=WS.events[id], e=st.ev||{};
+    const flatS=Object.assign({},st,{cfg:WS.cfg,prices:WS.prices});
+    const R=computeAll(flatS,WS.cfg);
+    const margin=R.margin, minOk=R.inv.minimum? R.inv.over>=0 : null;
+    const du=daysUntil(e.date);
+    let badge="";
+    if(du!==null){
+      const todayISO=toISOLocal(new Date());
+      let prepDue=false;
+      if(R.countdown){
+        for(const day of R.countdown){
+          if(day.date && day.date<=todayISO){
+            for(const t of day.tasks){
+              if(!(st.checks||{})[day.label+"|"+t.item+"|"+t.task]){ prepDue=true; break; } }
+          }
+          if(prepDue) break;
+        }
+      }
+      if(du<0) badge='<span class="libbadge b-past">PAST EVENT</span>';
+      else if(du===0) badge='<span class="libbadge b-urgent">TODAY</span>';
+      else if(prepDue) badge='<span class="libbadge b-urgent">PREP DUE</span>';
+      else if(du<=3) badge='<span class="libbadge b-urgent">'+du+" DAY"+(du===1?"":"S")+' OUT</span>';
+      else badge='<span class="libbadge b-soon">'+du+' days out</span>';
+    }
+    return `<div class="libcard ${id===WS.activeId?"active":""}">
+      <div class="libtop"><h3>${esc(e.client||"Untitled event")}</h3>${badge}</div>
+      <div class="d">${esc(weekdayName(e.date)||"no date")} ${esc(e.date||"")} · ${esc(e.headcount||"—")} covers</div>
+      <div class="stat"><span>Subtotal</span><span class="mono">${$$m(R.inv.subtotal)}</span></div>
+      <div class="stat"><span>Minimum</span><span class="mono">${R.inv.minimum? (minOk?"<span style='color:var(--ok)'>met</span>":"<span style='color:var(--amber)'>under</span>") : "—"}</span></div>
+      <div class="stat"><span>Margin</span><span class="mono">${margin? pct(margin.margin_pct):"—"}</span></div>
+      <div class="btns">
+        <button class="open" data-open="${id}">OPEN</button>
+        <button data-dup="${id}">DUPLICATE</button>
+        <button class="danger" data-delx="${id}">DELETE</button>
+      </div></div>`;
+  }).join("");
+  el("view-library").innerHTML = `<div class="card" style="margin-bottom:14px"><h2>Event Library <span class="tag">${ids.length} SAVED</span></h2>
+    <div class="small">Every event you build stays here — open one to keep editing, duplicate to reuse a menu, or delete when it's done. Settings and menu prices are shared across all events.</div></div>
+    <div class="libgrid">${cards}<button class="libnew" id="libNew">+ New Event</button></div>`;
+  el("libNew").onclick=newEvent;
+  el("view-library").querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openEvent(b.dataset.open));
+  el("view-library").querySelectorAll("[data-dup]").forEach(b=>b.onclick=()=>duplicateEvent(b.dataset.dup));
+  el("view-library").querySelectorAll("[data-delx]").forEach(b=>b.onclick=()=>deleteEvent(b.dataset.delx));
+}
+
+
+/* ---------------- boot, tabs, toolbar ---------------- */
+function buildDatalist(){ el("menuItems").innerHTML=Object.keys(S.prices).sort().map(k=>'<option value="'+esc(k)+'">').join(""); }
+const renderers={library:renderLibrary,season:renderSeason,event:renderEvent,host:renderHost,kitchen:renderKitchen,mgmt:renderMgmt,settings:renderSettings};
+function show(v){ activeView=v;
+  document.querySelectorAll(".stub").forEach(x=>x.setAttribute("aria-selected",x.dataset.v===v?"true":"false"));
+  document.querySelectorAll(".view").forEach(x=>x.classList.toggle("on",x.id==="view-"+v));
+  renderers[v](); renderEvline(); renderStrip(); window.scrollTo({top:0}); }
+document.querySelectorAll(".stub").forEach(b=>b.addEventListener("click",()=>show(b.dataset.v)));
+el("btnLibrary").onclick=()=>show("library");
+el("btnNew").onclick=newEvent;
+el("btnExport").onclick=()=>{ const name=("lariat-beo-"+(S.ev.client||"event")+"-"+(S.ev.date||"draft")).replace(/[^a-z0-9-]+/gi,"_")+".json";
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:"application/json"}));
+  a.download=name; a.click(); URL.revokeObjectURL(a.href); };
+el("btnImport").onclick=()=>el("fileImport").click();
+el("fileImport").addEventListener("change",ev=>{ const f=ev.target.files[0]; if(!f) return;
+  const r=new FileReader(); r.onload=()=>{ try{ const j=JSON.parse(r.result);
+    if(!j.ev||!j.lines) throw new Error("not a BEO Studio file");
+    importAsNewEvent(j); show("event");
+  }catch(e){ alert("Import failed: "+e.message); } }; r.readAsText(f); ev.target.value=""; });
+buildDatalist();
+(function(){
+  const ids=Object.keys(WS.events);
+  if(ids.length<=1){ show("event"); return; }
+  let best=null, bestDu=Infinity;
+  ids.forEach(id=>{ const du=daysUntil(WS.events[id].ev.date); if(du!==null && du>=0 && du<bestDu){bestDu=du; best=id;} });
+  if(best!==null && bestDu<=3){ WS.activeId=best; S=makeS(); show("event"); }
+  else show("library");
+})();
+</script>
+</body>
+</html>

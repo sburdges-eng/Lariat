@@ -128,6 +128,46 @@ describe("POST /api/beo action='update_line' — location-scoped via parent even
   });
 });
 
+// ── line (insert): scoped to parent event's location_id ────────────
+
+describe("POST /api/beo action='line' — insert location-scoped via parent event", () => {
+  it('inserts when location_id matches the parent event', async () => {
+    const { LOC_A, eventA } = await setupTwoLocations(POST);
+    const res = await POST(postReq({
+      action: 'line',
+      location_id: LOC_A,
+      event_id: eventA,
+      item_name: 'Site A Beans',
+      unit_cost: 4,
+      quantity: 10,
+    }));
+    assert.strictEqual(res.status, 200);
+    const { id } = await res.json();
+    const row = testDb.prepare(`SELECT * FROM beo_line_items WHERE id = ?`).get(id);
+    assert.ok(row, 'matching-location insert should land');
+    assert.strictEqual(row.event_id, eventA);
+  });
+
+  it('does NOT attach a line to a foreign-location event (404, nothing written)', async () => {
+    const { LOC_A, eventB } = await setupTwoLocations(POST);
+    const before = testDb.prepare('SELECT COUNT(*) c FROM beo_line_items').get().c;
+    // LOC_A request targeting LOC_B's event. Pre-fix: the INSERT lands
+    // (only update/delete were scoped). Post-fix: parent-event guard 404s
+    // — same up-front check the charge/soe inserts ship with.
+    const res = await POST(postReq({
+      action: 'line',
+      location_id: LOC_A,
+      event_id: eventB,
+      item_name: 'Smuggled Line',
+      unit_cost: 1,
+      quantity: 1,
+    }));
+    assert.strictEqual(res.status, 404, 'cross-location insert must 404');
+    const after = testDb.prepare('SELECT COUNT(*) c FROM beo_line_items').get().c;
+    assert.strictEqual(after, before, 'no row may be written');
+  });
+});
+
 // ── Sanity: own-location operations leave foreign data alone ───────
 
 describe('BEO line ops — cross-location isolation', () => {
