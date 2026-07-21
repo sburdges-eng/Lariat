@@ -8,8 +8,9 @@ import Observation
 /// Reads are open; every write is PIN-gated via the manager-PIN session and
 /// flows through the `/api/beo`-parity repositories (`actor_source =
 /// native_mac`). The web's client-share affordance is an edge blocker and has
-/// no native counterpart; beo_prep_tasks have API parity in the repository
-/// but (like the current web board) no UI.
+/// no native counterpart. The Tasks tab (manual `beo_prep_tasks` checklist)
+/// is native-only, deliberately ahead of the current web board, which has no
+/// prep-task UI at all — the repository-layer parity has always existed.
 @Observable @MainActor
 final class BeoBoardViewModel {
     enum Tab: String, CaseIterable, Identifiable {
@@ -19,6 +20,7 @@ final class BeoBoardViewModel {
         case prep = "Prep"
         case fire = "Fire"
         case allergens = "Allergens"
+        case tasks = "Tasks"
         var id: String { rawValue }
     }
 
@@ -70,6 +72,12 @@ final class BeoBoardViewModel {
     // Add-course form (web CoursePanel).
     var newCourseLabel = ""
     var newCourseTime = ""   // local wall-clock "HH:MM"
+
+    // Add-prep-task form (Tasks tab). Due date is a free-typed string, same
+    // convention as event_date/event_time elsewhere on this board — no
+    // DatePicker, no parsing.
+    var newPrepTaskText = ""
+    var newPrepTaskDueDate = ""
 
     let pinStore: PinSessionStore
     private let readDB: LariatDatabase
@@ -135,6 +143,14 @@ final class BeoBoardViewModel {
     var lineItems: [BeoLineItemRow] {
         guard let selectedEventId else { return [] }
         return (snapshot?.lineItems ?? []).filter { $0.eventId == selectedEventId }
+    }
+
+    /// Open event's prep-task checklist, in GET order (event_id, sort_order,
+    /// id) — already loaded as part of `snapshot` by `boardRepo.load`, so
+    /// (like `lineItems`) this is a pure filter, not a separate fetch.
+    var prepTasks: [BeoPrepTaskRow] {
+        guard let selectedEventId else { return [] }
+        return (snapshot?.prepTasks ?? []).filter { $0.eventId == selectedEventId }
     }
 
     var totals: BeoWorksheetCompute.Totals {
@@ -249,9 +265,10 @@ final class BeoBoardViewModel {
 
     func loadTabData() async {
         switch tab {
-        case .sheet, .recipes:
-            // Recipe tree is built synchronously from the cached line items —
-            // no cascade/engine call needed.
+        case .sheet, .recipes, .tasks:
+            // Recipe tree and the prep-task checklist are both built
+            // synchronously from the cached snapshot — no cascade/engine
+            // call needed.
             break
         case .orderGuide, .prep:
             await loadCascade()
@@ -431,6 +448,36 @@ final class BeoBoardViewModel {
     /// Bind / unbind a line to a course (the web COURSE column select).
     func requestBindLine(lineId: Int64, courseId: Int64?) {
         requestUpdateLine(id: lineId, patch: BeoLinePatch(courseId: .set(courseId)))
+    }
+
+    func requestAddPrepTask() {
+        errorMessage = nil
+        guard let eventId = selectedEventId else { return }
+        let task = newPrepTaskText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !task.isEmpty else {
+            errorMessage = "Task needs a description"
+            return
+        }
+        let dueDate = newPrepTaskDueDate.trimmingCharacters(in: .whitespacesAndNewlines)
+        gate { [weak self] in
+            self?.withSession { context in
+                try self?.boardRepo.addPrepTask(
+                    eventId: eventId, task: task, dueDate: dueDate.isEmpty ? nil : dueDate,
+                    locationId: self?.locationId ?? "default", context: context)
+                self?.newPrepTaskText = ""
+                self?.newPrepTaskDueDate = ""
+            }
+        }
+    }
+
+    func requestSetPrepDone(id: Int64, done: Bool) {
+        errorMessage = nil
+        gate { [weak self] in
+            self?.withSession { context in
+                try self?.boardRepo.setPrepDone(
+                    id: id, done: done, locationId: self?.locationId ?? "default", context: context)
+            }
+        }
     }
 
     func pinVerified(_ user: ManagerPinUser) {
