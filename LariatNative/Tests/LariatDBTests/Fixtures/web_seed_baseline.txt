@@ -5,4 +5,4 @@
 -- Comment lines (--) and blank lines are ignored by the Swift parity tests.
 
 locations|id=default|name=The Lariat|capacity=NULL|tax_rate=0.0675|service_fee_pct=20|phone=NULL|address=NULL
-schema_migrations|version=4
+schema_migrations|version=5
