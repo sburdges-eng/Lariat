@@ -130,12 +130,38 @@ public func todayISO(from date: Date = Date(), calendar: Calendar = {
 }
 
 
+/// D1-B packaged `LARIAT_ROOT` when env is unset — `~/Library/Application Support/Lariat`.
+public func applicationSupportLariatRoot(env: [String: String]) -> String? {
+    guard let home = env["HOME"], !home.isEmpty else { return nil }
+    return (home as NSString).appendingPathComponent("Library/Application Support/Lariat")
+}
+
 public func resolveDataDirectory(
     env: [String: String] = ProcessInfo.processInfo.environment,
-    cwd: String = FileManager.default.currentDirectoryPath
+    cwd: String = FileManager.default.currentDirectoryPath,
+    fileExists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
 ) -> String {
     if let raw = env["LARIAT_DATA_DIR"], !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
         return (raw as NSString).isAbsolutePath ? raw : (cwd as NSString).appendingPathComponent(raw)
+    }
+    // Dev repo: walk up from cwd for the scripts/ marker → `<repo>/data`.
+    let marker = "scripts/beo_cascade_cli.py"
+    var dir = cwd
+    for _ in 0..<8 {
+        if fileExists((dir as NSString).appendingPathComponent(marker)) {
+            return (dir as NSString).appendingPathComponent("data")
+        }
+        let parent = (dir as NSString).deletingLastPathComponent
+        if parent == dir || parent.isEmpty { break }
+        dir = parent
+    }
+    // D1-B packaged default: Application Support data dir when present.
+    if let support = applicationSupportLariatRoot(env: env) {
+        let supportData = (support as NSString).appendingPathComponent("data")
+        let supportDb = (supportData as NSString).appendingPathComponent("lariat.db")
+        if fileExists(supportData) || fileExists(supportDb) {
+            return supportData
+        }
     }
     return (cwd as NSString).appendingPathComponent("data")
 }

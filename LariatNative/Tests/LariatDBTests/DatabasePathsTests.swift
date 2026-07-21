@@ -22,4 +22,15 @@ final class DatabasePathsTests: XCTestCase {
         let p = resolveDatabasePath(env: ["LARIAT_DATA_DIR": "\n"], cwd: "/work")
         XCTAssertEqual(p, "/work/data/lariat.db")
     }
+
+    func testPackagedFallbackUsesApplicationSupportDb() {
+        let p = resolveDatabasePath(
+            env: ["HOME": "/Users/chef"],
+            cwd: "/",
+            fileExists: { path in
+                path == "/Users/chef/Library/Application Support/Lariat/data/lariat.db"
+            }
+        )
+        XCTAssertEqual(p, "/Users/chef/Library/Application Support/Lariat/data/lariat.db")
+    }
 }

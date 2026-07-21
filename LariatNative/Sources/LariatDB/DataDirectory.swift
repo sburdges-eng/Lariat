@@ -4,9 +4,10 @@ import LariatModel
 /// Mirrors `lib/dataDir.ts` — data root from `LARIAT_DATA_DIR` or `<cwd>/data`.
 public func resolveDataDirectory(
     env: [String: String] = ProcessInfo.processInfo.environment,
-    cwd: String = FileManager.default.currentDirectoryPath
+    cwd: String = FileManager.default.currentDirectoryPath,
+    fileExists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
 ) -> String {
-    LariatModel.resolveDataDirectory(env: env, cwd: cwd)
+    LariatModel.resolveDataDirectory(env: env, cwd: cwd, fileExists: fileExists)
 }
 
 /// Mirrors `lib/auditLog.mjs` default path; honors `LARIAT_AUDIT_PATH` override.

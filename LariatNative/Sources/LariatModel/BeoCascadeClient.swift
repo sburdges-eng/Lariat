@@ -184,17 +184,11 @@ public struct BeoCascadeClient {
         }
         // D1-B packaged default: no dev `scripts/` marker in a `.app`, so fall
         // back to the Application Support recipe root when it holds recipes.
-        if let appSupport = applicationSupportRoot(env: env),
+        if let appSupport = applicationSupportLariatRoot(env: env),
            fileExists((appSupport as NSString).appendingPathComponent("recipes/recipe_index.csv")) {
             return appSupport
         }
         return cwd
-    }
-
-    /// `~/Library/Application Support/Lariat` — the D1-B packaged `LARIAT_ROOT`.
-    static func applicationSupportRoot(env: [String: String]) -> String? {
-        guard let home = env["HOME"], !home.isEmpty else { return nil }
-        return (home as NSString).appendingPathComponent("Library/Application Support/Lariat")
     }
 
     /// CLI stdin contract: `{line_items, root, qty_in_yield_units[, inventory]}`.
