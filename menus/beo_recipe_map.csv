@@ -1,17 +1,20 @@
 beo_item,recipe_id,per_count
 Battered Fish Taco,Fish Brine
 Battered Fish Taco,Beer Batter
+Battered Fish Taco,Beer Flour
 Battered Fish Taco,Chipotle Aioli
 Battered Fish Taco,Mexi Slaw
 Battered Fish Taco,Pico de Gallo
 Baja Fish Tacos,Fish Brine
 Baja Fish Tacos,Beer Batter
+Baja Fish Tacos,Beer Flour
 Baja Fish Tacos,Chipotle Aioli
 Baja Fish Tacos,Mexi Slaw
 Baja Fish Tacos,Pico de Gallo
 Baja Fish Tacos,Aji Verde
 Baja Fish Taco,Fish Brine
 Baja Fish Taco,Beer Batter
+Baja Fish Taco,Beer Flour
 Baja Fish Taco,Chipotle Aioli
 Baja Fish Taco,Mexi Slaw
 Baja Fish Taco,Pico de Gallo
@@ -31,6 +34,7 @@ Green Chile Mac Buffet,Queso / Mac Sauce,5.5
 Green Chile Mac Buffet,Green Chilli,0
 Fish Taco Buffet,Fish Brine,1.0
 Fish Taco Buffet,Beer Batter,150
+Fish Taco Buffet,Beer Flour,1.2
 Fish Taco Buffet,Chipotle Aioli,0.75
 Fish Taco Buffet,Mexi Slaw,2.0
 Fish Taco Buffet,Pico de Gallo,0.5
@@ -52,6 +56,7 @@ Rope Burger slider,Coleslaw
 Nashville Slider,Buttermilk Brine
 Nashville Slider,Chicken Flour
 Nashville Slider,Beer Batter
+Nashville Slider,Beer Flour
 Nashville Slider,Nashville Hot Rub
 Nashville Slider,Nashville Oil
 Nashville Slider,Special Sauce
