@@ -4,7 +4,28 @@ export interface EstimateLineItem {
   unit_cost?: number | null; quantity?: number | null;
   course_id?: number | null; sort_order?: number | null;
 }
-export interface EstimateTotals { subtotal: number; serviceFee: number; tax: number; total: number; }
+/** One `beo_event_charges` row, as far as totals math cares (charge only —
+ * `cost` is house-internal and must never reach this function; the guest
+ * share page's query doesn't even select it). */
+export interface EstimateCharge { charge?: number | null; }
+
+export interface EstimateTotals {
+  /** Grand subtotal: food + AV/fee charges + bar. Base for tax and service fee. */
+  subtotal: number;
+  /** Food + bar only. What an F&B (food & beverage) minimum-spend commitment
+   * is measured against — AV/production charges are billed separately and
+   * don't count toward it (owner call, 2026-07-21). */
+  fbSubtotal: number;
+  /** Bar's computed contribution: `bar_amount` flat for `fixed` mode, or the
+   * gap between food alone and `min_spend` for `fill` mode (never negative,
+   * never counts AV/fees toward closing that gap). Zero with no bar_mode. */
+  barRevenue: number;
+  /** Sum of `beo_event_charges.charge` (AV + fee kinds alike). */
+  chargesSubtotal: number;
+  serviceFee: number;
+  tax: number;
+  total: number;
+}
 
 export const SECTION_ORDER: string[] = [
   'Passed', 'Passed Hors d’Oeuvres', 'Large Format', 'Buffet', 'Large Format & Buffet',
@@ -12,14 +33,35 @@ export const SECTION_ORDER: string[] = [
 ];
 
 export function computeEstimateTotals(
-  event: { tax_rate?: number | null; service_fee_pct?: number | null },
+  event: {
+    tax_rate?: number | null; service_fee_pct?: number | null;
+    min_spend?: number | null; bar_mode?: string | null; bar_amount?: number | null;
+  },
   lineItems: Array<{ unit_cost?: number | null; quantity?: number | null }>,
+  charges: EstimateCharge[] = [],
 ): EstimateTotals {
-  const subtotal = lineItems.reduce(
+  const foodSubtotal = lineItems.reduce(
     (acc, l) => acc + Number(l.unit_cost || 0) * Number(l.quantity || 0), 0);
+  const chargesSubtotal = charges.reduce((acc, c) => acc + Number(c.charge || 0), 0);
+
+  // Bar revenue: 'fill' tops up the gap between FOOD ALONE and min_spend
+  // (AV/fees never count toward closing that gap — see EstimateTotals.fbSubtotal);
+  // 'fixed' bills bar_amount flat; anything else (no bar plan) contributes zero.
+  let barRevenue = 0;
+  if (event.bar_mode === 'fill') {
+    barRevenue = Math.max(0, Number(event.min_spend || 0) - foodSubtotal);
+  } else if (event.bar_mode === 'fixed') {
+    barRevenue = Number(event.bar_amount || 0);
+  }
+
+  const fbSubtotal = foodSubtotal + barRevenue;
+  const subtotal = fbSubtotal + chargesSubtotal;
   const serviceFee = subtotal * (Number(event.service_fee_pct || 0) / 100);
   const tax = subtotal * Number(event.tax_rate || 0);
-  return { subtotal, serviceFee, tax, total: subtotal + serviceFee + tax };
+  return {
+    subtotal, fbSubtotal, barRevenue, chargesSubtotal,
+    serviceFee, tax, total: subtotal + serviceFee + tax,
+  };
 }
 
 export function groupLineItemsBySection(
