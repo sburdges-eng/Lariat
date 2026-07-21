@@ -214,17 +214,73 @@ describe('GET /api/beo/cascade', () => {
   });
 
   it('surfaces manifest_warnings for recipes that declare an unreferenced sub-recipe', async () => {
+    // Synthetic fixture root, NOT live data. This test originally asserted
+    // that the real recipe corpus still contained orphan sub-recipe
+    // declarations ("birria, beer_batter") — but those were data bugs, and
+    // #423/#563 fixed them, which correctly drove live warnings to zero and
+    // broke the assertion. The warning CHANNEL is what this test pins, so it
+    // builds a minimal root with a deliberate orphan: ghost_parent declares
+    // sub_recipes=ghost_mix while no BOM row references it. `scripts` is
+    // symlinked to the real repo's (the CLI import path uses
+    // Path(__file__).resolve(), so imports work through the symlink; all
+    // DATA reads come from the synthetic root).
+    const fs = await import('node:fs');
+    const os = await import('node:os');
+    const path = await import('node:path');
+    const synthRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lariat-cascade-orphan-'));
+    fs.mkdirSync(path.join(synthRoot, 'recipes', 'normalized'), { recursive: true });
+    fs.mkdirSync(path.join(synthRoot, 'menus'), { recursive: true });
+    fs.writeFileSync(
+      path.join(synthRoot, 'recipes', 'recipe_index.csv'),
+      'recipe_id,recipe_name,yield,yield_unit,sub_recipes,pack_size\n'
+        + 'ghost_parent,Ghost Parent,10,portion,ghost_mix,\n'
+        + 'ghost_mix,Ghost Mix,1,qt,,\n',
+    );
+    // ghost_parent's BOM never references ghost_mix -> orphan declaration.
+    fs.writeFileSync(
+      path.join(synthRoot, 'recipes', 'normalized', 'ghost_parent.csv'),
+      'ingredient,qty,unit,portions_per_batch,notes\nflour,2,lb,10,\n',
+    );
+    fs.writeFileSync(
+      path.join(synthRoot, 'recipes', 'normalized', 'ghost_mix.csv'),
+      'ingredient,qty,unit,portions_per_batch,notes\nwater,1,qt,1,\n',
+    );
+    fs.writeFileSync(
+      path.join(synthRoot, 'menus', 'beo_recipe_map.csv'),
+      'beo_item,recipe_id,per_count\nSynthetic Battered Taco,Ghost Parent,\n',
+    );
+    fs.symlinkSync(
+      path.join(process.cwd(), 'scripts'),
+      path.join(synthRoot, 'scripts'),
+      'dir',
+    );
+
     const evId = seedEvent();
-    seedLine({ event_id: evId, item_name: 'Battered Fish Taco', quantity: 40 });
-    const res = await route.GET(makeReq(`?event_id=${evId}`));
-    const j = await res.json();
-    assert.ok(Array.isArray(j.manifest_warnings), 'manifest_warnings must be an array');
-    // Live data has 2 known orphan declarations (birria, beer_batter); each row
-    // carries a recipe + a human-readable issue.
-    assert.ok(j.manifest_warnings.length >= 1, 'expected >= 1 manifest warning on real data');
-    for (const w of j.manifest_warnings) {
-      assert.ok(typeof w.recipe === 'string' && w.recipe, 'warning has a recipe');
-      assert.ok(typeof w.issue === 'string' && w.issue, 'warning has an issue');
+    seedLine({ event_id: evId, item_name: 'Synthetic Battered Taco', quantity: 40 });
+    const prevRoot = process.env.LARIAT_ROOT;
+    try {
+      process.env.LARIAT_ROOT = synthRoot;
+      const res = await route.GET(makeReq(`?event_id=${evId}`));
+      const j = await res.json();
+      assert.ok(Array.isArray(j.manifest_warnings), 'manifest_warnings must be an array');
+      assert.ok(
+        j.manifest_warnings.length >= 1,
+        `expected >= 1 manifest warning from the synthetic orphan: ${JSON.stringify(j)}`,
+      );
+      const orphan = j.manifest_warnings.find((w) => w.recipe === 'ghost_parent');
+      assert.ok(orphan, `ghost_parent warning missing: ${JSON.stringify(j.manifest_warnings)}`);
+      assert.ok(
+        typeof orphan.issue === 'string' && orphan.issue.includes('ghost_mix'),
+        `issue should name the orphaned sub-recipe: ${orphan.issue}`,
+      );
+      for (const w of j.manifest_warnings) {
+        assert.ok(typeof w.recipe === 'string' && w.recipe, 'warning has a recipe');
+        assert.ok(typeof w.issue === 'string' && w.issue, 'warning has an issue');
+      }
+    } finally {
+      if (prevRoot === undefined) delete process.env.LARIAT_ROOT;
+      else process.env.LARIAT_ROOT = prevRoot;
+      fs.rmSync(synthRoot, { recursive: true, force: true });
     }
   });
 
