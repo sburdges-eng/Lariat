@@ -18,4 +18,24 @@ final class DataDirectoryTests: XCTestCase {
         let p = resolveManagementAuditPath(env: [:], cwd: "/work")
         XCTAssertTrue(p.hasSuffix("data/audit/management-actions.jsonl"))
     }
+
+    func testWalksUpToRepoDataWhenScriptsMarkerPresent() {
+        let dir = resolveDataDirectory(
+            env: [:],
+            cwd: "/repo/LariatNative",
+            fileExists: { $0 == "/repo/scripts/beo_cascade_cli.py" }
+        )
+        XCTAssertEqual(dir, "/repo/data")
+    }
+
+    func testFallsBackToApplicationSupportWhenPackaged() {
+        let dir = resolveDataDirectory(
+            env: ["HOME": "/Users/chef"],
+            cwd: "/",
+            fileExists: { path in
+                path == "/Users/chef/Library/Application Support/Lariat/data/lariat.db"
+            }
+        )
+        XCTAssertEqual(dir, "/Users/chef/Library/Application Support/Lariat/data")
+    }
 }
