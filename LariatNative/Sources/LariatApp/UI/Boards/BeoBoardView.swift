@@ -238,6 +238,8 @@ struct BeoBoardView: View {
                     BeoEventFirePanel(fire: vm.fire, loading: vm.fireLoading)
                 case .allergens:
                     BeoAllergenSummaryPanel(rows: vm.allergenSummary, loading: vm.allergenSummaryLoading)
+                case .tasks:
+                    BeoPrepTaskListView(vm: vm)
                 }
             }
         } else {
