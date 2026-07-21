@@ -380,6 +380,15 @@ async function beoPostHandler(req) {
       }
       const cost = Number.isFinite(Number(body.unit_cost)) ? Number(body.unit_cost) : 0;
       const qty = Number.isFinite(Number(body.quantity)) ? Number(body.quantity) : 1;
+      // Parent-event location guard (event-model wave follow-up): update_line
+      // and delete_line were scoped via the parent event (Bundle-H T4), but
+      // the insert wasn't — a request scoped to location A could attach a
+      // line to location B's event. Same up-front 404 as the charge/soe
+      // inserts.
+      const parentEvent = db
+        .prepare(`SELECT id FROM beo_events WHERE id = ? AND location_id = ?`)
+        .get(event_id, loc);
+      if (!parentEvent) return Response.json({ error: 'event not found' }, { status: 404 });
       const newId = db.transaction(() => {
         const info = db
           .prepare(
