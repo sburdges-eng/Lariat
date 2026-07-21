@@ -218,3 +218,55 @@ test('renders Notes section when event.notes is present, omits it when absent', 
   );
   expect(withoutNotes.querySelector('.ed-notes')).toBeNull();
 });
+
+// ── Event-model wave: Additional Charges (AV/fees/bar) + F&B-minimum-excludes-AV ──
+
+test('renders Additional Charges section with each charge row and a Bar row when barRevenue > 0', () => {
+  const charges = [
+    { id: 1, item_name: 'PA + two wireless mics', charge: 250 },
+    { id: 2, item_name: 'Room fee', charge: 300 },
+  ];
+  const totals = { ...base.totals, barRevenue: 400 };
+  const { container } = render(
+    <EstimateDocument {...base} totals={totals} charges={charges} register="client" />,
+  );
+  const section = container.querySelector('[aria-label="Additional charges"]');
+  expect(section).toBeTruthy();
+  expect(screen.getByText('PA + two wireless mics')).toBeInTheDocument();
+  expect(screen.getByText('Room fee')).toBeInTheDocument();
+  expect(screen.getByText('Bar')).toBeInTheDocument();
+  const rows = [...section.querySelectorAll('.ed-row')];
+  expect(rows).toHaveLength(3);
+  expect(rows[0].querySelector('.ed-r-ext').textContent).toBe('$250.00');
+  expect(rows[1].querySelector('.ed-r-ext').textContent).toBe('$300.00');
+  expect(rows[2].querySelector('.ed-r-ext').textContent).toBe('$400.00');
+});
+
+test('omits Additional Charges section entirely when no charges and no bar revenue (unchanged from before this wave)', () => {
+  const { container } = render(<EstimateDocument {...base} register="client" />);
+  expect(container.querySelector('[aria-label="Additional charges"]')).toBeNull();
+});
+
+test('never renders a cost/margin figure for a charge -- only item_name and charge reach the DOM', () => {
+  // A caller that accidentally passed `cost` through (it must never, per the
+  // guest-share query, which doesn't select it) should still not leak it --
+  // the component only ever reads item_name/charge off each row.
+  const charges = [{ id: 1, item_name: 'Photo booth', charge: 500, cost: 90 }];
+  render(<EstimateDocument {...base} charges={charges} register="client" />);
+  expect(screen.queryByText('$90.00')).toBeNull();
+  expect(screen.getByText('$500.00')).toBeInTheDocument();
+});
+
+test('F&B minimum meter reads fbSubtotal, not the grand subtotal that includes AV/fees', () => {
+  // food-only subtotal is 240 (base fixture); an AV charge inflates the grand
+  // subtotal to 740, but fbSubtotal (food + bar, no AV) stays 240 -- the
+  // meter must use fbSubtotal so an AV rental can't fake "minimum met".
+  const totals = { ...base.totals, subtotal: 740, fbSubtotal: 240 };
+  const charges = [{ id: 1, item_name: 'AV Package', charge: 500 }];
+  const { container } = render(
+    <EstimateDocument {...base} totals={totals} charges={charges} register="operator" minSpend={500} />,
+  );
+  const meter = container.querySelector('.ed-min-meter');
+  expect(meter.classList.contains('under')).toBe(true);
+  expect(meter.textContent).toMatch(/under by \$260\.00/); // 500 - 240, NOT 500 - 740
+});

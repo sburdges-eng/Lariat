@@ -28,11 +28,17 @@ import CopyLinkButton from '../../_components/CopyLinkButton';
  *   share_token: string | null,
  *   location_id: string,
  *   min_spend: number | null,
+ *   bar_mode: string | null,
+ *   bar_amount: number | null,
  * }} OperatorEstimateEventRow
  */
 
 /**
  * @typedef {{ id: number, course_label: string, fire_at: string, notes: string | null, sort_order: number }} OperatorEstimateCourseRow
+ */
+
+/**
+ * @typedef {{ id: number, item_name: string, charge: number | null, cost: number | null }} OperatorEstimateChargeRow
  */
 
 /**
@@ -49,7 +55,8 @@ export default async function OperatorEstimatePage({ params }) {
   const db = getDb();
   const event = /** @type {OperatorEstimateEventRow | undefined} */ (db.prepare(
     `SELECT id, title, event_date, event_time, contact_name, guest_count, notes,
-            tax_rate, service_fee_pct, status, share_token, location_id, min_spend
+            tax_rate, service_fee_pct, status, share_token, location_id, min_spend,
+            bar_mode, bar_amount
        FROM beo_events WHERE id = ?`).get(id));
   if (!event) return notFound();
   const lineItems = /** @type {EstimateLineItem[]} */ (db.prepare(
@@ -59,7 +66,11 @@ export default async function OperatorEstimatePage({ params }) {
     `SELECT id, course_label, fire_at, notes, sort_order FROM beo_courses WHERE event_id = ? ORDER BY sort_order, id`).all(event.id));
   const signatures = /** @type {OperatorEstimateSignatureRow[]} */ (db.prepare(
     `SELECT id, signed_name, signed_at FROM beo_signatures WHERE event_id = ? ORDER BY signed_at DESC, id DESC`).all(event.id));
-  const totals = computeEstimateTotals(event, lineItems);
+  // Operator sees cost too (own margin reference) -- EstimateDocument itself
+  // only ever reads item_name/charge off a row, never cost.
+  const charges = /** @type {OperatorEstimateChargeRow[]} */ (db.prepare(
+    `SELECT id, item_name, charge, cost FROM beo_event_charges WHERE event_id = ? ORDER BY sort_order, id`).all(event.id));
+  const totals = computeEstimateTotals(event, lineItems, charges);
   const sections = groupLineItemsBySection(lineItems, courses);
   // Operator-only food-cost overlay (read-only; honestly flags unlinked lines).
   const foodCosts = computeLineFoodCosts(lineItems, event.location_id ?? 'default', db);
@@ -69,7 +80,7 @@ export default async function OperatorEstimatePage({ params }) {
       <div data-print="false" style={{ marginBottom: 12 }}>
         {shareUrl ? <CopyLinkButton url={shareUrl} /> : <span className="muted">No client link yet — generate one in the board.</span>}
       </div>
-      <EstimateDocument event={event} sections={sections} totals={totals}
+      <EstimateDocument event={event} sections={sections} totals={totals} charges={charges}
         courses={courses} signatures={signatures} register="operator"
         foodCosts={foodCosts} minSpend={event.min_spend ?? null} />
     </div>

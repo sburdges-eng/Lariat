@@ -22,13 +22,21 @@ export const dynamic = 'force-dynamic';
  * @typedef {{ id: number, title: string, event_date: string | null,
  *             event_time: string | null, contact_name: string | null,
  *             guest_count: number | null, notes: string | null,
- *             tax_rate: number | null, service_fee_pct: number | null }} ShareEventRow
+ *             tax_rate: number | null, service_fee_pct: number | null,
+ *             bar_mode: string | null, bar_amount: number | null,
+ *             min_spend: number | null }} ShareEventRow
  */
 
 /**
  * @typedef {{ id: number, sort_order: number | null, item_name: string,
  *             category: string | null, unit_cost: number | null,
  *             quantity: number | null, course_id: number | null }} ShareLineItemRow
+ */
+
+/**
+ * Guest-facing charge row. Deliberately NEVER selects `cost` (house
+ * internal) -- only what a client is actually billed.
+ * @typedef {{ id: number, item_name: string, charge: number | null }} ShareChargeRow
  */
 
 /**
@@ -112,10 +120,15 @@ export default async function BeoSharePage({ params }) {
   // share_expires_at non-null yet) but a real information-exposure gap
   // once a "revoke share link" action ships. Found during the GH #250
   // checkjs migration, cross-verified by two independent reviewers.
+  // min_spend is selected here for the MONEY MATH only: computeEstimateTotals
+  // needs it to compute fill-mode bar revenue correctly (without it, a
+  // guest's bar line would silently price at $0). It is deliberately NOT
+  // passed as the `minSpend` prop below, so the F&B-minimum meter itself
+  // stays operator-only, unchanged from before this wave.
   const event = /** @type {ShareEventRow | undefined} */ (db
     .prepare(
       `SELECT id, title, event_date, event_time, contact_name, guest_count,
-              notes, tax_rate, service_fee_pct
+              notes, tax_rate, service_fee_pct, bar_mode, bar_amount, min_spend
          FROM beo_events
         WHERE share_token = ?
           AND share_revoked_at IS NULL
@@ -149,7 +162,16 @@ export default async function BeoSharePage({ params }) {
     )
     .all(event.id));
 
-  const totals = computeEstimateTotals(event, lineItems);
+  // Guest-facing: never select `cost` (house internal) — only item_name and
+  // the billed `charge`.
+  const charges = /** @type {ShareChargeRow[]} */ (db
+    .prepare(
+      `SELECT id, item_name, charge FROM beo_event_charges
+        WHERE event_id = ? ORDER BY sort_order, id`,
+    )
+    .all(event.id));
+
+  const totals = computeEstimateTotals(event, lineItems, charges);
   const sections = groupLineItemsBySection(lineItems, courses);
 
   return (
@@ -160,6 +182,7 @@ export default async function BeoSharePage({ params }) {
         event={event}
         sections={sections}
         totals={totals}
+        charges={charges}
         courses={courses}
         signatures={signatures}
         register="client"
