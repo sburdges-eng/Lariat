@@ -23,10 +23,18 @@ Use these paths as the current Lariat surfaces inside `~/Dev`:
 | `Lariat-KDS/` | Separate clean Swift repo | Companion KDS client. Touch only when ticket protocol, KDS UI, or app-store KDS work is named. |
 | `lariat-data-sources/` | Real Lariat workbooks, PDFs, HR/BEO/menu data, PII | Read/ingest/reference only. Never delete or bulk rewrite. |
 | `lariat-data-sources/LariatHR/` | Legacy/reference Xcode project | Historical HR/native reference. Not the final native app. |
-| `Lariat/` | Dev-container artifact folder | Data artifacts/logs only, not the app repo. |
-| `hospitality/Lariat-worktrees/` | Empty right now | Reserved for isolated Lariat worktrees. |
-| `EXPERIMENTS/LariatHR-dist/` | Only `.DS_Store` observed | Not a source surface for final native work. |
-| `.claude/worktrees/cadi-cxx-toolchain/**/Lariat*` | Stale cross-scope worktree snapshot | Do not use as source of truth for final native app work. |
+| `hospitality/Lariat-worktrees/` | Empty right now | Reserved for isolated Lariat worktrees (`scripts/worktree.sh` target). |
+| `.claude/worktrees/cadi-cxx-toolchain/**/Lariat*` | Stale cross-scope worktree snapshot | Do not use as source of truth for final native app work. Owned by the cadi project's worktree — do not edit or delete from Lariat sessions. |
+
+**Consolidation 2026-07-22:** every non-canonical Lariat iteration was deleted after archiving:
+`hospitality/lariattestrun` (Cockpit), `hospitality/lariat_contract_workcopy_20260523`,
+`lariat-ui` (`@lariat/ui` design system — never consumed; superseded by the native direction),
+`Lariat/` (dev-container artifact folder, empty DB), `EXPERIMENTS/LARIAT TRY 3` (+ its worktree;
+history on GitHub `LARIATTRIALTHREEISO`, business data verified duplicated in `lariat-data-sources/`),
+and `EXPERIMENTS/LariatHR-dist`. Recovery archives (tars incl. `.git`, a TRY 3 all-refs git bundle,
+dirty-file patches, and the two content-differing data files) live at
+`~/Dev/_archive/lariat-iterations-20260722/`. Do not resurrect these paths; the canonical surfaces
+above are the complete set.
 
 ## Current Native State
 
