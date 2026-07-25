@@ -231,3 +231,6 @@ training/gcp/artifacts/
 training/gcp/snapshot/
 training/gcp/*.log
 training/models/
+
+# Generated print PDFs (rendered from docs/boh/print/*.html) — regenerate, do not commit.
+docs/boh/print/*.pdf

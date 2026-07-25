@@ -15,7 +15,14 @@
 |------------|-------------|----------------------|----------------|
 | Recipe Book | Line, prep, KM | `/recipes` (Recipe Hub) | `docs/boh/recipe-card.md` |
 | SOP binder | All staff, PIC | Partial (`docs/SOP_*.md`) | `docs/boh/sop-index.md` |
-| Training matrix | Trainer, KM | Gap — track on paper / sheet | `docs/boh/training-matrix.md` |
+| Training matrix | Trainer, KM | Gap — track on paper / sheet | `docs/boh/training-matrix.md` (filled) |
+| Day plan — dinner (crew of 3 + mgr) | KM, whole crew | Paper | `docs/boh/day-plan-dinner.md` (filled) |
+| Day plan — Sunday (brunch + order day) | KM, whole crew | Paper | `docs/boh/day-plan-sunday.md` (filled) |
+| Deep-clean & maintenance rotation | KM, whole crew | Paper (master: `Lariat_BOH_System.xlsx`) | `docs/boh/deep-clean-rotation.md` (filled) |
+| Purveyor planner (orders, deliveries, calls) | You (owner/KM) | Paper | `docs/boh/purveyor-call-planner.md` (filled) |
+| Station SOPs (setup / line check / close) | All staff, PIC | Paper → SOP binder | `docs/boh/station-sops.md` (filled) |
+| EOD manager log | You (owner/KM) | Paper | `docs/boh/manager-eod-log.md` (filled) |
+| Recipe book index | Trainer, KM | `/recipes` + master PDF | `docs/boh/recipe-book-index.md` (filled) |
 | Waste log | Line, prep, KM | `/inventory/waste` | `docs/boh/waste-log.md` |
 | Ticket fulfillment log | Expo, KM | Partial KDS (`placed_at` / `bumped_at`) — needs window + table times | `docs/boh/ticket-fulfillment-log.md` |
 | Time & agenda logbook | You (owner/KM) | Gap — personal / manager book | `docs/boh/time-agenda-logbook.md` |

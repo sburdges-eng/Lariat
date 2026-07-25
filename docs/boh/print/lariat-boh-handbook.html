@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lariat BOH Handbook — printable</title>
+<style>
+  :root { --ink:#1a1711; --line:#888; --soft:#e8e4dc; }
+  * { box-sizing:border-box; }
+  body { font-family:"Helvetica Neue",Arial,sans-serif; color:var(--ink); margin:0; background:#f4f2ee; }
+  .sheet { background:#fff; max-width:8.5in; margin:14px auto; padding:.6in .55in; box-shadow:0 1px 6px rgba(0,0,0,.15); }
+  h1 { font-size:20pt; margin:0 0 6pt; }
+  h2 { font-size:13pt; margin:12pt 0 4pt; border-bottom:2px solid var(--ink); padding-bottom:1pt; text-transform:uppercase; letter-spacing:.4px; }
+  h3 { font-size:11pt; margin:9pt 0 3pt; }
+  p, li { font-size:9.5pt; line-height:1.4; margin:3pt 0; }
+  ul, ol { margin:3pt 0 3pt 16pt; padding:0; }
+  .quote { background:var(--soft); padding:5pt 7pt; }
+  code { font-family:Menlo,monospace; font-size:8.5pt; background:var(--soft); padding:0 2pt; }
+  table { width:100%; border-collapse:collapse; margin:4pt 0 8pt; }
+  th { background:var(--ink); color:#fff; font-size:8.5pt; text-align:left; padding:2.5pt 4pt; }
+  td { border:1px solid var(--line); font-size:9pt; padding:2.5pt 4pt; vertical-align:top; }
+  .pb { border-top:1px dashed #ccc; margin:14pt 0; }
+  .toolbar { position:sticky; top:0; background:var(--ink); color:#fff; padding:8px 14px; font-size:13px; z-index:9; }
+  @media print {
+    body { background:#fff; }
+    .toolbar { display:none; }
+    .sheet { box-shadow:none; margin:0; max-width:none; padding:0; }
+    .pb { border:0; margin:0; page-break-after:always; }
+    h2 { page-break-after:avoid; }
+    table, .quote { page-break-inside:avoid; }
+  }
+  @page { size:letter; margin:.5in; }
+</style>
+</head>
+<body>
+<div class="toolbar"><b>Lariat BOH Handbook</b> — File → Print (⌘P) · sections break to new pages · working sheets live in the Ops Packet</div>
+<div class="sheet">
+<h1>BOH Handbook — Recipe Book, SOPs, Training, Logs</h1>
+<p><b>Audience:</b> Kitchen Manager, PIC, trainers, line cooks.</p>
+<p><b>Purpose:</b> One place for every back-of-house book and log The Lariat needs on paper and in Cockpit.</p>
+<p><b>Language:</b> Kitchen words. Short labels. See <code>docs/UI_COPY_RULES.md</code>.</p>
+<p><b>Last reviewed:</b> 2026-07-25.</p>
+<p class="quote">This handbook is the ops contract. Where Lariat already has a board or table, that is the live source. Where it does not, use the printable templates under <code>docs/boh/</code> until the surface ships.</p>
+<div class="pb"></div>
+<h2>Quick map</h2>
+<table>
+<tr><th>Book / log</th><th>Who uses it</th><th>Live in Lariat today</th><th>Paper template</th></tr>
+<tr><td>Recipe Book</td><td>Line, prep, KM</td><td><code>/recipes</code> (Recipe Hub)</td><td><code>docs/boh/recipe-card.md</code></td></tr>
+<tr><td>SOP binder</td><td>All staff, PIC</td><td>Partial (<code>docs/SOP_*.md</code>)</td><td><code>docs/boh/sop-index.md</code></td></tr>
+<tr><td>Training matrix</td><td>Trainer, KM</td><td>Gap — track on paper / sheet</td><td><code>docs/boh/training-matrix.md</code> (filled)</td></tr>
+<tr><td>Day plan — dinner (crew of 3 + mgr)</td><td>KM, whole crew</td><td>Paper</td><td><code>docs/boh/day-plan-dinner.md</code> (filled)</td></tr>
+<tr><td>Day plan — Sunday (brunch + order day)</td><td>KM, whole crew</td><td>Paper</td><td><code>docs/boh/day-plan-sunday.md</code> (filled)</td></tr>
+<tr><td>Deep-clean &amp; maintenance rotation</td><td>KM, whole crew</td><td>Paper (master: <code>Lariat_BOH_System.xlsx</code>)</td><td><code>docs/boh/deep-clean-rotation.md</code> (filled)</td></tr>
+<tr><td>Purveyor planner (orders, deliveries, calls)</td><td>You (owner/KM)</td><td>Paper</td><td><code>docs/boh/purveyor-call-planner.md</code> (filled)</td></tr>
+<tr><td>Station SOPs (setup / line check / close)</td><td>All staff, PIC</td><td>Paper → SOP binder</td><td><code>docs/boh/station-sops.md</code> (filled)</td></tr>
+<tr><td>EOD manager log</td><td>You (owner/KM)</td><td>Paper</td><td><code>docs/boh/manager-eod-log.md</code> (filled)</td></tr>
+<tr><td>Recipe book index</td><td>Trainer, KM</td><td><code>/recipes</code> + master PDF</td><td><code>docs/boh/recipe-book-index.md</code> (filled)</td></tr>
+<tr><td>Waste log</td><td>Line, prep, KM</td><td><code>/inventory/waste</code></td><td><code>docs/boh/waste-log.md</code></td></tr>
+<tr><td>Ticket fulfillment log</td><td>Expo, KM</td><td>Partial KDS (<code>placed_at</code> / <code>bumped_at</code>) — needs window + table times</td><td><code>docs/boh/ticket-fulfillment-log.md</code></td></tr>
+<tr><td>Time &amp; agenda logbook</td><td>You (owner/KM)</td><td>Gap — personal / manager book</td><td><code>docs/boh/time-agenda-logbook.md</code></td></tr>
+<tr><td>Combined order guide</td><td>Purchasing, KM</td><td><code>/purchasing</code> (flat list)</td><td><code>docs/boh/order-guide-combined.md</code></td></tr>
+<tr><td>Prep / par sheet</td><td>Prep, KM</td><td>Prep boards + BEO cascade</td><td><code>docs/boh/prep-par-sheet.md</code></td></tr>
+<tr><td>Shift handoff</td><td>Closing PIC → opening PIC</td><td>Preshift notes (partial)</td><td><code>docs/boh/shift-handoff.md</code></td></tr>
+<tr><td>Comp / void / courtesy</td><td>KM, FOH lead</td><td>Gap</td><td><code>docs/boh/comp-void-log.md</code></td></tr>
+<tr><td>Incident / guest problem</td><td>PIC</td><td>Gap (sick-worker / pest exist separately)</td><td><code>docs/boh/incident-log.md</code></td></tr>
+</table>
+<div class="pb"></div>
+<h2>1. Recipe Book</h2>
+<h3>Why it exists</h3>
+<p>Every plate on the menu must taste the same on Tuesday and Saturday. The book is the only legal recipe — not memory, not “how we used to do it.”</p>
+<h3>What every recipe card must have</h3>
+<table>
+<tr><th>Field</th><th>Rule</th></tr>
+<tr><td>Name + slug</td><td>Menu name cooks say out loud; stable id for costing</td></tr>
+<tr><td>Station</td><td>Where it fires (grill, saute, fry, garde, bar, …)</td></tr>
+<tr><td>Category</td><td>Sauce, protein, side, dessert, drink, prep, etc.</td></tr>
+<tr><td>Yield</td><td>Batch size + unit (e.g. 3.2 qt)</td></tr>
+<tr><td>Ingredients</td><td>Item, qty, unit — same units the order guide uses when possible</td></tr>
+<tr><td>Sub-recipes</td><td>Named links (never bury a mother sauce as prose)</td></tr>
+<tr><td>Procedure</td><td>Numbered steps. One action per step.</td></tr>
+<tr><td>Allergens</td><td>Direct allergens called out; escalate guest allergies to manager</td></tr>
+<tr><td>Menu items</td><td>Which plates pull this recipe</td></tr>
+<tr><td>Notes</td><td>Hold time, critical control, plating cue — short</td></tr>
+</table>
+<h3>House rules</h3>
+<ol>
+<li>1. <b>Scale from the card</b>, not from guesswork. Use Recipe Hub scaler or a written multiplier.</li>
+<li>2. <b>No silent changes.</b> KM edits the card; cooks do not “fix it on the fly.”</li>
+<li>3. <b>Photos optional, plating notes required</b> when the dish has a set build.</li>
+<li>4. <b>Allergen tags are kitchen tags</b>, not legal labels. Guest allergies go to a manager.</li>
+<li>5. <b>Sub-recipes win.</b> If queso embeds salsa, change salsa in one place.</li>
+</ol>
+<h3>Live surface</h3>
+<ul>
+<li>Browse / scale: <code>/recipes</code></li>
+<li>Source workbooks: <code>XL/Lariat_Unified_Workbook.xlsx</code> (Recipe Book) + optional <code>XL/Lariat Recipe Book.pdf</code></li>
+<li>Cache: <code>data/cache/recipes.json</code></li>
+</ul>
+<h3>Card template</h3>
+<p>See <code>docs/boh/recipe-card.md</code>.</p>
+<div class="pb"></div>
+<h2>2. SOPs (Standard Operating Procedures)</h2>
+<h3>Why they exist</h3>
+<p>SOPs are the “how we do it here” for jobs that are not a single recipe — cleanup, receiving, open/close, body-fluid response, reviews.</p>
+<h3>Binder structure (recommended tabs)</h3>
+<ol>
+<li>1. <b>Open / Close</b> — station setup, side work, shutoff</li>
+<li>2. <b>Food safety</b> — temps, cooling, receiving, date marks, sanitizer, sick worker, body-fluid cleanup</li>
+<li>3. <b>Line</b> — fire order, expo language, 86 rules, ticket bump</li>
+<li>4. <b>Prep</b> — batch cadence, labeling, hold times</li>
+<li>5. <b>Purchasing / receiving</b> — who orders, who checks in, rejection rules</li>
+<li>6. <b>People</b> — training sign-off, performance reviews, breaks</li>
+<li>7. <b>Events (BEO)</b> — pull, fire times, leftover handling</li>
+<li>8. <b>Emergency</b> — power loss, walk-in failure, fire, guest injury</li>
+</ol>
+<h3>SOP writing rules</h3>
+<ul>
+<li>One page when possible; two pages max for regulated cleanup.</li>
+<li>Start with <b>who owns it</b> and <b>when it runs</b>.</li>
+<li>Numbered steps. No SaaS words.</li>
+<li>Cite the Food Code / CO rule when regulated.</li>
+<li>End with <b>what to log</b> and <b>who to call</b>.</li>
+</ul>
+<h3>Already written in-repo</h3>
+<table>
+<tr><th>SOP</th><th>Path</th></tr>
+<tr><td>Body-fluid cleanup</td><td><code>docs/SOP_VOMIT_DIARRHEA_CLEANUP.md</code></td></tr>
+<tr><td>Staff performance reviews</td><td><code>docs/SOP_STAFF_PERFORMANCE_REVIEWS.md</code></td></tr>
+</table>
+<h3>Still needed (priority)</h3>
+<table>
+<tr><th>SOP</th><th>Why</th></tr>
+<tr><td>Open / close by station</td><td>Stops “tribal knowledge” open</td></tr>
+<tr><td>Receiving rejection</td><td>Protects food safety + invoice disputes</td></tr>
+<tr><td>86 and 86-clear</td><td>Same language line ↔ expo ↔ FOH</td></tr>
+<tr><td>Ticket fire → window → table</td><td>Matches the fulfillment log below</td></tr>
+<tr><td>Waste logging</td><td>When to toss vs. rework; reason codes</td></tr>
+<tr><td>Allergen guest call</td><td>Manager-only path; no guessing from tags</td></tr>
+<tr><td>Walk-in / freezer fail</td><td>Time-temp decision tree</td></tr>
+<tr><td>Knife / cut / burn first aid</td><td>Fast, posted</td></tr>
+</table>
+<p>Index template: <code>docs/boh/sop-index.md</code>.</p>
+<div class="pb"></div>
+<h2>3. Training</h2>
+<h3>Goal</h3>
+<p>A new cook can run their station safely without shadowing every shift for a month. Training is <b>signed</b>, not “I watched once.”</p>
+<h3>Levels</h3>
+<table>
+<tr><th>Level</th><th>Meaning</th><th>Gate</th></tr>
+<tr><td>T0 Shadow</td><td>Watch only</td><td>Safety tour + body-fluid kit location</td></tr>
+<tr><td>T1 Assist</td><td>Hands on with trainer</td><td>Recipe cards for that station; waste + date-mark basics</td></tr>
+<tr><td>T2 Solo</td><td>Runs station under PIC eye</td><td>Line check sign-off + ticket times OK for 3 shifts</td></tr>
+<tr><td>T3 Trainer</td><td>Can sign others off</td><td>KM approval</td></tr>
+</table>
+<h3>Training matrix (stations × people)</h3>
+<p>Track one row per person:</p>
+<ul>
+<li>Station (grill, saute, fry, garde, expo, dish, bar support)</li>
+<li>Recipes signed (list or count / total for that station)</li>
+<li>SOPs signed (open/close, receiving, 86, allergen call, body-fluid)</li>
+<li>Food-safety certs (ServSafe / local) + expiry</li>
+<li>Last dual-control shift date</li>
+<li>Trainer initials + date</li>
+</ul>
+<p>Template: <code>docs/boh/training-matrix.md</code>.</p>
+<h3>Session cadence</h3>
+<ul>
+<li><b>Day 1:</b> Tour, allergens, kit location, handwashing, sick-worker rule.</li>
+<li><b>Days 2–5:</b> Station recipes + line check + waste log practice.</li>
+<li><b>Week 2:</b> Solo under PIC; ticket times reviewed.</li>
+<li><b>30-day:</b> KM review (see performance-review SOP).</li>
+</ul>
+<h3>What “signed” means</h3>
+<p>Initials + date on the matrix <b>and</b> a verbal check: trainer asks the cook to run the card cold (no peeking at steps until stuck).</p>
+<div class="pb"></div>
+<h2>4. Waste log</h2>
+<h3>Why</h3>
+<p>Waste is money and a signal. Separate from 86: 86 means “cannot sell”; waste means “threw out / burned / dropped / spoiled.”</p>
+<h3>Live surface</h3>
+<p><code>/inventory/waste</code> → writes <code>inventory_updates</code> with <code>direction = 'waste'</code>.</p>
+<h3>Fields (every entry)</h3>
+<table>
+<tr><th>Field</th><th>Example</th></tr>
+<tr><td>When</td><td>Shift date + time</td></tr>
+<tr><td>Station</td><td>saute</td></tr>
+<tr><td>Item</td><td>cilantro</td></tr>
+<tr><td>Qty + unit</td><td>1 bunch</td></tr>
+<tr><td>Why (reason code)</td><td>Spoilage / Drop / Burn / Overcook / Overprep / Training / Comp-plate / Other</td></tr>
+<tr><td>Cook</td><td>Who logged it</td></tr>
+<tr><td>Notes</td><td>Optional short note</td></tr>
+</table>
+<h3>Reason codes (use these words)</h3>
+<ul>
+<li><b>Spoilage</b> — past date or bad on open</li>
+<li><b>Drop</b> — floor / contamination</li>
+<li><b>Burn</b> — pan or fryer</li>
+<li><b>Overcook</b> — unusable plate or batch</li>
+<li><b>Overprep</b> — made too much, cannot hold</li>
+<li><b>Training</b> — practice product</li>
+<li><b>Comp-plate</b> — remake / courtesy (also log comps separately if $ tracked)</li>
+<li><b>Other</b> — note required</li>
+</ul>
+<h3>Cadence</h3>
+<ul>
+<li>Log <b>as it happens</b>, not at close.</li>
+<li>KM reviews <b>weekly</b>: top items, $ if costed, pattern by station.</li>
+<li>Training waste is normal for new hires — do not hide it.</li>
+</ul>
+<p>Template: <code>docs/boh/waste-log.md</code>.</p>
+<div class="pb"></div>
+<h2>5. Ticket fulfillment log</h2>
+<h3>Why</h3>
+<p>Ticket times tell you if the line is healthy. You asked for four truths per ticket:</p>
+<ol>
+<li>1. <b>Time Fired</b> — when the ticket hits the line (fire / place)</li>
+<li>2. <b>Time to window</b> — when expo has it ready (pass / bump to window)</li>
+<li>3. <b>Time to table</b> — when it leaves expo to the guest</li>
+<li>4. <b>Notes</b> — hold, remake, allergy, VIP, long ticket</li>
+</ol>
+<h3>How this maps to Lariat today</h3>
+<table>
+<tr><th>Moment</th><th>Today</th><th>Gap</th></tr>
+<tr><td>Time Fired</td><td><code>kds_tickets.placed_at</code></td><td>Named “fired” in UI copy</td></tr>
+<tr><td>Time to window</td><td><code>bumped_at</code> / <code>kds_ticket_states.bumped_at</code> (closest: leave-line / bump)</td><td>Need explicit <b>window_ready_at</b> if bump ≠ window</td></tr>
+<tr><td>Time to table</td><td>—</td><td><b>Not stored</b> — add <code>table_delivered_at</code> (or paper log)</td></tr>
+<tr><td>Notes</td><td>Destination / modifiers only</td><td>Free-text ticket notes</td></tr>
+</table>
+<p>Until the schema grows, run the paper log at expo for service audits (Fri/Sat + one weekday), or sample 10 tickets per rush.</p>
+<h3>Target times (house defaults — tune per concept)</h3>
+<table>
+<tr><th>Service</th><th>Fire → window</th><th>Window → table</th><th>Fire → table</th></tr>
+<tr><td>Lunch rush</td><td>≤ 12 min</td><td>≤ 3 min</td><td>≤ 15 min</td></tr>
+<tr><td>Dinner normal</td><td>≤ 14 min</td><td>≤ 3 min</td><td>≤ 17 min</td></tr>
+<tr><td>Dinner rush</td><td>≤ 16 min</td><td>≤ 4 min</td><td>≤ 20 min</td></tr>
+<tr><td>Apps / bar snacks</td><td>≤ 8 min</td><td>≤ 2 min</td><td>≤ 10 min</td></tr>
+</table>
+<h3>Log columns</h3>
+<p>Date | Ticket # | Table / dest | Fired | Window | Table | Mins F→W | Mins W→T | Mins F→T | Station(s) | Notes</p>
+<h3>Rules</h3>
+<ul>
+<li>Clock times in local kitchen clock; 24h or am/pm — pick one and stick to it.</li>
+<li>Remakes: new row, note “REMAKE of #123”.</li>
+<li>Allergen tickets: note <b>ALLERGY</b> and manager who checked.</li>
+<li>Never invent a table time — leave blank if unknown.</li>
+</ul>
+<p>Template: <code>docs/boh/ticket-fulfillment-log.md</code>.</p>
+<div class="pb"></div>
+<h2>6. Time &amp; agenda logbook (yours)</h2>
+<h3>Why</h3>
+<p>Owner / KM days get eaten by fires. A personal logbook keeps <b>time spent</b> and <b>agenda</b> honest so purchasing, training, and costing do not vanish.</p>
+<h3>What to capture each day</h3>
+<table>
+<tr><th>Block</th><th>Content</th></tr>
+<tr><td>Date / service</td><td>e.g. 2026-07-25 · Dinner</td></tr>
+<tr><td>Agenda (AM)</td><td>Top 3 must-dos before doors</td></tr>
+<tr><td>Agenda (PM)</td><td>Top 3 before close</td></tr>
+<tr><td>Time blocks</td><td>What you actually did, with start–end</td></tr>
+<tr><td>Decisions</td><td>Price change, 86 standing, schedule call</td></tr>
+<tr><td>Follow-ups</td><td>Who / what / by when</td></tr>
+<tr><td>People</td><td>Coaching notes (private)</td></tr>
+<tr><td>Numbers glance</td><td>Covers, voids, waste $ if known</td></tr>
+</table>
+<h3>Cadence</h3>
+<ul>
+<li><b>Morning:</b> write agenda before email.</li>
+<li><b>During service:</b> only park blockers (one line).</li>
+<li><b>Close:</b> fill time blocks + follow-ups (10 minutes).</li>
+<li><b>Weekly:</b> review follow-ups; move unfinished to next week.</li>
+</ul>
+<h3>Privacy</h3>
+<p>This book can hold HR-tinged notes. Keep it <b>manager-only</b>. Do not store PINs, full socials, or medical detail here — point to regulated surfaces (sick-worker, reviews).</p>
+<p>Template: <code>docs/boh/time-agenda-logbook.md</code>.</p>
+<div class="pb"></div>
+<h2>7. Categorized combined order guide</h2>
+<h3>Why</h3>
+<p>A flat vendor dump is hard to shop and hard to prep against. You want <b>one guide</b> that can be read two ways:</p>
+<ol>
+<li>1. <b>By vendor</b> — for the order call / portal</li>
+<li>2. <b>By category / station</b> — for walk-in pull and prep</li>
+</ol>
+<h3>Row shape</h3>
+<table>
+<tr><th>Field</th><th>Notes</th></tr>
+<tr><td>Category</td><td>Produce, Dairy, Protein, Dry, Frozen, Paper, Chemical, Beverage, Other</td></tr>
+<tr><td>Station affinity</td><td>Who burns it first (prep, grill, saute, bar, …)</td></tr>
+<tr><td>Ingredient</td><td>Kitchen name (match recipe book)</td></tr>
+<tr><td>Pack / unit</td><td>Case, each, lb — as purchased</td></tr>
+<tr><td>Par</td><td>Shelf + walk-in target</td></tr>
+<tr><td>On hand</td><td>From last count</td></tr>
+<tr><td>To order</td><td>Max(par − on hand, 0) or BEO-driven need</td></tr>
+<tr><td>Vendor</td><td>Primary</td></tr>
+<tr><td>Backup vendor</td><td>Optional</td></tr>
+<tr><td>Unit price</td><td>Last known</td></tr>
+<tr><td>Notes</td><td>Catch-weight, seasonal, 86-prone</td></tr>
+</table>
+<h3>Combined view rules</h3>
+<ol>
+<li>1. <b>Kitchen name is canonical</b> — vendor SKU is secondary.</li>
+<li>2. <b>BEO / event demand adds to <code>to_order</code></b>, never silently replaces par.</li>
+<li>3. <b>Placeholder prices</b> stay marked — do not trust them for costing.</li>
+<li>4. Print <b>vendor sort</b> for the order; print <b>category sort</b> for the pull.</li>
+</ol>
+<h3>Live surface</h3>
+<ul>
+<li>Flat guide: <code>/purchasing</code> (<code>order_guide_items</code>)</li>
+<li>Event demand: BEO cascade order-guide tab</li>
+<li>Enrichment: <code>lib/orderGuideEnrichment.ts</code></li>
+</ul>
+<p>Paper / sheet template: <code>docs/boh/order-guide-combined.md</code>.</p>
+<div class="pb"></div>
+<h2>8. What else you likely need</h2>
+<p>These close the holes most kitchens discover after the basics:</p>
+<table>
+<tr><th>Book / log</th><th>Purpose</th><th>Priority</th></tr>
+<tr><td><b>Prep / par sheet</b></td><td>Daily batch targets by station</td><td>High</td></tr>
+<tr><td><b>Shift handoff</b></td><td>86s, low stock, VIP, broken gear, people notes</td><td>High</td></tr>
+<tr><td><b>Comp / void / courtesy</b></td><td>Money + reason (separate from waste)</td><td>High</td></tr>
+<tr><td><b>Incident / guest problem</b></td><td>Injury, complaint, pest sighting follow-up</td><td>High</td></tr>
+<tr><td><b>Station setup cards</b></td><td>What “ready” looks like before first ticket</td><td>Medium</td></tr>
+<tr><td><b>Side work / closing duties</b></td><td>Named tasks, not “clean the line”</td><td>Medium</td></tr>
+<tr><td><b>Label / date-mark cheat sheet</b></td><td>7-day rule examples in house language</td><td>Medium</td></tr>
+<tr><td><b>Allergen matrix (menu × allergen)</b></td><td>Fast FOH/expo lookup; still escalate</td><td>Medium</td></tr>
+<tr><td><b>Key / alarm / cash</b></td><td>Who opened what (FOH-leaning, still house ops)</td><td>Medium</td></tr>
+<tr><td><b>Equipment down log</b></td><td>What broke, temp workaround, parts ordered</td><td>Medium — equipment board exists; keep a simple down list</td></tr>
+<tr><td><b>BEO run sheet</b></td><td>Fire times, headcount, dietary, leftover plan</td><td>High when events run</td></tr>
+<tr><td><b>Walk-in map</b></td><td>Where product lives; speeds counts + FIFO</td><td>Low/Medium</td></tr>
+</table>
+<p>Templates included for prep/par, handoff, comp/void, and incident under <code>docs/boh/</code>.</p>
+<div class="pb"></div>
+<h2>9. Daily / weekly rhythm</h2>
+<h3>Every service</h3>
+<ol>
+<li>1. Open checklists + line checks signed.</li>
+<li>2. Preshift note posted (86s, VIPs, 86 watch list).</li>
+<li>3. Waste logged as it happens.</li>
+<li>4. Tickets timed (full log or sample during rush).</li>
+<li>5. Shift handoff filled at close.</li>
+</ol>
+<h3>Every order day</h3>
+<ol>
+<li>1. Count against categorized order guide.</li>
+<li>2. Merge BEO demand.</li>
+<li>3. Place orders by vendor sort.</li>
+<li>4. Receiving log on delivery.</li>
+</ol>
+<h3>Every week</h3>
+<ol>
+<li>1. Waste top-10 review.</li>
+<li>2. Ticket-time averages vs targets.</li>
+<li>3. Training matrix: who is stuck at T1.</li>
+<li>4. Your agenda logbook: clear follow-ups.</li>
+<li>5. SOP binder: fix one unclear step you heard on the line.</li>
+</ol>
+<h3>Every month</h3>
+<ol>
+<li>1. Recipe card audit (5 dishes — taste + card match).</li>
+<li>2. Cert expiry sweep.</li>
+<li>3. Par levels vs actual usage.</li>
+<li>4. Body-fluid kit attestation (cleaning schedule).</li>
+</ol>
+<div class="pb"></div>
+<h2>10. Lariat build gaps (for product, not cooks)</h2>
+<p>Planning notes only — no schema change is authorized by this handbook alone.</p>
+<table>
+<tr><th>Gap</th><th>Suggested direction</th></tr>
+<tr><td>Ticket <b>window</b> vs <b>table</b> times</td><td>Add <code>window_ready_at</code> + <code>table_delivered_at</code> (or expo confirm) on KDS; keep <code>placed_at</code> as fired</td></tr>
+<tr><td>Ticket notes</td><td>Free-text on <code>kds_tickets</code></td></tr>
+<tr><td>Training matrix</td><td>New board + table; PIN not required for read; KM write</td></tr>
+<tr><td>Manager agenda logbook</td><td>Optional private notes store, manager-PIN, not in cook context</td></tr>
+<tr><td>Order guide categories</td><td>Persist category + station_affinity; dual sort in <code>/purchasing</code></td></tr>
+<tr><td>Comp / void log</td><td>Append-only; reason codes; $ optional from Toast later</td></tr>
+<tr><td>SOP binder in-app</td><td>Index of <code>docs/SOP_*.md</code> + house PDFs; read-only for cooks</td></tr>
+</table>
+<div class="pb"></div>
+<h2>11. Related docs</h2>
+<ul>
+<li><code>docs/UI_COPY_RULES.md</code> — words on screens</li>
+<li><code>docs/ARCHITECTURE.md</code> — tables and boards</li>
+<li><code>docs/OPERATIONS.md</code> — ingest cadence</li>
+<li><code>docs/HEALTH_SAFETY_LABOR_AUDIT.md</code> — regulated gaps</li>
+<li><code>docs/SOP_VOMIT_DIARRHEA_CLEANUP.md</code></li>
+<li><code>docs/SOP_STAFF_PERFORMANCE_REVIEWS.md</code></li>
+<li>Printable templates: <code>docs/boh/</code></li>
+</ul>
+</div>
+</body>
+</html>
