@@ -26,6 +26,7 @@
 | Waste log | Line, prep, KM | `/inventory/waste` | `docs/boh/waste-log.md` |
 | Ticket fulfillment log | Expo, KM | Partial KDS (`placed_at` / `bumped_at`) — needs window + table times | `docs/boh/ticket-fulfillment-log.md` |
 | Time & agenda logbook | You (owner/KM) | Gap — personal / manager book | `docs/boh/time-agenda-logbook.md` |
+| Sysco count sheet | Purchasing, KM | `/purchasing` (flat list) | `docs/boh/sysco-count-sheet.md` (filled) |
 | Combined order guide | Purchasing, KM | `/purchasing` (flat list) | `docs/boh/order-guide-combined.md` |
 | Prep / par sheet | Prep, KM | Prep boards + BEO cascade | `docs/boh/prep-par-sheet.md` |
 | Shift handoff | Closing PIC → opening PIC | Preshift notes (partial) | `docs/boh/shift-handoff.md` |

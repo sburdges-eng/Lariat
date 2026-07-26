@@ -14,7 +14,8 @@ Sheets marked **filled** carry real Lariat data (stations, items, batches, vendo
 | `manager-eod-log.md` | **Filled** — end-of-day sign-off, one page per week |
 | `recipe-book-index.md` | **Filled** — 46 recipe cards on file, in-book + signed boxes |
 | `prep-par-sheet.md` | **Filled** — real prep items, batch yields, shelf lives |
-| `order-guide-combined.md` | **Filled** — core items by storage location, vendor winner, last $ |
+| `sysco-count-sheet.md` | **Filled** — the live Sysco guide as a count sheet by zone, with proposed pars |
+| `order-guide-combined.md` | **Filled** — cross-vendor view (Sysco vs Shamrock) for price comparison |
 | `purveyor-call-planner.md` | **Filled** — order/delivery days, contacts, weekly rhythm, call log |
 | `training-matrix.md` | **Filled** — real stations, skill ladder, Week-1 track |
 | `time-agenda-logbook.md` | Owner/KM daily agenda + manager routine + time blocks |
