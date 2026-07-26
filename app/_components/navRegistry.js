@@ -83,6 +83,14 @@ const MANAGER_PIN_PREFIXES = [
   '/shows',
   '/specials/saved',
   '/host',
+  // Line-book sheets with vendor pricing / manager sign-off. Mirrors
+  // SENSITIVE_PREFIXES in middleware.js; the literals are repeated rather
+  // than imported from lib/boh so the generated sheet data stays out of
+  // the client bundle. tests/js/test-boh-pin-coverage.mjs keeps them level.
+  '/boh/sysco-count',
+  '/boh/purveyor-planner',
+  '/boh/manager-week',
+  '/boh/eod-log',
   '/v2/command',
   '/v2/management',
   '/v2/analytics',
@@ -853,6 +861,19 @@ export const NAV_ITEMS = /** @type {NavItemBase[]} */ ([
     locAware: t,
     surface: { sidebar: f, palette: t, shelf: t },
     shelf: { b: 'Bar', sub: 'cocktails' },
+  },
+  {
+    id: 'boh',
+    href: '/boh',
+    name: 'Line book',
+    sub: 'Day plans, pars, station steps',
+    group: 'Books',
+    shortcut: 'D',
+    terms:
+      'line book boh back of house ops packet sheets day plan prep par station sop deep clean count sheet sysco purveyor eod handbook',
+    locAware: f,
+    surface: { sidebar: f, palette: t, shelf: t },
+    shelf: { b: 'Line', sub: 'book' },
   },
   {
     id: 'datapack-search',
