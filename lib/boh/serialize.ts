@@ -42,6 +42,47 @@ export function checkableIds(sheet: BohSheet): string[] {
   return ids;
 }
 
+/**
+ * Every control id a single block owns, split by what it stores.
+ *
+ * The board uses this to re-render one block instead of the whole sheet
+ * when a cook types — the count sheet carries 276 controls and an iPad
+ * feels the difference mid-count.
+ */
+export function blockControlIds(block: BohBlock): { checks: string[]; entries: string[] } {
+  const checks: string[] = [];
+  const entries: string[] = [];
+
+  switch (block.kind) {
+    case 'fields':
+      for (const part of block.parts) {
+        if (part.kind === 'field') entries.push(part.id);
+        else if (part.kind === 'check') checks.push(part.id);
+      }
+      break;
+    case 'tasks':
+      for (const row of block.rows) checks.push(row.id);
+      break;
+    case 'count':
+      for (const row of block.rows) {
+        if (row.checkable) checks.push(row.id);
+        for (const input of block.inputs) entries.push(`${row.id}.${input.key}`);
+      }
+      break;
+    case 'grid':
+      for (const row of block.rows) {
+        for (const cell of row.cells) {
+          if (cell.kind === 'check') checks.push(cell.id);
+          else if (cell.kind === 'entry') entries.push(cell.id);
+        }
+      }
+      break;
+    default:
+      break;
+  }
+  return { checks, entries };
+}
+
 export function countProgress(sheet: BohSheet, state: SheetState): { done: number; total: number } {
   const ids = checkableIds(sheet);
   return {
