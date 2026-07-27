@@ -28,3 +28,19 @@ Sheets marked **filled** carry real Lariat data (stations, items, batches, vendo
 | `incident-log.md` | Guest / injury / ops incidents |
 
 Print-ready packet (one page per sheet, big type): `print/lariat-ops-packet.html` — open in a browser and print.
+
+## On a phone
+
+The same 12 sheets are in the app at **`/boh`** (Line book) — tap to tick, type counts in, and
+**Copy sheet** to paste a filled sheet into the handoff board. Entries are saved on that phone
+for that service date only; they are a working sheet, not a record. Temps and food-safety logs
+still go in Food safety.
+
+Four sheets sit behind the manager PIN because they carry vendor pricing or a sign-off: the
+Sysco count sheet, purveyor planner, manager weekly routine, and EOD log. The other eight stay
+open so a cook can pull up their own station SOP mid-shift.
+
+The app reads its sheets from `print/lariat-ops-packet.html` via
+`node scripts/build-boh-sheets.mjs` → `lib/boh/sheets.generated.ts`. **Edit the packet, then
+re-run that script** — do not hand-edit the generated file. `npm run test:boh` proves the two
+still match.

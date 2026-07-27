@@ -18,6 +18,14 @@ const SENSITIVE_PREFIXES = [
   '/shows',
   '/specials/saved',
   '/host',
+  // Line-book sheets carrying vendor pricing, order history, or a
+  // manager sign-off. The rest of /boh stays open so a cook can read
+  // their own line paper. Tier lives in lib/boh and
+  // tests/js/test-boh-pin-coverage.mjs asserts this list matches it.
+  '/boh/sysco-count',
+  '/boh/purveyor-planner',
+  '/boh/manager-week',
+  '/boh/eod-log',
   '/v2/command',
   '/v2/management',
   '/v2/analytics',
@@ -101,6 +109,10 @@ export const config = {
     '/specials/saved',
     '/specials/saved/:path*',
     '/host/:path*',
+    '/boh/sysco-count',
+    '/boh/purveyor-planner',
+    '/boh/manager-week',
+    '/boh/eod-log',
     '/v2/command',
     '/v2/management',
     '/v2/analytics',
