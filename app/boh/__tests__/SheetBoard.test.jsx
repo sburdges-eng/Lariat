@@ -63,6 +63,41 @@ describe('SheetBoard — ticking and writing', () => {
     expect(screen.getByText(`1 of ${boxes.length} done`)).toBeInTheDocument();
   });
 
+  test('keeps a first tick made while saved state is loading', async () => {
+    const key = sheetStorageKey('sop-grille', SERVICE_DATE);
+    window.localStorage.setItem(key, JSON.stringify({ checks: {}, entries: {}, notes: '' }));
+
+    let clickedDuringLoad = false;
+    const originalGetItem = Storage.prototype.getItem;
+    const originalConsoleError = console.error;
+    const getItem = jest.spyOn(window.localStorage.__proto__, 'getItem');
+    const consoleError = jest.spyOn(console, 'error').mockImplementation((...args) => {
+      const message = args.map(String).join(' ');
+      if (message.includes('act')) return;
+      originalConsoleError(...args);
+    });
+    getItem.mockImplementation((requestedKey) => {
+      if (requestedKey === key && !clickedDuringLoad) {
+        clickedDuringLoad = true;
+        fireEvent.click(document.querySelector('input[type="checkbox"]'));
+      }
+      return originalGetItem.call(window.localStorage, requestedKey);
+    });
+
+    try {
+      render(<SheetBoard sheet={grille} serviceDate={SERVICE_DATE} />);
+
+      expect(clickedDuringLoad).toBe(true);
+      expect(screen.getAllByRole('checkbox')[0]).toBeChecked();
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, 0);
+      });
+    } finally {
+      getItem.mockRestore();
+      consoleError.mockRestore();
+    }
+  });
+
   test('a ticked step survives a remount', () => {
     const { unmount } = render(<SheetBoard sheet={grille} serviceDate={SERVICE_DATE} />);
     fireEvent.click(screen.getAllByRole('checkbox')[0]);

@@ -292,6 +292,11 @@ export default function SheetBoard({ sheet, serviceDate }) {
   const [loadedKey, setLoadedKey] = useState(/** @type {string | null} */ (null));
   const [asking, setAsking] = useState(false);
   const [copied, setCopied] = useState(false);
+  const editedBeforeLoad = useRef(false);
+
+  const markEditedBeforeLoad = useCallback(() => {
+    if (loadedKey !== storageKey) editedBeforeLoad.current = true;
+  }, [loadedKey, storageKey]);
 
   // Saved state is read after mount, never during render — the server has
   // no localStorage and a mismatch would blow up hydration.
@@ -311,7 +316,16 @@ export default function SheetBoard({ sheet, serviceDate }) {
       // Unreadable storage must not take the sheet down — the cook can
       // still work the sheet, it just will not survive a reload.
     }
-    setState(next);
+    const hadEarlyEdits = editedBeforeLoad.current;
+    setState((current) => {
+      if (!hadEarlyEdits) return next;
+      return {
+        checks: { ...next.checks, ...current.checks },
+        entries: { ...next.entries, ...current.entries },
+        notes: current.notes ? current.notes : next.notes,
+      };
+    });
+    editedBeforeLoad.current = false;
     setLoadedKey(storageKey);
   }, [storageKey]);
 
@@ -329,22 +343,29 @@ export default function SheetBoard({ sheet, serviceDate }) {
 
   const toggle = useCallback(
     /** @param {string} id */
-    (id) => setState((prev) => ({ ...prev, checks: { ...prev.checks, [id]: !prev.checks[id] } })),
-    [],
+    (id) => {
+      markEditedBeforeLoad();
+      setState((prev) => ({ ...prev, checks: { ...prev.checks, [id]: !prev.checks[id] } }));
+    },
+    [markEditedBeforeLoad],
   );
 
   const write = useCallback(
     /** @param {string} id @param {string} value */
-    (id, value) => setState((prev) => ({ ...prev, entries: { ...prev.entries, [id]: value } })),
-    [],
+    (id, value) => {
+      markEditedBeforeLoad();
+      setState((prev) => ({ ...prev, entries: { ...prev.entries, [id]: value } }));
+    },
+    [markEditedBeforeLoad],
   );
 
   const progress = useMemo(() => countProgress(sheet, state), [sheet, state]);
 
   const startNew = useCallback(() => {
+    markEditedBeforeLoad();
     setState(EMPTY_SHEET_STATE);
     setAsking(false);
-  }, []);
+  }, [markEditedBeforeLoad]);
 
   const copiedTimer = useRef(/** @type {number | null} */ (null));
   useEffect(
@@ -399,6 +420,7 @@ export default function SheetBoard({ sheet, serviceDate }) {
           value={state.notes}
           onChange={(e) => {
             const notes = e.target.value;
+            markEditedBeforeLoad();
             setState((prev) => ({ ...prev, notes }));
           }}
         />

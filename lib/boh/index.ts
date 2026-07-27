@@ -86,20 +86,31 @@ export function sheetStorageKey(slug: string, serviceDate: string): string {
   return `lariat.boh.${slug}.${serviceDate}`;
 }
 
+const VENUE_TIME_ZONE = 'America/Denver';
+const SERVICE_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: VENUE_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
 /**
  * The date the sheet belongs to, in the venue's own day — deliberately
  * local rather than the UTC slice `todayISO()` returns.
  *
  * A UTC date rolls over at 6pm Mountain, which would hand a cook a blank
- * dinner day plan in the middle of dinner service. Local date rolls at
- * midnight, so a sheet lasts the shift.
+ * dinner day plan in the middle of dinner service. The venue date rolls
+ * at Colorado midnight, so a sheet lasts the shift.
  *
  * Nothing here reads the database: the line book is reference paper and
  * must still open when SQLite is unhealthy.
  */
 export function serviceDateISO(now: Date = new Date()): string {
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
+  const parts = Object.fromEntries(
+    SERVICE_DATE_FORMATTER.formatToParts(now).map(({ type, value }) => [type, value]),
+  );
+  const year = parts.year;
+  const month = parts.month;
+  const day = parts.day;
   return `${year}-${month}-${day}`;
 }
