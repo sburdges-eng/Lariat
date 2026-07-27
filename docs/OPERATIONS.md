@@ -132,3 +132,7 @@ Reinstall native bindings on the machine that runs the app (Node major version a
 ```bash
 npm rebuild better-sqlite3
 ```
+
+## BOH books and logs
+
+Kitchen-facing standards for the Recipe Book, SOP binder, training matrix, waste log, ticket fulfillment times (fired / window / table), manager agenda logbook, categorized order guide, and related sheets live in **[`docs/BOH_HANDBOOK.md`](BOH_HANDBOOK.md)**. Printable blanks are under **`docs/boh/`**.
