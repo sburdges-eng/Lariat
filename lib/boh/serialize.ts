@@ -27,7 +27,9 @@ function entry(state: SheetState, id: string): string {
 export function checkableIds(sheet: BohSheet): string[] {
   const ids: string[] = [];
   for (const block of sheet.blocks) {
-    if (block.kind === 'tasks') {
+    if (block.kind === 'fields') {
+      for (const part of block.parts) if (part.kind === 'check') ids.push(part.id);
+    } else if (block.kind === 'tasks') {
       for (const row of block.rows) ids.push(row.id);
     } else if (block.kind === 'count') {
       for (const row of block.rows) if (row.checkable) ids.push(row.id);
@@ -65,13 +67,25 @@ function blockToLines(block: BohBlock, state: SheetState): string[] {
       return [];
 
     case 'fields': {
+      // Filled blanks condense onto one line; each ticked box gets its own,
+      // in the same shape a task list pastes in.
+      //
+      // Untouched parts stay out. This paste goes to the handoff board as a
+      // message to the next shift, and a list of boxes nobody ticked is not
+      // a message — the sheet itself is where the gaps are read.
       const filled: string[] = [];
+      const boxes: string[] = [];
       for (const part of block.parts) {
-        if (part.kind !== 'field') continue;
-        const value = entry(state, part.id);
-        if (value) filled.push(`${part.label}: ${value}`);
+        if (part.kind === 'field') {
+          const value = entry(state, part.id);
+          if (value) filled.push(`${part.label}: ${value}`);
+        } else if (part.kind === 'check' && state.checks[part.id]) {
+          boxes.push(`[x] ${plain(part.label)}`);
+        }
       }
-      return filled.length ? [filled.join('  ·  ')] : [];
+      const lines: string[] = [];
+      if (filled.length) lines.push(filled.join('  ·  '));
+      return lines.concat(boxes);
     }
 
     case 'tasks':

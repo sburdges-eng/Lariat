@@ -64,10 +64,17 @@ export interface GridRow {
   cells: GridCell[];
 }
 
-/** A labelled blank in a sheet header, e.g. "Date ____", "Mgr ____". */
+/**
+ * One piece of a printed line. The packet writes working lines as prose
+ * with things to fill in dropped into them — "Count date: ____ Counted by:
+ * ____ Order placed: ☐ Sun ☐ Wed" is one sentence carrying two blanks and
+ * two boxes. Each becomes its own part so all four are usable on a phone.
+ */
 export type FieldPart =
   | { kind: 'static'; text: RichText }
-  | { kind: 'field'; id: string; label: string };
+  | { kind: 'field'; id: string; label: string }
+  /** A tick box printed in prose rather than in a table cell. */
+  | { kind: 'check'; id: string; label: RichText };
 
 export type BohBlock =
   | { kind: 'heading'; level: 2 | 3; text: RichText }

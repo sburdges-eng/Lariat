@@ -171,10 +171,46 @@ minimum on `.main input` with specificity no scoped rule here can beat. The tick
 targets that need size — are 48px. Raising the app-wide field floor to 44px is a separate call
 and was left alone.
 
-### Known limitations
+### Known limitations — closed
 
-- Tick boxes printed *inside prose* (for example "Order placed: ☐ Sun ☐ Wed" on the count sheet)
-  render as static text. Only boxes in table cells and SOP steps are tappable. The per-sheet
-  notes box covers the gap.
-- The deep-clean rotation is a five-column grid that scrolls sideways on a phone. Faithful to the
-  paper, but pivoting it to one card per day would read better on a phone.
+Both phone-UX gaps left open on the first pass are now fixed.
+
+**Boxes printed in prose are tappable.** The packet prints tick boxes in paragraphs as well as in
+table cells — the order-call checklist, the manager's every-service gate, "Order placed: ☐ Sun ☐
+Wed" — and they rendered as dead text. A paragraph carrying a box now goes through the same parser
+as one carrying a pencil blank, and `FieldPart` gained a `check` kind, so a line can hold static
+prose, writable blanks, and tick boxes at once. Nine paragraphs across five sheets became live.
+
+The two dialects read in opposite directions and both appear in the packet:
+
+| Printed as | Label is | Example |
+|---|---|---|
+| `☐ task` | the run after the box | `☐ Counted all four zones` |
+| `task ☐` | the run before the box | `restock + flip · sauce bottles · trash ☐` |
+
+A box is deliberately **not** delimited by the packet's `·`. Inside a box the interpunct separates
+duties within one task, so splitting on it would leave a cook ticking the word "trash". Only
+another box, a pencil blank, or the end of the paragraph closes a label.
+
+Two cases needed naming. `☐ = printed card in the book` on the recipe index is a key to a column,
+not a box, so a box followed by `=` stays printed text — a cook must not be invited to tick the
+legend. And a leading bold run ending in a colon is a heading for the boxes after it, so
+`**Lull (7–8):** deep-clean task ☐ · restock ☐` yields a chip and two boxes rather than folding the
+time block into the first label.
+
+This also fixed a latent bug the round-trip test could not see: the prep sheet's "Event prep pulled
+in? ☐ Yes (list) ____ ☐ No events" had parsed as a *single* field whose label carried both boxes.
+
+**The deep-clean rotation is a card per day.** Five columns of sentence-length tasks meant
+scrolling sideways mid-shift to find your own station. `taskMatrixDays()` in `lib/boh` reshapes a
+grid whose rows are "one text label, then nothing but tick boxes" into a day card with a labelled
+tick row per station; the board renders that shape instead of a table. The rule is structural
+rather than a slug check, and a test asserts it matches the rotation and nothing else — the
+monthly list, the weekly score grid, the contact tables and the recipe index all still line up as
+tables, which is what they need.
+
+### Still open
+
+- The print edition holds its own copy of the sheets (see "Known drift"). Rendering it from
+  `lib/boh/` would collapse the packet to one source. Still the recommended follow-up, still out of
+  scope here because it churns the committed PDFs.

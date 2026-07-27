@@ -11,7 +11,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { sheetStorageKey } from '../../../lib/boh/index.ts';
+import { sheetStorageKey, taskMatrixDays } from '../../../lib/boh/index.ts';
 import {
   EMPTY_SHEET_STATE,
   countProgress,
@@ -93,22 +93,38 @@ function Block({ block, state, toggle, write }) {
     case 'fields':
       return (
         <div className="boh-fields">
-          {block.parts.map((part, i) =>
-            part.kind === 'field' ? (
-              <label key={i} className="boh-field">
-                <span className="boh-field-label">{part.label}</span>
-                <input
-                  type="text"
-                  value={state.entries[part.id] ?? ''}
-                  onChange={(e) => write(part.id, e.target.value)}
+          {block.parts.map((part, i) => {
+            if (part.kind === 'field') {
+              return (
+                <label key={i} className="boh-field">
+                  <span className="boh-field-label">{part.label}</span>
+                  <input
+                    type="text"
+                    value={state.entries[part.id] ?? ''}
+                    onChange={(e) => write(part.id, e.target.value)}
+                  />
+                </label>
+              );
+            }
+            // A box the packet printed mid-sentence gets the same tick row
+            // as one printed in a table — same size target, same counter.
+            if (part.kind === 'check') {
+              return (
+                <CheckRow
+                  key={i}
+                  id={part.id}
+                  checked={Boolean(state.checks[part.id])}
+                  onChange={() => toggle(part.id)}
+                  label={<Rich text={part.label} />}
                 />
-              </label>
-            ) : (
+              );
+            }
+            return (
               <span key={i} className="boh-chip">
                 <Rich text={part.text} />
               </span>
-            ),
-          )}
+            );
+          })}
         </div>
       );
 
@@ -180,9 +196,39 @@ function Block({ block, state, toggle, write }) {
         </div>
       );
 
-    case 'grid':
+    case 'grid': {
+      // A day-by-station matrix of tasks is unreadable as a table on a
+      // phone — five columns of sentences means scrolling sideways to find
+      // your own station mid-shift. Stack it into a card per day instead.
+      const days = taskMatrixDays(block);
+      if (days) {
+        return (
+          <div className="boh-matrix">
+            {days.map((day) => (
+              <section key={day.id} className="boh-matrix-day">
+                <h4 className="boh-matrix-day-name">{day.day}</h4>
+                {day.tasks.map((task) => (
+                  <div key={task.id} className="boh-matrix-task">
+                    <span className="boh-matrix-station">
+                      <Rich text={task.station} />
+                    </span>
+                    <CheckRow
+                      id={task.id}
+                      checked={Boolean(state.checks[task.id])}
+                      onChange={() => toggle(task.id)}
+                      label={<Rich text={task.text} />}
+                    />
+                  </div>
+                ))}
+              </section>
+            ))}
+          </div>
+        );
+      }
+
       return (
         <div className="boh-grid-wrap">
+
           <table className="boh-grid">
             <thead>
               <tr>
@@ -226,6 +272,7 @@ function Block({ block, state, toggle, write }) {
           </table>
         </div>
       );
+    }
 
     default:
       // Unknown block kinds are skipped rather than crashing the sheet —

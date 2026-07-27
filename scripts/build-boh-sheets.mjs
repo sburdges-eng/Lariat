@@ -133,43 +133,167 @@ function labelize(s) {
 }
 
 /**
- * Turn a line carrying pencil blanks into static chips and writable
- * fields. Handles both packet dialects: the day-plan header
- * ("Date ___ · Doors 4:00 · A–Grille ___") and the prep-sheet header
- * ("**Date:** ___ **Service:** ___"). Each blank takes the phrase
- * immediately before it as its label.
+ * A box's label keeps the packet's emphasis \u2014 the bold in "**Gate:** walk
+ * line" names the check \u2014 but drops a trailing colon left behind when the
+ * phrase ran on into a blank ("\u2610 Confirmation # saved: ____").
+ * @param {string} s
+ */
+function checkLabel(s) {
+  return tidy(s).replace(/[:\u2013-]\s*$/, '').trim();
+}
+
+/**
+ * Split a printed line into its literal text runs and the marks a cook
+ * works: pencil blanks and tick boxes.
+ * @param {string} raw
+ */
+function marks(raw) {
+  const out = [];
+  let buf = '';
+  for (const ch of raw) {
+    if (ch === BLANK || ch === TICK) {
+      if (buf) out.push({ kind: 'text', text: buf });
+      out.push({ kind: ch === BLANK ? 'blank' : 'tick' });
+      buf = '';
+    } else {
+      buf += ch;
+    }
+  }
+  if (buf) out.push({ kind: 'text', text: buf });
+  return out;
+}
+
+/**
+ * A leading bold run that reads as a heading for the boxes after it —
+ * "**Lull (7–8):** deep-clean task ☐ · restock ☐". Returns the heading and
+ * the remainder, or null when the line does not open that way.
+ * @param {string} run
+ */
+function boldHeading(run) {
+  const match = /^\s*(\*\*[^*]+:\*\*)\s*(.*)$/s.exec(run);
+  if (!match) return null;
+  const rest = tidy(match[2]);
+  return rest ? { heading: match[1], rest } : null;
+}
+
+/**
+ * Turn a line carrying pencil blanks or tick boxes into static chips,
+ * writable fields, and tickable boxes.
+ *
+ * Blanks and boxes read in opposite directions, and the packet uses both:
+ *
+ * - a blank takes the phrase immediately before it ("Date ___", "**Date:**
+ *   ___"), delimited by the `·` the packet separates header fields with;
+ * - a box takes the whole run of text on whichever side it sits — after it
+ *   when the box opens the phrase ("☐ Counted all four zones"), before it
+ *   when the box closes one ("restock + flip · sauce bottles · trash ☐").
+ *
+ * A box is deliberately NOT delimited by `·`. Inside a box the interpunct
+ * separates duties within one task — "A/B — restock + flip · sauce bottles
+ * · wipe + sweep · trash ☐" is a single box covering four duties, and
+ * splitting on it would leave a cook ticking the word "trash".
+ *
  * @param {string} raw
  * @param {string} idBase
  */
 function parseFields(raw, idBase) {
   const parts = [];
-  const chunks = raw.split(BLANK);
+  const tokens = marks(raw);
+  /** Segments of the current text run, still unclaimed. */
+  let pending = [];
+  let skipNextRun = false;
+  let lastCheckLabel = '';
+  let n = 0;
 
-  chunks.forEach((chunk, i) => {
-    const segments = splitOutsideBold(chunk);
-    const isLabelChunk = i < chunks.length - 1;
-    // Everything but the final segment is prose; the final segment names
-    // the blank that follows this chunk.
-    const staticSegments = isLabelChunk ? segments.slice(0, -1) : segments;
-
-    for (const segment of staticSegments) {
+  const flush = (keep) => {
+    for (const segment of pending.slice(0, keep)) {
       const trimmed = tidy(segment);
       if (trimmed) parts.push({ kind: 'static', text: trimmed });
     }
+    pending = [];
+  };
 
-    if (!isLabelChunk) return;
+  /** Text of the run after token `i`, or '' when a mark follows instead. */
+  const runAfter = (i) => (tokens[i + 1]?.kind === 'text' ? tokens[i + 1].text : '');
 
-    const label = labelize(segments[segments.length - 1]);
-    if (label.length > MAX_LABEL) {
-      // Too long to sit beside a box — keep it as prose and leave the
-      // field unlabelled rather than truncating a cook's instruction.
-      parts.push({ kind: 'static', text: tidy(segments[segments.length - 1]) });
-      parts.push({ kind: 'field', id: `${idBase}.f${i}`, label: 'Note' });
+  tokens.forEach((token, i) => {
+    if (token.kind === 'text') {
+      if (skipNextRun) {
+        skipNextRun = false;
+        return;
+      }
+      flush(pending.length);
+      pending = splitOutsideBold(token.text);
       return;
     }
-    parts.push({ kind: 'field', id: `${idBase}.f${i}`, label: label || 'Note' });
+
+    if (token.kind === 'blank') {
+      const label = pending.length ? labelize(pending[pending.length - 1]) : '';
+      const tail = pending.length ? pending[pending.length - 1] : '';
+      flush(Math.max(pending.length - 1, 0));
+      if (label && label.length <= MAX_LABEL) {
+        parts.push({ kind: 'field', id: `${idBase}.f${n}`, label });
+      } else if (label) {
+        // Too long to sit beside a box — keep it as prose and leave the
+        // field unlabelled rather than truncating a cook's instruction.
+        parts.push({ kind: 'static', text: tidy(tail) });
+        parts.push({ kind: 'field', id: `${idBase}.f${n}`, label: 'Note' });
+      } else {
+        // A blank right after a box writes the box's own answer — "☐
+        // Confirmation # saved: ____" — so it borrows that label.
+        parts.push({ kind: 'field', id: `${idBase}.f${n}`, label: lastCheckLabel || 'Note' });
+      }
+      n += 1;
+      return;
+    }
+
+    const after = runAfter(i);
+    const trimmedAfter = tidy(after);
+
+    // "☐ = printed card in the book" is a key to a column, not a box. A
+    // cook must not be invited to tick the legend, so the box goes back
+    // into the sentence it explains and stays printed text.
+    if (trimmedAfter.startsWith('=')) {
+      flush(pending.length);
+      if (tokens[i + 1]?.kind === 'text') tokens[i + 1].text = `${TICK}${tokens[i + 1].text}`;
+      else parts.push({ kind: 'static', text: TICK });
+      return;
+    }
+
+    // The box opens the phrase when text follows it directly; it closes one
+    // when the next run starts with the packet's separator, or ends the line.
+    const leading = trimmedAfter !== '' && !/^\s*·/.test(after);
+
+    if (leading) {
+      flush(pending.length);
+      lastCheckLabel = labelize(after);
+      parts.push({ kind: 'check', id: `${idBase}.k${n}`, label: checkLabel(after) });
+      skipNextRun = true;
+    } else {
+      // Rebuild the run the box closes. The packet's own `·` separators
+      // come back, but the empty segments its leading separator produced
+      // do not — "· A/B — restock" is a box labelled "A/B — restock".
+      const run = pending
+        .map((segment) => tidy(segment))
+        .filter(Boolean)
+        .join(' · ');
+      const split = boldHeading(run);
+      pending = [];
+      if (split) parts.push({ kind: 'static', text: split.heading });
+      const label = checkLabel(split ? split.rest : run);
+      if (!label) {
+        // Nothing to tick against — keep the printed box as text rather
+        // than publishing a nameless checkbox.
+        parts.push({ kind: 'static', text: TICK });
+        return;
+      }
+      lastCheckLabel = label;
+      parts.push({ kind: 'check', id: `${idBase}.k${n}`, label });
+    }
+    n += 1;
   });
 
+  flush(pending.length);
   return { kind: 'fields', parts };
 }
 
@@ -329,7 +453,10 @@ function parseSheet(page, meta) {
       // Both packet dialects for a pencil blank: a .blank span (already a
       // sentinel from rich()) and a literal run of underscores.
       const raw = rich(el).replace(/_{3,}/g, BLANK);
-      if (raw.includes(BLANK)) {
+      // A box printed in prose is as real as one printed in a table cell —
+      // the order-call checklist and the manager's every-service gate live
+      // in paragraphs, and left as text they are boxes nobody can tick.
+      if (raw.includes(BLANK) || raw.includes(TICK)) {
         blocks.push(parseFields(raw, idBase));
       } else {
         const body = tidy(raw);

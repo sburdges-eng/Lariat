@@ -5,11 +5,54 @@
 // asserts the two stay in step, so adding a manager sheet here without
 // gating it fails the build rather than quietly exposing vendor pricing.
 
-import type { BohSheet, BohTier } from './types.ts';
+import type { BohSheet, BohTier, BohBlock, RichText } from './types.ts';
 import { BOH_SHEETS } from './sheets.generated.ts';
 
 export type { BohSheet, BohTier };
 export { BOH_SHEETS };
+
+/** One day of a rotation: the day name and one tickable task per station. */
+export interface TaskMatrixDay {
+  id: string;
+  day: string;
+  tasks: { id: string; station: string; text: RichText }[];
+}
+
+/**
+ * Reshape a grid into a card per row, or return null if it is not a
+ * day-by-station matrix of tasks: a row label in the first column and
+ * nothing but tick boxes after it.
+ *
+ * The deep-clean rotation is the one table in the packet that cannot be
+ * read on a phone as a table — five columns of sentence-length tasks means
+ * scrolling sideways to find your station mid-shift. The board stacks
+ * those into a card per day. Every other grid is narrow enough, or carries
+ * written-in values that only line up as a table, so it stays one.
+ */
+export function taskMatrixDays(block: BohBlock): TaskMatrixDay[] | null {
+  if (block.kind !== 'grid') return null;
+  if (block.columns.length < 3 || block.rows.length === 0) return null;
+
+  const days: TaskMatrixDay[] = [];
+  for (const row of block.rows) {
+    const [label, ...stations] = row.cells;
+    if (!label || label.kind !== 'text' || label.text.trim() === '') return null;
+    if (stations.length === 0) return null;
+
+    const tasks: TaskMatrixDay['tasks'] = [];
+    for (const [i, cell] of stations.entries()) {
+      if (cell.kind !== 'check') return null;
+      tasks.push({ id: cell.id, station: block.columns[i + 1] ?? '', text: cell.text });
+    }
+    days.push({ id: row.id, day: label.text, tasks });
+  }
+  return days;
+}
+
+/** Whether the board should stack this grid into day cards. */
+export function isTaskMatrix(block: BohBlock): boolean {
+  return taskMatrixDays(block) !== null;
+}
 
 /** Route prefix for the packet. */
 export const BOH_BASE = '/boh';

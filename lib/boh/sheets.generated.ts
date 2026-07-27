@@ -159,8 +159,28 @@ export const BOH_SHEETS: BohSheet[] = [
         "text": "C to dish pit at 5:00: break down prep boxes · prep dishes · silverware + bullets · fresh liner. Manager on expo: quality gate every plate · call + pace tickets · 86 board + Toast current."
       },
       {
-        "kind": "note",
-        "text": "**Lull (7–8):** Each — deep-clean task of the day (rotation sheet, initial) ☐ · A/B — restock + flip · sauce bottles · wipe + sweep · trash ☐ · Mgr — glance, reassign out loud if slammed ☐"
+        "kind": "fields",
+        "parts": [
+          {
+            "kind": "static",
+            "text": "**Lull (7–8):**"
+          },
+          {
+            "kind": "check",
+            "id": "dinner-day-plan.b9.k0",
+            "label": "Each — deep-clean task of the day (rotation sheet, initial)"
+          },
+          {
+            "kind": "check",
+            "id": "dinner-day-plan.b9.k1",
+            "label": "A/B — restock + flip · sauce bottles · wipe + sweep · trash"
+          },
+          {
+            "kind": "check",
+            "id": "dinner-day-plan.b9.k2",
+            "label": "Mgr — glance, reassign out loud if slammed"
+          }
+        ]
       },
       {
         "kind": "heading",
@@ -320,8 +340,23 @@ export const BOH_SHEETS: BohSheet[] = [
         "text": "C to pit at first push · Mgr on expo · 86 board + Toast live."
       },
       {
-        "kind": "note",
-        "text": "**2:00–2:30 (brunch winds down):** family meal from surplus eggs / potatoes / french toast / waffles ☐ · waffle iron + egg station washed · line flipped for dinner menu ☐"
+        "kind": "fields",
+        "parts": [
+          {
+            "kind": "static",
+            "text": "**2:00–2:30 (brunch winds down):**"
+          },
+          {
+            "kind": "check",
+            "id": "sunday-day-plan.b7.k0",
+            "label": "family meal from surplus eggs / potatoes / french toast / waffles"
+          },
+          {
+            "kind": "check",
+            "id": "sunday-day-plan.b7.k1",
+            "label": "waffle iron + egg station washed · line flipped for dinner menu"
+          }
+        ]
       },
       {
         "kind": "heading",
@@ -1837,13 +1872,23 @@ export const BOH_SHEETS: BohSheet[] = [
         "kind": "fields",
         "parts": [
           {
-            "kind": "field",
-            "id": "prep-par.b14.f0",
-            "label": "Event prep pulled in? ☐ Yes (list)"
+            "kind": "static",
+            "text": "**Event prep pulled in?**"
           },
           {
-            "kind": "static",
-            "text": "☐ No events"
+            "kind": "check",
+            "id": "prep-par.b14.k0",
+            "label": "Yes (list)"
+          },
+          {
+            "kind": "field",
+            "id": "prep-par.b14.f1",
+            "label": "Yes (list)"
+          },
+          {
+            "kind": "check",
+            "id": "prep-par.b14.k2",
+            "label": "No events"
           }
         ]
       },
@@ -1895,7 +1940,17 @@ export const BOH_SHEETS: BohSheet[] = [
           },
           {
             "kind": "static",
-            "text": "**Order placed:** ☐ Sun ☐ Wed"
+            "text": "**Order placed:**"
+          },
+          {
+            "kind": "check",
+            "id": "sysco-count.b0.k2",
+            "label": "Sun"
+          },
+          {
+            "kind": "check",
+            "id": "sysco-count.b0.k3",
+            "label": "Wed"
           }
         ]
       },
@@ -4714,28 +4769,57 @@ export const BOH_SHEETS: BohSheet[] = [
         "text": "Order call checklist"
       },
       {
-        "kind": "note",
-        "text": "☐ Counted all four zones"
-      },
-      {
-        "kind": "note",
-        "text": "☐ Event / BEO demand added on top of par"
-      },
-      {
-        "kind": "note",
-        "text": "☐ 86-prone items double-checked"
-      },
-      {
-        "kind": "note",
-        "text": "☐ Pars pencil-corrected where the number was wrong"
+        "kind": "fields",
+        "parts": [
+          {
+            "kind": "check",
+            "id": "sysco-count.b36.k0",
+            "label": "Counted all four zones"
+          }
+        ]
       },
       {
         "kind": "fields",
         "parts": [
           {
+            "kind": "check",
+            "id": "sysco-count.b37.k0",
+            "label": "Event / BEO demand added on top of par"
+          }
+        ]
+      },
+      {
+        "kind": "fields",
+        "parts": [
+          {
+            "kind": "check",
+            "id": "sysco-count.b38.k0",
+            "label": "86-prone items double-checked"
+          }
+        ]
+      },
+      {
+        "kind": "fields",
+        "parts": [
+          {
+            "kind": "check",
+            "id": "sysco-count.b39.k0",
+            "label": "Pars pencil-corrected where the number was wrong"
+          }
+        ]
+      },
+      {
+        "kind": "fields",
+        "parts": [
+          {
+            "kind": "check",
+            "id": "sysco-count.b40.k0",
+            "label": "Confirmation # saved"
+          },
+          {
             "kind": "field",
-            "id": "sysco-count.b40.f0",
-            "label": "☐ Confirmation # saved"
+            "id": "sysco-count.b40.f1",
+            "label": "Confirmation # saved"
           }
         ]
       }
@@ -5462,8 +5546,29 @@ export const BOH_SHEETS: BohSheet[] = [
         "text": "Receiving — every drop"
       },
       {
-        "kind": "note",
-        "text": "☐ Cold ≤40°F, frozen solid — probe one case ☐ Count vs confirmation before signing ☐ Damaged/short/warm → photo + same-day credit call ☐ Invoice filed same day · staple jumps >5% written down"
+        "kind": "fields",
+        "parts": [
+          {
+            "kind": "check",
+            "id": "purveyor-planner.b11.k0",
+            "label": "Cold ≤40°F, frozen solid — probe one case"
+          },
+          {
+            "kind": "check",
+            "id": "purveyor-planner.b11.k1",
+            "label": "Count vs confirmation before signing"
+          },
+          {
+            "kind": "check",
+            "id": "purveyor-planner.b11.k2",
+            "label": "Damaged/short/warm → photo + same-day credit call"
+          },
+          {
+            "kind": "check",
+            "id": "purveyor-planner.b11.k3",
+            "label": "Invoice filed same day · staple jumps >5% written down"
+          }
+        ]
       }
     ]
   },
@@ -5591,8 +5696,24 @@ export const BOH_SHEETS: BohSheet[] = [
         "text": "Every service (~10 min)"
       },
       {
-        "kind": "note",
-        "text": "☐ **Gate:** walk line · taste one item (rotate sauce/dressing/protein) · one cold temp · sign every line-check sheet — service doesn't start unsigned\n☐ **Lull glance (7–8):** deep-clean moving? slammed → reassign out loud + write it\n☐ **Post-shift walk:** 2 random items per close list + today's deep-clean task · initial · fill EOD log"
+        "kind": "fields",
+        "parts": [
+          {
+            "kind": "check",
+            "id": "manager-week.b2.k0",
+            "label": "**Gate:** walk line · taste one item (rotate sauce/dressing/protein) · one cold temp · sign every line-check sheet — service doesn't start unsigned"
+          },
+          {
+            "kind": "check",
+            "id": "manager-week.b2.k1",
+            "label": "**Lull glance (7–8):** deep-clean moving? slammed → reassign out loud + write it"
+          },
+          {
+            "kind": "check",
+            "id": "manager-week.b2.k2",
+            "label": "**Post-shift walk:** 2 random items per close list + today's deep-clean task · initial · fill EOD log"
+          }
+        ]
       },
       {
         "kind": "heading",
@@ -5600,8 +5721,29 @@ export const BOH_SHEETS: BohSheet[] = [
         "text": "Wednesday reset (10 min)"
       },
       {
-        "kind": "note",
-        "text": "☐ Score last week + post it ☐ Station of the Week ☐ Set prep pars ☐ Confirm monthly deep-clean task"
+        "kind": "fields",
+        "parts": [
+          {
+            "kind": "check",
+            "id": "manager-week.b4.k0",
+            "label": "Score last week + post it"
+          },
+          {
+            "kind": "check",
+            "id": "manager-week.b4.k1",
+            "label": "Station of the Week"
+          },
+          {
+            "kind": "check",
+            "id": "manager-week.b4.k2",
+            "label": "Set prep pars"
+          },
+          {
+            "kind": "check",
+            "id": "manager-week.b4.k3",
+            "label": "Confirm monthly deep-clean task"
+          }
+        ]
       },
       {
         "kind": "heading",
@@ -6452,8 +6594,25 @@ export const BOH_SHEETS: BohSheet[] = [
     "tier": "cook",
     "blocks": [
       {
-        "kind": "note",
-        "text": "Master: Lariat Recipe Book (MASTER pdf) · ☐ = printed card in the book · initial = cook signed off (matches training matrix) · no recipe cooks from memory — missing card → flag the KM"
+        "kind": "fields",
+        "parts": [
+          {
+            "kind": "static",
+            "text": "Master: Lariat Recipe Book (MASTER pdf)"
+          },
+          {
+            "kind": "static",
+            "text": "☐ = printed card in the book"
+          },
+          {
+            "kind": "static",
+            "text": "initial = cook signed off (matches training matrix)"
+          },
+          {
+            "kind": "static",
+            "text": "no recipe cooks from memory — missing card → flag the KM"
+          }
+        ]
       },
       {
         "kind": "grid",

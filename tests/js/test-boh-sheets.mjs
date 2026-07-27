@@ -20,7 +20,7 @@ import { JSDOM } from 'jsdom';
 
 import { BOH_SHEETS } from '../../lib/boh/sheets.generated.ts';
 import { checkableIds, sheetToText, EMPTY_SHEET_STATE } from '../../lib/boh/serialize.ts';
-import { serviceDateISO, sheetStorageKey } from '../../lib/boh/index.ts';
+import { serviceDateISO, sheetStorageKey, isTaskMatrix } from '../../lib/boh/index.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
@@ -28,6 +28,8 @@ const PACKET = path.join(REPO_ROOT, 'docs/boh/print/lariat-ops-packet.html');
 
 const doc = new JSDOM(fs.readFileSync(PACKET, 'utf8')).window.document;
 const pages = [...doc.querySelectorAll('.page')];
+
+const TICK = '☐'; // ☐ as the packet prints it
 
 /**
  * Compare packet text against generated text on equal footing. The
@@ -41,8 +43,16 @@ function normalize(s) {
   return s.replace(/[*\u2610\u241F_]/g, '').replace(/\s+/g, '');
 }
 
-/** Every string the generator stored for one sheet, flattened. */
-function sheetText(sheet) {
+/**
+ * Every string the generator stored for one sheet, flattened.
+ *
+ * @param sep joined on a character normalize() keeps, so a needle cannot
+ *   match by straddling two unrelated fields. Pass '' when the source line
+ *   is one the generator deliberately splits across parts — a paragraph of
+ *   prose becomes static chips and box labels, and the words are still all
+ *   there even though no single part holds the sentence.
+ */
+function sheetText(sheet, sep = '|') {
   const out = [];
   const walk = (v) => {
     if (typeof v === 'string') out.push(v);
@@ -50,9 +60,7 @@ function sheetText(sheet) {
     else if (v && typeof v === 'object') Object.values(v).forEach(walk);
   };
   walk(sheet.blocks);
-  // Joined on a character normalize() keeps, so a needle cannot match by
-  // straddling two unrelated fields.
-  return out.map(normalize).join('|');
+  return out.map(normalize).join(sep);
 }
 
 describe('boh sheets — shape', () => {
@@ -114,6 +122,31 @@ describe('boh sheets — nothing dropped in generation', () => {
     assert.deepEqual(missing, [], `SOP steps absent from generated data:\n${missing.join('\n')}`);
   });
 
+  it('keeps every word of every prose paragraph', () => {
+    // Paragraphs carry the gate conditions and the order-call checklist —
+    // the sentences a manager actually works from. A paragraph is split
+    // into chips, blanks and boxes, so it survives as pieces rather than
+    // as one run of text; what must not happen is a piece going missing.
+    const missing = [];
+    pages.forEach((page, i) => {
+      const haystack = sheetText(BOH_SHEETS[i], '');
+      for (const p of page.querySelectorAll(':scope > p')) {
+        for (const word of p.textContent.split(/\s+/)) {
+          // A label drops the colon that introduced its blank — "Date:"
+          // is stored as "Date". Only the trailing one goes: the packet is
+          // full of clock times and "4:00" must still be found as written.
+          const needle = normalize(word).replace(/:$/, '');
+          // Short tokens are separators and punctuation, not content.
+          if (needle.length < 3) continue;
+          if (!haystack.includes(needle)) {
+            missing.push(`${BOH_SHEETS[i].slug}: "${word}" from "${p.textContent.slice(0, 50)}…"`);
+          }
+        }
+      }
+    });
+    assert.deepEqual(missing, [], `words absent from generated data:\n${missing.join('\n')}`);
+  });
+
   it('keeps the same number of body rows per sheet', () => {
     pages.forEach((page, i) => {
       const packetRows = [...page.querySelectorAll('tr')].filter((tr) => !tr.querySelector('th'));
@@ -132,6 +165,168 @@ describe('boh sheets — nothing dropped in generation', () => {
       assert.ok(!raw.includes('\u241F'), `${sheet.slug} leaked a blank sentinel`);
       const markers = (raw.match(/\*\*/g) ?? []).length;
       assert.equal(markers % 2, 0, `${sheet.slug} has an unbalanced ** marker`);
+    }
+  });
+});
+
+describe('boh sheets — tick boxes printed in prose', () => {
+  /** Every part of every `fields` block on a sheet. */
+  const partsOf = (sheet) =>
+    sheet.blocks.filter((b) => b.kind === 'fields').flatMap((b) => b.parts);
+
+  const checksOn = (slug) =>
+    partsOf(BOH_SHEETS.find((s) => s.slug === slug))
+      .filter((p) => p.kind === 'check')
+      .map((p) => p.label);
+
+  it('leaves no tick box stranded as printed text', () => {
+    // A box the parser leaves in prose is a box a cook cannot tick. The
+    // packet prints them in paragraphs as well as table cells, and the
+    // paragraph ones were static until this.
+    const stranded = [];
+    for (const sheet of BOH_SHEETS) {
+      for (const block of sheet.blocks) {
+        if (block.kind === 'note' || block.kind === 'callout') {
+          if (block.text.includes(TICK)) stranded.push(`${sheet.slug}: ${block.text.slice(0, 60)}`);
+        } else if (block.kind === 'fields') {
+          for (const part of block.parts) {
+            if (part.kind === 'static' && part.text.includes(TICK)) {
+              stranded.push(`${sheet.slug}: ${part.text.slice(0, 60)}`);
+            }
+          }
+        }
+      }
+    }
+    // The recipe index prints one ☐ as a key to the column, not as a box.
+    assert.equal(stranded.length, 1, `tick boxes left as text:\n${stranded.join('\n')}`);
+    assert.match(stranded[0], /^recipe-index: .*=/);
+  });
+
+  it('keeps the recipe-book key as prose', () => {
+    // "☐ = printed card in the book" explains the symbol. Turning it into
+    // a box would invite a cook to tick the legend.
+    const legend = partsOf(BOH_SHEETS.find((s) => s.slug === 'recipe-index')).concat(
+      BOH_SHEETS.find((s) => s.slug === 'recipe-index').blocks.filter((b) => b.kind === 'note'),
+    );
+    assert.ok(
+      JSON.stringify(legend).includes('= printed card in the book'),
+      'the key line should survive somewhere as text',
+    );
+    assert.ok(
+      !checksOn('recipe-index').some((l) => l.startsWith('=')),
+      'the key line must not become a tickable box',
+    );
+  });
+
+  it('labels a box printed after its task with the whole task', () => {
+    // "Each — deep-clean task of the day (rotation sheet, initial) ☐ ·
+    //  A/B — restock + flip · sauce bottles · wipe + sweep · trash ☐"
+    // is two boxes, not two words. The interpunct separates duties inside
+    // one box; only the box itself ends a label.
+    const labels = checksOn('dinner-day-plan');
+    assert.ok(
+      labels.includes('Each — deep-clean task of the day (rotation sheet, initial)'),
+      `missing the deep-clean box, got: ${JSON.stringify(labels)}`,
+    );
+    assert.ok(
+      labels.includes('A/B — restock + flip · sauce bottles · wipe + sweep · trash'),
+      'the A/B duty list is one box, interpunct and all',
+    );
+  });
+
+  it('lifts the time block out of the label and leaves it as a chip', () => {
+    const sheet = BOH_SHEETS.find((s) => s.slug === 'dinner-day-plan');
+    const lull = sheet.blocks.find(
+      (b) => b.kind === 'fields' && b.parts.some((p) => p.kind === 'check'),
+    );
+    assert.equal(lull.parts[0].kind, 'static');
+    assert.match(lull.parts[0].text, /^\*\*Lull \(7–8\):\*\*$/);
+    assert.equal(lull.parts.filter((p) => p.kind === 'check').length, 3);
+  });
+
+  it('labels a box printed before its task with the task that follows', () => {
+    const labels = checksOn('sysco-count');
+    assert.ok(labels.includes('Counted all four zones'), JSON.stringify(labels));
+    assert.ok(labels.includes('86-prone items double-checked'));
+  });
+
+  it('keeps pencil blanks and boxes on the same line', () => {
+    // "Count date: ___  Counted by: ___  Order placed: ☐ Sun ☐ Wed"
+    const sheet = BOH_SHEETS.find((s) => s.slug === 'sysco-count');
+    const header = sheet.blocks.find((b) => b.kind === 'fields');
+    const kinds = header.parts.map((p) => p.kind);
+    assert.deepEqual(kinds, ['field', 'field', 'static', 'check', 'check']);
+    assert.deepEqual(
+      header.parts.filter((p) => p.kind === 'check').map((p) => p.label),
+      ['Sun', 'Wed'],
+    );
+  });
+
+  it('does not swallow a box into the label of a blank', () => {
+    // The prep sheet's "Event prep pulled in? ☐ Yes (list) ____ ☐ No events"
+    // parsed as one field whose label carried both boxes.
+    const labels = checksOn('prep-par');
+    assert.ok(labels.includes('Yes (list)'), JSON.stringify(labels));
+    assert.ok(labels.includes('No events'));
+    for (const part of partsOf(BOH_SHEETS.find((s) => s.slug === 'prep-par'))) {
+      assert.ok(!part.label?.includes(TICK), `${part.label} still carries a box`);
+    }
+  });
+
+  it('counts prose boxes toward the done count', () => {
+    const sheet = BOH_SHEETS.find((s) => s.slug === 'sysco-count');
+    const ids = checkableIds(sheet);
+    const proseIds = sheet.blocks
+      .filter((b) => b.kind === 'fields')
+      .flatMap((b) => b.parts)
+      .filter((p) => p.kind === 'check')
+      .map((p) => p.id);
+    assert.ok(proseIds.length > 0, 'expected prose boxes on the count sheet');
+    for (const id of proseIds) {
+      assert.ok(ids.includes(id), `${id} is tickable but not counted`);
+    }
+  });
+
+  it('pastes a ticked prose box to the handoff board', () => {
+    const sheet = BOH_SHEETS.find((s) => s.slug === 'sysco-count');
+    const zones = sheet.blocks
+      .filter((b) => b.kind === 'fields')
+      .flatMap((b) => b.parts)
+      .find((p) => p.kind === 'check' && p.label === 'Counted all four zones');
+    const text = sheetToText(sheet, { checks: { [zones.id]: true }, entries: {}, notes: '' }, '2026-07-26');
+    assert.match(text, /\[x\] Counted all four zones/);
+  });
+});
+
+describe('boh sheets — the deep-clean rotation', () => {
+  it('is the only grid shaped as a day-by-station task matrix', () => {
+    // A five-column grid of tasks is the one table that cannot be read on a
+    // phone without scrolling sideways, so the board stacks it into a card
+    // per day. Anything else stays a table on purpose.
+    const matrices = [];
+    for (const sheet of BOH_SHEETS) {
+      for (const block of sheet.blocks) {
+        if (block.kind === 'grid' && isTaskMatrix(block)) {
+          matrices.push(`${sheet.slug}:${block.columns.length}col`);
+        }
+      }
+    }
+    assert.deepEqual(matrices, ['deep-clean:5col']);
+  });
+
+  it('leaves the day label and one tickable task per station', () => {
+    const sheet = BOH_SHEETS.find((s) => s.slug === 'deep-clean');
+    const rotation = sheet.blocks.find((b) => b.kind === 'grid' && isTaskMatrix(b));
+    assert.deepEqual(
+      rotation.rows.map((r) => r.cells[0].text),
+      ['WED', 'THU', 'FRI', 'SAT', 'SUN'],
+    );
+    for (const row of rotation.rows) {
+      assert.equal(row.cells.length, rotation.columns.length);
+      for (const cell of row.cells.slice(1)) {
+        assert.equal(cell.kind, 'check');
+        assert.ok(cell.text.length > 0, `${row.id} has a station cell with no task`);
+      }
     }
   });
 });

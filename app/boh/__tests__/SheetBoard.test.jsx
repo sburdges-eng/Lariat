@@ -171,6 +171,109 @@ describe('SheetBoard — Spanish chrome', () => {
   });
 });
 
+describe('SheetBoard — boxes printed in prose', () => {
+  const syscoCount = getSheet('sysco-count');
+
+  test('a box printed in a paragraph is tappable', () => {
+    render(<SheetBoard sheet={syscoCount} serviceDate={SERVICE_DATE} />);
+
+    const box = screen.getByRole('checkbox', { name: 'Counted all four zones' });
+    expect(box).not.toBeChecked();
+    fireEvent.click(box);
+    expect(box).toBeChecked();
+  });
+
+  test('a prose box survives a remount like any other', () => {
+    const { unmount } = render(<SheetBoard sheet={syscoCount} serviceDate={SERVICE_DATE} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: '86-prone items double-checked' }));
+    unmount();
+
+    render(<SheetBoard sheet={syscoCount} serviceDate={SERVICE_DATE} />);
+    expect(screen.getByRole('checkbox', { name: '86-prone items double-checked' })).toBeChecked();
+  });
+
+  test('the time block stays a chip, the tasks beside it become boxes', () => {
+    render(<SheetBoard sheet={dinner} serviceDate={SERVICE_DATE} />);
+
+    expect(screen.getByText('Lull (7–8):')).toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', {
+        name: 'Each — deep-clean task of the day (rotation sheet, initial)',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  test('the recipe-book key is not a box', () => {
+    render(<SheetBoard sheet={getSheet('recipe-index')} serviceDate={SERVICE_DATE} />);
+
+    expect(screen.getByText(/☐ = printed card in the book/)).toBeInTheDocument();
+    for (const box of screen.queryAllByRole('checkbox')) {
+      expect(box).not.toHaveAccessibleName(/printed card in the book/);
+    }
+  });
+
+  test('a blank and a box on one line both work', () => {
+    render(<SheetBoard sheet={syscoCount} serviceDate={SERVICE_DATE} />);
+
+    fireEvent.change(screen.getByLabelText('Count date'), { target: { value: '7/26' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Sun' }));
+
+    const saved = JSON.parse(window.localStorage.getItem(sheetStorageKey('sysco-count', SERVICE_DATE)));
+    expect(Object.values(saved.entries)).toContain('7/26');
+    expect(Object.values(saved.checks)).toContain(true);
+  });
+
+  test('ticking a prose box moves the done counter', () => {
+    render(<SheetBoard sheet={syscoCount} serviceDate={SERVICE_DATE} />);
+
+    const total = screen.getAllByRole('checkbox').length;
+    expect(screen.getByText(`0 of ${total} done`)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Counted all four zones' }));
+    expect(screen.getByText(`1 of ${total} done`)).toBeInTheDocument();
+  });
+});
+
+describe('SheetBoard — the deep-clean rotation', () => {
+  const deepClean = getSheet('deep-clean');
+
+  test('stacks the rotation into a card per day, not a five-column table', () => {
+    // Five columns of sentence-length tasks means a cook scrolls sideways
+    // to find their own station. One card per day fits the phone.
+    render(<SheetBoard sheet={deepClean} serviceDate={SERVICE_DATE} />);
+
+    for (const day of ['WED', 'THU', 'FRI', 'SAT', 'SUN']) {
+      expect(screen.getByRole('heading', { name: day })).toBeInTheDocument();
+    }
+    expect(document.querySelector('.boh-matrix')).toBeInTheDocument();
+  });
+
+  test('names the station beside each task so a cook finds their own', () => {
+    render(<SheetBoard sheet={deepClean} serviceDate={SERVICE_DATE} />);
+
+    const wednesday = document.querySelector('.boh-matrix-day');
+    expect(within(wednesday).getByText('A · Grille/Sauté')).toBeInTheDocument();
+    expect(within(wednesday).getByText(/Boil out both fryers/)).toBeInTheDocument();
+  });
+
+  test('every rotation task is tickable', () => {
+    render(<SheetBoard sheet={deepClean} serviceDate={SERVICE_DATE} />);
+
+    const box = screen.getByRole('checkbox', { name: /Boil out both fryers/ });
+    fireEvent.click(box);
+    expect(box).toBeChecked();
+  });
+
+  test('the narrow grids stay tables', () => {
+    // Only the rotation is stacked; the monthly list and the score grid
+    // still line up as tables.
+    render(<SheetBoard sheet={deepClean} serviceDate={SERVICE_DATE} />);
+
+    expect(document.querySelectorAll('table.boh-grid').length).toBeGreaterThan(0);
+    expect(document.querySelectorAll('.boh-matrix').length).toBe(1);
+  });
+});
+
 describe('SheetBoard — reference grids', () => {
   test('keeps the printed score denominator beside the box', () => {
     const deepClean = getSheet('deep-clean');

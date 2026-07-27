@@ -220,6 +220,13 @@
   line-height: 1.35;
 }
 
+/* A box the packet printed inside a sentence takes its own line, at the
+   same size as one in a table — a tick target is a tick target wherever
+   the paper happened to put it. */
+.boh-fields .boh-check {
+  flex: 1 1 100%;
+}
+
 /* ---- tick lists ---- */
 
 .boh-tasks {
@@ -339,6 +346,52 @@
 }
 
 /* ---- reference grids ---- */
+
+/* ---- day-by-station rotation ---- */
+
+/* The deep-clean rotation is five columns of sentence-length tasks. As a
+   table it means scrolling sideways mid-shift to find your own station,
+   so each day becomes a card and each station a labelled tick row. */
+.boh-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 8px 0 16px;
+}
+
+.boh-matrix-day {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.boh-matrix-day-name {
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.boh-matrix-task {
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--border);
+}
+
+.boh-matrix-day > .boh-matrix-task:first-of-type {
+  border-top: 0;
+}
+
+.boh-matrix-station {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
 
 .boh-grid-wrap {
   overflow-x: auto;
