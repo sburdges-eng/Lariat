@@ -10,10 +10,11 @@
 // /food-safety, which the header links to on every sheet.
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { sheetStorageKey, taskMatrixDays } from '../../../lib/boh/index.ts';
 import {
   EMPTY_SHEET_STATE,
+  blockControlIds,
   countProgress,
   sheetToText,
 } from '../../../lib/boh/serialize.ts';
@@ -281,6 +282,39 @@ function Block({ block, state, toggle, write }) {
   }
 }
 
+/** Control ids per block, cached on the block object itself. */
+const idCache = new WeakMap();
+
+/** @param {import('../../../lib/boh/types').BohBlock} block */
+function idsOf(block) {
+  let ids = idCache.get(block);
+  if (!ids) {
+    ids = blockControlIds(block);
+    idCache.set(block, ids);
+  }
+  return ids;
+}
+
+/**
+ * Re-render a block only when one of its own controls changed.
+ *
+ * The count sheet carries 276 controls. Without this, every keystroke
+ * re-rendered all 41 blocks and all 276 inputs, which an iPad on the line
+ * feels as lag while someone is counting the walk-in.
+ */
+const MemoBlock = memo(Block, (prev, next) => {
+  if (prev.block !== next.block) return false;
+  if (prev.toggle !== next.toggle || prev.write !== next.write) return false;
+  const { checks, entries } = idsOf(next.block);
+  for (const id of checks) {
+    if (Boolean(prev.state.checks[id]) !== Boolean(next.state.checks[id])) return false;
+  }
+  for (const id of entries) {
+    if (prev.state.entries[id] !== next.state.entries[id]) return false;
+  }
+  return true;
+});
+
 /**
  * @param {{ sheet: BohSheet, serviceDate: string }} props
  */
@@ -292,6 +326,10 @@ export default function SheetBoard({ sheet, serviceDate }) {
   const [loadedKey, setLoadedKey] = useState(/** @type {string | null} */ (null));
   const [asking, setAsking] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  /** Sheet text shown on screen when the phone has no usable clipboard. */
+  const [handCopy, setHandCopy] = useState(/** @type {string | null} */ (null));
+  const handCopyRef = useRef(/** @type {HTMLTextAreaElement | null} */ (null));
 
   // Saved state is read after mount, never during render — the server has
   // no localStorage and a mismatch would blow up hydration.
@@ -322,8 +360,12 @@ export default function SheetBoard({ sheet, serviceDate }) {
     if (loadedKey !== storageKey) return;
     try {
       window.localStorage.setItem(storageKey, JSON.stringify(state));
+      setSaveFailed(false);
     } catch {
-      // Out of quota or private mode — keep the in-memory sheet working.
+      // Out of quota, or Safari private mode. The in-memory sheet keeps
+      // working, but the cook has to be told — silently dropping the save
+      // is how someone counts the walk-in twice.
+      setSaveFailed(true);
     }
   }, [loadedKey, storageKey, state]);
 
@@ -354,19 +396,48 @@ export default function SheetBoard({ sheet, serviceDate }) {
     [],
   );
 
+  const confirmCopied = useCallback(() => {
+    setCopied(true);
+    setHandCopy(null);
+    if (copiedTimer.current !== null) window.clearTimeout(copiedTimer.current);
+    copiedTimer.current = window.setTimeout(() => setCopied(false), 2000);
+  }, []);
+
   const copySheet = useCallback(async () => {
     const text = sheetToText(sheet, state, serviceDate);
+
+    // navigator.clipboard only exists in a secure context. The venue serves
+    // this over plain http on the kitchen wifi, so on the phones that
+    // actually open it there is no clipboard at all — falling back is the
+    // normal path here, not the edge case.
     try {
+      if (!navigator.clipboard?.writeText) throw new Error('no clipboard');
       await navigator.clipboard.writeText(text);
-      setCopied(true);
-      if (copiedTimer.current !== null) window.clearTimeout(copiedTimer.current);
-      copiedTimer.current = window.setTimeout(() => setCopied(false), 2000);
+      confirmCopied();
+      return;
     } catch {
-      // No clipboard permission (or no clipboard at all) — put the text on
-      // screen so it can still be selected and copied by hand.
-      window.prompt(tt('boh.copySheet'), text);
+      // fall through to the on-screen copy
     }
-  }, [sheet, state, serviceDate, tt]);
+
+    setHandCopy(text);
+  }, [sheet, state, serviceDate, confirmCopied]);
+
+  // Select the text as soon as it appears so a phone only needs one tap,
+  // and try the legacy copy command, which — unlike navigator.clipboard —
+  // still works without a secure context on most browsers.
+  useEffect(() => {
+    if (handCopy === null) return;
+    const box = handCopyRef.current;
+    if (!box) return;
+    box.focus();
+    box.select();
+    box.setSelectionRange(0, box.value.length);
+    try {
+      if (document.execCommand?.('copy')) confirmCopied();
+    } catch {
+      // Leave the text on screen to be copied by hand.
+    }
+  }, [handCopy, confirmCopied]);
 
   return (
     <div className="boh-sheet">
@@ -385,10 +456,15 @@ export default function SheetBoard({ sheet, serviceDate }) {
             {tt('boh.doneCount', { done: progress.done, total: progress.total })}
           </p>
         ) : null}
+        {saveFailed ? (
+          <p className="boh-warn" role="status">
+            {tt('boh.notSaving')}
+          </p>
+        ) : null}
       </div>
 
       {sheet.blocks.map((block, i) => (
-        <Block key={i} block={block} state={state} toggle={toggle} write={write} />
+        <MemoBlock key={i} block={block} state={state} toggle={toggle} write={write} />
       ))}
 
       <label className="boh-notes">
@@ -403,6 +479,26 @@ export default function SheetBoard({ sheet, serviceDate }) {
           }}
         />
       </label>
+
+      {handCopy !== null ? (
+        <div className="boh-handcopy">
+          <label className="boh-field-label" htmlFor="boh-handcopy-text">
+            {tt('boh.copySheet')}
+          </label>
+          <p className="boh-handcopy-hint">{tt('boh.copyByHand')}</p>
+          <textarea
+            id="boh-handcopy-text"
+            ref={handCopyRef}
+            readOnly
+            rows={10}
+            value={handCopy}
+            onFocus={(e) => e.target.select()}
+          />
+          <button type="button" className="btn" onClick={() => setHandCopy(null)}>
+            {tt('boh.copyDone')}
+          </button>
+        </div>
+      ) : null}
 
       <div className="boh-actions">
         <button type="button" className="btn primary" onClick={copySheet}>

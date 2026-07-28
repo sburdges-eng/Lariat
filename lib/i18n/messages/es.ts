@@ -217,5 +217,12 @@ export const es: Messages = {
     notesHint: 'Producto bajo, problemas, algo para el siguiente turno',
     doneCount: '{done} de {total} listos',
     missing: 'Esa hoja no está en el libro.',
+    missingHelp: 'Puede que le hayan cambiado el nombre. Abre el libro y escógela de la lista.',
+    copyByHand: 'Mantén presionado el texto y dale a Copiar.',
+    copyDone: 'Listo',
+    notSaving: 'No se está guardando en este teléfono. Apunta en papel lo que necesites.',
+    sheetBroke: 'Esta hoja no abrió.',
+    sheetBrokeHelp: 'Usa el paquete de papel por ahora y avísale a un gerente.',
+    tryAgain: 'Intentar de nuevo',
   },
 };
