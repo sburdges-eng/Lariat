@@ -26,6 +26,14 @@ Output (stdout, JSON):
     On a prep_demand row: `qty` is what the event eats, `order_qty` is what to
     buy (whole batches, never fewer than one), `prep_qty` is what to make
     (half-batch granularity), `batch_qty` is one batch of that recipe.
+
+    Batch rounding applies only where a batch is a real measure — a recipe
+    yielding in volume or weight. A yield in `ea`, `case`, `portion` or
+    `hotel pan` is a count, not a batch you mix, and passes through linear.
+
+    On an order_guide row: `total_needed` is the leaf quantity for the FLOORED
+    batches above, not for linear consumption — the guide buys what the prep
+    board says to make. `on_hand` subtracts from that figure.
         "unmapped":     [{"menu_item": "Mystery Dish",
                           "reason": "not in beo_recipe_map and no direct recipe match"}]
     }
