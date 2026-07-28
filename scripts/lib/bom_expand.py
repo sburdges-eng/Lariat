@@ -362,15 +362,10 @@ def _discover_order_graph(
     edges[slug] = []
 
     for row in m.bom:
-        ingredient = row["ingredient"]
         row_qty = float(row["qty"])
         row_unit = row["unit"]
 
-        sub_slug = row.get("sub_slug")
-        if sub_slug is None and (
-            row.get("is_sub_recipe") or _could_be_sub(m, ingredient, manifest)
-        ):
-            sub_slug = _resolve_sub_slug(manifest, m, ingredient)
+        sub_slug = _row_sub_slug(manifest, m, row)
         if sub_slug is None:
             continue
         if sub_slug not in manifest:
@@ -454,15 +449,10 @@ def _accumulate_recipe_demand(
     scale = qty / m.yield_qty
 
     for row in m.bom:
-        ingredient = row["ingredient"]
         row_qty = float(row["qty"])
         row_unit = row["unit"]
 
-        sub_slug = row.get("sub_slug")
-        if sub_slug is None and (
-            row.get("is_sub_recipe") or _could_be_sub(m, ingredient, manifest)
-        ):
-            sub_slug = _resolve_sub_slug(manifest, m, ingredient)
+        sub_slug = _row_sub_slug(manifest, m, row)
 
         if sub_slug is not None and sub_slug not in manifest:
             msg = f"recipe {slug!r} pins sub-recipe {sub_slug!r} which is not in the manifest"
@@ -544,11 +534,7 @@ def _expand_into(
         row_qty = float(row["qty"])
         row_unit = row["unit"]
 
-        sub_slug = row.get("sub_slug")
-        if sub_slug is None and (
-            row.get("is_sub_recipe") or _could_be_sub(m, ingredient, manifest)
-        ):
-            sub_slug = _resolve_sub_slug(manifest, m, ingredient)
+        sub_slug = _row_sub_slug(manifest, m, row)
 
         if sub_slug is not None and sub_slug not in manifest:
             msg = f"recipe {slug!r} pins sub-recipe {sub_slug!r} which is not in the manifest"
@@ -586,6 +572,34 @@ def _expand_into(
 # ---------------------------------------------------------------------------
 # Sub-recipe name resolution
 # ---------------------------------------------------------------------------
+
+
+def _row_sub_slug(
+    manifest: dict[str, Manifest],
+    parent: Manifest,
+    row: dict,
+) -> str | None:
+    """The sub-recipe slug a BOM row resolves to, or None for a leaf row.
+
+    THE single predicate for "is this BOM row a sub-recipe?". Every walker must
+    ask the same question: the order guide scales a recipe's own leaf rows while
+    the prep board settles its sub-recipes as separate nodes, so if the two
+    disagree about which rows are leaves, an ingredient is either ordered twice
+    or dropped from the guide entirely.
+
+    Returns the pinned `sub_slug` when the CSV carries one, else resolves by
+    name when the row is flagged `(sub-recipe)` or its tokens obviously match
+    one of the parent's declared subs.
+
+    The returned slug is NOT guaranteed to be in `manifest` — callers keep their
+    own unknown-slug handling, which differs by walker (fail loud vs warn).
+    """
+    sub_slug = row.get("sub_slug")
+    if sub_slug is None and (
+        row.get("is_sub_recipe") or _could_be_sub(parent, row["ingredient"], manifest)
+    ):
+        sub_slug = _resolve_sub_slug(manifest, parent, row["ingredient"])
+    return sub_slug
 
 
 def _tokens(s: str) -> set[str]:
