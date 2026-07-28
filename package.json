@@ -16,7 +16,7 @@
     "test:i18n": "node --experimental-strip-types --test tests/js/test-i18n-catalog.mjs",
     "test:beo-estimate": "node --experimental-strip-types --test tests/js/test-beo-estimate.mjs",
     "test:beo-food-cost": "node --experimental-strip-types --test tests/js/test-beo-food-cost.mjs",
-    "test:beo": "node --experimental-strip-types --test tests/js/test-beo-estimate.mjs tests/js/test-beo-food-cost.mjs tests/js/test-beo-update-event-partial-patch.mjs",
+    "test:beo": "node --experimental-strip-types --test tests/js/test-beo-estimate.mjs tests/js/test-beo-food-cost.mjs tests/js/test-beo-update-event-partial-patch.mjs tests/js/test-beo-rates.mjs",
     "test:pin-gates": "node --test tests/js/test-pin-gate-coverage.mjs",
     "test:boh": "node --experimental-strip-types --test tests/js/test-boh-sheets.mjs tests/js/test-boh-pin-coverage.mjs",
     "build:boh-sheets": "node scripts/build-boh-sheets.mjs",

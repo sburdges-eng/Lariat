@@ -34,17 +34,29 @@ import type Database from 'better-sqlite3';
 
 type DB = Database.Database;
 
+/** Kitchen words for the columns, per docs/UI_COPY_RULES.md. */
+const RATE_LABELS: Record<string, string> = {
+  tax_rate: 'tax rate',
+  service_fee_pct: 'service fee',
+};
+
+/**
+ * The message is read by a manager: app/api/beo/route.js returns it verbatim
+ * as a 409 body. So it stays in plain kitchen words — no column names, no
+ * underscores, and above all no SQL. The earlier draft pasted the location id
+ * into an `UPDATE locations SET ...` snippet, which both echoed input back to
+ * the caller and read as an invitation to run a statement by hand.
+ *
+ * `field` and `locationId` stay on the object for the log, where the dev-side
+ * detail belongs.
+ */
 export class BeoRateUnsetError extends Error {
   field: string;
   locationId: string;
 
   constructor(field: string, locationId: string) {
-    super(
-      `${field} is not set for location "${locationId}". ` +
-        `Set the house rate once:\n` +
-        `  UPDATE locations SET ${field} = <value> WHERE id = '${locationId}';\n` +
-        `This is deliberately not defaulted — see lib/beoRates.ts.`,
-    );
+    const label = RATE_LABELS[field] ?? 'rate';
+    super(`No ${label} is set for this location. Set it in Settings, then save the event.`);
     this.name = 'BeoRateUnsetError';
     this.field = field;
     this.locationId = locationId;
@@ -63,9 +75,31 @@ export interface ResolvedRates {
   feeSource: 'event' | 'location';
 }
 
+/**
+ * Numbers and numeric strings only. Everything else is "not a rate".
+ *
+ * This is deliberately strict rather than `Number(v)`, because `Number()`
+ * coerces exactly the values that mean "nothing was set" into a real 0:
+ *
+ *   Number(null)  === 0     // a NULL locations.tax_rate
+ *   Number('')    === 0     // a form field the operator left blank
+ *   Number('  ')  === 0
+ *   Number(true)  === 1     // 100%
+ *   Number([])    === 0
+ *
+ * With the loose version the throw below was unreachable and an unset house
+ * rate silently billed the guest 0% tax and a 0% service fee — the precise
+ * failure this module exists to prevent, arrived at quietly.
+ */
 function finite(v: unknown): number | null {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  if (typeof v === 'string') {
+    const t = v.trim();
+    if (t === '') return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
 }
 
 /**
