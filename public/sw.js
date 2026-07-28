@@ -65,12 +65,78 @@
 const sw = /** @type {ServiceWorkerScope} */ (/** @type {unknown} */ (self));
 
 const CACHE_NAME = 'lariat-api-v1';
+const PAGE_CACHE = 'lariat-pages-v1';
+const ASSET_CACHE = 'lariat-assets-v1';
 const DB_NAME = 'lariat-sw';
 const DB_VERSION = 1;
 const STORE_NAME = 'mutation-queue';
 
-sw.addEventListener('install', () => sw.skipWaiting());
-sw.addEventListener('activate', /** @param {ExtendableEvent} e */ (e) => e.waitUntil(sw.clients.claim()));
+/** Caches this version of the worker owns. Anything else is swept on activate. */
+const OWNED_CACHES = [CACHE_NAME, PAGE_CACHE, ASSET_CACHE];
+
+/**
+ * Line-book pages kept on the device so they open with the wifi down.
+ *
+ * These are the cook-tier sheets: the printed ops packet, which is
+ * reference paper — fixed text, no live data, no PIN. A cook who loses
+ * the network mid-shift still gets their station SOP and day plan.
+ *
+ * The four manager sheets are deliberately absent and must stay absent.
+ * They carry vendor pricing, order history and sign-offs, and they are
+ * PIN-gated in middleware. A cached copy would serve that to anyone
+ * holding the phone with no PIN in the way, which is worse than not
+ * having them offline at all. tests/js/test-boh-pin-coverage.mjs asserts
+ * this list is exactly the cook tier and shares nothing with the manager
+ * tier, so it cannot drift as sheets are added.
+ *
+ * Live-ops surfaces (86 board, stations, prep) are also absent on
+ * purpose: a stale 86 board read off a cache is worse than no 86 board.
+ */
+const OFFLINE_PAGES = [
+  '/boh',
+  '/boh/dinner-day-plan',
+  '/boh/sunday-day-plan',
+  '/boh/deep-clean',
+  '/boh/prep-par',
+  '/boh/sop-grille',
+  '/boh/sop-fry-garde',
+  '/boh/sop-expo-dish',
+  '/boh/recipe-index',
+];
+
+/** @param {string} pathname */
+function isOfflinePage(pathname) {
+  // Exact match only. A prefix test would sweep in /boh/sysco-count.
+  return OFFLINE_PAGES.indexOf(pathname) !== -1;
+}
+
+sw.addEventListener('install', /** @param {ExtendableEvent} e */ (e) => {
+  // Warm the line book at install rather than on first visit: the point
+  // is the sheet a cook did not think to open before the wifi dropped.
+  // Individual failures are tolerated — a half-warmed book still beats
+  // refusing to install the worker.
+  e.waitUntil(
+    caches
+      .open(PAGE_CACHE)
+      .then((c) => Promise.allSettled(OFFLINE_PAGES.map((p) => c.add(p))))
+      .catch(() => undefined)
+      .then(() => sw.skipWaiting()),
+  );
+});
+
+sw.addEventListener('activate', /** @param {ExtendableEvent} e */ (e) => {
+  e.waitUntil(
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys.filter((k) => OWNED_CACHES.indexOf(k) === -1).map((k) => caches.delete(k)),
+        ),
+      )
+      .catch(() => undefined)
+      .then(() => sw.clients.claim()),
+  );
+});
 
 /* ---------- IndexedDB helpers ---------- */
 
@@ -173,6 +239,60 @@ sw.addEventListener('fetch', /** @param {FetchEvent} event */ (event) => {
   // POST / DELETE /api/*: try network, queue on failure
   if ((request.method === 'POST' || request.method === 'DELETE') && url.pathname.startsWith('/api/')) {
     event.respondWith(handleMutation(request.clone()));
+    return;
+  }
+
+  // Build assets: cache-first. They are content-hashed, so a hit is
+  // always correct, and without them a cached page renders but never
+  // hydrates — the boxes would draw and not tick.
+  if (request.method === 'GET' && url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(
+      caches.match(request).then(
+        (hit) =>
+          hit ||
+          fetch(request).then((res) => {
+            if (res && res.ok) {
+              const clone = res.clone();
+              caches.open(ASSET_CACHE).then((c) => c.put(request, clone));
+            }
+            return res;
+          }),
+      ),
+    );
+    return;
+  }
+
+  // Line-book pages: network-first so a cook on the wifi always sees the
+  // current sheet, cache only as the fallback for when there is no wifi.
+  if (request.method === 'GET' && isOfflinePage(url.pathname)) {
+    event.respondWith(
+      fetch(request)
+        .then((res) => {
+          if (res && res.ok) {
+            const clone = res.clone();
+            caches.open(PAGE_CACHE).then((c) => c.put(url.pathname, clone));
+          }
+          return res;
+        })
+        .catch(() =>
+          caches
+            .open(PAGE_CACHE)
+            .then((c) => c.match(url.pathname))
+            .then(
+              (r) =>
+                r ||
+                new Response(
+                  '<!doctype html><meta charset="utf-8">' +
+                    '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+                    '<title>Line book</title>' +
+                    '<body style="font:16px/1.5 system-ui;padding:24px">' +
+                    '<h1 style="font-size:20px">No wifi, and this sheet is not on the phone yet.</h1>' +
+                    '<p>Use the paper packet.</p>',
+                  { status: 503, headers: { 'content-type': 'text/html; charset=utf-8' } },
+                ),
+            ),
+        ),
+    );
     return;
   }
 });
