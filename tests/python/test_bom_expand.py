@@ -641,6 +641,25 @@ class BatchOrdering(unittest.TestCase):
         out = expand_recipe_orders(self._man(), [("base", 0.02, "cup")] * 50)
         self.assertAlmostEqual(out[("base", "cup")], 4.0)
 
+    def test_a_mapping_that_consumes_nothing_makes_no_batch(self):
+        # A map row of per_count 0 says the item is on the menu but eats none
+        # of this recipe. The floor-at-one turned that into a whole 12 qt batch
+        # of slaw nobody serves — an order for food the event never eats.
+        out = expand_recipe_orders(self._man(), [("slaw", 0.0, "qt")])
+        self.assertAlmostEqual(out[("slaw", "qt")], 0.0)
+
+    def test_a_trace_is_still_a_whole_batch(self):
+        # The floor is for fractions, not for zero. 0.01 qt is real demand and
+        # you cannot make less than a batch to cover it, so this must NOT move.
+        out = expand_recipe_orders(self._man(), [("slaw", 0.01, "qt")])
+        self.assertAlmostEqual(out[("slaw", "qt")], 12.0)
+
+    def test_a_sub_recipe_of_a_zero_parent_is_not_made(self):
+        # The rub eats nothing, so the base it pulls from is not made either —
+        # zero has to cascade, or the sub-recipe is prepped for no parent.
+        out = expand_recipe_orders(self._man(), [("rub", 0.0, "cup")])
+        self.assertAlmostEqual(out[("base", "cup")], 0.0)
+
 
 class BatchOrderingGraphGuards(unittest.TestCase):
     """The order walk must degrade exactly where the linear walk degrades.
@@ -822,6 +841,13 @@ class FlooredLeafDemand(unittest.TestCase):
     def test_it_never_drops_below_one_batch_of_leaves(self):
         out = aggregate_order_demand(self._man(), [("slaw", 0.01, "qt")])
         self.assertAlmostEqual(out[("green cabbage", "qt")], 10.0)
+
+    def test_a_mapping_that_consumes_nothing_buys_nothing(self):
+        # per_count 0 — the event eats no slaw, so it buys no cabbage. Asserted
+        # on the quantity, not the key, because whether a zero row is dropped
+        # from the guide entirely is a separate call about the board.
+        out = aggregate_order_demand(self._man(), [("slaw", 0.0, "qt")])
+        self.assertAlmostEqual(out.get(("green cabbage", "qt"), 0.0), 0.0)
 
     def test_two_batches_buy_two_batches_of_leaves(self):
         out = aggregate_order_demand(self._man(), [("slaw", 13.0, "qt")])

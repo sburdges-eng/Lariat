@@ -294,7 +294,8 @@ def _floors_in_batches(m: Manifest) -> bool:
 
 
 def _round_up_batches(batches: float, granularity: float) -> float:
-    """Round a batch count UP to `granularity`, never below one step.
+    """Round a batch count UP to `granularity`, never below one step — unless
+    nothing is demanded at all, which stays zero.
 
     A kitchen makes batches, not fractions. Ordering uses granularity 1.0
     (whole batches); prep uses 0.5, because a half batch is makeable and a
@@ -304,6 +305,16 @@ def _round_up_batches(batches: float, granularity: float) -> float:
     if granularity <= 0:
         msg = f"granularity must be positive, got {granularity!r}"
         raise ValueError(msg)
+    # Nothing demanded is nothing made. The floor below exists to turn a
+    # FRACTION of a batch into a whole one, because you cannot make a quarter
+    # batch; applied to zero it invents food the event never eats. A per_count
+    # of 0 in beo_recipe_map means "on the menu, consumes none of this recipe",
+    # and that has to stay zero all the way down the sub-recipe walk rather
+    # than becoming a full batch — and a full batch of every sub under it.
+    #
+    # A trace is NOT zero: 0.01 qt still buys the whole batch below.
+    if batches <= 0:
+        return 0.0
     # Epsilon so an exact batch count is not pushed to the next step by
     # float error — 12.0/12.0 must stay one batch, not become two.
     steps = math.ceil(batches / granularity - 1e-9)
