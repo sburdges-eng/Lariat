@@ -18,8 +18,18 @@
  * any DDL edit, because LariatNative trusts `schema_migrations.MAX(version)`
  * as its drift marker. Touching the DDL defaults would force a bump and put
  * the native app's guard in play for what is really an application-layer fix.
- * The DDL defaults are therefore left alone and simply stop being
- * load-bearing: nothing reads them once every write path resolves here.
+ * The DDL defaults are therefore left alone. They stop being load-bearing on
+ * the booking path, which is the one that bills a guest: app/api/beo/route.js
+ * always writes an explicit rate resolved here.
+ *
+ * One caveat, so the next reader does not trust this too far.
+ * `scripts/seed-beo.mjs` inserts beo_events WITHOUT naming tax_rate, so those
+ * rows still take `DEFAULT 0.0675` from lib/db.ts. That script backfills
+ * historical `completed` events from old invoices, where the rate actually
+ * charged at the time is arguably the right one — so this is left as-is
+ * rather than quietly restated at today's rate. It is a real decision, not an
+ * oversight, and it is the reason 0.0675 still appears in the DDL while the
+ * house rate is 0.0815.
  *
  * PRECEDENCE
  *   1. explicit per-event value  (operator typed it on this event)

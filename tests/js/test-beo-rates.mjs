@@ -4,6 +4,11 @@
 // touch data/lariat.db, and against a REAL locations table rather than a
 // stub, so a wrong column name in the SELECT fails here instead of in a 500.
 //
+// The house rate in these fixtures is 8.15% because that is what The Lariat
+// actually charges — locations.tax_rate in the live DB is 0.0815. The 6.75%
+// that was hardcoded all over the app was never the real rate; it is used
+// below only as a *second location's* rate, which is the case that matters.
+//
 // Covers:
 //   - precedence: per-event override > locations house rate > throw
 //   - a rate of 0 is a real rate, not "unset" (0% tax must not fall through)
@@ -49,12 +54,13 @@ function freshDb(rows = []) {
   return db;
 }
 
-const HOUSE = { id: 'lariat', name: 'The Lariat', tax_rate: 0.0675, service_fee_pct: 20 };
+// The real house rate.
+const HOUSE = { id: 'default', name: 'The Lariat', tax_rate: 0.0815, service_fee_pct: 20 };
 
 describe('getLocationRates', () => {
   it('reads both house rates off the locations row', () => {
     const db = freshDb([HOUSE]);
-    assert.deepEqual(getLocationRates(db, 'lariat'), { taxRate: 0.0675, serviceFeePct: 20 });
+    assert.deepEqual(getLocationRates(db, 'default'), { taxRate: 0.0815, serviceFeePct: 20 });
   });
 
   it('returns nulls for a location that has neither set', () => {
@@ -74,8 +80,8 @@ describe('getLocationRates', () => {
 describe('resolveBeoRates precedence', () => {
   it('falls back to the house rate when the event says nothing', () => {
     const db = freshDb([HOUSE]);
-    const r = resolveBeoRates(db, 'lariat', {});
-    assert.equal(r.taxRate, 0.0675);
+    const r = resolveBeoRates(db, 'default', {});
+    assert.equal(r.taxRate, 0.0815);
     assert.equal(r.serviceFeePct, 20);
     assert.equal(r.taxSource, 'location');
     assert.equal(r.feeSource, 'location');
@@ -83,8 +89,8 @@ describe('resolveBeoRates precedence', () => {
 
   it('lets a per-event value override the house rate', () => {
     const db = freshDb([HOUSE]);
-    const r = resolveBeoRates(db, 'lariat', { tax_rate: 0.0815, service_fee_pct: 22 });
-    assert.equal(r.taxRate, 0.0815);
+    const r = resolveBeoRates(db, 'default', { tax_rate: 0.09, service_fee_pct: 22 });
+    assert.equal(r.taxRate, 0.09);
     assert.equal(r.serviceFeePct, 22);
     assert.equal(r.taxSource, 'event');
     assert.equal(r.feeSource, 'event');
@@ -92,19 +98,19 @@ describe('resolveBeoRates precedence', () => {
 
   it('mixes rungs independently — event tax, house fee', () => {
     const db = freshDb([HOUSE]);
-    const r = resolveBeoRates(db, 'lariat', { tax_rate: 0.0815 });
-    assert.equal(r.taxRate, 0.0815);
+    const r = resolveBeoRates(db, 'default', { tax_rate: 0.09 });
+    assert.equal(r.taxRate, 0.09);
     assert.equal(r.taxSource, 'event');
     assert.equal(r.serviceFeePct, 20);
     assert.equal(r.feeSource, 'location');
   });
 
   it('reads a second location at its OWN rate, not the first one', () => {
-    // The whole point of moving off a literal: a second location bills
-    // differently and nothing in the code should know 6.75%.
-    const db = freshDb([HOUSE, { id: 'airport', tax_rate: 0.0815, service_fee_pct: 18 }]);
+    // The whole point of moving off a literal: a second location sits in a
+    // different tax jurisdiction and nothing in the code should know 8.15%.
+    const db = freshDb([HOUSE, { id: 'airport', tax_rate: 0.0675, service_fee_pct: 18 }]);
     const r = resolveBeoRates(db, 'airport', {});
-    assert.equal(r.taxRate, 0.0815);
+    assert.equal(r.taxRate, 0.0675);
     assert.equal(r.serviceFeePct, 18);
   });
 });
@@ -115,7 +121,7 @@ describe('resolveBeoRates edge values', () => {
     // regresses to `||` instead of `??` both silently become the house rate
     // and the guest is billed tax they do not owe.
     const db = freshDb([HOUSE]);
-    const r = resolveBeoRates(db, 'lariat', { tax_rate: 0, service_fee_pct: 0 });
+    const r = resolveBeoRates(db, 'default', { tax_rate: 0, service_fee_pct: 0 });
     assert.equal(r.taxRate, 0);
     assert.equal(r.serviceFeePct, 0);
     assert.equal(r.taxSource, 'event');
@@ -125,16 +131,16 @@ describe('resolveBeoRates edge values', () => {
   it('ignores a non-numeric override and uses the house rate', () => {
     const db = freshDb([HOUSE]);
     for (const bad of ['', '  ', 'abc', null, undefined, NaN, {}]) {
-      const r = resolveBeoRates(db, 'lariat', { tax_rate: bad });
-      assert.equal(r.taxRate, 0.0675, `override ${JSON.stringify(bad)} should not bill`);
+      const r = resolveBeoRates(db, 'default', { tax_rate: bad });
+      assert.equal(r.taxRate, 0.0815, `override ${JSON.stringify(bad)} should not bill`);
       assert.equal(r.taxSource, 'location');
     }
   });
 
   it('accepts a numeric string, the shape a form actually posts', () => {
     const db = freshDb([HOUSE]);
-    const r = resolveBeoRates(db, 'lariat', { tax_rate: '0.0815' });
-    assert.equal(r.taxRate, 0.0815);
+    const r = resolveBeoRates(db, 'default', { tax_rate: '0.09' });
+    assert.equal(r.taxRate, 0.09);
     assert.equal(r.taxSource, 'event');
   });
 });
@@ -146,7 +152,7 @@ describe('resolveBeoRates when nothing is set', () => {
   });
 
   it('throws on the fee even when the tax rate is fine', () => {
-    const db = freshDb([{ id: 'patio', tax_rate: 0.0675 }]);
+    const db = freshDb([{ id: 'patio', tax_rate: 0.0815 }]);
     assert.throws(() => resolveBeoRates(db, 'patio', {}), (e) => {
       assert.ok(e instanceof BeoRateUnsetError);
       assert.equal(e.field, 'service_fee_pct');
@@ -186,7 +192,7 @@ describe('resolveBeoRates when nothing is set', () => {
   });
 
   it('names the service fee plainly too', () => {
-    const db = freshDb([{ id: 'patio', tax_rate: 0.0675 }]);
+    const db = freshDb([{ id: 'patio', tax_rate: 0.0815 }]);
     try {
       resolveBeoRates(db, 'patio', {});
       assert.fail('expected BeoRateUnsetError');
