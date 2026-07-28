@@ -569,10 +569,6 @@ class ManifestWarnings(unittest.TestCase):
         self.assertNotIn(("birria", "qb_seasoning"), warns)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class BatchOrdering(unittest.TestCase):
     """Whole-batch ordering for banquets — docs/superpowers/specs/2026-07-28.
 
@@ -643,3 +639,7 @@ class BatchOrdering(unittest.TestCase):
         # 50 sliders each needing a trace of a 4 cup bin is one bin, not 50.
         out = expand_recipe_orders(self._man(), [("base", 0.02, "cup")] * 50)
         self.assertAlmostEqual(out[("base", "cup")], 4.0)
+
+
+if __name__ == "__main__":
+    unittest.main()
