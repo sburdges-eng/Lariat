@@ -134,8 +134,15 @@ def build_cascade(
     # cycle) degrades to a warning instead of aborting the whole cascade.
     cascade_warnings: list[str] = []
 
-    # Order guide (leaf ingredients)
-    order_lines = pull_orders(manifest, demand, inventory, warnings=cascade_warnings)
+    # Order guide (leaf ingredients) — derived from the SAME floored batch
+    # counts the prep board reports, so the two tabs of a BEO cannot give two
+    # answers to "what do I buy". A prep row reading "order 1 batch — 12 qt of
+    # coleslaw" next to leaf quantities for the 3.1 qt the event eats is a
+    # guide nobody can shop from. `total_needed` is therefore the floored
+    # figure; on-hand still subtracts from it.
+    order_lines = pull_orders(
+        manifest, demand, inventory, warnings=cascade_warnings, granularity=1.0
+    )
     order_guide = [
         {
             "ingredient": ol.ingredient,
