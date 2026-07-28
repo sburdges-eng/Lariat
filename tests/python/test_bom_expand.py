@@ -25,6 +25,7 @@ from scripts.lib.bom_expand import (  # noqa: E402
     UnitMismatchError,
     UnknownRecipeError,
     aggregate_demand,
+    aggregate_order_demand,
     build_manifest,
     expand_recipe,
     expand_recipe_demand,
@@ -785,6 +786,99 @@ class BatchFloorScope(unittest.TestCase):
         man = {"balls": _mk("balls", "Mac Balls", 60, "ea", bom=[("mac", 2, "qt", False)])}
         out = expand_recipe_orders(man, [("balls", 20.0, "ea")], granularity=0.5)
         self.assertAlmostEqual(out[("balls", "ea")], 20.0)
+
+
+class FlooredLeafDemand(unittest.TestCase):
+    """Leaf ingredients for the batches you will actually make.
+
+    aggregate_demand answers "what does the event eat". This answers "what do
+    the batches need" — the basis the order guide buys packs against, so the
+    guide can never be short of what the prep board says to make.
+    """
+
+    def _man(self):
+        # slaw: 12 qt a batch, 10 qt cabbage in it — the real coleslaw shape.
+        # rub and oil both pull from base, so base is shared by two parents.
+        return {
+            "slaw": _mk("slaw", "Coleslaw", 12, "qt",
+                        bom=[("green cabbage", 10, "qt", False),
+                             ("mayonnaise", 6, "cup", False)]),
+            "base": _mk("base", "Lariat Rub", 4, "cup", bom=[("paprika", 2, "cup", False)]),
+            "rub": _mk("rub", "Hot Rub", 2, "cup",
+                       sub_recipe_slugs=["base"],
+                       bom=[("base", 1, "cup", True, "base"), ("cayenne", 1, "cup", False)]),
+            "oil": _mk("oil", "Hot Oil", 2, "qt",
+                       sub_recipe_slugs=["base"],
+                       bom=[("base", 0.5, "cup", True, "base")]),
+        }
+
+    def test_a_part_batch_buys_a_whole_batch_of_each_leaf(self):
+        # The event eats 3.12 qt of a 12 qt batch. You make the batch, so you
+        # buy the cabbage for the batch: 10 qt, not 2.6.
+        out = aggregate_order_demand(self._man(), [("slaw", 3.12, "qt")])
+        self.assertAlmostEqual(out[("green cabbage", "qt")], 10.0)
+        self.assertAlmostEqual(out[("mayonnaise", "cup")], 6.0)
+
+    def test_it_never_drops_below_one_batch_of_leaves(self):
+        out = aggregate_order_demand(self._man(), [("slaw", 0.01, "qt")])
+        self.assertAlmostEqual(out[("green cabbage", "qt")], 10.0)
+
+    def test_two_batches_buy_two_batches_of_leaves(self):
+        out = aggregate_order_demand(self._man(), [("slaw", 13.0, "qt")])
+        self.assertAlmostEqual(out[("green cabbage", "qt")], 20.0)
+
+    def test_a_shared_sub_recipes_leaves_are_bought_once(self):
+        # rub needs 1 cup of base, oil needs 0.5 — 1.5 cup total, which is one
+        # 4 cup batch, which is 2 cup of paprika. Rounding each branch on its
+        # own would buy two batches and 4 cup.
+        out = aggregate_order_demand(self._man(), [("rub", 0.5, "cup"), ("oil", 0.5, "qt")])
+        self.assertAlmostEqual(out[("paprika", "cup")], 2.0)
+
+    def test_a_sub_recipe_row_is_not_also_bought_as_a_leaf(self):
+        # `base` is a settled node contributing its own paprika. Counting the
+        # parent's "1 cup base" row as an ingredient too would double-order.
+        out = aggregate_order_demand(self._man(), [("rub", 0.5, "cup")])
+        self.assertNotIn(("base", "cup"), out)
+
+    def test_leaf_units_are_not_converted(self):
+        # Matches _expand_into: the row's own unit is the key. A guide that
+        # silently re-expressed cup as qt would not match the vendor pack.
+        out = aggregate_order_demand(self._man(), [("slaw", 1.0, "qt")])
+        self.assertIn(("mayonnaise", "cup"), out)
+        self.assertNotIn(("mayonnaise", "qt"), out)
+
+    def test_consumption_is_left_alone(self):
+        # The linear channel is the food-cost figure and must not move.
+        out = aggregate_demand(self._man(), [("slaw", 3.12, "qt")])
+        self.assertAlmostEqual(out[("green cabbage", "qt")], 2.6, places=2)
+
+    def test_a_counted_yield_buys_only_what_it_eats(self):
+        # Same scope as the prep board: 20 of a 60-piece batch is 20 pieces,
+        # so a third of the batch's leaves.
+        man = {"balls": _mk("balls", "Mac Balls", 60, "ea", bom=[("mac", 3, "qt", False)])}
+        out = aggregate_order_demand(man, [("balls", 20.0, "ea")])
+        self.assertAlmostEqual(out[("mac", "qt")], 1.0)
+
+    def test_a_dropped_recipe_degrades_to_a_warning(self):
+        man = {
+            "p": _mk("p", "Parent", 4, "qt",
+                     sub_recipe_slugs=["z"],
+                     bom=[("flour", 2, "lb", False), ("z", 1, "cup", True, "z")]),
+            "z": _mk("z", "Bad Sub", 0, "cup", bom=[("salt", 1, "tsp", False)]),
+        }
+        warns = []
+        out = aggregate_order_demand(man, [("p", 1.0, "qt")], 1.0, warnings=warns)
+        self.assertAlmostEqual(out[("flour", "lb")], 2.0)
+        self.assertNotIn(("salt", "tsp"), out)
+        self.assertTrue(any("'z'" in w for w in warns), warns)
+
+    def test_it_still_fails_loud_without_a_warnings_sink(self):
+        with self.assertRaises(UnknownRecipeError):
+            aggregate_order_demand(self._man(), [("nope", 1.0, "qt")])
+
+    def test_prep_granularity_buys_for_a_half_batch(self):
+        out = aggregate_order_demand(self._man(), [("slaw", 3.12, "qt")], granularity=0.5)
+        self.assertAlmostEqual(out[("green cabbage", "qt")], 5.0)
 
 
 if __name__ == "__main__":

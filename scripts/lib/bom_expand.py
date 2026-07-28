@@ -211,6 +211,47 @@ def aggregate_demand(
     return out
 
 
+def aggregate_order_demand(
+    manifest: dict[str, Manifest],
+    demands: Iterable[tuple[str, float, str]],
+    granularity: float = 1.0,
+    warnings: list[str] | None = None,
+) -> dict[LeafKey, float]:
+    """Leaf-ingredient totals for the batches you will actually make.
+
+    Same shape as `aggregate_demand` — {(ingredient, unit): qty} — but each
+    recipe's BOM is scaled by the batch count `_settle_order_batches` settles
+    on, not by the raw linear fraction. Buying the cabbage for the 3.1 qt of
+    coleslaw an event eats, while the prep board says to make a whole 12 qt
+    batch, is two answers to one question; this is the one that matches the
+    board, and it is what the order guide rounds its vendor packs up from.
+
+    Only a recipe's OWN leaf rows are walked. A sub-recipe row is skipped
+    because the sub is already its own settled node and contributes its own
+    leaves — counting it here would double-order. `_row_sub_slug` is the same
+    predicate the node walk uses, so the two cannot disagree about which rows
+    are leaves.
+
+    Leaf units are NOT converted, matching `_expand_into` exactly: the row's
+    own unit is the key. A guide that silently re-expressed cup as qt would no
+    longer line up with the vendor pack it gets compared against.
+
+    Same error semantics as every other walker — `warnings=None` fails loud, a
+    list degrades and records. The settle has already emitted every warning for
+    this graph, so this pass adds none of its own.
+    """
+    batches = _settle_order_batches(manifest, demands, granularity, warnings)
+    out: dict[LeafKey, float] = {}
+    for slug, n in batches.items():
+        m = manifest[slug]
+        for row in m.bom:
+            if _row_sub_slug(manifest, m, row) is not None:
+                continue
+            key: LeafKey = (row["ingredient"], row["unit"])
+            out[key] = out.get(key, 0.0) + float(row["qty"]) * n
+    return out
+
+
 def expand_recipe_demand(
     manifest: dict[str, Manifest],
     demands: Iterable[tuple[str, float, str]],
