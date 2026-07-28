@@ -26,6 +26,7 @@ const {
   discoveredToPeers,
   _resetSyncSchedulerLifecycleForTests,
 } = await import('../../lib/syncSchedulerLifecycle.ts');
+const { setDbPathForTest } = await import('../../lib/db.ts');
 
 after(() => {
   if (SAVED_DATA_DIR === undefined) delete process.env.LARIAT_DATA_DIR;
@@ -337,5 +338,82 @@ describe('bootSyncScheduler', () => {
     await bootSyncScheduler(opts);
     await bootSyncScheduler(opts);
     assert.equal(started, 1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────
+// Boot with a database that cannot be opened
+// ─────────────────────────────────────────────────────────────────
+
+describe('bootSyncScheduler — a database it cannot open', () => {
+  // The ordinary Lariat install is a single instance with no sync peers.
+  // Opening SQLite during boot purely to validate sync table names meant
+  // an unopenable database threw out of the instrumentation hook and took
+  // the whole server down — including /boh, which is reference paper with
+  // no database coupling at all, and exactly what a cook needs when the
+  // rest of the building is broken.
+  //
+  // The schema guard protects sync replay. Where nothing replays, there is
+  // nothing for it to protect.
+  const UNOPENABLE = path.join(TMP_DIR, 'not-a-database');
+
+  const customs = {
+    customStart: () => ({
+      start: () => {}, stop: () => {},
+      gracefulStop: async () => {}, tick: async () => ({ cycles: [] }),
+      isRunning: () => false,
+    }),
+    customStop: () => {},
+    customLoadKeypair: () => ({
+      pubKey: Buffer.from('00'.repeat(32), 'hex'),
+      privKey: Buffer.from('11'.repeat(32), 'hex'),
+    }),
+  };
+
+  beforeEach(() => {
+    // A directory where the database file should be: SQLite cannot open it.
+    fs.mkdirSync(UNOPENABLE, { recursive: true });
+    setDbPathForTest(UNOPENABLE);
+  });
+
+  after(() => {
+    setDbPathForTest(null);
+  });
+
+  it('boots anyway when no peers are configured', async () => {
+    await assert.doesNotReject(
+      bootSyncScheduler({ envPeersJson: '', ...customs }),
+      'a dormant scheduler must not take the server down over a database it never uses',
+    );
+  });
+
+  it('does not open the database at all when no peers are configured', async () => {
+    // Belt and braces: even the guard's error path must not run, because
+    // the whole point is that boot never reaches for SQLite here.
+    const errors = [];
+    const realError = console.error;
+    console.error = (...args) => errors.push(args.join(' '));
+    try {
+      await bootSyncScheduler({ envPeersJson: '', ...customs });
+    } finally {
+      console.error = realError;
+    }
+    assert.deepEqual(
+      errors.filter((e) => e.includes('schema-name check failed')),
+      [],
+      'the schema guard should not have run',
+    );
+  });
+
+  it('still refuses to boot when peers ARE configured', async () => {
+    // Fail-loud is preserved exactly where it matters: sync is about to
+    // run, so a schema it cannot verify must stop the worker.
+    await assert.rejects(
+      bootSyncScheduler({
+        envPeersJson: '[{"baseUrl":"http://a","feedKey":"k1"}]',
+        ...customs,
+      }),
+      'schema drift with peers configured must still crash boot',
+    );
   });
 });

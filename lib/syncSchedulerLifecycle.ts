@@ -188,20 +188,12 @@ export async function bootSyncScheduler(opts: BootOptions = {}): Promise<void> {
     loadKeypair ??= keypairMod.loadOrCreateKeypair;
   }
 
-  // C1 audit-finding boot guard: refuse to start the scheduler if
-  // FAMILY_*_TABLES doesn't match the live schema. Without this, a
-  // typo in a table name produces "skipped-unknown-table" forever and
-  // the operator dashboard counts the loss as zero. We'd rather crash
-  // the worker boot than ship silently-lossy sync.
-  try {
-    const { assertFamilyTablesExist } = await import('./syncApply.ts');
-    const { getDb } = await import('./db.ts');
-    assertFamilyTablesExist(getDb());
-  } catch (err) {
-    console.error('[sync-scheduler] schema-name check failed:', err);
-    throw err;
-  }
-
+  // Peers first, deliberately. A single-instance Lariat has none, and a
+  // dormant scheduler must not reach for SQLite: this hook runs inside
+  // Next's instrumentation register(), so anything thrown here fails the
+  // whole server boot. That took down /boh with it — reference paper with
+  // no database coupling of its own, and the one surface a cook still
+  // needs when the rest of the building is broken.
   const peers = parsePeersEnv(
     opts.envPeersJson ?? process.env.LARIAT_SYNC_PEERS ?? null,
   );
@@ -211,6 +203,26 @@ export async function bootSyncScheduler(opts: BootOptions = {}): Promise<void> {
         '(set LARIAT_SYNC_PEERS to a JSON array of { baseUrl, feedKey })',
     );
     return;
+  }
+
+  // C1 audit-finding boot guard: refuse to start the scheduler if
+  // FAMILY_*_TABLES doesn't match the live schema. Without this, a
+  // typo in a table name produces "skipped-unknown-table" forever and
+  // the operator dashboard counts the loss as zero. We'd rather crash
+  // the worker boot than ship silently-lossy sync.
+  //
+  // This runs only once peers are known, because that is the only case it
+  // protects: the guard exists to stop silently-lossy replay, and nothing
+  // replays without a peer. Where sync is about to run it still crashes
+  // the worker exactly as before — see PROTECTED_CONTRACTS.md §6.1, §10
+  // ("boot may no-op when peers are absent").
+  try {
+    const { assertFamilyTablesExist } = await import('./syncApply.ts');
+    const { getDb } = await import('./db.ts');
+    assertFamilyTablesExist(getDb());
+  } catch (err) {
+    console.error('[sync-scheduler] schema-name check failed:', err);
+    throw err;
   }
 
   const tickMs =
