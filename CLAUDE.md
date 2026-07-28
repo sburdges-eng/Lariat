@@ -1,41 +1,202 @@
 # CLAUDE.md — Lariat
 
-Claude Code guidance for the Lariat restaurant F&B operations platform. See `AGENTS.md` for the
-shared multi-tool ruleset (worktrees, MACP, trio orchestration) and `docs/` for architecture.
+Claude Code operating instructions for **Lariat**, the restaurant F&B operations platform for a
+real, live restaurant. `AGENTS.md` holds the shared multi-tool ruleset (worktrees, MACP, trio
+orchestration); `docs/` holds architecture. This file is the Claude-specific contract and outranks
+chat memory.
 
-## Native Final App
+## 0. Prime directive
 
-Before any final macOS-native Lariat work, read `docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md`.
-Before **Native 0.2 L1** work, read `docs/NATIVE_RELEASES_AND_TAXONOMY.md` (binding over chat memory).
-That guide is the current Claude routing contract for:
+Lariat exists to **simplify back-of-house work**. If a change makes a cook's or manager's shift more
+complex, it is wrong regardless of how clean the code is. Every surface is used by busy, distracted
+people on a hot line — glanceability beats completeness.
 
-- which Lariat paths in `~/Dev` are canonical vs legacy/data/reference;
-- what is already complete in `LariatNative`;
-- what remains before final cutover;
-- when to use Max/Fable, Opus, Sonnet, or Haiku as main agents or subagents.
+This is food/restaurant ops. Do not confuse it with COOLIO (image API) despite overlapping naming.
 
-## Git Workflow
+---
 
-- Never push directly to `main`. Always create a `feat/` branch (or `fix/`/`chore/`/`wip/` per
-  `AGENTS.md`) and open a PR for review.
-- Verify the working directory is the canonical Lariat repo (`~/Dev/hospitality/Lariat`) before
-  making any edits — not an iCloud-synced copy or a stale checkout.
+## 1. Where you are
 
-## Verification / Pre-commit
+| Path | Status |
+| --- | --- |
+| `~/Dev/hospitality/Lariat/` | **Canonical repo.** Web edge, native package, docs, migrations, data contract. |
+| `~/Dev/hospitality/Lariat/LariatNative/` | Canonical macOS/iPad SwiftPM package (`LariatModel`, `LariatDB`, `LariatApp`). |
+| `~/Dev/Lariat-KDS/` | Separate Swift repo — companion KDS client. Touch only when KDS is named. |
+| `~/Dev/lariat-data-sources/` | Real business data (**PII**). Read/ingest only — never commit, delete, or bulk rewrite. |
+| `~/Dev/hospitality/Lariat-worktrees/` | Worktree target for `scripts/worktree.sh`. |
 
-- Run all verification gates — schema check, typecheck, lint, and the relevant tests — before
-  committing or merging any PR. Do not commit if any gate fails.
+Verify you are in the canonical repo before your first edit — not an iCloud copy, not a stale
+checkout, not `.claude/worktrees/cadi-cxx-toolchain/**/Lariat*` (a foreign project's snapshot; do
+not edit or delete it).
 
-## Tooling Conventions
+**All non-canonical Lariat iterations were deleted 2026-07-22** after archiving to
+`~/Dev/_archive/lariat-iterations-20260722/`. Do not resurrect them; the table above is the
+complete set.
 
-- Always use the Read tool to read files before editing. Never read source via Bash (`cat`/`head`/
-  `sed`) when you intend to edit it — Edit operations fail on Bash-read files.
+### Routing docs — read before the matching work
 
-## Environment Limitations
+- **Any native macOS work** → `docs/LARIAT_NATIVE_FINAL_AGENT_GUIDE.md`
+- **Native 0.2 L1 work** → `docs/NATIVE_RELEASES_AND_TAXONOMY.md` (binding glossary: releases vs
+  endgame milestones A–E vs L1 waves; L1 Wave C ≠ Milestone C, H7 Phase 2 ≠ Native 0.2)
+- **Anything contract-sensitive** → `docs/PROTECTED_CONTRACTS.md` (see §5)
+- **Any user-facing string** → `docs/UI_COPY_RULES.md` (see §6)
 
-- Do not run interactive/TTY-dependent commands (`codex resume`, `hermes model`, browser OAuth
-  flows) in the sandbox. They cannot complete in the non-interactive tool environment — flag them
-  for the user to run manually instead.
+---
+
+## 2. Environment — check before believing a red gate
+
+Two toolchain facts have historically caused Claude to misdiagnose infrastructure failures as code
+defects. Separate environmental failures from real defects **before** fixing anything.
+
+**Node: the repo pins 24 (`.nvmrc`); Claude's non-interactive shell resolves Homebrew Node 26.**
+`node_modules/better-sqlite3` is compiled for 24 (NODE_MODULE_VERSION 137). Any DB-touching test
+fails with `ERR_DLOPEN_FAILED … 137 vs 147` and looks like a flaky code bug.
+
+- Run DB-touching JS tests as `npx -y node@24 --experimental-strip-types --test <file>`.
+- Jest suites touching the DB: prefix PATH with node@24's bin dir.
+- `scripts/dump-fresh-schema.mjs` also needs `npx -y node@24`.
+- **Never `npm rebuild better-sqlite3`** — it flips the shared binding and breaks every other
+  session and Sean's nvm-24 runs.
+- Trap: a passing pure-math suite (`test-beo-estimate.mjs`) proves nothing about the binding.
+  Confirm with a DB-touching suite.
+
+**Swift:** the 2026-07-19→22 breakage (no Xcode, CLT-only, missing XCTest/SwiftUIMacros) is
+**resolved — verified 2026-07-27.** `Xcode-beta.app` is back in `/Applications`, `xcode-select`
+points at it, Swift 6.4 / arm64-apple-macosx27, and from `LariatNative/` both `swift build` (47s)
+and `swift test` (exit 0) are green with **no `SDKROOT` override**. That workaround is obsolete.
+Native gates are real signals again — a red one is a code defect, not the old blocker.
+
+**No interactive/TTY commands** (`codex resume`, `hermes model`, browser OAuth). They cannot
+complete in this tool environment — flag them for Sean to run manually.
+
+**Do not auto-start dev servers.** Ask first, and start only the specific one requested.
+
+---
+
+## 3. Git workflow
+
+- **Never push to `main`.** Branch `feat/` · `fix/` · `chore/` · `wip/` (no other prefixes — `cursor/`,
+  `feature/`, `bundle-h-*` are legacy) and open a PR.
+- **Multiple AI sessions share this `.git/`.** For any multi-commit batch or long session, take a
+  worktree: `scripts/worktree.sh new <tool> <branch>`. The `SESSION_BRANCH` lock plus
+  `scripts/check-session-branch.mjs` prevents another session moving your HEAD mid-batch. One-off
+  single commits in the main checkout are fine.
+- Before committing or branching: `git status` + `git branch --show-current`. If the tree changed
+  unexpectedly, re-inspect rather than retrying.
+- `git fetch` before reasoning about divergence. **Grep `origin/main`, never local `main`** — the
+  local ref is routinely dozens of PRs stale, and "lane complete" claims verified against it have
+  been wrong.
+- **Never `git stash push -- <pathspec>` when the pathspec includes an untracked file.** Git
+  no-ops, and a later bare `git stash pop` grabs another session's WIP stash. To isolate work:
+  `git checkout -b new origin/main` and `git add` only your files, or copy to the scratchpad first.
+  Recovery from a wrong pop is `git checkout HEAD -- <files from git stash show>` — **never**
+  `reset --hard`, which nukes the always-present dirty files (`desktop/*`, `data/cache/*`).
+- Inspect staged files before committing. Never commit build artifacts or anything from
+  `lariat-data-sources`.
+- Do not commit unless asked.
+
+---
+
+## 4. Verification — evidence before claims
+
+- Full web gate: `npm run verify` (typecheck + 13 suites + `next build`), under `npx node@24`.
+- Full native gate: `swift build && swift test` from `LariatNative/`.
+- Lint: `npm run lint` / `npm run lint:changed`.
+- Every gate green before commit or PR. If one fails, say so with the output — never report done on
+  a red or unrun gate.
+- **A broad suite pass does not substitute for the targeted contract suite** of whatever protected
+  surface you touched (§5, and `docs/PROTECTED_CONTRACTS.md` §15 lists the exact commands).
+- `next build` catches a class of bug nothing else does — see §8.
+
+---
+
+## 5. Protected surfaces
+
+`docs/PROTECTED_CONTRACTS.md` is binding. Six families: deterministic ops ledger, management read
+models, sync replay/checkpoints, peer trust & topology, cloud-bridge outbox durability, sick-note
+PHI custody. Plus the frozen `/v2` cloud-bridge **envelope wire contract** (§11.4) — CanonicalJSON
+body + `HMAC-SHA256(secret, body ‖ batch_id)`, proven byte-identical against the Swift twin. Do not
+touch its bytes without treating it as a versioned contract change.
+
+Rules that apply whenever you're near these:
+
+- **HACCP / food-safety logic is regulated.** Never weaken a validation, never silently
+  auto-correct a record. Surface the error.
+- Preserve fail-loud behavior. When in doubt: **skip, isolate, or fail loud** — never silently widen
+  a delete, widen trust, drop a manager signal, or advance transport state on uncertain data.
+- Do not mix protected edits with docs cleanup, UI copy churn, or packaging work in one PR.
+- Schema changes require a migration. Never in-place edits.
+- Audit writes stay transactionally tied to their source write.
+
+---
+
+## 6. Domain rules
+
+- **UI copy** — `docs/UI_COPY_RULES.md` is strict. Kitchen words (prep, line, par, 86, fire, hold,
+  count, low, out), 5th–8th grade reading level, understandable in under 2 seconds. No SaaS jargon
+  (workflow, optimize, configure, dashboard, analytics, synchronization). No underscores, no
+  dev-style column names, USD to 2 decimals, "Spring"/"Fall" — never "Shoulder".
+- **Test with realistic recipe/inventory data**, not `foo`/`bar`. The domain rules only surface
+  against real-shaped data.
+- **No VoiceOver/screen-reader accessibility waves.** Owner's call: "cooks have to see to work."
+  The useful half of accessibility here is legibility for sighted staff across a steamy line —
+  Dynamic Type, high contrast, big targets, glanceability. iPad is the real deployment target.
+- **Vendor encodings:** Toast POS CSVs are **cp1252**, not UTF-8 (`encoding='cp1252'`). Shamrock
+  `.xls` files are CDFV2 — read with `xlrd`, not `openpyxl`; its sector-size warning is benign.
+
+---
+
+## 7. Epistemics — what has burned past sessions
+
+- **This repo's commit messages can be aspirational.** For any "is X done?" question, verify against
+  code (grep the symbol, table, import), not the commit narrative. `ed0b32e` is the worked example.
+- **Costing inaccuracy is upstream data, not port or engine code.** Native == web is proven by
+  byte-parity suites. The signal is `bom_lines.map_status` / `recipe_costs` — read it, never
+  re-derive with null density (that mistake produced a wildly wrong "63% dropped" report).
+- **Cross-check any subagent "security gap" claim** against `tests/js/test-pin-gate-coverage.mjs`'s
+  ALLOWLIST before treating it as urgent. Several have been false alarms.
+- Point-in-time memory files describe what was true when written. Verify file/flag/function claims
+  against current code before asserting them.
+- The UI layer consistently has weaker coverage and more (and worse) bugs than the API/lib layer,
+  even where tests exist. Weight review attention accordingly.
+
+---
+
+## 8. Recurring bug patterns
+
+- **`'use client'` importing from a server-only `lib/*.ts`** drags that module's `node:crypto` /
+  `node:fs` imports into the client bundle. `tsc`, eslint, and `node --test` all pass; only
+  `next build` fails (`UnhandledSchemeError`). Fix: split the pure constants into their own module
+  and re-export. Run `npx next build --webpack` whenever a fix crosses that boundary.
+- **Relative imports between `.ts` files need the explicit `.ts` extension** — Node's ESM loader
+  (used by `tests/js/*.mjs`) requires it; webpack tolerates its absence.
+- `SELECT *` rows usually need `LibType & { extra_col }` intersections — lib snapshot types are
+  narrower than the tables.
+- Location scoping (`?location=`, `useLocation()`) is dropped constantly. Any board, link, or
+  action that assumes the default location breaks every non-default deployment.
+
+---
+
+## 9. Working style
+
+- **Spec → plan → TDD** for features: design spec, execution plan, then task-by-task tests-first,
+  stopping at review gates. Tests first, not after.
+- **Default to the minimum viable version.** No extra guards, examples, or multi-profile setups
+  unless asked. Ship simple, offer enhancements as a follow-up question.
+- **Read before Edit.** Always use the Read tool — Edit fails on files read via `cat`/`head`/`sed`.
+- **Subagent scope discipline.** State the explicit scope boundary in every dispatch prompt. A
+  subagent implements only its task, never adjacent ones; related issues come back as
+  recommendations, not auto-fixes. Cross-file bugs an agent finds in another agent's files can't be
+  fixed inside the fan-out — the lead patches across worktrees afterward.
+- Give parallel agents fully self-contained prompts (condensed recipe + gotchas), not references to
+  "the pattern from PR #497" — they have no conversation context. Pre-create worktrees yourself
+  when you need deterministic paths to collect results from.
+- Small, tightly-coupled areas (<~10 files, shared deps) go to **one** agent, not a fan-out.
+- Persist long plans and specs to `docs/`; reference the path rather than pasting into chat.
+- Act only on Sean's direct messages — never re-execute your own prior handoff notes or copyable
+  prompt blocks as new instructions.
+- Do not route around security guardrails. When a hook blocks something, stop and hand the step to
+  Sean with exact instructions.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
