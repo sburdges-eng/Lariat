@@ -249,27 +249,25 @@ def _round_up_batches(batches: float, granularity: float) -> float:
     return max(1, steps) * granularity
 
 
-def expand_recipe_orders(
+def _settle_order_batches(
     manifest: dict[str, Manifest],
     demands: Iterable[tuple[str, float, str]],
     granularity: float = 1.0,
     warnings: list[str] | None = None,
-) -> dict[tuple[str, str], float]:
-    """Recipe-node quantities rounded up to whole batches at every level.
+) -> dict[str, float]:
+    """Settle every reachable recipe node to a whole (or half) batch COUNT.
 
-    Same shape as `expand_recipe_demand` — {(slug, yield_unit): qty} — but
-    every node is a whole number of batches (or halves at granularity 0.5),
-    and a sub-recipe's demand derives from its parent's ROUNDED figure. A
-    sub-recipe is a batch too; you cannot make a third of one.
+    Returns {slug: batches}. This is the one kernel behind both floored
+    channels — `expand_recipe_orders` (recipe-node quantities, for the prep
+    board) and `aggregate_order_demand` (leaf-ingredient quantities, for the
+    order guide). They read the same primitive rather than one dividing the
+    other's answer back out, so a BEO's two tabs cannot disagree about how many
+    batches a recipe is.
 
-    Nodes are settled in dependency order, parents before children, so a
-    sub-recipe shared by two parents is summed BEFORE it is rounded.
-    Rounding each branch separately would order two batches of lariat rub
-    for a Nashville slider — one for the hot rub, one for the oil — where a
-    single batch covers both.
-
-    Consumption is deliberately not available here: it answers a different
-    question and stays linear in `expand_recipe_demand`.
+    Nodes settle in dependency order, parents before children, so a sub-recipe
+    shared by two parents is summed BEFORE it is rounded. Rounding each branch
+    separately would order two batches of lariat rub for a Nashville slider —
+    one for the hot rub, one for the oil — where a single batch covers both.
 
     See docs/superpowers/specs/2026-07-28-beo-batch-ordering-design.md.
     """
@@ -306,15 +304,15 @@ def expand_recipe_orders(
             indegree[child] += 1
     pending: dict[str, float] = dict(seeds)
     ready = [n for n in edges if indegree.get(n, 0) == 0]
-    out: dict[tuple[str, str], float] = {}
+    batches: dict[str, float] = {}
 
     while ready:
         node = ready.pop()
         m = manifest[node]
-        rounded = _round_up_batches(pending.get(node, 0.0) / m.yield_qty, granularity)
-        out[(node, m.yield_unit)] = rounded * m.yield_qty
+        n = _round_up_batches(pending.get(node, 0.0) / m.yield_qty, granularity)
+        batches[node] = n
         for child, per_batch in edges[node]:
-            pending[child] = pending.get(child, 0.0) + per_batch * rounded
+            pending[child] = pending.get(child, 0.0) + per_batch * n
             if child not in edges:
                 continue
             indegree[child] -= 1
@@ -326,8 +324,7 @@ def expand_recipe_orders(
     # already warned about the cycle itself, but not that these recipes went
     # missing because of it — and a prep sheet that is quietly short is worse
     # than one that says why.
-    settled = {slug for slug, _unit in out}
-    for node in sorted(set(edges) - settled):
+    for node in sorted(set(edges) - set(batches)):
         msg = (
             f"recipe {node!r} could not be settled to a batch count (sub-recipe "
             f"cycle); it is omitted from the order guide and the prep board"
@@ -335,7 +332,33 @@ def expand_recipe_orders(
         if warnings is None:
             raise RecipeCycleError(msg)
         warnings.append(msg)
-    return out
+    return batches
+
+
+def expand_recipe_orders(
+    manifest: dict[str, Manifest],
+    demands: Iterable[tuple[str, float, str]],
+    granularity: float = 1.0,
+    warnings: list[str] | None = None,
+) -> dict[tuple[str, str], float]:
+    """Recipe-node quantities rounded up to whole batches at every level.
+
+    Same shape as `expand_recipe_demand` — {(slug, yield_unit): qty} — but
+    every node is a whole number of batches (or halves at granularity 0.5),
+    and a sub-recipe's demand derives from its parent's ROUNDED figure. A
+    sub-recipe is a batch too; you cannot make a third of one.
+
+    Consumption is deliberately not available here: it answers a different
+    question and stays linear in `expand_recipe_demand`.
+
+    The settle itself lives in `_settle_order_batches`; this multiplies its
+    batch counts back into yield units.
+    """
+    batches = _settle_order_batches(manifest, demands, granularity, warnings)
+    return {
+        (slug, manifest[slug].yield_unit): n * manifest[slug].yield_qty
+        for slug, n in batches.items()
+    }
 
 
 def _discover_order_graph(
