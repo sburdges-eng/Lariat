@@ -291,10 +291,19 @@ def expand_recipe_orders(
         )
 
     # Pass 2 — settle in dependency order (Kahn), rounding each node's TOTAL.
+    #
+    # `edges` holds only the nodes discovery actually mapped. A sub-recipe that
+    # bailed out (cycle, non-positive yield) had its EDGE recorded by the parent
+    # before the recursion returned, so it can be an edge target with no edge
+    # list of its own. Enqueuing one used to divide by its zero yield or raise
+    # KeyError on `edges[node]` — taking down an entire event where the linear
+    # walk merely warned. `child not in edges` is that node; skip it.
     indegree: dict[str, int] = {n: 0 for n in edges}
     for node in edges:
         for child, _ in edges[node]:
-            indegree[child] = indegree.get(child, 0) + 1
+            if child not in edges:
+                continue
+            indegree[child] += 1
     pending: dict[str, float] = dict(seeds)
     ready = [n for n in edges if indegree.get(n, 0) == 0]
     out: dict[tuple[str, str], float] = {}
@@ -306,9 +315,26 @@ def expand_recipe_orders(
         out[(node, m.yield_unit)] = rounded * m.yield_qty
         for child, per_batch in edges[node]:
             pending[child] = pending.get(child, 0.0) + per_batch * rounded
+            if child not in edges:
+                continue
             indegree[child] -= 1
             if indegree[child] == 0:
                 ready.append(child)
+
+    # A node left with indegree > 0 sits inside a cycle: Kahn never reaches it,
+    # so it silently vanishes from the prep board and the order guide. Discovery
+    # already warned about the cycle itself, but not that these recipes went
+    # missing because of it — and a prep sheet that is quietly short is worse
+    # than one that says why.
+    settled = {slug for slug, _unit in out}
+    for node in sorted(set(edges) - settled):
+        msg = (
+            f"recipe {node!r} could not be settled to a batch count (sub-recipe "
+            f"cycle); it is omitted from the order guide and the prep board"
+        )
+        if warnings is None:
+            raise RecipeCycleError(msg)
+        warnings.append(msg)
     return out
 
 

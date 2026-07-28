@@ -641,5 +641,86 @@ class BatchOrdering(unittest.TestCase):
         self.assertAlmostEqual(out[("base", "cup")], 4.0)
 
 
+class BatchOrderingGraphGuards(unittest.TestCase):
+    """The order walk must degrade exactly where the linear walk degrades.
+
+    `_discover_order_graph` records a sub-recipe edge BEFORE it recurses, and
+    the recursion can bail out (cycle, non-positive yield) without ever giving
+    that child an `edges` entry. The Kahn settle then enqueued a node it had no
+    edge list for. `aggregate_demand` degrades to a warning in all these cases;
+    the order walk must not be the one path that takes the whole event down.
+    """
+
+    def _parent_with_bad_sub(self, sub_yield):
+        # p is fine: 4 qt a batch, 2 lb of flour, plus a cup of sub `z`.
+        return {
+            "p": _mk("p", "Parent", 4, "qt",
+                     sub_recipe_slugs=["z"],
+                     bom=[("flour", 2, "lb", False), ("z", 1, "cup", True, "z")]),
+            "z": _mk("z", "Bad Sub", sub_yield, "cup",
+                     bom=[("salt", 1, "tsp", False)]),
+        }
+
+    def test_a_zero_yield_sub_degrades_instead_of_dividing_by_zero(self):
+        man = self._parent_with_bad_sub(0)
+        warns = []
+        out = expand_recipe_orders(man, [("p", 1.0, "qt")], 1.0, warnings=warns)
+        self.assertAlmostEqual(out[("p", "qt")], 4.0)
+        self.assertNotIn(("z", "cup"), out)
+        self.assertTrue(any("'z'" in w for w in warns), warns)
+
+    def test_a_negative_yield_sub_degrades_instead_of_keyerror(self):
+        man = self._parent_with_bad_sub(-2)
+        warns = []
+        out = expand_recipe_orders(man, [("p", 1.0, "qt")], 1.0, warnings=warns)
+        self.assertAlmostEqual(out[("p", "qt")], 4.0)
+        self.assertNotIn(("z", "cup"), out)
+        self.assertTrue(any("'z'" in w for w in warns), warns)
+
+    def test_a_dropped_sub_does_not_drop_its_parent(self):
+        # The parent still settles and still contributes, mirroring how
+        # aggregate_demand keeps the parent's own leaves.
+        for sub_yield in (0, -2):
+            with self.subTest(sub_yield=sub_yield):
+                man = self._parent_with_bad_sub(sub_yield)
+                warns = []
+                out = expand_recipe_orders(man, [("p", 0.5, "qt")], 1.0, warnings=warns)
+                self.assertAlmostEqual(out[("p", "qt")], 4.0)
+
+    def test_a_cycle_omits_only_its_own_component(self):
+        # a <-> b cycle; x is independent and must still settle.
+        man = {
+            "a": _mk("a", "A", 4, "qt", sub_recipe_slugs=["b"],
+                     bom=[("b", 1, "qt", True, "b")]),
+            "b": _mk("b", "B", 4, "qt", sub_recipe_slugs=["a"],
+                     bom=[("a", 1, "qt", True, "a")]),
+            "x": _mk("x", "X", 4, "qt", bom=[("sugar", 1, "cup", False)]),
+        }
+        warns = []
+        out = expand_recipe_orders(man, [("a", 4.0, "qt"), ("x", 4.0, "qt")], 1.0, warnings=warns)
+        self.assertAlmostEqual(out[("x", "qt")], 4.0)
+        self.assertTrue(any("cycle" in w for w in warns), warns)
+
+    def test_an_unsettled_node_is_reported_not_silently_dropped(self):
+        # The cycle members vanish from the board. Dropping them quietly means
+        # a prep sheet that is short with no signal — say so.
+        man = {
+            "a": _mk("a", "A", 4, "qt", sub_recipe_slugs=["b"],
+                     bom=[("b", 1, "qt", True, "b")]),
+            "b": _mk("b", "B", 4, "qt", sub_recipe_slugs=["a"],
+                     bom=[("a", 1, "qt", True, "a")]),
+        }
+        warns = []
+        out = expand_recipe_orders(man, [("a", 4.0, "qt")], 1.0, warnings=warns)
+        self.assertNotIn(("a", "qt"), out)
+        self.assertTrue(
+            any("could not be settled" in w and "'a'" in w for w in warns), warns
+        )
+
+    def test_a_bad_sub_still_fails_loud_without_a_warnings_sink(self):
+        man = self._parent_with_bad_sub(0)
+        with self.assertRaises(ValueError):
+            expand_recipe_orders(man, [("p", 1.0, "qt")], 1.0)
+
 if __name__ == "__main__":
     unittest.main()
