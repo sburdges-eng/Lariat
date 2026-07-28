@@ -232,6 +232,26 @@ def expand_recipe_demand(
     return out
 
 
+def _floors_in_batches(m: Manifest) -> bool:
+    """Does this recipe get rounded up to whole batches?
+
+    Only when its yield is a real measure — volume or weight. Those are the
+    things a kitchen mixes in batches and cannot make a third of: brines, rubs,
+    sauces, flours. Over-making one is cheap, because it gets used in standard
+    service whether the event needed it all or not.
+
+    A yield in `ea`, `case`, `portion`, `pan` or `hotel pan` is a count, not a
+    batch. Flooring one orders a 60-piece batch of mac balls to serve 20, or a
+    full case of churros for four portions — an over-order nothing absorbs.
+    Those pass through at the honest linear figure.
+
+    Deliberately reuses this module's own dimension tables rather than
+    scripts/lib/units.py: bom_expand imports nothing, and that is worth keeping.
+    """
+    yu = _u(m.yield_unit)
+    return yu in _VOLUME_TO_QT or yu in _WEIGHT_TO_LB
+
+
 def _round_up_batches(batches: float, granularity: float) -> float:
     """Round a batch count UP to `granularity`, never below one step.
 
@@ -309,7 +329,8 @@ def _settle_order_batches(
     while ready:
         node = ready.pop()
         m = manifest[node]
-        n = _round_up_batches(pending.get(node, 0.0) / m.yield_qty, granularity)
+        raw = pending.get(node, 0.0) / m.yield_qty
+        n = _round_up_batches(raw, granularity) if _floors_in_batches(m) else raw
         batches[node] = n
         for child, per_batch in edges[node]:
             pending[child] = pending.get(child, 0.0) + per_batch * n

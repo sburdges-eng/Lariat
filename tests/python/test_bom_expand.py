@@ -722,5 +722,70 @@ class BatchOrderingGraphGuards(unittest.TestCase):
         with self.assertRaises(ValueError):
             expand_recipe_orders(man, [("p", 1.0, "qt")], 1.0)
 
+class BatchFloorScope(unittest.TestCase):
+    """The floor is for things you make in batches, not things you count.
+
+    Owner's call: spices, flour, brines and sauces are the target — standard
+    service prep that gets used up outside the event even if you over-make it.
+    A recipe yielding in `ea` or `case` is not a batch you mix; flooring one
+    orders a 60-piece batch to serve 20, or a full case of churros for four.
+    """
+
+    def test_a_volume_yield_floors_to_a_whole_batch(self):
+        man = {"slaw": _mk("slaw", "Slaw", 12, "qt", bom=[("cabbage", 8, "qt", False)])}
+        out = expand_recipe_orders(man, [("slaw", 3.12, "qt")])
+        self.assertAlmostEqual(out[("slaw", "qt")], 12.0)
+
+    def test_a_weight_yield_floors_to_a_whole_batch(self):
+        man = {"slaw": _mk("slaw", "Mexi Slaw", 5, "lb", bom=[("cabbage", 4, "lb", False)])}
+        out = expand_recipe_orders(man, [("slaw", 1.0, "lb")])
+        self.assertAlmostEqual(out[("slaw", "lb")], 5.0)
+
+    def test_a_piece_yield_is_left_alone(self):
+        # 20 of a 60-piece batch is 20 pieces. You fry what you serve.
+        man = {"balls": _mk("balls", "Mac Balls", 60, "ea", bom=[("mac", 2, "qt", False)])}
+        out = expand_recipe_orders(man, [("balls", 20.0, "ea")])
+        self.assertAlmostEqual(out[("balls", "ea")], 20.0)
+
+    def test_a_case_yield_is_left_alone(self):
+        man = {"churros": _mk("churros", "Churros", 1, "case", bom=[("churro", 60, "ea", False)])}
+        out = expand_recipe_orders(man, [("churros", 0.0667, "case")])
+        self.assertAlmostEqual(out[("churros", "case")], 0.0667, places=4)
+
+    def test_a_hotel_pan_yield_is_left_alone(self):
+        man = {"ziti": _mk("ziti", "Baked Ziti", 4, "hotel pan", bom=[("pasta", 5, "lb", False)])}
+        out = expand_recipe_orders(man, [("ziti", 1.0, "hotel pan")])
+        self.assertAlmostEqual(out[("ziti", "hotel pan")], 1.0)
+
+    def test_a_counted_parent_still_floors_its_measurable_sub(self):
+        # The parent passes its raw figure down; the sub is a real batch and
+        # floors on its own account.
+        man = {
+            "balls": _mk("balls", "Mac Balls", 60, "ea",
+                         sub_recipe_slugs=["queso"],
+                         bom=[("queso", 1, "qt", True, "queso")]),
+            "queso": _mk("queso", "Queso", 22, "qt", bom=[("cheese", 20, "lb", False)]),
+        }
+        out = expand_recipe_orders(man, [("balls", 20.0, "ea")])
+        self.assertAlmostEqual(out[("balls", "ea")], 20.0)
+        self.assertAlmostEqual(out[("queso", "qt")], 22.0)
+
+    def test_a_measurable_parent_passes_a_floored_figure_to_a_counted_sub(self):
+        man = {
+            "platter": _mk("platter", "Platter", 4, "qt",
+                           sub_recipe_slugs=["skewer"],
+                           bom=[("skewer", 10, "ea", True, "skewer")]),
+            "skewer": _mk("skewer", "Caprese Skewer", 50, "ea", bom=[("mozz", 2, "lb", False)]),
+        }
+        out = expand_recipe_orders(man, [("platter", 1.0, "qt")])
+        self.assertAlmostEqual(out[("platter", "qt")], 4.0)   # floored to one batch
+        self.assertAlmostEqual(out[("skewer", "ea")], 10.0)   # derived, not floored
+
+    def test_prep_granularity_also_respects_the_scope(self):
+        man = {"balls": _mk("balls", "Mac Balls", 60, "ea", bom=[("mac", 2, "qt", False)])}
+        out = expand_recipe_orders(man, [("balls", 20.0, "ea")], granularity=0.5)
+        self.assertAlmostEqual(out[("balls", "ea")], 20.0)
+
+
 if __name__ == "__main__":
     unittest.main()
