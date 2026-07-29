@@ -35,6 +35,14 @@ jobs:
 
       - run: npm ci
 
+      # lib/devCodeSearch.ts shells out to ripgrep, and returns a distinct
+      # `rg_unavailable` outcome when it is missing — which is what the
+      # runner produced, because rg is not in the ubuntu-latest image.
+      # Installing it means the code_search suite tests the real path here
+      # the way it does on a developer machine, rather than being skipped.
+      - name: install ripgrep (lib/devCodeSearch shells out to rg)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
+
       # Before the suites, not just before the build: test-discover-route
       # asserts the stamped V.I.NN.NNN release version rather than the
       # package.json semver fallback, so it needs version.json to exist.
