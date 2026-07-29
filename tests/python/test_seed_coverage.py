@@ -68,8 +68,17 @@ class SeedCoverageReporter(unittest.TestCase):
             if "bom_lines" not in tables:
                 self.skipTest("bom_lines table not present in live DB")
 
+            # Sub-recipe lines are excluded. `ingredient_yields` answers "how
+            # much usable product comes out of this raw item after trim, peel
+            # or cook loss" — a question that does not apply to a sub-recipe,
+            # whose yield is its batch output in `recipe_costs`. Asking an
+            # ingredient seed to cover them counted 18 keys as missing that
+            # were never in scope, and no correct seed could ever close them.
             raw_bom = conn.execute(
-                "SELECT DISTINCT ingredient FROM bom_lines WHERE ingredient IS NOT NULL"
+                """SELECT DISTINCT ingredient
+                     FROM bom_lines
+                    WHERE ingredient IS NOT NULL
+                      AND COALESCE(sub_recipe, '') = ''"""
             ).fetchall()
         finally:
             conn.close()
