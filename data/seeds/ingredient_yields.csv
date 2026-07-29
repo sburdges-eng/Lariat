@@ -287,3 +287,7 @@ hatch green chile,0.75,,book_of_yields,"BoY typical; roasted, peeled and seeded"
 beef tenderloin,0.80,,book_of_yields,BoY typical; trimmed from whole PSMO; verify against a case before a large event
 pork belly,0.92,,book_of_yields,BoY typical; skin and surface fat trimmed; verify against a case before a large event
 redbird chicken legs,0.70,,book_of_yields,BoY typical; meat off the bone; drop to 1.0 if the legs are served bone-in
+crackers or baguette,1.0,,seed,"artisanal board choice; sliced baguette or vendor crackers, either used whole (recipes/normalized/artisanal_board.csv)"
+olives or pickle,1.0,,seed,"artisanal board choice; vendor whole-buy per the recipe note, no trim"
+fruit or preserve,1.0,,seed,"artisanal board choice; house jam is 1.0 and the grape form is measured after picking, so the cup is usable either way"
+breakfast burrito,1.0,,seed,"assembled unit stubbed as order-by-each; consumed whole, no trim (recipes/normalized/breakfast_burrito.csv)"

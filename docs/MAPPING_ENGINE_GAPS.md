@@ -477,6 +477,13 @@ These are tracked follow-ups from code-quality reviews. Non-blocking; address wh
 - `notes` column in the densities CSV is read then discarded — the `ingredient_densities` table has no `notes` column. Parity with `ingredient_yields` (which has `notes`) would require a schema migration that isn't worth it now.
 - Padded yield CSV rows beyond the top-40 BOM ingredients (filet mignon, etc.) are intentional to pre-cover near-future menu additions. `tests/python/test_seed_coverage.py` verifies live-BOM coverage is 100%.
 
+**Coverage restored 2026-07-29.** It had drifted to 56.6% as the menu grew — 111 keys with no yield row — and is back to 235/235. The route there is worth keeping, because most of it was not measurement: sub-recipes and non-food supplies left the denominator (an ingredient-yield seed does not own either), twenty-one rows closed on operator answers about how items arrive, and sixty-eight took values. Only eleven are real trim yields, and those carry `source=book_of_yields` because they are reference figures rather than anything weighed here — the three proteins say so in their own notes.
+
+Two things to know before trusting the number again:
+
+- **`1.0` means two different things in this seed.** Most are items with no possible trim step in any purchase form. A smaller set — the herbs, `arugula`, `chopped garlic`, `white onion` — are `1.0` *because Lariat buys them prepped*, and would be wrong at a venue buying whole or bunched. Their notes say which.
+- **Four rows still carry `map_status = UNMAPPED` in `bom_lines`**: `fruit or preserve`, `crackers or baguette`, `olives or pickle` (the either/or garnish lines in `recipes/normalized/artisanal_board.csv`) and `breakfast burrito` (self-referential order-by-each stub). Their yields are genuinely `1.0` — each is used whole — so the coverage check is satisfied, but they remain unmapped for costing: no vendor, no price, no pack size. That is a separate gap and the yield number does not close it.
+
 ---
 
 ## Out of scope (track separately)
