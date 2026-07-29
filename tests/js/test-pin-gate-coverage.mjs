@@ -166,6 +166,19 @@ const ALLOWLIST = new Set([
 
   // ── Cloud-bridge status (diagnostic, pre-auth so the splash works) ─
   'cloud-bridge/status',
+
+  // ── Client BEO signing (guest-facing, secured by the share token) ──
+  // The client opens /beo/share/<token> from a link and signs off on their
+  // own event. There is no PIN on that side of the door by design, which is
+  // why middleware.js carries a matching PUBLIC_CARVEOUTS entry.
+  //
+  // It is listed here only as of 2026-07-29. Before that this scanner
+  // believed it was gated: the route sat under the /api/beo matcher prefix,
+  // and isGatedByMiddleware() reads the matcher without reading
+  // PUBLIC_CARVEOUTS, so a route middleware deliberately EXEMPTS still
+  // counted as covered. Dropping that prefix removed the disguise rather
+  // than the protection — the endpoint is exactly as public as it was.
+  'beo/share/[token]/sign',
 ]);
 
 // ------- middleware-matcher parsing -------

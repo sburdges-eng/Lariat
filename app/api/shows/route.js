@@ -7,19 +7,30 @@
  *   ?op=playbook&show=<id>&today=      → one show with parsed status
  *   ?op=archive&q=&era=                → archive search
  *
- * PIN gating is performed by middleware.js (route registers in
- * SENSITIVE_PREFIXES). This handler trusts the gate.
+ * PIN gating used to be performed by middleware.js — this handler trusted
+ * the /api/shows matcher prefix. That prefix is gone: it sat in front of
+ * seven routes that gate on an event.* temp-PIN scope, and middleware runs
+ * on the Edge runtime with no DB handle, so it could only ever check the
+ * master cookie and bounced every scoped holder before they arrived.
+ *
+ * This was the one route underneath it with no gate of its own, so the gate
+ * moves here. requirePin is the master cookie only — the same access this
+ * route already had.
  */
 import { getDb } from '../../../lib/db';
 import {
   upcomingShows, pipelineCounts, archiveSearch, archiveEras, getShowById,
 } from '../../../lib/showsRepo';
 import { locationFromRequest } from '../../../lib/location';
+import { requirePin } from '../../../lib/pin';
 
 export const dynamic = 'force-dynamic';
 
 /** @param {Request} req */
 export async function GET(req) {
+  const pinFail = await requirePin(req);
+  if (pinFail) return pinFail;
+
   const url = new URL(req.url);
   const op = url.searchParams.get('op');
   const today = url.searchParams.get('today') || undefined;

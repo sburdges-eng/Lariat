@@ -13,6 +13,7 @@
 import { json } from '../../../../lib/routeHelpers';
 import { getDb } from '../../../../lib/db';
 import { cascadeFromLineItems } from '../../../../lib/beoCascade';
+import { requirePin } from '../../../../lib/pin';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,13 @@ const SCHEMA_VERSION = 'beo_cascade_v1';
 
 /** @param {Request} req */
 export async function GET(req) {
+  // Was covered by middleware alone via the /api/beo matcher prefix. That
+  // prefix has been dropped so the temp-PIN scopes underneath it can work,
+  // which leaves this route to state its own gate. requirePin is the master
+  // cookie only — exactly the access it had before — so nothing widens here.
+  const pinFail = await requirePin(req);
+  if (pinFail) return pinFail;
+
   const url = new URL(req.url);
   const location = url.searchParams.get('location') || 'default';
 
