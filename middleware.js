@@ -40,18 +40,21 @@ const SENSITIVE_PREFIXES = [
   '/api/specials/saved',
   '/api/host',
   '/api/purchasing',
-  // PHI, pay data and staff records. These reach pinRequiredForPic() at the
-  // route layer but sat outside this list, so on an install with no PIN
-  // configured they were served with no credential at all. Manager-domain
-  // for every method — none is a cook-facing read.
+  // PHI, pay data and staff records (/api/sick-leave, /api/sick-worker,
+  // /api/tip-pool, /api/wage-notices, /api/certifications) are deliberately
+  // NOT here, and neither is /api/recipes.
   //
-  // /api/recipes is deliberately NOT here: a prefix gates GET too, and cooks
-  // read recipes without a credential by design. Its PUT is gated in-route.
-  '/api/sick-leave',
-  '/api/sick-worker',
-  '/api/tip-pool',
-  '/api/wage-notices',
-  '/api/certifications',
+  // Each of those gates on hasPinOrTempPin(req, 'pic.*'), which reads the
+  // temp_pins table to honor a shift PIC carrying a scoped temp PIN. This
+  // middleware runs on the Edge runtime with no DB handle, so it can only
+  // ever verify the master cookie — listing them here would redirect the
+  // exact staff the pic.* scopes exist to admit. /api/recipes has the
+  // mirror-image problem: a prefix gates GET too, and cooks read recipes
+  // without a credential by design.
+  //
+  // Their gate is the route layer, which is fail-closed on an unconfigured
+  // install (lib/pin.ts pinRequiredForPic) and understands scopes. See
+  // tests/js/test-unconfigured-install-fails-closed.mjs.
 ];
 
 /** Public carve-outs inside otherwise-PIN-gated prefixes. Order matters:

@@ -51,12 +51,16 @@ describe('lib/pin requirePin — shared helper', () => {
     assert.strictEqual(requirePin.constructor.name, 'AsyncFunction');
   });
 
-  it('returns null when PIN gating is disabled (no LARIAT_PIN env)', async () => {
+  it('401s when nothing is configured (no LARIAT_PIN env)', async () => {
+    // Was 'returns null when PIN gating is disabled'. pinRequiredForPic()
+    // no longer opens on an unconfigured install — see lib/pin.ts and
+    // tests/js/test-unconfigured-install-fails-closed.mjs.
     const prev = process.env.LARIAT_PIN;
     delete process.env.LARIAT_PIN;
     try {
       const result = await requirePin(makeRequest());
-      assert.strictEqual(result, null);
+      assert.ok(result, 'expected a deny Response, got null (gate opened)');
+      assert.strictEqual(result.status, 401);
     } finally {
       if (prev !== undefined) process.env.LARIAT_PIN = prev;
     }
@@ -172,12 +176,15 @@ describe('lib/pin requirePinOrScope — shared helper', () => {
     assert.strictEqual(requirePinOrScope.constructor.name, 'AsyncFunction');
   });
 
-  it('returns null when PIN gating is disabled (no LARIAT_PIN env)', async () => {
+  it('401s when nothing is configured (no LARIAT_PIN env)', async () => {
+    // Was 'returns null when PIN gating is disabled'. A scoped temp PIN is
+    // still accepted below — the flip closes the no-credential case only.
     const prev = process.env.LARIAT_PIN;
     delete process.env.LARIAT_PIN;
     try {
       const result = await requirePinOrScope(makeRequest(), 'menu.prep_history');
-      assert.strictEqual(result, null);
+      assert.ok(result, 'expected a deny Response, got null (gate opened)');
+      assert.strictEqual(result.status, 401);
     } finally {
       if (prev !== undefined) process.env.LARIAT_PIN = prev;
     }
