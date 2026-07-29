@@ -152,6 +152,13 @@ jobs:
       - name: regression — shows (XLSX via python venv)
         run: npm run test:regression-shows
 
+      # Publishes a real line/branch/function number and fails below the
+      # floors in scripts/coverage-sweep.mjs. Note the percentage covers files
+      # the suites LOAD — the step also prints loaded-vs-on-disk per directory,
+      # which is where the actual holes show (app/ is ~135 of 364).
+      - name: code coverage (floors: line 85 / branch 81 / func 87)
+        run: npm run coverage -- --check
+
       - name: stamp build version (V.I.NN.NNN)
         run: npm run version:stamp
 

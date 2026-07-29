@@ -268,7 +268,8 @@
     "training:generate-v2": "LARIAT_DATA_DIR=training/gcp/snapshot node --experimental-strip-types --no-warnings training/datasetv2/generate.mjs",
     "test:format-lint": "node --test tests/js/test-format-lint.mjs",
     "test:suite-wiring": "node --experimental-strip-types --test tests/js/test-suite-wiring-coverage.mjs",
-    "test:regression-mdns": "node --experimental-strip-types --test tests/js/test-mdns-autostart.mjs tests/js/test-mdns-discovery.mjs tests/js/test-mdns-warn-once-per-reason.mjs"
+    "test:regression-mdns": "node --experimental-strip-types --test tests/js/test-mdns-autostart.mjs tests/js/test-mdns-discovery.mjs tests/js/test-mdns-warn-once-per-reason.mjs",
+    "coverage": "node --experimental-strip-types scripts/coverage-sweep.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
