@@ -39,12 +39,12 @@ beforeEach(() => {
 function postReq(body) {
   return new Request('http://localhost/api/sanitizer', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
 function getReq(qs = '') {
-  return new Request(`http://localhost/api/sanitizer${qs}`);
+  return new Request(`http://localhost/api/sanitizer${qs}`, { headers: { cookie: 'lariat_pin_ok=1' } });
 }
 function countChecks() {
   return testDb.prepare('SELECT COUNT(*) AS c FROM sanitizer_checks').get().c;

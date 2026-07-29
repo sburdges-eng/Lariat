@@ -32,15 +32,19 @@ beforeEach(() => {
   testDb.exec('DELETE FROM wage_notices; DELETE FROM audit_events; DELETE FROM idempotency_keys;');
 });
 
+// Authorized by default — these routes are PIN-gated. The gate tests below
+// opt out with { cookie: null }.
 function postReq(body, headers = {}) {
+  const merged = { 'content-type': 'application/json', cookie: 'lariat_pin_ok=1', ...headers };
+  if (merged.cookie === null) delete merged.cookie;
   return new Request('http://localhost/api/wage-notices', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', ...headers },
+    headers: merged,
     body: JSON.stringify(body),
   });
 }
 function getReq(qs = '') {
-  return new Request(`http://localhost/api/wage-notices${qs}`);
+  return new Request(`http://localhost/api/wage-notices${qs}`, { headers: { cookie: 'lariat_pin_ok=1' } });
 }
 function countNotices() {
   return testDb.prepare('SELECT COUNT(*) AS c FROM wage_notices').get().c;
@@ -58,7 +62,7 @@ describe('POST /api/wage-notices — PIN gate', () => {
       const res = await POST(postReq({
         cook_id: 'alice', reason: 'hire', wage_rate_cents: 1500,
         pay_basis: 'hourly', signed_on: '2026-04-20',
-      }));
+      }, { cookie: null }));
       assert.strictEqual(res.status, 403);
       assert.strictEqual(countNotices(), 0);
       assert.strictEqual(countAudit(), 0);

@@ -90,7 +90,7 @@ function insertVendorComponent({
 describe('GET /api/menu-engineering/margin-deltas', () => {
   it('returns 200 with empty rows when dish_components and history are both empty', async () => {
     const res = await route.GET(
-      new Request('http://localhost/api/menu-engineering/margin-deltas'),
+      new Request('http://localhost/api/menu-engineering/margin-deltas', { headers: { cookie: 'lariat_pin_ok=1' } }),
     );
     assert.strictEqual(res.status, 200);
     const j = await res.json();
@@ -104,7 +104,7 @@ describe('GET /api/menu-engineering/margin-deltas', () => {
 
   it('clamps days to [1,90], minPct to [0,1000], limit to [1,500]', async () => {
     const res = await route.GET(
-      new Request('http://localhost/api/menu-engineering/margin-deltas?days=999&minPct=-50&limit=99999'),
+      new Request('http://localhost/api/menu-engineering/margin-deltas?days=999&minPct=-50&limit=99999', { headers: { cookie: 'lariat_pin_ok=1' } }),
     );
     assert.strictEqual(res.status, 200);
     const j = await res.json();
@@ -131,7 +131,7 @@ describe('GET /api/menu-engineering/margin-deltas', () => {
     });
 
     const res = await route.GET(
-      new Request('http://localhost/api/menu-engineering/margin-deltas?days=7&minPct=5'),
+      new Request('http://localhost/api/menu-engineering/margin-deltas?days=7&minPct=5', { headers: { cookie: 'lariat_pin_ok=1' } }),
     );
     assert.strictEqual(res.status, 200);
     const j = await res.json();
@@ -171,7 +171,7 @@ describe('GET /api/menu-engineering/margin-deltas', () => {
 
     // location= alias should pick up the kitchen-a rows.
     const resA = await route.GET(
-      new Request('http://localhost/api/menu-engineering/margin-deltas?location=kitchen-a'),
+      new Request('http://localhost/api/menu-engineering/margin-deltas?location=kitchen-a', { headers: { cookie: 'lariat_pin_ok=1' } }),
     );
     const jA = await resA.json();
     assert.strictEqual(jA.count, 1);
@@ -179,14 +179,14 @@ describe('GET /api/menu-engineering/margin-deltas', () => {
 
     // location_id= alias also works (handled by locationFromRequest).
     const resB = await route.GET(
-      new Request('http://localhost/api/menu-engineering/margin-deltas?location_id=kitchen-a'),
+      new Request('http://localhost/api/menu-engineering/margin-deltas?location_id=kitchen-a', { headers: { cookie: 'lariat_pin_ok=1' } }),
     );
     const jB = await resB.json();
     assert.strictEqual(jB.count, 1);
 
     // Default location has no rows.
     const resDefault = await route.GET(
-      new Request('http://localhost/api/menu-engineering/margin-deltas'),
+      new Request('http://localhost/api/menu-engineering/margin-deltas', { headers: { cookie: 'lariat_pin_ok=1' } }),
     );
     const jDefault = await resDefault.json();
     assert.strictEqual(jDefault.count, 0);

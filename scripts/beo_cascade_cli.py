@@ -20,13 +20,30 @@ Output (stdout, JSON):
         "order_guide":  [{"ingredient": "flour", "unit": "lb",
                           "total_needed": 10.0, "on_hand": 5.0, "to_order": 5.0}],
         "prep_demands": [{"recipe_slug": "beer_batter", "display_name": "Beer Batter",
-                          "qty": 4.0, "unit": "qt"}],
+                          "qty": 4.0, "unit": "qt", "order_qty": 4.0,
+                          "prep_qty": 4.0, "batch_qty": 4.0}],
+
+    On a prep_demand row: `qty` is what the event eats, `order_qty` is what to
+    buy (whole batches, never fewer than one unless the event eats none of it),
+    `prep_qty` is what to make (half-batch granularity), `batch_qty` is one
+    batch of that recipe.
+
+    Batch rounding applies only where a batch is a real measure — a recipe
+    yielding in volume or weight. A yield in `ea`, `case`, `portion` or
+    `hotel pan` is a count, not a batch you mix, and passes through linear.
+
+    On an order_guide row: `total_needed` is the leaf quantity for the FLOORED
+    batches above, not for linear consumption — the guide buys what the prep
+    board says to make. `on_hand` subtracts from that figure. Rows needing
+    nothing are omitted; a row whose need is fully covered on hand is kept,
+    with `to_order` 0.
         "unmapped":     [{"menu_item": "Mystery Dish",
                           "reason": "not in beo_recipe_map and no direct recipe match"}]
     }
 
 On failure: {"error": "..."} to stdout, exit non-zero.
 """
+
 from __future__ import annotations
 
 import json
@@ -46,6 +63,7 @@ from scripts.lib.bom_expand import (  # noqa: E402
     UnknownRecipeError,
     build_manifest_from_normalized,
     expand_recipe_demand,
+    expand_recipe_orders,
     find_manifest_warnings,
 )
 from scripts.lib.beo_pull import (  # noqa: E402
@@ -127,8 +145,23 @@ def build_cascade(
     # cycle) degrades to a warning instead of aborting the whole cascade.
     cascade_warnings: list[str] = []
 
-    # Order guide (leaf ingredients)
-    order_lines = pull_orders(manifest, demand, inventory, warnings=cascade_warnings)
+    # Order guide (leaf ingredients) — derived from the SAME floored batch
+    # counts the prep board reports, so the two tabs of a BEO cannot give two
+    # answers to "what do I buy". A prep row reading "order 1 batch — 12 qt of
+    # coleslaw" next to leaf quantities for the 3.1 qt the event eats is a
+    # guide nobody can shop from. `total_needed` is therefore the floored
+    # figure; on-hand still subtracts from it.
+    order_lines = pull_orders(
+        manifest, demand, inventory, warnings=cascade_warnings, granularity=1.0
+    )
+    # A row needing nothing is dropped, not printed as "order 0". A map row of
+    # per_count 0 says the item eats none of that recipe, and the guide is read
+    # at a glance on a hot line — a zero row is clutter, and one for an
+    # ingredient already listed at a real quantity in another unit ("cumin
+    # 0 cup" under "cumin 12 tbsp") reads as a contradiction.
+    #
+    # Keyed off `total_needed`, never `to_order`: to_order 0 means the walk-in
+    # already covers a real need, and the cook still wants to see that row.
     order_guide = [
         {
             "ingredient": ol.ingredient,
@@ -138,20 +171,40 @@ def build_cascade(
             "to_order": ol.to_order,
         }
         for ol in order_lines
+        if ol.total_needed > 0
     ]
 
-    # Prep board (per-recipe nodes — parents AND sub-recipes)
+    # Prep board (per-recipe nodes — parents AND sub-recipes).
+    #
+    # Three quantities, because they answer three different questions and a
+    # kitchen needs all of them: `qty` is what the event eats (linear, and
+    # what a food-cost figure is built from), `order_qty` is what to buy
+    # (whole batches, never fewer than one unless the event eats none of it),
+    # `prep_qty` is what to make (half-batch granularity). See
+    # docs/superpowers/specs/2026-07-28-beo-batch-ordering-design.md.
     nodes = expand_recipe_demand(manifest, demand, warnings=cascade_warnings)
+    orders = expand_recipe_orders(manifest, demand, 1.0, warnings=cascade_warnings)
+    preps = expand_recipe_orders(manifest, demand, 0.5, warnings=cascade_warnings)
+    prep_rows = [
+        {
+            "recipe_slug": slug,
+            "display_name": manifest[slug].display_name,
+            "qty": qty,
+            "unit": unit,
+            "order_qty": orders.get((slug, unit), qty),
+            "prep_qty": preps.get((slug, unit), qty),
+            # Batch size, so a surface can render "0.5 batch" rather than
+            # making the reader divide.
+            "batch_qty": manifest[slug].yield_qty,
+        }
+        for (slug, unit), qty in nodes.items()
+    ]
+    # Nothing to buy and nothing to make means the recipe does not belong on
+    # the board. A per_count of 0 maps an item to a recipe it eats none of;
+    # "make 0 qt of green chilli" is not an instruction, it is a line the cook
+    # has to read and discard. Same call as the order guide above.
     prep_demands = sorted(
-        [
-            {
-                "recipe_slug": slug,
-                "display_name": manifest[slug].display_name,
-                "qty": qty,
-                "unit": unit,
-            }
-            for (slug, unit), qty in nodes.items()
-        ],
+        [r for r in prep_rows if r["order_qty"] > 0 or r["prep_qty"] > 0],
         key=lambda r: (r["display_name"].lower(), r["unit"]),
     )
 

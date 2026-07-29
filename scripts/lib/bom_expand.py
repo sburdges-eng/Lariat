@@ -25,6 +25,7 @@ units. Silent coercion is forbidden — see AGENTS.md rule #4.
 from __future__ import annotations
 
 import csv
+import math
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -75,20 +76,36 @@ class RecipeCycleError(ValueError):
 # Cross-dimension (lb vs qt) or pack/count units (bag, case, ea) return None,
 # so the caller can fail loud or, given a warnings sink, degrade gracefully.
 _VOLUME_TO_QT = {
-    "tsp": 1 / 192, "teaspoon": 1 / 192,
-    "tbsp": 1 / 64, "tablespoon": 1 / 64,
-    "floz": 1 / 32, "fl oz": 1 / 32,
-    "cup": 1 / 4, "c": 1 / 4,
-    "pt": 1 / 2, "pint": 1 / 2,
-    "qt": 1.0, "quart": 1.0,
-    "gal": 4.0, "gallon": 4.0,
-    "ml": 0.00105668821, "l": 1.05668821, "liter": 1.05668821, "litre": 1.05668821,
+    "tsp": 1 / 192,
+    "teaspoon": 1 / 192,
+    "tbsp": 1 / 64,
+    "tablespoon": 1 / 64,
+    "floz": 1 / 32,
+    "fl oz": 1 / 32,
+    "cup": 1 / 4,
+    "c": 1 / 4,
+    "pt": 1 / 2,
+    "pint": 1 / 2,
+    "qt": 1.0,
+    "quart": 1.0,
+    "gal": 4.0,
+    "gallon": 4.0,
+    "ml": 0.00105668821,
+    "l": 1.05668821,
+    "liter": 1.05668821,
+    "litre": 1.05668821,
 }
 _WEIGHT_TO_LB = {
-    "oz": 1 / 16, "ounce": 1 / 16,
-    "lb": 1.0, "lbs": 1.0, "pound": 1.0, "#": 1.0,
-    "g": 0.00220462262, "gram": 0.00220462262,
-    "kg": 2.20462262, "kilogram": 2.20462262,
+    "oz": 1 / 16,
+    "ounce": 1 / 16,
+    "lb": 1.0,
+    "lbs": 1.0,
+    "pound": 1.0,
+    "#": 1.0,
+    "g": 0.00220462262,
+    "gram": 0.00220462262,
+    "kg": 2.20462262,
+    "kilogram": 2.20462262,
 }
 _DIMENSIONS = (_VOLUME_TO_QT, _WEIGHT_TO_LB)
 
@@ -112,7 +129,9 @@ def _u(unit: str) -> str:
     return unit.strip().lower()
 
 
-def _reconcile_sub_unit_qty(sub_m: Manifest, qty: float, from_unit: str) -> float | None:
+def _reconcile_sub_unit_qty(
+    sub_m: Manifest, qty: float, from_unit: str
+) -> float | None:
     """Convert `qty from_unit` into `sub_m.yield_unit`. Same-dimension units
     convert exactly; otherwise the child's declared `pack_size` resolves a
     cross-dimension/pack unit (e.g. 'bag'); otherwise None (caller fails loud
@@ -185,8 +204,51 @@ def aggregate_demand(
     """
     out: dict[LeafKey, float] = {}
     for slug, qty, unit in demands:
-        for key, val in expand_recipe(manifest, slug, qty, unit, warnings=warnings).items():
+        for key, val in expand_recipe(
+            manifest, slug, qty, unit, warnings=warnings
+        ).items():
             out[key] = out.get(key, 0.0) + val
+    return out
+
+
+def aggregate_order_demand(
+    manifest: dict[str, Manifest],
+    demands: Iterable[tuple[str, float, str]],
+    granularity: float = 1.0,
+    warnings: list[str] | None = None,
+) -> dict[LeafKey, float]:
+    """Leaf-ingredient totals for the batches you will actually make.
+
+    Same shape as `aggregate_demand` — {(ingredient, unit): qty} — but each
+    recipe's BOM is scaled by the batch count `_settle_order_batches` settles
+    on, not by the raw linear fraction. Buying the cabbage for the 3.1 qt of
+    coleslaw an event eats, while the prep board says to make a whole 12 qt
+    batch, is two answers to one question; this is the one that matches the
+    board, and it is what the order guide rounds its vendor packs up from.
+
+    Only a recipe's OWN leaf rows are walked. A sub-recipe row is skipped
+    because the sub is already its own settled node and contributes its own
+    leaves — counting it here would double-order. `_row_sub_slug` is the same
+    predicate the node walk uses, so the two cannot disagree about which rows
+    are leaves.
+
+    Leaf units are NOT converted, matching `_expand_into` exactly: the row's
+    own unit is the key. A guide that silently re-expressed cup as qt would no
+    longer line up with the vendor pack it gets compared against.
+
+    Same error semantics as every other walker — `warnings=None` fails loud, a
+    list degrades and records. The settle has already emitted every warning for
+    this graph, so this pass adds none of its own.
+    """
+    batches = _settle_order_batches(manifest, demands, granularity, warnings)
+    out: dict[LeafKey, float] = {}
+    for slug, n in batches.items():
+        m = manifest[slug]
+        for row in m.bom:
+            if _row_sub_slug(manifest, m, row) is not None:
+                continue
+            key: LeafKey = (row["ingredient"], row["unit"])
+            out[key] = out.get(key, 0.0) + float(row["qty"]) * n
     return out
 
 
@@ -211,6 +273,256 @@ def expand_recipe_demand(
     return out
 
 
+def _floors_in_batches(m: Manifest) -> bool:
+    """Does this recipe get rounded up to whole batches?
+
+    Only when its yield is a real measure — volume or weight. Those are the
+    things a kitchen mixes in batches and cannot make a third of: brines, rubs,
+    sauces, flours. Over-making one is cheap, because it gets used in standard
+    service whether the event needed it all or not.
+
+    A yield in `ea`, `case`, `portion`, `pan` or `hotel pan` is a count, not a
+    batch. Flooring one orders a 60-piece batch of mac balls to serve 20, or a
+    full case of churros for four portions — an over-order nothing absorbs.
+    Those pass through at the honest linear figure.
+
+    Deliberately reuses this module's own dimension tables rather than
+    scripts/lib/units.py: bom_expand imports nothing, and that is worth keeping.
+    """
+    yu = _u(m.yield_unit)
+    return yu in _VOLUME_TO_QT or yu in _WEIGHT_TO_LB
+
+
+def _round_up_batches(batches: float, granularity: float) -> float:
+    """Round a batch count UP to `granularity`, never below one step — unless
+    nothing is demanded at all, which stays zero.
+
+    A kitchen makes batches, not fractions. Ordering uses granularity 1.0
+    (whole batches); prep uses 0.5, because a half batch is makeable and a
+    quarter is not. Rounding is always up: 0.78 of a batch rounded down to
+    0.5 would make less than the event eats.
+    """
+    if granularity <= 0:
+        msg = f"granularity must be positive, got {granularity!r}"
+        raise ValueError(msg)
+    # Nothing demanded is nothing made. The floor below exists to turn a
+    # FRACTION of a batch into a whole one, because you cannot make a quarter
+    # batch; applied to zero it invents food the event never eats. A per_count
+    # of 0 in beo_recipe_map means "on the menu, consumes none of this recipe",
+    # and that has to stay zero all the way down the sub-recipe walk rather
+    # than becoming a full batch — and a full batch of every sub under it.
+    #
+    # A trace is NOT zero: 0.01 qt still buys the whole batch below.
+    if batches <= 0:
+        return 0.0
+    # Epsilon so an exact batch count is not pushed to the next step by
+    # float error — 12.0/12.0 must stay one batch, not become two.
+    steps = math.ceil(batches / granularity - 1e-9)
+    return max(1, steps) * granularity
+
+
+def _settle_order_batches(
+    manifest: dict[str, Manifest],
+    demands: Iterable[tuple[str, float, str]],
+    granularity: float = 1.0,
+    warnings: list[str] | None = None,
+) -> dict[str, float]:
+    """Settle every reachable recipe node to a whole (or half) batch COUNT.
+
+    Returns {slug: batches}. This is the one kernel behind both floored
+    channels — `expand_recipe_orders` (recipe-node quantities, for the prep
+    board) and `aggregate_order_demand` (leaf-ingredient quantities, for the
+    order guide). They read the same primitive rather than one dividing the
+    other's answer back out, so a BEO's two tabs cannot disagree about how many
+    batches a recipe is.
+
+    Nodes settle in dependency order, parents before children, so a sub-recipe
+    shared by two parents is summed BEFORE it is rounded. Rounding each branch
+    separately would order two batches of lariat rub for a Nashville slider —
+    one for the hot rub, one for the oil — where a single batch covers both.
+
+    See docs/superpowers/specs/2026-07-28-beo-batch-ordering-design.md.
+    """
+    # Pass 1 — discover the reachable graph and its edges, reusing the
+    # existing walker's error semantics for unknown slugs, cycles and unit
+    # mismatches.
+    edges: dict[str, list[tuple[str, float]]] = {}
+    seeds: dict[str, float] = {}
+    for slug, qty, unit in demands:
+        _discover_order_graph(
+            manifest,
+            slug,
+            float(qty),
+            unit,
+            edges,
+            seeds,
+            visited=[],
+            warnings=warnings,
+        )
+
+    # Pass 2 — settle in dependency order (Kahn), rounding each node's TOTAL.
+    #
+    # `edges` holds only the nodes discovery actually mapped. A sub-recipe that
+    # bailed out (cycle, non-positive yield) had its EDGE recorded by the parent
+    # before the recursion returned, so it can be an edge target with no edge
+    # list of its own. Enqueuing one used to divide by its zero yield or raise
+    # KeyError on `edges[node]` — taking down an entire event where the linear
+    # walk merely warned. `child not in edges` is that node; skip it.
+    indegree: dict[str, int] = {n: 0 for n in edges}
+    for node in edges:
+        for child, _ in edges[node]:
+            if child not in edges:
+                continue
+            indegree[child] += 1
+    pending: dict[str, float] = dict(seeds)
+    ready = [n for n in edges if indegree.get(n, 0) == 0]
+    batches: dict[str, float] = {}
+
+    while ready:
+        node = ready.pop()
+        m = manifest[node]
+        raw = pending.get(node, 0.0) / m.yield_qty
+        n = _round_up_batches(raw, granularity) if _floors_in_batches(m) else raw
+        batches[node] = n
+        for child, per_batch in edges[node]:
+            pending[child] = pending.get(child, 0.0) + per_batch * n
+            if child not in edges:
+                continue
+            indegree[child] -= 1
+            if indegree[child] == 0:
+                ready.append(child)
+
+    # A node left with indegree > 0 sits inside a cycle: Kahn never reaches it,
+    # so it silently vanishes from the prep board and the order guide. Discovery
+    # already warned about the cycle itself, but not that these recipes went
+    # missing because of it — and a prep sheet that is quietly short is worse
+    # than one that says why.
+    for node in sorted(set(edges) - set(batches)):
+        msg = (
+            f"recipe {node!r} could not be settled to a batch count (sub-recipe "
+            f"cycle); it is omitted from the order guide and the prep board"
+        )
+        if warnings is None:
+            raise RecipeCycleError(msg)
+        warnings.append(msg)
+    return batches
+
+
+def expand_recipe_orders(
+    manifest: dict[str, Manifest],
+    demands: Iterable[tuple[str, float, str]],
+    granularity: float = 1.0,
+    warnings: list[str] | None = None,
+) -> dict[tuple[str, str], float]:
+    """Recipe-node quantities rounded up to whole batches at every level.
+
+    Same shape as `expand_recipe_demand` — {(slug, yield_unit): qty} — but
+    every node is a whole number of batches (or halves at granularity 0.5),
+    and a sub-recipe's demand derives from its parent's ROUNDED figure. A
+    sub-recipe is a batch too; you cannot make a third of one.
+
+    Consumption is deliberately not available here: it answers a different
+    question and stays linear in `expand_recipe_demand`.
+
+    The settle itself lives in `_settle_order_batches`; this multiplies its
+    batch counts back into yield units.
+    """
+    batches = _settle_order_batches(manifest, demands, granularity, warnings)
+    return {
+        (slug, manifest[slug].yield_unit): n * manifest[slug].yield_qty
+        for slug, n in batches.items()
+    }
+
+
+def _discover_order_graph(
+    manifest: dict[str, Manifest],
+    slug: str,
+    qty: float,
+    unit: str,
+    edges: dict[str, list[tuple[str, float]]],
+    seeds: dict[str, float],
+    visited: list[str],
+    warnings: list[str] | None = None,
+) -> None:
+    """Collect nodes and per-batch sub-recipe coefficients for the order walk."""
+    if slug not in manifest:
+        msg = f"recipe {slug!r} is not in the manifest"
+        if warnings is None:
+            raise UnknownRecipeError(msg)
+        warnings.append(msg)
+        return
+    if slug in visited:
+        path = visited[visited.index(slug) :] + [slug]
+        msg = f"sub-recipe cycle: {' -> '.join(path)}"
+        if warnings is None:
+            raise RecipeCycleError(msg)
+        warnings.append(msg)
+        return
+    m = manifest[slug]
+    if unit != m.yield_unit:
+        converted = convert_qty(qty, unit, m.yield_unit)
+        if converted is None:
+            msg = (
+                f"recipe {slug!r} yields in {m.yield_unit!r} but demand asked for "
+                f"{qty!r} {unit!r}"
+            )
+            if warnings is None:
+                raise UnitMismatchError(msg)
+            warnings.append(msg)
+            return
+        qty = converted
+    if m.yield_qty <= 0:
+        msg = f"recipe {slug!r} has non-positive yield_qty {m.yield_qty}; cannot scale"
+        if warnings is None:
+            raise ValueError(msg)
+        warnings.append(msg)
+        return
+
+    seeds[slug] = seeds.get(slug, 0.0) + qty
+    if slug in edges:
+        return  # already mapped; seeds still accumulate
+    edges[slug] = []
+
+    for row in m.bom:
+        row_qty = float(row["qty"])
+        row_unit = row["unit"]
+
+        sub_slug = _row_sub_slug(manifest, m, row)
+        if sub_slug is None:
+            continue
+        if sub_slug not in manifest:
+            msg = f"recipe {slug!r} pins sub-recipe {sub_slug!r} which is not in the manifest"
+            if warnings is None:
+                raise UnknownRecipeError(msg)
+            warnings.append(msg)
+            continue
+
+        sub_m = manifest[sub_slug]
+        # Coefficient is per ONE batch of the parent, so the settle pass can
+        # multiply it by whatever the parent rounds to.
+        per_batch = row_qty
+        if row_unit != sub_m.yield_unit:
+            converted = _reconcile_sub_unit_qty(sub_m, per_batch, row_unit)
+            if converted is None:
+                msg = _sub_unit_mismatch_msg(slug, sub_slug, sub_m, row_unit)
+                if warnings is None:
+                    raise UnitMismatchError(msg)
+                warnings.append(msg)
+                continue
+            per_batch = converted
+        edges[slug].append((sub_slug, per_batch))
+        _discover_order_graph(
+            manifest,
+            sub_slug,
+            0.0,
+            sub_m.yield_unit,
+            edges,
+            seeds,
+            visited + [slug],
+            warnings=warnings,
+        )
+
+
 def _accumulate_recipe_demand(
     manifest: dict[str, Manifest],
     slug: str,
@@ -227,7 +539,7 @@ def _accumulate_recipe_demand(
         warnings.append(msg)
         return
     if slug in visited:
-        path = visited[visited.index(slug):] + [slug]
+        path = visited[visited.index(slug) :] + [slug]
         msg = f"sub-recipe cycle: {' -> '.join(path)}"
         if warnings is None:
             raise RecipeCycleError(msg)
@@ -259,15 +571,10 @@ def _accumulate_recipe_demand(
     scale = qty / m.yield_qty
 
     for row in m.bom:
-        ingredient = row["ingredient"]
         row_qty = float(row["qty"])
         row_unit = row["unit"]
 
-        sub_slug = row.get("sub_slug")
-        if sub_slug is None and (
-            row.get("is_sub_recipe") or _could_be_sub(m, ingredient, manifest)
-        ):
-            sub_slug = _resolve_sub_slug(manifest, m, ingredient)
+        sub_slug = _row_sub_slug(manifest, m, row)
 
         if sub_slug is not None and sub_slug not in manifest:
             msg = f"recipe {slug!r} pins sub-recipe {sub_slug!r} which is not in the manifest"
@@ -316,7 +623,7 @@ def _expand_into(
         warnings.append(msg)
         return
     if slug in visited:
-        path = visited[visited.index(slug):] + [slug]
+        path = visited[visited.index(slug) :] + [slug]
         msg = f"sub-recipe cycle: {' -> '.join(path)}"
         if warnings is None:
             raise RecipeCycleError(msg)
@@ -349,11 +656,7 @@ def _expand_into(
         row_qty = float(row["qty"])
         row_unit = row["unit"]
 
-        sub_slug = row.get("sub_slug")
-        if sub_slug is None and (
-            row.get("is_sub_recipe") or _could_be_sub(m, ingredient, manifest)
-        ):
-            sub_slug = _resolve_sub_slug(manifest, m, ingredient)
+        sub_slug = _row_sub_slug(manifest, m, row)
 
         if sub_slug is not None and sub_slug not in manifest:
             msg = f"recipe {slug!r} pins sub-recipe {sub_slug!r} which is not in the manifest"
@@ -391,6 +694,34 @@ def _expand_into(
 # ---------------------------------------------------------------------------
 # Sub-recipe name resolution
 # ---------------------------------------------------------------------------
+
+
+def _row_sub_slug(
+    manifest: dict[str, Manifest],
+    parent: Manifest,
+    row: dict,
+) -> str | None:
+    """The sub-recipe slug a BOM row resolves to, or None for a leaf row.
+
+    THE single predicate for "is this BOM row a sub-recipe?". Every walker must
+    ask the same question: the order guide scales a recipe's own leaf rows while
+    the prep board settles its sub-recipes as separate nodes, so if the two
+    disagree about which rows are leaves, an ingredient is either ordered twice
+    or dropped from the guide entirely.
+
+    Returns the pinned `sub_slug` when the CSV carries one, else resolves by
+    name when the row is flagged `(sub-recipe)` or its tokens obviously match
+    one of the parent's declared subs.
+
+    The returned slug is NOT guaranteed to be in `manifest` — callers keep their
+    own unknown-slug handling, which differs by walker (fail loud vs warn).
+    """
+    sub_slug = row.get("sub_slug")
+    if sub_slug is None and (
+        row.get("is_sub_recipe") or _could_be_sub(parent, row["ingredient"], manifest)
+    ):
+        sub_slug = _resolve_sub_slug(manifest, parent, row["ingredient"])
+    return sub_slug
 
 
 def _tokens(s: str) -> set[str]:
@@ -606,7 +937,9 @@ def find_manifest_warnings(manifest: dict[str, Manifest]) -> list[dict]:
             pin = row.get("sub_slug")
             if pin:
                 referenced.add(pin)
-            elif row.get("is_sub_recipe") or _could_be_sub(m, row["ingredient"], manifest):
+            elif row.get("is_sub_recipe") or _could_be_sub(
+                m, row["ingredient"], manifest
+            ):
                 resolved = _resolve_sub_slug(manifest, m, row["ingredient"])
                 if resolved:
                     referenced.add(resolved)
