@@ -44,7 +44,7 @@ struct BeoPrepTaskListView: View {
             }
             .buttonStyle(.plain)
             .disabled(vm.isSaving)
-            .accessibilityLabel(task.done ? "Mark done" : "Mark not done")
+            .accessibilityLabel(task.done ? "Mark not done" : "Mark done")
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(task.task)
