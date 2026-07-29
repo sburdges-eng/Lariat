@@ -199,3 +199,23 @@ tarragon,1.0,,seed,treated as dried for default yield; no trim
 nutmeg,1.0,,seed,ground spice; no trim
 red chili flakes,1.0,,seed,dried / no trim
 furikake seasoning,1.0,,seed,dry seasoning blend; no trim
+assorted cheeses vendor whole buy,1.0,,seed,board component bought ready — no trim (operator-confirmed 2026-07-29)
+assorted cured meats vendor whole buy,1.0,,seed,board component bought ready — no trim (operator-confirmed 2026-07-29)
+bao buns sysco,1.0,,seed,bought ready to serve — no trim (operator-confirmed 2026-07-29)
+crab cakes frozen vendor whole buy,1.0,,seed,bought ready to cook — no trim (operator-confirmed 2026-07-29)
+hardboiled eggs sysco,1.0,,seed,bought peeled and cooked — no trim (operator-confirmed 2026-07-29)
+pudding vanilla base shamrock sysco,1.0,,seed,bought ready to use — no trim (operator-confirmed 2026-07-29)
+roasted root veg sysco,1.0,,seed,bought roasted — no trim (operator-confirmed 2026-07-29)
+tex mex egg rolls vendor whole buy,1.0,,seed,bought ready to cook — no trim (operator-confirmed 2026-07-29)
+chopped garlic,1.0,,seed,"purchased peeled and chopped; no further trim (operator-confirmed 2026-07-29) — NOT garlic 0.87, which is the peel yield off a whole head"
+fresh thyme,1.0,,seed,same buy as thyme; no trim (operator-confirmed 2026-07-29)
+thyme fresh,1.0,,seed,same buy as thyme; no trim (operator-confirmed 2026-07-29)
+picked thyme,1.0,,seed,same buy as thyme; no trim (operator-confirmed 2026-07-29)
+ground cinnamon,1.0,,seed,ground spice; no trim in any purchase form (operator-confirmed 2026-07-29)
+ground nutmeg,1.0,,seed,ground spice; no trim in any purchase form (operator-confirmed 2026-07-29)
+butter melted,1.0,,seed,butter takes no trim in any form; matches melted butter (operator-confirmed 2026-07-29)
+butter diced or melted,1.0,,seed,butter takes no trim in any form; matches melted butter (operator-confirmed 2026-07-29)
+fresh cilantro,1.0,,seed,"arrives picked, not in bunches; no further trim (operator-confirmed 2026-07-29) — same buy as chopped cilantro"
+picked rosemary,1.0,,seed,"arrives picked, not in bunches; no further trim (operator-confirmed 2026-07-29) — same buy as rosemary"
+picked tarragon,1.0,,seed,"arrives picked, not in bunches; no further trim (operator-confirmed 2026-07-29) — same buy as tarragon"
+white onion,1.0,,seed,"not bought whole; arrives prepped, no peel or trim (operator-confirmed 2026-07-29) — same buy as diced white onions"

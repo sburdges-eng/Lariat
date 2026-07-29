@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import csv
 import os
+import re
 import sqlite3
 import sys
 import unittest
@@ -40,6 +41,24 @@ from scripts.lib.ingredient_key import normalize_one  # noqa: E402
 # the main production checkout.
 LIVE_DB = Path(os.environ.get("LARIAT_LIVE_DB", str(ROOT / "data" / "lariat.db")))
 YIELDS_CSV = ROOT / "data" / "seeds" / "ingredient_yields.csv"
+# Worklist for the ingredients this check reports as uncovered. Deliberately
+# not a .csv: no seeder would read it (each names its file exactly), and a
+# half-filled row in data/seeds/ should not be able to look like data.
+TODO_MD = ROOT / "data" / "seeds" / "ingredient_yields.TODO.md"
+
+# Non-food supplies that appear in bom_lines. A yield is the usable fraction of
+# a raw item after trim, peel or cook loss; a skewer has no such fraction, so
+# giving it 1.0 would record a measurement that was never taken and imply the
+# question had been asked and answered. Excluded by category instead — operator
+# decision, 2026-07-29.
+#
+# Deliberately an explicit list rather than a guessed classifier: there is no
+# category column on bom_lines, and inferring "not food" from a name is exactly
+# the kind of derivation that has produced wrong costing reports here before.
+# Adding to it should take a moment's thought, which is the point.
+NON_FOOD_KEYS: frozenset[str] = frozenset({
+    "bamboo skewers 6in",
+})
 
 
 class SeedCoverageReporter(unittest.TestCase):
@@ -68,14 +87,31 @@ class SeedCoverageReporter(unittest.TestCase):
             if "bom_lines" not in tables:
                 self.skipTest("bom_lines table not present in live DB")
 
+            # Sub-recipe lines are excluded. `ingredient_yields` answers "how
+            # much usable product comes out of this raw item after trim, peel
+            # or cook loss" — a question that does not apply to a sub-recipe,
+            # whose yield is its batch output in `recipe_costs`. Asking an
+            # ingredient seed to cover them counted 18 keys as missing that
+            # were never in scope, and no correct seed could ever close them.
             raw_bom = conn.execute(
-                "SELECT DISTINCT ingredient FROM bom_lines WHERE ingredient IS NOT NULL"
+                """SELECT DISTINCT ingredient
+                     FROM bom_lines
+                    WHERE ingredient IS NOT NULL
+                      AND COALESCE(sub_recipe, '') = ''"""
             ).fetchall()
         finally:
             conn.close()
 
         bom_keys = {normalize_one(row[0]) for row in raw_bom}
         bom_keys.discard("")
+        # Non-food supplies are not a yield question at all — see NON_FOOD_KEYS.
+        self.assertTrue(
+            NON_FOOD_KEYS <= bom_keys,
+            f"NON_FOOD_KEYS has stale entr(ies) no longer in the live BOM: "
+            f"{sorted(NON_FOOD_KEYS - bom_keys)} — drop them rather than "
+            f"carrying an exclusion that protects nothing.",
+        )
+        bom_keys -= NON_FOOD_KEYS
 
         if not YIELDS_CSV.is_file():
             self.skipTest(f"Yields CSV not present: {YIELDS_CSV}")
@@ -121,7 +157,48 @@ class SeedCoverageReporter(unittest.TestCase):
         self.assertEqual(
             n_covered, n_bom,
             msg=f"{n_bom - n_covered} uncovered BOM key(s); first missing: "
-                f"{missing_preview}",
+                f"{missing_preview}\n\n"
+                f"The open ones are listed in {TODO_MD.name} beside this seed, "
+                f"split into the ones needing a measurement and the ones that "
+                f"may already be covered under another name. Do not guess a "
+                f"value to clear this — yield_pct feeds order quantities.",
+        )
+
+    def test_todo_and_seed_do_not_both_claim_an_ingredient(self) -> None:
+        """The TODO empties as the seed fills.
+
+        A worklist that keeps a name after the value lands is worse than no
+        worklist: it reads as outstanding work forever, and the next person
+        measures something already measured. This is the mechanism that makes
+        deleting the row a required step rather than an act of tidiness.
+
+        Skips when the TODO is gone, which is what "finished" looks like.
+        """
+        if not TODO_MD.is_file():
+            self.skipTest(f"no worklist to check: {TODO_MD.name} (all rows closed)")
+        if not YIELDS_CSV.is_file():
+            self.skipTest(f"Yields CSV not present: {YIELDS_CSV}")
+
+        # Ingredient names are the backticked first cell of each table row.
+        todo_keys = {
+            normalize_one(m)
+            for m in re.findall(r"^\|\s*`([^`]+)`", TODO_MD.read_text(), re.MULTILINE)
+        }
+        todo_keys.discard("")
+
+        with YIELDS_CSV.open("r", encoding="utf-8", newline="") as fh:
+            seed_keys = {
+                normalize_one(row.get("ingredient_name", ""))
+                for row in csv.DictReader(fh)
+            }
+        seed_keys.discard("")
+
+        both = sorted(todo_keys & seed_keys)
+        self.assertEqual(
+            both, [],
+            msg=f"{len(both)} ingredient(s) are in BOTH the seed and the "
+                f"worklist: {both}. Landing a yield means deleting its row "
+                f"from {TODO_MD.name}.",
         )
 
 
