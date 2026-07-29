@@ -40,6 +40,18 @@ const SENSITIVE_PREFIXES = [
   '/api/specials/saved',
   '/api/host',
   '/api/purchasing',
+  // PHI, pay data and staff records. These reach pinRequiredForPic() at the
+  // route layer but sat outside this list, so on an install with no PIN
+  // configured they were served with no credential at all. Manager-domain
+  // for every method — none is a cook-facing read.
+  //
+  // /api/recipes is deliberately NOT here: a prefix gates GET too, and cooks
+  // read recipes without a credential by design. Its PUT is gated in-route.
+  '/api/sick-leave',
+  '/api/sick-worker',
+  '/api/tip-pool',
+  '/api/wage-notices',
+  '/api/certifications',
 ];
 
 /** Public carve-outs inside otherwise-PIN-gated prefixes. Order matters:
