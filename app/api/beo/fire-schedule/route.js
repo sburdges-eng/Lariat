@@ -1,9 +1,22 @@
 // GET /api/beo/fire-schedule?date=YYYY-MM-DD&location=<slug>
 //
-// Per spec §B (T7). PUBLIC endpoint — line cooks read this on a wall
-// iPad without entering a PIN. No PII is in the response (event titles
-// are operator-set; if those leak guest names, the operator chooses
-// the title).
+// PUBLIC endpoint, per spec §B (T7) and now in fact — line cooks read this on
+// a wall iPad without entering a PIN. No PII is in the response: event titles
+// are operator-set, and if those carry guest names the operator chose to put
+// them there.
+//
+// It spent a long time not working that way. The /api/beo matcher prefix in
+// middleware.js put a master-PIN gate in front of it, so the wall iPad needed
+// a manager to walk over, which is the opposite of what a fire schedule is
+// for. Dropping that prefix (to free six dead temp-PIN scopes) left the route
+// stating its own gate; the operator has since confirmed the wall iPad should
+// work unaided, so the gate is gone and the designed behaviour is the real
+// behaviour.
+//
+// The trade is deliberate and worth restating: anything on the venue wifi can
+// read tonight's fire times. That is accepted because the alternative is a
+// cook standing at a locked screen mid-service, and because the payload is
+// station names and times, not guest data.
 //
 // Returns the per-station rollup for "tonight" (events whose
 // event_date matches the query). Joins beo_courses → beo_line_items

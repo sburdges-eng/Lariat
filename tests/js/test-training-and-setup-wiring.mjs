@@ -1,12 +1,24 @@
-import { describe, it } from 'node:test';
+import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import os from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..', '..');
+
+// training/lariat-qa.jsonl is tracked in git. Regenerating it in place on
+// every run left the working tree dirty with content unrelated to whatever
+// was being worked on, so this suite generates into a temp file instead and
+// asserts against that. See LARIAT_QA_OUT in training/generate-qa.mjs.
+const TMP_DIR = mkdtempSync(join(os.tmpdir(), 'lariat-qa-'));
+const QA_OUT = join(TMP_DIR, 'lariat-qa.jsonl');
+
+after(() => {
+  try { rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
+});
 
 describe('stations.json setup_key field', () => {
   const stations = JSON.parse(readFileSync(join(ROOT, 'data/cache/stations.json'), 'utf-8'));
@@ -47,9 +59,10 @@ describe('training QA generator', () => {
     const result = spawnSync('node', ['training/generate-qa.mjs'], {
       cwd: ROOT,
       encoding: 'utf-8',
+      env: { ...process.env, LARIAT_QA_OUT: QA_OUT },
     });
     assert.equal(result.status, 0, `generate-qa failed:\n${result.stderr}`);
-    const jsonl = readFileSync(join(ROOT, 'training/lariat-qa.jsonl'), 'utf-8').trim();
+    const jsonl = readFileSync(QA_OUT, 'utf-8').trim();
     const lines = jsonl.split('\n');
     assert.ok(lines.length > 100, `expected > 100 training pairs, got ${lines.length}`);
     for (const [i, line] of lines.entries()) {
@@ -67,7 +80,9 @@ describe('training QA generator', () => {
   });
 
   it('covers Station Setup questions — proof the setups surface is in training', () => {
-    const jsonl = readFileSync(join(ROOT, 'training/lariat-qa.jsonl'), 'utf-8');
+    // Reads the freshly generated file from the case above, so this asserts
+    // what the generator produces now rather than what was last committed.
+    const jsonl = readFileSync(QA_OUT, 'utf-8');
     // Opening-steps questions follow the "opening steps" / "setup" phrasing in generate-qa.mjs
     const setupQuestions = jsonl.split('\n').filter((l) => {
       if (!l.trim()) return false;

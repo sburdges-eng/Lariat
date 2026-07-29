@@ -167,12 +167,29 @@ export function pinConfigured(): boolean {
 }
 
 /**
- * Default gate for PIC-authority actions: if the PIN is configured,
- * require the cookie. If no PIN configured (LAN-trust single-site
- * deployment), allow through. Matches temp-log back-date logic.
+ * Default gate for PIC-authority actions. Always requires a credential.
+ *
+ * This returned `pinConfigured()` until 2026-07-28, so an install with
+ * nothing configured answered `false` and every gate built on it opened.
+ * The name for that was "LAN-trust single-site deployment" — a defensible
+ * trade for one restaurant on a known network, and the wrong one for
+ * software that installs on a stranger's machine. It also failed open in
+ * exactly the state an operator is least protected: before setup is done.
+ *
+ * Six callers were not behind middleware and inherited that opening —
+ * /api/sick-leave and /api/sick-worker (PHI), /api/tip-pool and
+ * /api/wage-notices (pay data), /api/certifications (staff records), and
+ * the /api/recipes/[slug] PUT. See
+ * tests/js/test-unconfigured-install-fails-closed.mjs.
+ *
+ * Deliberately NOT merged with pinConfigured(): the two answer different
+ * questions and the setup flow (lib/setupStatus.ts) needs to report a PIN
+ * as missing at the same moment this gate is refusing traffic. Callers
+ * asking "should I demand a credential" want this one; callers asking
+ * "has the operator finished setup" want pinConfigured().
  */
 export function pinRequiredForPic(): boolean {
-  return pinConfigured();
+  return true;
 }
 
 /**

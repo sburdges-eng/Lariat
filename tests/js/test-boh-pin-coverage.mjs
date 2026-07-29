@@ -39,6 +39,7 @@ const middlewareSrc = stripComments(
 const navSrc = stripComments(
   fs.readFileSync(path.join(REPO_ROOT, 'app/_components/navRegistry.js'), 'utf8'),
 );
+const swSrc = stripComments(fs.readFileSync(path.join(REPO_ROOT, 'public/sw.js'), 'utf8'));
 
 /**
  * Pull the quoted strings out of a named array literal, whether it is
@@ -120,5 +121,40 @@ describe('boh pin coverage', () => {
     const known = new Set(MANAGER_SHEET_PATHS);
     const stale = sensitive.filter((p) => p.startsWith(`${BOH_BASE}/`) && !known.has(p));
     assert.deepEqual(stale, [], `middleware gates unknown line-book path(s): ${stale.join(', ')}`);
+  });
+});
+
+describe('boh offline cache tier', () => {
+  // public/sw.js keeps the cook sheets on the device so the line book
+  // opens with the wifi down. It is the fourth place the tier split is
+  // written down, and the most dangerous one to get wrong: a cached
+  // manager sheet is vendor pricing readable by anyone holding the
+  // phone, with no PIN in the way and no server round-trip to stop it.
+  const offline = arrayLiteral(swSrc, 'OFFLINE_PAGES');
+
+  it('caches every cook sheet for offline use', () => {
+    const missing = COOK_SHEET_PATHS.filter((p) => !offline.includes(p));
+    assert.deepEqual(missing, [], `cook sheet(s) absent from OFFLINE_PAGES:\n${missing.join('\n')}`);
+  });
+
+  it('caches the book index so a cook can still navigate', () => {
+    assert.ok(offline.includes(BOH_BASE), '/boh itself must be cached');
+  });
+
+  it('never caches a manager sheet', () => {
+    const leaked = MANAGER_SHEET_PATHS.filter((p) => offline.includes(p));
+    assert.deepEqual(
+      leaked,
+      [],
+      `manager sheet(s) would be served offline with no PIN:\n${leaked.join('\n')}`,
+    );
+  });
+
+  it('caches nothing outside the line book', () => {
+    // Live-ops surfaces must not be here either: a stale 86 board read
+    // off a cache is worse than no 86 board.
+    const known = new Set([BOH_BASE, ...COOK_SHEET_PATHS]);
+    const extra = offline.filter((p) => !known.has(p));
+    assert.deepEqual(extra, [], `OFFLINE_PAGES caches unexpected path(s): ${extra.join(', ')}`);
   });
 });

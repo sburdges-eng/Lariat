@@ -38,7 +38,7 @@ after(() => {
 });
 
 function getReq() {
-  return new Request('http://localhost/api/beo');
+  return new Request('http://localhost/api/beo', { headers: { cookie: 'lariat_pin_ok=1' } });
 }
 
 // SQL fragments that uniquely identify each of the three GET SELECTs.

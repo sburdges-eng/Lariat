@@ -188,6 +188,126 @@ describe('SheetBoard — copy for the handoff board', () => {
   });
 });
 
+describe('SheetBoard — blocks update independently', () => {
+  // Blocks only re-render when one of their own controls changes, so the
+  // 276-control count sheet does not redraw on every keystroke. The risk is
+  // a block that stops updating at all.
+  const syscoCount = getSheet('sysco-count');
+
+  test('typing in one row does not disturb another', () => {
+    render(<SheetBoard sheet={syscoCount} serviceDate={SERVICE_DATE} />);
+
+    const haves = screen.getAllByLabelText('Have');
+    fireEvent.change(haves[0], { target: { value: '4' } });
+    fireEvent.change(haves[5], { target: { value: '9' } });
+
+    expect(haves[0]).toHaveValue('4');
+    expect(haves[5]).toHaveValue('9');
+    expect(haves[1]).toHaveValue('');
+  });
+
+  test('every block still repaints when its own control changes', () => {
+    render(<SheetBoard sheet={syscoCount} serviceDate={SERVICE_DATE} />);
+
+    // One control from each interactive block on the sheet.
+    for (const box of screen.getAllByRole('checkbox')) {
+      fireEvent.click(box);
+      expect(box).toBeChecked();
+    }
+  });
+
+  test('ticking in a late block does not clear an early one', () => {
+    render(<SheetBoard sheet={syscoCount} serviceDate={SERVICE_DATE} />);
+
+    fireEvent.change(screen.getAllByLabelText('Have')[0], { target: { value: '7' } });
+    const boxes = screen.getAllByRole('checkbox');
+    fireEvent.click(boxes[boxes.length - 1]);
+
+    expect(screen.getAllByLabelText('Have')[0]).toHaveValue('7');
+    expect(boxes[boxes.length - 1]).toBeChecked();
+  });
+});
+
+describe('SheetBoard — copying with no clipboard', () => {
+  // The venue serves this over plain http on the kitchen wifi, so
+  // navigator.clipboard is undefined on every phone that opens it — a
+  // clipboard is only handed out in a secure context. Copy sheet is the
+  // whole point of the handoff flow, so it has to work anyway.
+  const noClipboard = () => {
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+  };
+
+  test('puts the sheet on screen to copy by hand instead of failing', async () => {
+    noClipboard();
+    render(<SheetBoard sheet={grille} serviceDate={SERVICE_DATE} />);
+    fireEvent.click(screen.getAllByRole('checkbox')[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy sheet' }));
+
+    const box = await screen.findByLabelText('Copy sheet');
+    expect(box).toBeInTheDocument();
+    expect(box.value).toContain(grille.title);
+    expect(box.value).toMatch(/\[x\] Ovens, grill, salamander ON/);
+  });
+
+  test('the fallback text can be dismissed', async () => {
+    noClipboard();
+    render(<SheetBoard sheet={grille} serviceDate={SERVICE_DATE} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy sheet' }));
+
+    await screen.findByLabelText('Copy sheet');
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.queryByLabelText('Copy sheet')).not.toBeInTheDocument();
+  });
+
+  test('a clipboard that rejects also falls back rather than losing the sheet', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: jest.fn().mockRejectedValue(new Error('denied')) },
+      configurable: true,
+    });
+    render(<SheetBoard sheet={grille} serviceDate={SERVICE_DATE} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy sheet' }));
+
+    expect(await screen.findByLabelText('Copy sheet')).toBeInTheDocument();
+  });
+});
+
+describe('SheetBoard — when the phone will not save', () => {
+  test('says so out loud instead of losing the sheet quietly', () => {
+    // Safari private mode and a full phone both throw here. Silently
+    // swallowing it means a cook counts the walk-in twice.
+    const setItem = jest
+      .spyOn(Storage.prototype, 'setItem')
+      .mockImplementation(() => {
+        throw new Error('QuotaExceededError');
+      });
+
+    render(<SheetBoard sheet={grille} serviceDate={SERVICE_DATE} />);
+    fireEvent.click(screen.getAllByRole('checkbox')[0]);
+
+    expect(screen.getByText(/Not saving on this phone/i)).toBeInTheDocument();
+    setItem.mockRestore();
+  });
+
+  test('stays quiet when saving works', () => {
+    render(<SheetBoard sheet={grille} serviceDate={SERVICE_DATE} />);
+    fireEvent.click(screen.getAllByRole('checkbox')[0]);
+
+    expect(screen.queryByText(/Not saving on this phone/i)).not.toBeInTheDocument();
+  });
+
+  test('a sheet that will not save still ticks and copies', () => {
+    const setItem = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError');
+    });
+
+    render(<SheetBoard sheet={grille} serviceDate={SERVICE_DATE} />);
+    const box = screen.getAllByRole('checkbox')[0];
+    fireEvent.click(box);
+    expect(box).toBeChecked();
+    setItem.mockRestore();
+  });
+});
+
 describe('SheetBoard — Spanish chrome', () => {
   test('renders the buttons and warning in Spanish, sheet content verbatim', () => {
     render(

@@ -53,13 +53,13 @@ function seedChange({ id = null, vendor = 'sysco', sku, acknowledged = 0 } = {})
 }
 
 function getReq(qs = '') {
-  return new Request(`http://localhost/api/costing/pack-changes${qs}`);
+  return new Request(`http://localhost/api/costing/pack-changes${qs}`, { headers: { cookie: 'lariat_pin_ok=1' } });
 }
 
 function postReq(body) {
   return new Request('http://localhost/api/costing/pack-changes', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
@@ -117,7 +117,7 @@ describe('POST /api/costing/pack-changes (acknowledge)', () => {
     const req = new Request('http://localhost/api/costing/pack-changes', {
       method: 'POST',
       body: 'not-json',
-      headers: { 'content-type': 'application/json' },
+      headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
     });
     const res = await POST(req);
     assert.equal(res.status, 400);

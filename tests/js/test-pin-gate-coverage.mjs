@@ -166,6 +166,19 @@ const ALLOWLIST = new Set([
 
   // ── Cloud-bridge status (diagnostic, pre-auth so the splash works) ─
   'cloud-bridge/status',
+
+  // ── Client BEO signing (guest-facing, secured by the share token) ──
+  // The client opens /beo/share/<token> from a link and signs off on their
+  // own event. There is no PIN on that side of the door by design, which is
+  // why middleware.js carries a matching PUBLIC_CARVEOUTS entry.
+  //
+  // It is listed here only as of 2026-07-29. Before that this scanner
+  // believed it was gated: the route sat under the /api/beo matcher prefix,
+  // and isGatedByMiddleware() reads the matcher without reading
+  // PUBLIC_CARVEOUTS, so a route middleware deliberately EXEMPTS still
+  // counted as covered. Dropping that prefix removed the disguise rather
+  // than the protection — the endpoint is exactly as public as it was.
+  'beo/share/[token]/sign',
 ]);
 
 // ------- middleware-matcher parsing -------
@@ -197,6 +210,32 @@ function parseMiddlewareMatcherPrefixes(src) {
     }
   }
   return apiPrefixes;
+}
+
+/**
+ * Paths middleware deliberately EXEMPTS from the PIN redirect, even though a
+ * matcher prefix covers them — the guest-facing BEO share link and its sign
+ * endpoint, reached with an unguessable token instead of a credential.
+ *
+ * Parsed because ignoring it made this scanner lie in the unsafe direction:
+ * isGatedByMiddleware() read the matcher alone, so a route middleware lets
+ * straight through was reported as "covered by middleware" and never had to
+ * justify itself. It went unnoticed until the /api/beo prefix was dropped and
+ * beo/share/[token]/sign suddenly had nothing claiming to gate it — the
+ * protection had never existed, only the appearance of it.
+ */
+function parsePublicCarveouts(src) {
+  const match = src.match(/PUBLIC_CARVEOUTS\s*=\s*\[([\s\S]*?)\]/);
+  if (!match) throw new Error('middleware.js: could not locate PUBLIC_CARVEOUTS array');
+  return [...match[1].matchAll(/['"]([^'"]+)['"]/g)]
+    .map((m) => m[1])
+    .filter((p) => p.startsWith('/api/'))
+    .map((p) => p.slice('/api/'.length));
+}
+
+function isPubliclyCarvedOut(routePath, carveouts) {
+  // routePath is e.g. 'beo/share/[token]/sign'; a carve-out is 'beo/share/'.
+  return carveouts.some((c) => `${routePath}/`.startsWith(c));
 }
 
 function isGatedByMiddleware(routePath, prefixes) {
@@ -254,6 +293,7 @@ function callsPinGateAtRoute(src) {
 describe('pin-gate coverage — every regulated mutation route is gated', () => {
   const middlewareSrc = fs.readFileSync(MIDDLEWARE_PATH, 'utf8');
   const middlewarePrefixes = parseMiddlewareMatcherPrefixes(middlewareSrc);
+  const publicCarveouts = parsePublicCarveouts(middlewareSrc);
   const routes = walkRoutes(API_ROOT);
   const violations = [];
 
@@ -263,7 +303,11 @@ describe('pin-gate coverage — every regulated mutation route is gated', () => 
     const methods = findMutationExports(src);
     if (methods.length === 0) continue;
 
-    const middlewareGated = isGatedByMiddleware(routePath, middlewarePrefixes);
+    // A carve-out beats a matcher prefix: middleware runs and then waves the
+    // request through, so the prefix covering it proves nothing.
+    const middlewareGated =
+      !isPubliclyCarvedOut(routePath, publicCarveouts) &&
+      isGatedByMiddleware(routePath, middlewarePrefixes);
     const routeGated = callsPinGateAtRoute(src);
     if (!middlewareGated && !routeGated) {
       violations.push({ routePath, methods, filePath });
@@ -306,5 +350,32 @@ describe('pin-gate coverage — every regulated mutation route is gated', () => 
         `middleware matcher parser missed expected prefix '${required}' (parsed: ${flat.join(', ')})`,
       );
     }
+  });
+
+  it('parses PUBLIC_CARVEOUTS, and treats a carved-out route as ungated', () => {
+    // The carve-out check has no observable effect today: /api/beo left the
+    // matcher, so no route is currently both matcher-covered AND exempted,
+    // and the scan would look identical with the check removed. It is here
+    // for the next time a prefix goes back in — which is exactly how the bug
+    // arose the first time.
+    //
+    // So pin the two halves directly rather than relying on the sweep: the
+    // parser finds the carve-out, and a route under it is not counted as
+    // gated even when a matcher prefix does cover it. A silently-empty parse
+    // would restore the false negative without failing anything.
+    assert.ok(
+      publicCarveouts.includes('beo/share/'),
+      `PUBLIC_CARVEOUTS parser missed 'beo/share/' (parsed: ${publicCarveouts.join(', ') || 'nothing'})`,
+    );
+    assert.equal(
+      isPubliclyCarvedOut('beo/share/[token]/sign', publicCarveouts),
+      true,
+      'the guest BEO signing route must read as carved out, not as middleware-gated',
+    );
+    assert.equal(
+      isPubliclyCarvedOut('beo/courses', publicCarveouts),
+      false,
+      'a normal BEO route must not be swept up by the share carve-out',
+    );
   });
 });

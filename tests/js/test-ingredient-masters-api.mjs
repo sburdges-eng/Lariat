@@ -52,14 +52,19 @@ function seedMaster(id, canonical, opts = {}) {
   );
 }
 
-function getReq(qs = '') {
-  return new Request(`http://localhost/api/costing/ingredient-masters${qs}`);
+function getReq(qs = '', headers = {}) {
+  // Authorized by default; the gate tests opt out with { cookie: null }.
+  const h = { cookie: 'lariat_pin_ok=1', ...headers };
+  if (h.cookie === null) delete h.cookie;
+  return new Request(`http://localhost/api/costing/ingredient-masters${qs}`, { headers: h });
 }
 
-function patchReq(body) {
+function patchReq(body, headers = {}) {
+  const h = { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json', ...headers };
+  if (h.cookie === null) delete h.cookie;
   return new Request('http://localhost/api/costing/ingredient-masters', {
     method: 'PATCH',
-    headers: { 'content-type': 'application/json' },
+    headers: h,
     body: JSON.stringify(body),
   });
 }
@@ -115,7 +120,7 @@ describe('GET /api/costing/ingredient-masters', () => {
   it('returns 401 when LARIAT_PIN is set and no cookie', async () => {
     process.env.LARIAT_PIN = '1234';
     try {
-      const res = await GET(getReq());
+      const res = await GET(getReq('', { cookie: null }));
       assert.equal(res.status, 401);
     } finally {
       delete process.env.LARIAT_PIN;
@@ -131,7 +136,7 @@ describe('PATCH /api/costing/ingredient-masters — validation', () => {
   it('400 on missing body', async () => {
     const req = new Request('http://localhost/api/costing/ingredient-masters', {
       method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
+      headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
       body: 'not json',
     });
     const res = await PATCH(req);
@@ -226,7 +231,7 @@ describe('PATCH /api/costing/ingredient-masters — happy path', () => {
     process.env.LARIAT_PIN = '1234';
     try {
       seedMaster('a', 'A');
-      const res = await PATCH(patchReq({ master_id: 'a', updates: { category: 'sauce' } }));
+      const res = await PATCH(patchReq({ master_id: 'a', updates: { category: 'sauce' } }, { cookie: null }));
       assert.equal(res.status, 401);
     } finally {
       delete process.env.LARIAT_PIN;

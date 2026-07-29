@@ -19,7 +19,12 @@ import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 
 import { BOH_SHEETS } from '../../lib/boh/sheets.generated.ts';
-import { checkableIds, sheetToText, EMPTY_SHEET_STATE } from '../../lib/boh/serialize.ts';
+import {
+  blockControlIds,
+  checkableIds,
+  sheetToText,
+  EMPTY_SHEET_STATE,
+} from '../../lib/boh/serialize.ts';
 import { serviceDateISO, sheetStorageKey, isTaskMatrix } from '../../lib/boh/index.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -369,6 +374,51 @@ describe('boh sheets — state ids', () => {
       for (const id of checkableIds(sheet)) {
         assert.ok(id.startsWith(`${sheet.slug}.`), `${id} does not belong to ${sheet.slug}`);
       }
+    }
+  });
+});
+
+describe('boh sheets — every control belongs to exactly one block', () => {
+  // The board re-renders a block only when one of the ids blockControlIds()
+  // reports for it changed. An id this misses is a box a cook taps that
+  // does not move, or a number they type that never appears — so it has to
+  // account for every control on every real sheet, not just most.
+  it('accounts for every tickable id on the sheet', () => {
+    for (const sheet of BOH_SHEETS) {
+      const perBlock = sheet.blocks.flatMap((b) => blockControlIds(b).checks).sort();
+      assert.deepEqual(perBlock, [...checkableIds(sheet)].sort(), `${sheet.slug} check ids`);
+    }
+  });
+
+  it('accounts for every writable id on the sheet', () => {
+    for (const sheet of BOH_SHEETS) {
+      // Derived independently of blockControlIds, from the block shapes.
+      const expected = [];
+      for (const block of sheet.blocks) {
+        if (block.kind === 'fields') {
+          for (const part of block.parts) if (part.kind === 'field') expected.push(part.id);
+        } else if (block.kind === 'count') {
+          for (const row of block.rows) {
+            for (const input of block.inputs) expected.push(`${row.id}.${input.key}`);
+          }
+        } else if (block.kind === 'grid') {
+          for (const row of block.rows) {
+            for (const cell of row.cells) if (cell.kind === 'entry') expected.push(cell.id);
+          }
+        }
+      }
+      const perBlock = sheet.blocks.flatMap((b) => blockControlIds(b).entries).sort();
+      assert.deepEqual(perBlock, expected.sort(), `${sheet.slug} entry ids`);
+    }
+  });
+
+  it('never reports the same id under two blocks', () => {
+    for (const sheet of BOH_SHEETS) {
+      const all = sheet.blocks.flatMap((b) => {
+        const { checks, entries } = blockControlIds(b);
+        return [...checks, ...entries];
+      });
+      assert.equal(new Set(all).size, all.length, `${sheet.slug} reports a shared id`);
     }
   });
 });

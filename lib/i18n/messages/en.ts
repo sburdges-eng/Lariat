@@ -216,5 +216,12 @@ export const en = {
     notesHint: 'Low items, problems, anything for the next shift',
     doneCount: '{done} of {total} done',
     missing: 'That sheet is not in the book.',
+    missingHelp: 'It may have been renamed. Open the book and pick it from the list.',
+    copyByHand: 'Press and hold the text, then Copy.',
+    copyDone: 'Done',
+    notSaving: 'Not saving on this phone. Write anything you need on paper.',
+    sheetBroke: 'This sheet did not open.',
+    sheetBrokeHelp: 'Use the paper packet for now and tell a manager.',
+    tryAgain: 'Try again',
   },
 };

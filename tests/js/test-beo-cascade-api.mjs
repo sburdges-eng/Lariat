@@ -25,8 +25,14 @@ beforeEach(() => {
   );
 });
 
+// Carries the legacy unsigned cookie, accepted when LARIAT_PIN_SECRET is
+// unset outside production. This route's gate moved out of middleware and
+// into the handler when the /api/beo matcher prefix was dropped, so the
+// suite has to send what a real caller sends.
 function makeReq(qs = '') {
-  return new Request(`http://localhost/api/beo/cascade${qs}`);
+  return new Request(`http://localhost/api/beo/cascade${qs}`, {
+    headers: { cookie: 'lariat_pin_ok=1' },
+  });
 }
 
 function seedEvent({ title = 'Test Event', location = 'default' } = {}) {

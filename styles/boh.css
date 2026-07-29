@@ -130,6 +130,52 @@
   font-size: 14px;
 }
 
+/* Loud enough to catch mid-service: the phone is not keeping the sheet. */
+.boh-warn {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--danger, #b23a2e);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+/* On-screen copy for phones with no clipboard — the venue serves this over
+   plain http, so this is the ordinary path, not a rare fallback. */
+.boh-handcopy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--panel-2);
+}
+
+.boh-handcopy-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.boh-handcopy textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  /* 16px keeps iOS from zooming the page when the box takes focus. */
+  font-size: 16px;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  line-height: 1.4;
+}
+
 /* ---- blocks ---- */
 
 .boh-h2 {

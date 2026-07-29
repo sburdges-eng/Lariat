@@ -1,24 +1,24 @@
 beo_item,recipe_id,per_count
-Battered Fish Taco,Fish Brine
-Battered Fish Taco,Beer Batter
-Battered Fish Taco,Beer Flour
-Battered Fish Taco,Chipotle Aioli
-Battered Fish Taco,Mexi Slaw
-Battered Fish Taco,Pico de Gallo
-Baja Fish Tacos,Fish Brine
-Baja Fish Tacos,Beer Batter
-Baja Fish Tacos,Beer Flour
-Baja Fish Tacos,Chipotle Aioli
-Baja Fish Tacos,Mexi Slaw
-Baja Fish Tacos,Pico de Gallo
-Baja Fish Tacos,Aji Verde
-Baja Fish Taco,Fish Brine
-Baja Fish Taco,Beer Batter
-Baja Fish Taco,Beer Flour
-Baja Fish Taco,Chipotle Aioli
-Baja Fish Taco,Mexi Slaw
-Baja Fish Taco,Pico de Gallo
-Baja Fish Taco,Aji Verde
+Battered Fish Taco,Fish Brine,0.05
+Battered Fish Taco,Beer Batter,7.5
+Battered Fish Taco,Beer Flour,0.06
+Battered Fish Taco,Chipotle Aioli,0.0375
+Battered Fish Taco,Mexi Slaw,0.1
+Battered Fish Taco,Pico de Gallo,0.025
+Baja Fish Tacos,Fish Brine,0.05
+Baja Fish Tacos,Beer Batter,7.5
+Baja Fish Tacos,Beer Flour,0.06
+Baja Fish Tacos,Chipotle Aioli,0.0375
+Baja Fish Tacos,Mexi Slaw,0.1
+Baja Fish Tacos,Pico de Gallo,0.025
+Baja Fish Tacos,Aji Verde,0.1
+Baja Fish Taco,Fish Brine,0.05
+Baja Fish Taco,Beer Batter,7.5
+Baja Fish Taco,Beer Flour,0.06
+Baja Fish Taco,Chipotle Aioli,0.0375
+Baja Fish Taco,Mexi Slaw,0.1
+Baja Fish Taco,Pico de Gallo,0.025
+Baja Fish Taco,Aji Verde,0.1
 Baked Ziti,Baked Ziti
 Trio Dips,Blackened Tomato Salsa,0.5
 Trio Dips,Pico de Gallo,0.5
@@ -38,29 +38,27 @@ Fish Taco Buffet,Beer Flour,1.2
 Fish Taco Buffet,Chipotle Aioli,0.75
 Fish Taco Buffet,Mexi Slaw,2.0
 Fish Taco Buffet,Pico de Gallo,0.5
-Battered Avocado Taco Buffet,Beer Batter
-Battered Avocado Taco Buffet,Beer Flour
-Battered Avocado Taco Buffet,Chipotle Aioli
-Battered Avocado Taco Buffet,Mexi Slaw
-Barbacoa Taco,Birria
-Barbacoa Taco Buffet,Birria
-Braised Chicken Taco,Chicken Confit
-Braised Chicken Taco,Aji Verde
-Braised Chicken Taco Buffet,Chicken Confit
+Battered Avocado Taco Buffet,Beer Batter,150
+Battered Avocado Taco Buffet,Beer Flour,1.2
+Battered Avocado Taco Buffet,Chipotle Aioli,0.75
+Battered Avocado Taco Buffet,Mexi Slaw,2.0
+Barbacoa Taco,Birria,0.2656
+Barbacoa Taco Buffet,Birria,8.5
+Braised Chicken Taco,Chicken Confit,0.0625
+Braised Chicken Taco,Aji Verde,0.1
+Braised Chicken Taco Buffet,Chicken Confit,2
 Braised Chicken Taco Buffet,Aji Verde
 Corn Dogs,Corn Dogs
-Rope Burger slider,Bacon Jam
-Rope Burger slider,Rope Pickle
-Rope Burger slider,Special Sauce
-Rope Burger slider,Coleslaw
-Nashville Slider,Buttermilk Brine
-Nashville Slider,Chicken Flour
-Nashville Slider,Beer Batter
-Nashville Slider,Beer Flour
-Nashville Slider,Nashville Hot Rub
-Nashville Slider,Nashville Oil
-Nashville Slider,Special Sauce
-Nashville Slider,Coleslaw
+Rope Burger slider,Bacon Jam,0.0625
+Rope Burger slider,Rope Pickle,0.0625
+Rope Burger slider,Special Sauce,0.0625
+Rope Burger slider,Coleslaw,0.0625
+Nashville Slider,Buttermilk Brine,0.24
+Nashville Slider,Chicken Flour,0.013
+Nashville Slider,Nashville Hot Rub,0.04
+Nashville Slider,Nashville Oil,0.04
+Nashville Slider,Special Sauce,0.0625
+Nashville Slider,Coleslaw,0.0625
 Cob Salad Buffet,Cobb Dressing / Herb Bleu Cheese
 Cob Salad Buffet,Roasted Pepitas
 Roast Chicken Dinner,Chicken Confit
@@ -78,7 +76,7 @@ Italian Artisanal Board,Artisanal Board
 Spanish Artisanal Board,Artisanal Board
 Deviled Eggs,Deviled Eggs
 Pork Belly bao bun,Pork Belly Bao Bun
-Carnitas taco,Carnitas
+Carnitas taco,Carnitas,0.0625
 Carnitas Tacos Buffet,Carnitas,2
 Low Country Boil,Low Country Boil
 Gazpacho,Gazpacho

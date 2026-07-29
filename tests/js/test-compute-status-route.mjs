@@ -83,6 +83,8 @@ function readLatestVariance() {
 
 function makePost(url, { body } = {}) {
   const headers = new Headers();
+  // /api/compute is PIN-gated; carry the manager credential.
+  headers.set('cookie', 'lariat_pin_ok=1');
   let serialized;
   if (body !== undefined) {
     headers.set('content-type', 'application/json');

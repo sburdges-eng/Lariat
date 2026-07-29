@@ -44,9 +44,16 @@ after(() => {
   }
 });
 
+// Carries the legacy unsigned cookie, accepted when LARIAT_PIN_SECRET is
+// unset outside production. This handler used to say it trusted the
+// middleware gate; the /api/shows matcher prefix was dropped so the event.*
+// temp-PIN scopes underneath it could work, and the gate moved into the
+// route, so the suite has to send what a real caller sends.
 async function fetchRoute(query = '') {
   const { GET } = await import('../../app/api/shows/route.js');
-  const req = new Request(`http://localhost/api/shows${query ? '?' + query : ''}`);
+  const req = new Request(`http://localhost/api/shows${query ? '?' + query : ''}`, {
+    headers: { cookie: 'lariat_pin_ok=1' },
+  });
   return GET(req);
 }
 

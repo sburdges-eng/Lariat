@@ -7,6 +7,7 @@ import { hasPinCookie, hasPinOrTempPin, pinRequiredForPic, requirePin } from '..
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
 import { parseCourseIdPatch } from '../../../lib/beoCourses';
+import { resolveBeoRates, BeoRateUnsetError } from '../../../lib/beoRates';
 
 export const dynamic = 'force-dynamic';
 
@@ -208,8 +209,18 @@ async function beoPostHandler(req) {
       const title = clip(body.title, MAX_TITLE);
       if (!title) return Response.json({ error: 'title required' }, { status: 400 });
       const gc = body.guest_count == null ? null : Number(body.guest_count);
-      const taxRate = Number.isFinite(Number(body.tax_rate)) ? Number(body.tax_rate) : 0.0675;
-      const serviceFeePct = Number.isFinite(Number(body.service_fee_pct)) ? Number(body.service_fee_pct) : 20;
+      // Rates resolve event-override -> locations -> throw. No literal
+      // fallback here: a missing house rate must fail loudly rather than
+      // silently bill a constant. See lib/beoRates.ts.
+      let taxRate, serviceFeePct;
+      try {
+        ({ taxRate, serviceFeePct } = resolveBeoRates(db, loc, body));
+      } catch (e) {
+        if (e instanceof BeoRateUnsetError) {
+          return Response.json({ error: e.message }, { status: 409 });
+        }
+        throw e;
+      }
       // Increment 2: optional F&B minimum spend ($). Empty/absent -> NULL;
       // negative is soft-rejected (the operator typed a bad value).
       let minSpend = null;

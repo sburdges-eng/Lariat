@@ -24,6 +24,10 @@ beforeEach(() => {
   );
 });
 
+// Deliberately sends NO credential. This route is public — a cook reads the
+// fire schedule off a wall iPad without a PIN — so every case below doubles
+// as proof of that, and a gate reintroduced here would turn the whole file
+// red rather than passing quietly on a cookie the real caller never sends.
 function makeReq(qs = '') {
   return new Request(`http://localhost/api/beo/fire-schedule${qs}`);
 }
@@ -200,5 +204,34 @@ describe('GET /api/beo/fire-schedule?event_id=N', () => {
     assert.ok(Array.isArray(j.stations));
     // The event seeded for 2026-06-03 should appear via the date path
     assert.equal(j.stations[0].courses[0].course_label, 'Entree');
+  });
+
+  it('serves a cook with no credential at all, even with a PIN configured', async () => {
+    // The named property, asserted rather than implied by the other cases.
+    // Every request above already omits the cookie, but they would still pass
+    // on an install with no PIN set up; this one configures a PIN first, so it
+    // fails if a gate is ever put back in front of the wall iPad.
+    const savedPin = process.env.LARIAT_PIN;
+    const savedSecret = process.env.LARIAT_PIN_SECRET;
+    process.env.LARIAT_PIN = '0708';
+    delete process.env.LARIAT_PIN_SECRET;
+    try {
+      const ev = seedEvent({ title: 'Wall iPad', date: '2026-06-09' });
+      seedCourse({ event_id: ev, label: 'Entree', fire_at: '2026-06-09T18:30:00.000Z', station: 'grill' });
+
+      const res = await route.GET(makeReq('?date=2026-06-09'));
+      assert.equal(
+        res.status,
+        200,
+        'the fire schedule is read off a wall iPad mid-service — a cook cannot stop to find a manager',
+      );
+      const j = await res.json();
+      assert.equal(j.stations[0].courses[0].course_label, 'Entree');
+    } finally {
+      if (savedPin === undefined) delete process.env.LARIAT_PIN;
+      else process.env.LARIAT_PIN = savedPin;
+      if (savedSecret === undefined) delete process.env.LARIAT_PIN_SECRET;
+      else process.env.LARIAT_PIN_SECRET = savedSecret;
+    }
   });
 });
