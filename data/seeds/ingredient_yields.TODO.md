@@ -10,18 +10,17 @@ it lands in the seed.
 ## What this is
 
 `tests/python/test_seed_coverage.py` checks that every raw ingredient in the
-live `bom_lines` has a yield row. It is currently red: **235 keys, 163 covered,
-72 uncovered (69.4%).**
+live `bom_lines` has a yield row. It is currently red: **235 keys, 231 covered,
+4 uncovered (98.3%).**
 
-The gap has moved 111 → 93 → 84 → 80 → 76 → 72, and **not one of those steps
-was a measurement.** Sub-recipes left the denominator (their yield is batch
-output in `recipe_costs`, not a trim percentage), non-food left it too, and the
-rest closed by asking how each item arrives — twenty-one rows in all.
+The gap has moved 111 → 93 → 84 → 80 → 76 → 72 → 4. Sub-recipes and non-food
+left the denominator, twenty-one rows closed on operator answers about how
+items arrive, and sixty-eight took values: forty-nine that cannot have a trim
+step at all, four that are `1.0` because this kitchen buys them prepped, and
+eleven real trim yields from the standard reference.
 
-That is the end of it. Every remaining row is an ingredient whose usable
-fraction nobody has written down yet, and no amount of reading the existing
-data will produce one. **This file will not get shorter without a scale or a
-reference book.**
+The four still listed are the only ones left, and they are not a measurement
+problem — see below.
 
 ## The rule
 
@@ -30,6 +29,12 @@ reference book.**
 wrong value is worse than a red test, because it is silent. Leave a row blank
 until someone knows it. Sources, in order of preference: a Lariat measurement,
 then The Book of Yields.
+
+The `source` column is how a later reader tells them apart. `seed` means no
+trim step exists for that item in any purchase form. `book_of_yields` means a
+standard reference figure, **not something weighed here** — the eleven rows
+carrying it are worth a spot-check against a real case, and the three proteins
+among them say so in their own notes.
 
 `yield_pct` is the usable fraction of what you buy, `0..1`. `loss_factor` is
 cook loss where it applies. An item bought ready to use is `1.0` — that is a
@@ -90,85 +95,28 @@ garlic and these four all looked identical in a table, and the answer was only
 knowable by asking how the item comes through the door. Three said alias, one
 said the opposite, and the difference was never visible in the ingredient name.
 
-## The 72 that need a number
+## The 4 that are left, and why a yield will not fix them
 
-Sorted by how many BOM lines use each, so the top of the table is where the
-costing error is largest today.
+These are not missing measurements. All four carry `map_status = UNMAPPED` in
+`bom_lines` — the costing engine already saying the row does not resolve to a
+real ingredient. An unmapped row has no vendor, no price and no pack size, so a
+yield on it changes no cost and orders nothing.
 
-| ingredient_name | lines | yield_pct | loss_factor | source | notes |
-| --- | ---: | --- | --- | --- | --- |
-| `basil fresh` | 3 |  |  |  |  |
-| `extra virgin olive oil` | 3 |  |  |  |  |
-| `unsalted butter` | 3 |  |  |  |  |
-| `cherry tomatoes` | 2 |  |  |  |  |
-| `parmesan reggiano` | 2 |  |  |  |  |
-| `tomato sauce` | 2 |  |  |  |  |
-| `achiote` | 1 |  |  |  |  |
-| `adobo seasoning` | 1 |  |  |  |  |
-| `arugula` | 1 |  |  |  |  |
-| `baguette` | 1 |  |  |  |  |
-| `bananas` | 1 |  |  |  |  |
-| `bay leaf` | 1 |  |  |  |  |
-| `beef tenderloin` | 1 |  |  |  |  |
-| `birria seasoning` | 1 |  |  |  |  |
-| `breakfast burrito` | 1 |  |  |  |  |
-| `canned black beans` | 1 |  |  |  |  |
-| `canned diced tomatoes` | 1 |  |  |  |  |
-| `catfish fillet` | 1 |  |  |  |  |
-| `chipotle in adobo` | 1 |  |  |  |  |
-| `chives` | 1 |  |  |  |  |
-| `ciabatta loaf` | 1 |  |  |  |  |
-| `colby jack shredded` | 1 |  |  |  |  |
-| `corn on the cob` | 1 |  |  |  |  |
-| `corn tortillas` | 1 |  |  |  |  |
-| `crackers or baguette` | 1 |  |  |  |  |
-| `crushed tomatoes` | 1 |  |  |  |  |
-| `day old bread` | 1 |  |  |  |  |
-| `ditalini noodles` | 1 |  |  |  |  |
-| `flour tortilla` | 1 |  |  |  |  |
-| `flour tortillas` | 1 |  |  |  |  |
-| `fresh chives` | 1 |  |  |  |  |
-| `fruit or preserve` | 1 |  |  |  |  |
-| `garlic puree` | 1 |  |  |  |  |
-| `granulated sugar` | 1 |  |  |  |  |
-| `guinness` | 1 |  |  |  |  |
-| `hatch chile with juice` | 1 |  |  |  |  |
-| `hatch green chile` | 1 |  |  |  |  |
-| `hoisin sauce` | 1 |  |  |  |  |
-| `horseradish` | 1 |  |  |  |  |
-| `hot dogs` | 1 |  |  |  |  |
-| `leeks` | 1 |  |  |  |  |
-| `lime wedges` | 1 |  |  |  |  |
-| `long grain white rice` | 1 |  |  |  |  |
-| `mayo` | 1 |  |  |  |  |
-| `miso` | 1 |  |  |  |  |
-| `mixed greens` | 1 |  |  |  |  |
-| `modelo especial` | 1 |  |  |  |  |
-| `mozzarella ciliegine` | 1 |  |  |  |  |
-| `mozzarella shredded` | 1 |  |  |  |  |
-| `old bay seasoning` | 1 |  |  |  |  |
-| `olives or pickle` | 1 |  |  |  |  |
-| `panko bread crumbs` | 1 |  |  |  |  |
-| `parmesan grated` | 1 |  |  |  |  |
-| `pepper jack` | 1 |  |  |  |  |
-| `pork belly` | 1 |  |  |  |  |
-| `prepared granola` | 1 |  |  |  |  |
-| `prosciutto` | 1 |  |  |  |  |
-| `red bell pepper` | 1 |  |  |  |  |
-| `red russet potatoes` | 1 |  |  |  |  |
-| `redbird chicken legs` | 1 |  |  |  |  |
-| `remoulade sauce` | 1 |  |  |  |  |
-| `ricotta cheese` | 1 |  |  |  |  |
-| `salted butter` | 1 |  |  |  |  |
-| `sesame seed` | 1 |  |  |  |  |
-| `sharp cheddar` | 1 |  |  |  |  |
-| `sliced peaches drained thawed` | 1 |  |  |  |  |
-| `vanilla extract` | 1 |  |  |  |  |
-| `vanilla wafers` | 1 |  |  |  |  |
-| `whipped cream` | 1 |  |  |  |  |
-| `yellow cake mix` | 1 |  |  |  |  |
-| `yukon gold potato` | 1 |  |  |  |  |
-| `ziti noodles` | 1 |  |  |  |  |
+| bom key | qty | unit | what it actually is |
+| --- | --- | --- | --- |
+| `fruit or preserve` | 1.0 | cup | a choice, not an ingredient |
+| `crackers or baguette` | 1.0 | loaf | a choice, not an ingredient |
+| `olives or pickle` | 1.0 | cup | a choice, not an ingredient |
+| `breakfast burrito` | 1.0 | each | a composed dish standing in as an ingredient |
+
+The first three are garnish choices written into the BOM as one line with
+"or" in the name. The fourth is a finished dish that should be a sub-recipe,
+which would also take it out of this check entirely — sub-recipes are already
+excluded.
+
+Giving these four a number would turn this test green while leaving them
+exactly as uncosted as they are today. That is the failure this file exists to
+prevent, so they stay listed until the BOM rows are split or remapped.
 
 ## Closing a row
 
