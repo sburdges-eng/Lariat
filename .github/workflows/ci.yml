@@ -9,8 +9,16 @@
 name: CI
 
 on:
+  # No `branches:` filter on pull_request, deliberately. It used to be
+  # [main], which meant a PR opened against a feature branch — a stacked PR,
+  # the normal shape for dependent work here — ran no gates at all. #583
+  # merged that way, and #587 sat green-looking with zero checks until it was
+  # retargeted. Neither retargeting nor reopening fires the event either, so
+  # the only way to get CI on a stack was an empty commit.
+  #
+  # Every PR now runs, whatever it targets. Pushes stay main-only so feature
+  # branches are gated once per PR rather than on every commit.
   pull_request:
-    branches: [main]
   push:
     branches: [main]
 
