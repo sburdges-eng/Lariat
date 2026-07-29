@@ -24,8 +24,14 @@ beforeEach(() => {
   );
 });
 
+// Carries the legacy unsigned cookie, accepted when LARIAT_PIN_SECRET is
+// unset outside production. The route kept its master-PIN gate when the
+// /api/beo matcher prefix was dropped — see the header comment there about
+// it having been designed public and never actually being so.
 function makeReq(qs = '') {
-  return new Request(`http://localhost/api/beo/fire-schedule${qs}`);
+  return new Request(`http://localhost/api/beo/fire-schedule${qs}`, {
+    headers: { cookie: 'lariat_pin_ok=1' },
+  });
 }
 
 function seedEvent({ title, date, location = 'default' }) {

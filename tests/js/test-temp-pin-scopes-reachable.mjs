@@ -35,19 +35,7 @@ const API_ROOT = path.join(REPO_ROOT, 'app/api');
 // on a temp-PIN scope, with the reason. An entry here is a KNOWN BROKEN
 // SCOPE, not an approval — it is recorded so it cannot be forgotten, and so
 // a new one cannot be added silently.
-const KNOWN_SHADOWED = new Map([
-  [
-    '/api/beo',
-    // beo.fire_at_edit is unreachable for temp-PIN holders. The prefix
-    // cannot simply be dropped from the matcher the way /api/specials/saved
-    // was: /api/beo/cascade and /api/beo/fire-schedule export GET handlers
-    // with no in-route gate at all and are covered by middleware alone, so
-    // removing it would serve them to anyone. Closing this means giving
-    // those two routes their own gate first — a change to a live BEO
-    // surface, deliberately not bundled into the specials fix.
-    'GET /api/beo/cascade and /api/beo/fire-schedule have no route-level gate',
-  ],
-]);
+const KNOWN_SHADOWED = new Map([]);
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 
@@ -88,14 +76,20 @@ function walkRoutes(dir, prefix = '') {
 }
 
 /**
- * Scopes passed to hasPinOrTempPin, resolving a local `const SCOPE = '...'`
- * as well as an inline literal — several routes use the constant form, and
- * matching only literals would under-report.
+ * Scopes passed to either temp-PIN-aware helper, resolving a local
+ * `const SCOPE = '...'` as well as an inline literal.
+ *
+ * BOTH helpers must be matched. `requirePinOrScope` hits temp_pins exactly
+ * like `hasPinOrTempPin` — it is the wrapper the shows routes use — and an
+ * earlier version of this file matched only the latter. It reported 2 dead
+ * scopes when there were 6, which is the same failure it exists to catch:
+ * a green check proving less than it claims.
+ *
  * @param {string} src
  */
 function tempPinScopes(src) {
   const scopes = new Set();
-  for (const m of src.matchAll(/hasPinOrTempPin\(\s*[\w.]+\s*,\s*([^)]+)\)/g)) {
+  for (const m of src.matchAll(/(?:hasPinOrTempPin|requirePinOrScope)\(\s*[\w.]+\s*,\s*([^)]+)\)/g)) {
     const arg = m[1].trim();
     const literal = arg.match(/^'([^']+)'/);
     if (literal) {
