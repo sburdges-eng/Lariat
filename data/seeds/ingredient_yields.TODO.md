@@ -10,15 +10,16 @@ it lands in the seed.
 ## What this is
 
 `tests/python/test_seed_coverage.py` checks that every raw ingredient in the
-live `bom_lines` has a yield row. It is currently red: **235 keys, 155 covered,
-80 uncovered (66.0%).** Those 80 split two ways, and the split matters because
+live `bom_lines` has a yield row. It is currently red: **235 keys, 159 covered,
+76 uncovered (67.7%).** Those 76 split two ways, and the split matters because
 only one half needs measuring.
 
-The gap has moved 111 → 93 → 84 → 80, and not one of those steps came from
+The gap has moved 111 → 93 → 84 → 80 → 76, and not one of those steps came from
 measuring anything. Sub-recipes left the denominator (their yield is batch
 output in `recipe_costs`, not a trim percentage), non-food left it too, eight
-whole-buy items were confirmed as `1.0`, and four more were settled by asking
-how the item arrives. What remains is the part that needs real numbers.
+whole-buy items were confirmed as `1.0`, and the rest were settled by asking how
+the item arrives. What remains is the part that needs real numbers, and it is
+not going to shrink any further by reasoning about it.
 
 ## The rule
 
@@ -34,7 +35,7 @@ real value, not a placeholder.
 
 ## Decisions taken — 2026-07-29
 
-Thirteen rows closed without measuring anything, on three operator calls.
+Seventeen rows closed without measuring anything, on four operator calls.
 
 **Non-food is excluded by category, not given a yield.** `bamboo skewers 6in`
 has no usable fraction; recording `1.0` would have looked like a measurement
@@ -65,6 +66,14 @@ had it carried stem loss, giving it to already-picked thyme would have
 double-counted. Separate seed rows rather than a normalizer change, matching
 how `kosher salt` / `kosher salt diamond crystal` / `kosher salt morton`
 are already handled.
+
+**Ground spices and butter are `1.0` in every form.** `ground cinnamon`,
+`ground nutmeg`, `butter melted` and `butter diced or melted`. These are not
+purchase-form questions at all — a ground spice has no trim however it is
+bought, and butter has none whether it arrives diced, melted or in a block, so
+there is no version of the answer where the base row's value is wrong for the
+variant. That is what separates them from the four still open below, where the
+base row is `1.0` *because of a prep step the variant may not have had*.
 
 ## Part 1 — 72 ingredients with no yield row
 
@@ -146,25 +155,29 @@ costing error is largest today.
 | `yukon gold potato` | 1 |  |  |  |  |
 | `ziti noodles` | 1 |  |  |  |  |
 
-## Part 2 — 8 that may already be covered under another name
+## Part 2 — 4 that may already be covered under another name
 
-Each of these has a near-match already in the seed. They are **not** collapsed
-automatically, and the garlic row above is why. One answer per row closes it —
-either "same buy, alias it" or "different, measure it".
+These four are all the same shape, and it is the dangerous one: **the base row
+is `1.0` because of a prep step the variant may not have had.**
 
-Check the base row's value before aliasing. `thyme` is `1.0` with "no trim", so
-the thyme variants could take it directly. `garlic` is `0.87` **because that is
-the peel yield off a whole head** — aliasing pre-peeled garlic to it would have
-charged the peel loss twice and over-ordered. Two rows that look identical in
-this table, opposite answers.
+`chopped cilantro` is `1.0` "purchased pre-chopped"; whole `fresh cilantro`
+still has to be picked off the stem. `diced white onions` is `1.0` "purchased
+pre-diced"; a whole `white onion` still has to be peeled and trimmed. Copying
+the base value in either case claims a trim that has not happened yet, which
+overstates usable product and **under-orders**. `rosemary` and `tarragon` are
+`1.0` "treated as dried for default yield" — whether picked fresh herb is the
+same buy is a question about how Lariat purchases them, not something the seed
+can answer.
+
+The thyme variants looked exactly like this and turned out to be safe. Chopped
+garlic looked exactly like this and was not. That is why they are one question
+each rather than a rule.
+
+One answer per row closes it — "same buy, alias it" or "different, measure it".
 
 | bom key | already covered as | lines | same purchase form? |
 | --- | --- | ---: | --- |
-| `ground cinnamon` | `cinnamon` | 2 |  |
-| `butter diced or melted` | `melted butter` | 1 |  |
-| `butter melted` | `melted butter` | 1 |  |
 | `fresh cilantro` | `chopped cilantro` | 1 |  |
-| `ground nutmeg` | `nutmeg` | 1 |  |
 | `picked rosemary` | `rosemary` | 1 |  |
 | `picked tarragon` | `tarragon` | 1 |  |
 | `white onion` | `diced white onions` | 1 |  |
