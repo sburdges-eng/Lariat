@@ -46,6 +46,20 @@ YIELDS_CSV = ROOT / "data" / "seeds" / "ingredient_yields.csv"
 # half-filled row in data/seeds/ should not be able to look like data.
 TODO_MD = ROOT / "data" / "seeds" / "ingredient_yields.TODO.md"
 
+# Non-food supplies that appear in bom_lines. A yield is the usable fraction of
+# a raw item after trim, peel or cook loss; a skewer has no such fraction, so
+# giving it 1.0 would record a measurement that was never taken and imply the
+# question had been asked and answered. Excluded by category instead — operator
+# decision, 2026-07-29.
+#
+# Deliberately an explicit list rather than a guessed classifier: there is no
+# category column on bom_lines, and inferring "not food" from a name is exactly
+# the kind of derivation that has produced wrong costing reports here before.
+# Adding to it should take a moment's thought, which is the point.
+NON_FOOD_KEYS: frozenset[str] = frozenset({
+    "bamboo skewers 6in",
+})
+
 
 class SeedCoverageReporter(unittest.TestCase):
     def test_report_yield_coverage_over_bom(self) -> None:
@@ -90,6 +104,14 @@ class SeedCoverageReporter(unittest.TestCase):
 
         bom_keys = {normalize_one(row[0]) for row in raw_bom}
         bom_keys.discard("")
+        # Non-food supplies are not a yield question at all — see NON_FOOD_KEYS.
+        self.assertTrue(
+            NON_FOOD_KEYS <= bom_keys,
+            f"NON_FOOD_KEYS has stale entr(ies) no longer in the live BOM: "
+            f"{sorted(NON_FOOD_KEYS - bom_keys)} — drop them rather than "
+            f"carrying an exclusion that protects nothing.",
+        )
+        bom_keys -= NON_FOOD_KEYS
 
         if not YIELDS_CSV.is_file():
             self.skipTest(f"Yields CSV not present: {YIELDS_CSV}")

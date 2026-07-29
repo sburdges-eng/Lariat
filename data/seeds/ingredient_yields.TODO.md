@@ -10,13 +10,15 @@ it lands in the seed.
 ## What this is
 
 `tests/python/test_seed_coverage.py` checks that every raw ingredient in the
-live `bom_lines` has a yield row. It is currently red: **236 keys, 143 covered,
-93 uncovered.** Those 93 split two ways, and the split matters because only one
-half needs measuring.
+live `bom_lines` has a yield row. It is currently red: **235 keys, 151 covered,
+84 uncovered (64.3%).** Those 84 split two ways, and the split matters because
+only one half needs measuring.
 
-Sub-recipes are already excluded — their yield is batch output in
-`recipe_costs`, not a trim percentage — which is what took the gap from 111
-to 93.
+The gap has moved 111 → 93 → 84, and none of that came from measuring
+anything. Sub-recipes left the denominator (their yield is batch output in
+`recipe_costs`, not a trim percentage), non-food left it too, and eight
+whole-buy items were confirmed as `1.0`. What remains is the part that needs
+real numbers.
 
 ## The rule
 
@@ -30,20 +32,25 @@ then The Book of Yields.
 cook loss where it applies. An item bought ready to use is `1.0` — that is a
 real value, not a placeholder.
 
-## Two questions that shrink the list before anyone measures anything
+## Decisions taken — 2026-07-29
 
-**Q1 — non-food.** `bamboo skewers 6in` is in the BOM and has no yield in any
-meaningful sense. Should non-food supplies be given `1.0`, or excluded from the
-coverage check by category? Excluding is the smaller change and I would rather
-you pick than assume.
+Nine rows closed without measuring anything, on two operator calls.
 
-**Q2 — vendor whole-buy and prepped items.** Eight rows are bought ready to
-serve (`assorted cheeses vendor whole buy`, `crab cakes frozen vendor whole buy`,
-`roasted root veg sysco`, `hardboiled eggs sysco`, and similar). These are
-almost certainly `1.0`, but "almost certainly" is exactly the reasoning this
-file exists to prevent. Confirm once and eight rows close.
+**Non-food is excluded by category, not given a yield.** `bamboo skewers 6in`
+has no usable fraction; recording `1.0` would have looked like a measurement
+that was never taken. It lives in `NON_FOOD_KEYS` in
+`tests/python/test_seed_coverage.py`, which also fails if an entry stops
+appearing in the BOM, so the exclusion cannot outlive the thing it excludes.
 
-## Part 1 — 81 ingredients with no yield row
+**Vendor whole-buy and prepped items are `1.0`, confirmed.** Eight rows —
+`assorted cheeses vendor whole buy`, `assorted cured meats vendor whole buy`,
+`bao buns sysco`, `crab cakes frozen vendor whole buy`, `hardboiled eggs sysco`,
+`pudding vanilla base shamrock sysco`, `roasted root veg sysco`,
+`tex mex egg rolls vendor whole buy` — arrive ready and take no trim. They are
+in the seed with `source=seed` and a note recording the confirmation and date,
+matching the 137 rows already carrying `1.0` for the same reason.
+
+## Part 1 — 72 ingredients with no yield row
 
 Sorted by how many BOM lines use each, so the top of the table is where the
 costing error is largest today.
@@ -53,18 +60,14 @@ costing error is largest today.
 | `basil fresh` | 3 |  |  |  |  |
 | `extra virgin olive oil` | 3 |  |  |  |  |
 | `unsalted butter` | 3 |  |  |  |  |
-| `bamboo skewers 6in` | 2 |  |  |  | not food — see Q1 |
 | `cherry tomatoes` | 2 |  |  |  |  |
 | `parmesan reggiano` | 2 |  |  |  |  |
 | `tomato sauce` | 2 |  |  |  |  |
 | `achiote` | 1 |  |  |  |  |
 | `adobo seasoning` | 1 |  |  |  |  |
 | `arugula` | 1 |  |  |  |  |
-| `assorted cheeses vendor whole buy` | 1 |  |  |  | bought ready — see Q2 |
-| `assorted cured meats vendor whole buy` | 1 |  |  |  | bought ready — see Q2 |
 | `baguette` | 1 |  |  |  |  |
 | `bananas` | 1 |  |  |  |  |
-| `bao buns sysco` | 1 |  |  |  | bought ready — see Q2 |
 | `bay leaf` | 1 |  |  |  |  |
 | `beef tenderloin` | 1 |  |  |  |  |
 | `birria seasoning` | 1 |  |  |  |  |
@@ -78,7 +81,6 @@ costing error is largest today.
 | `colby jack shredded` | 1 |  |  |  |  |
 | `corn on the cob` | 1 |  |  |  |  |
 | `corn tortillas` | 1 |  |  |  |  |
-| `crab cakes frozen vendor whole buy` | 1 |  |  |  | bought ready — see Q2 |
 | `crackers or baguette` | 1 |  |  |  |  |
 | `crushed tomatoes` | 1 |  |  |  |  |
 | `day old bread` | 1 |  |  |  |  |
@@ -90,7 +92,6 @@ costing error is largest today.
 | `garlic puree` | 1 |  |  |  |  |
 | `granulated sugar` | 1 |  |  |  |  |
 | `guinness` | 1 |  |  |  |  |
-| `hardboiled eggs sysco` | 1 |  |  |  | bought ready — see Q2 |
 | `hatch chile with juice` | 1 |  |  |  |  |
 | `hatch green chile` | 1 |  |  |  |  |
 | `hoisin sauce` | 1 |  |  |  |  |
@@ -113,18 +114,15 @@ costing error is largest today.
 | `pork belly` | 1 |  |  |  |  |
 | `prepared granola` | 1 |  |  |  |  |
 | `prosciutto` | 1 |  |  |  |  |
-| `pudding vanilla base shamrock sysco` | 1 |  |  |  | bought ready — see Q2 |
 | `red bell pepper` | 1 |  |  |  |  |
 | `red russet potatoes` | 1 |  |  |  |  |
 | `redbird chicken legs` | 1 |  |  |  |  |
 | `remoulade sauce` | 1 |  |  |  |  |
 | `ricotta cheese` | 1 |  |  |  |  |
-| `roasted root veg sysco` | 1 |  |  |  | bought ready — see Q2 |
 | `salted butter` | 1 |  |  |  |  |
 | `sesame seed` | 1 |  |  |  |  |
 | `sharp cheddar` | 1 |  |  |  |  |
 | `sliced peaches drained thawed` | 1 |  |  |  |  |
-| `tex mex egg rolls vendor whole buy` | 1 |  |  |  | bought ready — see Q2 |
 | `vanilla extract` | 1 |  |  |  |  |
 | `vanilla wafers` | 1 |  |  |  |  |
 | `whipped cream` | 1 |  |  |  |  |
