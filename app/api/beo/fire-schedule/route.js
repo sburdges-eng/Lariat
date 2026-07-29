@@ -1,20 +1,22 @@
 // GET /api/beo/fire-schedule?date=YYYY-MM-DD&location=<slug>
 //
-// Per spec §B (T7) this was DESIGNED as a public endpoint — line cooks read
-// it on a wall iPad without entering a PIN, and no PII is in the response
-// (event titles are operator-set; if those leak guest names, the operator
-// chose the title).
+// PUBLIC endpoint, per spec §B (T7) and now in fact — line cooks read this on
+// a wall iPad without entering a PIN. No PII is in the response: event titles
+// are operator-set, and if those carry guest names the operator chose to put
+// them there.
 //
-// It has never behaved that way. The /api/beo matcher prefix in middleware.js
-// put a master-PIN gate in front of it, so the wall iPad has always needed a
-// manager. That prefix is now gone — it was making six temp-PIN scopes dead —
-// and this route states its own gate instead, keeping the master-PIN
-// behaviour it has actually had rather than silently opening it up.
+// It spent a long time not working that way. The /api/beo matcher prefix in
+// middleware.js put a master-PIN gate in front of it, so the wall iPad needed
+// a manager to walk over, which is the opposite of what a fire schedule is
+// for. Dropping that prefix (to free six dead temp-PIN scopes) left the route
+// stating its own gate; the operator has since confirmed the wall iPad should
+// work unaided, so the gate is gone and the designed behaviour is the real
+// behaviour.
 //
-// Making it genuinely public is a one-line change (drop the requirePin below)
-// and an operator's decision, not a mechanical one: it is the difference
-// between a cook seeing tonight's fire times unaided and every device on the
-// venue wifi seeing them.
+// The trade is deliberate and worth restating: anything on the venue wifi can
+// read tonight's fire times. That is accepted because the alternative is a
+// cook standing at a locked screen mid-service, and because the payload is
+// station names and times, not guest data.
 //
 // Returns the per-station rollup for "tonight" (events whose
 // event_date matches the query). Joins beo_courses → beo_line_items
@@ -26,7 +28,6 @@
 import { json } from '../../../../lib/routeHelpers';
 import { getDb, todayISO } from '../../../../lib/db';
 import { resolveSchedule } from '../../../../lib/beoFireSchedule';
-import { requirePin } from '../../../../lib/pin';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,9 +38,6 @@ export const dynamic = 'force-dynamic';
 
 /** @param {Request} req */
 export async function GET(req) {
-  const pinFail = await requirePin(req);
-  if (pinFail) return pinFail;
-
   const url = new URL(req.url);
   const location = url.searchParams.get('location') || 'default';
 
