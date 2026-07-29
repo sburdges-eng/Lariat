@@ -16,7 +16,11 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const CACHE = join(ROOT, 'data', 'cache');
-const OUT = join(__dirname, 'lariat-qa.jsonl');
+// LARIAT_QA_OUT lets a caller redirect the output. The wiring test uses it
+// to generate into a temp file: this script's real output is tracked in
+// git, and regenerating it on every test run left the working tree dirty
+// with content unrelated to whatever was being worked on.
+const OUT = process.env.LARIAT_QA_OUT || join(__dirname, 'lariat-qa.jsonl');
 
 /* ---------- helpers ---------- */
 

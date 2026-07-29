@@ -102,6 +102,10 @@ complete in this tool environment — flag them for Sean to run manually.
 - Full web gate: `npm run verify` (typecheck + 13 suites + `next build`), under `npx node@24`.
 - Full native gate: `swift build && swift test` from `LariatNative/`.
 - Lint: `npm run lint` / `npm run lint:changed`.
+- Coverage: `npm run coverage` (add `-- --check` to enforce floors). **Never quote the headline
+  percentage as codebase coverage** — Node only instruments files it loads, so untested files are
+  absent from the denominator rather than counted as zero. `lib/` is 154 of 159 files exercised;
+  `app/` is 135 of 364. Read `docs/TEST_COVERAGE.md` before citing the number.
 - Every gate green before commit or PR. If one fails, say so with the output — never report done on
   a red or unrun gate.
 - **A broad suite pass does not substitute for the targeted contract suite** of whatever protected
