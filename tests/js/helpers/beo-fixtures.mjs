@@ -125,6 +125,28 @@ export async function seedEvent(POST, overrides = {}) {
 }
 
 /**
+ * Insert `locations` rows carrying a house tax rate and service fee.
+ *
+ * Kept separate so a suite that wants a site with NO rate — to exercise
+ * the BeoRateUnsetError path — can simply not seed it.
+ *
+ * @param {Array<{id: string, taxRate: number, serviceFeePct: number}>} rows
+ */
+export async function seedLocationRates(rows) {
+  const { getDb } = await import('../../../lib/db.ts');
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT INTO locations (id, name, tax_rate, service_fee_pct)
+          VALUES (?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET tax_rate = excluded.tax_rate,
+                                   service_fee_pct = excluded.service_fee_pct`,
+  );
+  for (const { id, taxRate, serviceFeePct } of rows) {
+    stmt.run(id, id, taxRate, serviceFeePct);
+  }
+}
+
+/**
  * Build a two-location two-event fixture: one event at LOC_A with one
  * line, one event at LOC_B with one line. Used by the line-location
  * scope tests to attempt cross-location attacks.
@@ -134,6 +156,18 @@ export async function seedEvent(POST, overrides = {}) {
 export async function setupTwoLocations(POST, opts = {}) {
   const LOC_A = opts.locA ?? 'site-a';
   const LOC_B = opts.locB ?? 'site-b';
+
+  // Both sites need a row in `locations` carrying a house rate before an
+  // event can be booked against them. This helper used to create events at
+  // location ids that existed nowhere, which worked only because a missing
+  // rate resolved to 0 and billed the guest nothing. lib/beoRates.ts now
+  // refuses instead, so the fixture has to look like a real venue: two
+  // sites, each on its own rate, which is also what the cross-location
+  // assertions below are about.
+  await seedLocationRates([
+    { id: LOC_A, taxRate: opts.taxRateA ?? 0.0815, serviceFeePct: opts.serviceFeeA ?? 0.2 },
+    { id: LOC_B, taxRate: opts.taxRateB ?? 0.0675, serviceFeePct: opts.serviceFeeB ?? 0.18 },
+  ]);
 
   const evA = await POST(postReq({
     action: 'event',
