@@ -37,24 +37,32 @@ const SENSITIVE_PREFIXES = [
   '/api/audit',
   '/api/compute',
   '/api/shows',
-  '/api/specials/saved',
   '/api/host',
   '/api/purchasing',
   // PHI, pay data and staff records (/api/sick-leave, /api/sick-worker,
   // /api/tip-pool, /api/wage-notices, /api/certifications) are deliberately
-  // NOT here, and neither is /api/recipes.
+  // NOT here, and neither is /api/recipes or /api/specials/saved.
   //
-  // Each of those gates on hasPinOrTempPin(req, 'pic.*'), which reads the
+  // Each of those gates on hasPinOrTempPin(req, '<scope>'), which reads the
   // temp_pins table to honor a shift PIC carrying a scoped temp PIN. This
   // middleware runs on the Edge runtime with no DB handle, so it can only
   // ever verify the master cookie — listing them here would redirect the
-  // exact staff the pic.* scopes exist to admit. /api/recipes has the
+  // exact staff those scopes exist to admit. /api/recipes has the
   // mirror-image problem: a prefix gates GET too, and cooks read recipes
   // without a credential by design.
   //
+  // /api/specials/saved was listed here until 2026-07-29 and menu.specials_edit
+  // did not work as a result: the composer lives on /specials, which is open,
+  // but every save it makes was redirected here before reaching the route that
+  // honours the scope. A lead could open the composer and not save. All four
+  // routes under it gate themselves, so dropping the prefix loses no cover.
+  // The /specials/saved PAGE below stays — a page cannot be temp-PIN gated at
+  // all, since this file is the only thing in front of it.
+  //
   // Their gate is the route layer, which is fail-closed on an unconfigured
   // install (lib/pin.ts pinRequiredForPic) and understands scopes. See
-  // tests/js/test-unconfigured-install-fails-closed.mjs.
+  // tests/js/test-unconfigured-install-fails-closed.mjs and
+  // tests/js/test-temp-pin-scopes-reachable.mjs.
 ];
 
 /** Public carve-outs inside otherwise-PIN-gated prefixes. Order matters:
@@ -141,8 +149,6 @@ export const config = {
     '/api/audit/:path*',
     '/api/compute/:path*',
     '/api/shows/:path*',
-    '/api/specials/saved',
-    '/api/specials/saved/:path*',
     '/api/host/:path*',
     '/api/purchasing/:path*',
   ],
