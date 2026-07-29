@@ -10,16 +10,18 @@ it lands in the seed.
 ## What this is
 
 `tests/python/test_seed_coverage.py` checks that every raw ingredient in the
-live `bom_lines` has a yield row. It is currently red: **235 keys, 159 covered,
-76 uncovered (67.7%).** Those 76 split two ways, and the split matters because
-only one half needs measuring.
+live `bom_lines` has a yield row. It is currently red: **235 keys, 163 covered,
+72 uncovered (69.4%).**
 
-The gap has moved 111 → 93 → 84 → 80 → 76, and not one of those steps came from
-measuring anything. Sub-recipes left the denominator (their yield is batch
-output in `recipe_costs`, not a trim percentage), non-food left it too, eight
-whole-buy items were confirmed as `1.0`, and the rest were settled by asking how
-the item arrives. What remains is the part that needs real numbers, and it is
-not going to shrink any further by reasoning about it.
+The gap has moved 111 → 93 → 84 → 80 → 76 → 72, and **not one of those steps
+was a measurement.** Sub-recipes left the denominator (their yield is batch
+output in `recipe_costs`, not a trim percentage), non-food left it too, and the
+rest closed by asking how each item arrives — twenty-one rows in all.
+
+That is the end of it. Every remaining row is an ingredient whose usable
+fraction nobody has written down yet, and no amount of reading the existing
+data will produce one. **This file will not get shorter without a scale or a
+reference book.**
 
 ## The rule
 
@@ -35,7 +37,8 @@ real value, not a placeholder.
 
 ## Decisions taken — 2026-07-29
 
-Seventeen rows closed without measuring anything, on four operator calls.
+Twenty-one rows closed without measuring anything, on five operator calls.
+Every alias question is now answered; what is left needs numbers.
 
 **Non-food is excluded by category, not given a yield.** `bamboo skewers 6in`
 has no usable fraction; recording `1.0` would have looked like a measurement
@@ -72,10 +75,22 @@ are already handled.
 purchase-form questions at all — a ground spice has no trim however it is
 bought, and butter has none whether it arrives diced, melted or in a block, so
 there is no version of the answer where the base row's value is wrong for the
-variant. That is what separates them from the four still open below, where the
-base row is `1.0` *because of a prep step the variant may not have had*.
+variant.
 
-## Part 1 — 72 ingredients with no yield row
+**The last four arrive prepped too, so they are `1.0`.** `fresh cilantro`,
+`picked rosemary`, `picked tarragon` and `white onion`. These were held back
+longest and deserved to be: each had a base row sitting at `1.0` *because of a
+prep step the variant might not have had*, which is precisely the shape that
+made chopped garlic wrong. The herbs are not picked from bunches here and the
+white onion is not bought whole — both arrive ready — so the prep step has
+already happened and the base value is right after all.
+
+Worth keeping in mind if this list ever grows again: the thyme variants, the
+garlic and these four all looked identical in a table, and the answer was only
+knowable by asking how the item comes through the door. Three said alias, one
+said the opposite, and the difference was never visible in the ingredient name.
+
+## The 72 that need a number
 
 Sorted by how many BOM lines use each, so the top of the table is where the
 costing error is largest today.
@@ -154,33 +169,6 @@ costing error is largest today.
 | `yellow cake mix` | 1 |  |  |  |  |
 | `yukon gold potato` | 1 |  |  |  |  |
 | `ziti noodles` | 1 |  |  |  |  |
-
-## Part 2 — 4 that may already be covered under another name
-
-These four are all the same shape, and it is the dangerous one: **the base row
-is `1.0` because of a prep step the variant may not have had.**
-
-`chopped cilantro` is `1.0` "purchased pre-chopped"; whole `fresh cilantro`
-still has to be picked off the stem. `diced white onions` is `1.0` "purchased
-pre-diced"; a whole `white onion` still has to be peeled and trimmed. Copying
-the base value in either case claims a trim that has not happened yet, which
-overstates usable product and **under-orders**. `rosemary` and `tarragon` are
-`1.0` "treated as dried for default yield" — whether picked fresh herb is the
-same buy is a question about how Lariat purchases them, not something the seed
-can answer.
-
-The thyme variants looked exactly like this and turned out to be safe. Chopped
-garlic looked exactly like this and was not. That is why they are one question
-each rather than a rule.
-
-One answer per row closes it — "same buy, alias it" or "different, measure it".
-
-| bom key | already covered as | lines | same purchase form? |
-| --- | --- | ---: | --- |
-| `fresh cilantro` | `chopped cilantro` | 1 |  |
-| `picked rosemary` | `rosemary` | 1 |  |
-| `picked tarragon` | `tarragon` | 1 |  |
-| `white onion` | `diced white onions` | 1 |  |
 
 ## Closing a row
 

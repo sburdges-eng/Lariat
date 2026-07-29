@@ -215,3 +215,7 @@ ground cinnamon,1.0,,seed,ground spice; no trim in any purchase form (operator-c
 ground nutmeg,1.0,,seed,ground spice; no trim in any purchase form (operator-confirmed 2026-07-29)
 butter melted,1.0,,seed,butter takes no trim in any form; matches melted butter (operator-confirmed 2026-07-29)
 butter diced or melted,1.0,,seed,butter takes no trim in any form; matches melted butter (operator-confirmed 2026-07-29)
+fresh cilantro,1.0,,seed,"arrives picked, not in bunches; no further trim (operator-confirmed 2026-07-29) — same buy as chopped cilantro"
+picked rosemary,1.0,,seed,"arrives picked, not in bunches; no further trim (operator-confirmed 2026-07-29) — same buy as rosemary"
+picked tarragon,1.0,,seed,"arrives picked, not in bunches; no further trim (operator-confirmed 2026-07-29) — same buy as tarragon"
+white onion,1.0,,seed,"not bought whole; arrives prepped, no peel or trim (operator-confirmed 2026-07-29) — same buy as diced white onions"
