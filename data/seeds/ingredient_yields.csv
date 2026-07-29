@@ -219,3 +219,71 @@ fresh cilantro,1.0,,seed,"arrives picked, not in bunches; no further trim (opera
 picked rosemary,1.0,,seed,"arrives picked, not in bunches; no further trim (operator-confirmed 2026-07-29) — same buy as rosemary"
 picked tarragon,1.0,,seed,"arrives picked, not in bunches; no further trim (operator-confirmed 2026-07-29) — same buy as tarragon"
 white onion,1.0,,seed,"not bought whole; arrives prepped, no peel or trim (operator-confirmed 2026-07-29) — same buy as diced white onions"
+extra virgin olive oil,1.0,,seed,olive oil; no trim
+unsalted butter,1.0,,seed,no trim / composed or liquid ingredient
+salted butter,1.0,,seed,no trim / composed or liquid ingredient
+tomato sauce,1.0,,seed,no trim / composed or liquid ingredient
+crushed tomatoes,1.0,,seed,canned; no trim
+canned black beans,1.0,,seed,canned; no trim
+canned diced tomatoes,1.0,,seed,canned; no trim
+chipotle in adobo,1.0,,seed,canned; no trim
+hatch chile with juice,1.0,,seed,canned with juice; no trim
+hoisin sauce,1.0,,seed,no trim / composed or liquid ingredient
+horseradish,1.0,,seed,prepared; no trim
+mayo,1.0,,seed,no trim / composed or liquid ingredient
+miso,1.0,,seed,no trim / composed or liquid ingredient
+remoulade sauce,1.0,,seed,no trim / composed or liquid ingredient
+garlic puree,1.0,,seed,no trim / composed or liquid ingredient
+granulated sugar,1.0,,seed,dry good; no trim
+vanilla extract,1.0,,seed,no trim / composed or liquid ingredient
+sesame seed,1.0,,seed,dry good; no trim
+old bay seasoning,1.0,,seed,dry spice blend; no trim
+adobo seasoning,1.0,,seed,dry spice blend; no trim
+birria seasoning,1.0,,seed,dry spice blend; no trim
+achiote,1.0,,seed,dry spice; no trim
+bay leaf,1.0,,seed,dry spice; no trim
+long grain white rice,1.0,,seed,dry good; no trim
+ditalini noodles,1.0,,seed,dry pasta; no trim
+ziti noodles,1.0,,seed,dry pasta; no trim
+panko bread crumbs,1.0,,seed,dry good; no trim
+corn tortillas,1.0,,seed,packaged; no trim
+flour tortilla,1.0,,seed,packaged; no trim
+flour tortillas,1.0,,seed,packaged; no trim
+colby jack shredded,1.0,,seed,purchased shredded; no further trim
+mozzarella shredded,1.0,,seed,purchased shredded; no further trim
+parmesan grated,1.0,,seed,purchased grated; no further trim
+pepper jack,1.0,,seed,sliced or block used whole; no trim
+sharp cheddar,1.0,,seed,sliced or block used whole; no trim
+ricotta cheese,1.0,,seed,tub; no trim
+mozzarella ciliegine,1.0,,seed,"packed in water, used whole; no trim"
+prosciutto,1.0,,seed,purchased sliced; no trim
+hot dogs,1.0,,seed,purchased portioned; no trim
+whipped cream,1.0,,seed,no trim / composed or liquid ingredient
+yellow cake mix,1.0,,seed,dry mix; no trim
+vanilla wafers,1.0,,seed,packaged; no trim
+prepared granola,1.0,,seed,purchased prepared; no trim
+sliced peaches drained thawed,1.0,,seed,purchased sliced; no trim
+guinness,1.0,,seed,beverage poured as-is; no trim
+modelo especial,1.0,,seed,beverage poured as-is; no trim
+mixed greens,1.0,,seed,purchased bagged and washed; no further trim
+day old bread,1.0,,seed,used whole including crust; no trim
+baguette,1.0,,seed,used whole including crust; no trim
+ciabatta loaf,1.0,,seed,used whole including crust; no trim
+lime wedges,1.0,,seed,purchased or cut to order and used whole; no trim
+cherry tomatoes,1.0,,seed,sold stemless and used whole; no trim
+catfish fillet,1.0,,seed,purchased filleted; no further trim
+basil fresh,1.0,,seed,"arrives picked, not in bunches; no further trim — same pattern as thyme and cilantro (operator-confirmed 2026-07-29)"
+chives,1.0,,seed,"arrives cut, not in bunches; no further trim — same pattern as thyme and cilantro (operator-confirmed 2026-07-29)"
+fresh chives,1.0,,seed,"arrives cut, not in bunches; no further trim — same pattern as thyme and cilantro (operator-confirmed 2026-07-29)"
+arugula,1.0,,seed,purchased bagged and washed; no further trim (operator-confirmed 2026-07-29)
+corn on the cob,0.28,,book_of_yields,BoY typical; kernels cut from cob
+leeks,0.44,,book_of_yields,BoY typical; white and light green only; root and dark tops discarded
+bananas,0.68,,book_of_yields,BoY typical; peeled
+red bell pepper,0.82,,book_of_yields,"BoY typical; stem, seeds and ribs removed"
+red russet potatoes,0.81,,book_of_yields,BoY typical; peeled
+yukon gold potato,0.81,,book_of_yields,BoY typical; peeled
+parmesan reggiano,0.95,,book_of_yields,BoY typical; rind removed
+hatch green chile,0.75,,book_of_yields,"BoY typical; roasted, peeled and seeded"
+beef tenderloin,0.80,,book_of_yields,BoY typical; trimmed from whole PSMO; verify against a case before a large event
+pork belly,0.92,,book_of_yields,BoY typical; skin and surface fat trimmed; verify against a case before a large event
+redbird chicken legs,0.70,,book_of_yields,BoY typical; meat off the bone; drop to 1.0 if the legs are served bone-in
