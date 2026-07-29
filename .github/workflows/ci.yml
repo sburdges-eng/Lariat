@@ -35,6 +35,13 @@ jobs:
 
       - run: npm ci
 
+      # Before the suites, not just before the build: test-discover-route
+      # asserts the stamped V.I.NN.NNN release version rather than the
+      # package.json semver fallback, so it needs version.json to exist.
+      # `prebuild` stamps again for the build itself, which is idempotent.
+      - name: stamp build version (V.I.NN.NNN)
+        run: npm run version:stamp
+
       - name: typecheck
         run: npm run typecheck
 
@@ -160,9 +167,6 @@ jobs:
       # mapping and takes the whole workflow file down with it.
       - name: 'code coverage (floors: line 85 / branch 81 / func 87)'
         run: npm run coverage -- --check
-
-      - name: stamp build version (V.I.NN.NNN)
-        run: npm run version:stamp
 
       - name: next build
         run: npm run build
