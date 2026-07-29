@@ -51,7 +51,7 @@ beforeEach(() => {
 function postReq(body) {
   return new Request('http://localhost/api/tphc', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
@@ -59,13 +59,13 @@ function postReq(body) {
 function patchReq(body) {
   return new Request('http://localhost/api/tphc', {
     method: 'PATCH',
-    headers: { 'content-type': 'application/json' },
+    headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
 
 function getReq(qs = '') {
-  return new Request(`http://localhost/api/tphc${qs}`);
+  return new Request(`http://localhost/api/tphc${qs}`, { headers: { cookie: 'lariat_pin_ok=1' } });
 }
 
 function countTphc(where = '') {

@@ -63,7 +63,8 @@ beforeEach(() => {
 });
 
 function postReq(showId, body, { idempotencyKey } = {}) {
-  const headers = { 'content-type': 'application/json' };
+  // /api/shows is PIN-gated; carry the manager credential.
+  const headers = { 'content-type': 'application/json', cookie: 'lariat_pin_ok=1' };
   if (idempotencyKey) headers['idempotency-key'] = idempotencyKey;
   return new Request(`http://localhost/api/shows/${showId}/box-office`, {
     method: 'POST',

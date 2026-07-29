@@ -41,7 +41,7 @@ beforeEach(() => {
 function jsonRequest(url, body) {
   return new Request(url, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
@@ -191,7 +191,7 @@ describe('GET /api/specials/saved (list)', () => {
     await new Promise((r) => setTimeout(r, 5));
     await create.POST(jsonRequest('http://x/api/specials/saved', { ...validBody, name: 'New' }));
 
-    const res = await create.GET(new Request('http://x/api/specials/saved?location=default'));
+    const res = await create.GET(new Request('http://x/api/specials/saved?location=default', { headers: { cookie: 'lariat_pin_ok=1' } }));
     assert.equal(res.status, 200);
     const data = await res.json();
     assert.equal(data.items.length, 2);
@@ -204,7 +204,7 @@ describe('GET /api/specials/saved (list)', () => {
   it('isolates by location', async () => {
     await create.POST(jsonRequest('http://x/api/specials/saved', { ...validBody, location_id: 'a', name: 'A' }));
     await create.POST(jsonRequest('http://x/api/specials/saved', { ...validBody, location_id: 'b', name: 'B' }));
-    const res = await create.GET(new Request('http://x/api/specials/saved?location=a'));
+    const res = await create.GET(new Request('http://x/api/specials/saved?location=a', { headers: { cookie: 'lariat_pin_ok=1' } }));
     const data = await res.json();
     assert.equal(data.items.length, 1);
     assert.equal(data.items[0].name, 'A');
@@ -219,7 +219,7 @@ async function createOne(overrides = {}) {
 describe('GET /api/specials/saved/[id]', () => {
   it('returns the full record', async () => {
     const id = await createOne();
-    const res = await detail.GET(new Request(`http://x/api/specials/saved/${id}`), { params: { id } });
+    const res = await detail.GET(new Request(`http://x/api/specials/saved/${id}`, { headers: { cookie: 'lariat_pin_ok=1' } }), { params: { id } });
     assert.equal(res.status, 200);
     const row = await res.json();
     assert.equal(row.id, id);
@@ -228,13 +228,13 @@ describe('GET /api/specials/saved/[id]', () => {
   });
 
   it('404s on unknown id', async () => {
-    const res = await detail.GET(new Request('http://x/api/specials/saved/missing'), { params: { id: 'missing' } });
+    const res = await detail.GET(new Request('http://x/api/specials/saved/missing', { headers: { cookie: 'lariat_pin_ok=1' } }), { params: { id: 'missing' } });
     assert.equal(res.status, 404);
   });
 
   it('404s when id exists but in a different location', async () => {
     const id = await createOne({ location_id: 'a' });
-    const res = await detail.GET(new Request(`http://x/api/specials/saved/${id}?location=b`), { params: { id } });
+    const res = await detail.GET(new Request(`http://x/api/specials/saved/${id}?location=b`, { headers: { cookie: 'lariat_pin_ok=1' } }), { params: { id } });
     assert.equal(res.status, 404);
   });
 });
@@ -247,7 +247,7 @@ describe('PATCH /api/specials/saved/[id]', () => {
     const res = await detail.PATCH(
       new Request(`http://x/api/specials/saved/${id}`, {
         method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
+        headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
         body: JSON.stringify({ name: 'Renamed', scratch_notes: 'hello' }),
       }),
       { params: { id } },
@@ -264,7 +264,7 @@ describe('PATCH /api/specials/saved/[id]', () => {
     const res = await detail.PATCH(
       new Request(`http://x/api/specials/saved/${id}`, {
         method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
+        headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
         body: JSON.stringify({ name: 'OK', ai_answer: 'NO', cost_total: 99 }),
       }),
       { params: { id } },
@@ -280,7 +280,7 @@ describe('PATCH /api/specials/saved/[id]', () => {
     await detail.PATCH(
       new Request(`http://x/api/specials/saved/${id}`, {
         method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
+        headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
         body: JSON.stringify({ name: 'X' }),
       }),
       { params: { id } },
@@ -297,7 +297,7 @@ describe('PATCH /api/specials/saved/[id]', () => {
     const res = await detail.PATCH(
       new Request(`http://x/api/specials/saved/${id}`, {
         method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
+        headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
         body: JSON.stringify({ scratch_notes: big }),
       }),
       { params: { id } },
@@ -313,7 +313,7 @@ describe('PATCH /api/specials/saved/[id]', () => {
     await detail.PATCH(
       new Request(`http://x/api/specials/saved/${id}`, {
         method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
+        headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
         body: JSON.stringify({ name: 'Renamed' }),
       }),
       { params: { id } },
@@ -328,22 +328,22 @@ describe('DELETE /api/specials/saved/[id]', () => {
   it('soft-deletes (sets archived_at, removes from list)', async () => {
     const id = await createOne();
     const res = await detail.DELETE(
-      new Request(`http://x/api/specials/saved/${id}`, { method: 'DELETE' }),
+      new Request(`http://x/api/specials/saved/${id}`, { headers: { cookie: 'lariat_pin_ok=1' }, method: 'DELETE' }),
       { params: { id } },
     );
     assert.equal(res.status, 200);
     const row = db.getDb().prepare('SELECT archived_at FROM specials WHERE id = ?').get(id);
     assert.ok(row.archived_at !== null);
 
-    const list = await create.GET(new Request('http://x/api/specials/saved?location=default'));
+    const list = await create.GET(new Request('http://x/api/specials/saved?location=default', { headers: { cookie: 'lariat_pin_ok=1' } }));
     const data = await list.json();
     assert.equal(data.items.length, 0);
   });
 
   it('is idempotent on re-delete', async () => {
     const id = await createOne();
-    await detail.DELETE(new Request(`http://x/api/specials/saved/${id}`, { method: 'DELETE' }), { params: { id } });
-    const res = await detail.DELETE(new Request(`http://x/api/specials/saved/${id}`, { method: 'DELETE' }), { params: { id } });
+    await detail.DELETE(new Request(`http://x/api/specials/saved/${id}`, { headers: { cookie: 'lariat_pin_ok=1' }, method: 'DELETE' }), { params: { id } });
+    const res = await detail.DELETE(new Request(`http://x/api/specials/saved/${id}`, { headers: { cookie: 'lariat_pin_ok=1' }, method: 'DELETE' }), { params: { id } });
     assert.equal(res.status, 200);
   });
 });

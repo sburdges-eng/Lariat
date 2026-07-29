@@ -37,16 +37,20 @@ beforeEach(() => {
   testDb.exec('DELETE FROM paid_sick_leave_balances; DELETE FROM audit_events; DELETE FROM idempotency_keys;');
 });
 
+// Authorized by default — these routes are PIN-gated. The gate tests below
+// opt out with { cookie: null }.
 function postReq(body, headers = {}) {
+  const merged = { 'content-type': 'application/json', cookie: 'lariat_pin_ok=1', ...headers };
+  if (merged.cookie === null) delete merged.cookie;
   return new Request('http://localhost/api/sick-leave', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', ...headers },
+    headers: merged,
     body: JSON.stringify(body),
   });
 }
 
 function getReq(qs = '') {
-  return new Request(`http://localhost/api/sick-leave${qs}`);
+  return new Request(`http://localhost/api/sick-leave${qs}`, { headers: { cookie: 'lariat_pin_ok=1' } });
 }
 
 function countBalances() {
@@ -65,7 +69,7 @@ describe('POST /api/sick-leave — PIN gate', () => {
     try {
       const res = await POST(postReq({
         kind: 'accrual', cook_id: 'alice', accrual_year: 2026, hours: 1,
-      }));
+      }, { cookie: null }));
       assert.strictEqual(res.status, 403);
       assert.strictEqual(countBalances(), 0);
       assert.strictEqual(countAudit(), 0);

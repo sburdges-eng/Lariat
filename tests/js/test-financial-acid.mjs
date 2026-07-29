@@ -64,10 +64,20 @@ beforeEach(() => {
   `);
 });
 
-function postReq(url, body) {
+// Sends the legacy unsigned cookie by default — accepted when
+// LARIAT_PIN_SECRET is unset outside production, and what 43 other suites
+// already use (documented at test-allergen-attestations.mjs:17). These
+// handlers are PIN-gated and this suite passed only because an unconfigured
+// install used to open the gate; pinRequiredForPic() no longer does.
+//
+// Pass { cookie: null } to exercise a deny path, so authenticating the
+// builder never quietly turns a 401 assertion into a 200.
+function postReq(url, body, { cookie = 'lariat_pin_ok=1' } = {}) {
+  const headers = { 'content-type': 'application/json' };
+  if (cookie) headers.cookie = cookie;
   return new Request(url, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   });
 }

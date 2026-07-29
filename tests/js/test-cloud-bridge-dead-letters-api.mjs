@@ -89,8 +89,25 @@ function readAuditEntries() {
     .map((line) => JSON.parse(line));
 }
 
+/**
+ * A request carrying the legacy unsigned PIN cookie — accepted when
+ * LARIAT_PIN_SECRET is unset outside production, and what the sibling
+ * suites already use (documented at test-allergen-attestations.mjs:17).
+ *
+ * The happy-path blocks below used to authenticate by deleting LARIAT_PIN
+ * and letting the gate fall open. pinRequiredForPic() no longer opens on an
+ * unconfigured install, so they carry a credential like a real caller. The
+ * deny block keeps building bare Requests — that is the point of it.
+ */
+function authed(url, init = {}) {
+  return new Request(url, {
+    ...init,
+    headers: { ...(init.headers ?? {}), cookie: 'lariat_pin_ok=1' },
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────
-// PIN gate — toggled on for one block; off for the happy-path blocks.
+// PIN gate — deny path: LARIAT_PIN set, no cookie sent.
 // ─────────────────────────────────────────────────────────────────
 
 describe('PIN gate (LARIAT_PIN set)', () => {
@@ -143,7 +160,7 @@ describe('PIN gate (LARIAT_PIN set)', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────
-// Happy-path blocks — LARIAT_PIN unset so the gate auto-passes.
+// Happy-path blocks — requests carry a credential via authed().
 // ─────────────────────────────────────────────────────────────────
 
 describe('GET /api/cloud-bridge/dead-letters — happy path', () => {
@@ -158,7 +175,7 @@ describe('GET /api/cloud-bridge/dead-letters — happy path', () => {
 
   it('returns empty list + queue status on a clean queue', async () => {
     const res = await listGET(
-      new Request('http://localhost/api/cloud-bridge/dead-letters'),
+      authed('http://localhost/api/cloud-bridge/dead-letters'),
     );
     assert.equal(res.status, 200);
     const body = await res.json();
@@ -178,7 +195,7 @@ describe('GET /api/cloud-bridge/dead-letters — happy path', () => {
     enqueue(TABLE, [{ shift_date: '2026-05-04', total: 9 }], { locationId: 'default' });
 
     const res = await listGET(
-      new Request('http://localhost/api/cloud-bridge/dead-letters'),
+      authed('http://localhost/api/cloud-bridge/dead-letters'),
     );
     const body = await res.json();
     assert.equal(body.queued_depth, 1);
@@ -198,7 +215,7 @@ describe('GET /api/cloud-bridge/dead-letters — happy path', () => {
     deadLetterBatch([{ shift_date: '2026-05-02', total: 2 }], { locationId: 'site-b' });
 
     const resA = await listGET(
-      new Request('http://localhost/api/cloud-bridge/dead-letters?location=site-a'),
+      authed('http://localhost/api/cloud-bridge/dead-letters?location=site-a'),
     );
     const bodyA = await resA.json();
     assert.equal(bodyA.location, 'site-a');
@@ -223,7 +240,7 @@ describe('POST /api/cloud-bridge/dead-letters/[id]/requeue — happy path', () =
 
   it('400 on a non-numeric id', async () => {
     const res = await requeuePOST(
-      new Request('http://localhost/api/cloud-bridge/dead-letters/abc/requeue', {
+      authed('http://localhost/api/cloud-bridge/dead-letters/abc/requeue', {
         method: 'POST',
       }),
       { params: { id: 'abc' } },
@@ -233,7 +250,7 @@ describe('POST /api/cloud-bridge/dead-letters/[id]/requeue — happy path', () =
 
   it('404 when the id is unknown', async () => {
     const res = await requeuePOST(
-      new Request('http://localhost/api/cloud-bridge/dead-letters/9999/requeue', {
+      authed('http://localhost/api/cloud-bridge/dead-letters/9999/requeue', {
         method: 'POST',
       }),
       { params: { id: '9999' } },
@@ -244,7 +261,7 @@ describe('POST /api/cloud-bridge/dead-letters/[id]/requeue — happy path', () =
   it('404 when the id is alive (not dead-lettered)', async () => {
     const id = enqueue(TABLE, [{ shift_date: '2026-05-01', total: 1 }], { locationId: 'default' });
     const res = await requeuePOST(
-      new Request(`http://localhost/api/cloud-bridge/dead-letters/${id}/requeue`, {
+      authed(`http://localhost/api/cloud-bridge/dead-letters/${id}/requeue`, {
         method: 'POST',
       }),
       { params: { id: String(id) } },
@@ -256,7 +273,7 @@ describe('POST /api/cloud-bridge/dead-letters/[id]/requeue — happy path', () =
     const id = deadLetterBatch([{ shift_date: '2026-05-01', total: 1 }]);
 
     const res = await requeuePOST(
-      new Request(`http://localhost/api/cloud-bridge/dead-letters/${id}/requeue`, {
+      authed(`http://localhost/api/cloud-bridge/dead-letters/${id}/requeue`, {
         method: 'POST',
       }),
       { params: { id: String(id) } },
@@ -300,7 +317,7 @@ describe('POST /api/cloud-bridge/dead-letters/[id]/drop — happy path', () => {
 
   it('400 on a non-numeric id', async () => {
     const res = await dropPOST(
-      new Request('http://localhost/api/cloud-bridge/dead-letters/abc/drop', {
+      authed('http://localhost/api/cloud-bridge/dead-letters/abc/drop', {
         method: 'POST',
       }),
       { params: { id: 'abc' } },
@@ -310,7 +327,7 @@ describe('POST /api/cloud-bridge/dead-letters/[id]/drop — happy path', () => {
 
   it('404 when the id is unknown', async () => {
     const res = await dropPOST(
-      new Request('http://localhost/api/cloud-bridge/dead-letters/9999/drop', {
+      authed('http://localhost/api/cloud-bridge/dead-letters/9999/drop', {
         method: 'POST',
       }),
       { params: { id: '9999' } },
@@ -321,7 +338,7 @@ describe('POST /api/cloud-bridge/dead-letters/[id]/drop — happy path', () => {
   it('404 when the id is alive (not dead-lettered)', async () => {
     const id = enqueue(TABLE, [{ shift_date: '2026-05-01', total: 1 }], { locationId: 'default' });
     const res = await dropPOST(
-      new Request(`http://localhost/api/cloud-bridge/dead-letters/${id}/drop`, {
+      authed(`http://localhost/api/cloud-bridge/dead-letters/${id}/drop`, {
         method: 'POST',
       }),
       { params: { id: String(id) } },
@@ -338,7 +355,7 @@ describe('POST /api/cloud-bridge/dead-letters/[id]/drop — happy path', () => {
     const id = deadLetterBatch(rows);
 
     const res = await dropPOST(
-      new Request(`http://localhost/api/cloud-bridge/dead-letters/${id}/drop`, {
+      authed(`http://localhost/api/cloud-bridge/dead-letters/${id}/drop`, {
         method: 'POST',
       }),
       { params: { id: String(id) } },
@@ -392,7 +409,7 @@ describe('Cross-location IDOR guard', () => {
     });
 
     const res = await requeuePOST(
-      new Request(
+      authed(
         `http://localhost/api/cloud-bridge/dead-letters/${id}/requeue?location=site-a`,
         { method: 'POST' },
       ),
@@ -417,7 +434,7 @@ describe('Cross-location IDOR guard', () => {
     });
 
     const res = await dropPOST(
-      new Request(
+      authed(
         `http://localhost/api/cloud-bridge/dead-letters/${id}/drop?location=site-a`,
         { method: 'POST' },
       ),
@@ -439,7 +456,7 @@ describe('Cross-location IDOR guard', () => {
     });
 
     const res = await requeuePOST(
-      new Request(
+      authed(
         `http://localhost/api/cloud-bridge/dead-letters/${id}/requeue?location=site-b`,
         { method: 'POST' },
       ),
@@ -459,7 +476,7 @@ describe('Cross-location IDOR guard', () => {
     });
 
     const res = await dropPOST(
-      new Request(`http://localhost/api/cloud-bridge/dead-letters/${id}/drop`, {
+      authed(`http://localhost/api/cloud-bridge/dead-letters/${id}/drop`, {
         method: 'POST',
       }),
       { params: { id: String(id) } },
