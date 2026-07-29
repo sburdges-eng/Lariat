@@ -10,15 +10,15 @@ it lands in the seed.
 ## What this is
 
 `tests/python/test_seed_coverage.py` checks that every raw ingredient in the
-live `bom_lines` has a yield row. It is currently red: **235 keys, 151 covered,
-84 uncovered (64.3%).** Those 84 split two ways, and the split matters because
+live `bom_lines` has a yield row. It is currently red: **235 keys, 155 covered,
+80 uncovered (66.0%).** Those 80 split two ways, and the split matters because
 only one half needs measuring.
 
-The gap has moved 111 → 93 → 84, and none of that came from measuring
-anything. Sub-recipes left the denominator (their yield is batch output in
-`recipe_costs`, not a trim percentage), non-food left it too, and eight
-whole-buy items were confirmed as `1.0`. What remains is the part that needs
-real numbers.
+The gap has moved 111 → 93 → 84 → 80, and not one of those steps came from
+measuring anything. Sub-recipes left the denominator (their yield is batch
+output in `recipe_costs`, not a trim percentage), non-food left it too, eight
+whole-buy items were confirmed as `1.0`, and four more were settled by asking
+how the item arrives. What remains is the part that needs real numbers.
 
 ## The rule
 
@@ -34,7 +34,7 @@ real value, not a placeholder.
 
 ## Decisions taken — 2026-07-29
 
-Nine rows closed without measuring anything, on two operator calls.
+Thirteen rows closed without measuring anything, on three operator calls.
 
 **Non-food is excluded by category, not given a yield.** `bamboo skewers 6in`
 has no usable fraction; recording `1.0` would have looked like a measurement
@@ -49,6 +49,22 @@ appearing in the BOM, so the exclusion cannot outlive the thing it excludes.
 `tex mex egg rolls vendor whole buy` — arrive ready and take no trim. They are
 in the seed with `source=seed` and a note recording the confirmation and date,
 matching the 137 rows already carrying `1.0` for the same reason.
+
+**Chopped garlic arrives peeled, so it is `1.0` — not an alias of `garlic`.**
+This is the one that would have gone wrong quietly. `garlic` is `0.87`, and its
+note says why: that is the yield of peeling a whole head. Aliasing pre-peeled
+garlic to it would have applied peel loss to something already peeled,
+understating usable product and over-ordering it on every event. Same shape as
+`chopped cilantro` and `diced white onions`, both already `1.0` with
+"purchased pre-chopped; no further trim".
+
+**The thyme variants are the same buy as `thyme`, so they take its `1.0`.**
+`fresh thyme`, `thyme fresh` and `picked thyme` are three spellings of one
+ingredient. Safe to alias precisely because `thyme` carries no trim loss —
+had it carried stem loss, giving it to already-picked thyme would have
+double-counted. Separate seed rows rather than a normalizer change, matching
+how `kosher salt` / `kosher salt diamond crystal` / `kosher salt morton`
+are already handled.
 
 ## Part 1 — 72 ingredients with no yield row
 
@@ -129,27 +145,30 @@ costing error is largest today.
 | `yellow cake mix` | 1 |  |  |  |  |
 | `yukon gold potato` | 1 |  |  |  |  |
 | `ziti noodles` | 1 |  |  |  |  |
-## Part 2 — 12 that may already be covered under another name
+
+## Part 2 — 8 that may already be covered under another name
 
 Each of these has a near-match already in the seed. They are **not** collapsed
-automatically: whether `chopped garlic` shares garlic's yield depends on whether
-it arrives peeled, and if it does not, copying the number under-orders. One
-answer per row closes it — either "same, alias it" or "different, measure it".
+automatically, and the garlic row above is why. One answer per row closes it —
+either "same buy, alias it" or "different, measure it".
+
+Check the base row's value before aliasing. `thyme` is `1.0` with "no trim", so
+the thyme variants could take it directly. `garlic` is `0.87` **because that is
+the peel yield off a whole head** — aliasing pre-peeled garlic to it would have
+charged the peel loss twice and over-ordered. Two rows that look identical in
+this table, opposite answers.
 
 | bom key | already covered as | lines | same purchase form? |
 | --- | --- | ---: | --- |
-| `fresh thyme` | `thyme` | 3 |  |
 | `ground cinnamon` | `cinnamon` | 2 |  |
-| `thyme fresh` | `thyme` | 2 |  |
 | `butter diced or melted` | `melted butter` | 1 |  |
 | `butter melted` | `melted butter` | 1 |  |
-| `chopped garlic` | `garlic` | 1 |  |
 | `fresh cilantro` | `chopped cilantro` | 1 |  |
 | `ground nutmeg` | `nutmeg` | 1 |  |
 | `picked rosemary` | `rosemary` | 1 |  |
 | `picked tarragon` | `tarragon` | 1 |  |
-| `picked thyme` | `thyme` | 1 |  |
 | `white onion` | `diced white onions` | 1 |  |
+
 ## Closing a row
 
 1. Put the value in `data/seeds/ingredient_yields.csv`, with a `source`.
