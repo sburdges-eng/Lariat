@@ -66,23 +66,23 @@ beforeEach(() => {
 function postReq(body) {
   return new Request('http://localhost/api/receiving', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
 
 function getReq(qs = '') {
-  return new Request(`http://localhost/api/receiving${qs}`);
+  return new Request(`http://localhost/api/receiving${qs}`, { headers: { cookie: 'lariat_pin_ok=1' } });
 }
 
 function matchGetReq(qs = '') {
-  return new Request(`http://localhost/api/receiving/matches${qs}`);
+  return new Request(`http://localhost/api/receiving/matches${qs}`, { headers: { cookie: 'lariat_pin_ok=1' } });
 }
 
 function patchMatchReq(id, body) {
   return new Request(`http://localhost/api/receiving/matches/${id}`, {
     method: 'PATCH',
-    headers: { 'content-type': 'application/json' },
+    headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }

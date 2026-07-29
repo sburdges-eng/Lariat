@@ -39,12 +39,12 @@ beforeEach(() => {
 function postReq(body) {
   return new Request('http://localhost/api/pest', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
 function getReq(qs = '') {
-  return new Request(`http://localhost/api/pest${qs}`);
+  return new Request(`http://localhost/api/pest${qs}`, { headers: { cookie: 'lariat_pin_ok=1' } });
 }
 function countLogs() {
   return testDb.prepare('SELECT COUNT(*) AS c FROM pest_control_log').get().c;

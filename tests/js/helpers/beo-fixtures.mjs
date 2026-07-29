@@ -69,18 +69,25 @@ export function clearBeoTables(testDb) {
 
 // ── Request builders ────────────────────────────────────────────────
 
+// /api/beo is PIN-gated. These builders carry the manager credential so the
+// suites exercise the authorized path; before pinRequiredForPic() failed
+// closed they passed only because an unconfigured install opened the gate.
+// The legacy unsigned cookie is accepted when LARIAT_PIN_SECRET is unset and
+// NODE_ENV is not production — see lib/pinCookie.ts.
+const PIN_COOKIE = 'lariat_pin_ok=1';
+
 /** Build a POST /api/beo Request with a JSON body. */
 export function postReq(body) {
   return new Request('http://localhost/api/beo', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', cookie: PIN_COOKIE },
     body: JSON.stringify(body),
   });
 }
 
 /** Build a GET /api/beo Request, optionally with a query string. */
 export function getReq(qs = '') {
-  return new Request(`http://localhost/api/beo${qs}`);
+  return new Request(`http://localhost/api/beo${qs}`, { headers: { cookie: PIN_COOKIE } });
 }
 
 // ── Seed helpers ────────────────────────────────────────────────────

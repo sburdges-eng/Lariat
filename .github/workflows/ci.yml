@@ -35,14 +35,44 @@ jobs:
 
       - run: npm ci
 
+      # lib/devCodeSearch.ts shells out to ripgrep, and returns a distinct
+      # `rg_unavailable` outcome when it is missing — which is what the
+      # runner produced, because rg is not in the ubuntu-latest image.
+      # Installing it means the code_search suite tests the real path here
+      # the way it does on a developer machine, rather than being skipped.
+      - name: install ripgrep (lib/devCodeSearch shells out to rg)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
+
+      # Before the suites, not just before the build: test-discover-route
+      # asserts the stamped V.I.NN.NNN release version rather than the
+      # package.json semver fallback, so it needs version.json to exist.
+      # `prebuild` stamps again for the build itself, which is idempotent.
+      - name: stamp build version (V.I.NN.NNN)
+        run: npm run version:stamp
+
       - name: typecheck
         run: npm run typecheck
+
+      - name: lint
+        run: npm run lint
+
+      # Fails if any tests/js suite exists that `npm run verify` would not
+      # run. 203 suites had drifted into being written but never executed;
+      # this stops that recurring silently.
+      - name: test-suite wiring (orphaned-suite drift detector)
+        run: npm run test:suite-wiring
 
       - name: jest unit tests
         run: npm run test:unit
 
       - name: HACCP rule tests
         run: npm run test:rules
+
+      - name: i18n catalog tests
+        run: npm run test:i18n
+
+      - name: BOH sheet + PIN-coverage tests
+        run: npm run test:boh
 
       - name: purchasing vendor compare + mapping tests
         run: npm run test:purchasing-vendor
@@ -94,6 +124,12 @@ jobs:
       - name: regression — infra/tooling suites
         run: npm run test:regression-infra
 
+      # Own step on purpose: these start a real mDNS responder, and sharing a
+      # `node --test` invocation with test-peers-route lets the responder be
+      # discovered by the suite asserting discovery finds nothing.
+      - name: regression — mDNS suites (isolated responder)
+        run: npm run test:regression-mdns
+
       - name: regression — food-safety + compliance suites
         run: npm run test:regression-foodsafety
 
@@ -131,8 +167,14 @@ jobs:
       - name: regression — shows (XLSX via python venv)
         run: npm run test:regression-shows
 
-      - name: stamp build version (V.I.NN.NNN)
-        run: npm run version:stamp
+      # Publishes a real line/branch/function number and fails below the
+      # floors in scripts/coverage-sweep.mjs. Note the percentage covers files
+      # the suites LOAD — the step also prints loaded-vs-on-disk per directory,
+      # which is where the actual holes show (app/ is ~135 of 364).
+      # Quoted: an unquoted step name containing ": " parses as a nested
+      # mapping and takes the whole workflow file down with it.
+      - name: 'code coverage (floors: line 85 / branch 81 / func 87)'
+        run: npm run coverage -- --check
 
       - name: next build
         run: npm run build

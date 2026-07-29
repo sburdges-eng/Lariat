@@ -174,7 +174,7 @@ describe('getSetupStatus() — per-step detection', () => {
 describe('GET /api/setup/status', () => {
   it('returns the status contract with no-store caching', async () => {
     process.env.LARIAT_PIN = '4242';
-    const res = await statusRoute.GET(new Request('http://localhost/api/setup/status'));
+    const res = await statusRoute.GET(new Request('http://localhost/api/setup/status', { headers: { cookie: 'lariat_pin_ok=1' } }));
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('cache-control'), 'no-store');
     const body = await res.json();
@@ -194,7 +194,7 @@ describe('GET /api/setup/status', () => {
        VALUES ('Lime', 0.4, 'uptown')`,
     ).run();
     const res = await statusRoute.GET(
-      new Request('http://localhost/api/setup/status?location=uptown'),
+      new Request('http://localhost/api/setup/status?location=uptown', { headers: { cookie: 'lariat_pin_ok=1' } }),
     );
     const body = await res.json();
     assert.equal(body.location_id, 'uptown');
@@ -202,11 +202,17 @@ describe('GET /api/setup/status', () => {
   });
 });
 
+// Authorized by default; the gate test opts out with { cookie: null }.
+function stripNullCookie(h) {
+  if (h.cookie === null) delete h.cookie;
+  return h;
+}
+
 function postLocations(body, headers = {}) {
   return locationsRoute.POST(
     new Request('http://localhost/api/locations', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', ...headers },
+      headers: stripNullCookie({ cookie: 'lariat_pin_ok=1', 'content-type': 'application/json', ...headers }),
       body: JSON.stringify(body),
     }),
   );
@@ -215,7 +221,7 @@ function postLocations(body, headers = {}) {
 describe('POST /api/locations', () => {
   it('requires the manager PIN once the PIN gate is configured', async () => {
     managerPinsMod.createManagerPinUser({ name: 'Chef Alex', pin: '4242' });
-    const res = await postLocations({ name: 'Cool River' });
+    const res = await postLocations({ name: 'Cool River' }, { cookie: null });
     assert.equal(res.status, 401);
     const body = await res.json();
     assert.equal(body.error, 'PIN required');
@@ -271,7 +277,7 @@ describe('POST /api/locations', () => {
     const res = await locationsRoute.POST(
       new Request('http://localhost/api/locations', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
         body: 'not json',
       }),
     );

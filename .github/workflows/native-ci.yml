@@ -15,11 +15,25 @@ on:
     paths:
       - 'LariatNative/**'
       - '.github/workflows/native-ci.yml'
+      # Both stacks load these fixtures verbatim — they ARE the parity
+      # oracle, so a JS-side edit to one must re-run the Swift suite.
+      - 'tests/fixtures/**'
+      # Swift trusts schema_migrations.MAX(version) from here as its drift
+      # marker; a schema edit that skips this gate is exactly the silent
+      # divergence the gate was added to catch.
+      - 'lib/db.ts'
   push:
     branches: [main]
     paths:
       - 'LariatNative/**'
       - '.github/workflows/native-ci.yml'
+      # Both stacks load these fixtures verbatim — they ARE the parity
+      # oracle, so a JS-side edit to one must re-run the Swift suite.
+      - 'tests/fixtures/**'
+      # Swift trusts schema_migrations.MAX(version) from here as its drift
+      # marker; a schema edit that skips this gate is exactly the silent
+      # divergence the gate was added to catch.
+      - 'lib/db.ts'
 
 permissions:
   contents: read

@@ -16,8 +16,9 @@
 //      called without the cookie.
 //   2. With a valid HMAC cookie, the route does NOT 401 — it gets to
 //      run its real handler (status varies by handler).
-//   3. With LARIAT_PIN unset, the gate is OFF (LAN-trust mode) — every
-//      route returns non-401.
+//   3. With LARIAT_PIN unset, the gate is still ON — every route 401s.
+//      An install that has not been configured yet must not serve
+//      regulated data; see lib/pin.ts pinRequiredForPic.
 //
 // Run: node --experimental-strip-types --test tests/js/test-pin-defense-in-depth.mjs
 
@@ -151,8 +152,19 @@ describe('PIN gate defense-in-depth — valid HMAC cookie does NOT 401', () => {
   }
 });
 
-describe('PIN gate defense-in-depth — LARIAT_PIN unset = LAN-trust mode = no gate', () => {
-  it('every route returns non-401 when LARIAT_PIN is unset', async () => {
+describe('PIN gate defense-in-depth — an unconfigured install still refuses', () => {
+  // This block asserted the inverse until 2026-07-28: "LARIAT_PIN unset =
+  // LAN-trust mode = no gate", pinning open-by-default as a named invariant
+  // across every route below.
+  //
+  // Every route in ROUTES is manager-tier — costing, analytics,
+  // menu-engineering, BEO, audit, compute. None is a cook-facing read, so
+  // none of them is what LAN-trust was protecting. The cook-facing surfaces
+  // never reach this gate at all: they call no PIN helper, and their
+  // openness is curated in the ALLOWLIST of test-pin-gate-coverage.mjs,
+  // which is unaffected by the flip. That is why the exemption list this
+  // rescope needed turned out to already exist somewhere else.
+  it('every route 401s when nothing is configured', async () => {
     const savedPin = process.env.LARIAT_PIN;
     delete process.env.LARIAT_PIN;
     try {
@@ -160,9 +172,11 @@ describe('PIN gate defense-in-depth — LARIAT_PIN unset = LAN-trust mode = no g
         const url = urlFor(routePath);
         const req = makeReq(method, url);
         const res = await callHandler(routePath, method, req);
-        assert.notStrictEqual(
-          res.status, 401,
-          `${method} ${routePath} 401d in LAN-trust mode (LARIAT_PIN unset)`,
+        assert.ok(
+          res.status === 401 || res.status === 403,
+          `${method} ${routePath} returned ${res.status} on an install with no ` +
+            `PIN configured; expected 401. A fresh install must not serve ` +
+            `regulated data to an unauthenticated caller.`,
         );
       }
     } finally {

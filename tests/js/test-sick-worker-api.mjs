@@ -41,14 +41,14 @@ const T_START = '2026-04-20T08:00:00.000Z';
 function postReq(body) {
   return new Request('http://localhost/api/sick-worker', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
 function patchReq(body) {
   return new Request('http://localhost/api/sick-worker', {
     method: 'PATCH',
-    headers: { 'content-type': 'application/json' },
+    headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
@@ -135,7 +135,7 @@ describe('GET /api/sick-worker', () => {
       action: 'excluded',
       started_at: T_START,
     }));
-    const res = await GET(new Request('http://localhost/api/sick-worker'));
+    const res = await GET(new Request('http://localhost/api/sick-worker', { headers: { cookie: 'lariat_pin_ok=1' } }));
     assert.strictEqual(res.status, 200);
     const body = await res.json();
     assert.strictEqual(body.active.length, 1);

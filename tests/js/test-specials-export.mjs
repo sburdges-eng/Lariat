@@ -175,7 +175,7 @@ const validBody = {
 function jsonRequest(url, method, body) {
   return new Request(url, {
     method,
-    headers: { 'content-type': 'application/json' },
+    headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 }
@@ -235,7 +235,7 @@ describe('POST /api/specials/saved/[id]/export', () => {
 
   it('410s when special is archived', async () => {
     const id = await createOne();
-    await detail.DELETE(new Request(`http://x/api/specials/saved/${id}`, { method: 'DELETE' }), { params: { id } });
+    await detail.DELETE(new Request(`http://x/api/specials/saved/${id}`, { headers: { cookie: 'lariat_pin_ok=1' }, method: 'DELETE' }), { params: { id } });
     const res = await exportRoute.POST(jsonRequest(`http://x/api/specials/saved/${id}/export`, 'POST', exportBody), { params: { id } });
     assert.equal(res.status, 410);
   });

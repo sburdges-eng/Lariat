@@ -59,7 +59,7 @@ function insert({
 }
 
 function getReq(qs) {
-  return new Request(`http://localhost/api/beo/prep-history${qs}`);
+  return new Request(`http://localhost/api/beo/prep-history${qs}`, { headers: { cookie: 'lariat_pin_ok=1' } });
 }
 
 describe('lib/beoPrepHistory.getItemPrepHistory', () => {
