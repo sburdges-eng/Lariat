@@ -32,7 +32,7 @@ function seedPair() {
 describe('GET /api/purchasing/vendor-compare', () => {
   it('returns compare rows', async () => {
     seedPair();
-    const res = await GET(new Request('http://localhost/api/purchasing/vendor-compare'));
+    const res = await GET(new Request('http://localhost/api/purchasing/vendor-compare', { headers: { cookie: 'lariat_pin_ok=1' } }));
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.equal(body.masters_with_both_vendors, 1);

@@ -34,7 +34,7 @@ function seedUnlinkedPair() {
 describe('vendor mapping API', () => {
   it('GET catalog returns chicken rows', async () => {
     seedUnlinkedPair();
-    const res = await getCatalog(new Request('http://localhost/api/purchasing/vendor-catalog?vendor=sysco&q=chicken'));
+    const res = await getCatalog(new Request('http://localhost/api/purchasing/vendor-catalog?vendor=sysco&q=chicken', { headers: { cookie: 'lariat_pin_ok=1' } }));
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.ok(body.rows.length >= 1);
@@ -46,7 +46,7 @@ describe('vendor mapping API', () => {
     const res = await postPair(
       new Request('http://localhost/api/purchasing/vendor-link/pair', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
         body: JSON.stringify({
           syscoKey: { vendor: 'sysco', sku: 'S123', ingredient: 'CHICKEN BREAST B/S' },
           shamrockKey: { vendor: 'shamrock', sku: 'H456', ingredient: 'CHICKEN BRST BNLS' },
@@ -55,7 +55,7 @@ describe('vendor mapping API', () => {
       }),
     );
     assert.equal(res.status, 200);
-    const cmp = await getCompare(new Request('http://localhost/api/purchasing/vendor-compare'));
+    const cmp = await getCompare(new Request('http://localhost/api/purchasing/vendor-compare', { headers: { cookie: 'lariat_pin_ok=1' } }));
     const cmpBody = await cmp.json();
     assert.equal(cmpBody.masters_with_both_vendors, 1);
   });
@@ -73,7 +73,7 @@ describe('vendor mapping API', () => {
     const res = await postAttach(
       new Request('http://localhost/api/purchasing/vendor-link/attach', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
         body: JSON.stringify({
           masterId: 'avocado',
           catalogKey: { vendor: 'shamrock', sku: 'H1', ingredient: 'Avocado Hass' },
@@ -81,7 +81,7 @@ describe('vendor mapping API', () => {
       }),
     );
     assert.equal(res.status, 200);
-    const cmp = await getCompare(new Request('http://localhost/api/purchasing/vendor-compare'));
+    const cmp = await getCompare(new Request('http://localhost/api/purchasing/vendor-compare', { headers: { cookie: 'lariat_pin_ok=1' } }));
     const cmpBody = await cmp.json();
     assert.equal(cmpBody.masters_with_both_vendors, 1);
   });

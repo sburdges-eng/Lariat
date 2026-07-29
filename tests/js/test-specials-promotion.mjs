@@ -67,7 +67,7 @@ function seedIngredientDensity(ingredient_key, g_per_ml) {
 function jsonRequest(url, body, method = 'POST') {
   return new Request(url, {
     method,
-    headers: { 'content-type': 'application/json' },
+    headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
@@ -104,7 +104,7 @@ function seedDefaultVendors(location_id = 'default') {
 async function promoteSpecial(id, body, qs = '') {
   const url = `http://x/api/specials/saved/${id}/promote${qs}`;
   const req = body === undefined
-    ? new Request(url, { method: 'POST' })
+    ? new Request(url, { headers: { cookie: 'lariat_pin_ok=1' }, method: 'POST' })
     : jsonRequest(url, body);
   return promote.POST(req, { params: { id } });
 }
@@ -357,7 +357,11 @@ describe('gating and failure modes', () => {
     const id = await createSpecial();
     process.env.LARIAT_PIN = '1234';
     try {
-      const res = await promoteSpecial(id, { servings: 1 });
+      const res = await promote.POST(new Request(`http://x/api/specials/saved/${id}/promote`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ servings: 1 }),
+      }), { params: { id } });
       assert.equal(res.status, 401);
       const data = await res.json();
       assert.equal(data.error, 'unauthorized');

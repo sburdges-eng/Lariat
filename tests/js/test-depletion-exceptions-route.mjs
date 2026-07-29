@@ -29,7 +29,7 @@ beforeEach(() => {
 });
 
 function getReq(qs = '') {
-  return new Request(`http://localhost/api/costing/depletion-exceptions${qs}`);
+  return new Request(`http://localhost/api/costing/depletion-exceptions${qs}`, { headers: { cookie: 'lariat_pin_ok=1' } });
 }
 
 describe('GET /api/costing/depletion-exceptions', () => {

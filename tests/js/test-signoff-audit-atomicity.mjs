@@ -57,7 +57,7 @@ beforeEach(() => {
 function postReq(url, body, { idempotencyKey } = {}) {
   const headers = { 'content-type': 'application/json' };
   if (idempotencyKey) headers['idempotency-key'] = idempotencyKey;
-  return new Request(url, {
+  return new Request(url, { headers: { cookie: 'lariat_pin_ok=1' },
     method: 'POST',
     headers,
     body: JSON.stringify(body),

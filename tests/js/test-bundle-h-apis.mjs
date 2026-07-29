@@ -82,13 +82,13 @@ beforeEach(() => {
 function postReq(url, body) {
   return new Request(url, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { cookie: 'lariat_pin_ok=1', 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
 
 function getReq(url) {
-  return new Request(url, { method: 'GET' });
+  return new Request(url, { headers: { cookie: 'lariat_pin_ok=1' }, method: 'GET' });
 }
 
 function countRows(table, where = '') {
