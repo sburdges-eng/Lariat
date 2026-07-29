@@ -16,8 +16,15 @@ import process from 'node:process';
 export interface OrderGuideRow {
   ingredient: string;
   unit: string;
+  /**
+   * Leaf quantity for the FLOORED batches on the prep board, not for linear
+   * consumption — the guide buys what the board says to make. 50 Nashville
+   * Sliders eat 3.1 qt of a 12 qt coleslaw batch; the board says make the
+   * batch, so this asks for its whole 10 qt of cabbage.
+   */
   total_needed: number;
   on_hand: number;
+  /** `total_needed` less `on_hand`, floored at zero. */
   to_order: number;
 }
 
@@ -27,9 +34,14 @@ export interface PrepDemandRow {
   /** What the event eats. Linear, and what a food-cost figure is built from. */
   qty: number;
   unit: string;
-  /** What to buy: whole batches, rounded up, never fewer than one. */
+  /**
+   * What to buy: whole batches, rounded up, never fewer than one — but only
+   * where a batch is a real measure. A recipe yielding in `ea`, `case`,
+   * `portion` or `hotel pan` is a count, not a batch you mix, and comes back
+   * linear (20 of a 60-piece batch is 20 pieces).
+   */
   order_qty: number;
-  /** What to make: half-batch granularity, rounded up. */
+  /** What to make: half-batch granularity, rounded up. Same scope as `order_qty`. */
   prep_qty: number;
   /** One batch of this recipe, so a surface can render "0.5 batch". */
   batch_qty: number;

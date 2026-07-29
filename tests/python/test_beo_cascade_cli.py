@@ -384,5 +384,147 @@ class BeoCascadeCLIIntegration(unittest.TestCase):
         self.assertIn("error", out)
 
 
+class OrderGuideMatchesThePrepBoard(unittest.TestCase):
+    """One event, one answer to "what do I buy".
+
+    build_cascade used to feed its two channels from different walkers: the
+    order guide off the raw linear demand, the prep board off the floored one.
+    A manager buying from the guide could not make what the board said to make.
+    """
+
+    def setUp(self) -> None:
+        self.manifest = _manifest()
+        self.beo_map = {"queso dip": ["queso_blanco"]}
+
+    def _guide(self, result):
+        return {row["ingredient"]: row for row in result["order_guide"]}
+
+    def _prep(self, result):
+        return {row["recipe_slug"]: row for row in result["prep_demands"]}
+
+    def test_the_order_guide_derives_from_the_floored_batch(self) -> None:
+        # One Queso Dip needs 2 qt of a 4 qt salsa batch. You make the batch,
+        # so you buy its tomatoes: 2 lb, not the 1 lb the event eats.
+        result = build_cascade(
+            self.manifest, self.beo_map, [{"item_name": "Queso Dip", "quantity": 1}]
+        )
+        guide = self._guide(result)
+        self.assertAlmostEqual(guide["roma tomatoes"]["total_needed"], 2.0)
+        self.assertAlmostEqual(guide["jalapeño"]["total_needed"], 0.5)
+
+    def test_the_two_channels_agree_on_one_event(self) -> None:
+        """The point of the change, in one assertion.
+
+        4 qt of salsa is exactly 2 lb of tomatoes. If the prep row says order
+        a 4 qt batch, the guide has to buy for a 4 qt batch.
+        """
+        result = build_cascade(
+            self.manifest, self.beo_map, [{"item_name": "Queso Dip", "quantity": 1}]
+        )
+        salsa = self._prep(result)["salsa_roja"]
+        guide = self._guide(result)
+        self.assertAlmostEqual(salsa["order_qty"], 4.0)
+        batches = salsa["order_qty"] / salsa["batch_qty"]
+        self.assertAlmostEqual(guide["roma tomatoes"]["total_needed"], 2.0 * batches)
+
+    def test_consumption_is_untouched_by_the_guide_change(self) -> None:
+        # qty is the food-cost figure and stays linear.
+        result = build_cascade(
+            self.manifest, self.beo_map, [{"item_name": "Queso Dip", "quantity": 1}]
+        )
+        prep = self._prep(result)
+        self.assertAlmostEqual(prep["queso_blanco"]["qty"], 8.0)
+        self.assertAlmostEqual(prep["salsa_roja"]["qty"], 2.0)
+
+    def test_on_hand_subtracts_from_the_floored_total(self) -> None:
+        result = build_cascade(
+            self.manifest,
+            self.beo_map,
+            [{"item_name": "Queso Dip", "quantity": 1}],
+            inventory={("roma tomatoes", "lb"): 1.0},
+        )
+        row = self._guide(result)["roma tomatoes"]
+        self.assertAlmostEqual(row["total_needed"], 2.0)
+        self.assertAlmostEqual(row["on_hand"], 1.0)
+        self.assertAlmostEqual(row["to_order"], 1.0)
+
+    def test_an_exact_batch_event_does_not_move(self) -> None:
+        # Two Queso Dips need 4 qt of salsa — exactly one batch either way.
+        result = build_cascade(
+            self.manifest, self.beo_map, [{"item_name": "Queso Dip", "quantity": 2}]
+        )
+        guide = self._guide(result)
+        self.assertAlmostEqual(guide["roma tomatoes"]["total_needed"], 2.0)
+        self.assertAlmostEqual(guide["white american cheese"]["total_needed"], 6.0)
+
+
+class AMappingThatConsumesNothing(unittest.TestCase):
+    """A per_count of 0 means "on the menu, eats none of this recipe".
+
+    The batch floor used to turn that zero into one whole batch, so an event
+    that ate no queso still bought every ingredient for a batch of it. Once the
+    engine honours the zero, the guide must not print the leftover "order 0"
+    rows either — on a board a cook reads at a glance they are clutter, and a
+    zero row for an ingredient that also appears at a real quantity in another
+    unit reads as a contradiction.
+    """
+
+    def setUp(self) -> None:
+        self.manifest = _manifest()
+        self.beo_map = {"queso dip": ["queso_blanco"]}
+        self.zeroed = {("queso dip", "queso_blanco"): 0.0}
+
+    def _guide(self, result):
+        return {row["ingredient"]: row for row in result["order_guide"]}
+
+    def test_a_zeroed_mapping_buys_nothing_at_all(self) -> None:
+        result = build_cascade(
+            self.manifest, self.beo_map,
+            [{"item_name": "Queso Dip", "quantity": 40}],
+            scales=self.zeroed,
+        )
+        self.assertEqual(result["order_guide"], [])
+
+    def test_the_same_event_without_the_zero_still_buys(self) -> None:
+        # Control: the filter must key off the zero, not silence the guide.
+        result = build_cascade(
+            self.manifest, self.beo_map, [{"item_name": "Queso Dip", "quantity": 40}]
+        )
+        self.assertAlmostEqual(self._guide(result)["roma tomatoes"]["total_needed"], 40.0)
+
+    def test_a_row_the_walk_in_already_covers_is_still_shown(self) -> None:
+        # to_order 0 is NOT the same as needing none. The cook still wants to
+        # see that the batch takes 2 lb of tomatoes and the walk-in has them,
+        # so the filter keys off total_needed, never off to_order.
+        result = build_cascade(
+            self.manifest, self.beo_map,
+            [{"item_name": "Queso Dip", "quantity": 1}],
+            inventory={("roma tomatoes", "lb"): 99.0},
+        )
+        row = self._guide(result)["roma tomatoes"]
+        self.assertAlmostEqual(row["total_needed"], 2.0)
+        self.assertAlmostEqual(row["to_order"], 0.0)
+
+    def test_a_zeroed_mapping_shows_nothing_on_the_prep_board(self) -> None:
+        # "Make 0 qt of green chilli" is not an instruction — it is a line the
+        # cook has to read and discard. Nothing to buy and nothing to make
+        # means the recipe does not belong on the board at all.
+        result = build_cascade(
+            self.manifest, self.beo_map,
+            [{"item_name": "Queso Dip", "quantity": 40}],
+            scales=self.zeroed,
+        )
+        self.assertEqual(result["prep_demands"], [])
+
+    def test_the_same_event_without_the_zero_still_preps(self) -> None:
+        # Control: the parent AND its sub-recipe both still reach the board.
+        result = build_cascade(
+            self.manifest, self.beo_map, [{"item_name": "Queso Dip", "quantity": 40}]
+        )
+        slugs = {r["recipe_slug"] for r in result["prep_demands"]}
+        self.assertIn("queso_blanco", slugs)
+        self.assertIn("salsa_roja", slugs)
+
+
 if __name__ == "__main__":
     unittest.main()

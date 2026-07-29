@@ -18,6 +18,7 @@ from typing import Iterable
 from scripts.lib.bom_expand import (
     Manifest,
     aggregate_demand,
+    aggregate_order_demand,
 )
 
 
@@ -209,6 +210,7 @@ def pull_orders(
     demand: list[tuple[str, float, str]],
     inventory: dict[tuple[str, str], float] | None = None,
     warnings: list[str] | None = None,
+    granularity: float | None = None,
 ) -> list[OrderLine]:
     """Aggregate demand across recipes (with sub-recipe cascade) and
     subtract on-hand inventory. Returns one OrderLine per leaf
@@ -217,8 +219,22 @@ def pull_orders(
     `inventory` is a dict keyed by `(ingredient_name_lower, unit_lower)`
     for precision. Callers that only have ingredient names can pass
     `(name_lower, "")` and we'll match regardless of unit as a fallback.
+
+    `granularity` selects the batch model. `None` (the default) keeps the
+    linear consumption figure — what the demand actually eats. A float (1.0
+    for whole batches) derives `total_needed` from the FLOORED batch counts
+    instead, so the guide buys the ingredients for the batches the prep board
+    says to make. `on_hand` subtracts from whichever figure was chosen.
+
+    Opt-in rather than automatic: scripts/beo_order_pull.py and the Swift
+    parity fixtures in scripts/dev/export_beo_fixtures.py both want the linear
+    figure, and only the BEO cascade wants the floored one.
     """
-    totals = aggregate_demand(manifest, demand, warnings=warnings)
+    totals = (
+        aggregate_demand(manifest, demand, warnings=warnings)
+        if granularity is None
+        else aggregate_order_demand(manifest, demand, granularity, warnings=warnings)
+    )
     out: list[OrderLine] = []
     for (ing, unit), qty in totals.items():
         on_hand = _lookup_inventory(inventory, ing, unit) if inventory else 0.0
