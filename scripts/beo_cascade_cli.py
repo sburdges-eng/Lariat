@@ -20,13 +20,19 @@ Output (stdout, JSON):
         "order_guide":  [{"ingredient": "flour", "unit": "lb",
                           "total_needed": 10.0, "on_hand": 5.0, "to_order": 5.0}],
         "prep_demands": [{"recipe_slug": "beer_batter", "display_name": "Beer Batter",
-                          "qty": 4.0, "unit": "qt"}],
+                          "qty": 4.0, "unit": "qt", "order_qty": 4.0,
+                          "prep_qty": 4.0, "batch_qty": 4.0}],
+
+    On a prep_demand row: `qty` is what the event eats, `order_qty` is what to
+    buy (whole batches, never fewer than one), `prep_qty` is what to make
+    (half-batch granularity), `batch_qty` is one batch of that recipe.
         "unmapped":     [{"menu_item": "Mystery Dish",
                           "reason": "not in beo_recipe_map and no direct recipe match"}]
     }
 
 On failure: {"error": "..."} to stdout, exit non-zero.
 """
+
 from __future__ import annotations
 
 import json
@@ -46,6 +52,7 @@ from scripts.lib.bom_expand import (  # noqa: E402
     UnknownRecipeError,
     build_manifest_from_normalized,
     expand_recipe_demand,
+    expand_recipe_orders,
     find_manifest_warnings,
 )
 from scripts.lib.beo_pull import (  # noqa: E402
@@ -140,8 +147,17 @@ def build_cascade(
         for ol in order_lines
     ]
 
-    # Prep board (per-recipe nodes — parents AND sub-recipes)
+    # Prep board (per-recipe nodes — parents AND sub-recipes).
+    #
+    # Three quantities, because they answer three different questions and a
+    # kitchen needs all of them: `qty` is what the event eats (linear, and
+    # what a food-cost figure is built from), `order_qty` is what to buy
+    # (whole batches, never fewer than one), `prep_qty` is what to make
+    # (half-batch granularity). See
+    # docs/superpowers/specs/2026-07-28-beo-batch-ordering-design.md.
     nodes = expand_recipe_demand(manifest, demand, warnings=cascade_warnings)
+    orders = expand_recipe_orders(manifest, demand, 1.0, warnings=cascade_warnings)
+    preps = expand_recipe_orders(manifest, demand, 0.5, warnings=cascade_warnings)
     prep_demands = sorted(
         [
             {
@@ -149,6 +165,11 @@ def build_cascade(
                 "display_name": manifest[slug].display_name,
                 "qty": qty,
                 "unit": unit,
+                "order_qty": orders.get((slug, unit), qty),
+                "prep_qty": preps.get((slug, unit), qty),
+                # Batch size, so a surface can render "0.5 batch" rather than
+                # making the reader divide.
+                "batch_qty": manifest[slug].yield_qty,
             }
             for (slug, unit), qty in nodes.items()
         ],

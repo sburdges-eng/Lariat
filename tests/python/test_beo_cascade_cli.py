@@ -184,6 +184,41 @@ class BuildCascadeUnit(unittest.TestCase):
         self.assertIn("queso_blanco", slugs)
         self.assertIn("salsa_roja", slugs)
 
+    def test_prep_demands_carry_order_and_prep_quantities(self) -> None:
+        """The payload is the contract native and the web edge both read.
+
+        Three quantities, because they answer three questions: what the
+        event eats, what to buy, what to make. A cook reads prep and a
+        manager reads order, so both must be on the row.
+        """
+        result = build_cascade(
+            self.manifest,
+            self.beo_map,
+            [{"item_name": "Queso Dip", "quantity": 2}],
+        )
+        for row in result["prep_demands"]:
+            for field in ("qty", "order_qty", "prep_qty", "batch_qty"):
+                self.assertIn(field, row, msg=f"{row['recipe_slug']} missing {field}")
+            # Ordering is whole batches and never below one.
+            self.assertGreaterEqual(row["order_qty"], row["batch_qty"] - 1e-9)
+            # You never buy or make less than the event eats.
+            self.assertGreaterEqual(row["order_qty"], row["qty"] - 1e-9)
+            self.assertGreaterEqual(row["prep_qty"], row["qty"] - 1e-9)
+            # Prep is never more than order — half batches sit inside whole ones.
+            self.assertLessEqual(row["prep_qty"], row["order_qty"] + 1e-9)
+
+    def test_a_part_batch_still_orders_a_whole_one(self) -> None:
+        """The case the rule exists for: a quarter batch is still a batch."""
+        result = build_cascade(
+            self.manifest,
+            self.beo_map,
+            [{"item_name": "Queso Dip", "quantity": 1}],
+        )
+        by_slug = {r["recipe_slug"]: r for r in result["prep_demands"]}
+        salsa = by_slug["salsa_roja"]
+        self.assertLess(salsa["qty"], salsa["batch_qty"], "fixture should need a part batch")
+        self.assertAlmostEqual(salsa["order_qty"], salsa["batch_qty"])
+
     def test_prep_demands_display_name_and_qty(self) -> None:
         """prep_demands row has correct display_name and qty."""
         result = build_cascade(

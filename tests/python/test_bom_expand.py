@@ -28,6 +28,7 @@ from scripts.lib.bom_expand import (  # noqa: E402
     build_manifest,
     expand_recipe,
     expand_recipe_demand,
+    expand_recipe_orders,
     find_manifest_warnings,
 )
 
@@ -570,3 +571,75 @@ class ManifestWarnings(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BatchOrdering(unittest.TestCase):
+    """Whole-batch ordering for banquets — docs/superpowers/specs/2026-07-28.
+
+    A kitchen orders and preps in batches. The cascade used to hand back a
+    fraction nobody can make, or — where a mapping carried no per_count — a
+    whole batch multiplied by the piece count.
+    """
+
+    def _man(self):
+        # slaw: no subs, 12 qt a batch. rub: 2 cup a batch, needs 1 cup of
+        # base. oil: 2 qt a batch, also needs base. base is therefore shared
+        # by two parents, which is the case that breaks naive rounding.
+        return {
+            "slaw": _mk("slaw", "Slaw", 12, "qt", bom=[("cabbage", 8, "qt", False)]),
+            "base": _mk("base", "Base Rub", 4, "cup", bom=[("paprika", 2, "cup", False)]),
+            "rub": _mk("rub", "Hot Rub", 2, "cup",
+                       sub_recipe_slugs=["base"],
+                       bom=[("base", 1, "cup", True)]),
+            "oil": _mk("oil", "Hot Oil", 2, "qt",
+                       sub_recipe_slugs=["base"],
+                       bom=[("base", 0.5, "cup", True)]),
+        }
+
+    def test_rounds_a_part_batch_up_to_one(self):
+        # 3.12 qt of a 12 qt batch is a quarter batch; you still make one.
+        out = expand_recipe_orders(self._man(), [("slaw", 3.12, "qt")])
+        self.assertAlmostEqual(out[("slaw", "qt")], 12.0)
+
+    def test_rounds_up_to_whole_batches_above_one(self):
+        out = expand_recipe_orders(self._man(), [("slaw", 30.0, "qt")])
+        self.assertAlmostEqual(out[("slaw", "qt")], 36.0)  # 2.5 -> 3 batches
+
+    def test_an_exact_batch_is_not_rounded_up(self):
+        out = expand_recipe_orders(self._man(), [("slaw", 12.0, "qt")])
+        self.assertAlmostEqual(out[("slaw", "qt")], 12.0)
+
+    def test_half_batch_granularity_for_prep(self):
+        # Prep can make a half batch, so a quarter batch rounds to a half...
+        out = expand_recipe_orders(self._man(), [("slaw", 3.12, "qt")], granularity=0.5)
+        self.assertAlmostEqual(out[("slaw", "qt")], 6.0)
+        # ...but 0.78 of a batch rounds UP to a full one, never down to 0.5,
+        # which would make less than the event eats.
+        out = expand_recipe_orders(self._man(), [("slaw", 9.4, "qt")], granularity=0.5)
+        self.assertAlmostEqual(out[("slaw", "qt")], 12.0)
+
+    def test_a_sub_recipe_derives_from_its_parents_rounded_figure(self):
+        # One rub batch needs 1 cup of base; base is a 4 cup batch, so the
+        # rounded parent still only needs a quarter batch -> one batch.
+        out = expand_recipe_orders(self._man(), [("rub", 0.5, "cup")])
+        self.assertAlmostEqual(out[("rub", "cup")], 2.0)
+        self.assertAlmostEqual(out[("base", "cup")], 4.0)
+
+    def test_a_shared_sub_recipe_is_summed_before_it_is_rounded(self):
+        # THE case. rub and oil each pull base. Rounding per branch would
+        # order two batches of base; their combined 1.5 cup fits in one.
+        out = expand_recipe_orders(
+            self._man(), [("rub", 0.5, "cup"), ("oil", 0.5, "qt")]
+        )
+        self.assertAlmostEqual(out[("base", "cup")], 4.0, msg="should be ONE batch of base")
+
+    def test_consumption_is_left_alone(self):
+        # expand_recipe_demand answers a different question and must stay
+        # linear — it is what a food-cost number is built from.
+        out = expand_recipe_demand(self._man(), [("slaw", 3.12, "qt")])
+        self.assertAlmostEqual(out[("slaw", "qt")], 3.12)
+
+    def test_a_batch_is_never_multiplied_by_a_piece_count(self):
+        # 50 sliders each needing a trace of a 4 cup bin is one bin, not 50.
+        out = expand_recipe_orders(self._man(), [("base", 0.02, "cup")] * 50)
+        self.assertAlmostEqual(out[("base", "cup")], 4.0)

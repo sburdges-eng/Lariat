@@ -24,8 +24,15 @@ export interface OrderGuideRow {
 export interface PrepDemandRow {
   recipe_slug: string;
   display_name: string;
+  /** What the event eats. Linear, and what a food-cost figure is built from. */
   qty: number;
   unit: string;
+  /** What to buy: whole batches, rounded up, never fewer than one. */
+  order_qty: number;
+  /** What to make: half-batch granularity, rounded up. */
+  prep_qty: number;
+  /** One batch of this recipe, so a surface can render "0.5 batch". */
+  batch_qty: number;
 }
 
 export interface UnmappedRow {
@@ -199,6 +206,11 @@ function parseCascadeResponse(raw: string): CascadeResult {
     display_name: String(row.display_name ?? ''),
     qty: Number(row.qty ?? 0),
     unit: String(row.unit ?? ''),
+    // Fall back to consumption when the CLI predates these fields, so an
+    // older cascade payload still renders rather than showing zeroes.
+    order_qty: Number(row.order_qty ?? row.qty ?? 0),
+    prep_qty: Number(row.prep_qty ?? row.qty ?? 0),
+    batch_qty: Number(row.batch_qty ?? 0),
   }));
 
   const unmapped: UnmappedRow[] = (obj.unmapped as Array<Record<string, unknown>>).map((row) => ({
