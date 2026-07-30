@@ -424,17 +424,23 @@ describe('boh sheets — every control belongs to exactly one block', () => {
 });
 
 describe('boh service date', () => {
+  it('uses the venue day on a UTC server', () => {
+    // 02:30Z is still dinner on July 26 in Colorado. The server's own
+    // timezone must not decide which sheet key a cook gets.
+    assert.equal(serviceDateISO(new Date('2026-07-27T02:30:00.000Z')), '2026-07-26');
+  });
+
   it('uses the venue local day, not the UTC day', () => {
-    // 8pm on 26 July local is still the 26th of July to a cook working
+    // 8:30pm on 26 January local is still the 26th to a cook working
     // dinner. A UTC slice would call it the 27th and hand them a blank
     // day plan mid-service.
-    const evening = new Date(2026, 6, 26, 20, 30, 0);
-    assert.equal(serviceDateISO(evening), '2026-07-26');
+    const evening = new Date('2026-01-27T03:30:00.000Z');
+    assert.equal(serviceDateISO(evening), '2026-01-26');
   });
 
   it('rolls at local midnight', () => {
-    assert.equal(serviceDateISO(new Date(2026, 6, 26, 23, 59, 0)), '2026-07-26');
-    assert.equal(serviceDateISO(new Date(2026, 6, 27, 0, 1, 0)), '2026-07-27');
+    assert.equal(serviceDateISO(new Date('2026-07-27T05:59:00.000Z')), '2026-07-26');
+    assert.equal(serviceDateISO(new Date('2026-07-27T06:01:00.000Z')), '2026-07-27');
   });
 
   it('zero-pads so keys sort', () => {
