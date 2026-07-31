@@ -797,8 +797,29 @@ function generateStandardTempPoints() {
 // ---------------------------------------------------------------------------
 // 5. Build vendor summary
 // ---------------------------------------------------------------------------
-function buildVendorSummary() {
+/**
+ * Rebuild the vendor summary from CSV exports, merged over whatever the
+ * existing cache already holds.
+ *
+ * `existing` is load-bearing, not an optimization. Two ingests append to
+ * `vendor_summary.json` — `ingest_sysco_order_emails.py` and
+ * `ingest_sysco_invoice_pdfs.py` — and neither of their sources is a CSV this
+ * function reads. Returning a freshly-built object discarded their rows on
+ * every run, and `docs/OPERATIONS.md` lists `npm run rebuild-cache` as the
+ * per-delivery Sysco step. With none of the source CSVs present in the repo
+ * that meant writing an empty summary over the whole invoice record.
+ *
+ * The rule is additive: a rebuild may add rows and refresh the catalog, but it
+ * never drops a transactional row it has no source for. CSV rows win on
+ * conflict — a corrected export should be able to fix a bad line — and the key
+ * is `invoice|description`, matching the ingests' own idempotency key.
+ */
+export function buildVendorSummary(existing = {}) {
   console.log('  Building vendor summary...');
+
+  const prior = existing?.sysco ?? {};
+  const priorItems = Array.isArray(prior.recent_items) ? prior.recent_items : [];
+  const priorCatalog = Array.isArray(prior.catalog) ? prior.catalog : [];
 
   const catalog = [];
   const recentItems = [];
@@ -878,14 +899,47 @@ function buildVendorSummary() {
   // WebstaurantStore — vendor total only (no line-item export available)
   const webstaurant = buildWebstaurantSummary();
 
+  // Merge: prior rows first, CSV rows overwrite on the same key.
+  const key = (row) => `${row?.invoice ?? ''}|${row?.description ?? ''}`;
+  const merged = new Map(priorItems.map((row) => [key(row), row]));
+  for (const row of recentItems) merged.set(key(row), row);
+  const mergedItems = [...merged.values()];
+
+  // A newer date always wins; an absent CSV must not roll the date backwards.
+  const priorDate = prior.last_invoice_date || '';
+  const newestDate = [lastInvoiceDate, priorDate]
+    .filter(Boolean)
+    .sort(compareUsDate)
+    .pop() || null;
+
+  if (mergedItems.length > recentItems.length) {
+    console.log(
+      `    Preserved ${mergedItems.length - recentItems.length} ingested line item(s) ` +
+      'with no CSV source (order-email / invoice-PDF ingests)',
+    );
+  }
+
   return {
+    // Preserve vendor keys this script has no builder for, so adding an ingest
+    // for a new vendor does not require touching rebuild-cache to stay safe.
+    ...existing,
     sysco: {
-      recent_items: recentItems,
-      catalog,
-      last_invoice_date: lastInvoiceDate || null,
+      ...prior,
+      recent_items: mergedItems,
+      catalog: catalog.length > 0 ? catalog : priorCatalog,
+      last_invoice_date: newestDate,
     },
     ...(webstaurant ? { webstaurantstore: webstaurant } : {}),
   };
+}
+
+/** Sort comparator for 'M/D/YYYY' strings. Unparseable sorts oldest. */
+function compareUsDate(a, b) {
+  const parse = (d) => {
+    const [m, day, y] = String(d).split('/');
+    return (Number(y) || 0) * 10000 + (Number(m) || 0) * 100 + (Number(day) || 0);
+  };
+  return parse(a) - parse(b);
 }
 
 function buildWebstaurantSummary() {
@@ -1078,10 +1132,25 @@ function main() {
   );
   console.log(`  Wrote food_safety.json (${foodSafety.ccps.length} CCPs, ${foodSafety.temp_monitoring.length} temp points)`);
 
-  // 5. Vendor summary
-  const vendorSummary = buildVendorSummary();
+  // 5. Vendor summary — read before write. The ingests append here and their
+  //    sources are not CSVs this script can re-read; see buildVendorSummary.
+  const vendorSummaryPath = path.join(CACHE, 'vendor_summary.json');
+  let existingVendorSummary = {};
+  if (fs.existsSync(vendorSummaryPath)) {
+    try {
+      existingVendorSummary = JSON.parse(fs.readFileSync(vendorSummaryPath, 'utf-8'));
+    } catch (err) {
+      // Refuse to overwrite a file we could not read. Silently treating an
+      // unparseable cache as empty is how the invoice record disappears.
+      throw new Error(
+        `vendor_summary.json exists but could not be parsed (${err.message}). ` +
+        'Refusing to overwrite it — move it aside to rebuild from scratch.',
+      );
+    }
+  }
+  const vendorSummary = buildVendorSummary(existingVendorSummary);
   fs.writeFileSync(
-    path.join(CACHE, 'vendor_summary.json'),
+    vendorSummaryPath,
     JSON.stringify(vendorSummary, null, 2)
   );
   console.log(`  Wrote vendor_summary.json`);
