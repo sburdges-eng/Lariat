@@ -115,7 +115,8 @@ describe('computeActualCogsBreakdown', () => {
     const r = computeActualCogsBreakdown(db, 'default', '2026-03', '2026-03');
     assert.strictEqual(r.total, 350);
     assert.deepStrictEqual(r.per_vendor, [
-      { vendor: 'shamrock', source: 'shamrock_invoices', amount: 350 },
+      // basis 'estimated': shamrock_invoices holds order-confirmation exports.
+      { vendor: 'shamrock', source: 'shamrock_invoices', amount: 350, basis: 'estimated' },
     ]);
   });
 
@@ -128,7 +129,7 @@ describe('computeActualCogsBreakdown', () => {
     const r = computeActualCogsBreakdown(db, 'default', '2026-03', '2026-03');
     assert.strictEqual(r.total, 1234.56);
     assert.deepStrictEqual(r.per_vendor, [
-      { vendor: 'shamrock', source: 'spend_monthly', amount: 1234.56 },
+      { vendor: 'shamrock', source: 'spend_monthly', amount: 1234.56, basis: 'estimated' },
     ]);
   });
 
@@ -233,6 +234,84 @@ describe('computeActualCogsBreakdown', () => {
 });
 
 // ── computeAccountingVariance — persistence + breakdown JSON ────────
+
+// ── doc_type: order confirmations vs invoices ───────────────────────
+//
+// sysco_invoices gained a doc_type column when ingest_sysco_order_emails.py
+// started writing to it. Sysco splits one submission into several orders billed
+// on separate invoices, so the same delivery can reach this table twice — once
+// under an order number (04xxxxxx) and later under an invoice number
+// (759xxxxxx). Those namespaces never collide, so the rows cannot be matched;
+// the roll-up counts one document type per vendor-month instead.
+//
+// Precedence is invoice over order confirmation: an invoice is what we were
+// billed, a confirmation is what we asked for.
+
+function ensureSyscoInvoicesWithDocType(db) {
+  ensureSyscoInvoices(db);
+  db.exec(`ALTER TABLE sysco_invoices ADD COLUMN doc_type TEXT NOT NULL DEFAULT 'invoice'`);
+}
+
+const addSyscoRow = (db, invoiceNo, date, desc, total, docType) =>
+  db.prepare(
+    `INSERT INTO sysco_invoices (invoice_no, delivery_date, description, line_total, doc_type)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(invoiceNo, date, desc, total, docType);
+
+describe('computeActualCogsBreakdown — doc_type precedence', () => {
+  it('counts order confirmations when no invoice covers the month', () => {
+    ensureSyscoInvoicesWithDocType(db);
+    addSyscoRow(db, '04488128', '2026-04-09', 'Yuzu Kosho', 59.84, 'order_confirmation');
+    const r = computeActualCogsBreakdown(db, 'default', '2026-04', '2026-04');
+    assert.strictEqual(r.total, 59.84);
+  });
+
+  it('does NOT sum invoices and order confirmations in the same month', () => {
+    ensureSyscoInvoicesWithDocType(db);
+    addSyscoRow(db, '759616979', '2026-04-09', 'Billed Line', 100.0, 'invoice');
+    addSyscoRow(db, '04488128', '2026-04-09', 'Ordered Line', 59.84, 'order_confirmation');
+    const r = computeActualCogsBreakdown(db, 'default', '2026-04', '2026-04');
+    assert.strictEqual(
+      r.total, 100.0,
+      'invoice must win outright; summing both double-counts one delivery',
+    );
+  });
+
+  it('resolves precedence per month, not across the whole window', () => {
+    ensureSyscoInvoicesWithDocType(db);
+    // March billed; April only confirmed. Both months should count, each on
+    // its own best available basis.
+    addSyscoRow(db, '759616979', '2026-03-09', 'March Billed', 100.0, 'invoice');
+    addSyscoRow(db, '04488128', '2026-04-09', 'April Ordered', 59.84, 'order_confirmation');
+    const r = computeActualCogsBreakdown(db, 'default', '2026-03', '2026-04');
+    assert.strictEqual(r.total, 159.84);
+  });
+
+  it('labels the basis so an estimated month is never mistaken for billed', () => {
+    ensureSyscoInvoicesWithDocType(db);
+    addSyscoRow(db, '04488128', '2026-04-09', 'Yuzu Kosho', 59.84, 'order_confirmation');
+    const r = computeActualCogsBreakdown(db, 'default', '2026-04', '2026-04');
+    const sysco = r.per_vendor.find((l) => l.vendor === 'sysco');
+    assert.strictEqual(sysco.basis, 'estimated');
+  });
+
+  it('labels an invoice-backed month as billed', () => {
+    ensureSyscoInvoicesWithDocType(db);
+    addSyscoRow(db, '759616979', '2026-04-09', 'Billed Line', 100.0, 'invoice');
+    const r = computeActualCogsBreakdown(db, 'default', '2026-04', '2026-04');
+    assert.strictEqual(r.per_vendor.find((l) => l.vendor === 'sysco').basis, 'invoice');
+  });
+
+  it('tolerates a pre-migration table with no doc_type column', () => {
+    ensureSyscoInvoices(db); // no doc_type
+    db.prepare(
+      `INSERT INTO sysco_invoices (invoice_no, delivery_date, description, line_total)
+       VALUES ('759616979', '2026-04-09', 'Legacy Row', 77.0)`,
+    ).run();
+    const r = computeActualCogsBreakdown(db, 'default', '2026-04', '2026-04');
+    assert.strictEqual(r.total, 77.0, 'legacy rows are invoices and must still count');
+  });
+});
 
 describe('computeAccountingVariance', () => {
   it('writes the per-vendor breakdown as JSON on the accounting_variance row', () => {
