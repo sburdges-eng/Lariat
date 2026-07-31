@@ -146,6 +146,45 @@ def test_category_inference_leaves_unknowns_alone():
     assert infer_category('Widget Of Unknown Purpose') == 'Uncategorized'
 
 
+def test_black_pepper_is_a_spice_but_red_pepper_is_produce():
+    """The one that bites: a bare 'pepper' keyword sends peppercorns to the
+    walk-in and bell peppers to the dry store."""
+    assert infer_category('Pepper Red Diced Fancy') == 'Produce'
+    assert infer_category('Pepper Black Ground Table Grind') == 'Canned & Dry'
+
+
+def test_cleaning_chemicals_land_in_paper_not_uncategorized():
+    """Sysco ships chemicals and smallwares under its PAPER & DISP banner.
+    Routing them anywhere else invents a category the PDF ingest never emits."""
+    for description in (
+        'Cleaner Degreaser High Temperature Grill Ready To Use',
+        'Pad Scour Green 6" X 9" Antimicrobial',
+        'Grill Brick 3.5" Thick',
+        'Mitt Oven Beige 17 Inch',
+        'Label Roll Shelf Life Dissolvable 2" X 3"',
+    ):
+        assert infer_category(description) == 'Paper', description
+
+
+def test_fresh_herbs_are_produce_not_dry_spice():
+    for description in ('Chives Fresh Herb', 'Thyme Fresh Herb',
+                        'Tarragon Fresh Herb', 'Ginger Root Fresh'):
+        assert infer_category(description) == 'Produce', description
+
+
+def test_eggs_are_dairy_and_bakery_is_dry_goods():
+    assert infer_category('Egg Shell Extra Large White A Cage Free') == 'Dairy'
+    assert infer_category('Bun Brioche 4.5"') == 'Canned & Dry'
+    assert infer_category('Bread Sourdough Thick Sliced .75"') == 'Canned & Dry'
+
+
+def test_every_recovered_line_routes_somewhere(tmp_path):
+    """The April/May recovery leaves nothing Uncategorized. A row that falls
+    through is spend that never lands in a costing bucket."""
+    items, _ = build_items(read_rows(write_csv(tmp_path / 'o.csv', ROWS)))
+    assert all(i['category'] != 'Uncategorized' for i in items)
+
+
 def test_dates_render_in_the_shape_the_pdf_ingest_writes():
     assert to_us_date('2026-04-09') == '4/9/2026'
     assert to_us_date('2026-12-31') == '12/31/2026'

@@ -80,22 +80,52 @@ REQUIRED_COLUMNS = (
 # description. Anything unmatched stays 'Uncategorized' rather than guessing —
 # a wrong category silently mis-buckets spend in the costing rollup.
 CATEGORY_KEYWORDS = (
-    ('Dairy', ('cheese', 'milk', 'cream', 'butter', 'buttermilk', 'yogurt', 'sour crm')),
-    ('Meats', ('beef', 'pork', 'bacon', 'ham', 'sausage', 'brisket', 'chorizo', 'patty')),
-    ('Poultry', ('chicken', 'turkey', 'poultry')),
-    ('Seafood', ('fish', 'shrimp', 'salmon', 'trout', 'crab', 'pangasius', 'basa', 'cod')),
-    ('Produce', ('lettuce', 'tomato', 'onion', 'avocado', 'cilantro', 'lime', 'lemon',
-                 'pepper', 'potato', 'cucumber', 'garlic', 'jalapeno', 'produce')),
-    ('Paper', ('container', 'cup', 'napkin', 'towel', 'glove', 'liner', 'bag', 'lid',
-               'cutlery', 'foil', 'film', 'straw', 'tissue')),
-    ('Frozen', ('frozen', 'iqf', 'fry', 'fries')),
-    ('Canned & Dry', ('flour', 'sugar', 'rice', 'bean', 'spice', 'oil', 'vinegar',
-                      'sauce', 'canned', 'dry', 'seasoning', 'shortening')),
+    # Longest/most specific first — 'egg' must beat nothing, but 'cream cheese'
+    # must not be read as Produce because of 'cream'. Order matters.
+    ('Dairy', ('cheese', 'milk', 'cream', 'butter', 'buttermilk', 'yogurt',
+               'sour crm', 'egg ', 'egg shell', 'egg hardcooked', 'egg breakfast',
+               'half and half', 'queso')),
+    ('Meats', ('beef', 'pork', 'bacon', 'ham ', 'sausage', 'brisket', 'chorizo',
+               'patty', 'salami', 'prosciutto', 'lamb', 'veal', 'shank')),
+    ('Poultry', ('chicken', 'turkey', 'poultry', 'duck')),
+    ('Seafood', ('fish', 'shrimp', 'salmon', 'trout', 'crab', 'pangasius',
+                 'basa', 'cod', 'catfish', 'tilapia', 'scallop', 'oyster',
+                 'anchovy', 'calamari')),
+    ('Produce', ('lettuce', 'tomato', 'tomatillo', 'onion', 'shallot', 'avocado',
+                 'cilantro', 'chive', 'parsley', 'basil', 'rosemary', 'thyme',
+                 'tarragon', 'oregano fresh', 'mint fresh', 'herb', 'lime',
+                 'lemon', 'jalapeno', 'poblano', 'chile', 'chili pepper',
+                 'bell pepper', 'pepper red', 'pepper green',
+                 'pepper yellow', 'pepper mini', 'potato', 'cucumber', 'garlic', 'ginger',
+                 'celery', 'carrot', 'asparagus', 'cabbage', 'spinach', 'kale',
+                 'mushroom', 'broccoli', 'squash', 'corn ', 'corn yellow',
+                 'melon', 'berry', 'berries', 'apple', 'orange', 'banana',
+                 'produce', 'salad mix', 'spring mix')),
+    # Sysco ships cleaning chemicals and smallwares under its PAPER & DISP
+    # banner, so they land in 'Paper' rather than inventing a ninth category
+    # the PDF ingest would never emit.
+    ('Paper', ('container', 'cup ', 'cup,', 'napkin', 'towel', 'glove', 'liner',
+               'bag ', 'lid ', 'cutlery', 'foil', 'film', 'straw', 'tissue',
+               'plate', 'tray', 'box ', 'wrap', 'cleaner', 'degreaser',
+               'sanitizer', 'detergent', 'soap', 'scour', 'pad scour',
+               'grill brick', 'brick grill', 'mitt', 'apron', 'label', 'pan dust',
+               'broom', 'mop', 'brush', 'pan coating', 'can liner')),
+    ('Frozen', ('frozen', 'iqf', 'french fry', 'fries', 'potato fry')),
+    ('Canned & Dry', ('flour', 'sugar', 'rice', 'bean', 'spice', 'oil ',
+                      'shortening', 'vinegar', 'sauce', 'mayonnaise', 'mayo',
+                      'mustard', 'ketchup', 'dressing', 'syrup', 'honey',
+                      'canned', 'seasoning', 'pasta', 'noodle', 'cavatappi',
+                      'bread', 'bun ', 'tortilla', 'chip ', 'pretzel', 'cracker',
+                      'cake', 'churro', 'pudding', 'cookie', 'mix ', 'batter',
+                      'coffee', 'tea ', 'drink', 'juice', 'soda', 'water',
+                      'broth', 'stock', 'base ', 'salt', 'pepper black')),
 )
 
 
 def infer_category(description: str) -> str:
-    text = (description or '').lower()
+    # pad so keywords written with a trailing space ('egg ', 'corn ') still
+    # match when the word ends the description.
+    text = ' ' + (description or '').lower() + ' '
     for label, keywords in CATEGORY_KEYWORDS:
         if any(k in text for k in keywords):
             return label
