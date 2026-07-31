@@ -56,14 +56,30 @@ import argparse
 import csv
 import json
 import os
+import sqlite3
 import sys
 import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE = ROOT / 'data' / 'cache' / 'vendor_summary.json'
+DB = ROOT / 'data' / 'lariat.db'
 
 SYSCO_VENDOR = 'sysco'
+
+# What kind of document a `sysco_invoices` row came from. The table was built
+# for invoice PDFs, so every pre-existing row is an invoice; order emails are
+# confirmations of what we asked for, not of what we were billed.
+#
+# This matters because `computeActualCogsBreakdown`
+# (lib/computeEngine/accountingVariance.ts) sums `line_total` over the table.
+# Sysco splits one submission into several orders and bills them on separate
+# invoices, so the same delivery can legitimately arrive here twice — once as
+# an order number (04xxxxxx) and later as an invoice number (759xxxxxx). The
+# numbers share no namespace and can never be matched, so the roll-up
+# distinguishes them by type instead and never sums the two for one month.
+DOC_TYPE_INVOICE = 'invoice'
+DOC_TYPE_ORDER_CONFIRMATION = 'order_confirmation'
 
 REQUIRED_COLUMNS = (
     'order_number',
@@ -234,6 +250,119 @@ def _sort_key_us_date(us_date: str) -> tuple[int, int, int]:
         return (0, 0, 0)
 
 
+def ensure_sysco_invoices_table(con: sqlite3.Connection) -> None:
+    """Create `sysco_invoices` if absent, then migrate in `doc_type`.
+
+    Mirrors `ensure_sysco_invoices_table` in ingest_sysco_invoice_pdfs.py so
+    either ingest can run first on a fresh DB. The migration is additive and
+    idempotent (presence check via PRAGMA, matching lib/db.ts's
+    `migrateLegacyColumns`): existing rows are invoice-sourced by definition,
+    so they backfill to 'invoice'.
+    """
+    con.executescript("""
+    CREATE TABLE IF NOT EXISTS sysco_invoices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      invoice_no TEXT NOT NULL,
+      delivery_date TEXT,
+      description TEXT NOT NULL,
+      sku TEXT,
+      qty INTEGER,
+      category TEXT,
+      unit_price REAL,
+      line_total REAL,
+      actual_received_lb REAL,
+      reconciled_unit_price REAL,
+      source_file TEXT,
+      location_id TEXT DEFAULT 'default',
+      imported_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(invoice_no, description, location_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_sysco_inv_date ON sysco_invoices(delivery_date);
+    CREATE INDEX IF NOT EXISTS idx_sysco_inv_no ON sysco_invoices(invoice_no);
+    CREATE INDEX IF NOT EXISTS idx_sysco_inv_sku ON sysco_invoices(sku);
+    """)
+    columns = {row[1] for row in con.execute('PRAGMA table_info(sysco_invoices)')}
+    if 'doc_type' not in columns:
+        con.execute(
+            f"ALTER TABLE sysco_invoices ADD COLUMN doc_type TEXT "
+            f"NOT NULL DEFAULT '{DOC_TYPE_INVOICE}'"
+        )
+    con.execute(
+        'CREATE INDEX IF NOT EXISTS idx_sysco_inv_doc_type ON sysco_invoices(doc_type)'
+    )
+
+
+def persist_items_to_sqlite(
+    db_path: Path,
+    items: list[dict],
+    source_file: str,
+    location_id: str = 'default',
+) -> int:
+    """Upsert order-email line items into `sysco_invoices`.
+
+    Full-refresh per order number (DELETE + REINSERT inside one transaction),
+    matching the PDF ingest. That keeps a re-run idempotent and lets a corrected
+    export replace a bad one, without touching invoice-sourced rows.
+
+    No-op returning 0 when the DB is absent — a fresh checkout has no DB, and
+    the cache write must still succeed.
+    """
+    if not db_path.exists():
+        return 0
+    orders = {str(i['invoice']) for i in items if i.get('invoice')}
+    con = sqlite3.connect(str(db_path))
+    try:
+        ensure_sysco_invoices_table(con)
+        con.execute('BEGIN')
+        for order_no in orders:
+            con.execute(
+                'DELETE FROM sysco_invoices WHERE invoice_no = ? AND location_id = ?'
+                '   AND doc_type = ?',
+                (order_no, location_id, DOC_TYPE_ORDER_CONFIRMATION),
+            )
+        con.executemany(
+            'INSERT OR REPLACE INTO sysco_invoices'
+            ' (invoice_no, delivery_date, description, sku, qty, category,'
+            '  line_total, source_file, location_id, doc_type)'
+            ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+                (
+                    i['invoice'],
+                    to_iso_date(i.get('delivery_date')),
+                    i['description'],
+                    i.get('supc') or None,
+                    i.get('qty'),
+                    i.get('category'),
+                    i.get('extended_price'),
+                    source_file,
+                    location_id,
+                    DOC_TYPE_ORDER_CONFIRMATION,
+                )
+                for i in items
+            ],
+        )
+        con.commit()
+    except Exception:
+        con.rollback()
+        raise
+    finally:
+        con.close()
+    return len(items)
+
+
+def to_iso_date(us_date: str | None) -> str | None:
+    """'4/2/2026' -> '2026-04-02'. The table stores ISO so month filters
+    (`substr(delivery_date, 1, 7)`) in the COGS roll-up work; the JSON cache
+    keeps the US format its existing rows already use."""
+    if not us_date:
+        return None
+    try:
+        month, day, year = str(us_date).split('/')
+        return f'{int(year):04d}-{int(month):02d}-{int(day):02d}'
+    except (ValueError, AttributeError):
+        return None
+
+
 def write_cache_atomic(cache: dict, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     handle = tempfile.NamedTemporaryFile(
@@ -253,6 +382,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('csv_path', help='Sysco order-email export (CSV)')
     parser.add_argument('--cache', default=str(CACHE), help='vendor_summary.json path')
+    parser.add_argument('--db', default=str(DB),
+                        help='lariat.db path (sysco_invoices companion table)')
     parser.add_argument('--dry-run', action='store_true',
                         help='parse and report, write nothing')
     args = parser.parse_args(argv)
@@ -291,6 +422,17 @@ def main(argv: list[str] | None = None) -> int:
 
     write_cache_atomic(cache, cache_path)
     print(f'  wrote {cache_path}')
+
+    # The cache alone is not durable: scripts/rebuild-cache.mjs regenerates
+    # vendor_summary.json from CSV exports and does not read the existing file.
+    # The DB companion is what survives that, and what the actual-COGS roll-up
+    # in lib/computeEngine/accountingVariance.ts actually reads.
+    db_path = Path(args.db)
+    persisted = persist_items_to_sqlite(db_path, items, csv_path.name)
+    if persisted:
+        print(f'  persisted {persisted} line item(s) to sysco_invoices in {db_path}')
+    else:
+        print(f'  note: {db_path} not found — cache written, DB skipped', file=sys.stderr)
     return 0
 
 
