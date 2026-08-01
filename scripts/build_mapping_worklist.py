@@ -37,6 +37,21 @@ The queue is not one problem. Water is not purchased. Alcohol is not in the
 Sysco/Shamrock catalog. Leaving those as UNMAPPED forever buries the lines that
 genuinely need work, so they carry a terminal reason instead.
 
+Run the machine's pass first
+---------------------------
+`scripts/enrich-bom-vendor-columns.mjs` already resolves UNMAPPED lines against
+`vendor_prices` and `ingredient_maps`, and marks no-cost utilities. On the live
+DB it currently resolves 19 lines and marks 9 more, none of which need a human.
+Building the worklist before running it produces a queue that asks Sean to
+decide things already decided:
+
+    node --experimental-strip-types scripts/enrich-bom-vendor-columns.mjs --dry
+    node --experimental-strip-types scripts/enrich-bom-vendor-columns.mjs
+    python scripts/build_mapping_worklist.py
+
+This script warns when that pass still has work outstanding rather than
+silently emitting a stale queue.
+
 Usage
 -----
     python scripts/build_mapping_worklist.py [--db data/lariat.db]
@@ -73,11 +88,19 @@ ALCOHOL_WORDS = frozenset({
     'vermouth', 'brandy', 'cognac', 'champagne', 'prosecco', 'sake',
 })
 
-# Not purchased at all — these are utilities, not products. A zero-cost line is
-# correct here; a vendor map never will be.
-NOT_PURCHASABLE = frozenset({'water', 'ice', 'hot water', 'cold water', 'ice water'})
+# Not purchased at all — a utility, not a product. A zero-cost line is correct
+# here; a vendor map never will be.
+#
+# Deliberately identical to NO_COST_UTILITY_KEYS in
+# scripts/sync-normalized-to-bom.mjs, which is canonical: that module is what
+# actually writes `map_status = 'no_cost_utility'` onto the row. Extending this
+# set without extending that one produces a worklist that promises a
+# classification the applier will not make. Extend both or neither.
+NO_COST_UTILITY = frozenset({'water'})
 
-REASON_NOT_PURCHASABLE = 'not_purchasable'
+# Reason strings match `bom_lines.map_status` values wherever one exists, so the
+# worklist and the database describe a row the same way.
+REASON_NO_COST_UTILITY = 'no_cost_utility'
 REASON_OTHER_VENDOR = 'other_vendor'
 REASON_NEEDS_MAP = 'needs_map'
 
@@ -109,8 +132,8 @@ def tokens(text: str | None) -> set[str]:
 def classify(ingredient: str) -> tuple[str, str]:
     """-> (reason, note). Terminal reasons never receive a proposal."""
     normalized = normalize(ingredient)
-    if normalized in NOT_PURCHASABLE:
-        return REASON_NOT_PURCHASABLE, 'not a purchased product'
+    if normalized in NO_COST_UTILITY:
+        return REASON_NO_COST_UTILITY, 'not a purchased product'
     word_set = set(normalized.split())
     hits = word_set & ALCOHOL_WORDS
     if hits:
@@ -192,6 +215,41 @@ def build_rows(db_path: Path) -> list[dict]:
     return rows
 
 
+def count_machine_resolvable(db_path: Path) -> int:
+    """Unmapped leaf lines whose ingredient already has an `ingredient_maps`
+    entry or an exact `vendor_prices` description.
+
+    A loose upper bound on tier 1 of `enrich-bom-vendor-columns.mjs`, not a
+    reimplementation — it normalizes differently, so the counts will not agree
+    (this reports 42 on the live DB where that pass resolves 28). That is
+    acceptable: the number exists to say "that pass has work outstanding", and
+    the pass itself reports the real figure. It must not be read as a forecast.
+
+    Each lookup is independent. `ingredient_maps` is absent on a fresh DB, and
+    letting that suppress the whole check would silently disable the warning
+    exactly when a stale worklist is most likely.
+    """
+    def query(con: sqlite3.Connection, sql: str) -> list[str]:
+        try:
+            return [row[0] for row in con.execute(sql) if row[0]]
+        except sqlite3.OperationalError:
+            return []
+
+    con = sqlite3.connect(f'file:{db_path}?mode=ro', uri=True)
+    try:
+        known = {normalize(name) for name in
+                 query(con, 'SELECT ingredient FROM vendor_prices')}
+        known |= {normalize(name) for name in
+                  query(con, 'SELECT recipe_ingredient FROM ingredient_maps')}
+        known |= NO_COST_UTILITY
+        unmapped = query(con, """SELECT ingredient FROM bom_lines
+                                  WHERE COALESCE(vendor_ingredient, '') = ''
+                                    AND COALESCE(sub_recipe, '') = ''""")
+    finally:
+        con.close()
+    return sum(1 for name in unmapped if normalize(name) in known)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('--db', default=str(DB))
@@ -220,10 +278,19 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f'{len(rows)} unmapped ingredient(s) -> {out_path}')
     print(f'  needs a map      : {needs}  ({proposed} with a proposal to review)')
-    print(f'  not purchasable  : {counts[REASON_NOT_PURCHASABLE]}')
+    print(f'  no-cost utility  : {counts[REASON_NO_COST_UTILITY]}')
     print(f'  other vendor     : {counts[REASON_OTHER_VENDOR]}')
     if needs - proposed:
         print(f'  {needs - proposed} need a human — no vendor description contains every token')
+
+    resolvable = count_machine_resolvable(db_path)
+    if resolvable:
+        print(
+            f'\nwarning: {resolvable} line(s) can still be resolved without a human.\n'
+            '  Run scripts/enrich-bom-vendor-columns.mjs first, then rebuild this\n'
+            '  worklist — otherwise it asks for decisions already made.',
+            file=sys.stderr,
+        )
     return 0
 
 

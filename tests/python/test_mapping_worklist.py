@@ -96,7 +96,7 @@ class TestClassify:
     """Lines that can never carry a vendor map get a terminal reason."""
 
     @pytest.mark.parametrize('ingredient,reason', [
-        ('water', 'not_purchasable'),
+        ('water', 'no_cost_utility'),
         ('guinness', 'other_vendor'),
         ('vodka', 'other_vendor'),
         ('dry white wine', 'other_vendor'),
@@ -176,7 +176,7 @@ class TestWorklistOutput:
         out = tmp_path / 'worklist.csv'
         main(['--db', str(db), '--out', str(out)])
         by = {r['ingredient']: r for r in csv.DictReader(open(out, encoding='utf-8'))}
-        assert by['water']['reason'] == 'not_purchasable'
+        assert by['water']['reason'] == 'no_cost_utility'
         assert by['water']['proposed_vendor_ingredient'] == ''
         assert by['guinness']['reason'] == 'other_vendor'
 
@@ -194,6 +194,35 @@ class TestWorklistOutput:
         first = out.read_text(encoding='utf-8')
         main(['--db', str(db), '--out', str(out)])
         assert out.read_text(encoding='utf-8') == first
+
+    def test_warns_when_the_machine_pass_is_still_outstanding(self, db, tmp_path, capsys):
+        """A queue built before enrich-bom-vendor-columns.mjs runs asks for
+        decisions already made. `water` is a no-cost utility that pass resolves
+        on its own, so its presence must raise the warning."""
+        main(['--db', str(db), '--out', str(tmp_path / 'w.csv')])
+        assert 'enrich-bom-vendor-columns' in capsys.readouterr().err
+
+    def test_no_warning_once_nothing_is_machine_resolvable(self, tmp_path, capsys):
+        path = tmp_path / 'lariat.db'
+        con = sqlite3.connect(str(path))
+        con.executescript("""
+            CREATE TABLE bom_lines (
+              id INTEGER PRIMARY KEY, recipe_id TEXT, ingredient TEXT, qty REAL,
+              unit TEXT, sub_recipe TEXT, vendor_ingredient TEXT,
+              map_status TEXT, location_id TEXT DEFAULT 'default');
+            CREATE TABLE vendor_prices (
+              id INTEGER PRIMARY KEY, ingredient TEXT, vendor TEXT,
+              pack_price REAL, location_id TEXT DEFAULT 'default');
+            CREATE TABLE ingredient_maps (
+              id INTEGER PRIMARY KEY, recipe_ingredient TEXT, vendor_ingredient TEXT,
+              status TEXT, location_id TEXT DEFAULT 'default');
+            INSERT INTO bom_lines (recipe_id, ingredient, qty, unit, map_status)
+              VALUES ('r1', 'furikake seasoning', 1, 'tbsp', 'UNMAPPED');
+        """)
+        con.commit()
+        con.close()
+        main(['--db', str(path), '--out', str(tmp_path / 'w.csv')])
+        assert 'enrich-bom-vendor-columns' not in capsys.readouterr().err
 
     def test_absent_db_is_an_error_not_an_empty_worklist(self, tmp_path):
         """An empty worklist would read as 'nothing left to map'."""
