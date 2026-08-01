@@ -45,6 +45,20 @@ export interface VendorSpendLine {
   vendor: string;
   source: 'shamrock_invoices' | 'sysco_invoices' | 'spend_monthly';
   amount: number;
+  /**
+   * What kind of document the money came from.
+   *
+   * `invoice`   — we were billed this.
+   * `estimated` — sourced from order confirmations: what we asked for, before
+   *               delivery adjustments, substitutions or catch-weight billing.
+   *
+   * Not cosmetic. `shamrock_invoices` is built from order-confirmation .xls
+   * exports (its `invoice_no` is the Sales Order field, 90xxxxx), so despite
+   * the table name it has always been estimated. Surfacing that is the point:
+   * a variance number computed against estimated actuals is a different claim
+   * from one computed against billed actuals.
+   */
+  basis: 'invoice' | 'estimated';
 }
 
 export interface ActualCogsBreakdown {
@@ -76,6 +90,84 @@ function sumInvoiceTable(
     )
     .get(locationId, monthStart, monthEnd) as { amount: number };
   return row?.amount ?? 0;
+}
+
+/**
+ * Sum `sysco_invoices` counting one document type per month.
+ *
+ * `ingest_sysco_order_emails.py` writes order confirmations into this table
+ * alongside the invoice rows `ingest_sysco_invoice_pdfs.py` writes. Sysco
+ * splits one submission into several orders billed on separate invoices, so the
+ * same delivery can appear twice — once under an order number (04xxxxxx) and
+ * later under an invoice number (759xxxxxx). Those namespaces share nothing, so
+ * the rows can never be matched to each other; the only safe rule is to count
+ * one type per month and prefer the billed one.
+ *
+ * Resolution is per month, not per window: a window spanning a billed March and
+ * an only-confirmed April counts both, each on its own best basis. The returned
+ * `basis` is `invoice` only when every counted month was invoice-backed.
+ *
+ * A pre-migration table with no `doc_type` column is all-invoice by definition
+ * (the column was introduced when order emails started landing here), so it
+ * takes the simple path.
+ */
+function sumSyscoByDocType(
+  db: Database,
+  locationId: string,
+  monthStart: string,
+  monthEnd: string,
+): { amount: number; basis: 'invoice' | 'estimated' } {
+  if (!tableExists(db, 'sysco_invoices')) return { amount: 0, basis: 'invoice' };
+
+  const hasDocType = (
+    db.prepare(`PRAGMA table_info(sysco_invoices)`).all() as { name: string }[]
+  ).some((c) => c.name === 'doc_type');
+
+  if (!hasDocType) {
+    return {
+      amount: sumInvoiceTable(db, 'sysco_invoices', locationId, monthStart, monthEnd),
+      basis: 'invoice',
+    };
+  }
+
+  const rows = db
+    .prepare(
+      `SELECT substr(delivery_date, 1, 7) AS month,
+              doc_type,
+              COALESCE(SUM(line_total), 0) AS amount
+         FROM sysco_invoices
+        WHERE location_id = ?
+          AND delivery_date IS NOT NULL
+          AND substr(delivery_date, 1, 7) >= ?
+          AND substr(delivery_date, 1, 7) <= ?
+        GROUP BY month, doc_type`,
+    )
+    .all(locationId, monthStart, monthEnd) as
+      { month: string; doc_type: string; amount: number }[];
+
+  const byMonth = new Map<string, Map<string, number>>();
+  for (const row of rows) {
+    if (!byMonth.has(row.month)) byMonth.set(row.month, new Map());
+    byMonth.get(row.month)!.set(row.doc_type, row.amount);
+  }
+
+  let amount = 0;
+  let anyEstimated = false;
+  for (const types of byMonth.values()) {
+    const invoiced = types.get('invoice') ?? 0;
+    if (invoiced > 0) {
+      amount += invoiced;
+      continue;
+    }
+    // No billed rows this month — fall back to what we ordered, and say so.
+    const confirmed = types.get('order_confirmation') ?? 0;
+    if (confirmed > 0) {
+      amount += confirmed;
+      anyEstimated = true;
+    }
+  }
+
+  return { amount, basis: anyEstimated ? 'estimated' : 'invoice' };
 }
 
 /**
@@ -118,7 +210,15 @@ export function computeActualCogsBreakdown(
     db, 'shamrock_invoices', locationId, monthStart, monthEnd,
   );
   if (shamrockInvoices > 0) {
-    lines.push({ vendor: 'shamrock', source: 'shamrock_invoices', amount: shamrockInvoices });
+    // 'estimated', not 'invoice': ingest_shamrock_invoices.py reads
+    // order-confirmation .xls exports, and the invoice_no it stores is the
+    // Sales Order field. The table name predates the distinction.
+    lines.push({
+      vendor: 'shamrock',
+      source: 'shamrock_invoices',
+      amount: shamrockInvoices,
+      basis: 'estimated',
+    });
   } else if (tableExists(db, 'spend_monthly')) {
     const row = db
       .prepare(
@@ -129,14 +229,25 @@ export function computeActualCogsBreakdown(
       )
       .get(locationId, monthStart, monthEnd) as { amount: number };
     if (row.amount > 0) {
-      lines.push({ vendor: 'shamrock', source: 'spend_monthly', amount: row.amount });
+      // Workbook aggregate rolled up from the same order-confirmation exports.
+      lines.push({
+        vendor: 'shamrock',
+        source: 'spend_monthly',
+        amount: row.amount,
+        basis: 'estimated',
+      });
     }
   }
 
   // Sysco: only if the invoice table exists. No legacy fallback.
-  const sysco = sumInvoiceTable(db, 'sysco_invoices', locationId, monthStart, monthEnd);
-  if (sysco > 0) {
-    lines.push({ vendor: 'sysco', source: 'sysco_invoices', amount: sysco });
+  const sysco = sumSyscoByDocType(db, locationId, monthStart, monthEnd);
+  if (sysco.amount > 0) {
+    lines.push({
+      vendor: 'sysco',
+      source: 'sysco_invoices',
+      amount: sysco.amount,
+      basis: sysco.basis,
+    });
   }
 
   const total = lines.reduce((s, l) => s + l.amount, 0);
