@@ -114,10 +114,41 @@ async function main() {
   process.stdout.write(summary);
 }
 
-main().catch((err) => {
-  // Print to stderr so launchd's StandardErrorPath captures it. Don't
-  // throw — the plist's KeepAlive=false means a non-zero exit just
-  // means "this run failed"; next Monday will retry.
-  console.error('coverage-weekly failed:', err.stack || err.message);
-  process.exit(1);
-});
+// Run the job only when launchd (or an operator) invoked this file directly.
+//
+// This used to call main() unconditionally at module scope, so merely
+// importing the module ran the whole weekly job. tests/js/test-coverage-weekly
+// imports it for two pure helpers — and paid for a getDb() against
+// <dataDir>/lariat.db, an initSchema() migration of that shared file, a CSV
+// and summary written into data/coverage-reports/, and a process.exit(1) fired
+// from inside the test runner when the DB was unreachable.
+//
+// Note REPORT_DIR resolves from __dirname, not resolveDataDir(), so those
+// writes landed in the real repo regardless of LARIAT_DATA_DIR — a test could
+// not opt out of them.
+//
+// Compare real paths on both sides. Node resolves symlinks when it builds
+// import.meta.url but not in process.argv[1], so a symlinked component
+// anywhere in the invocation path would make the two disagree and silently
+// skip the run — the failure mode being a weekly job that quietly stops firing
+// and is noticed a month later by a stale latest.txt.
+//
+// See docs/audit/2026-08-01-shared-db-isolation-audit.md.
+function invokedDirectly() {
+  if (process.argv[1] === undefined) return false;
+  const self = fileURLToPath(import.meta.url);
+  const real = (p) => {
+    try { return fs.realpathSync(p); } catch { return path.resolve(p); }
+  };
+  return real(process.argv[1]) === real(self);
+}
+
+if (invokedDirectly()) {
+  main().catch((err) => {
+    // Print to stderr so launchd's StandardErrorPath captures it. Don't
+    // throw — the plist's KeepAlive=false means a non-zero exit just
+    // means "this run failed"; next Monday will retry.
+    console.error('coverage-weekly failed:', err.stack || err.message);
+    process.exit(1);
+  });
+}
