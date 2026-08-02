@@ -38,6 +38,33 @@ const dbMod = await import('../../lib/db.ts');
 
 const SECRET = '813b7d4d4bac2cd4ce19db8574a598704c288455f3e6cc5ee0d8cd2a12e7288f';
 
+// One in-memory DB for the whole file, established before any describe runs and
+// torn down once at the end.
+//
+// This used to be set up inside the `requirePinOrScope` describe, which also
+// registered an `after()` resetting the path to null. The
+// `revocation-aware identity` describe below has no DB setup of its own — it
+// just calls `dbMod.getDb()` — so it depended on that in-memory DB still being
+// active, while the block that created it was explicitly tearing it down. When
+// the teardown won, those tests silently fell through to the shared on-disk
+// `data/lariat.db`.
+//
+// Locally that passes, because the on-disk DB exists (or is created) with a
+// full schema. In CI it is a race: `test:regression-core` runs many suites
+// concurrently against that same file, and a sibling creating or migrating a
+// table while this suite holds cached prepared statements surfaces as
+// `SQLITE_SCHEMA`. Observed once on PR #599 in
+// "allows an ACTIVE manager cookie through requirePin", passing on re-run of
+// the same commit.
+//
+// Isolating at file scope removes the dependency between describes and the
+// dependency on any on-disk database. `after` here runs last, after every
+// describe's own hooks.
+dbMod.setDbPathForTest(':memory:');
+after(() => {
+  dbMod.setDbPathForTest(null);
+});
+
 function makeRequest({ cookie } = {}) {
   return new Request('http://localhost/test', {
     headers: cookie ? { cookie } : {},
@@ -137,15 +164,10 @@ describe('lib/pin requirePin — shared helper', () => {
 // immediately). We use an in-memory DB via setDbPathForTest().
 
 describe('lib/pin requirePinOrScope — shared helper', () => {
-  // Ensure the DB module sees an in-memory schema; previous suites
-  // didn't touch the DB so leaving it untouched would crash on the
-  // temp_pins INSERT.
-  dbMod.setDbPathForTest(':memory:');
+  // The DB is established at file scope (see the note beside SECRET) rather
+  // than here, so the describes below do not inherit — and then lose — this
+  // block's database.
   const conn = dbMod.getDb();
-
-  after(() => {
-    dbMod.setDbPathForTest(null);
-  });
 
   beforeEach(() => {
     conn.exec('DELETE FROM temp_pins;');
