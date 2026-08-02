@@ -126,9 +126,10 @@ jobs:
 
       # Previously-ungated node:test suites (jest test:unit only sweeps
       # app/__tests__/**). Each of the 90 suites was verified green from a
-      # clean empty-DB checkout in an isolated worktree before wiring; all
-      # use in-memory/tmp DBs (no data/lariat.db). Grouped by domain so a
-      # red build points at the affected area.
+      # clean empty-DB checkout in an isolated worktree before wiring. They all
+      # use in-memory/tmp DBs — asserted, not assumed, by the "no suite may
+      # touch the shared database" step below. Grouped by domain so a red build
+      # points at the affected area.
       - name: regression — infra/tooling suites
         run: npm run test:regression-infra
 
@@ -159,21 +160,46 @@ jobs:
       - name: install python test deps
         run: bash scripts/install-python-deps.sh
 
+      # This used to be `rm -f data/lariat.db …` here, commented "an earlier
+      # node:test suite can leave a stray schema-only data/lariat.db". Five did
+      # — see docs/audit/2026-08-01-shared-db-isolation-audit.md — and sweeping
+      # the file away hid them. Now it is an error, because the DDL those
+      # suites ran against a database their siblings were concurrently using is
+      # what produced the intermittent SQLITE_SCHEMA failures on #599.
+      - name: no suite may touch the shared database
+        run: |
+          if [ -e data/lariat.db ]; then
+            echo "::error::A node:test suite created data/lariat.db. Suites must"
+            echo "::error::use :memory: or a tmp path via setDbPathForTest()."
+            ls -la data/lariat.db*
+            echo "Detection method: docs/audit/2026-08-01-shared-db-isolation-audit.md"
+            exit 1
+          fi
+
       # tests/python (ingest parsers, BOM expand, cascade CLI, normalizers,
       # datapack index builders). The live-DB seed-coverage check self-skips
       # when data/lariat.db is absent (gitignored) but FAILS on an empty one
-      # by design. An earlier node:test suite can leave a stray schema-only
-      # data/lariat.db, so remove it first to restore the clean/absent state.
+      # by design — so the guard above is also what keeps this step honest.
       - name: python test suite
-        run: |
-          rm -f data/lariat.db data/lariat.db-wal data/lariat.db-shm
-          npm run test:python
+        run: npm run test:python
 
       # Shows suites (node:test) build/parse an XLSX fixture via the venv
       # python (build_shows_fixture.py / ingest_shows_xlsx.py), so they run
       # after install-python-deps. Hermetic — own tmp SQLite, no data/lariat.db.
       - name: regression — shows (XLSX via python venv)
         run: npm run test:regression-shows
+
+      # Repeated because shows is the one node:test lane that runs after the
+      # guard above (it needs the python venv). Same check, so the last lane
+      # is covered too.
+      - name: no suite may touch the shared database (post-shows)
+        run: |
+          if [ -e data/lariat.db ]; then
+            echo "::error::test:regression-shows created data/lariat.db."
+            ls -la data/lariat.db*
+            echo "Detection method: docs/audit/2026-08-01-shared-db-isolation-audit.md"
+            exit 1
+          fi
 
       # Publishes a real line/branch/function number and fails below the
       # floors in scripts/coverage-sweep.mjs. Note the percentage covers files
