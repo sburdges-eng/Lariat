@@ -70,8 +70,17 @@ for (const r of ROUTES) {
   }
 }
 
-after(() => {
-  db.setDbPathForTest(null);
+after(async () => {
+  // app/api/compute/status/route.js:96 schedules triggerComputeEngine() on a
+  // `setImmediate`, so it lands after this hook. Drain the queue first so that
+  // work hits TMP_DB, and leave the path override in place — clearing it sends
+  // the next getDb() to <dataDir>/lariat.db, where it runs initSchema()
+  // against the shared file every sibling suite in test:regression-core is
+  // using concurrently. The trigger swallows its own errors, so the suite
+  // stayed green while migrating the production database.
+  //
+  // See docs/audit/2026-08-01-shared-db-isolation-audit.md.
+  await new Promise((resolve) => setImmediate(resolve));
   try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
   if (ORIGINAL_PIN === undefined) delete process.env.LARIAT_PIN;
   else process.env.LARIAT_PIN = ORIGINAL_PIN;

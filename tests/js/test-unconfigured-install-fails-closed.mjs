@@ -55,6 +55,31 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(__dirname, '../..');
 
+// One in-memory DB for the whole file, established before lib/pin.ts is
+// imported by any describe below.
+//
+// This file had no database setup at all. `pinConfigured()` is
+// managerPinGateConfigured() → hasActiveManagerPinUsers() → getDb(), so
+// "reports the install as unconfigured" was not asserting a property of an
+// unconfigured install: it was reading manager_pin_users out of the shared
+// on-disk data/lariat.db, and held only while that table happened to have no
+// active row for the default location. A sibling suite in
+// test:regression-core inserting one flips it; so does any machine with a
+// manager PIN actually configured — and then the assertions around it stop
+// describing the unconfigured state they name.
+//
+// An empty in-memory schema makes the premise true by construction.
+// managerPinGateConfigured() catches DB errors and returns true (fail-closed,
+// lib/managerPins.ts:131-133), so a missing database would silently invert
+// this test rather than break it. It needs a real, empty one.
+//
+// See docs/audit/2026-08-01-shared-db-isolation-audit.md.
+const dbMod = await import('../../lib/db.ts');
+dbMod.setDbPathForTest(':memory:');
+after(() => {
+  dbMod.setDbPathForTest(null);
+});
+
 // Routes that reach pinRequiredForPic but sat outside SENSITIVE_PREFIXES,
 // paired with the source file whose gate is now the only thing standing.
 const PREVIOUSLY_EXPOSED = [

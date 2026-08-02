@@ -56,8 +56,24 @@ const sickWorker = await import('../../app/api/sick-worker/route.js');
 const breaks = await import('../../app/api/breaks/route.js');
 const certifications = await import('../../app/api/certifications/route.js');
 
-after(() => {
-  db.setDbPathForTest(null);
+after(async () => {
+  // The routes above fire the compute engine through `setImmediate`
+  // (app/api/receiving/route.js:528 → triggerComputeEngine → getDb()), so it
+  // runs AFTER this hook. Two consequences, both handled here:
+  //
+  //  1. Let the pending immediates drain first, so that work runs against
+  //     TMP_DB — the database it was scheduled to write — rather than
+  //     whatever is current once teardown has moved on.
+  //  2. Do NOT reset the path override. Clearing it makes the next getDb()
+  //     fall through to <dataDir>/lariat.db and run initSchema() against the
+  //     shared production file, which in CI every sibling suite in
+  //     test:regression-foodsafety is concurrently using. triggerComputeEngine
+  //     swallows and logs its errors, so this suite stayed green while doing
+  //     it. The process is exiting; the reset bought nothing and was the only
+  //     thing opening that door.
+  //
+  // See docs/audit/2026-08-01-shared-db-isolation-audit.md.
+  await new Promise((resolve) => setImmediate(resolve));
   try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
   if (ORIGINAL_PIN === undefined) delete process.env.LARIAT_PIN;
   else process.env.LARIAT_PIN = ORIGINAL_PIN;
