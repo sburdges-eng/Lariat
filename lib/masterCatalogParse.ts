@@ -107,8 +107,13 @@ export function parsePackSize(raw: string | null | undefined): PackSizeResult {
     return fail(`pack size "${text}" has no readable case count`);
   }
 
-  // The inner size may be "15", "5 LB", "5LB", "#10" or "EACH".
-  const sizeMatch = /^([\d.]+)\s*([A-Za-z]*)$/.exec(sizeTok);
+  // The inner size may be "15", "5 LB", "5LB", "15#", "#10" or "EACH".
+  //
+  // '#' means opposite things depending on which side of the number it sits.
+  // Trailing ("15#") is the trade shorthand for pounds. Leading ("#10") is a
+  // can format and names no weight at all — that one falls through to the
+  // container branch below, where the case count is the pack size.
+  const sizeMatch = /^([\d.]+)\s*(#|[A-Za-z]*)$/.exec(sizeTok);
 
   let total: number;
   let unitTok: string;
@@ -119,7 +124,8 @@ export function parsePackSize(raw: string | null | undefined): PackSizeResult {
       return fail(`pack size "${text}" has no readable inner size`);
     }
     total = count * inner;
-    unitTok = outerTok || (sizeMatch[2] ?? '');
+    const innerUnit = sizeMatch[2] === '#' ? 'lb' : (sizeMatch[2] ?? '');
+    unitTok = outerTok || innerUnit;
   } else {
     // "#10", "EACH" — the inner token names a container, so the case count
     // IS the pack size and the unit has to come from the outer column.
@@ -149,6 +155,17 @@ export interface SkippedRow {
   ingredient: string;
   line: number;
   reason: string;
+  vendor: string;
+  sku: string;
+  /**
+   * The case size, when it was readable — kept even though the row is not
+   * importable. This file is the only place that records how big a case is;
+   * invoices record what was paid FOR a case. Neither alone yields a cost per
+   * pound, so a row skipped for a missing price must not take its pack size
+   * down with it. Null when the pack itself was what failed.
+   */
+  pack_size: number | null;
+  pack_unit: string | null;
 }
 
 export interface CatalogParseResult {
@@ -237,29 +254,44 @@ export function parseMasterCatalog(text: string): CatalogParseResult {
     total++;
     const line = i + 1;
 
+    // Parse the pack and identity FIRST, so a row that fails on price alone
+    // still carries the case size out with it (see SkippedRow.pack_size).
+    const pack = parsePackSize(col(r, 'Pack Size'));
+    const vendor = col(r, 'Supplier').toLowerCase();
+    const sku = col(r, 'Supplier Product #');
+    const skip = (reason: string): void => {
+      skipped.push({
+        ingredient,
+        line,
+        reason,
+        vendor,
+        sku,
+        pack_size: pack.pack_size === null ? null : pack.pack_size,
+        pack_unit: pack.pack_size === null ? null : pack.pack_unit,
+      });
+    };
+
     const priceRaw = col(r, 'Price').replace(/[$,]/g, '');
     const price = Number(priceRaw);
     if (!priceRaw || !Number.isFinite(price) || price <= 0) {
-      skipped.push({ ingredient, line, reason: 'no price in the catalog' });
+      skip('no price in the catalog');
       continue;
     }
 
-    const pack = parsePackSize(col(r, 'Pack Size'));
     if (pack.pack_size === null) {
-      skipped.push({ ingredient, line, reason: pack.reason });
+      skip(pack.reason);
       continue;
     }
 
-    const vendor = col(r, 'Supplier').toLowerCase();
     if (!vendor) {
-      skipped.push({ ingredient, line, reason: 'no supplier' });
+      skip('no supplier');
       continue;
     }
 
     rows.push({
       ingredient,
       vendor,
-      sku: col(r, 'Supplier Product #'),
+      sku,
       pack_size: pack.pack_size,
       pack_unit: pack.pack_unit,
       pack_price: price,

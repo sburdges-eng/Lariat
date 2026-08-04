@@ -63,6 +63,17 @@ describe('parsePackSize — COUNT/SIZE[UNIT]/UNIT', () => {
     assert.deepEqual(parsePackSize('6/#10/CT'), { pack_size: 6, pack_unit: 'ct' });
   });
 
+  // '#' means opposite things on either side of the number, and reading one as
+  // the other is silent and wrong rather than loud. '1/15#/LB' is a 15 lb case
+  // of bacon; misreading the trailing '#' as a can format yields 1 lb, and the
+  // bacon then costs $74.95/lb instead of $5.00/lb.
+  it('reads a trailing # as pounds, not as a can format', () => {
+    assert.deepEqual(parsePackSize('1/15#/LB'), { pack_size: 15, pack_unit: 'lb' });
+    assert.deepEqual(parsePackSize('1/10#/LB'), { pack_size: 10, pack_unit: 'lb' });
+    // Outer unit blank: the trailing # is the only thing naming the unit.
+    assert.deepEqual(parsePackSize('1/25#/'), { pack_size: 25, pack_unit: 'lb' });
+  });
+
   it('maps vendor unit abbreviations onto units lib/unitConvert knows', () => {
     assert.equal(parsePackSize('4/1 GAL/GL').pack_unit, 'gal');
     assert.equal(parsePackSize('1/12/FOZ').pack_unit, 'floz');
@@ -131,6 +142,29 @@ describe('parseMasterCatalog — the file as a whole', () => {
     assert.equal(skipped.length, 1);
     assert.match(skipped[0].reason, /price/i);
     assert.equal(skipped[0].ingredient, 'Sourdough');
+  });
+
+  // A row can be un-importable for lack of a price and still carry the one
+  // thing nothing else in the repo records: how big its case is. Invoices know
+  // what was paid per case but not what a case holds, so the two only combine
+  // into a cost per pound if the skipped row keeps its pack size.
+  it('keeps sku and pack size on a row skipped only for its price', () => {
+    const { skipped } = parseMasterCatalog(
+      csv('LAR-1,Sysco,7585326,Sourdough,6/32 OZ/OZ,ROTELLA,,CS,Frozen,PH'),
+    );
+    assert.equal(skipped.length, 1);
+    assert.equal(skipped[0].sku, '7585326');
+    assert.equal(skipped[0].vendor, 'sysco');
+    assert.equal(skipped[0].pack_size, 192);
+    assert.equal(skipped[0].pack_unit, 'oz');
+  });
+
+  it('leaves pack size null on a row whose pack could not be read either', () => {
+    const { skipped } = parseMasterCatalog(
+      csv('LAR-1,Sysco,9,Foil,1/18 IN/",B,,CS,Paper & Disposable,PH'),
+    );
+    assert.equal(skipped[0].pack_size, null);
+    assert.equal(skipped[0].sku, '9');
   });
 
   it('skips a row whose pack size cannot be read, and says which', () => {
