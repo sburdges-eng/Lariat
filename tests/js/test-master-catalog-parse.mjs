@@ -74,6 +74,21 @@ describe('parsePackSize — COUNT/SIZE[UNIT]/UNIT', () => {
     assert.deepEqual(parsePackSize('1/25#/'), { pack_size: 25, pack_unit: 'lb' });
   });
 
+  // When the inner size carries its own unit and the outer column names a
+  // different one, the inner unit is the one that belongs to the number we
+  // just multiplied. `6/100 OZ/CAN` is six 100-ounce cans: 600 OUNCES, in six
+  // containers. Calling the 600 "cans" is off by the size of a can.
+  it('takes the unit from the inner size when it has one', () => {
+    assert.deepEqual(parsePackSize('6/100 OZ/CAN'), { pack_size: 600, pack_unit: 'oz' });
+    // 100 crab cakes at 0.75 oz. The outer CT would claim 75 pieces; there are 100.
+    assert.deepEqual(parsePackSize('100/.75 OZ/CT'), { pack_size: 75, pack_unit: 'oz' });
+  });
+
+  it('falls back to the outer unit when the inner one is unreadable', () => {
+    // Inner "PTS" is not a unit lib/unitConvert knows; outer PT is.
+    assert.deepEqual(parsePackSize('12/.5 PTS/PT'), { pack_size: 6, pack_unit: 'pt' });
+  });
+
   it('maps vendor unit abbreviations onto units lib/unitConvert knows', () => {
     assert.equal(parsePackSize('4/1 GAL/GL').pack_unit, 'gal');
     assert.equal(parsePackSize('1/12/FOZ').pack_unit, 'floz');

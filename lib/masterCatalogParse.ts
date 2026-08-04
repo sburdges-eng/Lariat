@@ -124,8 +124,13 @@ export function parsePackSize(raw: string | null | undefined): PackSizeResult {
       return fail(`pack size "${text}" has no readable inner size`);
     }
     total = count * inner;
-    const innerUnit = sizeMatch[2] === '#' ? 'lb' : (sizeMatch[2] ?? '');
-    unitTok = outerTok || innerUnit;
+    // The inner unit wins when it has one, because it is the unit of the
+    // number just multiplied. `6/100 OZ/CAN` is 600 ounces held in six cans;
+    // taking the outer "CAN" would report 600 cans. The outer column names the
+    // container, which is only the right unit when the inner size is bare
+    // ("1/15/LB") or unreadable ("12/.5 PTS/PT").
+    const innerRaw = sizeMatch[2] === '#' ? 'lb' : (sizeMatch[2] ?? '');
+    unitTok = resolveUnit(innerRaw) ? innerRaw : outerTok || innerRaw;
   } else {
     // "#10", "EACH" — the inner token names a container, so the case count
     // IS the pack size and the unit has to come from the outer column.
