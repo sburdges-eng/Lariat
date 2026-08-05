@@ -7,7 +7,7 @@
 #
 # Usage:
 #   Scripts/package-app.sh [--sign IDENTITY] [--icon PATH] [--version X.Y.Z]
-#                          [--build N] [--pkg] [--out DIR]
+#                          [--build N] [--pkg] [--out DIR] [--data-dir PATH]
 #
 #   --sign   codesign identity. Default "-" (ad-hoc): runs locally, NOT
 #            distributable/notarizable. Pass a "Developer ID Application: …"
@@ -17,6 +17,27 @@
 #            <repo>/public/logo.png. Non-square sources are padded to square.
 #   --pkg    also produce a component .pkg installer wrapping the .app.
 #   --out    output dir. Default: LariatNative/build.
+#   --data-dir  absolute path to the data root the packaged app should use,
+#            baked in as LSEnvironment.LARIAT_DATA_DIR. OMIT for a real
+#            deployment — the default (Application Support) is correct there.
+#
+# WHY --data-dir EXISTS
+# ---------------------
+# A Finder-launched .app inherits no shell environment and starts with cwd "/",
+# so resolveDataDirectory() cannot find the repo marker and falls through to
+# ~/Library/Application Support/Lariat/data. On a development machine that
+# silently splits the install in two: the web app writes <repo>/data/lariat.db
+# while the packaged app writes its own copy. Work entered in one is invisible
+# to the other, and scripts/install-prod-data.sh (a one-way repo → Application
+# Support copy) erases whatever the app wrote.
+#
+# Sharing one SQLite file is safe: the DB is journal_mode=wal on local disk and
+# both native pools already set busyMode = .timeout(5.0) to wait out each
+# other's write locks. Verified 2026-08-05 — three concurrent writer processes,
+# 450/450 rows committed, PRAGMA integrity_check ok.
+#
+# This bakes an absolute path into the bundle, so it is a developer-machine
+# convenience, never something to ship.
 #
 # Exit 0 only when the bundle is assembled AND codesign --verify passes.
 
@@ -40,6 +61,7 @@ VERSION="0.1.0"
 BUILD_NUM="1"
 MAKE_PKG=0
 OUT_DIR="$NATIVE_DIR/build"
+DATA_DIR=""
 
 die() { echo "package-app: $*" >&2; exit 2; }
 
@@ -51,10 +73,22 @@ while [[ $# -gt 0 ]]; do
     --build) BUILD_NUM="$2"; shift 2 ;;
     --pkg) MAKE_PKG=1; shift ;;
     --out) OUT_DIR="$2"; shift 2 ;;
-    -h|--help) sed -n '2,30p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    --data-dir) DATA_DIR="$2"; shift 2 ;;
+    # Print the whole header block rather than a hardcoded line range, which
+    # silently truncates the help every time this comment grows.
+    -h|--help) awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) die "unknown argument: $1" ;;
   esac
 done
+
+# --data-dir must be absolute and real: LSEnvironment is baked into the bundle,
+# and a relative or missing path would resolve against a Finder-launched app's
+# cwd of "/" — silently landing on a different (empty) database.
+if [[ -n "$DATA_DIR" ]]; then
+  [[ "$DATA_DIR" = /* ]] || die "--data-dir must be an absolute path (got: $DATA_DIR)"
+  [[ -d "$DATA_DIR" ]] || die "--data-dir does not exist: $DATA_DIR"
+  [[ -f "$DATA_DIR/lariat.db" ]] || die "--data-dir has no lariat.db: $DATA_DIR"
+fi
 
 for t in swift sips iconutil codesign plutil; do
   command -v "$t" >/dev/null 2>&1 || die "required tool not found: $t"
@@ -123,10 +157,21 @@ cat > "$PLIST" <<PLIST_EOF
   <key>LSApplicationCategoryType</key><string>public.app-category.business</string>
   <key>NSHumanReadableCopyright</key><string>Lariat — internal build. All rights reserved.</string>
   $( [[ -n "$ICON_PLIST_KEY" ]] && echo "<key>CFBundleIconFile</key><string>$ICON_PLIST_KEY</string>" )
+  $( [[ -n "$DATA_DIR" ]] && printf '<key>LSEnvironment</key><dict><key>LARIAT_DATA_DIR</key><string>%s</string></dict>' "$DATA_DIR" )
 </dict>
 </plist>
 PLIST_EOF
 plutil -lint "$PLIST" >/dev/null || die "generated Info.plist failed plutil -lint"
+
+# LSEnvironment only reaches the process when LaunchServices starts the bundle.
+# Assert it landed rather than trusting the heredoc — a silently-dropped key
+# sends the app back to its own Application Support database, which is the
+# exact split this flag exists to prevent.
+if [[ -n "$DATA_DIR" ]]; then
+  BAKED="$(plutil -extract LSEnvironment.LARIAT_DATA_DIR raw -o - "$PLIST" 2>/dev/null || true)"
+  [[ "$BAKED" == "$DATA_DIR" ]] || die "LSEnvironment.LARIAT_DATA_DIR did not land (got: '${BAKED:-<missing>}')"
+  echo "package-app: data dir baked in → $DATA_DIR"
+fi
 
 # ── 5. sign ──────────────────────────────────────────────────────────
 echo "package-app: signing (identity: $SIGN_IDENTITY)…"
