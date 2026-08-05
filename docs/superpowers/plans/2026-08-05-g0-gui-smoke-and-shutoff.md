@@ -97,6 +97,12 @@ North star: endgame §2. Log template:
 - [ ] Confirm edge-blocker list read: guest BEO share, PWA/remote, peers/cloud-bridge transport
 - [ ] Print or open blank shutoff log; set Date / Location / Tester / Native build
 - [ ] Verify Next.js will be **OFF**: `lsof -i :3000` empty (or venue-specific port)
+- [ ] **Confirm a manager PIN exists on the venue Mac.** If none does, set the first
+      one on Manager → PINs (#606 allows that without an unlock) *before* the day
+      starts. As of #607 / #609 an install with no PIN **refuses** manager-tier
+      reads rather than opening them, so the manager, costing, and shows rows in
+      B2 would all fail closed — correct behavior, but it reads as an
+      operator-blocking failure and would sink an otherwise-passing day under B3.
 
 ### B2. During service
 

@@ -47,6 +47,22 @@ Parallel lanes: **0 ∥ 1 ∥ P\*** once Front 0 checklists exist. **2 → 3 →
 | C1 ledger 71/71 | `2026-07-03-lariat-native-phase-c1-rule-ledger.md` |
 | C2 SchemaMigrator + C3 ActorSource (pre-flip) | build artifacts on `main` |
 | BEO cascade `warnings` web + native passthrough | #544, #552 |
+| First-PIN bootstrap on a fresh install | #606 |
+
+### Unconfigured-install lane (landed after this index was authored)
+
+Web made `pinRequiredForPic()` unconditionally `true` on 2026-07-28; native
+matched it the same week. An install with **no** manager PIN now refuses
+manager-tier reads and writes instead of opening them.
+
+| Change | PR |
+|--------|-----|
+| Fresh install can set its first manager PIN | #606 (merged) |
+| Manager-tier reads refuse when no PIN is configured | #607 |
+| Shows reads + write attribution refuse likewise | #609 (closes #608) |
+
+Front 0 Part B depends on this — see its B1 prerequisite. Anything that
+re-opens a board on an unconfigured install is a regression, not a fix.
 
 ---
 
