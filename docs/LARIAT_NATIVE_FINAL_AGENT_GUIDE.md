@@ -60,25 +60,22 @@ What is already strong:
 - Packaging groundwork exists: `LariatNative/Scripts/package-app.sh` can assemble ad-hoc signed `.app` / `.pkg`.
 - `Lariat-KDS` is green with `swift test`.
 
+**Execution map (2026-08-05):**
+[`docs/superpowers/plans/2026-08-05-native-1-0-gap-execution-index.md`](superpowers/plans/2026-08-05-native-1-0-gap-execution-index.md).
+**Active owner front:** Front 0 —
+[`2026-08-05-g0-gui-smoke-and-shutoff.md`](superpowers/plans/2026-08-05-g0-gui-smoke-and-shutoff.md).
+
 What still blocks the final native version:
 
-- A full service-day shutoff test with the Next.js server disabled.
+- **Front 0:** Native 0.2 GUI smoke (no `python3`) + G0 full service-day shutoff with Next.js off.
 - Phase C1 ledger: **complete** (71/71 ported-write verified 2026-07-07). Remaining C work is C4 reconciliation and C5 cutover.
 - Phase C4 reconciliation: at least 7 consecutive green service days, backup and restore drill, audit/event integrity checks, and money/checksum checks.
 - Phase C5 write-route cutover, wave by wave, only after C1-C4 gates.
 - Phase D edge reduction: retain only `lariat-native-edge-blockers.md` surfaces.
 - Phase E consolidation: relocate/absorb load-bearing paths first; delete only confirmed duplicates with explicit user approval.
-- H7 accessibility/iPad work. H7a Phase 1 (13 `.safety`-tier board views + VoiceOver/Dynamic-Type fixes) is merged to `main`. H7a Phase 2 (~61 remaining files across other tiers) has not started; no active H7 worktree currently exists.
+- H7a VoiceOver/Dynamic-Type: **COMPLETE** — Phase 1 (#430) + Phase 2 all 10 tiers (#432–#441). Remaining H7 work is **H7b iPad cook tier** (deferred; own spec when picked).
 - H8 distribution completion: Developer ID identity, notarization profile, final `.app`/`.pkg` or `.dmg` decision, double-click data-dir behavior, and launch smoke in a real GUI session.
-- **H6 is COMPLETE.** All four platform-integration slices done: H6a notifications (merged), H6b
-  native printing (merged), H6c menu-bar extra (merged, PR #444), and **H6d multi-window (done on
-  branch `feat/lariat-native-h6d-multi-window`)** — `⌘N` now opens independent windows: per-window
-  selection (`selectedId` moved into `RootWindowView`) + per-window active-poller (boards publish via
-  the `.tracksActiveBoard` preference; commands read the key window via `@FocusedValue`; the global
-  `BoardPollerHub` was deleted); app-level nav (notification tap, menu-bar) routes through
-  `WindowRouter` to the primary window. Follow-up notification preferences only if explicitly
-  requested. Next endgame front after H6: H7 accessibility Phase 2 remainder / H8 notarization /
-  Phase C flip (owner shut-off test + ≥7-day reconcile window).
+- **H6 is COMPLETE** (merged to `main`): H6a notifications (#428), H6b native printing, H6c menu-bar extra (#444), H6d multi-window (#445) — `⌘N` opens independent windows (per-window selection + poller; `BoardPollerHub` deleted; `WindowRouter` for app-level nav). Next endgame fronts: Front 0 (GUI smoke + G0) → H8 notarization ∥ C4 after G0.
 
 ## Model Tier Routing for Claude
 

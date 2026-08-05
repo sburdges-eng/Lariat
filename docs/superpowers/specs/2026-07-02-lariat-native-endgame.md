@@ -113,9 +113,9 @@ leverage; H1–H2 started 2026-07-02 (this branch).
 
 - [x] Every operator-facing web feature area is native **or** in the edge-blocker log — no third bucket. *(2026-07-02, #384–#397)*
 - [x] All `deferred`/`not ported` markers in Swift sources resolved or explicitly accepted here. *(dish-cost bridge landed #391; remaining deferrals documented per wave: semantic/BGE channels, db_query/code_search soft-responses, prep-median cosmetic, temp-PIN course relaxation)*
-- [ ] §2 shut-off test passes for a full service day. *(operational — needs a real service day; everything code-side is in place)*
+- [ ] §2 shut-off test passes for a full service day. *(Front 0 Part B — `plans/2026-08-05-g0-gui-smoke-and-shutoff.md`; everything code-side is in place)*
 - [x] Phase B assistant at parity *(#399)*; — [ ] Phase C inversion complete *(sub-spec ready; gated on the shut-off test + 7-day reconciliation window)*.
-- [x] Holistic bar H1–H5 done; — [ ] H6/H7/H8 *(need an .app-bundle + signing-identity decision from the owner)*; H9 continuous.
+- [x] Holistic bar H1–H5 done; — [x] H6 complete *(#428/#444/#445 + printing)*; — [x] H7a VoiceOver Phase 1+2 *(#430, #432–#441)*; — [ ] H7b iPad *(deferred)*; — [ ] H8 *(Front 1 — Developer ID + notarization; GUI smoke = Front 0 Part A)*; H9 continuous.
 - [ ] Web codebase reduced to the edge-blocker set (Phase D — checklist ready, gated on C).
 - [ ] Consolidation executed with rails (Phase E — ☠ user-confirmed steps by design).
 - [x] `swift build && swift test` green throughout; every wave PR'd, never pushed to `main`. *(16 wave PRs, 2,273 tests)*
