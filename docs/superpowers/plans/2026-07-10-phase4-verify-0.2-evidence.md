@@ -11,7 +11,7 @@ autonomy: level 2
 
 ## Summary
 
-Native 0.2 L1 (in-process BOM/BEO, native spawn deletion) is **automated-verified** on `main` @ `3e1f283` (L1 landed via PR #448). Status docs repaired. **Owner GUI smoke** remains the only open DoD checkbox for a full freeze claim.
+Native 0.2 L1 (in-process BOM/BEO, native spawn deletion) is **automated-verified** on `main` @ `3e1f283` (L1 landed via PR #448). Status docs repaired. **Owner GUI smoke** remains the only open DoD checkbox for a full freeze claim — run **Front 0 Part A** in [`2026-08-05-g0-gui-smoke-and-shutoff.md`](2026-08-05-g0-gui-smoke-and-shutoff.md).
 
 ## Gates
 
