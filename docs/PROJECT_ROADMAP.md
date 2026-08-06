@@ -84,6 +84,13 @@ currently fails on 2 violations (`purchasing/vendor-link/attach` + `pair`, from 
 rotates as new mutation routes ship without the wrapper; worth a sweep, not itself a roadmap
 item.
 
+**Closed (verified 2026-08-06):** that sweep is green — `node --test
+tests/js/test-idempotency-coverage.mjs` reports an empty violation list and
+`TODO_RETROFIT remaining: 0`. The two `purchasing/vendor-link` routes were wrapped at some
+point after the note above was written. Checked while triaging it as a candidate orchestrator
+task (P6.4); it was dropped from `tasks.yaml` on that basis. Re-run before citing this
+paragraph — the set rotates.
+
 ## How this was scoped
 
 I read every doc in `docs/`, the last 30 commits, the schema, the nav registry, the API routes, the audit document I produced this session, and the recent audit-cycle history (the M/L/H-numbered hardening sweeps). I excluded recommendations I couldn't ground in observed evidence. Effort estimates: **XS** = <1hr, **S** = half-day, **M** = 1–2 days, **L** = week, **XL** = sprint+.
