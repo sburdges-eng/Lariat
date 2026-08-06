@@ -77,6 +77,19 @@ exercise the idempotency-key path in their own tests). **Not yet ported**: the i
 stale-rowid bug also exists in `LariatNative/Sources/LariatDB/KdsTicketRepository.swift` —
 out of this audit's web-only scope.
 
+**Correction (2026-08-06):** "Not yet ported" understated it. A *partial* port had already
+landed in `KdsTicketRepository.swift` — it added the fallback `SELECT` but kept the refuted
+assumption, guarding it behind `if entityRowid == 0` under the comment "rowid is 0 on the
+pure-UPDATE path". `lastInsertedRowID` is the connection-wide `sqlite3_last_insert_rowid()`,
+so on the UPDATE branch it is not zero but *stale* — still holding the previous bump's own
+`audit_events` row. The guard therefore never fired, and every re-bump wrote an audit-table
+rowid into the correction row's `entity_id`. Not an edge case: it fired on each re-bump.
+No test caught it because none of the native KDS tests asserted `entity_id` at all.
+Fixed by doing the `SELECT` unconditionally, matching the web route, plus
+`testRebumpCorrectionEntityIdIsTicketStateRowid` — which bumps *two* tickets so the audit
+rowid and the state rowid diverge (with one ticket both are 1 and a broken implementation
+passes by coincidence).
+
 **Unrelated, noticed in passing**: `test-idempotency-coverage.mjs`'s regulated-route sweep
 currently fails on 2 violations (`purchasing/vendor-link/attach` + `pair`, from #360) — a
 *different* pair of routes than the 3 the tier-3 PR (#316) reported as pre-existing back on

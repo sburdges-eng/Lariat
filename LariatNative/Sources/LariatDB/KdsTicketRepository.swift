@@ -224,15 +224,18 @@ public struct KdsTicketRepository: Sendable {
                 arguments: [ticketId, locationId, bumpedAt, station, pinHash]
             )
 
-            // rowid is 0 on the pure-UPDATE path — resolve it for the audit entity id.
-            var entityRowid = db.lastInsertedRowID
-            if entityRowid == 0 {
-                entityRowid = try Int64.fetchOne(
-                    db,
-                    sql: "SELECT rowid FROM kds_ticket_states WHERE ticket_id = ? AND location_id = ?",
-                    arguments: [ticketId, locationId]
-                ) ?? 0
-            }
+            // Resolve the real rowid via SELECT rather than lastInsertedRowID: that is the
+            // connection-wide sqlite3_last_insert_rowid(), not scoped to the statement just
+            // run. On the UPDATE branch of this upsert it is not zero — it still holds
+            // whatever the writer connection last inserted, which on a re-bump is the prior
+            // bump's own audit_events row. Guarding on `== 0` therefore never fired and the
+            // correction audit recorded an audit-table rowid as its entity_id.
+            // Mirrors app/api/kds/tickets/[id]/bump/route.js.
+            let entityRowid = try Int64.fetchOne(
+                db,
+                sql: "SELECT rowid FROM kds_ticket_states WHERE ticket_id = ? AND location_id = ?",
+                arguments: [ticketId, locationId]
+            )
 
             // DB audit (mirrors web postAuditEvent) — inside the tx; failure rolls back.
             var payload: [String: String] = ["ticket_id": ticketId, "bumped_at": bumpedAt]
@@ -242,7 +245,7 @@ public struct KdsTicketRepository: Sendable {
                 db: db,
                 input: AuditEventInput(
                     entity: "kds_ticket_state",
-                    entityId: entityRowid == 0 ? nil : entityRowid,
+                    entityId: entityRowid,
                     action: action == .insert ? .insert : .correction,
                     actorCookId: nil,
                     actorSource: "kds_app",
