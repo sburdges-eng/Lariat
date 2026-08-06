@@ -1,5 +1,12 @@
 # V2 cutover plan
 
+> **Last verified 2026-07-05; refreshed 2026-08-06.** Rollback owner was
+> named 2026-07-04 (Sean Burdges) — `docs/PROJECT_ROADMAP.md` row 2.11. The
+> plan is still active: tracked as front P5 in
+> `docs/superpowers/plans/2026-08-05-v2-stage1-pilot.md` (added by PR #605,
+> "status: planned — code complete; in-person enablement"). For where the
+> project is *now*, read [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
+
 **Status:** ALL entry criteria satisfied as of 2026-06-12 — criteria 1–3,
 5–6 per `docs/audit/2026-06-11-v2-stage0-readiness-evidence.md` (parity
 audit, Stage-0 smoke `tests/e2e/v2-smoke.spec.ts`, freeze-gate results);
@@ -7,8 +14,10 @@ criterion 4 closed by **operator waiver** of the physical gen-7 iPad run,
 with WebKit software acceptance attached (all flows within threshold) and
 a documented residual risk on the 86-add tap under heavy CPU handicap —
 watch cook-tier responsiveness in Stage 1. **Stage 0 executed 2026-06-12 —
-all cook and manager flows pass (see the evidence note); Stage 1 may begin
-once a rollback owner is named.**
+all cook and manager flows pass (see the evidence note); rollback owner
+named 2026-07-04 (Sean Burdges) — Stage 1 is now gated only on the
+in-person `/v2/enable` visit on pilot devices (front P5, see
+`docs/superpowers/plans/2026-08-05-v2-stage1-pilot.md`).**
 This plan keeps v1 live as the safety rail and defines when to advance,
 when to roll back, and when old routes can finally be deleted.
 
