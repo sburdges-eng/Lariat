@@ -115,27 +115,53 @@ own commit: `serviceDateISO` delegates to `serviceDate`, with the docstring corr
 
 ## Scope — what changes
 
-`todayISO()` call sites triage into three groups. They are **not** a blanket replacement.
+Re-triaged 2026-08-06 by **surface**, not by file or by line. Two earlier passes got the unit
+wrong: line-level missed that write and read defaults sit in the same file, and file-level
+missed that the *page* carries a third default. `git grep` classified by whether the value
+falls back from a request `body` (a write) or from `searchParams` (a read).
 
-**A. Writes a date column (5 sites) — must become `serviceDate()`.**
-`app/api/beo/route.js`, `app/api/eighty-six/route.ts`, `app/api/inventory/route.ts`,
-`app/api/tphc/route.js`, and `lib/auditEvents.ts` (`input.shift_date ?? todayISO()`).
+**The atomic unit is a surface: the API route plus the page that renders it.** Splitting one
+across commits leaves a board whose write, read and page defaults disagree — and a cook's own
+entries vanish from their screen mid-shift.
 
-`lib/auditEvents.ts` is a **protected surface** — the deterministic ops ledger. It changes
-alone, in its own commit, with its own contract test.
+### Wave 1 — the full triad (7 surfaces, one commit each)
 
-**B. Write-default paired with a read-default (27 sites) — change atomically per surface.**
-`breaks`, `cleaning`, `cooling`, `date-marks`, `eighty-six`, `inventory/counts`,
-`beo/fire-schedule` and peers. One commit per surface, both defaults together.
+`breaks`, `cleaning`, `cooling`, `eighty-six`, `receiving`, `sanitizer`, `tip-pool`.
 
-**C. Reads, filters and UI defaults (52 sites) — case by case.**
-Most should follow, so a board's "today" matches what was written. Some genuinely want the
-calendar date — a booking date-picker's initial value is a calendar question, not a service-day
-one. Each is decided explicitly and the reasoning recorded; none is changed by sed.
+Each is identical in shape: an API route holding both a write default (`body.X || todayISO()`)
+and a read default (`searchParams.get('date') || todayISO()`), plus a page with its own
+default. Three files, one commit, one write/read symmetry test per surface: a record written at
+23:30 local appears on that board at 23:31 *and* at 00:30.
+
+These are the highest-risk commits in the migration and they are also the most mechanical.
+`cooling`, `sanitizer` and `receiving` are HACCP surfaces.
+
+### Wave 2 — split or one-sided surfaces (4)
+
+`beo` (write in `route.js`, read in `fire-schedule/route.js`), `date-marks`, `shows/tonight`,
+`temp-log`. Same symmetry requirement, but the two halves live in different files or only one
+half exists, so each needs reading before it is moved rather than pattern-matching.
+
+### Wave 3 — write with no paired read (6, safe alone)
+
+`pest`, `sds`, `sick-worker`, `thermometer-calibrations`, `tphc`, `inventory/counts`. No read
+default to keep in step, so these can land together in one commit.
+
+### Wave 4 — `kitchen-assistant` alone
+
+Nine call sites in `app/api/kitchen-assistant/route.js`, the highest concentration in the repo,
+mixing reads and writes across several entities. Its own commit and its own reading.
+
+### Wave 5 — display defaults and bare calls (~29)
+
+`command`, `operators`, `haccp-plan`, `morning`, `stations`, and the page-level defaults that
+merely seed a date picker. Most should follow so a board's "today" matches what was written;
+some genuinely want the calendar date. Each is decided explicitly and the reasoning recorded.
+None is changed by sed.
 
 Separately, **19 sites inline `new Date().toISOString().slice(0, 10)`** rather than calling the
 helper, including four `shift_date` writes in `lib/boxOfficeRepo.ts` and
-`scripts/ingest-analytics.mjs:198`. These are the same defect and are in scope.
+`scripts/ingest-analytics.mjs:198`. Same defect, same waves.
 
 ## Native
 
@@ -170,14 +196,15 @@ anything that would rewrite an existing `audit_events` row.
 
 ## Sequence
 
-1. `serviceDate()` plus its tests and the shared boundary fixture. No callers change.
-2. `lib/auditEvents.ts` alone, with its contract test.
-3. Group A writes.
-4. Group B, one surface per commit, write and read together.
-5. Group C triage, decisions recorded.
-6. The inline sites.
-7. Native `serviceDate` plus the cross-language parity gate.
-8. The coverage sweep that keeps it from regressing.
+1. `serviceDate()` plus its tests and the shared boundary fixture. No callers change. (#617)
+2. `lib/auditEvents.ts` alone, with its contract test. (#618)
+3. Wave 1 — the seven full-triad surfaces, one commit each, symmetry test per surface.
+4. Wave 2 — the four split or one-sided surfaces.
+5. Wave 3 — the six write-only routes, together.
+6. Wave 4 — `kitchen-assistant` alone.
+7. Wave 5 — display defaults, each decided explicitly; plus the 19 inline sites.
+8. Native `serviceDate` plus the cross-language parity gate.
+9. The coverage sweep that keeps it from regressing.
 
 Each step is independently shippable and independently revertible. No step leaves a surface
 with a write default and a read default that disagree.
