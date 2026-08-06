@@ -124,11 +124,14 @@ describe('every migrated surface keeps both sides on the same clock', () => {
   // The migration's central hazard: move a route's write default and leave its
   // read default (or its page) behind, and a cook's own entries vanish from
   // their screen mid-shift. A file holding both functions at once is that bug.
-  // Grows by one surface per commit as wave 1 lands, so every commit is green
-  // and the guard is never aspirational. Wave 1 target: breaks, cleaning,
-  // cooling, eighty-six, receiving, sanitizer, tip-pool.
   const WAVE_1 = [
+    'app/api/breaks/route.js', 'app/labor/breaks/page.jsx',
+    'app/api/cleaning/route.ts', 'app/food-safety/cleaning/page.jsx',
     'app/api/cooling/route.js', 'app/food-safety/cooling/page.jsx',
+    'app/api/eighty-six/route.ts', 'app/eighty-six/page.jsx',
+    'app/api/receiving/route.js', 'app/food-safety/receiving/page.jsx',
+    'app/api/sanitizer/route.ts', 'app/food-safety/sanitizer/page.jsx',
+    'app/api/tip-pool/route.js', 'app/labor/tip-pool/page.jsx',
   ];
 
   it('no migrated file still calls todayISO()', () => {
