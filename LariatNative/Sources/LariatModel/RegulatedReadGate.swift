@@ -10,7 +10,7 @@ import Foundation
 /// This centralizes the gate decision that `MorningViewModel.evaluateGate`
 /// pioneered so every leaking board shares one tested rule.
 public enum RegulatedReadGateState: Equatable, Sendable {
-    /// The read may proceed (no PIN configured, or a valid session exists).
+    /// The read may proceed — a valid manager session exists.
     case open
     /// A PIN is configured, none is active, but the surface can present the
     /// PIN sheet to unlock (a write DB is available).
@@ -23,18 +23,33 @@ public enum RegulatedReadGateState: Equatable, Sendable {
 public struct RegulatedReadGate {
     public init() {}
 
+    /// Shown when the deployment has no manager PIN at all. It must be
+    /// actionable: there is nothing to type here, so the operator is sent to
+    /// the one board that can create the first PIN without an unlock
+    /// (`ManagerPinRepository.createFirst`).
+    public static let noPinConfiguredReason =
+        "No manager PIN is set. Add one on the Manager → PINs board to open this."
+
     /// Decide whether a manager-tier read may fetch.
     /// - `gateConfigured`: is a manager PIN configured for this deployment
     ///   (`PinVerifier.gateConfigured`)?
     /// - `hasActiveUser`: is there a valid manager-PIN session?
     /// - `canUnlock`: can this surface present the PIN sheet (write DB present)?
+    ///
+    /// An unconfigured deployment does NOT open. It used to, matching a web
+    /// `pinRequiredForPic()` that returned `pinConfigured()`; web made that
+    /// unconditionally `true` on 2026-07-28 because failing open before setup
+    /// is finished exposes PHI, pay data, and staff records on exactly the
+    /// install least likely to be on a trusted network. This mirrors it.
     public static func evaluate(
         gateConfigured: Bool,
         hasActiveUser: Bool,
         canUnlock: Bool
     ) -> RegulatedReadGateState {
-        if !gateConfigured { return .open }
         if hasActiveUser { return .open }
+        // No PIN exists to unlock with, so `canUnlock` is irrelevant — offering
+        // a PIN sheet here would be a prompt nothing can satisfy.
+        if !gateConfigured { return .unavailable(noPinConfiguredReason) }
         return canUnlock
             ? .locked
             : .unavailable("Manager PIN required, but the write database is unavailable.")

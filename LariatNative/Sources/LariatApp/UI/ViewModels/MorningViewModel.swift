@@ -16,9 +16,9 @@ import Observation
     /// Gate state for the surface.
     enum Gate: Equatable {
         case checking          // resolving whether a PIN is configured
-        case open              // no PIN configured (or already unlocked) → show digest
+        case open              // unlocked by a manager session → show digest
         case locked            // PIN configured, no active session → show unlock
-        case unavailable(String) // gate can't be evaluated (e.g. no write DB)
+        case unavailable(String) // no PIN set up, or no write DB to unlock through
     }
 
     var gate: Gate = .checking
@@ -52,12 +52,11 @@ import Observation
 
     func stop() { poller.stop() }
 
-    /// Resolve gate state: configured-PIN + no session → locked; else open.
+    /// Resolve gate state via the shared `RegulatedReadGate` rule.
     func evaluateGate() {
-        // No PIN configured on the web app → digest is viewable without a PIN.
         // Prefer the write DB for the check (it can read manager_pin_users); fall
-        // back to the read-only DB. If neither can evaluate, fail open only when
-        // no env PIN exists.
+        // back to the read-only DB, then to the env-only check. Every failure
+        // path lands on "not configured", which now REFUSES rather than opens.
         let gateOn: Bool
         do {
             if let writeDatabase {
@@ -74,20 +73,18 @@ import Observation
             gateOn = PinVerifier().gateConfigured()
         }
 
-        if !gateOn {
-            gate = .open
-            return
+        // One rule, one place. Morning carrying its own copy of this decision is
+        // how it and RegulatedReadGate drifted apart; unlocking is only possible
+        // through a write DB (PinEntrySheet), which is `canUnlock`.
+        switch RegulatedReadGate.evaluate(
+            gateConfigured: gateOn,
+            hasActiveUser: pinStore.activeUser != nil,
+            canUnlock: writeDatabase != nil
+        ) {
+        case .open: gate = .open
+        case .locked: gate = .locked
+        case .unavailable(let reason): gate = .unavailable(reason)
         }
-        if pinStore.activeUser != nil {
-            gate = .open
-            return
-        }
-        // PIN is required. We can only unlock through a write DB (PinEntrySheet).
-        guard writeDatabase != nil else {
-            gate = .unavailable("Manager PIN required, but the write database is unavailable.")
-            return
-        }
-        gate = .locked
     }
 
     /// Present the PIN sheet to unlock the surface.
