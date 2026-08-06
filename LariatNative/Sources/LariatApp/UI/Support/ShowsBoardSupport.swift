@@ -7,10 +7,16 @@ import Observation
 //
 // Web parity: `/shows` + `/api/shows/**` are manager-PIN-gated
 // (middleware.js SENSITIVE_PREFIXES + requirePin/requirePinOrScope in every
-// route). Native mirrors the Morning read-gate: when a PIN is configured,
-// VIEWING any shows board requires an active PIN session; writes then reuse
-// the unlocked session's user as the actor. With no PIN configured the
-// boards are open and writes carry a nil actor (web behaves the same).
+// route). Native mirrors the Morning read-gate: VIEWING any shows board
+// requires an active PIN session; writes then reuse the unlocked session's
+// user as the actor.
+//
+// An install with NO PIN configured is refused, not opened (#608). This file
+// used to open those boards and write a nil actor, citing web parity — that
+// claim went stale on 2026-07-28 when web's `pinRequiredForPic()` became
+// unconditionally `true`. Both halves of the decision now come from
+// LariatModel (`RegulatedReadGate` / `ManagementWrite.requireActor`) rather
+// than a third copy here, which is how this copy drifted from the other two.
 
 /// Reusable whole-board PIN gate — the Morning pattern, shared across the
 /// shows tier instead of copy-pasted six times.
@@ -68,15 +74,17 @@ final class ShowsGateModel {
             gate = .unavailable("Could not evaluate the manager PIN gate.")
             return
         }
-        if !gateOn || pinStore.activeUser != nil {
-            gate = .open
-            return
+        // One rule, one place — unlocking is only possible through a write DB
+        // (PinEntrySheet), which is `canUnlock`.
+        switch RegulatedReadGate.evaluate(
+            gateConfigured: gateOn,
+            hasActiveUser: pinStore.activeUser != nil,
+            canUnlock: writeDatabase != nil
+        ) {
+        case .open: gate = .open
+        case .locked: gate = .locked
+        case .unavailable(let reason): gate = .unavailable(reason)
         }
-        guard writeDatabase != nil else {
-            gate = .unavailable("Manager PIN required, but the write database is unavailable.")
-            return
-        }
-        gate = .locked
     }
 
     func requestUnlock() {
@@ -115,10 +123,16 @@ final class ShowsGateModel {
         cancel?()
     }
 
-    /// Actor for a write on an unlocked board. Gate off → nil actor (web
-    /// parity); gate on → the active session's user, or throws after
-    /// prompting for the PIN sheet.
-    func actorForWrite() throws -> ManagerPinUser? {
+    /// Actor for a write on an unlocked board — always a named manager, never
+    /// nil. A shows write is money (settlement payouts, box office counts) or
+    /// production record; an audit row naming no one cannot be reconciled, so
+    /// an install with no PIN refuses the write instead of taking it
+    /// unattributed.
+    ///
+    /// Throws `.pinRequired` after raising the PIN sheet when a PIN exists to
+    /// enter, and `.noPinConfigured` WITHOUT raising it when none does — that
+    /// sheet would be a prompt nothing can satisfy.
+    func actorForWrite() throws -> ManagerPinUser {
         let gateOn: Bool
         if let writeDatabase {
             gateOn = (try? writeDatabase.pool.read { db in
@@ -127,13 +141,16 @@ final class ShowsGateModel {
         } else {
             gateOn = PinVerifier().gateConfigured()
         }
-        guard gateOn else { return nil }
         do {
-            let user = try ManagementWrite().requireSession(pinStore.session)
+            let user = try ManagementWrite().requireActor(
+                gateConfigured: gateOn, session: pinStore.session
+            )
             if let writeDatabase {
                 try writeDatabase.pool.read { db in try pinStore.validateActiveUser(db: db) }
             }
             return user
+        } catch ManagementWriteError.noPinConfigured {
+            throw ManagementWriteError.noPinConfigured
         } catch {
             showPinSheet = true
             throw error

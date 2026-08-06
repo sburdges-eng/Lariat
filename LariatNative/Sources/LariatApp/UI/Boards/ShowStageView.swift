@@ -319,7 +319,7 @@ final class ShowStageViewModel {
                 hospitalityRiderJson: hospitalityJson,
                 techRiderJson: techJson,
                 notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
-                actorCookId: user.map { String($0.id) }
+                actorCookId: String(user.id)
             ))
             // Re-adopt the persisted row (normalized riders etc.).
             isAdopting = true

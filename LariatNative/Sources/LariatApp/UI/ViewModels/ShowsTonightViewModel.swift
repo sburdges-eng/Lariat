@@ -111,7 +111,7 @@ final class ShowsTonightViewModel {
                 showId: show.id,
                 capacity: capacity,
                 writeDB: writeDB,
-                actorCookId: user.map { String($0.id) }
+                actorCookId: String(user.id)
             )
             capacityText = ""
             Task { await refresh() }
