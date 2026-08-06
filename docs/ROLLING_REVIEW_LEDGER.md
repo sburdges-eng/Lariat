@@ -1,5 +1,9 @@
 # Rolling Review Ledger
 
+> **Scope: web freeze reviews only.** One entry per section per commit. For
+> project-wide state across web and native, read
+> [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
+
 Section-by-section freeze review of the Lariat web app. Each entry records a
 completed review of one section at one commit, its freeze result, and the rule
 for when the section must be re-reviewed.
