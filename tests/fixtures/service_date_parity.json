@@ -1,0 +1,30 @@
+{
+  "_comment": [
+    "Boundary instants for the venue service day, shared by the JS and Swift",
+    "implementations. Expected values come from the RULE, not from either",
+    "implementation: the service day runs 02:00 to 02:00 America/Denver and is",
+    "named by the date it started (docs/superpowers/specs/2026-08-06-service-date-design.md).",
+    "",
+    "serviceDate(at) = denverCalendarDate(at - 2h). Instant arithmetic, never",
+    "wall-clock arithmetic, so the two DST nights need no special case.",
+    "",
+    "If you change a value here, you are changing the business rule. Don't do it",
+    "to make a test pass."
+  ],
+  "timezone": "America/Denver",
+  "boundary_hour_local": 2,
+  "cases": [
+    { "at": "2026-08-06T23:30:00Z", "local": "6 Aug 17:30 MDT", "expect": "2026-08-06", "why": "afternoon, unremarkable" },
+    { "at": "2026-08-07T05:34:00Z", "local": "6 Aug 23:34 MDT", "expect": "2026-08-06", "why": "late close, still the 6th" },
+    { "at": "2026-08-07T06:55:00Z", "local": "7 Aug 00:55 MDT", "expect": "2026-08-06", "why": "after midnight, still the 6th" },
+    { "at": "2026-08-07T07:59:00Z", "local": "7 Aug 01:59 MDT", "expect": "2026-08-06", "why": "last minute of the service day" },
+    { "at": "2026-08-07T08:01:00Z", "local": "7 Aug 02:01 MDT", "expect": "2026-08-07", "why": "first minute of the next service day" },
+    { "at": "2026-08-07T15:00:00Z", "local": "7 Aug 09:00 MDT", "expect": "2026-08-07", "why": "morning prep" },
+
+    { "at": "2026-03-08T08:59:00Z", "local": "8 Mar 01:59 MST", "expect": "2026-03-07", "why": "spring forward: 02:00 local never occurs" },
+    { "at": "2026-03-08T09:01:00Z", "local": "8 Mar 03:01 MDT", "expect": "2026-03-08", "why": "spring forward: boundary lands at 03:00 wall clock" },
+
+    { "at": "2026-11-01T07:59:00Z", "local": "1 Nov 01:59 MDT", "expect": "2026-10-31", "why": "fall back: first pass through the repeated hour" },
+    { "at": "2026-11-01T08:01:00Z", "local": "1 Nov 01:01 MST", "expect": "2026-11-01", "why": "fall back: second pass is already the new service day (spec Option A)" }
+  ]
+}
