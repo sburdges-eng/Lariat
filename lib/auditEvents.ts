@@ -12,7 +12,8 @@
 // by date range, by action). Keep the surface small.
 
 import type { AuditEvent } from './db.ts';
-import { getDb, todayISO } from './db.ts';
+import { getDb } from './db.ts';
+import { serviceDate } from './serviceDate.ts';
 
 export interface AuditEventInput {
   entity: string;                 // 'temp_log' | 'cooling_log' | 'signoff' | ...
@@ -66,7 +67,11 @@ export function postAuditEvent(input: AuditEventInput): number {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
-      input.shift_date ?? todayISO(),
+      // The ledger records the SERVICE day, which runs 02:00-02:00 local and so
+      // keeps a whole shift on one date. Previously todayISO(), a UTC slice that
+      // rolls at 18:00 Mountain — every audit row written during dinner claimed
+      // the next calendar day. See docs/superpowers/specs/2026-08-06-service-date-design.md
+      input.shift_date ?? serviceDate(),
       input.location_id ?? 'default',
       input.actor_cook_id,
       input.actor_source,
