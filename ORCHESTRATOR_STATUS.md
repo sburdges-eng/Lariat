@@ -36,41 +36,50 @@ P3-1 and P3-3 can run in parallel once P3-1 is green; `paths_touched` do not ove
 
 ## Open pull requests
 
-| PR | Branch | Base | Ahead | Note |
-|----|--------|------|-------|------|
-| #611 | `chore/workspace-status-unification-spec` | `main` | 5 | workspace merge + `PROJECT_STATUS.md` |
-| #610 | `chore/native-ci-stacked-prs` | `main` | 1 | removes `branches: [main]` from `native-ci.yml` |
-| #609 | `fix/shows-unconfigured-read-gate` | **#607's branch** | 2 | stacked — see the ordering note |
-| #607 | `fix/native-unconfigured-read-gate` | `main` | 1 | |
-| #604 | `feat/master-catalog-import` | `main` | 3 | front P4 |
+| PR | Branch | Base | Note |
+|----|--------|------|------|
+| #614 | `chore/native-packaged-data-dir` | `main` | recovers the orphaned `07ee7c0`; gates Front 0 |
 
-**Land #610 first.** Until it merges, `native-ci.yml` filters on `branches: [main]`, so a PR
-based on another branch never triggers the Swift gate. #609 is entirely Swift and is stacked
-on #607 — its green check today is the *web* gate, covering none of its own code. Correct
-order is **#610 → #607 → #609**; #604 is independent.
+Everything else landed 2026-08-06: #605, #610, #607, #604, #611, #612, #613, #609 — eight PRs
+in one pass. `origin/main` moved `7e9627f` → `e6cb9c9`.
+
+### The stacked-PR CI gap — closed, kept as the worked example
+
+`native-ci.yml` used to filter `pull_request:` to `branches: [main]`, so a PR based on another
+branch never triggered the Swift gate at all. #609 was entirely Swift, stacked on #607, and
+sat mergeable for days on a green check that had compiled none of its code.
+
+#610 removed the filter and was landed **first** for that reason. #609 was then retargeted to
+`main` and its branch refreshed, which triggered `swift build + test` for the first time in
+its life: **pass, 3m8s**. It merged on real evidence.
+
+Landing this chain bottom-up would have merged #609 on the phantom green. When a stacked PR's
+checks look green, confirm *which* gates ran before trusting it.
 
 ## Worktrees
 
-Nine live under `Lariat-worktrees/`. Four are fully merged and disposable; one holds
-unpushed work.
+Nine live under `Lariat-worktrees/`. Eight are now fully merged and disposable; none holds
+unpushed work any more.
 
-| Worktree branch | Ahead of `origin/main` | Remote | Disposition |
-|---|---|---|---|
-| `chore/native-single-data-dir` | 1 | **none** | **At risk** — real commit (`07ee7c0`, packaged app shares the repo database), no PR, no remote copy. One `git worktree remove` from being lost. Push or open a PR before cleanup. |
-| `feat/master-catalog-import` | 3 | yes | PR #604 |
-| `chore/native-ci-stacked-prs` | 1 | yes | PR #610 |
-| `fix/native-unconfigured-read-gate` | 1 | yes | PR #607 |
-| `fix/shows-unconfigured-read-gate` | 2 | yes | PR #609 |
-| `chore/pr605-b1-fix` | 0 | none | absorbed into #605 (merged) — safe to remove |
-| `feat/apply-ingredient-maps` | 0 | yes | merged — safe to remove |
-| `feat/master-product-catalog` | 0 | yes | merged — safe to remove |
-| `feat/recipe-cost-coverage` | 0 | yes | merged — safe to remove |
+| Worktree branch | Ahead of `origin/main` | Disposition |
+|---|---|---|
+| `chore/native-single-data-dir` | 1 | **recovered** — `07ee7c0` cherry-picked onto current main as PR #614. Safe to remove once #614 lands. |
+| `feat/master-catalog-import` | 0 | merged (#604) — safe to remove |
+| `chore/native-ci-stacked-prs` | 0 | merged (#610) — safe to remove |
+| `fix/native-unconfigured-read-gate` | 0 | merged (#607) — safe to remove |
+| `fix/shows-unconfigured-read-gate` | 0 | merged (#609) — safe to remove |
+| `chore/pr605-b1-fix` | 0 | absorbed into #605 — safe to remove |
+| `feat/apply-ingredient-maps` | 0 | merged — safe to remove |
+| `feat/master-product-catalog` | 0 | merged — safe to remove |
+| `feat/recipe-cost-coverage` | 0 | merged — safe to remove |
 
 ## Followups outstanding
 
-- **Local `main` is 2 commits ahead of `origin/main`** — `086cf04` (cursor extension
-  recommendations) and `8b651cc` (cad-kernel docs pointer). Unpushed. Push or drop them
-  deliberately; do not let a reset decide.
+- **Local `main` carries 2 commits that are not on the remote** — `086cf04` (cursor extension
+  recommendations) and `8b651cc` (cad-kernel docs pointer). `git cherry origin/main main`
+  returns `+` for both, so they are absent upstream under any SHA. `origin/main` has since
+  been merged into local `main`, so it is 3 ahead / 0 behind. They still need a branch and a
+  PR to reach the remote — `main` is never pushed directly.
 - **Stale GitNexus index** — last indexed `1ea814d`. `npx gitnexus analyze` to refresh. This
   followup carried over from the 2026-05-14 version of this file and is still open.
 - Owner-gated fronts are listed in `tasks.yaml`'s header comment and in `PROJECT_STATUS.md`;
