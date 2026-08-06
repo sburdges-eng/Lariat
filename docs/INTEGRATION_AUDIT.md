@@ -1,5 +1,20 @@
 # Lariat Integration Audit — 2026-05-16
 
+> **Superseded.** Every S1 finding (F1 nav registry, F2 `.env.example`) and
+> both naming-collision findings (F7 `LARIAT_LOCATION_ID`, F8
+> `LARIAT_7SHIFTS_API_KEY`) now have fixes on `origin/main` that cite this
+> audit by name — `.env.example:6`, `lib/location.ts:15`,
+> `app/api/health/route.ts:140`, and `app/_components/navRegistry.js`
+> carrying every F1 example path. F3's priority items were the
+> kitchen-assistant route and the KDS bump route (this doc's own
+> "Recommended fix order," item 3, below); `/api/health` is an F3 item
+> too but was never flagged as a priority. `/api/health` and the KDS
+> bump route both have test coverage now (`tests/js/test-kds-bump-route.mjs`,
+> `tests/js/test-health-route.mjs`). F4 (`@ts-nocheck` drain) is tracked
+> separately as its own long-running project, not by this document. For
+> where the project is *now*, read [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
+> The findings below are kept as the historical record.
+
 Cross-cutting audit of the bundled Lariat app. Looking for orphan code, integration drift, half-finished features, and documentation gaps. Each finding tagged with a severity and a one-paragraph remediation sketch.
 
 **Method.** Combined `find` / `rg` passes over `app/`, `lib/`, `scripts/`, `docs/`, plus comparison of declared env vars, nav-registry entries, page files, API routes, and test files. SQL-level audit of the new `db_query` registry against the real schema. Conducted from a feature branch (`feat/lari-expansion-and-audit`) without making any fixes in the audit pass itself — fixes are listed per finding and would land as separate commits.

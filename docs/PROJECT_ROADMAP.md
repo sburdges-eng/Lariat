@@ -1,5 +1,9 @@
 # Lariat Project Roadmap — 2026-05-16 (updated 2026-06-07)
 
+> **This is a historical log, not current state.** Entries are append-only and
+> dated; each records what was decided when. For where the project is *now*,
+> read [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
+
 A grounded read on what's left to make the bundled app function correctly and reach its potential. Written after the LaRi-expansion + integration-audit session — the work shipped on `feat/lari-expansion-and-audit` cleared a single slice of the surface; the rest is enumerated here.
 
 ## 2026-05-26 ERP planning completion alignment
@@ -77,12 +81,32 @@ exercise the idempotency-key path in their own tests). **Not yet ported**: the i
 stale-rowid bug also exists in `LariatNative/Sources/LariatDB/KdsTicketRepository.swift` —
 out of this audit's web-only scope.
 
+**Correction (2026-08-06):** "Not yet ported" understated it. A *partial* port had already
+landed in `KdsTicketRepository.swift` — it added the fallback `SELECT` but kept the refuted
+assumption, guarding it behind `if entityRowid == 0` under the comment "rowid is 0 on the
+pure-UPDATE path". `lastInsertedRowID` is the connection-wide `sqlite3_last_insert_rowid()`,
+so on the UPDATE branch it is not zero but *stale* — still holding the previous bump's own
+`audit_events` row. The guard therefore never fired, and every re-bump wrote an audit-table
+rowid into the correction row's `entity_id`. Not an edge case: it fired on each re-bump.
+No test caught it because none of the native KDS tests asserted `entity_id` at all.
+Fixed by doing the `SELECT` unconditionally, matching the web route, plus
+`testRebumpCorrectionEntityIdIsTicketStateRowid` — which bumps *two* tickets so the audit
+rowid and the state rowid diverge (with one ticket both are 1 and a broken implementation
+passes by coincidence).
+
 **Unrelated, noticed in passing**: `test-idempotency-coverage.mjs`'s regulated-route sweep
 currently fails on 2 violations (`purchasing/vendor-link/attach` + `pair`, from #360) — a
 *different* pair of routes than the 3 the tier-3 PR (#316) reported as pre-existing back on
 2026-06-11 (`manager-pins` + two `recipe-photos` routes, since fixed). The violated set
 rotates as new mutation routes ship without the wrapper; worth a sweep, not itself a roadmap
 item.
+
+**Closed (verified 2026-08-06):** that sweep is green — `node --test
+tests/js/test-idempotency-coverage.mjs` reports an empty violation list and
+`TODO_RETROFIT remaining: 0`. The two `purchasing/vendor-link` routes were wrapped at some
+point after the note above was written. Checked while triaging it as a candidate orchestrator
+task (P6.4); it was dropped from `tasks.yaml` on that basis. Re-run before citing this
+paragraph — the set rotates.
 
 ## How this was scoped
 

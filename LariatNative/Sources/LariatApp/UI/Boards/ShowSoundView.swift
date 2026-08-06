@@ -309,6 +309,12 @@ final class ShowSoundViewModel {
         }
         do {
             _ = try gateModel.actorForWrite()
+        } catch ManagementWriteError.noPinConfigured {
+            // No PIN exists, so no sheet was raised and stashing the scene
+            // would park it on a verify that can never happen. Keep the form
+            // open and say what to do instead.
+            submitError = WriteErrorMapper.message(for: ManagementWriteError.noPinConfigured)
+            return
         } catch {
             // actorForWrite presented the PIN sheet, which can't show over
             // the scene-form sheet on macOS (PR #401). Dismiss the form,

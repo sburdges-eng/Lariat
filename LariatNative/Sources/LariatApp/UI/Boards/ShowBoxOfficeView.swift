@@ -280,9 +280,15 @@ final class ShowBoxOfficeViewModel {
             submitError = "fees must be a number (e.g. 2 or 2.50)"
             return
         }
-        let user: ManagerPinUser?
+        let user: ManagerPinUser
         do {
             user = try gateModel.actorForWrite()
+        } catch ManagementWriteError.noPinConfigured {
+            // No PIN exists, so no sheet was raised and stashing the line would
+            // park it on a verify that can never happen. Keep the form open and
+            // say what to do instead.
+            submitError = WriteErrorMapper.message(for: ManagementWriteError.noPinConfigured)
+            return
         } catch {
             // actorForWrite presented the PIN sheet, which can't show over
             // the add-line sheet on macOS (PR #401). Dismiss the form, stash

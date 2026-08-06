@@ -200,6 +200,46 @@ final class KdsTicketRepositoryTests: XCTestCase {
         }
     }
 
+    /// A re-bump's correction audit must point at the ticket state's own rowid.
+    ///
+    /// `lastInsertedRowID` is the connection-wide `sqlite3_last_insert_rowid()`, not
+    /// scoped to the statement just run. On the UPDATE branch of the upsert it is not
+    /// zero — it is stale, still holding whatever the writer connection last inserted,
+    /// which is the *previous* bump's `audit_events` row. Two tickets are bumped here
+    /// so the audit rowid and the state rowid diverge; with a single ticket both are 1
+    /// and a broken implementation passes by coincidence.
+    func testRebumpCorrectionEntityIdIsTicketStateRowid() throws {
+        let (readDB, writeDB, auditPath, dbPath) = try makeRepos()
+        defer { cleanup(dbPath: dbPath, auditPath: auditPath) }
+        try seedTicket(writeDB, id: "tkt_a")
+        try seedTicket(writeDB, id: "tkt_b")
+        let repo = KdsTicketRepository(readDB: readDB, writeDB: writeDB, auditLogger: ManagementAuditLogger(auditPath: auditPath))
+
+        // tkt_a first (state rowid 1), then tkt_b (state rowid 2, and its audit row
+        // leaves lastInsertedRowID pointing into audit_events), then re-bump tkt_a.
+        _ = try repo.bump(ticketId: "tkt_a", input: KdsBumpInput(bumpedAt: "2026-05-04T18:00:00.000Z"), context: .nativeCook(cookId: nil))
+        _ = try repo.bump(ticketId: "tkt_b", input: KdsBumpInput(bumpedAt: "2026-05-04T18:01:00.000Z"), context: .nativeCook(cookId: nil))
+        _ = try repo.bump(ticketId: "tkt_a", input: KdsBumpInput(bumpedAt: "2026-05-04T18:05:00.000Z"), context: .nativeCook(cookId: nil))
+
+        try writeDB.pool.read { db in
+            let stateRowid = try Int64.fetchOne(
+                db,
+                sql: "SELECT rowid FROM kds_ticket_states WHERE ticket_id = ? AND location_id = ?",
+                arguments: ["tkt_a", "default"]
+            )
+            let correctionEntityId = try Int64.fetchOne(db, sql: """
+                SELECT entity_id FROM audit_events
+                 WHERE entity='kds_ticket_state' AND action='correction'
+                 ORDER BY id DESC LIMIT 1
+                """)
+            XCTAssertNotNil(stateRowid)
+            XCTAssertEqual(
+                correctionEntityId, stateRowid,
+                "correction audit recorded entity_id \(String(describing: correctionEntityId)) but tkt_a's state rowid is \(String(describing: stateRowid))"
+            )
+        }
+    }
+
     /// 404: ticket id not known to Lariat → no state row, no audit row.
     func testBumpUnknownTicket404() throws {
         let (readDB, writeDB, auditPath, dbPath) = try makeRepos()

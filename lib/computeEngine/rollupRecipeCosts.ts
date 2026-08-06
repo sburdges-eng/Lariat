@@ -446,6 +446,18 @@ export function rollupRecipeCosts(
   const updateBatchCost = db.prepare(
     `UPDATE recipe_costs SET batch_cost = ? WHERE recipe_id = ? AND location_id = ?`,
   );
+  // Coverage is recomputed here, not inherited. `costed_lines`/`total_lines`
+  // were previously written only by scripts/ingest-costing.mjs from the Excel
+  // workbook at import time, while this function kept recomputing batch_cost
+  // from live vendor prices. The two drifted, and the drift is one-directional:
+  // every row on the live DB reported costed_lines == total_lines while 26 of
+  // 42 had unpriced BOM lines. `birria` claimed 8/8 with four priced lines.
+  // lib/dbQueryRegistry.ts serves those figures to the Kitchen Assistant, so a
+  // cost built from half a recipe was being presented as complete.
+  const updateCoverage = db.prepare(
+    `UPDATE recipe_costs SET costed_lines = ?, total_lines = ?
+      WHERE recipe_id = ? AND location_id = ?`,
+  );
   const flagDensity = db.prepare(
     `UPDATE bom_lines SET map_status = 'NEEDS_DENSITY' WHERE id = ?`,
   );
@@ -469,7 +481,17 @@ export function rollupRecipeCosts(
     }
     let total = 0;
     let anyContributed = false;
+    // A line is "costed" when it contributes a real number, or when it is a
+    // resolved decision to contribute nothing. `no_cost_utility` (water) is the
+    // latter: counting it as a gap would make every stock and brine look
+    // permanently incomplete. A mapped line with no vendor price is NOT costed —
+    // that is precisely the silent hole this counter exists to expose.
+    let costedLines = 0;
     for (const line of lines) {
+      if (line.map_status === 'no_cost_utility') {
+        costedLines += 1;
+        continue;
+      }
       const slug = deriveMasterId(line.ingredient ?? '');
       const isSubRecipe = line.sub_recipe === 'YES' || (slug != null && recipeIds.has(slug));
       if (isSubRecipe && slug != null && recipesById.has(slug)) {
@@ -492,6 +514,7 @@ export function rollupRecipeCosts(
         if (cost != null) {
           total += cost;
           anyContributed = true;
+          costedLines += 1;
         } else if (reason != null) {
           result.unconverted.push({
             recipe_id: recipeId,
@@ -516,6 +539,7 @@ export function rollupRecipeCosts(
       if (leaf.cost != null) {
         total += leaf.cost;
         anyContributed = true;
+        costedLines += 1;
       } else if (leaf.reason != null) {
         // Unit-conversion failure (cross-dim without density, count without
         // unit_weight, unknown unit). Surface in the B2 unmapped queue —
@@ -530,6 +554,10 @@ export function rollupRecipeCosts(
         }
       }
     }
+
+    // Written whether or not anything contributed. A recipe where nothing could
+    // be priced is 0/N, and that is the most important case to state plainly.
+    updateCoverage.run(costedLines, lines.length, recipeId, locationId);
 
     if (anyContributed) {
       updateBatchCost.run(total, recipeId, locationId);

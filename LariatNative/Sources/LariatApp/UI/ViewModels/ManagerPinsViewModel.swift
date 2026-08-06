@@ -24,6 +24,12 @@ final class ManagerPinsViewModel {
 
     private(set) var users: [ManagerPinRecord] = []
     private(set) var loaded = false
+
+    /// True only while this location has NO active manager PIN and no
+    /// `LARIAT_PIN` override — the state a packaged build starts in, where
+    /// gating the add would lock the board shut forever. Fails CLOSED: any
+    /// error resolving it leaves the normal PIN gate in place.
+    private(set) var bootstrapMode = false
     var fetchError: String?
     var errorMessage: String?
     var isSaving = false
@@ -70,6 +76,9 @@ final class ManagerPinsViewModel {
         } catch {
             fetchError = "Could not load PINs"
         }
+        bootstrapMode = (try? await readDB.pool.read { [locationId] db in
+            try !PinVerifier().gateConfigured(db: db, locationId: locationId)
+        }) ?? false
         loaded = true
     }
 
@@ -94,7 +103,11 @@ final class ManagerPinsViewModel {
             errorMessage = "Add a PIN"
             return
         }
-        gate { [weak self] in self?.performAdd() }
+        if bootstrapMode {
+            performBootstrapAdd()
+        } else {
+            gate { [weak self] in self?.performAdd() }
+        }
     }
 
     func requestSaveEdit() {
@@ -140,6 +153,34 @@ final class ManagerPinsViewModel {
             newName = ""
             newPin = ""
             newRole = "manager"
+        }
+    }
+
+    /// The first PIN on a fresh deployment — there is no session to require yet.
+    /// `bootstrapMode` only decides which branch the button takes; the refusal
+    /// lives in `createFirst`, which re-checks the gate inside its own write
+    /// transaction, so a stale `true` here cannot widen a configured location.
+    private func performBootstrapAdd() {
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            _ = try repo.createFirst(
+                name: newName,
+                pin: newPin.trimmingCharacters(in: .whitespacesAndNewlines),
+                role: newRole,
+                context: RegulatedWriteContext(
+                    actorCookId: nil,
+                    actorSource: RegulatedWriteContext.nativeMacActorSource,
+                    locationId: locationId,
+                    shiftDate: ShiftDate.todayISO()
+                )
+            )
+            newName = ""
+            newPin = ""
+            newRole = "manager"
+            Task { await refresh() }
+        } catch {
+            errorMessage = WriteErrorMapper.message(for: error)
         }
     }
 

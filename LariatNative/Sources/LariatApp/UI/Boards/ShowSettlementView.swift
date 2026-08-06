@@ -402,9 +402,15 @@ final class ShowSettlementViewModel {
             costsOffTop: costs,
             buyoutCents: buyoutCents
         )
-        let user: ManagerPinUser?
+        let user: ManagerPinUser
         do {
             user = try gateModel.actorForWrite()
+        } catch ManagementWriteError.noPinConfigured {
+            // No PIN exists, so no sheet was raised and stashing the deal would
+            // park it on a verify that can never happen. Keep the editor open
+            // and say what to do instead.
+            submitError = WriteErrorMapper.message(for: ManagementWriteError.noPinConfigured)
+            return
         } catch {
             // actorForWrite presented the PIN sheet, which can't show over
             // the deal-editor sheet on macOS (PR #401). Dismiss the form,
@@ -425,9 +431,9 @@ final class ShowSettlementViewModel {
             try repo.upsertDeal(
                 showId: showId,
                 deal: deal,
-                cookId: user.map { String($0.id) } ?? "unknown",
+                cookId: String(user.id),
                 context: RegulatedWriteContext(
-                    actorCookId: user.map { String($0.id) },
+                    actorCookId: String(user.id),
                     actorSource: RegulatedWriteContext.nativeMacActorSource,
                     locationId: locationId,
                     shiftDate: ShiftDate.todayISO()

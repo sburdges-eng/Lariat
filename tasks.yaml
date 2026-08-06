@@ -1,32 +1,89 @@
 # tasks.yaml — orchestrator manifest
 #
-# Phase 3.5 wave: COMPLETE (2026-05-14).
-# Phase 4 wave:   COMPLETE (2026-05-14, same session).
+# Regenerated 2026-08-06 from repo state, not from memory. The prior manifest was
+# `tasks: []` under a Phase 3.5 / Phase 4 header last touched 2026-06-11, while ~795
+# commits shipped against it. See ORCHESTRATOR_STATUS.md for how that happened.
 #
-# Phase 4 shipped (commit refs in ORCHESTRATOR_STATUS.md):
-#   - #17 sync apply scheduler                                    (f15de27)
-#   - #18 shared LARIAT_DATA_DIR resolver                         (ea2f8bd)
-#   - #19 operator diagnostic CLI for the sync stack              (491aaf1)
+# Schema: .claude/agents/coordinator.md
+# Work source of truth:
+#   docs/superpowers/plans/2026-08-05-native-1-0-gap-execution-index.md   (12 fronts)
+#   docs/PROJECT_STATUS.md                                               (lands in PR #611)
 #
-# Future work (NOT in this manifest — captured here for planning):
+# WHY THIS MANIFEST IS SHORT.
+# Of the twelve fronts in the gap index, exactly one is agent-executable code work with no
+# owner gate: P3, BEO batch flooring -> Swift. The rest are gated and must not be queued:
+#   Front 0  GUI smoke + service-day shutoff .... owner: needs a Mac and a live service day
+#   Front 1  H8 notarization ................... owner: signing identity decision
+#   Front 2  C4 reconcile ...................... owner: needs a >=7-day ops window
+#   Front 3  C5 write cutover .................. gated on Front 2, plus review
+#   Front 4  Phase D edge reduction ............ gated on C5
+#   Front 5  Phase E consolidation ............. gated on Phase D, per-batch confirm
+#   P1/P2    costing confidence, purchase consolidation ... design approval first
+#   P4       master catalog land ............... in review as PR #604
+#   P5       web /v2 Stage 1 pilot ............. owner: in-person device visit
+#   P6       ops polish bag .................... mixed; see note below
 #
-#   1. DONE — /management/cloud-bridge operator UI form shipped
-#      (CloudBridgeBoard.jsx round-trips cloudBridgeUrl/cloudBridgeSecret).
+# P6.4 (idempotency coverage sweep) was a candidate and is deliberately NOT queued:
+# verified green 2026-08-06 -- empty violation list, TODO_RETROFIT remaining 0. The
+# roadmap paragraph claiming it fails on 2 violations was itself stale.
 #
-#   2. DONE — appendOp is wired into the regulated source-write paths
-#      (checks, sanitizer, receiving, temp-log, cooling, …) with
-#      lib/localIdentity.ts supplying sourceHost + sourceStartedAt.
-#
-#   3. Family-3 LWW applier (recipes, dish_components, entities_*)
-#      Deferred per docs/multi-instance-sync.md design.
-#
-#   4. Ed25519 migration for cloud-bridge auth (Item 13)
-#      Out of scope until the cloud peer's verifier ships.
-#
-# 2026-06-10: roadmap Tier-3 rows 3.2-3.7 implemented (uncommitted, pending
-# review) on feat/tier3-no-config-features — see docs/PROJECT_ROADMAP.md.
-#
-# Read:   .claude/agents/coordinator.md  (slash-command entrypoint)
-# Status: ORCHESTRATOR_STATUS.md
+# Do not pad this file to look busy. An honest short manifest is the point.
 
-tasks: []
+tasks:
+  - id: P3-1
+    description: >
+      Extend the BeoCascade fixture corpus with batch-flooring cases exported from the
+      Python oracle. Web already floors batch/case orders; LariatModel's BeoCascadeCompute
+      does not, and the fixture exporter is wired into no gate, so the two drift silently.
+      This task produces fixtures plus the oracle-side coverage pinning the expected
+      floored quantities. No Swift behaviour changes here.
+    acceptance_tests:
+      - ".venv/bin/python -m pytest tests/python/test_beo_cascade_cli.py"
+      - ".venv/bin/python -m pytest tests/python/test_beo_pull.py"
+    dependencies: []
+    paths_touched:
+      - LariatNative/Tests/Fixtures/BeoCascade/
+      - tests/python/test_beo_cascade_cli.py
+      - scripts/dev/export_bom_expand_fixtures.py
+
+  - id: P3-2
+    description: >
+      Port batch/case flooring into LariatModel's BeoCascadeCompute, TDD against the
+      fixtures from P3-1. Floor at every level, matching the web engine. Do not weaken the
+      cascade warnings passthrough shipped in #544 and #552 -- warnings must still reach
+      the board.
+    acceptance_tests:
+      - "cd LariatNative && swift test --filter BeoCascadeComputeTests"
+      - "cd LariatNative && swift test --filter BeoCascade"
+    dependencies: [P3-1]
+    paths_touched:
+      - LariatNative/Sources/LariatModel/Compute/BeoCascadeCompute.swift
+      - LariatNative/Tests/LariatModelTests/BeoCascadeComputeTests.swift
+
+  - id: P3-3
+    description: >
+      Wire the fixture exporter into a real gate so Swift fixtures cannot drift from the
+      Python oracle unnoticed. Today scripts/dev/export_bom_expand_fixtures.py and its BEO
+      twin run by hand only. Add an npm script plus a CI step that regenerates and fails on
+      diff. This is the durable half of P3 -- without it, P3-2 rots the same way.
+    acceptance_tests:
+      - "node --experimental-strip-types --test tests/js/test-suite-wiring-coverage.mjs"
+    dependencies: [P3-1]
+    paths_touched:
+      - scripts/dev/export_bom_expand_fixtures.py
+      - package.json
+      - .github/workflows/ci.yml
+
+  - id: P3-4
+    description: >
+      Make the native BEO board render the same order guide as web for the fixture BEOs,
+      now that the compute floors correctly. Repository and board layer only -- the maths
+      belongs to P3-2.
+    acceptance_tests:
+      - "cd LariatNative && swift test --filter BeoCascadeRepositoryTests"
+      - "cd LariatNative && swift test"
+    dependencies: [P3-2]
+    paths_touched:
+      - LariatNative/Sources/LariatDB/BeoCascadeRepository.swift
+      - LariatNative/Sources/LariatApp/UI/Boards/
+      - LariatNative/Tests/LariatDBTests/BeoCascadeRepositoryTests.swift

@@ -22,6 +22,8 @@ import LariatModel
 ///     the web route stamps `manager_ui`.
 ///   • No `withIdempotency` replay-dedupe layer — native calls are direct
 ///     in-process invocations with no service-worker replay path.
+///   • `createFirst` has no route analog — a packaged build has no `LARIAT_PIN`
+///     to unlock with, so the first PIN per location is creatable unsessioned.
 public struct ManagerPinRepository {
     private let readDB: LariatDatabase
     private let writeDB: LariatWriteDatabase
@@ -82,6 +84,59 @@ public struct ManagerPinRepository {
             let newId = db.lastInsertedRowID
             let record = try Self.fetch(db, id: newId, locationId: context.locationId)
             try Self.audit(db, action: .insert, record: record, context: context)
+            return record
+        }
+    }
+
+    // ── first-run bootstrap (no web analog — see the divergence note) ───
+
+    /// Audit note stamped on the one unsessioned write this surface allows, so
+    /// a PIN that appeared without a manager behind it is identifiable forever.
+    public static let bootstrapAuditNote = "first manager PIN — created with no PIN session"
+
+    /// Create the FIRST manager PIN for a location without a PIN session.
+    ///
+    /// Every other write here is gated by `ManagementWrite.requireSession`, which
+    /// leaves a packaged build unopenable: a Finder-launched `.app` inherits no
+    /// shell environment, so with an empty `manager_pin_users` table there is no
+    /// `LARIAT_PIN` override and no PIN to unlock with — adding one requires one.
+    ///
+    /// The permission is exactly `!PinVerifier.gateConfigured` — no active PIN at
+    /// this location AND no env override — so the door shuts the instant either
+    /// exists. It is re-checked INSIDE the write transaction: the caller's check
+    /// is advisory, this one is the enforcement, and a PIN created in between
+    /// makes the write fail rather than slip a second unsessioned PIN through.
+    ///
+    /// Deliberate divergence from web: the route has no bootstrap because the web
+    /// app always has `.env.local`'s `LARIAT_PIN` to unlock with. A bundle does not.
+    @discardableResult
+    public func createFirst(
+        name: String,
+        pin: String,
+        role: String? = nil,
+        context: RegulatedWriteContext,
+        env: [String: String] = ProcessInfo.processInfo.environment
+    ) throws -> ManagerPinRecord {
+        let cleanName = try Self.normalizeName(name)
+        let cleanRole = try Self.normalizeRole(role)
+        if let fmt = PinHash.validateFormat(pin) { throw ManagerPinWriteError.validation(fmt) }
+
+        return try AuditedWriteRunner.perform(db: writeDB) { db in
+            if try PinVerifier().gateConfigured(db: db, locationId: context.locationId, env: env) {
+                throw ManagerPinWriteError.validation(
+                    "A manager PIN is already set — unlock with it to add another"
+                )
+            }
+            let pinHash = PinHash.hashPinSecure(pin)
+            try db.execute(
+                sql: """
+                  INSERT INTO manager_pin_users (location_id, name, pin_hash, role)
+                  VALUES (?, ?, ?, ?)
+                  """,
+                arguments: [context.locationId, cleanName, pinHash, cleanRole]
+            )
+            let record = try Self.fetch(db, id: db.lastInsertedRowID, locationId: context.locationId)
+            try Self.audit(db, action: .insert, record: record, context: context, note: Self.bootstrapAuditNote)
             return record
         }
     }
@@ -226,7 +281,8 @@ public struct ManagerPinRepository {
         _ db: Database,
         action: AuditEventAction,
         record: ManagerPinRecord,
-        context: RegulatedWriteContext
+        context: RegulatedWriteContext,
+        note: String? = nil
     ) throws {
         _ = try AuditEventWriter.post(db: db, input: AuditEventInput(
             entity: "manager_pin_user",
@@ -237,6 +293,7 @@ public struct ManagerPinRepository {
             payloadJSON: AuditEventWriter.encodePayload(AuditPayload(
                 name: record.name, role: record.role, isActive: record.active
             )),
+            note: note,
             shiftDate: context.shiftDate,
             locationId: context.locationId
         ))

@@ -5,7 +5,9 @@ import LariatModel
 /// Native port of `app/management/pins/page.jsx` — editable local manager
 /// credentials beside the LARIAT_PIN override. Add / inline edit (blank PIN =
 /// keep) / disable; disabled users stay listed with an "Off" badge. All
-/// writes PIN-gated via `PinEntrySheet` + `ManagementWrite.requireSession`.
+/// writes PIN-gated via `PinEntrySheet` + `ManagementWrite.requireSession` —
+/// except the FIRST PIN on a location that has none, which would otherwise be
+/// ungateable in a packaged build (`ManagerPinRepository.createFirst`).
 struct ManagerPinsView: View {
     @State private var vm: ManagerPinsViewModel
 
@@ -40,7 +42,12 @@ struct ManagerPinsView: View {
                 Text(errorMessage).font(.caption).foregroundStyle(.red)
             }
 
-            Section("Add a manager PIN") {
+            Section(vm.bootstrapMode ? "Set the first manager PIN" : "Add a manager PIN") {
+                if vm.bootstrapMode {
+                    Text("No PIN is set yet. Save the first one now — after this, changes need a PIN.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 TextField("Name", text: $vm.newName)
                 SecureField("PIN (4–6 digits)", text: $vm.newPin)
                 Picker("Role", selection: $vm.newRole) {
@@ -48,7 +55,7 @@ struct ManagerPinsView: View {
                         Text(role.capitalized).tag(role)
                     }
                 }
-                Button("Add PIN") { vm.requestAdd() }
+                Button(vm.bootstrapMode ? "Save first PIN" : "Add PIN") { vm.requestAdd() }
                     .disabled(vm.isSaving)
             }
 
