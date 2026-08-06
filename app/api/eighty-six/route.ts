@@ -1,4 +1,5 @@
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { getRecipes } from '../../../lib/data';
 import { cascadedFromEightySix } from '../../../lib/subRecipeGraph';
@@ -41,7 +42,7 @@ const clip = (s: unknown, max: number): string | null => {
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
-    const date = url.searchParams.get('date') || todayISO();
+    const date = url.searchParams.get('date') || serviceDate();
     const includeResolved = url.searchParams.get('all') === '1';
     const loc = locationFromRequest(req);
     const db = getDb();
@@ -81,7 +82,7 @@ async function eightySixPostHandler(req: Request) {
         INSERT INTO eighty_six (shift_date, station_id, item, kind, reason, quantity, cook_id, location_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
-        clip(body.shift_date, 32) || todayISO(),
+        clip(body.shift_date, 32) || serviceDate(),
         clip(body.station_id, 64),
         item,
         clip(body.kind, 32) || 'item',

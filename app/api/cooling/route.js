@@ -11,7 +11,8 @@
 // @ts-check
 // Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
 // only, no behavior change.
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import {
   classifyCoolingStage,
@@ -74,7 +75,7 @@ async function coolingPostHandler(req) {
     });
     if (!v.ok) return Response.json({ error: v.reason }, { status: 400 });
 
-    const shift_date = clip(body.shift_date, 32) || todayISO();
+    const shift_date = clip(body.shift_date, 32) || serviceDate();
     const location_id = locationFromBody(body);
     const item = clip(body.item, 200);
     const station_id = clip(body.station_id, 64);
@@ -289,7 +290,7 @@ async function coolingPatchHandler(req) {
 export async function GET(req) {
   try {
     const url = new URL(req.url);
-    const date = url.searchParams.get('date') || todayISO();
+    const date = url.searchParams.get('date') || serviceDate();
     const location_id = locationFromRequest(req) || DEFAULT_LOCATION_ID;
     const includeClosed = url.searchParams.get('all') === '1';
 

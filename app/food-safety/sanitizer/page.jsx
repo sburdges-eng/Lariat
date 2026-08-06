@@ -6,7 +6,8 @@
 // write side is a form that accepts a strip reading; out-of-range
 // readings get a required corrective-action field inline.
 
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { DEFAULT_POINTS } from '../../../lib/sanitizer';
 import SanitizerBoard from './SanitizerBoard.jsx';
@@ -56,7 +57,7 @@ export default async function SanitizerPage({ searchParams }) {
     typeof sp?.location === 'string' && sp.location.trim()
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const today = todayISO();
+  const today = serviceDate();
 
   const db = getDb();
   const rows = /** @type {SanitizerRow[]} */ (

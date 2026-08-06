@@ -10,7 +10,8 @@
 // integer cents end-to-end (the schema enforces INTEGER NOT NULL on
 // amount_cents; the rule module re-checks).
 
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import { hasPinOrTempPin, pinRequiredForPic } from '../../../lib/pin';
 import { postAuditEvent } from '../../../lib/auditEvents';
@@ -61,7 +62,7 @@ export async function POST(req) {
 async function tipPoolPostHandler(req) {
   try {
     const body = await req.json();
-    const shift_date = clip(body.shift_date, 32) || todayISO();
+    const shift_date = clip(body.shift_date, 32) || serviceDate();
     const pool_ref = clip(body.pool_ref, 120);
     const cook_id = clip(body.cook_id, 64);
     const role = clip(body.role, 64);
@@ -153,7 +154,7 @@ async function tipPoolPostHandler(req) {
 export async function GET(req) {
   try {
     const url = new URL(req.url);
-    const date = url.searchParams.get('date') || todayISO();
+    const date = url.searchParams.get('date') || serviceDate();
     const dateEnd = url.searchParams.get('date_end');
     const poolRef = url.searchParams.get('pool_ref');
     const location_id = locationFromRequest(req) || DEFAULT_LOCATION_ID;

@@ -12,7 +12,8 @@
 // The rule module in lib/receiving.ts owns every threshold decision.
 // This route is persistence + audit + UI-shape only.
 
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import {
   DEFAULT_LOCATION_ID,
   locationFromBody,
@@ -172,7 +173,7 @@ async function receivingHandler(req) {
     const vendor_sku = clip(body.vendor_sku ?? body.sku, 120);
     const shellstock_tag_ref = clip(body.shellstock_tag_ref, 120);
     const cook_id = clip(body.cook_id, 64);
-    const shift_date = clip(body.shift_date, 32) || todayISO();
+    const shift_date = clip(body.shift_date, 32) || serviceDate();
     const location_id = locationFromBody(body);
 
     const expiration_date = clip(body.expiration_date, 32);
@@ -565,7 +566,7 @@ async function receivingHandler(req) {
 export async function GET(req) {
   try {
     const url = new URL(req.url);
-    const date = url.searchParams.get('date') || todayISO();
+    const date = url.searchParams.get('date') || serviceDate();
     const location_id = locationFromRequest(req) || DEFAULT_LOCATION_ID;
 
     const db = getDb();

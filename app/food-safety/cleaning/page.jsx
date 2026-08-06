@@ -4,7 +4,8 @@
 //
 // Citations: FDA §4-602.11 (food-contact frequency), §4-602.13 (non-FCS).
 
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { CLEANING_CITATION } from '../../../lib/cleaning';
 import CleaningBoard from './CleaningBoard.jsx';
@@ -37,7 +38,7 @@ export default async function CleaningPage({ searchParams }) {
     typeof sp?.location === 'string' && sp.location.trim()
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const today = todayISO();
+  const today = serviceDate();
 
   const db = getDb();
   const rows = /** @type {CleaningLogRow[]} */ (

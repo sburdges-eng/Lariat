@@ -5,7 +5,8 @@
 // PATCH /api/breaks    → end the open break (or mark waived)
 // GET   /api/breaks    → breaks for a shift + COMPS evaluation
 
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import { evaluateShift } from '../../../lib/breaks';
 import { postAuditEvent } from '../../../lib/auditEvents';
@@ -62,7 +63,7 @@ async function breaksPostHandler(req) {
     if (!Number.isFinite(Date.parse(started_at))) {
       return Response.json({ error: 'started_at must be an ISO timestamp' }, { status: 400 });
     }
-    const shift_date = clip(body.shift_date, 32) || todayISO();
+    const shift_date = clip(body.shift_date, 32) || serviceDate();
     const location_id = locationFromBody(body);
     const waived = body.waived ? 1 : 0;
     const waiver_ref = clip(body.waiver_ref, 300);
@@ -226,7 +227,7 @@ async function breaksPatchHandler(req) {
 export async function GET(req) {
   try {
     const url = new URL(req.url);
-    const date = url.searchParams.get('date') || todayISO();
+    const date = url.searchParams.get('date') || serviceDate();
     const location_id = locationFromRequest(req) || DEFAULT_LOCATION_ID;
     const cook_id = url.searchParams.get('cook_id');
     const shift_started_at = url.searchParams.get('shift_started_at');

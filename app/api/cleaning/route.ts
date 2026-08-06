@@ -1,4 +1,5 @@
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import { validateCleaningLog } from '../../../lib/cleaning';
 import { postAuditEvent } from '../../../lib/auditEvents';
@@ -19,7 +20,7 @@ async function cleaningPostHandler(req: Request) {
     const v = validateCleaningLog(body);
     if (!v.ok) return Response.json({ error: v.reason }, { status: 400 });
 
-    const shift_date = clip(body.shift_date, 32) || todayISO();
+    const shift_date = clip(body.shift_date, 32) || serviceDate();
     const location_id = locationFromBody(body);
     const schedule_id = body.schedule_id ? Number(body.schedule_id) : null;
     const area = clip(body.area, 100) || 'General';
@@ -67,7 +68,7 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const location_id = locationFromRequest(req as any) || DEFAULT_LOCATION_ID;
-    const date = url.searchParams.get('date') || todayISO();
+    const date = url.searchParams.get('date') || serviceDate();
 
     const db = getDb();
     const rows = db.prepare(`
