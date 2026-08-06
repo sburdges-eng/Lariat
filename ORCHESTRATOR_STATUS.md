@@ -1,9 +1,94 @@
-# Orchestrator status — 2026-05-14 (Phase 3.5 + Phase 4: COMPLETE)
+# Orchestrator status — 2026-08-06
 
-## Recipe-photo wave (closed 2026-05-13)
+**Regenerated from repo state, not from memory.** The previous version of this file was dated
+2026-05-14 and described the Phase 3.5 / Phase 4 waves as the current front. Since that date
+`origin/main` has taken **1,187 commits across 339 merged PRs** — 790 of them in July alone —
+none of which this file or `tasks.yaml` (which read `tasks: []`) knew about. Agents kept
+re-deriving project state from scratch because the planning documents had frozen in spring
+while the code moved. That drift is the reason `/v2` was filed as throwaway in one agent's
+memory while it was in fact a live front.
 
-Manifest: prior `tasks.yaml` (5 tasks)
-Outcome: all 5 merged between `c9b9a69` and `42deab5`.
+Current `origin/main`: `597bae6`.
+
+Where work actually lives now:
+
+| Question | File |
+|---|---|
+| What is done across web and native? | `docs/PROJECT_STATUS.md` (lands in PR #611) |
+| What is the next native front, and who gates it? | `docs/superpowers/plans/2026-08-05-native-1-0-gap-execution-index.md` |
+| What is queued for the orchestrator? | `tasks.yaml` |
+
+---
+
+## Queued wave — P3 BEO batch flooring
+
+No orchestrator wave is in flight. `tasks.yaml` holds four queued tasks, all from front P3,
+the only agent-executable ungated front in the gap index. Nothing has been dispatched.
+
+| Task | Status | Worktree | Implementer | Reviewer | Tests | Notes |
+|------|--------|----------|-------------|----------|-------|-------|
+| P3-1 | queued | — | — | — | — | fixtures + Python oracle coverage; no deps |
+| P3-2 | queued | — | — | — | — | port flooring into `BeoCascadeCompute`; needs P3-1 |
+| P3-3 | queued | — | — | — | — | wire fixture exporter into CI; needs P3-1 |
+| P3-4 | queued | — | — | — | — | native board parity; needs P3-2 |
+
+P3-1 and P3-3 can run in parallel once P3-1 is green; `paths_touched` do not overlap.
+
+## Open pull requests
+
+| PR | Branch | Base | Ahead | Note |
+|----|--------|------|-------|------|
+| #611 | `chore/workspace-status-unification-spec` | `main` | 5 | workspace merge + `PROJECT_STATUS.md` |
+| #610 | `chore/native-ci-stacked-prs` | `main` | 1 | removes `branches: [main]` from `native-ci.yml` |
+| #609 | `fix/shows-unconfigured-read-gate` | **#607's branch** | 2 | stacked — see the ordering note |
+| #607 | `fix/native-unconfigured-read-gate` | `main` | 1 | |
+| #604 | `feat/master-catalog-import` | `main` | 3 | front P4 |
+
+**Land #610 first.** Until it merges, `native-ci.yml` filters on `branches: [main]`, so a PR
+based on another branch never triggers the Swift gate. #609 is entirely Swift and is stacked
+on #607 — its green check today is the *web* gate, covering none of its own code. Correct
+order is **#610 → #607 → #609**; #604 is independent.
+
+## Worktrees
+
+Nine live under `Lariat-worktrees/`. Four are fully merged and disposable; one holds
+unpushed work.
+
+| Worktree branch | Ahead of `origin/main` | Remote | Disposition |
+|---|---|---|---|
+| `chore/native-single-data-dir` | 1 | **none** | **At risk** — real commit (`07ee7c0`, packaged app shares the repo database), no PR, no remote copy. One `git worktree remove` from being lost. Push or open a PR before cleanup. |
+| `feat/master-catalog-import` | 3 | yes | PR #604 |
+| `chore/native-ci-stacked-prs` | 1 | yes | PR #610 |
+| `fix/native-unconfigured-read-gate` | 1 | yes | PR #607 |
+| `fix/shows-unconfigured-read-gate` | 2 | yes | PR #609 |
+| `chore/pr605-b1-fix` | 0 | none | absorbed into #605 (merged) — safe to remove |
+| `feat/apply-ingredient-maps` | 0 | yes | merged — safe to remove |
+| `feat/master-product-catalog` | 0 | yes | merged — safe to remove |
+| `feat/recipe-cost-coverage` | 0 | yes | merged — safe to remove |
+
+## Followups outstanding
+
+- **Local `main` is 2 commits ahead of `origin/main`** — `086cf04` (cursor extension
+  recommendations) and `8b651cc` (cad-kernel docs pointer). Unpushed. Push or drop them
+  deliberately; do not let a reset decide.
+- **Stale GitNexus index** — last indexed `1ea814d`. `npx gitnexus analyze` to refresh. This
+  followup carried over from the 2026-05-14 version of this file and is still open.
+- Owner-gated fronts are listed in `tasks.yaml`'s header comment and in `PROJECT_STATUS.md`;
+  they are deliberately not queued here because no agent can close them.
+
+The three "uncommitted on main" items and the "unpushed main — 28 commits ahead" note from
+the 2026-05-14 version are closed; that tree state no longer exists.
+
+---
+
+## Closed waves — historical record
+
+Preserved because the commit references are real and still resolvable. These describe
+2026-05-13/14 and are **not** current state.
+
+### Recipe-photo wave (closed 2026-05-13)
+
+Manifest: prior `tasks.yaml` (5 tasks). All 5 merged between `c9b9a69` and `42deab5`.
 
 | Task | Branch | Merge commit | Tests |
 |------|--------|--------------|-------|
@@ -13,9 +98,7 @@ Outcome: all 5 merged between `c9b9a69` and `42deab5`.
 | T4 | orch/T4 @ afb19c5 | 319aa53 | 11/11 |
 | T5 | orch/T5 @ b8ecff6 | 42deab5 | 6/6 |
 
-## Phase 3.5 wave (2026-05-14) — COMPLETE
-
-All 8 tasks (+ audit + Phase 2B B3) shipped this session.
+### Phase 3.5 wave (2026-05-14) — complete
 
 | Task | Status | Commit | Tests |
 |------|--------|--------|-------|
@@ -29,97 +112,18 @@ All 8 tasks (+ audit + Phase 2B B3) shipped this session.
 | T6 — Desktop first-run wizard | shipped (pre-existing) | — | (existing) |
 | T7a — sync_feed schema + appendOp + replaySince | shipped | aedd10e | 22/22 |
 | T7b — /api/peers/sync-since + Ed25519 auth | shipped | 6143758 | 24/24 |
-| T7c — Receiving-side appliers + sync client | shipped | 82989af | 27/27 (20 apply + 7 client) |
+| T7c — Receiving-side appliers + sync client | shipped | 82989af | 27/27 |
 | T8 — Graceful drainer stop + launchd template | shipped | a09804f | 9/9 |
 | T8b — cloud-bridge secret in settings | shipped | 8104a2b | 15/15 (6 new) |
 
-## Phase 4 wave (2026-05-14 evening) — COMPLETE
-
-Goal: phase 4 completion including debugging and refactoring.
+### Phase 4 wave (2026-05-14 evening) — complete
 
 | Task | Status | Commit | Tests |
 |------|--------|--------|-------|
-| #17 — Sync apply scheduler (closes T7 pull-loop) | shipped | f15de27 | 20/20 (10 core + 10 lifecycle) |
+| #17 — Sync apply scheduler | shipped | f15de27 | 20/20 |
 | #18 — Shared LARIAT_DATA_DIR resolver | shipped | ea2f8bd | 8/8 |
 | #19 — Operator diagnostic CLI (sync-status) | shipped | 491aaf1 | 5/5 |
 
-## Session commits — 2026-05-14
-
-```
-491aaf1 feat(sync): operator diagnostic CLI for the sync stack (Phase 4)
-ea2f8bd refactor(data): extract shared LARIAT_DATA_DIR resolver (Phase 4)
-f15de27 feat(sync): periodic apply scheduler closes the T7 pull-loop (Phase 4)
-c77372a chore(orch): Phase 3.5 wave COMPLETE
-82989af feat(sync): receiving-side appliers + signed sync-since client (T7c)
-8104a2b feat(desktop): cloudBridgeUrl + cloudBridgeSecret in settings (T8b)
-92310f4 chore(orch): close T6/T7a/T7b/T8 partial; T7c + T8b queued
-a09804f feat(cloud-bridge): graceful drainer stop + launchd template (T8)
-6143758 feat(peers): /api/peers/sync-since + Ed25519 signed-request auth (T7b)
-aedd10e feat(sync): sync_feed + replay_checkpoints schema + appendOp/replaySince (T7a)
-e264ea0 chore(orch): close out T1-T5 + audit branch, refresh remaining manifest
-36c7246 docs(architecture): refresh §4 access-control matrix to match middleware
-45e4684 feat(costing): /costing/ingredient-masters operator review surface (T4)
-6d8a08a chore(orch): roll up Phase 3.5 progress in ORCHESTRATOR_STATUS
-4758e27 feat(shows): weekly settlement digest cron + renderDigestHtml (T5)
-c0df793 fix(data): honor LARIAT_DATA_DIR for JSON cache root (T2)
-3f22201 fix(checks): wrap line_check_entries INSERT in audit-event tx (T1)
-fbbeddb chore(orch): Phase 3.5 task manifest + .env hygiene (T3)
-b1a39ec feat(shows): printable settlement view + Download PDF button (Phase 2B B3)
-fdfaf54 chore(docs): trio orchestration handoff protocol + recipe-photo wave closeout
-```
-
-16 commits. All commits green:
-- typecheck clean on every commit
-- 390/390 HACCP rules tests pass
-- 179 new/regressed tests pass:
-  - 17 settlement-pdf, 10 weekly-digest, 19 checks-api,
-    2 data-cache-data-dir, 34 ingredient-masters,
-    22 sync-feed, 24 peer-auth, 9 cloud-bridge-graceful-stop,
-    6 settings (new), 27 sync-apply+sync-client, 9 sync-feed-types
-- 0 regressions on existing suites (settlement-route, datapack
-  semantic/prewarm/search, data-cache-last-known-good, cloud-bridge-
-  push/drainer, recipe-photos)
-
-## Cross-host sync stack — end-to-end shape
-
-After this wave the multi-instance-sync layer is composable end-to-end:
-
-```
-producer (T7a)                              receiver (T7c)
-   appendOp(op)   →    sync_feed table          ↑   applyWindow(ops)
-                            │                   │       ├─ family1: INSERT OR IGNORE
-                            │                   │       ├─ family2: tx DELETE+INSERT
-                            │                   │       └─ family3: skip+audit (v1)
-                            ↓                   │
-                       replaySince(...)         │
-                            │                   │
-                            ↓                   │   fetchSyncSince(...)
-              /api/peers/sync-since (T7b)  →    │
-              ├─ X-Lariat-Peer-Pubkey           │   signProof + canonical payload
-              ├─ X-Lariat-Timestamp             │   (T7c client mirrors T7b auth)
-              └─ X-Lariat-Signature
-              authenticateSyncRequest:
-              ├─ peer_trust allowlist
-              ├─ ±60s clock-skew window
-              └─ verifyProof (Ed25519)
-```
-
-Still pending (captured in `tasks.yaml`):
-1. Periodic apply scheduler (poll loop calling fetchSyncSince + applyWindow)
-2. Family-3 LWW applier (v2 — not needed for single-KM v1 workflow)
-3. /management/cloud-bridge UI form for T8b's settings round-trip
-4. Ed25519 migration for cloud-bridge auth (cloud-side verifier required first)
-
-## Followups outstanding
-
-- **Unpushed main** — now 28 commits ahead of `origin/main`. Push when ready.
-- **Stale GitNexus index** — `af98d62` sentinel warned across session.
-  Run `npx gitnexus analyze` to refresh.
-- **Audit worktree fully drained** — branch
-  `audit/codebase-fixes-2026-05-13` in `Lariat-worktrees/` is obsolete;
-  remove when convenient.
-- **Uncommitted on main** — `data/normalized/compliance_rules.jsonl`
-  (regenerated; project says do not hand-edit), `.vscode/tasks.json`
-  (untracked IDE config), `design/` (zips + dirs from the
-  LaRi Whole-Design Remix; `ed05b13` already synced the canonical
-  output into `public/`).
+Of the four items that wave left pending, three have since shipped (apply scheduler,
+cloud-bridge UI form, appendOp wiring). Family-3 LWW sync and the Ed25519 cloud-bridge
+migration remain deferred and are tracked as P6.9 and gap-index follow-ups, not here.
