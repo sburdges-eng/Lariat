@@ -4,8 +4,11 @@
 > named 2026-07-04 (Sean Burdges) — `docs/PROJECT_ROADMAP.md` row 2.11. The
 > plan is still active: tracked as front P5 in
 > `docs/superpowers/plans/2026-08-05-v2-stage1-pilot.md` (added by PR #605,
-> "status: planned — code complete; in-person enablement"). For where the
-> project is *now*, read [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
+> "status: planned — code complete; in-person enablement"). That plan is
+> explicit about what "active" means here: "Native app is the long-term
+> daily driver; this front is web-edge continuity only"
+> (`2026-08-05-v2-stage1-pilot.md:29`) — this is not a second permanent web
+> lane. For where the project is *now*, read [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
 **Status:** ALL entry criteria satisfied as of 2026-06-12 — criteria 1–3,
 5–6 per `docs/audit/2026-06-11-v2-stage0-readiness-evidence.md` (parity
