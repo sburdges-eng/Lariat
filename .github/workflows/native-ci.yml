@@ -10,8 +10,15 @@
 name: native-ci
 
 on:
+  # No `branches:` filter on pull_request, matching ci.yml — see its header for
+  # the history. It was [main] here, so a stacked native PR (the normal shape
+  # for dependent work) ran no Swift gate at all: #609 is entirely Swift, was
+  # opened against #607's branch, and showed one green web check covering none
+  # of the code it changed. Retargeting and reopening don't fire the event
+  # either, so the stack's only gate was the author's local run.
+  #
+  # ci.yml was fixed for this in #583/#587; native-ci was left behind.
   pull_request:
-    branches: [main]
     paths:
       - 'LariatNative/**'
       - '.github/workflows/native-ci.yml'
