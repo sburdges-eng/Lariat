@@ -1,5 +1,9 @@
 # Lariat Project Roadmap — 2026-05-16 (updated 2026-06-07)
 
+> **This is a historical log, not current state.** Entries are append-only and
+> dated; each records what was decided when. For where the project is *now*,
+> read [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
+
 A grounded read on what's left to make the bundled app function correctly and reach its potential. Written after the LaRi-expansion + integration-audit session — the work shipped on `feat/lari-expansion-and-audit` cleared a single slice of the surface; the rest is enumerated here.
 
 ## 2026-05-26 ERP planning completion alignment
