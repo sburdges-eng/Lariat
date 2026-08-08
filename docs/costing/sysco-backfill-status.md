@@ -1,85 +1,88 @@
 # Sysco order-email backfill — coverage and findings
 
-Working backwards from July 2026. A month is listed as **complete** only when
-every order email in that month has been read and reconciled; partial months are
-not usable, because sampling a subset of orders is what produced the withdrawn
+Working backwards from July 2026. A month is **complete** only when every order
+email in that month has been read and reconciled. Partial months are marked
+do-not-use, because sampling a subset of orders is what produced the withdrawn
 28% estimate.
 
 Data: `data/cache/sysco/backfill_orders.csv` (per order),
-`data/cache/sysco/backfill_lines.csv` (655 line items).
+`data/cache/sysco/backfill_lines.csv` (1,041 line items).
 Parser: `scripts/parse_sysco_emails.py`. Every order ties to the total printed in
 its own email; none were dropped.
 
 ## Coverage
 
-| Month | Status | Orders | Line items | Shipping | Total | Per day |
-| --- | --- | --- | --- | --- | --- | --- |
-| Jul 2026 | **complete** | 10 | $17,179.68 | $0.00 | **$17,179.68** | $554.18 |
-| Jun 2026 | **complete** | 12 | $25,968.72 | $13.91 | **$25,982.63** | $866.09 |
-| May 2026 | **complete** | 16 | $14,485.10 | $33.37 | **$14,518.47** | $468.34 |
-| **3 months** | | **38** | | | **$57,680.78** | **$626.97** |
-| Apr 2026 and earlier | not started | | | | | |
+| Month | Status | Orders | Total | Per day |
+| --- | --- | --- | --- | --- |
+| Jul 2026 | **complete** | 10 | $17,179.68 | $554.18 |
+| Jun 2026 | **complete** | 12 | $25,982.63 | $866.09 |
+| May 2026 | **complete** | 16 | $14,518.47 | $468.34 |
+| Apr 2026 | **complete** | 9 | $7,662.13 | $255.40 |
+| Mar 2026 | **complete** | 12 | $12,912.36 | $416.53 |
+| Feb 2026 | **complete** | 12 | $7,650.82 | $273.24 |
+| **Feb–Jul 2026** | **6 months** | **71** | **$85,906.09** | **$474.62** |
+| Jan 2026 | partial (3 of 9 threads) | 3 | $2,626.58 | **do not use** |
+| Dec 2025 and earlier | not started | | | |
 
-## June is the outlier, not July
+## The shape is seasonal, and it is steep
 
-The earlier read of this data was that July was running hot. With three complete
-months, that is wrong. **June is the peak, by a wide margin**, and July is much
-closer to normal:
+Six months in, the read has changed twice. July looked hot against a single
+winter baseline; then June looked like the outlier. With half a year:
 
-- June is **85% above May** and **56% above July** on a per-day basis.
-- May, at $468/day, is only 21% above the Feb–Mar invoice run rate of $386/day.
-- July at $554/day is 43% above it. June at $866/day is **124% above it**.
+- **April is the trough at $255/day** — *below* February. Mud season in Buena
+  Vista, and it shows in the purchase record.
+- **June is the peak at $866/day** — 3.4× April, 56% above July.
+- The Feb–Jul average is **$474.62/day**.
 
-A single month at nearly double the neighbouring months is a signal about
-*something*, but three points is not a trend and the cause is not in this data.
-Two candidates, neither of which is kitchen performance:
+June is still anomalous even allowing for seasonality: May ($468) and July
+($554) sit either side of it, so June is not simply "summer." Something specific
+happened in June. Event load remains the obvious candidate and is still
+unproven — event food rides on these same invoices, which is why the Toast
+export has to establish where event revenue sits before any percentage is
+computed.
 
-1. **Events.** Event food rides on these same invoices. If June carried the
-   heavier event load, that alone could account for it — and the revenue side of
-   those events partly sits in service fees rather than food sales, which is
-   precisely why the Toast export has to answer where event revenue lands before
-   any percentage is computed.
-2. **Basis.** Order-email totals exclude tax and include shipping; the invoice
-   PDFs are the reverse. The comparison against Feb–Mar is indicative only.
+**Do not annualize any single month.** The spread runs 3.4× from trough to peak.
 
-**Do not annualize any of these months.** $626.97/day across the three is a
-better planning figure than any single month, and even that is one quarter of a
-seasonal business in a mountain town.
+## A cross-check that partly answers the AR-statement question
 
-## Order attribution — two facts worth carrying forward
+The verified invoice-PDF figure for 26 Feb – 26 Mar 2026 is **$10,811.61**. The
+order emails give $7,650.82 for all of February and $12,912.36 for all of March
+— so that window lands in the same ballpark as the invoice total.
+
+This is reassuring but not conclusive: the two sources are on different bases
+(order emails exclude tax and include shipping; the PDFs are the reverse) and
+the windows do not align. It is evidence *against* a large volume of deliveries
+with no order email at all, in that window. It is not proof, and it does not
+replace the Sysco AR statement.
+
+## Order attribution — carry these forward
 
 **Multi-order emails are common and they defeat the obvious reconciliation
-check.** The 21 Jun and 28 Jun emails each cover two orders under a single
-printed grand total. A parser that stamps every line with the email's first
-order number *still ties to the printed total exactly* — the error is invisible
-at the check. The `.item-seller` heading is the real per-order delimiter and
-carries both number and seller: `Order #04675097 (Sysco Standard Delivery)`,
-`Order #14380632 (Sold and Shipped by DON)`. **Nine of 38 orders came out of
-multi-order emails.**
+check.** Several emails cover two or three orders under a single printed grand
+total. A parser that stamps every line with the email's first order number
+*still ties to the printed total exactly* — the error is invisible at the check.
+The `.item-seller` heading is the real per-order delimiter and carries both
+number and seller: `Order #04675097 (Sysco Standard Delivery)`,
+`Order #14380632 (Sold and Shipped by DON)`. **22 of 63 parsed orders came out
+of multi-order emails.**
 
-**Marketplace orders are mixed into ordinary Sysco emails** and are not food.
-Across three months they total only $456.33:
+**Two email templates exist.** Emails before roughly March 2026 use an older
+template (CRLF markup, order number in the `<title>` rather than the header).
+The same selectors work on both — verified on order 04420381, 1 Mar, 1 line,
+$94.22, exact.
 
-| Order | Month | Amount |
-| --- | --- | --- |
-| M6c504942d4db | May | $95.11 |
-| 14350664 | May | $283.96 |
-| 14380632 | Jun | $77.26 |
+**Marketplace orders are mixed into ordinary Sysco emails** and are not food:
+`M`-prefixed hashes or 8 digits starting `14`, against `043…`–`047…` for Sysco
+Standard Delivery. They are small — a few hundred dollars a month at most.
 
-Sysco Standard Delivery order numbers run `045…`–`047…`; marketplace runs 8
-digits starting `14`, or an `M`-prefixed hash.
-
-## Known coverage gaps
+## Known gaps
 
 - **Order-only emails.** The thread query filters to Confirmation / Allocated /
-  Modified. A marketplace order that only ever produced a "Shipped" notice would
-  be missed. Several `M`-prefixed shipments in July have no matching
-  confirmation in the filtered set. Given marketplace runs ~$150/month and is
-  non-food, this does not affect the food numerator materially.
-- **Deliveries with no order email at all.** Still the open question, and still
-  answerable only by a Sysco AR statement or invoice history by date range.
-- **Food vs non-food is not yet classified.** The 655 line items are captured
-  with SUPC, description, brand and extended price, but not categorized. The
-  94.8% food figure in circulation was measured on a 117-line subset and should
-  not be applied to these months as-is. Classifying the 655 lines is now a
-  desk job with no further fetching required.
+  Modified. A marketplace order that only produced a "Shipped" notice is missed.
+  Non-food and immaterial to the food numerator.
+- **Deliveries with no order email at all.** Partly addressed by the Feb–Mar
+  cross-check above; still properly answered only by a Sysco AR statement.
+- **Food vs non-food is not classified.** 1,041 line items are captured with
+  SUPC, description, brand and extended price, but not categorized. The 94.8%
+  food figure in circulation came off a 117-line subset and is **not** applied to
+  these months. Classifying them is a desk job needing no further fetching.
