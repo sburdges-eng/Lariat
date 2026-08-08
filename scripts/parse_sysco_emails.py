@@ -84,6 +84,10 @@ MONEY_RE = re.compile(r'-?[\d,]+\.\d{2}')
 BRAND_RE = re.compile(r'^\s*(\d{5,9})\s*\|\s*([^|]*?)\s*(?:\|\s*(.*?))?\s*$')
 # "Jul 05 2026 03:18 PM | #04690479" -> the order number after the hash.
 ORDER_NUM_RE = re.compile(r'#\s*([A-Za-z0-9]+)')
+# "Order #04675097 (Sysco Standard Delivery)" -> order number, seller name.
+# On multi-order emails this heading is the ONLY per-order delimiter: the header
+# block lists every order number, so an email-level number is not attribution.
+SELLER_RE = re.compile(r'Order\s*#\s*([A-Za-z0-9]+)\s*\((.*?)\)\s*$')
 # "0 CS / 1 CS ($54.67)" or "1 CS ($28.13)" or catch weight "1 CS ($4.876LB)".
 QTY_ALLOC_RE = re.compile(
     r'^\s*([\d.]+)\s*([A-Za-z]+)\s*/\s*([\d.]+)\s*([A-Za-z]+)\s*\(\$([\d,.]+)\s*([A-Za-z]*)\s*\)'
@@ -157,10 +161,21 @@ def parse_message(message: dict, thread_id: str) -> list[dict]:
     # recent heading above it, NOT to the email. Splitting on the email is trap 1.
     rows: list[dict] = []
     current_seller = ''
+    current_order = ''
     for el in soup.select('.item-seller, .item-name'):
         classes = el.get('class') or []
         if 'item-seller' in classes:
             current_seller = el.get_text(' ', strip=True)
+            # The heading carries this section's own order number on multi-order
+            # emails. Falling back to the email-level number here silently
+            # collapses several orders into one — the printed total still ties,
+            # because it is the email grand total, so the error is invisible to
+            # the reconciliation check. Attribute per section.
+            sm = SELLER_RE.match(current_seller)
+            if sm:
+                current_order, current_seller = sm.group(1), sm.group(2)
+            else:
+                current_order = ''
             continue
 
         # Climb to the smallest ancestor that holds this item's price while
@@ -223,7 +238,7 @@ def parse_message(message: dict, thread_id: str) -> list[dict]:
             'subject': subject,
             'state': state,
             'seller': current_seller or 'Sysco Standard Delivery',
-            'order_number': order_nums[0] if order_nums else '',
+            'order_number': current_order or (order_nums[0] if order_nums else ''),
             'order_date': order_date,
             'delivery_date': delivery_date,
             'supc': supc,
@@ -244,22 +259,35 @@ def parse_message(message: dict, thread_id: str) -> list[dict]:
     if not rows:
         return []
 
+    # Reconciliation is EMAIL-level: the printed total is the grand total across
+    # every order the email covers. Attribution is ORDER-level. Conflating the
+    # two is what let a three-order email report as one order and still tie.
     totals = [money(e.get_text(' ', strip=True)) for e in soup.select('.total-price')]
     totals = [t for t in totals if t is not None]
     printed_total = totals[-1] if totals else None
 
-    line_sum = round(sum(r['extended_price'] for r in rows if r['extended_price'] != ''), 2)
-    residual = round(printed_total - line_sum, 2) if printed_total is not None else None
+    email_line_sum = round(sum(r['extended_price'] for r in rows if r['extended_price'] != ''), 2)
+    residual = round(printed_total - email_line_sum, 2) if printed_total is not None else None
+
+    by_order: dict[str, list[dict]] = {}
+    for r in rows:
+        by_order.setdefault(r['order_number'], []).append(r)
 
     return [{
-        'order_number': rows[0]['order_number'],
+        'order_number': num,
         'state': state,
         'message_date': message.get('date', ''),
+        'order_date': orows[0]['order_date'],
+        'line_sum': round(sum(r['extended_price'] for r in orows if r['extended_price'] != ''), 2),
+        # Email-level facts, repeated on each order so the verdict travels with
+        # the order it applies to.
+        'email_id': message.get('id', ''),
         'printed_total': printed_total,
-        'line_sum': line_sum,
+        'email_line_sum': email_line_sum,
         'residual': residual,
-        'rows': rows,
-    }]
+        'orders_in_email': len(by_order),
+        'rows': orows,
+    } for num, orows in by_order.items()]
 
 
 def load_threads(paths: list[Path]) -> list[dict]:
@@ -326,7 +354,7 @@ def main() -> int:
 
     orders = load_threads(paths)
     kept, lost = dedupe(orders)
-    kept.sort(key=lambda o: (o['rows'][0]['order_date'] or '', o['order_number']))
+    kept.sort(key=lambda o: (o['order_date'] or '', o['order_number']))
 
     fields = [
         'thread_id', 'message_id', 'message_date', 'subject', 'state', 'seller',
@@ -344,22 +372,26 @@ def main() -> int:
     if args.report:
         with args.report.open('w', newline='') as fh:
             w = csv.writer(fh)
-            w.writerow(['order_number', 'order_date', 'state', 'n_lines',
-                        'line_sum', 'printed_total', 'residual', 'message_date'])
+            w.writerow(['order_number', 'order_date', 'state', 'n_lines', 'line_sum',
+                        'orders_in_email', 'email_printed_total', 'email_line_sum',
+                        'email_residual', 'message_date'])
             for o in kept:
-                w.writerow([o['order_number'], o['rows'][0]['order_date'], o['state'],
-                            len(o['rows']), f"{o['line_sum']:.2f}",
-                            f"{o['printed_total']:.2f}", f"{o['residual']:.2f}",
-                            o['message_date']])
+                w.writerow([o['order_number'], o['order_date'], o['state'],
+                            len(o['rows']), f"{o['line_sum']:.2f}", o['orders_in_email'],
+                            f"{o['printed_total']:.2f}", f"{o['email_line_sum']:.2f}",
+                            f"{o['residual']:.2f}", o['message_date']])
 
     n_lines = sum(len(o['rows']) for o in kept)
-    total = sum(o['printed_total'] for o in kept)
-    residual = sum(o['residual'] for o in kept)
+    order_total = round(sum(o['line_sum'] for o in kept), 2)
+    # Shipping is charged once per email, not once per order it covers.
+    shipping = round(sum(r for r in {o['email_id']: o['residual'] for o in kept}.values()), 2)
+    multi = sum(1 for o in kept if o['orders_in_email'] > 1)
     print(f'orders kept       : {len(kept)}')
+    print(f'  from multi-order emails: {multi}')
     print(f'line items        : {n_lines}')
-    print(f'printed totals    : ${total:,.2f}')
-    print(f'line-item sum     : ${total - residual:,.2f}')
-    print(f'residual (ship)   : ${residual:,.2f}')
+    print(f'line-item sum     : ${order_total:,.2f}')
+    print(f'shipping residual : ${shipping:,.2f}')
+    print(f'total purchases   : ${order_total + shipping:,.2f}')
     if lost:
         print(f'\n!! {len(lost)} order(s) dropped — no version reconciled:', file=sys.stderr)
         for o in lost:

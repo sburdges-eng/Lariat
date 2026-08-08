@@ -21,7 +21,12 @@ the total printed in that email. Nothing here is modeled.
 | #04745437 | 29 Jul | $111.50 | 1 line, 2 CS peach nectar |
 | #04745359 | 29 Jul | $48.95 | 1 line, heirloom cherry tomato |
 | #04745480 | 29 Jul | $24.79 | 1 line, pomegranate juice |
-| **Total** | | **$17,179.70** | |
+| **Total** | | **$17,179.68** | |
+
+All four large orders were re-read independently through
+`scripts/parse_sysco_emails.py` and reproduce their stated totals exactly. The
+$17,179.70 first reported here was two cents high — it carried the rounded
+$16,910.00 subtotal forward. The precise figure is **$17,179.68**.
 
 ## What changed, and what it means
 
