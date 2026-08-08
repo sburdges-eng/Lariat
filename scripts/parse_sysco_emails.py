@@ -1,0 +1,372 @@
+#!/usr/bin/env python3
+"""Parse Sysco order emails (shop-noreply@sysco.com) into line-item CSV.
+
+Why this exists
+---------------
+`ingest_sysco_order_emails.py` consumes a CSV of Sysco line items. This script
+produces that CSV, reading the HTML bodies of the order emails themselves.
+
+The emails are the only complete record of what was actually purchased. The
+invoice-PDF archive has holes (April and May 2026 are absent entirely), and the
+Sysco ordering site does not export history past a short window.
+
+Reconciliation is the whole point
+---------------------------------
+Every order must tie to the total printed in its own email. An order that does
+not reconcile is **dropped, not guessed** — a mis-parsed order silently poisons
+the food-cost denominator, which is exactly the failure this work is correcting.
+
+Seven traps, each of which has produced a wrong number before
+------------------------------------------------------------
+1. **One email can carry several sellers** under a single total — Sysco Standard
+   Delivery, Supplies On The Fly, Everyday Supply Co. Items are attributed to
+   the `.item-seller` heading that precedes them in document order, never to the
+   email as a whole.
+2. **Third-party marketplace lines are not food.** They carry
+   `.thirdParty-label` / `.specialty-label` and are tagged so they can be
+   excluded from a food-cost numerator.
+3. **Ordered != allocated != billed.** `.item-qty-uom` reads
+   `<allocated> / <ordered> (<unit price>)` on allocated orders. Out-of-stock
+   lines allocate 0 and extend to $0.00. Extended price is authoritative.
+4. **Totals exclude tax and include shipping** — a different basis from the
+   invoice PDFs. Shipping is a header charge with no SUPC, so line items can sum
+   *below* the printed total by exactly the shipping amount. That is recorded as
+   a residual, not smeared across the lines.
+5. **The same order appears 2-4 times** across Confirmation / Modified /
+   Allocated / Shipped. Dedupe on order number, keeping the latest state that
+   actually carries reconciling line detail.
+6. **Catch-weight lines price per pound, not per case** (`1 CS ($4.876LB)`), so
+   `qty * unit_price != extended_price` by design. Extended price is
+   authoritative and unit price is never re-derived.
+7. **Pack weight is deliberately not parsed** from the pack string, matching
+   `ingest_sysco_invoice_pdfs.py`. Weight belongs to `vendor_pack_weights`,
+   keyed on SUPC.
+
+Usage
+-----
+    python scripts/parse_sysco_emails.py <thread_json>... -o out.csv
+    python scripts/parse_sysco_emails.py --dir <dir_of_thread_json> -o out.csv
+
+Input is the JSON saved by the Gmail `get_thread` tool at FULL_CONTENT:
+`{id, messages: [{id, date, subject, htmlBody, ...}]}`. `htmlBody` may be a
+plain string or the `[{text, type}]` wrapper some tool versions emit; both are
+accepted.
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import re
+import sys
+from pathlib import Path
+
+from bs4 import BeautifulSoup
+
+# Order state, lowest to highest confidence that the line detail is final.
+# "Shipped" outranks "Allocated" only when it carries line detail at all; most
+# shipped notices are tracking-number stubs with no items, and those are skipped
+# before ranking ever applies.
+STATE_RANK = {
+    'confirmation': 1,
+    'modified': 2,
+    'allocated': 3,
+    'shipped': 4,
+    'unknown': 0,
+}
+
+# A cent of drift is float noise; a dollar is a parse defect.
+RECONCILE_TOLERANCE = 0.01
+
+MONEY_RE = re.compile(r'-?[\d,]+\.\d{2}')
+# "2986487 | 4/5 LB | IMPERIAL FRESH" -> supc, pack, brand. Brand may be absent.
+BRAND_RE = re.compile(r'^\s*(\d{5,9})\s*\|\s*([^|]*?)\s*(?:\|\s*(.*?))?\s*$')
+# "Jul 05 2026 03:18 PM | #04690479" -> the order number after the hash.
+ORDER_NUM_RE = re.compile(r'#\s*([A-Za-z0-9]+)')
+# "0 CS / 1 CS ($54.67)" or "1 CS ($28.13)" or catch weight "1 CS ($4.876LB)".
+QTY_ALLOC_RE = re.compile(
+    r'^\s*([\d.]+)\s*([A-Za-z]+)\s*/\s*([\d.]+)\s*([A-Za-z]+)\s*\(\$([\d,.]+)\s*([A-Za-z]*)\s*\)'
+)
+QTY_PLAIN_RE = re.compile(
+    r'^\s*([\d.]+)\s*([A-Za-z]+)\s*\(\$([\d,.]+)\s*([A-Za-z]*)\s*\)'
+)
+
+
+def money(text: str) -> float | None:
+    """First dollar figure in `text`, or None. Handles thousands separators."""
+    if not text:
+        return None
+    m = MONEY_RE.search(text.replace('$', ''))
+    return float(m.group(0).replace(',', '')) if m else None
+
+
+def html_of(message: dict) -> str:
+    """Return the HTML body, tolerating both wrapper shapes."""
+    body = message.get('htmlBody') or message.get('html_body') or ''
+    if isinstance(body, list):
+        # [{text, type}] — concatenate the html parts, else everything.
+        html = [p.get('text', '') for p in body if p.get('type') in ('html', 'text/html')]
+        return ''.join(html) if html else ''.join(p.get('text', '') for p in body)
+    return body or ''
+
+
+def classify_state(subject: str) -> str:
+    s = (subject or '').lower()
+    for key in ('allocated', 'shipped', 'modified', 'confirmation'):
+        if key in s:
+            return key
+    return 'unknown'
+
+
+def parse_message(message: dict, thread_id: str) -> list[dict]:
+    """Parse one email into a list of order dicts (usually one, sometimes several).
+
+    Returns [] when the email carries no line detail (tracking stubs, carrier
+    delivery notices), which is normal and not an error.
+    """
+    html = html_of(message)
+    if not html or 'item-name' not in html:
+        return []
+
+    soup = BeautifulSoup(html, 'lxml')
+
+    # --- header: order number(s), dates -------------------------------------
+    headers = [e.get_text(' ', strip=True) for e in soup.select('.header-item-data')]
+    order_nums, dates = [], []
+    for h in headers:
+        m = ORDER_NUM_RE.search(h)
+        if m:
+            order_nums.append(m.group(1))
+        if re.fullmatch(r'\d{2}/\d{2}/\d{4}', h.strip()):
+            dates.append(h.strip())
+
+    # Subject carries the order number when the header does not.
+    subject = message.get('subject', '') or ''
+    if not order_nums:
+        m = ORDER_NUM_RE.search(subject)
+        if m:
+            order_nums.append(m.group(1))
+
+    order_date = dates[0] if dates else ''
+    delivery_date = dates[1] if len(dates) > 1 else (dates[0] if dates else '')
+    state = classify_state(subject)
+
+    # --- walk document order, tracking the seller heading in force ----------
+    # Sellers are headings interleaved with items; an item belongs to the most
+    # recent heading above it, NOT to the email. Splitting on the email is trap 1.
+    rows: list[dict] = []
+    current_seller = ''
+    for el in soup.select('.item-seller, .item-name'):
+        classes = el.get('class') or []
+        if 'item-seller' in classes:
+            current_seller = el.get_text(' ', strip=True)
+            continue
+
+        # Climb to the smallest ancestor that holds this item's price while
+        # still wrapping exactly one item. The name sits in its own nested
+        # cell, so stopping at the first <tr> finds a container with no price
+        # and silently yields a $0.00 order.
+        container = el
+        for _ in range(8):
+            if container.parent is None:
+                break
+            container = container.parent
+            if (container.select_one('.item-price-wrapper') is not None
+                    and len(container.select('.item-name')) == 1):
+                break
+        else:  # pragma: no cover - layout drift guard
+            continue
+
+        def pick(sel: str) -> str:
+            node = container.select_one(sel)
+            return node.get_text(' ', strip=True) if node else ''
+
+        brand_raw = pick('.item-brand')
+        supc = pack = brand = ''
+        bm = BRAND_RE.match(brand_raw)
+        if bm:
+            supc, pack, brand = bm.group(1), bm.group(2), (bm.group(3) or '')
+
+        qty_raw = pick('.item-qty-uom')
+        qty_alloc = qty_ord = None
+        uom = ''
+        unit_price = None
+        unit_basis = ''
+        am = QTY_ALLOC_RE.match(qty_raw)
+        pm = QTY_PLAIN_RE.match(qty_raw)
+        if am:
+            qty_alloc, uom_a, qty_ord, uom, unit_price, unit_basis = (
+                float(am.group(1)), am.group(2), float(am.group(3)),
+                am.group(4), float(am.group(5).replace(',', '')), am.group(6),
+            )
+        elif pm:
+            qty_ord = float(pm.group(1))
+            uom = pm.group(2)
+            unit_price = float(pm.group(3).replace(',', ''))
+            unit_basis = pm.group(4)
+            qty_alloc = qty_ord
+
+        extended = money(pick('.item-price-wrapper'))
+
+        # No SUPC means this is not a purchased line. The "Did you forget?"
+        # suggestion block at the foot of the email has a name but no SUPC,
+        # qty or price; zeroing it would put phantom product in the record.
+        if not supc:
+            continue
+
+        row_html = str(container)
+        rows.append({
+            'thread_id': thread_id,
+            'message_id': message.get('id', ''),
+            'message_date': message.get('date', ''),
+            'subject': subject,
+            'state': state,
+            'seller': current_seller or 'Sysco Standard Delivery',
+            'order_number': order_nums[0] if order_nums else '',
+            'order_date': order_date,
+            'delivery_date': delivery_date,
+            'supc': supc,
+            'description': el.get_text(' ', strip=True),
+            'pack_size': pack,
+            'brand': brand,
+            'qty': qty_alloc if qty_alloc is not None else '',
+            'qty_ordered': qty_ord if qty_ord is not None else '',
+            'uom': uom,
+            'unit_price': unit_price if unit_price is not None else '',
+            'unit_basis': unit_basis,
+            'extended_price': extended if extended is not None else '',
+            'is_third_party': int('thirdParty-label' in row_html or 'specialty-label' in row_html),
+            'is_oos': int('oos-label' in row_html),
+            'is_substitute': int('substitute-label' in row_html),
+        })
+
+    if not rows:
+        return []
+
+    totals = [money(e.get_text(' ', strip=True)) for e in soup.select('.total-price')]
+    totals = [t for t in totals if t is not None]
+    printed_total = totals[-1] if totals else None
+
+    line_sum = round(sum(r['extended_price'] for r in rows if r['extended_price'] != ''), 2)
+    residual = round(printed_total - line_sum, 2) if printed_total is not None else None
+
+    return [{
+        'order_number': rows[0]['order_number'],
+        'state': state,
+        'message_date': message.get('date', ''),
+        'printed_total': printed_total,
+        'line_sum': line_sum,
+        'residual': residual,
+        'rows': rows,
+    }]
+
+
+def load_threads(paths: list[Path]) -> list[dict]:
+    orders = []
+    for p in paths:
+        try:
+            data = json.loads(p.read_text())
+        except Exception as exc:  # noqa: BLE001 - report and continue
+            print(f'  ! {p.name}: unreadable ({exc})', file=sys.stderr)
+            continue
+        thread_id = data.get('id', p.stem)
+        for msg in data.get('messages', []):
+            orders.extend(parse_message(msg, thread_id))
+    return orders
+
+
+def dedupe(orders: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Keep one version per order number: the latest reconciling state (trap 5).
+
+    Returns (kept, dropped_for_non_reconciliation).
+    """
+    reconciling, broken = [], []
+    for o in orders:
+        # Residual is shipping (a header charge with no SUPC), so it is allowed
+        # to be positive. A NEGATIVE residual means lines exceed the printed
+        # total, which can only be a parse defect.
+        ok = (
+            o['printed_total'] is not None
+            and o['residual'] is not None
+            and o['residual'] >= -RECONCILE_TOLERANCE
+        )
+        (reconciling if ok else broken).append(o)
+
+    best: dict[str, dict] = {}
+    for o in reconciling:
+        key = o['order_number']
+        if not key:
+            key = f"NOORDER::{o['message_date']}"
+        prior = best.get(key)
+        rank = (STATE_RANK.get(o['state'], 0), o['message_date'])
+        if prior is None or rank > (STATE_RANK.get(prior['state'], 0), prior['message_date']):
+            best[key] = o
+
+    # An order whose every version failed to reconcile is a real loss; report it.
+    kept_nums = set(best)
+    lost = [o for o in broken if o['order_number'] not in kept_nums]
+    return list(best.values()), lost
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument('files', nargs='*', type=Path)
+    ap.add_argument('--dir', type=Path, help='directory of thread JSON files')
+    ap.add_argument('-o', '--out', type=Path, required=True, help='line-item CSV out')
+    ap.add_argument('--report', type=Path, help='per-order reconciliation CSV out')
+    args = ap.parse_args()
+
+    paths = list(args.files)
+    if args.dir:
+        paths += sorted(args.dir.glob('*.txt')) + sorted(args.dir.glob('*.json'))
+    if not paths:
+        ap.error('no input files')
+
+    orders = load_threads(paths)
+    kept, lost = dedupe(orders)
+    kept.sort(key=lambda o: (o['rows'][0]['order_date'] or '', o['order_number']))
+
+    fields = [
+        'thread_id', 'message_id', 'message_date', 'subject', 'state', 'seller',
+        'order_number', 'order_date', 'delivery_date', 'supc', 'description',
+        'pack_size', 'brand', 'qty', 'qty_ordered', 'uom', 'unit_price',
+        'unit_basis', 'extended_price', 'is_third_party', 'is_oos', 'is_substitute',
+    ]
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    with args.out.open('w', newline='') as fh:
+        w = csv.DictWriter(fh, fieldnames=fields)
+        w.writeheader()
+        for o in kept:
+            w.writerows(o['rows'])
+
+    if args.report:
+        with args.report.open('w', newline='') as fh:
+            w = csv.writer(fh)
+            w.writerow(['order_number', 'order_date', 'state', 'n_lines',
+                        'line_sum', 'printed_total', 'residual', 'message_date'])
+            for o in kept:
+                w.writerow([o['order_number'], o['rows'][0]['order_date'], o['state'],
+                            len(o['rows']), f"{o['line_sum']:.2f}",
+                            f"{o['printed_total']:.2f}", f"{o['residual']:.2f}",
+                            o['message_date']])
+
+    n_lines = sum(len(o['rows']) for o in kept)
+    total = sum(o['printed_total'] for o in kept)
+    residual = sum(o['residual'] for o in kept)
+    print(f'orders kept       : {len(kept)}')
+    print(f'line items        : {n_lines}')
+    print(f'printed totals    : ${total:,.2f}')
+    print(f'line-item sum     : ${total - residual:,.2f}')
+    print(f'residual (ship)   : ${residual:,.2f}')
+    if lost:
+        print(f'\n!! {len(lost)} order(s) dropped — no version reconciled:', file=sys.stderr)
+        for o in lost:
+            print(f'   #{o["order_number"]} {o["state"]}: lines ${o["line_sum"]:.2f} '
+                  f'vs printed {o["printed_total"]}', file=sys.stderr)
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
