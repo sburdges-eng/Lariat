@@ -247,6 +247,22 @@ export default async function CommandCenter({ searchParams }) {
           ]}
         />
         <Tile
+          href={`/day-plan${locQ}`}
+          title="Day plan"
+          sub="Open · prep · side work · gear · house SOP"
+          status={{
+            red: s.ops_run.late > 0,
+            amber: s.ops_run.todo > 0,
+          }}
+          lines={[
+            { n: s.ops_run.late, label: 'late',
+              tone: s.ops_run.late ? 'red' : null },
+            { n: s.ops_run.todo, label: 'open',
+              tone: s.ops_run.todo ? 'amber' : null },
+            { n: s.ops_run.done, label: 'done' },
+          ]}
+        />
+        <Tile
           href={`/labor${locQ}`}
           title="Labor"
           sub="Breaks owed + cert expiry"

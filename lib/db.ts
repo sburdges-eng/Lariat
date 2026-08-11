@@ -1002,7 +1002,7 @@ export interface AuditEvent {
  * `scripts/check-schema-version-bump.mjs` enforces the bump at commit time so
  * the marker stays trustworthy.
  */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export function initSchema(db: DB): void {
   db.exec(`
@@ -1185,6 +1185,67 @@ export function initSchema(db: DB): void {
     );
     CREATE INDEX IF NOT EXISTS idx_prep_par_loc_station
       ON prep_par(location_id, station_id, sort_order);
+
+    -- Day-plan / side-work spine. Templates are the house itinerary;
+    -- ops_run_steps are shared multi-device ticks for one shift_date.
+    -- Deep-links into stations / prep / cleaning / equipment — not a
+    -- parallel record for regulated HACCP checks.
+    CREATE TABLE IF NOT EXISTS ops_run_templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      daypart TEXT NOT NULL
+        CHECK(daypart IN ('open','prep','side_work','maintenance','sop')),
+      title TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_ops_tpl_loc
+      ON ops_run_templates(location_id, active, sort_order);
+
+    CREATE TABLE IF NOT EXISTS ops_run_template_steps (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      template_id INTEGER NOT NULL
+        REFERENCES ops_run_templates(id) ON DELETE CASCADE,
+      step_key TEXT NOT NULL,
+      title TEXT NOT NULL,
+      detail TEXT,
+      due_time TEXT,
+      link_href TEXT,
+      link_label TEXT,
+      sort_order INTEGER DEFAULT 0,
+      UNIQUE(template_id, step_key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ops_tpl_steps
+      ON ops_run_template_steps(template_id, sort_order);
+
+    CREATE TABLE IF NOT EXISTS ops_run_steps (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT NOT NULL DEFAULT 'default',
+      shift_date TEXT NOT NULL,
+      daypart TEXT NOT NULL
+        CHECK(daypart IN ('open','prep','side_work','maintenance','sop')),
+      step_key TEXT NOT NULL,
+      title TEXT NOT NULL,
+      detail TEXT,
+      due_time TEXT,
+      link_href TEXT,
+      link_label TEXT,
+      status TEXT NOT NULL DEFAULT 'todo'
+        CHECK(status IN ('todo','done','skipped')),
+      done_at TEXT,
+      done_by TEXT,
+      sort_order INTEGER DEFAULT 0,
+      source TEXT DEFAULT 'template',
+      template_step_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(location_id, shift_date, daypart, step_key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ops_run_loc_date
+      ON ops_run_steps(location_id, shift_date, status);
+    CREATE INDEX IF NOT EXISTS idx_ops_run_daypart
+      ON ops_run_steps(location_id, shift_date, daypart, sort_order);
 
     -- Front-of-house reservations. Distinct from beo_events (catering /
     -- private events with formal contracts). A reservation is a regular-
