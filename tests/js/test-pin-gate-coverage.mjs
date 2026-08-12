@@ -109,6 +109,12 @@ const ALLOWLIST = new Set([
   // ── Prep / kitchen workflow (line-cook authority) ──────────────────
   'prep-tasks',
   'prep-tasks/[id]',
+  // Day-plan / side-work spine — ticks open, prep, side work, gear, and
+  // house SOP during the shift. Same posture as prep-tasks: cooks must
+  // mark Done without a manager PIN; regulated boards behind the deep
+  // links keep their own gates.
+  'ops-run',
+  'ops-run/[id]',
   // Prep par targets — same posture as inventory/par below: set on the
   // line during prep planning, no financial impact until the costing
   // path (PIN-gated) consumes it. Native parity: PrepParViewModel
