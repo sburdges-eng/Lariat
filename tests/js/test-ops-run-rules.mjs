@@ -141,3 +141,19 @@ describe('houseOpsTemplateSeeds', () => {
     assert.ok(steps.some((s) => s.link_href === '/equipment'));
   });
 });
+
+describe('augustChecklistForDate', () => {
+  it('emits daily + Wed weekly on Aug 12, and monthly on Aug 16', async () => {
+    const { augustChecklistForDate } = await import('../../lib/augustChecklists2026.ts');
+    const wed = augustChecklistForDate('2026-08-12', 'Wed');
+    assert.ok(wed.some((i) => i.cadence === 'daily'));
+    assert.ok(wed.some((i) => i.cadence === 'weekly' && /Wed/.test(i.title)));
+    assert.ok(!wed.some((i) => i.cadence === 'monthly'));
+
+    const sun = augustChecklistForDate('2026-08-16', 'Sun');
+    assert.ok(sun.some((i) => i.cadence === 'monthly'));
+    assert.ok(sun.some((i) => i.cadence === 'weekly'));
+
+    assert.equal(augustChecklistForDate('2026-07-01', 'Wed').length, 0);
+  });
+});

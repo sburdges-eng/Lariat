@@ -21,6 +21,7 @@ import {
   type OpsRunRollup,
   type OpsStepStatus,
 } from './opsRun.ts';
+import { augustChecklistForDate } from './augustChecklists2026.ts';
 
 export interface OpsRunStepRow {
   id: number;
@@ -591,6 +592,32 @@ function materializeBusyDay(
   });
 }
 
+function materializeAugustChecklists(
+  db: DB,
+  insert: InsertFn,
+  locationId: string,
+  shiftDate: string,
+): void {
+  const weekday = weekdayShortFromISO(shiftDate);
+  const items = augustChecklistForDate(shiftDate, weekday);
+  let sort = 400;
+  for (const item of items) {
+    upsertDynamicStep(db, insert, {
+      locationId,
+      shiftDate,
+      daypart: item.daypart,
+      stepKey: `${item.key}-${shiftDate}`,
+      title: item.title,
+      detail: item.detail ?? null,
+      dueTime: item.due_time ?? null,
+      linkHref: item.link_href ?? '/food-safety/cleaning',
+      linkLabel: item.link_label ?? 'Cleaning',
+      sortOrder: sort++,
+      source: `checklist-${item.cadence}`,
+    });
+  }
+}
+
 /**
  * Materialize template steps + live board pulls into ops_run_steps for
  * the given shift. Existing Done/Skip rows are left alone; open dynamic
@@ -663,6 +690,7 @@ export function ensureOpsRunForShift(
     );
     materializeCleaning(db, insert, locationId, shiftDate);
     materializeMaintenance(db, insert, locationId, shiftDate);
+    materializeAugustChecklists(db, insert, locationId, shiftDate);
   })();
 
   return listOpsRunSteps(locationId, shiftDate, db);

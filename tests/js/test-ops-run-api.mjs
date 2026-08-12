@@ -234,6 +234,23 @@ describe('GET /api/ops-run', () => {
       'expected line_check steps from station map',
     );
   });
+
+  it('loads August daily + weekly checklist on Wed Aug 12', async () => {
+    const res = await opsRoute.GET(
+      new Request('http://localhost/api/ops-run?date=2026-08-12&location=default'),
+    );
+    const json = await res.json();
+    assert.ok(json.rows.some((r) => r.source === 'checklist-daily'));
+    assert.ok(json.rows.some((r) => r.source === 'checklist-weekly' && /Wed/.test(r.title)));
+  });
+
+  it('loads August monthly checklist on Sun Aug 16', async () => {
+    const res = await opsRoute.GET(
+      new Request('http://localhost/api/ops-run?date=2026-08-16&location=default'),
+    );
+    const json = await res.json();
+    assert.ok(json.rows.some((r) => r.source === 'checklist-monthly'));
+  });
 });
 
 describe('POST /api/ops-run + PATCH', () => {
