@@ -287,6 +287,17 @@ export const NAV_ITEMS = /** @type {NavItemBase[]} */ ([
     surface: { sidebar: t, palette: t, shelf: f },
   },
   {
+    id: 'day-plan',
+    href: '/day-plan',
+    name: 'Day plan',
+    sub: 'Open · prep · side work · gear',
+    group: 'Service',
+    shortcut: 'Y',
+    terms: 'day plan side work open close itinerary sop maintenance checklist run sheet',
+    locAware: t,
+    surface: { sidebar: t, palette: t, shelf: f },
+  },
+  {
     id: 'reservations',
     href: '/reservations',
     name: 'Reservations',

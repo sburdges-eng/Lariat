@@ -11,6 +11,8 @@ import { scanExpiringBatches } from './dateMarks.ts';
 import { listPriceShocks } from './vendorPricesRepo.ts';
 import { listMarginDeltas } from './marginDeltas.ts';
 import { classifyProbes } from './calibrations.ts';
+import { isStepLate, opsLateAlertMessage, opsOpenAlertMessage } from './opsRun.ts';
+import { listOpsRunSteps, localNowMinutes } from './opsRunRepo.ts';
 
 export interface CommandSummary {
   shift_date: string;
@@ -88,6 +90,12 @@ export interface CommandSummary {
   waste: {
     today: number;
     last_7d: number;
+  };
+  /** Day-plan spine progress (ops_run_steps). Never auto-materializes. */
+  ops_run: {
+    todo: number;
+    done: number;
+    late: number;
   };
 }
 
@@ -426,6 +434,21 @@ export function summarize(locationId: string, today: string): CommandSummary {
   const avg7 = Number(trailing.avg_sales) || 0;
   const deltaPct = avg7 > 0 ? (yesterdayNet - avg7) / avg7 : 0;
 
+  // Day-plan spine: read existing ticks only — do not seed templates here
+  // or Command would invent work just by opening the page.
+  const opsSteps = listOpsRunSteps(locationId, today, db);
+  const nowMin = localNowMinutes();
+  let opsTodo = 0;
+  let opsDone = 0;
+  let opsLate = 0;
+  for (const step of opsSteps) {
+    if (step.status === 'done') opsDone += 1;
+    else if (step.status === 'todo') {
+      opsTodo += 1;
+      if (isStepLate(step, nowMin)) opsLate += 1;
+    }
+  }
+
   return {
     shift_date: today,
     yesterday,
@@ -471,6 +494,11 @@ export function summarize(locationId: string, today: string): CommandSummary {
     margin_moves,
     dining_tables,
     waste,
+    ops_run: {
+      todo: opsTodo,
+      done: opsDone,
+      late: opsLate,
+    },
   };
 }
 
@@ -592,6 +620,20 @@ export function alertsFor(s: CommandSummary): CommandAlert[] {
     count: s.prep.rush,
     message: `${s.prep.rush} rush prep task${s.prep.rush === 1 ? '' : 's'}`,
   });
+  // Day-plan late steps first (actionable), then remaining open count when
+  // nothing is late yet but the spine still has work.
+  push({
+    severity: 'amber', source: 'day-plan-late',
+    count: s.ops_run.late,
+    message: opsLateAlertMessage(s.ops_run.late),
+  });
+  if (s.ops_run.late === 0) {
+    push({
+      severity: 'amber', source: 'day-plan-open',
+      count: s.ops_run.todo,
+      message: opsOpenAlertMessage(s.ops_run.todo),
+    });
+  }
   push({
     severity: 'amber', source: 'reservations-to-seat',
     count: s.reservations.booked,

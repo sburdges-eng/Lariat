@@ -84,6 +84,7 @@ function formatSlackText(digest: Omit<MorningDigest, 'webhook'>): string {
     `Price shocks: ${plural(digest.price_shocks.count, 'item', 'items')}`,
     `Certs this week: ${plural(digest.certs_expiring_week.count, 'cert', 'certs')}`,
     `Maintenance due: ${plural(digest.maintenance_due.count, 'task', 'tasks')}`,
+    `Day plan late: ${plural(digest.summary.ops_run?.late ?? 0, 'step', 'steps')}`,
     `BEO prep: ${plural(digest.beo_prep.count, 'event', 'events')}`,
   ];
 

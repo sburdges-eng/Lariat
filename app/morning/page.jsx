@@ -141,6 +141,23 @@ export default async function MorningPage({ searchParams }) {
         )}
       </Section>
 
+      <Section
+        title="Day plan"
+        sub={`${digest.summary.ops_run?.late ?? 0} late · ${digest.summary.ops_run?.todo ?? 0} open`}
+        href={`/day-plan${q}`}
+      >
+        {(digest.summary.ops_run?.todo ?? 0) > 0 || (digest.summary.ops_run?.late ?? 0) > 0 ? (
+          <p>
+            Open the day plan for open / prep / side work / gear / house SOP.
+            {(digest.summary.ops_run?.late ?? 0) > 0
+              ? ` ${digest.summary.ops_run.late} late — clear those first.`
+              : ''}
+          </p>
+        ) : (
+          <p>No day-plan ticks yet today — open the plan to load the house run.</p>
+        )}
+      </Section>
+
       <Section title="BEO prep" sub={`${digest.beo_prep.count} with open prep`} href={`/beo${q}`}>
         {digest.beo_prep.items.length ? (
           <ul>
