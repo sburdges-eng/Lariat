@@ -17,6 +17,9 @@ const {
   opsLateAlertMessage,
   opsOpenAlertMessage,
   houseOpsTemplateSeeds,
+  classifyBusyDay,
+  weekdayShortFromISO,
+  addDaysISO,
   OPS_DAYPARTS,
 } = await import('../../lib/opsRun.ts');
 
@@ -90,6 +93,38 @@ describe('alert copy', () => {
     assert.equal(opsLateAlertMessage(1), '1 day-plan step is late');
     assert.equal(opsLateAlertMessage(3), '3 day-plan steps are late');
     assert.equal(opsOpenAlertMessage(2), '2 day-plan steps still open');
+  });
+});
+
+describe('classifyBusyDay', () => {
+  it('flags top weekdays and heavy banquet covers', () => {
+    const quiet = classifyBusyDay({
+      weekday: 'Tue',
+      dowGuests: 80,
+      dowRankByGuests: 5,
+      beoGuestsToday: 0,
+      beoGuestsWindow: 0,
+      bookedCovers: 10,
+    });
+    assert.equal(quiet.busy, false);
+
+    const busy = classifyBusyDay({
+      weekday: 'Sat',
+      dowGuests: 200,
+      dowRankByGuests: 1,
+      beoGuestsToday: 120,
+      beoGuestsWindow: 120,
+      bookedCovers: 50,
+    });
+    assert.equal(busy.busy, true);
+    assert.ok(busy.reasons.some((r) => /usually busy/.test(r)));
+    assert.ok(busy.reasons.some((r) => /Banquet today/.test(r)));
+  });
+
+  it('addDaysISO and weekdayShortFromISO are stable', () => {
+    assert.equal(addDaysISO('2099-06-15', 3), '2099-06-18');
+    // 2099-06-15 is a Monday in the civil calendar.
+    assert.equal(weekdayShortFromISO('2099-06-15'), 'Mon');
   });
 });
 

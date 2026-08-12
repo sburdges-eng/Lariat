@@ -40,6 +40,15 @@ beforeEach(() => {
     DELETE FROM equipment_maintenance_schedule;
     DELETE FROM equipment_maintenance;
     DELETE FROM equipment;
+    DELETE FROM cleaning_schedule;
+    DELETE FROM cleaning_log;
+    DELETE FROM beo_prep_tasks;
+    DELETE FROM beo_events;
+    DELETE FROM prep_tasks;
+    DELETE FROM line_check_entries;
+    DELETE FROM station_signoffs;
+    DELETE FROM toast_sales_dow;
+    DELETE FROM reservations;
     DELETE FROM audit_events;
     DELETE FROM idempotency_keys;
     DELETE FROM performance_reviews;
@@ -102,6 +111,127 @@ describe('GET /api/ops-run', () => {
           r.source === 'maintenance' &&
           /Walk-in cooler/.test(r.title),
       ),
+    );
+  });
+
+  it('pulls banquet BEO prep + order guide step', async () => {
+    const evId = Number(
+      testDb
+        .prepare(
+          `INSERT INTO beo_events (title, event_date, event_time, guest_count, status, location_id)
+           VALUES ('Hillside buyout', '2099-06-15', '18:00', 120, 'confirmed', 'default')`,
+        )
+        .run().lastInsertRowid,
+    );
+    testDb
+      .prepare(
+        `INSERT INTO beo_prep_tasks (event_id, task, due_date, done, sort_order, location_id)
+         VALUES (?, 'Brine 40 chicken', '2099-06-14', 0, 1, 'default')`,
+      )
+      .run(evId);
+    testDb
+      .prepare(
+        `INSERT INTO beo_prep_tasks (event_id, task, done, sort_order, location_id)
+         VALUES (?, 'Already done mise', 1, 2, 'default')`,
+      )
+      .run(evId);
+
+    const res = await opsRoute.GET(
+      new Request('http://localhost/api/ops-run?date=2099-06-15&location=default'),
+    );
+    const json = await res.json();
+    assert.ok(json.rows.some((r) => r.source === 'beo' && /Hillside buyout/.test(r.title)));
+    assert.ok(json.rows.some((r) => r.source === 'beo' && /Brine 40 chicken/.test(r.title)));
+    assert.ok(!json.rows.some((r) => /Already done mise/.test(r.title)));
+    assert.ok(
+      json.rows.some(
+        (r) => r.step_key.startsWith('beo-order-pull-') && r.link_href === '/purchasing',
+      ),
+    );
+  });
+
+  it('pulls open prep list tasks', async () => {
+    testDb
+      .prepare(
+        `INSERT INTO prep_tasks (shift_date, station_id, task, qty, priority, status, location_id)
+         VALUES ('2099-06-15', 'grill', 'Demi 2qt', '2 qt', 2, 'todo', 'default')`,
+      )
+      .run();
+
+    const res = await opsRoute.GET(
+      new Request('http://localhost/api/ops-run?date=2099-06-15&location=default'),
+    );
+    const json = await res.json();
+    assert.ok(json.rows.some((r) => r.source === 'prep' && /Prep list/.test(r.title)));
+    assert.ok(json.rows.some((r) => r.source === 'prep' && /Demi 2qt/.test(r.title)));
+  });
+
+  it('pulls cleaning schedule due/overdue', async () => {
+    testDb
+      .prepare(
+        `INSERT INTO cleaning_schedule (location_id, area, task, frequency, next_due, active)
+         VALUES ('default', 'Hood', 'Filter change', 'weekly', '2099-06-10', 1)`,
+      )
+      .run();
+
+    const res = await opsRoute.GET(
+      new Request('http://localhost/api/ops-run?date=2099-06-15&location=default'),
+    );
+    const json = await res.json();
+    assert.ok(
+      json.rows.some(
+        (r) =>
+          r.source === 'cleaning' &&
+          /Hood/.test(r.title) &&
+          /Late since/.test(r.detail || ''),
+      ),
+    );
+  });
+
+  it('flags historically busy days from Toast DOW + banquet', async () => {
+    // 2099-06-15 is a Monday — make Mon the busiest DOW.
+    for (const [dow, guests] of [
+      ['Sun', 50],
+      ['Mon', 220],
+      ['Tue', 60],
+      ['Wed', 70],
+      ['Thu', 80],
+      ['Fri', 100],
+      ['Sat', 180],
+    ]) {
+      testDb
+        .prepare(
+          `INSERT INTO toast_sales_dow
+             (day_of_week, net_sales, orders, guests, comparison_group, location_id)
+           VALUES (?, 1000, 40, ?, 1, 'default')`,
+        )
+        .run(dow, guests);
+    }
+    testDb
+      .prepare(
+        `INSERT INTO beo_events (title, event_date, guest_count, status, location_id)
+         VALUES ('Farm dinner', '2099-06-15', 110, 'confirmed', 'default')`,
+      )
+      .run();
+
+    const res = await opsRoute.GET(
+      new Request('http://localhost/api/ops-run?date=2099-06-15&location=default'),
+    );
+    const json = await res.json();
+    const busy = json.rows.find((r) => r.source === 'busy');
+    assert.ok(busy, 'expected busy-day step');
+    assert.match(busy.detail || '', /usually busy|Banquet today/);
+  });
+
+  it('includes unsigned line-check stations from the house map', async () => {
+    const res = await opsRoute.GET(
+      new Request('http://localhost/api/ops-run?date=2099-06-15&location=default'),
+    );
+    const json = await res.json();
+    // stations.json has line-check stations; none signed off on this blank date.
+    assert.ok(
+      json.rows.some((r) => r.source === 'line_check'),
+      'expected line_check steps from station map',
     );
   });
 });

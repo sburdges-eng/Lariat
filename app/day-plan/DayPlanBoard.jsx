@@ -154,7 +154,8 @@ export default function DayPlanBoard({
     <div>
       <h1>Day plan</h1>
       <p className="subtitle">
-        Open, prep, side work, gear, and house SOP — in order.
+        Open, prep, side work, gear, and house SOP — plus live banquet prep,
+        prep list, line checks, cleaning, and gear due.
         {rollup.todo > 0 && (
           <>
             {' '}

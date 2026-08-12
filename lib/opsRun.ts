@@ -170,6 +170,69 @@ export function opsOpenAlertMessage(todoCount: number): string {
     : `${todoCount} day-plan steps still open`;
 }
 
+const DOW_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+/** Local weekday label matching toast_sales_dow (Sun…Sat). */
+export function weekdayShortFromISO(isoDate: string): (typeof DOW_SHORT)[number] {
+  const d = new Date(`${isoDate}T12:00:00`);
+  return DOW_SHORT[d.getDay()] ?? 'Sun';
+}
+
+/** Add calendar days to a YYYY-MM-DD (UTC date math). */
+export function addDaysISO(isoDate: string, days: number): string {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+export interface BusyDayInput {
+  weekday: string;
+  /** Typical guests for this weekday from toast_sales_dow. */
+  dowGuests: number;
+  /** 1 = busiest weekday by guests among the 7 DOW rows; 0 if unknown. */
+  dowRankByGuests: number;
+  /** Non-cancelled BEO guests on shift_date. */
+  beoGuestsToday: number;
+  /** Non-cancelled BEO guests from shift_date through look-ahead. */
+  beoGuestsWindow: number;
+  /** Booked reservation covers on shift_date. */
+  bookedCovers: number;
+}
+
+/**
+ * Heads-up when the books or history say the line will be slammed.
+ * Pure — no DB. Thresholds are intentionally kitchen-glancable.
+ */
+export function classifyBusyDay(input: BusyDayInput): { busy: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  if (input.dowRankByGuests > 0 && input.dowRankByGuests <= 2 && input.dowGuests > 0) {
+    reasons.push(
+      `${input.weekday} is usually busy (~${Math.round(input.dowGuests)} guests)`,
+    );
+  }
+  if (input.beoGuestsToday >= 40) {
+    reasons.push(`Banquet today — ${input.beoGuestsToday} guests`);
+  } else if (input.beoGuestsWindow >= 40) {
+    reasons.push(`Banquets ahead — ${input.beoGuestsWindow} guests coming`);
+  }
+  if (
+    input.dowGuests > 0 &&
+    input.beoGuestsToday > 0 &&
+    input.beoGuestsToday >= input.dowGuests * 0.5
+  ) {
+    reasons.push('Banquet covers are heavy vs a normal day');
+  }
+  if (input.bookedCovers >= 40) {
+    reasons.push(`${input.bookedCovers} covers booked`);
+  }
+  return { busy: reasons.length > 0, reasons };
+}
+
+/** Look-ahead window for banquet prep pull (days including today). */
+export const BEO_PREP_LOOKAHEAD_DAYS = 3;
+/** Cap dynamic steps per family so the board stays glanceable. */
+export const OPS_DYNAMIC_STEP_CAP = 25;
+
 /**
  * House default itinerary. Deep-links into existing boards — this is the
  * spine, not a second system of record for regulated checks.
