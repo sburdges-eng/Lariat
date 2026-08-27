@@ -37,6 +37,8 @@ const TABLES = [
   'temp_log', 'date_marks', 'cleaning_schedule',
   'preshift_notes', 'beo_events', 'reservations', 'prep_tasks',
   'dining_tables', 'inventory_updates', 'thermometer_calibrations',
+  'kds_tickets', 'receiving_log', 'cloud_bridge_outbox',
+  'accounting_variance', 'ingest_runs', 'sales_lines', 'dish_components',
 ];
 
 beforeEach(() => {
@@ -462,6 +464,239 @@ describe('summarize() — probe calibrations', () => {
   });
 });
 
+describe('summarize() — kds tickets', () => {
+  // Mirrors the open-ticket predicate shared by GET /api/kds/tickets and
+  // dbQueryRegistry's kds_open_tickets: bumped_at IS NULL, location-scoped.
+  const ins = (loc, id, orderNumber, bumpedAt = null) =>
+    testDb.prepare(
+      `INSERT INTO kds_tickets (id, location_id, order_number, placed_at, bumped_at)
+       VALUES (?, ?, ?, datetime('now'), ?)`,
+    ).run(id, loc, orderNumber, bumpedAt);
+
+  it('counts only unbumped tickets at the location', () => {
+    ins('default', 'tkt_1042', '1042');                    // open
+    ins('default', 'tkt_1043', '1043');                    // open
+    ins('default', 'tkt_1041', '1041', '2026-04-25T17:58:00.000Z'); // bumped
+    ins('other',   'tkt_2001', '2001');                    // other site
+
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.kds.open_tickets, 2);
+  });
+
+  it('returns zero on an empty rail', () => {
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.kds.open_tickets, 0);
+  });
+
+  it('does not leak across locations', () => {
+    ins('kitchen-a', 'tkt_a1', '9001');
+    const a = summarize('kitchen-a', TODAY);
+    const b = summarize('kitchen-b', TODAY);
+    assert.strictEqual(a.kds.open_tickets, 1);
+    assert.strictEqual(b.kds.open_tickets, 0);
+  });
+});
+
+describe('summarize() — receiving', () => {
+  // to_match mirrors the /management "Receiving to match" reader exactly:
+  // accepted stock rows with a real quantity + unit whose match_status is
+  // still unmatched/ambiguous. It is cumulative debt — no date filter.
+  // received_today counts today's accepted lines only.
+  const ins = (loc, shiftDate, item, status, qty, unit, matchStatus) =>
+    testDb.prepare(
+      `INSERT INTO receiving_log
+         (shift_date, location_id, vendor, category, item, status,
+          received_qty, received_unit, match_status)
+       VALUES (?, ?, 'Shamrock', 'refrigerated', ?, ?, ?, ?, ?)`,
+    ).run(shiftDate, loc, item, status, qty, unit, matchStatus);
+
+  it('counts accepted lines today and cumulative match debt', () => {
+    ins('default', TODAY, 'Chicken Breast', 'accepted', 40, 'lb', 'matched');
+    ins('default', TODAY, 'Milk 2%', 'accepted_with_note', 6, 'gal', 'ambiguous');
+    ins('default', TODAY, 'Spoiled Milk', 'rejected', 6, 'gal', 'unmatched');   // rejected — neither count
+    ins('default', '2026-04-20', 'Tomato Case', 'accepted', 2, 'case', 'unmatched'); // old debt still counts
+    ins('default', TODAY, 'No Qty', 'accepted', null, 'case', 'unmatched');     // no qty — not real stock
+
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.receiving.received_today, 3);
+    assert.strictEqual(s.receiving.to_match, 2);
+  });
+
+  it('returns zeros with no deliveries on file', () => {
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.receiving.received_today, 0);
+    assert.strictEqual(s.receiving.to_match, 0);
+  });
+
+  it('does not leak across locations', () => {
+    ins('kitchen-a', TODAY, 'Avocado Case', 'accepted', 4, 'case', 'unmatched');
+    const a = summarize('kitchen-a', TODAY);
+    const b = summarize('kitchen-b', TODAY);
+    assert.strictEqual(a.receiving.to_match, 1);
+    assert.strictEqual(a.receiving.received_today, 1);
+    assert.strictEqual(b.receiving.to_match, 0);
+  });
+});
+
+describe('summarize() — costing', () => {
+  it('returns nulls/zero shape before any compute or ingest run', () => {
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.costing.variance_pct, null);
+    assert.strictEqual(s.costing.ingest_age_minutes, null);
+    assert.strictEqual(s.costing.ingest_status, null);
+    assert.strictEqual(s.costing.depletion_issues, 0);
+  });
+
+  it('surfaces the latest accounting variance for the location', () => {
+    testDb.prepare(
+      `INSERT INTO accounting_variance
+         (theoretical_cogs, actual_cogs, variance_amount, variance_pct, location_id)
+       VALUES (1000, 1080, 80, 8.0, 'default')`,
+    ).run();
+    testDb.prepare(
+      `INSERT INTO accounting_variance
+         (theoretical_cogs, actual_cogs, variance_amount, variance_pct, location_id)
+       VALUES (500, 510, 10, 2.0, 'other')`,
+    ).run();
+
+    assert.strictEqual(summarize('default', TODAY).costing.variance_pct, 8.0);
+    assert.strictEqual(summarize('other', TODAY).costing.variance_pct, 2.0);
+  });
+
+  it('reads costing ingest freshness (install-wide, like /management)', () => {
+    testDb.prepare(
+      `INSERT INTO ingest_runs (kind, started_at, finished_at, status)
+       VALUES ('costing', datetime('now'), datetime('now'), 'ok')`,
+    ).run();
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.costing.ingest_status, 'ok');
+    assert.ok(s.costing.ingest_age_minutes != null && s.costing.ingest_age_minutes <= 5);
+  });
+
+  it('counts unresolved depletion issues from sold dishes', () => {
+    testDb.prepare(
+      `INSERT INTO sales_lines (period_label, item_name, quantity_sold, net_sales, source, location_id)
+       VALUES ('2026-W17', 'Mystery Plate', 3, 27, 'toast', 'default'),
+              ('2026-W17', 'Unmapped Burger', 1, 14, 'toast', 'default'),
+              ('2026-W17', 'Satellite Bowl', 1, 13, 'toast', 'other')`,
+    ).run();
+    assert.strictEqual(summarize('default', TODAY).costing.depletion_issues, 2);
+    assert.strictEqual(summarize('other', TODAY).costing.depletion_issues, 1);
+  });
+});
+
+describe('summarize() — cloud bridge', () => {
+  // Composes lib/cloudBridgeQueue depth()/deadLetterDepth(), which are
+  // install-wide by design (the drainer works one queue): queued counts
+  // unclaimed live rows; a claimed in-flight row is invisible; dead
+  // letters count regardless of claim state.
+  const ins = (deadLetter, claimedAt = null) =>
+    testDb.prepare(
+      `INSERT INTO cloud_bridge_outbox (table_name, location_id, rows_json, dead_letter, claimed_at)
+       VALUES ('temp_log', 'default', '[]', ?, ?)`,
+    ).run(deadLetter, claimedAt);
+
+  it('counts queued (unclaimed, live) and dead-lettered batches', () => {
+    ins(0);                            // queued
+    ins(0);                            // queued
+    ins(0, '2026-04-25 18:00:00');     // claimed in-flight — not queued
+    ins(1);                            // dead letter
+
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.cloud_bridge.queued, 2);
+    assert.strictEqual(s.cloud_bridge.dead_letters, 1);
+  });
+
+  it('returns zeros on an empty outbox', () => {
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.cloud_bridge.queued, 0);
+    assert.strictEqual(s.cloud_bridge.dead_letters, 0);
+  });
+});
+
+describe('alertsFor() — whole-house signals', () => {
+  it('fires a red cloud-dead-letters alert when batches are stuck', () => {
+    testDb.prepare(
+      `INSERT INTO cloud_bridge_outbox (table_name, location_id, rows_json, dead_letter)
+       VALUES ('temp_log', 'default', '[]', 1)`,
+    ).run();
+    const a = alertsFor(summarize('default', TODAY));
+    assert.ok(a.some((x) => x.severity === 'red' && x.source === 'cloud-dead-letters'));
+  });
+
+  it('fires an amber receiving-to-match alert on match debt', () => {
+    testDb.prepare(
+      `INSERT INTO receiving_log
+         (shift_date, location_id, vendor, category, item, status,
+          received_qty, received_unit, match_status)
+       VALUES (?, 'default', 'Local Farms', 'produce', 'Tomato Case',
+               'accepted', 2, 'case', 'unmatched')`,
+    ).run(TODAY);
+    const a = alertsFor(summarize('default', TODAY));
+    assert.ok(a.some((x) => x.severity === 'amber' && x.source === 'receiving-to-match'));
+  });
+
+  it('fires an amber depletion-issues alert when sold dishes are unmapped', () => {
+    testDb.prepare(
+      `INSERT INTO sales_lines (period_label, item_name, quantity_sold, net_sales, source, location_id)
+       VALUES ('2026-W17', 'Mystery Plate', 3, 27, 'toast', 'default')`,
+    ).run();
+    const a = alertsFor(summarize('default', TODAY));
+    assert.ok(a.some((x) => x.severity === 'amber' && x.source === 'depletion-issues'));
+  });
+
+  it('fires costing-stale only once an ingest exists and is old or failed', () => {
+    // Fresh DB (never ingested): no alert — a new install shouldn't nag.
+    const none = alertsFor(summarize('default', TODAY));
+    assert.ok(!none.some((x) => x.source === 'costing-stale'));
+
+    // A day-old run → stale.
+    testDb.prepare(
+      `INSERT INTO ingest_runs (kind, started_at, finished_at, status)
+       VALUES ('costing', datetime('now', '-2 days'), datetime('now', '-2 days'), 'ok')`,
+    ).run();
+    const stale = alertsFor(summarize('default', TODAY));
+    assert.ok(stale.some((x) => x.severity === 'amber' && x.source === 'costing-stale'));
+
+    // A fresh but failed run → also flagged.
+    testDb.exec(`DELETE FROM ingest_runs;`);
+    testDb.prepare(
+      `INSERT INTO ingest_runs (kind, started_at, finished_at, status)
+       VALUES ('costing', datetime('now'), datetime('now'), 'failed')`,
+    ).run();
+    const failed = alertsFor(summarize('default', TODAY));
+    assert.ok(failed.some((x) => x.severity === 'amber' && x.source === 'costing-stale'));
+
+    // A fresh, healthy run → quiet.
+    testDb.exec(`DELETE FROM ingest_runs;`);
+    testDb.prepare(
+      `INSERT INTO ingest_runs (kind, started_at, finished_at, status)
+       VALUES ('costing', datetime('now'), datetime('now'), 'ok')`,
+    ).run();
+    const ok = alertsFor(summarize('default', TODAY));
+    assert.ok(!ok.some((x) => x.source === 'costing-stale'));
+  });
+});
+
+describe('command page — whole-house tile wiring', () => {
+  // Source-regex contract, same idiom as test-management-rollup.mjs: the
+  // page must mount a tile per whole-house signal with its drilldown href.
+  it('renders tiles + links for tickets, receiving, food cost, cloud bridge', () => {
+    const source = fs.readFileSync(
+      new URL('../../app/command/page.jsx', import.meta.url),
+      'utf8',
+    );
+    assert.match(source, /title="Tickets"/);
+    assert.match(source, /\/kds\/punch/);
+    assert.match(source, /title="Receiving"/);
+    assert.match(source, /\/food-safety\/receiving/);
+    assert.match(source, /title="Food cost"/);
+    assert.match(source, /href={`\/costing\$\{locQ\}`}/);
+    assert.match(source, /title="Cloud bridge"/);
+    assert.match(source, /\/management\/cloud-bridge/);
+  });
+});
+
 describe('summarize() — events + 86 + preshift', () => {
   it('counts active 86 (resolved_at NULL) and totals event guests', () => {
     testDb.prepare(
@@ -512,6 +747,21 @@ describe('GET /api/command/summary', () => {
     const json = await res.json();
     assert.strictEqual(json.shift_date, TODAY);
     assert.strictEqual(json.sales.yesterday_net, 700);
+  });
+
+  it('carries the whole-house groups in the JSON payload', async () => {
+    const res = await route.GET(new Request(`http://localhost/api/command/summary?date=${TODAY}`));
+    assert.strictEqual(res.status, 200);
+    const json = await res.json();
+    assert.deepStrictEqual(json.kds, { open_tickets: 0 });
+    assert.deepStrictEqual(json.receiving, { received_today: 0, to_match: 0 });
+    assert.deepStrictEqual(json.costing, {
+      variance_pct: null,
+      ingest_age_minutes: null,
+      ingest_status: null,
+      depletion_issues: 0,
+    });
+    assert.deepStrictEqual(json.cloud_bridge, { queued: 0, dead_letters: 0 });
   });
 
   it('rejects bad date param by falling back to todayISO', async () => {

@@ -60,6 +60,20 @@ function Tile({ href, title, sub, status, lines }) {
 }
 
 /**
+ * Freshness caption for the Food cost tile. Mirrors /management's
+ * formatAge buckets; the never-ingested state reads as plain words, not
+ * a warning — the tile stays muted until the first costing run exists.
+ * @param {number | null | undefined} ageMin
+ * @returns {string}
+ */
+function fmtIngestAge(ageMin) {
+  if (ageMin == null) return 'no cost numbers yet';
+  if (ageMin < 60) return `${ageMin} min ago`;
+  if (ageMin < 1440) return `${Math.floor(ageMin / 60)} h ago`;
+  return `${Math.floor(ageMin / 1440)} d ago`;
+}
+
+/**
  * @param {string | null | undefined} t
  * @returns {string}
  */
@@ -190,6 +204,15 @@ export default async function CommandCenter({ searchParams }) {
           ]}
         />
         <Tile
+          href={`/kds/punch${locQ}`}
+          title="Tickets"
+          sub="Open on the line right now"
+          status={{ red: false, amber: false }}
+          lines={[
+            { n: s.kds.open_tickets, label: 'tickets open' },
+          ]}
+        />
+        <Tile
           href={`/inventory/par${locQ}`}
           title="Inventory"
           sub="Latest count vs par"
@@ -198,6 +221,17 @@ export default async function CommandCenter({ searchParams }) {
             { n: s.inventory.low_par, label: 'below par', tone: s.inventory.low_par ? 'amber' : null },
             { n: s.inventory.par_total, label: 'tracked items' },
             { n: s.inventory.open_counts, label: 'open counts' },
+          ]}
+        />
+        <Tile
+          href={`/food-safety/receiving${locQ}`}
+          title="Receiving"
+          sub="Deliveries checked in + lines to match"
+          status={{ red: false, amber: s.receiving.to_match > 0 }}
+          lines={[
+            { n: s.receiving.received_today, label: 'lines checked in today' },
+            { n: s.receiving.to_match, label: 'need a match',
+              tone: s.receiving.to_match ? 'amber' : null },
           ]}
         />
         <Tile
@@ -228,6 +262,36 @@ export default async function CommandCenter({ searchParams }) {
               tone: s.margin_moves.up ? 'red' : null },
             { n: s.margin_moves.down, label: 'down' },
             { n: s.margin_moves.total, label: 'total moves' },
+          ]}
+        />
+        <Tile
+          href={`/costing${locQ}`}
+          title="Food cost"
+          sub="Cost vs target + how fresh the numbers are"
+          status={{
+            red:
+              (s.costing.variance_pct ?? 0) >= 5 ||
+              s.costing.ingest_status === 'failed' ||
+              (s.costing.ingest_age_minutes ?? 0) >= 1440,
+            amber:
+              (s.costing.variance_pct ?? 0) >= 2 ||
+              s.costing.depletion_issues > 0 ||
+              (s.costing.ingest_age_minutes ?? 0) >= 60,
+          }}
+          lines={[
+            {
+              n: s.costing.variance_pct != null ? `${s.costing.variance_pct.toFixed(2)}%` : '—',
+              label: 'cost vs target',
+              tone:
+                (s.costing.variance_pct ?? 0) >= 5
+                  ? 'red'
+                  : (s.costing.variance_pct ?? 0) >= 2
+                    ? 'amber'
+                    : null,
+            },
+            { n: fmtIngestAge(s.costing.ingest_age_minutes), label: 'numbers updated' },
+            { n: s.costing.depletion_issues, label: 'dishes need mapping',
+              tone: s.costing.depletion_issues ? 'amber' : null },
           ]}
         />
         <Tile
@@ -329,6 +393,17 @@ export default async function CommandCenter({ searchParams }) {
             { n: s.reservations.seated, label: 'seated' },
             { n: s.reservations.no_show, label: 'no-shows',
               tone: s.reservations.no_show ? 'red' : null },
+          ]}
+        />
+        <Tile
+          href={`/management/cloud-bridge${locQ}`}
+          title="Cloud bridge"
+          sub="Updates heading to corp"
+          status={{ red: s.cloud_bridge.dead_letters > 0, amber: false }}
+          lines={[
+            { n: s.cloud_bridge.queued, label: 'waiting to send' },
+            { n: s.cloud_bridge.dead_letters, label: 'stuck — needs a look',
+              tone: s.cloud_bridge.dead_letters ? 'red' : null },
           ]}
         />
       </div>

@@ -13,6 +13,13 @@ import { listMarginDeltas } from './marginDeltas.ts';
 import { classifyProbes } from './calibrations.ts';
 import { isStepLate, opsLateAlertMessage, opsOpenAlertMessage } from './opsRun.ts';
 import { listOpsRunSteps, localNowMinutes } from './opsRunRepo.ts';
+import { readLatestAccountingVariance } from './computeEngine/index.ts';
+import { listDepletionExceptions } from './depletionExceptions.ts';
+import { readLastCostingIngest } from './costingBenchmarks.mjs';
+import {
+  depth as cloudBridgeQueuedDepth,
+  deadLetterDepth as cloudBridgeDeadLetterDepth,
+} from './cloudBridgeQueue.ts';
 
 export interface CommandSummary {
   shift_date: string;
@@ -97,6 +104,33 @@ export interface CommandSummary {
     done: number;
     late: number;
   };
+  /** Open KDS tickets — same predicate as GET /api/kds/tickets and
+   *  dbQueryRegistry's kds_open_tickets (bumped_at IS NULL). */
+  kds: {
+    open_tickets: number;
+  };
+  /** received_today = today's accepted delivery lines. to_match mirrors
+   *  the /management "Receiving to match" reader: accepted stock rows with
+   *  a real qty + unit still unmatched/ambiguous — cumulative debt. */
+  receiving: {
+    received_today: number;
+    to_match: number;
+  };
+  /** Composes the same helpers as the /management tiles. Ingest freshness
+   *  is install-wide (ingest_runs has no location); variance + depletion
+   *  are location-scoped. */
+  costing: {
+    variance_pct: number | null;
+    ingest_age_minutes: number | null;
+    ingest_status: string | null;
+    depletion_issues: number;
+  };
+  /** Composes lib/cloudBridgeQueue depth()/deadLetterDepth() — install-wide
+   *  by design (one outbox, one drainer), not location-scoped. */
+  cloud_bridge: {
+    queued: number;
+    dead_letters: number;
+  };
 }
 
 /**
@@ -117,6 +151,10 @@ export interface CommandAlert {
 
 const RED_NO_SHOW_THRESHOLD = 3;
 const AMBER_SALES_DROP_PCT = -0.15;
+// A day-old costing ingest matches the red threshold on the /management
+// freshness tile. Never fires before the first ingest — a fresh install
+// shouldn't nag about numbers it has never had.
+const AMBER_COSTING_STALE_MINUTES = 1440;
 
 function yesterdayISO(today: string): string {
   const d = new Date(today + 'T00:00:00Z');
@@ -434,6 +472,55 @@ export function summarize(locationId: string, today: string): CommandSummary {
   const avg7 = Number(trailing.avg_sales) || 0;
   const deltaPct = avg7 > 0 ? (yesterdayNet - avg7) / avg7 : 0;
 
+  // Open tickets on the rail. Same predicate as GET /api/kds/tickets and
+  // dbQueryRegistry's kds_open_tickets — a ticket is open until bumped_at
+  // is set on the ticket row itself.
+  const kdsOpen = (db
+    .prepare(
+      `SELECT COUNT(*) AS c FROM kds_tickets
+        WHERE location_id = ? AND bumped_at IS NULL`,
+    )
+    .get(locationId) as { c: number }).c;
+
+  // Deliveries: today's accepted lines, plus the cumulative match debt the
+  // /management "Receiving to match" tile tracks (same SQL, kept in
+  // lockstep by tests on both surfaces).
+  const receivedToday = (db
+    .prepare(
+      `SELECT COUNT(*) AS c FROM receiving_log
+        WHERE location_id = ? AND shift_date = ?
+          AND status IN ('accepted', 'accepted_with_note')`,
+    )
+    .get(locationId, today) as { c: number }).c;
+  const receivingToMatch = (db
+    .prepare(
+      `SELECT COUNT(*) AS c
+         FROM receiving_log r
+        WHERE r.location_id = ?
+          AND r.status IN ('accepted', 'accepted_with_note')
+          AND r.received_qty IS NOT NULL
+          AND r.received_qty > 0
+          AND r.received_unit IS NOT NULL
+          AND TRIM(r.received_unit) <> ''
+          AND r.match_status IN ('unmatched', 'ambiguous')`,
+    )
+    .get(locationId) as { c: number }).c;
+
+  // Costing loop: latest variance snapshot + ingest freshness + depletion
+  // debt, composed from the same helpers the /management tiles read.
+  const variance = readLatestAccountingVariance(db, locationId);
+  const ingest = readLastCostingIngest(db);
+  const depletionIssues = listDepletionExceptions(db, {
+    location_id: locationId,
+    limit: 100,
+  }).length;
+
+  // Outbox health. depth()/deadLetterDepth() read via their own getDb() —
+  // same connection under the shared path — and are install-wide (one
+  // queue, one drainer), like the pack-size count on /management.
+  const cloudQueued = cloudBridgeQueuedDepth();
+  const cloudDead = cloudBridgeDeadLetterDepth();
+
   // Day-plan spine: read existing ticks only — do not seed templates here
   // or Command would invent work just by opening the page.
   const opsSteps = listOpsRunSteps(locationId, today, db);
@@ -498,6 +585,23 @@ export function summarize(locationId: string, today: string): CommandSummary {
       todo: opsTodo,
       done: opsDone,
       late: opsLate,
+    },
+    kds: {
+      open_tickets: kdsOpen,
+    },
+    receiving: {
+      received_today: receivedToday,
+      to_match: receivingToMatch,
+    },
+    costing: {
+      variance_pct: variance ? variance.variance_pct : null,
+      ingest_age_minutes: ingest.age_minutes,
+      ingest_status: ingest.last_status,
+      depletion_issues: depletionIssues,
+    },
+    cloud_bridge: {
+      queued: cloudQueued,
+      dead_letters: cloudDead,
     },
   };
 }
@@ -564,6 +668,11 @@ export function alertsFor(s: CommandSummary): CommandAlert[] {
       message: `${s.reservations.no_show} reservation no-show${s.reservations.no_show === 1 ? '' : 's'}`,
     });
   }
+  push({
+    severity: 'red', source: 'cloud-dead-letters',
+    count: s.cloud_bridge.dead_letters,
+    message: `${s.cloud_bridge.dead_letters} update${s.cloud_bridge.dead_letters === 1 ? '' : 's'} stuck on the cloud bridge`,
+  });
 
   // ── Amber: trending / upcoming ─────────────────────────────────
   if (s.sales.avg7_net > 0 && s.sales.delta_pct < AMBER_SALES_DROP_PCT) {
@@ -654,6 +763,32 @@ export function alertsFor(s: CommandSummary): CommandAlert[] {
     count: s.margin_moves.total,
     message: `${s.margin_moves.total} dish margin move${s.margin_moves.total === 1 ? '' : 's'} this week`,
   });
+  push({
+    severity: 'amber', source: 'receiving-to-match',
+    count: s.receiving.to_match,
+    message: `${s.receiving.to_match} delivered line${s.receiving.to_match === 1 ? '' : 's'} need${s.receiving.to_match === 1 ? 's' : ''} a match`,
+  });
+  push({
+    severity: 'amber', source: 'depletion-issues',
+    count: s.costing.depletion_issues,
+    message: `${s.costing.depletion_issues} dish${s.costing.depletion_issues === 1 ? '' : 'es'} need${s.costing.depletion_issues === 1 ? 's' : ''} mapping`,
+  });
+  // Stale costing fires only once an ingest exists — see the threshold
+  // note above. A failed last run counts as stale no matter how recent.
+  if (s.costing.ingest_age_minutes != null) {
+    const failed = s.costing.ingest_status === 'failed';
+    const old = s.costing.ingest_age_minutes >= AMBER_COSTING_STALE_MINUTES;
+    if (failed || old) {
+      const days = Math.max(1, Math.floor(s.costing.ingest_age_minutes / 1440));
+      out.push({
+        severity: 'amber', source: 'costing-stale',
+        count: 1,
+        message: failed
+          ? 'Last costing run failed'
+          : `Costing numbers are ${days} day${days === 1 ? '' : 's'} old`,
+      });
+    }
+  }
 
   return out;
 }
