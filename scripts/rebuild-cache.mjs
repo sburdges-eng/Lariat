@@ -995,6 +995,20 @@ function findLaborCSV(dir, prefix) {
   return match ? tryRead(path.relative(ROOT, path.join(dir, match))) : null;
 }
 
+/**
+ * True for the rollup row the 7shifts labor exports end with.
+ *
+ * `Labor - By Job Title.csv` and `Labor - By Employee.csv` both close with a
+ * row whose first cell is the literal `TOTAL`, holding the grand total rather
+ * than a record. Copying it into `by_role` / `by_employee` puts two grains in
+ * one array: anything that sums those lists double-counts, and anything that
+ * sorts by hours ranks the rollup above every real person.
+ */
+export function isLaborRollupRow(firstCell) {
+  const label = String(firstCell ?? '').trim().toUpperCase();
+  return label === 'TOTAL' || label === 'TOTALS' || label === 'GRAND TOTAL';
+}
+
 function buildLaborSummary() {
   console.log('  Building labor summary...');
 
@@ -1052,6 +1066,7 @@ function buildLaborSummary() {
     for (const row of rows) {
       if (row[0] === '0' || row[0] === 'Job Title') continue;
       if (!row[0]?.trim()) continue;
+      if (isLaborRollupRow(row[0])) continue;
       result.by_role.push({
         job_title: row[0].trim(),
         regular_hours: parseFloat(row[1]) || 0,
@@ -1071,6 +1086,7 @@ function buildLaborSummary() {
     for (const row of rows) {
       if (row[0] === '0' || row[0] === 'Last Name') continue;
       if (!row[0]?.trim()) continue;
+      if (isLaborRollupRow(row[0])) continue;
       result.by_employee.push({
         last_name: row[0].trim(),
         first_name: (row[1] || '').trim(),
