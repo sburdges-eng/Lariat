@@ -61,8 +61,15 @@ and the outbox install-wide, like the pack-size count precedent on
 `/management`).
 
 Files: `lib/commandCenter.ts`, `app/command/page.jsx`,
-`tests/js/test-command-summary-api.mjs` (12 new tests incl. a source-regex
+`tests/js/test-command-summary-api.mjs` (18 new tests incl. a source-regex
 tile-wiring contract).
+
+Adversarial review of this pass surfaced two follow-ups, both landed on
+this branch: `/costing` now honors `?location=` (it hardcoded the default
+kitchen, so the Food cost tile's drilldown disagreed with the tile on any
+other site), and the depletion count's full-history scan cost is documented
+at its call site — the structural fix belongs in `listDepletionExceptions`
+for both GM surfaces at once, deliberately not done here.
 
 ## Cross-repo contracts (verified this pass)
 
