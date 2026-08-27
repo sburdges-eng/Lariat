@@ -510,6 +510,11 @@ export function summarize(locationId: string, today: string): CommandSummary {
   // debt, composed from the same helpers the /management tiles read.
   const variance = readLatestAccountingVariance(db, locationId);
   const ingest = readLastCostingIngest(db);
+  // Same call (and cost) as /management's Depletion issues tile — a scan
+  // over the location's full sales_lines history, so the two GM surfaces
+  // can never disagree. If history growth ever makes this visible, fix it
+  // in listDepletionExceptions for both surfaces at once (bound the
+  // window or read a persisted unresolved count), not here.
   const depletionIssues = listDepletionExceptions(db, {
     location_id: locationId,
     limit: 100,

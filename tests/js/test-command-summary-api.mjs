@@ -692,6 +692,15 @@ describe('command page — whole-house tile wiring', () => {
     assert.match(source, /\/food-safety\/receiving/);
     assert.match(source, /title="Food cost"/);
     assert.match(source, /href={`\/costing\$\{locQ\}`}/);
+    // The drilldown must honor the ?location= the tile appends — /costing
+    // hardcoded the default kitchen until the Food cost tile linked into
+    // it, which made the tile and its drilldown disagree off-default.
+    const costingSource = fs.readFileSync(
+      new URL('../../app/costing/page.jsx', import.meta.url),
+      'utf8',
+    );
+    assert.match(costingSource, /async function CostingPage\(\{ searchParams \}\)/);
+    assert.match(costingSource, /sp\.location/);
     assert.match(source, /title="Cloud bridge"/);
     assert.match(source, /\/management\/cloud-bridge/);
   });
