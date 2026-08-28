@@ -20,6 +20,7 @@ const opsRoute = await import('../../app/api/ops-run/route.js');
 const opsIdRoute = await import('../../app/api/ops-run/[id]/route.js');
 const { summarize, alertsFor } = await import('../../lib/commandCenter.ts');
 const { serviceDate } = await import('../../lib/serviceDate.ts');
+const { ensureOpsRunForShift, insertManualOpsStep } = await import('../../lib/opsRunRepo.ts');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
@@ -306,6 +307,78 @@ describe('POST /api/ops-run + PATCH', () => {
       req('http://localhost/api/ops-run', 'POST', { title: '  ', daypart: 'prep' }),
     );
     assert.equal(res.status, 400);
+  });
+});
+
+describe('dynamic steps track their source board', () => {
+  // A dynamic step mirrors live open work: an open prep task, an unsigned line
+  // check. When the cook closes that work on its own board the record drops out
+  // of the open-only query the materializer runs — but the ops_run_steps row it
+  // already created stayed `todo`, went late, and made the cook tick the same
+  // job off a second time here. Reconcile against what this pass actually
+  // emitted so the mirror disappears with its source.
+  it('drops an open dynamic step once its source work closes', () => {
+    const shift = '2026-07-04';
+    const prep = testDb
+      .prepare(
+        `INSERT INTO prep_tasks (shift_date, station_id, task, status, location_id)
+         VALUES (?, 'saute', 'Brine chicken', 'todo', 'default')`,
+      )
+      .run(shift);
+
+    let steps = ensureOpsRunForShift('default', shift, testDb);
+    const mirrored = steps.filter((r) => r.source === 'prep');
+    assert.ok(mirrored.length > 0, 'the open prep task should mirror onto the plan');
+
+    // The cook finishes it on the prep board, not on the day plan.
+    testDb.prepare(`UPDATE prep_tasks SET status = 'done' WHERE id = ?`)
+      .run(prep.lastInsertRowid);
+
+    steps = ensureOpsRunForShift('default', shift, testDb);
+    assert.equal(
+      steps.filter((r) => r.source === 'prep').length,
+      0,
+      'the mirror must clear when its source closes, not sit here going late',
+    );
+  });
+
+  it('never reconciles away a step a cook acted on, or one they added', () => {
+    const shift = '2026-07-05';
+    const prep = testDb
+      .prepare(
+        `INSERT INTO prep_tasks (shift_date, station_id, task, status, location_id)
+         VALUES (?, 'grill', 'Portion steaks', 'todo', 'default')`,
+      )
+      .run(shift);
+    ensureOpsRunForShift('default', shift, testDb);
+
+    // Cook marks the mirrored step done here, then closes the source task too.
+    const mirror = ensureOpsRunForShift('default', shift, testDb)
+      .find((r) => r.source === 'prep');
+    assert.ok(mirror, 'precondition: a prep mirror exists');
+    testDb.prepare(`UPDATE ops_run_steps SET status = 'done' WHERE id = ?`).run(mirror.id);
+    testDb.prepare(`UPDATE prep_tasks SET status = 'done' WHERE id = ?`)
+      .run(prep.lastInsertRowid);
+
+    const manual = insertManualOpsStep(
+      { location_id: 'default', shift_date: shift, daypart: 'side_work',
+        title: 'Walk the walk-in' },
+      testDb,
+    );
+
+    const steps = ensureOpsRunForShift('default', shift, testDb);
+    assert.ok(
+      steps.some((r) => r.id === mirror.id && r.status === 'done'),
+      'a step the cook signed off is a record, not a mirror — it stays',
+    );
+    assert.ok(
+      steps.some((r) => r.id === manual.id),
+      'a step the cook added by hand is never reconciled away',
+    );
+    assert.ok(
+      steps.some((r) => r.source === 'template'),
+      'house template steps are never reconciled away',
+    );
   });
 });
 
