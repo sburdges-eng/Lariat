@@ -27,9 +27,14 @@ month.**
 | **Total** | **$150,620.33** | |
 
 The four buckets sum to the total exactly. **$136,717.37 is the verified Sysco
-food numerator for the trailing twelve months.** It is not the whole food
-numerator — Shamrock is a second food vendor and is not in this figure — but it
-is measured, not modeled.
+food numerator for the trailing twelve months**, measured rather than modeled.
+
+**It may also be the whole food numerator.** An earlier version of this document
+said it was not, because Shamrock is a second food vendor. That was wrong for
+this window: every Shamrock order and delivery notice in the mailbox falls in
+July 2025, and there is nothing after 28 July 2025 — so Shamrock does not
+overlap Aug 2025 – Jul 2026 at all. See `shamrock-status.md`, which also records
+the one open question against that conclusion.
 
 ### This revises $136,890.76, reported earlier
 
@@ -75,7 +80,9 @@ compare against. The read changed three times on partial data; here is what it
 looks like complete.
 
 - **Jul 2025: $808/day. Jul 2026: $554/day.** Last July ran 46% hotter than this
-  July.
+  July on Sysco alone — and **at least 64% hotter** once July 2025's verified
+  Shamrock deliveries are added, which have no 2026 counterpart
+  (`shamrock-status.md`). Every figure in the table below is Sysco only.
 - **Jun 2026 ($866/day) is the highest month in the record**, but Jul 2025 is
   close behind, so June 2026 is a summer peak rather than a freak event. The
   earlier reading of June as an unexplained anomaly was an artifact of having
@@ -138,7 +145,8 @@ Standard Delivery.
   and $12,912.36 for March) lands in the same ballpark, which is evidence
   against a large volume of missing deliveries. Still properly answered only by
   a Sysco AR statement — see below for why one has not turned up.
-- **Shamrock is a second food vendor** and is not in any figure here.
+- **Shamrock is a second food vendor**, but only in July 2025 — outside this
+  window. `shamrock-status.md`.
 - **No liquor or beer vendor data exists at all.**
 
 ## Why the Sysco AR statement has not turned up

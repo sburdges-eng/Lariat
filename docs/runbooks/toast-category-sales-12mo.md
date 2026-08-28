@@ -14,6 +14,28 @@ on the denominator side.
 **Blocked on:** a human with Toast Web access. There are no Toast credentials in
 the analysis environment and Toast sends no report emails to the account.
 
+## Where the Toast data is not
+
+Searched and ruled out, so nobody repeats it:
+
+- **`sburdges@gmail.com`.** The only `toasttab.com` mail in this mailbox is
+  Sean's own personal takeout receipts from other restaurants — Moonlight Pizza
+  (2023), Stoner's Pizza (2020), HomeSlice (2019). Nothing from The Lariat's own
+  Toast account, in any direction, ever.
+- **Google Drive.** The only Toast artefact is
+  `TOAST_POS_INTEGRATION_GUIDE.md` — a document about integrating, not any
+  exported data. No sales export, no category summary, no report.
+
+**The likely reason is an account split.** The business address is
+`seanblariat@gmail.com`; this session is authenticated to Sean's personal
+`sburdges@gmail.com`. Only three files are shared between the two accounts and
+none is sales data. Toast reports, if any are emailed at all, are most likely in
+the business mailbox — which no tool in this session can read.
+
+**So the fastest unblock is probably not any of the options below.** It is either
+signing in to Toast Web directly (Option A) or checking `seanblariat@gmail.com`
+for a Toast report subscription that already exists.
+
 ---
 
 ## Option A — Toast Web export (fastest)
