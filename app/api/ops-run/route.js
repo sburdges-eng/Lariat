@@ -1,5 +1,8 @@
 // @ts-check
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+// Venue date, not the UTC slice — a UTC day rolls at 6pm Mountain, which
+// would default an evening request to tomorrow's shift.
+import { serviceDateISO } from '../../../lib/boh/index.ts';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
@@ -30,7 +33,7 @@ export async function GET(req) {
   try {
     const url = new URL(req.url);
     const loc = locationFromRequest(req);
-    const shiftDate = clip(url.searchParams.get('date'), 32) || todayISO();
+    const shiftDate = clip(url.searchParams.get('date'), 32) || serviceDateISO();
     const materialize = url.searchParams.get('materialize') !== '0';
 
     const rows = materialize
@@ -62,7 +65,7 @@ async function opsRunPostHandler(req) {
   try {
     const body = await req.json().catch(() => ({}));
     const loc = locationFromBody(body);
-    const shiftDate = clip(body.shift_date, 32) || todayISO();
+    const shiftDate = clip(body.shift_date, 32) || serviceDateISO();
     const daypart = clip(body.daypart, 32) || 'side_work';
     const title = clip(body.title, 300);
     const detail = clip(body.detail, 1000);

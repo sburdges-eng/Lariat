@@ -1,5 +1,5 @@
 // @ts-check
-import { todayISO } from '../../lib/db';
+import { serviceDateISO } from '../../lib/boh/index.ts';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { OPS_DAYPART_LABEL, rollupOpsSteps } from '../../lib/opsRun.ts';
 import { ensureOpsRunForShift, localNowMinutes } from '../../lib/opsRunRepo.ts';
@@ -16,7 +16,9 @@ export default async function DayPlanPage({ searchParams }) {
     typeof sp.location === 'string' && sp.location.trim()
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const today = todayISO();
+  // Venue date, not the UTC slice: a UTC day rolls at 6pm Mountain and would
+  // hand a cook tomorrow's plan in the middle of dinner service.
+  const today = serviceDateISO();
   const date =
     typeof sp.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : today;
 
