@@ -1,0 +1,33 @@
+order_number,order_date,supc,description,qty,uom,extended_price,note
+04627746,06/07/2026,7465969,"Pan Foil Steam Table 2.56 Inch Deep",1,CS,57.72,read inline
+04612237,05/31/2026,1675701,"Cabbage Green Shredded Fresh In Bag",1,CS,25.55,read inline
+04568201,05/10/2026,3554553,"Cheese Monterey Pepper Jack Sliced Interleaf .",1,CS,49.99,read inline
+04568201,05/10/2026,2916452,"Drink Energy",1,CS,62.00,read inline
+04568201,05/10/2026,1007350,"Avocado Hass Breaking Fresh",1,CS,45.45,read inline
+04697231,07/08/2026,2004810,"Rosemary Fresh Herb",1,CS,8.99,read inline
+04698081,07/08/2026,9927799,"Pepper Jalapeno Fresh",1,CS,25.45,read inline
+04698081,07/08/2026,4676306,"Milk Whole Gallon",1,CS,23.13,read inline
+04698081,07/08/2026,1070879,"Avocado Hass Fresh",1,CS,26.89,read inline
+04745437,07/29/2026,6971939,"Nectar Peach",2,CS,111.50,read inline
+04745359,07/29/2026,5661143,"Tomato Cherry Heirloom Mix",1,CS,48.95,read inline
+04745480,07/29/2026,8312696,"Juice Pomegranate 100% Fresh",1,CS,24.79,read inline
+04359182,02/01/2026,3554553,"Cheese Monterey Pepper Jack Sliced Interleaf .",1,CS,41.95,read inline
+04359182,02/01/2026,3777570,"Bacon Shingle Center-cut 7-9 Per Pound Honey Gas Flushed",4,CS,263.96,read inline
+04338418,01/21/2026,6395974,"Asparagus Jumbo",1,CS,54.45,read inline
+04338374,01/21/2026,5228549,"Spice Chili Powder Dark",1,EA,58.61,read inline
+04255088,12/10/2025,3617531,"Vegetarian Blend Sweet Potato & Roasted Root Vegetables",1,CS,56.45,read inline
+04152493,10/19/2025,1970896,"Tortilla Corn White 6""",2,CS,91.90,read inline
+04085431,09/17/2025,7210310,"Buttermilk Whole Qt",1,CS,35.85,read inline
+04085431,09/17/2025,4566873,"Mix Cornbread Homestyle Complete",1,CS,81.95,read inline
+04002584,08/10/2025,7644909,"Fry On Shortening Frying Liquid",6,CS,376.08,read inline
+03978489,07/30/2025,7644909,"Fry On Shortening Frying Liquid",6,CS,374.34,read inline
+03978489,07/30/2025,6040885,"Pasta Cavatappi 100% Durum Wheat Semolina",2,CS,59.98,read inline
+03949534,07/16/2025,1491552,"Bun Brioche 4.5""",2,CS,110.50,read inline
+03949534,07/16/2025,1309863,"Bread Pita Plain 7""",1,CS,54.75,read inline
+03949534,07/16/2025,1675750,"Carrots Matchstick Shredded",1,CS,30.49,read inline
+04338463,01/21/2026,1552272,"Cheese Mozzarella Fresh Cryovac Log",1,CS,36.90,read inline
+04735930,07/25/2026,5972639,"Water Bottled",1,CS,21.85,read inline
+04735930,07/25/2026,5020302,"Potato Hash Brown Dice Skinon",1,CS,76.39,read inline
+04735930,07/25/2026,3855251,"Melon Watermelon Seedless Fresh",1,CS,49.95,read inline
+14418432,07/25/2026,4576940,"Crayon Assorted Round Box",1,CS,36.26,"read inline; marketplace, Supplies On The Fly, billed under email total for 04735930"
+M435294ea7ee0,07/25/2026,6069255,"TISSUE TOILET TOILET PAPER - 20 ROLLS",1,EA,64.87,"read inline; marketplace, Everyday Supply Co, billed under email total for 04735930"

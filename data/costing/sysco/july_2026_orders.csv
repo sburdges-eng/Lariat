@@ -1,0 +1,8 @@
+order_number,order_date,delivery_date,state,supc,description,pack_size,brand,qty,uom,unit_price,extended_price,source
+04697231,2026-07-08,2026-07-09,allocated,2004810,Rosemary Fresh Herb,1/4 OZ,IMPERIAL FRESH,1,CS,8.99,8.99,order_email
+04698081,2026-07-08,2026-07-09,allocated,9927799,Pepper Jalapeno Fresh,1/10 LB,IMPERIAL FRESH,1,CS,25.45,25.45,order_email
+04698081,2026-07-08,2026-07-09,allocated,4676306,Milk Whole Gallon,4/1 GAL,WHOLESOME FARMS CLASSIC,1,CS,23.13,23.13,order_email
+04698081,2026-07-08,2026-07-09,allocated,1070879,Avocado Hass Fresh,1/24 CT,PROPACK,1,CS,26.89,26.89,order_email
+04745437,2026-07-29,2026-07-30,allocated,6971939,Nectar Peach,12/33.8OZ,GOYA FOODS INC,2,CS,55.75,111.50,order_email
+04745359,2026-07-29,2026-07-30,allocated,5661143,Tomato Cherry Heirloom Mix,12/.5 PTS,PACKER,1,CS,48.95,48.95,order_email
+04745480,2026-07-29,2026-07-30,allocated,8312696,Juice Pomegranate 100% Fresh,6/16 OZ,POM WONDERFUL JUICES,1,CS,24.79,24.79,order_email
