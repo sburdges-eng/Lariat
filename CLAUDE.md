@@ -17,21 +17,35 @@ This is food/restaurant ops. Do not confuse it with COOLIO (image API) despite o
 
 ## 1. Where you are
 
+**`~/Dev` is a symlink to `/Volumes/Sean's SSD/Dev`.** Everything below it lives on the
+external SSD and vanishes when that drive is unmounted — `ls ~/Dev` before trusting any
+path here. The mount point contains a space and an apostrophe, so always quote it in
+shell commands.
+
 | Path | Status |
 | --- | --- |
-| `~/Dev/hospitality/Lariat/` | **Canonical repo.** Web edge, native package, docs, migrations, data contract. |
-| `~/Dev/hospitality/Lariat/LariatNative/` | Canonical macOS/iPad SwiftPM package (`LariatModel`, `LariatDB`, `LariatApp`). |
-| `~/Dev/Lariat-KDS/` | Separate Swift repo — companion KDS client. Touch only when KDS is named. |
+| `~/lariat_dev/Lariat/` | **Where current work is happening** (verified 2026-08-28). On local disk, not the SSD. |
+| `~/Dev/hospitality/Lariat/` | Older checkout of the same remote. Stale as of 2026-08-28 — `feat/service-date-wave1`, last commit 2026-08-06. Do not assume it is current. |
+| `~/Dev/hospitality/Lariat/LariatNative/` | macOS/iPad SwiftPM package (`LariatModel`, `LariatDB`, `LariatApp`), inside that older checkout. |
+| `~/Dev/hospitality/Lariat/Lariat-KDS/` | Companion KDS Swift repo. **Nested inside the Lariat checkout** — there is no `~/Dev/Lariat-KDS`. Touch only when KDS is named. |
 | `~/Dev/lariat-data-sources/` | Real business data (**PII**). Read/ingest only — never commit, delete, or bulk rewrite. |
 | `~/Dev/hospitality/Lariat-worktrees/` | Worktree target for `scripts/worktree.sh`. |
 
-Verify you are in the canonical repo before your first edit — not an iCloud copy, not a stale
-checkout, not `.claude/worktrees/cadi-cxx-toolchain/**/Lariat*` (a foreign project's snapshot; do
-not edit or delete it).
+**`origin/main` is the only authority on what is current** — not any checkout's local
+`main`, and not this table. Run `git remote get-url origin` and `git log -1` in the
+directory you are actually in before your first edit. Do not edit
+`.claude/worktrees/cadi-cxx-toolchain/**/Lariat*` (a foreign project's snapshot; do not
+delete it either).
 
-**All non-canonical Lariat iterations were deleted 2026-07-22** after archiving to
-`~/Dev/_archive/lariat-iterations-20260722/`. Do not resurrect them; the table above is the
-complete set.
+**Correction (2026-08-28).** This section previously stated that all non-canonical Lariat
+iterations were deleted 2026-07-22 after archiving to
+`~/Dev/_archive/lariat-iterations-20260722/`, and that its table was "the complete set".
+Neither holds on this machine: that archive path does not exist, and ten checkouts of the
+Lariat remote are present — including copies under `backup/`, `MacBackup-2026-08-07/`, and
+`Dev/_archives/lariat-pre-scrub-2026-04-18/`. Treat any checkout not listed above as a
+backup: read it if you must, but never edit it, and never delete one as "cleanup".
+
+This table describes one machine at one point in time. Verify it rather than trusting it.
 
 ### Routing docs — read before the matching work
 
