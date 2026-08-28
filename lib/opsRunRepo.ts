@@ -111,6 +111,40 @@ export function localNowMinutes(d = new Date()): number {
   return hour * 60 + minute;
 }
 
+/**
+ * Does the regulated board behind this step carry a record for the shift?
+ *
+ * Deliberately a precondition, not a completeness check. The codebase does not
+ * define how many readings make a shift's temps complete — TempPoints carry
+ * thresholds, not a schedule, and points like receiving_cold only apply when a
+ * delivery happened — so asserting completeness here would be inventing
+ * regulated policy. What it does assert is that the cook used the board at all,
+ * which is exactly the hole: closing "Temps" with no temperature written
+ * anywhere.
+ *
+ * Table and column names come from REGULATED_STEP_BOARDS, never from caller
+ * input, so no request value reaches the SQL.
+ */
+export function hasRegulatedRecord(
+  board: { board: string; date_column: string; station_id?: string },
+  locationId: string,
+  shiftDate: string,
+  db: DB = getDb(),
+): boolean {
+  const scoped = board.station_id ? ' AND station_id = ?' : '';
+  const args: string[] = [locationId, shiftDate];
+  if (board.station_id) args.push(board.station_id);
+  const row = db
+    .prepare(
+      `SELECT 1 AS present
+         FROM ${board.board}
+        WHERE location_id = ? AND ${board.date_column} = ?${scoped}
+        LIMIT 1`,
+    )
+    .get(...args) as { present: number } | undefined;
+  return !!row;
+}
+
 export function listOpsRunSteps(
   locationId: string,
   shiftDate: string,
