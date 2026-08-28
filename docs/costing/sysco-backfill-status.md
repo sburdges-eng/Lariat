@@ -82,7 +82,8 @@ Standard Delivery. They are small — a few hundred dollars a month at most.
   Non-food and immaterial to the food numerator.
 - **Deliveries with no order email at all.** Partly addressed by the Feb–Mar
   cross-check above; still properly answered only by a Sysco AR statement.
-- **Food vs non-food is not classified.** 1,041 line items are captured with
-  SUPC, description, brand and extended price, but not categorized. The 94.8%
-  food figure in circulation came off a 117-line subset and is **not** applied to
-  these months. Classifying them is a desk job needing no further fetching.
+- ~~Food vs non-food is not classified.~~ **Done** — see
+  `docs/costing/sysco-food-vs-nonfood.md`. Measured across 1,020 priced lines:
+  food 91.9%, beverage 1.7%, non-food 6.0%. That corrects the circulating
+  94.8/2.9/2.3 split taken off a 117-line subset; **non-food supplies are 2.6×
+  higher than assumed**, so the food numerator is smaller than it looked.
