@@ -169,11 +169,20 @@ export const REGULATED_STEP_BOARDS: Record<
  */
 export function regulatedBoardFor(
   stepKey: string | null | undefined,
-): (typeof REGULATED_STEP_BOARDS)[string] | null {
+): ((typeof REGULATED_STEP_BOARDS)[string] & { station_id?: string }) | null {
   if (typeof stepKey !== 'string' || !stepKey) return null;
   const direct = REGULATED_STEP_BOARDS[stepKey];
   if (direct) return direct;
-  if (stepKey.startsWith('line-check-')) return REGULATED_STEP_BOARDS['open-line-checks'] ?? null;
+  if (stepKey.startsWith('line-check-')) {
+    const base = REGULATED_STEP_BOARDS['open-line-checks'];
+    if (!base) return null;
+    // Scope to the station this row stands for. Without it any station's
+    // sign-off would close every other station's line check, which is the gate
+    // defeating itself. The template step keeps the unscoped form on purpose:
+    // it stands for the whole pass, not one station.
+    const stationId = stepKey.slice('line-check-'.length);
+    return stationId ? { ...base, station_id: stationId } : base;
+  }
   return null;
 }
 

@@ -20,7 +20,9 @@ const opsRoute = await import('../../app/api/ops-run/route.js');
 const opsIdRoute = await import('../../app/api/ops-run/[id]/route.js');
 const { summarize, alertsFor } = await import('../../lib/commandCenter.ts');
 const { serviceDate } = await import('../../lib/serviceDate.ts');
-const { ensureOpsRunForShift, insertManualOpsStep, localNowMinutes } = await import('../../lib/opsRunRepo.ts');
+const { ensureOpsRunForShift, insertManualOpsStep, localNowMinutes, hasRegulatedRecord } =
+  await import('../../lib/opsRunRepo.ts');
+const { regulatedBoardFor } = await import('../../lib/opsRun.ts');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
@@ -387,6 +389,45 @@ describe('food-safety steps cannot be closed without a record', () => {
     assert.ok(step, 'precondition: a non-regulated step is on the plan');
     const res = await patch(step.id, 'done');
     assert.equal(res.status, 200, 'prep work is not a regulated record');
+  });
+});
+
+describe('a per-station line check needs that station signed off', () => {
+  // The dynamic rows carry their own station: line-check-grill, line-check-pantry.
+  // Scoping the precondition only to location and shift would let Pantry's
+  // sign-off close Grill's row, which is the gate defeating itself — the plan
+  // and the manager rollups would report that station's regulated work closed
+  // with no record for it.
+  const SHIFT = '2026-06-11';
+
+  beforeEach(() => {
+    testDb.prepare(`DELETE FROM station_signoffs WHERE location_id = 'default'`).run();
+    testDb
+      .prepare(
+        `INSERT INTO station_signoffs (shift_date, station_id, cook_id, location_id)
+         VALUES (?, 'pantry', 'c1', 'default')`,
+      )
+      .run(SHIFT);
+  });
+
+  it('refuses a station that was not signed off', () => {
+    const board = regulatedBoardFor('line-check-grill');
+    assert.ok(board, 'a per-station line check is a regulated step');
+    assert.equal(
+      hasRegulatedRecord(board, 'default', SHIFT, testDb),
+      false,
+      "pantry's sign-off must not close grill's line check",
+    );
+  });
+
+  it('accepts the station that was signed off', () => {
+    const board = regulatedBoardFor('line-check-pantry');
+    assert.equal(hasRegulatedRecord(board, 'default', SHIFT, testDb), true);
+  });
+
+  it('the all-stations template step still takes any sign-off', () => {
+    const board = regulatedBoardFor('open-line-checks');
+    assert.equal(hasRegulatedRecord(board, 'default', SHIFT, testDb), true);
   });
 });
 

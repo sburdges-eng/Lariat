@@ -126,19 +126,22 @@ export function localNowMinutes(d = new Date()): number {
  * input, so no request value reaches the SQL.
  */
 export function hasRegulatedRecord(
-  board: { board: string; date_column: string },
+  board: { board: string; date_column: string; station_id?: string },
   locationId: string,
   shiftDate: string,
   db: DB = getDb(),
 ): boolean {
+  const scoped = board.station_id ? ' AND station_id = ?' : '';
+  const args: string[] = [locationId, shiftDate];
+  if (board.station_id) args.push(board.station_id);
   const row = db
     .prepare(
       `SELECT 1 AS present
          FROM ${board.board}
-        WHERE location_id = ? AND ${board.date_column} = ?
+        WHERE location_id = ? AND ${board.date_column} = ?${scoped}
         LIMIT 1`,
     )
-    .get(locationId, shiftDate) as { present: number } | undefined;
+    .get(...args) as { present: number } | undefined;
   return !!row;
 }
 
