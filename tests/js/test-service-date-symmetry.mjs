@@ -50,9 +50,13 @@ const AT_0130 = new Date('2026-08-07T07:30:00Z');
 // 7 Aug 02:30 MDT — the NEXT service day.
 const AT_0230 = new Date('2026-08-07T08:30:00Z');
 
-function at(when, fn) {
+async function at(when, fn) {
   mock.timers.enable({ apis: ['Date'], now: when });
-  try { return fn(); } finally { mock.timers.reset(); }
+  try {
+    return await fn();
+  } finally {
+    mock.timers.reset();
+  }
 }
 
 function postCooling() {
@@ -75,7 +79,7 @@ function getCoolingDefault() {
 
 describe('cooling — the service date it stores', () => {
   it('stamps the service day that began that morning, not the UTC day', async () => {
-    await at(AT_2330, () => postCooling());
+    await at(AT_2330, async () => { await postCooling(); });
     const row = testDb.prepare('SELECT shift_date FROM cooling_log LIMIT 1').get();
     assert.equal(
       row.shift_date, '2026-08-06',
@@ -91,14 +95,14 @@ describe('cooling — the service date it reads', () => {
   // The route echoes the date it resolved, so the read default is observable
   // without having to close a batch first.
   it('resolves the same service day at 23:30 and at 01:30', async () => {
-    const late = await (await at(AT_2330, () => getCoolingDefault())).json();
-    const small = await (await at(AT_0130, () => getCoolingDefault())).json();
+    const late = await (await at(AT_2330, async () => getCoolingDefault())).json();
+    const small = await (await at(AT_0130, async () => getCoolingDefault())).json();
     assert.equal(late.date, '2026-08-06');
     assert.equal(small.date, '2026-08-06', 'past midnight is still the same service day');
   });
 
   it('rolls to the next service day at 02:00, matching the write side', async () => {
-    const after = await (await at(AT_0230, () => getCoolingDefault())).json();
+    const after = await (await at(AT_0230, async () => getCoolingDefault())).json();
     assert.equal(after.date, '2026-08-07');
   });
 });
@@ -110,8 +114,8 @@ describe('cooling — an in-progress batch is never date-filtered', () => {
   // service-date boundary ever started gating it, a cook would lose a live
   // HACCP obligation off their board at 2am.
   it('stays on the board after the service day rolls over', async () => {
-    await at(AT_2330, () => postCooling());
-    const res = await at(AT_0230, () => getCoolingDefault());
+    await at(AT_2330, async () => { await postCooling(); });
+    const res = await at(AT_0230, async () => getCoolingDefault());
     const body = await res.json();
     assert.ok(
       body.open.some((r) => r.item === 'pulled pork'),

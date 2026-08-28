@@ -22,7 +22,7 @@ import {
   type OpsStepStatus,
 } from './opsRun.ts';
 import { augustChecklistForDate } from './augustChecklists2026.ts';
-import { VENUE_TIME_ZONE } from './serviceDate.ts';
+import { serviceDate, VENUE_TIME_ZONE } from './serviceDate.ts';
 
 export interface OpsRunStepRow {
   id: number;
@@ -907,7 +907,7 @@ export function opsRunRollupFor(
   db: DB = getDb(),
 ): OpsRunRollup {
   const steps = listOpsRunSteps(locationId, shiftDate, db);
-  return rollupOpsSteps(steps, nowMinutes);
+  return rollupOpsSteps(steps, nowMinutes, serviceDate());
 }
 
 export function countLateOpsSteps(
@@ -917,5 +917,6 @@ export function countLateOpsSteps(
   db: DB = getDb(),
 ): number {
   const steps = listOpsRunSteps(locationId, shiftDate, db);
-  return steps.filter((s) => isStepLate(s, nowMinutes)).length;
+  const today = serviceDate();
+  return steps.filter((s) => isStepLate(s, nowMinutes, today)).length;
 }

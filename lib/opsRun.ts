@@ -92,10 +92,18 @@ function serviceDayMinutes(minutesFromMidnight: number): number {
 }
 
 export function isStepLate(
-  step: Pick<OpsStepLike, 'status' | 'due_time'>,
+  step: Pick<OpsStepLike, 'status' | 'due_time' | 'shift_date'>,
   nowMinutes: number,
+  currentServiceDate?: string,
 ): boolean {
   if (step.status !== 'todo') return false;
+  if (
+    currentServiceDate != null &&
+    step.shift_date != null &&
+    step.shift_date !== currentServiceDate
+  ) {
+    return false;
+  }
   const due = parseDueMinutes(step.due_time);
   if (due == null) return false;
   return serviceDayMinutes(nowMinutes) > serviceDayMinutes(due);
@@ -233,6 +241,7 @@ export function validateOpsStepInput(input: {
 export function rollupOpsSteps(
   steps: OpsStepLike[],
   nowMinutes: number,
+  currentServiceDate?: string,
 ): OpsRunRollup {
   const by_daypart = Object.fromEntries(
     OPS_DAYPARTS.map((d) => [d, { todo: 0, done: 0, late: 0 }]),
@@ -248,7 +257,7 @@ export function rollupOpsSteps(
     else if (s.status === 'skipped') skipped += 1;
     else todo += 1;
 
-    const lateNow = isStepLate(s, nowMinutes);
+    const lateNow = isStepLate(s, nowMinutes, currentServiceDate);
     if (lateNow) late += 1;
 
     if (isOpsDaypart(s.daypart)) {

@@ -90,6 +90,20 @@ describe('isStepLate', () => {
   it('needs a due_time', () => {
     assert.equal(isStepLate({ status: 'todo', due_time: null }, 12 * 60), false);
   });
+
+  it('does not mark a future or past plan late when shift_date differs from today', () => {
+    const pastDue = { status: 'todo', due_time: '07:30', shift_date: '2026-08-10' };
+    const future = { status: 'todo', due_time: '07:30', shift_date: '2026-08-20' };
+    const noon = 12 * 60;
+    assert.equal(isStepLate(pastDue, noon, '2026-08-15'), false);
+    assert.equal(isStepLate(future, noon, '2026-08-15'), false);
+  });
+
+  it('still marks today\'s plan late when shift_date matches the service day', () => {
+    const step = { status: 'todo', due_time: '07:30', shift_date: '2026-08-15' };
+    assert.equal(isStepLate(step, 8 * 60, '2026-08-15'), true);
+    assert.equal(isStepLate(step, 7 * 60, '2026-08-15'), false);
+  });
 });
 
 describe('rollupOpsSteps', () => {

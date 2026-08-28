@@ -549,7 +549,7 @@ export function summarize(locationId: string, today: string): CommandSummary {
     if (step.status === 'done') opsDone += 1;
     else if (step.status === 'todo') {
       opsTodo += 1;
-      if (isStepLate(step, nowMin)) opsLate += 1;
+      if (isStepLate(step, nowMin, serviceDate())) opsLate += 1;
     }
   }
 

@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { clientFetch } from '@/lib/clientFetch';
 import { isStepLate } from '../../lib/opsRun.ts';
+import { serviceDate } from '../../lib/serviceDate.ts';
 
 /**
  * @typedef {{
@@ -100,10 +102,11 @@ export default function DayPlanBoard({
     setBusyId(id);
     setErr('');
     try {
-      const res = await fetch(`/api/ops-run/${id}`, {
+      const res = await clientFetch(`/api/ops-run/${id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ status, location_id: locationId, cook_id: cookId }),
+        idempotent: true,
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -124,7 +127,7 @@ export default function DayPlanBoard({
     setAdding(true);
     setErr('');
     try {
-      const res = await fetch('/api/ops-run', {
+      const res = await clientFetch('/api/ops-run', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -134,6 +137,7 @@ export default function DayPlanBoard({
           location_id: locationId,
           cook_id: cookId,
         }),
+        idempotent: true,
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -238,7 +242,7 @@ export default function DayPlanBoard({
             </h2>
             <ul className="checklist" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
               {rows.map((s) => {
-                const late = isStepLate(s, nowMinutes);
+                const late = isStepLate(s, nowMinutes, serviceDate());
                 const done = s.status === 'done' || s.status === 'skipped';
                 return (
                   <li
