@@ -6,7 +6,8 @@
 // to the stage-1 deadline (2h to 70°F) and then stage-2 deadline (4h
 // more to 41°F). Red means the clock is actually up, not just close.
 
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import { scanOpenBatches } from '../../../lib/cooling';
 import CoolingBoard from './CoolingBoard.jsx';
@@ -25,7 +26,7 @@ export default async function CoolingPage({ searchParams }) {
     typeof sp?.location === 'string' && sp.location.trim()
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const today = todayISO();
+  const today = serviceDate();
 
   const db = getDb();
   const open = /** @type {CoolingRow[]} */ (

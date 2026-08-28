@@ -8,7 +8,8 @@
 // (low/high) MUST carry a corrective action to be accepted; without it
 // the API returns 422 so the UI can prompt the cook inline.
 
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import {
   CHEMISTRIES,
@@ -50,7 +51,7 @@ async function sanitizerPostHandler(req: Request) {
         : Number(body.water_temp_f);
     const point_label = clip(body.point_label, 120);
     const station_id = clip(body.station_id, 64);
-    const shift_date = clip(body.shift_date, 32) || todayISO();
+    const shift_date = clip(body.shift_date, 32) || serviceDate();
     const location_id = locationFromBody(body);
     const cook_id = clip(body.cook_id, 64);
     const corrective_action = typeof body.corrective_action === 'string'
@@ -171,7 +172,7 @@ interface SanitizerRow {
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
-    const date = url.searchParams.get('date') || todayISO();
+    const date = url.searchParams.get('date') || serviceDate();
     const location_id = locationFromRequest(req) || DEFAULT_LOCATION_ID;
 
     const db = getDb();

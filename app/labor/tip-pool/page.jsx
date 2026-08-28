@@ -4,7 +4,8 @@
 // to the client board. Default view is today; URL query takes a
 // `?date=YYYY-MM-DD` for back-fill.
 
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import {
   CO_STD_MIN_WAGE_CENTS_2026,
@@ -33,7 +34,7 @@ export default async function TipPoolPage({ searchParams }) {
   const date =
     typeof sp?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sp.date)
       ? sp.date
-      : todayISO();
+      : serviceDate();
 
   const db = getDb();
   const rows = /** @type {TipPoolRow[]} */ (

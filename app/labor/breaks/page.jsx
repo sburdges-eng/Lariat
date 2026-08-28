@@ -6,7 +6,8 @@
 // Waived meal-break entries require a waiver_ref (a doc signed under
 // COMPS #39, usually the new-hire packet).
 
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { getStaff } from '../../../lib/data';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import BreakBoard from './BreakBoard.jsx';
@@ -43,7 +44,7 @@ export default async function BreaksPage({ searchParams }) {
     typeof sp?.location === 'string' && sp.location.trim()
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const today = todayISO();
+  const today = serviceDate();
 
   const db = getDb();
   const rows = /** @type {BreakRow[]} */ (

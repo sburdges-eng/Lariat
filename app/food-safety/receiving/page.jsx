@@ -5,7 +5,8 @@
 // server render; the board re-queries `/api/receiving?date=...` after
 // each write.
 
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import {
   RECEIVING_CATEGORIES,
@@ -64,7 +65,7 @@ export default async function ReceivingPage({ searchParams }) {
     typeof sp?.location === 'string' && sp.location.trim()
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const today = todayISO();
+  const today = serviceDate();
 
   const db = getDb();
   const rows = /** @type {ReceivingLogRow[]} */ (
