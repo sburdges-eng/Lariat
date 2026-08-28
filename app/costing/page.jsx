@@ -75,8 +75,17 @@ function formatAge(ageMin) {
   return `${Math.floor(ageMin / 1440)} d ago`;
 }
 
-export default function CostingPage() {
-  const loc = DEFAULT_LOCATION_ID;
+/** @param {{ searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }} props */
+export default async function CostingPage({ searchParams }) {
+  // Read ?location= like every other board. Previously hardcoded to the
+  // default kitchen, so a location-scoped drilldown (e.g. /command's Food
+  // cost tile) landed here showing a different site's numbers.
+  const sp = (await searchParams) || {};
+  const loc =
+    typeof sp.location === 'string' && sp.location.trim()
+      ? sp.location.trim()
+      : DEFAULT_LOCATION_ID;
+  const locQ = loc !== DEFAULT_LOCATION_ID ? `?location=${encodeURIComponent(loc)}` : '';
   const db = getDb();
   const variance = computeCostVariance(db, loc);
   const unmapped = computeUnmapped(db, loc);
@@ -175,7 +184,7 @@ export default function CostingPage() {
             {dishCoverage.unlinked} no link &middot; {dishCoverage.declared_only} no qty
           </div>
           <div style={{ fontSize: 11, marginTop: 4 }}>
-            <Link href="/menu-engineering/components" style={{ color: 'var(--blue)' }}>
+            <Link href={`/menu-engineering/components${locQ}`} style={{ color: 'var(--blue)' }}>
               edit dish_components →
             </Link>
           </div>
@@ -209,13 +218,14 @@ export default function CostingPage() {
       {/* Phase-1 triage links — every queue is one click from the dashboard. */}
       <div className="card form-row" style={{ marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
         <span style={{ opacity: 0.75, marginRight: 4 }}>Triage queues:</span>
-        <Link href="/costing/depletion-exceptions" className="btn">
+        <Link href={`/costing/depletion-exceptions${locQ}`} className="btn">
           Depletion exceptions
         </Link>
+        {/* Pack-size changes are install-wide (no location column) — plain link. */}
         <Link href="/costing/pack-changes" className="btn">
           Pack-size changes
         </Link>
-        <Link href="/costing/price-shocks" className="btn">
+        <Link href={`/costing/price-shocks${locQ}`} className="btn">
           Price moves
         </Link>
       </div>
