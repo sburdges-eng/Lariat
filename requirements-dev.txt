@@ -8,3 +8,7 @@ pytest>=8.0
 # without them.
 lxml>=5.0
 pdfplumber>=0.11
+# scripts/parse_sysco_emails.py reads the Sysco order-email HTML. No test
+# imports it, so pytest collection survives without this — but a fresh clone
+# that follows install-python-deps.sh cannot run the script.
+beautifulsoup4>=4.12
