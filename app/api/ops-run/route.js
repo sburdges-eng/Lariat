@@ -1,5 +1,9 @@
 // @ts-check
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+// The venue service day runs 02:00 to 02:00 local. The read filter and the
+// write default must move together: wrong together they look consistent, but
+// fix one alone and a cook's own entries vanish from the board mid-shift.
+import { serviceDate } from '../../../lib/serviceDate.ts';
 import { locationFromBody, locationFromRequest } from '../../../lib/location';
 import { postAuditEvent } from '../../../lib/auditEvents';
 import { withIdempotency } from '../../../lib/idempotency';
@@ -30,7 +34,7 @@ export async function GET(req) {
   try {
     const url = new URL(req.url);
     const loc = locationFromRequest(req);
-    const shiftDate = clip(url.searchParams.get('date'), 32) || todayISO();
+    const shiftDate = clip(url.searchParams.get('date'), 32) || serviceDate();
     const materialize = url.searchParams.get('materialize') !== '0';
 
     const rows = materialize
@@ -62,7 +66,7 @@ async function opsRunPostHandler(req) {
   try {
     const body = await req.json().catch(() => ({}));
     const loc = locationFromBody(body);
-    const shiftDate = clip(body.shift_date, 32) || todayISO();
+    const shiftDate = clip(body.shift_date, 32) || serviceDate();
     const daypart = clip(body.daypart, 32) || 'side_work';
     const title = clip(body.title, 300);
     const detail = clip(body.detail, 1000);
