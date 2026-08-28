@@ -7,7 +7,7 @@ classified food / beverage / non-food with nothing unresolved, and the
 classification is cross-validated against Sysco's own product taxonomy
 (`sysco-food-vs-nonfood.md`). Nothing was dropped and nothing is unattributed.
 
-Data: `data/cache/sysco/backfill_orders.csv` (per order),
+Data: `data/costing/sysco/backfill_orders.csv` (per order),
 `backfill_lines.csv` (per line), `backfill_classified.csv` (per line, bucketed),
 `inline_order_lines.csv` (the 21 orders whose detail was read from the API
 response rather than a spooled file).

@@ -2,7 +2,7 @@
 
 Classification of every priced line item in the verified backfill.
 Script: `scripts/classify_sysco_lines.py`.
-Output: `data/cache/sysco/backfill_classified.csv`.
+Output: `data/costing/sysco/backfill_classified.csv`.
 
 ## Result — the full record, May 2025 – Jul 2026
 

@@ -5,7 +5,7 @@ the total printed in that email. Nothing here is modeled.
 
 **Source:** `shop-noreply@sysco.com` → `sburdges@gmail.com`, parsed with
 `scripts/parse_sysco_emails.py`. Line detail for the five small orders is in
-`data/cache/sysco/july_2026_orders.csv`.
+`data/costing/sysco/july_2026_orders.csv`.
 
 ## Orders
 

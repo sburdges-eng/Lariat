@@ -39,8 +39,8 @@ to use.
 
 Usage
 -----
-    python scripts/classify_sysco_lines.py data/cache/sysco/backfill_lines.csv \
-        -o data/cache/sysco/backfill_classified.csv
+    python scripts/classify_sysco_lines.py data/costing/sysco/backfill_lines.csv \
+        -o data/costing/sysco/backfill_classified.csv
 """
 
 from __future__ import annotations
