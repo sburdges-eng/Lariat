@@ -78,6 +78,35 @@ final class AssistantContextComputeTests: XCTestCase {
         XCTAssertEqual(s.source?.detail, "1 active staff")
     }
 
+    /// Parity with tests/js/test-ka-context-render-helpers.mjs — the TOTAL
+    /// rollup row 7shifts ends the export with is not a person, and it
+    /// outweighs everyone, so unfiltered it takes the top slot and reports the
+    /// grand total as one employee.
+    func testRenderLaborSummaryBlockDropsRollupRow() {
+        let s = C.renderLaborSummaryBlock(AssistantLaborSummary(
+            period: "Wk 18",
+            netSales: 50000,
+            laborCost: 12500,
+            laborPctNet: 0.25,
+            splhNet: nil,
+            byRole: nil,
+            byEmployee: [
+                AssistantLaborSummary.Employee(
+                    lastName: "TOTAL", firstName: "", jobTitle: "",
+                    otHours: 0, totalHours: 21921, totalCost: 267996.59
+                ),
+                AssistantLaborSummary.Employee(
+                    lastName: "Doe", firstName: "Anne", jobTitle: "Line Cook",
+                    otHours: 0, totalHours: 40, totalCost: 1100
+                ),
+            ]
+        ))
+        XCTAssertTrue(s.text.contains("Anne Doe (Line Cook)"))
+        XCTAssertFalse(s.text.contains("TOTAL"))
+        XCTAssertFalse(s.text.contains("21921"))
+        XCTAssertFalse(s.text.contains("267,996.59"))
+    }
+
     func testRenderSalesVelocityRoundsAndSkipsZero() {
         let s = C.renderSalesVelocity([
             C.SalesVelocityRow(itemName: "Burger", qty: 39.6),

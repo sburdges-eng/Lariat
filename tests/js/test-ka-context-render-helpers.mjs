@@ -292,7 +292,7 @@ describe('renderLaborSummaryBlock', () => {
         { first_name: 'Anne', last_name: 'Doe', job_title: 'Line Cook', total_hours: 40, total_cost: 1100 },
       ],
     });
-    assert.doesNotMatch(out.text, /21,921/, 'rollup row must not render as an employee');
+    assert.doesNotMatch(out.text, /21921/, 'rollup row must not render as an employee');
     assert.doesNotMatch(out.text, /267,996/, 'rollup totals must not render as one person\'s pay');
     assert.match(out.text, /Anne Doe/, 'real detail rows must survive');
   });
