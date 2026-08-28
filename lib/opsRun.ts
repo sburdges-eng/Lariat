@@ -101,6 +101,87 @@ export function isStepLate(
   return serviceDayMinutes(nowMinutes) > serviceDayMinutes(due);
 }
 
+/**
+ * Day-plan steps that stand in for a regulated food-safety record, and the
+ * board that holds the real one.
+ *
+ * Closing one of these on the plan is not the record. The plan row is an
+ * itinerary tick; the log entry is what an inspector reads. Before this map
+ * existed, Done and Skip were unrestricted status changes on every row, so a
+ * cook could clear "Temps" with no temperature written anywhere and the board,
+ * Command and Morning would all report the work closed.
+ *
+ * `board` names the table that must carry a row for the shift. `date_column`
+ * differs because date marks are filed against the day the batch was prepared
+ * rather than a shift.
+ */
+export const REGULATED_STEP_BOARDS: Record<
+  string,
+  { board: string; date_column: string; label: string; href: string; message: string }
+> = {
+  'open-temps': {
+    board: 'temp_log', date_column: 'shift_date',
+    label: 'Temps', href: '/food-safety/temp-log',
+    message: 'No temps logged this shift. Log them first.',
+  },
+  'open-sanitizer': {
+    board: 'sanitizer_checks', date_column: 'shift_date',
+    label: 'Sanitizer', href: '/food-safety/sanitizer',
+    message: 'No sanitizer check logged this shift. Log it first.',
+  },
+  'open-line-checks': {
+    board: 'station_signoffs', date_column: 'shift_date',
+    label: 'Line checks', href: '/stations',
+    message: 'No station signed off this shift. Sign one off first.',
+  },
+  'close-tphc': {
+    board: 'tphc_entries', date_column: 'shift_date',
+    label: 'TPHC', href: '/food-safety/tphc',
+    message: 'Nothing on the TPHC log this shift. Log it first.',
+  },
+  'close-cooling': {
+    board: 'cooling_log', date_column: 'shift_date',
+    label: 'Cooling', href: '/food-safety/cooling',
+    message: 'No cooling logged this shift. Log it first.',
+  },
+  'close-datemarks': {
+    board: 'date_marks', date_column: 'prepared_on',
+    label: 'Date marks', href: '/food-safety/date-marks',
+    message: 'No date marks made this shift. Make them first.',
+  },
+  'close-station-side': {
+    board: 'cleaning_log', date_column: 'shift_date',
+    label: 'Cleaning', href: '/food-safety/cleaning',
+    message: 'No cleaning logged this shift. Log it first.',
+  },
+  'close-cleaning-due': {
+    board: 'cleaning_log', date_column: 'shift_date',
+    label: 'Cleaning', href: '/food-safety/cleaning',
+    message: 'No cleaning logged this shift. Log it first.',
+  },
+};
+
+/**
+ * The regulated board behind a step, or null when the step is ordinary work.
+ *
+ * Dynamic per-station line-check rows carry their own key, so they resolve to
+ * the same sign-off board as the template step.
+ */
+export function regulatedBoardFor(
+  stepKey: string | null | undefined,
+): (typeof REGULATED_STEP_BOARDS)[string] | null {
+  if (typeof stepKey !== 'string' || !stepKey) return null;
+  const direct = REGULATED_STEP_BOARDS[stepKey];
+  if (direct) return direct;
+  if (stepKey.startsWith('line-check-')) return REGULATED_STEP_BOARDS['open-line-checks'] ?? null;
+  return null;
+}
+
+/** Statuses that assert the work is closed, and so need the record to exist. */
+export function statusClaimsClosure(status: string): boolean {
+  return status === 'done' || status === 'skipped';
+}
+
 export function isOpsDaypart(v: unknown): v is OpsDaypart {
   return typeof v === 'string' && (OPS_DAYPARTS as readonly string[]).includes(v);
 }

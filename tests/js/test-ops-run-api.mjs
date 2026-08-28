@@ -310,6 +310,86 @@ describe('POST /api/ops-run + PATCH', () => {
   });
 });
 
+describe('food-safety steps cannot be closed without a record', () => {
+  // These plan rows stand in for regulated logs. Closing one here used to be an
+  // unrestricted status change: it neither created nor checked the record, yet
+  // the board and the Command rollup then reported the work as done. A cook
+  // could clear "Temps" with no temperature written anywhere.
+  //
+  // The gate is a precondition, not a completeness claim: the codebase does not
+  // define how many readings make a shift's temps "complete" — TempPoints carry
+  // thresholds, not a schedule — so this asserts only that the board was used.
+  const SHIFT = '2026-06-10';
+
+  const stepFor = (key) =>
+    ensureOpsRunForShift('default', SHIFT, testDb).find((r) => r.step_key === key);
+
+  const patch = async (id, status) =>
+    opsIdRoute.PATCH(
+      new Request(`http://localhost/api/ops-run/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status, location_id: 'default', cook_id: 'c1' }),
+      }),
+      { params: { id: String(id) } },
+    );
+
+  beforeEach(() => {
+    testDb.prepare(`DELETE FROM temp_log WHERE location_id = 'default'`).run();
+  });
+
+  it('refuses Done on a temps step when nothing was logged', async () => {
+    const step = stepFor('open-temps');
+    assert.ok(step, 'precondition: the temps step is on the plan');
+
+    const res = await patch(step.id, 'done');
+    assert.ok(res.status >= 400, `expected a refusal, got ${res.status}`);
+
+    const after = testDb
+      .prepare(`SELECT status FROM ops_run_steps WHERE id = ?`)
+      .get(step.id);
+    assert.equal(after.status, 'todo', 'the step must stay open, not silently close');
+  });
+
+  it('refuses Skip too — the same hole, one button over', async () => {
+    const step = stepFor('open-temps');
+    const res = await patch(step.id, 'skipped');
+    assert.ok(res.status >= 400, `expected a refusal, got ${res.status}`);
+  });
+
+  it('writes no audit event for a refused close', async () => {
+    const step = stepFor('open-temps');
+    const before = testDb
+      .prepare(`SELECT COUNT(*) AS c FROM audit_events WHERE entity = 'ops_run_steps'`)
+      .get().c;
+    await patch(step.id, 'done');
+    const after = testDb
+      .prepare(`SELECT COUNT(*) AS c FROM audit_events WHERE entity = 'ops_run_steps'`)
+      .get().c;
+    assert.equal(after, before, 'a refused write must leave no audit trail behind it');
+  });
+
+  it('allows Done once the board carries a record for the shift', async () => {
+    testDb
+      .prepare(
+        `INSERT INTO temp_log (shift_date, location_id, point_id, reading_f, cook_id)
+         VALUES (?, 'default', 'walk_in_cooler', 38.0, 'c1')`,
+      )
+      .run(SHIFT);
+
+    const step = stepFor('open-temps');
+    const res = await patch(step.id, 'done');
+    assert.equal(res.status, 200, 'a logged temperature unblocks the step');
+  });
+
+  it('leaves ordinary steps alone', async () => {
+    const step = stepFor('prep-mise');
+    assert.ok(step, 'precondition: a non-regulated step is on the plan');
+    const res = await patch(step.id, 'done');
+    assert.equal(res.status, 200, 'prep work is not a regulated record');
+  });
+});
+
 describe('localNowMinutes reads the venue clock', () => {
   // The server runs UTC in production. getHours() read the host clock while
   // serviceDate() partitions the shift in America/Denver, so every late count

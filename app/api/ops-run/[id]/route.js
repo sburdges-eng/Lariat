@@ -3,8 +3,16 @@ import { getDb } from '../../../../lib/db';
 import { locationFromBodyOrRequest } from '../../../../lib/location';
 import { postAuditEvent } from '../../../../lib/auditEvents';
 import { withIdempotency } from '../../../../lib/idempotency';
-import { validateOpsStepInput } from '../../../../lib/opsRun.ts';
-import { readOpsRunStep, updateOpsStepStatus } from '../../../../lib/opsRunRepo.ts';
+import {
+  regulatedBoardFor,
+  statusClaimsClosure,
+  validateOpsStepInput,
+} from '../../../../lib/opsRun.ts';
+import {
+  hasRegulatedRecord,
+  readOpsRunStep,
+  updateOpsStepStatus,
+} from '../../../../lib/opsRunRepo.ts';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +64,26 @@ async function opsRunPatchHandler(req, ctx) {
     }
 
     const db = getDb();
+
+    // A day-plan tick is not the regulated record. For the steps that stand in
+    // for one, refuse to record closure unless that board carries a row for the
+    // shift — otherwise the plan, Command and Morning all report food-safety
+    // work done with nothing written anywhere. Refused before the transaction,
+    // so a rejected close leaves no row change and no audit event behind it.
+    const board = regulatedBoardFor(existing.step_key);
+    if (board && statusClaimsClosure(status)) {
+      if (!hasRegulatedRecord(board, loc, existing.shift_date, db)) {
+        return Response.json(
+          {
+            error: board.message,
+            board: board.label,
+            href: board.href,
+          },
+          { status: 422 },
+        );
+      }
+    }
+
     const step = db.transaction(() => {
       const row = updateOpsStepStatus(
         id,
