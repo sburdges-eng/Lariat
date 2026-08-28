@@ -166,6 +166,26 @@ OVERRIDES = {
     'Capers Nonpareil Imported': 'food',
     'Clam Whole In Shell Vacuum Packed 17-22 Per #': 'food',
 
+    # --- smallwares and equipment parts ----------------------------------------
+    # These appear only in the 2025 orders, when the kitchen was still being
+    # outfitted. Equipment, not food and not consumable supply — but they sit in
+    # the same non-food bucket because neither belongs in a food-cost numerator.
+    'Blade For #r2 - S Blade': 'non_food',
+    'Container Blender For Extra Large Model': 'non_food',
+    'Scraper Grill Replacement Blade Stainless 6" Length': 'non_food',
+    'Pan Food Clear Polycarbonate 1/6 Size Rectangular 2.4 Quart': 'non_food',
+
+    # --- more consumable supply the keyword list did not name ------------------
+    'Filter Grease Cone 10 Inch': 'non_food',
+    'Liner Basket News Paper Print 12x12': 'non_food',
+    'Tape Paper Regular Thermal 3-1/8 Inch': 'non_food',
+    'Napkin Beverage 9.5 Inch X 9.5 Inch 2-ply Blac': 'non_food',
+    'Bag Vacuum Plastic Clear 12" Length': 'non_food',
+
+    # --- citrus juice, treated consistently with the lime juice above ----------
+    'Juice Lemon Pasteurized Ultra Premium': 'beverage',
+    'Juice Lime Pasteurized Ultra Premium': 'beverage',
+
     # --- disposables the keyword list did not name -----------------------------
     'Lid To Go Plastic White For 8/12/16': 'non_food',
     'Lid Plastic Clear For 1.5-2.5 Ounce Portion': 'non_food',
