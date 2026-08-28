@@ -19,6 +19,7 @@ const db = await import('../../lib/db.ts');
 const opsRoute = await import('../../app/api/ops-run/route.js');
 const opsIdRoute = await import('../../app/api/ops-run/[id]/route.js');
 const { summarize, alertsFor } = await import('../../lib/commandCenter.ts');
+const { serviceDate } = await import('../../lib/serviceDate.ts');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
@@ -326,6 +327,23 @@ describe('command alerts for day plan', () => {
     const alerts = alertsFor(s);
     assert.ok(!alerts.some((a) => a.source === 'day-plan-late'));
     assert.ok(!alerts.some((a) => a.source === 'day-plan-open'));
+  });
+
+  // The Command tile links straight to /day-plan, so its counts have to come
+  // from the same partition the board renders. The board defaults to
+  // serviceDate(); if this tile followed the caller's `today` instead, then
+  // between 18:00 and 02:00 Mountain a manager would read "0 late" here and
+  // click through to a board full of late steps.
+  it('counts the service date, not whatever date the caller passed', async () => {
+    const svc = serviceDate();
+    await opsRoute.GET(new Request(`http://localhost/api/ops-run?date=${svc}&location=default`));
+
+    // A date with no steps of its own. ops_run must ignore it.
+    const s = summarize('default', '2020-01-01');
+    assert.ok(
+      s.ops_run.todo > 0,
+      'ops_run counts must follow serviceDate(), not the passed date',
+    );
   });
 
   it('surfaces day-plan-open after materialize', async () => {

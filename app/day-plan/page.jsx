@@ -1,5 +1,5 @@
 // @ts-check
-import { todayISO } from '../../lib/db';
+import { serviceDate } from '../../lib/serviceDate.ts';
 import { DEFAULT_LOCATION_ID } from '../../lib/location';
 import { OPS_DAYPART_LABEL, rollupOpsSteps } from '../../lib/opsRun.ts';
 import { ensureOpsRunForShift, localNowMinutes } from '../../lib/opsRunRepo.ts';
@@ -16,7 +16,9 @@ export default async function DayPlanPage({ searchParams }) {
     typeof sp.location === 'string' && sp.location.trim()
       ? sp.location.trim()
       : DEFAULT_LOCATION_ID;
-  const today = todayISO();
+  // The venue service day runs 02:00 to 02:00 local. A UTC slice rolls at
+  // 18:00 Mountain and would hand a cook tomorrow's plan mid-service.
+  const today = serviceDate();
   const date =
     typeof sp.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : today;
 
