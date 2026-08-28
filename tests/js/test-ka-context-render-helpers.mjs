@@ -277,6 +277,25 @@ describe('renderLaborSummaryBlock', () => {
     const out = ctx.renderLaborSummaryBlock({ net_sales: 0, labor_cost: 0 });
     assert.equal(out.source.detail, 'loaded');
   });
+
+  // `Labor - By Employee.csv` ends with a TOTAL rollup row carrying the grand
+  // total and no job title. rebuild-cache copied it into by_employee verbatim,
+  // and because it outweighs every real person it sorted first — so the
+  // top-10-by-hours list handed to the model opened with a 21,921-hour
+  // "employee" earning $267,996.59. This list is detail grain only.
+  it('drops rollup rows that carry no job title', () => {
+    const out = ctx.renderLaborSummaryBlock({
+      period: 'Wk 18',
+      net_sales: 50000,
+      by_employee: [
+        { first_name: '', last_name: 'TOTAL', job_title: '', total_hours: 21921, total_cost: 267996.59 },
+        { first_name: 'Anne', last_name: 'Doe', job_title: 'Line Cook', total_hours: 40, total_cost: 1100 },
+      ],
+    });
+    assert.doesNotMatch(out.text, /21921/, 'rollup row must not render as an employee');
+    assert.doesNotMatch(out.text, /267,996/, 'rollup totals must not render as one person\'s pay');
+    assert.match(out.text, /Anne Doe/, 'real detail rows must survive');
+  });
 });
 
 describe('renderBeoEvents', () => {

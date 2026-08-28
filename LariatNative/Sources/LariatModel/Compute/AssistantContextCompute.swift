@@ -946,7 +946,16 @@ public enum AssistantContextCompute {
                 text += "    - \(title): \(toFixed(r.totalHours ?? 0, 0)) hrs\(ot), $\(jsLocaleString(r.totalCost ?? 0)) (\(toFixed((r.laborPctNet ?? 0) * 100, 1))% net)\n"
             }
         }
-        if let employees = labor.byEmployee, !employees.isEmpty {
+        // Detail grain only. The 7shifts export ends with a TOTAL rollup row,
+        // and a cache built before rebuild-cache learned to skip it (see
+        // isLaborRollupRow there) still carries that row with a blank job
+        // title. It outweighs every real person, so left in it sorts first and
+        // reports the grand total as one employee's hours and pay. Mirrors the
+        // filter in lib/kitchenAssistantContext.ts.
+        let employees = (labor.byEmployee ?? []).filter {
+            !($0.jobTitle ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+        }
+        if !employees.isEmpty {
             text += "  by employee (top 10 by hours):\n"
             let sorted = employees.enumerated()
                 .sorted { a, b in

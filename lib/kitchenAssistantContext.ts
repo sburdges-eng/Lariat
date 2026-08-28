@@ -1118,9 +1118,15 @@ export function renderLaborSummaryBlock(
       text += `    - ${r.job_title || r.role}: ${(r.total_hours || 0).toFixed(0)} hrs${ot}, $${(r.total_cost || 0).toLocaleString()} (${((r.labor_pct_net || 0) * 100).toFixed(1)}% net)\n`;
     }
   }
-  if (labor.by_employee?.length) {
+  // Detail grain only. The 7shifts export ends with a TOTAL rollup row, and a
+  // cache built before rebuild-cache learned to skip it (see isLaborRollupRow)
+  // still carries the row with a blank job title. It outweighs every real
+  // person, so left in it sorts first and reports the grand total as one
+  // employee's hours and pay.
+  const employees = (labor.by_employee ?? []).filter((e) => (e.job_title || '').trim());
+  if (employees.length) {
     text += '  by employee (top 10 by hours):\n';
-    const sorted = [...labor.by_employee]
+    const sorted = [...employees]
       .sort((a, b) => (b.total_hours || 0) - (a.total_hours || 0))
       .slice(0, 10);
     for (const e of sorted) {
