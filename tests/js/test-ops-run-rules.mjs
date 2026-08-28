@@ -38,6 +38,44 @@ describe('parseDueMinutes', () => {
   });
 });
 
+describe('isStepLate across the service-day boundary', () => {
+  // The venue day runs 02:00 to 02:00, so between midnight and 02:00 the board
+  // is still on the shift that opened yesterday afternoon — and that is exactly
+  // when the closing steps are still open. Comparing raw wall-clock minutes
+  // makes now (00:30 -> 30) smaller than every due time on the shift, so TPHC,
+  // cooling, date-mark and cleaning steps all stopped reading late during close.
+  it('keeps a late-evening step late after midnight', () => {
+    const at0030 = 30; // 00:30 venue time
+    assert.equal(
+      isStepLate({ status: 'todo', due_time: '23:45' }, at0030),
+      true,
+      'a 23:45 step unfinished at 00:30 is late, not early',
+    );
+  });
+
+  it('keeps a morning step late after midnight', () => {
+    assert.equal(isStepLate({ status: 'todo', due_time: '08:00' }, 30), true);
+  });
+
+  it('still reads correctly inside the ordinary daytime shift', () => {
+    assert.equal(isStepLate({ status: 'todo', due_time: '08:00' }, 7 * 60), false);
+    assert.equal(isStepLate({ status: 'todo', due_time: '08:00' }, 8 * 60 + 1), true);
+  });
+
+  it('treats 02:00 as the start of the next shift, not the end of this one', () => {
+    // 01:59 is the last minute of the service day: a 23:45 step is still late.
+    assert.equal(isStepLate({ status: 'todo', due_time: '23:45' }, 1 * 60 + 59), true);
+    // 02:01 is a fresh shift; nothing due later today is late yet.
+    assert.equal(isStepLate({ status: 'todo', due_time: '23:45' }, 2 * 60 + 1), false);
+    assert.equal(isStepLate({ status: 'todo', due_time: '08:00' }, 2 * 60 + 1), false);
+  });
+
+  it('never marks a step the cook closed', () => {
+    assert.equal(isStepLate({ status: 'done', due_time: '23:45' }, 30), false);
+    assert.equal(isStepLate({ status: 'skipped', due_time: '23:45' }, 30), false);
+  });
+});
+
 describe('isStepLate', () => {
   it('marks open past-due steps late', () => {
     assert.equal(isStepLate({ status: 'todo', due_time: '08:00' }, 8 * 60 + 1), true);

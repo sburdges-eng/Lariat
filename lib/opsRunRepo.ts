@@ -22,6 +22,7 @@ import {
   type OpsStepStatus,
 } from './opsRun.ts';
 import { augustChecklistForDate } from './augustChecklists2026.ts';
+import { VENUE_TIME_ZONE } from './serviceDate.ts';
 
 export interface OpsRunStepRow {
   id: number;
@@ -82,8 +83,32 @@ function dynamicKey(daypart: string, stepKey: string): string {
  */
 const RECONCILE_EXEMPT_SOURCES = ['template', 'manual'];
 
+/**
+ * Wall-clock reading in the venue's own timezone, as minutes from midnight.
+ *
+ * Deliberately not `getHours()`: the server runs UTC in production while
+ * serviceDate() partitions shifts in America/Denver, so the host clock put
+ * every late count hours out. At 20:00 Denver the host read 02:00 — the very
+ * start of the service day — and nothing on the board read late all evening.
+ *
+ * hourCycle 'h23' rather than hour12:false, because some ICU builds render
+ * midnight as 24 under the latter, which would put 00:00 a full day late.
+ */
+const VENUE_CLOCK = new Intl.DateTimeFormat('en-US', {
+  timeZone: VENUE_TIME_ZONE,
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
 export function localNowMinutes(d = new Date()): number {
-  return d.getHours() * 60 + d.getMinutes();
+  let hour = 0;
+  let minute = 0;
+  for (const { type, value } of VENUE_CLOCK.formatToParts(d)) {
+    if (type === 'hour') hour = Number(value);
+    else if (type === 'minute') minute = Number(value);
+  }
+  return hour * 60 + minute;
 }
 
 export function listOpsRunSteps(

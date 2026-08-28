@@ -7,6 +7,8 @@
 // Pure helpers live here (no DB). Persistence + materialize live in
 // lib/opsRunRepo.ts so rules tests stay I/O-free.
 
+import { SERVICE_DAY_START_HOUR } from './serviceDate.ts';
+
 export const OPS_DAYPARTS = ['open', 'prep', 'side_work', 'maintenance', 'sop'] as const;
 export type OpsDaypart = (typeof OPS_DAYPARTS)[number];
 
@@ -74,6 +76,21 @@ export function parseDueMinutes(dueTime: string | null | undefined): number | nu
  * `nowMinutes` (minutes from local midnight) is past that due time.
  * Skipped / done are never late.
  */
+/**
+ * Minutes from the start of the service day, given minutes from midnight.
+ *
+ * The venue day runs 02:00 to 02:00, so 08:00 is 6 hours into the shift and
+ * 23:45 is 21h45m in, while 00:30 — still the same shift — is 22h30m in rather
+ * than half an hour. Comparing raw wall-clock minutes made every due time on
+ * the shift look later than "now" between midnight and 02:00, which is exactly
+ * when the closing steps are still open: TPHC, cooling, date marks, cleaning
+ * all stopped reading late during close.
+ */
+function serviceDayMinutes(minutesFromMidnight: number): number {
+  const start = SERVICE_DAY_START_HOUR * 60;
+  return (minutesFromMidnight - start + 1440) % 1440;
+}
+
 export function isStepLate(
   step: Pick<OpsStepLike, 'status' | 'due_time'>,
   nowMinutes: number,
@@ -81,7 +98,7 @@ export function isStepLate(
   if (step.status !== 'todo') return false;
   const due = parseDueMinutes(step.due_time);
   if (due == null) return false;
-  return nowMinutes > due;
+  return serviceDayMinutes(nowMinutes) > serviceDayMinutes(due);
 }
 
 export function isOpsDaypart(v: unknown): v is OpsDaypart {

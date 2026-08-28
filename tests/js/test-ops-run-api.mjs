@@ -20,7 +20,7 @@ const opsRoute = await import('../../app/api/ops-run/route.js');
 const opsIdRoute = await import('../../app/api/ops-run/[id]/route.js');
 const { summarize, alertsFor } = await import('../../lib/commandCenter.ts');
 const { serviceDate } = await import('../../lib/serviceDate.ts');
-const { ensureOpsRunForShift, insertManualOpsStep } = await import('../../lib/opsRunRepo.ts');
+const { ensureOpsRunForShift, insertManualOpsStep, localNowMinutes } = await import('../../lib/opsRunRepo.ts');
 
 db.setDbPathForTest(TMP_DB);
 const testDb = db.getDb();
@@ -307,6 +307,29 @@ describe('POST /api/ops-run + PATCH', () => {
       req('http://localhost/api/ops-run', 'POST', { title: '  ', daypart: 'prep' }),
     );
     assert.equal(res.status, 400);
+  });
+});
+
+describe('localNowMinutes reads the venue clock', () => {
+  // The server runs UTC in production. getHours() read the host clock while
+  // serviceDate() partitions the shift in America/Denver, so every late count
+  // moved by the offset — at 20:00 Denver the host said 02:00, which lands at
+  // the very start of the service day and made nothing read late all evening.
+  it('gives Denver wall minutes, not the host clock', () => {
+    // 02:00Z = 20:00 MDT the previous evening — mid dinner service.
+    assert.equal(localNowMinutes(new Date('2026-08-07T02:00:00Z')), 20 * 60);
+    // 07:00Z = 01:00 MDT — after midnight, still the same shift.
+    assert.equal(localNowMinutes(new Date('2026-08-07T07:00:00Z')), 60);
+  });
+
+  it('tracks the daylight-saving offset rather than a fixed one', () => {
+    // January: Denver is MST (UTC-7). 02:00Z = 19:00 MST the previous evening.
+    assert.equal(localNowMinutes(new Date('2026-01-07T02:00:00Z')), 19 * 60);
+  });
+
+  it('reports midnight as 0, not 1440', () => {
+    // 06:00Z in August = 00:00 MDT.
+    assert.equal(localNowMinutes(new Date('2026-08-07T06:00:00Z')), 0);
   });
 });
 
