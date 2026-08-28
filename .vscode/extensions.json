@@ -1,0 +1,102 @@
+// Extensions Cursor offers to install when this repo is opened.
+//
+// Cursor resolves extensions through Open VSX, NOT the Microsoft
+// marketplace, so every id below was checked against open-vsx.org.
+// Anything Microsoft-only is called out at the bottom rather than
+// listed here, because an unresolvable id just fails silently.
+{
+  "recommendations": [
+    // ── Web edge: TypeScript / Next.js / CSS ──────────────────────
+    // eslint.config.js is a soft launch: 34 rules, only correctness
+    // ones at "error". docs/lint-baseline.md records 0 errors and 299
+    // warnings, and only `npm run lint:changed` uses --max-warnings 0,
+    // so the editor squiggle is the only continuous feedback there is.
+    "dbaeumer.vscode-eslint",
+    // styles/tokens.css is the declared single source of truth: 92
+    // custom properties, ~3,780 var() references repo-wide.
+    "vunguyentuan.vscode-css-variables",
+    "yoavbls.pretty-ts-errors",
+    "usernamehw.errorlens",
+
+    // ── Tests ────────────────────────────────────────────────────
+    // Covers all three runners: Jest 30, the ~377 tests/js/test-*.mjs
+    // node:test suites, and Playwright. NEEDS TWO SETTINGS — see the
+    // "Required settings" note at the bottom, or you get no codelens
+    // on the .mjs suites and ABI errors on the DB-touching ones.
+    "firsttris.vscode-jest-runner",
+    "ms-playwright.playwright",
+
+    // ── Data: data/lariat.db ─────────────────────────────────────
+    // sqlite-viewer is pure WASM, so it sidesteps the better-sqlite3
+    // NODE_MODULE_VERSION trap in CLAUDE.md §2. Its free tier is
+    // READ-ONLY with no query runner, which is why sqlite3-editor
+    // (free query runner) is listed beside it rather than instead.
+    "qwtel.sqlite-viewer",
+    "yy0931.vscode-sqlite3-editor",
+
+    // ── Native: LariatNative/ (SwiftPM, 656 .swift files) ────────
+    // swift-vscode declares lldb-dap as an extensionDependency; without
+    // it you get completion but no breakpoints in the parity suites.
+    // Do NOT install sswg.swift-lang — Open VSX marks it deprecated.
+    "swiftlang.swift-vscode",
+    "llvm-vs-code-extensions.lldb-dap",
+
+    // ── cad-kernel/ (C++23, -Werror on all 7 targets) ─────────────
+    // clangd is the working stand-in for the unavailable Microsoft
+    // C/C++ extension. Needs a compile_commands.json — see below.
+    "llvm-vs-code-extensions.vscode-clangd",
+    "ms-vscode.cmake-tools",
+
+    // ── Python: scripts/ + tests/python (41 pytest files) ─────────
+    // flake8 is the extension .vscode/settings.json is ALREADY
+    // configured for — flake8.cwd / ignorePatterns / severity are its
+    // contributed namespace.
+    "ms-python.python",
+    "ms-python.flake8",
+    "ms-python.debugpy",
+
+    // ── Repo hygiene: 21 workflow .yml, 374 .md, 117 .csv ─────────
+    "GitHub.vscode-github-actions",
+    "redhat.vscode-yaml",
+    "EditorConfig.EditorConfig",
+    "bierner.markdown-mermaid",
+    "mechatroner.rainbow-csv"
+  ],
+
+  // Not recommendable here, but worth knowing:
+  //
+  // anysphere.cursorpyright — the real Python language server in
+  //   Cursor, and its Pylance replacement. Cursor-gallery only (the
+  //   Open VSX API 404s), so listing it would be a dead id in VS Code.
+  //   Install it from Cursor's own extension pane. Its settings live
+  //   under cursorpyright.* — there is no python.analysis.* key, so
+  //   Pylance snippets found online do not apply. Set
+  //   cursorpyright.analysis.extraPaths to ["${workspaceFolder}"], or
+  //   every `from scripts.X import ...` in tests/python reads as
+  //   unresolved (there is no scripts/__init__.py; it works at runtime
+  //   only via PEP 420 + repo root on sys.path).
+  //   TRAP: anysphere.pyright on Open VSX is a stale 2023 artifact and
+  //   is NOT a substitute.
+  //
+  // ms-vscode.cpptools — Microsoft-licensed, not on Open VSX.
+  //   clangd above covers it.
+  //
+  // Required settings (not set here — they are machine-specific):
+  //   jestrunner.defaultTestPatterns — append "tests/js/test-*.mjs".
+  //     The default patterns match neither the .test/.spec infix nor
+  //     __tests__, so all ~377 node:test suites get zero codelens.
+  //   jestrunner.nodeTestCommand — point at the Node 24 binary by
+  //     absolute path. Cursor's extension host inherits the GUI PATH;
+  //     if that resolves a different Node, every DB-touching suite
+  //     dies with better-sqlite3 ERR_DLOPEN_FAILED (CLAUDE.md §2).
+  //   clangd — generate cad-kernel/build/compile_commands.json via
+  //     cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON, else clangd guesses
+  //     flags and floods cad-kernel/include with bogus C++23 errors.
+  //   lldb-dap.executable-path — set from `xcrun -f lldb-dap` AFTER
+  //     installing Xcode; the CommandLineTools adapter will not attach
+  //     to Swift binaries.
+  "unwantedRecommendations": [
+    "sswg.swift-lang",
+    "anysphere.pyright"
+  ]
+}
