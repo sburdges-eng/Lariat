@@ -242,7 +242,11 @@ def parse_message(message: dict, thread_id: str) -> list[dict]:
             'order_date': order_date,
             'delivery_date': delivery_date,
             'supc': supc,
-            'description': el.get_text(' ', strip=True),
+            # `.split()` rather than strip=True alone: Sysco emits `&nbsp;`
+            # inside some product names, and a U+00A0 in a description defeats
+            # exact-match lookups downstream (an override in
+            # classify_sysco_lines.py silently missed one for this reason).
+            'description': ' '.join(el.get_text(' ', strip=True).split()),
             'pack_size': pack,
             'brand': brand,
             'qty': qty_alloc if qty_alloc is not None else '',

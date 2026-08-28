@@ -4,67 +4,68 @@ Classification of every priced line item in the verified backfill.
 Script: `scripts/classify_sysco_lines.py`.
 Output: `data/cache/sysco/backfill_classified.csv`.
 
-## Result — six complete months, Feb–Jul 2026
+## Result — the full record, May 2025 – Jul 2026
 
 | Bucket | Amount | Share |
 | --- | --- | --- |
-| **Food** | **$78,962.63** | **91.9%** |
-| Beverage (non-alcoholic) | $1,426.47 | 1.7% |
-| Non-food (paper, chemicals, disposables) | $5,168.68 | 6.0% |
-| Shipping | $87.54 | 0.1% |
-| Unclassified | $260.77 | 0.3% |
-| **Total Sysco** | **$85,906.09** | |
+| **Food** | **$161,512.72** | **90.7%** |
+| Beverage (non-alcoholic) | $3,211.34 | 1.8% |
+| Non-food (paper, chemicals, disposables) | $13,056.81 | 7.3% |
+| Shipping | $204.46 | 0.1% |
+| **Total Sysco** | **$177,985.33** | |
 
-Feb–Jun reconcile to the penny against the order totals. July is 98.5%
-classified — order #04735930 ($260.77) is counted in the month total but its
-line detail was never captured, so it is reported as unclassified rather than
-assumed to be food.
+Nothing is unclassified. Every order reconciles to the total printed in its own
+email, and the four buckets sum to that total exactly.
 
-## This corrects the figure in circulation
+For the trailing twelve months (Aug 2025 – Jul 2026), which is the window that
+matters for a food cost percentage, food is **$136,717.37** of $150,620.33.
+See `sysco-backfill-status.md`.
+
+## This corrects the figure that was in circulation
 
 The working split was **food 94.8% · bar and beverage 2.9% · non-food 2.3%**,
-measured on 117 line items. Measured across **1,020 priced lines**:
+measured on 117 line items. Measured across all **1,931 priced lines**:
 
-| | Prior (117 lines) | Measured (1,020 lines) | Change |
+| | Prior (117 lines) | Measured (1,931 lines) | Change |
 | --- | --- | --- | --- |
-| Food | 94.8% | **91.9%** | −2.9 pts |
-| Beverage | 2.9% | 1.7% | −1.2 pts |
-| Non-food | 2.3% | **6.0%** | **2.6× higher** |
+| Food | 94.8% | **90.7%** | −4.1 pts |
+| Beverage | 2.9% | 1.8% | −1.1 pts |
+| Non-food | 2.3% | **7.3%** | **3.2× higher** |
 
-**Non-food supplies are nearly three times what the subset suggested.** The food
-numerator is correspondingly smaller. Holding sales constant, this *lowers* the
-eventual food cost percentage — the opposite direction from where the earlier
-revisions were heading.
+**Non-food supplies are more than three times what the subset suggested.** The
+food numerator is correspondingly smaller. Holding sales constant, this *lowers*
+the eventual food cost percentage — the opposite direction from where the
+earlier revisions were heading.
 
-## Non-food is lumpy, which distorts any single month
+## Cross-validated against Sysco's own taxonomy
 
-Supplies are bought in batches, not in proportion to food volume:
+The classifier is not trusted on its own say-so. Sysco's order-guide exports
+assign every SUPC to a Sysco category (`Produce`, `Meats`, `Paper & Disposable`,
+`Chemical & Janitorial`, and so on). Merging the two guides in Drive gives a
+SUPC → category map for 466 products, which covers **1,790 of 1,931 priced
+lines**. Mapping the four supply categories to non-food and `Dispenser Beverage`
+to beverage gives an independent second opinion on each line.
 
-| Month | Total | Food | Non-food | Non-food share |
+**1,746 of 1,790 agree — 97.5%.** More importantly, **all 44 disagreements are
+the two divergences documented below**, in six description variants. There is no
+residue of unexplained mismatches.
+
+| Disagreement | Lines | Amount | Sysco says | This says |
 | --- | --- | --- | --- | --- |
-| Feb | $7,631.92 | $7,117.32 | $402.29 | 5.3% |
-| Mar | $12,912.36 | $12,045.82 | $680.54 | 5.3% |
-| Apr | $7,640.77 | $6,233.31 | $1,013.51 | **13.3%** |
-| May | $14,485.10 | $12,665.99 | $1,633.11 | 11.3% |
-| Jun | $25,968.72 | $24,463.55 | $1,341.25 | 5.2% |
-| Jul | $17,179.68 | $16,436.64 | $97.98 | **0.6%** |
+| Red Bull (3 description variants) | 41 | $2,492.06 | Canned & Dry | beverage |
+| Citrus juice (3 variants) | 3 | $131.22 | Produce | beverage |
 
-April and May carry heavy supply orders; July carries almost none. So a food
-cost computed from July alone would use a numerator with essentially no supplies
-stripped out of it, while April's would have 13% stripped. **This is a third
-independent reason not to compute food cost from a single month**, on top of the
-3.4× seasonal swing and the unresolved event-revenue question.
+Neither is an error. `Canned & Dry` is a warehouse banner describing where the
+pallet sits, not a P&L category — energy drink is beverage in any restaurant's
+books. Lemon and lime juice genuinely straddle bar mixer and kitchen acid, and
+at $131.22 the choice moves nothing.
 
-## Why beverage is reported separately, not merged
-
-Sysco delivers no liquor, so this bucket is soda, juice, energy drink and
-coffee. Whether that belongs inside food cost depends on how Toast books
-non-alcoholic beverage sales — which is not yet known. Both figures are
-available so the numerator can be matched to whatever convention the sales
-export turns out to use:
-
-- Food only: **$78,962.63**
-- Food + non-alcoholic beverage: **$80,389.10**
+**The cross-check earned its keep.** It caught a real error the rules missed:
+PVC film and aluminium foil rolls were being counted as **food**, worth $298.14.
+The keyword `'foil roll'` never matched, because the descriptions read *Foil
+Aluminum **Roll** Standard Weight 500 Feet* — not contiguous — and bare `roll`
+means bread. No amount of re-reading the rule list would have surfaced that;
+only an independent opinion did.
 
 ## How the classifier avoids the failure it was built to prevent
 
@@ -78,7 +79,7 @@ UNCLASSIFIED; both must be resolved by an explicit entry in `OVERRIDES` before
 they count. Nothing is defaulted into food — food is the numerator, and quietly
 defaulting to it inflates the number being measured.
 
-That check caught real errors on the first run, including:
+That check caught real errors, including:
 
 - **`Cake Chocolate Fudge 10 Inch`** — "cho**cola**te" contains *cola*. At
   $1,029.50 this was the single largest misclassification risk in the set, and
@@ -87,20 +88,46 @@ That check caught real errors on the first run, including:
 - **`Flour All Purpose ... Bleached`** — "**bleach**ed" contains *bleach*.
 - **`Cleaner Fryer Boil Out`** — "**fry**er" contains *fry*.
 - **`Label Roll` / `Towel Roll`** — *roll* as in bread.
+- **`Crayon Assorted Round Box`** — matched no rule at all, which is the correct
+  outcome for a product the lists have never seen. It surfaced rather than
+  defaulting into food.
 - **`Onions White Jumbo Bag`** — caught before the rules were written; *bag* was
   deliberately excluded from the non-food list for this reason.
 
-23 descriptions needed an explicit decision. All are recorded in `OVERRIDES`
+44 descriptions needed an explicit decision. All are recorded in `OVERRIDES`
 with the reasoning, so the judgment lives in the repo rather than in rule order.
+
+### One failure mode the collision detector could not see
+
+An override is an exact string match, so a description that *looks* identical
+but is not will silently fall through to the rules. `Film Pvc Chloride
+Roll 12 X 2000 Feet` carries a non-breaking space where the eye sees a space —
+Sysco's HTML emits `&nbsp;` inside some product names. The override was written
+correctly and still missed.
+
+Both the parser and the classifier now collapse whitespace before the
+description is stored or matched. Only one line in 1,931 was affected, but the
+failure is silent by construction, which is what makes it worth guarding.
 
 ## Judgment calls, flagged as such
 
-Two are genuinely ambiguous rather than factual, and both are immaterial:
-
-- `Juice Lime Lightly Pasteurized` ($54.27) — bar mixer or kitchen acid. Called
-  beverage.
+- `Juice Lime Lightly Pasteurized` ($54.27), `Juice Lemon Pasteurized Ultra
+  Premium` ($48.13), `Juice Lime Pasteurized Ultra Premium` ($28.82) — bar mixer
+  or kitchen acid. All called beverage. Sysco calls them Produce.
 - `Nectar Peach` ($111.50) — GOYA 33.8oz. Called beverage.
+- `Water Bottled` (Aquafina, $21.85) — called beverage.
 
 Frying oil (`Fry On Shortening Frying Liquid`, $4,424.49) is called **food** — it
 is a cooking ingredient, not a supply, despite having no edible identity on its
 own. That one is material and worth disagreeing with if you see it differently.
+
+## Why beverage is reported separately, not merged
+
+Sysco delivers no liquor, so this bucket is soda, juice, energy drink, bottled
+water and coffee. Whether that belongs inside food cost depends on how Toast
+books non-alcoholic beverage sales — which is not yet known. Both figures are
+available so the numerator can be matched to whatever convention the sales
+export turns out to use. For the trailing twelve months:
+
+- Food only: **$136,717.37**
+- Food + non-alcoholic beverage: **$139,928.71**

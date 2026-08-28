@@ -25,3 +25,9 @@ order_number,order_date,supc,description,qty,uom,extended_price,note
 03949534,07/16/2025,1491552,"Bun Brioche 4.5""",2,CS,110.50,read inline
 03949534,07/16/2025,1309863,"Bread Pita Plain 7""",1,CS,54.75,read inline
 03949534,07/16/2025,1675750,"Carrots Matchstick Shredded",1,CS,30.49,read inline
+04338463,01/21/2026,1552272,"Cheese Mozzarella Fresh Cryovac Log",1,CS,36.90,read inline
+04735930,07/25/2026,5972639,"Water Bottled",1,CS,21.85,read inline
+04735930,07/25/2026,5020302,"Potato Hash Brown Dice Skinon",1,CS,76.39,read inline
+04735930,07/25/2026,3855251,"Melon Watermelon Seedless Fresh",1,CS,49.95,read inline
+14418432,07/25/2026,4576940,"Crayon Assorted Round Box",1,CS,36.26,"read inline; marketplace, Supplies On The Fly, billed under email total for 04735930"
+M435294ea7ee0,07/25/2026,6069255,"TISSUE TOILET TOILET PAPER - 20 ROLLS",1,EA,64.87,"read inline; marketplace, Everyday Supply Co, billed under email total for 04735930"

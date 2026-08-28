@@ -60,6 +60,11 @@ NON_FOOD = (
     'napkin', 'glove', 'towel', 'tissue', 'doily', 'cutlery', 'straw',
     'apron', 'mitt', 'broom', 'mop ', 'brush', 'squeegee', 'dust pan',
     'container', 'pan foil', 'foil steam', 'foil roll', 'film plastic',
+    # 'foil aluminum' and 'film pvc' are separate entries because the real
+    # descriptions read "Foil Aluminum Roll ..." and "Film Pvc 18 Inch ...",
+    # so 'foil roll' never matches contiguously and 'roll' hits bread roll
+    # instead. Caught by the Sysco-taxonomy cross-check, not by the rules.
+    'foil aluminum', 'film pvc', 'pvc',
     'plastic film', 'wrap plastic', 'plastic wrap', 'portion cup',
     'souffle cup', 'cup plastic', 'cup paper', 'cup hot', 'cup cold',
     'lid dome', 'lid flat', 'lid portion', 'clamshell', 'ticket', 'label',
@@ -136,11 +141,22 @@ OVERRIDES = {
     'Cake Chocolate Fudge 10 Inch': 'food',
     # 'toilet' contains 'oil'.
     'Tissue Toilet 3.8 Inch X 4 Inch Wrapped 2 Ply': 'non_food',
+    # Same product from a marketplace seller, whose descriptions are shouted
+    # and shaped differently from Sysco's own — so the override has to be
+    # written again rather than reused. 'toilet' contains 'oil'; '20 ROLLS'
+    # contains 'roll'.
+    'TISSUE TOILET TOILET PAPER - 20 ROLLS': 'non_food',
     # 'bleached' flour contains 'bleach'.
     'Flour All Purpose Hotel & Restaurant Bleached': 'food',
     # 'fryer' contains 'fry'.
     'Cleaner Fryer Boil Out Ready To Use': 'non_food',
-    # 'roll' of labels/towels is not a bread roll.
+    # 'roll' of labels/towels/wrap is not a bread roll. The film and foil rolls
+    # were found by cross-checking against Sysco's own category taxonomy, not by
+    # the rules — they were silently counted as food until then.
+    'Film Pvc 18 Inchx2000 Feet Roll': 'non_food',
+    'Film Pvc Chloride Roll 12 X 2000 Feet': 'non_food',
+    'Foil Aluminum Roll Standard Weight 1000 Feet': 'non_food',
+    'Foil Aluminum Roll Standard Weight 500 Feet': 'non_food',
     'Label Roll Shelf Life Dissolvable 2" X 3"': 'non_food',
     'Label Roll Universal Plastic 2 Inch X 2 Inch': 'non_food',
     'Towel Roll Complete 360 Natural 8': 'non_food',
@@ -150,6 +166,10 @@ OVERRIDES = {
     'Baking Soda': 'food',
     # A cutlery kit that happens to name salt and pepper packets.
     'Kit Cutlery Fork, Knife, Spoon/salt And Pepper': 'non_food',
+    # Kids' crayons, bought through the marketplace on a Sysco order. Matches
+    # no rule at all, which is the right outcome for a product the keyword
+    # lists have never seen — it surfaced instead of defaulting into food.
+    'Crayon Assorted Round Box': 'non_food',
 
     # --- genuine beverage ------------------------------------------------------
     'Coffee Ground House Blend Bulk': 'beverage',
@@ -196,11 +216,25 @@ OVERRIDES = {
 }
 
 
+def normalize(desc: str) -> str:
+    """Collapse HTML whitespace so a description matches what a human typed.
+
+    Sysco's markup emits `&nbsp;` inside some product names, which arrives as
+    U+00A0. That is not the space in an OVERRIDES key, so an exact-match
+    override silently misses and the line falls through to the keyword rules —
+    which is how `Film Pvc Chloride Roll 12 X 2000 Feet` stayed
+    unresolved after its override was written. It also defeats the
+    space-delimited keywords (`'pea '`, `'pie '`).
+    """
+    return ' '.join((desc or '').split())
+
+
 def classify(desc: str) -> tuple[str, list[str]]:
     """Return (bucket, matched_buckets). bucket is '' when unresolved."""
+    desc = normalize(desc)
     if desc in OVERRIDES:
         return OVERRIDES[desc], [OVERRIDES[desc]]
-    text = ' ' + (desc or '').lower() + ' '
+    text = ' ' + desc.lower() + ' '
     hits = []
     if any(k in text for k in NON_FOOD):
         hits.append('non_food')
