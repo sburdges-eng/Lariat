@@ -63,7 +63,24 @@ type InsertFn = {
     source: string,
     templateStepId: number | null,
   ) => unknown;
+  /**
+   * Keys emitted by dynamic materializers during this pass, as
+   * `daypart\u0000step_key`. Anything open and dynamic that is absent from this
+   * set no longer has live work behind it — see reconcileDynamicSteps.
+   */
+  emitted: Set<string>;
 };
+
+/** Identity of a step within one location + shift_date, per the table's UNIQUE. */
+function dynamicKey(daypart: string, stepKey: string): string {
+  return `${daypart}\u0000${stepKey}`;
+}
+
+/**
+ * Sources that are never reconciled: the house itinerary, and anything a cook
+ * typed in themselves. Both are authored, not mirrored.
+ */
+const RECONCILE_EXEMPT_SOURCES = ['template', 'manual'];
 
 export function localNowMinutes(d = new Date()): number {
   return d.getHours() * 60 + d.getMinutes();
@@ -163,6 +180,7 @@ function upsertDynamicStep(
     source: string;
   },
 ): void {
+  insert.emitted.add(dynamicKey(row.daypart, row.stepKey));
   insert.run(
     row.locationId,
     row.shiftDate,
@@ -623,6 +641,54 @@ function materializeAugustChecklists(
  * the given shift. Existing Done/Skip rows are left alone; open dynamic
  * rows refresh title/detail. Returns the full step list after materialize.
  */
+/**
+ * Clear dynamic steps whose source work has closed.
+ *
+ * Every dynamic materializer queries *open* records — prep tasks still to do,
+ * line checks not yet signed off. When a cook closes one on its own board it
+ * drops out of that query, but the ops_run_steps row already materialized from
+ * it used to stay `todo` and go late, so the cook had to tick the same job off
+ * a second time here and Command reported a late step that nobody owed.
+ *
+ * A dynamic row that this pass did not re-emit no longer has live work behind
+ * it, so the mirror goes. Deliberately narrow, and deliberately a delete rather
+ * than a status change:
+ *
+ *   - only `todo` rows. A `done` or `skipped` row is a cook's own action and a
+ *     record; it is never reconciled away.
+ *   - never `template` or `manual` — the house itinerary and anything a cook
+ *     typed in are authored, not mirrored.
+ *   - one row at a time by primary key, never a predicate delete, so the blast
+ *     radius is exactly the rows checked.
+ *
+ * Marking them done instead would be worse: nobody signed for that, and the
+ * signature would be a fabricated one on a food-safety-adjacent board.
+ */
+function reconcileDynamicSteps(
+  db: DB,
+  insert: InsertFn,
+  locationId: string,
+  shiftDate: string,
+): void {
+  const open = db
+    .prepare(
+      `SELECT id, daypart, step_key
+         FROM ops_run_steps
+        WHERE location_id = ? AND shift_date = ? AND status = 'todo'
+          AND source NOT IN (${RECONCILE_EXEMPT_SOURCES.map(() => '?').join(', ')})`,
+    )
+    .all(locationId, shiftDate, ...RECONCILE_EXEMPT_SOURCES) as Array<{
+    id: number;
+    daypart: string;
+    step_key: string;
+  }>;
+
+  const drop = db.prepare(`DELETE FROM ops_run_steps WHERE id = ?`);
+  for (const row of open) {
+    if (!insert.emitted.has(dynamicKey(row.daypart, row.step_key))) drop.run(row.id);
+  }
+}
+
 export function ensureOpsRunForShift(
   locationId: string,
   shiftDate: string,
@@ -630,12 +696,16 @@ export function ensureOpsRunForShift(
 ): OpsRunStepRow[] {
   ensureOpsTemplates(locationId, db);
 
-  const insert = db.prepare(
+  const insertStmt = db.prepare(
     `INSERT OR IGNORE INTO ops_run_steps
        (location_id, shift_date, daypart, step_key, title, detail, due_time,
         link_href, link_label, status, sort_order, source, template_step_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'todo', ?, ?, ?)`,
-  ) as InsertFn;
+  );
+  const insert: InsertFn = {
+    run: (...args) => insertStmt.run(...args),
+    emitted: new Set<string>(),
+  };
 
   db.transaction(() => {
     const templateSteps = db
@@ -691,6 +761,7 @@ export function ensureOpsRunForShift(
     materializeCleaning(db, insert, locationId, shiftDate);
     materializeMaintenance(db, insert, locationId, shiftDate);
     materializeAugustChecklists(db, insert, locationId, shiftDate);
+    reconcileDynamicSteps(db, insert, locationId, shiftDate);
   })();
 
   return listOpsRunSteps(locationId, shiftDate, db);
