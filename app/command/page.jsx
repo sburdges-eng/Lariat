@@ -269,12 +269,16 @@ export default async function CommandCenter({ searchParams }) {
           title="Food cost"
           sub="Cost vs target + how fresh the numbers are"
           status={{
+            // Thresholds compare the size of the miss in either direction
+            // (Math.abs) — a big under-target number usually means missing
+            // invoices, not free food. Matches how lib/varianceTrend.ts and
+            // lib/varianceAttribution.ts classify the same metric.
             red:
-              (s.costing.variance_pct ?? 0) >= 5 ||
+              Math.abs(s.costing.variance_pct ?? 0) >= 5 ||
               s.costing.ingest_status === 'failed' ||
               (s.costing.ingest_age_minutes ?? 0) >= 1440,
             amber:
-              (s.costing.variance_pct ?? 0) >= 2 ||
+              Math.abs(s.costing.variance_pct ?? 0) >= 2 ||
               s.costing.depletion_issues > 0 ||
               (s.costing.ingest_age_minutes ?? 0) >= 60,
           }}
@@ -283,14 +287,17 @@ export default async function CommandCenter({ searchParams }) {
               n: s.costing.variance_pct != null ? `${s.costing.variance_pct.toFixed(2)}%` : '—',
               label: 'cost vs target',
               tone:
-                (s.costing.variance_pct ?? 0) >= 5
+                Math.abs(s.costing.variance_pct ?? 0) >= 5
                   ? 'red'
-                  : (s.costing.variance_pct ?? 0) >= 2
+                  : Math.abs(s.costing.variance_pct ?? 0) >= 2
                     ? 'amber'
                     : null,
             },
             { n: fmtIngestAge(s.costing.ingest_age_minutes), label: 'numbers updated' },
-            { n: s.costing.depletion_issues, label: 'dishes need mapping',
+            // The count caps at 100 (listDepletionExceptions limit) — show
+            // "100+" at the cap so the number never sits frozen at 100.
+            { n: s.costing.depletion_issues >= 100 ? '100+' : s.costing.depletion_issues,
+              label: 'dishes need mapping',
               tone: s.costing.depletion_issues ? 'amber' : null },
           ]}
         />
@@ -401,8 +408,8 @@ export default async function CommandCenter({ searchParams }) {
           sub="Updates heading to corp"
           status={{ red: s.cloud_bridge.dead_letters > 0, amber: false }}
           lines={[
-            { n: s.cloud_bridge.queued, label: 'waiting to send' },
-            { n: s.cloud_bridge.dead_letters, label: 'stuck — needs a look',
+            { n: s.cloud_bridge.queued, label: 'waiting to send — all sites' },
+            { n: s.cloud_bridge.dead_letters, label: 'stuck here — needs a look',
               tone: s.cloud_bridge.dead_letters ? 'red' : null },
           ]}
         />

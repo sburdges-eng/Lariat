@@ -586,15 +586,16 @@ describe('summarize() — costing', () => {
 });
 
 describe('summarize() — cloud bridge', () => {
-  // Composes lib/cloudBridgeQueue depth()/deadLetterDepth(), which are
-  // install-wide by design (the drainer works one queue): queued counts
-  // unclaimed live rows; a claimed in-flight row is invisible; dead
-  // letters count regardless of claim state.
-  const ins = (deadLetter, claimedAt = null) =>
+  // queued composes lib/cloudBridgeQueue depth() — install-wide by design
+  // (the drainer works one queue): unclaimed live rows only; a claimed
+  // in-flight row is invisible. dead_letters is location-scoped via
+  // listDeadLetters({locationId}) so the tile, the red alert, and the
+  // /management/cloud-bridge drilldown (which filters by site) agree.
+  const ins = (deadLetter, claimedAt = null, loc = 'default') =>
     testDb.prepare(
       `INSERT INTO cloud_bridge_outbox (table_name, location_id, rows_json, dead_letter, claimed_at)
-       VALUES ('temp_log', 'default', '[]', ?, ?)`,
-    ).run(deadLetter, claimedAt);
+       VALUES ('temp_log', ?, '[]', ?, ?)`,
+    ).run(loc, deadLetter, claimedAt);
 
   it('counts queued (unclaimed, live) and dead-lettered batches', () => {
     ins(0);                            // queued
@@ -605,6 +606,20 @@ describe('summarize() — cloud bridge', () => {
     const s = summarize('default', TODAY);
     assert.strictEqual(s.cloud_bridge.queued, 2);
     assert.strictEqual(s.cloud_bridge.dead_letters, 1);
+  });
+
+  it('scopes dead letters to the site; queued stays install-wide', () => {
+    ins(1, null, 'other');   // stuck at the satellite
+    ins(0, null, 'other');   // queued at the satellite
+
+    const home = summarize('default', TODAY);
+    assert.strictEqual(home.cloud_bridge.dead_letters, 0,
+      'default must not count another site\'s stuck batches — its drilldown would show none');
+    assert.strictEqual(home.cloud_bridge.queued, 1,
+      'queued is the one shared outbox, whatever the site');
+
+    const sat = summarize('other', TODAY);
+    assert.strictEqual(sat.cloud_bridge.dead_letters, 1);
   });
 
   it('returns zeros on an empty outbox', () => {
@@ -643,6 +658,24 @@ describe('alertsFor() — whole-house signals', () => {
     ).run();
     const a = alertsFor(summarize('default', TODAY));
     assert.ok(a.some((x) => x.severity === 'amber' && x.source === 'depletion-issues'));
+  });
+
+  it('says "100+" when the depletion count hits the 100-exception cap', () => {
+    // listDepletionExceptions stops at 100 exceptions, so the count can't
+    // rise past it — the message must say "100+" rather than pretend the
+    // debt is exactly 100.
+    const insert = testDb.prepare(
+      `INSERT INTO sales_lines (period_label, item_name, quantity_sold, net_sales, source, location_id)
+       VALUES ('2026-W17', ?, 1, 12, 'toast', 'default')`,
+    );
+    for (let i = 1; i <= 105; i += 1) insert.run(`Unmapped Special ${i}`);
+
+    const s = summarize('default', TODAY);
+    assert.strictEqual(s.costing.depletion_issues, 100);
+    const a = alertsFor(s);
+    const alert = a.find((x) => x.source === 'depletion-issues');
+    assert.ok(alert, 'expected a depletion-issues alert');
+    assert.match(alert.message, /^100\+ dishes need mapping$/);
   });
 
   it('fires costing-stale only once an ingest exists and is old or failed', () => {
@@ -701,6 +734,12 @@ describe('command page — whole-house tile wiring', () => {
     );
     assert.match(costingSource, /async function CostingPage\(\{ searchParams \}\)/);
     assert.match(costingSource, /sp\.location/);
+    assert.match(costingSource, /href={`\/menu-engineering\/components\$\{locQ\}`}/);
+    // Variance coloring flags the size of the miss in either direction,
+    // matching lib/varianceTrend.ts / lib/varianceAttribution.ts.
+    assert.match(source, /Math\.abs\(s\.costing\.variance_pct \?\? 0\) >= 5/);
+    // The capped depletion count renders "100+", never a frozen "100".
+    assert.match(source, /s\.costing\.depletion_issues >= 100 \? '100\+'/);
     assert.match(source, /title="Cloud bridge"/);
     assert.match(source, /\/management\/cloud-bridge/);
   });

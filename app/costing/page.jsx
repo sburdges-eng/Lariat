@@ -184,7 +184,7 @@ export default async function CostingPage({ searchParams }) {
             {dishCoverage.unlinked} no link &middot; {dishCoverage.declared_only} no qty
           </div>
           <div style={{ fontSize: 11, marginTop: 4 }}>
-            <Link href="/menu-engineering/components" style={{ color: 'var(--blue)' }}>
+            <Link href={`/menu-engineering/components${locQ}`} style={{ color: 'var(--blue)' }}>
               edit dish_components →
             </Link>
           </div>

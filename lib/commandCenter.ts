@@ -18,7 +18,7 @@ import { listDepletionExceptions } from './depletionExceptions.ts';
 import { readLastCostingIngest } from './costingBenchmarks.mjs';
 import {
   depth as cloudBridgeQueuedDepth,
-  deadLetterDepth as cloudBridgeDeadLetterDepth,
+  listDeadLetters as listCloudBridgeDeadLetters,
 } from './cloudBridgeQueue.ts';
 
 export interface CommandSummary {
@@ -125,8 +125,10 @@ export interface CommandSummary {
     ingest_status: string | null;
     depletion_issues: number;
   };
-  /** Composes lib/cloudBridgeQueue depth()/deadLetterDepth() — install-wide
-   *  by design (one outbox, one drainer), not location-scoped. */
+  /** queued composes lib/cloudBridgeQueue depth() — install-wide by design
+   *  (one outbox, one drainer). dead_letters is location-scoped via
+   *  listDeadLetters({locationId}) so the count, the red alert, and the
+   *  /management/cloud-bridge drilldown (which filters by site) agree. */
   cloud_bridge: {
     queued: number;
     dead_letters: number;
@@ -520,11 +522,13 @@ export function summarize(locationId: string, today: string): CommandSummary {
     limit: 100,
   }).length;
 
-  // Outbox health. depth()/deadLetterDepth() read via their own getDb() —
-  // same connection under the shared path — and are install-wide (one
-  // queue, one drainer), like the pack-size count on /management.
+  // Outbox health. depth() reads via its own getDb() — same connection
+  // under the shared path — and is install-wide (one queue, one drainer),
+  // like the pack-size count on /management. Dead letters are scoped to
+  // this site with the same helper the triage board uses, so a red tile
+  // always has matching rows behind its drilldown.
   const cloudQueued = cloudBridgeQueuedDepth();
-  const cloudDead = cloudBridgeDeadLetterDepth();
+  const cloudDead = listCloudBridgeDeadLetters({ locationId }).length;
 
   // Day-plan spine: read existing ticks only — do not seed templates here
   // or Command would invent work just by opening the page.
@@ -773,10 +777,13 @@ export function alertsFor(s: CommandSummary): CommandAlert[] {
     count: s.receiving.to_match,
     message: `${s.receiving.to_match} delivered line${s.receiving.to_match === 1 ? '' : 's'} need${s.receiving.to_match === 1 ? 's' : ''} a match`,
   });
+  // listDepletionExceptions stops at 100 exceptions, so at the cap the
+  // real debt may be higher — say "100+" rather than a number that would
+  // sit frozen at 100 while a manager works the queue down.
   push({
     severity: 'amber', source: 'depletion-issues',
     count: s.costing.depletion_issues,
-    message: `${s.costing.depletion_issues} dish${s.costing.depletion_issues === 1 ? '' : 'es'} need${s.costing.depletion_issues === 1 ? 's' : ''} mapping`,
+    message: `${s.costing.depletion_issues >= 100 ? '100+' : s.costing.depletion_issues} dish${s.costing.depletion_issues === 1 ? '' : 'es'} need${s.costing.depletion_issues === 1 ? 's' : ''} mapping`,
   });
   // Stale costing fires only once an ingest exists — see the threshold
   // note above. A failed last run counts as stale no matter how recent.
