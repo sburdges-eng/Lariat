@@ -39,8 +39,17 @@ to use.
 
 Usage
 -----
-    python scripts/classify_sysco_lines.py data/costing/sysco/backfill_lines.csv \
+**Both input files, always.** The line detail lives in two places: the parser's
+output, and the orders whose detail came back inline from the API and were
+transcribed by hand. Passing only the first silently drops 32 lines worth
+$2,487.89 and writes a short file that looks complete.
+
+    python scripts/classify_sysco_lines.py \
+        data/costing/sysco/backfill_lines.csv \
+        data/costing/sysco/inline_order_lines.csv \
         -o data/costing/sysco/backfill_classified.csv
+
+The run prints its input row count. If it is not 1,931, an input is missing.
 """
 
 from __future__ import annotations
@@ -257,8 +266,15 @@ def main() -> int:
 
     rows = []
     for p in args.lines:
+        before = len(rows)
         rows.extend(csv.DictReader(p.open()))
+        print(f'  read {len(rows) - before:>5} rows  {p}', file=sys.stderr)
     priced = [r for r in rows if r['extended_price'] not in ('', '0.0', '0.00')]
+    # Printed so a run that was given only one of the two input files is visible
+    # rather than silently short. A short file still classifies cleanly and looks
+    # complete — the total is just quietly too small.
+    print(f'  {len(priced):>10} priced lines from {len(args.lines)} file(s)\n',
+          file=sys.stderr)
 
     by_month = collections.defaultdict(lambda: collections.defaultdict(float))
     problems = collections.defaultdict(lambda: [0.0, 0, []])

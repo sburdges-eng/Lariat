@@ -1,7 +1,7 @@
 # Sysco order-email backfill — complete
 
 Every Sysco order email in the mailbox has been read, parsed and reconciled.
-**125 orders, 1,931 priced line items, $177,985.33**, May 2025 through July
+**127 orders, 1,931 priced line items, $177,985.33**, May 2025 through July
 2026. Every order ties to the total printed in its own email, every priced line is
 classified food / beverage / non-food with nothing unresolved, and the
 classification is cross-validated against Sysco's own product taxonomy

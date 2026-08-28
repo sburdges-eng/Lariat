@@ -79,6 +79,16 @@ STATE_RANK = {
 # A cent of drift is float noise; a dollar is a parse defect.
 RECONCILE_TOLERANCE = 0.01
 
+# Bounds on the unexplained remainder between the printed total and the parsed
+# lines. See `residual_is_explainable` for why an unbounded positive residual is
+# the one hole that defeats every other check in this file. The absolute cap is
+# set well above the largest freight charge in the corpus ($40.99 across 125
+# orders) so no real order is rejected; the share cap tightens it further on
+# orders big enough for a share to mean anything.
+SHIPPING_MAX = 75.00
+SHIPPING_MAX_SHARE = 0.15
+SHARE_CHECK_MIN_TOTAL = 300.00
+
 MONEY_RE = re.compile(r'-?[\d,]+\.\d{2}')
 # "2986487 | 4/5 LB | IMPERIAL FRESH" -> supc, pack, brand. Brand may be absent.
 BRAND_RE = re.compile(r'^\s*(\d{5,9})\s*\|\s*([^|]*?)\s*(?:\|\s*(.*?))?\s*$')
@@ -308,6 +318,51 @@ def load_threads(paths: list[Path]) -> list[dict]:
     return orders
 
 
+def residual_is_explainable(residual: float | None, printed_total: float | None) -> bool:
+    """Is the gap between the printed total and the parsed lines just freight?
+
+    The residual is whatever the printed total has that the lines do not. Two
+    very different things land here with the same sign:
+
+    - **shipping** — a real header charge carrying no SUPC, so it can never
+      appear as a line. Legitimate, and small: the largest across 125 orders is
+      $40.99.
+    - **a line the parser dropped** — markup drift hides a price or a SUPC, the
+      item vanishes, and its amount silently becomes "residual" instead.
+
+    Accepting any positive residual as shipping cannot tell these apart, and
+    that is the one hole that defeats every other check here. A $1,000 order
+    with $500 of captured lines would report as *reconciled*, win deduplication
+    against a correctly-parsed version of the same order, and understate the
+    food numerator by half — with no warning anywhere, because the check meant
+    to catch exactly that is the check being fooled.
+
+    So bound it. The absolute cap is what stops a large order quietly losing
+    lines. The share cap tightens that on mid-size orders, and applies only
+    above `SHARE_CHECK_MIN_TOTAL` because on a genuinely small order flat
+    freight is legitimately a large fraction of the total ($11.45 of $260.77 is
+    4.4%, and a $50 order would be higher still).
+
+    This is deliberately weaker than the right answer, which is to parse the
+    shipping figure the email prints and require the residual to equal it. That
+    needs the raw email HTML to build a selector against, which the corpus this
+    was reconstructed from no longer includes. Until then a dropped line smaller
+    than the cap on a small order still passes; the report prints every nonzero
+    residual so it is at least visible.
+    """
+    if residual is None or printed_total is None:
+        return False
+    # Lines exceeding the printed total can only ever be a parse defect.
+    if residual < -RECONCILE_TOLERANCE:
+        return False
+    if residual > SHIPPING_MAX:
+        return False
+    if (printed_total >= SHARE_CHECK_MIN_TOTAL
+            and residual > SHIPPING_MAX_SHARE * printed_total):
+        return False
+    return True
+
+
 def dedupe(orders: list[dict]) -> tuple[list[dict], list[dict]]:
     """Keep one version per order number: the latest reconciling state (trap 5).
 
@@ -315,14 +370,7 @@ def dedupe(orders: list[dict]) -> tuple[list[dict], list[dict]]:
     """
     reconciling, broken = [], []
     for o in orders:
-        # Residual is shipping (a header charge with no SUPC), so it is allowed
-        # to be positive. A NEGATIVE residual means lines exceed the printed
-        # total, which can only be a parse defect.
-        ok = (
-            o['printed_total'] is not None
-            and o['residual'] is not None
-            and o['residual'] >= -RECONCILE_TOLERANCE
-        )
+        ok = residual_is_explainable(o['residual'], o['printed_total'])
         (reconciling if ok else broken).append(o)
 
     best: dict[str, dict] = {}
