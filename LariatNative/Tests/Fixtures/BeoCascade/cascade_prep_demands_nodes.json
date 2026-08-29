@@ -77,13 +77,19 @@
         "recipe_slug": "queso_blanco",
         "display_name": "Queso Blanco",
         "qty": 16.0,
-        "unit": "qt"
+        "unit": "qt",
+        "order_qty": 16.0,
+        "prep_qty": 16.0,
+        "batch_qty": 8.0
       },
       {
         "recipe_slug": "salsa_roja",
         "display_name": "Salsa Roja",
         "qty": 4.0,
-        "unit": "qt"
+        "unit": "qt",
+        "order_qty": 4.0,
+        "prep_qty": 4.0,
+        "batch_qty": 4.0
       }
     ],
     "slugs": [

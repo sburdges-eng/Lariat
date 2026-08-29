@@ -157,6 +157,47 @@ def cascade_manifest() -> dict[str, Manifest]:
     return {"salsa_roja": salsa, "queso_blanco": queso}
 
 
+def nashville_manifest() -> dict[str, Manifest]:
+    """The spec's worked example, plus a counted yield and a shared sub.
+
+    docs/superpowers/specs/2026-07-28-beo-batch-ordering-design.md tabulates
+    50 Nashville Sliders. These yields and per_counts reproduce that table
+    exactly, so the fixture is the spec rather than a paraphrase of it.
+    """
+    return {
+        # eats 3.125 of a 12 qt batch -> 0.26 -> order 1 batch, prep 0.5 batch.
+        # The case that earns the order/prep distinction.
+        "coleslaw": _mk(
+            "coleslaw", "Coleslaw", 12.0, "qt",
+            bom=[("green cabbage", 10.0, "qt", False)],
+        ),
+        # eats 3.125 of a 4 qt batch -> 0.78 -> order 1, prep 1.0.
+        "special_sauce": _mk(
+            "special_sauce", "Special Sauce", 4.0, "qt",
+            sub_recipe_slugs=["lariat_rub"],
+            bom=[("mayo", 3.0, "qt", False), ("lariat_rub", 0.5, "cup", True)],
+        ),
+        # eats exactly 12.0 of a 12 qt batch -> 1.00, must NOT become 2.
+        "buttermilk_brine": _mk(
+            "buttermilk_brine", "Buttermilk Brine", 12.0, "qt",
+            sub_recipe_slugs=["lariat_rub"],
+            bom=[("buttermilk", 10.0, "qt", False), ("lariat_rub", 0.5, "cup", True)],
+        ),
+        # Shared by two parents. Summed BEFORE rounding: 0.5 cup + 0.5 cup = 1
+        # cup of a 2 cup batch -> one batch, not two.
+        "lariat_rub": _mk(
+            "lariat_rub", "Lariat Rub", 2.0, "cup",
+            bom=[("paprika", 1.0, "cup", False)],
+        ),
+        # A count, not a batch. Flooring this would order a 60-piece batch to
+        # serve 20 — an over-order nothing absorbs.
+        "mac_balls": _mk(
+            "mac_balls", "Mac Balls", 60.0, "ea",
+            bom=[("mac mix", 4.0, "qt", False)],
+        ),
+    }
+
+
 def export_all(out_dir: Path) -> list[str]:
     written: list[str] = []
 
@@ -565,13 +606,157 @@ def export_all(out_dir: Path) -> list[str]:
     )
     written.append("cascade_missing_sub_warning")
 
+    # ── Batch flooring (P3) ────────────────────────────────────────────
+    nm = nashville_manifest()
+    nmj = manifests_to_json(nm)
+    beo_map_n = {
+        "nashville slider": ["coleslaw", "special_sauce", "buttermilk_brine"],
+    }
+    # 50 sliders: 0.0625 qt each of slaw and sauce, 0.24 qt of brine.
+    scales_n = {
+        ("nashville slider", "coleslaw"): 0.0625,
+        ("nashville slider", "special_sauce"): 0.0625,
+        ("nashville slider", "buttermilk_brine"): 0.24,
+    }
+    result = build_cascade(
+        nm, beo_map_n, [{"item_name": "Nashville Slider", "quantity": 50}], scales=scales_n
+    )
+    write_fixture(
+        out_dir / "cascade_batch_floor_worked_example.json",
+        {
+            "schema_version": SCHEMA_VERSION,
+            "id": "cascade_batch_floor_worked_example",
+            "module": "beo_cascade",
+            "source_test": "docs/superpowers/specs/2026-07-28-beo-batch-ordering-design.md worked example",
+            "manifest": nmj,
+            "beo_map": beo_map_n,
+            "scales": [[k[0], k[1], v] for k, v in scales_n.items()],
+            "input": {
+                "mode": "build_cascade",
+                "line_items": [{"item_name": "Nashville Slider", "quantity": 50}],
+            },
+            "expect": {
+                "prep_demands": result["prep_demands"],
+                "order_guide": result["order_guide"],
+                "warnings": result["warnings"],
+                "tolerance_places": 5,
+            },
+        },
+    )
+    written.append("cascade_batch_floor_worked_example")
+
+    # A counted yield passes through linear — no floor.
+    beo_map_cnt = {"mac ball app": ["mac_balls"]}
+    scales_cnt = {("mac ball app", "mac_balls"): 1.0}
+    result = build_cascade(
+        nm, beo_map_cnt, [{"item_name": "Mac Ball App", "quantity": 20}], scales=scales_cnt
+    )
+    write_fixture(
+        out_dir / "cascade_batch_floor_counted_yield_passthrough.json",
+        {
+            "schema_version": SCHEMA_VERSION,
+            "id": "cascade_batch_floor_counted_yield_passthrough",
+            "module": "beo_cascade",
+            "source_test": "docs/superpowers/specs/2026-07-28-beo-batch-ordering-design.md amendment: floor only where a batch is a real measure",
+            "manifest": nmj,
+            "beo_map": beo_map_cnt,
+            "scales": [[k[0], k[1], v] for k, v in scales_cnt.items()],
+            "input": {
+                "mode": "build_cascade",
+                "line_items": [{"item_name": "Mac Ball App", "quantity": 20}],
+            },
+            "expect": {
+                "prep_demands": result["prep_demands"],
+                "order_guide": result["order_guide"],
+                "tolerance_places": 5,
+            },
+        },
+    )
+    written.append("cascade_batch_floor_counted_yield_passthrough")
+
+    # per_count 0 means the item eats none of that recipe. It must stay zero
+    # all the way down the sub-recipe walk rather than becoming a full batch —
+    # and a full batch of every sub under it.
+    beo_map_z = {"garnish only": ["coleslaw"]}
+    scales_z = {("garnish only", "coleslaw"): 0.0}
+    result = build_cascade(
+        nm, beo_map_z, [{"item_name": "Garnish Only", "quantity": 40}], scales=scales_z
+    )
+    write_fixture(
+        out_dir / "cascade_batch_floor_zero_per_count.json",
+        {
+            "schema_version": SCHEMA_VERSION,
+            "id": "cascade_batch_floor_zero_per_count",
+            "module": "beo_cascade",
+            "source_test": "scripts/lib/bom_expand.py::_round_up_batches zero-demand branch",
+            "manifest": nmj,
+            "beo_map": beo_map_z,
+            "scales": [[k[0], k[1], v] for k, v in scales_z.items()],
+            "input": {
+                "mode": "build_cascade",
+                "line_items": [{"item_name": "Garnish Only", "quantity": 40}],
+            },
+            "expect": {
+                "prep_demands": result["prep_demands"],
+                "order_guide": result["order_guide"],
+                "tolerance_places": 5,
+            },
+        },
+    )
+    written.append("cascade_batch_floor_zero_per_count")
+
     return written
+
+
+
+def check_drift(out_dir: Path) -> int:
+    """Regenerate into a temp dir and diff against the committed fixtures.
+
+    These fixtures ARE the Swift parity oracle: the Python engine is the source
+    of truth and the Swift port is asserted against them. Nothing gated that
+    until now, and the fixtures had already gone stale — the batch model
+    shipped in the engine on 2026-07-28 and the committed
+    cascade_prep_demands_nodes.json still carried the pre-batch shape.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        fresh = Path(tmp)
+        export_all(fresh)
+        stale: list[str] = []
+        missing: list[str] = []
+        for produced in sorted(fresh.glob("*.json")):
+            committed = out_dir / produced.name
+            if not committed.exists():
+                missing.append(produced.name)
+            elif committed.read_bytes() != produced.read_bytes():
+                stale.append(produced.name)
+
+    if not stale and not missing:
+        print(f"fixtures up to date with the Python oracle ({out_dir})")
+        return 0
+    print("BEO fixture drift — the Swift parity oracle no longer matches the engine:")
+    for name in missing:
+        print(f"  MISSING   {name}")
+    for name in stale:
+        print(f"  STALE     {name}")
+    print()
+    print("Regenerate and commit:")
+    print(f"  python3 {Path(__file__).name and 'scripts/dev/' + Path(__file__).name}")
+    return 1
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="fail if the committed fixtures differ from a fresh export (CI drift gate)",
+    )
     args = parser.parse_args()
+    if args.check:
+        return check_drift(args.out.resolve())
     ids = export_all(args.out.resolve())
     print(f"Wrote {len(ids)} fixtures to {args.out}")
     for fid in ids:

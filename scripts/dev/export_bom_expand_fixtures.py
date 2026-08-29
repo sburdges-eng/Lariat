@@ -545,11 +545,66 @@ def export_real_fixtures(out_dir: Path) -> list[str]:
     return written
 
 
+def check_drift(out_dir: Path) -> int:
+    """Regenerate into a temp dir and diff against the committed fixtures.
+
+    These fixtures are the Swift parity oracle for the BOM walkers. Nothing
+    gated them until now.
+
+    Real-data fixtures are compared only when this checkout actually has the
+    source they are built from; a machine without `costing/` exports fewer
+    files, and failing there would be a gate that fires on the checkout rather
+    than on drift. Files present in the committed set but not freshly produced
+    are therefore reported as skipped, not stale.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        fresh = Path(tmp)
+        export_synthetic_fixtures(fresh)
+        export_real_fixtures(fresh)
+        stale: list[str] = []
+        missing: list[str] = []
+        produced_names = set()
+        for produced in sorted(fresh.glob("*.json")):
+            produced_names.add(produced.name)
+            committed = out_dir / produced.name
+            if not committed.exists():
+                missing.append(produced.name)
+            elif committed.read_bytes() != produced.read_bytes():
+                stale.append(produced.name)
+        skipped = sorted(
+            f.name for f in out_dir.glob("*.json") if f.name not in produced_names
+        )
+
+    if skipped:
+        print(f"skipped {len(skipped)} fixture(s) this checkout cannot rebuild")
+    if not stale and not missing:
+        print(f"fixtures up to date with the Python oracle ({out_dir})")
+        return 0
+    print("BOM fixture drift — the Swift parity oracle no longer matches the engine:")
+    for name in missing:
+        print(f"  MISSING   {name}")
+    for name in stale:
+        print(f"  STALE     {name}")
+    print()
+    print("Regenerate and commit:")
+    print("  python3 scripts/dev/export_bom_expand_fixtures.py")
+    return 1
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="fail if the committed fixtures differ from a fresh export (CI drift gate)",
+    )
     args = parser.parse_args()
     out_dir = args.out.resolve()
+    if args.check:
+        return check_drift(out_dir)
 
     ids = export_synthetic_fixtures(out_dir) + export_real_fixtures(out_dir)
     print(f"Wrote {len(ids)} fixtures to {out_dir}")

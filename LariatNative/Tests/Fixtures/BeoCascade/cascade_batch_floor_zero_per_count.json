@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "id": "cascade_batch_floor_zero_per_count",
+  "module": "beo_cascade",
+  "source_test": "scripts/lib/bom_expand.py::_round_up_batches zero-demand branch",
+  "manifest": {
+    "coleslaw": {
+      "slug": "coleslaw",
+      "display_name": "Coleslaw",
+      "yield_qty": 12.0,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [],
+      "bom": [
+        {
+          "ingredient": "green cabbage",
+          "qty": 10.0,
+          "unit": "qt",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    },
+    "special_sauce": {
+      "slug": "special_sauce",
+      "display_name": "Special Sauce",
+      "yield_qty": 4.0,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [
+        "lariat_rub"
+      ],
+      "bom": [
+        {
+          "ingredient": "mayo",
+          "qty": 3.0,
+          "unit": "qt",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "lariat_rub",
+          "qty": 0.5,
+          "unit": "cup",
+          "is_sub_recipe": true,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    },
+    "buttermilk_brine": {
+      "slug": "buttermilk_brine",
+      "display_name": "Buttermilk Brine",
+      "yield_qty": 12.0,
+      "yield_unit": "qt",
+      "sub_recipe_slugs": [
+        "lariat_rub"
+      ],
+      "bom": [
+        {
+          "ingredient": "buttermilk",
+          "qty": 10.0,
+          "unit": "qt",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        },
+        {
+          "ingredient": "lariat_rub",
+          "qty": 0.5,
+          "unit": "cup",
+          "is_sub_recipe": true,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    },
+    "lariat_rub": {
+      "slug": "lariat_rub",
+      "display_name": "Lariat Rub",
+      "yield_qty": 2.0,
+      "yield_unit": "cup",
+      "sub_recipe_slugs": [],
+      "bom": [
+        {
+          "ingredient": "paprika",
+          "qty": 1.0,
+          "unit": "cup",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    },
+    "mac_balls": {
+      "slug": "mac_balls",
+      "display_name": "Mac Balls",
+      "yield_qty": 60.0,
+      "yield_unit": "ea",
+      "sub_recipe_slugs": [],
+      "bom": [
+        {
+          "ingredient": "mac mix",
+          "qty": 4.0,
+          "unit": "qt",
+          "is_sub_recipe": false,
+          "sub_slug": null
+        }
+      ],
+      "allergens": [],
+      "pack_conversions": {}
+    }
+  },
+  "beo_map": {
+    "garnish only": [
+      "coleslaw"
+    ]
+  },
+  "scales": [
+    [
+      "garnish only",
+      "coleslaw",
+      0.0
+    ]
+  ],
+  "input": {
+    "mode": "build_cascade",
+    "line_items": [
+      {
+        "item_name": "Garnish Only",
+        "quantity": 40
+      }
+    ]
+  },
+  "expect": {
+    "prep_demands": [],
+    "order_guide": [],
+    "tolerance_places": 5
+  }
+}

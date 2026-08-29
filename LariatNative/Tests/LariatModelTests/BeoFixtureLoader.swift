@@ -94,16 +94,25 @@ struct BeoOrderGuideRow: Decodable {
     }
 }
 
-/// `{recipe_slug, display_name, qty, unit}`
+/// `{recipe_slug, display_name, qty, unit, order_qty, prep_qty, batch_qty}`
+///
+/// The batch quantities are optional so fixtures written before the batch
+/// model still decode; a test that asserts them skips when they are absent.
 struct BeoPrepRow: Decodable {
     let recipeSlug: String
     let displayName: String
     let qty: Double
     let unit: String
+    let orderQty: Double?
+    let prepQty: Double?
+    let batchQty: Double?
     enum CodingKeys: String, CodingKey {
         case recipeSlug = "recipe_slug"
         case displayName = "display_name"
         case qty, unit
+        case orderQty = "order_qty"
+        case prepQty = "prep_qty"
+        case batchQty = "batch_qty"
     }
 }
 

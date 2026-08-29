@@ -51,10 +51,22 @@ public enum BeoCascadeCompute {
         // Shared degradation sink for both traversals.
         var cascadeWarnings: [String] = []
 
-        // Order guide (leaf ingredients).
+        // Order guide (leaf ingredients) — derived from the SAME floored batch
+        // counts the prep board reports, so the two tabs of a BEO cannot give
+        // two answers to "what do I buy". A prep row reading "order 1 batch —
+        // 12 qt of coleslaw" next to leaf quantities for the 3.1 qt the event
+        // eats is a guide nobody can shop from. `totalNeeded` is therefore the
+        // floored figure; on-hand still subtracts from it.
+        //
+        // A row needing nothing is dropped, not printed as "order 0". A map row
+        // of per_count 0 says the item eats none of that recipe, and the guide
+        // is read at a glance on a hot line. Keyed off `totalNeeded`, never
+        // `toOrder`: toOrder 0 means the walk-in already covers a real need, and
+        // the cook still wants to see that row.
         let orderGuide = BeoPullCompute.pullOrders(
-            manifest, demand: demand, inventory: inventory, warnings: &cascadeWarnings
-        )
+            manifest, demand: demand, inventory: inventory, granularity: 1.0,
+            warnings: &cascadeWarnings
+        ).filter { $0.totalNeeded > 0 }
 
         // Prep board (recipe nodes — parents AND sub-recipes), sorted by
         // (display_name.lower, unit). Python's sort is stable over DFS-insertion
@@ -62,15 +74,34 @@ public enum BeoCascadeCompute {
         // deterministically. ACCEPTED divergence from Python's insertion order
         // only when two DISTINCT recipes share a display name + unit (a
         // data-quality edge, not exercised by fixtures).
+        //
+        // Three quantities, because they answer three different questions and a
+        // kitchen needs all of them: `qty` is what the event eats (linear, and
+        // what a food-cost figure is built from), `orderQty` is what to buy
+        // (whole batches, never fewer than one unless the event eats none of
+        // it), `prepQty` is what to make (half-batch granularity). See
+        // docs/superpowers/specs/2026-07-28-beo-batch-ordering-design.md.
         let nodes = BomExpandCompute.expandRecipeDemand(manifest, demands: demand, warnings: &cascadeWarnings)
+        let orders = BomExpandCompute.expandRecipeOrders(
+            manifest, demands: demand, granularity: 1.0, warnings: &cascadeWarnings)
+        let preps = BomExpandCompute.expandRecipeOrders(
+            manifest, demands: demand, granularity: 0.5, warnings: &cascadeWarnings)
         var prepDemands = nodes.map { key, qty in
             CascadePrepDemandRow(
                 recipeSlug: key.name,
                 displayName: manifest[key.name]?.displayName ?? key.name,
                 qty: qty,
-                unit: key.unit
+                unit: key.unit,
+                orderQty: orders[key] ?? qty,
+                prepQty: preps[key] ?? qty,
+                batchQty: manifest[key.name]?.yieldQty ?? 0
             )
         }
+        // Nothing to buy and nothing to make means the recipe does not belong
+        // on the board. A per_count of 0 maps an item to a recipe it eats none
+        // of; "make 0 qt of green chilli" is not an instruction, it is a line
+        // the cook has to read and discard. Same call as the order guide above.
+        prepDemands = prepDemands.filter { $0.orderQty > 0 || $0.prepQty > 0 }
         prepDemands.sort {
             ($0.displayName.lowercased(), $0.unit, $0.recipeSlug)
                 < ($1.displayName.lowercased(), $1.unit, $1.recipeSlug)

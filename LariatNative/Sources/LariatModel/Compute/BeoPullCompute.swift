@@ -106,9 +106,18 @@ public enum BeoPullCompute {
         _ manifest: [String: RecipeManifest],
         demand: [(String, Double, String)],
         inventory: [BomKey: Double]? = nil,
+        granularity: Double? = nil,
         warnings: inout [String]
     ) -> [CascadeOrderGuideRow] {
-        let totals = BomExpandCompute.aggregateDemand(manifest, demands: demand, warnings: &warnings)
+        // `granularity` selects the batch model. nil (the default) keeps the
+        // linear figure, which is what beo_order_pull and the Swift parity
+        // fixtures read. A value (1.0 for whole batches) derives totalNeeded
+        // from the FLOORED batch counts, so the guide buys for the batches the
+        // prep board says to make. onHand subtracts from whichever was chosen.
+        let totals = granularity == nil
+            ? BomExpandCompute.aggregateDemand(manifest, demands: demand, warnings: &warnings)
+            : BomExpandCompute.aggregateOrderDemand(
+                manifest, demands: demand, granularity: granularity!, warnings: &warnings)
         var out: [CascadeOrderGuideRow] = []
         for (key, qty) in totals {
             let onHand = lookupInventory(inventory, ingredient: key.name, unit: key.unit)
