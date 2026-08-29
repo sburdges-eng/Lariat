@@ -1,4 +1,5 @@
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import { validatePestControl } from '../../../lib/pestControl';
 import { postAuditEvent } from '../../../lib/auditEvents';
@@ -17,7 +18,7 @@ async function pestPostHandler(req: Request) {
     const v = validatePestControl(body);
     if (!v.ok) return Response.json({ error: v.reason }, { status: 400 });
 
-    const shift_date = clip(body.shift_date, 32) || todayISO();
+    const shift_date = clip(body.shift_date, 32) || serviceDate();
     const location_id = locationFromBody(body);
     const entry_type = clip(body.entry_type, 64);
     const vendor = clip(body.vendor, 100);

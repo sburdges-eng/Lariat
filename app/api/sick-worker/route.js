@@ -13,7 +13,8 @@
 // the PIC can. If no PIN is set (LAN-trust single-site install), the
 // PIC/cook distinction collapses to trust.
 
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import {
   normalizeSymptoms,
@@ -72,7 +73,7 @@ async function sickWorkerPostHandler(req) {
     const cook_id = clip(body.cook_id, 64);
     const reported_by_pic_id = clip(body.reported_by_pic_id, 64);
     const started_at = clip(body.started_at, 40);
-    const shift_date = clip(body.shift_date, 32) || todayISO();
+    const shift_date = clip(body.shift_date, 32) || serviceDate();
     const location_id = locationFromBody(body);
     const action = clip(body.action, 20);
     const clearance_source = clip(body.clearance_source, 64);

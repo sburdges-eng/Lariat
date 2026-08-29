@@ -138,6 +138,16 @@ describe('every migrated surface keeps both sides on the same clock', () => {
     'app/api/tip-pool/route.js', 'app/labor/tip-pool/page.jsx',
   ];
 
+  // Write-only surfaces — no paired read default to keep in step.
+  const WAVE_3 = [
+    'app/api/pest/route.ts',
+    'app/api/sds/route.ts',
+    'app/api/sick-worker/route.js',
+    'app/api/thermometer-calibrations/route.js',
+    'app/api/tphc/route.js',
+    'app/api/inventory/counts/route.js',
+  ];
+
   it('no migrated file still calls todayISO()', () => {
     const stragglers = WAVE_1.filter((f) => fs.readFileSync(f, 'utf8').includes('todayISO'));
     assert.deepEqual(stragglers, [], 'these were migrated but still reference todayISO');
@@ -145,6 +155,16 @@ describe('every migrated surface keeps both sides on the same clock', () => {
 
   it('every migrated file actually uses serviceDate()', () => {
     const missing = WAVE_1.filter((f) => !fs.readFileSync(f, 'utf8').includes('serviceDate'));
+    assert.deepEqual(missing, [], 'these are listed as migrated but never call serviceDate');
+  });
+
+  it('wave 3 write-only files no longer call todayISO()', () => {
+    const stragglers = WAVE_3.filter((f) => fs.readFileSync(f, 'utf8').includes('todayISO'));
+    assert.deepEqual(stragglers, [], 'these were migrated but still reference todayISO');
+  });
+
+  it('wave 3 write-only files actually use serviceDate()', () => {
+    const missing = WAVE_3.filter((f) => !fs.readFileSync(f, 'utf8').includes('serviceDate'));
     assert.deepEqual(missing, [], 'these are listed as migrated but never call serviceDate');
   });
 });

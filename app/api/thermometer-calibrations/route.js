@@ -22,7 +22,8 @@
 // altitude correction, and next-due computation. This route is
 // persistence + audit + UI-shape only.
 
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import {
   DEFAULT_LOCATION_ID,
   locationFromBody,
@@ -131,7 +132,7 @@ async function calibrationsPostHandler(req) {
     }
 
     const cook_id = clip(body.cook_id, 64);
-    const shift_date = clip(body.shift_date, 32) || todayISO();
+    const shift_date = clip(body.shift_date, 32) || serviceDate();
     const location_id = locationFromBody(body);
 
     // Rule-module decision. Throws on bad input (we pre-guarded above),

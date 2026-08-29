@@ -1,4 +1,5 @@
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import { validateSds } from '../../../lib/sds';
 import { postAuditEvent } from '../../../lib/auditEvents';
@@ -24,7 +25,7 @@ async function sdsPostHandler(req: Request) {
     const storage_location = clip(body.storage_location, 200);
     const pdf_path = clip(body.pdf_path, 300);
     const url_external = clip(body.url, 300);
-    const last_reviewed = clip(body.last_reviewed, 32) || todayISO();
+    const last_reviewed = clip(body.last_reviewed, 32) || serviceDate();
     const cook_id = clip(body.cook_id, 64);
     const active = body.active != null ? (body.active ? 1 : 0) : 1;
 
