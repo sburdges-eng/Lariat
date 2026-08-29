@@ -1,7 +1,8 @@
 // @ts-check
 // Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
 // only, no behavior change.
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
 import {
   classifyReading,
@@ -37,7 +38,7 @@ const clip = (s, max) => {
 /** @param {string | null} shift_date */
 function pinRequiredForDate(shift_date) {
   if (!process.env.LARIAT_PIN) return false;
-  return shift_date !== todayISO();
+  return shift_date !== serviceDate();
 }
 
 // ── POST /api/temp-log ─────────────────────────────────────────────
@@ -238,7 +239,7 @@ async function tempLogHandler(req) {
 export async function GET(req) {
   try {
     const url = new URL(req.url);
-    const date = url.searchParams.get('date') || todayISO();
+    const date = url.searchParams.get('date') || serviceDate();
     const point_id = url.searchParams.get('point_id');
     const location_id = locationFromRequest(req) || DEFAULT_LOCATION_ID;
 

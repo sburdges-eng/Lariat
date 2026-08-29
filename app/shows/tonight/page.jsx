@@ -2,7 +2,8 @@
 // Migrated off the pre-#250 @ts-nocheck baseline (GH #250): JSDoc types
 // only, no behavior change.
 import Link from 'next/link';
-import { getDb, todayISO } from '../../../lib/db';
+import { getDb } from '../../../lib/db';
+import { serviceDate } from '../../../lib/serviceDate';
 import { DEFAULT_LOCATION_ID } from '../../../lib/location';
 import {
   summarizeBoxOffice,
@@ -102,7 +103,7 @@ export default async function TonightLivePage({ searchParams }) {
     : DEFAULT_LOCATION_ID;
   const date = (sp?.date && typeof sp.date === 'string')
     ? sp.date
-    : todayISO();
+    : serviceDate();
 
   const db = getDb();
 

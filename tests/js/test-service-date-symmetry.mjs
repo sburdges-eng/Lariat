@@ -138,6 +138,14 @@ describe('every migrated surface keeps both sides on the same clock', () => {
     'app/api/tip-pool/route.js', 'app/labor/tip-pool/page.jsx',
   ];
 
+  // Split or one-sided surfaces — write/read/page still must agree.
+  const WAVE_2 = [
+    'app/api/beo/route.js', 'app/api/beo/fire-schedule/route.js',
+    'app/api/date-marks/route.js', 'app/food-safety/date-marks/page.jsx',
+    'app/api/shows/tonight/route.js', 'app/shows/tonight/page.jsx',
+    'app/api/temp-log/route.js', 'app/food-safety/temp-log/page.jsx',
+  ];
+
   // Write-only surfaces — no paired read default to keep in step.
   const WAVE_3 = [
     'app/api/pest/route.ts',
@@ -148,13 +156,15 @@ describe('every migrated surface keeps both sides on the same clock', () => {
     'app/api/inventory/counts/route.js',
   ];
 
+  const MIGRATED = [...WAVE_1, ...WAVE_2];
+
   it('no migrated file still calls todayISO()', () => {
-    const stragglers = WAVE_1.filter((f) => fs.readFileSync(f, 'utf8').includes('todayISO'));
+    const stragglers = MIGRATED.filter((f) => fs.readFileSync(f, 'utf8').includes('todayISO'));
     assert.deepEqual(stragglers, [], 'these were migrated but still reference todayISO');
   });
 
   it('every migrated file actually uses serviceDate()', () => {
-    const missing = WAVE_1.filter((f) => !fs.readFileSync(f, 'utf8').includes('serviceDate'));
+    const missing = MIGRATED.filter((f) => !fs.readFileSync(f, 'utf8').includes('serviceDate'));
     assert.deepEqual(missing, [], 'these are listed as migrated but never call serviceDate');
   });
 
