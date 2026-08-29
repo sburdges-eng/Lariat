@@ -9,7 +9,12 @@
 // only, no behavior change.
 import { getDb } from '../../../lib/db';
 import { serviceDate } from '../../../lib/serviceDate';
-import { DEFAULT_LOCATION_ID, locationFromBody, locationFromRequest } from '../../../lib/location';
+import {
+  DEFAULT_LOCATION_ID,
+  locationFromBody,
+  locationFromBodyOrRequest,
+  locationFromRequest,
+} from '../../../lib/location';
 import {
   computeDiscardOn,
   scanExpiringBatches,
@@ -127,6 +132,10 @@ async function dateMarksPatchHandler(req) {
       return Response.json({ error: 'unknown discard_reason' }, { status: 400 });
     }
     const cook_id = clip(body.cook_id, 64);
+    // Body first, then the request: DateMarkBoard sends location_id in the
+    // PATCH body, and a single-venue install that sends neither still falls
+    // back to 'default', which is what it stores.
+    const callerLocation = locationFromBodyOrRequest(body, req);
 
     const db = getDb();
     const now = new Date().toISOString();
@@ -137,6 +146,15 @@ async function dateMarksPatchHandler(req) {
       const existing = /** @type {DateMarkRow | undefined} */ (
         db.prepare('SELECT * FROM date_marks WHERE id=?').get(id));
       if (!existing) return { status: 404, error: 'unknown date mark' };
+
+      // Cross-location IDOR guard: a cook scoped to site-A must not be
+      // able to discard a date mark belonging to site-B by guessing the
+      // numeric id. Surfaced as 404 (not 403) so the existence of a mark
+      // at another site doesn't leak. Mirrors tphc's and cooling's PATCH.
+      if (existing.location_id !== callerLocation) {
+        return { status: 404, error: 'unknown date mark' };
+      }
+
       if (existing.discarded_at) {
         return { status: 409, error: 'already discarded', entry: existing };
       }

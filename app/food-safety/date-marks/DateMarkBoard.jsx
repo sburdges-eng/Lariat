@@ -104,6 +104,7 @@ export default function DateMarkBoard({ active, scan, recent, today, locationId 
           id,
           discard_reason: reason,
           cook_id: cookId || null,
+          location_id: locationId,
         }),
       });
       if (!res.ok) {
