@@ -328,7 +328,10 @@ def main() -> int:
         for d, (amt, n, hits) in sorted(problems.items(), key=lambda x: -x[1][0]):
             tag = '/'.join(hits) if hits else 'no match'
             print(f"   ${amt:>9,.2f} x{n:<3} [{tag}] {d}", file=sys.stderr)
-    return 0
+    # The message above says these must be resolved before quoting a food cost,
+    # so the run knows its own output is not safe to use. Say so in the exit
+    # status too, or automated regeneration will publish the short numerator.
+    return 1 if problems else 0
 
 
 if __name__ == '__main__':
